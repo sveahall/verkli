@@ -1,3 +1,4 @@
+import Link from "next/link";
 import GlassSurface from "@/components/GlassSurface";
 import GridMotion from "@/components/GridMotion";
 import TestimonialSection from "@/components/TestimonialSection";
@@ -73,20 +74,22 @@ export default function Home() {
 
             {/* Actions */}
             <div className="flex items-center gap-4">
-              <button className="sign-in-button px-6 text-[17px] font-regular text-white/100">
+              <Link href="/writer/signin" className="sign-in-button px-6 text-[17px] font-regular text-white/100 transition hover:text-white/70">
                 Sign in
-              </button>
-              <GlassSurface
-                {...glassBaseProps}
-                width="auto"
-                height="auto"
-                borderRadius={999}
-                className="glass-surface--button border border-white/10"
-              >
-                <button className="sign-up-button px-7 py-0 text-[17px] font-medium text-[#F7F7F7]">
-                  Sign up
-                </button>
-              </GlassSurface>
+              </Link>
+              <Link href="/writer/signup">
+                <GlassSurface
+                  {...glassBaseProps}
+                  width="auto"
+                  height="auto"
+                  borderRadius={999}
+                  className="glass-surface--button border border-white/10 transition-transform hover:scale-[1.02]"
+                >
+                  <span className="sign-up-button px-7 py-0 text-[17px] font-medium text-[#F7F7F7]">
+                    Sign up
+                  </span>
+                </GlassSurface>
+              </Link>
               <div className="divider hidden h-8 w-px bg-white/20 md:block" />
               <div className="hidden md:block">
                 <GlassSurface
