@@ -1,0 +1,102 @@
+/* [project]/apps/web/src/components/GlassSurface.css [app-client] (css) */
+.glass-surface {
+  justify-content: center;
+  align-items: center;
+  transition: opacity .26s ease-out;
+  display: flex;
+  position: relative;
+  overflow: hidden;
+}
+
+.glass-surface__filter {
+  pointer-events: none;
+  opacity: 0;
+  z-index: -1;
+  width: 100%;
+  height: 100%;
+  position: absolute;
+  inset: 0;
+}
+
+.glass-surface__content {
+  border-radius: inherit;
+  z-index: 1;
+  justify-content: center;
+  align-items: center;
+  width: 100%;
+  height: 100%;
+  padding: .5rem;
+  display: flex;
+  position: relative;
+}
+
+.glass-surface--button {
+  width: fit-content;
+  height: fit-content;
+  display: inline-flex;
+}
+
+.glass-surface--button .glass-surface__content {
+  width: auto;
+  height: auto;
+  padding: 0;
+}
+
+.glass-surface--svg {
+  background: hsl(0 0% 100% / var(--glass-frost, 0));
+  background: var(--lightningcss-light, hsl(0 0% 100% / var(--glass-frost, 0))) var(--lightningcss-dark, hsl(0 0% 0% / var(--glass-frost, 0)));
+  -webkit-backdrop-filter: var(--filter-id, url("#glass-filter")) saturate(var(--glass-saturation, 1));
+  box-shadow: inset 0 0 2px 1px var(--lightningcss-light, #00000026) var(--lightningcss-dark, #ffffff59), inset 0 0 10px 4px var(--lightningcss-light, #0000001a) var(--lightningcss-dark, #ffffff26), 0 4px 16px #11111a0d, 0 8px 24px #11111a0d, 0 16px 56px #11111a0d, inset 0 4px 16px #11111a0d, inset 0 8px 24px #11111a0d, inset 0 16px 56px #11111a0d;
+  box-shadow: inset 0 0 2px 1px var(--lightningcss-light, lab(0% 0 0 / .15)) var(--lightningcss-dark, lab(100% 0 0 / .35)), inset 0 0 10px 4px var(--lightningcss-light, lab(0% 0 0 / .1)) var(--lightningcss-dark, lab(100% 0 0 / .15)), 0 4px 16px lab(5.32203% 1.61424 -5.88284 / .0509804), 0 8px 24px lab(5.32203% 1.61424 -5.88284 / .0509804), 0 16px 56px lab(5.32203% 1.61424 -5.88284 / .0509804), inset 0 4px 16px lab(5.32203% 1.61424 -5.88284 / .0509804), inset 0 8px 24px lab(5.32203% 1.61424 -5.88284 / .0509804), inset 0 16px 56px lab(5.32203% 1.61424 -5.88284 / .0509804);
+}
+
+.glass-surface--fallback {
+  -webkit-backdrop-filter: blur(12px) saturate(1.8) brightness(1.1);
+  background: #ffffff40;
+  border: 1px solid #ffffff4d;
+  box-shadow: 0 8px 32px #1f268733, 0 2px 16px #1f26871a, inset 0 1px #fff6, inset 0 -1px #fff3;
+}
+
+@media (prefers-color-scheme: dark) {
+  .glass-surface--fallback {
+    -webkit-backdrop-filter: blur(12px) saturate(1.8) brightness(1.2);
+    background: #ffffff1a;
+    border: 1px solid #fff3;
+    box-shadow: inset 0 1px #fff3, inset 0 -1px #ffffff1a;
+  }
+}
+
+@supports not ((-webkit-backdrop-filter: blur(10px)) or (backdrop-filter: blur(10px))) {
+  .glass-surface--fallback {
+    background: #fff6;
+    box-shadow: inset 0 1px #ffffff80, inset 0 -1px #ffffff4d;
+  }
+
+  .glass-surface--fallback:before {
+    content: "";
+    border-radius: inherit;
+    z-index: -1;
+    background: #ffffff26;
+    position: absolute;
+    inset: 0;
+  }
+}
+
+@supports not ((-webkit-backdrop-filter: blur(10px)) or (backdrop-filter: blur(10px))) {
+  @media (prefers-color-scheme: dark) {
+    .glass-surface--fallback {
+      background: #0006;
+    }
+
+    .glass-surface--fallback:before {
+      background: #ffffff0d;
+    }
+  }
+}
+
+.glass-surface:focus-visible {
+  outline-offset: 2px;
+  outline: 2px solid var(--lightningcss-light, #007aff) var(--lightningcss-dark, #0a84ff);
+}
+
+/*# sourceMappingURL=apps_web_src_components_GlassSurface_css_bad6b30c._.single.css.map*/

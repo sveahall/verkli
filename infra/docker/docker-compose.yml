@@ -1,0 +1,15 @@
+# Lokal utveckling - Redis för worker queues
+# PostgreSQL hanteras av Supabase
+
+services:
+  redis:
+    image: redis:7-alpine
+    container_name: verkli-redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+
+volumes:
+  redis_data:

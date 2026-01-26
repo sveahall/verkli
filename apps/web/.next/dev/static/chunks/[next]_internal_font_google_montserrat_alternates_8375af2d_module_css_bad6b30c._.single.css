@@ -1,0 +1,200 @@
+/* [next]/internal/font/google/montserrat_alternates_8375af2d.module.css [app-client] (css) */
+@font-face {
+  font-family: Montserrat Alternates;
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url("../media/2c9a7e7154980414-s.ea106ea4.woff2") format("woff2");
+  unicode-range: U+460-52F, U+1C80-1C8A, U+20B4, U+2DE0-2DFF, U+A640-A69F, U+FE2E-FE2F;
+}
+
+@font-face {
+  font-family: Montserrat Alternates;
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url("../media/7f2f602e79c3d496-s.77ec1c63.woff2") format("woff2");
+  unicode-range: U+301, U+400-45F, U+490-491, U+4B0-4B1, U+2116;
+}
+
+@font-face {
+  font-family: Montserrat Alternates;
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url("../media/26b7125f820061d2-s.22c40375.woff2") format("woff2");
+  unicode-range: U+102-103, U+110-111, U+128-129, U+168-169, U+1A0-1A1, U+1AF-1B0, U+300-301, U+303-304, U+308-309, U+323, U+329, U+1EA0-1EF9, U+20AB;
+}
+
+@font-face {
+  font-family: Montserrat Alternates;
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url("../media/d4d5efac6dcb38aa-s.cee82b2b.woff2") format("woff2");
+  unicode-range: U+100-2BA, U+2BD-2C5, U+2C7-2CC, U+2CE-2D7, U+2DD-2FF, U+304, U+308, U+329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+
+@font-face {
+  font-family: Montserrat Alternates;
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url("../media/a3b21dc8e8180cb3-s.p.54b29c11.woff2") format("woff2");
+  unicode-range: U+??, U+131, U+152-153, U+2BB-2BC, U+2C6, U+2DA, U+2DC, U+304, U+308, U+329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+@font-face {
+  font-family: Montserrat Alternates;
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+  src: url("../media/50b9551b397d1ae2-s.b67d2ed5.woff2") format("woff2");
+  unicode-range: U+460-52F, U+1C80-1C8A, U+20B4, U+2DE0-2DFF, U+A640-A69F, U+FE2E-FE2F;
+}
+
+@font-face {
+  font-family: Montserrat Alternates;
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+  src: url("../media/3551a0a303835ce8-s.0f9beb42.woff2") format("woff2");
+  unicode-range: U+301, U+400-45F, U+490-491, U+4B0-4B1, U+2116;
+}
+
+@font-face {
+  font-family: Montserrat Alternates;
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+  src: url("../media/741701764a30f768-s.9b53994e.woff2") format("woff2");
+  unicode-range: U+102-103, U+110-111, U+128-129, U+168-169, U+1A0-1A1, U+1AF-1B0, U+300-301, U+303-304, U+308-309, U+323, U+329, U+1EA0-1EF9, U+20AB;
+}
+
+@font-face {
+  font-family: Montserrat Alternates;
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+  src: url("../media/515fcd3d189fe9b4-s.21852d1c.woff2") format("woff2");
+  unicode-range: U+100-2BA, U+2BD-2C5, U+2C7-2CC, U+2CE-2D7, U+2DD-2FF, U+304, U+308, U+329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+
+@font-face {
+  font-family: Montserrat Alternates;
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+  src: url("../media/9c25569e5bfeaac2-s.p.976a3fa4.woff2") format("woff2");
+  unicode-range: U+??, U+131, U+152-153, U+2BB-2BC, U+2C6, U+2DA, U+2DC, U+304, U+308, U+329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+@font-face {
+  font-family: Montserrat Alternates;
+  font-style: normal;
+  font-weight: 600;
+  font-display: swap;
+  src: url("../media/1bc896cf5dd4ab4b-s.4ba47ca0.woff2") format("woff2");
+  unicode-range: U+460-52F, U+1C80-1C8A, U+20B4, U+2DE0-2DFF, U+A640-A69F, U+FE2E-FE2F;
+}
+
+@font-face {
+  font-family: Montserrat Alternates;
+  font-style: normal;
+  font-weight: 600;
+  font-display: swap;
+  src: url("../media/d3ed7f8661f21829-s.a4254686.woff2") format("woff2");
+  unicode-range: U+301, U+400-45F, U+490-491, U+4B0-4B1, U+2116;
+}
+
+@font-face {
+  font-family: Montserrat Alternates;
+  font-style: normal;
+  font-weight: 600;
+  font-display: swap;
+  src: url("../media/fadc745abde5c7ed-s.734744a2.woff2") format("woff2");
+  unicode-range: U+102-103, U+110-111, U+128-129, U+168-169, U+1A0-1A1, U+1AF-1B0, U+300-301, U+303-304, U+308-309, U+323, U+329, U+1EA0-1EF9, U+20AB;
+}
+
+@font-face {
+  font-family: Montserrat Alternates;
+  font-style: normal;
+  font-weight: 600;
+  font-display: swap;
+  src: url("../media/106829e590cf9886-s.13e91154.woff2") format("woff2");
+  unicode-range: U+100-2BA, U+2BD-2C5, U+2C7-2CC, U+2CE-2D7, U+2DD-2FF, U+304, U+308, U+329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+
+@font-face {
+  font-family: Montserrat Alternates;
+  font-style: normal;
+  font-weight: 600;
+  font-display: swap;
+  src: url("../media/a6fa2da6a1aa1b4a-s.p.f1f34c22.woff2") format("woff2");
+  unicode-range: U+??, U+131, U+152-153, U+2BB-2BC, U+2C6, U+2DA, U+2DC, U+304, U+308, U+329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+@font-face {
+  font-family: Montserrat Alternates;
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url("../media/a6f59e62432486ff-s.2e684b8e.woff2") format("woff2");
+  unicode-range: U+460-52F, U+1C80-1C8A, U+20B4, U+2DE0-2DFF, U+A640-A69F, U+FE2E-FE2F;
+}
+
+@font-face {
+  font-family: Montserrat Alternates;
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url("../media/6acd90229cc24aa2-s.f5b79d7a.woff2") format("woff2");
+  unicode-range: U+301, U+400-45F, U+490-491, U+4B0-4B1, U+2116;
+}
+
+@font-face {
+  font-family: Montserrat Alternates;
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url("../media/3cc20422906725df-s.ddfbe724.woff2") format("woff2");
+  unicode-range: U+102-103, U+110-111, U+128-129, U+168-169, U+1A0-1A1, U+1AF-1B0, U+300-301, U+303-304, U+308-309, U+323, U+329, U+1EA0-1EF9, U+20AB;
+}
+
+@font-face {
+  font-family: Montserrat Alternates;
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url("../media/05803281912ea8e4-s.33a5a7fc.woff2") format("woff2");
+  unicode-range: U+100-2BA, U+2BD-2C5, U+2C7-2CC, U+2CE-2D7, U+2DD-2FF, U+304, U+308, U+329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+
+@font-face {
+  font-family: Montserrat Alternates;
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url("../media/b66541dc5358997a-s.p.82f7d62c.woff2") format("woff2");
+  unicode-range: U+??, U+131, U+152-153, U+2BB-2BC, U+2C6, U+2DA, U+2DC, U+304, U+308, U+329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+@font-face {
+  font-family: Montserrat Alternates Fallback;
+  src: local(Arial);
+  ascent-override: 83.96%;
+  descent-override: 21.77%;
+  line-gap-override: 0.0%;
+  size-adjust: 115.3%;
+}
+
+.montserrat_alternates_8375af2d-module__tHSMwW__className {
+  font-family: Montserrat Alternates, Montserrat Alternates Fallback;
+  font-style: normal;
+}
+
+.montserrat_alternates_8375af2d-module__tHSMwW__variable {
+  --font-montserrat-alternates: "Montserrat Alternates", "Montserrat Alternates Fallback";
+}
+
+/*# sourceMappingURL=%5Bnext%5D_internal_font_google_montserrat_alternates_8375af2d_module_css_bad6b30c._.single.css.map*/
