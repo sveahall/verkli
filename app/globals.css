@@ -227,6 +227,41 @@
   }
 }
 
+.section-stack {
+  display: flex;
+  flex-direction: column;
+  gap: clamp(64px, 8vw, 120px);
+}
+
+/* Logo carousel animation */
+@keyframes scroll-logos {
+  0% {
+    transform: translateX(0);
+  }
+  100% {
+    transform: translateX(-50%);
+  }
+}
+
+.logo-carousel-track {
+  display: flex;
+  animation: scroll-logos 15s linear infinite;
+  will-change: transform;
+}
+
+.logo-carousel-track:hover {
+  animation-play-state: paused;
+}
+
+.logo-item {
+  transition: transform 0.3s ease, opacity 0.3s ease;
+}
+
+.logo-item:hover {
+  transform: scale(1.05);
+  opacity: 1 !important;
+}
+
 .footer-cta {
   position: relative;
   z-index: 2;
@@ -252,22 +287,52 @@
 }
 
 .footer-cover-grid {
-  position: relative;
-  z-index: 1;
+  position: absolute;
+  left: 50%;
+  top: 240px;
+  transform: translateX(-50%);
+  width: min(1578px, 90vw);
+  height: 700px;
+  z-index: 0;
+  overflow: hidden;
+  border-radius: 28px;
+}
+
+/* Gradient overlay for fade effect - only at top */
+.footer-cover-grid::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 175px;
+  background: linear-gradient(to bottom, #050508 0%, transparent 100%);
+  pointer-events: none;
+  z-index: 10;
+}
+
+@keyframes scroll-covers-up {
+  from {
+    transform: translateY(0);
+  }
+  to {
+    transform: translateY(-33.333%);
+  }
+}
+
+.footer-cover-grid > div {
   display: grid;
   grid-template-columns: repeat(5, minmax(0, 1fr));
   gap: 18px;
-  padding: 14px 8px 8px;
-  border-radius: 28px;
-  background: radial-gradient(circle at 50% 0%, rgba(255, 255, 255, 0.12), rgba(0, 0, 0, 0));
+  padding: 14px;
+  animation: scroll-covers-up 25s linear infinite;
+  will-change: transform;
 }
 
 .footer-cover {
   aspect-ratio: 1 / 1;
   border-radius: 18px;
-  box-shadow:
-    0 18px 40px -24px rgba(0, 0, 0, 0.85),
-    inset 0 0 0 1px rgba(255, 255, 255, 0.08);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.08);
   background-size: cover;
   background-position: center;
   filter: saturate(1.1);
