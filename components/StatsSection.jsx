@@ -98,7 +98,7 @@ export default function StatsSection() {
   return (
     <section
       ref={sectionRef}
-      className="relative mx-auto flex w-full max-w-[1400px] flex-col items-center gap-24 px-6 py-24 lg:gap-[200px] lg:px-[115px] lg:py-[200px]"
+      className="relative mx-auto flex w-full max-w-[1400px] flex-col items-center gap-24 px-6 py-4 lg:gap-[200px] lg:px-[115px] lg:py-[20px]"
     >
       <h2 className="max-w-[1028px] text-center text-3xl font-normal leading-[120%] text-[#F7F7F7] md:text-4xl lg:text-[55px]">
         Grow faster with social, blog, video, and newsletter content that converts.
