@@ -51,19 +51,6 @@ const GridMotion = ({ items = [], gradientColor = 'black', rows = 4, cols = 7 })
       });
     };
 
-    // Skapa quickTo för smoothare container-animationer
-    let containerRotation, containerScale;
-    if (containerRef.current) {
-      containerRotation = gsap.quickTo(containerRef.current, 'rotation', {
-        duration: 1.2,
-        ease: 'power2.out'
-      });
-      containerScale = gsap.quickTo(containerRef.current, 'scale', {
-        duration: 1.2,
-        ease: 'power2.out'
-      });
-    }
-
     const updateMotion = () => {
       const maxMoveAmount = 300;
       const baseDuration = 0.8;
@@ -72,14 +59,19 @@ const GridMotion = ({ items = [], gradientColor = 'black', rows = 4, cols = 7 })
       // Öka tid för auto-animation
       autoAnimTime += 0.01;
 
-      // Scroll-baserad rotation och zoom (smoothare med quickTo)
+      // Scroll-baserad rotation och zoom på container
       const scrollProgress = scrollYRef.current / (window.innerHeight * 0.5);
       const rotation = scrollProgress * 8;
-      const scale = Math.min(1 + (scrollProgress * 0.05), 1.15);
+      const scaleValue = Math.min(1 + (scrollProgress * 0.05), 1.15);
 
-      if (containerRotation && containerScale) {
-        containerRotation(rotation);
-        containerScale(scale);
+      if (containerRef.current) {
+        gsap.to(containerRef.current, {
+          rotation: rotation,
+          scale: scaleValue,
+          duration: 1.2,
+          ease: 'power2.out',
+          overwrite: 'auto'
+        });
       }
 
       rowRefs.current.forEach((row, index) => {
