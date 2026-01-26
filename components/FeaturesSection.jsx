@@ -11,7 +11,8 @@ const features = [
     value: "100% ownership",
     image:
       "https://images.unsplash.com/photo-1507842217343-583bb7270b66?auto=format&fit=crop&w=1400&q=80",
-    gradient: "from-purple-500/20 to-transparent",
+    gradient: "from-[#907AFF]/20 to-transparent",
+    color: "#907AFF",
   },
   {
     label: "Reach",
@@ -21,7 +22,8 @@ const features = [
     value: "Multi-format output",
     image:
       "https://images.unsplash.com/photo-1519681393784-d120267933ba?auto=format&fit=crop&w=1400&q=80",
-    gradient: "from-blue-500/20 to-transparent",
+    gradient: "from-[#E29ED5]/20 to-transparent",
+    color: "#E29ED5",
   },
   {
     label: "Automation",
@@ -31,7 +33,8 @@ const features = [
     value: "Always-on engine",
     image:
       "https://images.unsplash.com/photo-1553877522-43269d4ea984?auto-format&fit=crop&w=1400&q=80",
-    gradient: "from-amber-500/20 to-transparent",
+    gradient: "from-[#FCC997]/20 to-transparent",
+    color: "#FCC997",
   },
   {
     label: "Distribution",
@@ -41,7 +44,8 @@ const features = [
     value: "Fewer logins",
     image:
       "https://images.unsplash.com/photo-1485217988980-11786ced9454?auto=format&fit=crop&w=1400&q=80",
-    gradient: "from-emerald-500/20 to-transparent",
+    gradient: "from-[#FEE9A3]/20 to-transparent",
+    color: "#FEE9A3",
   },
 ];
 
@@ -77,11 +81,12 @@ export default function FeaturesSection() {
   return (
     <section className="mx-auto w-full max-w-[1400px] px-6 py-14 lg:px-[115px]">
       <div className="mb-10 flex flex-col gap-4 lg:mb-16">
-        <p className="text-sm font-semibold uppercase tracking-[0.3em] text-white/45">
+        <p className="text-sm font-semibold uppercase tracking-[0.3em] text-[#907AFF]">
           Built for authors
         </p>
         <h2 className="text-3xl font-semibold leading-[120%] text-[#F7F7F7] md:text-4xl lg:text-[42px]">
-          Here's what you get with verkli.
+          Here's what you get with{" "}
+          <span className="bg-gradient-to-r from-[#907AFF] via-[#E29ED5] to-[#FCC997] bg-clip-text text-transparent">verkli.</span>
         </h2>
         <p className="max-w-2xl text-base text-white/60 md:text-lg">
           A single workflow that protects your IP, grows your audience, and keeps
@@ -111,9 +116,10 @@ export default function FeaturesSection() {
               >
                 {/* Active indicator line */}
                 <div 
-                  className={`absolute left-0 top-0 h-full w-1 rounded-l-[24px] bg-gradient-to-b from-purple-400 to-purple-600 transition-all duration-500 ${
+                  className={`absolute left-0 top-0 h-full w-1 rounded-l-[24px] transition-all duration-500 ${
                     isActive ? "opacity-100" : "opacity-0"
                   }`}
+                  style={{ background: `linear-gradient(to bottom, ${feature.color}, ${feature.color}80)` }}
                 />
                 
                 {/* Subtle glow effect */}

@@ -84,19 +84,29 @@ export default function ReaderLanding() {
       </header>
 
       {/* Hero Section */}
-      <section className="relative mx-auto flex min-h-[80vh] w-full max-w-[1400px] flex-col items-center justify-center px-6 text-center">
-        {/* Background gradient orbs */}
+      <section className="relative mx-auto flex min-h-[80vh] w-full max-w-[1200px] flex-col items-center justify-center px-6 text-center">
+        {/* Animated background glows - brand colors */}
         <div className="pointer-events-none absolute inset-0 overflow-hidden">
-          <div className="absolute left-1/4 top-1/4 h-[500px] w-[500px] -translate-x-1/2 -translate-y-1/2 rounded-full bg-indigo-600/30 blur-[150px]" />
-          <div className="absolute bottom-0 right-1/4 h-[400px] w-[600px] translate-x-1/2 translate-y-1/4 rounded-full bg-purple-500/25 blur-[120px]" />
+          <div 
+            className="absolute left-1/4 top-1/3 h-[500px] w-[500px] -translate-x-1/2 -translate-y-1/2 animate-pulse rounded-full blur-[150px]" 
+            style={{ background: "#907AFF", opacity: 0.2, animationDuration: "4s" }}
+          />
+          <div 
+            className="absolute bottom-1/4 right-1/4 h-[400px] w-[400px] translate-x-1/2 animate-pulse rounded-full blur-[120px]" 
+            style={{ background: "#E29ED5", opacity: 0.15, animationDuration: "5s", animationDelay: "1s" }}
+          />
+          <div 
+            className="absolute left-1/2 top-1/2 h-[300px] w-[300px] -translate-x-1/2 -translate-y-1/2 animate-pulse rounded-full blur-[100px]" 
+            style={{ background: "#FCC997", opacity: 0.1, animationDuration: "3s", animationDelay: "0.5s" }}
+          />
         </div>
 
-        <h1 className="relative z-10 max-w-[800px] text-5xl font-semibold leading-tight md:text-6xl">
-          Discover stories that
+        <h1 className="relative z-10 text-[48px] font-medium leading-[1.1] tracking-[-0.02em] text-white md:text-[64px]">
+          Discover stories
           <br />
-          move you.
+          <span className="bg-gradient-to-r from-[#907AFF] via-[#E29ED5] to-[#FCC997] bg-clip-text text-transparent">that move you.</span>
         </h1>
-        <p className="relative z-10 mt-6 max-w-xl text-base text-white/70 md:text-lg">
+        <p className="relative z-10 mt-6 max-w-[480px] text-[16px] leading-relaxed text-white/50">
           Connect with your favorite authors, explore new worlds, and be part of the stories you love.
         </p>
 
@@ -107,17 +117,14 @@ export default function ReaderLanding() {
               width="auto"
               height="auto"
               borderRadius={999}
-              backgroundOpacity={0.25}
-              className="border border-white/20 transition-transform hover:scale-[1.02]"
+              className="glass-button border border-white/20 transition-transform hover:scale-[1.02]"
             >
-              <span className="px-8 py-3 text-[15px] font-semibold text-white">
-                Start reading
-              </span>
+              <span className="px-8 py-3 text-[15px] font-medium text-white">Start reading</span>
             </GlassSurface>
           </Link>
           <Link
             href="#explore"
-            className="flex items-center gap-2 rounded-full border border-white/10 px-8 py-3 text-[15px] font-medium text-white/80 transition hover:bg-white/5"
+            className="flex items-center gap-2 rounded-full border border-white/10 px-8 py-3.5 text-[15px] font-medium text-white/60 transition-all hover:border-white/20 hover:text-white/80"
           >
             Explore books
           </Link>
@@ -125,31 +132,38 @@ export default function ReaderLanding() {
       </section>
 
       {/* Featured Section Placeholder */}
-      <section id="explore" className="mx-auto w-full max-w-[1400px] px-6 py-24">
-        <h2 className="text-3xl font-semibold text-white">Featured Books</h2>
-        <p className="mt-2 text-white/60">Coming soon...</p>
+      <section id="explore" className="mx-auto w-full max-w-[1200px] px-6 py-24">
+        <div className="flex items-end justify-between">
+          <div>
+            <h2 className="text-[32px] font-medium tracking-[-0.02em] text-white">Featured Books</h2>
+            <p className="mt-2 text-[15px] text-white/40">Curated stories for you</p>
+          </div>
+          <button className="text-[14px] font-medium text-white/50 transition hover:text-white/70">
+            View all
+          </button>
+        </div>
         
-        <div className="mt-12 grid gap-6 md:grid-cols-3 lg:grid-cols-4">
+        <div className="mt-10 grid gap-5 md:grid-cols-3 lg:grid-cols-4">
           {[1, 2, 3, 4].map((i) => (
             <div
               key={i}
-              className="aspect-[3/4] rounded-2xl border border-white/10 bg-white/5"
+              className="group aspect-[3/4] overflow-hidden rounded-2xl border border-white/[0.06] bg-white/[0.02] transition-all duration-300 hover:border-white/10 hover:bg-white/[0.04]"
             />
           ))}
         </div>
       </section>
 
       {/* Footer */}
-      <footer className="mx-auto w-full max-w-[1400px] border-t border-white/10 px-6 py-12">
+      <footer className="mx-auto w-full max-w-[1200px] border-t border-white/[0.06] px-6 py-10">
         <div className="flex flex-col items-center justify-between gap-6 md:flex-row">
-          <div className="flex items-center gap-3">
-            <img src="/favicon.svg" alt="Verkli" className="h-6 w-6" />
-            <span className="font-medium text-white">verkli</span>
+          <div className="flex items-center gap-2">
+            <img src="/favicon.svg" alt="Verkli" className="h-5 w-5" />
+            <span className="text-[14px] font-medium text-white/60">verkli</span>
           </div>
-          <div className="flex gap-6 text-sm text-white/50">
-            <Link href="/" className="transition hover:text-white/70">Home</Link>
-            <Link href="/reader/signin" className="transition hover:text-white/70">Sign in</Link>
-            <Link href="/writer" className="transition hover:text-white/70">For writers</Link>
+          <div className="flex gap-8 text-[13px] text-white/40">
+            <Link href="/" className="transition hover:text-white/60">Home</Link>
+            <Link href="/reader/signin" className="transition hover:text-white/60">Sign in</Link>
+            <Link href="/writer" className="transition hover:text-white/60">For writers</Link>
           </div>
         </div>
       </footer>
