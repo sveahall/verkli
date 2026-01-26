@@ -16,14 +16,15 @@ const gridItems = Array.from({ length: gridRows * gridCols }, (_, index) => {
 });
 
 const glassBaseProps = {
-  displace: 0.3,
-  distortionScale: -110,
+  displace: 0.5,
+  distortionScale: -180,
   redOffset: 0,
   greenOffset: 10,
   blueOffset: 20,
-  brightness: 54,
-  opacity: 0.74,
+  brightness: 50,
+  opacity: 0.93,
   backgroundOpacity: 0.12,
+  blur: 12,
   saturation: 1.2,
   mixBlendMode: "screen",
 };
@@ -45,7 +46,7 @@ export default function Home() {
               <img
                 src="/favicon.svg"
                 alt="Verkli"
-                className="h-15 w-auto"
+                className="h-8 w-auto"
                 loading="eager"
               />
 
@@ -138,7 +139,8 @@ export default function Home() {
             <div className="absolute inset-0 z-10 bg-black/75" />
             {/* Gradient fade to black at top */}
             <div className="absolute inset-x-0 top-0 z-15 h-[150px] bg-gradient-to-b from-[#050508] via-[#050508]/30 to-transparent" />
-            <div className="absolute top-1/2 -right-40 z-20 h-[600px] w-[600px] rounded-full bg-blue-600/30 blur-[180px]" />
+            {/* Gradient fade to black at bottom */}
+            <div className="absolute inset-x-0 bottom-0 z-15 h-[200px] bg-gradient-to-t from-[#050508] via-[#050508]/30 to-transparent" />
           </div>
         </div>
 

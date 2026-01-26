@@ -4,31 +4,6 @@
 import { useEffect, useState, useRef, useId } from 'react';
 import './GlassSurface.css';
 
-/**
- * @typedef {string | number} SizeValue
- * @param {{
- *  children?: import('react').ReactNode,
- *  width?: SizeValue,
- *  height?: SizeValue,
- *  borderRadius?: number,
- *  borderWidth?: number,
- *  brightness?: number,
- *  opacity?: number,
- *  blur?: number,
- *  displace?: number,
- *  backgroundOpacity?: number,
- *  saturation?: number,
- *  distortionScale?: number,
- *  redOffset?: number,
- *  greenOffset?: number,
- *  blueOffset?: number,
- *  xChannel?: string,
- *  yChannel?: string,
- *  mixBlendMode?: string,
- *  className?: string,
- *  style?: import('react').CSSProperties
- * }} props
- */
 const GlassSurface = ({
   children,
   width = 200,
@@ -49,7 +24,7 @@ const GlassSurface = ({
   yChannel = 'G',
   mixBlendMode = 'difference',
   className = '',
-  style = {},
+  style = {}
 }) => {
   const uniqueId = useId().replace(/:/g, '-');
   const filterId = `glass-filter-${uniqueId}`;
@@ -102,7 +77,7 @@ const GlassSurface = ({
     [
       { ref: redChannelRef, offset: redOffset },
       { ref: greenChannelRef, offset: greenOffset },
-      { ref: blueChannelRef, offset: blueOffset },
+      { ref: blueChannelRef, offset: blueOffset }
     ].forEach(({ ref, offset }) => {
       if (ref.current) {
         ref.current.setAttribute('scale', (distortionScale + offset).toString());
@@ -127,8 +102,22 @@ const GlassSurface = ({
     blueOffset,
     xChannel,
     yChannel,
-    mixBlendMode,
+    mixBlendMode
   ]);
+
+  useEffect(() => {
+    if (!containerRef.current) return;
+
+    const resizeObserver = new ResizeObserver(() => {
+      setTimeout(updateDisplacementMap, 0);
+    });
+
+    resizeObserver.observe(containerRef.current);
+
+    return () => {
+      resizeObserver.disconnect();
+    };
+  }, []);
 
   useEffect(() => {
     if (!containerRef.current) return;
@@ -177,7 +166,7 @@ const GlassSurface = ({
     borderRadius: `${borderRadius}px`,
     '--glass-frost': backgroundOpacity,
     '--glass-saturation': saturation,
-    '--filter-id': `url(#${filterId})`,
+    '--filter-id': `url(#${filterId})`
   };
 
   return (
