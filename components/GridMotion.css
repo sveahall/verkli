@@ -31,7 +31,7 @@
   gap: 1rem;
   flex: none;
   position: relative;
-  width: 180vw;
+  width: 150vw;
   height: 180vh;
   display: grid;
   grid-template-rows: repeat(var(--grid-rows, 4), 1fr);
