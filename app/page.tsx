@@ -181,21 +181,19 @@ export default function Home() {
 
         {/* Right logo carousel */}
         <div className="relative h-[100px] w-full max-w-[734px] overflow-hidden">
-          <div className="absolute left-0 top-1/2 -translate-y-1/2">
-            <div className="logo-carousel-track items-center gap-12">
-              {/* First set of logos */}
-              <div className="logo-item h-[60px] w-[140px] flex-shrink-0 rounded-lg bg-white/10 backdrop-blur-sm"></div>
-              <div className="logo-item h-[60px] w-[140px] flex-shrink-0 rounded-lg bg-white/10 backdrop-blur-sm"></div>
-              <div className="logo-item h-[60px] w-[140px] flex-shrink-0 rounded-lg bg-white/10 backdrop-blur-sm"></div>
-              <div className="logo-item h-[60px] w-[140px] flex-shrink-0 rounded-lg bg-white/10 backdrop-blur-sm"></div>
-              <div className="logo-item h-[60px] w-[140px] flex-shrink-0 rounded-lg bg-white/10 backdrop-blur-sm"></div>
-              {/* Duplicate set for seamless loop */}
-              <div className="logo-item h-[60px] w-[140px] flex-shrink-0 rounded-lg bg-white/10 backdrop-blur-sm"></div>
-              <div className="logo-item h-[60px] w-[140px] flex-shrink-0 rounded-lg bg-white/10 backdrop-blur-sm"></div>
-              <div className="logo-item h-[60px] w-[140px] flex-shrink-0 rounded-lg bg-white/10 backdrop-blur-sm"></div>
-              <div className="logo-item h-[60px] w-[140px] flex-shrink-0 rounded-lg bg-white/10 backdrop-blur-sm"></div>
-              <div className="logo-item h-[60px] w-[140px] flex-shrink-0 rounded-lg bg-white/10 backdrop-blur-sm"></div>
-            </div>
+          <div className="logo-carousel-track absolute left-0 top-1/2 flex -translate-y-1/2 items-center gap-12">
+            {/* First set of logos */}
+            <div className="logo-item h-[60px] w-[140px] flex-shrink-0 rounded-lg bg-white/10 backdrop-blur-sm"></div>
+            <div className="logo-item h-[60px] w-[140px] flex-shrink-0 rounded-lg bg-white/10 backdrop-blur-sm"></div>
+            <div className="logo-item h-[60px] w-[140px] flex-shrink-0 rounded-lg bg-white/10 backdrop-blur-sm"></div>
+            <div className="logo-item h-[60px] w-[140px] flex-shrink-0 rounded-lg bg-white/10 backdrop-blur-sm"></div>
+            <div className="logo-item h-[60px] w-[140px] flex-shrink-0 rounded-lg bg-white/10 backdrop-blur-sm"></div>
+            {/* Duplicate set for seamless loop */}
+            <div className="logo-item h-[60px] w-[140px] flex-shrink-0 rounded-lg bg-white/10 backdrop-blur-sm"></div>
+            <div className="logo-item h-[60px] w-[140px] flex-shrink-0 rounded-lg bg-white/10 backdrop-blur-sm"></div>
+            <div className="logo-item h-[60px] w-[140px] flex-shrink-0 rounded-lg bg-white/10 backdrop-blur-sm"></div>
+            <div className="logo-item h-[60px] w-[140px] flex-shrink-0 rounded-lg bg-white/10 backdrop-blur-sm"></div>
+            <div className="logo-item h-[60px] w-[140px] flex-shrink-0 rounded-lg bg-white/10 backdrop-blur-sm"></div>
           </div>
           {/* Gradient overlays */}
           <div className="pointer-events-none absolute inset-y-0 left-0 z-10 w-[156px] bg-gradient-to-r from-[#050508] to-transparent"></div>
@@ -381,9 +379,20 @@ export default function Home() {
           </div>
 
           <div className="footer-cover-grid">
-            {Array.from({ length: 15 }).map((_, index) => (
-              <div key={index} className={`footer-cover cover-${(index % 6) + 1}`} />
-            ))}
+            <div>
+              {/* First set of covers */}
+              {Array.from({ length: 15 }).map((_, index) => (
+                <div key={`set1-${index}`} className={`footer-cover cover-${(index % 6) + 1}`} />
+              ))}
+              {/* Duplicate set for seamless loop */}
+              {Array.from({ length: 15 }).map((_, index) => (
+                <div key={`set2-${index}`} className={`footer-cover cover-${(index % 6) + 1}`} />
+              ))}
+              {/* Third set for extra smooth loop */}
+              {Array.from({ length: 15 }).map((_, index) => (
+                <div key={`set3-${index}`} className={`footer-cover cover-${(index % 6) + 1}`} />
+              ))}
+            </div>
           </div>
         </div>
 
