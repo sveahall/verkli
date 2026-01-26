@@ -28,7 +28,10 @@ const glassButtonProps = {
 
 export default function RoleSelection() {
   return (
-    <main className="relative flex min-h-screen flex-col items-center justify-center overflow-hidden bg-[#000000]">
+    <main 
+      className="relative flex min-h-screen flex-col items-center justify-center overflow-hidden"
+      style={{ background: "radial-gradient(100% 127.91% at 0% 0%, #3A3A4F 0%, #171620 50%, #000000 100%)" }}
+    >
       {/* Animated background */}
       <div className="absolute inset-0 z-0">
         <LiquidEther
