@@ -289,11 +289,55 @@
 .footer-cover-grid {
   position: relative;
   z-index: 1;
-  display: grid;
-  grid-template-columns: repeat(5, minmax(0, 1fr));
+  display: flex;
+  flex-direction: column;
   gap: 18px;
   padding: 14px 8px 8px;
   border-radius: 28px;
+  overflow: hidden;
+  max-height: 500px;
+}
+
+/* Gradient overlay for fade effect */
+.footer-cover-grid::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 200px;
+  background: linear-gradient(to top, #050508 0%, transparent 100%);
+  pointer-events: none;
+  z-index: 10;
+}
+
+.footer-cover-grid::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 150px;
+  background: linear-gradient(to bottom, #050508 0%, transparent 100%);
+  pointer-events: none;
+  z-index: 10;
+}
+
+@keyframes scroll-covers-up {
+  from {
+    transform: translateY(0);
+  }
+  to {
+    transform: translateY(-33.333%);
+  }
+}
+
+.footer-cover-grid > div {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 18px;
+  animation: scroll-covers-up 30s linear infinite;
+  will-change: transform;
 }
 
 .footer-cover {
