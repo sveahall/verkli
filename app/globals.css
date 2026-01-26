@@ -124,6 +124,42 @@
   }
 }
 
+.hero-backdrop {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+  background:
+    radial-gradient(1200px 700px at 50% -10%, rgba(138, 152, 190, 0.35), transparent 60%),
+    radial-gradient(900px 600px at 15% 35%, rgba(88, 104, 160, 0.28), transparent 65%),
+    radial-gradient(800px 520px at 85% 65%, rgba(78, 112, 152, 0.22), transparent 70%),
+    linear-gradient(180deg, #0a0b11 0%, #10121a 45%, #090a11 100%);
+}
+
+
+.glass-card {
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  box-shadow:
+    0 30px 80px rgba(0, 0, 0, 0.4),
+    0 12px 40px rgba(0, 0, 0, 0.3);
+}
+
+.glass-button {
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.25);
+  transition: transform 0.2s ease, border-color 0.2s ease;
+}
+
+.glass-button:hover {
+  transform: translateY(-1px);
+  border-color: rgba(255, 255, 255, 0.2);
+}
+
+.glass-button:active {
+  transform: translateY(0);
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.25);
+}
+
 .momentum-surface {
   background: radial-gradient(
       120% 120% at 12% 40%,
