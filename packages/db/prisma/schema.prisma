@@ -1,0 +1,124 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+// ─────────────────────────────────────────────────────────────
+// Users & Auth (synkad med Supabase Auth)
+// ─────────────────────────────────────────────────────────────
+
+model User {
+  id        String   @id @db.Uuid // Supabase auth.users.id
+  email     String   @unique
+  name      String?
+  avatarUrl String?
+  role      UserRole @default(READER)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  books    Book[]    @relation("AuthorBooks")
+  readings Reading[]
+  reviews  Review[]
+
+  @@map("users")
+}
+
+enum UserRole {
+  READER
+  AUTHOR
+  ADMIN
+}
+
+// ─────────────────────────────────────────────────────────────
+// Books & Content
+// ─────────────────────────────────────────────────────────────
+
+model Book {
+  id          String      @id @default(cuid())
+  title       String
+  slug        String      @unique
+  description String?     @db.Text
+  coverImage  String?
+  status      BookStatus  @default(DRAFT)
+  authorId    String
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+  publishedAt DateTime?
+
+  // Relations
+  author   User      @relation("AuthorBooks", fields: [authorId], references: [id])
+  chapters Chapter[]
+  readings Reading[]
+  reviews  Review[]
+
+  @@index([authorId])
+  @@index([status])
+  @@map("books")
+}
+
+enum BookStatus {
+  DRAFT
+  PUBLISHED
+  ARCHIVED
+}
+
+model Chapter {
+  id        String   @id @default(cuid())
+  title     String
+  content   String   @db.Text
+  order     Int
+  bookId    String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  book Book @relation(fields: [bookId], references: [id], onDelete: Cascade)
+
+  @@unique([bookId, order])
+  @@index([bookId])
+  @@map("chapters")
+}
+
+// ─────────────────────────────────────────────────────────────
+// Reader Interactions
+// ─────────────────────────────────────────────────────────────
+
+model Reading {
+  id              String   @id @default(cuid())
+  userId          String
+  bookId          String
+  currentChapter  Int      @default(1)
+  progressPercent Float    @default(0)
+  startedAt       DateTime @default(now())
+  lastReadAt      DateTime @default(now())
+
+  // Relations
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  book Book @relation(fields: [bookId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, bookId])
+  @@map("readings")
+}
+
+model Review {
+  id        String   @id @default(cuid())
+  userId    String
+  bookId    String
+  rating    Int
+  content   String?  @db.Text
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  book Book @relation(fields: [bookId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, bookId])
+  @@map("reviews")
+}
