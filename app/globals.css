@@ -227,6 +227,12 @@
   }
 }
 
+.section-stack {
+  display: flex;
+  flex-direction: column;
+  gap: clamp(64px, 8vw, 120px);
+}
+
 .footer-cta {
   position: relative;
   z-index: 2;

@@ -36,8 +36,8 @@
   display: grid;
   grid-template-rows: repeat(var(--grid-rows, 4), 1fr);
   grid-template-columns: 100%;
-  transform: rotate(-15deg);
   transform-origin: center center;
+  will-change: transform;
   z-index: 2;
 }
 

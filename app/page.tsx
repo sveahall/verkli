@@ -73,7 +73,7 @@ export default function Home() {
 
             {/* Actions */}
             <div className="flex items-center gap-4">
-              <button className="sign-in-button px-6 text-[17px] font-medium text-white/100">
+              <button className="sign-in-button px-6 text-[17px] font-regular text-white/100">
                 Sign in
               </button>
               <GlassSurface
@@ -83,7 +83,7 @@ export default function Home() {
                 borderRadius={999}
                 className="glass-surface--button border border-white/10"
               >
-                <button className="sign-up-button px-7 py-1.5 text-[17px] font-medium leading-[160%] text-[#F7F7F7]">
+                <button className="sign-up-button px-7 py-0 text-[17px] font-medium text-[#F7F7F7]">
                   Sign up
                 </button>
               </GlassSurface>
@@ -124,6 +124,7 @@ export default function Home() {
         </GlassSurface>
       </header>
 
+      <div className="section-stack">
       {/* Hero */}
       <section className="relative isolate mx-auto my-auto flex min-h-screen w-full max-w-[1800px] flex-col items-center justify-center overflow-hidden px-6 pb-50 text-center">
         <div className="pointer-events-none absolute inset-0 -z-10 overflow-hidden">
@@ -158,13 +159,13 @@ export default function Home() {
           borderRadius={999}
           className="glass-surface--button mt-20 border border-white/20 transition hover:scale-105"
         >
-          <button className="px-8 py-4 text-sm font-semibold text-white">
+          <button className="px-6 py-2 text-md font-semibold text-white">
             Get started as a writer
           </button>
         </GlassSurface>
       </section>
 
-      <section className="mx-auto mt-32 flex w-full max-w-[1660px] items-center justify-between gap-12 px-6 lg:px-[115px]">
+      <section className="mx-auto flex w-full max-w-[1660px] items-center justify-between gap-12 px-6 lg:px-[115px]">
         {/* Left content */}
         <div className="flex max-w-[778px] flex-col gap-2.5">
           <p className="text-[17px] font-medium uppercase leading-[24.945px] text-white/50">
@@ -198,7 +199,7 @@ export default function Home() {
 
       <FeaturesSection />
 
-      <section className="relative mx-auto mt-32 w-full max-w-[1660px] px-6">
+      <section className="relative mx-auto w-full max-w-[1660px] px-6">
         <div className="momentum-surface relative overflow-hidden rounded-[56px] px-6 py-16 md:px-16 md:py-24">
           <div className="momentum-bg">
             <div className="momentum-orb orb-1" />
@@ -274,7 +275,7 @@ export default function Home() {
         </div>
       </section>
 
-      <section className="mx-auto mt-32 w-full max-w-[1200px] px-6 pb-24">
+      <section className="mx-auto w-full max-w-[1200px] px-6 pb-24">
         <div className="grid gap-8 lg:grid-cols-[1fr_1fr]">
           <h2 className="text-3xl font-semibold leading-tight text-white md:text-4xl">
             Smart tools to help
@@ -465,6 +466,7 @@ export default function Home() {
           <span>© 2026 Fable</span>
         </div>
       </section>
+      </div>
     </main>
   )
 }
