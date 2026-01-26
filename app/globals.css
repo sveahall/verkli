@@ -227,6 +227,41 @@
   }
 }
 
+.section-stack {
+  display: flex;
+  flex-direction: column;
+  gap: clamp(64px, 8vw, 120px);
+}
+
+/* Logo carousel animation */
+@keyframes scroll-logos {
+  0% {
+    transform: translateX(0);
+  }
+  100% {
+    transform: translateX(-50%);
+  }
+}
+
+.logo-carousel-track {
+  display: flex;
+  animation: scroll-logos 15s linear infinite;
+  will-change: transform;
+}
+
+.logo-carousel-track:hover {
+  animation-play-state: paused;
+}
+
+.logo-item {
+  transition: transform 0.3s ease, opacity 0.3s ease;
+}
+
+.logo-item:hover {
+  transform: scale(1.05);
+  opacity: 1 !important;
+}
+
 .footer-cta {
   position: relative;
   z-index: 2;
@@ -259,7 +294,6 @@
   gap: 18px;
   padding: 14px 8px 8px;
   border-radius: 28px;
-  background: radial-gradient(circle at 50% 0%, rgba(255, 255, 255, 0.12), rgba(0, 0, 0, 0));
 }
 
 .footer-cover {
