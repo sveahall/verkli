@@ -73,7 +73,7 @@ export default function Home() {
 
             {/* Actions */}
             <div className="flex items-center gap-4">
-              <button className="sign-in-button px-6 text-[17px] font-medium text-white/100">
+              <button className="sign-in-button px-6 text-[17px] font-regular text-white/100">
                 Sign in
               </button>
               <GlassSurface
@@ -83,7 +83,7 @@ export default function Home() {
                 borderRadius={999}
                 className="glass-surface--button border border-white/10"
               >
-                <button className="sign-up-button px-7 py-1.5 text-[17px] font-medium leading-[160%] text-[#F7F7F7]">
+                <button className="sign-up-button px-7 py-0 text-[17px] font-medium text-[#F7F7F7]">
                   Sign up
                 </button>
               </GlassSurface>
@@ -124,6 +124,7 @@ export default function Home() {
         </GlassSurface>
       </header>
 
+      <div className="section-stack">
       {/* Hero */}
       <section className="relative isolate mx-auto my-auto flex min-h-screen w-full max-w-[1800px] flex-col items-center justify-center overflow-hidden px-6 pb-50 text-center">
         <div className="pointer-events-none absolute inset-0 -z-10 overflow-hidden">
@@ -158,13 +159,13 @@ export default function Home() {
           borderRadius={999}
           className="glass-surface--button mt-20 border border-white/20 transition hover:scale-105"
         >
-          <button className="px-8 py-4 text-sm font-semibold text-white">
+          <button className="px-6 py-2 text-md font-semibold text-white">
             Get started as a writer
           </button>
         </GlassSurface>
       </section>
 
-      <section className="mx-auto mt-32 flex w-full max-w-[1660px] items-center justify-between gap-12 px-6 lg:px-[115px]">
+      <section className="mx-auto flex w-full max-w-[1660px] items-center justify-between gap-12 px-6 lg:px-[115px]">
         {/* Left content */}
         <div className="flex max-w-[778px] flex-col gap-2.5">
           <p className="text-[17px] font-medium uppercase leading-[24.945px] text-white/50">
@@ -179,16 +180,24 @@ export default function Home() {
         </div>
 
         {/* Right logo carousel */}
-        <div className="relative h-[83px] w-full max-w-[734px] overflow-hidden">
-          <div className="absolute left-0 top-0.5 flex h-[79px] w-[734px] items-center gap-[50px]">
-            <div className="h-[49px] w-[145px] flex-shrink-0 rounded bg-white/10"></div>
-            <div className="h-[145px] w-[145px] flex-shrink-0 rounded bg-white/10"></div>
-            <div className="h-[40px] w-[145px] flex-shrink-0 rounded bg-white/10"></div>
-            <div className="h-[67px] w-[145px] flex-shrink-0 rounded bg-white/10"></div>
+        <div className="relative h-[100px] w-full max-w-[734px] overflow-hidden">
+          <div className="logo-carousel-track absolute left-0 top-1/2 flex -translate-y-1/2 items-center gap-12">
+            {/* First set of logos */}
+            <div className="logo-item h-[60px] w-[140px] flex-shrink-0 rounded-lg bg-white/10 backdrop-blur-sm"></div>
+            <div className="logo-item h-[60px] w-[140px] flex-shrink-0 rounded-lg bg-white/10 backdrop-blur-sm"></div>
+            <div className="logo-item h-[60px] w-[140px] flex-shrink-0 rounded-lg bg-white/10 backdrop-blur-sm"></div>
+            <div className="logo-item h-[60px] w-[140px] flex-shrink-0 rounded-lg bg-white/10 backdrop-blur-sm"></div>
+            <div className="logo-item h-[60px] w-[140px] flex-shrink-0 rounded-lg bg-white/10 backdrop-blur-sm"></div>
+            {/* Duplicate set for seamless loop */}
+            <div className="logo-item h-[60px] w-[140px] flex-shrink-0 rounded-lg bg-white/10 backdrop-blur-sm"></div>
+            <div className="logo-item h-[60px] w-[140px] flex-shrink-0 rounded-lg bg-white/10 backdrop-blur-sm"></div>
+            <div className="logo-item h-[60px] w-[140px] flex-shrink-0 rounded-lg bg-white/10 backdrop-blur-sm"></div>
+            <div className="logo-item h-[60px] w-[140px] flex-shrink-0 rounded-lg bg-white/10 backdrop-blur-sm"></div>
+            <div className="logo-item h-[60px] w-[140px] flex-shrink-0 rounded-lg bg-white/10 backdrop-blur-sm"></div>
           </div>
           {/* Gradient overlays */}
-          <div className="pointer-events-none absolute inset-y-0 left-0 w-[156px] bg-gradient-to-r from-[#050508] to-transparent"></div>
-          <div className="pointer-events-none absolute inset-y-0 right-0 w-[156px] bg-gradient-to-l from-[#050508] to-transparent"></div>
+          <div className="pointer-events-none absolute inset-y-0 left-0 z-10 w-[156px] bg-gradient-to-r from-[#050508] to-transparent"></div>
+          <div className="pointer-events-none absolute inset-y-0 right-0 z-10 w-[156px] bg-gradient-to-l from-[#050508] to-transparent"></div>
         </div>
       </section>
 
@@ -198,7 +207,7 @@ export default function Home() {
 
       <FeaturesSection />
 
-      <section className="relative mx-auto mt-32 w-full max-w-[1660px] px-6">
+      <section className="relative mx-auto w-full max-w-[1660px] px-6">
         <div className="momentum-surface relative overflow-hidden rounded-[56px] px-6 py-16 md:px-16 md:py-24">
           <div className="momentum-bg">
             <div className="momentum-orb orb-1" />
@@ -274,7 +283,7 @@ export default function Home() {
         </div>
       </section>
 
-      <section className="mx-auto mt-32 w-full max-w-[1200px] px-6 pb-24">
+      <section className="mx-auto w-full max-w-[1200px] px-6 pb-24">
         <div className="grid gap-8 lg:grid-cols-[1fr_1fr]">
           <h2 className="text-3xl font-semibold leading-tight text-white md:text-4xl">
             Smart tools to help
@@ -347,7 +356,7 @@ export default function Home() {
       </section>
 
       <section className="mx-auto w-full max-w-[1400px] px-6 pb-24">
-        <div className="relative overflow-hidden rounded-[44px] border border-white/10 bg-black px-6 pb-12 pt-14 text-center md:px-12 md:pb-16 md:pt-20">
+        <div className="relative min-h-[800px] overflow-hidden text-center">
           <div className="footer-cta">
             <h2 className="text-3xl font-semibold text-white md:text-4xl">
               Ready to turn your book into content?
@@ -370,19 +379,32 @@ export default function Home() {
           </div>
 
           <div className="footer-cover-grid">
-            {Array.from({ length: 15 }).map((_, index) => (
-              <div key={index} className={`footer-cover cover-${(index % 6) + 1}`} />
-            ))}
+            <div>
+              {/* First set of covers */}
+              {Array.from({ length: 15 }).map((_, index) => (
+                <div key={`set1-${index}`} className={`footer-cover cover-${(index % 6) + 1}`} />
+              ))}
+              {/* Duplicate set for seamless loop */}
+              {Array.from({ length: 15 }).map((_, index) => (
+                <div key={`set2-${index}`} className={`footer-cover cover-${(index % 6) + 1}`} />
+              ))}
+              {/* Third set for extra smooth loop */}
+              {Array.from({ length: 15 }).map((_, index) => (
+                <div key={`set3-${index}`} className={`footer-cover cover-${(index % 6) + 1}`} />
+              ))}
+            </div>
           </div>
         </div>
 
         <div className="mt-16 grid gap-12 border-t border-white/10 pt-12 md:grid-cols-[1.1fr_1fr_1fr_1fr]">
           <div className="space-y-4">
-            <div className="flex items-center gap-3 text-lg font-semibold text-white">
-              <img src="/favicon.svg" alt="Verkli" className="h-6 w-6" />
-              verkli
-            </div>
-            <h3 className="text-2xl font-semibold text-white">
+          <img
+                src="/favicon.svg"
+                alt="Verkli"
+                className="h-8 w-auto"
+                loading="eager"
+              />
+              <h3 className="text-2xl font-semibold text-white">
               Where books
               <br />
               become
@@ -465,6 +487,7 @@ export default function Home() {
           <span>© 2026 Fable</span>
         </div>
       </section>
+      </div>
     </main>
   )
 }
