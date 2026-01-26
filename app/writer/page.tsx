@@ -181,15 +181,21 @@ export default function Home() {
 
         {/* Right logo carousel */}
         <div className="relative h-[83px] w-full max-w-[734px] overflow-hidden">
-          <div className="absolute left-0 top-0.5 flex h-[79px] w-[734px] items-center gap-[50px]">
-            <div className="h-[49px] w-[145px] flex-shrink-0 rounded bg-white/10"></div>
-            <div className="h-[145px] w-[145px] flex-shrink-0 rounded bg-white/10"></div>
-            <div className="h-[40px] w-[145px] flex-shrink-0 rounded bg-white/10"></div>
-            <div className="h-[67px] w-[145px] flex-shrink-0 rounded bg-white/10"></div>
+          <div className="logo-carousel-track absolute left-0 top-0.5 flex h-[79px] items-center gap-[50px]">
+            {/* First set */}
+            <div className="logo-item h-[50px] w-[140px] flex-shrink-0 rounded-lg bg-white/10"></div>
+            <div className="logo-item h-[50px] w-[140px] flex-shrink-0 rounded-lg bg-white/10"></div>
+            <div className="logo-item h-[50px] w-[140px] flex-shrink-0 rounded-lg bg-white/10"></div>
+            <div className="logo-item h-[50px] w-[140px] flex-shrink-0 rounded-lg bg-white/10"></div>
+            {/* Duplicate set for seamless loop */}
+            <div className="logo-item h-[50px] w-[140px] flex-shrink-0 rounded-lg bg-white/10"></div>
+            <div className="logo-item h-[50px] w-[140px] flex-shrink-0 rounded-lg bg-white/10"></div>
+            <div className="logo-item h-[50px] w-[140px] flex-shrink-0 rounded-lg bg-white/10"></div>
+            <div className="logo-item h-[50px] w-[140px] flex-shrink-0 rounded-lg bg-white/10"></div>
           </div>
           {/* Gradient overlays */}
-          <div className="pointer-events-none absolute inset-y-0 left-0 w-[156px] bg-gradient-to-r from-[#050508] to-transparent"></div>
-          <div className="pointer-events-none absolute inset-y-0 right-0 w-[156px] bg-gradient-to-l from-[#050508] to-transparent"></div>
+          <div className="pointer-events-none absolute inset-y-0 left-0 w-[156px] bg-gradient-to-r from-[#050508] to-transparent z-10"></div>
+          <div className="pointer-events-none absolute inset-y-0 right-0 w-[156px] bg-gradient-to-l from-[#050508] to-transparent z-10"></div>
         </div>
       </section>
 

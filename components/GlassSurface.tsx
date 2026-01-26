@@ -1,34 +1,34 @@
 /* eslint-disable react-hooks/exhaustive-deps */
 'use client';
 
-import { useEffect, useState, useRef, useId } from 'react';
+import { useEffect, useState, useRef, useId, ReactNode, CSSProperties } from 'react';
 import './GlassSurface.css';
 
-/**
- * @typedef {string | number} SizeValue
- * @param {{
- *  children?: import('react').ReactNode,
- *  width?: SizeValue,
- *  height?: SizeValue,
- *  borderRadius?: number,
- *  borderWidth?: number,
- *  brightness?: number,
- *  opacity?: number,
- *  blur?: number,
- *  displace?: number,
- *  backgroundOpacity?: number,
- *  saturation?: number,
- *  distortionScale?: number,
- *  redOffset?: number,
- *  greenOffset?: number,
- *  blueOffset?: number,
- *  xChannel?: string,
- *  yChannel?: string,
- *  mixBlendMode?: string,
- *  className?: string,
- *  style?: import('react').CSSProperties
- * }} props
- */
+type SizeValue = string | number;
+
+interface GlassSurfaceProps {
+  children?: ReactNode;
+  width?: SizeValue;
+  height?: SizeValue;
+  borderRadius?: number;
+  borderWidth?: number;
+  brightness?: number;
+  opacity?: number;
+  blur?: number;
+  displace?: number;
+  backgroundOpacity?: number;
+  saturation?: number;
+  distortionScale?: number;
+  redOffset?: number;
+  greenOffset?: number;
+  blueOffset?: number;
+  xChannel?: string;
+  yChannel?: string;
+  mixBlendMode?: string;
+  className?: string;
+  style?: CSSProperties;
+}
+
 const GlassSurface = ({
   children,
   width = 200,
@@ -50,7 +50,7 @@ const GlassSurface = ({
   mixBlendMode = 'difference',
   className = '',
   style = {}
-}) => {
+}: GlassSurfaceProps) => {
   const uniqueId = useId().replace(/:/g, '-');
   const filterId = `glass-filter-${uniqueId}`;
   const redGradId = `red-grad-${uniqueId}`;
@@ -58,12 +58,12 @@ const GlassSurface = ({
 
   const [svgSupported, setSvgSupported] = useState(false);
 
-  const containerRef = useRef(null);
-  const feImageRef = useRef(null);
-  const redChannelRef = useRef(null);
-  const greenChannelRef = useRef(null);
-  const blueChannelRef = useRef(null);
-  const gaussianBlurRef = useRef(null);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const feImageRef = useRef<SVGFEImageElement>(null);
+  const redChannelRef = useRef<SVGFEDisplacementMapElement>(null);
+  const greenChannelRef = useRef<SVGFEDisplacementMapElement>(null);
+  const blueChannelRef = useRef<SVGFEDisplacementMapElement>(null);
+  const gaussianBlurRef = useRef<SVGFEGaussianBlurElement>(null);
 
   const generateDisplacementMap = () => {
     const rect = containerRef.current?.getBoundingClientRect();
@@ -142,24 +142,6 @@ const GlassSurface = ({
     return () => {
       resizeObserver.disconnect();
     };
-  }, []);
-
-  useEffect(() => {
-    if (!containerRef.current) return;
-
-    const resizeObserver = new ResizeObserver(() => {
-      setTimeout(updateDisplacementMap, 0);
-    });
-
-    resizeObserver.observe(containerRef.current);
-
-    return () => {
-      resizeObserver.disconnect();
-    };
-  }, []);
-
-  useEffect(() => {
-    setTimeout(updateDisplacementMap, 0);
   }, [width, height]);
 
   useEffect(() => {
@@ -171,23 +153,17 @@ const GlassSurface = ({
       return false;
     }
 
-    // Safari and Firefox don't support SVG filters in backdrop-filter
-    const isSafari = /Safari/.test(navigator.userAgent) && !/Chrome/.test(navigator.userAgent);
+    const isWebkit = /Safari/.test(navigator.userAgent) && !/Chrome/.test(navigator.userAgent);
     const isFirefox = /Firefox/.test(navigator.userAgent);
 
-    if (isSafari || isFirefox) {
+    if (isWebkit || isFirefox) {
       return false;
     }
 
-    // Chrome, Edge, and other Chromium-based browsers support SVG filters
-    const isChromium = /Chrome/.test(navigator.userAgent) || /Chromium/.test(navigator.userAgent);
-    
-    if (isChromium) {
-      return true;
-    }
+    const div = document.createElement('div');
+    div.style.backdropFilter = `url(#${filterId})`;
 
-    // Fallback check for other browsers
-    return CSS.supports('backdrop-filter', 'blur(1px)');
+    return div.style.backdropFilter !== '';
   };
 
   const containerStyle = {
