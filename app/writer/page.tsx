@@ -1,3 +1,6 @@
+"use client";
+
+import { useState, useRef } from "react";
 import Link from "next/link";
 import GlassSurface from "@/components/GlassSurface";
 import GridMotion from "@/components/GridMotion";
@@ -29,6 +32,149 @@ const glassBaseProps = {
   saturation: 1.2,
   mixBlendMode: "screen",
 };
+
+function InteractiveTestimonialSection() {
+  const containerRef = useRef<HTMLDivElement>(null);
+  const [mousePos, setMousePos] = useState({ x: 0.5, y: 0.5 });
+
+  const handleMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
+    if (!containerRef.current) return;
+    const rect = containerRef.current.getBoundingClientRect();
+    const x = (e.clientX - rect.left) / rect.width;
+    const y = (e.clientY - rect.top) / rect.height;
+    setMousePos({ x, y });
+  };
+
+  const handleMouseLeave = () => {
+    setMousePos({ x: 0.5, y: 0.5 });
+  };
+
+  return (
+    <section className="relative mx-auto w-full max-w-[1200px] px-6 py-24">
+      <div
+        ref={containerRef}
+        onMouseMove={handleMouseMove}
+        onMouseLeave={handleMouseLeave}
+        className="relative overflow-hidden rounded-[32px] border border-white/[0.06] bg-gradient-to-br from-white/[0.03] to-transparent p-12 md:p-16"
+      >
+        {/* Interactive glows - brand colors */}
+        <div
+          className="pointer-events-none absolute h-[500px] w-[500px] rounded-full blur-[120px] transition-all duration-700 ease-out"
+          style={{
+            background: "#907AFF",
+            opacity: 0.12,
+            left: `${mousePos.x * 100 - 25}%`,
+            top: `${mousePos.y * 100 - 25}%`,
+          }}
+        />
+        <div
+          className="pointer-events-none absolute h-[400px] w-[400px] rounded-full blur-[100px] transition-all duration-1000 ease-out"
+          style={{
+            background: "#E29ED5",
+            opacity: 0.1,
+            left: `${(1 - mousePos.x) * 100 - 20}%`,
+            top: `${(1 - mousePos.y) * 100 - 20}%`,
+          }}
+        />
+        <div
+          className="pointer-events-none absolute h-[300px] w-[300px] rounded-full blur-[80px] transition-all duration-500 ease-out"
+          style={{
+            background: "#FCC997",
+            opacity: 0.08,
+            left: `${mousePos.x * 80 + 10}%`,
+            top: `${mousePos.y * 60 + 20}%`,
+          }}
+        />
+
+        <div className="relative grid gap-12 lg:grid-cols-2 lg:items-center lg:gap-16">
+          {/* Left */}
+          <div>
+            <h2 className="text-[40px] font-medium leading-[1.1] tracking-[-0.02em] text-white md:text-[52px]">
+              Authors love
+              <br />
+              <span className="text-white/40">what we do.</span>
+            </h2>
+            <p className="mt-6 max-w-[380px] text-[16px] leading-relaxed text-white/50">
+              Join thousands of writers who use Fable to turn their stories into content that reaches readers everywhere.
+            </p>
+            <button className="mt-10 rounded-full bg-white px-8 py-3.5 text-[15px] font-medium text-black transition-all hover:scale-[1.02] hover:shadow-lg hover:shadow-white/10">
+              Start for free
+            </button>
+          </div>
+
+          {/* Right: Clean testimonial stack */}
+          <div className="space-y-4">
+            {/* Main quote */}
+            <div className="rounded-3xl bg-white/[0.04] p-8 backdrop-blur-sm">
+              <p className="text-[20px] font-normal leading-[1.5] tracking-[-0.01em] text-white/90">
+                "Fable helped me turn one story into content that reached millions. The success has been incredible."
+              </p>
+              <div className="mt-6 flex items-center gap-4">
+                <img
+                  src="https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=80&h=80&fit=crop&crop=face"
+                  alt="Ariana Godoy"
+                  className="h-11 w-11 rounded-full object-cover"
+                />
+                <div>
+                  <div className="text-[15px] font-medium text-white">Ariana Godoy</div>
+                  <div className="text-[13px] text-white/50">Bestselling author</div>
+                </div>
+              </div>
+            </div>
+
+            {/* Two smaller quotes */}
+            <div className="grid grid-cols-2 gap-4">
+              <div className="rounded-2xl bg-white/[0.04] p-5 backdrop-blur-sm">
+                <p className="text-[14px] leading-relaxed text-white/80">
+                  "My launch stayed visible for weeks."
+                </p>
+                <div className="mt-4 flex items-center gap-3">
+                  <img
+                    src="https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=60&h=60&fit=crop&crop=face"
+                    alt="Sarah Chen"
+                    className="h-8 w-8 rounded-full object-cover"
+                  />
+                  <div className="text-[13px] text-white/50">Sarah Chen</div>
+                </div>
+              </div>
+              <div className="rounded-2xl bg-white/[0.04] p-5 backdrop-blur-sm">
+                <p className="text-[14px] leading-relaxed text-white/80">
+                  "BookTok finally clicked for me."
+                </p>
+                <div className="mt-4 flex items-center gap-3">
+                  <img
+                    src="https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=60&h=60&fit=crop&crop=face"
+                    alt="Mark Torres"
+                    className="h-8 w-8 rounded-full object-cover"
+                  />
+                  <div className="text-[13px] text-white/50">Mark Torres</div>
+                </div>
+              </div>
+            </div>
+
+            {/* Minimal stats */}
+            <div className="flex items-center justify-between rounded-2xl bg-white/[0.04] px-6 py-5 backdrop-blur-sm">
+              <div className="text-center">
+                <div className="text-xl font-semibold tracking-tight text-white">12,000+</div>
+                <div className="mt-0.5 text-[11px] text-white/40">authors</div>
+              </div>
+              <div className="h-8 w-px bg-white/10" />
+              <div className="text-center">
+                <div className="text-xl font-semibold tracking-tight text-white">4.9/5</div>
+                <div className="mt-0.5 text-[11px] text-white/40">rating</div>
+              </div>
+              <div className="h-8 w-px bg-white/10" />
+              <div className="text-center">
+                <div className="text-xl font-semibold tracking-tight text-white">89%</div>
+                <div className="mt-0.5 text-[11px] text-white/40">time saved</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+  );
+}
 
 export default function Home() {
   return (
@@ -208,81 +354,7 @@ export default function Home() {
 
       <FeaturesSection />
 
-      <section className="relative mx-auto w-full max-w-[1660px] px-6">
-        <div className="momentum-surface relative overflow-hidden rounded-[56px] px-6 py-16 md:px-16 md:py-24">
-          <div className="momentum-bg">
-            <div className="momentum-orb orb-1" />
-            <div className="momentum-orb orb-2" />
-            <div className="momentum-orb orb-3" />
-            <div className="momentum-orb orb-4" />
-          </div>
-
-          <div className="relative z-10 grid gap-12 lg:grid-cols-[1.1fr_0.9fr]">
-            <div className="flex flex-col justify-center">
-              <h2 className="max-w-[560px] text-4xl font-semibold leading-tight text-white md:text-5xl">
-                Turn your book
-                <br />
-                into momentum.
-              </h2>
-              <p className="mt-4 max-w-[520px] text-base text-white/80 md:text-lg">
-                Fable extracts quotes, ideas, hooks and themes directly from
-                your book and repurposes them across formats.
-              </p>
-              <div className="mt-8">
-                <GlassSurface
-                  {...glassBaseProps}
-                  width="auto"
-                  height="auto"
-                  borderRadius={999}
-                  className="glass-surface--button border border-white/30"
-                >
-                  <button className="px-7 py-3 text-sm font-semibold text-white">
-                    Join now
-                  </button>
-                </GlassSurface>
-              </div>
-            </div>
-
-            <div className="relative min-h-[560px]">
-              <div className="absolute left-6 top-10 h-[230px] w-[160px] -rotate-[8deg] rounded-[20px] bg-gradient-to-b from-yellow-200 to-orange-500 shadow-[0_35px_80px_-40px_rgba(0,0,0,0.7)]" />
-              <div className="absolute right-6 top-0 h-[260px] w-[185px] rotate-[8deg] rounded-[20px] bg-gradient-to-b from-red-500 to-black shadow-[0_40px_90px_-45px_rgba(0,0,0,0.8)]" />
-              <div className="absolute bottom-0 right-24 h-[230px] w-[160px] rotate-[4deg] rounded-[20px] bg-gradient-to-b from-pink-200 to-purple-400 shadow-[0_35px_80px_-40px_rgba(0,0,0,0.7)]" />
-
-              <GlassSurface
-                {...glassBaseProps}
-                width="260px"
-                height="auto"
-                borderRadius={18}
-                className="absolute right-28 top-20 border border-white/20 px-4 py-3 text-sm text-white/90"
-              >
-                <div className="text-left">
-                  “Watching Through My Window successed has been incredible and
-                  such a blessing.”
-                  <div className="mt-2 text-right text-xs text-white/70">
-                    — Ariana Godoy
-                  </div>
-                </div>
-              </GlassSurface>
-
-              <GlassSurface
-                {...glassBaseProps}
-                width="260px"
-                height="auto"
-                borderRadius={18}
-                className="absolute bottom-10 right-0 border border-white/20 px-4 py-3 text-sm text-white/90"
-              >
-                <div className="text-left">
-                  “Watching Through My Window successed has been incredible and
-                  such a blessing.”
-                  <div className="mt-2 text-right text-xs text-white/70">
-                    — Ariana Godoy
-                  </div>
-                </div>
-              </GlassSurface>
-            </div>
-          </div>
-        </div>
-      </section>
+      <InteractiveTestimonialSection />
 
       <section className="mx-auto w-full max-w-[1200px] px-6 pb-24">
         <div className="grid gap-8 lg:grid-cols-[1fr_1fr]">
@@ -389,10 +461,9 @@ export default function Home() {
         <div className="mt-16 grid gap-12 border-t border-white/10 pt-12 md:grid-cols-[1.1fr_1fr_1fr_1fr]">
           <div className="space-y-4">
             <div className="flex items-center gap-3 text-lg font-semibold text-white">
-              <img src="/favicon.svg" alt="Verkli" className="h-6 w-6" />
-              verkli
+              <img src="/favicon.svg" alt="Verkli" className="h-10 w-auto" />
             </div>
-            <h3 className="text-2xl font-semibold text-white">
+            <h3 className="text-2xl font-medium text-white">
               Where books
               <br />
               become
