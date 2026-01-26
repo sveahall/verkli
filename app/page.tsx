@@ -180,16 +180,26 @@ export default function Home() {
         </div>
 
         {/* Right logo carousel */}
-        <div className="relative h-[83px] w-full max-w-[734px] overflow-hidden">
-          <div className="absolute left-0 top-0.5 flex h-[79px] w-[734px] items-center gap-[50px]">
-            <div className="h-[49px] w-[145px] flex-shrink-0 rounded bg-white/10"></div>
-            <div className="h-[145px] w-[145px] flex-shrink-0 rounded bg-white/10"></div>
-            <div className="h-[40px] w-[145px] flex-shrink-0 rounded bg-white/10"></div>
-            <div className="h-[67px] w-[145px] flex-shrink-0 rounded bg-white/10"></div>
+        <div className="relative h-[100px] w-full max-w-[734px] overflow-hidden">
+          <div className="absolute left-0 top-1/2 -translate-y-1/2">
+            <div className="logo-carousel-track items-center gap-12">
+              {/* First set of logos */}
+              <div className="logo-item h-[60px] w-[140px] flex-shrink-0 rounded-lg bg-white/10 backdrop-blur-sm"></div>
+              <div className="logo-item h-[60px] w-[140px] flex-shrink-0 rounded-lg bg-white/10 backdrop-blur-sm"></div>
+              <div className="logo-item h-[60px] w-[140px] flex-shrink-0 rounded-lg bg-white/10 backdrop-blur-sm"></div>
+              <div className="logo-item h-[60px] w-[140px] flex-shrink-0 rounded-lg bg-white/10 backdrop-blur-sm"></div>
+              <div className="logo-item h-[60px] w-[140px] flex-shrink-0 rounded-lg bg-white/10 backdrop-blur-sm"></div>
+              {/* Duplicate set for seamless loop */}
+              <div className="logo-item h-[60px] w-[140px] flex-shrink-0 rounded-lg bg-white/10 backdrop-blur-sm"></div>
+              <div className="logo-item h-[60px] w-[140px] flex-shrink-0 rounded-lg bg-white/10 backdrop-blur-sm"></div>
+              <div className="logo-item h-[60px] w-[140px] flex-shrink-0 rounded-lg bg-white/10 backdrop-blur-sm"></div>
+              <div className="logo-item h-[60px] w-[140px] flex-shrink-0 rounded-lg bg-white/10 backdrop-blur-sm"></div>
+              <div className="logo-item h-[60px] w-[140px] flex-shrink-0 rounded-lg bg-white/10 backdrop-blur-sm"></div>
+            </div>
           </div>
           {/* Gradient overlays */}
-          <div className="pointer-events-none absolute inset-y-0 left-0 w-[156px] bg-gradient-to-r from-[#050508] to-transparent"></div>
-          <div className="pointer-events-none absolute inset-y-0 right-0 w-[156px] bg-gradient-to-l from-[#050508] to-transparent"></div>
+          <div className="pointer-events-none absolute inset-y-0 left-0 z-10 w-[156px] bg-gradient-to-r from-[#050508] to-transparent"></div>
+          <div className="pointer-events-none absolute inset-y-0 right-0 z-10 w-[156px] bg-gradient-to-l from-[#050508] to-transparent"></div>
         </div>
       </section>
 
@@ -348,7 +358,7 @@ export default function Home() {
       </section>
 
       <section className="mx-auto w-full max-w-[1400px] px-6 pb-24">
-        <div className="relative overflow-hidden rounded-[44px] border border-white/10 bg-black px-6 pb-12 pt-14 text-center md:px-12 md:pb-16 md:pt-20">
+        <div className="relative overflow-hidden text-center ">
           <div className="footer-cta">
             <h2 className="text-3xl font-semibold text-white md:text-4xl">
               Ready to turn your book into content?
@@ -379,11 +389,13 @@ export default function Home() {
 
         <div className="mt-16 grid gap-12 border-t border-white/10 pt-12 md:grid-cols-[1.1fr_1fr_1fr_1fr]">
           <div className="space-y-4">
-            <div className="flex items-center gap-3 text-lg font-semibold text-white">
-              <img src="/favicon.svg" alt="Verkli" className="h-6 w-6" />
-              verkli
-            </div>
-            <h3 className="text-2xl font-semibold text-white">
+          <img
+                src="/favicon.svg"
+                alt="Verkli"
+                className="h-8 w-auto"
+                loading="eager"
+              />
+              <h3 className="text-2xl font-semibold text-white">
               Where books
               <br />
               become
