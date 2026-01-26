@@ -171,17 +171,23 @@ const GlassSurface = ({
       return false;
     }
 
-    const isWebkit = /Safari/.test(navigator.userAgent) && !/Chrome/.test(navigator.userAgent);
+    // Safari and Firefox don't support SVG filters in backdrop-filter
+    const isSafari = /Safari/.test(navigator.userAgent) && !/Chrome/.test(navigator.userAgent);
     const isFirefox = /Firefox/.test(navigator.userAgent);
 
-    if (isWebkit || isFirefox) {
+    if (isSafari || isFirefox) {
       return false;
     }
 
-    const div = document.createElement('div');
-    div.style.backdropFilter = `url(#${filterId})`;
+    // Chrome, Edge, and other Chromium-based browsers support SVG filters
+    const isChromium = /Chrome/.test(navigator.userAgent) || /Chromium/.test(navigator.userAgent);
+    
+    if (isChromium) {
+      return true;
+    }
 
-    return div.style.backdropFilter !== '';
+    // Fallback check for other browsers
+    return CSS.supports('backdrop-filter', 'blur(1px)');
   };
 
   const containerStyle = {
