@@ -356,7 +356,7 @@ export default function Home() {
       </section>
 
       <section className="mx-auto w-full max-w-[1400px] px-6 pb-24">
-        <div className="relative overflow-hidden text-center ">
+        <div className="relative min-h-[800px] overflow-hidden text-center">
           <div className="footer-cta">
             <h2 className="text-3xl font-semibold text-white md:text-4xl">
               Ready to turn your book into content?
