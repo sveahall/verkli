@@ -36,7 +36,6 @@ export default function RoleSelection() {
             className="h-8 w-auto"
             loading="eager"
           />
-          <span className="text-lg font-medium text-[#e8d4f0]">verkli</span>
         </div>
       </header>
 
