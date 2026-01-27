@@ -72,7 +72,7 @@ export default function TestimonialSection() {
 
       <div className="relative text-center">
         <p className="text-[13px] font-medium uppercase tracking-wider text-[#907AFF]">Testimonials</p>
-        <h2 className="mt-4 text-[40px] font-semibold leading-[1.1] tracking-[-0.02em] text-white md:text-[52px]">
+        <h2 className="mt-4 text-[40px] font-semibold leading-[1.1] tracking-[-0.02em] text-slate-900 dark:text-white md:text-[52px]">
           Loved by authors
           <br />
           <span className="bg-gradient-to-r from-[#907AFF] via-[#E29ED5] to-[#FCC997] bg-clip-text text-transparent">everywhere.</span>
@@ -86,7 +86,7 @@ export default function TestimonialSection() {
             ref={el => cardsRef.current[index] = el}
             onMouseEnter={() => setHoveredIndex(index)}
             onMouseLeave={() => setHoveredIndex(null)}
-            className="group relative overflow-hidden rounded-[28px] border border-white/[0.08] bg-gradient-to-b from-white/[0.06] to-white/[0.02] p-7 transition-all duration-500 hover:-translate-y-2 hover:border-white/[0.15] hover:shadow-2xl hover:shadow-black/20"
+            className="group relative overflow-hidden rounded-[28px] border border-black/10 bg-gradient-to-b from-black/5 to-black/5 p-7 transition-all duration-500 hover:-translate-y-2 hover:border-black/20 hover:shadow-2xl hover:shadow-black/10 dark:border-white/[0.08] dark:from-white/[0.06] dark:to-white/[0.02] dark:hover:border-white/[0.15] dark:hover:shadow-black/20"
           >
             {/* Animated glow */}
             <div 
@@ -108,7 +108,7 @@ export default function TestimonialSection() {
               </svg>
             </div>
             
-            <p className="relative text-[17px] leading-[1.7] text-white/80 transition-colors duration-300 group-hover:text-white/90">
+            <p className="relative text-[17px] leading-[1.7] text-slate-600 transition-colors duration-300 group-hover:text-slate-800 dark:text-white/80 dark:group-hover:text-white/90">
               "{testimonial.quote}"
             </p>
             
@@ -117,13 +117,13 @@ export default function TestimonialSection() {
                 <img
                   src={testimonial.image}
                   alt={testimonial.name}
-                  className="h-12 w-12 rounded-full object-cover ring-2 ring-white/10 transition-all duration-300 group-hover:ring-4"
+                  className="h-12 w-12 rounded-full object-cover ring-2 ring-black/10 transition-all duration-300 group-hover:ring-4 dark:ring-white/10"
                   style={{ '--tw-ring-color': hoveredIndex === index ? `${testimonial.color}40` : 'rgba(255,255,255,0.1)' }}
                 />
               </div>
               <div>
-                <div className="text-[15px] font-medium text-white">{testimonial.name}</div>
-                <div className="text-[13px] text-white/40">{testimonial.role}</div>
+                <div className="text-[15px] font-medium text-slate-900 dark:text-white">{testimonial.name}</div>
+                <div className="text-[13px] text-slate-500 dark:text-white/40">{testimonial.role}</div>
               </div>
             </div>
           </div>

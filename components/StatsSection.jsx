@@ -104,16 +104,16 @@ export default function StatsSection() {
       ref={sectionRef}
       className="relative mx-auto w-full max-w-[1200px] px-6 py-24"
     >
-      <div className="relative overflow-hidden rounded-[40px] bg-gradient-to-br from-white/[0.05] via-white/[0.03] to-transparent p-12 md:p-16">
+      <div className="relative overflow-hidden rounded-[40px] bg-gradient-to-br from-black/5 via-black/5 to-transparent p-12 md:p-16 dark:from-white/[0.05] dark:via-white/[0.03]">
         {/* Background glows */}
         <div className="pointer-events-none absolute -left-20 top-1/2 h-[300px] w-[300px] -translate-y-1/2 rounded-full bg-[#907AFF]/15 blur-[100px]" />
         <div className="pointer-events-none absolute -right-20 top-1/2 h-[300px] w-[300px] -translate-y-1/2 rounded-full bg-[#FCC997]/10 blur-[100px]" />
         
         <div className="relative text-center">
-          <h2 className="text-[32px] font-semibold leading-[1.15] tracking-[-0.02em] text-white md:text-[40px]">
+          <h2 className="text-[32px] font-semibold leading-[1.15] tracking-[-0.02em] text-slate-900 dark:text-white md:text-[40px]">
             The numbers speak for themselves
           </h2>
-          <p className="mx-auto mt-4 max-w-[400px] text-[16px] text-white/50">
+          <p className="mx-auto mt-4 max-w-[400px] text-[16px] text-slate-600 dark:text-white/50">
             Join thousands of authors already growing with Verkli.
           </p>
         </div>
@@ -130,7 +130,7 @@ export default function StatsSection() {
               >
                 {formatValue(animatedValues[index] ?? 0, stat.format)}
               </div>
-              <div className="mt-2 text-[15px] text-white/50">
+              <div className="mt-2 text-[15px] text-slate-600 dark:text-white/50">
                 {stat.label}
               </div>
               

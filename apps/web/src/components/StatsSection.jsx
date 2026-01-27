@@ -18,7 +18,7 @@ export default function StatsSection() {
 
   return (
     <section className="relative mx-auto flex w-full max-w-[1400px] flex-col items-center gap-24 px-6 py-24 lg:gap-[200px] lg:px-[115px] lg:py-[200px]">
-      <h2 className="max-w-[1028px] text-center text-3xl font-normal leading-[120%] text-[#F7F7F7] md:text-4xl lg:text-[55px]">
+      <h2 className="max-w-[1028px] text-center text-3xl font-normal leading-[120%] text-slate-900 dark:text-[#F7F7F7] md:text-4xl lg:text-[55px]">
         Grow faster with social, blog, video, and newsletter content that converts.
       </h2>
 
@@ -29,10 +29,10 @@ export default function StatsSection() {
               key={index}
               className="flex flex-col items-center gap-6 lg:gap-[25px]"
             >
-              <div className="text-center text-6xl font-medium leading-[120%] text-[#F7F7F7] md:text-7xl lg:text-[96px]">
+              <div className="text-center text-6xl font-medium leading-[120%] text-slate-900 dark:text-[#F7F7F7] md:text-7xl lg:text-[96px]">
                 {stat.value}
               </div>
-              <div className="w-full max-w-[297px] text-center text-lg font-normal uppercase leading-[140%] text-[#F7F7F7] md:text-xl lg:text-[23px]">
+              <div className="w-full max-w-[297px] text-center text-lg font-normal uppercase leading-[140%] text-slate-600 dark:text-[#F7F7F7] md:text-xl lg:text-[23px]">
                 {stat.label}
               </div>
             </div>
