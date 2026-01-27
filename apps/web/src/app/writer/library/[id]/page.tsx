@@ -665,9 +665,10 @@ export default function ShelfDetailPage() {
             </div>
           </div>
         </div>
+      )}
 
-        {/* Create Section Modal */}
-        {showCreateSectionModal && (
+      {/* Create Section Modal */}
+      {showCreateSectionModal && (
           <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
             <div className="relative w-full max-w-[500px] rounded-3xl border border-black/10 dark:border-white/10 bg-white/95 dark:bg-[#0a0a0f]/95 p-8 shadow-2xl backdrop-blur-xl">
               <button onClick={() => setShowCreateSectionModal(false)} className="absolute right-6 top-6 text-slate-500 dark:text-white/50 transition-colors hover:text-slate-900 dark:hover:text-white">

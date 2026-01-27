@@ -65,10 +65,20 @@ export default async function PublicShelfPage({ params }: { params: { id: string
   }
 
   const cover = resolveCover(shelf.cover_type, shelf.cover_url, shelf.cover_gradient);
-  const books = (shelf.shelf_books ?? [])
+  type BookSummary = {
+    id: string;
+    title: string;
+    cover_url: string | null;
+    status: string | null;
+  };
+
+  const books: BookSummary[] = (shelf.shelf_books ?? [])
     .sort((a, b) => (a.sort_index ?? 0) - (b.sort_index ?? 0))
-    .map((item) => item.book)
-    .filter(Boolean);
+    .flatMap((item) => {
+      const book = item.book as BookSummary | BookSummary[] | null | undefined;
+      if (!book) return [];
+      return Array.isArray(book) ? book : [book];
+    });
 
   return (
     <main className="min-h-screen bg-background text-foreground">

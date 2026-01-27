@@ -55,7 +55,7 @@ export default async function ReaderReadPage({ params }: { params: { id: string 
               <h2 className="mt-6 text-[18px] font-semibold text-white/80">{firstChapter.title}</h2>
               <div className="mt-4 space-y-4 text-[15px] leading-relaxed text-white/70">
                 {firstChapter.content ? (
-                  firstChapter.content.split("\n").map((line, index) => (
+                  firstChapter.content.split("\n").map((line: string, index: number) => (
                     <p key={`${firstChapter.id}-${index}`}>{line}</p>
                   ))
                 ) : (
