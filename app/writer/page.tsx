@@ -39,17 +39,93 @@ const glassBaseProps = {
 
 // Dashboard mock data
 const mockBooks = [
-  { id: 1, title: "Dune", cover: "https://images.unsplash.com/photo-1682687220742-aba13b6e50ba?w=300&h=400&fit=crop", progress: 45 },
-  { id: 2, title: "The Story of a Lonely Boy", cover: "https://images.unsplash.com/photo-1544947950-fa07a98d237f?w=300&h=400&fit=crop", progress: 72 },
-  { id: 3, title: "Bound by Fate", cover: "https://images.unsplash.com/photo-1543002588-bfa74002ed7e?w=300&h=400&fit=crop", progress: 0 },
+  {
+    id: 1,
+    title: "Dune",
+    author: "Frank Herbert",
+    cover: "https://images.unsplash.com/photo-1682687220742-aba13b6e50ba?w=300&h=400&fit=crop",
+    progress: 45,
+    reads: 2500,
+    chapters: 6,
+    rating: 4.2,
+    currentChapter: 4,
+    currentPage: 33,
+    totalPages: 120,
+  },
+  {
+    id: 2,
+    title: "The Story of a Lonely Boy",
+    author: "Jane Doe",
+    cover: "https://images.unsplash.com/photo-1544947950-fa07a98d237f?w=300&h=400&fit=crop",
+    progress: 72,
+    reads: 1800,
+    chapters: 6,
+    rating: 4.6,
+    currentChapter: 9,
+    currentPage: 118,
+    totalPages: 160,
+  },
+  {
+    id: 3,
+    title: "Bound by Fate",
+    author: "Emma Wilson",
+    cover: "https://images.unsplash.com/photo-1543002588-bfa74002ed7e?w=300&h=400&fit=crop",
+    progress: 0,
+    reads: 900,
+    chapters: 8,
+    rating: 4.1,
+    currentChapter: 1,
+    currentPage: 1,
+    totalPages: 210,
+  },
 ];
 
 const trendingBooks = [
-  { id: 1, title: "Dune", author: "Frank Herbert", cover: "https://images.unsplash.com/photo-1682687220742-aba13b6e50ba?w=300&h=400&fit=crop" },
-  { id: 2, title: "Work of Imagination", author: "Sarah Chen", cover: "https://images.unsplash.com/photo-1544947950-fa07a98d237f?w=300&h=400&fit=crop" },
-  { id: 3, title: "The Story of a Lonely Boy", author: "Mark Torres", cover: "https://images.unsplash.com/photo-1543002588-bfa74002ed7e?w=300&h=400&fit=crop" },
-  { id: 4, title: "Dune Messiah", author: "Frank Herbert", cover: "https://images.unsplash.com/photo-1629992101753-56d196c8aabb?w=300&h=400&fit=crop" },
-  { id: 5, title: "Foundation", author: "Isaac Asimov", cover: "https://images.unsplash.com/photo-1589998059171-988d887df646?w=300&h=400&fit=crop" },
+  {
+    id: 1,
+    title: "Dune",
+    author: "Frank Herbert",
+    cover: "https://images.unsplash.com/photo-1682687220742-aba13b6e50ba?w=300&h=400&fit=crop",
+    reads: 2500,
+    chapters: 6,
+    rating: 4.2,
+  },
+  {
+    id: 2,
+    title: "Work of Imagination",
+    author: "Sarah Chen",
+    cover: "https://images.unsplash.com/photo-1544947950-fa07a98d237f?w=300&h=400&fit=crop",
+    reads: 1900,
+    chapters: 6,
+    rating: 4.4,
+  },
+  {
+    id: 3,
+    title: "The Story of a Lonely Boy",
+    author: "Mark Torres",
+    cover: "https://images.unsplash.com/photo-1543002588-bfa74002ed7e?w=300&h=400&fit=crop",
+    reads: 2100,
+    chapters: 6,
+    rating: 4.3,
+  },
+  {
+    id: 4,
+    title: "Dune Messiah",
+    author: "Frank Herbert",
+    cover: "https://images.unsplash.com/photo-1629992101753-56d196c8aabb?w=300&h=400&fit=crop",
+    reads: 1700,
+    chapters: 5,
+    rating: 4.1,
+  },
+  {
+    id: 5,
+    title: "Foundation",
+    author: "Isaac Asimov",
+    cover: "https://images.unsplash.com/photo-1589998059171-988d887df646?w=300&h=400&fit=crop",
+    reads: 2300,
+    chapters: 7,
+    rating: 4.5,
+  },
 ];
 
 const risingWriters = [
@@ -62,10 +138,46 @@ const risingWriters = [
 ];
 
 const discoverBooks = [
-  { id: 1, title: "Work of Imagination", author: "Sarah Chen", cover: "https://images.unsplash.com/photo-1544947950-fa07a98d237f?w=300&h=400&fit=crop", tag: "FANTASY" },
-  { id: 2, title: "Dune", author: "Frank Herbert", cover: "https://images.unsplash.com/photo-1682687220742-aba13b6e50ba?w=300&h=400&fit=crop", tag: "SCI-FI" },
-  { id: 3, title: "The Quiet Night", author: "Emma Wilson", cover: "https://images.unsplash.com/photo-1543002588-bfa74002ed7e?w=300&h=400&fit=crop", tag: "THRILLER" },
-  { id: 4, title: "Sandman", author: "Neil Gaiman", cover: "https://images.unsplash.com/photo-1629992101753-56d196c8aabb?w=300&h=400&fit=crop", tag: "GRAPHIC NOVEL" },
+  {
+    id: 1,
+    title: "Work of Imagination",
+    author: "Sarah Chen",
+    cover: "https://images.unsplash.com/photo-1544947950-fa07a98d237f?w=300&h=400&fit=crop",
+    tag: "FANTASY",
+    reads: 1600,
+    chapters: 5,
+    rating: 4.1,
+  },
+  {
+    id: 2,
+    title: "Dune",
+    author: "Frank Herbert",
+    cover: "https://images.unsplash.com/photo-1682687220742-aba13b6e50ba?w=300&h=400&fit=crop",
+    tag: "SCI-FI",
+    reads: 2400,
+    chapters: 6,
+    rating: 4.2,
+  },
+  {
+    id: 3,
+    title: "The Quiet Night",
+    author: "Emma Wilson",
+    cover: "https://images.unsplash.com/photo-1543002588-bfa74002ed7e?w=300&h=400&fit=crop",
+    tag: "THRILLER",
+    reads: 1200,
+    chapters: 7,
+    rating: 4.0,
+  },
+  {
+    id: 4,
+    title: "Sandman",
+    author: "Neil Gaiman",
+    cover: "https://images.unsplash.com/photo-1629992101753-56d196c8aabb?w=300&h=400&fit=crop",
+    tag: "GRAPHIC NOVEL",
+    reads: 900,
+    chapters: 4,
+    rating: 4.3,
+  },
 ];
 
 const ctaBooks = [
@@ -76,6 +188,157 @@ const ctaBooks = [
   "https://images.unsplash.com/photo-1589998059171-988d887df646?w=200&h=280&fit=crop",
   "https://images.unsplash.com/photo-1512820790803-83ca734da794?w=200&h=280&fit=crop",
 ];
+
+type BookCardData = {
+  id: number;
+  title: string;
+  author: string;
+  cover: string;
+  reads?: number;
+  chapters?: number;
+  rating?: number;
+  tag?: string;
+  progress?: number;
+  currentChapter?: number;
+  currentPage?: number;
+  totalPages?: number;
+};
+
+type BookCardSize = "sm" | "md" | "lg";
+
+const formatCompactNumber = (value?: number) => {
+  if (!value && value !== 0) return "--";
+  if (value < 1000) return value.toString();
+  const formatted = (value / 1000).toFixed(1);
+  return `${formatted.endsWith(".0") ? formatted.slice(0, -2) : formatted}K`;
+};
+
+const getPagesLeft = (book: BookCardData) => {
+  if (!book.totalPages || !book.currentPage) return undefined;
+  return Math.max(book.totalPages - book.currentPage, 0);
+};
+
+const cardSizeStyles: Record<BookCardSize, { container: string; title: string; author: string; overlayPad: string }> = {
+  sm: {
+    container: "h-[190px] w-[130px] rounded-[18px]",
+    title: "text-[13px]",
+    author: "text-[11px]",
+    overlayPad: "px-3.5 py-2.5",
+  },
+  md: {
+    container: "h-[240px] w-[170px] rounded-[22px]",
+    title: "text-[15px]",
+    author: "text-[12px]",
+    overlayPad: "px-4 py-3",
+  },
+  lg: {
+    container: "h-[280px] w-[190px] rounded-[26px]",
+    title: "text-[16px]",
+    author: "text-[13px]",
+    overlayPad: "px-5 py-3.5",
+  },
+};
+
+function BookCoverCard({
+  book,
+  size = "md",
+  showTag = false,
+  showProgress = false,
+}: {
+  book: BookCardData;
+  size?: BookCardSize;
+  showTag?: boolean;
+  showProgress?: boolean;
+}) {
+  const styles = cardSizeStyles[size];
+  const pagesLeft = getPagesLeft(book);
+  const percentLeft = typeof book.progress === "number" ? Math.max(100 - book.progress, 0) : undefined;
+
+  return (
+    <Link
+      href={`/writer/books/${book.id}`}
+      className="group relative flex-shrink-0 transition-transform duration-300 hover:-translate-y-1.5"
+    >
+      <div
+        className={`relative overflow-hidden ${styles.container} bg-white/[0.05] shadow-[0_20px_60px_-35px_rgba(0,0,0,0.6)] transition-all duration-300 group-hover:shadow-[0_28px_80px_-40px_rgba(144,122,255,0.35)]`}
+      >
+        <img src={book.cover} alt={book.title} className="h-full w-full object-cover" />
+        <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-transparent" />
+        <div className="absolute inset-0 bg-black/35 opacity-0 transition-opacity duration-300 group-hover:opacity-100" />
+
+        {showTag && book.tag && (
+          <div className="absolute left-3 top-3">
+            <span className="rounded-full bg-black/70 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wider text-white/90 backdrop-blur-sm">
+              {book.tag}
+            </span>
+          </div>
+        )}
+
+        <div className="absolute right-3 top-3 opacity-0 transition-all duration-300 group-hover:opacity-100">
+          <div className="flex h-7 w-7 items-center justify-center rounded-full border border-white/10 bg-black/50 text-white/80 backdrop-blur-sm">
+            <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+            </svg>
+          </div>
+        </div>
+
+        <div className="absolute bottom-3 left-3 right-3">
+          <div
+            className={`rounded-[18px] border border-white/10 bg-black/60 backdrop-blur-md ${styles.overlayPad} text-white transition-all duration-300`}
+          >
+            <div className="flex items-center justify-between">
+              <p className={`${styles.title} font-medium text-white`}>{book.title}</p>
+              <p className={`${styles.author} text-white/70`}>{book.author}</p>
+            </div>
+
+            <div className="mt-2 overflow-hidden transition-all duration-300 ease-out max-h-0 opacity-0 translate-y-2 group-hover:max-h-24 group-hover:opacity-100 group-hover:translate-y-0">
+              <div className="flex items-center justify-between text-[11px] text-white/70">
+                <div className="flex items-center gap-1.5">
+                  <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M2.5 12s3.5-6 9.5-6 9.5 6 9.5 6-3.5 6-9.5 6-9.5-6-9.5-6z" />
+                    <circle cx="12" cy="12" r="2.5" />
+                  </svg>
+                  <span>{formatCompactNumber(book.reads)}</span>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 6h16M4 12h16M4 18h8" />
+                  </svg>
+                  <span>{book.chapters ?? "--"}</span>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 3l2.6 5.4 6 .9-4.3 4.2 1 5.9L12 16.8 6.7 19.4l1-5.9L3.4 9.3l6-.9L12 3z" />
+                  </svg>
+                  <span>{book.rating?.toFixed(1) ?? "--"}</span>
+                </div>
+              </div>
+            </div>
+
+            {showProgress && (
+              <div className="mt-2 space-y-2">
+                <div className="flex items-center justify-between text-[11px] text-white/70">
+                  <span>Chapter {book.currentChapter ?? "--"}</span>
+                  <span>Page {book.currentPage ?? "--"}</span>
+                </div>
+                <div className="h-1.5 overflow-hidden rounded-full bg-black/60 backdrop-blur-sm">
+                  <div
+                    className="h-full bg-gradient-to-r from-[#907AFF] to-[#E29ED5]"
+                    style={{ width: `${book.progress ?? 0}%` }}
+                  />
+                </div>
+                <div className="flex items-center justify-between text-[11px] text-white/60">
+                  <span>{percentLeft ?? "--"}% left</span>
+                  <span>{pagesLeft ?? "--"} pages</span>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+    </Link>
+  );
+}
 
 // ============================================
 // INTERACTIVE TESTIMONIAL SECTION
@@ -179,7 +442,7 @@ function LandingPage() {
   };
 
   return (
-    <main className="relative min-h-screen bg-background text-foreground transition-colors duration-300">
+    <main className="writer-light relative min-h-screen bg-background text-foreground transition-colors duration-300">
       <header className="sticky top-6 z-20 mx-auto w-full max-w-[1660px] px-6">
         <GlassSurface {...glassBaseProps} width="100%" height="75px" borderRadius={300} className="w-full border border-black/10 px-6 py-4 dark:border-white/10 md:px-10 [&_.glass-surface__content]:w-full [&_.glass-surface__content]:justify-between [&_.glass-surface__content]:p-0">
           <nav className="flex w-full items-center justify-between gap-6">
@@ -407,6 +670,34 @@ function Dashboard({ user, onSignOut }: { user: User; onSignOut: () => void }) {
   const [profileMenuOpen, setProfileMenuOpen] = useState(false);
   const profileMenuRef = useRef<HTMLDivElement>(null);
   const [shelves, setShelves] = useState([{ id: 1, name: "New Shelf", books: mockBooks.slice(0, 2) }]);
+  
+  // Modal states
+  const [showChoiceModal, setShowChoiceModal] = useState(false);
+  const [showShelfModal, setShowShelfModal] = useState(false);
+  const [showBookModal, setShowBookModal] = useState(false);
+  const [showReviewShelfModal, setShowReviewShelfModal] = useState(false);
+  const [selectedShelfId, setSelectedShelfId] = useState<number | null>(null);
+  
+  // Shelf form state
+  const [shelfForm, setShelfForm] = useState({
+    name: "",
+    cover: "",
+    description: "",
+    authorsNote: "",
+    tags: [] as string[],
+  });
+  
+  // Book form state
+  const [bookForm, setBookForm] = useState({
+    title: "",
+    cover: "",
+    summary: "",
+    authorsNote: "",
+    tags: [] as string[],
+    content: "",
+    uploadFile: null as File | null,
+    creationMethod: "write" as "write" | "upload",
+  });
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -417,39 +708,130 @@ function Dashboard({ user, onSignOut }: { user: User; onSignOut: () => void }) {
   }, []);
 
   const displayName = user?.user_metadata?.full_name || user?.email?.split("@")[0] || "Writer";
+  
+  // Handle choice modal
+  const handleAddClick = (shelfId?: number) => {
+    setSelectedShelfId(shelfId || null);
+    setShowChoiceModal(true);
+  };
+  
+  const handleCreateShelf = () => {
+    setShowChoiceModal(false);
+    setShelfForm({ name: "", cover: "", description: "", authorsNote: "", tags: [] });
+    setShowShelfModal(true);
+  };
+  
+  const handleCreateBook = () => {
+    setShowChoiceModal(false);
+    setBookForm({ title: "", cover: "", summary: "", authorsNote: "", tags: [], content: "", uploadFile: null, creationMethod: "write" });
+    setShowBookModal(true);
+  };
+  
+  const handleShelfSubmit = () => {
+    // Review shelf before finalizing
+    setShowShelfModal(false);
+    setShowReviewShelfModal(true);
+  };
+  
+  const handleReviewShelfConfirm = () => {
+    // Create shelf and add to shelves
+    const newShelfId = Date.now();
+    const newShelf = {
+      id: newShelfId,
+      name: shelfForm.name || "New Shelf",
+      books: [] as typeof mockBooks,
+    };
+    setShelves([...shelves, newShelf]);
+    setShowReviewShelfModal(false);
+    setShelfForm({ name: "", cover: "", description: "", authorsNote: "", tags: [] });
+    setSelectedShelfId(newShelfId);
+    // Open book creation modal to add books to the new shelf
+    setTimeout(() => {
+      handleCreateBook();
+    }, 300);
+  };
+  
+  const handleBookSubmit = () => {
+    // Create book
+    const newBook = {
+      id: Date.now(),
+      title: bookForm.title || "Untitled",
+      author: displayName,
+      cover: bookForm.cover || "https://images.unsplash.com/photo-1544947950-fa07a98d237f?w=300&h=400&fit=crop",
+      progress: 0,
+      reads: 0,
+      chapters: 1,
+      rating: 0,
+      currentChapter: 1,
+      currentPage: 1,
+      totalPages: 100,
+    };
+    
+    if (selectedShelfId) {
+      // Add to specific shelf
+      const newShelves = shelves.map(shelf => 
+        shelf.id === selectedShelfId 
+          ? { ...shelf, books: [...shelf.books, newBook] }
+          : shelf
+      );
+      setShelves(newShelves);
+    } else {
+      // Add to first shelf or create new
+      if (shelves.length > 0) {
+        const newShelves = [...shelves];
+        newShelves[0].books.push(newBook);
+        setShelves(newShelves);
+      }
+    }
+    
+    setShowBookModal(false);
+    setBookForm({ title: "", cover: "", summary: "", authorsNote: "", tags: [], content: "", uploadFile: null, creationMethod: "write" });
+  };
+  
+  const handleTagInput = (value: string, type: "shelf" | "book") => {
+    const tags = value.split(",").map(t => t.trim()).filter(t => t);
+    if (type === "shelf") {
+      setShelfForm({ ...shelfForm, tags });
+    } else {
+      setBookForm({ ...bookForm, tags });
+    }
+  };
 
   return (
-    <main className="min-h-screen bg-[#050508] text-white">
+    <main className="min-h-screen bg-background text-foreground transition-colors duration-300">
       <header className="sticky top-6 z-50 mx-auto w-full max-w-[1660px] px-6">
         <div className="flex items-center gap-3">
-          <GlassSurface {...glassBaseProps} width="100%" height="75px" borderRadius={300} className="flex-1 border border-white/10 px-6 py-4 md:px-10 [&_.glass-surface__content]:w-full [&_.glass-surface__content]:justify-between [&_.glass-surface__content]:p-0">
+          <GlassSurface {...glassBaseProps} width="100%" height="75px" borderRadius={300} className="flex-1 border border-black/10 px-6 py-4 dark:border-white/10 md:px-10 [&_.glass-surface__content]:w-full [&_.glass-surface__content]:justify-between [&_.glass-surface__content]:p-0">
             <nav className="flex w-full items-center justify-between gap-6">
               <div className="flex items-center gap-10">
                 <Link href="/writer"><img src="/favicon.svg" alt="Verkli" className="h-8 w-auto" /></Link>
-                <div className="hidden items-center gap-10 text-[17px] font-normal text-white lg:flex">
-                  <Link href="/writer" className="nav-item transition-colors hover:text-white/70">Home</Link>
-                  {["Features", "Integrations", "Examples", "FAQ"].map((item) => (<button key={item} className="nav-item flex items-center gap-2 transition-colors hover:text-white/70"><span>{item}</span><svg className="h-3 w-3" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 4.5L6 7.5L9 4.5" /></svg></button>))}
+                <div className="hidden items-center gap-10 text-[17px] font-normal text-slate-900 dark:text-white lg:flex">
+                  <Link href="/writer" className="nav-item transition-colors hover:text-slate-600 dark:hover:text-white/70">Home</Link>
+                  {["Features", "Integrations", "Examples", "FAQ"].map((item) => (<button key={item} className="nav-item flex items-center gap-2 transition-colors hover:text-slate-600 dark:hover:text-white/70"><span>{item}</span><svg className="h-3 w-3" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 4.5L6 7.5L9 4.5" /></svg></button>))}
                 </div>
               </div>
               <div className="flex items-center gap-4">
-                <div className="hidden md:block"><div className="flex h-10 w-[280px] items-center gap-2 rounded-full border border-white/10 bg-white/[0.03] px-4"><svg className="h-4 w-4 text-white/40" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg><input type="text" placeholder="Search books, authors..." className="flex-1 bg-transparent text-[14px] text-white placeholder-white/40 outline-none" /></div></div>
-                <button className="rounded-full bg-[#907AFF] px-6 py-2.5 text-[15px] font-medium text-white transition-all hover:bg-[#8069EE]">Create</button>
+                <div className="hidden md:block"><div className="flex h-10 w-[280px] items-center gap-2 rounded-full border border-black/10 bg-black/5 dark:border-white/10 dark:bg-white/[0.03] px-4"><svg className="h-4 w-4 text-slate-400 dark:text-white/40" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg><input type="text" placeholder="Search books, authors..." className="flex-1 bg-transparent text-[14px] text-slate-900 placeholder-slate-400 dark:text-white dark:placeholder-white/40 outline-none" /></div></div>
+                <div className="hidden items-center gap-3 md:flex">
+                  <ThemeToggle glassProps={glassBaseProps} />
+                </div>
+                <button onClick={() => handleAddClick()} className="rounded-full bg-[#907AFF] px-6 py-2.5 text-[15px] font-medium text-white transition-all hover:bg-[#8069EE]">Create</button>
               </div>
             </nav>
           </GlassSurface>
           <div className="relative" ref={profileMenuRef}>
-            <button onClick={() => setProfileMenuOpen(!profileMenuOpen)} className="flex h-[75px] w-[75px] items-center justify-center rounded-full border border-white/10 bg-gradient-to-br from-[#907AFF]/20 to-[#E29ED5]/20 backdrop-blur-xl transition-all hover:border-white/20">
+            <button onClick={() => setProfileMenuOpen(!profileMenuOpen)} className="flex h-[75px] w-[75px] items-center justify-center rounded-full border border-black/10 dark:border-white/10 bg-gradient-to-br from-[#907AFF]/20 to-[#E29ED5]/20 backdrop-blur-xl transition-all hover:border-black/20 dark:hover:border-white/20">
               <span className="flex h-12 w-12 items-center justify-center rounded-full bg-gradient-to-br from-[#907AFF] to-[#E29ED5] text-[18px] font-semibold text-white">{displayName.charAt(0).toUpperCase()}</span>
             </button>
             {profileMenuOpen && (
-              <div className="absolute right-0 top-full mt-3 w-[260px] overflow-hidden rounded-2xl border border-white/10 bg-[#0a0a0f]/95 p-2 shadow-2xl backdrop-blur-xl">
-                <div className="border-b border-white/[0.06] px-4 pb-4 pt-3"><p className="text-[15px] font-medium text-white">{displayName}</p><p className="mt-1 text-[13px] text-white/50">{user?.email}</p></div>
+              <div className="absolute right-0 top-full mt-3 w-[260px] overflow-hidden rounded-2xl border border-black/10 dark:border-white/10 bg-white/95 dark:bg-[#0a0a0f]/95 p-2 shadow-2xl backdrop-blur-xl">
+                <div className="border-b border-black/10 dark:border-white/[0.06] px-4 pb-4 pt-3"><p className="text-[15px] font-medium text-slate-900 dark:text-white">{displayName}</p><p className="mt-1 text-[13px] text-slate-500 dark:text-white/50">{user?.email}</p></div>
                 <div className="py-2">
-                  <button className="flex w-full items-center gap-3 rounded-xl px-4 py-3 text-[14px] text-white/70 transition-colors hover:bg-white/[0.05] hover:text-white"><svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" /></svg>Profile</button>
-                  <button className="flex w-full items-center gap-3 rounded-xl px-4 py-3 text-[14px] text-white/70 transition-colors hover:bg-white/[0.05] hover:text-white"><svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /></svg>Settings</button>
-                  <Link href="/reader" className="flex w-full items-center gap-3 rounded-xl px-4 py-3 text-[14px] text-white/70 transition-colors hover:bg-white/[0.05] hover:text-white"><svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" /></svg>Switch to Reader</Link>
+                  <button className="flex w-full items-center gap-3 rounded-xl px-4 py-3 text-[14px] text-slate-700 dark:text-white/70 transition-colors hover:bg-black/5 dark:hover:bg-white/[0.05] hover:text-slate-900 dark:hover:text-white"><svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" /></svg>Profile</button>
+                  <button className="flex w-full items-center gap-3 rounded-xl px-4 py-3 text-[14px] text-slate-700 dark:text-white/70 transition-colors hover:bg-black/5 dark:hover:bg-white/[0.05] hover:text-slate-900 dark:hover:text-white"><svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /></svg>Settings</button>
+                  <Link href="/reader" className="flex w-full items-center gap-3 rounded-xl px-4 py-3 text-[14px] text-slate-700 dark:text-white/70 transition-colors hover:bg-black/5 dark:hover:bg-white/[0.05] hover:text-slate-900 dark:hover:text-white"><svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" /></svg>Switch to Reader</Link>
                 </div>
-                <div className="border-t border-white/[0.06] pt-2"><button onClick={onSignOut} className="flex w-full items-center gap-3 rounded-xl px-4 py-3 text-[14px] text-red-400/80 transition-colors hover:bg-red-500/10 hover:text-red-400"><svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" /></svg>Sign out</button></div>
+                <div className="border-t border-black/10 dark:border-white/[0.06] pt-2"><button onClick={onSignOut} className="flex w-full items-center gap-3 rounded-xl px-4 py-3 text-[14px] text-red-600 dark:text-red-400/80 transition-colors hover:bg-red-50 dark:hover:bg-red-500/10 hover:text-red-700 dark:hover:text-red-400"><svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" /></svg>Sign out</button></div>
               </div>
             )}
           </div>
@@ -457,62 +839,567 @@ function Dashboard({ user, onSignOut }: { user: User; onSignOut: () => void }) {
       </header>
 
       <div className="mx-auto max-w-[1400px] px-6 py-12">
-        <section className="mb-14"><h1 className="text-[32px] font-semibold tracking-[-0.02em] text-white">{displayName}&apos;s world</h1><p className="mt-2 text-[15px] text-white/50">Your collection. Your masterpieces.</p></section>
+        <section className="mb-14"><h1 className="text-[32px] font-semibold tracking-[-0.02em] text-slate-900 dark:text-white">{displayName}&apos;s world</h1><p className="mt-2 text-[15px] text-slate-600 dark:text-white/50">Your collection. Your masterpieces.</p></section>
 
         {/* My Library */}
         <section className="mb-20">
-          <div className="mb-6 flex items-center justify-between"><h2 className="text-[20px] font-semibold text-white">My library</h2><button className="rounded-full border border-white/10 bg-white/[0.03] px-5 py-2 text-[13px] font-medium text-white/70 transition-all hover:bg-white/[0.06]">See all</button></div>
-          <div className="rounded-3xl border border-white/[0.08] bg-gradient-to-b from-white/[0.04] to-transparent p-8">
+          <div className="mb-6 flex items-center justify-between"><h2 className="text-[20px] font-semibold text-slate-900 dark:text-white">My library</h2><button className="rounded-full border border-black/10 dark:border-white/10 bg-black/5 dark:bg-white/[0.03] px-5 py-2 text-[13px] font-medium text-slate-700 dark:text-white/70 transition-all hover:bg-black/10 dark:hover:bg-white/[0.06]">See all</button></div>
+          <div className="rounded-3xl border border-black/10 dark:border-white/[0.08] bg-gradient-to-b from-black/5 dark:from-white/[0.04] to-transparent p-8">
             {shelves.map((shelf, index) => (
-              <div key={shelf.id} className={index > 0 ? "mt-8 border-t border-white/[0.06] pt-8" : ""}>
-                <div className="mb-5 flex items-center gap-3"><input type="text" value={shelf.name} onChange={(e) => { const newShelves = [...shelves]; newShelves[index].name = e.target.value; setShelves(newShelves); }} className="rounded-xl border border-white/10 bg-white/[0.04] px-4 py-2 text-[14px] text-white outline-none transition-all focus:border-[#907AFF]/50 focus:bg-white/[0.06]" /></div>
+              <div key={shelf.id} className={index > 0 ? "mt-8 border-t border-black/10 dark:border-white/[0.06] pt-8" : ""}>
+                <div className="mb-5 flex items-center gap-3"><input type="text" value={shelf.name} onChange={(e) => { const newShelves = [...shelves]; newShelves[index].name = e.target.value; setShelves(newShelves); }} className="rounded-xl border border-black/10 dark:border-white/10 bg-black/5 dark:bg-white/[0.04] px-4 py-2 text-[14px] text-slate-900 dark:text-white outline-none transition-all focus:border-[#907AFF]/50 focus:bg-black/10 dark:focus:bg-white/[0.06]" /></div>
                 <div className="flex flex-wrap gap-5">
-                  {shelf.books.map((book) => (<div key={book.id} className="group relative cursor-pointer"><div className="h-[180px] w-[120px] overflow-hidden rounded-xl bg-white/[0.05] shadow-lg transition-all duration-300 group-hover:scale-105 group-hover:shadow-xl group-hover:shadow-[#907AFF]/10"><img src={book.cover} alt={book.title} className="h-full w-full object-cover" /></div>{book.progress > 0 && (<div className="absolute bottom-3 left-3 right-3"><div className="h-1.5 overflow-hidden rounded-full bg-black/60 backdrop-blur-sm"><div className="h-full bg-gradient-to-r from-[#907AFF] to-[#E29ED5]" style={{ width: `${book.progress}%` }}></div></div></div>)}</div>))}
-                  <button className="flex h-[180px] w-[120px] items-center justify-center rounded-xl border-2 border-dashed border-white/10 bg-white/[0.02] transition-all hover:border-[#907AFF]/30 hover:bg-white/[0.04]"><div className="flex flex-col items-center gap-2"><svg className="h-8 w-8 text-white/30" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 4v16m8-8H4" /></svg><span className="text-[11px] text-white/30">Add book</span></div></button>
+                  {shelf.books.map((book) => (<div key={book.id} className="group relative cursor-pointer"><div className="h-[180px] w-[120px] overflow-hidden rounded-xl bg-black/5 dark:bg-white/[0.05] shadow-lg transition-all duration-300 group-hover:scale-105 group-hover:shadow-xl group-hover:shadow-[#907AFF]/10"><img src={book.cover} alt={book.title} className="h-full w-full object-cover" /></div>{book.progress > 0 && (<div className="absolute bottom-3 left-3 right-3"><div className="h-1.5 overflow-hidden rounded-full bg-black/60 backdrop-blur-sm"><div className="h-full bg-gradient-to-r from-[#907AFF] to-[#E29ED5]" style={{ width: `${book.progress}%` }}></div></div></div>)}</div>))}
+                  <button onClick={() => handleAddClick(shelf.id)} className="flex h-[180px] w-[120px] items-center justify-center rounded-xl border-2 border-dashed border-black/20 dark:border-white/10 bg-black/5 dark:bg-white/[0.02] transition-all hover:border-[#907AFF]/30 hover:bg-black/10 dark:hover:bg-white/[0.04]"><div className="flex flex-col items-center gap-2"><svg className="h-8 w-8 text-slate-400 dark:text-white/30" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 4v16m8-8H4" /></svg><span className="text-[11px] text-slate-500 dark:text-white/30">Add book</span></div></button>
                 </div>
               </div>
             ))}
-            <button onClick={() => setShelves([...shelves, { id: Date.now(), name: "New Shelf", books: [] }])} className="mt-8 flex w-full items-center justify-center gap-2 rounded-xl border-2 border-dashed border-white/10 py-4 text-[14px] text-white/50 transition-all hover:border-[#907AFF]/30 hover:bg-white/[0.02] hover:text-white/70"><svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 4v16m8-8H4" /></svg>Add another shelf/book</button>
+            <button onClick={() => handleAddClick()} className="mt-8 flex w-full items-center justify-center gap-2 rounded-xl border-2 border-dashed border-black/20 dark:border-white/10 py-4 text-[14px] text-slate-600 dark:text-white/50 transition-all hover:border-[#907AFF]/30 hover:bg-black/5 dark:hover:bg-white/[0.02] hover:text-slate-900 dark:hover:text-white/70"><svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 4v16m8-8H4" /></svg>Add another shelf/book</button>
           </div>
         </section>
 
         {/* Continue Reading */}
         <section className="mb-20">
-          <div className="mb-4"><p className="text-[11px] font-semibold uppercase tracking-wider text-[#907AFF]">CONTINUE READING</p><p className="mt-1 text-[14px] text-white/50">Jump back in</p></div>
-          <div className="flex gap-5 overflow-x-auto pb-4">{mockBooks.filter(b => b.progress > 0).map((book) => (<div key={book.id} className="group relative flex-shrink-0 cursor-pointer"><div className="h-[160px] w-[110px] overflow-hidden rounded-xl bg-white/[0.05] shadow-lg transition-all duration-300 group-hover:scale-105 group-hover:shadow-xl group-hover:shadow-[#907AFF]/10"><img src={book.cover} alt={book.title} className="h-full w-full object-cover" /></div><div className="absolute bottom-3 left-3 right-3"><div className="h-1.5 overflow-hidden rounded-full bg-black/60 backdrop-blur-sm"><div className="h-full bg-gradient-to-r from-[#907AFF] to-[#E29ED5]" style={{ width: `${book.progress}%` }}></div></div></div></div>))}</div>
+          <div className="mb-4">
+            <p className="text-[11px] font-semibold uppercase tracking-wider text-[#907AFF]">CONTINUE READING</p>
+            <p className="mt-1 text-[14px] text-slate-600 dark:text-white/50">Jump back in</p>
+          </div>
+          <div className="flex gap-6 overflow-x-auto pb-4">
+            {mockBooks
+              .filter((book) => book.progress && book.progress > 0)
+              .map((book) => (
+                <BookCoverCard key={book.id} book={book} size="md" showProgress />
+              ))}
+          </div>
         </section>
 
         {/* Explore More */}
         <section className="mb-20">
-          <h2 className="mb-10 text-[28px] font-semibold tracking-[-0.02em] text-white">Explore more</h2>
-          <div className="mb-12"><div className="mb-5 flex items-center justify-between"><div><p className="text-[11px] font-semibold uppercase tracking-wider text-[#E29ED5]">TRENDING NOW</p><p className="mt-1 text-[14px] text-white/50">What readers are enjoying right now</p></div><div className="flex gap-2"><button className="flex h-9 w-9 items-center justify-center rounded-full border border-white/10 text-white/50 transition-all hover:border-white/20 hover:bg-white/[0.03] hover:text-white"><svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" /></svg></button><button className="flex h-9 w-9 items-center justify-center rounded-full border border-white/10 text-white/50 transition-all hover:border-white/20 hover:bg-white/[0.03] hover:text-white"><svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg></button></div></div><div className="flex gap-5 overflow-x-auto pb-4">{trendingBooks.map((book) => (<div key={book.id} className="group flex-shrink-0 cursor-pointer"><div className="relative h-[200px] w-[140px] overflow-hidden rounded-2xl bg-white/[0.05] shadow-lg transition-all duration-300 group-hover:scale-105 group-hover:shadow-xl group-hover:shadow-[#907AFF]/10"><img src={book.cover} alt={book.title} className="h-full w-full object-cover" /><div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-transparent"></div><div className="absolute bottom-4 left-4 right-4"><p className="truncate text-[14px] font-medium text-white">{book.title}</p><p className="truncate text-[12px] text-white/60">{book.author}</p></div></div></div>))}</div></div>
-          <div className="mb-12"><div className="mb-5"><p className="text-[11px] font-semibold uppercase tracking-wider text-[#FCC997]">WRITERS ON THE RISE</p><p className="mt-1 text-[14px] text-white/50">Creators gaining momentum</p></div><div className="flex gap-6 overflow-x-auto pb-4">{risingWriters.map((writer) => (<div key={writer.id} className="group flex flex-shrink-0 cursor-pointer flex-col items-center"><div className="relative"><div className="h-[72px] w-[72px] overflow-hidden rounded-full border-2 border-white/10 transition-all duration-300 group-hover:border-[#907AFF]/50 group-hover:shadow-lg group-hover:shadow-[#907AFF]/20"><img src={writer.avatar} alt={writer.name} className="h-full w-full object-cover" /></div><div className="absolute -bottom-1 -right-1 flex h-6 w-6 items-center justify-center rounded-full bg-gradient-to-br from-[#907AFF] to-[#E29ED5] shadow-lg"><svg className="h-3.5 w-3.5 text-white" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" /></svg></div></div><p className="mt-3 text-[13px] font-medium text-white/70 transition-colors group-hover:text-white">{writer.name.split(" ")[0]}</p></div>))}</div></div>
-          <div><div className="mb-5 flex items-center justify-between"><div><p className="text-[11px] font-semibold uppercase tracking-wider text-[#FEE9A3]">DISCOVER NEW READS</p><p className="mt-1 text-[14px] text-white/50">What readers are enjoying right now</p></div><div className="flex gap-2"><button className="flex h-9 w-9 items-center justify-center rounded-full border border-white/10 text-white/50 transition-all hover:border-white/20 hover:bg-white/[0.03] hover:text-white"><svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" /></svg></button><button className="flex h-9 w-9 items-center justify-center rounded-full border border-white/10 text-white/50 transition-all hover:border-white/20 hover:bg-white/[0.03] hover:text-white"><svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg></button></div></div><div className="flex gap-5 overflow-x-auto pb-4">{discoverBooks.map((book) => (<div key={book.id} className="group flex-shrink-0 cursor-pointer"><div className="relative h-[200px] w-[140px] overflow-hidden rounded-2xl bg-white/[0.05] shadow-lg transition-all duration-300 group-hover:scale-105 group-hover:shadow-xl group-hover:shadow-[#907AFF]/10"><img src={book.cover} alt={book.title} className="h-full w-full object-cover" /><div className="absolute left-3 top-3"><span className="rounded-full bg-black/70 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wider text-white/90 backdrop-blur-sm">{book.tag}</span></div><div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-transparent"></div><div className="absolute bottom-4 left-4 right-4"><p className="truncate text-[14px] font-medium text-white">{book.title}</p><p className="truncate text-[12px] text-white/60">{book.author}</p></div></div></div>))}</div></div>
+          <h2 className="mb-10 text-[32px] font-semibold tracking-[-0.02em] text-slate-900 dark:text-white">Explore more</h2>
+
+          <div className="mb-12">
+            <div className="mb-5 flex items-center justify-between">
+              <div>
+                <p className="text-[11px] font-semibold uppercase tracking-wider text-[#E29ED5]">TRENDING NOW</p>
+                <p className="mt-1 text-[14px] text-slate-600 dark:text-white/50">What readers are enjoying right now</p>
+              </div>
+              <div className="flex gap-2">
+                <button className="flex h-9 w-9 items-center justify-center rounded-full border border-black/10 dark:border-white/10 text-slate-500 dark:text-white/50 transition-all hover:border-black/20 dark:hover:border-white/20 hover:bg-black/5 dark:hover:bg-white/[0.03] hover:text-slate-900 dark:hover:text-white">
+                  <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                  </svg>
+                </button>
+                <button className="flex h-9 w-9 items-center justify-center rounded-full border border-black/10 dark:border-white/10 text-slate-500 dark:text-white/50 transition-all hover:border-black/20 dark:hover:border-white/20 hover:bg-black/5 dark:hover:bg-white/[0.03] hover:text-slate-900 dark:hover:text-white">
+                  <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                  </svg>
+                </button>
+              </div>
+            </div>
+            <div className="flex gap-6 overflow-x-auto pb-4">
+              {trendingBooks.map((book) => (
+                <BookCoverCard key={book.id} book={book} size="lg" />
+              ))}
+            </div>
+          </div>
+
+          <div className="mb-12">
+            <div className="mb-5">
+              <p className="text-[11px] font-semibold uppercase tracking-wider text-[#FCC997]">WRITERS ON THE RISE</p>
+                <p className="mt-1 text-[14px] text-slate-600 dark:text-white/50">Creators gaining momentum</p>
+            </div>
+            <div className="flex gap-6 overflow-x-auto pb-4">
+              {risingWriters.map((writer) => (
+                <div key={writer.id} className="group flex flex-shrink-0 cursor-pointer flex-col items-center">
+                  <div className="relative">
+                    <div className="h-[72px] w-[72px] overflow-hidden rounded-full border-2 border-black/10 dark:border-white/10 transition-all duration-300 group-hover:border-[#907AFF]/50 group-hover:shadow-lg group-hover:shadow-[#907AFF]/20">
+                      <img src={writer.avatar} alt={writer.name} className="h-full w-full object-cover" />
+                    </div>
+                    <div className="absolute -bottom-1 -right-1 flex h-6 w-6 items-center justify-center rounded-full bg-gradient-to-br from-[#907AFF] to-[#E29ED5] shadow-lg">
+                      <svg className="h-3.5 w-3.5 text-white" fill="currentColor" viewBox="0 0 20 20">
+                        <path
+                          fillRule="evenodd"
+                          d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"
+                          clipRule="evenodd"
+                        />
+                      </svg>
+                    </div>
+                  </div>
+                  <p className="mt-3 text-[13px] font-medium text-slate-700 dark:text-white/70 transition-colors group-hover:text-slate-900 dark:group-hover:text-white">
+                    {writer.name.split(" ")[0]}
+                  </p>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <div>
+            <div className="mb-5 flex items-center justify-between">
+              <div>
+                <p className="text-[11px] font-semibold uppercase tracking-wider text-[#FEE9A3]">DISCOVER NEW READS</p>
+                <p className="mt-1 text-[14px] text-slate-600 dark:text-white/50">What readers are enjoying right now</p>
+              </div>
+              <div className="flex gap-2">
+                <button className="flex h-9 w-9 items-center justify-center rounded-full border border-black/10 dark:border-white/10 text-slate-500 dark:text-white/50 transition-all hover:border-black/20 dark:hover:border-white/20 hover:bg-black/5 dark:hover:bg-white/[0.03] hover:text-slate-900 dark:hover:text-white">
+                  <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                  </svg>
+                </button>
+                <button className="flex h-9 w-9 items-center justify-center rounded-full border border-black/10 dark:border-white/10 text-slate-500 dark:text-white/50 transition-all hover:border-black/20 dark:hover:border-white/20 hover:bg-black/5 dark:hover:bg-white/[0.03] hover:text-slate-900 dark:hover:text-white">
+                  <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                  </svg>
+                </button>
+              </div>
+            </div>
+            <div className="flex gap-6 overflow-x-auto pb-4">
+              {discoverBooks.map((book) => (
+                <BookCoverCard key={book.id} book={book} size="lg" showTag />
+              ))}
+            </div>
+          </div>
         </section>
 
         {/* CTA */}
         <section className="mb-20">
-          <div className="overflow-hidden rounded-[40px] border border-white/[0.08] bg-gradient-to-b from-white/[0.06] to-white/[0.02]">
-            <div className="px-10 py-14 text-center"><h2 className="text-[32px] font-semibold tracking-[-0.02em] text-white">Ready to turn your book into content?</h2><p className="mt-3 text-[15px] text-white/50">Upload a chapter and reach more readers across all platforms.</p><button className="mt-8 rounded-full bg-[#907AFF] px-8 py-3.5 text-[15px] font-medium text-white transition-all hover:bg-[#8069EE]">Get started</button></div>
-            <div className="relative h-[220px] overflow-hidden"><div className="absolute inset-0 z-10 bg-gradient-to-t from-[#050508] via-transparent to-transparent"></div><div className="flex animate-scroll gap-5 px-4">{[...ctaBooks, ...ctaBooks, ...ctaBooks].map((cover, index) => (<div key={index} className="h-[200px] w-[130px] flex-shrink-0 overflow-hidden rounded-xl shadow-lg" style={{ transform: `rotate(${(index % 3 - 1) * 5}deg) translateY(${(index % 2) * 20}px)` }}><img src={cover} alt="" className="h-full w-full object-cover" /></div>))}</div></div>
+          <div className="overflow-hidden rounded-[40px] border border-black/10 dark:border-white/[0.08] bg-gradient-to-b from-black/5 dark:from-white/[0.06] to-transparent dark:to-white/[0.02]">
+            <div className="px-10 py-14 text-center"><h2 className="text-[32px] font-semibold tracking-[-0.02em] text-slate-900 dark:text-white">Ready to turn your book into content?</h2><p className="mt-3 text-[15px] text-slate-600 dark:text-white/50">Upload a chapter and reach more readers across all platforms.</p><button className="mt-8 rounded-full bg-[#907AFF] px-8 py-3.5 text-[15px] font-medium text-white transition-all hover:bg-[#8069EE]">Get started</button></div>
+            <div className="relative h-[220px] overflow-hidden"><div className="absolute inset-0 z-10 bg-gradient-to-t from-white via-transparent to-transparent dark:from-[#050508]"></div><div className="flex animate-scroll gap-5 px-4">{[...ctaBooks, ...ctaBooks, ...ctaBooks].map((cover, index) => (<div key={index} className="h-[200px] w-[130px] flex-shrink-0 overflow-hidden rounded-xl shadow-lg" style={{ transform: `rotate(${(index % 3 - 1) * 5}deg) translateY(${(index % 2) * 20}px)` }}><img src={cover} alt="" className="h-full w-full object-cover" /></div>))}</div></div>
           </div>
         </section>
       </div>
 
-      <footer className="border-t border-white/[0.06] bg-[#050508]">
+      <footer className="border-t border-black/10 dark:border-white/[0.06] bg-background">
         <div className="mx-auto max-w-[1400px] px-6 py-16">
           <div className="grid gap-12 md:grid-cols-[1.5fr_1fr_1fr_1fr_1fr]">
-            <div><img src="/favicon.svg" alt="Verkli" className="h-9 w-auto" /><p className="mt-5 max-w-[220px] text-[14px] leading-relaxed text-white/50">Where books become momentum.</p></div>
-            <div><p className="text-[11px] font-semibold uppercase tracking-wider text-white/40">VERKLI</p><ul className="mt-5 space-y-3 text-[14px] text-white/50"><li><a href="#" className="transition-colors hover:text-white">Light reader app</a></li><li><a href="#" className="transition-colors hover:text-white">Go Premium</a></li></ul></div>
-            <div><p className="text-[11px] font-semibold uppercase tracking-wider text-white/40">DISCOVER</p><ul className="mt-5 space-y-3 text-[14px] text-white/50"><li><a href="#" className="transition-colors hover:text-white">Social</a></li><li><a href="#" className="transition-colors hover:text-white">Library</a></li><li><a href="#" className="transition-colors hover:text-white">Clubs</a></li></ul></div>
-            <div><p className="text-[11px] font-semibold uppercase tracking-wider text-white/40">APP</p><ul className="mt-5 space-y-3 text-[14px] text-white/50"><li><a href="#" className="transition-colors hover:text-white">iOS</a></li><li><a href="#" className="transition-colors hover:text-white">Android</a></li></ul></div>
-            <div><p className="text-[11px] font-semibold uppercase tracking-wider text-white/40">ABOUT</p><ul className="mt-5 space-y-3 text-[14px] text-white/50"><li><a href="#" className="transition-colors hover:text-white">About us</a></li><li><a href="#" className="transition-colors hover:text-white">Careers</a></li><li><a href="#" className="transition-colors hover:text-white">Contact</a></li></ul></div>
+            <div><img src="/favicon.svg" alt="Verkli" className="h-9 w-auto" /><p className="mt-5 max-w-[220px] text-[14px] leading-relaxed text-slate-600 dark:text-white/50">Where books become momentum.</p></div>
+            <div><p className="text-[11px] font-semibold uppercase tracking-wider text-slate-500 dark:text-white/40">VERKLI</p><ul className="mt-5 space-y-3 text-[14px] text-slate-600 dark:text-white/50"><li><a href="#" className="transition-colors hover:text-slate-900 dark:hover:text-white">Light reader app</a></li><li><a href="#" className="transition-colors hover:text-slate-900 dark:hover:text-white">Go Premium</a></li></ul></div>
+            <div><p className="text-[11px] font-semibold uppercase tracking-wider text-slate-500 dark:text-white/40">DISCOVER</p><ul className="mt-5 space-y-3 text-[14px] text-slate-600 dark:text-white/50"><li><a href="#" className="transition-colors hover:text-slate-900 dark:hover:text-white">Social</a></li><li><a href="#" className="transition-colors hover:text-slate-900 dark:hover:text-white">Library</a></li><li><a href="#" className="transition-colors hover:text-slate-900 dark:hover:text-white">Clubs</a></li></ul></div>
+            <div><p className="text-[11px] font-semibold uppercase tracking-wider text-slate-500 dark:text-white/40">APP</p><ul className="mt-5 space-y-3 text-[14px] text-slate-600 dark:text-white/50"><li><a href="#" className="transition-colors hover:text-slate-900 dark:hover:text-white">iOS</a></li><li><a href="#" className="transition-colors hover:text-slate-900 dark:hover:text-white">Android</a></li></ul></div>
+            <div><p className="text-[11px] font-semibold uppercase tracking-wider text-slate-500 dark:text-white/40">ABOUT</p><ul className="mt-5 space-y-3 text-[14px] text-slate-600 dark:text-white/50"><li><a href="#" className="transition-colors hover:text-slate-900 dark:hover:text-white">About us</a></li><li><a href="#" className="transition-colors hover:text-slate-900 dark:hover:text-white">Careers</a></li><li><a href="#" className="transition-colors hover:text-slate-900 dark:hover:text-white">Contact</a></li></ul></div>
           </div>
-          <div className="mt-14 flex flex-col items-center justify-between gap-4 border-t border-white/[0.06] pt-8 text-[13px] text-white/30 md:flex-row"><div className="flex gap-6"><a href="#" className="transition-colors hover:text-white/50">Terms of Service</a><a href="#" className="transition-colors hover:text-white/50">Privacy Policy</a></div><span>© 2026 Verkli. All rights reserved.</span></div>
+          <div className="mt-14 flex flex-col items-center justify-between gap-4 border-t border-black/10 dark:border-white/[0.06] pt-8 text-[13px] text-slate-500 dark:text-white/30 md:flex-row"><div className="flex gap-6"><a href="#" className="transition-colors hover:text-slate-700 dark:hover:text-white/50">Terms of Service</a><a href="#" className="transition-colors hover:text-slate-700 dark:hover:text-white/50">Privacy Policy</a></div><span>© 2026 Verkli. All rights reserved.</span></div>
         </div>
       </footer>
 
       <style jsx>{`@keyframes scroll { 0% { transform: translateX(0); } 100% { transform: translateX(-50%); } } .animate-scroll { animation: scroll 30s linear infinite; }`}</style>
+
+      {/* Choice Modal - Shelf or Book */}
+      {showChoiceModal && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4" onClick={() => setShowChoiceModal(false)}>
+          <div className="relative w-full max-w-[600px] rounded-3xl border border-black/10 dark:border-white/10 bg-white/95 dark:bg-[#0a0a0f]/95 p-8 shadow-2xl backdrop-blur-xl" onClick={(e) => e.stopPropagation()}>
+            <button onClick={() => setShowChoiceModal(false)} className="absolute right-6 top-6 text-slate-500 dark:text-white/50 transition-colors hover:text-slate-900 dark:hover:text-white">
+              <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+            </button>
+            <h2 className="mb-6 text-[28px] font-semibold text-slate-900 dark:text-white">Create new</h2>
+            <div className="grid gap-4 md:grid-cols-2">
+              <button onClick={handleCreateShelf} className="group rounded-2xl border border-black/10 dark:border-white/10 bg-black/5 dark:bg-white/[0.02] p-6 text-left transition-all hover:border-[#907AFF]/30 hover:bg-black/10 dark:hover:bg-white/[0.04]">
+                <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-to-br from-[#907AFF]/20 to-[#E29ED5]/20">
+                  <svg className="h-6 w-6 text-[#907AFF]" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" /></svg>
+                </div>
+                <h3 className="mb-2 text-[18px] font-semibold text-slate-900 dark:text-white">Create Shelf</h3>
+                <p className="text-[14px] text-slate-600 dark:text-white/50">Organize your books into collections (e.g., book series)</p>
+              </button>
+              <button onClick={handleCreateBook} className="group rounded-2xl border border-black/10 dark:border-white/10 bg-black/5 dark:bg-white/[0.02] p-6 text-left transition-all hover:border-[#907AFF]/30 hover:bg-black/10 dark:hover:bg-white/[0.04]">
+                <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-to-br from-[#E29ED5]/20 to-[#FCC997]/20">
+                  <svg className="h-6 w-6 text-[#E29ED5]" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" /></svg>
+                </div>
+                <h3 className="mb-2 text-[18px] font-semibold text-slate-900 dark:text-white">Create Book</h3>
+                <p className="text-[14px] text-slate-600 dark:text-white/50">Write a new book or upload an existing one</p>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Shelf Creation Modal */}
+      {showShelfModal && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 overflow-y-auto">
+          <div className="relative my-8 w-full max-w-[800px] rounded-3xl border border-black/10 dark:border-white/10 bg-white/95 dark:bg-[#0a0a0f]/95 p-8 shadow-2xl backdrop-blur-xl" onClick={(e) => e.stopPropagation()}>
+            <button onClick={() => setShowShelfModal(false)} className="absolute right-6 top-6 text-slate-500 dark:text-white/50 transition-colors hover:text-slate-900 dark:hover:text-white">
+              <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+            </button>
+            <div className="mb-6 flex items-center gap-3">
+              <input
+                type="text"
+                value={shelfForm.name}
+                onChange={(e) => setShelfForm({ ...shelfForm, name: e.target.value })}
+                placeholder="New shelf"
+                className="flex-1 rounded-xl border border-white/10 bg-white/[0.04] px-4 py-2.5 text-[20px] font-semibold text-white outline-none transition-all focus:border-[#907AFF]/50 focus:bg-white/[0.06]"
+              />
+              <svg className="h-5 w-5 text-slate-400 dark:text-white/40" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" /></svg>
+            </div>
+            
+            <div className="space-y-4">
+              {/* Cover Upload */}
+              <button className="flex w-full items-center justify-between rounded-xl border border-black/10 dark:border-white/10 bg-black/5 dark:bg-white/[0.02] px-4 py-3 text-left transition-all hover:border-[#907AFF]/30 hover:bg-black/10 dark:hover:bg-white/[0.04]">
+                <span className="text-[14px] text-slate-700 dark:text-white/70">+ Add shelf cover</span>
+                <input type="file" accept="image/*" className="hidden" id="shelf-cover" onChange={(e) => {
+                  const file = e.target.files?.[0];
+                  if (file) {
+                    const reader = new FileReader();
+                    reader.onload = (e) => setShelfForm({ ...shelfForm, cover: e.target?.result as string });
+                    reader.readAsDataURL(file);
+                  }
+                }} />
+                <label htmlFor="shelf-cover" className="cursor-pointer text-[#907AFF]">Upload</label>
+              </button>
+              {shelfForm.cover && (
+                <div className="relative h-32 w-24 overflow-hidden rounded-lg">
+                  <img src={shelfForm.cover} alt="Shelf cover" className="h-full w-full object-cover" />
+                  <button onClick={() => setShelfForm({ ...shelfForm, cover: "" })} className="absolute right-1 top-1 rounded-full bg-black/60 p-1 text-white/80 hover:bg-black/80">
+                    <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+                  </button>
+                </div>
+              )}
+
+              {/* Description */}
+              <div>
+                <button 
+                  onClick={() => setShelfForm({ ...shelfForm, description: shelfForm.description ? "" : " " })}
+                  className="flex w-full items-center justify-between rounded-xl border border-white/10 bg-white/[0.02] px-4 py-3 text-left transition-all hover:border-[#907AFF]/30 hover:bg-white/[0.04]"
+                >
+                  <span className="text-[14px] text-white/70">+ Add summary</span>
+                </button>
+                {shelfForm.description && (
+                  <textarea
+                    value={shelfForm.description}
+                    onChange={(e) => setShelfForm({ ...shelfForm, description: e.target.value })}
+                    placeholder="Describe your shelf..."
+                    className="mt-2 w-full rounded-xl border border-white/10 bg-white/[0.04] px-4 py-3 text-[14px] text-white placeholder-white/30 outline-none transition-all focus:border-[#907AFF]/50 focus:bg-white/[0.06]"
+                    rows={4}
+                    autoFocus
+                  />
+                )}
+              </div>
+
+              {/* Author's Note */}
+              <div>
+                <button 
+                  onClick={() => setShelfForm({ ...shelfForm, authorsNote: shelfForm.authorsNote ? "" : " " })}
+                  className="flex w-full items-center justify-between rounded-xl border border-white/10 bg-white/[0.02] px-4 py-3 text-left transition-all hover:border-[#907AFF]/30 hover:bg-white/[0.04]"
+                >
+                  <span className="text-[14px] text-white/70">+ Add author&apos;s note</span>
+                </button>
+                {shelfForm.authorsNote && (
+                  <textarea
+                    value={shelfForm.authorsNote}
+                    onChange={(e) => setShelfForm({ ...shelfForm, authorsNote: e.target.value })}
+                    placeholder="Add a personal note about this shelf..."
+                    className="mt-2 w-full rounded-xl border border-white/10 bg-white/[0.04] px-4 py-3 text-[14px] text-white placeholder-white/30 outline-none transition-all focus:border-[#907AFF]/50 focus:bg-white/[0.06]"
+                    rows={3}
+                    autoFocus
+                  />
+                )}
+              </div>
+
+              {/* Tags */}
+              <div>
+                <button 
+                  onClick={() => {
+                    const input = document.getElementById("shelf-tags-input") as HTMLInputElement;
+                    if (input) input.focus();
+                  }}
+                  className="flex w-full items-center justify-between rounded-xl border border-white/10 bg-white/[0.02] px-4 py-3 text-left transition-all hover:border-[#907AFF]/30 hover:bg-white/[0.04]"
+                >
+                  <span className="text-[14px] text-white/70">+ Add general tags</span>
+                </button>
+                {shelfForm.tags.length > 0 && (
+                  <div className="mt-2 flex flex-wrap gap-2">
+                    {shelfForm.tags.map((tag, i) => (
+                      <span key={i} className="flex items-center gap-2 rounded-full bg-[#907AFF]/20 px-3 py-1 text-[13px] text-[#907AFF]">
+                        {tag}
+                        <button onClick={() => setShelfForm({ ...shelfForm, tags: shelfForm.tags.filter((_, idx) => idx !== i) })} className="text-[#907AFF]/60 hover:text-[#907AFF]">
+                          <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+                        </button>
+                      </span>
+                    ))}
+                  </div>
+                )}
+                <input
+                  id="shelf-tags-input"
+                  type="text"
+                  placeholder="Enter tags separated by commas, then press Enter..."
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") {
+                      e.preventDefault();
+                      const value = (e.target as HTMLInputElement).value;
+                      if (value.trim()) {
+                        handleTagInput(value, "shelf");
+                        (e.target as HTMLInputElement).value = "";
+                      }
+                    }
+                  }}
+                  className="mt-2 w-full rounded-xl border border-white/10 bg-white/[0.04] px-4 py-3 text-[14px] text-white placeholder-white/30 outline-none transition-all focus:border-[#907AFF]/50 focus:bg-white/[0.06]"
+                />
+              </div>
+            </div>
+
+            <div className="mt-8 flex justify-end gap-3">
+              <button onClick={() => setShowShelfModal(false)} className="rounded-xl border border-black/10 dark:border-white/10 bg-black/5 dark:bg-white/[0.02] px-6 py-2.5 text-[14px] font-medium text-slate-700 dark:text-white/70 transition-all hover:bg-black/10 dark:hover:bg-white/[0.04]">
+                Cancel
+              </button>
+              <button onClick={handleShelfSubmit} className="rounded-xl bg-[#907AFF] px-6 py-2.5 text-[14px] font-medium text-white transition-all hover:bg-[#8069EE]">
+                Review shelf
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Review Shelf Modal */}
+      {showReviewShelfModal && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 overflow-y-auto">
+          <div className="relative my-8 w-full max-w-[700px] rounded-3xl border border-black/10 dark:border-white/10 bg-white/95 dark:bg-[#0a0a0f]/95 p-8 shadow-2xl backdrop-blur-xl">
+            <button onClick={() => setShowReviewShelfModal(false)} className="absolute right-6 top-6 text-slate-500 dark:text-white/50 transition-colors hover:text-slate-900 dark:hover:text-white">
+              <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+            </button>
+            <h2 className="mb-6 text-[28px] font-semibold text-slate-900 dark:text-white">Review shelf</h2>
+            
+            <div className="space-y-6">
+              <div>
+                <h3 className="mb-2 text-[16px] font-medium text-white">{shelfForm.name || "New shelf"}</h3>
+                {shelfForm.cover && (
+                  <div className="mb-4 h-48 w-32 overflow-hidden rounded-lg">
+                    <img src={shelfForm.cover} alt="Shelf cover" className="h-full w-full object-cover" />
+                  </div>
+                )}
+                {shelfForm.description && (
+                  <p className="mb-4 text-[14px] text-white/70">{shelfForm.description}</p>
+                )}
+                {shelfForm.authorsNote && (
+                  <div className="mb-4 rounded-xl border border-white/10 bg-white/[0.02] p-4">
+                    <p className="mb-1 text-[12px] font-medium text-slate-500 dark:text-white/50">Author&apos;s Note</p>
+                    <p className="text-[14px] text-slate-700 dark:text-white/70">{shelfForm.authorsNote}</p>
+                  </div>
+                )}
+                {shelfForm.tags.length > 0 && (
+                  <div className="flex flex-wrap gap-2">
+                    {shelfForm.tags.map((tag, i) => (
+                      <span key={i} className="rounded-full bg-[#907AFF]/20 px-3 py-1 text-[13px] text-[#907AFF]">{tag}</span>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+
+            <div className="mt-8 flex justify-end gap-3">
+              <button onClick={() => { setShowReviewShelfModal(false); setShowShelfModal(true); }} className="rounded-xl border border-black/10 dark:border-white/10 bg-black/5 dark:bg-white/[0.02] px-6 py-2.5 text-[14px] font-medium text-slate-700 dark:text-white/70 transition-all hover:bg-black/10 dark:hover:bg-white/[0.04]">
+                Edit
+              </button>
+              <button onClick={handleReviewShelfConfirm} className="rounded-xl bg-[#907AFF] px-6 py-2.5 text-[14px] font-medium text-white transition-all hover:bg-[#8069EE]">
+                Create shelf
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Book Creation Modal */}
+      {showBookModal && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 overflow-y-auto">
+          <div className="relative my-8 w-full max-w-[900px] rounded-3xl border border-black/10 dark:border-white/10 bg-white/95 dark:bg-[#0a0a0f]/95 p-8 shadow-2xl backdrop-blur-xl">
+            <button onClick={() => setShowBookModal(false)} className="absolute right-6 top-6 text-slate-500 dark:text-white/50 transition-colors hover:text-slate-900 dark:hover:text-white">
+              <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+            </button>
+            <div className="mb-6 flex items-center gap-3">
+              <input
+                type="text"
+                value={bookForm.title}
+                onChange={(e) => setBookForm({ ...bookForm, title: e.target.value })}
+                placeholder="New section"
+                className="flex-1 rounded-xl border border-white/10 bg-white/[0.04] px-4 py-2.5 text-[20px] font-semibold text-white outline-none transition-all focus:border-[#907AFF]/50 focus:bg-white/[0.06]"
+              />
+              <svg className="h-5 w-5 text-slate-400 dark:text-white/40" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" /></svg>
+            </div>
+
+            <div className="space-y-4">
+              {/* Cover Upload */}
+              <button className="flex w-full items-center justify-between rounded-xl border border-black/10 dark:border-white/10 bg-black/5 dark:bg-white/[0.02] px-4 py-3 text-left transition-all hover:border-[#907AFF]/30 hover:bg-black/10 dark:hover:bg-white/[0.04]">
+                <span className="text-[14px] text-slate-700 dark:text-white/70">+ Add book cover</span>
+                <input type="file" accept="image/*" className="hidden" id="book-cover" onChange={(e) => {
+                  const file = e.target.files?.[0];
+                  if (file) {
+                    const reader = new FileReader();
+                    reader.onload = (e) => setBookForm({ ...bookForm, cover: e.target?.result as string });
+                    reader.readAsDataURL(file);
+                  }
+                }} />
+                <label htmlFor="book-cover" className="cursor-pointer text-[#907AFF]">Upload</label>
+              </button>
+              {bookForm.cover && (
+                <div className="relative h-48 w-32 overflow-hidden rounded-lg">
+                  <img src={bookForm.cover} alt="Book cover" className="h-full w-full object-cover" />
+                  <button onClick={() => setBookForm({ ...bookForm, cover: "" })} className="absolute right-1 top-1 rounded-full bg-black/60 p-1 text-white/80 hover:bg-black/80">
+                    <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+                  </button>
+                </div>
+              )}
+
+              {/* Summary */}
+              <div>
+                <button 
+                  onClick={() => setBookForm({ ...bookForm, summary: bookForm.summary ? "" : " " })}
+                  className="flex w-full items-center justify-between rounded-xl border border-white/10 bg-white/[0.02] px-4 py-3 text-left transition-all hover:border-[#907AFF]/30 hover:bg-white/[0.04]"
+                >
+                  <span className="text-[14px] text-white/70">+ Add summary</span>
+                </button>
+                {bookForm.summary && (
+                  <textarea
+                    value={bookForm.summary}
+                    onChange={(e) => setBookForm({ ...bookForm, summary: e.target.value })}
+                    placeholder="Write a summary of your book..."
+                    className="mt-2 w-full rounded-xl border border-white/10 bg-white/[0.04] px-4 py-3 text-[14px] text-white placeholder-white/30 outline-none transition-all focus:border-[#907AFF]/50 focus:bg-white/[0.06]"
+                    rows={4}
+                    autoFocus
+                  />
+                )}
+              </div>
+
+              {/* Author's Note */}
+              <div>
+                <button 
+                  onClick={() => setBookForm({ ...bookForm, authorsNote: bookForm.authorsNote ? "" : " " })}
+                  className="flex w-full items-center justify-between rounded-xl border border-white/10 bg-white/[0.02] px-4 py-3 text-left transition-all hover:border-[#907AFF]/30 hover:bg-white/[0.04]"
+                >
+                  <span className="text-[14px] text-white/70">+ Add author&apos;s note</span>
+                </button>
+                {bookForm.authorsNote && (
+                  <textarea
+                    value={bookForm.authorsNote}
+                    onChange={(e) => setBookForm({ ...bookForm, authorsNote: e.target.value })}
+                    placeholder="Add a personal note about this book..."
+                    className="mt-2 w-full rounded-xl border border-white/10 bg-white/[0.04] px-4 py-3 text-[14px] text-white placeholder-white/30 outline-none transition-all focus:border-[#907AFF]/50 focus:bg-white/[0.06]"
+                    rows={3}
+                    autoFocus
+                  />
+                )}
+              </div>
+
+              {/* Tags */}
+              <div>
+                <button 
+                  onClick={() => {
+                    const input = document.getElementById("book-tags-input") as HTMLInputElement;
+                    if (input) input.focus();
+                  }}
+                  className="flex w-full items-center justify-between rounded-xl border border-white/10 bg-white/[0.02] px-4 py-3 text-left transition-all hover:border-[#907AFF]/30 hover:bg-white/[0.04]"
+                >
+                  <span className="text-[14px] text-white/70">+ Add general tags</span>
+                </button>
+                {bookForm.tags.length > 0 && (
+                  <div className="mt-2 flex flex-wrap gap-2">
+                    {bookForm.tags.map((tag, i) => (
+                      <span key={i} className="flex items-center gap-2 rounded-full bg-[#907AFF]/20 px-3 py-1 text-[13px] text-[#907AFF]">
+                        {tag}
+                        <button onClick={() => setBookForm({ ...bookForm, tags: bookForm.tags.filter((_, idx) => idx !== i) })} className="text-[#907AFF]/60 hover:text-[#907AFF]">
+                          <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+                        </button>
+                      </span>
+                    ))}
+                  </div>
+                )}
+                <input
+                  id="book-tags-input"
+                  type="text"
+                  placeholder="Enter tags separated by commas, then press Enter..."
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") {
+                      e.preventDefault();
+                      const value = (e.target as HTMLInputElement).value;
+                      if (value.trim()) {
+                        handleTagInput(value, "book");
+                        (e.target as HTMLInputElement).value = "";
+                      }
+                    }
+                  }}
+                  className="mt-2 w-full rounded-xl border border-white/10 bg-white/[0.04] px-4 py-3 text-[14px] text-white placeholder-white/30 outline-none transition-all focus:border-[#907AFF]/50 focus:bg-white/[0.06]"
+                />
+              </div>
+
+              {/* Creation Method Choice */}
+              <div className="mt-6 rounded-xl border border-white/10 bg-white/[0.02] p-6">
+                <h3 className="mb-4 text-[16px] font-semibold text-white">How do you want to create your book?</h3>
+                <div className="grid gap-4 md:grid-cols-2">
+                  <button
+                    onClick={() => setBookForm({ ...bookForm, creationMethod: "write" })}
+                    className={`rounded-xl border p-4 text-left transition-all ${
+                      bookForm.creationMethod === "write"
+                        ? "border-[#907AFF]/50 bg-[#907AFF]/10"
+                        : "border-black/10 dark:border-white/10 bg-black/5 dark:bg-white/[0.02] hover:border-[#907AFF]/30"
+                    }`}
+                  >
+                    <div className="mb-2 text-[16px] font-semibold text-slate-900 dark:text-white">Create book in section</div>
+                    <div className="text-[13px] text-slate-600 dark:text-white/50">Write your book directly in our editor</div>
+                  </button>
+                  <button
+                    onClick={() => setBookForm({ ...bookForm, creationMethod: "upload" })}
+                    className={`rounded-xl border p-4 text-left transition-all ${
+                      bookForm.creationMethod === "upload"
+                        ? "border-[#907AFF]/50 bg-[#907AFF]/10"
+                        : "border-black/10 dark:border-white/10 bg-black/5 dark:bg-white/[0.02] hover:border-[#907AFF]/30"
+                    }`}
+                  >
+                    <div className="mb-2 text-[16px] font-semibold text-slate-900 dark:text-white">Upload book to section</div>
+                    <div className="text-[13px] text-slate-600 dark:text-white/50">Upload your book if it&apos;s already complete</div>
+                  </button>
+                </div>
+
+                {/* Editor or Upload based on choice */}
+                {bookForm.creationMethod === "write" && (
+                  <div className="mt-4">
+                    <textarea
+                      value={bookForm.content}
+                      onChange={(e) => setBookForm({ ...bookForm, content: e.target.value })}
+                      placeholder="Start writing your book here..."
+                      className="w-full rounded-xl border border-black/10 dark:border-white/10 bg-black/5 dark:bg-white/[0.04] px-4 py-3 text-[14px] text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-white/30 outline-none transition-all focus:border-[#907AFF]/50 focus:bg-black/10 dark:focus:bg-white/[0.06]"
+                      rows={12}
+                    />
+                  </div>
+                )}
+
+                {bookForm.creationMethod === "upload" && (
+                  <div className="mt-4">
+                    <label className="flex cursor-pointer flex-col items-center justify-center rounded-xl border-2 border-dashed border-black/20 dark:border-white/20 bg-black/5 dark:bg-white/[0.02] p-8 transition-all hover:border-[#907AFF]/30 hover:bg-black/10 dark:hover:bg-white/[0.04]">
+                      <svg className="mb-3 h-12 w-12 text-slate-400 dark:text-white/30" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+                      </svg>
+                      <span className="mb-1 text-[14px] font-medium text-slate-700 dark:text-white/70">Click to upload or drag and drop</span>
+                      <span className="text-[12px] text-slate-500 dark:text-white/50">PDF, DOCX, TXT (MAX. 10MB)</span>
+                      <input
+                        type="file"
+                        accept=".pdf,.doc,.docx,.txt"
+                        className="hidden"
+                        onChange={(e) => {
+                          const file = e.target.files?.[0];
+                          if (file) setBookForm({ ...bookForm, uploadFile: file });
+                        }}
+                      />
+                    </label>
+                    {bookForm.uploadFile && (
+                      <div className="mt-3 flex items-center justify-between rounded-xl border border-black/10 dark:border-white/10 bg-black/5 dark:bg-white/[0.04] px-4 py-3">
+                        <span className="text-[14px] text-slate-700 dark:text-white/70">{bookForm.uploadFile.name}</span>
+                        <button onClick={() => setBookForm({ ...bookForm, uploadFile: null })} className="text-slate-500 dark:text-white/50 hover:text-slate-900 dark:hover:text-white">
+                          <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            </div>
+
+            <div className="mt-8 flex justify-end gap-3">
+              <button onClick={() => setShowBookModal(false)} className="rounded-xl border border-black/10 dark:border-white/10 bg-black/5 dark:bg-white/[0.02] px-6 py-2.5 text-[14px] font-medium text-slate-700 dark:text-white/70 transition-all hover:bg-black/10 dark:hover:bg-white/[0.04]">
+                Cancel
+              </button>
+              <button onClick={handleBookSubmit} className="rounded-xl bg-[#907AFF] px-6 py-2.5 text-[14px] font-medium text-white transition-all hover:bg-[#8069EE]">
+                {bookForm.creationMethod === "write" ? "Create book" : "Upload book"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </main>
   );
 }
