@@ -23,6 +23,20 @@ const glassBaseProps = {
   mixBlendMode: "screen",
 };
 
+const dropdownGlassProps = {
+  displace: 0.5,
+  distortionScale: -180,
+  redOffset: 0,
+  greenOffset: 10,
+  blueOffset: 20,
+  brightness: 50,
+  opacity: 0.95,
+  backgroundOpacity: 0.15,
+  blur: 16,
+  saturation: 1.3,
+  mixBlendMode: "screen",
+};
+
 // Dropdown content for each navigation item
 const dropdownContent = {
   Features: {
@@ -234,7 +248,7 @@ export default function GlobalNavbar() {
   }
 
   return (
-    <header className="sticky top-4 z-[999] isolate mx-auto w-full max-w-[1660px] px-6">
+    <header className="sticky top-4 z-[999] isolate mx-auto w-full max-w-[1660px] px-4 sm:px-6 mb-2">
       <div className="flex items-center gap-3">
         <GlassSurface
           {...glassBaseProps}
@@ -245,7 +259,7 @@ export default function GlobalNavbar() {
         >
           <nav className="flex w-full items-center justify-between gap-6">
             {/* Logo and navigation */}
-            <div className="flex items-center gap-10">
+            <div className="flex items-center gap-4 sm:gap-6 lg:gap-10">
               <Link href={user ? (currentRole === 'writer' ? '/writer' : '/reader') : '/'}>
                 <img
                   src="/logo-dark.svg"
@@ -261,7 +275,7 @@ export default function GlobalNavbar() {
 
               {/* Navigation links based on route */}
               {pathname?.startsWith('/writer') && (
-                <div className="hidden items-center gap-8 text-[16px] font-medium text-slate-700 dark:text-white/80 lg:flex">
+                <div className="hidden items-center gap-4 sm:gap-6 lg:gap-8 text-[14px] sm:text-[15px] lg:text-[16px] font-medium text-slate-700 dark:text-white/80 lg:flex">
                   <Link
                     href="/writer"
                     className="relative px-3 py-2 transition-colors hover:text-slate-900 dark:hover:text-white"
@@ -285,37 +299,37 @@ export default function GlobalNavbar() {
                         </svg>
                       </button>
                       {(item === "Features" || item === "Integrations" || item === "Examples" || item === "FAQ") && (
-                        <div className="nav-dropdown pointer-events-none absolute left-1/2 top-full z-[1000] w-[720px] -translate-x-1/2 translate-y-[-8px] pt-6 opacity-0 transition-all duration-300 ease-out group-hover:pointer-events-auto group-hover:translate-y-0 group-hover:opacity-100">
+                        <div className="nav-dropdown pointer-events-none absolute left-1/2 top-full z-[998] w-[calc(100vw-3rem)] max-w-[720px] min-w-[320px] -translate-x-1/2 mt-[-1px] opacity-0 transition-all duration-300 ease-out group-hover:pointer-events-auto group-hover:opacity-100 lg:left-1/2 lg:w-[720px]">
                           <GlassSurface
-                            {...glassBaseProps}
+                            {...dropdownGlassProps}
                             width="100%"
                             height="auto"
                             borderRadius={24}
-                            className="nav-mega border border-black/10 dark:border-white/10 px-8 py-8 shadow-[0_24px_60px_-12px_rgba(0,0,0,0.25)] dark:shadow-[0_24px_60px_-12px_rgba(0,0,0,0.6)] backdrop-blur-2xl bg-white/95 dark:bg-[#0a0a0f]/98"
+                            className="nav-mega border-t-0 border-x border-b border-black/10 dark:border-white/10 rounded-t-none px-4 py-6 sm:px-6 sm:py-8 shadow-[0_24px_60px_-12px_rgba(0,0,0,0.25)] dark:shadow-[0_24px_60px_-12px_rgba(0,0,0,0.6)] backdrop-blur-2xl"
                           >
                             {dropdownContent[item as keyof typeof dropdownContent] && (
                               <>
-                                <div className="mb-6">
-                                  <h3 className="text-[18px] font-bold text-slate-900 dark:text-white mb-1.5">
+                                <div className="mb-4 sm:mb-6">
+                                  <h3 className="text-[16px] sm:text-[18px] font-bold text-slate-900 dark:text-white mb-1 sm:mb-1.5">
                                     {dropdownContent[item as keyof typeof dropdownContent].title}
                                   </h3>
-                                  <p className="text-[13px] text-slate-600 dark:text-white/70">
+                                  <p className="text-[12px] sm:text-[13px] text-slate-600 dark:text-white/70">
                                     {dropdownContent[item as keyof typeof dropdownContent].description}
                                   </p>
                                 </div>
-                                <div className="grid gap-3 grid-cols-2">
+                                <div className="grid gap-2 sm:gap-3 grid-cols-1 sm:grid-cols-2">
                                   {dropdownContent[item as keyof typeof dropdownContent].items.map((menuItem, idx) => (
                                     <div
                                       key={idx}
-                                      className="group/item cursor-pointer rounded-xl p-4 transition-all duration-200 hover:bg-slate-50 dark:hover:bg-white/[0.12] hover:shadow-sm border border-transparent hover:border-slate-200 dark:hover:border-white/10"
+                                      className="group/item cursor-pointer rounded-xl p-3 sm:p-4 transition-all duration-200 hover:bg-slate-50 dark:hover:bg-white/[0.12] hover:shadow-sm border border-transparent hover:border-slate-200 dark:hover:border-white/10"
                                     >
-                                      <div className="flex items-start gap-3">
-                                        <span className="text-2xl flex-shrink-0">{menuItem.icon}</span>
+                                      <div className="flex items-start gap-2 sm:gap-3">
+                                        <span className="text-xl sm:text-2xl flex-shrink-0">{menuItem.icon}</span>
                                         <div className="flex-1 min-w-0">
-                                          <h4 className="text-[14px] font-semibold leading-tight text-slate-900 dark:text-white group-hover/item:text-[#907AFF] dark:group-hover/item:text-[#907AFF] transition-colors mb-1">
+                                          <h4 className="text-[13px] sm:text-[14px] font-semibold leading-tight text-slate-900 dark:text-white group-hover/item:text-[#907AFF] dark:group-hover/item:text-[#907AFF] transition-colors mb-0.5 sm:mb-1">
                                             {menuItem.title}
                                           </h4>
-                                          <p className="text-[12px] leading-relaxed text-slate-600 dark:text-white/70">
+                                          <p className="text-[11px] sm:text-[12px] leading-relaxed text-slate-600 dark:text-white/70">
                                             {menuItem.description}
                                           </p>
                                         </div>
@@ -359,7 +373,7 @@ export default function GlobalNavbar() {
               )}
 
               {isPublicPage && (
-                <div className="hidden items-center gap-8 text-[16px] font-medium text-slate-700 dark:text-white/80 lg:flex">
+                <div className="hidden items-center gap-4 sm:gap-6 lg:gap-8 text-[14px] sm:text-[15px] lg:text-[16px] font-medium text-slate-700 dark:text-white/80 lg:flex">
                   {publicNavItems.map((item) => (
                     <div key={item.label} className="group relative">
                       <button className="flex items-center gap-1.5 px-3 py-2 transition-colors hover:text-slate-900 dark:hover:text-white">
@@ -379,37 +393,37 @@ export default function GlobalNavbar() {
                         )}
                       </button>
                       {item.hasDropdown && (
-                        <div className="nav-dropdown pointer-events-none absolute left-1/2 top-full z-[1000] w-[720px] -translate-x-1/2 translate-y-[-8px] pt-6 opacity-0 transition-all duration-300 ease-out group-hover:pointer-events-auto group-hover:translate-y-0 group-hover:opacity-100">
+                        <div className="nav-dropdown pointer-events-none absolute left-1/2 top-full z-[998] w-[calc(100vw-3rem)] max-w-[720px] min-w-[320px] -translate-x-1/2 mt-[-1px] opacity-0 transition-all duration-300 ease-out group-hover:pointer-events-auto group-hover:opacity-100 lg:left-1/2 lg:w-[720px]">
                           <GlassSurface
-                            {...glassBaseProps}
+                            {...dropdownGlassProps}
                             width="100%"
                             height="auto"
                             borderRadius={24}
-                            className="nav-mega border border-black/10 dark:border-white/10 px-8 py-8 shadow-[0_24px_60px_-12px_rgba(0,0,0,0.25)] dark:shadow-[0_24px_60px_-12px_rgba(0,0,0,0.6)] backdrop-blur-2xl bg-white/95 dark:bg-[#0a0a0f]/98"
+                            className="nav-mega border-t-0 border-x border-b border-black/10 dark:border-white/10 rounded-t-none px-4 py-6 sm:px-6 sm:py-8 shadow-[0_24px_60px_-12px_rgba(0,0,0,0.25)] dark:shadow-[0_24px_60px_-12px_rgba(0,0,0,0.6)] backdrop-blur-2xl"
                           >
                             {dropdownContent[item.label as keyof typeof dropdownContent] && (
                               <>
-                                <div className="mb-6">
-                                  <h3 className="text-[18px] font-bold text-slate-900 dark:text-white mb-1.5">
+                                <div className="mb-4 sm:mb-6">
+                                  <h3 className="text-[16px] sm:text-[18px] font-bold text-slate-900 dark:text-white mb-1 sm:mb-1.5">
                                     {dropdownContent[item.label as keyof typeof dropdownContent].title}
                                   </h3>
-                                  <p className="text-[13px] text-slate-600 dark:text-white/70">
+                                  <p className="text-[12px] sm:text-[13px] text-slate-600 dark:text-white/70">
                                     {dropdownContent[item.label as keyof typeof dropdownContent].description}
                                   </p>
                                 </div>
-                                <div className="grid gap-3 grid-cols-2">
+                                <div className="grid gap-2 sm:gap-3 grid-cols-1 sm:grid-cols-2">
                                   {dropdownContent[item.label as keyof typeof dropdownContent].items.map((menuItem, idx) => (
                                     <div
                                       key={idx}
-                                      className="group/item cursor-pointer rounded-xl p-4 transition-all duration-200 hover:bg-slate-50 dark:hover:bg-white/[0.12] hover:shadow-sm border border-transparent hover:border-slate-200 dark:hover:border-white/10"
+                                      className="group/item cursor-pointer rounded-xl p-3 sm:p-4 transition-all duration-200 hover:bg-slate-50 dark:hover:bg-white/[0.12] hover:shadow-sm border border-transparent hover:border-slate-200 dark:hover:border-white/10"
                                     >
-                                      <div className="flex items-start gap-3">
-                                        <span className="text-2xl flex-shrink-0">{menuItem.icon}</span>
+                                      <div className="flex items-start gap-2 sm:gap-3">
+                                        <span className="text-xl sm:text-2xl flex-shrink-0">{menuItem.icon}</span>
                                         <div className="flex-1 min-w-0">
-                                          <h4 className="text-[14px] font-semibold leading-tight text-slate-900 dark:text-white group-hover/item:text-[#907AFF] dark:group-hover/item:text-[#907AFF] transition-colors mb-1">
+                                          <h4 className="text-[13px] sm:text-[14px] font-semibold leading-tight text-slate-900 dark:text-white group-hover/item:text-[#907AFF] dark:group-hover/item:text-[#907AFF] transition-colors mb-0.5 sm:mb-1">
                                             {menuItem.title}
                                           </h4>
-                                          <p className="text-[12px] leading-relaxed text-slate-600 dark:text-white/70">
+                                          <p className="text-[11px] sm:text-[12px] leading-relaxed text-slate-600 dark:text-white/70">
                                             {menuItem.description}
                                           </p>
                                         </div>
@@ -429,11 +443,11 @@ export default function GlobalNavbar() {
             </div>
 
             {/* Actions */}
-            <div className="flex items-center gap-4">
+            <div className="flex items-center gap-2 sm:gap-3 lg:gap-4">
               {/* Search bar - only on writer pages */}
               {pathname?.startsWith('/writer') && (
                 <div className="hidden md:block">
-                  <div className="flex h-11 w-[300px] items-center gap-3 rounded-full border border-black/10 bg-slate-50/50 dark:border-white/10 dark:bg-white/[0.05] px-4 shadow-sm transition-all hover:border-black/20 dark:hover:border-white/20 hover:shadow-md">
+                  <div className="flex h-10 sm:h-11 w-[240px] sm:w-[280px] lg:w-[300px] items-center gap-2 sm:gap-3 rounded-full border border-black/10 bg-slate-50/50 dark:border-white/10 dark:bg-white/[0.05] px-3 sm:px-4 shadow-sm transition-all hover:border-black/20 dark:hover:border-white/20 hover:shadow-md">
                     <svg
                       className="h-4 w-4 flex-shrink-0 text-slate-400 dark:text-white/40"
                       fill="none"
@@ -450,7 +464,7 @@ export default function GlobalNavbar() {
                     <input
                       type="text"
                       placeholder="Search books, authors..."
-                      className="flex-1 bg-transparent text-[14px] font-medium text-slate-900 placeholder-slate-400 dark:text-white dark:placeholder-white/40 outline-none"
+                      className="flex-1 bg-transparent text-[12px] sm:text-[13px] lg:text-[14px] font-medium text-slate-900 placeholder-slate-400 dark:text-white dark:placeholder-white/40 outline-none"
                     />
                   </div>
                 </div>
@@ -469,7 +483,7 @@ export default function GlobalNavbar() {
                     const event = new CustomEvent('openCreateDropdown');
                     window.dispatchEvent(event);
                   }}
-                  className="rounded-full bg-gradient-to-r from-[#907AFF] to-[#8069EE] px-6 py-2.5 text-[15px] font-semibold text-white shadow-lg shadow-[#907AFF]/25 transition-all hover:from-[#8069EE] hover:to-[#7058DD] hover:shadow-xl hover:shadow-[#907AFF]/30 hover:scale-[1.02] active:scale-[0.98]"
+                  className="rounded-full bg-gradient-to-r from-[#907AFF] to-[#8069EE] px-4 sm:px-5 lg:px-6 py-2 sm:py-2.5 text-[13px] sm:text-[14px] lg:text-[15px] font-semibold text-white shadow-lg shadow-[#907AFF]/25 transition-all hover:from-[#8069EE] hover:to-[#7058DD] hover:shadow-xl hover:shadow-[#907AFF]/30 hover:scale-[1.02] active:scale-[0.98]"
                 >
                   Create
                 </button>

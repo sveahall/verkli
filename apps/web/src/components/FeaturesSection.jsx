@@ -1,102 +1,216 @@
 "use client";
 
+import { useEffect, useRef, useState } from "react";
+
+const features = [
+  {
+    label: "Rights & ownership",
+    title: "Your book stays yours.",
+    description:
+      "Keep full rights, pricing and distribution. We never reuse your content or train on your manuscript. You decide what ships, where, and when.",
+    value: "100% ownership",
+    image:
+      "https://images.unsplash.com/photo-1507842217343-583bb7270b66?auto=format&fit=crop&w=1400&q=80",
+    gradient: "from-[#907AFF]/20 to-transparent",
+    color: "#907AFF",
+  },
+  {
+    label: "Reach",
+    title: "Publish once, reach everywhere.",
+    description:
+      "Turn a single manuscript into posts, newsletters, ads, and reader magnets across channels and languages without compromising your voice.",
+    value: "Multi-format output",
+    image:
+      "https://images.unsplash.com/photo-1519681393784-d120267933ba?auto=format&fit=crop&w=1400&q=80",
+    gradient: "from-[#E29ED5]/20 to-transparent",
+    color: "#E29ED5",
+  },
+  {
+    label: "Automation",
+    title: "Marketing, on autopilot.",
+    description:
+      "Quotes, hooks, summaries, and themes are generated and scheduled for you. Stay consistent without the daily grind.",
+    value: "Always-on engine",
+    image:
+      "https://images.unsplash.com/photo-1553877522-43269d4ea984?auto-format&fit=crop&w=1400&q=80",
+    gradient: "from-[#FCC997]/20 to-transparent",
+    color: "#FCC997",
+  },
+  {
+    label: "Distribution",
+    title: "One hub, many platforms.",
+    description:
+      "Stop juggling tools. We handle the technical plumbing so you can focus on writing, publishing, and your readers.",
+    value: "Fewer logins",
+    image:
+      "https://images.unsplash.com/photo-1485217988980-11786ced9454?auto=format&fit=crop&w=1400&q=80",
+    gradient: "from-[#FEE9A3]/20 to-transparent",
+    color: "#FEE9A3",
+  },
+];
+
 export default function FeaturesSection() {
-  const features = [
-    {
-      icon: (
-        <svg width="337" height="33" viewBox="0 0 337 33" fill="none" xmlns="http://www.w3.org/2000/svg">
-          <path d="M13.2522 23.9086C11.9484 24.6501 10.4313 25.075 8.81225 25.075C3.94549 25.075 0.000199832 21.2359 0.000200246 16.5001C0.00020066 11.7644 3.94549 7.92534 8.81225 7.92534C10.4313 7.92534 11.9484 8.35023 13.2522 9.09167" stroke="currentColor" strokeWidth="2.26772" strokeLinecap="round"/>
-          <path d="M17.2386 19.884L20.6223 16.5004L17.2386 13.1167" stroke="currentColor" strokeWidth="2.26772" strokeLinecap="round"/>
-          <path d="M20.6223 16.5007L9.5045 16.5007" stroke="currentColor" strokeWidth="2.26772" strokeLinecap="round"/>
-          <text fill="currentColor" xmlSpace="preserve" style={{whiteSpace: "pre"}} fontFamily="Inter" fontSize="20.4094" fontWeight="600" letterSpacing="0em">
-            <tspan x="30.6114" y="23.9216">Your work stays yours. Always.</tspan>
-          </text>
-        </svg>
-      ),
-      title: "Your work stays yours. Always.",
-      description: "Your book is the source. We never claim rights, reuse content elsewhere or train on your work. You stay in full control of your voice, ownership and distribution.",
-      opacity: 0.25
-    },
-    {
-      icon: (
-        <svg width="214" height="33" viewBox="0 0 214 33" fill="none" xmlns="http://www.w3.org/2000/svg">
-          <path d="M19.3705 17.7408C19.3705 23.3767 14.8017 27.9456 9.16582 27.9456C5.14148 27.9456 1.66123 25.6161 -5.66758e-05 22.2319" stroke="currentColor" strokeWidth="2.26772" strokeLinecap="round"/>
-          <path d="M22.0415 20.6497L19.5611 17.1256L16.037 19.606" stroke="currentColor" strokeWidth="2.26772" strokeLinecap="round"/>
-          <path d="M6.48647 5.72735V6.61395C7.07206 6.67415 7.57282 6.79455 7.98875 6.97515C8.41016 7.15576 8.77683 7.4294 9.08878 7.79607C9.33506 8.07519 9.52387 8.36251 9.65522 8.65804C9.79204 8.95357 9.86045 9.22447 9.86045 9.47075C9.86045 9.74439 9.7592 9.98246 9.55671 10.185C9.35969 10.382 9.11888 10.4805 8.8343 10.4805C8.29796 10.4805 7.95044 10.1904 7.79173 9.61031C7.61113 8.92621 7.17604 8.47196 6.48647 8.24758V11.6626C7.16509 11.8487 7.70416 12.0183 8.10368 12.1716C8.50867 12.3248 8.86987 12.5465 9.18729 12.8365C9.52661 13.1375 9.78657 13.4987 9.96717 13.9201C10.1532 14.3361 10.2463 14.7931 10.2463 15.2911C10.2463 15.915 10.0985 16.5006 9.80298 17.0478C9.51293 17.5897 9.08331 18.033 8.51414 18.3777C7.94497 18.7225 7.26908 18.9278 6.48647 18.9934V21.0375C6.48647 21.3604 6.45363 21.5957 6.38796 21.7435C6.32775 21.8913 6.19093 21.9652 5.9775 21.9652C5.78047 21.9652 5.64092 21.905 5.55883 21.7846C5.48221 21.6642 5.4439 21.4781 5.4439 21.2263V19.0098C4.80358 18.9387 4.24262 18.7882 3.76101 18.5583C3.28488 18.3285 2.88536 18.0439 2.56247 17.7046C2.24504 17.3598 2.00971 17.0041 1.85648 16.6374C1.70324 16.2652 1.62662 15.9013 1.62662 15.5456C1.62662 15.2829 1.72786 15.0475 1.93036 14.8396C2.13832 14.6261 2.39555 14.5194 2.70202 14.5194C2.9483 14.5194 3.15627 14.5769 3.32592 14.6918C3.49558 14.8067 3.61324 14.9682 3.67892 15.1761C3.82668 15.6249 3.95529 15.9697 4.06475 16.2105C4.17421 16.4458 4.33839 16.662 4.5573 16.859C4.78169 17.0561 5.07722 17.2066 5.4439 17.3105V13.4933C4.71054 13.2908 4.09759 13.0664 3.60504 12.8201C3.11248 12.5684 2.71297 12.2126 2.40649 11.7529C2.10001 11.2932 1.94678 10.7021 1.94678 9.97972C1.94678 9.0384 2.24504 8.26673 2.84158 7.66473C3.44359 7.06272 4.31103 6.71246 5.4439 6.61395V5.74377C5.4439 5.28406 5.61629 5.0542 5.96108 5.0542C6.31134 5.0542 6.48647 5.27858 6.48647 5.72735ZM5.4439 11.3589V8.21474C4.98418 8.35156 4.62571 8.53217 4.36849 8.75655C4.11127 8.98094 3.98266 9.32025 3.98266 9.77449C3.98266 10.2068 4.10306 10.5352 4.34386 10.7596C4.58467 10.9785 4.95134 11.1783 5.4439 11.3589ZM6.48647 13.797V17.3926C7.03922 17.2832 7.4661 17.0615 7.7671 16.7277C8.06811 16.3938 8.21861 16.0053 8.21861 15.562C8.21861 15.0858 8.07084 14.7192 7.77531 14.4619C7.48525 14.1993 7.05564 13.9776 6.48647 13.797Z" fill="currentColor"/>
-          <text fill="currentColor" xmlSpace="preserve" style={{whiteSpace: "pre"}} fontFamily="Inter" fontSize="20.4094" fontWeight="600" letterSpacing="0em">
-            <tspan x="32.5526" y="23.9216">Make more money</tspan>
-          </text>
-        </svg>
-      ),
-      title: "Make more money",
-      description: "Your book does not live in one format or one language. Fable helps you reach more readers, in more places, without splitting focus or sacrificing quality.",
-      opacity: 0.25
-    },
-    {
-      icon: (
-        <svg width="253" height="33" viewBox="0 0 253 33" fill="none" xmlns="http://www.w3.org/2000/svg">
-          <path d="M6.99067 12.8442C6.99067 16.7051 3.86081 19.835 -6.10352e-05 19.835" stroke="currentColor" strokeWidth="1.70079"/>
-          <path d="M6.9906 26.8257C6.9906 22.9648 3.86075 19.835 -0.00012207 19.835" stroke="currentColor" strokeWidth="1.70079"/>
-          <path d="M13.9811 19.835C10.1203 19.835 6.99042 16.7051 6.99042 12.8442" stroke="currentColor" strokeWidth="1.70079"/>
-          <path d="M6.99042 26.8257C6.99042 22.9648 10.1203 19.835 13.9811 19.835" stroke="currentColor" strokeWidth="1.70079"/>
-          <path d="M16.9411 6.17383C16.9411 8.61898 14.9589 10.6012 12.5138 10.6012" stroke="currentColor" strokeWidth="1.70079"/>
-          <path d="M16.9409 15.0287C16.9409 12.5835 14.9587 10.6013 12.5135 10.6013" stroke="currentColor" strokeWidth="1.70079"/>
-          <path d="M21.3687 10.6012C18.9236 10.6012 16.9414 8.61898 16.9414 6.17383" stroke="currentColor" strokeWidth="1.70079"/>
-          <path d="M16.9414 15.0287C16.9414 12.5835 18.9236 10.6013 21.3687 10.6013" stroke="currentColor" strokeWidth="1.70079"/>
-          <text fill="currentColor" xmlSpace="preserve" style={{whiteSpace: "pre"}} fontFamily="Inter" fontSize="20.4094" fontWeight="600" letterSpacing="0em">
-            <tspan x="31.358" y="23.9216">Marketing Automation</tspan>
-          </text>
-        </svg>
-      ),
-      title: "Marketing Automation",
-      description: "Fable turns your book into structured content automatically. Quotes, hooks, summaries and ideas are generated and adapted across formats so you can stay consistent without manual effort.",
-      opacity: 0.25
-    },
-    {
-      icon: (
-        <div className="flex items-center gap-[2.119px]">
-          <div className="flex flex-col items-start gap-[2.119px]">
-            <div className="h-[9.202px] w-[9.202px] rounded-[2.045px] border-[1.804px] border-current"></div>
-            <div className="h-[9.202px] w-[9.202px] rounded-[2.045px] border-[1.804px] border-current"></div>
-          </div>
-          <div className="h-[20.449px] w-[9.202px] rounded-[2.045px] border-[1.804px] border-current"></div>
-        </div>
-      ),
-      title: "Social media managing",
-      description: "You should not manage dozens of accounts. We handle the technical complexity behind the scenes so you can focus on writing, publishing and connecting with readers.",
-      opacity: 1
-    }
-  ];
+  const [activeIndex, setActiveIndex] = useState(0);
+  const itemsRef = useRef([]);
+
+  itemsRef.current = [];
+  const registerItem = (node) => {
+    if (node) itemsRef.current.push(node);
+  };
+
+  useEffect(() => {
+    const items = itemsRef.current;
+    if (!items.length) return;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          if (!entry.isIntersecting) return;
+          const index = Number(entry.target.getAttribute("data-index"));
+          if (!Number.isNaN(index)) setActiveIndex(index);
+        });
+      },
+      { rootMargin: "-25% 0px -55% 0px", threshold: 0.2 }
+    );
+
+    items.forEach((item) => observer.observe(item));
+
+    return () => observer.disconnect();
+  }, []);
 
   return (
-    <section className="mx-auto flex w-full max-w-[1400px] flex-col items-center justify-center gap-12 px-6 py-12 lg:gap-[60px] lg:px-[115px] lg:py-[50px]">
-      <h2 className="w-full text-3xl font-semibold leading-[120%] text-slate-900 dark:text-[#F7F7F7] md:text-4xl lg:text-[40px]">
-        Here's what you get with Fable.
-      </h2>
-
-      <div className="flex w-full flex-col items-start justify-between gap-8 lg:flex-row lg:gap-4">
-        {features.map((feature, index) => (
-          <div
-            key={index}
-            className="flex w-full flex-col items-start gap-[5px] lg:w-[337px]"
-            style={{ opacity: feature.opacity }}
-          >
-            <div className="mb-1 flex items-center gap-[10.597px] text-slate-900 dark:text-[#F7F7F7]">
-              {feature.icon}
-              {index === 3 && (
-                <span className="text-[22px] font-semibold leading-[160%]">
-                  {feature.title}
-                </span>
-              )}
-            </div>
-            <p className={`w-full text-slate-600 dark:text-[#F7F7F7] ${index === 3 ? 'text-lg leading-[150%]' : 'text-base leading-normal'}`}>
-              {feature.description}
-            </p>
-          </div>
-        ))}
+    <section className="mx-auto w-full max-w-[1400px] px-6 py-14 lg:px-[115px]">
+      <div className="mb-10 flex flex-col gap-4 lg:mb-16">
+        <p className="text-sm font-semibold uppercase tracking-[0.3em] text-[#907AFF]">
+          Built for authors
+        </p>
+        <h2 className="text-3xl font-semibold leading-[120%] text-slate-900 dark:text-[#F7F7F7] md:text-4xl lg:text-[42px]">
+          Here's what you get with{" "}
+          <span className="bg-gradient-to-r from-[#907AFF] via-[#E29ED5] to-[#FCC997] bg-clip-text text-transparent">verkli.</span>
+        </h2>
+        <p className="max-w-2xl text-base text-slate-600 dark:text-white/60 md:text-lg">
+          A single workflow that protects your IP, grows your audience, and keeps
+          your marketing consistent without the busywork.
+        </p>
       </div>
 
-      <div className="h-[400px] w-full rounded-[25px] bg-[#D8D8D8] md:h-[600px] lg:h-[750px]"></div>
+      <div className="grid gap-12 lg:grid-cols-[minmax(0,1fr)_minmax(0,0.9fr)] lg:gap-16">
+        <div className="flex flex-col gap-5">
+          {features.map((feature, index) => {
+            const isActive = index === activeIndex;
+            return (
+              <article
+                key={feature.title}
+                ref={registerItem}
+                data-index={index}
+                tabIndex={0}
+                onMouseEnter={() => setActiveIndex(index)}
+                onFocus={() => setActiveIndex(index)}
+                onClick={() => setActiveIndex(index)}
+                aria-current={isActive ? "true" : "false"}
+                className={`feature-card group relative cursor-pointer overflow-hidden rounded-[24px] border px-6 py-6 transition-all duration-500 ease-out md:px-8 md:py-7 ${
+                  isActive
+                    ? "border-black/20 bg-black/5 shadow-[0_20px_50px_rgba(0,0,0,0.12),inset_0_1px_0_rgba(0,0,0,0.04)] scale-[1.02] dark:border-white/20 dark:bg-white/[0.08] dark:shadow-[0_20px_50px_rgba(0,0,0,0.4),inset_0_1px_0_rgba(255,255,255,0.1)]"
+                    : "border-black/10 bg-black/5 hover:border-black/20 hover:bg-black/10 dark:border-white/8 dark:bg-white/[0.02] dark:hover:border-white/12 dark:hover:bg-white/[0.04]"
+                }`}
+              >
+                {/* Active indicator line */}
+                <div 
+                  className={`absolute left-0 top-0 h-full w-1 rounded-l-[24px] transition-all duration-500 ${
+                    isActive ? "opacity-100" : "opacity-0"
+                  }`}
+                  style={{ background: `linear-gradient(to bottom, ${feature.color}, ${feature.color}80)` }}
+                />
+                
+                {/* Subtle glow effect */}
+                <div 
+                  className={`pointer-events-none absolute -inset-px rounded-[24px] bg-gradient-to-br ${feature.gradient} opacity-0 transition-opacity duration-500 ${
+                    isActive ? "opacity-100" : "group-hover:opacity-50"
+                  }`}
+                />
+
+                <div className="relative z-10">
+                  <div className="flex flex-wrap items-center gap-3">
+                    <span className={`rounded-full border px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.2em] transition-all duration-300 ${
+                      isActive 
+                        ? "border-purple-400/40 bg-purple-500/10 text-purple-300" 
+                        : "border-black/20 text-slate-500 dark:border-white/12 dark:text-white/50"
+                    }`}>
+                      {feature.label}
+                    </span>
+                    <span className={`text-[11px] font-medium uppercase tracking-[0.15em] transition-colors duration-300 ${
+                      isActive ? "text-slate-600 dark:text-white/60" : "text-slate-400 dark:text-white/35"
+                    }`}>
+                      {feature.value}
+                    </span>
+                  </div>
+
+                  <h3
+                    className={`mt-4 text-xl font-semibold leading-[130%] transition-all duration-300 md:text-2xl ${
+                      isActive ? "text-slate-900 translate-x-0 dark:text-white" : "text-slate-600 dark:text-white/75"
+                    }`}
+                  >
+                    {feature.title}
+                  </h3>
+                  
+                  <div className={`overflow-hidden transition-all duration-500 ease-out ${
+                    isActive ? "max-h-[200px] opacity-100 mt-3" : "max-h-0 opacity-0 mt-0"
+                  }`}>
+                    <p className="text-[15px] leading-[165%] text-slate-600 dark:text-white/60">
+                      {feature.description}
+                    </p>
+                  </div>
+                </div>
+
+                {/* Mobile image */}
+                <div className={`overflow-hidden rounded-[18px] border border-black/10 bg-black/5 transition-all duration-500 dark:border-white/10 dark:bg-white/5 lg:hidden ${
+                  isActive ? "mt-5 max-h-[300px] opacity-100" : "mt-0 max-h-0 opacity-0"
+                }`}>
+                  <div
+                    className="aspect-[4/3] w-full bg-cover bg-center"
+                    style={{ backgroundImage: `url(${feature.image})` }}
+                    aria-hidden="true"
+                  />
+                </div>
+              </article>
+            );
+          })}
+        </div>
+
+        <div className="relative hidden lg:block">
+          <div className="sticky top-24">
+            <div className="feature-visual h-[520px] w-full">
+              {features.map((feature, index) => (
+                <div
+                  key={feature.image}
+                  className={`feature-visual-image ${
+                    index === activeIndex ? "is-active" : ""
+                  }`}
+                  style={{ backgroundImage: `url(${feature.image})` }}
+                  aria-hidden="true"
+                />
+              ))}
+              <div className="feature-visual-frame" />
+              
+              {/* Image counter/indicator */}
+              <div className="absolute bottom-6 left-6 z-10 flex items-center gap-2">
+                {features.map((_, index) => (
+                  <button
+                    key={index}
+                    onClick={() => setActiveIndex(index)}
+                    className={`h-1.5 rounded-full transition-all duration-300 ${
+                      index === activeIndex 
+                        ? "w-8 bg-slate-900 dark:bg-white" 
+                        : "w-1.5 bg-slate-300 hover:bg-slate-500 dark:bg-white/40 dark:hover:bg-white/60"
+                    }`}
+                    aria-label={`View feature ${index + 1}`}
+                  />
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
     </section>
   );
 }
