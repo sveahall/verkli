@@ -1,9 +1,9 @@
 "use client";
 
-import type { Book } from "@/lib/supabase/types";
+import type { LibraryBook } from "@/lib/supabase/types";
 
 interface BookCardProps {
-  book: Book;
+  book: LibraryBook;
   size?: "sm" | "md" | "lg";
   showProgress?: boolean;
   progress?: number;
@@ -108,9 +108,9 @@ export default function BookCard({
           <h3 className="mb-1 line-clamp-2 text-[16px] font-semibold leading-tight text-white drop-shadow-lg">
             {book.title}
           </h3>
-          {book.description && (
+          {book.summary && (
             <p className="mb-2 line-clamp-1 text-[12px] text-white/80">
-              {book.description}
+              {book.summary}
             </p>
           )}
           

@@ -10,7 +10,7 @@ type ShelfSection = Database['public']['Tables']['shelf_sections']['Row'];
 type ShelfSectionInsert = Database['public']['Tables']['shelf_sections']['Insert'];
 type ShelfBook = Database['public']['Tables']['shelf_books']['Row'];
 type ShelfBookInsert = Database['public']['Tables']['shelf_books']['Insert'];
-type Book = Database['public']['Tables']['books']['Row'];
+type Book = Database['public']['Tables']['library_books']['Row'];
 
 export interface ShelfWithDetails extends Shelf {
   sections: ShelfSection[];
@@ -38,7 +38,7 @@ export async function getShelves(): Promise<ShelfWithDetails[]> {
       shelf_sections(*),
       shelf_books(
         *,
-        books(*)
+        library_books(*)
       )
     `)
     .order('sort_index', { ascending: true });
@@ -55,7 +55,7 @@ export async function getShelves(): Promise<ShelfWithDetails[]> {
       error.code === 'PGRST116';
     
     if (isTableMissing) {
-      console.warn("Shelves table does not exist yet. Please run the migration: packages/db/supabase/migrations/00003_create_shelves.sql");
+      console.warn("Shelves table does not exist yet. Please run the migration: packages/db/supabase/migrations/00003_library_shelves_books.sql");
       return [];
     }
     
@@ -74,7 +74,7 @@ export async function getShelves(): Promise<ShelfWithDetails[]> {
         simpleError.code === 'PGRST116';
       
       if (isSimpleTableMissing) {
-        console.warn("Shelves table does not exist yet. Please run the migration: packages/db/supabase/migrations/00003_create_shelves.sql");
+      console.warn("Shelves table does not exist yet. Please run the migration: packages/db/supabase/migrations/00003_library_shelves_books.sql");
         return [];
       }
       
@@ -95,7 +95,7 @@ export async function getShelves(): Promise<ShelfWithDetails[]> {
         const booksWithDetails = await Promise.all(
           (booksResult.data || []).map(async (shelfBook) => {
             const { data: bookData } = await supabase
-              .from('books')
+              .from('library_books')
               .select('*')
               .eq('id', shelfBook.book_id)
               .single();
@@ -124,7 +124,7 @@ export async function getShelves(): Promise<ShelfWithDetails[]> {
     sections: shelf.shelf_sections || [],
     shelf_books: (shelf.shelf_books || []).map((sb: any) => ({
       ...sb,
-      book: sb.books || sb.book || null,
+      book: sb.library_books || sb.book || null,
     })),
   }));
   
@@ -148,7 +148,7 @@ export async function getShelf(shelfId: string): Promise<ShelfWithDetails | null
       shelf_sections!shelf_sections_shelf_id_fkey(*),
       shelf_books!shelf_books_shelf_id_fkey(
         *,
-        books!shelf_books_book_id_fkey(*)
+        library_books!shelf_books_book_id_fkey(*)
       )
     `)
     .eq('id', shelfId)
@@ -338,26 +338,29 @@ export async function reorderBooks(shelfId: string, sectionId: string | null, bo
 // Create standalone book
 export async function createStandaloneBook(book: {
   title: string;
+  author?: string;
   cover_url?: string;
-  description?: string;
+  summary?: string;
+  authors_note?: string;
+  content?: string;
+  tags?: string[];
 }): Promise<Book> {
   const supabase = createClient();
   const { data: { user } } = await supabase.auth.getUser();
   
   if (!user) throw new Error('Not authenticated');
   
-  // Create book
-  const slug = book.title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '') + '-' + Date.now();
   const { data: bookData, error: bookError } = await supabase
-    .from('books')
+    .from('library_books')
     .insert({
       title: book.title,
-      slug: slug,
+      author: book.author,
       cover_url: book.cover_url,
-      description: book.description,
-      author_id: user.id,
-      status: 'DRAFT',
-      published: false,
+      summary: book.summary,
+      authors_note: book.authors_note,
+      content: book.content,
+      tags: book.tags,
+      user_id: user.id,
     })
     .select()
     .single();
@@ -378,9 +381,9 @@ export async function getStandaloneBooks(): Promise<Book[]> {
   
   // Get all books by user
   const { data: allBooks, error: allBooksError } = await supabase
-    .from('books')
+    .from('library_books')
     .select('*')
-    .eq('author_id', user.id);
+    .eq('user_id', user.id);
   
   if (allBooksError) {
     // If table doesn't exist, return empty array
@@ -390,7 +393,7 @@ export async function getStandaloneBooks(): Promise<Book[]> {
       allBooksError.code === 'PGRST116';
     
     if (isTableMissing) {
-      console.warn("Books table does not exist yet");
+      console.warn("Library books table does not exist yet");
       return [];
     }
     
