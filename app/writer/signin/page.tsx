@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import GlassSurface from "@/components/GlassSurface";
 import LightRays from "@/components/LightRays";
 import { signIn, signInWithGoogle } from "@/lib/supabase/auth";
+import ThemeToggle from "@/components/ThemeToggle";
 
 const glassBaseProps = {
   displace: 0.5,
@@ -15,16 +16,17 @@ const glassBaseProps = {
   blueOffset: 20,
   brightness: 50,
   opacity: 0.93,
-  backgroundOpacity: 0,
-  blur: 8,
-  saturation: 1,
-  mixBlendMode: "difference",
+  backgroundOpacity: 0.12,
+  blur: 12,
+  saturation: 1.2,
+  mixBlendMode: "screen",
 };
 
 export default function WriterSignIn() {
   const router = useRouter();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [staySignedIn, setStaySignedIn] = useState(true);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
@@ -33,7 +35,7 @@ export default function WriterSignIn() {
     setError("");
     setLoading(true);
 
-    const { error } = await signIn(email, password);
+    const { error } = await signIn(email, password, staySignedIn);
 
     if (error) {
       setError(error.message);
@@ -53,11 +55,10 @@ export default function WriterSignIn() {
 
   return (
     <main 
-      className="relative flex min-h-screen flex-col items-center justify-center overflow-hidden"
-      style={{ background: "radial-gradient(100% 127.91% at 0% 0%, #3A3A4F 0%, #171620 50%, #000000 100%)" }}
+      className="relative flex min-h-screen flex-col items-center justify-center overflow-hidden bg-background text-foreground transition-colors duration-300"
     >
-      {/* Light rays background */}
-      <div className="absolute inset-0 z-0">
+      {/* Light rays background - only in dark mode */}
+      <div className="absolute inset-0 z-0 dark:block hidden">
         <LightRays
           raysOrigin="top-center"
           raysColor="#907aff"
@@ -74,8 +75,11 @@ export default function WriterSignIn() {
         />
       </div>
 
-      {/* Logo */}
-      <header className="absolute left-8 top-8 z-20">
+      {/* Light mode gradient background */}
+      <div className="absolute inset-0 z-0 bg-gradient-to-br from-slate-50 via-purple-50/30 to-slate-100 dark:hidden" />
+
+      {/* Logo and Theme Toggle */}
+      <header className="absolute left-8 top-8 z-20 flex w-full items-center justify-between px-8">
         <Link href="/" className="flex items-center gap-3">
           <img
             src="/favicon.svg"
@@ -84,6 +88,9 @@ export default function WriterSignIn() {
             loading="eager"
           />
         </Link>
+        <div className="flex items-center gap-3">
+          <ThemeToggle glassProps={glassBaseProps} />
+        </div>
       </header>
 
       {/* Sign in card */}
@@ -92,28 +99,28 @@ export default function WriterSignIn() {
         width="480px"
         height="auto"
         borderRadius={40}
-        className="glass-card relative z-10"
+        className="glass-card relative z-10 border border-black/10 dark:border-white/10"
       >
         <div className="flex w-full flex-col items-center px-12 py-14 text-center">
-          <p className="text-base font-medium tracking-wide text-white/50">
+          <p className="text-base font-medium tracking-wide text-slate-600 dark:text-white/50">
             Welcome back, writer
           </p>
           
-          <h1 className="mt-4 text-[36px] font-semibold leading-[1.15] tracking-tight text-white">
+          <h1 className="mt-4 text-[36px] font-semibold leading-[1.15] tracking-tight text-slate-900 dark:text-white">
             Sign in to your
             <br />
             account
           </h1>
 
           {error && (
-            <div className="mt-4 w-full rounded-lg bg-red-500/10 px-4 py-3 text-sm text-red-400">
+            <div className="mt-4 w-full rounded-lg bg-red-500/10 px-4 py-3 text-sm text-red-600 dark:text-red-400">
               {error}
             </div>
           )}
 
           <form onSubmit={handleSubmit} className="mt-8 flex w-full flex-col gap-4">
             <div className="flex flex-col gap-2 text-left">
-              <label htmlFor="email" className="text-sm font-medium text-white/60">
+              <label htmlFor="email" className="text-sm font-medium text-slate-700 dark:text-white/60">
                 Email
               </label>
               <input
@@ -123,12 +130,12 @@ export default function WriterSignIn() {
                 onChange={(e) => setEmail(e.target.value)}
                 placeholder="you@example.com"
                 required
-                className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-white placeholder:text-white/30 focus:border-purple-500/50 focus:outline-none focus:ring-1 focus:ring-purple-500/50"
+                className="w-full rounded-xl border border-black/10 dark:border-white/10 bg-black/5 dark:bg-white/5 px-4 py-3 text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-white/30 focus:border-[#907AFF]/50 focus:outline-none focus:ring-1 focus:ring-[#907AFF]/50"
               />
             </div>
 
             <div className="flex flex-col gap-2 text-left">
-              <label htmlFor="password" className="text-sm font-medium text-white/60">
+              <label htmlFor="password" className="text-sm font-medium text-slate-700 dark:text-white/60">
                 Password
               </label>
               <input
@@ -138,14 +145,23 @@ export default function WriterSignIn() {
                 onChange={(e) => setPassword(e.target.value)}
                 placeholder="••••••••"
                 required
-                className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-white placeholder:text-white/30 focus:border-purple-500/50 focus:outline-none focus:ring-1 focus:ring-purple-500/50"
+                className="w-full rounded-xl border border-black/10 dark:border-white/10 bg-black/5 dark:bg-white/5 px-4 py-3 text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-white/30 focus:border-[#907AFF]/50 focus:outline-none focus:ring-1 focus:ring-[#907AFF]/50"
               />
             </div>
 
-            <div className="flex justify-end">
+            <div className="flex items-center justify-between">
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={staySignedIn}
+                  onChange={(e) => setStaySignedIn(e.target.checked)}
+                  className="h-4 w-4 rounded border-black/20 dark:border-white/20 bg-white dark:bg-black/20 text-[#907AFF] focus:ring-[#907AFF]/50 focus:ring-offset-0"
+                />
+                <span className="text-sm text-slate-700 dark:text-white/70">Stay signed in</span>
+              </label>
               <Link
                 href="/writer/forgot-password"
-                className="text-sm text-white/50 transition hover:text-white/70"
+                className="text-sm text-slate-600 dark:text-white/50 transition hover:text-slate-900 dark:hover:text-white/70"
               >
                 Forgot password?
               </Link>
@@ -161,7 +177,7 @@ export default function WriterSignIn() {
               <button
                 type="submit"
                 disabled={loading}
-                className="w-full px-8 py-4 text-[15px] font-medium text-white/90 disabled:opacity-50"
+                className="w-full px-8 py-4 text-[15px] font-medium text-slate-900 dark:text-white/90 disabled:opacity-50"
               >
                 {loading ? "Signing in..." : "Sign in"}
               </button>
@@ -169,14 +185,14 @@ export default function WriterSignIn() {
           </form>
 
           <div className="mt-6 flex w-full items-center gap-4">
-            <div className="h-px flex-1 bg-white/10" />
-            <span className="text-sm text-white/30">or</span>
-            <div className="h-px flex-1 bg-white/10" />
+            <div className="h-px flex-1 bg-black/10 dark:bg-white/10" />
+            <span className="text-sm text-slate-500 dark:text-white/30">or</span>
+            <div className="h-px flex-1 bg-black/10 dark:bg-white/10" />
           </div>
 
           <button
             onClick={handleGoogleSignIn}
-            className="mt-6 flex w-full items-center justify-center gap-3 rounded-full border border-white/10 bg-white/5 px-8 py-4 text-[15px] font-medium text-white/90 transition hover:bg-white/10"
+            className="mt-6 flex w-full items-center justify-center gap-3 rounded-full border border-black/10 dark:border-white/10 bg-black/5 dark:bg-white/5 px-8 py-4 text-[15px] font-medium text-slate-900 dark:text-white/90 transition hover:bg-black/10 dark:hover:bg-white/10"
           >
             <svg className="h-5 w-5" viewBox="0 0 24 24">
               <path
@@ -199,11 +215,11 @@ export default function WriterSignIn() {
             Continue with Google
           </button>
 
-          <p className="mt-8 text-sm text-white/40">
+          <p className="mt-8 text-sm text-slate-600 dark:text-white/40">
             Don&apos;t have an account?{" "}
             <Link
               href="/writer/signup"
-              className="text-white/70 transition hover:text-white"
+              className="text-slate-900 dark:text-white/70 transition hover:text-slate-700 dark:hover:text-white"
             >
               Sign up
             </Link>
