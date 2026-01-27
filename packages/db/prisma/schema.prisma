@@ -25,6 +25,7 @@ model User {
   books    Book[]    @relation("AuthorBooks")
   readings Reading[]
   reviews  Review[]
+  shelves  Shelf[]
 
   @@map("users")
 }
@@ -40,22 +41,23 @@ enum UserRole {
 // ─────────────────────────────────────────────────────────────
 
 model Book {
-  id          String      @id @default(cuid())
+  id          String      @id @default(uuid()) @db.Uuid
   title       String
   slug        String      @unique
   description String?     @db.Text
-  coverImage  String?
+  coverImage  String?     @map("cover_image")
   status      BookStatus  @default(DRAFT)
-  authorId    String
-  createdAt   DateTime    @default(now())
-  updatedAt   DateTime    @updatedAt
-  publishedAt DateTime?
+  authorId    String      @map("author_id") @db.Uuid
+  createdAt   DateTime    @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt   DateTime    @updatedAt @map("updated_at") @db.Timestamptz
+  publishedAt DateTime?   @map("published_at") @db.Timestamptz
 
   // Relations
-  author   User      @relation("AuthorBooks", fields: [authorId], references: [id])
-  chapters Chapter[]
-  readings Reading[]
-  reviews  Review[]
+  author      User         @relation("AuthorBooks", fields: [authorId], references: [id])
+  chapters    Chapter[]
+  readings    Reading[]
+  reviews     Review[]
+  shelfBooks  ShelfBook[]
 
   @@index([authorId])
   @@index([status])
@@ -121,4 +123,70 @@ model Review {
 
   @@unique([userId, bookId])
   @@map("reviews")
+}
+
+// ─────────────────────────────────────────────────────────────
+// Library & Shelves
+// ─────────────────────────────────────────────────────────────
+
+model Shelf {
+  id          String   @id @default(uuid()) @db.Uuid
+  userId      String   @map("user_id") @db.Uuid
+  name        String
+  subtitle    String?
+  coverUrl    String?  @map("cover_url")
+  coverType   String   @default("image") @map("cover_type") // 'image' | 'gradient'
+  coverGradient String? @map("cover_gradient") // JSON string
+  typography  Json?    @default("{}") // { fontFamily, fontWeight, titleSize, subtitleSize, textColor }
+  sortIndex   Int      @default(0) @map("sort_index")
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt   DateTime @updatedAt @map("updated_at") @db.Timestamptz
+
+  // Relations
+  user        User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  sections    ShelfSection[]
+  shelfBooks  ShelfBook[]
+
+  @@index([userId])
+  @@index([userId, sortIndex])
+  @@map("shelves")
+}
+
+model ShelfSection {
+  id        String   @id @default(uuid()) @db.Uuid
+  shelfId   String   @map("shelf_id") @db.Uuid
+  name      String
+  sortIndex Int      @default(0) @map("sort_index")
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz
+
+  // Relations
+  shelf      Shelf       @relation(fields: [shelfId], references: [id], onDelete: Cascade)
+  shelfBooks ShelfBook[]
+
+  @@index([shelfId])
+  @@index([shelfId, sortIndex])
+  @@map("shelf_sections")
+}
+
+model ShelfBook {
+  id        String   @id @default(uuid()) @db.Uuid
+  shelfId   String   @map("shelf_id") @db.Uuid
+  bookId    String   @map("book_id") @db.Uuid
+  sectionId String?  @map("section_id") @db.Uuid
+  sortIndex Int      @default(0) @map("sort_index")
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz
+
+  // Relations
+  shelf    Shelf         @relation(fields: [shelfId], references: [id], onDelete: Cascade)
+  book     Book          @relation(fields: [bookId], references: [id], onDelete: Cascade)
+  section  ShelfSection? @relation(fields: [sectionId], references: [id], onDelete: SetNull)
+
+  @@unique([shelfId, bookId])
+  @@index([shelfId])
+  @@index([bookId])
+  @@index([sectionId])
+  @@index([shelfId, sectionId, sortIndex])
+  @@map("shelf_books")
 }
