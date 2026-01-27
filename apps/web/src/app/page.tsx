@@ -144,13 +144,13 @@ const navItems = [
 export default function Home() {
   return (
     <main className="relative min-h-screen bg-background text-foreground transition-colors duration-300">
-      <header className="sticky top-6 z-20 mx-auto w-full max-w-[1660px] px-6">
+      <header className="sticky top-6 z-[999] isolate mx-auto w-full max-w-[1660px] px-6">
         <GlassSurface
           {...glassBaseProps}
           width="100%"
           height="75px"
           borderRadius={300}
-          className="w-full border border-black/10 px-6 py-4 dark:border-white/10 md:px-10 [&_.glass-surface__content]:w-full [&_.glass-surface__content]:justify-between [&_.glass-surface__content]:p-0"
+          className="nav-glass w-full border border-black/10 px-6 py-4 dark:border-white/10 md:px-10 [&_.glass-surface__content]:w-full [&_.glass-surface__content]:justify-between [&_.glass-surface__content]:p-0"
         >
           <nav className="flex w-full items-center justify-between gap-6">
             {/* Logo and navigation */}
@@ -168,7 +168,7 @@ export default function Home() {
                     <button className="nav-item flex items-center gap-2">
                       <span>{item.label}</span>
                       <svg
-                        className="h-3 w-3 transition-transform duration-200 group-hover:rotate-180"
+                        className="h-3 w-3 rotate-180 transition-transform duration-200 group-hover:rotate-0"
                         viewBox="0 0 12 12"
                         fill="none"
                         stroke="currentColor"
@@ -182,7 +182,7 @@ export default function Home() {
                     </button>
 
                     {item.hasDropdown ? (
-                      <div className="pointer-events-none absolute left-0 top-full z-30 w-[980px] pt-6 opacity-0 transition-all duration-200 group-hover:pointer-events-auto group-hover:translate-y-2 group-hover:opacity-100">
+                      <div className="nav-dropdown pointer-events-none absolute left-0 top-full z-[1000] w-[980px] pt-6 opacity-0 transition-[opacity,transform] duration-200 group-hover:pointer-events-auto group-hover:translate-y-3 group-hover:opacity-100">
                         <GlassSurface
                           {...glassBaseProps}
                           width="100%"
