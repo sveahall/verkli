@@ -2,6 +2,7 @@
   "name": "verkli-web",
   "version": "0.1.0",
   "private": true,
+  "workspaces": ["apps/*", "packages/*"],
   "scripts": {
     "dev": "next dev",
     "build": "next build",
@@ -9,6 +10,7 @@
     "lint": "eslint"
   },
   "dependencies": {
+    "@runwayml/sdk": "^3.11.0",
     "@supabase/ssr": "^0.8.0",
     "@supabase/supabase-js": "^2.93.1",
     "class-variance-authority": "^0.7.1",
