@@ -33,6 +33,44 @@ export type Database = {
           updated_at?: string
         }
       }
+      profiles: {
+        Row: {
+          user_id: string
+          display_name: string | null
+          username: string | null
+          bio: string | null
+          avatar_url: string | null
+          role: 'writer' | 'reader'
+          preferences: Record<string, any> | null
+          is_public: boolean
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          user_id: string
+          display_name?: string | null
+          username?: string | null
+          bio?: string | null
+          avatar_url?: string | null
+          role?: 'writer' | 'reader'
+          preferences?: Record<string, any> | null
+          is_public?: boolean
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          user_id?: string
+          display_name?: string | null
+          username?: string | null
+          bio?: string | null
+          avatar_url?: string | null
+          role?: 'writer' | 'reader'
+          preferences?: Record<string, any> | null
+          is_public?: boolean
+          created_at?: string
+          updated_at?: string
+        }
+      }
       books: {
         Row: {
           id: string
@@ -209,6 +247,7 @@ export type Database = {
 }
 
 export type User = Database['public']['Tables']['users']['Row']
+export type Profile = Database['public']['Tables']['profiles']['Row']
 export type Book = Database['public']['Tables']['books']['Row']
 export type Chapter = Database['public']['Tables']['chapters']['Row']
 export type Shelf = Database['public']['Tables']['shelves']['Row']

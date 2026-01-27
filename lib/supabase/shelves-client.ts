@@ -47,6 +47,18 @@ export async function getShelves(): Promise<ShelfWithDetails[]> {
   if (error) {
     console.warn("Relation query failed, trying simpler approach:", error);
     
+    // Check if it's a table doesn't exist error
+    const isTableMissing = error.code === '42P01' || 
+      error.message?.includes('does not exist') || 
+      error.message?.includes('relation') && error.message?.includes('does not exist') ||
+      error.message?.includes('permission denied') ||
+      error.code === 'PGRST116';
+    
+    if (isTableMissing) {
+      console.warn("Shelves table does not exist yet. Please run the migration: packages/db/supabase/migrations/00003_create_shelves.sql");
+      return [];
+    }
+    
     // Try simple query first
     const { data: simpleData, error: simpleError } = await supabase
       .from('shelves')
@@ -55,12 +67,20 @@ export async function getShelves(): Promise<ShelfWithDetails[]> {
     
     if (simpleError) {
       // If table doesn't exist, return empty array
-      if (simpleError.code === '42P01' || simpleError.message?.includes('does not exist') || simpleError.message?.includes('relation') && simpleError.message?.includes('does not exist')) {
+      const isSimpleTableMissing = simpleError.code === '42P01' || 
+        simpleError.message?.includes('does not exist') || 
+        simpleError.message?.includes('relation') && simpleError.message?.includes('does not exist') ||
+        simpleError.message?.includes('permission denied') ||
+        simpleError.code === 'PGRST116';
+      
+      if (isSimpleTableMissing) {
         console.warn("Shelves table does not exist yet. Please run the migration: packages/db/supabase/migrations/00003_create_shelves.sql");
         return [];
       }
-      console.error("Error fetching shelves:", simpleError);
-      throw simpleError;
+      
+      // For any other error, log but don't crash - return empty array
+      console.warn("Error fetching shelves (non-critical):", simpleError);
+      return [];
     }
     
     // Manually fetch related data
@@ -363,12 +383,20 @@ export async function getStandaloneBooks(): Promise<Book[]> {
     .eq('author_id', user.id);
   
   if (allBooksError) {
-    console.error("Error fetching books:", allBooksError);
     // If table doesn't exist, return empty array
-    if (allBooksError.code === '42P01' || allBooksError.message?.includes('does not exist')) {
+    const isTableMissing = allBooksError.code === '42P01' || 
+      allBooksError.message?.includes('does not exist') ||
+      allBooksError.message?.includes('permission denied') ||
+      allBooksError.code === 'PGRST116';
+    
+    if (isTableMissing) {
+      console.warn("Books table does not exist yet");
       return [];
     }
-    throw allBooksError;
+    
+    // For any other error, log but don't crash - return empty array
+    console.warn("Error fetching books (non-critical):", allBooksError);
+    return [];
   }
   
   // Try to get shelf_books, but don't fail if table doesn't exist
@@ -378,12 +406,17 @@ export async function getStandaloneBooks(): Promise<Book[]> {
   
   // If shelf_books table doesn't exist, all books are standalone
   if (shelfBooksError) {
-    if (shelfBooksError.code === '42P01' || shelfBooksError.message?.includes('does not exist')) {
+    const isTableMissing = shelfBooksError.code === '42P01' || 
+      shelfBooksError.message?.includes('does not exist') ||
+      shelfBooksError.message?.includes('permission denied') ||
+      shelfBooksError.code === 'PGRST116';
+    
+    if (isTableMissing) {
       console.warn("shelf_books table does not exist yet, returning all books as standalone");
       return (allBooks || []);
     }
-    // For other errors, log but continue
-    console.warn("Error fetching shelf_books:", shelfBooksError);
+    // For other errors, log but continue - assume all books are standalone
+    console.warn("Error fetching shelf_books (non-critical):", shelfBooksError);
   }
   
   const bookIdsInShelves = new Set(shelfBooks?.map(sb => sb.book_id) || []);
