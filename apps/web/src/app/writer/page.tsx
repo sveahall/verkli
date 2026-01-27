@@ -1228,7 +1228,7 @@ function Dashboard({ user }: { user: User }) {
                       </div>
                     </div>
                     <p className="mt-3 text-[13px] font-medium text-slate-700 dark:text-white/70 transition-colors group-hover:text-slate-900 dark:group-hover:text-white">
-                      {writer.name.split(\" \")[0]}
+                      {writer.name.split(" ")[0]}
                     </p>
                   </div>
                 ))

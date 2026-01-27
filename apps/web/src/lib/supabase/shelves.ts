@@ -32,8 +32,13 @@ export async function getShelves(): Promise<ShelfWithDetails[]> {
     `)
     .order('sort_index', { ascending: true });
 
-  if (error) throw error;
-  return data as ShelfWithDetails[];
+  if (error) {
+    console.error('Error fetching shelves:', error);
+    // Return empty array instead of throwing to prevent page crashes
+    return [];
+  }
+  
+  return (data as ShelfWithDetails[]) || [];
 }
 
 // Get single shelf with details

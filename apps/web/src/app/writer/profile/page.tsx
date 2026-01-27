@@ -37,21 +37,57 @@ export default async function WriterProfileRoute() {
   const avatarUrl = profile?.avatar_url || user.user_metadata?.avatar_url || null;
   const isPublic = profile?.is_public ?? true;
 
-  const [shelves, booksCountResult, shelvesCountResult] = await Promise.all([
-    getShelves(),
-    supabase.from("books").select("id", { count: "exact", head: true }).eq("author_id", user.id),
-    supabase.from("shelves").select("id", { count: "exact", head: true }).eq("user_id", user.id),
-  ]);
+  let shelves: Awaited<ReturnType<typeof getShelves>> = [];
+  let booksCountResult: { count: number | null } = { count: 0 };
+  let shelvesCountResult: { count: number | null } = { count: 0 };
 
-  const { data: books } = await supabase
+  try {
+    const results = await Promise.allSettled([
+      getShelves(),
+      supabase.from("books").select("id", { count: "exact", head: true }).eq("author_id", user.id),
+      supabase.from("shelves").select("id", { count: "exact", head: true }).eq("user_id", user.id),
+    ]);
+
+    if (results[0].status === "fulfilled") {
+      shelves = results[0].value;
+    } else {
+      console.error("Error fetching shelves:", results[0].reason);
+    }
+
+    if (results[1].status === "fulfilled") {
+      booksCountResult = results[1].value;
+    } else {
+      console.error("Error fetching books count:", results[1].reason);
+    }
+
+    if (results[2].status === "fulfilled") {
+      shelvesCountResult = results[2].value;
+    } else {
+      console.error("Error fetching shelves count:", results[2].reason);
+    }
+  } catch (error) {
+    console.error("Error fetching profile data:", error);
+    // Continue with empty data rather than crashing
+  }
+
+  const { data: books, error: booksError } = await supabase
     .from("books")
     .select("id, title, slug, cover_url, status, created_at")
     .eq("author_id", user.id)
     .eq("status", "PUBLISHED")
     .order("created_at", { ascending: false });
 
+  if (booksError) {
+    console.error("Error fetching books:", booksError);
+  }
+
   const shelfBookIds = new Set(
-    shelves.flatMap((shelf) => shelf.shelf_books.map((shelfBook) => shelfBook.book_id))
+    shelves.flatMap((shelf) => {
+      if (!shelf.shelf_books || !Array.isArray(shelf.shelf_books)) {
+        return [];
+      }
+      return shelf.shelf_books.map((shelfBook) => shelfBook.book_id).filter((id): id is string => !!id);
+    })
   );
 
   const standaloneBooks = (books ?? []).filter((book) => !shelfBookIds.has(book.id));
@@ -91,7 +127,7 @@ export default async function WriterProfileRoute() {
           shelves: shelvesCountResult.count ?? 0,
           reads: readsCount,
         }}
-        shelves={shelves.map((shelf) => ({
+        shelves={(shelves || []).map((shelf) => ({
           id: shelf.id,
           name: shelf.name,
           subtitle: shelf.subtitle,
@@ -99,7 +135,7 @@ export default async function WriterProfileRoute() {
           cover_type: shelf.cover_type,
           cover_gradient: shelf.cover_gradient,
         }))}
-        standaloneBooks={standaloneBooks.map((book) => ({
+        standaloneBooks={(standaloneBooks || []).map((book) => ({
           id: book.id,
           title: book.title,
           slug: book.slug,
