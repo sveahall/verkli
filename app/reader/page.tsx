@@ -1,8 +1,10 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import GlassSurface from "@/components/GlassSurface";
+import UserMenu from "@/components/navbar/UserMenu";
 import { createClient } from "@/lib/supabase/client";
 import type { User } from "@supabase/supabase-js";
 
@@ -21,10 +23,9 @@ const glassBaseProps = {
 };
 
 export default function ReaderLanding() {
+  const router = useRouter();
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
-  const [profileMenuOpen, setProfileMenuOpen] = useState(false);
-  const profileMenuRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const supabase = createClient();
@@ -45,27 +46,13 @@ export default function ReaderLanding() {
     return () => subscription.unsubscribe();
   }, []);
 
-  useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      if (
-        profileMenuRef.current &&
-        !profileMenuRef.current.contains(event.target as Node)
-      ) {
-        setProfileMenuOpen(false);
-      }
-    };
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, []);
-
   const handleSignOut = async () => {
     const supabase = createClient();
     await supabase.auth.signOut();
     setUser(null);
+    router.refresh();
+    router.push('/');
   };
-
-  const displayName =
-    user?.user_metadata?.full_name || user?.email?.split("@")[0] || "Reader";
 
   if (loading) {
     return (
@@ -77,142 +64,6 @@ export default function ReaderLanding() {
 
   return (
     <main className="relative min-h-screen bg-[#050508] text-white">
-      {/* Header */}
-      <header className="sticky top-6 z-20 mx-auto w-full max-w-[1660px] px-6">
-        <GlassSurface
-          {...glassBaseProps}
-          width="100%"
-          height="75px"
-          borderRadius={300}
-          className="w-full border border-white/10 px-6 py-4 md:px-10 [&_.glass-surface__content]:w-full [&_.glass-surface__content]:justify-between [&_.glass-surface__content]:p-0"
-        >
-          <nav className="flex w-full items-center justify-between gap-6">
-            {/* Logo and navigation */}
-            <div className="flex items-center gap-10">
-              <Link href="/">
-                <img
-                  src="/favicon.svg"
-                  alt="Verkli"
-                  className="h-8 w-auto"
-                  loading="eager"
-                />
-              </Link>
-
-              <div className="hidden items-center gap-10 text-[17px] font-normal text-white lg:flex">
-                {["Discover", "Categories", "Authors", "About"].map((item) => (
-                  <button key={item} className="nav-item flex items-center gap-2">
-                    <span>{item}</span>
-                    <svg
-                      className="h-3 w-3"
-                      viewBox="0 0 12 12"
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth="2"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      aria-hidden="true"
-                    >
-                      <path d="M3 4.5L6 7.5L9 4.5" />
-                    </svg>
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            {/* Actions */}
-            <div className="flex items-center gap-4">
-              {user ? (
-                <div className="relative" ref={profileMenuRef}>
-                  <button
-                    onClick={() => setProfileMenuOpen(!profileMenuOpen)}
-                    className="flex h-11 w-11 items-center justify-center rounded-full border border-white/10 bg-white/[0.05] text-sm font-semibold text-white/90 transition-all hover:border-white/20"
-                    aria-label="Account menu"
-                  >
-                    {displayName.charAt(0).toUpperCase()}
-                  </button>
-                  {profileMenuOpen ? (
-                    <div className="absolute right-0 top-full mt-3 w-[240px] overflow-hidden rounded-2xl border border-white/10 bg-[#0a0a0f]/95 p-2 shadow-2xl backdrop-blur-xl">
-                      <div className="border-b border-white/[0.06] px-4 pb-4 pt-3">
-                        <p className="text-[15px] font-medium text-white">
-                          {displayName}
-                        </p>
-                        <p className="mt-1 text-[13px] text-white/50">
-                          {user?.email}
-                        </p>
-                      </div>
-                      <div className="py-2">
-                        <Link
-                          href="/writer"
-                          className="flex w-full items-center gap-3 rounded-xl px-4 py-3 text-[14px] text-white/70 transition-colors hover:bg-white/[0.05] hover:text-white"
-                        >
-                          <svg
-                            className="h-5 w-5"
-                            fill="none"
-                            viewBox="0 0 24 24"
-                            stroke="currentColor"
-                          >
-                            <path
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                              strokeWidth={1.5}
-                              d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4"
-                            />
-                          </svg>
-                          Switch to Writer
-                        </Link>
-                      </div>
-                      <div className="border-t border-white/[0.06] pt-2">
-                        <button
-                          onClick={handleSignOut}
-                          className="flex w-full items-center gap-3 rounded-xl px-4 py-3 text-[14px] text-red-400/80 transition-colors hover:bg-red-500/10 hover:text-red-400"
-                        >
-                          <svg
-                            className="h-5 w-5"
-                            fill="none"
-                            viewBox="0 0 24 24"
-                            stroke="currentColor"
-                          >
-                            <path
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                              strokeWidth={1.5}
-                              d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"
-                            />
-                          </svg>
-                          Sign out
-                        </button>
-                      </div>
-                    </div>
-                  ) : null}
-                </div>
-              ) : (
-                <>
-                  <Link
-                    href="/reader/signin"
-                    className="sign-in-button px-6 text-[17px] font-regular text-white/100 transition hover:text-white/70"
-                  >
-                    Sign in
-                  </Link>
-                  <Link href="/reader/signup">
-                    <GlassSurface
-                      {...glassBaseProps}
-                      width="auto"
-                      height="auto"
-                      borderRadius={999}
-                      className="glass-surface--button border border-white/10 transition-transform hover:scale-[1.02]"
-                    >
-                      <span className="sign-up-button px-7 py-0 text-[17px] font-medium text-[#F7F7F7]">
-                        Sign up
-                      </span>
-                    </GlassSurface>
-                  </Link>
-                </>
-              )}
-            </div>
-          </nav>
-        </GlassSurface>
-      </header>
-
       {/* Hero Section */}
       <section className="relative mx-auto flex min-h-[80vh] w-full max-w-[1200px] flex-col items-center justify-center px-6 text-center">
         {/* Animated background glows - brand colors */}

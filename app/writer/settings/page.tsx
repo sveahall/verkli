@@ -1,6 +1,5 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
-import WriterTopNav from "@/components/writer/WriterTopNav";
 import SettingsPage from "@/components/writer/settings/SettingsPage";
 import type { Profile } from "@/lib/supabase/types";
 
@@ -33,8 +32,7 @@ export default async function WriterSettingsRoute() {
     "writer";
 
   return (
-    <>
-      <WriterTopNav active="Settings" />
+    <div className="min-h-screen bg-background text-foreground">
       <SettingsPage
         user={{
           id: user.id,
@@ -50,6 +48,6 @@ export default async function WriterSettingsRoute() {
           preferences: profile?.preferences || {},
         }}
       />
-    </>
+    </div>
   );
 }

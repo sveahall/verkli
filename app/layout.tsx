@@ -3,6 +3,7 @@ import { Inter, Montserrat_Alternates } from "next/font/google";
 import "./globals.css";
 import "../components/GridMotion.css";
 import "../components/GlassSurface.css";
+import GlobalNavbar from "@/components/navbar/GlobalNavbar";
 
 const inter = Inter({
   variable: "--font-inter",
@@ -40,6 +41,7 @@ export default function RootLayout({
         className={`${inter.variable} ${montserratAlternates.variable} antialiased`}
       >
         <script dangerouslySetInnerHTML={{ __html: themeScript }} />
+        <GlobalNavbar />
         {children}
       </body>
     </html>

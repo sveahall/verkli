@@ -1,7 +1,6 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { getShelves } from "@/lib/supabase/shelves";
-import WriterTopNav from "@/components/writer/WriterTopNav";
 import ProfilePage from "@/components/writer/profile/ProfilePage";
 import type { Profile } from "@/lib/supabase/types";
 
@@ -78,8 +77,7 @@ export default async function WriterProfileRoute() {
   }
 
   return (
-    <>
-      <WriterTopNav active="Profile" />
+    <div className="min-h-screen bg-background text-foreground">
       <ProfilePage
         profile={{
           displayName,
@@ -109,6 +107,6 @@ export default async function WriterProfileRoute() {
           status: book.status,
         }))}
       />
-    </>
+    </div>
   );
 }

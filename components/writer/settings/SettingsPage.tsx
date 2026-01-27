@@ -1,7 +1,7 @@
 "use client";
 
-import { useMemo, useState } from "react";
-import { useFormState, useFormStatus } from "react-dom";
+import { useMemo, useState, useActionState } from "react";
+import { useFormStatus } from "react-dom";
 import { uploadAvatar } from "@/lib/supabase/storage";
 import {
   updateAccount,
@@ -47,7 +47,7 @@ function SaveButton({ label }: { label: string }) {
       disabled={pending}
       className="rounded-full bg-[#907AFF] px-5 py-2 text-[13px] font-semibold text-white transition-all hover:bg-[#8069EE] disabled:cursor-not-allowed disabled:opacity-60"
     >
-      {pending ? "Saving…" : label}
+      {pending ? "Saving..." : label}
     </button>
   );
 }
@@ -82,10 +82,10 @@ export default function SettingsPage({ user, profile }: SettingsPageProps) {
   const [visibilityShelves, setVisibilityShelves] = useState(preferences?.visibility?.shelves || "public");
   const [visibilityBooks, setVisibilityBooks] = useState(preferences?.visibility?.books || "public");
 
-  const [accountState, accountAction] = useFormState(updateAccount, initialState);
-  const [profileState, profileAction] = useFormState(updateProfile, initialState);
-  const [prefsState, prefsAction] = useFormState(updatePreferences, initialState);
-  const [passwordState, passwordAction] = useFormState(changePassword, initialState);
+  const [accountState, accountAction] = useActionState(updateAccount, initialState);
+  const [profileState, profileAction] = useActionState(updateProfile, initialState);
+  const [prefsState, prefsAction] = useActionState(updatePreferences, initialState);
+  const [passwordState, passwordAction] = useActionState(changePassword, initialState);
 
   const handleAvatarChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -212,7 +212,7 @@ export default function SettingsPage({ user, profile }: SettingsPageProps) {
                   <div>
                     <label className="inline-flex cursor-pointer items-center gap-2 rounded-full border border-black/10 bg-black/5 px-4 py-2 text-[12px] font-semibold text-slate-700 transition hover:bg-black/10 dark:border-white/10 dark:bg-white/[0.04] dark:text-white/70 dark:hover:bg-white/[0.06]">
                       <input type="file" accept="image/*" className="hidden" onChange={handleAvatarChange} />
-                      {avatarUploading ? "Uploading…" : "Upload new"}
+                      {avatarUploading ? "Uploading..." : "Upload new"}
                     </label>
                     <p className="mt-2 text-[12px] text-slate-500 dark:text-white/40">PNG, JPG up to 2MB.</p>
                   </div>
