@@ -1041,13 +1041,16 @@ function Dashboard({ user, onSignOut }: { user: User; onSignOut: () => void }) {
   };
 
   return (
-    <main className="min-h-screen bg-[#050508] text-white">
+    <main className="min-h-screen bg-background text-foreground transition-colors duration-300">
       <header className="sticky top-6 z-[999] isolate mx-auto w-full max-w-[1660px] px-6">
         <div className="flex items-center gap-3">
-          <GlassSurface {...glassBaseProps} width="100%" height="75px" borderRadius={300} className="nav-glass flex-1 border border-white/10 px-6 py-4 md:px-10 [&_.glass-surface__content]:w-full [&_.glass-surface__content]:justify-between [&_.glass-surface__content]:p-0">
+          <GlassSurface {...glassBaseProps} width="100%" height="75px" borderRadius={300} className="nav-glass flex-1 border border-black/10 dark:border-white/10 px-6 py-4 md:px-10 [&_.glass-surface__content]:w-full [&_.glass-surface__content]:justify-between [&_.glass-surface__content]:p-0">
             <nav className="flex w-full items-center justify-between gap-6">
               <div className="flex items-center gap-10">
-                <Link href="/writer"><img src="/favicon.svg" alt="Verkli" className="h-8 w-auto" /></Link>
+                <Link href="/writer">
+                  <img src="/logo-dark.svg" alt="Verkli" className="h-8 w-auto dark:hidden" />
+                  <img src="/favicon.svg" alt="Verkli" className="hidden h-8 w-auto dark:block" />
+                </Link>
                 <div className="hidden items-center gap-10 text-[17px] font-normal text-slate-900 dark:text-white lg:flex">
                   <Link href="/writer" className="nav-item transition-colors hover:text-slate-600 dark:hover:text-white/70">Home</Link>
                   {["Features", "Integrations", "Examples", "FAQ"].map((item) => (<button key={item} className="nav-item flex items-center gap-2 transition-colors hover:text-slate-600 dark:hover:text-white/70"><span>{item}</span><svg className="h-3 w-3" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 4.5L6 7.5L9 4.5" /></svg></button>))}
