@@ -593,9 +593,23 @@
 }
 
 .nav-mega {
-  background: rgba(120, 120, 120, 0.28);
+  background: rgba(255, 255, 255, 0.95) !important;
   backdrop-filter: blur(26px);
   -webkit-backdrop-filter: blur(26px);
+  max-height: 600px;
+  overflow-y: auto;
+}
+
+.dark .nav-mega {
+  background: rgba(10, 10, 15, 0.98) !important;
+}
+
+.nav-dropdown {
+  transform: translateY(-8px);
+}
+
+.group:hover .nav-dropdown {
+  transform: translateY(0);
 }
 
 .nav-mega-icon {
