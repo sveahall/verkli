@@ -29,6 +29,118 @@ const glassBaseProps = {
   mixBlendMode: "screen",
 };
 
+const megaMenuColumns = [
+  {
+    title: "Start",
+    iconClass: "from-blue-500 to-indigo-500",
+    items: [
+      {
+        title: "Create your account",
+        body: "Set up your author profile",
+      },
+      {
+        title: "Upload your book",
+        body: "Import/create your chapters",
+        highlight: true,
+      },
+      {
+        title: "Set your goals",
+        body: "Launch, grow, or repurpose content",
+      },
+      {
+        title: "Publishing basics",
+        body: "Formats, platforms, and workflows",
+      },
+      {
+        title: "AI automation",
+        body: "Generate short clips",
+        badge: "Coming soon",
+      },
+    ],
+  },
+  {
+    title: "Create",
+    iconClass: "from-blue-600 to-cyan-500",
+    items: [
+      {
+        title: "Manage chapters",
+        body: "Edit, organize, and update content",
+      },
+      {
+        title: "Extract story moments",
+        body: "Quotes, hooks, scenes, themes",
+      },
+      {
+        title: "Short-form content",
+        body: "Generate clips for TikTok & Reels",
+      },
+      {
+        title: "Visual assets",
+        body: "Covers, cards, and story visuals",
+      },
+    ],
+  },
+  {
+    title: "Automate",
+    iconClass: "from-emerald-500 to-green-400",
+    items: [
+      {
+        title: "AI hooks & scripts",
+        body: "Scroll-stopping copy, ready to post",
+      },
+      {
+        title: "Auto-repurposing",
+        body: "One chapter → many formats",
+      },
+      {
+        title: "Content cadence",
+        body: "Stay visible without daily work",
+      },
+      {
+        title: "Smart recommendations",
+        body: "What to post next",
+      },
+      {
+        title: "AI Phone answering",
+        body: "Generative AI voice answering",
+      },
+    ],
+  },
+  {
+    title: "Grow",
+    iconClass: "from-slate-200 to-white",
+    items: [
+      {
+        title: "Audience insights",
+        body: "See what resonates with readers",
+      },
+      {
+        title: "Content performance",
+        body: "Views, saves, follows",
+      },
+      {
+        title: "Pre-launch campaigns",
+        body: "Build momentum before release",
+      },
+      {
+        title: "Evergreen growth",
+        body: "Keep older books visible",
+      },
+      {
+        title: "Reservations",
+        body: "Manage reservations with ease",
+      },
+    ],
+  },
+];
+
+const navItems = [
+  { label: "Features", hasDropdown: true },
+  { label: "Integrations" },
+  { label: "Examples" },
+  { label: "FAQ" },
+];
+
 export default function Home() {
   return (
     <main className="relative min-h-screen bg-background text-foreground transition-colors duration-300">
@@ -51,22 +163,79 @@ export default function Home() {
               />
 
               <div className="hidden items-center gap-10 text-[17px] font-normal text-slate-900 dark:text-white lg:flex">
-                {["Features", "Integrations", "Examples", "FAQ"].map((item) => (
-                  <button key={item} className="nav-item flex items-center gap-2">
-                    <span>{item}</span>
-                    <svg
-                      className="h-3 w-3"
-                      viewBox="0 0 12 12"
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth="2"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      aria-hidden="true"
-                    >
-                      <path d="M3 4.5L6 7.5L9 4.5" />
-                    </svg>
-                  </button>
+                {navItems.map((item) => (
+                  <div key={item.label} className="group relative">
+                    <button className="nav-item flex items-center gap-2">
+                      <span>{item.label}</span>
+                      <svg
+                        className="h-3 w-3 transition-transform duration-200 group-hover:rotate-180"
+                        viewBox="0 0 12 12"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="2"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        aria-hidden="true"
+                      >
+                        <path d="M3 4.5L6 7.5L9 4.5" />
+                      </svg>
+                    </button>
+
+                    {item.hasDropdown ? (
+                      <div className="pointer-events-none absolute left-0 top-full z-30 w-[980px] pt-6 opacity-0 transition-all duration-200 group-hover:pointer-events-auto group-hover:translate-y-2 group-hover:opacity-100">
+                        <GlassSurface
+                          {...glassBaseProps}
+                          width="100%"
+                          height="auto"
+                          borderRadius={40}
+                          className="nav-mega border border-white/10 px-10 py-8 shadow-[0_24px_60px_-30px_rgba(0,0,0,0.9)]"
+                        >
+                          <div className="grid gap-10 lg:grid-cols-4">
+                            {megaMenuColumns.map((column) => (
+                              <div key={column.title} className="space-y-5">
+                                <div className="space-y-3">
+                                  <div className="flex items-center gap-3 text-base font-semibold">
+                                    <div
+                                      className={`nav-mega-icon bg-gradient-to-br ${column.iconClass}`}
+                                    />
+                                    <span>{column.title}</span>
+                                  </div>
+                                  <div className="h-px w-full bg-white/35" />
+                                </div>
+
+                                <div className="space-y-4 text-sm text-white/80">
+                                  {column.items.map((entry) => (
+                                    <div
+                                      key={entry.title}
+                                      className={
+                                        entry.highlight
+                                          ? "nav-mega-highlight"
+                                          : "space-y-1"
+                                      }
+                                    >
+                                      <div className="flex items-center gap-2">
+                                        <span className="text-white">
+                                          {entry.title}
+                                        </span>
+                                        {entry.badge ? (
+                                          <span className="nav-mega-badge">
+                                            {entry.badge}
+                                          </span>
+                                        ) : null}
+                                      </div>
+                                      <p className="text-white/70">
+                                        {entry.body}
+                                      </p>
+                                    </div>
+                                  ))}
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        </GlassSurface>
+                      </div>
+                    ) : null}
+                  </div>
                 ))}
               </div>
             </div>
