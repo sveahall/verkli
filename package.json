@@ -4,10 +4,10 @@
   "private": true,
   "workspaces": ["apps/*", "packages/*"],
   "scripts": {
-    "dev": "next dev",
-    "build": "next build",
-    "start": "next start",
-    "lint": "eslint"
+    "dev": "npm run -w @verkli/web dev",
+    "build": "npm run -w @verkli/web build",
+    "start": "npm run -w @verkli/web start",
+    "lint": "npm run -w @verkli/web lint"
   },
   "dependencies": {
     "@runwayml/sdk": "^3.11.0",

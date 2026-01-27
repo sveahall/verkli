@@ -1,8 +1,9 @@
 import type { Metadata } from "next";
 import { Inter, Montserrat_Alternates } from "next/font/google";
 import "./globals.css";
-import "@/components/GridMotion.css";
-import "@/components/GlassSurface.css";
+import "../components/GridMotion.css";
+import "../components/GlassSurface.css";
+import GlobalNavbar from "@/components/navbar/GlobalNavbar";
 
 const inter = Inter({
   variable: "--font-inter",
@@ -16,8 +17,8 @@ const montserratAlternates = Montserrat_Alternates({
 });
 
 export const metadata: Metadata = {
-  title: "Verkli - Where books become momentum",
-  description: "Platform for authors to market their books, connect with readers and grow sustainable revenue.",
+  title: "Verkli",
+  description: "Verkli — the platform for writers and readers.",
 };
 
 const themeScript = `
@@ -40,6 +41,7 @@ export default function RootLayout({
         className={`${inter.variable} ${montserratAlternates.variable} antialiased`}
       >
         <script dangerouslySetInnerHTML={{ __html: themeScript }} />
+        <GlobalNavbar />
         {children}
       </body>
     </html>
