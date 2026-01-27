@@ -61,9 +61,15 @@ export default function RoleSelection() {
       <header className="absolute left-8 top-8 z-20">
         <div className="flex items-center gap-3">
           <img
+            src="/logo-dark.svg"
+            alt="Verkli"
+            className="h-8 w-auto dark:hidden"
+            loading="eager"
+          />
+          <img
             src="/favicon.svg"
             alt="Verkli"
-            className="h-8 w-auto"
+            className="hidden h-8 w-auto dark:block"
             loading="eager"
           />
         </div>
