@@ -17,10 +17,13 @@ export async function signUp(email: string, password: string, role: 'writer' | '
   return { data, error }
 }
 
-export async function signIn(email: string, password: string) {
+export async function signIn(email: string, password: string, persistSession: boolean = true) {
   const { data, error } = await supabase.auth.signInWithPassword({
     email,
     password,
+    options: {
+      persistSession,
+    },
   })
   return { data, error }
 }
