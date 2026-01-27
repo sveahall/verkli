@@ -23,71 +23,153 @@ const glassBaseProps = {
   mixBlendMode: "screen",
 };
 
-const megaMenuColumns = [
-  {
-    title: "Start",
-    iconClass: "from-blue-500 to-indigo-500",
+// Dropdown content for each navigation item
+const dropdownContent = {
+  Features: {
+    title: "Platform Features",
+    description: "Everything you need to publish and grow your books",
     items: [
-      { title: "Create your account", body: "Set up your author profile" },
       {
-        title: "Upload your book",
-        body: "Import/create your chapters",
-        highlight: true,
-      },
-      { title: "Set your goals", body: "Launch, grow, or repurpose content" },
-      {
-        title: "Publishing basics",
-        body: "Formats, platforms, and workflows",
+        icon: "📚",
+        title: "Book Management",
+        description: "Organize chapters, shelves, and collections",
       },
       {
-        title: "AI automation",
-        body: "Generate short clips",
-        badge: "Coming soon",
+        icon: "✍️",
+        title: "AI Writing Assistant",
+        description: "Generate content, hooks, and scripts",
+      },
+      {
+        icon: "📱",
+        title: "Short-form Content",
+        description: "Create clips for TikTok, Reels, and more",
+      },
+      {
+        icon: "📊",
+        title: "Analytics & Insights",
+        description: "Track performance and audience engagement",
+      },
+      {
+        icon: "🎨",
+        title: "Visual Assets",
+        description: "Design covers, cards, and story visuals",
+      },
+      {
+        icon: "🚀",
+        title: "Publishing Tools",
+        description: "Export to multiple formats and platforms",
       },
     ],
   },
-  {
-    title: "Create",
-    iconClass: "from-blue-600 to-cyan-500",
-    items: [
-      { title: "Manage chapters", body: "Edit, organize, and update content" },
-      { title: "Extract story moments", body: "Quotes, hooks, scenes, themes" },
-      {
-        title: "Short-form content",
-        body: "Generate clips for TikTok & Reels",
-      },
-      { title: "Visual assets", body: "Covers, cards, and story visuals" },
-    ],
-  },
-  {
-    title: "Automate",
-    iconClass: "from-emerald-500 to-green-400",
+  Integrations: {
+    title: "Integrations",
+    description: "Connect your favorite tools and platforms",
     items: [
       {
-        title: "AI hooks & scripts",
-        body: "Scroll-stopping copy, ready to post",
+        icon: "📖",
+        title: "Amazon KDP",
+        description: "Direct publishing to Amazon",
       },
-      { title: "Auto-repurposing", body: "One chapter → many formats" },
-      { title: "Content cadence", body: "Stay visible without daily work" },
-      { title: "Smart recommendations", body: "What to post next" },
-      { title: "AI Phone answering", body: "Generative AI voice answering" },
-    ],
-  },
-  {
-    title: "Grow",
-    iconClass: "from-slate-200 to-white",
-    items: [
-      { title: "Audience insights", body: "See what resonates with readers" },
-      { title: "Content performance", body: "Views, saves, follows" },
       {
-        title: "Pre-launch campaigns",
-        body: "Build momentum before release",
+        icon: "📘",
+        title: "Apple Books",
+        description: "Publish to Apple's platform",
       },
-      { title: "Evergreen growth", body: "Keep older books visible" },
-      { title: "Reservations", body: "Manage reservations with ease" },
+      {
+        icon: "📗",
+        title: "Google Play Books",
+        description: "Reach Android readers",
+      },
+      {
+        icon: "📱",
+        title: "Social Media",
+        description: "Auto-post to Instagram, TikTok, Twitter",
+      },
+      {
+        icon: "📧",
+        title: "Email Marketing",
+        description: "Connect with Mailchimp, ConvertKit",
+      },
+      {
+        icon: "💼",
+        title: "CRM Tools",
+        description: "Sync with HubSpot, Salesforce",
+      },
     ],
   },
-];
+  Examples: {
+    title: "Success Stories",
+    description: "See how authors are using Verkli",
+    items: [
+      {
+        icon: "⭐",
+        title: "Bestseller Case Study",
+        description: "How Sarah reached #1 on Amazon",
+      },
+      {
+        icon: "📈",
+        title: "Growth Strategies",
+        description: "Tactics that drive reader engagement",
+      },
+      {
+        icon: "🎯",
+        title: "Content Templates",
+        description: "Ready-to-use templates for your books",
+      },
+      {
+        icon: "💡",
+        title: "AI Prompts Library",
+        description: "Proven prompts for better content",
+      },
+      {
+        icon: "🎬",
+        title: "Video Tutorials",
+        description: "Step-by-step guides and walkthroughs",
+      },
+      {
+        icon: "📝",
+        title: "Blog & Resources",
+        description: "Tips, tricks, and industry insights",
+      },
+    ],
+  },
+  FAQ: {
+    title: "Frequently Asked Questions",
+    description: "Quick answers to common questions",
+    items: [
+      {
+        icon: "❓",
+        title: "Getting Started",
+        description: "How to set up your account and first book",
+      },
+      {
+        icon: "💰",
+        title: "Pricing & Plans",
+        description: "Choose the right plan for your needs",
+      },
+      {
+        icon: "🔒",
+        title: "Privacy & Security",
+        description: "How we protect your content and data",
+      },
+      {
+        icon: "📖",
+        title: "Book Publishing",
+        description: "Everything about publishing workflows",
+      },
+      {
+        icon: "🤖",
+        title: "AI Features",
+        description: "Understanding our AI capabilities",
+      },
+      {
+        icon: "💬",
+        title: "Support & Contact",
+        description: "Get help from our team",
+      },
+    ],
+  },
+};
 
 /**
  * Global Navbar component
@@ -152,7 +234,7 @@ export default function GlobalNavbar() {
   }
 
   return (
-    <header className="sticky top-6 z-[999] isolate mx-auto w-full max-w-[1660px] px-6">
+    <header className="sticky top-4 z-[999] isolate mx-auto w-full max-w-[1660px] px-6">
       <div className="flex items-center gap-3">
         <GlassSurface
           {...glassBaseProps}
@@ -203,59 +285,46 @@ export default function GlobalNavbar() {
                         </svg>
                       </button>
                       {(item === "Features" || item === "Integrations" || item === "Examples" || item === "FAQ") && (
-                        <div className="nav-dropdown pointer-events-none absolute left-1/2 top-full z-[1000] w-[1000px] -translate-x-1/2 pt-4 opacity-0 transition-all duration-300 ease-out group-hover:pointer-events-auto group-hover:translate-y-0 group-hover:opacity-100">
+                        <div className="nav-dropdown pointer-events-none absolute left-1/2 top-full z-[1000] w-[720px] -translate-x-1/2 translate-y-[-8px] pt-6 opacity-0 transition-all duration-300 ease-out group-hover:pointer-events-auto group-hover:translate-y-0 group-hover:opacity-100">
                           <GlassSurface
                             {...glassBaseProps}
                             width="100%"
                             height="auto"
-                            borderRadius={32}
-                            className="nav-mega border border-black/10 dark:border-white/10 px-12 py-10 shadow-[0_32px_80px_-20px_rgba(0,0,0,0.25)] dark:shadow-[0_32px_80px_-20px_rgba(0,0,0,0.6)] backdrop-blur-2xl"
+                            borderRadius={24}
+                            className="nav-mega border border-black/10 dark:border-white/10 px-8 py-8 shadow-[0_24px_60px_-12px_rgba(0,0,0,0.25)] dark:shadow-[0_24px_60px_-12px_rgba(0,0,0,0.6)] backdrop-blur-2xl bg-white/95 dark:bg-[#0a0a0f]/98"
                           >
-                            <div className="grid gap-12 lg:grid-cols-4">
-                              {megaMenuColumns.map((column) => (
-                                <div key={column.title} className="space-y-6">
-                                  <div className="space-y-3">
-                                    <div className="flex items-center gap-3">
-                                      <div
-                                        className={`h-9 w-9 rounded-xl bg-gradient-to-br ${column.iconClass} shadow-lg`}
-                                      />
-                                      <span className="text-[15px] font-semibold text-slate-900 dark:text-white">
-                                        {column.title}
-                                      </span>
-                                    </div>
-                                    <div className="h-[1px] w-full bg-gradient-to-r from-transparent via-black/10 to-transparent dark:via-white/20" />
-                                  </div>
-                                  <div className="space-y-3">
-                                    {column.items.map((menuItem, idx) => (
-                                      <div
-                                        key={idx}
-                                        className={`group/item cursor-pointer rounded-2xl p-4 transition-all duration-200 ${
-                                          menuItem.highlight
-                                            ? "bg-gradient-to-br from-[#907AFF]/15 to-[#E29ED5]/15 border border-[#907AFF]/30 dark:border-[#907AFF]/40 shadow-sm"
-                                            : "hover:bg-slate-50/80 dark:hover:bg-white/[0.08] hover:shadow-sm"
-                                        }`}
-                                      >
-                                        <div className="flex items-start justify-between gap-3">
-                                          <div className="flex-1 min-w-0">
-                                            <h4 className="text-[14px] font-semibold leading-tight text-slate-900 dark:text-white group-hover/item:text-[#907AFF] dark:group-hover/item:text-[#907AFF] transition-colors">
-                                              {menuItem.title}
-                                            </h4>
-                                            <p className="mt-1.5 text-[12px] leading-relaxed text-slate-600 dark:text-white/60">
-                                              {menuItem.body}
-                                            </p>
-                                          </div>
-                                          {menuItem.badge && (
-                                            <span className="flex-shrink-0 rounded-full bg-gradient-to-r from-emerald-500/20 to-emerald-400/20 border border-emerald-500/30 px-2.5 py-1 text-[10px] font-semibold text-emerald-600 dark:text-emerald-400">
-                                              {menuItem.badge}
-                                            </span>
-                                          )}
+                            {dropdownContent[item as keyof typeof dropdownContent] && (
+                              <>
+                                <div className="mb-6">
+                                  <h3 className="text-[18px] font-bold text-slate-900 dark:text-white mb-1.5">
+                                    {dropdownContent[item as keyof typeof dropdownContent].title}
+                                  </h3>
+                                  <p className="text-[13px] text-slate-600 dark:text-white/70">
+                                    {dropdownContent[item as keyof typeof dropdownContent].description}
+                                  </p>
+                                </div>
+                                <div className="grid gap-3 grid-cols-2">
+                                  {dropdownContent[item as keyof typeof dropdownContent].items.map((menuItem, idx) => (
+                                    <div
+                                      key={idx}
+                                      className="group/item cursor-pointer rounded-xl p-4 transition-all duration-200 hover:bg-slate-50 dark:hover:bg-white/[0.12] hover:shadow-sm border border-transparent hover:border-slate-200 dark:hover:border-white/10"
+                                    >
+                                      <div className="flex items-start gap-3">
+                                        <span className="text-2xl flex-shrink-0">{menuItem.icon}</span>
+                                        <div className="flex-1 min-w-0">
+                                          <h4 className="text-[14px] font-semibold leading-tight text-slate-900 dark:text-white group-hover/item:text-[#907AFF] dark:group-hover/item:text-[#907AFF] transition-colors mb-1">
+                                            {menuItem.title}
+                                          </h4>
+                                          <p className="text-[12px] leading-relaxed text-slate-600 dark:text-white/70">
+                                            {menuItem.description}
+                                          </p>
                                         </div>
                                       </div>
-                                    ))}
-                                  </div>
+                                    </div>
+                                  ))}
                                 </div>
-                              ))}
-                            </div>
+                              </>
+                            )}
                           </GlassSurface>
                         </div>
                       )}
@@ -310,59 +379,46 @@ export default function GlobalNavbar() {
                         )}
                       </button>
                       {item.hasDropdown && (
-                        <div className="nav-dropdown pointer-events-none absolute left-1/2 top-full z-[1000] w-[1000px] -translate-x-1/2 pt-4 opacity-0 transition-all duration-300 ease-out group-hover:pointer-events-auto group-hover:translate-y-0 group-hover:opacity-100">
+                        <div className="nav-dropdown pointer-events-none absolute left-1/2 top-full z-[1000] w-[720px] -translate-x-1/2 translate-y-[-8px] pt-6 opacity-0 transition-all duration-300 ease-out group-hover:pointer-events-auto group-hover:translate-y-0 group-hover:opacity-100">
                           <GlassSurface
                             {...glassBaseProps}
                             width="100%"
                             height="auto"
-                            borderRadius={32}
-                            className="nav-mega border border-black/10 dark:border-white/10 px-12 py-10 shadow-[0_32px_80px_-20px_rgba(0,0,0,0.25)] dark:shadow-[0_32px_80px_-20px_rgba(0,0,0,0.6)] backdrop-blur-2xl"
+                            borderRadius={24}
+                            className="nav-mega border border-black/10 dark:border-white/10 px-8 py-8 shadow-[0_24px_60px_-12px_rgba(0,0,0,0.25)] dark:shadow-[0_24px_60px_-12px_rgba(0,0,0,0.6)] backdrop-blur-2xl bg-white/95 dark:bg-[#0a0a0f]/98"
                           >
-                            <div className="grid gap-12 lg:grid-cols-4">
-                              {megaMenuColumns.map((column) => (
-                                <div key={column.title} className="space-y-6">
-                                  <div className="space-y-3">
-                                    <div className="flex items-center gap-3">
-                                      <div
-                                        className={`h-9 w-9 rounded-xl bg-gradient-to-br ${column.iconClass} shadow-lg`}
-                                      />
-                                      <span className="text-[15px] font-semibold text-slate-900 dark:text-white">
-                                        {column.title}
-                                      </span>
-                                    </div>
-                                    <div className="h-[1px] w-full bg-gradient-to-r from-transparent via-black/10 to-transparent dark:via-white/20" />
-                                  </div>
-                                  <div className="space-y-3">
-                                    {column.items.map((menuItem, idx) => (
-                                      <div
-                                        key={idx}
-                                        className={`group/item cursor-pointer rounded-2xl p-4 transition-all duration-200 ${
-                                          menuItem.highlight
-                                            ? "bg-gradient-to-br from-[#907AFF]/15 to-[#E29ED5]/15 border border-[#907AFF]/30 dark:border-[#907AFF]/40 shadow-sm"
-                                            : "hover:bg-slate-50/80 dark:hover:bg-white/[0.08] hover:shadow-sm"
-                                        }`}
-                                      >
-                                        <div className="flex items-start justify-between gap-3">
-                                          <div className="flex-1 min-w-0">
-                                            <h4 className="text-[14px] font-semibold leading-tight text-slate-900 dark:text-white group-hover/item:text-[#907AFF] dark:group-hover/item:text-[#907AFF] transition-colors">
-                                              {menuItem.title}
-                                            </h4>
-                                            <p className="mt-1.5 text-[12px] leading-relaxed text-slate-600 dark:text-white/60">
-                                              {menuItem.body}
-                                            </p>
-                                          </div>
-                                          {menuItem.badge && (
-                                            <span className="flex-shrink-0 rounded-full bg-gradient-to-r from-emerald-500/20 to-emerald-400/20 border border-emerald-500/30 px-2.5 py-1 text-[10px] font-semibold text-emerald-600 dark:text-emerald-400">
-                                              {menuItem.badge}
-                                            </span>
-                                          )}
+                            {dropdownContent[item.label as keyof typeof dropdownContent] && (
+                              <>
+                                <div className="mb-6">
+                                  <h3 className="text-[18px] font-bold text-slate-900 dark:text-white mb-1.5">
+                                    {dropdownContent[item.label as keyof typeof dropdownContent].title}
+                                  </h3>
+                                  <p className="text-[13px] text-slate-600 dark:text-white/70">
+                                    {dropdownContent[item.label as keyof typeof dropdownContent].description}
+                                  </p>
+                                </div>
+                                <div className="grid gap-3 grid-cols-2">
+                                  {dropdownContent[item.label as keyof typeof dropdownContent].items.map((menuItem, idx) => (
+                                    <div
+                                      key={idx}
+                                      className="group/item cursor-pointer rounded-xl p-4 transition-all duration-200 hover:bg-slate-50 dark:hover:bg-white/[0.12] hover:shadow-sm border border-transparent hover:border-slate-200 dark:hover:border-white/10"
+                                    >
+                                      <div className="flex items-start gap-3">
+                                        <span className="text-2xl flex-shrink-0">{menuItem.icon}</span>
+                                        <div className="flex-1 min-w-0">
+                                          <h4 className="text-[14px] font-semibold leading-tight text-slate-900 dark:text-white group-hover/item:text-[#907AFF] dark:group-hover/item:text-[#907AFF] transition-colors mb-1">
+                                            {menuItem.title}
+                                          </h4>
+                                          <p className="text-[12px] leading-relaxed text-slate-600 dark:text-white/70">
+                                            {menuItem.description}
+                                          </p>
                                         </div>
                                       </div>
-                                    ))}
-                                  </div>
+                                    </div>
+                                  ))}
                                 </div>
-                              ))}
-                            </div>
+                              </>
+                            )}
                           </GlassSurface>
                         </div>
                       )}
