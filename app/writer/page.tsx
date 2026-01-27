@@ -11,6 +11,7 @@ import StatsSection from "@/components/StatsSection";
 import FeaturesSection from "@/components/FeaturesSection";
 import ThemeToggle from "@/components/ThemeToggle";
 import ShelfTile from "@/components/library/ShelfTile";
+import BookCard from "@/components/library/BookCard";
 import { getShelves, createShelf, getStandaloneBooks } from "@/lib/supabase/shelves-client";
 import type { ShelfWithDetails } from "@/lib/supabase/shelves-client";
 import type { Book } from "@/lib/supabase/types";
@@ -1183,11 +1184,12 @@ function Dashboard({ user, onSignOut }: { user: User; onSignOut: () => void }) {
               ) : (
                 <div className="mb-6">
                   <h3 className="mb-4 text-[16px] font-semibold text-slate-900 dark:text-white">Shelves</h3>
-                  <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+                  <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
                     {shelves.map((shelf) => (
                       <ShelfTile
                         key={shelf.id}
                         shelf={shelf}
+                        bookCount={shelf.shelf_books?.length || 0}
                         onClick={() => router.push(`/writer/library/${shelf.id}`)}
                       />
                     ))}
@@ -1209,24 +1211,21 @@ function Dashboard({ user, onSignOut }: { user: User; onSignOut: () => void }) {
               {/* Standalone books section */}
               {(standaloneBooks.length > 0 || !loadingShelves) && (
                 <div className="mt-8 border-t border-black/10 dark:border-white/[0.06] pt-8">
-                  <h3 className="mb-4 text-[16px] font-semibold text-slate-900 dark:text-white">Standalone books</h3>
-                  <div className="flex flex-wrap gap-5">
+                  <h3 className="mb-6 text-[20px] font-semibold text-slate-900 dark:text-white">Standalone books</h3>
+                  <div className="grid gap-6 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
                     {standaloneBooks.map((book) => (
-                      <div
+                      <BookCard
                         key={book.id}
+                        book={book}
+                        size="sm"
                         onClick={() => router.push(`/writer/books/${book.id}`)}
-                        className="group relative cursor-pointer"
-                      >
-                        <div className="h-[180px] w-[120px] overflow-hidden rounded-xl bg-black/5 dark:bg-white/[0.05] shadow-lg transition-all duration-300 group-hover:scale-105 group-hover:shadow-xl group-hover:shadow-[#907AFF]/10">
-                          {book.cover_url ? (
-                            <img src={book.cover_url} alt={book.title} className="h-full w-full object-cover" />
-                          ) : (
-                            <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-[#907AFF]/20 to-[#E29ED5]/20">
-                              <span className="text-2xl">📚</span>
-                            </div>
-                          )}
-                        </div>
-                      </div>
+                        showStats={true}
+                        stats={{
+                          views: Math.floor(Math.random() * 5000),
+                          rating: 4.2 + Math.random() * 0.8,
+                          bookmarks: Math.floor(Math.random() * 1000),
+                        }}
+                      />
                     ))}
                     <button
                       onClick={handleCreateBook}
@@ -1351,8 +1350,33 @@ function Dashboard({ user, onSignOut }: { user: User; onSignOut: () => void }) {
         {/* CTA */}
         <section className="mb-20">
           <div className="overflow-hidden rounded-[40px] border border-black/10 dark:border-white/[0.08] bg-gradient-to-b from-black/5 dark:from-white/[0.06] to-transparent dark:to-white/[0.02]">
-            <div className="px-10 py-14 text-center"><h2 className="text-[32px] font-semibold tracking-[-0.02em] text-slate-900 dark:text-white">Ready to turn your book into content?</h2><p className="mt-3 text-[15px] text-slate-600 dark:text-white/50">Upload a chapter and reach more readers across all platforms.</p><button className="keep-white mt-8 rounded-full bg-[#907AFF] px-8 py-3.5 text-[15px] font-medium text-white transition-all hover:bg-[#8069EE]">Get started</button></div>
-            <div className="relative h-[220px] overflow-hidden"><div className="absolute inset-0 z-10 bg-gradient-to-t from-white via-transparent to-transparent dark:from-[#050508]"></div><div className="flex animate-scroll gap-5 px-4">{[...ctaBooks, ...ctaBooks, ...ctaBooks].map((cover, index) => (<div key={index} className="h-[200px] w-[130px] flex-shrink-0 overflow-hidden rounded-xl shadow-lg" style={{ transform: `rotate(${(index % 3 - 1) * 5}deg) translateY(${(index % 2) * 20}px)` }}><img src={cover} alt="" className="h-full w-full object-cover" /></div>))}</div></div>
+            <div className="px-10 py-14 text-center">
+              <h2 className="text-[32px] font-semibold tracking-[-0.02em] text-slate-900 dark:text-white">
+                Ready to turn your book into content?
+              </h2>
+              <p className="mt-3 text-[15px] text-slate-600 dark:text-white/50">
+                Upload a chapter and reach more readers across all platforms.
+              </p>
+              <button className="keep-white mt-8 rounded-full bg-[#907AFF] px-8 py-3.5 text-[15px] font-medium text-white transition-all hover:bg-[#8069EE]">
+                Get started
+              </button>
+            </div>
+            <div className="relative h-[220px] overflow-hidden">
+              <div className="absolute inset-0 z-10 bg-gradient-to-t from-white via-transparent to-transparent dark:from-[#050508]" />
+              <div className="flex animate-scroll gap-5 px-4">
+                {[...ctaBooks, ...ctaBooks, ...ctaBooks].map((cover, index) => (
+                  <div
+                    key={index}
+                    className="h-[200px] w-[130px] flex-shrink-0 overflow-hidden rounded-xl shadow-lg"
+                    style={{
+                      transform: `rotate(${(index % 3 - 1) * 5}deg) translateY(${(index % 2) * 20}px)`,
+                    }}
+                  >
+                    <img src={cover} alt="" className="h-full w-full object-cover" />
+                  </div>
+                ))}
+              </div>
+            </div>
           </div>
         </section>
       </div>

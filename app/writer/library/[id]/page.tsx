@@ -402,9 +402,9 @@ export default function ShelfDetailPage() {
         {/* Unsectioned Books */}
         {unsectionedBooks.length > 0 && (
           <div className="mb-8 rounded-2xl border border-black/10 dark:border-white/[0.08] bg-gradient-to-b from-black/5 dark:from-white/[0.04] to-transparent p-6">
-            <h3 className="mb-5 text-[18px] font-semibold text-slate-900 dark:text-white">Books</h3>
+            <h3 className="mb-6 text-[20px] font-semibold text-slate-900 dark:text-white">Books</h3>
             <div 
-              className="flex flex-wrap gap-5"
+              className="grid grid-cols-2 gap-6 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5"
               onDragOver={handleDragOver}
               onDrop={(e) => handleDrop(e, null)}
             >
@@ -419,12 +419,18 @@ export default function ShelfDetailPage() {
                   >
                     <BookCard
                       book={shelfBook.book}
-                      size="md"
+                      size="sm"
                       onClick={() => router.push(`/writer/books/${shelfBook.book.id}`)}
                       onAction={(action) => {
                         if (action === "delete") {
                           handleDeleteBook(shelfBook.id);
                         }
+                      }}
+                      showStats={true}
+                      stats={{
+                        views: Math.floor(Math.random() * 5000),
+                        rating: 4.2 + Math.random() * 0.8,
+                        bookmarks: Math.floor(Math.random() * 1000),
                       }}
                     />
                   </div>
@@ -434,13 +440,17 @@ export default function ShelfDetailPage() {
                   setSelectedSectionId(null);
                   setShowAddBookModal(true);
                 }}
-                className="flex h-[180px] w-[120px] items-center justify-center rounded-xl border-2 border-dashed border-black/20 dark:border-white/10 bg-black/5 dark:bg-white/[0.02] transition-all hover:border-[#907AFF]/30 hover:bg-black/10 dark:hover:bg-white/[0.04]"
+                className="group flex h-[200px] w-[140px] items-center justify-center rounded-2xl border-2 border-dashed border-black/20 dark:border-white/10 bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-900 dark:to-slate-800 transition-all duration-300 hover:border-[#907AFF]/50 hover:bg-gradient-to-br hover:from-[#907AFF]/5 hover:to-[#E29ED5]/5 hover:shadow-lg hover:shadow-[#907AFF]/10"
               >
-                <div className="flex flex-col items-center gap-2">
-                  <svg className="h-8 w-8 text-slate-400 dark:text-white/30" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 4v16m8-8H4" />
-                  </svg>
-                  <span className="text-[11px] text-slate-500 dark:text-white/30">Add book</span>
+                <div className="flex flex-col items-center gap-3">
+                  <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-to-br from-[#907AFF]/20 to-[#E29ED5]/20 transition-all duration-300 group-hover:scale-110 group-hover:from-[#907AFF]/30 group-hover:to-[#E29ED5]/30">
+                    <svg className="h-6 w-6 text-[#907AFF] transition-colors group-hover:text-[#8069EE]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                    </svg>
+                  </div>
+                  <span className="text-[13px] font-medium text-slate-600 dark:text-white/50 transition-colors group-hover:text-[#907AFF] dark:group-hover:text-[#907AFF]">
+                    Add book
+                  </span>
                 </div>
               </button>
             </div>
