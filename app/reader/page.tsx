@@ -1,5 +1,10 @@
+"use client";
+
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import GlassSurface from "@/components/GlassSurface";
+import { createClient } from "@/lib/supabase/client";
+import type { User } from "@supabase/supabase-js";
 
 const glassBaseProps = {
   displace: 0.5,
@@ -16,6 +21,60 @@ const glassBaseProps = {
 };
 
 export default function ReaderLanding() {
+  const [user, setUser] = useState<User | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [profileMenuOpen, setProfileMenuOpen] = useState(false);
+  const profileMenuRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const supabase = createClient();
+    const getUser = async () => {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      setUser(user);
+      setLoading(false);
+    };
+    getUser();
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((event, session) => {
+      if (event === "SIGNED_OUT") setUser(null);
+      else if (event === "SIGNED_IN" && session?.user) setUser(session.user);
+    });
+    return () => subscription.unsubscribe();
+  }, []);
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (
+        profileMenuRef.current &&
+        !profileMenuRef.current.contains(event.target as Node)
+      ) {
+        setProfileMenuOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  const handleSignOut = async () => {
+    const supabase = createClient();
+    await supabase.auth.signOut();
+    setUser(null);
+  };
+
+  const displayName =
+    user?.user_metadata?.full_name || user?.email?.split("@")[0] || "Reader";
+
+  if (loading) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-[#050508]">
+        <div className="h-8 w-8 animate-spin rounded-full border-2 border-white/20 border-t-[#907AFF]" />
+      </div>
+    );
+  }
+
   return (
     <main className="relative min-h-screen bg-[#050508] text-white">
       {/* Header */}
@@ -62,22 +121,93 @@ export default function ReaderLanding() {
 
             {/* Actions */}
             <div className="flex items-center gap-4">
-              <Link href="/reader/signin" className="sign-in-button px-6 text-[17px] font-regular text-white/100 transition hover:text-white/70">
-                Sign in
-              </Link>
-              <Link href="/reader/signup">
-                <GlassSurface
-                  {...glassBaseProps}
-                  width="auto"
-                  height="auto"
-                  borderRadius={999}
-                  className="glass-surface--button border border-white/10 transition-transform hover:scale-[1.02]"
-                >
-                  <span className="sign-up-button px-7 py-0 text-[17px] font-medium text-[#F7F7F7]">
-                    Sign up
-                  </span>
-                </GlassSurface>
-              </Link>
+              {user ? (
+                <div className="relative" ref={profileMenuRef}>
+                  <button
+                    onClick={() => setProfileMenuOpen(!profileMenuOpen)}
+                    className="flex h-11 w-11 items-center justify-center rounded-full border border-white/10 bg-white/[0.05] text-sm font-semibold text-white/90 transition-all hover:border-white/20"
+                    aria-label="Account menu"
+                  >
+                    {displayName.charAt(0).toUpperCase()}
+                  </button>
+                  {profileMenuOpen ? (
+                    <div className="absolute right-0 top-full mt-3 w-[240px] overflow-hidden rounded-2xl border border-white/10 bg-[#0a0a0f]/95 p-2 shadow-2xl backdrop-blur-xl">
+                      <div className="border-b border-white/[0.06] px-4 pb-4 pt-3">
+                        <p className="text-[15px] font-medium text-white">
+                          {displayName}
+                        </p>
+                        <p className="mt-1 text-[13px] text-white/50">
+                          {user?.email}
+                        </p>
+                      </div>
+                      <div className="py-2">
+                        <Link
+                          href="/writer"
+                          className="flex w-full items-center gap-3 rounded-xl px-4 py-3 text-[14px] text-white/70 transition-colors hover:bg-white/[0.05] hover:text-white"
+                        >
+                          <svg
+                            className="h-5 w-5"
+                            fill="none"
+                            viewBox="0 0 24 24"
+                            stroke="currentColor"
+                          >
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              strokeWidth={1.5}
+                              d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4"
+                            />
+                          </svg>
+                          Switch to Writer
+                        </Link>
+                      </div>
+                      <div className="border-t border-white/[0.06] pt-2">
+                        <button
+                          onClick={handleSignOut}
+                          className="flex w-full items-center gap-3 rounded-xl px-4 py-3 text-[14px] text-red-400/80 transition-colors hover:bg-red-500/10 hover:text-red-400"
+                        >
+                          <svg
+                            className="h-5 w-5"
+                            fill="none"
+                            viewBox="0 0 24 24"
+                            stroke="currentColor"
+                          >
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              strokeWidth={1.5}
+                              d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"
+                            />
+                          </svg>
+                          Sign out
+                        </button>
+                      </div>
+                    </div>
+                  ) : null}
+                </div>
+              ) : (
+                <>
+                  <Link
+                    href="/reader/signin"
+                    className="sign-in-button px-6 text-[17px] font-regular text-white/100 transition hover:text-white/70"
+                  >
+                    Sign in
+                  </Link>
+                  <Link href="/reader/signup">
+                    <GlassSurface
+                      {...glassBaseProps}
+                      width="auto"
+                      height="auto"
+                      borderRadius={999}
+                      className="glass-surface--button border border-white/10 transition-transform hover:scale-[1.02]"
+                    >
+                      <span className="sign-up-button px-7 py-0 text-[17px] font-medium text-[#F7F7F7]">
+                        Sign up
+                      </span>
+                    </GlassSurface>
+                  </Link>
+                </>
+              )}
             </div>
           </nav>
         </GlassSurface>

@@ -37,6 +37,80 @@ const glassBaseProps = {
   mixBlendMode: "screen",
 };
 
+const megaMenuColumns = [
+  {
+    title: "Start",
+    iconClass: "from-blue-500 to-indigo-500",
+    items: [
+      { title: "Create your account", body: "Set up your author profile" },
+      {
+        title: "Upload your book",
+        body: "Import/create your chapters",
+        highlight: true,
+      },
+      { title: "Set your goals", body: "Launch, grow, or repurpose content" },
+      {
+        title: "Publishing basics",
+        body: "Formats, platforms, and workflows",
+      },
+      {
+        title: "AI automation",
+        body: "Generate short clips",
+        badge: "Coming soon",
+      },
+    ],
+  },
+  {
+    title: "Create",
+    iconClass: "from-blue-600 to-cyan-500",
+    items: [
+      { title: "Manage chapters", body: "Edit, organize, and update content" },
+      { title: "Extract story moments", body: "Quotes, hooks, scenes, themes" },
+      {
+        title: "Short-form content",
+        body: "Generate clips for TikTok & Reels",
+      },
+      { title: "Visual assets", body: "Covers, cards, and story visuals" },
+    ],
+  },
+  {
+    title: "Automate",
+    iconClass: "from-emerald-500 to-green-400",
+    items: [
+      {
+        title: "AI hooks & scripts",
+        body: "Scroll-stopping copy, ready to post",
+      },
+      { title: "Auto-repurposing", body: "One chapter → many formats" },
+      { title: "Content cadence", body: "Stay visible without daily work" },
+      { title: "Smart recommendations", body: "What to post next" },
+      { title: "AI Phone answering", body: "Generative AI voice answering" },
+    ],
+  },
+  {
+    title: "Grow",
+    iconClass: "from-slate-200 to-white",
+    items: [
+      { title: "Audience insights", body: "See what resonates with readers" },
+      { title: "Content performance", body: "Views, saves, follows" },
+      {
+        title: "Pre-launch campaigns",
+        body: "Build momentum before release",
+      },
+      { title: "Evergreen growth", body: "Keep older books visible" },
+      { title: "Reservations", body: "Manage reservations with ease" },
+    ],
+  },
+];
+
+const navItems = [
+  { label: "Home" },
+  { label: "Features", hasDropdown: true },
+  { label: "Integrations" },
+  { label: "Examples" },
+  { label: "FAQ" },
+];
+
 // Dashboard mock data
 const mockBooks = [
   { id: 1, title: "Dune", cover: "https://images.unsplash.com/photo-1682687220742-aba13b6e50ba?w=300&h=400&fit=crop", progress: 45 },
@@ -180,17 +254,80 @@ function LandingPage() {
 
   return (
     <main className="relative min-h-screen bg-background text-foreground transition-colors duration-300">
-      <header className="sticky top-6 z-20 mx-auto w-full max-w-[1660px] px-6">
-        <GlassSurface {...glassBaseProps} width="100%" height="75px" borderRadius={300} className="w-full border border-black/10 px-6 py-4 dark:border-white/10 md:px-10 [&_.glass-surface__content]:w-full [&_.glass-surface__content]:justify-between [&_.glass-surface__content]:p-0">
+      <header className="sticky top-6 z-[999] isolate mx-auto w-full max-w-[1660px] px-6">
+        <GlassSurface {...glassBaseProps} width="100%" height="75px" borderRadius={300} className="nav-glass w-full border border-black/10 px-6 py-4 dark:border-white/10 md:px-10 [&_.glass-surface__content]:w-full [&_.glass-surface__content]:justify-between [&_.glass-surface__content]:p-0">
           <nav className="flex w-full items-center justify-between gap-6">
             <div className="flex items-center gap-10">
               <img src="/favicon.svg" alt="Verkli" className="h-8 w-auto" loading="eager" />
               <div className="hidden items-center gap-10 text-[17px] font-normal text-slate-900 dark:text-white lg:flex">
-                {["Features", "Integrations", "Examples", "FAQ"].map((item) => (
-                  <button key={item} className="nav-item flex items-center gap-2">
-                    <span>{item}</span>
-                    <svg className="h-3 w-3" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 4.5L6 7.5L9 4.5" /></svg>
-                  </button>
+                {navItems.map((item) => (
+                  <div key={item.label} className="group relative">
+                    {item.label === "Home" ? (
+                      <Link href="/writer" className="nav-item transition-colors hover:text-slate-600 dark:hover:text-white/70">
+                        {item.label}
+                      </Link>
+                    ) : (
+                      <button className="nav-item flex items-center gap-2">
+                        <span>{item.label}</span>
+                        <svg className="h-3 w-3 rotate-180 transition-transform duration-200 group-hover:rotate-0" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 4.5L6 7.5L9 4.5" /></svg>
+                      </button>
+                    )}
+
+                    {item.hasDropdown ? (
+                      <div className="nav-dropdown pointer-events-none absolute left-0 top-full z-[1000] w-[980px] pt-6 opacity-0 transition-[opacity,transform] duration-200 group-hover:pointer-events-auto group-hover:translate-y-3 group-hover:opacity-100">
+                        <GlassSurface
+                          {...glassBaseProps}
+                          width="100%"
+                          height="auto"
+                          borderRadius={40}
+                          className="nav-mega border border-white/10 px-10 py-8 shadow-[0_24px_60px_-30px_rgba(0,0,0,0.9)]"
+                        >
+                          <div className="grid gap-10 lg:grid-cols-4">
+                            {megaMenuColumns.map((column) => (
+                              <div key={column.title} className="space-y-5">
+                                <div className="space-y-3">
+                                  <div className="flex items-center gap-3 text-base font-semibold">
+                                    <div
+                                      className={`nav-mega-icon bg-gradient-to-br ${column.iconClass}`}
+                                    />
+                                    <span>{column.title}</span>
+                                  </div>
+                                  <div className="h-px w-full bg-white/35" />
+                                </div>
+
+                                <div className="space-y-4 text-sm text-white/80">
+                                  {column.items.map((entry) => (
+                                    <div
+                                      key={entry.title}
+                                      className={
+                                        entry.highlight
+                                          ? "nav-mega-highlight"
+                                          : "space-y-1"
+                                      }
+                                    >
+                                      <div className="flex items-center gap-2">
+                                        <span className="text-white">
+                                          {entry.title}
+                                        </span>
+                                        {entry.badge ? (
+                                          <span className="nav-mega-badge">
+                                            {entry.badge}
+                                          </span>
+                                        ) : null}
+                                      </div>
+                                      <p className="text-white/70">
+                                        {entry.body}
+                                      </p>
+                                    </div>
+                                  ))}
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        </GlassSurface>
+                      </div>
+                    ) : null}
+                  </div>
                 ))}
               </div>
             </div>
@@ -420,15 +557,82 @@ function Dashboard({ user, onSignOut }: { user: User; onSignOut: () => void }) {
 
   return (
     <main className="min-h-screen bg-[#050508] text-white">
-      <header className="sticky top-6 z-50 mx-auto w-full max-w-[1660px] px-6">
+      <header className="sticky top-6 z-[999] isolate mx-auto w-full max-w-[1660px] px-6">
         <div className="flex items-center gap-3">
-          <GlassSurface {...glassBaseProps} width="100%" height="75px" borderRadius={300} className="flex-1 border border-white/10 px-6 py-4 md:px-10 [&_.glass-surface__content]:w-full [&_.glass-surface__content]:justify-between [&_.glass-surface__content]:p-0">
+          <GlassSurface {...glassBaseProps} width="100%" height="75px" borderRadius={300} className="nav-glass flex-1 border border-white/10 px-6 py-4 md:px-10 [&_.glass-surface__content]:w-full [&_.glass-surface__content]:justify-between [&_.glass-surface__content]:p-0">
             <nav className="flex w-full items-center justify-between gap-6">
               <div className="flex items-center gap-10">
                 <Link href="/writer"><img src="/favicon.svg" alt="Verkli" className="h-8 w-auto" /></Link>
                 <div className="hidden items-center gap-10 text-[17px] font-normal text-white lg:flex">
-                  <Link href="/writer" className="nav-item transition-colors hover:text-white/70">Home</Link>
-                  {["Features", "Integrations", "Examples", "FAQ"].map((item) => (<button key={item} className="nav-item flex items-center gap-2 transition-colors hover:text-white/70"><span>{item}</span><svg className="h-3 w-3" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 4.5L6 7.5L9 4.5" /></svg></button>))}
+                  {navItems.map((item) => (
+                    <div key={item.label} className="group relative">
+                      {item.label === "Home" ? (
+                        <Link href="/writer" className="nav-item transition-colors hover:text-white/70">
+                          {item.label}
+                        </Link>
+                      ) : (
+                        <button className="nav-item flex items-center gap-2 transition-colors hover:text-white/70">
+                          <span>{item.label}</span>
+                          <svg className="h-3 w-3 rotate-180 transition-transform duration-200 group-hover:rotate-0" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 4.5L6 7.5L9 4.5" /></svg>
+                        </button>
+                      )}
+
+                      {item.hasDropdown ? (
+                        <div className="nav-dropdown pointer-events-none absolute left-0 top-full z-[1000] w-[980px] pt-6 opacity-0 transition-[opacity,transform] duration-200 group-hover:pointer-events-auto group-hover:translate-y-3 group-hover:opacity-100">
+                          <GlassSurface
+                            {...glassBaseProps}
+                            width="100%"
+                            height="auto"
+                            borderRadius={40}
+                            className="nav-mega border border-white/10 px-10 py-8 shadow-[0_24px_60px_-30px_rgba(0,0,0,0.9)]"
+                          >
+                            <div className="grid gap-10 lg:grid-cols-4">
+                              {megaMenuColumns.map((column) => (
+                                <div key={column.title} className="space-y-5">
+                                  <div className="space-y-3">
+                                    <div className="flex items-center gap-3 text-base font-semibold">
+                                      <div
+                                        className={`nav-mega-icon bg-gradient-to-br ${column.iconClass}`}
+                                      />
+                                      <span>{column.title}</span>
+                                    </div>
+                                    <div className="h-px w-full bg-white/35" />
+                                  </div>
+
+                                  <div className="space-y-4 text-sm text-white/80">
+                                    {column.items.map((entry) => (
+                                      <div
+                                        key={entry.title}
+                                        className={
+                                          entry.highlight
+                                            ? "nav-mega-highlight"
+                                            : "space-y-1"
+                                        }
+                                      >
+                                        <div className="flex items-center gap-2">
+                                          <span className="text-white">
+                                            {entry.title}
+                                          </span>
+                                          {entry.badge ? (
+                                            <span className="nav-mega-badge">
+                                              {entry.badge}
+                                            </span>
+                                          ) : null}
+                                        </div>
+                                        <p className="text-white/70">
+                                          {entry.body}
+                                        </p>
+                                      </div>
+                                    ))}
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          </GlassSurface>
+                        </div>
+                      ) : null}
+                    </div>
+                  ))}
                 </div>
               </div>
               <div className="flex items-center gap-4">
