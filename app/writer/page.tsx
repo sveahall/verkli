@@ -12,6 +12,7 @@ import FeaturesSection from "@/components/FeaturesSection";
 import ThemeToggle from "@/components/ThemeToggle";
 import ShelfTile from "@/components/library/ShelfTile";
 import BookCard from "@/components/library/BookCard";
+import UserMenu from "@/components/navbar/UserMenu";
 import { getShelves, createShelf, getStandaloneBooks } from "@/lib/supabase/shelves-client";
 import type { ShelfWithDetails } from "@/lib/supabase/shelves-client";
 import type { Book } from "@/lib/supabase/types";
@@ -818,9 +819,7 @@ function LandingPage() {
 // ============================================
 function Dashboard({ user, onSignOut }: { user: User; onSignOut: () => void }) {
   const router = useRouter();
-  const [profileMenuOpen, setProfileMenuOpen] = useState(false);
-  const profileMenuRef = useRef<HTMLDivElement>(null);
-  const clickedInsideRef = useRef(false);
+  const createDropdownRef = useRef<HTMLDivElement>(null);
   const [shelves, setShelves] = useState<ShelfWithDetails[]>([]);
   const [standaloneBooks, setStandaloneBooks] = useState<Book[]>([]);
   const [loadingShelves, setLoadingShelves] = useState(true);
@@ -867,28 +866,27 @@ function Dashboard({ user, onSignOut }: { user: User; onSignOut: () => void }) {
 
   useEffect(() => {
     loadShelves();
+    
+    // Listen for create dropdown event from GlobalNavbar
+    const handleOpenCreate = () => {
+      handleAddClick();
+    };
+    window.addEventListener('openCreateDropdown', handleOpenCreate);
+    return () => window.removeEventListener('openCreateDropdown', handleOpenCreate);
   }, []);
 
   useEffect(() => {
-    if (!profileMenuOpen && !showCreateDropdown) return;
+    if (!showCreateDropdown) return;
     
     const handleClickOutside = (event: MouseEvent) => {
-      // If we clicked inside, don't close
-      if (clickedInsideRef.current) {
-        clickedInsideRef.current = false;
-        return;
-      }
-      
       const target = event.target as Node;
-      // Don't close if clicking inside the menu
-      if (profileMenuRef.current && !profileMenuRef.current.contains(target)) {
-        setProfileMenuOpen(false);
+      // Don't close if clicking inside the dropdown
+      if (createDropdownRef.current && !createDropdownRef.current.contains(target)) {
         setShowCreateDropdown(false);
       }
     };
     
     // Use click event without capture - onClick handlers run first, then this
-    // Add small delay to ensure onClick handlers execute
     const timeoutId = setTimeout(() => {
       document.addEventListener("click", handleClickOutside);
     }, 0);
@@ -897,7 +895,7 @@ function Dashboard({ user, onSignOut }: { user: User; onSignOut: () => void }) {
       clearTimeout(timeoutId);
       document.removeEventListener("click", handleClickOutside);
     };
-  }, [profileMenuOpen, showCreateDropdown]);
+  }, [showCreateDropdown]);
 
   const loadShelves = async () => {
     try {
@@ -1069,167 +1067,6 @@ function Dashboard({ user, onSignOut }: { user: User; onSignOut: () => void }) {
 
   return (
     <main className="min-h-screen bg-background text-foreground transition-colors duration-300">
-      <header className="sticky top-6 z-[999] isolate mx-auto w-full max-w-[1660px] px-6">
-        <div className="flex items-center gap-3">
-          <GlassSurface {...glassBaseProps} width="100%" height="75px" borderRadius={300} className="nav-glass flex-1 border border-black/10 dark:border-white/10 px-6 py-4 md:px-10 [&_.glass-surface__content]:w-full [&_.glass-surface__content]:justify-between [&_.glass-surface__content]:p-0">
-            <nav className="flex w-full items-center justify-between gap-6">
-              <div className="flex items-center gap-10">
-                <Link href="/writer">
-                  <img src="/logo-dark.svg" alt="Verkli" className="h-8 w-auto dark:hidden" />
-                  <img src="/favicon.svg" alt="Verkli" className="hidden h-8 w-auto dark:block" />
-                </Link>
-                <div className="hidden items-center gap-10 text-[17px] font-normal text-slate-900 dark:text-white lg:flex">
-                  <Link href="/writer" className="nav-item transition-colors hover:text-slate-600 dark:hover:text-white/70">Home</Link>
-                  {["Features", "Integrations", "Examples", "FAQ"].map((item) => (<button key={item} className="nav-item flex items-center gap-2 transition-colors hover:text-slate-600 dark:hover:text-white/70"><span>{item}</span><svg className="h-3 w-3" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 4.5L6 7.5L9 4.5" /></svg></button>))}
-                </div>
-              </div>
-              <div className="flex items-center gap-4">
-                <div className="hidden md:block"><div className="flex h-10 w-[280px] items-center gap-2 rounded-full border border-black/10 bg-black/5 dark:border-white/10 dark:bg-white/[0.03] px-4"><svg className="h-4 w-4 text-slate-400 dark:text-white/40" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg><input type="text" placeholder="Search books, authors..." className="flex-1 bg-transparent text-[14px] text-slate-900 placeholder-slate-400 dark:text-white dark:placeholder-white/40 outline-none" /></div></div>
-                <div className="hidden items-center gap-3 md:flex">
-                  <ThemeToggle glassProps={glassBaseProps} />
-                </div>
-                <button
-                  onClick={async () => {
-                    setTestInsertLoading(true);
-                    try {
-                      const result = await insertLibraryBook({
-                        title: "Testbok",
-                        author: displayName,
-                      });
-                      console.log("Inserted library book:", result);
-                    } finally {
-                      setTestInsertLoading(false);
-                    }
-                  }}
-                  className="hidden rounded-full border border-black/10 px-4 py-2 text-[13px] text-slate-600 transition-all hover:border-black/20 hover:bg-black/5 hover:text-slate-900 dark:border-white/10 dark:text-white/70 dark:hover:border-white/20 dark:hover:bg-white/[0.03] dark:hover:text-white md:block"
-                >
-                  {testInsertLoading ? "Creating..." : "Insert test book"}
-                </button>
-                <button onClick={() => handleAddClick()} className="rounded-full bg-[#907AFF] px-6 py-2.5 text-[15px] font-medium text-white transition-all hover:bg-[#8069EE]">Create</button>
-              </div>
-            </nav>
-          </GlassSurface>
-          <div className="relative" ref={profileMenuRef}>
-            <button onClick={() => setProfileMenuOpen(!profileMenuOpen)} className="flex h-[75px] w-[75px] items-center justify-center rounded-full border border-black/10 dark:border-white/10 bg-gradient-to-br from-[#907AFF]/20 to-[#E29ED5]/20 backdrop-blur-xl transition-all hover:border-black/20 dark:hover:border-white/20">
-              <span className="flex h-12 w-12 items-center justify-center rounded-full bg-gradient-to-br from-[#907AFF] to-[#E29ED5] text-[18px] font-semibold text-white">{displayName.charAt(0).toUpperCase()}</span>
-            </button>
-            {profileMenuOpen && (
-              <div 
-                className="absolute right-0 top-full mt-3 z-[1000] w-[260px] overflow-hidden rounded-2xl border border-black/10 dark:border-white/10 bg-white/95 dark:bg-[#0a0a0f]/95 p-2 shadow-2xl backdrop-blur-xl"
-                onClick={(e) => e.stopPropagation()}
-              >
-                <div className="border-b border-black/10 dark:border-white/[0.06] px-4 pb-4 pt-3">
-                  <p className="text-[15px] font-medium text-slate-900 dark:text-white">{displayName}</p>
-                  <p className="mt-1 text-[13px] text-slate-500 dark:text-white/50">{user?.email}</p>
-                </div>
-                <div className="py-2">
-                  <button 
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setProfileMenuOpen(false);
-                    }}
-                    className="flex w-full items-center gap-3 rounded-xl px-4 py-3 text-[14px] text-slate-700 dark:text-white/70 transition-colors hover:bg-black/5 dark:hover:bg-white/[0.05] hover:text-slate-900 dark:hover:text-white"
-                  >
-                    <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-                    </svg>
-                    Profile
-                  </button>
-                  <button 
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setProfileMenuOpen(false);
-                    }}
-                    className="flex w-full items-center gap-3 rounded-xl px-4 py-3 text-[14px] text-slate-700 dark:text-white/70 transition-colors hover:bg-black/5 dark:hover:bg-white/[0.05] hover:text-slate-900 dark:hover:text-white"
-                  >
-                    <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                    </svg>
-                    Settings
-                  </button>
-                  <button
-                    onClick={async (e) => {
-                      e.preventDefault();
-                      e.stopPropagation();
-                      clickedInsideRef.current = true;
-                      
-                      // Close menu immediately
-                      setProfileMenuOpen(false);
-                      
-                      // Execute action after a tiny delay to ensure menu closes
-                      setTimeout(async () => {
-                        try {
-                          const supabase = createClient();
-                          const { data: { user: currentUser } } = await supabase.auth.getUser();
-                          
-                          if (currentUser) {
-                            // Update role in profiles table
-                            const { error: updateError } = await supabase
-                              .from('profiles')
-                              .update({ role: 'reader' })
-                              .eq('user_id', currentUser.id);
-                            
-                            if (updateError) {
-                              console.error('Error updating role:', updateError);
-                            }
-                          }
-                          
-                          // Refresh router to clear cache and redirect
-                          router.refresh();
-                          router.push('/reader');
-                        } catch (error) {
-                          console.error('Error switching to reader:', error);
-                          // Still redirect even if update fails
-                          router.push('/reader');
-                        }
-                      }, 10);
-                    }}
-                    className="flex w-full items-center gap-3 rounded-xl px-4 py-3 text-left text-[14px] text-slate-700 dark:text-white/70 transition-colors hover:bg-black/5 dark:hover:bg-white/[0.05] hover:text-slate-900 dark:hover:text-white"
-                  >
-                    <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" />
-                    </svg>
-                    Switch to Reader
-                  </button>
-                </div>
-                <div className="border-t border-black/10 dark:border-white/[0.06] pt-2">
-                  <button 
-                    onClick={async (e) => {
-                      e.preventDefault();
-                      e.stopPropagation();
-                      clickedInsideRef.current = true;
-                      
-                      // Close menu immediately
-                      setProfileMenuOpen(false);
-                      
-                      // Execute action after a tiny delay to ensure menu closes
-                      setTimeout(async () => {
-                        try {
-                          await onSignOut();
-                          // Refresh router to clear server cache
-                          router.refresh();
-                          // Redirect to landing page
-                          router.push('/');
-                        } catch (error) {
-                          console.error("Error signing out:", error);
-                        }
-                      }, 10);
-                    }}
-                    type="button"
-                    className="flex w-full items-center gap-3 rounded-xl px-4 py-3 text-left text-[14px] text-red-600 dark:text-red-400/80 transition-colors hover:bg-red-50 dark:hover:bg-red-500/10 hover:text-red-700 dark:hover:text-red-400"
-                  >
-                    <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
-                    </svg>
-                    Sign out
-                  </button>
-                </div>
-              </div>
-            )}
-          </div>
-        </div>
-      </header>
 
       <div className="mx-auto max-w-[1400px] px-6 py-12">
         <section className="mb-14"><h1 className="text-[32px] font-semibold tracking-[-0.02em] text-slate-900 dark:text-white">{displayName}&apos;s world</h1><p className="mt-2 text-[15px] text-slate-600 dark:text-white/50">Your collection. Your masterpieces.</p></section>
@@ -1238,7 +1075,7 @@ function Dashboard({ user, onSignOut }: { user: User; onSignOut: () => void }) {
         <section className="mb-20">
           <div className="mb-6 flex items-center justify-between">
             <h2 className="text-[20px] font-semibold text-slate-900 dark:text-white">My library</h2>
-            <div className="relative" ref={profileMenuRef}>
+            <div className="relative" ref={createDropdownRef}>
               <button 
                 onClick={() => setShowCreateDropdown(!showCreateDropdown)} 
                 className="rounded-full border border-black/10 dark:border-white/10 bg-black/5 dark:bg-white/[0.03] px-5 py-2 text-[13px] font-medium text-slate-700 dark:text-white/70 transition-all hover:bg-black/10 dark:hover:bg-white/[0.06]"

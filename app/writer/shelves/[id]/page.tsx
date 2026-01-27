@@ -1,7 +1,6 @@
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
-import WriterTopNav from "@/components/writer/WriterTopNav";
 
 const fallbackGradient = "linear-gradient(135deg, #907AFF 0%, #E29ED5 50%, #FCC997 100%)";
 
@@ -73,7 +72,6 @@ export default async function PublicShelfPage({ params }: { params: { id: string
 
   return (
     <main className="min-h-screen bg-background text-foreground">
-      <WriterTopNav active="Profile" />
       <div className="mx-auto w-full max-w-[1200px] px-6 pb-20 pt-12">
         <div className="overflow-hidden rounded-[32px] border border-black/10 bg-black/[0.03] dark:border-white/[0.08] dark:bg-white/[0.03]">
           <div

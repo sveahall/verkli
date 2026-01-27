@@ -10,7 +10,7 @@ export default function ProfileStats({ books, shelves, reads }: ProfileStatsProp
   const stats = [
     { label: "Books", value: books.toLocaleString() },
     { label: "Shelves", value: shelves.toLocaleString() },
-    { label: "Total reads", value: reads === null ? "—" : reads.toLocaleString() },
+    { label: "Total reads", value: reads === null ? "--" : reads.toLocaleString() },
   ];
 
   return (
