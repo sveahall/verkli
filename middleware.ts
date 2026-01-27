@@ -30,13 +30,9 @@ export async function middleware(request: NextRequest) {
   // Refresh session if expired
   const { data: { user } } = await supabase.auth.getUser()
 
-  // Optional: Protect routes that require authentication
-  // const protectedRoutes = ['/dashboard', '/writer/dashboard']
-  // if (!user && protectedRoutes.some(route => request.nextUrl.pathname.startsWith(route))) {
-  //   const url = request.nextUrl.clone()
-  //   url.pathname = '/login'
-  //   return NextResponse.redirect(url)
-  // }
+  // Note: /writer and /reader main pages handle auth state internally
+  // They show landing page for unauthenticated users and dashboard for authenticated users
+  // Only specific sub-routes need protection if required in the future
 
   return supabaseResponse
 }

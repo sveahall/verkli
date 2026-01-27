@@ -3,6 +3,7 @@ import GridMotion from "@/components/GridMotion";
 import TestimonialSection from "@/components/TestimonialSection";
 import StatsSection from "@/components/StatsSection";
 import FeaturesSection from "@/components/FeaturesSection";
+import ThemeToggle from "@/components/ThemeToggle";
 
 const gridImages = [
   "https://images.unsplash.com/photo-1723403804231-f4e9b515fe9d?q=80&w=3870&auto=format&fit=crop&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D",
@@ -30,14 +31,14 @@ const glassBaseProps = {
 
 export default function Home() {
   return (
-    <main className="relative min-h-screen bg-[#050508] text-white">
+    <main className="relative min-h-screen bg-background text-foreground transition-colors duration-300">
       <header className="sticky top-6 z-20 mx-auto w-full max-w-[1660px] px-6">
         <GlassSurface
           {...glassBaseProps}
           width="100%"
           height="75px"
           borderRadius={300}
-          className="w-full border border-white/10 px-6 py-4 md:px-10 [&_.glass-surface__content]:w-full [&_.glass-surface__content]:justify-between [&_.glass-surface__content]:p-0"
+          className="w-full border border-black/10 px-6 py-4 dark:border-white/10 md:px-10 [&_.glass-surface__content]:w-full [&_.glass-surface__content]:justify-between [&_.glass-surface__content]:p-0"
         >
           <nav className="flex w-full items-center justify-between gap-6">
             {/* Logo and navigation */}
@@ -49,7 +50,7 @@ export default function Home() {
                 loading="eager"
               />
 
-              <div className="hidden items-center gap-10 text-[17px] font-normal text-white lg:flex">
+              <div className="hidden items-center gap-10 text-[17px] font-normal text-slate-900 dark:text-white lg:flex">
                 {["Features", "Integrations", "Examples", "FAQ"].map((item) => (
                   <button key={item} className="nav-item flex items-center gap-2">
                     <span>{item}</span>
@@ -72,7 +73,7 @@ export default function Home() {
 
             {/* Actions */}
             <div className="flex items-center gap-4">
-              <button className="sign-in-button px-6 text-[17px] font-medium text-white/100">
+              <button className="sign-in-button px-6 text-[17px] font-medium text-slate-900 dark:text-white">
                 Sign in
               </button>
               <GlassSurface
@@ -80,14 +81,15 @@ export default function Home() {
                 width="auto"
                 height="auto"
                 borderRadius={999}
-                className="glass-surface--button border border-white/10"
+                className="glass-surface--button border border-black/10 dark:border-white/10"
               >
-                <button className="sign-up-button px-7 py-1.5 text-[17px] font-medium leading-[160%] text-[#F7F7F7]">
+                <button className="sign-up-button px-7 py-1.5 text-[17px] font-medium leading-[160%] text-slate-900 dark:text-[#F7F7F7]">
                   Sign up
                 </button>
               </GlassSurface>
-              <div className="divider hidden h-8 w-px bg-white/20 md:block" />
-              <div className="hidden md:block">
+              <div className="divider hidden h-8 w-px bg-black/10 dark:bg-white/20 md:block" />
+              <div className="hidden items-center gap-3 md:flex">
+                <ThemeToggle glassProps={glassBaseProps} />
                 <GlassSurface
                   {...glassBaseProps}
                   width="auto"
@@ -96,7 +98,7 @@ export default function Home() {
                   className="glass-surface--button"
                 >
                   <button
-                    className="language-toggle flex items-center justify-center px-3.5 py-2.5"
+                    className="language-toggle flex items-center justify-center px-3.5 py-2.5 text-slate-900 dark:text-white"
                     aria-label="Change language"
                   >
                     <svg
@@ -107,13 +109,13 @@ export default function Home() {
                       xmlns="http://www.w3.org/2000/svg"
                       aria-hidden="true"
                     >
-                      <path d="M11.5083 11.1435L7.74534 0.305126C7.7102 0.203899 7.56721 0.203408 7.53137 0.304391L3.6371 11.2769" stroke="#F7F7F7" strokeWidth="1.70079" strokeLinecap="round"/>
-                      <path d="M5.07678 7.75988H10.1083" stroke="#F7F7F7" strokeWidth="1.70079"/>
-                      <path d="M16.3801 8.53955L26.4786 8.53955" stroke="#F7F7F7" strokeWidth="1.70079" strokeLinecap="round"/>
-                      <path d="M21.4293 5.89978L21.4293 8.53782" stroke="#F7F7F7" strokeWidth="1.70079" strokeLinecap="round"/>
-                      <path d="M16.3801 17.7874C23.4667 14.9174 24.2817 10.5237 24.8841 8.61028" stroke="#F7F7F7" strokeWidth="1.70079" strokeLinecap="round"/>
-                      <path d="M18.1516 11.7992C19.0847 13.4645 20.8445 15.9803 24.8485 17.8228" stroke="#F7F7F7" strokeWidth="1.70079" strokeLinecap="round"/>
-                      <path d="M42.1928 11.352C42.3576 11.5177 42.6286 11.5177 42.7934 11.352L47.0454 7.07497C47.2101 6.90924 47.2101 6.63658 47.0454 6.47084C46.8806 6.30511 46.6095 6.30511 46.4448 6.47084L42.4931 10.4458L38.5414 6.47084C38.3767 6.30511 38.1056 6.30511 37.9408 6.47084C37.7761 6.63658 37.7761 6.90924 37.9408 7.07497L42.1928 11.352Z" fill="#F7F7F7"/>
+                      <path d="M11.5083 11.1435L7.74534 0.305126C7.7102 0.203899 7.56721 0.203408 7.53137 0.304391L3.6371 11.2769" stroke="currentColor" strokeWidth="1.70079" strokeLinecap="round"/>
+                      <path d="M5.07678 7.75988H10.1083" stroke="currentColor" strokeWidth="1.70079"/>
+                      <path d="M16.3801 8.53955L26.4786 8.53955" stroke="currentColor" strokeWidth="1.70079" strokeLinecap="round"/>
+                      <path d="M21.4293 5.89978L21.4293 8.53782" stroke="currentColor" strokeWidth="1.70079" strokeLinecap="round"/>
+                      <path d="M16.3801 17.7874C23.4667 14.9174 24.2817 10.5237 24.8841 8.61028" stroke="currentColor" strokeWidth="1.70079" strokeLinecap="round"/>
+                      <path d="M18.1516 11.7992C19.0847 13.4645 20.8445 15.9803 24.8485 17.8228" stroke="currentColor" strokeWidth="1.70079" strokeLinecap="round"/>
+                      <path d="M42.1928 11.352C42.3576 11.5177 42.6286 11.5177 42.7934 11.352L47.0454 7.07497C47.2101 6.90924 47.2101 6.63658 47.0454 6.47084C46.8806 6.30511 46.6095 6.30511 46.4448 6.47084L42.4931 10.4458L38.5414 6.47084C38.3767 6.30511 38.1056 6.30511 37.9408 6.47084C37.7761 6.63658 37.7761 6.90924 37.9408 7.07497L42.1928 11.352Z" fill="currentColor"/>
                     </svg>
                   </button>
                 </GlassSurface>
@@ -135,9 +137,9 @@ export default function Home() {
                 cols={gridCols}
               />
             </div>
-            <div className="absolute inset-0 z-10 bg-black/75" />
+            <div className="absolute inset-0 z-10 bg-white/75 dark:bg-black/75" />
             {/* Gradient fade to black at top */}
-            <div className="absolute inset-x-0 top-0 z-15 h-[150px] bg-gradient-to-b from-[#050508] via-[#050508]/30 to-transparent" />
+            <div className="absolute inset-x-0 top-0 z-15 h-[150px] bg-gradient-to-b from-white via-white/40 to-transparent dark:from-[#050508] dark:via-[#050508]/30" />
             <div className="absolute top-1/2 -right-40 z-20 h-[600px] w-[600px] rounded-full bg-blue-600/30 blur-[180px]" />
           </div>
         </div>
@@ -145,7 +147,7 @@ export default function Home() {
         <h1 className="max-w-auto text-4xl font-semibold leading-tight md:text-6xl">
         Write once. <br></br>Show up everywhere.
         </h1>
-        <p className="mt-6 max-w-xl text-base text-white/70 md:text-lg">
+        <p className="mt-6 max-w-xl text-base text-slate-600 dark:text-white/70 md:text-lg">
         verkli is designed for authors to market their books, connect with readers and grow sustainable revenue.
         </p>
 
@@ -154,9 +156,9 @@ export default function Home() {
           width="auto"
           height="auto"
           borderRadius={999}
-          className="glass-surface--button mt-20 border border-white/20 transition hover:scale-105"
+          className="glass-surface--button mt-20 border border-black/10 transition hover:scale-105 dark:border-white/20"
         >
-          <button className="px-8 py-4 text-sm font-semibold text-white">
+          <button className="px-8 py-4 text-sm font-semibold text-slate-900 dark:text-white">
             Get started as a writer
           </button>
         </GlassSurface>
@@ -165,13 +167,13 @@ export default function Home() {
       <section className="mx-auto mt-32 flex w-full max-w-[1660px] items-center justify-between gap-12 px-6 lg:px-[115px]">
         {/* Left content */}
         <div className="flex max-w-[778px] flex-col gap-2.5">
-          <p className="text-[17px] font-medium uppercase leading-[24.945px] text-white/50">
+          <p className="text-[17px] font-medium uppercase leading-[24.945px] text-slate-500 dark:text-white/50">
             Built for authors. By authors.
           </p>
-          <h2 className="text-5xl font-normal leading-[120%] text-[#F7F7F7]">
+          <h2 className="text-5xl font-normal leading-[120%] text-slate-900 dark:text-[#F7F7F7]">
             Zero friction book marketing
           </h2>
-          <p className="mt-2 max-w-[661px] text-[22px] font-normal leading-[140%] text-[#F7F7F7]">
+          <p className="mt-2 max-w-[661px] text-[22px] font-normal leading-[140%] text-slate-700 dark:text-[#F7F7F7]">
             An end to end platform built for authors. Fable turns your book into structured content that is easy to publish, easy to adapt and easy to scale without extra accounts or manual work.
           </p>
         </div>
@@ -179,14 +181,14 @@ export default function Home() {
         {/* Right logo carousel */}
         <div className="relative h-[83px] w-full max-w-[734px] overflow-hidden">
           <div className="absolute left-0 top-0.5 flex h-[79px] w-[734px] items-center gap-[50px]">
-            <div className="h-[49px] w-[145px] flex-shrink-0 rounded bg-white/10"></div>
-            <div className="h-[145px] w-[145px] flex-shrink-0 rounded bg-white/10"></div>
-            <div className="h-[40px] w-[145px] flex-shrink-0 rounded bg-white/10"></div>
-            <div className="h-[67px] w-[145px] flex-shrink-0 rounded bg-white/10"></div>
+            <div className="h-[49px] w-[145px] flex-shrink-0 rounded bg-black/5 dark:bg-white/10"></div>
+            <div className="h-[145px] w-[145px] flex-shrink-0 rounded bg-black/5 dark:bg-white/10"></div>
+            <div className="h-[40px] w-[145px] flex-shrink-0 rounded bg-black/5 dark:bg-white/10"></div>
+            <div className="h-[67px] w-[145px] flex-shrink-0 rounded bg-black/5 dark:bg-white/10"></div>
           </div>
           {/* Gradient overlays */}
-          <div className="pointer-events-none absolute inset-y-0 left-0 w-[156px] bg-gradient-to-r from-[#050508] to-transparent"></div>
-          <div className="pointer-events-none absolute inset-y-0 right-0 w-[156px] bg-gradient-to-l from-[#050508] to-transparent"></div>
+          <div className="pointer-events-none absolute inset-y-0 left-0 w-[156px] bg-gradient-to-r from-white to-transparent dark:from-[#050508]"></div>
+          <div className="pointer-events-none absolute inset-y-0 right-0 w-[156px] bg-gradient-to-l from-white to-transparent dark:from-[#050508]"></div>
         </div>
       </section>
 
@@ -274,19 +276,19 @@ export default function Home() {
 
       <section className="mx-auto mt-32 w-full max-w-[1200px] px-6 pb-24">
         <div className="grid gap-8 lg:grid-cols-[1fr_1fr]">
-          <h2 className="text-3xl font-semibold leading-tight text-white md:text-4xl">
+          <h2 className="text-3xl font-semibold leading-tight text-slate-900 dark:text-white md:text-4xl">
             Smart tools to help
             <br />
             your book grow.
           </h2>
-          <p className="max-w-[420px] text-lg font-medium leading-[140%] text-white/90">
+          <p className="max-w-[420px] text-lg font-medium leading-[140%] text-slate-700 dark:text-white/90">
             Turn stories into content.
             <br />
             Reach readers where they scroll.
           </p>
         </div>
 
-        <div className="mt-12 grid gap-6 border-b border-white/10 pb-6 text-xs font-semibold uppercase tracking-[0.14em] text-white/60 lg:grid-cols-[1fr_1fr]">
+        <div className="mt-12 grid gap-6 border-b border-black/10 pb-6 text-xs font-semibold uppercase tracking-[0.14em] text-slate-500 dark:border-white/10 dark:text-white/60 lg:grid-cols-[1fr_1fr]">
           <div>Your goal</div>
           <div>How we help</div>
         </div>
@@ -327,18 +329,18 @@ export default function Home() {
         ].map((item, index) => (
           <div
             key={item.title}
-            className="grid gap-8 border-b border-white/10 py-8 lg:grid-cols-[1fr_1fr]"
+            className="grid gap-8 border-b border-black/10 py-8 dark:border-white/10 lg:grid-cols-[1fr_1fr]"
           >
             <div className="flex items-start gap-4">
-              <div className="flex h-9 w-9 items-center justify-center rounded-full border border-white/20 text-base font-semibold text-white/90">
+              <div className="flex h-9 w-9 items-center justify-center rounded-full border border-black/20 text-base font-semibold text-slate-800 dark:border-white/20 dark:text-white/90">
                 {index + 1}
               </div>
-              <h3 className="text-xl font-semibold text-white">{item.title}</h3>
+              <h3 className="text-xl font-semibold text-slate-900 dark:text-white">{item.title}</h3>
             </div>
-            <div className="space-y-4 text-sm leading-[170%] text-white/75">
-              <p className="text-white/90">{item.body[0]}</p>
+            <div className="space-y-4 text-sm leading-[170%] text-slate-600 dark:text-white/75">
+              <p className="text-slate-700 dark:text-white/90">{item.body[0]}</p>
               <p>{item.body[1]}</p>
-              <p className="text-white/85">{item.body[2]}</p>
+              <p className="text-slate-600 dark:text-white/85">{item.body[2]}</p>
             </div>
           </div>
         ))}
@@ -374,13 +376,13 @@ export default function Home() {
           </div>
         </div>
 
-        <div className="mt-16 grid gap-12 border-t border-white/10 pt-12 md:grid-cols-[1.1fr_1fr_1fr_1fr]">
+        <div className="mt-16 grid gap-12 border-t border-black/10 pt-12 dark:border-white/10 md:grid-cols-[1.1fr_1fr_1fr_1fr]">
           <div className="space-y-4">
-            <div className="flex items-center gap-3 text-lg font-semibold text-white">
+            <div className="flex items-center gap-3 text-lg font-semibold text-slate-900 dark:text-white">
               <img src="/favicon.svg" alt="Verkli" className="h-6 w-6" />
               verkli
             </div>
-            <h3 className="text-2xl font-semibold text-white">
+            <h3 className="text-2xl font-semibold text-slate-900 dark:text-white">
               Where books
               <br />
               become
@@ -389,9 +391,9 @@ export default function Home() {
             </h3>
           </div>
 
-          <div className="grid gap-8 text-sm text-white/70 md:grid-cols-2 md:gap-10">
+          <div className="grid gap-8 text-sm text-slate-600 dark:text-white/70 md:grid-cols-2 md:gap-10">
             <div className="space-y-3">
-              <p className="text-xs font-semibold uppercase tracking-[0.14em] text-white/60">
+              <p className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-500 dark:text-white/60">
                 Website tools
               </p>
               <ul className="space-y-2">
@@ -400,7 +402,7 @@ export default function Home() {
                 <li>Build your inventory</li>
                 <li>Own your site domain</li>
               </ul>
-              <p className="pt-3 text-xs font-semibold uppercase tracking-[0.14em] text-white/60">
+              <p className="pt-3 text-xs font-semibold uppercase tracking-[0.14em] text-slate-500 dark:text-white/60">
                 Marketing tools
               </p>
               <ul className="space-y-2">
@@ -412,7 +414,7 @@ export default function Home() {
             </div>
 
             <div className="space-y-3">
-              <p className="text-xs font-semibold uppercase tracking-[0.14em] text-white/60">
+              <p className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-500 dark:text-white/60">
                 Sales tools
               </p>
               <ul className="space-y-2">
@@ -422,7 +424,7 @@ export default function Home() {
                 <li>Delivery</li>
                 <li>Gift cards</li>
               </ul>
-              <p className="pt-3 text-xs font-semibold uppercase tracking-[0.14em] text-white/60">
+              <p className="pt-3 text-xs font-semibold uppercase tracking-[0.14em] text-slate-500 dark:text-white/60">
                 Backoffice
               </p>
               <ul className="space-y-2">
@@ -434,8 +436,8 @@ export default function Home() {
             </div>
           </div>
 
-          <div className="space-y-3 text-sm text-white/70">
-            <p className="text-xs font-semibold uppercase tracking-[0.14em] text-white/60">
+          <div className="space-y-3 text-sm text-slate-600 dark:text-white/70">
+            <p className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-500 dark:text-white/60">
               About
             </p>
             <ul className="space-y-2">
@@ -443,7 +445,7 @@ export default function Home() {
               <li>Referral program</li>
               <li>Careers</li>
             </ul>
-            <p className="pt-3 text-xs font-semibold uppercase tracking-[0.14em] text-white/60">
+            <p className="pt-3 text-xs font-semibold uppercase tracking-[0.14em] text-slate-500 dark:text-white/60">
               Resources
             </p>
             <ul className="space-y-2">
@@ -453,7 +455,7 @@ export default function Home() {
           </div>
         </div>
 
-        <div className="mt-12 flex flex-col items-start justify-between gap-4 border-t border-white/10 pt-6 text-sm text-white/60 md:flex-row">
+        <div className="mt-12 flex flex-col items-start justify-between gap-4 border-t border-black/10 pt-6 text-sm text-slate-500 dark:border-white/10 dark:text-white/60 md:flex-row">
           <div className="flex items-center gap-6">
             <span>Language</span>
             <span>A-Z</span>

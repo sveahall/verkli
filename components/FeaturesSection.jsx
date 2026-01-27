@@ -84,11 +84,11 @@ export default function FeaturesSection() {
         <p className="text-sm font-semibold uppercase tracking-[0.3em] text-[#907AFF]">
           Built for authors
         </p>
-        <h2 className="text-3xl font-semibold leading-[120%] text-[#F7F7F7] md:text-4xl lg:text-[42px]">
+        <h2 className="text-3xl font-semibold leading-[120%] text-slate-900 dark:text-[#F7F7F7] md:text-4xl lg:text-[42px]">
           Here's what you get with{" "}
           <span className="bg-gradient-to-r from-[#907AFF] via-[#E29ED5] to-[#FCC997] bg-clip-text text-transparent">verkli.</span>
         </h2>
-        <p className="max-w-2xl text-base text-white/60 md:text-lg">
+        <p className="max-w-2xl text-base text-slate-600 dark:text-white/60 md:text-lg">
           A single workflow that protects your IP, grows your audience, and keeps
           your marketing consistent without the busywork.
         </p>
@@ -110,8 +110,8 @@ export default function FeaturesSection() {
                 aria-current={isActive ? "true" : "false"}
                 className={`feature-card group relative cursor-pointer overflow-hidden rounded-[24px] border px-6 py-6 transition-all duration-500 ease-out md:px-8 md:py-7 ${
                   isActive
-                    ? "border-white/20 bg-white/[0.08] shadow-[0_20px_50px_rgba(0,0,0,0.4),inset_0_1px_0_rgba(255,255,255,0.1)] scale-[1.02]"
-                    : "border-white/8 bg-white/[0.02] hover:border-white/12 hover:bg-white/[0.04]"
+                    ? "border-black/20 bg-black/5 shadow-[0_20px_50px_rgba(0,0,0,0.12),inset_0_1px_0_rgba(0,0,0,0.04)] scale-[1.02] dark:border-white/20 dark:bg-white/[0.08] dark:shadow-[0_20px_50px_rgba(0,0,0,0.4),inset_0_1px_0_rgba(255,255,255,0.1)]"
+                    : "border-black/10 bg-black/5 hover:border-black/20 hover:bg-black/10 dark:border-white/8 dark:bg-white/[0.02] dark:hover:border-white/12 dark:hover:bg-white/[0.04]"
                 }`}
               >
                 {/* Active indicator line */}
@@ -134,12 +134,12 @@ export default function FeaturesSection() {
                     <span className={`rounded-full border px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.2em] transition-all duration-300 ${
                       isActive 
                         ? "border-purple-400/40 bg-purple-500/10 text-purple-300" 
-                        : "border-white/12 text-white/50"
+                        : "border-black/20 text-slate-500 dark:border-white/12 dark:text-white/50"
                     }`}>
                       {feature.label}
                     </span>
                     <span className={`text-[11px] font-medium uppercase tracking-[0.15em] transition-colors duration-300 ${
-                      isActive ? "text-white/60" : "text-white/35"
+                      isActive ? "text-slate-600 dark:text-white/60" : "text-slate-400 dark:text-white/35"
                     }`}>
                       {feature.value}
                     </span>
@@ -147,7 +147,7 @@ export default function FeaturesSection() {
 
                   <h3
                     className={`mt-4 text-xl font-semibold leading-[130%] transition-all duration-300 md:text-2xl ${
-                      isActive ? "text-white translate-x-0" : "text-white/75"
+                      isActive ? "text-slate-900 translate-x-0 dark:text-white" : "text-slate-600 dark:text-white/75"
                     }`}
                   >
                     {feature.title}
@@ -156,14 +156,14 @@ export default function FeaturesSection() {
                   <div className={`overflow-hidden transition-all duration-500 ease-out ${
                     isActive ? "max-h-[200px] opacity-100 mt-3" : "max-h-0 opacity-0 mt-0"
                   }`}>
-                    <p className="text-[15px] leading-[165%] text-white/60">
+                    <p className="text-[15px] leading-[165%] text-slate-600 dark:text-white/60">
                       {feature.description}
                     </p>
                   </div>
                 </div>
 
                 {/* Mobile image */}
-                <div className={`overflow-hidden rounded-[18px] border border-white/10 bg-white/5 transition-all duration-500 lg:hidden ${
+                <div className={`overflow-hidden rounded-[18px] border border-black/10 bg-black/5 transition-all duration-500 dark:border-white/10 dark:bg-white/5 lg:hidden ${
                   isActive ? "mt-5 max-h-[300px] opacity-100" : "mt-0 max-h-0 opacity-0"
                 }`}>
                   <div
@@ -200,8 +200,8 @@ export default function FeaturesSection() {
                     onClick={() => setActiveIndex(index)}
                     className={`h-1.5 rounded-full transition-all duration-300 ${
                       index === activeIndex 
-                        ? "w-8 bg-white" 
-                        : "w-1.5 bg-white/40 hover:bg-white/60"
+                        ? "w-8 bg-slate-900 dark:bg-white" 
+                        : "w-1.5 bg-slate-300 hover:bg-slate-500 dark:bg-white/40 dark:hover:bg-white/60"
                     }`}
                     aria-label={`View feature ${index + 1}`}
                   />
