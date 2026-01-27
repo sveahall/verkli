@@ -10,6 +10,10 @@ import TestimonialSection from "@/components/TestimonialSection";
 import StatsSection from "@/components/StatsSection";
 import FeaturesSection from "@/components/FeaturesSection";
 import ThemeToggle from "@/components/ThemeToggle";
+import ShelfTile from "@/components/library/ShelfTile";
+import { getShelves, createShelf, getStandaloneBooks } from "@/lib/supabase/shelves-client";
+import type { ShelfWithDetails } from "@/lib/supabase/shelves-client";
+import type { Book } from "@/lib/supabase/types";
 import type { User } from "@supabase/supabase-js";
 
 const gridImages = [
@@ -358,7 +362,7 @@ function BookCoverCard({
 
         <div className="absolute bottom-3 left-3 right-3">
           <div
-            className={`rounded-[18px] border border-white/10 bg-black/60 backdrop-blur-md ${styles.overlayPad} text-white transition-all duration-300`}
+            className={`keep-white rounded-[18px] border border-white/10 bg-black/60 backdrop-blur-md ${styles.overlayPad} text-white transition-all duration-300`}
           >
             <div className="flex items-center justify-between">
               <p className={`${styles.title} font-medium text-white`}>{book.title}</p>
@@ -440,7 +444,7 @@ function InteractiveTestimonialSection() {
         onMouseMove={handleMouseMove}
         onMouseEnter={() => setIsHovering(true)}
         onMouseLeave={() => { setMousePos({ x: 0.5, y: 0.5 }); setIsHovering(false); }}
-        className="relative overflow-hidden rounded-[40px] border border-white/[0.08] bg-gradient-to-br from-white/[0.04] via-white/[0.02] to-transparent p-10 md:p-14"
+        className="relative overflow-hidden rounded-[40px] border border-black/10 bg-gradient-to-br from-black/[0.04] via-black/[0.02] to-transparent p-10 md:p-14 dark:border-white/[0.08] dark:from-white/[0.04] dark:via-white/[0.02]"
       >
         <div className="pointer-events-none absolute h-[500px] w-[500px] rounded-full blur-[150px] transition-all duration-700 ease-out" style={{ background: "#907AFF", opacity: isHovering ? 0.15 : 0.08, left: `${mousePos.x * 100 - 25}%`, top: `${mousePos.y * 100 - 25}%` }} />
         <div className="pointer-events-none absolute h-[400px] w-[400px] rounded-full blur-[120px] transition-all duration-1000 ease-out" style={{ background: "#E29ED5", opacity: isHovering ? 0.12 : 0.06, left: `${(1 - mousePos.x) * 100 - 20}%`, top: `${(1 - mousePos.y) * 100 - 20}%` }} />
@@ -451,49 +455,49 @@ function InteractiveTestimonialSection() {
               <div className="h-1.5 w-1.5 rounded-full bg-[#907AFF]" />
               <span className="text-[11px] font-semibold uppercase tracking-wider text-[#907AFF]">Social proof</span>
             </div>
-            <h2 className="text-[40px] font-semibold leading-[1.05] tracking-[-0.02em] text-white md:text-[52px]">
-              Authors love<br /><span className="bg-gradient-to-r from-white/40 to-white/20 bg-clip-text text-transparent">what we do.</span>
+            <h2 className="text-[40px] font-semibold leading-[1.05] tracking-[-0.02em] text-slate-900 dark:text-white md:text-[52px]">
+              Authors love<br /><span className="bg-gradient-to-r from-slate-900/40 to-slate-700/20 bg-clip-text text-transparent dark:from-white/40 dark:to-white/20">what we do.</span>
             </h2>
-            <p className="mt-6 max-w-[380px] text-[16px] leading-[1.7] text-white/50">Join thousands of writers who use Verkli to turn their stories into content that reaches readers everywhere.</p>
+            <p className="mt-6 max-w-[380px] text-[16px] leading-[1.7] text-slate-600 dark:text-white/50">Join thousands of writers who use Verkli to turn their stories into content that reaches readers everywhere.</p>
             <div className="mt-8 flex items-center gap-4">
               <Link href="/writer/signup">
                 <GlassSurface {...glassBaseProps} width="auto" height="auto" borderRadius={999} className="glass-button border border-[#907AFF]/30 transition-all hover:scale-[1.02] hover:border-[#907AFF]/50">
-                  <span className="px-7 py-3 text-[14px] font-medium text-white">Start for free</span>
+                  <span className="px-7 py-3 text-[14px] font-medium text-slate-900 dark:text-white">Start for free</span>
                 </GlassSurface>
               </Link>
-              <a href="#" className="text-[14px] text-white/50 underline underline-offset-4 transition-colors hover:text-white/70">Read case studies</a>
+              <a href="#" className="text-[14px] text-slate-500 underline underline-offset-4 transition-colors hover:text-slate-700 dark:text-white/50 dark:hover:text-white/70">Read case studies</a>
             </div>
           </div>
           <div className="space-y-4">
-            <div className="rounded-3xl bg-white/[0.04] p-8 backdrop-blur-sm">
-              <p className="text-[20px] font-normal leading-[1.5] tracking-[-0.01em] text-white/90">&quot;Fable helped me turn one story into content that reached millions. The success has been incredible.&quot;</p>
+            <div className="rounded-3xl bg-black/[0.04] p-8 backdrop-blur-sm dark:bg-white/[0.04]">
+              <p className="text-[20px] font-normal leading-[1.5] tracking-[-0.01em] text-slate-900/90 dark:text-white/90">&quot;Fable helped me turn one story into content that reached millions. The success has been incredible.&quot;</p>
               <div className="mt-6 flex items-center gap-4">
                 <img src="https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=80&h=80&fit=crop&crop=face" alt="Ariana Godoy" className="h-11 w-11 rounded-full object-cover" />
-                <div><div className="text-[15px] font-medium text-white">Ariana Godoy</div><div className="text-[13px] text-white/50">Bestselling author</div></div>
+                <div><div className="text-[15px] font-medium text-slate-900 dark:text-white">Ariana Godoy</div><div className="text-[13px] text-slate-500 dark:text-white/50">Bestselling author</div></div>
               </div>
             </div>
             <div className="grid grid-cols-2 gap-4">
-              <div className="rounded-2xl bg-white/[0.04] p-5 backdrop-blur-sm">
-                <p className="text-[14px] leading-relaxed text-white/80">&quot;My launch stayed visible for weeks.&quot;</p>
+              <div className="rounded-2xl bg-black/[0.04] p-5 backdrop-blur-sm dark:bg-white/[0.04]">
+                <p className="text-[14px] leading-relaxed text-slate-700 dark:text-white/80">&quot;My launch stayed visible for weeks.&quot;</p>
                 <div className="mt-4 flex items-center gap-3">
                   <img src="https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=60&h=60&fit=crop&crop=face" alt="Sarah Chen" className="h-8 w-8 rounded-full object-cover" />
-                  <div className="text-[13px] text-white/50">Sarah Chen</div>
+                  <div className="text-[13px] text-slate-500 dark:text-white/50">Sarah Chen</div>
                 </div>
               </div>
-              <div className="rounded-2xl bg-white/[0.04] p-5 backdrop-blur-sm">
-                <p className="text-[14px] leading-relaxed text-white/80">&quot;BookTok finally clicked for me.&quot;</p>
+              <div className="rounded-2xl bg-black/[0.04] p-5 backdrop-blur-sm dark:bg-white/[0.04]">
+                <p className="text-[14px] leading-relaxed text-slate-700 dark:text-white/80">&quot;BookTok finally clicked for me.&quot;</p>
                 <div className="mt-4 flex items-center gap-3">
                   <img src="https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=60&h=60&fit=crop&crop=face" alt="Mark Torres" className="h-8 w-8 rounded-full object-cover" />
-                  <div className="text-[13px] text-white/50">Mark Torres</div>
+                  <div className="text-[13px] text-slate-500 dark:text-white/50">Mark Torres</div>
                 </div>
               </div>
             </div>
-            <div className="flex items-center justify-between rounded-2xl bg-white/[0.04] px-6 py-5 backdrop-blur-sm">
-              <div className="text-center"><div className="text-xl font-semibold tracking-tight text-white">12,000+</div><div className="mt-0.5 text-[11px] text-white/40">authors</div></div>
-              <div className="h-8 w-px bg-white/10" />
-              <div className="text-center"><div className="text-xl font-semibold tracking-tight text-white">4.9/5</div><div className="mt-0.5 text-[11px] text-white/40">rating</div></div>
-              <div className="h-8 w-px bg-white/10" />
-              <div className="text-center"><div className="text-xl font-semibold tracking-tight text-white">89%</div><div className="mt-0.5 text-[11px] text-white/40">time saved</div></div>
+            <div className="flex items-center justify-between rounded-2xl bg-black/[0.04] px-6 py-5 backdrop-blur-sm dark:bg-white/[0.04]">
+              <div className="text-center"><div className="text-xl font-semibold tracking-tight text-slate-900 dark:text-white">12,000+</div><div className="mt-0.5 text-[11px] text-slate-500 dark:text-white/40">authors</div></div>
+              <div className="h-8 w-px bg-black/10 dark:bg-white/10" />
+              <div className="text-center"><div className="text-xl font-semibold tracking-tight text-slate-900 dark:text-white">4.9/5</div><div className="mt-0.5 text-[11px] text-slate-500 dark:text-white/40">rating</div></div>
+              <div className="h-8 w-px bg-black/10 dark:bg-white/10" />
+              <div className="text-center"><div className="text-xl font-semibold tracking-tight text-slate-900 dark:text-white">89%</div><div className="mt-0.5 text-[11px] text-slate-500 dark:text-white/40">time saved</div></div>
             </div>
           </div>
         </div>
@@ -521,7 +525,8 @@ function LandingPage() {
         <GlassSurface {...glassBaseProps} width="100%" height="75px" borderRadius={300} className="nav-glass w-full border border-black/10 px-6 py-4 dark:border-white/10 md:px-10 [&_.glass-surface__content]:w-full [&_.glass-surface__content]:justify-between [&_.glass-surface__content]:p-0">
           <nav className="flex w-full items-center justify-between gap-6">
             <div className="flex items-center gap-10">
-              <img src="/favicon.svg" alt="Verkli" className="h-8 w-auto" loading="eager" />
+              <img src="/logo-dark.svg" alt="Verkli" className="h-8 w-auto dark:hidden" loading="eager" />
+              <img src="/favicon.svg" alt="Verkli" className="hidden h-8 w-auto dark:block" loading="eager" />
               <div className="hidden items-center gap-10 text-[17px] font-normal text-slate-900 dark:text-white lg:flex">
                 {navItems.map((item) => (
                   <div key={item.label} className="group relative">
@@ -664,35 +669,35 @@ function LandingPage() {
               <div className="pointer-events-none absolute -right-20 -top-20 h-[400px] w-[400px] rounded-full bg-[#907AFF]/20 blur-[100px] transition-transform duration-1000 group-hover:translate-x-10" />
               <div className="pointer-events-none absolute -bottom-20 -left-20 h-[300px] w-[300px] rounded-full bg-[#E29ED5]/15 blur-[80px]" />
               <div className="relative max-w-[500px]">
-                <h2 className="text-[36px] font-semibold leading-[1.1] tracking-[-0.02em] text-white md:text-[48px]">Zero friction<br /><span className="bg-gradient-to-r from-[#907AFF] via-[#E29ED5] to-[#FCC997] bg-clip-text text-transparent">book marketing.</span></h2>
-                <p className="mt-6 max-w-[420px] text-[17px] leading-[1.7] text-white/60">An end-to-end platform that turns your book into structured content — easy to publish, adapt, and scale.</p>
+                <h2 className="text-[36px] font-semibold leading-[1.1] tracking-[-0.02em] text-slate-900 dark:text-white md:text-[48px]">Zero friction<br /><span className="bg-gradient-to-r from-[#907AFF] via-[#E29ED5] to-[#FCC997] bg-clip-text text-transparent">book marketing.</span></h2>
+                <p className="mt-6 max-w-[420px] text-[17px] leading-[1.7] text-slate-600 dark:text-white/60">An end-to-end platform that turns your book into structured content — easy to publish, adapt, and scale.</p>
                 <div className="mt-8">
                   <Link href="/writer/signup">
-                    <GlassSurface {...glassBaseProps} width="auto" height="auto" borderRadius={999} className="glass-button inline-flex border border-white/20 transition-all hover:scale-[1.02]">
-                      <span className="px-7 py-3 text-[15px] font-medium text-white">Start for free</span>
+                    <GlassSurface {...glassBaseProps} width="auto" height="auto" borderRadius={999} className="glass-button inline-flex border border-black/10 transition-all hover:scale-[1.02] dark:border-white/20">
+                      <span className="px-7 py-3 text-[15px] font-medium text-slate-900 dark:text-white">Start for free</span>
                     </GlassSurface>
                   </Link>
                 </div>
               </div>
             </div>
-            <div className="group relative overflow-hidden rounded-[32px] bg-gradient-to-br from-white/[0.06] to-white/[0.02] p-8">
+            <div className="group relative overflow-hidden rounded-[32px] bg-gradient-to-br from-black/[0.05] to-transparent p-8 dark:from-white/[0.06] dark:to-white/[0.02]">
               <div className="pointer-events-none absolute -right-10 -top-10 h-32 w-32 rounded-full bg-[#FCC997]/20 blur-3xl opacity-0 transition-opacity duration-500 group-hover:opacity-100" />
               <div className="relative flex h-full flex-col justify-between">
                 <div>
                   <div className="mb-2 flex items-center gap-1">{[1,2,3,4,5].map((i) => (<svg key={i} className="h-4 w-4 text-[#FCC997]" fill="currentColor" viewBox="0 0 20 20"><path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" /></svg>))}</div>
-                  <p className="text-[40px] font-semibold text-white">4.9/5</p>
-                  <p className="mt-1 text-[14px] text-white/50">Average rating from authors</p>
+                  <p className="text-[40px] font-semibold text-slate-900 dark:text-white">4.9/5</p>
+                  <p className="mt-1 text-[14px] text-slate-600 dark:text-white/50">Average rating from authors</p>
                 </div>
                 <div className="mt-6 flex -space-x-2">
-                  {["https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=80&h=80&fit=crop&crop=face","https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=80&h=80&fit=crop&crop=face","https://images.unsplash.com/photo-1517841905240-472988babdf9?w=80&h=80&fit=crop&crop=face","https://images.unsplash.com/photo-1539571696357-5a69c17a67c6?w=80&h=80&fit=crop&crop=face"].map((src, i) => (<img key={i} src={src} alt="" className="h-9 w-9 rounded-full border-2 border-[#0a0a0f] object-cover transition-transform duration-300 hover:z-10 hover:scale-110" />))}
-                  <div className="flex h-9 w-9 items-center justify-center rounded-full border-2 border-[#0a0a0f] bg-white/10 text-[11px] font-medium text-white/70">+2k</div>
+                  {["https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=80&h=80&fit=crop&crop=face","https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=80&h=80&fit=crop&crop=face","https://images.unsplash.com/photo-1517841905240-472988babdf9?w=80&h=80&fit=crop&crop=face","https://images.unsplash.com/photo-1539571696357-5a69c17a67c6?w=80&h=80&fit=crop&crop=face"].map((src, i) => (<img key={i} src={src} alt="" className="h-9 w-9 rounded-full border-2 border-black/10 object-cover transition-transform duration-300 hover:z-10 hover:scale-110 dark:border-[#0a0a0f]" />))}
+                  <div className="flex h-9 w-9 items-center justify-center rounded-full border-2 border-black/10 bg-black/5 text-[11px] font-medium text-slate-600 dark:border-[#0a0a0f] dark:bg-white/10 dark:text-white/70">+2k</div>
                 </div>
               </div>
             </div>
             {[{ title: "No credit card", desc: "Start free, upgrade anytime", color: "#907AFF" },{ title: "2 min setup", desc: "Go live in minutes", color: "#E29ED5" },{ title: "10+ platforms", desc: "Publish everywhere", color: "#FCC997" }].map((item) => (
-              <div key={item.title} className="group relative overflow-hidden rounded-[24px] bg-gradient-to-br from-white/[0.05] to-transparent p-6 transition-all duration-500 hover:from-white/[0.08]">
+              <div key={item.title} className="group relative overflow-hidden rounded-[24px] bg-gradient-to-br from-black/[0.05] to-transparent p-6 transition-all duration-500 hover:from-black/[0.08] dark:from-white/[0.05] dark:hover:from-white/[0.08]">
                 <div className="pointer-events-none absolute -right-6 -top-6 h-20 w-20 rounded-full blur-2xl opacity-0 transition-opacity duration-500 group-hover:opacity-50" style={{ background: item.color }} />
-                <div className="relative"><div className="mb-3 h-2 w-2 rounded-full" style={{ background: item.color }} /><p className="text-[17px] font-medium text-white">{item.title}</p><p className="mt-1 text-[14px] text-white/50">{item.desc}</p></div>
+                <div className="relative"><div className="mb-3 h-2 w-2 rounded-full" style={{ background: item.color }} /><p className="text-[17px] font-medium text-slate-900 dark:text-white">{item.title}</p><p className="mt-1 text-[14px] text-slate-600 dark:text-white/50">{item.desc}</p></div>
               </div>
             ))}
           </div>
@@ -708,24 +713,24 @@ function LandingPage() {
           <div className="grid gap-12 lg:grid-cols-[1fr_1.2fr] lg:items-center">
             <div>
               <p className="text-[13px] font-medium uppercase tracking-wider text-[#E29ED5]">Why Verkli</p>
-              <h2 className="mt-4 text-[36px] font-semibold leading-[1.1] tracking-[-0.02em] text-white md:text-[44px]">Everything you need to<br /><span className="bg-gradient-to-r from-[#907AFF] via-[#E29ED5] to-[#FCC997] bg-clip-text text-transparent">grow your audience.</span></h2>
-              <p className="mt-6 max-w-[400px] text-[16px] leading-[1.7] text-white/50">Simple tools that help you reach readers without the complexity.</p>
+              <h2 className="mt-4 text-[36px] font-semibold leading-[1.1] tracking-[-0.02em] text-slate-900 dark:text-white md:text-[44px]">Everything you need to<br /><span className="bg-gradient-to-r from-[#907AFF] via-[#E29ED5] to-[#FCC997] bg-clip-text text-transparent">grow your audience.</span></h2>
+              <p className="mt-6 max-w-[400px] text-[16px] leading-[1.7] text-slate-600 dark:text-white/50">Simple tools that help you reach readers without the complexity.</p>
               <div className="mt-8">
                 <Link href="/writer/signup">
-                  <GlassSurface {...glassBaseProps} width="auto" height="auto" borderRadius={999} className="glass-button inline-flex border border-white/15 transition-all hover:scale-[1.02]">
-                    <span className="px-7 py-3 text-[15px] font-medium text-white">Explore features</span>
+                  <GlassSurface {...glassBaseProps} width="auto" height="auto" borderRadius={999} className="glass-button inline-flex border border-black/10 transition-all hover:scale-[1.02] dark:border-white/15">
+                    <span className="px-7 py-3 text-[15px] font-medium text-slate-900 dark:text-white">Explore features</span>
                   </GlassSurface>
                 </Link>
               </div>
             </div>
             <div className="grid gap-4 md:grid-cols-2">
               {[{ title: "Get discovered", description: "Turn your book into scroll-stopping content for TikTok and beyond.", color: "#907AFF" },{ title: "Grow your audience", description: "Reach readers before they buy. Build momentum with content.", color: "#E29ED5" },{ title: "Automate marketing", description: "AI-generated hooks, scripts, and captions. Without daily effort.", color: "#FCC997" },{ title: "Focus on writing", description: "Upload a chapter, get content. No complex tools needed.", color: "#FEE9A3" }].map((item) => (
-                <div key={item.title} className="group relative overflow-hidden rounded-[24px] border border-white/[0.06] bg-gradient-to-br from-white/[0.04] to-transparent p-6 transition-all duration-500 hover:border-white/[0.12] hover:from-white/[0.06]">
+                <div key={item.title} className="group relative overflow-hidden rounded-[24px] border border-black/10 bg-gradient-to-br from-black/[0.04] to-transparent p-6 transition-all duration-500 hover:border-black/20 hover:from-black/[0.06] dark:border-white/[0.06] dark:from-white/[0.04] dark:hover:border-white/[0.12] dark:hover:from-white/[0.06]">
                   <div className="pointer-events-none absolute -right-8 -top-8 h-24 w-24 rounded-full blur-2xl opacity-0 transition-opacity duration-500 group-hover:opacity-50" style={{ background: item.color }} />
                   <div className="relative">
                     <div className="mb-4 inline-flex h-10 w-10 items-center justify-center rounded-xl transition-transform duration-500 group-hover:scale-110" style={{ background: `linear-gradient(135deg, ${item.color}25, ${item.color}10)` }}><div className="h-2 w-2 rounded-full" style={{ background: item.color }} /></div>
-                    <h3 className="text-[17px] font-semibold text-white">{item.title}</h3>
-                    <p className="mt-2 text-[14px] leading-[1.6] text-white/50">{item.description}</p>
+                    <h3 className="text-[17px] font-semibold text-slate-900 dark:text-white">{item.title}</h3>
+                    <p className="mt-2 text-[14px] leading-[1.6] text-slate-600 dark:text-white/50">{item.description}</p>
                   </div>
                 </div>
               ))}
@@ -740,34 +745,34 @@ function LandingPage() {
               <div className="pointer-events-none absolute -left-20 -top-20 h-[350px] w-[350px] rounded-full bg-[#907AFF]/40 blur-[100px] transition-transform duration-1000 group-hover:translate-x-10 group-hover:translate-y-10" />
               <div className="pointer-events-none absolute -bottom-10 -right-10 h-[250px] w-[250px] rounded-full bg-[#E29ED5]/30 blur-[80px] transition-transform duration-1000 group-hover:-translate-x-5" />
               <div className="relative">
-                <p className="text-[13px] font-medium uppercase tracking-wider text-white/60">Get started today</p>
-                <h2 className="mt-4 text-[36px] font-semibold leading-[1.1] tracking-[-0.02em] text-white md:text-[44px]">Ready to reach<br /><span className="bg-gradient-to-r from-white via-white/80 to-white/60 bg-clip-text text-transparent">more readers?</span></h2>
-                <p className="mt-6 max-w-[380px] text-[16px] leading-[1.7] text-white/60">Join thousands of authors already turning their books into content that reaches readers everywhere.</p>
+                <p className="text-[13px] font-medium uppercase tracking-wider text-slate-600 dark:text-white/60">Get started today</p>
+                <h2 className="mt-4 text-[36px] font-semibold leading-[1.1] tracking-[-0.02em] text-slate-900 dark:text-white md:text-[44px]">Ready to reach<br /><span className="bg-gradient-to-r from-slate-900 via-slate-700 to-slate-500 bg-clip-text text-transparent dark:from-white dark:via-white/80 dark:to-white/60">more readers?</span></h2>
+                <p className="mt-6 max-w-[380px] text-[16px] leading-[1.7] text-slate-600 dark:text-white/60">Join thousands of authors already turning their books into content that reaches readers everywhere.</p>
                 <div className="mt-10 flex flex-wrap items-center gap-4">
                   <Link href="/writer/signup">
-                    <GlassSurface {...glassBaseProps} width="auto" height="auto" borderRadius={999} className="glass-button border border-white/25 transition-all hover:scale-[1.02]">
-                      <span className="px-8 py-3.5 text-[15px] font-semibold text-white">Start for free</span>
+                    <GlassSurface {...glassBaseProps} width="auto" height="auto" borderRadius={999} className="glass-button border border-black/10 transition-all hover:scale-[1.02] dark:border-white/25">
+                      <span className="px-8 py-3.5 text-[15px] font-semibold text-slate-900 dark:text-white">Start for free</span>
                     </GlassSurface>
                   </Link>
-                  <a href="#" className="flex items-center gap-2 text-[15px] text-white/60 transition-colors hover:text-white">Schedule a demo<svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg></a>
+                  <a href="#" className="flex items-center gap-2 text-[15px] text-slate-600 transition-colors hover:text-slate-900 dark:text-white/60 dark:hover:text-white">Schedule a demo<svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg></a>
                 </div>
               </div>
             </div>
             <div className="flex flex-col gap-6">
-              <div className="group relative flex-1 overflow-hidden rounded-[32px] bg-gradient-to-br from-white/[0.06] to-white/[0.02] p-8">
+              <div className="group relative flex-1 overflow-hidden rounded-[32px] bg-gradient-to-br from-black/[0.05] to-transparent p-8 dark:from-white/[0.06] dark:to-white/[0.02]">
                 <div className="pointer-events-none absolute -right-10 -top-10 h-24 w-24 rounded-full bg-[#907AFF]/20 blur-2xl opacity-0 transition-opacity duration-500 group-hover:opacity-100" />
                 <div className="relative">
                   <div className="flex items-center gap-1">{[1,2,3,4,5].map((i) => (<svg key={i} className="h-5 w-5 text-[#FCC997]" fill="currentColor" viewBox="0 0 20 20"><path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" /></svg>))}</div>
-                  <p className="mt-3 text-[28px] font-semibold text-white">4.9 out of 5</p>
-                  <p className="mt-1 text-[14px] text-white/50">Based on 2,000+ author reviews</p>
+                  <p className="mt-3 text-[28px] font-semibold text-slate-900 dark:text-white">4.9 out of 5</p>
+                  <p className="mt-1 text-[14px] text-slate-600 dark:text-white/50">Based on 2,000+ author reviews</p>
                 </div>
               </div>
-              <div className="group relative flex-1 overflow-hidden rounded-[32px] bg-gradient-to-br from-white/[0.06] to-white/[0.02] p-8">
+              <div className="group relative flex-1 overflow-hidden rounded-[32px] bg-gradient-to-br from-black/[0.05] to-transparent p-8 dark:from-white/[0.06] dark:to-white/[0.02]">
                 <div className="pointer-events-none absolute -right-10 -top-10 h-24 w-24 rounded-full bg-[#E29ED5]/20 blur-2xl opacity-0 transition-opacity duration-500 group-hover:opacity-100" />
                 <div className="relative">
-                  <div className="flex -space-x-3">{["https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=80&h=80&fit=crop&crop=face","https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=80&h=80&fit=crop&crop=face","https://images.unsplash.com/photo-1517841905240-472988babdf9?w=80&h=80&fit=crop&crop=face","https://images.unsplash.com/photo-1539571696357-5a69c17a67c6?w=80&h=80&fit=crop&crop=face","https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=80&h=80&fit=crop&crop=face"].map((src, i) => (<img key={i} src={src} alt="" className="h-11 w-11 rounded-full border-2 border-[#0a0a0f] object-cover transition-transform duration-300 hover:z-10 hover:scale-110" />))}<div className="flex h-11 w-11 items-center justify-center rounded-full border-2 border-[#0a0a0f] bg-gradient-to-br from-[#907AFF]/30 to-[#E29ED5]/30 text-[12px] font-semibold text-white">+2k</div></div>
-                  <p className="mt-4 text-[15px] leading-[1.6] text-white/70">&quot;Verkli helped me turn one story into content that reached millions.&quot;</p>
-                  <p className="mt-2 text-[13px] text-white/40">— Emma Richardson, NYT Bestseller</p>
+                  <div className="flex -space-x-3">{["https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=80&h=80&fit=crop&crop=face","https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=80&h=80&fit=crop&crop=face","https://images.unsplash.com/photo-1517841905240-472988babdf9?w=80&h=80&fit=crop&crop=face","https://images.unsplash.com/photo-1539571696357-5a69c17a67c6?w=80&h=80&fit=crop&crop=face","https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=80&h=80&fit=crop&crop=face"].map((src, i) => (<img key={i} src={src} alt="" className="h-11 w-11 rounded-full border-2 border-black/10 object-cover transition-transform duration-300 hover:z-10 hover:scale-110 dark:border-[#0a0a0f]" />))}<div className="flex h-11 w-11 items-center justify-center rounded-full border-2 border-black/10 bg-gradient-to-br from-[#907AFF]/30 to-[#E29ED5]/30 text-[12px] font-semibold text-slate-900 dark:border-[#0a0a0f] dark:text-white">+2k</div></div>
+                  <p className="mt-4 text-[15px] leading-[1.6] text-slate-700 dark:text-white/70">&quot;Verkli helped me turn one story into content that reached millions.&quot;</p>
+                  <p className="mt-2 text-[13px] text-slate-500 dark:text-white/40">— Emma Richardson, NYT Bestseller</p>
                 </div>
               </div>
             </div>
@@ -776,21 +781,22 @@ function LandingPage() {
 
         {/* Footer */}
         <footer className="relative mx-auto w-full max-w-[1200px] px-6 pb-12 pt-8">
-          <div className="grid gap-12 rounded-[32px] bg-gradient-to-b from-white/[0.04] to-transparent p-10 md:grid-cols-[1.5fr_1fr_1fr_1fr] md:p-12">
+          <div className="grid gap-12 rounded-[32px] bg-gradient-to-b from-black/[0.04] to-transparent p-10 md:grid-cols-[1.5fr_1fr_1fr_1fr] md:p-12 dark:from-white/[0.04]">
             <div className="space-y-5">
-              <img src="/favicon.svg" alt="Verkli" className="h-9 w-auto" />
-              <p className="max-w-[280px] text-[15px] leading-[1.7] text-white/50">Where books become momentum. The platform for authors who want to reach readers everywhere.</p>
+              <img src="/logo-dark.svg" alt="Verkli" className="h-9 w-auto dark:hidden" />
+              <img src="/favicon.svg" alt="Verkli" className="hidden h-9 w-auto dark:block" />
+              <p className="max-w-[280px] text-[15px] leading-[1.7] text-slate-600 dark:text-white/50">Where books become momentum. The platform for authors who want to reach readers everywhere.</p>
               <div className="flex gap-3 pt-2">
-                <a href="#" className="flex h-10 w-10 items-center justify-center rounded-full bg-white/[0.05] text-white/50 transition-all hover:bg-white/[0.1] hover:text-white/80"><svg className="h-4 w-4" fill="currentColor" viewBox="0 0 24 24"><path d="M24 4.557c-.883.392-1.832.656-2.828.775 1.017-.609 1.798-1.574 2.165-2.724-.951.564-2.005.974-3.127 1.195-.897-.957-2.178-1.555-3.594-1.555-3.179 0-5.515 2.966-4.797 6.045-4.091-.205-7.719-2.165-10.148-5.144-1.29 2.213-.669 5.108 1.523 6.574-.806-.026-1.566-.247-2.229-.616-.054 2.281 1.581 4.415 3.949 4.89-.693.188-1.452.232-2.224.084.626 1.956 2.444 3.379 4.6 3.419-2.07 1.623-4.678 2.348-7.29 2.04 2.179 1.397 4.768 2.212 7.548 2.212 9.142 0 14.307-7.721 13.995-14.646.962-.695 1.797-1.562 2.457-2.549z"/></svg></a>
-                <a href="#" className="flex h-10 w-10 items-center justify-center rounded-full bg-white/[0.05] text-white/50 transition-all hover:bg-white/[0.1] hover:text-white/80"><svg className="h-4 w-4" fill="currentColor" viewBox="0 0 24 24"><path d="M19 0h-14c-2.761 0-5 2.239-5 5v14c0 2.761 2.239 5 5 5h14c2.762 0 5-2.239 5-5v-14c0-2.761-2.238-5-5-5zm-11 19h-3v-11h3v11zm-1.5-12.268c-.966 0-1.75-.79-1.75-1.764s.784-1.764 1.75-1.764 1.75.79 1.75 1.764-.783 1.764-1.75 1.764zm13.5 12.268h-3v-5.604c0-3.368-4-3.113-4 0v5.604h-3v-11h3v1.765c1.396-2.586 7-2.777 7 2.476v6.759z"/></svg></a>
-                <a href="#" className="flex h-10 w-10 items-center justify-center rounded-full bg-white/[0.05] text-white/50 transition-all hover:bg-white/[0.1] hover:text-white/80"><svg className="h-4 w-4" fill="currentColor" viewBox="0 0 24 24"><path d="M12.017 0C5.396 0 .029 5.367.029 11.987c0 5.079 3.158 9.417 7.618 11.162-.105-.949-.199-2.403.041-3.439.219-.937 1.406-5.957 1.406-5.957s-.359-.72-.359-1.781c0-1.663.967-2.911 2.168-2.911 1.024 0 1.518.769 1.518 1.688 0 1.029-.653 2.567-.992 3.992-.285 1.193.6 2.165 1.775 2.165 2.128 0 3.768-2.245 3.768-5.487 0-2.861-2.063-4.869-5.008-4.869-3.41 0-5.409 2.562-5.409 5.199 0 1.033.394 2.143.889 2.741.099.12.112.225.085.345-.09.375-.293 1.199-.334 1.363-.053.225-.172.271-.401.165-1.495-.69-2.433-2.878-2.433-4.646 0-3.776 2.748-7.252 7.92-7.252 4.158 0 7.392 2.967 7.392 6.923 0 4.135-2.607 7.462-6.233 7.462-1.214 0-2.354-.629-2.758-1.379l-.749 2.848c-.269 1.045-1.004 2.352-1.498 3.146 1.123.345 2.306.535 3.55.535 6.607 0 11.985-5.365 11.985-11.987C23.97 5.39 18.592.026 11.985.026L12.017 0z"/></svg></a>
+                <a href="#" className="flex h-10 w-10 items-center justify-center rounded-full bg-black/[0.05] text-slate-500 transition-all hover:bg-black/10 hover:text-slate-700 dark:bg-white/[0.05] dark:text-white/50 dark:hover:bg-white/[0.1] dark:hover:text-white/80"><svg className="h-4 w-4" fill="currentColor" viewBox="0 0 24 24"><path d="M24 4.557c-.883.392-1.832.656-2.828.775 1.017-.609 1.798-1.574 2.165-2.724-.951.564-2.005.974-3.127 1.195-.897-.957-2.178-1.555-3.594-1.555-3.179 0-5.515 2.966-4.797 6.045-4.091-.205-7.719-2.165-10.148-5.144-1.29 2.213-.669 5.108 1.523 6.574-.806-.026-1.566-.247-2.229-.616-.054 2.281 1.581 4.415 3.949 4.89-.693.188-1.452.232-2.224.084.626 1.956 2.444 3.379 4.6 3.419-2.07 1.623-4.678 2.348-7.29 2.04 2.179 1.397 4.768 2.212 7.548 2.212 9.142 0 14.307-7.721 13.995-14.646.962-.695 1.797-1.562 2.457-2.549z"/></svg></a>
+                <a href="#" className="flex h-10 w-10 items-center justify-center rounded-full bg-black/[0.05] text-slate-500 transition-all hover:bg-black/10 hover:text-slate-700 dark:bg-white/[0.05] dark:text-white/50 dark:hover:bg-white/[0.1] dark:hover:text-white/80"><svg className="h-4 w-4" fill="currentColor" viewBox="0 0 24 24"><path d="M19 0h-14c-2.761 0-5 2.239-5 5v14c0 2.761 2.239 5 5 5h14c2.762 0 5-2.239 5-5v-14c0-2.761-2.238-5-5-5zm-11 19h-3v-11h3v11zm-1.5-12.268c-.966 0-1.75-.79-1.75-1.764s.784-1.764 1.75-1.764 1.75.79 1.75 1.764-.783 1.764-1.75 1.764zm13.5 12.268h-3v-5.604c0-3.368-4-3.113-4 0v5.604h-3v-11h3v1.765c1.396-2.586 7-2.777 7 2.476v6.759z"/></svg></a>
+                <a href="#" className="flex h-10 w-10 items-center justify-center rounded-full bg-black/[0.05] text-slate-500 transition-all hover:bg-black/10 hover:text-slate-700 dark:bg-white/[0.05] dark:text-white/50 dark:hover:bg-white/[0.1] dark:hover:text-white/80"><svg className="h-4 w-4" fill="currentColor" viewBox="0 0 24 24"><path d="M12.017 0C5.396 0 .029 5.367.029 11.987c0 5.079 3.158 9.417 7.618 11.162-.105-.949-.199-2.403.041-3.439.219-.937 1.406-5.957 1.406-5.957s-.359-.72-.359-1.781c0-1.663.967-2.911 2.168-2.911 1.024 0 1.518.769 1.518 1.688 0 1.029-.653 2.567-.992 3.992-.285 1.193.6 2.165 1.775 2.165 2.128 0 3.768-2.245 3.768-5.487 0-2.861-2.063-4.869-5.008-4.869-3.41 0-5.409 2.562-5.409 5.199 0 1.033.394 2.143.889 2.741.099.12.112.225.085.345-.09.375-.293 1.199-.334 1.363-.053.225-.172.271-.401.165-1.495-.69-2.433-2.878-2.433-4.646 0-3.776 2.748-7.252 7.92-7.252 4.158 0 7.392 2.967 7.392 6.923 0 4.135-2.607 7.462-6.233 7.462-1.214 0-2.354-.629-2.758-1.379l-.749 2.848c-.269 1.045-1.004 2.352-1.498 3.146 1.123.345 2.306.535 3.55.535 6.607 0 11.985-5.365 11.985-11.987C23.97 5.39 18.592.026 11.985.026L12.017 0z"/></svg></a>
               </div>
             </div>
-            <div className="space-y-4"><p className="text-[13px] font-semibold uppercase tracking-wider text-white/40">Product</p><ul className="space-y-3 text-[15px] text-white/50"><li><a href="#" className="transition-colors hover:text-white/80">Features</a></li><li><a href="#" className="transition-colors hover:text-white/80">Pricing</a></li><li><a href="#" className="transition-colors hover:text-white/80">Examples</a></li><li><a href="#" className="transition-colors hover:text-white/80">Integrations</a></li></ul></div>
-            <div className="space-y-4"><p className="text-[13px] font-semibold uppercase tracking-wider text-white/40">Company</p><ul className="space-y-3 text-[15px] text-white/50"><li><a href="#" className="transition-colors hover:text-white/80">About</a></li><li><a href="#" className="transition-colors hover:text-white/80">Blog</a></li><li><a href="#" className="transition-colors hover:text-white/80">Careers</a></li><li><a href="#" className="transition-colors hover:text-white/80">Contact</a></li></ul></div>
-            <div className="space-y-4"><p className="text-[13px] font-semibold uppercase tracking-wider text-white/40">Legal</p><ul className="space-y-3 text-[15px] text-white/50"><li><a href="#" className="transition-colors hover:text-white/80">Privacy</a></li><li><a href="#" className="transition-colors hover:text-white/80">Terms</a></li><li><a href="#" className="transition-colors hover:text-white/80">Cookie Policy</a></li></ul></div>
+            <div className="space-y-4"><p className="text-[13px] font-semibold uppercase tracking-wider text-slate-500 dark:text-white/40">Product</p><ul className="space-y-3 text-[15px] text-slate-600 dark:text-white/50"><li><a href="#" className="transition-colors hover:text-slate-900 dark:hover:text-white/80">Features</a></li><li><a href="#" className="transition-colors hover:text-slate-900 dark:hover:text-white/80">Pricing</a></li><li><a href="#" className="transition-colors hover:text-slate-900 dark:hover:text-white/80">Examples</a></li><li><a href="#" className="transition-colors hover:text-slate-900 dark:hover:text-white/80">Integrations</a></li></ul></div>
+            <div className="space-y-4"><p className="text-[13px] font-semibold uppercase tracking-wider text-slate-500 dark:text-white/40">Company</p><ul className="space-y-3 text-[15px] text-slate-600 dark:text-white/50"><li><a href="#" className="transition-colors hover:text-slate-900 dark:hover:text-white/80">About</a></li><li><a href="#" className="transition-colors hover:text-slate-900 dark:hover:text-white/80">Blog</a></li><li><a href="#" className="transition-colors hover:text-slate-900 dark:hover:text-white/80">Careers</a></li><li><a href="#" className="transition-colors hover:text-slate-900 dark:hover:text-white/80">Contact</a></li></ul></div>
+            <div className="space-y-4"><p className="text-[13px] font-semibold uppercase tracking-wider text-slate-500 dark:text-white/40">Legal</p><ul className="space-y-3 text-[15px] text-slate-600 dark:text-white/50"><li><a href="#" className="transition-colors hover:text-slate-900 dark:hover:text-white/80">Privacy</a></li><li><a href="#" className="transition-colors hover:text-slate-900 dark:hover:text-white/80">Terms</a></li><li><a href="#" className="transition-colors hover:text-slate-900 dark:hover:text-white/80">Cookie Policy</a></li></ul></div>
           </div>
-          <div className="mt-8 flex flex-col items-center justify-between gap-4 px-4 text-[13px] text-white/30 md:flex-row">
+          <div className="mt-8 flex flex-col items-center justify-between gap-4 px-4 text-[13px] text-slate-500 dark:text-white/30 md:flex-row">
             <span>© 2026 Verkli. All rights reserved.</span>
             <div className="flex items-center gap-2"><span className="h-2 w-2 rounded-full bg-green-400"></span><span>All systems operational</span></div>
           </div>
@@ -804,21 +810,35 @@ function LandingPage() {
 // DASHBOARD (for authenticated users)
 // ============================================
 function Dashboard({ user, onSignOut }: { user: User; onSignOut: () => void }) {
+  const router = useRouter();
   const [profileMenuOpen, setProfileMenuOpen] = useState(false);
   const profileMenuRef = useRef<HTMLDivElement>(null);
-  const [shelves, setShelves] = useState([{ id: 1, name: "New Shelf", books: mockBooks.slice(0, 2) }]);
+  const [shelves, setShelves] = useState<ShelfWithDetails[]>([]);
+  const [standaloneBooks, setStandaloneBooks] = useState<Book[]>([]);
+  const [loadingShelves, setLoadingShelves] = useState(true);
   
   // Modal states
   const [showChoiceModal, setShowChoiceModal] = useState(false);
   const [showShelfModal, setShowShelfModal] = useState(false);
   const [showBookModal, setShowBookModal] = useState(false);
   const [showReviewShelfModal, setShowReviewShelfModal] = useState(false);
-  const [selectedShelfId, setSelectedShelfId] = useState<number | null>(null);
+  const [selectedShelfId, setSelectedShelfId] = useState<string | null>(null);
+  const [showCreateDropdown, setShowCreateDropdown] = useState(false);
   
   // Shelf form state
   const [shelfForm, setShelfForm] = useState({
     name: "",
+    subtitle: "",
     cover: "",
+    coverType: "image" as "image" | "gradient",
+    coverGradient: "",
+    typography: {
+      fontFamily: "Inter",
+      fontWeight: "600",
+      titleSize: "20px",
+      subtitleSize: "14px",
+      textColor: "#ffffff",
+    },
     description: "",
     authorsNote: "",
     tags: [] as string[],
@@ -837,24 +857,72 @@ function Dashboard({ user, onSignOut }: { user: User; onSignOut: () => void }) {
   });
 
   useEffect(() => {
+    loadShelves();
+  }, []);
+
+  useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
-      if (profileMenuRef.current && !profileMenuRef.current.contains(event.target as Node)) setProfileMenuOpen(false);
+      if (profileMenuRef.current && !profileMenuRef.current.contains(event.target as Node)) {
+        setProfileMenuOpen(false);
+        setShowCreateDropdown(false);
+      }
     };
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
+  const loadShelves = async () => {
+    try {
+      setLoadingShelves(true);
+      const [shelvesData, booksData] = await Promise.all([
+        getShelves(),
+        getStandaloneBooks(),
+      ]);
+      setShelves(shelvesData);
+      setStandaloneBooks(booksData);
+    } catch (error: any) {
+      console.error("Error loading shelves:", error);
+      console.error("Error details:", {
+        message: error?.message,
+        code: error?.code,
+        details: error?.details,
+        hint: error?.hint,
+      });
+      // Set empty arrays on error to prevent UI crashes
+      setShelves([]);
+      setStandaloneBooks([]);
+    } finally {
+      setLoadingShelves(false);
+    }
+  };
+
   const displayName = user?.user_metadata?.full_name || user?.email?.split("@")[0] || "Writer";
   
   // Handle choice modal
-  const handleAddClick = (shelfId?: number) => {
+  const handleAddClick = (shelfId?: string) => {
     setSelectedShelfId(shelfId || null);
     setShowChoiceModal(true);
   };
   
   const handleCreateShelf = () => {
     setShowChoiceModal(false);
-    setShelfForm({ name: "", cover: "", description: "", authorsNote: "", tags: [] });
+    setShelfForm({ 
+      name: "", 
+      subtitle: "",
+      cover: "", 
+      coverType: "image",
+      coverGradient: "",
+      typography: {
+        fontFamily: "Inter",
+        fontWeight: "600",
+        titleSize: "20px",
+        subtitleSize: "14px",
+        textColor: "#ffffff",
+      },
+      description: "", 
+      authorsNote: "", 
+      tags: [] 
+    });
     setShowShelfModal(true);
   };
   
@@ -870,59 +938,96 @@ function Dashboard({ user, onSignOut }: { user: User; onSignOut: () => void }) {
     setShowReviewShelfModal(true);
   };
   
-  const handleReviewShelfConfirm = () => {
-    // Create shelf and add to shelves
-    const newShelfId = Date.now();
-    const newShelf = {
-      id: newShelfId,
-      name: shelfForm.name || "New Shelf",
-      books: [] as typeof mockBooks,
-    };
-    setShelves([...shelves, newShelf]);
-    setShowReviewShelfModal(false);
-    setShelfForm({ name: "", cover: "", description: "", authorsNote: "", tags: [] });
-    setSelectedShelfId(newShelfId);
-    // Open book creation modal to add books to the new shelf
-    setTimeout(() => {
-      handleCreateBook();
-    }, 300);
+  const handleReviewShelfConfirm = async () => {
+    try {
+      // Create shelf in database
+      const maxSortIndex = shelves.length > 0 
+        ? Math.max(...shelves.map(s => s.sort_index))
+        : -1;
+      
+      await createShelf({
+        name: shelfForm.name || "New Shelf",
+        subtitle: shelfForm.subtitle || null,
+        cover_type: shelfForm.coverType,
+        cover_url: shelfForm.coverType === "image" ? shelfForm.cover || null : null,
+        cover_gradient: shelfForm.coverType === "gradient" ? shelfForm.coverGradient || null : null,
+        typography: shelfForm.typography,
+        sort_index: maxSortIndex + 1,
+      });
+      
+      setShowReviewShelfModal(false);
+      setShelfForm({ 
+        name: "", 
+        subtitle: "",
+        cover: "", 
+        coverType: "image",
+        coverGradient: "",
+        typography: {
+          fontFamily: "Inter",
+          fontWeight: "600",
+          titleSize: "20px",
+          subtitleSize: "14px",
+          textColor: "#ffffff",
+        },
+        description: "", 
+        authorsNote: "", 
+        tags: [] 
+      });
+      
+      // Reload shelves
+      await loadShelves();
+    } catch (error) {
+      console.error("Error creating shelf:", error);
+    }
   };
   
-  const handleBookSubmit = () => {
-    // Create book
-    const newBook = {
-      id: Date.now(),
-      title: bookForm.title || "Untitled",
-      author: displayName,
-      cover: bookForm.cover || "https://images.unsplash.com/photo-1544947950-fa07a98d237f?w=300&h=400&fit=crop",
-      progress: 0,
-      reads: 0,
-      chapters: 1,
-      rating: 0,
-      currentChapter: 1,
-      currentPage: 1,
-      totalPages: 100,
-    };
-    
-    if (selectedShelfId) {
-      // Add to specific shelf
-      const newShelves = shelves.map(shelf => 
-        shelf.id === selectedShelfId 
-          ? { ...shelf, books: [...shelf.books, newBook] }
-          : shelf
-      );
-      setShelves(newShelves);
-    } else {
-      // Add to first shelf or create new
-      if (shelves.length > 0) {
-        const newShelves = [...shelves];
-        newShelves[0].books.push(newBook);
-        setShelves(newShelves);
+  const handleBookSubmit = async () => {
+    try {
+      const supabase = createClient();
+      const { data: { user: authUser } } = await supabase.auth.getUser();
+      if (!authUser) throw new Error("Not authenticated");
+      
+      // Create standalone book
+      const slug = (bookForm.title || "Untitled").toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '') + '-' + Date.now();
+      const { data: book, error: bookError } = await supabase
+        .from('books')
+        .insert({
+          title: bookForm.title || "Untitled",
+          slug: slug,
+          cover_url: bookForm.cover || null,
+          description: bookForm.summary || null,
+          author_id: authUser.id,
+          status: 'DRAFT',
+          published: false,
+        })
+        .select()
+        .single();
+      
+      if (bookError) throw bookError;
+      
+      // If selectedShelfId, add to shelf
+      if (selectedShelfId) {
+        const { error: shelfBookError } = await supabase
+          .from('shelf_books')
+          .insert({
+            shelf_id: selectedShelfId,
+            book_id: book.id,
+            section_id: null,
+            sort_index: 0,
+          });
+        
+        if (shelfBookError) throw shelfBookError;
       }
+      
+      setShowBookModal(false);
+      setBookForm({ title: "", cover: "", summary: "", authorsNote: "", tags: [], content: "", uploadFile: null, creationMethod: "write" });
+      setSelectedShelfId(null);
+      
+      // Reload shelves
+      await loadShelves();
+    } catch (error) {
+      console.error("Error creating book:", error);
     }
-    
-    setShowBookModal(false);
-    setBookForm({ title: "", cover: "", summary: "", authorsNote: "", tags: [], content: "", uploadFile: null, creationMethod: "write" });
   };
   
   const handleTagInput = (value: string, type: "shelf" | "book") => {
@@ -942,76 +1047,9 @@ function Dashboard({ user, onSignOut }: { user: User; onSignOut: () => void }) {
             <nav className="flex w-full items-center justify-between gap-6">
               <div className="flex items-center gap-10">
                 <Link href="/writer"><img src="/favicon.svg" alt="Verkli" className="h-8 w-auto" /></Link>
-                <div className="hidden items-center gap-10 text-[17px] font-normal text-white lg:flex">
-                  {navItems.map((item) => (
-                    <div key={item.label} className="group relative">
-                      {item.label === "Home" ? (
-                        <Link href="/writer" className="nav-item transition-colors hover:text-white/70">
-                          {item.label}
-                        </Link>
-                      ) : (
-                        <button className="nav-item flex items-center gap-2 transition-colors hover:text-white/70">
-                          <span>{item.label}</span>
-                          <svg className="h-3 w-3 rotate-180 transition-transform duration-200 group-hover:rotate-0" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 4.5L6 7.5L9 4.5" /></svg>
-                        </button>
-                      )}
-
-                      {item.hasDropdown ? (
-                        <div className="nav-dropdown pointer-events-none absolute left-0 top-full z-[1000] w-[980px] pt-6 opacity-0 transition-[opacity,transform] duration-200 group-hover:pointer-events-auto group-hover:translate-y-3 group-hover:opacity-100">
-                          <GlassSurface
-                            {...glassBaseProps}
-                            width="100%"
-                            height="auto"
-                            borderRadius={40}
-                            className="nav-mega border border-white/10 px-10 py-8 shadow-[0_24px_60px_-30px_rgba(0,0,0,0.9)]"
-                          >
-                            <div className="grid gap-10 lg:grid-cols-4">
-                              {megaMenuColumns.map((column) => (
-                                <div key={column.title} className="space-y-5">
-                                  <div className="space-y-3">
-                                    <div className="flex items-center gap-3 text-base font-semibold">
-                                      <div
-                                        className={`nav-mega-icon bg-gradient-to-br ${column.iconClass}`}
-                                      />
-                                      <span>{column.title}</span>
-                                    </div>
-                                    <div className="h-px w-full bg-white/35" />
-                                  </div>
-
-                                  <div className="space-y-4 text-sm text-white/80">
-                                    {column.items.map((entry) => (
-                                      <div
-                                        key={entry.title}
-                                        className={
-                                          entry.highlight
-                                            ? "nav-mega-highlight"
-                                            : "space-y-1"
-                                        }
-                                      >
-                                        <div className="flex items-center gap-2">
-                                          <span className="text-white">
-                                            {entry.title}
-                                          </span>
-                                          {entry.badge ? (
-                                            <span className="nav-mega-badge">
-                                              {entry.badge}
-                                            </span>
-                                          ) : null}
-                                        </div>
-                                        <p className="text-white/70">
-                                          {entry.body}
-                                        </p>
-                                      </div>
-                                    ))}
-                                  </div>
-                                </div>
-                              ))}
-                            </div>
-                          </GlassSurface>
-                        </div>
-                      ) : null}
-                    </div>
-                  ))}
+                <div className="hidden items-center gap-10 text-[17px] font-normal text-slate-900 dark:text-white lg:flex">
+                  <Link href="/writer" className="nav-item transition-colors hover:text-slate-600 dark:hover:text-white/70">Home</Link>
+                  {["Features", "Integrations", "Examples", "FAQ"].map((item) => (<button key={item} className="nav-item flex items-center gap-2 transition-colors hover:text-slate-600 dark:hover:text-white/70"><span>{item}</span><svg className="h-3 w-3" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 4.5L6 7.5L9 4.5" /></svg></button>))}
                 </div>
               </div>
               <div className="flex items-center gap-4">
@@ -1047,19 +1085,165 @@ function Dashboard({ user, onSignOut }: { user: User; onSignOut: () => void }) {
 
         {/* My Library */}
         <section className="mb-20">
-          <div className="mb-6 flex items-center justify-between"><h2 className="text-[20px] font-semibold text-slate-900 dark:text-white">My library</h2><button className="rounded-full border border-black/10 dark:border-white/10 bg-black/5 dark:bg-white/[0.03] px-5 py-2 text-[13px] font-medium text-slate-700 dark:text-white/70 transition-all hover:bg-black/10 dark:hover:bg-white/[0.06]">See all</button></div>
-          <div className="rounded-3xl border border-black/10 dark:border-white/[0.08] bg-gradient-to-b from-black/5 dark:from-white/[0.04] to-transparent p-8">
-            {shelves.map((shelf, index) => (
-              <div key={shelf.id} className={index > 0 ? "mt-8 border-t border-black/10 dark:border-white/[0.06] pt-8" : ""}>
-                <div className="mb-5 flex items-center gap-3"><input type="text" value={shelf.name} onChange={(e) => { const newShelves = [...shelves]; newShelves[index].name = e.target.value; setShelves(newShelves); }} className="rounded-xl border border-black/10 dark:border-white/10 bg-black/5 dark:bg-white/[0.04] px-4 py-2 text-[14px] text-slate-900 dark:text-white outline-none transition-all focus:border-[#907AFF]/50 focus:bg-black/10 dark:focus:bg-white/[0.06]" /></div>
-                <div className="flex flex-wrap gap-5">
-                  {shelf.books.map((book) => (<div key={book.id} className="group relative cursor-pointer"><div className="h-[180px] w-[120px] overflow-hidden rounded-xl bg-black/5 dark:bg-white/[0.05] shadow-lg transition-all duration-300 group-hover:scale-105 group-hover:shadow-xl group-hover:shadow-[#907AFF]/10"><img src={book.cover} alt={book.title} className="h-full w-full object-cover" /></div>{book.progress > 0 && (<div className="absolute bottom-3 left-3 right-3"><div className="h-1.5 overflow-hidden rounded-full bg-black/60 backdrop-blur-sm"><div className="h-full bg-gradient-to-r from-[#907AFF] to-[#E29ED5]" style={{ width: `${book.progress}%` }}></div></div></div>)}</div>))}
-                  <button onClick={() => handleAddClick(shelf.id)} className="flex h-[180px] w-[120px] items-center justify-center rounded-xl border-2 border-dashed border-black/20 dark:border-white/10 bg-black/5 dark:bg-white/[0.02] transition-all hover:border-[#907AFF]/30 hover:bg-black/10 dark:hover:bg-white/[0.04]"><div className="flex flex-col items-center gap-2"><svg className="h-8 w-8 text-slate-400 dark:text-white/30" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 4v16m8-8H4" /></svg><span className="text-[11px] text-slate-500 dark:text-white/30">Add book</span></div></button>
+          <div className="mb-6 flex items-center justify-between">
+            <h2 className="text-[20px] font-semibold text-slate-900 dark:text-white">My library</h2>
+            <div className="relative" ref={profileMenuRef}>
+              <button 
+                onClick={() => setShowCreateDropdown(!showCreateDropdown)} 
+                className="rounded-full border border-black/10 dark:border-white/10 bg-black/5 dark:bg-white/[0.03] px-5 py-2 text-[13px] font-medium text-slate-700 dark:text-white/70 transition-all hover:bg-black/10 dark:hover:bg-white/[0.06]"
+              >
+                Create
+                <svg className="ml-2 inline h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                </svg>
+              </button>
+              {showCreateDropdown && (
+                <div className="absolute right-0 top-full mt-2 w-[200px] overflow-hidden rounded-2xl border border-black/10 dark:border-white/10 bg-white/95 dark:bg-[#0a0a0f]/95 p-2 shadow-2xl backdrop-blur-xl">
+                  <button
+                    onClick={() => {
+                      setShowCreateDropdown(false);
+                      handleCreateShelf();
+                    }}
+                    className="flex w-full items-center gap-3 rounded-xl px-4 py-3 text-left text-[14px] text-slate-700 dark:text-white/70 transition-colors hover:bg-black/5 dark:hover:bg-white/[0.05] hover:text-slate-900 dark:hover:text-white"
+                  >
+                    <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-[#907AFF]/20 to-[#E29ED5]/20">
+                      <svg className="h-4 w-4 text-[#907AFF]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+                      </svg>
+                    </div>
+                    <div>
+                      <div className="font-medium">Create shelf</div>
+                      <div className="text-[12px] text-slate-500 dark:text-white/50">Organize books</div>
+                    </div>
+                  </button>
+                  <button
+                    onClick={() => {
+                      setShowCreateDropdown(false);
+                      handleCreateBook();
+                    }}
+                    className="flex w-full items-center gap-3 rounded-xl px-4 py-3 text-left text-[14px] text-slate-700 dark:text-white/70 transition-colors hover:bg-black/5 dark:hover:bg-white/[0.05] hover:text-slate-900 dark:hover:text-white"
+                  >
+                    <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-[#E29ED5]/20 to-[#FCC997]/20">
+                      <svg className="h-4 w-4 text-[#E29ED5]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
+                      </svg>
+                    </div>
+                    <div>
+                      <div className="font-medium">Add stand alone book</div>
+                      <div className="text-[12px] text-slate-500 dark:text-white/50">Create a book</div>
+                    </div>
+                  </button>
                 </div>
-              </div>
-            ))}
-            <button onClick={() => handleAddClick()} className="mt-8 flex w-full items-center justify-center gap-2 rounded-xl border-2 border-dashed border-black/20 dark:border-white/10 py-4 text-[14px] text-slate-600 dark:text-white/50 transition-all hover:border-[#907AFF]/30 hover:bg-black/5 dark:hover:bg-white/[0.02] hover:text-slate-900 dark:hover:text-white/70"><svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 4v16m8-8H4" /></svg>Add another shelf/book</button>
+              )}
+            </div>
           </div>
+          
+          {shelves.length === 0 ? (
+            // Empty state with two large actions
+            <div className="rounded-3xl border border-black/10 dark:border-white/[0.08] bg-gradient-to-b from-black/5 dark:from-white/[0.04] to-transparent p-12">
+              <div className="grid gap-6 md:grid-cols-2">
+                <button
+                  onClick={handleCreateShelf}
+                  className="group flex h-[300px] flex-col items-center justify-center rounded-2xl border-2 border-dashed border-black/20 dark:border-white/10 bg-black/5 dark:bg-white/[0.02] transition-all hover:border-[#907AFF]/30 hover:bg-black/10 dark:hover:bg-white/[0.04]"
+                >
+                  <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-xl bg-gradient-to-br from-[#907AFF]/20 to-[#E29ED5]/20">
+                    <svg className="h-8 w-8 text-[#907AFF]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+                    </svg>
+                  </div>
+                  <h3 className="mb-2 text-[20px] font-semibold text-slate-900 dark:text-white">New shelf</h3>
+                  <p className="max-w-[200px] text-center text-[14px] text-slate-600 dark:text-white/50">
+                    Organize your books into collections
+                  </p>
+                </button>
+                
+                <button
+                  onClick={handleCreateBook}
+                  className="group flex h-[300px] flex-col items-center justify-center rounded-2xl border-2 border-dashed border-black/20 dark:border-white/10 bg-black/5 dark:bg-white/[0.02] transition-all hover:border-[#907AFF]/30 hover:bg-black/10 dark:hover:bg-white/[0.04]"
+                >
+                  <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-xl bg-gradient-to-br from-[#E29ED5]/20 to-[#FCC997]/20">
+                    <svg className="h-8 w-8 text-[#E29ED5]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
+                    </svg>
+                  </div>
+                  <h3 className="mb-2 text-[20px] font-semibold text-slate-900 dark:text-white">Add stand alone book</h3>
+                  <p className="max-w-[200px] text-center text-[14px] text-slate-600 dark:text-white/50">
+                    Create a book that doesn&apos;t belong to a shelf
+                  </p>
+                </button>
+              </div>
+            </div>
+          ) : (
+            // Shelves grid
+            <div className="rounded-3xl border border-black/10 dark:border-white/[0.08] bg-gradient-to-b from-black/5 dark:from-white/[0.04] to-transparent p-8">
+              {loadingShelves ? (
+                <div className="flex items-center justify-center py-20">
+                  <div className="h-8 w-8 animate-spin rounded-full border-2 border-white/20 border-t-[#907AFF]"></div>
+                </div>
+              ) : (
+                <div className="mb-6">
+                  <h3 className="mb-4 text-[16px] font-semibold text-slate-900 dark:text-white">Shelves</h3>
+                  <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+                    {shelves.map((shelf) => (
+                      <ShelfTile
+                        key={shelf.id}
+                        shelf={shelf}
+                        onClick={() => router.push(`/writer/library/${shelf.id}`)}
+                      />
+                    ))}
+                    <button
+                      onClick={handleCreateShelf}
+                      className="flex h-[280px] w-full items-center justify-center rounded-2xl border-2 border-dashed border-black/20 dark:border-white/10 bg-black/5 dark:bg-white/[0.02] transition-all hover:border-[#907AFF]/30 hover:bg-black/10 dark:hover:bg-white/[0.04]"
+                    >
+                      <div className="flex flex-col items-center gap-2">
+                        <svg className="h-8 w-8 text-slate-400 dark:text-white/30" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 4v16m8-8H4" />
+                        </svg>
+                        <span className="text-[14px] text-slate-600 dark:text-white/50">New shelf</span>
+                      </div>
+                    </button>
+                  </div>
+                </div>
+              )}
+              
+              {/* Standalone books section */}
+              {(standaloneBooks.length > 0 || !loadingShelves) && (
+                <div className="mt-8 border-t border-black/10 dark:border-white/[0.06] pt-8">
+                  <h3 className="mb-4 text-[16px] font-semibold text-slate-900 dark:text-white">Standalone books</h3>
+                  <div className="flex flex-wrap gap-5">
+                    {standaloneBooks.map((book) => (
+                      <div
+                        key={book.id}
+                        onClick={() => router.push(`/writer/books/${book.id}`)}
+                        className="group relative cursor-pointer"
+                      >
+                        <div className="h-[180px] w-[120px] overflow-hidden rounded-xl bg-black/5 dark:bg-white/[0.05] shadow-lg transition-all duration-300 group-hover:scale-105 group-hover:shadow-xl group-hover:shadow-[#907AFF]/10">
+                          {book.cover_url ? (
+                            <img src={book.cover_url} alt={book.title} className="h-full w-full object-cover" />
+                          ) : (
+                            <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-[#907AFF]/20 to-[#E29ED5]/20">
+                              <span className="text-2xl">📚</span>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                    <button
+                      onClick={handleCreateBook}
+                      className="flex h-[180px] w-[120px] items-center justify-center rounded-xl border-2 border-dashed border-black/20 dark:border-white/10 bg-black/5 dark:bg-white/[0.02] transition-all hover:border-[#907AFF]/30 hover:bg-black/10 dark:hover:bg-white/[0.04]"
+                    >
+                      <div className="flex flex-col items-center gap-2">
+                        <svg className="h-8 w-8 text-slate-400 dark:text-white/30" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 4v16m8-8H4" />
+                        </svg>
+                        <span className="text-[11px] text-slate-500 dark:text-white/30">Add book</span>
+                      </div>
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
         </section>
 
         {/* Continue Reading */}
@@ -1167,7 +1351,7 @@ function Dashboard({ user, onSignOut }: { user: User; onSignOut: () => void }) {
         {/* CTA */}
         <section className="mb-20">
           <div className="overflow-hidden rounded-[40px] border border-black/10 dark:border-white/[0.08] bg-gradient-to-b from-black/5 dark:from-white/[0.06] to-transparent dark:to-white/[0.02]">
-            <div className="px-10 py-14 text-center"><h2 className="text-[32px] font-semibold tracking-[-0.02em] text-slate-900 dark:text-white">Ready to turn your book into content?</h2><p className="mt-3 text-[15px] text-slate-600 dark:text-white/50">Upload a chapter and reach more readers across all platforms.</p><button className="mt-8 rounded-full bg-[#907AFF] px-8 py-3.5 text-[15px] font-medium text-white transition-all hover:bg-[#8069EE]">Get started</button></div>
+            <div className="px-10 py-14 text-center"><h2 className="text-[32px] font-semibold tracking-[-0.02em] text-slate-900 dark:text-white">Ready to turn your book into content?</h2><p className="mt-3 text-[15px] text-slate-600 dark:text-white/50">Upload a chapter and reach more readers across all platforms.</p><button className="keep-white mt-8 rounded-full bg-[#907AFF] px-8 py-3.5 text-[15px] font-medium text-white transition-all hover:bg-[#8069EE]">Get started</button></div>
             <div className="relative h-[220px] overflow-hidden"><div className="absolute inset-0 z-10 bg-gradient-to-t from-white via-transparent to-transparent dark:from-[#050508]"></div><div className="flex animate-scroll gap-5 px-4">{[...ctaBooks, ...ctaBooks, ...ctaBooks].map((cover, index) => (<div key={index} className="h-[200px] w-[130px] flex-shrink-0 overflow-hidden rounded-xl shadow-lg" style={{ transform: `rotate(${(index % 3 - 1) * 5}deg) translateY(${(index % 2) * 20}px)` }}><img src={cover} alt="" className="h-full w-full object-cover" /></div>))}</div></div>
           </div>
         </section>
@@ -1176,7 +1360,11 @@ function Dashboard({ user, onSignOut }: { user: User; onSignOut: () => void }) {
       <footer className="border-t border-black/10 dark:border-white/[0.06] bg-background">
         <div className="mx-auto max-w-[1400px] px-6 py-16">
           <div className="grid gap-12 md:grid-cols-[1.5fr_1fr_1fr_1fr_1fr]">
-            <div><img src="/favicon.svg" alt="Verkli" className="h-9 w-auto" /><p className="mt-5 max-w-[220px] text-[14px] leading-relaxed text-slate-600 dark:text-white/50">Where books become momentum.</p></div>
+            <div>
+              <img src="/logo-dark.svg" alt="Verkli" className="h-9 w-auto dark:hidden" />
+              <img src="/favicon.svg" alt="Verkli" className="hidden h-9 w-auto dark:block" />
+              <p className="mt-5 max-w-[220px] text-[14px] leading-relaxed text-slate-600 dark:text-white/50">Where books become momentum.</p>
+            </div>
             <div><p className="text-[11px] font-semibold uppercase tracking-wider text-slate-500 dark:text-white/40">VERKLI</p><ul className="mt-5 space-y-3 text-[14px] text-slate-600 dark:text-white/50"><li><a href="#" className="transition-colors hover:text-slate-900 dark:hover:text-white">Light reader app</a></li><li><a href="#" className="transition-colors hover:text-slate-900 dark:hover:text-white">Go Premium</a></li></ul></div>
             <div><p className="text-[11px] font-semibold uppercase tracking-wider text-slate-500 dark:text-white/40">DISCOVER</p><ul className="mt-5 space-y-3 text-[14px] text-slate-600 dark:text-white/50"><li><a href="#" className="transition-colors hover:text-slate-900 dark:hover:text-white">Social</a></li><li><a href="#" className="transition-colors hover:text-slate-900 dark:hover:text-white">Library</a></li><li><a href="#" className="transition-colors hover:text-slate-900 dark:hover:text-white">Clubs</a></li></ul></div>
             <div><p className="text-[11px] font-semibold uppercase tracking-wider text-slate-500 dark:text-white/40">APP</p><ul className="mt-5 space-y-3 text-[14px] text-slate-600 dark:text-white/50"><li><a href="#" className="transition-colors hover:text-slate-900 dark:hover:text-white">iOS</a></li><li><a href="#" className="transition-colors hover:text-slate-900 dark:hover:text-white">Android</a></li></ul></div>
@@ -1223,54 +1411,196 @@ function Dashboard({ user, onSignOut }: { user: User; onSignOut: () => void }) {
             <button onClick={() => setShowShelfModal(false)} className="absolute right-6 top-6 text-slate-500 dark:text-white/50 transition-colors hover:text-slate-900 dark:hover:text-white">
               <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
             </button>
-            <div className="mb-6 flex items-center gap-3">
+            <div className="mb-6 space-y-3">
+              <div className="flex items-center gap-3">
+                <input
+                  type="text"
+                  value={shelfForm.name}
+                  onChange={(e) => setShelfForm({ ...shelfForm, name: e.target.value })}
+                  placeholder="Shelf name"
+                  className="flex-1 rounded-xl border border-black/10 dark:border-white/10 bg-black/5 dark:bg-white/[0.04] px-4 py-2.5 text-[20px] font-semibold text-slate-900 dark:text-white outline-none transition-all focus:border-[#907AFF]/50 focus:bg-black/10 dark:focus:bg-white/[0.06]"
+                />
+                <svg className="h-5 w-5 text-slate-400 dark:text-white/40" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" /></svg>
+              </div>
               <input
                 type="text"
-                value={shelfForm.name}
-                onChange={(e) => setShelfForm({ ...shelfForm, name: e.target.value })}
-                placeholder="New shelf"
-                className="flex-1 rounded-xl border border-white/10 bg-white/[0.04] px-4 py-2.5 text-[20px] font-semibold text-white outline-none transition-all focus:border-[#907AFF]/50 focus:bg-white/[0.06]"
+                value={shelfForm.subtitle}
+                onChange={(e) => setShelfForm({ ...shelfForm, subtitle: e.target.value })}
+                placeholder="Optional subtitle"
+                className="w-full rounded-xl border border-black/10 dark:border-white/10 bg-black/5 dark:bg-white/[0.04] px-4 py-2.5 text-[14px] text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-white/30 outline-none transition-all focus:border-[#907AFF]/50 focus:bg-black/10 dark:focus:bg-white/[0.06]"
               />
-              <svg className="h-5 w-5 text-slate-400 dark:text-white/40" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" /></svg>
             </div>
             
             <div className="space-y-4">
-              {/* Cover Upload */}
-              <button className="flex w-full items-center justify-between rounded-xl border border-black/10 dark:border-white/10 bg-black/5 dark:bg-white/[0.02] px-4 py-3 text-left transition-all hover:border-[#907AFF]/30 hover:bg-black/10 dark:hover:bg-white/[0.04]">
-                <span className="text-[14px] text-slate-700 dark:text-white/70">+ Add shelf cover</span>
-                <input type="file" accept="image/*" className="hidden" id="shelf-cover" onChange={(e) => {
-                  const file = e.target.files?.[0];
-                  if (file) {
-                    const reader = new FileReader();
-                    reader.onload = (e) => setShelfForm({ ...shelfForm, cover: e.target?.result as string });
-                    reader.readAsDataURL(file);
-                  }
-                }} />
-                <label htmlFor="shelf-cover" className="cursor-pointer text-[#907AFF]">Upload</label>
-              </button>
-              {shelfForm.cover && (
-                <div className="relative h-32 w-24 overflow-hidden rounded-lg">
-                  <img src={shelfForm.cover} alt="Shelf cover" className="h-full w-full object-cover" />
-                  <button onClick={() => setShelfForm({ ...shelfForm, cover: "" })} className="absolute right-1 top-1 rounded-full bg-black/60 p-1 text-white/80 hover:bg-black/80">
-                    <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
-                  </button>
+              {/* Cover Chooser */}
+              <div>
+                <div className="mb-3 flex items-center gap-2">
+                  <span className="text-[14px] font-medium text-slate-700 dark:text-white/70">Cover</span>
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => setShelfForm({ ...shelfForm, coverType: "image" })}
+                      className={`rounded-lg px-3 py-1 text-[12px] transition-all ${
+                        shelfForm.coverType === "image"
+                          ? "bg-[#907AFF] text-white"
+                          : "bg-black/5 dark:bg-white/[0.02] text-slate-600 dark:text-white/70 hover:bg-black/10 dark:hover:bg-white/[0.04]"
+                      }`}
+                    >
+                      Image
+                    </button>
+                    <button
+                      onClick={() => setShelfForm({ ...shelfForm, coverType: "gradient" })}
+                      className={`rounded-lg px-3 py-1 text-[12px] transition-all ${
+                        shelfForm.coverType === "gradient"
+                          ? "bg-[#907AFF] text-white"
+                          : "bg-black/5 dark:bg-white/[0.02] text-slate-600 dark:text-white/70 hover:bg-black/10 dark:hover:bg-white/[0.04]"
+                      }`}
+                    >
+                      Gradient
+                    </button>
+                  </div>
                 </div>
-              )}
+                
+                {shelfForm.coverType === "image" ? (
+                  <>
+                    <button className="flex w-full items-center justify-between rounded-xl border border-black/10 dark:border-white/10 bg-black/5 dark:bg-white/[0.02] px-4 py-3 text-left transition-all hover:border-[#907AFF]/30 hover:bg-black/10 dark:hover:bg-white/[0.04]">
+                      <span className="text-[14px] text-slate-700 dark:text-white/70">+ Add shelf cover</span>
+                      <input type="file" accept="image/*" className="hidden" id="shelf-cover" onChange={(e) => {
+                        const file = e.target.files?.[0];
+                        if (file) {
+                          const reader = new FileReader();
+                          reader.onload = (e) => setShelfForm({ ...shelfForm, cover: e.target?.result as string });
+                          reader.readAsDataURL(file);
+                        }
+                      }} />
+                      <label htmlFor="shelf-cover" className="cursor-pointer text-[#907AFF]">Upload</label>
+                    </button>
+                    {shelfForm.cover && (
+                      <div className="relative mt-2 h-48 w-32 overflow-hidden rounded-lg">
+                        <img src={shelfForm.cover} alt="Shelf cover" className="h-full w-full object-cover" />
+                        <button onClick={() => setShelfForm({ ...shelfForm, cover: "" })} className="absolute right-1 top-1 rounded-full bg-black/60 p-1 text-white/80 hover:bg-black/80">
+                          <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+                        </button>
+                      </div>
+                    )}
+                  </>
+                ) : (
+                  <div className="space-y-3">
+                    <div className="grid grid-cols-4 gap-2">
+                      {[
+                        "linear-gradient(135deg, #907AFF 0%, #E29ED5 100%)",
+                        "linear-gradient(135deg, #E29ED5 0%, #FCC997 100%)",
+                        "linear-gradient(135deg, #FCC997 0%, #FEE9A3 100%)",
+                        "linear-gradient(135deg, #907AFF 0%, #FCC997 100%)",
+                      ].map((gradient, i) => (
+                        <button
+                          key={i}
+                          onClick={() => setShelfForm({ ...shelfForm, coverGradient: gradient })}
+                          className={`h-16 rounded-lg transition-all ${
+                            shelfForm.coverGradient === gradient ? "ring-2 ring-[#907AFF] ring-offset-2" : ""
+                          }`}
+                          style={{ background: gradient }}
+                        />
+                      ))}
+                    </div>
+                    <input
+                      type="text"
+                      value={shelfForm.coverGradient}
+                      onChange={(e) => setShelfForm({ ...shelfForm, coverGradient: e.target.value })}
+                      placeholder="Or enter custom gradient CSS"
+                      className="w-full rounded-xl border border-black/10 dark:border-white/10 bg-black/5 dark:bg-white/[0.04] px-4 py-2.5 text-[13px] text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-white/30 outline-none transition-all focus:border-[#907AFF]/50 focus:bg-black/10 dark:focus:bg-white/[0.06]"
+                    />
+                  </div>
+                )}
+              </div>
+
+              {/* Typography Settings */}
+              <div className="rounded-xl border border-black/10 dark:border-white/10 bg-black/5 dark:bg-white/[0.02] p-4">
+                <h4 className="mb-4 text-[14px] font-medium text-slate-700 dark:text-white/70">Typography Settings</h4>
+                <div className="space-y-3">
+                  <div>
+                    <label className="mb-1 block text-[12px] text-slate-600 dark:text-white/50">Font Family</label>
+                    <select
+                      value={shelfForm.typography.fontFamily}
+                      onChange={(e) => setShelfForm({ ...shelfForm, typography: { ...shelfForm.typography, fontFamily: e.target.value } })}
+                      className="w-full rounded-lg border border-black/10 dark:border-white/10 bg-black/5 dark:bg-white/[0.04] px-3 py-2 text-[13px] text-slate-900 dark:text-white outline-none transition-all focus:border-[#907AFF]/50"
+                    >
+                      <option value="Inter">Inter</option>
+                      <option value="Georgia">Georgia</option>
+                      <option value="Times New Roman">Times New Roman</option>
+                      <option value="Arial">Arial</option>
+                      <option value="Helvetica">Helvetica</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="mb-1 block text-[12px] text-slate-600 dark:text-white/50">Font Weight</label>
+                    <select
+                      value={shelfForm.typography.fontWeight}
+                      onChange={(e) => setShelfForm({ ...shelfForm, typography: { ...shelfForm.typography, fontWeight: e.target.value } })}
+                      className="w-full rounded-lg border border-black/10 dark:border-white/10 bg-black/5 dark:bg-white/[0.04] px-3 py-2 text-[13px] text-slate-900 dark:text-white outline-none transition-all focus:border-[#907AFF]/50"
+                    >
+                      <option value="400">Regular (400)</option>
+                      <option value="500">Medium (500)</option>
+                      <option value="600">Semibold (600)</option>
+                      <option value="700">Bold (700)</option>
+                    </select>
+                  </div>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="mb-1 block text-[12px] text-slate-600 dark:text-white/50">Title Size</label>
+                      <input
+                        type="text"
+                        value={shelfForm.typography.titleSize}
+                        onChange={(e) => setShelfForm({ ...shelfForm, typography: { ...shelfForm.typography, titleSize: e.target.value } })}
+                        placeholder="20px"
+                        className="w-full rounded-lg border border-black/10 dark:border-white/10 bg-black/5 dark:bg-white/[0.04] px-3 py-2 text-[13px] text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-white/30 outline-none transition-all focus:border-[#907AFF]/50"
+                      />
+                    </div>
+                    <div>
+                      <label className="mb-1 block text-[12px] text-slate-600 dark:text-white/50">Subtitle Size</label>
+                      <input
+                        type="text"
+                        value={shelfForm.typography.subtitleSize}
+                        onChange={(e) => setShelfForm({ ...shelfForm, typography: { ...shelfForm.typography, subtitleSize: e.target.value } })}
+                        placeholder="14px"
+                        className="w-full rounded-lg border border-black/10 dark:border-white/10 bg-black/5 dark:bg-white/[0.04] px-3 py-2 text-[13px] text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-white/30 outline-none transition-all focus:border-[#907AFF]/50"
+                      />
+                    </div>
+                  </div>
+                  <div>
+                    <label className="mb-1 block text-[12px] text-slate-600 dark:text-white/50">Text Color</label>
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="color"
+                        value={shelfForm.typography.textColor}
+                        onChange={(e) => setShelfForm({ ...shelfForm, typography: { ...shelfForm.typography, textColor: e.target.value } })}
+                        className="h-10 w-20 cursor-pointer rounded-lg border border-black/10 dark:border-white/10"
+                      />
+                      <input
+                        type="text"
+                        value={shelfForm.typography.textColor}
+                        onChange={(e) => setShelfForm({ ...shelfForm, typography: { ...shelfForm.typography, textColor: e.target.value } })}
+                        placeholder="#ffffff"
+                        className="flex-1 rounded-lg border border-black/10 dark:border-white/10 bg-black/5 dark:bg-white/[0.04] px-3 py-2 text-[13px] text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-white/30 outline-none transition-all focus:border-[#907AFF]/50"
+                      />
+                    </div>
+                  </div>
+                </div>
+              </div>
 
               {/* Description */}
               <div>
                 <button 
                   onClick={() => setShelfForm({ ...shelfForm, description: shelfForm.description ? "" : " " })}
-                  className="flex w-full items-center justify-between rounded-xl border border-white/10 bg-white/[0.02] px-4 py-3 text-left transition-all hover:border-[#907AFF]/30 hover:bg-white/[0.04]"
+                  className="flex w-full items-center justify-between rounded-xl border border-black/10 dark:border-white/10 bg-black/5 dark:bg-white/[0.02] px-4 py-3 text-left transition-all hover:border-[#907AFF]/30 hover:bg-black/10 dark:hover:bg-white/[0.04]"
                 >
-                  <span className="text-[14px] text-white/70">+ Add summary</span>
+                  <span className="text-[14px] text-slate-700 dark:text-white/70">+ Add summary</span>
                 </button>
                 {shelfForm.description && (
                   <textarea
                     value={shelfForm.description}
                     onChange={(e) => setShelfForm({ ...shelfForm, description: e.target.value })}
                     placeholder="Describe your shelf..."
-                    className="mt-2 w-full rounded-xl border border-white/10 bg-white/[0.04] px-4 py-3 text-[14px] text-white placeholder-white/30 outline-none transition-all focus:border-[#907AFF]/50 focus:bg-white/[0.06]"
+                    className="mt-2 w-full rounded-xl border border-black/10 dark:border-white/10 bg-black/5 dark:bg-white/[0.04] px-4 py-3 text-[14px] text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-white/30 outline-none transition-all focus:border-[#907AFF]/50 focus:bg-black/10 dark:focus:bg-white/[0.06]"
                     rows={4}
                     autoFocus
                   />
@@ -1281,16 +1611,16 @@ function Dashboard({ user, onSignOut }: { user: User; onSignOut: () => void }) {
               <div>
                 <button 
                   onClick={() => setShelfForm({ ...shelfForm, authorsNote: shelfForm.authorsNote ? "" : " " })}
-                  className="flex w-full items-center justify-between rounded-xl border border-white/10 bg-white/[0.02] px-4 py-3 text-left transition-all hover:border-[#907AFF]/30 hover:bg-white/[0.04]"
+                  className="flex w-full items-center justify-between rounded-xl border border-black/10 dark:border-white/10 bg-black/5 dark:bg-white/[0.02] px-4 py-3 text-left transition-all hover:border-[#907AFF]/30 hover:bg-black/10 dark:hover:bg-white/[0.04]"
                 >
-                  <span className="text-[14px] text-white/70">+ Add author&apos;s note</span>
+                  <span className="text-[14px] text-slate-700 dark:text-white/70">+ Add author&apos;s note</span>
                 </button>
                 {shelfForm.authorsNote && (
                   <textarea
                     value={shelfForm.authorsNote}
                     onChange={(e) => setShelfForm({ ...shelfForm, authorsNote: e.target.value })}
                     placeholder="Add a personal note about this shelf..."
-                    className="mt-2 w-full rounded-xl border border-white/10 bg-white/[0.04] px-4 py-3 text-[14px] text-white placeholder-white/30 outline-none transition-all focus:border-[#907AFF]/50 focus:bg-white/[0.06]"
+                    className="mt-2 w-full rounded-xl border border-black/10 dark:border-white/10 bg-black/5 dark:bg-white/[0.04] px-4 py-3 text-[14px] text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-white/30 outline-none transition-all focus:border-[#907AFF]/50 focus:bg-black/10 dark:focus:bg-white/[0.06]"
                     rows={3}
                     autoFocus
                   />
@@ -1304,9 +1634,9 @@ function Dashboard({ user, onSignOut }: { user: User; onSignOut: () => void }) {
                     const input = document.getElementById("shelf-tags-input") as HTMLInputElement;
                     if (input) input.focus();
                   }}
-                  className="flex w-full items-center justify-between rounded-xl border border-white/10 bg-white/[0.02] px-4 py-3 text-left transition-all hover:border-[#907AFF]/30 hover:bg-white/[0.04]"
+                  className="flex w-full items-center justify-between rounded-xl border border-black/10 dark:border-white/10 bg-black/5 dark:bg-white/[0.02] px-4 py-3 text-left transition-all hover:border-[#907AFF]/30 hover:bg-black/10 dark:hover:bg-white/[0.04]"
                 >
-                  <span className="text-[14px] text-white/70">+ Add general tags</span>
+                  <span className="text-[14px] text-slate-700 dark:text-white/70">+ Add general tags</span>
                 </button>
                 {shelfForm.tags.length > 0 && (
                   <div className="mt-2 flex flex-wrap gap-2">
@@ -1334,7 +1664,7 @@ function Dashboard({ user, onSignOut }: { user: User; onSignOut: () => void }) {
                       }
                     }
                   }}
-                  className="mt-2 w-full rounded-xl border border-white/10 bg-white/[0.04] px-4 py-3 text-[14px] text-white placeholder-white/30 outline-none transition-all focus:border-[#907AFF]/50 focus:bg-white/[0.06]"
+                  className="mt-2 w-full rounded-xl border border-black/10 dark:border-white/10 bg-black/5 dark:bg-white/[0.04] px-4 py-3 text-[14px] text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-white/30 outline-none transition-all focus:border-[#907AFF]/50 focus:bg-black/10 dark:focus:bg-white/[0.06]"
                 />
               </div>
             </div>
@@ -1362,17 +1692,17 @@ function Dashboard({ user, onSignOut }: { user: User; onSignOut: () => void }) {
             
             <div className="space-y-6">
               <div>
-                <h3 className="mb-2 text-[16px] font-medium text-white">{shelfForm.name || "New shelf"}</h3>
+                <h3 className="mb-2 text-[16px] font-medium text-slate-900 dark:text-white">{shelfForm.name || "New shelf"}</h3>
                 {shelfForm.cover && (
                   <div className="mb-4 h-48 w-32 overflow-hidden rounded-lg">
                     <img src={shelfForm.cover} alt="Shelf cover" className="h-full w-full object-cover" />
                   </div>
                 )}
                 {shelfForm.description && (
-                  <p className="mb-4 text-[14px] text-white/70">{shelfForm.description}</p>
+                  <p className="mb-4 text-[14px] text-slate-700 dark:text-white/70">{shelfForm.description}</p>
                 )}
                 {shelfForm.authorsNote && (
-                  <div className="mb-4 rounded-xl border border-white/10 bg-white/[0.02] p-4">
+                  <div className="mb-4 rounded-xl border border-black/10 dark:border-white/10 bg-black/5 dark:bg-white/[0.02] p-4">
                     <p className="mb-1 text-[12px] font-medium text-slate-500 dark:text-white/50">Author&apos;s Note</p>
                     <p className="text-[14px] text-slate-700 dark:text-white/70">{shelfForm.authorsNote}</p>
                   </div>
@@ -1412,7 +1742,7 @@ function Dashboard({ user, onSignOut }: { user: User; onSignOut: () => void }) {
                 value={bookForm.title}
                 onChange={(e) => setBookForm({ ...bookForm, title: e.target.value })}
                 placeholder="New section"
-                className="flex-1 rounded-xl border border-white/10 bg-white/[0.04] px-4 py-2.5 text-[20px] font-semibold text-white outline-none transition-all focus:border-[#907AFF]/50 focus:bg-white/[0.06]"
+                className="flex-1 rounded-xl border border-black/10 dark:border-white/10 bg-black/5 dark:bg-white/[0.04] px-4 py-2.5 text-[20px] font-semibold text-slate-900 dark:text-white outline-none transition-all focus:border-[#907AFF]/50 focus:bg-black/10 dark:focus:bg-white/[0.06]"
               />
               <svg className="h-5 w-5 text-slate-400 dark:text-white/40" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" /></svg>
             </div>
@@ -1444,16 +1774,16 @@ function Dashboard({ user, onSignOut }: { user: User; onSignOut: () => void }) {
               <div>
                 <button 
                   onClick={() => setBookForm({ ...bookForm, summary: bookForm.summary ? "" : " " })}
-                  className="flex w-full items-center justify-between rounded-xl border border-white/10 bg-white/[0.02] px-4 py-3 text-left transition-all hover:border-[#907AFF]/30 hover:bg-white/[0.04]"
+                  className="flex w-full items-center justify-between rounded-xl border border-black/10 dark:border-white/10 bg-black/5 dark:bg-white/[0.02] px-4 py-3 text-left transition-all hover:border-[#907AFF]/30 hover:bg-black/10 dark:hover:bg-white/[0.04]"
                 >
-                  <span className="text-[14px] text-white/70">+ Add summary</span>
+                  <span className="text-[14px] text-slate-700 dark:text-white/70">+ Add summary</span>
                 </button>
                 {bookForm.summary && (
                   <textarea
                     value={bookForm.summary}
                     onChange={(e) => setBookForm({ ...bookForm, summary: e.target.value })}
                     placeholder="Write a summary of your book..."
-                    className="mt-2 w-full rounded-xl border border-white/10 bg-white/[0.04] px-4 py-3 text-[14px] text-white placeholder-white/30 outline-none transition-all focus:border-[#907AFF]/50 focus:bg-white/[0.06]"
+                    className="mt-2 w-full rounded-xl border border-black/10 dark:border-white/10 bg-black/5 dark:bg-white/[0.04] px-4 py-3 text-[14px] text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-white/30 outline-none transition-all focus:border-[#907AFF]/50 focus:bg-black/10 dark:focus:bg-white/[0.06]"
                     rows={4}
                     autoFocus
                   />
@@ -1464,16 +1794,16 @@ function Dashboard({ user, onSignOut }: { user: User; onSignOut: () => void }) {
               <div>
                 <button 
                   onClick={() => setBookForm({ ...bookForm, authorsNote: bookForm.authorsNote ? "" : " " })}
-                  className="flex w-full items-center justify-between rounded-xl border border-white/10 bg-white/[0.02] px-4 py-3 text-left transition-all hover:border-[#907AFF]/30 hover:bg-white/[0.04]"
+                  className="flex w-full items-center justify-between rounded-xl border border-black/10 dark:border-white/10 bg-black/5 dark:bg-white/[0.02] px-4 py-3 text-left transition-all hover:border-[#907AFF]/30 hover:bg-black/10 dark:hover:bg-white/[0.04]"
                 >
-                  <span className="text-[14px] text-white/70">+ Add author&apos;s note</span>
+                  <span className="text-[14px] text-slate-700 dark:text-white/70">+ Add author&apos;s note</span>
                 </button>
                 {bookForm.authorsNote && (
                   <textarea
                     value={bookForm.authorsNote}
                     onChange={(e) => setBookForm({ ...bookForm, authorsNote: e.target.value })}
                     placeholder="Add a personal note about this book..."
-                    className="mt-2 w-full rounded-xl border border-white/10 bg-white/[0.04] px-4 py-3 text-[14px] text-white placeholder-white/30 outline-none transition-all focus:border-[#907AFF]/50 focus:bg-white/[0.06]"
+                    className="mt-2 w-full rounded-xl border border-black/10 dark:border-white/10 bg-black/5 dark:bg-white/[0.04] px-4 py-3 text-[14px] text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-white/30 outline-none transition-all focus:border-[#907AFF]/50 focus:bg-black/10 dark:focus:bg-white/[0.06]"
                     rows={3}
                     autoFocus
                   />
@@ -1487,9 +1817,9 @@ function Dashboard({ user, onSignOut }: { user: User; onSignOut: () => void }) {
                     const input = document.getElementById("book-tags-input") as HTMLInputElement;
                     if (input) input.focus();
                   }}
-                  className="flex w-full items-center justify-between rounded-xl border border-white/10 bg-white/[0.02] px-4 py-3 text-left transition-all hover:border-[#907AFF]/30 hover:bg-white/[0.04]"
+                  className="flex w-full items-center justify-between rounded-xl border border-black/10 dark:border-white/10 bg-black/5 dark:bg-white/[0.02] px-4 py-3 text-left transition-all hover:border-[#907AFF]/30 hover:bg-black/10 dark:hover:bg-white/[0.04]"
                 >
-                  <span className="text-[14px] text-white/70">+ Add general tags</span>
+                  <span className="text-[14px] text-slate-700 dark:text-white/70">+ Add general tags</span>
                 </button>
                 {bookForm.tags.length > 0 && (
                   <div className="mt-2 flex flex-wrap gap-2">
@@ -1517,13 +1847,13 @@ function Dashboard({ user, onSignOut }: { user: User; onSignOut: () => void }) {
                       }
                     }
                   }}
-                  className="mt-2 w-full rounded-xl border border-white/10 bg-white/[0.04] px-4 py-3 text-[14px] text-white placeholder-white/30 outline-none transition-all focus:border-[#907AFF]/50 focus:bg-white/[0.06]"
+                  className="mt-2 w-full rounded-xl border border-black/10 dark:border-white/10 bg-black/5 dark:bg-white/[0.04] px-4 py-3 text-[14px] text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-white/30 outline-none transition-all focus:border-[#907AFF]/50 focus:bg-black/10 dark:focus:bg-white/[0.06]"
                 />
               </div>
 
               {/* Creation Method Choice */}
-              <div className="mt-6 rounded-xl border border-white/10 bg-white/[0.02] p-6">
-                <h3 className="mb-4 text-[16px] font-semibold text-white">How do you want to create your book?</h3>
+              <div className="mt-6 rounded-xl border border-black/10 dark:border-white/10 bg-black/5 dark:bg-white/[0.02] p-6">
+                <h3 className="mb-4 text-[16px] font-semibold text-slate-900 dark:text-white">How do you want to create your book?</h3>
                 <div className="grid gap-4 md:grid-cols-2">
                   <button
                     onClick={() => setBookForm({ ...bookForm, creationMethod: "write" })}
