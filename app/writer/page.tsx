@@ -3,7 +3,7 @@
 import { useState, useRef, useEffect } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { createClient } from "@/lib/supabase/client";
+import { createClient, insertLibraryBook } from "@/lib/supabase/client";
 import GlassSurface from "@/components/GlassSurface";
 import GridMotion from "@/components/GridMotion";
 import TestimonialSection from "@/components/TestimonialSection";
@@ -807,6 +807,7 @@ function Dashboard({ user, onSignOut }: { user: User; onSignOut: () => void }) {
   const [profileMenuOpen, setProfileMenuOpen] = useState(false);
   const profileMenuRef = useRef<HTMLDivElement>(null);
   const [shelves, setShelves] = useState([{ id: 1, name: "New Shelf", books: mockBooks.slice(0, 2) }]);
+  const [testInsertLoading, setTestInsertLoading] = useState(false);
   
   // Modal states
   const [showChoiceModal, setShowChoiceModal] = useState(false);
@@ -1019,6 +1020,23 @@ function Dashboard({ user, onSignOut }: { user: User; onSignOut: () => void }) {
                 <div className="hidden items-center gap-3 md:flex">
                   <ThemeToggle glassProps={glassBaseProps} />
                 </div>
+                <button
+                  onClick={async () => {
+                    setTestInsertLoading(true);
+                    try {
+                      const result = await insertLibraryBook({
+                        title: "Testbok",
+                        author: displayName,
+                      });
+                      console.log("Inserted library book:", result);
+                    } finally {
+                      setTestInsertLoading(false);
+                    }
+                  }}
+                  className="hidden rounded-full border border-black/10 px-4 py-2 text-[13px] text-slate-600 transition-all hover:border-black/20 hover:bg-black/5 hover:text-slate-900 dark:border-white/10 dark:text-white/70 dark:hover:border-white/20 dark:hover:bg-white/[0.03] dark:hover:text-white md:block"
+                >
+                  {testInsertLoading ? "Creating..." : "Insert test book"}
+                </button>
                 <button onClick={() => handleAddClick()} className="rounded-full bg-[#907AFF] px-6 py-2.5 text-[15px] font-medium text-white transition-all hover:bg-[#8069EE]">Create</button>
               </div>
             </nav>
