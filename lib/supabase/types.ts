@@ -112,6 +112,47 @@ export type Database = {
           published_at?: string | null
         }
       }
+      library_books: {
+        Row: {
+          id: string
+          user_id: string
+          title: string
+          author: string | null
+          cover_url: string | null
+          summary: string | null
+          authors_note: string | null
+          content: string | null
+          tags: string[] | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          title: string
+          author?: string | null
+          cover_url?: string | null
+          summary?: string | null
+          authors_note?: string | null
+          content?: string | null
+          tags?: string[] | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          user_id?: string
+          title?: string
+          author?: string | null
+          cover_url?: string | null
+          summary?: string | null
+          authors_note?: string | null
+          content?: string | null
+          tags?: string[] | null
+          created_at?: string
+          updated_at?: string
+        }
+      }
       chapters: {
         Row: {
           id: string
@@ -152,6 +193,9 @@ export type Database = {
           cover_gradient: string | null
           typography: Record<string, any> | null
           sort_index: number
+          description: string | null
+          authors_note: string | null
+          tags: string[] | null
           created_at: string
           updated_at: string
         }
@@ -165,6 +209,9 @@ export type Database = {
           cover_gradient?: string | null
           typography?: Record<string, any> | null
           sort_index?: number
+          description?: string | null
+          authors_note?: string | null
+          tags?: string[] | null
           created_at?: string
           updated_at?: string
         }
@@ -178,6 +225,9 @@ export type Database = {
           cover_gradient?: string | null
           typography?: Record<string, any> | null
           sort_index?: number
+          description?: string | null
+          authors_note?: string | null
+          tags?: string[] | null
           created_at?: string
           updated_at?: string
         }
@@ -249,6 +299,7 @@ export type Database = {
 export type User = Database['public']['Tables']['users']['Row']
 export type Profile = Database['public']['Tables']['profiles']['Row']
 export type Book = Database['public']['Tables']['books']['Row']
+export type LibraryBook = Database['public']['Tables']['library_books']['Row']
 export type Chapter = Database['public']['Tables']['chapters']['Row']
 export type Shelf = Database['public']['Tables']['shelves']['Row']
 export type ShelfSection = Database['public']['Tables']['shelf_sections']['Row']
