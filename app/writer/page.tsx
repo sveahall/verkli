@@ -299,22 +299,22 @@ const getPagesLeft = (book: BookCardData) => {
 
 const cardSizeStyles: Record<BookCardSize, { container: string; title: string; author: string; overlayPad: string }> = {
   sm: {
-    container: "h-[190px] w-[130px] rounded-[18px]",
-    title: "text-[13px]",
-    author: "text-[11px]",
-    overlayPad: "px-3.5 py-2.5",
+    container: "h-[200px] w-[140px] rounded-2xl",
+    title: "text-[14px]",
+    author: "text-[12px]",
+    overlayPad: "px-3.5 py-3",
   },
   md: {
-    container: "h-[240px] w-[170px] rounded-[22px]",
-    title: "text-[15px]",
-    author: "text-[12px]",
-    overlayPad: "px-4 py-3",
-  },
-  lg: {
-    container: "h-[280px] w-[190px] rounded-[26px]",
+    container: "h-[280px] w-[200px] rounded-2xl",
     title: "text-[16px]",
     author: "text-[13px]",
-    overlayPad: "px-5 py-3.5",
+    overlayPad: "px-4 py-3.5",
+  },
+  lg: {
+    container: "h-[320px] w-[220px] rounded-2xl",
+    title: "text-[18px]",
+    author: "text-[14px]",
+    overlayPad: "px-5 py-4",
   },
 };
 
@@ -339,11 +339,11 @@ function BookCoverCard({
       className="group relative flex-shrink-0 transition-transform duration-300 hover:-translate-y-1.5"
     >
       <div
-        className={`relative overflow-hidden ${styles.container} bg-white/[0.05] shadow-[0_20px_60px_-35px_rgba(0,0,0,0.6)] transition-all duration-300 group-hover:shadow-[0_28px_80px_-40px_rgba(144,122,255,0.35)]`}
+        className={`relative overflow-hidden ${styles.container} bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-900 dark:to-slate-800 shadow-lg transition-all duration-500 group-hover:scale-[1.02] group-hover:shadow-2xl group-hover:shadow-[#907AFF]/20`}
       >
-        <img src={book.cover} alt={book.title} className="h-full w-full object-cover" />
-        <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-transparent" />
-        <div className="absolute inset-0 bg-black/35 opacity-0 transition-opacity duration-300 group-hover:opacity-100" />
+        <img src={book.cover} alt={book.title} className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-110" />
+        <div className="absolute inset-0 bg-gradient-to-t from-black/95 via-black/60 to-black/20" />
+        <div className="absolute inset-0 bg-gradient-to-br from-[#907AFF]/0 via-[#907AFF]/0 to-[#907AFF]/0 transition-all duration-500 group-hover:from-[#907AFF]/10 group-hover:via-[#E29ED5]/5 group-hover:to-transparent" />
 
         {showTag && book.tag && (
           <div className="absolute left-3 top-3">
@@ -361,52 +361,58 @@ function BookCoverCard({
           </div>
         </div>
 
-        <div className="absolute bottom-3 left-3 right-3">
+        <div className="absolute bottom-0 left-0 right-0 p-4">
           <div
-            className={`keep-white rounded-[18px] border border-white/10 bg-black/60 backdrop-blur-md ${styles.overlayPad} text-white transition-all duration-300`}
+            className={`keep-white rounded-2xl border border-white/20 bg-gradient-to-t from-black/95 via-black/90 to-black/80 backdrop-blur-xl ${styles.overlayPad} text-white transition-all duration-300 shadow-2xl`}
           >
-            <div className="flex items-center justify-between">
-              <p className={`${styles.title} font-medium text-white`}>{book.title}</p>
-              <p className={`${styles.author} text-white/70`}>{book.author}</p>
+            <div className="space-y-1.5">
+              <h3 className={`${styles.title} line-clamp-2 font-bold leading-tight text-white drop-shadow-lg`}>
+                {book.title}
+              </h3>
+              <p className={`${styles.author} line-clamp-1 text-white/90 font-medium`}>
+                {book.author}
+              </p>
             </div>
 
-            <div className="mt-2 overflow-hidden transition-all duration-300 ease-out max-h-0 opacity-0 translate-y-2 group-hover:max-h-24 group-hover:opacity-100 group-hover:translate-y-0">
-              <div className="flex items-center justify-between text-[11px] text-white/70">
-                <div className="flex items-center gap-1.5">
-                  <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M2.5 12s3.5-6 9.5-6 9.5 6 9.5 6-3.5 6-9.5 6-9.5-6-9.5-6z" />
-                    <circle cx="12" cy="12" r="2.5" />
-                  </svg>
-                  <span>{formatCompactNumber(book.reads)}</span>
-                </div>
-                <div className="flex items-center gap-1.5">
-                  <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 6h16M4 12h16M4 18h8" />
-                  </svg>
-                  <span>{book.chapters ?? "--"}</span>
-                </div>
-                <div className="flex items-center gap-1.5">
-                  <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 3l2.6 5.4 6 .9-4.3 4.2 1 5.9L12 16.8 6.7 19.4l1-5.9L3.4 9.3l6-.9L12 3z" />
-                  </svg>
-                  <span>{book.rating?.toFixed(1) ?? "--"}</span>
+            {!showProgress && (
+              <div className="mt-3 overflow-hidden transition-all duration-300 ease-out max-h-0 opacity-0 translate-y-2 group-hover:max-h-28 group-hover:opacity-100 group-hover:translate-y-0 pt-3 border-t border-white/10">
+                <div className="flex items-center justify-between gap-3 text-[12px] text-white/80">
+                  <div className="flex items-center gap-1.5">
+                    <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                    </svg>
+                    <span className="font-medium">{formatCompactNumber(book.reads)}</span>
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
+                    </svg>
+                    <span className="font-medium">{book.chapters ?? "--"}</span>
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <svg className="h-4 w-4 text-yellow-400" fill="currentColor" viewBox="0 0 20 20">
+                      <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
+                    </svg>
+                    <span className="font-medium">{book.rating?.toFixed(1) ?? "--"}</span>
+                  </div>
                 </div>
               </div>
-            </div>
+            )}
 
             {showProgress && (
-              <div className="mt-2 space-y-2">
-                <div className="flex items-center justify-between text-[11px] text-white/70">
+              <div className="mt-3 space-y-2.5 pt-3 border-t border-white/10">
+                <div className="flex items-center justify-between text-[12px] font-medium text-white/90">
                   <span>Chapter {book.currentChapter ?? "--"}</span>
                   <span>Page {book.currentPage ?? "--"}</span>
                 </div>
-                <div className="h-1.5 overflow-hidden rounded-full bg-black/60 backdrop-blur-sm">
+                <div className="h-2 overflow-hidden rounded-full bg-black/50 backdrop-blur-sm">
                   <div
-                    className="h-full bg-gradient-to-r from-[#907AFF] to-[#E29ED5]"
+                    className="h-full bg-gradient-to-r from-[#907AFF] via-[#E29ED5] to-[#FCC997] transition-all duration-500"
                     style={{ width: `${book.progress ?? 0}%` }}
                   />
                 </div>
-                <div className="flex items-center justify-between text-[11px] text-white/60">
+                <div className="flex items-center justify-between text-[11px] text-white/70">
                   <span>{percentLeft ?? "--"}% left</span>
                   <span>{pagesLeft ?? "--"} pages</span>
                 </div>
@@ -814,6 +820,7 @@ function Dashboard({ user, onSignOut }: { user: User; onSignOut: () => void }) {
   const router = useRouter();
   const [profileMenuOpen, setProfileMenuOpen] = useState(false);
   const profileMenuRef = useRef<HTMLDivElement>(null);
+  const clickedInsideRef = useRef(false);
   const [shelves, setShelves] = useState<ShelfWithDetails[]>([]);
   const [standaloneBooks, setStandaloneBooks] = useState<Book[]>([]);
   const [loadingShelves, setLoadingShelves] = useState(true);
@@ -862,33 +869,52 @@ function Dashboard({ user, onSignOut }: { user: User; onSignOut: () => void }) {
   }, []);
 
   useEffect(() => {
+    if (!profileMenuOpen && !showCreateDropdown) return;
+    
     const handleClickOutside = (event: MouseEvent) => {
-      if (profileMenuRef.current && !profileMenuRef.current.contains(event.target as Node)) {
+      // If we clicked inside, don't close
+      if (clickedInsideRef.current) {
+        clickedInsideRef.current = false;
+        return;
+      }
+      
+      const target = event.target as Node;
+      // Don't close if clicking inside the menu
+      if (profileMenuRef.current && !profileMenuRef.current.contains(target)) {
         setProfileMenuOpen(false);
         setShowCreateDropdown(false);
       }
     };
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, []);
+    
+    // Use click event without capture - onClick handlers run first, then this
+    // Add small delay to ensure onClick handlers execute
+    const timeoutId = setTimeout(() => {
+      document.addEventListener("click", handleClickOutside);
+    }, 0);
+    
+    return () => {
+      clearTimeout(timeoutId);
+      document.removeEventListener("click", handleClickOutside);
+    };
+  }, [profileMenuOpen, showCreateDropdown]);
 
   const loadShelves = async () => {
     try {
       setLoadingShelves(true);
       const [shelvesData, booksData] = await Promise.all([
-        getShelves(),
-        getStandaloneBooks(),
+        getShelves().catch((err) => {
+          console.warn("Error loading shelves (non-critical):", err);
+          return [];
+        }),
+        getStandaloneBooks().catch((err) => {
+          console.warn("Error loading standalone books (non-critical):", err);
+          return [];
+        }),
       ]);
-      setShelves(shelvesData);
-      setStandaloneBooks(booksData);
+      setShelves(shelvesData || []);
+      setStandaloneBooks(booksData || []);
     } catch (error: any) {
-      console.error("Error loading shelves:", error);
-      console.error("Error details:", {
-        message: error?.message,
-        code: error?.code,
-        details: error?.details,
-        hint: error?.hint,
-      });
+      console.warn("Error loading shelves (non-critical):", error);
       // Set empty arrays on error to prevent UI crashes
       setShelves([]);
       setStandaloneBooks([]);
@@ -1070,14 +1096,117 @@ function Dashboard({ user, onSignOut }: { user: User; onSignOut: () => void }) {
               <span className="flex h-12 w-12 items-center justify-center rounded-full bg-gradient-to-br from-[#907AFF] to-[#E29ED5] text-[18px] font-semibold text-white">{displayName.charAt(0).toUpperCase()}</span>
             </button>
             {profileMenuOpen && (
-              <div className="absolute right-0 top-full mt-3 w-[260px] overflow-hidden rounded-2xl border border-black/10 dark:border-white/10 bg-white/95 dark:bg-[#0a0a0f]/95 p-2 shadow-2xl backdrop-blur-xl">
-                <div className="border-b border-black/10 dark:border-white/[0.06] px-4 pb-4 pt-3"><p className="text-[15px] font-medium text-slate-900 dark:text-white">{displayName}</p><p className="mt-1 text-[13px] text-slate-500 dark:text-white/50">{user?.email}</p></div>
-                <div className="py-2">
-                  <button className="flex w-full items-center gap-3 rounded-xl px-4 py-3 text-[14px] text-slate-700 dark:text-white/70 transition-colors hover:bg-black/5 dark:hover:bg-white/[0.05] hover:text-slate-900 dark:hover:text-white"><svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" /></svg>Profile</button>
-                  <button className="flex w-full items-center gap-3 rounded-xl px-4 py-3 text-[14px] text-slate-700 dark:text-white/70 transition-colors hover:bg-black/5 dark:hover:bg-white/[0.05] hover:text-slate-900 dark:hover:text-white"><svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /></svg>Settings</button>
-                  <Link href="/reader" className="flex w-full items-center gap-3 rounded-xl px-4 py-3 text-[14px] text-slate-700 dark:text-white/70 transition-colors hover:bg-black/5 dark:hover:bg-white/[0.05] hover:text-slate-900 dark:hover:text-white"><svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" /></svg>Switch to Reader</Link>
+              <div 
+                className="absolute right-0 top-full mt-3 z-[1000] w-[260px] overflow-hidden rounded-2xl border border-black/10 dark:border-white/10 bg-white/95 dark:bg-[#0a0a0f]/95 p-2 shadow-2xl backdrop-blur-xl"
+                onClick={(e) => e.stopPropagation()}
+              >
+                <div className="border-b border-black/10 dark:border-white/[0.06] px-4 pb-4 pt-3">
+                  <p className="text-[15px] font-medium text-slate-900 dark:text-white">{displayName}</p>
+                  <p className="mt-1 text-[13px] text-slate-500 dark:text-white/50">{user?.email}</p>
                 </div>
-                <div className="border-t border-black/10 dark:border-white/[0.06] pt-2"><button onClick={onSignOut} className="flex w-full items-center gap-3 rounded-xl px-4 py-3 text-[14px] text-red-600 dark:text-red-400/80 transition-colors hover:bg-red-50 dark:hover:bg-red-500/10 hover:text-red-700 dark:hover:text-red-400"><svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" /></svg>Sign out</button></div>
+                <div className="py-2">
+                  <button 
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setProfileMenuOpen(false);
+                    }}
+                    className="flex w-full items-center gap-3 rounded-xl px-4 py-3 text-[14px] text-slate-700 dark:text-white/70 transition-colors hover:bg-black/5 dark:hover:bg-white/[0.05] hover:text-slate-900 dark:hover:text-white"
+                  >
+                    <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                    </svg>
+                    Profile
+                  </button>
+                  <button 
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setProfileMenuOpen(false);
+                    }}
+                    className="flex w-full items-center gap-3 rounded-xl px-4 py-3 text-[14px] text-slate-700 dark:text-white/70 transition-colors hover:bg-black/5 dark:hover:bg-white/[0.05] hover:text-slate-900 dark:hover:text-white"
+                  >
+                    <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                    </svg>
+                    Settings
+                  </button>
+                  <button
+                    onClick={async (e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      clickedInsideRef.current = true;
+                      
+                      // Close menu immediately
+                      setProfileMenuOpen(false);
+                      
+                      // Execute action after a tiny delay to ensure menu closes
+                      setTimeout(async () => {
+                        try {
+                          const supabase = createClient();
+                          const { data: { user: currentUser } } = await supabase.auth.getUser();
+                          
+                          if (currentUser) {
+                            // Update role in profiles table
+                            const { error: updateError } = await supabase
+                              .from('profiles')
+                              .update({ role: 'reader' })
+                              .eq('user_id', currentUser.id);
+                            
+                            if (updateError) {
+                              console.error('Error updating role:', updateError);
+                            }
+                          }
+                          
+                          // Refresh router to clear cache and redirect
+                          router.refresh();
+                          router.push('/reader');
+                        } catch (error) {
+                          console.error('Error switching to reader:', error);
+                          // Still redirect even if update fails
+                          router.push('/reader');
+                        }
+                      }, 10);
+                    }}
+                    className="flex w-full items-center gap-3 rounded-xl px-4 py-3 text-left text-[14px] text-slate-700 dark:text-white/70 transition-colors hover:bg-black/5 dark:hover:bg-white/[0.05] hover:text-slate-900 dark:hover:text-white"
+                  >
+                    <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" />
+                    </svg>
+                    Switch to Reader
+                  </button>
+                </div>
+                <div className="border-t border-black/10 dark:border-white/[0.06] pt-2">
+                  <button 
+                    onClick={async (e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      clickedInsideRef.current = true;
+                      
+                      // Close menu immediately
+                      setProfileMenuOpen(false);
+                      
+                      // Execute action after a tiny delay to ensure menu closes
+                      setTimeout(async () => {
+                        try {
+                          await onSignOut();
+                          // Refresh router to clear server cache
+                          router.refresh();
+                          // Redirect to landing page
+                          router.push('/');
+                        } catch (error) {
+                          console.error("Error signing out:", error);
+                        }
+                      }, 10);
+                    }}
+                    type="button"
+                    className="flex w-full items-center gap-3 rounded-xl px-4 py-3 text-left text-[14px] text-red-600 dark:text-red-400/80 transition-colors hover:bg-red-50 dark:hover:bg-red-500/10 hover:text-red-700 dark:hover:text-red-400"
+                  >
+                    <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+                    </svg>
+                    Sign out
+                  </button>
+                </div>
               </div>
             )}
           </div>
@@ -1980,7 +2109,11 @@ export default function WriterPage() {
     return () => subscription.unsubscribe();
   }, []);
 
-  const handleSignOut = async () => { const supabase = createClient(); await supabase.auth.signOut(); setUser(null); };
+  const handleSignOut = async () => {
+    const supabase = createClient();
+    await supabase.auth.signOut();
+    setUser(null);
+  };
 
   if (loading) return <div className="flex min-h-screen items-center justify-center bg-[#050508]"><div className="h-8 w-8 animate-spin rounded-full border-2 border-white/20 border-t-[#907AFF]"></div></div>;
 
