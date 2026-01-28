@@ -2,12 +2,14 @@
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import GlassSurface from "@/components/GlassSurface";
 import ThemeToggle from "@/components/ThemeToggle";
 import UserMenu from "@/components/navbar/UserMenu";
 import { createClient } from "@/lib/supabase/client";
 import type { User } from "@supabase/supabase-js";
+
+const VERKLI_ROLE_KEY = "verkli_role";
 
 const glassBaseProps = {
   displace: 0.5,
@@ -196,32 +198,73 @@ const dropdownContent = {
  */
 export default function GlobalNavbar() {
   const pathname = usePathname();
+  const router = useRouter();
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
+  const [searchValue, setSearchValue] = useState("");
+  const [currentRole, setCurrentRole] = useState<"writer" | "reader">("writer");
 
   useEffect(() => {
     const supabase = createClient();
+    const resolveRole = async (activeUser: User | null) => {
+      if (!activeUser) {
+        setCurrentRole("writer");
+        return;
+      }
+
+      let nextRole: "writer" | "reader" = "writer";
+      const metadataRole = activeUser.user_metadata?.role;
+      if (metadataRole === "writer" || metadataRole === "reader") {
+        nextRole = metadataRole;
+      }
+
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("role")
+        .eq("user_id", activeUser.id)
+        .maybeSingle();
+
+      if (profile?.role === "writer" || profile?.role === "reader") {
+        nextRole = profile.role;
+      }
+
+      setCurrentRole(nextRole);
+    };
+
     const getUser = async () => {
       const { data: { user } } = await supabase.auth.getUser();
       setUser(user);
+      await resolveRole(user);
       setLoading(false);
     };
     getUser();
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
-      if (event === "SIGNED_OUT") setUser(null);
-      else if (event === "SIGNED_IN" && session?.user) setUser(session.user);
+      if (event === "SIGNED_OUT") {
+        setUser(null);
+        setCurrentRole("writer");
+      } else if (event === "SIGNED_IN" && session?.user) {
+        setUser(session.user);
+        void resolveRole(session.user);
+      }
     });
     return () => subscription.unsubscribe();
   }, []);
+
+  // Spara senast använd roll så att "/" kan omdirigera rätt (visa aldrig väljaren igen)
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    if (pathname?.startsWith("/writer")) {
+      window.localStorage.setItem(VERKLI_ROLE_KEY, "writer");
+    } else if (pathname?.startsWith("/reader")) {
+      window.localStorage.setItem(VERKLI_ROLE_KEY, "reader");
+    }
+  }, [pathname]);
 
   const handleSignOut = async () => {
     const supabase = createClient();
     await supabase.auth.signOut();
     setUser(null);
   };
-
-  // Determine current role from pathname
-  const currentRole = pathname?.startsWith('/writer') ? 'writer' : pathname?.startsWith('/reader') ? 'reader' : 'writer';
 
   // Determine if we're on a public page
   const isPublicPage = !pathname?.startsWith('/writer') && !pathname?.startsWith('/reader');
@@ -247,21 +290,32 @@ export default function GlobalNavbar() {
     return null; // Don't show navbar while loading or on role selection page
   }
 
+  const handleWriterSearchSubmit = (event: React.FormEvent) => {
+    event.preventDefault();
+    const query = searchValue.trim();
+    if (!query) return;
+
+    // Attach query as ?q=... to writer dashboard – page can consume detta
+    const params = new URLSearchParams(typeof window !== "undefined" ? window.location.search : "");
+    params.set("q", query);
+    router.push(`/writer?${params.toString()}`);
+  };
+
   return (
-    <header className="sticky top-3 z-[999] isolate mx-auto w-full max-w-[1660px] px-6 mb-1.5">
+    <header className="sticky top-0 z-[999] isolate mx-auto w-full bg-gradient-to-b from-background/95 via-background/90 to-transparent px-4 pb-2 pt-3 md:px-6">
       <div className="flex items-center gap-3">
         <GlassSurface
           {...glassBaseProps}
           width="100%"
           height="68px"
           borderRadius={999}
-          className="nav-glass flex-1 border border-black/5 bg-white/90 px-7 py-3.5 shadow-[0_18px_45px_rgba(15,23,42,0.10)] dark:border-white/10 dark:bg-slate-950/95 md:px-11 [&_.glass-surface__content]:w-full [&_.glass-surface__content]:justify-between [&_.glass-surface__content]:p-0"
+          className="nav-glass flex-1 border border-gray-100/5 bg-white/90 px-7 py-3.5 dark:border-white/10 dark:bg-slate-950/95 md:px-11 [&_.glass-surface__content]:w-full [&_.glass-surface__content]:justify-between [&_.glass-surface__content]:p-0"
         >
           <nav className="flex w-full items-center justify-between gap-6">
             {/* Logo and navigation */}
             <div className="flex items-center gap-10">
-              {/* Logo always takes you "home" */}
-              <Link href="/">
+              {/* Logo: inloggad på writer/reader → dashboard; annars startsida (väljaren visas bara när navbar är dold) */}
+              <Link href={pathname?.startsWith("/writer") ? "/writer" : pathname?.startsWith("/reader") ? "/reader" : "/"}>
                 <img
                   src="/logo-dark.svg"
                   alt="Verkli"
@@ -312,14 +366,16 @@ export default function GlobalNavbar() {
                                     {dropdownContent[item as keyof typeof dropdownContent].description}
                                   </p>
                                 </div>
-                                <div className="grid gap-3 grid-cols-1 md:grid-cols-2">
+                                <div className="grid grid-cols-1 gap-2.5 md:grid-cols-2">
                                   {dropdownContent[item as keyof typeof dropdownContent].items.map((menuItem, idx) => (
                                     <div
                                       key={idx}
                                       className="group/item cursor-pointer rounded-xl p-4 transition-all duration-200 hover:bg-slate-50 dark:hover:bg-white/[0.12] hover:shadow-sm border border-transparent hover:border-slate-200 dark:hover:border-white/10"
                                     >
                                       <div className="flex items-start gap-3">
-                                        <div className="mt-1 flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-lg bg-white/60 shadow-sm ring-1 ring-black/5 dark:bg-white/10 dark:ring-white/10" />
+                                        <div className="mt-1 flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-lg bg-slate-900/5 shadow-sm ring-1 ring-black/5 dark:bg-white/10 dark:ring-white/10">
+                                          <span className="h-2 w-2 rounded-full bg-gradient-to-r from-[#907AFF] via-[#E29ED5] to-[#FCC997]" />
+                                        </div>
                                         <div className="flex-1 min-w-0">
                                           <h4 className="text-[14px] font-semibold leading-tight text-slate-900 dark:text-white group-hover/item:text-[#907AFF] dark:group-hover/item:text-[#907AFF] transition-colors mb-1">
                                             {menuItem.title}
@@ -343,11 +399,11 @@ export default function GlobalNavbar() {
               )}
 
               {pathname?.startsWith('/reader') && (
-                <div className="hidden items-center gap-8 text-[16px] font-medium text-white/80 lg:flex">
+                <div className="hidden items-center gap-8 text-[16px] font-medium text-slate-700 dark:text-white/80 lg:flex">
                   {readerNavItems.map((item) => (
                     <button
                       key={item}
-                      className="flex items-center gap-1.5 px-3 py-2 transition-colors hover:text-white"
+                      className="flex items-center gap-1.5 px-3 py-2 transition-colors hover:text-slate-900 dark:hover:text-white"
                     >
                       <span className="relative">{item}</span>
                       <svg
@@ -406,14 +462,16 @@ export default function GlobalNavbar() {
                                     {dropdownContent[item.label as keyof typeof dropdownContent].description}
                                   </p>
                                 </div>
-                                <div className="grid gap-3 grid-cols-1 md:grid-cols-2">
+                                <div className="grid grid-cols-1 gap-2.5 md:grid-cols-2">
                                   {dropdownContent[item.label as keyof typeof dropdownContent].items.map((menuItem, idx) => (
                                     <div
                                       key={idx}
                                       className="group/item cursor-pointer rounded-xl p-4 transition-all duration-200 hover:bg-slate-50 dark:hover:bg-white/[0.12] hover:shadow-sm border border-transparent hover:border-slate-200 dark:hover:border-white/10"
                                     >
                                       <div className="flex items-start gap-3">
-                                        <div className="mt-1 flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-lg bg-white/60 shadow-sm ring-1 ring-black/5 dark:bg-white/10 dark:ring-white/10" />
+                                        <div className="mt-1 flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-lg bg-slate-900/5 shadow-sm ring-1 ring-black/5 dark:bg-white/10 dark:ring-white/10">
+                                          <span className="h-2 w-2 rounded-full bg-gradient-to-r from-[#907AFF] via-[#E29ED5] to-[#FCC997]" />
+                                        </div>
                                         <div className="flex-1 min-w-0">
                                           <h4 className="text-[14px] font-semibold leading-tight text-slate-900 dark:text-white group-hover/item:text-[#907AFF] dark:group-hover/item:text-[#907AFF] transition-colors mb-1">
                                             {menuItem.title}
@@ -441,39 +499,41 @@ export default function GlobalNavbar() {
             <div className="flex items-center gap-3">
               {pathname?.startsWith('/writer') ? (
                 <>
-                  {/* Ikon-sök, utan input */}
-                  <button
-                    type="button"
-                    className="flex h-9 w-9 items-center justify-center rounded-full border border-slate-200 bg-white/80 text-slate-600 shadow-sm backdrop-blur-md transition-all hover:border-slate-300 hover:bg-white dark:border-white/25 dark:bg-slate-900/80 dark:text-white/80"
-                    aria-label="Search"
+                  {/* Sök – expanderar på hover/focus och skickar query som ?q=... */}
+                  <form
+                    onSubmit={handleWriterSearchSubmit}
+                    className="group relative hidden h-9 items-center md:flex"
                   >
-                    <svg
-                      className="h-4 w-4"
-                      fill="none"
-                      viewBox="0 0 24 24"
-                      stroke="currentColor"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
+                    <div className="flex h-9 items-center gap-2 rounded-full border border-slate-200 bg-white/80 pl-2 pr-0.5 text-slate-600 backdrop-blur-md transition-all duration-200 ease-out hover:border-slate-300 hover:bg-white group-focus-within:border-slate-300 group-focus-within:bg-white dark:border-white/25 dark:bg-slate-900/80 dark:text-white/80 dark:hover:bg-slate-900 dark:group-focus-within:bg-slate-900">
+                      <svg
+                        className="h-4 w-4 flex-shrink-0"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                        stroke="currentColor"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
+                        />
+                      </svg>
+                      <input
+                        type="text"
+                        value={searchValue}
+                        onChange={(e) => setSearchValue(e.target.value)}
+                        placeholder="Search books, authors..."
+                        className="w-0 bg-transparent text-[13px] font-medium text-slate-800 placeholder-slate-400 opacity-0 outline-none transition-all duration-200 ease-out group-hover:w-48 group-hover:opacity-100 group-focus-within:w-48 group-focus-within:opacity-100 dark:text-white dark:placeholder-white/40"
                       />
-                    </svg>
-                  </button>
+                    </div>
+                  </form>
 
                   {/* Upgrade / Share – stil enligt referens, funktion kan kopplas senare */}
                   <button
                     type="button"
-                    className="hidden h-9 items-center rounded-full border border-slate-300 bg-black px-5 text-[13px] font-medium text-white shadow-sm transition-all hover:bg-black/90 md:inline-flex dark:border-white/30 dark:bg-white dark:text-slate-900 dark:hover:bg-white/90"
+                    className="hidden h-9 items-center rounded-full border border-slate-300 px-5 text-[13px] font-medium text-black transition-all md:inline-flex dark:border-white/30 dark:bg-white dark:text-slate-900 dark:hover:bg-white/90"
                   >
-                    Upgrade to PRO
-                  </button>
-                  <button
-                    type="button"
-                    className="hidden h-9 items-center rounded-full border border-slate-300 bg-black px-5 text-[13px] font-medium text-white shadow-sm transition-all hover:bg-black/90 md:inline-flex dark:border-white/30 dark:bg-white dark:text-slate-900 dark:hover:bg-white/90"
-                  >
-                    + Share work
+                    Upgrade to <span className="font-semibold ml-1"> PRO</span>
                   </button>
                 </>
               ) : (
@@ -521,7 +581,7 @@ export default function GlobalNavbar() {
                     <>
                       <Link
                         href="/reader/signin"
-                        className="px-4 text-[15px] font-regular text-white transition hover:text-white/70"
+                        className="px-4 text-[15px] font-regular text-slate-900 dark:text-white transition hover:text-slate-600 dark:hover:text-white/70"
                       >
                         Sign in
                       </Link>
@@ -531,9 +591,9 @@ export default function GlobalNavbar() {
                           width="auto"
                           height="40px"
                           borderRadius={300}
-                          className="border border-white/10 px-5 py-2 [&_.glass-surface__content]:p-0"
+                          className="border border-black/10 dark:border-white/10 px-5 py-2 [&_.glass-surface__content]:p-0"
                         >
-                          <span className="text-[15px] font-medium text-white">
+                          <span className="text-[15px] font-medium text-slate-900 dark:text-white">
                             Sign up
                           </span>
                         </GlassSurface>

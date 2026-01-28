@@ -1078,7 +1078,7 @@ function Dashboard({ user, onSignOut }: { user: User; onSignOut: () => void }) {
             <div className="relative" ref={createDropdownRef}>
               <button 
                 onClick={() => setShowCreateDropdown(!showCreateDropdown)} 
-                className="rounded-full border border-black/10 dark:border-white/10 bg-black/5 dark:bg-white/[0.03] px-5 py-2 text-[13px] font-medium text-slate-700 dark:text-white/70 transition-all hover:bg-black/10 dark:hover:bg-white/[0.06]"
+                className="rounded-full border border-black/10 dark:border-white/10 px-5 py-2 text-[13px] font-medium text-slate-700 dark:text-white/70 transition-all hover:bg-black/10 dark:hover:bg-white/[0.06]"
               >
                 Create
                 <svg className="ml-2 inline h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">

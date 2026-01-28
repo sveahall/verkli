@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import Link from "next/link";
 import GlassSurface from "@/components/GlassSurface";
 import { createClient } from "@/lib/supabase/client";
@@ -20,6 +20,18 @@ const glassBaseProps = {
   saturation: 1.2,
   mixBlendMode: "screen",
 };
+
+type EmptyStateCardProps = {
+  children: ReactNode;
+};
+
+function EmptyStateCard({ children }: EmptyStateCardProps) {
+  return (
+    <div className="col-span-full rounded-2xl border border-slate-200/80 bg-white/80 p-8 text-center text-[14px] text-slate-600 shadow-sm dark:border-white/15 dark:bg-white/[0.04] dark:text-white/55">
+      {children}
+    </div>
+  );
+}
 
 export default function ReaderLanding() {
   const [user, setUser] = useState<User | null>(null);
@@ -73,7 +85,7 @@ export default function ReaderLanding() {
   }
 
   return (
-    <main className="relative min-h-screen bg-slate-50 text-slate-900 dark:bg-[#050508] dark:text-white">
+  <main className="relative min-h-screen bg-gradient-to-b from-slate-50 via-slate-50/95 to-slate-50/90 text-slate-900 dark:bg-[#050508] dark:text-white">
       {/* Hero Section */}
       <section className="relative mx-auto flex min-h-[80vh] w-full max-w-[1200px] flex-col items-center justify-center px-6 text-center">
         {/* Animated background glows - brand colors */}
@@ -145,9 +157,7 @@ export default function ReaderLanding() {
               />
             ))
           ) : featuredBooks.length === 0 ? (
-            <div className="col-span-full rounded-2xl border border-black/[0.08] bg-black/[0.02] p-8 text-center text-[14px] text-slate-600 dark:border-white/[0.08] dark:bg-white/[0.02] dark:text-white/50">
-              No featured books yet.
-            </div>
+            <EmptyStateCard>No featured books yet.</EmptyStateCard>
           ) : (
             featuredBooks.map((book) => (
               <Link

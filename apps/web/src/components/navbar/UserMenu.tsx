@@ -9,7 +9,7 @@ import type { User } from "@supabase/supabase-js";
 interface UserMenuProps {
   user: User;
   onSignOut: () => void;
-  currentRole?: 'writer' | 'reader';
+  currentRole?: "writer" | "reader";
 }
 
 /**
@@ -21,11 +21,12 @@ interface UserMenuProps {
  * - Undvika duplicerad kod mellan sidor
  * - Centralisera design och funktionalitet
  */
-export default function UserMenu({ user, onSignOut, currentRole = 'writer' }: UserMenuProps) {
+export default function UserMenu({ user, onSignOut, currentRole = "writer" }: UserMenuProps) {
   const router = useRouter();
   const [isOpen, setIsOpen] = useState(false);
-  const menuRef = useRef<HTMLDivElement>(null);
-  const clickedInsideRef = useRef(false);
+  const [toastMessage, setToastMessage] = useState<string | null>(null);
+  const triggerRef = useRef<HTMLButtonElement>(null);
+  const menuPanelRef = useRef<HTMLDivElement>(null);
 
   const displayName =
     user?.user_metadata?.full_name || user?.email?.split("@")[0] || "User";
@@ -35,112 +36,106 @@ export default function UserMenu({ user, onSignOut, currentRole = 'writer' }: Us
     if (!isOpen) return;
 
     const handleClickOutside = (event: MouseEvent) => {
-      // If we clicked inside, don't close
-      if (clickedInsideRef.current) {
-        clickedInsideRef.current = false;
+      const target = event.target as Node;
+      // Don't close if clicking on trigger or inside the menu panel
+      if (triggerRef.current?.contains(target) || menuPanelRef.current?.contains(target)) {
         return;
       }
-
-      const target = event.target as Node;
-      // Don't close if clicking inside the menu
-      if (menuRef.current && !menuRef.current.contains(target)) {
-        setIsOpen(false);
-      }
+      setIsOpen(false);
     };
 
     // Use mousedown instead of click to avoid closing before onClick handlers run
-    // Add a small delay to ensure onClick handlers execute first
-    const timeoutId = setTimeout(() => {
-      document.addEventListener("mousedown", handleClickOutside);
-    }, 100);
+    document.addEventListener("mousedown", handleClickOutside);
 
-    return () => {
-      clearTimeout(timeoutId);
-      document.removeEventListener("mousedown", handleClickOutside);
-    };
+    return () => document.removeEventListener("mousedown", handleClickOutside);
   }, [isOpen]);
 
+  useEffect(() => {
+    if (!toastMessage) return;
+    const timeoutId = window.setTimeout(() => setToastMessage(null), 3000);
+    return () => window.clearTimeout(timeoutId);
+  }, [toastMessage]);
+
   const handleSwitchRole = async () => {
-    clickedInsideRef.current = true;
     setIsOpen(false);
 
-    // Execute action after a tiny delay to ensure menu closes
-    setTimeout(async () => {
-      try {
-        const supabase = createClient();
-        const { data: { user: currentUser } } = await supabase.auth.getUser();
+    const supabase = createClient();
+    const nextRole = currentRole === "writer" ? "reader" : "writer";
 
-        if (currentUser) {
-          const nextRole = currentRole === 'writer' ? 'reader' : 'writer';
+    try {
+      // Update role in profiles table (creates if doesn't exist, updates if exists)
+      const { error: updateError } = await supabase
+        .from("profiles")
+        .upsert(
+          {
+            user_id: user.id,
+            role: nextRole,
+          },
+          { onConflict: "user_id" }
+        );
 
-          await supabase.auth.updateUser({
-            data: {
-              role: nextRole,
-            },
-          });
-
-          // Upsert role in profiles table (creates if doesn't exist, updates if exists)
-          const { error: updateError } = await supabase
-            .from('profiles')
-            .upsert(
-              {
-                user_id: currentUser.id,
-                role: nextRole,
-              },
-              { onConflict: 'user_id' }
-            );
-
-          if (updateError) {
-            console.error('Error updating role:', {
-              message: updateError.message,
-              details: updateError.details,
-              hint: updateError.hint,
-              code: updateError.code
-              });
-          }
-
-          try {
-            await supabase
-              .from('users')
-              .update({ role: nextRole })
-              .eq('id', currentUser.id);
-          } catch (error) {
-            console.warn('Could not update users table role:', error);
-          }
-        }
-
-        // Refresh router to clear cache and redirect
-        router.refresh();
-        router.push(currentRole === 'writer' ? '/reader' : '/writer');
-      } catch (error) {
-        console.error('Error switching role:', error);
-        // Still redirect even if update fails
-        router.push(currentRole === 'writer' ? '/reader' : '/writer');
+      if (updateError) {
+        console.error("Error updating role:", {
+          message: updateError.message,
+          details: updateError.details,
+          hint: updateError.hint,
+          code: updateError.code,
+        });
+        setToastMessage("Could not switch role. Try again.");
+        return;
       }
-    }, 10);
+
+      const { error: metadataError } = await supabase.auth.updateUser({
+        data: {
+          role: nextRole,
+        },
+      });
+      if (metadataError) {
+        console.warn("Could not update auth metadata role:", metadataError);
+      }
+
+      try {
+        await supabase.from("users").update({ role: nextRole }).eq("id", user.id);
+      } catch (error) {
+        console.warn("Could not update users table role:", error);
+      }
+
+      // Refresh router to clear cache and redirect
+      router.refresh();
+      router.push(currentRole === "writer" ? "/reader" : "/writer");
+    } catch (error) {
+      console.error("Error switching role:", error);
+      setToastMessage("Could not switch role. Try again.");
+    }
   };
 
   const handleSignOut = async () => {
-    clickedInsideRef.current = true;
     setIsOpen(false);
 
-    // Execute action after a tiny delay to ensure menu closes
-    setTimeout(async () => {
-      try {
-        await onSignOut();
-        // Refresh router to clear server cache
-        router.refresh();
-        // Redirect to landing page
-        router.push('/');
-      } catch (error) {
-        console.error("Error signing out:", error);
-      }
-    }, 10);
+    try {
+      await onSignOut();
+      // Refresh router to clear server cache
+      router.refresh();
+      // Redirect to landing page
+      router.push("/");
+    } catch (error) {
+      console.error("Error signing out:", error);
+    }
   };
 
   return (
-    <div className="relative" ref={menuRef}>
+    <div className="relative">
+      {toastMessage && (
+        <div
+          role="status"
+          aria-live="polite"
+          className="fixed right-6 top-6 z-[1100] rounded-lg bg-slate-900 px-4 py-2 text-[13px] font-medium text-white shadow-lg dark:bg-white dark:text-slate-900"
+        >
+          {toastMessage}
+        </div>
+      )}
       <button
+        ref={triggerRef}
         onClick={(e) => {
           e.preventDefault();
           e.stopPropagation();
@@ -173,6 +168,7 @@ export default function UserMenu({ user, onSignOut, currentRole = 'writer' }: Us
 
       {isOpen && (
         <div
+          ref={menuPanelRef}
           className="absolute right-0 top-full mt-3 z-[1000] w-[280px] overflow-hidden rounded-2xl border border-black/10 dark:border-white/10 bg-white/98 dark:bg-[#0a0a0f]/98 p-1 shadow-[0_20px_60px_-15px_rgba(0,0,0,0.3)] dark:shadow-[0_20px_60px_-15px_rgba(0,0,0,0.8)] backdrop-blur-xl"
           onMouseDown={(e) => e.stopPropagation()}
           onClick={(e) => e.stopPropagation()}
@@ -193,7 +189,6 @@ export default function UserMenu({ user, onSignOut, currentRole = 'writer' }: Us
               href={currentRole === 'writer' ? "/writer/profile" : "/reader/profile"}
               onClick={(e) => {
                 e.stopPropagation();
-                clickedInsideRef.current = true;
                 setIsOpen(false);
               }}
               className="flex w-full items-center gap-3 rounded-xl px-4 py-2.5 text-[14px] font-medium text-slate-700 dark:text-white/80 transition-all hover:bg-slate-50 dark:hover:bg-white/[0.05] hover:text-slate-900 dark:hover:text-white"
@@ -218,7 +213,6 @@ export default function UserMenu({ user, onSignOut, currentRole = 'writer' }: Us
               href={currentRole === 'writer' ? "/writer/settings" : "/reader/settings"}
               onClick={(e) => {
                 e.stopPropagation();
-                clickedInsideRef.current = true;
                 setIsOpen(false);
               }}
               className="flex w-full items-center gap-3 rounded-xl px-4 py-2.5 text-[14px] font-medium text-slate-700 dark:text-white/80 transition-all hover:bg-slate-50 dark:hover:bg-white/[0.05] hover:text-slate-900 dark:hover:text-white"

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useEffect, useMemo } from "react";
+import { useState, useRef, useEffect, useMemo, type ReactNode } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { createClient, insertLibraryBook } from "@/lib/supabase/client";
@@ -41,6 +41,18 @@ const glassBaseProps = {
   saturation: 1.2,
   mixBlendMode: "screen",
 };
+
+type EmptyStateCardProps = {
+  children: ReactNode;
+};
+
+function EmptyStateCard({ children }: EmptyStateCardProps) {
+  return (
+    <div className="rounded-2xl border border-slate-200/80 bg-white/80 px-6 py-4 text-[14px] text-slate-600 shadow-sm dark:border-white/15 dark:bg-white/[0.04] dark:text-white/55">
+      {children}
+    </div>
+  );
+}
 
 const megaMenuColumns = [
   {
@@ -921,7 +933,8 @@ function Dashboard({ user }: { user: User }) {
       // Reload shelves
       await loadShelves();
     } catch (error) {
-      console.error("Error creating shelf:", error);
+      // Avoid Next.js console overlay – log as warning instead
+      console.warn("Non-critical: error creating shelf", error);
     }
   };
   
@@ -970,7 +983,8 @@ function Dashboard({ user }: { user: User }) {
       // Reload shelves
       await loadShelves();
     } catch (error) {
-      console.error("Error creating book:", error);
+      // Avoid Next.js console overlay – log as warning instead
+      console.warn("Non-critical: error creating book", error);
     }
   };
   
@@ -1006,7 +1020,7 @@ function Dashboard({ user }: { user: User }) {
             <div className="relative" ref={createDropdownRef}>
               <button 
                 onClick={() => setShowCreateDropdown(!showCreateDropdown)} 
-                className="rounded-full border border-black/10 dark:border-white/10 bg-black/5 dark:bg-white/[0.03] px-5 py-2 text-[13px] font-medium text-slate-700 dark:text-white/70 transition-all hover:bg-black/10 dark:hover:bg-white/[0.06]"
+                className="rounded-full border border-black/10 dark:border-white/10 px-5 py-2 text-[13px] font-medium text-slate-700 dark:text-white/70 transition-all hover:bg-black/10 dark:hover:bg-white/[0.06]"
               >
                 Create
                 <svg className="ml-2 inline h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -1056,11 +1070,11 @@ function Dashboard({ user }: { user: User }) {
           
           {shelves.length === 0 ? (
             // Empty state with two large actions
-            <div className="rounded-3xl border border-black/10 dark:border-white/[0.08] bg-gradient-to-b from-black/5 dark:from-white/[0.04] to-transparent p-12">
+            <div className="rounded-3xl border border-black/10 dark:border-white/[0.08] from-black/5 dark:from-white/[0.04] to-transparent p-12">
               <div className="grid gap-6 md:grid-cols-2">
                 <button
                   onClick={handleCreateShelf}
-                  className="group flex h-[300px] flex-col items-center justify-center rounded-2xl border-2 border-dashed border-black/20 dark:border-white/10 bg-black/5 dark:bg-white/[0.02] transition-all hover:border-[#907AFF]/30 hover:bg-black/10 dark:hover:bg-white/[0.04]"
+                  className="group flex h-[300px] flex-col items-center justify-center rounded-2xl border-2 border-dashed border-gray-200/20 dark:border-white/10 bg-black/1 dark:bg-white/[0.02] transition-all hover:border-[#907AFF]/15 hover:bg-black/5 dark:hover:bg-white/[0.04]"
                 >
                   <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-xl bg-gradient-to-br from-[#907AFF]/20 to-[#E29ED5]/20">
                     <svg className="h-8 w-8 text-[#907AFF]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -1075,7 +1089,7 @@ function Dashboard({ user }: { user: User }) {
                 
                 <button
                   onClick={handleCreateBook}
-                  className="group flex h-[300px] flex-col items-center justify-center rounded-2xl border-2 border-dashed border-black/20 dark:border-white/10 bg-black/5 dark:bg-white/[0.02] transition-all hover:border-[#907AFF]/30 hover:bg-black/10 dark:hover:bg-white/[0.04]"
+                  className="group flex h-[300px] flex-col items-center justify-center rounded-2xl border-2 border-dashed border-gray-200/20 dark:border-white/10 bg-black/1 dark:bg-white/[0.02] transition-all hover:border-[#907AFF]/15 hover:bg-black/5 dark:hover:bg-white/[0.04]"
                 >
                   <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-xl bg-gradient-to-br from-[#E29ED5]/20 to-[#FCC997]/20">
                     <svg className="h-8 w-8 text-[#E29ED5]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -1167,9 +1181,9 @@ function Dashboard({ user }: { user: User }) {
                 <BookCoverCard key={book.id} book={book} size="md" />
               ))
             ) : (
-              <div className="rounded-2xl border border-black/10 dark:border-white/[0.08] bg-black/5 dark:bg-white/[0.03] px-6 py-4 text-sm text-slate-600 dark:text-white/50">
+              <EmptyStateCard>
                 Add books to your library to see them here.
-              </div>
+              </EmptyStateCard>
             )}
           </div>
         </section>
@@ -1201,9 +1215,7 @@ function Dashboard({ user }: { user: User }) {
               {trendingCards.length > 0 ? (
                 trendingCards.map((book) => <BookCoverCard key={book.id} book={book} size="lg" />)
               ) : (
-                <div className="rounded-2xl border border-black/10 dark:border-white/[0.08] bg-black/5 dark:bg-white/[0.03] px-6 py-4 text-sm text-slate-600 dark:text-white/50">
-                  No trending books yet.
-                </div>
+                <EmptyStateCard>No trending books yet.</EmptyStateCard>
               )}
             </div>
           </div>
@@ -1243,9 +1255,7 @@ function Dashboard({ user }: { user: User }) {
                   </div>
                 ))
               ) : (
-                <div className="rounded-2xl border border-black/10 dark:border-white/[0.08] bg-black/5 dark:bg-white/[0.03] px-6 py-4 text-sm text-slate-600 dark:text-white/50">
-                  No public writers yet.
-                </div>
+                <EmptyStateCard>No public writers yet.</EmptyStateCard>
               )}
             </div>
           </div>
@@ -1275,9 +1285,7 @@ function Dashboard({ user }: { user: User }) {
                   <BookCoverCard key={book.id} book={book} size="lg" showTag />
                 ))
               ) : (
-                <div className="rounded-2xl border border-black/10 dark:border-white/[0.08] bg-black/5 dark:bg-white/[0.03] px-6 py-4 text-sm text-slate-600 dark:text-white/50">
-                  No books to discover yet.
-                </div>
+                <EmptyStateCard>No books to discover yet.</EmptyStateCard>
               )}
             </div>
           </div>
