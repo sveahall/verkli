@@ -348,7 +348,7 @@ export default function GlobalNavbar() {
                         </svg>
                       </button>
                       {(item === "Features" || item === "Integrations" || item === "Examples" || item === "FAQ") && (
-                        <div className="nav-dropdown pointer-events-none fixed left-1/2 top-[88px] z-[998] w-[720px] max-w-[calc(100vw-2.5rem)] -translate-x-1/2 px-3 opacity-0 transition-all duration-300 ease-out group-hover:pointer-events-auto group-hover:opacity-100">
+                        <div className="nav-dropdown pointer-events-none absolute left-[-10px] top-full mt-3.5 z-[998] w-[720px] max-w-[calc(100vw-2.5rem)] px-3 opacity-0 transition-all duration-300 ease-out group-hover:pointer-events-auto group-hover:opacity-100">
                           <GlassSurface
                             {...dropdownGlassProps}
                             width="100%"
@@ -444,7 +444,7 @@ export default function GlobalNavbar() {
                         )}
                       </button>
                       {item.hasDropdown && (
-                        <div className="nav-dropdown pointer-events-none fixed left-1/2 top-[88px] z-[998] w-[720px] max-w-[calc(100vw-2.5rem)] -translate-x-1/2 px-3 opacity-0 transition-all duration-300 ease-out group-hover:pointer-events-auto group-hover:opacity-100">
+                        <div className="nav-dropdown pointer-events-none absolute left-0 top-full mt-2 z-[998] w-[720px] max-w-[calc(100vw-2.5rem)] px-3 opacity-0 transition-all duration-300 ease-out group-hover:pointer-events-auto group-hover:opacity-100">
                           <GlassSurface
                             {...dropdownGlassProps}
                             width="100%"
