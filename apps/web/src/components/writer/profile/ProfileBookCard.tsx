@@ -3,16 +3,16 @@ import Link from "next/link";
 type BookCardProps = {
   id: string;
   title: string;
-  coverUrl?: string | null;
+  coverImage?: string | null;
   slug?: string | null;
   status?: string | null;
 };
 
 const fallbackGradient = "linear-gradient(135deg, #2B2B3A 0%, #111118 100%)";
 
-export default function ProfileBookCard({ id, title, coverUrl, slug, status }: BookCardProps) {
+export default function ProfileBookCard({ id, title, coverImage, slug, status }: BookCardProps) {
   const href = slug ? `/writer/books/${id}` : `/writer/books/${id}`;
-  const cover = coverUrl ? `url(${coverUrl})` : fallbackGradient;
+  const cover = coverImage ? `url(${coverImage})` : fallbackGradient;
 
   return (
     <Link

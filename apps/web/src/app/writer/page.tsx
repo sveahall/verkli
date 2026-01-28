@@ -3,7 +3,7 @@
 import { useState, useRef, useEffect, useMemo, type ReactNode } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { createClient, insertLibraryBook } from "@/lib/supabase/client";
+import { createClient } from "@/lib/supabase/client";
 import GlassSurface from "@/components/GlassSurface";
 import GridMotion from "@/components/GridMotion";
 import TestimonialSection from "@/components/TestimonialSection";
@@ -658,7 +658,7 @@ function Dashboard({ user }: { user: User }) {
       id: book.id,
       title: book.title,
       author: displayName,
-      cover: book.cover_url,
+      cover: book.cover_image,
       tag: book.status || undefined,
     }));
   }, [libraryBooks, displayName]);
@@ -764,7 +764,7 @@ function Dashboard({ user }: { user: User }) {
         .insert({
           title: bookForm.title || "Untitled",
           slug: slug,
-          cover_url: bookForm.cover || null,
+          cover_image: bookForm.cover || null,
           description: bookForm.summary || null,
           author_id: authUser.id,
           status: 'DRAFT',

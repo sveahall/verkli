@@ -1,9 +1,10 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import GlassSurface from "@/components/GlassSurface";
+import ThemeToggle from "@/components/ThemeToggle";
 import { signIn, signInWithGoogle } from "@/lib/supabase/auth";
 
 const glassBaseProps = {
@@ -26,6 +27,16 @@ export default function SignIn() {
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const [mousePos, setMousePos] = useState({ x: 0.5, y: 0.5 });
+  const mainRef = useRef<HTMLElement>(null);
+
+  const handleMouseMove = (e: React.MouseEvent<HTMLElement>) => {
+    if (!mainRef.current) return;
+    const rect = mainRef.current.getBoundingClientRect();
+    const x = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
+    const y = Math.max(0, Math.min(1, (e.clientY - rect.top) / rect.height));
+    setMousePos({ x, y });
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -52,14 +63,34 @@ export default function SignIn() {
 
   return (
     <main
+      ref={mainRef}
+      onMouseMove={handleMouseMove}
       className="relative flex min-h-screen flex-col items-center justify-center overflow-hidden text-slate-900 dark:text-white"
       style={{ background: "var(--auth-background)" }}
     >
-      {/* Background gradient orbs */}
+      {/* Background gradient orbs with mouse tracking */}
       <div className="pointer-events-none absolute inset-0 overflow-hidden">
-        <div className="absolute left-1/3 top-1/4 h-[700px] w-[700px] -translate-x-1/2 -translate-y-1/2 rounded-full bg-purple-300/60 blur-[180px] dark:bg-purple-700/40" />
-        <div className="absolute bottom-0 left-1/2 h-[600px] w-[900px] -translate-x-1/2 translate-y-1/3 rounded-full bg-purple-300/50 blur-[150px] dark:bg-purple-600/35" />
-        <div className="absolute right-0 top-1/2 h-[500px] w-[500px] -translate-y-1/2 translate-x-1/4 rounded-full bg-indigo-300/40 blur-[120px] dark:bg-indigo-500/25" />
+        <div 
+          className="absolute h-[700px] w-[700px] -translate-x-1/2 -translate-y-1/2 rounded-full bg-purple-300/60 blur-[180px] transition-all duration-500 ease-out dark:bg-purple-700/40"
+          style={{
+            left: `${mousePos.x * 30 + 20}%`,
+            top: `${mousePos.y * 20 + 15}%`,
+          }}
+        />
+        <div 
+          className="absolute h-[600px] w-[900px] -translate-x-1/2 translate-y-1/3 rounded-full bg-purple-300/50 blur-[150px] transition-all duration-600 ease-out dark:bg-purple-600/35"
+          style={{
+            left: `${(1 - mousePos.x) * 30 + 40}%`,
+            bottom: `${(1 - mousePos.y) * 20 + 10}%`,
+          }}
+        />
+        <div 
+          className="absolute h-[500px] w-[500px] -translate-y-1/2 translate-x-1/4 rounded-full bg-indigo-300/40 blur-[120px] transition-all duration-400 ease-out dark:bg-indigo-500/25"
+          style={{
+            right: `${mousePos.x * 20 + 5}%`,
+            top: `${mousePos.y * 30 + 35}%`,
+          }}
+        />
       </div>
 
       {/* Logo */}
@@ -73,6 +104,11 @@ export default function SignIn() {
           />
         </Link>
       </header>
+
+      {/* Theme Toggle - bottom right */}
+      <div className="absolute bottom-8 right-8 z-30">
+        <ThemeToggle glassProps={glassBaseProps} />
+      </div>
 
       {/* Sign in card */}
       <GlassSurface

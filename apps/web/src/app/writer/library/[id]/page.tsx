@@ -155,7 +155,7 @@ export default function ShelfDetailPage() {
         .insert({
           title: bookForm.title,
           slug: slug,
-          cover_url: bookForm.cover || null,
+          cover_image: bookForm.cover || null,
           author_id: user.id,
           status: 'DRAFT',
           published: false,

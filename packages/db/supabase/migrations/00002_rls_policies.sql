@@ -37,8 +37,8 @@ CREATE POLICY "Chapters of published books are viewable"
   USING (
     EXISTS (
       SELECT 1 FROM public.books
-      WHERE books.id = chapters."bookId"
-      AND (books.status = 'PUBLISHED' OR books."authorId" = auth.uid())
+      WHERE books.id = chapters.book_id
+      AND (books.status = 'PUBLISHED' OR books.author_id = auth.uid())
     )
   );
 
@@ -48,8 +48,8 @@ CREATE POLICY "Authors can manage own chapters"
   USING (
     EXISTS (
       SELECT 1 FROM public.books
-      WHERE books.id = chapters."bookId"
-      AND books."authorId" = auth.uid()
+      WHERE books.id = chapters.book_id
+      AND books.author_id = auth.uid()
     )
   );
 
@@ -61,17 +61,17 @@ ALTER TABLE public.readings ENABLE ROW LEVEL SECURITY;
 -- Användare kan se sin egen läshistorik
 CREATE POLICY "Users can view own readings"
   ON public.readings FOR SELECT
-  USING (auth.uid() = "userId");
+  USING (auth.uid() = user_id);
 
 -- Användare kan skapa läshistorik
 CREATE POLICY "Users can create readings"
   ON public.readings FOR INSERT
-  WITH CHECK (auth.uid() = "userId");
+  WITH CHECK (auth.uid() = user_id);
 
 -- Användare kan uppdatera sin läshistorik
 CREATE POLICY "Users can update own readings"
   ON public.readings FOR UPDATE
-  USING (auth.uid() = "userId");
+  USING (auth.uid() = user_id);
 
 -- ─────────────────────────────────────────────────────────────
 -- Reviews
@@ -86,14 +86,14 @@ CREATE POLICY "Reviews are viewable by everyone"
 -- Användare kan skapa recensioner
 CREATE POLICY "Users can create reviews"
   ON public.reviews FOR INSERT
-  WITH CHECK (auth.uid() = "userId");
+  WITH CHECK (auth.uid() = user_id);
 
 -- Användare kan uppdatera sina egna recensioner
 CREATE POLICY "Users can update own reviews"
   ON public.reviews FOR UPDATE
-  USING (auth.uid() = "userId");
+  USING (auth.uid() = user_id);
 
 -- Användare kan radera sina egna recensioner
 CREATE POLICY "Users can delete own reviews"
   ON public.reviews FOR DELETE
-  USING (auth.uid() = "userId");
+  USING (auth.uid() = user_id);

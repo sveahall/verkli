@@ -41,7 +41,7 @@ export default async function PublicShelfPage({ params }: { params: { id: string
         id,
         book_id,
         sort_index,
-        book:library_books(id, title, cover_url)
+        book:books(id, title, cover_image)
       )
     `
     )
@@ -68,7 +68,7 @@ export default async function PublicShelfPage({ params }: { params: { id: string
   type BookSummary = {
     id: string;
     title: string;
-    cover_url: string | null;
+    cover_image: string | null;
   };
 
   const books: BookSummary[] = (shelf.shelf_books ?? [])
@@ -117,8 +117,8 @@ export default async function PublicShelfPage({ params }: { params: { id: string
                   <div
                     className="h-[200px] w-full bg-cover bg-center transition-transform duration-500 group-hover:scale-105"
                     style={{
-                      backgroundImage: book.cover_url
-                        ? `url(${book.cover_url})`
+                      backgroundImage: book.cover_image
+                        ? `url(${book.cover_image})`
                         : "linear-gradient(135deg, #2B2B3A 0%, #111118 100%)",
                     }}
                   />

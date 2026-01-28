@@ -77,7 +77,7 @@ export type Database = {
           title: string
           slug: string
           description: string | null
-          cover_url: string | null
+          cover_image: string | null
           author_id: string
           status: 'DRAFT' | 'PUBLISHED' | 'ARCHIVED'
           published: boolean
@@ -90,7 +90,7 @@ export type Database = {
           title: string
           slug: string
           description?: string | null
-          cover_url?: string | null
+          cover_image?: string | null
           author_id: string
           status?: 'DRAFT' | 'PUBLISHED' | 'ARCHIVED'
           published?: boolean
@@ -103,54 +103,13 @@ export type Database = {
           title?: string
           slug?: string
           description?: string | null
-          cover_url?: string | null
+          cover_image?: string | null
           author_id?: string
           status?: 'DRAFT' | 'PUBLISHED' | 'ARCHIVED'
           published?: boolean
           created_at?: string
           updated_at?: string
           published_at?: string | null
-        }
-      }
-      library_books: {
-        Row: {
-          id: string
-          user_id: string
-          title: string
-          author: string | null
-          cover_url: string | null
-          summary: string | null
-          authors_note: string | null
-          content: string | null
-          tags: string[]
-          created_at: string
-          updated_at: string
-        }
-        Insert: {
-          id?: string
-          user_id: string
-          title: string
-          author?: string | null
-          cover_url?: string | null
-          summary?: string | null
-          authors_note?: string | null
-          content?: string | null
-          tags?: string[]
-          created_at?: string
-          updated_at?: string
-        }
-        Update: {
-          id?: string
-          user_id?: string
-          title?: string
-          author?: string | null
-          cover_url?: string | null
-          summary?: string | null
-          authors_note?: string | null
-          content?: string | null
-          tags?: string[]
-          created_at?: string
-          updated_at?: string
         }
       }
       chapters: {

@@ -32,15 +32,7 @@ export default async function BookDetailPage({ params }: { params: { id: string 
     .select("id", { count: "exact", head: true })
     .eq("book_id", book.id);
 
-  if (!error) {
-    readsCount = count ?? null;
-  } else {
-    const { count: altCount } = await supabase
-      .from("readings" as never)
-      .select("id", { count: "exact", head: true })
-      .eq("bookId", book.id as never);
-    readsCount = altCount ?? null;
-  }
+  if (!error) readsCount = count ?? null;
 
   return (
     <main className="min-h-screen bg-background text-foreground">
