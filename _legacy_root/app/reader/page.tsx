@@ -1,11 +1,11 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import React, { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import GlassSurface from "@/components/GlassSurface";
-import UserMenu from "@/components/navbar/UserMenu";
-import { createClient } from "@/lib/supabase/client";
+import GlassSurface from "../../components/GlassSurface";
+import UserMenu from "../../components/navbar/UserMenu";
+import { createClient } from "../../lib/supabase/client";
 import type { User } from "@supabase/supabase-js";
 
 const glassBaseProps = {

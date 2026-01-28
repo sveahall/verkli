@@ -24,15 +24,15 @@ const glassBaseProps = {
 };
 
 const dropdownGlassProps = {
-  displace: 0.5,
+  displace: 0.6,
   distortionScale: -180,
   redOffset: 0,
   greenOffset: 10,
   blueOffset: 20,
-  brightness: 50,
-  opacity: 0.95,
-  backgroundOpacity: 0.15,
-  blur: 16,
+  brightness: 52,
+  opacity: 0.96,
+  backgroundOpacity: 0.22,
+  blur: 18,
   saturation: 1.3,
   mixBlendMode: "screen",
 };
@@ -305,7 +305,7 @@ export default function GlobalNavbar() {
                             width="100%"
                             height="auto"
                             borderRadius={24}
-                            className="nav-mega border border-white/40 dark:border-white/15 px-5 py-5 md:px-8 md:py-8 shadow-[0_26px_70px_-18px_rgba(15,23,42,0.65)] dark:shadow-[0_28px_80px_-20px_rgba(0,0,0,0.95)] backdrop-blur-2xl bg-white/85 dark:bg-slate-950/90"
+                            className="nav-mega border border-white/40 dark:border-white/15 px-5 py-5 md:px-8 md:py-8 shadow-[0_26px_70px_-18px_rgba(15,23,42,0.65)] dark:shadow-[0_28px_80px_-20px_rgba(0,0,0,0.95)]"
                           >
                             {dropdownContent[item as keyof typeof dropdownContent] && (
                               <>
@@ -399,7 +399,7 @@ export default function GlobalNavbar() {
                             width="100%"
                             height="auto"
                             borderRadius={24}
-                            className="nav-mega border border-white/40 dark:border-white/15 px-5 py-5 md:px-8 md:py-8 shadow-[0_26px_70px_-18px_rgba(15,23,42,0.65)] dark:shadow-[0_28px_80px_-20px_rgba(0,0,0,0.95)] backdrop-blur-2xl bg-white/85 dark:bg-slate-950/90"
+                            className="nav-mega border border-white/40 dark:border-white/15 px-5 py-5 md:px-8 md:py-8 shadow-[0_26px_70px_-18px_rgba(15,23,42,0.65)] dark:shadow-[0_28px_80px_-20px_rgba(0,0,0,0.95)]"
                           >
                             {dropdownContent[item.label as keyof typeof dropdownContent] && (
                               <>

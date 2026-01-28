@@ -66,9 +66,9 @@ export default function WriterSignUp() {
 
   if (success) {
     return (
-      <main 
-        className="relative flex min-h-screen flex-col items-center justify-center overflow-hidden"
-        style={{ background: "radial-gradient(100% 127.91% at 0% 0%, #3A3A4F 0%, #171620 50%, #000000 100%)" }}
+      <main
+        className="relative flex min-h-screen flex-col items-center justify-center overflow-hidden text-slate-900 dark:text-white"
+        style={{ background: "var(--auth-background)" }}
       >
         {/* Plasma background */}
         <div className="absolute inset-0 z-0">
@@ -96,12 +96,12 @@ export default function WriterSignUp() {
               </svg>
             </div>
             
-            <h1 className="mt-6 text-[28px] font-semibold text-white">
+            <h1 className="mt-6 text-[28px] font-semibold text-slate-900 dark:text-white">
               Check your email
             </h1>
             
-            <p className="mt-4 max-w-[320px] text-base leading-relaxed text-white/50">
-              We&apos;ve sent a confirmation link to <span className="text-white/70">{email}</span>. Click the link to activate your account.
+            <p className="mt-4 max-w-[320px] text-base leading-relaxed text-slate-600 dark:text-white/50">
+              We&apos;ve sent a confirmation link to <span className="text-slate-700 dark:text-white/70">{email}</span>. Click the link to activate your account.
             </p>
 
             <Link href="/writer/signin" className="mt-8">
@@ -110,9 +110,9 @@ export default function WriterSignUp() {
                 width="auto"
                 height="auto"
                 borderRadius={999}
-                className="border border-white/10 transition-transform hover:scale-[1.02]"
+                className="border border-black/10 transition-transform hover:scale-[1.02] dark:border-white/10"
               >
-                <span className="px-8 py-3 text-[15px] font-medium text-white/90">
+                <span className="px-8 py-3 text-[15px] font-medium text-slate-900 dark:text-white/90">
                   Back to sign in
                 </span>
               </GlassSurface>
@@ -124,9 +124,9 @@ export default function WriterSignUp() {
   }
 
   return (
-    <main 
-      className="relative flex min-h-screen flex-col items-center justify-center overflow-hidden"
-      style={{ background: "radial-gradient(100% 127.91% at 0% 0%, #3A3A4F 0%, #171620 50%, #000000 100%)" }}
+    <main
+      className="relative flex min-h-screen flex-col items-center justify-center overflow-hidden text-slate-900 dark:text-white"
+      style={{ background: "var(--auth-background)" }}
     >
       {/* Plasma background */}
       <div className="absolute inset-0 z-0">
@@ -161,11 +161,11 @@ export default function WriterSignUp() {
         className="glass-card relative z-10"
       >
         <div className="flex w-full flex-col items-center px-12 py-14 text-center">
-          <p className="text-base font-medium tracking-wide text-white/50">
+          <p className="text-base font-medium tracking-wide text-slate-600 dark:text-white/50">
             Start your journey
           </p>
           
-          <h1 className="mt-4 text-[36px] font-semibold leading-[1.15] tracking-tight text-white">
+          <h1 className="mt-4 text-[36px] font-semibold leading-[1.15] tracking-tight text-slate-900 dark:text-white">
             Create your
             <br />
             writer account
@@ -179,7 +179,7 @@ export default function WriterSignUp() {
 
           <form onSubmit={handleSubmit} className="mt-8 flex w-full flex-col gap-4">
             <div className="flex flex-col gap-2 text-left">
-              <label htmlFor="email" className="text-sm font-medium text-white/60">
+              <label htmlFor="email" className="text-sm font-medium text-slate-700 dark:text-white/60">
                 Email
               </label>
               <input
@@ -189,12 +189,12 @@ export default function WriterSignUp() {
                 onChange={(e) => setEmail(e.target.value)}
                 placeholder="you@example.com"
                 required
-                className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-white placeholder:text-white/30 focus:border-purple-500/50 focus:outline-none focus:ring-1 focus:ring-purple-500/50"
+                className="w-full rounded-xl border border-black/10 bg-black/5 px-4 py-3 text-slate-900 placeholder:text-slate-400 focus:border-purple-500/50 focus:outline-none focus:ring-1 focus:ring-purple-500/50 dark:border-white/10 dark:bg-white/5 dark:text-white dark:placeholder:text-white/30"
               />
             </div>
 
             <div className="flex flex-col gap-2 text-left">
-              <label htmlFor="password" className="text-sm font-medium text-white/60">
+              <label htmlFor="password" className="text-sm font-medium text-slate-700 dark:text-white/60">
                 Password
               </label>
               <input
@@ -204,12 +204,12 @@ export default function WriterSignUp() {
                 onChange={(e) => setPassword(e.target.value)}
                 placeholder="••••••••"
                 required
-                className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-white placeholder:text-white/30 focus:border-purple-500/50 focus:outline-none focus:ring-1 focus:ring-purple-500/50"
+                className="w-full rounded-xl border border-black/10 bg-black/5 px-4 py-3 text-slate-900 placeholder:text-slate-400 focus:border-purple-500/50 focus:outline-none focus:ring-1 focus:ring-purple-500/50 dark:border-white/10 dark:bg-white/5 dark:text-white dark:placeholder:text-white/30"
               />
             </div>
 
             <div className="flex flex-col gap-2 text-left">
-              <label htmlFor="confirmPassword" className="text-sm font-medium text-white/60">
+              <label htmlFor="confirmPassword" className="text-sm font-medium text-slate-700 dark:text-white/60">
                 Confirm password
               </label>
               <input
@@ -219,7 +219,7 @@ export default function WriterSignUp() {
                 onChange={(e) => setConfirmPassword(e.target.value)}
                 placeholder="••••••••"
                 required
-                className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-white placeholder:text-white/30 focus:border-purple-500/50 focus:outline-none focus:ring-1 focus:ring-purple-500/50"
+                className="w-full rounded-xl border border-black/10 bg-black/5 px-4 py-3 text-slate-900 placeholder:text-slate-400 focus:border-purple-500/50 focus:outline-none focus:ring-1 focus:ring-purple-500/50 dark:border-white/10 dark:bg-white/5 dark:text-white dark:placeholder:text-white/30"
               />
             </div>
 
@@ -229,12 +229,12 @@ export default function WriterSignUp() {
               height="auto"
               borderRadius={999}
               backgroundOpacity={0.25}
-              className="mt-4 w-full border border-white/10 transition-transform hover:scale-[1.02]"
+              className="mt-4 w-full border border-black/10 transition-transform hover:scale-[1.02] dark:border-white/10"
             >
               <button
                 type="submit"
                 disabled={loading}
-                className="w-full px-8 py-4 text-[15px] font-medium text-white/90 disabled:opacity-50"
+                className="w-full px-8 py-4 text-[15px] font-medium text-slate-900 disabled:opacity-50 dark:text-white/90"
               >
                 {loading ? "Creating account..." : "Create account"}
               </button>
@@ -242,14 +242,14 @@ export default function WriterSignUp() {
           </form>
 
           <div className="mt-6 flex w-full items-center gap-4">
-            <div className="h-px flex-1 bg-white/10" />
-            <span className="text-sm text-white/30">or</span>
-            <div className="h-px flex-1 bg-white/10" />
+            <div className="h-px flex-1 bg-black/10 dark:bg-white/10" />
+            <span className="text-sm text-slate-500 dark:text-white/30">or</span>
+            <div className="h-px flex-1 bg-black/10 dark:bg-white/10" />
           </div>
 
           <button
             onClick={handleGoogleSignIn}
-            className="mt-6 flex w-full items-center justify-center gap-3 rounded-full border border-white/10 bg-white/5 px-8 py-4 text-[15px] font-medium text-white/90 transition hover:bg-white/10"
+            className="mt-6 flex w-full items-center justify-center gap-3 rounded-full border border-black/10 bg-black/5 px-8 py-4 text-[15px] font-medium text-slate-900 transition hover:bg-black/10 dark:border-white/10 dark:bg-white/5 dark:text-white/90 dark:hover:bg-white/10"
           >
             <svg className="h-5 w-5" viewBox="0 0 24 24">
               <path
@@ -272,11 +272,11 @@ export default function WriterSignUp() {
             Continue with Google
           </button>
 
-          <p className="mt-8 text-sm text-white/40">
+          <p className="mt-8 text-sm text-slate-600 dark:text-white/40">
             Already have an account?{" "}
             <Link
               href="/writer/signin"
-              className="text-white/70 transition hover:text-white"
+              className="text-slate-900 transition hover:text-slate-700 dark:text-white/70 dark:hover:text-white"
             >
               Sign in
             </Link>

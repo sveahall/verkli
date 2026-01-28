@@ -1,21 +1,21 @@
 "use client";
 
-import { useState, useRef, useEffect } from "react";
+import React, { useState, useRef, useEffect } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { createClient, insertLibraryBook } from "@/lib/supabase/client";
-import GlassSurface from "@/components/GlassSurface";
-import GridMotion from "@/components/GridMotion";
-import TestimonialSection from "@/components/TestimonialSection";
-import StatsSection from "@/components/StatsSection";
-import FeaturesSection from "@/components/FeaturesSection";
-import ThemeToggle from "@/components/ThemeToggle";
-import ShelfTile from "@/components/library/ShelfTile";
-import BookCard from "@/components/library/BookCard";
-import UserMenu from "@/components/navbar/UserMenu";
-import { getShelves, createShelf, getStandaloneBooks } from "@/lib/supabase/shelves-client";
-import type { ShelfWithDetails } from "@/lib/supabase/shelves-client";
-import type { Book } from "@/lib/supabase/types";
+import { createClient, insertLibraryBook } from "../../lib/supabase/client";
+import GlassSurface from "../../components/GlassSurface";
+import GridMotion from "../../components/GridMotion";
+import TestimonialSection from "../../components/TestimonialSection";
+import StatsSection from "../../components/StatsSection";
+import FeaturesSection from "../../components/FeaturesSection";
+import ThemeToggle from "../../components/ThemeToggle";
+import ShelfTile from "../../components/library/ShelfTile";
+import BookCard from "../../components/library/BookCard";
+import UserMenu from "../../components/navbar/UserMenu";
+import { getShelves, createShelf, getStandaloneBooks } from "../../lib/supabase/shelves-client";
+import type { ShelfWithDetails } from "../../lib/supabase/shelves-client";
+import type { Book, LibraryBook } from "../../lib/supabase/types";
 import type { User } from "@supabase/supabase-js";
 
 const gridImages = [
@@ -821,7 +821,7 @@ function Dashboard({ user, onSignOut }: { user: User; onSignOut: () => void }) {
   const router = useRouter();
   const createDropdownRef = useRef<HTMLDivElement>(null);
   const [shelves, setShelves] = useState<ShelfWithDetails[]>([]);
-  const [standaloneBooks, setStandaloneBooks] = useState<Book[]>([]);
+  const [standaloneBooks, setStandaloneBooks] = useState<LibraryBook[]>([]);
   const [loadingShelves, setLoadingShelves] = useState(true);
   const [testInsertLoading, setTestInsertLoading] = useState(false);
   
@@ -1385,6 +1385,8 @@ function Dashboard({ user, onSignOut }: { user: User; onSignOut: () => void }) {
         </div>
       </footer>
 
+      {/* styled-jsx block for carousel animation – TS doesn't know about the jsx prop here */}
+      {/* @ts-ignore */}
       <style jsx>{`@keyframes scroll { 0% { transform: translateX(0); } 100% { transform: translateX(-50%); } } .animate-scroll { animation: scroll 30s linear infinite; }`}</style>
 
       {/* Choice Modal - Shelf or Book */}

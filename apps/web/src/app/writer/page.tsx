@@ -1286,39 +1286,6 @@ function Dashboard({ user }: { user: User }) {
             </div>
           </div>
         </section>
-
-        {/* CTA */}
-        <section className="mb-20">
-          <div className="overflow-hidden rounded-[40px] border border-black/10 dark:border-white/[0.08] bg-gradient-to-b from-black/5 dark:from-white/[0.06] to-transparent dark:to-white/[0.02]">
-            <div className="px-10 py-14 text-center">
-              <h2 className="text-[32px] font-semibold tracking-[-0.02em] text-slate-900 dark:text-white">
-                Ready to turn your book into content?
-              </h2>
-              <p className="mt-3 text-[15px] text-slate-600 dark:text-white/50">
-                Upload a chapter and reach more readers across all platforms.
-              </p>
-              <button className="keep-white mt-8 rounded-full bg-[#907AFF] px-8 py-3.5 text-[15px] font-medium text-white transition-all hover:bg-[#8069EE]">
-                Get started
-              </button>
-            </div>
-            <div className="relative h-[220px] overflow-hidden">
-              <div className="absolute inset-0 z-10 bg-gradient-to-t from-white via-transparent to-transparent dark:from-[#050508]" />
-              <div className="flex animate-scroll gap-5 px-4">
-                {[...ctaBooks, ...ctaBooks, ...ctaBooks].map((cover, index) => (
-                  <div
-                    key={index}
-                    className="h-[200px] w-[130px] flex-shrink-0 overflow-hidden rounded-xl shadow-lg"
-                    style={{
-                      transform: `rotate(${(index % 3 - 1) * 5}deg) translateY(${(index % 2) * 20}px)`,
-                    }}
-                  >
-                    <img src={cover} alt="" className="h-full w-full object-cover" />
-                  </div>
-                ))}
-              </div>
-            </div>
-          </div>
-        </section>
       </div>
 
       <footer className="border-t border-black/10 dark:border-white/[0.06] bg-background">
@@ -1919,7 +1886,7 @@ export default function WriterPage() {
     return () => subscription.unsubscribe();
   }, []);
 
-  if (loading) return <div className="flex min-h-screen items-center justify-center bg-[#050508]"><div className="h-8 w-8 animate-spin rounded-full border-2 border-white/20 border-t-[#907AFF]"></div></div>;
+  if (loading) return <div className="flex min-h-screen items-center justify-center bg-slate-50 dark:bg-[#050508]"><div className="h-8 w-8 animate-spin rounded-full border-2 border-black/20 border-t-[#907AFF] dark:border-white/20"></div></div>;
 
   return user ? <Dashboard user={user} /> : <LandingPage />;
 }
