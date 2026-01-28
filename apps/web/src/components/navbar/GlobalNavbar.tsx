@@ -260,22 +260,35 @@ export default function GlobalNavbar() {
     }
   }, [pathname]);
 
-  // För menyn: använd pathname för att visa rätt text ("Switch to Reader" på /writer)
-  // Men behåll currentRole från DB för att uppdatera rätt roll när man byter
-  const displayRoleForMenu: "writer" | "reader" = 
-    pathname?.startsWith("/reader") ? "reader" : "writer";
-
   const handleSignOut = async () => {
     const supabase = createClient();
     await supabase.auth.signOut();
     setUser(null);
   };
 
-  // Determine if we're on a public page
-  const isPublicPage = !pathname?.startsWith('/writer') && !pathname?.startsWith('/reader');
-  
-  // Don't show navbar on role selection page or writer landing (has its own nav)
-  const hideNavbar = pathname === '/' || (pathname?.startsWith('/writer') && !user);
+  const isWriterRoute = pathname?.startsWith("/writer");
+  const isReaderRoute = pathname?.startsWith("/reader");
+  const isPublicPage = !isWriterRoute && !isReaderRoute;
+  const isAuthRoute = Boolean(
+    pathname &&
+      (pathname.startsWith("/signin") ||
+        pathname.startsWith("/signup") ||
+        pathname.startsWith("/forgot-password") ||
+        pathname.startsWith("/auth") ||
+        pathname.startsWith("/writer/signin") ||
+        pathname.startsWith("/writer/signup") ||
+        pathname.startsWith("/writer/forgot-password") ||
+        pathname.startsWith("/reader/signin") ||
+        pathname.startsWith("/reader/signup") ||
+        pathname.startsWith("/reader/forgot-password"))
+  );
+
+  // För menyn: använd route när vi är i writer/reader, annars använd roll från profilen
+  const displayRoleForMenu: "writer" | "reader" =
+    isReaderRoute ? "reader" : isWriterRoute ? "writer" : currentRole;
+
+  // Keep auth screens clean; everything else uses the global navbar
+  const hideNavbar = isAuthRoute;
 
   // Writer navigation items
   const writerNavItems = ["Features", "Integrations", "Examples", "FAQ"];
@@ -292,7 +305,7 @@ export default function GlobalNavbar() {
   ];
 
   if (loading || hideNavbar) {
-    return null; // Don't show navbar while loading or on role selection page
+    return null; // Don't show navbar while loading or on auth screens
   }
 
   const handleWriterSearchSubmit = (event: React.FormEvent) => {
@@ -320,7 +333,7 @@ export default function GlobalNavbar() {
             {/* Logo and navigation */}
             <div className="flex items-center gap-10">
               {/* Logo: inloggad på writer/reader → dashboard; annars startsida (väljaren visas bara när navbar är dold) */}
-              <Link href={pathname?.startsWith("/writer") ? "/writer" : pathname?.startsWith("/reader") ? "/reader" : "/"}>
+              <Link href={isWriterRoute ? "/writer" : isReaderRoute ? "/reader" : "/"}>
                 <img
                   src="/logo-dark.svg"
                   alt="Verkli"
@@ -334,7 +347,7 @@ export default function GlobalNavbar() {
               </Link>
 
               {/* Navigation links based on route */}
-              {pathname?.startsWith('/writer') && (
+              {isWriterRoute && (
                 <div className="hidden items-center gap-7 text-[14px] font-medium text-slate-700/90 dark:text-white/80 lg:flex">
                   {writerNavItems.map((item) => (
                     <div key={item} className="group relative">
@@ -359,7 +372,7 @@ export default function GlobalNavbar() {
                             width="100%"
                             height="auto"
                             borderRadius={24}
-                            className="nav-mega max-h-[calc(100vh-120px)] overflow-y-auto border border-white/40 px-5 py-5 shadow-[0_26px_70px_-18px_rgba(15,23,42,0.65)] dark:border-white/15 md:px-8 md:py-8 dark:shadow-[0_28px_80px_-20px_rgba(0,0,0,0.95)]"
+                            className="nav-mega max-h-[calc(100vh-120px)] overflow-y-auto border border-white/40 px-5 py-5 dark:border-white/15 md:px-8 md:py-8"
                           >
                             {dropdownContent[item as keyof typeof dropdownContent] && (
                               <>
@@ -375,7 +388,7 @@ export default function GlobalNavbar() {
                                   {dropdownContent[item as keyof typeof dropdownContent].items.map((menuItem, idx) => (
                                     <div
                                       key={idx}
-                                      className="group/item cursor-pointer rounded-xl p-4 transition-all duration-200 hover:bg-slate-50 dark:hover:bg-white/[0.12] hover:shadow-sm border border-transparent hover:border-slate-200 dark:hover:border-white/10"
+                                      className="group/item cursor-pointer rounded-xl p-4 transition-all duration-200 hover:bg-slate-50 dark:hover:bg-white/[0.12] border border-transparent hover:border-slate-200 dark:hover:border-white/10"
                                     >
                                       <div className="flex items-start gap-3">
                                         <div className="mt-1 flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-lg bg-slate-900/5 ring-1 ring-black/5 dark:bg-white/10 dark:ring-white/10">
@@ -403,7 +416,7 @@ export default function GlobalNavbar() {
                 </div>
               )}
 
-              {pathname?.startsWith('/reader') && (
+              {isReaderRoute && (
                 <div className="hidden items-center gap-8 text-[16px] font-medium text-slate-700 dark:text-white/80 lg:flex">
                   {readerNavItems.map((item) => (
                     <button
@@ -455,7 +468,7 @@ export default function GlobalNavbar() {
                             width="100%"
                             height="auto"
                             borderRadius={24}
-                            className="nav-mega max-h-[calc(100vh-120px)] overflow-y-auto border border-white/40 px-5 py-5 shadow-[0_26px_70px_-18px_rgba(15,23,42,0.65)] dark:border-white/15 md:px-8 md:py-8 dark:shadow-[0_28px_80px_-20px_rgba(0,0,0,0.95)]"
+                            className="nav-mega max-h-[calc(100vh-120px)] overflow-y-auto border border-white/40 px-5 py-5 dark:border-white/15 md:px-8 md:py-8"
                           >
                             {dropdownContent[item.label as keyof typeof dropdownContent] && (
                               <>
@@ -471,7 +484,7 @@ export default function GlobalNavbar() {
                                   {dropdownContent[item.label as keyof typeof dropdownContent].items.map((menuItem, idx) => (
                                     <div
                                       key={idx}
-                                      className="group/item cursor-pointer rounded-xl p-4 transition-all duration-200 hover:bg-slate-50 dark:hover:bg-white/[0.12] hover:shadow-sm border border-transparent hover:border-slate-200 dark:hover:border-white/10"
+                                      className="group/item cursor-pointer rounded-xl p-4 transition-all duration-200 hover:bg-slate-50 dark:hover:bg-white/[0.12] border border-transparent hover:border-slate-200 dark:hover:border-white/10"
                                     >
                                       <div className="flex items-start gap-3">
                                         <div className="mt-1 flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-lg bg-slate-900/5 ring-1 ring-black/5 dark:bg-white/10 dark:ring-white/10">
@@ -502,14 +515,14 @@ export default function GlobalNavbar() {
 
             {/* Actions */}
             <div className="flex items-center gap-3">
-              {pathname?.startsWith('/writer') ? (
+              {isWriterRoute && user ? (
                 <>
                   {/* Sök – expanderar på hover/focus och skickar query som ?q=... */}
                   <form
                     onSubmit={handleWriterSearchSubmit}
                     className="group relative hidden h-9 items-center md:flex"
                   >
-                    <div className="flex h-9 items-center gap-2 rounded-full border border-slate-200 bg-white/80 pl-2 pr-0.5 text-slate-600 backdrop-blur-md transition-all duration-200 ease-out hover:border-slate-300 hover:bg-white group-focus-within:border-slate-300 group-focus-within:bg-white dark:border-white/25 dark:bg-slate-900/80 dark:text-white/80 dark:hover:bg-slate-900 dark:group-focus-within:bg-slate-900">
+                    <div className="flex h-9 items-center gap-2 rounded-full border border-gray-100/5 pl-2 pr-0.5 text-slate-600 backdrop-blur-md transition-all duration-200 ease-out hover:border-gray-200/10 group-focus-within:border-gray-200/10 dark:border-white/25 dark:text-white/80 dark:hover:border-white/30 dark:group-focus-within:border-white/30">
                       <svg
                         className="h-4 w-4 flex-shrink-0"
                         fill="none"
@@ -536,74 +549,134 @@ export default function GlobalNavbar() {
                   {/* Upgrade / Share – stil enligt referens, funktion kan kopplas senare */}
                   <button
                     type="button"
-                    className="hidden h-9 items-center rounded-full border border-slate-300 px-5 text-[13px] font-medium text-black transition-all md:inline-flex dark:border-white/30 dark:bg-white dark:text-slate-900 dark:hover:bg-white/90"
+                    className="hidden h-9 items-center rounded-full border border-gray-100/5 px-5 text-[13px] font-medium text-slate-900 dark:text-white transition-all md:inline-flex dark:border-white/15"
                   >
                     Upgrade to <span className="font-semibold ml-1"> PRO</span>
                   </button>
+
+                  <UserMenu user={user} onSignOut={handleSignOut} currentRole={displayRoleForMenu} />
                 </>
               ) : (
                 <>
-                  {/* Theme toggle för public/reader */}
+                  {/* Sign in / Sign up knappar - till vänster om toggle och language */}
+                  {!user && (
+                    <>
+                      {isPublicPage && (
+                        <>
+                          <Link
+                            href="/signin"
+                            className="flex h-9 items-center justify-center rounded-full border border-gray/10 dark:border-white/10 bg-transparent px-5 text-[15px] font-medium text-slate-900 dark:text-white transition-colors hover:text-slate-600 dark:hover:text-white/70"
+                          >
+                            Sign in
+                          </Link>
+                          <Link href="/signup">
+                            <GlassSurface
+                              {...glassBaseProps}
+                              width="auto"
+                              height="36px"
+                              borderRadius={999}
+                              className="glass-surface--transparent border border-black/10 dark:border-white/10 px-5 [&_.glass-surface__content]:p-0"
+                            >
+                              <span className="flex h-9 items-center justify-center text-[15px] font-medium text-slate-900 dark:text-white">
+                                Sign up
+                              </span>
+                            </GlassSurface>
+                          </Link>
+                        </>
+                      )}
+                      {isWriterRoute && (
+                        <>
+                          <Link
+                            href="/writer/signin"
+                            className="flex h-9 items-center justify-center rounded-full border border-black/10 dark:border-white/10 bg-transparent px-4 text-[15px] font-medium text-slate-900 dark:text-white transition-colors hover:text-slate-600 dark:hover:text-white/70"
+                          >
+                            Sign in
+                          </Link>
+                          <Link href="/writer/signup">
+                            <GlassSurface
+                              {...glassBaseProps}
+                              width="auto"
+                              height="36px"
+                              borderRadius={999}
+                              className="glass-surface--transparent border border-black/10 dark:border-white/10 px-5 [&_.glass-surface__content]:p-0"
+                            >
+                              <span className="flex h-9 items-center justify-center text-[15px] font-medium text-slate-900 dark:text-white">
+                                Sign up
+                              </span>
+                            </GlassSurface>
+                          </Link>
+                        </>
+                      )}
+                      {isReaderRoute && (
+                        <>
+                          <Link
+                            href="/reader/signin"
+                            className="flex h-9 items-center justify-center rounded-full border border-black/10 dark:border-white/10 bg-transparent px-4 text-[15px] font-medium text-slate-900 dark:text-white transition-colors hover:text-slate-600 dark:hover:text-white/70"
+                          >
+                            Sign in
+                          </Link>
+                          <Link href="/reader/signup">
+                            <GlassSurface
+                              {...glassBaseProps}
+                              width="auto"
+                              height="36px"
+                              borderRadius={999}
+                              className="glass-surface--transparent border border-black/10 dark:border-white/10 px-5 [&_.glass-surface__content]:p-0"
+                            >
+                              <span className="flex h-9 items-center justify-center text-[15px] font-medium text-slate-900 dark:text-white">
+                                Sign up
+                              </span>
+                            </GlassSurface>
+                          </Link>
+                        </>
+                      )}
+                    </>
+                  )}
+
+                  {/* Theme toggle och Language selector */}
                   <div className="hidden items-center gap-3 md:flex">
+                    {/* Language selector */}
+                    <GlassSurface
+                      {...glassBaseProps}
+                      width="auto"
+                      height="36px"
+                      borderRadius={999}
+                      className="glass-surface--transparent border border-black/10 dark:border-white/10"
+                    >
+                      <button
+                        type="button"
+                        className="flex h-9 w-9 items-center justify-center text-slate-700 dark:text-white/80"
+                        aria-label="Select language"
+                      >
+                        <svg
+                          width="24"
+                          height="10"
+                          viewBox="0 0 48 20"
+                          fill="none"
+                          xmlns="http://www.w3.org/2000/svg"
+                          className="text-slate-700 dark:text-white/80"
+                        >
+                          <path d="M11.5086 11.7646L7.74559 0.92622C7.71044 0.824993 7.56746 0.824502 7.53162 0.925485L3.63734 11.898" stroke="currentColor" strokeWidth="1.70079" strokeLinecap="round"/>
+                          <path d="M5.07666 8.38086H10.1082" stroke="currentColor" strokeWidth="1.70079"/>
+                          <path d="M16.3799 9.16016L26.4783 9.16016" stroke="currentColor" strokeWidth="1.70079" strokeLinecap="round"/>
+                          <path d="M21.4292 6.52148L21.4292 9.15952" stroke="currentColor" strokeWidth="1.70079" strokeLinecap="round"/>
+                          <path d="M16.3799 18.4076C23.4665 15.5376 24.2815 11.1439 24.8838 9.23047" stroke="currentColor" strokeWidth="1.70079" strokeLinecap="round"/>
+                          <path d="M18.1519 12.4199C19.0849 14.0853 20.8448 16.601 24.8487 18.4435" stroke="currentColor" strokeWidth="1.70079" strokeLinecap="round"/>
+                          <path d="M42.1924 11.9722C42.3572 12.138 42.6283 12.138 42.793 11.9722L47.045 7.69522C47.2098 7.52949 47.2098 7.25683 47.045 7.0911C46.8802 6.92536 46.6092 6.92536 46.4444 7.0911L42.4927 11.066L38.5411 7.0911C38.3763 6.92536 38.1052 6.92536 37.9405 7.0911C37.7757 7.25683 37.7757 7.52949 37.9405 7.69522L42.1924 11.9722Z" fill="currentColor"/>
+                        </svg>
+                      </button>
+                    </GlassSurface>
+
                     <ThemeToggle
-                      glassProps={glassBaseProps}
-                      glassClassName="border border-slate-200/80 bg-white/80 dark:border-white/15 dark:bg-slate-900/85"
+                      glassProps={{ ...glassBaseProps, height: 36 }}
+                      glassClassName="glass-surface--transparent border border-black/10 dark:border-white/10"
                       className="h-9 w-9 text-slate-700 dark:text-white/80"
                     />
                   </div>
-                </>
-              )}
 
-              {/* User menu eller auth-knappar */}
-              {user ? (
-                <UserMenu user={user} onSignOut={handleSignOut} currentRole={displayRoleForMenu} />
-              ) : (
-                <>
-                  {isPublicPage && (
-                    <>
-                      <Link
-                        href="/signin"
-                        className="px-4 text-[15px] font-regular text-slate-900 dark:text-white transition hover:text-slate-600 dark:hover:text-white/70"
-                      >
-                        Sign in
-                      </Link>
-                      <Link href="/signup">
-                        <GlassSurface
-                          {...glassBaseProps}
-                          width="auto"
-                          height="40px"
-                          borderRadius={300}
-                          className="border border-black/10 dark:border-white/10 px-5 py-2 [&_.glass-surface__content]:p-0"
-                        >
-                          <span className="text-[15px] font-medium text-slate-900 dark:text-white">
-                            Sign up
-                          </span>
-                        </GlassSurface>
-                      </Link>
-                    </>
-                  )}
-                  {pathname?.startsWith('/reader') && (
-                    <>
-                      <Link
-                        href="/reader/signin"
-                        className="px-4 text-[15px] font-regular text-slate-900 dark:text-white transition hover:text-slate-600 dark:hover:text-white/70"
-                      >
-                        Sign in
-                      </Link>
-                      <Link href="/reader/signup">
-                        <GlassSurface
-                          {...glassBaseProps}
-                          width="auto"
-                          height="40px"
-                          borderRadius={300}
-                          className="border border-black/10 dark:border-white/10 px-5 py-2 [&_.glass-surface__content]:p-0"
-                        >
-                          <span className="text-[15px] font-medium text-slate-900 dark:text-white">
-                            Sign up
-                          </span>
-                        </GlassSurface>
-                      </Link>
-                    </>
+                  {/* User menu för inloggade användare (ej writer route) */}
+                  {user && (
+                    <UserMenu user={user} onSignOut={handleSignOut} currentRole={displayRoleForMenu} />
                   )}
                 </>
               )}

@@ -400,7 +400,7 @@ export default function SettingsPage({ user, profile }: SettingsPageProps) {
 
       {showRoleModal && (
         <div className="fixed inset-0 z-[1000] flex items-center justify-center bg-black/40 p-6 backdrop-blur-sm">
-          <div className="w-full max-w-[420px] rounded-3xl border border-black/10 bg-white p-6 shadow-2xl dark:border-white/10 dark:bg-[#0a0a0f]">
+          <div className="w-full max-w-[420px] rounded-3xl border border-black/10 bg-white p-6 dark:border-white/10 dark:bg-[#0a0a0f]">
             <h3 className="text-[18px] font-semibold text-slate-900 dark:text-white">Switch to reader?</h3>
             <p className="mt-2 text-[14px] text-slate-600 dark:text-white/50">
               You can always switch back later. Your writer data stays intact.

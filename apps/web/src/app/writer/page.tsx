@@ -9,7 +9,6 @@ import GridMotion from "@/components/GridMotion";
 import TestimonialSection from "@/components/TestimonialSection";
 import StatsSection from "@/components/StatsSection";
 import FeaturesSection from "@/components/FeaturesSection";
-import ThemeToggle from "@/components/ThemeToggle";
 import ShelfTile from "@/components/library/ShelfTile";
 import BookCard from "@/components/library/BookCard";
 import { getShelves, createShelf, getStandaloneBooks } from "@/lib/supabase/shelves-client";
@@ -53,80 +52,6 @@ function EmptyStateCard({ children }: EmptyStateCardProps) {
     </div>
   );
 }
-
-const megaMenuColumns = [
-  {
-    title: "Start",
-    iconClass: "from-blue-500 to-indigo-500",
-    items: [
-      { title: "Create your account", body: "Set up your author profile" },
-      {
-        title: "Upload your book",
-        body: "Import/create your chapters",
-        highlight: true,
-      },
-      { title: "Set your goals", body: "Launch, grow, or repurpose content" },
-      {
-        title: "Publishing basics",
-        body: "Formats, platforms, and workflows",
-      },
-      {
-        title: "AI automation",
-        body: "Generate short clips",
-        badge: "Coming soon",
-      },
-    ],
-  },
-  {
-    title: "Create",
-    iconClass: "from-blue-600 to-cyan-500",
-    items: [
-      { title: "Manage chapters", body: "Edit, organize, and update content" },
-      { title: "Extract story moments", body: "Quotes, hooks, scenes, themes" },
-      {
-        title: "Short-form content",
-        body: "Generate clips for TikTok & Reels",
-      },
-      { title: "Visual assets", body: "Covers, cards, and story visuals" },
-    ],
-  },
-  {
-    title: "Automate",
-    iconClass: "from-emerald-500 to-green-400",
-    items: [
-      {
-        title: "AI hooks & scripts",
-        body: "Scroll-stopping copy, ready to post",
-      },
-      { title: "Auto-repurposing", body: "One chapter → many formats" },
-      { title: "Content cadence", body: "Stay visible without daily work" },
-      { title: "Smart recommendations", body: "What to post next" },
-      { title: "AI Phone answering", body: "Generative AI voice answering" },
-    ],
-  },
-  {
-    title: "Grow",
-    iconClass: "from-slate-200 to-white",
-    items: [
-      { title: "Audience insights", body: "See what resonates with readers" },
-      { title: "Content performance", body: "Views, saves, follows" },
-      {
-        title: "Pre-launch campaigns",
-        body: "Build momentum before release",
-      },
-      { title: "Evergreen growth", body: "Keep older books visible" },
-      { title: "Reservations", body: "Manage reservations with ease" },
-    ],
-  },
-];
-
-const navItems = [
-  { label: "Home" },
-  { label: "Features", hasDropdown: true },
-  { label: "Integrations" },
-  { label: "Examples" },
-  { label: "FAQ" },
-];
 
 type FeaturedWriter = {
   id: string;
@@ -214,7 +139,7 @@ function BookCoverCard({
       className="group relative flex-shrink-0 transition-transform duration-300 hover:-translate-y-1.5"
     >
       <div
-        className={`relative overflow-hidden ${styles.container} bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-900 dark:to-slate-800 shadow-lg transition-all duration-500 group-hover:scale-[1.02] group-hover:shadow-2xl group-hover:shadow-[#907AFF]/20`}
+        className={`relative overflow-hidden ${styles.container} bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-900 dark:to-slate-800 transition-all duration-500 group-hover:scale-[1.02]`}
       >
         {book.cover ? (
           <img src={book.cover} alt={book.title} className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-110" />
@@ -244,7 +169,7 @@ function BookCoverCard({
 
         <div className="absolute bottom-0 left-0 right-0 p-4">
           <div
-            className={`keep-white rounded-2xl border border-white/20 bg-gradient-to-t from-black/95 via-black/90 to-black/80 backdrop-blur-xl ${styles.overlayPad} text-white transition-all duration-300 shadow-2xl`}
+            className={`keep-white rounded-2xl border border-white/20 bg-gradient-to-t from-black/95 via-black/90 to-black/80 backdrop-blur-xl ${styles.overlayPad} text-white transition-all duration-300`}
           >
             <div className="space-y-1.5">
               <h3 className={`${styles.title} line-clamp-2 font-bold leading-tight text-white drop-shadow-lg`}>
@@ -408,117 +333,10 @@ function LandingPage() {
   };
 
   return (
-    <main className="writer-light relative min-h-screen bg-background text-foreground transition-colors duration-300">
-      <header className="sticky top-6 z-[999] isolate mx-auto w-full max-w-[1660px] px-6">
-        <GlassSurface {...glassBaseProps} width="100%" height="75px" borderRadius={300} className="nav-glass w-full border border-black/10 px-6 py-4 dark:border-white/10 md:px-10 [&_.glass-surface__content]:w-full [&_.glass-surface__content]:justify-between [&_.glass-surface__content]:p-0">
-          <nav className="flex w-full items-center justify-between gap-6">
-            <div className="flex items-center gap-10">
-              <img src="/logo-dark.svg" alt="Verkli" className="h-8 w-auto dark:hidden" loading="eager" />
-              <img src="/favicon.svg" alt="Verkli" className="hidden h-8 w-auto dark:block" loading="eager" />
-              <div className="hidden items-center gap-10 text-[17px] font-normal text-slate-900 dark:text-white lg:flex">
-                {navItems.map((item) => (
-                  <div key={item.label} className="group relative">
-                    {item.label === "Home" ? (
-                      <Link href="/writer" className="nav-item transition-colors hover:text-slate-600 dark:hover:text-white/70">
-                        {item.label}
-                      </Link>
-                    ) : (
-                      <button className="nav-item flex items-center gap-2">
-                        <span>{item.label}</span>
-                        <svg className="h-3 w-3 rotate-180 transition-transform duration-200 group-hover:rotate-0" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 4.5L6 7.5L9 4.5" /></svg>
-                      </button>
-                    )}
-
-                    {item.hasDropdown ? (
-                      <div className="nav-dropdown pointer-events-none absolute left-0 top-full z-[1000] w-[980px] pt-6 opacity-0 transition-[opacity,transform] duration-200 group-hover:pointer-events-auto group-hover:translate-y-3 group-hover:opacity-100">
-                        <GlassSurface
-                          {...glassBaseProps}
-                          width="100%"
-                          height="auto"
-                          borderRadius={40}
-                          className="nav-mega border border-white/10 px-10 py-8 shadow-[0_24px_60px_-30px_rgba(0,0,0,0.9)]"
-                        >
-                          <div className="grid gap-10 lg:grid-cols-4">
-                            {megaMenuColumns.map((column) => (
-                              <div key={column.title} className="space-y-5">
-                                <div className="space-y-3">
-                                  <div className="flex items-center gap-3 text-base font-semibold">
-                                    <div
-                                      className={`nav-mega-icon bg-gradient-to-br ${column.iconClass}`}
-                                    />
-                                    <span>{column.title}</span>
-                                  </div>
-                                  <div className="h-px w-full bg-white/35" />
-                                </div>
-
-                                <div className="space-y-4 text-sm text-white/80">
-                                  {column.items.map((entry) => (
-                                    <div
-                                      key={entry.title}
-                                      className={
-                                        entry.highlight
-                                          ? "nav-mega-highlight"
-                                          : "space-y-1"
-                                      }
-                                    >
-                                      <div className="flex items-center gap-2">
-                                        <span className="text-white">
-                                          {entry.title}
-                                        </span>
-                                        {entry.badge ? (
-                                          <span className="nav-mega-badge">
-                                            {entry.badge}
-                                          </span>
-                                        ) : null}
-                                      </div>
-                                      <p className="text-white/70">
-                                        {entry.body}
-                                      </p>
-                                    </div>
-                                  ))}
-                                </div>
-                              </div>
-                            ))}
-                          </div>
-                        </GlassSurface>
-                      </div>
-                    ) : null}
-                  </div>
-                ))}
-              </div>
-            </div>
-            <div className="flex items-center gap-4">
-              <Link href="/writer/signin" className="sign-in-button px-6 text-[17px] font-regular text-slate-900 transition hover:text-slate-600 dark:text-white dark:hover:text-white/70">Sign in</Link>
-              <Link href="/writer/signup">
-                <GlassSurface {...glassBaseProps} width="auto" height="auto" borderRadius={999} className="glass-surface--button border border-black/10 transition-transform hover:scale-[1.02] dark:border-white/10">
-                  <span className="sign-up-button px-7 py-0 text-[17px] font-medium text-slate-900 dark:text-[#F7F7F7]">Sign up</span>
-                </GlassSurface>
-              </Link>
-              <div className="divider hidden h-8 w-px bg-black/10 dark:bg-white/20 md:block" />
-              <div className="hidden items-center gap-3 md:flex">
-                <ThemeToggle glassProps={glassBaseProps} />
-                <GlassSurface {...glassBaseProps} width="auto" height="auto" borderRadius={999} className="glass-surface--button">
-                  <button className="language-toggle flex items-center justify-center px-3.5 py-2.5 text-slate-900 dark:text-white" aria-label="Change language">
-                    <svg width="48" height="18" viewBox="0 0 48 18" fill="none" xmlns="http://www.w3.org/2000/svg">
-                      <path d="M11.5083 11.1435L7.74534 0.305126C7.7102 0.203899 7.56721 0.203408 7.53137 0.304391L3.6371 11.2769" stroke="currentColor" strokeWidth="1.70079" strokeLinecap="round"/>
-                      <path d="M5.07678 7.75988H10.1083" stroke="currentColor" strokeWidth="1.70079"/>
-                      <path d="M16.3801 8.53955L26.4786 8.53955" stroke="currentColor" strokeWidth="1.70079" strokeLinecap="round"/>
-                      <path d="M21.4293 5.89978L21.4293 8.53782" stroke="currentColor" strokeWidth="1.70079" strokeLinecap="round"/>
-                      <path d="M16.3801 17.7874C23.4667 14.9174 24.2817 10.5237 24.8841 8.61028" stroke="currentColor" strokeWidth="1.70079" strokeLinecap="round"/>
-                      <path d="M18.1516 11.7992C19.0847 13.4645 20.8445 15.9803 24.8485 17.8228" stroke="currentColor" strokeWidth="1.70079" strokeLinecap="round"/>
-                      <path d="M42.1928 11.352C42.3576 11.5177 42.6286 11.5177 42.7934 11.352L47.0454 7.07497C47.2101 6.90924 47.2101 6.63658 47.0454 6.47084C46.8806 6.30511 46.6095 6.30511 46.4448 6.47084L42.4931 10.4458L38.5414 6.47084C38.3767 6.30511 38.1056 6.30511 37.9408 6.47084C37.7761 6.63658 37.7761 6.90924 37.9408 7.07497L42.1928 11.352Z" fill="currentColor"/>
-                    </svg>
-                  </button>
-                </GlassSurface>
-              </div>
-            </div>
-          </nav>
-        </GlassSurface>
-      </header>
-
+    <main className="writer-light relative min-h-screen bg-background text-foreground transition-colors duration-300 -mt-[88px]">
       <div className="section-stack">
         {/* Hero */}
-        <section ref={heroRef} onMouseMove={handleHeroMouseMove} className="relative isolate mx-auto my-auto flex min-h-screen w-full max-w-[1800px] flex-col items-center justify-center overflow-hidden px-6 pb-50 text-center">
+        <section ref={heroRef} onMouseMove={handleHeroMouseMove} className="relative isolate mx-auto flex min-h-screen w-full max-w-[1800px] flex-col items-center justify-center overflow-hidden px-6 pb-50 pt-[88px] text-center">
           <div className="pointer-events-none absolute inset-0 -z-10 overflow-hidden">
             <div className="relative h-full w-full">
               <div className="absolute inset-0 z-0"><GridMotion items={gridItems} gradientColor="black" rows={gridRows} cols={gridCols} /></div>
@@ -538,7 +356,7 @@ function LandingPage() {
           <div className="mt-10 flex items-center gap-4">
             <Link href="/writer/signup">
               <GlassSurface {...glassBaseProps} width="auto" height="auto" borderRadius={999} className="glass-button border border-[#907AFF]/30 transition-all hover:scale-[1.02] hover:border-[#907AFF]/50">
-                <span className="px-8 py-3.5 text-[15px] font-medium text-slate-900 dark:text-white">Get started free</span>
+                <span className="px-8 py-2.5 text-[15px] font-medium text-slate-900 dark:text-white">Get started free</span>
               </GlassSurface>
             </Link>
             <a href="#features" className="group flex items-center gap-2 text-[15px] text-slate-500 transition-colors hover:text-slate-700 dark:text-white/50 dark:hover:text-white/70">See how it works<svg className="h-4 w-4 transition-transform group-hover:translate-x-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg></a>
@@ -1028,7 +846,7 @@ function Dashboard({ user }: { user: User }) {
                 </svg>
               </button>
               {showCreateDropdown && (
-                <div className="absolute right-0 top-full mt-2 w-[200px] overflow-hidden rounded-2xl border border-black/10 dark:border-white/10 bg-white/95 dark:bg-[#0a0a0f]/95 p-2 shadow-2xl backdrop-blur-xl">
+                <div className="absolute right-0 top-full mt-2 w-[200px] overflow-hidden rounded-2xl border border-black/10 dark:border-white/10 bg-white/95 dark:bg-[#0a0a0f]/95 p-2 backdrop-blur-xl">
                   <button
                     onClick={() => {
                       setShowCreateDropdown(false);
@@ -1230,7 +1048,7 @@ function Dashboard({ user }: { user: User }) {
                 featuredWriters.map((writer) => (
                   <div key={writer.id} className="group flex flex-shrink-0 cursor-pointer flex-col items-center">
                     <div className="relative">
-                      <div className="h-[72px] w-[72px] overflow-hidden rounded-full border-2 border-black/10 dark:border-white/10 transition-all duration-300 group-hover:border-[#907AFF]/50 group-hover:shadow-lg group-hover:shadow-[#907AFF]/20">
+                      <div className="h-[72px] w-[72px] overflow-hidden rounded-full border-2 border-black/10 dark:border-white/10 transition-all duration-300 group-hover:border-[#907AFF]/50">
                         {writer.avatar ? (
                           <img src={writer.avatar} alt={writer.name} className="h-full w-full object-cover" />
                         ) : (
@@ -1239,7 +1057,7 @@ function Dashboard({ user }: { user: User }) {
                           </div>
                         )}
                       </div>
-                      <div className="absolute -bottom-1 -right-1 flex h-6 w-6 items-center justify-center rounded-full bg-gradient-to-br from-[#907AFF] to-[#E29ED5] shadow-lg">
+                      <div className="absolute -bottom-1 -right-1 flex h-6 w-6 items-center justify-center rounded-full bg-gradient-to-br from-[#907AFF] to-[#E29ED5]">
                         <svg className="h-3.5 w-3.5 text-white" fill="currentColor" viewBox="0 0 20 20">
                           <path
                             fillRule="evenodd"
@@ -1314,7 +1132,7 @@ function Dashboard({ user }: { user: User }) {
       {/* Choice Modal - Shelf or Book */}
       {showChoiceModal && (
         <div className="fixed inset-0 z-[1000] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4" onClick={() => setShowChoiceModal(false)}>
-          <div className="relative w-full max-w-[600px] rounded-3xl border border-black/10 dark:border-white/10 bg-white/95 dark:bg-[#0a0a0f]/95 p-8 shadow-2xl backdrop-blur-xl" onClick={(e) => e.stopPropagation()}>
+          <div className="relative w-full max-w-[600px] rounded-3xl border border-black/10 dark:border-white/10 bg-white/95 dark:bg-[#0a0a0f]/95 p-8 backdrop-blur-xl" onClick={(e) => e.stopPropagation()}>
             <button onClick={() => setShowChoiceModal(false)} className="absolute right-6 top-6 text-slate-500 dark:text-white/50 transition-colors hover:text-slate-900 dark:hover:text-white">
               <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
             </button>
@@ -1342,7 +1160,7 @@ function Dashboard({ user }: { user: User }) {
       {/* Shelf Creation Modal */}
       {showShelfModal && (
         <div className="fixed inset-0 z-[1000] flex items-start justify-center bg-black/60 backdrop-blur-sm p-4 overflow-y-auto pt-20">
-          <div className="relative my-8 w-full max-w-[800px] rounded-3xl border border-black/10 dark:border-white/10 bg-white/95 dark:bg-[#0a0a0f]/95 p-10 shadow-2xl backdrop-blur-xl" onClick={(e) => e.stopPropagation()}>
+          <div className="relative my-8 w-full max-w-[800px] rounded-3xl border border-black/10 dark:border-white/10 bg-white/95 dark:bg-[#0a0a0f]/95 p-10 backdrop-blur-xl" onClick={(e) => e.stopPropagation()}>
             <button onClick={() => setShowShelfModal(false)} className="absolute right-6 top-6 text-slate-500 dark:text-white/50 transition-colors hover:text-slate-900 dark:hover:text-white">
               <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
             </button>
@@ -1398,7 +1216,7 @@ function Dashboard({ user }: { user: User }) {
                 
                 {shelfForm.coverType === "image" ? (
                   <>
-                    <button className="flex w-full items-center justify-between rounded-xl border border-black/10 dark:border-white/10 bg-black/5 dark:bg-white/[0.02] px-4 py-3.5 text-left transition-all hover:border-[#907AFF]/30 hover:bg-black/10 dark:hover:bg-white/[0.04] hover:shadow-sm">
+                    <button className="flex w-full items-center justify-between rounded-xl border border-black/10 dark:border-white/10 bg-black/5 dark:bg-white/[0.02] px-4 py-3.5 text-left transition-all hover:border-[#907AFF]/30 hover:bg-black/10 dark:hover:bg-white/[0.04]">
                       <span className="text-[14px] font-medium text-slate-700 dark:text-white/70">+ Add shelf cover</span>
                       <input type="file" accept="image/*" className="hidden" id="shelf-cover" onChange={(e) => {
                         const file = e.target.files?.[0];
@@ -1527,7 +1345,7 @@ function Dashboard({ user }: { user: User }) {
               <div>
                 <button 
                   onClick={() => setShelfForm({ ...shelfForm, description: shelfForm.description ? "" : " " })}
-                  className="flex w-full items-center justify-between rounded-xl border border-black/10 dark:border-white/10 bg-black/5 dark:bg-white/[0.02] px-4 py-3.5 text-left transition-all hover:border-[#907AFF]/30 hover:bg-black/10 dark:hover:bg-white/[0.04] hover:shadow-sm"
+                  className="flex w-full items-center justify-between rounded-xl border border-black/10 dark:border-white/10 bg-black/5 dark:bg-white/[0.02] px-4 py-3.5 text-left transition-all hover:border-[#907AFF]/30 hover:bg-black/10 dark:hover:bg-white/[0.04]"
                 >
                   <span className="text-[14px] font-medium text-slate-700 dark:text-white/70">+ Add summary</span>
                 </button>
@@ -1547,7 +1365,7 @@ function Dashboard({ user }: { user: User }) {
               <div>
                 <button 
                   onClick={() => setShelfForm({ ...shelfForm, authorsNote: shelfForm.authorsNote ? "" : " " })}
-                  className="flex w-full items-center justify-between rounded-xl border border-black/10 dark:border-white/10 bg-black/5 dark:bg-white/[0.02] px-4 py-3.5 text-left transition-all hover:border-[#907AFF]/30 hover:bg-black/10 dark:hover:bg-white/[0.04] hover:shadow-sm"
+                  className="flex w-full items-center justify-between rounded-xl border border-black/10 dark:border-white/10 bg-black/5 dark:bg-white/[0.02] px-4 py-3.5 text-left transition-all hover:border-[#907AFF]/30 hover:bg-black/10 dark:hover:bg-white/[0.04]"
                 >
                   <span className="text-[14px] font-medium text-slate-700 dark:text-white/70">+ Add author&apos;s note</span>
                 </button>
@@ -1570,7 +1388,7 @@ function Dashboard({ user }: { user: User }) {
                     const input = document.getElementById("shelf-tags-input") as HTMLInputElement;
                     if (input) input.focus();
                   }}
-                  className="flex w-full items-center justify-between rounded-xl border border-black/10 dark:border-white/10 bg-black/5 dark:bg-white/[0.02] px-4 py-3.5 text-left transition-all hover:border-[#907AFF]/30 hover:bg-black/10 dark:hover:bg-white/[0.04] hover:shadow-sm"
+                  className="flex w-full items-center justify-between rounded-xl border border-black/10 dark:border-white/10 bg-black/5 dark:bg-white/[0.02] px-4 py-3.5 text-left transition-all hover:border-[#907AFF]/30 hover:bg-black/10 dark:hover:bg-white/[0.04]"
                 >
                   <span className="text-[14px] font-medium text-slate-700 dark:text-white/70">+ Add general tags</span>
                 </button>
@@ -1606,10 +1424,10 @@ function Dashboard({ user }: { user: User }) {
             </div>
 
             <div className="mt-10 flex justify-end gap-3 border-t border-black/10 dark:border-white/10 pt-6">
-              <button onClick={() => setShowShelfModal(false)} className="rounded-xl border border-black/10 dark:border-white/10 bg-black/5 dark:bg-white/[0.02] px-6 py-3 text-[14px] font-semibold text-slate-700 dark:text-white/70 transition-all hover:bg-black/10 dark:hover:bg-white/[0.04] hover:shadow-sm">
+              <button onClick={() => setShowShelfModal(false)} className="rounded-xl border border-black/10 dark:border-white/10 bg-black/5 dark:bg-white/[0.02] px-6 py-3 text-[14px] font-semibold text-slate-700 dark:text-white/70 transition-all hover:bg-black/10 dark:hover:bg-white/[0.04]">
                 Cancel
               </button>
-              <button onClick={handleShelfSubmit} className="rounded-xl bg-gradient-to-r from-[#907AFF] to-[#8069EE] px-6 py-3 text-[14px] font-semibold text-white shadow-lg shadow-[#907AFF]/25 transition-all hover:from-[#8069EE] hover:to-[#7058DD] hover:shadow-xl hover:shadow-[#907AFF]/30">
+              <button onClick={handleShelfSubmit} className="rounded-xl bg-gradient-to-r from-[#907AFF] to-[#8069EE] px-6 py-3 text-[14px] font-semibold text-white transition-all hover:from-[#8069EE] hover:to-[#7058DD]">
                 Review shelf
               </button>
             </div>
@@ -1620,7 +1438,7 @@ function Dashboard({ user }: { user: User }) {
       {/* Review Shelf Modal */}
       {showReviewShelfModal && (
         <div className="fixed inset-0 z-[1000] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 overflow-y-auto">
-          <div className="relative my-8 w-full max-w-[700px] rounded-3xl border border-black/10 dark:border-white/10 bg-white/95 dark:bg-[#0a0a0f]/95 p-8 shadow-2xl backdrop-blur-xl">
+          <div className="relative my-8 w-full max-w-[700px] rounded-3xl border border-black/10 dark:border-white/10 bg-white/95 dark:bg-[#0a0a0f]/95 p-8 backdrop-blur-xl">
             <button onClick={() => setShowReviewShelfModal(false)} className="absolute right-6 top-6 text-slate-500 dark:text-white/50 transition-colors hover:text-slate-900 dark:hover:text-white">
               <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
             </button>
@@ -1668,7 +1486,7 @@ function Dashboard({ user }: { user: User }) {
       {/* Book Creation Modal */}
       {showBookModal && (
         <div className="fixed inset-0 z-[1000] flex items-start justify-center bg-black/60 backdrop-blur-sm p-4 overflow-y-auto pt-20">
-          <div className="relative my-8 w-full max-w-[900px] rounded-3xl border border-black/10 dark:border-white/10 bg-white/95 dark:bg-[#0a0a0f]/95 p-10 shadow-2xl backdrop-blur-xl">
+          <div className="relative my-8 w-full max-w-[900px] rounded-3xl border border-black/10 dark:border-white/10 bg-white/95 dark:bg-[#0a0a0f]/95 p-10 backdrop-blur-xl">
             <button onClick={() => setShowBookModal(false)} className="absolute right-6 top-6 text-slate-500 dark:text-white/50 transition-colors hover:text-slate-900 dark:hover:text-white">
               <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
             </button>
@@ -1686,7 +1504,7 @@ function Dashboard({ user }: { user: User }) {
 
             <div className="space-y-6">
               {/* Cover Upload */}
-              <button className="flex w-full items-center justify-between rounded-xl border border-black/10 dark:border-white/10 bg-black/5 dark:bg-white/[0.02] px-4 py-3.5 text-left transition-all hover:border-[#907AFF]/30 hover:bg-black/10 dark:hover:bg-white/[0.04] hover:shadow-sm">
+              <button className="flex w-full items-center justify-between rounded-xl border border-black/10 dark:border-white/10 bg-black/5 dark:bg-white/[0.02] px-4 py-3.5 text-left transition-all hover:border-[#907AFF]/30 hover:bg-black/10 dark:hover:bg-white/[0.04]">
                 <span className="text-[14px] font-medium text-slate-700 dark:text-white/70">+ Add book cover</span>
                 <input type="file" accept="image/*" className="hidden" id="book-cover" onChange={(e) => {
                   const file = e.target.files?.[0];
@@ -1711,7 +1529,7 @@ function Dashboard({ user }: { user: User }) {
               <div>
                 <button 
                   onClick={() => setBookForm({ ...bookForm, summary: bookForm.summary ? "" : " " })}
-                  className="flex w-full items-center justify-between rounded-xl border border-black/10 dark:border-white/10 bg-black/5 dark:bg-white/[0.02] px-4 py-3.5 text-left transition-all hover:border-[#907AFF]/30 hover:bg-black/10 dark:hover:bg-white/[0.04] hover:shadow-sm"
+                  className="flex w-full items-center justify-between rounded-xl border border-black/10 dark:border-white/10 bg-black/5 dark:bg-white/[0.02] px-4 py-3.5 text-left transition-all hover:border-[#907AFF]/30 hover:bg-black/10 dark:hover:bg-white/[0.04]"
                 >
                   <span className="text-[14px] font-medium text-slate-700 dark:text-white/70">+ Add summary</span>
                 </button>
@@ -1731,7 +1549,7 @@ function Dashboard({ user }: { user: User }) {
               <div>
                 <button 
                   onClick={() => setBookForm({ ...bookForm, authorsNote: bookForm.authorsNote ? "" : " " })}
-                  className="flex w-full items-center justify-between rounded-xl border border-black/10 dark:border-white/10 bg-black/5 dark:bg-white/[0.02] px-4 py-3.5 text-left transition-all hover:border-[#907AFF]/30 hover:bg-black/10 dark:hover:bg-white/[0.04] hover:shadow-sm"
+                  className="flex w-full items-center justify-between rounded-xl border border-black/10 dark:border-white/10 bg-black/5 dark:bg-white/[0.02] px-4 py-3.5 text-left transition-all hover:border-[#907AFF]/30 hover:bg-black/10 dark:hover:bg-white/[0.04]"
                 >
                   <span className="text-[14px] font-medium text-slate-700 dark:text-white/70">+ Add author&apos;s note</span>
                 </button>
@@ -1754,7 +1572,7 @@ function Dashboard({ user }: { user: User }) {
                     const input = document.getElementById("book-tags-input") as HTMLInputElement;
                     if (input) input.focus();
                   }}
-                  className="flex w-full items-center justify-between rounded-xl border border-black/10 dark:border-white/10 bg-black/5 dark:bg-white/[0.02] px-4 py-3.5 text-left transition-all hover:border-[#907AFF]/30 hover:bg-black/10 dark:hover:bg-white/[0.04] hover:shadow-sm"
+                  className="flex w-full items-center justify-between rounded-xl border border-black/10 dark:border-white/10 bg-black/5 dark:bg-white/[0.02] px-4 py-3.5 text-left transition-all hover:border-[#907AFF]/30 hover:bg-black/10 dark:hover:bg-white/[0.04]"
                 >
                   <span className="text-[14px] font-medium text-slate-700 dark:text-white/70">+ Add general tags</span>
                 </button>
@@ -1861,10 +1679,10 @@ function Dashboard({ user }: { user: User }) {
             </div>
 
             <div className="mt-10 flex justify-end gap-3 border-t border-black/10 dark:border-white/10 pt-6">
-              <button onClick={() => setShowBookModal(false)} className="rounded-xl border border-black/10 dark:border-white/10 bg-black/5 dark:bg-white/[0.02] px-6 py-3 text-[14px] font-semibold text-slate-700 dark:text-white/70 transition-all hover:bg-black/10 dark:hover:bg-white/[0.04] hover:shadow-sm">
+              <button onClick={() => setShowBookModal(false)} className="rounded-xl border border-black/10 dark:border-white/10 bg-black/5 dark:bg-white/[0.02] px-6 py-3 text-[14px] font-semibold text-slate-700 dark:text-white/70 transition-all hover:bg-black/10 dark:hover:bg-white/[0.04]">
                 Cancel
               </button>
-              <button onClick={handleBookSubmit} className="rounded-xl bg-gradient-to-r from-[#907AFF] to-[#8069EE] px-6 py-3 text-[14px] font-semibold text-white shadow-lg shadow-[#907AFF]/25 transition-all hover:from-[#8069EE] hover:to-[#7058DD] hover:shadow-xl hover:shadow-[#907AFF]/30">
+              <button onClick={handleBookSubmit} className="rounded-xl bg-gradient-to-r from-[#907AFF] to-[#8069EE] px-6 py-3 text-[14px] font-semibold text-white transition-all hover:from-[#8069EE] hover:to-[#7058DD]">
                 {bookForm.creationMethod === "write" ? "Create book" : "Upload book"}
               </button>
             </div>

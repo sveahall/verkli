@@ -128,7 +128,7 @@ export default function SectionBlock({
         {onAddBook && (
           <button
             onClick={onAddBook}
-            className="group flex h-[200px] w-[140px] items-center justify-center rounded-2xl border-2 border-dashed border-black/20 dark:border-white/10 bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-900 dark:to-slate-800 transition-all duration-300 hover:border-[#907AFF]/50 hover:bg-gradient-to-br hover:from-[#907AFF]/5 hover:to-[#E29ED5]/5 hover:shadow-lg hover:shadow-[#907AFF]/10"
+            className="group flex h-[200px] w-[140px] items-center justify-center rounded-2xl border-2 border-dashed border-black/20 dark:border-white/10 bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-900 dark:to-slate-800 transition-all duration-300 hover:border-[#907AFF]/50 hover:bg-gradient-to-br hover:from-[#907AFF]/5 hover:to-[#E29ED5]/5"
           >
             <div className="flex flex-col items-center gap-3">
               <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-to-br from-[#907AFF]/20 to-[#E29ED5]/20 transition-all duration-300 group-hover:scale-110 group-hover:from-[#907AFF]/30 group-hover:to-[#E29ED5]/30">

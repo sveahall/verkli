@@ -129,7 +129,7 @@ export default function UserMenu({ user, onSignOut, currentRole = "writer" }: Us
         <div
           role="status"
           aria-live="polite"
-          className="fixed right-6 top-6 z-[1100] rounded-lg bg-slate-900 px-4 py-2 text-[13px] font-medium text-white shadow-lg dark:bg-white dark:text-slate-900"
+          className="fixed right-6 top-6 z-[1100] rounded-lg bg-slate-900 px-4 py-2 text-[13px] font-medium text-white dark:bg-white dark:text-slate-900"
         >
           {toastMessage}
         </div>
@@ -169,7 +169,7 @@ export default function UserMenu({ user, onSignOut, currentRole = "writer" }: Us
       {isOpen && (
         <div
           ref={menuPanelRef}
-          className="absolute right-0 top-full mt-3 z-[1000] w-[280px] overflow-hidden rounded-2xl border border-black/10 dark:border-white/10 bg-white/98 dark:bg-[#0a0a0f]/98 p-1 shadow-[0_20px_60px_-15px_rgba(0,0,0,0.3)] dark:shadow-[0_20px_60px_-15px_rgba(0,0,0,0.8)] backdrop-blur-xl"
+          className="absolute right-0 top-full mt-3 z-[1000] w-[280px] overflow-hidden rounded-2xl border border-black/10 dark:border-white/10 bg-white/98 dark:bg-[#0a0a0f]/98 p-1 backdrop-blur-xl"
           onMouseDown={(e) => e.stopPropagation()}
           onClick={(e) => e.stopPropagation()}
         >

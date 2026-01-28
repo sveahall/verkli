@@ -10,7 +10,7 @@ export default function HeroWithTestimonials() {
 
       {/* Floating testimonial cards */}
       <div
-        className="testimonial-card absolute right-[10%] top-[10%] max-w-[280px] rounded-[24px] bg-gradient-to-br from-[#5B5FCF] to-[#7B7FE8] p-6 text-white shadow-lg"
+        className="testimonial-card absolute right-[10%] top-[10%] max-w-[280px] rounded-[24px] bg-gradient-to-br from-[#5B5FCF] to-[#7B7FE8] p-6 text-white"
         style={{
           animation: "float 6s ease-in-out infinite",
         }}
@@ -24,7 +24,7 @@ export default function HeroWithTestimonials() {
       </div>
 
       <div
-        className="testimonial-card absolute right-[15%] top-[45%] max-w-[280px] rounded-[24px] bg-gradient-to-br from-[#6B6FDF] to-[#8B8FF8] p-6 text-white shadow-lg"
+        className="testimonial-card absolute right-[15%] top-[45%] max-w-[280px] rounded-[24px] bg-gradient-to-br from-[#6B6FDF] to-[#8B8FF8] p-6 text-white"
         style={{
           animation: "float 6s ease-in-out infinite 2s",
         }}
@@ -38,7 +38,7 @@ export default function HeroWithTestimonials() {
       </div>
 
       <div
-        className="testimonial-card absolute bottom-[10%] right-[8%] max-w-[280px] rounded-[24px] bg-gradient-to-br from-[#5B5FCF] to-[#7B7FE8] p-6 text-white shadow-lg"
+        className="testimonial-card absolute bottom-[10%] right-[8%] max-w-[280px] rounded-[24px] bg-gradient-to-br from-[#5B5FCF] to-[#7B7FE8] p-6 text-white"
         style={{
           animation: "float 6s ease-in-out infinite 4s",
         }}
@@ -52,7 +52,7 @@ export default function HeroWithTestimonials() {
       </div>
 
       {/* Call to action button */}
-      <button className="cta-button relative z-10 rounded-full bg-gradient-to-r from-[#5B5FCF] to-[#7B7FE8] px-12 py-4 text-lg font-semibold text-white shadow-xl transition-transform hover:scale-105">
+      <button className="cta-button relative z-10 rounded-full bg-gradient-to-r from-[#5B5FCF] to-[#7B7FE8] px-12 py-4 text-lg font-semibold text-white transition-transform hover:scale-105">
         Join now
       </button>
 

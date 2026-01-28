@@ -18,7 +18,7 @@ export default function ProfileBookCard({ id, title, coverUrl, slug, status }: B
     <Link
       href={href}
       title={title}
-      className="group relative overflow-hidden rounded-[24px] border border-black/10 bg-black/[0.02] transition-all hover:-translate-y-1 hover:border-black/20 hover:shadow-xl dark:border-white/[0.08] dark:bg-white/[0.02]"
+      className="group relative overflow-hidden rounded-[24px] border border-black/10 bg-black/[0.02] transition-all hover:-translate-y-1 hover:border-black/20 dark:border-white/[0.08] dark:bg-white/[0.02]"
     >
       <div
         className="h-[200px] w-full bg-cover bg-center transition-transform duration-500 group-hover:scale-105"
