@@ -203,6 +203,7 @@ export default function GlobalNavbar() {
   const [loading, setLoading] = useState(true);
   const [searchValue, setSearchValue] = useState("");
   const [currentRole, setCurrentRole] = useState<"writer" | "reader">("writer");
+  const [homeHref, setHomeHref] = useState<string>("/");
 
   useEffect(() => {
     const supabase = createClient();
@@ -255,8 +256,20 @@ export default function GlobalNavbar() {
     if (typeof window === "undefined") return;
     if (pathname?.startsWith("/writer")) {
       window.localStorage.setItem(VERKLI_ROLE_KEY, "writer");
+      setHomeHref("/writer");
     } else if (pathname?.startsWith("/reader")) {
       window.localStorage.setItem(VERKLI_ROLE_KEY, "reader");
+      setHomeHref("/reader");
+    } else {
+      // För public pages, kolla localStorage för roll
+      const role = window.localStorage.getItem(VERKLI_ROLE_KEY);
+      if (role === "writer") {
+        setHomeHref("/writer");
+      } else if (role === "reader") {
+        setHomeHref("/reader");
+      } else {
+        setHomeHref("/");
+      }
     }
   }, [pathname]);
 
@@ -319,8 +332,8 @@ export default function GlobalNavbar() {
           <nav className="flex w-full items-center justify-between gap-6">
             {/* Logo and navigation */}
             <div className="flex items-center gap-10">
-              {/* Logo: inloggad på writer/reader → dashboard; annars startsida (väljaren visas bara när navbar är dold) */}
-              <Link href={pathname?.startsWith("/writer") ? "/writer" : pathname?.startsWith("/reader") ? "/reader" : "/"}>
+              {/* Logo: gå till rätt dashboard baserat på roll i localStorage, annars startsida */}
+              <Link href={homeHref}>
                 <img
                   src="/logo-dark.svg"
                   alt="Verkli"

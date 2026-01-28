@@ -121,7 +121,6 @@ const megaMenuColumns = [
 ];
 
 const navItems = [
-  { label: "Home" },
   { label: "Features", hasDropdown: true },
   { label: "Integrations" },
   { label: "Examples" },
@@ -418,19 +417,13 @@ function LandingPage() {
               <div className="hidden items-center gap-10 text-[17px] font-normal text-slate-900 dark:text-white lg:flex">
                 {navItems.map((item) => (
                   <div key={item.label} className="group relative">
-                    {item.label === "Home" ? (
-                      <Link href="/writer" className="nav-item transition-colors hover:text-slate-600 dark:hover:text-white/70">
-                        {item.label}
-                      </Link>
-                    ) : (
-                      <button className="nav-item flex items-center gap-2">
-                        <span>{item.label}</span>
-                        <svg className="h-3 w-3 rotate-180 transition-transform duration-200 group-hover:rotate-0" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 4.5L6 7.5L9 4.5" /></svg>
-                      </button>
-                    )}
+                    <button className="nav-item flex items-center gap-2">
+                      <span>{item.label}</span>
+                      <svg className="h-3 w-3 rotate-180 transition-transform duration-200 group-hover:rotate-0" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 4.5L6 7.5L9 4.5" /></svg>
+                    </button>
 
                     {item.hasDropdown ? (
-                      <div className="nav-dropdown pointer-events-none absolute left-0 top-full z-[1000] w-[980px] pt-6 opacity-0 transition-[opacity,transform] duration-200 group-hover:pointer-events-auto group-hover:translate-y-3 group-hover:opacity-100">
+                      <div className="nav-dropdown pointer-events-none absolute left-0 top-full mt-2 z-[1000] w-[980px] px-3 opacity-0 transition-all duration-300 ease-out group-hover:pointer-events-auto group-hover:opacity-100">
                         <GlassSurface
                           {...glassBaseProps}
                           width="100%"

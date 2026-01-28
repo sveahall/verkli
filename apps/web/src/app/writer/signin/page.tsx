@@ -105,7 +105,7 @@ export default function WriterSignIn() {
         width="480px"
         height="auto"
         borderRadius={40}
-        className="glass-card relative z-10 border border-black/10 dark:border-white/10"
+        className="glass-card relative z-10 border bg-white/90 dark:bg-slate-900/85 border-black/10 dark:border-white/10"
       >
         <div className="flex w-full flex-col items-center px-12 py-14 text-center">
           <p className="text-base font-medium tracking-wide text-slate-600 dark:text-white/50">

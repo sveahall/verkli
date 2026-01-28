@@ -34,12 +34,10 @@ const glassButtonProps = {
 export default function RoleSelection() {
   const router = useRouter();
 
-  // Inloggad användare som redan valt roll ska inte se väljaren igen – skicka till sitt dashboard
+  // Användare som redan valt roll ska inte se väljaren igen – skicka till sitt dashboard
+  // Fungerar både för inloggade och utloggade användare
   useEffect(() => {
     const go = async () => {
-      const supabase = createClient();
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
       const role = typeof window !== "undefined" ? localStorage.getItem(VERKLI_ROLE_KEY) : null;
       if (role === "writer") {
         router.replace("/writer");
