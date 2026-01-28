@@ -42,11 +42,14 @@ export default function ForgotPassword() {
   };
 
   return (
-    <main className="relative flex min-h-screen flex-col items-center justify-center overflow-hidden bg-[#0d0b14]">
+    <main
+      className="relative flex min-h-screen flex-col items-center justify-center overflow-hidden text-slate-900 dark:text-white"
+      style={{ background: "var(--auth-background)" }}
+    >
       <div className="pointer-events-none absolute inset-0 overflow-hidden">
-        <div className="absolute left-1/3 top-1/4 h-[700px] w-[700px] -translate-x-1/2 -translate-y-1/2 rounded-full bg-purple-700/40 blur-[180px]" />
-        <div className="absolute bottom-0 left-1/2 h-[600px] w-[900px] -translate-x-1/2 translate-y-1/3 rounded-full bg-purple-600/35 blur-[150px]" />
-        <div className="absolute right-0 top-1/2 h-[500px] w-[500px] -translate-y-1/2 translate-x-1/4 rounded-full bg-indigo-500/25 blur-[120px]" />
+        <div className="absolute left-1/3 top-1/4 h-[700px] w-[700px] -translate-x-1/2 -translate-y-1/2 rounded-full bg-purple-300/60 blur-[180px] dark:bg-purple-700/40" />
+        <div className="absolute bottom-0 left-1/2 h-[600px] w-[900px] -translate-x-1/2 translate-y-1/3 rounded-full bg-purple-300/50 blur-[150px] dark:bg-purple-600/35" />
+        <div className="absolute right-0 top-1/2 h-[500px] w-[500px] -translate-y-1/2 translate-x-1/4 rounded-full bg-indigo-300/40 blur-[120px] dark:bg-indigo-500/25" />
       </div>
 
       <header className="absolute left-8 top-8 z-20">
@@ -60,11 +63,11 @@ export default function ForgotPassword() {
         width="480px"
         height="auto"
         borderRadius={40}
-        className="relative z-10 border border-white/10"
+        className="relative z-10 border border-black/10 dark:border-white/10"
       >
         <div className="flex w-full flex-col items-center px-12 py-14 text-center">
-          <p className="text-base font-medium tracking-wide text-white/50">Reset password</p>
-          <h1 className="mt-4 text-[32px] font-semibold leading-[1.15] tracking-tight text-white">
+          <p className="text-base font-medium tracking-wide text-slate-600 dark:text-white/50">Reset password</p>
+          <h1 className="mt-4 text-[32px] font-semibold leading-[1.15] tracking-tight text-slate-900 dark:text-white">
             Recover your account
           </h1>
 
@@ -75,13 +78,13 @@ export default function ForgotPassword() {
           )}
 
           {success ? (
-            <div className="mt-6 w-full rounded-lg bg-emerald-500/10 px-4 py-4 text-sm text-emerald-300">
+            <div className="mt-6 w-full rounded-lg bg-emerald-500/10 px-4 py-4 text-sm text-emerald-700 dark:text-emerald-300">
               Check your email for a reset link. It may take a minute.
             </div>
           ) : (
             <form onSubmit={handleSubmit} className="mt-8 flex w-full flex-col gap-4">
               <div className="flex flex-col gap-2 text-left">
-                <label htmlFor="email" className="text-sm font-medium text-white/60">
+                <label htmlFor="email" className="text-sm font-medium text-slate-700 dark:text-white/60">
                   Email
                 </label>
                 <input
@@ -91,7 +94,7 @@ export default function ForgotPassword() {
                   onChange={(e) => setEmail(e.target.value)}
                   placeholder="you@example.com"
                   required
-                  className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-white placeholder:text-white/30 focus:border-purple-500/50 focus:outline-none focus:ring-1 focus:ring-purple-500/50"
+                  className="w-full rounded-xl border border-black/10 bg-black/5 px-4 py-3 text-slate-900 placeholder:text-slate-400 focus:border-purple-500/50 focus:outline-none focus:ring-1 focus:ring-purple-500/50 dark:border-white/10 dark:bg-white/5 dark:text-white dark:placeholder:text-white/30"
                 />
               </div>
 
@@ -101,12 +104,12 @@ export default function ForgotPassword() {
                 height="auto"
                 borderRadius={999}
                 backgroundOpacity={0.25}
-                className="mt-2 w-full border border-white/10 transition-transform hover:scale-[1.02]"
+                className="mt-2 w-full border border-black/10 transition-transform hover:scale-[1.02] dark:border-white/10"
               >
                 <button
                   type="submit"
                   disabled={loading}
-                  className="w-full px-8 py-4 text-[15px] font-medium text-white/90 disabled:opacity-50"
+                  className="w-full px-8 py-4 text-[15px] font-medium text-slate-900 disabled:opacity-50 dark:text-white/90"
                 >
                   {loading ? "Sending..." : "Send reset link"}
                 </button>
@@ -114,9 +117,9 @@ export default function ForgotPassword() {
             </form>
           )}
 
-          <p className="mt-8 text-sm text-white/40">
+          <p className="mt-8 text-sm text-slate-600 dark:text-white/40">
             Remembered it?{" "}
-            <Link href="/signin" className="text-white/70 transition hover:text-white">
+            <Link href="/signin" className="text-slate-900 transition hover:text-slate-700 dark:text-white/70 dark:hover:text-white">
               Back to sign in
             </Link>
           </p>
