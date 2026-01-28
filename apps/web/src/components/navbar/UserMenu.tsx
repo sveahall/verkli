@@ -150,12 +150,24 @@ export default function UserMenu({ user, onSignOut, currentRole = 'writer' }: Us
           e.preventDefault();
           e.stopPropagation();
         }}
-        className="flex h-[75px] w-[75px] items-center justify-center rounded-full border border-black/10 dark:border-white/10 bg-gradient-to-br from-[#907AFF]/20 to-[#E29ED5]/20 backdrop-blur-xl transition-all hover:border-black/20 dark:hover:border-white/20 focus:outline-none focus:ring-2 focus:ring-[#907AFF]/50 focus:ring-offset-2 dark:focus:ring-offset-slate-900"
+        className="flex h-9 w-9 items-center justify-center rounded-full border border-slate-300 bg-transparent text-slate-700 transition-all hover:bg-slate-100 dark:border-white/40 dark:text-white dark:hover:bg-white/10"
         aria-label="Account menu"
         aria-expanded={isOpen}
       >
-        <span className="flex h-12 w-12 items-center justify-center rounded-full bg-gradient-to-br from-[#907AFF] to-[#E29ED5] text-[18px] font-semibold text-white shadow-lg">
-          {displayName.charAt(0).toUpperCase()}
+        <span className="flex h-4 w-4 items-center justify-center">
+          <svg
+            className="h-4 w-4"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="1.7"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            aria-hidden="true"
+          >
+            <path d="M12 12a4 4 0 1 0-4-4 4 4 0 0 0 4 4Z" />
+            <path d="M4.5 20.4a7.5 7.5 0 0 1 15 0" />
+          </svg>
         </span>
       </button>
 

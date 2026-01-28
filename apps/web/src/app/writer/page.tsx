@@ -987,18 +987,14 @@ function Dashboard({ user }: { user: User }) {
     <main className="min-h-screen bg-gradient-to-b from-background via-background/95 to-background/90 text-foreground transition-colors duration-300">
 
       <div className="mx-auto max-w-[1400px] px-6 pt-24 pb-16">
-        <section className="mb-14">
-          <div className="inline-flex items-center gap-2 rounded-full border border-black/5 bg-black/5 px-3 py-1 text-[11px] font-medium text-slate-600 shadow-sm dark:border-white/10 dark:bg-white/[0.03] dark:text-white/60">
-            <span className="inline-flex h-1.5 w-1.5 rounded-full bg-[#907AFF]" />
-            <span>Writer dashboard</span>
-          </div>
-          <h1 className="mt-4 text-[34px] font-semibold tracking-[-0.04em] text-slate-900 dark:text-white">
+        <section className="mb-14 text-center">
+          <h1 className="mt-4 text-[45px] font-semibold tracking-[-0.04em] text-slate-900 dark:text-white">
             {displayName}
             <span className="ml-2 bg-gradient-to-r from-[#907AFF] via-[#E29ED5] to-[#FCC997] bg-clip-text text-transparent">
               ’s world
             </span>
           </h1>
-          <p className="mt-3 max-w-xl text-[15px] text-slate-600 dark:text-white/55">
+          <p className="mt-3 max-w-xl text-[15px] text-slate-600 dark:text-white/55 mx-auto">
             Curate shelves, experiment with new books, and keep everything you&apos;re writing in one calm workspace.
           </p>
         </section>
