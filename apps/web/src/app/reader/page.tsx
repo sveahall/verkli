@@ -27,7 +27,7 @@ type EmptyStateCardProps = {
 
 function EmptyStateCard({ children }: EmptyStateCardProps) {
   return (
-    <div className="col-span-full rounded-2xl border border-slate-200/80 bg-white/80 p-8 text-center text-[14px] text-slate-600 shadow-sm dark:border-white/15 dark:bg-white/[0.04] dark:text-white/55">
+    <div className="col-span-full rounded-2xl border border-slate-200/80 bg-white/80 p-8 text-center text-[14px] text-slate-600 dark:border-white/15 dark:bg-white/[0.04] dark:text-white/55">
       {children}
     </div>
   );
@@ -64,12 +64,12 @@ export default function ReaderLanding() {
       setLoadingBooks(true);
       const { data, error } = await supabase
         .from("books")
-        .select("id, title, cover_url, description, status, author_id")
+        .select("id, title, cover_image, description, status, author_id")
         .eq("status", "PUBLISHED")
         .limit(8);
 
       if (!error && data) {
-        setFeaturedBooks(data as Book[]);
+        setFeaturedBooks(data as unknown as Book[]);
       }
       setLoadingBooks(false);
     };
@@ -166,9 +166,9 @@ export default function ReaderLanding() {
                 className="group overflow-hidden rounded-2xl border border-black/[0.08] bg-black/[0.02] transition-all duration-300 hover:-translate-y-1 hover:border-black/20 hover:bg-black/[0.04] dark:border-white/[0.06] dark:bg-white/[0.02] dark:hover:border-white/10 dark:hover:bg-white/[0.04]"
               >
                 <div className="aspect-[3/4] overflow-hidden">
-                  {book.cover_url ? (
+                  {(book as { cover_image?: string | null }).cover_image ? (
                     <img
-                      src={book.cover_url}
+                      src={(book as { cover_image?: string | null }).cover_image!}
                       alt={book.title}
                       className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
                     />

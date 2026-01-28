@@ -447,7 +447,7 @@ export default function GlobalNavbar() {
               {/* Search bar - only on writer pages */}
               {pathname?.startsWith('/writer') && (
                 <div className="hidden md:block">
-                  <div className="flex h-11 w-[300px] items-center gap-3 rounded-full border border-black/10 bg-slate-50/50 dark:border-white/10 dark:bg-white/[0.05] pl-3 shadow-sm transition-all hover:border-black/20 dark:hover:border-white/20 hover:shadow-md">
+                  <div className="flex h-11 w-[300px] items-center gap-3 rounded-full border border-black/10 bg-slate-50/50 dark:border-white/10 dark:bg-white/[0.05] pl-3 transition-all hover:border-black/20 dark:hover:border-white/20 hover:shadow-md">
                     <svg
                       className="h-4 w-4 flex-shrink-0 text-slate-400 dark:text-white/40"
                       fill="none"

@@ -41,7 +41,7 @@ export default async function PublicShelfPage({ params }: { params: { id: string
         id,
         book_id,
         sort_index,
-        book:books(id, title, cover_url, status)
+        book:library_books(id, title, cover_url)
       )
     `
     )
@@ -69,7 +69,6 @@ export default async function PublicShelfPage({ params }: { params: { id: string
     id: string;
     title: string;
     cover_url: string | null;
-    status: string | null;
   };
 
   const books: BookSummary[] = (shelf.shelf_books ?? [])
@@ -112,7 +111,7 @@ export default async function PublicShelfPage({ params }: { params: { id: string
               {books.map((book) => (
                 <Link
                   key={book.id}
-                  href={`/writer/books/${book.id}`}
+                  href={`/writer/library/${book.id}`}
                   className="group overflow-hidden rounded-[24px] border border-black/10 bg-black/[0.02] transition-all hover:-translate-y-1 hover:border-black/20 hover:shadow-xl dark:border-white/[0.08] dark:bg-white/[0.02]"
                 >
                   <div
@@ -127,7 +126,7 @@ export default async function PublicShelfPage({ params }: { params: { id: string
                     <h3 className="text-[15px] font-semibold text-slate-900 dark:text-white">
                       {book.title}
                     </h3>
-                    <p className="text-[12px] text-slate-500 dark:text-white/40">{book.status}</p>
+                    <p className="text-[12px] text-slate-500 dark:text-white/40">Book</p>
                   </div>
                 </Link>
               ))}

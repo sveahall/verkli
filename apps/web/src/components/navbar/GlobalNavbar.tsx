@@ -348,13 +348,13 @@ export default function GlobalNavbar() {
                         </svg>
                       </button>
                       {(item === "Features" || item === "Integrations" || item === "Examples" || item === "FAQ") && (
-                        <div className="nav-dropdown pointer-events-none absolute left-1/2 top-full z-[998] w-[720px] max-w-[calc(100vw-3rem)] -translate-x-1/2 mt-4 px-3 opacity-0 transition-all duration-300 ease-out group-hover:pointer-events-auto group-hover:opacity-100">
+                        <div className="nav-dropdown pointer-events-none fixed left-1/2 top-[88px] z-[998] w-[720px] max-w-[calc(100vw-2.5rem)] -translate-x-1/2 px-3 opacity-0 transition-all duration-300 ease-out group-hover:pointer-events-auto group-hover:opacity-100">
                           <GlassSurface
                             {...dropdownGlassProps}
                             width="100%"
                             height="auto"
                             borderRadius={24}
-                            className="nav-mega border border-white/40 dark:border-white/15 px-5 py-5 md:px-8 md:py-8 shadow-[0_26px_70px_-18px_rgba(15,23,42,0.65)] dark:shadow-[0_28px_80px_-20px_rgba(0,0,0,0.95)]"
+                            className="nav-mega max-h-[calc(100vh-120px)] overflow-y-auto border border-white/40 px-5 py-5 shadow-[0_26px_70px_-18px_rgba(15,23,42,0.65)] dark:border-white/15 md:px-8 md:py-8 dark:shadow-[0_28px_80px_-20px_rgba(0,0,0,0.95)]"
                           >
                             {dropdownContent[item as keyof typeof dropdownContent] && (
                               <>
@@ -373,7 +373,7 @@ export default function GlobalNavbar() {
                                       className="group/item cursor-pointer rounded-xl p-4 transition-all duration-200 hover:bg-slate-50 dark:hover:bg-white/[0.12] hover:shadow-sm border border-transparent hover:border-slate-200 dark:hover:border-white/10"
                                     >
                                       <div className="flex items-start gap-3">
-                                        <div className="mt-1 flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-lg bg-slate-900/5 shadow-sm ring-1 ring-black/5 dark:bg-white/10 dark:ring-white/10">
+                                        <div className="mt-1 flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-lg bg-slate-900/5 ring-1 ring-black/5 dark:bg-white/10 dark:ring-white/10">
                                           <span className="h-2 w-2 rounded-full bg-gradient-to-r from-[#907AFF] via-[#E29ED5] to-[#FCC997]" />
                                         </div>
                                         <div className="flex-1 min-w-0">
@@ -444,13 +444,13 @@ export default function GlobalNavbar() {
                         )}
                       </button>
                       {item.hasDropdown && (
-                        <div className="nav-dropdown pointer-events-none absolute left-1/2 top-full z-[1000] w-[720px] max-w-[calc(100vw-3rem)] -translate-x-1/2 mt-4 px-3 opacity-0 transition-all duration-300 ease-out group-hover:pointer-events-auto group-hover:opacity-100">
+                        <div className="nav-dropdown pointer-events-none fixed left-1/2 top-[88px] z-[998] w-[720px] max-w-[calc(100vw-2.5rem)] -translate-x-1/2 px-3 opacity-0 transition-all duration-300 ease-out group-hover:pointer-events-auto group-hover:opacity-100">
                           <GlassSurface
                             {...dropdownGlassProps}
                             width="100%"
                             height="auto"
                             borderRadius={24}
-                            className="nav-mega border border-white/40 dark:border-white/15 px-5 py-5 md:px-8 md:py-8 shadow-[0_26px_70px_-18px_rgba(15,23,42,0.65)] dark:shadow-[0_28px_80px_-20px_rgba(0,0,0,0.95)]"
+                            className="nav-mega max-h-[calc(100vh-120px)] overflow-y-auto border border-white/40 px-5 py-5 shadow-[0_26px_70px_-18px_rgba(15,23,42,0.65)] dark:border-white/15 md:px-8 md:py-8 dark:shadow-[0_28px_80px_-20px_rgba(0,0,0,0.95)]"
                           >
                             {dropdownContent[item.label as keyof typeof dropdownContent] && (
                               <>
@@ -469,7 +469,7 @@ export default function GlobalNavbar() {
                                       className="group/item cursor-pointer rounded-xl p-4 transition-all duration-200 hover:bg-slate-50 dark:hover:bg-white/[0.12] hover:shadow-sm border border-transparent hover:border-slate-200 dark:hover:border-white/10"
                                     >
                                       <div className="flex items-start gap-3">
-                                        <div className="mt-1 flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-lg bg-slate-900/5 shadow-sm ring-1 ring-black/5 dark:bg-white/10 dark:ring-white/10">
+                                        <div className="mt-1 flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-lg bg-slate-900/5 ring-1 ring-black/5 dark:bg-white/10 dark:ring-white/10">
                                           <span className="h-2 w-2 rounded-full bg-gradient-to-r from-[#907AFF] via-[#E29ED5] to-[#FCC997]" />
                                         </div>
                                         <div className="flex-1 min-w-0">
@@ -542,7 +542,7 @@ export default function GlobalNavbar() {
                   <div className="hidden items-center gap-3 md:flex">
                     <ThemeToggle
                       glassProps={glassBaseProps}
-                      glassClassName="border border-slate-200/80 bg-white/80 shadow-sm dark:border-white/15 dark:bg-slate-900/85"
+                      glassClassName="border border-slate-200/80 bg-white/80 dark:border-white/15 dark:bg-slate-900/85"
                       className="h-9 w-9 text-slate-700 dark:text-white/80"
                     />
                   </div>

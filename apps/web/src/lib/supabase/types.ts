@@ -112,6 +112,47 @@ export type Database = {
           published_at?: string | null
         }
       }
+      library_books: {
+        Row: {
+          id: string
+          user_id: string
+          title: string
+          author: string | null
+          cover_url: string | null
+          summary: string | null
+          authors_note: string | null
+          content: string | null
+          tags: string[]
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          title: string
+          author?: string | null
+          cover_url?: string | null
+          summary?: string | null
+          authors_note?: string | null
+          content?: string | null
+          tags?: string[]
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          user_id?: string
+          title?: string
+          author?: string | null
+          cover_url?: string | null
+          summary?: string | null
+          authors_note?: string | null
+          content?: string | null
+          tags?: string[]
+          created_at?: string
+          updated_at?: string
+        }
+      }
       chapters: {
         Row: {
           id: string

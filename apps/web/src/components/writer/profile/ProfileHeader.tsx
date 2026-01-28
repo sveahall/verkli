@@ -31,16 +31,10 @@ export default function ProfileHeader({
   isPublic,
 }: ProfileHeaderProps) {
   return (
-    <GlassSurface
-      {...glassBaseProps}
-      width="100%"
-      height="auto"
-      borderRadius={40}
-      className="w-full border border-black/5 px-8 py-8 shadow-[0_22px_55px_-26px_rgba(15,23,42,0.65)] dark:border-white/[0.12]"
-    >
+
       <div className="flex flex-col gap-6 md:flex-row md:items-center md:justify-between">
         <div className="flex flex-col gap-5 md:flex-row md:items-center">
-          <div className="relative h-20 w-20 overflow-hidden rounded-full border border-white/80 bg-gradient-to-br from-[#907AFF]/30 via-[#B892FF]/30 to-[#E29ED5]/30 shadow-sm dark:border-white/30">
+          <div className="relative h-20 w-20 overflow-hidden rounded-full border border-white/80 bg-gradient-to-br from-[#907AFF]/30 via-[#B892FF]/30 to-[#E29ED5]/30 dark:border-white/30">
             {avatarUrl ? (
               <img src={avatarUrl} alt={displayName} className="h-full w-full object-cover" />
             ) : (
@@ -72,7 +66,7 @@ export default function ProfileHeader({
           <Link
             href="/writer/settings"
             title="Edit your public writer profile"
-            className="inline-flex items-center gap-2 rounded-full border border-black/10 bg-black/5 px-5 py-2 text-[13px] font-semibold text-slate-700 shadow-sm transition-all hover:-translate-y-0.5 hover:bg-black/10 hover:shadow-md dark:border-white/10 dark:bg-white/[0.03] dark:text-white/70 dark:hover:bg-white/[0.06]"
+            className="inline-flex items-center gap-2 rounded-full border border-black/10 bg-black/5 px-5 py-2 text-[13px] font-semibold text-slate-700 transition-all hover:-translate-y-0.5 hover:bg-black/10 hover:shadow-md dark:border-white/10 dark:bg-white/[0.03] dark:text-white/70 dark:hover:bg-white/[0.06]"
           >
             <svg
               className="h-4 w-4 text-slate-500 dark:text-white/60"
@@ -90,6 +84,5 @@ export default function ProfileHeader({
           </Link>
         </div>
       </div>
-    </GlassSurface>
   );
 }
