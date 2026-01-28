@@ -112,7 +112,7 @@ export default function SettingsPage({ user, profile }: SettingsPageProps) {
           </p>
         </header>
 
-        <section className="rounded-[28px] border border-black/10 bg-black/[0.03] p-8 dark:border-white/[0.08] dark:bg-white/[0.02]">
+        <section className="rounded-[28px] border border-black/10 p-8 dark:border-white/[0.08] dark:bg-white/[0.02]">
           <div className="flex flex-wrap items-center justify-between gap-4">
             <div>
               <h2 className="text-[18px] font-semibold text-slate-900 dark:text-white">Account</h2>
@@ -143,7 +143,7 @@ export default function SettingsPage({ user, profile }: SettingsPageProps) {
               <input
                 value={user.email}
                 readOnly
-                className="w-full rounded-xl border border-black/10 bg-black/5 px-4 py-3 text-[14px] text-slate-500 dark:border-white/10 dark:bg-white/[0.04] dark:text-white/50"
+                className="w-full rounded-xl border border-black/10 bg-black/2 px-4 py-3 text-[14px] text-slate-500 dark:border-white/10 dark:bg-white/[0.04] dark:text-white/50"
               />
             </div>
             <div className="flex items-end justify-between gap-4">
@@ -153,7 +153,7 @@ export default function SettingsPage({ user, profile }: SettingsPageProps) {
           </form>
         </section>
 
-        <section className="rounded-[28px] border border-black/10 bg-black/[0.03] p-8 dark:border-white/[0.08] dark:bg-white/[0.02]">
+        <section className="rounded-[28px] border border-black/10 p-8 dark:border-white/[0.08] dark:bg-white/[0.02]">
           <div>
             <h2 className="text-[18px] font-semibold text-slate-900 dark:text-white">Profile</h2>
             <p className="text-[14px] text-slate-600 dark:text-white/50">Public details visible on your author page.</p>
@@ -227,7 +227,7 @@ export default function SettingsPage({ user, profile }: SettingsPageProps) {
           </form>
         </section>
 
-        <section className="rounded-[28px] border border-black/10 bg-black/[0.03] p-8 dark:border-white/[0.08] dark:bg-white/[0.02]">
+        <section className="rounded-[28px] border border-black/10 p-8 dark:border-white/[0.08] dark:bg-white/[0.02]">
           <div>
             <h2 className="text-[18px] font-semibold text-slate-900 dark:text-white">Writer preferences</h2>
             <p className="text-[14px] text-slate-600 dark:text-white/50">Defaults used when you create new shelves.</p>
@@ -341,7 +341,7 @@ export default function SettingsPage({ user, profile }: SettingsPageProps) {
           </form>
         </section>
 
-        <section className="rounded-[28px] border border-black/10 bg-black/[0.03] p-8 dark:border-white/[0.08] dark:bg-white/[0.02]">
+        <section className="rounded-[28px] border border-black/10 p-8 dark:border-white/[0.08] dark:bg-white/[0.02]">
           <div>
             <h2 className="text-[18px] font-semibold text-slate-900 dark:text-white">Role</h2>
             <p className="text-[14px] text-slate-600 dark:text-white/50">You are currently signed in as a writer.</p>
@@ -360,7 +360,7 @@ export default function SettingsPage({ user, profile }: SettingsPageProps) {
           </div>
         </section>
 
-        <section className="rounded-[28px] border border-black/10 bg-black/[0.03] p-8 dark:border-white/[0.08] dark:bg-white/[0.02]">
+        <section className="rounded-[28px] border border-black/10 p-8 dark:border-white/[0.08] dark:bg-white/[0.02]">
           <div>
             <h2 className="text-[18px] font-semibold text-slate-900 dark:text-white">Security</h2>
             <p className="text-[14px] text-slate-600 dark:text-white/50">Change your password or sign out everywhere.</p>
