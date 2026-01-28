@@ -984,10 +984,24 @@ function Dashboard({ user }: { user: User }) {
   };
 
   return (
-    <main className="min-h-screen bg-background text-foreground transition-colors duration-300">
+    <main className="min-h-screen bg-gradient-to-b from-background via-background/95 to-background/90 text-foreground transition-colors duration-300">
 
-      <div className="mx-auto max-w-[1400px] px-6 py-12">
-        <section className="mb-14"><h1 className="text-[32px] font-semibold tracking-[-0.02em] text-slate-900 dark:text-white">{displayName}&apos;s world</h1><p className="mt-2 text-[15px] text-slate-600 dark:text-white/50">Your collection. Your masterpieces.</p></section>
+      <div className="mx-auto max-w-[1400px] px-6 pt-24 pb-16">
+        <section className="mb-14">
+          <div className="inline-flex items-center gap-2 rounded-full border border-black/5 bg-black/5 px-3 py-1 text-[11px] font-medium text-slate-600 shadow-sm dark:border-white/10 dark:bg-white/[0.03] dark:text-white/60">
+            <span className="inline-flex h-1.5 w-1.5 rounded-full bg-[#907AFF]" />
+            <span>Writer dashboard</span>
+          </div>
+          <h1 className="mt-4 text-[34px] font-semibold tracking-[-0.04em] text-slate-900 dark:text-white">
+            {displayName}
+            <span className="ml-2 bg-gradient-to-r from-[#907AFF] via-[#E29ED5] to-[#FCC997] bg-clip-text text-transparent">
+              ’s world
+            </span>
+          </h1>
+          <p className="mt-3 max-w-xl text-[15px] text-slate-600 dark:text-white/55">
+            Curate shelves, experiment with new books, and keep everything you&apos;re writing in one calm workspace.
+          </p>
+        </section>
 
         {/* My Library */}
         <section className="mb-20">
@@ -1328,7 +1342,7 @@ function Dashboard({ user }: { user: User }) {
 
       {/* Choice Modal - Shelf or Book */}
       {showChoiceModal && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4" onClick={() => setShowChoiceModal(false)}>
+        <div className="fixed inset-0 z-[1000] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4" onClick={() => setShowChoiceModal(false)}>
           <div className="relative w-full max-w-[600px] rounded-3xl border border-black/10 dark:border-white/10 bg-white/95 dark:bg-[#0a0a0f]/95 p-8 shadow-2xl backdrop-blur-xl" onClick={(e) => e.stopPropagation()}>
             <button onClick={() => setShowChoiceModal(false)} className="absolute right-6 top-6 text-slate-500 dark:text-white/50 transition-colors hover:text-slate-900 dark:hover:text-white">
               <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
@@ -1356,19 +1370,20 @@ function Dashboard({ user }: { user: User }) {
 
       {/* Shelf Creation Modal */}
       {showShelfModal && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 overflow-y-auto">
-          <div className="relative my-8 w-full max-w-[800px] rounded-3xl border border-black/10 dark:border-white/10 bg-white/95 dark:bg-[#0a0a0f]/95 p-8 shadow-2xl backdrop-blur-xl" onClick={(e) => e.stopPropagation()}>
+        <div className="fixed inset-0 z-[1000] flex items-start justify-center bg-black/60 backdrop-blur-sm p-4 overflow-y-auto pt-20">
+          <div className="relative my-8 w-full max-w-[800px] rounded-3xl border border-black/10 dark:border-white/10 bg-white/95 dark:bg-[#0a0a0f]/95 p-10 shadow-2xl backdrop-blur-xl" onClick={(e) => e.stopPropagation()}>
             <button onClick={() => setShowShelfModal(false)} className="absolute right-6 top-6 text-slate-500 dark:text-white/50 transition-colors hover:text-slate-900 dark:hover:text-white">
               <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
             </button>
-            <div className="mb-6 space-y-3">
+            <h2 className="mb-8 text-[24px] font-semibold text-slate-900 dark:text-white">Create new shelf</h2>
+            <div className="mb-8 space-y-4">
               <div className="flex items-center gap-3">
                 <input
                   type="text"
                   value={shelfForm.name}
                   onChange={(e) => setShelfForm({ ...shelfForm, name: e.target.value })}
                   placeholder="Shelf name"
-                  className="flex-1 rounded-xl border border-black/10 dark:border-white/10 bg-black/5 dark:bg-white/[0.04] px-4 py-2.5 text-[20px] font-semibold text-slate-900 dark:text-white outline-none transition-all focus:border-[#907AFF]/50 focus:bg-black/10 dark:focus:bg-white/[0.06]"
+                  className="flex-1 rounded-xl border border-black/10 dark:border-white/10 bg-black/5 dark:bg-white/[0.04] px-4 py-3 text-[20px] font-semibold text-slate-900 dark:text-white outline-none transition-all focus:border-[#907AFF]/50 focus:bg-black/10 dark:focus:bg-white/[0.06] focus:ring-2 focus:ring-[#907AFF]/20"
                 />
                 <svg className="h-5 w-5 text-slate-400 dark:text-white/40" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" /></svg>
               </div>
@@ -1377,21 +1392,21 @@ function Dashboard({ user }: { user: User }) {
                 value={shelfForm.subtitle}
                 onChange={(e) => setShelfForm({ ...shelfForm, subtitle: e.target.value })}
                 placeholder="Optional subtitle"
-                className="w-full rounded-xl border border-black/10 dark:border-white/10 bg-black/5 dark:bg-white/[0.04] px-4 py-2.5 text-[14px] text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-white/30 outline-none transition-all focus:border-[#907AFF]/50 focus:bg-black/10 dark:focus:bg-white/[0.06]"
+                className="w-full rounded-xl border border-black/10 dark:border-white/10 bg-black/5 dark:bg-white/[0.04] px-4 py-3 text-[14px] text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-white/30 outline-none transition-all focus:border-[#907AFF]/50 focus:bg-black/10 dark:focus:bg-white/[0.06] focus:ring-2 focus:ring-[#907AFF]/20"
               />
             </div>
             
-            <div className="space-y-4">
+            <div className="space-y-6">
               {/* Cover Chooser */}
               <div>
-                <div className="mb-3 flex items-center gap-2">
-                  <span className="text-[14px] font-medium text-slate-700 dark:text-white/70">Cover</span>
+                <div className="mb-4 flex items-center gap-3">
+                  <span className="text-[15px] font-semibold text-slate-900 dark:text-white">Cover</span>
                   <div className="flex gap-2">
                     <button
                       onClick={() => setShelfForm({ ...shelfForm, coverType: "image" })}
-                      className={`rounded-lg px-3 py-1 text-[12px] transition-all ${
+                      className={`rounded-lg px-4 py-1.5 text-[13px] font-medium transition-all ${
                         shelfForm.coverType === "image"
-                          ? "bg-[#907AFF] text-white"
+                          ? "bg-[#907AFF] text-white shadow-sm"
                           : "bg-black/5 dark:bg-white/[0.02] text-slate-600 dark:text-white/70 hover:bg-black/10 dark:hover:bg-white/[0.04]"
                       }`}
                     >
@@ -1399,9 +1414,9 @@ function Dashboard({ user }: { user: User }) {
                     </button>
                     <button
                       onClick={() => setShelfForm({ ...shelfForm, coverType: "gradient" })}
-                      className={`rounded-lg px-3 py-1 text-[12px] transition-all ${
+                      className={`rounded-lg px-4 py-1.5 text-[13px] font-medium transition-all ${
                         shelfForm.coverType === "gradient"
-                          ? "bg-[#907AFF] text-white"
+                          ? "bg-[#907AFF] text-white shadow-sm"
                           : "bg-black/5 dark:bg-white/[0.02] text-slate-600 dark:text-white/70 hover:bg-black/10 dark:hover:bg-white/[0.04]"
                       }`}
                     >
@@ -1412,8 +1427,8 @@ function Dashboard({ user }: { user: User }) {
                 
                 {shelfForm.coverType === "image" ? (
                   <>
-                    <button className="flex w-full items-center justify-between rounded-xl border border-black/10 dark:border-white/10 bg-black/5 dark:bg-white/[0.02] px-4 py-3 text-left transition-all hover:border-[#907AFF]/30 hover:bg-black/10 dark:hover:bg-white/[0.04]">
-                      <span className="text-[14px] text-slate-700 dark:text-white/70">+ Add shelf cover</span>
+                    <button className="flex w-full items-center justify-between rounded-xl border border-black/10 dark:border-white/10 bg-black/5 dark:bg-white/[0.02] px-4 py-3.5 text-left transition-all hover:border-[#907AFF]/30 hover:bg-black/10 dark:hover:bg-white/[0.04] hover:shadow-sm">
+                      <span className="text-[14px] font-medium text-slate-700 dark:text-white/70">+ Add shelf cover</span>
                       <input type="file" accept="image/*" className="hidden" id="shelf-cover" onChange={(e) => {
                         const file = e.target.files?.[0];
                         if (file) {
@@ -1422,7 +1437,7 @@ function Dashboard({ user }: { user: User }) {
                           reader.readAsDataURL(file);
                         }
                       }} />
-                      <label htmlFor="shelf-cover" className="cursor-pointer text-[#907AFF]">Upload</label>
+                      <label htmlFor="shelf-cover" className="cursor-pointer rounded-lg bg-[#907AFF]/10 px-3 py-1.5 text-[13px] font-medium text-[#907AFF] transition-colors hover:bg-[#907AFF]/20">Upload</label>
                     </button>
                     {shelfForm.cover && (
                       <div className="relative mt-2 h-48 w-32 overflow-hidden rounded-lg">
@@ -1456,23 +1471,23 @@ function Dashboard({ user }: { user: User }) {
                       type="text"
                       value={shelfForm.coverGradient}
                       onChange={(e) => setShelfForm({ ...shelfForm, coverGradient: e.target.value })}
-                      placeholder="Or enter custom gradient CSS"
-                      className="w-full rounded-xl border border-black/10 dark:border-white/10 bg-black/5 dark:bg-white/[0.04] px-4 py-2.5 text-[13px] text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-white/30 outline-none transition-all focus:border-[#907AFF]/50 focus:bg-black/10 dark:focus:bg-white/[0.06]"
+                    placeholder="Or enter custom gradient CSS"
+                    className="w-full rounded-xl border border-black/10 dark:border-white/10 bg-black/5 dark:bg-white/[0.04] px-4 py-3 text-[13px] text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-white/30 outline-none transition-all focus:border-[#907AFF]/50 focus:bg-black/10 dark:focus:bg-white/[0.06] focus:ring-2 focus:ring-[#907AFF]/20"
                     />
                   </div>
                 )}
               </div>
 
               {/* Typography Settings */}
-              <div className="rounded-xl border border-black/10 dark:border-white/10 bg-black/5 dark:bg-white/[0.02] p-4">
-                <h4 className="mb-4 text-[14px] font-medium text-slate-700 dark:text-white/70">Typography Settings</h4>
+              <div className="rounded-xl border border-black/10 dark:border-white/10 bg-black/5 dark:bg-white/[0.02] p-5">
+                <h4 className="mb-5 text-[15px] font-semibold text-slate-900 dark:text-white">Typography Settings</h4>
                 <div className="space-y-3">
                   <div>
                     <label className="mb-1 block text-[12px] text-slate-600 dark:text-white/50">Font Family</label>
                     <select
                       value={shelfForm.typography.fontFamily}
                       onChange={(e) => setShelfForm({ ...shelfForm, typography: { ...shelfForm.typography, fontFamily: e.target.value } })}
-                      className="w-full rounded-lg border border-black/10 dark:border-white/10 bg-black/5 dark:bg-white/[0.04] px-3 py-2 text-[13px] text-slate-900 dark:text-white outline-none transition-all focus:border-[#907AFF]/50"
+                      className="w-full rounded-lg border border-black/10 dark:border-white/10 bg-black/5 dark:bg-white/[0.04] px-3 py-2.5 text-[13px] text-slate-900 dark:text-white outline-none transition-all focus:border-[#907AFF]/50 focus:ring-2 focus:ring-[#907AFF]/20"
                     >
                       <option value="Inter">Inter</option>
                       <option value="Georgia">Georgia</option>
@@ -1486,7 +1501,7 @@ function Dashboard({ user }: { user: User }) {
                     <select
                       value={shelfForm.typography.fontWeight}
                       onChange={(e) => setShelfForm({ ...shelfForm, typography: { ...shelfForm.typography, fontWeight: e.target.value } })}
-                      className="w-full rounded-lg border border-black/10 dark:border-white/10 bg-black/5 dark:bg-white/[0.04] px-3 py-2 text-[13px] text-slate-900 dark:text-white outline-none transition-all focus:border-[#907AFF]/50"
+                      className="w-full rounded-lg border border-black/10 dark:border-white/10 bg-black/5 dark:bg-white/[0.04] px-3 py-2.5 text-[13px] text-slate-900 dark:text-white outline-none transition-all focus:border-[#907AFF]/50 focus:ring-2 focus:ring-[#907AFF]/20"
                     >
                       <option value="400">Regular (400)</option>
                       <option value="500">Medium (500)</option>
@@ -1502,7 +1517,7 @@ function Dashboard({ user }: { user: User }) {
                         value={shelfForm.typography.titleSize}
                         onChange={(e) => setShelfForm({ ...shelfForm, typography: { ...shelfForm.typography, titleSize: e.target.value } })}
                         placeholder="20px"
-                        className="w-full rounded-lg border border-black/10 dark:border-white/10 bg-black/5 dark:bg-white/[0.04] px-3 py-2 text-[13px] text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-white/30 outline-none transition-all focus:border-[#907AFF]/50"
+                        className="w-full rounded-lg border border-black/10 dark:border-white/10 bg-black/5 dark:bg-white/[0.04] px-3 py-2.5 text-[13px] text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-white/30 outline-none transition-all focus:border-[#907AFF]/50 focus:ring-2 focus:ring-[#907AFF]/20"
                       />
                     </div>
                     <div>
@@ -1512,7 +1527,7 @@ function Dashboard({ user }: { user: User }) {
                         value={shelfForm.typography.subtitleSize}
                         onChange={(e) => setShelfForm({ ...shelfForm, typography: { ...shelfForm.typography, subtitleSize: e.target.value } })}
                         placeholder="14px"
-                        className="w-full rounded-lg border border-black/10 dark:border-white/10 bg-black/5 dark:bg-white/[0.04] px-3 py-2 text-[13px] text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-white/30 outline-none transition-all focus:border-[#907AFF]/50"
+                        className="w-full rounded-lg border border-black/10 dark:border-white/10 bg-black/5 dark:bg-white/[0.04] px-3 py-2.5 text-[13px] text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-white/30 outline-none transition-all focus:border-[#907AFF]/50 focus:ring-2 focus:ring-[#907AFF]/20"
                       />
                     </div>
                   </div>
@@ -1523,14 +1538,14 @@ function Dashboard({ user }: { user: User }) {
                         type="color"
                         value={shelfForm.typography.textColor}
                         onChange={(e) => setShelfForm({ ...shelfForm, typography: { ...shelfForm.typography, textColor: e.target.value } })}
-                        className="h-10 w-20 cursor-pointer rounded-lg border border-black/10 dark:border-white/10"
+                        className="h-10 w-20 cursor-pointer rounded-lg border border-black/10 dark:border-white/10 transition-all hover:ring-2 hover:ring-[#907AFF]/30"
                       />
                       <input
                         type="text"
                         value={shelfForm.typography.textColor}
                         onChange={(e) => setShelfForm({ ...shelfForm, typography: { ...shelfForm.typography, textColor: e.target.value } })}
                         placeholder="#ffffff"
-                        className="flex-1 rounded-lg border border-black/10 dark:border-white/10 bg-black/5 dark:bg-white/[0.04] px-3 py-2 text-[13px] text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-white/30 outline-none transition-all focus:border-[#907AFF]/50"
+                        className="flex-1 rounded-lg border border-black/10 dark:border-white/10 bg-black/5 dark:bg-white/[0.04] px-3 py-2.5 text-[13px] text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-white/30 outline-none transition-all focus:border-[#907AFF]/50 focus:ring-2 focus:ring-[#907AFF]/20"
                       />
                     </div>
                   </div>
@@ -1541,16 +1556,16 @@ function Dashboard({ user }: { user: User }) {
               <div>
                 <button 
                   onClick={() => setShelfForm({ ...shelfForm, description: shelfForm.description ? "" : " " })}
-                  className="flex w-full items-center justify-between rounded-xl border border-black/10 dark:border-white/10 bg-black/5 dark:bg-white/[0.02] px-4 py-3 text-left transition-all hover:border-[#907AFF]/30 hover:bg-black/10 dark:hover:bg-white/[0.04]"
+                  className="flex w-full items-center justify-between rounded-xl border border-black/10 dark:border-white/10 bg-black/5 dark:bg-white/[0.02] px-4 py-3.5 text-left transition-all hover:border-[#907AFF]/30 hover:bg-black/10 dark:hover:bg-white/[0.04] hover:shadow-sm"
                 >
-                  <span className="text-[14px] text-slate-700 dark:text-white/70">+ Add summary</span>
+                  <span className="text-[14px] font-medium text-slate-700 dark:text-white/70">+ Add summary</span>
                 </button>
                 {shelfForm.description && (
                   <textarea
                     value={shelfForm.description}
                     onChange={(e) => setShelfForm({ ...shelfForm, description: e.target.value })}
                     placeholder="Describe your shelf..."
-                    className="mt-2 w-full rounded-xl border border-black/10 dark:border-white/10 bg-black/5 dark:bg-white/[0.04] px-4 py-3 text-[14px] text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-white/30 outline-none transition-all focus:border-[#907AFF]/50 focus:bg-black/10 dark:focus:bg-white/[0.06]"
+                    className="mt-2 w-full rounded-xl border border-black/10 dark:border-white/10 bg-black/5 dark:bg-white/[0.04] px-4 py-3 text-[14px] text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-white/30 outline-none transition-all focus:border-[#907AFF]/50 focus:bg-black/10 dark:focus:bg-white/[0.06] focus:ring-2 focus:ring-[#907AFF]/20"
                     rows={4}
                     autoFocus
                   />
@@ -1561,16 +1576,16 @@ function Dashboard({ user }: { user: User }) {
               <div>
                 <button 
                   onClick={() => setShelfForm({ ...shelfForm, authorsNote: shelfForm.authorsNote ? "" : " " })}
-                  className="flex w-full items-center justify-between rounded-xl border border-black/10 dark:border-white/10 bg-black/5 dark:bg-white/[0.02] px-4 py-3 text-left transition-all hover:border-[#907AFF]/30 hover:bg-black/10 dark:hover:bg-white/[0.04]"
+                  className="flex w-full items-center justify-between rounded-xl border border-black/10 dark:border-white/10 bg-black/5 dark:bg-white/[0.02] px-4 py-3.5 text-left transition-all hover:border-[#907AFF]/30 hover:bg-black/10 dark:hover:bg-white/[0.04] hover:shadow-sm"
                 >
-                  <span className="text-[14px] text-slate-700 dark:text-white/70">+ Add author&apos;s note</span>
+                  <span className="text-[14px] font-medium text-slate-700 dark:text-white/70">+ Add author&apos;s note</span>
                 </button>
                 {shelfForm.authorsNote && (
                   <textarea
                     value={shelfForm.authorsNote}
                     onChange={(e) => setShelfForm({ ...shelfForm, authorsNote: e.target.value })}
                     placeholder="Add a personal note about this shelf..."
-                    className="mt-2 w-full rounded-xl border border-black/10 dark:border-white/10 bg-black/5 dark:bg-white/[0.04] px-4 py-3 text-[14px] text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-white/30 outline-none transition-all focus:border-[#907AFF]/50 focus:bg-black/10 dark:focus:bg-white/[0.06]"
+                    className="mt-2 w-full rounded-xl border border-black/10 dark:border-white/10 bg-black/5 dark:bg-white/[0.04] px-4 py-3 text-[14px] text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-white/30 outline-none transition-all focus:border-[#907AFF]/50 focus:bg-black/10 dark:focus:bg-white/[0.06] focus:ring-2 focus:ring-[#907AFF]/20"
                     rows={3}
                     autoFocus
                   />
@@ -1584,9 +1599,9 @@ function Dashboard({ user }: { user: User }) {
                     const input = document.getElementById("shelf-tags-input") as HTMLInputElement;
                     if (input) input.focus();
                   }}
-                  className="flex w-full items-center justify-between rounded-xl border border-black/10 dark:border-white/10 bg-black/5 dark:bg-white/[0.02] px-4 py-3 text-left transition-all hover:border-[#907AFF]/30 hover:bg-black/10 dark:hover:bg-white/[0.04]"
+                  className="flex w-full items-center justify-between rounded-xl border border-black/10 dark:border-white/10 bg-black/5 dark:bg-white/[0.02] px-4 py-3.5 text-left transition-all hover:border-[#907AFF]/30 hover:bg-black/10 dark:hover:bg-white/[0.04] hover:shadow-sm"
                 >
-                  <span className="text-[14px] text-slate-700 dark:text-white/70">+ Add general tags</span>
+                  <span className="text-[14px] font-medium text-slate-700 dark:text-white/70">+ Add general tags</span>
                 </button>
                 {shelfForm.tags.length > 0 && (
                   <div className="mt-2 flex flex-wrap gap-2">
@@ -1603,7 +1618,7 @@ function Dashboard({ user }: { user: User }) {
                 <input
                   id="shelf-tags-input"
                   type="text"
-                  placeholder="Enter tags separated by commas, then press Enter..."
+                    placeholder="Enter tags separated by commas, then press Enter..."
                   onKeyDown={(e) => {
                     if (e.key === "Enter") {
                       e.preventDefault();
@@ -1614,16 +1629,16 @@ function Dashboard({ user }: { user: User }) {
                       }
                     }
                   }}
-                  className="mt-2 w-full rounded-xl border border-black/10 dark:border-white/10 bg-black/5 dark:bg-white/[0.04] px-4 py-3 text-[14px] text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-white/30 outline-none transition-all focus:border-[#907AFF]/50 focus:bg-black/10 dark:focus:bg-white/[0.06]"
+                  className="mt-2 w-full rounded-xl border border-black/10 dark:border-white/10 bg-black/5 dark:bg-white/[0.04] px-4 py-3 text-[14px] text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-white/30 outline-none transition-all focus:border-[#907AFF]/50 focus:bg-black/10 dark:focus:bg-white/[0.06] focus:ring-2 focus:ring-[#907AFF]/20"
                 />
               </div>
             </div>
 
-            <div className="mt-8 flex justify-end gap-3">
-              <button onClick={() => setShowShelfModal(false)} className="rounded-xl border border-black/10 dark:border-white/10 bg-black/5 dark:bg-white/[0.02] px-6 py-2.5 text-[14px] font-medium text-slate-700 dark:text-white/70 transition-all hover:bg-black/10 dark:hover:bg-white/[0.04]">
+            <div className="mt-10 flex justify-end gap-3 border-t border-black/10 dark:border-white/10 pt-6">
+              <button onClick={() => setShowShelfModal(false)} className="rounded-xl border border-black/10 dark:border-white/10 bg-black/5 dark:bg-white/[0.02] px-6 py-3 text-[14px] font-semibold text-slate-700 dark:text-white/70 transition-all hover:bg-black/10 dark:hover:bg-white/[0.04] hover:shadow-sm">
                 Cancel
               </button>
-              <button onClick={handleShelfSubmit} className="rounded-xl bg-[#907AFF] px-6 py-2.5 text-[14px] font-medium text-white transition-all hover:bg-[#8069EE]">
+              <button onClick={handleShelfSubmit} className="rounded-xl bg-gradient-to-r from-[#907AFF] to-[#8069EE] px-6 py-3 text-[14px] font-semibold text-white shadow-lg shadow-[#907AFF]/25 transition-all hover:from-[#8069EE] hover:to-[#7058DD] hover:shadow-xl hover:shadow-[#907AFF]/30">
                 Review shelf
               </button>
             </div>
@@ -1633,7 +1648,7 @@ function Dashboard({ user }: { user: User }) {
 
       {/* Review Shelf Modal */}
       {showReviewShelfModal && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 overflow-y-auto">
+        <div className="fixed inset-0 z-[1000] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 overflow-y-auto">
           <div className="relative my-8 w-full max-w-[700px] rounded-3xl border border-black/10 dark:border-white/10 bg-white/95 dark:bg-[#0a0a0f]/95 p-8 shadow-2xl backdrop-blur-xl">
             <button onClick={() => setShowReviewShelfModal(false)} className="absolute right-6 top-6 text-slate-500 dark:text-white/50 transition-colors hover:text-slate-900 dark:hover:text-white">
               <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
@@ -1681,26 +1696,27 @@ function Dashboard({ user }: { user: User }) {
 
       {/* Book Creation Modal */}
       {showBookModal && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 overflow-y-auto">
-          <div className="relative my-8 w-full max-w-[900px] rounded-3xl border border-black/10 dark:border-white/10 bg-white/95 dark:bg-[#0a0a0f]/95 p-8 shadow-2xl backdrop-blur-xl">
+        <div className="fixed inset-0 z-[1000] flex items-start justify-center bg-black/60 backdrop-blur-sm p-4 overflow-y-auto pt-20">
+          <div className="relative my-8 w-full max-w-[900px] rounded-3xl border border-black/10 dark:border-white/10 bg-white/95 dark:bg-[#0a0a0f]/95 p-10 shadow-2xl backdrop-blur-xl">
             <button onClick={() => setShowBookModal(false)} className="absolute right-6 top-6 text-slate-500 dark:text-white/50 transition-colors hover:text-slate-900 dark:hover:text-white">
               <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
             </button>
-            <div className="mb-6 flex items-center gap-3">
+            <h2 className="mb-8 text-[24px] font-semibold text-slate-900 dark:text-white">Create new book</h2>
+            <div className="mb-8 flex items-center gap-3">
               <input
                 type="text"
                 value={bookForm.title}
                 onChange={(e) => setBookForm({ ...bookForm, title: e.target.value })}
                 placeholder="New section"
-                className="flex-1 rounded-xl border border-black/10 dark:border-white/10 bg-black/5 dark:bg-white/[0.04] px-4 py-2.5 text-[20px] font-semibold text-slate-900 dark:text-white outline-none transition-all focus:border-[#907AFF]/50 focus:bg-black/10 dark:focus:bg-white/[0.06]"
+                className="flex-1 rounded-xl border border-black/10 dark:border-white/10 bg-black/5 dark:bg-white/[0.04] px-4 py-3 text-[20px] font-semibold text-slate-900 dark:text-white outline-none transition-all focus:border-[#907AFF]/50 focus:bg-black/10 dark:focus:bg-white/[0.06] focus:ring-2 focus:ring-[#907AFF]/20"
               />
               <svg className="h-5 w-5 text-slate-400 dark:text-white/40" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" /></svg>
             </div>
 
-            <div className="space-y-4">
+            <div className="space-y-6">
               {/* Cover Upload */}
-              <button className="flex w-full items-center justify-between rounded-xl border border-black/10 dark:border-white/10 bg-black/5 dark:bg-white/[0.02] px-4 py-3 text-left transition-all hover:border-[#907AFF]/30 hover:bg-black/10 dark:hover:bg-white/[0.04]">
-                <span className="text-[14px] text-slate-700 dark:text-white/70">+ Add book cover</span>
+              <button className="flex w-full items-center justify-between rounded-xl border border-black/10 dark:border-white/10 bg-black/5 dark:bg-white/[0.02] px-4 py-3.5 text-left transition-all hover:border-[#907AFF]/30 hover:bg-black/10 dark:hover:bg-white/[0.04] hover:shadow-sm">
+                <span className="text-[14px] font-medium text-slate-700 dark:text-white/70">+ Add book cover</span>
                 <input type="file" accept="image/*" className="hidden" id="book-cover" onChange={(e) => {
                   const file = e.target.files?.[0];
                   if (file) {
@@ -1709,7 +1725,7 @@ function Dashboard({ user }: { user: User }) {
                     reader.readAsDataURL(file);
                   }
                 }} />
-                <label htmlFor="book-cover" className="cursor-pointer text-[#907AFF]">Upload</label>
+                <label htmlFor="book-cover" className="cursor-pointer rounded-lg bg-[#907AFF]/10 px-3 py-1.5 text-[13px] font-medium text-[#907AFF] transition-colors hover:bg-[#907AFF]/20">Upload</label>
               </button>
               {bookForm.cover && (
                 <div className="relative h-48 w-32 overflow-hidden rounded-lg">
@@ -1724,16 +1740,16 @@ function Dashboard({ user }: { user: User }) {
               <div>
                 <button 
                   onClick={() => setBookForm({ ...bookForm, summary: bookForm.summary ? "" : " " })}
-                  className="flex w-full items-center justify-between rounded-xl border border-black/10 dark:border-white/10 bg-black/5 dark:bg-white/[0.02] px-4 py-3 text-left transition-all hover:border-[#907AFF]/30 hover:bg-black/10 dark:hover:bg-white/[0.04]"
+                  className="flex w-full items-center justify-between rounded-xl border border-black/10 dark:border-white/10 bg-black/5 dark:bg-white/[0.02] px-4 py-3.5 text-left transition-all hover:border-[#907AFF]/30 hover:bg-black/10 dark:hover:bg-white/[0.04] hover:shadow-sm"
                 >
-                  <span className="text-[14px] text-slate-700 dark:text-white/70">+ Add summary</span>
+                  <span className="text-[14px] font-medium text-slate-700 dark:text-white/70">+ Add summary</span>
                 </button>
                 {bookForm.summary && (
                   <textarea
                     value={bookForm.summary}
                     onChange={(e) => setBookForm({ ...bookForm, summary: e.target.value })}
                     placeholder="Write a summary of your book..."
-                    className="mt-2 w-full rounded-xl border border-black/10 dark:border-white/10 bg-black/5 dark:bg-white/[0.04] px-4 py-3 text-[14px] text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-white/30 outline-none transition-all focus:border-[#907AFF]/50 focus:bg-black/10 dark:focus:bg-white/[0.06]"
+                    className="mt-2 w-full rounded-xl border border-black/10 dark:border-white/10 bg-black/5 dark:bg-white/[0.04] px-4 py-3 text-[14px] text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-white/30 outline-none transition-all focus:border-[#907AFF]/50 focus:bg-black/10 dark:focus:bg-white/[0.06] focus:ring-2 focus:ring-[#907AFF]/20"
                     rows={4}
                     autoFocus
                   />
@@ -1744,16 +1760,16 @@ function Dashboard({ user }: { user: User }) {
               <div>
                 <button 
                   onClick={() => setBookForm({ ...bookForm, authorsNote: bookForm.authorsNote ? "" : " " })}
-                  className="flex w-full items-center justify-between rounded-xl border border-black/10 dark:border-white/10 bg-black/5 dark:bg-white/[0.02] px-4 py-3 text-left transition-all hover:border-[#907AFF]/30 hover:bg-black/10 dark:hover:bg-white/[0.04]"
+                  className="flex w-full items-center justify-between rounded-xl border border-black/10 dark:border-white/10 bg-black/5 dark:bg-white/[0.02] px-4 py-3.5 text-left transition-all hover:border-[#907AFF]/30 hover:bg-black/10 dark:hover:bg-white/[0.04] hover:shadow-sm"
                 >
-                  <span className="text-[14px] text-slate-700 dark:text-white/70">+ Add author&apos;s note</span>
+                  <span className="text-[14px] font-medium text-slate-700 dark:text-white/70">+ Add author&apos;s note</span>
                 </button>
                 {bookForm.authorsNote && (
                   <textarea
                     value={bookForm.authorsNote}
                     onChange={(e) => setBookForm({ ...bookForm, authorsNote: e.target.value })}
                     placeholder="Add a personal note about this book..."
-                    className="mt-2 w-full rounded-xl border border-black/10 dark:border-white/10 bg-black/5 dark:bg-white/[0.04] px-4 py-3 text-[14px] text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-white/30 outline-none transition-all focus:border-[#907AFF]/50 focus:bg-black/10 dark:focus:bg-white/[0.06]"
+                    className="mt-2 w-full rounded-xl border border-black/10 dark:border-white/10 bg-black/5 dark:bg-white/[0.04] px-4 py-3 text-[14px] text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-white/30 outline-none transition-all focus:border-[#907AFF]/50 focus:bg-black/10 dark:focus:bg-white/[0.06] focus:ring-2 focus:ring-[#907AFF]/20"
                     rows={3}
                     autoFocus
                   />
@@ -1767,9 +1783,9 @@ function Dashboard({ user }: { user: User }) {
                     const input = document.getElementById("book-tags-input") as HTMLInputElement;
                     if (input) input.focus();
                   }}
-                  className="flex w-full items-center justify-between rounded-xl border border-black/10 dark:border-white/10 bg-black/5 dark:bg-white/[0.02] px-4 py-3 text-left transition-all hover:border-[#907AFF]/30 hover:bg-black/10 dark:hover:bg-white/[0.04]"
+                  className="flex w-full items-center justify-between rounded-xl border border-black/10 dark:border-white/10 bg-black/5 dark:bg-white/[0.02] px-4 py-3.5 text-left transition-all hover:border-[#907AFF]/30 hover:bg-black/10 dark:hover:bg-white/[0.04] hover:shadow-sm"
                 >
-                  <span className="text-[14px] text-slate-700 dark:text-white/70">+ Add general tags</span>
+                  <span className="text-[14px] font-medium text-slate-700 dark:text-white/70">+ Add general tags</span>
                 </button>
                 {bookForm.tags.length > 0 && (
                   <div className="mt-2 flex flex-wrap gap-2">
@@ -1797,20 +1813,20 @@ function Dashboard({ user }: { user: User }) {
                       }
                     }
                   }}
-                  className="mt-2 w-full rounded-xl border border-black/10 dark:border-white/10 bg-black/5 dark:bg-white/[0.04] px-4 py-3 text-[14px] text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-white/30 outline-none transition-all focus:border-[#907AFF]/50 focus:bg-black/10 dark:focus:bg-white/[0.06]"
+                  className="mt-2 w-full rounded-xl border border-black/10 dark:border-white/10 bg-black/5 dark:bg-white/[0.04] px-4 py-3 text-[14px] text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-white/30 outline-none transition-all focus:border-[#907AFF]/50 focus:bg-black/10 dark:focus:bg-white/[0.06] focus:ring-2 focus:ring-[#907AFF]/20"
                 />
               </div>
 
               {/* Creation Method Choice */}
-              <div className="mt-6 rounded-xl border border-black/10 dark:border-white/10 bg-black/5 dark:bg-white/[0.02] p-6">
-                <h3 className="mb-4 text-[16px] font-semibold text-slate-900 dark:text-white">How do you want to create your book?</h3>
+              <div className="rounded-xl border border-black/10 dark:border-white/10 bg-black/5 dark:bg-white/[0.02] p-6">
+                <h3 className="mb-5 text-[16px] font-semibold text-slate-900 dark:text-white">How do you want to create your book?</h3>
                 <div className="grid gap-4 md:grid-cols-2">
                   <button
                     onClick={() => setBookForm({ ...bookForm, creationMethod: "write" })}
-                    className={`rounded-xl border p-4 text-left transition-all ${
+                    className={`rounded-xl border p-5 text-left transition-all ${
                       bookForm.creationMethod === "write"
-                        ? "border-[#907AFF]/50 bg-[#907AFF]/10"
-                        : "border-black/10 dark:border-white/10 bg-black/5 dark:bg-white/[0.02] hover:border-[#907AFF]/30"
+                        ? "border-[#907AFF]/50 bg-[#907AFF]/10 shadow-sm ring-2 ring-[#907AFF]/30"
+                        : "border-black/10 dark:border-white/10 bg-black/5 dark:bg-white/[0.02] hover:border-[#907AFF]/30 hover:bg-black/10 dark:hover:bg-white/[0.04]"
                     }`}
                   >
                     <div className="mb-2 text-[16px] font-semibold text-slate-900 dark:text-white">Create book in section</div>
@@ -1818,10 +1834,10 @@ function Dashboard({ user }: { user: User }) {
                   </button>
                   <button
                     onClick={() => setBookForm({ ...bookForm, creationMethod: "upload" })}
-                    className={`rounded-xl border p-4 text-left transition-all ${
+                    className={`rounded-xl border p-5 text-left transition-all ${
                       bookForm.creationMethod === "upload"
-                        ? "border-[#907AFF]/50 bg-[#907AFF]/10"
-                        : "border-black/10 dark:border-white/10 bg-black/5 dark:bg-white/[0.02] hover:border-[#907AFF]/30"
+                        ? "border-[#907AFF]/50 bg-[#907AFF]/10 shadow-sm ring-2 ring-[#907AFF]/30"
+                        : "border-black/10 dark:border-white/10 bg-black/5 dark:bg-white/[0.02] hover:border-[#907AFF]/30 hover:bg-black/10 dark:hover:bg-white/[0.04]"
                     }`}
                   >
                     <div className="mb-2 text-[16px] font-semibold text-slate-900 dark:text-white">Upload book to section</div>
@@ -1831,12 +1847,12 @@ function Dashboard({ user }: { user: User }) {
 
                 {/* Editor or Upload based on choice */}
                 {bookForm.creationMethod === "write" && (
-                  <div className="mt-4">
+                  <div className="mt-5">
                     <textarea
                       value={bookForm.content}
                       onChange={(e) => setBookForm({ ...bookForm, content: e.target.value })}
                       placeholder="Start writing your book here..."
-                      className="w-full rounded-xl border border-black/10 dark:border-white/10 bg-black/5 dark:bg-white/[0.04] px-4 py-3 text-[14px] text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-white/30 outline-none transition-all focus:border-[#907AFF]/50 focus:bg-black/10 dark:focus:bg-white/[0.06]"
+                      className="w-full rounded-xl border border-black/10 dark:border-white/10 bg-black/5 dark:bg-white/[0.04] px-4 py-3 text-[14px] text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-white/30 outline-none transition-all focus:border-[#907AFF]/50 focus:bg-black/10 dark:focus:bg-white/[0.06] focus:ring-2 focus:ring-[#907AFF]/20"
                       rows={12}
                     />
                   </div>
@@ -1873,11 +1889,11 @@ function Dashboard({ user }: { user: User }) {
               </div>
             </div>
 
-            <div className="mt-8 flex justify-end gap-3">
-              <button onClick={() => setShowBookModal(false)} className="rounded-xl border border-black/10 dark:border-white/10 bg-black/5 dark:bg-white/[0.02] px-6 py-2.5 text-[14px] font-medium text-slate-700 dark:text-white/70 transition-all hover:bg-black/10 dark:hover:bg-white/[0.04]">
+            <div className="mt-10 flex justify-end gap-3 border-t border-black/10 dark:border-white/10 pt-6">
+              <button onClick={() => setShowBookModal(false)} className="rounded-xl border border-black/10 dark:border-white/10 bg-black/5 dark:bg-white/[0.02] px-6 py-3 text-[14px] font-semibold text-slate-700 dark:text-white/70 transition-all hover:bg-black/10 dark:hover:bg-white/[0.04] hover:shadow-sm">
                 Cancel
               </button>
-              <button onClick={handleBookSubmit} className="rounded-xl bg-[#907AFF] px-6 py-2.5 text-[14px] font-medium text-white transition-all hover:bg-[#8069EE]">
+              <button onClick={handleBookSubmit} className="rounded-xl bg-gradient-to-r from-[#907AFF] to-[#8069EE] px-6 py-3 text-[14px] font-semibold text-white shadow-lg shadow-[#907AFF]/25 transition-all hover:from-[#8069EE] hover:to-[#7058DD] hover:shadow-xl hover:shadow-[#907AFF]/30">
                 {bookForm.creationMethod === "write" ? "Create book" : "Upload book"}
               </button>
             </div>

@@ -32,11 +32,11 @@ export default async function ReaderSettingsPage() {
     "reader";
 
   return (
-    <main className="min-h-screen bg-[#050508] text-white">
+    <main className="min-h-screen bg-slate-50 text-slate-900 dark:bg-[#050508] dark:text-white">
       <div className="mx-auto w-full max-w-[1000px] px-6 py-12">
         <header className="mb-10">
           <h1 className="text-[28px] font-semibold">Reader settings</h1>
-          <p className="mt-2 text-[14px] text-white/50">Update your reader profile and preferences.</p>
+          <p className="mt-2 text-[14px] text-slate-600 dark:text-white/50">Update your reader profile and preferences.</p>
         </header>
 
         <ReaderSettingsForm

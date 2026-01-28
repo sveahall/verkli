@@ -28,9 +28,9 @@ const glassButtonProps = {
 
 export default function RoleSelection() {
   return (
-    <main 
-      className="relative flex min-h-screen flex-col items-center justify-center overflow-hidden"
-      style={{ background: "radial-gradient(100% 127.91% at 0% 0%, #3A3A4F 0%, #171620 50%, #000000 100%)" }}
+    <main
+      className="relative flex min-h-screen flex-col items-center justify-center overflow-hidden text-slate-900 dark:text-white"
+      style={{ background: "var(--auth-background)" }}
     >
       {/* Animated background */}
       <div className="absolute inset-0 z-0">
@@ -84,17 +84,17 @@ export default function RoleSelection() {
         className="glass-card relative z-10"
       >
         <div className="flex w-full flex-col items-center px-14 py-16 text-center">
-          <p className="text-base font-medium tracking-wide text-white/75">
+          <p className="text-base font-medium tracking-wide text-slate-600 dark:text-white/75">
             Welcome to verkli
           </p>
           
-          <h1 className="mt-5 text-[44px] font-medium leading-[1.15] tracking-tight text-white">
+          <h1 className="mt-5 text-[44px] font-medium leading-[1.15] tracking-tight text-slate-900 dark:text-white">
             Are you a writer
             <br />
             or reader?
           </h1>
           
-          <p className="mt-5 max-w-[340px] text-base leading-relaxed text-white/75">
+          <p className="mt-5 max-w-[340px] text-base leading-relaxed text-slate-600 dark:text-white/75">
             Verkli adapts to how you use it.
             <br />
             You can switch anytime.
@@ -109,13 +109,13 @@ export default function RoleSelection() {
                 borderRadius={999}
                 className="glass-button w-full"
               >
-                <button className="w-full px-7 py-1.5 text-[17px] font-medium text-white">
+                <button className="w-full px-7 py-1.5 text-[17px] font-medium text-slate-900 dark:text-white">
                   I am a writer
                 </button>
               </GlassSurface>
             </Link>
             
-            <span className="text-sm font-medium text-white/35">or</span>
+            <span className="text-sm font-medium text-slate-500 dark:text-white/35">or</span>
             
             <Link href="/reader" className="w-full">
               <GlassSurface
@@ -126,7 +126,7 @@ export default function RoleSelection() {
                 backgroundOpacity={0.22}
                 className="glass-button w-full"
               >
-                <button className="w-full px-7 py-1.5 text-[17px] font-medium text-white">
+                <button className="w-full px-7 py-1.5 text-[17px] font-medium text-slate-900 dark:text-white">
                   I am a reader
                 </button>
               </GlassSurface>
