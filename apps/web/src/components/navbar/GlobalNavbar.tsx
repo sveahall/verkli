@@ -569,18 +569,11 @@ export default function GlobalNavbar() {
                           >
                             Sign in
                           </Link>
-                          <Link href="/signup">
-                            <GlassSurface
-                              {...glassBaseProps}
-                              width="auto"
-                              height="36px"
-                              borderRadius={999}
-                              className="glass-surface--transparent border border-black/10 dark:border-white/10 px-5 [&_.glass-surface__content]:p-0"
-                            >
-                              <span className="flex h-9 items-center justify-center text-[15px] font-medium text-slate-900 dark:text-white">
-                                Sign up
-                              </span>
-                            </GlassSurface>
+                          <Link
+                            href="/signup"
+                            className="flex h-9 items-center justify-center rounded-full border border-black/10 dark:border-white/10 bg-transparent px-5 text-[15px] font-medium text-slate-900 dark:text-white transition-colors hover:text-slate-600 dark:hover:text-white/70"
+                          >
+                            Sign up
                           </Link>
                         </>
                       )}
@@ -592,18 +585,11 @@ export default function GlobalNavbar() {
                           >
                             Sign in
                           </Link>
-                          <Link href="/writer/signup">
-                            <GlassSurface
-                              {...glassBaseProps}
-                              width="auto"
-                              height="36px"
-                              borderRadius={999}
-                              className="glass-surface--transparent border border-black/10 dark:border-white/10 px-5 [&_.glass-surface__content]:p-0"
-                            >
-                              <span className="flex h-9 items-center justify-center text-[15px] font-medium text-slate-900 dark:text-white">
-                                Sign up
-                              </span>
-                            </GlassSurface>
+                          <Link
+                            href="/writer/signup"
+                            className="flex h-9 items-center justify-center rounded-full border border-black/10 dark:border-white/10 bg-transparent px-5 text-[15px] font-medium text-slate-900 dark:text-white transition-colors hover:text-slate-600 dark:hover:text-white/70"
+                          >
+                            Sign up
                           </Link>
                         </>
                       )}
@@ -615,18 +601,11 @@ export default function GlobalNavbar() {
                           >
                             Sign in
                           </Link>
-                          <Link href="/reader/signup">
-                            <GlassSurface
-                              {...glassBaseProps}
-                              width="auto"
-                              height="36px"
-                              borderRadius={999}
-                              className="glass-surface--transparent border border-black/10 dark:border-white/10 px-5 [&_.glass-surface__content]:p-0"
-                            >
-                              <span className="flex h-9 items-center justify-center text-[15px] font-medium text-slate-900 dark:text-white">
-                                Sign up
-                              </span>
-                            </GlassSurface>
+                          <Link
+                            href="/reader/signup"
+                            className="flex h-9 items-center justify-center rounded-full border border-black/10 dark:border-white/10 bg-transparent px-5 text-[15px] font-medium text-slate-900 dark:text-white transition-colors hover:text-slate-600 dark:hover:text-white/70"
+                          >
+                            Sign up
                           </Link>
                         </>
                       )}
@@ -636,41 +615,32 @@ export default function GlobalNavbar() {
                   {/* Theme toggle och Language selector */}
                   <div className="hidden items-center gap-3 md:flex">
                     {/* Language selector */}
-                    <GlassSurface
-                      {...glassBaseProps}
-                      width="auto"
-                      height="36px"
-                      borderRadius={999}
-                      className="glass-surface--transparent border border-black/10 dark:border-white/10"
+                    <button
+                      type="button"
+                      className="flex h-9 w-9 items-center justify-center rounded-full border border-black/10 bg-transparent text-slate-700 transition-colors hover:text-slate-900 dark:border-white/10 dark:text-white/80 dark:hover:text-white"
+                      aria-label="Select language"
                     >
-                      <button
-                        type="button"
-                        className="flex h-9 w-9 items-center justify-center text-slate-700 dark:text-white/80"
-                        aria-label="Select language"
+                      <svg
+                        width="24"
+                        height="10"
+                        viewBox="0 0 48 20"
+                        fill="none"
+                        xmlns="http://www.w3.org/2000/svg"
+                        className="text-slate-700 dark:text-white/80"
                       >
-                        <svg
-                          width="24"
-                          height="10"
-                          viewBox="0 0 48 20"
-                          fill="none"
-                          xmlns="http://www.w3.org/2000/svg"
-                          className="text-slate-700 dark:text-white/80"
-                        >
-                          <path d="M11.5086 11.7646L7.74559 0.92622C7.71044 0.824993 7.56746 0.824502 7.53162 0.925485L3.63734 11.898" stroke="currentColor" strokeWidth="1.70079" strokeLinecap="round"/>
-                          <path d="M5.07666 8.38086H10.1082" stroke="currentColor" strokeWidth="1.70079"/>
-                          <path d="M16.3799 9.16016L26.4783 9.16016" stroke="currentColor" strokeWidth="1.70079" strokeLinecap="round"/>
-                          <path d="M21.4292 6.52148L21.4292 9.15952" stroke="currentColor" strokeWidth="1.70079" strokeLinecap="round"/>
-                          <path d="M16.3799 18.4076C23.4665 15.5376 24.2815 11.1439 24.8838 9.23047" stroke="currentColor" strokeWidth="1.70079" strokeLinecap="round"/>
-                          <path d="M18.1519 12.4199C19.0849 14.0853 20.8448 16.601 24.8487 18.4435" stroke="currentColor" strokeWidth="1.70079" strokeLinecap="round"/>
-                          <path d="M42.1924 11.9722C42.3572 12.138 42.6283 12.138 42.793 11.9722L47.045 7.69522C47.2098 7.52949 47.2098 7.25683 47.045 7.0911C46.8802 6.92536 46.6092 6.92536 46.4444 7.0911L42.4927 11.066L38.5411 7.0911C38.3763 6.92536 38.1052 6.92536 37.9405 7.0911C37.7757 7.25683 37.7757 7.52949 37.9405 7.69522L42.1924 11.9722Z" fill="currentColor"/>
-                        </svg>
-                      </button>
-                    </GlassSurface>
+                        <path d="M11.5086 11.7646L7.74559 0.92622C7.71044 0.824993 7.56746 0.824502 7.53162 0.925485L3.63734 11.898" stroke="currentColor" strokeWidth="1.70079" strokeLinecap="round"/>
+                        <path d="M5.07666 8.38086H10.1082" stroke="currentColor" strokeWidth="1.70079"/>
+                        <path d="M16.3799 9.16016L26.4783 9.16016" stroke="currentColor" strokeWidth="1.70079" strokeLinecap="round"/>
+                        <path d="M21.4292 6.52148L21.4292 9.15952" stroke="currentColor" strokeWidth="1.70079" strokeLinecap="round"/>
+                        <path d="M16.3799 18.4076C23.4665 15.5376 24.2815 11.1439 24.8838 9.23047" stroke="currentColor" strokeWidth="1.70079" strokeLinecap="round"/>
+                        <path d="M18.1519 12.4199C19.0849 14.0853 20.8448 16.601 24.8487 18.4435" stroke="currentColor" strokeWidth="1.70079" strokeLinecap="round"/>
+                        <path d="M42.1924 11.9722C42.3572 12.138 42.6283 12.138 42.793 11.9722L47.045 7.69522C47.2098 7.52949 47.2098 7.25683 47.045 7.0911C46.8802 6.92536 46.6092 6.92536 46.4444 7.0911L42.4927 11.066L38.5411 7.0911C38.3763 6.92536 38.1052 6.92536 37.9405 7.0911C37.7757 7.25683 37.7757 7.52949 37.9405 7.69522L42.1924 11.9722Z" fill="currentColor"/>
+                      </svg>
+                    </button>
 
                     <ThemeToggle
-                      glassProps={{ ...glassBaseProps, height: 36 }}
-                      glassClassName="glass-surface--transparent border border-black/10 dark:border-white/10"
-                      className="h-9 w-9 text-slate-700 dark:text-white/80"
+                      useGlass={false}
+                      className="h-9 w-9"
                     />
                   </div>
 

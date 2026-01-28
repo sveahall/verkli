@@ -104,11 +104,11 @@ export default function ThemeToggle({
       <button
         type="button"
         onClick={() => setTheme(isDark ? "light" : "dark")}
-        className={`flex h-9 w-9 items-center justify-center rounded-full border border-black/10 bg-transparent text-slate-900 transition-colors hover:text-slate-700 dark:border-white/10 dark:text-white dark:hover:text-white/80 ${className}`.trim()}
+        className={`flex h-9 w-9 items-center justify-center rounded-full border border-black/10 bg-transparent text-slate-700 transition-colors hover:text-slate-900 dark:border-white/10 dark:text-white/80 dark:hover:text-white ${className}`.trim()}
         aria-pressed={isDark}
         aria-label={isDark ? "Switch to light mode" : "Switch to dark mode"}
       >
-        {icon}
+        <span className="flex items-center justify-center">{icon}</span>
       </button>
     );
   }

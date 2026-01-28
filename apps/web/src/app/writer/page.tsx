@@ -351,7 +351,7 @@ function LandingPage() {
             <div className="h-2 w-2 animate-pulse rounded-full bg-[#907AFF]" />
             <span className="text-[13px] text-slate-600 dark:text-white/60">Now in public beta</span>
           </div>
-          <h1 className="text-[52px] font-semibold leading-[1.05] tracking-[-0.03em] text-slate-900 dark:text-white md:text-[80px]">Write once.<br /><span className="bg-gradient-to-r from-slate-400/50 via-slate-400/30 to-slate-400/50 bg-clip-text text-transparent dark:from-white/50 dark:via-white/30 dark:to-white/50">Show up everywhere.</span></h1>
+          <h1 className="text-[52px] font-semibold leading-[1.05] tracking-[-0.03em] text-slate-900 dark:text-white md:text-[80px]">Write once.<br /><span className="bg-gradient-to-r from-slate-400/90 via-slate-400/75 to-slate-400/50 bg-clip-text text-transparent dark:from-white/50 dark:via-white/30 dark:to-white/50">Show up everywhere.</span></h1>
           <p className="mt-8 max-w-[520px] text-[17px] leading-relaxed text-slate-600 dark:text-white/50 md:text-[18px]">The platform for authors to turn books into content, connect with readers, and build sustainable revenue.</p>
           <div className="mt-10 flex items-center gap-4">
             <Link href="/writer/signup">
@@ -360,11 +360,6 @@ function LandingPage() {
               </GlassSurface>
             </Link>
             <a href="#features" className="group flex items-center gap-2 text-[15px] text-slate-500 transition-colors hover:text-slate-700 dark:text-white/50 dark:hover:text-white/70">See how it works<svg className="h-4 w-4 transition-transform group-hover:translate-x-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg></a>
-          </div>
-          <div className="absolute bottom-12 left-1/2 -translate-x-1/2">
-            <div className="flex h-10 w-6 items-start justify-center rounded-full border border-black/20 p-1.5 transition-colors duration-300 hover:border-black/40 dark:border-white/20 dark:hover:border-white/40">
-              <div className="h-2 w-1 animate-bounce rounded-full bg-black/30 dark:bg-white/40" style={{ animationDuration: "1.5s" }} />
-            </div>
           </div>
         </section>
 
