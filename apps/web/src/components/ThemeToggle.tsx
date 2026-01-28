@@ -15,7 +15,7 @@ type ThemeToggleProps = {
 
 const getPreferredTheme = (): Theme => {
   if (typeof window === "undefined") {
-    return "dark";
+    return "light";
   }
 
   try {
@@ -25,9 +25,7 @@ const getPreferredTheme = (): Theme => {
     }
   } catch (error) {}
 
-  return window.matchMedia("(prefers-color-scheme: dark)").matches
-    ? "dark"
-    : "light";
+  return "light";
 };
 
 const applyTheme = (theme: Theme) => {
@@ -41,7 +39,7 @@ export default function ThemeToggle({
   glassProps = {},
 }: ThemeToggleProps) {
   const { className: glassPropsClassName = "", ...restGlassProps } = glassProps;
-  const [theme, setTheme] = useState<Theme>("dark");
+  const [theme, setTheme] = useState<Theme>("light");
   const [isMounted, setIsMounted] = useState(false);
 
   useEffect(() => {

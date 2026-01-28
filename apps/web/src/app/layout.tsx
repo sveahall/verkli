@@ -24,8 +24,7 @@ export const metadata: Metadata = {
 const themeScript = `
   try {
     const stored = localStorage.getItem('verkli-theme');
-    const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-    const theme = stored || (prefersDark ? 'dark' : 'light');
+    const theme = stored || 'light';
     document.documentElement.classList.toggle('dark', theme === 'dark');
   } catch (error) {}
 `;

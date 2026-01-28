@@ -299,13 +299,13 @@ export default function GlobalNavbar() {
                         </svg>
                       </button>
                       {(item === "Features" || item === "Integrations" || item === "Examples" || item === "FAQ") && (
-                        <div className="nav-dropdown pointer-events-none absolute left-1/2 top-full z-[998] w-[720px] -translate-x-1/2 mt-[-1px] opacity-0 transition-all duration-300 ease-out group-hover:pointer-events-auto group-hover:opacity-100">
+                        <div className="nav-dropdown pointer-events-none absolute left-1/2 top-full z-[998] w-[720px] max-w-[calc(100vw-3rem)] -translate-x-1/2 mt-4 px-3 opacity-0 transition-all duration-300 ease-out group-hover:pointer-events-auto group-hover:opacity-100">
                           <GlassSurface
-                            {...glassBaseProps}
+                            {...dropdownGlassProps}
                             width="100%"
                             height="auto"
                             borderRadius={24}
-                            className="nav-mega border-t-0 border-x border-b border-black/10 dark:border-white/10 rounded-t-none px-8 py-8 shadow-[0_24px_60px_-12px_rgba(0,0,0,0.25)] dark:shadow-[0_24px_60px_-12px_rgba(0,0,0,0.6)] backdrop-blur-2xl"
+                            className="nav-mega border border-white/40 dark:border-white/15 px-5 py-5 md:px-8 md:py-8 shadow-[0_26px_70px_-18px_rgba(15,23,42,0.65)] dark:shadow-[0_28px_80px_-20px_rgba(0,0,0,0.95)] backdrop-blur-2xl bg-white/85 dark:bg-slate-950/90"
                           >
                             {dropdownContent[item as keyof typeof dropdownContent] && (
                               <>
@@ -317,14 +317,14 @@ export default function GlobalNavbar() {
                                     {dropdownContent[item as keyof typeof dropdownContent].description}
                                   </p>
                                 </div>
-                                <div className="grid gap-3 grid-cols-2">
+                                <div className="grid gap-3 grid-cols-1 md:grid-cols-2">
                                   {dropdownContent[item as keyof typeof dropdownContent].items.map((menuItem, idx) => (
                                     <div
                                       key={idx}
                                       className="group/item cursor-pointer rounded-xl p-4 transition-all duration-200 hover:bg-slate-50 dark:hover:bg-white/[0.12] hover:shadow-sm border border-transparent hover:border-slate-200 dark:hover:border-white/10"
                                     >
                                       <div className="flex items-start gap-3">
-                                        <span className="text-2xl flex-shrink-0">{menuItem.icon}</span>
+                                        <div className="mt-1 flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-lg bg-white/60 shadow-sm ring-1 ring-black/5 dark:bg-white/10 dark:ring-white/10" />
                                         <div className="flex-1 min-w-0">
                                           <h4 className="text-[14px] font-semibold leading-tight text-slate-900 dark:text-white group-hover/item:text-[#907AFF] dark:group-hover/item:text-[#907AFF] transition-colors mb-1">
                                             {menuItem.title}
@@ -393,13 +393,13 @@ export default function GlobalNavbar() {
                         )}
                       </button>
                       {item.hasDropdown && (
-                        <div className="nav-dropdown pointer-events-none absolute left-1/2 top-full z-[1000] w-[720px] -translate-x-1/2 translate-y-[-8px] pt-6 opacity-0 transition-all duration-300 ease-out group-hover:pointer-events-auto group-hover:translate-y-0 group-hover:opacity-100">
+                        <div className="nav-dropdown pointer-events-none absolute left-1/2 top-full z-[1000] w-[720px] max-w-[calc(100vw-3rem)] -translate-x-1/2 mt-4 px-3 opacity-0 transition-all duration-300 ease-out group-hover:pointer-events-auto group-hover:opacity-100">
                           <GlassSurface
-                            {...glassBaseProps}
+                            {...dropdownGlassProps}
                             width="100%"
                             height="auto"
                             borderRadius={24}
-                            className="nav-mega border border-black/10 dark:border-white/10 px-8 py-8 shadow-[0_24px_60px_-12px_rgba(0,0,0,0.25)] dark:shadow-[0_24px_60px_-12px_rgba(0,0,0,0.6)] backdrop-blur-2xl bg-white/95 dark:bg-[#0a0a0f]/98"
+                            className="nav-mega border border-white/40 dark:border-white/15 px-5 py-5 md:px-8 md:py-8 shadow-[0_26px_70px_-18px_rgba(15,23,42,0.65)] dark:shadow-[0_28px_80px_-20px_rgba(0,0,0,0.95)] backdrop-blur-2xl bg-white/85 dark:bg-slate-950/90"
                           >
                             {dropdownContent[item.label as keyof typeof dropdownContent] && (
                               <>
@@ -411,14 +411,14 @@ export default function GlobalNavbar() {
                                     {dropdownContent[item.label as keyof typeof dropdownContent].description}
                                   </p>
                                 </div>
-                                <div className="grid gap-3 grid-cols-2">
+                                <div className="grid gap-3 grid-cols-1 md:grid-cols-2">
                                   {dropdownContent[item.label as keyof typeof dropdownContent].items.map((menuItem, idx) => (
                                     <div
                                       key={idx}
                                       className="group/item cursor-pointer rounded-xl p-4 transition-all duration-200 hover:bg-slate-50 dark:hover:bg-white/[0.12] hover:shadow-sm border border-transparent hover:border-slate-200 dark:hover:border-white/10"
                                     >
                                       <div className="flex items-start gap-3">
-                                        <span className="text-2xl flex-shrink-0">{menuItem.icon}</span>
+                                        <div className="mt-1 flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-lg bg-white/60 shadow-sm ring-1 ring-black/5 dark:bg-white/10 dark:ring-white/10" />
                                         <div className="flex-1 min-w-0">
                                           <h4 className="text-[14px] font-semibold leading-tight text-slate-900 dark:text-white group-hover/item:text-[#907AFF] dark:group-hover/item:text-[#907AFF] transition-colors mb-1">
                                             {menuItem.title}
