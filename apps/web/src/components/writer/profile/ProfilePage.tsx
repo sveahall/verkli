@@ -2,6 +2,7 @@ import ProfileHeader from "@/components/writer/profile/ProfileHeader";
 import ProfileStats from "@/components/writer/profile/ProfileStats";
 import ProfileShelfCard from "@/components/writer/profile/ProfileShelfCard";
 import ProfileBookCard from "@/components/writer/profile/ProfileBookCard";
+import type { ReactNode } from "react";
 
 export type WriterProfile = {
   displayName: string;
@@ -34,6 +35,18 @@ export type ProfileBook = {
   status?: string | null;
 };
 
+type EmptyStateCardProps = {
+  children: ReactNode;
+};
+
+function EmptyStateCard({ children }: EmptyStateCardProps) {
+  return (
+    <div className="rounded-[24px] border border-slate-200/80 bg-white/80 p-10 text-center text-[14px] text-slate-600 shadow-sm dark:border-white/15 dark:bg-white/[0.03] dark:text-white/60">
+      {children}
+    </div>
+  );
+}
+
 export default function ProfilePage({
   profile,
   stats,
@@ -46,7 +59,7 @@ export default function ProfilePage({
   standaloneBooks: ProfileBook[];
 }) {
   return (
-    <main className="min-h-screen bg-background text-foreground">
+    <main className="min-h-screen bg-transparent text-foreground">
       <div className="mx-auto flex w-full max-w-[1400px] flex-col gap-10 px-6 pb-20 pt-10">
         <ProfileHeader
           displayName={profile.displayName}
@@ -72,9 +85,9 @@ export default function ProfilePage({
           </div>
 
           {shelves.length === 0 ? (
-            <div className="rounded-[24px] border border-dashed border-black/20 bg-black/5 p-10 text-center text-[14px] text-slate-600 dark:border-white/10 dark:bg-white/[0.03] dark:text-white/60">
+            <EmptyStateCard>
               No shelves yet. Create one to showcase your collections.
-            </div>
+            </EmptyStateCard>
           ) : (
             <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
               {shelves.map((shelf) => (
@@ -106,9 +119,7 @@ export default function ProfilePage({
           </div>
 
           {standaloneBooks.length === 0 ? (
-            <div className="rounded-[24px] border border-dashed border-black/20 bg-black/5 p-10 text-center text-[14px] text-slate-600 dark:border-white/10 dark:bg-white/[0.03] dark:text-white/60">
-              No standalone books to show right now.
-            </div>
+            <EmptyStateCard>No standalone books to show right now.</EmptyStateCard>
           ) : (
             <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
               {standaloneBooks.map((book) => (

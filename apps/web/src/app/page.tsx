@@ -1,8 +1,13 @@
 "use client";
 
+import { useEffect } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import GlassSurface from "@/components/GlassSurface";
 import LiquidEther from "@/components/LiquidEther";
+import { createClient } from "@/lib/supabase/client";
+
+const VERKLI_ROLE_KEY = "verkli_role";
 
 const glassBaseProps = {
   displace: 0.5,
@@ -27,6 +32,33 @@ const glassButtonProps = {
 };
 
 export default function RoleSelection() {
+  const router = useRouter();
+
+  // Inloggad användare som redan valt roll ska inte se väljaren igen – skicka till sitt dashboard
+  useEffect(() => {
+    const go = async () => {
+      const supabase = createClient();
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+      const role = typeof window !== "undefined" ? localStorage.getItem(VERKLI_ROLE_KEY) : null;
+      if (role === "writer") {
+        router.replace("/writer");
+        return;
+      }
+      if (role === "reader") {
+        router.replace("/reader");
+        return;
+      }
+    };
+    go();
+  }, [router]);
+
+  const setRoleAndGo = (role: "writer" | "reader") => {
+    if (typeof window !== "undefined") {
+      localStorage.setItem(VERKLI_ROLE_KEY, role);
+    }
+  };
+
   return (
     <main
       className="relative flex min-h-screen flex-col items-center justify-center overflow-hidden text-slate-900 dark:text-white"
@@ -101,7 +133,7 @@ export default function RoleSelection() {
           </p>
 
           <div className="mt-12 flex w-full flex-col items-center gap-4">
-            <Link href="/writer" className="w-full">
+            <Link href="/writer" className="w-full" onClick={() => setRoleAndGo("writer")}>
               <GlassSurface
                 {...glassButtonProps}
                 width="100%"
@@ -117,7 +149,7 @@ export default function RoleSelection() {
             
             <span className="text-sm font-medium text-slate-500 dark:text-white/35">or</span>
             
-            <Link href="/reader" className="w-full">
+            <Link href="/reader" className="w-full" onClick={() => setRoleAndGo("reader")}>
               <GlassSurface
                 {...glassButtonProps}
                 width="100%"
