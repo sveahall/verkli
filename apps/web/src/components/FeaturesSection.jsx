@@ -110,7 +110,7 @@ export default function FeaturesSection() {
                 aria-current={isActive ? "true" : "false"}
                 className={`feature-card group relative cursor-pointer overflow-hidden rounded-[24px] border px-6 py-6 transition-all duration-500 ease-out md:px-8 md:py-7 ${
                   isActive
-                    ? "border-black/20 bg-black/5 shadow-[0_20px_50px_rgba(0,0,0,0.12),inset_0_1px_0_rgba(0,0,0,0.04)] scale-[1.02] dark:border-white/20 dark:bg-white/[0.08] dark:shadow-[0_20px_50px_rgba(0,0,0,0.4),inset_0_1px_0_rgba(255,255,255,0.1)]"
+                    ? "border-black/20 bg-black/5 scale-[1.02] dark:border-white/20 dark:bg-white/[0.08]"
                     : "border-black/10 bg-black/5 hover:border-black/20 hover:bg-black/10 dark:border-white/8 dark:bg-white/[0.02] dark:hover:border-white/12 dark:hover:bg-white/[0.04]"
                 }`}
               >

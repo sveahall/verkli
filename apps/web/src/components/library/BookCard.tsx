@@ -42,7 +42,7 @@ export default function BookCard({
   return (
     <div className="group relative" onClick={onClick}>
       <div
-        className={`${sizeClasses[size]} relative cursor-pointer overflow-hidden rounded-2xl border border-black/5 dark:border-white/5 bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-900 dark:to-slate-800 shadow-lg transition-all duration-500 group-hover:scale-[1.02] group-hover:shadow-2xl group-hover:shadow-[#907AFF]/20`}
+        className={`${sizeClasses[size]} relative cursor-pointer overflow-hidden rounded-2xl border border-black/5 dark:border-white/5 bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-900 dark:to-slate-800 transition-all duration-500 group-hover:scale-[1.02]`}
       >
         {/* Cover Image */}
         <div className="absolute inset-0">

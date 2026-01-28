@@ -91,7 +91,7 @@ export default function ReaderLanding() {
         {/* Animated background glows - brand colors */}
         <div className="pointer-events-none absolute inset-0 overflow-hidden">
           <div 
-            className="absolute left-1/4 top-1/3 h-[500px] w-[500px] -translate-x-1/2 -translate-y-1/2 animate-pulse rounded-full blur-[150px]" 
+            className="absolute left-1/4 top-0 h-[500px] w-[500px] -translate-x-1/2 -translate-y-1/2 animate-pulse rounded-full blur-[150px]" 
             style={{ background: "#907AFF", opacity: 0.2, animationDuration: "4s" }}
           />
           <div 

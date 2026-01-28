@@ -56,7 +56,7 @@ export default async function BookDetailPage({ params }: { params: { id: string 
 
       <section className="mx-auto grid max-w-[1200px] gap-12 px-6 py-12 lg:grid-cols-[0.85fr_1.15fr]">
         <div className="relative">
-          <div className="relative overflow-hidden rounded-[32px] shadow-2xl shadow-black/40">
+          <div className="relative overflow-hidden rounded-[32px]">
             {(book as { cover_image?: string | null }).cover_image ? (
               <img src={(book as { cover_image?: string | null }).cover_image!} alt={book.title} className="h-full w-full object-cover" />
             ) : (

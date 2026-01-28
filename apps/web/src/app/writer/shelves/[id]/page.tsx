@@ -112,7 +112,7 @@ export default async function PublicShelfPage({ params }: { params: { id: string
                 <Link
                   key={book.id}
                   href={`/writer/library/${book.id}`}
-                  className="group overflow-hidden rounded-[24px] border border-black/10 bg-black/[0.02] transition-all hover:-translate-y-1 hover:border-black/20 hover:shadow-xl dark:border-white/[0.08] dark:bg-white/[0.02]"
+                  className="group overflow-hidden rounded-[24px] border border-black/10 bg-black/[0.02] transition-all hover:-translate-y-1 hover:border-black/20 dark:border-white/[0.08] dark:bg-white/[0.02]"
                 >
                   <div
                     className="h-[200px] w-full bg-cover bg-center transition-transform duration-500 group-hover:scale-105"

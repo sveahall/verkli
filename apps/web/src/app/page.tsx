@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect } from "react";
-import Link from "next/link";
 import { useRouter } from "next/navigation";
 import GlassSurface from "@/components/GlassSurface";
 import LiquidEther from "@/components/LiquidEther";
@@ -34,28 +33,52 @@ const glassButtonProps = {
 export default function RoleSelection() {
   const router = useRouter();
 
-  // Inloggad användare som redan valt roll ska inte se väljaren igen – skicka till sitt dashboard
+  // Om rollen redan är vald (i localStorage), redirecta direkt – visa aldrig väljaren igen
   useEffect(() => {
-    const go = async () => {
+    if (typeof window === "undefined") return;
+    
+    const role = localStorage.getItem(VERKLI_ROLE_KEY);
+    if (role === "writer") {
+      router.replace("/writer");
+      return;
+    }
+    if (role === "reader") {
+      router.replace("/reader");
+      return;
+    }
+    
+    // Om inloggad men ingen roll vald, kolla om de har roll i profil
+    const checkUserRole = async () => {
       const supabase = createClient();
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
-      const role = typeof window !== "undefined" ? localStorage.getItem(VERKLI_ROLE_KEY) : null;
-      if (role === "writer") {
+      
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("role")
+        .eq("user_id", user.id)
+        .maybeSingle();
+      
+      if (profile?.role === "writer") {
+        localStorage.setItem(VERKLI_ROLE_KEY, "writer");
         router.replace("/writer");
         return;
       }
-      if (role === "reader") {
+      if (profile?.role === "reader") {
+        localStorage.setItem(VERKLI_ROLE_KEY, "reader");
         router.replace("/reader");
         return;
       }
     };
-    go();
+    
+    checkUserRole();
   }, [router]);
 
   const setRoleAndGo = (role: "writer" | "reader") => {
     if (typeof window !== "undefined") {
       localStorage.setItem(VERKLI_ROLE_KEY, role);
+      // Redirect direkt efter val
+      router.push(role === "writer" ? "/writer" : "/reader");
     }
   };
 
@@ -89,24 +112,6 @@ export default function RoleSelection() {
         />
       </div>
 
-      {/* Logo */}
-      <header className="absolute left-8 top-8 z-20">
-        <div className="flex items-center gap-3">
-          <img
-            src="/logo-dark.svg"
-            alt="Verkli"
-            className="h-8 w-auto dark:hidden"
-            loading="eager"
-          />
-          <img
-            src="/favicon.svg"
-            alt="Verkli"
-            className="hidden h-8 w-auto dark:block"
-            loading="eager"
-          />
-        </div>
-      </header>
-
       {/* Role selection card */}
       <GlassSurface
         {...glassCardProps}
@@ -133,7 +138,7 @@ export default function RoleSelection() {
           </p>
 
           <div className="mt-12 flex w-full flex-col items-center gap-4">
-            <Link href="/writer" className="w-full" onClick={() => setRoleAndGo("writer")}>
+            <button onClick={() => setRoleAndGo("writer")} className="w-full">
               <GlassSurface
                 {...glassButtonProps}
                 width="100%"
@@ -141,15 +146,15 @@ export default function RoleSelection() {
                 borderRadius={999}
                 className="glass-button w-full"
               >
-                <button className="w-full px-7 py-1.5 text-[17px] font-medium text-slate-900 dark:text-white">
+                <span className="block w-full px-7 py-1.5 text-[17px] font-medium text-slate-900 dark:text-white">
                   I am a writer
-                </button>
+                </span>
               </GlassSurface>
-            </Link>
+            </button>
             
             <span className="text-sm font-medium text-slate-500 dark:text-white/35">or</span>
             
-            <Link href="/reader" className="w-full" onClick={() => setRoleAndGo("reader")}>
+            <button onClick={() => setRoleAndGo("reader")} className="w-full">
               <GlassSurface
                 {...glassButtonProps}
                 width="100%"
@@ -158,11 +163,11 @@ export default function RoleSelection() {
                 backgroundOpacity={0.22}
                 className="glass-button w-full"
               >
-                <button className="w-full px-7 py-1.5 text-[17px] font-medium text-slate-900 dark:text-white">
+                <span className="block w-full px-7 py-1.5 text-[17px] font-medium text-slate-900 dark:text-white">
                   I am a reader
-                </button>
+                </span>
               </GlassSurface>
-            </Link>
+            </button>
           </div>
         </div>
       </GlassSurface>

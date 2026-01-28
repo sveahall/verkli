@@ -441,7 +441,7 @@ export default function ShelfDetailPage() {
                   setSelectedSectionId(null);
                   setShowAddBookModal(true);
                 }}
-                className="group flex h-[200px] w-[140px] items-center justify-center rounded-2xl border-2 border-dashed border-black/20 dark:border-white/10 bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-900 dark:to-slate-800 transition-all duration-300 hover:border-[#907AFF]/50 hover:bg-gradient-to-br hover:from-[#907AFF]/5 hover:to-[#E29ED5]/5 hover:shadow-lg hover:shadow-[#907AFF]/10"
+                className="group flex h-[200px] w-[140px] items-center justify-center rounded-2xl border-2 border-dashed border-black/20 dark:border-white/10 bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-900 dark:to-slate-800 transition-all duration-300 hover:border-[#907AFF]/50 hover:bg-gradient-to-br hover:from-[#907AFF]/5 hover:to-[#E29ED5]/5"
               >
                 <div className="flex flex-col items-center gap-3">
                   <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-to-br from-[#907AFF]/20 to-[#E29ED5]/20 transition-all duration-300 group-hover:scale-110 group-hover:from-[#907AFF]/30 group-hover:to-[#E29ED5]/30">
@@ -462,7 +462,7 @@ export default function ShelfDetailPage() {
       {/* Edit Shelf Panel */}
       {showEditPanel && (
         <div className="fixed inset-0 z-[1000] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
-          <div className="relative w-full max-w-[800px] rounded-3xl border border-black/10 dark:border-white/10 bg-white/95 dark:bg-[#0a0a0f]/95 p-8 shadow-2xl backdrop-blur-xl">
+          <div className="relative w-full max-w-[800px] rounded-3xl border border-black/10 dark:border-white/10 bg-white/95 dark:bg-[#0a0a0f]/95 p-8 backdrop-blur-xl">
             <button onClick={() => setShowEditPanel(false)} className="absolute right-6 top-6 text-slate-500 dark:text-white/50 transition-colors hover:text-slate-900 dark:hover:text-white">
               <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -670,7 +670,7 @@ export default function ShelfDetailPage() {
       {/* Create Section Modal */}
       {showCreateSectionModal && (
           <div className="fixed inset-0 z-[1000] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
-            <div className="relative w-full max-w-[500px] rounded-3xl border border-black/10 dark:border-white/10 bg-white/95 dark:bg-[#0a0a0f]/95 p-8 shadow-2xl backdrop-blur-xl">
+            <div className="relative w-full max-w-[500px] rounded-3xl border border-black/10 dark:border-white/10 bg-white/95 dark:bg-[#0a0a0f]/95 p-8 backdrop-blur-xl">
               <button onClick={() => setShowCreateSectionModal(false)} className="absolute right-6 top-6 text-slate-500 dark:text-white/50 transition-colors hover:text-slate-900 dark:hover:text-white">
                 <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -709,7 +709,7 @@ export default function ShelfDetailPage() {
         {/* Add Book Modal */}
         {showAddBookModal && (
           <div className="fixed inset-0 z-[1000] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
-            <div className="relative w-full max-w-[600px] rounded-3xl border border-black/10 dark:border-white/10 bg-white/95 dark:bg-[#0a0a0f]/95 p-8 shadow-2xl backdrop-blur-xl">
+            <div className="relative w-full max-w-[600px] rounded-3xl border border-black/10 dark:border-white/10 bg-white/95 dark:bg-[#0a0a0f]/95 p-8 backdrop-blur-xl">
               <button onClick={() => setShowAddBookModal(false)} className="absolute right-6 top-6 text-slate-500 dark:text-white/50 transition-colors hover:text-slate-900 dark:hover:text-white">
                 <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />

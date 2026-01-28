@@ -86,7 +86,7 @@ export default function TestimonialSection() {
             ref={el => cardsRef.current[index] = el}
             onMouseEnter={() => setHoveredIndex(index)}
             onMouseLeave={() => setHoveredIndex(null)}
-            className="group relative overflow-hidden rounded-[28px] border border-black/10 bg-gradient-to-b from-black/5 to-black/5 p-7 transition-all duration-500 hover:-translate-y-2 hover:border-black/20 hover:shadow-2xl hover:shadow-black/10 dark:border-white/[0.08] dark:from-white/[0.06] dark:to-white/[0.02] dark:hover:border-white/[0.15] dark:hover:shadow-black/20"
+            className="group relative overflow-hidden rounded-[28px] border border-black/10 bg-gradient-to-b from-black/5 to-black/5 p-7 transition-all duration-500 hover:-translate-y-2 hover:border-black/20 dark:border-white/[0.08] dark:from-white/[0.06] dark:to-white/[0.02] dark:hover:border-white/[0.15]"
           >
             {/* Animated glow */}
             <div 
