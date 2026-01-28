@@ -248,19 +248,20 @@ export default function GlobalNavbar() {
   }
 
   return (
-    <header className="sticky top-4 z-[999] isolate mx-auto w-full max-w-[1660px] px-6 mb-2">
+    <header className="sticky top-3 z-[999] isolate mx-auto w-full max-w-[1660px] px-6 mb-1.5">
       <div className="flex items-center gap-3">
         <GlassSurface
           {...glassBaseProps}
           width="100%"
-          height="75px"
-          borderRadius={300}
-          className="nav-glass flex-1 border border-black/10 dark:border-white/10 px-8 py-4 md:px-12 [&_.glass-surface__content]:w-full [&_.glass-surface__content]:justify-between [&_.glass-surface__content]:p-0"
+          height="68px"
+          borderRadius={999}
+          className="nav-glass flex-1 border border-black/5 bg-white/90 px-7 py-3.5 shadow-[0_18px_45px_rgba(15,23,42,0.10)] dark:border-white/10 dark:bg-slate-950/95 md:px-11 [&_.glass-surface__content]:w-full [&_.glass-surface__content]:justify-between [&_.glass-surface__content]:p-0"
         >
           <nav className="flex w-full items-center justify-between gap-6">
             {/* Logo and navigation */}
             <div className="flex items-center gap-10">
-              <Link href={user ? (currentRole === 'writer' ? '/writer' : '/reader') : '/'}>
+              {/* Logo always takes you "home" */}
+              <Link href="/">
                 <img
                   src="/logo-dark.svg"
                   alt="Verkli"
@@ -275,16 +276,10 @@ export default function GlobalNavbar() {
 
               {/* Navigation links based on route */}
               {pathname?.startsWith('/writer') && (
-                <div className="hidden items-center gap-8 text-[16px] font-medium text-slate-700 dark:text-white/80 lg:flex">
-                  <Link
-                    href="/writer"
-                    className="relative px-3 py-2 transition-colors hover:text-slate-900 dark:hover:text-white"
-                  >
-                    Home
-                  </Link>
+                <div className="hidden items-center gap-7 text-[14px] font-medium text-slate-700/90 dark:text-white/80 lg:flex">
                   {writerNavItems.map((item) => (
                     <div key={item} className="group relative">
-                      <button className="flex items-center gap-1.5 px-3 py-2 transition-colors hover:text-slate-900 dark:hover:text-white">
+                      <button className="flex items-center gap-1.5 px-2 py-2 transition-colors hover:text-slate-900 hover:text-[#7058DD] dark:hover:text-white">
                         <span className="relative">{item}</span>
                         <svg
                           className="h-3.5 w-3.5 transition-transform group-hover:rotate-180"
@@ -443,13 +438,17 @@ export default function GlobalNavbar() {
             </div>
 
             {/* Actions */}
-            <div className="flex items-center gap-4">
-              {/* Search bar - only on writer pages */}
-              {pathname?.startsWith('/writer') && (
-                <div className="hidden md:block">
-                  <div className="flex h-11 w-[300px] items-center gap-3 rounded-full border border-black/10 bg-slate-50/50 dark:border-white/10 dark:bg-white/[0.05] px-4 shadow-sm transition-all hover:border-black/20 dark:hover:border-white/20 hover:shadow-md">
+            <div className="flex items-center gap-3">
+              {pathname?.startsWith('/writer') ? (
+                <>
+                  {/* Ikon-sök, utan input */}
+                  <button
+                    type="button"
+                    className="flex h-9 w-9 items-center justify-center rounded-full border border-slate-200 bg-white/80 text-slate-600 shadow-sm backdrop-blur-md transition-all hover:border-slate-300 hover:bg-white dark:border-white/25 dark:bg-slate-900/80 dark:text-white/80"
+                    aria-label="Search"
+                  >
                     <svg
-                      className="h-4 w-4 flex-shrink-0 text-slate-400 dark:text-white/40"
+                      className="h-4 w-4"
                       fill="none"
                       viewBox="0 0 24 24"
                       stroke="currentColor"
@@ -461,35 +460,36 @@ export default function GlobalNavbar() {
                         d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
                       />
                     </svg>
-                    <input
-                      type="text"
-                      placeholder="Search books, authors..."
-                      className="flex-1 bg-transparent text-[14px] font-medium text-slate-900 placeholder-slate-400 dark:text-white dark:placeholder-white/40 outline-none"
+                  </button>
+
+                  {/* Upgrade / Share – stil enligt referens, funktion kan kopplas senare */}
+                  <button
+                    type="button"
+                    className="hidden h-9 items-center rounded-full border border-slate-300 bg-black px-5 text-[13px] font-medium text-white shadow-sm transition-all hover:bg-black/90 md:inline-flex dark:border-white/30 dark:bg-white dark:text-slate-900 dark:hover:bg-white/90"
+                  >
+                    Upgrade to PRO
+                  </button>
+                  <button
+                    type="button"
+                    className="hidden h-9 items-center rounded-full border border-slate-300 bg-black px-5 text-[13px] font-medium text-white shadow-sm transition-all hover:bg-black/90 md:inline-flex dark:border-white/30 dark:bg-white dark:text-slate-900 dark:hover:bg-white/90"
+                  >
+                    + Share work
+                  </button>
+                </>
+              ) : (
+                <>
+                  {/* Theme toggle för public/reader */}
+                  <div className="hidden items-center gap-3 md:flex">
+                    <ThemeToggle
+                      glassProps={glassBaseProps}
+                      glassClassName="border border-slate-200/80 bg-white/80 shadow-sm dark:border-white/15 dark:bg-slate-900/85"
+                      className="h-9 w-9 text-slate-700 dark:text-white/80"
                     />
                   </div>
-                </div>
+                </>
               )}
 
-              {/* Theme toggle */}
-              <div className="hidden items-center gap-3 md:flex">
-                <ThemeToggle glassProps={glassBaseProps} />
-              </div>
-
-              {/* Create button - only on writer dashboard */}
-              {pathname === '/writer' && user && (
-                <button
-                  onClick={() => {
-                    // Trigger create dropdown - this will be handled by the page component
-                    const event = new CustomEvent('openCreateDropdown');
-                    window.dispatchEvent(event);
-                  }}
-                  className="rounded-full bg-gradient-to-r from-[#907AFF] to-[#8069EE] px-6 py-2.5 text-[15px] font-semibold text-white shadow-lg shadow-[#907AFF]/25 transition-all hover:from-[#8069EE] hover:to-[#7058DD] hover:shadow-xl hover:shadow-[#907AFF]/30 hover:scale-[1.02] active:scale-[0.98]"
-                >
-                  Create
-                </button>
-              )}
-
-              {/* User menu or auth buttons */}
+              {/* User menu eller auth-knappar */}
               {user ? (
                 <UserMenu user={user} onSignOut={handleSignOut} currentRole={currentRole} />
               ) : (
@@ -498,7 +498,7 @@ export default function GlobalNavbar() {
                     <>
                       <Link
                         href="/signin"
-                        className="px-6 text-[17px] font-regular text-slate-900 dark:text-white transition hover:text-slate-600 dark:hover:text-white/70"
+                        className="px-4 text-[15px] font-regular text-slate-900 dark:text-white transition hover:text-slate-600 dark:hover:text-white/70"
                       >
                         Sign in
                       </Link>
@@ -506,11 +506,11 @@ export default function GlobalNavbar() {
                         <GlassSurface
                           {...glassBaseProps}
                           width="auto"
-                          height="48px"
+                          height="40px"
                           borderRadius={300}
-                          className="border border-black/10 dark:border-white/10 px-6 py-3 [&_.glass-surface__content]:p-0"
+                          className="border border-black/10 dark:border-white/10 px-5 py-2 [&_.glass-surface__content]:p-0"
                         >
-                          <span className="text-[17px] font-medium text-slate-900 dark:text-white">
+                          <span className="text-[15px] font-medium text-slate-900 dark:text-white">
                             Sign up
                           </span>
                         </GlassSurface>
@@ -521,7 +521,7 @@ export default function GlobalNavbar() {
                     <>
                       <Link
                         href="/reader/signin"
-                        className="px-6 text-[17px] font-regular text-white transition hover:text-white/70"
+                        className="px-4 text-[15px] font-regular text-white transition hover:text-white/70"
                       >
                         Sign in
                       </Link>
@@ -529,11 +529,11 @@ export default function GlobalNavbar() {
                         <GlassSurface
                           {...glassBaseProps}
                           width="auto"
-                          height="48px"
+                          height="40px"
                           borderRadius={300}
-                          className="border border-white/10 px-6 py-3 [&_.glass-surface__content]:p-0"
+                          className="border border-white/10 px-5 py-2 [&_.glass-surface__content]:p-0"
                         >
-                          <span className="text-[17px] font-medium text-white">
+                          <span className="text-[15px] font-medium text-white">
                             Sign up
                           </span>
                         </GlassSurface>
