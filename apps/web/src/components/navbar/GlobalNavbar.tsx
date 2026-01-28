@@ -260,6 +260,11 @@ export default function GlobalNavbar() {
     }
   }, [pathname]);
 
+  // För menyn: använd pathname för att visa rätt text ("Switch to Reader" på /writer)
+  // Men behåll currentRole från DB för att uppdatera rätt roll när man byter
+  const displayRoleForMenu: "writer" | "reader" = 
+    pathname?.startsWith("/reader") ? "reader" : "writer";
+
   const handleSignOut = async () => {
     const supabase = createClient();
     await supabase.auth.signOut();
@@ -551,7 +556,7 @@ export default function GlobalNavbar() {
 
               {/* User menu eller auth-knappar */}
               {user ? (
-                <UserMenu user={user} onSignOut={handleSignOut} currentRole={currentRole} />
+                <UserMenu user={user} onSignOut={handleSignOut} currentRole={displayRoleForMenu} />
               ) : (
                 <>
                   {isPublicPage && (
