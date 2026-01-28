@@ -46,9 +46,9 @@ export default function BookCard({
       >
         {/* Cover Image */}
         <div className="absolute inset-0">
-          {book.cover_url ? (
+          {book.cover_image ? (
             <img 
-              src={book.cover_url} 
+              src={book.cover_image} 
               alt={book.title} 
               className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-110" 
             />

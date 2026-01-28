@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import GlassSurface from "@/components/GlassSurface";
@@ -29,6 +29,8 @@ export default function WriterSignIn() {
   const [staySignedIn, setStaySignedIn] = useState(true);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const [mousePos, setMousePos] = useState({ x: 0.5, y: 0.5 });
+  const mainRef = useRef<HTMLElement>(null);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -53,10 +55,39 @@ export default function WriterSignIn() {
     }
   };
 
+  const handleMouseMove = (e: React.MouseEvent<HTMLElement>) => {
+    if (!mainRef.current) return;
+    const rect = mainRef.current.getBoundingClientRect();
+    const x = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
+    const y = Math.max(0, Math.min(1, (e.clientY - rect.top) / rect.height));
+    setMousePos({ x, y });
+  };
+
+
   return (
     <main 
+      ref={mainRef}
+      onMouseMove={handleMouseMove}
       className="relative flex min-h-screen flex-col items-center justify-center overflow-hidden bg-background text-foreground transition-colors duration-300"
     >
+      {/* Simple mouse-tracked radial gradient background */}
+      <div className="fixed inset-0 z-0 overflow-hidden">
+        {/* Base gradient */}
+        <div className="absolute inset-0 bg-gradient-to-br from-[#907AFF]/10 via-[#E29ED5]/8 to-[#FCC997]/10 dark:from-slate-900/95 dark:via-purple-950/90 dark:to-slate-900/95" />
+        
+        {/* Single mouse-tracked radial gradient circle with smooth continuous movement */}
+        <div 
+          className="absolute h-[700px] w-[700px] rounded-full blur-[100px] pointer-events-none"
+          style={{
+            background: 'radial-gradient(circle, rgba(144, 122, 255, 0.4) 0%, rgba(226, 158, 213, 0.3) 30%, rgba(252, 201, 151, 0.25) 50%, transparent 70%)',
+            left: `${mousePos.x * 100}%`,
+            top: `${mousePos.y * 100}%`,
+            transform: 'translate(-50%, -50%)',
+            willChange: 'left, top',
+          }}
+        />
+      </div>
+
       {/* Light rays background - only in dark mode */}
       <div className="absolute inset-0 z-0 dark:block hidden">
         <LightRays
@@ -67,7 +98,7 @@ export default function WriterSignIn() {
           rayLength={3}
           followMouse={true}
           mouseInfluence={0.6}
-          noiseAmount={0.33}
+          noiseAmount={0}
           distortion={0}
           pulsating={false}
           fadeDistance={0.9}
@@ -75,11 +106,11 @@ export default function WriterSignIn() {
         />
       </div>
 
-      {/* Light mode gradient background */}
-      <div className="absolute inset-0 z-0 bg-gradient-to-br from-slate-50 via-purple-50/30 to-slate-100 dark:hidden" />
 
-      {/* Logo and Theme Toggle */}
-      <header className="absolute left-8 top-8 z-20 flex w-full items-center justify-between px-8">
+
+
+      {/* Logo */}
+      <header className="absolute left-8 top-8 z-30">
         <Link href="/" className="flex items-center gap-3">
           <img
             src="/logo-dark.svg"
@@ -94,10 +125,12 @@ export default function WriterSignIn() {
             loading="eager"
           />
         </Link>
-        <div className="flex items-center gap-3">
-          <ThemeToggle glassProps={glassBaseProps} />
-        </div>
       </header>
+
+      {/* Theme Toggle - bottom right */}
+      <div className="absolute bottom-8 right-8 z-30">
+        <ThemeToggle glassProps={glassBaseProps} />
+      </div>
 
       {/* Sign in card */}
       <GlassSurface
@@ -105,7 +138,7 @@ export default function WriterSignIn() {
         width="480px"
         height="auto"
         borderRadius={40}
-        className="glass-card relative z-10 border border-black/10 dark:border-white/10"
+        className="glass-card relative z-20 border border-black/10 dark:border-white/10"
       >
         <div className="flex w-full flex-col items-center px-12 py-14 text-center">
           <p className="text-base font-medium tracking-wide text-slate-600 dark:text-white/50">

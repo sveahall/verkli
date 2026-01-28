@@ -95,21 +95,12 @@ export default async function WriterProfileRoute() {
   let readsCount: number | null = null;
   if (books && books.length > 0) {
     const bookIds = books.map((book) => book.id);
-    // Some environments use book_id vs bookId; try the common column first.
     const { count, error } = await supabase
       .from("readings" as never)
       .select("id", { count: "exact", head: true })
       .in("book_id", bookIds);
 
-    if (!error) {
-      readsCount = count ?? null;
-    } else {
-      const { count: altCount } = await supabase
-        .from("readings" as never)
-        .select("id", { count: "exact", head: true })
-        .in("bookId", bookIds);
-      readsCount = altCount ?? null;
-    }
+    if (!error) readsCount = count ?? null;
   }
 
   return (
@@ -139,7 +130,7 @@ export default async function WriterProfileRoute() {
           id: book.id,
           title: book.title,
           slug: book.slug,
-          cover_url: (book as { cover_image?: string | null }).cover_image ?? null,
+          cover_image: (book as { cover_image?: string | null }).cover_image ?? null,
           status: book.status,
         }))}
       />

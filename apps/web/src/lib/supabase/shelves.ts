@@ -12,7 +12,7 @@ type ShelfBookInsert = Database['public']['Tables']['shelf_books']['Insert'];
 export interface ShelfWithDetails extends Shelf {
   sections: ShelfSection[];
   shelf_books: (ShelfBook & {
-    book: Database['public']['Tables']['library_books']['Row'];
+    book: Database['public']['Tables']['books']['Row'];
   })[];
 }
 
@@ -27,7 +27,7 @@ export async function getShelves(): Promise<ShelfWithDetails[]> {
       sections:shelf_sections(*),
       shelf_books(
         *,
-        book:library_books(*)
+        book:books(*)
       )
     `)
     .order('sort_index', { ascending: true });
@@ -52,7 +52,7 @@ export async function getShelf(shelfId: string): Promise<ShelfWithDetails | null
       sections:shelf_sections(*),
       shelf_books(
         *,
-        book:library_books(*)
+        book:books(*)
       )
     `)
     .eq('id', shelfId)
@@ -213,12 +213,16 @@ export async function reorderBooks(shelfId: string, sectionId: string | null, bo
   }));
 
   for (const update of updates) {
-    const { error } = await supabase
+    let query = supabase
       .from('shelf_books')
       .update({ sort_index: update.sort_index })
       .eq('id', update.id)
-      .eq('shelf_id', shelfId)
-      .eq(sectionId ? 'section_id' : 'section_id', sectionId);
+      .eq('shelf_id', shelfId);
+
+    if (sectionId === null) query = query.is('section_id', null);
+    else query = query.eq('section_id', sectionId);
+
+    const { error } = await query;
 
     if (error) throw error;
   }

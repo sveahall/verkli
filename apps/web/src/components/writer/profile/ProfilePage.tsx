@@ -31,7 +31,7 @@ export type ProfileBook = {
   id: string;
   title: string;
   slug?: string | null;
-  cover_url?: string | null;
+  cover_image?: string | null;
   status?: string | null;
 };
 
@@ -128,7 +128,7 @@ export default function ProfilePage({
                   id={book.id}
                   title={book.title}
                   slug={book.slug}
-                  coverUrl={book.cover_url}
+                  coverImage={book.cover_image}
                   status={book.status}
                 />
               ))}

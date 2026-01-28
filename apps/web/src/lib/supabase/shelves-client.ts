@@ -338,7 +338,7 @@ export async function reorderBooks(shelfId: string, sectionId: string | null, bo
 // Create standalone book
 export async function createStandaloneBook(book: {
   title: string;
-  cover_url?: string;
+  cover_image?: string;
   description?: string;
 }): Promise<Book> {
   const supabase = createClient();
@@ -353,7 +353,7 @@ export async function createStandaloneBook(book: {
     .insert({
       title: book.title,
       slug: slug,
-      cover_url: book.cover_url,
+      cover_image: book.cover_image,
       description: book.description,
       author_id: user.id,
       status: 'DRAFT',

@@ -1,9 +1,10 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import GlassSurface from "@/components/GlassSurface";
+import ThemeToggle from "@/components/ThemeToggle";
 import { signIn, signInWithGoogle } from "@/lib/supabase/auth";
 
 const glassBaseProps = {
@@ -26,6 +27,16 @@ export default function ReaderSignIn() {
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const [mousePos, setMousePos] = useState({ x: 0.5, y: 0.5 });
+  const mainRef = useRef<HTMLElement>(null);
+
+  const handleMouseMove = (e: React.MouseEvent<HTMLElement>) => {
+    if (!mainRef.current) return;
+    const rect = mainRef.current.getBoundingClientRect();
+    const x = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
+    const y = Math.max(0, Math.min(1, (e.clientY - rect.top) / rect.height));
+    setMousePos({ x, y });
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -52,6 +63,8 @@ export default function ReaderSignIn() {
 
   return (
     <main
+      ref={mainRef}
+      onMouseMove={handleMouseMove}
       className="relative flex min-h-screen flex-col items-center justify-center overflow-hidden text-slate-900 dark:text-white"
       style={{ background: "var(--auth-background)" }}
     >
@@ -66,6 +79,11 @@ export default function ReaderSignIn() {
           />
         </Link>
       </header>
+
+      {/* Theme Toggle - bottom right */}
+      <div className="absolute bottom-8 right-8 z-30">
+        <ThemeToggle glassProps={glassBaseProps} />
+      </div>
 
       {/* Sign in card */}
       <GlassSurface
