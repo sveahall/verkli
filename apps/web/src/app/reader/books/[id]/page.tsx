@@ -7,7 +7,7 @@ export default async function ReaderBookDetail({ params }: { params: { id: strin
 
   const { data: book } = await supabase
     .from("books")
-    .select("id, title, description, cover_url, status, author_id")
+    .select("id, title, description, cover_image, status, author_id")
     .eq("id", params.id)
     .maybeSingle();
 
@@ -36,8 +36,8 @@ export default async function ReaderBookDetail({ params }: { params: { id: strin
 
       <section className="mx-auto grid max-w-[1100px] gap-10 px-6 py-12 lg:grid-cols-[0.9fr_1.1fr]">
         <div className="relative overflow-hidden rounded-[28px] border border-black/10 bg-black/5 dark:border-white/10 dark:bg-white/5">
-          {book.cover_url ? (
-            <img src={book.cover_url} alt={book.title} className="h-full w-full object-cover" />
+          {(book as { cover_image?: string | null }).cover_image ? (
+            <img src={(book as { cover_image?: string | null }).cover_image!} alt={book.title} className="h-full w-full object-cover" />
           ) : (
             <div className="flex h-full min-h-[360px] w-full items-center justify-center bg-gradient-to-br from-[#907AFF]/20 to-[#E29ED5]/20">
               <span className="text-[18px] font-semibold text-slate-700 dark:text-white/70">No cover</span>

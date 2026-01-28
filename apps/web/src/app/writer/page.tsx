@@ -48,7 +48,7 @@ type EmptyStateCardProps = {
 
 function EmptyStateCard({ children }: EmptyStateCardProps) {
   return (
-    <div className="rounded-2xl border border-slate-200/80 bg-white/80 px-6 py-4 text-[14px] text-slate-600 shadow-sm dark:border-white/15 dark:bg-white/[0.04] dark:text-white/55">
+    <div className="rounded-2xl border border-slate-200/80 bg-white/80 px-6 py-4 text-[14px] text-slate-600 dark:border-white/15 dark:bg-white/[0.04] dark:text-white/55">
       {children}
     </div>
   );
@@ -1377,7 +1377,7 @@ function Dashboard({ user }: { user: User }) {
                       onClick={() => setShelfForm({ ...shelfForm, coverType: "image" })}
                       className={`rounded-lg px-4 py-1.5 text-[13px] font-medium transition-all ${
                         shelfForm.coverType === "image"
-                          ? "bg-[#907AFF] text-white shadow-sm"
+                          ? "bg-[#907AFF] text-white"
                           : "bg-black/5 dark:bg-white/[0.02] text-slate-600 dark:text-white/70 hover:bg-black/10 dark:hover:bg-white/[0.04]"
                       }`}
                     >
@@ -1387,7 +1387,7 @@ function Dashboard({ user }: { user: User }) {
                       onClick={() => setShelfForm({ ...shelfForm, coverType: "gradient" })}
                       className={`rounded-lg px-4 py-1.5 text-[13px] font-medium transition-all ${
                         shelfForm.coverType === "gradient"
-                          ? "bg-[#907AFF] text-white shadow-sm"
+                          ? "bg-[#907AFF] text-white"
                           : "bg-black/5 dark:bg-white/[0.02] text-slate-600 dark:text-white/70 hover:bg-black/10 dark:hover:bg-white/[0.04]"
                       }`}
                     >
@@ -1796,7 +1796,7 @@ function Dashboard({ user }: { user: User }) {
                     onClick={() => setBookForm({ ...bookForm, creationMethod: "write" })}
                     className={`rounded-xl border p-5 text-left transition-all ${
                       bookForm.creationMethod === "write"
-                        ? "border-[#907AFF]/50 bg-[#907AFF]/10 shadow-sm ring-2 ring-[#907AFF]/30"
+                        ? "border-[#907AFF]/50 bg-[#907AFF]/10 ring-2 ring-[#907AFF]/30"
                         : "border-black/10 dark:border-white/10 bg-black/5 dark:bg-white/[0.02] hover:border-[#907AFF]/30 hover:bg-black/10 dark:hover:bg-white/[0.04]"
                     }`}
                   >
@@ -1807,7 +1807,7 @@ function Dashboard({ user }: { user: User }) {
                     onClick={() => setBookForm({ ...bookForm, creationMethod: "upload" })}
                     className={`rounded-xl border p-5 text-left transition-all ${
                       bookForm.creationMethod === "upload"
-                        ? "border-[#907AFF]/50 bg-[#907AFF]/10 shadow-sm ring-2 ring-[#907AFF]/30"
+                        ? "border-[#907AFF]/50 bg-[#907AFF]/10 ring-2 ring-[#907AFF]/30"
                         : "border-black/10 dark:border-white/10 bg-black/5 dark:bg-white/[0.02] hover:border-[#907AFF]/30 hover:bg-black/10 dark:hover:bg-white/[0.04]"
                     }`}
                   >

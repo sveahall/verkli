@@ -72,7 +72,7 @@ export default async function WriterProfileRoute() {
 
   const { data: books, error: booksError } = await supabase
     .from("books")
-    .select("id, title, slug, cover_url, status, created_at")
+    .select("id, title, slug, cover_image, status, created_at")
     .eq("author_id", user.id)
     .eq("status", "PUBLISHED")
     .order("created_at", { ascending: false });
@@ -139,7 +139,7 @@ export default async function WriterProfileRoute() {
           id: book.id,
           title: book.title,
           slug: book.slug,
-          cover_url: book.cover_url,
+          cover_url: (book as { cover_image?: string | null }).cover_image ?? null,
           status: book.status,
         }))}
       />

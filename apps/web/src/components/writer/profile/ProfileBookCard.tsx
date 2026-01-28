@@ -39,7 +39,7 @@ export default function ProfileBookCard({ id, title, coverUrl, slug, status }: B
               </span>
             ) : null}
             <div className="opacity-0 transition-opacity duration-200 group-hover:opacity-100">
-              <span className="inline-flex h-7 w-7 items-center justify-center rounded-full border border-black/10 bg-white/90 text-slate-500 shadow-sm dark:border-white/15 dark:bg-slate-900/90 dark:text-white/70">
+              <span className="inline-flex h-7 w-7 items-center justify-center rounded-full border border-black/10 bg-white/90 text-slate-500 dark:border-white/15 dark:bg-slate-900/90 dark:text-white/70">
                 <svg
                   className="h-3.5 w-3.5"
                   viewBox="0 0 24 24"

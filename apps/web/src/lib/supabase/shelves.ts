@@ -12,7 +12,7 @@ type ShelfBookInsert = Database['public']['Tables']['shelf_books']['Insert'];
 export interface ShelfWithDetails extends Shelf {
   sections: ShelfSection[];
   shelf_books: (ShelfBook & {
-    book: Database['public']['Tables']['books']['Row'];
+    book: Database['public']['Tables']['library_books']['Row'];
   })[];
 }
 
@@ -27,7 +27,7 @@ export async function getShelves(): Promise<ShelfWithDetails[]> {
       sections:shelf_sections(*),
       shelf_books(
         *,
-        book:books(*)
+        book:library_books(*)
       )
     `)
     .order('sort_index', { ascending: true });
@@ -52,7 +52,7 @@ export async function getShelf(shelfId: string): Promise<ShelfWithDetails | null
       sections:shelf_sections(*),
       shelf_books(
         *,
-        book:books(*)
+        book:library_books(*)
       )
     `)
     .eq('id', shelfId)

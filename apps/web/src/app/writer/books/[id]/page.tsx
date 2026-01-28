@@ -13,7 +13,7 @@ export default async function BookDetailPage({ params }: { params: { id: string 
 
   const { data: book } = await supabase
     .from("books")
-    .select("id, title, description, cover_url, author_id, status")
+    .select("id, title, description, cover_image, author_id, status")
     .eq("id", params.id)
     .maybeSingle();
 
@@ -57,8 +57,8 @@ export default async function BookDetailPage({ params }: { params: { id: string 
       <section className="mx-auto grid max-w-[1200px] gap-12 px-6 py-12 lg:grid-cols-[0.85fr_1.15fr]">
         <div className="relative">
           <div className="relative overflow-hidden rounded-[32px] shadow-2xl shadow-black/40">
-            {book.cover_url ? (
-              <img src={book.cover_url} alt={book.title} className="h-full w-full object-cover" />
+            {(book as { cover_image?: string | null }).cover_image ? (
+              <img src={(book as { cover_image?: string | null }).cover_image!} alt={book.title} className="h-full w-full object-cover" />
             ) : (
               <div className="flex h-[420px] w-full items-center justify-center bg-gradient-to-br from-[#907AFF]/20 to-[#E29ED5]/20">
                 <span className="text-sm text-white/70">No cover</span>

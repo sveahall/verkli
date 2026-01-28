@@ -9,22 +9,22 @@ ALTER TABLE public.books ENABLE ROW LEVEL SECURITY;
 -- Publicerade böcker kan ses av alla
 CREATE POLICY "Published books are viewable by everyone"
   ON public.books FOR SELECT
-  USING (status = 'PUBLISHED' OR "authorId" = auth.uid());
+  USING (status = 'PUBLISHED' OR author_id = auth.uid());
 
 -- Författare kan skapa böcker
 CREATE POLICY "Authors can create books"
   ON public.books FOR INSERT
-  WITH CHECK (auth.uid() = "authorId");
+  WITH CHECK (auth.uid() = author_id);
 
 -- Författare kan uppdatera sina egna böcker
 CREATE POLICY "Authors can update own books"
   ON public.books FOR UPDATE
-  USING (auth.uid() = "authorId");
+  USING (auth.uid() = author_id);
 
 -- Författare kan radera sina egna böcker
 CREATE POLICY "Authors can delete own books"
   ON public.books FOR DELETE
-  USING (auth.uid() = "authorId");
+  USING (auth.uid() = author_id);
 
 -- ─────────────────────────────────────────────────────────────
 -- Chapters
