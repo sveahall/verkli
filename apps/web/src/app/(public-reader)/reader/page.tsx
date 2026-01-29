@@ -1,11 +1,7 @@
 "use client";
 
-import { useEffect, useState, type ReactNode } from "react";
 import Link from "next/link";
 import GlassSurface from "@/components/GlassSurface";
-import { createClient } from "@/lib/supabase/client";
-import type { Book } from "@/lib/supabase/types";
-import type { User } from "@supabase/supabase-js";
 
 const glassBaseProps = {
   displace: 0.5,
@@ -21,75 +17,64 @@ const glassBaseProps = {
   mixBlendMode: "screen",
 };
 
-type EmptyStateCardProps = {
-  children: ReactNode;
-};
+const valueBenefits = [
+  {
+    title: "Discover stories you actually care about",
+    description: "Find work that resonates. No endless scrolling—curated paths to stories that matter to you.",
+    icon: (
+      <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+        <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z" />
+      </svg>
+    ),
+  },
+  {
+    title: "Follow authors directly",
+    description: "Stay close to the people who write. Get new chapters and updates without algorithms in the way.",
+    icon: (
+      <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+        <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 6a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0zM4.501 20.118a7.5 7.5 0 0114.998-0A17.933 17.933 0 0112 21.75c-2.676 0-5.216-.584-7.499-1.632z" />
+      </svg>
+    ),
+  },
+  {
+    title: "Read across genres in one place",
+    description: "Fiction, essays, serials—all in a single home. Switch moods, not apps.",
+    icon: (
+      <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+        <path strokeLinecap="round" strokeLinejoin="round" d="M12 6.042A8.967 8.967 0 006 3.75c-1.052 0-2.062.18-3 .512v14.25A8.987 8.987 0 016 18c2.305 0 4.408.867 6 2.292m0-14.25a8.966 8.966 0 016-2.292c1.052 0 2.062.18 3 .512v14.25A8.987 8.987 0 0018 18a8.967 8.967 0 00-6 2.292m0-14.25v14.25" />
+      </svg>
+    ),
+  },
+  {
+    title: "Support authors you love",
+    description: "Your attention and support go straight to creators. Read knowing you’re part of their journey.",
+    icon: (
+      <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+        <path strokeLinecap="round" strokeLinejoin="round" d="M21 8.25c0-2.485-2.099-4.5-4.688-4.5-1.935 0-3.597 1.126-4.312 2.733-.715-1.607-2.377-2.733-4.313-2.733C5.1 3.75 3 5.765 3 8.25c0 7.22 9 12 9 12s9-4.78 9-12z" />
+      </svg>
+    ),
+  },
+];
 
-function EmptyStateCard({ children }: EmptyStateCardProps) {
-  return (
-    <div className="col-span-full rounded-2xl border border-slate-200/80 bg-white/80 p-8 text-center text-[14px] text-slate-600 dark:border-white/[0.15] dark:bg-white/[0.04] dark:text-white/[0.55]">
-      {children}
-    </div>
-  );
-}
+const howItWorksSteps = [
+  { step: 1, title: "Discover stories", description: "Browse by mood, genre, or author. Find something that pulls you in." },
+  { step: 2, title: "Follow authors or series", description: "Stay updated on what you care about. No feed noise." },
+  { step: 3, title: "Read and engage", description: "Dive in. Comment, save, and return whenever you’re ready." },
+];
+
+const whyDifferent = [
+  { title: "Direct connection to authors", text: "Stories and updates come from the people who write them, not from an algorithm." },
+  { title: "Less noise, more quality", text: "A place built for reading, not for infinite scroll or engagement tricks." },
+  { title: "Built for long-form storytelling", text: "Serials, novels, and essays get the space they need—no squeezing into feeds." },
+  { title: "Reader-first platform", text: "Every decision starts with how it feels to read and discover, not to advertise." },
+];
 
 export default function ReaderLanding() {
-  const [user, setUser] = useState<User | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [featuredBooks, setFeaturedBooks] = useState<Book[]>([]);
-  const [loadingBooks, setLoadingBooks] = useState(true);
-
-  useEffect(() => {
-    const supabase = createClient();
-    const getUser = async () => {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-      setUser(user);
-      setLoading(false);
-    };
-    getUser();
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange((event, session) => {
-      if (event === "SIGNED_OUT") setUser(null);
-      else if (event === "SIGNED_IN" && session?.user) setUser(session.user);
-    });
-    return () => subscription.unsubscribe();
-  }, []);
-
-  useEffect(() => {
-    const supabase = createClient();
-    const loadFeatured = async () => {
-      setLoadingBooks(true);
-      const { data, error } = await supabase
-        .from("books")
-        .select("id, title, cover_image, description, status, author_id")
-        .eq("status", "PUBLISHED")
-        .limit(8);
-
-      if (!error && data) {
-        setFeaturedBooks(data as unknown as Book[]);
-      }
-      setLoadingBooks(false);
-    };
-    loadFeatured();
-  }, []);
-
-  if (loading) {
-    return (
-      <div className="flex min-h-screen items-center justify-center bg-slate-50 dark:bg-[#050508]">
-        <div className="h-8 w-8 animate-spin rounded-full border-2 border-black/20 border-t-[#907AFF] dark:border-white/20" />
-      </div>
-    );
-  }
-
   return (
-  <main className="relative min-h-screen bg-gradient-to-b from-slate-50 via-slate-50/95 to-slate-50/90 text-slate-900 dark:from-[#050508] dark:via-[#050508] dark:to-[#050508] dark:text-white">
-      {/* Hero Section – mörk i dark mode: dämpade orbs + stark overlay */}
-      <section className="relative flex min-h-[min(100dvh,80rem)] w-full flex-col items-center justify-center bg-slate-50 px-4 py-16 text-center dark:bg-[#050508] sm:px-6">
-        {/* Animated background glows – ljust i light mode, mycket dämpat i dark mode */}
-        <div className="pointer-events-none absolute inset-0 w-full h-full">
+    <main className="relative min-h-screen bg-gradient-to-b from-slate-50 via-slate-50/95 to-slate-50/90 text-slate-900 dark:from-[#050508] dark:via-[#050508] dark:to-[#050508] dark:text-white">
+      {/* Hero */}
+      <section className="relative flex min-h-[min(100dvh,80rem)] w-full flex-col items-center justify-center px-4 py-16 text-center dark:bg-[#050508] sm:px-6">
+        <div className="pointer-events-none absolute inset-0 h-full w-full">
           <div
             className="absolute left-1/4 top-0 h-[500px] w-[500px] -translate-x-1/2 -translate-y-1/2 animate-pulse rounded-full blur-[150px] opacity-20 dark:opacity-[0.04]"
             style={{ background: "#907AFF", animationDuration: "4s" }}
@@ -102,24 +87,23 @@ export default function ReaderLanding() {
             className="absolute left-1/2 top-1/2 h-[300px] w-[300px] -translate-x-1/2 -translate-y-1/2 animate-pulse rounded-full blur-[100px] opacity-10 dark:opacity-[0.025]"
             style={{ background: "#FCC997", animationDuration: "3s", animationDelay: "0.5s" }}
           />
-          {/* Stark mörk overlay i dark mode så hero tydligt är mörk */}
           <div className="absolute inset-0 hidden bg-gradient-to-b from-[#050508]/95 via-[#050508]/92 to-[#050508]/98 dark:block" aria-hidden />
         </div>
-        
-        {/* Content container with max-width */}
-        <div className="relative z-10 mx-auto w-full max-w-[1200px]">
 
+        <div className="relative z-10 mx-auto w-full max-w-[1200px]">
           <h1 className="text-[clamp(1.75rem,5vw+1rem,4rem)] font-medium leading-[1.1] tracking-[-0.02em] text-slate-900 dark:text-white">
-            Discover stories
+            Stories that find you.
             <br />
-            <span className="bg-gradient-to-r from-[#907AFF] via-[#E29ED5] to-[#FCC997] bg-clip-text text-transparent">that move you.</span>
+            <span className="bg-gradient-to-r from-[#907AFF] via-[#E29ED5] to-[#FCC997] bg-clip-text text-transparent">
+              Read without the noise.
+            </span>
           </h1>
-          <p className="mt-4 mx-auto max-w-[480px] px-2 text-[15px] leading-relaxed text-slate-600 dark:text-white/50 sm:mt-6 sm:text-[16px]">
-            Connect with your favorite authors, explore new worlds, and be part of the stories you love.
+          <p className="mx-auto mt-4 max-w-[480px] px-2 text-[15px] leading-relaxed text-slate-600 dark:text-white/50 sm:mt-6 sm:text-[16px]">
+            Discover, follow, and immerse yourself. Verkli is where readers and authors meet—calm, human, and built for the stories that move you.
           </p>
 
-          <div className="mt-8 flex flex-wrap gap-3 justify-center sm:mt-10 sm:gap-4">
-            <Link href={user ? "/reader/home" : "/reader/signup"} className="min-h-[44px] inline-flex items-center justify-center">
+          <div className="mt-8 flex flex-wrap justify-center gap-3 sm:mt-10 sm:gap-4">
+            <Link href="#explore" className="inline-flex min-h-[44px] items-center justify-center">
               <GlassSurface
                 {...glassBaseProps}
                 width="auto"
@@ -128,80 +112,179 @@ export default function ReaderLanding() {
                 className="glass-button border border-black/10 transition-transform hover:scale-[1.02] dark:border-white/20"
               >
                 <span className="px-6 py-3 text-[14px] font-medium text-slate-900 dark:text-white sm:px-8 sm:text-[15px]">
-                  {user ? "Continue reading" : "Start reading"}
+                  Explore stories
                 </span>
               </GlassSurface>
             </Link>
             <Link
-              href="#explore"
+              href="/reader/signup"
               className="flex items-center gap-2 rounded-full border border-black/10 px-8 py-3.5 text-[15px] font-medium text-slate-600 transition-all hover:border-black/20 hover:text-slate-900 dark:border-white/10 dark:text-white/60 dark:hover:border-white/20 dark:hover:text-white/80"
             >
-              Explore books
+              Join Verkli
             </Link>
           </div>
-          <div className="mt-6 text-[13px] text-slate-500 dark:text-white/50">
+          <p className="mt-6 text-[13px] text-slate-500 dark:text-white/50">
             Are you a writer?<br />
             <Link href="/writer" className="font-semibold text-slate-700 hover:text-slate-900 dark:text-white/80 dark:hover:text-white">
               Go to authors page
             </Link>
-            .
-          </div>
+          </p>
         </div>
       </section>
 
-      {/* Featured Section – samma mörka bakgrund som resten i dark mode */}
-      <section id="explore" className="mx-auto w-full max-w-[1200px] bg-slate-50 px-4 py-16 dark:bg-[#050508] sm:px-6 sm:py-24">
-        <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
-          <div>
-            <h2 className="text-2xl font-medium tracking-[-0.02em] text-slate-900 dark:text-white sm:text-[32px]">Featured Books</h2>
-            <p className="mt-2 text-[15px] text-slate-500 dark:text-white/40">Curated stories for you</p>
-          </div>
-          <button className="min-h-[44px] min-w-[44px] self-start rounded-md px-4 py-2 text-[14px] font-medium text-slate-500 transition hover:text-slate-700 dark:text-white/50 dark:hover:text-white/70 focus:outline-none focus:ring-2 focus:ring-[#907AFF]/30 focus:ring-offset-2">
-            View all
-          </button>
+      {/* Value proposition */}
+      <section
+        id="explore"
+        className="relative mx-auto w-full max-w-[1200px] px-4 py-16 sm:px-6 sm:py-24"
+        aria-labelledby="value-heading"
+      >
+        <h2 id="value-heading" className="sr-only">
+          Why Verkli for readers
+        </h2>
+        <p className="mx-auto max-w-[560px] text-center text-2xl font-medium tracking-[-0.02em] text-slate-900 dark:text-white sm:text-[32px]">
+          A place to discover and stay close to what you love
+        </p>
+        <p className="mx-auto mt-3 max-w-[420px] text-center text-[15px] text-slate-600 dark:text-white/50">
+          Built for readers who want more than a feed.
+        </p>
+
+        <div className="mt-10 grid gap-6 sm:mt-14 sm:grid-cols-2 lg:grid-cols-4">
+          {valueBenefits.map((benefit, i) => (
+            <article
+              key={i}
+              className="rounded-2xl border border-slate-200/80 bg-white/80 p-6 dark:border-white/[0.12] dark:bg-white/[0.04]"
+            >
+              <div className="flex h-10 w-10 items-center justify-center rounded-xl border border-slate-200/80 bg-slate-50/80 text-slate-600 dark:border-white/[0.12] dark:bg-white/[0.06] dark:text-white/70">
+                {benefit.icon}
+              </div>
+              <h3 className="mt-4 text-[17px] font-medium text-slate-900 dark:text-white">
+                {benefit.title}
+              </h3>
+              <p className="mt-2 text-[14px] leading-relaxed text-slate-600 dark:text-white/55">
+                {benefit.description}
+              </p>
+            </article>
+          ))}
         </div>
-        
-        <div className="mt-8 grid grid-cols-2 gap-4 sm:mt-10 sm:gap-5 md:grid-cols-3 lg:grid-cols-4">
-          {loadingBooks ? (
-            Array.from({ length: 4 }).map((_, i) => (
-              <div
-                key={`skeleton-${i}`}
-                className="animate-pulse aspect-[3/4] overflow-hidden rounded-2xl border border-black/[0.08] bg-black/[0.02] dark:border-white/[0.06] dark:bg-white/[0.02]"
-              />
-            ))
-          ) : featuredBooks.length === 0 ? (
-            <EmptyStateCard>No featured books yet.</EmptyStateCard>
-          ) : (
-            featuredBooks.map((book) => (
-              <Link
-                key={book.id}
-                href={`/reader/books/${book.id}`}
-                className="group overflow-hidden rounded-2xl border border-black/[0.08] bg-black/[0.02] transition-all duration-300 hover:-translate-y-1 hover:border-black/20 hover:bg-black/[0.04] dark:border-white/[0.06] dark:bg-white/[0.02] dark:hover:border-white/10 dark:hover:bg-white/[0.04]"
+      </section>
+
+      {/* How it works */}
+      <section
+        className="relative mx-auto w-full max-w-[1200px] px-4 py-16 sm:px-6 sm:py-24"
+        aria-labelledby="how-heading"
+      >
+        <h2 id="how-heading" className="text-2xl font-medium tracking-[-0.02em] text-slate-900 dark:text-white sm:text-[32px]">
+          How it works for readers
+        </h2>
+        <p className="mt-2 text-[15px] text-slate-600 dark:text-white/50">
+          Simple. No clutter.
+        </p>
+
+        <div className="mt-10 flex flex-col gap-8 sm:mt-14 md:flex-row md:gap-6 lg:gap-10">
+          {howItWorksSteps.map((item) => (
+            <article
+              key={item.step}
+              className="flex flex-1 flex-col rounded-2xl border border-slate-200/80 bg-white/80 p-6 dark:border-white/[0.12] dark:bg-white/[0.04]"
+            >
+              <span
+                className="inline-flex h-9 w-9 items-center justify-center rounded-full bg-slate-900 text-[14px] font-medium text-white dark:bg-white dark:text-slate-900"
+                aria-hidden
               >
-                <div className="aspect-[3/4] overflow-hidden">
-                  {(book as { cover_image?: string | null }).cover_image ? (
-                    <img
-                      src={(book as { cover_image?: string | null }).cover_image!}
-                      alt={book.title}
-                      className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
-                    />
-                  ) : (
-                    <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-[#907AFF]/30 to-[#E29ED5]/30 text-[14px] text-slate-700 dark:text-white/70">
-                      No cover
-                    </div>
-                  )}
-                </div>
-                <div className="p-4">
-                  <h3 className="text-[15px] font-medium text-slate-900 dark:text-white">{book.title}</h3>
-                  <p className="mt-1 line-clamp-2 text-[12px] text-slate-600 dark:text-white/50">{book.description || "No description yet."}</p>
-                </div>
-              </Link>
-            ))
-          )}
+                {item.step}
+              </span>
+              <h3 className="mt-4 text-[17px] font-medium text-slate-900 dark:text-white">
+                {item.title}
+              </h3>
+              <p className="mt-2 text-[14px] leading-relaxed text-slate-600 dark:text-white/55">
+                {item.description}
+              </p>
+            </article>
+          ))}
         </div>
       </section>
 
-      {/* Footer rendered globally in layout */}
+      {/* Why Verkli is different */}
+      <section
+        className="relative mx-auto w-full max-w-[1200px] px-4 py-16 sm:px-6 sm:py-24"
+        aria-labelledby="different-heading"
+      >
+        <h2 id="different-heading" className="text-2xl font-medium tracking-[-0.02em] text-slate-900 dark:text-white sm:text-[32px]">
+          Why Verkli is different
+        </h2>
+        <p className="mt-2 text-[15px] text-slate-600 dark:text-white/50">
+          Not just another reading app.
+        </p>
+
+        <ul className="mt-10 space-y-6 sm:mt-14">
+          {whyDifferent.map((item, i) => (
+            <li
+              key={i}
+              className="flex gap-4 rounded-2xl border border-slate-200/80 bg-white/80 px-6 py-5 dark:border-white/[0.12] dark:bg-white/[0.04]"
+            >
+              <span className="mt-0.5 h-2 w-2 flex-shrink-0 rounded-full bg-[#907AFF]" aria-hidden />
+              <div>
+                <h3 className="text-[17px] font-medium text-slate-900 dark:text-white">
+                  {item.title}
+                </h3>
+                <p className="mt-1 text-[14px] leading-relaxed text-slate-600 dark:text-white/55">
+                  {item.text}
+                </p>
+              </div>
+            </li>
+          ))}
+        </ul>
+      </section>
+
+      {/* Soft crossover – authors & readers */}
+      <section
+        className="relative mx-auto w-full max-w-[1200px] px-4 py-16 sm:px-6 sm:py-24"
+        aria-labelledby="crossover-heading"
+      >
+        <div className="mx-auto max-w-[640px] rounded-2xl border border-slate-200/80 bg-white/80 px-6 py-8 text-center dark:border-white/[0.12] dark:bg-white/[0.04] sm:px-10 sm:py-10">
+          <h2 id="crossover-heading" className="text-xl font-medium tracking-[-0.02em] text-slate-900 dark:text-white sm:text-2xl">
+            Built so authors can keep writing
+          </h2>
+          <p className="mt-4 text-[15px] leading-relaxed text-slate-600 dark:text-white/55">
+            Verkli is designed to support authors sustainably—so they can focus on the stories you love. When creators are supported, readers get more of what matters: great writing, direct connection, and a place that puts both of you first.
+          </p>
+        </div>
+      </section>
+
+      {/* CTA */}
+      <section
+        className="relative mx-auto w-full max-w-[1200px] px-4 py-16 sm:px-6 sm:py-24"
+        aria-labelledby="cta-heading"
+      >
+        <div className="mx-auto max-w-[560px] rounded-2xl border border-slate-200/80 bg-white/80 px-6 py-12 text-center dark:border-white/[0.12] dark:bg-white/[0.04] sm:px-10 sm:py-14">
+          <h2 id="cta-heading" className="text-2xl font-medium tracking-[-0.02em] text-slate-900 dark:text-white sm:text-[28px]">
+            Ready to find your next story?
+          </h2>
+          <p className="mt-3 text-[15px] text-slate-600 dark:text-white/55">
+            Explore without signing up, or join Verkli to follow authors and save your reading.
+          </p>
+          <div className="mt-8 flex flex-wrap justify-center gap-3 sm:gap-4">
+            <Link href="#explore" className="inline-flex min-h-[44px] items-center justify-center">
+              <GlassSurface
+                {...glassBaseProps}
+                width="auto"
+                height="auto"
+                borderRadius={999}
+                className="glass-button border border-black/10 transition-transform hover:scale-[1.02] dark:border-white/20"
+              >
+                <span className="px-6 py-3 text-[14px] font-medium text-slate-900 dark:text-white sm:px-8 sm:text-[15px]">
+                  Explore stories
+                </span>
+              </GlassSurface>
+            </Link>
+            <Link
+              href="/reader/signup"
+              className="flex min-h-[44px] items-center justify-center rounded-full border border-black/10 px-8 py-3.5 text-[15px] font-medium text-slate-600 transition-all hover:border-black/20 hover:text-slate-900 dark:border-white/10 dark:text-white/60 dark:hover:border-white/20 dark:hover:text-white/80"
+            >
+              Join Verkli
+            </Link>
+          </div>
+        </div>
+      </section>
     </main>
   );
 }
