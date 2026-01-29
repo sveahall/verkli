@@ -3,24 +3,11 @@
 import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import GlassCard, { glassCardProps } from "@/components/GlassCard";
 import GlassSurface from "@/components/GlassSurface";
 import LightRays from "@/components/LightRays";
 import { signIn, signInWithGoogle } from "@/lib/supabase/auth";
 import ThemeToggle from "@/components/ThemeToggle";
-
-const glassBaseProps = {
-  displace: 0.5,
-  distortionScale: -180,
-  redOffset: 0,
-  greenOffset: 10,
-  blueOffset: 20,
-  brightness: 50,
-  opacity: 0.93,
-  backgroundOpacity: 0.12,
-  blur: 12,
-  saturation: 1.2,
-  mixBlendMode: "screen",
-};
 
 export default function WriterSignIn() {
   const router = useRouter();
@@ -68,7 +55,7 @@ export default function WriterSignIn() {
     <main 
       ref={mainRef}
       onMouseMove={handleMouseMove}
-      className="relative flex min-h-screen flex-col items-center justify-center overflow-hidden bg-background text-foreground transition-colors duration-300"
+      className="relative flex min-h-screen min-h-svh flex-col items-center justify-center overflow-hidden bg-background text-foreground transition-colors duration-300"
     >
       {/* Simple mouse-tracked radial gradient background */}
       <div className="fixed inset-0 z-0 overflow-hidden">
@@ -129,17 +116,11 @@ export default function WriterSignIn() {
 
       {/* Theme Toggle - bottom right */}
       <div className="absolute bottom-8 right-8 z-30">
-        <ThemeToggle glassProps={glassBaseProps} />
+        <ThemeToggle glassProps={glassCardProps} />
       </div>
 
-      {/* Sign in card */}
-      <GlassSurface
-        {...glassBaseProps}
-        width="100%"
-        height="auto"
-        borderRadius={24}
-        className="glass-card relative z-20 mx-4 w-full max-w-[480px] border border-black/10 dark:border-white/10 sm:mx-6 sm:rounded-[32px] md:rounded-[40px]"
-      >
+      {/* Sign in card – samma GlassCard som selector/signup */}
+      <GlassCard>
         <div className="flex w-full flex-col items-center px-6 py-10 text-center sm:px-10 sm:py-12 md:px-12 md:py-14">
           <p className="text-sm font-medium tracking-wide text-slate-600 dark:text-white/50 sm:text-base">
             Welcome back, writer
@@ -207,7 +188,7 @@ export default function WriterSignIn() {
             </div>
 
             <GlassSurface
-              {...glassBaseProps}
+              {...glassCardProps}
               width="100%"
               height="auto"
               borderRadius={999}
@@ -264,7 +245,7 @@ export default function WriterSignIn() {
             </Link>
           </p>
         </div>
-      </GlassSurface>
+      </GlassCard>
     </main>
   );
 }

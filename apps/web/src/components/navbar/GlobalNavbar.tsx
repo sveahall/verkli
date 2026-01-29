@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
+import { createPortal } from "react-dom";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import GlassSurface from "@/components/GlassSurface";
@@ -272,6 +273,9 @@ export default function GlobalNavbar() {
   };
 
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [dropdownOpen, setDropdownOpen] = useState<{ key: string; top: number; left: number } | null>(null);
+  // Timeout så att flytt från trigger till portal inte stänger menyn (browser: number)
+  const dropdownCloseTimeoutRef = useRef<number | null>(null);
   const isWriterRoute = pathname?.startsWith("/writer");
   const isReaderRoute = pathname?.startsWith("/reader");
   const isPublicPage = !isWriterRoute && !isReaderRoute;
@@ -294,7 +298,9 @@ export default function GlobalNavbar() {
     isReaderRoute ? "reader" : isWriterRoute ? "writer" : currentRole;
 
   // Keep auth screens clean; everything else uses the global navbar
-  const hideNavbar = isAuthRoute;
+  const isSelectorPage = pathname === "/";
+  // Visa navbar på alla publika sidor inkl. selector, signin, signup (enl. krav)
+  const hideNavbar = false;
 
   // Writer navigation items
   const writerNavItems = ["Features", "Integrations", "Examples", "FAQ"];
@@ -326,8 +332,10 @@ export default function GlobalNavbar() {
   };
 
   return (
-    <header className="sticky top-0 z-[999] isolate mx-auto w-full max-w-[100vw] overflow-x-hidden bg-gradient-to-b from-background/95 via-background/90 to-transparent px-4 pb-2 pt-3 md:px-6">
-      <div className="flex items-center gap-2 sm:gap-3">
+    <div className="fixed top-0 left-0 z-[50] w-full">
+      {/* Fixed wrapper: ingen parent får ha overflow/transform/filter så Safari visar navbar; z-50 min enl. krav */}
+      <header className="mx-auto w-full max-w-[100vw] overflow-x-hidden overflow-y-visible bg-gradient-to-b from-background/95 via-background/90 to-transparent px-4 pb-2 pt-3 md:px-6">
+        <div className="flex items-center gap-2 sm:gap-3">
         <GlassSurface
           {...glassBaseProps}
           width="100%"
@@ -356,7 +364,23 @@ export default function GlobalNavbar() {
               {isWriterRoute && (
                 <div className="hidden items-center gap-7 text-[14px] font-medium text-slate-700/90 dark:text-white/80 lg:flex">
                   {writerNavItems.map((item) => (
-                    <div key={item} className="group relative">
+                    <div
+                      key={item}
+                      className="group relative"
+                      onMouseEnter={(e) => {
+                        if (item !== "Features" && item !== "Integrations" && item !== "Examples" && item !== "FAQ") return;
+                        if (dropdownCloseTimeoutRef.current) {
+                          clearTimeout(dropdownCloseTimeoutRef.current);
+                          dropdownCloseTimeoutRef.current = null;
+                        }
+                        const btn = e.currentTarget.querySelector("button");
+                        const rect = btn?.getBoundingClientRect();
+                        if (rect) setDropdownOpen({ key: item, top: rect.bottom + 14, left: rect.left - 10 });
+                      }}
+                      onMouseLeave={() => {
+                        dropdownCloseTimeoutRef.current = window.setTimeout(() => setDropdownOpen(null), 200);
+                      }}
+                    >
                       <button className="flex min-h-[44px] min-w-[44px] items-center gap-1.5 px-3 py-2 transition-colors hover:text-slate-900 hover:text-[#7058DD] dark:hover:text-white focus:outline-none focus:ring-2 focus:ring-[#907AFF]/50 focus:ring-offset-2 rounded-md">
                         <span className="relative">{item}</span>
                         <svg
@@ -371,52 +395,7 @@ export default function GlobalNavbar() {
                           <path d="M3 4.5L6 7.5L9 4.5" />
                         </svg>
                       </button>
-                      {(item === "Features" || item === "Integrations" || item === "Examples" || item === "FAQ") && (
-                        <div className="nav-dropdown pointer-events-none absolute left-[-10px] top-full mt-3.5 z-[998] w-[720px] max-w-[calc(100vw-2.5rem)] px-3 opacity-0 transition-all duration-300 ease-out group-hover:pointer-events-auto group-hover:opacity-100">
-                          <GlassSurface
-                            {...dropdownGlassProps}
-                            width="100%"
-                            height="auto"
-                            borderRadius={24}
-                            className="nav-mega max-h-[min(calc(100dvh-120px),32rem)] overflow-y-auto overscroll-contain border border-white/[0.4] px-4 py-4 dark:border-white/[0.15] sm:px-5 sm:py-5 md:px-8 md:py-8"
-                          >
-                            {dropdownContent[item as keyof typeof dropdownContent] && (
-                              <>
-                                <div className="mb-6">
-                                  <h3 className="text-[18px] font-bold text-slate-900 dark:text-white mb-1.5">
-                                    {dropdownContent[item as keyof typeof dropdownContent].title}
-                                  </h3>
-                                  <p className="text-[13px] text-slate-600 dark:text-white/70">
-                                    {dropdownContent[item as keyof typeof dropdownContent].description}
-                                  </p>
-                                </div>
-                                <div className="grid grid-cols-1 gap-2.5 md:grid-cols-2">
-                                  {dropdownContent[item as keyof typeof dropdownContent].items.map((menuItem, idx) => (
-                                    <div
-                                      key={idx}
-                                      className="group/item cursor-pointer rounded-xl p-4 transition-all duration-200 hover:bg-slate-50 dark:hover:bg-white/[0.12] border border-transparent hover:border-slate-200 dark:hover:border-white/10"
-                                    >
-                                      <div className="flex items-start gap-3">
-                                        <div className="mt-1 flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-lg bg-slate-900/5 ring-1 ring-black/5 dark:bg-white/10 dark:ring-white/10">
-                                          <span className="h-2 w-2 rounded-full bg-gradient-to-r from-[#907AFF] via-[#E29ED5] to-[#FCC997]" />
-                                        </div>
-                                        <div className="flex-1 min-w-0">
-                                          <h4 className="text-[14px] font-semibold leading-tight text-slate-900 dark:text-white group-hover/item:text-[#907AFF] dark:group-hover/item:text-[#907AFF] transition-colors mb-1">
-                                            {menuItem.title}
-                                          </h4>
-                                          <p className="text-[12px] leading-relaxed text-slate-600 dark:text-white/70">
-                                            {menuItem.description}
-                                          </p>
-                                        </div>
-                                      </div>
-                                    </div>
-                                  ))}
-                                </div>
-                              </>
-                            )}
-                          </GlassSurface>
-                        </div>
-                      )}
+                      {/* Dropdown rendras via Portal till body – se nedan */}
                     </div>
                   ))}
                 </div>
@@ -450,7 +429,23 @@ export default function GlobalNavbar() {
               {isPublicPage && (
                 <div className="hidden items-center gap-8 text-[16px] font-medium text-slate-700 dark:text-white/80 lg:flex">
                   {publicNavItems.map((item) => (
-                    <div key={item.label} className="group relative">
+                    <div
+                      key={item.label}
+                      className="group relative"
+                      onMouseEnter={(e) => {
+                        if (!item.hasDropdown) return;
+                        if (dropdownCloseTimeoutRef.current) {
+                          clearTimeout(dropdownCloseTimeoutRef.current);
+                          dropdownCloseTimeoutRef.current = null;
+                        }
+                        const btn = e.currentTarget.querySelector("button");
+                        const rect = btn?.getBoundingClientRect();
+                        if (rect) setDropdownOpen({ key: item.label, top: rect.bottom + 8, left: rect.left });
+                      }}
+                      onMouseLeave={() => {
+                        dropdownCloseTimeoutRef.current = window.setTimeout(() => setDropdownOpen(null), 200);
+                      }}
+                    >
                       <button className="flex items-center gap-1.5 px-3 py-2 transition-colors hover:text-slate-900 dark:hover:text-white">
                         <span className="relative">{item.label}</span>
                         {item.hasDropdown && (
@@ -467,52 +462,7 @@ export default function GlobalNavbar() {
                           </svg>
                         )}
                       </button>
-                      {item.hasDropdown && (
-                        <div className="nav-dropdown pointer-events-none absolute left-0 top-full mt-2 z-[998] w-[720px] max-w-[calc(100vw-2.5rem)] px-3 opacity-0 transition-all duration-300 ease-out group-hover:pointer-events-auto group-hover:opacity-100">
-                          <GlassSurface
-                            {...dropdownGlassProps}
-                            width="100%"
-                            height="auto"
-                            borderRadius={24}
-                            className="nav-mega max-h-[min(calc(100dvh-120px),32rem)] overflow-y-auto overscroll-contain border border-white/[0.4] px-4 py-4 dark:border-white/[0.15] sm:px-5 sm:py-5 md:px-8 md:py-8"
-                          >
-                            {dropdownContent[item.label as keyof typeof dropdownContent] && (
-                              <>
-                                <div className="mb-6">
-                                  <h3 className="text-[18px] font-bold text-slate-900 dark:text-white mb-1.5">
-                                    {dropdownContent[item.label as keyof typeof dropdownContent].title}
-                                  </h3>
-                                  <p className="text-[13px] text-slate-600 dark:text-white/70">
-                                    {dropdownContent[item.label as keyof typeof dropdownContent].description}
-                                  </p>
-                                </div>
-                                <div className="grid grid-cols-1 gap-2.5 md:grid-cols-2">
-                                  {dropdownContent[item.label as keyof typeof dropdownContent].items.map((menuItem, idx) => (
-                                    <div
-                                      key={idx}
-                                      className="group/item cursor-pointer rounded-xl p-4 transition-all duration-200 hover:bg-slate-50 dark:hover:bg-white/[0.12] border border-transparent hover:border-slate-200 dark:hover:border-white/10"
-                                    >
-                                      <div className="flex items-start gap-3">
-                                        <div className="mt-1 flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-lg bg-slate-900/5 ring-1 ring-black/5 dark:bg-white/10 dark:ring-white/10">
-                                          <span className="h-2 w-2 rounded-full bg-gradient-to-r from-[#907AFF] via-[#E29ED5] to-[#FCC997]" />
-                                        </div>
-                                        <div className="flex-1 min-w-0">
-                                          <h4 className="text-[14px] font-semibold leading-tight text-slate-900 dark:text-white group-hover/item:text-[#907AFF] dark:group-hover/item:text-[#907AFF] transition-colors mb-1">
-                                            {menuItem.title}
-                                          </h4>
-                                          <p className="text-[12px] leading-relaxed text-slate-600 dark:text-white/70">
-                                            {menuItem.description}
-                                          </p>
-                                        </div>
-                                      </div>
-                                    </div>
-                                  ))}
-                                </div>
-                              </>
-                            )}
-                          </GlassSurface>
-                        </div>
-                      )}
+                      {/* Dropdown rendras via Portal till body */}
                     </div>
                   ))}
                 </div>
@@ -792,5 +742,71 @@ export default function GlobalNavbar() {
         </div>
       )}
     </header>
+      {/* Portal: dropdown utanför navbar DOM så ingen stacking/overflow klipper; z 100 ovanför allt */}
+      {typeof document !== "undefined" &&
+        dropdownOpen &&
+        createPortal(
+          <div
+            className="w-[720px] max-w-[calc(100vw-2.5rem)] px-3 transition-all duration-300 ease-out"
+            style={{
+              position: "fixed",
+              top: dropdownOpen!.top,
+              left: dropdownOpen!.left,
+              zIndex: 100,
+            }}
+            onMouseEnter={() => {
+              if (dropdownCloseTimeoutRef.current) {
+                clearTimeout(dropdownCloseTimeoutRef.current);
+                dropdownCloseTimeoutRef.current = null;
+              }
+            }}
+            onMouseLeave={() => setDropdownOpen(null)}
+          >
+            <GlassSurface
+              {...dropdownGlassProps}
+              width="100%"
+              height="auto"
+              borderRadius={24}
+              className="nav-mega max-h-[min(calc(100dvh-120px),32rem)] overflow-y-auto overscroll-contain border border-white/[0.4] px-4 py-4 dark:border-white/[0.15] sm:px-5 sm:py-5 md:px-8 md:py-8"
+            >
+              {dropdownContent[dropdownOpen!.key as keyof typeof dropdownContent] && (
+                <>
+                  <div className="mb-6">
+                    <h3 className="text-[18px] font-bold text-slate-900 dark:text-white mb-1.5">
+                      {dropdownContent[dropdownOpen!.key as keyof typeof dropdownContent].title}
+                    </h3>
+                    <p className="text-[13px] text-slate-600 dark:text-white/70">
+                      {dropdownContent[dropdownOpen!.key as keyof typeof dropdownContent].description}
+                    </p>
+                  </div>
+                  <div className="grid grid-cols-1 gap-2.5 md:grid-cols-2">
+                    {dropdownContent[dropdownOpen!.key as keyof typeof dropdownContent].items.map((menuItem, idx) => (
+                      <div
+                        key={idx}
+                        className="group/item cursor-pointer rounded-xl p-4 transition-all duration-200 hover:bg-slate-50 dark:hover:bg-white/[0.12] border border-transparent hover:border-slate-200 dark:hover:border-white/10"
+                      >
+                        <div className="flex items-start gap-3">
+                          <div className="mt-1 flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-lg bg-slate-900/5 ring-1 ring-black/5 dark:bg-white/10 dark:ring-white/10">
+                            <span className="h-2 w-2 rounded-full bg-gradient-to-r from-[#907AFF] via-[#E29ED5] to-[#FCC997]" />
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <h4 className="text-[14px] font-semibold leading-tight text-slate-900 dark:text-white group-hover/item:text-[#907AFF] dark:group-hover/item:text-[#907AFF] transition-colors mb-1">
+                              {menuItem.title}
+                            </h4>
+                            <p className="text-[12px] leading-relaxed text-slate-600 dark:text-white/70">
+                              {menuItem.description}
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </>
+              )}
+            </GlassSurface>
+          </div>,
+          document.body
+        )}
+    </div>
   );
 }

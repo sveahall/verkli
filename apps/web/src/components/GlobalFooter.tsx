@@ -9,6 +9,7 @@ import Footer from "./Footer";
  */
 export default function GlobalFooter() {
   const pathname = usePathname();
+  if (pathname === "/") return null;
   const variant = pathname?.startsWith("/writer") ? "writer" : "reader";
   return <Footer variant={variant} />;
 }

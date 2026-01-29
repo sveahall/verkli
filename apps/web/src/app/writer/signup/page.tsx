@@ -3,24 +3,11 @@
 import { useState, useRef } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import GlassCard, { glassCardProps } from "@/components/GlassCard";
 import GlassSurface from "@/components/GlassSurface";
 import LightRays from "@/components/LightRays";
 import ThemeToggle from "@/components/ThemeToggle";
 import { signUp, signInWithGoogle } from "@/lib/supabase/auth";
-
-const glassBaseProps = {
-  displace: 0.5,
-  distortionScale: -180,
-  redOffset: 0,
-  greenOffset: 10,
-  blueOffset: 20,
-  brightness: 50,
-  opacity: 0.93,
-  backgroundOpacity: 0.12,
-  blur: 12,
-  saturation: 1.2,
-  mixBlendMode: "screen",
-};
 
 export default function WriterSignUp() {
   const router = useRouter();
@@ -100,11 +87,11 @@ export default function WriterSignUp() {
         </div>
 
         <GlassSurface
-          {...glassBaseProps}
+          {...glassCardProps}
           width="480px"
           height="auto"
           borderRadius={40}
-          className="glass-card relative z-20 border border-black/10 dark:border-white/10"
+          className="glass-card relative z-20 border border-black/[0.1] dark:border-white/[0.1]"
         >
           <div className="flex w-full flex-col items-center px-12 py-14 text-center">
             <div className="flex h-16 w-16 items-center justify-center rounded-full bg-green-500/20">
@@ -123,7 +110,7 @@ export default function WriterSignUp() {
 
             <Link href="/writer/signin" className="mt-8">
               <GlassSurface
-                {...glassBaseProps}
+                {...glassCardProps}
                 width="auto"
                 height="auto"
                 borderRadius={999}
@@ -176,17 +163,11 @@ export default function WriterSignUp() {
 
       {/* Theme Toggle - bottom right */}
       <div className="absolute bottom-8 right-8 z-30">
-        <ThemeToggle glassProps={glassBaseProps} />
+        <ThemeToggle glassProps={glassCardProps} />
       </div>
 
       {/* Sign up card */}
-      <GlassSurface
-        {...glassBaseProps}
-        width="100%"
-        height="auto"
-        borderRadius={24}
-        className="glass-card relative z-20 mx-4 w-full max-w-[480px] border border-black/10 dark:border-white/10 sm:mx-6 sm:rounded-[32px] md:rounded-[40px]"
-      >
+      <GlassCard>
         <div className="flex w-full flex-col items-center px-6 py-10 text-center sm:px-10 sm:py-12 md:px-12 md:py-14">
           <p className="text-sm font-medium tracking-wide text-slate-600 dark:text-white/50 sm:text-base">
             Start your journey
@@ -251,7 +232,7 @@ export default function WriterSignUp() {
             </div>
 
             <GlassSurface
-              {...glassBaseProps}
+              {...glassCardProps}
               width="100%"
               height="auto"
               borderRadius={999}
@@ -309,7 +290,7 @@ export default function WriterSignUp() {
             </Link>
           </p>
         </div>
-      </GlassSurface>
+      </GlassCard>
     </main>
   );
 }

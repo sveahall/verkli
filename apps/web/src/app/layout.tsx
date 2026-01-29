@@ -38,11 +38,12 @@ export default function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning>
       <body
-        className={`${inter.variable} ${montserratAlternates.variable} antialiased flex min-h-screen min-h-dvh flex-col`}
+        className={`${inter.variable} ${montserratAlternates.variable} antialiased flex min-h-screen min-h-dvh min-h-svh flex-col`}
       >
         <script dangerouslySetInnerHTML={{ __html: themeScript }} />
         <GlobalNavbar />
-        <div className="flex min-h-0 flex-1 flex-col">
+        {/* pt så att innehåll börjar under fixed navbar; ingen overflow/transform på denna wrapper (Safari) */}
+        <div className="flex min-h-0 flex-1 flex-col pt-[72px]">
           {children}
         </div>
         <GlobalFooter />
