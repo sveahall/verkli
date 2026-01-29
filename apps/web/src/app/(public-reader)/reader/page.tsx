@@ -140,9 +140,9 @@ export default function ReaderLanding() {
             </Link>
           </div>
           <div className="mt-6 text-[13px] text-slate-500 dark:text-white/50">
-            Are you a writer instead?{" "}
+            Are you a writer?<br />
             <Link href="/writer" className="font-semibold text-slate-700 hover:text-slate-900 dark:text-white/80 dark:hover:text-white">
-              Go to writer landing
+              Go to authors page
             </Link>
             .
           </div>

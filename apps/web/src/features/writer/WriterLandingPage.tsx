@@ -363,12 +363,11 @@ function LandingPage() {
             <Link href="/writer/signin" className="inline-flex min-h-[48px] min-w-[140px] items-center justify-center rounded-full border border-slate-200/80 px-8 py-2.5 text-[15px] font-medium text-slate-700 transition-colors hover:bg-slate-100 hover:text-slate-900 focus:outline-none focus:ring-2 focus:ring-[#907AFF]/50 focus:ring-offset-2 dark:border-white/10 dark:text-white/90 dark:hover:bg-white/10">
               Sign in
             </Link>
-            <a href="#features" className="group flex min-h-[44px] items-center gap-2 text-[15px] text-slate-500 transition-colors hover:text-slate-700 dark:text-white/50 dark:hover:text-white/70">See how it works<svg className="h-4 w-4 transition-transform group-hover:translate-x-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg></a>
           </div>
           <div className="mt-6 text-[13px] text-slate-500 dark:text-white/50">
-            Looking for the reader experience?{" "}
+            Looking for the reader experience?<br />
             <Link href="/reader" className="font-semibold text-slate-700 hover:text-slate-900 dark:text-white/80 dark:hover:text-white">
-              Go to reader landing
+              Go to reader page
             </Link>
             .
           </div>
