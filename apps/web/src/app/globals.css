@@ -453,6 +453,26 @@
   }
 }
 
+/* Reader hero: subtle drift (transform only, no opacity) to avoid blink under fixed navbar */
+@keyframes hero-glow-drift-1 {
+  0%, 100% { transform: translate(-50%, -50%) scale(1); }
+  50% { transform: translate(-48%, -52%) scale(1.05); }
+}
+@keyframes hero-glow-drift-2 {
+  0%, 100% { transform: translate(50%, 0) scale(1); }
+  50% { transform: translate(48%, -8%) scale(1.04); }
+}
+@keyframes hero-glow-drift-3 {
+  0%, 100% { transform: translate(-50%, -50%) scale(1); }
+  50% { transform: translate(-52%, -48%) scale(0.97); }
+}
+.hero-glow-drift-1 { animation: hero-glow-drift-1 18s ease-in-out infinite; }
+.hero-glow-drift-2 { animation: hero-glow-drift-2 22s ease-in-out infinite; }
+.hero-glow-drift-3 { animation: hero-glow-drift-3 14s ease-in-out infinite; }
+@media (prefers-reduced-motion: reduce) {
+  .hero-glow-drift-1, .hero-glow-drift-2, .hero-glow-drift-3 { animation: none; }
+}
+
 .section-stack {
   display: flex;
   flex-direction: column;
