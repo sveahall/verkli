@@ -41,11 +41,11 @@ export default function RootLayout({
         className={`${inter.variable} ${montserratAlternates.variable} antialiased flex min-h-screen min-h-dvh min-h-svh flex-col`}
       >
         <script dangerouslySetInnerHTML={{ __html: themeScript }} />
-        <GlobalNavbar />
-        {/* pt så att innehåll börjar under fixed navbar; ingen overflow/transform på denna wrapper (Safari) */}
-        <div className="flex min-h-0 flex-1 flex-col pt-[72px]">
+        {/* Innehåll först i DOM så Safari inte ritar det ovanpå navbaren; navbar kommer efter med fixed + z-[9999] */}
+        <div className="relative z-0 flex min-h-0 flex-1 flex-col overflow-x-hidden">
           {children}
         </div>
+        <GlobalNavbar />
         <GlobalFooter />
       </body>
     </html>

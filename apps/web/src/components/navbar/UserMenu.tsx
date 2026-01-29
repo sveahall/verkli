@@ -1,10 +1,13 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
+import { createPortal } from "react-dom";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import type { User } from "@supabase/supabase-js";
+
+const USER_MENU_WIDTH = 280;
 
 interface UserMenuProps {
   user: User;
@@ -25,8 +28,17 @@ export default function UserMenu({ user, onSignOut, currentRole = "writer" }: Us
   const router = useRouter();
   const [isOpen, setIsOpen] = useState(false);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
+  const [menuPosition, setMenuPosition] = useState<{ top: number; left: number } | null>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
   const menuPanelRef = useRef<HTMLDivElement>(null);
+
+  // Position för profil-dropdown: mät när den öppnas så vi kan rendera i portal med fixed (ovanför allt, som nav-dropdowns)
+  useEffect(() => {
+    if (!isOpen || typeof document === "undefined") return;
+    const rect = triggerRef.current?.getBoundingClientRect();
+    if (rect) setMenuPosition({ top: rect.bottom + 8, left: rect.right - USER_MENU_WIDTH });
+    return () => setMenuPosition(null);
+  }, [isOpen]);
 
   const displayName =
     user?.user_metadata?.full_name || user?.email?.split("@")[0] || "User";
@@ -166,13 +178,23 @@ export default function UserMenu({ user, onSignOut, currentRole = "writer" }: Us
         </span>
       </button>
 
-      {isOpen && (
-        <div
-          ref={menuPanelRef}
-          className="absolute right-0 top-full mt-2 z-[1000] w-[min(280px,calc(100vw-2rem))] max-w-[280px] overflow-hidden rounded-2xl border border-black/10 dark:border-white/10 bg-white/[0.98] dark:bg-[#0a0a0f]/[0.98] p-1 backdrop-blur-xl"
-          onMouseDown={(e) => e.stopPropagation()}
-          onClick={(e) => e.stopPropagation()}
-        >
+      {/* Profil-dropdown i portal till body med z 10000 så den syns ovanpå allt (som nav-dropdowns); andra dropdowns påverkas inte */}
+      {typeof document !== "undefined" &&
+        isOpen &&
+        menuPosition &&
+        createPortal(
+          <div
+            ref={menuPanelRef}
+            className="w-[min(280px,calc(100vw-2rem))] max-w-[280px] overflow-hidden rounded-2xl border border-black/10 dark:border-white/10 bg-white/[0.98] dark:bg-[#0a0a0f]/[0.98] p-1 backdrop-blur-xl"
+            style={{
+              position: "fixed",
+              top: menuPosition.top,
+              left: menuPosition.left,
+              zIndex: 10000,
+            }}
+            onMouseDown={(e) => e.stopPropagation()}
+            onClick={(e) => e.stopPropagation()}
+          >
           {/* Header with user info */}
           <div className="px-4 py-3 border-b border-black/[0.05] dark:border-white/[0.06]">
             <p className="text-[15px] font-semibold text-slate-900 dark:text-white">
@@ -285,8 +307,9 @@ export default function UserMenu({ user, onSignOut, currentRole = "writer" }: Us
               <span>Sign out</span>
             </button>
           </div>
-        </div>
-      )}
+        </div>,
+          document.body
+        )}
     </div>
   );
 }

@@ -299,8 +299,8 @@ export default function GlobalNavbar() {
 
   // Keep auth screens clean; everything else uses the global navbar
   const isSelectorPage = pathname === "/";
-  // Visa navbar på alla publika sidor inkl. selector, signin, signup (enl. krav)
-  const hideNavbar = false;
+  // Dölj navbar på selector-sidan (/) – ska bara synas på writer, reader, signin, signup m.fl.
+  const hideNavbar = isSelectorPage;
 
   // Writer navigation items
   const writerNavItems = ["Features", "Integrations", "Examples", "FAQ"];
@@ -332,9 +332,10 @@ export default function GlobalNavbar() {
   };
 
   return (
-    <div className="fixed top-0 left-0 z-[50] w-full">
-      {/* Fixed wrapper: ingen parent får ha overflow/transform/filter så Safari visar navbar; z-50 min enl. krav */}
-      <header className="mx-auto w-full max-w-[100vw] overflow-x-hidden overflow-y-visible bg-gradient-to-b from-background/95 via-background/90 to-transparent px-4 pb-2 pt-3 md:px-6">
+    <>
+      {/* fixed + isolate + z-[9999] så Safari alltid ritar navbar ovanpå innehåll (DOM-ordning + explicit stacking) */}
+      <div className="fixed top-0 left-0 z-[9999] isolate w-full flex-shrink-0">
+        <header className="mx-auto w-full max-w-[100vw] overflow-x-hidden overflow-y-visible  px-4 pb-2 pt-3 md:px-6">
         <div className="flex items-center gap-2 sm:gap-3">
         <GlassSurface
           {...glassBaseProps}
@@ -742,6 +743,9 @@ export default function GlobalNavbar() {
         </div>
       )}
     </header>
+      </div>
+      {/* Spacer i flödet så innehåll börjar under fixed navbar; scrollar bort medan navbaren ligger kvar högst upp */}
+      <div className="h-[72px] flex-shrink-0" aria-hidden />
       {/* Portal: dropdown utanför navbar DOM så ingen stacking/overflow klipper; z 100 ovanför allt */}
       {typeof document !== "undefined" &&
         dropdownOpen &&
@@ -752,7 +756,7 @@ export default function GlobalNavbar() {
               position: "fixed",
               top: dropdownOpen!.top,
               left: dropdownOpen!.left,
-              zIndex: 100,
+              zIndex: 10000,
             }}
             onMouseEnter={() => {
               if (dropdownCloseTimeoutRef.current) {
@@ -807,6 +811,6 @@ export default function GlobalNavbar() {
           </div>,
           document.body
         )}
-    </div>
+    </>
   );
 }
