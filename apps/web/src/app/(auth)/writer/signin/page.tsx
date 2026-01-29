@@ -30,7 +30,7 @@ export default function WriterSignIn() {
       setError(error.message);
       setLoading(false);
     } else {
-      router.push("/writer");
+      router.push("/writer/home");
     }
   };
 

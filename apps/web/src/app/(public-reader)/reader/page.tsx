@@ -85,23 +85,25 @@ export default function ReaderLanding() {
   }
 
   return (
-  <main className="relative min-h-screen bg-gradient-to-b from-slate-50 via-slate-50/95 to-slate-50/90 text-slate-900 dark:bg-[#050508] dark:text-white">
-      {/* Hero Section */}
-      <section className="relative flex min-h-[min(100dvh,80rem)] w-full flex-col items-center justify-center px-4 py-16 text-center sm:px-6">
-        {/* Animated background glows - brand colors - covers entire hero section */}
+  <main className="relative min-h-screen bg-gradient-to-b from-slate-50 via-slate-50/95 to-slate-50/90 text-slate-900 dark:from-[#050508] dark:via-[#050508] dark:to-[#050508] dark:text-white">
+      {/* Hero Section – mörk i dark mode: dämpade orbs + stark overlay */}
+      <section className="relative flex min-h-[min(100dvh,80rem)] w-full flex-col items-center justify-center bg-slate-50 px-4 py-16 text-center dark:bg-[#050508] sm:px-6">
+        {/* Animated background glows – ljust i light mode, mycket dämpat i dark mode */}
         <div className="pointer-events-none absolute inset-0 w-full h-full">
-          <div 
-            className="absolute left-1/4 top-0 h-[500px] w-[500px] -translate-x-1/2 -translate-y-1/2 animate-pulse rounded-full blur-[150px]" 
-            style={{ background: "#907AFF", opacity: 0.2, animationDuration: "4s" }}
+          <div
+            className="absolute left-1/4 top-0 h-[500px] w-[500px] -translate-x-1/2 -translate-y-1/2 animate-pulse rounded-full blur-[150px] opacity-20 dark:opacity-[0.04]"
+            style={{ background: "#907AFF", animationDuration: "4s" }}
           />
-          <div 
-            className="absolute bottom-1/4 right-1/4 h-[400px] w-[400px] translate-x-1/2 animate-pulse rounded-full blur-[120px]" 
-            style={{ background: "#E29ED5", opacity: 0.15, animationDuration: "5s", animationDelay: "1s" }}
+          <div
+            className="absolute bottom-1/4 right-1/4 h-[400px] w-[400px] translate-x-1/2 animate-pulse rounded-full blur-[120px] opacity-[0.15] dark:opacity-[0.03]"
+            style={{ background: "#E29ED5", animationDuration: "5s", animationDelay: "1s" }}
           />
-          <div 
-            className="absolute left-1/2 top-1/2 h-[300px] w-[300px] -translate-x-1/2 -translate-y-1/2 animate-pulse rounded-full blur-[100px]" 
-            style={{ background: "#FCC997", opacity: 0.1, animationDuration: "3s", animationDelay: "0.5s" }}
+          <div
+            className="absolute left-1/2 top-1/2 h-[300px] w-[300px] -translate-x-1/2 -translate-y-1/2 animate-pulse rounded-full blur-[100px] opacity-10 dark:opacity-[0.025]"
+            style={{ background: "#FCC997", animationDuration: "3s", animationDelay: "0.5s" }}
           />
+          {/* Stark mörk overlay i dark mode så hero tydligt är mörk */}
+          <div className="absolute inset-0 hidden bg-gradient-to-b from-[#050508]/95 via-[#050508]/92 to-[#050508]/98 dark:block" aria-hidden />
         </div>
         
         {/* Content container with max-width */}
@@ -137,11 +139,18 @@ export default function ReaderLanding() {
               Explore books
             </Link>
           </div>
+          <div className="mt-6 text-[13px] text-slate-500 dark:text-white/50">
+            Are you a writer instead?{" "}
+            <Link href="/writer" className="font-semibold text-slate-700 hover:text-slate-900 dark:text-white/80 dark:hover:text-white">
+              Go to writer landing
+            </Link>
+            .
+          </div>
         </div>
       </section>
 
-      {/* Featured Section Placeholder */}
-      <section id="explore" className="mx-auto w-full max-w-[1200px] px-4 py-16 sm:px-6 sm:py-24">
+      {/* Featured Section – samma mörka bakgrund som resten i dark mode */}
+      <section id="explore" className="mx-auto w-full max-w-[1200px] bg-slate-50 px-4 py-16 dark:bg-[#050508] sm:px-6 sm:py-24">
         <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
           <div>
             <h2 className="text-2xl font-medium tracking-[-0.02em] text-slate-900 dark:text-white sm:text-[32px]">Featured Books</h2>
