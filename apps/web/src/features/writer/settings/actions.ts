@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { updateActiveRole } from "@/features/auth/roles";
 
 export type ActionState = {
   ok: boolean;
@@ -156,12 +157,10 @@ export async function switchRoleToReader(): Promise<void> {
     redirect("/writer/signin");
   }
 
-  await supabase.auth.updateUser({ data: { role: "reader" } });
-  await supabase.from("profiles").upsert({ user_id: user.id, role: "reader" }, { onConflict: "user_id" });
-  await supabase.from("users").update({ role: "reader" }).eq("id", user.id);
+  await updateActiveRole("reader");
 
   revalidatePath("/writer");
-  redirect("/reader");
+  redirect("/reader/home");
 }
 
 export async function changePassword(prevState: ActionState, formData: FormData): Promise<ActionState> {

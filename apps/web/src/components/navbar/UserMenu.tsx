@@ -4,7 +4,6 @@ import { useState, useRef, useEffect } from "react";
 import { createPortal } from "react-dom";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { createClient } from "@/lib/supabase/client";
 import type { User } from "@supabase/supabase-js";
 
 const USER_MENU_WIDTH = 280;
@@ -71,50 +70,25 @@ export default function UserMenu({ user, onSignOut, currentRole = "writer" }: Us
   const handleSwitchRole = async () => {
     setIsOpen(false);
 
-    const supabase = createClient();
     const nextRole = currentRole === "writer" ? "reader" : "writer";
 
     try {
-      // Update role in profiles table (creates if doesn't exist, updates if exists)
-      const { error: updateError } = await supabase
-        .from("profiles")
-        .upsert(
-          {
-            user_id: user.id,
-            role: nextRole,
-          },
-          { onConflict: "user_id" }
-        );
+      const response = await fetch("/api/auth/active-role", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ role: nextRole }),
+      });
 
-      if (updateError) {
-        console.error("Error updating role:", {
-          message: updateError.message,
-          details: updateError.details,
-          hint: updateError.hint,
-          code: updateError.code,
-        });
+      if (!response.ok) {
+        const payload = await response.json().catch(() => ({}));
+        console.error("Error updating role:", payload);
         setToastMessage("Could not switch role. Try again.");
         return;
       }
 
-      const { error: metadataError } = await supabase.auth.updateUser({
-        data: {
-          role: nextRole,
-        },
-      });
-      if (metadataError) {
-        console.warn("Could not update auth metadata role:", metadataError);
-      }
-
-      try {
-        await supabase.from("users").update({ role: nextRole }).eq("id", user.id);
-      } catch (error) {
-        console.warn("Could not update users table role:", error);
-      }
-
       // Refresh router to clear cache and redirect
       router.refresh();
-      router.push(currentRole === "writer" ? "/reader" : "/writer");
+      router.push(currentRole === "writer" ? "/reader/home" : "/writer");
     } catch (error) {
       console.error("Error switching role:", error);
       setToastMessage("Could not switch role. Try again.");

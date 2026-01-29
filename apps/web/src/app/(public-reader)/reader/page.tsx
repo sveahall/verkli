@@ -117,7 +117,7 @@ export default function ReaderLanding() {
           </p>
 
           <div className="mt-8 flex flex-wrap gap-3 justify-center sm:mt-10 sm:gap-4">
-            <Link href={user ? "/reader" : "/reader/signup"} className="min-h-[44px] inline-flex items-center justify-center">
+            <Link href={user ? "/reader/home" : "/reader/signup"} className="min-h-[44px] inline-flex items-center justify-center">
               <GlassSurface
                 {...glassBaseProps}
                 width="auto"

@@ -770,7 +770,6 @@ export default function ShelfDetailPage() {
             </div>
           </div>
         )}
-      </div>
     </main>
   );
 }
