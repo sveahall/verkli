@@ -139,7 +139,7 @@
   }
   html {
     -webkit-text-size-adjust: 100%;
-    overflow-x: hidden;
+    /* overflow inte på html – Safari gör då fixed till viewport; overflow på content-wrappern istället */
   }
   body {
     @apply bg-background text-foreground transition-colors duration-300 min-h-screen;
