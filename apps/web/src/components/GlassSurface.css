@@ -7,6 +7,11 @@
   transition: opacity 0.26s ease-out;
 }
 
+/* Navbar: dropdown ska inte klippas – overflow visible */
+.nav-glass.glass-surface {
+  overflow: visible;
+}
+
 .glass-surface__filter {
   width: 100%;
   height: 100%;
@@ -36,17 +41,36 @@
 }
 
 .glass-surface--fallback {
-  background: rgba(255, 255, 255, 0.25);
-  backdrop-filter: blur(12px) saturate(1.8) brightness(1.1);
-  -webkit-backdrop-filter: blur(12px) saturate(1.8) brightness(1.1);
-  border: 1px solid rgba(255, 255, 255, 0.3);
+  background: rgba(255, 255, 255, 0.18);
+  backdrop-filter: blur(20px) saturate(1.8) brightness(1.05);
+  -webkit-backdrop-filter: blur(20px) saturate(1.8) brightness(1.05);
+  border: 1px solid rgba(255, 255, 255, 0.4);
 }
 
 .dark .glass-surface--fallback {
-  background: rgba(255, 255, 255, 0.1);
-  backdrop-filter: blur(12px) saturate(1.8) brightness(1.2);
-  -webkit-backdrop-filter: blur(12px) saturate(1.8) brightness(1.2);
-  border: 1px solid rgba(255, 255, 255, 0.2);
+  background: rgba(255, 255, 255, 0.08);
+  backdrop-filter: blur(20px) saturate(1.8) brightness(1.1);
+  -webkit-backdrop-filter: blur(20px) saturate(1.8) brightness(1.1);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+}
+
+/* Tydlig frosted glass för kort och knappar (Safari + alla som använder fallback) */
+.glass-card.glass-surface--fallback,
+.glass-button.glass-surface--fallback {
+  background: rgba(255, 255, 255, 0.12) !important;
+  backdrop-filter: blur(24px) saturate(1.6) brightness(1.02) !important;
+  -webkit-backdrop-filter: blur(24px) saturate(1.6) brightness(1.02) !important;
+  border-color: rgba(0, 0, 0, 0.06) !important;
+  transform: translateZ(0); /* Safari: egen kompositornivå så backdrop-filter fungerar */
+  -webkit-transform: translateZ(0);
+}
+
+.dark .glass-card.glass-surface--fallback,
+.dark .glass-button.glass-surface--fallback {
+  background: rgba(255, 255, 255, 0.06) !important;
+  backdrop-filter: blur(24px) saturate(1.6) brightness(1.08) !important;
+  -webkit-backdrop-filter: blur(24px) saturate(1.6) brightness(1.08) !important;
+  border-color: rgba(255, 255, 255, 0.1) !important;
 }
 
 @supports not (backdrop-filter: blur(10px)) {
