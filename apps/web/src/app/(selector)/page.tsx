@@ -30,11 +30,11 @@ export default function RoleSelection() {
 
     const role = localStorage.getItem(VERKLI_ROLE_KEY);
     if (role === "writer") {
-      router.replace("/writer");
+      router.replace("/writer/home");
       return;
     }
     if (role === "reader") {
-      router.replace("/reader");
+      router.replace("/reader/home");
       return;
     }
 
@@ -51,12 +51,12 @@ export default function RoleSelection() {
 
       if (profile?.role === "writer") {
         localStorage.setItem(VERKLI_ROLE_KEY, "writer");
-        router.replace("/writer");
+        router.replace("/writer/home");
         return;
       }
       if (profile?.role === "reader") {
         localStorage.setItem(VERKLI_ROLE_KEY, "reader");
-        router.replace("/reader");
+        router.replace("/reader/home");
         return;
       }
     };
@@ -67,7 +67,7 @@ export default function RoleSelection() {
   const setRoleAndGo = (role: "writer" | "reader") => {
     if (typeof window !== "undefined") {
       localStorage.setItem(VERKLI_ROLE_KEY, role);
-      router.push(role === "writer" ? "/writer" : "/reader");
+      router.push(role === "writer" ? "/writer/home" : "/reader/home");
     }
   };
 

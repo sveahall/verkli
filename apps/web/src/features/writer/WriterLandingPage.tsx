@@ -365,6 +365,13 @@ function LandingPage() {
             </Link>
             <a href="#features" className="group flex min-h-[44px] items-center gap-2 text-[15px] text-slate-500 transition-colors hover:text-slate-700 dark:text-white/50 dark:hover:text-white/70">See how it works<svg className="h-4 w-4 transition-transform group-hover:translate-x-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg></a>
           </div>
+          <div className="mt-6 text-[13px] text-slate-500 dark:text-white/50">
+            Looking for the reader experience?{" "}
+            <Link href="/reader" className="font-semibold text-slate-700 hover:text-slate-900 dark:text-white/80 dark:hover:text-white">
+              Go to reader landing
+            </Link>
+            .
+          </div>
         </section>
 
         {/* Bento Grid */}

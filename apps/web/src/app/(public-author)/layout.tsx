@@ -10,7 +10,7 @@ export default function PublicAuthorLayout({
   return (
     <>
       <NavbarShell variant="PUBLIC_AUTHOR" />
-      <PublicRoleCta targetRole="writer" href="/writer" label="Go to writer dashboard" />
+      <PublicRoleCta targetRole="writer" href="/writer/home" label="Go to writer dashboard" />
       {children}
       <Footer variant="writer" />
     </>

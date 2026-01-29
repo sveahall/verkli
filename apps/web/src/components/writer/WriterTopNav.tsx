@@ -17,7 +17,7 @@ const glassBaseProps = {
 };
 
 const navItems = [
-  { label: "Dashboard", href: "/writer" },
+  { label: "Dashboard", href: "/writer/home" },
   { label: "Profile", href: "/writer/profile" },
   { label: "Settings", href: "/writer/settings" },
 ];
@@ -34,7 +34,7 @@ export default function WriterTopNav({ active }: { active?: string }) {
       >
         <nav className="flex w-full items-center justify-between gap-6">
           <div className="flex items-center gap-10">
-            <Link href="/writer" className="flex items-center gap-3">
+            <Link href="/writer/home" className="flex items-center gap-3">
               <img src="/logo-dark.svg" alt="Verkli" className="h-8 w-auto dark:hidden" />
               <img src="/favicon.svg" alt="Verkli" className="hidden h-8 w-auto dark:block" />
             </Link>
@@ -60,7 +60,7 @@ export default function WriterTopNav({ active }: { active?: string }) {
           <div className="flex items-center gap-3">
             <ThemeToggle glassProps={glassBaseProps} />
             <Link
-              href="/writer"
+              href="/writer/home"
               className="hidden rounded-full border border-black/10 bg-black/2 px-4 py-2 text-[13px] font-medium text-slate-700 transition-all hover:bg-black/10 dark:border-white/10 dark:bg-white/[0.03] dark:text-white/70 dark:hover:bg-white/[0.06] md:inline-flex"
             >
               Back to dashboard

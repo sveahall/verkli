@@ -38,7 +38,7 @@ export default async function BookDetailPage({ params }: { params: { id: string 
     <main className="min-h-screen bg-background text-foreground">
       <header className="mx-auto max-w-[1200px] px-6 pt-10">
         <Link
-          href="/writer"
+          href="/writer/home"
           className="inline-flex items-center gap-2 text-sm text-slate-500 transition-colors hover:text-slate-900 dark:text-white/60 dark:hover:text-white"
         >
           <span aria-hidden="true">←</span>

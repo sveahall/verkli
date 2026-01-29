@@ -88,7 +88,7 @@ export default function UserMenu({ user, onSignOut, currentRole = "writer" }: Us
 
       // Refresh router to clear cache and redirect
       router.refresh();
-      router.push(currentRole === "writer" ? "/reader/home" : "/writer");
+      router.push(currentRole === "writer" ? "/reader/home" : "/writer/home");
     } catch (error) {
       console.error("Error switching role:", error);
       setToastMessage("Could not switch role. Try again.");

@@ -28,7 +28,7 @@ export type NavConfig = {
 
 export const NAV_CONFIG: Record<NavVariant, NavConfig> = {
   PUBLIC_AUTHOR: {
-    homeHref: "/",
+    homeHref: "/writer",
     links: [
       { label: "Product", href: "/product" },
       { label: "How it works", href: "/how-it-works" },
@@ -56,9 +56,9 @@ export const NAV_CONFIG: Record<NavVariant, NavConfig> = {
     },
   },
   APP_AUTHOR: {
-    homeHref: "/writer",
+    homeHref: "/writer/home",
     links: [
-      { label: "My World", href: "/writer" },
+      { label: "My World", href: "/writer/home" },
       { label: "Books", href: "/writer/books" },
       { label: "Marketing Tools", href: "/writer/marketing" },
       { label: "Stats", href: "/writer/stats" },
@@ -69,7 +69,7 @@ export const NAV_CONFIG: Record<NavVariant, NavConfig> = {
       primary: { label: "Publish", href: "/writer/books" },
       showSearch: true,
       searchPlaceholder: "Search books, authors...",
-      searchHref: "/writer",
+      searchHref: "/writer/home",
       showProfileMenu: true,
     },
   },

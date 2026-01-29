@@ -274,7 +274,7 @@ export default function ShelfDetailPage() {
       <div className="flex min-h-screen items-center justify-center bg-background">
         <div className="text-center">
           <h1 className="text-2xl font-semibold text-slate-900 dark:text-white">Shelf not found</h1>
-          <Link href="/writer" className="mt-4 text-[#907AFF] hover:underline">
+          <Link href="/writer/home" className="mt-4 text-[#907AFF] hover:underline">
             Back to library
           </Link>
         </div>
@@ -312,11 +312,11 @@ export default function ShelfDetailPage() {
           <GlassSurface {...glassBaseProps} width="100%" height="75px" borderRadius={300} className="flex-1 border border-black/10 dark:border-white/10 px-6 py-4 md:px-10 [&_.glass-surface__content]:w-full [&_.glass-surface__content]:justify-between [&_.glass-surface__content]:p-0">
             <nav className="flex w-full items-center justify-between gap-6">
               <div className="flex items-center gap-10">
-                <Link href="/writer">
+                <Link href="/writer/home">
                   <img src="/logo-dark.svg" alt="Verkli" className="h-8 w-auto dark:hidden" />
                   <img src="/favicon.svg" alt="Verkli" className="hidden h-8 w-auto dark:block" />
                 </Link>
-                <Link href="/writer" className="text-[17px] font-normal text-slate-900 dark:text-white transition-colors hover:text-slate-600 dark:hover:text-white/70">
+                <Link href="/writer/home" className="text-[17px] font-normal text-slate-900 dark:text-white transition-colors hover:text-slate-600 dark:hover:text-white/70">
                   Back to Library
                 </Link>
               </div>
