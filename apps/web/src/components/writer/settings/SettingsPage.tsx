@@ -210,7 +210,7 @@ export default function SettingsPage({ user, profile }: SettingsPageProps) {
                     )}
                   </div>
                   <div>
-                    <label className="inline-flex cursor-pointer items-center gap-2 rounded-full border border-black/10 bg-black/5 px-4 py-2 text-[12px] font-semibold text-slate-700 transition hover:bg-black/10 dark:border-white/10 dark:bg-white/[0.04] dark:text-white/70 dark:hover:bg-white/[0.06]">
+                    <label className="inline-flex cursor-pointer items-center gap-2 rounded-full border border-black/10 bg-black/2 px-4 py-2 text-[12px] font-semibold text-slate-700 transition hover:bg-black/10 dark:border-white/10 dark:bg-white/[0.04] dark:text-white/70 dark:hover:bg-white/[0.06]">
                       <input type="file" accept="image/*" className="hidden" onChange={handleAvatarChange} />
                       {avatarUploading ? "Uploading..." : "Upload new"}
                     </label>
@@ -353,7 +353,7 @@ export default function SettingsPage({ user, profile }: SettingsPageProps) {
             <button
               type="button"
               onClick={() => setShowRoleModal(true)}
-              className="rounded-full border border-black/10 bg-black/5 px-5 py-2 text-[13px] font-semibold text-slate-700 transition-all hover:bg-black/10 dark:border-white/10 dark:bg-white/[0.04] dark:text-white/70 dark:hover:bg-white/[0.06]"
+              className="rounded-full border border-black/10 bg-black/2 px-5 py-2 text-[13px] font-semibold text-slate-700 transition-all hover:bg-black/10 dark:border-white/10 dark:bg-white/[0.04] dark:text-white/70 dark:hover:bg-white/[0.06]"
             >
               Switch to reader
             </button>
@@ -409,7 +409,7 @@ export default function SettingsPage({ user, profile }: SettingsPageProps) {
               <button
                 type="button"
                 onClick={() => setShowRoleModal(false)}
-                className="rounded-full border border-black/10 bg-black/5 px-4 py-2 text-[12px] font-semibold text-slate-700 dark:border-white/10 dark:bg-white/[0.04] dark:text-white/70"
+                className="rounded-full border border-black/10 bg-black/2 px-4 py-2 text-[12px] font-semibold text-slate-700 dark:border-white/10 dark:bg-white/[0.04] dark:text-white/70"
               >
                 Cancel
               </button>

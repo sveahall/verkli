@@ -1,10 +1,11 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import GlassSurface from "@/components/GlassSurface";
-import Plasma from "@/components/Plasma";
+import LightRays from "@/components/LightRays";
+import ThemeToggle from "@/components/ThemeToggle";
 import { signUp, signInWithGoogle } from "@/lib/supabase/auth";
 
 const glassBaseProps = {
@@ -15,10 +16,10 @@ const glassBaseProps = {
   blueOffset: 20,
   brightness: 50,
   opacity: 0.93,
-  backgroundOpacity: 0,
-  blur: 8,
-  saturation: 1,
-  mixBlendMode: "difference",
+  backgroundOpacity: 0.12,
+  blur: 12,
+  saturation: 1.2,
+  mixBlendMode: "screen",
 };
 
 export default function WriterSignUp() {
@@ -29,6 +30,16 @@ export default function WriterSignUp() {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
+  const [mousePos, setMousePos] = useState({ x: 0.5, y: 0.5 });
+  const mainRef = useRef<HTMLElement>(null);
+
+  const handleMouseMove = (e: React.MouseEvent<HTMLElement>) => {
+    if (!mainRef.current) return;
+    const rect = mainRef.current.getBoundingClientRect();
+    const x = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
+    const y = Math.max(0, Math.min(1, (e.clientY - rect.top) / rect.height));
+    setMousePos({ x, y });
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -67,19 +78,25 @@ export default function WriterSignUp() {
   if (success) {
     return (
       <main
-        className="relative flex min-h-screen flex-col items-center justify-center overflow-hidden text-slate-900 dark:text-white"
-        style={{ background: "var(--auth-background)" }}
+        ref={mainRef}
+        onMouseMove={handleMouseMove}
+        className="relative flex min-h-screen flex-col items-center justify-center overflow-hidden bg-background text-foreground transition-colors duration-300"
       >
-        {/* Plasma background */}
-        <div className="absolute inset-0 z-0">
-          <Plasma 
-            color="#907aff"
-            speed={0.6}
-            direction="forward"
-            scale={1.1}
-            opacity={0.6}
-            mouseInteractive={true}
+        <div className="fixed inset-0 z-0 overflow-hidden">
+          <div className="absolute inset-0 bg-gradient-to-br from-[#907AFF]/10 via-[#E29ED5]/8 to-[#FCC997]/10 dark:from-slate-900/95 dark:via-purple-950/90 dark:to-slate-900/95" />
+          <div
+            className="absolute h-[700px] w-[700px] rounded-full blur-[100px] pointer-events-none"
+            style={{
+              background: "radial-gradient(circle, rgba(144, 122, 255, 0.4) 0%, rgba(226, 158, 213, 0.3) 30%, rgba(252, 201, 151, 0.25) 50%, transparent 70%)",
+              left: `${mousePos.x * 100}%`,
+              top: `${mousePos.y * 100}%`,
+              transform: "translate(-50%, -50%)",
+              willChange: "left, top",
+            }}
           />
+        </div>
+        <div className="absolute inset-0 z-0 dark:block hidden">
+          <LightRays raysOrigin="top-center" raysColor="#907aff" raysSpeed={1.5} lightSpread={0.8} rayLength={3} followMouse={true} mouseInfluence={0.6} noiseAmount={0} distortion={0} pulsating={false} fadeDistance={0.9} saturation={2} />
         </div>
 
         <GlassSurface
@@ -87,7 +104,7 @@ export default function WriterSignUp() {
           width="480px"
           height="auto"
           borderRadius={40}
-          className="glass-card relative z-10"
+          className="glass-card relative z-20 border border-black/10 dark:border-white/10"
         >
           <div className="flex w-full flex-col items-center px-12 py-14 text-center">
             <div className="flex h-16 w-16 items-center justify-center rounded-full bg-green-500/20">
@@ -125,32 +142,42 @@ export default function WriterSignUp() {
 
   return (
     <main
-      className="relative flex min-h-screen flex-col items-center justify-center overflow-hidden text-slate-900 dark:text-white"
-      style={{ background: "var(--auth-background)" }}
+      ref={mainRef}
+      onMouseMove={handleMouseMove}
+      className="relative flex min-h-screen flex-col items-center justify-center overflow-hidden bg-background text-foreground transition-colors duration-300"
     >
-      {/* Plasma background */}
-      <div className="absolute inset-0 z-0">
-        <Plasma 
-          color="#907aff"
-          speed={0.6}
-          direction="forward"
-          scale={1.1}
-          opacity={0.6}
-          mouseInteractive={true}
+      {/* Same background as sign in - base gradient + mouse-tracked circle */}
+      <div className="fixed inset-0 z-0 overflow-hidden">
+        <div className="absolute inset-0 bg-gradient-to-br from-[#907AFF]/10 via-[#E29ED5]/8 to-[#FCC997]/10 dark:from-slate-900/95 dark:via-purple-950/90 dark:to-slate-900/95" />
+        <div
+          className="absolute h-[700px] w-[700px] rounded-full blur-[100px] pointer-events-none"
+          style={{
+            background: "radial-gradient(circle, rgba(144, 122, 255, 0.4) 0%, rgba(226, 158, 213, 0.3) 30%, rgba(252, 201, 151, 0.25) 50%, transparent 70%)",
+            left: `${mousePos.x * 100}%`,
+            top: `${mousePos.y * 100}%`,
+            transform: "translate(-50%, -50%)",
+            willChange: "left, top",
+          }}
         />
       </div>
 
+      {/* Light rays - only in dark mode */}
+      <div className="absolute inset-0 z-0 dark:block hidden">
+        <LightRays raysOrigin="top-center" raysColor="#907aff" raysSpeed={1.5} lightSpread={0.8} rayLength={3} followMouse={true} mouseInfluence={0.6} noiseAmount={0} distortion={0} pulsating={false} fadeDistance={0.9} saturation={2} />
+      </div>
+
       {/* Logo */}
-      <header className="absolute left-8 top-8 z-20">
+      <header className="absolute left-8 top-8 z-30">
         <Link href="/" className="flex items-center gap-3">
-          <img
-            src="/favicon.svg"
-            alt="Verkli"
-            className="h-8 w-auto"
-            loading="eager"
-          />
+          <img src="/logo-dark.svg" alt="Verkli" className="h-8 w-auto dark:hidden" loading="eager" />
+          <img src="/favicon.svg" alt="Verkli" className="hidden h-8 w-auto dark:block" loading="eager" />
         </Link>
       </header>
+
+      {/* Theme Toggle - bottom right */}
+      <div className="absolute bottom-8 right-8 z-30">
+        <ThemeToggle glassProps={glassBaseProps} />
+      </div>
 
       {/* Sign up card */}
       <GlassSurface
@@ -158,7 +185,7 @@ export default function WriterSignUp() {
         width="480px"
         height="auto"
         borderRadius={40}
-        className="glass-card relative z-10"
+        className="glass-card relative z-20 border border-black/10 dark:border-white/10"
       >
         <div className="flex w-full flex-col items-center px-12 py-14 text-center">
           <p className="text-base font-medium tracking-wide text-slate-600 dark:text-white/50">
@@ -189,7 +216,7 @@ export default function WriterSignUp() {
                 onChange={(e) => setEmail(e.target.value)}
                 placeholder="you@example.com"
                 required
-                className="w-full rounded-xl border border-black/10 bg-black/5 px-4 py-3 text-slate-900 placeholder:text-slate-400 focus:border-purple-500/50 focus:outline-none focus:ring-1 focus:ring-purple-500/50 dark:border-white/10 dark:bg-white/5 dark:text-white dark:placeholder:text-white/30"
+                className="w-full rounded-xl border border-black/10 bg-black/2 px-4 py-3 text-slate-900 placeholder:text-slate-400 focus:border-purple-500/50 focus:outline-none focus:ring-1 focus:ring-purple-500/50 dark:border-white/10 dark:bg-white/5 dark:text-white dark:placeholder:text-white/30"
               />
             </div>
 
@@ -204,7 +231,7 @@ export default function WriterSignUp() {
                 onChange={(e) => setPassword(e.target.value)}
                 placeholder="••••••••"
                 required
-                className="w-full rounded-xl border border-black/10 bg-black/5 px-4 py-3 text-slate-900 placeholder:text-slate-400 focus:border-purple-500/50 focus:outline-none focus:ring-1 focus:ring-purple-500/50 dark:border-white/10 dark:bg-white/5 dark:text-white dark:placeholder:text-white/30"
+                className="w-full rounded-xl border border-black/10 bg-black/2 px-4 py-3 text-slate-900 placeholder:text-slate-400 focus:border-purple-500/50 focus:outline-none focus:ring-1 focus:ring-purple-500/50 dark:border-white/10 dark:bg-white/5 dark:text-white dark:placeholder:text-white/30"
               />
             </div>
 
@@ -219,7 +246,7 @@ export default function WriterSignUp() {
                 onChange={(e) => setConfirmPassword(e.target.value)}
                 placeholder="••••••••"
                 required
-                className="w-full rounded-xl border border-black/10 bg-black/5 px-4 py-3 text-slate-900 placeholder:text-slate-400 focus:border-purple-500/50 focus:outline-none focus:ring-1 focus:ring-purple-500/50 dark:border-white/10 dark:bg-white/5 dark:text-white dark:placeholder:text-white/30"
+                className="w-full rounded-xl border border-black/10 bg-black/2 px-4 py-3 text-slate-900 placeholder:text-slate-400 focus:border-purple-500/50 focus:outline-none focus:ring-1 focus:ring-purple-500/50 dark:border-white/10 dark:bg-white/5 dark:text-white dark:placeholder:text-white/30"
               />
             </div>
 
@@ -249,7 +276,7 @@ export default function WriterSignUp() {
 
           <button
             onClick={handleGoogleSignIn}
-            className="mt-6 flex w-full items-center justify-center gap-3 rounded-full border border-black/10 bg-black/5 px-8 py-4 text-[15px] font-medium text-slate-900 transition hover:bg-black/10 dark:border-white/10 dark:bg-white/5 dark:text-white/90 dark:hover:bg-white/10"
+            className="mt-6 flex w-full items-center justify-center gap-3 rounded-full border border-black/10 bg-black/2 px-8 py-4 text-[15px] font-medium text-slate-900 transition hover:bg-black/10 dark:border-white/10 dark:bg-white/5 dark:text-white/90 dark:hover:bg-white/10"
           >
             <svg className="h-5 w-5" viewBox="0 0 24 24">
               <path

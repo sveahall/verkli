@@ -110,8 +110,8 @@ export default function FeaturesSection() {
                 aria-current={isActive ? "true" : "false"}
                 className={`feature-card group relative cursor-pointer overflow-hidden rounded-[24px] border px-6 py-6 transition-all duration-500 ease-out md:px-8 md:py-7 ${
                   isActive
-                    ? "border-black/20 bg-black/5 scale-[1.02] dark:border-white/20 dark:bg-white/[0.08]"
-                    : "border-black/10 bg-black/5 hover:border-black/20 hover:bg-black/10 dark:border-white/8 dark:bg-white/[0.02] dark:hover:border-white/12 dark:hover:bg-white/[0.04]"
+                    ? "border-black/20 bg-black/2 scale-[1.02] dark:border-white/20 dark:bg-white/[0.08]"
+                    : "border-black/10 bg-black/2 hover:border-black/20 hover:bg-black/10 dark:border-white/8 dark:bg-white/[0.02] dark:hover:border-white/12 dark:hover:bg-white/[0.04]"
                 }`}
               >
                 {/* Active indicator line */}
@@ -163,7 +163,7 @@ export default function FeaturesSection() {
                 </div>
 
                 {/* Mobile image */}
-                <div className={`overflow-hidden rounded-[18px] border border-black/10 bg-black/5 transition-all duration-500 dark:border-white/10 dark:bg-white/5 lg:hidden ${
+                <div className={`overflow-hidden rounded-[18px] border border-black/10 bg-black/2 transition-all duration-500 dark:border-white/10 dark:bg-white/5 lg:hidden ${
                   isActive ? "mt-5 max-h-[300px] opacity-100" : "mt-0 max-h-0 opacity-0"
                 }`}>
                   <div

@@ -103,7 +103,7 @@ export default async function PublicShelfPage({ params }: { params: { id: string
         <div className="mt-10">
           <h2 className="text-[20px] font-semibold text-slate-900 dark:text-white">Books in this shelf</h2>
           {books.length === 0 ? (
-            <div className="mt-6 rounded-[24px] border border-dashed border-black/20 bg-black/5 p-10 text-center text-[14px] text-slate-600 dark:border-white/10 dark:bg-white/[0.03] dark:text-white/60">
+            <div className="mt-6 rounded-[24px] border border-dashed border-black/20 bg-black/2 p-10 text-center text-[14px] text-slate-600 dark:border-white/10 dark:bg-white/[0.03] dark:text-white/60">
               No books have been added yet.
             </div>
           ) : (

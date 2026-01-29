@@ -87,9 +87,9 @@ export default function ReaderLanding() {
   return (
   <main className="relative min-h-screen bg-gradient-to-b from-slate-50 via-slate-50/95 to-slate-50/90 text-slate-900 dark:bg-[#050508] dark:text-white">
       {/* Hero Section */}
-      <section className="relative mx-auto flex min-h-[80vh] w-full max-w-[1200px] flex-col items-center justify-center px-6 text-center">
-        {/* Animated background glows - brand colors */}
-        <div className="pointer-events-none absolute inset-0 overflow-hidden">
+      <section className="relative flex min-h-[80vh] w-full flex-col items-center justify-center px-6 text-center">
+        {/* Animated background glows - brand colors - covers entire hero section */}
+        <div className="pointer-events-none absolute inset-0 w-full h-full">
           <div 
             className="absolute left-1/4 top-0 h-[500px] w-[500px] -translate-x-1/2 -translate-y-1/2 animate-pulse rounded-full blur-[150px]" 
             style={{ background: "#907AFF", opacity: 0.2, animationDuration: "4s" }}
@@ -103,36 +103,40 @@ export default function ReaderLanding() {
             style={{ background: "#FCC997", opacity: 0.1, animationDuration: "3s", animationDelay: "0.5s" }}
           />
         </div>
+        
+        {/* Content container with max-width */}
+        <div className="relative z-10 mx-auto w-full max-w-[1200px]">
 
-        <h1 className="relative z-10 text-[48px] font-medium leading-[1.1] tracking-[-0.02em] text-slate-900 dark:text-white md:text-[64px]">
-          Discover stories
-          <br />
-          <span className="bg-gradient-to-r from-[#907AFF] via-[#E29ED5] to-[#FCC997] bg-clip-text text-transparent">that move you.</span>
-        </h1>
-        <p className="relative z-10 mt-6 max-w-[480px] text-[16px] leading-relaxed text-slate-600 dark:text-white/50">
-          Connect with your favorite authors, explore new worlds, and be part of the stories you love.
-        </p>
+          <h1 className="text-[48px] font-medium leading-[1.1] tracking-[-0.02em] text-slate-900 dark:text-white md:text-[64px]">
+            Discover stories
+            <br />
+            <span className="bg-gradient-to-r from-[#907AFF] via-[#E29ED5] to-[#FCC997] bg-clip-text text-transparent">that move you.</span>
+          </h1>
+          <p className="mt-6 mx-auto max-w-[480px] text-[16px] leading-relaxed text-slate-600 dark:text-white/50">
+            Connect with your favorite authors, explore new worlds, and be part of the stories you love.
+          </p>
 
-        <div className="relative z-10 mt-10 flex gap-4">
-          <Link href={user ? "/reader" : "/reader/signup"}>
-            <GlassSurface
-              {...glassBaseProps}
-              width="auto"
-              height="auto"
-              borderRadius={999}
-              className="glass-button border border-black/10 transition-transform hover:scale-[1.02] dark:border-white/20"
+          <div className="mt-10 flex gap-4 justify-center">
+            <Link href={user ? "/reader" : "/reader/signup"}>
+              <GlassSurface
+                {...glassBaseProps}
+                width="auto"
+                height="auto"
+                borderRadius={999}
+                className="glass-button border border-black/10 transition-transform hover:scale-[1.02] dark:border-white/20"
+              >
+                <span className="px-8 py-3 text-[15px] font-medium text-slate-900 dark:text-white">
+                  {user ? "Continue reading" : "Start reading"}
+                </span>
+              </GlassSurface>
+            </Link>
+            <Link
+              href="#explore"
+              className="flex items-center gap-2 rounded-full border border-black/10 px-8 py-3.5 text-[15px] font-medium text-slate-600 transition-all hover:border-black/20 hover:text-slate-900 dark:border-white/10 dark:text-white/60 dark:hover:border-white/20 dark:hover:text-white/80"
             >
-              <span className="px-8 py-3 text-[15px] font-medium text-slate-900 dark:text-white">
-                {user ? "Continue reading" : "Start reading"}
-              </span>
-            </GlassSurface>
-          </Link>
-          <Link
-            href="#explore"
-            className="flex items-center gap-2 rounded-full border border-black/10 px-8 py-3.5 text-[15px] font-medium text-slate-600 transition-all hover:border-black/20 hover:text-slate-900 dark:border-white/10 dark:text-white/60 dark:hover:border-white/20 dark:hover:text-white/80"
-          >
-            Explore books
-          </Link>
+              Explore books
+            </Link>
+          </div>
         </div>
       </section>
 
@@ -188,20 +192,7 @@ export default function ReaderLanding() {
         </div>
       </section>
 
-      {/* Footer */}
-      <footer className="mx-auto w-full max-w-[1200px] border-t border-black/[0.08] px-6 py-10 dark:border-white/[0.06]">
-        <div className="flex flex-col items-center justify-between gap-6 md:flex-row">
-          <div className="flex items-center gap-2">
-            <img src="/favicon.svg" alt="Verkli" className="h-5 w-5" />
-            <span className="text-[14px] font-medium text-slate-600 dark:text-white/60">verkli</span>
-          </div>
-          <div className="flex gap-8 text-[13px] text-slate-500 dark:text-white/40">
-            <Link href="/" className="transition hover:text-slate-700 dark:hover:text-white/60">Home</Link>
-            <Link href="/reader/signin" className="transition hover:text-slate-700 dark:hover:text-white/60">Sign in</Link>
-            <Link href="/writer" className="transition hover:text-slate-700 dark:hover:text-white/60">For writers</Link>
-          </div>
-        </div>
-      </footer>
+      {/* Footer rendered globally in layout */}
     </main>
   );
 }

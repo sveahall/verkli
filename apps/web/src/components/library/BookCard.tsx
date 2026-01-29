@@ -139,7 +139,7 @@ export default function BookCard({
                 e.stopPropagation();
                 // Open actions menu
               }}
-              className="flex h-8 w-8 items-center justify-center rounded-full border border-white/10 bg-black/50 text-white/90 backdrop-blur-md transition-all hover:bg-black/70"
+              className="flex h-8 w-8 items-center justify-center rounded-full border border-white/10 bg-black/20 text-white/90 backdrop-blur-md transition-all hover:bg-black/70"
             >
               <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 5v.01M12 12v.01M12 19v.01M12 6a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2z" />

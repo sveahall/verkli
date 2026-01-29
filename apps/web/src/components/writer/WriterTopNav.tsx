@@ -61,7 +61,7 @@ export default function WriterTopNav({ active }: { active?: string }) {
             <ThemeToggle glassProps={glassBaseProps} />
             <Link
               href="/writer"
-              className="hidden rounded-full border border-black/10 bg-black/5 px-4 py-2 text-[13px] font-medium text-slate-700 transition-all hover:bg-black/10 dark:border-white/10 dark:bg-white/[0.03] dark:text-white/70 dark:hover:bg-white/[0.06] md:inline-flex"
+              className="hidden rounded-full border border-black/10 bg-black/2 px-4 py-2 text-[13px] font-medium text-slate-700 transition-all hover:bg-black/10 dark:border-white/10 dark:bg-white/[0.03] dark:text-white/70 dark:hover:bg-white/[0.06] md:inline-flex"
             >
               Back to dashboard
             </Link>
