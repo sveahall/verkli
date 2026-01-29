@@ -74,9 +74,9 @@ export const NAV_CONFIG: Record<NavVariant, NavConfig> = {
     },
   },
   APP_READER: {
-    homeHref: "/reader",
+    homeHref: "/reader/home",
     links: [
-      { label: "Feed", href: "/reader" },
+      { label: "Feed", href: "/reader/feed" },
       { label: "Discover", href: "/reader/discover" },
       { label: "Library", href: "/reader/library" },
       { label: "Bookmarks", href: "/reader/bookmarks" },
@@ -86,7 +86,7 @@ export const NAV_CONFIG: Record<NavVariant, NavConfig> = {
     actions: {
       showSearch: true,
       searchPlaceholder: "Search books, authors...",
-      searchHref: "/reader",
+      searchHref: "/reader/home",
       showProfileMenu: true,
     },
   },

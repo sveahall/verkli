@@ -227,18 +227,21 @@ export default function GlobalNavbar({
       }
 
       let nextRole: "writer" | "reader" = "writer";
-      const metadataRole = activeUser.user_metadata?.role;
+      const metadataRole = activeUser.user_metadata?.active_role ?? activeUser.user_metadata?.role;
       if (metadataRole === "writer" || metadataRole === "reader") {
         nextRole = metadataRole;
       }
 
       const { data: profile } = await supabase
         .from("profiles")
-        .select("role")
+        .select("role, preferences")
         .eq("user_id", activeUser.id)
         .maybeSingle();
 
-      if (profile?.role === "writer" || profile?.role === "reader") {
+      const preferenceRole = (profile?.preferences as { active_role?: string } | null)?.active_role;
+      if (preferenceRole === "writer" || preferenceRole === "reader") {
+        nextRole = preferenceRole;
+      } else if (profile?.role === "writer" || profile?.role === "reader") {
         nextRole = profile.role;
       }
 
