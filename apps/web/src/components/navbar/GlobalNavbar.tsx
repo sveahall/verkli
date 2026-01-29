@@ -522,7 +522,7 @@ export default function GlobalNavbar() {
                     onSubmit={handleWriterSearchSubmit}
                     className="group relative hidden h-9 items-center md:flex"
                   >
-                    <div className="flex h-9 items-center gap-2 rounded-full border border-gray-100/5 pl-2 pr-0.5 text-slate-600 backdrop-blur-md transition-all duration-200 ease-out hover:border-gray-200/10 group-focus-within:border-gray-200/10 dark:border-white/25 dark:text-white/80 dark:hover:border-white/30 dark:group-focus-within:border-white/30">
+                    <div className="flex h-9 items-center gap-2 rounded-full border border-gray/10 pl-2 pr-0.5 text-slate-600 backdrop-blur-md transition-all duration-200 ease-out hover:border-gray/10 group-focus-within:border-gray/10 dark:border-white/25 dark:text-white/80 dark:hover:border-white/30 dark:group-focus-within:border-white/30">
                       <svg
                         className="h-4 w-4 flex-shrink-0"
                         fill="none"
@@ -549,7 +549,7 @@ export default function GlobalNavbar() {
                   {/* Upgrade / Share – stil enligt referens, funktion kan kopplas senare */}
                   <button
                     type="button"
-                    className="hidden h-9 items-center rounded-full border border-gray-100/5 px-5 text-[13px] font-medium text-slate-900 dark:text-white transition-all md:inline-flex dark:border-white/15"
+                    className="hidden h-9 items-center rounded-full border border-gray/10 px-5 text-[13px] font-medium text-slate-900 dark:text-white transition-all md:inline-flex dark:border-white/15"
                   >
                     Upgrade to <span className="font-semibold ml-1"> PRO</span>
                   </button>

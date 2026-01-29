@@ -34,7 +34,7 @@ export default function ProfileBookCard({ id, title, coverImage, slug, status }:
           </div>
           <div className="flex flex-col items-end gap-1">
             {status ? (
-              <span className="rounded-full border border-black/10 bg-black/5 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wider text-slate-500 dark:border-white/10 dark:bg-white/[0.05] dark:text-white/50">
+              <span className="rounded-full border border-black/10 bg-black/2 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wider text-slate-500 dark:border-white/10 dark:bg-white/[0.05] dark:text-white/50">
                 {status}
               </span>
             ) : null}

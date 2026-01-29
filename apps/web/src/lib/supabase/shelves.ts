@@ -32,13 +32,51 @@ export async function getShelves(): Promise<ShelfWithDetails[]> {
     `)
     .order('sort_index', { ascending: true });
 
-  if (error) {
-    console.error('Error fetching shelves:', error);
-    // Return empty array instead of throwing to prevent page crashes
+  if (!error) {
+    return (data as ShelfWithDetails[]) || [];
+  }
+
+  console.warn("Relation query failed, falling back to manual fetch:", error);
+
+  const { data: simpleData, error: simpleError } = await supabase
+    .from("shelves")
+    .select("*")
+    .order("sort_index", { ascending: true });
+
+  if (simpleError) {
+    console.error("Error fetching shelves:", simpleError);
     return [];
   }
-  
-  return (data as ShelfWithDetails[]) || [];
+
+  const shelvesWithDetails = await Promise.all(
+    (simpleData || []).map(async (shelf) => {
+      const [sectionsResult, booksResult] = await Promise.all([
+        supabase.from("shelf_sections").select("*").eq("shelf_id", shelf.id).order("sort_index"),
+        supabase.from("shelf_books").select("*").eq("shelf_id", shelf.id).order("sort_index"),
+      ]);
+
+      const bookIds = (booksResult.data || []).map((shelfBook) => shelfBook.book_id);
+      const { data: booksData } = bookIds.length
+        ? await supabase.from("books").select("*").in("id", bookIds)
+        : { data: [] as Database["public"]["Tables"]["books"]["Row"][] };
+
+      const booksById = new Map((booksData || []).map((book) => [book.id, book]));
+      const shelfBooksWithDetails = (booksResult.data || [])
+        .map((shelfBook) => ({
+          ...shelfBook,
+          book: booksById.get(shelfBook.book_id) ?? null,
+        }))
+        .filter((shelfBook) => shelfBook.book !== null) as ShelfWithDetails["shelf_books"];
+
+      return {
+        ...shelf,
+        sections: sectionsResult.data || [],
+        shelf_books: shelfBooksWithDetails,
+      } as ShelfWithDetails;
+    })
+  );
+
+  return shelvesWithDetails;
 }
 
 // Get single shelf with details

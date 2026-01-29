@@ -4,6 +4,7 @@ import "./globals.css";
 import "../components/GridMotion.css";
 import "../components/GlassSurface.css";
 import GlobalNavbar from "@/components/navbar/GlobalNavbar";
+import GlobalFooter from "@/components/GlobalFooter";
 
 const inter = Inter({
   variable: "--font-inter",
@@ -42,6 +43,7 @@ export default function RootLayout({
         <script dangerouslySetInnerHTML={{ __html: themeScript }} />
         <GlobalNavbar />
         {children}
+        <GlobalFooter />
       </body>
     </html>
   );

@@ -59,13 +59,13 @@ export default async function BookDetailPage({ params }: { params: { id: string 
             <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/20 to-transparent" />
           </div>
           <div className="mt-6 flex flex-wrap items-center gap-3 text-xs text-slate-500 dark:text-white/60">
-            <span className="rounded-full border border-black/10 bg-black/5 px-3 py-1 dark:border-white/10 dark:bg-white/5">
+            <span className="rounded-full border border-black/10 bg-black/2 px-3 py-1 dark:border-white/10 dark:bg-white/5">
               {(readsCount ?? 0).toLocaleString()} readers
             </span>
-            <span className="rounded-full border border-black/10 bg-black/5 px-3 py-1 dark:border-white/10 dark:bg-white/5">
+            <span className="rounded-full border border-black/10 bg-black/2 px-3 py-1 dark:border-white/10 dark:bg-white/5">
               {chaptersCount ?? 0} chapters
             </span>
-            <span className="rounded-full border border-black/10 bg-black/5 px-3 py-1 dark:border-white/10 dark:bg-white/5">
+            <span className="rounded-full border border-black/10 bg-black/2 px-3 py-1 dark:border-white/10 dark:bg-white/5">
               {book.status ?? "DRAFT"}
             </span>
           </div>
@@ -83,12 +83,12 @@ export default async function BookDetailPage({ params }: { params: { id: string 
                 Continue editing
               </button>
             </GlassSurface>
-            <button className="rounded-full border border-black/10 bg-black/5 px-6 py-3 text-sm font-semibold text-slate-700 transition-colors hover:border-black/20 hover:bg-black/10 dark:border-white/10 dark:bg-white/5 dark:text-white/80 dark:hover:bg-white/10">
+            <button className="rounded-full border border-black/10 bg-black/2 px-6 py-3 text-sm font-semibold text-slate-700 transition-colors hover:border-black/20 hover:bg-black/10 dark:border-white/10 dark:bg-white/5 dark:text-white/80 dark:hover:bg-white/10">
               View public page
             </button>
           </div>
 
-          <div className="mt-10 rounded-[24px] border border-black/10 bg-black/5 p-6 dark:border-white/10 dark:bg-white/5">
+          <div className="mt-10 rounded-[24px] border border-black/10 bg-black/2 p-6 dark:border-white/10 dark:bg-white/5">
             <div className="flex items-center justify-between text-sm text-slate-600 dark:text-white/70">
               <span>Chapters</span>
               <span>{chaptersCount ?? 0}</span>

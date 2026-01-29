@@ -35,7 +35,7 @@ export default async function ReaderBookDetail({ params }: { params: { id: strin
       </header>
 
       <section className="mx-auto grid max-w-[1100px] gap-10 px-6 py-12 lg:grid-cols-[0.9fr_1.1fr]">
-        <div className="relative overflow-hidden rounded-[28px] border border-black/10 bg-black/5 dark:border-white/10 dark:bg-white/5">
+        <div className="relative overflow-hidden rounded-[28px] border border-black/10 bg-black/2 dark:border-white/10 dark:bg-white/5">
           {(book as { cover_image?: string | null }).cover_image ? (
             <img src={(book as { cover_image?: string | null }).cover_image!} alt={book.title} className="h-full w-full object-cover" />
           ) : (
@@ -55,10 +55,10 @@ export default async function ReaderBookDetail({ params }: { params: { id: strin
           </p>
 
           <div className="mt-6 flex flex-wrap gap-3 text-[12px] text-slate-600 dark:text-white/60">
-            <span className="rounded-full border border-black/10 bg-black/5 px-3 py-1 dark:border-white/10 dark:bg-white/5">
+            <span className="rounded-full border border-black/10 bg-black/2 px-3 py-1 dark:border-white/10 dark:bg-white/5">
               {chaptersCount ?? 0} chapters
             </span>
-            <span className="rounded-full border border-black/10 bg-black/5 px-3 py-1 dark:border-white/10 dark:bg-white/5">Published</span>
+            <span className="rounded-full border border-black/10 bg-black/2 px-3 py-1 dark:border-white/10 dark:bg-white/5">Published</span>
           </div>
 
           <p className="mt-6 text-[15px] leading-relaxed text-slate-600 dark:text-white/60">
@@ -72,7 +72,7 @@ export default async function ReaderBookDetail({ params }: { params: { id: strin
             >
               Start reading
             </Link>
-            <button className="rounded-full border border-black/10 bg-black/5 px-6 py-3 text-[14px] font-semibold text-slate-700 hover:bg-black/10 dark:border-white/10 dark:bg-white/5 dark:text-white/70 dark:hover:bg-white/10">
+            <button className="rounded-full border border-black/10 bg-black/2 px-6 py-3 text-[14px] font-semibold text-slate-700 hover:bg-black/10 dark:border-white/10 dark:bg-white/5 dark:text-white/70 dark:hover:bg-white/10">
               Add to library
             </button>
           </div>

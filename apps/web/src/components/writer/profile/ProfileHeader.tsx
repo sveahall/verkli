@@ -66,7 +66,7 @@ export default function ProfileHeader({
           <Link
             href="/writer/settings"
             title="Edit your public writer profile"
-            className="inline-flex items-center gap-2 rounded-full border border-black/10 px-5 py-2 text-[13px] font-semibold text-slate-700 transition-all hover:-translate-0.25 hover:bg-black/5 dark:border-white/10 dark:bg-white/[0.03] dark:text-white/70 dark:hover:bg-white/[0.06]"
+            className="inline-flex items-center gap-2 rounded-full border border-black/10 px-5 py-2 text-[13px] font-semibold text-slate-700 transition-all hover:-translate-0.25 hover:bg-black/2 dark:border-white/10 dark:bg-white/[0.03] dark:text-white/70 dark:hover:bg-white/[0.06]"
           >
             <svg
               className="h-4 w-4 text-slate-500 dark:text-white/60"

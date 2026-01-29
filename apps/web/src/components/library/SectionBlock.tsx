@@ -59,7 +59,7 @@ export default function SectionBlock({
                   setIsEditing(false);
                 }
               }}
-              className="flex-1 rounded-xl border border-black/10 dark:border-white/10 bg-black/5 dark:bg-white/[0.04] px-4 py-2 text-[16px] font-semibold text-slate-900 dark:text-white outline-none transition-all focus:border-[#907AFF]/50 focus:bg-black/10 dark:focus:bg-white/[0.06]"
+              className="flex-1 rounded-xl border border-black/10 dark:border-white/10 bg-black/2 dark:bg-white/[0.04] px-4 py-2 text-[16px] font-semibold text-slate-900 dark:text-white outline-none transition-all focus:border-[#907AFF]/50 focus:bg-black/10 dark:focus:bg-white/[0.06]"
               autoFocus
             />
           </div>
@@ -74,7 +74,7 @@ export default function SectionBlock({
             <div className="flex items-center gap-2">
               <button
                 onClick={() => setIsEditing(true)}
-                className="rounded-lg px-3 py-1.5 text-[13px] text-slate-600 dark:text-white/50 transition-colors hover:bg-black/5 dark:hover:bg-white/[0.05] hover:text-slate-900 dark:hover:text-white/70"
+                className="rounded-lg px-3 py-1.5 text-[13px] text-slate-600 dark:text-white/50 transition-colors hover:bg-black/2 dark:hover:bg-white/[0.05] hover:text-slate-900 dark:hover:text-white/70"
               >
                 Rename
               </button>

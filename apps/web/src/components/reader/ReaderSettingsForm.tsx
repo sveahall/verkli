@@ -94,7 +94,7 @@ export default function ReaderSettingsForm({ userId, email, initialProfile }: Re
             <input
               value={displayName}
               onChange={(event) => setDisplayName(event.target.value)}
-              className="w-full rounded-xl border border-black/10 bg-black/5 px-4 py-3 text-[14px] text-slate-900 outline-none transition focus:border-[#907AFF]/50 dark:border-white/10 dark:bg-white/5 dark:text-white"
+              className="w-full rounded-xl border border-black/10 bg-black/2 px-4 py-3 text-[14px] text-slate-900 outline-none transition focus:border-[#907AFF]/50 dark:border-white/10 dark:bg-white/5 dark:text-white"
             />
           </div>
           <div className="space-y-2">
@@ -102,7 +102,7 @@ export default function ReaderSettingsForm({ userId, email, initialProfile }: Re
             <input
               value={username}
               onChange={(event) => setUsername(event.target.value)}
-              className="w-full rounded-xl border border-black/10 bg-black/5 px-4 py-3 text-[14px] text-slate-900 outline-none transition focus:border-[#907AFF]/50 dark:border-white/10 dark:bg-white/5 dark:text-white"
+              className="w-full rounded-xl border border-black/10 bg-black/2 px-4 py-3 text-[14px] text-slate-900 outline-none transition focus:border-[#907AFF]/50 dark:border-white/10 dark:bg-white/5 dark:text-white"
             />
           </div>
         </div>
@@ -113,7 +113,7 @@ export default function ReaderSettingsForm({ userId, email, initialProfile }: Re
             value={bio}
             onChange={(event) => setBio(event.target.value)}
             rows={4}
-            className="w-full rounded-xl border border-black/10 bg-black/5 px-4 py-3 text-[14px] text-slate-900 outline-none transition focus:border-[#907AFF]/50 dark:border-white/10 dark:bg-white/5 dark:text-white"
+            className="w-full rounded-xl border border-black/10 bg-black/2 px-4 py-3 text-[14px] text-slate-900 outline-none transition focus:border-[#907AFF]/50 dark:border-white/10 dark:bg-white/5 dark:text-white"
           />
         </div>
 
@@ -127,14 +127,14 @@ export default function ReaderSettingsForm({ userId, email, initialProfile }: Re
               </div>
             )}
           </div>
-          <label className="inline-flex cursor-pointer items-center gap-2 rounded-full border border-black/10 bg-black/5 px-4 py-2 text-[12px] font-semibold text-slate-700 transition hover:bg-black/10 dark:border-white/10 dark:bg-white/5 dark:text-white/70 dark:hover:bg-white/10">
+          <label className="inline-flex cursor-pointer items-center gap-2 rounded-full border border-black/10 bg-black/2 px-4 py-2 text-[12px] font-semibold text-slate-700 transition hover:bg-black/10 dark:border-white/10 dark:bg-white/5 dark:text-white/70 dark:hover:bg-white/10">
             <input type="file" accept="image/*" className="hidden" onChange={handleAvatarChange} />
             {avatarUploading ? "Uploading..." : "Upload avatar"}
           </label>
           <div className="text-[12px] text-slate-500 dark:text-white/40">PNG or JPG up to 2MB.</div>
         </div>
 
-        <div className="mt-6 flex items-center justify-between rounded-2xl border border-black/10 bg-black/5 px-4 py-4 dark:border-white/10 dark:bg-white/5">
+        <div className="mt-6 flex items-center justify-between rounded-2xl border border-black/10 bg-black/2 px-4 py-4 dark:border-white/10 dark:bg-white/5">
           <div>
             <p className="text-[14px] font-medium text-slate-900 dark:text-white">Public profile</p>
             <p className="text-[12px] text-slate-600 dark:text-white/50">Allow readers to see your profile.</p>

@@ -112,7 +112,7 @@ export default function WriterForgotPassword() {
                   onChange={(e) => setEmail(e.target.value)}
                   placeholder="you@example.com"
                   required
-                  className="w-full rounded-xl border border-black/10 dark:border-white/10 bg-black/5 dark:bg-white/5 px-4 py-3 text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-white/30 focus:border-[#907AFF]/50 focus:outline-none focus:ring-1 focus:ring-[#907AFF]/50"
+                  className="w-full rounded-xl border border-black/10 dark:border-white/10 bg-black/2 dark:bg-white/5 px-4 py-3 text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-white/30 focus:border-[#907AFF]/50 focus:outline-none focus:ring-1 focus:ring-[#907AFF]/50"
                 />
               </div>
 
