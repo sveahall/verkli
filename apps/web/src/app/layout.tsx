@@ -3,7 +3,6 @@ import { Inter, Montserrat_Alternates } from "next/font/google";
 import "./globals.css";
 import "../components/GridMotion.css";
 import "../components/GlassSurface.css";
-import GlobalNavbar from "@/components/navbar/GlobalNavbar";
 import GlobalFooter from "@/components/GlobalFooter";
 
 const inter = Inter({
@@ -41,11 +40,10 @@ export default function RootLayout({
         className={`${inter.variable} ${montserratAlternates.variable} antialiased flex min-h-screen min-h-dvh min-h-svh flex-col`}
       >
         <script dangerouslySetInnerHTML={{ __html: themeScript }} />
-        {/* Innehåll först i DOM så Safari inte ritar det ovanpå navbaren; navbar kommer efter med fixed + z-[9999] */}
+        {/* Innehåll först i DOM; navbar renderas via route-group layouts */}
         <div className="relative z-0 flex min-h-0 flex-1 flex-col overflow-x-hidden">
           {children}
         </div>
-        <GlobalNavbar />
         <GlobalFooter />
       </body>
     </html>

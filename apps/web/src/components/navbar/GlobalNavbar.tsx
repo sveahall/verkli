@@ -8,6 +8,7 @@ import GlassSurface from "@/components/GlassSurface";
 import ThemeToggle from "@/components/ThemeToggle";
 import UserMenu from "@/components/navbar/UserMenu";
 import { createClient } from "@/lib/supabase/client";
+import type { NavActions, NavLink } from "@/nav/navConfig";
 import type { User } from "@supabase/supabase-js";
 
 const VERKLI_ROLE_KEY = "verkli_role";
@@ -197,7 +198,19 @@ const dropdownContent = {
  * - Automatiskt visa rätt navigation baserat på route
  * - Hantera auth state globalt
  */
-export default function GlobalNavbar() {
+type GlobalNavbarProps = {
+  navMode?: "writer" | "reader" | "public";
+  navLinks?: NavLink[];
+  navActions?: NavActions;
+  homeHref?: string;
+};
+
+export default function GlobalNavbar({
+  navMode,
+  navLinks,
+  navActions,
+  homeHref,
+}: GlobalNavbarProps) {
   const pathname = usePathname();
   const router = useRouter();
   const [user, setUser] = useState<User | null>(null);
@@ -276,9 +289,16 @@ export default function GlobalNavbar() {
   const [dropdownOpen, setDropdownOpen] = useState<{ key: string; top: number; left: number } | null>(null);
   // Timeout så att flytt från trigger till portal inte stänger menyn (browser: number)
   const dropdownCloseTimeoutRef = useRef<number | null>(null);
-  const isWriterRoute = pathname?.startsWith("/writer");
-  const isReaderRoute = pathname?.startsWith("/reader");
-  const isPublicPage = !isWriterRoute && !isReaderRoute;
+  const resolvedMode =
+    navMode ??
+    (pathname?.startsWith("/writer")
+      ? "writer"
+      : pathname?.startsWith("/reader")
+        ? "reader"
+        : "public");
+  const isWriterRoute = resolvedMode === "writer";
+  const isReaderRoute = resolvedMode === "reader";
+  const isPublicPage = resolvedMode === "public";
   const isAuthRoute = Boolean(
     pathname &&
       (pathname.startsWith("/signin") ||
@@ -300,27 +320,45 @@ export default function GlobalNavbar() {
   // Keep auth screens clean; everything else uses the global navbar
   const isSelectorPage = pathname === "/";
   // Dölj navbar på selector-sidan (/) – ska bara synas på writer, reader, signin, signup m.fl.
-  const hideNavbar = isSelectorPage;
+  const hideNavbar = isSelectorPage && !navMode;
 
-  // Writer navigation items
-  const writerNavItems = ["Features", "Integrations", "Examples", "FAQ"];
-
-  // Reader navigation items
-  const readerNavItems = ["Discover", "Categories", "Authors", "About"];
-
-  // Public navigation items
-  const publicNavItems = [
-    { label: "Features", hasDropdown: true },
-    { label: "Integrations", hasDropdown: true },
-    { label: "Examples", hasDropdown: true },
-    { label: "FAQ", hasDropdown: true },
+  const defaultWriterNavItems: NavLink[] = [
+    { label: "Features", href: "#features", hasDropdown: true },
+    { label: "Integrations", href: "#integrations", hasDropdown: true },
+    { label: "Examples", href: "#examples", hasDropdown: true },
+    { label: "FAQ", href: "#faq", hasDropdown: true },
   ];
+
+  const defaultReaderNavItems: NavLink[] = [
+    { label: "Discover", href: "#discover" },
+    { label: "Categories", href: "#categories" },
+    { label: "Authors", href: "#authors" },
+    { label: "About", href: "#about" },
+  ];
+
+  const defaultPublicNavItems: NavLink[] = [
+    { label: "Features", href: "#features", hasDropdown: true },
+    { label: "Integrations", href: "#integrations", hasDropdown: true },
+    { label: "Examples", href: "#examples", hasDropdown: true },
+    { label: "FAQ", href: "#faq", hasDropdown: true },
+  ];
+
+  const writerNavItems = isWriterRoute ? navLinks ?? defaultWriterNavItems : defaultWriterNavItems;
+  const readerNavItems = isReaderRoute ? navLinks ?? defaultReaderNavItems : defaultReaderNavItems;
+  const publicNavItems = isPublicPage ? navLinks ?? defaultPublicNavItems : defaultPublicNavItems;
+
+  const primaryAction = navActions?.primary;
+  const secondaryAction = navActions?.secondary;
+  const showSearch = navActions?.showSearch ?? isWriterRoute;
+  const searchPlaceholder = navActions?.searchPlaceholder ?? "Search books, authors...";
+  const searchHref = navActions?.searchHref ?? (isWriterRoute ? "/writer" : "/reader");
+  const showProfileMenu = navActions?.showProfileMenu ?? true;
 
   if (loading || hideNavbar) {
     return null; // Don't show navbar while loading or on auth screens
   }
 
-  const handleWriterSearchSubmit = (event: React.FormEvent) => {
+  const handleSearchSubmit = (event: React.FormEvent) => {
     event.preventDefault();
     const query = searchValue.trim();
     if (!query) return;
@@ -328,7 +366,7 @@ export default function GlobalNavbar() {
     // Attach query as ?q=... to writer dashboard – page can consume detta
     const params = new URLSearchParams(typeof window !== "undefined" ? window.location.search : "");
     params.set("q", query);
-    router.push(`/writer?${params.toString()}`);
+    router.push(`${searchHref}?${params.toString()}`);
   };
 
   return (
@@ -348,7 +386,10 @@ export default function GlobalNavbar() {
             {/* Logo and navigation */}
             <div className="flex min-w-0 items-center gap-4 sm:gap-10">
               {/* Logo: min 44px touch target on mobile */}
-              <Link href={isWriterRoute ? "/writer" : isReaderRoute ? "/reader" : "/"} className="touch-target flex shrink-0 items-center justify-center rounded-md focus:outline-none focus:ring-2 focus:ring-[#907AFF]/50 focus:ring-offset-2 focus:ring-offset-background">
+              <Link
+                href={homeHref ?? (isWriterRoute ? "/writer" : isReaderRoute ? "/reader" : "/")}
+                className="touch-target flex shrink-0 items-center justify-center rounded-md focus:outline-none focus:ring-2 focus:ring-[#907AFF]/50 focus:ring-offset-2 focus:ring-offset-background"
+              >
                 <img
                   src="/logo-dark.svg"
                   alt="Verkli"
@@ -366,24 +407,31 @@ export default function GlobalNavbar() {
                 <div className="hidden items-center gap-7 text-[14px] font-medium text-slate-700/90 dark:text-white/80 lg:flex">
                   {writerNavItems.map((item) => (
                     <div
-                      key={item}
+                      key={item.label}
                       className="group relative"
                       onMouseEnter={(e) => {
-                        if (item !== "Features" && item !== "Integrations" && item !== "Examples" && item !== "FAQ") return;
+                        if (!item.hasDropdown) return;
                         if (dropdownCloseTimeoutRef.current) {
                           clearTimeout(dropdownCloseTimeoutRef.current);
                           dropdownCloseTimeoutRef.current = null;
                         }
                         const btn = e.currentTarget.querySelector("button");
                         const rect = btn?.getBoundingClientRect();
-                        if (rect) setDropdownOpen({ key: item, top: rect.bottom + 14, left: rect.left - 10 });
+                        if (rect) setDropdownOpen({ key: item.label, top: rect.bottom + 14, left: rect.left - 10 });
                       }}
                       onMouseLeave={() => {
                         dropdownCloseTimeoutRef.current = window.setTimeout(() => setDropdownOpen(null), 200);
                       }}
                     >
-                      <button className="flex min-h-[44px] min-w-[44px] items-center gap-1.5 px-3 py-2 transition-colors hover:text-slate-900 hover:text-[#7058DD] dark:hover:text-white focus:outline-none focus:ring-2 focus:ring-[#907AFF]/50 focus:ring-offset-2 rounded-md">
-                        <span className="relative">{item}</span>
+                      <button
+                        className="flex min-h-[44px] min-w-[44px] items-center gap-1.5 px-3 py-2 transition-colors hover:text-slate-900 hover:text-[#7058DD] dark:hover:text-white focus:outline-none focus:ring-2 focus:ring-[#907AFF]/50 focus:ring-offset-2 rounded-md"
+                        onClick={() => {
+                          if (item.href && !item.hasDropdown) {
+                            router.push(item.href);
+                          }
+                        }}
+                      >
+                        <span className="relative">{item.label}</span>
                         <svg
                           className="h-3.5 w-3.5 transition-transform group-hover:rotate-180"
                           viewBox="0 0 12 12"
@@ -406,10 +454,13 @@ export default function GlobalNavbar() {
                 <div className="hidden items-center gap-8 text-[16px] font-medium text-slate-700 dark:text-white/80 lg:flex">
                   {readerNavItems.map((item) => (
                     <button
-                      key={item}
+                      key={item.label}
+                      onClick={() => {
+                        if (item.href) router.push(item.href);
+                      }}
                       className="flex items-center gap-1.5 px-3 py-2 transition-colors hover:text-slate-900 dark:hover:text-white"
                     >
-                      <span className="relative">{item}</span>
+                      <span className="relative">{item.label}</span>
                       <svg
                         className="h-3.5 w-3.5 transition-transform"
                         viewBox="0 0 12 12"
@@ -447,7 +498,14 @@ export default function GlobalNavbar() {
                         dropdownCloseTimeoutRef.current = window.setTimeout(() => setDropdownOpen(null), 200);
                       }}
                     >
-                      <button className="flex items-center gap-1.5 px-3 py-2 transition-colors hover:text-slate-900 dark:hover:text-white">
+                      <button
+                        className="flex items-center gap-1.5 px-3 py-2 transition-colors hover:text-slate-900 dark:hover:text-white"
+                        onClick={() => {
+                          if (item.href && !item.hasDropdown) {
+                            router.push(item.href);
+                          }
+                        }}
+                      >
                         <span className="relative">{item.label}</span>
                         {item.hasDropdown && (
                           <svg
@@ -491,46 +549,53 @@ export default function GlobalNavbar() {
                 )}
               </button>
 
-              {isWriterRoute && user ? (
+              {(isWriterRoute || isReaderRoute) && user ? (
                 <>
                   {/* Sök – expanderar på hover/focus och skickar query som ?q=... */}
-                  <form
-                    onSubmit={handleWriterSearchSubmit}
-                    className="group relative hidden h-9 items-center md:flex"
-                  >
-                    <div className="flex h-9 items-center gap-2 rounded-full border border-slate-200/80 pl-2 pr-0.5 text-slate-600 backdrop-blur-md transition-all duration-200 ease-out hover:border-slate-300 dark:hover:border-white/30 group-focus-within:border-slate-300 dark:group-focus-within:border-white/30 dark:border-white/25 dark:text-white/80 dark:hover:border-white/30 dark:group-focus-within:border-white/30">
-                      <svg
-                        className="h-4 w-4 flex-shrink-0"
-                        fill="none"
-                        viewBox="0 0 24 24"
-                        stroke="currentColor"
-                      >
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth={2}
-                          d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
+                  {showSearch && (
+                    <form
+                      onSubmit={handleSearchSubmit}
+                      className="group relative hidden h-9 items-center md:flex"
+                    >
+                      <div className="flex h-9 items-center gap-2 rounded-full border border-slate-200/80 pl-2 pr-0.5 text-slate-600 backdrop-blur-md transition-all duration-200 ease-out hover:border-slate-300 dark:hover:border-white/30 group-focus-within:border-slate-300 dark:group-focus-within:border-white/30 dark:border-white/25 dark:text-white/80 dark:hover:border-white/30 dark:group-focus-within:border-white/30">
+                        <svg
+                          className="h-4 w-4 flex-shrink-0"
+                          fill="none"
+                          viewBox="0 0 24 24"
+                          stroke="currentColor"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={2}
+                            d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
+                          />
+                        </svg>
+                        <input
+                          type="text"
+                          value={searchValue}
+                          onChange={(e) => setSearchValue(e.target.value)}
+                          placeholder={searchPlaceholder}
+                          className="w-0 bg-transparent text-[13px] font-medium text-slate-800 placeholder-slate-400 opacity-0 outline-none transition-all duration-200 ease-out group-hover:w-48 group-hover:opacity-100 group-focus-within:w-48 group-focus-within:opacity-100 dark:text-white dark:placeholder-white/40"
                         />
-                      </svg>
-                      <input
-                        type="text"
-                        value={searchValue}
-                        onChange={(e) => setSearchValue(e.target.value)}
-                        placeholder="Search books, authors..."
-                        className="w-0 bg-transparent text-[13px] font-medium text-slate-800 placeholder-slate-400 opacity-0 outline-none transition-all duration-200 ease-out group-hover:w-48 group-hover:opacity-100 group-focus-within:w-48 group-focus-within:opacity-100 dark:text-white dark:placeholder-white/40"
-                      />
-                    </div>
-                  </form>
+                      </div>
+                    </form>
+                  )}
 
                   {/* Upgrade / Share – stil enligt referens, funktion kan kopplas senare */}
-                  <button
-                    type="button"
-                    className="hidden h-9 items-center rounded-full border border-slate-200/80 px-5 text-[13px] font-medium text-slate-900 dark:text-white transition-all md:inline-flex dark:border-white/[0.15]"
-                  >
-                    Upgrade to <span className="font-semibold ml-1"> PRO</span>
-                  </button>
+                  {primaryAction && (
+                    <button
+                      type="button"
+                      onClick={() => router.push(primaryAction.href)}
+                      className="hidden h-9 items-center rounded-full border border-slate-200/80 px-5 text-[13px] font-medium text-slate-900 dark:text-white transition-all md:inline-flex dark:border-white/[0.15]"
+                    >
+                      {primaryAction.label}
+                    </button>
+                  )}
 
-                  <UserMenu user={user} onSignOut={handleSignOut} currentRole={displayRoleForMenu} />
+                  {showProfileMenu && (
+                    <UserMenu user={user} onSignOut={handleSignOut} currentRole={displayRoleForMenu} />
+                  )}
                 </>
               ) : (
                 <>
@@ -540,48 +605,48 @@ export default function GlobalNavbar() {
                       {isPublicPage && (
                         <>
                           <Link
-                            href="/signin"
+                            href={secondaryAction?.href ?? "/signin"}
                             className="flex h-9 min-h-[44px] min-w-[44px] items-center justify-center rounded-full border border-slate-200/80 dark:border-white/10 bg-transparent px-5 text-[15px] font-medium text-slate-900 dark:text-white transition-colors hover:text-slate-600 dark:hover:text-white/70 focus:outline-none focus:ring-2 focus:ring-[#907AFF]/50 focus:ring-offset-2"
                           >
-                            Sign in
+                            {secondaryAction?.label ?? "Sign in"}
                           </Link>
                           <Link
-                            href="/signup"
+                            href={primaryAction?.href ?? "/signup"}
                             className="flex h-9 min-h-[44px] min-w-[44px] items-center justify-center rounded-full border border-black/10 dark:border-white/10 bg-transparent px-5 text-[15px] font-medium text-slate-900 dark:text-white transition-colors hover:text-slate-600 dark:hover:text-white/70 focus:outline-none focus:ring-2 focus:ring-[#907AFF]/50 focus:ring-offset-2"
                           >
-                            Sign up
+                            {primaryAction?.label ?? "Sign up"}
                           </Link>
                         </>
                       )}
                       {isWriterRoute && (
                         <>
                           <Link
-                            href="/writer/signin"
+                            href={secondaryAction?.href ?? "/writer/signin"}
                             className="flex h-9 min-h-[44px] min-w-[44px] items-center justify-center rounded-full border border-black/10 dark:border-white/10 bg-transparent px-4 text-[15px] font-medium text-slate-900 dark:text-white transition-colors hover:text-slate-600 dark:hover:text-white/70 focus:outline-none focus:ring-2 focus:ring-[#907AFF]/50 focus:ring-offset-2"
                           >
-                            Sign in
+                            {secondaryAction?.label ?? "Sign in"}
                           </Link>
                           <Link
-                            href="/writer/signup"
+                            href={primaryAction?.href ?? "/writer/signup"}
                             className="flex h-9 min-h-[44px] min-w-[44px] items-center justify-center rounded-full border border-black/10 dark:border-white/10 bg-transparent px-5 text-[15px] font-medium text-slate-900 dark:text-white transition-colors hover:text-slate-600 dark:hover:text-white/70 focus:outline-none focus:ring-2 focus:ring-[#907AFF]/50 focus:ring-offset-2"
                           >
-                            Sign up
+                            {primaryAction?.label ?? "Sign up"}
                           </Link>
                         </>
                       )}
                       {isReaderRoute && (
                         <>
                           <Link
-                            href="/reader/signin"
+                            href={secondaryAction?.href ?? "/reader/signin"}
                             className="flex h-9 min-h-[44px] min-w-[44px] items-center justify-center rounded-full border border-black/10 dark:border-white/10 bg-transparent px-4 text-[15px] font-medium text-slate-900 dark:text-white transition-colors hover:text-slate-600 dark:hover:text-white/70 focus:outline-none focus:ring-2 focus:ring-[#907AFF]/50 focus:ring-offset-2"
                           >
-                            Sign in
+                            {secondaryAction?.label ?? "Sign in"}
                           </Link>
                           <Link
-                            href="/reader/signup"
+                            href={primaryAction?.href ?? "/reader/signup"}
                             className="flex h-9 min-h-[44px] min-w-[44px] items-center justify-center rounded-full border border-black/10 dark:border-white/10 bg-transparent px-5 text-[15px] font-medium text-slate-900 dark:text-white transition-colors hover:text-slate-600 dark:hover:text-white/70 focus:outline-none focus:ring-2 focus:ring-[#907AFF]/50 focus:ring-offset-2"
                           >
-                            Sign up
+                            {primaryAction?.label ?? "Sign up"}
                           </Link>
                         </>
                       )}
@@ -621,7 +686,7 @@ export default function GlobalNavbar() {
                   </div>
 
                   {/* User menu för inloggade användare (ej writer route) */}
-                  {user && (
+                  {user && showProfileMenu && (
                     <UserMenu user={user} onSignOut={handleSignOut} currentRole={displayRoleForMenu} />
                   )}
                 </>
@@ -649,7 +714,7 @@ export default function GlobalNavbar() {
                 publicNavItems.map((item) => (
                   <a
                     key={item.label}
-                    href={`#${item.label.toLowerCase()}`}
+                    href={item.href || `#${item.label.toLowerCase()}`}
                     onClick={() => setMobileMenuOpen(false)}
                     className="flex min-h-[44px] min-w-[44px] items-center rounded-xl px-4 py-3 text-[16px] font-medium text-slate-700 transition-colors hover:bg-slate-100 hover:text-slate-900 dark:text-white/90 dark:hover:bg-white/10"
                   >
@@ -659,22 +724,28 @@ export default function GlobalNavbar() {
               {isWriterRoute &&
                 writerNavItems.map((item) => (
                   <a
-                    key={item}
-                    href={`#${item.toLowerCase()}`}
+                    key={item.label}
+                    href={item.href || `#${item.label.toLowerCase()}`}
                     onClick={() => setMobileMenuOpen(false)}
                     className="flex min-h-[44px] min-w-[44px] items-center rounded-xl px-4 py-3 text-[16px] font-medium text-slate-700 transition-colors hover:bg-slate-100 hover:text-slate-900 dark:text-white/90 dark:hover:bg-white/10"
                   >
-                    {item}
+                    {item.label}
                   </a>
                 ))}
               {isReaderRoute &&
                 readerNavItems.map((item) => (
                   <button
-                    key={item}
+                    key={item.label}
                     type="button"
+                    onClick={() => {
+                      if (item.href) {
+                        router.push(item.href);
+                        setMobileMenuOpen(false);
+                      }
+                    }}
                     className="flex min-h-[44px] min-w-[44px] items-center rounded-xl px-4 py-3 text-left text-[16px] font-medium text-slate-700 transition-colors hover:bg-slate-100 hover:text-slate-900 dark:text-white/90 dark:hover:bg-white/10"
                   >
-                    {item}
+                    {item.label}
                   </button>
                 ))}
             </div>
@@ -683,54 +754,54 @@ export default function GlobalNavbar() {
                 {isPublicPage && (
                   <>
                     <Link
-                      href="/signin"
+                      href={secondaryAction?.href ?? "/signin"}
                       onClick={() => setMobileMenuOpen(false)}
                       className="flex min-h-[44px] items-center justify-center rounded-full border border-slate-200/80 px-5 text-[15px] font-medium text-slate-900 transition-colors hover:bg-slate-100 dark:border-white/10 dark:text-white dark:hover:bg-white/10"
                     >
-                      Sign in
+                      {secondaryAction?.label ?? "Sign in"}
                     </Link>
                     <Link
-                      href="/signup"
+                      href={primaryAction?.href ?? "/signup"}
                       onClick={() => setMobileMenuOpen(false)}
                       className="flex min-h-[44px] items-center justify-center rounded-full bg-slate-900 px-5 text-[15px] font-semibold text-white transition-colors hover:bg-slate-800 dark:bg-white dark:text-slate-900 dark:hover:bg-white/90"
                     >
-                      Sign up
+                      {primaryAction?.label ?? "Sign up"}
                     </Link>
                   </>
                 )}
                 {isWriterRoute && (
                   <>
                     <Link
-                      href="/writer/signin"
+                      href={secondaryAction?.href ?? "/writer/signin"}
                       onClick={() => setMobileMenuOpen(false)}
                       className="flex min-h-[44px] items-center justify-center rounded-full border border-slate-200/80 px-5 text-[15px] font-medium text-slate-900 transition-colors hover:bg-slate-100 dark:border-white/10 dark:text-white dark:hover:bg-white/10"
                     >
-                      Sign in
+                      {secondaryAction?.label ?? "Sign in"}
                     </Link>
                     <Link
-                      href="/writer/signup"
+                      href={primaryAction?.href ?? "/writer/signup"}
                       onClick={() => setMobileMenuOpen(false)}
                       className="flex min-h-[44px] items-center justify-center rounded-full bg-slate-900 px-5 text-[15px] font-semibold text-white transition-colors hover:bg-slate-800 dark:bg-white dark:text-slate-900 dark:hover:bg-white/90"
                     >
-                      Sign up
+                      {primaryAction?.label ?? "Sign up"}
                     </Link>
                   </>
                 )}
                 {isReaderRoute && (
                   <>
                     <Link
-                      href="/reader/signin"
+                      href={secondaryAction?.href ?? "/reader/signin"}
                       onClick={() => setMobileMenuOpen(false)}
                       className="flex min-h-[44px] items-center justify-center rounded-full border border-slate-200/80 px-5 text-[15px] font-medium text-slate-900 transition-colors hover:bg-slate-100 dark:border-white/10 dark:text-white dark:hover:bg-white/10"
                     >
-                      Sign in
+                      {secondaryAction?.label ?? "Sign in"}
                     </Link>
                     <Link
-                      href="/reader/signup"
+                      href={primaryAction?.href ?? "/reader/signup"}
                       onClick={() => setMobileMenuOpen(false)}
                       className="flex min-h-[44px] items-center justify-center rounded-full bg-slate-900 px-5 text-[15px] font-semibold text-white transition-colors hover:bg-slate-800 dark:bg-white dark:text-slate-900 dark:hover:bg-white/90"
                     >
-                      Sign up
+                      {primaryAction?.label ?? "Sign up"}
                     </Link>
                   </>
                 )}

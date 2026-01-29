@@ -11,7 +11,7 @@ import {
   changePassword,
   signOutAllSessions,
   type ActionState,
-} from "@/app/writer/settings/actions";
+} from "@/features/writer/settings/actions";
 
 const initialState: ActionState = { ok: false, message: "" };
 
