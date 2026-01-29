@@ -260,12 +260,18 @@ export default function GlobalNavbar() {
     }
   }, [pathname]);
 
+  // Stäng mobilmeny vid navigering
+  useEffect(() => {
+    setMobileMenuOpen(false);
+  }, [pathname]);
+
   const handleSignOut = async () => {
     const supabase = createClient();
     await supabase.auth.signOut();
     setUser(null);
   };
 
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const isWriterRoute = pathname?.startsWith("/writer");
   const isReaderRoute = pathname?.startsWith("/reader");
   const isPublicPage = !isWriterRoute && !isReaderRoute;
@@ -320,20 +326,20 @@ export default function GlobalNavbar() {
   };
 
   return (
-    <header className="sticky top-0 z-[999] isolate mx-auto w-full bg-gradient-to-b from-background/95 via-background/90 to-transparent px-4 pb-2 pt-3 md:px-6">
-      <div className="flex items-center gap-3">
+    <header className="sticky top-0 z-[999] isolate mx-auto w-full max-w-[100vw] overflow-x-hidden bg-gradient-to-b from-background/95 via-background/90 to-transparent px-4 pb-2 pt-3 md:px-6">
+      <div className="flex items-center gap-2 sm:gap-3">
         <GlassSurface
           {...glassBaseProps}
           width="100%"
           height="68px"
           borderRadius={999}
-          className="nav-glass flex-1 border border-gray-100/5 bg-white/90 px-7 py-3.5 dark:border-white/10 dark:bg-slate-950/95 md:px-11 [&_.glass-surface__content]:w-full [&_.glass-surface__content]:justify-between [&_.glass-surface__content]:p-0"
+          className="nav-glass flex-1 min-w-0 border border-gray-100/[0.05] bg-white/90 px-4 py-3 dark:border-white/10 dark:bg-slate-950/95 sm:px-6 md:px-11 [&_.glass-surface__content]:w-full [&_.glass-surface__content]:justify-between [&_.glass-surface__content]:p-0"
         >
-          <nav className="flex w-full items-center justify-between gap-6">
+          <nav className="flex w-full min-w-0 items-center justify-between gap-4 sm:gap-6">
             {/* Logo and navigation */}
-            <div className="flex items-center gap-10">
-              {/* Logo: inloggad på writer/reader → dashboard; annars startsida (väljaren visas bara när navbar är dold) */}
-              <Link href={isWriterRoute ? "/writer" : isReaderRoute ? "/reader" : "/"}>
+            <div className="flex min-w-0 items-center gap-4 sm:gap-10">
+              {/* Logo: min 44px touch target on mobile */}
+              <Link href={isWriterRoute ? "/writer" : isReaderRoute ? "/reader" : "/"} className="touch-target flex shrink-0 items-center justify-center rounded-md focus:outline-none focus:ring-2 focus:ring-[#907AFF]/50 focus:ring-offset-2 focus:ring-offset-background">
                 <img
                   src="/logo-dark.svg"
                   alt="Verkli"
@@ -351,7 +357,7 @@ export default function GlobalNavbar() {
                 <div className="hidden items-center gap-7 text-[14px] font-medium text-slate-700/90 dark:text-white/80 lg:flex">
                   {writerNavItems.map((item) => (
                     <div key={item} className="group relative">
-                      <button className="flex items-center gap-1.5 px-2 py-2 transition-colors hover:text-slate-900 hover:text-[#7058DD] dark:hover:text-white">
+                      <button className="flex min-h-[44px] min-w-[44px] items-center gap-1.5 px-3 py-2 transition-colors hover:text-slate-900 hover:text-[#7058DD] dark:hover:text-white focus:outline-none focus:ring-2 focus:ring-[#907AFF]/50 focus:ring-offset-2 rounded-md">
                         <span className="relative">{item}</span>
                         <svg
                           className="h-3.5 w-3.5 transition-transform group-hover:rotate-180"
@@ -372,7 +378,7 @@ export default function GlobalNavbar() {
                             width="100%"
                             height="auto"
                             borderRadius={24}
-                            className="nav-mega max-h-[calc(100vh-120px)] overflow-y-auto border border-white/40 px-5 py-5 dark:border-white/15 md:px-8 md:py-8"
+                            className="nav-mega max-h-[min(calc(100dvh-120px),32rem)] overflow-y-auto overscroll-contain border border-white/[0.4] px-4 py-4 dark:border-white/[0.15] sm:px-5 sm:py-5 md:px-8 md:py-8"
                           >
                             {dropdownContent[item as keyof typeof dropdownContent] && (
                               <>
@@ -468,7 +474,7 @@ export default function GlobalNavbar() {
                             width="100%"
                             height="auto"
                             borderRadius={24}
-                            className="nav-mega max-h-[calc(100vh-120px)] overflow-y-auto border border-white/40 px-5 py-5 dark:border-white/15 md:px-8 md:py-8"
+                            className="nav-mega max-h-[min(calc(100dvh-120px),32rem)] overflow-y-auto overscroll-contain border border-white/[0.4] px-4 py-4 dark:border-white/[0.15] sm:px-5 sm:py-5 md:px-8 md:py-8"
                           >
                             {dropdownContent[item.label as keyof typeof dropdownContent] && (
                               <>
@@ -514,7 +520,26 @@ export default function GlobalNavbar() {
             </div>
 
             {/* Actions */}
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2 sm:gap-3">
+              {/* Hamburger – endast mobil/tablet, plats för menyn */}
+              <button
+                type="button"
+                onClick={() => setMobileMenuOpen((v) => !v)}
+                className="flex min-h-[44px] min-w-[44px] items-center justify-center rounded-full border border-slate-200/80 text-slate-700 transition-colors hover:bg-slate-100 hover:text-slate-900 focus:outline-none focus:ring-2 focus:ring-[#907AFF]/50 focus:ring-offset-2 dark:border-white/10 dark:text-white/80 dark:hover:bg-white/10 lg:hidden"
+                aria-label={mobileMenuOpen ? "Stäng meny" : "Öppna meny"}
+                aria-expanded={mobileMenuOpen}
+              >
+                {mobileMenuOpen ? (
+                  <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                ) : (
+                  <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M4 6h16M4 12h16M4 18h16" />
+                  </svg>
+                )}
+              </button>
+
               {isWriterRoute && user ? (
                 <>
                   {/* Sök – expanderar på hover/focus och skickar query som ?q=... */}
@@ -522,7 +547,7 @@ export default function GlobalNavbar() {
                     onSubmit={handleWriterSearchSubmit}
                     className="group relative hidden h-9 items-center md:flex"
                   >
-                    <div className="flex h-9 items-center gap-2 rounded-full border border-gray/10 pl-2 pr-0.5 text-slate-600 backdrop-blur-md transition-all duration-200 ease-out hover:border-gray/10 group-focus-within:border-gray/10 dark:border-white/25 dark:text-white/80 dark:hover:border-white/30 dark:group-focus-within:border-white/30">
+                    <div className="flex h-9 items-center gap-2 rounded-full border border-slate-200/80 pl-2 pr-0.5 text-slate-600 backdrop-blur-md transition-all duration-200 ease-out hover:border-slate-300 dark:hover:border-white/30 group-focus-within:border-slate-300 dark:group-focus-within:border-white/30 dark:border-white/25 dark:text-white/80 dark:hover:border-white/30 dark:group-focus-within:border-white/30">
                       <svg
                         className="h-4 w-4 flex-shrink-0"
                         fill="none"
@@ -549,7 +574,7 @@ export default function GlobalNavbar() {
                   {/* Upgrade / Share – stil enligt referens, funktion kan kopplas senare */}
                   <button
                     type="button"
-                    className="hidden h-9 items-center rounded-full border border-gray/10 px-5 text-[13px] font-medium text-slate-900 dark:text-white transition-all md:inline-flex dark:border-white/15"
+                    className="hidden h-9 items-center rounded-full border border-slate-200/80 px-5 text-[13px] font-medium text-slate-900 dark:text-white transition-all md:inline-flex dark:border-white/[0.15]"
                   >
                     Upgrade to <span className="font-semibold ml-1"> PRO</span>
                   </button>
@@ -558,20 +583,20 @@ export default function GlobalNavbar() {
                 </>
               ) : (
                 <>
-                  {/* Sign in / Sign up knappar - till vänster om toggle och language */}
+                  {/* Sign in / Sign up – endast desktop; på mobil finns de i mobilmenyn och i hero */}
                   {!user && (
-                    <>
+                    <div className="hidden items-center gap-2 lg:flex">
                       {isPublicPage && (
                         <>
                           <Link
                             href="/signin"
-                            className="flex h-9 items-center justify-center rounded-full border border-gray/10 dark:border-white/10 bg-transparent px-5 text-[15px] font-medium text-slate-900 dark:text-white transition-colors hover:text-slate-600 dark:hover:text-white/70"
+                            className="flex h-9 min-h-[44px] min-w-[44px] items-center justify-center rounded-full border border-slate-200/80 dark:border-white/10 bg-transparent px-5 text-[15px] font-medium text-slate-900 dark:text-white transition-colors hover:text-slate-600 dark:hover:text-white/70 focus:outline-none focus:ring-2 focus:ring-[#907AFF]/50 focus:ring-offset-2"
                           >
                             Sign in
                           </Link>
                           <Link
                             href="/signup"
-                            className="flex h-9 items-center justify-center rounded-full border border-black/10 dark:border-white/10 bg-transparent px-5 text-[15px] font-medium text-slate-900 dark:text-white transition-colors hover:text-slate-600 dark:hover:text-white/70"
+                            className="flex h-9 min-h-[44px] min-w-[44px] items-center justify-center rounded-full border border-black/10 dark:border-white/10 bg-transparent px-5 text-[15px] font-medium text-slate-900 dark:text-white transition-colors hover:text-slate-600 dark:hover:text-white/70 focus:outline-none focus:ring-2 focus:ring-[#907AFF]/50 focus:ring-offset-2"
                           >
                             Sign up
                           </Link>
@@ -581,13 +606,13 @@ export default function GlobalNavbar() {
                         <>
                           <Link
                             href="/writer/signin"
-                            className="flex h-9 items-center justify-center rounded-full border border-black/10 dark:border-white/10 bg-transparent px-4 text-[15px] font-medium text-slate-900 dark:text-white transition-colors hover:text-slate-600 dark:hover:text-white/70"
+                            className="flex h-9 min-h-[44px] min-w-[44px] items-center justify-center rounded-full border border-black/10 dark:border-white/10 bg-transparent px-4 text-[15px] font-medium text-slate-900 dark:text-white transition-colors hover:text-slate-600 dark:hover:text-white/70 focus:outline-none focus:ring-2 focus:ring-[#907AFF]/50 focus:ring-offset-2"
                           >
                             Sign in
                           </Link>
                           <Link
                             href="/writer/signup"
-                            className="flex h-9 items-center justify-center rounded-full border border-black/10 dark:border-white/10 bg-transparent px-5 text-[15px] font-medium text-slate-900 dark:text-white transition-colors hover:text-slate-600 dark:hover:text-white/70"
+                            className="flex h-9 min-h-[44px] min-w-[44px] items-center justify-center rounded-full border border-black/10 dark:border-white/10 bg-transparent px-5 text-[15px] font-medium text-slate-900 dark:text-white transition-colors hover:text-slate-600 dark:hover:text-white/70 focus:outline-none focus:ring-2 focus:ring-[#907AFF]/50 focus:ring-offset-2"
                           >
                             Sign up
                           </Link>
@@ -597,19 +622,19 @@ export default function GlobalNavbar() {
                         <>
                           <Link
                             href="/reader/signin"
-                            className="flex h-9 items-center justify-center rounded-full border border-black/10 dark:border-white/10 bg-transparent px-4 text-[15px] font-medium text-slate-900 dark:text-white transition-colors hover:text-slate-600 dark:hover:text-white/70"
+                            className="flex h-9 min-h-[44px] min-w-[44px] items-center justify-center rounded-full border border-black/10 dark:border-white/10 bg-transparent px-4 text-[15px] font-medium text-slate-900 dark:text-white transition-colors hover:text-slate-600 dark:hover:text-white/70 focus:outline-none focus:ring-2 focus:ring-[#907AFF]/50 focus:ring-offset-2"
                           >
                             Sign in
                           </Link>
                           <Link
                             href="/reader/signup"
-                            className="flex h-9 items-center justify-center rounded-full border border-black/10 dark:border-white/10 bg-transparent px-5 text-[15px] font-medium text-slate-900 dark:text-white transition-colors hover:text-slate-600 dark:hover:text-white/70"
+                            className="flex h-9 min-h-[44px] min-w-[44px] items-center justify-center rounded-full border border-black/10 dark:border-white/10 bg-transparent px-5 text-[15px] font-medium text-slate-900 dark:text-white transition-colors hover:text-slate-600 dark:hover:text-white/70 focus:outline-none focus:ring-2 focus:ring-[#907AFF]/50 focus:ring-offset-2"
                           >
                             Sign up
                           </Link>
                         </>
                       )}
-                    </>
+                    </div>
                   )}
 
                   {/* Theme toggle och Language selector */}
@@ -654,6 +679,118 @@ export default function GlobalNavbar() {
           </nav>
         </GlassSurface>
       </div>
+
+      {/* Mobilmeny – fullskärm med länkar + Sign in / Sign up */}
+      {mobileMenuOpen && (
+        <div
+          className="fixed inset-0 z-[998] lg:hidden"
+          aria-hidden="false"
+        >
+          <button
+            type="button"
+            onClick={() => setMobileMenuOpen(false)}
+            className="absolute inset-0 bg-black/40 backdrop-blur-sm"
+            aria-label="Stäng meny"
+          />
+          <div className="absolute right-0 top-0 flex h-full w-full max-w-[min(100vw,22rem)] flex-col gap-6 overflow-y-auto border-l border-slate-200/80 bg-white/95 px-6 pb-8 pt-[calc(88px+0.5rem)] shadow-xl dark:border-white/10 dark:bg-slate-950/95">
+            <div className="flex flex-col gap-1">
+              {isPublicPage &&
+                publicNavItems.map((item) => (
+                  <a
+                    key={item.label}
+                    href={`#${item.label.toLowerCase()}`}
+                    onClick={() => setMobileMenuOpen(false)}
+                    className="flex min-h-[44px] min-w-[44px] items-center rounded-xl px-4 py-3 text-[16px] font-medium text-slate-700 transition-colors hover:bg-slate-100 hover:text-slate-900 dark:text-white/90 dark:hover:bg-white/10"
+                  >
+                    {item.label}
+                  </a>
+                ))}
+              {isWriterRoute &&
+                writerNavItems.map((item) => (
+                  <a
+                    key={item}
+                    href={`#${item.toLowerCase()}`}
+                    onClick={() => setMobileMenuOpen(false)}
+                    className="flex min-h-[44px] min-w-[44px] items-center rounded-xl px-4 py-3 text-[16px] font-medium text-slate-700 transition-colors hover:bg-slate-100 hover:text-slate-900 dark:text-white/90 dark:hover:bg-white/10"
+                  >
+                    {item}
+                  </a>
+                ))}
+              {isReaderRoute &&
+                readerNavItems.map((item) => (
+                  <button
+                    key={item}
+                    type="button"
+                    className="flex min-h-[44px] min-w-[44px] items-center rounded-xl px-4 py-3 text-left text-[16px] font-medium text-slate-700 transition-colors hover:bg-slate-100 hover:text-slate-900 dark:text-white/90 dark:hover:bg-white/10"
+                  >
+                    {item}
+                  </button>
+                ))}
+            </div>
+            {!user && (
+              <div className="mt-auto flex flex-col gap-3 border-t border-slate-200/80 pt-6 dark:border-white/10">
+                {isPublicPage && (
+                  <>
+                    <Link
+                      href="/signin"
+                      onClick={() => setMobileMenuOpen(false)}
+                      className="flex min-h-[44px] items-center justify-center rounded-full border border-slate-200/80 px-5 text-[15px] font-medium text-slate-900 transition-colors hover:bg-slate-100 dark:border-white/10 dark:text-white dark:hover:bg-white/10"
+                    >
+                      Sign in
+                    </Link>
+                    <Link
+                      href="/signup"
+                      onClick={() => setMobileMenuOpen(false)}
+                      className="flex min-h-[44px] items-center justify-center rounded-full bg-slate-900 px-5 text-[15px] font-semibold text-white transition-colors hover:bg-slate-800 dark:bg-white dark:text-slate-900 dark:hover:bg-white/90"
+                    >
+                      Sign up
+                    </Link>
+                  </>
+                )}
+                {isWriterRoute && (
+                  <>
+                    <Link
+                      href="/writer/signin"
+                      onClick={() => setMobileMenuOpen(false)}
+                      className="flex min-h-[44px] items-center justify-center rounded-full border border-slate-200/80 px-5 text-[15px] font-medium text-slate-900 transition-colors hover:bg-slate-100 dark:border-white/10 dark:text-white dark:hover:bg-white/10"
+                    >
+                      Sign in
+                    </Link>
+                    <Link
+                      href="/writer/signup"
+                      onClick={() => setMobileMenuOpen(false)}
+                      className="flex min-h-[44px] items-center justify-center rounded-full bg-slate-900 px-5 text-[15px] font-semibold text-white transition-colors hover:bg-slate-800 dark:bg-white dark:text-slate-900 dark:hover:bg-white/90"
+                    >
+                      Sign up
+                    </Link>
+                  </>
+                )}
+                {isReaderRoute && (
+                  <>
+                    <Link
+                      href="/reader/signin"
+                      onClick={() => setMobileMenuOpen(false)}
+                      className="flex min-h-[44px] items-center justify-center rounded-full border border-slate-200/80 px-5 text-[15px] font-medium text-slate-900 transition-colors hover:bg-slate-100 dark:border-white/10 dark:text-white dark:hover:bg-white/10"
+                    >
+                      Sign in
+                    </Link>
+                    <Link
+                      href="/reader/signup"
+                      onClick={() => setMobileMenuOpen(false)}
+                      className="flex min-h-[44px] items-center justify-center rounded-full bg-slate-900 px-5 text-[15px] font-semibold text-white transition-colors hover:bg-slate-800 dark:bg-white dark:text-slate-900 dark:hover:bg-white/90"
+                    >
+                      Sign up
+                    </Link>
+                  </>
+                )}
+              </div>
+            )}
+            <div className="flex items-center gap-3">
+              <ThemeToggle useGlass={false} className="h-10 w-10" />
+            </div>
+          </div>
+        </div>
+      )}
     </header>
   );
 }

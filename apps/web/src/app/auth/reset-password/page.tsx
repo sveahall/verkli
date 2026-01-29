@@ -69,7 +69,7 @@ export default function ResetPassword() {
 
   return (
     <main
-      className="relative flex min-h-screen flex-col items-center justify-center overflow-hidden text-slate-900 dark:text-white"
+      className="relative flex min-h-screen min-h-dvh flex-col items-center justify-center overflow-x-hidden overflow-y-auto px-4 py-6 text-slate-900 dark:text-white"
       style={{ background: "var(--auth-background)" }}
     >
       <div className="pointer-events-none absolute inset-0 overflow-hidden">
@@ -80,12 +80,12 @@ export default function ResetPassword() {
 
       <GlassSurface
         {...glassBaseProps}
-        width="480px"
+        width="100%"
         height="auto"
-        borderRadius={40}
-        className="relative z-10 border border-black/10 dark:border-white/10"
+        borderRadius={24}
+        className="relative z-10 w-full max-w-[480px] border border-black/10 dark:border-white/10"
       >
-        <div className="flex w-full flex-col items-center px-12 py-14 text-center">
+        <div className="flex w-full flex-col items-center px-6 py-10 text-center sm:px-12 sm:py-14">
           <p className="text-base font-medium tracking-wide text-slate-600 dark:text-white/50">Set a new password</p>
           <h1 className="mt-4 text-[32px] font-semibold leading-[1.15] tracking-tight text-slate-900 dark:text-white">
             Reset password
@@ -120,7 +120,7 @@ export default function ResetPassword() {
                   onChange={(e) => setPassword(e.target.value)}
                   placeholder="••••••••"
                   required
-                  className="w-full rounded-xl border border-black/10 bg-black/2 px-4 py-3 text-slate-900 placeholder:text-slate-400 focus:border-purple-500/50 focus:outline-none focus:ring-1 focus:ring-purple-500/50 dark:border-white/10 dark:bg-white/5 dark:text-white dark:placeholder:text-white/30"
+                  className="min-h-[44px] w-full rounded-xl border border-black/10 bg-black/[0.02] px-4 py-3 text-slate-900 placeholder:text-slate-400 focus:border-purple-500/50 focus:outline-none focus:ring-2 focus:ring-purple-500/30 dark:border-white/10 dark:bg-white/5 dark:text-white dark:placeholder:text-white/30"
                 />
               </div>
 
@@ -135,7 +135,7 @@ export default function ResetPassword() {
                   onChange={(e) => setConfirm(e.target.value)}
                   placeholder="••••••••"
                   required
-                  className="w-full rounded-xl border border-black/10 bg-black/2 px-4 py-3 text-slate-900 placeholder:text-slate-400 focus:border-purple-500/50 focus:outline-none focus:ring-1 focus:ring-purple-500/50 dark:border-white/10 dark:bg-white/5 dark:text-white dark:placeholder:text-white/30"
+                  className="min-h-[44px] w-full rounded-xl border border-black/10 bg-black/[0.02] px-4 py-3 text-slate-900 placeholder:text-slate-400 focus:border-purple-500/50 focus:outline-none focus:ring-2 focus:ring-purple-500/30 dark:border-white/10 dark:bg-white/5 dark:text-white dark:placeholder:text-white/30"
                 />
               </div>
 
@@ -150,7 +150,7 @@ export default function ResetPassword() {
                 <button
                   type="submit"
                   disabled={loading || hasSession === false}
-                  className="w-full px-8 py-4 text-[15px] font-medium text-slate-900 disabled:opacity-50 dark:text-white/90"
+                  className="min-h-[44px] w-full px-8 py-4 text-[15px] font-medium text-slate-900 disabled:opacity-50 focus:outline-none focus:ring-2 focus:ring-purple-500/50 focus:ring-offset-2 dark:text-white/90"
                 >
                   {loading ? "Updating..." : "Update password"}
                 </button>

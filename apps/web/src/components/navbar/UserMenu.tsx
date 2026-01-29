@@ -145,7 +145,7 @@ export default function UserMenu({ user, onSignOut, currentRole = "writer" }: Us
           e.preventDefault();
           e.stopPropagation();
         }}
-        className="flex h-9 w-9 items-center justify-center rounded-full border border-slate-300 bg-transparent text-slate-700 transition-all hover:bg-slate-100 dark:border-white/40 dark:text-white dark:hover:bg-white/10"
+        className="touch-target flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-slate-300 bg-transparent text-slate-700 transition-all hover:bg-slate-100 dark:border-white/[0.4] dark:text-white dark:hover:bg-white/10 focus:outline-none focus:ring-2 focus:ring-[#907AFF]/50 focus:ring-offset-2 focus:ring-offset-background"
         aria-label="Account menu"
         aria-expanded={isOpen}
       >
@@ -169,12 +169,12 @@ export default function UserMenu({ user, onSignOut, currentRole = "writer" }: Us
       {isOpen && (
         <div
           ref={menuPanelRef}
-          className="absolute right-0 top-full mt-3 z-[1000] w-[280px] overflow-hidden rounded-2xl border border-black/10 dark:border-white/10 bg-white/98 dark:bg-[#0a0a0f]/98 p-1 backdrop-blur-xl"
+          className="absolute right-0 top-full mt-2 z-[1000] w-[min(280px,calc(100vw-2rem))] max-w-[280px] overflow-hidden rounded-2xl border border-black/10 dark:border-white/10 bg-white/[0.98] dark:bg-[#0a0a0f]/[0.98] p-1 backdrop-blur-xl"
           onMouseDown={(e) => e.stopPropagation()}
           onClick={(e) => e.stopPropagation()}
         >
           {/* Header with user info */}
-          <div className="px-4 py-3 border-b border-black/5 dark:border-white/[0.06]">
+          <div className="px-4 py-3 border-b border-black/[0.05] dark:border-white/[0.06]">
             <p className="text-[15px] font-semibold text-slate-900 dark:text-white">
               {displayName}
             </p>
@@ -191,7 +191,7 @@ export default function UserMenu({ user, onSignOut, currentRole = "writer" }: Us
                 e.stopPropagation();
                 setIsOpen(false);
               }}
-              className="flex w-full items-center gap-3 rounded-xl px-4 py-2.5 text-[14px] font-medium text-slate-700 dark:text-white/80 transition-all hover:bg-slate-50 dark:hover:bg-white/[0.05] hover:text-slate-900 dark:hover:text-white"
+              className="flex min-h-[44px] w-full items-center gap-3 rounded-xl px-4 py-3 text-[14px] font-medium text-slate-700 dark:text-white/80 transition-all hover:bg-slate-50 dark:hover:bg-white/[0.05] hover:text-slate-900 dark:hover:text-white focus:outline-none focus:ring-2 focus:ring-inset focus:ring-[#907AFF]/30"
             >
               <svg
                 className="h-5 w-5 flex-shrink-0"
@@ -215,7 +215,7 @@ export default function UserMenu({ user, onSignOut, currentRole = "writer" }: Us
                 e.stopPropagation();
                 setIsOpen(false);
               }}
-              className="flex w-full items-center gap-3 rounded-xl px-4 py-2.5 text-[14px] font-medium text-slate-700 dark:text-white/80 transition-all hover:bg-slate-50 dark:hover:bg-white/[0.05] hover:text-slate-900 dark:hover:text-white"
+              className="flex min-h-[44px] w-full items-center gap-3 rounded-xl px-4 py-3 text-[14px] font-medium text-slate-700 dark:text-white/80 transition-all hover:bg-slate-50 dark:hover:bg-white/[0.05] hover:text-slate-900 dark:hover:text-white focus:outline-none focus:ring-2 focus:ring-inset focus:ring-[#907AFF]/30"
             >
               <svg
                 className="h-5 w-5 flex-shrink-0"
@@ -240,7 +240,7 @@ export default function UserMenu({ user, onSignOut, currentRole = "writer" }: Us
 
             <button
               onClick={handleSwitchRole}
-              className="flex w-full items-center gap-3 rounded-xl px-4 py-2.5 text-[14px] font-medium text-slate-700 dark:text-white/80 transition-all hover:bg-slate-50 dark:hover:bg-white/[0.05] hover:text-slate-900 dark:hover:text-white"
+              className="flex min-h-[44px] w-full items-center gap-3 rounded-xl px-4 py-3 text-[14px] font-medium text-slate-700 dark:text-white/80 transition-all hover:bg-slate-50 dark:hover:bg-white/[0.05] hover:text-slate-900 dark:hover:text-white focus:outline-none focus:ring-2 focus:ring-inset focus:ring-[#907AFF]/30"
             >
               <svg
                 className="h-5 w-5 flex-shrink-0"
@@ -260,14 +260,14 @@ export default function UserMenu({ user, onSignOut, currentRole = "writer" }: Us
           </div>
 
           {/* Divider */}
-          <div className="border-t border-black/5 dark:border-white/[0.06] my-1" />
+          <div className="my-1 border-t border-black/[0.05] dark:border-white/[0.06]" />
 
           {/* Destructive action */}
           <div className="py-1.5">
             <button
               onClick={handleSignOut}
               type="button"
-              className="flex w-full items-center gap-3 rounded-xl px-4 py-2.5 text-[14px] font-medium text-red-600 dark:text-red-400/90 transition-all hover:bg-red-50 dark:hover:bg-red-500/10 hover:text-red-700 dark:hover:text-red-400"
+              className="flex min-h-[44px] w-full items-center gap-3 rounded-xl px-4 py-3 text-[14px] font-medium text-red-600 dark:text-red-400/90 transition-all hover:bg-red-50 dark:hover:bg-red-500/10 hover:text-red-700 dark:hover:text-red-400 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-red-500/30"
             >
               <svg
                 className="h-5 w-5 flex-shrink-0"

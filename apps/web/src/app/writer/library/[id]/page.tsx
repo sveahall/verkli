@@ -322,7 +322,7 @@ export default function ShelfDetailPage() {
               </div>
               <button
                 onClick={() => setShowEditPanel(true)}
-                className="rounded-full border border-black/10 dark:border-white/10 bg-black/2 dark:bg-white/[0.03] px-5 py-2 text-[13px] font-medium text-slate-700 dark:text-white/70 transition-all hover:bg-black/10 dark:hover:bg-white/[0.06]"
+                className="rounded-full border border-black/10 dark:border-white/10 bg-black/[0.02] dark:bg-white/[0.03] px-5 py-2 text-[13px] font-medium text-slate-700 dark:text-white/70 transition-all hover:bg-black/10 dark:hover:bg-white/[0.06]"
               >
                 Edit shelf
               </button>
@@ -373,7 +373,7 @@ export default function ShelfDetailPage() {
           </button>
           <button
             onClick={() => setShowCreateSectionModal(true)}
-            className="rounded-full border border-black/10 dark:border-white/10 bg-black/2 dark:bg-white/[0.03] px-6 py-2.5 text-[15px] font-medium text-slate-700 dark:text-white/70 transition-all hover:bg-black/10 dark:hover:bg-white/[0.06]"
+            className="rounded-full border border-black/10 dark:border-white/10 bg-black/[0.02] dark:bg-white/[0.03] px-6 py-2.5 text-[15px] font-medium text-slate-700 dark:text-white/70 transition-all hover:bg-black/10 dark:hover:bg-white/[0.06]"
           >
             Create section
           </button>
@@ -478,7 +478,7 @@ export default function ShelfDetailPage() {
                   value={editForm.name}
                   onChange={(e) => setEditForm({ ...editForm, name: e.target.value })}
                   placeholder="Shelf name"
-                  className="w-full rounded-xl border border-black/10 dark:border-white/10 bg-black/2 dark:bg-white/[0.04] px-4 py-2.5 text-[20px] font-semibold text-slate-900 dark:text-white outline-none transition-all focus:border-[#907AFF]/50 focus:bg-black/10 dark:focus:bg-white/[0.06]"
+                  className="w-full rounded-xl border border-black/10 dark:border-white/10 bg-black/[0.02] dark:bg-white/[0.04] px-4 py-2.5 text-[20px] font-semibold text-slate-900 dark:text-white outline-none transition-all focus:border-[#907AFF]/50 focus:bg-black/10 dark:focus:bg-white/[0.06]"
                 />
               </div>
               <div>
@@ -487,7 +487,7 @@ export default function ShelfDetailPage() {
                   value={editForm.subtitle}
                   onChange={(e) => setEditForm({ ...editForm, subtitle: e.target.value })}
                   placeholder="Optional subtitle"
-                  className="w-full rounded-xl border border-black/10 dark:border-white/10 bg-black/2 dark:bg-white/[0.04] px-4 py-2.5 text-[14px] text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-white/30 outline-none transition-all focus:border-[#907AFF]/50 focus:bg-black/10 dark:focus:bg-white/[0.06]"
+                  className="w-full rounded-xl border border-black/10 dark:border-white/10 bg-black/[0.02] dark:bg-white/[0.04] px-4 py-2.5 text-[14px] text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-white/30 outline-none transition-all focus:border-[#907AFF]/50 focus:bg-black/10 dark:focus:bg-white/[0.06]"
                 />
               </div>
               
@@ -501,7 +501,7 @@ export default function ShelfDetailPage() {
                       className={`rounded-lg px-3 py-1 text-[12px] transition-all ${
                         editForm.coverType === "image"
                           ? "bg-[#907AFF] text-white"
-                          : "bg-black/2 dark:bg-white/[0.02] text-slate-600 dark:text-white/70 hover:bg-black/10 dark:hover:bg-white/[0.04]"
+                          : "bg-black/[0.02] dark:bg-white/[0.02] text-slate-600 dark:text-white/70 hover:bg-black/10 dark:hover:bg-white/[0.04]"
                       }`}
                     >
                       Image
@@ -511,7 +511,7 @@ export default function ShelfDetailPage() {
                       className={`rounded-lg px-3 py-1 text-[12px] transition-all ${
                         editForm.coverType === "gradient"
                           ? "bg-[#907AFF] text-white"
-                          : "bg-black/2 dark:bg-white/[0.02] text-slate-600 dark:text-white/70 hover:bg-black/10 dark:hover:bg-white/[0.04]"
+                          : "bg-black/[0.02] dark:bg-white/[0.02] text-slate-600 dark:text-white/70 hover:bg-black/10 dark:hover:bg-white/[0.04]"
                       }`}
                     >
                       Gradient
@@ -521,7 +521,7 @@ export default function ShelfDetailPage() {
                 
                 {editForm.coverType === "image" ? (
                   <>
-                    <button className="flex w-full items-center justify-between rounded-xl border border-black/10 dark:border-white/10 bg-black/2 dark:bg-white/[0.02] px-4 py-3 text-left transition-all hover:border-[#907AFF]/30 hover:bg-black/10 dark:hover:bg-white/[0.04]">
+                    <button className="flex w-full items-center justify-between rounded-xl border border-black/10 dark:border-white/10 bg-black/[0.02] dark:bg-white/[0.02] px-4 py-3 text-left transition-all hover:border-[#907AFF]/30 hover:bg-black/10 dark:hover:bg-white/[0.04]">
                       <span className="text-[14px] text-slate-700 dark:text-white/70">+ Add shelf cover</span>
                       <input type="file" accept="image/*" className="hidden" id="edit-shelf-cover" onChange={(e) => {
                         const file = e.target.files?.[0];
@@ -568,14 +568,14 @@ export default function ShelfDetailPage() {
                       value={editForm.coverGradient}
                       onChange={(e) => setEditForm({ ...editForm, coverGradient: e.target.value })}
                       placeholder="Or enter custom gradient CSS"
-                      className="w-full rounded-xl border border-black/10 dark:border-white/10 bg-black/2 dark:bg-white/[0.04] px-4 py-2.5 text-[13px] text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-white/30 outline-none transition-all focus:border-[#907AFF]/50 focus:bg-black/10 dark:focus:bg-white/[0.06]"
+                      className="w-full rounded-xl border border-black/10 dark:border-white/10 bg-black/[0.02] dark:bg-white/[0.04] px-4 py-2.5 text-[13px] text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-white/30 outline-none transition-all focus:border-[#907AFF]/50 focus:bg-black/10 dark:focus:bg-white/[0.06]"
                     />
                   </div>
                 )}
               </div>
 
               {/* Typography Settings - same as create modal */}
-              <div className="rounded-xl border border-black/10 dark:border-white/10 bg-black/2 dark:bg-white/[0.02] p-4">
+              <div className="rounded-xl border border-black/10 dark:border-white/10 bg-black/[0.02] dark:bg-white/[0.02] p-4">
                 <h4 className="mb-4 text-[14px] font-medium text-slate-700 dark:text-white/70">Typography Settings</h4>
                 <div className="space-y-3">
                   <div>
@@ -583,7 +583,7 @@ export default function ShelfDetailPage() {
                     <select
                       value={editForm.typography.fontFamily}
                       onChange={(e) => setEditForm({ ...editForm, typography: { ...editForm.typography, fontFamily: e.target.value } })}
-                      className="w-full rounded-lg border border-black/10 dark:border-white/10 bg-black/2 dark:bg-white/[0.04] px-3 py-2 text-[13px] text-slate-900 dark:text-white outline-none transition-all focus:border-[#907AFF]/50"
+                      className="w-full rounded-lg border border-black/10 dark:border-white/10 bg-black/[0.02] dark:bg-white/[0.04] px-3 py-2 text-[13px] text-slate-900 dark:text-white outline-none transition-all focus:border-[#907AFF]/50"
                     >
                       <option value="Inter">Inter</option>
                       <option value="Georgia">Georgia</option>
@@ -597,7 +597,7 @@ export default function ShelfDetailPage() {
                     <select
                       value={editForm.typography.fontWeight}
                       onChange={(e) => setEditForm({ ...editForm, typography: { ...editForm.typography, fontWeight: e.target.value } })}
-                      className="w-full rounded-lg border border-black/10 dark:border-white/10 bg-black/2 dark:bg-white/[0.04] px-3 py-2 text-[13px] text-slate-900 dark:text-white outline-none transition-all focus:border-[#907AFF]/50"
+                      className="w-full rounded-lg border border-black/10 dark:border-white/10 bg-black/[0.02] dark:bg-white/[0.04] px-3 py-2 text-[13px] text-slate-900 dark:text-white outline-none transition-all focus:border-[#907AFF]/50"
                     >
                       <option value="400">Regular (400)</option>
                       <option value="500">Medium (500)</option>
@@ -613,7 +613,7 @@ export default function ShelfDetailPage() {
                         value={editForm.typography.titleSize}
                         onChange={(e) => setEditForm({ ...editForm, typography: { ...editForm.typography, titleSize: e.target.value } })}
                         placeholder="20px"
-                        className="w-full rounded-lg border border-black/10 dark:border-white/10 bg-black/2 dark:bg-white/[0.04] px-3 py-2 text-[13px] text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-white/30 outline-none transition-all focus:border-[#907AFF]/50"
+                        className="w-full rounded-lg border border-black/10 dark:border-white/10 bg-black/[0.02] dark:bg-white/[0.04] px-3 py-2 text-[13px] text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-white/30 outline-none transition-all focus:border-[#907AFF]/50"
                       />
                     </div>
                     <div>
@@ -623,7 +623,7 @@ export default function ShelfDetailPage() {
                         value={editForm.typography.subtitleSize}
                         onChange={(e) => setEditForm({ ...editForm, typography: { ...editForm.typography, subtitleSize: e.target.value } })}
                         placeholder="14px"
-                        className="w-full rounded-lg border border-black/10 dark:border-white/10 bg-black/2 dark:bg-white/[0.04] px-3 py-2 text-[13px] text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-white/30 outline-none transition-all focus:border-[#907AFF]/50"
+                        className="w-full rounded-lg border border-black/10 dark:border-white/10 bg-black/[0.02] dark:bg-white/[0.04] px-3 py-2 text-[13px] text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-white/30 outline-none transition-all focus:border-[#907AFF]/50"
                       />
                     </div>
                   </div>
@@ -641,7 +641,7 @@ export default function ShelfDetailPage() {
                         value={editForm.typography.textColor}
                         onChange={(e) => setEditForm({ ...editForm, typography: { ...editForm.typography, textColor: e.target.value } })}
                         placeholder="#ffffff"
-                        className="flex-1 rounded-lg border border-black/10 dark:border-white/10 bg-black/2 dark:bg-white/[0.04] px-3 py-2 text-[13px] text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-white/30 outline-none transition-all focus:border-[#907AFF]/50"
+                        className="flex-1 rounded-lg border border-black/10 dark:border-white/10 bg-black/[0.02] dark:bg-white/[0.04] px-3 py-2 text-[13px] text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-white/30 outline-none transition-all focus:border-[#907AFF]/50"
                       />
                     </div>
                   </div>
@@ -652,7 +652,7 @@ export default function ShelfDetailPage() {
             <div className="mt-8 flex justify-end gap-3">
               <button
                 onClick={() => setShowEditPanel(false)}
-                className="rounded-xl border border-black/10 dark:border-white/10 bg-black/2 dark:bg-white/[0.02] px-6 py-2.5 text-[14px] font-medium text-slate-700 dark:text-white/70 transition-all hover:bg-black/10 dark:hover:bg-white/[0.04]"
+                className="rounded-xl border border-black/10 dark:border-white/10 bg-black/[0.02] dark:bg-white/[0.02] px-6 py-2.5 text-[14px] font-medium text-slate-700 dark:text-white/70 transition-all hover:bg-black/10 dark:hover:bg-white/[0.04]"
               >
                 Cancel
               </button>
@@ -682,7 +682,7 @@ export default function ShelfDetailPage() {
                 value={sectionName}
                 onChange={(e) => setSectionName(e.target.value)}
                 placeholder="Section name"
-                className="w-full rounded-xl border border-black/10 dark:border-white/10 bg-black/2 dark:bg-white/[0.04] px-4 py-3 text-[16px] text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-white/30 outline-none transition-all focus:border-[#907AFF]/50 focus:bg-black/10 dark:focus:bg-white/[0.06]"
+                className="w-full rounded-xl border border-black/10 dark:border-white/10 bg-black/[0.02] dark:bg-white/[0.04] px-4 py-3 text-[16px] text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-white/30 outline-none transition-all focus:border-[#907AFF]/50 focus:bg-black/10 dark:focus:bg-white/[0.06]"
                 onKeyDown={(e) => {
                   if (e.key === "Enter") handleCreateSection();
                 }}
@@ -691,7 +691,7 @@ export default function ShelfDetailPage() {
               <div className="mt-6 flex justify-end gap-3">
                 <button
                   onClick={() => setShowCreateSectionModal(false)}
-                  className="rounded-xl border border-black/10 dark:border-white/10 bg-black/2 dark:bg-white/[0.02] px-6 py-2.5 text-[14px] font-medium text-slate-700 dark:text-white/70 transition-all hover:bg-black/10 dark:hover:bg-white/[0.04]"
+                  className="rounded-xl border border-black/10 dark:border-white/10 bg-black/[0.02] dark:bg-white/[0.02] px-6 py-2.5 text-[14px] font-medium text-slate-700 dark:text-white/70 transition-all hover:bg-black/10 dark:hover:bg-white/[0.04]"
                 >
                   Cancel
                 </button>
@@ -724,12 +724,12 @@ export default function ShelfDetailPage() {
                     value={bookForm.title}
                     onChange={(e) => setBookForm({ ...bookForm, title: e.target.value })}
                     placeholder="Enter book title"
-                    className="w-full rounded-xl border border-black/10 dark:border-white/10 bg-black/2 dark:bg-white/[0.04] px-4 py-3 text-[16px] text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-white/30 outline-none transition-all focus:border-[#907AFF]/50 focus:bg-black/10 dark:focus:bg-white/[0.06]"
+                    className="w-full rounded-xl border border-black/10 dark:border-white/10 bg-black/[0.02] dark:bg-white/[0.04] px-4 py-3 text-[16px] text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-white/30 outline-none transition-all focus:border-[#907AFF]/50 focus:bg-black/10 dark:focus:bg-white/[0.06]"
                   />
                 </div>
                 <div>
                   <label className="mb-2 block text-[14px] font-medium text-slate-700 dark:text-white/70">Book cover</label>
-                  <button className="flex w-full items-center justify-between rounded-xl border border-black/10 dark:border-white/10 bg-black/2 dark:bg-white/[0.02] px-4 py-3 text-left transition-all hover:border-[#907AFF]/30 hover:bg-black/10 dark:hover:bg-white/[0.04]">
+                  <button className="flex w-full items-center justify-between rounded-xl border border-black/10 dark:border-white/10 bg-black/[0.02] dark:bg-white/[0.02] px-4 py-3 text-left transition-all hover:border-[#907AFF]/30 hover:bg-black/10 dark:hover:bg-white/[0.04]">
                     <span className="text-[14px] text-slate-700 dark:text-white/70">+ Add book cover</span>
                     <input type="file" accept="image/*" className="hidden" id="book-cover-upload" onChange={(e) => {
                       const file = e.target.files?.[0];
@@ -756,7 +756,7 @@ export default function ShelfDetailPage() {
               <div className="mt-8 flex justify-end gap-3">
                 <button
                   onClick={() => setShowAddBookModal(false)}
-                  className="rounded-xl border border-black/10 dark:border-white/10 bg-black/2 dark:bg-white/[0.02] px-6 py-2.5 text-[14px] font-medium text-slate-700 dark:text-white/70 transition-all hover:bg-black/10 dark:hover:bg-white/[0.04]"
+                  className="rounded-xl border border-black/10 dark:border-white/10 bg-black/[0.02] dark:bg-white/[0.02] px-6 py-2.5 text-[14px] font-medium text-slate-700 dark:text-white/70 transition-all hover:bg-black/10 dark:hover:bg-white/[0.04]"
                 >
                   Cancel
                 </button>

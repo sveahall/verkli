@@ -38,7 +38,7 @@ export default async function ReaderReadPage({ params }: { params: { id: string 
           <div className="mt-4 space-y-3 text-[13px] text-slate-600 dark:text-white/60">
             {chapters && chapters.length > 0 ? (
               chapters.map((chapter) => (
-                <div key={chapter.id} className="rounded-xl border border-black/10 bg-black/2 px-3 py-2 dark:border-white/10 dark:bg-white/5">
+                <div key={chapter.id} className="rounded-xl border border-black/10 bg-black/[0.02] px-3 py-2 dark:border-white/10 dark:bg-white/5">
                   {chapter.order}. {chapter.title}
                 </div>
               ))

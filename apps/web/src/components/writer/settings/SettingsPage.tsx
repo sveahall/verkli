@@ -45,7 +45,7 @@ function SaveButton({ label }: { label: string }) {
     <button
       type="submit"
       disabled={pending}
-      className="rounded-full bg-[#907AFF] px-5 py-2 text-[13px] font-semibold text-white transition-all hover:bg-[#8069EE] disabled:cursor-not-allowed disabled:opacity-60"
+      className="min-h-[44px] min-w-[44px] rounded-full bg-[#907AFF] px-5 py-2 text-[13px] font-semibold text-white transition-all hover:bg-[#8069EE] disabled:cursor-not-allowed disabled:opacity-60 focus:outline-none focus:ring-2 focus:ring-[#907AFF]/50 focus:ring-offset-2 focus:ring-offset-background"
     >
       {pending ? "Saving..." : label}
     </button>
@@ -103,8 +103,8 @@ export default function SettingsPage({ user, profile }: SettingsPageProps) {
   };
 
   return (
-    <main className="min-h-screen bg-background text-foreground">
-      <div className="mx-auto w-full max-w-[1200px] space-y-10 px-6 pb-24 pt-10">
+    <main className="min-h-screen min-h-dvh bg-background text-foreground">
+      <div className="mx-auto w-full max-w-[1200px] space-y-8 px-4 pb-24 pt-6 sm:space-y-10 sm:px-6 sm:pt-10">
         <header>
           <h1 className="text-[28px] font-semibold text-slate-900 dark:text-white">Writer settings</h1>
           <p className="mt-2 text-[15px] text-slate-600 dark:text-white/50">
@@ -112,7 +112,7 @@ export default function SettingsPage({ user, profile }: SettingsPageProps) {
           </p>
         </header>
 
-        <section className="rounded-[28px] border border-black/10 p-8 dark:border-white/[0.08] dark:bg-white/[0.02]">
+        <section className="rounded-2xl border border-black/10 p-5 dark:border-white/[0.08] dark:bg-white/[0.02] sm:rounded-[28px] sm:p-8">
           <div className="flex flex-wrap items-center justify-between gap-4">
             <div>
               <h2 className="text-[18px] font-semibold text-slate-900 dark:text-white">Account</h2>
@@ -126,7 +126,7 @@ export default function SettingsPage({ user, profile }: SettingsPageProps) {
                 name="display_name"
                 value={displayName}
                 onChange={(event) => setDisplayName(event.target.value)}
-                className="w-full rounded-xl border border-black/10 bg-white/80 px-4 py-3 text-[14px] text-slate-900 outline-none transition focus:border-[#907AFF]/50 dark:border-white/10 dark:bg-[#0b0b10] dark:text-white"
+                className="min-h-[44px] w-full rounded-xl border border-black/10 bg-white/80 px-4 py-3 text-[14px] text-slate-900 outline-none transition focus:border-[#907AFF]/50 focus:ring-2 focus:ring-[#907AFF]/20 focus:ring-offset-0 dark:border-white/10 dark:bg-[#0b0b10] dark:text-white"
               />
             </div>
             <div className="space-y-2">
@@ -135,7 +135,7 @@ export default function SettingsPage({ user, profile }: SettingsPageProps) {
                 name="username"
                 value={username}
                 onChange={(event) => setUsername(event.target.value)}
-                className="w-full rounded-xl border border-black/10 bg-white/80 px-4 py-3 text-[14px] text-slate-900 outline-none transition focus:border-[#907AFF]/50 dark:border-white/10 dark:bg-[#0b0b10] dark:text-white"
+                className="min-h-[44px] w-full rounded-xl border border-black/10 bg-white/80 px-4 py-3 text-[14px] text-slate-900 outline-none transition focus:border-[#907AFF]/50 focus:ring-2 focus:ring-[#907AFF]/20 focus:ring-offset-0 dark:border-white/10 dark:bg-[#0b0b10] dark:text-white"
               />
             </div>
             <div className="space-y-2">
@@ -143,7 +143,7 @@ export default function SettingsPage({ user, profile }: SettingsPageProps) {
               <input
                 value={user.email}
                 readOnly
-                className="w-full rounded-xl border border-black/10 bg-black/2 px-4 py-3 text-[14px] text-slate-500 dark:border-white/10 dark:bg-white/[0.04] dark:text-white/50"
+                className="w-full rounded-xl border border-black/10 bg-black/[0.02] px-4 py-3 text-[14px] text-slate-500 dark:border-white/10 dark:bg-white/[0.04] dark:text-white/50"
               />
             </div>
             <div className="flex items-end justify-between gap-4">
@@ -153,7 +153,7 @@ export default function SettingsPage({ user, profile }: SettingsPageProps) {
           </form>
         </section>
 
-        <section className="rounded-[28px] border border-black/10 p-8 dark:border-white/[0.08] dark:bg-white/[0.02]">
+        <section className="rounded-2xl border border-black/10 p-5 dark:border-white/[0.08] dark:bg-white/[0.02] sm:rounded-[28px] sm:p-8">
           <div>
             <h2 className="text-[18px] font-semibold text-slate-900 dark:text-white">Profile</h2>
             <p className="text-[14px] text-slate-600 dark:text-white/50">Public details visible on your author page.</p>
@@ -167,7 +167,7 @@ export default function SettingsPage({ user, profile }: SettingsPageProps) {
                   value={bio}
                   onChange={(event) => setBio(event.target.value)}
                   rows={5}
-                  className="w-full resize-none rounded-xl border border-black/10 bg-white/80 px-4 py-3 text-[14px] text-slate-900 outline-none transition focus:border-[#907AFF]/50 dark:border-white/10 dark:bg-[#0b0b10] dark:text-white"
+                  className="min-h-[120px] w-full resize-none rounded-xl border border-black/10 bg-white/80 px-4 py-3 text-[14px] text-slate-900 outline-none transition focus:border-[#907AFF]/50 focus:ring-2 focus:ring-[#907AFF]/20 focus:ring-offset-0 dark:border-white/10 dark:bg-[#0b0b10] dark:text-white"
                 />
               </div>
               <div className="flex items-center justify-between rounded-xl border border-black/10 bg-white/80 px-4 py-3 dark:border-white/10 dark:bg-[#0b0b10]">
@@ -184,7 +184,7 @@ export default function SettingsPage({ user, profile }: SettingsPageProps) {
                   />
                   <span
                     className={`h-6 w-11 rounded-full transition ${
-                      isPublic ? "bg-[#907AFF]" : "bg-black/20 dark:bg-white/20"
+                      isPublic ? "bg-[#907AFF]" : "bg-black/[0.02]0 dark:bg-white/20"
                     }`}
                   />
                   <span
@@ -210,7 +210,7 @@ export default function SettingsPage({ user, profile }: SettingsPageProps) {
                     )}
                   </div>
                   <div>
-                    <label className="inline-flex cursor-pointer items-center gap-2 rounded-full border border-black/10 bg-black/2 px-4 py-2 text-[12px] font-semibold text-slate-700 transition hover:bg-black/10 dark:border-white/10 dark:bg-white/[0.04] dark:text-white/70 dark:hover:bg-white/[0.06]">
+                    <label className="inline-flex min-h-[44px] min-w-[44px] cursor-pointer items-center gap-2 rounded-full border border-black/10 bg-black/[0.02] px-4 py-2 text-[12px] font-semibold text-slate-700 transition hover:bg-black/10 dark:border-white/10 dark:bg-white/[0.04] dark:text-white/70 dark:hover:bg-white/[0.06] focus-within:ring-2 focus-within:ring-[#907AFF]/30 focus-within:ring-offset-2">
                       <input type="file" accept="image/*" className="hidden" onChange={handleAvatarChange} />
                       {avatarUploading ? "Uploading..." : "Upload new"}
                     </label>
@@ -227,7 +227,7 @@ export default function SettingsPage({ user, profile }: SettingsPageProps) {
           </form>
         </section>
 
-        <section className="rounded-[28px] border border-black/10 p-8 dark:border-white/[0.08] dark:bg-white/[0.02]">
+        <section className="rounded-2xl border border-black/10 p-5 dark:border-white/[0.08] dark:bg-white/[0.02] sm:rounded-[28px] sm:p-8">
           <div>
             <h2 className="text-[18px] font-semibold text-slate-900 dark:text-white">Writer preferences</h2>
             <p className="text-[14px] text-slate-600 dark:text-white/50">Defaults used when you create new shelves.</p>
@@ -240,7 +240,7 @@ export default function SettingsPage({ user, profile }: SettingsPageProps) {
                   name="typography_font_family"
                   value={fontFamily}
                   onChange={(event) => setFontFamily(event.target.value)}
-                  className="w-full rounded-xl border border-black/10 bg-white/80 px-4 py-3 text-[14px] text-slate-900 outline-none transition focus:border-[#907AFF]/50 dark:border-white/10 dark:bg-[#0b0b10] dark:text-white"
+                  className="min-h-[44px] w-full rounded-xl border border-black/10 bg-white/80 px-4 py-3 text-[14px] text-slate-900 outline-none transition focus:border-[#907AFF]/50 focus:ring-2 focus:ring-[#907AFF]/20 focus:ring-offset-0 dark:border-white/10 dark:bg-[#0b0b10] dark:text-white"
                 >
                   {fontOptions.map((font) => (
                     <option key={font} value={font}>{font}</option>
@@ -253,7 +253,7 @@ export default function SettingsPage({ user, profile }: SettingsPageProps) {
                   name="typography_font_weight"
                   value={fontWeight}
                   onChange={(event) => setFontWeight(event.target.value)}
-                  className="w-full rounded-xl border border-black/10 bg-white/80 px-4 py-3 text-[14px] text-slate-900 outline-none transition focus:border-[#907AFF]/50 dark:border-white/10 dark:bg-[#0b0b10] dark:text-white"
+                  className="min-h-[44px] w-full rounded-xl border border-black/10 bg-white/80 px-4 py-3 text-[14px] text-slate-900 outline-none transition focus:border-[#907AFF]/50 focus:ring-2 focus:ring-[#907AFF]/20 focus:ring-offset-0 dark:border-white/10 dark:bg-[#0b0b10] dark:text-white"
                 />
               </div>
               <div className="space-y-2">
@@ -262,7 +262,7 @@ export default function SettingsPage({ user, profile }: SettingsPageProps) {
                   name="typography_title_size"
                   value={titleSize}
                   onChange={(event) => setTitleSize(event.target.value)}
-                  className="w-full rounded-xl border border-black/10 bg-white/80 px-4 py-3 text-[14px] text-slate-900 outline-none transition focus:border-[#907AFF]/50 dark:border-white/10 dark:bg-[#0b0b10] dark:text-white"
+                  className="min-h-[44px] w-full rounded-xl border border-black/10 bg-white/80 px-4 py-3 text-[14px] text-slate-900 outline-none transition focus:border-[#907AFF]/50 focus:ring-2 focus:ring-[#907AFF]/20 focus:ring-offset-0 dark:border-white/10 dark:bg-[#0b0b10] dark:text-white"
                 />
               </div>
               <div className="space-y-2">
@@ -271,7 +271,7 @@ export default function SettingsPage({ user, profile }: SettingsPageProps) {
                   name="typography_subtitle_size"
                   value={subtitleSize}
                   onChange={(event) => setSubtitleSize(event.target.value)}
-                  className="w-full rounded-xl border border-black/10 bg-white/80 px-4 py-3 text-[14px] text-slate-900 outline-none transition focus:border-[#907AFF]/50 dark:border-white/10 dark:bg-[#0b0b10] dark:text-white"
+                  className="min-h-[44px] w-full rounded-xl border border-black/10 bg-white/80 px-4 py-3 text-[14px] text-slate-900 outline-none transition focus:border-[#907AFF]/50 focus:ring-2 focus:ring-[#907AFF]/20 focus:ring-offset-0 dark:border-white/10 dark:bg-[#0b0b10] dark:text-white"
                 />
               </div>
               <div className="space-y-2">
@@ -280,7 +280,7 @@ export default function SettingsPage({ user, profile }: SettingsPageProps) {
                   name="typography_text_color"
                   value={textColor}
                   onChange={(event) => setTextColor(event.target.value)}
-                  className="w-full rounded-xl border border-black/10 bg-white/80 px-4 py-3 text-[14px] text-slate-900 outline-none transition focus:border-[#907AFF]/50 dark:border-white/10 dark:bg-[#0b0b10] dark:text-white"
+                  className="min-h-[44px] w-full rounded-xl border border-black/10 bg-white/80 px-4 py-3 text-[14px] text-slate-900 outline-none transition focus:border-[#907AFF]/50 focus:ring-2 focus:ring-[#907AFF]/20 focus:ring-offset-0 dark:border-white/10 dark:bg-[#0b0b10] dark:text-white"
                 />
               </div>
             </div>
@@ -314,7 +314,7 @@ export default function SettingsPage({ user, profile }: SettingsPageProps) {
                   name="visibility_shelves"
                   value={visibilityShelves}
                   onChange={(event) => setVisibilityShelves(event.target.value)}
-                  className="w-full rounded-xl border border-black/10 bg-white/80 px-4 py-3 text-[14px] text-slate-900 outline-none transition focus:border-[#907AFF]/50 dark:border-white/10 dark:bg-[#0b0b10] dark:text-white"
+                  className="min-h-[44px] w-full rounded-xl border border-black/10 bg-white/80 px-4 py-3 text-[14px] text-slate-900 outline-none transition focus:border-[#907AFF]/50 focus:ring-2 focus:ring-[#907AFF]/20 focus:ring-offset-0 dark:border-white/10 dark:bg-[#0b0b10] dark:text-white"
                 >
                   <option value="public">Public</option>
                   <option value="private">Private</option>
@@ -326,7 +326,7 @@ export default function SettingsPage({ user, profile }: SettingsPageProps) {
                   name="visibility_books"
                   value={visibilityBooks}
                   onChange={(event) => setVisibilityBooks(event.target.value)}
-                  className="w-full rounded-xl border border-black/10 bg-white/80 px-4 py-3 text-[14px] text-slate-900 outline-none transition focus:border-[#907AFF]/50 dark:border-white/10 dark:bg-[#0b0b10] dark:text-white"
+                  className="min-h-[44px] w-full rounded-xl border border-black/10 bg-white/80 px-4 py-3 text-[14px] text-slate-900 outline-none transition focus:border-[#907AFF]/50 focus:ring-2 focus:ring-[#907AFF]/20 focus:ring-offset-0 dark:border-white/10 dark:bg-[#0b0b10] dark:text-white"
                 >
                   <option value="public">Public</option>
                   <option value="private">Private</option>
@@ -341,7 +341,7 @@ export default function SettingsPage({ user, profile }: SettingsPageProps) {
           </form>
         </section>
 
-        <section className="rounded-[28px] border border-black/10 p-8 dark:border-white/[0.08] dark:bg-white/[0.02]">
+        <section className="rounded-2xl border border-black/10 p-5 dark:border-white/[0.08] dark:bg-white/[0.02] sm:rounded-[28px] sm:p-8">
           <div>
             <h2 className="text-[18px] font-semibold text-slate-900 dark:text-white">Role</h2>
             <p className="text-[14px] text-slate-600 dark:text-white/50">You are currently signed in as a writer.</p>
@@ -353,14 +353,14 @@ export default function SettingsPage({ user, profile }: SettingsPageProps) {
             <button
               type="button"
               onClick={() => setShowRoleModal(true)}
-              className="rounded-full border border-black/10 bg-black/2 px-5 py-2 text-[13px] font-semibold text-slate-700 transition-all hover:bg-black/10 dark:border-white/10 dark:bg-white/[0.04] dark:text-white/70 dark:hover:bg-white/[0.06]"
+              className="rounded-full border border-black/10 bg-black/[0.02] px-5 py-2 text-[13px] font-semibold text-slate-700 transition-all hover:bg-black/10 dark:border-white/10 dark:bg-white/[0.04] dark:text-white/70 dark:hover:bg-white/[0.06]"
             >
               Switch to reader
             </button>
           </div>
         </section>
 
-        <section className="rounded-[28px] border border-black/10 p-8 dark:border-white/[0.08] dark:bg-white/[0.02]">
+        <section className="rounded-2xl border border-black/10 p-5 dark:border-white/[0.08] dark:bg-white/[0.02] sm:rounded-[28px] sm:p-8">
           <div>
             <h2 className="text-[18px] font-semibold text-slate-900 dark:text-white">Security</h2>
             <p className="text-[14px] text-slate-600 dark:text-white/50">Change your password or sign out everywhere.</p>
@@ -370,13 +370,13 @@ export default function SettingsPage({ user, profile }: SettingsPageProps) {
               type="password"
               name="new_password"
               placeholder="New password"
-              className="rounded-xl border border-black/10 bg-white/80 px-4 py-3 text-[14px] text-slate-900 outline-none transition focus:border-[#907AFF]/50 dark:border-white/10 dark:bg-[#0b0b10] dark:text-white"
+              className="min-h-[44px] rounded-xl border border-black/10 bg-white/80 px-4 py-3 text-[14px] text-slate-900 outline-none transition focus:border-[#907AFF]/50 focus:ring-2 focus:ring-[#907AFF]/20 dark:border-white/10 dark:bg-[#0b0b10] dark:text-white"
             />
             <input
               type="password"
               name="confirm_password"
               placeholder="Confirm password"
-              className="rounded-xl border border-black/10 bg-white/80 px-4 py-3 text-[14px] text-slate-900 outline-none transition focus:border-[#907AFF]/50 dark:border-white/10 dark:bg-[#0b0b10] dark:text-white"
+              className="min-h-[44px] rounded-xl border border-black/10 bg-white/80 px-4 py-3 text-[14px] text-slate-900 outline-none transition focus:border-[#907AFF]/50 focus:ring-2 focus:ring-[#907AFF]/20 dark:border-white/10 dark:bg-[#0b0b10] dark:text-white"
             />
             <div className="flex items-center justify-between gap-4 md:col-span-2">
               <InlineFeedback state={passwordState} />
@@ -390,7 +390,7 @@ export default function SettingsPage({ user, profile }: SettingsPageProps) {
             </div>
             <button
               type="submit"
-              className="rounded-full border border-red-200 bg-red-50 px-4 py-2 text-[12px] font-semibold text-red-600 transition hover:bg-red-100 dark:border-red-500/30 dark:bg-red-500/10 dark:text-red-300 dark:hover:bg-red-500/20"
+              className="min-h-[44px] rounded-full border border-red-200 bg-red-50 px-4 py-2 text-[12px] font-semibold text-red-600 transition hover:bg-red-100 focus:outline-none focus:ring-2 focus:ring-red-500/50 focus:ring-offset-2 dark:border-red-500/30 dark:bg-red-500/10 dark:text-red-300 dark:hover:bg-red-500/20"
             >
               Sign out all
             </button>
@@ -399,8 +399,8 @@ export default function SettingsPage({ user, profile }: SettingsPageProps) {
       </div>
 
       {showRoleModal && (
-        <div className="fixed inset-0 z-[1000] flex items-center justify-center bg-black/40 p-6 backdrop-blur-sm">
-          <div className="w-full max-w-[420px] rounded-3xl border border-black/10 bg-white p-6 dark:border-white/10 dark:bg-[#0a0a0f]">
+        <div className="fixed inset-0 z-[1000] flex items-center justify-center bg-black/40 p-4 backdrop-blur-sm safe-area-inset">
+          <div className="w-full max-w-[420px] max-h-[min(90dvh,32rem)] overflow-y-auto rounded-2xl border border-black/10 bg-white p-5 dark:border-white/10 dark:bg-[#0a0a0f] sm:rounded-3xl sm:p-6">
             <h3 className="text-[18px] font-semibold text-slate-900 dark:text-white">Switch to reader?</h3>
             <p className="mt-2 text-[14px] text-slate-600 dark:text-white/50">
               You can always switch back later. Your writer data stays intact.
@@ -409,7 +409,7 @@ export default function SettingsPage({ user, profile }: SettingsPageProps) {
               <button
                 type="button"
                 onClick={() => setShowRoleModal(false)}
-                className="rounded-full border border-black/10 bg-black/2 px-4 py-2 text-[12px] font-semibold text-slate-700 dark:border-white/10 dark:bg-white/[0.04] dark:text-white/70"
+                className="min-h-[44px] rounded-full border border-black/10 bg-black/[0.02] px-4 py-2 text-[12px] font-semibold text-slate-700 dark:border-white/10 dark:bg-white/[0.04] dark:text-white/70 focus:outline-none focus:ring-2 focus:ring-[#907AFF]/30 focus:ring-offset-2"
               >
                 Cancel
               </button>

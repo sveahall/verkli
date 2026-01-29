@@ -43,7 +43,7 @@ export default function ForgotPassword() {
 
   return (
     <main
-      className="relative flex min-h-screen flex-col items-center justify-center overflow-hidden text-slate-900 dark:text-white"
+      className="relative flex min-h-screen min-h-dvh flex-col items-center justify-center overflow-x-hidden overflow-y-auto px-4 py-6 text-slate-900 dark:text-white"
       style={{ background: "var(--auth-background)" }}
     >
       <div className="pointer-events-none absolute inset-0 overflow-hidden">
@@ -52,20 +52,20 @@ export default function ForgotPassword() {
         <div className="absolute right-0 top-1/2 h-[500px] w-[500px] -translate-y-1/2 translate-x-1/4 rounded-full bg-indigo-300/40 blur-[120px] dark:bg-indigo-500/25" />
       </div>
 
-      <header className="absolute left-8 top-8 z-20">
-        <Link href="/" className="flex items-center gap-3">
+      <header className="absolute left-4 top-4 z-20 sm:left-8 sm:top-8">
+        <Link href="/" className="flex min-h-[44px] min-w-[44px] items-center gap-3 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500/50 focus:ring-offset-2">
           <img src="/favicon.svg" alt="Verkli" className="h-8 w-auto" loading="eager" />
         </Link>
       </header>
 
       <GlassSurface
         {...glassBaseProps}
-        width="480px"
+        width="100%"
         height="auto"
-        borderRadius={40}
-        className="relative z-10 border border-black/10 dark:border-white/10"
+        borderRadius={24}
+        className="relative z-10 w-full max-w-[480px] border border-black/10 dark:border-white/10"
       >
-        <div className="flex w-full flex-col items-center px-12 py-14 text-center">
+        <div className="flex w-full flex-col items-center px-6 py-10 text-center sm:px-12 sm:py-14">
           <p className="text-base font-medium tracking-wide text-slate-600 dark:text-white/50">Reset password</p>
           <h1 className="mt-4 text-[32px] font-semibold leading-[1.15] tracking-tight text-slate-900 dark:text-white">
             Recover your account
@@ -94,7 +94,7 @@ export default function ForgotPassword() {
                   onChange={(e) => setEmail(e.target.value)}
                   placeholder="you@example.com"
                   required
-                  className="w-full rounded-xl border border-black/10 bg-black/2 px-4 py-3 text-slate-900 placeholder:text-slate-400 focus:border-purple-500/50 focus:outline-none focus:ring-1 focus:ring-purple-500/50 dark:border-white/10 dark:bg-white/5 dark:text-white dark:placeholder:text-white/30"
+                  className="min-h-[44px] w-full rounded-xl border border-black/10 bg-black/[0.02] px-4 py-3 text-slate-900 placeholder:text-slate-400 focus:border-purple-500/50 focus:outline-none focus:ring-2 focus:ring-purple-500/30 dark:border-white/10 dark:bg-white/5 dark:text-white dark:placeholder:text-white/30"
                 />
               </div>
 
@@ -109,7 +109,7 @@ export default function ForgotPassword() {
                 <button
                   type="submit"
                   disabled={loading}
-                  className="w-full px-8 py-4 text-[15px] font-medium text-slate-900 disabled:opacity-50 dark:text-white/90"
+                  className="min-h-[44px] w-full px-8 py-4 text-[15px] font-medium text-slate-900 disabled:opacity-50 focus:outline-none focus:ring-2 focus:ring-purple-500/50 focus:ring-offset-2 dark:text-white/90"
                 >
                   {loading ? "Sending..." : "Send reset link"}
                 </button>

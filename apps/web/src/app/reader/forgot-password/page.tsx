@@ -43,23 +43,23 @@ export default function ReaderForgotPassword() {
 
   return (
     <main
-      className="relative flex min-h-screen flex-col items-center justify-center overflow-hidden text-slate-900 dark:text-white"
+      className="relative flex min-h-screen min-h-dvh flex-col items-center justify-center overflow-x-hidden overflow-y-auto px-4 py-6 text-slate-900 dark:text-white"
       style={{ background: "var(--auth-background)" }}
     >
-      <header className="absolute left-8 top-8 z-20">
-        <Link href="/" className="flex items-center gap-3">
+      <header className="absolute left-4 top-4 z-20 sm:left-8 sm:top-8">
+        <Link href="/" className="flex min-h-[44px] min-w-[44px] items-center gap-3 focus:outline-none focus:ring-2 focus:ring-[#907AFF]/50 focus:ring-offset-2 rounded-lg">
           <img src="/favicon.svg" alt="Verkli" className="h-8 w-auto" loading="eager" />
         </Link>
       </header>
 
       <GlassSurface
         {...glassBaseProps}
-        width="480px"
+        width="100%"
         height="auto"
-        borderRadius={40}
-        className="glass-card relative z-10"
+        borderRadius={24}
+        className="glass-card relative z-10 w-full max-w-[480px]"
       >
-        <div className="flex w-full flex-col items-center px-12 py-14 text-center">
+        <div className="flex w-full flex-col items-center px-6 py-10 text-center sm:px-12 sm:py-14">
           <p className="text-base font-medium tracking-wide text-slate-600 dark:text-white/50">
             Reset your password
           </p>
@@ -90,7 +90,7 @@ export default function ReaderForgotPassword() {
                   onChange={(e) => setEmail(e.target.value)}
                   placeholder="you@example.com"
                   required
-                  className="w-full rounded-xl border border-black/10 bg-black/2 px-4 py-3 text-slate-900 placeholder:text-slate-400 focus:border-purple-500/50 focus:outline-none focus:ring-1 focus:ring-purple-500/50 dark:border-white/10 dark:bg-white/5 dark:text-white dark:placeholder:text-white/30"
+                  className="min-h-[44px] w-full rounded-xl border border-black/10 bg-black/[0.02] px-4 py-3 text-slate-900 placeholder:text-slate-400 focus:border-purple-500/50 focus:outline-none focus:ring-2 focus:ring-purple-500/30 dark:border-white/10 dark:bg-white/5 dark:text-white dark:placeholder:text-white/30"
                 />
               </div>
 
@@ -105,7 +105,7 @@ export default function ReaderForgotPassword() {
                 <button
                   type="submit"
                   disabled={loading}
-                  className="w-full px-8 py-4 text-[15px] font-medium text-slate-900 disabled:opacity-50 dark:text-white/90"
+                  className="min-h-[44px] w-full px-8 py-4 text-[15px] font-medium text-slate-900 disabled:opacity-50 focus:outline-none focus:ring-2 focus:ring-purple-500/50 focus:ring-offset-2 dark:text-white/90"
                 >
                   {loading ? "Sending..." : "Send reset link"}
                 </button>

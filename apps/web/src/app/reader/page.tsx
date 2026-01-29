@@ -27,7 +27,7 @@ type EmptyStateCardProps = {
 
 function EmptyStateCard({ children }: EmptyStateCardProps) {
   return (
-    <div className="col-span-full rounded-2xl border border-slate-200/80 bg-white/80 p-8 text-center text-[14px] text-slate-600 dark:border-white/15 dark:bg-white/[0.04] dark:text-white/55">
+    <div className="col-span-full rounded-2xl border border-slate-200/80 bg-white/80 p-8 text-center text-[14px] text-slate-600 dark:border-white/[0.15] dark:bg-white/[0.04] dark:text-white/[0.55]">
       {children}
     </div>
   );
@@ -87,7 +87,7 @@ export default function ReaderLanding() {
   return (
   <main className="relative min-h-screen bg-gradient-to-b from-slate-50 via-slate-50/95 to-slate-50/90 text-slate-900 dark:bg-[#050508] dark:text-white">
       {/* Hero Section */}
-      <section className="relative flex min-h-[80vh] w-full flex-col items-center justify-center px-6 text-center">
+      <section className="relative flex min-h-[min(100dvh,80rem)] w-full flex-col items-center justify-center px-4 py-16 text-center sm:px-6">
         {/* Animated background glows - brand colors - covers entire hero section */}
         <div className="pointer-events-none absolute inset-0 w-full h-full">
           <div 
@@ -107,17 +107,17 @@ export default function ReaderLanding() {
         {/* Content container with max-width */}
         <div className="relative z-10 mx-auto w-full max-w-[1200px]">
 
-          <h1 className="text-[48px] font-medium leading-[1.1] tracking-[-0.02em] text-slate-900 dark:text-white md:text-[64px]">
+          <h1 className="text-[clamp(1.75rem,5vw+1rem,4rem)] font-medium leading-[1.1] tracking-[-0.02em] text-slate-900 dark:text-white">
             Discover stories
             <br />
             <span className="bg-gradient-to-r from-[#907AFF] via-[#E29ED5] to-[#FCC997] bg-clip-text text-transparent">that move you.</span>
           </h1>
-          <p className="mt-6 mx-auto max-w-[480px] text-[16px] leading-relaxed text-slate-600 dark:text-white/50">
+          <p className="mt-4 mx-auto max-w-[480px] px-2 text-[15px] leading-relaxed text-slate-600 dark:text-white/50 sm:mt-6 sm:text-[16px]">
             Connect with your favorite authors, explore new worlds, and be part of the stories you love.
           </p>
 
-          <div className="mt-10 flex gap-4 justify-center">
-            <Link href={user ? "/reader" : "/reader/signup"}>
+          <div className="mt-8 flex flex-wrap gap-3 justify-center sm:mt-10 sm:gap-4">
+            <Link href={user ? "/reader" : "/reader/signup"} className="min-h-[44px] inline-flex items-center justify-center">
               <GlassSurface
                 {...glassBaseProps}
                 width="auto"
@@ -125,7 +125,7 @@ export default function ReaderLanding() {
                 borderRadius={999}
                 className="glass-button border border-black/10 transition-transform hover:scale-[1.02] dark:border-white/20"
               >
-                <span className="px-8 py-3 text-[15px] font-medium text-slate-900 dark:text-white">
+                <span className="px-6 py-3 text-[14px] font-medium text-slate-900 dark:text-white sm:px-8 sm:text-[15px]">
                   {user ? "Continue reading" : "Start reading"}
                 </span>
               </GlassSurface>
@@ -141,18 +141,18 @@ export default function ReaderLanding() {
       </section>
 
       {/* Featured Section Placeholder */}
-      <section id="explore" className="mx-auto w-full max-w-[1200px] px-6 py-24">
-        <div className="flex items-end justify-between">
+      <section id="explore" className="mx-auto w-full max-w-[1200px] px-4 py-16 sm:px-6 sm:py-24">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
           <div>
-            <h2 className="text-[32px] font-medium tracking-[-0.02em] text-slate-900 dark:text-white">Featured Books</h2>
+            <h2 className="text-2xl font-medium tracking-[-0.02em] text-slate-900 dark:text-white sm:text-[32px]">Featured Books</h2>
             <p className="mt-2 text-[15px] text-slate-500 dark:text-white/40">Curated stories for you</p>
           </div>
-          <button className="text-[14px] font-medium text-slate-500 transition hover:text-slate-700 dark:text-white/50 dark:hover:text-white/70">
+          <button className="min-h-[44px] min-w-[44px] self-start rounded-md px-4 py-2 text-[14px] font-medium text-slate-500 transition hover:text-slate-700 dark:text-white/50 dark:hover:text-white/70 focus:outline-none focus:ring-2 focus:ring-[#907AFF]/30 focus:ring-offset-2">
             View all
           </button>
         </div>
         
-        <div className="mt-10 grid gap-5 md:grid-cols-3 lg:grid-cols-4">
+        <div className="mt-8 grid grid-cols-2 gap-4 sm:mt-10 sm:gap-5 md:grid-cols-3 lg:grid-cols-4">
           {loadingBooks ? (
             Array.from({ length: 4 }).map((_, i) => (
               <div

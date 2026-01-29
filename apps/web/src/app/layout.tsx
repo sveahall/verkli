@@ -38,11 +38,13 @@ export default function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning>
       <body
-        className={`${inter.variable} ${montserratAlternates.variable} antialiased`}
+        className={`${inter.variable} ${montserratAlternates.variable} antialiased flex min-h-screen min-h-dvh flex-col`}
       >
         <script dangerouslySetInnerHTML={{ __html: themeScript }} />
         <GlobalNavbar />
-        {children}
+        <div className="flex min-h-0 flex-1 flex-col">
+          {children}
+        </div>
         <GlobalFooter />
       </body>
     </html>
