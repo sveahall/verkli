@@ -41,7 +41,7 @@ type EmptyStateCardProps = {
 
 function EmptyStateCard({ children }: EmptyStateCardProps) {
   return (
-    <div className="rounded-[24px] border border-slate-200/80 bg-white/80 p-10 text-center text-[14px] text-slate-600 dark:border-white/15 dark:bg-white/[0.03] dark:text-white/60">
+    <div className="rounded-2xl border border-slate-200/80 bg-white/80 p-6 text-center text-[14px] text-slate-600 sm:rounded-[24px] sm:p-10 dark:border-white/[0.15] dark:bg-white/[0.03] dark:text-white/60">
       {children}
     </div>
   );
@@ -60,7 +60,7 @@ export default function ProfilePage({
 }) {
   return (
     <main className="min-h-screen bg-transparent text-foreground">
-      <div className="mx-auto flex w-full max-w-[1400px] flex-col gap-10 px-6 pb-20 pt-10">
+      <div className="mx-auto flex w-full max-w-[1400px] flex-col gap-8 px-4 pb-20 pt-6 sm:gap-10 sm:px-6 sm:pt-10">
         <ProfileHeader
           displayName={profile.displayName}
           username={profile.username}

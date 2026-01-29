@@ -135,17 +135,17 @@ export default function WriterSignIn() {
       {/* Sign in card */}
       <GlassSurface
         {...glassBaseProps}
-        width="480px"
+        width="100%"
         height="auto"
-        borderRadius={40}
-        className="glass-card relative z-20 border border-black/10 dark:border-white/10"
+        borderRadius={24}
+        className="glass-card relative z-20 mx-4 w-full max-w-[480px] border border-black/10 dark:border-white/10 sm:mx-6 sm:rounded-[32px] md:rounded-[40px]"
       >
-        <div className="flex w-full flex-col items-center px-12 py-14 text-center">
-          <p className="text-base font-medium tracking-wide text-slate-600 dark:text-white/50">
+        <div className="flex w-full flex-col items-center px-6 py-10 text-center sm:px-10 sm:py-12 md:px-12 md:py-14">
+          <p className="text-sm font-medium tracking-wide text-slate-600 dark:text-white/50 sm:text-base">
             Welcome back, writer
           </p>
           
-          <h1 className="mt-4 text-[36px] font-semibold leading-[1.15] tracking-tight text-slate-900 dark:text-white">
+          <h1 className="mt-3 text-2xl font-semibold leading-[1.15] tracking-tight text-slate-900 dark:text-white sm:mt-4 sm:text-3xl md:text-[36px]">
             Sign in to your
             <br />
             account
@@ -169,7 +169,7 @@ export default function WriterSignIn() {
                 onChange={(e) => setEmail(e.target.value)}
                 placeholder="you@example.com"
                 required
-                className="w-full rounded-xl border border-black/10 dark:border-white/10 bg-black/2 dark:bg-white/5 px-4 py-3 text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-white/30 focus:border-[#907AFF]/50 focus:outline-none focus:ring-1 focus:ring-[#907AFF]/50"
+                className="w-full rounded-xl border border-black/10 dark:border-white/10 bg-black/[0.02] dark:bg-white/[0.05] px-4 py-3 text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-white/30 focus:border-[#907AFF]/50 focus:outline-none focus:ring-2 focus:ring-[#907AFF]/30 focus:ring-offset-0 min-h-[44px]"
               />
             </div>
 
@@ -184,7 +184,7 @@ export default function WriterSignIn() {
                 onChange={(e) => setPassword(e.target.value)}
                 placeholder="••••••••"
                 required
-                className="w-full rounded-xl border border-black/10 dark:border-white/10 bg-black/2 dark:bg-white/5 px-4 py-3 text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-white/30 focus:border-[#907AFF]/50 focus:outline-none focus:ring-1 focus:ring-[#907AFF]/50"
+                className="w-full rounded-xl border border-black/10 dark:border-white/10 bg-black/[0.02] dark:bg-white/[0.05] px-4 py-3 text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-white/30 focus:border-[#907AFF]/50 focus:outline-none focus:ring-2 focus:ring-[#907AFF]/30 focus:ring-offset-0 min-h-[44px]"
               />
             </div>
 
@@ -231,7 +231,7 @@ export default function WriterSignIn() {
 
           <button
             onClick={handleGoogleSignIn}
-            className="mt-6 flex w-full items-center justify-center gap-3 rounded-full border border-black/10 dark:border-white/10 bg-black/2 dark:bg-white/5 px-8 py-4 text-[15px] font-medium text-slate-900 dark:text-white/90 transition hover:bg-black/10 dark:hover:bg-white/10"
+            className="mt-6 flex w-full items-center justify-center gap-3 rounded-full border border-black/10 dark:border-white/10 bg-black/[0.02] dark:bg-white/5 px-8 py-4 text-[15px] font-medium text-slate-900 dark:text-white/90 transition hover:bg-black/10 dark:hover:bg-white/10"
           >
             <svg className="h-5 w-5" viewBox="0 0 24 24">
               <path

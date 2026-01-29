@@ -21,7 +21,8 @@ const gridImages = [
   "https://images.unsplash.com/photo-1748370987492-eb390a61dcda?q=80&w=3464&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D",
 ];
 
-const gridRows = 6;
+/* Tillräckligt många rader så att bokomslagen täcker hela mobilskärmen (repeterar) */
+const gridRows = 20;
 const gridCols = 10;
 const gridItems = Array.from({ length: gridRows * gridCols }, (_, index) => {
   return gridImages[index % gridImages.length];
@@ -47,7 +48,7 @@ type EmptyStateCardProps = {
 
 function EmptyStateCard({ children }: EmptyStateCardProps) {
   return (
-    <div className="rounded-2xl border border-slate-200/80 bg-white/80 px-6 py-4 text-[14px] text-slate-600 dark:border-white/15 dark:bg-white/[0.04] dark:text-white/55">
+    <div className="rounded-2xl border border-slate-200/80 bg-white/80 px-6 py-4 text-[14px] text-slate-600 dark:border-white/[0.15] dark:bg-white/[0.04] dark:text-white/[0.55]">
       {children}
     </div>
   );
@@ -160,7 +161,7 @@ function BookCoverCard({
         )}
 
         <div className="absolute right-3 top-3 opacity-0 transition-all duration-300 group-hover:opacity-100">
-          <div className="flex h-7 w-7 items-center justify-center rounded-full border border-white/10 bg-black/20 text-white/80 backdrop-blur-sm">
+          <div className="flex h-7 w-7 items-center justify-center rounded-full border border-white/10 bg-black/[0.02] text-white/80 backdrop-blur-sm">
             <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
             </svg>
@@ -212,7 +213,7 @@ function BookCoverCard({
                   <span>Chapter {book.currentChapter ?? "--"}</span>
                   <span>Page {book.currentPage ?? "--"}</span>
                 </div>
-                <div className="h-2 overflow-hidden rounded-full bg-black/20 backdrop-blur-sm">
+                <div className="h-2 overflow-hidden rounded-full bg-black/[0.02] backdrop-blur-sm">
                   <div
                     className="h-full bg-gradient-to-r from-[#907AFF] via-[#E29ED5] to-[#FCC997] transition-all duration-500"
                     style={{ width: `${book.progress ?? 0}%` }}
@@ -307,9 +308,9 @@ function InteractiveTestimonialSection() {
             </div>
             <div className="flex items-center justify-between rounded-2xl bg-black/[0.04] px-6 py-5 backdrop-blur-sm dark:bg-white/[0.04]">
               <div className="text-center"><div className="text-xl font-semibold tracking-tight text-slate-900 dark:text-white">12,000+</div><div className="mt-0.5 text-[11px] text-slate-500 dark:text-white/40">authors</div></div>
-              <div className="h-8 w-px bg-black/10 dark:bg-white/10" />
+              <div className="h-8 w-px bg-black/[0.01] dark:bg-white/10" />
               <div className="text-center"><div className="text-xl font-semibold tracking-tight text-slate-900 dark:text-white">4.9/5</div><div className="mt-0.5 text-[11px] text-slate-500 dark:text-white/40">rating</div></div>
-              <div className="h-8 w-px bg-black/10 dark:bg-white/10" />
+              <div className="h-8 w-px bg-black/[0.01] dark:bg-white/10" />
               <div className="text-center"><div className="text-xl font-semibold tracking-tight text-slate-900 dark:text-white">89%</div><div className="mt-0.5 text-[11px] text-slate-500 dark:text-white/40">time saved</div></div>
             </div>
           </div>
@@ -347,19 +348,22 @@ function LandingPage() {
               <div className="absolute z-12 h-[300px] w-[300px] rounded-full blur-[120px] transition-all duration-700 ease-out" style={{ background: "#FCC997", opacity: 0.08, left: `${heroMousePos.x * 70 + 15}%`, top: `${(1 - heroMousePos.y) * 60 + 20}%` }} />
             </div>
           </div>
-          <div className="mb-8 inline-flex items-center gap-2 rounded-full border border-black/10 bg-black/2 px-4 py-2 backdrop-blur-sm transition-transform duration-300 hover:scale-105 dark:border-white/10 dark:bg-white/[0.03]">
+          <div className="mb-8 inline-flex items-center gap-2 rounded-full border border-black/10 bg-black/[0.02] px-4 py-2 backdrop-blur-sm transition-transform duration-300 hover:scale-105 dark:border-white/10 dark:bg-white/[0.03]">
             <div className="h-2 w-2 animate-pulse rounded-full bg-[#907AFF]" />
             <span className="text-[13px] text-slate-600 dark:text-white/60">Now in public beta</span>
           </div>
           <h1 className="text-[52px] font-semibold leading-[1.05] tracking-[-0.03em] text-slate-900 dark:text-white md:text-[80px]">Write once.<br /><span className="bg-gradient-to-r from-slate-400/90 via-slate-400/75 to-slate-400/50 bg-clip-text text-transparent dark:from-white/50 dark:via-white/30 dark:to-white/50">Show up everywhere.</span></h1>
           <p className="mt-8 max-w-[520px] text-[17px] leading-relaxed text-slate-600 dark:text-white/50 md:text-[18px]">The platform for authors to turn books into content, connect with readers, and build sustainable revenue.</p>
-          <div className="mt-10 flex items-center gap-4">
-            <Link href="/writer/signup">
-              <GlassSurface {...glassBaseProps} width="auto" height="auto" borderRadius={999} className="glass-button border border-[#907AFF]/30 transition-all hover:scale-[1.02] hover:border-[#907AFF]/50">
-                <span className="px-8 py-2.5 text-[15px] font-medium text-slate-900 dark:text-white">Get started free</span>
+          <div className="mt-10 flex flex-wrap items-center justify-center gap-3 sm:gap-4">
+            <Link href="/writer/signup" className="inline-flex min-h-[48px] min-w-[140px] items-center justify-center rounded-full focus:outline-none focus:ring-2 focus:ring-[#907AFF]/50 focus:ring-offset-2 focus:ring-offset-transparent">
+              <GlassSurface {...glassBaseProps} width="auto" height="auto" borderRadius={999} className="glass-button h-full min-h-[48px] w-full min-w-[140px] border border-[#907AFF]/30 transition-all hover:scale-[1.02] hover:border-[#907AFF]/50 [&_.glass-surface__content]:min-h-[48px] [&_.glass-surface__content]:min-w-[140px]">
+                <span className="px-8 py-2.5 text-[15px] font-medium text-slate-900 dark:text-white">Sign up</span>
               </GlassSurface>
             </Link>
-            <a href="#features" className="group flex items-center gap-2 text-[15px] text-slate-500 transition-colors hover:text-slate-700 dark:text-white/50 dark:hover:text-white/70">See how it works<svg className="h-4 w-4 transition-transform group-hover:translate-x-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg></a>
+            <Link href="/writer/signin" className="inline-flex min-h-[48px] min-w-[140px] items-center justify-center rounded-full border border-slate-200/80 px-8 py-2.5 text-[15px] font-medium text-slate-700 transition-colors hover:bg-slate-100 hover:text-slate-900 focus:outline-none focus:ring-2 focus:ring-[#907AFF]/50 focus:ring-offset-2 dark:border-white/10 dark:text-white/90 dark:hover:bg-white/10">
+              Sign in
+            </Link>
+            <a href="#features" className="group flex min-h-[44px] items-center gap-2 text-[15px] text-slate-500 transition-colors hover:text-slate-700 dark:text-white/50 dark:hover:text-white/70">See how it works<svg className="h-4 w-4 transition-transform group-hover:translate-x-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg></a>
           </div>
         </section>
 
@@ -391,7 +395,7 @@ function LandingPage() {
                 </div>
                 <div className="mt-6 flex -space-x-2">
                   {["https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=80&h=80&fit=crop&crop=face","https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=80&h=80&fit=crop&crop=face","https://images.unsplash.com/photo-1517841905240-472988babdf9?w=80&h=80&fit=crop&crop=face","https://images.unsplash.com/photo-1539571696357-5a69c17a67c6?w=80&h=80&fit=crop&crop=face"].map((src, i) => (<img key={i} src={src} alt="" className="h-9 w-9 rounded-full border-2 border-black/10 object-cover transition-transform duration-300 hover:z-10 hover:scale-110 dark:border-[#0a0a0f]" />))}
-                  <div className="flex h-9 w-9 items-center justify-center rounded-full border-2 border-black/10 bg-black/2 text-[11px] font-medium text-slate-600 dark:border-[#0a0a0f] dark:bg-white/10 dark:text-white/70">+2k</div>
+                  <div className="flex h-9 w-9 items-center justify-center rounded-full border-2 border-black/10 bg-black/[0.02] text-[11px] font-medium text-slate-600 dark:border-[#0a0a0f] dark:bg-white/10 dark:text-white/70">+2k</div>
                 </div>
               </div>
             </div>
@@ -418,7 +422,7 @@ function LandingPage() {
               <p className="mt-6 max-w-[400px] text-[16px] leading-[1.7] text-slate-600 dark:text-white/50">Simple tools that help you reach readers without the complexity.</p>
               <div className="mt-8">
                 <Link href="/writer/signup">
-                  <GlassSurface {...glassBaseProps} width="auto" height="auto" borderRadius={999} className="glass-button inline-flex border border-black/10 transition-all hover:scale-[1.02] dark:border-white/15">
+                  <GlassSurface {...glassBaseProps} width="auto" height="auto" borderRadius={999} className="glass-button inline-flex border border-black/10 transition-all hover:scale-[1.02] dark:border-white/[0.15]">
                     <span className="px-7 py-3 text-[15px] font-medium text-slate-900 dark:text-white">Explore features</span>
                   </GlassSurface>
                 </Link>
@@ -800,7 +804,7 @@ function Dashboard({ user }: { user: User }) {
               ’s world
             </span>
           </h1>
-          <p className="mt-3 max-w-xl text-[15px] text-slate-600 dark:text-white/55 mx-auto">
+          <p className="mt-3 max-w-xl text-[15px] text-slate-600 dark:text-white/[0.55] mx-auto">
             Curate shelves, experiment with new books, and keep everything you&apos;re writing in one calm workspace.
           </p>
         </section>
@@ -812,7 +816,7 @@ function Dashboard({ user }: { user: User }) {
             <div className="relative" ref={createDropdownRef}>
               <button 
                 onClick={() => setShowCreateDropdown(!showCreateDropdown)} 
-                className="rounded-full border border-black/10 dark:border-white/10 px-5 py-2 text-[13px] font-medium text-slate-700 dark:text-white/70 transition-all hover:bg-black/10 dark:hover:bg-white/[0.06]"
+                className="rounded-full border border-black/10 dark:border-white/10 px-5 py-2 text-[13px] font-medium text-slate-700 dark:text-white/70 transition-all hover:bg-black/[0.01] dark:hover:bg-white/[0.06]"
               >
                 Create
                 <svg className="ml-2 inline h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -820,13 +824,13 @@ function Dashboard({ user }: { user: User }) {
                 </svg>
               </button>
               {showCreateDropdown && (
-                <div className="absolute right-0 top-full mt-2 w-[200px] overflow-hidden rounded-2xl border border-black/10 dark:border-white/10 bg-white/95 dark:bg-[#0a0a0f]/95 p-2 backdrop-blur-xl">
+                <div className="absolute right-0 top-full mt-2 w-[200px] overflow-hidden rounded-2xl border border-black/10 dark:border-white/10 bg-white/[0.95] dark:bg-[#0a0a0f]/[0.95] p-2 backdrop-blur-xl">
                   <button
                     onClick={() => {
                       setShowCreateDropdown(false);
                       handleCreateShelf();
                     }}
-                    className="flex w-full items-center gap-3 rounded-xl px-4 py-3 text-left text-[14px] text-slate-700 dark:text-white/70 transition-colors hover:bg-black/2 dark:hover:bg-white/[0.05] hover:text-slate-900 dark:hover:text-white"
+                    className="flex w-full items-center gap-3 rounded-xl px-4 py-3 text-left text-[14px] text-slate-700 dark:text-white/70 transition-colors hover:bg-black/[0.02] dark:hover:bg-white/[0.05] hover:text-slate-900 dark:hover:text-white"
                   >
                     <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-[#907AFF]/20 to-[#E29ED5]/20">
                       <svg className="h-4 w-4 text-[#907AFF]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -843,7 +847,7 @@ function Dashboard({ user }: { user: User }) {
                       setShowCreateDropdown(false);
                       handleCreateBook();
                     }}
-                    className="flex w-full items-center gap-3 rounded-xl px-4 py-3 text-left text-[14px] text-slate-700 dark:text-white/70 transition-colors hover:bg-black/2 dark:hover:bg-white/[0.05] hover:text-slate-900 dark:hover:text-white"
+                    className="flex w-full items-center gap-3 rounded-xl px-4 py-3 text-left text-[14px] text-slate-700 dark:text-white/70 transition-colors hover:bg-black/[0.02] dark:hover:bg-white/[0.05] hover:text-slate-900 dark:hover:text-white"
                   >
                     <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-[#E29ED5]/20 to-[#FCC997]/20">
                       <svg className="h-4 w-4 text-[#E29ED5]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -866,7 +870,7 @@ function Dashboard({ user }: { user: User }) {
               <div className="grid gap-6 md:grid-cols-2">
                 <button
                   onClick={handleCreateShelf}
-                  className="group flex h-[300px] flex-col items-center justify-center rounded-2xl border-2 border-dashed border-gray-200/20 dark:border-white/10 bg-black/1 dark:bg-white/[0.02] transition-all hover:border-[#907AFF]/15 hover:bg-black/2 dark:hover:bg-white/[0.04]"
+                  className="group flex h-[300px] flex-col items-center justify-center rounded-2xl border-2 border-dashed border-gray-200/20 dark:border-white/10 bg-black/[0.01] dark:bg-white/[0.02] transition-all hover:border-[#907AFF]/15 hover:bg-black/[0.02] dark:hover:bg-white/[0.04]"
                 >
                   <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-xl bg-gradient-to-br from-[#907AFF]/20 to-[#E29ED5]/20">
                     <svg className="h-8 w-8 text-[#907AFF]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -881,7 +885,7 @@ function Dashboard({ user }: { user: User }) {
                 
                 <button
                   onClick={handleCreateBook}
-                  className="group flex h-[300px] flex-col items-center justify-center rounded-2xl border-2 border-dashed border-gray-200/20 dark:border-white/10 bg-black/1 dark:bg-white/[0.02] transition-all hover:border-[#907AFF]/15 hover:bg-black/2 dark:hover:bg-white/[0.04]"
+                  className="group flex h-[300px] flex-col items-center justify-center rounded-2xl border-2 border-dashed border-gray-200/20 dark:border-white/10 bg-black/[0.01] dark:bg-white/[0.02] transition-all hover:border-[#907AFF]/15 hover:bg-black/[0.02] dark:hover:bg-white/[0.04]"
                 >
                   <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-xl bg-gradient-to-br from-[#E29ED5]/20 to-[#FCC997]/20">
                     <svg className="h-8 w-8 text-[#E29ED5]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -916,7 +920,7 @@ function Dashboard({ user }: { user: User }) {
                     ))}
                     <button
                       onClick={handleCreateShelf}
-                      className="flex h-[280px] w-full items-center justify-center rounded-2xl border-2 border-dashed border-black/20 dark:border-white/10 bg-black/2 dark:bg-white/[0.02] transition-all hover:border-[#907AFF]/30 hover:bg-black/10 dark:hover:bg-white/[0.04]"
+                      className="flex h-[280px] w-full items-center justify-center rounded-2xl border-2 border-dashed border-black/20 dark:border-white/10 bg-black/[0.02] dark:bg-white/[0.02] transition-all hover:border-[#907AFF]/30 hover:bg-black/[0.01] dark:hover:bg-white/[0.04]"
                     >
                       <div className="flex flex-col items-center gap-2">
                         <svg className="h-8 w-8 text-slate-400 dark:text-white/30" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -945,7 +949,7 @@ function Dashboard({ user }: { user: User }) {
                     ))}
                     <button
                       onClick={handleCreateBook}
-                      className="flex h-[180px] w-[120px] items-center justify-center rounded-xl border-2 border-dashed border-black/20 dark:border-white/10 bg-black/2 dark:bg-white/[0.02] transition-all hover:border-[#907AFF]/30 hover:bg-black/10 dark:hover:bg-white/[0.04]"
+                      className="flex h-[180px] w-[120px] items-center justify-center rounded-xl border-2 border-dashed border-black/20 dark:border-white/10 bg-black/[0.02] dark:bg-white/[0.02] transition-all hover:border-[#907AFF]/30 hover:bg-black/[0.01] dark:hover:bg-white/[0.04]"
                     >
                       <div className="flex flex-col items-center gap-2">
                         <svg className="h-8 w-8 text-slate-400 dark:text-white/30" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -991,12 +995,12 @@ function Dashboard({ user }: { user: User }) {
                 <p className="mt-1 text-[14px] text-slate-600 dark:text-white/50">What readers are enjoying right now</p>
               </div>
               <div className="flex gap-2">
-                <button className="flex h-9 w-9 items-center justify-center rounded-full border border-black/10 dark:border-white/10 text-slate-500 dark:text-white/50 transition-all hover:border-black/20 dark:hover:border-white/20 hover:bg-black/2 dark:hover:bg-white/[0.03] hover:text-slate-900 dark:hover:text-white">
+                <button className="flex h-9 w-9 items-center justify-center rounded-full border border-black/10 dark:border-white/10 text-slate-500 dark:text-white/50 transition-all hover:border-black/20 dark:hover:border-white/20 hover:bg-black/[0.02] dark:hover:bg-white/[0.03] hover:text-slate-900 dark:hover:text-white">
                   <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
                   </svg>
                 </button>
-                <button className="flex h-9 w-9 items-center justify-center rounded-full border border-black/10 dark:border-white/10 text-slate-500 dark:text-white/50 transition-all hover:border-black/20 dark:hover:border-white/20 hover:bg-black/2 dark:hover:bg-white/[0.03] hover:text-slate-900 dark:hover:text-white">
+                <button className="flex h-9 w-9 items-center justify-center rounded-full border border-black/10 dark:border-white/10 text-slate-500 dark:text-white/50 transition-all hover:border-black/20 dark:hover:border-white/20 hover:bg-black/[0.02] dark:hover:bg-white/[0.03] hover:text-slate-900 dark:hover:text-white">
                   <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
                   </svg>
@@ -1059,12 +1063,12 @@ function Dashboard({ user }: { user: User }) {
                 <p className="mt-1 text-[14px] text-slate-600 dark:text-white/50">What readers are enjoying right now</p>
               </div>
               <div className="flex gap-2">
-                <button className="flex h-9 w-9 items-center justify-center rounded-full border border-black/10 dark:border-white/10 text-slate-500 dark:text-white/50 transition-all hover:border-black/20 dark:hover:border-white/20 hover:bg-black/2 dark:hover:bg-white/[0.03] hover:text-slate-900 dark:hover:text-white">
+                <button className="flex h-9 w-9 items-center justify-center rounded-full border border-black/10 dark:border-white/10 text-slate-500 dark:text-white/50 transition-all hover:border-black/20 dark:hover:border-white/20 hover:bg-black/[0.02] dark:hover:bg-white/[0.03] hover:text-slate-900 dark:hover:text-white">
                   <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
                   </svg>
                 </button>
-                <button className="flex h-9 w-9 items-center justify-center rounded-full border border-black/10 dark:border-white/10 text-slate-500 dark:text-white/50 transition-all hover:border-black/20 dark:hover:border-white/20 hover:bg-black/2 dark:hover:bg-white/[0.03] hover:text-slate-900 dark:hover:text-white">
+                <button className="flex h-9 w-9 items-center justify-center rounded-full border border-black/10 dark:border-white/10 text-slate-500 dark:text-white/50 transition-all hover:border-black/20 dark:hover:border-white/20 hover:bg-black/[0.02] dark:hover:bg-white/[0.03] hover:text-slate-900 dark:hover:text-white">
                   <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
                   </svg>
@@ -1091,20 +1095,20 @@ function Dashboard({ user }: { user: User }) {
       {/* Choice Modal - Shelf or Book */}
       {showChoiceModal && (
         <div className="fixed inset-0 z-[1000] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4" onClick={() => setShowChoiceModal(false)}>
-          <div className="relative w-full max-w-[600px] rounded-3xl border border-black/10 dark:border-white/10 bg-white/95 dark:bg-[#0a0a0f]/95 p-8 backdrop-blur-xl" onClick={(e) => e.stopPropagation()}>
+          <div className="relative w-full max-w-[600px] rounded-3xl border border-black/10 dark:border-white/10 bg-white/[0.95] dark:bg-[#0a0a0f]/[0.95] p-8 backdrop-blur-xl" onClick={(e) => e.stopPropagation()}>
             <button onClick={() => setShowChoiceModal(false)} className="absolute right-6 top-6 text-slate-500 dark:text-white/50 transition-colors hover:text-slate-900 dark:hover:text-white">
               <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
             </button>
             <h2 className="mb-6 text-[28px] font-semibold text-slate-900 dark:text-white">Create new</h2>
             <div className="grid gap-4 md:grid-cols-2">
-              <button onClick={handleCreateShelf} className="group rounded-2xl border border-black/10 dark:border-white/10 bg-black/2 dark:bg-white/[0.02] p-6 text-left transition-all hover:border-[#907AFF]/30 hover:bg-black/10 dark:hover:bg-white/[0.04]">
+              <button onClick={handleCreateShelf} className="group rounded-2xl border border-black/10 dark:border-white/10 bg-black/[0.02] dark:bg-white/[0.02] p-6 text-left transition-all hover:border-[#907AFF]/30 hover:bg-black/[0.01] dark:hover:bg-white/[0.04]">
                 <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-to-br from-[#907AFF]/20 to-[#E29ED5]/20">
                   <svg className="h-6 w-6 text-[#907AFF]" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" /></svg>
                 </div>
                 <h3 className="mb-2 text-[18px] font-semibold text-slate-900 dark:text-white">Create Shelf</h3>
                 <p className="text-[14px] text-slate-600 dark:text-white/50">Organize your books into collections (e.g., book series)</p>
               </button>
-              <button onClick={handleCreateBook} className="group rounded-2xl border border-black/10 dark:border-white/10 bg-black/2 dark:bg-white/[0.02] p-6 text-left transition-all hover:border-[#907AFF]/30 hover:bg-black/10 dark:hover:bg-white/[0.04]">
+              <button onClick={handleCreateBook} className="group rounded-2xl border border-black/10 dark:border-white/10 bg-black/[0.02] dark:bg-white/[0.02] p-6 text-left transition-all hover:border-[#907AFF]/30 hover:bg-black/[0.01] dark:hover:bg-white/[0.04]">
                 <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-to-br from-[#E29ED5]/20 to-[#FCC997]/20">
                   <svg className="h-6 w-6 text-[#E29ED5]" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" /></svg>
                 </div>
@@ -1119,7 +1123,7 @@ function Dashboard({ user }: { user: User }) {
       {/* Shelf Creation Modal */}
       {showShelfModal && (
         <div className="fixed inset-0 z-[1000] flex items-start justify-center bg-black/60 backdrop-blur-sm p-4 overflow-y-auto pt-20">
-          <div className="relative my-8 w-full max-w-[800px] rounded-3xl border border-black/10 dark:border-white/10 bg-white/95 dark:bg-[#0a0a0f]/95 p-10 backdrop-blur-xl" onClick={(e) => e.stopPropagation()}>
+          <div className="relative my-8 w-full max-w-[800px] rounded-3xl border border-black/10 dark:border-white/10 bg-white/[0.95] dark:bg-[#0a0a0f]/[0.95] p-10 backdrop-blur-xl" onClick={(e) => e.stopPropagation()}>
             <button onClick={() => setShowShelfModal(false)} className="absolute right-6 top-6 text-slate-500 dark:text-white/50 transition-colors hover:text-slate-900 dark:hover:text-white">
               <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
             </button>
@@ -1131,7 +1135,7 @@ function Dashboard({ user }: { user: User }) {
                   value={shelfForm.name}
                   onChange={(e) => setShelfForm({ ...shelfForm, name: e.target.value })}
                   placeholder="Shelf name"
-                  className="flex-1 rounded-xl border border-black/10 dark:border-white/10 bg-black/2 dark:bg-white/[0.04] px-4 py-3 text-[20px] font-semibold text-slate-900 dark:text-white outline-none transition-all focus:border-[#907AFF]/50 focus:bg-black/10 dark:focus:bg-white/[0.06] focus:ring-2 focus:ring-[#907AFF]/20"
+                  className="flex-1 rounded-xl border border-black/10 dark:border-white/10 bg-black/[0.02] dark:bg-white/[0.04] px-4 py-3 text-[20px] font-semibold text-slate-900 dark:text-white outline-none transition-all focus:border-[#907AFF]/50 focus:bg-black/[0.01] dark:focus:bg-white/[0.06] focus:ring-2 focus:ring-[#907AFF]/20"
                 />
                 <svg className="h-5 w-5 text-slate-400 dark:text-white/40" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" /></svg>
               </div>
@@ -1140,7 +1144,7 @@ function Dashboard({ user }: { user: User }) {
                 value={shelfForm.subtitle}
                 onChange={(e) => setShelfForm({ ...shelfForm, subtitle: e.target.value })}
                 placeholder="Optional subtitle"
-                className="w-full rounded-xl border border-black/10 dark:border-white/10 bg-black/2 dark:bg-white/[0.04] px-4 py-3 text-[14px] text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-white/30 outline-none transition-all focus:border-[#907AFF]/50 focus:bg-black/10 dark:focus:bg-white/[0.06] focus:ring-2 focus:ring-[#907AFF]/20"
+                className="w-full rounded-xl border border-black/10 dark:border-white/10 bg-black/[0.02] dark:bg-white/[0.04] px-4 py-3 text-[14px] text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-white/30 outline-none transition-all focus:border-[#907AFF]/50 focus:bg-black/[0.01] dark:focus:bg-white/[0.06] focus:ring-2 focus:ring-[#907AFF]/20"
               />
             </div>
             
@@ -1155,7 +1159,7 @@ function Dashboard({ user }: { user: User }) {
                       className={`rounded-lg px-4 py-1.5 text-[13px] font-medium transition-all ${
                         shelfForm.coverType === "image"
                           ? "bg-[#907AFF] text-white"
-                          : "bg-black/2 dark:bg-white/[0.02] text-slate-600 dark:text-white/70 hover:bg-black/10 dark:hover:bg-white/[0.04]"
+                          : "bg-black/[0.02] dark:bg-white/[0.02] text-slate-600 dark:text-white/70 hover:bg-black/[0.01] dark:hover:bg-white/[0.04]"
                       }`}
                     >
                       Image
@@ -1165,7 +1169,7 @@ function Dashboard({ user }: { user: User }) {
                       className={`rounded-lg px-4 py-1.5 text-[13px] font-medium transition-all ${
                         shelfForm.coverType === "gradient"
                           ? "bg-[#907AFF] text-white"
-                          : "bg-black/2 dark:bg-white/[0.02] text-slate-600 dark:text-white/70 hover:bg-black/10 dark:hover:bg-white/[0.04]"
+                          : "bg-black/[0.02] dark:bg-white/[0.02] text-slate-600 dark:text-white/70 hover:bg-black/[0.01] dark:hover:bg-white/[0.04]"
                       }`}
                     >
                       Gradient
@@ -1175,7 +1179,7 @@ function Dashboard({ user }: { user: User }) {
                 
                 {shelfForm.coverType === "image" ? (
                   <>
-                    <button className="flex w-full items-center justify-between rounded-xl border border-black/10 dark:border-white/10 bg-black/2 dark:bg-white/[0.02] px-4 py-3.5 text-left transition-all hover:border-[#907AFF]/30 hover:bg-black/10 dark:hover:bg-white/[0.04]">
+                    <button className="flex w-full items-center justify-between rounded-xl border border-black/10 dark:border-white/10 bg-black/[0.02] dark:bg-white/[0.02] px-4 py-3.5 text-left transition-all hover:border-[#907AFF]/30 hover:bg-black/[0.01] dark:hover:bg-white/[0.04]">
                       <span className="text-[14px] font-medium text-slate-700 dark:text-white/70">+ Add shelf cover</span>
                       <input type="file" accept="image/*" className="hidden" id="shelf-cover" onChange={(e) => {
                         const file = e.target.files?.[0];
@@ -1220,14 +1224,14 @@ function Dashboard({ user }: { user: User }) {
                       value={shelfForm.coverGradient}
                       onChange={(e) => setShelfForm({ ...shelfForm, coverGradient: e.target.value })}
                     placeholder="Or enter custom gradient CSS"
-                    className="w-full rounded-xl border border-black/10 dark:border-white/10 bg-black/2 dark:bg-white/[0.04] px-4 py-3 text-[13px] text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-white/30 outline-none transition-all focus:border-[#907AFF]/50 focus:bg-black/10 dark:focus:bg-white/[0.06] focus:ring-2 focus:ring-[#907AFF]/20"
+                    className="w-full rounded-xl border border-black/10 dark:border-white/10 bg-black/[0.02] dark:bg-white/[0.04] px-4 py-3 text-[13px] text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-white/30 outline-none transition-all focus:border-[#907AFF]/50 focus:bg-black/[0.01] dark:focus:bg-white/[0.06] focus:ring-2 focus:ring-[#907AFF]/20"
                     />
                   </div>
                 )}
               </div>
 
               {/* Typography Settings */}
-              <div className="rounded-xl border border-black/10 dark:border-white/10 bg-black/2 dark:bg-white/[0.02] p-5">
+              <div className="rounded-xl border border-black/10 dark:border-white/10 bg-black/[0.02] dark:bg-white/[0.02] p-5">
                 <h4 className="mb-5 text-[15px] font-semibold text-slate-900 dark:text-white">Typography Settings</h4>
                 <div className="space-y-3">
                   <div>
@@ -1235,7 +1239,7 @@ function Dashboard({ user }: { user: User }) {
                     <select
                       value={shelfForm.typography.fontFamily}
                       onChange={(e) => setShelfForm({ ...shelfForm, typography: { ...shelfForm.typography, fontFamily: e.target.value } })}
-                      className="w-full rounded-lg border border-black/10 dark:border-white/10 bg-black/2 dark:bg-white/[0.04] px-3 py-2.5 text-[13px] text-slate-900 dark:text-white outline-none transition-all focus:border-[#907AFF]/50 focus:ring-2 focus:ring-[#907AFF]/20"
+                      className="w-full rounded-lg border border-black/10 dark:border-white/10 bg-black/[0.02] dark:bg-white/[0.04] px-3 py-2.5 text-[13px] text-slate-900 dark:text-white outline-none transition-all focus:border-[#907AFF]/50 focus:ring-2 focus:ring-[#907AFF]/20"
                     >
                       <option value="Inter">Inter</option>
                       <option value="Georgia">Georgia</option>
@@ -1249,7 +1253,7 @@ function Dashboard({ user }: { user: User }) {
                     <select
                       value={shelfForm.typography.fontWeight}
                       onChange={(e) => setShelfForm({ ...shelfForm, typography: { ...shelfForm.typography, fontWeight: e.target.value } })}
-                      className="w-full rounded-lg border border-black/10 dark:border-white/10 bg-black/2 dark:bg-white/[0.04] px-3 py-2.5 text-[13px] text-slate-900 dark:text-white outline-none transition-all focus:border-[#907AFF]/50 focus:ring-2 focus:ring-[#907AFF]/20"
+                      className="w-full rounded-lg border border-black/10 dark:border-white/10 bg-black/[0.02] dark:bg-white/[0.04] px-3 py-2.5 text-[13px] text-slate-900 dark:text-white outline-none transition-all focus:border-[#907AFF]/50 focus:ring-2 focus:ring-[#907AFF]/20"
                     >
                       <option value="400">Regular (400)</option>
                       <option value="500">Medium (500)</option>
@@ -1265,7 +1269,7 @@ function Dashboard({ user }: { user: User }) {
                         value={shelfForm.typography.titleSize}
                         onChange={(e) => setShelfForm({ ...shelfForm, typography: { ...shelfForm.typography, titleSize: e.target.value } })}
                         placeholder="20px"
-                        className="w-full rounded-lg border border-black/10 dark:border-white/10 bg-black/2 dark:bg-white/[0.04] px-3 py-2.5 text-[13px] text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-white/30 outline-none transition-all focus:border-[#907AFF]/50 focus:ring-2 focus:ring-[#907AFF]/20"
+                        className="w-full rounded-lg border border-black/10 dark:border-white/10 bg-black/[0.02] dark:bg-white/[0.04] px-3 py-2.5 text-[13px] text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-white/30 outline-none transition-all focus:border-[#907AFF]/50 focus:ring-2 focus:ring-[#907AFF]/20"
                       />
                     </div>
                     <div>
@@ -1275,7 +1279,7 @@ function Dashboard({ user }: { user: User }) {
                         value={shelfForm.typography.subtitleSize}
                         onChange={(e) => setShelfForm({ ...shelfForm, typography: { ...shelfForm.typography, subtitleSize: e.target.value } })}
                         placeholder="14px"
-                        className="w-full rounded-lg border border-black/10 dark:border-white/10 bg-black/2 dark:bg-white/[0.04] px-3 py-2.5 text-[13px] text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-white/30 outline-none transition-all focus:border-[#907AFF]/50 focus:ring-2 focus:ring-[#907AFF]/20"
+                        className="w-full rounded-lg border border-black/10 dark:border-white/10 bg-black/[0.02] dark:bg-white/[0.04] px-3 py-2.5 text-[13px] text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-white/30 outline-none transition-all focus:border-[#907AFF]/50 focus:ring-2 focus:ring-[#907AFF]/20"
                       />
                     </div>
                   </div>
@@ -1293,7 +1297,7 @@ function Dashboard({ user }: { user: User }) {
                         value={shelfForm.typography.textColor}
                         onChange={(e) => setShelfForm({ ...shelfForm, typography: { ...shelfForm.typography, textColor: e.target.value } })}
                         placeholder="#ffffff"
-                        className="flex-1 rounded-lg border border-black/10 dark:border-white/10 bg-black/2 dark:bg-white/[0.04] px-3 py-2.5 text-[13px] text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-white/30 outline-none transition-all focus:border-[#907AFF]/50 focus:ring-2 focus:ring-[#907AFF]/20"
+                        className="flex-1 rounded-lg border border-black/10 dark:border-white/10 bg-black/[0.02] dark:bg-white/[0.04] px-3 py-2.5 text-[13px] text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-white/30 outline-none transition-all focus:border-[#907AFF]/50 focus:ring-2 focus:ring-[#907AFF]/20"
                       />
                     </div>
                   </div>
@@ -1304,7 +1308,7 @@ function Dashboard({ user }: { user: User }) {
               <div>
                 <button 
                   onClick={() => setShelfForm({ ...shelfForm, description: shelfForm.description ? "" : " " })}
-                  className="flex w-full items-center justify-between rounded-xl border border-black/10 dark:border-white/10 bg-black/2 dark:bg-white/[0.02] px-4 py-3.5 text-left transition-all hover:border-[#907AFF]/30 hover:bg-black/10 dark:hover:bg-white/[0.04]"
+                  className="flex w-full items-center justify-between rounded-xl border border-black/10 dark:border-white/10 bg-black/[0.02] dark:bg-white/[0.02] px-4 py-3.5 text-left transition-all hover:border-[#907AFF]/30 hover:bg-black/[0.01] dark:hover:bg-white/[0.04]"
                 >
                   <span className="text-[14px] font-medium text-slate-700 dark:text-white/70">+ Add summary</span>
                 </button>
@@ -1313,7 +1317,7 @@ function Dashboard({ user }: { user: User }) {
                     value={shelfForm.description}
                     onChange={(e) => setShelfForm({ ...shelfForm, description: e.target.value })}
                     placeholder="Describe your shelf..."
-                    className="mt-2 w-full rounded-xl border border-black/10 dark:border-white/10 bg-black/2 dark:bg-white/[0.04] px-4 py-3 text-[14px] text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-white/30 outline-none transition-all focus:border-[#907AFF]/50 focus:bg-black/10 dark:focus:bg-white/[0.06] focus:ring-2 focus:ring-[#907AFF]/20"
+                    className="mt-2 w-full rounded-xl border border-black/10 dark:border-white/10 bg-black/[0.02] dark:bg-white/[0.04] px-4 py-3 text-[14px] text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-white/30 outline-none transition-all focus:border-[#907AFF]/50 focus:bg-black/[0.01] dark:focus:bg-white/[0.06] focus:ring-2 focus:ring-[#907AFF]/20"
                     rows={4}
                     autoFocus
                   />
@@ -1324,7 +1328,7 @@ function Dashboard({ user }: { user: User }) {
               <div>
                 <button 
                   onClick={() => setShelfForm({ ...shelfForm, authorsNote: shelfForm.authorsNote ? "" : " " })}
-                  className="flex w-full items-center justify-between rounded-xl border border-black/10 dark:border-white/10 bg-black/2 dark:bg-white/[0.02] px-4 py-3.5 text-left transition-all hover:border-[#907AFF]/30 hover:bg-black/10 dark:hover:bg-white/[0.04]"
+                  className="flex w-full items-center justify-between rounded-xl border border-black/10 dark:border-white/10 bg-black/[0.02] dark:bg-white/[0.02] px-4 py-3.5 text-left transition-all hover:border-[#907AFF]/30 hover:bg-black/[0.01] dark:hover:bg-white/[0.04]"
                 >
                   <span className="text-[14px] font-medium text-slate-700 dark:text-white/70">+ Add author&apos;s note</span>
                 </button>
@@ -1333,7 +1337,7 @@ function Dashboard({ user }: { user: User }) {
                     value={shelfForm.authorsNote}
                     onChange={(e) => setShelfForm({ ...shelfForm, authorsNote: e.target.value })}
                     placeholder="Add a personal note about this shelf..."
-                    className="mt-2 w-full rounded-xl border border-black/10 dark:border-white/10 bg-black/2 dark:bg-white/[0.04] px-4 py-3 text-[14px] text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-white/30 outline-none transition-all focus:border-[#907AFF]/50 focus:bg-black/10 dark:focus:bg-white/[0.06] focus:ring-2 focus:ring-[#907AFF]/20"
+                    className="mt-2 w-full rounded-xl border border-black/10 dark:border-white/10 bg-black/[0.02] dark:bg-white/[0.04] px-4 py-3 text-[14px] text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-white/30 outline-none transition-all focus:border-[#907AFF]/50 focus:bg-black/[0.01] dark:focus:bg-white/[0.06] focus:ring-2 focus:ring-[#907AFF]/20"
                     rows={3}
                     autoFocus
                   />
@@ -1347,7 +1351,7 @@ function Dashboard({ user }: { user: User }) {
                     const input = document.getElementById("shelf-tags-input") as HTMLInputElement;
                     if (input) input.focus();
                   }}
-                  className="flex w-full items-center justify-between rounded-xl border border-black/10 dark:border-white/10 bg-black/2 dark:bg-white/[0.02] px-4 py-3.5 text-left transition-all hover:border-[#907AFF]/30 hover:bg-black/10 dark:hover:bg-white/[0.04]"
+                  className="flex w-full items-center justify-between rounded-xl border border-black/10 dark:border-white/10 bg-black/[0.02] dark:bg-white/[0.02] px-4 py-3.5 text-left transition-all hover:border-[#907AFF]/30 hover:bg-black/[0.01] dark:hover:bg-white/[0.04]"
                 >
                   <span className="text-[14px] font-medium text-slate-700 dark:text-white/70">+ Add general tags</span>
                 </button>
@@ -1377,13 +1381,13 @@ function Dashboard({ user }: { user: User }) {
                       }
                     }
                   }}
-                  className="mt-2 w-full rounded-xl border border-black/10 dark:border-white/10 bg-black/2 dark:bg-white/[0.04] px-4 py-3 text-[14px] text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-white/30 outline-none transition-all focus:border-[#907AFF]/50 focus:bg-black/10 dark:focus:bg-white/[0.06] focus:ring-2 focus:ring-[#907AFF]/20"
+                  className="mt-2 w-full rounded-xl border border-black/10 dark:border-white/10 bg-black/[0.02] dark:bg-white/[0.04] px-4 py-3 text-[14px] text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-white/30 outline-none transition-all focus:border-[#907AFF]/50 focus:bg-black/[0.01] dark:focus:bg-white/[0.06] focus:ring-2 focus:ring-[#907AFF]/20"
                 />
               </div>
             </div>
 
             <div className="mt-10 flex justify-end gap-3 border-t border-black/10 dark:border-white/10 pt-6">
-              <button onClick={() => setShowShelfModal(false)} className="rounded-xl border border-black/10 dark:border-white/10 bg-black/2 dark:bg-white/[0.02] px-6 py-3 text-[14px] font-semibold text-slate-700 dark:text-white/70 transition-all hover:bg-black/10 dark:hover:bg-white/[0.04]">
+              <button onClick={() => setShowShelfModal(false)} className="rounded-xl border border-black/10 dark:border-white/10 bg-black/[0.02] dark:bg-white/[0.02] px-6 py-3 text-[14px] font-semibold text-slate-700 dark:text-white/70 transition-all hover:bg-black/[0.01] dark:hover:bg-white/[0.04]">
                 Cancel
               </button>
               <button onClick={handleShelfSubmit} className="rounded-xl bg-gradient-to-r from-[#907AFF] to-[#8069EE] px-6 py-3 text-[14px] font-semibold text-white transition-all hover:from-[#8069EE] hover:to-[#7058DD]">
@@ -1397,7 +1401,7 @@ function Dashboard({ user }: { user: User }) {
       {/* Review Shelf Modal */}
       {showReviewShelfModal && (
         <div className="fixed inset-0 z-[1000] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 overflow-y-auto">
-          <div className="relative my-8 w-full max-w-[700px] rounded-3xl border border-black/10 dark:border-white/10 bg-white/95 dark:bg-[#0a0a0f]/95 p-8 backdrop-blur-xl">
+          <div className="relative my-8 w-full max-w-[700px] rounded-3xl border border-black/10 dark:border-white/10 bg-white/[0.95] dark:bg-[#0a0a0f]/[0.95] p-8 backdrop-blur-xl">
             <button onClick={() => setShowReviewShelfModal(false)} className="absolute right-6 top-6 text-slate-500 dark:text-white/50 transition-colors hover:text-slate-900 dark:hover:text-white">
               <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
             </button>
@@ -1415,7 +1419,7 @@ function Dashboard({ user }: { user: User }) {
                   <p className="mb-4 text-[14px] text-slate-700 dark:text-white/70">{shelfForm.description}</p>
                 )}
                 {shelfForm.authorsNote && (
-                  <div className="mb-4 rounded-xl border border-black/10 dark:border-white/10 bg-black/2 dark:bg-white/[0.02] p-4">
+                  <div className="mb-4 rounded-xl border border-black/10 dark:border-white/10 bg-black/[0.02] dark:bg-white/[0.02] p-4">
                     <p className="mb-1 text-[12px] font-medium text-slate-500 dark:text-white/50">Author&apos;s Note</p>
                     <p className="text-[14px] text-slate-700 dark:text-white/70">{shelfForm.authorsNote}</p>
                   </div>
@@ -1431,7 +1435,7 @@ function Dashboard({ user }: { user: User }) {
             </div>
 
             <div className="mt-8 flex justify-end gap-3">
-              <button onClick={() => { setShowReviewShelfModal(false); setShowShelfModal(true); }} className="rounded-xl border border-black/10 dark:border-white/10 bg-black/2 dark:bg-white/[0.02] px-6 py-2.5 text-[14px] font-medium text-slate-700 dark:text-white/70 transition-all hover:bg-black/10 dark:hover:bg-white/[0.04]">
+              <button onClick={() => { setShowReviewShelfModal(false); setShowShelfModal(true); }} className="rounded-xl border border-black/10 dark:border-white/10 bg-black/[0.02] dark:bg-white/[0.02] px-6 py-2.5 text-[14px] font-medium text-slate-700 dark:text-white/70 transition-all hover:bg-black/[0.01] dark:hover:bg-white/[0.04]">
                 Edit
               </button>
               <button onClick={handleReviewShelfConfirm} className="rounded-xl bg-[#907AFF] px-6 py-2.5 text-[14px] font-medium text-white transition-all hover:bg-[#8069EE]">
@@ -1445,7 +1449,7 @@ function Dashboard({ user }: { user: User }) {
       {/* Book Creation Modal */}
       {showBookModal && (
         <div className="fixed inset-0 z-[1000] flex items-start justify-center bg-black/60 backdrop-blur-sm p-4 overflow-y-auto pt-20">
-          <div className="relative my-8 w-full max-w-[900px] rounded-3xl border border-black/10 dark:border-white/10 bg-white/95 dark:bg-[#0a0a0f]/95 p-10 backdrop-blur-xl">
+          <div className="relative my-8 w-full max-w-[900px] rounded-3xl border border-black/10 dark:border-white/10 bg-white/[0.95] dark:bg-[#0a0a0f]/[0.95] p-10 backdrop-blur-xl">
             <button onClick={() => setShowBookModal(false)} className="absolute right-6 top-6 text-slate-500 dark:text-white/50 transition-colors hover:text-slate-900 dark:hover:text-white">
               <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
             </button>
@@ -1456,14 +1460,14 @@ function Dashboard({ user }: { user: User }) {
                 value={bookForm.title}
                 onChange={(e) => setBookForm({ ...bookForm, title: e.target.value })}
                 placeholder="New section"
-                className="flex-1 rounded-xl border border-black/10 dark:border-white/10 bg-black/2 dark:bg-white/[0.04] px-4 py-3 text-[20px] font-semibold text-slate-900 dark:text-white outline-none transition-all focus:border-[#907AFF]/50 focus:bg-black/10 dark:focus:bg-white/[0.06] focus:ring-2 focus:ring-[#907AFF]/20"
+                className="flex-1 rounded-xl border border-black/10 dark:border-white/10 bg-black/[0.02] dark:bg-white/[0.04] px-4 py-3 text-[20px] font-semibold text-slate-900 dark:text-white outline-none transition-all focus:border-[#907AFF]/50 focus:bg-black/[0.01] dark:focus:bg-white/[0.06] focus:ring-2 focus:ring-[#907AFF]/20"
               />
               <svg className="h-5 w-5 text-slate-400 dark:text-white/40" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" /></svg>
             </div>
 
             <div className="space-y-6">
               {/* Cover Upload */}
-              <button className="flex w-full items-center justify-between rounded-xl border border-black/10 dark:border-white/10 bg-black/2 dark:bg-white/[0.02] px-4 py-3.5 text-left transition-all hover:border-[#907AFF]/30 hover:bg-black/10 dark:hover:bg-white/[0.04]">
+              <button className="flex w-full items-center justify-between rounded-xl border border-black/10 dark:border-white/10 bg-black/[0.02] dark:bg-white/[0.02] px-4 py-3.5 text-left transition-all hover:border-[#907AFF]/30 hover:bg-black/[0.01] dark:hover:bg-white/[0.04]">
                 <span className="text-[14px] font-medium text-slate-700 dark:text-white/70">+ Add book cover</span>
                 <input type="file" accept="image/*" className="hidden" id="book-cover" onChange={(e) => {
                   const file = e.target.files?.[0];
@@ -1488,7 +1492,7 @@ function Dashboard({ user }: { user: User }) {
               <div>
                 <button 
                   onClick={() => setBookForm({ ...bookForm, summary: bookForm.summary ? "" : " " })}
-                  className="flex w-full items-center justify-between rounded-xl border border-black/10 dark:border-white/10 bg-black/2 dark:bg-white/[0.02] px-4 py-3.5 text-left transition-all hover:border-[#907AFF]/30 hover:bg-black/10 dark:hover:bg-white/[0.04]"
+                  className="flex w-full items-center justify-between rounded-xl border border-black/10 dark:border-white/10 bg-black/[0.02] dark:bg-white/[0.02] px-4 py-3.5 text-left transition-all hover:border-[#907AFF]/30 hover:bg-black/[0.01] dark:hover:bg-white/[0.04]"
                 >
                   <span className="text-[14px] font-medium text-slate-700 dark:text-white/70">+ Add summary</span>
                 </button>
@@ -1497,7 +1501,7 @@ function Dashboard({ user }: { user: User }) {
                     value={bookForm.summary}
                     onChange={(e) => setBookForm({ ...bookForm, summary: e.target.value })}
                     placeholder="Write a summary of your book..."
-                    className="mt-2 w-full rounded-xl border border-black/10 dark:border-white/10 bg-black/2 dark:bg-white/[0.04] px-4 py-3 text-[14px] text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-white/30 outline-none transition-all focus:border-[#907AFF]/50 focus:bg-black/10 dark:focus:bg-white/[0.06] focus:ring-2 focus:ring-[#907AFF]/20"
+                    className="mt-2 w-full rounded-xl border border-black/10 dark:border-white/10 bg-black/[0.02] dark:bg-white/[0.04] px-4 py-3 text-[14px] text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-white/30 outline-none transition-all focus:border-[#907AFF]/50 focus:bg-black/[0.01] dark:focus:bg-white/[0.06] focus:ring-2 focus:ring-[#907AFF]/20"
                     rows={4}
                     autoFocus
                   />
@@ -1508,7 +1512,7 @@ function Dashboard({ user }: { user: User }) {
               <div>
                 <button 
                   onClick={() => setBookForm({ ...bookForm, authorsNote: bookForm.authorsNote ? "" : " " })}
-                  className="flex w-full items-center justify-between rounded-xl border border-black/10 dark:border-white/10 bg-black/2 dark:bg-white/[0.02] px-4 py-3.5 text-left transition-all hover:border-[#907AFF]/30 hover:bg-black/10 dark:hover:bg-white/[0.04]"
+                  className="flex w-full items-center justify-between rounded-xl border border-black/10 dark:border-white/10 bg-black/[0.02] dark:bg-white/[0.02] px-4 py-3.5 text-left transition-all hover:border-[#907AFF]/30 hover:bg-black/[0.01] dark:hover:bg-white/[0.04]"
                 >
                   <span className="text-[14px] font-medium text-slate-700 dark:text-white/70">+ Add author&apos;s note</span>
                 </button>
@@ -1517,7 +1521,7 @@ function Dashboard({ user }: { user: User }) {
                     value={bookForm.authorsNote}
                     onChange={(e) => setBookForm({ ...bookForm, authorsNote: e.target.value })}
                     placeholder="Add a personal note about this book..."
-                    className="mt-2 w-full rounded-xl border border-black/10 dark:border-white/10 bg-black/2 dark:bg-white/[0.04] px-4 py-3 text-[14px] text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-white/30 outline-none transition-all focus:border-[#907AFF]/50 focus:bg-black/10 dark:focus:bg-white/[0.06] focus:ring-2 focus:ring-[#907AFF]/20"
+                    className="mt-2 w-full rounded-xl border border-black/10 dark:border-white/10 bg-black/[0.02] dark:bg-white/[0.04] px-4 py-3 text-[14px] text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-white/30 outline-none transition-all focus:border-[#907AFF]/50 focus:bg-black/[0.01] dark:focus:bg-white/[0.06] focus:ring-2 focus:ring-[#907AFF]/20"
                     rows={3}
                     autoFocus
                   />
@@ -1531,7 +1535,7 @@ function Dashboard({ user }: { user: User }) {
                     const input = document.getElementById("book-tags-input") as HTMLInputElement;
                     if (input) input.focus();
                   }}
-                  className="flex w-full items-center justify-between rounded-xl border border-black/10 dark:border-white/10 bg-black/2 dark:bg-white/[0.02] px-4 py-3.5 text-left transition-all hover:border-[#907AFF]/30 hover:bg-black/10 dark:hover:bg-white/[0.04]"
+                  className="flex w-full items-center justify-between rounded-xl border border-black/10 dark:border-white/10 bg-black/[0.02] dark:bg-white/[0.02] px-4 py-3.5 text-left transition-all hover:border-[#907AFF]/30 hover:bg-black/[0.01] dark:hover:bg-white/[0.04]"
                 >
                   <span className="text-[14px] font-medium text-slate-700 dark:text-white/70">+ Add general tags</span>
                 </button>
@@ -1561,12 +1565,12 @@ function Dashboard({ user }: { user: User }) {
                       }
                     }
                   }}
-                  className="mt-2 w-full rounded-xl border border-black/10 dark:border-white/10 bg-black/2 dark:bg-white/[0.04] px-4 py-3 text-[14px] text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-white/30 outline-none transition-all focus:border-[#907AFF]/50 focus:bg-black/10 dark:focus:bg-white/[0.06] focus:ring-2 focus:ring-[#907AFF]/20"
+                  className="mt-2 w-full rounded-xl border border-black/10 dark:border-white/10 bg-black/[0.02] dark:bg-white/[0.04] px-4 py-3 text-[14px] text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-white/30 outline-none transition-all focus:border-[#907AFF]/50 focus:bg-black/[0.01] dark:focus:bg-white/[0.06] focus:ring-2 focus:ring-[#907AFF]/20"
                 />
               </div>
 
               {/* Creation Method Choice */}
-              <div className="rounded-xl border border-black/10 dark:border-white/10 bg-black/2 dark:bg-white/[0.02] p-6">
+              <div className="rounded-xl border border-black/10 dark:border-white/10 bg-black/[0.02] dark:bg-white/[0.02] p-6">
                 <h3 className="mb-5 text-[16px] font-semibold text-slate-900 dark:text-white">How do you want to create your book?</h3>
                 <div className="grid gap-4 md:grid-cols-2">
                   <button
@@ -1574,7 +1578,7 @@ function Dashboard({ user }: { user: User }) {
                     className={`rounded-xl border p-5 text-left transition-all ${
                       bookForm.creationMethod === "write"
                         ? "border-[#907AFF]/50 bg-[#907AFF]/10 ring-2 ring-[#907AFF]/30"
-                        : "border-black/10 dark:border-white/10 bg-black/2 dark:bg-white/[0.02] hover:border-[#907AFF]/30 hover:bg-black/10 dark:hover:bg-white/[0.04]"
+                        : "border-black/10 dark:border-white/10 bg-black/[0.02] dark:bg-white/[0.02] hover:border-[#907AFF]/30 hover:bg-black/[0.01] dark:hover:bg-white/[0.04]"
                     }`}
                   >
                     <div className="mb-2 text-[16px] font-semibold text-slate-900 dark:text-white">Create book in section</div>
@@ -1585,7 +1589,7 @@ function Dashboard({ user }: { user: User }) {
                     className={`rounded-xl border p-5 text-left transition-all ${
                       bookForm.creationMethod === "upload"
                         ? "border-[#907AFF]/50 bg-[#907AFF]/10 ring-2 ring-[#907AFF]/30"
-                        : "border-black/10 dark:border-white/10 bg-black/2 dark:bg-white/[0.02] hover:border-[#907AFF]/30 hover:bg-black/10 dark:hover:bg-white/[0.04]"
+                        : "border-black/10 dark:border-white/10 bg-black/[0.02] dark:bg-white/[0.02] hover:border-[#907AFF]/30 hover:bg-black/[0.01] dark:hover:bg-white/[0.04]"
                     }`}
                   >
                     <div className="mb-2 text-[16px] font-semibold text-slate-900 dark:text-white">Upload book to section</div>
@@ -1600,7 +1604,7 @@ function Dashboard({ user }: { user: User }) {
                       value={bookForm.content}
                       onChange={(e) => setBookForm({ ...bookForm, content: e.target.value })}
                       placeholder="Start writing your book here..."
-                      className="w-full rounded-xl border border-black/10 dark:border-white/10 bg-black/2 dark:bg-white/[0.04] px-4 py-3 text-[14px] text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-white/30 outline-none transition-all focus:border-[#907AFF]/50 focus:bg-black/10 dark:focus:bg-white/[0.06] focus:ring-2 focus:ring-[#907AFF]/20"
+                      className="w-full rounded-xl border border-black/10 dark:border-white/10 bg-black/[0.02] dark:bg-white/[0.04] px-4 py-3 text-[14px] text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-white/30 outline-none transition-all focus:border-[#907AFF]/50 focus:bg-black/[0.01] dark:focus:bg-white/[0.06] focus:ring-2 focus:ring-[#907AFF]/20"
                       rows={12}
                     />
                   </div>
@@ -1608,7 +1612,7 @@ function Dashboard({ user }: { user: User }) {
 
                 {bookForm.creationMethod === "upload" && (
                   <div className="mt-4">
-                    <label className="flex cursor-pointer flex-col items-center justify-center rounded-xl border-2 border-dashed border-black/20 dark:border-white/20 bg-black/2 dark:bg-white/[0.02] p-8 transition-all hover:border-[#907AFF]/30 hover:bg-black/10 dark:hover:bg-white/[0.04]">
+                    <label className="flex cursor-pointer flex-col items-center justify-center rounded-xl border-2 border-dashed border-black/20 dark:border-white/20 bg-black/[0.02] dark:bg-white/[0.02] p-8 transition-all hover:border-[#907AFF]/30 hover:bg-black/[0.01] dark:hover:bg-white/[0.04]">
                       <svg className="mb-3 h-12 w-12 text-slate-400 dark:text-white/30" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
                       </svg>
@@ -1625,7 +1629,7 @@ function Dashboard({ user }: { user: User }) {
                       />
                     </label>
                     {bookForm.uploadFile && (
-                      <div className="mt-3 flex items-center justify-between rounded-xl border border-black/10 dark:border-white/10 bg-black/2 dark:bg-white/[0.04] px-4 py-3">
+                      <div className="mt-3 flex items-center justify-between rounded-xl border border-black/10 dark:border-white/10 bg-black/[0.02] dark:bg-white/[0.04] px-4 py-3">
                         <span className="text-[14px] text-slate-700 dark:text-white/70">{bookForm.uploadFile.name}</span>
                         <button onClick={() => setBookForm({ ...bookForm, uploadFile: null })} className="text-slate-500 dark:text-white/50 hover:text-slate-900 dark:hover:text-white">
                           <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
@@ -1638,7 +1642,7 @@ function Dashboard({ user }: { user: User }) {
             </div>
 
             <div className="mt-10 flex justify-end gap-3 border-t border-black/10 dark:border-white/10 pt-6">
-              <button onClick={() => setShowBookModal(false)} className="rounded-xl border border-black/10 dark:border-white/10 bg-black/2 dark:bg-white/[0.02] px-6 py-3 text-[14px] font-semibold text-slate-700 dark:text-white/70 transition-all hover:bg-black/10 dark:hover:bg-white/[0.04]">
+              <button onClick={() => setShowBookModal(false)} className="rounded-xl border border-black/10 dark:border-white/10 bg-black/[0.02] dark:bg-white/[0.02] px-6 py-3 text-[14px] font-semibold text-slate-700 dark:text-white/70 transition-all hover:bg-black/[0.01] dark:hover:bg-white/[0.04]">
                 Cancel
               </button>
               <button onClick={handleBookSubmit} className="rounded-xl bg-gradient-to-r from-[#907AFF] to-[#8069EE] px-6 py-3 text-[14px] font-semibold text-white transition-all hover:from-[#8069EE] hover:to-[#7058DD]">

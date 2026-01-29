@@ -12,8 +12,8 @@ const columnLinkClass = "space-y-3 text-[15px] text-slate-600 dark:text-white/50
 
 export default function Footer({ variant = "reader" }: { variant?: FooterVariant }) {
   return (
-    <footer className="relative mx-auto w-full max-w-[1200px] px-6 pb-12 pt-8">
-      <div className="grid gap-12 rounded-[32px] bg-gradient-to-b from-black/[0.04] to-transparent p-10 md:grid-cols-[1.5fr_1fr_1fr_1fr] md:p-12 dark:from-white/[0.04]">
+    <footer className="relative mx-auto w-full max-w-[1200px] px-4 pb-8 pt-6 sm:px-6 sm:pb-12 sm:pt-8">
+      <div className="grid gap-8 rounded-2xl bg-gradient-to-b from-black/[0.04] to-transparent p-6 sm:gap-10 sm:rounded-[32px] sm:p-10 md:grid-cols-[1.5fr_1fr_1fr_1fr] md:gap-12 md:p-12 dark:from-white/[0.04]">
         <div className="space-y-5">
           <Link href="/" className="inline-block">
             <img src="/logo-dark.svg" alt="Verkli" className="h-9 w-auto dark:hidden" />
