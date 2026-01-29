@@ -103,7 +103,7 @@ export default function SettingsPage({ user, profile }: SettingsPageProps) {
   };
 
   return (
-    <main className="min-h-screen min-h-dvh bg-background text-foreground">
+    <main className="min-h-screen min-h-dvh bg-background text-foreground mt-25">
       <div className="mx-auto w-full max-w-[1200px] space-y-8 px-4 pb-24 pt-6 sm:space-y-10 sm:px-6 sm:pt-10">
         <header>
           <h1 className="text-[28px] font-semibold text-slate-900 dark:text-white">Writer settings</h1>
