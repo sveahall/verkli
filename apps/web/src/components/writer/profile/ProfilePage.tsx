@@ -59,7 +59,7 @@ export default function ProfilePage({
   standaloneBooks: ProfileBook[];
 }) {
   return (
-    <main className="min-h-screen bg-transparent text-foreground">
+    <main className="min-h-screen bg-transparent text-foreground mt-25">
       <div className="mx-auto flex w-full max-w-[1400px] flex-col gap-8 px-4 pb-20 pt-6 sm:gap-10 sm:px-6 sm:pt-10">
         <ProfileHeader
           displayName={profile.displayName}
