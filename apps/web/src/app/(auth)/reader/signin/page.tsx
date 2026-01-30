@@ -49,7 +49,7 @@ export default function ReaderSignIn() {
       setError(error.message);
       setLoading(false);
     } else {
-      router.push("/reader");
+      router.push("/reader/home");
     }
   };
 
@@ -69,7 +69,7 @@ export default function ReaderSignIn() {
       style={{ background: "var(--auth-background)" }}
     >
       {/* Logo */}
-      <header className="absolute left-8 top-8 z-20">
+      <header className="absolute left-6 top-6 z-20 flex items-center gap-3 sm:left-8 sm:top-8">
         <Link href="/" className="flex items-center gap-3">
           <img
             src="/favicon.svg"
@@ -77,6 +77,15 @@ export default function ReaderSignIn() {
             className="h-8 w-auto"
             loading="eager"
           />
+        </Link>
+        <Link
+          href="/reader"
+          className="inline-flex min-h-[40px] items-center gap-2 rounded-full border border-black/10 bg-white/90 px-4 py-2 text-[12px] font-semibold text-slate-900 shadow-[0_10px_24px_rgba(15,23,42,0.2)] transition hover:-translate-y-0.5 hover:bg-white dark:border-white/10 dark:bg-slate-900/80 dark:text-white dark:hover:bg-slate-900"
+        >
+          <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.6}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M15 6l-6 6 6 6" />
+          </svg>
+          ← Go back
         </Link>
       </header>
 

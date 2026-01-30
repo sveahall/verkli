@@ -367,7 +367,7 @@ function LandingPage() {
           <div className="mt-6 text-[13px] text-slate-500 dark:text-white/50">
             Looking for the reader experience?<br />
             <Link href="/reader" className="font-semibold text-slate-700 hover:text-slate-900 dark:text-white/80 dark:hover:text-white">
-              Go to reader page
+              Go to reader page →
             </Link>
             .
           </div>

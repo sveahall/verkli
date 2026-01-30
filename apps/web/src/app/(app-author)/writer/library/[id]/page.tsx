@@ -8,21 +8,6 @@ import { getShelf, updateShelf, createSection, updateSection, deleteSection, add
 import type { ShelfWithDetails } from "@/lib/supabase/shelves-client";
 import SectionBlock from "@/components/library/SectionBlock";
 import BookCard from "@/components/library/BookCard";
-import GlassSurface from "@/components/GlassSurface";
-
-const glassBaseProps = {
-  displace: 0.5,
-  distortionScale: -180,
-  redOffset: 0,
-  greenOffset: 10,
-  blueOffset: 20,
-  brightness: 50,
-  opacity: 0.93,
-  backgroundOpacity: 0.12,
-  blur: 12,
-  saturation: 1.2,
-  mixBlendMode: "screen",
-};
 
 export default function ShelfDetailPage() {
   const params = useParams();
@@ -306,32 +291,22 @@ export default function ShelfDetailPage() {
 
   return (
     <main className="min-h-screen bg-background text-foreground transition-colors duration-300">
-      {/* Header */}
-      <header className="sticky top-6 z-50 mx-auto w-full max-w-[1660px] px-6">
-        <div className="flex items-center gap-3">
-          <GlassSurface {...glassBaseProps} width="100%" height="75px" borderRadius={300} className="flex-1 border border-black/10 dark:border-white/10 px-6 py-4 md:px-10 [&_.glass-surface__content]:w-full [&_.glass-surface__content]:justify-between [&_.glass-surface__content]:p-0">
-            <nav className="flex w-full items-center justify-between gap-6">
-              <div className="flex items-center gap-10">
-                <Link href="/writer/home">
-                  <img src="/logo-dark.svg" alt="Verkli" className="h-8 w-auto dark:hidden" />
-                  <img src="/favicon.svg" alt="Verkli" className="hidden h-8 w-auto dark:block" />
-                </Link>
-                <Link href="/writer/home" className="text-[17px] font-normal text-slate-900 dark:text-white transition-colors hover:text-slate-600 dark:hover:text-white/70">
-                  Back to Library
-                </Link>
-              </div>
-              <button
-                onClick={() => setShowEditPanel(true)}
-                className="rounded-full border border-black/10 dark:border-white/10 bg-black/[0.02] dark:bg-white/[0.03] px-5 py-2 text-[13px] font-medium text-slate-700 dark:text-white/70 transition-all hover:bg-black/10 dark:hover:bg-white/[0.06]"
-              >
-                Edit shelf
-              </button>
-            </nav>
-          </GlassSurface>
+      {/* Kontextrad – ingen dubbel navbar, global nav finns redan i layout */}
+      <div className="mx-auto max-w-[1400px] px-6 pt-4 pb-2">
+        <div className="flex items-center justify-between gap-4">
+          <Link href="/writer/home" className="text-[15px] font-medium text-slate-600 dark:text-white/60 transition-colors hover:text-slate-900 dark:hover:text-white">
+            ← Back to Library
+          </Link>
+          <button
+            onClick={() => setShowEditPanel(true)}
+            className="rounded-full border border-black/10 dark:border-white/10 bg-black/[0.02] dark:bg-white/[0.03] px-4 py-2 text-[13px] font-medium text-slate-700 dark:text-white/70 transition-all hover:bg-black/10 dark:hover:bg-white/[0.06]"
+          >
+            Edit shelf
+          </button>
         </div>
-      </header>
+      </div>
 
-      <div className="mx-auto max-w-[1400px] px-6 py-12">
+      <div className="mx-auto max-w-[1400px] px-6 py-6">
         {/* Shelf Header */}
         <div className="mb-12 h-[400px] overflow-hidden rounded-3xl" style={coverStyle}>
           <div className="flex h-full flex-col justify-end bg-gradient-to-t from-black/80 via-black/40 to-transparent p-10">
