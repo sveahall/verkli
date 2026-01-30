@@ -30,9 +30,8 @@ export default function ReaderSignIn() {
   const [loading, setLoading] = useState(false);
   const [mousePos, setMousePos] = useState({ x: 0.5, y: 0.5 });
   const mainRef = useRef<HTMLElement>(null);
-  const showRouteTag = process.env.NODE_ENV !== "production";
 
-  const handleMouseMove = (e: React.MouseEvent<HTMLElement>) => {
+  const handleMouseMove: (e: React.MouseEvent<HTMLElement>) => void = (e) => {
     if (!mainRef.current) return;
     const rect = mainRef.current.getBoundingClientRect();
     const x = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
@@ -106,12 +105,12 @@ export default function ReaderSignIn() {
         </Link>
         <Link
           href="/reader"
-          className="inline-flex min-h-[40px] items-center gap-2 rounded-full border border-black/10 bg-white/90 px-4 py-2 text-[12px] font-semibold text-slate-900 shadow-[0_10px_24px_rgba(15,23,42,0.2)] transition hover:-translate-y-0.5 hover:bg-white dark:border-white/10 dark:bg-slate-900/80 dark:text-white dark:hover:bg-slate-900"
+          className="btn-secondary text-[13px] gap-2 px-4 py-2.5"
         >
-          <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.6}>
+          <svg className="h-4 w-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.6}>
             <path strokeLinecap="round" strokeLinejoin="round" d="M15 6l-6 6 6 6" />
           </svg>
-          ← Go back
+          Back to Verkli
         </Link>
       </header>
 
@@ -120,13 +119,13 @@ export default function ReaderSignIn() {
         <ThemeToggle glassProps={glassBaseProps} />
       </div>
 
-      {/* Sign in card */}
+      {/* Sign in card – solid i light, glass i dark */}
       <GlassSurface
         {...glassBaseProps}
         width="480px"
         height="auto"
         borderRadius={40}
-        className="glass-card relative z-10"
+        className="glass-card card-auth relative z-10 mx-4 w-full max-w-[480px] sm:mx-6 md:rounded-[32px]"
       >
         <div className="flex w-full flex-col items-center px-12 py-14 text-center">
           <p className="text-base font-medium tracking-wide text-slate-600 dark:text-white/50">
@@ -140,12 +139,12 @@ export default function ReaderSignIn() {
           </h1>
 
           {error && (
-            <div className="mt-4 w-full rounded-lg bg-red-500/10 px-4 py-3 text-sm text-red-400">
+            <div className="mt-4 w-full rounded-xl border border-red-200 bg-red-50/80 px-4 py-3 text-sm text-red-700 dark:border-red-900/40 dark:bg-red-950/40 dark:text-red-300">
               {error}
             </div>
           )}
 
-          <form onSubmit={handleSubmit} className="mt-8 flex w-full flex-col gap-4">
+          <form onSubmit={handleSubmit} className="mt-8 flex w-full flex-col gap-5">
             <div className="flex flex-col gap-2 text-left">
               <label htmlFor="email" className="text-sm font-medium text-slate-700 dark:text-white/60">
                 Email
@@ -157,7 +156,7 @@ export default function ReaderSignIn() {
                 onChange={(e) => setEmail(e.target.value)}
                 placeholder="you@example.com"
                 required
-                className="w-full rounded-xl border border-black/10 bg-black/[0.02] px-4 py-3 text-slate-900 placeholder:text-slate-400 focus:border-purple-500/50 focus:outline-none focus:ring-1 focus:ring-purple-500/50 dark:border-white/10 dark:bg-white/5 dark:text-white dark:placeholder:text-white/30"
+                className="input-base"
               />
             </div>
 
@@ -172,7 +171,7 @@ export default function ReaderSignIn() {
                 onChange={(e) => setPassword(e.target.value)}
                 placeholder="••••••••"
                 required
-                className="w-full rounded-xl border border-black/10 bg-black/[0.02] px-4 py-3 text-slate-900 placeholder:text-slate-400 focus:border-purple-500/50 focus:outline-none focus:ring-1 focus:ring-purple-500/50 dark:border-white/10 dark:bg-white/5 dark:text-white dark:placeholder:text-white/30"
+                className="input-base"
               />
             </div>
 
@@ -185,22 +184,13 @@ export default function ReaderSignIn() {
               </Link>
             </div>
 
-            <GlassSurface
-              {...glassBaseProps}
-              width="100%"
-              height="auto"
-              borderRadius={999}
-              backgroundOpacity={0.25}
-              className="mt-2 w-full border border-black/10 transition-transform hover:scale-[1.02] dark:border-white/10"
+            <button
+              type="submit"
+              disabled={loading}
+              className="btn-primary mt-2 w-full"
             >
-              <button
-                type="submit"
-                disabled={loading}
-                className="w-full px-8 py-4 text-[15px] font-medium text-slate-900 disabled:opacity-50 dark:text-white/90"
-              >
-                {loading ? "Signing in..." : "Sign in"}
-              </button>
-            </GlassSurface>
+              {loading ? "Signing in..." : "Sign in"}
+            </button>
           </form>
 
           <div className="mt-6 flex w-full items-center gap-4">
@@ -210,8 +200,9 @@ export default function ReaderSignIn() {
           </div>
 
           <button
+            type="button"
             onClick={handleGoogleSignIn}
-            className="mt-6 flex w-full items-center justify-center gap-3 rounded-full border border-black/10 bg-black/[0.02] px-8 py-4 text-[15px] font-medium text-slate-900 transition hover:bg-black/10 dark:border-white/10 dark:bg-white/5 dark:text-white/90 dark:hover:bg-white/10"
+            className="btn-secondary mt-6 w-full"
           >
             <svg className="h-5 w-5" viewBox="0 0 24 24">
               <path
@@ -245,11 +236,6 @@ export default function ReaderSignIn() {
           </p>
         </div>
       </GlassSurface>
-      {showRouteTag && (
-        <div className="absolute bottom-4 left-4 text-xs text-slate-500/80 dark:text-white/40">
-          route: /reader/signin
-        </div>
-      )}
     </main>
   );
 }

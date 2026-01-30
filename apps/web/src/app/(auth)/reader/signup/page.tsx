@@ -1,8 +1,8 @@
 "use client";
 
+import { useRouter } from "next/navigation";
 import { useState } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import GlassSurface from "@/components/GlassSurface";
 import { signUp, signInWithGoogle } from "@/lib/supabase/auth";
 
@@ -28,7 +28,6 @@ export default function ReaderSignUp() {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
-  const showRouteTag = process.env.NODE_ENV !== "production";
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -75,7 +74,7 @@ export default function ReaderSignUp() {
           width="480px"
           height="auto"
           borderRadius={40}
-          className="glass-card relative z-10"
+          className="glass-card card-auth relative z-10 mx-4 w-full max-w-[480px] sm:mx-6 md:rounded-[32px]"
         >
           <div className="flex w-full flex-col items-center px-12 py-14 text-center">
             <div className="flex h-16 w-16 items-center justify-center rounded-full bg-green-500/20">
@@ -92,26 +91,11 @@ export default function ReaderSignUp() {
               We&apos;ve sent a confirmation link to <span className="text-slate-700 dark:text-white/70">{email}</span>. Click the link to activate your account.
             </p>
 
-            <Link href="/reader/signin" className="mt-8">
-              <GlassSurface
-                {...glassBaseProps}
-                width="auto"
-                height="auto"
-                borderRadius={999}
-                className="border border-black/10 transition-transform hover:scale-[1.02] dark:border-white/10"
-              >
-                <span className="px-8 py-3 text-[15px] font-medium text-slate-900 dark:text-white/90">
-                  Back to sign in
-                </span>
-              </GlassSurface>
+            <Link href="/reader/signin" className="btn-secondary mt-8">
+              Back to sign in
             </Link>
           </div>
         </GlassSurface>
-        {showRouteTag && (
-          <div className="absolute bottom-4 left-4 text-xs text-slate-500/80 dark:text-white/40">
-            route: /reader/signup
-          </div>
-        )}
       </main>
     );
   }
@@ -121,25 +105,29 @@ export default function ReaderSignUp() {
       className="relative flex min-h-screen flex-col items-center justify-center overflow-hidden text-slate-900 dark:text-white"
       style={{ background: "var(--auth-background)" }}
     >
-      {/* Logo */}
-      <header className="absolute left-8 top-8 z-20">
-        <Link href="/" className="flex items-center gap-3">
-          <img
-            src="/favicon.svg"
-            alt="Verkli"
-            className="h-8 w-auto"
-            loading="eager"
-          />
+      {/* Logo + Back */}
+      <header className="absolute left-6 top-6 z-20 flex items-center gap-3 sm:left-8 sm:top-8">
+        <Link href="/reader" className="flex min-h-[44px] min-w-[44px] items-center" aria-label="Verkli">
+          <img src="/favicon.svg" alt="Verkli" className="h-8 w-auto" loading="eager" />
+        </Link>
+        <Link
+          href="/reader"
+          className="btn-secondary text-[13px] gap-2 px-4 py-2.5"
+        >
+          <svg className="h-4 w-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.6}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M15 6l-6 6 6 6" />
+          </svg>
+          Back to Verkli
         </Link>
       </header>
 
-      {/* Sign up card */}
+      {/* Sign up card – solid i light, glass i dark */}
       <GlassSurface
         {...glassBaseProps}
         width="480px"
         height="auto"
         borderRadius={40}
-        className="glass-card relative z-10"
+        className="glass-card card-auth relative z-10 mx-4 w-full max-w-[480px] sm:mx-6 md:rounded-[32px]"
       >
         <div className="flex w-full flex-col items-center px-12 py-14 text-center">
           <p className="text-base font-medium tracking-wide text-slate-600 dark:text-white/50">
@@ -153,7 +141,7 @@ export default function ReaderSignUp() {
           </h1>
 
           {error && (
-            <div className="mt-4 w-full rounded-lg bg-red-500/10 px-4 py-3 text-sm text-red-400">
+            <div className="mt-4 w-full rounded-xl border border-red-200 bg-red-50/80 px-4 py-3 text-sm text-red-700 dark:border-red-900/40 dark:bg-red-950/40 dark:text-red-300">
               {error}
             </div>
           )}
@@ -170,7 +158,7 @@ export default function ReaderSignUp() {
                 onChange={(e) => setEmail(e.target.value)}
                 placeholder="you@example.com"
                 required
-                className="w-full rounded-xl border border-black/10 bg-black/[0.02] px-4 py-3 text-slate-900 placeholder:text-slate-400 focus:border-purple-500/50 focus:outline-none focus:ring-1 focus:ring-purple-500/50 dark:border-white/10 dark:bg-white/5 dark:text-white dark:placeholder:text-white/30"
+                className="input-base"
               />
             </div>
 
@@ -185,7 +173,7 @@ export default function ReaderSignUp() {
                 onChange={(e) => setPassword(e.target.value)}
                 placeholder="••••••••"
                 required
-                className="w-full rounded-xl border border-black/10 bg-black/[0.02] px-4 py-3 text-slate-900 placeholder:text-slate-400 focus:border-purple-500/50 focus:outline-none focus:ring-1 focus:ring-purple-500/50 dark:border-white/10 dark:bg-white/5 dark:text-white dark:placeholder:text-white/30"
+                className="input-base"
               />
             </div>
 
@@ -200,26 +188,17 @@ export default function ReaderSignUp() {
                 onChange={(e) => setConfirmPassword(e.target.value)}
                 placeholder="••••••••"
                 required
-                className="w-full rounded-xl border border-black/10 bg-black/[0.02] px-4 py-3 text-slate-900 placeholder:text-slate-400 focus:border-purple-500/50 focus:outline-none focus:ring-1 focus:ring-purple-500/50 dark:border-white/10 dark:bg-white/5 dark:text-white dark:placeholder:text-white/30"
+                className="input-base"
               />
             </div>
 
-            <GlassSurface
-              {...glassBaseProps}
-              width="100%"
-              height="auto"
-              borderRadius={999}
-              backgroundOpacity={0.25}
-              className="mt-4 w-full border border-black/10 transition-transform hover:scale-[1.02] dark:border-white/10"
+            <button
+              type="submit"
+              disabled={loading}
+              className="btn-primary mt-4 w-full"
             >
-              <button
-                type="submit"
-                disabled={loading}
-                className="w-full px-8 py-4 text-[15px] font-medium text-slate-900 disabled:opacity-50 dark:text-white/90"
-              >
-                {loading ? "Creating account..." : "Create account"}
-              </button>
-            </GlassSurface>
+              {loading ? "Creating account..." : "Create account"}
+            </button>
           </form>
 
           <div className="mt-6 flex w-full items-center gap-4">
@@ -229,8 +208,9 @@ export default function ReaderSignUp() {
           </div>
 
           <button
+            type="button"
             onClick={handleGoogleSignIn}
-            className="mt-6 flex w-full items-center justify-center gap-3 rounded-full border border-black/10 bg-black/[0.02] px-8 py-4 text-[15px] font-medium text-slate-900 transition hover:bg-black/10 dark:border-white/10 dark:bg-white/5 dark:text-white/90 dark:hover:bg-white/10"
+            className="btn-secondary mt-6 w-full"
           >
             <svg className="h-5 w-5" viewBox="0 0 24 24">
               <path
@@ -264,11 +244,6 @@ export default function ReaderSignUp() {
           </p>
         </div>
       </GlassSurface>
-      {showRouteTag && (
-        <div className="absolute bottom-4 left-4 text-xs text-slate-500/80 dark:text-white/40">
-          route: /reader/signup
-        </div>
-      )}
     </main>
   );
 }

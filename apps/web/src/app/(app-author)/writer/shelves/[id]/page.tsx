@@ -81,38 +81,36 @@ export default async function PublicShelfPage({ params }: { params: { id: string
 
   return (
     <main className="min-h-screen bg-background text-foreground">
-      <div className="mx-auto w-full max-w-[1200px] px-6 pb-20 pt-12">
-        <div className="overflow-hidden rounded-[32px] border border-black/10 bg-black/[0.03] dark:border-white/[0.08] dark:bg-white/[0.03]">
+      <div className="page-content mx-auto w-full max-w-[1200px] pb-20 pt-10 sm:pt-12">
+        <div className="overflow-hidden rounded-2xl border border-slate-200/80 bg-white shadow-[0_6px_20px_rgba(15,23,42,0.06)] dark:border-white/10 dark:bg-white/[0.03] dark:shadow-[0_8px_24px_rgba(0,0,0,0.25)]">
           <div
-            className="h-[260px] w-full bg-cover bg-center"
+            className="h-[240px] sm:h-[280px] w-full bg-cover bg-center"
             style={{ backgroundImage: cover }}
           />
-          <div className="space-y-3 px-8 py-6">
-            <Link href="/writer/profile" className="text-[13px] font-semibold uppercase tracking-[0.3em] text-slate-400 dark:text-white/40">
+          <div className="space-y-3 px-6 py-6 sm:px-8 sm:py-8">
+            <Link href="/writer/profile" className="text-eyebrow text-[11px] inline-block hover:text-slate-600 dark:hover:text-white/60">
               Back to profile
             </Link>
-            <h1 className="text-[28px] font-semibold text-slate-900 dark:text-white">
-              {shelf.name}
-            </h1>
-            <p className="text-[15px] text-slate-600 dark:text-white/50">
+            <h1 className="text-page-title">{shelf.name}</h1>
+            <p className="text-body max-w-2xl">
               {shelf.subtitle || "A curated shelf"}
             </p>
           </div>
         </div>
 
-        <div className="mt-10">
-          <h2 className="text-[20px] font-semibold text-slate-900 dark:text-white">Books in this shelf</h2>
+        <div className="mt-12">
+          <h2 className="text-section-title mb-6">Books in this shelf</h2>
           {books.length === 0 ? (
-            <div className="mt-6 rounded-[24px] border border-dashed border-black/20 bg-black/2 p-10 text-center text-[14px] text-slate-600 dark:border-white/10 dark:bg-white/[0.03] dark:text-white/60">
-              No books have been added yet.
+            <div className="empty-state-base py-10 text-center">
+              <p className="text-helper">No books have been added yet.</p>
             </div>
           ) : (
-            <div className="mt-6 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+            <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
               {books.map((book) => (
                 <Link
                   key={book.id}
                   href={`/writer/books/${book.id}`}
-                  className="group overflow-hidden rounded-[24px] border border-black/10 bg-black/[0.02] transition-all hover:-translate-y-1 hover:border-black/20 dark:border-white/[0.08] dark:bg-white/[0.02]"
+                  className="card-base-subtle group overflow-hidden transition-all hover:-translate-y-0.5 hover:shadow-[0_12px_28px_rgba(15,23,42,0.1)] dark:hover:shadow-[0_12px_28px_rgba(0,0,0,0.35)]"
                 >
                   <div
                     className="h-[200px] w-full bg-cover bg-center transition-transform duration-500 group-hover:scale-105"

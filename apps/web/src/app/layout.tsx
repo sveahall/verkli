@@ -18,6 +18,7 @@ const montserratAlternates = Montserrat_Alternates({
 export const metadata: Metadata = {
   title: "Verkli",
   description: "Verkli — the platform for writers and readers.",
+  icons: { icon: "/favi.svg" },
 };
 
 const themeScript = `

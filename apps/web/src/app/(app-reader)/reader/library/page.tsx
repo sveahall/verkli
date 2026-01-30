@@ -130,16 +130,13 @@ export default function ReaderLibraryPage() {
   const activeBooks = collections[activeTab] ?? [];
 
   return (
-    <div className="space-y-8">
+    <div className="section-gap">
       <PageHeader
         eyebrow="Library"
         title="Your library"
         subtitle="Everything you have started, saved, or finished lives here."
         actions={
-          <Link
-            href="/reader/discover"
-            className="inline-flex min-h-[40px] items-center rounded-full border border-slate-200/80 bg-white/80 px-4 py-2 text-[13px] font-medium text-slate-700 transition hover:border-slate-300 hover:text-slate-900 dark:border-white/10 dark:bg-white/5 dark:text-white/70 dark:hover:text-white"
-          >
+          <Link href="/reader/discover" className="btn-secondary">
             Add new books
           </Link>
         }
@@ -152,16 +149,13 @@ export default function ReaderLibraryPage() {
           title="Nothing here yet"
           description="Save a story to keep it close. Your picks will show up in this tab."
           action={
-            <Link
-              href="/reader/discover"
-              className="inline-flex min-h-[40px] items-center rounded-full bg-slate-900 px-4 py-2 text-[13px] font-semibold text-white transition hover:bg-slate-800 dark:bg-white dark:text-slate-900"
-            >
+            <Link href="/reader/discover" className="btn-primary rounded-full bg-slate-900 px-5 py-2.5 text-[14px] hover:bg-slate-800 dark:bg-white dark:text-slate-900 dark:hover:bg-white/95">
               Browse discovery
             </Link>
           }
         />
       ) : (
-        <div className="grid grid-cols-2 gap-5 sm:grid-cols-3 md:grid-cols-4">
+        <div className="grid grid-cols-2 gap-6 sm:grid-cols-3 md:grid-cols-4">
           {activeBooks.map((book) => (
             <BookCard
               key={book.id}

@@ -80,29 +80,26 @@ const topAuthors = [
 
 export default function ReaderDiscoverPage() {
   return (
-    <div className="space-y-10">
+    <div className="section-gap-lg">
       <PageHeader
         eyebrow="Discover"
         title="Find your next obsession"
         subtitle="Browse by mood, follow new voices, and jump into curated collections."
         actions={
-          <Link
-            href="/reader/community"
-            className="inline-flex min-h-[40px] items-center rounded-full border border-slate-200/80 bg-white/80 px-4 py-2 text-[13px] font-medium text-slate-700 transition hover:border-slate-300 hover:text-slate-900 dark:border-white/10 dark:bg-white/5 dark:text-white/70 dark:hover:text-white"
-          >
+          <Link href="/reader/community" className="btn-secondary">
             See community picks
           </Link>
         }
       />
 
-      <section className="space-y-4">
-        <h2 className="text-[18px] font-semibold text-slate-900 dark:text-white">Browse genres</h2>
-        <div className="flex flex-wrap gap-2">
+      <section className="space-y-5">
+        <h2 className="text-section-title">Browse genres</h2>
+        <div className="flex flex-wrap gap-2.5">
           {genres.map((genre) => (
             <button
               key={genre}
               type="button"
-              className="rounded-full border border-slate-200/80 bg-white/80 px-4 py-2 text-[12px] font-medium text-slate-600 transition hover:border-slate-300 hover:text-slate-900 dark:border-white/10 dark:bg-white/5 dark:text-white/70 dark:hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#907AFF]/40 focus-visible:ring-offset-2 focus-visible:ring-offset-white dark:focus-visible:ring-offset-[#0b0b12]"
+              className="btn-ghost rounded-full border border-slate-200/80 bg-white/80 px-4 py-2 text-[13px] dark:border-white/10 dark:bg-white/5"
             >
               {genre}
             </button>
@@ -110,24 +107,19 @@ export default function ReaderDiscoverPage() {
         </div>
       </section>
 
-      <section className="grid gap-4 md:grid-cols-2">
+      <section className="grid gap-6 md:grid-cols-2">
         {featuredBanners.map((banner, index) => (
           <div
             key={banner.id}
-            className={`relative overflow-hidden rounded-3xl border border-slate-200/70 bg-white/80 p-6 shadow-[0_16px_30px_rgba(15,23,42,0.08)] dark:border-white/10 dark:bg-white/5 ${
-              index === 0 ? "bg-gradient-to-br from-white via-slate-50 to-slate-100 dark:from-white/10 dark:via-white/5 dark:to-white/10" : "bg-gradient-to-br from-amber-50 via-white to-white dark:from-white/10 dark:via-white/5 dark:to-white/10"
+            className={`card-base relative overflow-hidden p-6 sm:p-8 ${
+              index === 0 ? "bg-gradient-to-br from-white via-slate-50 to-slate-100 dark:from-white/[0.06] dark:via-white/[0.04] dark:to-white/[0.02]" : "bg-gradient-to-br from-amber-50/80 via-white to-white dark:from-amber-950/20 dark:via-white/[0.04] dark:to-white/[0.02]"
             }`}
           >
-            <div className="space-y-3">
-              <span className="text-[11px] font-semibold uppercase tracking-wide text-slate-500 dark:text-white/50">
-                Featured collection
-              </span>
-              <h3 className="text-[22px] font-semibold text-slate-900 dark:text-white">{banner.title}</h3>
-              <p className="text-[14px] text-slate-600 dark:text-white/65">{banner.description}</p>
-              <Link
-                href="/reader/discover"
-                className="inline-flex min-h-[40px] items-center rounded-full bg-slate-900 px-4 py-2 text-[13px] font-semibold text-white transition hover:bg-slate-800 dark:bg-white dark:text-slate-900"
-              >
+            <div className="relative z-10 space-y-4">
+              <span className="text-eyebrow text-[11px]">Featured collection</span>
+              <h3 className="text-section-title">{banner.title}</h3>
+              <p className="text-body text-[14px]">{banner.description}</p>
+              <Link href="/reader/discover" className="btn-primary inline-flex rounded-full bg-slate-900 px-5 py-2.5 text-[14px] hover:bg-slate-800 dark:bg-white dark:text-slate-900 dark:hover:bg-white/95">
                 Explore
               </Link>
             </div>
@@ -140,10 +132,7 @@ export default function ReaderDiscoverPage() {
         title="Editorial picks"
         subtitle="Hand-picked by the Verkli team"
         action={
-          <Link
-            href="/reader/discover"
-            className="text-[12px] font-medium text-slate-500 hover:text-slate-700 dark:text-white/50 dark:hover:text-white"
-          >
+          <Link href="/reader/discover" className="btn-ghost text-[13px] py-1.5">
             Refresh
           </Link>
         }
@@ -161,9 +150,9 @@ export default function ReaderDiscoverPage() {
         ))}
       </Rail>
 
-      <section className="space-y-4">
-        <h2 className="text-[18px] font-semibold text-slate-900 dark:text-white">Top authors</h2>
-        <div className="grid gap-4 md:grid-cols-2">
+      <section className="space-y-5">
+        <h2 className="text-section-title">Top authors</h2>
+        <div className="grid gap-6 md:grid-cols-2">
           {topAuthors.map((author) => (
             <AuthorCard
               key={author.name}

@@ -4,7 +4,6 @@ import { useEffect, useState, useRef } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import GlassCard, { glassCardProps } from "@/components/GlassCard";
-import GlassSurface from "@/components/GlassSurface";
 import LightRays from "@/components/LightRays";
 import ThemeToggle from "@/components/ThemeToggle";
 import { createClient } from "@/lib/supabase/client";
@@ -111,21 +110,11 @@ export default function RoleSelection() {
         />
       </div>
 
-      {/* Logo – samma som writer sign in så layout är identisk */}
-      <header className="absolute left-8 top-8 z-30">
-        <Link href="/" className="flex items-center gap-3">
-          <img
-            src="/logo-dark.svg"
-            alt="Verkli"
-            className="h-8 w-auto dark:hidden"
-            loading="eager"
-          />
-          <img
-            src="/favicon.svg"
-            alt="Verkli"
-            className="hidden h-8 w-auto dark:block"
-            loading="eager"
-          />
+      {/* Logo + Back */}
+      <header className="absolute left-6 top-6 z-30 flex items-center gap-3 sm:left-8 sm:top-8">
+        <Link href="/" className="flex min-h-[44px] min-w-[44px] items-center" aria-label="Verkli">
+          <img src="/logo-dark.svg" alt="Verkli" className="h-8 w-auto dark:hidden" loading="eager" />
+          <img src="/favicon.svg" alt="Verkli" className="hidden h-8 w-auto dark:block" loading="eager" />
         </Link>
       </header>
 
@@ -134,8 +123,8 @@ export default function RoleSelection() {
         <ThemeToggle glassProps={glassCardProps} />
       </div>
 
-      {/* Samma glass-kort som signin/signup – en källa (GlassCard) */}
-      <GlassCard>
+      {/* Samma kort som signin/signup – solid i light, glass i dark */}
+      <GlassCard className="card-auth">
         <div className="flex w-full flex-col items-center px-6 py-10 text-center sm:px-10 sm:py-12 md:px-12 md:py-14">
           <p className="text-sm font-medium tracking-wide text-slate-600 dark:text-white/50 sm:text-base">
             Welcome to verkli
@@ -154,21 +143,13 @@ export default function RoleSelection() {
           </p>
 
           <div className="mt-8 flex w-full flex-col items-center gap-4 sm:mt-10">
-            <GlassSurface
-              {...glassCardProps}
-              width="100%"
-              height="auto"
-              borderRadius={999}
-              className="glass-button w-full"
+            <button
+              type="button"
+              onClick={() => setRoleAndGo("writer")}
+              className="btn-primary w-full"
             >
-              <button
-                type="button"
-                onClick={() => setRoleAndGo("writer")}
-                className="w-full min-h-[44px] px-8 py-4 text-[15px] font-medium text-slate-900 dark:text-white/90 focus:outline-none focus:ring-2 focus:ring-[#907AFF]/50 focus:ring-offset-2 focus:ring-offset-transparent rounded-full"
-              >
-                I am a writer
-              </button>
-            </GlassSurface>
+              I am a writer
+            </button>
 
             <div className="flex w-full items-center gap-4">
               <div className="h-px flex-1 bg-black/10 dark:bg-white/10" />
@@ -179,7 +160,7 @@ export default function RoleSelection() {
             <button
               type="button"
               onClick={() => setRoleAndGo("reader")}
-              className="flex w-full min-h-[44px] items-center justify-center gap-3 rounded-full border border-black/10 dark:border-white/10 bg-black/[0.02] dark:bg-white/5 px-8 py-4 text-[15px] font-medium text-slate-900 dark:text-white/90 transition hover:bg-black/10 dark:hover:bg-white/10 focus:outline-none focus:ring-2 focus:ring-[#907AFF]/50 focus:ring-offset-2 focus:ring-offset-transparent"
+              className="btn-secondary w-full"
             >
               I am a reader
             </button>

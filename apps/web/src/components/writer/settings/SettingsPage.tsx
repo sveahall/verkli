@@ -55,7 +55,7 @@ function SaveButton({ label }: { label: string }) {
 function InlineFeedback({ state }: { state: ActionState }) {
   if (!state.message) return null;
   return (
-    <p className={`text-[13px] ${state.ok ? "text-emerald-600" : "text-red-600"}`}>
+    <p className={`text-helper ${state.ok ? "text-emerald-600 dark:text-emerald-400" : "text-red-600 dark:text-red-400"}`}>
       {state.message}
     </p>
   );
@@ -103,19 +103,19 @@ export default function SettingsPage({ user, profile }: SettingsPageProps) {
   };
 
   return (
-    <main className="min-h-screen min-h-dvh bg-background text-foreground mt-25">
-      <div className="mx-auto w-full max-w-[1200px] space-y-8 px-4 pb-24 pt-6 sm:space-y-10 sm:px-6 sm:pt-10">
-        <header>
-          <h1 className="text-[28px] font-semibold text-slate-900 dark:text-white">Writer settings</h1>
-          <p className="mt-2 text-[15px] text-slate-600 dark:text-white/50">
+    <main className="min-h-screen min-h-dvh bg-background text-foreground">
+      <div className="page-content mx-auto max-w-[1200px] section-gap pb-24 pt-8 sm:pt-10">
+        <header className="space-y-2">
+          <h1 className="text-page-title">Writer settings</h1>
+          <p className="text-body max-w-2xl">
             Manage your public profile, defaults, and security preferences.
           </p>
         </header>
 
-        <section className="rounded-2xl border border-black/10 p-5 dark:border-white/[0.08] dark:bg-white/[0.02] sm:rounded-[28px] sm:p-8">
+        <section className="card-base p-6 sm:p-8">
           <div className="flex flex-wrap items-center justify-between gap-4">
             <div>
-              <h2 className="text-[18px] font-semibold text-slate-900 dark:text-white">Account</h2>
+              <h2 className="text-section-title">Account</h2>
               <p className="text-[14px] text-slate-600 dark:text-white/50">Update your display name and username.</p>
             </div>
           </div>
@@ -153,9 +153,9 @@ export default function SettingsPage({ user, profile }: SettingsPageProps) {
           </form>
         </section>
 
-        <section className="rounded-2xl border border-black/10 p-5 dark:border-white/[0.08] dark:bg-white/[0.02] sm:rounded-[28px] sm:p-8">
+        <section className="card-base p-6 sm:p-8">
           <div>
-            <h2 className="text-[18px] font-semibold text-slate-900 dark:text-white">Profile</h2>
+            <h2 className="text-section-title">Profile</h2>
             <p className="text-[14px] text-slate-600 dark:text-white/50">Public details visible on your author page.</p>
           </div>
           <form action={profileAction} className="mt-6 grid gap-6 md:grid-cols-[1.2fr_1fr]">
@@ -227,9 +227,9 @@ export default function SettingsPage({ user, profile }: SettingsPageProps) {
           </form>
         </section>
 
-        <section className="rounded-2xl border border-black/10 p-5 dark:border-white/[0.08] dark:bg-white/[0.02] sm:rounded-[28px] sm:p-8">
+        <section className="card-base p-6 sm:p-8">
           <div>
-            <h2 className="text-[18px] font-semibold text-slate-900 dark:text-white">Writer preferences</h2>
+            <h2 className="text-section-title">Writer preferences</h2>
             <p className="text-[14px] text-slate-600 dark:text-white/50">Defaults used when you create new shelves.</p>
           </div>
           <form action={prefsAction} className="mt-6 grid gap-6">
@@ -341,9 +341,9 @@ export default function SettingsPage({ user, profile }: SettingsPageProps) {
           </form>
         </section>
 
-        <section className="rounded-2xl border border-black/10 p-5 dark:border-white/[0.08] dark:bg-white/[0.02] sm:rounded-[28px] sm:p-8">
+        <section className="card-base p-6 sm:p-8">
           <div>
-            <h2 className="text-[18px] font-semibold text-slate-900 dark:text-white">Role</h2>
+            <h2 className="text-section-title">Role</h2>
             <p className="text-[14px] text-slate-600 dark:text-white/50">You are currently signed in as a writer.</p>
           </div>
           <div className="mt-6 flex flex-wrap items-center justify-between gap-4">
@@ -360,9 +360,9 @@ export default function SettingsPage({ user, profile }: SettingsPageProps) {
           </div>
         </section>
 
-        <section className="rounded-2xl border border-black/10 p-5 dark:border-white/[0.08] dark:bg-white/[0.02] sm:rounded-[28px] sm:p-8">
+        <section className="card-base p-6 sm:p-8">
           <div>
-            <h2 className="text-[18px] font-semibold text-slate-900 dark:text-white">Security</h2>
+            <h2 className="text-section-title">Security</h2>
             <p className="text-[14px] text-slate-600 dark:text-white/50">Change your password or sign out everywhere.</p>
           </div>
           <form action={passwordAction} className="mt-6 grid gap-4 md:grid-cols-2">

@@ -2,7 +2,6 @@
 
 import { useState, useRef } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import GlassCard, { glassCardProps } from "@/components/GlassCard";
 import GlassSurface from "@/components/GlassSurface";
 import LightRays from "@/components/LightRays";
@@ -10,7 +9,6 @@ import ThemeToggle from "@/components/ThemeToggle";
 import { signUp, signInWithGoogle } from "@/lib/supabase/auth";
 
 export default function WriterSignUp() {
-  const router = useRouter();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
@@ -19,7 +17,6 @@ export default function WriterSignUp() {
   const [success, setSuccess] = useState(false);
   const [mousePos, setMousePos] = useState({ x: 0.5, y: 0.5 });
   const mainRef = useRef<HTMLElement>(null);
-  const showRouteTag = process.env.NODE_ENV !== "production";
 
   const handleMouseMove = (e: React.MouseEvent<HTMLElement>) => {
     if (!mainRef.current) return;
@@ -109,26 +106,11 @@ export default function WriterSignUp() {
               We&apos;ve sent a confirmation link to <span className="text-slate-700 dark:text-white/70">{email}</span>. Click the link to activate your account.
             </p>
 
-            <Link href="/writer/signin" className="mt-8">
-              <GlassSurface
-                {...glassCardProps}
-                width="auto"
-                height="auto"
-                borderRadius={999}
-                className="border border-black/10 transition-transform hover:scale-[1.02] dark:border-white/10"
-              >
-                <span className="px-8 py-3 text-[15px] font-medium text-slate-900 dark:text-white/90">
-                  Back to sign in
-                </span>
-              </GlassSurface>
+            <Link href="/writer/signin" className="btn-secondary mt-8">
+              Back to sign in
             </Link>
           </div>
         </GlassSurface>
-        {showRouteTag && (
-          <div className="absolute bottom-4 left-4 z-30 text-xs text-slate-500/80 dark:text-white/40">
-            route: /writer/signup
-          </div>
-        )}
       </main>
     );
   }
@@ -159,11 +141,20 @@ export default function WriterSignUp() {
         <LightRays raysOrigin="top-center" raysColor="#907aff" raysSpeed={1.5} lightSpread={0.8} rayLength={3} followMouse={true} mouseInfluence={0.6} noiseAmount={0} distortion={0} pulsating={false} fadeDistance={0.9} saturation={2} />
       </div>
 
-      {/* Logo */}
-      <header className="absolute left-8 top-8 z-30">
-        <Link href="/" className="flex items-center gap-3">
+      {/* Logo + Back */}
+      <header className="absolute left-6 top-6 z-30 flex items-center gap-3 sm:left-8 sm:top-8">
+        <Link href="/writer" className="flex min-h-[44px] min-w-[44px] items-center" aria-label="Verkli">
           <img src="/logo-dark.svg" alt="Verkli" className="h-8 w-auto dark:hidden" loading="eager" />
           <img src="/favicon.svg" alt="Verkli" className="hidden h-8 w-auto dark:block" loading="eager" />
+        </Link>
+        <Link
+          href="/writer"
+          className="btn-secondary text-[13px] gap-2 px-4 py-2.5"
+        >
+          <svg className="h-4 w-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.6}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M15 6l-6 6 6 6" />
+          </svg>
+          Back to Verkli
         </Link>
       </header>
 
@@ -172,8 +163,8 @@ export default function WriterSignUp() {
         <ThemeToggle glassProps={glassCardProps} />
       </div>
 
-      {/* Sign up card */}
-      <GlassCard>
+      {/* Sign up card – solid i light, glass i dark */}
+      <GlassCard className="card-auth">
         <div className="flex w-full flex-col items-center px-6 py-10 text-center sm:px-10 sm:py-12 md:px-12 md:py-14">
           <p className="text-sm font-medium tracking-wide text-slate-600 dark:text-white/50 sm:text-base">
             Start your journey
@@ -186,12 +177,12 @@ export default function WriterSignUp() {
           </h1>
 
           {error && (
-            <div className="mt-4 w-full rounded-lg bg-red-500/10 px-4 py-3 text-sm text-red-400">
+            <div className="mt-4 w-full rounded-xl border border-red-200 bg-red-50/80 px-4 py-3 text-sm text-red-700 dark:border-red-900/40 dark:bg-red-950/40 dark:text-red-300">
               {error}
             </div>
           )}
 
-          <form onSubmit={handleSubmit} className="mt-8 flex w-full flex-col gap-4">
+          <form onSubmit={handleSubmit} className="mt-8 flex w-full flex-col gap-5">
             <div className="flex flex-col gap-2 text-left">
               <label htmlFor="email" className="text-sm font-medium text-slate-700 dark:text-white/60">
                 Email
@@ -203,7 +194,7 @@ export default function WriterSignUp() {
                 onChange={(e) => setEmail(e.target.value)}
                 placeholder="you@example.com"
                 required
-                className="min-h-[44px] w-full rounded-xl border border-black/10 bg-black/[0.02] px-4 py-3 text-slate-900 placeholder:text-slate-400 focus:border-[#907AFF]/50 focus:outline-none focus:ring-2 focus:ring-[#907AFF]/30 focus:ring-offset-0 dark:border-white/10 dark:bg-white/[0.05] dark:text-white dark:placeholder:text-white/30"
+                className="input-base"
               />
             </div>
 
@@ -218,7 +209,7 @@ export default function WriterSignUp() {
                 onChange={(e) => setPassword(e.target.value)}
                 placeholder="••••••••"
                 required
-                className="min-h-[44px] w-full rounded-xl border border-black/10 bg-black/[0.02] px-4 py-3 text-slate-900 placeholder:text-slate-400 focus:border-[#907AFF]/50 focus:outline-none focus:ring-2 focus:ring-[#907AFF]/30 focus:ring-offset-0 dark:border-white/10 dark:bg-white/[0.05] dark:text-white dark:placeholder:text-white/30"
+                className="input-base"
               />
             </div>
 
@@ -233,26 +224,17 @@ export default function WriterSignUp() {
                 onChange={(e) => setConfirmPassword(e.target.value)}
                 placeholder="••••••••"
                 required
-                className="min-h-[44px] w-full rounded-xl border border-black/10 bg-black/[0.02] px-4 py-3 text-slate-900 placeholder:text-slate-400 focus:border-[#907AFF]/50 focus:outline-none focus:ring-2 focus:ring-[#907AFF]/30 focus:ring-offset-0 dark:border-white/10 dark:bg-white/[0.05] dark:text-white dark:placeholder:text-white/30"
+                className="input-base"
               />
             </div>
 
-            <GlassSurface
-              {...glassCardProps}
-              width="100%"
-              height="auto"
-              borderRadius={999}
-              backgroundOpacity={0.25}
-              className="mt-4 w-full border border-black/10 transition-transform hover:scale-[1.02] dark:border-white/10"
+            <button
+              type="submit"
+              disabled={loading}
+              className="btn-primary mt-4 w-full"
             >
-              <button
-                type="submit"
-                disabled={loading}
-                className="w-full px-8 py-4 text-[15px] font-medium text-slate-900 disabled:opacity-50 dark:text-white/90"
-              >
-                {loading ? "Creating account..." : "Create account"}
-              </button>
-            </GlassSurface>
+              {loading ? "Creating account..." : "Create account"}
+            </button>
           </form>
 
           <div className="mt-6 flex w-full items-center gap-4">
@@ -262,8 +244,9 @@ export default function WriterSignUp() {
           </div>
 
           <button
+            type="button"
             onClick={handleGoogleSignIn}
-            className="mt-6 flex w-full items-center justify-center gap-3 rounded-full border border-black/10 bg-black/[0.02] px-8 py-4 text-[15px] font-medium text-slate-900 transition hover:bg-black/10 dark:border-white/10 dark:bg-white/5 dark:text-white/90 dark:hover:bg-white/10"
+            className="btn-secondary mt-6 w-full"
           >
             <svg className="h-5 w-5" viewBox="0 0 24 24">
               <path
@@ -297,11 +280,6 @@ export default function WriterSignUp() {
           </p>
         </div>
       </GlassCard>
-      {showRouteTag && (
-        <div className="absolute bottom-4 left-4 z-30 text-xs text-slate-500/80 dark:text-white/40">
-          route: /writer/signup
-        </div>
-      )}
     </main>
   );
 }
