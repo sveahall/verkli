@@ -111,7 +111,7 @@ export default async function PublicShelfPage({ params }: { params: { id: string
               {books.map((book) => (
                 <Link
                   key={book.id}
-                  href={`/writer/library/${book.id}`}
+                  href={`/writer/books/${book.id}`}
                   className="group overflow-hidden rounded-[24px] border border-black/10 bg-black/[0.02] transition-all hover:-translate-y-1 hover:border-black/20 dark:border-white/[0.08] dark:bg-white/[0.02]"
                 >
                   <div

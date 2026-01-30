@@ -24,6 +24,7 @@ export default function ReaderForgotPassword() {
   const [error, setError] = useState("");
   const [success, setSuccess] = useState(false);
   const [loading, setLoading] = useState(false);
+  const showRouteTag = process.env.NODE_ENV !== "production";
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -121,6 +122,11 @@ export default function ReaderForgotPassword() {
           </p>
         </div>
       </GlassSurface>
+      {showRouteTag && (
+        <div className="absolute bottom-4 left-4 text-xs text-slate-500/80 dark:text-white/40">
+          route: /reader/forgot-password
+        </div>
+      )}
     </main>
   );
 }

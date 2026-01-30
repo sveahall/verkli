@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import GlassSurface from "@/components/GlassSurface";
 import ThemeToggle from "@/components/ThemeToggle";
 import { signIn, signInWithGoogle } from "@/lib/supabase/auth";
+import { createClient } from "@/lib/supabase/client";
 
 const glassBaseProps = {
   displace: 0.5,
@@ -25,10 +26,12 @@ export default function SignIn() {
   const router = useRouter();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [role, setRole] = useState<"writer" | "reader">("writer");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const [mousePos, setMousePos] = useState({ x: 0.5, y: 0.5 });
   const mainRef = useRef<HTMLElement>(null);
+  const showRouteTag = process.env.NODE_ENV !== "production";
 
   const handleMouseMove = (e: React.MouseEvent<HTMLElement>) => {
     if (!mainRef.current) return;
@@ -49,7 +52,31 @@ export default function SignIn() {
       setError(error.message);
       setLoading(false);
     } else {
-      router.push("/");
+      const supabase = createClient();
+      const { data: { user } } = await supabase.auth.getUser();
+      let nextRole: "writer" | "reader" | null = null;
+      const metaRole = user?.user_metadata?.active_role ?? user?.user_metadata?.role;
+      if (metaRole === "writer" || metaRole === "reader") {
+        nextRole = metaRole;
+      }
+
+      if (!nextRole && user?.id) {
+        const { data: profile } = await supabase
+          .from("profiles")
+          .select("role, preferences")
+          .eq("user_id", user.id)
+          .maybeSingle();
+
+        const preferenceRole = (profile?.preferences as { active_role?: string } | null)?.active_role;
+        if (preferenceRole === "writer" || preferenceRole === "reader") {
+          nextRole = preferenceRole;
+        } else if (profile?.role === "writer" || profile?.role === "reader") {
+          nextRole = profile.role;
+        }
+      }
+
+      const resolvedRole = nextRole ?? role;
+      router.push(resolvedRole === "reader" ? "/reader/home" : "/writer/home");
     }
   };
 
@@ -136,6 +163,36 @@ export default function SignIn() {
           )}
 
           <form onSubmit={handleSubmit} className="mt-8 flex w-full flex-col gap-4">
+            <div className="flex flex-col gap-2 text-left">
+              <label className="text-sm font-medium text-slate-700 dark:text-white/60">
+                I am a
+              </label>
+              <div className="flex gap-3">
+                <button
+                  type="button"
+                  onClick={() => setRole("writer")}
+                  className={`flex-1 rounded-xl border px-4 py-3 text-sm font-medium transition ${
+                    role === "writer"
+                      ? "border-purple-500/50 bg-purple-500/20 text-slate-900 dark:text-white"
+                      : "border-black/10 bg-black/[0.02] text-slate-600 hover:bg-black/10 dark:border-white/10 dark:bg-white/5 dark:text-white/60 dark:hover:bg-white/10"
+                  }`}
+                >
+                  Writer
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setRole("reader")}
+                  className={`flex-1 rounded-xl border px-4 py-3 text-sm font-medium transition ${
+                    role === "reader"
+                      ? "border-purple-500/50 bg-purple-500/20 text-slate-900 dark:text-white"
+                      : "border-black/10 bg-black/[0.02] text-slate-600 hover:bg-black/10 dark:border-white/10 dark:bg-white/5 dark:text-white/60 dark:hover:bg-white/10"
+                  }`}
+                >
+                  Reader
+                </button>
+              </div>
+            </div>
+
             <div className="flex flex-col gap-2 text-left">
               <label htmlFor="email" className="text-sm font-medium text-slate-700 dark:text-white/60">
                 Email
@@ -235,6 +292,11 @@ export default function SignIn() {
           </p>
         </div>
       </GlassSurface>
+      {showRouteTag && (
+        <div className="absolute bottom-4 left-4 text-xs text-slate-500/80 dark:text-white/40">
+          route: /signin
+        </div>
+      )}
     </main>
   );
 }

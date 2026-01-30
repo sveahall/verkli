@@ -111,17 +111,6 @@ export const NAV_CONFIG: Record<NavVariant, NavConfig> = {
         ],
       },
       { label: "Community", href: "/writer/community" },
-      {
-        label: "Settings",
-        href: "/writer/settings",
-        hasDropdown: true,
-        children: [
-          { label: "Account", href: "/writer/settings" },
-          { label: "Profile", href: "/writer/profile" },
-          { label: "Preferences", href: "/writer/settings" },
-          { label: "Security", href: "/writer/settings" },
-        ],
-      },
     ],
     actions: {
       primary: { label: "Publish", href: "/writer/books" },
@@ -160,7 +149,7 @@ export const NAV_CONFIG: Record<NavVariant, NavConfig> = {
       {
         label: "Profile",
         href: "/reader/profile",
-        hasDropdown: true,
+        hasDropdown: false,
         children: [
           { label: "Profile", href: "/reader/profile" },
           { label: "Settings", href: "/reader/settings" },

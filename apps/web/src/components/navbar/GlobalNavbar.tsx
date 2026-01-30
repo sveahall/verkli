@@ -439,23 +439,23 @@ export default function GlobalNavbar({
                       <button
                         className="flex min-h-[44px] min-w-[44px] items-center gap-1.5 px-3 py-2 transition-colors hover:text-slate-900 hover:text-[#7058DD] dark:hover:text-white focus:outline-none focus:ring-2 focus:ring-[#907AFF]/50 focus:ring-offset-2 rounded-md"
                         onClick={() => {
-                          if (item.href && !item.hasDropdown) {
-                            router.push(item.href);
-                          }
+                          if (item.href) router.push(item.href);
                         }}
                       >
                         <span className="relative">{item.label}</span>
-                        <svg
-                          className="h-3.5 w-3.5 transition-transform group-hover:rotate-180"
-                          viewBox="0 0 12 12"
-                          fill="none"
-                          stroke="currentColor"
-                          strokeWidth="2"
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                        >
-                          <path d="M3 4.5L6 7.5L9 4.5" />
-                        </svg>
+                        {(item.hasDropdown ?? (item.children?.length ?? 0) > 0) && (
+                          <svg
+                            className="h-3.5 w-3.5 transition-transform group-hover:rotate-180"
+                            viewBox="0 0 12 12"
+                            fill="none"
+                            stroke="currentColor"
+                            strokeWidth="2"
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                          >
+                            <path d="M3 4.5L6 7.5L9 4.5" />
+                          </svg>
+                        )}
                       </button>
                       {/* Dropdown rendras via Portal till body – se nedan */}
                     </div>
@@ -549,9 +549,7 @@ export default function GlobalNavbar({
                       <button
                         className="flex items-center gap-1.5 px-3 py-2 transition-colors hover:text-slate-900 dark:hover:text-white"
                         onClick={() => {
-                          if (item.href && !item.hasDropdown) {
-                            router.push(item.href);
-                          }
+                          if (item.href) router.push(item.href);
                         }}
                       >
                         <span className="relative">{item.label}</span>
