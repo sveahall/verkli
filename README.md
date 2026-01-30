@@ -1,4 +1,4 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+Main app lives in `apps/web`. You can run it from repo root with `npm run dev` or directly from `apps/web`.
 
 ## Getting Started
 

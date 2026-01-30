@@ -12,6 +12,10 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    // Workspace ignores (eslint runs from packages/apps folders):
+    "**/.next/**",
+    "**/out/**",
+    "**/build/**",
   ]),
 ]);
 

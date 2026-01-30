@@ -1,10 +1,15 @@
 {
   "compilerOptions": {
     "target": "ES2022",
-    "lib": ["DOM", "DOM.Iterable", "ES2022"],
+    "lib": [
+      "DOM",
+      "DOM.Iterable",
+      "ES2022"
+    ],
     "module": "ESNext",
     "moduleResolution": "bundler",
-    "jsx": "preserve",
+    "jsx": "react-jsx",
+    "allowJs": true,
     "strict": true,
     "noEmit": true,
     "esModuleInterop": true,
@@ -12,17 +17,43 @@
     "isolatedModules": true,
     "resolveJsonModule": true,
     "incremental": true,
-    "plugins": [{ "name": "next" }],
+    "plugins": [
+      {
+        "name": "next"
+      }
+    ],
     "baseUrl": ".",
     "paths": {
-      "@/*": ["./src/*"],
-      "@verkli/db": ["../../packages/db/src/client"],
-      "@verkli/shared": ["../../packages/shared/src"],
-      "@verkli/shared/*": ["../../packages/shared/src/*"],
-      "@verkli/ui": ["../../packages/ui/src"],
-      "@verkli/ui/*": ["../../packages/ui/src/*"]
+      "@/*": [
+        "./src/*"
+      ],
+      "@verkli/db": [
+        "../../packages/db/src/client"
+      ],
+      "@verkli/shared": [
+        "../../packages/shared/src"
+      ],
+      "@verkli/shared/*": [
+        "../../packages/shared/src/*"
+      ],
+      "@verkli/ui": [
+        "../../packages/ui/src"
+      ],
+      "@verkli/ui/*": [
+        "../../packages/ui/src/*"
+      ]
     }
   },
-  "include": ["next-env.d.ts", "**/*.ts", "**/*.tsx", ".next/types/**/*.ts"],
-  "exclude": ["node_modules"]
+  "include": [
+    "next-env.d.ts",
+    "**/*.ts",
+    "**/*.tsx",
+    "**/*.js",
+    "**/*.jsx",
+    ".next/types/**/*.ts",
+    ".next/dev/types/**/*.ts"
+  ],
+  "exclude": [
+    "node_modules"
+  ]
 }
