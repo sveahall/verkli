@@ -97,7 +97,7 @@ export default function WriterSignIn() {
 
 
       {/* Logo */}
-      <header className="absolute left-8 top-8 z-30">
+      <header className="absolute left-6 top-6 z-30 flex items-center gap-3 sm:left-8 sm:top-8">
         <Link href="/" className="flex items-center gap-3">
           <img
             src="/logo-dark.svg"
@@ -111,6 +111,15 @@ export default function WriterSignIn() {
             className="hidden h-8 w-auto dark:block"
             loading="eager"
           />
+        </Link>
+        <Link
+          href="/writer"
+          className="inline-flex min-h-[40px] items-center gap-2 rounded-full border border-black/10 bg-white/90 px-4 py-2 text-[12px] font-semibold text-slate-900 shadow-[0_10px_24px_rgba(15,23,42,0.2)] transition hover:-translate-y-0.5 hover:bg-white dark:border-white/10 dark:bg-slate-900/80 dark:text-white dark:hover:bg-slate-900"
+        >
+          <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.6}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M15 6l-6 6 6 6" />
+          </svg>
+          ← Go back
         </Link>
       </header>
 

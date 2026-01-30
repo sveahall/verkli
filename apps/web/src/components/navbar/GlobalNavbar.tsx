@@ -356,6 +356,16 @@ export default function GlobalNavbar({
   const searchPlaceholder = navActions?.searchPlaceholder ?? "Search books, authors...";
   const searchHref = navActions?.searchHref ?? (isWriterRoute ? "/writer" : "/reader");
   const showProfileMenu = navActions?.showProfileMenu ?? true;
+  const isActiveReaderLink = (href: string) => {
+    if (!pathname) return false;
+    if (href === "/reader/feed" && (pathname === "/reader/home" || pathname === "/reader")) {
+      return true;
+    }
+    if (href === "/reader/profile" && pathname.startsWith("/reader/settings")) {
+      return true;
+    }
+    return pathname === href || pathname.startsWith(`${href}/`);
+  };
 
   if (loading || hideNavbar) {
     return null; // Don't show navbar while loading or on auth screens
@@ -454,30 +464,65 @@ export default function GlobalNavbar({
               )}
 
               {isReaderRoute && (
-                <div className="hidden items-center gap-8 text-[16px] font-medium text-slate-700 dark:text-white/80 lg:flex">
-                  {readerNavItems.map((item) => (
-                    <button
-                      key={item.label}
-                      onClick={() => {
-                        if (item.href) router.push(item.href);
-                      }}
-                      className="flex items-center gap-1.5 px-3 py-2 transition-colors hover:text-slate-900 dark:hover:text-white"
-                    >
-                      <span className="relative">{item.label}</span>
-                      <svg
-                        className="h-3.5 w-3.5 transition-transform"
-                        viewBox="0 0 12 12"
-                        fill="none"
-                        stroke="currentColor"
-                        strokeWidth="2"
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        aria-hidden="true"
+                <div className="hidden items-center gap-2 text-[14px] font-medium text-slate-700 dark:text-white/80 lg:flex">
+                  {readerNavItems.map((item) => {
+                    const hasDropdown = item.hasDropdown ?? (item.children?.length ?? 0) > 0;
+                    if (hasDropdown) {
+                      return (
+                        <div
+                          key={item.label}
+                          className="group relative"
+                          onMouseEnter={(e) => {
+                            if (dropdownCloseTimeoutRef.current) {
+                              clearTimeout(dropdownCloseTimeoutRef.current);
+                              dropdownCloseTimeoutRef.current = null;
+                            }
+                            const btn = e.currentTarget.querySelector("button");
+                            const rect = btn?.getBoundingClientRect();
+                            if (rect) setDropdownOpen({ key: item.label, top: rect.bottom + 14, left: rect.left - 10 });
+                          }}
+                          onMouseLeave={() => {
+                            dropdownCloseTimeoutRef.current = window.setTimeout(() => setDropdownOpen(null), 200);
+                          }}
+                        >
+                          <button
+                            className="flex min-h-[44px] min-w-[44px] items-center gap-1.5 rounded-full px-4 py-2 transition-colors hover:bg-slate-100 hover:text-slate-900 focus:outline-none focus:ring-2 focus:ring-[#907AFF]/50 focus:ring-offset-2 dark:hover:bg-white/10 dark:hover:text-white"
+                            onClick={() => {
+                              if (item.href) router.push(item.href);
+                            }}
+                          >
+                            <span className="relative">{item.label}</span>
+                            <svg
+                              className="h-3.5 w-3.5 transition-transform group-hover:rotate-180"
+                              viewBox="0 0 12 12"
+                              fill="none"
+                              stroke="currentColor"
+                              strokeWidth="2"
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                            >
+                              <path d="M3 4.5L6 7.5L9 4.5" />
+                            </svg>
+                          </button>
+                        </div>
+                      );
+                    }
+                    const active = Boolean(item.href) && isActiveReaderLink(item.href);
+                    return (
+                      <Link
+                        key={item.label}
+                        href={item.href || "#"}
+                        aria-current={active ? "page" : undefined}
+                        className={`rounded-full px-4 py-2 transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-[#907AFF]/40 focus-visible:ring-offset-2 focus-visible:ring-offset-white dark:focus-visible:ring-offset-[#0b0b12] ${
+                          active
+                            ? "bg-slate-900 text-white shadow-[0_6px_18px_rgba(15,23,42,0.18)] dark:bg-white dark:text-slate-900"
+                            : "text-slate-600 hover:bg-slate-100 hover:text-slate-900 dark:text-white/70 dark:hover:bg-white/10 dark:hover:text-white"
+                        }`}
                       >
-                        <path d="M3 4.5L6 7.5L9 4.5" />
-                      </svg>
-                    </button>
-                  ))}
+                        {item.label}
+                      </Link>
+                    );
+                  })}
                 </div>
               )}
 
@@ -847,40 +892,69 @@ export default function GlobalNavbar({
               borderRadius={24}
               className="nav-mega max-h-[min(calc(100dvh-120px),32rem)] overflow-y-auto overscroll-contain border border-white/[0.4] px-4 py-4 dark:border-white/[0.15] sm:px-5 sm:py-5 md:px-8 md:py-8"
             >
-              {dropdownContent[dropdownOpen!.key as keyof typeof dropdownContent] && (
-                <>
-                  <div className="mb-6">
-                    <h3 className="text-[18px] font-bold text-slate-900 dark:text-white mb-1.5">
-                      {dropdownContent[dropdownOpen!.key as keyof typeof dropdownContent].title}
-                    </h3>
-                    <p className="text-[13px] text-slate-600 dark:text-white/70">
-                      {dropdownContent[dropdownOpen!.key as keyof typeof dropdownContent].description}
-                    </p>
-                  </div>
-                  <div className="grid grid-cols-1 gap-2.5 md:grid-cols-2">
-                    {dropdownContent[dropdownOpen!.key as keyof typeof dropdownContent].items.map((menuItem, idx) => (
-                      <div
-                        key={idx}
-                        className="group/item cursor-pointer rounded-xl p-4 transition-all duration-200 hover:bg-slate-50 dark:hover:bg-white/[0.12] border border-transparent hover:border-slate-200 dark:hover:border-white/10"
-                      >
-                        <div className="flex items-start gap-3">
-                          <div className="mt-1 flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-lg bg-slate-900/5 ring-1 ring-black/5 dark:bg-white/10 dark:ring-white/10">
-                            <span className="h-2 w-2 rounded-full bg-gradient-to-r from-[#907AFF] via-[#E29ED5] to-[#FCC997]" />
+              {(() => {
+                const navItems = isWriterRoute ? writerNavItems : isReaderRoute ? readerNavItems : publicNavItems;
+                const openItem = navItems.find((i) => i.label === dropdownOpen!.key);
+                if (openItem?.children?.length) {
+                  return (
+                    <div className="grid grid-cols-1 gap-2.5 md:grid-cols-2">
+                      {openItem.children.map((child, idx) => (
+                        <Link
+                          key={idx}
+                          href={child.href}
+                          onClick={() => setDropdownOpen(null)}
+                          className="group/item block rounded-xl p-4 transition-all duration-200 hover:bg-slate-50 dark:hover:bg-white/[0.12] border border-transparent hover:border-slate-200 dark:hover:border-white/10"
+                        >
+                          <div className="flex items-start gap-3">
+                            <div className="mt-1 flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-lg bg-slate-900/5 ring-1 ring-black/5 dark:bg-white/10 dark:ring-white/10">
+                              <span className="h-2 w-2 rounded-full bg-gradient-to-r from-[#907AFF] via-[#E29ED5] to-[#FCC997]" />
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <h4 className="text-[14px] font-semibold leading-tight text-slate-900 dark:text-white group-hover/item:text-[#907AFF] dark:group-hover/item:text-[#907AFF] transition-colors">
+                                {child.label}
+                              </h4>
+                            </div>
                           </div>
-                          <div className="flex-1 min-w-0">
-                            <h4 className="text-[14px] font-semibold leading-tight text-slate-900 dark:text-white group-hover/item:text-[#907AFF] dark:group-hover/item:text-[#907AFF] transition-colors mb-1">
-                              {menuItem.title}
-                            </h4>
-                            <p className="text-[12px] leading-relaxed text-slate-600 dark:text-white/70">
-                              {menuItem.description}
-                            </p>
-                          </div>
-                        </div>
+                        </Link>
+                      ))}
+                    </div>
+                  );
+                }
+                const legacy = dropdownContent[dropdownOpen!.key as keyof typeof dropdownContent];
+                if (legacy) {
+                  return (
+                    <>
+                      <div className="mb-6">
+                        <h3 className="text-[18px] font-bold text-slate-900 dark:text-white mb-1.5">{legacy.title}</h3>
+                        <p className="text-[13px] text-slate-600 dark:text-white/70">{legacy.description}</p>
                       </div>
-                    ))}
-                  </div>
-                </>
-              )}
+                      <div className="grid grid-cols-1 gap-2.5 md:grid-cols-2">
+                        {legacy.items.map((menuItem, idx) => (
+                          <div
+                            key={idx}
+                            className="group/item cursor-pointer rounded-xl p-4 transition-all duration-200 hover:bg-slate-50 dark:hover:bg-white/[0.12] border border-transparent hover:border-slate-200 dark:hover:border-white/10"
+                          >
+                            <div className="flex items-start gap-3">
+                              <div className="mt-1 flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-lg bg-slate-900/5 ring-1 ring-black/5 dark:bg-white/10 dark:ring-white/10">
+                                <span className="h-2 w-2 rounded-full bg-gradient-to-r from-[#907AFF] via-[#E29ED5] to-[#FCC997]" />
+                              </div>
+                              <div className="flex-1 min-w-0">
+                                <h4 className="text-[14px] font-semibold leading-tight text-slate-900 dark:text-white group-hover/item:text-[#907AFF] dark:group-hover/item:text-[#907AFF] transition-colors mb-1">
+                                  {menuItem.title}
+                                </h4>
+                                <p className="text-[12px] leading-relaxed text-slate-600 dark:text-white/70">
+                                  {menuItem.description}
+                                </p>
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </>
+                  );
+                }
+                return null;
+              })()}
             </GlassSurface>
           </div>,
           document.body

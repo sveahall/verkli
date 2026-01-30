@@ -1,8 +1,10 @@
 "use client";
 
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import GlassSurface from "@/components/GlassSurface";
+import { createClient } from "@/lib/supabase/client";
 
 const glassBaseProps = {
   displace: 0.5,
@@ -71,6 +73,32 @@ const whyDifferent = [
 ];
 
 export default function ReaderLanding() {
+  const router = useRouter();
+  const [authChecked, setAuthChecked] = useState(false);
+
+  useEffect(() => {
+    const supabase = createClient();
+    const check = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        setAuthChecked(true);
+        return;
+      }
+      const role = user.user_metadata?.active_role ?? user.user_metadata?.role;
+      if (role === "reader") {
+        router.replace("/reader/home");
+        return;
+      }
+      const { data: profile } = await supabase.from("profiles").select("role").eq("user_id", user.id).maybeSingle();
+      if (profile?.role === "reader") {
+        router.replace("/reader/home");
+        return;
+      }
+      setAuthChecked(true);
+    };
+    check();
+  }, [router]);
+
   const [heroMousePos, setHeroMousePos] = useState({ x: 0.5, y: 0.5 });
   const heroRef = useRef<HTMLElement>(null);
   const handleHeroMouseMove = (e: React.MouseEvent<HTMLElement>) => {
@@ -125,6 +153,14 @@ export default function ReaderLanding() {
     setCtaMousePos({ x: (e.clientX - rect.left) / rect.width, y: (e.clientY - rect.top) / rect.height });
   };
 
+  if (!authChecked) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-slate-50 dark:bg-[#050508]">
+        <div className="h-8 w-8 animate-spin rounded-full border-2 border-slate-200 border-t-[#907AFF] dark:border-white/20 dark:border-t-[#907AFF]" />
+      </div>
+    );
+  }
+
   return (
     <main className="relative min-h-screen bg-gradient-to-b from-slate-50 via-slate-50/95 to-slate-50/90 text-slate-900 dark:from-[#050508] dark:via-[#050508] dark:to-[#050508] dark:text-white">
       {/* Hero – mouse-tracking glows (same pattern as writer landing) */}
@@ -142,12 +178,8 @@ export default function ReaderLanding() {
           <div className="absolute inset-0 z-[3] bg-gradient-to-b from-white/60 via-transparent to-slate-50/80 dark:from-[#050508]/75 dark:via-[#050508]/50 dark:to-[#050508]/90" aria-hidden />
         </div>
 
-        <div className="relative z-10 mx-auto flex w-full max-w-[1200px] flex-col items-center gap-10 lg:flex-row lg:gap-16 lg:text-left xl:gap-20">
+        <div className="relative z-10 mx-auto mb-20 flex w-full max-w-[1200px] flex-col items-center gap-10 lg:flex-row lg:gap-16 lg:text-left xl:gap-20">
           <div className="flex-1">
-            <div className="mb-6 inline-flex items-center gap-2 rounded-full border border-black/10 bg-black/[0.02] px-4 py-2 backdrop-blur-sm transition-transform duration-300 hover:scale-105 dark:border-white/10 dark:bg-white/[0.03] lg:mb-8">
-              <div className="h-2 w-2 animate-pulse rounded-full bg-[#907AFF]" />
-              <span className="text-[13px] text-slate-600 dark:text-white/60">For readers</span>
-            </div>
             <h1 className="text-[clamp(1.75rem,5vw+1rem,4rem)] font-semibold leading-[1.05] tracking-[-0.03em] text-slate-900 dark:text-white md:text-[52px] lg:text-[56px]">
               Stories that find you.
               <br />
@@ -179,9 +211,9 @@ export default function ReaderLanding() {
               </Link>
             </div>
             <p className="mt-6 text-[13px] text-slate-500 dark:text-white/50">
-              Are you a writer?{" "}
+              Are you a writer?<br />
               <Link href="/writer" className="font-semibold text-slate-700 hover:text-slate-900 dark:text-white/80 dark:hover:text-white">
-                Go to authors page
+                Go to authors page →
               </Link>
             </p>
           </div>
