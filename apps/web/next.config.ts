@@ -1,6 +1,10 @@
+import path from "path";
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
+  turbopack: {
+    root: path.resolve(__dirname, "../.."),
+  },
   transpilePackages: ["@verkli/ui", "@verkli/shared"],
   images: {
     remotePatterns: [
@@ -10,6 +14,8 @@ const nextConfig: NextConfig = {
       },
     ],
   },
+  // Allow cross-origin requests from network IP during development
+  allowedDevOrigins: ["192.168.35.146"],
 };
 
 export default nextConfig;

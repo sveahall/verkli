@@ -155,7 +155,7 @@ CREATE POLICY "Users can add books to own shelves"
       EXISTS (
         SELECT 1 FROM public.books
         WHERE books.id = shelf_books.book_id
-        AND (books."authorId" = auth.uid() OR books.status = 'PUBLISHED')
+        AND (books.author_id = auth.uid() OR books.status = 'PUBLISHED')
       )
     )
   );

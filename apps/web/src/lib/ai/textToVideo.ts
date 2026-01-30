@@ -1,8 +1,5 @@
+import "server-only";
 import RunwayML, { TaskFailedError } from "@runwayml/sdk";
-
-const client = new RunwayML({
-  apiKey: process.env.RUNWAYML_API_SECRET,
-});
 
 const DEFAULT_PROMPT =
   "A cinematic 5-second shot, handheld, shallow depth of field";
@@ -20,6 +17,14 @@ export type TextToVideoOptions = {
 
 /** Text → short video via Runway veo3.1_fast. Returns task output or throws. */
 export async function makeVideo(options: TextToVideoOptions) {
+  const apiKey = process.env.RUNWAYML_API_SECRET;
+  if (!apiKey) {
+    throw new Error(
+      "RUNWAYML_API_SECRET is missing. Provide it before using text-to-video."
+    );
+  }
+
+  const client = new RunwayML({ apiKey });
   const promptText = options.promptText?.trim() || DEFAULT_PROMPT;
   const duration = options.duration ?? 6;
   const ratio = options.ratio ?? "1280:720";

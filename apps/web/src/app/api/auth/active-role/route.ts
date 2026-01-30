@@ -1,0 +1,21 @@
+import { NextResponse } from "next/server";
+import { updateActiveRole, type ActiveRole } from "@/features/auth/roles";
+
+const VALID_ROLES: ActiveRole[] = ["writer", "reader"];
+
+export async function POST(request: Request) {
+  const body = await request.json().catch(() => null);
+  const role = body?.role as ActiveRole | undefined;
+
+  if (!role || !VALID_ROLES.includes(role)) {
+    return NextResponse.json({ error: "Invalid role" }, { status: 400 });
+  }
+
+  const result = await updateActiveRole(role);
+
+  if (!result.ok) {
+    return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
+  }
+
+  return NextResponse.json({ ok: true });
+}

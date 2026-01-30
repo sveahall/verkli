@@ -1,8 +1,8 @@
 import type { Metadata } from "next";
 import { Inter, Montserrat_Alternates } from "next/font/google";
 import "./globals.css";
-import "@/components/GridMotion.css";
-import "@/components/GlassSurface.css";
+import "../components/GridMotion.css";
+import "../components/GlassSurface.css";
 
 const inter = Inter({
   variable: "--font-inter",
@@ -16,15 +16,15 @@ const montserratAlternates = Montserrat_Alternates({
 });
 
 export const metadata: Metadata = {
-  title: "Verkli - Where books become momentum",
-  description: "Platform for authors to market their books, connect with readers and grow sustainable revenue.",
+  title: "Verkli",
+  description: "Verkli — the platform for writers and readers.",
+  icons: { icon: "/favi.svg" },
 };
 
 const themeScript = `
   try {
     const stored = localStorage.getItem('verkli-theme');
-    const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-    const theme = stored || (prefersDark ? 'dark' : 'light');
+    const theme = stored || 'light';
     document.documentElement.classList.toggle('dark', theme === 'dark');
   } catch (error) {}
 `;
@@ -37,10 +37,13 @@ export default function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning>
       <body
-        className={`${inter.variable} ${montserratAlternates.variable} antialiased`}
+        className={`${inter.variable} ${montserratAlternates.variable} antialiased flex min-h-screen min-h-dvh min-h-svh flex-col`}
       >
         <script dangerouslySetInnerHTML={{ __html: themeScript }} />
-        {children}
+        {/* Innehåll först i DOM; navbar renderas via route-group layouts */}
+        <div className="relative z-0 flex min-h-0 flex-1 flex-col overflow-x-hidden">
+          {children}
+        </div>
       </body>
     </html>
   );
