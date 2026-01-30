@@ -67,7 +67,7 @@ export default function RoleSelection() {
   const setRoleAndGo = (role: "writer" | "reader") => {
     if (typeof window !== "undefined") {
       localStorage.setItem(VERKLI_ROLE_KEY, role);
-      router.push(role === "writer" ? "/writer/home" : "/reader/home");
+      router.push(role === "writer" ? "/writer" : "/reader");
     }
   };
 
