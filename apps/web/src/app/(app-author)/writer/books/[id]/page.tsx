@@ -1,7 +1,6 @@
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
-import GlassSurface from "@/components/GlassSurface";
 
 export default async function BookDetailPage({ params }: { params: { id: string } }) {
   const supabase = await createClient();
@@ -78,12 +77,10 @@ export default async function BookDetailPage({ params }: { params: { id: string 
           <p className="mt-2 text-lg text-slate-600 dark:text-white/60">by you</p>
 
           <div className="mt-8 flex flex-wrap gap-4">
-            <GlassSurface width="auto" height="auto" borderRadius={999} className="glass-button border border-[#907AFF]/30">
-              <button className="px-6 py-3 text-sm font-semibold text-slate-900 dark:text-white">
-                Continue editing
-              </button>
-            </GlassSurface>
-            <button className="rounded-full border border-black/10 bg-black/[0.02] px-6 py-3 text-sm font-semibold text-slate-700 transition-colors hover:border-black/20 hover:bg-black/10 dark:border-white/10 dark:bg-white/5 dark:text-white/80 dark:hover:bg-white/10">
+            <button type="button" className="btn-primary">
+              Continue editing
+            </button>
+            <button type="button" className="btn-secondary">
               View public page
             </button>
           </div>

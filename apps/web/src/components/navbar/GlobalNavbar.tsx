@@ -277,6 +277,10 @@ export default function GlobalNavbar({
     }
   }, [pathname]);
 
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [dropdownOpen, setDropdownOpen] = useState<{ key: string; top: number; left: number } | null>(null);
+  // Timeout så att flytt från trigger till portal inte stänger menyn (browser: number)
+  const dropdownCloseTimeoutRef = useRef<number | null>(null);
   // Stäng mobilmeny vid navigering
   useEffect(() => {
     setMobileMenuOpen(false);
@@ -287,11 +291,6 @@ export default function GlobalNavbar({
     await supabase.auth.signOut();
     setUser(null);
   };
-
-  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const [dropdownOpen, setDropdownOpen] = useState<{ key: string; top: number; left: number } | null>(null);
-  // Timeout så att flytt från trigger till portal inte stänger menyn (browser: number)
-  const dropdownCloseTimeoutRef = useRef<number | null>(null);
   const resolvedMode =
     navMode ??
     (pathname?.startsWith("/writer")
@@ -326,24 +325,32 @@ export default function GlobalNavbar({
   const hideNavbar = isSelectorPage && !navMode;
 
   const defaultWriterNavItems: NavLink[] = [
-    { label: "Features", href: "#features", hasDropdown: true },
-    { label: "Integrations", href: "#integrations", hasDropdown: true },
-    { label: "Examples", href: "#examples", hasDropdown: true },
-    { label: "FAQ", href: "#faq", hasDropdown: true },
+    { label: "Features", href: "/writer#features", hasDropdown: true },
+    { label: "Integrations", href: "/writer#integrations", hasDropdown: true },
+    { label: "Examples", href: "/writer#examples", hasDropdown: true },
+    { label: "FAQ", href: "/writer#faq", hasDropdown: true },
   ];
 
   const defaultReaderNavItems: NavLink[] = [
-    { label: "Discover", href: "#discover" },
-    { label: "Categories", href: "#categories" },
-    { label: "Authors", href: "#authors" },
-    { label: "About", href: "#about" },
+    { label: "Discover", href: "/reader/discover" },
+    { label: "Categories", href: "/reader/discover" },
+    { label: "Authors", href: "/reader/discover" },
+    { label: "About", href: "/reader" },
   ];
 
   const defaultPublicNavItems: NavLink[] = [
-    { label: "Features", href: "#features", hasDropdown: true },
-    { label: "Integrations", href: "#integrations", hasDropdown: true },
-    { label: "Examples", href: "#examples", hasDropdown: true },
-    { label: "FAQ", href: "#faq", hasDropdown: true },
+    {
+      label: "Product",
+      href: "/product",
+      hasDropdown: true,
+      children: [
+        { label: "Product", href: "/product" },
+        { label: "How it works", href: "/how-it-works" },
+        { label: "Case studies", href: "/case-studies" },
+      ],
+    },
+    { label: "Pricing", href: "/pricing" },
+    { label: "FAQ", href: "/faq" },
   ];
 
   const writerNavItems = isWriterRoute ? navLinks ?? defaultWriterNavItems : defaultWriterNavItems;
@@ -417,7 +424,7 @@ export default function GlobalNavbar({
 
               {/* Navigation links based on route */}
               {isWriterRoute && (
-                <div className="hidden items-center gap-7 text-[14px] font-medium text-slate-700/90 dark:text-white/80 lg:flex">
+                <div className="hidden items-center gap-5 text-[14px] font-medium text-slate-700/90 dark:text-white/80 lg:flex">
                   {writerNavItems.map((item) => (
                     <div
                       key={item.label}
@@ -428,24 +435,22 @@ export default function GlobalNavbar({
                           clearTimeout(dropdownCloseTimeoutRef.current);
                           dropdownCloseTimeoutRef.current = null;
                         }
-                        const btn = e.currentTarget.querySelector("button");
-                        const rect = btn?.getBoundingClientRect();
+                        const trigger = e.currentTarget.querySelector("a, button");
+                        const rect = trigger?.getBoundingClientRect();
                         if (rect) setDropdownOpen({ key: item.label, top: rect.bottom + 14, left: rect.left - 10 });
                       }}
                       onMouseLeave={() => {
                         dropdownCloseTimeoutRef.current = window.setTimeout(() => setDropdownOpen(null), 200);
                       }}
                     >
-                      <button
-                        className="flex min-h-[44px] min-w-[44px] items-center gap-1.5 px-3 py-2 transition-colors hover:text-slate-900 hover:text-[#7058DD] dark:hover:text-white focus:outline-none focus:ring-2 focus:ring-[#907AFF]/50 focus:ring-offset-2 rounded-md"
-                        onClick={() => {
-                          if (item.href) router.push(item.href);
-                        }}
-                      >
-                        <span className="relative">{item.label}</span>
-                        {(item.hasDropdown ?? (item.children?.length ?? 0) > 0) && (
+                      {(item.hasDropdown ?? (item.children?.length ?? 0) > 0) ? (
+                        <Link
+                          href={item.href}
+                          className="flex min-h-[44px] min-w-[44px] items-center gap-1.5 px-3 py-2 transition-colors hover:text-slate-900 hover:text-[#7058DD] dark:hover:text-white focus:outline-none focus:ring-2 focus:ring-[#907AFF]/50 focus:ring-offset-2 rounded-md"
+                        >
+                          <span>{item.label}</span>
                           <svg
-                            className="h-3.5 w-3.5 transition-transform group-hover:rotate-180"
+                            className="h-3.5 w-3.5 shrink-0 transition-transform group-hover:rotate-180"
                             viewBox="0 0 12 12"
                             fill="none"
                             stroke="currentColor"
@@ -455,9 +460,15 @@ export default function GlobalNavbar({
                           >
                             <path d="M3 4.5L6 7.5L9 4.5" />
                           </svg>
-                        )}
-                      </button>
-                      {/* Dropdown rendras via Portal till body – se nedan */}
+                        </Link>
+                      ) : (
+                        <Link
+                          href={item.href}
+                          className="flex min-h-[44px] min-w-[44px] items-center px-3 py-2 transition-colors hover:text-slate-900 hover:text-[#7058DD] dark:hover:text-white focus:outline-none focus:ring-2 focus:ring-[#907AFF]/50 focus:ring-offset-2 rounded-md"
+                        >
+                          {item.label}
+                        </Link>
+                      )}
                     </div>
                   ))}
                 </div>
@@ -477,23 +488,21 @@ export default function GlobalNavbar({
                               clearTimeout(dropdownCloseTimeoutRef.current);
                               dropdownCloseTimeoutRef.current = null;
                             }
-                            const btn = e.currentTarget.querySelector("button");
-                            const rect = btn?.getBoundingClientRect();
+                            const trigger = e.currentTarget.querySelector("a");
+                            const rect = trigger?.getBoundingClientRect();
                             if (rect) setDropdownOpen({ key: item.label, top: rect.bottom + 14, left: rect.left - 10 });
                           }}
                           onMouseLeave={() => {
                             dropdownCloseTimeoutRef.current = window.setTimeout(() => setDropdownOpen(null), 200);
                           }}
                         >
-                          <button
+                          <Link
+                            href={item.href}
                             className="flex min-h-[44px] min-w-[44px] items-center gap-1.5 rounded-full px-4 py-2 transition-colors hover:bg-slate-100 hover:text-slate-900 focus:outline-none focus:ring-2 focus:ring-[#907AFF]/50 focus:ring-offset-2 dark:hover:bg-white/10 dark:hover:text-white"
-                            onClick={() => {
-                              if (item.href) router.push(item.href);
-                            }}
                           >
-                            <span className="relative">{item.label}</span>
+                            <span>{item.label}</span>
                             <svg
-                              className="h-3.5 w-3.5 transition-transform group-hover:rotate-180"
+                              className="h-3.5 w-3.5 shrink-0 transition-transform group-hover:rotate-180"
                               viewBox="0 0 12 12"
                               fill="none"
                               stroke="currentColor"
@@ -503,7 +512,7 @@ export default function GlobalNavbar({
                             >
                               <path d="M3 4.5L6 7.5L9 4.5" />
                             </svg>
-                          </button>
+                          </Link>
                         </div>
                       );
                     }
@@ -527,7 +536,7 @@ export default function GlobalNavbar({
               )}
 
               {isPublicPage && (
-                <div className="hidden items-center gap-8 text-[16px] font-medium text-slate-700 dark:text-white/80 lg:flex">
+                <div className="hidden items-center gap-6 text-[15px] font-medium text-slate-700 dark:text-white/80 lg:flex">
                   {publicNavItems.map((item) => (
                     <div
                       key={item.label}
@@ -538,24 +547,22 @@ export default function GlobalNavbar({
                           clearTimeout(dropdownCloseTimeoutRef.current);
                           dropdownCloseTimeoutRef.current = null;
                         }
-                        const btn = e.currentTarget.querySelector("button");
-                        const rect = btn?.getBoundingClientRect();
+                        const trigger = e.currentTarget.querySelector("a, button");
+                        const rect = trigger?.getBoundingClientRect();
                         if (rect) setDropdownOpen({ key: item.label, top: rect.bottom + 8, left: rect.left });
                       }}
                       onMouseLeave={() => {
                         dropdownCloseTimeoutRef.current = window.setTimeout(() => setDropdownOpen(null), 200);
                       }}
                     >
-                      <button
-                        className="flex items-center gap-1.5 px-3 py-2 transition-colors hover:text-slate-900 dark:hover:text-white"
-                        onClick={() => {
-                          if (item.href) router.push(item.href);
-                        }}
-                      >
-                        <span className="relative">{item.label}</span>
-                        {item.hasDropdown && (
+                      {item.hasDropdown ? (
+                        <Link
+                          href={item.href}
+                          className="flex min-h-[44px] min-w-[44px] items-center gap-1.5 px-3 py-2 transition-colors hover:text-slate-900 dark:hover:text-white focus:outline-none focus:ring-2 focus:ring-[#907AFF]/50 focus:ring-offset-2 focus:ring-offset-transparent rounded-md"
+                        >
+                          <span>{item.label}</span>
                           <svg
-                            className="h-3.5 w-3.5 transition-transform group-hover:rotate-180"
+                            className="h-3.5 w-3.5 shrink-0 transition-transform group-hover:rotate-180"
                             viewBox="0 0 12 12"
                             fill="none"
                             stroke="currentColor"
@@ -565,9 +572,15 @@ export default function GlobalNavbar({
                           >
                             <path d="M3 4.5L6 7.5L9 4.5" />
                           </svg>
-                        )}
-                      </button>
-                      {/* Dropdown rendras via Portal till body */}
+                        </Link>
+                      ) : (
+                        <Link
+                          href={item.href}
+                          className="flex min-h-[44px] min-w-[44px] items-center px-3 py-2 transition-colors hover:text-slate-900 dark:hover:text-white focus:outline-none focus:ring-2 focus:ring-[#907AFF]/50 focus:ring-offset-2 rounded-md"
+                        >
+                          {item.label}
+                        </Link>
+                      )}
                     </div>
                   ))}
                 </div>
@@ -647,18 +660,18 @@ export default function GlobalNavbar({
                 <>
                   {/* Sign in / Sign up – endast desktop; på mobil finns de i mobilmenyn och i hero */}
                   {!user && (
-                    <div className="hidden items-center gap-2 lg:flex">
+                    <div className="hidden items-center gap-3 lg:flex">
                       {isPublicPage && (
                         <>
                           <Link
                             href={secondaryAction?.href ?? "/signin"}
-                            className="flex h-9 min-h-[44px] min-w-[44px] items-center justify-center rounded-full border border-slate-200/80 dark:border-white/10 bg-transparent px-5 text-[15px] font-medium text-slate-900 dark:text-white transition-colors hover:text-slate-600 dark:hover:text-white/70 focus:outline-none focus:ring-2 focus:ring-[#907AFF]/50 focus:ring-offset-2"
+                            className="btn-secondary"
                           >
                             {secondaryAction?.label ?? "Sign in"}
                           </Link>
                           <Link
                             href={primaryAction?.href ?? "/signup"}
-                            className="flex h-9 min-h-[44px] min-w-[44px] items-center justify-center rounded-full border border-black/10 dark:border-white/10 bg-transparent px-5 text-[15px] font-medium text-slate-900 dark:text-white transition-colors hover:text-slate-600 dark:hover:text-white/70 focus:outline-none focus:ring-2 focus:ring-[#907AFF]/50 focus:ring-offset-2"
+                            className="btn-primary"
                           >
                             {primaryAction?.label ?? "Sign up"}
                           </Link>
@@ -668,13 +681,13 @@ export default function GlobalNavbar({
                         <>
                           <Link
                             href={secondaryAction?.href ?? "/writer/signin"}
-                            className="flex h-9 min-h-[44px] min-w-[44px] items-center justify-center rounded-full border border-black/10 dark:border-white/10 bg-transparent px-4 text-[15px] font-medium text-slate-900 dark:text-white transition-colors hover:text-slate-600 dark:hover:text-white/70 focus:outline-none focus:ring-2 focus:ring-[#907AFF]/50 focus:ring-offset-2"
+                            className="btn-secondary"
                           >
                             {secondaryAction?.label ?? "Sign in"}
                           </Link>
                           <Link
                             href={primaryAction?.href ?? "/writer/signup"}
-                            className="flex h-9 min-h-[44px] min-w-[44px] items-center justify-center rounded-full border border-black/10 dark:border-white/10 bg-transparent px-5 text-[15px] font-medium text-slate-900 dark:text-white transition-colors hover:text-slate-600 dark:hover:text-white/70 focus:outline-none focus:ring-2 focus:ring-[#907AFF]/50 focus:ring-offset-2"
+                            className="btn-primary"
                           >
                             {primaryAction?.label ?? "Sign up"}
                           </Link>
@@ -684,13 +697,13 @@ export default function GlobalNavbar({
                         <>
                           <Link
                             href={secondaryAction?.href ?? "/reader/signin"}
-                            className="flex h-9 min-h-[44px] min-w-[44px] items-center justify-center rounded-full border border-black/10 dark:border-white/10 bg-transparent px-4 text-[15px] font-medium text-slate-900 dark:text-white transition-colors hover:text-slate-600 dark:hover:text-white/70 focus:outline-none focus:ring-2 focus:ring-[#907AFF]/50 focus:ring-offset-2"
+                            className="btn-secondary"
                           >
                             {secondaryAction?.label ?? "Sign in"}
                           </Link>
                           <Link
                             href={primaryAction?.href ?? "/reader/signup"}
-                            className="flex h-9 min-h-[44px] min-w-[44px] items-center justify-center rounded-full border border-black/10 dark:border-white/10 bg-transparent px-5 text-[15px] font-medium text-slate-900 dark:text-white transition-colors hover:text-slate-600 dark:hover:text-white/70 focus:outline-none focus:ring-2 focus:ring-[#907AFF]/50 focus:ring-offset-2"
+                            className="btn-primary"
                           >
                             {primaryAction?.label ?? "Sign up"}
                           </Link>
@@ -802,14 +815,14 @@ export default function GlobalNavbar({
                     <Link
                       href={secondaryAction?.href ?? "/signin"}
                       onClick={() => setMobileMenuOpen(false)}
-                      className="flex min-h-[44px] items-center justify-center rounded-full border border-slate-200/80 px-5 text-[15px] font-medium text-slate-900 transition-colors hover:bg-slate-100 dark:border-white/10 dark:text-white dark:hover:bg-white/10"
+                      className="btn-secondary w-full justify-center"
                     >
                       {secondaryAction?.label ?? "Sign in"}
                     </Link>
                     <Link
                       href={primaryAction?.href ?? "/signup"}
                       onClick={() => setMobileMenuOpen(false)}
-                      className="flex min-h-[44px] items-center justify-center rounded-full bg-slate-900 px-5 text-[15px] font-semibold text-white transition-colors hover:bg-slate-800 dark:bg-white dark:text-slate-900 dark:hover:bg-white/90"
+                      className="btn-primary w-full justify-center"
                     >
                       {primaryAction?.label ?? "Sign up"}
                     </Link>
@@ -820,14 +833,14 @@ export default function GlobalNavbar({
                     <Link
                       href={secondaryAction?.href ?? "/writer/signin"}
                       onClick={() => setMobileMenuOpen(false)}
-                      className="flex min-h-[44px] items-center justify-center rounded-full border border-slate-200/80 px-5 text-[15px] font-medium text-slate-900 transition-colors hover:bg-slate-100 dark:border-white/10 dark:text-white dark:hover:bg-white/10"
+                      className="btn-secondary w-full justify-center"
                     >
                       {secondaryAction?.label ?? "Sign in"}
                     </Link>
                     <Link
                       href={primaryAction?.href ?? "/writer/signup"}
                       onClick={() => setMobileMenuOpen(false)}
-                      className="flex min-h-[44px] items-center justify-center rounded-full bg-slate-900 px-5 text-[15px] font-semibold text-white transition-colors hover:bg-slate-800 dark:bg-white dark:text-slate-900 dark:hover:bg-white/90"
+                      className="btn-primary w-full justify-center"
                     >
                       {primaryAction?.label ?? "Sign up"}
                     </Link>
@@ -838,14 +851,14 @@ export default function GlobalNavbar({
                     <Link
                       href={secondaryAction?.href ?? "/reader/signin"}
                       onClick={() => setMobileMenuOpen(false)}
-                      className="flex min-h-[44px] items-center justify-center rounded-full border border-slate-200/80 px-5 text-[15px] font-medium text-slate-900 transition-colors hover:bg-slate-100 dark:border-white/10 dark:text-white dark:hover:bg-white/10"
+                      className="btn-secondary w-full justify-center"
                     >
                       {secondaryAction?.label ?? "Sign in"}
                     </Link>
                     <Link
                       href={primaryAction?.href ?? "/reader/signup"}
                       onClick={() => setMobileMenuOpen(false)}
-                      className="flex min-h-[44px] items-center justify-center rounded-full bg-slate-900 px-5 text-[15px] font-semibold text-white transition-colors hover:bg-slate-800 dark:bg-white dark:text-slate-900 dark:hover:bg-white/90"
+                      className="btn-primary w-full justify-center"
                     >
                       {primaryAction?.label ?? "Sign up"}
                     </Link>
@@ -887,8 +900,8 @@ export default function GlobalNavbar({
               {...dropdownGlassProps}
               width="100%"
               height="auto"
-              borderRadius={24}
-              className="nav-mega max-h-[min(calc(100dvh-120px),32rem)] overflow-y-auto overscroll-contain border border-white/[0.4] px-4 py-4 dark:border-white/[0.15] sm:px-5 sm:py-5 md:px-8 md:py-8"
+              borderRadius={20}
+              className="nav-mega max-h-[min(calc(100dvh-120px),32rem)] overflow-y-auto overscroll-contain border-0 px-5 py-5 sm:px-6 sm:py-6 md:px-8 md:py-6"
             >
               {(() => {
                 const navItems = isWriterRoute ? writerNavItems : isReaderRoute ? readerNavItems : publicNavItems;
@@ -901,7 +914,7 @@ export default function GlobalNavbar({
                           key={idx}
                           href={child.href}
                           onClick={() => setDropdownOpen(null)}
-                          className="group/item block rounded-xl p-4 transition-all duration-200 hover:bg-slate-50 dark:hover:bg-white/[0.12] border border-transparent hover:border-slate-200 dark:hover:border-white/10"
+                          className="group/item block rounded-xl px-4 py-3.5 transition-colors duration-150 hover:bg-slate-100/80 dark:hover:bg-white/[0.08] border border-transparent hover:border-slate-200/80 dark:hover:border-white/10"
                         >
                           <div className="flex items-start gap-3">
                             <div className="mt-1 flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-lg bg-slate-900/5 ring-1 ring-black/5 dark:bg-white/10 dark:ring-white/10">
@@ -922,25 +935,25 @@ export default function GlobalNavbar({
                 if (legacy) {
                   return (
                     <>
-                      <div className="mb-6">
-                        <h3 className="text-[18px] font-bold text-slate-900 dark:text-white mb-1.5">{legacy.title}</h3>
-                        <p className="text-[13px] text-slate-600 dark:text-white/70">{legacy.description}</p>
+                      <div className="mb-5 pb-4 border-b border-slate-200/80 dark:border-white/10">
+                        <h3 className="text-[17px] font-semibold leading-tight text-slate-900 dark:text-white">{legacy.title}</h3>
+                        <p className="mt-1 text-[13px] leading-relaxed text-slate-600 dark:text-white/60">{legacy.description}</p>
                       </div>
-                      <div className="grid grid-cols-1 gap-2.5 md:grid-cols-2">
+                      <div className="grid grid-cols-1 gap-1 md:grid-cols-2">
                         {legacy.items.map((menuItem, idx) => (
                           <div
                             key={idx}
-                            className="group/item cursor-pointer rounded-xl p-4 transition-all duration-200 hover:bg-slate-50 dark:hover:bg-white/[0.12] border border-transparent hover:border-slate-200 dark:hover:border-white/10"
+                            className="group/item cursor-pointer rounded-xl px-4 py-3.5 transition-colors duration-150 hover:bg-slate-100/80 dark:hover:bg-white/[0.08] border border-transparent hover:border-slate-200/80 dark:hover:border-white/10"
                           >
                             <div className="flex items-start gap-3">
                               <div className="mt-1 flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-lg bg-slate-900/5 ring-1 ring-black/5 dark:bg-white/10 dark:ring-white/10">
                                 <span className="h-2 w-2 rounded-full bg-gradient-to-r from-[#907AFF] via-[#E29ED5] to-[#FCC997]" />
                               </div>
                               <div className="flex-1 min-w-0">
-                                <h4 className="text-[14px] font-semibold leading-tight text-slate-900 dark:text-white group-hover/item:text-[#907AFF] dark:group-hover/item:text-[#907AFF] transition-colors mb-1">
+                                <h4 className="text-[14px] font-semibold leading-tight text-slate-900 dark:text-white group-hover/item:text-[#907AFF] dark:group-hover/item:text-[#907AFF] transition-colors mb-0.5">
                                   {menuItem.title}
                                 </h4>
-                                <p className="text-[12px] leading-relaxed text-slate-600 dark:text-white/70">
+                                <p className="text-[12px] leading-relaxed text-slate-600 dark:text-white/60">
                                   {menuItem.description}
                                 </p>
                               </div>

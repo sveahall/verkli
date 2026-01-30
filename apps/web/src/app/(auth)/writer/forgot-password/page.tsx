@@ -26,7 +26,6 @@ export default function WriterForgotPassword() {
   const [error, setError] = useState("");
   const [success, setSuccess] = useState(false);
   const [loading, setLoading] = useState(false);
-  const showRouteTag = process.env.NODE_ENV !== "production";
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -65,12 +64,20 @@ export default function WriterForgotPassword() {
 
       <div className="absolute inset-0 z-0 bg-gradient-to-br from-slate-50 via-purple-50/30 to-slate-100 dark:hidden" />
 
-      <header className="absolute left-8 top-8 z-20 flex w-full items-center justify-between px-8">
-        <Link href="/" className="flex items-center gap-3">
-          <img src="/logo-dark.svg" alt="Verkli" className="h-8 w-auto dark:hidden" loading="eager" />
-          <img src="/favicon.svg" alt="Verkli" className="hidden h-8 w-auto dark:block" loading="eager" />
-        </Link>
+      <header className="absolute left-6 top-6 z-20 flex w-full items-center justify-between px-6 sm:left-8 sm:top-8 sm:px-8">
         <div className="flex items-center gap-3">
+          <Link href="/writer" className="flex min-h-[44px] min-w-[44px] items-center" aria-label="Verkli">
+            <img src="/logo-dark.svg" alt="Verkli" className="h-8 w-auto dark:hidden" loading="eager" />
+            <img src="/favicon.svg" alt="Verkli" className="hidden h-8 w-auto dark:block" loading="eager" />
+          </Link>
+          <Link href="/writer/signin" className="btn-secondary text-[13px] gap-2 px-4 py-2.5">
+            <svg className="h-4 w-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.6}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M15 6l-6 6 6 6" />
+            </svg>
+            Back to Verkli
+          </Link>
+        </div>
+        <div className="flex items-center">
           <ThemeToggle glassProps={glassBaseProps} />
         </div>
       </header>
@@ -80,7 +87,7 @@ export default function WriterForgotPassword() {
         width="480px"
         height="auto"
         borderRadius={40}
-        className="glass-card relative z-10 border border-black/10 dark:border-white/10"
+        className="glass-card card-auth relative z-10 mx-4 w-full max-w-[480px] border border-black/10 dark:border-white/10 sm:mx-6 md:rounded-[32px]"
       >
         <div className="flex w-full flex-col items-center px-12 py-14 text-center">
           <p className="text-base font-medium tracking-wide text-slate-600 dark:text-white/50">
@@ -91,7 +98,7 @@ export default function WriterForgotPassword() {
           </h1>
 
           {error && (
-            <div className="mt-4 w-full rounded-lg bg-red-500/10 px-4 py-3 text-sm text-red-600 dark:text-red-400">
+            <div className="mt-4 w-full rounded-xl border border-red-200 bg-red-50/80 px-4 py-3 text-sm text-red-700 dark:border-red-900/40 dark:bg-red-950/40 dark:text-red-300">
               {error}
             </div>
           )}
@@ -113,25 +120,17 @@ export default function WriterForgotPassword() {
                   onChange={(e) => setEmail(e.target.value)}
                   placeholder="you@example.com"
                   required
-                  className="w-full rounded-xl border border-black/10 dark:border-white/10 bg-black/2 dark:bg-white/5 px-4 py-3 text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-white/30 focus:border-[#907AFF]/50 focus:outline-none focus:ring-1 focus:ring-[#907AFF]/50"
+                  className="input-base"
                 />
               </div>
 
-              <GlassSurface
-                {...glassBaseProps}
-                width="100%"
-                height="auto"
-                borderRadius={999}
-                className="glass-button mt-2 w-full"
+              <button
+                type="submit"
+                disabled={loading}
+                className="btn-primary mt-2 w-full"
               >
-                <button
-                  type="submit"
-                  disabled={loading}
-                  className="w-full px-8 py-4 text-[15px] font-medium text-slate-900 dark:text-white/90 disabled:opacity-50"
-                >
-                  {loading ? "Sending..." : "Send reset link"}
-                </button>
-              </GlassSurface>
+                {loading ? "Sending..." : "Send reset link"}
+              </button>
             </form>
           )}
 
@@ -143,11 +142,6 @@ export default function WriterForgotPassword() {
           </p>
         </div>
       </GlassSurface>
-      {showRouteTag && (
-        <div className="absolute bottom-4 left-4 text-xs text-slate-500/80 dark:text-white/40">
-          route: /writer/forgot-password
-        </div>
-      )}
     </main>
   );
 }

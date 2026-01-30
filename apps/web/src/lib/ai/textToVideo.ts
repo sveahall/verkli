@@ -1,3 +1,4 @@
+import "server-only";
 import RunwayML, { TaskFailedError } from "@runwayml/sdk";
 
 const DEFAULT_PROMPT =

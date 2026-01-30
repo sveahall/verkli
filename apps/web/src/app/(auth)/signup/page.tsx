@@ -27,7 +27,6 @@ export default function SignUp() {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
-  const showRouteTag = process.env.NODE_ENV !== "production";
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -113,11 +112,6 @@ export default function SignUp() {
             </Link>
           </div>
         </GlassSurface>
-        {showRouteTag && (
-          <div className="absolute bottom-4 left-4 text-xs text-slate-500/80 dark:text-white/40">
-            route: /signup
-          </div>
-        )}
       </main>
     );
   }
@@ -308,11 +302,6 @@ export default function SignUp() {
           </p>
         </div>
       </GlassSurface>
-      {showRouteTag && (
-        <div className="absolute bottom-4 left-4 text-xs text-slate-500/80 dark:text-white/40">
-          route: /signup
-        </div>
-      )}
     </main>
   );
 }

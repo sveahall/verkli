@@ -146,16 +146,13 @@ const trending = [
 
 export default function ReaderHomePage() {
   return (
-    <div className="space-y-10">
+    <div className="section-gap-lg">
       <PageHeader
         eyebrow="Reader"
         title="Welcome back"
         subtitle="Pick up where you left off, then explore what your community is reading next."
         actions={
-          <Link
-            href="/reader/discover"
-            className="inline-flex min-h-[40px] items-center rounded-full border border-slate-200/80 bg-white/80 px-4 py-2 text-[13px] font-medium text-slate-700 transition hover:border-slate-300 hover:text-slate-900 dark:border-white/10 dark:bg-white/5 dark:text-white/70 dark:hover:text-white"
-          >
+          <Link href="/reader/discover" className="btn-secondary">
             Browse discover
           </Link>
         }
@@ -170,10 +167,7 @@ export default function ReaderHomePage() {
             title="Your shelf is quiet"
             description="Start a book and it will appear here with progress tracking."
             action={
-              <Link
-                href="/reader/discover"
-                className="inline-flex min-h-[40px] items-center rounded-full bg-slate-900 px-4 py-2 text-[13px] font-semibold text-white transition hover:bg-slate-800 dark:bg-white dark:text-slate-900"
-              >
+              <Link href="/reader/discover" className="btn-primary rounded-full bg-slate-900 px-5 py-2.5 text-[14px] hover:bg-slate-800 dark:bg-white dark:text-slate-900 dark:hover:bg-white/95">
                 Explore stories
               </Link>
             }
@@ -200,10 +194,7 @@ export default function ReaderHomePage() {
         title="Recommended for you"
         subtitle="Fresh reads aligned with your taste"
         action={
-          <Link
-            href="/reader/discover"
-            className="text-[12px] font-medium text-slate-500 hover:text-slate-700 dark:text-white/50 dark:hover:text-white"
-          >
+          <Link href="/reader/discover" className="btn-ghost text-[13px] py-1.5">
             See all
           </Link>
         }

@@ -2,7 +2,10 @@
   "name": "verkli-web",
   "version": "0.1.0",
   "private": true,
-  "workspaces": ["apps/*", "packages/*"],
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
   "scripts": {
     "dev": "npm run -w @verkli/web dev",
     "build": "npm run -w @verkli/web build",
@@ -17,7 +20,7 @@
     "clsx": "^2.1.1",
     "gsap": "^3.14.2",
     "lucide-react": "^0.563.0",
-    "next": "16.1.4",
+    "next": "^16.1.6",
     "ogl": "^1.0.11",
     "react": "19.2.3",
     "react-dom": "19.2.3",

@@ -79,7 +79,7 @@ export default function ReaderAppShell({ children }: { children: ReactNode }) {
       {isImmersive ? (
         <div className="relative">{children}</div>
       ) : (
-        <main className="relative mx-auto w-full max-w-6xl px-4 pb-24 pt-6 sm:px-6 lg:px-10 lg:pb-12">
+        <main className="page-content relative pb-24 pt-8 sm:pt-10 lg:pb-12">
           {children}
         </main>
       )}

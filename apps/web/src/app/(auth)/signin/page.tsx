@@ -31,7 +31,6 @@ export default function SignIn() {
   const [loading, setLoading] = useState(false);
   const [mousePos, setMousePos] = useState({ x: 0.5, y: 0.5 });
   const mainRef = useRef<HTMLElement>(null);
-  const showRouteTag = process.env.NODE_ENV !== "production";
 
   const handleMouseMove = (e: React.MouseEvent<HTMLElement>) => {
     if (!mainRef.current) return;
@@ -292,11 +291,6 @@ export default function SignIn() {
           </p>
         </div>
       </GlassSurface>
-      {showRouteTag && (
-        <div className="absolute bottom-4 left-4 text-xs text-slate-500/80 dark:text-white/40">
-          route: /signin
-        </div>
-      )}
     </main>
   );
 }

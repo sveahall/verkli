@@ -3,22 +3,7 @@
 import { useState, useRef, useEffect } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import GlassSurface from "@/components/GlassSurface";
 import { createClient } from "@/lib/supabase/client";
-
-const glassBaseProps = {
-  displace: 0.5,
-  distortionScale: -180,
-  redOffset: 0,
-  greenOffset: 10,
-  blueOffset: 20,
-  brightness: 50,
-  opacity: 0.93,
-  backgroundOpacity: 0.12,
-  blur: 12,
-  saturation: 1.2,
-  mixBlendMode: "screen",
-};
 
 const valueBenefits = [
   {
@@ -192,21 +177,10 @@ export default function ReaderLanding() {
             </p>
 
             <div className="mt-10 flex flex-wrap justify-center gap-3 sm:gap-4 lg:justify-start">
-              <Link href="#explore" className="inline-flex min-h-[48px] min-w-[140px] items-center justify-center">
-                <GlassSurface
-                  {...glassBaseProps}
-                  width="auto"
-                  height="auto"
-                  borderRadius={999}
-                  className="glass-button border border-[#907AFF]/30 transition-all hover:scale-[1.02] hover:border-[#907AFF]/50 dark:border-[#907AFF]/40 dark:hover:border-[#907AFF]/60"
-                >
-                <span className="px-8 py-2.5 text-[15px] font-medium text-slate-900 dark:text-white">Explore stories</span>
-              </GlassSurface>
-            </Link>
-            <Link
-              href="/reader/signup"
-              className="inline-flex min-h-[48px] min-w-[140px] items-center justify-center rounded-full border border-slate-200/80 px-8 py-2.5 text-[15px] font-medium text-slate-700 transition-colors hover:bg-slate-100 hover:text-slate-900 dark:border-white/10 dark:text-white/90 dark:hover:bg-white/10"
-            >
+              <Link href="#explore" className="btn-primary min-w-[140px]">
+                Explore stories
+              </Link>
+              <Link href="/reader/signup" className="btn-secondary min-w-[140px]">
                 Join Verkli
               </Link>
             </div>
@@ -473,21 +447,10 @@ export default function ReaderLanding() {
             Explore without signing up, or join Verkli to follow authors and save your reading.
           </p>
           <div className="relative mt-8 flex flex-wrap justify-center gap-3 sm:gap-4">
-            <Link href="#explore" className="inline-flex min-h-[48px] min-w-[140px] items-center justify-center">
-              <GlassSurface
-                {...glassBaseProps}
-                width="auto"
-                height="auto"
-                borderRadius={999}
-                className="glass-button border border-[#907AFF]/30 transition-all hover:scale-[1.02] hover:border-[#907AFF]/50 dark:border-[#907AFF]/40 dark:hover:border-[#907AFF]/60"
-              >
-                <span className="px-8 py-2.5 text-[15px] font-medium text-slate-900 dark:text-white">Explore stories</span>
-              </GlassSurface>
+            <Link href="#explore" className="btn-primary min-w-[140px]">
+              Explore stories
             </Link>
-            <Link
-              href="/reader/signup"
-              className="inline-flex min-h-[48px] min-w-[140px] items-center justify-center rounded-full border border-slate-200/80 px-8 py-2.5 text-[15px] font-medium text-slate-700 transition-colors hover:bg-slate-100 hover:text-slate-900 dark:border-white/10 dark:text-white/90 dark:hover:bg-white/10"
-            >
+            <Link href="/reader/signup" className="btn-secondary min-w-[140px]">
               Join Verkli
             </Link>
           </div>

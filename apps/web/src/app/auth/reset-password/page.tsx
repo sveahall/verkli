@@ -26,7 +26,6 @@ export default function ResetPassword() {
   const [success, setSuccess] = useState(false);
   const [loading, setLoading] = useState(false);
   const [hasSession, setHasSession] = useState<boolean | null>(null);
-  const showRouteTag = process.env.NODE_ENV !== "production";
 
   useEffect(() => {
     const supabase = createClient();
@@ -166,11 +165,6 @@ export default function ResetPassword() {
           </p>
         </div>
       </GlassSurface>
-      {showRouteTag && (
-        <div className="absolute bottom-4 left-4 text-xs text-slate-500/80 dark:text-white/40">
-          route: /auth/reset-password
-        </div>
-      )}
     </main>
   );
 }

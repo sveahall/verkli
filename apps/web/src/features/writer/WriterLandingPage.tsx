@@ -4,7 +4,6 @@ import { useState, useRef, useEffect, useMemo, type ReactNode } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
-import GlassSurface from "@/components/GlassSurface";
 import GridMotion from "@/components/GridMotion";
 import TestimonialSection from "@/components/TestimonialSection";
 import StatsSection from "@/components/StatsSection";
@@ -28,27 +27,13 @@ const gridItems = Array.from({ length: gridRows * gridCols }, (_, index) => {
   return gridImages[index % gridImages.length];
 });
 
-const glassBaseProps = {
-  displace: 0.5,
-  distortionScale: -180,
-  redOffset: 0,
-  greenOffset: 10,
-  blueOffset: 20,
-  brightness: 50,
-  opacity: 0.93,
-  backgroundOpacity: 0.12,
-  blur: 12,
-  saturation: 1.2,
-  mixBlendMode: "screen",
-};
-
 type EmptyStateCardProps = {
   children: ReactNode;
 };
 
 function EmptyStateCard({ children }: EmptyStateCardProps) {
   return (
-    <div className="rounded-2xl border border-slate-200/80 bg-white/80 px-6 py-4 text-[14px] text-slate-600 dark:border-white/[0.15] dark:bg-white/[0.04] dark:text-white/[0.55]">
+    <div className="empty-state-base text-helper">
       {children}
     </div>
   );
@@ -274,10 +259,8 @@ function InteractiveTestimonialSection() {
             </h2>
             <p className="mt-6 max-w-[380px] text-[16px] leading-[1.7] text-slate-600 dark:text-white/50">Join thousands of writers who use Verkli to turn their stories into content that reaches readers everywhere.</p>
             <div className="mt-8 flex items-center gap-4">
-              <Link href="/writer/signup">
-                <GlassSurface {...glassBaseProps} width="auto" height="auto" borderRadius={999} className="glass-button border border-[#907AFF]/30 transition-all hover:scale-[1.02] hover:border-[#907AFF]/50">
-                  <span className="px-7 py-3 text-[14px] font-medium text-slate-900 dark:text-white">Start for free</span>
-                </GlassSurface>
+              <Link href="/writer/signup" className="btn-primary">
+                Start for free
               </Link>
               <a href="#" className="text-[14px] text-slate-500 underline underline-offset-4 transition-colors hover:text-slate-700 dark:text-white/50 dark:hover:text-white/70">Read case studies</a>
             </div>
@@ -355,12 +338,10 @@ function LandingPage() {
           <h1 className="text-[52px] font-semibold leading-[1.05] tracking-[-0.03em] text-slate-900 dark:text-white md:text-[80px]">Write once.<br /><span className="bg-gradient-to-r from-slate-400/90 via-slate-400/75 to-slate-400/50 bg-clip-text text-transparent dark:from-white/50 dark:via-white/30 dark:to-white/50">Show up everywhere.</span></h1>
           <p className="mt-8 max-w-[520px] text-[17px] leading-relaxed text-slate-600 dark:text-white/50 md:text-[18px]">The platform for authors to turn books into content, connect with readers, and build sustainable revenue.</p>
           <div className="mt-10 flex flex-wrap items-center justify-center gap-3 sm:gap-4">
-            <Link href="/writer/signup" className="inline-flex min-h-[48px] min-w-[140px] items-center justify-center rounded-full focus:outline-none focus:ring-2 focus:ring-[#907AFF]/50 focus:ring-offset-2 focus:ring-offset-transparent">
-              <GlassSurface {...glassBaseProps} width="auto" height="auto" borderRadius={999} className="glass-button h-full min-h-[48px] w-full min-w-[140px] border border-[#907AFF]/30 transition-all hover:scale-[1.02] hover:border-[#907AFF]/50 [&_.glass-surface__content]:min-h-[48px] [&_.glass-surface__content]:min-w-[140px]">
-                <span className="px-8 py-2.5 text-[15px] font-medium text-slate-900 dark:text-white">Sign up</span>
-              </GlassSurface>
+            <Link href="/writer/signup" className="btn-primary min-w-[140px]">
+              Sign up
             </Link>
-            <Link href="/writer/signin" className="inline-flex min-h-[48px] min-w-[140px] items-center justify-center rounded-full border border-slate-200/80 px-8 py-2.5 text-[15px] font-medium text-slate-700 transition-colors hover:bg-slate-100 hover:text-slate-900 focus:outline-none focus:ring-2 focus:ring-[#907AFF]/50 focus:ring-offset-2 dark:border-white/10 dark:text-white/90 dark:hover:bg-white/10">
+            <Link href="/writer/signin" className="btn-secondary min-w-[140px]">
               Sign in
             </Link>
           </div>
@@ -383,10 +364,8 @@ function LandingPage() {
                 <h2 className="text-[36px] font-semibold leading-[1.1] tracking-[-0.02em] text-slate-900 dark:text-white md:text-[48px]">Zero friction<br /><span className="bg-gradient-to-r from-[#907AFF] via-[#E29ED5] to-[#FCC997] bg-clip-text text-transparent">book marketing.</span></h2>
                 <p className="mt-6 max-w-[420px] text-[17px] leading-[1.7] text-slate-600 dark:text-white/60">An end-to-end platform that turns your book into structured content — easy to publish, adapt, and scale.</p>
                 <div className="mt-8">
-                  <Link href="/writer/signup">
-                    <GlassSurface {...glassBaseProps} width="auto" height="auto" borderRadius={999} className="glass-button inline-flex border border-black/10 transition-all hover:scale-[1.02] dark:border-white/20">
-                      <span className="px-7 py-3 text-[15px] font-medium text-slate-900 dark:text-white">Start for free</span>
-                    </GlassSurface>
+                  <Link href="/writer/signup" className="btn-primary">
+                    Start for free
                   </Link>
                 </div>
               </div>
@@ -427,10 +406,8 @@ function LandingPage() {
               <h2 className="mt-4 text-[36px] font-semibold leading-[1.1] tracking-[-0.02em] text-slate-900 dark:text-white md:text-[44px]">Everything you need to<br /><span className="bg-gradient-to-r from-[#907AFF] via-[#E29ED5] to-[#FCC997] bg-clip-text text-transparent">grow your audience.</span></h2>
               <p className="mt-6 max-w-[400px] text-[16px] leading-[1.7] text-slate-600 dark:text-white/50">Simple tools that help you reach readers without the complexity.</p>
               <div className="mt-8">
-                <Link href="/writer/signup">
-                  <GlassSurface {...glassBaseProps} width="auto" height="auto" borderRadius={999} className="glass-button inline-flex border border-black/10 transition-all hover:scale-[1.02] dark:border-white/[0.15]">
-                    <span className="px-7 py-3 text-[15px] font-medium text-slate-900 dark:text-white">Explore features</span>
-                  </GlassSurface>
+                <Link href="/writer/signup" className="btn-secondary">
+                  Explore features
                 </Link>
               </div>
             </div>
@@ -460,10 +437,8 @@ function LandingPage() {
                 <h2 className="mt-4 text-[36px] font-semibold leading-[1.1] tracking-[-0.02em] text-slate-900 dark:text-white md:text-[44px]">Ready to reach<br /><span className="bg-gradient-to-r from-slate-900 via-slate-700 to-slate-500 bg-clip-text text-transparent dark:from-white dark:via-white/80 dark:to-white/60">more readers?</span></h2>
                 <p className="mt-6 max-w-[380px] text-[16px] leading-[1.7] text-slate-600 dark:text-white/60">Join thousands of authors already turning their books into content that reaches readers everywhere.</p>
                 <div className="mt-10 flex flex-wrap items-center gap-4">
-                  <Link href="/writer/signup">
-                    <GlassSurface {...glassBaseProps} width="auto" height="auto" borderRadius={999} className="glass-button border border-black/10 transition-all hover:scale-[1.02] dark:border-white/25">
-                      <span className="px-8 py-3.5 text-[15px] font-semibold text-slate-900 dark:text-white">Start for free</span>
-                    </GlassSurface>
+                  <Link href="/writer/signup" className="btn-primary">
+                    Start for free
                   </Link>
                   <a href="#" className="flex items-center gap-2 text-[15px] text-slate-600 transition-colors hover:text-slate-900 dark:text-white/60 dark:hover:text-white">Schedule a demo<svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg></a>
                 </div>
@@ -900,14 +875,14 @@ function Dashboard({ user }: { user: User }) {
                   </div>
                   <h3 className="mb-2 text-[20px] font-semibold text-slate-900 dark:text-white">Add stand alone book</h3>
                   <p className="max-w-[200px] text-center text-[14px] text-slate-600 dark:text-white/50">
-                    Create a book that doesn&apos;t belong to a shelf
+                    Create a book that doesn't belong to a shelf
                   </p>
                 </button>
               </div>
             </div>
           ) : (
             // Shelves grid
-            <div className="rounded-3xl border border-black/10 dark:border-white/[0.08] bg-gradient-to-b from-black/5 dark:from-white/[0.04] to-transparent p-8">
+            <div className="rounded-3xl border border-black/10 dark:border-white/[0.08] dark:from-white/[0.04] to-transparent p-8">
               {loadingShelves ? (
                 <div className="flex items-center justify-center py-20">
                   <div className="h-8 w-8 animate-spin rounded-full border-2 border-white/20 border-t-[#907AFF]"></div>

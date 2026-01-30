@@ -16,7 +16,7 @@ export default function HeroWithTestimonials() {
         }}
       >
         <p className="testimonial-quote mb-3 text-[15px] leading-relaxed">
-          "Watching Through My Window succeed has been incredible and such a blessing."
+          &quot;Watching Through My Window succeed has been incredible and such a blessing.&quot;
         </p>
         <p className="testimonial-author text-right text-[14px] font-medium">
           - Ariana Godoy
@@ -30,7 +30,7 @@ export default function HeroWithTestimonials() {
         }}
       >
         <p className="testimonial-quote mb-3 text-[15px] leading-relaxed">
-          "Watching Through My Window succeed has been incredible and such a blessing."
+          &quot;Watching Through My Window succeed has been incredible and such a blessing.&quot;
         </p>
         <p className="testimonial-author text-right text-[14px] font-medium">
           - Ariana Godoy
@@ -44,7 +44,7 @@ export default function HeroWithTestimonials() {
         }}
       >
         <p className="testimonial-quote mb-3 text-[15px] leading-relaxed">
-          "Watching Through My Window succeed has been incredible and such a blessing."
+          &quot;Watching Through My Window succeed has been incredible and such a blessing.&quot;
         </p>
         <p className="testimonial-author text-right text-[14px] font-medium">
           - Ariana Godoy

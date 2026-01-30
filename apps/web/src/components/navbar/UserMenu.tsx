@@ -31,13 +31,10 @@ export default function UserMenu({ user, onSignOut, currentRole = "writer" }: Us
   const triggerRef = useRef<HTMLButtonElement>(null);
   const menuPanelRef = useRef<HTMLDivElement>(null);
 
-  // Position för profil-dropdown: mät när den öppnas så vi kan rendera i portal med fixed (ovanför allt, som nav-dropdowns)
-  useEffect(() => {
-    if (!isOpen || typeof document === "undefined") return;
-    const rect = triggerRef.current?.getBoundingClientRect();
-    if (rect) setMenuPosition({ top: rect.bottom + 8, left: rect.right - USER_MENU_WIDTH });
-    return () => setMenuPosition(null);
-  }, [isOpen]);
+  const closeMenu = () => {
+    setIsOpen(false);
+    setMenuPosition(null);
+  };
 
   const displayName =
     user?.user_metadata?.full_name || user?.email?.split("@")[0] || "User";
@@ -52,7 +49,7 @@ export default function UserMenu({ user, onSignOut, currentRole = "writer" }: Us
       if (triggerRef.current?.contains(target) || menuPanelRef.current?.contains(target)) {
         return;
       }
-      setIsOpen(false);
+      closeMenu();
     };
 
     // Use mousedown instead of click to avoid closing before onClick handlers run
@@ -68,7 +65,7 @@ export default function UserMenu({ user, onSignOut, currentRole = "writer" }: Us
   }, [toastMessage]);
 
   const handleSwitchRole = async () => {
-    setIsOpen(false);
+    closeMenu();
 
     const nextRole = currentRole === "writer" ? "reader" : "writer";
 
@@ -96,7 +93,7 @@ export default function UserMenu({ user, onSignOut, currentRole = "writer" }: Us
   };
 
   const handleSignOut = async () => {
-    setIsOpen(false);
+    closeMenu();
 
     try {
       await onSignOut();
@@ -125,7 +122,15 @@ export default function UserMenu({ user, onSignOut, currentRole = "writer" }: Us
         onClick={(e) => {
           e.preventDefault();
           e.stopPropagation();
-          setIsOpen(!isOpen);
+          if (isOpen) {
+            closeMenu();
+            return;
+          }
+          const rect = triggerRef.current?.getBoundingClientRect();
+          if (rect) {
+            setMenuPosition({ top: rect.bottom + 8, left: rect.right - USER_MENU_WIDTH });
+          }
+          setIsOpen(true);
         }}
         onMouseDown={(e) => {
           e.preventDefault();

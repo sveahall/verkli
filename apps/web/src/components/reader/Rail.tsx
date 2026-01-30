@@ -13,27 +13,21 @@ type RailProps = {
 
 export default function Rail({ title, subtitle, action, children, isEmpty, emptyState }: RailProps) {
   return (
-    <section className="space-y-4">
-      <div className="flex flex-wrap items-end justify-between gap-3">
-        <div>
-          <h2 className="text-[20px] font-semibold text-slate-900 dark:text-white">
-            {title}
-          </h2>
-          {subtitle && (
-            <p className="text-[13px] text-slate-500 dark:text-white/50">
-              {subtitle}
-            </p>
-          )}
+    <section className="space-y-5">
+      <div className="flex flex-wrap items-end justify-between gap-4">
+        <div className="space-y-1">
+          <h2 className="text-section-title">{title}</h2>
+          {subtitle && <p className="text-helper">{subtitle}</p>}
         </div>
         {action && <div className="flex items-center gap-2">{action}</div>}
       </div>
 
-      <div className="flex gap-4 overflow-x-auto pb-2 pr-2">
+      <div className="flex gap-5 overflow-x-auto pb-2 pr-2 -mx-1">
         {children}
       </div>
 
       {isEmpty && (
-        <div className="pt-1">
+        <div className="pt-2">
           {emptyState ?? (
             <EmptyState
               title="Nothing here yet"

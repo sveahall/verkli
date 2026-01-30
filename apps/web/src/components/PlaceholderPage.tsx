@@ -44,28 +44,20 @@ export default function PlaceholderPage({
 
   return (
     <main className="min-h-screen bg-background text-foreground">
-      <div className="mx-auto flex min-h-[60vh] max-w-3xl flex-col items-center justify-center gap-4 px-6 text-center">
-        {variantLabel ? (
-          <p className="text-[12px] uppercase tracking-[0.3em] text-muted-foreground">
-            {variantLabel}
-          </p>
-        ) : null}
-        <h1 className="text-[32px] font-semibold text-foreground">{title}</h1>
-        <p className="text-[15px] text-muted-foreground">
+      <div className="page-content-narrow flex min-h-[60vh] flex-col items-center justify-center gap-6 py-16 text-center">
+        {variantLabel ? <p className="text-eyebrow">{variantLabel}</p> : null}
+        <h1 className="text-page-title">{title}</h1>
+        <p className="max-w-md text-body">
           This page is a placeholder. Content will be added soon.
         </p>
         {status ? (
-          <p className="rounded-full border border-border bg-muted/30 px-4 py-2 text-[13px] text-muted-foreground">
+          <p className="rounded-full border border-border bg-muted/30 px-4 py-2.5 text-helper">
             {status}
           </p>
         ) : null}
-        <div className="mt-4 flex flex-wrap items-center justify-center gap-3">
+        <div className="mt-2 flex flex-wrap items-center justify-center gap-3">
           {links.map((link) => (
-            <Link
-              key={link.href}
-              href={link.href}
-              className="rounded-full border border-border bg-background px-4 py-2 text-[13px] font-semibold text-foreground transition hover:border-[#907AFF]/40 hover:text-[#907AFF]"
-            >
+            <Link key={link.href} href={link.href} className="btn-secondary">
               {link.label}
             </Link>
           ))}

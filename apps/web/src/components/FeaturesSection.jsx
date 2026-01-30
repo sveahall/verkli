@@ -51,15 +51,17 @@ const features = [
 
 export default function FeaturesSection() {
   const [activeIndex, setActiveIndex] = useState(0);
-  const itemsRef = useRef([]);
-
-  itemsRef.current = [];
-  const registerItem = (node) => {
-    if (node) itemsRef.current.push(node);
+  const itemsRef = useRef(new Map());
+  const registerItem = (index) => (node) => {
+    if (node) {
+      itemsRef.current.set(index, node);
+    } else {
+      itemsRef.current.delete(index);
+    }
   };
 
   useEffect(() => {
-    const items = itemsRef.current;
+    const items = Array.from(itemsRef.current.values());
     if (!items.length) return;
 
     const observer = new IntersectionObserver(
@@ -85,7 +87,7 @@ export default function FeaturesSection() {
           Built for authors
         </p>
         <h2 className="text-3xl font-semibold leading-[120%] text-slate-900 dark:text-[#F7F7F7] md:text-4xl lg:text-[42px]">
-          Here's what you get with{" "}
+          Here&apos;s what you get with{" "}
           <span className="bg-gradient-to-r from-[#907AFF] via-[#E29ED5] to-[#FCC997] bg-clip-text text-transparent">verkli.</span>
         </h2>
         <p className="max-w-2xl text-base text-slate-600 dark:text-white/60 md:text-lg">
@@ -101,7 +103,7 @@ export default function FeaturesSection() {
             return (
               <article
                 key={feature.title}
-                ref={registerItem}
+                ref={registerItem(index)}
                 data-index={index}
                 tabIndex={0}
                 onMouseEnter={() => setActiveIndex(index)}

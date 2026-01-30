@@ -42,22 +42,20 @@ export default function ThemeToggle({
 }: ThemeToggleProps) {
   const { className: glassPropsClassName = "", ...restGlassProps } = glassProps;
   const [theme, setTheme] = useState<Theme>("light");
-  const [isMounted, setIsMounted] = useState(false);
 
   useEffect(() => {
     const preferred = getPreferredTheme();
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setTheme(preferred);
     applyTheme(preferred);
-    setIsMounted(true);
   }, []);
 
   useEffect(() => {
-    if (!isMounted) return;
     try {
       window.localStorage.setItem(STORAGE_KEY, theme);
     } catch (error) {}
     applyTheme(theme);
-  }, [theme, isMounted]);
+  }, [theme]);
 
   const isDark = theme === "dark";
 
