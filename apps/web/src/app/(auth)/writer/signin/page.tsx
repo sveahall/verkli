@@ -8,6 +8,7 @@ import GlassSurface from "@/components/GlassSurface";
 import LightRays from "@/components/LightRays";
 import { signIn, signInWithGoogle } from "@/lib/supabase/auth";
 import ThemeToggle from "@/components/ThemeToggle";
+import { createClient } from "@/lib/supabase/client";
 
 export default function WriterSignIn() {
   const router = useRouter();
@@ -18,6 +19,7 @@ export default function WriterSignIn() {
   const [loading, setLoading] = useState(false);
   const [mousePos, setMousePos] = useState({ x: 0.5, y: 0.5 });
   const mainRef = useRef<HTMLElement>(null);
+  const showRouteTag = process.env.NODE_ENV !== "production";
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -30,7 +32,31 @@ export default function WriterSignIn() {
       setError(error.message);
       setLoading(false);
     } else {
-      router.push("/writer/home");
+      const supabase = createClient();
+      const { data: { user } } = await supabase.auth.getUser();
+      let nextRole: "writer" | "reader" | null = null;
+      const metaRole = user?.user_metadata?.active_role ?? user?.user_metadata?.role;
+      if (metaRole === "writer" || metaRole === "reader") {
+        nextRole = metaRole;
+      }
+
+      if (!nextRole && user?.id) {
+        const { data: profile } = await supabase
+          .from("profiles")
+          .select("role, preferences")
+          .eq("user_id", user.id)
+          .maybeSingle();
+
+        const preferenceRole = (profile?.preferences as { active_role?: string } | null)?.active_role;
+        if (preferenceRole === "writer" || preferenceRole === "reader") {
+          nextRole = preferenceRole;
+        } else if (profile?.role === "writer" || profile?.role === "reader") {
+          nextRole = profile.role;
+        }
+      }
+
+      const resolvedRole = nextRole ?? "writer";
+      router.push(resolvedRole === "reader" ? "/reader/home" : "/writer/home");
     }
   };
 
@@ -255,6 +281,11 @@ export default function WriterSignIn() {
           </p>
         </div>
       </GlassCard>
+      {showRouteTag && (
+        <div className="absolute bottom-4 left-4 z-30 text-xs text-slate-500/80 dark:text-white/40">
+          route: /writer/signin
+        </div>
+      )}
     </main>
   );
 }
