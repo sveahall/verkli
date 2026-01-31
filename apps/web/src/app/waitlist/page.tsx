@@ -132,19 +132,32 @@ export default function WaitlistPage() {
                 ) : (
                   <form onSubmit={handleSubmit} className="space-y-5">
                     <div>
-                      <label htmlFor="intent" className="block text-[13px] text-white/40 mb-1.5">
+                      <p className="block text-[13px] text-white/40 mb-1.5" id="intent-label">
                         Do you write or read?
-                      </label>
-                      <select
-                        id="intent"
-                        value={intent}
-                        onChange={(e) => setIntent(e.target.value as Intent)}
-                        disabled={state === "loading"}
-                        className="w-full min-h-[52px] rounded-2xl border border-white/20 bg-white/5 px-5 py-3 text-[15px] text-white placeholder:text-white/40 focus:border-white/40 focus:outline-none focus:ring-0 disabled:opacity-50 dark:border-white/10 dark:bg-white/5"
+                      </p>
+                      <div
+                        role="group"
+                        aria-labelledby="intent-label"
+                        className="flex rounded-2xl border border-white/20 bg-white/5 p-1 dark:border-white/10 dark:bg-white/5"
                       >
-                        <option value="author">Author</option>
-                        <option value="reader">Reader</option>
-                      </select>
+                        {(["author", "reader"] as const).map((value) => (
+                          <button
+                            key={value}
+                            type="button"
+                            onClick={() => setIntent(value)}
+                            disabled={state === "loading"}
+                            aria-pressed={intent === value}
+                            className="flex-1 min-h-[44px] rounded-xl py-2.5 text-[15px] font-medium transition-colors disabled:opacity-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-white/40 focus-visible:ring-offset-2 focus-visible:ring-offset-transparent"
+                            style={
+                              intent === value
+                                ? { background: "rgba(255,255,255,0.12)", color: "white" }
+                                : { color: "rgba(255,255,255,0.6)" }
+                            }
+                          >
+                            {value === "author" ? "Author" : "Reader"}
+                          </button>
+                        ))}
+                      </div>
                     </div>
                     <div>
                       <label htmlFor="email" className="block text-[13px] text-white/40 mb-1.5">
