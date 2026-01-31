@@ -124,9 +124,10 @@ export default function WaitlistPage() {
               PRIVATE PRE LAUNCH
             </p>
             <h1 className="mt-5 text-[26px] font-semibold leading-[1.2] tracking-tight text-white sm:text-[30px] md:text-[32px]">
+              <span className="bg-gradient-to-r from-[#907AFF] via-[#E29ED5] to-[#FCC997] bg-clip-text text-transparent">Verkli</span>
+              {" — "}
               The future platform for authors who want to publish and earn
-              <br />
-              And readers who want better stories
+              <span className="block mt-0.5">And readers who want better stories</span>
             </h1>
             <p className="mt-5 text-[15px] leading-snug text-white/55">
               Verkli is a new publishing platform built for one thing:
