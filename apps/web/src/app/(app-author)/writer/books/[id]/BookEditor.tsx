@@ -1,8 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useCallback, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
+import TiptapEditor from "@/components/editor/TiptapEditor";
 
 type Chapter = {
   id: string;
@@ -34,8 +35,42 @@ export default function BookEditor({ book, chapters: initialChapters }: Props) {
   const [isCreating, setIsCreating] = useState(false);
   const [editingTitleId, setEditingTitleId] = useState<string | null>(null);
   const [tempTitle, setTempTitle] = useState("");
+  const [lastSaved, setLastSaved] = useState<Date | null>(null);
+  const savingRef = useRef(false);
 
   const selectedChapter = chapters.find((ch) => ch.id === selectedChapterId);
+
+  // Autosave content (called from TiptapEditor with debounce)
+  const handleAutoSave = useCallback(async (chapterId: string, jsonContent: Record<string, unknown>) => {
+    if (savingRef.current) return;
+    
+    savingRef.current = true;
+    setIsSaving(true);
+    
+    const supabase = createClient();
+    const contentString = JSON.stringify(jsonContent);
+    
+    const { error } = await supabase
+      .from("chapters")
+      .update({ content: contentString })
+      .eq("id", chapterId);
+    
+    savingRef.current = false;
+    setIsSaving(false);
+    
+    if (error) {
+      console.error("Failed to autosave:", error);
+      return;
+    }
+    
+    // Update local state
+    setChapters((prev) =>
+      prev.map((ch) =>
+        ch.id === chapterId ? { ...ch, content: contentString } : ch
+      )
+    );
+    setLastSaved(new Date());
+  }, []);
 
   const handleCreateChapter = async () => {
     setIsCreating(true);
@@ -68,30 +103,6 @@ export default function BookEditor({ book, chapters: initialChapters }: Props) {
       setSelectedChapterId(data.id);
       router.refresh();
     }
-  };
-
-  const handleUpdateContent = async (chapterId: string, newContent: string) => {
-    setIsSaving(true);
-    const supabase = createClient();
-
-    const { error } = await supabase
-      .from("chapters")
-      .update({ content: newContent })
-      .eq("id", chapterId);
-
-    setIsSaving(false);
-
-    if (error) {
-      console.error("Failed to save content:", error);
-      alert("Failed to save content");
-      return;
-    }
-
-    setChapters(
-      chapters.map((ch) =>
-        ch.id === chapterId ? { ...ch, content: newContent } : ch
-      )
-    );
   };
 
   const handleStartEditTitle = (chapterId: string, currentTitle: string) => {
@@ -242,42 +253,31 @@ export default function BookEditor({ book, chapters: initialChapters }: Props) {
               </div>
 
               <div>
-                <label className="mb-2 block text-sm font-medium text-slate-700 dark:text-white/70">
-                  Content
-                </label>
-                <textarea
-                  value={selectedChapter.content ?? ""}
-                  onChange={(e) => {
-                    const newContent = e.target.value;
-                    setChapters(
-                      chapters.map((ch) =>
-                        ch.id === selectedChapter.id
-                          ? { ...ch, content: newContent }
-                          : ch
-                      )
-                    );
-                  }}
-                  onBlur={(e) =>
-                    handleUpdateContent(selectedChapter.id, e.target.value)
-                  }
-                  className="h-[500px] w-full resize-none rounded-lg border border-slate-300 bg-white px-4 py-3 font-mono text-sm text-slate-900 focus:border-slate-500 focus:outline-none dark:border-white/20 dark:bg-white/10 dark:text-white"
+                <div className="mb-2 flex items-center justify-between">
+                  <label className="text-sm font-medium text-slate-700 dark:text-white/70">
+                    Content
+                  </label>
+                  <p className="text-xs text-slate-500 dark:text-white/50">
+                    {isSaving ? (
+                      <span className="flex items-center gap-1">
+                        <span className="h-2 w-2 animate-pulse rounded-full bg-amber-500" />
+                        Saving...
+                      </span>
+                    ) : lastSaved ? (
+                      <span className="text-green-600 dark:text-green-400">
+                        Saved {lastSaved.toLocaleTimeString()}
+                      </span>
+                    ) : (
+                      "Autosave enabled"
+                    )}
+                  </p>
+                </div>
+                <TiptapEditor
+                  key={selectedChapter.id}
+                  content={selectedChapter.content}
+                  onUpdate={(json) => handleAutoSave(selectedChapter.id, json)}
                   placeholder="Start writing your chapter here..."
                 />
-
-                <div className="mt-4 flex items-center justify-between">
-                  <p className="text-xs text-slate-500 dark:text-white/50">
-                    {isSaving ? "Saving..." : "Changes saved automatically on blur"}
-                  </p>
-                  <button
-                    onClick={() =>
-                      handleUpdateContent(selectedChapter.id, selectedChapter.content ?? "")
-                    }
-                    disabled={isSaving}
-                    className="rounded-full bg-slate-900 px-4 py-2 text-sm font-medium text-white transition hover:bg-slate-800 disabled:opacity-50 dark:bg-white dark:text-slate-900"
-                  >
-                    {isSaving ? "Saving..." : "Save now"}
-                  </button>
-                </div>
               </div>
             </>
           ) : (
