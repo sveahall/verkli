@@ -3,7 +3,6 @@
 import { useState } from "react";
 import Link from "next/link";
 import GlassSurface from "@/components/GlassSurface";
-import LightRays from "@/components/LightRays.jsx";
 import ThemeToggle from "@/components/ThemeToggle";
 import { resetPassword } from "@/lib/supabase/auth";
 
@@ -45,23 +44,6 @@ export default function WriterForgotPassword() {
 
   return (
     <main className="relative flex min-h-screen flex-col items-center justify-center overflow-hidden bg-background text-foreground transition-colors duration-300">
-      <div className="absolute inset-0 z-0 dark:block hidden">
-        <LightRays
-          raysOrigin="top-center"
-          raysColor="#907aff"
-          raysSpeed={1.5}
-          lightSpread={0.8}
-          rayLength={3}
-          followMouse={true}
-          mouseInfluence={0.6}
-          noiseAmount={0.33}
-          distortion={0}
-          pulsating={false}
-          fadeDistance={0.9}
-          saturation={2}
-        />
-      </div>
-
       <div className="absolute inset-0 z-0 bg-gradient-to-br from-slate-50 via-purple-50/30 to-slate-100 dark:hidden" />
 
       <header className="absolute left-6 top-6 z-20 flex w-full items-center justify-between px-6 sm:left-8 sm:top-8 sm:px-8">

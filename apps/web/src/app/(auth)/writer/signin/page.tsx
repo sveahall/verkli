@@ -4,7 +4,6 @@ import { useState, useRef } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import GlassCard, { glassCardProps } from "@/components/GlassCard";
-import LightRays from "@/components/LightRays.jsx";
 import { signIn, signInWithGoogle } from "@/lib/supabase/auth";
 import ThemeToggle from "@/components/ThemeToggle";
 import { createClient } from "@/lib/supabase/client";
@@ -98,25 +97,6 @@ export default function WriterSignIn() {
           }}
         />
       </div>
-
-      {/* Light rays background - only in dark mode */}
-      <div className="absolute inset-0 z-0 dark:block hidden">
-        <LightRays
-          raysOrigin="top-center"
-          raysColor="#907aff"
-          raysSpeed={1.5}
-          lightSpread={0.8}
-          rayLength={3}
-          followMouse={true}
-          mouseInfluence={0.6}
-          noiseAmount={0}
-          distortion={0}
-          pulsating={false}
-          fadeDistance={0.9}
-          saturation={2}
-        />
-      </div>
-
 
 
 

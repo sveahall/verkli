@@ -4,7 +4,6 @@ import { useState, useRef } from "react";
 import Link from "next/link";
 import GlassCard, { glassCardProps } from "@/components/GlassCard";
 import GlassSurface from "@/components/GlassSurface";
-import LightRays from "@/components/LightRays.jsx";
 import ThemeToggle from "@/components/ThemeToggle";
 import { signUp, signInWithGoogle } from "@/lib/supabase/auth";
 
@@ -80,10 +79,6 @@ export default function WriterSignUp() {
             }}
           />
         </div>
-        <div className="absolute inset-0 z-0 dark:block hidden">
-          <LightRays raysOrigin="top-center" raysColor="#907aff" raysSpeed={1.5} lightSpread={0.8} rayLength={3} followMouse={true} mouseInfluence={0.6} noiseAmount={0} distortion={0} pulsating={false} fadeDistance={0.9} saturation={2} />
-        </div>
-
         <GlassSurface
           {...glassCardProps}
           width="480px"
@@ -134,11 +129,6 @@ export default function WriterSignUp() {
             willChange: "left, top",
           }}
         />
-      </div>
-
-      {/* Light rays - only in dark mode */}
-      <div className="absolute inset-0 z-0 dark:block hidden">
-        <LightRays raysOrigin="top-center" raysColor="#907aff" raysSpeed={1.5} lightSpread={0.8} rayLength={3} followMouse={true} mouseInfluence={0.6} noiseAmount={0} distortion={0} pulsating={false} fadeDistance={0.9} saturation={2} />
       </div>
 
       {/* Logo + Back */}
