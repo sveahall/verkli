@@ -26,7 +26,7 @@ const HERO_SUBHEADLINE_LINE2 = "Early access is invite-only and limited.";
 const HERO_CTA_LABEL = "Request access";
 const HERO_MICRO = "Authors publish, readers discover. Early access is limited.";
 const READER_MICRO = "Invites are sent in limited, curated waves.";
-const CARD_BADGE = "INVITE-ONLY EARLY ACCESS";
+const CARD_BADGE = "EARLY ACCESS";
 
 type SubmitState = "idle" | "loading" | "success" | "error" | "already_exists";
 
@@ -486,7 +486,7 @@ export default function WaitlistPage() {
               {HERO_EYEBROW}
             </p>
             <h1 className="mt-6 text-[40px] font-bold leading-[1.05] tracking-tight text-white sm:text-[48px] md:text-[56px]">
-              <span className="bg-gradient-to-r from-[#907AFF] via-[#E29ED5] to-[#FCC997] bg-clip-text text-transparent">verkli</span> — the next generation of modern storytelling
+              <span className="bg-gradient-to-r from-[#907AFF] via-[#E29ED5] to-[#FCC997] bg-clip-text text-transparent">verkli</span> is the next generation of modern storytelling
             </h1>
             <p className="mt-5 text-[17px] leading-snug text-white/60">
               {HERO_SUBHEADLINE_LINE1}
