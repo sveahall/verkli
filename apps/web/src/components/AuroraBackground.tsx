@@ -86,7 +86,7 @@ export default function AuroraBackground() {
             top: "20%",
             width: "90vmax",
             height: "90vmax",
-            background: "radial-gradient(circle, #907AFF 25%, transparent 70%)",
+            background: "radial-gradient(circle, #907AFF 5%, transparent 70%)",
           }}
         />
         <div
@@ -96,7 +96,7 @@ export default function AuroraBackground() {
             top: "60%",
             width: "85vmax",
             height: "85vmax",
-            background: "radial-gradient(circle, #E29ED5 25%, transparent 70%)",
+            background: "radial-gradient(circle, #E29ED5 15%, transparent 70%)",
           }}
         />
         <div
@@ -106,7 +106,7 @@ export default function AuroraBackground() {
             top: "15%",
             width: "75vmax",
             height: "75vmax",
-            background: "radial-gradient(circle, rgba(255, 190, 120, 0.18) 0%, transparent 70%)",
+            background: "radial-gradient(circle, #FCC997 15%, transparent 70%)",
           }}
         />
         <div
@@ -116,7 +116,7 @@ export default function AuroraBackground() {
             top: "55%",
             width: "70vmax",
             height: "70vmax",
-            background: "radial-gradient(circle, rgba(255, 120, 180, 0.16) 0%, transparent 70%)",
+            background: "radial-gradient(circle, #FEE9A3 15%, transparent 70%)",
           }}
         />
 
@@ -126,7 +126,7 @@ export default function AuroraBackground() {
           style={{
             background: `radial-gradient(
               600px 400px at calc(var(--mouse-x) * 100%) calc(var(--mouse-y) * 100%),
-              rgba(255, 255, 255, 0.08) 0%,
+              #E29ED5 10%,
               transparent 50%
             )`,
           }}
