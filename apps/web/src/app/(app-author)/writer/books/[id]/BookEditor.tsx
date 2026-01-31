@@ -1,14 +1,9 @@
 "use client";
 
-import { useState, useCallback, useRef, useEffect } from "react";
+import { useState, useCallback, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
-import {
-  EditorProvider,
-  useEditorContext,
-  TiptapEditor,
-  WriterEditorBar,
-} from "@/components/editor";
+import TiptapEditor from "@/components/editor/TiptapEditor";
 
 type Chapter = {
   id: string;
@@ -31,22 +26,7 @@ type Props = {
 };
 
 export default function BookEditor({ book, chapters: initialChapters }: Props) {
-  return (
-    <EditorProvider bookId={book.id}>
-      <BookEditorInner book={book} initialChapters={initialChapters} />
-    </EditorProvider>
-  );
-}
-
-function BookEditorInner({
-  book,
-  initialChapters,
-}: {
-  book: Book;
-  initialChapters: Chapter[];
-}) {
   const router = useRouter();
-  const { focusMode, typewriterMode, typography, setFocusMode } = useEditorContext();
   const [chapters, setChapters] = useState<Chapter[]>(initialChapters);
   const [selectedChapterId, setSelectedChapterId] = useState<string | null>(
     initialChapters[0]?.id ?? null
@@ -56,54 +36,10 @@ function BookEditorInner({
   const [editingTitleId, setEditingTitleId] = useState<string | null>(null);
   const [tempTitle, setTempTitle] = useState("");
   const [lastSaved, setLastSaved] = useState<Date | null>(null);
-  const [showToolbar, setShowToolbar] = useState(false);
   const savingRef = useRef(false);
-  const editorAreaRef = useRef<HTMLDivElement>(null);
 
   const selectedChapter = chapters.find((ch) => ch.id === selectedChapterId);
 
-  // Toolbar visibility: show when text selected or mouse near top (focus mode)
-  useEffect(() => {
-    if (!focusMode) {
-      setShowToolbar(true);
-      return;
-    }
-    const checkSelection = () => {
-      const sel = window.getSelection();
-      if (sel && !sel.isCollapsed) {
-        setShowToolbar(true);
-      }
-    };
-    const checkMouse = (e: MouseEvent) => {
-      if (e.clientY < 120) setShowToolbar(true);
-      else setShowToolbar(false);
-    };
-    document.addEventListener("selectionchange", checkSelection);
-    document.addEventListener("mousemove", checkMouse);
-    return () => {
-      document.removeEventListener("selectionchange", checkSelection);
-      document.removeEventListener("mousemove", checkMouse);
-    };
-  }, [focusMode]);
-
-  // Focus mode keyboard shortcut (f) when editor focused
-  const focusModeRef = useRef(focusMode);
-  focusModeRef.current = focusMode;
-  useEffect(() => {
-    const handler = (e: KeyboardEvent) => {
-      if (e.key === "f" && !e.ctrlKey && !e.metaKey && !e.altKey && !e.shiftKey) {
-        const target = e.target as HTMLElement;
-        if (target?.closest?.(".ProseMirror")) {
-          e.preventDefault();
-          setFocusMode(!focusModeRef.current);
-        }
-      }
-    };
-    document.addEventListener("keydown", handler);
-    return () => document.removeEventListener("keydown", handler);
-  }, [setFocusMode]);
-
-  // Autosave content (called from TiptapEditor with debounce)
   const handleAutoSave = useCallback(async (chapterId: string, jsonContent: Record<string, unknown>) => {
     if (savingRef.current) return;
     
@@ -126,7 +62,6 @@ function BookEditorInner({
       return;
     }
     
-    // Update local state
     setChapters((prev) =>
       prev.map((ch) =>
         ch.id === chapterId ? { ...ch, content: contentString } : ch
@@ -157,7 +92,7 @@ function BookEditorInner({
 
     if (error) {
       console.error("Failed to create chapter:", error);
-      alert(`Failed to create chapter: ${error.message || error.code || "Unknown error"}`);
+      alert(`Failed to create chapter: ${error.message || "Unknown error"}`);
       return;
     }
 
@@ -210,52 +145,6 @@ function BookEditorInner({
     setTempTitle("");
   };
 
-  // Focus mode: fullscreen overlay, no sidebar
-  if (focusMode) {
-    return (
-      <div
-        ref={editorAreaRef}
-        className="fixed inset-0 z-50 flex flex-col bg-background"
-      >
-        <div
-          className={`border-b border-slate-200 bg-white/80 px-4 py-2 backdrop-blur-sm transition-opacity duration-150 dark:border-white/10 dark:bg-slate-900/80 ${
-            showToolbar ? "opacity-100" : "opacity-0 pointer-events-none"
-          }`}
-        >
-          <WriterEditorBar
-            onFocusToggle={() => {}}
-            onTypewriterToggle={() => {}}
-            showToolbar={true}
-            toolbarContent={null}
-          />
-        </div>
-        <div className="flex-1 overflow-hidden p-6">
-          {selectedChapter ? (
-            <div className="mx-auto h-full max-w-4xl">
-              <TiptapEditor
-                key={selectedChapter.id}
-                content={selectedChapter.content}
-                onUpdate={(json) => handleAutoSave(selectedChapter.id, json)}
-                placeholder="Start writing..."
-                floatingToolbar
-                showToolbar={showToolbar}
-                typography={typography}
-                typewriterMode={typewriterMode}
-                bookId={book.id}
-                chapterId={selectedChapter.id}
-              />
-            </div>
-          ) : (
-            <div className="flex h-full items-center justify-center">
-              <p className="text-slate-500">Exit focus mode to select a chapter</p>
-            </div>
-          )}
-        </div>
-      </div>
-    );
-  }
-
-  // Normal layout
   return (
     <section className="mx-auto max-w-[1400px] px-6 py-12">
       <div className="mb-8">
@@ -267,11 +156,11 @@ function BookEditorInner({
         </p>
       </div>
 
-      <div className="grid gap-8 lg:grid-cols-[300px_1fr]">
+      <div className="grid gap-8 lg:grid-cols-[280px_1fr]">
         {/* Chapter list sidebar */}
-        <div className="rounded-2xl border border-black/10 bg-black/[0.02] p-6 dark:border-white/10 dark:bg-white/5">
+        <div className="rounded-xl border border-slate-200 bg-slate-50/50 p-5 dark:border-white/10 dark:bg-white/5">
           <div className="mb-4 flex items-center justify-between">
-            <h2 className="text-lg font-semibold text-slate-900 dark:text-white">Chapters</h2>
+            <h2 className="text-base font-semibold text-slate-900 dark:text-white">Chapters</h2>
             <button
               onClick={handleCreateChapter}
               disabled={isCreating}
@@ -286,7 +175,7 @@ function BookEditorInner({
               No chapters yet. Create one to get started.
             </p>
           ) : (
-            <ul className="space-y-2">
+            <ul className="space-y-1">
               {chapters.map((chapter) => (
                 <li key={chapter.id}>
                   {editingTitleId === chapter.id ? (
@@ -324,11 +213,10 @@ function BookEditorInner({
                       className={`w-full rounded-lg px-3 py-2 text-left text-sm transition ${
                         selectedChapterId === chapter.id
                           ? "bg-slate-900 text-white dark:bg-white dark:text-slate-900"
-                          : "text-slate-700 hover:bg-black/5 dark:text-white/70 dark:hover:bg-white/5"
+                          : "text-slate-700 hover:bg-slate-100 dark:text-white/70 dark:hover:bg-white/5"
                       }`}
                     >
-                      <div className="truncate font-medium">{chapter.title}</div>
-                      <div className="text-xs opacity-60">Order: {chapter.order}</div>
+                      <span className="block truncate font-medium">{chapter.title}</span>
                     </button>
                   )}
                 </li>
@@ -337,47 +225,25 @@ function BookEditorInner({
           )}
 
           {chapters.length > 0 && (
-            <p className="mt-4 text-xs text-slate-500 dark:text-white/50">
-              Double-click a chapter to rename
+            <p className="mt-4 text-xs text-slate-400 dark:text-white/40">
+              Double-click to rename
             </p>
           )}
         </div>
 
         {/* Editor panel */}
-        <div className="rounded-2xl border border-black/10 bg-white/80 p-8 dark:border-white/10 dark:bg-white/5">
+        <div>
           {selectedChapter ? (
             <>
-              <div className="mb-4 flex items-center justify-between">
-                <h2 className="text-2xl font-semibold text-slate-900 dark:text-white">
+              <div className="mb-3 flex items-center justify-between">
+                <h2 className="text-xl font-semibold text-slate-900 dark:text-white">
                   {selectedChapter.title}
                 </h2>
-                <button
-                  onClick={() =>
-                    handleStartEditTitle(selectedChapter.id, selectedChapter.title)
-                  }
-                  className="text-sm text-slate-600 hover:text-slate-900 dark:text-white/60 dark:hover:text-white"
-                >
-                  Rename
-                </button>
-              </div>
-              <div className="mb-4 rounded-lg border border-slate-200/80 bg-slate-50/50 py-1 dark:border-white/10 dark:bg-white/5">
-                <WriterEditorBar
-                  onFocusToggle={() => {}}
-                  onTypewriterToggle={() => {}}
-                  showToolbar={true}
-                  toolbarContent={null}
-                />
-              </div>
-
-              <div>
-                <div className="mb-2 flex items-center justify-between">
-                  <label className="text-sm font-medium text-slate-700 dark:text-white/70">
-                    Content
-                  </label>
+                <div className="flex items-center gap-3">
                   <p className="text-xs text-slate-500 dark:text-white/50">
                     {isSaving ? (
                       <span className="flex items-center gap-1">
-                        <span className="h-2 w-2 animate-pulse rounded-full bg-amber-500" />
+                        <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-amber-500" />
                         Saving...
                       </span>
                     ) : lastSaved ? (
@@ -388,28 +254,30 @@ function BookEditorInner({
                       "Autosave enabled"
                     )}
                   </p>
+                  <button
+                    onClick={() => handleStartEditTitle(selectedChapter.id, selectedChapter.title)}
+                    className="text-xs text-slate-500 hover:text-slate-900 dark:text-white/50 dark:hover:text-white"
+                  >
+                    Rename
+                  </button>
                 </div>
-                <TiptapEditor
-                  key={selectedChapter.id}
-                  content={selectedChapter.content}
-                  onUpdate={(json) => handleAutoSave(selectedChapter.id, json)}
-                  placeholder="Start writing your chapter here..."
-                  typography={typography}
-                  typewriterMode={typewriterMode}
-                  bookId={book.id}
-                  chapterId={selectedChapter.id}
-                />
               </div>
+              <TiptapEditor
+                key={selectedChapter.id}
+                content={selectedChapter.content}
+                onUpdate={(json) => handleAutoSave(selectedChapter.id, json)}
+                placeholder="Start writing your chapter..."
+                bookId={book.id}
+                chapterId={selectedChapter.id}
+              />
             </>
           ) : (
-            <div className="flex h-[500px] items-center justify-center">
-              <div className="text-center">
-                <p className="text-lg text-slate-600 dark:text-white/60">
-                  {chapters.length === 0
-                    ? "Create your first chapter to start writing"
-                    : "Select a chapter from the sidebar"}
-                </p>
-              </div>
+            <div className="flex h-[500px] items-center justify-center rounded-xl border border-slate-200 bg-slate-50/50 dark:border-white/10 dark:bg-white/5">
+              <p className="text-slate-500 dark:text-white/50">
+                {chapters.length === 0
+                  ? "Create your first chapter to start writing"
+                  : "Select a chapter from the sidebar"}
+              </p>
             </div>
           )}
         </div>

@@ -127,6 +127,14 @@ export default function TiptapRenderer({ content, className = "" }: TiptapRender
           border-radius: 0.5rem;
           margin: 1rem 0;
         }
+        .tiptap-renderer .ProseMirror hr {
+          border: none;
+          border-top: 2px solid #e2e8f0;
+          margin: 2rem 0;
+        }
+        .dark .tiptap-renderer .ProseMirror hr {
+          border-color: rgba(255,255,255,0.15);
+        }
         .tiptap-renderer .ProseMirror strong {
           font-weight: 600;
         }
