@@ -7,6 +7,7 @@ import GlassSurface from "@/components/GlassSurface";
 import ThemeToggle from "@/components/ThemeToggle";
 import { signIn, signInWithGoogle } from "@/lib/supabase/auth";
 import { createClient } from "@/lib/supabase/client";
+import { ERROR_COPY } from "@/lib/copy-rules";
 
 const glassBaseProps = {
   displace: 0.5,
@@ -48,7 +49,7 @@ export default function SignIn() {
     const { error } = await signIn(email, password);
 
     if (error) {
-      setError(error.message);
+      setError(ERROR_COPY.INVALID_LOGIN);
       setLoading(false);
     } else {
       const supabase = createClient();
@@ -83,7 +84,7 @@ export default function SignIn() {
     setError("");
     const { error } = await signInWithGoogle();
     if (error) {
-      setError(error.message);
+      setError(ERROR_COPY.INVALID_LOGIN);
     }
   };
 

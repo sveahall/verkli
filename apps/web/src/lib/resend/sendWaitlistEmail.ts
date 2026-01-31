@@ -1,66 +1,23 @@
 /**
- * Server-only: sends waitlist confirmation email via Resend.
+ * Server-only: access flow emails via Resend.
  * Call only from API routes or server actions.
  */
 import { Resend } from "resend";
 
 const FROM_EMAIL = "verkli <hello@verkli.com>";
 
-function getHtml(role: "author" | "reader"): string {
-  const isAuthor = role === "author";
-  const roleDescription = isAuthor
-    ? "<span style=\"background: linear-gradient(90deg, #907AFF, #E29ED5, #FCC997); -webkit-background-clip: text; -webkit-text-fill-color: transparent; color: #907aff;\">verkli</span> is a platform where authors share stories and connect with readers. We're in private pre-launch."
-    : "<span style=\"background: linear-gradient(90deg, #907AFF, #E29ED5, #FCC997); -webkit-background-clip: text; -webkit-text-fill-color: transparent; color: #907aff;\">verkli</span> is a platform where readers discover stories from independent authors. We're in private pre-launch.";
-
-  return `
-<!DOCTYPE html>
-<html>
-<head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-</head>
-<body style="margin: 0; padding: 0; background-color: #0f172a; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;">
-  <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background-color: #0f172a; min-height: 100vh;">
-    <tr>
-      <td align="center" style="padding: 48px 24px;">
-        <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width: 520px;">
-          <tr>
-            <td style="padding: 48px 40px; background-color: #1e293b; border-radius: 16px; border: 1px solid #334155; box-shadow: 0 4px 24px rgba(0,0,0,0.2);">
-              <div style="margin-bottom: 28px; width: 40px; height: 3px; background: linear-gradient(90deg, #907AFF, #E29ED5, #FCC997); border-radius: 2px;"></div>
-              <p style="margin: 0 0 24px; font-size: 12px; font-weight: 600; letter-spacing: 0.15em; background: linear-gradient(90deg, #907AFF, #E29ED5); -webkit-background-clip: text; -webkit-text-fill-color: transparent; color: #907aff; text-transform: uppercase;">verkli</p>
-              <h1 style="margin: 0 0 24px; font-size: 26px; font-weight: 600; color: #f8fafc; line-height: 1.25;">You're on the list</h1>
-              <p style="margin: 0 0 20px; font-size: 16px; line-height: 1.65; color: #cbd5e1;">
-                ${roleDescription}
-              </p>
-              <p style="margin: 0 0 24px; font-size: 15px; line-height: 1.65; color: #94a3b8;">
-                You've joined as ${role === "author" ? "an" : "a"} <strong style="color: #e2e8f0;">${role}</strong>. We onboard in small waves — we'll reach out when it's your turn.
-              </p>
-              <div style="margin: 28px 0 0; padding-top: 24px; border-top: 1px solid #334155;"></div>
-              <p style="margin: 0; font-size: 14px; color: #64748b;">— <span style="background: linear-gradient(90deg, #907AFF, #E29ED5); -webkit-background-clip: text; -webkit-text-fill-color: transparent; color: #907aff;">verkli</span></p>
-            </td>
-          </tr>
-        </table>
-      </td>
-    </tr>
-  </table>
-</body>
-</html>
-  `.trim();
-}
-
 export type WaitlistRole = "author" | "reader";
 
 /**
- * Sends a waitlist confirmation email. Server-side only.
- * Uses RESEND_API_KEY. Fails silently if key is missing (logs warning).
+ * Request received (after form submit). Minimal. No confirmation, no gratitude.
  */
 export async function sendWaitlistEmail(
   email: string,
-  role: WaitlistRole
+  _role: WaitlistRole
 ): Promise<void> {
   const apiKey = process.env.RESEND_API_KEY;
   if (!apiKey) {
-    console.warn("WAITLIST_EMAIL: RESEND_API_KEY not set, skipping confirmation email");
+    console.warn("WAITLIST_EMAIL: RESEND_API_KEY not set, skipping");
     return;
   }
 
@@ -69,19 +26,78 @@ export async function sendWaitlistEmail(
     const { error } = await resend.emails.send({
       from: FROM_EMAIL,
       to: email,
-      subject: "You are on the verkli waitlist.",
-      html: getHtml(role),
+      subject: "Request",
+      text: "We'll be in touch.",
     });
 
     if (error) {
-      console.error("WAITLIST_EMAIL", {
-        message: "Resend send failed",
-        code: error.message,
-        hint: "check RESEND_API_KEY and verkli.com domain",
-      });
+      console.error("WAITLIST_EMAIL", { message: "Resend send failed", code: error.message });
     }
   } catch (err) {
     console.error("WAITLIST_EMAIL", {
+      message: "Resend exception",
+      error: err instanceof Error ? err.message : String(err),
+    });
+  }
+}
+
+/**
+ * Access approved. One clear action.
+ */
+export async function sendAccessApprovalEmail(
+  email: string,
+  signInUrl: string
+): Promise<void> {
+  const apiKey = process.env.RESEND_API_KEY;
+  if (!apiKey) {
+    console.warn("ACCESS_APPROVAL_EMAIL: RESEND_API_KEY not set, skipping");
+    return;
+  }
+
+  try {
+    const resend = new Resend(apiKey);
+    const { error } = await resend.emails.send({
+      from: FROM_EMAIL,
+      to: email,
+      subject: "Access",
+      text: `Your access is ready.\n\nSign in: ${signInUrl}`,
+    });
+
+    if (error) {
+      console.error("ACCESS_APPROVAL_EMAIL", { message: "Resend send failed", code: error.message });
+    }
+  } catch (err) {
+    console.error("ACCESS_APPROVAL_EMAIL", {
+      message: "Resend exception",
+      error: err instanceof Error ? err.message : String(err),
+    });
+  }
+}
+
+/**
+ * Rejection or delay. Calm. No apology. No justification.
+ */
+export async function sendRejectionOrDelayEmail(email: string): Promise<void> {
+  const apiKey = process.env.RESEND_API_KEY;
+  if (!apiKey) {
+    console.warn("REJECTION_EMAIL: RESEND_API_KEY not set, skipping");
+    return;
+  }
+
+  try {
+    const resend = new Resend(apiKey);
+    const { error } = await resend.emails.send({
+      from: FROM_EMAIL,
+      to: email,
+      subject: "Update",
+      text: "We're not able to offer access right now. We may reach out later.\n\nNo reply needed.",
+    });
+
+    if (error) {
+      console.error("REJECTION_EMAIL", { message: "Resend send failed", code: error.message });
+    }
+  } catch (err) {
+    console.error("REJECTION_EMAIL", {
       message: "Resend exception",
       error: err instanceof Error ? err.message : String(err),
     });

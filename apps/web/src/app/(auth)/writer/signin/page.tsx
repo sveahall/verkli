@@ -7,6 +7,7 @@ import GlassCard, { glassCardProps } from "@/components/GlassCard";
 import { signIn, signInWithGoogle } from "@/lib/supabase/auth";
 import ThemeToggle from "@/components/ThemeToggle";
 import { createClient } from "@/lib/supabase/client";
+import { ERROR_COPY } from "@/lib/copy-rules";
 
 export default function AuthorSignIn() {
   const router = useRouter();
@@ -26,7 +27,7 @@ export default function AuthorSignIn() {
     const { error } = await signIn(email, password, staySignedIn);
 
     if (error) {
-      setError(error.message);
+      setError(ERROR_COPY.INVALID_LOGIN);
       setLoading(false);
     } else {
       const supabase = createClient();
@@ -61,7 +62,7 @@ export default function AuthorSignIn() {
     setError("");
     const { error } = await signInWithGoogle();
     if (error) {
-      setError(error.message);
+      setError(ERROR_COPY.INVALID_LOGIN);
     }
   };
 

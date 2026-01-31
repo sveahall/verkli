@@ -1,8 +1,8 @@
 import type { Metadata } from "next";
 
 export const metadata: Metadata = {
-  title: "Join the waitlist | verkli",
-  description: "Built for authors who want momentum. Join the verkli waitlist for early access.",
+  title: "verkli",
+  description: "Writers who publish. Readers who follow.",
 };
 
 export default function WaitlistLayout({
