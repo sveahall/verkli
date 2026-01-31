@@ -121,7 +121,7 @@ export default function WaitlistPage() {
 
           <div className="waitlist-hero-in waitlist-hero-in-delay-1 mx-auto w-full max-w-lg text-center">
             <p className="text-[11px] font-semibold uppercase tracking-[0.25em] text-white/50">
-              PRIVATE PRE LAUNCH
+              LIMITED PRE LAUNCH
             </p>
             <h1 className="mt-5 text-[26px] font-semibold leading-[1.2] tracking-tight text-white sm:text-[30px] md:text-[32px]">
               <span className="bg-gradient-to-r from-[#907AFF] via-[#E29ED5] to-[#FCC997] bg-clip-text text-transparent">Verkli</span>
@@ -131,12 +131,11 @@ export default function WaitlistPage() {
             <p className="mt-5 text-[15px] leading-snug text-white/55">
               Verkli is a new publishing platform built for one thing:
               <br />
-              To make it radically easier for authors to publish, grow an audience and earn real money
-              <br />
-              Without publishers, gatekeepers or platform noise
+              To make it radically easier for authors to publish, grow a community and actually earn money
             </p>
             <p className="mt-4 text-[13px] text-white/45">
-              This is a private pre-launch. Early access is invite only.
+              This is a private pre-launch. Early access is invite only.<br />
+              Sign up below to join the pre-launch.
             </p>
 
             {hydrated && (
