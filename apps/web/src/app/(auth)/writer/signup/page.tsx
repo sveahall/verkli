@@ -4,7 +4,7 @@ import { useState, useRef } from "react";
 import Link from "next/link";
 import GlassCard, { glassCardProps } from "@/components/GlassCard";
 import GlassSurface from "@/components/GlassSurface";
-import LightRays from "@/components/LightRays";
+import LightRays from "@/components/LightRays.jsx";
 import ThemeToggle from "@/components/ThemeToggle";
 import { signUp, signInWithGoogle } from "@/lib/supabase/auth";
 
