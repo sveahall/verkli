@@ -127,7 +127,7 @@ export default function AuroraBackground() {
             background: `radial-gradient(
               600px 400px at calc(var(--mouse-x) * 100%) calc(var(--mouse-y) * 100%),
               #E29ED5 0%,
-              transparent 50%
+              transparent 10%
             )`,
           }}
         />
