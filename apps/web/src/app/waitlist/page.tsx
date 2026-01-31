@@ -97,6 +97,8 @@ export default function WaitlistPage() {
         }
         .waitlist-hero-in-delay-1 { animation-delay: 0.1s; }
         .waitlist-hero-in-delay-2 { animation-delay: 0.2s; }
+        .waitlist-hero-in-delay-3 { animation-delay: 0.3s; }
+        .waitlist-hero-in-delay-4 { animation-delay: 0.4s; }
         .waitlist-cta {
           box-shadow: 0 0 32px rgba(144, 122, 255, 0.25);
         }
@@ -117,16 +119,64 @@ export default function WaitlistPage() {
             </div>
           </div>
 
-          <div className="waitlist-hero-in waitlist-hero-in-delay-1 mx-auto w-full max-w-md text-center">
-            <h1 className="text-[28px] font-semibold leading-[1.15] tracking-tight text-white sm:text-[32px]">
-              Verkli is for authors who publish and readers who follow.
+          <div className="waitlist-hero-in waitlist-hero-in-delay-1 mx-auto w-full max-w-lg text-center">
+            <p className="text-[11px] font-semibold uppercase tracking-[0.25em] text-white/50">
+              PRIVATE PRE LAUNCH
+            </p>
+            <h1 className="mt-5 text-[26px] font-semibold leading-[1.2] tracking-tight text-white sm:text-[30px] md:text-[32px]">
+              The future platform for authors who want to publish and earn
+              <br />
+              And readers who want better stories
             </h1>
-            <p className="mt-4 text-[15px] text-white/50">
-              Join the waitlist. Access is limited.
+            <p className="mt-5 text-[15px] leading-snug text-white/55">
+              Verkli is a new publishing platform built for one thing:
+              <br />
+              To make it radically easier for authors to publish, grow an audience and earn real money
+              <br />
+              Without publishers, gatekeepers or platform noise
+            </p>
+            <p className="mt-4 text-[13px] text-white/45">
+              This is a private pre-launch. Early access is invite only.
             </p>
 
+            {/* For authors / For readers */}
+            <div className="waitlist-hero-in waitlist-hero-in-delay-2 mt-10 grid w-full grid-cols-1 gap-8 text-left md:grid-cols-2 md:gap-10">
+              <div>
+                <h2 className="text-[13px] font-semibold uppercase tracking-wider text-white/70">
+                  For authors
+                </h2>
+                <p className="mt-3 text-[14px] leading-relaxed text-white/50">
+                  Publish without friction
+                  <br />
+                  Own your audience
+                  <br />
+                  Earn directly from readers
+                  <br />
+                  Built for modern storytelling, not newsletters
+                  <br />
+                  <br />
+                  Small curated author groups are onboarded before public launch
+                </p>
+              </div>
+              <div>
+                <h2 className="text-[13px] font-semibold uppercase tracking-wider text-white/70">
+                  For readers
+                </h2>
+                <p className="mt-3 text-[14px] leading-relaxed text-white/50">
+                  Discover high quality stories
+                  <br />
+                  Follow authors early
+                  <br />
+                  Read without ads or algorithm chaos
+                  <br />
+                  <br />
+                  Early access readers help shape the platform
+                </p>
+              </div>
+            </div>
+
             {hydrated && (
-              <div className="waitlist-hero-in waitlist-hero-in-delay-2 mt-12 w-full">
+              <div className="waitlist-hero-in waitlist-hero-in-delay-3 mt-10 w-full max-w-md mx-auto">
                 {state === "submitted" ? (
                   <p className="text-[14px] text-white/40">You&apos;re on the waitlist. We&apos;ll be in touch.</p>
                 ) : (
@@ -196,6 +246,10 @@ export default function WaitlistPage() {
                 )}
               </div>
             )}
+
+            <p className="waitlist-hero-in waitlist-hero-in-delay-4 mt-10 text-center text-[11px] text-white/35 tracking-wide">
+              No public launch date announced
+            </p>
           </div>
         </section>
       </main>
