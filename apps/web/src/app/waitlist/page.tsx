@@ -21,8 +21,7 @@ const READER_STORAGE_STATUS = "verkli_waitlist_reader_status";
 const READER_STORAGE_POSITION = "verkli_waitlist_reader_position";
 
 const HERO_EYEBROW = "Limited access";
-const HERO_HEADLINE = "The future of reading and writing";
-const HERO_SUBHEADLINE = "Built for authors first. Request access below.";
+const HERO_SUBHEADLINE = "Built for authors and readers. Request access below.";
 const HERO_CTA_LABEL = "Request access";
 const HERO_MICRO = "Authors publish, readers discover. Early access is limited.";
 const READER_MICRO = "Early access to curated stories from independent authors.";
@@ -483,7 +482,7 @@ export default function WaitlistPage() {
               {HERO_EYEBROW}
             </p>
             <h1 className="mt-6 text-[40px] font-bold leading-[1.05] tracking-tight text-white sm:text-[48px] md:text-[56px]">
-              {HERO_HEADLINE}
+              <span className="bg-gradient-to-r from-[#907AFF] via-[#E29ED5] to-[#FCC997] bg-clip-text text-transparent">verkli</span> is the future for modern storytelling
             </h1>
             <p className="mt-5 text-[17px] leading-snug text-white/60">
               {HERO_SUBHEADLINE}
@@ -499,7 +498,7 @@ export default function WaitlistPage() {
             {/* Two signups: author + reader — column on mobile, row on desktop */}
             <div className="waitlist-hero-in waitlist-hero-in-delay-3 mt-3 flex w-full flex-col gap-8 md:flex-row md:items-stretch">
               {/* Join the waitlist as an author */}
-              <div className="aurora-card min-w-0 flex-1 rounded-3xl border border-white/20 bg-white/10 p-6 shadow-[0_24px_48px_rgba(0,0,0,0.2),0_0_0_1px_rgba(255,255,255,0.08)] backdrop-blur-xl sm:p-8">
+              <div className="aurora-card group min-w-0 flex-1 rounded-3xl border border-white/20 bg-white/5 p-6 shadow-[0_24px_48px_rgba(0,0,0,0.25),0_0_0_1px_rgba(255,255,255,0.06)] backdrop-blur-xl transition-all duration-300 hover:border-white/30 hover:bg-white/[0.08] sm:p-8">
                 <h2 className="text-center text-sm font-semibold uppercase tracking-wider text-white/60">
                   Join the waitlist as an author
                 </h2>
@@ -524,7 +523,7 @@ export default function WaitlistPage() {
               </div>
 
               {/* Join the waitlist as a reader */}
-              <div className="aurora-card min-w-0 flex-1 rounded-3xl border border-white/20 bg-white/10 p-6 shadow-[0_24px_48px_rgba(0,0,0,0.2),0_0_0_1px_rgba(255,255,255,0.08)] backdrop-blur-xl sm:p-8">
+              <div className="aurora-card group min-w-0 flex-1 rounded-3xl border border-white/20 bg-white/5 p-6 shadow-[0_24px_48px_rgba(0,0,0,0.25),0_0_0_1px_rgba(255,255,255,0.06)] backdrop-blur-xl transition-all duration-300 hover:border-white/30 hover:bg-white/[0.08] sm:p-8">
                 <h2 className="text-center text-sm font-semibold uppercase tracking-wider text-white/60">
                   Join the waitlist as a reader
                 </h2>
