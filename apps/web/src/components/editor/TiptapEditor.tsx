@@ -6,8 +6,11 @@ import Underline from "@tiptap/extension-underline";
 import Image from "@tiptap/extension-image";
 import TextAlign from "@tiptap/extension-text-align";
 import Placeholder from "@tiptap/extension-placeholder";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useCallback } from "react";
 import { uploadChapterMedia } from "@/lib/supabase/storage";
+import { WRITING_PRESETS, FONT_FAMILY_MAP } from "./types";
+
+type PresetId = "novel" | "essay" | "screenplay";
 
 type TiptapEditorProps = {
   content: string | Record<string, unknown> | null;
@@ -15,6 +18,8 @@ type TiptapEditorProps = {
   placeholder?: string;
   bookId?: string;
   chapterId?: string;
+  preset?: string;
+  onWordCount?: (count: number) => void;
 };
 
 function readAsDataURL(file: File): Promise<string> {
@@ -25,12 +30,18 @@ function readAsDataURL(file: File): Promise<string> {
   });
 }
 
+function countWords(text: string): number {
+  return text.trim().split(/\s+/).filter(Boolean).length;
+}
+
 export default function TiptapEditor({
   content,
   onUpdate,
   placeholder = "Start writing...",
   bookId,
   chapterId,
+  preset = "novel",
+  onWordCount,
 }: TiptapEditorProps) {
   const [mounted, setMounted] = useState(false);
   const debounceRef = useRef<NodeJS.Timeout | null>(null);
@@ -66,10 +77,25 @@ export default function TiptapEditor({
     onUpdate: ({ editor }) => {
       if (debounceRef.current) clearTimeout(debounceRef.current);
       debounceRef.current = setTimeout(() => {
-        onUpdate(editor.getJSON());
+        const json = editor.getJSON();
+        onUpdate(json);
+        onWordCount?.(countWords(editor.getText()));
       }, 500);
     },
   });
+
+  const typo = (preset && preset in WRITING_PRESETS ? WRITING_PRESETS[preset as PresetId] : null) ?? WRITING_PRESETS.novel;
+  const typographyVars = {
+    "--verkli-font": FONT_FAMILY_MAP[typo.fontFamily],
+    "--verkli-font-size": `${typo.fontSize}px`,
+    "--verkli-line-height": String(typo.lineHeight),
+    "--verkli-para-spacing": `${typo.paragraphSpacing}rem`,
+    "--verkli-content-width": `${typo.contentWidth}ch`,
+  } as React.CSSProperties;
+
+  useEffect(() => {
+    if (editor) onWordCount?.(countWords(editor.getText()));
+  }, [editor, onWordCount]);
 
   useEffect(() => {
     return () => {
@@ -144,7 +170,7 @@ export default function TiptapEditor({
   }
 
   return (
-    <div className="verkli-editor">
+    <div className="verkli-editor" style={typographyVars}>
       {/* Toolbar */}
       <div className="verkli-toolbar">
         <ToolbarBtn onClick={() => editor.chain().focus().undo().run()} disabled={!editor.can().undo()} title="Undo">
@@ -252,12 +278,18 @@ export default function TiptapEditor({
         }
         .verkli-content .ProseMirror {
           min-height: 500px;
-          padding: 32px 40px;
-          font-family: Georgia, "Times New Roman", serif;
-          font-size: 17px;
-          line-height: 1.7;
+          padding: 32px 24px;
+          font-family: var(--verkli-font, Georgia, serif);
+          font-size: var(--verkli-font-size, 17px);
+          line-height: var(--verkli-line-height, 1.7);
           color: #1e293b;
           outline: none;
+          max-width: var(--verkli-content-width, 85ch);
+          margin-left: 0;
+          margin-right: auto;
+        }
+        .verkli-content .ProseMirror p {
+          margin-bottom: var(--verkli-para-spacing, 0.75em);
         }
         .dark .verkli-content .ProseMirror {
           color: #e2e8f0;
@@ -268,9 +300,6 @@ export default function TiptapEditor({
           color: #94a3b8;
           pointer-events: none;
           height: 0;
-        }
-        .verkli-content .ProseMirror p {
-          margin-bottom: 0.75em;
         }
         .verkli-content .ProseMirror h1 {
           font-size: 2rem;

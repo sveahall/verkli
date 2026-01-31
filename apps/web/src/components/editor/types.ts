@@ -19,21 +19,21 @@ export const WRITING_PRESETS: Record<string, TypographyConfig> = {
     fontSize: 18,
     lineHeight: 1.6,
     paragraphSpacing: 1,
-    contentWidth: 65,
+    contentWidth: 85,
   },
   essay: {
     fontFamily: "serif",
     fontSize: 16,
     lineHeight: 1.7,
     paragraphSpacing: 0.75,
-    contentWidth: 70,
+    contentWidth: 90,
   },
   screenplay: {
     fontFamily: "mono",
     fontSize: 12,
     lineHeight: 1.2,
     paragraphSpacing: 0,
-    contentWidth: 60,
+    contentWidth: 80,
   },
 };
 
