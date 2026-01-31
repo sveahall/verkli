@@ -134,8 +134,8 @@ export default function WaitlistPage() {
             </p>
             <p className="mt-4 text-[13px] text-white/45">
               This is a private pre-launch. Early access is invite only.<br />
-              Sign up below to join the pre-launch.
             </p>
+            <h3 className="text-[15px] font-semibold leading-snug text-white/55">Sign up below to join the pre-launch waitlist</h3>
 
             {hydrated && (
               <div className="waitlist-hero-in waitlist-hero-in-delay-3 mt-10 w-full max-w-md mx-auto">
