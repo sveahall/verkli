@@ -199,7 +199,7 @@ const dropdownContent = {
  * - Hantera auth state globalt
  */
 type GlobalNavbarProps = {
-  navMode?: "writer" | "reader" | "public";
+  navMode?: "author" | "reader" | "public";
   navLinks?: NavLink[];
   navActions?: NavActions;
   homeHref?: string;
@@ -216,19 +216,19 @@ export default function GlobalNavbar({
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
   const [searchValue, setSearchValue] = useState("");
-  const [currentRole, setCurrentRole] = useState<"writer" | "reader">("writer");
+  const [currentRole, setCurrentRole] = useState<"author" | "reader">("author");
 
   useEffect(() => {
     const supabase = createClient();
     const resolveRole = async (activeUser: User | null) => {
       if (!activeUser) {
-        setCurrentRole("writer");
+        setCurrentRole("author");
         return;
       }
 
-      let nextRole: "writer" | "reader" = "writer";
+      let nextRole: "author" | "reader" = "author";
       const metadataRole = activeUser.user_metadata?.active_role ?? activeUser.user_metadata?.role;
-      if (metadataRole === "writer" || metadataRole === "reader") {
+      if (metadataRole === "author" || metadataRole === "reader") {
         nextRole = metadataRole;
       }
 
@@ -239,9 +239,9 @@ export default function GlobalNavbar({
         .maybeSingle();
 
       const preferenceRole = (profile?.preferences as { active_role?: string } | null)?.active_role;
-      if (preferenceRole === "writer" || preferenceRole === "reader") {
+      if (preferenceRole === "author" || preferenceRole === "reader") {
         nextRole = preferenceRole;
-      } else if (profile?.role === "writer" || profile?.role === "reader") {
+      } else if (profile?.role === "author" || profile?.role === "reader") {
         nextRole = profile.role;
       }
 
@@ -258,7 +258,7 @@ export default function GlobalNavbar({
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       if (event === "SIGNED_OUT") {
         setUser(null);
-        setCurrentRole("writer");
+        setCurrentRole("author");
       } else if (event === "SIGNED_IN" && session?.user) {
         setUser(session.user);
         void resolveRole(session.user);
@@ -270,8 +270,8 @@ export default function GlobalNavbar({
   // Spara senast använd roll så att "/" kan omdirigera rätt (visa aldrig väljaren igen)
   useEffect(() => {
     if (typeof window === "undefined") return;
-    if (pathname?.startsWith("/writer")) {
-      window.localStorage.setItem(VERKLI_ROLE_KEY, "writer");
+    if (pathname?.startsWith("/author")) {
+      window.localStorage.setItem(VERKLI_ROLE_KEY, "author");
     } else if (pathname?.startsWith("/reader")) {
       window.localStorage.setItem(VERKLI_ROLE_KEY, "reader");
     }
@@ -293,12 +293,12 @@ export default function GlobalNavbar({
   };
   const resolvedMode =
     navMode ??
-    (pathname?.startsWith("/writer")
-      ? "writer"
+    (pathname?.startsWith("/author")
+      ? "author"
       : pathname?.startsWith("/reader")
         ? "reader"
         : "public");
-  const isWriterRoute = resolvedMode === "writer";
+  const isAuthorRoute = resolvedMode === "author";
   const isReaderRoute = resolvedMode === "reader";
   const isPublicPage = resolvedMode === "public";
   const isAuthRoute = Boolean(
@@ -307,28 +307,28 @@ export default function GlobalNavbar({
         pathname.startsWith("/signup") ||
         pathname.startsWith("/forgot-password") ||
         pathname.startsWith("/auth") ||
-        pathname.startsWith("/writer/signin") ||
-        pathname.startsWith("/writer/signup") ||
-        pathname.startsWith("/writer/forgot-password") ||
+        pathname.startsWith("/author/signin") ||
+        pathname.startsWith("/author/signup") ||
+        pathname.startsWith("/author/forgot-password") ||
         pathname.startsWith("/reader/signin") ||
         pathname.startsWith("/reader/signup") ||
         pathname.startsWith("/reader/forgot-password"))
   );
 
-  // För menyn: använd route när vi är i writer/reader, annars använd roll från profilen
-  const displayRoleForMenu: "writer" | "reader" =
-    isReaderRoute ? "reader" : isWriterRoute ? "writer" : currentRole;
+  // För menyn: använd route när vi är i author/reader, annars använd roll från profilen
+  const displayRoleForMenu: "author" | "reader" =
+    isReaderRoute ? "reader" : isAuthorRoute ? "author" : currentRole;
 
   // Keep auth screens clean; everything else uses the global navbar
   const isSelectorPage = pathname === "/";
-  // Dölj navbar på selector-sidan (/) – ska bara synas på writer, reader, signin, signup m.fl.
+  // Dölj navbar på selector-sidan (/) – ska bara synas på author, reader, signin, signup m.fl.
   const hideNavbar = isSelectorPage && !navMode;
 
-  const defaultWriterNavItems: NavLink[] = [
-    { label: "Features", href: "/writer#features", hasDropdown: true },
-    { label: "Integrations", href: "/writer#integrations", hasDropdown: true },
-    { label: "Examples", href: "/writer#examples", hasDropdown: true },
-    { label: "FAQ", href: "/writer#faq", hasDropdown: true },
+  const defaultAuthorNavItems: NavLink[] = [
+    { label: "Features", href: "/author#features", hasDropdown: true },
+    { label: "Integrations", href: "/author#integrations", hasDropdown: true },
+    { label: "Examples", href: "/author#examples", hasDropdown: true },
+    { label: "FAQ", href: "/author#faq", hasDropdown: true },
   ];
 
   const defaultReaderNavItems: NavLink[] = [
@@ -353,15 +353,15 @@ export default function GlobalNavbar({
     { label: "FAQ", href: "/faq" },
   ];
 
-  const writerNavItems = isWriterRoute ? navLinks ?? defaultWriterNavItems : defaultWriterNavItems;
+  const authorNavItems = isAuthorRoute ? navLinks ?? defaultAuthorNavItems : defaultAuthorNavItems;
   const readerNavItems = isReaderRoute ? navLinks ?? defaultReaderNavItems : defaultReaderNavItems;
   const publicNavItems = isPublicPage ? navLinks ?? defaultPublicNavItems : defaultPublicNavItems;
 
   const primaryAction = navActions?.primary;
   const secondaryAction = navActions?.secondary;
-  const showSearch = navActions?.showSearch ?? isWriterRoute;
+  const showSearch = navActions?.showSearch ?? isAuthorRoute;
   const searchPlaceholder = navActions?.searchPlaceholder ?? "Search books, authors...";
-  const searchHref = navActions?.searchHref ?? (isWriterRoute ? "/writer" : "/reader");
+  const searchHref = navActions?.searchHref ?? (isAuthorRoute ? "/author" : "/reader");
   const showProfileMenu = navActions?.showProfileMenu ?? true;
   const isActiveReaderLink = (href: string) => {
     if (!pathname) return false;
@@ -383,7 +383,7 @@ export default function GlobalNavbar({
     const query = searchValue.trim();
     if (!query) return;
 
-    // Attach query as ?q=... to writer dashboard – page can consume detta
+    // Attach query as ?q=... to author dashboard – page can consume detta
     const params = new URLSearchParams(typeof window !== "undefined" ? window.location.search : "");
     params.set("q", query);
     router.push(`${searchHref}?${params.toString()}`);
@@ -407,25 +407,25 @@ export default function GlobalNavbar({
             <div className="flex min-w-0 items-center gap-4 sm:gap-10">
               {/* Logo: min 44px touch target on mobile */}
               <Link
-                href={homeHref ?? (isWriterRoute ? "/writer" : isReaderRoute ? "/reader" : "/")}
+                href={homeHref ?? (isAuthorRoute ? "/author" : isReaderRoute ? "/reader" : "/")}
                 className="touch-target flex shrink-0 items-center justify-center rounded-md focus:outline-none focus:ring-2 focus:ring-[#907AFF]/50 focus:ring-offset-2 focus:ring-offset-background"
               >
                 <img
                   src="/logo-dark.svg"
-                  alt="Verkli"
+                  alt="verkli"
                   className="h-8 w-auto dark:hidden"
                 />
                 <img
                   src="/favicon.svg"
-                  alt="Verkli"
+                  alt="verkli"
                   className="hidden h-8 w-auto dark:block"
                 />
               </Link>
 
               {/* Navigation links based on route */}
-              {isWriterRoute && (
+              {isAuthorRoute && (
                 <div className="hidden items-center gap-5 text-[14px] font-medium text-slate-700/90 dark:text-white/80 lg:flex">
-                  {writerNavItems.map((item) => (
+                  {authorNavItems.map((item) => (
                     <div
                       key={item.label}
                       className="group relative"
@@ -608,7 +608,7 @@ export default function GlobalNavbar({
                 )}
               </button>
 
-              {(isWriterRoute || isReaderRoute) && user ? (
+              {(isAuthorRoute || isReaderRoute) && user ? (
                 <>
                   {/* Sök – expanderar på hover/focus och skickar query som ?q=... */}
                   {showSearch && (
@@ -677,16 +677,16 @@ export default function GlobalNavbar({
                           </Link>
                         </>
                       )}
-                      {isWriterRoute && (
+                      {isAuthorRoute && (
                         <>
                           <Link
-                            href={secondaryAction?.href ?? "/writer/signin"}
+                            href={secondaryAction?.href ?? "/author/signin"}
                             className="btn-secondary"
                           >
                             {secondaryAction?.label ?? "Sign in"}
                           </Link>
                           <Link
-                            href={primaryAction?.href ?? "/writer/signup"}
+                            href={primaryAction?.href ?? "/author/signup"}
                             className="btn-primary"
                           >
                             {primaryAction?.label ?? "Sign up"}
@@ -744,7 +744,7 @@ export default function GlobalNavbar({
                     />
                   </div>
 
-                  {/* User menu för inloggade användare (ej writer route) */}
+                  {/* User menu för inloggade användare (ej author route) */}
                   {user && showProfileMenu && (
                     <UserMenu user={user} onSignOut={handleSignOut} currentRole={displayRoleForMenu} />
                   )}
@@ -780,8 +780,8 @@ export default function GlobalNavbar({
                     {item.label}
                   </a>
                 ))}
-              {isWriterRoute &&
-                writerNavItems.map((item) => (
+              {isAuthorRoute &&
+                authorNavItems.map((item) => (
                   <a
                     key={item.label}
                     href={item.href || `#${item.label.toLowerCase()}`}
@@ -828,17 +828,17 @@ export default function GlobalNavbar({
                     </Link>
                   </>
                 )}
-                {isWriterRoute && (
+                {isAuthorRoute && (
                   <>
                     <Link
-                      href={secondaryAction?.href ?? "/writer/signin"}
+                      href={secondaryAction?.href ?? "/author/signin"}
                       onClick={() => setMobileMenuOpen(false)}
                       className="btn-secondary w-full justify-center"
                     >
                       {secondaryAction?.label ?? "Sign in"}
                     </Link>
                     <Link
-                      href={primaryAction?.href ?? "/writer/signup"}
+                      href={primaryAction?.href ?? "/author/signup"}
                       onClick={() => setMobileMenuOpen(false)}
                       className="btn-primary w-full justify-center"
                     >
@@ -904,7 +904,7 @@ export default function GlobalNavbar({
               className="nav-mega max-h-[min(calc(100dvh-120px),32rem)] overflow-y-auto overscroll-contain border-0 px-5 py-5 sm:px-6 sm:py-6 md:px-8 md:py-6"
             >
               {(() => {
-                const navItems = isWriterRoute ? writerNavItems : isReaderRoute ? readerNavItems : publicNavItems;
+                const navItems = isAuthorRoute ? authorNavItems : isReaderRoute ? readerNavItems : publicNavItems;
                 const openItem = navItems.find((i) => i.label === dropdownOpen!.key);
                 if (openItem?.children?.length) {
                   return (

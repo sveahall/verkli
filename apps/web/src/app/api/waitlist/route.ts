@@ -151,7 +151,7 @@ export async function POST(request: Request) {
 
     const position = await getPosition(supabase, inserted.created_at);
     console.log("WAITLIST_SIGNUP", { source: source ?? "unknown", position, isNew: true });
-    sendWaitlistEmail(email, "writer", position).catch((err) => {
+    sendWaitlistEmail(email, "author").catch((err) => {
       console.error("WAITLIST_ERROR", { message: "Confirmation email failed", code: "RESEND", details: String(err), hint: "API still returns ok true" });
     });
 

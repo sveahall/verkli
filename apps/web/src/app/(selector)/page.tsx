@@ -27,8 +27,8 @@ export default function RoleSelection() {
     if (typeof window === "undefined") return;
 
     const role = localStorage.getItem(VERKLI_ROLE_KEY);
-    if (role === "writer") {
-      router.replace("/writer/home");
+    if (role === "author") {
+      router.replace("/author/home");
       return;
     }
     if (role === "reader") {
@@ -47,9 +47,9 @@ export default function RoleSelection() {
         .eq("user_id", user.id)
         .maybeSingle();
 
-      if (profile?.role === "writer") {
-        localStorage.setItem(VERKLI_ROLE_KEY, "writer");
-        router.replace("/writer/home");
+      if (profile?.role === "author") {
+        localStorage.setItem(VERKLI_ROLE_KEY, "author");
+        router.replace("/author/home");
         return;
       }
       if (profile?.role === "reader") {
@@ -62,10 +62,10 @@ export default function RoleSelection() {
     checkUserRole();
   }, [router]);
 
-  const setRoleAndGo = (role: "writer" | "reader") => {
+  const setRoleAndGo = (role: "author" | "reader") => {
     if (typeof window !== "undefined") {
       localStorage.setItem(VERKLI_ROLE_KEY, role);
-      router.push(role === "writer" ? "/writer" : "/reader");
+      router.push(role === "author" ? "/author" : "/reader");
     }
   };
 
@@ -75,7 +75,7 @@ export default function RoleSelection() {
       onMouseMove={handleMouseMove}
       className="relative flex min-h-screen min-h-dvh min-h-svh flex-col items-center justify-center overflow-hidden bg-background text-foreground transition-colors duration-300 px-4 py-6"
     >
-      {/* Exakt samma bakgrund som writer sign in – absolute (samma stacking som kortet så Safari backdrop-filter fungerar) */}
+      {/* Exakt samma bakgrund som author sign in – absolute (samma stacking som kortet så Safari backdrop-filter fungerar) */}
       <div className="absolute inset-0 z-0 overflow-hidden">
         <div className="absolute inset-0 bg-gradient-to-br from-[#907AFF]/10 via-[#E29ED5]/8 to-[#FCC997]/10 dark:from-slate-900/95 dark:via-purple-950/90 dark:to-slate-900/95" />
         <div
@@ -93,9 +93,9 @@ export default function RoleSelection() {
 
       {/* Logo + Back */}
       <header className="absolute left-6 top-6 z-30 flex items-center gap-3 sm:left-8 sm:top-8">
-        <Link href="/" className="flex min-h-[44px] min-w-[44px] items-center" aria-label="Verkli">
-          <img src="/logo-dark.svg" alt="Verkli" className="h-8 w-auto dark:hidden" loading="eager" />
-          <img src="/favicon.svg" alt="Verkli" className="hidden h-8 w-auto dark:block" loading="eager" />
+        <Link href="/" className="flex min-h-[44px] min-w-[44px] items-center" aria-label="verkli">
+          <img src="/logo-dark.svg" alt="verkli" className="h-8 w-auto dark:hidden" loading="eager" />
+          <img src="/favicon.svg" alt="verkli" className="hidden h-8 w-auto dark:block" loading="eager" />
         </Link>
       </header>
 
@@ -112,13 +112,13 @@ export default function RoleSelection() {
           </p>
 
           <h1 className="mt-3 text-2xl font-semibold leading-[1.15] tracking-tight text-slate-900 dark:text-white sm:mt-4 sm:text-3xl md:text-[36px]">
-            Are you a writer
+            Are you an author
             <br />
             or reader?
           </h1>
 
           <p className="mt-3 max-w-[340px] text-base leading-relaxed text-slate-600 dark:text-white/75 sm:mt-4">
-            Verkli adapts to how you use it.
+            verkli adapts to how you use it.
             <br />
             You can switch anytime.
           </p>
@@ -126,10 +126,10 @@ export default function RoleSelection() {
           <div className="mt-8 flex w-full flex-col items-center gap-4 sm:mt-10">
             <button
               type="button"
-              onClick={() => setRoleAndGo("writer")}
+              onClick={() => setRoleAndGo("author")}
               className="btn-primary w-full"
             >
-              I am a writer
+              I am an author
             </button>
 
             <div className="flex w-full items-center gap-4">

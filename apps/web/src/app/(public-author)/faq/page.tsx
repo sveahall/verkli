@@ -5,7 +5,7 @@ export default function Page() {
   return (
     <PlaceholderPage
       title="FAQ"
-      variantLabel="Verkli"
+      variantLabel="verkli"
       links={NAV_CONFIG.PUBLIC_AUTHOR.links}
       showAuthStatus={false}
     />

@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { updateActiveRole, type ActiveRole } from "@/features/auth/roles";
 
-const VALID_ROLES: ActiveRole[] = ["writer", "reader"];
+const VALID_ROLES: ActiveRole[] = ["author", "reader"];
 
 export async function POST(request: Request) {
   const body = await request.json().catch(() => null);

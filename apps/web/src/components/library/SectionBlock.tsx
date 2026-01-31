@@ -111,7 +111,7 @@ export default function SectionBlock({
                 size="sm"
                 onClick={() => {
                   // Navigate to book detail
-                  window.location.href = `/writer/books/${shelfBook.book.id}`;
+                  window.location.href = `/author/books/${shelfBook.book.id}`;
                 }}
                 onAction={(action) => {
                   if (action === "delete" && onDeleteBook) {

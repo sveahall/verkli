@@ -16,8 +16,8 @@ const montserratAlternates = Montserrat_Alternates({
 });
 
 export const metadata: Metadata = {
-  title: "Verkli",
-  description: "Verkli — the platform for writers and readers.",
+  title: "verkli",
+  description: "verkli — the platform for authors and readers.",
   icons: { icon: "/favi.svg" },
 };
 

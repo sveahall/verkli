@@ -1,4 +1,4 @@
-export const APP_NAME = "Verkli";
+export const APP_NAME = "verkli";
 
 export const USER_ROLES = {
   READER: "READER",

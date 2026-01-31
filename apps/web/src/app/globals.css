@@ -777,54 +777,54 @@ html:not(.dark) .glass-button:active {
   height: 28px;
 }
 
-html:not(.dark) .writer-light .text-white {
+html:not(.dark) .author-light .text-white {
   color: rgb(15 23 42) !important;
 }
 
-html:not(.dark) .writer-light .text-white\/90 {
+html:not(.dark) .author-light .text-white\/90 {
   color: rgb(15 23 42 / 0.9) !important;
 }
 
-html:not(.dark) .writer-light .text-white\/80 {
+html:not(.dark) .author-light .text-white\/80 {
   color: rgb(15 23 42 / 0.8) !important;
 }
 
-html:not(.dark) .writer-light .text-white\/70 {
+html:not(.dark) .author-light .text-white\/70 {
   color: rgb(15 23 42 / 0.7) !important;
 }
 
-html:not(.dark) .writer-light .text-white\/60 {
+html:not(.dark) .author-light .text-white\/60 {
   color: rgb(15 23 42 / 0.6) !important;
 }
 
-html:not(.dark) .writer-light .text-white\/50 {
+html:not(.dark) .author-light .text-white\/50 {
   color: rgb(15 23 42 / 0.5) !important;
 }
 
-html:not(.dark) .writer-light .text-white\/40 {
+html:not(.dark) .author-light .text-white\/40 {
   color: rgb(15 23 42 / 0.4) !important;
 }
 
-html:not(.dark) .writer-light .text-white\/30 {
+html:not(.dark) .author-light .text-white\/30 {
   color: rgb(15 23 42 / 0.3) !important;
 }
 
-html:not(.dark) .writer-light .placeholder-white\/40::placeholder {
+html:not(.dark) .author-light .placeholder-white\/40::placeholder {
   color: rgb(15 23 42 / 0.4) !important;
 }
 
-html:not(.dark) .writer-light .placeholder-white\/30::placeholder {
+html:not(.dark) .author-light .placeholder-white\/30::placeholder {
   color: rgb(15 23 42 / 0.3) !important;
 }
 
-html:not(.dark) .writer-light .keep-white,
-html:not(.dark) .writer-light .keep-white .text-white,
-html:not(.dark) .writer-light .keep-white .text-white\/90,
-html:not(.dark) .writer-light .keep-white .text-white\/80,
-html:not(.dark) .writer-light .keep-white .text-white\/70,
-html:not(.dark) .writer-light .keep-white .text-white\/60,
-html:not(.dark) .writer-light .keep-white .text-white\/50,
-html:not(.dark) .writer-light .keep-white .text-white\/40,
-html:not(.dark) .writer-light .keep-white .text-white\/30 {
+html:not(.dark) .author-light .keep-white,
+html:not(.dark) .author-light .keep-white .text-white,
+html:not(.dark) .author-light .keep-white .text-white\/90,
+html:not(.dark) .author-light .keep-white .text-white\/80,
+html:not(.dark) .author-light .keep-white .text-white\/70,
+html:not(.dark) .author-light .keep-white .text-white\/60,
+html:not(.dark) .author-light .keep-white .text-white\/50,
+html:not(.dark) .author-light .keep-white .text-white\/40,
+html:not(.dark) .author-light .keep-white .text-white\/30 {
   color: rgb(255 255 255) !important;
 }

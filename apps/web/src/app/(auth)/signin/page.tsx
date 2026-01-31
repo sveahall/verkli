@@ -26,7 +26,7 @@ export default function SignIn() {
   const router = useRouter();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [role, setRole] = useState<"writer" | "reader">("writer");
+  const [role, setRole] = useState<"author" | "reader">("author");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const [mousePos, setMousePos] = useState({ x: 0.5, y: 0.5 });
@@ -53,9 +53,9 @@ export default function SignIn() {
     } else {
       const supabase = createClient();
       const { data: { user } } = await supabase.auth.getUser();
-      let nextRole: "writer" | "reader" | null = null;
+      let nextRole: "author" | "reader" | null = null;
       const metaRole = user?.user_metadata?.active_role ?? user?.user_metadata?.role;
-      if (metaRole === "writer" || metaRole === "reader") {
+      if (metaRole === "author" || metaRole === "reader") {
         nextRole = metaRole;
       }
 
@@ -67,15 +67,15 @@ export default function SignIn() {
           .maybeSingle();
 
         const preferenceRole = (profile?.preferences as { active_role?: string } | null)?.active_role;
-        if (preferenceRole === "writer" || preferenceRole === "reader") {
+        if (preferenceRole === "author" || preferenceRole === "reader") {
           nextRole = preferenceRole;
-        } else if (profile?.role === "writer" || profile?.role === "reader") {
+        } else if (profile?.role === "author" || profile?.role === "reader") {
           nextRole = profile.role;
         }
       }
 
       const resolvedRole = nextRole ?? role;
-      router.push(resolvedRole === "reader" ? "/reader/home" : "/writer/home");
+      router.push(resolvedRole === "reader" ? "/reader/home" : "/author/home");
     }
   };
 
@@ -124,7 +124,7 @@ export default function SignIn() {
         <Link href="/" className="flex items-center gap-3">
           <img
             src="/favicon.svg"
-            alt="Verkli"
+            alt="verkli"
             className="h-8 w-auto"
             loading="eager"
           />
@@ -169,14 +169,14 @@ export default function SignIn() {
               <div className="flex gap-3">
                 <button
                   type="button"
-                  onClick={() => setRole("writer")}
+                  onClick={() => setRole("author")}
                   className={`flex-1 rounded-xl border px-4 py-3 text-sm font-medium transition ${
-                    role === "writer"
+                    role === "author"
                       ? "border-purple-500/50 bg-purple-500/20 text-slate-900 dark:text-white"
                       : "border-black/10 bg-black/[0.02] text-slate-600 hover:bg-black/10 dark:border-white/10 dark:bg-white/5 dark:text-white/60 dark:hover:bg-white/10"
                   }`}
                 >
-                  Writer
+                  Author
                 </button>
                 <button
                   type="button"

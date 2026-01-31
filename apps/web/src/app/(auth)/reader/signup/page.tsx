@@ -117,7 +117,7 @@ export default function ReaderSignUp() {
           <svg className="h-4 w-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.6}>
             <path strokeLinecap="round" strokeLinejoin="round" d="M15 6l-6 6 6 6" />
           </svg>
-          Back to Verkli
+          Back to verkli
         </Link>
       </header>
 
