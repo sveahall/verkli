@@ -119,7 +119,7 @@ export default function WaitlistPage() {
             </div>
           </div>
 
-          <div className="waitlist-hero-in mt-20 waitlist-hero-in-delay-1 mx-auto w-full max-w-lg text-center">
+          <div className="waitlist-hero-in mt-15 waitlist-hero-in-delay-1 mx-auto w-full max-w-lg text-center">
             <p className="text-[11px] font-semibold uppercase tracking-[0.25em] text-white/50">
               LIMITED PRE LAUNCH
             </p>
@@ -135,7 +135,7 @@ export default function WaitlistPage() {
             <p className="mt-4 text-[13px] text-white/45">
               This is a private pre-launch. Early access is invite only.<br />
             </p><br />
-            <div className="waitlist-hero-in waitlist-hero-in-delay-3 mt-10 w-full max-w-md mx-auto rounded-3xl border border-white/20 bg-white/5 p-6 shadow-[0_24px_48px_rgba(0,0,0,0.2),0_0_0_1px_rgba(255,255,255,0.06)] backdrop-blur-xl sm:p-8">
+            <div className="waitlist-hero-in waitlist-hero-in-delay-3 mt-5 w-full max-w-md mx-auto rounded-3xl border border-white/20 bg-white/5 p-6 shadow-[0_24px_48px_rgba(0,0,0,0.2),0_0_0_1px_rgba(255,255,255,0.06)] backdrop-blur-xl sm:p-8">
               <h3 className="text-[15px] font-semibold leading-snug text-white/55 text-center">Sign up below to join the pre-launch waitlist</h3>
 
               {hydrated ? (
