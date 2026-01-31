@@ -9,8 +9,8 @@ const FROM_EMAIL = "verkli <hello@verkli.com>";
 function getHtml(role: "author" | "reader"): string {
   const isAuthor = role === "author";
   const roleDescription = isAuthor
-    ? "verkli is a platform where authors share stories and connect with readers. We're in private pre-launch."
-    : "verkli is a platform where readers discover stories from independent authors. We're in private pre-launch.";
+    ? "<span style=\"background: linear-gradient(90deg, #907AFF, #E29ED5, #FCC997); -webkit-background-clip: text; -webkit-text-fill-color: transparent; color: #907aff;\">verkli</span> is a platform where authors share stories and connect with readers. We're in private pre-launch."
+    : "<span style=\"background: linear-gradient(90deg, #907AFF, #E29ED5, #FCC997); -webkit-background-clip: text; -webkit-text-fill-color: transparent; color: #907aff;\">verkli</span> is a platform where readers discover stories from independent authors. We're in private pre-launch.";
 
   return `
 <!DOCTYPE html>
@@ -26,8 +26,8 @@ function getHtml(role: "author" | "reader"): string {
         <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width: 520px;">
           <tr>
             <td style="padding: 48px 40px; background-color: #1e293b; border-radius: 16px; border: 1px solid #334155; box-shadow: 0 4px 24px rgba(0,0,0,0.2);">
-              <div style="margin-bottom: 28px; width: 32px; height: 3px; background-color: #907aff; border-radius: 2px;"></div>
-              <p style="margin: 0 0 24px; font-size: 12px; font-weight: 600; letter-spacing: 0.15em; color: #907aff; text-transform: uppercase;">verkli</p>
+              <div style="margin-bottom: 28px; width: 40px; height: 3px; background: linear-gradient(90deg, #907AFF, #E29ED5, #FCC997); border-radius: 2px;"></div>
+              <p style="margin: 0 0 24px; font-size: 12px; font-weight: 600; letter-spacing: 0.15em; background: linear-gradient(90deg, #907AFF, #E29ED5); -webkit-background-clip: text; -webkit-text-fill-color: transparent; color: #907aff; text-transform: uppercase;">verkli</p>
               <h1 style="margin: 0 0 24px; font-size: 26px; font-weight: 600; color: #f8fafc; line-height: 1.25;">You're on the list</h1>
               <p style="margin: 0 0 20px; font-size: 16px; line-height: 1.65; color: #cbd5e1;">
                 ${roleDescription}
@@ -36,7 +36,7 @@ function getHtml(role: "author" | "reader"): string {
                 You've joined as ${role === "author" ? "an" : "a"} <strong style="color: #e2e8f0;">${role}</strong>. We onboard in small waves — we'll reach out when it's your turn.
               </p>
               <div style="margin: 28px 0 0; padding-top: 24px; border-top: 1px solid #334155;"></div>
-              <p style="margin: 0; font-size: 14px; color: #64748b;">— verkli</p>
+              <p style="margin: 0; font-size: 14px; color: #64748b;">— <span style="background: linear-gradient(90deg, #907AFF, #E29ED5); -webkit-background-clip: text; -webkit-text-fill-color: transparent; color: #907aff;">verkli</span></p>
             </td>
           </tr>
         </table>
