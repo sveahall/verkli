@@ -21,10 +21,10 @@ const READER_STORAGE_STATUS = "verkli_waitlist_reader_status";
 const READER_STORAGE_POSITION = "verkli_waitlist_reader_position";
 
 const HERO_EYEBROW = "Limited access";
-const HERO_HEADLINE = "verkli is a platform for authors and readers.";
-const HERO_SUBHEADLINE = "We're launching in private, curated waves. Request access below.";
+const HERO_HEADLINE = "The future of reading and writing";
+const HERO_SUBHEADLINE = "Built for authors first. Request access below.";
 const HERO_CTA_LABEL = "Request access";
-const HERO_MICRO = "Authors publish, readers discover. Access is granted in small waves.";
+const HERO_MICRO = "Authors publish, readers discover. Early access is limited.";
 const READER_MICRO = "Early access to curated stories from independent authors.";
 const CARD_BADGE = "PRIVATE PRE LAUNCH";
 
