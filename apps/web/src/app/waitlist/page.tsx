@@ -122,13 +122,13 @@ export default function WaitlistPage() {
               Verkli is for authors who publish and readers who follow.
             </h1>
             <p className="mt-4 text-[15px] text-white/50">
-              Access is limited.
+              Join the waitlist. Access is limited.
             </p>
 
             {hydrated && (
               <div className="waitlist-hero-in waitlist-hero-in-delay-2 mt-12 w-full">
                 {state === "submitted" ? (
-                  <p className="text-[14px] text-white/40">We&apos;ll be in touch.</p>
+                  <p className="text-[14px] text-white/40">You&apos;re on the waitlist. We&apos;ll be in touch.</p>
                 ) : (
                   <form onSubmit={handleSubmit} className="space-y-5">
                     <div>
@@ -185,7 +185,7 @@ export default function WaitlistPage() {
                       className="waitlist-cta w-full min-h-[52px] rounded-2xl bg-slate-900 px-6 py-3 text-[15px] font-medium text-white transition-colors hover:bg-slate-800 disabled:opacity-50 dark:bg-white dark:text-slate-900 dark:hover:bg-white/90"
                       aria-busy={state === "loading"}
                     >
-                      {state === "loading" ? "…" : "Request access"}
+                      {state === "loading" ? "…" : "Join waitlist"}
                     </button>
                     {errorMessage && (
                       <p id="waitlist-error" className="text-[13px] text-white/50" role="alert">
