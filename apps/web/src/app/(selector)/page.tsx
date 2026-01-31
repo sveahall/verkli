@@ -4,7 +4,6 @@ import { useEffect, useState, useRef } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import GlassCard, { glassCardProps } from "@/components/GlassCard";
-import LightRays from "@/components/LightRays";
 import ThemeToggle from "@/components/ThemeToggle";
 import { createClient } from "@/lib/supabase/client";
 
@@ -89,24 +88,6 @@ export default function RoleSelection() {
             transform: "translate(-50%, -50%)",
             willChange: "left, top",
           }}
-        />
-      </div>
-
-      {/* Light rays – endast dark mode, som sign in */}
-      <div className="absolute inset-0 z-0 hidden dark:block">
-        <LightRays
-          raysOrigin="top-center"
-          raysColor="#907aff"
-          raysSpeed={1.5}
-          lightSpread={0.8}
-          rayLength={3}
-          followMouse={true}
-          mouseInfluence={0.6}
-          noiseAmount={0}
-          distortion={0}
-          pulsating={false}
-          fadeDistance={0.9}
-          saturation={2}
         />
       </div>
 
