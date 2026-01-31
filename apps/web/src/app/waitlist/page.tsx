@@ -20,12 +20,13 @@ const READER_STORAGE_EMAIL = "verkli_waitlist_reader_email";
 const READER_STORAGE_STATUS = "verkli_waitlist_reader_status";
 const READER_STORAGE_POSITION = "verkli_waitlist_reader_position";
 
-const HERO_EYEBROW = "Limited access";
-const HERO_SUBHEADLINE = "Built for authors and readers. Request access below.";
+const HERO_EYEBROW = "PRIVATE PRE-LAUNCH";
+const HERO_SUBHEADLINE_LINE1 = "Built for authors and readers.";
+const HERO_SUBHEADLINE_LINE2 = "Early access is invite-only and limited.";
 const HERO_CTA_LABEL = "Request access";
 const HERO_MICRO = "Authors publish, readers discover. Early access is limited.";
-const READER_MICRO = "Early access to curated stories from independent authors.";
-const CARD_BADGE = "PRIVATE PRE LAUNCH";
+const READER_MICRO = "Invites are sent in limited, curated waves.";
+const CARD_BADGE = "INVITE-ONLY EARLY ACCESS";
 
 type SubmitState = "idle" | "loading" | "success" | "error" | "already_exists";
 
@@ -158,7 +159,10 @@ function SuccessState({ queuePosition, onUseDifferentEmail }: { queuePosition: n
         You're on the waitlist
       </p>
       <p className="mt-2 text-[15px] text-emerald-800/90 dark:text-emerald-200/90">
-        Early access invites are sent manually in curated waves.
+        We onboard a small number of authors per wave.
+      </p>
+      <p className="mt-1 text-[15px] text-emerald-800/70 dark:text-emerald-200/70">
+        If you miss this wave, you wait for the next.
       </p>
       {onUseDifferentEmail && (
         <p className="mt-4">
@@ -201,7 +205,7 @@ function AlreadyExistsState({ queuePosition, onUseDifferentEmail }: { queuePosit
 
 // ——— Reader waitlist (separate API + state) ———
 
-const READER_CTA_LABEL = "Request access";
+const READER_CTA_LABEL = "Request invite";
 
 function ReaderWaitlistForm({
   onSuccess,
@@ -286,7 +290,7 @@ function ReaderWaitlistForm({
             setEmail(e.target.value);
             if (state === "error") setState("idle");
           }}
-          placeholder="Your email"
+          placeholder="Email address"
           disabled={state === "loading"}
           autoComplete="email"
           aria-invalid={state === "error"}
@@ -482,10 +486,12 @@ export default function WaitlistPage() {
               {HERO_EYEBROW}
             </p>
             <h1 className="mt-6 text-[40px] font-bold leading-[1.05] tracking-tight text-white sm:text-[48px] md:text-[56px]">
-              <span className="bg-gradient-to-r from-[#907AFF] via-[#E29ED5] to-[#FCC997] bg-clip-text text-transparent">verkli</span> is the future for modern storytelling
+              <span className="bg-gradient-to-r from-[#907AFF] via-[#E29ED5] to-[#FCC997] bg-clip-text text-transparent">verkli</span> — the next generation of modern storytelling
             </h1>
             <p className="mt-5 text-[17px] leading-snug text-white/60">
-              {HERO_SUBHEADLINE}
+              {HERO_SUBHEADLINE_LINE1}
+              <br />
+              {HERO_SUBHEADLINE_LINE2}
             </p>
 
             {/* Exclusive label: discreet badge above cards */}
@@ -500,7 +506,7 @@ export default function WaitlistPage() {
               {/* Join the waitlist as an author */}
               <div className="aurora-card group min-w-0 flex-1 rounded-3xl border border-white/20 bg-white/5 p-6 shadow-[0_24px_48px_rgba(0,0,0,0.25),0_0_0_1px_rgba(255,255,255,0.06)] backdrop-blur-xl transition-all duration-300 hover:border-white/30 hover:bg-white/[0.08] sm:p-8">
                 <h2 className="text-center text-sm font-semibold uppercase tracking-wider text-white/60">
-                  Join the waitlist as an author
+                  Request author access
                 </h2>
                 <div className="mt-4">
                   {!hydrated ? null : queuePosition !== null ? (
@@ -525,7 +531,7 @@ export default function WaitlistPage() {
               {/* Join the waitlist as a reader */}
               <div className="aurora-card group min-w-0 flex-1 rounded-3xl border border-white/20 bg-white/5 p-6 shadow-[0_24px_48px_rgba(0,0,0,0.25),0_0_0_1px_rgba(255,255,255,0.06)] backdrop-blur-xl transition-all duration-300 hover:border-white/30 hover:bg-white/[0.08] sm:p-8">
                 <h2 className="text-center text-sm font-semibold uppercase tracking-wider text-white/60">
-                  Join the waitlist as a reader
+                  Request reader access
                 </h2>
                 <div className="mt-4">
                   {!hydrated ? null : readerQueuePosition !== null ? (
@@ -546,6 +552,9 @@ export default function WaitlistPage() {
                 </div>
               </div>
             </div>
+            <p className="waitlist-hero-in waitlist-hero-in-delay-4 mt-8 text-center text-[11px] text-white/35 tracking-wide">
+              No public timeline announced.
+            </p>
           </div>
         </section>
       </main>
