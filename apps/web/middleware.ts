@@ -57,7 +57,43 @@ export async function middleware(request: NextRequest) {
     }
   )
 
-  await supabase.auth.getUser()
+  const { data: { user } } = await supabase.auth.getUser()
+
+  // -------------------------------------------------------------------------
+  // Route protection: /writer/* and /reader/* require authentication
+  // (excluding auth pages and public landing pages)
+  // -------------------------------------------------------------------------
+  const pathname = request.nextUrl.pathname
+
+  // Writer routes that don't require auth
+  const isWriterPublic = pathname === '/writer' || // public landing page
+                         pathname.startsWith('/writer/signin') || 
+                         pathname.startsWith('/writer/signup') || 
+                         pathname.startsWith('/writer/forgot-password')
+  
+  // Reader routes that don't require auth
+  const isReaderPublic = pathname === '/reader' || // public landing page
+                         pathname === '/reader/app' || 
+                         pathname === '/reader/faq' || 
+                         pathname === '/reader/how-it-works' || 
+                         pathname === '/reader/membership' || 
+                         pathname.startsWith('/reader/signin') || 
+                         pathname.startsWith('/reader/signup') || 
+                         pathname.startsWith('/reader/forgot-password')
+
+  // Protect all /writer/* routes except public ones
+  if (pathname.startsWith('/writer') && !isWriterPublic && !user) {
+    const url = request.nextUrl.clone()
+    url.pathname = '/writer/signin'
+    return NextResponse.redirect(url)
+  }
+
+  // Protect all /reader/* routes except public ones
+  if (pathname.startsWith('/reader') && !isReaderPublic && !user) {
+    const url = request.nextUrl.clone()
+    url.pathname = '/reader/signin'
+    return NextResponse.redirect(url)
+  }
 
   return supabaseResponse
 }
