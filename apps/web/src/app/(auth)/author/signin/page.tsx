@@ -1,6 +1,8 @@
 import { Suspense } from "react";
 import AuthorSignInForm from "./AuthorSignInForm";
 
+export const dynamic = "force-dynamic";
+
 function SignInFallback() {
   return <div className="min-h-screen min-h-dvh bg-background" aria-hidden />;
 }
