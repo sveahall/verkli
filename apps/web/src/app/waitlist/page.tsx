@@ -126,8 +126,7 @@ export default function WaitlistPage() {
             <h1 className="mt-5 text-[26px] font-semibold leading-[1.2] tracking-tight text-white sm:text-[30px] md:text-[32px]">
               <span className="bg-gradient-to-r from-[#907AFF] via-[#E29ED5] to-[#FCC997] bg-clip-text text-transparent">Verkli</span>
               {" — "}
-              The future platform for authors who want to publish and earn
-              <span className="block mt-0.5">And readers who want better stories</span>
+              The future platform for authors
             </h1>
             <p className="mt-5 text-[15px] leading-snug text-white/55">
               Verkli is a new publishing platform built for one thing:
@@ -139,42 +138,6 @@ export default function WaitlistPage() {
             <p className="mt-4 text-[13px] text-white/45">
               This is a private pre-launch. Early access is invite only.
             </p>
-
-            {/* For authors / For readers */}
-            <div className="waitlist-hero-in waitlist-hero-in-delay-2 mt-10 grid w-full grid-cols-1 gap-8 text-left md:grid-cols-2 md:gap-10">
-              <div>
-                <h2 className="text-[13px] font-semibold uppercase tracking-wider text-white/70">
-                  For authors
-                </h2>
-                <p className="mt-3 text-[14px] leading-relaxed text-white/50">
-                  Publish without friction
-                  <br />
-                  Own your audience
-                  <br />
-                  Earn directly from readers
-                  <br />
-                  Built for modern storytelling, not newsletters
-                  <br />
-                  <br />
-                  Small curated author groups are onboarded before public launch
-                </p>
-              </div>
-              <div>
-                <h2 className="text-[13px] font-semibold uppercase tracking-wider text-white/70">
-                  For readers
-                </h2>
-                <p className="mt-3 text-[14px] leading-relaxed text-white/50">
-                  Discover high quality stories
-                  <br />
-                  Follow authors early
-                  <br />
-                  Read without ads or algorithm chaos
-                  <br />
-                  <br />
-                  Early access readers help shape the platform
-                </p>
-              </div>
-            </div>
 
             {hydrated && (
               <div className="waitlist-hero-in waitlist-hero-in-delay-3 mt-10 w-full max-w-md mx-auto">
