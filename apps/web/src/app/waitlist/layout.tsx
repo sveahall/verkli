@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 
 export const metadata: Metadata = {
   title: "verkli",
-  description: "Writers who publish. Readers who follow.",
+  description: "authors who publish. Readers who follow.",
 };
 
 export default function WaitlistLayout({

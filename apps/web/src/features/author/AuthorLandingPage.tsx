@@ -999,7 +999,7 @@ function Dashboard({ user }: { user: User }) {
 
           <div className="mb-12">
             <div className="mb-5">
-              <p className="text-[11px] font-semibold uppercase tracking-wider text-[#FCC997]">WRITERS ON THE RISE</p>
+              <p className="text-[11px] font-semibold uppercase tracking-wider text-[#FCC997]">authorS ON THE RISE</p>
                 <p className="mt-1 text-[14px] text-slate-600 dark:text-white/50">Creators gaining momentum</p>
             </div>
             <div className="flex gap-6 overflow-x-auto pb-4">

@@ -15,12 +15,12 @@ function validateEmail(email: string): boolean {
 
 const STORAGE_KEY = "verkli_access_submitted";
 
-type Intent = "writer" | "reader";
+type Intent = "author" | "reader";
 
 type SubmitState = "idle" | "loading" | "submitted" | "error";
 
 export default function WaitlistPage() {
-  const [intent, setIntent] = useState<Intent>("writer");
+  const [intent, setIntent] = useState<Intent>("author");
   const [email, setEmail] = useState("");
   const [state, setState] = useState<SubmitState>("idle");
   const [errorMessage, setErrorMessage] = useState("");
@@ -50,9 +50,9 @@ export default function WaitlistPage() {
     }
     setState("loading");
     setErrorMessage("");
-    const url = intent === "writer" ? "/api/waitlist" : "/api/waitlist/reader";
+    const url = intent === "author" ? "/api/waitlist" : "/api/waitlist/reader";
     const body =
-      intent === "writer"
+      intent === "author"
         ? { email: trimmed, role: "author", source: "waitlist_page" }
         : { email: trimmed, source: "waitlist_page" };
     try {
@@ -119,7 +119,7 @@ export default function WaitlistPage() {
 
           <div className="waitlist-hero-in waitlist-hero-in-delay-1 mx-auto w-full max-w-md text-center">
             <h1 className="text-[28px] font-semibold leading-[1.15] tracking-tight text-white sm:text-[32px]">
-              Verkli is for writers who publish and readers who follow.
+              Verkli is for authors who publish and readers who follow.
             </h1>
             <p className="mt-4 text-[15px] text-white/50">
               Access is limited.
@@ -133,7 +133,7 @@ export default function WaitlistPage() {
                   <form onSubmit={handleSubmit} className="space-y-5">
                     <div>
                       <label htmlFor="intent" className="block text-[13px] text-white/40 mb-1.5">
-                        What do you write or read?
+                        Do you write or read?
                       </label>
                       <select
                         id="intent"
@@ -142,7 +142,7 @@ export default function WaitlistPage() {
                         disabled={state === "loading"}
                         className="w-full min-h-[52px] rounded-2xl border border-white/20 bg-white/5 px-5 py-3 text-[15px] text-white placeholder:text-white/40 focus:border-white/40 focus:outline-none focus:ring-0 disabled:opacity-50 dark:border-white/10 dark:bg-white/5"
                       >
-                        <option value="writer">Writer</option>
+                        <option value="author">Author</option>
                         <option value="reader">Reader</option>
                       </select>
                     </div>
