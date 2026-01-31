@@ -1,9 +1,14 @@
 "use client";
 
-import { useState, useCallback, useRef } from "react";
+import { useState, useCallback, useRef, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
-import TiptapEditor from "@/components/editor/TiptapEditor";
+import {
+  EditorProvider,
+  useEditorContext,
+  TiptapEditor,
+  WriterEditorBar,
+} from "@/components/editor";
 
 type Chapter = {
   id: string;
@@ -26,7 +31,22 @@ type Props = {
 };
 
 export default function BookEditor({ book, chapters: initialChapters }: Props) {
+  return (
+    <EditorProvider bookId={book.id}>
+      <BookEditorInner book={book} initialChapters={initialChapters} />
+    </EditorProvider>
+  );
+}
+
+function BookEditorInner({
+  book,
+  initialChapters,
+}: {
+  book: Book;
+  initialChapters: Chapter[];
+}) {
   const router = useRouter();
+  const { focusMode, typewriterMode, typography, setFocusMode } = useEditorContext();
   const [chapters, setChapters] = useState<Chapter[]>(initialChapters);
   const [selectedChapterId, setSelectedChapterId] = useState<string | null>(
     initialChapters[0]?.id ?? null
@@ -36,9 +56,52 @@ export default function BookEditor({ book, chapters: initialChapters }: Props) {
   const [editingTitleId, setEditingTitleId] = useState<string | null>(null);
   const [tempTitle, setTempTitle] = useState("");
   const [lastSaved, setLastSaved] = useState<Date | null>(null);
+  const [showToolbar, setShowToolbar] = useState(false);
   const savingRef = useRef(false);
+  const editorAreaRef = useRef<HTMLDivElement>(null);
 
   const selectedChapter = chapters.find((ch) => ch.id === selectedChapterId);
+
+  // Toolbar visibility: show when text selected or mouse near top (focus mode)
+  useEffect(() => {
+    if (!focusMode) {
+      setShowToolbar(true);
+      return;
+    }
+    const checkSelection = () => {
+      const sel = window.getSelection();
+      if (sel && !sel.isCollapsed) {
+        setShowToolbar(true);
+      }
+    };
+    const checkMouse = (e: MouseEvent) => {
+      if (e.clientY < 120) setShowToolbar(true);
+      else setShowToolbar(false);
+    };
+    document.addEventListener("selectionchange", checkSelection);
+    document.addEventListener("mousemove", checkMouse);
+    return () => {
+      document.removeEventListener("selectionchange", checkSelection);
+      document.removeEventListener("mousemove", checkMouse);
+    };
+  }, [focusMode]);
+
+  // Focus mode keyboard shortcut (f) when editor focused
+  const focusModeRef = useRef(focusMode);
+  focusModeRef.current = focusMode;
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if (e.key === "f" && !e.ctrlKey && !e.metaKey && !e.altKey && !e.shiftKey) {
+        const target = e.target as HTMLElement;
+        if (target?.closest?.(".ProseMirror")) {
+          e.preventDefault();
+          setFocusMode(!focusModeRef.current);
+        }
+      }
+    };
+    document.addEventListener("keydown", handler);
+    return () => document.removeEventListener("keydown", handler);
+  }, [setFocusMode]);
 
   // Autosave content (called from TiptapEditor with debounce)
   const handleAutoSave = useCallback(async (chapterId: string, jsonContent: Record<string, unknown>) => {
@@ -147,6 +210,52 @@ export default function BookEditor({ book, chapters: initialChapters }: Props) {
     setTempTitle("");
   };
 
+  // Focus mode: fullscreen overlay, no sidebar
+  if (focusMode) {
+    return (
+      <div
+        ref={editorAreaRef}
+        className="fixed inset-0 z-50 flex flex-col bg-background"
+      >
+        <div
+          className={`border-b border-slate-200 bg-white/80 px-4 py-2 backdrop-blur-sm transition-opacity duration-150 dark:border-white/10 dark:bg-slate-900/80 ${
+            showToolbar ? "opacity-100" : "opacity-0 pointer-events-none"
+          }`}
+        >
+          <WriterEditorBar
+            onFocusToggle={() => {}}
+            onTypewriterToggle={() => {}}
+            showToolbar={true}
+            toolbarContent={null}
+          />
+        </div>
+        <div className="flex-1 overflow-hidden p-6">
+          {selectedChapter ? (
+            <div className="mx-auto h-full max-w-4xl">
+              <TiptapEditor
+                key={selectedChapter.id}
+                content={selectedChapter.content}
+                onUpdate={(json) => handleAutoSave(selectedChapter.id, json)}
+                placeholder="Start writing..."
+                floatingToolbar
+                showToolbar={showToolbar}
+                typography={typography}
+                typewriterMode={typewriterMode}
+                bookId={book.id}
+                chapterId={selectedChapter.id}
+              />
+            </div>
+          ) : (
+            <div className="flex h-full items-center justify-center">
+              <p className="text-slate-500">Exit focus mode to select a chapter</p>
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  }
+
+  // Normal layout
   return (
     <section className="mx-auto max-w-[1400px] px-6 py-12">
       <div className="mb-8">
@@ -238,7 +347,7 @@ export default function BookEditor({ book, chapters: initialChapters }: Props) {
         <div className="rounded-2xl border border-black/10 bg-white/80 p-8 dark:border-white/10 dark:bg-white/5">
           {selectedChapter ? (
             <>
-              <div className="mb-6 flex items-center justify-between border-b border-black/10 pb-4 dark:border-white/10">
+              <div className="mb-4 flex items-center justify-between">
                 <h2 className="text-2xl font-semibold text-slate-900 dark:text-white">
                   {selectedChapter.title}
                 </h2>
@@ -250,6 +359,14 @@ export default function BookEditor({ book, chapters: initialChapters }: Props) {
                 >
                   Rename
                 </button>
+              </div>
+              <div className="mb-4 rounded-lg border border-slate-200/80 bg-slate-50/50 py-1 dark:border-white/10 dark:bg-white/5">
+                <WriterEditorBar
+                  onFocusToggle={() => {}}
+                  onTypewriterToggle={() => {}}
+                  showToolbar={true}
+                  toolbarContent={null}
+                />
               </div>
 
               <div>
@@ -277,6 +394,10 @@ export default function BookEditor({ book, chapters: initialChapters }: Props) {
                   content={selectedChapter.content}
                   onUpdate={(json) => handleAutoSave(selectedChapter.id, json)}
                   placeholder="Start writing your chapter here..."
+                  typography={typography}
+                  typewriterMode={typewriterMode}
+                  bookId={book.id}
+                  chapterId={selectedChapter.id}
                 />
               </div>
             </>

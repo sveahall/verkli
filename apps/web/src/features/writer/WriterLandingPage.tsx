@@ -853,7 +853,7 @@ function Dashboard({ user }: { user: User }) {
               <div className="grid gap-6 md:grid-cols-2">
                 <button
                   onClick={handleCreateShelf}
-                  className="group flex h-[300px] flex-col items-center justify-center rounded-2xl border-2 border-dashed border-gray-200/20 dark:border-white/10 bg-black/[0.01] dark:bg-white/[0.02] transition-all hover:border-[#907AFF]/15 hover:bg-black/[0.02] dark:hover:bg-white/[0.04]"
+                  className="group flex h-[300px] w-auto flex-col items-center justify-center rounded-2xl border-2 border-dashed border-gray-200/20 dark:border-white/10 bg-black/[0.01] dark:bg-white/[0.02] transition-all hover:border-[#907AFF]/15 hover:bg-black/[0.02] dark:hover:bg-white/[0.04]"
                 >
                   <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-xl bg-gradient-to-br from-[#907AFF]/20 to-[#E29ED5]/20">
                     <svg className="h-8 w-8 text-[#907AFF]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -892,7 +892,7 @@ function Dashboard({ user }: { user: User }) {
               ) : (
                 <div className="mb-6">
                   <h3 className="mb-4 text-[16px] font-semibold text-slate-900 dark:text-white">Shelves</h3>
-                  <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+                  <div className="grid gap-0 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
                     {shelves.map((shelf) => (
                       <ShelfTile
                         key={shelf.id}
@@ -903,7 +903,7 @@ function Dashboard({ user }: { user: User }) {
                     ))}
                     <button
                       onClick={handleCreateShelf}
-                      className="flex h-[280px] w-full items-center justify-center rounded-2xl border-2 border-dashed border-black/20 dark:border-white/10 bg-black/[0.02] dark:bg-white/[0.02] transition-all hover:border-[#907AFF]/30 hover:bg-black/[0.01] dark:hover:bg-white/[0.04]"
+                      className="flex h-[325px] w-[225px] items-center justify-center rounded-2xl border-2 border-dashed border-black/20 dark:border-white/10 bg-black/[0.02] dark:bg-white/[0.02] transition-all hover:border-[#907AFF]/30 hover:bg-black/[0.01] dark:hover:bg-white/[0.04]"
                     >
                       <div className="flex flex-col items-center gap-2">
                         <svg className="h-8 w-8 text-slate-400 dark:text-white/30" fill="none" viewBox="0 0 24 24" stroke="currentColor">

@@ -163,12 +163,16 @@ export async function getShelf(shelfId: string): Promise<ShelfWithDetails | null
   }
   
   if (!data) return null;
+
+  const shelf_books = (data.shelf_books || []).map((sb: { books?: Book; book?: Book } & Record<string, unknown>) => ({
+    ...sb,
+    book: sb.books ?? sb.book ?? null,
+  })).filter((sb: { book: Book | null }) => sb.book != null) as (ShelfBook & { book: Book })[];
   
-  // Transform data to match expected structure
   return {
     ...data,
     sections: data.shelf_sections || [],
-    shelf_books: data.shelf_books || [],
+    shelf_books,
   } as ShelfWithDetails;
 }
 

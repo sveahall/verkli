@@ -5,6 +5,7 @@ import StarterKit from "@tiptap/starter-kit";
 import Underline from "@tiptap/extension-underline";
 import Image from "@tiptap/extension-image";
 import TextAlign from "@tiptap/extension-text-align";
+import Placeholder from "@tiptap/extension-placeholder";
 import {
   TextStyle,
   FontFamily,
@@ -12,21 +13,77 @@ import {
   LineHeight,
 } from "@tiptap/extension-text-style";
 import { useEffect, useRef, useState } from "react";
+import EditorContentWrapper from "./EditorContentWrapper";
+import { FONT_FAMILY_MAP } from "./types";
+import { uploadChapterMedia } from "@/lib/supabase/storage";
 
 type TiptapEditorProps = {
   content: string | Record<string, unknown> | null;
   onUpdate: (json: Record<string, unknown>) => void;
   placeholder?: string;
+  floatingToolbar?: boolean;
+  showToolbar?: boolean;
+  typography?: {
+    fontFamily: "serif" | "sans" | "mono";
+    fontSize: number;
+    lineHeight: number;
+    paragraphSpacing: number;
+    contentWidth: number;
+  };
+  typewriterMode?: boolean;
+  /** For image upload to Supabase */
+  bookId?: string;
+  chapterId?: string;
 };
+
+function readAsDataURL(file: File): Promise<string> {
+  return new Promise((resolve) => {
+    const r = new FileReader();
+    r.onload = () => resolve((r.result as string) ?? "");
+    r.readAsDataURL(file);
+  });
+}
 
 export default function TiptapEditor({
   content,
   onUpdate,
   placeholder = "Start writing...",
+  floatingToolbar = false,
+  showToolbar = true,
+  typography,
+  typewriterMode = false,
+  bookId,
+  chapterId,
+}: TiptapEditorProps) {
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => setMounted(true), []);
+
+  // Do not render editor until client - prevents SSR hydration mismatch
+  if (!mounted) {
+    return (
+      <div
+        className="min-h-[500px] w-full rounded-lg border border-slate-200 bg-slate-50/50 dark:border-white/10 dark:bg-white/5"
+        aria-hidden
+      />
+    );
+  }
+
+  return <TiptapEditorInner {...{ content, onUpdate, placeholder, floatingToolbar, showToolbar, typography, typewriterMode, bookId, chapterId }} />;
+}
+
+function TiptapEditorInner({
+  content,
+  onUpdate,
+  placeholder = "Start writing...",
+  floatingToolbar = false,
+  showToolbar = true,
+  typography,
+  typewriterMode = false,
+  bookId,
+  chapterId,
 }: TiptapEditorProps) {
   const debounceRef = useRef<NodeJS.Timeout | null>(null);
 
-  // Parse initial content
   const getInitialContent = () => {
     if (!content) return "";
     if (typeof content === "string") {
@@ -68,12 +125,14 @@ export default function TiptapEditor({
       TextAlign.configure({
         types: ["heading", "paragraph"],
       }),
+      Placeholder.configure({
+        placeholder,
+      }),
     ],
     content: getInitialContent(),
     editorProps: {
       attributes: {
-        class:
-          "prose prose-slate dark:prose-invert max-w-none min-h-[400px] px-4 py-3 focus:outline-none",
+        class: "prose prose-slate dark:prose-invert max-w-none focus:outline-none",
       },
     },
     onUpdate: ({ editor }) => {
@@ -97,16 +156,35 @@ export default function TiptapEditor({
     };
   }, []);
 
+  const typo = typography ?? {
+    fontFamily: "serif" as const,
+    fontSize: 18,
+    lineHeight: 1.6,
+    paragraphSpacing: 1,
+    contentWidth: 65,
+  };
+
+  const typographyVars = {
+    "--editor-font": FONT_FAMILY_MAP[typo.fontFamily],
+    "--editor-font-size": `${typo.fontSize}px`,
+    "--editor-line-height": String(typo.lineHeight),
+    "--editor-para-spacing": `${typo.paragraphSpacing}rem`,
+    "--editor-content-width": `${typo.contentWidth}ch`,
+  } as React.CSSProperties;
+
+  const toolbarVisible = !floatingToolbar || showToolbar;
+
   if (!editor) {
     return (
-      <div className="h-[400px] w-full animate-pulse rounded-lg border border-slate-300 bg-slate-100 dark:border-white/20 dark:bg-white/5" />
+      <div className="min-h-[500px] w-full animate-pulse rounded-lg border border-slate-200 bg-slate-50/50 dark:border-white/10 dark:bg-white/5" />
     );
   }
 
   return (
-    <div className="rounded-lg border border-slate-300 bg-white dark:border-white/20 dark:bg-white/10">
-      {/* Toolbar */}
-      <div className="flex flex-wrap items-center gap-1 border-b border-slate-200 px-2 py-2 dark:border-white/10">
+    <div className="overflow-hidden rounded-lg border border-slate-200 bg-white dark:border-white/10 dark:bg-white/5">
+      {/* Toolbar - sticky at top */}
+      {toolbarVisible && (
+      <div className="sticky top-0 z-10 flex flex-wrap items-center gap-1 border-b border-slate-200 bg-white px-2 py-2 dark:border-white/10 dark:bg-slate-900/95">
         {/* Undo/Redo */}
         <ToolbarButton
           onClick={() => editor.chain().focus().undo().run()}
@@ -147,13 +225,6 @@ export default function TiptapEditor({
         >
           <UnderlineIcon />
         </ToolbarButton>
-
-        <ToolbarDivider />
-
-        {/* Typography */}
-        <FontFamilyDropdown editor={editor} />
-        <FontSizeDropdown editor={editor} />
-        <LineHeightDropdown editor={editor} />
 
         <ToolbarDivider />
 
@@ -211,22 +282,23 @@ export default function TiptapEditor({
 
         <ToolbarDivider />
 
-        {/* Image */}
+        {/* Image - uploads to Supabase when bookId/chapterId provided, else base64 */}
         <ToolbarButton
           onClick={() => {
             const input = document.createElement("input");
             input.type = "file";
             input.accept = "image/*";
-            input.onchange = (e) => {
+            input.onchange = async (e) => {
               const file = (e.target as HTMLInputElement).files?.[0];
-              if (file) {
-                const reader = new FileReader();
-                reader.onload = (event) => {
-                  const base64 = event.target?.result as string;
-                  editor.chain().focus().setImage({ src: base64 }).run();
-                };
-                reader.readAsDataURL(file);
+              if (!file) return;
+              let src: string;
+              if (bookId && chapterId) {
+                const { url, error } = await uploadChapterMedia(file, bookId, chapterId);
+                src = !error && url ? url : (await readAsDataURL(file)) ?? "";
+              } else {
+                src = (await readAsDataURL(file)) ?? "";
               }
+              if (src) editor.chain().focus().setImage({ src }).run();
             };
             input.click();
           }}
@@ -259,26 +331,51 @@ export default function TiptapEditor({
         >
           <AlignRightIcon />
         </ToolbarButton>
+      </div>
+      )}
 
+      {/* Editor content area - no pointer-events, always focusable */}
+      <div
+        className="writer-editor-content"
+        style={typographyVars}
+      >
+        <EditorContentWrapper active={typewriterMode}>
+          <EditorContent editor={editor} />
+        </EditorContentWrapper>
       </div>
 
-      {/* Editor content */}
-      <EditorContent editor={editor} />
-
-      {/* Placeholder styling */}
       <style jsx global>{`
-        .ProseMirror p.is-editor-empty:first-child::before {
-          content: "${placeholder}";
+        .writer-editor-content .ProseMirror {
+          min-height: 500px;
+          padding: 24px;
+          font-size: 16px;
+          line-height: 1.6;
+          caret-color: #2563eb;
+          outline: none;
+        }
+        .dark .writer-editor-content .ProseMirror {
+          caret-color: #60a5fa;
+        }
+        .writer-editor-content .ProseMirror {
+          font-family: var(--editor-font, Georgia, serif);
+          font-size: var(--editor-font-size, 16px);
+          line-height: var(--editor-line-height, 1.6);
+          max-width: var(--editor-content-width, 65ch);
+          margin-left: auto;
+          margin-right: auto;
+        }
+        .writer-editor-content .ProseMirror p {
+          margin-bottom: var(--editor-para-spacing, 0.75rem);
+        }
+        .writer-editor-content .ProseMirror.is-editor-empty::before {
+          content: attr(data-placeholder);
           float: left;
           color: #9ca3af;
-          pointer-events: none;
           height: 0;
+          pointer-events: none;
         }
-        .dark .ProseMirror p.is-editor-empty:first-child::before {
-          color: rgba(255, 255, 255, 0.3);
-        }
-        .ProseMirror {
-          min-height: 400px;
+        .dark .writer-editor-content .ProseMirror.is-editor-empty::before {
+          color: rgba(255, 255, 255, 0.35);
         }
         .ProseMirror:focus {
           outline: none;
@@ -316,24 +413,24 @@ export default function TiptapEditor({
           list-style-type: decimal;
         }
         .ProseMirror blockquote {
-          border-left: 3px solid #907aff;
+          border-left: 3px solid #94a3b8;
           padding-left: 1rem;
-          margin-left: 0;
-          margin-right: 0;
+          margin: 1rem 0;
           font-style: italic;
           color: #64748b;
         }
         .dark .ProseMirror blockquote {
+          border-left-color: rgba(255,255,255,0.3);
           color: rgba(255, 255, 255, 0.6);
         }
         .ProseMirror img {
           max-width: 100%;
           height: auto;
-          border-radius: 0.5rem;
+          border-radius: 0.25rem;
           margin: 1rem 0;
         }
         .ProseMirror img.ProseMirror-selectednode {
-          outline: 2px solid #907aff;
+          outline: 2px solid #2563eb;
           outline-offset: 2px;
         }
       `}</style>
@@ -476,133 +573,3 @@ function AlignRightIcon() {
   );
 }
 
-// Typography dropdown components
-const FONT_FAMILY_PRESETS = [
-  { label: "Serif", value: "Georgia, 'Times New Roman', serif" },
-  { label: "Sans", value: "system-ui, -apple-system, sans-serif" },
-  { label: "Mono", value: "'Courier New', Courier, monospace" },
-];
-
-function FontFamilyDropdown({ editor }: { editor: ReturnType<typeof useEditor> }) {
-  const [isOpen, setIsOpen] = useState(false);
-  if (!editor) return null;
-
-  return (
-    <div className="relative">
-      <button
-        type="button"
-        onClick={() => setIsOpen(!isOpen)}
-        title="Font family"
-        className="flex h-8 min-w-8 items-center rounded px-2 text-sm text-slate-600 hover:bg-slate-100 dark:text-white/60 dark:hover:bg-white/10"
-      >
-        Font
-      </button>
-      {isOpen && (
-        <>
-          <div className="fixed inset-0 z-10" onClick={() => setIsOpen(false)} />
-          <div className="absolute left-0 top-full z-20 mt-1 w-32 rounded border border-slate-200 bg-white py-1 dark:border-white/10 dark:bg-slate-800">
-            {FONT_FAMILY_PRESETS.map((preset) => (
-              <button
-                key={preset.value}
-                onClick={() => {
-                  editor.chain().focus().setFontFamily(preset.value).run();
-                  setIsOpen(false);
-                }}
-                className="flex w-full px-3 py-1.5 text-left text-sm text-slate-700 hover:bg-slate-100 dark:text-white/70 dark:hover:bg-white/10"
-                style={{ fontFamily: preset.value }}
-              >
-                {preset.label}
-              </button>
-            ))}
-          </div>
-        </>
-      )}
-    </div>
-  );
-}
-
-const FONT_SIZE_PRESETS = [
-  { label: "Small", value: "14px" },
-  { label: "Normal", value: "16px" },
-  { label: "Large", value: "18px" },
-];
-
-function FontSizeDropdown({ editor }: { editor: ReturnType<typeof useEditor> }) {
-  const [isOpen, setIsOpen] = useState(false);
-  if (!editor) return null;
-
-  return (
-    <div className="relative">
-      <button
-        type="button"
-        onClick={() => setIsOpen(!isOpen)}
-        title="Font size"
-        className="flex h-8 min-w-8 items-center rounded px-2 text-sm text-slate-600 hover:bg-slate-100 dark:text-white/60 dark:hover:bg-white/10"
-      >
-        Size
-      </button>
-      {isOpen && (
-        <>
-          <div className="fixed inset-0 z-10" onClick={() => setIsOpen(false)} />
-          <div className="absolute left-0 top-full z-20 mt-1 w-28 rounded border border-slate-200 bg-white py-1 dark:border-white/10 dark:bg-slate-800">
-            {FONT_SIZE_PRESETS.map((preset) => (
-              <button
-                key={preset.value}
-                onClick={() => {
-                  editor.chain().focus().setFontSize(preset.value).run();
-                  setIsOpen(false);
-                }}
-                className="flex w-full px-3 py-1.5 text-left text-sm text-slate-700 hover:bg-slate-100 dark:text-white/70 dark:hover:bg-white/10"
-              >
-                {preset.label}
-              </button>
-            ))}
-          </div>
-        </>
-      )}
-    </div>
-  );
-}
-
-const LINE_HEIGHT_PRESETS = [
-  { label: "Tight", value: "1.25" },
-  { label: "Normal", value: "1.5" },
-  { label: "Relaxed", value: "1.75" },
-];
-
-function LineHeightDropdown({ editor }: { editor: ReturnType<typeof useEditor> }) {
-  const [isOpen, setIsOpen] = useState(false);
-  if (!editor) return null;
-
-  return (
-    <div className="relative">
-      <button
-        type="button"
-        onClick={() => setIsOpen(!isOpen)}
-        title="Line height"
-        className="flex h-8 min-w-8 items-center rounded px-2 text-sm text-slate-600 hover:bg-slate-100 dark:text-white/60 dark:hover:bg-white/10"
-      >
-        Line
-      </button>
-      {isOpen && (
-        <>
-          <div className="fixed inset-0 z-10" onClick={() => setIsOpen(false)} />
-          <div className="absolute left-0 top-full z-20 mt-1 w-28 rounded border border-slate-200 bg-white py-1 dark:border-white/10 dark:bg-slate-800">
-            {LINE_HEIGHT_PRESETS.map((preset) => (
-              <button
-                key={preset.value}
-                onClick={() => {
-                  editor.chain().focus().setLineHeight(preset.value).run();
-                  setIsOpen(false);
-                }}
-                className="flex w-full px-3 py-1.5 text-left text-sm text-slate-700 hover:bg-slate-100 dark:text-white/70 dark:hover:bg-white/10"
-              >
-                {preset.label}
-              </button>
-            ))}
-          </div>
-        </>
-      )}
-    </div>
-  );
-}
