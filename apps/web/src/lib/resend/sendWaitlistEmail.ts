@@ -4,12 +4,10 @@
  */
 import { Resend } from "resend";
 
-const FROM_EMAIL = "Verkli <hello@verkli.com>";
+const FROM_EMAIL = "verkli <hello@verkli.com>";
 
-function getHtml(role: "writer" | "reader", position?: number): string {
-  const roleLabel = role === "writer" ? "writer" : "reader";
-  const positionLine =
-    position != null ? `<p style="margin: 0 0 16px; color: #94a3b8;">Your position: <strong style="color: #e2e8f0;">#${position}</strong></p>` : "";
+function getHtml(role: "author" | "reader"): string {
+  const roleLabel = role === "author" ? "author" : "reader";
 
   return `
 <!DOCTYPE html>
@@ -25,16 +23,15 @@ function getHtml(role: "writer" | "reader", position?: number): string {
         <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width: 480px;">
           <tr>
             <td style="padding: 40px 32px; background-color: #1e293b; border-radius: 12px; border: 1px solid #334155;">
-              <p style="margin: 0 0 24px; font-size: 14px; font-weight: 600; letter-spacing: 0.05em; color: #907aff; text-transform: uppercase;">Verkli</p>
+              <p style="margin: 0 0 24px; font-size: 14px; font-weight: 600; letter-spacing: 0.05em; color: #907aff; text-transform: uppercase;">verkli</p>
               <h1 style="margin: 0 0 20px; font-size: 24px; font-weight: 600; color: #f8fafc; line-height: 1.3;">You are on the list</h1>
               <p style="margin: 0 0 16px; font-size: 16px; line-height: 1.6; color: #cbd5e1;">
-                Thanks for signing up. You've joined the waitlist as a <strong style="color: #e2e8f0;">${roleLabel}</strong>.
+                verkli is in private pre-launch. You've joined the waitlist as a <strong style="color: #e2e8f0;">${roleLabel}</strong>.
               </p>
-              ${positionLine}
-              <p style="margin: 0; font-size: 15px; line-height: 1.6; color: #94a3b8;">
-                We'll be in touch when it's your turn.
+              <p style="margin: 0 0 16px; font-size: 15px; line-height: 1.6; color: #94a3b8;">
+                Access is granted in small, curated waves. We'll be in touch with release information or early access.
               </p>
-              <p style="margin: 32px 0 0; font-size: 14px; color: #64748b;">— Verkli</p>
+              <p style="margin: 0; font-size: 14px; color: #64748b;">— verkli</p>
             </td>
           </tr>
         </table>
@@ -46,7 +43,7 @@ function getHtml(role: "writer" | "reader", position?: number): string {
   `.trim();
 }
 
-export type WaitlistRole = "writer" | "reader";
+export type WaitlistRole = "author" | "reader";
 
 /**
  * Sends a waitlist confirmation email. Server-side only.
@@ -54,8 +51,7 @@ export type WaitlistRole = "writer" | "reader";
  */
 export async function sendWaitlistEmail(
   email: string,
-  role: WaitlistRole,
-  position?: number
+  role: WaitlistRole
 ): Promise<void> {
   const apiKey = process.env.RESEND_API_KEY;
   if (!apiKey) {
@@ -68,8 +64,8 @@ export async function sendWaitlistEmail(
     const { error } = await resend.emails.send({
       from: FROM_EMAIL,
       to: email,
-      subject: "You are on the Verkli waitlist",
-      html: getHtml(role, position),
+      subject: "You are on the verkli waitlist.",
+      html: getHtml(role),
     });
 
     if (error) {

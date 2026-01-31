@@ -23,7 +23,7 @@ export default function SignUp() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
-  const [role, setRole] = useState<"writer" | "reader">("writer");
+  const [role, setRole] = useState<"author" | "reader">("author");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
@@ -133,7 +133,7 @@ export default function SignUp() {
         <Link href="/" className="flex items-center gap-3">
           <img
             src="/favicon.svg"
-            alt="Verkli"
+            alt="verkli"
             className="h-8 w-auto"
             loading="eager"
           />
@@ -174,14 +174,14 @@ export default function SignUp() {
               <div className="flex gap-3">
                 <button
                   type="button"
-                  onClick={() => setRole("writer")}
+                  onClick={() => setRole("author")}
                   className={`flex-1 rounded-xl border px-4 py-3 text-sm font-medium transition ${
-                    role === "writer"
+                    role === "author"
                       ? "border-purple-500/50 bg-purple-500/20 text-slate-900 dark:text-white"
                       : "border-black/10 bg-black/[0.02] text-slate-600 hover:bg-black/10 dark:border-white/10 dark:bg-white/5 dark:text-white/60 dark:hover:bg-white/10"
                   }`}
                 >
-                  Writer
+                  Author
                 </button>
                 <button
                   type="button"

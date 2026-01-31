@@ -9,7 +9,7 @@ export default function PublicRoleCta({
   href,
   label,
 }: {
-  targetRole: "writer" | "reader";
+  targetRole: "author" | "reader";
   href: string;
   label: string;
 }) {

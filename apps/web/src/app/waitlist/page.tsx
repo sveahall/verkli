@@ -13,18 +13,19 @@ function validateEmail(email: string): boolean {
   return EMAIL_REGEX.test(email.trim());
 }
 
-const WRITER_STORAGE_EMAIL = "verkli_waitlist_writer_email";
-const WRITER_STORAGE_STATUS = "verkli_waitlist_writer_status";
-const WRITER_STORAGE_POSITION = "verkli_waitlist_writer_position";
+const AUTHOR_STORAGE_EMAIL = "verkli_waitlist_author_email";
+const AUTHOR_STORAGE_STATUS = "verkli_waitlist_author_status";
+const AUTHOR_STORAGE_POSITION = "verkli_waitlist_author_position";
 const READER_STORAGE_EMAIL = "verkli_waitlist_reader_email";
 const READER_STORAGE_STATUS = "verkli_waitlist_reader_status";
 const READER_STORAGE_POSITION = "verkli_waitlist_reader_position";
 
 const HERO_EYEBROW = "Limited access";
-const HERO_HEADLINE = "Join the waitlist to access verkli.";
-const HERO_SUBHEADLINE = "Early access is exclusively limited.";
+const HERO_HEADLINE = "verkli is a platform for authors and readers.";
+const HERO_SUBHEADLINE = "We're launching in private, curated waves. Request access below.";
 const HERO_CTA_LABEL = "Request access";
-const HERO_MICRO = "Limited waitlist. We onboard a small number of authors at a time.";
+const HERO_MICRO = "Authors publish, readers discover. Access is granted in small waves.";
+const READER_MICRO = "Early access to curated stories from independent authors.";
 const CARD_BADGE = "PRIVATE PRE LAUNCH";
 
 type SubmitState = "idle" | "loading" | "success" | "error" | "already_exists";
@@ -87,9 +88,9 @@ function WaitlistForm({
       const position = data.position ?? 0;
       const isDuplicate = data.alreadyExists === true;
       try {
-        localStorage.setItem(WRITER_STORAGE_EMAIL, normalized);
-        localStorage.setItem(WRITER_STORAGE_STATUS, isDuplicate ? "exists" : "success");
-        localStorage.setItem(WRITER_STORAGE_POSITION, String(position));
+        localStorage.setItem(AUTHOR_STORAGE_EMAIL, normalized);
+        localStorage.setItem(AUTHOR_STORAGE_STATUS, isDuplicate ? "exists" : "success");
+        localStorage.setItem(AUTHOR_STORAGE_POSITION, String(position));
       } catch {
         /* ignore */
       }
@@ -207,7 +208,6 @@ function AlreadyExistsState({ queuePosition, onUseDifferentEmail }: { queuePosit
 // ——— Reader waitlist (separate API + state) ———
 
 const READER_CTA_LABEL = "Request access";
-const READER_MICRO = "Limited reader list. We onboard in small waves.";
 
 function ReaderWaitlistForm({
   onSuccess,
@@ -382,11 +382,11 @@ export default function WaitlistPage() {
 
   useEffect(() => {
     try {
-      const writerStatus = localStorage.getItem(WRITER_STORAGE_STATUS);
-      const writerPosition = localStorage.getItem(WRITER_STORAGE_POSITION);
-      const pos = writerPosition ? parseInt(writerPosition, 10) : 0;
-      if (writerStatus === "success" && !Number.isNaN(pos)) setQueuePosition(pos);
-      else if (writerStatus === "exists" && !Number.isNaN(pos)) setAlreadyExistsPosition(pos);
+      const authorStatus = localStorage.getItem(AUTHOR_STORAGE_STATUS);
+      const authorPosition = localStorage.getItem(AUTHOR_STORAGE_POSITION);
+      const pos = authorPosition ? parseInt(authorPosition, 10) : 0;
+      if (authorStatus === "success" && !Number.isNaN(pos)) setQueuePosition(pos);
+      else if (authorStatus === "exists" && !Number.isNaN(pos)) setAlreadyExistsPosition(pos);
 
       const readerStatus = localStorage.getItem(READER_STORAGE_STATUS);
       const readerPosition = localStorage.getItem(READER_STORAGE_POSITION);
@@ -419,11 +419,11 @@ export default function WaitlistPage() {
     setReaderQueuePosition(null);
   };
 
-  const handleWriterUseDifferentEmail = () => {
+  const handleAuthorUseDifferentEmail = () => {
     try {
-      localStorage.removeItem(WRITER_STORAGE_EMAIL);
-      localStorage.removeItem(WRITER_STORAGE_STATUS);
-      localStorage.removeItem(WRITER_STORAGE_POSITION);
+      localStorage.removeItem(AUTHOR_STORAGE_EMAIL);
+      localStorage.removeItem(AUTHOR_STORAGE_STATUS);
+      localStorage.removeItem(AUTHOR_STORAGE_POSITION);
     } catch {
       /* ignore */
     }
@@ -504,18 +504,18 @@ export default function WaitlistPage() {
             >
               {CARD_BADGE}
             </p>
-            {/* Two signups: writer + reader — column on mobile, row on desktop */}
+            {/* Two signups: author + reader — column on mobile, row on desktop */}
             <div className="waitlist-hero-in waitlist-hero-in-delay-3 mt-3 flex w-full flex-col gap-8 md:flex-row md:items-stretch">
-              {/* Join the waitlist as a writer */}
+              {/* Join the waitlist as an author */}
               <div className="aurora-card min-w-0 flex-1 rounded-3xl border border-white/20 bg-white/10 p-6 shadow-[0_24px_48px_rgba(0,0,0,0.2),0_0_0_1px_rgba(255,255,255,0.08)] backdrop-blur-xl sm:p-8">
                 <h2 className="text-center text-sm font-semibold uppercase tracking-wider text-white/60">
-                  Join the waitlist as a writer
+                  Join the waitlist as an author
                 </h2>
                 <div className="mt-4">
                   {!hydrated ? null : queuePosition !== null ? (
-                    <SuccessState queuePosition={queuePosition} onUseDifferentEmail={handleWriterUseDifferentEmail} />
+                    <SuccessState queuePosition={queuePosition} onUseDifferentEmail={handleAuthorUseDifferentEmail} />
                   ) : alreadyExistsPosition !== null ? (
-                    <AlreadyExistsState queuePosition={alreadyExistsPosition} onUseDifferentEmail={handleWriterUseDifferentEmail} />
+                    <AlreadyExistsState queuePosition={alreadyExistsPosition} onUseDifferentEmail={handleAuthorUseDifferentEmail} />
                   ) : (
                     <>
                       <WaitlistForm

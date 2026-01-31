@@ -14,13 +14,13 @@ export default async function AppAuthorLayout({
   } = await supabase.auth.getUser();
 
   if (!user) {
-    redirect("/writer/signin");
+    redirect("/author/signin");
   }
 
-  let role: "writer" | "reader" | null = null;
+  let role: "author" | "reader" | null = null;
 
   const metaRole = user.user_metadata?.active_role ?? user.user_metadata?.role;
-  if (metaRole === "writer" || metaRole === "reader") {
+  if (metaRole === "author" || metaRole === "reader") {
     role = metaRole;
   }
 
@@ -32,19 +32,19 @@ export default async function AppAuthorLayout({
       .maybeSingle();
 
     const preferenceRole = (profile?.preferences as { active_role?: string } | null)?.active_role;
-    if (preferenceRole === "writer" || preferenceRole === "reader") {
+    if (preferenceRole === "author" || preferenceRole === "reader") {
       role = preferenceRole;
-    } else if (profile?.role === "writer" || profile?.role === "reader") {
+    } else if (profile?.role === "author" || profile?.role === "reader") {
       role = profile.role;
     }
   }
 
   if (!role) {
-    redirect("/writer/signin");
+    redirect("/author/signin");
   }
 
   if (role === "reader") {
-    await updateActiveRole("writer");
+    await updateActiveRole("author");
   }
 
   const variant = "APP_AUTHOR";

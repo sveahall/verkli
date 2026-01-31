@@ -8,7 +8,7 @@ const testimonials = [
     name: "Emma Richardson",
     role: "NYT Bestselling Author",
     image: "https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=120&h=120&fit=crop&crop=face",
-    quote: "Verkli transformed how I connect with readers. My content reaches 10x more people now.",
+    quote: "verkli transformed how I connect with readers. My content reaches 10x more people now.",
     color: "#907AFF",
   },
   {
@@ -20,7 +20,7 @@ const testimonials = [
   },
   {
     name: "Sofia Martinez",
-    role: "Romance Writer",
+    role: "Romance Author",
     image: "https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=120&h=120&fit=crop&crop=face",
     quote: "The time I save on marketing I now spend writing my next book.",
     color: "#FCC997",

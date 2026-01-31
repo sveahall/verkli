@@ -17,10 +17,10 @@ export default async function AppReaderLayout({
     redirect("/reader/signin");
   }
 
-  let role: "writer" | "reader" | null = null;
+  let role: "author" | "reader" | null = null;
 
   const metaRole = user.user_metadata?.active_role ?? user.user_metadata?.role;
-  if (metaRole === "writer" || metaRole === "reader") {
+  if (metaRole === "author" || metaRole === "reader") {
     role = metaRole;
   }
 
@@ -32,9 +32,9 @@ export default async function AppReaderLayout({
       .maybeSingle();
 
     const preferenceRole = (profile?.preferences as { active_role?: string } | null)?.active_role;
-    if (preferenceRole === "writer" || preferenceRole === "reader") {
+    if (preferenceRole === "author" || preferenceRole === "reader") {
       role = preferenceRole;
-    } else if (profile?.role === "writer" || profile?.role === "reader") {
+    } else if (profile?.role === "author" || profile?.role === "reader") {
       role = profile.role;
     }
   }
@@ -43,7 +43,7 @@ export default async function AppReaderLayout({
     redirect("/reader/signin");
   }
 
-  if (role === "writer") {
+  if (role === "author") {
     await updateActiveRole("reader");
   }
 

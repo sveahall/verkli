@@ -148,7 +148,7 @@ export default function ReaderLanding() {
 
   return (
     <main className="relative min-h-screen bg-gradient-to-b from-slate-50 via-slate-50/95 to-slate-50/90 text-slate-900 dark:from-[#050508] dark:via-[#050508] dark:to-[#050508] dark:text-white">
-      {/* Hero – mouse-tracking glows (same pattern as writer landing) */}
+      {/* Hero – mouse-tracking glows (same pattern as author landing) */}
       <section
         ref={heroRef}
         onMouseMove={handleHeroMouseMove}
@@ -181,12 +181,12 @@ export default function ReaderLanding() {
                 Explore stories
               </Link>
               <Link href="/reader/signup" className="btn-secondary min-w-[140px]">
-                Join Verkli
+                Join verkli
               </Link>
             </div>
             <p className="mt-6 text-[13px] text-slate-500 dark:text-white/50">
-              Are you a writer?<br />
-              <Link href="/writer" className="font-semibold text-slate-700 hover:text-slate-900 dark:text-white/80 dark:hover:text-white">
+              Are you an author?<br />
+              <Link href="/author" className="font-semibold text-slate-700 hover:text-slate-900 dark:text-white/80 dark:hover:text-white">
                 Go to authors page →
               </Link>
             </p>
@@ -239,14 +239,14 @@ export default function ReaderLanding() {
         </div>
       </section>
 
-      {/* Value proposition – mouse-reactive blobs (writer-style) */}
+      {/* Value proposition – mouse-reactive blobs (author-style) */}
       <section
         id="explore"
         className="relative mx-auto w-full max-w-[1200px] px-4 py-16 sm:px-6 sm:py-24"
         aria-labelledby="value-heading"
       >
         <h2 id="value-heading" className="sr-only">
-          Why Verkli for readers
+          Why verkli for readers
         </h2>
         <div
           ref={valueRef}
@@ -354,7 +354,7 @@ export default function ReaderLanding() {
         aria-labelledby="different-heading"
       >
         <h2 id="different-heading" className="text-2xl font-medium tracking-[-0.02em] text-slate-900 dark:text-white sm:text-[32px]">
-          Why Verkli is <span className="bg-gradient-to-r from-[#907AFF] via-[#E29ED5] to-[#FCC997] bg-clip-text text-transparent">different</span>
+          Why verkli is <span className="bg-gradient-to-r from-[#907AFF] via-[#E29ED5] to-[#FCC997] bg-clip-text text-transparent">different</span>
         </h2>
         <p className="mt-2 text-[15px] text-slate-600 dark:text-white/50">
           Not just another reading app.
@@ -418,7 +418,7 @@ export default function ReaderLanding() {
             Built so authors can keep writing
           </h2>
           <p className="relative mt-4 text-[15px] leading-relaxed text-slate-600 dark:text-white/55">
-            Verkli is designed to support authors sustainably—so they can focus on the stories you love. When creators are supported, readers get more of what matters: great writing, direct connection, and a place that puts both of you first.
+            verkli is designed to support authors sustainably—so they can focus on the stories you love. When creators are supported, readers get more of what matters: great writing, direct connection, and a place that puts both of you first.
           </p>
         </div>
       </section>
@@ -451,7 +451,7 @@ export default function ReaderLanding() {
               Explore stories
             </Link>
             <Link href="/reader/signup" className="btn-secondary min-w-[140px]">
-              Join Verkli
+              Join verkli
             </Link>
           </div>
         </div>

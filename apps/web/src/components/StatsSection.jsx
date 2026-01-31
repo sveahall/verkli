@@ -114,7 +114,7 @@ export default function StatsSection() {
             The numbers speak for themselves
           </h2>
           <p className="mx-auto mt-4 max-w-[400px] text-[16px] text-slate-600 dark:text-white/50">
-            Join thousands of authors already growing with Verkli.
+            Join thousands of authors already growing with verkli.
           </p>
         </div>
 
