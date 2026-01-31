@@ -59,7 +59,7 @@ export default function BookEditor({ book, chapters: initialChapters }: Props) {
 
     if (error) {
       console.error("Failed to create chapter:", error);
-      alert("Failed to create chapter");
+      alert(`Failed to create chapter: ${error.message || error.code || "Unknown error"}`);
       return;
     }
 

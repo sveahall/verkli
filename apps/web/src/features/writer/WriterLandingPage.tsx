@@ -509,17 +509,12 @@ function Dashboard({ user }: { user: User }) {
     tags: [] as string[],
   });
   
-  // Book form state
+  // Book form state (minimal - only title and type)
   const [bookForm, setBookForm] = useState({
     title: "",
-    cover: "",
-    summary: "",
-    authorsNote: "",
-    tags: [] as string[],
-    content: "",
-    uploadFile: null as File | null,
-    creationMethod: "write" as "write" | "upload",
+    bookType: "standalone" as "standalone" | "series",
   });
+  const [isCreatingBook, setIsCreatingBook] = useState(false);
 
   useEffect(() => {
     loadShelves();
@@ -661,7 +656,7 @@ function Dashboard({ user }: { user: User }) {
   
   const handleCreateBook = () => {
     setShowChoiceModal(false);
-    setBookForm({ title: "", cover: "", summary: "", authorsNote: "", tags: [], content: "", uploadFile: null, creationMethod: "write" });
+    setBookForm({ title: "", bookType: "standalone" });
     setShowBookModal(true);
   };
   
@@ -716,32 +711,34 @@ function Dashboard({ user }: { user: User }) {
   };
   
   const handleBookSubmit = async () => {
+    if (isCreatingBook) return;
+    
     try {
+      setIsCreatingBook(true);
       const supabase = createClient();
       const { data: { user: authUser } } = await supabase.auth.getUser();
       if (!authUser) throw new Error("Not authenticated");
       
-      // Create standalone book
-      const slug = (bookForm.title || "Untitled").toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '') + '-' + Date.now();
+      // Create book with minimal data
+      const title = bookForm.title.trim() || "Untitled";
+      const slug = title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '') + '-' + Date.now();
+      
       const { data: book, error: bookError } = await supabase
         .from('books')
         .insert({
-          title: bookForm.title || "Untitled",
+          title: title,
           slug: slug,
-          cover_image: bookForm.cover || null,
-          description: bookForm.summary || null,
           author_id: authUser.id,
           status: 'DRAFT',
-          published: false,
         })
-        .select()
+        .select('id')
         .single();
       
       if (bookError) throw bookError;
       
-      // If selectedShelfId, add to shelf
-      if (selectedShelfId) {
-        const { error: shelfBookError } = await supabase
+      // If selectedShelfId, add to shelf (for series books)
+      if (selectedShelfId && bookForm.bookType === "series") {
+        await supabase
           .from('shelf_books')
           .insert({
             shelf_id: selectedShelfId,
@@ -749,19 +746,25 @@ function Dashboard({ user }: { user: User }) {
             section_id: null,
             sort_index: 0,
           });
-        
-        if (shelfBookError) throw shelfBookError;
+      }
+      
+      // Close modal and redirect to editor
+      // Guard: ensure book.id exists
+      if (!book?.id) {
+        console.error("Book created but no ID returned");
+        setIsCreatingBook(false);
+        return;
       }
       
       setShowBookModal(false);
-      setBookForm({ title: "", cover: "", summary: "", authorsNote: "", tags: [], content: "", uploadFile: null, creationMethod: "write" });
+      setBookForm({ title: "", bookType: "standalone" });
       setSelectedShelfId(null);
       
-      // Reload shelves
-      await loadShelves();
+      // Navigate to the book editor using router.push
+      router.push(`/writer/books/${book.id}`);
     } catch (error) {
-      // Avoid Next.js console overlay – log as warning instead
-      console.warn("Non-critical: error creating book", error);
+      console.warn("Error creating book:", error);
+      setIsCreatingBook(false);
     }
   };
   
@@ -769,9 +772,8 @@ function Dashboard({ user }: { user: User }) {
     const tags = value.split(",").map(t => t.trim()).filter(t => t);
     if (type === "shelf") {
       setShelfForm({ ...shelfForm, tags });
-    } else {
-      setBookForm({ ...bookForm, tags });
     }
+    // Book tags removed - editing happens in dedicated page
   };
 
   return (
@@ -1427,207 +1429,94 @@ function Dashboard({ user }: { user: User }) {
         </div>
       )}
 
-      {/* Book Creation Modal */}
+      {/* Book Creation Modal - Minimal: only title and type */}
       {showBookModal && (
-        <div className="fixed inset-0 z-[1000] flex items-start justify-center bg-black/60 backdrop-blur-sm p-4 overflow-y-auto pt-20">
-          <div className="relative my-8 w-full max-w-[900px] rounded-3xl border border-black/10 dark:border-white/10 bg-white/[0.95] dark:bg-[#0a0a0f]/[0.95] p-10 backdrop-blur-xl">
-            <button onClick={() => setShowBookModal(false)} className="absolute right-6 top-6 text-slate-500 dark:text-white/50 transition-colors hover:text-slate-900 dark:hover:text-white">
-              <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+        <div className="fixed inset-0 z-[1000] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+          <div className="relative w-full max-w-[480px] rounded-3xl border border-black/10 dark:border-white/10 bg-white/[0.95] dark:bg-[#0a0a0f]/[0.95] p-8 backdrop-blur-xl">
+            <button 
+              onClick={() => setShowBookModal(false)} 
+              disabled={isCreatingBook}
+              className="absolute right-5 top-5 text-slate-500 dark:text-white/50 transition-colors hover:text-slate-900 dark:hover:text-white disabled:opacity-50"
+            >
+              <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
             </button>
-            <h2 className="mb-8 text-[24px] font-semibold text-slate-900 dark:text-white">Create new book</h2>
-            <div className="mb-8 flex items-center gap-3">
+            
+            <h2 className="mb-6 text-[22px] font-semibold text-slate-900 dark:text-white">Create new book</h2>
+            
+            {/* Book Title */}
+            <div className="mb-6">
+              <label className="mb-2 block text-[14px] font-medium text-slate-700 dark:text-white/70">
+                Book title <span className="text-red-500">*</span>
+              </label>
               <input
                 type="text"
                 value={bookForm.title}
                 onChange={(e) => setBookForm({ ...bookForm, title: e.target.value })}
-                placeholder="New section"
-                className="flex-1 rounded-xl border border-black/10 dark:border-white/10 bg-black/[0.02] dark:bg-white/[0.04] px-4 py-3 text-[20px] font-semibold text-slate-900 dark:text-white outline-none transition-all focus:border-[#907AFF]/50 focus:bg-black/[0.01] dark:focus:bg-white/[0.06] focus:ring-2 focus:ring-[#907AFF]/20"
+                placeholder="Enter your book title..."
+                className="w-full rounded-xl border border-black/10 dark:border-white/10 bg-black/[0.02] dark:bg-white/[0.04] px-4 py-3 text-[16px] text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-white/30 outline-none transition-all focus:border-[#907AFF]/50 focus:bg-black/[0.01] dark:focus:bg-white/[0.06] focus:ring-2 focus:ring-[#907AFF]/20"
+                autoFocus
+                disabled={isCreatingBook}
               />
-              <svg className="h-5 w-5 text-slate-400 dark:text-white/40" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" /></svg>
             </div>
 
-            <div className="space-y-6">
-              {/* Cover Upload */}
-              <button className="flex w-full items-center justify-between rounded-xl border border-black/10 dark:border-white/10 bg-black/[0.02] dark:bg-white/[0.02] px-4 py-3.5 text-left transition-all hover:border-[#907AFF]/30 hover:bg-black/[0.01] dark:hover:bg-white/[0.04]">
-                <span className="text-[14px] font-medium text-slate-700 dark:text-white/70">+ Add book cover</span>
-                <input type="file" accept="image/*" className="hidden" id="book-cover" onChange={(e) => {
-                  const file = e.target.files?.[0];
-                  if (file) {
-                    const reader = new FileReader();
-                    reader.onload = (e) => setBookForm({ ...bookForm, cover: e.target?.result as string });
-                    reader.readAsDataURL(file);
-                  }
-                }} />
-                <label htmlFor="book-cover" className="cursor-pointer rounded-lg bg-[#907AFF]/10 px-3 py-1.5 text-[13px] font-medium text-[#907AFF] transition-colors hover:bg-[#907AFF]/20">Upload</label>
-              </button>
-              {bookForm.cover && (
-                <div className="relative h-48 w-32 overflow-hidden rounded-lg">
-                  <img src={bookForm.cover} alt="Book cover" className="h-full w-full object-cover" />
-                  <button onClick={() => setBookForm({ ...bookForm, cover: "" })} className="absolute right-1 top-1 rounded-full bg-black/60 p-1 text-white/80 hover:bg-black/80">
-                    <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
-                  </button>
-                </div>
-              )}
-
-              {/* Summary */}
-              <div>
-                <button 
-                  onClick={() => setBookForm({ ...bookForm, summary: bookForm.summary ? "" : " " })}
-                  className="flex w-full items-center justify-between rounded-xl border border-black/10 dark:border-white/10 bg-black/[0.02] dark:bg-white/[0.02] px-4 py-3.5 text-left transition-all hover:border-[#907AFF]/30 hover:bg-black/[0.01] dark:hover:bg-white/[0.04]"
+            {/* Book Type */}
+            <div className="mb-8">
+              <label className="mb-3 block text-[14px] font-medium text-slate-700 dark:text-white/70">
+                Book type
+              </label>
+              <div className="grid grid-cols-2 gap-3">
+                <button
+                  onClick={() => setBookForm({ ...bookForm, bookType: "standalone" })}
+                  disabled={isCreatingBook}
+                  className={`rounded-xl border p-4 text-left transition-all ${
+                    bookForm.bookType === "standalone"
+                      ? "border-[#907AFF]/50 bg-[#907AFF]/10 ring-2 ring-[#907AFF]/30"
+                      : "border-black/10 dark:border-white/10 bg-black/[0.02] dark:bg-white/[0.02] hover:border-[#907AFF]/30 hover:bg-black/[0.01] dark:hover:bg-white/[0.04]"
+                  } disabled:opacity-50`}
                 >
-                  <span className="text-[14px] font-medium text-slate-700 dark:text-white/70">+ Add summary</span>
+                  <div className="mb-1 text-[15px] font-semibold text-slate-900 dark:text-white">Standalone</div>
+                  <div className="text-[12px] text-slate-600 dark:text-white/50">A single book</div>
                 </button>
-                {bookForm.summary && (
-                  <textarea
-                    value={bookForm.summary}
-                    onChange={(e) => setBookForm({ ...bookForm, summary: e.target.value })}
-                    placeholder="Write a summary of your book..."
-                    className="mt-2 w-full rounded-xl border border-black/10 dark:border-white/10 bg-black/[0.02] dark:bg-white/[0.04] px-4 py-3 text-[14px] text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-white/30 outline-none transition-all focus:border-[#907AFF]/50 focus:bg-black/[0.01] dark:focus:bg-white/[0.06] focus:ring-2 focus:ring-[#907AFF]/20"
-                    rows={4}
-                    autoFocus
-                  />
-                )}
-              </div>
-
-              {/* Author's Note */}
-              <div>
-                <button 
-                  onClick={() => setBookForm({ ...bookForm, authorsNote: bookForm.authorsNote ? "" : " " })}
-                  className="flex w-full items-center justify-between rounded-xl border border-black/10 dark:border-white/10 bg-black/[0.02] dark:bg-white/[0.02] px-4 py-3.5 text-left transition-all hover:border-[#907AFF]/30 hover:bg-black/[0.01] dark:hover:bg-white/[0.04]"
+                <button
+                  onClick={() => setBookForm({ ...bookForm, bookType: "series" })}
+                  disabled={isCreatingBook}
+                  className={`rounded-xl border p-4 text-left transition-all ${
+                    bookForm.bookType === "series"
+                      ? "border-[#907AFF]/50 bg-[#907AFF]/10 ring-2 ring-[#907AFF]/30"
+                      : "border-black/10 dark:border-white/10 bg-black/[0.02] dark:bg-white/[0.02] hover:border-[#907AFF]/30 hover:bg-black/[0.01] dark:hover:bg-white/[0.04]"
+                  } disabled:opacity-50`}
                 >
-                  <span className="text-[14px] font-medium text-slate-700 dark:text-white/70">+ Add author&apos;s note</span>
+                  <div className="mb-1 text-[15px] font-semibold text-slate-900 dark:text-white">Series</div>
+                  <div className="text-[12px] text-slate-600 dark:text-white/50">Part of a collection</div>
                 </button>
-                {bookForm.authorsNote && (
-                  <textarea
-                    value={bookForm.authorsNote}
-                    onChange={(e) => setBookForm({ ...bookForm, authorsNote: e.target.value })}
-                    placeholder="Add a personal note about this book..."
-                    className="mt-2 w-full rounded-xl border border-black/10 dark:border-white/10 bg-black/[0.02] dark:bg-white/[0.04] px-4 py-3 text-[14px] text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-white/30 outline-none transition-all focus:border-[#907AFF]/50 focus:bg-black/[0.01] dark:focus:bg-white/[0.06] focus:ring-2 focus:ring-[#907AFF]/20"
-                    rows={3}
-                    autoFocus
-                  />
-                )}
-              </div>
-
-              {/* Tags */}
-              <div>
-                <button 
-                  onClick={() => {
-                    const input = document.getElementById("book-tags-input") as HTMLInputElement;
-                    if (input) input.focus();
-                  }}
-                  className="flex w-full items-center justify-between rounded-xl border border-black/10 dark:border-white/10 bg-black/[0.02] dark:bg-white/[0.02] px-4 py-3.5 text-left transition-all hover:border-[#907AFF]/30 hover:bg-black/[0.01] dark:hover:bg-white/[0.04]"
-                >
-                  <span className="text-[14px] font-medium text-slate-700 dark:text-white/70">+ Add general tags</span>
-                </button>
-                {bookForm.tags.length > 0 && (
-                  <div className="mt-2 flex flex-wrap gap-2">
-                    {bookForm.tags.map((tag, i) => (
-                      <span key={i} className="flex items-center gap-2 rounded-full bg-[#907AFF]/20 px-3 py-1 text-[13px] text-[#907AFF]">
-                        {tag}
-                        <button onClick={() => setBookForm({ ...bookForm, tags: bookForm.tags.filter((_, idx) => idx !== i) })} className="text-[#907AFF]/60 hover:text-[#907AFF]">
-                          <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
-                        </button>
-                      </span>
-                    ))}
-                  </div>
-                )}
-                <input
-                  id="book-tags-input"
-                  type="text"
-                  placeholder="Enter tags separated by commas, then press Enter..."
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter") {
-                      e.preventDefault();
-                      const value = (e.target as HTMLInputElement).value;
-                      if (value.trim()) {
-                        handleTagInput(value, "book");
-                        (e.target as HTMLInputElement).value = "";
-                      }
-                    }
-                  }}
-                  className="mt-2 w-full rounded-xl border border-black/10 dark:border-white/10 bg-black/[0.02] dark:bg-white/[0.04] px-4 py-3 text-[14px] text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-white/30 outline-none transition-all focus:border-[#907AFF]/50 focus:bg-black/[0.01] dark:focus:bg-white/[0.06] focus:ring-2 focus:ring-[#907AFF]/20"
-                />
-              </div>
-
-              {/* Creation Method Choice */}
-              <div className="rounded-xl border border-black/10 dark:border-white/10 bg-black/[0.02] dark:bg-white/[0.02] p-6">
-                <h3 className="mb-5 text-[16px] font-semibold text-slate-900 dark:text-white">How do you want to create your book?</h3>
-                <div className="grid gap-4 md:grid-cols-2">
-                  <button
-                    onClick={() => setBookForm({ ...bookForm, creationMethod: "write" })}
-                    className={`rounded-xl border p-5 text-left transition-all ${
-                      bookForm.creationMethod === "write"
-                        ? "border-[#907AFF]/50 bg-[#907AFF]/10 ring-2 ring-[#907AFF]/30"
-                        : "border-black/10 dark:border-white/10 bg-black/[0.02] dark:bg-white/[0.02] hover:border-[#907AFF]/30 hover:bg-black/[0.01] dark:hover:bg-white/[0.04]"
-                    }`}
-                  >
-                    <div className="mb-2 text-[16px] font-semibold text-slate-900 dark:text-white">Create book in section</div>
-                    <div className="text-[13px] text-slate-600 dark:text-white/50">Write your book directly in our editor</div>
-                  </button>
-                  <button
-                    onClick={() => setBookForm({ ...bookForm, creationMethod: "upload" })}
-                    className={`rounded-xl border p-5 text-left transition-all ${
-                      bookForm.creationMethod === "upload"
-                        ? "border-[#907AFF]/50 bg-[#907AFF]/10 ring-2 ring-[#907AFF]/30"
-                        : "border-black/10 dark:border-white/10 bg-black/[0.02] dark:bg-white/[0.02] hover:border-[#907AFF]/30 hover:bg-black/[0.01] dark:hover:bg-white/[0.04]"
-                    }`}
-                  >
-                    <div className="mb-2 text-[16px] font-semibold text-slate-900 dark:text-white">Upload book to section</div>
-                    <div className="text-[13px] text-slate-600 dark:text-white/50">Upload your book if it&apos;s already complete</div>
-                  </button>
-                </div>
-
-                {/* Editor or Upload based on choice */}
-                {bookForm.creationMethod === "write" && (
-                  <div className="mt-5">
-                    <textarea
-                      value={bookForm.content}
-                      onChange={(e) => setBookForm({ ...bookForm, content: e.target.value })}
-                      placeholder="Start writing your book here..."
-                      className="w-full rounded-xl border border-black/10 dark:border-white/10 bg-black/[0.02] dark:bg-white/[0.04] px-4 py-3 text-[14px] text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-white/30 outline-none transition-all focus:border-[#907AFF]/50 focus:bg-black/[0.01] dark:focus:bg-white/[0.06] focus:ring-2 focus:ring-[#907AFF]/20"
-                      rows={12}
-                    />
-                  </div>
-                )}
-
-                {bookForm.creationMethod === "upload" && (
-                  <div className="mt-4">
-                    <label className="flex cursor-pointer flex-col items-center justify-center rounded-xl border-2 border-dashed border-black/20 dark:border-white/20 bg-black/[0.02] dark:bg-white/[0.02] p-8 transition-all hover:border-[#907AFF]/30 hover:bg-black/[0.01] dark:hover:bg-white/[0.04]">
-                      <svg className="mb-3 h-12 w-12 text-slate-400 dark:text-white/30" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
-                      </svg>
-                      <span className="mb-1 text-[14px] font-medium text-slate-700 dark:text-white/70">Click to upload or drag and drop</span>
-                      <span className="text-[12px] text-slate-500 dark:text-white/50">PDF, DOCX, TXT (MAX. 10MB)</span>
-                      <input
-                        type="file"
-                        accept=".pdf,.doc,.docx,.txt"
-                        className="hidden"
-                        onChange={(e) => {
-                          const file = e.target.files?.[0];
-                          if (file) setBookForm({ ...bookForm, uploadFile: file });
-                        }}
-                      />
-                    </label>
-                    {bookForm.uploadFile && (
-                      <div className="mt-3 flex items-center justify-between rounded-xl border border-black/10 dark:border-white/10 bg-black/[0.02] dark:bg-white/[0.04] px-4 py-3">
-                        <span className="text-[14px] text-slate-700 dark:text-white/70">{bookForm.uploadFile.name}</span>
-                        <button onClick={() => setBookForm({ ...bookForm, uploadFile: null })} className="text-slate-500 dark:text-white/50 hover:text-slate-900 dark:hover:text-white">
-                          <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
-                        </button>
-                      </div>
-                    )}
-                  </div>
-                )}
               </div>
             </div>
 
-            <div className="mt-10 flex justify-end gap-3 border-t border-black/10 dark:border-white/10 pt-6">
-              <button onClick={() => setShowBookModal(false)} className="rounded-xl border border-black/10 dark:border-white/10 bg-black/[0.02] dark:bg-white/[0.02] px-6 py-3 text-[14px] font-semibold text-slate-700 dark:text-white/70 transition-all hover:bg-black/[0.01] dark:hover:bg-white/[0.04]">
+            {/* Actions */}
+            <div className="flex justify-end gap-3 border-t border-black/10 dark:border-white/10 pt-6">
+              <button 
+                onClick={() => setShowBookModal(false)} 
+                disabled={isCreatingBook}
+                className="rounded-xl border border-black/10 dark:border-white/10 bg-black/[0.02] dark:bg-white/[0.02] px-5 py-2.5 text-[14px] font-semibold text-slate-700 dark:text-white/70 transition-all hover:bg-black/[0.01] dark:hover:bg-white/[0.04] disabled:opacity-50"
+              >
                 Cancel
               </button>
-              <button onClick={handleBookSubmit} className="rounded-xl bg-gradient-to-r from-[#907AFF] to-[#8069EE] px-6 py-3 text-[14px] font-semibold text-white transition-all hover:from-[#8069EE] hover:to-[#7058DD]">
-                {bookForm.creationMethod === "write" ? "Create book" : "Upload book"}
+              <button 
+                onClick={handleBookSubmit} 
+                disabled={isCreatingBook || !bookForm.title.trim()}
+                className="rounded-xl bg-gradient-to-r from-[#907AFF] to-[#8069EE] px-5 py-2.5 text-[14px] font-semibold text-white transition-all hover:from-[#8069EE] hover:to-[#7058DD] disabled:opacity-50"
+              >
+                {isCreatingBook ? (
+                  <span className="flex items-center gap-2">
+                    <svg className="h-4 w-4 animate-spin" fill="none" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                    Creating...
+                  </span>
+                ) : (
+                  "Create & start writing"
+                )}
               </button>
             </div>
           </div>

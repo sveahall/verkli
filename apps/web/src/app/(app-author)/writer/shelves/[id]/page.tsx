@@ -22,7 +22,10 @@ const resolveCover = (coverType?: string | null, coverUrl?: string | null, cover
   return fallbackGradient;
 };
 
-export default async function PublicShelfPage({ params }: { params: { id: string } }) {
+export default async function PublicShelfPage({ params }: { params: Promise<{ id: string }> }) {
+  // Next.js 16+: params is a Promise, must await
+  const { id } = await params;
+  
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
 
@@ -45,7 +48,7 @@ export default async function PublicShelfPage({ params }: { params: { id: string
       )
     `
     )
-    .eq("id", params.id)
+    .eq("id", id)
     .single();
 
   if (error || !shelf) {

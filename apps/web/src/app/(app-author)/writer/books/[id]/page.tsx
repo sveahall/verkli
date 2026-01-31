@@ -3,7 +3,10 @@ import { notFound, redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import BookEditor from "./BookEditor";
 
-export default async function BookDetailPage({ params }: { params: { id: string } }) {
+export default async function BookDetailPage({ params }: { params: Promise<{ id: string }> }) {
+  // Next.js 16+: params is a Promise, must await
+  const { id } = await params;
+  
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
 
@@ -14,7 +17,7 @@ export default async function BookDetailPage({ params }: { params: { id: string 
   const { data: book } = await supabase
     .from("books")
     .select("id, title, description, cover_image, author_id, status")
-    .eq("id", params.id)
+    .eq("id", id)
     .maybeSingle();
 
   if (!book || book.author_id !== user.id) {

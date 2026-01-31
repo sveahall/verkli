@@ -143,9 +143,8 @@ export default function ShelfDetailPage() {
           cover_image: bookForm.cover || null,
           author_id: user.id,
           status: 'DRAFT',
-          published: false,
         })
-        .select()
+        .select('id')
         .single();
       
       if (bookError) throw bookError;
@@ -165,7 +164,9 @@ export default function ShelfDetailPage() {
       setBookForm({ title: "", cover: "" });
       setShowAddBookModal(false);
       setSelectedSectionId(null);
-      await loadShelf();
+      
+      // Navigate to the book editor
+      router.push(`/writer/books/${book.id}`);
     } catch (error) {
       console.error("Error adding book:", error);
     }

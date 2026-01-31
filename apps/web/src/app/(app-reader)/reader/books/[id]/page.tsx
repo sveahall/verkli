@@ -2,13 +2,16 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 
-export default async function ReaderBookDetail({ params }: { params: { id: string } }) {
+export default async function ReaderBookDetail({ params }: { params: Promise<{ id: string }> }) {
+  // Next.js 16+: params is a Promise, must await
+  const { id } = await params;
+  
   const supabase = await createClient();
 
   const { data: book } = await supabase
     .from("books")
     .select("id, title, description, cover_image, status, author_id")
-    .eq("id", params.id)
+    .eq("id", id)
     .maybeSingle();
 
   if (!book || (book.status && book.status !== "PUBLISHED")) {
