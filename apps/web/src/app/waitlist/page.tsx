@@ -119,7 +119,7 @@ export default function WaitlistPage() {
             </div>
           </div>
 
-          <div className="waitlist-hero-in waitlist-hero-in-delay-1 mx-auto w-full max-w-lg text-center">
+          <div className="waitlist-hero-in mt-20 waitlist-hero-in-delay-1 mx-auto w-full max-w-lg text-center">
             <p className="text-[11px] font-semibold uppercase tracking-[0.25em] text-white/50">
               LIMITED PRE LAUNCH
             </p>
