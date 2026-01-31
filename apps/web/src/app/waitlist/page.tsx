@@ -502,7 +502,7 @@ export default function WaitlistPage() {
               {CARD_BADGE}
             </p>
             {/* Two signups: author + reader — column on mobile, row on desktop */}
-            <div className="waitlist-hero-in waitlist-hero-in-delay-3 mt-3 flex w-full flex-col gap-8 md:flex-row md:items-stretch">
+            <div className="waitlist-hero-in waitlist-hero-in-delay-3 mt-12 flex w-full flex-col gap-8 md:flex-row md:items-stretch">
               {/* Join the waitlist as an author */}
               <div className="aurora-card group min-w-0 flex-1 rounded-3xl border border-white/20 bg-white/5 p-6 shadow-[0_24px_48px_rgba(0,0,0,0.25),0_0_0_1px_rgba(255,255,255,0.06)] backdrop-blur-xl transition-all duration-300 hover:border-white/30 hover:bg-white/[0.08] sm:p-8">
                 <h2 className="text-center text-sm font-semibold uppercase tracking-wider text-white/60">
