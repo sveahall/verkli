@@ -123,7 +123,7 @@ export default function WaitlistPage() {
             <p className="text-[11px] font-semibold uppercase tracking-[0.25em] text-white/50">
               LIMITED PRE LAUNCH
             </p>
-            <h1 className="mt-5 text-[26px] font-semibold leading-[1.2] tracking-tight text-white sm:text-[30px] md:text-[32px]">
+            <h1 className="mt-5 text-[32px] font-semibold leading-[1.2] tracking-tight text-white sm:text-[30px] md:text-[32px]">
               <span className="bg-gradient-to-r from-[#907AFF] via-[#E29ED5] to-[#FCC997] bg-clip-text text-transparent">verkli</span> {" "}
               is the future platform for modern storytelling
             </h1>
