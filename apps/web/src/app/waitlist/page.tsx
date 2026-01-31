@@ -187,9 +187,6 @@ function AlreadyExistsState({ queuePosition, onUseDifferentEmail }: { queuePosit
       <p className="text-[17px] font-semibold text-slate-800 dark:text-slate-200">
         This email is already on the waitlist.
       </p>
-      <p className="mt-2 text-[15px] text-slate-600 dark:text-slate-400">
-        You are number <span className="font-bold">#{queuePosition}</span>.
-      </p>
       {onUseDifferentEmail && (
         <p className="mt-4">
           <button
@@ -354,9 +351,6 @@ function ReaderAlreadyExistsState({ queuePosition, onUseDifferentEmail }: { queu
     >
       <p className="text-[17px] font-semibold text-slate-800 dark:text-slate-200">
         This email is already on the reader waitlist.
-      </p>
-      <p className="mt-2 text-[15px] text-slate-600 dark:text-slate-400">
-        You are number <span className="font-bold">#{queuePosition}</span>.
       </p>
       {onUseDifferentEmail && (
         <p className="mt-4">
