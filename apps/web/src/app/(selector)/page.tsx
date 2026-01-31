@@ -4,7 +4,7 @@ import { useEffect, useState, useRef } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import GlassCard, { glassCardProps } from "@/components/GlassCard";
-import LightRays from "@/components/LightRays";
+import LightRays from "@/components/LightRays.jsx";
 import ThemeToggle from "@/components/ThemeToggle";
 import { createClient } from "@/lib/supabase/client";
 

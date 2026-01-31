@@ -3,7 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import GlassSurface from "@/components/GlassSurface";
-import LightRays from "@/components/LightRays";
+import LightRays from "@/components/LightRays.jsx";
 import ThemeToggle from "@/components/ThemeToggle";
 import { resetPassword } from "@/lib/supabase/auth";
 
