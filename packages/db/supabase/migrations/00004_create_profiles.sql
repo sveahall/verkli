@@ -1,4 +1,4 @@
--- Profiles table for public writer profiles
+-- Profiles table for public author profiles
 
 -- ─────────────────────────────────────────────────────────────
 -- Profiles
@@ -9,7 +9,7 @@ CREATE TABLE IF NOT EXISTS public.profiles (
   username TEXT UNIQUE,
   bio TEXT,
   avatar_url TEXT,
-  role TEXT DEFAULT 'writer' CHECK (role IN ('writer', 'reader')),
+  role TEXT DEFAULT 'author' CHECK (role IN ('author', 'reader')),
   preferences JSONB DEFAULT '{}'::jsonb,
   is_public BOOLEAN DEFAULT true,
   created_at TIMESTAMPTZ DEFAULT NOW(),

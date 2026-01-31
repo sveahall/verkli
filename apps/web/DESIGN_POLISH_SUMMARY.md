@@ -15,7 +15,7 @@ Genomförd finslipning av UI till production quality: konsekvent design, tydlig 
 
 ## 2. Navbar
 
-- **Huvudlänkar klickbara:** Writer-, reader- och public-nav använder `<Link href={item.href}>` för varje huvudlänk. Dropdowns är snabbgenvägar; man kan alltid klicka på själva länktexten och komma till landningssida.
+- **Huvudlänkar klickbara:** author-, reader- och public-nav använder `<Link href={item.href}>` för varje huvudlänk. Dropdowns är snabbgenvägar; man kan alltid klicka på själva länktexten och komma till landningssida.
 - **Public nav:** Uppdaterad till Product (med dropdown), Pricing, FAQ med riktiga hrefs (`/product`, `/pricing`, `/faq`). Product-dropdown med children (Product, How it works, Case studies).
 - **Dropdown-design:** Tydligare sektioner med border-bottom under rubrik, bättre padding (px-5 py-5 sm:px-6 sm:py-6), mjuk shadow och rounded-2xl. Hover på items: subtil bakgrund (slate-100/80 resp. white/8), inte aggressiv.
 - **CTA i navbar:** Sign in / Sign up använder `.btn-secondary` och `.btn-primary` med samma storlek överallt (desktop och mobilmeny).
@@ -25,24 +25,24 @@ Genomförd finslipning av UI till production quality: konsekvent design, tydlig 
 ## 3. Auth-sidor (sign in, sign up, forgot-password, selector)
 
 - **Kort i light mode:** Klass `.card-auth` ger solid vit bakgrund, ingen blur, tydlig border och shadow. I dark mode behålls glass.
-- **"Back to Verkli":** Alla auth-sidor har synlig länk "Back to Verkli" (eller "← Back to Verkli") med `.btn-secondary`. Logotypen länkar till landningssida (writer/reader/root).
+- **"Back to Verkli":** Alla auth-sidor har synlig länk "Back to Verkli" (eller "← Back to Verkli") med `.btn-secondary`. Logotypen länkar till landningssida (author/reader/root).
 - **En primär CTA per vy:** Submit-knappar är `.btn-primary` (ingen GlassSurface-wrapper). Google / sekundära actions är `.btn-secondary`.
-- **Inputs och fel:** `.input-base` och enhetlig error-stil (rounded-xl, border, red-50/red-950) på writer/reader signin, signup, writer forgot-password, reader signup.
-- **Selector:** Kort med `.card-auth`; "I am a writer" = `.btn-primary`, "I am a reader" = `.btn-secondary`.
+- **Inputs och fel:** `.input-base` och enhetlig error-stil (rounded-xl, border, red-50/red-950) på author/reader signin, signup, author forgot-password, reader signup.
+- **Selector:** Kort med `.card-auth`; "I am a author" = `.btn-primary`, "I am a reader" = `.btn-secondary`.
 
 ---
 
-## 4. Hero och CTA (WriterLandingPage, public reader)
+## 4. Hero och CTA (authorLandingPage, public reader)
 
 - **Samma höjd och stil:** Sign up, Sign in, Start free, Explore stories, Join Verkli använder `.btn-primary` respektive `.btn-secondary` med min-w-[140px] där det behövs. Ingen glass på dessa knappar i light mode.
-- **WriterLandingPage:** Alla CTA-byttor ersatta med Link + btn-primary/btn-secondary. GlassSurface-import och glassBaseProps borttagna där de inte längre behövs.
+- **authorLandingPage:** Alla CTA-byttor ersatta med Link + btn-primary/btn-secondary. GlassSurface-import och glassBaseProps borttagna där de inte längre behövs.
 - **Public reader page:** Hero-CTA:erna samma btn-klasser; GlassSurface och glassBaseProps borttagna.
 
 ---
 
 ## 5. Övriga uppdaterade komponenter/sidor
 
-- **Writer books [id]:** "Continue editing" och "View public page" bytta till `.btn-primary` och `.btn-secondary` (ingen GlassSurface).
+- **author books [id]:** "Continue editing" och "View public page" bytta till `.btn-primary` och `.btn-secondary` (ingen GlassSurface).
 - **GlobalNavbar:** Desktop- och mobil-CTA använder btn-primary/btn-secondary; dropdown-innehåll med bättre padding och hover.
 
 ---
@@ -59,6 +59,6 @@ Genomförd finslipning av UI till production quality: konsekvent design, tydlig 
 
 ## Sammanfattning
 
-- **Ändrat:** Knappstilar (theme-aware), navbar (klickbara länkar, omdesignade dropdowns, CTA-klasser), auth-kort (solid i light, Back to Verkli), hero- och CTA-knappar överallt, selector och writer books [id].
-- **Komponenter uppdaterade:** GlobalNavbar, GlassCard (card-auth), WriterLandingPage, (auth)/writer/signin, signup, forgot-password, (auth)/reader/signin, signup, (selector)/page, (public-reader)/reader/page, (app-author)/writer/books/[id]. globals.css (btn-primary/secondary/ghost, glass-button override, card-auth, nav-mega).
+- **Ändrat:** Knappstilar (theme-aware), navbar (klickbara länkar, omdesignade dropdowns, CTA-klasser), auth-kort (solid i light, Back to Verkli), hero- och CTA-knappar överallt, selector och author books [id].
+- **Komponenter uppdaterade:** GlobalNavbar, GlassCard (card-auth), authorLandingPage, (auth)/author/signin, signup, forgot-password, (auth)/reader/signin, signup, (selector)/page, (public-reader)/reader/page, (app-author)/author/books/[id]. globals.css (btn-primary/secondary/ghost, glass-button override, card-auth, nav-mega).
 - **Ingen routing, authflöden eller API** har ändrats; endast UI, styling och komponenter.
