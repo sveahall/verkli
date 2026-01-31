@@ -125,7 +125,7 @@ export default function WaitlistPage() {
             </p>
             <h1 className="mt-5 text-[26px] font-semibold leading-[1.2] tracking-tight text-white sm:text-[30px] md:text-[32px]">
               <span className="bg-gradient-to-r from-[#907AFF] via-[#E29ED5] to-[#FCC997] bg-clip-text text-transparent">verkli</span>
-              The future platform for authors
+              is the future platform for authors
             </h1>
             <p className="mt-5 text-[15px] leading-snug text-white/55">
               Verkli is a new publishing platform built for one thing:
