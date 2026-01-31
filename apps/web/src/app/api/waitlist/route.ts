@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { Resend } from "resend";
+import { assertServerEnv, getServerEnv } from "@/lib/env";
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -50,16 +51,12 @@ async function getPosition(supabase: ReturnType<typeof createAdminClient>, creat
 }
 
 async function sendConfirmationEmail(email: string, position: number): Promise<void> {
-  const apiKey = process.env.RESEND_API_KEY;
-  const fromEmail = process.env.RESEND_FROM_EMAIL;
-  if (!apiKey || !fromEmail) {
-    console.warn("WAITLIST: RESEND_API_KEY or RESEND_FROM_EMAIL not set, skipping confirmation email");
-    return;
-  }
+  const env = getServerEnv();
+  
   try {
-    const resend = new Resend(apiKey);
+    const resend = new Resend(env.RESEND_API_KEY);
     const { error } = await resend.emails.send({
-      from: fromEmail,
+      from: env.RESEND_FROM_EMAIL,
       to: email,
       subject: "You are on the Verkli waitlist",
       html: `
@@ -78,9 +75,16 @@ async function sendConfirmationEmail(email: string, position: number): Promise<v
 }
 
 export async function POST(request: Request) {
-  // Temporary: verify service role is loaded (if false, API runs with anon key and RLS blocks)
-  console.log("SERVICE ROLE SET", !!process.env.SUPABASE_SERVICE_ROLE_KEY);
-  console.log("SUPABASE_URL", process.env.NEXT_PUBLIC_SUPABASE_URL ? "set" : "missing");
+  // Validate required env vars early
+  try {
+    assertServerEnv();
+  } catch (error) {
+    console.error("ENV_VALIDATION_ERROR", error);
+    return NextResponse.json(
+      { ok: false, error: "Server configuration error. Please contact support.", details: "Missing environment variables" },
+      { status: 500 }
+    );
+  }
 
   try {
     const ip = getClientIp(request);
@@ -105,16 +109,6 @@ export async function POST(request: Request) {
     const email = rawEmail.trim().toLowerCase();
     const role = body.role != null ? String(body.role) : null;
     const source = body.source != null ? String(body.source) : null;
-
-    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-    const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-    if (!supabaseUrl || !serviceRoleKey) {
-      console.error("WAITLIST_ERROR", { message: "Missing Supabase env", code: "ENV", details: "NEXT_PUBLIC_SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY", hint: "Set in .env.local" });
-      return NextResponse.json(
-        { ok: false, error: "Server configuration error. Please try again later.", details: "Missing Supabase configuration" },
-        { status: 500 }
-      );
-    }
 
     let supabase;
     try {
