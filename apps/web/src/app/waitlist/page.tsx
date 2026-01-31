@@ -22,7 +22,7 @@ const READER_STORAGE_POSITION = "verkli_waitlist_reader_position";
 
 const HERO_EYEBROW = "Limited access";
 const HERO_HEADLINE = "The future of reading and writing";
-const HERO_SUBHEADLINE = "Built for authors first. <br />Request access below.";
+const HERO_SUBHEADLINE = "Built for authors first. Request access below.";
 const HERO_CTA_LABEL = "Request access";
 const HERO_MICRO = "Authors publish, readers discover. Early access is limited.";
 const READER_MICRO = "Early access to curated stories from independent authors.";
