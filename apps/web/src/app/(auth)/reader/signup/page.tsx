@@ -5,6 +5,7 @@ import { useState } from "react";
 import Link from "next/link";
 import GlassSurface from "@/components/GlassSurface";
 import { signUp, signInWithGoogle } from "@/lib/supabase/auth";
+import { ERROR_COPY } from "@/lib/copy-rules";
 
 const glassBaseProps = {
   displace: 0.5,
@@ -48,7 +49,7 @@ export default function ReaderSignUp() {
     const { error } = await signUp(email, password, "reader");
 
     if (error) {
-      setError(error.message);
+      setError(ERROR_COPY.INVALID_LOGIN);
       setLoading(false);
     } else {
       setSuccess(true);
@@ -59,7 +60,7 @@ export default function ReaderSignUp() {
     setError("");
     const { error } = await signInWithGoogle();
     if (error) {
-      setError(error.message);
+      setError(ERROR_COPY.INVALID_LOGIN);
     }
   };
 

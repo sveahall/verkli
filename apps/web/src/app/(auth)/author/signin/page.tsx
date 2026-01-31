@@ -1,19 +1,26 @@
 "use client";
 
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import GlassCard, { glassCardProps } from "@/components/GlassCard";
 import { signIn, signInWithGoogle } from "@/lib/supabase/auth";
 import ThemeToggle from "@/components/ThemeToggle";
 import { createClient } from "@/lib/supabase/client";
+import { ERROR_COPY } from "@/lib/copy-rules";
 
 export default function AuthorSignIn() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [staySignedIn, setStaySignedIn] = useState(true);
   const [error, setError] = useState("");
+  useEffect(() => {
+    const reason = searchParams.get("reason");
+    if (reason === "expired") setError(ERROR_COPY.EXPIRED_ACCESS);
+    else if (reason === "removed") setError(ERROR_COPY.REMOVED_ACCESS);
+  }, [searchParams]);
   const [loading, setLoading] = useState(false);
   const [mousePos, setMousePos] = useState({ x: 0.5, y: 0.5 });
   const mainRef = useRef<HTMLElement>(null);
@@ -26,7 +33,7 @@ export default function AuthorSignIn() {
     const { error } = await signIn(email, password, staySignedIn);
 
     if (error) {
-      setError(error.message);
+      setError(ERROR_COPY.INVALID_LOGIN);
       setLoading(false);
     } else {
       const supabase = createClient();
@@ -61,7 +68,7 @@ export default function AuthorSignIn() {
     setError("");
     const { error } = await signInWithGoogle();
     if (error) {
-      setError(error.message);
+      setError(ERROR_COPY.INVALID_LOGIN);
     }
   };
 

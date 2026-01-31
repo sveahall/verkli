@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import GlassSurface from "@/components/GlassSurface";
 import { createClient } from "@/lib/supabase/client";
+import { ERROR_COPY } from "@/lib/copy-rules";
 
 const glassBaseProps = {
   displace: 0.5,
@@ -59,7 +60,7 @@ export default function ResetPassword() {
     const { error } = await supabase.auth.updateUser({ password });
 
     if (error) {
-      setError(error.message);
+      setError(ERROR_COPY.INVALID_LOGIN);
       setLoading(false);
     } else {
       setSuccess(true);

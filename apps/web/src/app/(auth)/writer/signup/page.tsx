@@ -6,6 +6,7 @@ import GlassCard, { glassCardProps } from "@/components/GlassCard";
 import GlassSurface from "@/components/GlassSurface";
 import ThemeToggle from "@/components/ThemeToggle";
 import { signUp, signInWithGoogle } from "@/lib/supabase/auth";
+import { ERROR_COPY } from "@/lib/copy-rules";
 
 export default function AuthorSignUp() {
   const [email, setEmail] = useState("");
@@ -44,7 +45,7 @@ export default function AuthorSignUp() {
     const { error } = await signUp(email, password, "author");
 
     if (error) {
-      setError(error.message);
+      setError(ERROR_COPY.INVALID_LOGIN);
       setLoading(false);
     } else {
       setSuccess(true);
@@ -55,7 +56,7 @@ export default function AuthorSignUp() {
     setError("");
     const { error } = await signInWithGoogle();
     if (error) {
-      setError(error.message);
+      setError(ERROR_COPY.INVALID_LOGIN);
     }
   };
 

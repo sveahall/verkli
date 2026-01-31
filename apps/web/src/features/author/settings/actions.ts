@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { updateActiveRole } from "@/features/auth/roles";
+import { SOFT_DENIAL_COPY } from "@/lib/copy-rules";
 
 export type ActionState = {
   ok: boolean;
@@ -35,7 +36,7 @@ export async function updateAccount(prevState: ActionState, formData: FormData):
   const { data: { user } } = await supabase.auth.getUser();
 
   if (!user) {
-    return { ok: false, message: "Not authenticated." };
+    return { ok: false, message: SOFT_DENIAL_COPY.ACCESS_RESTRICTED };
   }
 
   const { error: profileError } = await supabase
@@ -79,7 +80,7 @@ export async function updateProfile(prevState: ActionState, formData: FormData):
   const { data: { user } } = await supabase.auth.getUser();
 
   if (!user) {
-    return { ok: false, message: "Not authenticated." };
+    return { ok: false, message: SOFT_DENIAL_COPY.ACCESS_RESTRICTED };
   }
 
   const { error } = await supabase
@@ -126,7 +127,7 @@ export async function updatePreferences(prevState: ActionState, formData: FormDa
   const { data: { user } } = await supabase.auth.getUser();
 
   if (!user) {
-    return { ok: false, message: "Not authenticated." };
+    return { ok: false, message: SOFT_DENIAL_COPY.ACCESS_RESTRICTED };
   }
 
   const { error } = await supabase
@@ -179,7 +180,7 @@ export async function changePassword(prevState: ActionState, formData: FormData)
   const { data: { user } } = await supabase.auth.getUser();
 
   if (!user) {
-    return { ok: false, message: "Not authenticated." };
+    return { ok: false, message: SOFT_DENIAL_COPY.ACCESS_RESTRICTED };
   }
 
   const { error } = await supabase.auth.updateUser({ password });

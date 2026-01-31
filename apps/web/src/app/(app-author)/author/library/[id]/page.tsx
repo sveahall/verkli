@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
+import { SOFT_DENIAL_COPY } from "@/lib/copy-rules";
 import { createClient } from "@/lib/supabase/client";
 import { getShelf, updateShelf, createSection, updateSection, deleteSection, addBookToShelf, moveBook, removeBookFromShelf, reorderBooks, reorderSections } from "@/lib/supabase/shelves-client";
 import type { ShelfWithDetails } from "@/lib/supabase/shelves-client";
@@ -258,7 +259,7 @@ export default function ShelfDetailPage() {
     return (
       <div className="flex min-h-screen items-center justify-center bg-background">
         <div className="text-center">
-          <h1 className="text-2xl font-semibold text-slate-900 dark:text-white">Shelf not found</h1>
+          <h1 className="text-2xl font-semibold text-slate-900 dark:text-white">{SOFT_DENIAL_COPY.NOT_FOUND}</h1>
           <Link href="/author/home" className="mt-4 text-[#907AFF] hover:underline">
             Back to library
           </Link>
