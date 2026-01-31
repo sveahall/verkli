@@ -2,7 +2,7 @@
 
 import { useState, useRef, useEffect } from "react";
 import Link from "next/link";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useRouter } from "next/navigation";
 import GlassSurface from "@/components/GlassSurface";
 import ThemeToggle from "@/components/ThemeToggle";
 import { signIn, signInWithGoogle } from "@/lib/supabase/auth";
@@ -25,16 +25,16 @@ const glassBaseProps = {
 
 export default function ReaderSignInForm() {
   const router = useRouter();
-  const searchParams = useSearchParams();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   useEffect(() => {
-    const reason = searchParams.get("reason");
+    if (typeof window === "undefined") return;
+    const reason = new URLSearchParams(window.location.search).get("reason");
     if (reason === "expired") setError(ERROR_COPY.EXPIRED_ACCESS);
     else if (reason === "removed") setError(ERROR_COPY.REMOVED_ACCESS);
-  }, [searchParams]);
+  }, []);
   const [mousePos, setMousePos] = useState({ x: 0.5, y: 0.5 });
   const mainRef = useRef<HTMLElement>(null);
 
