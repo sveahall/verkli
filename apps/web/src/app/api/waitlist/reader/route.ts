@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { Resend } from "resend";
+import { sendWaitlistEmail } from "@/lib/resend/sendWaitlistEmail";
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -46,34 +46,6 @@ async function getPosition(supabase: ReturnType<typeof createAdminClient>, creat
     return 0;
   }
   return count ?? 0;
-}
-
-async function sendReaderConfirmationEmail(email: string, position: number): Promise<void> {
-  const apiKey = process.env.RESEND_API_KEY;
-  const fromEmail = process.env.RESEND_FROM_EMAIL;
-  if (!apiKey || !fromEmail) {
-    console.warn("READER_WAITLIST: RESEND_API_KEY or RESEND_FROM_EMAIL not set, skipping confirmation email");
-    return;
-  }
-  try {
-    const resend = new Resend(apiKey);
-    const { error } = await resend.emails.send({
-      from: fromEmail,
-      to: email,
-      subject: "You're on the Verkli reader waitlist",
-      html: `
-        <p>Hi there,</p>
-        <p>You're on the reader waitlist. Your position: <strong>#${position}</strong>.</p>
-        <p>We'll be in touch when it's your turn.</p>
-        <p>— Verkli</p>
-      `,
-    });
-    if (error) {
-      console.error("READER_WAITLIST_ERROR", { message: "Resend send failed", code: error.message, details: JSON.stringify(error), hint: "check RESEND_API_KEY and domain" });
-    }
-  } catch (err) {
-    console.error("READER_WAITLIST_ERROR", { message: "Resend exception", code: String(err), details: err instanceof Error ? err.message : "", hint: "check RESEND_API_KEY" });
-  }
 }
 
 export async function POST(request: Request) {
@@ -174,7 +146,7 @@ export async function POST(request: Request) {
 
     const position = await getPosition(supabase, inserted.created_at);
     console.log("READER_WAITLIST_SIGNUP", { source: source ?? "unknown", position, isNew: true });
-    sendReaderConfirmationEmail(email, position).catch((err) => {
+    sendWaitlistEmail(email, "reader", position).catch((err) => {
       console.error("READER_WAITLIST_ERROR", { message: "Confirmation email failed", code: "RESEND", details: String(err), hint: "API still returns ok true" });
     });
 
