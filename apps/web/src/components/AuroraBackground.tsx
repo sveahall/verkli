@@ -120,14 +120,16 @@ export default function AuroraBackground() {
           }}
         />
 
-        {/* Mouse spotlight */}
+        {/* Mouse spotlight — soft glow that flows out */}
         <div
           className="absolute inset-0 pointer-events-none"
           style={{
             background: `radial-gradient(
-              600px 400px at calc(var(--mouse-x) * 100%) calc(var(--mouse-y) * 100%),
-              #E29ED5 0%,
-              transparent 10%
+              ellipse 900px 600px at calc(var(--mouse-x) * 100%) calc(var(--mouse-y) * 100%),
+              rgba(226, 158, 213, 0.35) 0%,
+              rgba(226, 158, 213, 0.15) 25%,
+              rgba(144, 122, 255, 0.06) 50%,
+              transparent 70%
             )`,
           }}
         />
