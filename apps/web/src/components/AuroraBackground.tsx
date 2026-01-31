@@ -86,7 +86,7 @@ export default function AuroraBackground() {
             top: "20%",
             width: "90vmax",
             height: "90vmax",
-            background: "radial-gradient(circle, #E29ED5 50%, transparent 70%)",
+            background: "radial-gradient(circle, #907AFF 25%, transparent 70%)",
           }}
         />
         <div
@@ -96,7 +96,7 @@ export default function AuroraBackground() {
             top: "60%",
             width: "85vmax",
             height: "85vmax",
-            background: "radial-gradient(circle, rgba(80, 120, 255, 0.28) 0%, transparent 70%)",
+            background: "radial-gradient(circle, #E29ED5 25%, transparent 70%)",
           }}
         />
         <div
