@@ -123,7 +123,7 @@ export default function WaitlistPage() {
             <p className="text-[11px] font-semibold uppercase tracking-[0.25em] text-white/50">
               LIMITED PRE LAUNCH
             </p>
-            <h1 className="mt-5 text-[32px] font-semibold leading-[1.2] tracking-tight text-white sm:text-[30px] md:text-[32px]">
+            <h1 className="mt-5 text-[42px] font-semibold leading-[1.2] tracking-tight text-white sm:text-[30px] md:text-[42px]">
               <span className="bg-gradient-to-r from-[#907AFF] via-[#E29ED5] to-[#FCC997] bg-clip-text text-transparent">verkli</span> {" "}
               is the future platform for modern storytelling
             </h1>
@@ -135,14 +135,14 @@ export default function WaitlistPage() {
             <p className="mt-4 text-[13px] text-white/45">
               This is a private pre-launch. Early access is invite only.<br />
             </p><br />
-            <h3 className="text-[15px] font-semibold leading-snug text-white/55">Sign up below to join the pre-launch waitlist</h3>
+            <div className="waitlist-hero-in waitlist-hero-in-delay-3 mt-10 w-full max-w-md mx-auto rounded-3xl border border-white/20 bg-white/5 p-6 shadow-[0_24px_48px_rgba(0,0,0,0.2),0_0_0_1px_rgba(255,255,255,0.06)] backdrop-blur-xl sm:p-8">
+              <h3 className="text-[15px] font-semibold leading-snug text-white/55 text-center">Sign up below to join the pre-launch waitlist</h3>
 
-            {hydrated && (
-              <div className="waitlist-hero-in waitlist-hero-in-delay-3 mt-10 w-full max-w-md mx-auto">
-                {state === "submitted" ? (
-                  <p className="text-[14px] text-white/40">You&apos;re on the waitlist. We&apos;ll be in touch.</p>
+              {hydrated ? (
+                state === "submitted" ? (
+                  <p className="mt-6 text-[14px] text-white/40 text-center">You&apos;re on the waitlist. We&apos;ll be in touch.</p>
                 ) : (
-                  <form onSubmit={handleSubmit} className="space-y-5">
+                  <form onSubmit={handleSubmit} className="mt-6 space-y-5">
                     <div>
                       <p className="block text-[13px] text-white/40 mb-1.5" id="intent-label">
                         Do you write or read?
@@ -205,9 +205,9 @@ export default function WaitlistPage() {
                       </p>
                     )}
                   </form>
-                )}
-              </div>
-            )}
+                )
+              ) : null}
+            </div>
 
             <p className="waitlist-hero-in waitlist-hero-in-delay-4 mt-10 text-center text-[11px] text-white/35 tracking-wide">
               No public launch date announced
