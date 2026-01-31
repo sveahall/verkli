@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import TiptapRenderer from "@/components/editor/TiptapRenderer";
 
 export default async function ReaderReadPage({ params }: { params: Promise<{ id: string }> }) {
   // Next.js 16+: params is a Promise, must await
@@ -56,11 +57,9 @@ export default async function ReaderReadPage({ params }: { params: Promise<{ id:
           {firstChapter ? (
             <>
               <h2 className="mt-6 text-[18px] font-semibold text-slate-800 dark:text-white/80">{firstChapter.title}</h2>
-              <div className="mt-4 space-y-4 text-[15px] leading-relaxed text-slate-700 dark:text-white/70">
+              <div className="mt-4 text-[15px] leading-relaxed text-slate-700 dark:text-white/70">
                 {firstChapter.content ? (
-                  firstChapter.content.split("\n").map((line: string, index: number) => (
-                    <p key={`${firstChapter.id}-${index}`}>{line}</p>
-                  ))
+                  <TiptapRenderer content={firstChapter.content} />
                 ) : (
                   <p>No content yet.</p>
                 )}

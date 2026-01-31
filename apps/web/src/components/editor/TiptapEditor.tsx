@@ -3,7 +3,15 @@
 import { useEditor, EditorContent } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import Underline from "@tiptap/extension-underline";
-import { useEffect, useRef, useCallback } from "react";
+import Image from "@tiptap/extension-image";
+import TextAlign from "@tiptap/extension-text-align";
+import {
+  TextStyle,
+  FontFamily,
+  FontSize,
+  LineHeight,
+} from "@tiptap/extension-text-style";
+import { useEffect, useRef, useState } from "react";
 
 type TiptapEditorProps = {
   content: string | Record<string, unknown> | null;
@@ -43,6 +51,23 @@ export default function TiptapEditor({
         },
       }),
       Underline,
+      TextStyle,
+      FontFamily.configure({
+        types: ["textStyle"],
+      }),
+      FontSize.configure({
+        types: ["textStyle"],
+      }),
+      LineHeight.configure({
+        types: ["textStyle"],
+      }),
+      Image.configure({
+        inline: false,
+        allowBase64: true,
+      }),
+      TextAlign.configure({
+        types: ["heading", "paragraph"],
+      }),
     ],
     content: getInitialContent(),
     editorProps: {
@@ -125,6 +150,13 @@ export default function TiptapEditor({
 
         <ToolbarDivider />
 
+        {/* Typography */}
+        <FontFamilyDropdown editor={editor} />
+        <FontSizeDropdown editor={editor} />
+        <LineHeightDropdown editor={editor} />
+
+        <ToolbarDivider />
+
         {/* Headings */}
         <ToolbarButton
           onClick={() => editor.chain().focus().toggleHeading({ level: 1 }).run()}
@@ -176,6 +208,58 @@ export default function TiptapEditor({
         >
           <BlockquoteIcon />
         </ToolbarButton>
+
+        <ToolbarDivider />
+
+        {/* Image */}
+        <ToolbarButton
+          onClick={() => {
+            const input = document.createElement("input");
+            input.type = "file";
+            input.accept = "image/*";
+            input.onchange = (e) => {
+              const file = (e.target as HTMLInputElement).files?.[0];
+              if (file) {
+                const reader = new FileReader();
+                reader.onload = (event) => {
+                  const base64 = event.target?.result as string;
+                  editor.chain().focus().setImage({ src: base64 }).run();
+                };
+                reader.readAsDataURL(file);
+              }
+            };
+            input.click();
+          }}
+          title="Insert Image"
+        >
+          <ImageIcon />
+        </ToolbarButton>
+
+        <ToolbarDivider />
+
+        {/* Text Alignment */}
+        <ToolbarButton
+          onClick={() => editor.chain().focus().setTextAlign("left").run()}
+          active={editor.isActive({ textAlign: "left" })}
+          title="Align Left"
+        >
+          <AlignLeftIcon />
+        </ToolbarButton>
+        <ToolbarButton
+          onClick={() => editor.chain().focus().setTextAlign("center").run()}
+          active={editor.isActive({ textAlign: "center" })}
+          title="Align Center"
+        >
+          <AlignCenterIcon />
+        </ToolbarButton>
+        <ToolbarButton
+          onClick={() => editor.chain().focus().setTextAlign("right").run()}
+          active={editor.isActive({ textAlign: "right" })}
+          title="Align Right"
+        >
+          <AlignRightIcon />
+        </ToolbarButton>
+
       </div>
 
       {/* Editor content */}
@@ -241,6 +325,16 @@ export default function TiptapEditor({
         }
         .dark .ProseMirror blockquote {
           color: rgba(255, 255, 255, 0.6);
+        }
+        .ProseMirror img {
+          max-width: 100%;
+          height: auto;
+          border-radius: 0.5rem;
+          margin: 1rem 0;
+        }
+        .ProseMirror img.ProseMirror-selectednode {
+          outline: 2px solid #907aff;
+          outline-offset: 2px;
         }
       `}</style>
     </div>
@@ -347,5 +441,168 @@ function RedoIcon() {
     <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
       <path strokeLinecap="round" strokeLinejoin="round" d="M21 10H11a5 5 0 00-5 5v2M21 10l-4-4M21 10l-4 4" />
     </svg>
+  );
+}
+
+function ImageIcon() {
+  return (
+    <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+    </svg>
+  );
+}
+
+function AlignLeftIcon() {
+  return (
+    <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M4 6h16M4 12h10M4 18h14" />
+    </svg>
+  );
+}
+
+function AlignCenterIcon() {
+  return (
+    <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M4 6h16M7 12h10M5 18h14" />
+    </svg>
+  );
+}
+
+function AlignRightIcon() {
+  return (
+    <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M4 6h16M10 12h10M6 18h14" />
+    </svg>
+  );
+}
+
+// Typography dropdown components
+const FONT_FAMILY_PRESETS = [
+  { label: "Serif", value: "Georgia, 'Times New Roman', serif" },
+  { label: "Sans", value: "system-ui, -apple-system, sans-serif" },
+  { label: "Mono", value: "'Courier New', Courier, monospace" },
+];
+
+function FontFamilyDropdown({ editor }: { editor: ReturnType<typeof useEditor> }) {
+  const [isOpen, setIsOpen] = useState(false);
+  if (!editor) return null;
+
+  return (
+    <div className="relative">
+      <button
+        type="button"
+        onClick={() => setIsOpen(!isOpen)}
+        title="Font family"
+        className="flex h-8 min-w-8 items-center rounded px-2 text-sm text-slate-600 hover:bg-slate-100 dark:text-white/60 dark:hover:bg-white/10"
+      >
+        Font
+      </button>
+      {isOpen && (
+        <>
+          <div className="fixed inset-0 z-10" onClick={() => setIsOpen(false)} />
+          <div className="absolute left-0 top-full z-20 mt-1 w-32 rounded border border-slate-200 bg-white py-1 dark:border-white/10 dark:bg-slate-800">
+            {FONT_FAMILY_PRESETS.map((preset) => (
+              <button
+                key={preset.value}
+                onClick={() => {
+                  editor.chain().focus().setFontFamily(preset.value).run();
+                  setIsOpen(false);
+                }}
+                className="flex w-full px-3 py-1.5 text-left text-sm text-slate-700 hover:bg-slate-100 dark:text-white/70 dark:hover:bg-white/10"
+                style={{ fontFamily: preset.value }}
+              >
+                {preset.label}
+              </button>
+            ))}
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
+const FONT_SIZE_PRESETS = [
+  { label: "Small", value: "14px" },
+  { label: "Normal", value: "16px" },
+  { label: "Large", value: "18px" },
+];
+
+function FontSizeDropdown({ editor }: { editor: ReturnType<typeof useEditor> }) {
+  const [isOpen, setIsOpen] = useState(false);
+  if (!editor) return null;
+
+  return (
+    <div className="relative">
+      <button
+        type="button"
+        onClick={() => setIsOpen(!isOpen)}
+        title="Font size"
+        className="flex h-8 min-w-8 items-center rounded px-2 text-sm text-slate-600 hover:bg-slate-100 dark:text-white/60 dark:hover:bg-white/10"
+      >
+        Size
+      </button>
+      {isOpen && (
+        <>
+          <div className="fixed inset-0 z-10" onClick={() => setIsOpen(false)} />
+          <div className="absolute left-0 top-full z-20 mt-1 w-28 rounded border border-slate-200 bg-white py-1 dark:border-white/10 dark:bg-slate-800">
+            {FONT_SIZE_PRESETS.map((preset) => (
+              <button
+                key={preset.value}
+                onClick={() => {
+                  editor.chain().focus().setFontSize(preset.value).run();
+                  setIsOpen(false);
+                }}
+                className="flex w-full px-3 py-1.5 text-left text-sm text-slate-700 hover:bg-slate-100 dark:text-white/70 dark:hover:bg-white/10"
+              >
+                {preset.label}
+              </button>
+            ))}
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
+const LINE_HEIGHT_PRESETS = [
+  { label: "Tight", value: "1.25" },
+  { label: "Normal", value: "1.5" },
+  { label: "Relaxed", value: "1.75" },
+];
+
+function LineHeightDropdown({ editor }: { editor: ReturnType<typeof useEditor> }) {
+  const [isOpen, setIsOpen] = useState(false);
+  if (!editor) return null;
+
+  return (
+    <div className="relative">
+      <button
+        type="button"
+        onClick={() => setIsOpen(!isOpen)}
+        title="Line height"
+        className="flex h-8 min-w-8 items-center rounded px-2 text-sm text-slate-600 hover:bg-slate-100 dark:text-white/60 dark:hover:bg-white/10"
+      >
+        Line
+      </button>
+      {isOpen && (
+        <>
+          <div className="fixed inset-0 z-10" onClick={() => setIsOpen(false)} />
+          <div className="absolute left-0 top-full z-20 mt-1 w-28 rounded border border-slate-200 bg-white py-1 dark:border-white/10 dark:bg-slate-800">
+            {LINE_HEIGHT_PRESETS.map((preset) => (
+              <button
+                key={preset.value}
+                onClick={() => {
+                  editor.chain().focus().setLineHeight(preset.value).run();
+                  setIsOpen(false);
+                }}
+                className="flex w-full px-3 py-1.5 text-left text-sm text-slate-700 hover:bg-slate-100 dark:text-white/70 dark:hover:bg-white/10"
+              >
+                {preset.label}
+              </button>
+            ))}
+          </div>
+        </>
+      )}
+    </div>
   );
 }
