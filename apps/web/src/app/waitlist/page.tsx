@@ -159,8 +159,6 @@ function SuccessState({ queuePosition, onUseDifferentEmail }: { queuePosition: n
         You're on the waitlist
       </p>
       <p className="mt-2 text-[15px] text-emerald-800/90 dark:text-emerald-200/90">
-        Position <span className="font-bold">#{queuePosition}</span>
-        <br />
         Early access invites are sent manually in curated waves.
       </p>
       {onUseDifferentEmail && (
