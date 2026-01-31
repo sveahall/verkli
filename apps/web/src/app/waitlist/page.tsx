@@ -134,7 +134,7 @@ export default function WaitlistPage() {
             </p>
             <p className="mt-4 text-[13px] text-white/45">
               This is a private pre-launch. Early access is invite only.<br />
-            </p>
+            </p><br />
             <h3 className="text-[15px] font-semibold leading-snug text-white/55">Sign up below to join the pre-launch waitlist</h3>
 
             {hydrated && (
