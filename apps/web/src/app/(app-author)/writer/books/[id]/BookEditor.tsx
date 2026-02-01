@@ -3,9 +3,12 @@
 import { useState, useCallback, useRef, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
+import { uploadBookCover } from "@/lib/supabase/storage";
 import TiptapEditor from "@/components/editor/TiptapEditor";
 import WriterStatsBar from "@/components/editor/WriterStatsBar";
 import CommandPalette from "@/components/editor/CommandPalette";
+
+const ACCEPTED_COVER_TYPES = "image/*";
 
 const STORAGE_PRESET = "verkli_editor_preset";
 
@@ -46,9 +49,14 @@ export default function BookEditor({ book, chapters: initialChapters }: Props) {
   const [sessionStartWords, setSessionStartWords] = useState<number | null>(null);
   const [commandPaletteOpen, setCommandPaletteOpen] = useState(false);
   const [isPublishing, setIsPublishing] = useState(false);
+  const [coverUploading, setCoverUploading] = useState(false);
+  const [coverError, setCoverError] = useState<string | null>(null);
+  const [coverPreviewUrl, setCoverPreviewUrl] = useState<string | null>(null);
   const savingRef = useRef(false);
+  const coverInputRef = useRef<HTMLInputElement>(null);
 
   const selectedChapter = chapters.find((ch) => ch.id === selectedChapterId);
+  const displayCoverUrl = coverPreviewUrl ?? book.cover_image;
 
   const handlePublish = async () => {
     if (isPublishing) return;
@@ -70,6 +78,59 @@ export default function BookEditor({ book, chapters: initialChapters }: Props) {
       setIsPublishing(false);
     }
   };
+
+  useEffect(() => {
+    if (book.cover_image && coverPreviewUrl && book.cover_image === coverPreviewUrl) {
+      setCoverPreviewUrl(null);
+    }
+  }, [book.cover_image, coverPreviewUrl]);
+
+  const handleCoverChange = useCallback(
+    async (e: React.ChangeEvent<HTMLInputElement>) => {
+      const file = e.target.files?.[0];
+      if (!file) return;
+      if (!file.type.startsWith("image/")) {
+        setCoverError("Please choose an image file.");
+        return;
+      }
+      setCoverError(null);
+      setCoverUploading(true);
+      const supabase = createClient();
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      if (!user) {
+        setCoverError("You must be signed in to upload a cover.");
+        setCoverUploading(false);
+        return;
+      }
+      const { url, error: uploadError } = await uploadBookCover(file, user.id, book.id);
+      if (uploadError) {
+        setCoverError(uploadError.message);
+        setCoverUploading(false);
+        return;
+      }
+      if (!url) {
+        setCoverError("Upload failed.");
+        setCoverUploading(false);
+        return;
+      }
+      const { error: updateError } = await supabase
+        .from("books")
+        .update({ cover_image: url })
+        .eq("id", book.id);
+      if (updateError) {
+        setCoverError(updateError.message);
+        setCoverUploading(false);
+        return;
+      }
+      setCoverPreviewUrl(url);
+      setCoverUploading(false);
+      router.refresh();
+      if (coverInputRef.current) coverInputRef.current.value = "";
+    },
+    [book.id, router]
+  );
 
   useEffect(() => {
     const stored = localStorage.getItem(STORAGE_PRESET);
@@ -279,7 +340,48 @@ export default function BookEditor({ book, chapters: initialChapters }: Props) {
         </div>
 
         <div className="grid gap-8 lg:grid-cols-[280px_1fr]">
-          <div className="rounded-xl border border-slate-200 bg-slate-50/50 p-5 dark:border-white/10 dark:bg-white/5">
+          <div className="space-y-5">
+            <div className="rounded-xl border border-slate-200 bg-slate-50/50 p-5 dark:border-white/10 dark:bg-white/5">
+              <h2 className="mb-3 text-base font-semibold text-slate-900 dark:text-white">Cover</h2>
+              <div className="space-y-2">
+                <div className="aspect-[3/4] overflow-hidden rounded-lg border border-slate-200 bg-slate-100 dark:border-white/10 dark:bg-white/5">
+                  {displayCoverUrl ? (
+                    <img
+                      src={displayCoverUrl}
+                      alt="Book cover"
+                      className="h-full w-full object-cover"
+                    />
+                  ) : (
+                    <div className="flex h-full w-full items-center justify-center text-sm text-slate-500 dark:text-white/50">
+                      No cover
+                    </div>
+                  )}
+                </div>
+                <input
+                  ref={coverInputRef}
+                  type="file"
+                  accept={ACCEPTED_COVER_TYPES}
+                  onChange={handleCoverChange}
+                  className="hidden"
+                  aria-hidden
+                />
+                <button
+                  type="button"
+                  onClick={() => coverInputRef.current?.click()}
+                  disabled={coverUploading}
+                  className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-50 disabled:opacity-50 dark:border-white/20 dark:bg-white/10 dark:text-white dark:hover:bg-white/15"
+                >
+                  {coverUploading ? "Uploading…" : "Upload cover"}
+                </button>
+                {coverError && (
+                  <p className="text-xs text-red-600 dark:text-red-400" role="alert">
+                    {coverError}
+                  </p>
+                )}
+              </div>
+            </div>
+
+            <div className="rounded-xl border border-slate-200 bg-slate-50/50 p-5 dark:border-white/10 dark:bg-white/5">
             <div className="mb-4 flex items-center justify-between">
               <h2 className="text-base font-semibold text-slate-900 dark:text-white">Chapters</h2>
               <button
@@ -349,6 +451,7 @@ export default function BookEditor({ book, chapters: initialChapters }: Props) {
             {chapters.length > 0 && (
               <p className="mt-4 text-xs text-slate-400 dark:text-white/40">Double-click to rename</p>
             )}
+            </div>
           </div>
 
           <div>

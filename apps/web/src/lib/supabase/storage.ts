@@ -4,30 +4,38 @@ import { createClient } from './client'
 
 const supabase = createClient()
 
-// Upload book cover
-export async function uploadBookCover(file: File, bookId: string) {
-  const fileExt = file.name.split('.').pop()
-  const fileName = `${bookId}/cover.${fileExt}`
-  
-  const { data, error } = await supabase.storage
-    .from('book-covers')
-    .upload(fileName, file, {
-      cacheControl: '3600',
+const BOOK_COVERS_BUCKET = "book_covers";
+
+/**
+ * Upload book cover. Path must start with auth.uid() for RLS.
+ * Returns public URL on success.
+ */
+export async function uploadBookCover(
+  file: File,
+  userId: string,
+  bookId: string
+): Promise<{ url: string | null; error: { message: string } | null }> {
+  const ext = file.name.split(".").pop()?.toLowerCase() || "jpg";
+  const path = `${userId}/${bookId}/cover.${ext}`;
+
+  const { error } = await supabase.storage
+    .from(BOOK_COVERS_BUCKET)
+    .upload(path, file, {
+      cacheControl: "3600",
       upsert: true,
-    })
+    });
 
   if (error) {
     if (process.env.NODE_ENV === "development") {
       console.error("[uploadBookCover failed]", error);
     }
-    return { url: null, error };
+    return { url: null, error: { message: error.message } };
   }
 
-  const { data: { publicUrl } } = supabase.storage
-    .from('book-covers')
-    .getPublicUrl(fileName)
-
-  return { url: publicUrl, error: null }
+  const {
+    data: { publicUrl },
+  } = supabase.storage.from(BOOK_COVERS_BUCKET).getPublicUrl(path);
+  return { url: publicUrl, error: null };
 }
 
 const AVATARS_BUCKET_PUBLIC =

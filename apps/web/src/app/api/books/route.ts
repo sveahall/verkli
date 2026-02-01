@@ -1,7 +1,9 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { assertPublicEnv } from "@/lib/env";
 
 export async function POST(request: Request) {
+  assertPublicEnv();
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
 
