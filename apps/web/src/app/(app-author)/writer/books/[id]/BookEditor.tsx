@@ -8,7 +8,7 @@ import { uploadBookCover } from "@/lib/supabase/storage";
 import TiptapEditor from "@/components/editor/TiptapEditor";
 import WriterStatsBar from "@/components/editor/WriterStatsBar";
 import CommandPalette from "@/components/editor/CommandPalette";
-import { getLanguageLabel, normalizeLanguage } from "@/lib/languages";
+import { getLanguageLabel, LANGUAGE_OPTIONS, normalizeLanguage, type SupportedLanguage } from "@/lib/languages";
 
 const ACCEPTED_COVER_TYPES = "image/*";
 
@@ -23,6 +23,24 @@ type Chapter = {
 
 const TRANSLATION_STATUSES = ["draft", "needs_review", "ready", "published"] as const;
 type TranslationStatus = (typeof TRANSLATION_STATUSES)[number];
+
+const MARKETING_CHANNELS = ["generic", "tiktok", "instagram", "x"] as const;
+type MarketingChannel = (typeof MARKETING_CHANNELS)[number];
+
+type MarketingCampaignRow = {
+  id: string;
+  book_id: string;
+  language: string;
+  channel: string;
+  status: string;
+  headline: string | null;
+  caption: string | null;
+  cta: string | null;
+  hashtags: string | null;
+  share_url: string | null;
+  created_at: string;
+  updated_at: string;
+};
 
 type Book = {
   id: string;
@@ -50,9 +68,10 @@ type Props = {
   book: Book;
   chapters: Chapter[];
   latestAudiobookAsset?: LatestAudiobookAsset;
+  marketingCampaigns?: MarketingCampaignRow[];
 };
 
-export default function BookEditor({ book, chapters: initialChapters, latestAudiobookAsset = null }: Props) {
+export default function BookEditor({ book, chapters: initialChapters, latestAudiobookAsset = null, marketingCampaigns = [] }: Props) {
   const router = useRouter();
   const [chapters, setChapters] = useState<Chapter[]>(initialChapters);
   const [selectedChapterId, setSelectedChapterId] = useState<string | null>(
@@ -73,8 +92,10 @@ export default function BookEditor({ book, chapters: initialChapters, latestAudi
   const [coverError, setCoverError] = useState<string | null>(null);
   const [coverPreviewUrl, setCoverPreviewUrl] = useState<string | null>(null);
   const [originalUrl, setOriginalUrl] = useState(book.original_url ?? "");
-  const [launchCopy, setLaunchCopy] = useState<string | null>(null);
-  const [copyFeedback, setCopyFeedback] = useState(false);
+  const [marketingChannel, setMarketingChannel] = useState<MarketingChannel>("generic");
+  const [marketingLanguage, setMarketingLanguage] = useState<SupportedLanguage>(normalizeLanguage(book.language));
+  const [marketingCopyFeedback, setMarketingCopyFeedback] = useState(false);
+  const [isGeneratingMarketing, setIsGeneratingMarketing] = useState(false);
   const [translationStatus, setTranslationStatus] = useState<string>(book.translation_status ?? "draft");
   const [isGeneratingAudiobook, setIsGeneratingAudiobook] = useState(false);
   const [audiobookError, setAudiobookError] = useState<string | null>(null);
@@ -208,24 +229,51 @@ export default function BookEditor({ book, chapters: initialChapters, latestAudi
     }
   }, [book.id, isGeneratingAudiobook, router]);
 
-  const generateLaunchCopy = useCallback(() => {
-    const langName = getLanguageLabel(normalizeLanguage(book.language));
-    const baseUrl = typeof window !== "undefined" ? window.location.origin : "";
-    const readerUrl = `${baseUrl}/reader/books/${book.id}`;
-    const text = `Just published: ${book.title} in ${langName} on Verkli. Read it here: ${readerUrl}`;
-    setLaunchCopy(text);
-  }, [book.id, book.title, book.language]);
+  const currentCampaign = marketingCampaigns.find(
+    (c) => c.language === marketingLanguage && c.channel === marketingChannel
+  ) ?? null;
 
-  const copyLaunchCopyToClipboard = useCallback(async () => {
-    if (!launchCopy) return;
+  const handleGenerateMarketingCopy = useCallback(async () => {
+    if (isGeneratingMarketing) return;
+    setIsGeneratingMarketing(true);
     try {
-      await navigator.clipboard.writeText(launchCopy);
-      setCopyFeedback(true);
-      setTimeout(() => setCopyFeedback(false), 2000);
+      const res = await fetch(`/api/books/${book.id}/marketing/generate`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ language: marketingLanguage, channel: marketingChannel }),
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        alert(data.error ?? "Generate failed");
+        return;
+      }
+      router.refresh();
     } catch {
-      setCopyFeedback(false);
+      alert("Generate failed");
+    } finally {
+      setIsGeneratingMarketing(false);
     }
-  }, [launchCopy]);
+  }, [book.id, marketingLanguage, marketingChannel, isGeneratingMarketing, router]);
+
+  const handleCopyMarketingToClipboard = useCallback(async () => {
+    if (!currentCampaign) return;
+    const parts: string[] = [];
+    if (currentCampaign.caption) parts.push(currentCampaign.caption);
+    if (currentCampaign.hashtags) parts.push(currentCampaign.hashtags);
+    if (currentCampaign.share_url) {
+      const baseUrl = typeof window !== "undefined" ? window.location.origin : "";
+      parts.push(`${baseUrl}${currentCampaign.share_url}`);
+    }
+    const text = parts.join("\n\n");
+    if (!text) return;
+    try {
+      await navigator.clipboard.writeText(text);
+      setMarketingCopyFeedback(true);
+      setTimeout(() => setMarketingCopyFeedback(false), 2000);
+    } catch {
+      setMarketingCopyFeedback(false);
+    }
+  }, [currentCampaign]);
 
   useEffect(() => {
     const stored = localStorage.getItem(STORAGE_PRESET);
@@ -532,7 +580,7 @@ export default function BookEditor({ book, chapters: initialChapters, latestAudi
               />
             </div>
 
-            <div className="rounded-xl border border-slate-200 bg-slate-50/50 p-5 dark:border-white/10 dark:bg-white/5">
+            <div id="audiobook" className="rounded-xl border border-slate-200 bg-slate-50/50 p-5 dark:border-white/10 dark:bg-white/5">
               <h2 className="mb-2 text-base font-semibold text-slate-900 dark:text-white">Audiobook</h2>
               <div className="mb-2 flex items-center gap-2">
                 <span
@@ -567,28 +615,97 @@ export default function BookEditor({ book, chapters: initialChapters, latestAudi
               )}
             </div>
 
-            {/* MVP: AI marketing step – mock copy from title + language. Future: optional AI integration. */}
-            <div className="rounded-xl border border-slate-200 bg-slate-50/50 p-5 dark:border-white/10 dark:bg-white/5">
+            <div id="marketing" className="rounded-xl border border-slate-200 bg-slate-50/50 p-5 dark:border-white/10 dark:bg-white/5">
               <h2 className="mb-3 text-base font-semibold text-slate-900 dark:text-white">Marketing</h2>
+              <div className="mb-3 flex flex-wrap gap-2">
+                <div className="flex flex-col gap-1">
+                  <label htmlFor="marketing-channel" className="text-xs text-slate-500 dark:text-white/50">Channel</label>
+                  <select
+                    id="marketing-channel"
+                    value={marketingChannel}
+                    onChange={(e) => setMarketingChannel(e.target.value as MarketingChannel)}
+                    className="rounded-lg border border-slate-300 bg-white px-2 py-1.5 text-sm text-slate-900 focus:border-slate-500 focus:outline-none dark:border-white/20 dark:bg-white/10 dark:text-white"
+                  >
+                    {MARKETING_CHANNELS.map((c) => (
+                      <option key={c} value={c}>{c}</option>
+                    ))}
+                  </select>
+                </div>
+                <div className="flex flex-col gap-1">
+                  <label htmlFor="marketing-language" className="text-xs text-slate-500 dark:text-white/50">Language</label>
+                  <select
+                    id="marketing-language"
+                    value={marketingLanguage}
+                    onChange={(e) => setMarketingLanguage(e.target.value as SupportedLanguage)}
+                    className="rounded-lg border border-slate-300 bg-white px-2 py-1.5 text-sm text-slate-900 focus:border-slate-500 focus:outline-none dark:border-white/20 dark:bg-white/10 dark:text-white"
+                  >
+                    {LANGUAGE_OPTIONS.map((opt) => (
+                      <option key={opt.value} value={opt.value}>{opt.label}</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+              {currentCampaign && (
+                <div className="mb-2 flex items-center gap-2">
+                  <span
+                    className={`rounded-full px-2.5 py-1 text-xs font-medium ${
+                      currentCampaign.status === "generated" || currentCampaign.status === "published"
+                        ? "bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-300"
+                        : "bg-slate-100 text-slate-700 dark:bg-slate-700 dark:text-slate-200"
+                    }`}
+                  >
+                    {currentCampaign.status}
+                  </span>
+                </div>
+              )}
               <button
                 type="button"
-                onClick={generateLaunchCopy}
-                className="mb-3 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-50 dark:border-white/20 dark:bg-white/10 dark:text-white dark:hover:bg-white/15"
+                onClick={handleGenerateMarketingCopy}
+                disabled={isGeneratingMarketing}
+                className="mb-3 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-50 disabled:opacity-50 dark:border-white/20 dark:bg-white/10 dark:text-white dark:hover:bg-white/15"
               >
-                Generate launch copy
+                {isGeneratingMarketing ? "Generating…" : "Generate launch copy"}
               </button>
-              {launchCopy && (
+              {currentCampaign && (
                 <div className="space-y-2">
-                  <p className="text-xs font-medium text-slate-500 dark:text-white/50">Copy ready to post</p>
-                  <p className="whitespace-pre-wrap break-words rounded border border-slate-200 bg-white p-2 text-xs text-slate-700 dark:border-white/10 dark:bg-white/5 dark:text-white/90">
-                    {launchCopy}
-                  </p>
+                  {currentCampaign.headline && (
+                    <p className="text-xs font-medium text-slate-500 dark:text-white/50">Headline</p>
+                  )}
+                  {currentCampaign.headline && (
+                    <p className="whitespace-pre-wrap break-words rounded border border-slate-200 bg-white p-2 text-xs text-slate-700 dark:border-white/10 dark:bg-white/5 dark:text-white/90">
+                      {currentCampaign.headline}
+                    </p>
+                  )}
+                  {currentCampaign.caption && (
+                    <>
+                      <p className="text-xs font-medium text-slate-500 dark:text-white/50">Caption</p>
+                      <p className="whitespace-pre-wrap break-words rounded border border-slate-200 bg-white p-2 text-xs text-slate-700 dark:border-white/10 dark:bg-white/5 dark:text-white/90">
+                        {currentCampaign.caption}
+                      </p>
+                    </>
+                  )}
+                  {currentCampaign.cta && (
+                    <>
+                      <p className="text-xs font-medium text-slate-500 dark:text-white/50">CTA</p>
+                      <p className="rounded border border-slate-200 bg-white p-2 text-xs text-slate-700 dark:border-white/10 dark:bg-white/5 dark:text-white/90">
+                        {currentCampaign.cta}
+                      </p>
+                    </>
+                  )}
+                  {currentCampaign.hashtags && (
+                    <>
+                      <p className="text-xs font-medium text-slate-500 dark:text-white/50">Hashtags</p>
+                      <p className="rounded border border-slate-200 bg-white p-2 text-xs text-slate-700 dark:border-white/10 dark:bg-white/5 dark:text-white/90">
+                        {currentCampaign.hashtags}
+                      </p>
+                    </>
+                  )}
                   <button
                     type="button"
-                    onClick={copyLaunchCopyToClipboard}
+                    onClick={handleCopyMarketingToClipboard}
                     className="w-full rounded-lg bg-slate-900 px-3 py-2 text-xs font-medium text-white hover:bg-slate-800 dark:bg-white dark:text-slate-900 dark:hover:bg-white/90"
                   >
-                    {copyFeedback ? "Copied!" : "Copy to clipboard"}
+                    {marketingCopyFeedback ? "Copied!" : "Copy to clipboard"}
                   </button>
                 </div>
               )}

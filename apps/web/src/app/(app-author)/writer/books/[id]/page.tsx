@@ -38,6 +38,11 @@ export default async function BookDetailPage({ params }: { params: Promise<{ id:
     .eq("book_id", book.id)
     .order("order", { ascending: true });
 
+  const { data: marketingCampaigns } = await supabase
+    .from("marketing_campaigns")
+    .select("id, book_id, language, channel, status, headline, caption, cta, hashtags, share_url, created_at, updated_at")
+    .eq("book_id", book.id);
+
   return (
     <main className="min-h-screen bg-background text-foreground">
       <header className="mx-auto max-w-[1200px] px-6 pt-10">
@@ -50,7 +55,12 @@ export default async function BookDetailPage({ params }: { params: Promise<{ id:
         </Link>
       </header>
 
-      <BookEditor book={book} chapters={chapters ?? []} latestAudiobookAsset={latestAudiobookAsset ?? null} />
+      <BookEditor
+        book={book}
+        chapters={chapters ?? []}
+        latestAudiobookAsset={latestAudiobookAsset ?? null}
+        marketingCampaigns={marketingCampaigns ?? []}
+      />
     </main>
   );
 }
