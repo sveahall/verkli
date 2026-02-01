@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { assertPublicEnv } from "@/lib/env";
+import { normalizeLanguage } from "@/lib/languages";
 
 export async function POST(request: Request) {
   assertPublicEnv();
@@ -14,9 +15,15 @@ export async function POST(request: Request) {
   const body = await request.json().catch(() => ({}));
   const title = String(body?.title ?? "Untitled").trim() || "Untitled";
   const description = body?.description != null ? String(body.description).trim() || null : null;
-  const language = body?.language != null ? String(body.language).trim() || "en" : "en";
+  const language = normalizeLanguage(body?.language);
   const original_source = body?.original_source != null ? String(body.original_source).trim() || null : null;
   const original_url = body?.original_url != null ? String(body.original_url).trim() || null : null;
+  const is_translation = Boolean(body?.is_translation);
+  const original_book_id =
+    body?.original_book_id != null && String(body.original_book_id).trim() !== ""
+      ? String(body.original_book_id).trim()
+      : null;
+  const translation_status: "draft" | null = is_translation ? "draft" : null;
 
   const slug =
     title
@@ -37,6 +44,9 @@ export async function POST(request: Request) {
       language,
       original_source: original_source || null,
       original_url: original_url || null,
+      is_translation,
+      original_book_id: original_book_id || null,
+      translation_status: translation_status,
     })
     .select("id")
     .single();

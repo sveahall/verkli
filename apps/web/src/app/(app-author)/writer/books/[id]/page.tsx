@@ -16,13 +16,21 @@ export default async function BookDetailPage({ params }: { params: Promise<{ id:
 
   const { data: book } = await supabase
     .from("books")
-    .select("id, title, description, cover_image, author_id, status, language, original_source, original_url")
+    .select("id, title, description, cover_image, author_id, status, language, original_source, original_url, is_translation, original_book_id, translation_status, audiobook_status")
     .eq("id", id)
     .maybeSingle();
 
   if (!book || book.author_id !== user.id) {
     notFound();
   }
+
+  const { data: latestAudiobookAsset } = await supabase
+    .from("audiobook_assets")
+    .select("id, audio_url, status, created_at")
+    .eq("book_id", book.id)
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
 
   const { data: chapters } = await supabase
     .from("chapters")
@@ -42,7 +50,7 @@ export default async function BookDetailPage({ params }: { params: Promise<{ id:
         </Link>
       </header>
 
-      <BookEditor book={book} chapters={chapters ?? []} />
+      <BookEditor book={book} chapters={chapters ?? []} latestAudiobookAsset={latestAudiobookAsset ?? null} />
     </main>
   );
 }

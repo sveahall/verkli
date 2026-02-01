@@ -1,24 +1,15 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { getLanguageLabel, getSeoLanguageLabel, normalizeLanguage } from "@/lib/languages";
 import type { Metadata } from "next";
 import StartReadingLink from "./StartReadingLink";
-
-const LANGUAGE_NAMES: Record<string, string> = {
-  en: "English",
-  es: "Spanish",
-  fr: "French",
-  de: "German",
-  it: "Italian",
-  pt: "Portuguese",
-  sv: "Swedish",
-};
 
 async function getBook(id: string) {
   const supabase = await createClient();
   const { data } = await supabase
     .from("books")
-    .select("id, title, description, cover_image, status, author_id, language, original_url")
+    .select("id, title, description, cover_image, status, author_id, language, original_url, is_translation, original_book_id, audiobook_status")
     .eq("id", id)
     .maybeSingle();
   return data;
@@ -30,14 +21,14 @@ export async function generateMetadata({ params }: { params: Promise<{ id: strin
   if (!book || (book.status && book.status !== "PUBLISHED")) {
     return { title: "Book not found | Verkli" };
   }
-  const langCode = (book as { language?: string | null }).language ?? "en";
-  const languageName = LANGUAGE_NAMES[langCode] ?? langCode;
-  const title = `${book.title} in ${languageName}`;
+  const lang = normalizeLanguage((book as { language?: string | null }).language);
+  const title = `${book.title} ${getSeoLanguageLabel(lang)}`;
+  const descSuffix = `Read ${book.title} in ${getLanguageLabel(lang)} on Verkli.`;
   const description =
-    `Read ${book.title} in ${languageName} on Verkli. ${(book.description ?? "").slice(0, 120)}${(book.description ?? "").length > 120 ? "…" : ""}`.trim();
+    `${descSuffix} ${(book.description ?? "").slice(0, 120)}${(book.description ?? "").length > 120 ? "…" : ""}`.trim();
   return {
     title: `${title} | Verkli`,
-    description: description || `Read ${book.title} in ${languageName} on Verkli.`,
+    description: description || descSuffix,
   };
 }
 
@@ -48,13 +39,20 @@ export default async function ReaderBookDetail({ params }: { params: Promise<{ i
 
   const { data: book } = await supabase
     .from("books")
-    .select("id, title, description, cover_image, status, author_id, language, original_url")
+    .select("id, title, description, cover_image, status, author_id, language, original_url, is_translation, original_book_id, audiobook_status")
     .eq("id", id)
     .maybeSingle();
 
   if (!book || (book.status && book.status !== "PUBLISHED")) {
     notFound();
   }
+
+  const { data: audiobookAsset } = await supabase
+    .from("audiobook_assets")
+    .select("id")
+    .eq("book_id", book.id)
+    .limit(1)
+    .maybeSingle();
 
   const { data: authorProfile } = await supabase
     .from("profiles")
@@ -84,9 +82,13 @@ export default async function ReaderBookDetail({ params }: { params: Promise<{ i
   }
 
   const authorName = authorProfile?.display_name || authorProfile?.username || "Author";
-  const langCode = (book as { language?: string | null }).language ?? "en";
-  const languageName = LANGUAGE_NAMES[langCode] ?? langCode;
+  const lang = normalizeLanguage((book as { language?: string | null }).language);
+  const languageName = getLanguageLabel(lang);
   const originalUrl = (book as { original_url?: string | null }).original_url;
+  const isTranslation = Boolean((book as { is_translation?: boolean | null }).is_translation);
+  const originalBookId = (book as { original_book_id?: string | null }).original_book_id;
+  const audiobookStatus = (book as { audiobook_status?: string | null }).audiobook_status;
+  const audiobookAvailable = audiobookStatus === "published" && audiobookAsset != null;
 
   return (
     <main className="min-h-screen bg-slate-50 text-slate-900 dark:bg-[#050508] dark:text-white">
@@ -133,6 +135,12 @@ export default async function ReaderBookDetail({ params }: { params: Promise<{ i
             Read in {languageName} on Verkli
           </p>
 
+          {audiobookAvailable && (
+            <p className="mt-2 text-[13px] font-medium text-emerald-700 dark:text-emerald-400">
+              Audiobook available
+            </p>
+          )}
+
           <p className="mt-6 text-[15px] leading-relaxed text-slate-600 dark:text-white/60">
             {book.description || "No description yet."}
           </p>
@@ -143,7 +151,7 @@ export default async function ReaderBookDetail({ params }: { params: Promise<{ i
               firstChapterId={firstChapter?.id ?? null}
               serverChapterId={user ? lastChapterId : null}
             />
-            {originalUrl && (
+            {isTranslation && originalUrl && (
               <a
                 href={originalUrl}
                 target="_blank"
@@ -153,6 +161,15 @@ export default async function ReaderBookDetail({ params }: { params: Promise<{ i
                 Original on Amazon
                 <span aria-hidden>↗</span>
               </a>
+            )}
+            {isTranslation && originalBookId && (
+              <Link
+                href={`/reader/books/${originalBookId}`}
+                className="inline-flex items-center gap-2 rounded-full border border-slate-300 bg-white px-4 py-2.5 text-sm font-medium text-slate-700 transition hover:bg-slate-50 dark:border-white/20 dark:bg-white/10 dark:text-white dark:hover:bg-white/15"
+              >
+                Original on Verkli
+                <span aria-hidden>→</span>
+              </Link>
             )}
           </div>
         </div>

@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useState, useCallback, useRef, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
@@ -7,6 +8,7 @@ import { uploadBookCover } from "@/lib/supabase/storage";
 import TiptapEditor from "@/components/editor/TiptapEditor";
 import WriterStatsBar from "@/components/editor/WriterStatsBar";
 import CommandPalette from "@/components/editor/CommandPalette";
+import { getLanguageLabel, normalizeLanguage } from "@/lib/languages";
 
 const ACCEPTED_COVER_TYPES = "image/*";
 
@@ -19,6 +21,9 @@ type Chapter = {
   order: number;
 };
 
+const TRANSLATION_STATUSES = ["draft", "needs_review", "ready", "published"] as const;
+type TranslationStatus = (typeof TRANSLATION_STATUSES)[number];
+
 type Book = {
   id: string;
   title: string;
@@ -28,14 +33,26 @@ type Book = {
   language?: string | null;
   original_source?: string | null;
   original_url?: string | null;
+  is_translation?: boolean | null;
+  original_book_id?: string | null;
+  translation_status?: string | null;
+  audiobook_status?: string | null;
 };
+
+type LatestAudiobookAsset = {
+  id: string;
+  audio_url: string | null;
+  status: string;
+  created_at: string;
+} | null;
 
 type Props = {
   book: Book;
   chapters: Chapter[];
+  latestAudiobookAsset?: LatestAudiobookAsset;
 };
 
-export default function BookEditor({ book, chapters: initialChapters }: Props) {
+export default function BookEditor({ book, chapters: initialChapters, latestAudiobookAsset = null }: Props) {
   const router = useRouter();
   const [chapters, setChapters] = useState<Chapter[]>(initialChapters);
   const [selectedChapterId, setSelectedChapterId] = useState<string | null>(
@@ -58,6 +75,9 @@ export default function BookEditor({ book, chapters: initialChapters }: Props) {
   const [originalUrl, setOriginalUrl] = useState(book.original_url ?? "");
   const [launchCopy, setLaunchCopy] = useState<string | null>(null);
   const [copyFeedback, setCopyFeedback] = useState(false);
+  const [translationStatus, setTranslationStatus] = useState<string>(book.translation_status ?? "draft");
+  const [isGeneratingAudiobook, setIsGeneratingAudiobook] = useState(false);
+  const [audiobookError, setAudiobookError] = useState<string | null>(null);
   const savingRef = useRef(false);
   const coverInputRef = useRef<HTMLInputElement>(null);
 
@@ -150,18 +170,46 @@ export default function BookEditor({ book, chapters: initialChapters }: Props) {
     setOriginalUrl(book.original_url ?? "");
   }, [book.original_url]);
 
-  const LANGUAGE_NAMES: Record<string, string> = {
-    en: "English",
-    es: "Spanish",
-    fr: "French",
-    de: "German",
-    it: "Italian",
-    pt: "Portuguese",
-    sv: "Swedish",
-  };
+  useEffect(() => {
+    setTranslationStatus(book.translation_status ?? "draft");
+  }, [book.translation_status]);
+
+  const handleTranslationStatusChange = useCallback(
+    async (e: React.ChangeEvent<HTMLSelectElement>) => {
+      const value = e.target.value as TranslationStatus;
+      if (!TRANSLATION_STATUSES.includes(value)) return;
+      setTranslationStatus(value);
+      const supabase = createClient();
+      const { error } = await supabase.from("books").update({ translation_status: value }).eq("id", book.id);
+      if (error) {
+        if (process.env.NODE_ENV === "development") console.error("[translation_status update failed]", error);
+        setTranslationStatus(book.translation_status ?? "draft");
+      } else router.refresh();
+    },
+    [book.id, book.translation_status, router]
+  );
+
+  const handleGenerateAudiobook = useCallback(async () => {
+    if (isGeneratingAudiobook) return;
+    setAudiobookError(null);
+    setIsGeneratingAudiobook(true);
+    try {
+      const res = await fetch(`/api/books/${book.id}/audiobook/generate`, { method: "POST" });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setAudiobookError(data.error ?? "Generate failed");
+        return;
+      }
+      router.refresh();
+    } catch {
+      setAudiobookError("Generate failed");
+    } finally {
+      setIsGeneratingAudiobook(false);
+    }
+  }, [book.id, isGeneratingAudiobook, router]);
 
   const generateLaunchCopy = useCallback(() => {
-    const langName = LANGUAGE_NAMES[book.language ?? "en"] ?? (book.language ?? "en");
+    const langName = getLanguageLabel(normalizeLanguage(book.language));
     const baseUrl = typeof window !== "undefined" ? window.location.origin : "";
     const readerUrl = `${baseUrl}/reader/books/${book.id}`;
     const text = `Just published: ${book.title} in ${langName} on Verkli. Read it here: ${readerUrl}`;
@@ -428,6 +476,48 @@ export default function BookEditor({ book, chapters: initialChapters }: Props) {
               </div>
             </div>
 
+            {book.is_translation && (
+              <div className="rounded-xl border border-slate-200 bg-slate-50/50 p-5 dark:border-white/10 dark:bg-white/5">
+                <h2 className="mb-3 text-base font-semibold text-slate-900 dark:text-white">Translation</h2>
+                <div className="mb-3 flex items-center gap-2">
+                  <span
+                    className={`rounded-full px-2.5 py-1 text-xs font-medium ${
+                      translationStatus === "published"
+                        ? "bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-300"
+                        : translationStatus === "ready"
+                          ? "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300"
+                          : translationStatus === "needs_review"
+                            ? "bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300"
+                            : "bg-slate-100 text-slate-700 dark:bg-slate-700 dark:text-slate-200"
+                    }`}
+                  >
+                    {translationStatus}
+                  </span>
+                </div>
+                <label htmlFor="translation-status-select" className="mb-1 block text-xs text-slate-500 dark:text-white/50">Status</label>
+                <select
+                  id="translation-status-select"
+                  value={translationStatus}
+                  onChange={handleTranslationStatusChange}
+                  className="mb-3 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:border-slate-500 focus:outline-none dark:border-white/20 dark:bg-white/10 dark:text-white"
+                >
+                  {TRANSLATION_STATUSES.map((s) => (
+                    <option key={s} value={s}>{s.replace("_", " ")}</option>
+                  ))}
+                </select>
+                {book.original_book_id && (
+                  <p className="text-xs text-slate-500 dark:text-white/50">
+                    <Link
+                      href={`/writer/books/${book.original_book_id}`}
+                      className="text-emerald-600 underline dark:text-emerald-400"
+                    >
+                      Open original on Verkli →
+                    </Link>
+                  </p>
+                )}
+              </div>
+            )}
+
             <div className="rounded-xl border border-slate-200 bg-slate-50/50 p-5 dark:border-white/10 dark:bg-white/5">
               <h2 className="mb-3 text-base font-semibold text-slate-900 dark:text-white">Original</h2>
               <label htmlFor="original-url-editor" className="mb-1 block text-xs text-slate-500 dark:text-white/50">Original available on Amazon</label>
@@ -442,13 +532,39 @@ export default function BookEditor({ book, chapters: initialChapters }: Props) {
               />
             </div>
 
-            {/* MVP: Audiobook step – UI only. Future: hook TTS/audiobook generation after publish. */}
             <div className="rounded-xl border border-slate-200 bg-slate-50/50 p-5 dark:border-white/10 dark:bg-white/5">
               <h2 className="mb-2 text-base font-semibold text-slate-900 dark:text-white">Audiobook</h2>
-              <p className="mb-2 text-sm font-medium text-emerald-600 dark:text-emerald-400">Audiobook ready</p>
-              <p className="text-xs text-slate-600 dark:text-white/60">
-                Audiobook generation is automated after publishing.
-              </p>
+              <div className="mb-2 flex items-center gap-2">
+                <span
+                  className={`rounded-full px-2.5 py-1 text-xs font-medium ${
+                    book.audiobook_status === "published"
+                      ? "bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-300"
+                      : book.audiobook_status === "generating"
+                        ? "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300"
+                        : book.audiobook_status === "failed"
+                          ? "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300"
+                          : "bg-slate-100 text-slate-700 dark:bg-slate-700 dark:text-slate-200"
+                  }`}
+                >
+                  {book.audiobook_status ?? "not_started"}
+                </span>
+              </div>
+              <button
+                type="button"
+                onClick={handleGenerateAudiobook}
+                disabled={isGeneratingAudiobook}
+                className="mb-2 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-50 disabled:opacity-50 dark:border-white/20 dark:bg-white/10 dark:text-white dark:hover:bg-white/15"
+              >
+                {isGeneratingAudiobook ? "Generating…" : "Generate audiobook"}
+              </button>
+              {latestAudiobookAsset?.audio_url && (
+                <p className="mb-1 text-xs text-slate-500 dark:text-white/50">Asset: {latestAudiobookAsset.audio_url}</p>
+              )}
+              {book.audiobook_status === "failed" && (
+                <p className="text-xs text-red-600 dark:text-red-400" role="alert">
+                  {audiobookError ?? "Generation failed."}
+                </p>
+              )}
             </div>
 
             {/* MVP: AI marketing step – mock copy from title + language. Future: optional AI integration. */}
