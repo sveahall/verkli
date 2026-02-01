@@ -17,7 +17,7 @@ const PRESETS = [
   { id: "screenplay", label: "Screenplay" },
 ];
 
-export default function authorStatsBar({
+export default function AuthorStatsBar({
   wordCount,
   sessionWords,
   onFocusToggle,

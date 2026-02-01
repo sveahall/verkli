@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { uploadBookCover } from "@/lib/supabase/storage";
 import TiptapEditor from "@/components/editor/TiptapEditor";
-import authorStatsBar from "@/components/editor/authorStatsBar";
+import AuthorStatsBar from "@/components/editor/AuthorStatsBar";
 import CommandPalette from "@/components/editor/CommandPalette";
 import { getAudiobookEnabled, getMarketingEnabled, getTranslationsEnabled } from "@/lib/flags";
 import { getLanguageLabel, LANGUAGE_OPTIONS, normalizeLanguage, type SupportedLanguage } from "@/lib/languages";
@@ -827,7 +827,7 @@ export default function BookEditor({ book, chapters: initialChapters, latestAudi
                   </div>
                 </div>
 
-                <authorStatsBar
+                <AuthorStatsBar
                   wordCount={wordCount}
                   sessionWords={sessionWords}
                   onFocusToggle={() => setFocusMode(true)}
