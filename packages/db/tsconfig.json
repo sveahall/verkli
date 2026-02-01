@@ -12,6 +12,6 @@
     "resolveJsonModule": true,
     "baseUrl": "."
   },
-  "files": ["./src/client.ts"],
+  "files": ["./src/index.ts"],
   "exclude": ["node_modules", "dist"]
 }
