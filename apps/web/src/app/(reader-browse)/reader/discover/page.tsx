@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { getAvatarUrlFromPathServer } from "@/lib/supabase/avatar";
+import { getDiscoveryEnabled } from "@/lib/flags";
 import { getLanguageLabel, LANGUAGE_OPTIONS, normalizeLanguage, type SupportedLanguage } from "@/lib/languages";
 import AuthorCard from "@/components/reader/AuthorCard";
 import BookCard from "@/components/reader/BookCard";
@@ -158,11 +159,12 @@ export default async function ReaderDiscoverPage({
   const language = normalizeLanguage(langParam);
 
   const supabase = await createClient();
+  const discoveryEnabled = getDiscoveryEnabled();
 
   const [featuredRaw, newBooksRaw, curatedLists, profiles] = await Promise.all([
-    getFeaturedBooks(supabase, language),
-    getNewBooks(supabase, language, 16),
-    getCuratedListsWithItems(supabase, language, 6),
+    discoveryEnabled ? getFeaturedBooks(supabase, language) : Promise.resolve([]),
+    discoveryEnabled ? getNewBooks(supabase, language, 16) : Promise.resolve([]),
+    discoveryEnabled ? getCuratedListsWithItems(supabase, language, 6) : Promise.resolve([]),
     supabase
       .from("profiles")
       .select("user_id, display_name, username, avatar_url, bio")
@@ -194,7 +196,7 @@ export default async function ReaderDiscoverPage({
       <PageHeader
         eyebrow="Discover"
         title="Find your next read"
-        subtitle="Browse by language, featured picks, and curated lists. No signup required."
+        subtitle={discoveryEnabled ? "Browse by language, featured picks, and curated lists. No signup required." : "Browse writers. No signup required."}
         actions={
           <div className="flex flex-wrap items-center gap-2">
             <span className="text-xs font-medium text-slate-500 dark:text-white/50">Language</span>
@@ -217,7 +219,7 @@ export default async function ReaderDiscoverPage({
         }
       />
 
-      {featuredBooks.length > 0 && (
+      {discoveryEnabled && featuredBooks.length > 0 && (
         <Rail
           title={`Featured in ${langLabel}`}
           subtitle="Editor’s picks"
@@ -235,6 +237,7 @@ export default async function ReaderDiscoverPage({
         </Rail>
       )}
 
+      {discoveryEnabled && (
       <Rail
         title={`New in ${langLabel}`}
         subtitle="Latest releases"
@@ -255,8 +258,9 @@ export default async function ReaderDiscoverPage({
           />
         ))}
       </Rail>
+      )}
 
-      {curatedLists.length > 0 && (
+      {discoveryEnabled && curatedLists.length > 0 && (
         <section className="space-y-8">
           <h2 className="text-section-title">Curated lists</h2>
           {curatedLists.map((list) => (

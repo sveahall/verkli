@@ -46,11 +46,5 @@ export async function updateActiveRole(role: ActiveRole): Promise<RoleUpdateResu
     },
   });
 
-  // Optional: sync role to public.users if table exists (trigger may create it)
-  const { error: usersError } = await supabase.from("users").update({ role }).eq("id", user.id);
-  if (usersError) {
-    // public.users may not exist in all setups; role is already in profiles + auth
-  }
-
   return { ok: true };
 }

@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { assertPublicEnv } from "@/lib/env";
+import { isMarketingEnabled } from "@/lib/flags";
 import { getLanguageLabel, normalizeLanguage } from "@/lib/languages";
 
 const CHANNELS = ["generic", "tiktok", "instagram", "x"] as const;
@@ -15,6 +16,9 @@ export async function POST(
   { params }: { params: Promise<{ id: string }> }
 ) {
   assertPublicEnv();
+  if (!isMarketingEnabled()) {
+    return NextResponse.json({ error: "Marketing feature is disabled" }, { status: 403 });
+  }
   const { id: bookId } = await params;
 
   const supabase = await createClient();

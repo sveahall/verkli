@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { assertPublicEnv } from "@/lib/env";
+import { isAudiobookEnabled } from "@/lib/flags";
 import { normalizeLanguage } from "@/lib/languages";
 
 export async function POST(
@@ -8,6 +9,9 @@ export async function POST(
   { params }: { params: Promise<{ id: string }> }
 ) {
   assertPublicEnv();
+  if (!isAudiobookEnabled()) {
+    return NextResponse.json({ error: "Audiobook feature is disabled" }, { status: 403 });
+  }
   const { id: bookId } = await params;
 
   const supabase = await createClient();

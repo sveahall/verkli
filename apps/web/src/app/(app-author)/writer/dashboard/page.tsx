@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { getAudiobookEnabled, getMarketingEnabled, getTranslationsEnabled } from "@/lib/flags";
 import { getLanguageLabel, normalizeLanguage } from "@/lib/languages";
 
 function hasChapterContent(content: string | null): boolean {
@@ -143,34 +144,42 @@ export default async function WriterDashboardPage() {
                 <dt className="text-slate-500 dark:text-white/50">Language</dt>
                 <dd className="font-medium text-slate-900 dark:text-white">{row.language}</dd>
 
-                {row.is_translation && (
+                {getTranslationsEnabled() && row.is_translation && (
                   <>
                     <dt className="text-slate-500 dark:text-white/50">Translation</dt>
                     <dd className="font-medium text-slate-900 dark:text-white">{row.translation_status}</dd>
                   </>
                 )}
 
-                <dt className="text-slate-500 dark:text-white/50">Audiobook</dt>
-                <dd>
-                  <span
-                    className={`inline-block rounded-full px-2 py-0.5 text-xs font-medium ${
-                      row.audiobook_status === "published"
-                        ? "bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-300"
-                        : row.audiobook_status === "generating"
-                          ? "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300"
-                          : row.audiobook_status === "failed"
-                            ? "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300"
-                            : "bg-slate-100 text-slate-700 dark:bg-slate-700 dark:text-slate-200"
-                    }`}
-                  >
-                    {row.audiobook_status}
-                  </span>
-                </dd>
+                {getAudiobookEnabled() && (
+                  <>
+                    <dt className="text-slate-500 dark:text-white/50">Audiobook</dt>
+                    <dd>
+                      <span
+                        className={`inline-block rounded-full px-2 py-0.5 text-xs font-medium ${
+                          row.audiobook_status === "published"
+                            ? "bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-300"
+                            : row.audiobook_status === "generating"
+                              ? "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300"
+                              : row.audiobook_status === "failed"
+                                ? "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300"
+                                : "bg-slate-100 text-slate-700 dark:bg-slate-700 dark:text-slate-200"
+                        }`}
+                      >
+                        {row.audiobook_status}
+                      </span>
+                    </dd>
+                  </>
+                )}
 
-                <dt className="text-slate-500 dark:text-white/50">Marketing</dt>
-                <dd className="font-medium text-slate-900 dark:text-white">
-                  {row.campaignsCount > 0 ? `${row.marketingStatus} (${row.campaignsCount})` : "—"}
-                </dd>
+                {getMarketingEnabled() && (
+                  <>
+                    <dt className="text-slate-500 dark:text-white/50">Marketing</dt>
+                    <dd className="font-medium text-slate-900 dark:text-white">
+                      {row.campaignsCount > 0 ? `${row.marketingStatus} (${row.campaignsCount})` : "—"}
+                    </dd>
+                  </>
+                )}
 
                 <dt className="text-slate-500 dark:text-white/50">Cover</dt>
                 <dd className="font-medium text-slate-900 dark:text-white">{row.has_cover ? "Yes" : "No"}</dd>
@@ -196,18 +205,22 @@ export default async function WriterDashboardPage() {
                     View reader
                   </Link>
                 )}
-                <Link
-                  href={`/writer/books/${row.id}#marketing`}
-                  className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-50 dark:border-white/20 dark:bg-white/10 dark:text-white dark:hover:bg-white/15"
-                >
-                  Generate marketing
-                </Link>
-                <Link
-                  href={`/writer/books/${row.id}#audiobook`}
-                  className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-50 dark:border-white/20 dark:bg-white/10 dark:text-white dark:hover:bg-white/15"
-                >
-                  Generate audiobook
-                </Link>
+                {getMarketingEnabled() && (
+                  <Link
+                    href={`/writer/books/${row.id}#marketing`}
+                    className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-50 dark:border-white/20 dark:bg-white/10 dark:text-white dark:hover:bg-white/15"
+                  >
+                    Generate marketing
+                  </Link>
+                )}
+                {getAudiobookEnabled() && (
+                  <Link
+                    href={`/writer/books/${row.id}#audiobook`}
+                    className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-50 dark:border-white/20 dark:bg-white/10 dark:text-white dark:hover:bg-white/15"
+                  >
+                    Generate audiobook
+                  </Link>
+                )}
               </div>
             </div>
           ))}

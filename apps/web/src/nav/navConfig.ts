@@ -53,8 +53,8 @@ export const NAV_CONFIG: Record<NavVariant, NavConfig> = {
       { label: "FAQ", href: "/faq" },
     ],
     actions: {
-      secondary: { label: "Login", href: "/signin" },
-      primary: { label: "Start free", href: "/signup" },
+      secondary: { label: "Login", href: "/writer/signin" },
+      primary: { label: "Start free", href: "/writer/signup" },
     },
   },
   PUBLIC_READER: {

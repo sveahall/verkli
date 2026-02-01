@@ -8,6 +8,7 @@ import { uploadBookCover } from "@/lib/supabase/storage";
 import TiptapEditor from "@/components/editor/TiptapEditor";
 import WriterStatsBar from "@/components/editor/WriterStatsBar";
 import CommandPalette from "@/components/editor/CommandPalette";
+import { getAudiobookEnabled, getMarketingEnabled, getTranslationsEnabled } from "@/lib/flags";
 import { getLanguageLabel, LANGUAGE_OPTIONS, normalizeLanguage, type SupportedLanguage } from "@/lib/languages";
 
 const ACCEPTED_COVER_TYPES = "image/*";
@@ -524,7 +525,7 @@ export default function BookEditor({ book, chapters: initialChapters, latestAudi
               </div>
             </div>
 
-            {book.is_translation && (
+            {getTranslationsEnabled() && book.is_translation && (
               <div className="rounded-xl border border-slate-200 bg-slate-50/50 p-5 dark:border-white/10 dark:bg-white/5">
                 <h2 className="mb-3 text-base font-semibold text-slate-900 dark:text-white">Translation</h2>
                 <div className="mb-3 flex items-center gap-2">
@@ -580,6 +581,7 @@ export default function BookEditor({ book, chapters: initialChapters, latestAudi
               />
             </div>
 
+            {getAudiobookEnabled() && (
             <div id="audiobook" className="rounded-xl border border-slate-200 bg-slate-50/50 p-5 dark:border-white/10 dark:bg-white/5">
               <h2 className="mb-2 text-base font-semibold text-slate-900 dark:text-white">Audiobook</h2>
               <div className="mb-2 flex items-center gap-2">
@@ -614,7 +616,9 @@ export default function BookEditor({ book, chapters: initialChapters, latestAudi
                 </p>
               )}
             </div>
+            )}
 
+            {getMarketingEnabled() && (
             <div id="marketing" className="rounded-xl border border-slate-200 bg-slate-50/50 p-5 dark:border-white/10 dark:bg-white/5">
               <h2 className="mb-3 text-base font-semibold text-slate-900 dark:text-white">Marketing</h2>
               <div className="mb-3 flex flex-wrap gap-2">
@@ -719,6 +723,7 @@ export default function BookEditor({ book, chapters: initialChapters, latestAudi
                 /reader/books/{book.id}
               </a>
             </div>
+            )}
 
             <div className="rounded-xl border border-slate-200 bg-slate-50/50 p-5 dark:border-white/10 dark:bg-white/5">
             <div className="mb-4 flex items-center justify-between">
