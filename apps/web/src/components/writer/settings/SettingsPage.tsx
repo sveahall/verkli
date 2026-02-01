@@ -6,6 +6,7 @@ import { uploadAvatar } from "@/lib/supabase/storage";
 import {
   updateAccount,
   updateProfile,
+  updateAvatarPath,
   updatePreferences,
   switchRoleToReader,
   changePassword,
@@ -92,14 +93,25 @@ export default function SettingsPage({ user, profile }: SettingsPageProps) {
     if (!file) return;
 
     setAvatarUploading(true);
-    const { url, error } = await uploadAvatar(file, user.id);
-    setAvatarUploading(false);
+    const { path, url, error } = await uploadAvatar(file, user.id);
 
-    if (error || !url) {
+    if (error || !path) {
+      setAvatarUploading(false);
+      if (process.env.NODE_ENV === "development") {
+        console.error("[avatar upload failed]", error);
+      }
       return;
     }
 
-    setAvatarUrl(url);
+    const result = await updateAvatarPath(path);
+    setAvatarUploading(false);
+    if (!result.ok) {
+      if (process.env.NODE_ENV === "development") {
+        console.error("[avatar profile update failed]");
+      }
+      return;
+    }
+    setAvatarUrl(url ?? "");
   };
 
   return (
@@ -217,7 +229,6 @@ export default function SettingsPage({ user, profile }: SettingsPageProps) {
                     <p className="mt-2 text-[12px] text-slate-500 dark:text-white/40">PNG, JPG up to 2MB.</p>
                   </div>
                 </div>
-                <input type="hidden" name="avatar_url" value={avatarUrl} />
               </div>
               <div className="flex items-end justify-between gap-4">
                 <InlineFeedback state={profileState} />

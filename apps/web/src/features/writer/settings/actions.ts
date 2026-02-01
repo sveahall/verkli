@@ -70,9 +70,36 @@ export async function updateAccount(prevState: ActionState, formData: FormData):
   return { ok: true, message: "Account updated." };
 }
 
+/** Update profiles.avatar_url with storage path only (called after avatar upload). */
+export async function updateAvatarPath(path: string): Promise<ActionState> {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+
+  if (!user) {
+    return { ok: false, message: "Not authenticated." };
+  }
+
+  const { error } = await supabase
+    .from("profiles")
+    .upsert(
+      { user_id: user.id, avatar_url: path },
+      { onConflict: "user_id" }
+    );
+
+  if (error) {
+    if (process.env.NODE_ENV === "development") {
+      console.error("[avatar profile update failed]", error);
+    }
+    return { ok: false, message: "Could not save avatar." };
+  }
+
+  revalidatePath("/writer/profile");
+  revalidatePath("/writer/settings");
+  return { ok: true, message: "Avatar saved." };
+}
+
 export async function updateProfile(prevState: ActionState, formData: FormData): Promise<ActionState> {
   const bio = String(formData.get("bio") || "").trim();
-  const avatarUrl = String(formData.get("avatar_url") || "").trim();
   const isPublic = String(formData.get("is_public") || "true") === "true";
 
   const supabase = await createClient();
@@ -85,16 +112,14 @@ export async function updateProfile(prevState: ActionState, formData: FormData):
   const { error } = await supabase
     .from("profiles")
     .upsert(
-      {
-        user_id: user.id,
-        bio: bio || null,
-        avatar_url: avatarUrl || null,
-        is_public: isPublic,
-      },
+      { user_id: user.id, bio: bio || null, is_public: isPublic },
       { onConflict: "user_id" }
     );
 
   if (error) {
+    if (process.env.NODE_ENV === "development") {
+      console.error("[profile update failed]", error);
+    }
     return { ok: false, message: "Could not save profile settings." };
   }
 

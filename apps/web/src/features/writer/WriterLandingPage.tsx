@@ -4,6 +4,7 @@ import { useState, useRef, useEffect, useMemo, type ReactNode } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
+import { getAvatarUrlFromPath } from "@/lib/supabase/storage";
 import GridMotion from "@/components/GridMotion";
 import TestimonialSection from "@/components/TestimonialSection";
 import StatsSection from "@/components/StatsSection";
@@ -538,13 +539,14 @@ function Dashboard({ user }: { user: User }) {
         .limit(8);
 
       if (!error && data) {
-        setFeaturedWriters(
-          data.map((writer) => ({
+        const writersWithUrls = await Promise.all(
+          data.map(async (writer) => ({
             id: writer.user_id,
             name: writer.display_name || "Writer",
-            avatar: writer.avatar_url,
+            avatar: (await getAvatarUrlFromPath(writer.avatar_url, supabase)) ?? writer.avatar_url ?? null,
           }))
         );
+        setFeaturedWriters(writersWithUrls);
       }
     };
 

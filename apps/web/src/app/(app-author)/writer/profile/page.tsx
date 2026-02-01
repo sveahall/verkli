@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { getShelves } from "@/lib/supabase/shelves";
+import { getAvatarUrlFromPathServer } from "@/lib/supabase/avatar";
 import ProfilePage from "@/components/writer/profile/ProfilePage";
 import type { Profile } from "@/lib/supabase/types";
 
@@ -21,6 +22,11 @@ export default async function WriterProfileRoute() {
     .maybeSingle();
 
   const profile = profileRow as Profile | null;
+  const avatarPath = profile?.avatar_url ?? null;
+  const avatarUrl =
+    (await getAvatarUrlFromPathServer(avatarPath)) ||
+    user.user_metadata?.avatar_url ||
+    null;
 
   // Fallbacks ensure the profile renders even if the profile row doesn't exist yet.
   const displayName =
@@ -34,7 +40,6 @@ export default async function WriterProfileRoute() {
     user.email?.split("@")[0] ||
     "writer";
   const bio = profile?.bio || fallbackBio;
-  const avatarUrl = profile?.avatar_url || user.user_metadata?.avatar_url || null;
   const isPublic = profile?.is_public ?? true;
 
   let shelves: Awaited<ReturnType<typeof getShelves>> = [];

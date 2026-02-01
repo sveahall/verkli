@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import SettingsPage from "@/components/writer/settings/SettingsPage";
+import { getAvatarUrlFromPathServer } from "@/lib/supabase/avatar";
 import type { Profile } from "@/lib/supabase/types";
 
 export default async function WriterSettingsRoute() {
@@ -18,6 +19,11 @@ export default async function WriterSettingsRoute() {
     .maybeSingle();
 
   const profile = profileRow as Profile | null;
+  const avatarPath = profile?.avatar_url ?? null;
+  const avatarUrl =
+    (await getAvatarUrlFromPathServer(avatarPath)) ||
+    user.user_metadata?.avatar_url ||
+    "";
 
   const displayName =
     profile?.display_name ||
@@ -42,7 +48,7 @@ export default async function WriterSettingsRoute() {
           displayName,
           username,
           bio: profile?.bio || "",
-          avatarUrl: profile?.avatar_url || user.user_metadata?.avatar_url || "",
+          avatarUrl,
           isPublic: profile?.is_public ?? true,
           role: profile?.role || (user.user_metadata?.role ?? "writer"),
           preferences: profile?.preferences || {},
