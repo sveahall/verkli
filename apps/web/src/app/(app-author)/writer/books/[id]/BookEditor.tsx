@@ -45,9 +45,31 @@ export default function BookEditor({ book, chapters: initialChapters }: Props) {
   const [wordCount, setWordCount] = useState(0);
   const [sessionStartWords, setSessionStartWords] = useState<number | null>(null);
   const [commandPaletteOpen, setCommandPaletteOpen] = useState(false);
+  const [isPublishing, setIsPublishing] = useState(false);
   const savingRef = useRef(false);
 
   const selectedChapter = chapters.find((ch) => ch.id === selectedChapterId);
+
+  const handlePublish = async () => {
+    if (isPublishing) return;
+    setIsPublishing(true);
+    try {
+      const res = await fetch(`/api/books/${book.id}/publish`, { method: "POST" });
+      const data = await res.json();
+      if (!res.ok) {
+        alert(data.error || "Failed to publish");
+        return;
+      }
+      router.refresh();
+    } catch (err) {
+      if (process.env.NODE_ENV === "development") {
+        console.error("[publish failed]", err);
+      }
+      alert("Failed to publish");
+    } finally {
+      setIsPublishing(false);
+    }
+  };
 
   useEffect(() => {
     const stored = localStorage.getItem(STORAGE_PRESET);
@@ -87,7 +109,9 @@ export default function BookEditor({ book, chapters: initialChapters }: Props) {
     savingRef.current = false;
     setIsSaving(false);
     if (error) {
-      console.error("Failed to autosave:", error);
+      if (process.env.NODE_ENV === "development") {
+        console.error("[autosave failed]", error);
+      }
       return;
     }
     setChapters((prev) => prev.map((ch) => (ch.id === chapterId ? { ...ch, content: contentString } : ch)));
@@ -110,7 +134,9 @@ export default function BookEditor({ book, chapters: initialChapters }: Props) {
       .single();
     setIsCreating(false);
     if (error) {
-      console.error("Failed to create chapter:", error);
+      if (process.env.NODE_ENV === "development") {
+        console.error("[createChapter failed]", error);
+      }
       alert(`Failed to create chapter: ${error.message || "Unknown error"}`);
       return;
     }
@@ -137,7 +163,9 @@ export default function BookEditor({ book, chapters: initialChapters }: Props) {
     const { error } = await supabase.from("chapters").update({ title: tempTitle.trim() }).eq("id", chapterId);
     setIsSaving(false);
     if (error) {
-      console.error("Failed to update title:", error);
+      if (process.env.NODE_ENV === "development") {
+        console.error("[updateChapterTitle failed]", error);
+      }
       setEditingTitleId(null);
       return;
     }
@@ -230,13 +258,24 @@ export default function BookEditor({ book, chapters: initialChapters }: Props) {
   return (
     <>
       <section className="mx-auto max-w-[1400px] px-6 py-12">
-        <div className="mb-8">
-          <h1 className="text-4xl font-semibold tracking-tight text-slate-900 dark:text-white">
-            {book.title}
-          </h1>
-          <p className="mt-2 text-sm text-slate-600 dark:text-white/60">
-            {book.status === "DRAFT" ? "Draft" : "Published"} • {chapters.length} chapter{chapters.length !== 1 ? "s" : ""}
-          </p>
+        <div className="mb-8 flex flex-wrap items-start justify-between gap-4">
+          <div>
+            <h1 className="text-4xl font-semibold tracking-tight text-slate-900 dark:text-white">
+              {book.title}
+            </h1>
+            <p className="mt-2 text-sm text-slate-600 dark:text-white/60">
+              {book.status === "DRAFT" ? "Draft" : "Published"} • {chapters.length} chapter{chapters.length !== 1 ? "s" : ""}
+            </p>
+          </div>
+          {book.status === "DRAFT" && (
+            <button
+              onClick={handlePublish}
+              disabled={isPublishing || chapters.length === 0}
+              className="rounded-full bg-emerald-600 px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-emerald-700 disabled:opacity-50"
+            >
+              {isPublishing ? "Publishing..." : "Publish"}
+            </button>
+          )}
         </div>
 
         <div className="grid gap-8 lg:grid-cols-[280px_1fr]">

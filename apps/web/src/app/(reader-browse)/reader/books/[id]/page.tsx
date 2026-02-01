@@ -1,11 +1,11 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import StartReadingLink from "./StartReadingLink";
 
 export default async function ReaderBookDetail({ params }: { params: Promise<{ id: string }> }) {
-  // Next.js 16+: params is a Promise, must await
   const { id } = await params;
-  
+
   const supabase = await createClient();
 
   const { data: book } = await supabase
@@ -24,15 +24,33 @@ export default async function ReaderBookDetail({ params }: { params: Promise<{ i
     .eq("user_id", book.author_id)
     .maybeSingle();
 
-  const { count: chaptersCount } = await supabase
+  const { data: chapters } = await supabase
     .from("chapters")
-    .select("id", { count: "exact", head: true })
-    .eq("book_id", book.id);
+    .select("id, title, order")
+    .eq("book_id", book.id)
+    .order("order", { ascending: true });
+
+  const chaptersCount = chapters?.length ?? 0;
+  const firstChapter = chapters?.[0];
+
+  const { data: { user } } = await supabase.auth.getUser();
+  let lastChapterId: string | null = firstChapter?.id ?? null;
+  if (user) {
+    const { data: reading } = await supabase
+      .from("readings")
+      .select("chapter_id")
+      .eq("user_id", user.id)
+      .eq("book_id", book.id)
+      .maybeSingle();
+    if (reading?.chapter_id) lastChapterId = reading.chapter_id;
+  }
+
+  const authorName = authorProfile?.display_name || authorProfile?.username || "Author";
 
   return (
     <main className="min-h-screen bg-slate-50 text-slate-900 dark:bg-[#050508] dark:text-white">
       <header className="mx-auto max-w-[1100px] px-6 pt-10">
-        <Link href="/reader" className="text-[13px] text-slate-600 hover:text-slate-900 dark:text-white/50 dark:hover:text-white/70">
+        <Link href="/reader/discover" className="text-[13px] text-slate-600 hover:text-slate-900 dark:text-white/50 dark:hover:text-white/70">
           ← Back to discover
         </Link>
       </header>
@@ -53,9 +71,12 @@ export default async function ReaderBookDetail({ params }: { params: Promise<{ i
           <h1 className="text-[36px] font-semibold tracking-tight text-slate-900 dark:text-white md:text-[44px]">
             {book.title}
           </h1>
-          <p className="mt-2 text-[15px] text-slate-600 dark:text-white/60">
-            {authorProfile?.display_name || authorProfile?.username || "Author"}
-          </p>
+          <Link
+            href={`/reader/writers/${book.author_id}`}
+            className="mt-2 block text-[15px] text-slate-600 hover:text-slate-900 dark:text-white/60 dark:hover:text-white/80"
+          >
+            {authorName}
+          </Link>
 
           <div className="mt-6 flex flex-wrap gap-3 text-[12px] text-slate-600 dark:text-white/60">
             <span className="rounded-full border border-black/10 bg-black/[0.02] px-3 py-1 dark:border-white/10 dark:bg-white/5">
@@ -69,15 +90,11 @@ export default async function ReaderBookDetail({ params }: { params: Promise<{ i
           </p>
 
           <div className="mt-8 flex flex-wrap gap-4">
-            <Link
-              href={`/reader/read/${book.id}`}
-              className="rounded-full bg-[#907AFF] px-6 py-3 text-[14px] font-semibold text-white transition hover:bg-[#8069EE]"
-            >
-              Start reading
-            </Link>
-            <button className="rounded-full border border-black/10 bg-black/[0.02] px-6 py-3 text-[14px] font-semibold text-slate-700 hover:bg-black/10 dark:border-white/10 dark:bg-white/5 dark:text-white/70 dark:hover:bg-white/10">
-              Add to library
-            </button>
+            <StartReadingLink
+              bookId={book.id}
+              firstChapterId={firstChapter?.id ?? null}
+              serverChapterId={user ? lastChapterId : null}
+            />
           </div>
         </div>
       </section>

@@ -177,7 +177,7 @@ export default function ReaderLanding() {
             </p>
 
             <div className="mt-10 flex flex-wrap justify-center gap-3 sm:gap-4 lg:justify-start">
-              <Link href="#explore" className="btn-primary min-w-[140px]">
+              <Link href="/reader/discover" className="btn-primary min-w-[140px]">
                 Explore stories
               </Link>
               <Link href="/reader/signup" className="btn-secondary min-w-[140px]">
@@ -447,7 +447,7 @@ export default function ReaderLanding() {
             Explore without signing up, or join Verkli to follow authors and save your reading.
           </p>
           <div className="relative mt-8 flex flex-wrap justify-center gap-3 sm:gap-4">
-            <Link href="#explore" className="btn-primary min-w-[140px]">
+            <Link href="/reader/discover" className="btn-primary min-w-[140px]">
               Explore stories
             </Link>
             <Link href="/reader/signup" className="btn-secondary min-w-[140px]">

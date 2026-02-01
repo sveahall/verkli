@@ -16,7 +16,12 @@ export async function uploadBookCover(file: File, bookId: string) {
       upsert: true,
     })
 
-  if (error) return { url: null, error }
+  if (error) {
+    if (process.env.NODE_ENV === "development") {
+      console.error("[uploadBookCover failed]", error);
+    }
+    return { url: null, error };
+  }
 
   const { data: { publicUrl } } = supabase.storage
     .from('book-covers')
@@ -91,7 +96,12 @@ export async function uploadChapterMedia(file: File, bookId: string, chapterId: 
       cacheControl: '3600',
     })
 
-  if (error) return { url: null, error }
+  if (error) {
+    if (process.env.NODE_ENV === "development") {
+      console.error("[uploadChapterMedia failed]", error);
+    }
+    return { url: null, error };
+  }
 
   const { data: { publicUrl } } = supabase.storage
     .from('chapter-media')

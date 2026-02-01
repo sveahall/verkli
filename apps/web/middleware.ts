@@ -71,7 +71,12 @@ export async function middleware(request: NextRequest) {
                          pathname.startsWith('/writer/signup') || 
                          pathname.startsWith('/writer/forgot-password')
   
-  // Reader routes that don't require auth
+  // Reader routes that don't require auth (MVP: anon browsing for public content)
+  const isReaderBrowse = pathname.startsWith('/reader/books/') ||
+                         pathname.startsWith('/reader/read/') ||
+                         pathname === '/reader/discover' ||
+                         pathname.startsWith('/reader/discover') ||
+                         pathname.startsWith('/reader/writers/')
   const isReaderPublic = pathname === '/reader' || // public landing page
                          pathname === '/reader/app' || 
                          pathname === '/reader/faq' || 
@@ -79,7 +84,8 @@ export async function middleware(request: NextRequest) {
                          pathname === '/reader/membership' || 
                          pathname.startsWith('/reader/signin') || 
                          pathname.startsWith('/reader/signup') || 
-                         pathname.startsWith('/reader/forgot-password')
+                         pathname.startsWith('/reader/forgot-password') ||
+                         isReaderBrowse
 
   // Protect all /writer/* routes except public ones
   if (pathname.startsWith('/writer') && !isWriterPublic && !user) {

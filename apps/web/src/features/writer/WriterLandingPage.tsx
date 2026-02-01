@@ -765,7 +765,9 @@ function Dashboard({ user }: { user: User }) {
       // Navigate to the book editor using router.push
       router.push(`/writer/books/${book.id}`);
     } catch (error) {
-      console.warn("Error creating book:", error);
+      if (process.env.NODE_ENV === "development") {
+        console.error("[createBook failed]", error);
+      }
       setIsCreatingBook(false);
     }
   };

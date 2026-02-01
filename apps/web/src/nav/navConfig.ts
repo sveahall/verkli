@@ -1,5 +1,8 @@
 export type NavVariant = "PUBLIC_AUTHOR" | "PUBLIC_READER" | "APP_AUTHOR" | "APP_READER";
 
+/** MVP: read-write-publish only. Set false to enable Community + Marketing Tools. */
+const MVP_MODE = true;
+
 export type NavLinkChild = {
   label: string;
   href: string;
@@ -99,18 +102,20 @@ export const NAV_CONFIG: Record<NavVariant, NavConfig> = {
           { label: "Published", href: "/writer/books" },
         ],
       },
-      {
-        label: "Marketing Tools",
-        href: "/writer/marketing",
-        hasDropdown: true,
-        children: [
-          { label: "Overview", href: "/writer/marketing" },
-          { label: "AI tools", href: "/writer/marketing" },
-          { label: "Automations", href: "/writer/marketing" },
-          { label: "Distribution", href: "/writer/marketing" },
-        ],
-      },
-      { label: "Community", href: "/writer/community" },
+      ...(MVP_MODE ? [] : [
+        {
+          label: "Marketing Tools",
+          href: "/writer/marketing",
+          hasDropdown: true,
+          children: [
+            { label: "Overview", href: "/writer/marketing" },
+            { label: "AI tools", href: "/writer/marketing" },
+            { label: "Automations", href: "/writer/marketing" },
+            { label: "Distribution", href: "/writer/marketing" },
+          ],
+        } as NavLink,
+        { label: "Community", href: "/writer/community" },
+      ]),
     ],
     actions: {
       primary: { label: "Publish", href: "/writer/books" },
@@ -145,7 +150,7 @@ export const NAV_CONFIG: Record<NavVariant, NavConfig> = {
           { label: "Continue reading", href: "/reader/home" },
         ],
       },
-      { label: "Community", href: "/reader/community" },
+      ...(MVP_MODE ? [] : [{ label: "Community", href: "/reader/community" }]),
       {
         label: "Profile",
         href: "/reader/profile",
