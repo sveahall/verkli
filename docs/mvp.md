@@ -1,5 +1,7 @@
 # Verkli MVP Checklist
 
+Prisma is intentionally not used. All data access goes via Supabase + RLS.
+
 ## Steg 0: Done Definition
 
 Steg 0 är klart när:

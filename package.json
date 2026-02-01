@@ -10,7 +10,8 @@
     "dev": "npm run -w @verkli/web dev",
     "build": "npm run -w @verkli/web build",
     "start": "npm run -w @verkli/web start",
-    "lint": "npm run -w @verkli/web lint"
+    "lint": "npm run -w @verkli/web lint",
+    "check:no-prisma": "(test -d node_modules/@prisma/client || test -d node_modules/prisma) && (echo 'Prisma found in node_modules' && exit 1); exit 0"
   },
   "dependencies": {
     "@runwayml/sdk": "^3.11.0",
