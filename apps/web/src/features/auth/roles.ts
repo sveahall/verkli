@@ -1,6 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 
-export type ActiveRole = "writer" | "reader";
+export type ActiveRole = "author" | "reader";
 
 type RoleUpdateResult = {
   ok: boolean;

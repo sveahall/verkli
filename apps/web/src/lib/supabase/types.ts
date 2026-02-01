@@ -10,7 +10,7 @@ export type Database = {
           email: string
           full_name: string | null
           avatar_url: string | null
-          role: 'writer' | 'reader'
+          role: 'author' | 'reader'
           created_at: string
           updated_at: string
         }
@@ -19,7 +19,7 @@ export type Database = {
           email: string
           full_name?: string | null
           avatar_url?: string | null
-          role?: 'writer' | 'reader'
+          role?: 'author' | 'reader'
           created_at?: string
           updated_at?: string
         }
@@ -28,7 +28,7 @@ export type Database = {
           email?: string
           full_name?: string | null
           avatar_url?: string | null
-          role?: 'writer' | 'reader'
+          role?: 'author' | 'reader'
           created_at?: string
           updated_at?: string
         }
@@ -40,7 +40,7 @@ export type Database = {
           username: string | null
           bio: string | null
           avatar_url: string | null
-          role: 'writer' | 'reader'
+          role: 'author' | 'reader'
           preferences: Record<string, any> | null
           is_public: boolean
           created_at: string
@@ -52,7 +52,7 @@ export type Database = {
           username?: string | null
           bio?: string | null
           avatar_url?: string | null
-          role?: 'writer' | 'reader'
+          role?: 'author' | 'reader'
           preferences?: Record<string, any> | null
           is_public?: boolean
           created_at?: string
@@ -64,7 +64,7 @@ export type Database = {
           username?: string | null
           bio?: string | null
           avatar_url?: string | null
-          role?: 'writer' | 'reader'
+          role?: 'author' | 'reader'
           preferences?: Record<string, any> | null
           is_public?: boolean
           created_at?: string
@@ -241,7 +241,7 @@ export type Database = {
     Views: Record<string, never>
     Functions: Record<string, never>
     Enums: {
-      user_role: 'writer' | 'reader'
+      user_role: 'author' | 'reader'
     }
   }
 }

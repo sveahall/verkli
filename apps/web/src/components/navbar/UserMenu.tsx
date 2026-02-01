@@ -11,19 +11,19 @@ const USER_MENU_WIDTH = 280;
 interface UserMenuProps {
   user: User;
   onSignOut: () => void;
-  currentRole?: "writer" | "reader";
+  currentRole?: "author" | "reader";
 }
 
 /**
  * Global UserMenu component for navbar dropdown
  * 
  * Placerad i components/navbar/ för att:
- * - Vara återanvändbar på alla sidor (writer, reader, public)
+ * - Vara återanvändbar på alla sidor (author, reader, public)
  * - Hålla all dropdown state och event handling lokalt
  * - Undvika duplicerad kod mellan sidor
  * - Centralisera design och funktionalitet
  */
-export default function UserMenu({ user, onSignOut, currentRole = "writer" }: UserMenuProps) {
+export default function UserMenu({ user, onSignOut, currentRole = "author" }: UserMenuProps) {
   const router = useRouter();
   const [isOpen, setIsOpen] = useState(false);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
@@ -67,7 +67,7 @@ export default function UserMenu({ user, onSignOut, currentRole = "writer" }: Us
   const handleSwitchRole = async () => {
     closeMenu();
 
-    const nextRole = currentRole === "writer" ? "reader" : "writer";
+    const nextRole = currentRole === "author" ? "reader" : "author";
 
     try {
       const response = await fetch("/api/auth/active-role", {
@@ -85,7 +85,7 @@ export default function UserMenu({ user, onSignOut, currentRole = "writer" }: Us
 
       // Refresh router to clear cache and redirect
       router.refresh();
-      router.push(currentRole === "writer" ? "/reader/home" : "/writer/home");
+      router.push(currentRole === "author" ? "/reader/home" : "/author/home");
     } catch (error) {
       console.error("Error switching role:", error);
       setToastMessage("Could not switch role. Try again.");
@@ -187,7 +187,7 @@ export default function UserMenu({ user, onSignOut, currentRole = "writer" }: Us
           {/* Primary actions */}
           <div className="py-1.5">
             <Link
-              href={currentRole === 'writer' ? "/writer/profile" : "/reader/profile"}
+              href={currentRole === 'author' ? "/author/profile" : "/reader/profile"}
               onClick={(e) => {
                 e.stopPropagation();
                 setIsOpen(false);
@@ -211,7 +211,7 @@ export default function UserMenu({ user, onSignOut, currentRole = "writer" }: Us
             </Link>
 
             <Link
-              href={currentRole === 'writer' ? "/writer/settings" : "/reader/settings"}
+              href={currentRole === 'author' ? "/author/settings" : "/reader/settings"}
               onClick={(e) => {
                 e.stopPropagation();
                 setIsOpen(false);
@@ -256,7 +256,7 @@ export default function UserMenu({ user, onSignOut, currentRole = "writer" }: Us
                   d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4"
                 />
               </svg>
-              <span>Switch to {currentRole === 'writer' ? 'Reader' : 'Writer'}</span>
+              <span>Switch to {currentRole === 'author' ? 'Reader' : 'author'}</span>
             </button>
           </div>
 

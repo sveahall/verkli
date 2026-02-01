@@ -11,15 +11,15 @@ import {
 import type { TypographyConfig } from "./types";
 
 const STORAGE_FOCUS = "verkli_focus_mode";
-const STORAGE_TYPEWRITER = "verkli_typewriter_mode";
+const STORAGE_TYPEauthor = "verkli_typeauthor_mode";
 const STORAGE_TYPOGRAPHY = (bookId: string) => `verkli_typography_${bookId}`;
 const STORAGE_PRESET = (bookId: string) => `verkli_preset_${bookId}`;
 
 type EditorContextValue = {
   focusMode: boolean;
   setFocusMode: (v: boolean) => void;
-  typewriterMode: boolean;
-  setTypewriterMode: (v: boolean) => void;
+  typeauthorMode: boolean;
+  setTypeauthorMode: (v: boolean) => void;
   typography: TypographyConfig;
   setTypography: (v: TypographyConfig) => void;
   preset: string;
@@ -45,7 +45,7 @@ export function EditorProvider({
   bookId: string;
 }) {
   const [focusMode, setFocusModeState] = useState(false);
-  const [typewriterMode, setTypewriterModeState] = useState(false);
+  const [typeauthorMode, setTypeauthorModeState] = useState(false);
   const [typography, setTypographyState] = useState<TypographyConfig>(defaultTypography);
   const [preset, setPresetState] = useState("novel");
 
@@ -55,8 +55,8 @@ export function EditorProvider({
       const storedFocus = localStorage.getItem(STORAGE_FOCUS);
       if (storedFocus !== null) setFocusModeState(storedFocus === "true");
 
-      const storedTypewriter = localStorage.getItem(STORAGE_TYPEWRITER);
-      if (storedTypewriter !== null) setTypewriterModeState(storedTypewriter === "true");
+      const storedTypeauthor = localStorage.getItem(STORAGE_TYPEauthor);
+      if (storedTypeauthor !== null) setTypeauthorModeState(storedTypeauthor === "true");
 
       const storedTypo = localStorage.getItem(STORAGE_TYPOGRAPHY(bookId));
       if (storedTypo) {
@@ -80,10 +80,10 @@ export function EditorProvider({
     }
   }, []);
 
-  const setTypewriterMode = useCallback((v: boolean) => {
-    setTypewriterModeState(v);
+  const setTypeauthorMode = useCallback((v: boolean) => {
+    setTypeauthorModeState(v);
     try {
-      localStorage.setItem(STORAGE_TYPEWRITER, String(v));
+      localStorage.setItem(STORAGE_TYPEauthor, String(v));
     } catch {
       // ignore
     }
@@ -116,8 +116,8 @@ export function EditorProvider({
   const value: EditorContextValue = {
     focusMode,
     setFocusMode,
-    typewriterMode,
-    setTypewriterMode,
+    typeauthorMode,
+    setTypeauthorMode,
     typography,
     setTypography,
     preset,

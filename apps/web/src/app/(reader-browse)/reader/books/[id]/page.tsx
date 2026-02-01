@@ -115,7 +115,7 @@ export default async function ReaderBookDetail({ params }: { params: Promise<{ i
             {book.title}
           </h1>
           <Link
-            href={`/reader/writers/${book.author_id}`}
+            href={`/reader/authors/${book.author_id}`}
             className="mt-2 block text-[15px] text-slate-600 hover:text-slate-900 dark:text-white/60 dark:hover:text-white/80"
           >
             {authorName}

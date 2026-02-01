@@ -37,7 +37,7 @@ export type NavConfig = {
 
 export const NAV_CONFIG: Record<NavVariant, NavConfig> = {
   PUBLIC_AUTHOR: {
-    homeHref: "/writer",
+    homeHref: "/author",
     links: [
       {
         label: "Product",
@@ -53,8 +53,8 @@ export const NAV_CONFIG: Record<NavVariant, NavConfig> = {
       { label: "FAQ", href: "/faq" },
     ],
     actions: {
-      secondary: { label: "Login", href: "/writer/signin" },
-      primary: { label: "Start free", href: "/writer/signup" },
+      secondary: { label: "Login", href: "/author/signin" },
+      primary: { label: "Start free", href: "/author/signup" },
     },
   },
   PUBLIC_READER: {
@@ -79,49 +79,49 @@ export const NAV_CONFIG: Record<NavVariant, NavConfig> = {
     },
   },
   APP_AUTHOR: {
-    homeHref: "/writer/home",
+    homeHref: "/author/home",
     links: [
       {
         label: "My World",
-        href: "/writer/home",
+        href: "/author/home",
         hasDropdown: true,
         children: [
-          { label: "Overview", href: "/writer/home" },
-          { label: "Stats", href: "/writer/stats" },
-          { label: "Profile preview", href: "/writer/profile" },
+          { label: "Overview", href: "/author/home" },
+          { label: "Stats", href: "/author/stats" },
+          { label: "Profile preview", href: "/author/profile" },
         ],
       },
       {
         label: "Books",
-        href: "/writer/books",
+        href: "/author/books",
         hasDropdown: true,
         children: [
-          { label: "All books", href: "/writer/books" },
-          { label: "Shelves", href: "/writer/books" },
-          { label: "Drafts", href: "/writer/books" },
-          { label: "Published", href: "/writer/books" },
+          { label: "All books", href: "/author/books" },
+          { label: "Shelves", href: "/author/books" },
+          { label: "Drafts", href: "/author/books" },
+          { label: "Published", href: "/author/books" },
         ],
       },
       ...(MVP_MODE ? [] : [
         {
           label: "Marketing Tools",
-          href: "/writer/marketing",
+          href: "/author/marketing",
           hasDropdown: true,
           children: [
-            { label: "Overview", href: "/writer/marketing" },
-            { label: "AI tools", href: "/writer/marketing" },
-            { label: "Automations", href: "/writer/marketing" },
-            { label: "Distribution", href: "/writer/marketing" },
+            { label: "Overview", href: "/author/marketing" },
+            { label: "AI tools", href: "/author/marketing" },
+            { label: "Automations", href: "/author/marketing" },
+            { label: "Distribution", href: "/author/marketing" },
           ],
         } as NavLink,
-        { label: "Community", href: "/writer/community" },
+        { label: "Community", href: "/author/community" },
       ]),
     ],
     actions: {
-      primary: { label: "Publish", href: "/writer/books" },
+      primary: { label: "Publish", href: "/author/books" },
       showSearch: true,
       searchPlaceholder: "Search books, authors...",
-      searchHref: "/writer/home",
+      searchHref: "/author/home",
       showProfileMenu: true,
     },
   },

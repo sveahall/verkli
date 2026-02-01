@@ -148,7 +148,7 @@ export default function ReaderLanding() {
 
   return (
     <main className="relative min-h-screen bg-gradient-to-b from-slate-50 via-slate-50/95 to-slate-50/90 text-slate-900 dark:from-[#050508] dark:via-[#050508] dark:to-[#050508] dark:text-white">
-      {/* Hero – mouse-tracking glows (same pattern as writer landing) */}
+      {/* Hero – mouse-tracking glows (same pattern as author landing) */}
       <section
         ref={heroRef}
         onMouseMove={handleHeroMouseMove}
@@ -185,8 +185,8 @@ export default function ReaderLanding() {
               </Link>
             </div>
             <p className="mt-6 text-[13px] text-slate-500 dark:text-white/50">
-              Are you a writer?<br />
-              <Link href="/writer" className="font-semibold text-slate-700 hover:text-slate-900 dark:text-white/80 dark:hover:text-white">
+              Are you a author?<br />
+              <Link href="/author" className="font-semibold text-slate-700 hover:text-slate-900 dark:text-white/80 dark:hover:text-white">
                 Go to authors page →
               </Link>
             </p>
@@ -239,7 +239,7 @@ export default function ReaderLanding() {
         </div>
       </section>
 
-      {/* Value proposition – mouse-reactive blobs (writer-style) */}
+      {/* Value proposition – mouse-reactive blobs (author-style) */}
       <section
         id="explore"
         className="relative mx-auto w-full max-w-[1200px] px-4 py-16 sm:px-6 sm:py-24"

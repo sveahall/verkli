@@ -4,7 +4,7 @@ import { createClient } from './client'
 
 const supabase = createClient()
 
-export async function signUp(email: string, password: string, role: 'writer' | 'reader') {
+export async function signUp(email: string, password: string, role: 'author' | 'reader') {
   const { data, error } = await supabase.auth.signUp({
     email,
     password,

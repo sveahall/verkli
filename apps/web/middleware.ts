@@ -60,37 +60,37 @@ export async function middleware(request: NextRequest) {
   const { data: { user } } = await supabase.auth.getUser()
 
   // -------------------------------------------------------------------------
-  // Route protection: /writer/* and /reader/* require authentication
+  // Route protection: /author/* and /reader/* require authentication
   // (excluding auth pages and public landing pages)
   // -------------------------------------------------------------------------
   const pathname = request.nextUrl.pathname
 
-  // Writer routes that don't require auth
-  const isWriterPublic = pathname === '/writer' || // public landing page
-                         pathname.startsWith('/writer/signin') || 
-                         pathname.startsWith('/writer/signup') || 
-                         pathname.startsWith('/writer/forgot-password')
-  
+  // author routes that don't require auth
+  const isAuthorPublic = pathname === '/author' || // public landing page
+                         pathname.startsWith('/author/signin') ||
+                         pathname.startsWith('/author/signup') ||
+                         pathname.startsWith('/author/forgot-password')
+
   // Reader routes that don't require auth (MVP: anon browsing for public content)
   const isReaderBrowse = pathname.startsWith('/reader/books/') ||
                          pathname.startsWith('/reader/read/') ||
                          pathname === '/reader/discover' ||
                          pathname.startsWith('/reader/discover') ||
-                         pathname.startsWith('/reader/writers/')
+                         pathname.startsWith('/reader/authors/')
   const isReaderPublic = pathname === '/reader' || // public landing page
-                         pathname === '/reader/app' || 
-                         pathname === '/reader/faq' || 
-                         pathname === '/reader/how-it-works' || 
-                         pathname === '/reader/membership' || 
-                         pathname.startsWith('/reader/signin') || 
-                         pathname.startsWith('/reader/signup') || 
+                         pathname === '/reader/app' ||
+                         pathname === '/reader/faq' ||
+                         pathname === '/reader/how-it-works' ||
+                         pathname === '/reader/membership' ||
+                         pathname.startsWith('/reader/signin') ||
+                         pathname.startsWith('/reader/signup') ||
                          pathname.startsWith('/reader/forgot-password') ||
                          isReaderBrowse
 
-  // Protect all /writer/* routes except public ones
-  if (pathname.startsWith('/writer') && !isWriterPublic && !user) {
+  // Protect all /author/* routes except public ones
+  if (pathname.startsWith('/author') && !isAuthorPublic && !user) {
     const url = request.nextUrl.clone()
-    url.pathname = '/writer/signin'
+    url.pathname = '/author/signin'
     return NextResponse.redirect(url)
   }
 

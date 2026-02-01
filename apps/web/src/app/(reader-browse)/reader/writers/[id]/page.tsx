@@ -4,7 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 import { getAvatarUrlFromPathServer } from "@/lib/supabase/avatar";
 import BookCard from "@/components/reader/BookCard";
 
-export default async function ReaderWriterProfilePage({
+export default async function ReaderauthorProfilePage({
   params,
 }: {
   params: Promise<{ id: string }>;
@@ -24,7 +24,7 @@ export default async function ReaderWriterProfilePage({
   }
 
   const avatarUrl = await getAvatarUrlFromPathServer(profile.avatar_url);
-  const displayName = profile.display_name || profile.username || "Writer";
+  const displayName = profile.display_name || profile.username || "author";
 
   const { data: books } = await supabase
     .from("books")

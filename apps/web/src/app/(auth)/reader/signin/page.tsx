@@ -52,9 +52,9 @@ export default function ReaderSignIn() {
     } else {
       const supabase = createClient();
       const { data: { user } } = await supabase.auth.getUser();
-      let nextRole: "writer" | "reader" | null = null;
+      let nextRole: "author" | "reader" | null = null;
       const metaRole = user?.user_metadata?.active_role ?? user?.user_metadata?.role;
-      if (metaRole === "writer" || metaRole === "reader") {
+      if (metaRole === "author" || metaRole === "reader") {
         nextRole = metaRole;
       }
 
@@ -66,15 +66,15 @@ export default function ReaderSignIn() {
           .maybeSingle();
 
         const preferenceRole = (profile?.preferences as { active_role?: string } | null)?.active_role;
-        if (preferenceRole === "writer" || preferenceRole === "reader") {
+        if (preferenceRole === "author" || preferenceRole === "reader") {
           nextRole = preferenceRole;
-        } else if (profile?.role === "writer" || profile?.role === "reader") {
+        } else if (profile?.role === "author" || profile?.role === "reader") {
           nextRole = profile.role;
         }
       }
 
       const resolvedRole = nextRole ?? "reader";
-      router.push(resolvedRole === "reader" ? "/reader/home" : "/writer/home");
+      router.push(resolvedRole === "reader" ? "/reader/home" : "/author/home");
     }
   };
 

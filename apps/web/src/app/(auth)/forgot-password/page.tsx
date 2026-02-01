@@ -119,7 +119,7 @@ export default function ForgotPassword() {
 
           <p className="mt-8 text-sm text-slate-600 dark:text-white/40">
             Remembered it?{" "}
-            <Link href="/writer/signin" className="text-slate-900 transition hover:text-slate-700 dark:text-white/70 dark:hover:text-white">
+            <Link href="/author/signin" className="text-slate-900 transition hover:text-slate-700 dark:text-white/70 dark:hover:text-white">
               Back to sign in
             </Link>
           </p>

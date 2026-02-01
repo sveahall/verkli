@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 
-type FooterVariant = "reader" | "writer";
+type FooterVariant = "reader" | "author";
 
 const linkClass =
   "transition-colors hover:text-slate-900 dark:hover:text-white/80";

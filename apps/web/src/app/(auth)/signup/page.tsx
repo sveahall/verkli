@@ -1,9 +1,9 @@
 import { redirect } from "next/navigation";
 
 /**
- * Generic /signup redirects to writer sign-up.
- * Writer landing and nav use /writer/signup; reader use /reader/signup.
+ * Generic /signup redirects to author sign-up.
+ * author landing and nav use /author/signup; reader use /reader/signup.
  */
 export default function SignUpRedirect() {
-  redirect("/writer/signup");
+  redirect("/author/signup");
 }

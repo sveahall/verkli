@@ -3,7 +3,7 @@
 import { useEffect, useRef } from "react";
 
 /**
- * Typewriter mode: keeps cursor vertically centered with smooth scroll.
+ * Typeauthor mode: keeps cursor vertically centered with smooth scroll.
  * Listens to selectionchange and scrolls so the caret stays in view center.
  */
 export default function EditorContentWrapper({
@@ -59,7 +59,7 @@ export default function EditorContentWrapper({
   if (!active) return <>{children}</>;
 
   /* Editor first so it's visible and clickable on load.
-     Bottom spacer gives room for typewriter scroll to center cursor. */
+     Bottom spacer gives room for typeauthor scroll to center cursor. */
   return (
     <div
       ref={scrollRef}

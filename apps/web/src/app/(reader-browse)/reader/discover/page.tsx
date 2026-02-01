@@ -168,7 +168,7 @@ export default async function ReaderDiscoverPage({
     supabase
       .from("profiles")
       .select("user_id, display_name, username, avatar_url, bio")
-      .eq("role", "writer")
+      .eq("role", "author")
       .eq("is_public", true)
       .limit(12)
       .then((r) => r.data ?? []),
@@ -179,13 +179,13 @@ export default async function ReaderDiscoverPage({
     enrichBooksWithAuthor(supabase, newBooksRaw),
   ]);
 
-  const writersWithAvatars = await Promise.all(
+  const authorsWithAvatars = await Promise.all(
     profiles.map(async (p) => ({
       id: p.user_id,
-      name: p.display_name || p.username || "Writer",
+      name: p.display_name || p.username || "author",
       genre: "Storyteller",
       avatar: await getAvatarUrlFromPathServer(p.avatar_url),
-      href: `/reader/writers/${p.user_id}`,
+      href: `/reader/authors/${p.user_id}`,
     }))
   );
 
@@ -196,7 +196,7 @@ export default async function ReaderDiscoverPage({
       <PageHeader
         eyebrow="Discover"
         title="Find your next read"
-        subtitle={discoveryEnabled ? "Browse by language, featured picks, and curated lists. No signup required." : "Browse writers. No signup required."}
+        subtitle={discoveryEnabled ? "Browse by language, featured picks, and curated lists. No signup required." : "Browse authors. No signup required."}
         actions={
           <div className="flex flex-wrap items-center gap-2">
             <span className="text-xs font-medium text-slate-500 dark:text-white/50">Language</span>
@@ -304,17 +304,17 @@ export default async function ReaderDiscoverPage({
         </section>
       )}
 
-      {writersWithAvatars.length > 0 && (
+      {authorsWithAvatars.length > 0 && (
         <section className="space-y-5">
-          <h2 className="text-section-title">Public writers</h2>
+          <h2 className="text-section-title">Public authors</h2>
           <div className="grid gap-6 md:grid-cols-2">
-            {writersWithAvatars.map((writer) => (
+            {authorsWithAvatars.map((author) => (
               <AuthorCard
-                key={writer.id}
-                name={writer.name}
-                genre={writer.genre}
-                avatar={writer.avatar}
-                href={writer.href}
+                key={author.id}
+                name={author.name}
+                genre={author.genre}
+                avatar={author.avatar}
+                href={author.href}
               />
             ))}
           </div>
