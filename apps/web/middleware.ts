@@ -1,5 +1,6 @@
 import { createServerClient, type CookieOptions } from '@supabase/ssr'
 import { NextResponse, type NextRequest } from 'next/server'
+import { isBetaUser } from '@/lib/auth/beta'
 
 /**
  * Ordningen är kritisk: waitlist-låset måste avgöras och eventuellt returnera
@@ -58,6 +59,37 @@ export async function middleware(request: NextRequest) {
   )
 
   const { data: { user } } = await supabase.auth.getUser()
+
+  // -------------------------------------------------------------------------
+  // Beta lock (FAS 5): when BETA_LOCK=true, only /waitlist and /auth allowed
+  // unless user has beta_enabled in user_flags.
+  // -------------------------------------------------------------------------
+  const betaLock = process.env.BETA_LOCK === 'true'
+  if (betaLock) {
+    const p = request.nextUrl.pathname
+    const isWaitlist = p === '/waitlist' || p.startsWith('/waitlist/')
+    const isAuth = p === '/auth' || p.startsWith('/auth/')
+    const isApiWaitlist = p === '/api/waitlist' || p.startsWith('/api/waitlist/')
+    const isApiAuth = p === '/api/auth' || p.startsWith('/api/auth/')
+    const isNext = p.startsWith('/_next/')
+    const isKnownRoot = ['/favicon.ico', '/favicon.svg', '/robots.txt'].includes(p)
+    const isRootAssetWithExt = /^\/[^/]+\.[a-z0-9]+$/i.test(p)
+
+    const allowedPath = isWaitlist || isAuth || isApiWaitlist || isApiAuth || isNext || isKnownRoot || isRootAssetWithExt
+    const isBeta = user ? await isBetaUser(supabase, user.id) : false
+
+    if (!allowedPath && !isBeta) {
+      if (p.startsWith('/api/')) {
+        return new NextResponse(JSON.stringify({ error: 'Beta access required' }), {
+          status: 403,
+          headers: { 'Content-Type': 'application/json' },
+        })
+      }
+      const url = request.nextUrl.clone()
+      url.pathname = '/waitlist'
+      return NextResponse.redirect(url, 307)
+    }
+  }
 
   // -------------------------------------------------------------------------
   // Route protection: /author/* and /reader/* require authentication
