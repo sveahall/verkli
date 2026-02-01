@@ -2,6 +2,8 @@
 
 import { useState, useEffect } from "react";
 import AuroraBackground from "@/components/AuroraBackground";
+import { apiFetch } from "@/lib/api/client";
+import { track } from "@/lib/analytics/client";
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -63,7 +65,7 @@ function WaitlistForm({
     setState("loading");
     setErrorMessage("");
     try {
-      const res = await fetch("/api/waitlist", {
+      const data = await apiFetch<{ ok: boolean; position?: number; id?: string; alreadyExists?: boolean }>("/api/waitlist", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -72,20 +74,9 @@ function WaitlistForm({
           source: hiddenSource ?? "waitlist_page",
         }),
       });
-      const data = await res.json().catch(() => ({}));
-
-      if (!res.ok) {
-        setErrorMessage(data.error || "Something went wrong. Try again in a moment.");
-        setState("error");
-        return;
-      }
-      if (data.ok !== true) {
-        setErrorMessage(data.error || "Something went wrong. Try again in a moment.");
-        setState("error");
-        return;
-      }
       const position = data.position ?? 0;
       const isDuplicate = data.alreadyExists === true;
+      track("waitlist_submitted", { list: "writer" });
       try {
         localStorage.setItem(author_STORAGE_EMAIL, normalized);
         localStorage.setItem(author_STORAGE_STATUS, isDuplicate ? "exists" : "success");
@@ -100,8 +91,8 @@ function WaitlistForm({
         setState("success");
         onSuccess(position);
       }
-    } catch {
-      setErrorMessage("Something went wrong. Try again in a moment.");
+    } catch (err) {
+      setErrorMessage(err instanceof Error ? err.message : "Something went wrong. Try again in a moment.");
       setState("error");
     }
   };
@@ -237,25 +228,14 @@ function ReaderWaitlistForm({
     setState("loading");
     setErrorMessage("");
     try {
-      const res = await fetch("/api/waitlist/reader", {
+      const data = await apiFetch<{ ok: boolean; position?: number; id?: string; alreadyExists?: boolean }>("/api/waitlist/reader", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email: trimmed, source: "waitlist_page" }),
       });
-      const data = await res.json().catch(() => ({}));
-
-      if (!res.ok) {
-        setErrorMessage(data.error || "Something went wrong. Try again in a moment.");
-        setState("error");
-        return;
-      }
-      if (data.ok !== true) {
-        setErrorMessage(data.error || "Something went wrong. Try again in a moment.");
-        setState("error");
-        return;
-      }
       const position = data.position ?? 0;
       const isDuplicate = data.alreadyExists === true;
+      track("waitlist_submitted", { list: "reader" });
       try {
         localStorage.setItem(READER_STORAGE_EMAIL, normalized);
         localStorage.setItem(READER_STORAGE_STATUS, isDuplicate ? "exists" : "success");
@@ -270,8 +250,8 @@ function ReaderWaitlistForm({
         setState("success");
         onSuccess(position);
       }
-    } catch {
-      setErrorMessage("Something went wrong. Try again in a moment.");
+    } catch (err) {
+      setErrorMessage(err instanceof Error ? err.message : "Something went wrong. Try again in a moment.");
       setState("error");
     }
   };

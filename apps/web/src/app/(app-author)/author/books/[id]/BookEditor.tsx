@@ -5,6 +5,8 @@ import { useState, useCallback, useRef, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { uploadBookCover } from "@/lib/supabase/storage";
+import { apiFetch } from "@/lib/api/client";
+import { track } from "@/lib/analytics/client";
 import TiptapEditor from "@/components/editor/TiptapEditor";
 import AuthorStatsBar from "@/components/editor/AuthorStatsBar";
 import CommandPalette from "@/components/editor/CommandPalette";
@@ -110,22 +112,20 @@ export default function BookEditor({ book, chapters: initialChapters, latestAudi
     if (isPublishing) return;
     setIsPublishing(true);
     try {
-      const res = await fetch(`/api/books/${book.id}/publish`, { method: "POST" });
-      const data = await res.json();
-      if (!res.ok) {
-        alert(data.error || "Failed to publish");
-        return;
-      }
+      await apiFetch(`/api/books/${book.id}/publish`, { method: "POST" });
+      track("book_published", {}, "writer");
       router.refresh();
     } catch (err) {
-      if (process.env.NODE_ENV === "development") {
-        console.error("[publish failed]", err);
-      }
-      alert("Failed to publish");
+      const msg = err instanceof Error ? err.message : "Failed to publish";
+      alert(msg);
     } finally {
       setIsPublishing(false);
     }
   };
+
+  useEffect(() => {
+    track("editor_opened", {}, "writer");
+  }, []);
 
   useEffect(() => {
     if (book.cover_image && coverPreviewUrl && book.cover_image === coverPreviewUrl) {
@@ -216,15 +216,10 @@ export default function BookEditor({ book, chapters: initialChapters, latestAudi
     setAudiobookError(null);
     setIsGeneratingAudiobook(true);
     try {
-      const res = await fetch(`/api/books/${book.id}/audiobook/generate`, { method: "POST" });
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok) {
-        setAudiobookError(data.error ?? "Generate failed");
-        return;
-      }
+      await apiFetch(`/api/books/${book.id}/audiobook/generate`, { method: "POST" });
       router.refresh();
-    } catch {
-      setAudiobookError("Generate failed");
+    } catch (err) {
+      setAudiobookError(err instanceof Error ? err.message : "Generate failed");
     } finally {
       setIsGeneratingAudiobook(false);
     }
@@ -238,19 +233,14 @@ export default function BookEditor({ book, chapters: initialChapters, latestAudi
     if (isGeneratingMarketing) return;
     setIsGeneratingMarketing(true);
     try {
-      const res = await fetch(`/api/books/${book.id}/marketing/generate`, {
+      await apiFetch(`/api/books/${book.id}/marketing/generate`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ language: marketingLanguage, channel: marketingChannel }),
       });
-      if (!res.ok) {
-        const data = await res.json().catch(() => ({}));
-        alert(data.error ?? "Generate failed");
-        return;
-      }
       router.refresh();
-    } catch {
-      alert("Generate failed");
+    } catch (err) {
+      alert(err instanceof Error ? err.message : "Generate failed");
     } finally {
       setIsGeneratingMarketing(false);
     }

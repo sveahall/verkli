@@ -2,27 +2,43 @@ import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { assertPublicEnv } from "@/lib/env";
 import { normalizeLanguage } from "@/lib/languages";
+import { wrapApiRoute, jsonError, ERROR_CODES } from "@/lib/api/errors";
+import { createBookBodySchema, firstZodMessage } from "@/lib/api/schemas";
+import { checkRateLimit, rateLimitKey } from "@/lib/api/rate-limit";
+import { auditLog } from "@/lib/api/audit";
 
-export async function POST(request: Request) {
+async function postHandler(
+  request: Request,
+  ctx: { requestId: string }
+): Promise<Response> {
+  const key = rateLimitKey(request, "/api/books");
+  if (!checkRateLimit(key, { windowMs: 60 * 1000, max: 10 }).allowed) {
+    return jsonError(ERROR_CODES.RATE_LIMIT, "Too many requests. Try again later.", ctx.requestId, 429);
+  }
   assertPublicEnv();
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
 
   if (!user) {
-    return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
+    return jsonError(ERROR_CODES.NOT_AUTHENTICATED, "Not authenticated", ctx.requestId, 401);
   }
 
-  const body = await request.json().catch(() => ({}));
-  const title = String(body?.title ?? "Untitled").trim() || "Untitled";
-  const description = body?.description != null ? String(body.description).trim() || null : null;
-  const language = normalizeLanguage(body?.language);
-  const original_source = body?.original_source != null ? String(body.original_source).trim() || null : null;
-  const original_url = body?.original_url != null ? String(body.original_url).trim() || null : null;
-  const is_translation = Boolean(body?.is_translation);
-  const original_book_id =
-    body?.original_book_id != null && String(body.original_book_id).trim() !== ""
-      ? String(body.original_book_id).trim()
-      : null;
+  const raw = await request.json().catch(() => ({}));
+  const parsed = createBookBodySchema.safeParse(raw ?? {});
+  if (!parsed.success) {
+    return jsonError(ERROR_CODES.VALIDATION_ERROR, firstZodMessage(parsed), ctx.requestId, 400);
+  }
+  const {
+    title: rawTitle,
+    description,
+    language: langInput,
+    original_source,
+    original_url,
+    is_translation,
+    original_book_id,
+  } = parsed.data;
+  const title = rawTitle || "Untitled";
+  const language = normalizeLanguage(langInput);
   const translation_status: "draft" | null = is_translation ? "draft" : null;
 
   const slug =
@@ -52,11 +68,11 @@ export async function POST(request: Request) {
     .single();
 
   if (bookError) {
-    return NextResponse.json({ error: bookError.message }, { status: 500 });
+    return jsonError(ERROR_CODES.INTERNAL_ERROR, "Failed to create book", ctx.requestId, 500);
   }
 
   if (!book?.id) {
-    return NextResponse.json({ error: "Book created but no ID returned" }, { status: 500 });
+    return jsonError(ERROR_CODES.INTERNAL_ERROR, "Book created but no ID returned", ctx.requestId, 500);
   }
 
   const { error: chapterError } = await supabase.from("chapters").insert({
@@ -67,11 +83,20 @@ export async function POST(request: Request) {
   });
 
   if (chapterError) {
-    return NextResponse.json(
-      { error: "Book created but default chapter failed: " + chapterError.message },
-      { status: 500 }
-    );
+    return jsonError(ERROR_CODES.INTERNAL_ERROR, "Default chapter failed", ctx.requestId, 500);
   }
 
-  return NextResponse.json({ id: book.id });
+  await auditLog({
+    actorUserId: user.id,
+    actorRole: "writer",
+    action: "book.create",
+    entityType: "book",
+    entityId: book.id,
+    requestId: ctx.requestId,
+    meta: { status: "DRAFT" },
+  }).catch(() => {});
+
+  return NextResponse.json({ id: book.id }, { headers: { "x-request-id": ctx.requestId } });
 }
+
+export const POST = wrapApiRoute(postHandler);

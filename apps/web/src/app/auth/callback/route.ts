@@ -32,8 +32,9 @@ export async function GET(request: Request) {
         }
       }
 
-      const redirectPath = role === "author" ? "/author/home" : role === "reader" ? "/reader/home" : "/";
-      return NextResponse.redirect(`${origin}${redirectPath}`);
+      const basePath = role === "author" ? "/author/home" : role === "reader" ? "/reader/home" : "/";
+      const redirectPath = `${origin}${basePath}?signed_in=1`;
+      return NextResponse.redirect(redirectPath);
     }
   }
 

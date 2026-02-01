@@ -3,6 +3,8 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { LANGUAGE_OPTIONS, type SupportedLanguage } from "@/lib/languages";
+import { apiFetch } from "@/lib/api/client";
+import { track } from "@/lib/analytics/client";
 
 export default function CreateBookForm() {
   const router = useRouter();
@@ -19,7 +21,7 @@ export default function CreateBookForm() {
     if (loading) return;
     setLoading(true);
     try {
-      const res = await fetch("/api/books", {
+      const data = await apiFetch<{ id: string }>("/api/books", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -31,15 +33,11 @@ export default function CreateBookForm() {
           original_book_id: isTranslation && originalBookId.trim() ? originalBookId.trim() : undefined,
         }),
       });
-      const data = await res.json();
-      if (!res.ok) {
-        alert(data.error || "Failed to create book");
-        setLoading(false);
-        return;
-      }
+      track("book_created", {}, "writer");
       router.push(`/author/books/${data.id}`);
     } catch (err) {
-      alert("Failed to create book");
+      const msg = err instanceof Error ? err.message : "Failed to create book";
+      alert(msg);
       setLoading(false);
     }
   };

@@ -89,6 +89,7 @@ export const NAV_CONFIG: Record<NavVariant, NavConfig> = {
           { label: "Overview", href: "/author/home" },
           { label: "Stats", href: "/author/stats" },
           { label: "Profile preview", href: "/author/profile" },
+          { label: "Billing", href: "/account/billing" },
         ],
       },
       {

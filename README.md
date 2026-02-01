@@ -62,3 +62,51 @@ curl -X POST http://localhost:3000/api/ai/text-to-video \
 - `RUNWAY_AUDIO` – `1` eller `true` för ljud
 
 **Var hittar jag videorna?** De sparas inte i en mapp. Runway returnerar **länkar** (URL:er) i svaret. CLI skriver ut dem i terminalen efter körning – öppna länken i webbläsaren eller ladda ner filen. API:et returnerar samma URL:er i `output` (array). Länkarna går ut efter en tid.
+
+---
+
+## Backups
+
+Databasen körs på Supabase (PostgreSQL). Rekommenderad rutin:
+
+### Skapa backup (pg_dump)
+
+Använd anslutningssträngen från Supabase Dashboard → Project Settings → Database (Connection string, URI).
+
+```bash
+# Ersätt <CONNECTION_URI> med din Supabase DB-URI (inkl. lösenord)
+pg_dump "<CONNECTION_URI>" --no-owner --no-acl -F c -f backup_$(date +%Y%m%d_%H%M%S).dump
+```
+
+Alternativt med Supabase CLI (om projektet är länkat):
+
+```bash
+cd apps/web
+npx supabase db dump -f backup.sql
+```
+
+### Återställ till staging
+
+```bash
+# Med custom format (.dump)
+pg_restore --clean --if-exists --no-owner --no-acl -d "<STAGING_DB_URI>" backup_YYYYMMDD_HHMMSS.dump
+
+# Med plain SQL (.sql)
+psql "<STAGING_DB_URI>" -f backup.sql
+```
+
+### Verifiera efter restore
+
+1. Kör migrationer om de inte redan är tillämpade:
+   ```bash
+   cd apps/web
+   npx supabase db push
+   # eller: npx supabase migration up
+   ```
+2. Starta appen och kontrollera health:
+   ```bash
+   npm run build && npm run start
+   curl -s http://localhost:3000/api/health
+   # Förväntat: {"status":"ok"}
+   ```
+3. Om health returnerar `503` eller `db: "down"`, kontrollera DB-anslutning och RLS/migrationer.

@@ -3,22 +3,35 @@ import { createClient } from "@/lib/supabase/server";
 import { assertPublicEnv } from "@/lib/env";
 import { isAudiobookEnabled } from "@/lib/flags";
 import { normalizeLanguage } from "@/lib/languages";
+import { wrapApiRoute, jsonError, ERROR_CODES, type ApiRouteContext } from "@/lib/api/errors";
+import { bookIdParamSchema, firstZodMessage } from "@/lib/api/schemas";
+import { checkRateLimit, rateLimitKey } from "@/lib/api/rate-limit";
 
-export async function POST(
-  _request: Request,
-  { params }: { params: Promise<{ id: string }> }
-) {
+async function postHandler(
+  request: Request,
+  ctx: { requestId: string },
+  routeContext: ApiRouteContext
+): Promise<Response> {
+  const key = rateLimitKey(request, "/api/books/[id]/audiobook/generate");
+  if (!checkRateLimit(key, { windowMs: 60 * 1000, max: 5 }).allowed) {
+    return jsonError(ERROR_CODES.RATE_LIMIT, "Too many requests. Try again later.", ctx.requestId, 429);
+  }
   assertPublicEnv();
   if (!isAudiobookEnabled()) {
-    return NextResponse.json({ error: "Audiobook feature is disabled" }, { status: 403 });
+    return jsonError(ERROR_CODES.FORBIDDEN, "Audiobook feature is disabled", ctx.requestId, 403);
   }
-  const { id: bookId } = await params;
+  const rawParams = await (routeContext.params ?? Promise.resolve({}));
+  const paramResult = bookIdParamSchema.safeParse(rawParams);
+  if (!paramResult.success) {
+    return jsonError(ERROR_CODES.VALIDATION_ERROR, firstZodMessage(paramResult), ctx.requestId, 400);
+  }
+  const { id: bookId } = paramResult.data;
 
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
 
   if (!user) {
-    return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
+    return jsonError(ERROR_CODES.NOT_AUTHENTICATED, "Not authenticated", ctx.requestId, 401);
   }
 
   const { data: book, error: bookFetchError } = await supabase
@@ -28,10 +41,10 @@ export async function POST(
     .maybeSingle();
 
   if (bookFetchError) {
-    return NextResponse.json({ error: bookFetchError.message }, { status: 500 });
+    return jsonError(ERROR_CODES.INTERNAL_ERROR, "Failed to load book", ctx.requestId, 500);
   }
   if (!book || book.author_id !== user.id) {
-    return NextResponse.json({ error: "Book not found or access denied" }, { status: 404 });
+    return jsonError(ERROR_CODES.NOT_FOUND, "Book not found or access denied", ctx.requestId, 404);
   }
 
   const { error: updateGeneratingError } = await supabase
@@ -40,7 +53,7 @@ export async function POST(
     .eq("id", bookId);
 
   if (updateGeneratingError) {
-    return NextResponse.json({ error: updateGeneratingError.message }, { status: 500 });
+    return jsonError(ERROR_CODES.INTERNAL_ERROR, "Failed to start generation", ctx.requestId, 500);
   }
 
   const language = normalizeLanguage(book.language);
@@ -56,7 +69,7 @@ export async function POST(
 
   if (insertError) {
     await supabase.from("books").update({ audiobook_status: "failed" }).eq("id", bookId);
-    return NextResponse.json({ error: insertError.message }, { status: 500 });
+    return jsonError(ERROR_CODES.INTERNAL_ERROR, "Failed to create audiobook asset", ctx.requestId, 500);
   }
 
   const { error: updatePublishedError } = await supabase
@@ -66,8 +79,10 @@ export async function POST(
 
   if (updatePublishedError) {
     await supabase.from("books").update({ audiobook_status: "failed" }).eq("id", bookId);
-    return NextResponse.json({ error: updatePublishedError.message }, { status: 500 });
+    return jsonError(ERROR_CODES.INTERNAL_ERROR, "Failed to update status", ctx.requestId, 500);
   }
 
-  return NextResponse.json({ ok: true, audio_url: mockAudioUrl });
+  return NextResponse.json({ ok: true, audio_url: mockAudioUrl }, { headers: { "x-request-id": ctx.requestId } });
 }
+
+export const POST = wrapApiRoute(postHandler);

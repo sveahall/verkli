@@ -58,7 +58,7 @@ export default async function authorDashboardPage() {
         return map;
       }),
     supabase
-      .from("marketing_campaigns")
+      .from("marketing_launch_copy")
       .select("book_id, status, channel, language")
       .in("book_id", bookIds)
       .then((r) => {

@@ -39,7 +39,7 @@ export default async function BookDetailPage({ params }: { params: Promise<{ id:
     .order("order", { ascending: true });
 
   const { data: marketingCampaigns } = await supabase
-    .from("marketing_campaigns")
+    .from("marketing_launch_copy")
     .select("id, book_id, language, channel, status, headline, caption, cta, hashtags, share_url, created_at, updated_at")
     .eq("book_id", book.id);
 

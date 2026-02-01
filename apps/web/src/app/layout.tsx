@@ -3,6 +3,7 @@ import { Inter, Montserrat_Alternates } from "next/font/google";
 import "./globals.css";
 import "../components/GridMotion.css";
 import "../components/GlassSurface.css";
+import { AnalyticsPageView } from "@/components/analytics/AnalyticsPageView";
 
 const inter = Inter({
   variable: "--font-inter",
@@ -40,6 +41,7 @@ export default function RootLayout({
         className={`${inter.variable} ${montserratAlternates.variable} antialiased flex min-h-screen min-h-dvh min-h-svh flex-col`}
       >
         <script dangerouslySetInnerHTML={{ __html: themeScript }} />
+        <AnalyticsPageView />
         {/* Innehåll först i DOM; navbar renderas via route-group layouts */}
         <div className="relative z-0 flex min-h-0 flex-1 flex-col overflow-x-hidden">
           {children}

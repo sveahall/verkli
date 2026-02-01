@@ -1,6 +1,28 @@
 import { createServerClient, type CookieOptions } from '@supabase/ssr'
 import { NextResponse, type NextRequest } from 'next/server'
 
+const MAX_BODY_BYTES = 1024 * 1024 // 1 MB
+
+function ensureRequestId(request: NextRequest, response: NextResponse): NextResponse {
+  const existing = request.headers.get('x-request-id')?.trim()
+  const requestId = existing || crypto.randomUUID()
+  response.headers.set('x-request-id', requestId)
+  return response
+}
+
+function rejectPayloadTooLarge(request: NextRequest): NextResponse | null {
+  const method = request.method?.toUpperCase()
+  if (method !== 'POST' && method !== 'PUT' && method !== 'PATCH') return null
+  const contentLength = request.headers.get('content-length')
+  if (!contentLength) return null
+  const size = parseInt(contentLength, 10)
+  if (Number.isNaN(size) || size <= MAX_BODY_BYTES) return null
+  return new NextResponse(
+    JSON.stringify({ error: { code: 'PAYLOAD_TOO_LARGE', message: 'Request body too large', requestId: request.headers.get('x-request-id') || crypto.randomUUID() } }),
+    { status: 413, headers: { 'Content-Type': 'application/json' } }
+  )
+}
+
 /**
  * Ordningen är kritisk: waitlist-låset måste avgöras och eventuellt returnera
  * redirect INNAN Supabase initieras. Annars körs createServerClient och
@@ -9,6 +31,9 @@ import { NextResponse, type NextRequest } from 'next/server'
  * därefter (endast när låset är av) Supabase.
  */
 export async function middleware(request: NextRequest) {
+  const tooLarge = rejectPayloadTooLarge(request)
+  if (tooLarge) return ensureRequestId(request, tooLarge)
+
   const waitlistOnly = process.env.NEXT_PUBLIC_WAITLIST_ONLY === 'true'
 
   if (waitlistOnly) {
@@ -23,18 +48,21 @@ export async function middleware(request: NextRequest) {
     if (!allowed) {
       const url = request.nextUrl.clone()
       url.pathname = '/waitlist'
-      return NextResponse.redirect(url, 307)
+      return ensureRequestId(request, NextResponse.redirect(url, 307))
     }
     // Tillåten path när låset är på: returnera next direkt. Supabase ska aldrig köras här.
-    return NextResponse.next()
+    return ensureRequestId(request, NextResponse.next())
   }
 
   // -------------------------------------------------------------------------
   // När waitlist-låset är av: Supabase auth (session/cookies) som vanligt.
   // -------------------------------------------------------------------------
-  let supabaseResponse = NextResponse.next({
+  let supabaseResponse = ensureRequestId(
     request,
-  })
+    NextResponse.next({
+      request,
+    })
+  )
 
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -91,14 +119,14 @@ export async function middleware(request: NextRequest) {
   if (pathname.startsWith('/author') && !isAuthorPublic && !user) {
     const url = request.nextUrl.clone()
     url.pathname = '/author/signin'
-    return NextResponse.redirect(url)
+    return ensureRequestId(request, NextResponse.redirect(url))
   }
 
   // Protect all /reader/* routes except public ones
   if (pathname.startsWith('/reader') && !isReaderPublic && !user) {
     const url = request.nextUrl.clone()
     url.pathname = '/reader/signin'
-    return NextResponse.redirect(url)
+    return ensureRequestId(request, NextResponse.redirect(url))
   }
 
   return supabaseResponse

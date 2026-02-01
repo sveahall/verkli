@@ -5,6 +5,7 @@ import { createPortal } from "react-dom";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import type { User } from "@supabase/supabase-js";
+import { apiFetch } from "@/lib/api/client";
 
 const USER_MENU_WIDTH = 280;
 
@@ -70,25 +71,16 @@ export default function UserMenu({ user, onSignOut, currentRole = "author" }: Us
     const nextRole = currentRole === "author" ? "reader" : "author";
 
     try {
-      const response = await fetch("/api/auth/active-role", {
+      await apiFetch("/api/auth/active-role", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ role: nextRole }),
       });
-
-      if (!response.ok) {
-        const payload = await response.json().catch(() => ({}));
-        console.error("Error updating role:", payload);
-        setToastMessage("Could not switch role. Try again.");
-        return;
-      }
-
-      // Refresh router to clear cache and redirect
       router.refresh();
       router.push(currentRole === "author" ? "/reader/home" : "/author/home");
     } catch (error) {
-      console.error("Error switching role:", error);
-      setToastMessage("Could not switch role. Try again.");
+      const msg = error instanceof Error ? error.message : "Could not switch role. Try again.";
+      setToastMessage(msg);
     }
   };
 
