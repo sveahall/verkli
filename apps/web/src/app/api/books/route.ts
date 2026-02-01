@@ -14,6 +14,9 @@ export async function POST(request: Request) {
   const body = await request.json().catch(() => ({}));
   const title = String(body?.title ?? "Untitled").trim() || "Untitled";
   const description = body?.description != null ? String(body.description).trim() || null : null;
+  const language = body?.language != null ? String(body.language).trim() || "en" : "en";
+  const original_source = body?.original_source != null ? String(body.original_source).trim() || null : null;
+  const original_url = body?.original_url != null ? String(body.original_url).trim() || null : null;
 
   const slug =
     title
@@ -31,6 +34,9 @@ export async function POST(request: Request) {
       slug,
       author_id: user.id,
       status: "DRAFT",
+      language,
+      original_source: original_source || null,
+      original_url: original_url || null,
     })
     .select("id")
     .single();

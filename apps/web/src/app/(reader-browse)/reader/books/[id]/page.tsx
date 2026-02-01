@@ -1,7 +1,45 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import type { Metadata } from "next";
 import StartReadingLink from "./StartReadingLink";
+
+const LANGUAGE_NAMES: Record<string, string> = {
+  en: "English",
+  es: "Spanish",
+  fr: "French",
+  de: "German",
+  it: "Italian",
+  pt: "Portuguese",
+  sv: "Swedish",
+};
+
+async function getBook(id: string) {
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from("books")
+    .select("id, title, description, cover_image, status, author_id, language, original_url")
+    .eq("id", id)
+    .maybeSingle();
+  return data;
+}
+
+export async function generateMetadata({ params }: { params: Promise<{ id: string }> }): Promise<Metadata> {
+  const { id } = await params;
+  const book = await getBook(id);
+  if (!book || (book.status && book.status !== "PUBLISHED")) {
+    return { title: "Book not found | Verkli" };
+  }
+  const langCode = (book as { language?: string | null }).language ?? "en";
+  const languageName = LANGUAGE_NAMES[langCode] ?? langCode;
+  const title = `${book.title} in ${languageName}`;
+  const description =
+    `Read ${book.title} in ${languageName} on Verkli. ${(book.description ?? "").slice(0, 120)}${(book.description ?? "").length > 120 ? "…" : ""}`.trim();
+  return {
+    title: `${title} | Verkli`,
+    description: description || `Read ${book.title} in ${languageName} on Verkli.`,
+  };
+}
 
 export default async function ReaderBookDetail({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -10,7 +48,7 @@ export default async function ReaderBookDetail({ params }: { params: Promise<{ i
 
   const { data: book } = await supabase
     .from("books")
-    .select("id, title, description, cover_image, status, author_id")
+    .select("id, title, description, cover_image, status, author_id, language, original_url")
     .eq("id", id)
     .maybeSingle();
 
@@ -46,6 +84,9 @@ export default async function ReaderBookDetail({ params }: { params: Promise<{ i
   }
 
   const authorName = authorProfile?.display_name || authorProfile?.username || "Author";
+  const langCode = (book as { language?: string | null }).language ?? "en";
+  const languageName = LANGUAGE_NAMES[langCode] ?? langCode;
+  const originalUrl = (book as { original_url?: string | null }).original_url;
 
   return (
     <main className="min-h-screen bg-slate-50 text-slate-900 dark:bg-[#050508] dark:text-white">
@@ -83,7 +124,14 @@ export default async function ReaderBookDetail({ params }: { params: Promise<{ i
               {chaptersCount ?? 0} chapters
             </span>
             <span className="rounded-full border border-black/10 bg-black/[0.02] px-3 py-1 dark:border-white/10 dark:bg-white/5">Published</span>
+            <span className="rounded-full border border-emerald-600/30 bg-emerald-500/10 px-3 py-1 text-emerald-700 dark:border-emerald-400/30 dark:bg-emerald-500/10 dark:text-emerald-300" aria-label={`Language: ${languageName}`}>
+              {languageName}
+            </span>
           </div>
+
+          <p className="mt-4 text-[14px] font-medium text-slate-700 dark:text-white/80">
+            Read in {languageName} on Verkli
+          </p>
 
           <p className="mt-6 text-[15px] leading-relaxed text-slate-600 dark:text-white/60">
             {book.description || "No description yet."}
@@ -95,6 +143,17 @@ export default async function ReaderBookDetail({ params }: { params: Promise<{ i
               firstChapterId={firstChapter?.id ?? null}
               serverChapterId={user ? lastChapterId : null}
             />
+            {originalUrl && (
+              <a
+                href={originalUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-2 rounded-full border border-slate-300 bg-white px-4 py-2.5 text-sm font-medium text-slate-700 transition hover:bg-slate-50 dark:border-white/20 dark:bg-white/10 dark:text-white dark:hover:bg-white/15"
+              >
+                Original on Amazon
+                <span aria-hidden>↗</span>
+              </a>
+            )}
           </div>
         </div>
       </section>

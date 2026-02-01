@@ -25,6 +25,9 @@ type Book = {
   description: string | null;
   cover_image: string | null;
   status: string;
+  language?: string | null;
+  original_source?: string | null;
+  original_url?: string | null;
 };
 
 type Props = {
@@ -52,6 +55,9 @@ export default function BookEditor({ book, chapters: initialChapters }: Props) {
   const [coverUploading, setCoverUploading] = useState(false);
   const [coverError, setCoverError] = useState<string | null>(null);
   const [coverPreviewUrl, setCoverPreviewUrl] = useState<string | null>(null);
+  const [originalUrl, setOriginalUrl] = useState(book.original_url ?? "");
+  const [launchCopy, setLaunchCopy] = useState<string | null>(null);
+  const [copyFeedback, setCopyFeedback] = useState(false);
   const savingRef = useRef(false);
   const coverInputRef = useRef<HTMLInputElement>(null);
 
@@ -131,6 +137,47 @@ export default function BookEditor({ book, chapters: initialChapters }: Props) {
     },
     [book.id, router]
   );
+
+  const handleOriginalUrlBlur = useCallback(async () => {
+    const val = originalUrl.trim() || null;
+    if (val === (book.original_url ?? "")) return;
+    const supabase = createClient();
+    const { error } = await supabase.from("books").update({ original_url: val }).eq("id", book.id);
+    if (!error) router.refresh();
+  }, [book.id, book.original_url, originalUrl, router]);
+
+  useEffect(() => {
+    setOriginalUrl(book.original_url ?? "");
+  }, [book.original_url]);
+
+  const LANGUAGE_NAMES: Record<string, string> = {
+    en: "English",
+    es: "Spanish",
+    fr: "French",
+    de: "German",
+    it: "Italian",
+    pt: "Portuguese",
+    sv: "Swedish",
+  };
+
+  const generateLaunchCopy = useCallback(() => {
+    const langName = LANGUAGE_NAMES[book.language ?? "en"] ?? (book.language ?? "en");
+    const baseUrl = typeof window !== "undefined" ? window.location.origin : "";
+    const readerUrl = `${baseUrl}/reader/books/${book.id}`;
+    const text = `Just published: ${book.title} in ${langName} on Verkli. Read it here: ${readerUrl}`;
+    setLaunchCopy(text);
+  }, [book.id, book.title, book.language]);
+
+  const copyLaunchCopyToClipboard = useCallback(async () => {
+    if (!launchCopy) return;
+    try {
+      await navigator.clipboard.writeText(launchCopy);
+      setCopyFeedback(true);
+      setTimeout(() => setCopyFeedback(false), 2000);
+    } catch {
+      setCopyFeedback(false);
+    }
+  }, [launchCopy]);
 
   useEffect(() => {
     const stored = localStorage.getItem(STORAGE_PRESET);
@@ -334,7 +381,7 @@ export default function BookEditor({ book, chapters: initialChapters }: Props) {
               disabled={isPublishing || chapters.length === 0}
               className="rounded-full bg-emerald-600 px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-emerald-700 disabled:opacity-50"
             >
-              {isPublishing ? "Publishing..." : "Publish"}
+              {isPublishing ? "Publishing..." : "Publish your translation"}
             </button>
           )}
         </div>
@@ -379,6 +426,65 @@ export default function BookEditor({ book, chapters: initialChapters }: Props) {
                   </p>
                 )}
               </div>
+            </div>
+
+            <div className="rounded-xl border border-slate-200 bg-slate-50/50 p-5 dark:border-white/10 dark:bg-white/5">
+              <h2 className="mb-3 text-base font-semibold text-slate-900 dark:text-white">Original</h2>
+              <label htmlFor="original-url-editor" className="mb-1 block text-xs text-slate-500 dark:text-white/50">Original available on Amazon</label>
+              <input
+                id="original-url-editor"
+                type="url"
+                value={originalUrl}
+                onChange={(e) => setOriginalUrl(e.target.value)}
+                onBlur={handleOriginalUrlBlur}
+                placeholder="https://..."
+                className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 placeholder:text-slate-400 focus:border-slate-500 focus:outline-none dark:border-white/20 dark:bg-white/10 dark:text-white dark:placeholder:text-white/40"
+              />
+            </div>
+
+            {/* MVP: Audiobook step – UI only. Future: hook TTS/audiobook generation after publish. */}
+            <div className="rounded-xl border border-slate-200 bg-slate-50/50 p-5 dark:border-white/10 dark:bg-white/5">
+              <h2 className="mb-2 text-base font-semibold text-slate-900 dark:text-white">Audiobook</h2>
+              <p className="mb-2 text-sm font-medium text-emerald-600 dark:text-emerald-400">Audiobook ready</p>
+              <p className="text-xs text-slate-600 dark:text-white/60">
+                Audiobook generation is automated after publishing.
+              </p>
+            </div>
+
+            {/* MVP: AI marketing step – mock copy from title + language. Future: optional AI integration. */}
+            <div className="rounded-xl border border-slate-200 bg-slate-50/50 p-5 dark:border-white/10 dark:bg-white/5">
+              <h2 className="mb-3 text-base font-semibold text-slate-900 dark:text-white">Marketing</h2>
+              <button
+                type="button"
+                onClick={generateLaunchCopy}
+                className="mb-3 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-50 dark:border-white/20 dark:bg-white/10 dark:text-white dark:hover:bg-white/15"
+              >
+                Generate launch copy
+              </button>
+              {launchCopy && (
+                <div className="space-y-2">
+                  <p className="text-xs font-medium text-slate-500 dark:text-white/50">Copy ready to post</p>
+                  <p className="whitespace-pre-wrap break-words rounded border border-slate-200 bg-white p-2 text-xs text-slate-700 dark:border-white/10 dark:bg-white/5 dark:text-white/90">
+                    {launchCopy}
+                  </p>
+                  <button
+                    type="button"
+                    onClick={copyLaunchCopyToClipboard}
+                    className="w-full rounded-lg bg-slate-900 px-3 py-2 text-xs font-medium text-white hover:bg-slate-800 dark:bg-white dark:text-slate-900 dark:hover:bg-white/90"
+                  >
+                    {copyFeedback ? "Copied!" : "Copy to clipboard"}
+                  </button>
+                </div>
+              )}
+              <p className="mt-3 text-xs text-slate-500 dark:text-white/50">Reader URL</p>
+              <a
+                href={`/reader/books/${book.id}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="mt-1 block truncate text-xs text-emerald-600 underline dark:text-emerald-400"
+              >
+                /reader/books/{book.id}
+              </a>
             </div>
 
             <div className="rounded-xl border border-slate-200 bg-slate-50/50 p-5 dark:border-white/10 dark:bg-white/5">

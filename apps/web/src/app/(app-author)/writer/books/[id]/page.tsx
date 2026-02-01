@@ -16,7 +16,7 @@ export default async function BookDetailPage({ params }: { params: Promise<{ id:
 
   const { data: book } = await supabase
     .from("books")
-    .select("id, title, description, cover_image, author_id, status")
+    .select("id, title, description, cover_image, author_id, status, language, original_source, original_url")
     .eq("id", id)
     .maybeSingle();
 
