@@ -6,12 +6,7 @@ import ContentGenerator from "@/components/marketing/ContentGenerator";
 import DistributionChannels from "@/components/marketing/DistributionChannels";
 import PerformanceOverview from "@/components/marketing/PerformanceOverview";
 import AutomationTeaser from "@/components/marketing/AutomationTeaser";
-import {
-  campaigns as seedCampaigns,
-  channels as seedChannels,
-  generatorOutputs,
-  metrics as seedMetrics,
-} from "@/lib/marketing/mockData";
+import { generatorOutputs } from "@/lib/marketing/mockData";
 import type { Campaign, Channel, ModuleState } from "@/lib/marketing/types";
 
 const navItems = [
@@ -19,8 +14,12 @@ const navItems = [
   { id: "content", label: "Content", helper: "Hooks + blurbs" },
   { id: "distribution", label: "Distribution", helper: "Channels" },
   { id: "performance", label: "Performance", helper: "Analytics" },
-  { id: "automation", label: "Automation", helper: "Coming soon" },
+  { id: "automation", label: "Automation", helper: "Not available" },
 ];
+
+type MarketingDashboardProps = {
+  initialCampaigns?: Campaign[];
+};
 
 type DashboardSectionProps = {
   id: string;
@@ -47,12 +46,11 @@ function DashboardSection({ id, title, description, action, children }: Dashboar
   );
 }
 
-export default function MarketingDashboard() {
-  // TODO: Replace mock data with marketing service hooks and API state.
-  const [campaigns] = useState<Campaign[]>(seedCampaigns);
-  const [channels, setChannels] = useState<Channel[]>(seedChannels);
+export default function MarketingDashboard({ initialCampaigns = [] }: MarketingDashboardProps) {
+  const [campaigns] = useState<Campaign[]>(initialCampaigns);
+  const [channels, setChannels] = useState<Channel[]>([]);
   const [selectedCampaignId, setSelectedCampaignId] = useState<string | null>(
-    seedCampaigns[0]?.id ?? null
+    initialCampaigns[0]?.id ?? null
   );
 
   const selectedCampaign = useMemo(() => {
@@ -63,6 +61,7 @@ export default function MarketingDashboard() {
   const generatorState: ModuleState = selectedCampaign ? "populated" : "empty";
   const distributionState: ModuleState = channels.length ? "populated" : "empty";
   const performanceState: ModuleState = "empty";
+  const metrics: { id: string; label: string; value: string; change?: string; trend?: "up" | "down" | "flat" }[] = [];
 
   const handleSelectCampaign = (campaign: Campaign) => {
     setSelectedCampaignId(campaign.id);
@@ -179,7 +178,7 @@ export default function MarketingDashboard() {
             title="Performance"
             description="Monitor reach, clicks, and conversions as campaigns go live."
           >
-            <PerformanceOverview metrics={seedMetrics} state={performanceState} />
+            <PerformanceOverview metrics={metrics} state={performanceState} />
           </DashboardSection>
 
           <section id="automation" className="scroll-mt-24">

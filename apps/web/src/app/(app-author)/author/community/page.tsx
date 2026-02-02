@@ -1,13 +1,5 @@
-import PlaceholderPage from "@/components/PlaceholderPage";
-import { NAV_CONFIG } from "@/nav/navConfig";
+import { redirect } from "next/navigation";
 
-export default function Page() {
-  return (
-    <PlaceholderPage
-      title="Community"
-      variantLabel="author"
-      links={NAV_CONFIG.APP_AUTHOR.links}
-      showAuthStatus={true}
-    />
-  );
+export default function AuthorCommunityPage() {
+  redirect("/author/home");
 }

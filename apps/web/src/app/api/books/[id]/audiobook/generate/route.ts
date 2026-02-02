@@ -2,7 +2,6 @@ import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { assertPublicEnv } from "@/lib/env";
 import { isAudiobookEnabled } from "@/lib/flags";
-import { normalizeLanguage } from "@/lib/languages";
 
 export async function POST(
   _request: Request,
@@ -34,40 +33,8 @@ export async function POST(
     return NextResponse.json({ error: "Book not found or access denied" }, { status: 404 });
   }
 
-  const { error: updateGeneratingError } = await supabase
-    .from("books")
-    .update({ audiobook_status: "generating" })
-    .eq("id", bookId);
-
-  if (updateGeneratingError) {
-    return NextResponse.json({ error: updateGeneratingError.message }, { status: 500 });
-  }
-
-  const language = normalizeLanguage(book.language);
-  const mockAudioUrl = `/mock-audio/${bookId}.mp3`;
-
-  const { error: insertError } = await supabase.from("audiobook_assets").insert({
-    book_id: bookId,
-    language,
-    status: "generated",
-    audio_url: mockAudioUrl,
-    duration_seconds: null,
-  });
-
-  if (insertError) {
-    await supabase.from("books").update({ audiobook_status: "failed" }).eq("id", bookId);
-    return NextResponse.json({ error: insertError.message }, { status: 500 });
-  }
-
-  const { error: updatePublishedError } = await supabase
-    .from("books")
-    .update({ audiobook_status: "published" })
-    .eq("id", bookId);
-
-  if (updatePublishedError) {
-    await supabase.from("books").update({ audiobook_status: "failed" }).eq("id", bookId);
-    return NextResponse.json({ error: updatePublishedError.message }, { status: 500 });
-  }
-
-  return NextResponse.json({ ok: true, audio_url: mockAudioUrl });
+  return NextResponse.json(
+    { error: "Audiobook generation is not implemented yet" },
+    { status: 501 }
+  );
 }

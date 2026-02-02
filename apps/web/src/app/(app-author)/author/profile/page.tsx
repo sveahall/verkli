@@ -5,8 +5,6 @@ import { getAvatarUrlFromPathServer } from "@/lib/supabase/avatar";
 import ProfilePage from "@/components/author/profile/ProfilePage";
 import type { Profile } from "@/lib/supabase/types";
 
-const fallbackBio = "Short bio coming soon.";
-
 export default async function authorProfileRoute() {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
@@ -39,7 +37,7 @@ export default async function authorProfileRoute() {
     user.user_metadata?.username ||
     user.email?.split("@")[0] ||
     "author";
-  const bio = profile?.bio || fallbackBio;
+  const bio = profile?.bio?.trim() ?? "";
   const isPublic = profile?.is_public ?? true;
 
   let shelves: Awaited<ReturnType<typeof getShelves>> = [];

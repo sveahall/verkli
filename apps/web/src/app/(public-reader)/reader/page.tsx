@@ -192,7 +192,7 @@ export default function ReaderLanding() {
             </p>
           </div>
 
-          {/* Mobile mockup – reading app preview */}
+          {/* Reading app preview */}
           <div className="flex flex-shrink-0 justify-center lg:justify-end">
             <div className="relative rounded-[2rem] border border-slate-200/80 bg-slate-100/90 p-2 dark:border-white/15 dark:bg-slate-900/90">
               <div className="h-[420px] w-[220px] overflow-hidden rounded-[1.5rem] bg-white dark:bg-slate-950">
