@@ -15,6 +15,8 @@ import { getShelves, createShelf, getStandaloneBooks } from "@/lib/supabase/shel
 import type { ShelfWithDetails } from "@/lib/supabase/shelves-client";
 import type { Book } from "@/lib/supabase/types";
 import type { User } from "@supabase/supabase-js";
+import { getTranslationsEnabled } from "@/lib/flags";
+import { ImportBookModal } from "@/components/import";
 
 const gridImages = [
   "https://images.unsplash.com/photo-1723403804231-f4e9b515fe9d?q=80&w=3870&auto=format&fit=crop&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D",
@@ -487,10 +489,11 @@ function Dashboard({ user }: { user: User }) {
   const [showChoiceModal, setShowChoiceModal] = useState(false);
   const [showShelfModal, setShowShelfModal] = useState(false);
   const [showBookModal, setShowBookModal] = useState(false);
+  const [showImportModal, setShowImportModal] = useState(false);
   const [showReviewShelfModal, setShowReviewShelfModal] = useState(false);
   const [selectedShelfId, setSelectedShelfId] = useState<string | null>(null);
   const [showCreateDropdown, setShowCreateDropdown] = useState(false);
-  
+
   // Shelf form state
   const [shelfForm, setShelfForm] = useState({
     name: "",
@@ -661,7 +664,13 @@ function Dashboard({ user }: { user: User }) {
     setBookForm({ title: "", bookType: "standalone" });
     setShowBookModal(true);
   };
-  
+
+  const handleOpenImportModal = () => {
+    setShowChoiceModal(false);
+    setShowCreateDropdown(false);
+    setShowImportModal(true);
+  };
+
   const handleShelfSubmit = () => {
     // Review shelf before finalizing
     setShowShelfModal(false);
@@ -796,6 +805,16 @@ function Dashboard({ user }: { user: User }) {
           </p>
         </section>
 
+        {/* Translations (feature flag: show Coming soon when disabled) */}
+        {!getTranslationsEnabled() && (
+          <section className="mb-8">
+            <div className="rounded-2xl border border-black/10 dark:border-white/10 bg-black/[0.02] dark:bg-white/[0.04] px-5 py-4">
+              <h3 className="text-[15px] font-semibold text-slate-900 dark:text-white">Translations</h3>
+              <p className="mt-1 text-[14px] text-slate-600 dark:text-white/50">Coming soon.</p>
+            </div>
+          </section>
+        )}
+
         {/* My Library */}
         <section className="mb-20">
           <div className="mb-6 flex items-center justify-between">
@@ -842,8 +861,25 @@ function Dashboard({ user }: { user: User }) {
                       </svg>
                     </div>
                     <div>
-                      <div className="font-medium">Add stand alone book</div>
-                      <div className="text-[12px] text-slate-500 dark:text-white/50">Create a book</div>
+                      <div className="font-medium">Write new book</div>
+                      <div className="text-[12px] text-slate-500 dark:text-white/50">Create a new book</div>
+                    </div>
+                  </button>
+                  <button
+                    onClick={() => {
+                      setShowCreateDropdown(false);
+                      handleOpenImportModal();
+                    }}
+                    className="flex w-full items-center gap-3 rounded-xl px-4 py-3 text-left text-[14px] text-slate-700 dark:text-white/70 transition-colors hover:bg-black/[0.02] dark:hover:bg-white/[0.05] hover:text-slate-900 dark:hover:text-white"
+                  >
+                    <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-[#FCC997]/20 to-[#FEE9A3]/20">
+                      <svg className="h-4 w-4 text-[#FCC997]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+                      </svg>
+                    </div>
+                    <div>
+                      <div className="font-medium">Import book</div>
+                      <div className="text-[12px] text-slate-500 dark:text-white/50">Upload epub, docx, html, txt</div>
                     </div>
                   </button>
                 </div>
@@ -879,9 +915,9 @@ function Dashboard({ user }: { user: User }) {
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
                     </svg>
                   </div>
-                  <h3 className="mb-2 text-[20px] font-semibold text-slate-900 dark:text-white">Add stand alone book</h3>
+                  <h3 className="mb-2 text-[20px] font-semibold text-slate-900 dark:text-white">Write new book</h3>
                   <p className="max-w-[200px] text-center text-[14px] text-slate-600 dark:text-white/50">
-                    Create a book that doesn't belong to a shelf
+                    Create a new book and start writing
                   </p>
                 </button>
               </div>
@@ -1099,8 +1135,15 @@ function Dashboard({ user }: { user: User }) {
                 <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-to-br from-[#E29ED5]/20 to-[#FCC997]/20">
                   <svg className="h-6 w-6 text-[#E29ED5]" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" /></svg>
                 </div>
-                <h3 className="mb-2 text-[18px] font-semibold text-slate-900 dark:text-white">Create Book</h3>
-                <p className="text-[14px] text-slate-600 dark:text-white/50">Write a new book or upload an existing one</p>
+                <h3 className="mb-2 text-[18px] font-semibold text-slate-900 dark:text-white">Write new book</h3>
+                <p className="text-[14px] text-slate-600 dark:text-white/50">Create a new book and start writing</p>
+              </button>
+              <button onClick={handleOpenImportModal} className="group rounded-2xl border border-black/10 dark:border-white/10 bg-black/[0.02] dark:bg-white/[0.02] p-6 text-left transition-all hover:border-[#907AFF]/30 hover:bg-black/[0.01] dark:hover:bg-white/[0.04]">
+                <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-to-br from-[#FCC997]/20 to-[#FEE9A3]/20">
+                  <svg className="h-6 w-6 text-[#FCC997]" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" /></svg>
+                </div>
+                <h3 className="mb-2 text-[18px] font-semibold text-slate-900 dark:text-white">Import book</h3>
+                <p className="text-[14px] text-slate-600 dark:text-white/50">Upload an existing book file (epub, docx, html, txt)</p>
               </button>
             </div>
           </div>
@@ -1526,6 +1569,8 @@ function Dashboard({ user }: { user: User }) {
           </div>
         </div>
       )}
+
+      <ImportBookModal open={showImportModal} onClose={() => setShowImportModal(false)} />
     </main>
   );
 }

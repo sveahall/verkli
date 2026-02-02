@@ -95,3 +95,29 @@ export function getPublicEnv() {
     NEXT_PUBLIC_SUPABASE_ANON_KEY: PUBLIC_ENV_VARS.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
   };
 }
+
+// ─────────────────────────────────────────────────────────────
+// Optional: Redis (for BullMQ import queue)
+// ─────────────────────────────────────────────────────────────
+
+export function getRedisUrl(): string | undefined {
+  return process.env.REDIS_URL ?? undefined;
+}
+
+/** Returns Redis connection options for BullMQ; undefined if Redis not configured. */
+export function getRedisConnectionOptions():
+  | { host: string; port: number; password?: string }
+  | undefined {
+  const url = getRedisUrl();
+  if (!url || url.trim() === "") return undefined;
+  try {
+    const u = new URL(url);
+    return {
+      host: u.hostname,
+      port: u.port ? parseInt(u.port, 10) : 6379,
+      password: u.password || undefined,
+    };
+  } catch {
+    return undefined;
+  }
+}
