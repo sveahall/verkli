@@ -2,6 +2,7 @@
 
 apps/web/models/
 apps/web/.uploads/
+.env.local
 
 # dependencies
 /node_modules
