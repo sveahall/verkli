@@ -114,17 +114,27 @@ async function processJob(payload: TranslationJobData) {
       let translatedText = sourceText;
       if (sourceText.trim()) {
         try {
-          translatedText = translateText({
-            text: sourceText,
-            sourceLanguage: originalLang,
-            targetLanguage,
-          });
-          // Sanitize: drop log lines, fix tokenization underscores, normalize whitespace before saving to chapter
-          const sanitized = sanitizeOpusOutput(translatedText);
-          if (sanitized !== translatedText) {
-            console.log("[translation worker] sanitized opus output");
+          // Opus MT must translate paragraph-by-paragraph to preserve book formatting.
+          // Splitting on double newlines keeps chapter structure; each paragraph is translated
+          // separately and re-joined, so output matches original layout.
+          const paragraphs = sourceText.split(/\n{2,}/);
+          const translatedParagraphs: string[] = [];
+          for (const p of paragraphs) {
+            if (!p.trim()) continue;
+            const raw = translateText({
+              text: p,
+              sourceLanguage: originalLang,
+              targetLanguage,
+            });
+            console.log("RAW FROM OPUS:", raw.slice(0, 200));
+            const sanitized = sanitizeOpusOutput(raw);
+            console.log("SANITIZED:", sanitized.slice(0, 200));
+            if (!sanitized.trim()) {
+              throw new Error("Opus MT returned empty paragraph after sanitization");
+            }
+            translatedParagraphs.push(sanitized);
           }
-          translatedText = sanitized;
+          translatedText = translatedParagraphs.join("\n\n");
         } catch (err) {
           const msg = err instanceof Error ? err.message : String(err);
           console.error("[translation worker] Opus MT failed for chapter:", ch.id, msg);

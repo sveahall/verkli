@@ -53,27 +53,47 @@ function getModelDir(sourceLanguage: string, targetLanguage: string): string {
 }
 
 /**
- * Sanitize raw Opus MT stdout: drop log/warning lines, fix tokenization underscores, normalize whitespace.
- * Throws if result would be empty so translation status can be set to failed.
+ * Detokenizes Opus MT output while preserving paragraph structure.
  */
 export function sanitizeOpusOutput(raw: string): string {
-  const lines = raw.split("\n");
-  const filtered = lines.filter(
-    (line) =>
-      !line.startsWith("Intel") &&
-      !line.includes("MKL") &&
-      !line.startsWith("WARNING") &&
-      !line.startsWith("[") &&
-      !line.startsWith("ctranslate2") &&
-      !line.startsWith("SentencePiece")
-  );
-  let joined = filtered.join("\n");
-  joined = joined.replace(/\r\n/g, "\n").trim();
-  joined = joined.replace(/_/g, " ").replace(/\s+/g, " ").trim();
-  if (joined.length === 0) {
-    throw new Error("Opus MT output was empty after sanitization (only logs/artifacts).");
+  if (!raw) {
+    throw new Error("Opus MT output was empty");
   }
-  return joined;
+
+  let text = raw
+    .split("\n")
+    .map(l => l.trim())
+    .filter(l =>
+      l &&
+      !l.startsWith("Intel") &&
+      !l.includes("MKL") &&
+      !l.startsWith("WARNING") &&
+      !l.startsWith("[") &&
+      !l.startsWith("ctranslate2") &&
+      !l.startsWith("SentencePiece")
+    )
+    .join("\n");
+
+  // SentencePiece whitespace
+  text = text.replace(/\u2581+/g, " ");
+
+  // Legacy underscore safety
+  text = text.replace(/_+/g, " ");
+
+  // Remove space before punctuation
+  text = text.replace(/\s+([.,!?;:])/g, "$1");
+
+  // Normalize newlines only
+  text = text
+    .replace(/\r\n/g, "\n")
+    .replace(/\r/g, "\n")
+    .trim();
+
+  if (!text) {
+    throw new Error("Opus MT output was empty after sanitization");
+  }
+
+  return text;
 }
 
 /**
