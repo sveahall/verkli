@@ -4,18 +4,19 @@
  */
 
 import * as path from "path";
-import { config } from "dotenv";
+import * as fs from "fs/promises";
+import * as os from "os";
+import "./load-dotenv";
+import { assertServerEnv, getRedisConnectionOptions } from "../src/lib/env";
 
-config({ path: path.join(__dirname, "..", ".env.local") });
-config({ path: path.join(__dirname, "..", ".env") });
+assertServerEnv();
 
 import { Worker } from "bullmq";
-import { getRedisConnectionOptions } from "../src/lib/env";
 import { resolveLocalImportPath } from "../src/lib/import-storage";
 import { runExtract, contentHash } from "../src/lib/import-extract";
 import { createAdminClient } from "../src/lib/supabase/admin";
-import * as fs from "fs/promises";
-import * as os from "os";
+import { enqueueTranslationJob } from "../src/lib/translation-queue";
+import { normalizeLanguage } from "../src/lib/languages";
 
 const QUEUE_NAME = "book-import-extract";
 const BUCKET = "book-imports";
@@ -77,26 +78,48 @@ async function processJob(payload: {
     console.log("[import worker] extracted title:", title || "(untitled)", "chapters:", chapters.length);
     await updateProgress("extracting", 70);
 
-    const slug =
+    const baseSlug =
       title
         .toLowerCase()
         .replace(/[^a-z0-9]+/g, "-")
-        .replace(/(^-|-$)/g, "") || "imported-" + Date.now();
+        .replace(/(^-|-$)/g, "") || "untitled";
+    const shortFromId = importId.replace(/-/g, "").slice(0, 6);
+    let slug = `${baseSlug}-${shortFromId}`;
+    const MAX_SLUG_ATTEMPTS = 3;
+    let book: { id: string } | null = null;
+    let lastBookError: { message: string } | null = null;
 
     console.log("[import worker] creating book...");
-    const { data: book, error: bookError } = await supabase
-      .from("books")
-      .insert({
-        title: title || "Imported",
-        slug,
-        author_id: authorId,
-        status: "DRAFT",
-      })
-      .select("id")
-      .single();
+    for (let attempt = 1; attempt <= MAX_SLUG_ATTEMPTS; attempt++) {
+      const { data: bookData, error: insertError } = await supabase
+        .from("books")
+        .insert({
+          title: title || "Imported",
+          slug,
+          author_id: authorId,
+          status: "DRAFT",
+          language: "sv",
+        })
+        .select("id")
+        .single();
 
-    if (bookError || !book?.id) {
-      const errMsg = bookError?.message ?? "Failed to create book";
+      if (!insertError && bookData?.id) {
+        book = bookData;
+        break;
+      }
+      const isSlugConflict = insertError?.message?.includes("books_slug_key") ?? false;
+      if (isSlugConflict && attempt < MAX_SLUG_ATTEMPTS) {
+        const suffix = Math.random().toString(36).slice(2, 8);
+        slug = `${baseSlug}-${suffix}`;
+        console.warn("[import worker] slug conflict, retry", attempt, "new slug:", slug);
+        continue;
+      }
+      lastBookError = insertError;
+      break;
+    }
+
+    if (lastBookError || !book?.id) {
+      const errMsg = lastBookError?.message ?? "Failed to create book";
       console.error("[import worker] failed creating book:", errMsg);
       await updateProgress("failed", 0, errMsg);
       return;
@@ -130,6 +153,17 @@ async function processJob(payload: {
       .eq("id", importId);
 
     console.log("[import worker] completed — importId:", importId, "bookId:", book.id);
+
+    if (process.env.TRANSLATIONS_AUTO_ENQUEUE === "true") {
+      const { data: bookRow } = await supabase.from("books").select("language").eq("id", book.id).single();
+      const originalLang = normalizeLanguage(bookRow?.language ?? null);
+      if (originalLang !== "en") {
+        const jobId = await enqueueTranslationJob({ originalBookId: book.id, targetLanguage: "en" });
+        if (jobId) {
+          console.log("[import worker] translation job enqueued — bookId:", book.id, "targetLanguage: en");
+        }
+      }
+    }
 
     if (fileStorage === "supabase") {
       try {

@@ -6,6 +6,7 @@
 - **GET /api/books/imports** – lista imports för inloggad användare.
 - **GET /api/books/imports/[id]** – status, progress, error för en import.
 - Worker: BullMQ-jobbet `extract` extraherar kapitel från epub/docx/html/txt och skapar book + chapters (med `source_text` och `content_hash`).
+- Om `TRANSLATIONS_AUTO_ENQUEUE=true`: efter completed enqueueas ett jobb per målspåk i kön `book-translation`. Translation workern (`npm run translate-worker`) processar dessa med lokal Opus MT och skapar översatta böcker + rader i `public.translations`.
 
 ## Env-variabler
 
@@ -14,6 +15,9 @@
 | `REDIS_URL` | För kö | Redis-URL för BullMQ (t.ex. `redis://localhost:6379`). Om ej satt skapas import-record men inget jobb körs förrän worker startas med Redis. |
 | `LOCAL_IMPORTS_DIR` | Nej | Katalog för uppladdade filer när Supabase Storage inte används (default: `.uploads/imports` under app root). |
 | `NEXT_PUBLIC_TRANSLATIONS_ENABLED` | Nej | `false` → UI visar "Coming soon" för Translations; import fungerar som vanligt. Default: `true`. |
+| `TRANSLATIONS_AUTO_ENQUEUE` | Nej | `true` → efter completed import enqueueas ett översättningsjobb per målspåk (se `TRANSLATIONS_TARGET_LANGUAGES`). |
+| `TRANSLATIONS_TARGET_LANGUAGES` | Vid auto-enqueue | Kommaseparerad lista (t.ex. `sv,de,fr`). Endast språk som inte är originalspråket enqueueas. |
+| `OPUS_MT_CMD` | För translation worker | Binär/script för lokal Opus MT (t.ex. `opus-mt` eller `python -m opus_mt`). Får text via stdin, args: sourceLanguage targetLanguage, stdout = översättning. |
 
 Övriga env (Supabase, m.m.) enligt `.env.example`. Worker använder samma `.env.local` (inkl. `SUPABASE_SERVICE_ROLE_KEY`, `NEXT_PUBLIC_SUPABASE_URL`) för att uppdatera DB och för Supabase Storage-nedladdning.
 
@@ -31,8 +35,11 @@
 2. **Sätt REDIS_URL** i `apps/web/.env.local`:  
    `REDIS_URL=redis://localhost:6379`
 
-3. **Kör workern** från `apps/web`:  
+3. **Kör import-workern** från `apps/web`:  
    `npm run import-worker`
+
+4. **(Valfritt) Översättning:** Sätt `TRANSLATIONS_AUTO_ENQUEUE=true` och `TRANSLATIONS_TARGET_LANGUAGES=sv,de` (etc.). Sätt `OPUS_MT_CMD` till din lokala Opus MT-binär/script. Kör translation workern:  
+   `npm run translate-worker`
 
 - Om `REDIS_URL` saknas: API skapar fortfarande import-record men enqueue körs inte; tydlig logg i API och queue.
 - Worker loggar: worker started, job received, extracting file, creating book, creating chapters, completed (eller failed med error_message i `book_imports`).

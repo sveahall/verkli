@@ -128,7 +128,7 @@ export function ImportBookModal({ open, onClose }: ImportBookModalProps) {
 
   return (
     <div className="fixed inset-0 z-[1000] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
-      <div className="relative w-full max-w-[560px] max-h-[90vh] overflow-hidden rounded-3xl border border-black/10 dark:border-white/10 bg-white/[0.95] dark:bg-[#0a0a0f]/[0.95] backdrop-blur-xl flex flex-col">
+      <div className="relative w-full max-w-[560px] max-h-[90vh] mt-20 overflow-hidden rounded-3xl border border-black/10 dark:border-white/10 bg-white/[0.95] dark:bg-[#0a0a0f]/[0.95] backdrop-blur-xl flex flex-col">
         <button
           type="button"
           onClick={onClose}
@@ -225,9 +225,9 @@ export function ImportBookModal({ open, onClose }: ImportBookModalProps) {
             <p className="text-[13px] text-slate-500 dark:text-white/40">No imports yet.</p>
           ) : (
             <ul className="space-y-2">
-              {importsList.map((imp) => (
+              {importsList.map((imp, i) => (
                 <li
-                  key={imp.id}
+                  key={`${imp.id}-${i}`}
                   className="flex items-center justify-between gap-3 rounded-xl border border-black/10 dark:border-white/10 bg-black/[0.02] dark:bg-white/[0.02] px-4 py-3"
                 >
                   <div className="min-w-0 flex-1">
