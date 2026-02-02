@@ -4,6 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 import { getLanguageLabel, getSeoLanguageLabel, normalizeLanguage } from "@/lib/languages";
 import type { Metadata } from "next";
 import StartReadingLink from "./StartReadingLink";
+import BookmarkButton from "./BookmarkButton";
 
 async function getBook(id: string) {
   const supabase = await createClient();
@@ -71,14 +72,24 @@ export default async function ReaderBookDetail({ params }: { params: Promise<{ i
 
   const { data: { user } } = await supabase.auth.getUser();
   let lastChapterId: string | null = firstChapter?.id ?? null;
+  let isBookmarked = false;
   if (user) {
-    const { data: reading } = await supabase
-      .from("readings")
-      .select("chapter_id")
-      .eq("user_id", user.id)
-      .eq("book_id", book.id)
-      .maybeSingle();
-    if (reading?.chapter_id) lastChapterId = reading.chapter_id;
+    const [readingRes, bookmarkRes] = await Promise.all([
+      supabase
+        .from("readings")
+        .select("chapter_id")
+        .eq("user_id", user.id)
+        .eq("book_id", book.id)
+        .maybeSingle(),
+      supabase
+        .from("bookmarks")
+        .select("id")
+        .eq("user_id", user.id)
+        .eq("book_id", book.id)
+        .maybeSingle(),
+    ]);
+    if (readingRes.data?.chapter_id) lastChapterId = readingRes.data.chapter_id;
+    isBookmarked = !!bookmarkRes.data;
   }
 
   const authorName = authorProfile?.display_name || authorProfile?.username || "Author";
@@ -151,6 +162,9 @@ export default async function ReaderBookDetail({ params }: { params: Promise<{ i
               firstChapterId={firstChapter?.id ?? null}
               serverChapterId={user ? lastChapterId : null}
             />
+            {user && (
+              <BookmarkButton bookId={book.id} initialBookmarked={isBookmarked} />
+            )}
             {isTranslation && originalUrl && (
               <a
                 href={originalUrl}
