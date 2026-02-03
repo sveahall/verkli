@@ -1,13 +1,14 @@
 "use client";
 
 import Link from "next/link";
-import { useState, useCallback, useRef, useEffect } from "react";
+import { useState, useCallback, useRef, useEffect, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { uploadBookCover } from "@/lib/supabase/storage";
 import TiptapEditor from "@/components/editor/TiptapEditor";
 import AuthorStatsBar from "@/components/editor/AuthorStatsBar";
 import CommandPalette from "@/components/editor/CommandPalette";
+import DeleteBookButton from "@/components/books/DeleteBookButton";
 import { getAudiobookEnabled, getMarketingEnabled, getTranslationsEnabled } from "@/lib/flags";
 import { getLanguageLabel, LANGUAGE_OPTIONS, normalizeLanguage, type SupportedLanguage } from "@/lib/languages";
 
@@ -21,6 +22,10 @@ type Chapter = {
   content: string | null;
   order: number;
 };
+
+function normalizeLangKey(value: string | null | undefined): string {
+  return String(value ?? "").trim().toLowerCase();
+}
 
 const TRANSLATION_STATUSES = ["draft", "needs_review", "ready", "published"] as const;
 type TranslationStatus = (typeof TRANSLATION_STATUSES)[number];
@@ -58,6 +63,13 @@ type Book = {
   audiobook_status?: string | null;
 };
 
+type TranslationRow = {
+  original_book_id: string;
+  translated_book_id: string;
+  target_language: string;
+  status: string;
+};
+
 type LatestAudiobookAsset = {
   id: string;
   audio_url: string | null;
@@ -65,14 +77,27 @@ type LatestAudiobookAsset = {
   created_at: string;
 } | null;
 
+const TRANSLATION_POLL_MAX_MS = 120_000;
+
 type Props = {
   book: Book;
   chapters: Chapter[];
+  groupId: string;
+  groupBooks: Book[];
+  translationRows?: TranslationRow[];
   latestAudiobookAsset?: LatestAudiobookAsset;
   marketingCampaigns?: MarketingCampaignRow[];
 };
 
-export default function BookEditor({ book, chapters: initialChapters, latestAudiobookAsset = null, marketingCampaigns = [] }: Props) {
+export default function BookEditor({
+  book,
+  chapters: initialChapters,
+  groupId,
+  groupBooks,
+  translationRows = [],
+  latestAudiobookAsset = null,
+  marketingCampaigns = [],
+}: Props) {
   const router = useRouter();
   const [chapters, setChapters] = useState<Chapter[]>(initialChapters);
   const [selectedChapterId, setSelectedChapterId] = useState<string | null>(
@@ -98,6 +123,33 @@ export default function BookEditor({ book, chapters: initialChapters, latestAudi
   const [marketingCopyFeedback, setMarketingCopyFeedback] = useState(false);
   const [isGeneratingMarketing, setIsGeneratingMarketing] = useState(false);
   const [translationStatus, setTranslationStatus] = useState<string>(book.translation_status ?? "draft");
+  const normalizedGroupBooks = groupBooks.length > 0 ? groupBooks : [book];
+  const existingTranslationLanguages = useMemo(() => {
+    const langs = new Set<string>();
+    for (const row of translationRows) {
+      const key = normalizeLangKey(row.target_language);
+      if (key) langs.add(key);
+    }
+    for (const b of normalizedGroupBooks) {
+      if (b.id === groupId) continue;
+      const key = normalizeLangKey(b.language ?? "");
+      if (key) langs.add(key);
+    }
+    return langs;
+  }, [translationRows, normalizedGroupBooks, groupId]);
+  const initialTargetLanguage = useMemo<SupportedLanguage>(() => {
+    if (existingTranslationLanguages.has("sv")) return "sv";
+    if (existingTranslationLanguages.has("en")) return "en";
+    const originalLang = normalizeLanguage(book.language);
+    return originalLang === "en" ? "sv" : "en";
+  }, [existingTranslationLanguages, book.language]);
+  const [translateTargetLanguage, setTranslateTargetLanguage] = useState<SupportedLanguage>(initialTargetLanguage);
+  const [isStartingTranslation, setIsStartingTranslation] = useState(false);
+  const [isPollingTranslation, setIsPollingTranslation] = useState(false);
+  const [translateMessage, setTranslateMessage] = useState<string | null>(null);
+  const [lastRequestedTargetLanguage, setLastRequestedTargetLanguage] = useState<SupportedLanguage | null>(null);
+  const translationPollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const translationPollStartedAtRef = useRef<number>(0);
   const [isGeneratingAudiobook, setIsGeneratingAudiobook] = useState(false);
   const [audiobookError, setAudiobookError] = useState<string | null>(null);
   const savingRef = useRef(false);
@@ -105,6 +157,193 @@ export default function BookEditor({ book, chapters: initialChapters, latestAudi
 
   const selectedChapter = chapters.find((ch) => ch.id === selectedChapterId);
   const displayCoverUrl = coverPreviewUrl ?? book.cover_image;
+
+  type TranslationInfoStatus = "none" | "running" | "completed" | "failed";
+  type TranslationInfo = { status: TranslationInfoStatus; bookId: string | null };
+
+  const translationRowsByLang = useMemo(() => {
+    const map = new Map<string, TranslationRow>();
+    for (const row of translationRows) {
+      const key = normalizeLangKey(row.target_language);
+      if (!key) continue;
+      if (!map.has(key)) {
+        map.set(key, row);
+      }
+    }
+    return map;
+  }, [translationRows]);
+
+  const translationBooksByLang = useMemo(() => {
+    const map = new Map<string, Book>();
+    for (const b of normalizedGroupBooks) {
+      if (b.id === groupId) continue;
+      const key = normalizeLangKey(b.language ?? "");
+      if (!key) continue;
+      if (!map.has(key)) {
+        map.set(key, b);
+      }
+    }
+    return map;
+  }, [normalizedGroupBooks, groupId]);
+
+  const resolveTranslationInfo = useCallback(
+    (targetLang: string): TranslationInfo => {
+      const key = normalizeLangKey(targetLang);
+      if (!key) return { status: "none", bookId: null };
+      const row = translationRowsByLang.get(key);
+      const bookFromRow = row
+        ? normalizedGroupBooks.find((b) => b.id === row.translated_book_id)
+        : undefined;
+      const book = bookFromRow ?? translationBooksByLang.get(key);
+      const status = normalizeLangKey(row?.status ?? "");
+      if (status === "completed") {
+        return { status: "completed", bookId: book?.id ?? row?.translated_book_id ?? null };
+      }
+      if (status === "failed") {
+        return { status: "failed", bookId: book?.id ?? row?.translated_book_id ?? null };
+      }
+      if (row) {
+        return { status: "running", bookId: book?.id ?? row?.translated_book_id ?? null };
+      }
+      if (book) {
+        const bookStatus = normalizeLangKey(book.translation_status ?? "");
+        if (bookStatus === "draft") {
+          return { status: "running", bookId: book.id };
+        }
+        return { status: "completed", bookId: book.id };
+      }
+      return { status: "none", bookId: null };
+    },
+    [translationRowsByLang, normalizedGroupBooks, translationBooksByLang]
+  );
+
+  const currentTranslationInfo = useMemo(
+    () => resolveTranslationInfo(translateTargetLanguage),
+    [resolveTranslationInfo, translateTargetLanguage]
+  );
+  const requestedTranslationInfo = useMemo(
+    () => (lastRequestedTargetLanguage ? resolveTranslationInfo(lastRequestedTargetLanguage) : null),
+    [resolveTranslationInfo, lastRequestedTargetLanguage]
+  );
+  const requestedTranslationInfoRef = useRef<TranslationInfo | null>(null);
+
+  useEffect(() => {
+    requestedTranslationInfoRef.current = requestedTranslationInfo;
+  }, [requestedTranslationInfo]);
+
+  const stopTranslationPoll = useCallback(() => {
+    if (translationPollRef.current) {
+      clearInterval(translationPollRef.current);
+      translationPollRef.current = null;
+    }
+    setIsPollingTranslation(false);
+  }, []);
+
+  useEffect(() => {
+    if (!isPollingTranslation || !lastRequestedTargetLanguage || !requestedTranslationInfo) return;
+    if (requestedTranslationInfo.status === "completed") {
+      stopTranslationPoll();
+      setTranslateMessage(`Översättning klar (${getLanguageLabel(lastRequestedTargetLanguage)}).`);
+      setLastRequestedTargetLanguage(null);
+      return;
+    }
+    if (requestedTranslationInfo.status === "failed") {
+      stopTranslationPoll();
+      setTranslateMessage("Översättningen misslyckades. Försök igen.");
+      setLastRequestedTargetLanguage(null);
+    }
+  }, [isPollingTranslation, lastRequestedTargetLanguage, requestedTranslationInfo, stopTranslationPoll]);
+
+  useEffect(() => {
+    return () => {
+      stopTranslationPoll();
+    };
+  }, [stopTranslationPoll]);
+
+  useEffect(() => {
+    setTranslateMessage(null);
+  }, [translateTargetLanguage]);
+
+  type TranslationUiStatus = "idle" | "translating" | "done" | "error";
+  const isPollingCurrent = isPollingTranslation && lastRequestedTargetLanguage === translateTargetLanguage;
+  const translationUiStatus = useMemo<TranslationUiStatus>(() => {
+    if (currentTranslationInfo.status === "completed") return "done";
+    if (currentTranslationInfo.status === "failed") return "error";
+    if (currentTranslationInfo.status === "running" || isPollingCurrent) return "translating";
+    return "idle";
+  }, [currentTranslationInfo.status, isPollingCurrent]);
+
+  const startTranslationPoll = useCallback(() => {
+    stopTranslationPoll();
+    translationPollStartedAtRef.current = Date.now();
+    setIsPollingTranslation(true);
+    translationPollRef.current = setInterval(() => {
+      const info = requestedTranslationInfoRef.current;
+      const status = info?.status ?? "none";
+      const elapsed = Date.now() - translationPollStartedAtRef.current;
+      if (elapsed >= TRANSLATION_POLL_MAX_MS && status === "none") {
+        stopTranslationPoll();
+        setTranslateMessage("Översättning tar för lång tid. Försök igen.");
+        setLastRequestedTargetLanguage(null);
+        return;
+      }
+      router.refresh();
+    }, 3000);
+  }, [router, stopTranslationPoll]);
+
+  const handleStartTranslation = useCallback(async () => {
+    if (isStartingTranslation) return;
+    setIsStartingTranslation(true);
+    setTranslateMessage(null);
+
+    const existingInfo = resolveTranslationInfo(translateTargetLanguage);
+    if (existingInfo.status === "completed" && existingInfo.bookId) {
+      setTranslateMessage(`Översättning finns redan (${getLanguageLabel(translateTargetLanguage)}).`);
+      setIsStartingTranslation(false);
+      return;
+    }
+    if (existingInfo.status === "running") {
+      setTranslateMessage("Översättning pågår redan. Väntar på att den blir klar…");
+      setLastRequestedTargetLanguage(translateTargetLanguage);
+      startTranslationPoll();
+      setIsStartingTranslation(false);
+      return;
+    }
+
+    try {
+      const res = await fetch(`/api/books/${groupId}/translate`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ targetLang: translateTargetLanguage }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || data?.ok === false) {
+        const errMsg = data?.error ?? "Failed to start translation";
+        if (String(errMsg).toLowerCase().includes("already exists")) {
+          setTranslateMessage("Översättning finns redan. Hämtar status…");
+          setLastRequestedTargetLanguage(translateTargetLanguage);
+          startTranslationPoll();
+        } else {
+          setTranslateMessage(errMsg);
+        }
+        return;
+      }
+      setTranslateMessage("Översättning startad. Väntar på att den blir klar…");
+      setLastRequestedTargetLanguage(translateTargetLanguage);
+      startTranslationPoll();
+    } catch (err) {
+      const errMsg = err instanceof Error ? err.message : "Failed to start translation";
+      setTranslateMessage(errMsg);
+    } finally {
+      setIsStartingTranslation(false);
+    }
+  }, [
+    groupId,
+    isStartingTranslation,
+    resolveTranslationInfo,
+    startTranslationPoll,
+    translateTargetLanguage,
+  ]);
 
   const handlePublish = async () => {
     if (isPublishing) return;
@@ -463,6 +702,30 @@ export default function BookEditor({ book, chapters: initialChapters, latestAudi
   return (
     <>
       <section className="mx-auto max-w-[1400px] px-6 py-12">
+        {getTranslationsEnabled() && normalizedGroupBooks.length > 1 && (
+          <div className="mb-4 max-w-[320px]">
+            <label htmlFor="version-select" className="mb-1 block text-xs text-slate-500 dark:text-white/50">
+              Version
+            </label>
+            <select
+              id="version-select"
+              value={book.id}
+              onChange={(e) => router.push(`/author/books/${e.target.value}`)}
+              className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:border-slate-500 focus:outline-none dark:border-white/20 dark:bg-white/10 dark:text-white"
+            >
+              {normalizedGroupBooks.map((b) => {
+                const isOriginal = b.id === groupId;
+                const langKey = normalizeLangKey(b.language ?? "");
+                const label = isOriginal ? "Original" : getLanguageLabel(langKey || "unknown");
+                return (
+                  <option key={b.id} value={b.id}>
+                    {label}
+                  </option>
+                );
+              })}
+            </select>
+          </div>
+        )}
         <div className="mb-8 flex flex-wrap items-start justify-between gap-4">
           <div>
             <h1 className="text-4xl font-semibold tracking-tight text-slate-900 dark:text-white">
@@ -472,15 +735,23 @@ export default function BookEditor({ book, chapters: initialChapters, latestAudi
               {book.status === "DRAFT" ? "Draft" : "Published"} • {chapters.length} chapter{chapters.length !== 1 ? "s" : ""}
             </p>
           </div>
-          {book.status === "DRAFT" && (
-            <button
-              onClick={handlePublish}
-              disabled={isPublishing || chapters.length === 0}
-              className="rounded-full bg-emerald-600 px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-emerald-700 disabled:opacity-50"
-            >
-              {isPublishing ? "Publishing..." : "Publish your translation"}
-            </button>
-          )}
+          <div className="flex flex-wrap items-center gap-3">
+            {book.status === "DRAFT" && (
+              <button
+                onClick={handlePublish}
+                disabled={isPublishing || chapters.length === 0}
+                className="rounded-full bg-emerald-600 px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-emerald-700 disabled:opacity-50"
+              >
+                {isPublishing ? "Publishing..." : "Publish your translation"}
+              </button>
+            )}
+            <DeleteBookButton
+              bookId={book.id}
+              bookTitle={book.title}
+              redirectTo="/author/books"
+              className="rounded-full border border-red-200 bg-white px-5 py-2.5 text-sm font-semibold text-red-700 transition hover:bg-red-50 dark:border-red-900/50 dark:bg-white/10 dark:text-red-200 dark:hover:bg-red-950/30"
+            />
+          </div>
         </div>
 
         <div className="grid gap-8 lg:grid-cols-[280px_1fr]">
@@ -525,9 +796,80 @@ export default function BookEditor({ book, chapters: initialChapters, latestAudi
               </div>
             </div>
 
-            {getTranslationsEnabled() && book.is_translation && (
+            {getTranslationsEnabled() && (
               <div className="rounded-xl border border-slate-200 bg-slate-50/50 p-5 dark:border-white/10 dark:bg-white/5">
                 <h2 className="mb-3 text-base font-semibold text-slate-900 dark:text-white">Translation</h2>
+                <p className="mb-3 text-xs text-slate-500 dark:text-white/50">
+                  Create a new language version of this book. The translation will appear when ready.
+                </p>
+                <div className="mb-3 flex items-center gap-2">
+                  <span className="text-xs font-medium text-slate-500 dark:text-white/50">Status:</span>
+                  <span
+                    className={`rounded-full px-2.5 py-1 text-xs font-medium ${
+                      translationUiStatus === "translating"
+                        ? "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-200"
+                        : translationUiStatus === "done"
+                          ? "bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-200"
+                          : translationUiStatus === "error"
+                            ? "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-200"
+                            : "bg-slate-100 text-slate-700 dark:bg-slate-700 dark:text-slate-200"
+                    }`}
+                    role="status"
+                  >
+                    {translationUiStatus === "idle" && "Idle"}
+                    {translationUiStatus === "translating" && "Translating…"}
+                    {translationUiStatus === "done" && "Done"}
+                    {translationUiStatus === "error" && "Error"}
+                  </span>
+                </div>
+                <label htmlFor="translate-language" className="mb-1 block text-xs text-slate-500 dark:text-white/50">Target language</label>
+                <select
+                  id="translate-language"
+                  value={translateTargetLanguage}
+                  onChange={(e) => setTranslateTargetLanguage(e.target.value as SupportedLanguage)}
+                  className="mb-3 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:border-slate-500 focus:outline-none dark:border-white/20 dark:bg-white/10 dark:text-white"
+                >
+                  {LANGUAGE_OPTIONS.map((opt) => (
+                    <option key={opt.value} value={opt.value}>{opt.label}</option>
+                  ))}
+                </select>
+                <button
+                  type="button"
+                  onClick={handleStartTranslation}
+                  disabled={isStartingTranslation}
+                  className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed dark:border-white/20 dark:bg-white/10 dark:text-white dark:hover:bg-white/15"
+                >
+                  {isStartingTranslation ? "Startar…" : "Start translation"}
+                </button>
+                {currentTranslationInfo.status === "completed" && currentTranslationInfo.bookId && (
+                  <button
+                    type="button"
+                    onClick={() => router.push(`/author/books/${currentTranslationInfo.bookId}`)}
+                    className="mt-2 w-full rounded-lg bg-slate-900 px-3 py-2 text-sm font-medium text-white transition hover:bg-slate-800 dark:bg-white dark:text-slate-900 dark:hover:bg-white/90"
+                  >
+                    Open translation
+                  </button>
+                )}
+                {translateMessage && (
+                  <div
+                    className={`mt-3 rounded-lg border px-3 py-2 text-sm ${
+                      translationUiStatus === "done" || translateMessage.toLowerCase().includes("klar")
+                        ? "border-emerald-200 bg-emerald-50 text-emerald-800 dark:border-emerald-800 dark:bg-emerald-950/30 dark:text-emerald-200"
+                        : translationUiStatus === "error"
+                          ? "border-red-200 bg-red-50 text-red-800 dark:border-red-800 dark:bg-red-950/30 dark:text-red-200"
+                          : "border-slate-200 bg-slate-50 text-slate-800 dark:border-slate-700 dark:bg-slate-800/50 dark:text-slate-200"
+                    }`}
+                    role="status"
+                  >
+                    {translateMessage}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {getTranslationsEnabled() && book.is_translation && (
+              <div className="rounded-xl border border-slate-200 bg-slate-50/50 p-5 dark:border-white/10 dark:bg-white/5">
+                <h2 className="mb-3 text-base font-semibold text-slate-900 dark:text-white">Translation status</h2>
                 <div className="mb-3 flex items-center gap-2">
                   <span
                     className={`rounded-full px-2.5 py-1 text-xs font-medium ${

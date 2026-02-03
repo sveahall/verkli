@@ -22,6 +22,7 @@ function createQueue(): Queue | null {
       attempts: 2,
       backoff: { type: "exponential", delay: 2000 },
       removeOnComplete: { count: 500 },
+      removeOnFail: { count: 500 },
     },
   });
 }
@@ -51,6 +52,15 @@ export async function enqueueTranslationJob(data: TranslationJobData): Promise<s
     return null;
   }
   const jobId = `${data.originalBookId}-${data.targetLanguage}`;
+  const existing = await q.getJob(jobId);
+  if (existing) {
+    const state = await existing.getState();
+    if (state === "failed") {
+      await existing.remove();
+    } else {
+      return existing.id ?? null;
+    }
+  }
   const job = await q.add("translate", data, { jobId });
   const id = job.id ?? null;
   if (id) {

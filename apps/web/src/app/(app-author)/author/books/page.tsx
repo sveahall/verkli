@@ -2,6 +2,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import CreateBookForm from "./CreateBookForm";
+import DeleteBookButton from "@/components/books/DeleteBookButton";
 
 export default async function authorBooksPage() {
   const supabase = await createClient();
@@ -39,10 +40,10 @@ export default async function authorBooksPage() {
         ) : (
           <ul className="space-y-2">
             {books.map((book) => (
-              <li key={book.id}>
+              <li key={book.id} className="flex items-center gap-3">
                 <Link
                   href={`/author/books/${book.id}`}
-                  className="flex items-center justify-between rounded-lg border border-slate-200 bg-white px-4 py-3 transition hover:bg-slate-50 dark:border-white/10 dark:bg-white/5 dark:hover:bg-white/10"
+                  className="flex flex-1 items-center justify-between rounded-lg border border-slate-200 bg-white px-4 py-3 transition hover:bg-slate-50 dark:border-white/10 dark:bg-white/5 dark:hover:bg-white/10"
                 >
                   <span className="font-medium text-slate-900 dark:text-white">
                     {book.title || "Untitled"}
@@ -57,6 +58,12 @@ export default async function authorBooksPage() {
                     {book.status}
                   </span>
                 </Link>
+                <DeleteBookButton
+                  bookId={book.id}
+                  bookTitle={book.title}
+                  label="Delete"
+                  className="rounded-lg border border-red-200 bg-white px-3 py-2 text-xs font-semibold text-red-700 transition hover:bg-red-50 dark:border-red-900/50 dark:bg-white/10 dark:text-red-200 dark:hover:bg-red-950/30"
+                />
               </li>
             ))}
           </ul>
