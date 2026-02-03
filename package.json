@@ -11,6 +11,8 @@
     "build": "npm run -w @verkli/web build",
     "start": "npm run -w @verkli/web start",
     "lint": "npm run -w @verkli/web lint",
+    "desktop": "electron electron-main.js",
+    "tts:smoke": "bash scripts/tts_smoke_test.sh",
     "import-worker": "npm run -w @verkli/web import-worker",
     "translate-worker": "npm run -w @verkli/web translate-worker",
     "check:no-placeholders": "npm run -w @verkli/web check:no-placeholders",
@@ -30,6 +32,7 @@
     "tailwind-merge": "^3.4.0"
   },
   "devDependencies": {
+    "electron": "^34.0.0",
     "@tailwindcss/postcss": "^4",
     "@types/node": "^20",
     "@types/react": "^19",
