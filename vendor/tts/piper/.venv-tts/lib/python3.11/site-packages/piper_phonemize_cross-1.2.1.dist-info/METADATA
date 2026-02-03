@@ -1,0 +1,10 @@
+Metadata-Version: 2.1
+Name: piper_phonemize_cross
+Version: 1.2.1
+Summary: Phonemization library used by Piper text to speech system - includes wheels for MacOS & Linux
+Home-page: https://github.com/rhasspy/piper-phonemize
+Author: Michael Hansen
+Author-email: mike@rhasspy.org
+Requires-Python: >=3.7
+License-File: LICENSE.md
+

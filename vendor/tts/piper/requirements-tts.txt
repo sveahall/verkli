@@ -1,0 +1,11 @@
+## Python dependencies for local Piper TTS
+##
+## NOTE:
+## - Pinning piper-tts to 1.3.0 due to espeakbridge bug in 1.4.0.
+## - piper-phonemize pinned to a compatible version.
+## - pathvalidate is used by helper scripts / utilities.
+
+piper-tts==1.3.0
+piper-phonemize==1.1.0
+pathvalidate
+
