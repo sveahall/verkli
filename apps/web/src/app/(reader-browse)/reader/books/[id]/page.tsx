@@ -10,19 +10,44 @@ async function getBook(id: string) {
   const supabase = await createClient();
   const { data } = await supabase
     .from("books")
-    .select("id, title, description, cover_image, status, author_id, language, original_url, is_translation, original_book_id, audiobook_status")
+    .select("id, title, description, cover_image, status, author_id, language, original_language, original_url, audiobook_status")
     .eq("id", id)
     .maybeSingle();
   return data;
 }
 
-export async function generateMetadata({ params }: { params: Promise<{ id: string }> }): Promise<Metadata> {
+export async function generateMetadata({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ id: string }>;
+  searchParams?: Promise<{ lang?: string }>;
+}): Promise<Metadata> {
   const { id } = await params;
   const book = await getBook(id);
   if (!book || (book.status && book.status !== "PUBLISHED")) {
     return { title: "Book not found | Verkli" };
   }
-  const lang = normalizeLanguage((book as { language?: string | null }).language);
+  const supabase = await createClient();
+  const { data: versions } = await supabase
+    .from("book_versions")
+    .select("id, language_code, published_at")
+    .eq("book_id", id)
+    .order("created_at", { ascending: true });
+
+  const resolvedSearchParams = searchParams ? await searchParams : undefined;
+  const requestedLang = resolvedSearchParams?.lang ? normalizeLanguage(resolvedSearchParams.lang) : null;
+  const originalLang = normalizeLanguage((book as { original_language?: string | null }).original_language ?? book.language);
+  const version =
+    (requestedLang ? (versions ?? []).find((v) => normalizeLanguage(v.language_code) === requestedLang) : null) ??
+    (versions ?? []).find((v) => normalizeLanguage(v.language_code) === originalLang) ??
+    (versions ?? [])[0];
+
+  if (!version || !version.published_at) {
+    return { title: "Book not found | Verkli" };
+  }
+
+  const lang = normalizeLanguage(version.language_code);
   const title = `${book.title} ${getSeoLanguageLabel(lang)}`;
   const descSuffix = `Read ${book.title} in ${getLanguageLabel(lang)} on Verkli.`;
   const description =
@@ -33,18 +58,42 @@ export async function generateMetadata({ params }: { params: Promise<{ id: strin
   };
 }
 
-export default async function ReaderBookDetail({ params }: { params: Promise<{ id: string }> }) {
+export default async function ReaderBookDetail({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ id: string }>;
+  searchParams?: Promise<{ lang?: string }>;
+}) {
   const { id } = await params;
 
   const supabase = await createClient();
 
   const { data: book } = await supabase
     .from("books")
-    .select("id, title, description, cover_image, status, author_id, language, original_url, is_translation, original_book_id, audiobook_status")
+    .select("id, title, description, cover_image, status, author_id, language, original_language, original_url, audiobook_status")
     .eq("id", id)
     .maybeSingle();
 
   if (!book || (book.status && book.status !== "PUBLISHED")) {
+    notFound();
+  }
+
+  const { data: versions } = await supabase
+    .from("book_versions")
+    .select("id, language_code, published_at")
+    .eq("book_id", book.id)
+    .order("created_at", { ascending: true });
+
+  const resolvedSearchParams = searchParams ? await searchParams : undefined;
+  const requestedLang = resolvedSearchParams?.lang ? normalizeLanguage(resolvedSearchParams.lang) : null;
+  const originalLang = normalizeLanguage((book as { original_language?: string | null }).original_language ?? book.language);
+  const activeVersion =
+    (requestedLang ? (versions ?? []).find((v) => normalizeLanguage(v.language_code) === requestedLang) : null) ??
+    (versions ?? []).find((v) => normalizeLanguage(v.language_code) === originalLang) ??
+    (versions ?? [])[0];
+
+  if (!activeVersion || !activeVersion.published_at) {
     notFound();
   }
 
@@ -64,7 +113,7 @@ export default async function ReaderBookDetail({ params }: { params: Promise<{ i
   const { data: chapters } = await supabase
     .from("chapters")
     .select("id, title, order")
-    .eq("book_id", book.id)
+    .eq("book_version_id", activeVersion.id)
     .order("order", { ascending: true });
 
   const chaptersCount = chapters?.length ?? 0;
@@ -93,11 +142,9 @@ export default async function ReaderBookDetail({ params }: { params: Promise<{ i
   }
 
   const authorName = authorProfile?.display_name || authorProfile?.username || "Author";
-  const lang = normalizeLanguage((book as { language?: string | null }).language);
+  const lang = normalizeLanguage(activeVersion.language_code);
   const languageName = getLanguageLabel(lang);
   const originalUrl = (book as { original_url?: string | null }).original_url;
-  const isTranslation = Boolean((book as { is_translation?: boolean | null }).is_translation);
-  const originalBookId = (book as { original_book_id?: string | null }).original_book_id;
   const audiobookStatus = (book as { audiobook_status?: string | null }).audiobook_status;
   const audiobookAvailable = audiobookStatus === "published" && audiobookAsset != null;
 
@@ -165,7 +212,7 @@ export default async function ReaderBookDetail({ params }: { params: Promise<{ i
             {user && (
               <BookmarkButton bookId={book.id} initialBookmarked={isBookmarked} />
             )}
-            {isTranslation && originalUrl && (
+            {originalUrl && (
               <a
                 href={originalUrl}
                 target="_blank"
@@ -175,15 +222,6 @@ export default async function ReaderBookDetail({ params }: { params: Promise<{ i
                 Original on Amazon
                 <span aria-hidden>↗</span>
               </a>
-            )}
-            {isTranslation && originalBookId && (
-              <Link
-                href={`/reader/books/${originalBookId}`}
-                className="inline-flex items-center gap-2 rounded-full border border-slate-300 bg-white px-4 py-2.5 text-sm font-medium text-slate-700 transition hover:bg-slate-50 dark:border-white/20 dark:bg-white/10 dark:text-white dark:hover:bg-white/15"
-              >
-                Original on Verkli
-                <span aria-hidden>→</span>
-              </Link>
             )}
           </div>
         </div>

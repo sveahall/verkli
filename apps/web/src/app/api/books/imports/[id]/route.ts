@@ -18,7 +18,7 @@ export async function GET(
 
   const { data: row, error } = await supabase
     .from("book_imports")
-    .select("id, book_id, file_name, status, progress, error_message, created_at, updated_at")
+    .select("id, book_id, book_version_id, file_name, status, progress, error_message, created_at, updated_at")
     .eq("id", id)
     .eq("author_id", user.id)
     .maybeSingle();
@@ -33,6 +33,7 @@ export async function GET(
   return NextResponse.json({
     id: row.id,
     book_id: row.book_id ?? null,
+    book_version_id: row.book_version_id ?? null,
     file_name: row.file_name,
     status: row.status,
     progress: row.progress,

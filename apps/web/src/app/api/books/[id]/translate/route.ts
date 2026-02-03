@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { enqueueTranslationJob } from "@/lib/translation-queue";
-import { isSupportedLanguage } from "@/lib/languages";
+import { isSupportedLanguage, normalizeLanguage } from "@/lib/languages";
 import { assertPublicEnv } from "@/lib/env";
 
 export async function POST(
@@ -36,7 +36,7 @@ export async function POST(
 
   const { data: book, error: bookError } = await supabase
     .from("books")
-    .select("id, author_id, is_translation, original_book_id")
+    .select("id, author_id, original_language")
     .eq("id", bookId)
     .maybeSingle();
 
@@ -48,35 +48,81 @@ export async function POST(
     return NextResponse.json({ ok: false, error: "Forbidden" }, { status: 403 });
   }
 
-  const isTranslation = Boolean((book as { is_translation?: boolean | null }).is_translation);
-  const originalBookId = (book as { original_book_id?: string | null }).original_book_id ?? book.id;
+  const bodySourceVersionId =
+    body?.sourceVersionId != null && String(body.sourceVersionId).trim() !== ""
+      ? String(body.sourceVersionId).trim()
+      : null;
+  const overwrite = Boolean(body?.overwrite);
 
-  if (isTranslation) {
+  let sourceVersionId = bodySourceVersionId;
+  if (!sourceVersionId) {
+    const { data: defaultVersion } = await supabase
+      .from("book_versions")
+      .select("id, language_code")
+      .eq("book_id", bookId)
+      .eq("language_code", normalizeLanguage(book.original_language))
+      .maybeSingle();
+    sourceVersionId = defaultVersion?.id ?? null;
+  }
+
+  if (!sourceVersionId) {
+    const { data: anyVersion } = await supabase
+      .from("book_versions")
+      .select("id")
+      .eq("book_id", bookId)
+      .order("created_at", { ascending: true })
+      .limit(1)
+      .maybeSingle();
+    sourceVersionId = anyVersion?.id ?? null;
+  }
+
+  if (!sourceVersionId) {
+    return NextResponse.json({ ok: false, error: "No source version found" }, { status: 400 });
+  }
+
+  const { data: sourceVersion, error: sourceError } = await supabase
+    .from("book_versions")
+    .select("id, book_id, language_code")
+    .eq("id", sourceVersionId)
+    .maybeSingle();
+
+  if (sourceError || !sourceVersion || sourceVersion.book_id !== bookId) {
+    return NextResponse.json({ ok: false, error: "Invalid source version" }, { status: 400 });
+  }
+
+  if (normalizeLanguage(sourceVersion.language_code) === targetLanguage) {
     return NextResponse.json(
-      { ok: false, error: "Start translation from the original book, not from a translation" },
+      { ok: false, error: "Target language must be different from source version language" },
       { status: 400 }
     );
   }
 
-  const { data: existingTranslations } = await supabase
-    .from("books")
-    .select("id, language")
-    .eq("original_book_id", originalBookId)
-    .eq("author_id", user.id);
+  const { data: existingVersion } = await supabase
+    .from("book_versions")
+    .select("id, status")
+    .eq("book_id", bookId)
+    .eq("language_code", targetLanguage)
+    .maybeSingle();
 
-  const alreadyExists = (existingTranslations ?? []).some(
-    (b) => String(b.language).toLowerCase() === targetLanguage
-  );
-  if (alreadyExists) {
+  if (existingVersion && !overwrite) {
     return NextResponse.json(
-      { ok: false, error: `A translation in ${targetLanguage} already exists for this book` },
+      {
+        ok: false,
+        error: `A version in ${targetLanguage} already exists for this book`,
+        existingVersionId: existingVersion.id,
+      },
       { status: 400 }
     );
   }
+
+  const targetVersionId = existingVersion?.id ?? null;
 
   const jobId = await enqueueTranslationJob({
-    originalBookId,
+    bookId,
+    sourceVersionId,
     targetLanguage,
+    targetVersionId,
+    overwrite,
   });
 
   if (!jobId) {
@@ -90,5 +136,5 @@ export async function POST(
     );
   }
 
-  return NextResponse.json({ ok: true, jobId });
+  return NextResponse.json({ ok: true, jobId, targetVersionId });
 }

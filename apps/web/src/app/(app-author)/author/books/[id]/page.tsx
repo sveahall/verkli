@@ -1,11 +1,20 @@
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { normalizeLanguage } from "@/lib/languages";
 import BookEditor from "./BookEditor";
 
-export default async function BookDetailPage({ params }: { params: Promise<{ id: string }> }) {
+export default async function BookDetailPage({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ id: string }>;
+  searchParams?: Promise<{ lang?: string }>;
+}) {
   // Next.js 16+: params is a Promise, must await
   const { id } = await params;
+  const resolvedSearchParams = searchParams ? await searchParams : undefined;
+  const langParam = resolvedSearchParams?.lang ? normalizeLanguage(resolvedSearchParams.lang) : null;
   
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
@@ -14,51 +23,63 @@ export default async function BookDetailPage({ params }: { params: Promise<{ id:
     redirect("/author/signin");
   }
 
-  const { data: book } = await supabase
+  const { data: book, error: bookError } = await supabase
     .from("books")
-    .select("id, title, description, cover_image, author_id, status, language, original_source, original_url, is_translation, original_book_id, translation_status, audiobook_status")
+    .select("*")
     .eq("id", id)
     .maybeSingle();
+
+  if (bookError) {
+    console.error("Failed to load book", bookError);
+  }
 
   if (!book || book.author_id !== user.id) {
     notFound();
   }
 
-  let groupId = (book as { original_book_id?: string | null }).original_book_id ?? book.id;
-  if (!book.original_book_id) {
-    const { data: translationRoot } = await supabase
-      .from("translations")
-      .select("original_book_id")
-      .eq("translated_book_id", book.id)
-      .maybeSingle();
-    if (translationRoot?.original_book_id) {
-      groupId = translationRoot.original_book_id;
+  const { data: bookVersions, error: bookVersionsError } = await supabase
+    .from("book_versions")
+    .select("id, book_id, language_code, status, published_at, created_at, updated_at")
+    .eq("book_id", book.id)
+    .order("created_at", { ascending: true });
+
+  let versions = bookVersions ?? [];
+  if (bookVersionsError) {
+    console.error("Failed to load book versions", bookVersionsError);
+  }
+
+  if (!bookVersionsError && versions.length === 0) {
+    const fallbackLanguage = normalizeLanguage(
+      (book as { original_language?: string | null; language?: string | null }).original_language ?? book.language
+    );
+    const { data: createdVersion, error: createVersionError } = await supabase
+      .from("book_versions")
+      .insert({
+        book_id: book.id,
+        language_code: fallbackLanguage,
+        status: "draft",
+      })
+      .select("id, book_id, language_code, status, published_at, created_at, updated_at")
+      .single();
+    if (createVersionError) {
+      console.error("Failed to auto-create book version", createVersionError);
+    } else if (createdVersion) {
+      versions = [createdVersion];
+      const { error: relinkError } = await supabase
+        .from("chapters")
+        .update({ book_version_id: createdVersion.id })
+        .eq("book_id", book.id)
+        .is("book_version_id", null);
+      if (relinkError) {
+        console.error("Failed to relink chapters to book version", relinkError);
+      }
     }
   }
-
-  const { data: translationRows } = await supabase
-    .from("translations")
-    .select("original_book_id, translated_book_id, target_language, status")
-    .eq("original_book_id", groupId);
-
-  const translationBookIds = Array.from(
-    new Set((translationRows ?? []).map((row) => row.translated_book_id).filter(Boolean))
-  );
-
-  const groupFilters = [`id.eq.${groupId}`, `original_book_id.eq.${groupId}`];
-  if (book.id !== groupId) {
-    groupFilters.push(`id.eq.${book.id}`);
-  }
-  if (translationBookIds.length > 0) {
-    groupFilters.push(`id.in.(${translationBookIds.join(",")})`);
-  }
-
-  const { data: groupBooks } = await supabase
-    .from("books")
-    .select("id, title, description, cover_image, author_id, status, language, original_source, original_url, is_translation, original_book_id, translation_status, audiobook_status")
-    .eq("author_id", user.id)
-    .or(groupFilters.join(","))
-    .order("id");
+  const originalLang = normalizeLanguage((book as { original_language?: string | null }).original_language);
+  const activeVersion =
+    (langParam ? versions.find((v) => normalizeLanguage(v.language_code) === langParam) : null) ??
+    versions.find((v) => normalizeLanguage(v.language_code) === originalLang) ??
+    versions[0];
 
   const { data: latestAudiobookAsset } = await supabase
     .from("audiobook_assets")
@@ -70,16 +91,14 @@ export default async function BookDetailPage({ params }: { params: Promise<{ id:
 
   const { data: chapters } = await supabase
     .from("chapters")
-    .select("id, title, content, order")
-    .eq("book_id", book.id)
+    .select("id, title, content, order, book_version_id")
+    .eq("book_version_id", activeVersion?.id ?? "")
     .order("order", { ascending: true });
 
   const { data: marketingCampaigns } = await supabase
     .from("marketing_campaigns")
     .select("id, book_id, language, channel, status, headline, caption, cta, hashtags, share_url, created_at, updated_at")
     .eq("book_id", book.id);
-
-  const groupBooksList = groupBooks && groupBooks.length > 0 ? groupBooks : [book];
 
   return (
     <main className="min-h-screen bg-background text-foreground">
@@ -96,9 +115,8 @@ export default async function BookDetailPage({ params }: { params: Promise<{ id:
       <BookEditor
         book={book}
         chapters={chapters ?? []}
-        groupId={groupId}
-        groupBooks={groupBooksList}
-        translationRows={translationRows ?? []}
+        bookVersions={versions}
+        activeVersion={activeVersion ?? null}
         latestAudiobookAsset={latestAudiobookAsset ?? null}
         marketingCampaigns={marketingCampaigns ?? []}
       />

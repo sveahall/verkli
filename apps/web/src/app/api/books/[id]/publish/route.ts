@@ -27,11 +27,18 @@ function extractText(node: unknown): string {
 }
 
 export async function POST(
-  _request: Request,
+  request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
   assertPublicEnv();
   const { id } = await params;
+  const body = await request.json().catch(() => ({}));
+  const versionFromBody =
+    body?.versionId != null && String(body.versionId).trim() !== ""
+      ? String(body.versionId).trim()
+      : null;
+  const versionFromQuery = new URL(request.url).searchParams.get("versionId");
+  const requestedVersionId = versionFromBody ?? versionFromQuery ?? null;
 
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
@@ -42,7 +49,7 @@ export async function POST(
 
   const { data: book, error: bookError } = await supabase
     .from("books")
-    .select("id, title, author_id, status")
+    .select("id, title, author_id, status, original_language")
     .eq("id", id)
     .maybeSingle();
 
@@ -54,7 +61,41 @@ export async function POST(
     return NextResponse.json({ error: "Book not found" }, { status: 404 });
   }
 
-  if (book.status === "PUBLISHED") {
+  let versionId = requestedVersionId;
+  if (!versionId) {
+    const { data: defaultVersion } = await supabase
+      .from("book_versions")
+      .select("id")
+      .eq("book_id", id)
+      .eq("language_code", (book as { original_language?: string | null }).original_language ?? "en")
+      .maybeSingle();
+    versionId = defaultVersion?.id ?? null;
+  }
+  if (!versionId) {
+    const { data: anyVersion } = await supabase
+      .from("book_versions")
+      .select("id")
+      .eq("book_id", id)
+      .order("created_at", { ascending: true })
+      .limit(1)
+      .maybeSingle();
+    versionId = anyVersion?.id ?? null;
+  }
+  if (!versionId) {
+    return NextResponse.json({ error: "Book has no version to publish" }, { status: 400 });
+  }
+
+  const { data: version, error: versionError } = await supabase
+    .from("book_versions")
+    .select("id, book_id, published_at")
+    .eq("id", versionId)
+    .maybeSingle();
+
+  if (versionError || !version || version.book_id !== id) {
+    return NextResponse.json({ error: "Invalid book version" }, { status: 400 });
+  }
+
+  if (version.published_at) {
     return NextResponse.json({ ok: true, alreadyPublished: true });
   }
 
@@ -69,7 +110,7 @@ export async function POST(
   const { data: chapters } = await supabase
     .from("chapters")
     .select("id, content")
-    .eq("book_id", id)
+    .eq("book_version_id", versionId)
     .order("order", { ascending: true });
 
   if (!chapters || chapters.length === 0) {
@@ -87,17 +128,33 @@ export async function POST(
     );
   }
 
-  const { error: updateError } = await supabase
-    .from("books")
-    .update({
-      status: "PUBLISHED",
-      published: true,
-      published_at: new Date().toISOString(),
-    })
-    .eq("id", id);
+  const now = new Date().toISOString();
 
-  if (updateError) {
-    return NextResponse.json({ error: updateError.message }, { status: 500 });
+  const { error: versionUpdateError } = await supabase
+    .from("book_versions")
+    .update({
+      status: "done",
+      published_at: now,
+    })
+    .eq("id", versionId);
+
+  if (versionUpdateError) {
+    return NextResponse.json({ error: versionUpdateError.message }, { status: 500 });
+  }
+
+  if (book.status !== "PUBLISHED") {
+    const { error: updateError } = await supabase
+      .from("books")
+      .update({
+        status: "PUBLISHED",
+        published: true,
+        published_at: now,
+      })
+      .eq("id", id);
+
+    if (updateError) {
+      return NextResponse.json({ error: updateError.message }, { status: 500 });
+    }
   }
 
   return NextResponse.json({ ok: true });

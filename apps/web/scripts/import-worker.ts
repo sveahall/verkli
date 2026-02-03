@@ -87,6 +87,7 @@ async function processJob(payload: {
     let slug = `${baseSlug}-${shortFromId}`;
     const MAX_SLUG_ATTEMPTS = 3;
     let book: { id: string } | null = null;
+    let bookVersion: { id: string } | null = null;
     let lastBookError: { message: string } | null = null;
 
     console.log("[import worker] creating book...");
@@ -99,6 +100,7 @@ async function processJob(payload: {
           author_id: authorId,
           status: "DRAFT",
           language: "sv",
+          original_language: "sv",
         })
         .select("id")
         .single();
@@ -125,12 +127,32 @@ async function processJob(payload: {
       return;
     }
 
+    const { data: versionData, error: versionError } = await supabase
+      .from("book_versions")
+      .insert({
+        book_id: book.id,
+        language_code: "sv",
+        status: "draft",
+      })
+      .select("id")
+      .single();
+
+    if (versionError || !versionData?.id) {
+      const errMsg = versionError?.message ?? "Failed to create book version";
+      console.error("[import worker] failed creating book version:", errMsg);
+      await updateProgress("failed", 0, errMsg);
+      return;
+    }
+
+    bookVersion = versionData;
+
     console.log("[import worker] creating chapters...", chapters.length);
     for (let i = 0; i < chapters.length; i++) {
       const ch = chapters[i];
       const hash = contentHash(ch.sourceText);
       await supabase.from("chapters").insert({
         book_id: book.id,
+        book_version_id: bookVersion.id,
         title: ch.title,
         content: ch.sourceText,
         source_text: ch.sourceText,
@@ -145,6 +167,7 @@ async function processJob(payload: {
       .from("book_imports")
       .update({
         book_id: book.id,
+        book_version_id: bookVersion.id,
         status: "completed",
         progress: 100,
         error_message: null,
@@ -158,7 +181,11 @@ async function processJob(payload: {
       const { data: bookRow } = await supabase.from("books").select("language").eq("id", book.id).single();
       const originalLang = normalizeLanguage(bookRow?.language ?? null);
       if (originalLang !== "en") {
-        const jobId = await enqueueTranslationJob({ originalBookId: book.id, targetLanguage: "en" });
+        const jobId = await enqueueTranslationJob({
+          bookId: book.id,
+          sourceVersionId: bookVersion.id,
+          targetLanguage: "en",
+        });
         if (jobId) {
           console.log("[import worker] translation job enqueued — bookId:", book.id, "targetLanguage: en");
         }

@@ -21,14 +21,12 @@ type Chapter = {
   title: string;
   content: string | null;
   order: number;
+  book_version_id: string;
 };
 
 function normalizeLangKey(value: string | null | undefined): string {
   return String(value ?? "").trim().toLowerCase();
 }
-
-const TRANSLATION_STATUSES = ["draft", "needs_review", "ready", "published"] as const;
-type TranslationStatus = (typeof TRANSLATION_STATUSES)[number];
 
 const MARKETING_CHANNELS = ["generic", "tiktok", "instagram", "x"] as const;
 type MarketingChannel = (typeof MARKETING_CHANNELS)[number];
@@ -55,19 +53,20 @@ type Book = {
   cover_image: string | null;
   status: string;
   language?: string | null;
+  original_language?: string | null;
   original_source?: string | null;
   original_url?: string | null;
-  is_translation?: boolean | null;
-  original_book_id?: string | null;
-  translation_status?: string | null;
   audiobook_status?: string | null;
 };
 
-type TranslationRow = {
-  original_book_id: string;
-  translated_book_id: string;
-  target_language: string;
+type BookVersion = {
+  id: string;
+  book_id: string;
+  language_code: string;
   status: string;
+  published_at?: string | null;
+  created_at?: string;
+  updated_at?: string;
 };
 
 type LatestAudiobookAsset = {
@@ -82,9 +81,8 @@ const TRANSLATION_POLL_MAX_MS = 120_000;
 type Props = {
   book: Book;
   chapters: Chapter[];
-  groupId: string;
-  groupBooks: Book[];
-  translationRows?: TranslationRow[];
+  bookVersions: BookVersion[];
+  activeVersion: BookVersion | null;
   latestAudiobookAsset?: LatestAudiobookAsset;
   marketingCampaigns?: MarketingCampaignRow[];
 };
@@ -92,9 +90,8 @@ type Props = {
 export default function BookEditor({
   book,
   chapters: initialChapters,
-  groupId,
-  groupBooks,
-  translationRows = [],
+  bookVersions,
+  activeVersion,
   latestAudiobookAsset = null,
   marketingCampaigns = [],
 }: Props) {
@@ -107,6 +104,11 @@ export default function BookEditor({
   const [isCreating, setIsCreating] = useState(false);
   const [editingTitleId, setEditingTitleId] = useState<string | null>(null);
   const [tempTitle, setTempTitle] = useState("");
+  const [bookTitle, setBookTitle] = useState(book.title ?? "Untitled");
+  const [isRenamingBook, setIsRenamingBook] = useState(false);
+  const [bookTitleDraft, setBookTitleDraft] = useState(book.title ?? "Untitled");
+  const [bookTitleError, setBookTitleError] = useState<string | null>(null);
+  const [bookTitleSaving, setBookTitleSaving] = useState(false);
   const [lastSaved, setLastSaved] = useState<Date | null>(null);
   const [focusMode, setFocusMode] = useState(false);
   const [preset, setPreset] = useState("novel");
@@ -119,30 +121,28 @@ export default function BookEditor({
   const [coverPreviewUrl, setCoverPreviewUrl] = useState<string | null>(null);
   const [originalUrl, setOriginalUrl] = useState(book.original_url ?? "");
   const [marketingChannel, setMarketingChannel] = useState<MarketingChannel>("generic");
-  const [marketingLanguage, setMarketingLanguage] = useState<SupportedLanguage>(normalizeLanguage(book.language));
+  const [marketingLanguage, setMarketingLanguage] = useState<SupportedLanguage>(
+    normalizeLanguage(activeVersion?.language_code ?? book.original_language ?? book.language)
+  );
   const [marketingCopyFeedback, setMarketingCopyFeedback] = useState(false);
   const [isGeneratingMarketing, setIsGeneratingMarketing] = useState(false);
-  const [translationStatus, setTranslationStatus] = useState<string>(book.translation_status ?? "draft");
-  const normalizedGroupBooks = groupBooks.length > 0 ? groupBooks : [book];
-  const existingTranslationLanguages = useMemo(() => {
+  const existingVersionLanguages = useMemo(() => {
     const langs = new Set<string>();
-    for (const row of translationRows) {
-      const key = normalizeLangKey(row.target_language);
-      if (key) langs.add(key);
-    }
-    for (const b of normalizedGroupBooks) {
-      if (b.id === groupId) continue;
-      const key = normalizeLangKey(b.language ?? "");
+    for (const v of bookVersions) {
+      const key = normalizeLangKey(v.language_code);
       if (key) langs.add(key);
     }
     return langs;
-  }, [translationRows, normalizedGroupBooks, groupId]);
+  }, [bookVersions]);
   const initialTargetLanguage = useMemo<SupportedLanguage>(() => {
-    if (existingTranslationLanguages.has("sv")) return "sv";
-    if (existingTranslationLanguages.has("en")) return "en";
-    const originalLang = normalizeLanguage(book.language);
-    return originalLang === "en" ? "sv" : "en";
-  }, [existingTranslationLanguages, book.language]);
+    const currentLang = normalizeLanguage(activeVersion?.language_code ?? book.original_language ?? book.language);
+    const preferred = currentLang === "en" ? "sv" : "en";
+    if (!existingVersionLanguages.has(preferred)) return preferred;
+    for (const opt of LANGUAGE_OPTIONS) {
+      if (!existingVersionLanguages.has(opt.value)) return opt.value;
+    }
+    return preferred;
+  }, [activeVersion?.language_code, book.original_language, book.language, existingVersionLanguages]);
   const [translateTargetLanguage, setTranslateTargetLanguage] = useState<SupportedLanguage>(initialTargetLanguage);
   const [isStartingTranslation, setIsStartingTranslation] = useState(false);
   const [isPollingTranslation, setIsPollingTranslation] = useState(false);
@@ -152,84 +152,50 @@ export default function BookEditor({
   const translationPollStartedAtRef = useRef<number>(0);
   const [isGeneratingAudiobook, setIsGeneratingAudiobook] = useState(false);
   const [audiobookError, setAudiobookError] = useState<string | null>(null);
+  const [ttsStatus, setTtsStatus] = useState<"idle" | "generating" | "done" | "error">("idle");
+  const [ttsMessage, setTtsMessage] = useState<string | null>(null);
+  const [ttsAudioUrl, setTtsAudioUrl] = useState<string | null>(null);
+  const [ttsVoice, setTtsVoice] = useState<string>("default");
   const savingRef = useRef(false);
   const coverInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    setChapters(initialChapters);
+    setSelectedChapterId(initialChapters[0]?.id ?? null);
+  }, [initialChapters]);
 
   const selectedChapter = chapters.find((ch) => ch.id === selectedChapterId);
   const displayCoverUrl = coverPreviewUrl ?? book.cover_image;
 
-  type TranslationInfoStatus = "none" | "running" | "completed" | "failed";
-  type TranslationInfo = { status: TranslationInfoStatus; bookId: string | null };
+  const activeLanguage = normalizeLanguage(
+    activeVersion?.language_code ?? book.original_language ?? book.language
+  );
 
-  const translationRowsByLang = useMemo(() => {
-    const map = new Map<string, TranslationRow>();
-    for (const row of translationRows) {
-      const key = normalizeLangKey(row.target_language);
+  const versionsByLang = useMemo(() => {
+    const map = new Map<string, BookVersion>();
+    for (const v of bookVersions) {
+      const key = normalizeLangKey(v.language_code);
       if (!key) continue;
-      if (!map.has(key)) {
-        map.set(key, row);
-      }
+      map.set(key, v);
     }
     return map;
-  }, [translationRows]);
+  }, [bookVersions]);
 
-  const translationBooksByLang = useMemo(() => {
-    const map = new Map<string, Book>();
-    for (const b of normalizedGroupBooks) {
-      if (b.id === groupId) continue;
-      const key = normalizeLangKey(b.language ?? "");
-      if (!key) continue;
-      if (!map.has(key)) {
-        map.set(key, b);
-      }
-    }
-    return map;
-  }, [normalizedGroupBooks, groupId]);
-
-  const resolveTranslationInfo = useCallback(
-    (targetLang: string): TranslationInfo => {
-      const key = normalizeLangKey(targetLang);
-      if (!key) return { status: "none", bookId: null };
-      const row = translationRowsByLang.get(key);
-      const bookFromRow = row
-        ? normalizedGroupBooks.find((b) => b.id === row.translated_book_id)
-        : undefined;
-      const book = bookFromRow ?? translationBooksByLang.get(key);
-      const status = normalizeLangKey(row?.status ?? "");
-      if (status === "completed") {
-        return { status: "completed", bookId: book?.id ?? row?.translated_book_id ?? null };
-      }
-      if (status === "failed") {
-        return { status: "failed", bookId: book?.id ?? row?.translated_book_id ?? null };
-      }
-      if (row) {
-        return { status: "running", bookId: book?.id ?? row?.translated_book_id ?? null };
-      }
-      if (book) {
-        const bookStatus = normalizeLangKey(book.translation_status ?? "");
-        if (bookStatus === "draft") {
-          return { status: "running", bookId: book.id };
-        }
-        return { status: "completed", bookId: book.id };
-      }
-      return { status: "none", bookId: null };
-    },
-    [translationRowsByLang, normalizedGroupBooks, translationBooksByLang]
+  const currentTargetVersion = useMemo(
+    () => versionsByLang.get(normalizeLangKey(translateTargetLanguage)),
+    [versionsByLang, translateTargetLanguage]
   );
 
-  const currentTranslationInfo = useMemo(
-    () => resolveTranslationInfo(translateTargetLanguage),
-    [resolveTranslationInfo, translateTargetLanguage]
+  const requestedTargetVersion = useMemo(
+    () => (lastRequestedTargetLanguage ? versionsByLang.get(normalizeLangKey(lastRequestedTargetLanguage)) : null),
+    [versionsByLang, lastRequestedTargetLanguage]
   );
-  const requestedTranslationInfo = useMemo(
-    () => (lastRequestedTargetLanguage ? resolveTranslationInfo(lastRequestedTargetLanguage) : null),
-    [resolveTranslationInfo, lastRequestedTargetLanguage]
-  );
-  const requestedTranslationInfoRef = useRef<TranslationInfo | null>(null);
+
+  const requestedTargetVersionRef = useRef<BookVersion | null>(null);
 
   useEffect(() => {
-    requestedTranslationInfoRef.current = requestedTranslationInfo;
-  }, [requestedTranslationInfo]);
+    requestedTargetVersionRef.current = requestedTargetVersion ?? null;
+  }, [requestedTargetVersion]);
 
   const stopTranslationPoll = useCallback(() => {
     if (translationPollRef.current) {
@@ -240,19 +206,19 @@ export default function BookEditor({
   }, []);
 
   useEffect(() => {
-    if (!isPollingTranslation || !lastRequestedTargetLanguage || !requestedTranslationInfo) return;
-    if (requestedTranslationInfo.status === "completed") {
+    if (!isPollingTranslation || !lastRequestedTargetLanguage) return;
+    if (requestedTargetVersion?.status === "done" || requestedTargetVersion?.published_at) {
       stopTranslationPoll();
       setTranslateMessage(`Översättning klar (${getLanguageLabel(lastRequestedTargetLanguage)}).`);
       setLastRequestedTargetLanguage(null);
       return;
     }
-    if (requestedTranslationInfo.status === "failed") {
+    if (requestedTargetVersion?.status === "failed") {
       stopTranslationPoll();
       setTranslateMessage("Översättningen misslyckades. Försök igen.");
       setLastRequestedTargetLanguage(null);
     }
-  }, [isPollingTranslation, lastRequestedTargetLanguage, requestedTranslationInfo, stopTranslationPoll]);
+  }, [isPollingTranslation, lastRequestedTargetLanguage, requestedTargetVersion, stopTranslationPoll]);
 
   useEffect(() => {
     return () => {
@@ -267,18 +233,18 @@ export default function BookEditor({
   type TranslationUiStatus = "idle" | "translating" | "done" | "error";
   const isPollingCurrent = isPollingTranslation && lastRequestedTargetLanguage === translateTargetLanguage;
   const translationUiStatus = useMemo<TranslationUiStatus>(() => {
-    if (currentTranslationInfo.status === "completed") return "done";
-    if (currentTranslationInfo.status === "failed") return "error";
-    if (currentTranslationInfo.status === "running" || isPollingCurrent) return "translating";
+    if (currentTargetVersion?.status === "failed") return "error";
+    if (currentTargetVersion?.status === "translating" || isPollingCurrent) return "translating";
+    if (currentTargetVersion?.status === "done" || currentTargetVersion?.published_at) return "done";
     return "idle";
-  }, [currentTranslationInfo.status, isPollingCurrent]);
+  }, [currentTargetVersion?.status, currentTargetVersion?.published_at, isPollingCurrent]);
 
   const startTranslationPoll = useCallback(() => {
     stopTranslationPoll();
     translationPollStartedAtRef.current = Date.now();
     setIsPollingTranslation(true);
     translationPollRef.current = setInterval(() => {
-      const info = requestedTranslationInfoRef.current;
+      const info = requestedTargetVersionRef.current;
       const status = info?.status ?? "none";
       const elapsed = Date.now() - translationPollStartedAtRef.current;
       if (elapsed >= TRANSLATION_POLL_MAX_MS && status === "none") {
@@ -296,13 +262,14 @@ export default function BookEditor({
     setIsStartingTranslation(true);
     setTranslateMessage(null);
 
-    const existingInfo = resolveTranslationInfo(translateTargetLanguage);
-    if (existingInfo.status === "completed" && existingInfo.bookId) {
-      setTranslateMessage(`Översättning finns redan (${getLanguageLabel(translateTargetLanguage)}).`);
+    if (!activeVersion?.id) {
+      setTranslateMessage("Ingen aktiv version hittades.");
       setIsStartingTranslation(false);
       return;
     }
-    if (existingInfo.status === "running") {
+
+    const existingVersion = versionsByLang.get(normalizeLangKey(translateTargetLanguage));
+    if (existingVersion?.status === "translating") {
       setTranslateMessage("Översättning pågår redan. Väntar på att den blir klar…");
       setLastRequestedTargetLanguage(translateTargetLanguage);
       startTranslationPoll();
@@ -310,22 +277,41 @@ export default function BookEditor({
       return;
     }
 
+    let overwrite = false;
+    let targetVersionId: string | null = null;
+    if (existingVersion) {
+      const shouldOverwrite = window.confirm(
+        `En version på ${getLanguageLabel(translateTargetLanguage)} finns redan. Vill du skriva över den?`
+      );
+      if (!shouldOverwrite) {
+        router.push(`/author/books/${book.id}?lang=${normalizeLangKey(translateTargetLanguage)}`);
+        setIsStartingTranslation(false);
+        return;
+      }
+      overwrite = true;
+      targetVersionId = existingVersion.id;
+    }
+
     try {
-      const res = await fetch(`/api/books/${groupId}/translate`, {
+      const res = await fetch(`/api/books/${book.id}/translate`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ targetLang: translateTargetLanguage }),
+        body: JSON.stringify({
+          targetLanguage: translateTargetLanguage,
+          sourceVersionId: activeVersion.id,
+          targetVersionId,
+          overwrite,
+        }),
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok || data?.ok === false) {
         const errMsg = data?.error ?? "Failed to start translation";
-        if (String(errMsg).toLowerCase().includes("already exists")) {
-          setTranslateMessage("Översättning finns redan. Hämtar status…");
-          setLastRequestedTargetLanguage(translateTargetLanguage);
-          startTranslationPoll();
-        } else {
-          setTranslateMessage(errMsg);
+        if (data?.existingVersionId) {
+          setTranslateMessage("Version finns redan. Öppnar befintlig version…");
+          router.push(`/author/books/${book.id}?lang=${normalizeLangKey(translateTargetLanguage)}`);
+          return;
         }
+        setTranslateMessage(errMsg);
         return;
       }
       setTranslateMessage("Översättning startad. Väntar på att den blir klar…");
@@ -338,18 +324,24 @@ export default function BookEditor({
       setIsStartingTranslation(false);
     }
   }, [
-    groupId,
     isStartingTranslation,
-    resolveTranslationInfo,
     startTranslationPoll,
     translateTargetLanguage,
+    activeVersion?.id,
+    versionsByLang,
+    book.id,
+    router,
   ]);
 
   const handlePublish = async () => {
-    if (isPublishing) return;
+    if (isPublishing || !activeVersion?.id) return;
     setIsPublishing(true);
     try {
-      const res = await fetch(`/api/books/${book.id}/publish`, { method: "POST" });
+      const res = await fetch(`/api/books/${book.id}/publish`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ versionId: activeVersion.id }),
+      });
       const data = await res.json();
       if (!res.ok) {
         alert(data.error || "Failed to publish");
@@ -427,28 +419,63 @@ export default function BookEditor({
     if (!error) router.refresh();
   }, [book.id, book.original_url, originalUrl, router]);
 
+  const handleStartRenameBook = useCallback(() => {
+    setBookTitleError(null);
+    setBookTitleDraft(bookTitle);
+    setIsRenamingBook(true);
+  }, [bookTitle]);
+
+  const handleCancelRenameBook = useCallback(() => {
+    setBookTitleError(null);
+    setBookTitleDraft(bookTitle);
+    setIsRenamingBook(false);
+  }, [bookTitle]);
+
+  const handleSaveRenameBook = useCallback(async () => {
+    if (bookTitleSaving) return;
+    const trimmed = bookTitleDraft.trim();
+    if (!trimmed) {
+      setBookTitleError("Titel kan inte vara tom.");
+      return;
+    }
+    if (trimmed.length > 120) {
+      setBookTitleError("Titeln är för lång (max 120 tecken).");
+      return;
+    }
+    if (trimmed === bookTitle) {
+      setIsRenamingBook(false);
+      return;
+    }
+    setBookTitleSaving(true);
+    const supabase = createClient();
+    const { error } = await supabase.from("books").update({ title: trimmed }).eq("id", book.id);
+    if (error) {
+      setBookTitleError(error.message);
+      setBookTitleSaving(false);
+      return;
+    }
+    setBookTitle(trimmed);
+    setIsRenamingBook(false);
+    setBookTitleSaving(false);
+    router.refresh();
+  }, [bookTitleDraft, bookTitle, book.id, bookTitleSaving, router]);
+
   useEffect(() => {
     setOriginalUrl(book.original_url ?? "");
   }, [book.original_url]);
 
   useEffect(() => {
-    setTranslationStatus(book.translation_status ?? "draft");
-  }, [book.translation_status]);
+    setBookTitle(book.title ?? "Untitled");
+    if (!isRenamingBook) {
+      setBookTitleDraft(book.title ?? "Untitled");
+    }
+  }, [book.title, isRenamingBook]);
 
-  const handleTranslationStatusChange = useCallback(
-    async (e: React.ChangeEvent<HTMLSelectElement>) => {
-      const value = e.target.value as TranslationStatus;
-      if (!TRANSLATION_STATUSES.includes(value)) return;
-      setTranslationStatus(value);
-      const supabase = createClient();
-      const { error } = await supabase.from("books").update({ translation_status: value }).eq("id", book.id);
-      if (error) {
-        if (process.env.NODE_ENV === "development") console.error("[translation_status update failed]", error);
-        setTranslationStatus(book.translation_status ?? "draft");
-      } else router.refresh();
-    },
-    [book.id, book.translation_status, router]
-  );
+  useEffect(() => {
+    setMarketingLanguage(
+      normalizeLanguage(activeVersion?.language_code ?? book.original_language ?? book.language)
+    );
+  }, [activeVersion?.language_code, book.original_language, book.language]);
 
   const handleGenerateAudiobook = useCallback(async () => {
     if (isGeneratingAudiobook) return;
@@ -468,6 +495,31 @@ export default function BookEditor({
       setIsGeneratingAudiobook(false);
     }
   }, [book.id, isGeneratingAudiobook, router]);
+
+  const handleStartTts = useCallback(async () => {
+    setTtsMessage(null);
+    setTtsStatus("generating");
+    try {
+      const res = await fetch(`/api/books/${book.id}/tts`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ voice: ttsVoice }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || data?.ok === false) {
+        setTtsStatus("error");
+        setTtsMessage(data?.error ?? "TTS failed");
+        return;
+      }
+      setTtsAudioUrl(data.audioUrl ?? null);
+      setTtsStatus("done");
+      setTtsMessage("Ljud genererat. Du kan spela upp eller ladda ner.");
+      router.refresh();
+    } catch (err) {
+      setTtsStatus("error");
+      setTtsMessage(err instanceof Error ? err.message : "TTS failed");
+    }
+  }, [book.id, ttsVoice, router]);
 
   const currentCampaign = marketingCampaigns.find(
     (c) => c.language === marketingLanguage && c.channel === marketingChannel
@@ -514,6 +566,12 @@ export default function BookEditor({
       setMarketingCopyFeedback(false);
     }
   }, [currentCampaign]);
+
+  useEffect(() => {
+    if (latestAudiobookAsset?.audio_url && ttsStatus === "idle") {
+      setTtsStatus("done");
+    }
+  }, [latestAudiobookAsset?.audio_url, ttsStatus]);
 
   useEffect(() => {
     const stored = localStorage.getItem(STORAGE_PRESET);
@@ -565,16 +623,44 @@ export default function BookEditor({
   const handleCreateChapter = async () => {
     setIsCreating(true);
     const supabase = createClient();
+    let targetVersionId = activeVersion?.id ?? null;
+    let targetVersionLanguage = activeVersion?.language_code ?? null;
+    if (!targetVersionId) {
+      const fallbackLanguage = normalizeLanguage(book.original_language ?? book.language);
+      const { data: createdVersion, error: versionError } = await supabase
+        .from("book_versions")
+        .insert({
+          book_id: book.id,
+          language_code: fallbackLanguage,
+          status: "draft",
+        })
+        .select("id, language_code")
+        .single();
+      if (versionError || !createdVersion?.id) {
+        setIsCreating(false);
+        alert("Kunde inte skapa en version för boken. Kontrollera databasen och försök igen.");
+        return;
+      }
+      targetVersionId = createdVersion.id;
+      targetVersionLanguage = createdVersion.language_code ?? fallbackLanguage;
+      await supabase
+        .from("chapters")
+        .update({ book_version_id: targetVersionId })
+        .eq("book_id", book.id)
+        .is("book_version_id", null);
+      router.push(`/author/books/${book.id}?lang=${normalizeLangKey(targetVersionLanguage)}`);
+    }
     const maxOrder = chapters.length > 0 ? Math.max(...chapters.map((ch) => ch.order)) : 0;
     const { data, error } = await supabase
       .from("chapters")
       .insert({
         book_id: book.id,
+        book_version_id: targetVersionId,
         title: `Chapter ${maxOrder + 1}`,
         content: "",
         order: maxOrder + 1,
       })
-      .select("id, title, content, order")
+      .select("id, title, content, order, book_version_id")
       .single();
     setIsCreating(false);
     if (error) {
@@ -702,23 +788,23 @@ export default function BookEditor({
   return (
     <>
       <section className="mx-auto max-w-[1400px] px-6 py-12">
-        {getTranslationsEnabled() && normalizedGroupBooks.length > 1 && (
+        {getTranslationsEnabled() && bookVersions.length > 1 && (
           <div className="mb-4 max-w-[320px]">
             <label htmlFor="version-select" className="mb-1 block text-xs text-slate-500 dark:text-white/50">
               Version
             </label>
             <select
               id="version-select"
-              value={book.id}
-              onChange={(e) => router.push(`/author/books/${e.target.value}`)}
+              value={normalizeLangKey(activeVersion?.language_code ?? activeLanguage)}
+              onChange={(e) => router.push(`/author/books/${book.id}?lang=${e.target.value}`)}
               className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:border-slate-500 focus:outline-none dark:border-white/20 dark:bg-white/10 dark:text-white"
             >
-              {normalizedGroupBooks.map((b) => {
-                const isOriginal = b.id === groupId;
-                const langKey = normalizeLangKey(b.language ?? "");
+              {bookVersions.map((v) => {
+                const langKey = normalizeLangKey(v.language_code);
+                const isOriginal = normalizeLangKey(book.original_language ?? book.language) === langKey;
                 const label = isOriginal ? "Original" : getLanguageLabel(langKey || "unknown");
                 return (
-                  <option key={b.id} value={b.id}>
+                  <option key={v.id} value={langKey}>
                     {label}
                   </option>
                 );
@@ -727,27 +813,72 @@ export default function BookEditor({
           </div>
         )}
         <div className="mb-8 flex flex-wrap items-start justify-between gap-4">
-          <div>
-            <h1 className="text-4xl font-semibold tracking-tight text-slate-900 dark:text-white">
-              {book.title}
-            </h1>
+          <div className="min-w-0">
+            {!isRenamingBook ? (
+              <div className="flex flex-wrap items-center gap-3">
+                <h1 className="text-4xl font-semibold tracking-tight text-slate-900 dark:text-white">
+                  {bookTitle}
+                </h1>
+                <button
+                  type="button"
+                  onClick={handleStartRenameBook}
+                  className="rounded-full border border-slate-200 bg-white px-3 py-1 text-xs font-medium text-slate-600 transition hover:bg-slate-50 dark:border-white/10 dark:bg-white/5 dark:text-white/70"
+                >
+                  Rename
+                </button>
+              </div>
+            ) : (
+              <div className="flex flex-col gap-2">
+                <div className="flex flex-wrap items-center gap-2">
+                  <input
+                    type="text"
+                    value={bookTitleDraft}
+                    onChange={(e) => setBookTitleDraft(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") handleSaveRenameBook();
+                      if (e.key === "Escape") handleCancelRenameBook();
+                    }}
+                    className="min-w-[260px] rounded-lg border border-slate-300 bg-white px-3 py-2 text-base text-slate-900 focus:border-slate-500 focus:outline-none dark:border-white/20 dark:bg-white/10 dark:text-white"
+                    autoFocus
+                  />
+                  <button
+                    type="button"
+                    onClick={handleSaveRenameBook}
+                    disabled={bookTitleSaving}
+                    className="rounded-lg bg-slate-900 px-3 py-2 text-xs font-medium text-white hover:bg-slate-800 disabled:opacity-60 dark:bg-white dark:text-slate-900"
+                  >
+                    {bookTitleSaving ? "Saving…" : "Save"}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleCancelRenameBook}
+                    className="rounded-lg border border-slate-300 px-3 py-2 text-xs font-medium text-slate-700 hover:bg-slate-50 dark:border-white/20 dark:text-white/70 dark:hover:bg-white/5"
+                  >
+                    Cancel
+                  </button>
+                </div>
+                {bookTitleError && (
+                  <p className="text-xs text-red-600 dark:text-red-400">{bookTitleError}</p>
+                )}
+              </div>
+            )}
             <p className="mt-2 text-sm text-slate-600 dark:text-white/60">
-              {book.status === "DRAFT" ? "Draft" : "Published"} • {chapters.length} chapter{chapters.length !== 1 ? "s" : ""}
+              {activeVersion?.published_at ? "Published" : "Draft"} • {chapters.length} chapter{chapters.length !== 1 ? "s" : ""}
             </p>
           </div>
           <div className="flex flex-wrap items-center gap-3">
-            {book.status === "DRAFT" && (
+            {activeVersion && !activeVersion.published_at && (
               <button
                 onClick={handlePublish}
                 disabled={isPublishing || chapters.length === 0}
                 className="rounded-full bg-emerald-600 px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-emerald-700 disabled:opacity-50"
               >
-                {isPublishing ? "Publishing..." : "Publish your translation"}
+                {isPublishing ? "Publishing..." : "Publish version"}
               </button>
             )}
             <DeleteBookButton
               bookId={book.id}
-              bookTitle={book.title}
+              bookTitle={bookTitle}
               redirectTo="/author/books"
               className="rounded-full border border-red-200 bg-white px-5 py-2.5 text-sm font-semibold text-red-700 transition hover:bg-red-50 dark:border-red-900/50 dark:bg-white/10 dark:text-red-200 dark:hover:bg-red-950/30"
             />
@@ -841,13 +972,15 @@ export default function BookEditor({
                 >
                   {isStartingTranslation ? "Startar…" : "Start translation"}
                 </button>
-                {currentTranslationInfo.status === "completed" && currentTranslationInfo.bookId && (
+                {currentTargetVersion && (
                   <button
                     type="button"
-                    onClick={() => router.push(`/author/books/${currentTranslationInfo.bookId}`)}
+                    onClick={() =>
+                      router.push(`/author/books/${book.id}?lang=${normalizeLangKey(currentTargetVersion.language_code)}`)
+                    }
                     className="mt-2 w-full rounded-lg bg-slate-900 px-3 py-2 text-sm font-medium text-white transition hover:bg-slate-800 dark:bg-white dark:text-slate-900 dark:hover:bg-white/90"
                   >
-                    Open translation
+                    Open version
                   </button>
                 )}
                 {translateMessage && (
@@ -867,47 +1000,102 @@ export default function BookEditor({
               </div>
             )}
 
-            {getTranslationsEnabled() && book.is_translation && (
-              <div className="rounded-xl border border-slate-200 bg-slate-50/50 p-5 dark:border-white/10 dark:bg-white/5">
-                <h2 className="mb-3 text-base font-semibold text-slate-900 dark:text-white">Translation status</h2>
-                <div className="mb-3 flex items-center gap-2">
-                  <span
-                    className={`rounded-full px-2.5 py-1 text-xs font-medium ${
-                      translationStatus === "published"
-                        ? "bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-300"
-                        : translationStatus === "ready"
-                          ? "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300"
-                          : translationStatus === "needs_review"
-                            ? "bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300"
-                            : "bg-slate-100 text-slate-700 dark:bg-slate-700 dark:text-slate-200"
-                    }`}
-                  >
-                    {translationStatus}
-                  </span>
-                </div>
-                <label htmlFor="translation-status-select" className="mb-1 block text-xs text-slate-500 dark:text-white/50">Status</label>
-                <select
-                  id="translation-status-select"
-                  value={translationStatus}
-                  onChange={handleTranslationStatusChange}
-                  className="mb-3 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:border-slate-500 focus:outline-none dark:border-white/20 dark:bg-white/10 dark:text-white"
+            <div id="tts" className="rounded-xl border border-slate-200 bg-slate-50/50 p-5 dark:border-white/10 dark:bg-white/5">
+              <h2 className="mb-3 text-base font-semibold text-slate-900 dark:text-white">Text to Speech</h2>
+              <p className="mb-3 text-xs text-slate-500 dark:text-white/50">
+                Generate audio from this book&apos;s first chapter. Uses the default TTS voice (Piper).
+              </p>
+              <div className="mb-3 flex items-center gap-2">
+                <span className="text-xs font-medium text-slate-500 dark:text-white/50">Status:</span>
+                <span
+                  className={`rounded-full px-2.5 py-1 text-xs font-medium ${
+                    ttsStatus === "generating"
+                      ? "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-200"
+                      : ttsStatus === "done"
+                        ? "bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-200"
+                        : ttsStatus === "error"
+                          ? "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-200"
+                          : "bg-slate-100 text-slate-700 dark:bg-slate-700 dark:text-slate-200"
+                  }`}
+                  role="status"
                 >
-                  {TRANSLATION_STATUSES.map((s) => (
-                    <option key={s} value={s}>{s.replace("_", " ")}</option>
-                  ))}
-                </select>
-                {book.original_book_id && (
-                  <p className="text-xs text-slate-500 dark:text-white/50">
-                    <Link
-                      href={`/author/books/${book.original_book_id}`}
-                      className="text-emerald-600 underline dark:text-emerald-400"
-                    >
-                      Open original on Verkli →
-                    </Link>
-                  </p>
-                )}
+                  {ttsStatus === "idle" && "Idle"}
+                  {ttsStatus === "generating" && "Generating…"}
+                  {ttsStatus === "done" && "Done"}
+                  {ttsStatus === "error" && "Error"}
+                </span>
               </div>
-            )}
+              <label htmlFor="tts-voice" className="mb-1 block text-xs text-slate-500 dark:text-white/50">Voice</label>
+              <select
+                id="tts-voice"
+                value={ttsVoice}
+                onChange={(e) => setTtsVoice(e.target.value)}
+                className="mb-3 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:border-slate-500 focus:outline-none dark:border-white/20 dark:bg-white/10 dark:text-white"
+              >
+                <option value="default">Default (sv_SE-nst-medium)</option>
+              </select>
+              <button
+                type="button"
+                onClick={handleStartTts}
+                disabled={ttsStatus === "generating"}
+                className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed dark:border-white/20 dark:bg-white/10 dark:text-white dark:hover:bg-white/15"
+              >
+                {ttsStatus === "generating" ? "Generating…" : "Start TTS"}
+              </button>
+              {(ttsAudioUrl ?? latestAudiobookAsset?.audio_url) && (
+                <div className="mt-3 space-y-2">
+                  <audio
+                    src={ttsAudioUrl ?? latestAudiobookAsset?.audio_url ?? undefined}
+                    controls
+                    className="w-full"
+                    preload="metadata"
+                  />
+                  <div className="flex flex-wrap gap-2">
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        const url = ttsAudioUrl ?? latestAudiobookAsset?.audio_url ?? "";
+                        if (url) {
+                          try {
+                            await navigator.clipboard.writeText(url);
+                            setTtsMessage("URL kopierad.");
+                            setTimeout(() => setTtsMessage(null), 2000);
+                          } catch {
+                            setTtsMessage("Kunde inte kopiera.");
+                          }
+                        }
+                      }}
+                      className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-50 dark:border-white/20 dark:bg-white/10 dark:text-white dark:hover:bg-white/15"
+                    >
+                      Copy audio URL
+                    </button>
+                    <a
+                      href={ttsAudioUrl ?? latestAudiobookAsset?.audio_url ?? "#"}
+                      download="audiobook-sample.wav"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-50 dark:border-white/20 dark:bg-white/10 dark:text-white dark:hover:bg-white/15"
+                    >
+                      Download
+                    </a>
+                  </div>
+                </div>
+              )}
+              {ttsMessage && (
+                <div
+                  className={`mt-3 rounded-lg border px-3 py-2 text-sm ${
+                    ttsStatus === "done" || ttsMessage.includes("genererat") || ttsMessage.includes("kopierad")
+                      ? "border-emerald-200 bg-emerald-50 text-emerald-800 dark:border-emerald-800 dark:bg-emerald-950/30 dark:text-emerald-200"
+                      : ttsStatus === "error"
+                        ? "border-red-200 bg-red-50 text-red-800 dark:border-red-800 dark:bg-red-950/30 dark:text-red-200"
+                        : "border-slate-200 bg-slate-50 text-slate-800 dark:border-slate-700 dark:bg-slate-800/50 dark:text-slate-200"
+                  }`}
+                  role="status"
+                >
+                  {ttsMessage}
+                </div>
+              )}
+            </div>
 
             <div className="rounded-xl border border-slate-200 bg-slate-50/50 p-5 dark:border-white/10 dark:bg-white/5">
               <h2 className="mb-3 text-base font-semibold text-slate-900 dark:text-white">Original</h2>
