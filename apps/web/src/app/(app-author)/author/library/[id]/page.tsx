@@ -8,6 +8,7 @@ import { getShelf, updateShelf, createSection, updateSection, deleteSection, add
 import type { ShelfWithDetails } from "@/lib/supabase/shelves-client";
 import SectionBlock from "@/components/library/SectionBlock";
 import BookCard from "@/components/library/BookCard";
+import CreateBookDialog from "@/components/books/CreateBookDialog";
 
 export default function ShelfDetailPage() {
   const params = useParams();
@@ -41,12 +42,6 @@ export default function ShelfDetailPage() {
   // New section form
   const [sectionName, setSectionName] = useState("");
   
-  // New book form
-  const [bookForm, setBookForm] = useState({
-    title: "",
-    cover: "",
-  });
-
   useEffect(() => {
     loadShelf();
   }, [shelfId]);
@@ -125,50 +120,26 @@ export default function ShelfDetailPage() {
     }
   };
 
-  const handleAddBook = async () => {
-    if (!shelf || !bookForm.title.trim()) return;
-    
+  const handleBookAdded = async (bookId: string) => {
+    if (!shelf) return;
     try {
-      // Create book first
-      const supabase = createClient();
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) throw new Error("Not authenticated");
-      
-      const slug = bookForm.title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '') + '-' + Date.now();
-      const { data: book, error: bookError } = await supabase
-        .from('books')
-        .insert({
-          title: bookForm.title,
-          slug: slug,
-          cover_image: bookForm.cover || null,
-          author_id: user.id,
-          status: 'DRAFT',
-        })
-        .select('id')
-        .single();
-      
-      if (bookError) throw bookError;
-      
-      // Add to shelf
       const maxSortIndex = shelf.shelf_books
         .filter(sb => sb.section_id === selectedSectionId)
         .reduce((max, sb) => Math.max(max, sb.sort_index), -1);
-      
+
       await addBookToShelf({
         shelf_id: shelfId,
-        book_id: book.id,
+        book_id: bookId,
         section_id: selectedSectionId,
         sort_index: maxSortIndex + 1,
       });
-      
-      setBookForm({ title: "", cover: "" });
+      await loadShelf();
+    } catch (error) {
+      console.error("Error adding book to shelf:", error);
+    } finally {
       setShowAddBookModal(false);
       setSelectedSectionId(null);
-      
-      // Navigate to the book editor
-      router.push(`/author/books/${book.id}`);
-    } catch (error) {
-      console.error("Error adding book:", error);
+      router.push(`/author/books/${bookId}`);
     }
   };
 
@@ -682,70 +653,12 @@ export default function ShelfDetailPage() {
           </div>
         )}
 
-        {/* Add Book Modal */}
-        {showAddBookModal && (
-          <div className="fixed inset-0 z-[1000] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
-            <div className="relative w-full max-w-[600px] rounded-3xl border border-black/10 dark:border-white/10 bg-white/95 dark:bg-[#0a0a0f]/95 p-8 backdrop-blur-xl">
-              <button onClick={() => setShowAddBookModal(false)} className="absolute right-6 top-6 text-slate-500 dark:text-white/50 transition-colors hover:text-slate-900 dark:hover:text-white">
-                <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                </svg>
-              </button>
-              <h2 className="mb-6 text-[28px] font-semibold text-slate-900 dark:text-white">Add book to shelf</h2>
-              <div className="space-y-4">
-                <div>
-                  <label className="mb-2 block text-[14px] font-medium text-slate-700 dark:text-white/70">Book title</label>
-                  <input
-                    type="text"
-                    value={bookForm.title}
-                    onChange={(e) => setBookForm({ ...bookForm, title: e.target.value })}
-                    placeholder="Enter book title"
-                    className="w-full rounded-xl border border-black/10 dark:border-white/10 bg-black/[0.02] dark:bg-white/[0.04] px-4 py-3 text-[16px] text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-white/30 outline-none transition-all focus:border-[#907AFF]/50 focus:bg-black/10 dark:focus:bg-white/[0.06]"
-                  />
-                </div>
-                <div>
-                  <label className="mb-2 block text-[14px] font-medium text-slate-700 dark:text-white/70">Book cover</label>
-                  <button className="flex w-full items-center justify-between rounded-xl border border-black/10 dark:border-white/10 bg-black/[0.02] dark:bg-white/[0.02] px-4 py-3 text-left transition-all hover:border-[#907AFF]/30 hover:bg-black/10 dark:hover:bg-white/[0.04]">
-                    <span className="text-[14px] text-slate-700 dark:text-white/70">+ Add book cover</span>
-                    <input type="file" accept="image/*" className="hidden" id="book-cover-upload" onChange={(e) => {
-                      const file = e.target.files?.[0];
-                      if (file) {
-                        const reader = new FileReader();
-                        reader.onload = (e) => setBookForm({ ...bookForm, cover: e.target?.result as string });
-                        reader.readAsDataURL(file);
-                      }
-                    }} />
-                    <label htmlFor="book-cover-upload" className="cursor-pointer text-[#907AFF]">Upload</label>
-                  </button>
-                  {bookForm.cover && (
-                    <div className="relative mt-2 h-48 w-32 overflow-hidden rounded-lg">
-                      <img src={bookForm.cover} alt="Book cover" className="h-full w-full object-cover" />
-                      <button onClick={() => setBookForm({ ...bookForm, cover: "" })} className="absolute right-1 top-1 rounded-full bg-black/60 p-1 text-white/80 hover:bg-black/80">
-                        <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                        </svg>
-                      </button>
-                    </div>
-                  )}
-                </div>
-              </div>
-              <div className="mt-8 flex justify-end gap-3">
-                <button
-                  onClick={() => setShowAddBookModal(false)}
-                  className="rounded-xl border border-black/10 dark:border-white/10 bg-black/[0.02] dark:bg-white/[0.02] px-6 py-2.5 text-[14px] font-medium text-slate-700 dark:text-white/70 transition-all hover:bg-black/10 dark:hover:bg-white/[0.04]"
-                >
-                  Cancel
-                </button>
-                <button
-                  onClick={handleAddBook}
-                  className="rounded-xl bg-[#907AFF] px-6 py-2.5 text-[14px] font-medium text-white transition-all hover:bg-[#8069EE]"
-                >
-                  Add book
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
+        <CreateBookDialog
+          open={showAddBookModal}
+          onClose={() => setShowAddBookModal(false)}
+          onCreated={(bookId) => handleBookAdded(bookId)}
+          onImported={(bookId) => handleBookAdded(bookId)}
+        />
     </main>
   );
 }

@@ -38,90 +38,107 @@ function assertOpusEnv(): void {
 }
 
 async function processJob(payload: TranslationJobData) {
-  const { originalBookId, targetLanguage } = payload;
+  const {
+    bookId,
+    sourceVersionId,
+    targetLanguage,
+    targetVersionId,
+    overwrite,
+  } = payload;
   const supabase = createAdminClient();
-  let translatedBookId: string | null = null;
+  let resolvedTargetVersionId: string | null = null;
 
-  console.log("[translation worker] job received — originalBookId:", originalBookId, "targetLanguage:", targetLanguage);
+  console.log(
+    "[translation worker] job received — bookId:",
+    bookId,
+    "sourceVersionId:",
+    sourceVersionId,
+    "targetLanguage:",
+    targetLanguage
+  );
 
   try {
-    const { data: originalBook, error: bookFetchError } = await supabase
+    const { data: book, error: bookFetchError } = await supabase
       .from("books")
-      .select("id, title, slug, author_id, language")
-      .eq("id", originalBookId)
+      .select("id, title, slug, author_id, original_language")
+      .eq("id", bookId)
       .single();
 
-    if (bookFetchError || !originalBook) {
-      throw new Error(bookFetchError?.message ?? "Original book not found");
+    if (bookFetchError || !book) {
+      throw new Error(bookFetchError?.message ?? "Book not found");
     }
 
-    const authorId = originalBook.author_id as string;
-    const originalLang = normalizeLanguage(originalBook.language ?? null);
-    const title = originalBook.title ?? "Imported";
-    const slugBase = (originalBook.slug as string) ?? "book";
-    const shortSuffix = () => Math.random().toString(36).slice(2, 8);
-    let translatedSlug = `${slugBase}-${targetLanguage}-${shortSuffix()}`;
-    const MAX_SLUG_ATTEMPTS = 3;
-    let translatedBook: { id: string } | null = null;
-    let lastInsertError: { message: string } | null = null;
+    const { data: sourceVersion, error: sourceVersionError } = await supabase
+      .from("book_versions")
+      .select("id, book_id, language_code")
+      .eq("id", sourceVersionId)
+      .single();
 
-    console.log("[translation worker] creating translated book...");
-    for (let attempt = 1; attempt <= MAX_SLUG_ATTEMPTS; attempt++) {
-      const { data: bookData, error: insertError } = await supabase
-        .from("books")
-        .insert({
-          title: `${title} (${targetLanguage})`,
-          slug: translatedSlug,
-          author_id: authorId,
-          status: "DRAFT",
-          language: targetLanguage,
-          is_translation: true,
-          original_book_id: originalBookId,
-          translation_status: "draft",
-        })
+    if (sourceVersionError || !sourceVersion) {
+      throw new Error(sourceVersionError?.message ?? "Source version not found");
+    }
+    if (sourceVersion.book_id !== bookId) {
+      throw new Error("Source version does not belong to book");
+    }
+
+    const sourceLang = normalizeLanguage(sourceVersion.language_code ?? book.original_language ?? null);
+    const normalizedTarget = normalizeLanguage(targetLanguage);
+
+    if (targetVersionId) {
+      const { data: targetVersion, error: targetError } = await supabase
+        .from("book_versions")
+        .select("id, book_id, language_code")
+        .eq("id", targetVersionId)
+        .single();
+      if (targetError || !targetVersion) {
+        throw new Error(targetError?.message ?? "Target version not found");
+      }
+      if (targetVersion.book_id !== bookId) {
+        throw new Error("Target version does not belong to book");
+      }
+      if (normalizeLanguage(targetVersion.language_code) !== normalizedTarget) {
+        throw new Error("Target version language mismatch");
+      }
+      resolvedTargetVersionId = targetVersion.id;
+    } else {
+      const { data: targetVersion, error: targetError } = await supabase
+        .from("book_versions")
+        .upsert(
+          {
+            book_id: bookId,
+            language_code: normalizedTarget,
+            status: "translating",
+          },
+          { onConflict: "book_id,language_code" }
+        )
         .select("id")
         .single();
-
-      if (!insertError && bookData?.id) {
-        translatedBook = bookData;
-        break;
+      if (targetError || !targetVersion?.id) {
+        throw new Error(targetError?.message ?? "Failed to create target version");
       }
-      const isSlugConflict = insertError?.message?.includes("books_slug_key") ?? false;
-      if (isSlugConflict && attempt < MAX_SLUG_ATTEMPTS) {
-        translatedSlug = `${slugBase}-${targetLanguage}-${shortSuffix()}`;
-        console.warn("[translation worker] slug conflict, retry", attempt, "new slug:", translatedSlug);
-        continue;
-      }
-      lastInsertError = insertError;
-      break;
+      resolvedTargetVersionId = targetVersion.id;
     }
 
-    if (lastInsertError || !translatedBook?.id) {
-      throw new Error(lastInsertError?.message ?? "Failed to create translated book");
+    if (!resolvedTargetVersionId) {
+      throw new Error("Missing target version id");
     }
 
-    translatedBookId = translatedBook.id;
-    console.log("[translation worker] translated book created — id:", translatedBookId);
+    await supabase
+      .from("book_versions")
+      .update({ status: "translating" })
+      .eq("id", resolvedTargetVersionId);
 
-    const { error: translationRowError } = await supabase.from("translations").insert({
-      original_book_id: originalBookId,
-      translated_book_id: translatedBookId,
-      target_language: targetLanguage,
-      status: "in_progress",
-    });
-
-    if (translationRowError) {
-      throw new Error(`Failed to insert translations row: ${translationRowError.message}`);
+    if (overwrite) {
+      await supabase.from("chapters").delete().eq("book_version_id", resolvedTargetVersionId);
     }
 
     const { data: chapters, error: chaptersError } = await supabase
       .from("chapters")
       .select("id, title, source_text, content, order")
-      .eq("book_id", originalBookId)
+      .eq("book_version_id", sourceVersionId)
       .order("order", { ascending: true });
 
     if (chaptersError) {
-      await supabase.from("translations").update({ status: "failed" }).eq("translated_book_id", translatedBookId);
       throw new Error(chaptersError.message);
     }
 
@@ -143,8 +160,8 @@ async function processJob(payload: TranslationJobData) {
             if (!p.trim()) continue;
             const raw = translateText({
               text: p,
-              sourceLanguage: originalLang,
-              targetLanguage,
+              sourceLanguage: sourceLang,
+              targetLanguage: normalizedTarget,
             });
             console.log("RAW FROM OPUS:", raw.slice(0, 200));
             const sanitized = sanitizeOpusOutput(raw);
@@ -158,13 +175,14 @@ async function processJob(payload: TranslationJobData) {
         } catch (err) {
           const msg = err instanceof Error ? err.message : String(err);
           console.error("[translation worker] Opus MT failed for chapter:", ch.id, msg);
-          await supabase.from("translations").update({ status: "failed" }).eq("translated_book_id", translatedBookId);
+          await supabase.from("book_versions").update({ status: "failed" }).eq("id", resolvedTargetVersionId);
           throw err;
         }
       }
       const hash = contentHash(translatedText);
       await supabase.from("chapters").insert({
-        book_id: translatedBookId,
+        book_id: bookId,
+        book_version_id: resolvedTargetVersionId,
         title: ch.title ?? `Chapter ${i + 1}`,
         content: translatedText,
         source_text: translatedText,
@@ -173,15 +191,14 @@ async function processJob(payload: TranslationJobData) {
       });
     }
 
-    await supabase.from("translations").update({ status: "completed" }).eq("translated_book_id", translatedBookId);
-    await supabase.from("books").update({ translation_status: "needs_review" }).eq("id", translatedBookId);
+    await supabase.from("book_versions").update({ status: "done" }).eq("id", resolvedTargetVersionId);
 
-    console.log("[translation worker] completed — originalBookId:", originalBookId, "translatedBookId:", translatedBookId);
+    console.log("[translation worker] completed — bookId:", bookId, "targetVersionId:", resolvedTargetVersionId);
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
-    console.error("[translation worker] failed — originalBookId:", originalBookId, "error:", msg);
-    if (translatedBookId) {
-      await supabase.from("translations").update({ status: "failed" }).eq("translated_book_id", translatedBookId);
+    console.error("[translation worker] failed — bookId:", bookId, "error:", msg);
+    if (resolvedTargetVersionId) {
+      await supabase.from("book_versions").update({ status: "failed" }).eq("id", resolvedTargetVersionId);
     }
     throw err;
   }

@@ -13,21 +13,24 @@ export type ImportItem = {
   progress: number;
   error: string | null;
   book_id: string | null;
+  book_version_id?: string | null;
   created_at: string;
 };
 
 type ImportBookModalProps = {
   open: boolean;
   onClose: () => void;
+  onImportComplete?: (bookId: string, versionId?: string | null) => void;
 };
 
-export function ImportBookModal({ open, onClose }: ImportBookModalProps) {
+export function ImportBookModal({ open, onClose, onImportComplete }: ImportBookModalProps) {
   const [importsList, setImportsList] = useState<ImportItem[]>([]);
   const [uploading, setUploading] = useState(false);
   const [dragOver, setDragOver] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [redisHint, setRedisHint] = useState(false);
+  const [lastCompletedId, setLastCompletedId] = useState<string | null>(null);
 
   const fetchImports = useCallback(async () => {
     try {
@@ -59,6 +62,15 @@ export function ImportBookModal({ open, onClose }: ImportBookModalProps) {
     const t = setInterval(fetchImports, POLL_INTERVAL_MS);
     return () => clearInterval(t);
   }, [open, importsList, fetchImports]);
+
+  useEffect(() => {
+    if (!open || !onImportComplete) return;
+    const completed = importsList.find((i) => i.status === "completed" && i.book_id);
+    if (!completed) return;
+    if (completed.id === lastCompletedId) return;
+    setLastCompletedId(completed.id);
+    onImportComplete(completed.book_id!, completed.book_version_id ?? null);
+  }, [open, importsList, onImportComplete, lastCompletedId]);
 
   const handleFile = async (file: File) => {
     const ext = "." + (file.name.split(".").pop() ?? "").toLowerCase();
@@ -92,6 +104,7 @@ export function ImportBookModal({ open, onClose }: ImportBookModalProps) {
             progress: data.progress ?? 0,
             error: null,
             book_id: null,
+            book_version_id: null,
             created_at: new Date().toISOString(),
           },
           ...prev,

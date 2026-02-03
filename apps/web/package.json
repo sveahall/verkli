@@ -16,6 +16,7 @@
   },
   "dependencies": {
     "@runwayml/sdk": "^3.11.0",
+    "@floating-ui/dom": "^1.6.13",
     "@supabase/ssr": "^0.5.2",
     "@supabase/supabase-js": "^2.47.10",
     "@tiptap/extension-font-family": "^3.18.0",

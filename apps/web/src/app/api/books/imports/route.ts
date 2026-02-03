@@ -16,7 +16,7 @@ export async function GET(request: Request) {
 
   const { data: rows, error } = await supabase
     .from("book_imports")
-    .select("id, book_id, file_name, status, progress, error_message, created_at")
+    .select("id, book_id, book_version_id, file_name, status, progress, error_message, created_at")
     .eq("author_id", user.id)
     .order("created_at", { ascending: false })
     .limit(limit);
@@ -29,6 +29,7 @@ export async function GET(request: Request) {
     imports: (rows ?? []).map((r) => ({
       id: r.id,
       book_id: r.book_id ?? null,
+      book_version_id: r.book_version_id ?? null,
       file_name: r.file_name,
       status: r.status,
       progress: r.progress,

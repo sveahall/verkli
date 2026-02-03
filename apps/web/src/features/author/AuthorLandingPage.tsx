@@ -16,7 +16,7 @@ import type { ShelfWithDetails } from "@/lib/supabase/shelves-client";
 import type { Book } from "@/lib/supabase/types";
 import type { User } from "@supabase/supabase-js";
 import { getTranslationsEnabled } from "@/lib/flags";
-import { ImportBookModal } from "@/components/import";
+import CreateBookDialog from "@/components/books/CreateBookDialog";
 
 const gridImages = [
   "https://images.unsplash.com/photo-1723403804231-f4e9b515fe9d?q=80&w=3870&auto=format&fit=crop&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D",
@@ -489,7 +489,7 @@ function Dashboard({ user }: { user: User }) {
   const [showChoiceModal, setShowChoiceModal] = useState(false);
   const [showShelfModal, setShowShelfModal] = useState(false);
   const [showBookModal, setShowBookModal] = useState(false);
-  const [showImportModal, setShowImportModal] = useState(false);
+  const [bookDialogMode, setBookDialogMode] = useState<"choice" | "write" | "import">("choice");
   const [showReviewShelfModal, setShowReviewShelfModal] = useState(false);
   const [selectedShelfId, setSelectedShelfId] = useState<string | null>(null);
   const [showCreateDropdown, setShowCreateDropdown] = useState(false);
@@ -513,12 +513,7 @@ function Dashboard({ user }: { user: User }) {
     tags: [] as string[],
   });
   
-  // Book form state (minimal - only title and type)
-  const [bookForm, setBookForm] = useState({
-    title: "",
-    bookType: "standalone" as "standalone" | "series",
-  });
-  const [isCreatingBook, setIsCreatingBook] = useState(false);
+
 
   useEffect(() => {
     loadShelves();
@@ -661,14 +656,15 @@ function Dashboard({ user }: { user: User }) {
   
   const handleCreateBook = () => {
     setShowChoiceModal(false);
-    setBookForm({ title: "", bookType: "standalone" });
+    setBookDialogMode("write");
     setShowBookModal(true);
   };
 
   const handleOpenImportModal = () => {
     setShowChoiceModal(false);
     setShowCreateDropdown(false);
-    setShowImportModal(true);
+    setBookDialogMode("import");
+    setShowBookModal(true);
   };
 
   const handleShelfSubmit = () => {
@@ -721,63 +717,26 @@ function Dashboard({ user }: { user: User }) {
     }
   };
   
-  const handleBookSubmit = async () => {
-    if (isCreatingBook) return;
-    
+  const handleBookCreated = async (bookId: string) => {
     try {
-      setIsCreatingBook(true);
-      const supabase = createClient();
-      const { data: { user: authUser } } = await supabase.auth.getUser();
-      if (!authUser) throw new Error("Not authenticated");
-      
-      // Create book with minimal data
-      const title = bookForm.title.trim() || "Untitled";
-      const slug = title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '') + '-' + Date.now();
-      
-      const { data: book, error: bookError } = await supabase
-        .from('books')
-        .insert({
-          title: title,
-          slug: slug,
-          author_id: authUser.id,
-          status: 'DRAFT',
-        })
-        .select('id')
-        .single();
-      
-      if (bookError) throw bookError;
-      
-      // If selectedShelfId, add to shelf (for series books)
-      if (selectedShelfId && bookForm.bookType === "series") {
+      if (selectedShelfId) {
+        const supabase = createClient();
         await supabase
-          .from('shelf_books')
+          .from("shelf_books")
           .insert({
             shelf_id: selectedShelfId,
-            book_id: book.id,
+            book_id: bookId,
             section_id: null,
             sort_index: 0,
           });
       }
-      
-      // Close modal and redirect to editor
-      // Guard: ensure book.id exists
-      if (!book?.id) {
-        console.error("Book created but no ID returned");
-        setIsCreatingBook(false);
-        return;
-      }
-      
-      setShowBookModal(false);
-      setBookForm({ title: "", bookType: "standalone" });
       setSelectedShelfId(null);
-      
-      // Navigate to the book editor using router.push
-      router.push(`/author/books/${book.id}`);
+      setShowBookModal(false);
+      router.push(`/author/books/${bookId}`);
     } catch (error) {
-      if (process.env.NODE_ENV === "development") {
-        console.error("[createBook failed]", error);
-      }
-      setIsCreatingBook(false);
+      console.warn("Non-critical: error adding book to shelf", error);
+      setShowBookModal(false);
+      router.push(`/author/books/${bookId}`);
     }
   };
   
@@ -1476,101 +1435,13 @@ function Dashboard({ user }: { user: User }) {
         </div>
       )}
 
-      {/* Book Creation Modal - Minimal: only title and type */}
-      {showBookModal && (
-        <div className="fixed inset-0 z-[1000] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
-          <div className="relative w-full max-w-[480px] rounded-3xl border border-black/10 dark:border-white/10 bg-white/[0.95] dark:bg-[#0a0a0f]/[0.95] p-8 backdrop-blur-xl">
-            <button 
-              onClick={() => setShowBookModal(false)} 
-              disabled={isCreatingBook}
-              className="absolute right-5 top-5 text-slate-500 dark:text-white/50 transition-colors hover:text-slate-900 dark:hover:text-white disabled:opacity-50"
-            >
-              <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
-            </button>
-            
-            <h2 className="mb-6 text-[22px] font-semibold text-slate-900 dark:text-white">Create new book</h2>
-            
-            {/* Book Title */}
-            <div className="mb-6">
-              <label className="mb-2 block text-[14px] font-medium text-slate-700 dark:text-white/70">
-                Book title <span className="text-red-500">*</span>
-              </label>
-              <input
-                type="text"
-                value={bookForm.title}
-                onChange={(e) => setBookForm({ ...bookForm, title: e.target.value })}
-                placeholder="Enter your book title..."
-                className="w-full rounded-xl border border-black/10 dark:border-white/10 bg-black/[0.02] dark:bg-white/[0.04] px-4 py-3 text-[16px] text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-white/30 outline-none transition-all focus:border-[#907AFF]/50 focus:bg-black/[0.01] dark:focus:bg-white/[0.06] focus:ring-2 focus:ring-[#907AFF]/20"
-                autoFocus
-                disabled={isCreatingBook}
-              />
-            </div>
-
-            {/* Book Type */}
-            <div className="mb-8">
-              <label className="mb-3 block text-[14px] font-medium text-slate-700 dark:text-white/70">
-                Book type
-              </label>
-              <div className="grid grid-cols-2 gap-3">
-                <button
-                  onClick={() => setBookForm({ ...bookForm, bookType: "standalone" })}
-                  disabled={isCreatingBook}
-                  className={`rounded-xl border p-4 text-left transition-all ${
-                    bookForm.bookType === "standalone"
-                      ? "border-[#907AFF]/50 bg-[#907AFF]/10 ring-2 ring-[#907AFF]/30"
-                      : "border-black/10 dark:border-white/10 bg-black/[0.02] dark:bg-white/[0.02] hover:border-[#907AFF]/30 hover:bg-black/[0.01] dark:hover:bg-white/[0.04]"
-                  } disabled:opacity-50`}
-                >
-                  <div className="mb-1 text-[15px] font-semibold text-slate-900 dark:text-white">Standalone</div>
-                  <div className="text-[12px] text-slate-600 dark:text-white/50">A single book</div>
-                </button>
-                <button
-                  onClick={() => setBookForm({ ...bookForm, bookType: "series" })}
-                  disabled={isCreatingBook}
-                  className={`rounded-xl border p-4 text-left transition-all ${
-                    bookForm.bookType === "series"
-                      ? "border-[#907AFF]/50 bg-[#907AFF]/10 ring-2 ring-[#907AFF]/30"
-                      : "border-black/10 dark:border-white/10 bg-black/[0.02] dark:bg-white/[0.02] hover:border-[#907AFF]/30 hover:bg-black/[0.01] dark:hover:bg-white/[0.04]"
-                  } disabled:opacity-50`}
-                >
-                  <div className="mb-1 text-[15px] font-semibold text-slate-900 dark:text-white">Series</div>
-                  <div className="text-[12px] text-slate-600 dark:text-white/50">Part of a collection</div>
-                </button>
-              </div>
-            </div>
-
-            {/* Actions */}
-            <div className="flex justify-end gap-3 border-t border-black/10 dark:border-white/10 pt-6">
-              <button 
-                onClick={() => setShowBookModal(false)} 
-                disabled={isCreatingBook}
-                className="rounded-xl border border-black/10 dark:border-white/10 bg-black/[0.02] dark:bg-white/[0.02] px-5 py-2.5 text-[14px] font-semibold text-slate-700 dark:text-white/70 transition-all hover:bg-black/[0.01] dark:hover:bg-white/[0.04] disabled:opacity-50"
-              >
-                Cancel
-              </button>
-              <button 
-                onClick={handleBookSubmit} 
-                disabled={isCreatingBook || !bookForm.title.trim()}
-                className="rounded-xl bg-gradient-to-r from-[#907AFF] to-[#8069EE] px-5 py-2.5 text-[14px] font-semibold text-white transition-all hover:from-[#8069EE] hover:to-[#7058DD] disabled:opacity-50"
-              >
-                {isCreatingBook ? (
-                  <span className="flex items-center gap-2">
-                    <svg className="h-4 w-4 animate-spin" fill="none" viewBox="0 0 24 24">
-                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                    </svg>
-                    Creating...
-                  </span>
-                ) : (
-                  "Create & start writing"
-                )}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      <ImportBookModal open={showImportModal} onClose={() => setShowImportModal(false)} />
+      <CreateBookDialog
+        open={showBookModal}
+        initialMode={bookDialogMode}
+        onClose={() => setShowBookModal(false)}
+        onCreated={(bookId) => handleBookCreated(bookId)}
+        onImported={(bookId) => handleBookCreated(bookId)}
+      />
     </main>
   );
 }

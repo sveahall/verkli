@@ -18,12 +18,6 @@ export async function POST(request: Request) {
   const language = normalizeLanguage(body?.language);
   const original_source = body?.original_source != null ? String(body.original_source).trim() || null : null;
   const original_url = body?.original_url != null ? String(body.original_url).trim() || null : null;
-  const is_translation = Boolean(body?.is_translation);
-  const original_book_id =
-    body?.original_book_id != null && String(body.original_book_id).trim() !== ""
-      ? String(body.original_book_id).trim()
-      : null;
-  const translation_status: "draft" | null = is_translation ? "draft" : null;
 
   const slug =
     title
@@ -42,11 +36,9 @@ export async function POST(request: Request) {
       author_id: user.id,
       status: "DRAFT",
       language,
+      original_language: language,
       original_source: original_source || null,
       original_url: original_url || null,
-      is_translation,
-      original_book_id: original_book_id || null,
-      translation_status: translation_status,
     })
     .select("id")
     .single();
@@ -59,8 +51,26 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Book created but no ID returned" }, { status: 500 });
   }
 
+  const { data: version, error: versionError } = await supabase
+    .from("book_versions")
+    .insert({
+      book_id: book.id,
+      language_code: language,
+      status: "draft",
+    })
+    .select("id")
+    .single();
+
+  if (versionError || !version?.id) {
+    return NextResponse.json(
+      { error: "Book created but version creation failed: " + (versionError?.message ?? "unknown error") },
+      { status: 500 }
+    );
+  }
+
   const { error: chapterError } = await supabase.from("chapters").insert({
     book_id: book.id,
+    book_version_id: version.id,
     title: "Chapter 1",
     content: "",
     order: 0,
@@ -73,5 +83,5 @@ export async function POST(request: Request) {
     );
   }
 
-  return NextResponse.json({ id: book.id });
+  return NextResponse.json({ id: book.id, versionId: version.id });
 }
