@@ -40,6 +40,9 @@ yarn-error.log*
 .env*
 !.env.example
 
+# python / tts
+.venv-tts/
+
 # vercel
 .vercel
 
