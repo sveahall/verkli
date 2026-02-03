@@ -17,9 +17,10 @@
 | `NEXT_PUBLIC_TRANSLATIONS_ENABLED` | Nej | `false` → UI visar "Coming soon" för Translations; import fungerar som vanligt. Default: `true`. |
 | `TRANSLATIONS_AUTO_ENQUEUE` | Nej | `true` → efter completed import enqueueas ett översättningsjobb per målspåk (se `TRANSLATIONS_TARGET_LANGUAGES`). |
 | `TRANSLATIONS_TARGET_LANGUAGES` | Vid auto-enqueue | Kommaseparerad lista (t.ex. `sv,de,fr`). Endast språk som inte är originalspråket enqueueas. |
-| `OPUS_MT_CMD` | För translation worker | Binär/script för lokal Opus MT (t.ex. `opus-mt` eller `python -m opus_mt`). Får text via stdin, args: sourceLanguage targetLanguage, stdout = översättning. |
+| `OPUSMT_PYTHON` | För translation worker | Absolut path till Python venv (t.ex. `/path/to/venvs/opusmt/bin/python`). |
+| `OPUSMT_MODELS_DIR` | För translation worker | Katalog som innehåller model-subdirs (t.ex. `.../apps/web/models` med `sv_en/`). |
 
-Övriga env (Supabase, m.m.) enligt `.env.example`. Worker använder samma `.env.local` (inkl. `SUPABASE_SERVICE_ROLE_KEY`, `NEXT_PUBLIC_SUPABASE_URL`) för att uppdatera DB och för Supabase Storage-nedladdning.
+Övriga env (Supabase, m.m.) enligt `apps/web/.env.example`. Worker använder alltid `apps/web/.env.local` (inkl. `SUPABASE_SERVICE_ROLE_KEY`, `NEXT_PUBLIC_SUPABASE_URL`) oavsett var du kör ifrån. Om du har en root `.env.local`, flytta worker‑relaterade variabler till `apps/web/.env.local` för att undvika konflikt.
 
 ## Storage
 
@@ -38,7 +39,7 @@
 3. **Kör import-workern** från `apps/web`:  
    `npm run import-worker`
 
-4. **(Valfritt) Översättning:** Sätt `TRANSLATIONS_AUTO_ENQUEUE=true` och `TRANSLATIONS_TARGET_LANGUAGES=sv,de` (etc.). Sätt `OPUS_MT_CMD` till din lokala Opus MT-binär/script. Kör translation workern:  
+4. **(Valfritt) Översättning:** Sätt `TRANSLATIONS_AUTO_ENQUEUE=true` och `TRANSLATIONS_TARGET_LANGUAGES=sv,de` (etc.). Sätt `OPUSMT_PYTHON` och `OPUSMT_MODELS_DIR` för din lokala Opus MT. Kör translation workern:  
    `npm run translate-worker`
 
 - Om `REDIS_URL` saknas: API skapar fortfarande import-record men enqueue körs inte; tydlig logg i API och queue.

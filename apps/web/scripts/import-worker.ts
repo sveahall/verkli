@@ -3,10 +3,10 @@
  * Run from apps/web: npm run import-worker (requires REDIS_URL and Supabase env in .env.local)
  */
 
+import "./load-dotenv";
 import * as path from "path";
 import * as fs from "fs/promises";
 import * as os from "os";
-import "./load-dotenv";
 import { assertServerEnv, getRedisConnectionOptions } from "../src/lib/env";
 
 assertServerEnv();

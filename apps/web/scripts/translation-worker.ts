@@ -6,8 +6,6 @@
 import "./load-dotenv";
 import { assertServerEnv, getRedisConnectionOptions } from "../src/lib/env";
 
-assertServerEnv();
-
 import { Worker } from "bullmq";
 import { createAdminClient } from "../src/lib/supabase/admin";
 import type { TranslationJobData } from "../src/lib/translation-queue";
@@ -16,6 +14,28 @@ import { contentHash } from "../src/lib/import-extract";
 import { normalizeLanguage } from "../src/lib/languages";
 
 const QUEUE_NAME = "book-translation";
+
+function assertWorkerEnv(): void {
+  try {
+    assertServerEnv();
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    console.error(`[translation worker] ${msg}`);
+    process.exit(1);
+  }
+}
+
+function assertOpusEnv(): void {
+  const missing: string[] = [];
+  if (!process.env.OPUSMT_PYTHON?.trim()) missing.push("OPUSMT_PYTHON");
+  if (!process.env.OPUSMT_MODELS_DIR?.trim()) missing.push("OPUSMT_MODELS_DIR");
+  if (missing.length > 0) {
+    console.error(
+      `[translation worker] Missing required env: ${missing.join(", ")}. Set them in apps/web/.env.local.`
+    );
+    process.exit(1);
+  }
+}
 
 async function processJob(payload: TranslationJobData) {
   const { originalBookId, targetLanguage } = payload;
@@ -168,6 +188,9 @@ async function processJob(payload: TranslationJobData) {
 }
 
 function main() {
+  assertWorkerEnv();
+  assertOpusEnv();
+
   const url = process.env.REDIS_URL ?? "";
   if (!url || url.trim() === "") {
     console.error("[translation worker] REDIS_URL not set. Set REDIS_URL and ensure Redis is running.");
