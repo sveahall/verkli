@@ -15,6 +15,62 @@ import { normalizeLanguageOrNull } from "../src/lib/languages";
 
 const QUEUE_NAME = "book-translation";
 
+/**
+ * Extract plain text from a TipTap JSON node (for display/debugging).
+ */
+function extractText(node: unknown): string {
+  if (!node || typeof node !== "object") return "";
+  const n = node as Record<string, unknown>;
+  if (n.type === "text" && typeof n.text === "string") return n.text;
+  if (Array.isArray(n.content)) {
+    return n.content.map(extractText).join("");
+  }
+  return "";
+}
+
+/**
+ * Recursively translate all text nodes within a TipTap JSON structure.
+ * Preserves formatting (bold, italic, headings, etc.) by only modifying text content.
+ */
+function translateTiptapNode(
+  node: unknown,
+  translateFn: (text: string) => string
+): unknown {
+  if (!node || typeof node !== "object") return node;
+  
+  const n = node as Record<string, unknown>;
+  
+  // If it's a text node, translate its content
+  if (n.type === "text" && typeof n.text === "string") {
+    const translated = translateFn(n.text);
+    return { ...n, text: translated };
+  }
+  
+  // If it has content array, recursively process children
+  if (Array.isArray(n.content)) {
+    return {
+      ...n,
+      content: n.content.map((child) => translateTiptapNode(child, translateFn)),
+    };
+  }
+  
+  return node;
+}
+
+/**
+ * Check if content looks like TipTap JSON (starts with {"type": or similar).
+ */
+function isTiptapJson(content: string): boolean {
+  const trimmed = content.trim();
+  if (!trimmed.startsWith("{")) return false;
+  try {
+    const parsed = JSON.parse(trimmed);
+    return parsed && typeof parsed === "object" && "type" in parsed;
+  } catch {
+    return false;
+  }
+}
+
 function assertWorkerEnv(): void {
   try {
     assertServerEnv();
@@ -106,7 +162,7 @@ async function processJob(payload: TranslationJobData) {
       if (targetVersion.book_id !== bookId) {
         throw new Error("Target version does not belong to book");
       }
-      if (normalizeLanguage(targetVersion.language_code) !== normalizedTarget) {
+      if (normalizeLanguageOrNull(targetVersion.language_code) !== normalizedTarget) {
         throw new Error("Target version language mismatch");
       }
       resolvedTargetVersionId = targetVersion.id;
@@ -157,31 +213,44 @@ async function processJob(payload: TranslationJobData) {
 
     for (let i = 0; i < chapterList.length; i++) {
       const ch = chapterList[i];
-      const sourceText = (ch.source_text as string | null) ?? (ch.content as string | null) ?? "";
-      let translatedText = sourceText;
-      if (sourceText.trim()) {
+      const sourceContent = (ch.content as string | null) ?? "";
+      let translatedContent = sourceContent;
+      
+      if (sourceContent.trim()) {
         try {
-          // Opus MT must translate paragraph-by-paragraph to preserve book formatting.
-          // Splitting on double newlines keeps chapter structure; each paragraph is translated
-          // separately and re-joined, so output matches original layout.
-          const paragraphs = sourceText.split(/\n{2,}/);
-          const translatedParagraphs: string[] = [];
-          for (const p of paragraphs) {
-            if (!p.trim()) continue;
+          // Helper function to translate a single text string via Opus MT
+          const doTranslate = (text: string): string => {
+            if (!text.trim()) return text;
             const raw = translateText({
-              text: p,
+              text,
               sourceLanguage: sourceLang,
               targetLanguage: normalizedTarget,
             });
-            console.log("RAW FROM OPUS:", raw.slice(0, 200));
             const sanitized = sanitizeOpusOutput(raw);
-            console.log("SANITIZED:", sanitized.slice(0, 200));
             if (!sanitized.trim()) {
-              throw new Error("Opus MT returned empty paragraph after sanitization");
+              throw new Error("Opus MT returned empty text after sanitization");
             }
-            translatedParagraphs.push(sanitized);
+            return sanitized;
+          };
+
+          if (isTiptapJson(sourceContent)) {
+            // Content is TipTap JSON - translate text nodes while preserving structure
+            console.log("[translation worker] detected TipTap JSON, translating text nodes...");
+            const parsed = JSON.parse(sourceContent);
+            const translated = translateTiptapNode(parsed, doTranslate);
+            translatedContent = JSON.stringify(translated);
+            console.log("[translation worker] translated TipTap content preview:", extractText(translated).slice(0, 100));
+          } else {
+            // Plain text content - translate paragraph by paragraph
+            console.log("[translation worker] plain text content, translating paragraphs...");
+            const paragraphs = sourceContent.split(/\n{2,}/);
+            const translatedParagraphs: string[] = [];
+            for (const p of paragraphs) {
+              if (!p.trim()) continue;
+              translatedParagraphs.push(doTranslate(p));
+            }
+            translatedContent = translatedParagraphs.join("\n\n");
           }
-          translatedText = translatedParagraphs.join("\n\n");
         } catch (err) {
           const msg = err instanceof Error ? err.message : String(err);
           console.error("[translation worker] Opus MT failed for chapter:", ch.id, msg);
@@ -189,16 +258,21 @@ async function processJob(payload: TranslationJobData) {
           throw err;
         }
       }
-      const hash = contentHash(translatedText);
-      await supabase.from("chapters").insert({
+      const hash = contentHash(translatedContent);
+      const { error: insertError } = await supabase.from("chapters").insert({
         book_id: bookId,
         book_version_id: resolvedTargetVersionId,
         title: ch.title ?? `Chapter ${i + 1}`,
-        content: translatedText,
-        source_text: translatedText,
+        content: translatedContent,
+        source_text: sourceContent,
         content_hash: hash,
         order: i,
       });
+      if (insertError) {
+        console.error("[translation worker] chapter insert failed:", insertError.message, insertError.details, insertError.hint);
+        throw new Error(`Failed to insert translated chapter: ${insertError.message}`);
+      }
+      console.log("[translation worker] chapter inserted — order:", i, "title:", ch.title);
     }
 
     await supabase.from("book_versions").update({ status: "done" }).eq("id", resolvedTargetVersionId);
