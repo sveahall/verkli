@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
@@ -39,6 +39,153 @@ const dropdownGlassProps = {
   blur: 18,
   saturation: 1.3,
   mixBlendMode: "screen",
+};
+
+const dropdownHeaderMeta: Record<
+  string,
+  { title: string; description?: string }
+> = {
+  Discover: {
+    title: "Discover",
+    description: "Find new stories by theme, genre, and author.",
+  },
+  Library: {
+    title: "Library",
+    description: "Everything you have started, saved, or finished.",
+  },
+  "My World": {
+    title: "My World",
+    description: "Your author home: stats, profile, and overview.",
+  },
+  Books: {
+    title: "Books",
+    description: "Manage drafts, published books, and shelves.",
+  },
+};
+
+const dropdownItemMeta: Record<
+  string,
+  Record<string, { description?: string; icon: ReactNode }>
+> = {
+  Discover: {
+    Discover: {
+      description: "Start with curated picks and language filters.",
+      icon: (
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.6} className="h-4 w-4">
+          <path strokeLinecap="round" strokeLinejoin="round" d="M12 3.5l3 6 6.5 1-4.8 4.6 1.2 6.4-5.9-3.2-5.9 3.2 1.2-6.4L2.5 10.5 9 9.5 12 3.5z" />
+        </svg>
+      ),
+    },
+    Genres: {
+      description: "Browse curated collections and themes.",
+      icon: (
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.6} className="h-4 w-4">
+          <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 6.5h15M4.5 12h10M4.5 17.5h6" />
+        </svg>
+      ),
+    },
+    Authors: {
+      description: "Explore public author profiles.",
+      icon: (
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.6} className="h-4 w-4">
+          <path strokeLinecap="round" strokeLinejoin="round" d="M12 12a4 4 0 1 0-4-4 4 4 0 0 0 4 4Z" />
+          <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 19.5a7.5 7.5 0 0 1 15 0" />
+        </svg>
+      ),
+    },
+  },
+  Library: {
+    "My library": {
+      description: "Everything you have started and finished.",
+      icon: (
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.6} className="h-4 w-4">
+          <path strokeLinecap="round" strokeLinejoin="round" d="M5 5.5h11a3 3 0 013 3v10H8a3 3 0 00-3 3v-16z" />
+          <path strokeLinecap="round" strokeLinejoin="round" d="M8 18.5h11" />
+        </svg>
+      ),
+    },
+    Bookmarks: {
+      description: "Saved for later and quick access.",
+      icon: (
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.6} className="h-4 w-4">
+          <path strokeLinecap="round" strokeLinejoin="round" d="M7 4.75h10a2 2 0 0 1 2 2V19l-7-3-7 3V6.75a2 2 0 0 1 2-2Z" />
+        </svg>
+      ),
+    },
+    "Continue reading": {
+      description: "Pick up where you left off.",
+      icon: (
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.6} className="h-4 w-4">
+          <path strokeLinecap="round" strokeLinejoin="round" d="M12 5.5v5.5l3.5 2.5" />
+          <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12a7.5 7.5 0 1 0 7.5-7.5" />
+        </svg>
+      ),
+    },
+  },
+  "My World": {
+    Overview: {
+      description: "Author overview and quick actions.",
+      icon: (
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.6} className="h-4 w-4">
+          <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12h6.5M4.5 6.5h15M4.5 17.5h10" />
+        </svg>
+      ),
+    },
+    Stats: {
+      description: "Performance and growth metrics.",
+      icon: (
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.6} className="h-4 w-4">
+          <path strokeLinecap="round" strokeLinejoin="round" d="M5 18.5h14M7 16V10M12 16V7M17 16v-4" />
+        </svg>
+      ),
+    },
+    "Profile preview": {
+      description: "See how readers view your profile.",
+      icon: (
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.6} className="h-4 w-4">
+          <path strokeLinecap="round" strokeLinejoin="round" d="M12 12a4 4 0 1 0-4-4 4 4 0 0 0 4 4Z" />
+          <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 19.5a7.5 7.5 0 0 1 15 0" />
+        </svg>
+      ),
+    },
+  },
+  Books: {
+    "All books": {
+      description: "Full overview of drafts and published books.",
+      icon: (
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.6} className="h-4 w-4">
+          <path strokeLinecap="round" strokeLinejoin="round" d="M5 5.5h11a3 3 0 013 3v10H8a3 3 0 00-3 3v-16z" />
+          <path strokeLinecap="round" strokeLinejoin="round" d="M8 18.5h11" />
+        </svg>
+      ),
+    },
+    Shelves: {
+      description: "Collections and shelves you manage.",
+      icon: (
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.6} className="h-4 w-4">
+          <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 7.5h15M4.5 12h15M4.5 16.5h15" />
+        </svg>
+      ),
+    },
+    Drafts: {
+      description: "Works in progress and in review.",
+      icon: (
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.6} className="h-4 w-4">
+          <path strokeLinecap="round" strokeLinejoin="round" d="M8 6.5h8M8 10.5h6M8 14.5h4" />
+          <path strokeLinecap="round" strokeLinejoin="round" d="M6.5 3.5h11a2 2 0 0 1 2 2v13a2 2 0 0 1-2 2h-11a2 2 0 0 1-2-2v-13a2 2 0 0 1 2-2Z" />
+        </svg>
+      ),
+    },
+    Published: {
+      description: "Live books and public releases.",
+      icon: (
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.6} className="h-4 w-4">
+          <path strokeLinecap="round" strokeLinejoin="round" d="M6.5 12.5l3.5 3.5 7-7" />
+          <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 5.5h15v13h-15z" />
+        </svg>
+      ),
+    },
+  },
 };
 
 // Dropdown content for each navigation item
@@ -281,6 +428,16 @@ export default function GlobalNavbar({
   const [dropdownOpen, setDropdownOpen] = useState<{ key: string; top: number; left: number } | null>(null);
   // Timeout så att flytt från trigger till portal inte stänger menyn (browser: number)
   const dropdownCloseTimeoutRef = useRef<number | null>(null);
+  useEffect(() => {
+    if (!dropdownOpen) return;
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        setDropdownOpen(null);
+      }
+    };
+    document.addEventListener("keydown", handleKeyDown);
+    return () => document.removeEventListener("keydown", handleKeyDown);
+  }, [dropdownOpen]);
   // Stäng mobilmeny vid navigering
   useEffect(() => {
     setMobileMenuOpen(false);
@@ -458,6 +615,8 @@ export default function GlobalNavbar({
                       {(item.hasDropdown ?? (item.children?.length ?? 0) > 0) ? (
                         <Link
                           href={item.href}
+                          aria-haspopup="menu"
+                          aria-expanded={dropdownOpen?.key === item.label}
                           className="flex min-h-[44px] min-w-[44px] items-center gap-1.5 px-3 py-2 transition-colors hover:text-slate-900 hover:text-[#7058DD] dark:hover:text-white focus:outline-none focus:ring-2 focus:ring-[#907AFF]/50 focus:ring-offset-2 rounded-md"
                         >
                           <span>{item.label}</span>
@@ -510,6 +669,8 @@ export default function GlobalNavbar({
                         >
                           <Link
                             href={item.href}
+                            aria-haspopup="menu"
+                            aria-expanded={dropdownOpen?.key === item.label}
                             className="flex min-h-[44px] min-w-[44px] items-center gap-1.5 rounded-full px-4 py-2 transition-colors hover:bg-slate-100 hover:text-slate-900 focus:outline-none focus:ring-2 focus:ring-[#907AFF]/50 focus:ring-offset-2 dark:hover:bg-white/10 dark:hover:text-white"
                           >
                             <span>{item.label}</span>
@@ -570,6 +731,8 @@ export default function GlobalNavbar({
                       {item.hasDropdown ? (
                         <Link
                           href={item.href}
+                          aria-haspopup="menu"
+                          aria-expanded={dropdownOpen?.key === item.label}
                           className="flex min-h-[44px] min-w-[44px] items-center gap-1.5 px-3 py-2 transition-colors hover:text-slate-900 dark:hover:text-white focus:outline-none focus:ring-2 focus:ring-[#907AFF]/50 focus:ring-offset-2 focus:ring-offset-transparent rounded-md"
                         >
                           <span>{item.label}</span>
@@ -892,94 +1055,138 @@ export default function GlobalNavbar({
       {typeof document !== "undefined" &&
         dropdownOpen &&
         createPortal(
-          <div
-            className="w-[720px] max-w-[calc(100vw-2.5rem)] px-3 transition-all duration-300 ease-out"
-            style={{
-              position: "fixed",
-              top: dropdownOpen!.top,
-              left: dropdownOpen!.left,
-              zIndex: 10000,
-            }}
-            onMouseEnter={() => {
-              if (dropdownCloseTimeoutRef.current) {
-                clearTimeout(dropdownCloseTimeoutRef.current);
-                dropdownCloseTimeoutRef.current = null;
-              }
-            }}
-            onMouseLeave={() => setDropdownOpen(null)}
-          >
-            <GlassSurface
-              {...dropdownGlassProps}
-              width="100%"
-              height="auto"
-              borderRadius={20}
-              className="nav-mega max-h-[min(calc(100dvh-120px),32rem)] overflow-y-auto overscroll-contain border-0 px-5 py-5 sm:px-6 sm:py-6 md:px-8 md:py-6"
-            >
-              {(() => {
-                const navItems = isauthorRoute ? authorNavItems : isReaderRoute ? readerNavItems : publicNavItems;
-                const openItem = navItems.find((i) => i.label === dropdownOpen!.key);
-                if (openItem?.children?.length) {
-                  return (
-                    <div className="grid grid-cols-1 gap-2.5 md:grid-cols-2">
-                      {openItem.children.map((child, idx) => (
-                        <Link
-                          key={idx}
-                          href={child.href}
-                          onClick={() => setDropdownOpen(null)}
-                          className="group/item block rounded-xl px-4 py-3.5 transition-colors duration-150 hover:bg-slate-100/80 dark:hover:bg-white/[0.08] border border-transparent hover:border-slate-200/80 dark:hover:border-white/10"
-                        >
-                          <div className="flex items-start gap-3">
-                            <div className="mt-1 flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-lg bg-slate-900/5 ring-1 ring-black/5 dark:bg-white/10 dark:ring-white/10">
-                              <span className="h-2 w-2 rounded-full bg-gradient-to-r from-[#907AFF] via-[#E29ED5] to-[#FCC997]" />
-                            </div>
-                            <div className="flex-1 min-w-0">
-                              <h4 className="text-[14px] font-semibold leading-tight text-slate-900 dark:text-white group-hover/item:text-[#907AFF] dark:group-hover/item:text-[#907AFF] transition-colors">
-                                {child.label}
-                              </h4>
-                            </div>
-                          </div>
-                        </Link>
-                      ))}
-                    </div>
-                  );
-                }
-                const legacy = dropdownContent[dropdownOpen!.key as keyof typeof dropdownContent];
-                if (legacy) {
-                  return (
-                    <>
-                      <div className="mb-5 pb-4 border-b border-slate-200/80 dark:border-white/10">
-                        <h3 className="text-[17px] font-semibold leading-tight text-slate-900 dark:text-white">{legacy.title}</h3>
-                        <p className="mt-1 text-[13px] leading-relaxed text-slate-600 dark:text-white/60">{legacy.description}</p>
-                      </div>
-                      <div className="grid grid-cols-1 gap-1 md:grid-cols-2">
-                        {legacy.items.map((menuItem, idx) => (
-                          <div
-                            key={idx}
-                            className="group/item cursor-pointer rounded-xl px-4 py-3.5 transition-colors duration-150 hover:bg-slate-100/80 dark:hover:bg-white/[0.08] border border-transparent hover:border-slate-200/80 dark:hover:border-white/10"
-                          >
-                            <div className="flex items-start gap-3">
-                              <div className="mt-1 flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-lg bg-slate-900/5 ring-1 ring-black/5 dark:bg-white/10 dark:ring-white/10">
-                                <span className="h-2 w-2 rounded-full bg-gradient-to-r from-[#907AFF] via-[#E29ED5] to-[#FCC997]" />
-                              </div>
-                              <div className="flex-1 min-w-0">
-                                <h4 className="text-[14px] font-semibold leading-tight text-slate-900 dark:text-white group-hover/item:text-[#907AFF] dark:group-hover/item:text-[#907AFF] transition-colors mb-0.5">
-                                  {menuItem.title}
-                                </h4>
-                                <p className="text-[12px] leading-relaxed text-slate-600 dark:text-white/60">
-                                  {menuItem.description}
+          (() => {
+            const navItems = isauthorRoute ? authorNavItems : isReaderRoute ? readerNavItems : publicNavItems;
+            const openItem = navItems.find((i) => i.label === dropdownOpen!.key);
+            const childCount = openItem?.children?.length ?? 0;
+            const columnCount = childCount > 4 ? 2 : 1;
+            const width = childCount > 0 ? (columnCount === 1 ? 420 : 560) : 720;
+            const left = typeof window !== "undefined"
+              ? Math.max(12, Math.min(dropdownOpen!.left, window.innerWidth - width - 12))
+              : dropdownOpen!.left;
+            const containerClass = childCount > 0
+              ? (columnCount === 1
+                  ? "w-[min(420px,calc(100vw-2rem))]"
+                  : "w-[min(560px,calc(100vw-2rem))]")
+              : "w-[min(720px,calc(100vw-2.5rem))]";
+
+            return (
+              <div
+                className="transition-all duration-300 ease-out"
+                style={{
+                  position: "fixed",
+                  top: dropdownOpen!.top,
+                  left,
+                  zIndex: 10000,
+                }}
+                onMouseEnter={() => {
+                  if (dropdownCloseTimeoutRef.current) {
+                    clearTimeout(dropdownCloseTimeoutRef.current);
+                    dropdownCloseTimeoutRef.current = null;
+                  }
+                }}
+                onMouseLeave={() => setDropdownOpen(null)}
+              >
+                <GlassSurface
+                  {...dropdownGlassProps}
+                  width="100%"
+                  height="auto"
+                  borderRadius={20}
+                  className={`nav-mega ${containerClass} max-h-[min(calc(100dvh-120px),32rem)] overflow-y-auto overscroll-contain border-0 px-4 py-4 sm:px-5 sm:py-5`}
+                >
+                  {(() => {
+                    if (openItem?.children?.length) {
+                      const header = dropdownHeaderMeta[openItem.label];
+                      const itemMeta = dropdownItemMeta[openItem.label] ?? {};
+                      return (
+                        <div className="space-y-4">
+                          {header && (
+                            <div className="space-y-1">
+                              <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-400 dark:text-white/40">
+                                {header.title}
+                              </p>
+                              {header.description && (
+                                <p className="text-[13px] text-slate-600 dark:text-white/60">
+                                  {header.description}
                                 </p>
-                              </div>
+                              )}
                             </div>
+                          )}
+                          <div className={columnCount === 1 ? "grid gap-2" : "grid gap-2 sm:grid-cols-2"}>
+                            {openItem.children.map((child, idx) => {
+                              const meta = itemMeta[child.label];
+                              return (
+                                <Link
+                                  key={idx}
+                                  href={child.href}
+                                  onClick={() => setDropdownOpen(null)}
+                                  className="group/item flex items-start gap-3 rounded-2xl border border-transparent px-3 py-3 transition-all duration-150 hover:border-slate-200/80 hover:bg-slate-100/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#907AFF]/40 focus-visible:ring-offset-2 focus-visible:ring-offset-white dark:focus-visible:ring-offset-[#0b0b12] dark:hover:border-white/10 dark:hover:bg-white/[0.08]"
+                                >
+                                  <div className="mt-0.5 flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-xl bg-slate-900/5 text-slate-700 ring-1 ring-black/5 transition-colors group-hover/item:bg-slate-900/10 dark:bg-white/10 dark:text-white dark:ring-white/10">
+                                    {meta?.icon ?? (
+                                      <span className="h-2 w-2 rounded-full bg-gradient-to-r from-[#907AFF] via-[#E29ED5] to-[#FCC997]" />
+                                    )}
+                                  </div>
+                                  <div className="min-w-0">
+                                    <p className="text-[14px] font-semibold text-slate-900 transition-colors group-hover/item:text-[#907AFF] dark:text-white dark:group-hover/item:text-[#907AFF]">
+                                      {child.label}
+                                    </p>
+                                    {meta?.description && (
+                                      <p className="mt-0.5 text-[12px] text-slate-500 dark:text-white/60">
+                                        {meta.description}
+                                      </p>
+                                    )}
+                                  </div>
+                                </Link>
+                              );
+                            })}
                           </div>
-                        ))}
-                      </div>
-                    </>
-                  );
-                }
-                return null;
-              })()}
-            </GlassSurface>
-          </div>,
+                        </div>
+                      );
+                    }
+                    const legacy = dropdownContent[dropdownOpen!.key as keyof typeof dropdownContent];
+                    if (legacy) {
+                      return (
+                        <>
+                          <div className="mb-4 border-b border-slate-200/80 pb-3 dark:border-white/10">
+                            <h3 className="text-[17px] font-semibold leading-tight text-slate-900 dark:text-white">
+                              {legacy.title}
+                            </h3>
+                            <p className="mt-1 text-[13px] leading-relaxed text-slate-600 dark:text-white/60">
+                              {legacy.description}
+                            </p>
+                          </div>
+                          <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                            {legacy.items.map((menuItem, idx) => (
+                              <div
+                                key={idx}
+                                className="group/item cursor-pointer rounded-2xl border border-transparent px-4 py-3 transition-all duration-150 hover:border-slate-200/80 hover:bg-slate-100/80 dark:hover:border-white/10 dark:hover:bg-white/[0.08]"
+                              >
+                                <div className="flex items-start gap-3">
+                                  <div className="mt-0.5 flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-xl bg-slate-900/5 ring-1 ring-black/5 dark:bg-white/10 dark:ring-white/10">
+                                    <span className="h-2 w-2 rounded-full bg-gradient-to-r from-[#907AFF] via-[#E29ED5] to-[#FCC997]" />
+                                  </div>
+                                  <div className="flex-1 min-w-0">
+                                    <h4 className="text-[14px] font-semibold leading-tight text-slate-900 transition-colors group-hover/item:text-[#907AFF] dark:text-white dark:group-hover/item:text-[#907AFF]">
+                                      {menuItem.title}
+                                    </h4>
+                                    <p className="mt-0.5 text-[12px] leading-relaxed text-slate-600 dark:text-white/60">
+                                      {menuItem.description}
+                                    </p>
+                                  </div>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        </>
+                      );
+                    }
+                    return null;
+                  })()}
+                </GlassSurface>
+              </div>
+            );
+          })(),
           document.body
         )}
     </>
