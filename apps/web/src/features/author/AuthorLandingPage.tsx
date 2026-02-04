@@ -891,18 +891,19 @@ function Dashboard({ user }: { user: User }) {
               ) : (
                 <div className="mb-6">
                   <h3 className="mb-4 text-[16px] font-semibold text-slate-900 dark:text-white">Shelves</h3>
-                  <div className="grid gap-0 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+                  <div className="flex flex-wrap gap-4">
                     {shelves.map((shelf) => (
-                      <ShelfTile
-                        key={shelf.id}
-                        shelf={shelf}
-                        bookCount={shelf.shelf_books?.length || 0}
-                        onClick={() => router.push(`/author/library/${shelf.id}`)}
-                      />
+                      <div key={shelf.id} className="shrink-0 w-[220px]">
+                        <ShelfTile
+                          shelf={shelf}
+                          bookCount={shelf.shelf_books?.length || 0}
+                          onClick={() => router.push(`/author/library/${shelf.id}`)}
+                        />
+                      </div>
                     ))}
                     <button
                       onClick={handleCreateShelf}
-                      className="flex h-[325px] w-[225px] items-center justify-center rounded-2xl border-2 border-dashed border-black/20 dark:border-white/10 bg-black/[0.02] dark:bg-white/[0.02] transition-all hover:border-[#907AFF]/30 hover:bg-black/[0.01] dark:hover:bg-white/[0.04]"
+                      className="flex h-[320px] w-[220px] shrink-0 items-center justify-center rounded-2xl border-2 border-dashed border-black/20 dark:border-white/10 bg-black/[0.02] dark:bg-white/[0.02] transition-all hover:border-[#907AFF]/30 hover:bg-black/[0.01] dark:hover:bg-white/[0.04]"
                     >
                       <div className="flex flex-col items-center gap-2">
                         <svg className="h-8 w-8 text-slate-400 dark:text-white/30" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -919,19 +920,20 @@ function Dashboard({ user }: { user: User }) {
               {(standaloneBooks.length > 0 || !loadingShelves) && (
                 <div className="mt-8 border-t border-black/10 dark:border-white/[0.06] pt-8">
                   <h3 className="mb-6 text-[20px] font-semibold text-slate-900 dark:text-white">Standalone books</h3>
-                  <div className="grid gap-6 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
+                  <div className="flex flex-wrap gap-4">
                     {standaloneBooks.map((book) => (
-                      <BookCard
-                        key={book.id}
+                      <div key={book.id} className="shrink-0">
+                        <BookCard
                         book={book}
                         size="sm"
                         onClick={() => router.push(`/author/books/${book.id}`)}
                         showStats={false}
                       />
+                      </div>
                     ))}
                     <button
                       onClick={handleCreateBook}
-                      className="flex h-[180px] w-[120px] items-center justify-center rounded-xl border-2 border-dashed border-black/20 dark:border-white/10 bg-black/[0.02] dark:bg-white/[0.02] transition-all hover:border-[#907AFF]/30 hover:bg-black/[0.01] dark:hover:bg-white/[0.04]"
+                      className="flex h-[200px] w-[140px] shrink-0 items-center justify-center rounded-2xl border-2 border-dashed border-black/20 dark:border-white/10 bg-black/[0.02] dark:bg-white/[0.02] transition-all hover:border-[#907AFF]/30 hover:bg-black/[0.01] dark:hover:bg-white/[0.04]"
                     >
                       <div className="flex flex-col items-center gap-2">
                         <svg className="h-8 w-8 text-slate-400 dark:text-white/30" fill="none" viewBox="0 0 24 24" stroke="currentColor">
