@@ -624,9 +624,18 @@ function Dashboard({ user }: { user: User }) {
     }));
   }, [libraryBooks, displayName]);
 
-  const continueReadingCards = libraryCards.slice(0, 6);
-  const trendingCards = libraryCards.slice(0, 8);
-  const discoverCards = libraryCards.slice(8, 16);
+  const publishedLibraryCards = useMemo(
+    () => libraryCards.filter((book) => book.tag === "PUBLISHED"),
+    [libraryCards]
+  );
+  const draftLibraryCards = useMemo(
+    () => libraryCards.filter((book) => book.tag === "DRAFT"),
+    [libraryCards]
+  );
+
+  const continueReadingCards = publishedLibraryCards.slice(0, 6);
+  const trendingCards = publishedLibraryCards.slice(0, 8);
+  const discoverCards = publishedLibraryCards.slice(8, 16);
   
   // Handle choice modal
   const handleAddClick = (shelfId?: string) => {
@@ -848,7 +857,7 @@ function Dashboard({ user }: { user: User }) {
             </div>
           </div>
           
-          {shelves.length === 0 ? (
+          {shelves.length === 0 && standaloneBooks.length === 0 ? (
             // Empty state with two large actions
             <div className="rounded-3xl border border-black/10 dark:border-white/[0.08] from-black/5 dark:from-white/[0.04] to-transparent p-12">
               <div className="grid gap-6 md:grid-cols-2">
@@ -944,6 +953,28 @@ function Dashboard({ user }: { user: User }) {
                         <span className="text-[11px] text-slate-500 dark:text-white/30">Add book</span>
                       </div>
                     </button>
+                  </div>
+                </div>
+              )}
+
+              {draftLibraryCards.length > 0 && (
+                <div className="mt-8 border-t border-black/10 dark:border-white/[0.06] pt-8">
+                  <div className="mb-5 flex items-center justify-between">
+                    <div>
+                      <h3 className="text-[20px] font-semibold text-slate-900 dark:text-white">Drafts</h3>
+                      <p className="mt-1 text-[13px] text-slate-600 dark:text-white/50">Only visible to you</p>
+                    </div>
+                    <Link
+                      href="/author/books"
+                      className="text-[12px] font-semibold uppercase tracking-wider text-slate-500 transition hover:text-slate-900 dark:text-white/50 dark:hover:text-white"
+                    >
+                      Manage drafts
+                    </Link>
+                  </div>
+                  <div className="flex gap-6 overflow-x-auto pb-4">
+                    {draftLibraryCards.map((book) => (
+                      <BookCoverCard key={book.id} book={book} size="md" showTag />
+                    ))}
                   </div>
                 </div>
               )}
