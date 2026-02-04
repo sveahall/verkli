@@ -365,13 +365,23 @@ export default function GlobalNavbar({
   const showProfileMenu = navActions?.showProfileMenu ?? true;
   const isActiveReaderLink = (href: string) => {
     if (!pathname) return false;
-    if (href === "/reader/feed" && (pathname === "/reader/home" || pathname === "/reader")) {
-      return true;
+    const matches = (route: string) => pathname === route || pathname.startsWith(`${route}/`);
+
+    if (href === "/reader/home") {
+      return pathname === "/reader" || pathname === "/reader/home" || pathname === "/reader/feed";
     }
-    if (href === "/reader/profile" && pathname.startsWith("/reader/settings")) {
-      return true;
+    if (href === "/reader/discover") {
+      return (
+        matches("/reader/discover") ||
+        matches("/reader/books") ||
+        matches("/reader/writers") ||
+        matches("/reader/lists")
+      );
     }
-    return pathname === href || pathname.startsWith(`${href}/`);
+    if (href === "/reader/library") {
+      return matches("/reader/library") || matches("/reader/bookmarks");
+    }
+    return matches(href);
   };
 
   if (loading || hideNavbar) {

@@ -128,7 +128,7 @@ export const NAV_CONFIG: Record<NavVariant, NavConfig> = {
   APP_READER: {
     homeHref: "/reader/home",
     links: [
-      { label: "Feed", href: "/reader/feed" },
+      { label: "Home", href: "/reader/home" },
       {
         label: "Discover",
         href: "/reader/discover",
@@ -151,15 +151,6 @@ export const NAV_CONFIG: Record<NavVariant, NavConfig> = {
         ],
       },
       ...(MVP_MODE ? [] : [{ label: "Community", href: "/reader/community" }]),
-      {
-        label: "Profile",
-        href: "/reader/profile",
-        hasDropdown: false,
-        children: [
-          { label: "Profile", href: "/reader/profile" },
-          { label: "Settings", href: "/reader/settings" },
-        ],
-      },
     ],
     actions: {
       showSearch: true,
