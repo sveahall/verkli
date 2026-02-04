@@ -2,7 +2,11 @@
 
 import { useState } from "react";
 import BookCard from "./BookCard";
-import type { ShelfSection, ShelfBook, Book } from "@/lib/supabase/types";
+import type { Tables } from "@/lib/supabase/types";
+
+type ShelfSection = Tables<"shelf_sections">;
+type ShelfBook = Tables<"shelf_books">;
+type Book = Tables<"books">;
 
 interface SectionBlockProps {
   section: ShelfSection;
