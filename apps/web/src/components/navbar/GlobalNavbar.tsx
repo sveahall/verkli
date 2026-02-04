@@ -95,8 +95,8 @@ const dropdownItemMeta: Record<
     },
   },
   Library: {
-    "My library": {
-      description: "Everything you have started and finished.",
+    "Currently reading": {
+      description: "Books you are actively reading.",
       icon: (
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.6} className="h-4 w-4">
           <path strokeLinecap="round" strokeLinejoin="round" d="M5 5.5h11a3 3 0 013 3v10H8a3 3 0 00-3 3v-16z" />
@@ -104,7 +104,7 @@ const dropdownItemMeta: Record<
         </svg>
       ),
     },
-    Bookmarks: {
+    Saved: {
       description: "Saved for later and quick access.",
       icon: (
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.6} className="h-4 w-4">
@@ -112,12 +112,12 @@ const dropdownItemMeta: Record<
         </svg>
       ),
     },
-    "Continue reading": {
-      description: "Pick up where you left off.",
+    Finished: {
+      description: "Completed stories and re-reads.",
       icon: (
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.6} className="h-4 w-4">
-          <path strokeLinecap="round" strokeLinejoin="round" d="M12 5.5v5.5l3.5 2.5" />
-          <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12a7.5 7.5 0 1 0 7.5-7.5" />
+          <path strokeLinecap="round" strokeLinejoin="round" d="M6.5 12.5l3.5 3.5 7-7" />
+          <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 5.5h15v13h-15z" />
         </svg>
       ),
     },
@@ -1098,6 +1098,14 @@ export default function GlobalNavbar({
                     if (openItem?.children?.length) {
                       const header = dropdownHeaderMeta[openItem.label];
                       const itemMeta = dropdownItemMeta[openItem.label] ?? {};
+                      const resolvedChildren =
+                        isReaderRoute && openItem.label === "Library"
+                          ? [
+                              { label: "Currently reading", href: "/reader/library?tab=reading" },
+                              { label: "Saved", href: "/reader/library?tab=saved" },
+                              { label: "Finished", href: "/reader/library?tab=finished" },
+                            ]
+                          : openItem.children;
                       return (
                         <div className="space-y-4">
                           {header && (
@@ -1113,7 +1121,7 @@ export default function GlobalNavbar({
                             </div>
                           )}
                           <div className={columnCount === 1 ? "grid gap-2" : "grid gap-2 sm:grid-cols-2"}>
-                            {openItem.children.map((child, idx) => {
+                            {resolvedChildren.map((child, idx) => {
                               const meta = itemMeta[child.label];
                               return (
                                 <Link
