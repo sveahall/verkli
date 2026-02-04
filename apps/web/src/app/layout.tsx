@@ -3,6 +3,7 @@ import { Inter, Montserrat_Alternates } from "next/font/google";
 import "./globals.css";
 import "../components/GridMotion.css";
 import "../components/GlassSurface.css";
+import GlobalThemeToggle from "@/components/GlobalThemeToggle";
 
 const inter = Inter({
   variable: "--font-inter",
@@ -44,6 +45,8 @@ export default function RootLayout({
         <div className="relative z-0 flex min-h-0 flex-1 flex-col overflow-x-hidden">
           {children}
         </div>
+        {/* Tema-växling fast i nedre högra hörnet på alla sidor */}
+        <GlobalThemeToggle />
       </body>
     </html>
   );
