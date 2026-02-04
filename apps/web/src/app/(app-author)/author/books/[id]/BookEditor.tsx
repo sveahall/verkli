@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import { useState, useCallback, useRef, useEffect, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
@@ -9,8 +8,20 @@ import TiptapEditor from "@/components/editor/TiptapEditor";
 import AuthorStatsBar from "@/components/editor/AuthorStatsBar";
 import CommandPalette from "@/components/editor/CommandPalette";
 import DeleteBookButton from "@/components/books/DeleteBookButton";
+import { Breadcrumbs } from "@/components/ui/breadcrumbs";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { PageHeader } from "@/components/ui/page-header";
+import { Select } from "@/components/ui/select";
+import { Tabs, type TabItem } from "@/components/ui/tabs";
 import { getAudiobookEnabled, getMarketingEnabled, getTranslationsEnabled } from "@/lib/flags";
-import { getLanguageLabel, LANGUAGE_OPTIONS, normalizeLanguage, type SupportedLanguage } from "@/lib/languages";
+import {
+  getLanguageLabel,
+  LANGUAGE_OPTIONS,
+  normalizeLanguage,
+  normalizeLanguageOrNull,
+  type SupportedLanguage,
+} from "@/lib/languages";
 
 const ACCEPTED_COVER_TYPES = "image/*";
 
@@ -62,7 +73,7 @@ type Book = {
 type BookVersion = {
   id: string;
   book_id: string;
-  language_code: string;
+  language_code: string | null;
   status: string;
   published_at?: string | null;
   created_at?: string;
@@ -115,6 +126,7 @@ export default function BookEditor({
   const [wordCount, setWordCount] = useState(0);
   const [sessionStartWords, setSessionStartWords] = useState<number | null>(null);
   const [commandPaletteOpen, setCommandPaletteOpen] = useState(false);
+  const [activeView, setActiveView] = useState("editor");
   const [isPublishing, setIsPublishing] = useState(false);
   const [coverUploading, setCoverUploading] = useState(false);
   const [coverError, setCoverError] = useState<string | null>(null);
@@ -124,6 +136,18 @@ export default function BookEditor({
   const [marketingLanguage, setMarketingLanguage] = useState<SupportedLanguage>(
     normalizeLanguage(activeVersion?.language_code ?? book.original_language ?? book.language)
   );
+  const resolvedSourceLanguage = useMemo<SupportedLanguage | null>(
+    () =>
+      normalizeLanguageOrNull(activeVersion?.language_code) ??
+      normalizeLanguageOrNull(book.original_language) ??
+      normalizeLanguageOrNull(book.language),
+    [activeVersion?.language_code, book.original_language, book.language]
+  );
+  const [sourceLanguageDraft, setSourceLanguageDraft] = useState<SupportedLanguage | "">(
+    resolvedSourceLanguage ?? ""
+  );
+  const [isSavingSourceLanguage, setIsSavingSourceLanguage] = useState(false);
+  const [sourceLanguageError, setSourceLanguageError] = useState<string | null>(null);
   const [marketingCopyFeedback, setMarketingCopyFeedback] = useState(false);
   const [isGeneratingMarketing, setIsGeneratingMarketing] = useState(false);
   const existingVersionLanguages = useMemo(() => {
@@ -157,20 +181,122 @@ export default function BookEditor({
   const [ttsManualSteps, setTtsManualSteps] = useState<string | null>(null);
   const [ttsAudioUrl, setTtsAudioUrl] = useState<string | null>(null);
   const [ttsVoice, setTtsVoice] = useState<string>("default");
+  const translationsEnabled = getTranslationsEnabled();
+  const audiobookEnabled = getAudiobookEnabled();
+  const marketingEnabled = getMarketingEnabled();
   const savingRef = useRef(false);
   const coverInputRef = useRef<HTMLInputElement>(null);
+
+  const viewTabs = useMemo<TabItem[]>(() => {
+    const tabs: TabItem[] = [
+      { id: "editor", label: "Editor" },
+      { id: "details", label: "Details" },
+    ];
+    if (translationsEnabled) tabs.push({ id: "translation", label: "Translate" });
+    if (audiobookEnabled) tabs.push({ id: "audio", label: "Audio" });
+    if (marketingEnabled) tabs.push({ id: "marketing", label: "Marketing" });
+    return tabs;
+  }, [translationsEnabled, audiobookEnabled, marketingEnabled]);
 
   useEffect(() => {
     setChapters(initialChapters);
     setSelectedChapterId(initialChapters[0]?.id ?? null);
   }, [initialChapters]);
 
+  useEffect(() => {
+    setSourceLanguageDraft(resolvedSourceLanguage ?? "");
+    setSourceLanguageError(null);
+  }, [resolvedSourceLanguage]);
+
   const selectedChapter = chapters.find((ch) => ch.id === selectedChapterId);
   const displayCoverUrl = coverPreviewUrl ?? book.cover_image;
 
-  const activeLanguage = normalizeLanguage(
+  const handleViewChange = useCallback((nextView: string) => {
+    setActiveView(nextView);
+    const section = document.getElementById(nextView);
+    if (section) {
+      section.scrollIntoView({ behavior: "smooth", block: "start" });
+    }
+  }, []);
+
+  const activeLanguage = normalizeLanguageOrNull(
     activeVersion?.language_code ?? book.original_language ?? book.language
   );
+
+  const languageTabs = useMemo<TabItem[]>(() => {
+    return bookVersions.map((version) => {
+      const langKey = normalizeLangKey(version.language_code);
+      const isOriginal = normalizeLangKey(book.original_language ?? book.language) === langKey;
+      return {
+        id: langKey || version.id,
+        label: isOriginal ? "Original" : getLanguageLabel(langKey || "unknown"),
+        badge: version.published_at ? "Published" : "Draft",
+      };
+    });
+  }, [bookVersions, book.original_language, book.language]);
+
+  const activeLanguageKey =
+    normalizeLangKey(activeVersion?.language_code ?? activeLanguage) || languageTabs[0]?.id || "";
+
+  const headerDescription = `${activeVersion?.published_at ? "Published" : "Draft"} • ${chapters.length} chapter${
+    chapters.length !== 1 ? "s" : ""
+  }`;
+
+  const titleNode = bookTitle;
+
+  const headerActions = (
+    <div className="flex flex-wrap items-center gap-3">
+      {!isRenamingBook && (
+        <Button variant="ghost" size="sm" onClick={handleStartRenameBook}>
+          Rename
+        </Button>
+      )}
+      {translationsEnabled && (
+        <Button variant="secondary" onClick={() => handleViewChange("translation")}>
+          Translate
+        </Button>
+      )}
+      {activeVersion && !activeVersion.published_at && (
+        <Button
+          onClick={handlePublish}
+          disabled={isPublishing || chapters.length === 0}
+          className="bg-emerald-600 text-white hover:bg-emerald-700 dark:bg-emerald-500 dark:hover:bg-emerald-400"
+        >
+          {isPublishing ? "Publishing..." : "Publish version"}
+        </Button>
+      )}
+      <DeleteBookButton
+        bookId={book.id}
+        bookTitle={bookTitle}
+        redirectTo="/author/books"
+        className="text-red-600 hover:text-red-700 dark:text-red-300 dark:hover:text-red-200"
+      />
+    </div>
+  );
+
+  const renamePanel = isRenamingBook ? (
+    <div className="card-base-subtle p-4">
+      <div className="flex flex-wrap items-center gap-2">
+        <Input
+          value={bookTitleDraft}
+          onChange={(e) => setBookTitleDraft(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") handleSaveRenameBook();
+            if (e.key === "Escape") handleCancelRenameBook();
+          }}
+          className="min-w-[260px]"
+          autoFocus
+        />
+        <Button size="sm" onClick={handleSaveRenameBook} isLoading={bookTitleSaving} loadingText="Saving">
+          Save
+        </Button>
+        <Button size="sm" variant="secondary" onClick={handleCancelRenameBook}>
+          Cancel
+        </Button>
+      </div>
+      {bookTitleError && <p className="mt-2 text-xs text-red-600 dark:text-red-400">{bookTitleError}</p>}
+    </div>
+  ) : null;
 
   const versionsByLang = useMemo(() => {
     const map = new Map<string, BookVersion>();
@@ -240,6 +366,21 @@ export default function BookEditor({
     return "idle";
   }, [currentTargetVersion?.status, currentTargetVersion?.published_at, isPollingCurrent]);
 
+  const sourceLanguageKnown = Boolean(resolvedSourceLanguage);
+  const isTargetSameAsSource =
+    sourceLanguageKnown &&
+    normalizeLangKey(translateTargetLanguage) === normalizeLangKey(resolvedSourceLanguage);
+  const canStartTranslation =
+    Boolean(activeVersion?.id) &&
+    sourceLanguageKnown &&
+    !isTargetSameAsSource &&
+    !isStartingTranslation &&
+    !isSavingSourceLanguage &&
+    translationUiStatus !== "translating";
+
+  const translateActionLabel = currentTargetVersion ? "Re-translate" : "Start translation";
+  const translateLoadingLabel = currentTargetVersion ? "Retranslating" : "Starting";
+
   const startTranslationPoll = useCallback(() => {
     stopTranslationPoll();
     translationPollStartedAtRef.current = Date.now();
@@ -258,10 +399,73 @@ export default function BookEditor({
     }, 3000);
   }, [router, stopTranslationPoll]);
 
+  const handleSourceLanguageChange = useCallback(
+    async (nextLanguage: SupportedLanguage) => {
+      if (isSavingSourceLanguage) return;
+      if (!activeVersion?.id) {
+        setSourceLanguageError("Ingen aktiv version hittades.");
+        return;
+      }
+      setSourceLanguageDraft(nextLanguage);
+      setSourceLanguageError(null);
+      setIsSavingSourceLanguage(true);
+      try {
+        const supabase = createClient();
+        const { error: versionError } = await supabase
+          .from("book_versions")
+          .update({ language_code: nextLanguage })
+          .eq("id", activeVersion.id);
+        if (versionError) {
+          setSourceLanguageError("Kunde inte spara källspråk. Försök igen.");
+          setSourceLanguageDraft(resolvedSourceLanguage ?? "");
+          return;
+        }
+
+        const bookOriginalKnown = normalizeLanguageOrNull(book.original_language);
+        const bookLanguageKnown = normalizeLanguageOrNull(book.language);
+        const updatePayload: { original_language?: string; language?: string } = {};
+        if (!bookOriginalKnown) updatePayload.original_language = nextLanguage;
+        if (!bookLanguageKnown) updatePayload.language = nextLanguage;
+        if (Object.keys(updatePayload).length > 0) {
+          await supabase.from("books").update(updatePayload).eq("id", book.id);
+        }
+
+        setTranslateMessage("Källspråk uppdaterat.");
+        router.refresh();
+      } catch (err) {
+        setSourceLanguageError(err instanceof Error ? err.message : "Kunde inte spara källspråk.");
+        setSourceLanguageDraft(resolvedSourceLanguage ?? "");
+      } finally {
+        setIsSavingSourceLanguage(false);
+      }
+    },
+    [
+      activeVersion?.id,
+      book.id,
+      book.language,
+      book.original_language,
+      isSavingSourceLanguage,
+      resolvedSourceLanguage,
+      router,
+    ]
+  );
+
   const handleStartTranslation = useCallback(async () => {
     if (isStartingTranslation) return;
     setIsStartingTranslation(true);
     setTranslateMessage(null);
+
+    if (!sourceLanguageKnown) {
+      setTranslateMessage("Källspråk saknas för den här versionen. Välj källspråk och försök igen.");
+      setIsStartingTranslation(false);
+      return;
+    }
+
+    if (isTargetSameAsSource) {
+      setTranslateMessage("Målspråket måste skilja sig från källspråket.");
+      setIsStartingTranslation(false);
+      return;
+    }
 
     if (!activeVersion?.id) {
       setTranslateMessage("Ingen aktiv version hittades.");
@@ -306,10 +510,27 @@ export default function BookEditor({
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok || data?.ok === false) {
-        const errMsg = data?.error ?? "Failed to start translation";
         if (data?.existingVersionId) {
           setTranslateMessage("Version finns redan. Öppnar befintlig version…");
           router.push(`/author/books/${book.id}?lang=${normalizeLangKey(translateTargetLanguage)}`);
+          return;
+        }
+        const errMsg = data?.error ?? "Failed to start translation";
+        const lowered = String(errMsg).toLowerCase();
+        if (res.status === 422 || data?.code === "SOURCE_LANGUAGE_MISSING") {
+          setTranslateMessage("Källspråk saknas för den här versionen. Välj källspråk och försök igen.");
+          return;
+        }
+        if (lowered.includes("target language must be different")) {
+          setTranslateMessage("Målspråket måste skilja sig från källspråket.");
+          return;
+        }
+        if (lowered.includes("valid target language")) {
+          setTranslateMessage("Välj ett giltigt målspråk.");
+          return;
+        }
+        if (lowered.includes("no source version")) {
+          setTranslateMessage("Ingen källversion hittades.");
           return;
         }
         setTranslateMessage(errMsg);
@@ -332,6 +553,8 @@ export default function BookEditor({
     versionsByLang,
     book.id,
     router,
+    sourceLanguageKnown,
+    isTargetSameAsSource,
   ]);
 
   const handlePublish = async () => {
@@ -631,7 +854,8 @@ export default function BookEditor({
     let targetVersionId = activeVersion?.id ?? null;
     let targetVersionLanguage = activeVersion?.language_code ?? null;
     if (!targetVersionId) {
-      const fallbackLanguage = normalizeLanguage(book.original_language ?? book.language);
+      const fallbackLanguage =
+        normalizeLanguageOrNull(book.original_language ?? book.language) ?? "und";
       const { data: createdVersion, error: versionError } = await supabase
         .from("book_versions")
         .insert({
@@ -792,106 +1016,28 @@ export default function BookEditor({
 
   return (
     <>
-      <section className="mx-auto max-w-[1400px] px-6 py-12">
-        {getTranslationsEnabled() && bookVersions.length > 1 && (
-          <div className="mb-4 max-w-[320px]">
-            <label htmlFor="version-select" className="mb-1 block text-xs text-slate-500 dark:text-white/50">
-              Version
-            </label>
-            <select
-              id="version-select"
-              value={normalizeLangKey(activeVersion?.language_code ?? activeLanguage)}
-              onChange={(e) => router.push(`/author/books/${book.id}?lang=${e.target.value}`)}
-              className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:border-slate-500 focus:outline-none dark:border-white/20 dark:bg-white/10 dark:text-white"
-            >
-              {bookVersions.map((v) => {
-                const langKey = normalizeLangKey(v.language_code);
-                const isOriginal = normalizeLangKey(book.original_language ?? book.language) === langKey;
-                const label = isOriginal ? "Original" : getLanguageLabel(langKey || "unknown");
-                return (
-                  <option key={v.id} value={langKey}>
-                    {label}
-                  </option>
-                );
-              })}
-            </select>
-          </div>
-        )}
-        <div className="mb-8 flex flex-wrap items-start justify-between gap-4">
-          <div className="min-w-0">
-            {!isRenamingBook ? (
-              <div className="flex flex-wrap items-center gap-3">
-                <h1 className="text-4xl font-semibold tracking-tight text-slate-900 dark:text-white">
-                  {bookTitle}
-                </h1>
-                <button
-                  type="button"
-                  onClick={handleStartRenameBook}
-                  className="rounded-full border border-slate-200 bg-white px-3 py-1 text-xs font-medium text-slate-600 transition hover:bg-slate-50 dark:border-white/10 dark:bg-white/5 dark:text-white/70"
-                >
-                  Rename
-                </button>
-              </div>
-            ) : (
-              <div className="flex flex-col gap-2">
-                <div className="flex flex-wrap items-center gap-2">
-                  <input
-                    type="text"
-                    value={bookTitleDraft}
-                    onChange={(e) => setBookTitleDraft(e.target.value)}
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter") handleSaveRenameBook();
-                      if (e.key === "Escape") handleCancelRenameBook();
-                    }}
-                    className="min-w-[260px] rounded-lg border border-slate-300 bg-white px-3 py-2 text-base text-slate-900 focus:border-slate-500 focus:outline-none dark:border-white/20 dark:bg-white/10 dark:text-white"
-                    autoFocus
-                  />
-                  <button
-                    type="button"
-                    onClick={handleSaveRenameBook}
-                    disabled={bookTitleSaving}
-                    className="rounded-lg bg-slate-900 px-3 py-2 text-xs font-medium text-white hover:bg-slate-800 disabled:opacity-60 dark:bg-white dark:text-slate-900"
-                  >
-                    {bookTitleSaving ? "Saving…" : "Save"}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={handleCancelRenameBook}
-                    className="rounded-lg border border-slate-300 px-3 py-2 text-xs font-medium text-slate-700 hover:bg-slate-50 dark:border-white/20 dark:text-white/70 dark:hover:bg-white/5"
-                  >
-                    Cancel
-                  </button>
-                </div>
-                {bookTitleError && (
-                  <p className="text-xs text-red-600 dark:text-red-400">{bookTitleError}</p>
-                )}
-              </div>
-            )}
-            <p className="mt-2 text-sm text-slate-600 dark:text-white/60">
-              {activeVersion?.published_at ? "Published" : "Draft"} • {chapters.length} chapter{chapters.length !== 1 ? "s" : ""}
-            </p>
-          </div>
-          <div className="flex flex-wrap items-center gap-3">
-            {activeVersion && !activeVersion.published_at && (
-              <button
-                onClick={handlePublish}
-                disabled={isPublishing || chapters.length === 0}
-                className="rounded-full bg-emerald-600 px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-emerald-700 disabled:opacity-50"
-              >
-                {isPublishing ? "Publishing..." : "Publish version"}
-              </button>
-            )}
-            <DeleteBookButton
-              bookId={book.id}
-              bookTitle={bookTitle}
-              redirectTo="/author/books"
-              className="rounded-full border border-red-200 bg-white px-5 py-2.5 text-sm font-semibold text-red-700 transition hover:bg-red-50 dark:border-red-900/50 dark:bg-white/10 dark:text-red-200 dark:hover:bg-red-950/30"
-            />
-          </div>
-        </div>
+      <div className="page-content py-10">
+        <div className="section-gap">
+          <Breadcrumbs
+            items={[{ label: "Books", href: "/author/books" }, { label: bookTitle || "Untitled" }]}
+          />
+          <PageHeader title={titleNode} description={headerDescription} actions={headerActions} />
+          {renamePanel}
 
-        <div className="grid gap-8 lg:grid-cols-[280px_1fr]">
-          <div className="space-y-5">
+          {translationsEnabled && languageTabs.length > 1 && (
+            <Tabs
+              items={languageTabs}
+              active={activeLanguageKey}
+              onChange={(id) => router.push(`/author/books/${book.id}?lang=${id}`)}
+            />
+          )}
+
+          {viewTabs.length > 1 && (
+            <Tabs items={viewTabs} active={activeView} onChange={handleViewChange} />
+          )}
+
+          <div className="grid gap-8 lg:grid-cols-[280px_1fr]">
+          <div id="details" className="space-y-5">
             <div className="rounded-xl border border-slate-200 bg-slate-50/50 p-5 dark:border-white/10 dark:bg-white/5">
               <h2 className="mb-3 text-base font-semibold text-slate-900 dark:text-white">Cover</h2>
               <div className="space-y-2">
@@ -916,14 +1062,17 @@ export default function BookEditor({
                   className="hidden"
                   aria-hidden
                 />
-                <button
+                <Button
                   type="button"
                   onClick={() => coverInputRef.current?.click()}
                   disabled={coverUploading}
-                  className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-50 disabled:opacity-50 dark:border-white/20 dark:bg-white/10 dark:text-white dark:hover:bg-white/15"
+                  variant="secondary"
+                  fullWidth
+                  isLoading={coverUploading}
+                  loadingText="Uploading"
                 >
-                  {coverUploading ? "Uploading…" : "Upload cover"}
-                </button>
+                  Upload cover
+                </Button>
                 {coverError && (
                   <p className="text-xs text-red-600 dark:text-red-400" role="alert">
                     {coverError}
@@ -935,13 +1084,15 @@ export default function BookEditor({
             <div className="rounded-xl border border-slate-200 bg-slate-50/50 p-5 dark:border-white/10 dark:bg-white/5">
             <div className="mb-4 flex items-center justify-between">
               <h2 className="text-base font-semibold text-slate-900 dark:text-white">Chapters</h2>
-              <button
+              <Button
+                size="sm"
                 onClick={handleCreateChapter}
                 disabled={isCreating}
-                className="rounded-full bg-slate-900 px-3 py-1 text-xs font-medium text-white transition hover:bg-slate-800 disabled:opacity-50 dark:bg-white dark:text-slate-900"
+                isLoading={isCreating}
+                loadingText="Creating"
               >
-                {isCreating ? "..." : "+ New"}
-              </button>
+                New chapter
+              </Button>
             </div>
 
             {chapters.length === 0 ? (
@@ -952,30 +1103,22 @@ export default function BookEditor({
                   <li key={chapter.id}>
                     {editingTitleId === chapter.id ? (
                       <div className="flex flex-col gap-2">
-                        <input
-                          type="text"
+                        <Input
                           value={tempTitle}
                           onChange={(e) => setTempTitle(e.target.value)}
                           onKeyDown={(e) => {
                             if (e.key === "Enter") handleSaveTitle(chapter.id);
                             if (e.key === "Escape") handleCancelEditTitle();
                           }}
-                          className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:border-slate-500 focus:outline-none dark:border-white/20 dark:bg-white/10 dark:text-white"
                           autoFocus
                         />
                         <div className="flex gap-2">
-                          <button
-                            onClick={() => handleSaveTitle(chapter.id)}
-                            className="flex-1 rounded-lg bg-slate-900 px-2 py-1 text-xs text-white hover:bg-slate-800 dark:bg-white dark:text-slate-900"
-                          >
+                          <Button size="sm" onClick={() => handleSaveTitle(chapter.id)} className="flex-1">
                             Save
-                          </button>
-                          <button
-                            onClick={handleCancelEditTitle}
-                            className="flex-1 rounded-lg border border-slate-300 px-2 py-1 text-xs text-slate-700 hover:bg-slate-100 dark:border-white/20 dark:text-white/70 dark:hover:bg-white/5"
-                          >
+                          </Button>
+                          <Button size="sm" variant="secondary" onClick={handleCancelEditTitle} className="flex-1">
                             Cancel
-                          </button>
+                          </Button>
                         </div>
                       </div>
                     ) : (
@@ -1001,8 +1144,8 @@ export default function BookEditor({
             <p className="mt-3 text-xs text-slate-500 dark:text-white/50">Double-click to rename</p>
             </div>
 
-            {getTranslationsEnabled() && (
-              <div className="rounded-xl border border-slate-200 bg-slate-50/50 p-5 dark:border-white/10 dark:bg-white/5">
+            {translationsEnabled && (
+              <div id="translation" className="rounded-xl border border-slate-200 bg-slate-50/50 p-5 dark:border-white/10 dark:bg-white/5">
                 <h2 className="mb-3 text-base font-semibold text-slate-900 dark:text-white">Translation</h2>
                 <p className="mb-3 text-xs text-slate-500 dark:text-white/50">
                   Create a new language version of this book. The translation will appear when ready.
@@ -1027,35 +1170,84 @@ export default function BookEditor({
                     {translationUiStatus === "error" && "Error"}
                   </span>
                 </div>
+                <div className="mb-3 space-y-2">
+                  <div className="flex items-center gap-2 text-xs text-slate-500 dark:text-white/50">
+                    <span className="font-medium">Source:</span>
+                    <span className="text-slate-700 dark:text-white/80">
+                      {sourceLanguageKnown && resolvedSourceLanguage
+                        ? getLanguageLabel(resolvedSourceLanguage)
+                        : "Unknown"}
+                    </span>
+                  </div>
+                  {!sourceLanguageKnown && (
+                    <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800 dark:border-amber-700/60 dark:bg-amber-900/20 dark:text-amber-100">
+                      Källspråk saknas för denna version. Välj källspråk för att kunna översätta.
+                    </div>
+                  )}
+                  <label htmlFor="source-language" className="mb-1 block text-xs text-slate-500 dark:text-white/50">
+                    Source language
+                  </label>
+                  <Select
+                    id="source-language"
+                    value={sourceLanguageDraft}
+                    onChange={(e) => handleSourceLanguageChange(e.target.value as SupportedLanguage)}
+                    disabled={isSavingSourceLanguage}
+                  >
+                    <option value="" disabled>
+                      Välj källspråk
+                    </option>
+                    {LANGUAGE_OPTIONS.map((opt) => (
+                      <option key={opt.value} value={opt.value}>
+                        {opt.label}
+                      </option>
+                    ))}
+                  </Select>
+                  {isSavingSourceLanguage && (
+                    <p className="text-xs text-slate-500 dark:text-white/50">Sparar källspråk…</p>
+                  )}
+                  {sourceLanguageError && (
+                    <p className="text-xs text-red-600 dark:text-red-400" role="alert">
+                      {sourceLanguageError}
+                    </p>
+                  )}
+                </div>
                 <label htmlFor="translate-language" className="mb-1 block text-xs text-slate-500 dark:text-white/50">Target language</label>
-                <select
+                <Select
                   id="translate-language"
                   value={translateTargetLanguage}
                   onChange={(e) => setTranslateTargetLanguage(e.target.value as SupportedLanguage)}
-                  className="mb-3 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:border-slate-500 focus:outline-none dark:border-white/20 dark:bg-white/10 dark:text-white"
                 >
                   {LANGUAGE_OPTIONS.map((opt) => (
                     <option key={opt.value} value={opt.value}>{opt.label}</option>
                   ))}
-                </select>
-                <button
+                </Select>
+                {isTargetSameAsSource && (
+                  <p className="mb-2 text-xs text-amber-700 dark:text-amber-200">
+                    Målspråket måste skilja sig från källspråket.
+                  </p>
+                )}
+                <Button
                   type="button"
                   onClick={handleStartTranslation}
-                  disabled={isStartingTranslation}
-                  className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed dark:border-white/20 dark:bg-white/10 dark:text-white dark:hover:bg-white/15"
+                  disabled={!canStartTranslation}
+                  variant="secondary"
+                  fullWidth
+                  isLoading={isStartingTranslation}
+                  loadingText={translateLoadingLabel}
                 >
-                  {isStartingTranslation ? "Startar…" : "Start translation"}
-                </button>
+                  {translateActionLabel}
+                </Button>
                 {currentTargetVersion && (
-                  <button
+                  <Button
                     type="button"
                     onClick={() =>
                       router.push(`/author/books/${book.id}?lang=${normalizeLangKey(currentTargetVersion.language_code)}`)
                     }
-                    className="mt-2 w-full rounded-lg bg-slate-900 px-3 py-2 text-sm font-medium text-white transition hover:bg-slate-800 dark:bg-white dark:text-slate-900 dark:hover:bg-white/90"
+                    className="mt-2"
+                    fullWidth
                   >
                     Open version
-                  </button>
+                  </Button>
                 )}
                 {translateMessage && (
                   <div
@@ -1074,7 +1266,7 @@ export default function BookEditor({
               </div>
             )}
 
-            <div id="tts" className="rounded-xl border border-slate-200 bg-slate-50/50 p-5 dark:border-white/10 dark:bg-white/5">
+            <div id="audio" className="rounded-xl border border-slate-200 bg-slate-50/50 p-5 dark:border-white/10 dark:bg-white/5">
               <h2 className="mb-3 text-base font-semibold text-slate-900 dark:text-white">Text to Speech</h2>
               <p className="mb-3 text-xs text-slate-500 dark:text-white/50">
                 Generate audio from this book&apos;s first chapter. Uses the default TTS voice (Piper).
@@ -1101,26 +1293,24 @@ export default function BookEditor({
                 </span>
               </div>
               <label htmlFor="tts-voice" className="mb-1 block text-xs text-slate-500 dark:text-white/50">Voice</label>
-              <select
+              <Select
                 id="tts-voice"
                 value={ttsVoice}
                 onChange={(e) => setTtsVoice(e.target.value)}
-                className="mb-3 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:border-slate-500 focus:outline-none dark:border-white/20 dark:bg-white/10 dark:text-white"
               >
                 <option value="default">Default (sv_SE-nst-medium)</option>
-              </select>
-              <button
+              </Select>
+              <Button
                 type="button"
                 onClick={handleStartTts}
                 disabled={ttsStatus === "generating" || ttsStatus === "uploading"}
-                className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed dark:border-white/20 dark:bg-white/10 dark:text-white dark:hover:bg-white/15"
+                variant="secondary"
+                fullWidth
+                isLoading={ttsStatus === "generating" || ttsStatus === "uploading"}
+                loadingText={ttsStatus === "uploading" ? "Uploading" : "Generating"}
               >
-                {ttsStatus === "generating" || ttsStatus === "uploading"
-                  ? ttsStatus === "uploading"
-                    ? "Uploading…"
-                    : "Generating…"
-                  : "Start TTS"}
-              </button>
+                Start TTS
+              </Button>
               {(ttsAudioUrl ?? latestAudiobookAsset?.audio_url) && (
                 <div className="mt-3 space-y-2">
                   <audio
@@ -1188,18 +1378,17 @@ export default function BookEditor({
             <div className="rounded-xl border border-slate-200 bg-slate-50/50 p-5 dark:border-white/10 dark:bg-white/5">
               <h2 className="mb-3 text-base font-semibold text-slate-900 dark:text-white">Original</h2>
               <label htmlFor="original-url-editor" className="mb-1 block text-xs text-slate-500 dark:text-white/50">Original available on Amazon</label>
-              <input
+              <Input
                 id="original-url-editor"
                 type="url"
                 value={originalUrl}
                 onChange={(e) => setOriginalUrl(e.target.value)}
                 onBlur={handleOriginalUrlBlur}
                 placeholder="https://..."
-                className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 placeholder:text-slate-400 focus:border-slate-500 focus:outline-none dark:border-white/20 dark:bg-white/10 dark:text-white dark:placeholder:text-white/40"
               />
             </div>
 
-            {getAudiobookEnabled() && (
+            {audiobookEnabled && (
             <div id="audiobook" className="rounded-xl border border-slate-200 bg-slate-50/50 p-5 dark:border-white/10 dark:bg-white/5">
               <h2 className="mb-2 text-base font-semibold text-slate-900 dark:text-white">Audiobook</h2>
               <div className="mb-2 flex items-center gap-2">
@@ -1217,14 +1406,17 @@ export default function BookEditor({
                   {book.audiobook_status ?? "not_started"}
                 </span>
               </div>
-              <button
+              <Button
                 type="button"
                 onClick={handleGenerateAudiobook}
                 disabled={isGeneratingAudiobook}
-                className="mb-2 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-50 disabled:opacity-50 dark:border-white/20 dark:bg-white/10 dark:text-white dark:hover:bg-white/15"
+                variant="secondary"
+                fullWidth
+                isLoading={isGeneratingAudiobook}
+                loadingText="Generating"
               >
-                {isGeneratingAudiobook ? "Generating…" : "Generate audiobook"}
-              </button>
+                Generate audiobook
+              </Button>
               {latestAudiobookAsset?.audio_url && (
                 <p className="mb-1 text-xs text-slate-500 dark:text-white/50">Asset: {latestAudiobookAsset.audio_url}</p>
               )}
@@ -1236,35 +1428,33 @@ export default function BookEditor({
             </div>
             )}
 
-            {getMarketingEnabled() && (
+            {marketingEnabled && (
             <div id="marketing" className="rounded-xl border border-slate-200 bg-slate-50/50 p-5 dark:border-white/10 dark:bg-white/5">
               <h2 className="mb-3 text-base font-semibold text-slate-900 dark:text-white">Marketing</h2>
               <div className="mb-3 flex flex-wrap gap-2">
                 <div className="flex flex-col gap-1">
                   <label htmlFor="marketing-channel" className="text-xs text-slate-500 dark:text-white/50">Channel</label>
-                  <select
+                  <Select
                     id="marketing-channel"
                     value={marketingChannel}
                     onChange={(e) => setMarketingChannel(e.target.value as MarketingChannel)}
-                    className="rounded-lg border border-slate-300 bg-white px-2 py-1.5 text-sm text-slate-900 focus:border-slate-500 focus:outline-none dark:border-white/20 dark:bg-white/10 dark:text-white"
                   >
                     {MARKETING_CHANNELS.map((c) => (
                       <option key={c} value={c}>{c}</option>
                     ))}
-                  </select>
+                  </Select>
                 </div>
                 <div className="flex flex-col gap-1">
                   <label htmlFor="marketing-language" className="text-xs text-slate-500 dark:text-white/50">Language</label>
-                  <select
+                  <Select
                     id="marketing-language"
                     value={marketingLanguage}
                     onChange={(e) => setMarketingLanguage(e.target.value as SupportedLanguage)}
-                    className="rounded-lg border border-slate-300 bg-white px-2 py-1.5 text-sm text-slate-900 focus:border-slate-500 focus:outline-none dark:border-white/20 dark:bg-white/10 dark:text-white"
                   >
                     {LANGUAGE_OPTIONS.map((opt) => (
                       <option key={opt.value} value={opt.value}>{opt.label}</option>
                     ))}
-                  </select>
+                  </Select>
                 </div>
               </div>
               {currentCampaign && (
@@ -1322,13 +1512,14 @@ export default function BookEditor({
                       </p>
                     </>
                   )}
-                  <button
+                  <Button
                     type="button"
                     onClick={handleCopyMarketingToClipboard}
-                    className="w-full rounded-lg bg-slate-900 px-3 py-2 text-xs font-medium text-white hover:bg-slate-800 dark:bg-white dark:text-slate-900 dark:hover:bg-white/90"
+                    fullWidth
+                    size="sm"
                   >
                     {marketingCopyFeedback ? "Copied!" : "Copy to clipboard"}
-                  </button>
+                  </Button>
                 </div>
               )}
               <p className="mt-3 text-xs text-slate-500 dark:text-white/50">Reader URL</p>
@@ -1344,7 +1535,7 @@ export default function BookEditor({
             )}
           </div>
 
-          <div>
+          <div id="editor" className="space-y-6">
             {selectedChapter ? (
               <>
                 <div className="mb-3 flex items-center justify-between">
@@ -1406,7 +1597,8 @@ export default function BookEditor({
             )}
           </div>
         </div>
-      </section>
+      </div>
+    </div>
       <CommandPalette open={commandPaletteOpen} onClose={() => setCommandPaletteOpen(false)} commands={commands} />
     </>
   );
