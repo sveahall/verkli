@@ -8,9 +8,9 @@ import { NAV_CONFIG } from "@/nav/navConfig";
 
 const mobileNavItems = [
   {
-    label: "Feed",
-    href: "/reader/feed",
-    activeMatchers: ["/reader/feed", "/reader/home"],
+    label: "Home",
+    href: "/reader/home",
+    activeMatchers: ["/reader/home"],
     icon: (
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.6} className="h-5 w-5">
         <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 6.5h15M4.5 12h15M4.5 17.5h10" />
@@ -20,7 +20,7 @@ const mobileNavItems = [
   {
     label: "Discover",
     href: "/reader/discover",
-    activeMatchers: ["/reader/discover"],
+    activeMatchers: ["/reader/discover", "/reader/books", "/reader/writers", "/reader/lists"],
     icon: (
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.6} className="h-5 w-5">
         <path strokeLinecap="round" strokeLinejoin="round" d="M12 3.5l2.6 5.2 5.7.8-4.1 4 1 5.7-5.2-2.7-5.2 2.7 1-5.7-4.1-4 5.7-.8L12 3.5z" />
@@ -39,13 +39,12 @@ const mobileNavItems = [
     ),
   },
   {
-    label: "Profile",
-    href: "/reader/profile",
-    activeMatchers: ["/reader/profile", "/reader/settings", "/reader/community"],
+    label: "Saved",
+    href: "/reader/bookmarks",
+    activeMatchers: ["/reader/bookmarks"],
     icon: (
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.6} className="h-5 w-5">
-        <path strokeLinecap="round" strokeLinejoin="round" d="M12 12a4 4 0 1 0-4-4 4 4 0 0 0 4 4Z" />
-        <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 19.5a7.5 7.5 0 0 1 15 0" />
+        <path strokeLinecap="round" strokeLinejoin="round" d="M7 4.75h10a2 2 0 0 1 2 2V19l-7-3-7 3V6.75a2 2 0 0 1 2-2Z" />
       </svg>
     ),
   },
