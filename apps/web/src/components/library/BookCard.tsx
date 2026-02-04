@@ -1,6 +1,8 @@
 "use client";
 
-import type { Book } from "@/lib/supabase/types";
+import type { Tables } from "@/lib/supabase/types";
+
+type Book = Tables<"books">;
 
 interface BookCardProps {
   book: Book;
