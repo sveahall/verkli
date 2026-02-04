@@ -1,8 +1,9 @@
-'use client'
+"use client";
 
-import { createClient } from './client'
+import { createClient } from "./client";
+import { AVATARS_BUCKET_PUBLIC } from "./config";
 
-const supabase = createClient()
+const supabase = createClient();
 
 const BOOK_COVERS_BUCKET = "book_covers";
 
@@ -38,9 +39,6 @@ export async function uploadBookCover(
   return { url: publicUrl, error: null };
 }
 
-const AVATARS_BUCKET_PUBLIC =
-  process.env.NEXT_PUBLIC_AVATARS_BUCKET_PUBLIC !== "false";
-
 /**
  * Resolve avatar_path from DB to a displayable URL.
  * - If bucket is public: uses getPublicUrl
@@ -49,7 +47,17 @@ const AVATARS_BUCKET_PUBLIC =
  */
 export async function getAvatarUrlFromPath(
   avatarPath: string | null,
-  supabaseClient: { storage: { from: (b: string) => { getPublicUrl: (p: string) => { data: { publicUrl: string } }; createSignedUrl: (p: string, n: number) => Promise<{ data: { signedUrl: string } | null; error: unknown }> } } }
+  supabaseClient: {
+    storage: {
+      from: (b: string) => {
+        getPublicUrl: (p: string) => { data: { publicUrl: string } };
+        createSignedUrl: (
+          p: string,
+          n: number
+        ) => Promise<{ data: { signedUrl: string } | null; error: unknown }>;
+      };
+    };
+  }
 ): Promise<string | null> {
   if (!avatarPath || typeof avatarPath !== "string" || avatarPath.trim() === "")
     return null;
