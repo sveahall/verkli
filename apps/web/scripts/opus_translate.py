@@ -3,11 +3,17 @@
 Opus MT translation via local CTranslate2 model.
 Args: model_dir, source_language, target_language. Reads text from stdin. Writes translated text to stdout.
 Errors to stderr, exit 1 on failure.
-Initially only sv -> en; model_dir maps to apps/web/models/sv_en.
+Supports: sv -> en, en -> sv
 """
 
 import sys
 import os
+
+# Supported language pairs
+SUPPORTED_PAIRS = {
+    ("sv", "en"),
+    ("en", "sv"),
+}
 
 
 def main() -> None:
@@ -20,8 +26,10 @@ def main() -> None:
     source_language = sys.argv[2].strip().lower()
     target_language = sys.argv[3].strip().lower()
 
-    if source_language != "sv" or target_language != "en":
-        sys.stderr.write("Only sv -> en is supported. Got {} -> {}.\n".format(source_language, target_language))
+    if (source_language, target_language) not in SUPPORTED_PAIRS:
+        supported = ", ".join("{} -> {}".format(s, t) for s, t in SUPPORTED_PAIRS)
+        sys.stderr.write("Unsupported language pair: {} -> {}. Supported: {}\n".format(
+            source_language, target_language, supported))
         sys.exit(1)
 
     if not os.path.isdir(model_dir):
