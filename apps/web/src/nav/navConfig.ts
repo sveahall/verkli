@@ -118,7 +118,7 @@ export const NAV_CONFIG: Record<NavVariant, NavConfig> = {
       ]),
     ],
     actions: {
-      primary: { label: "Publish", href: "/author/books" },
+      primary: { label: "Books", href: "/author/books" },
       showSearch: true,
       searchPlaceholder: "Search books, authors...",
       searchHref: "/author/home",

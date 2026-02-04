@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useState, useCallback, useRef, useEffect, useMemo } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { uploadBookCover } from "@/lib/supabase/storage";
 import TiptapEditor from "@/components/editor/TiptapEditor";
@@ -24,8 +24,75 @@ type Chapter = {
   book_version_id: string;
 };
 
+type PublishVisibility = "public" | "followers" | "private";
+
+const VISIBILITY_LABELS: Record<PublishVisibility, string> = {
+  public: "Public",
+  followers: "Followers only",
+  private: "Private",
+};
+
+const PUBLISH_VISIBILITY_OPTIONS: Array<{
+  value: PublishVisibility;
+  label: string;
+  description: string;
+}> = [
+  {
+    value: "public",
+    label: "Public",
+    description: "Visible to everyone. Appears in Discover and on your profile.",
+  },
+  {
+    value: "followers",
+    label: "Followers only",
+    description: "Visible only to readers who follow you.",
+  },
+  {
+    value: "private",
+    label: "Private",
+    description: "Only you can see this version.",
+  },
+];
+
 function normalizeLangKey(value: string | null | undefined): string {
   return String(value ?? "").trim().toLowerCase();
+}
+
+function normalizeVisibility(value: string | null | undefined): PublishVisibility | null {
+  if (!value) return null;
+  const normalized = value.trim().toLowerCase();
+  if (normalized === "public" || normalized === "followers" || normalized === "private") {
+    return normalized;
+  }
+  return null;
+}
+
+function extractText(node: unknown): string {
+  if (!node || typeof node !== "object") return "";
+  if ("text" in node && typeof (node as { text?: string }).text === "string") {
+    return (node as { text: string }).text;
+  }
+  if ("content" in node && Array.isArray((node as { content?: unknown[] }).content)) {
+    return (node as { content: unknown[] }).content.map(extractText).join("");
+  }
+  return "";
+}
+
+function hasReadableContent(content: string | null): boolean {
+  if (!content) return false;
+  try {
+    const parsed = JSON.parse(content);
+    const text = extractText(parsed);
+    return text.trim().length > 0;
+  } catch {
+    return content.trim().length > 0;
+  }
+}
+
+function describeVisibility(value: PublishVisibility): string {
+  if (value === "public") return "Visible to everyone";
+  if (value === "followers") return "Visible to followers only";
+  return "Only you can see this version";
 }
 
 const MARKETING_CHANNELS = ["generic", "tiktok", "instagram", "x"] as const;
@@ -65,6 +132,7 @@ type BookVersion = {
   language_code: string;
   status: string;
   published_at?: string | null;
+  visibility?: PublishVisibility | null;
   created_at?: string;
   updated_at?: string;
 };
@@ -96,6 +164,7 @@ export default function BookEditor({
   marketingCampaigns = [],
 }: Props) {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [chapters, setChapters] = useState<Chapter[]>(initialChapters);
   const [selectedChapterId, setSelectedChapterId] = useState<string | null>(
     initialChapters[0]?.id ?? null
@@ -116,6 +185,12 @@ export default function BookEditor({
   const [sessionStartWords, setSessionStartWords] = useState<number | null>(null);
   const [commandPaletteOpen, setCommandPaletteOpen] = useState(false);
   const [isPublishing, setIsPublishing] = useState(false);
+  const [publishVisibility, setPublishVisibility] = useState<PublishVisibility>("public");
+  const [defaultPublishVisibility, setDefaultPublishVisibility] = useState<PublishVisibility>("public");
+  const [publishError, setPublishError] = useState<string | null>(null);
+  const [publishToast, setPublishToast] = useState<string | null>(null);
+  const [confirmPublishAction, setConfirmPublishAction] = useState<"publish" | "update" | "unpublish" | null>(null);
+  const [publishPanelHighlight, setPublishPanelHighlight] = useState(false);
   const [coverUploading, setCoverUploading] = useState(false);
   const [coverError, setCoverError] = useState<string | null>(null);
   const [coverPreviewUrl, setCoverPreviewUrl] = useState<string | null>(null);
@@ -159,18 +234,104 @@ export default function BookEditor({
   const [ttsVoice, setTtsVoice] = useState<string>("default");
   const savingRef = useRef(false);
   const coverInputRef = useRef<HTMLInputElement>(null);
+  const publishPanelRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     setChapters(initialChapters);
     setSelectedChapterId(initialChapters[0]?.id ?? null);
   }, [initialChapters]);
 
+  useEffect(() => {
+    if (!publishToast) return;
+    const timeoutId = window.setTimeout(() => setPublishToast(null), 3000);
+    return () => window.clearTimeout(timeoutId);
+  }, [publishToast]);
+
+  useEffect(() => {
+    setPublishError(null);
+    setConfirmPublishAction(null);
+  }, [activeVersion?.id]);
+
+  useEffect(() => {
+    let isActive = true;
+    const loadDefaultVisibility = async () => {
+      const supabase = createClient();
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("preferences")
+        .eq("user_id", user.id)
+        .maybeSingle();
+      const preferred =
+        (profile?.preferences as { visibility?: { books?: string } } | null)?.visibility?.books ?? null;
+      if (
+        isActive &&
+        (preferred === "public" || preferred === "followers" || preferred === "private")
+      ) {
+        setDefaultPublishVisibility(preferred);
+      }
+    };
+    void loadDefaultVisibility();
+    return () => {
+      isActive = false;
+    };
+  }, []);
+
+  const panelParam = searchParams?.get("panel");
+  useEffect(() => {
+    if (panelParam !== "publish") return;
+    publishPanelRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+    setPublishPanelHighlight(true);
+    const timeoutId = window.setTimeout(() => setPublishPanelHighlight(false), 1600);
+    return () => window.clearTimeout(timeoutId);
+  }, [panelParam]);
+
   const selectedChapter = chapters.find((ch) => ch.id === selectedChapterId);
   const displayCoverUrl = coverPreviewUrl ?? book.cover_image;
+  const activeVisibility = useMemo(
+    () => normalizeVisibility(activeVersion?.visibility ?? null),
+    [activeVersion?.visibility]
+  );
+
+  useEffect(() => {
+    if (!activeVersion) return;
+    const nextVisibility = activeVisibility ?? defaultPublishVisibility;
+    setPublishVisibility(nextVisibility);
+  }, [activeVersion, activeVisibility, defaultPublishVisibility]);
 
   const activeLanguage = normalizeLanguage(
     activeVersion?.language_code ?? book.original_language ?? book.language
   );
+  const isPublished = Boolean(activeVersion?.published_at);
+  const currentVisibility = activeVisibility ?? publishVisibility;
+  const currentVisibilityLabel = VISIBILITY_LABELS[currentVisibility];
+  const currentVisibilitySummary = describeVisibility(currentVisibility);
+  const selectedVisibilityLabel = VISIBILITY_LABELS[publishVisibility];
+
+  const missingPublishRequirements = useMemo(() => {
+    const missing: string[] = [];
+    if (!bookTitle.trim()) missing.push("Add a title");
+    if (!displayCoverUrl) missing.push("Upload a cover image");
+    if (!activeVersion?.id) missing.push("Create a book version");
+    if (chapters.length === 0) {
+      missing.push("Add at least one chapter");
+    } else if (!chapters.some((chapter) => hasReadableContent(chapter.content))) {
+      missing.push("Write content in at least one chapter");
+    }
+    return missing;
+  }, [bookTitle, displayCoverUrl, activeVersion?.id, chapters]);
+
+  const publishDisabled = isPublishing || coverUploading || missingPublishRequirements.length > 0;
+  const visibilityChanged = isPublished && activeVisibility != null && publishVisibility !== activeVisibility;
+  const confirmCopy =
+    confirmPublishAction === "publish"
+      ? `Publish this version as ${selectedVisibilityLabel}?`
+      : confirmPublishAction === "update"
+        ? `Update visibility to ${selectedVisibilityLabel}?`
+        : confirmPublishAction === "unpublish"
+          ? "Unpublish this version? It will no longer be visible to readers."
+          : null;
 
   const versionsByLang = useMemo(() => {
     const map = new Map<string, BookVersion>();
@@ -334,28 +495,45 @@ export default function BookEditor({
     router,
   ]);
 
-  const handlePublish = async () => {
+  const handlePublishAction = async (action: "publish" | "update" | "unpublish") => {
     if (isPublishing || !activeVersion?.id) return;
+    if (action === "publish" && missingPublishRequirements.length > 0) {
+      setPublishError("Fix the required items before publishing.");
+      return;
+    }
     setIsPublishing(true);
+    setPublishError(null);
     try {
       const res = await fetch(`/api/books/${book.id}/publish`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ versionId: activeVersion.id }),
+        body: JSON.stringify({
+          versionId: activeVersion.id,
+          visibility: publishVisibility,
+          action,
+        }),
       });
-      const data = await res.json();
+      const data = await res.json().catch(() => ({}));
       if (!res.ok) {
-        alert(data.error || "Failed to publish");
+        setPublishError(data.error || "Failed to update publish settings");
         return;
       }
       router.refresh();
+      if (action === "publish") {
+        setPublishToast("Published");
+      } else if (action === "unpublish") {
+        setPublishToast("Unpublished");
+      } else {
+        setPublishToast("Publish settings updated");
+      }
     } catch (err) {
       if (process.env.NODE_ENV === "development") {
         console.error("[publish failed]", err);
       }
-      alert("Failed to publish");
+      setPublishError("Failed to update publish settings");
     } finally {
       setIsPublishing(false);
+      setConfirmPublishAction(null);
     }
   };
 
@@ -792,6 +970,15 @@ export default function BookEditor({
 
   return (
     <>
+      {publishToast && (
+        <div
+          role="status"
+          aria-live="polite"
+          className="fixed right-6 top-24 z-[1000] rounded-lg bg-slate-900 px-4 py-2 text-[13px] font-medium text-white dark:bg-white dark:text-slate-900"
+        >
+          {publishToast}
+        </div>
+      )}
       <section className="mx-auto max-w-[1400px] px-6 py-12">
         {getTranslationsEnabled() && bookVersions.length > 1 && (
           <div className="mb-4 max-w-[320px]">
@@ -817,6 +1004,25 @@ export default function BookEditor({
             </select>
           </div>
         )}
+        <div className="mb-6 flex flex-wrap items-center gap-2 text-xs">
+          <span
+            className={`rounded-full px-2.5 py-1 text-xs font-medium ${
+              isPublished
+                ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300"
+                : "bg-slate-100 text-slate-600 dark:bg-white/10 dark:text-white/70"
+            }`}
+          >
+            {isPublished ? "Published" : "Draft"}
+          </span>
+          {isPublished && (
+            <span className="rounded-full border border-slate-200 bg-white px-2.5 py-1 text-xs font-medium text-slate-600 dark:border-white/10 dark:bg-white/5 dark:text-white/70">
+              {currentVisibilityLabel}
+            </span>
+          )}
+          <span className="text-slate-500 dark:text-white/50">
+            Version: {getLanguageLabel(activeLanguage)}
+          </span>
+        </div>
         <div className="mb-8 flex flex-wrap items-start justify-between gap-4">
           <div className="min-w-0">
             {!isRenamingBook ? (
@@ -824,6 +1030,20 @@ export default function BookEditor({
                 <h1 className="text-4xl font-semibold tracking-tight text-slate-900 dark:text-white">
                   {bookTitle}
                 </h1>
+                <span
+                  className={`rounded-full px-3 py-1 text-xs font-semibold ${
+                    isPublished
+                      ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300"
+                      : "bg-slate-100 text-slate-600 dark:bg-white/10 dark:text-white/70"
+                  }`}
+                >
+                  {isPublished ? "Published" : "Draft"}
+                </span>
+                {isPublished && (
+                  <span className="rounded-full border border-slate-200 bg-white px-3 py-1 text-xs font-semibold text-slate-600 dark:border-white/10 dark:bg-white/5 dark:text-white/70">
+                    {currentVisibilityLabel}
+                  </span>
+                )}
                 <button
                   type="button"
                   onClick={handleStartRenameBook}
@@ -868,19 +1088,10 @@ export default function BookEditor({
               </div>
             )}
             <p className="mt-2 text-sm text-slate-600 dark:text-white/60">
-              {activeVersion?.published_at ? "Published" : "Draft"} • {chapters.length} chapter{chapters.length !== 1 ? "s" : ""}
+              {isPublished ? currentVisibilitySummary : "Draft — not visible to readers yet"} • {chapters.length} chapter{chapters.length !== 1 ? "s" : ""}
             </p>
           </div>
           <div className="flex flex-wrap items-center gap-3">
-            {activeVersion && !activeVersion.published_at && (
-              <button
-                onClick={handlePublish}
-                disabled={isPublishing || chapters.length === 0}
-                className="rounded-full bg-emerald-600 px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-emerald-700 disabled:opacity-50"
-              >
-                {isPublishing ? "Publishing..." : "Publish version"}
-              </button>
-            )}
             <DeleteBookButton
               bookId={book.id}
               bookTitle={bookTitle}
@@ -892,6 +1103,147 @@ export default function BookEditor({
 
         <div className="grid gap-8 lg:grid-cols-[280px_1fr]">
           <div className="space-y-5">
+            <div
+              id="publish-panel"
+              ref={publishPanelRef}
+              className={`rounded-xl border border-slate-200 bg-slate-50/50 p-5 transition-shadow dark:border-white/10 dark:bg-white/5 ${
+                publishPanelHighlight ? "ring-2 ring-emerald-300/70 shadow-[0_0_0_3px_rgba(16,185,129,0.15)]" : ""
+              }`}
+            >
+              <div className="mb-2 flex items-center justify-between">
+                <h2 className="text-base font-semibold text-slate-900 dark:text-white">Publish</h2>
+                <span
+                  className={`rounded-full px-2.5 py-1 text-xs font-semibold ${
+                    isPublished
+                      ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300"
+                      : "bg-slate-100 text-slate-600 dark:bg-white/10 dark:text-white/70"
+                  }`}
+                >
+                  {isPublished ? "Published" : "Draft"}
+                </span>
+              </div>
+              <p className="text-xs text-slate-500 dark:text-white/50">
+                Publish settings for this version. Drafts stay private until you publish.
+              </p>
+              <div className="mt-3 flex flex-wrap items-center gap-2 text-xs text-slate-500 dark:text-white/50">
+                <span>{isPublished ? currentVisibilitySummary : "Not visible to readers yet."}</span>
+                {isPublished && (
+                  <span className="rounded-full border border-slate-200 bg-white px-2 py-0.5 text-[11px] font-medium text-slate-600 dark:border-white/10 dark:bg-white/5 dark:text-white/70">
+                    {currentVisibilityLabel}
+                  </span>
+                )}
+              </div>
+
+              <fieldset className="mt-4 space-y-2">
+                <legend className="text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-white/50">
+                  Visibility
+                </legend>
+                {PUBLISH_VISIBILITY_OPTIONS.map((option) => {
+                  const selected = publishVisibility === option.value;
+                  return (
+                    <label
+                      key={option.value}
+                      className={`flex cursor-pointer items-start gap-3 rounded-lg border px-3 py-2 transition ${
+                        selected
+                          ? "border-emerald-300 bg-emerald-50/60 dark:border-emerald-500/50 dark:bg-emerald-500/10"
+                          : "border-slate-200 bg-white/70 hover:bg-white dark:border-white/10 dark:bg-white/5 dark:hover:bg-white/10"
+                      }`}
+                    >
+                      <input
+                        type="radio"
+                        name="publish-visibility"
+                        value={option.value}
+                        checked={selected}
+                        onChange={() => {
+                          setPublishVisibility(option.value);
+                          setPublishError(null);
+                        }}
+                        className="mt-1 h-4 w-4 accent-emerald-600"
+                      />
+                      <div>
+                        <p className="text-sm font-medium text-slate-900 dark:text-white">{option.label}</p>
+                        <p className="text-xs text-slate-500 dark:text-white/50">{option.description}</p>
+                      </div>
+                    </label>
+                  );
+                })}
+              </fieldset>
+
+              {!isPublished && missingPublishRequirements.length > 0 && (
+                <div className="mt-4 rounded-lg border border-amber-200 bg-amber-50 px-3 py-3 text-xs text-amber-900 dark:border-amber-700 dark:bg-amber-950/40 dark:text-amber-200">
+                  <p className="mb-2 font-semibold">Before you can publish</p>
+                  <ul className="list-disc pl-4">
+                    {missingPublishRequirements.map((item) => (
+                      <li key={item}>{item}</li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+
+              {publishError && (
+                <div className="mt-4 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700 dark:border-red-800 dark:bg-red-950/40 dark:text-red-200">
+                  {publishError}
+                </div>
+              )}
+
+              {confirmPublishAction && confirmCopy ? (
+                <div className="mt-4 rounded-lg border border-slate-200 bg-white px-3 py-3 text-xs text-slate-700 dark:border-white/10 dark:bg-white/5 dark:text-white/70">
+                  <p className="mb-1 font-semibold text-slate-900 dark:text-white">Confirm</p>
+                  <p className="text-xs text-slate-600 dark:text-white/60">{confirmCopy}</p>
+                  <div className="mt-3 flex gap-2">
+                    <button
+                      type="button"
+                      onClick={() => handlePublishAction(confirmPublishAction)}
+                      disabled={isPublishing}
+                      className="rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-emerald-700 disabled:opacity-60"
+                    >
+                      {isPublishing ? "Working..." : "Confirm"}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setConfirmPublishAction(null)}
+                      className="rounded-lg border border-slate-300 px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50 dark:border-white/20 dark:text-white/70 dark:hover:bg-white/5"
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <div className="mt-4 flex flex-col gap-2">
+                  {!isPublished && (
+                    <button
+                      type="button"
+                      onClick={() => setConfirmPublishAction("publish")}
+                      disabled={publishDisabled}
+                      className="rounded-lg bg-emerald-600 px-3 py-2 text-sm font-semibold text-white transition hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-50"
+                    >
+                      {isPublishing ? "Publishing..." : "Publish"}
+                    </button>
+                  )}
+                  {isPublished && (
+                    <>
+                      <button
+                        type="button"
+                        onClick={() => setConfirmPublishAction("update")}
+                        disabled={isPublishing || !visibilityChanged}
+                        className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50 dark:border-white/20 dark:bg-white/10 dark:text-white dark:hover:bg-white/15"
+                      >
+                        {isPublishing ? "Updating..." : "Update publish settings"}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setConfirmPublishAction("unpublish")}
+                        disabled={isPublishing}
+                        className="rounded-lg border border-red-200 bg-white px-3 py-2 text-sm font-semibold text-red-700 transition hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-50 dark:border-red-900/50 dark:bg-white/10 dark:text-red-200 dark:hover:bg-red-950/30"
+                      >
+                        Unpublish
+                      </button>
+                    </>
+                  )}
+                </div>
+              )}
+            </div>
+
             <div className="rounded-xl border border-slate-200 bg-slate-50/50 p-5 dark:border-white/10 dark:bg-white/5">
               <h2 className="mb-3 text-base font-semibold text-slate-900 dark:text-white">Cover</h2>
               <div className="space-y-2">
@@ -1358,10 +1710,10 @@ export default function BookEditor({
                         </span>
                       ) : lastSaved ? (
                         <span className="text-green-600 dark:text-green-400">
-                          Saved {lastSaved.toLocaleTimeString()}
+                          Last saved {lastSaved.toLocaleTimeString()}
                         </span>
                       ) : (
-                        "Autosave enabled"
+                        "Autosave on"
                       )}
                     </p>
                     <button
@@ -1410,13 +1762,4 @@ export default function BookEditor({
       <CommandPalette open={commandPaletteOpen} onClose={() => setCommandPaletteOpen(false)} commands={commands} />
     </>
   );
-}
-
-function extractText(node: { content?: unknown[]; text?: string }): string {
-  if (!node) return "";
-  if (node.text) return node.text;
-  if (Array.isArray(node.content)) {
-    return node.content.map((c) => extractText(c as { content?: unknown[]; text?: string })).join("");
-  }
-  return "";
 }
