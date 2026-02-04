@@ -16,6 +16,7 @@ type BookCardProps = {
   rating?: number;
   length?: string;
   progress?: number;
+  ctaLabel?: string;
   size?: keyof typeof sizeStyles;
   isSkeleton?: boolean;
   layout?: "rail" | "grid";
@@ -32,6 +33,7 @@ export default function BookCard({
   rating,
   length,
   progress,
+  ctaLabel,
   size = "md",
   isSkeleton,
   layout = "rail",
@@ -54,6 +56,10 @@ export default function BookCard({
       </div>
     );
   }
+
+  const hasProgress = typeof progress === "number";
+  const clampedProgress = hasProgress ? Math.min(Math.max(progress, 0), 100) : 0;
+  const showCta = Boolean(ctaLabel);
 
   return (
     <div className={`group ${containerClass}`}>
@@ -80,14 +86,34 @@ export default function BookCard({
               {tag}
             </span>
           )}
-          {typeof progress === "number" && (
+          {hasProgress && !showCta && (
             <div className="absolute inset-x-3 bottom-3">
               <div className="h-1.5 w-full rounded-full bg-white/70 dark:bg-white/20">
                 <div
                   className="h-full rounded-full bg-slate-900/90 dark:bg-white"
-                  style={{ width: `${Math.min(Math.max(progress, 0), 100)}%` }}
+                  style={{ width: `${clampedProgress}%` }}
                 />
               </div>
+            </div>
+          )}
+          {showCta && (
+            <div className="pointer-events-none absolute inset-x-3 bottom-3">
+              <div className="flex items-center justify-between gap-2 rounded-full border border-white/60 bg-white/90 px-3 py-2 text-[11px] font-semibold text-slate-900 shadow-sm backdrop-blur dark:border-white/10 dark:bg-slate-950/70 dark:text-white">
+                <span>{ctaLabel}</span>
+                {hasProgress && (
+                  <span className="text-[11px] font-medium text-slate-500 dark:text-white/70">
+                    {Math.round(clampedProgress)}%
+                  </span>
+                )}
+              </div>
+              {hasProgress && (
+                <div className="mt-2 h-1.5 w-full rounded-full bg-white/70 dark:bg-white/20">
+                  <div
+                    className="h-full rounded-full bg-slate-900/90 dark:bg-white"
+                    style={{ width: `${clampedProgress}%` }}
+                  />
+                </div>
+              )}
             </div>
           )}
         </div>
