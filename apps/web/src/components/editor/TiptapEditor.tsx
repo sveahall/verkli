@@ -2,7 +2,6 @@
 
 import { useEditor, EditorContent } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
-import Underline from "@tiptap/extension-underline";
 import Image from "@tiptap/extension-image";
 import TextAlign from "@tiptap/extension-text-align";
 import Placeholder from "@tiptap/extension-placeholder";
@@ -68,7 +67,6 @@ export default function TiptapEditor({
       StarterKit.configure({
         heading: { levels: [1, 2, 3] },
       }),
-      Underline,
       Image.configure({ inline: false, allowBase64: true }),
       TextAlign.configure({ types: ["heading", "paragraph"] }),
       Placeholder.configure({ placeholder }),

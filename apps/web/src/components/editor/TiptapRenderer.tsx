@@ -2,7 +2,6 @@
 
 import { useEditor, EditorContent } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
-import Underline from "@tiptap/extension-underline";
 import Image from "@tiptap/extension-image";
 import TextAlign from "@tiptap/extension-text-align";
 import {
@@ -41,7 +40,6 @@ export default function TiptapRenderer({ content, className = "" }: TiptapRender
           levels: [1, 2, 3],
         },
       }),
-      Underline,
       TextStyle,
       FontFamily.configure({ types: ["textStyle"] }),
       FontSize.configure({ types: ["textStyle"] }),
