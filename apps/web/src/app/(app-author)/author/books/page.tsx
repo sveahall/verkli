@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
-import CreateBookForm from "./CreateBookForm";
+import CreateBookEntry from "./CreateBookEntry";
 import DeleteBookButton from "@/components/books/DeleteBookButton";
 
 export default async function authorBooksPage() {
@@ -25,7 +25,7 @@ export default async function authorBooksPage() {
           <h1 className="text-2xl font-semibold text-slate-900 dark:text-white">
             My books
           </h1>
-          <CreateBookForm />
+          <CreateBookEntry />
         </div>
 
         {!books || books.length === 0 ? (
@@ -33,9 +33,9 @@ export default async function authorBooksPage() {
             <p className="text-slate-600 dark:text-white/60">
               No books yet. Create your first book to get started.
             </p>
-            <div className="mt-4">
-              <CreateBookForm />
-            </div>
+            <p className="mt-4 text-sm text-slate-500 dark:text-white/50">
+              Use the Create book button above to start a new draft.
+            </p>
           </div>
         ) : (
           <ul className="space-y-2">

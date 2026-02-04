@@ -39,7 +39,7 @@ export default async function BookDetailPage({
 
   const { data: bookVersions, error: bookVersionsError } = await supabase
     .from("book_versions")
-    .select("id, book_id, language_code, status, published_at, created_at, updated_at")
+    .select("id, book_id, language_code, status, published_at, visibility, created_at, updated_at")
     .eq("book_id", book.id)
     .order("created_at", { ascending: true });
 
@@ -59,7 +59,7 @@ export default async function BookDetailPage({
         language_code: fallbackLanguage,
         status: "draft",
       })
-      .select("id, book_id, language_code, status, published_at, created_at, updated_at")
+      .select("id, book_id, language_code, status, published_at, visibility, created_at, updated_at")
       .single();
     if (createVersionError) {
       console.error("Failed to auto-create book version", createVersionError);
