@@ -1,7 +1,6 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { updateActiveRole } from "@/features/auth/roles";
-import NavbarShell from "@/nav/NavbarShell";
 
 export default async function AppReaderLayout({
   children,
@@ -47,12 +46,5 @@ export default async function AppReaderLayout({
     await updateActiveRole("reader");
   }
 
-  const variant = "APP_READER";
-
-  return (
-    <>
-      <NavbarShell variant={variant} />
-      {children}
-    </>
-  );
+  return <>{children}</>;
 }
