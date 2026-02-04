@@ -244,60 +244,6 @@ export default function BookEditor({
 
   const titleNode = bookTitle;
 
-  const headerActions = (
-    <div className="flex flex-wrap items-center gap-3">
-      {!isRenamingBook && (
-        <Button variant="ghost" size="sm" onClick={handleStartRenameBook}>
-          Rename
-        </Button>
-      )}
-      {translationsEnabled && (
-        <Button variant="secondary" onClick={() => handleViewChange("translation")}>
-          Translate
-        </Button>
-      )}
-      {activeVersion && !activeVersion.published_at && (
-        <Button
-          onClick={handlePublish}
-          disabled={isPublishing || chapters.length === 0}
-          className="bg-emerald-600 text-white hover:bg-emerald-700 dark:bg-emerald-500 dark:hover:bg-emerald-400"
-        >
-          {isPublishing ? "Publishing..." : "Publish version"}
-        </Button>
-      )}
-      <DeleteBookButton
-        bookId={book.id}
-        bookTitle={bookTitle}
-        redirectTo="/author/books"
-        className="text-red-600 hover:text-red-700 dark:text-red-300 dark:hover:text-red-200"
-      />
-    </div>
-  );
-
-  const renamePanel = isRenamingBook ? (
-    <div className="card-base-subtle p-4">
-      <div className="flex flex-wrap items-center gap-2">
-        <Input
-          value={bookTitleDraft}
-          onChange={(e) => setBookTitleDraft(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key === "Enter") handleSaveRenameBook();
-            if (e.key === "Escape") handleCancelRenameBook();
-          }}
-          className="min-w-[260px]"
-          autoFocus
-        />
-        <Button size="sm" onClick={handleSaveRenameBook} isLoading={bookTitleSaving} loadingText="Saving">
-          Save
-        </Button>
-        <Button size="sm" variant="secondary" onClick={handleCancelRenameBook}>
-          Cancel
-        </Button>
-      </div>
-      {bookTitleError && <p className="mt-2 text-xs text-red-600 dark:text-red-400">{bookTitleError}</p>}
-    </div>
-  ) : null;
-
   const versionsByLang = useMemo(() => {
     const map = new Map<string, BookVersion>();
     for (const v of bookVersions) {
@@ -794,6 +740,60 @@ export default function BookEditor({
       setMarketingCopyFeedback(false);
     }
   }, [currentCampaign]);
+
+  const headerActions = (
+    <div className="flex flex-wrap items-center gap-3">
+      {!isRenamingBook && (
+        <Button variant="ghost" size="sm" onClick={handleStartRenameBook}>
+          Rename
+        </Button>
+      )}
+      {translationsEnabled && (
+        <Button variant="secondary" onClick={() => handleViewChange("translation")}>
+          Translate
+        </Button>
+      )}
+      {activeVersion && !activeVersion.published_at && (
+        <Button
+          onClick={handlePublish}
+          disabled={isPublishing || chapters.length === 0}
+          className="bg-emerald-600 text-white hover:bg-emerald-700 dark:bg-emerald-500 dark:hover:bg-emerald-400"
+        >
+          {isPublishing ? "Publishing..." : "Publish version"}
+        </Button>
+      )}
+      <DeleteBookButton
+        bookId={book.id}
+        bookTitle={bookTitle}
+        redirectTo="/author/books"
+        className="text-red-600 hover:text-red-700 dark:text-red-300 dark:hover:text-red-200"
+      />
+    </div>
+  );
+
+  const renamePanel = isRenamingBook ? (
+    <div className="card-base-subtle p-4">
+      <div className="flex flex-wrap items-center gap-2">
+        <Input
+          value={bookTitleDraft}
+          onChange={(e) => setBookTitleDraft(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") handleSaveRenameBook();
+            if (e.key === "Escape") handleCancelRenameBook();
+          }}
+          className="min-w-[260px]"
+          autoFocus
+        />
+        <Button size="sm" onClick={handleSaveRenameBook} isLoading={bookTitleSaving} loadingText="Saving">
+          Save
+        </Button>
+        <Button size="sm" variant="secondary" onClick={handleCancelRenameBook}>
+          Cancel
+        </Button>
+      </div>
+      {bookTitleError && <p className="mt-2 text-xs text-red-600 dark:text-red-400">{bookTitleError}</p>}
+    </div>
+  ) : null;
 
   useEffect(() => {
     if (latestAudiobookAsset?.audio_url && ttsStatus === "idle") {
