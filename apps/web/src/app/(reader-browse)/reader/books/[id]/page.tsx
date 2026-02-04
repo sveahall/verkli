@@ -107,6 +107,8 @@ export default async function ReaderBookDetail({
     notFound();
   }
 
+  const publishedVersions = (versions ?? []).filter((version) => version.published_at);
+
   const { data: audiobookAsset } = await supabase
     .from("audiobook_assets")
     .select("id")
@@ -166,7 +168,7 @@ export default async function ReaderBookDetail({
 
       <LanguageTabs
         bookId={book.id}
-        versions={versions ?? []}
+        versions={publishedVersions}
         activeLanguage={normalizeLanguageOrNull(activeVersion.language_code) ?? "unknown"}
         originalLanguage={book.original_language ?? book.language}
       />
