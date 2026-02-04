@@ -27,7 +27,15 @@ function getPythonPath(): string {
 }
 
 /**
- * Resolve and validate model directory for source -> target. Uses OPUSMT_MODELS_DIR; for sv->en uses subdir sv_en.
+ * Supported language pairs and their model directory names.
+ */
+const SUPPORTED_PAIRS: Record<string, string> = {
+  "sv_en": "sv_en",  // Swedish -> English
+  "en_sv": "en_sv",  // English -> Swedish
+};
+
+/**
+ * Resolve and validate model directory for source -> target. Uses OPUSMT_MODELS_DIR.
  */
 function getModelDir(sourceLanguage: string, targetLanguage: string): string {
   const baseDir = process.env.OPUSMT_MODELS_DIR?.trim();
@@ -36,20 +44,25 @@ function getModelDir(sourceLanguage: string, targetLanguage: string): string {
   }
   const src = sourceLanguage.toLowerCase().trim();
   const tgt = targetLanguage.toLowerCase().trim();
-  if (src === "sv" && tgt === "en") {
-    const modelDir = path.join(baseDir, "sv_en");
-    if (!fs.existsSync(modelDir) || !fs.statSync(modelDir).isDirectory()) {
-      throw new Error(`Model directory does not exist or is not a directory: ${modelDir}`);
-    }
-    for (const file of REQUIRED_MODEL_FILES) {
-      const filePath = path.join(modelDir, file);
-      if (!fs.existsSync(filePath) || !fs.statSync(filePath).isFile()) {
-        throw new Error(`Required model file missing or not a file: ${filePath}. Required: ${REQUIRED_MODEL_FILES.join(", ")}`);
-      }
-    }
-    return modelDir;
+  const pairKey = `${src}_${tgt}`;
+  const modelDirName = SUPPORTED_PAIRS[pairKey];
+  
+  if (!modelDirName) {
+    const supported = Object.keys(SUPPORTED_PAIRS).map(k => k.replace("_", " -> ")).join(", ");
+    throw new Error(`Unsupported language pair: ${sourceLanguage} -> ${targetLanguage}. Supported: ${supported}`);
   }
-  throw new Error(`Unsupported language pair: ${sourceLanguage} -> ${targetLanguage}. Only sv -> en is supported.`);
+  
+  const modelDir = path.join(baseDir, modelDirName);
+  if (!fs.existsSync(modelDir) || !fs.statSync(modelDir).isDirectory()) {
+    throw new Error(`Model directory does not exist or is not a directory: ${modelDir}. Run: bash scripts/setup-opus-models.sh`);
+  }
+  for (const file of REQUIRED_MODEL_FILES) {
+    const filePath = path.join(modelDir, file);
+    if (!fs.existsSync(filePath) || !fs.statSync(filePath).isFile()) {
+      throw new Error(`Required model file missing or not a file: ${filePath}. Required: ${REQUIRED_MODEL_FILES.join(", ")}`);
+    }
+  }
+  return modelDir;
 }
 
 /**
