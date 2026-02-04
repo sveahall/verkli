@@ -1,7 +1,8 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import { useRouter, useSearchParams } from "next/navigation";
 
 import BookCard from "@/components/reader/BookCard";
 import EmptyState from "@/components/reader/EmptyState";
@@ -128,10 +129,36 @@ const sortOptions = [
 type SortOption = (typeof sortOptions)[number]["id"];
 
 export default function ReaderLibraryPage() {
-  const [activeTab, setActiveTab] = useState("reading");
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const tabParam = searchParams.get("tab");
+  const initialTab = tabParam === "saved" || tabParam === "finished" || tabParam === "reading" ? tabParam : "reading";
+  const [activeTab, setActiveTab] = useState(initialTab);
   const [search, setSearch] = useState("");
   const [sortBy, setSortBy] = useState<SortOption>("recent");
   const activeBooks = collections[activeTab] ?? [];
+
+  useEffect(() => {
+    if (!tabParam) {
+      if (activeTab !== "reading") setActiveTab("reading");
+      return;
+    }
+    if ((tabParam === "reading" || tabParam === "saved" || tabParam === "finished") && tabParam !== activeTab) {
+      setActiveTab(tabParam);
+    }
+  }, [tabParam, activeTab]);
+
+  const handleTabChange = (id: string) => {
+    setActiveTab(id);
+    const params = new URLSearchParams(searchParams.toString());
+    if (id === "reading") {
+      params.delete("tab");
+    } else {
+      params.set("tab", id);
+    }
+    const query = params.toString();
+    router.replace(`/reader/library${query ? `?${query}` : ""}`, { scroll: false });
+  };
 
   const tabs: TabItem[] = useMemo(
     () => [
@@ -178,7 +205,7 @@ export default function ReaderLibraryPage() {
 
       <div className="flex flex-col gap-4">
         <div className="flex flex-wrap items-center justify-between gap-3">
-          <Tabs items={tabs} active={activeTab} onChange={setActiveTab} />
+          <Tabs items={tabs} active={activeTab} onChange={handleTabChange} />
           <p className="text-xs text-slate-500 dark:text-white/50">
             Showing {sortedBooks.length} of {activeBooks.length}
           </p>
@@ -193,6 +220,7 @@ export default function ReaderLibraryPage() {
               <input
                 value={search}
                 onChange={(event) => setSearch(event.target.value)}
+                placeholder="Search title or author"
                 className="min-h-[44px] w-full rounded-full border border-slate-200/80 bg-white/90 px-4 text-[14px] text-slate-700 shadow-sm transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#907AFF]/40 focus-visible:ring-offset-2 focus-visible:ring-offset-white dark:border-white/10 dark:bg-white/5 dark:text-white dark:focus-visible:ring-offset-[#0b0b12]"
                 aria-label="Search your library"
               />
