@@ -3,6 +3,8 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import type { ReactNode } from "react";
+import GlobalNavbar from "@/components/navbar/GlobalNavbar";
+import { NAV_CONFIG } from "@/nav/navConfig";
 
 const mobileNavItems = [
   {
@@ -56,9 +58,8 @@ const isPathActive = (pathname: string | null, matchers: string[]) => {
 
 export default function ReaderAppShell({ children }: { children: ReactNode }) {
   const pathname = usePathname();
-  const isImmersive = Boolean(
-    pathname?.startsWith("/reader/read") || pathname?.startsWith("/reader/books")
-  );
+  const isImmersive = Boolean(pathname?.startsWith("/reader/read"));
+  const readerConfig = NAV_CONFIG.APP_READER;
 
   return (
     <div
@@ -76,10 +77,21 @@ export default function ReaderAppShell({ children }: { children: ReactNode }) {
         </div>
       )}
 
+      {!isImmersive && (
+        <div className="hidden lg:block">
+          <GlobalNavbar
+            navMode="reader"
+            navLinks={readerConfig.links}
+            navActions={readerConfig.actions}
+            homeHref={readerConfig.homeHref}
+          />
+        </div>
+      )}
+
       {isImmersive ? (
         <div className="relative">{children}</div>
       ) : (
-        <main className="page-content relative pb-24 pt-8 sm:pt-10 lg:pb-12">
+        <main className="page-content relative pb-24 pt-6 sm:pt-8 lg:pb-12">
           {children}
         </main>
       )}

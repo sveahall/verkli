@@ -2,6 +2,8 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
+import { buttonVariants } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
 
 const STORAGE_KEY_PREFIX = "verkli_reading_";
 
@@ -43,7 +45,7 @@ export default function StartReadingLink({
   return (
     <Link
       href={`/reader/read/${targetChapterId}`}
-      className="rounded-full bg-[#907AFF] px-6 py-3 text-[14px] font-semibold text-white transition hover:bg-[#8069EE]"
+      className={cn(buttonVariants({ variant: "primary", size: "lg" }))}
     >
       {isContinue ? "Continue reading" : "Start reading"}
     </Link>
