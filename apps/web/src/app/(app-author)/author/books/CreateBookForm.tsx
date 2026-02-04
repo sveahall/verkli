@@ -3,6 +3,11 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { LANGUAGE_OPTIONS, type SupportedLanguage } from "@/lib/languages";
+import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
+import { FormField } from "@/components/ui/form-field";
+import { Input } from "@/components/ui/input";
+import { Select } from "@/components/ui/select";
 
 export default function CreateBookForm() {
   const router = useRouter();
@@ -11,11 +16,13 @@ export default function CreateBookForm() {
   const [language, setLanguage] = useState<SupportedLanguage>("en");
   const [originalUrl, setOriginalUrl] = useState("");
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (loading) return;
     setLoading(true);
+    setError(null);
     try {
       const res = await fetch("/api/books", {
         method: "POST",
@@ -27,79 +34,83 @@ export default function CreateBookForm() {
           original_url: originalUrl.trim() || undefined,
         }),
       });
-      const data = await res.json();
+      const data = await res.json().catch(() => ({}));
       if (!res.ok) {
-        alert(data.error || "Failed to create book");
+        setError(data.error || "Failed to create book.");
         setLoading(false);
         return;
       }
       router.push(`/author/books/${data.id}`);
     } catch (err) {
-      alert("Failed to create book");
+      setError("Failed to create book.");
       setLoading(false);
     }
   };
 
   return (
-    <form onSubmit={handleSubmit} className="flex flex-col gap-4">
-      <p className="text-sm text-slate-600 dark:text-white/60">
-        Create a new book and start writing. You can add translations as versions later.
-      </p>
-      <div className="flex flex-wrap items-end gap-3">
-        <div className="flex flex-col gap-1">
-          <label htmlFor="create-title" className="text-xs font-medium text-slate-500 dark:text-white/50">Title</label>
-          <input
-            id="create-title"
-            type="text"
-            value={title}
-            onChange={(e) => setTitle(e.target.value)}
-            placeholder="Book title"
-            className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 placeholder:text-slate-400 focus:border-slate-500 focus:outline-none dark:border-white/20 dark:bg-white/10 dark:text-white dark:placeholder:text-white/40"
-          />
+    <Card className="p-6" id="create-book">
+      <div className="space-y-4">
+        <div>
+          <h2 className="text-section-title">Create a new book</h2>
+          <p className="text-body">Start a new book and add translations later.</p>
         </div>
-        <div className="flex flex-col gap-1">
-          <label htmlFor="create-description" className="text-xs font-medium text-slate-500 dark:text-white/50">Description (optional)</label>
-          <input
-            id="create-description"
-            type="text"
-            value={description}
-            onChange={(e) => setDescription(e.target.value)}
-            placeholder="Description (optional)"
-            className="w-48 rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 placeholder:text-slate-400 focus:border-slate-500 focus:outline-none dark:border-white/20 dark:bg-white/10 dark:text-white dark:placeholder:text-white/40"
-          />
-        </div>
-        <div className="flex flex-col gap-1">
-          <label htmlFor="create-language" className="text-xs font-medium text-slate-500 dark:text-white/50">Language</label>
-          <select
-            id="create-language"
-            value={language}
-            onChange={(e) => setLanguage(e.target.value as SupportedLanguage)}
-            className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:border-slate-500 focus:outline-none dark:border-white/20 dark:bg-white/10 dark:text-white"
+
+        {error && (
+          <div
+            role="alert"
+            className="rounded-xl border border-red-200 bg-red-50/80 px-4 py-3 text-sm text-red-700 dark:border-red-900/40 dark:bg-red-950/40 dark:text-red-300"
           >
-            {LANGUAGE_OPTIONS.map((opt) => (
-              <option key={opt.value} value={opt.value}>{opt.label}</option>
-            ))}
-          </select>
-        </div>
-        <div className="flex flex-col gap-1">
-          <label htmlFor="create-original-url" className="text-xs font-medium text-slate-500 dark:text-white/50">Original available on Amazon (optional)</label>
-          <input
-            id="create-original-url"
-            type="url"
-            value={originalUrl}
-            onChange={(e) => setOriginalUrl(e.target.value)}
-            placeholder="https://..."
-            className="min-w-[200px] rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 placeholder:text-slate-400 focus:border-slate-500 focus:outline-none dark:border-white/20 dark:bg-white/10 dark:text-white dark:placeholder:text-white/40"
-          />
-        </div>
+            {error}
+          </div>
+        )}
+
+        <form onSubmit={handleSubmit} className="grid gap-4 md:grid-cols-2">
+          <FormField
+            label="Title"
+            helper="Leave blank to use Untitled."
+            className="md:col-span-2"
+          >
+            <Input
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
+              placeholder="Book title"
+            />
+          </FormField>
+
+          <FormField label="Description" helper="Optional" className="md:col-span-2">
+            <Input
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              placeholder="Short description"
+            />
+          </FormField>
+
+          <FormField label="Language">
+            <Select value={language} onChange={(e) => setLanguage(e.target.value as SupportedLanguage)}>
+              {LANGUAGE_OPTIONS.map((opt) => (
+                <option key={opt.value} value={opt.value}>
+                  {opt.label}
+                </option>
+              ))}
+            </Select>
+          </FormField>
+
+          <FormField label="Original URL" helper="Optional">
+            <Input
+              type="url"
+              value={originalUrl}
+              onChange={(e) => setOriginalUrl(e.target.value)}
+              placeholder="https://"
+            />
+          </FormField>
+
+          <div className="md:col-span-2 flex justify-end">
+            <Button type="submit" isLoading={loading} loadingText="Creating">
+              Create book
+            </Button>
+          </div>
+        </form>
       </div>
-      <button
-        type="submit"
-        disabled={loading}
-        className="rounded-lg bg-slate-900 px-4 py-2 text-sm font-medium text-white transition hover:bg-slate-800 disabled:opacity-50 dark:bg-white dark:text-slate-900 dark:hover:bg-white/90"
-      >
-        {loading ? "Creating..." : "Create book"}
-      </button>
-    </form>
+    </Card>
   );
 }
