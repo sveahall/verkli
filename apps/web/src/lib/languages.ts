@@ -40,11 +40,21 @@ export function getSeoLanguageLabel(code: string): string {
 
 /**
  * Normalizes raw language from DB/API to a supported code. Unknown/null → "en".
+ * Use normalizeLanguageOrNull when unknown values should stay unknown.
  */
 export function normalizeLanguage(code: string | null | undefined): SupportedLanguage {
   if (code == null || code === "") return "en";
   const trimmed = String(code).trim().toLowerCase();
   return isSupportedLanguage(trimmed) ? trimmed : "en";
+}
+
+/**
+ * Normalizes to a supported code or returns null when unknown/empty.
+ */
+export function normalizeLanguageOrNull(code: string | null | undefined): SupportedLanguage | null {
+  if (code == null || code === "") return null;
+  const trimmed = String(code).trim().toLowerCase();
+  return isSupportedLanguage(trimmed) ? trimmed : null;
 }
 
 /** For dropdowns: { value, label } from central config. */

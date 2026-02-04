@@ -16,7 +16,8 @@ import { resolveLocalImportPath } from "../src/lib/import-storage";
 import { runExtract, contentHash } from "../src/lib/import-extract";
 import { createAdminClient } from "../src/lib/supabase/admin";
 import { enqueueTranslationJob } from "../src/lib/translation-queue";
-import { normalizeLanguage } from "../src/lib/languages";
+import { detectLanguageFromText } from "../src/lib/language-detect";
+import { normalizeLanguageOrNull } from "../src/lib/languages";
 
 const QUEUE_NAME = "book-import-extract";
 const BUCKET = "book-imports";
@@ -78,6 +79,11 @@ async function processJob(payload: {
     console.log("[import worker] extracted title:", title || "(untitled)", "chapters:", chapters.length);
     await updateProgress("extracting", 70);
 
+    const sampleText = chapters.find((ch) => ch.sourceText?.trim())?.sourceText ?? "";
+    const detectedLanguage = detectLanguageFromText(sampleText);
+    const resolvedLanguage = detectedLanguage ?? "und";
+    console.log("[import worker] detected language:", detectedLanguage ?? "unknown");
+
     const baseSlug =
       title
         .toLowerCase()
@@ -99,8 +105,8 @@ async function processJob(payload: {
           slug,
           author_id: authorId,
           status: "DRAFT",
-          language: "sv",
-          original_language: "sv",
+          language: resolvedLanguage,
+          original_language: resolvedLanguage,
         })
         .select("id")
         .single();
@@ -131,7 +137,7 @@ async function processJob(payload: {
       .from("book_versions")
       .insert({
         book_id: book.id,
-        language_code: "sv",
+        language_code: resolvedLanguage,
         status: "draft",
       })
       .select("id")
@@ -179,8 +185,8 @@ async function processJob(payload: {
 
     if (process.env.TRANSLATIONS_AUTO_ENQUEUE === "true") {
       const { data: bookRow } = await supabase.from("books").select("language").eq("id", book.id).single();
-      const originalLang = normalizeLanguage(bookRow?.language ?? null);
-      if (originalLang !== "en") {
+      const originalLang = normalizeLanguageOrNull(bookRow?.language ?? null);
+      if (originalLang && originalLang !== "en") {
         const jobId = await enqueueTranslationJob({
           bookId: book.id,
           sourceVersionId: bookVersion.id,
