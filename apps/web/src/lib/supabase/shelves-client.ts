@@ -22,103 +22,35 @@ export interface ShelfWithDetails extends Shelf {
 // Get all shelves for current user
 export async function getShelves(): Promise<ShelfWithDetails[]> {
   const supabase = createClient();
-  
-  // First check if user is authenticated
-  const { data: { user }, error: authError } = await supabase.auth.getUser();
+
+  const {
+    data: { user },
+    error: authError,
+  } = await supabase.auth.getUser();
+
   if (authError || !user) {
     console.warn("User not authenticated, returning empty shelves");
     return [];
   }
-  
-  // Try query with relations first
-  let { data, error } = await supabase
-    .from('shelves')
-    .select(`
+
+  const { data, error } = await supabase
+    .from("shelves")
+    .select(
+      `
       *,
       shelf_sections(*),
       shelf_books(
         *,
         books(*)
       )
-    `)
-    .order('sort_index', { ascending: true });
+    `,
+    )
+    .order("sort_index", { ascending: true });
 
-  // If relation query fails, try simpler approach
   if (error) {
-    console.warn("Relation query failed, trying simpler approach:", error);
-    
-    // Check if it's a table doesn't exist error
-    const isTableMissing = error.code === '42P01' || 
-      error.message?.includes('does not exist') || 
-      error.message?.includes('relation') && error.message?.includes('does not exist') ||
-      error.message?.includes('permission denied') ||
-      error.code === 'PGRST116';
-    
-    if (isTableMissing) {
-      console.warn("Shelves table does not exist yet. Please run the migration: packages/db/supabase/migrations/00003_create_shelves.sql");
-      return [];
-    }
-    
-    // Try simple query first
-    const { data: simpleData, error: simpleError } = await supabase
-      .from('shelves')
-      .select('*')
-      .order('sort_index', { ascending: true });
-    
-    if (simpleError) {
-      // If table doesn't exist, return empty array
-      const isSimpleTableMissing = simpleError.code === '42P01' || 
-        simpleError.message?.includes('does not exist') || 
-        simpleError.message?.includes('relation') && simpleError.message?.includes('does not exist') ||
-        simpleError.message?.includes('permission denied') ||
-        simpleError.code === 'PGRST116';
-      
-      if (isSimpleTableMissing) {
-        console.warn("Shelves table does not exist yet. Please run the migration: packages/db/supabase/migrations/00003_create_shelves.sql");
-        return [];
-      }
-      
-      // For any other error, log but don't crash - return empty array
-      console.warn("Error fetching shelves (non-critical):", simpleError);
-      return [];
-    }
-    
-    // Manually fetch related data
-    const shelvesWithDetails = await Promise.all(
-      (simpleData || []).map(async (shelf) => {
-        const [sectionsResult, booksResult] = await Promise.all([
-          supabase.from('shelf_sections').select('*').eq('shelf_id', shelf.id).order('sort_index'),
-          supabase.from('shelf_books').select('*').eq('shelf_id', shelf.id).order('sort_index'),
-        ]);
-        
-        // Fetch books for each shelf_book
-        const booksWithDetails = await Promise.all(
-          (booksResult.data || []).map(async (shelfBook) => {
-            const { data: bookData } = await supabase
-              .from('books')
-              .select('*')
-              .eq('id', shelfBook.book_id)
-              .single();
-            
-            return {
-              ...shelfBook,
-              book: bookData || null,
-            };
-          })
-        );
-        
-        return {
-          ...shelf,
-          sections: sectionsResult.data || [],
-          shelf_books: booksWithDetails.filter(sb => sb.book !== null),
-        } as ShelfWithDetails;
-      })
-    );
-    
-    return shelvesWithDetails;
+    throw error;
   }
-  
-  // Transform data to match expected structure
+
   const transformed = (data || []).map((shelf: any) => ({
     ...shelf,
     sections: shelf.shelf_sections || [],
@@ -127,7 +59,7 @@ export async function getShelves(): Promise<ShelfWithDetails[]> {
       book: sb.books || sb.book || null,
     })),
   }));
-  
+
   return transformed as ShelfWithDetails[];
 }
 
@@ -142,32 +74,36 @@ export async function getShelf(shelfId: string): Promise<ShelfWithDetails | null
   }
   
   const { data, error } = await supabase
-    .from('shelves')
-    .select(`
+    .from("shelves")
+    .select(
+      `
       *,
-      shelf_sections!shelf_sections_shelf_id_fkey(*),
-      shelf_books!shelf_books_shelf_id_fkey(
+      shelf_sections(*),
+      shelf_books(
         *,
-        books!shelf_books_book_id_fkey(*)
+        books(*)
       )
-    `)
-    .eq('id', shelfId)
+    `,
+    )
+    .eq("id", shelfId)
     .single();
 
-  if (error) {
-    if (error.code === '42P01' || error.message?.includes('does not exist')) {
-      console.warn("Shelves table does not exist yet");
-      return null;
-    }
-    throw error;
-  }
+  if (error) throw error;
   
   if (!data) return null;
 
-  const shelf_books = (data.shelf_books || []).map((sb: { books?: Book; book?: Book } & Record<string, unknown>) => ({
-    ...sb,
-    book: sb.books ?? sb.book ?? null,
-  })).filter((sb: { book: Book | null }) => sb.book != null) as (ShelfBook & { book: Book })[];
+  const shelf_books = (data.shelf_books || [])
+    .map(
+      (
+        sb: { books?: Book; book?: Book } & Record<string, unknown>,
+      ) => ({
+        ...sb,
+        book: sb.books ?? sb.book ?? null,
+      }),
+    )
+    .filter((sb: { book: Book | null }) => sb.book != null) as (ShelfBook & {
+    book: Book;
+  })[];
   
   return {
     ...data,
@@ -382,46 +318,18 @@ export async function getStandaloneBooks(): Promise<Book[]> {
   
   // Get all books by user
   const { data: allBooks, error: allBooksError } = await supabase
-    .from('books')
-    .select('*')
-    .eq('author_id', user.id);
-  
-  if (allBooksError) {
-    // If table doesn't exist, return empty array
-    const isTableMissing = allBooksError.code === '42P01' || 
-      allBooksError.message?.includes('does not exist') ||
-      allBooksError.message?.includes('permission denied') ||
-      allBooksError.code === 'PGRST116';
-    
-    if (isTableMissing) {
-      console.warn("Books table does not exist yet");
-      return [];
-    }
-    
-    // For any other error, log but don't crash - return empty array
-    console.warn("Error fetching books (non-critical):", allBooksError);
-    return [];
-  }
+    .from("books")
+    .select("*")
+    .eq("author_id", user.id);
+
+  if (allBooksError) throw allBooksError;
   
   // Try to get shelf_books, but don't fail if table doesn't exist
   const { data: shelfBooks, error: shelfBooksError } = await supabase
-    .from('shelf_books')
-    .select('book_id');
-  
-  // If shelf_books table doesn't exist, all books are standalone
-  if (shelfBooksError) {
-    const isTableMissing = shelfBooksError.code === '42P01' || 
-      shelfBooksError.message?.includes('does not exist') ||
-      shelfBooksError.message?.includes('permission denied') ||
-      shelfBooksError.code === 'PGRST116';
-    
-    if (isTableMissing) {
-      console.warn("shelf_books table does not exist yet, returning all books as standalone");
-      return (allBooks || []);
-    }
-    // For other errors, log but continue - assume all books are standalone
-    console.warn("Error fetching shelf_books (non-critical):", shelfBooksError);
-  }
+    .from("shelf_books")
+    .select("book_id");
+
+  if (shelfBooksError) throw shelfBooksError;
   
   const bookIdsInShelves = new Set(shelfBooks?.map(sb => sb.book_id) || []);
   

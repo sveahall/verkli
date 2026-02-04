@@ -1,7 +1,5 @@
 import { createClient } from "./server";
-
-const AVATARS_BUCKET_PUBLIC =
-  process.env.NEXT_PUBLIC_AVATARS_BUCKET_PUBLIC !== "false";
+import { AVATARS_BUCKET_PUBLIC } from "./config";
 
 /**
  * Resolve avatar_path (stored in profiles.avatar_url) to displayable URL.

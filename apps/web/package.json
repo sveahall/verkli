@@ -12,7 +12,8 @@
     "check:no-placeholders": "rg -q 'PlaceholderPage' src --glob '!PlaceholderPage.tsx' --glob '!*.test.*' 2>/dev/null && (echo 'Found PlaceholderPage usage' && exit 1); rg -qi 'coming soon|lorem|This page is a placeholder' src --glob '!*.test.*' --glob '!PlaceholderPage.tsx' 2>/dev/null && (echo 'Found placeholder phrase' && exit 1); echo 'check:no-placeholders ok'",
     "runway:text-to-video": "tsx src/lib/ai/runTextToVideo.ts",
     "import-worker": "tsx scripts/import-worker.ts",
-    "translate-worker": "tsx scripts/translation-worker.ts"
+    "translate-worker": "tsx scripts/translation-worker.ts",
+    "generate:types": "tsx scripts/generate-types.ts"
   },
   "dependencies": {
     "@runwayml/sdk": "^3.11.0",
