@@ -374,8 +374,10 @@ export default function GlobalNavbar({
       return (
         matches("/reader/discover") ||
         matches("/reader/books") ||
+        matches("/reader/lists") ||
+        matches("/reader/authors") ||
         matches("/reader/writers") ||
-        matches("/reader/lists")
+        matches("/reader/genres")
       );
     }
     if (href === "/reader/library") {

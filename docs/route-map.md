@@ -8,10 +8,13 @@ Last updated: 2026-02-04
 | `/reader/home` | Canonical landing after login: continue reading + recommended books + quick paths to browse. | Browse discover | Reader | Top nav: Home, Mobile tab | Canonical |
 | `/reader/feed` | Legacy feed entry point (duplicated intent with Home). | — | Reader | None | Redirect → `/reader/home` |
 | `/reader/discover` | Browse and discover books, lists, and authors. | Open book / View list | Reader | Top nav: Discover (dropdown) | Canonical |
+| `/reader/genres` | Curated genres and collections. | Open list | Reader | Discover dropdown | Canonical |
+| `/reader/authors` | Browse public author profiles. | Open author | Reader | Discover dropdown | Canonical |
 | `/reader/books/[id]` | Book detail (start/continue reading, add bookmark). | Start reading | Reader | In-page only | Canonical |
 | `/reader/read/[chapterId]` | Immersive reading view. | Continue reading | Reader | In-page only | Canonical |
 | `/reader/lists/[slug]` | Curated list / collection view. | Open book | Reader | In-page only | Canonical |
-| `/reader/writers/[id]` | Author profile and catalog. | Follow / Open book | Reader | In-page only | Canonical |
+| `/reader/authors/[id]` | Author profile and catalog. | Follow / Open book | Reader | In-page only | Canonical |
+| `/reader/writers/[id]` | Legacy author profile route. | — | Reader | None | Redirect → `/reader/authors/[id]` |
 | `/reader/library` | Your library (owned/saved books). | Open book | Reader | Top nav: Library (dropdown) | Canonical |
 | `/reader/bookmarks` | Saved for later. | Open book | Reader | Library dropdown, Mobile tab “Saved” | Canonical |
 | `/reader/profile` | Reader profile. | Edit profile | Reader | User menu | Canonical |

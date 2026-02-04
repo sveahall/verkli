@@ -18,7 +18,14 @@ const mobileNavItems = [
   {
     label: "Discover",
     href: "/reader/discover",
-    activeMatchers: ["/reader/discover", "/reader/books", "/reader/writers", "/reader/lists"],
+    activeMatchers: [
+      "/reader/discover",
+      "/reader/books",
+      "/reader/lists",
+      "/reader/authors",
+      "/reader/writers",
+      "/reader/genres",
+    ],
     icon: (
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.6} className="h-5 w-5">
         <path strokeLinecap="round" strokeLinejoin="round" d="M12 3.5l2.6 5.2 5.7.8-4.1 4 1 5.7-5.2-2.7-5.2 2.7 1-5.7-4.1-4 5.7-.8L12 3.5z" />

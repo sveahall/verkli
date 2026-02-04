@@ -135,9 +135,8 @@ export const NAV_CONFIG: Record<NavVariant, NavConfig> = {
         hasDropdown: true,
         children: [
           { label: "Discover", href: "/reader/discover" },
-          { label: "Explore books", href: "/reader/library" },
-          { label: "Genres", href: "/reader/discover" },
-          { label: "Authors", href: "/reader/discover" },
+          { label: "Genres", href: "/reader/genres" },
+          { label: "Authors", href: "/reader/authors" },
         ],
       },
       {
