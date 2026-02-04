@@ -1,7 +1,10 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import { Button } from "@/components/ui/button";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
+import { Toast } from "@/components/ui/toast";
 
 type DeleteBookButtonProps = {
   bookId: string;
@@ -10,6 +13,7 @@ type DeleteBookButtonProps = {
   onDeleted?: () => void;
   label?: string;
   className?: string;
+  size?: "sm" | "md" | "lg" | "icon";
 };
 
 export default function DeleteBookButton({
@@ -19,11 +23,23 @@ export default function DeleteBookButton({
   onDeleted,
   label = "Delete book",
   className,
+  size = "md",
 }: DeleteBookButtonProps) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [toast, setToast] = useState<{
+    title: string;
+    description?: string;
+    variant?: "success" | "error";
+  } | null>(null);
+
+  useEffect(() => {
+    if (!toast) return;
+    const timeoutId = window.setTimeout(() => setToast(null), 3000);
+    return () => window.clearTimeout(timeoutId);
+  }, [toast]);
 
   const handleDelete = async () => {
     if (isDeleting) return;
@@ -34,6 +50,7 @@ export default function DeleteBookButton({
       const data = await res.json().catch(() => ({}));
       if (!res.ok || data?.ok === false) {
         setError(data?.error ?? "Failed to delete book.");
+        setToast({ title: "Delete failed", description: data?.error ?? "Try again.", variant: "error" });
         return;
       }
       setOpen(false);
@@ -41,11 +58,13 @@ export default function DeleteBookButton({
       if (redirectTo) {
         router.push(redirectTo);
       } else {
+        setToast({ title: "Book deleted", variant: "success" });
         router.refresh();
       }
     } catch (err) {
       const msg = err instanceof Error ? err.message : "Failed to delete book.";
       setError(msg);
+      setToast({ title: "Delete failed", description: msg, variant: "error" });
     } finally {
       setIsDeleting(false);
     }
@@ -53,60 +72,52 @@ export default function DeleteBookButton({
 
   return (
     <>
-      <button
-        type="button"
-        onClick={() => setOpen(true)}
-        disabled={isDeleting}
-        className={
-          className ??
-          "rounded-lg border border-red-200 bg-white px-3 py-2 text-sm font-medium text-red-700 transition hover:bg-red-50 disabled:opacity-50 dark:border-red-900/50 dark:bg-white/10 dark:text-red-200 dark:hover:bg-red-950/30"
-        }
-      >
-        {label}
-      </button>
-
-      {open && (
-        <div className="fixed inset-0 z-[1000] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
-          <div className="w-full max-w-[420px] overflow-hidden rounded-2xl border border-black/10 bg-white dark:border-white/10 dark:bg-[#0a0a0f]">
-            <div className="border-b border-black/10 px-5 py-4 dark:border-white/10">
-              <h3 className="text-[18px] font-semibold text-slate-900 dark:text-white">Delete book</h3>
-              <p className="mt-1 text-[14px] text-slate-600 dark:text-white/60">
-                Vill du verkligen radera denna bok?
-              </p>
-              {bookTitle && (
-                <p className="mt-1 text-[12px] text-slate-500 dark:text-white/40">
-                  {bookTitle}
-                </p>
-              )}
-            </div>
-
-            {error && (
-              <div className="mx-5 mt-4 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-[13px] text-red-700 dark:border-red-900/50 dark:bg-red-950/30 dark:text-red-200">
-                {error}
-              </div>
-            )}
-
-            <div className="flex items-center justify-end gap-2 px-5 py-4">
-              <button
-                type="button"
-                onClick={() => setOpen(false)}
-                disabled={isDeleting}
-                className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-50 disabled:opacity-50 dark:border-white/20 dark:bg-white/10 dark:text-white dark:hover:bg-white/15"
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                onClick={handleDelete}
-                disabled={isDeleting}
-                className="rounded-lg bg-red-600 px-3 py-2 text-sm font-semibold text-white transition hover:bg-red-700 disabled:opacity-50"
-              >
-                {isDeleting ? "Deleting..." : "Delete"}
-              </button>
-            </div>
-          </div>
+      {toast && (
+        <div className="fixed right-6 top-6 z-[1100]">
+          <Toast
+            title={toast.title}
+            description={toast.description}
+            variant={toast.variant === "error" ? "error" : "success"}
+          />
         </div>
       )}
+      <Button
+        type="button"
+        variant="ghost"
+        onClick={() => {
+          setError(null);
+          setOpen(true);
+        }}
+        disabled={isDeleting}
+        size={size}
+        className={className}
+      >
+        {label}
+      </Button>
+
+      <ConfirmDialog
+        open={open}
+        onOpenChange={(nextOpen) => {
+          setOpen(nextOpen);
+          if (!nextOpen) setError(null);
+        }}
+        title="Vill du verkligen radera denna bok?"
+        description={
+          <div className="space-y-2">
+            <p>Detta går inte att ångra.</p>
+            {bookTitle ? (
+              <p className="text-[13px] text-slate-500 dark:text-white/50">{bookTitle}</p>
+            ) : null}
+            {error ? (
+              <p className="text-[13px] text-red-600 dark:text-red-400">{error}</p>
+            ) : null}
+          </div>
+        }
+        confirmText="Delete"
+        cancelText="Cancel"
+        isLoading={isDeleting}
+        onConfirm={handleDelete}
+      />
     </>
   );
 }

@@ -81,9 +81,9 @@ export function DialogTitle({ className, ...props }: React.HTMLAttributes<HTMLHe
   );
 }
 
-export function DialogDescription({ className, ...props }: React.HTMLAttributes<HTMLParagraphElement>) {
+export function DialogDescription({ className, ...props }: React.HTMLAttributes<HTMLDivElement>) {
   return (
-    <p className={cn("mt-2 text-[14px] text-slate-600 dark:text-white/60", className)} {...props} />
+    <div className={cn("mt-2 text-[14px] text-slate-600 dark:text-white/60", className)} {...props} />
   );
 }
 
