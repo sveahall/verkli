@@ -13,7 +13,9 @@ import ShelfTile from "@/components/library/ShelfTile";
 import BookCard from "@/components/library/BookCard";
 import { getShelves, createShelf, getStandaloneBooks } from "@/lib/supabase/shelves-client";
 import type { ShelfWithDetails } from "@/lib/supabase/shelves-client";
-import type { Book } from "@/lib/supabase/types";
+import type { Tables } from "@/lib/supabase/types";
+
+type Book = Tables<"books">;
 import type { User } from "@supabase/supabase-js";
 import { getTranslationsEnabled } from "@/lib/flags";
 import CreateBookDialog from "@/components/books/CreateBookDialog";
