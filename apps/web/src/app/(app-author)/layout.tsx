@@ -1,7 +1,7 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { updateActiveRole } from "@/features/auth/roles";
-import NavbarShell from "@/nav/NavbarShell";
+import AuthorAppShell from "@/components/author/AuthorAppShell";
 
 export default async function AppAuthorLayout({
   children,
@@ -47,12 +47,5 @@ export default async function AppAuthorLayout({
     await updateActiveRole("author");
   }
 
-  const variant = "APP_AUTHOR";
-
-  return (
-    <>
-      <NavbarShell variant={variant} />
-      {children}
-    </>
-  );
+  return <AuthorAppShell>{children}</AuthorAppShell>;
 }
