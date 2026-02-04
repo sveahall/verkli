@@ -1,7 +1,6 @@
-import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
-import { normalizeLanguage } from "@/lib/languages";
+import { normalizeLanguageOrNull } from "@/lib/languages";
 import BookEditor from "./BookEditor";
 
 export default async function BookDetailPage({
@@ -14,7 +13,7 @@ export default async function BookDetailPage({
   // Next.js 16+: params is a Promise, must await
   const { id } = await params;
   const resolvedSearchParams = searchParams ? await searchParams : undefined;
-  const langParam = resolvedSearchParams?.lang ? normalizeLanguage(resolvedSearchParams.lang) : null;
+  const langParam = resolvedSearchParams?.lang ? String(resolvedSearchParams.lang).trim().toLowerCase() : null;
   
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
@@ -49,9 +48,10 @@ export default async function BookDetailPage({
   }
 
   if (!bookVersionsError && versions.length === 0) {
-    const fallbackLanguage = normalizeLanguage(
-      (book as { original_language?: string | null; language?: string | null }).original_language ?? book.language
-    );
+    const fallbackLanguage =
+      normalizeLanguageOrNull(
+        (book as { original_language?: string | null; language?: string | null }).original_language ?? book.language
+      ) ?? "und";
     const { data: createdVersion, error: createVersionError } = await supabase
       .from("book_versions")
       .insert({
@@ -75,10 +75,12 @@ export default async function BookDetailPage({
       }
     }
   }
-  const originalLang = normalizeLanguage((book as { original_language?: string | null }).original_language);
+  const originalLang = normalizeLanguageOrNull(
+    (book as { original_language?: string | null; language?: string | null }).original_language ?? book.language
+  );
   const activeVersion =
-    (langParam ? versions.find((v) => normalizeLanguage(v.language_code) === langParam) : null) ??
-    versions.find((v) => normalizeLanguage(v.language_code) === originalLang) ??
+    (langParam ? versions.find((v) => String(v.language_code ?? "").trim().toLowerCase() === langParam) : null) ??
+    (originalLang ? versions.find((v) => String(v.language_code ?? "").trim().toLowerCase() === originalLang) : null) ??
     versions[0];
 
   const { data: latestAudiobookAsset } = await supabase
@@ -101,25 +103,13 @@ export default async function BookDetailPage({
     .eq("book_id", book.id);
 
   return (
-    <main className="min-h-screen bg-background text-foreground">
-      <header className="mx-auto max-w-[1200px] px-6 pt-10">
-        <Link
-          href="/author/books"
-          className="inline-flex items-center gap-2 text-sm text-slate-500 transition-colors hover:text-slate-900 dark:text-white/60 dark:hover:text-white"
-        >
-          <span aria-hidden="true">←</span>
-          Back to books
-        </Link>
-      </header>
-
-      <BookEditor
-        book={book}
-        chapters={chapters ?? []}
-        bookVersions={versions}
-        activeVersion={activeVersion ?? null}
-        latestAudiobookAsset={latestAudiobookAsset ?? null}
-        marketingCampaigns={marketingCampaigns ?? []}
-      />
-    </main>
+    <BookEditor
+      book={book}
+      chapters={chapters ?? []}
+      bookVersions={versions}
+      activeVersion={activeVersion ?? null}
+      latestAudiobookAsset={latestAudiobookAsset ?? null}
+      marketingCampaigns={marketingCampaigns ?? []}
+    />
   );
 }
