@@ -152,8 +152,9 @@ export default function BookEditor({
   const translationPollStartedAtRef = useRef<number>(0);
   const [isGeneratingAudiobook, setIsGeneratingAudiobook] = useState(false);
   const [audiobookError, setAudiobookError] = useState<string | null>(null);
-  const [ttsStatus, setTtsStatus] = useState<"idle" | "generating" | "done" | "error">("idle");
+  const [ttsStatus, setTtsStatus] = useState<"idle" | "generating" | "uploading" | "done" | "error">("idle");
   const [ttsMessage, setTtsMessage] = useState<string | null>(null);
+  const [ttsManualSteps, setTtsManualSteps] = useState<string | null>(null);
   const [ttsAudioUrl, setTtsAudioUrl] = useState<string | null>(null);
   const [ttsVoice, setTtsVoice] = useState<string>("default");
   const savingRef = useRef(false);
@@ -498,6 +499,7 @@ export default function BookEditor({
 
   const handleStartTts = useCallback(async () => {
     setTtsMessage(null);
+    setTtsManualSteps(null);
     setTtsStatus("generating");
     try {
       const res = await fetch(`/api/books/${book.id}/tts`, {
@@ -509,15 +511,18 @@ export default function BookEditor({
       if (!res.ok || data?.ok === false) {
         setTtsStatus("error");
         setTtsMessage(data?.error ?? "TTS failed");
+        setTtsManualSteps(data?.manualSteps ?? null);
         return;
       }
       setTtsAudioUrl(data.audioUrl ?? null);
       setTtsStatus("done");
       setTtsMessage("Ljud genererat. Du kan spela upp eller ladda ner.");
+      setTtsManualSteps(null);
       router.refresh();
     } catch (err) {
       setTtsStatus("error");
       setTtsMessage(err instanceof Error ? err.message : "TTS failed");
+      setTtsManualSteps(null);
     }
   }, [book.id, ttsVoice, router]);
 
@@ -1009,7 +1014,7 @@ export default function BookEditor({
                 <span className="text-xs font-medium text-slate-500 dark:text-white/50">Status:</span>
                 <span
                   className={`rounded-full px-2.5 py-1 text-xs font-medium ${
-                    ttsStatus === "generating"
+                    ttsStatus === "generating" || ttsStatus === "uploading"
                       ? "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-200"
                       : ttsStatus === "done"
                         ? "bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-200"
@@ -1021,6 +1026,7 @@ export default function BookEditor({
                 >
                   {ttsStatus === "idle" && "Idle"}
                   {ttsStatus === "generating" && "Generating…"}
+                  {ttsStatus === "uploading" && "Uploading…"}
                   {ttsStatus === "done" && "Done"}
                   {ttsStatus === "error" && "Error"}
                 </span>
@@ -1037,10 +1043,14 @@ export default function BookEditor({
               <button
                 type="button"
                 onClick={handleStartTts}
-                disabled={ttsStatus === "generating"}
+                disabled={ttsStatus === "generating" || ttsStatus === "uploading"}
                 className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed dark:border-white/20 dark:bg-white/10 dark:text-white dark:hover:bg-white/15"
               >
-                {ttsStatus === "generating" ? "Generating…" : "Start TTS"}
+                {ttsStatus === "generating" || ttsStatus === "uploading"
+                  ? ttsStatus === "uploading"
+                    ? "Uploading…"
+                    : "Generating…"
+                  : "Start TTS"}
               </button>
               {(ttsAudioUrl ?? latestAudiobookAsset?.audio_url) && (
                 <div className="mt-3 space-y-2">
@@ -1093,6 +1103,15 @@ export default function BookEditor({
                   role="status"
                 >
                   {ttsMessage}
+                </div>
+              )}
+              {ttsManualSteps && ttsStatus === "error" && (
+                <div
+                  className="mt-3 rounded-lg border border-amber-200 bg-amber-50 px-3 py-3 text-sm text-amber-900 dark:border-amber-700 dark:bg-amber-950/40 dark:text-amber-200"
+                  role="alert"
+                >
+                  <p className="mb-1 font-medium">Åtgärd krävs:</p>
+                  <p className="whitespace-pre-wrap">{ttsManualSteps}</p>
                 </div>
               )}
             </div>

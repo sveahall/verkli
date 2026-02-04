@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { assertPublicEnv } from "@/lib/env";
+import { getTtsStorageBucket } from "@/lib/tts/storage";
 import { synthesizeTextToWavBytes } from "@/lib/tts/piper";
 import {
   TtsBusyError,
@@ -10,8 +11,73 @@ import {
   TtsSynthesisError,
 } from "@/lib/tts/piper";
 
-const AUDIOBOOKS_BUCKET = "audiobooks";
 const DEFAULT_MAX_CHARS = 1000;
+
+function maskSupabaseUrl(url: string): string {
+  try {
+    const u = new URL(url);
+    return `${u.protocol}//${u.hostname.slice(0, 8)}…${u.hostname.slice(-4)}`;
+  } catch {
+    return "(invalid url)";
+  }
+}
+
+function ensureTtsStorageEnv(): { url: string; error?: string } {
+  const url =
+    process.env.SUPABASE_URL?.trim() ||
+    process.env.NEXT_PUBLIC_SUPABASE_URL?.trim() ||
+    "";
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY?.trim() || "";
+  if (!url) {
+    return {
+      url: "",
+      error:
+        "SUPABASE_URL or NEXT_PUBLIC_SUPABASE_URL is missing. Set one of them in .env.local for TTS storage.",
+    };
+  }
+  if (!key) {
+    return {
+      url,
+      error:
+        "SUPABASE_SERVICE_ROLE_KEY is missing. Set it in .env.local (Settings → API in Supabase dashboard).",
+    };
+  }
+  return { url };
+}
+
+async function ensureBucketExists(
+  admin: ReturnType<typeof createAdminClient>,
+  bucket: string
+): Promise<{ ok: boolean; error?: string }> {
+  const { data: buckets, error: listError } = await admin.storage.listBuckets();
+  if (!listError && buckets?.some((b) => b.name === bucket)) {
+    return { ok: true };
+  }
+  if (listError) {
+    const msg = String(listError.message ?? listError);
+    if (msg.toLowerCase().includes("bucket") && msg.toLowerCase().includes("not found")) {
+      return { ok: false, error: "Bucket not found" };
+    }
+  }
+  const testPath = `_tts_preflight_${Date.now()}.tmp`;
+  const { error: uploadError } = await admin.storage
+    .from(bucket)
+    .upload(testPath, new Uint8Array(0), { contentType: "application/octet-stream", upsert: true });
+  if (uploadError) {
+    const msg = String(uploadError.message ?? uploadError);
+    if (
+      (uploadError as { statusCode?: string })?.statusCode === "404" ||
+      msg.toLowerCase().includes("bucket") ||
+      msg.toLowerCase().includes("not found")
+    ) {
+      return { ok: false, error: "Bucket not found" };
+    }
+    await admin.storage.from(bucket).remove([testPath]).catch(() => {});
+    return { ok: false, error: msg };
+  }
+  await admin.storage.from(bucket).remove([testPath]).catch(() => {});
+  return { ok: true };
+}
 
 function extractText(node: unknown): string {
   if (!node || typeof node !== "object") return "";
@@ -40,12 +106,28 @@ function getTextFromChapters(chapters: { content: string | null }[], maxChars: n
   return out.trim().slice(0, maxChars);
 }
 
+function bucketNotFoundManual(bucket: string): string {
+  return `Skapa bucket "${bucket}" i Supabase: Storage → New bucket → namn "${bucket}" → Public (för direkt uppspelning).`;
+}
+
 export async function POST(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
   assertPublicEnv();
   const { id: bookId } = await params;
+  const requestId = `tts-${bookId}-${Date.now()}`;
+
+  const envCheck = ensureTtsStorageEnv();
+  if (envCheck.error) {
+    console.error("[tts] Preflight env failed", { requestId, error: envCheck.error });
+    return NextResponse.json(
+      { ok: false, error: envCheck.error },
+      { status: 500 }
+    );
+  }
+
+  const bucket = getTtsStorageBucket();
 
   await request.json().catch(() => ({})); // body.voice reserved for future multi-voice
 
@@ -125,29 +207,74 @@ export async function POST(
   }
 
   const storagePath = `${bookId}/${Date.now()}.wav`;
+  const contentType = "audio/wav";
+  const fileSizeBytes = wavBuffer.length;
+  console.log("[tts] Upload preflight", {
+    requestId,
+    bucket,
+    path: storagePath,
+    contentType,
+    fileSizeBytes,
+    supabaseUrl: maskSupabaseUrl(envCheck.url),
+  });
+
   try {
     const admin = createAdminClient();
+    const bucketCheck = await ensureBucketExists(admin, bucket);
+    if (!bucketCheck.ok) {
+      console.error("[tts] Bucket check failed", {
+        requestId,
+        bucket,
+        error: bucketCheck.error,
+      });
+      const isNotFound =
+        bucketCheck.error === "Bucket not found" ||
+        String(bucketCheck.error).toLowerCase().includes("bucket") ||
+        String(bucketCheck.error).toLowerCase().includes("not found");
+      const manualSteps = bucketNotFoundManual(bucket);
+      return NextResponse.json(
+        {
+          ok: false,
+          error: isNotFound ? `Bucket "${bucket}" finns inte. ${manualSteps}` : `Storage: ${bucketCheck.error}`,
+          bucketNotFound: isNotFound,
+          manualSteps: isNotFound ? manualSteps : undefined,
+        },
+        { status: 500 }
+      );
+    }
+
     const { error: uploadError } = await admin.storage
-      .from(AUDIOBOOKS_BUCKET)
+      .from(bucket)
       .upload(storagePath, wavBuffer, {
-        contentType: "audio/wav",
+        contentType,
         upsert: false,
       });
 
     if (uploadError) {
-      if (process.env.NODE_ENV === "development") {
-        console.error("[tts] Storage upload failed", uploadError);
-      }
+      const errMsg = String(uploadError.message ?? uploadError);
+      const isBucketNotFound =
+        (uploadError as { statusCode?: string })?.statusCode === "404" ||
+        errMsg.toLowerCase().includes("bucket") ||
+        errMsg.toLowerCase().includes("not found");
+      console.error("[tts] Storage upload failed", {
+        requestId,
+        bucket,
+        path: storagePath,
+        error: errMsg,
+      });
+      const manualSteps = bucketNotFoundManual(bucket);
       return NextResponse.json(
         {
           ok: false,
-          error: `Storage upload failed. Ensure bucket "${AUDIOBOOKS_BUCKET}" exists in Supabase (Storage). ${uploadError.message}`,
+          error: isBucketNotFound ? `Bucket "${bucket}" finns inte. ${manualSteps}` : `Storage upload failed. ${errMsg}`,
+          bucketNotFound: isBucketNotFound,
+          manualSteps: isBucketNotFound ? manualSteps : undefined,
         },
-        { status: 502 }
+        { status: 500 }
       );
     }
 
-    const { data: urlData } = admin.storage.from(AUDIOBOOKS_BUCKET).getPublicUrl(storagePath);
+    const { data: urlData } = admin.storage.from(bucket).getPublicUrl(storagePath);
     const audioUrl = urlData?.publicUrl ?? null;
     if (!audioUrl) {
       return NextResponse.json(

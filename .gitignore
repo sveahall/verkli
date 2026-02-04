@@ -40,8 +40,11 @@ yarn-error.log*
 .env*
 !.env.example
 
-# python / tts
+# python / tts (do not commit venvs or generated binaries)
 .venv-tts/
+vendor/tts/piper/.venv-tts/
+**/.venv*/
+**/venv/
 
 # vercel
 .vercel
