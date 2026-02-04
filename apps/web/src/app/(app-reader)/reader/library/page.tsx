@@ -137,6 +137,8 @@ export default function ReaderLibraryPage() {
   const [search, setSearch] = useState("");
   const [sortBy, setSortBy] = useState<SortOption>("recent");
   const activeBooks = collections[activeTab] ?? [];
+  const cardCtaLabel =
+    activeTab === "reading" ? "Resume" : activeTab === "saved" ? "Start reading" : "Re-read";
 
   useEffect(() => {
     if (!tabParam) {
@@ -298,6 +300,7 @@ export default function ReaderLibraryPage() {
               author={book.author}
               cover={book.cover}
               progress={book.progress}
+              ctaLabel={cardCtaLabel}
               size="lg"
               layout="grid"
             />

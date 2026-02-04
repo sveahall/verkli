@@ -10,11 +10,18 @@ export default async function ReaderHomePage() {
   const { data: { user } } = await supabase.auth.getUser();
 
   // Continue reading: user's readings with book + author
-  let continueReading: { id: string; title: string; author: string; cover: string | null; progress: number }[] = [];
+  let continueReading: {
+    id: string;
+    title: string;
+    author: string;
+    cover: string | null;
+    progress: number;
+    href: string;
+  }[] = [];
   if (user) {
     const { data: readings } = await supabase
       .from("readings")
-      .select("book_id, progress_percent, updated_at")
+      .select("book_id, progress_percent, updated_at, chapter_id")
       .eq("user_id", user.id)
       .order("updated_at", { ascending: false })
       .limit(8);
@@ -45,12 +52,14 @@ export default async function ReaderHomePage() {
           .map((r) => {
             const book = bookMap.get(r.book_id);
             if (!book) return null;
+            const directHref = r.chapter_id ? `/reader/read/${r.chapter_id}` : `/reader/books/${book.id}`;
             return {
               id: book.id,
               title: book.title,
               author: authorMap.get(book.author_id) ?? "Author",
               cover: book.cover_image,
               progress: r.progress_percent ?? 0,
+              href: directHref,
             };
           })
           .filter((b): b is NonNullable<typeof b> => b !== null);
@@ -122,6 +131,8 @@ export default async function ReaderHomePage() {
             author={book.author}
             cover={book.cover}
             progress={book.progress}
+            href={book.href}
+            ctaLabel="Continue"
             size="lg"
           />
         ))}
