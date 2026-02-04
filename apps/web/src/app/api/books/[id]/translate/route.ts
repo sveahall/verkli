@@ -1,8 +1,34 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { enqueueTranslationJob } from "@/lib/translation-queue";
-import { isSupportedLanguage, normalizeLanguage } from "@/lib/languages";
+import { detectLanguageFromText } from "@/lib/language-detect";
+import { isSupportedLanguage, normalizeLanguageOrNull } from "@/lib/languages";
 import { assertPublicEnv } from "@/lib/env";
+
+function extractText(node: unknown): string {
+  if (!node || typeof node !== "object") return "";
+  if ("text" in node && typeof (node as { text?: string }).text === "string") {
+    return (node as { text: string }).text;
+  }
+  if ("content" in node && Array.isArray((node as { content?: unknown[] }).content)) {
+    return (node as { content: unknown[] }).content.map(extractText).join("");
+  }
+  return "";
+}
+
+function extractPlainText(content: string | null | undefined): string {
+  if (!content) return "";
+  const trimmed = content.trim();
+  if (!trimmed) return "";
+  if ((trimmed.startsWith("{") && trimmed.endsWith("}")) || trimmed.startsWith("[")) {
+    try {
+      return extractText(JSON.parse(trimmed));
+    } catch {
+      return trimmed;
+    }
+  }
+  return trimmed;
+}
 
 export async function POST(
   request: Request,
@@ -36,7 +62,7 @@ export async function POST(
 
   const { data: book, error: bookError } = await supabase
     .from("books")
-    .select("id, author_id, original_language")
+    .select("id, author_id, original_language, language")
     .eq("id", bookId)
     .maybeSingle();
 
@@ -56,13 +82,17 @@ export async function POST(
 
   let sourceVersionId = bodySourceVersionId;
   if (!sourceVersionId) {
-    const { data: defaultVersion } = await supabase
-      .from("book_versions")
-      .select("id, language_code")
-      .eq("book_id", bookId)
-      .eq("language_code", normalizeLanguage(book.original_language))
-      .maybeSingle();
-    sourceVersionId = defaultVersion?.id ?? null;
+    const preferredLanguage =
+      normalizeLanguageOrNull(book.original_language) ?? normalizeLanguageOrNull(book.language);
+    if (preferredLanguage) {
+      const { data: defaultVersion } = await supabase
+        .from("book_versions")
+        .select("id, language_code")
+        .eq("book_id", bookId)
+        .eq("language_code", preferredLanguage)
+        .maybeSingle();
+      sourceVersionId = defaultVersion?.id ?? null;
+    }
   }
 
   if (!sourceVersionId) {
@@ -90,7 +120,61 @@ export async function POST(
     return NextResponse.json({ ok: false, error: "Invalid source version" }, { status: 400 });
   }
 
-  if (normalizeLanguage(sourceVersion.language_code) === targetLanguage) {
+  const versionLanguage = normalizeLanguageOrNull(sourceVersion.language_code);
+  let sourceLanguage = versionLanguage;
+  let sourceLanguageOrigin: "version" | "book" | "heuristic" | null = sourceLanguage ? "version" : null;
+
+  if (!sourceLanguage) {
+    const bookLanguage = normalizeLanguageOrNull(book.original_language) ?? normalizeLanguageOrNull(book.language);
+    if (bookLanguage) {
+      sourceLanguage = bookLanguage;
+      sourceLanguageOrigin = "book";
+    }
+  }
+
+  if (!sourceLanguage) {
+    const { data: firstChapter } = await supabase
+      .from("chapters")
+      .select("content, source_text")
+      .eq("book_version_id", sourceVersionId)
+      .order("order", { ascending: true })
+      .limit(1)
+      .maybeSingle();
+    const sample = extractPlainText((firstChapter?.source_text as string | null) ?? firstChapter?.content ?? null);
+    const detected = detectLanguageFromText(sample);
+    if (detected) {
+      sourceLanguage = detected;
+      sourceLanguageOrigin = "heuristic";
+    }
+  }
+
+  if (sourceLanguage && !versionLanguage) {
+    await supabase.from("book_versions").update({ language_code: sourceLanguage }).eq("id", sourceVersionId);
+  }
+
+  console.log("[translate] request", {
+    bookId,
+    sourceVersionId,
+    sourceLanguage: sourceLanguage ?? null,
+    targetLanguage,
+    userId: user.id,
+    sourceLanguageOrigin,
+  });
+
+  if (!sourceLanguage) {
+    console.warn("[translate] source language missing", {
+      bookId,
+      sourceVersionId,
+      targetLanguage,
+      userId: user.id,
+    });
+    return NextResponse.json(
+      { ok: false, error: "Source language missing, please set language for this version", code: "SOURCE_LANGUAGE_MISSING" },
+      { status: 422 }
+    );
+  }
+
+  if (sourceLanguage === targetLanguage) {
     return NextResponse.json(
       { ok: false, error: "Target language must be different from source version language" },
       { status: 400 }

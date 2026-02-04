@@ -11,7 +11,7 @@ import { createAdminClient } from "../src/lib/supabase/admin";
 import type { TranslationJobData } from "../src/lib/translation-queue";
 import { translateText, sanitizeOpusOutput } from "../src/lib/opus";
 import { contentHash } from "../src/lib/import-extract";
-import { normalizeLanguage } from "../src/lib/languages";
+import { normalizeLanguageOrNull } from "../src/lib/languages";
 
 const QUEUE_NAME = "book-translation";
 
@@ -60,7 +60,7 @@ async function processJob(payload: TranslationJobData) {
   try {
     const { data: book, error: bookFetchError } = await supabase
       .from("books")
-      .select("id, title, slug, author_id, original_language")
+      .select("id, title, slug, author_id, original_language, language")
       .eq("id", bookId)
       .single();
 
@@ -81,8 +81,18 @@ async function processJob(payload: TranslationJobData) {
       throw new Error("Source version does not belong to book");
     }
 
-    const sourceLang = normalizeLanguage(sourceVersion.language_code ?? book.original_language ?? null);
-    const normalizedTarget = normalizeLanguage(targetLanguage);
+    const sourceLang =
+      normalizeLanguageOrNull(sourceVersion.language_code) ??
+      normalizeLanguageOrNull(book.original_language ?? null) ??
+      normalizeLanguageOrNull(book.language ?? null);
+    const normalizedTarget = normalizeLanguageOrNull(targetLanguage);
+
+    if (!sourceLang) {
+      throw new Error("Source language missing for translation job");
+    }
+    if (!normalizedTarget) {
+      throw new Error("Target language missing or unsupported for translation job");
+    }
 
     if (targetVersionId) {
       const { data: targetVersion, error: targetError } = await supabase

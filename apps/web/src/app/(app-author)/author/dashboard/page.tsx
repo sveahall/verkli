@@ -2,7 +2,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { getAudiobookEnabled, getMarketingEnabled, getTranslationsEnabled } from "@/lib/flags";
-import { getLanguageLabel, normalizeLanguage } from "@/lib/languages";
+import { getLanguageLabel, normalizeLanguageOrNull } from "@/lib/languages";
 
 function hasChapterContent(content: string | null): boolean {
   if (!content || typeof content !== "string") return false;
@@ -85,7 +85,8 @@ export default async function authorDashboardPage() {
     const latestMarketing = campaigns.length > 0 ? campaigns[campaigns.length - 1] : null;
     const marketingStatus = latestMarketing?.status ?? "—";
     const has_audiobook_asset = audiobookExistsByBook.has(book.id);
-    const langLabel = getLanguageLabel(normalizeLanguage(book.language));
+    const normalizedLanguage = normalizeLanguageOrNull(book.language);
+    const langLabel = normalizedLanguage ? getLanguageLabel(normalizedLanguage) : "Unknown";
 
     return {
       id: book.id,
