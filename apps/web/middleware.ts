@@ -1,6 +1,7 @@
 import { createServerClient, type CookieOptions } from '@supabase/ssr'
 import { NextResponse, type NextRequest } from 'next/server'
 import { isBetaUser } from '@/lib/auth/beta'
+import { getPublicEnv } from '@/lib/env'
 
 /**
  * Ordningen är kritisk: waitlist-låset måste avgöras och eventuellt returnera
@@ -37,9 +38,10 @@ export async function middleware(request: NextRequest) {
     request,
   })
 
+  const { NEXT_PUBLIC_SUPABASE_URL, NEXT_PUBLIC_SUPABASE_ANON_KEY } = getPublicEnv()
   const supabase = createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    NEXT_PUBLIC_SUPABASE_URL,
+    NEXT_PUBLIC_SUPABASE_ANON_KEY,
     {
       cookies: {
         getAll() {

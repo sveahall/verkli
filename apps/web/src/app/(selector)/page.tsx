@@ -93,9 +93,15 @@ export default function RoleSelection() {
 
       {/* Logo + Back */}
       <header className="absolute left-6 top-6 z-30 flex items-center gap-3 sm:left-8 sm:top-8">
+<<<<<<< HEAD
         <Link href="/" className="flex min-h-[44px] min-w-[44px] items-center" aria-label="Verkli">
           <img src="/logo-dark.svg" alt="Verkli" className="h-8 w-auto dark:hidden" loading="eager" />
           <img src="/favicon.svg" alt="Verkli" className="hidden h-8 w-auto dark:block" loading="eager" />
+=======
+        <Link href="/" className="flex min-h-[44px] min-w-[44px] items-center" aria-label="verkli">
+          <img src="/logo-dark.svg" alt="verkli" className="h-8 w-auto dark:hidden" loading="eager" />
+          <img src="/favicon.svg" alt="verkli" className="hidden h-8 w-auto dark:block" loading="eager" />
+>>>>>>> main
         </Link>
       </header>
 
@@ -112,13 +118,21 @@ export default function RoleSelection() {
           </p>
 
           <h1 className="mt-3 text-2xl font-semibold leading-[1.15] tracking-tight text-slate-900 dark:text-white sm:mt-4 sm:text-3xl md:text-[36px]">
+<<<<<<< HEAD
             Are you a author
+=======
+            Are you an author
+>>>>>>> main
             <br />
             or reader?
           </h1>
 
           <p className="mt-3 max-w-[340px] text-base leading-relaxed text-slate-600 dark:text-white/75 sm:mt-4">
+<<<<<<< HEAD
             Verkli adapts to how you use it.
+=======
+            verkli adapts to how you use it.
+>>>>>>> main
             <br />
             You can switch anytime.
           </p>
@@ -129,7 +143,11 @@ export default function RoleSelection() {
               onClick={() => setRoleAndGo("author")}
               className="btn-primary w-full"
             >
+<<<<<<< HEAD
               I am a author
+=======
+              I am an author
+>>>>>>> main
             </button>
 
             <div className="flex w-full items-center gap-4">

@@ -1,11 +1,20 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { getShelves } from "@/lib/supabase/shelves";
+<<<<<<< HEAD
 import { getAvatarUrlFromPathServer } from "@/lib/supabase/avatar";
 import ProfilePage from "@/components/author/profile/ProfilePage";
 import type { Profile } from "@/lib/supabase/types";
 
 export default async function authorProfileRoute() {
+=======
+import ProfilePage from "@/components/author/profile/ProfilePage";
+import type { Profile } from "@/lib/supabase/types";
+
+const fallbackBio = "Short bio coming soon.";
+
+export default async function AuthorProfileRoute() {
+>>>>>>> main
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
 
@@ -20,24 +29,36 @@ export default async function authorProfileRoute() {
     .maybeSingle();
 
   const profile = profileRow as Profile | null;
+<<<<<<< HEAD
   const avatarPath = profile?.avatar_url ?? null;
   const avatarUrl =
     (await getAvatarUrlFromPathServer(avatarPath)) ||
     user.user_metadata?.avatar_url ||
     null;
+=======
+>>>>>>> main
 
   // Fallbacks ensure the profile renders even if the profile row doesn't exist yet.
   const displayName =
     profile?.display_name ||
     user.user_metadata?.full_name ||
     user.email?.split("@")[0] ||
+<<<<<<< HEAD
     "author";
+=======
+    "Author";
+>>>>>>> main
   const username =
     profile?.username ||
     user.user_metadata?.username ||
     user.email?.split("@")[0] ||
     "author";
+<<<<<<< HEAD
   const bio = profile?.bio?.trim() ?? "";
+=======
+  const bio = profile?.bio || fallbackBio;
+  const avatarUrl = profile?.avatar_url || user.user_metadata?.avatar_url || null;
+>>>>>>> main
   const isPublic = profile?.is_public ?? true;
 
   let shelves: Awaited<ReturnType<typeof getShelves>> = [];

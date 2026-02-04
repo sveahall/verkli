@@ -5,7 +5,11 @@ export default function Page() {
   return (
     <PlaceholderPage
       title="Case studies"
+<<<<<<< HEAD
       variantLabel="Verkli"
+=======
+      variantLabel="verkli"
+>>>>>>> main
       links={NAV_CONFIG.PUBLIC_AUTHOR.links}
       showAuthStatus={false}
     />

@@ -1,4 +1,4 @@
-console.log("🚀 Verkli Worker starting...");
+console.log("🚀 verkli Worker starting...");
 
 // Placeholder for worker entry point
 // Add BullMQ queues and job processors here

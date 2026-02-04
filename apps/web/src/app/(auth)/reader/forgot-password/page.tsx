@@ -4,6 +4,10 @@ import { useState } from "react";
 import Link from "next/link";
 import GlassSurface from "@/components/GlassSurface";
 import { resetPassword } from "@/lib/supabase/auth";
+<<<<<<< HEAD
+=======
+import { ERROR_COPY } from "@/lib/copy-rules";
+>>>>>>> main
 
 const glassBaseProps = {
   displace: 0.5,
@@ -33,7 +37,11 @@ export default function ReaderForgotPassword() {
     const { error } = await resetPassword(email);
 
     if (error) {
+<<<<<<< HEAD
       setError(error.message);
+=======
+      setError(ERROR_COPY.INVALID_LOGIN);
+>>>>>>> main
       setLoading(false);
     } else {
       setSuccess(true);

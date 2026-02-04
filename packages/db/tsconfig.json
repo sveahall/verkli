@@ -10,8 +10,8 @@
     "skipLibCheck": true,
     "isolatedModules": true,
     "resolveJsonModule": true,
-    "baseUrl": "."
-  },
+  "baseUrl": "."
+},
   "files": ["./src/index.ts"],
   "exclude": ["node_modules", "dist"]
 }

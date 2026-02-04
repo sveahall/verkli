@@ -46,5 +46,10 @@ export async function updateActiveRole(role: ActiveRole): Promise<RoleUpdateResu
     },
   });
 
+<<<<<<< HEAD
+=======
+  await supabase.from("users").update({ role }).eq("id", user.id);
+
+>>>>>>> main
   return { ok: true };
 }

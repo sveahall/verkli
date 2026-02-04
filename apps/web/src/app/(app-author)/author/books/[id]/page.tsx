@@ -23,15 +23,11 @@ export default async function BookDetailPage({
     redirect("/author/signin");
   }
 
-  const { data: book, error: bookError } = await supabase
+  const { data: book } = await supabase
     .from("books")
-    .select("*")
+    .select("id, title, description, cover_image, author_id, status, original_language, language")
     .eq("id", id)
     .maybeSingle();
-
-  if (bookError) {
-    console.error("Failed to load book", bookError);
-  }
 
   if (!book || book.author_id !== user.id) {
     notFound();
@@ -99,6 +95,19 @@ export default async function BookDetailPage({
     .from("marketing_campaigns")
     .select("id, book_id, language, channel, status, headline, caption, cta, hashtags, share_url, created_at, updated_at")
     .eq("book_id", book.id);
+
+  const { count: chaptersCount } = await supabase
+    .from("chapters")
+    .select("id", { count: "exact", head: true })
+    .eq("book_id", book.id);
+
+  let readsCount: number | null = null;
+  const { count, error } = await supabase
+    .from("readings" as never)
+    .select("id", { count: "exact", head: true })
+    .eq("book_id", book.id);
+
+  if (!error) readsCount = count ?? null;
 
   return (
     <main className="min-h-screen bg-background text-foreground">

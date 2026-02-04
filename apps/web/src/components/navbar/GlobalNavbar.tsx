@@ -298,7 +298,11 @@ export default function GlobalNavbar({
       : pathname?.startsWith("/reader")
         ? "reader"
         : "public");
+<<<<<<< HEAD
   const isauthorRoute = resolvedMode === "author";
+=======
+  const isAuthorRoute = resolvedMode === "author";
+>>>>>>> main
   const isReaderRoute = resolvedMode === "reader";
   const isPublicPage = resolvedMode === "public";
   const isAuthRoute = Boolean(
@@ -317,14 +321,22 @@ export default function GlobalNavbar({
 
   // För menyn: använd route när vi är i author/reader, annars använd roll från profilen
   const displayRoleForMenu: "author" | "reader" =
+<<<<<<< HEAD
     isReaderRoute ? "reader" : isauthorRoute ? "author" : currentRole;
+=======
+    isReaderRoute ? "reader" : isAuthorRoute ? "author" : currentRole;
+>>>>>>> main
 
   // Keep auth screens clean; everything else uses the global navbar
   const isSelectorPage = pathname === "/";
   // Dölj navbar på selector-sidan (/) – ska bara synas på author, reader, signin, signup m.fl.
   const hideNavbar = isSelectorPage && !navMode;
 
+<<<<<<< HEAD
   const defaultauthorNavItems: NavLink[] = [
+=======
+  const defaultAuthorNavItems: NavLink[] = [
+>>>>>>> main
     { label: "Features", href: "/author#features", hasDropdown: true },
     { label: "Integrations", href: "/author#integrations", hasDropdown: true },
     { label: "Examples", href: "/author#examples", hasDropdown: true },
@@ -353,15 +365,25 @@ export default function GlobalNavbar({
     { label: "FAQ", href: "/faq" },
   ];
 
+<<<<<<< HEAD
   const authorNavItems = isauthorRoute ? navLinks ?? defaultauthorNavItems : defaultauthorNavItems;
+=======
+  const authorNavItems = isAuthorRoute ? navLinks ?? defaultAuthorNavItems : defaultAuthorNavItems;
+>>>>>>> main
   const readerNavItems = isReaderRoute ? navLinks ?? defaultReaderNavItems : defaultReaderNavItems;
   const publicNavItems = isPublicPage ? navLinks ?? defaultPublicNavItems : defaultPublicNavItems;
 
   const primaryAction = navActions?.primary;
   const secondaryAction = navActions?.secondary;
+<<<<<<< HEAD
   const showSearch = navActions?.showSearch ?? isauthorRoute;
   const searchPlaceholder = navActions?.searchPlaceholder ?? "Search books, authors...";
   const searchHref = navActions?.searchHref ?? (isauthorRoute ? "/author" : "/reader");
+=======
+  const showSearch = navActions?.showSearch ?? isAuthorRoute;
+  const searchPlaceholder = navActions?.searchPlaceholder ?? "Search books, authors...";
+  const searchHref = navActions?.searchHref ?? (isAuthorRoute ? "/author" : "/reader");
+>>>>>>> main
   const showProfileMenu = navActions?.showProfileMenu ?? true;
   const isActiveReaderLink = (href: string) => {
     if (!pathname) return false;
@@ -407,23 +429,39 @@ export default function GlobalNavbar({
             <div className="flex min-w-0 items-center gap-4 sm:gap-10">
               {/* Logo: min 44px touch target on mobile */}
               <Link
+<<<<<<< HEAD
                 href={homeHref ?? (isauthorRoute ? "/author" : isReaderRoute ? "/reader" : "/")}
+=======
+                href={homeHref ?? (isAuthorRoute ? "/author" : isReaderRoute ? "/reader" : "/")}
+>>>>>>> main
                 className="touch-target flex shrink-0 items-center justify-center rounded-md focus:outline-none focus:ring-2 focus:ring-[#907AFF]/50 focus:ring-offset-2 focus:ring-offset-background"
               >
                 <img
                   src="/logo-dark.svg"
+<<<<<<< HEAD
                   alt="Verkli"
+=======
+                  alt="verkli"
+>>>>>>> main
                   className="h-8 w-auto dark:hidden"
                 />
                 <img
                   src="/favicon.svg"
+<<<<<<< HEAD
                   alt="Verkli"
+=======
+                  alt="verkli"
+>>>>>>> main
                   className="hidden h-8 w-auto dark:block"
                 />
               </Link>
 
               {/* Navigation links based on route */}
+<<<<<<< HEAD
               {isauthorRoute && (
+=======
+              {isAuthorRoute && (
+>>>>>>> main
                 <div className="hidden items-center gap-5 text-[14px] font-medium text-slate-700/90 dark:text-white/80 lg:flex">
                   {authorNavItems.map((item) => (
                     <div
@@ -608,7 +646,11 @@ export default function GlobalNavbar({
                 )}
               </button>
 
+<<<<<<< HEAD
               {(isauthorRoute || isReaderRoute) && user ? (
+=======
+              {(isAuthorRoute || isReaderRoute) && user ? (
+>>>>>>> main
                 <>
                   {/* Sök – expanderar på hover/focus och skickar query som ?q=... */}
                   {showSearch && (
@@ -677,7 +719,11 @@ export default function GlobalNavbar({
                           </Link>
                         </>
                       )}
+<<<<<<< HEAD
                       {isauthorRoute && (
+=======
+                      {isAuthorRoute && (
+>>>>>>> main
                         <>
                           <Link
                             href={secondaryAction?.href ?? "/author/signin"}
@@ -780,7 +826,11 @@ export default function GlobalNavbar({
                     {item.label}
                   </a>
                 ))}
+<<<<<<< HEAD
               {isauthorRoute &&
+=======
+              {isAuthorRoute &&
+>>>>>>> main
                 authorNavItems.map((item) => (
                   <a
                     key={item.label}
@@ -828,7 +878,11 @@ export default function GlobalNavbar({
                     </Link>
                   </>
                 )}
+<<<<<<< HEAD
                 {isauthorRoute && (
+=======
+                {isAuthorRoute && (
+>>>>>>> main
                   <>
                     <Link
                       href={secondaryAction?.href ?? "/author/signin"}
@@ -904,7 +958,11 @@ export default function GlobalNavbar({
               className="nav-mega max-h-[min(calc(100dvh-120px),32rem)] overflow-y-auto overscroll-contain border-0 px-5 py-5 sm:px-6 sm:py-6 md:px-8 md:py-6"
             >
               {(() => {
+<<<<<<< HEAD
                 const navItems = isauthorRoute ? authorNavItems : isReaderRoute ? readerNavItems : publicNavItems;
+=======
+                const navItems = isAuthorRoute ? authorNavItems : isReaderRoute ? readerNavItems : publicNavItems;
+>>>>>>> main
                 const openItem = navItems.find((i) => i.label === dropdownOpen!.key);
                 if (openItem?.children?.length) {
                   return (

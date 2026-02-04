@@ -6,8 +6,14 @@ import GlassCard, { glassCardProps } from "@/components/GlassCard";
 import GlassSurface from "@/components/GlassSurface";
 import ThemeToggle from "@/components/ThemeToggle";
 import { signUp, signInWithGoogle } from "@/lib/supabase/auth";
+<<<<<<< HEAD
 
 export default function authorSignUp() {
+=======
+import { ERROR_COPY } from "@/lib/copy-rules";
+
+export default function AuthorSignUp() {
+>>>>>>> main
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
@@ -44,7 +50,11 @@ export default function authorSignUp() {
     const { error } = await signUp(email, password, "author");
 
     if (error) {
+<<<<<<< HEAD
       setError(error.message);
+=======
+      setError(ERROR_COPY.INVALID_LOGIN);
+>>>>>>> main
       setLoading(false);
     } else {
       setSuccess(true);
@@ -55,7 +65,11 @@ export default function authorSignUp() {
     setError("");
     const { error } = await signInWithGoogle();
     if (error) {
+<<<<<<< HEAD
       setError(error.message);
+=======
+      setError(ERROR_COPY.INVALID_LOGIN);
+>>>>>>> main
     }
   };
 
@@ -133,9 +147,15 @@ export default function authorSignUp() {
 
       {/* Logo + Back */}
       <header className="absolute left-6 top-6 z-30 flex items-center gap-3 sm:left-8 sm:top-8">
+<<<<<<< HEAD
         <Link href="/author" className="flex min-h-[44px] min-w-[44px] items-center" aria-label="Verkli">
           <img src="/logo-dark.svg" alt="Verkli" className="h-8 w-auto dark:hidden" loading="eager" />
           <img src="/favicon.svg" alt="Verkli" className="hidden h-8 w-auto dark:block" loading="eager" />
+=======
+        <Link href="/author" className="flex min-h-[44px] min-w-[44px] items-center" aria-label="verkli">
+          <img src="/logo-dark.svg" alt="verkli" className="h-8 w-auto dark:hidden" loading="eager" />
+          <img src="/favicon.svg" alt="verkli" className="hidden h-8 w-auto dark:block" loading="eager" />
+>>>>>>> main
         </Link>
         <Link
           href="/author"
@@ -144,7 +164,11 @@ export default function authorSignUp() {
           <svg className="h-4 w-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.6}>
             <path strokeLinecap="round" strokeLinejoin="round" d="M15 6l-6 6 6 6" />
           </svg>
+<<<<<<< HEAD
           Back to Verkli
+=======
+          Back to verkli
+>>>>>>> main
         </Link>
       </header>
 

@@ -27,8 +27,11 @@ export default function BookCard({
   showStats = false,
   stats
 }: BookCardProps) {
+<<<<<<< HEAD
   if (!book) return null;
   
+=======
+>>>>>>> main
   const sizeClasses = {
     sm: "h-[200px] w-[140px]",
     md: "h-[280px] w-[200px]",

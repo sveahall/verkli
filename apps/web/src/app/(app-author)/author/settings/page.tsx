@@ -1,10 +1,16 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import SettingsPage from "@/components/author/settings/SettingsPage";
+<<<<<<< HEAD
 import { getAvatarUrlFromPathServer } from "@/lib/supabase/avatar";
 import type { Profile } from "@/lib/supabase/types";
 
 export default async function authorSettingsRoute() {
+=======
+import type { Profile } from "@/lib/supabase/types";
+
+export default async function AuthorSettingsRoute() {
+>>>>>>> main
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
 
@@ -19,17 +25,24 @@ export default async function authorSettingsRoute() {
     .maybeSingle();
 
   const profile = profileRow as Profile | null;
+<<<<<<< HEAD
   const avatarPath = profile?.avatar_url ?? null;
   const avatarUrl =
     (await getAvatarUrlFromPathServer(avatarPath)) ||
     user.user_metadata?.avatar_url ||
     "";
+=======
+>>>>>>> main
 
   const displayName =
     profile?.display_name ||
     user.user_metadata?.full_name ||
     user.email?.split("@")[0] ||
+<<<<<<< HEAD
     "author";
+=======
+    "Author";
+>>>>>>> main
 
   const username =
     profile?.username ||
@@ -48,7 +61,11 @@ export default async function authorSettingsRoute() {
           displayName,
           username,
           bio: profile?.bio || "",
+<<<<<<< HEAD
           avatarUrl,
+=======
+          avatarUrl: profile?.avatar_url || user.user_metadata?.avatar_url || "",
+>>>>>>> main
           isPublic: profile?.is_public ?? true,
           role: profile?.role || (user.user_metadata?.role ?? "author"),
           preferences: profile?.preferences || {},

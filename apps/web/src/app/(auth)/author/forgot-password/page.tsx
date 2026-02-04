@@ -5,6 +5,10 @@ import Link from "next/link";
 import GlassSurface from "@/components/GlassSurface";
 import ThemeToggle from "@/components/ThemeToggle";
 import { resetPassword } from "@/lib/supabase/auth";
+<<<<<<< HEAD
+=======
+import { ERROR_COPY } from "@/lib/copy-rules";
+>>>>>>> main
 
 const glassBaseProps = {
   displace: 0.5,
@@ -20,7 +24,11 @@ const glassBaseProps = {
   mixBlendMode: "screen",
 };
 
+<<<<<<< HEAD
 export default function authorForgotPassword() {
+=======
+export default function AuthorForgotPassword() {
+>>>>>>> main
   const [email, setEmail] = useState("");
   const [error, setError] = useState("");
   const [success, setSuccess] = useState(false);
@@ -34,7 +42,11 @@ export default function authorForgotPassword() {
     const { error } = await resetPassword(email);
 
     if (error) {
+<<<<<<< HEAD
       setError(error.message);
+=======
+      setError(ERROR_COPY.INVALID_LOGIN);
+>>>>>>> main
       setLoading(false);
     } else {
       setSuccess(true);
@@ -48,15 +60,25 @@ export default function authorForgotPassword() {
 
       <header className="absolute left-6 top-6 z-20 flex w-full items-center justify-between px-6 sm:left-8 sm:top-8 sm:px-8">
         <div className="flex items-center gap-3">
+<<<<<<< HEAD
           <Link href="/author" className="flex min-h-[44px] min-w-[44px] items-center" aria-label="Verkli">
             <img src="/logo-dark.svg" alt="Verkli" className="h-8 w-auto dark:hidden" loading="eager" />
             <img src="/favicon.svg" alt="Verkli" className="hidden h-8 w-auto dark:block" loading="eager" />
+=======
+          <Link href="/author" className="flex min-h-[44px] min-w-[44px] items-center" aria-label="verkli">
+            <img src="/logo-dark.svg" alt="verkli" className="h-8 w-auto dark:hidden" loading="eager" />
+            <img src="/favicon.svg" alt="verkli" className="hidden h-8 w-auto dark:block" loading="eager" />
+>>>>>>> main
           </Link>
           <Link href="/author/signin" className="btn-secondary text-[13px] gap-2 px-4 py-2.5">
             <svg className="h-4 w-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.6}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M15 6l-6 6 6 6" />
             </svg>
+<<<<<<< HEAD
             Back to Verkli
+=======
+            Back to verkli
+>>>>>>> main
           </Link>
         </div>
         <div className="flex items-center">

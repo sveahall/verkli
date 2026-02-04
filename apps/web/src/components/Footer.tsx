@@ -16,8 +16,13 @@ export default function Footer({ variant = "reader" }: { variant?: FooterVariant
       <div className="grid gap-8 rounded-2xl bg-gradient-to-b from-black/[0.04] to-transparent px-4 py-6 sm:gap-10 sm:rounded-[32px] sm:px-6 sm:py-10 md:grid-cols-[1.5fr_1fr_1fr_1fr] md:gap-12 md:px-11 md:py-12 dark:from-white/[0.04]">
         <div className="space-y-5">
           <Link href="/" className="inline-block">
+<<<<<<< HEAD
             <img src="/logo-dark.svg" alt="Verkli" className="h-9 w-auto dark:hidden" />
             <img src="/favicon.svg" alt="Verkli" className="hidden h-9 w-auto dark:block" />
+=======
+            <img src="/logo-dark.svg" alt="verkli" className="h-9 w-auto dark:hidden" />
+            <img src="/favicon.svg" alt="verkli" className="hidden h-9 w-auto dark:block" />
+>>>>>>> main
           </Link>
           <p className="max-w-[280px] text-[15px] leading-[1.7] text-slate-600 dark:text-white/50">
             Where books become momentum. The platform for authors who want to reach readers everywhere.
@@ -68,7 +73,11 @@ export default function Footer({ variant = "reader" }: { variant?: FooterVariant
         </div>
       </div>
       <div className="mt-8 flex flex-col items-center justify-between gap-4 px-4 text-[13px] text-slate-500 dark:text-white/30 md:flex-row md:px-11">
+<<<<<<< HEAD
         <span>© 2026 Verkli. All rights reserved.</span>
+=======
+        <span>© 2026 verkli. All rights reserved.</span>
+>>>>>>> main
         <div className="flex items-center gap-2">
           <span className="h-2 w-2 rounded-full bg-green-400"></span>
           <span>All systems operational</span>

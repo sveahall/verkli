@@ -4,6 +4,10 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { updateActiveRole } from "@/features/auth/roles";
+<<<<<<< HEAD
+=======
+import { SOFT_DENIAL_COPY } from "@/lib/copy-rules";
+>>>>>>> main
 
 export type ActionState = {
   ok: boolean;
@@ -35,7 +39,11 @@ export async function updateAccount(prevState: ActionState, formData: FormData):
   const { data: { user } } = await supabase.auth.getUser();
 
   if (!user) {
+<<<<<<< HEAD
     return { ok: false, message: "Not authenticated." };
+=======
+    return { ok: false, message: SOFT_DENIAL_COPY.ACCESS_RESTRICTED };
+>>>>>>> main
   }
 
   const { error: profileError } = await supabase
@@ -70,6 +78,7 @@ export async function updateAccount(prevState: ActionState, formData: FormData):
   return { ok: true, message: "Account updated." };
 }
 
+<<<<<<< HEAD
 /** Update profiles.avatar_url with storage path only (called after avatar upload). */
 export async function updateAvatarPath(path: string): Promise<ActionState> {
   const supabase = await createClient();
@@ -100,26 +109,47 @@ export async function updateAvatarPath(path: string): Promise<ActionState> {
 
 export async function updateProfile(prevState: ActionState, formData: FormData): Promise<ActionState> {
   const bio = String(formData.get("bio") || "").trim();
+=======
+export async function updateProfile(prevState: ActionState, formData: FormData): Promise<ActionState> {
+  const bio = String(formData.get("bio") || "").trim();
+  const avatarUrl = String(formData.get("avatar_url") || "").trim();
+>>>>>>> main
   const isPublic = String(formData.get("is_public") || "true") === "true";
 
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
 
   if (!user) {
+<<<<<<< HEAD
     return { ok: false, message: "Not authenticated." };
+=======
+    return { ok: false, message: SOFT_DENIAL_COPY.ACCESS_RESTRICTED };
+>>>>>>> main
   }
 
   const { error } = await supabase
     .from("profiles")
     .upsert(
+<<<<<<< HEAD
       { user_id: user.id, bio: bio || null, is_public: isPublic },
+=======
+      {
+        user_id: user.id,
+        bio: bio || null,
+        avatar_url: avatarUrl || null,
+        is_public: isPublic,
+      },
+>>>>>>> main
       { onConflict: "user_id" }
     );
 
   if (error) {
+<<<<<<< HEAD
     if (process.env.NODE_ENV === "development") {
       console.error("[profile update failed]", error);
     }
+=======
+>>>>>>> main
     return { ok: false, message: "Could not save profile settings." };
   }
 
@@ -151,7 +181,11 @@ export async function updatePreferences(prevState: ActionState, formData: FormDa
   const { data: { user } } = await supabase.auth.getUser();
 
   if (!user) {
+<<<<<<< HEAD
     return { ok: false, message: "Not authenticated." };
+=======
+    return { ok: false, message: SOFT_DENIAL_COPY.ACCESS_RESTRICTED };
+>>>>>>> main
   }
 
   const { error } = await supabase
@@ -204,7 +238,11 @@ export async function changePassword(prevState: ActionState, formData: FormData)
   const { data: { user } } = await supabase.auth.getUser();
 
   if (!user) {
+<<<<<<< HEAD
     return { ok: false, message: "Not authenticated." };
+=======
+    return { ok: false, message: SOFT_DENIAL_COPY.ACCESS_RESTRICTED };
+>>>>>>> main
   }
 
   const { error } = await supabase.auth.updateUser({ password });

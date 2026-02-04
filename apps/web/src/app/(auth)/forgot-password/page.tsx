@@ -4,6 +4,10 @@ import { useState } from "react";
 import Link from "next/link";
 import GlassSurface from "@/components/GlassSurface";
 import { resetPassword } from "@/lib/supabase/auth";
+<<<<<<< HEAD
+=======
+import { ERROR_COPY } from "@/lib/copy-rules";
+>>>>>>> main
 
 const glassBaseProps = {
   displace: 0.5,
@@ -33,7 +37,11 @@ export default function ForgotPassword() {
     const { error } = await resetPassword(email);
 
     if (error) {
+<<<<<<< HEAD
       setError(error.message);
+=======
+      setError(ERROR_COPY.INVALID_LOGIN);
+>>>>>>> main
       setLoading(false);
     } else {
       setSuccess(true);
@@ -119,7 +127,11 @@ export default function ForgotPassword() {
 
           <p className="mt-8 text-sm text-slate-600 dark:text-white/40">
             Remembered it?{" "}
+<<<<<<< HEAD
             <Link href="/author/signin" className="text-slate-900 transition hover:text-slate-700 dark:text-white/70 dark:hover:text-white">
+=======
+            <Link href="/signin" className="text-slate-900 transition hover:text-slate-700 dark:text-white/70 dark:hover:text-white">
+>>>>>>> main
               Back to sign in
             </Link>
           </p>

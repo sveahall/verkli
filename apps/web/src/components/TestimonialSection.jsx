@@ -20,7 +20,7 @@ const testimonials = [
   },
   {
     name: "Sofia Martinez",
-    role: "Romance author",
+    role: "Romance Author",
     image: "https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=120&h=120&fit=crop&crop=face",
     quote: "The time I save on marketing I now spend writing my next book.",
     color: "#FCC997",

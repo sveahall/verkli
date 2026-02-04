@@ -4,6 +4,10 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import GlassSurface from "@/components/GlassSurface";
 import { createClient } from "@/lib/supabase/client";
+<<<<<<< HEAD
+=======
+import { ERROR_COPY } from "@/lib/copy-rules";
+>>>>>>> main
 
 const glassBaseProps = {
   displace: 0.5,
@@ -59,7 +63,11 @@ export default function ResetPassword() {
     const { error } = await supabase.auth.updateUser({ password });
 
     if (error) {
+<<<<<<< HEAD
       setError(error.message);
+=======
+      setError(ERROR_COPY.INVALID_LOGIN);
+>>>>>>> main
       setLoading(false);
     } else {
       setSuccess(true);
@@ -159,7 +167,11 @@ export default function ResetPassword() {
           )}
 
           <p className="mt-8 text-sm text-slate-600 dark:text-white/40">
+<<<<<<< HEAD
             <Link href="/author/signin" className="text-slate-900 transition hover:text-slate-700 dark:text-white/70 dark:hover:text-white">
+=======
+            <Link href="/signin" className="text-slate-900 transition hover:text-slate-700 dark:text-white/70 dark:hover:text-white">
+>>>>>>> main
               Back to sign in
             </Link>
           </p>

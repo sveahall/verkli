@@ -1,8 +1,11 @@
 export type NavVariant = "PUBLIC_AUTHOR" | "PUBLIC_READER" | "APP_AUTHOR" | "APP_READER";
 
+<<<<<<< HEAD
 /** MVP: read-write-publish only. Set false to enable Community + Marketing Tools. */
 const MVP_MODE = true;
 
+=======
+>>>>>>> main
 export type NavLinkChild = {
   label: string;
   href: string;
@@ -53,8 +56,13 @@ export const NAV_CONFIG: Record<NavVariant, NavConfig> = {
       { label: "FAQ", href: "/faq" },
     ],
     actions: {
+<<<<<<< HEAD
       secondary: { label: "Login", href: "/author/signin" },
       primary: { label: "Start free", href: "/author/signup" },
+=======
+      secondary: { label: "Login", href: "/signin" },
+      primary: { label: "Start free", href: "/signup" },
+>>>>>>> main
     },
   },
   PUBLIC_READER: {
@@ -102,6 +110,7 @@ export const NAV_CONFIG: Record<NavVariant, NavConfig> = {
           { label: "Published", href: "/author/books" },
         ],
       },
+<<<<<<< HEAD
       ...(MVP_MODE ? [] : [
         {
           label: "Marketing Tools",
@@ -116,6 +125,20 @@ export const NAV_CONFIG: Record<NavVariant, NavConfig> = {
         } as NavLink,
         { label: "Community", href: "/author/community" },
       ]),
+=======
+      {
+        label: "Marketing Tools",
+        href: "/author/marketing",
+        hasDropdown: true,
+        children: [
+          { label: "Overview", href: "/author/marketing" },
+          { label: "AI tools", href: "/author/marketing" },
+          { label: "Automations", href: "/author/marketing" },
+          { label: "Distribution", href: "/author/marketing" },
+        ],
+      },
+      { label: "Community", href: "/author/community" },
+>>>>>>> main
     ],
     actions: {
       primary: { label: "Publish", href: "/author/books" },
@@ -150,7 +173,11 @@ export const NAV_CONFIG: Record<NavVariant, NavConfig> = {
           { label: "Continue reading", href: "/reader/home" },
         ],
       },
+<<<<<<< HEAD
       ...(MVP_MODE ? [] : [{ label: "Community", href: "/reader/community" }]),
+=======
+      { label: "Community", href: "/reader/community" },
+>>>>>>> main
       {
         label: "Profile",
         href: "/reader/profile",

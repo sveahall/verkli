@@ -22,7 +22,11 @@ const navItems = [
   { label: "Settings", href: "/author/settings" },
 ];
 
+<<<<<<< HEAD
 export default function authorTopNav({ active }: { active?: string }) {
+=======
+export default function AuthorTopNav({ active }: { active?: string }) {
+>>>>>>> main
   return (
     <header className="sticky top-6 z-20 mx-auto w-full max-w-[1400px] px-6">
       <GlassSurface
@@ -35,8 +39,13 @@ export default function authorTopNav({ active }: { active?: string }) {
         <nav className="flex w-full items-center justify-between gap-6">
           <div className="flex items-center gap-10">
             <Link href="/author/home" className="flex items-center gap-3">
+<<<<<<< HEAD
               <img src="/logo-dark.svg" alt="Verkli" className="h-8 w-auto dark:hidden" />
               <img src="/favicon.svg" alt="Verkli" className="hidden h-8 w-auto dark:block" />
+=======
+              <img src="/logo-dark.svg" alt="verkli" className="h-8 w-auto dark:hidden" />
+              <img src="/favicon.svg" alt="verkli" className="hidden h-8 w-auto dark:block" />
+>>>>>>> main
             </Link>
             <div className="hidden items-center gap-8 text-[15px] font-medium text-slate-700 dark:text-white/70 md:flex">
               {navItems.map((item) => {

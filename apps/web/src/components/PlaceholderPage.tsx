@@ -3,6 +3,10 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
+<<<<<<< HEAD
+=======
+import { SOFT_DENIAL_COPY } from "@/lib/copy-rules";
+>>>>>>> main
 
 export type PlaceholderLink = {
   label: string;
@@ -22,7 +26,11 @@ export default function PlaceholderPage({
   variantLabel,
   showAuthStatus = false,
 }: PlaceholderPageProps) {
+<<<<<<< HEAD
   const [status, setStatus] = useState<string | null>(showAuthStatus ? "Login required" : null);
+=======
+  const [status, setStatus] = useState<string | null>(showAuthStatus ? SOFT_DENIAL_COPY.ACCESS_RESTRICTED : null);
+>>>>>>> main
 
   useEffect(() => {
     if (!showAuthStatus) return;
@@ -33,9 +41,15 @@ export default function PlaceholderPage({
         data: { user },
       } = await supabase.auth.getUser();
       if (user?.email) {
+<<<<<<< HEAD
         setStatus(`You are logged in as ${user.email}`);
       } else {
         setStatus("Login required");
+=======
+        setStatus(null);
+      } else {
+        setStatus(SOFT_DENIAL_COPY.ACCESS_RESTRICTED);
+>>>>>>> main
       }
     };
 

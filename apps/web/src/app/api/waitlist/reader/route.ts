@@ -1,7 +1,11 @@
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+<<<<<<< HEAD
 import { Resend } from "resend";
 import { assertServerEnv, getServerEnv } from "@/lib/env";
+=======
+import { sendWaitlistEmail } from "@/lib/resend/sendWaitlistEmail";
+>>>>>>> main
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -49,6 +53,7 @@ async function getPosition(supabase: ReturnType<typeof createAdminClient>, creat
   return count ?? 0;
 }
 
+<<<<<<< HEAD
 async function sendReaderConfirmationEmail(email: string, position: number): Promise<void> {
   const env = getServerEnv();
   
@@ -85,6 +90,9 @@ export async function POST(request: Request) {
     );
   }
 
+=======
+export async function POST(request: Request) {
+>>>>>>> main
   try {
     const ip = getClientIp(request);
     const { allowed } = checkRateLimit(ip);
@@ -109,6 +117,19 @@ export async function POST(request: Request) {
     const source = body.source != null ? String(body.source) : null;
     const followAuthor = body.follow_author != null ? String(body.follow_author) : null;
 
+<<<<<<< HEAD
+=======
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+    const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+    if (!supabaseUrl || !serviceRoleKey) {
+      console.error("READER_WAITLIST_ERROR", { message: "Missing Supabase env", code: "ENV", details: "NEXT_PUBLIC_SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY", hint: "Set in .env.local" });
+      return NextResponse.json(
+        { ok: false, error: "Server configuration error. Please try again later.", details: "Missing Supabase configuration" },
+        { status: 500 }
+      );
+    }
+
+>>>>>>> main
     let supabase;
     try {
       supabase = createAdminClient();
@@ -172,7 +193,11 @@ export async function POST(request: Request) {
 
     const position = await getPosition(supabase, inserted.created_at);
     console.log("READER_WAITLIST_SIGNUP", { source: source ?? "unknown", position, isNew: true });
+<<<<<<< HEAD
     sendReaderConfirmationEmail(email, position).catch((err) => {
+=======
+    sendWaitlistEmail(email, "reader").catch((err) => {
+>>>>>>> main
       console.error("READER_WAITLIST_ERROR", { message: "Confirmation email failed", code: "RESEND", details: String(err), hint: "API still returns ok true" });
     });
 

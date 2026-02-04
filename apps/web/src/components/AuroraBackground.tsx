@@ -86,7 +86,11 @@ export default function AuroraBackground() {
             top: "20%",
             width: "90vmax",
             height: "90vmax",
+<<<<<<< HEAD
             background: "radial-gradient(circle, rgba(123, 92, 255, 0.35) 0%, transparent 70%)",
+=======
+            background: "radial-gradient(circle, #907AFF 5%, transparent 70%)",
+>>>>>>> main
           }}
         />
         <div
@@ -96,7 +100,11 @@ export default function AuroraBackground() {
             top: "60%",
             width: "85vmax",
             height: "85vmax",
+<<<<<<< HEAD
             background: "radial-gradient(circle, rgba(80, 120, 255, 0.28) 0%, transparent 70%)",
+=======
+            background: "radial-gradient(circle, #E29ED5 15%, transparent 70%)",
+>>>>>>> main
           }}
         />
         <div
@@ -106,7 +114,11 @@ export default function AuroraBackground() {
             top: "15%",
             width: "75vmax",
             height: "75vmax",
+<<<<<<< HEAD
             background: "radial-gradient(circle, rgba(255, 190, 120, 0.18) 0%, transparent 70%)",
+=======
+            background: "radial-gradient(circle, #FCC997 15%, transparent 70%)",
+>>>>>>> main
           }}
         />
         <div
@@ -116,18 +128,34 @@ export default function AuroraBackground() {
             top: "55%",
             width: "70vmax",
             height: "70vmax",
+<<<<<<< HEAD
             background: "radial-gradient(circle, rgba(255, 120, 180, 0.16) 0%, transparent 70%)",
           }}
         />
 
         {/* Mouse spotlight */}
+=======
+            background: "radial-gradient(circle, #FEE9A3 15%, transparent 70%)",
+          }}
+        />
+
+        {/* Mouse spotlight — soft glow that flows out */}
+>>>>>>> main
         <div
           className="absolute inset-0 pointer-events-none"
           style={{
             background: `radial-gradient(
+<<<<<<< HEAD
               600px 400px at calc(var(--mouse-x) * 100%) calc(var(--mouse-y) * 100%),
               rgba(255, 255, 255, 0.08) 0%,
               transparent 50%
+=======
+              ellipse 900px 600px at calc(var(--mouse-x) * 100%) calc(var(--mouse-y) * 100%),
+              rgba(226, 158, 213, 0.35) 0%,
+              rgba(226, 158, 213, 0.15) 25%,
+              rgba(144, 122, 255, 0.06) 50%,
+              transparent 70%
+>>>>>>> main
             )`,
           }}
         />

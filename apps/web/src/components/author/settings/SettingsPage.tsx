@@ -6,7 +6,10 @@ import { uploadAvatar } from "@/lib/supabase/storage";
 import {
   updateAccount,
   updateProfile,
+<<<<<<< HEAD
   updateAvatarPath,
+=======
+>>>>>>> main
   updatePreferences,
   switchRoleToReader,
   changePassword,
@@ -93,6 +96,7 @@ export default function SettingsPage({ user, profile }: SettingsPageProps) {
     if (!file) return;
 
     setAvatarUploading(true);
+<<<<<<< HEAD
     const { path, url, error } = await uploadAvatar(file, user.id);
 
     if (error || !path) {
@@ -112,13 +116,27 @@ export default function SettingsPage({ user, profile }: SettingsPageProps) {
       return;
     }
     setAvatarUrl(url ?? "");
+=======
+    const { url, error } = await uploadAvatar(file, user.id);
+    setAvatarUploading(false);
+
+    if (error || !url) {
+      return;
+    }
+
+    setAvatarUrl(url);
+>>>>>>> main
   };
 
   return (
     <main className="min-h-screen min-h-dvh bg-background text-foreground">
       <div className="page-content mx-auto max-w-[1200px] section-gap pb-24 pt-8 sm:pt-10">
         <header className="space-y-2">
+<<<<<<< HEAD
           <h1 className="text-page-title">author settings</h1>
+=======
+          <h1 className="text-page-title">Author settings</h1>
+>>>>>>> main
           <p className="text-body max-w-2xl">
             Manage your public profile, defaults, and security preferences.
           </p>
@@ -229,6 +247,10 @@ export default function SettingsPage({ user, profile }: SettingsPageProps) {
                     <p className="mt-2 text-[12px] text-slate-500 dark:text-white/40">PNG, JPG up to 2MB.</p>
                   </div>
                 </div>
+<<<<<<< HEAD
+=======
+                <input type="hidden" name="avatar_url" value={avatarUrl} />
+>>>>>>> main
               </div>
               <div className="flex items-end justify-between gap-4">
                 <InlineFeedback state={profileState} />
@@ -240,7 +262,11 @@ export default function SettingsPage({ user, profile }: SettingsPageProps) {
 
         <section className="card-base p-6 sm:p-8">
           <div>
+<<<<<<< HEAD
             <h2 className="text-section-title">author preferences</h2>
+=======
+            <h2 className="text-section-title">Author preferences</h2>
+>>>>>>> main
             <p className="text-[14px] text-slate-600 dark:text-white/50">Defaults used when you create new shelves.</p>
           </div>
           <form action={prefsAction} className="mt-6 grid gap-6">
@@ -355,7 +381,11 @@ export default function SettingsPage({ user, profile }: SettingsPageProps) {
         <section className="card-base p-6 sm:p-8">
           <div>
             <h2 className="text-section-title">Role</h2>
+<<<<<<< HEAD
             <p className="text-[14px] text-slate-600 dark:text-white/50">You are currently signed in as a author.</p>
+=======
+            <p className="text-[14px] text-slate-600 dark:text-white/50">You are currently signed in as an author.</p>
+>>>>>>> main
           </div>
           <div className="mt-6 flex flex-wrap items-center justify-between gap-4">
             <div className="rounded-full border border-black/10 bg-white/80 px-4 py-2 text-[13px] font-semibold uppercase tracking-wider text-slate-700 dark:border-white/10 dark:bg-[#0b0b10] dark:text-white/70">

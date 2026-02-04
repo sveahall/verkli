@@ -35,7 +35,11 @@ const feedItems = [
     id: "collection",
     type: "Collection",
     title: "New collection: Quiet Winter Escapes",
+<<<<<<< HEAD
     author: "Verkli editorial",
+=======
+    author: "verkli editorial",
+>>>>>>> main
     time: "3 days ago",
     excerpt: "Snowy cabins, tender letters, and long nights. 18 books added.",
     href: "/reader/discover",

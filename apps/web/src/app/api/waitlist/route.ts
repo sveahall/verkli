@@ -1,7 +1,11 @@
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+<<<<<<< HEAD
 import { Resend } from "resend";
 import { assertServerEnv, getServerEnv } from "@/lib/env";
+=======
+import { sendWaitlistEmail } from "@/lib/resend/sendWaitlistEmail";
+>>>>>>> main
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -50,6 +54,7 @@ async function getPosition(supabase: ReturnType<typeof createAdminClient>, creat
   return count ?? 0;
 }
 
+<<<<<<< HEAD
 async function sendConfirmationEmail(email: string, position: number): Promise<void> {
   const env = getServerEnv();
   
@@ -85,6 +90,12 @@ export async function POST(request: Request) {
       { status: 500 }
     );
   }
+=======
+export async function POST(request: Request) {
+  // Temporary: verify service role is loaded (if false, API runs with anon key and RLS blocks)
+  console.log("SERVICE ROLE SET", !!process.env.SUPABASE_SERVICE_ROLE_KEY);
+  console.log("SUPABASE_URL", process.env.NEXT_PUBLIC_SUPABASE_URL ? "set" : "missing");
+>>>>>>> main
 
   try {
     const ip = getClientIp(request);
@@ -110,6 +121,19 @@ export async function POST(request: Request) {
     const role = body.role != null ? String(body.role) : null;
     const source = body.source != null ? String(body.source) : null;
 
+<<<<<<< HEAD
+=======
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+    const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+    if (!supabaseUrl || !serviceRoleKey) {
+      console.error("WAITLIST_ERROR", { message: "Missing Supabase env", code: "ENV", details: "NEXT_PUBLIC_SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY", hint: "Set in .env.local" });
+      return NextResponse.json(
+        { ok: false, error: "Server configuration error. Please try again later.", details: "Missing Supabase configuration" },
+        { status: 500 }
+      );
+    }
+
+>>>>>>> main
     let supabase;
     try {
       supabase = createAdminClient();
@@ -173,7 +197,11 @@ export async function POST(request: Request) {
 
     const position = await getPosition(supabase, inserted.created_at);
     console.log("WAITLIST_SIGNUP", { source: source ?? "unknown", position, isNew: true });
+<<<<<<< HEAD
     sendConfirmationEmail(email, position).catch((err) => {
+=======
+    sendWaitlistEmail(email, "author").catch((err) => {
+>>>>>>> main
       console.error("WAITLIST_ERROR", { message: "Confirmation email failed", code: "RESEND", details: String(err), hint: "API still returns ok true" });
     });
 

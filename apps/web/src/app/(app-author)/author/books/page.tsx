@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
@@ -79,5 +80,18 @@ export default async function authorBooksPage() {
         </p>
       </div>
     </main>
+=======
+import PlaceholderPage from "@/components/PlaceholderPage";
+import { NAV_CONFIG } from "@/nav/navConfig";
+
+export default function Page() {
+  return (
+    <PlaceholderPage
+      title="Books"
+      variantLabel="Author"
+      links={NAV_CONFIG.APP_AUTHOR.links}
+      showAuthStatus={true}
+    />
+>>>>>>> main
   );
 }

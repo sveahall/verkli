@@ -1124,6 +1124,7 @@ export type Database = {
   }
 }
 
+<<<<<<< HEAD
 type DatabaseWithoutInternals = Omit<Database, "__InternalSupabase">
 
 type DefaultSchema = DatabaseWithoutInternals[Extract<keyof Database, "public">]
@@ -1249,3 +1250,12 @@ export const Constants = {
     },
   },
 } as const
+
+// Convenience type exports
+export type User = Database['public']['Tables']['users']['Row']
+export type Profile = Database['public']['Tables']['profiles']['Row']
+export type Book = Database['public']['Tables']['books']['Row']
+export type Chapter = Database['public']['Tables']['chapters']['Row']
+export type Shelf = Database['public']['Tables']['shelves']['Row']
+export type ShelfSection = Database['public']['Tables']['shelf_sections']['Row']
+export type ShelfBook = Database['public']['Tables']['shelf_books']['Row']

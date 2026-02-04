@@ -4,7 +4,11 @@ import ProfileShelfCard from "@/components/author/profile/ProfileShelfCard";
 import ProfileBookCard from "@/components/author/profile/ProfileBookCard";
 import type { ReactNode } from "react";
 
+<<<<<<< HEAD
 export type authorProfile = {
+=======
+export type AuthorProfile = {
+>>>>>>> main
   displayName: string;
   username: string;
   bio: string;
@@ -53,7 +57,11 @@ export default function ProfilePage({
   shelves,
   standaloneBooks,
 }: {
+<<<<<<< HEAD
   profile: authorProfile;
+=======
+  profile: AuthorProfile;
+>>>>>>> main
   stats: ProfileStatsData;
   shelves: ProfileShelf[];
   standaloneBooks: ProfileBook[];

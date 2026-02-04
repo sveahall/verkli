@@ -239,6 +239,7 @@ export default function UserMenu({ user, onSignOut, currentRole = "author" }: Us
               <span>Settings</span>
             </Link>
 
+<<<<<<< HEAD
             <Link
               href="/account/feedback"
               onClick={(e) => {
@@ -263,6 +264,8 @@ export default function UserMenu({ user, onSignOut, currentRole = "author" }: Us
               <span>Feedback</span>
             </Link>
 
+=======
+>>>>>>> main
             <button
               onClick={handleSwitchRole}
               className="flex min-h-[44px] w-full items-center gap-3 rounded-xl px-4 py-3 text-[14px] font-medium text-slate-700 dark:text-white/80 transition-all hover:bg-slate-50 dark:hover:bg-white/[0.05] hover:text-slate-900 dark:hover:text-white focus:outline-none focus:ring-2 focus:ring-inset focus:ring-[#907AFF]/30"
@@ -280,7 +283,11 @@ export default function UserMenu({ user, onSignOut, currentRole = "author" }: Us
                   d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4"
                 />
               </svg>
+<<<<<<< HEAD
               <span>Switch to {currentRole === 'author' ? 'Reader' : 'author'}</span>
+=======
+              <span>Switch to {currentRole === 'author' ? 'Reader' : 'Author'}</span>
+>>>>>>> main
             </button>
           </div>
 

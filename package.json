@@ -1,6 +1,6 @@
 {
   "name": "verkli-web",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "private": true,
   "workspaces": [
     "apps/*",
@@ -27,9 +27,11 @@
     "gsap": "^3.14.2",
     "lucide-react": "^0.563.0",
     "next": "^16.1.6",
+    "ogl": "^1.0.11",
     "react": "19.2.3",
     "react-dom": "19.2.3",
-    "tailwind-merge": "^3.4.0"
+    "tailwind-merge": "^3.4.0",
+    "three": "^0.167.1"
   },
   "devDependencies": {
     "electron": "^34.0.0",

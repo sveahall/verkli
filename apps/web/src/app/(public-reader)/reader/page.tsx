@@ -177,6 +177,7 @@ export default function ReaderLanding() {
             </p>
 
             <div className="mt-10 flex flex-wrap justify-center gap-3 sm:gap-4 lg:justify-start">
+<<<<<<< HEAD
               <Link href="/reader/discover" className="btn-primary min-w-[140px]">
                 Explore stories
               </Link>
@@ -186,13 +187,28 @@ export default function ReaderLanding() {
             </div>
             <p className="mt-6 text-[13px] text-slate-500 dark:text-white/50">
               Are you a author?<br />
+=======
+              <Link href="#explore" className="btn-primary min-w-[140px]">
+                Explore stories
+              </Link>
+              <Link href="/reader/signup" className="btn-secondary min-w-[140px]">
+                Join verkli
+              </Link>
+            </div>
+            <p className="mt-6 text-[13px] text-slate-500 dark:text-white/50">
+              Are you an author?<br />
+>>>>>>> main
               <Link href="/author" className="font-semibold text-slate-700 hover:text-slate-900 dark:text-white/80 dark:hover:text-white">
                 Go to authors page →
               </Link>
             </p>
           </div>
 
+<<<<<<< HEAD
           {/* Reading app preview */}
+=======
+          {/* Mobile mockup – reading app preview */}
+>>>>>>> main
           <div className="flex flex-shrink-0 justify-center lg:justify-end">
             <div className="relative rounded-[2rem] border border-slate-200/80 bg-slate-100/90 p-2 dark:border-white/15 dark:bg-slate-900/90">
               <div className="h-[420px] w-[220px] overflow-hidden rounded-[1.5rem] bg-white dark:bg-slate-950">
@@ -246,7 +262,11 @@ export default function ReaderLanding() {
         aria-labelledby="value-heading"
       >
         <h2 id="value-heading" className="sr-only">
+<<<<<<< HEAD
           Why Verkli for readers
+=======
+          Why verkli for readers
+>>>>>>> main
         </h2>
         <div
           ref={valueRef}
@@ -354,7 +374,11 @@ export default function ReaderLanding() {
         aria-labelledby="different-heading"
       >
         <h2 id="different-heading" className="text-2xl font-medium tracking-[-0.02em] text-slate-900 dark:text-white sm:text-[32px]">
+<<<<<<< HEAD
           Why Verkli is <span className="bg-gradient-to-r from-[#907AFF] via-[#E29ED5] to-[#FCC997] bg-clip-text text-transparent">different</span>
+=======
+          Why verkli is <span className="bg-gradient-to-r from-[#907AFF] via-[#E29ED5] to-[#FCC997] bg-clip-text text-transparent">different</span>
+>>>>>>> main
         </h2>
         <p className="mt-2 text-[15px] text-slate-600 dark:text-white/50">
           Not just another reading app.
@@ -418,7 +442,11 @@ export default function ReaderLanding() {
             Built so authors can keep writing
           </h2>
           <p className="relative mt-4 text-[15px] leading-relaxed text-slate-600 dark:text-white/55">
+<<<<<<< HEAD
             Verkli is designed to support authors sustainably—so they can focus on the stories you love. When creators are supported, readers get more of what matters: great writing, direct connection, and a place that puts both of you first.
+=======
+            verkli is designed to support authors sustainably—so they can focus on the stories you love. When creators are supported, readers get more of what matters: great writing, direct connection, and a place that puts both of you first.
+>>>>>>> main
           </p>
         </div>
       </section>
@@ -447,11 +475,19 @@ export default function ReaderLanding() {
             Explore without signing up, or join Verkli to follow authors and save your reading.
           </p>
           <div className="relative mt-8 flex flex-wrap justify-center gap-3 sm:gap-4">
+<<<<<<< HEAD
             <Link href="/reader/discover" className="btn-primary min-w-[140px]">
               Explore stories
             </Link>
             <Link href="/reader/signup" className="btn-secondary min-w-[140px]">
               Join Verkli
+=======
+            <Link href="#explore" className="btn-primary min-w-[140px]">
+              Explore stories
+            </Link>
+            <Link href="/reader/signup" className="btn-secondary min-w-[140px]">
+              Join verkli
+>>>>>>> main
             </Link>
           </div>
         </div>
