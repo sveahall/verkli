@@ -9,6 +9,7 @@ import TiptapEditor from "@/components/editor/TiptapEditor";
 import AuthorStatsBar from "@/components/editor/AuthorStatsBar";
 import CommandPalette from "@/components/editor/CommandPalette";
 import DeleteBookButton from "@/components/books/DeleteBookButton";
+import { useToastHelpers } from "@/components/ui/Toast";
 import { getAudiobookEnabled, getMarketingEnabled, getTranslationsEnabled } from "@/lib/flags";
 import { getLanguageLabel, LANGUAGE_OPTIONS, normalizeLanguage, type SupportedLanguage } from "@/lib/languages";
 
@@ -165,6 +166,7 @@ export default function BookEditor({
 }: Props) {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const toast = useToastHelpers();
   const [chapters, setChapters] = useState<Chapter[]>(initialChapters);
   const [selectedChapterId, setSelectedChapterId] = useState<string | null>(
     initialChapters[0]?.id ?? null
@@ -747,12 +749,12 @@ export default function BookEditor({
       });
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
-        alert(data.error ?? "Generate failed");
+        toast.error(data.error ?? "Generate failed");
         return;
       }
       router.refresh();
     } catch {
-      alert("Generate failed");
+      toast.error("Generate failed");
     } finally {
       setIsGeneratingMarketing(false);
     }
@@ -849,7 +851,7 @@ export default function BookEditor({
         .single();
       if (versionError || !createdVersion?.id) {
         setIsCreating(false);
-        alert("Kunde inte skapa en version för boken. Kontrollera databasen och försök igen.");
+        toast.error("Kunde inte skapa en version för boken. Kontrollera databasen och försök igen.");
         return;
       }
       targetVersionId = createdVersion.id;
@@ -878,7 +880,7 @@ export default function BookEditor({
       if (process.env.NODE_ENV === "development") {
         console.error("[createChapter failed]", error);
       }
-      alert(`Failed to create chapter: ${error.message || "Unknown error"}`);
+      toast.error(`Failed to create chapter: ${error.message || "Unknown error"}`);
       return;
     }
     if (data) {
