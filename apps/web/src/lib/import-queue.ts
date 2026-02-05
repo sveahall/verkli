@@ -5,8 +5,9 @@
 
 import { Queue } from "bullmq";
 import { getRedisConnectionOptions, getRedisUrl } from "@/lib/env";
+import { QUEUE_NAMES } from "@/lib/queue-names";
 
-const QUEUE_NAME = "book-import-extract";
+const QUEUE_NAME = QUEUE_NAMES.IMPORT;
 
 const connection = getRedisConnectionOptions();
 

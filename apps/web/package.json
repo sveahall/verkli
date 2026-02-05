@@ -13,6 +13,7 @@
     "runway:text-to-video": "tsx src/lib/ai/runTextToVideo.ts",
     "import-worker": "tsx scripts/import-worker.ts",
     "translate-worker": "tsx scripts/translation-worker.ts",
+    "audiobook-worker": "tsx scripts/audiobook-worker.ts",
     "generate:types": "tsx scripts/generate-types.ts"
   },
   "dependencies": {
