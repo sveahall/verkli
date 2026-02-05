@@ -14,7 +14,9 @@ export async function POST(request: Request) {
   const result = await updateActiveRole(role);
 
   if (!result.ok) {
-    return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
+    // Return 403 for role restriction, 401 for auth issues
+    const status = result.error?.includes("Reader accounts") ? 403 : 401;
+    return NextResponse.json({ error: result.error ?? "Not authenticated" }, { status });
   }
 
   return NextResponse.json({ ok: true });

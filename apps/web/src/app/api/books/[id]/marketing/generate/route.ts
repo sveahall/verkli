@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import { assertPublicEnv } from "@/lib/env";
 import { isMarketingEnabled } from "@/lib/flags";
 import { getLanguageLabel, normalizeLanguage } from "@/lib/languages";
+import { requireAuthorRoleForApi } from "@/lib/auth/require-author";
 
 const CHANNELS = ["generic", "tiktok", "instagram", "x"] as const;
 type Channel = (typeof CHANNELS)[number];
@@ -21,13 +22,11 @@ export async function POST(
   }
   const { id: bookId } = await params;
 
+  // SECURITY: Require author role for marketing generation
+  const { user, response } = await requireAuthorRoleForApi();
+  if (response) return response;
+
   const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-
-  if (!user) {
-    return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
-  }
-
   const body = await request.json().catch(() => ({}));
   const language = normalizeLanguage(body?.language);
   const channel: Channel = isChannel(body?.channel) ? body.channel : "generic";

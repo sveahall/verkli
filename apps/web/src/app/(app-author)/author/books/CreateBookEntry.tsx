@@ -10,6 +10,7 @@ export default function CreateBookEntry() {
     <>
       <button
         type="button"
+        data-create-book
         onClick={() => setOpen(true)}
         className="rounded-full bg-slate-900 px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-slate-800 dark:bg-white dark:text-slate-900 dark:hover:bg-white/90"
       >

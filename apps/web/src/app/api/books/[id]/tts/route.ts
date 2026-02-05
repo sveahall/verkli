@@ -10,6 +10,7 @@ import {
   TtsValidationError,
   TtsSynthesisError,
 } from "@/lib/tts/piper";
+import { requireAuthorRoleForApi } from "@/lib/auth/require-author";
 
 const DEFAULT_MAX_CHARS = 1000;
 
@@ -131,13 +132,11 @@ export async function POST(
 
   await request.json().catch(() => ({})); // body.voice reserved for future multi-voice
 
+  // SECURITY: Require author role for TTS generation
+  const { user, response } = await requireAuthorRoleForApi();
+  if (response) return response;
+
   const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-
-  if (!user) {
-    return NextResponse.json({ ok: false, error: "Not authenticated" }, { status: 401 });
-  }
-
   const { data: book, error: bookError } = await supabase
     .from("books")
     .select("id, author_id, language")

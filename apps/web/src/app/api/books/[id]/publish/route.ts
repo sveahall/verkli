@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { assertPublicEnv } from "@/lib/env";
+import { requireAuthorRoleForApi } from "@/lib/auth/require-author";
 
 type PublishVisibility = "public" | "followers" | "private";
 
@@ -56,13 +57,11 @@ export async function POST(
   const versionFromQuery = new URL(request.url).searchParams.get("versionId");
   const requestedVersionId = versionFromBody ?? versionFromQuery ?? null;
 
+  // SECURITY: Require author role for book publishing
+  const { user, response } = await requireAuthorRoleForApi();
+  if (response) return response;
+
   const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-
-  if (!user) {
-    return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
-  }
-
   const { data: book, error: bookError } = await supabase
     .from("books")
     .select("id, title, author_id, status, original_language, cover_image")
