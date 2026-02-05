@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { assertPublicEnv } from "@/lib/env";
 import { isAudiobookEnabled } from "@/lib/flags";
+import { requireAuthorRoleForApi } from "@/lib/auth/require-author";
 
 export async function POST(
   _request: Request,
@@ -13,13 +14,11 @@ export async function POST(
   }
   const { id: bookId } = await params;
 
+  // SECURITY: Require author role for audiobook generation
+  const { user, response } = await requireAuthorRoleForApi();
+  if (response) return response;
+
   const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-
-  if (!user) {
-    return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
-  }
-
   const { data: book, error: bookFetchError } = await supabase
     .from("books")
     .select("id, author_id, language")

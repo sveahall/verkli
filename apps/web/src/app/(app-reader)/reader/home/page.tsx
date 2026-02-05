@@ -4,6 +4,7 @@ import BookCard from "@/components/reader/BookCard";
 import EmptyState from "@/components/reader/EmptyState";
 import PageHeader from "@/components/reader/PageHeader";
 import Rail from "@/components/reader/Rail";
+import { ErrorBannerWrapper } from "@/components/ui/ErrorBanner";
 
 export default async function ReaderHomePage() {
   const supabase = await createClient();
@@ -93,6 +94,7 @@ export default async function ReaderHomePage() {
 
   return (
     <div className="section-gap-lg">
+      <ErrorBannerWrapper />
       <PageHeader
         eyebrow="Reader"
         title="Welcome back"

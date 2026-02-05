@@ -43,6 +43,14 @@ export default async function AppAuthorLayout({
     redirect("/author/signin");
   }
 
+  // SECURITY: Check original signup role - readers cannot access author area
+  const originalRole = user.user_metadata?.role;
+  if (originalRole === "reader") {
+    // Block readers from author area entirely
+    redirect("/reader/home?error=author_required");
+  }
+
+  // If user is an author but currently in reader mode, switch to author
   if (role === "reader") {
     await updateActiveRole("author");
   }

@@ -1,5 +1,6 @@
 import { makeVideo, type TextToVideoOptions } from "@/lib/ai/textToVideo";
 import { NextResponse } from "next/server";
+import { requireAuthorRoleForApi } from "@/lib/auth/require-author";
 
 /** Runway text→video often takes 1–2+ minutes. */
 export const maxDuration = 300;
@@ -19,6 +20,10 @@ function parseBody(body: unknown): Partial<TextToVideoOptions> | null {
 }
 
 export async function POST(req: Request) {
+  // SECURITY: Require author role - this endpoint uses paid Runway credits
+  const { response } = await requireAuthorRoleForApi();
+  if (response) return response;
+
   try {
     let options: Partial<TextToVideoOptions> = {};
     const contentType = req.headers.get("content-type") ?? "";

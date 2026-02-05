@@ -419,13 +419,24 @@ export default function GlobalNavbar({
   const [loading, setLoading] = useState(true);
   const [searchValue, setSearchValue] = useState("");
   const [currentRole, setCurrentRole] = useState<"author" | "reader">("author");
+  // SECURITY: Track original signup role - readers can NEVER switch to author
+  const [originalRole, setOriginalRole] = useState<"author" | "reader" | undefined>(undefined);
 
   useEffect(() => {
     const supabase = createClient();
     const resolveRole = async (activeUser: User | null) => {
       if (!activeUser) {
         setCurrentRole("author");
+        setOriginalRole(undefined);
         return;
+      }
+
+      // SECURITY: Original signup role determines permissions - this is immutable
+      const signupRole = activeUser.user_metadata?.role;
+      if (signupRole === "author" || signupRole === "reader") {
+        setOriginalRole(signupRole);
+      } else {
+        setOriginalRole(undefined);
       }
 
       let nextRole: "author" | "reader" = "author";
@@ -461,6 +472,7 @@ export default function GlobalNavbar({
       if (event === "SIGNED_OUT") {
         setUser(null);
         setCurrentRole("author");
+        setOriginalRole(undefined);
       } else if (event === "SIGNED_IN" && session?.user) {
         setUser(session.user);
         void resolveRole(session.user);
@@ -883,7 +895,7 @@ export default function GlobalNavbar({
                   )}
 
                   {showProfileMenu && (
-                    <UserMenu user={user} onSignOut={handleSignOut} currentRole={displayRoleForMenu} />
+                    <UserMenu user={user} onSignOut={handleSignOut} currentRole={displayRoleForMenu} originalRole={originalRole} />
                   )}
                 </>
               ) : (
@@ -976,7 +988,7 @@ export default function GlobalNavbar({
 
                   {/* User menu för inloggade användare (ej author route) */}
                   {user && showProfileMenu && (
-                    <UserMenu user={user} onSignOut={handleSignOut} currentRole={displayRoleForMenu} />
+                    <UserMenu user={user} onSignOut={handleSignOut} currentRole={displayRoleForMenu} originalRole={originalRole} />
                   )}
                 </>
               )}

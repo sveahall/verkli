@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import { assertPublicEnv } from "@/lib/env";
 import { storeImportFile } from "@/lib/import-storage";
 import { enqueueExtractJob } from "@/lib/import-queue";
+import { requireAuthorRoleForApi } from "@/lib/auth/require-author";
 
 const ALLOWED_EXT = [".epub", ".docx", ".html", ".htm", ".txt"];
 const MAX_SIZE_MB = 50;
@@ -10,12 +11,10 @@ const MAX_BYTES = MAX_SIZE_MB * 1024 * 1024;
 
 export async function POST(request: Request) {
   assertPublicEnv();
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
 
-  if (!user) {
-    return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
-  }
+  // SECURITY: Require author role for book import
+  const { user, response } = await requireAuthorRoleForApi();
+  if (response) return response;
 
   let formData: FormData;
   try {
