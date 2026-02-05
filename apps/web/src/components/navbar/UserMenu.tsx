@@ -5,6 +5,7 @@ import { createPortal } from "react-dom";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import type { User } from "@supabase/supabase-js";
+import { useToastHelpers } from "@/components/ui/Toast";
 
 const USER_MENU_WIDTH = 280;
 
@@ -12,6 +13,8 @@ interface UserMenuProps {
   user: User;
   onSignOut: () => void;
   currentRole?: "author" | "reader";
+  /** Original signup role - readers can never switch to author */
+  originalRole?: "author" | "reader";
 }
 
 /**
@@ -23,10 +26,12 @@ interface UserMenuProps {
  * - Undvika duplicerad kod mellan sidor
  * - Centralisera design och funktionalitet
  */
-export default function UserMenu({ user, onSignOut, currentRole = "author" }: UserMenuProps) {
+export default function UserMenu({ user, onSignOut, currentRole = "author", originalRole }: UserMenuProps) {
+  // Readers can NEVER switch to author mode - only authors can switch between modes
+  const canSwitchRole = originalRole === "author";
   const router = useRouter();
+  const toast = useToastHelpers();
   const [isOpen, setIsOpen] = useState(false);
-  const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [menuPosition, setMenuPosition] = useState<{ top: number; left: number } | null>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
   const menuPanelRef = useRef<HTMLDivElement>(null);
@@ -58,12 +63,6 @@ export default function UserMenu({ user, onSignOut, currentRole = "author" }: Us
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, [isOpen]);
 
-  useEffect(() => {
-    if (!toastMessage) return;
-    const timeoutId = window.setTimeout(() => setToastMessage(null), 3000);
-    return () => window.clearTimeout(timeoutId);
-  }, [toastMessage]);
-
   const handleSwitchRole = async () => {
     closeMenu();
 
@@ -79,7 +78,7 @@ export default function UserMenu({ user, onSignOut, currentRole = "author" }: Us
       if (!response.ok) {
         const payload = await response.json().catch(() => ({}));
         console.error("Error updating role:", payload);
-        setToastMessage("Could not switch role. Try again.");
+        toast.error("Could not switch role. Try again.");
         return;
       }
 
@@ -88,7 +87,7 @@ export default function UserMenu({ user, onSignOut, currentRole = "author" }: Us
       router.push(currentRole === "author" ? "/reader/home" : "/author/home");
     } catch (error) {
       console.error("Error switching role:", error);
-      setToastMessage("Could not switch role. Try again.");
+      toast.error("Could not switch role. Try again.");
     }
   };
 
@@ -108,15 +107,6 @@ export default function UserMenu({ user, onSignOut, currentRole = "author" }: Us
 
   return (
     <div className="relative">
-      {toastMessage && (
-        <div
-          role="status"
-          aria-live="polite"
-          className="fixed right-6 top-6 z-[1100] rounded-lg bg-slate-900 px-4 py-2 text-[13px] font-medium text-white dark:bg-white dark:text-slate-900"
-        >
-          {toastMessage}
-        </div>
-      )}
       <button
         ref={triggerRef}
         onClick={(e) => {
@@ -263,25 +253,28 @@ export default function UserMenu({ user, onSignOut, currentRole = "author" }: Us
               <span>Feedback</span>
             </Link>
 
-            <button
-              onClick={handleSwitchRole}
-              className="flex min-h-[44px] w-full items-center gap-3 rounded-xl px-4 py-3 text-[14px] font-medium text-slate-700 dark:text-white/80 transition-all hover:bg-slate-50 dark:hover:bg-white/[0.05] hover:text-slate-900 dark:hover:text-white focus:outline-none focus:ring-2 focus:ring-inset focus:ring-[#907AFF]/30"
-            >
-              <svg
-                className="h-5 w-5 flex-shrink-0"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-                strokeWidth={1.5}
+            {/* SECURITY: Only show role switch for authors - readers can NEVER access author mode */}
+            {canSwitchRole && (
+              <button
+                onClick={handleSwitchRole}
+                className="flex min-h-[44px] w-full items-center gap-3 rounded-xl px-4 py-3 text-[14px] font-medium text-slate-700 dark:text-white/80 transition-all hover:bg-slate-50 dark:hover:bg-white/[0.05] hover:text-slate-900 dark:hover:text-white focus:outline-none focus:ring-2 focus:ring-inset focus:ring-[#907AFF]/30"
               >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4"
-                />
-              </svg>
-              <span>Switch to {currentRole === 'author' ? 'Reader' : 'author'}</span>
-            </button>
+                <svg
+                  className="h-5 w-5 flex-shrink-0"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                  strokeWidth={1.5}
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4"
+                  />
+                </svg>
+                <span>Switch to {currentRole === 'author' ? 'Reader' : 'Author'}</span>
+              </button>
+            )}
           </div>
 
           {/* Divider */}

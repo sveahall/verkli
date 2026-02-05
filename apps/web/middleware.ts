@@ -93,7 +93,7 @@ export async function middleware(request: NextRequest) {
 
   // -------------------------------------------------------------------------
   // Route protection: /author/* and /reader/* require authentication
-  // (excluding auth pages and public landing pages)
+  // Author routes additionally require author role
   // -------------------------------------------------------------------------
   const pathname = request.nextUrl.pathname
 
@@ -120,10 +120,23 @@ export async function middleware(request: NextRequest) {
                          isReaderBrowse
 
   // Protect all /author/* routes except public ones
-  if (pathname.startsWith('/author') && !isAuthorPublic && !user) {
-    const url = request.nextUrl.clone()
-    url.pathname = '/author/signin'
-    return NextResponse.redirect(url)
+  if (pathname.startsWith('/author') && !isAuthorPublic) {
+    if (!user) {
+      const url = request.nextUrl.clone()
+      url.pathname = '/author/signin'
+      return NextResponse.redirect(url)
+    }
+
+    // SECURITY: Check role for author routes
+    // Users who signed up as readers cannot access author features
+    const originalRole = user.user_metadata?.role
+    if (originalRole === 'reader') {
+      // Readers trying to access author area - redirect to reader home
+      const url = request.nextUrl.clone()
+      url.pathname = '/reader/home'
+      url.searchParams.set('error', 'author_required')
+      return NextResponse.redirect(url)
+    }
   }
 
   // Protect all /reader/* routes except public ones

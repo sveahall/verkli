@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { updateActiveRole } from "@/features/auth/roles";
+import { requireAuthorRole } from "@/lib/auth/require-author";
 
 export type ActionState = {
   ok: boolean;
@@ -15,6 +16,13 @@ const usernamePattern = /^[a-z0-9._-]+$/;
 const normalizeUsername = (value: string) => value.trim().toLowerCase();
 
 export async function updateAccount(prevState: ActionState, formData: FormData): Promise<ActionState> {
+  // SECURITY: Require author role for author settings
+  const roleCheck = await requireAuthorRole();
+  if (!roleCheck.ok) {
+    return { ok: false, message: roleCheck.error };
+  }
+  const user = roleCheck.user;
+
   const displayName = String(formData.get("display_name") || "").trim();
   const usernameInput = String(formData.get("username") || "");
   const username = normalizeUsername(usernameInput);
@@ -32,11 +40,6 @@ export async function updateAccount(prevState: ActionState, formData: FormData):
   }
 
   const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-
-  if (!user) {
-    return { ok: false, message: "Not authenticated." };
-  }
 
   const { error: profileError } = await supabase
     .from("profiles")
@@ -72,12 +75,14 @@ export async function updateAccount(prevState: ActionState, formData: FormData):
 
 /** Update profiles.avatar_url with storage path only (called after avatar upload). */
 export async function updateAvatarPath(path: string): Promise<ActionState> {
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-
-  if (!user) {
-    return { ok: false, message: "Not authenticated." };
+  // SECURITY: Require author role for author settings
+  const roleCheck = await requireAuthorRole();
+  if (!roleCheck.ok) {
+    return { ok: false, message: roleCheck.error };
   }
+  const user = roleCheck.user;
+
+  const supabase = await createClient();
 
   const { error } = await supabase
     .from("profiles")
@@ -99,15 +104,17 @@ export async function updateAvatarPath(path: string): Promise<ActionState> {
 }
 
 export async function updateProfile(prevState: ActionState, formData: FormData): Promise<ActionState> {
+  // SECURITY: Require author role for author settings
+  const roleCheck = await requireAuthorRole();
+  if (!roleCheck.ok) {
+    return { ok: false, message: roleCheck.error };
+  }
+  const user = roleCheck.user;
+
   const bio = String(formData.get("bio") || "").trim();
   const isPublic = String(formData.get("is_public") || "true") === "true";
 
   const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-
-  if (!user) {
-    return { ok: false, message: "Not authenticated." };
-  }
 
   const { error } = await supabase
     .from("profiles")
@@ -130,6 +137,13 @@ export async function updateProfile(prevState: ActionState, formData: FormData):
 }
 
 export async function updatePreferences(prevState: ActionState, formData: FormData): Promise<ActionState> {
+  // SECURITY: Require author role for author settings
+  const roleCheck = await requireAuthorRole();
+  if (!roleCheck.ok) {
+    return { ok: false, message: roleCheck.error };
+  }
+  const user = roleCheck.user;
+
   const typography = {
     fontFamily: String(formData.get("typography_font_family") || "Inter"),
     fontWeight: String(formData.get("typography_font_weight") || "600"),
@@ -148,11 +162,6 @@ export async function updatePreferences(prevState: ActionState, formData: FormDa
   };
 
   const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-
-  if (!user) {
-    return { ok: false, message: "Not authenticated." };
-  }
 
   const { error } = await supabase
     .from("profiles")

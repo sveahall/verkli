@@ -4,6 +4,7 @@ import { enqueueTranslationJob } from "@/lib/translation-queue";
 import { detectLanguageFromText } from "@/lib/language-detect";
 import { isSupportedLanguage, normalizeLanguageOrNull } from "@/lib/languages";
 import { assertPublicEnv } from "@/lib/env";
+import { requireAuthorRoleForApi } from "@/lib/auth/require-author";
 
 function extractText(node: unknown): string {
   if (!node || typeof node !== "object") return "";
@@ -53,13 +54,11 @@ export async function POST(
     );
   }
 
+  // SECURITY: Require author role for book translation
+  const { user, response } = await requireAuthorRoleForApi();
+  if (response) return response;
+
   const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-
-  if (!user) {
-    return NextResponse.json({ ok: false, error: "Not authenticated" }, { status: 401 });
-  }
-
   const { data: book, error: bookError } = await supabase
     .from("books")
     .select("id, author_id, original_language, language")
