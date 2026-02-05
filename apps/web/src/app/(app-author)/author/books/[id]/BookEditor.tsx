@@ -230,6 +230,13 @@ export default function BookEditor({
   const translationPollStartedAtRef = useRef<number>(0);
   const [isGeneratingAudiobook, setIsGeneratingAudiobook] = useState(false);
   const [audiobookError, setAudiobookError] = useState<string | null>(null);
+  const [audiobookJobId, setAudiobookJobId] = useState<string | null>(null);
+  const [audiobookProgress, setAudiobookProgress] = useState<{
+    totalChapters: number;
+    completedChapters: number;
+    currentChapterTitle: string | null;
+  } | null>(null);
+  const audiobookPollRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const [ttsStatus, setTtsStatus] = useState<"idle" | "generating" | "uploading" | "done" | "error">("idle");
   const [ttsMessage, setTtsMessage] = useState<string | null>(null);
   const [ttsManualSteps, setTtsManualSteps] = useState<string | null>(null);
@@ -686,24 +693,74 @@ export default function BookEditor({
     );
   }, [activeVersion?.language_code, book.original_language, book.language]);
 
+  const stopAudiobookPoll = useCallback(() => {
+    if (audiobookPollRef.current) {
+      clearInterval(audiobookPollRef.current);
+      audiobookPollRef.current = null;
+    }
+  }, []);
+
+  const startAudiobookPoll = useCallback(() => {
+    stopAudiobookPoll();
+    audiobookPollRef.current = setInterval(async () => {
+      try {
+        const res = await fetch(`/api/books/${book.id}/audiobook/status`);
+        const data = await res.json();
+        if (data.job) {
+          setAudiobookProgress({
+            totalChapters: data.job.totalChapters ?? 0,
+            completedChapters: data.job.completedChapters ?? 0,
+            currentChapterTitle: data.job.currentChapterTitle ?? null,
+          });
+          // Stop polling when job is done
+          if (data.job.status === "completed" || data.job.status === "failed") {
+            stopAudiobookPoll();
+            setIsGeneratingAudiobook(false);
+            if (data.job.status === "failed") {
+              setAudiobookError(data.job.error ?? "Generation failed");
+            } else {
+              setAudiobookError(null);
+              router.refresh();
+            }
+          }
+        }
+      } catch {
+        // Ignore polling errors
+      }
+    }, 2000);
+  }, [book.id, router, stopAudiobookPoll]);
+
+  // Cleanup polling on unmount
+  useEffect(() => {
+    return () => stopAudiobookPoll();
+  }, [stopAudiobookPoll]);
+
   const handleGenerateAudiobook = useCallback(async () => {
     if (isGeneratingAudiobook) return;
     setAudiobookError(null);
+    setAudiobookProgress(null);
     setIsGeneratingAudiobook(true);
     try {
       const res = await fetch(`/api/books/${book.id}/audiobook/generate`, { method: "POST" });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
         setAudiobookError(data.error ?? "Generate failed");
+        setIsGeneratingAudiobook(false);
         return;
       }
-      router.refresh();
+      // Set initial progress and start polling
+      setAudiobookJobId(data.jobId);
+      setAudiobookProgress({
+        totalChapters: data.totalChapters ?? 0,
+        completedChapters: 0,
+        currentChapterTitle: null,
+      });
+      startAudiobookPoll();
     } catch {
       setAudiobookError("Generate failed");
-    } finally {
       setIsGeneratingAudiobook(false);
     }
-  }, [book.id, isGeneratingAudiobook, router]);
+  }, [book.id, isGeneratingAudiobook, startAudiobookPoll]);
 
   const handleStartTts = useCallback(async () => {
     setTtsMessage(null);
@@ -1572,30 +1629,63 @@ export default function BookEditor({
               <div className="mb-2 flex items-center gap-2">
                 <span
                   className={`rounded-full px-2.5 py-1 text-xs font-medium ${
-                    book.audiobook_status === "published"
+                    book.audiobook_status === "published" || book.audiobook_status === "ready"
                       ? "bg-[#907AFF]/15 text-[#5c4bb8] dark:bg-[#907AFF]/25 dark:text-[#b8a9ff]"
-                      : book.audiobook_status === "generating"
+                      : book.audiobook_status === "generating" || isGeneratingAudiobook
                         ? "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300"
                         : book.audiobook_status === "failed"
                           ? "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300"
                           : "bg-slate-100 text-slate-700 dark:bg-slate-700 dark:text-slate-200"
                   }`}
                 >
-                  {book.audiobook_status ?? "not_started"}
+                  {isGeneratingAudiobook ? "generating" : (book.audiobook_status ?? "not_started")}
                 </span>
               </div>
+
+              {/* Progress bar */}
+              {isGeneratingAudiobook && audiobookProgress && (
+                <div className="mb-3">
+                  <div className="mb-1 flex justify-between text-xs text-slate-600 dark:text-slate-400">
+                    <span>{audiobookProgress.currentChapterTitle ?? "Processing..."}</span>
+                    <span>{audiobookProgress.completedChapters} / {audiobookProgress.totalChapters}</span>
+                  </div>
+                  <div className="h-2 w-full overflow-hidden rounded-full bg-slate-200 dark:bg-slate-700">
+                    <div
+                      className="h-full rounded-full bg-[#907AFF] transition-all duration-300"
+                      style={{
+                        width: audiobookProgress.totalChapters > 0
+                          ? `${(audiobookProgress.completedChapters / audiobookProgress.totalChapters) * 100}%`
+                          : "0%",
+                      }}
+                    />
+                  </div>
+                </div>
+              )}
+
               <button
                 type="button"
                 onClick={handleGenerateAudiobook}
                 disabled={isGeneratingAudiobook}
                 className="mb-2 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-50 disabled:opacity-50 dark:border-white/20 dark:bg-white/10 dark:text-white dark:hover:bg-white/15"
               >
-                {isGeneratingAudiobook ? "Generating…" : "Generate audiobook"}
+                {isGeneratingAudiobook
+                  ? audiobookProgress
+                    ? `Generating (${audiobookProgress.completedChapters}/${audiobookProgress.totalChapters})…`
+                    : "Queued…"
+                  : "Generate audiobook"}
               </button>
+
+              {/* Audio player */}
               {latestAudiobookAsset?.audio_url && (
-                <p className="mb-1 text-xs text-slate-500 dark:text-white/50">Asset: {latestAudiobookAsset.audio_url}</p>
+                <div className="mb-2">
+                  <audio controls className="w-full" src={latestAudiobookAsset.audio_url}>
+                    Your browser does not support the audio element.
+                  </audio>
+                </div>
               )}
-              {book.audiobook_status === "failed" && (
+
+              {/* Error display */}
+              {(book.audiobook_status === "failed" || audiobookError) && (
                 <p className="text-xs text-red-600 dark:text-red-400" role="alert">
                   {audiobookError ?? "Generation failed."}
                 </p>
