@@ -17,11 +17,17 @@ export function getTranslationsEnabled(): boolean {
 }
 
 export function getAudiobookEnabled(): boolean {
-  return parseBool(process.env.NEXT_PUBLIC_AUDIOBOOK_ENABLED);
+  // Default to false - audiobook generation endpoint is not yet implemented (501)
+  const value = process.env.NEXT_PUBLIC_AUDIOBOOK_ENABLED;
+  if (value === undefined || value === "") return false;
+  return value.toLowerCase() === "true" || value === "1";
 }
 
 export function getMarketingEnabled(): boolean {
-  return parseBool(process.env.NEXT_PUBLIC_MARKETING_ENABLED);
+  // Default to false - marketing dashboard components use mock data and have TODOs
+  const value = process.env.NEXT_PUBLIC_MARKETING_ENABLED;
+  if (value === undefined || value === "") return false;
+  return value.toLowerCase() === "true" || value === "1";
 }
 
 export function getDiscoveryEnabled(): boolean {
@@ -34,11 +40,17 @@ export function isTranslationsEnabled(): boolean {
 }
 
 export function isAudiobookEnabled(): boolean {
-  return parseBool(process.env.NEXT_PUBLIC_AUDIOBOOK_ENABLED ?? process.env.AUDIOBOOK_ENABLED);
+  // Default to false - audiobook generation endpoint is not yet implemented (501)
+  const value = process.env.NEXT_PUBLIC_AUDIOBOOK_ENABLED ?? process.env.AUDIOBOOK_ENABLED;
+  if (value === undefined || value === "") return false;
+  return value.toLowerCase() === "true" || value === "1";
 }
 
 export function isMarketingEnabled(): boolean {
-  return parseBool(process.env.NEXT_PUBLIC_MARKETING_ENABLED ?? process.env.MARKETING_ENABLED);
+  // Default to false - marketing dashboard components use mock data and have TODOs
+  const value = process.env.NEXT_PUBLIC_MARKETING_ENABLED ?? process.env.MARKETING_ENABLED;
+  if (value === undefined || value === "") return false;
+  return value.toLowerCase() === "true" || value === "1";
 }
 
 export function isDiscoveryEnabled(): boolean {
