@@ -2,16 +2,16 @@ import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { assertPublicEnv } from "@/lib/env";
 import { normalizeLanguage } from "@/lib/languages";
+import { requireAuthorRoleForApi } from "@/lib/auth/require-author";
 
 export async function POST(request: Request) {
   assertPublicEnv();
+
+  // SECURITY: Require author role for book creation
+  const { user, response } = await requireAuthorRoleForApi();
+  if (response) return response;
+
   const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-
-  if (!user) {
-    return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
-  }
-
   const body = await request.json().catch(() => ({}));
   const title = String(body?.title ?? "Untitled").trim() || "Untitled";
   const description = body?.description != null ? String(body.description).trim() || null : null;

@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { assertPublicEnv } from "@/lib/env";
+import { requireAuthorRoleForApi } from "@/lib/auth/require-author";
 
 export async function DELETE(
   _request: Request,
@@ -9,13 +10,11 @@ export async function DELETE(
   assertPublicEnv();
   const { id } = await params;
 
+  // SECURITY: Require author role for book deletion
+  const { user, response } = await requireAuthorRoleForApi();
+  if (response) return response;
+
   const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-
-  if (!user) {
-    return NextResponse.json({ ok: false, error: "Not authenticated" }, { status: 401 });
-  }
-
   const { data: book, error: bookError } = await supabase
     .from("books")
     .select("id, author_id")

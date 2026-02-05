@@ -2,9 +2,9 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import CreateBookEntry from "./CreateBookEntry";
-import DeleteBookButton from "@/components/books/DeleteBookButton";
+import BooksListClient from "./BooksListClient";
 
-export default async function authorBooksPage() {
+export default async function AuthorBooksPage() {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
 
@@ -20,61 +20,35 @@ export default async function authorBooksPage() {
 
   return (
     <main className="min-h-screen bg-background text-foreground">
-      <div className="mx-auto max-w-[800px] px-6 py-12">
+      <div className="mx-auto max-w-[900px] px-6 py-12">
+        {/* Header */}
         <div className="mb-8 flex flex-wrap items-center justify-between gap-4">
-          <h1 className="text-2xl font-semibold text-slate-900 dark:text-white">
-            My books
-          </h1>
+          <div>
+            <h1 className="text-2xl font-semibold text-slate-900 dark:text-white">
+              My books
+            </h1>
+            <p className="mt-1 text-sm text-slate-500 dark:text-white/50">
+              {books && books.length > 0
+                ? `${books.length} ${books.length === 1 ? "book" : "books"} in your library`
+                : "Start writing your first book"}
+            </p>
+          </div>
           <CreateBookEntry />
         </div>
 
-        {!books || books.length === 0 ? (
-          <div className="rounded-xl border border-slate-200 bg-slate-50/50 p-12 text-center dark:border-white/10 dark:bg-white/5">
-            <p className="text-slate-600 dark:text-white/60">
-              No books yet. Create your first book to get started.
-            </p>
-            <p className="mt-4 text-sm text-slate-500 dark:text-white/50">
-              Use the Create book button above to start a new draft.
-            </p>
-          </div>
-        ) : (
-          <ul className="space-y-2">
-            {books.map((book) => (
-              <li key={book.id} className="flex items-center gap-3">
-                <Link
-                  href={`/author/books/${book.id}`}
-                  className="flex flex-1 items-center justify-between rounded-lg border border-slate-200 bg-white px-4 py-3 transition hover:bg-slate-50 dark:border-white/10 dark:bg-white/5 dark:hover:bg-white/10"
-                >
-                  <span className="font-medium text-slate-900 dark:text-white">
-                    {book.title || "Untitled"}
-                  </span>
-                  <span
-                    className={`rounded-full px-2 py-1 text-xs font-medium ${
-                      book.status === "PUBLISHED"
-                        ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400"
-                        : "bg-slate-100 text-slate-600 dark:bg-white/10 dark:text-white/60"
-                    }`}
-                  >
-                    {book.status}
-                  </span>
-                </Link>
-                <DeleteBookButton
-                  bookId={book.id}
-                  bookTitle={book.title}
-                  label="Delete"
-                  className="rounded-lg border border-red-200 bg-white px-3 py-2 text-xs font-semibold text-red-700 transition hover:bg-red-50 dark:border-red-900/50 dark:bg-white/10 dark:text-red-200 dark:hover:bg-red-950/30"
-                />
-              </li>
-            ))}
-          </ul>
-        )}
+        {/* Books List with Search/Filter/Sort */}
+        <BooksListClient books={books ?? []} />
 
-        <p className="mt-8">
+        {/* Back link */}
+        <p className="mt-10">
           <Link
             href="/author/home"
-            className="text-sm text-slate-500 hover:text-slate-900 dark:text-white/50 dark:hover:text-white"
+            className="inline-flex items-center gap-1.5 text-sm text-slate-500 transition hover:text-slate-900 dark:text-white/50 dark:hover:text-white"
           >
-            ← Back to overview
+            <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M10.5 19.5L3 12m0 0l7.5-7.5M3 12h18" />
+            </svg>
+            Back to overview
           </Link>
         </p>
       </div>

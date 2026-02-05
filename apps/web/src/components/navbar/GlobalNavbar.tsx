@@ -61,6 +61,14 @@ const dropdownHeaderMeta: Record<
     title: "Books",
     description: "Manage drafts, published books, and shelves.",
   },
+  Product: {
+    title: "Product",
+    description: "Explore the Verkli platform and core capabilities.",
+  },
+  App: {
+    title: "App",
+    description: "Get the reader app and learn how it works.",
+  },
 };
 
 const dropdownItemMeta: Record<
@@ -182,6 +190,53 @@ const dropdownItemMeta: Record<
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.6} className="h-4 w-4">
           <path strokeLinecap="round" strokeLinejoin="round" d="M6.5 12.5l3.5 3.5 7-7" />
           <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 5.5h15v13h-15z" />
+        </svg>
+      ),
+    },
+  },
+  Product: {
+    Product: {
+      description: "Platform overview and key features.",
+      icon: (
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.6} className="h-4 w-4">
+          <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 7.5h15M4.5 12h15M4.5 16.5h10" />
+        </svg>
+      ),
+    },
+    "How it works": {
+      description: "See the workflow from idea to published story.",
+      icon: (
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.6} className="h-4 w-4">
+          <path strokeLinecap="round" strokeLinejoin="round" d="M12 6.5v5l3 1.5" />
+          <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12a7.5 7.5 0 1 0 7.5-7.5" />
+        </svg>
+      ),
+    },
+    "Case studies": {
+      description: "Real author stories and outcomes.",
+      icon: (
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.6} className="h-4 w-4">
+          <path strokeLinecap="round" strokeLinejoin="round" d="M7.5 6.5h9a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2h-9a2 2 0 0 1-2-2v-8a2 2 0 0 1 2-2Z" />
+          <path strokeLinecap="round" strokeLinejoin="round" d="M9.5 10h5M9.5 13.5h3" />
+        </svg>
+      ),
+    },
+  },
+  App: {
+    "App overview": {
+      description: "What the reader app includes.",
+      icon: (
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.6} className="h-4 w-4">
+          <path strokeLinecap="round" strokeLinejoin="round" d="M7 4.5h10a2 2 0 0 1 2 2v11a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2v-11a2 2 0 0 1 2-2Z" />
+          <path strokeLinecap="round" strokeLinejoin="round" d="M9 7.5h6M9 11h6M9 14.5h4" />
+        </svg>
+      ),
+    },
+    "How it works": {
+      description: "Step-by-step reader flow.",
+      icon: (
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.6} className="h-4 w-4">
+          <path strokeLinecap="round" strokeLinejoin="round" d="M6.5 7.5h11M6.5 12h11M6.5 16.5h7" />
         </svg>
       ),
     },
@@ -364,13 +419,24 @@ export default function GlobalNavbar({
   const [loading, setLoading] = useState(true);
   const [searchValue, setSearchValue] = useState("");
   const [currentRole, setCurrentRole] = useState<"author" | "reader">("author");
+  // SECURITY: Track original signup role - readers can NEVER switch to author
+  const [originalRole, setOriginalRole] = useState<"author" | "reader" | undefined>(undefined);
 
   useEffect(() => {
     const supabase = createClient();
     const resolveRole = async (activeUser: User | null) => {
       if (!activeUser) {
         setCurrentRole("author");
+        setOriginalRole(undefined);
         return;
+      }
+
+      // SECURITY: Original signup role determines permissions - this is immutable
+      const signupRole = activeUser.user_metadata?.role;
+      if (signupRole === "author" || signupRole === "reader") {
+        setOriginalRole(signupRole);
+      } else {
+        setOriginalRole(undefined);
       }
 
       let nextRole: "author" | "reader" = "author";
@@ -406,6 +472,7 @@ export default function GlobalNavbar({
       if (event === "SIGNED_OUT") {
         setUser(null);
         setCurrentRole("author");
+        setOriginalRole(undefined);
       } else if (event === "SIGNED_IN" && session?.user) {
         setUser(session.user);
         void resolveRole(session.user);
@@ -828,7 +895,7 @@ export default function GlobalNavbar({
                   )}
 
                   {showProfileMenu && (
-                    <UserMenu user={user} onSignOut={handleSignOut} currentRole={displayRoleForMenu} />
+                    <UserMenu user={user} onSignOut={handleSignOut} currentRole={displayRoleForMenu} originalRole={originalRole} />
                   )}
                 </>
               ) : (
@@ -921,7 +988,7 @@ export default function GlobalNavbar({
 
                   {/* User menu för inloggade användare (ej author route) */}
                   {user && showProfileMenu && (
-                    <UserMenu user={user} onSignOut={handleSignOut} currentRole={displayRoleForMenu} />
+                    <UserMenu user={user} onSignOut={handleSignOut} currentRole={displayRoleForMenu} originalRole={originalRole} />
                   )}
                 </>
               )}

@@ -4,6 +4,7 @@ import "./globals.css";
 import "../components/GridMotion.css";
 import "../components/GlassSurface.css";
 import GlobalThemeToggle from "@/components/GlobalThemeToggle";
+import { ToastProvider } from "@/components/ui/Toast";
 
 const inter = Inter({
   variable: "--font-inter",
@@ -41,12 +42,14 @@ export default function RootLayout({
         className={`${inter.variable} ${montserratAlternates.variable} antialiased flex min-h-screen min-h-dvh min-h-svh flex-col`}
       >
         <script dangerouslySetInnerHTML={{ __html: themeScript }} />
-        {/* Innehåll först i DOM; navbar renderas via route-group layouts */}
-        <div className="relative z-0 flex min-h-0 flex-1 flex-col overflow-x-hidden">
-          {children}
-        </div>
-        {/* Tema-växling fast i nedre högra hörnet på alla sidor */}
-        <GlobalThemeToggle />
+        <ToastProvider>
+          {/* Content first in DOM; navbar rendered via route-group layouts */}
+          <div className="relative z-0 flex min-h-0 flex-1 flex-col overflow-x-hidden">
+            {children}
+          </div>
+          {/* Theme toggle fixed in bottom right corner on all pages */}
+          <GlobalThemeToggle />
+        </ToastProvider>
       </body>
     </html>
   );
