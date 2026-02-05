@@ -632,6 +632,10 @@ function Dashboard({ user }: { user: User }) {
     () => libraryCards.filter((book) => book.tag === "DRAFT"),
     [libraryCards]
   );
+  const standalonePublishedBooks = useMemo(
+    () => standaloneBooks.filter((book) => book.status === "PUBLISHED"),
+    [standaloneBooks]
+  );
 
   const continueReadingCards = publishedLibraryCards.slice(0, 6);
   const trendingCards = publishedLibraryCards.slice(0, 8);
@@ -932,16 +936,22 @@ function Dashboard({ user }: { user: User }) {
                 <div className="mt-8 border-t border-black/10 dark:border-white/[0.06] pt-8">
                   <h3 className="mb-6 text-[20px] font-semibold text-slate-900 dark:text-white">Standalone books</h3>
                   <div className="flex flex-wrap gap-4">
-                    {standaloneBooks.map((book) => (
-                      <div key={book.id} className="shrink-0">
-                        <BookCard
-                        book={book}
-                        size="sm"
-                        onClick={() => router.push(`/author/books/${book.id}`)}
-                        showStats={false}
-                      />
-                      </div>
-                    ))}
+                    {standalonePublishedBooks.length > 0 ? (
+                      standalonePublishedBooks.map((book) => (
+                        <div key={book.id} className="shrink-0">
+                          <BookCard
+                            book={book}
+                            size="sm"
+                            onClick={() => router.push(`/author/books/${book.id}`)}
+                            showStats={false}
+                          />
+                        </div>
+                      ))
+                    ) : (
+                      <p className="text-[13px] text-slate-600 dark:text-white/50">
+                        No published standalone books yet.
+                      </p>
+                    )}
                     <button
                       onClick={handleCreateBook}
                       className="flex h-[200px] w-[140px] shrink-0 items-center justify-center rounded-2xl border-2 border-dashed border-black/20 dark:border-white/10 bg-black/[0.02] dark:bg-white/[0.02] transition-all hover:border-[#907AFF]/30 hover:bg-black/[0.01] dark:hover:bg-white/[0.04]"

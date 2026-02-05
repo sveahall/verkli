@@ -102,7 +102,7 @@ export default async function BookDetailPage({
 
   return (
     <main className="min-h-screen bg-background text-foreground">
-      <header className="mx-auto max-w-[1200px] px-6 pt-10">
+      <header className="mx-38 max-w-[1200px] px-0 pt-10">
         <Link
           href="/author/books"
           className="inline-flex items-center gap-2 text-sm text-slate-500 transition-colors hover:text-slate-900 dark:text-white/60 dark:hover:text-white"
