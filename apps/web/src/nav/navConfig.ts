@@ -102,6 +102,7 @@ export const NAV_CONFIG: Record<NavVariant, NavConfig> = {
           { label: "Published", href: "/author/books" },
         ],
       },
+      { label: "Marketing Portal", href: "/author/marketing" },
       ...(MVP_MODE ? [] : [
         {
           label: "Marketing Tools",

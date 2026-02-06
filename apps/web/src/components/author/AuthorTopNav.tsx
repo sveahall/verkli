@@ -18,6 +18,7 @@ const glassBaseProps = {
 
 const navItems = [
   { label: "Dashboard", href: "/author/home" },
+  { label: "Marketing Portal", href: "/author/marketing" },
   { label: "Profile", href: "/author/profile" },
   { label: "Settings", href: "/author/settings" },
 ];
