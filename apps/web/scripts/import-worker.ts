@@ -69,6 +69,40 @@ async function processJob(payload: {
 
   try {
     console.log("[import worker] job received — importId:", importId, "storage:", fileStorage);
+
+    // Idempotency: check if import already completed with chapters
+    const { data: existingImport } = await supabase
+      .from("book_imports")
+      .select("id, status, book_version_id")
+      .eq("id", importId)
+      .single();
+
+    if (existingImport?.book_version_id) {
+      const { count: existingChapters } = await supabase
+        .from("chapters")
+        .select("id", { count: "exact", head: true })
+        .eq("book_version_id", existingImport.book_version_id);
+
+      if (existingChapters && existingChapters > 0) {
+        console.log("[import worker] idempotent skip — chapters already exist for version:", existingImport.book_version_id, "count:", existingChapters);
+        await updateProgress("completed", 100);
+        return;
+      }
+    }
+
+    // Auth isolation: verify authorId matches book_imports.author_id
+    const { data: importRecord } = await supabase
+      .from("book_imports")
+      .select("author_id")
+      .eq("id", importId)
+      .single();
+
+    if (importRecord && importRecord.author_id !== authorId) {
+      console.error("[import worker] ownership mismatch — payload authorId:", authorId, "import authorId:", importRecord.author_id);
+      await updateProgress("failed", 0, "Ownership mismatch: authorId does not match import owner");
+      return;
+    }
+
     await updateProgress("extracting", 10);
 
     console.log("[import worker] extracting file...");

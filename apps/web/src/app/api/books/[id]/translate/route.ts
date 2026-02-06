@@ -206,6 +206,7 @@ export async function POST(
     targetLanguage,
     targetVersionId,
     overwrite,
+    authorId: user.id,
   });
 
   if (!jobId) {

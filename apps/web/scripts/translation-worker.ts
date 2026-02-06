@@ -124,6 +124,11 @@ async function processJob(payload: TranslationJobData) {
       throw new Error(bookFetchError?.message ?? "Book not found");
     }
 
+    // Auth isolation: verify payload authorId matches book owner
+    if (payload.authorId && book.author_id !== payload.authorId) {
+      throw new Error("Ownership mismatch: authorId does not match book owner");
+    }
+
     const { data: sourceVersion, error: sourceVersionError } = await supabase
       .from("book_versions")
       .select("id, book_id, language_code")
@@ -259,20 +264,23 @@ async function processJob(payload: TranslationJobData) {
         }
       }
       const hash = contentHash(translatedContent);
-      const { error: insertError } = await supabase.from("chapters").insert({
-        book_id: bookId,
-        book_version_id: resolvedTargetVersionId,
-        title: ch.title ?? `Chapter ${i + 1}`,
-        content: translatedContent,
-        source_text: sourceContent,
-        content_hash: hash,
-        order: i,
-      });
-      if (insertError) {
-        console.error("[translation worker] chapter insert failed:", insertError.message, insertError.details, insertError.hint);
-        throw new Error(`Failed to insert translated chapter: ${insertError.message}`);
+      const { error: upsertError } = await supabase.from("chapters").upsert(
+        {
+          book_id: bookId,
+          book_version_id: resolvedTargetVersionId,
+          title: ch.title ?? `Chapter ${i + 1}`,
+          content: translatedContent,
+          source_text: sourceContent,
+          content_hash: hash,
+          order: i,
+        },
+        { onConflict: "book_version_id,order" }
+      );
+      if (upsertError) {
+        console.error("[translation worker] chapter upsert failed:", upsertError.message, upsertError.details, upsertError.hint);
+        throw new Error(`Failed to upsert translated chapter: ${upsertError.message}`);
       }
-      console.log("[translation worker] chapter inserted — order:", i, "title:", ch.title);
+      console.log("[translation worker] chapter upserted — order:", i, "title:", ch.title);
     }
 
     await supabase.from("book_versions").update({ status: "done" }).eq("id", resolvedTargetVersionId);
