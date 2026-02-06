@@ -23,6 +23,7 @@ import { synthesizeTextToWavBytes } from "../src/lib/tts/piper";
 import { getTtsStorageBucket } from "../src/lib/tts/storage";
 import { QUEUE_NAMES } from "../src/lib/queue-names";
 import type { AudiobookJobData } from "../src/lib/audiobook-queue";
+import { getNarrator } from "../src/lib/ai/providers";
 
 const QUEUE_NAME = QUEUE_NAMES.AUDIOBOOK;
 const BUCKET = getTtsStorageBucket();
@@ -302,9 +303,10 @@ async function processJob(payload: AudiobookJobData) {
           audioUrl = urlData?.publicUrl;
         }
       } else {
-        // No cache, synthesize new audio
-        console.log(`[audiobook worker] chapter ${i} synthesizing: "${chapter.title}"`);
-        const wav = await synthesizeTextToWavBytes(text);
+        // No cache, synthesize new audio via provider registry
+        console.log(`[audiobook worker] chapter ${i} synthesizing via provider: "${chapter.title}"`);
+        const narrator = getNarrator();
+        const { audioBuffer: wav } = await narrator.narrate({ text });
         audioPath = path.join(tmpDir, `chapter-${i}.wav`);
         await fs.writeFile(audioPath, wav);
         durationSeconds = estimateWavDuration(wav);

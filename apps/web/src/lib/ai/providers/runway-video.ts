@@ -6,6 +6,7 @@
  */
 
 import type { VideoProvider, VideoGenerateOptions, VideoGenerateResult } from "./types";
+import { AIProviderError } from "./types";
 import { makeVideo, type TextToVideoOptions } from "@/lib/ai/textToVideo";
 
 export class RunwayVideoProvider implements VideoProvider {
@@ -22,9 +23,12 @@ export class RunwayVideoProvider implements VideoProvider {
       audio,
     };
 
-    const result = await makeVideo(runwayOptions);
-
-    return { output: result.output };
+    try {
+      const result = await makeVideo(runwayOptions);
+      return { output: result.output };
+    } catch (err) {
+      throw AIProviderError.fromError(err, this.name);
+    }
   }
 
   private mapDuration(duration?: number): 4 | 6 | 8 {

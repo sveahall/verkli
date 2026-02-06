@@ -26,7 +26,11 @@ export type {
   VideoProvider,
   VideoGenerateOptions,
   VideoGenerateResult,
+  AIProviderErrorCode,
 } from "./types";
+
+// Error class
+export { AIProviderError } from "./types";
 
 // Default provider instances
 import { opusTranslator, OpusTranslator } from "./opus-translator";

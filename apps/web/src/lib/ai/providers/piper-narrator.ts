@@ -6,6 +6,7 @@
  */
 
 import type { NarratorProvider, NarrateOptions, NarrateResult } from "./types";
+import { AIProviderError } from "./types";
 import { synthesizeTextToWavBytes } from "@/lib/tts/piper";
 
 const DEFAULT_VOICE = "sv_SE-nst-medium";
@@ -17,7 +18,12 @@ export class PiperNarrator implements NarratorProvider {
     const { text } = options;
     // voiceId and language are configured via env vars in piper.ts
 
-    const audioBuffer = await synthesizeTextToWavBytes(text);
+    let audioBuffer: Buffer;
+    try {
+      audioBuffer = await synthesizeTextToWavBytes(text);
+    } catch (err) {
+      throw AIProviderError.fromError(err, this.name);
+    }
 
     // Estimate duration from WAV buffer (assumes standard WAV header)
     let durationSeconds: number | undefined;
