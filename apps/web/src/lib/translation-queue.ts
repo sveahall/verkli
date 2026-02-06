@@ -42,6 +42,7 @@ export type TranslationJobData = {
   targetLanguage: string;
   targetVersionId?: string | null;
   overwrite?: boolean;
+  authorId?: string;
 };
 
 export async function enqueueTranslationJob(data: TranslationJobData): Promise<string | null> {

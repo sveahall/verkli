@@ -194,6 +194,24 @@ async function processJob(payload: AudiobookJobData) {
   try {
     console.log("[audiobook worker] job started -", jobId, "bookId:", bookId, "versionId:", bookVersionId);
 
+    // Auth isolation: verify userId matches book owner
+    const { data: book, error: bookError } = await supabase
+      .from("books")
+      .select("author_id")
+      .eq("id", bookId)
+      .single();
+
+    if (bookError || !book) {
+      throw new Error(bookError?.message ?? "Book not found");
+    }
+
+    if (book.author_id !== userId) {
+      const errMsg = "Ownership mismatch: userId does not match book owner";
+      console.error("[audiobook worker]", errMsg, "payload userId:", userId, "book author_id:", book.author_id);
+      await updateJob("failed", {}, errMsg);
+      return;
+    }
+
     await updateJob("processing", { started_at: new Date().toISOString() });
     await updateBookStatus("generating");
 
