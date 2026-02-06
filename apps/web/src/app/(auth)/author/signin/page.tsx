@@ -83,7 +83,7 @@ export default function authorSignIn() {
       {/* Simple mouse-tracked radial gradient background */}
       <div className="fixed inset-0 z-0 overflow-hidden">
         {/* Base gradient */}
-        <div className="absolute inset-0 bg-gradient-to-br from-[#907AFF]/10 via-[#E29ED5]/8 to-[#FCC997]/10 dark:from-slate-900/95 dark:via-purple-950/90 dark:to-slate-900/95" />
+        <div className="absolute inset-0 bg-gradient-to-br from-verkli-primary/10 via-verkli-secondary/8 to-verkli-accent/10 dark:from-slate-900/95 dark:via-purple-950/90 dark:to-slate-900/95" />
         
         {/* Single mouse-tracked radial gradient circle with smooth continuous movement */}
         <div 
@@ -188,7 +188,7 @@ export default function authorSignIn() {
                   type="checkbox"
                   checked={staySignedIn}
                   onChange={(e) => setStaySignedIn(e.target.checked)}
-                  className="h-4 w-4 rounded border-black/20 dark:border-white/20 bg-white dark:bg-black/20 text-[#907AFF] focus:ring-[#907AFF]/50 focus:ring-offset-0"
+                  className="h-4 w-4 rounded border-slate-300 bg-white text-verkli-primary focus:ring-verkli-primary/50 focus:ring-offset-0 dark:border-white/20 dark:bg-white/10"
                 />
                 <span className="text-sm text-slate-700 dark:text-white/70">Stay signed in</span>
               </label>

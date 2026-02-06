@@ -103,16 +103,16 @@ export default function ReaderAppShell({ children }: { children: ReactNode }) {
                   key={item.label}
                   href={item.href}
                   aria-current={active ? "page" : undefined}
-                  className={`flex min-h-[44px] min-w-[44px] flex-1 flex-col items-center gap-1 rounded-2xl px-2 py-2 text-[11px] font-medium transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#907AFF]/40 focus-visible:ring-offset-2 focus-visible:ring-offset-white dark:focus-visible:ring-offset-[#0b0b12] ${
+                  className={`flex min-h-[44px] min-w-[44px] flex-1 flex-col items-center gap-1 rounded-2xl px-2 py-2 text-[11px] font-medium transition-all focus-ring ${
                     active
                       ? "text-slate-900 dark:text-white"
                       : "text-slate-500 hover:text-slate-800 dark:text-white/60 dark:hover:text-white"
                   }`}
                 >
                   <span
-                    className={`flex h-9 w-9 items-center justify-center rounded-xl transition-colors ${
+                    className={`flex h-10 w-10 items-center justify-center rounded-xl transition-colors ${
                       active
-                        ? "bg-slate-900 text-white shadow-md shadow-slate-900/10 dark:bg-white dark:text-slate-900"
+                        ? "bg-verkli-primary text-white shadow-md shadow-verkli-primary/20"
                         : "bg-slate-100 text-slate-600 dark:bg-white/10 dark:text-white/70"
                     }`}
                   >

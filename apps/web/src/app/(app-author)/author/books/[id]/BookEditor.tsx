@@ -9,6 +9,8 @@ import TiptapEditor from "@/components/editor/TiptapEditor";
 import AuthorStatsBar from "@/components/editor/AuthorStatsBar";
 import CommandPalette from "@/components/editor/CommandPalette";
 import DeleteBookButton from "@/components/books/DeleteBookButton";
+import { useToastHelpers } from "@/components/ui/Toast";
+import { ConfirmModal } from "@/components/ui/ConfirmModal";
 import { getAudiobookEnabled, getMarketingEnabled, getTranslationsEnabled } from "@/lib/flags";
 import { getLanguageLabel, LANGUAGE_OPTIONS, normalizeLanguage, type SupportedLanguage } from "@/lib/languages";
 
@@ -165,6 +167,7 @@ export default function BookEditor({
 }: Props) {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const toast = useToastHelpers();
   const [chapters, setChapters] = useState<Chapter[]>(initialChapters);
   const [selectedChapterId, setSelectedChapterId] = useState<string | null>(
     initialChapters[0]?.id ?? null
@@ -228,11 +231,16 @@ export default function BookEditor({
   const translationPollStartedAtRef = useRef<number>(0);
   const [isGeneratingAudiobook, setIsGeneratingAudiobook] = useState(false);
   const [audiobookError, setAudiobookError] = useState<string | null>(null);
+  const [audiobookLinkCopied, setAudiobookLinkCopied] = useState(false);
   const [ttsStatus, setTtsStatus] = useState<"idle" | "generating" | "uploading" | "done" | "error">("idle");
   const [ttsMessage, setTtsMessage] = useState<string | null>(null);
   const [ttsManualSteps, setTtsManualSteps] = useState<string | null>(null);
   const [ttsAudioUrl, setTtsAudioUrl] = useState<string | null>(null);
   const [ttsVoice, setTtsVoice] = useState<string>("default");
+  const [showOverwriteConfirm, setShowOverwriteConfirm] = useState(false);
+  const [pendingTranslationOverwrite, setPendingTranslationOverwrite] = useState<{
+    existingVersionId: string;
+  } | null>(null);
   const savingRef = useRef(false);
   const coverInputRef = useRef<HTMLInputElement>(null);
   const publishMenuButtonRef = useRef<HTMLButtonElement>(null);
@@ -396,13 +404,13 @@ export default function BookEditor({
     if (!isPollingTranslation || !lastRequestedTargetLanguage) return;
     if (requestedTargetVersion?.status === "done" || requestedTargetVersion?.published_at) {
       stopTranslationPoll();
-      setTranslateMessage(`Översättning klar (${getLanguageLabel(lastRequestedTargetLanguage)}).`);
+      setTranslateMessage(`Translation complete (${getLanguageLabel(lastRequestedTargetLanguage)}).`);
       setLastRequestedTargetLanguage(null);
       return;
     }
     if (requestedTargetVersion?.status === "failed") {
       stopTranslationPoll();
-      setTranslateMessage("Översättningen misslyckades. Försök igen.");
+      setTranslateMessage("Translation failed. Please try again.");
       setLastRequestedTargetLanguage(null);
     }
   }, [isPollingTranslation, lastRequestedTargetLanguage, requestedTargetVersion, stopTranslationPoll]);
@@ -436,7 +444,7 @@ export default function BookEditor({
       const elapsed = Date.now() - translationPollStartedAtRef.current;
       if (elapsed >= TRANSLATION_POLL_MAX_MS && status === "none") {
         stopTranslationPoll();
-        setTranslateMessage("Översättning tar för lång tid. Försök igen.");
+        setTranslateMessage("Translation timed out. Please try again.");
         setLastRequestedTargetLanguage(null);
         return;
       }
@@ -450,35 +458,41 @@ export default function BookEditor({
     setTranslateMessage(null);
 
     if (!activeVersion?.id) {
-      setTranslateMessage("Ingen aktiv version hittades.");
+      setTranslateMessage("No active version found.");
       setIsStartingTranslation(false);
       return;
     }
 
     const existingVersion = versionsByLang.get(normalizeLangKey(translateTargetLanguage));
     if (existingVersion?.status === "translating") {
-      setTranslateMessage("Översättning pågår redan. Väntar på att den blir klar…");
+      setTranslateMessage("Translation already in progress. Waiting for completion...");
       setLastRequestedTargetLanguage(translateTargetLanguage);
       startTranslationPoll();
       setIsStartingTranslation(false);
       return;
     }
 
-    let overwrite = false;
-    let targetVersionId: string | null = null;
+    // If version exists, show confirm modal instead of starting immediately
     if (existingVersion) {
-      const shouldOverwrite = window.confirm(
-        `En version på ${getLanguageLabel(translateTargetLanguage)} finns redan. Vill du skriva över den?`
-      );
-      if (!shouldOverwrite) {
-        router.push(`/author/books/${book.id}?lang=${normalizeLangKey(translateTargetLanguage)}`);
-        setIsStartingTranslation(false);
-        return;
-      }
-      overwrite = true;
-      targetVersionId = existingVersion.id;
+      setPendingTranslationOverwrite({ existingVersionId: existingVersion.id });
+      setShowOverwriteConfirm(true);
+      setIsStartingTranslation(false);
+      return;
     }
 
+    // No existing version, start translation directly
+    await executeTranslation(null, false);
+  }, [
+    isStartingTranslation,
+    translateTargetLanguage,
+    activeVersion?.id,
+    versionsByLang,
+  ]);
+
+  // Execute the actual translation API call
+  const executeTranslation = useCallback(async (targetVersionId: string | null, overwrite: boolean) => {
+    if (!activeVersion?.id) return;
+    setIsStartingTranslation(true);
     try {
       const res = await fetch(`/api/books/${book.id}/translate`, {
         method: "POST",
@@ -494,14 +508,14 @@ export default function BookEditor({
       if (!res.ok || data?.ok === false) {
         const errMsg = data?.error ?? "Failed to start translation";
         if (data?.existingVersionId) {
-          setTranslateMessage("Version finns redan. Öppnar befintlig version…");
+          setTranslateMessage("Version already exists. Opening existing version...");
           router.push(`/author/books/${book.id}?lang=${normalizeLangKey(translateTargetLanguage)}`);
           return;
         }
         setTranslateMessage(errMsg);
         return;
       }
-      setTranslateMessage("Översättning startad. Väntar på att den blir klar…");
+      setTranslateMessage("Translation started. Waiting for completion...");
       setLastRequestedTargetLanguage(translateTargetLanguage);
       startTranslationPoll();
     } catch (err) {
@@ -510,15 +524,22 @@ export default function BookEditor({
     } finally {
       setIsStartingTranslation(false);
     }
-  }, [
-    isStartingTranslation,
-    startTranslationPoll,
-    translateTargetLanguage,
-    activeVersion?.id,
-    versionsByLang,
-    book.id,
-    router,
-  ]);
+  }, [activeVersion?.id, book.id, translateTargetLanguage, router, startTranslationPoll]);
+
+  // Handle overwrite confirmation
+  const handleConfirmOverwrite = useCallback(() => {
+    if (!pendingTranslationOverwrite) return;
+    setShowOverwriteConfirm(false);
+    executeTranslation(pendingTranslationOverwrite.existingVersionId, true);
+    setPendingTranslationOverwrite(null);
+  }, [pendingTranslationOverwrite, executeTranslation]);
+
+  // Handle cancel overwrite - navigate to existing version
+  const handleCancelOverwrite = useCallback(() => {
+    setShowOverwriteConfirm(false);
+    setPendingTranslationOverwrite(null);
+    router.push(`/author/books/${book.id}?lang=${normalizeLangKey(translateTargetLanguage)}`);
+  }, [book.id, translateTargetLanguage, router]);
 
   const handlePublishAction = async (action: "publish" | "update" | "unpublish") => {
     if (isPublishing || !activeVersion?.id) return;
@@ -747,16 +768,17 @@ export default function BookEditor({
       });
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
-        alert(data.error ?? "Generate failed");
+        toast.error(data.error ?? "Failed to generate marketing copy");
         return;
       }
+      toast.success("Marketing copy generated");
       router.refresh();
     } catch {
-      alert("Generate failed");
+      toast.error("Failed to generate marketing copy");
     } finally {
       setIsGeneratingMarketing(false);
     }
-  }, [book.id, marketingLanguage, marketingChannel, isGeneratingMarketing, router]);
+  }, [book.id, marketingLanguage, marketingChannel, isGeneratingMarketing, router, toast]);
 
   const handleCopyMarketingToClipboard = useCallback(async () => {
     if (!currentCampaign) return;
@@ -849,7 +871,7 @@ export default function BookEditor({
         .single();
       if (versionError || !createdVersion?.id) {
         setIsCreating(false);
-        alert("Kunde inte skapa en version för boken. Kontrollera databasen och försök igen.");
+        toast.error("Could not create a version for this book. Please check the database and try again.");
         return;
       }
       targetVersionId = createdVersion.id;
@@ -878,7 +900,7 @@ export default function BookEditor({
       if (process.env.NODE_ENV === "development") {
         console.error("[createChapter failed]", error);
       }
-      alert(`Failed to create chapter: ${error.message || "Unknown error"}`);
+      toast.error(`Failed to create chapter: ${error.message || "Unknown error"}`);
       return;
     }
     if (data) {
@@ -1007,6 +1029,25 @@ export default function BookEditor({
           {publishToast}
         </div>
       )}
+
+      {/* Translation overwrite confirmation modal */}
+      <ConfirmModal
+        open={showOverwriteConfirm}
+        onConfirm={handleConfirmOverwrite}
+        onCancel={handleCancelOverwrite}
+        title="Overwrite existing translation?"
+        description={
+          <>
+            A <strong>{getLanguageLabel(translateTargetLanguage)}</strong> version already exists.
+            Overwriting will replace the current translation with a new one.
+          </>
+        }
+        confirmLabel="Overwrite"
+        cancelLabel="Open existing"
+        variant="warning"
+        loading={isStartingTranslation}
+      />
+
       <section className="mx-auto max-w-[1400px] px-6 py-12">
         {getTranslationsEnabled() && bookVersions.length > 1 && (
           <div className="mb-4 max-w-[320px]">
@@ -1409,7 +1450,7 @@ export default function BookEditor({
                   disabled={isStartingTranslation}
                   className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed dark:border-white/20 dark:bg-white/10 dark:text-white dark:hover:bg-white/15"
                 >
-                  {isStartingTranslation ? "Startar…" : "Start translation"}
+                  {isStartingTranslation ? "Starting..." : "Start translation"}
                 </button>
                 {currentTargetVersion && (
                   <button
@@ -1425,7 +1466,7 @@ export default function BookEditor({
                 {translateMessage && (
                   <div
                     className={`mt-3 rounded-lg border px-3 py-2 text-sm ${
-                      translationUiStatus === "done" || translateMessage.toLowerCase().includes("klar")
+                      translationUiStatus === "done" || translateMessage.toLowerCase().includes("complete")
                         ? "border-[#907AFF]/40 bg-[#907AFF]/10 text-[#5c4bb8] dark:border-[#907AFF]/40 dark:bg-[#907AFF]/15 dark:text-[#b8a9ff]"
                         : translationUiStatus === "error"
                           ? "border-red-200 bg-red-50 text-red-800 dark:border-red-800 dark:bg-red-950/30 dark:text-red-200"
@@ -1502,10 +1543,10 @@ export default function BookEditor({
                         if (url) {
                           try {
                             await navigator.clipboard.writeText(url);
-                            setTtsMessage("URL kopierad.");
+                            setTtsMessage("URL copied to clipboard.");
                             setTimeout(() => setTtsMessage(null), 2000);
                           } catch {
-                            setTtsMessage("Kunde inte kopiera.");
+                            setTtsMessage("Could not copy to clipboard.");
                           }
                         }
                       }}
@@ -1591,7 +1632,33 @@ export default function BookEditor({
                 {isGeneratingAudiobook ? "Generating…" : "Generate audiobook"}
               </button>
               {latestAudiobookAsset?.audio_url && (
-                <p className="mb-1 text-xs text-slate-500 dark:text-white/50">Asset: {latestAudiobookAsset.audio_url}</p>
+                <div className="mt-3 rounded-lg border border-slate-200 bg-white/70 p-3 text-xs text-slate-600 dark:border-white/10 dark:bg-white/5 dark:text-white/70">
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="text-[10px] font-semibold uppercase tracking-[0.2em] text-slate-500 dark:text-white/50">
+                      Asset link
+                    </span>
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        const url = latestAudiobookAsset.audio_url;
+                        if (url == null) return;
+                        try {
+                          await navigator.clipboard.writeText(url);
+                          setAudiobookLinkCopied(true);
+                          window.setTimeout(() => setAudiobookLinkCopied(false), 2000);
+                        } catch {
+                          setAudiobookLinkCopied(false);
+                        }
+                      }}
+                      className="rounded-full border border-slate-200 bg-white px-2.5 py-1 text-[11px] font-semibold text-slate-600 transition hover:bg-slate-50 dark:border-white/10 dark:bg-white/5 dark:text-white/70"
+                    >
+                      {audiobookLinkCopied ? "Copied" : "Copy link"}
+                    </button>
+                  </div>
+                  <p className="mt-2 break-all text-[11px] leading-relaxed text-slate-500 dark:text-white/40">
+                    {latestAudiobookAsset.audio_url}
+                  </p>
+                </div>
               )}
               {book.audiobook_status === "failed" && (
                 <p className="text-xs text-red-600 dark:text-red-400" role="alert">

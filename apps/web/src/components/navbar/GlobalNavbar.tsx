@@ -660,7 +660,7 @@ export default function GlobalNavbar({
 
               {/* Navigation links based on route */}
               {isauthorRoute && (
-                <div className="hidden items-center gap-5 text-[14px] font-medium text-slate-700/90 dark:text-white/80 lg:flex">
+                <div className="hidden items-center gap-5 text-[14px] font-medium text-slate-700/90 dark:text-white/80 md:flex">
                   {authorNavItems.map((item) => (
                     <div
                       key={item.label}
@@ -713,7 +713,7 @@ export default function GlobalNavbar({
               )}
 
               {isReaderRoute && (
-                <div className="hidden items-center gap-2 text-[14px] font-medium text-slate-700 dark:text-white/80 lg:flex">
+                <div className="hidden items-center gap-2 text-[14px] font-medium text-slate-700 dark:text-white/80 md:flex">
                   {readerNavItems.map((item) => {
                     const hasDropdown = item.hasDropdown ?? (item.children?.length ?? 0) > 0;
                     if (hasDropdown) {
@@ -776,7 +776,7 @@ export default function GlobalNavbar({
               )}
 
               {isPublicPage && (
-                <div className="hidden items-center gap-6 text-[15px] font-medium text-slate-700 dark:text-white/80 lg:flex">
+                <div className="hidden items-center gap-6 text-[15px] font-medium text-slate-700 dark:text-white/80 md:flex">
                   {publicNavItems.map((item) => (
                     <div
                       key={item.label}
@@ -835,8 +835,8 @@ export default function GlobalNavbar({
               <button
                 type="button"
                 onClick={() => setMobileMenuOpen((v) => !v)}
-                className="flex min-h-[44px] min-w-[44px] items-center justify-center rounded-full border border-slate-200/80 text-slate-700 transition-colors hover:bg-slate-100 hover:text-slate-900 focus:outline-none focus:ring-2 focus:ring-[#907AFF]/50 focus:ring-offset-2 dark:border-white/10 dark:text-white/80 dark:hover:bg-white/10 lg:hidden"
-                aria-label={mobileMenuOpen ? "Stäng meny" : "Öppna meny"}
+                className="btn-icon border border-slate-200/80 dark:border-white/15 md:!hidden"
+                aria-label={mobileMenuOpen ? "Close menu" : "Open menu"}
                 aria-expanded={mobileMenuOpen}
               >
                 {mobileMenuOpen ? (
@@ -902,7 +902,7 @@ export default function GlobalNavbar({
                 <>
                   {/* Sign in / Sign up – endast desktop; på mobil finns de i mobilmenyn och i hero */}
                   {!user && (
-                    <div className="hidden items-center gap-3 lg:flex">
+                    <div className="hidden items-center gap-3 md:flex">
                       {isPublicPage && (
                         <>
                           <Link
@@ -955,11 +955,11 @@ export default function GlobalNavbar({
                   )}
 
                   {/* Theme toggle och Language selector */}
-                  <div className="hidden items-center gap-3 md:flex">
+                  <div className="hidden items-center gap-2 md:flex">
                     {/* Language selector */}
                     <button
                       type="button"
-                      className="flex h-9 w-9 items-center justify-center rounded-full border border-black/10 bg-transparent text-slate-700 transition-colors hover:text-slate-900 dark:border-white/10 dark:text-white/80 dark:hover:text-white"
+                      className="btn-icon"
                       aria-label="Select language"
                     >
                       <svg
@@ -968,7 +968,6 @@ export default function GlobalNavbar({
                         viewBox="0 0 48 20"
                         fill="none"
                         xmlns="http://www.w3.org/2000/svg"
-                        className="text-slate-700 dark:text-white/80"
                       >
                         <path d="M11.5086 11.7646L7.74559 0.92622C7.71044 0.824993 7.56746 0.824502 7.53162 0.925485L3.63734 11.898" stroke="currentColor" strokeWidth="1.70079" strokeLinecap="round"/>
                         <path d="M5.07666 8.38086H10.1082" stroke="currentColor" strokeWidth="1.70079"/>
@@ -980,10 +979,7 @@ export default function GlobalNavbar({
                       </svg>
                     </button>
 
-                    <ThemeToggle
-                      useGlass={false}
-                      className="h-9 w-9"
-                    />
+                    <ThemeToggle useGlass={false} />
                   </div>
 
                   {/* User menu för inloggade användare (ej author route) */}
@@ -1000,7 +996,7 @@ export default function GlobalNavbar({
       {/* Mobilmeny – fullskärm med länkar + Sign in / Sign up */}
       {mobileMenuOpen && (
         <div
-          className="fixed inset-0 z-[998] lg:hidden"
+          className="fixed inset-0 z-[998] md:!hidden"
           aria-hidden="false"
         >
           <button

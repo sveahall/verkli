@@ -3,9 +3,11 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { LANGUAGE_OPTIONS, type SupportedLanguage } from "@/lib/languages";
+import { useToastHelpers } from "@/components/ui/Toast";
 
 export default function CreateBookForm() {
   const router = useRouter();
+  const toast = useToastHelpers();
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [language, setLanguage] = useState<SupportedLanguage>("en");
@@ -29,13 +31,14 @@ export default function CreateBookForm() {
       });
       const data = await res.json();
       if (!res.ok) {
-        alert(data.error || "Failed to create book");
+        toast.error(data.error || "Failed to create book");
         setLoading(false);
         return;
       }
+      toast.success(`"${data.title || "Book"}" created successfully`);
       router.push(`/author/books/${data.id}`);
-    } catch (err) {
-      alert("Failed to create book");
+    } catch {
+      toast.error("Failed to create book. Please try again.");
       setLoading(false);
     }
   };
@@ -96,9 +99,19 @@ export default function CreateBookForm() {
       <button
         type="submit"
         disabled={loading}
-        className="rounded-lg bg-slate-900 px-4 py-2 text-sm font-medium text-white transition hover:bg-slate-800 disabled:opacity-50 dark:bg-white dark:text-slate-900 dark:hover:bg-white/90"
+        className="rounded-lg bg-slate-900 px-4 py-2 text-sm font-medium text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-50 dark:bg-white dark:text-slate-900 dark:hover:bg-white/90"
       >
-        {loading ? "Creating..." : "Create book"}
+        {loading ? (
+          <span className="inline-flex items-center gap-2">
+            <svg className="h-4 w-4 animate-spin" viewBox="0 0 24 24" fill="none">
+              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+            </svg>
+            Creating...
+          </span>
+        ) : (
+          "Create book"
+        )}
       </button>
     </form>
   );

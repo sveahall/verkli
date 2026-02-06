@@ -4,6 +4,13 @@
 @custom-variant dark (&:is(.dark *));
 
 @theme inline {
+  /* Verkli Brand Colors */
+  --color-verkli-primary: var(--verkli-primary);
+  --color-verkli-primary-hover: var(--verkli-primary-hover);
+  --color-verkli-primary-light: var(--verkli-primary-light);
+  --color-verkli-secondary: var(--verkli-secondary);
+  --color-verkli-accent: var(--verkli-accent);
+
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --font-sans: var(--font-inter);
@@ -48,6 +55,14 @@
 
 :root {
   --radius: 0.625rem;
+
+  /* Verkli Brand Colors */
+  --verkli-primary: #907AFF;
+  --verkli-primary-hover: #8069EE;
+  --verkli-primary-light: #907AFF15;
+  --verkli-secondary: #E29ED5;
+  --verkli-accent: #FCC997;
+
   --background: oklch(1 0 0);
   --foreground: oklch(0.145 0 0);
   --card: oklch(1 0 0);
@@ -119,11 +134,23 @@
   color-scheme: dark;
 }
 
-/* Design system: page & section spacing (use across app) */
+/* ═══════════════════════════════════════════════════════════════════════════
+ * VERKLI DESIGN SYSTEM
+ * A comprehensive, consistent design system for 100/10 UX
+ * ═══════════════════════════════════════════════════════════════════════════ */
+
 @layer utilities {
+  /* ─────────────────────────────────────────────────────────────────────────
+   * TOUCH TARGETS & ACCESSIBILITY
+   * All interactive elements must meet 44x44px minimum
+   * ───────────────────────────────────────────────────────────────────────── */
   .touch-target {
     min-height: 44px;
     min-width: 44px;
+  }
+  .touch-target-lg {
+    min-height: 48px;
+    min-width: 48px;
   }
   .safe-area-inset-bottom {
     padding-bottom: env(safe-area-inset-bottom, 0);
@@ -131,12 +158,19 @@
   .safe-area-inset-top {
     padding-top: env(safe-area-inset-top, 0);
   }
-  /* Page content: consistent horizontal padding and vertical rhythm */
+
+  /* ─────────────────────────────────────────────────────────────────────────
+   * PAGE LAYOUT
+   * Consistent max-widths and padding across all pages
+   * ───────────────────────────────────────────────────────────────────────── */
   .page-content {
     @apply mx-auto w-full max-w-6xl px-4 sm:px-6 lg:px-10;
   }
   .page-content-narrow {
     @apply mx-auto w-full max-w-3xl px-4 sm:px-6;
+  }
+  .page-content-wide {
+    @apply mx-auto w-full max-w-7xl px-4 sm:px-6 lg:px-10;
   }
   .section-gap {
     @apply space-y-8 sm:space-y-10;
@@ -144,51 +178,397 @@
   .section-gap-lg {
     @apply space-y-12 sm:space-y-16;
   }
-  /* Typography hierarchy */
+
+  /* ─────────────────────────────────────────────────────────────────────────
+   * TYPOGRAPHY HIERARCHY
+   * Consistent text styles - use these instead of hardcoded sizes
+   * ───────────────────────────────────────────────────────────────────────── */
   .text-page-title {
-    @apply text-[28px] font-semibold tracking-tight text-slate-900 dark:text-white sm:text-[32px];
+    @apply text-[28px] font-semibold leading-tight tracking-tight text-slate-900 dark:text-white sm:text-[32px];
   }
   .text-section-title {
-    @apply text-[20px] font-semibold text-slate-900 dark:text-white sm:text-[22px];
+    @apply text-[20px] font-semibold leading-snug text-slate-900 dark:text-white sm:text-[22px];
+  }
+  .text-card-title {
+    @apply text-[16px] font-semibold leading-snug text-slate-900 dark:text-white;
   }
   .text-eyebrow {
-    @apply text-[12px] font-semibold uppercase tracking-[0.2em] text-slate-500 dark:text-white/50;
+    @apply text-[12px] font-semibold uppercase tracking-[0.2em] text-slate-500 dark:text-white/60;
   }
   .text-body {
-    @apply text-[15px] leading-relaxed text-slate-600 dark:text-white/60;
+    @apply text-[15px] leading-relaxed text-slate-600 dark:text-white/70;
+  }
+  .text-body-sm {
+    @apply text-[14px] leading-relaxed text-slate-600 dark:text-white/70;
   }
   .text-helper {
-    @apply text-[13px] text-slate-500 dark:text-white/50;
+    @apply text-[13px] leading-normal text-slate-500 dark:text-white/60;
   }
-  /* Buttons: primary (solid light, solid dark – no glass on buttons in light) */
+  .text-label {
+    @apply text-[12px] font-medium text-slate-500 dark:text-white/60;
+  }
+
+  /* ─────────────────────────────────────────────────────────────────────────
+   * BUTTON SYSTEM
+   * Three variants (primary, secondary, ghost) x three sizes (sm, md, lg)
+   * All buttons have consistent hover, focus, active, and disabled states
+   * ───────────────────────────────────────────────────────────────────────── */
+
+  /* Primary button - high emphasis CTA */
   .btn-primary {
-    @apply inline-flex min-h-[44px] min-w-[44px] items-center justify-center rounded-full px-6 py-3 text-[15px] font-medium transition focus:outline-none focus:ring-2 focus:ring-[#907AFF]/50 focus:ring-offset-2 focus:ring-offset-transparent disabled:opacity-50;
-    @apply bg-slate-900 text-white hover:bg-slate-800 active:scale-[0.98] dark:bg-white dark:text-slate-900 dark:hover:bg-white/90 dark:active:scale-[0.98];
+    @apply inline-flex items-center justify-center gap-2 font-medium transition-all duration-200;
+    @apply focus:outline-none focus-visible:ring-2 focus-visible:ring-verkli-primary/50 focus-visible:ring-offset-2 focus-visible:ring-offset-background;
+    @apply disabled:opacity-50 disabled:cursor-not-allowed disabled:pointer-events-none;
+    @apply active:scale-[0.98];
+    @apply min-h-[44px] min-w-[44px] rounded-xl px-5 py-2.5 text-[14px];
+    @apply bg-verkli-primary text-white;
+    @apply hover:bg-verkli-primary-hover hover:shadow-lg hover:shadow-verkli-primary/25;
   }
+  .btn-primary-sm {
+    @apply inline-flex items-center justify-center gap-2 font-medium transition-all duration-200;
+    @apply focus:outline-none focus-visible:ring-2 focus-visible:ring-verkli-primary/50 focus-visible:ring-offset-2 focus-visible:ring-offset-background;
+    @apply disabled:opacity-50 disabled:cursor-not-allowed disabled:pointer-events-none;
+    @apply active:scale-[0.98];
+    @apply min-h-[36px] min-w-[36px] rounded-lg px-3 py-1.5 text-[13px];
+    @apply bg-verkli-primary text-white;
+    @apply hover:bg-verkli-primary-hover;
+  }
+  .btn-primary-lg {
+    @apply inline-flex items-center justify-center gap-2 font-medium transition-all duration-200;
+    @apply focus:outline-none focus-visible:ring-2 focus-visible:ring-verkli-primary/50 focus-visible:ring-offset-2 focus-visible:ring-offset-background;
+    @apply disabled:opacity-50 disabled:cursor-not-allowed disabled:pointer-events-none;
+    @apply active:scale-[0.98];
+    @apply min-h-[52px] min-w-[52px] rounded-2xl px-7 py-3.5 text-[15px];
+    @apply bg-verkli-primary text-white;
+    @apply hover:bg-verkli-primary-hover hover:shadow-xl hover:shadow-verkli-primary/30;
+  }
+
+  /* Secondary button - medium emphasis */
   .btn-secondary {
-    @apply inline-flex min-h-[44px] min-w-[44px] items-center justify-center gap-2 rounded-full border border-slate-200/80 bg-white px-5 py-3 text-[14px] font-medium text-slate-700 transition hover:border-slate-300 hover:bg-slate-50 hover:text-slate-900 active:scale-[0.98] focus:outline-none focus:ring-2 focus:ring-[#907AFF]/40 focus:ring-offset-2 dark:border-white/10 dark:bg-white/5 dark:text-white/70 dark:hover:border-white/20 dark:hover:bg-white/10 dark:hover:text-white dark:active:scale-[0.98];
+    @apply inline-flex items-center justify-center gap-2 font-medium transition-all duration-200;
+    @apply focus:outline-none focus-visible:ring-2 focus-visible:ring-verkli-primary/50 focus-visible:ring-offset-2 focus-visible:ring-offset-background;
+    @apply disabled:opacity-50 disabled:cursor-not-allowed disabled:pointer-events-none;
+    @apply active:scale-[0.98];
+    @apply min-h-[44px] min-w-[44px] rounded-xl px-5 py-2.5 text-[14px];
+    @apply border border-slate-200 bg-white text-slate-700;
+    @apply hover:border-slate-300 hover:bg-slate-50 hover:text-slate-900;
+    @apply dark:border-white/15 dark:bg-white/5 dark:text-white/80;
+    @apply dark:hover:border-white/25 dark:hover:bg-white/10 dark:hover:text-white;
   }
+  .btn-secondary-sm {
+    @apply inline-flex items-center justify-center gap-2 font-medium transition-all duration-200;
+    @apply focus:outline-none focus-visible:ring-2 focus-visible:ring-verkli-primary/50 focus-visible:ring-offset-2 focus-visible:ring-offset-background;
+    @apply disabled:opacity-50 disabled:cursor-not-allowed disabled:pointer-events-none;
+    @apply active:scale-[0.98];
+    @apply min-h-[36px] min-w-[36px] rounded-lg px-3 py-1.5 text-[13px];
+    @apply border border-slate-200 bg-white text-slate-700;
+    @apply hover:border-slate-300 hover:bg-slate-50 hover:text-slate-900;
+    @apply dark:border-white/15 dark:bg-white/5 dark:text-white/80;
+    @apply dark:hover:border-white/25 dark:hover:bg-white/10 dark:hover:text-white;
+  }
+  .btn-secondary-lg {
+    @apply inline-flex items-center justify-center gap-2 font-medium transition-all duration-200;
+    @apply focus:outline-none focus-visible:ring-2 focus-visible:ring-verkli-primary/50 focus-visible:ring-offset-2 focus-visible:ring-offset-background;
+    @apply disabled:opacity-50 disabled:cursor-not-allowed disabled:pointer-events-none;
+    @apply active:scale-[0.98];
+    @apply min-h-[52px] min-w-[52px] rounded-2xl px-7 py-3.5 text-[15px];
+    @apply border border-slate-200 bg-white text-slate-700;
+    @apply hover:border-slate-300 hover:bg-slate-50 hover:text-slate-900;
+    @apply dark:border-white/15 dark:bg-white/5 dark:text-white/80;
+    @apply dark:hover:border-white/25 dark:hover:bg-white/10 dark:hover:text-white;
+  }
+
+  /* Ghost button - low emphasis */
   .btn-ghost {
-    @apply inline-flex min-h-[40px] min-w-[44px] items-center justify-center gap-2 rounded-full px-4 py-2 text-[14px] font-medium text-slate-600 transition hover:bg-slate-100 hover:text-slate-900 active:scale-[0.98] focus:outline-none focus:ring-2 focus:ring-[#907AFF]/40 focus:ring-offset-2 dark:text-white/60 dark:hover:bg-white/10 dark:hover:text-white dark:active:scale-[0.98];
+    @apply inline-flex items-center justify-center gap-2 font-medium transition-all duration-200;
+    @apply focus:outline-none focus-visible:ring-2 focus-visible:ring-verkli-primary/50 focus-visible:ring-offset-2 focus-visible:ring-offset-background;
+    @apply disabled:opacity-50 disabled:cursor-not-allowed disabled:pointer-events-none;
+    @apply active:scale-[0.98];
+    @apply min-h-[44px] min-w-[44px] rounded-xl px-5 py-2.5 text-[14px];
+    @apply bg-transparent text-slate-600;
+    @apply hover:bg-slate-100 hover:text-slate-900;
+    @apply dark:text-white/70 dark:hover:bg-white/10 dark:hover:text-white;
   }
-  /* Input base */
+  .btn-ghost-sm {
+    @apply inline-flex items-center justify-center gap-2 font-medium transition-all duration-200;
+    @apply focus:outline-none focus-visible:ring-2 focus-visible:ring-verkli-primary/50 focus-visible:ring-offset-2 focus-visible:ring-offset-background;
+    @apply disabled:opacity-50 disabled:cursor-not-allowed disabled:pointer-events-none;
+    @apply active:scale-[0.98];
+    @apply min-h-[36px] min-w-[36px] rounded-lg px-3 py-1.5 text-[13px];
+    @apply bg-transparent text-slate-600;
+    @apply hover:bg-slate-100 hover:text-slate-900;
+    @apply dark:text-white/70 dark:hover:bg-white/10 dark:hover:text-white;
+  }
+  .btn-ghost-lg {
+    @apply inline-flex items-center justify-center gap-2 font-medium transition-all duration-200;
+    @apply focus:outline-none focus-visible:ring-2 focus-visible:ring-verkli-primary/50 focus-visible:ring-offset-2 focus-visible:ring-offset-background;
+    @apply disabled:opacity-50 disabled:cursor-not-allowed disabled:pointer-events-none;
+    @apply active:scale-[0.98];
+    @apply min-h-[52px] min-w-[52px] rounded-2xl px-7 py-3.5 text-[15px];
+    @apply bg-transparent text-slate-600;
+    @apply hover:bg-slate-100 hover:text-slate-900;
+    @apply dark:text-white/70 dark:hover:bg-white/10 dark:hover:text-white;
+  }
+
+  /* Danger/destructive button */
+  .btn-danger {
+    @apply inline-flex items-center justify-center gap-2 font-medium transition-all duration-200;
+    @apply focus:outline-none focus-visible:ring-2 focus-visible:ring-red-500/50 focus-visible:ring-offset-2 focus-visible:ring-offset-background;
+    @apply disabled:opacity-50 disabled:cursor-not-allowed disabled:pointer-events-none;
+    @apply active:scale-[0.98];
+    @apply min-h-[44px] min-w-[44px] rounded-xl px-5 py-2.5 text-[14px];
+    @apply bg-red-600 text-white;
+    @apply hover:bg-red-700 hover:shadow-lg hover:shadow-red-600/25;
+  }
+  .btn-danger-sm {
+    @apply inline-flex items-center justify-center gap-2 font-medium transition-all duration-200;
+    @apply focus:outline-none focus-visible:ring-2 focus-visible:ring-red-500/50 focus-visible:ring-offset-2 focus-visible:ring-offset-background;
+    @apply disabled:opacity-50 disabled:cursor-not-allowed disabled:pointer-events-none;
+    @apply active:scale-[0.98];
+    @apply min-h-[36px] min-w-[36px] rounded-lg px-3 py-1.5 text-[13px];
+    @apply bg-red-600 text-white;
+    @apply hover:bg-red-700;
+  }
+
+  /* Icon-only button (circular) */
+  .btn-icon {
+    @apply inline-flex items-center justify-center gap-2 font-medium transition-all duration-200;
+    @apply focus:outline-none focus-visible:ring-2 focus-visible:ring-verkli-primary/50 focus-visible:ring-offset-2 focus-visible:ring-offset-background;
+    @apply disabled:opacity-50 disabled:cursor-not-allowed disabled:pointer-events-none;
+    @apply active:scale-[0.98];
+    @apply h-11 w-11 rounded-full p-0;
+    @apply bg-transparent text-slate-600;
+    @apply hover:bg-slate-100 hover:text-slate-900;
+    @apply dark:text-white/70 dark:hover:bg-white/10 dark:hover:text-white;
+  }
+  .btn-icon-sm {
+    @apply inline-flex items-center justify-center gap-2 font-medium transition-all duration-200;
+    @apply focus:outline-none focus-visible:ring-2 focus-visible:ring-verkli-primary/50 focus-visible:ring-offset-2 focus-visible:ring-offset-background;
+    @apply disabled:opacity-50 disabled:cursor-not-allowed disabled:pointer-events-none;
+    @apply active:scale-[0.98];
+    @apply h-9 w-9 rounded-full p-0;
+    @apply bg-transparent text-slate-600;
+    @apply hover:bg-slate-100 hover:text-slate-900;
+    @apply dark:text-white/70 dark:hover:bg-white/10 dark:hover:text-white;
+  }
+
+  /* ─────────────────────────────────────────────────────────────────────────
+   * INPUT SYSTEM
+   * Consistent form elements with proper states
+   * ───────────────────────────────────────────────────────────────────────── */
+
+  /* Base input styles */
   .input-base {
-    @apply w-full min-h-[44px] rounded-xl border border-slate-200 bg-white px-4 py-3 text-slate-900 placeholder:text-slate-400 transition focus:border-[#907AFF]/50 focus:outline-none focus:ring-2 focus:ring-[#907AFF]/30 focus:ring-offset-0 dark:border-white/10 dark:bg-white/[0.05] dark:text-white dark:placeholder:text-white/30;
+    @apply w-full min-h-[44px] rounded-xl border bg-white px-4 py-3;
+    @apply text-[14px] text-slate-900 placeholder:text-slate-400;
+    @apply transition-all duration-200;
+    @apply border-slate-200 focus:border-verkli-primary/50;
+    @apply focus:outline-none focus:ring-2 focus:ring-verkli-primary/20 focus:ring-offset-0;
+    @apply disabled:opacity-50 disabled:cursor-not-allowed disabled:bg-slate-50;
+    @apply dark:border-white/15 dark:bg-white/5 dark:text-white dark:placeholder:text-white/50;
+    @apply dark:focus:border-verkli-primary/50 dark:disabled:bg-white/5;
   }
-  /* Card container */
+
+  .input-sm {
+    @apply min-h-[36px] rounded-lg px-3 py-2 text-[13px];
+  }
+  .input-lg {
+    @apply min-h-[52px] rounded-2xl px-5 py-4 text-[15px];
+  }
+
+  /* Input error state */
+  .input-error {
+    @apply border-red-300 focus:border-red-500 focus:ring-red-500/20;
+    @apply dark:border-red-500/50 dark:focus:border-red-500;
+  }
+
+  /* Textarea specific */
+  .textarea-base {
+    @apply w-full min-h-[120px] rounded-xl border bg-white px-4 py-3 resize-y;
+    @apply text-[14px] text-slate-900 placeholder:text-slate-400;
+    @apply transition-all duration-200;
+    @apply border-slate-200 focus:border-verkli-primary/50;
+    @apply focus:outline-none focus:ring-2 focus:ring-verkli-primary/20 focus:ring-offset-0;
+    @apply disabled:opacity-50 disabled:cursor-not-allowed disabled:bg-slate-50;
+    @apply dark:border-white/15 dark:bg-white/5 dark:text-white dark:placeholder:text-white/50;
+    @apply dark:focus:border-verkli-primary/50 dark:disabled:bg-white/5;
+  }
+
+  /* Select specific */
+  .select-base {
+    @apply w-full min-h-[44px] rounded-xl border bg-white px-4 py-3 appearance-none pr-10 cursor-pointer;
+    @apply text-[14px] text-slate-900;
+    @apply transition-all duration-200;
+    @apply border-slate-200 focus:border-verkli-primary/50;
+    @apply focus:outline-none focus:ring-2 focus:ring-verkli-primary/20 focus:ring-offset-0;
+    @apply disabled:opacity-50 disabled:cursor-not-allowed disabled:bg-slate-50;
+    @apply dark:border-white/15 dark:bg-white/5 dark:text-white;
+    @apply dark:focus:border-verkli-primary/50 dark:disabled:bg-white/5;
+    background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%236b7280' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e");
+    background-position: right 0.75rem center;
+    background-repeat: no-repeat;
+    background-size: 1.25rem 1.25rem;
+  }
+
+  /* ─────────────────────────────────────────────────────────────────────────
+   * CARD SYSTEM
+   * Consistent card styles with proper shadows and borders
+   * ───────────────────────────────────────────────────────────────────────── */
+
+  /* Standard card */
   .card-base {
-    @apply rounded-2xl border border-slate-200/80 bg-white shadow-[0_6px_20px_rgba(15,23,42,0.06)] dark:border-white/10 dark:bg-white/[0.04] dark:shadow-[0_8px_24px_rgba(0,0,0,0.25)];
+    @apply rounded-2xl border border-slate-200/80 bg-white;
+    @apply shadow-[0_4px_16px_rgba(15,23,42,0.05)];
+    @apply dark:border-white/10 dark:bg-white/[0.04];
+    @apply dark:shadow-[0_4px_16px_rgba(0,0,0,0.2)];
   }
-  .card-base-subtle {
-    @apply rounded-2xl border border-slate-200/70 bg-white/80 dark:border-white/10 dark:bg-white/[0.04];
+
+  /* Elevated card (more prominent) */
+  .card-elevated {
+    @apply rounded-2xl border border-slate-200/60 bg-white;
+    @apply shadow-[0_8px_24px_rgba(15,23,42,0.08)];
+    @apply dark:border-white/10 dark:bg-white/[0.04];
+    @apply dark:shadow-[0_8px_24px_rgba(0,0,0,0.3)];
   }
+
+  /* Subtle card (less prominent) */
+  .card-subtle {
+    @apply rounded-2xl border border-slate-200/50 bg-slate-50/50;
+    @apply dark:border-white/5 dark:bg-white/[0.02];
+  }
+
+  /* Interactive card (with hover state) */
+  .card-interactive {
+    @apply rounded-2xl border border-slate-200/80 bg-white cursor-pointer;
+    @apply shadow-[0_4px_16px_rgba(15,23,42,0.05)];
+    @apply dark:border-white/10 dark:bg-white/[0.04];
+    @apply dark:shadow-[0_4px_16px_rgba(0,0,0,0.2)];
+    @apply transition-all duration-200;
+    @apply hover:border-slate-300 hover:shadow-[0_8px_24px_rgba(15,23,42,0.08)];
+    @apply hover:scale-[1.01];
+    @apply dark:hover:border-white/20 dark:hover:shadow-[0_8px_24px_rgba(0,0,0,0.3)];
+  }
+
+  /* Auth card (for login/signup) */
+  .card-auth {
+    @apply rounded-2xl border border-slate-200/60 bg-white p-8 sm:p-10;
+    @apply shadow-[0_8px_24px_rgba(15,23,42,0.08)];
+    @apply dark:border-white/10 dark:bg-white/[0.04];
+    @apply dark:shadow-[0_8px_24px_rgba(0,0,0,0.3)];
+  }
+
   /* Empty state container */
   .empty-state-base {
-    @apply rounded-2xl border border-dashed border-slate-200/80 bg-slate-50/80 px-6 py-6 text-left dark:border-white/15 dark:bg-white/[0.03];
+    @apply rounded-2xl border-2 border-dashed border-slate-200 bg-slate-50/50;
+    @apply px-8 py-12 text-center;
+    @apply dark:border-white/10 dark:bg-white/[0.02];
   }
-  /* Auth card: solid i light mode, glass i dark */
-  .card-auth {
-    @apply rounded-2xl border border-slate-200/80 bg-white shadow-[0_6px_20px_rgba(15,23,42,0.06)] dark:border-white/10 dark:bg-white/[0.04] dark:shadow-[0_8px_24px_rgba(0,0,0,0.2)];
+
+  /* ─────────────────────────────────────────────────────────────────────────
+   * FOCUS & INTERACTION STATES
+   * Consistent focus rings and hover effects
+   * ───────────────────────────────────────────────────────────────────────── */
+
+  /* Standard focus ring */
+  .focus-ring {
+    @apply focus:outline-none focus-visible:ring-2 focus-visible:ring-verkli-primary/50;
+    @apply focus-visible:ring-offset-2 focus-visible:ring-offset-background;
+  }
+
+  /* Link with focus ring */
+  .link-focus {
+    @apply rounded-lg focus:outline-none focus-visible:ring-2 focus-visible:ring-verkli-primary/50;
+    @apply focus-visible:ring-offset-2 focus-visible:ring-offset-background;
+  }
+
+  /* Hover highlight (for list items, nav items) */
+  .hover-highlight {
+    @apply transition-colors duration-150;
+    @apply hover:bg-slate-100 dark:hover:bg-white/5;
+  }
+
+  /* ─────────────────────────────────────────────────────────────────────────
+   * LOADING & ANIMATION STATES
+   * ───────────────────────────────────────────────────────────────────────── */
+
+  /* Loading spinner */
+  .loading-spinner {
+    @apply h-5 w-5 animate-spin rounded-full;
+    @apply border-2 border-current border-t-transparent;
+  }
+  .loading-spinner-sm {
+    @apply h-4 w-4 animate-spin rounded-full;
+    @apply border-2 border-current border-t-transparent;
+  }
+  .loading-spinner-lg {
+    @apply h-8 w-8 animate-spin rounded-full;
+    @apply border-3 border-current border-t-transparent;
+  }
+
+  /* Skeleton loading */
+  .skeleton {
+    @apply animate-pulse rounded-lg bg-slate-200 dark:bg-white/10;
+  }
+
+  /* ─────────────────────────────────────────────────────────────────────────
+   * TRANSITIONS
+   * Standardized transition durations
+   * ───────────────────────────────────────────────────────────────────────── */
+
+  .transition-fast {
+    @apply transition-all duration-150 ease-out;
+  }
+  .transition-normal {
+    @apply transition-all duration-200 ease-out;
+  }
+  .transition-slow {
+    @apply transition-all duration-300 ease-out;
+  }
+
+  /* ─────────────────────────────────────────────────────────────────────────
+   * BADGE & TAG SYSTEM
+   * ───────────────────────────────────────────────────────────────────────── */
+
+  .badge-primary {
+    @apply inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[11px] font-semibold;
+    @apply bg-verkli-primary/15 text-verkli-primary;
+  }
+  .badge-secondary {
+    @apply inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[11px] font-semibold;
+    @apply bg-slate-100 text-slate-600 dark:bg-white/10 dark:text-white/70;
+  }
+  .badge-success {
+    @apply inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[11px] font-semibold;
+    @apply bg-emerald-100 text-emerald-700 dark:bg-emerald-500/20 dark:text-emerald-400;
+  }
+  .badge-warning {
+    @apply inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[11px] font-semibold;
+    @apply bg-amber-100 text-amber-700 dark:bg-amber-500/20 dark:text-amber-400;
+  }
+  .badge-error {
+    @apply inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[11px] font-semibold;
+    @apply bg-red-100 text-red-700 dark:bg-red-500/20 dark:text-red-400;
+  }
+
+  /* ─────────────────────────────────────────────────────────────────────────
+   * NAV LINK STYLES
+   * ───────────────────────────────────────────────────────────────────────── */
+
+  .nav-link {
+    @apply inline-flex items-center gap-2 rounded-lg px-3 py-2;
+    @apply text-[14px] font-medium text-slate-600;
+    @apply transition-colors duration-150;
+    @apply hover:bg-slate-100 hover:text-slate-900;
+    @apply focus:outline-none focus-visible:ring-2 focus-visible:ring-verkli-primary/50;
+    @apply dark:text-white/70 dark:hover:bg-white/10 dark:hover:text-white;
+  }
+  .nav-link-active {
+    @apply inline-flex items-center gap-2 rounded-lg px-3 py-2;
+    @apply text-[14px] font-medium;
+    @apply transition-colors duration-150;
+    @apply focus:outline-none focus-visible:ring-2 focus-visible:ring-verkli-primary/50;
+    @apply bg-verkli-primary/10 text-verkli-primary;
+    @apply dark:bg-verkli-primary/20 dark:text-verkli-primary;
   }
 }
 

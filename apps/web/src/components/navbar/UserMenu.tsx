@@ -126,7 +126,7 @@ export default function UserMenu({ user, onSignOut, currentRole = "author", orig
           e.preventDefault();
           e.stopPropagation();
         }}
-        className="touch-target flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-slate-300 bg-transparent text-slate-700 transition-all hover:bg-slate-100 dark:border-white/[0.4] dark:text-white dark:hover:bg-white/10 focus:outline-none focus:ring-2 focus:ring-[#907AFF]/50 focus:ring-offset-2 focus:ring-offset-background"
+        className="btn-icon border border-slate-200 dark:border-white/20"
         aria-label="Account menu"
         aria-expanded={isOpen}
       >
@@ -182,7 +182,7 @@ export default function UserMenu({ user, onSignOut, currentRole = "author", orig
                 e.stopPropagation();
                 setIsOpen(false);
               }}
-              className="flex min-h-[44px] w-full items-center gap-3 rounded-xl px-4 py-3 text-[14px] font-medium text-slate-700 dark:text-white/80 transition-all hover:bg-slate-50 dark:hover:bg-white/[0.05] hover:text-slate-900 dark:hover:text-white focus:outline-none focus:ring-2 focus:ring-inset focus:ring-[#907AFF]/30"
+              className="flex min-h-[44px] w-full items-center gap-3 rounded-xl px-4 py-3 text-[14px] font-medium text-slate-700 dark:text-white/80 transition-all hover:bg-slate-50 dark:hover:bg-white/[0.05] hover:text-slate-900 dark:hover:text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-verkli-primary/30"
             >
               <svg
                 className="h-5 w-5 flex-shrink-0"
@@ -206,7 +206,7 @@ export default function UserMenu({ user, onSignOut, currentRole = "author", orig
                 e.stopPropagation();
                 setIsOpen(false);
               }}
-              className="flex min-h-[44px] w-full items-center gap-3 rounded-xl px-4 py-3 text-[14px] font-medium text-slate-700 dark:text-white/80 transition-all hover:bg-slate-50 dark:hover:bg-white/[0.05] hover:text-slate-900 dark:hover:text-white focus:outline-none focus:ring-2 focus:ring-inset focus:ring-[#907AFF]/30"
+              className="flex min-h-[44px] w-full items-center gap-3 rounded-xl px-4 py-3 text-[14px] font-medium text-slate-700 dark:text-white/80 transition-all hover:bg-slate-50 dark:hover:bg-white/[0.05] hover:text-slate-900 dark:hover:text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-verkli-primary/30"
             >
               <svg
                 className="h-5 w-5 flex-shrink-0"
@@ -235,7 +235,7 @@ export default function UserMenu({ user, onSignOut, currentRole = "author", orig
                 e.stopPropagation();
                 setIsOpen(false);
               }}
-              className="flex min-h-[44px] w-full items-center gap-3 rounded-xl px-4 py-3 text-[14px] font-medium text-slate-700 dark:text-white/80 transition-all hover:bg-slate-50 dark:hover:bg-white/[0.05] hover:text-slate-900 dark:hover:text-white focus:outline-none focus:ring-2 focus:ring-inset focus:ring-[#907AFF]/30"
+              className="flex min-h-[44px] w-full items-center gap-3 rounded-xl px-4 py-3 text-[14px] font-medium text-slate-700 dark:text-white/80 transition-all hover:bg-slate-50 dark:hover:bg-white/[0.05] hover:text-slate-900 dark:hover:text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-verkli-primary/30"
             >
               <svg
                 className="h-5 w-5 flex-shrink-0"
@@ -257,7 +257,7 @@ export default function UserMenu({ user, onSignOut, currentRole = "author", orig
             {canSwitchRole && (
               <button
                 onClick={handleSwitchRole}
-                className="flex min-h-[44px] w-full items-center gap-3 rounded-xl px-4 py-3 text-[14px] font-medium text-slate-700 dark:text-white/80 transition-all hover:bg-slate-50 dark:hover:bg-white/[0.05] hover:text-slate-900 dark:hover:text-white focus:outline-none focus:ring-2 focus:ring-inset focus:ring-[#907AFF]/30"
+                className="flex min-h-[44px] w-full items-center gap-3 rounded-xl px-4 py-3 text-[14px] font-medium text-slate-700 dark:text-white/80 transition-all hover:bg-slate-50 dark:hover:bg-white/[0.05] hover:text-slate-900 dark:hover:text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-verkli-primary/30"
               >
                 <svg
                   className="h-5 w-5 flex-shrink-0"
