@@ -6,6 +6,7 @@
  */
 
 import type { TranslatorProvider, TranslateOptions, TranslateResult } from "./types";
+import { AIProviderError } from "./types";
 import { translateText, sanitizeOpusOutput } from "@/lib/opus";
 
 const SUPPORTED_PAIRS = ["sv -> en", "en -> sv"];
@@ -16,16 +17,20 @@ export class OpusTranslator implements TranslatorProvider {
   async translate(options: TranslateOptions): Promise<TranslateResult> {
     const { text, sourceLanguage, targetLanguage } = options;
 
-    // translateText is synchronous but we wrap in Promise for interface consistency
-    const rawOutput = translateText({
-      text,
-      sourceLanguage,
-      targetLanguage,
-    });
+    try {
+      // translateText is synchronous but we wrap in Promise for interface consistency
+      const rawOutput = translateText({
+        text,
+        sourceLanguage,
+        targetLanguage,
+      });
 
-    const translatedText = sanitizeOpusOutput(rawOutput);
+      const translatedText = sanitizeOpusOutput(rawOutput);
 
-    return { translatedText };
+      return { translatedText };
+    } catch (err) {
+      throw AIProviderError.fromError(err, this.name);
+    }
   }
 
   getSupportedPairs(): string[] {

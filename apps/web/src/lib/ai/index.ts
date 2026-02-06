@@ -18,6 +18,8 @@ export {
   getTranslator,
   getNarrator,
   getVideoProvider,
+  // Error class
+  AIProviderError,
   // Types
   type TranslatorProvider,
   type TranslateOptions,
@@ -28,4 +30,5 @@ export {
   type VideoProvider,
   type VideoGenerateOptions,
   type VideoGenerateResult,
+  type AIProviderErrorCode,
 } from "./providers";
