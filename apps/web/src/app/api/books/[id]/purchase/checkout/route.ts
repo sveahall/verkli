@@ -4,6 +4,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { assertPublicEnv } from "@/lib/env";
 import { canUserReadBook } from "@/lib/books/access";
 import { createStripeCheckoutSession } from "@/lib/payments/stripe";
+import { logAnalyticsEvent } from "@/lib/analytics/events";
 
 function getBaseUrl(request: Request): string {
   const fromEnv = process.env.NEXT_PUBLIC_SITE_URL?.trim();
@@ -99,6 +100,14 @@ export async function POST(
 
   const orderId = String((order as { id: string }).id);
   const baseUrl = getBaseUrl(request);
+
+  await logAnalyticsEvent(admin, {
+    eventType: "purchase_attempt",
+    userId: user.id,
+    bookId,
+    path: `/reader/books/${bookId}`,
+    props: { provider: "stripe", orderId },
+  });
 
   try {
     const session = await createStripeCheckoutSession({

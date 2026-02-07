@@ -1,6 +1,7 @@
 import { createServerClient, type CookieOptions } from '@supabase/ssr'
 import { NextResponse, type NextRequest } from 'next/server'
 import { isBetaUser } from '@/lib/auth/beta'
+import { getAuthorApplicationStatus } from '@/lib/auth/author-approval'
 
 /**
  * Ordningen är kritisk: waitlist-låset måste avgöras och eventuellt returnera
@@ -127,15 +128,27 @@ export async function middleware(request: NextRequest) {
       return NextResponse.redirect(url)
     }
 
-    // SECURITY: Check role for author routes
-    // Users who signed up as readers cannot access author features
-    const originalRole = user.user_metadata?.role
-    if (originalRole === 'reader') {
-      // Readers trying to access author area - redirect to reader home
-      const url = request.nextUrl.clone()
-      url.pathname = '/reader/home'
-      url.searchParams.set('error', 'author_required')
-      return NextResponse.redirect(url)
+    // SECURITY: allow legacy authors (metadata/profile) OR approved applications.
+    const originalRole = String(user.user_metadata?.role ?? '').toLowerCase()
+    let isLegacyAuthor = originalRole === 'author'
+
+    if (!isLegacyAuthor) {
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('role')
+        .eq('user_id', user.id)
+        .maybeSingle()
+      isLegacyAuthor = String(profile?.role ?? '').toLowerCase() === 'author'
+    }
+
+    if (!isLegacyAuthor) {
+      const status = await getAuthorApplicationStatus(supabase, user.id)
+      if (status !== 'approved') {
+        const url = request.nextUrl.clone()
+        url.pathname = '/reader/home'
+        url.searchParams.set('error', 'author_required')
+        return NextResponse.redirect(url)
+      }
     }
   }
 

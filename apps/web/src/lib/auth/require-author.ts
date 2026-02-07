@@ -1,4 +1,8 @@
 import { createClient } from "@/lib/supabase/server";
+import {
+  getAuthorApplicationStatus,
+  isLegacyAuthorRole,
+} from "@/lib/auth/author-approval";
 import type { User } from "@supabase/supabase-js";
 
 export type AuthorCheckResult =
@@ -9,8 +13,7 @@ export type AuthorCheckResult =
  * Verifies the current user is authenticated AND has author role.
  * Use this at the start of any author-only API route or server action.
  *
- * Checks immutable signup role (profiles.role, with metadata fallback) to
- * prevent readers from accessing author functionality by switching roles.
+ * Checks legacy author role (profiles.role / metadata) OR approved application.
  */
 export async function requireAuthorRole(): Promise<AuthorCheckResult> {
   const supabase = await createClient();
@@ -22,8 +25,7 @@ export async function requireAuthorRole(): Promise<AuthorCheckResult> {
     return { ok: false, error: "Not authenticated", status: 401 };
   }
 
-  // Source of truth: immutable signup role from profiles.role.
-  // Fall back to auth metadata only if profile row is missing.
+  // Legacy role source of truth: profiles.role (fallback: auth metadata).
   const { data: profile } = await supabase
     .from("profiles")
     .select("role")
@@ -32,17 +34,16 @@ export async function requireAuthorRole(): Promise<AuthorCheckResult> {
 
   const profileRole = profile?.role;
   const metadataRole = user.user_metadata?.role;
-  const originalRole =
-    profileRole === "author" || profileRole === "reader"
-      ? profileRole
-      : metadataRole;
-
-  // Users who signed up as readers cannot access author features
-  if (originalRole === "reader") {
-    return { ok: false, error: "Author account required", status: 403 };
+  if (isLegacyAuthorRole(profileRole) || isLegacyAuthorRole(metadataRole)) {
+    return { ok: true, user };
   }
 
-  return { ok: true, user };
+  const applicationStatus = await getAuthorApplicationStatus(supabase, user.id);
+  if (applicationStatus === "approved") {
+    return { ok: true, user };
+  }
+
+  return { ok: false, error: "Author approval required", status: 403 };
 }
 
 /**

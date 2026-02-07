@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { logAnalyticsEvent } from "@/lib/analytics/events";
 import { z } from "zod";
 
 const postBodySchema = z.object({
@@ -64,9 +65,10 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Failed to add bookmark" }, { status: 500 });
   }
 
-  await supabase.from("analytics_events").insert({
-    user_id: user.id,
-    event_name: "bookmark_added",
+  await logAnalyticsEvent(supabase, {
+    eventType: "bookmark_added",
+    userId: user.id,
+    bookId,
     path: "/reader/bookmarks",
     props: { book_id: bookId },
   });
@@ -102,9 +104,10 @@ export async function DELETE(request: Request) {
   }
 
   if (deleted) {
-    await supabase.from("analytics_events").insert({
-      user_id: user.id,
-      event_name: "bookmark_removed",
+    await logAnalyticsEvent(supabase, {
+      eventType: "bookmark_removed",
+      userId: user.id,
+      bookId,
       path: "/reader/bookmarks",
       props: { book_id: bookId },
     });
