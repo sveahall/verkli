@@ -20,11 +20,12 @@
 - **File**: `apps/web/src/features/auth/roles.ts:45-54`
 - **Fix**: Only update `preferences.active_role`, never `profiles.role`. The upsert should NOT include `role` field.
 
-### Issue #4: RLS policies don't enforce author role for INSERT on books
+### ~~Issue #4: RLS policies don't enforce author role for INSERT on books~~ DONE
 - **Risk**: MEDIUM - Readers could theoretically insert books via direct Supabase client
 - **Impact**: Data integrity bypass (mitigated by API layer checks)
 - **File**: `packages/db/supabase/migrations/00002_rls_policies.sql:13-17`
 - **Fix**: Add RLS function to check profiles.role = 'author' for book INSERTs (or rely fully on API layer).
+- **Resolution**: `job_status_view` recreated with `security_invoker = on` in migration `20260208010000_ai_jobs_identity_columns.sql`. View now respects RLS on underlying tables. API-layer author checks remain in place.
 
 ### Issue #5: Security checks use user_metadata.role instead of profiles.role (DB)
 - **Risk**: LOW (current implementation is consistent, but metadata can be stale)

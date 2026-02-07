@@ -36,6 +36,8 @@ export type JobStatusBannerProps = {
   label?: string;
   /** Hide banner when no job and not loading (empty state is handled by parent if needed) */
   hideWhenEmpty?: boolean;
+  /** Called when user clicks retry on a failed job */
+  onRetry?: () => void;
   className?: string;
 };
 
@@ -69,6 +71,7 @@ export default function JobStatusBanner({
   job,
   label = "Jobb",
   hideWhenEmpty = false,
+  onRetry,
   className,
 }: JobStatusBannerProps) {
   if (!job) {
@@ -76,14 +79,14 @@ export default function JobStatusBanner({
     return (
       <div
         role="status"
-        aria-label="Inga jobb"
+        aria-label="Ingen pågående aktivitet"
         className={
           className ??
           "rounded-xl border border-slate-200 bg-slate-50/50 px-4 py-3 dark:border-white/10 dark:bg-white/5"
         }
       >
         <p className="text-sm text-slate-600 dark:text-white/60">
-          Inga pågående eller senaste jobb för {label.toLowerCase()}.
+          Ingen pågående eller nyligen avslutad aktivitet för {label}.
         </p>
       </div>
     );
@@ -122,9 +125,20 @@ export default function JobStatusBanner({
         </div>
       )}
       {displayStatus === "failed" && (
-        <p className="mt-2 text-sm text-red-700 dark:text-red-300" role="alert">
-          Något gick fel. Försök igen.
-        </p>
+        <div className="mt-2 flex flex-wrap items-center gap-2">
+          <p className="text-sm text-red-700 dark:text-red-300" role="alert">
+            {job.error || "Något gick fel."}
+          </p>
+          {onRetry && (
+            <button
+              type="button"
+              onClick={onRetry}
+              className="rounded-md border border-red-300 bg-white px-2.5 py-1 text-xs font-medium text-red-700 transition hover:bg-red-50 dark:border-red-700 dark:bg-red-950/50 dark:text-red-300 dark:hover:bg-red-950"
+            >
+              Försök igen
+            </button>
+          )}
+        </div>
       )}
     </div>
   );
@@ -181,7 +195,7 @@ function getVisibleJobs(jobs: UnifiedJob[]): UnifiedJob[] {
       if (j.status === "pending" || j.status === "processing") {
         const created = j.createdAt ? new Date(j.createdAt).getTime() : 0;
         if (created > 0 && now - created > STALE_MS) {
-          return { ...j, status: "failed", error: "Jobbet verkar ha fastnat — försök igen" };
+          return { ...j, status: "failed", error: "Uppgiften verkar ha fastnat. Försök igen." };
         }
       }
       return j;
@@ -190,10 +204,12 @@ function getVisibleJobs(jobs: UnifiedJob[]): UnifiedJob[] {
 
 export type BookJobsBannerProps = {
   jobs: UnifiedJob[];
+  /** Called when user clicks retry on a failed job */
+  onRetry?: (job: UnifiedJob) => void;
   className?: string;
 };
 
-export function BookJobsBanner({ jobs, className }: BookJobsBannerProps) {
+export function BookJobsBanner({ jobs, onRetry, className }: BookJobsBannerProps) {
   const visible = getVisibleJobs(jobs);
   if (visible.length === 0) return null;
 
@@ -205,6 +221,7 @@ export function BookJobsBanner({ jobs, className }: BookJobsBannerProps) {
           job={toJobStatusData(j)}
           label={KIND_LABELS[j.kind] ?? j.kind}
           hideWhenEmpty
+          onRetry={j.status === "failed" && onRetry ? () => onRetry(j) : undefined}
         />
       ))}
     </div>

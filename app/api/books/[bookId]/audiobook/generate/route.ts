@@ -5,6 +5,13 @@ import path from "path";
 
 export const runtime = "nodejs";
 
+function isAudiobookEnabled(): boolean {
+  const value = process.env.NEXT_PUBLIC_AUDIOBOOK_ENABLED ?? process.env.AUDIOBOOK_ENABLED;
+  if (value === undefined || value === "") return false;
+  const normalized = value.trim().toLowerCase();
+  return normalized === "true" || normalized === "1";
+}
+
 async function ensureDirectoryExists(dirPath: string) {
   try {
     await fs.mkdir(dirPath, { recursive: true });
@@ -63,6 +70,13 @@ export async function POST(
   request: NextRequest,
   { params }: { params: { bookId: string } }
 ) {
+  if (!isAudiobookEnabled()) {
+    return NextResponse.json(
+      { error: "Audiobook generation is temporarily unavailable in this environment" },
+      { status: 503 }
+    );
+  }
+
   const bookId = params?.bookId;
 
   if (!bookId || typeof bookId !== "string" || !bookId.trim()) {
@@ -152,4 +166,3 @@ export async function POST(
     path: publicPath,
   });
 }
-

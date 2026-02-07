@@ -11,7 +11,7 @@ import CommandPalette from "@/components/editor/CommandPalette";
 import DeleteBookButton from "@/components/books/DeleteBookButton";
 import { BookJobsBanner } from "@/components/books/JobStatusBanner";
 import { useToastHelpers } from "@/components/ui/Toast";
-import { useBookJobs } from "@/hooks/useBookJobs";
+import { useBookJobs, type UnifiedJob } from "@/hooks/useBookJobs";
 import { getAudiobookEnabled, getMarketingEnabled, getTranslationsEnabled } from "@/lib/flags";
 import { getLanguageLabel, LANGUAGE_OPTIONS, normalizeLanguage, type SupportedLanguage } from "@/lib/languages";
 
@@ -100,6 +100,37 @@ function describeVisibility(value: PublishVisibility): string {
 
 const MARKETING_CHANNELS = ["generic", "tiktok", "instagram", "x"] as const;
 type MarketingChannel = (typeof MARKETING_CHANNELS)[number];
+
+/** Användarvänliga etiketter för kanal (inga interna nycklar i UI) */
+const MARKETING_CHANNEL_LABELS: Record<MarketingChannel, string> = {
+  generic: "Allmän",
+  tiktok: "TikTok",
+  instagram: "Instagram",
+  x: "X",
+};
+
+/** Status för visning: queued → running → done / failed. Konsekvent copy i hela editorn. */
+const STATUS_LABELS = {
+  queued: "Köad",
+  running: "Pågår",
+  done: "Klar",
+  failed: "Misslyckades",
+  idle: "Väntar",
+} as const;
+
+function getAudiobookStatusLabel(status: string): string {
+  if (status === "published" || status === "generated") return STATUS_LABELS.done;
+  if (status === "generating") return STATUS_LABELS.running;
+  if (status === "failed") return STATUS_LABELS.failed;
+  return "Ingen ljudbok än";
+}
+
+function getMarketingCampaignStatusLabel(status: string): string {
+  if (status === "generated" || status === "published") return STATUS_LABELS.done;
+  if (status === "failed") return STATUS_LABELS.failed;
+  if (status === "pending" || status === "generating") return STATUS_LABELS.running;
+  return STATUS_LABELS.idle;
+}
 
 type MarketingCampaignRow = {
   id: string;
@@ -250,6 +281,32 @@ export default function BookEditor({
   const publishMenuRef = useRef<HTMLDivElement>(null);
 
   const { jobs: allJobs, job: bookJob, loading: jobLoading, error: jobError, refetch: refetchBookJob, settled: jobsSettled } = useBookJobs(book.id);
+
+  // Jobbar som ska visas i banner: aldrig audiobook när funktionen är avstängd
+  const jobsForBanner = useMemo(
+    () => (getAudiobookEnabled() ? allJobs : allJobs.filter((j) => j.kind !== "audiobook")),
+    [allJobs]
+  );
+
+  // Audiobook-state endast när funktionen är på (inga tomma/döda states, progress endast för aktiva jobtyper)
+  const latestAudiobookJob = useMemo(
+    () => (getAudiobookEnabled() ? allJobs.find((j) => j.kind === "audiobook") ?? null : null),
+    [allJobs]
+  );
+  const isAudiobookJobActive = latestAudiobookJob?.status === "pending" || latestAudiobookJob?.status === "processing";
+  const isAudiobookJobFailed = latestAudiobookJob?.status === "failed";
+  const isAudiobookActive = isGeneratingAudiobook || !!isAudiobookJobActive;
+  const serverAudiobookProgress = useMemo(() => {
+    if (!latestAudiobookJob || (latestAudiobookJob.status !== "pending" && latestAudiobookJob.status !== "processing")) return null;
+    const meta = latestAudiobookJob.meta as Record<string, unknown>;
+    return {
+      totalChapters: (meta.totalChapters as number) ?? 0,
+      completedChapters: (meta.completedChapters as number) ?? 0,
+      currentChapterTitle: (meta.currentChapterTitle as string) ?? null,
+    };
+  }, [latestAudiobookJob]);
+  const effectiveAudiobookProgress = audiobookProgress ?? serverAudiobookProgress;
+  const effectiveAudiobookError = audiobookError ?? (isAudiobookJobFailed ? (latestAudiobookJob?.error ?? null) : null);
 
   useEffect(() => {
     setChapters(initialChapters);
@@ -446,7 +503,8 @@ export default function BookEditor({
 
   const hasGeneratedAudiobookAsset =
     Boolean(latestAudiobookAsset?.audio_url) && latestAudiobookAsset?.status === "generated";
-  const audiobookStatusUi = isGeneratingAudiobook
+  const audiobookFeatureEnabled = getAudiobookEnabled();
+  const audiobookStatusUi = isAudiobookActive
     ? "generating"
     : hasGeneratedAudiobookAsset
       ? "published"
@@ -752,8 +810,16 @@ export default function BookEditor({
     return () => stopAudiobookPoll();
   }, [stopAudiobookPoll]);
 
+  // Start legacy poll when active audiobook job detected from server (e.g. after refresh)
+  useEffect(() => {
+    if (!audiobookFeatureEnabled) return;
+    if (isAudiobookJobActive && !audiobookPollRef.current) {
+      startAudiobookPoll();
+    }
+  }, [audiobookFeatureEnabled, isAudiobookJobActive, startAudiobookPoll]);
+
   const handleGenerateAudiobook = useCallback(async () => {
-    if (isGeneratingAudiobook) return;
+    if (isGeneratingAudiobook || !audiobookFeatureEnabled) return;
     setAudiobookError(null);
     setAudiobookProgress(null);
     setIsGeneratingAudiobook(true);
@@ -778,7 +844,13 @@ export default function BookEditor({
       setAudiobookError("Kunde inte starta generering. Försök igen.");
       setIsGeneratingAudiobook(false);
     }
-  }, [book.id, isGeneratingAudiobook, refetchBookJob, startAudiobookPoll]);
+  }, [audiobookFeatureEnabled, book.id, isGeneratingAudiobook, refetchBookJob, startAudiobookPoll]);
+
+  const handleJobRetry = useCallback((job: UnifiedJob) => {
+    if (job.kind === "audiobook") {
+      handleGenerateAudiobook();
+    }
+  }, [handleGenerateAudiobook]);
 
   const handleStartTts = useCallback(async () => {
     setTtsMessage(null);
@@ -1088,12 +1160,22 @@ export default function BookEditor({
       <section className="mx-auto max-w-[1400px] px-6 py-12">
         {jobLoading ? (
           <div
-            className="mb-6 h-14 rounded-xl border border-slate-200 bg-slate-50/50 dark:border-white/10 dark:bg-white/5"
-            aria-hidden
-          />
-        ) : !jobError && allJobs.length > 0 ? (
+            className="mb-6 flex h-14 items-center rounded-xl border border-slate-200 bg-slate-50/50 px-4 dark:border-white/10 dark:bg-white/5"
+            role="status"
+            aria-label="Hämtar status"
+          >
+            <span className="text-sm text-slate-500 dark:text-white/50">Hämtar status…</span>
+          </div>
+        ) : jobError ? (
+          <div
+            className="mb-6 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 dark:border-amber-800 dark:bg-amber-950/30"
+            role="alert"
+          >
+            <p className="text-sm text-amber-800 dark:text-amber-200">{jobError}</p>
+          </div>
+        ) : jobsForBanner.length > 0 ? (
           <div className="mb-6">
-            <BookJobsBanner jobs={allJobs} />
+            <BookJobsBanner jobs={jobsForBanner} onRetry={handleJobRetry} />
           </div>
         ) : null}
         {getTranslationsEnabled() && bookVersions.length > 1 && (
@@ -1439,7 +1521,7 @@ export default function BookEditor({
                     />
                   ) : (
                     <div className="flex h-full w-full items-center justify-center text-sm text-slate-500 dark:text-white/50">
-                      No cover
+                      Ingen omslagsbild
                     </div>
                   )}
                 </div>
@@ -1474,10 +1556,10 @@ export default function BookEditor({
                     }`}
                     role="status"
                   >
-                    {translationUiStatus === "idle" && "Idle"}
-                    {translationUiStatus === "translating" && "Translating…"}
-                    {translationUiStatus === "done" && "Done"}
-                    {translationUiStatus === "error" && "Error"}
+                    {translationUiStatus === "idle" && STATUS_LABELS.idle}
+                    {translationUiStatus === "translating" && "Översätts…"}
+                    {translationUiStatus === "done" && STATUS_LABELS.done}
+                    {translationUiStatus === "error" && STATUS_LABELS.failed}
                   </span>
                 </div>
                 <label htmlFor="translate-language" className="mb-1 block text-xs text-slate-500 dark:text-white/50">Target language</label>
@@ -1497,7 +1579,7 @@ export default function BookEditor({
                   disabled={isStartingTranslation}
                   className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed dark:border-white/20 dark:bg-white/10 dark:text-white dark:hover:bg-white/15"
                 >
-                  {isStartingTranslation ? "Startar…" : "Start translation"}
+                  {isStartingTranslation ? "Startar…" : "Starta översättning"}
                 </button>
                 {currentTargetVersion && (
                   <button
@@ -1546,11 +1628,11 @@ export default function BookEditor({
                   }`}
                   role="status"
                 >
-                  {ttsStatus === "idle" && "Idle"}
-                  {ttsStatus === "generating" && "Generating…"}
-                  {ttsStatus === "uploading" && "Uploading…"}
-                  {ttsStatus === "done" && "Done"}
-                  {ttsStatus === "error" && "Error"}
+                  {ttsStatus === "idle" && STATUS_LABELS.idle}
+                  {ttsStatus === "generating" && "Skapas…"}
+                  {ttsStatus === "uploading" && "Laddas upp…"}
+                  {ttsStatus === "done" && STATUS_LABELS.done}
+                  {ttsStatus === "error" && STATUS_LABELS.failed}
                 </span>
               </div>
               <label htmlFor="tts-voice" className="mb-1 block text-xs text-slate-500 dark:text-white/50">Voice</label>
@@ -1570,9 +1652,9 @@ export default function BookEditor({
               >
                 {ttsStatus === "generating" || ttsStatus === "uploading"
                   ? ttsStatus === "uploading"
-                    ? "Uploading…"
-                    : "Generating…"
-                  : "Start TTS"}
+                    ? "Laddas upp…"
+                    : "Skapas…"
+                  : "Generera ljudförhandsvisning"}
               </button>
               {(ttsAudioUrl ?? latestAudiobookAsset?.audio_url) && (
                 <div className="mt-3 space-y-2">
@@ -1652,9 +1734,8 @@ export default function BookEditor({
               />
             </div>
 
-            {getAudiobookEnabled() && (
             <div id="audiobook" className="rounded-xl border border-slate-200 bg-slate-50/50 p-5 dark:border-white/10 dark:bg-white/5">
-              <h2 className="mb-2 text-base font-semibold text-slate-900 dark:text-white">Audiobook</h2>
+              <h2 className="mb-2 text-base font-semibold text-slate-900 dark:text-white">Ljudbok</h2>
               <div className="mb-2 flex items-center gap-2">
                 <span
                   className={`rounded-full px-2.5 py-1 text-xs font-medium ${
@@ -1667,23 +1748,22 @@ export default function BookEditor({
                           : "bg-slate-100 text-slate-700 dark:bg-slate-700 dark:text-slate-200"
                   }`}
                 >
-                  {audiobookStatusUi}
+                  {getAudiobookStatusLabel(audiobookStatusUi)}
                 </span>
               </div>
 
-              {/* Progress bar */}
-              {isGeneratingAudiobook && audiobookProgress && (
+              {isAudiobookActive && effectiveAudiobookProgress && (
                 <div className="mb-3">
                   <div className="mb-1 flex justify-between text-xs text-slate-600 dark:text-slate-400">
-                    <span>{audiobookProgress.currentChapterTitle ?? "Processing..."}</span>
-                    <span>{audiobookProgress.completedChapters} / {audiobookProgress.totalChapters}</span>
+                    <span>{effectiveAudiobookProgress.currentChapterTitle ?? "Bearbetar…"}</span>
+                    <span>{effectiveAudiobookProgress.completedChapters} / {effectiveAudiobookProgress.totalChapters}</span>
                   </div>
                   <div className="h-2 w-full overflow-hidden rounded-full bg-slate-200 dark:bg-slate-700">
                     <div
                       className="h-full rounded-full bg-[#907AFF] transition-all duration-300"
                       style={{
-                        width: audiobookProgress.totalChapters > 0
-                          ? `${(audiobookProgress.completedChapters / audiobookProgress.totalChapters) * 100}%`
+                        width: effectiveAudiobookProgress.totalChapters > 0
+                          ? `${(effectiveAudiobookProgress.completedChapters / effectiveAudiobookProgress.totalChapters) * 100}%`
                           : "0%",
                       }}
                     />
@@ -1694,40 +1774,45 @@ export default function BookEditor({
               <button
                 type="button"
                 onClick={handleGenerateAudiobook}
-                disabled={isGeneratingAudiobook}
+                disabled={isAudiobookActive || !audiobookFeatureEnabled}
                 className="mb-2 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-50 disabled:opacity-50 dark:border-white/20 dark:bg-white/10 dark:text-white dark:hover:bg-white/15"
               >
-                {isGeneratingAudiobook
-                  ? audiobookProgress
-                    ? `Generating (${audiobookProgress.completedChapters}/${audiobookProgress.totalChapters})…`
-                    : "Queued…"
-                  : "Generate audiobook"}
+                {!audiobookFeatureEnabled
+                  ? "Skapa ljudbok (otillgänglig)"
+                  : isAudiobookActive
+                  ? effectiveAudiobookProgress
+                    ? `Skapas (${effectiveAudiobookProgress.completedChapters}/${effectiveAudiobookProgress.totalChapters})…`
+                    : "I kö…"
+                  : "Skapa ljudbok"}
               </button>
 
-              {/* Audio player */}
+              {!audiobookFeatureEnabled && (
+                <p className="mb-2 text-xs text-slate-600 dark:text-white/60" role="status">
+                  Ljudboksgenerering är tillfälligt avstängd eftersom worker inte är kompatibel i denna miljö.
+                </p>
+              )}
+
               {latestAudiobookAsset?.audio_url && (
                 <div className="mb-2">
                   <audio controls className="w-full" src={latestAudiobookAsset.audio_url}>
-                    Your browser does not support the audio element.
+                    Din webbläsare stöder inte ljuduppspelning.
                   </audio>
                 </div>
               )}
 
-              {/* Error display */}
-              {(audiobookStatusUi === "failed" || audiobookError) && (
+              {(audiobookStatusUi === "failed" || effectiveAudiobookError) && (
                 <p className="text-xs text-red-600 dark:text-red-400" role="alert">
-                  {audiobookError ?? "Generation failed."}
+                  {effectiveAudiobookError ?? "Kunde inte skapa ljudbok. Försök igen."}
                 </p>
               )}
             </div>
-            )}
 
             {getMarketingEnabled() && (
             <div id="marketing" className="rounded-xl border border-slate-200 bg-slate-50/50 p-5 dark:border-white/10 dark:bg-white/5">
-              <h2 className="mb-3 text-base font-semibold text-slate-900 dark:text-white">Marketing</h2>
+              <h2 className="mb-3 text-base font-semibold text-slate-900 dark:text-white">Lanseringstext</h2>
               <div className="mb-3 flex flex-wrap gap-2">
                 <div className="flex flex-col gap-1">
-                  <label htmlFor="marketing-channel" className="text-xs text-slate-500 dark:text-white/50">Channel</label>
+                  <label htmlFor="marketing-channel" className="text-xs text-slate-500 dark:text-white/50">Kanal</label>
                   <select
                     id="marketing-channel"
                     value={marketingChannel}
@@ -1735,12 +1820,12 @@ export default function BookEditor({
                     className="rounded-lg border border-slate-300 bg-white px-2 py-1.5 text-sm text-slate-900 focus:border-slate-500 focus:outline-none dark:border-white/20 dark:bg-white/10 dark:text-white"
                   >
                     {MARKETING_CHANNELS.map((c) => (
-                      <option key={c} value={c}>{c}</option>
+                      <option key={c} value={c}>{MARKETING_CHANNEL_LABELS[c]}</option>
                     ))}
                   </select>
                 </div>
                 <div className="flex flex-col gap-1">
-                  <label htmlFor="marketing-language" className="text-xs text-slate-500 dark:text-white/50">Language</label>
+                  <label htmlFor="marketing-language" className="text-xs text-slate-500 dark:text-white/50">Språk</label>
                   <select
                     id="marketing-language"
                     value={marketingLanguage}
@@ -1753,7 +1838,7 @@ export default function BookEditor({
                   </select>
                 </div>
               </div>
-              {currentCampaign && (
+              {currentCampaign ? (
                 <div className="mb-2 flex items-center gap-2">
                   <span
                     className={`rounded-full px-2.5 py-1 text-xs font-medium ${
@@ -1762,9 +1847,13 @@ export default function BookEditor({
                         : "bg-slate-100 text-slate-700 dark:bg-slate-700 dark:text-slate-200"
                     }`}
                   >
-                    {currentCampaign.status}
+                    {getMarketingCampaignStatusLabel(currentCampaign.status)}
                   </span>
                 </div>
+              ) : (
+                <p className="mb-2 text-xs text-slate-500 dark:text-white/50">
+                  Ingen text för denna kanal och språk än. Generera nedan.
+                </p>
               )}
               <button
                 type="button"
@@ -1772,12 +1861,12 @@ export default function BookEditor({
                 disabled={isGeneratingMarketing}
                 className="mb-3 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-50 disabled:opacity-50 dark:border-white/20 dark:bg-white/10 dark:text-white dark:hover:bg-white/15"
               >
-                {isGeneratingMarketing ? "Generating…" : "Generate launch copy"}
+                {isGeneratingMarketing ? "Skapas…" : "Generera lanseringstext"}
               </button>
               {currentCampaign && (
                 <div className="space-y-2">
                   {currentCampaign.headline && (
-                    <p className="text-xs font-medium text-slate-500 dark:text-white/50">Headline</p>
+                    <p className="text-xs font-medium text-slate-500 dark:text-white/50">Rubrik</p>
                   )}
                   {currentCampaign.headline && (
                     <p className="whitespace-pre-wrap break-words rounded border border-slate-200 bg-white p-2 text-xs text-slate-700 dark:border-white/10 dark:bg-white/5 dark:text-white/90">
@@ -1786,7 +1875,7 @@ export default function BookEditor({
                   )}
                   {currentCampaign.caption && (
                     <>
-                      <p className="text-xs font-medium text-slate-500 dark:text-white/50">Caption</p>
+                      <p className="text-xs font-medium text-slate-500 dark:text-white/50">Text</p>
                       <p className="whitespace-pre-wrap break-words rounded border border-slate-200 bg-white p-2 text-xs text-slate-700 dark:border-white/10 dark:bg-white/5 dark:text-white/90">
                         {currentCampaign.caption}
                       </p>
@@ -1794,7 +1883,7 @@ export default function BookEditor({
                   )}
                   {currentCampaign.cta && (
                     <>
-                      <p className="text-xs font-medium text-slate-500 dark:text-white/50">CTA</p>
+                      <p className="text-xs font-medium text-slate-500 dark:text-white/50">Uppmaning</p>
                       <p className="rounded border border-slate-200 bg-white p-2 text-xs text-slate-700 dark:border-white/10 dark:bg-white/5 dark:text-white/90">
                         {currentCampaign.cta}
                       </p>
@@ -1813,11 +1902,11 @@ export default function BookEditor({
                     onClick={handleCopyMarketingToClipboard}
                     className="w-full rounded-lg bg-slate-900 px-3 py-2 text-xs font-medium text-white hover:bg-slate-800 dark:bg-white dark:text-slate-900 dark:hover:bg-white/90"
                   >
-                    {marketingCopyFeedback ? "Copied!" : "Copy to clipboard"}
+                    {marketingCopyFeedback ? "Kopierat!" : "Kopiera till urklipp"}
                   </button>
                 </div>
               )}
-              <p className="mt-3 text-xs text-slate-500 dark:text-white/50">Reader URL</p>
+              <p className="mt-3 text-xs text-slate-500 dark:text-white/50">Läsar-URL</p>
               <a
                 href={`/reader/books/${book.id}`}
                 target="_blank"
@@ -1830,11 +1919,11 @@ export default function BookEditor({
             )}
 
             <div className="rounded-xl border border-slate-200 bg-slate-50/50 p-5 dark:border-white/10 dark:bg-white/5">
-              <h2 className="mb-3 text-base font-semibold text-slate-900 dark:text-white">Marketing Portal</h2>
+              <h2 className="mb-3 text-base font-semibold text-slate-900 dark:text-white">Marknadsportalen</h2>
               {isPublished ? (
                 <>
                   <p className="mb-3 text-xs text-slate-500 dark:text-white/50">
-                    Plan campaigns, generate copy, and manage distribution for this book.
+                    Planera kampanjer, generera text och hantera distribution för denna bok.
                   </p>
                   <Link
                     href="/author/marketing"
@@ -1843,12 +1932,12 @@ export default function BookEditor({
                     <svg className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
                       <path fillRule="evenodd" d="M12.577 4.878a.75.75 0 01.919-.53l4.78 1.281a.75.75 0 01.531.919l-1.281 4.78a.75.75 0 01-1.449-.387l.81-3.022a19.407 19.407 0 00-5.594 5.203.75.75 0 01-1.139.093L7.55 10.81l-4.72 4.72a.75.75 0 01-1.06-1.06l5.25-5.25a.75.75 0 011.06 0l2.346 2.346a20.893 20.893 0 015.264-4.97l-2.633.706a.75.75 0 01-.919-.53z" clipRule="evenodd" />
                     </svg>
-                    Open Marketing Portal
+                    Öppna marknadsportalen
                   </Link>
                 </>
               ) : (
                 <p className="rounded-lg border border-dashed border-slate-300 bg-slate-50 px-3 py-2 text-center text-xs text-slate-500 dark:border-white/15 dark:bg-white/5 dark:text-white/50">
-                  Publish this book to unlock the Marketing Portal
+                  Publicera boken för att öppna marknadsportalen
                 </p>
               )}
             </div>

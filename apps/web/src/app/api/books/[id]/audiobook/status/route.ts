@@ -3,8 +3,75 @@ import { createClient } from "@/lib/supabase/server";
 import { assertPublicEnv } from "@/lib/env";
 import { isAudiobookEnabled } from "@/lib/flags";
 import { requireAuthorRoleForApi } from "@/lib/auth/require-author";
+import { sanitizeJobError } from "@/lib/sanitize-job-error";
 
 const AI_JOB_KIND = "audiobook_generation";
+
+type JobRow = {
+  id: string;
+  status: string;
+  output: Record<string, unknown> | null;
+  error: string | null;
+  input: Record<string, unknown> | null;
+  created_at: string;
+  started_at: string | null;
+  finished_at: string | null;
+};
+
+async function findLatestAudiobookJob(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  userId: string,
+  bookId: string
+): Promise<JobRow | null> {
+  // Preferred lookup via identity columns.
+  const { data: direct, error: directError } = await supabase
+    .from("ai_jobs")
+    .select("id, status, input, output, error, created_at, started_at, finished_at")
+    .eq("kind", AI_JOB_KIND)
+    .eq("user_id", userId)
+    .eq("book_id", bookId)
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (directError) {
+    console.warn("[audiobook status] lookup by book_id failed:", directError.message);
+  }
+  if (direct) {
+    return {
+      ...direct,
+      input: (direct.input as Record<string, unknown> | null) ?? null,
+      output: (direct.output as Record<string, unknown> | null) ?? null,
+    };
+  }
+
+  // Legacy fallback for pre-backfill rows.
+  const { data: legacyRows, error: legacyError } = await supabase
+    .from("ai_jobs")
+    .select("id, status, input, output, error, created_at, started_at, finished_at")
+    .eq("kind", AI_JOB_KIND)
+    .eq("user_id", userId)
+    .is("book_id", null)
+    .order("created_at", { ascending: false })
+    .limit(20);
+
+  if (legacyError) {
+    console.warn("[audiobook status] legacy lookup failed:", legacyError.message);
+    return null;
+  }
+
+  const match = (legacyRows ?? []).find((row) => {
+    const input = row.input as Record<string, unknown> | null;
+    return input?.bookId === bookId;
+  });
+
+  if (!match) return null;
+  return {
+    ...match,
+    input: (match.input as Record<string, unknown> | null) ?? null,
+    output: (match.output as Record<string, unknown> | null) ?? null,
+  };
+}
 
 export async function GET(
   _request: Request,
@@ -12,7 +79,10 @@ export async function GET(
 ) {
   assertPublicEnv();
   if (!isAudiobookEnabled()) {
-    return NextResponse.json({ error: "Audiobook feature is disabled" }, { status: 403 });
+    return NextResponse.json(
+      { error: "Audiobook status is temporarily unavailable in this environment" },
+      { status: 503 }
+    );
   }
 
   const { id: bookId } = await params;
@@ -34,21 +104,7 @@ export async function GET(
     return NextResponse.json({ error: "Book not found" }, { status: 404 });
   }
 
-  // Get latest job for this book (via ai_jobs.input.bookId)
-  // Fast query: get most recent job by kind + user, then filter by bookId
-  const { data: jobs } = await supabase
-    .from("ai_jobs")
-    .select("id, status, input, output, error, created_at, started_at, finished_at")
-    .eq("kind", AI_JOB_KIND)
-    .eq("user_id", user.id)
-    .order("created_at", { ascending: false })
-    .limit(10);
-
-  // Find job for this book
-  const job = jobs?.find((j) => {
-    const input = j.input as Record<string, unknown> | null;
-    return input?.bookId === bookId;
-  });
+  const job = await findLatestAudiobookJob(supabase, user.id, bookId);
 
   // Get latest asset
   const { data: asset } = await supabase
@@ -60,7 +116,7 @@ export async function GET(
     .maybeSingle();
 
   // Extract progress from job output
-  const output = (job?.output as Record<string, unknown>) ?? {};
+  const output = job?.output ?? {};
   const hasGeneratedAsset = Boolean(asset?.audio_url) && asset?.status === "generated";
   const resolvedBookStatus =
     hasGeneratedAsset
@@ -85,7 +141,7 @@ export async function GET(
           audioUrl: output.audioUrl ?? null,
           manifestUrl: output.manifestUrl ?? null,
           durationSeconds: output.durationSeconds ?? null,
-          error: job.error ?? output.errorDetails ?? null,
+          error: sanitizeJobError(job.error) ?? sanitizeJobError(output.errorDetails as string) ?? null,
           createdAt: job.created_at,
           startedAt: job.started_at,
           finishedAt: job.finished_at,

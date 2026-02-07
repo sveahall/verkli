@@ -23,7 +23,8 @@ import { synthesizeTextToWavBytes } from "../src/lib/tts/piper";
 import { getAudiobookStorageBucket } from "../src/lib/tts/storage";
 import { QUEUE_NAMES } from "../src/lib/queue-names";
 import type { AudiobookJobData } from "../src/lib/audiobook-queue";
-import { getNarrator } from "../src/lib/ai/providers";
+import { getNarrator } from "../src/lib/ai/providers/workers";
+import { sanitizeJobErrorForStorage } from "../src/lib/sanitize-job-error";
 
 const QUEUE_NAME = QUEUE_NAMES.AUDIOBOOK;
 const BUCKET = getAudiobookStorageBucket();
@@ -172,7 +173,7 @@ async function processJob(payload: AudiobookJobData) {
       updates.finished_at = now;
     }
     if (error) {
-      updates.error = error;
+      updates.error = sanitizeJobErrorForStorage(error);
     }
 
     // Merge output updates
@@ -425,9 +426,10 @@ async function processJob(payload: AudiobookJobData) {
     );
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
+    const safeError = sanitizeJobErrorForStorage(msg) ?? "Något gick fel. Kontakta support om problemet kvarstår.";
     console.error("[audiobook worker] failed -", jobId, "error:", msg);
 
-    await updateJob("failed", { errorDetails: msg }, msg);
+    await updateJob("failed", { errorDetails: safeError }, safeError);
     await updateBookStatus("failed");
 
     // Cleanup temp files on failure too

@@ -55,28 +55,43 @@ export async function DELETE(
     }
   }
 
-  // 3. Delete ai_jobs referencing this book (bookId stored in input JSONB, no FK)
-  const { data: userJobs } = await admin
+  // 3. Delete ai_jobs referencing this book.
+  //    Rows with book_id set will also cascade when the book is deleted,
+  //    but we delete explicitly to capture errors. Legacy rows (book_id IS NULL)
+  //    need manual cleanup via input JSONB.
+  const { error: jobsByColError } = await admin
+    .from("ai_jobs")
+    .delete()
+    .eq("book_id", id);
+
+  if (jobsByColError) {
+    console.error("[delete-book] bookId=%s step=ai_jobs(book_id) error=%s", id, jobsByColError.message);
+    warnings.push("ai_jobs_cleanup_failed");
+  }
+
+  // Legacy rows where book_id wasn't backfilled
+  const { data: legacyJobs } = await admin
     .from("ai_jobs")
     .select("id, input")
-    .eq("user_id", user.id);
+    .eq("user_id", user.id)
+    .is("book_id", null);
 
-  const jobIdsToDelete = (userJobs ?? [])
+  const legacyJobIds = (legacyJobs ?? [])
     .filter((j: { id: string; input: unknown }) => {
       const input = j.input as Record<string, unknown> | null;
       return input?.bookId === id;
     })
     .map((j: { id: string }) => j.id);
 
-  if (jobIdsToDelete.length > 0) {
-    const { error: jobsError } = await admin
+  if (legacyJobIds.length > 0) {
+    const { error: legacyError } = await admin
       .from("ai_jobs")
       .delete()
-      .in("id", jobIdsToDelete);
+      .in("id", legacyJobIds);
 
-    if (jobsError) {
-      console.error("[delete-book] bookId=%s step=ai_jobs error=%s", id, jobsError.message);
-      warnings.push("ai_jobs_cleanup_failed");
+    if (legacyError) {
+      console.error("[delete-book] bookId=%s step=ai_jobs(legacy) error=%s", id, legacyError.message);
+      warnings.push("ai_jobs_legacy_cleanup_failed");
     }
   }
 
