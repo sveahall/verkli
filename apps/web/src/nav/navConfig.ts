@@ -46,7 +46,6 @@ export const NAV_CONFIG: Record<NavVariant, NavConfig> = {
         children: [
           { label: "Product", href: "/product" },
           { label: "How it works", href: "/how-it-works" },
-          { label: "Case studies", href: "/case-studies" },
         ],
       },
       { label: "Pricing", href: "/pricing" },
@@ -61,17 +60,6 @@ export const NAV_CONFIG: Record<NavVariant, NavConfig> = {
     homeHref: "/reader",
     links: [
       { label: "Discover", href: "/reader" },
-      { label: "Membership", href: "/reader/membership" },
-      {
-        label: "App",
-        href: "/reader/app",
-        hasDropdown: true,
-        children: [
-          { label: "App overview", href: "/reader/app" },
-          { label: "How it works", href: "/reader/how-it-works" },
-        ],
-      },
-      { label: "FAQ", href: "/reader/faq" },
     ],
     actions: {
       secondary: { label: "Login", href: "/reader/signin" },
