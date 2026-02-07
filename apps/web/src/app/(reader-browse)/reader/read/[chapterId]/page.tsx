@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { canUserReadBook } from "@/lib/books/access";
+import { logAnalyticsEvent } from "@/lib/analytics/events";
 import TiptapRenderer from "@/components/editor/TiptapRenderer";
 import PurchaseBookButton from "../../books/[id]/PurchaseBookButton";
 import ReadingProgress from "./ReadingProgress";
@@ -79,6 +80,37 @@ export default async function ReaderReadPage({
         </section>
       </main>
     );
+  }
+
+  let shouldLogStartReading = false;
+
+  if (user) {
+    const { data: existingReading } = await supabase
+      .from("readings")
+      .select("chapter_id")
+      .eq("user_id", user.id)
+      .eq("book_id", book.id)
+      .maybeSingle();
+    shouldLogStartReading = !existingReading;
+  } else {
+    shouldLogStartReading = Number(chapter.order ?? 0) === 1;
+  }
+
+  if (shouldLogStartReading) {
+    try {
+      await logAnalyticsEvent(supabase, {
+        eventType: "start_reading",
+        userId: user?.id ?? null,
+        bookId: book.id,
+        path: `/reader/read/${chapter.id}`,
+        props: {
+          chapterId: chapter.id,
+          chapterOrder: chapter.order,
+        },
+      });
+    } catch {
+      // Non-blocking for reader flow.
+    }
   }
 
   const { data: chapterContent } = await supabase

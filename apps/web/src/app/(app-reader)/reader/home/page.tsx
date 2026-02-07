@@ -5,10 +5,38 @@ import EmptyState from "@/components/reader/EmptyState";
 import PageHeader from "@/components/reader/PageHeader";
 import Rail from "@/components/reader/Rail";
 import { ErrorBannerWrapper } from "@/components/ui/ErrorBanner";
+import AuthorApplicationCard from "./AuthorApplicationCard";
 
 export default async function ReaderHomePage() {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
+  let authorApplicationStatus: "none" | "pending" | "approved" | "rejected" = "none";
+
+  if (user) {
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("role")
+      .eq("user_id", user.id)
+      .maybeSingle();
+
+    const profileRole = String(profile?.role ?? "").toLowerCase();
+    const metadataRole = String(user.user_metadata?.role ?? "").toLowerCase();
+
+    if (profileRole === "author" || metadataRole === "author") {
+      authorApplicationStatus = "approved";
+    } else {
+      const { data: application } = await supabase
+        .from("author_applications" as never)
+        .select("status")
+        .eq("user_id", user.id)
+        .maybeSingle();
+
+      const status = String((application as { status?: string } | null)?.status ?? "").toLowerCase();
+      if (status === "pending" || status === "approved" || status === "rejected") {
+        authorApplicationStatus = status;
+      }
+    }
+  }
 
   // Continue reading: user's readings with book + author
   let continueReading: {
@@ -105,6 +133,10 @@ export default async function ReaderHomePage() {
           </Link>
         }
       />
+
+      {user && authorApplicationStatus !== "approved" ? (
+        <AuthorApplicationCard initialStatus={authorApplicationStatus} />
+      ) : null}
 
       <Rail
         title="Continue reading"

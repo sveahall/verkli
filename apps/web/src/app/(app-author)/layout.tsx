@@ -1,6 +1,10 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { updateActiveRole } from "@/features/auth/roles";
+import {
+  getAuthorApplicationStatus,
+  isLegacyAuthorRole,
+} from "@/lib/auth/author-approval";
 import NavbarShell from "@/nav/NavbarShell";
 
 export default async function AppAuthorLayout({
@@ -43,14 +47,23 @@ export default async function AppAuthorLayout({
     redirect("/author/signin");
   }
 
-  // SECURITY: Check original signup role - readers cannot access author area
-  const originalRole = user.user_metadata?.role;
-  if (originalRole === "reader") {
-    // Block readers from author area entirely
-    redirect("/reader/home?error=author_required");
+  // SECURITY: allow legacy authors OR approved applications.
+  const originalRole = user.user_metadata?.role as string | undefined;
+  const profileRole = (() => {
+    if (role === "author" || role === "reader") return role;
+    return null;
+  })();
+  const isLegacyAuthor =
+    isLegacyAuthorRole(profileRole) || isLegacyAuthorRole(originalRole);
+
+  if (!isLegacyAuthor) {
+    const approvalStatus = await getAuthorApplicationStatus(supabase, user.id);
+    if (approvalStatus !== "approved") {
+      redirect("/reader/home?error=author_required");
+    }
   }
 
-  // If user is an author but currently in reader mode, switch to author
+  // If an approved user is currently in reader mode, switch to author.
   if (role === "reader") {
     await updateActiveRole("author");
   }

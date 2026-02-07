@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { getLanguageLabel, getSeoLanguageLabel, normalizeLanguage } from "@/lib/languages";
 import { canUserReadBook } from "@/lib/books/access";
+import { logAnalyticsEvent } from "@/lib/analytics/events";
 import type { Metadata } from "next";
 import StartReadingLink from "./StartReadingLink";
 import BookmarkButton from "./BookmarkButton";
@@ -108,6 +109,18 @@ export default async function ReaderBookDetail({
     bookAuthorId: String((book as { author_id?: string | null }).author_id ?? ""),
     bookPriceAmount: priceAmount,
   });
+
+  try {
+    await logAnalyticsEvent(supabase, {
+      eventType: "book_view",
+      userId: user?.id ?? null,
+      bookId: book.id,
+      path: `/reader/books/${book.id}`,
+      props: { hasReadAccess },
+    });
+  } catch {
+    // Non-blocking for reader flow.
+  }
 
   const { data: versions } = await supabase
     .from("book_versions")
