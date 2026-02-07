@@ -75,7 +75,7 @@ export function ImportBookModal({ open, onClose, onImportComplete }: ImportBookM
   const handleFile = async (file: File) => {
     const ext = "." + (file.name.split(".").pop() ?? "").toLowerCase();
     if (!ALLOWED_EXT.includes(ext)) {
-      setError(`Unsupported format. Allowed: ${ALLOWED_EXT.join(", ")}`);
+      setError("This file type isn’t supported. Please use EPUB, DOCX, HTML or TXT.");
       return;
     }
     setError(null);
@@ -89,11 +89,11 @@ export function ImportBookModal({ open, onClose, onImportComplete }: ImportBookM
       const data = await res.json().catch(() => ({}));
 
       if (!res.ok) {
-        setError(data?.error ?? `Import failed (${res.status})`);
+        setError(data?.error ?? "We couldn’t start the import. Please try again.");
         return;
       }
 
-      setSuccessMessage("Import started");
+      setSuccessMessage("Import started — we’ll process your file shortly.");
       const importId = data.id;
       if (importId) {
         setImportsList((prev) => [
@@ -177,7 +177,7 @@ export function ImportBookModal({ open, onClose, onImportComplete }: ImportBookM
 
         {redisHint && (
           <div className="mx-6 mt-4 rounded-xl border border-amber-200 dark:border-amber-900/50 bg-amber-50 dark:bg-amber-950/30 px-4 py-3 text-[14px] text-amber-800 dark:text-amber-200">
-            Import created. Start Redis and run the import worker to process it.
+            Your file is queued. Processing may take a moment — if nothing happens, try again later.
           </div>
         )}
 

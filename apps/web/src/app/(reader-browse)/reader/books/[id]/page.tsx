@@ -99,7 +99,7 @@ export default async function ReaderBookDetail({
 
   const { data: audiobookAsset } = await supabase
     .from("audiobook_assets")
-    .select("id")
+    .select("id, status, audio_url")
     .eq("book_id", book.id)
     .limit(1)
     .maybeSingle();
@@ -145,8 +145,7 @@ export default async function ReaderBookDetail({
   const lang = normalizeLanguage(activeVersion.language_code);
   const languageName = getLanguageLabel(lang);
   const originalUrl = (book as { original_url?: string | null }).original_url;
-  const audiobookStatus = (book as { audiobook_status?: string | null }).audiobook_status;
-  const audiobookAvailable = audiobookStatus === "published" && audiobookAsset != null;
+  const audiobookAvailable = Boolean(audiobookAsset?.audio_url) && audiobookAsset?.status === "generated";
 
   return (
     <main className="min-h-screen bg-slate-50 text-slate-900 dark:bg-[#050508] dark:text-white">

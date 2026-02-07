@@ -5,7 +5,7 @@ import TypographyPanel from "./TypographyPanel";
 
 const FOCUS_SHORTCUT = "f";
 
-export default function authorEditorBar({
+export default function AuthorEditorBar({
   onFocusToggle,
   onTypeauthorToggle,
   showToolbar,

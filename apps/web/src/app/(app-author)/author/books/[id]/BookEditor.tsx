@@ -518,7 +518,7 @@ export default function BookEditor({
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok || data?.ok === false) {
-        const errMsg = data?.error ?? "Failed to start translation";
+        const errMsg = data?.error ?? "Kunde inte starta översättning. Försök igen.";
         if (data?.existingVersionId) {
           setTranslateMessage("Version finns redan. Öppnar befintlig version…");
           router.push(`/author/books/${book.id}?lang=${normalizeLangKey(translateTargetLanguage)}`);
@@ -531,8 +531,7 @@ export default function BookEditor({
       setLastRequestedTargetLanguage(translateTargetLanguage);
       startTranslationPoll();
     } catch (err) {
-      const errMsg = err instanceof Error ? err.message : "Failed to start translation";
-      setTranslateMessage(errMsg);
+      setTranslateMessage("Kunde inte starta översättning. Försök igen.");
     } finally {
       setIsStartingTranslation(false);
     }
@@ -567,7 +566,7 @@ export default function BookEditor({
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
-        setPublishError(data.error || "Failed to update publish settings");
+        setPublishError(data.error || "Kunde inte uppdatera publiceringsinställningar. Försök igen.");
         return;
       }
       router.refresh();
@@ -583,7 +582,7 @@ export default function BookEditor({
       if (process.env.NODE_ENV === "development") {
         console.error("[publish failed]", err);
       }
-      setPublishError("Failed to update publish settings");
+      setPublishError("Kunde inte uppdatera publiceringsinställningar. Försök igen.");
     } finally {
       setIsPublishing(false);
       setConfirmPublishAction(null);
@@ -618,12 +617,12 @@ export default function BookEditor({
       }
       const { url, error: uploadError } = await uploadBookCover(file, user.id, book.id);
       if (uploadError) {
-        setCoverError(uploadError.message);
+        setCoverError("Omslag kunde inte laddas upp. Försök igen.");
         setCoverUploading(false);
         return;
       }
       if (!url) {
-        setCoverError("Upload failed.");
+        setCoverError("Omslag kunde inte laddas upp. Försök igen.");
         setCoverUploading(false);
         return;
       }
@@ -632,7 +631,7 @@ export default function BookEditor({
         .update({ cover_image: url })
         .eq("id", book.id);
       if (updateError) {
-        setCoverError(updateError.message);
+        setCoverError("Omslag kunde inte sparas. Försök igen.");
         setCoverUploading(false);
         return;
       }
@@ -683,7 +682,7 @@ export default function BookEditor({
     const supabase = createClient();
     const { error } = await supabase.from("books").update({ title: trimmed }).eq("id", book.id);
     if (error) {
-      setBookTitleError(error.message);
+      setBookTitleError("Kunde inte spara titel. Försök igen.");
       setBookTitleSaving(false);
       return;
     }
@@ -735,7 +734,7 @@ export default function BookEditor({
             setIsGeneratingAudiobook(false);
             refetchBookJob();
             if (data.job.status === "failed") {
-              setAudiobookError(data.job.error ?? "Generation failed");
+              setAudiobookError(data.job.error ?? "Generering kunde inte slutföras. Försök igen.");
             } else {
               setAudiobookError(null);
               router.refresh();
@@ -762,7 +761,7 @@ export default function BookEditor({
       const res = await fetch(`/api/books/${book.id}/audiobook/generate`, { method: "POST" });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
-        setAudiobookError(data.error ?? "Generate failed");
+        setAudiobookError(data.error ?? "Kunde inte starta generering. Försök igen.");
         setIsGeneratingAudiobook(false);
         return;
       }
@@ -776,7 +775,7 @@ export default function BookEditor({
       refetchBookJob();
       startAudiobookPoll();
     } catch {
-      setAudiobookError("Generate failed");
+      setAudiobookError("Kunde inte starta generering. Försök igen.");
       setIsGeneratingAudiobook(false);
     }
   }, [book.id, isGeneratingAudiobook, refetchBookJob, startAudiobookPoll]);
@@ -794,7 +793,7 @@ export default function BookEditor({
       const data = await res.json().catch(() => ({}));
       if (!res.ok || data?.ok === false) {
         setTtsStatus("error");
-        setTtsMessage(data?.error ?? "TTS failed");
+        setTtsMessage(data?.error ?? "Ljud kunde inte genereras. Försök igen.");
         setTtsManualSteps(data?.manualSteps ?? null);
         return;
       }
@@ -805,7 +804,7 @@ export default function BookEditor({
       router.refresh();
     } catch (err) {
       setTtsStatus("error");
-      setTtsMessage(err instanceof Error ? err.message : "TTS failed");
+      setTtsMessage("Ljud kunde inte genereras. Försök igen.");
       setTtsManualSteps(null);
     }
   }, [book.id, ttsVoice, router]);
@@ -825,12 +824,12 @@ export default function BookEditor({
       });
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
-        toast.error(data.error ?? "Generate failed");
+        toast.error(data.error ?? "Kunde inte generera. Försök igen.");
         return;
       }
       router.refresh();
     } catch {
-      toast.error("Generate failed");
+      toast.error("Kunde inte generera. Försök igen.");
     } finally {
       setIsGeneratingMarketing(false);
     }
@@ -903,11 +902,12 @@ export default function BookEditor({
       if (process.env.NODE_ENV === "development") {
         console.error("[autosave failed]", error);
       }
+      toast.error("Kunde inte spara. Ändringar kanske inte sparades.");
       return;
     }
     setChapters((prev) => prev.map((ch) => (ch.id === chapterId ? { ...ch, content: contentString } : ch)));
     setLastSaved(new Date());
-  }, []);
+  }, [toast]);
 
   const handleCreateChapter = async () => {
     setIsCreating(true);
@@ -927,7 +927,7 @@ export default function BookEditor({
         .single();
       if (versionError || !createdVersion?.id) {
         setIsCreating(false);
-        toast.error("Kunde inte skapa en version för boken. Kontrollera databasen och försök igen.");
+        toast.error("Kunde inte skapa version. Försök igen.");
         return;
       }
       targetVersionId = createdVersion.id;
@@ -956,7 +956,7 @@ export default function BookEditor({
       if (process.env.NODE_ENV === "development") {
         console.error("[createChapter failed]", error);
       }
-      toast.error(`Failed to create chapter: ${error.message || "Unknown error"}`);
+      toast.error("Kunde inte skapa kapitel. Försök igen.");
       return;
     }
     if (data) {

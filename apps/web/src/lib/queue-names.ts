@@ -7,6 +7,7 @@ export const QUEUE_NAMES = {
   IMPORT: "book-import-extract",
   TRANSLATION: "book-translation",
   AUDIOBOOK: "audiobook-generation",
+  TTS: "tts-generation",
 } as const;
 
 export type QueueName = (typeof QUEUE_NAMES)[keyof typeof QUEUE_NAMES];

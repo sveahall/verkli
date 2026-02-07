@@ -20,37 +20,49 @@ export type Database = {
     Tables: {
       ai_jobs: {
         Row: {
+          book_id: string | null
+          book_version_id: string | null
           created_at: string
           error: string | null
           finished_at: string | null
           id: string
           input: Json | null
           kind: string
+          language: string | null
           output: Json | null
+          progress: number
           started_at: string | null
           status: string
           user_id: string
         }
         Insert: {
+          book_id?: string | null
+          book_version_id?: string | null
           created_at?: string
           error?: string | null
           finished_at?: string | null
           id?: string
           input?: Json | null
           kind: string
+          language?: string | null
           output?: Json | null
+          progress?: number
           started_at?: string | null
           status?: string
           user_id: string
         }
         Update: {
+          book_id?: string | null
+          book_version_id?: string | null
           created_at?: string
           error?: string | null
           finished_at?: string | null
           id?: string
           input?: Json | null
           kind?: string
+          language?: string | null
           output?: Json | null
+          progress?: number
           started_at?: string | null
           status?: string
           user_id?: string

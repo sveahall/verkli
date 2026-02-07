@@ -8,7 +8,7 @@ import { signIn, signInWithGoogle } from "@/lib/supabase/auth";
 import ThemeToggle from "@/components/ThemeToggle";
 import { createClient } from "@/lib/supabase/client";
 
-export default function authorSignIn() {
+export default function AuthorSignIn() {
   const router = useRouter();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");

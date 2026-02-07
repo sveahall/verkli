@@ -31,7 +31,7 @@ export default function Rail({ title, subtitle, action, children, isEmpty, empty
           {emptyState ?? (
             <EmptyState
               title="Nothing here yet"
-              description="Save a few books to start curating your rail."
+              description="Add items and they’ll show up here."
             />
           )}
         </div>

@@ -12,6 +12,72 @@ const AI_JOB_KIND = "audiobook_generation";
 const DEFAULT_VOICE_ID = "sv_SE-nst-medium";
 const DEFAULT_MODEL_PATH = "vendor/tts/voices/sv_SE-nst-medium.onnx";
 
+type ActiveJobRow = {
+  id: string;
+  status: string;
+  output: Record<string, unknown> | null;
+  input: Record<string, unknown> | null;
+};
+
+async function findActiveAudiobookJob(
+  supabase: ReturnType<typeof createClient>,
+  userId: string,
+  bookId: string
+): Promise<ActiveJobRow | null> {
+  // Preferred lookup via dedicated identity columns.
+  const { data: byBookId, error: byBookIdError } = await supabase
+    .from("ai_jobs")
+    .select("id, status, output, input")
+    .eq("kind", AI_JOB_KIND)
+    .eq("user_id", userId)
+    .eq("book_id", bookId)
+    .in("status", ["pending", "processing"])
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (byBookIdError) {
+    console.warn("[audiobook generate] failed active-job lookup by book_id:", byBookIdError.message);
+  }
+  if (byBookId) {
+    return {
+      id: byBookId.id,
+      status: byBookId.status,
+      output: (byBookId.output as Record<string, unknown> | null) ?? null,
+      input: (byBookId.input as Record<string, unknown> | null) ?? null,
+    };
+  }
+
+  // Legacy fallback for rows created before `book_id` was populated.
+  const { data: legacyRows, error: legacyError } = await supabase
+    .from("ai_jobs")
+    .select("id, status, output, input")
+    .eq("kind", AI_JOB_KIND)
+    .eq("user_id", userId)
+    .is("book_id", null)
+    .in("status", ["pending", "processing"])
+    .order("created_at", { ascending: false })
+    .limit(20);
+
+  if (legacyError) {
+    console.warn("[audiobook generate] failed legacy active-job lookup:", legacyError.message);
+    return null;
+  }
+
+  const legacy = (legacyRows ?? []).find((row) => {
+    const input = row.input as Record<string, unknown> | null;
+    return input?.bookId === bookId;
+  });
+
+  if (!legacy) return null;
+  return {
+    id: legacy.id,
+    status: legacy.status,
+    output: (legacy.output as Record<string, unknown> | null) ?? null,
+    input: (legacy.input as Record<string, unknown> | null) ?? null,
+  };
+}
+
 export async function POST(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
@@ -66,32 +132,17 @@ export async function POST(
     );
   }
 
-  // Check for existing queued/running job
-  const { data: existingJob } = await supabase
-    .from("ai_jobs")
-    .select("id, status, output")
-    .eq("kind", AI_JOB_KIND)
-    .eq("user_id", user.id)
-    .in("status", ["pending", "processing"])
-    .order("created_at", { ascending: false })
-    .limit(1)
-    .maybeSingle();
-
+  // Check for existing queued/running job for this specific book.
+  const existingJob = await findActiveAudiobookJob(supabase, user.id, bookId);
   if (existingJob) {
-    // Check if it's for the same book
-    const existingInput = existingJob.output as Record<string, unknown> | null;
-    const existingBookId = existingInput?.bookId;
-    if (existingBookId === bookId) {
-      const output = existingJob.output as Record<string, unknown> | null;
-      return NextResponse.json({
-        ok: true,
-        jobId: existingJob.id,
-        status: existingJob.status,
-        message: "Job already in progress",
-        totalChapters: output?.totalChapters ?? 0,
-        completedChapters: output?.completedChapters ?? 0,
-      });
-    }
+    return NextResponse.json({
+      ok: true,
+      jobId: existingJob.id,
+      status: existingJob.status,
+      message: "Job already in progress",
+      totalChapters: existingJob.output?.totalChapters ?? 0,
+      completedChapters: existingJob.output?.completedChapters ?? 0,
+    });
   }
 
   // Count chapters for this version
@@ -120,6 +171,10 @@ export async function POST(
     .insert({
       user_id: user.id,
       kind: AI_JOB_KIND,
+      book_id: bookId,
+      book_version_id: version.id,
+      language: version.language_code,
+      progress: 0,
       status: "pending",
       input: {
         bookId,
@@ -137,6 +192,22 @@ export async function POST(
     .single();
 
   if (jobError || !job) {
+    if (jobError?.code === "23505") {
+      const activeJob = await findActiveAudiobookJob(supabase, user.id, bookId);
+      if (activeJob) {
+        return NextResponse.json(
+          {
+            ok: true,
+            jobId: activeJob.id,
+            status: activeJob.status,
+            message: "Job already in progress",
+            totalChapters: activeJob.output?.totalChapters ?? 0,
+            completedChapters: activeJob.output?.completedChapters ?? 0,
+          },
+          { status: 202 }
+        );
+      }
+    }
     console.error("[audiobook generate] failed to create job:", jobError?.message);
     return NextResponse.json(
       { error: jobError?.message ?? "Failed to create job" },
@@ -145,21 +216,27 @@ export async function POST(
   }
 
   // Enqueue BullMQ job
-  const queuedId = await enqueueAudiobookJob({
-    jobId: job.id,
-    bookId,
-    bookVersionId: version.id,
-    userId: user.id,
-    language: version.language_code,
-    voiceId,
-    modelPath,
-  });
+  let queuedId: string | null = null;
+  try {
+    queuedId = await enqueueAudiobookJob({
+      jobId: job.id,
+      bookId,
+      bookVersionId: version.id,
+      userId: user.id,
+      language: version.language_code,
+      voiceId,
+      modelPath,
+    });
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    console.error("[audiobook generate] queue enqueue failed:", msg, "jobId:", job.id, "bookId:", bookId);
+  }
 
   if (!queuedId) {
     // Redis unavailable - mark job as failed
     await admin
       .from("ai_jobs")
-      .update({ status: "failed", error: "Queue unavailable" })
+      .update({ status: "failed", error: "Queue unavailable", progress: 0 })
       .eq("id", job.id);
 
     return NextResponse.json(

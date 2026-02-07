@@ -1,6 +1,6 @@
 "use client";
 
-import { forwardRef, type SelectHTMLAttributes, type ReactNode } from "react";
+import { forwardRef, useId, type SelectHTMLAttributes, type ReactNode } from "react";
 
 /* ─────────────────────────────────────────────────────────────────────────────
  * Types
@@ -84,7 +84,8 @@ export const Select = forwardRef<HTMLSelectElement, SelectProps>(
     },
     ref
   ) => {
-    const selectId = id || props.name || `select-${Math.random().toString(36).slice(2, 9)}`;
+    const generatedId = useId();
+    const selectId = id || props.name || generatedId;
     const hasError = !!error;
 
     return (

@@ -74,13 +74,13 @@ export default function CreateBookDialog({
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
-        setError(data?.error ?? "Failed to create book");
+        setError(data?.error ?? "We couldn’t create the book. Please try again.");
         return;
       }
       handleCreated(data.id, data.versionId ?? null, language);
       onClose();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to create book");
+    } catch {
+      setError("We couldn’t create the book. Please try again.");
     } finally {
       setCreating(false);
     }

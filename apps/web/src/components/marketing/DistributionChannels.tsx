@@ -24,7 +24,7 @@ export default function DistributionChannels({
   if (state === "error") {
     return (
       <div className="rounded-2xl border border-dashed border-destructive/40 bg-destructive/10 p-6 text-sm text-destructive">
-        Channels failed to load. Check integration settings later.
+        Channels couldn’t be loaded. Try again later.
       </div>
     );
   }

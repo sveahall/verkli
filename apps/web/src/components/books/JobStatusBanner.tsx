@@ -121,9 +121,9 @@ export default function JobStatusBanner({
           />
         </div>
       )}
-      {displayStatus === "failed" && job.error && (
+      {displayStatus === "failed" && (
         <p className="mt-2 text-sm text-red-700 dark:text-red-300" role="alert">
-          {job.error}
+          Något gick fel. Försök igen.
         </p>
       )}
     </div>
@@ -159,21 +159,33 @@ function toJobStatusData(j: UnifiedJob): NonNullable<JobStatusData> {
 /**
  * Filters jobs to show: active (pending/processing), recent failed (<5min),
  * or recent completed (<5min). Returns [] if nothing to show.
+ * Active jobs older than 30 min are treated as stale/failed.
  */
 function getVisibleJobs(jobs: UnifiedJob[]): UnifiedJob[] {
   const now = Date.now();
   const RECENT_MS = 5 * 60 * 1000;
+  const STALE_MS = 30 * 60 * 1000;
   const seen = new Set<string>();
-  return jobs.filter((j) => {
-    if (seen.has(j.id)) return false;
-    seen.add(j.id);
-    if (j.status === "pending" || j.status === "processing") return true;
-    if (j.status === "failed" || j.status === "completed") {
-      const finished = j.finishedAt ? new Date(j.finishedAt).getTime() : 0;
-      return now - finished < RECENT_MS;
-    }
-    return false;
-  });
+  return jobs
+    .filter((j) => {
+      if (seen.has(j.id)) return false;
+      seen.add(j.id);
+      if (j.status === "pending" || j.status === "processing") return true;
+      if (j.status === "failed" || j.status === "completed") {
+        const finished = j.finishedAt ? new Date(j.finishedAt).getTime() : 0;
+        return now - finished < RECENT_MS;
+      }
+      return false;
+    })
+    .map((j) => {
+      if (j.status === "pending" || j.status === "processing") {
+        const created = j.createdAt ? new Date(j.createdAt).getTime() : 0;
+        if (created > 0 && now - created > STALE_MS) {
+          return { ...j, status: "failed", error: "Jobbet verkar ha fastnat — försök igen" };
+        }
+      }
+      return j;
+    });
 }
 
 export type BookJobsBannerProps = {

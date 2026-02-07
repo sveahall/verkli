@@ -1,13 +1,5 @@
-import PlaceholderPage from "@/components/PlaceholderPage";
-import { NAV_CONFIG } from "@/nav/navConfig";
+import { redirect } from "next/navigation";
 
 export default function Page() {
-  return (
-    <PlaceholderPage
-      title="Membership"
-      variantLabel="Reader"
-      links={NAV_CONFIG.PUBLIC_READER.links}
-      showAuthStatus={false}
-    />
-  );
+  redirect("/reader");
 }

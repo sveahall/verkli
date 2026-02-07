@@ -109,7 +109,7 @@ export default function TestimonialSection() {
             </div>
             
             <p className="relative text-[17px] leading-[1.7] text-slate-600 transition-colors duration-300 group-hover:text-slate-800 dark:text-white/80 dark:group-hover:text-white/90">
-              "{testimonial.quote}"
+              &quot;{testimonial.quote}&quot;
             </p>
             
             <div className="relative mt-8 flex items-center gap-4">

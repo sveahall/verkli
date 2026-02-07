@@ -2,7 +2,9 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import SettingsPage from "@/components/author/settings/SettingsPage";
 import { getAvatarUrlFromPathServer } from "@/lib/supabase/avatar";
-import type { Profile } from "@/lib/supabase/types";
+import type { Tables } from "@/lib/supabase/types";
+
+type Profile = Tables<"profiles">;
 
 export default async function authorSettingsRoute() {
   const supabase = await createClient();
@@ -51,7 +53,9 @@ export default async function authorSettingsRoute() {
           avatarUrl,
           isPublic: profile?.is_public ?? true,
           role: profile?.role || (user.user_metadata?.role ?? "author"),
-          preferences: profile?.preferences || {},
+          preferences: (profile?.preferences && typeof profile.preferences === "object" && !Array.isArray(profile.preferences)
+            ? profile.preferences
+            : {}) as Record<string, unknown>,
         }}
       />
     </div>

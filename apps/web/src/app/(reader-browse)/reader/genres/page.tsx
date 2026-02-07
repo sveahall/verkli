@@ -44,8 +44,8 @@ export default async function ReaderGenresPage({
           subtitle="Curated collections by genre and theme."
         />
         <EmptyState
-          title="Genres are unavailable"
-          description="Discovery is currently disabled. Check back soon."
+          title="No genres to show yet"
+          description="Check back later for curated collections."
           action={
             <Link href="/reader/home" className="btn-secondary">
               Back to Home
@@ -67,8 +67,8 @@ export default async function ReaderGenresPage({
           subtitle="Curated collections by genre and theme."
         />
         <EmptyState
-          title="Couldn&apos;t load genres"
-          description="Refresh the page or try again in a moment."
+          title="Something went wrong"
+          description="We couldn’t load genres. Refresh the page or try again in a moment."
           action={
             <Link href="/reader/genres" className="btn-secondary">
               Retry

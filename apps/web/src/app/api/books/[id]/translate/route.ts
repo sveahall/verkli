@@ -5,6 +5,7 @@ import { detectLanguageFromText } from "@/lib/language-detect";
 import { isSupportedLanguage, normalizeLanguageOrNull } from "@/lib/languages";
 import { assertPublicEnv } from "@/lib/env";
 import { requireAuthorRoleForApi } from "@/lib/auth/require-author";
+import { isTranslationsEnabled } from "@/lib/flags";
 
 function extractText(node: unknown): string {
   if (!node || typeof node !== "object") return "";
@@ -36,6 +37,11 @@ export async function POST(
   { params }: { params: Promise<{ id: string }> }
 ) {
   assertPublicEnv();
+
+  if (!isTranslationsEnabled()) {
+    return NextResponse.json({ error: "Translation feature is disabled" }, { status: 403 });
+  }
+
   const { id: bookId } = await params;
 
   const body = await request.json().catch(() => ({}));

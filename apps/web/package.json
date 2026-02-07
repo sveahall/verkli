@@ -14,7 +14,9 @@
     "import-worker": "tsx scripts/import-worker.ts",
     "translate-worker": "tsx scripts/translation-worker.ts",
     "audiobook-worker": "tsx scripts/audiobook-worker.ts",
-    "generate:types": "tsx scripts/generate-types.ts"
+    "tts-worker": "tsx scripts/tts-worker.ts",
+    "generate:types": "tsx scripts/generate-types.ts",
+    "seed": "tsx scripts/seed.ts"
   },
   "dependencies": {
     "@runwayml/sdk": "^3.11.0",
