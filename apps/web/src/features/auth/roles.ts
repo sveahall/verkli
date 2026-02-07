@@ -1,4 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
+import { getAuthorApplicationStatus } from "@/lib/auth/author-approval";
 
 export type ActiveRole = "author" | "reader";
 
@@ -20,14 +21,15 @@ export async function updateActiveRole(role: ActiveRole): Promise<RoleUpdateResu
   // Get original signup role
   const originalRole = user.user_metadata?.role as ActiveRole | undefined;
 
-  // SECURITY: Readers cannot switch to author role
-  // Authors can switch between roles (they can be readers too)
-  // Readers can only stay as readers
+  // SECURITY: readers can switch to author only when approved by admin.
   if (role === "author" && originalRole === "reader") {
-    return {
-      ok: false,
-      error: "Reader accounts cannot access author features. Please create an author account.",
-    };
+    const approvalStatus = await getAuthorApplicationStatus(supabase, user.id);
+    if (approvalStatus !== "approved") {
+      return {
+        ok: false,
+        error: "Author approval required before switching to author mode.",
+      };
+    }
   }
 
   const { data: profile } = await supabase

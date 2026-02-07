@@ -15,12 +15,27 @@ export async function GET(request: Request) {
   since.setDate(since.getDate() - 7);
   const sinceIso = since.toISOString();
 
-  const { data: rows, error } = await admin
+  const primaryQuery = await admin
     .from("analytics_events")
-    .select("event_name, path")
+    .select("event_type, event_name, path")
     .gte("created_at", sinceIso);
 
-  if (error) {
+  let rows = primaryQuery.data as
+    | Array<{ event_type?: string | null; event_name?: string | null; path?: string | null }>
+    | null;
+  let queryError = primaryQuery.error;
+
+  if (queryError && /event_type/i.test(queryError.message ?? "")) {
+    const fallbackQuery = await admin
+      .from("analytics_events")
+      .select("event_name, path")
+      .gte("created_at", sinceIso);
+
+    rows = fallbackQuery.data as Array<{ event_name?: string | null; path?: string | null }> | null;
+    queryError = fallbackQuery.error;
+  }
+
+  if (queryError) {
     return NextResponse.json({ error: "Failed to load funnel data" }, { status: 500 });
   }
 
@@ -28,7 +43,7 @@ export async function GET(request: Request) {
   const readerCounts: Record<string, number> = {};
 
   for (const row of rows ?? []) {
-    const name = row.event_name ?? "unknown";
+    const name = row.event_type ?? row.event_name ?? "unknown";
     const path = (row.path as string) ?? "";
     const isAuthor = path.startsWith("/author") || path.includes("author");
     const isReader = path.startsWith("/reader") || path.includes("reader");
