@@ -37,13 +37,21 @@ export default async function ReaderLibraryPage() {
     .select("book_id")
     .eq("user_id", user.id);
 
+  const { data: entitlementRows } = await supabase
+    .from("entitlements" as never)
+    .select("book_id")
+    .eq("user_id", user.id)
+    .eq("source", "purchase");
+
   const readings = readingsRows ?? [];
   const bookmarksCount = bookmarkRows?.length ?? 0;
   const readingFiltered = readings.filter((r) => (r.progress_percent ?? 0) < 100);
   const finishedFiltered = readings.filter((r) => (r.progress_percent ?? 0) >= 100);
   const readingBookIds = [...new Map(readingFiltered.map((r) => [r.book_id, r])).values()].map((r) => r.book_id);
   const finishedBookIds = [...new Map(finishedFiltered.map((r) => [r.book_id, r])).values()].map((r) => r.book_id);
-  const savedBookIds = (bookmarkRows ?? []).map((r) => r.book_id);
+  const bookmarkedBookIds = (bookmarkRows ?? []).map((r) => r.book_id);
+  const purchasedBookIds = (entitlementRows ?? []).map((r) => (r as { book_id: string }).book_id);
+  const savedBookIds = [...new Set([...bookmarkedBookIds, ...purchasedBookIds])];
 
   const allBookIds = [...new Set([...readingBookIds, ...finishedBookIds, ...savedBookIds])];
   let books: { id: string; title: string; cover_image: string | null; author_id: string }[] = [];

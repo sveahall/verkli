@@ -45,40 +45,73 @@ export async function GET(
     return NextResponse.json({ error: "Book not found" }, { status: 404 });
   }
 
-  // Query ai_jobs using the new book_id column
-  const { data: rows, error: dbError } = await supabase
+  // Query ai_jobs: prefer book_id column (post-migration), fallback to user_id + filter by input.bookId
+  const preferredSelect =
+    "id, kind, status, book_id, book_version_id, language, progress, input, output, error, created_at, started_at, finished_at";
+  type AiJobRow = {
+    id: string;
+    kind: string;
+    status: string;
+    input: unknown;
+    output: unknown;
+    error: string | null;
+    created_at: string;
+    started_at: string | null;
+    finished_at: string | null;
+    book_id?: string | null;
+    book_version_id?: string | null;
+    language?: string | null;
+    progress?: number;
+  };
+  let rows: AiJobRow[] | null = null;
+
+  const preferred = await supabase
     .from("ai_jobs")
-    .select(
-      "id, kind, status, book_id, book_version_id, language, progress, input, output, error, created_at, started_at, finished_at"
-    )
+    .select(preferredSelect)
     .eq("user_id", user.id)
     .eq("book_id", bookId)
     .order("created_at", { ascending: false })
     .limit(50);
 
-  if (dbError) {
-    return NextResponse.json(
-      { error: "Failed to fetch jobs" },
-      { status: 500 }
-    );
+  if (preferred.error) {
+    // Fallback: table may lack book_id (migration not run) — fetch by user and filter in code
+    const fallback = await supabase
+      .from("ai_jobs")
+      .select("id, kind, status, input, output, error, created_at, started_at, finished_at")
+      .eq("user_id", user.id)
+      .order("created_at", { ascending: false })
+      .limit(100);
+
+    if (fallback.error) {
+      return NextResponse.json(
+        { error: "Kunde inte hämta uppgifter. Försök igen senare." },
+        { status: 500 }
+      );
+    }
+    const inputFiltered = (fallback.data ?? []).filter((r) => {
+      const input = r.input as Record<string, unknown> | null;
+      return input?.bookId === bookId;
+    });
+    rows = inputFiltered as AiJobRow[];
+  } else {
+    rows = preferred.data as AiJobRow[] | null;
   }
 
-  // Fallback: rows where book_id column is null but input JSON has bookId
-  // (pre-migration rows not yet backfilled)
-  const { data: legacyRows } = await supabase
-    .from("ai_jobs")
-    .select(
-      "id, kind, status, book_id, book_version_id, language, progress, input, output, error, created_at, started_at, finished_at"
-    )
-    .eq("user_id", user.id)
-    .is("book_id", null)
-    .order("created_at", { ascending: false })
-    .limit(20);
-
-  const legacyMatches = (legacyRows ?? []).filter((r) => {
-    const input = r.input as Record<string, unknown> | null;
-    return input?.bookId === bookId;
-  });
+  let legacyMatches: AiJobRow[] = [];
+  if (!preferred.error) {
+    // Legacy rows where book_id is null but input has bookId (pre-backfill)
+    const { data: legacyRows } = await supabase
+      .from("ai_jobs")
+      .select(preferredSelect)
+      .eq("user_id", user.id)
+      .is("book_id", null)
+      .order("created_at", { ascending: false })
+      .limit(20);
+    legacyMatches = (legacyRows ?? []).filter((r) => {
+      const input = r.input as Record<string, unknown> | null;
+      return input?.bookId === bookId;
+    }) as AiJobRow[];
+  }
 
   // Merge and deduplicate
   const allRows = [...(rows ?? []), ...legacyMatches];

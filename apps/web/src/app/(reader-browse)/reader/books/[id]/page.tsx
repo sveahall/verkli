@@ -2,18 +2,33 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { getLanguageLabel, getSeoLanguageLabel, normalizeLanguage } from "@/lib/languages";
+import { canUserReadBook } from "@/lib/books/access";
 import type { Metadata } from "next";
 import StartReadingLink from "./StartReadingLink";
 import BookmarkButton from "./BookmarkButton";
+import PurchaseBookButton from "./PurchaseBookButton";
 
 async function getBook(id: string) {
   const supabase = await createClient();
   const { data } = await supabase
     .from("books")
-    .select("id, title, description, cover_image, status, author_id, language, original_language, original_url, audiobook_status")
+    .select("id, title, description, cover_image, status, author_id, language, original_language, original_url, audiobook_status, price_amount, price_currency")
     .eq("id", id)
     .maybeSingle();
   return data;
+}
+
+function formatMoney(amount: number, currency: string): string {
+  const value = amount / 100;
+  try {
+    return new Intl.NumberFormat(undefined, {
+      style: "currency",
+      currency: currency.toUpperCase(),
+      maximumFractionDigits: 2,
+    }).format(value);
+  } catch {
+    return `${value.toFixed(2)} ${currency.toUpperCase()}`;
+  }
 }
 
 export async function generateMetadata({
@@ -21,7 +36,7 @@ export async function generateMetadata({
   searchParams,
 }: {
   params: Promise<{ id: string }>;
-  searchParams?: Promise<{ lang?: string }>;
+  searchParams?: Promise<{ lang?: string; purchase?: string }>;
 }): Promise<Metadata> {
   const { id } = await params;
   const book = await getBook(id);
@@ -63,7 +78,7 @@ export default async function ReaderBookDetail({
   searchParams,
 }: {
   params: Promise<{ id: string }>;
-  searchParams?: Promise<{ lang?: string }>;
+  searchParams?: Promise<{ lang?: string; purchase?: string }>;
 }) {
   const { id } = await params;
 
@@ -71,13 +86,28 @@ export default async function ReaderBookDetail({
 
   const { data: book } = await supabase
     .from("books")
-    .select("id, title, description, cover_image, status, author_id, language, original_language, original_url, audiobook_status")
+    .select("id, title, description, cover_image, status, author_id, language, original_language, original_url, audiobook_status, price_amount, price_currency")
     .eq("id", id)
     .maybeSingle();
 
   if (!book || (book.status && book.status !== "PUBLISHED")) {
     notFound();
   }
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  const priceAmount = Math.max(0, Math.trunc(Number((book as { price_amount?: number | null }).price_amount ?? 0)));
+  const priceCurrency = String((book as { price_currency?: string | null }).price_currency ?? "USD").trim().toUpperCase() || "USD";
+  const isFreeBook = priceAmount <= 0;
+  const hasReadAccess = await canUserReadBook({
+    supabase,
+    userId: user?.id ?? null,
+    bookId: book.id,
+    bookAuthorId: String((book as { author_id?: string | null }).author_id ?? ""),
+    bookPriceAmount: priceAmount,
+  });
 
   const { data: versions } = await supabase
     .from("book_versions")
@@ -110,19 +140,20 @@ export default async function ReaderBookDetail({
     .eq("user_id", book.author_id)
     .maybeSingle();
 
-  const { data: chapters } = await supabase
-    .from("chapters")
-    .select("id, title, order")
-    .eq("book_version_id", activeVersion.id)
-    .order("order", { ascending: true });
+  const { data: chapters } = hasReadAccess
+    ? await supabase
+        .from("chapters")
+        .select("id, title, order")
+        .eq("book_version_id", activeVersion.id)
+        .order("order", { ascending: true })
+    : { data: [] as Array<{ id: string; title: string; order: number }> };
 
   const chaptersCount = chapters?.length ?? 0;
   const firstChapter = chapters?.[0];
 
-  const { data: { user } } = await supabase.auth.getUser();
   let lastChapterId: string | null = firstChapter?.id ?? null;
   let isBookmarked = false;
-  if (user) {
+  if (user && hasReadAccess) {
     const [readingRes, bookmarkRes] = await Promise.all([
       supabase
         .from("readings")
@@ -146,6 +177,7 @@ export default async function ReaderBookDetail({
   const languageName = getLanguageLabel(lang);
   const originalUrl = (book as { original_url?: string | null }).original_url;
   const audiobookAvailable = Boolean(audiobookAsset?.audio_url) && audiobookAsset?.status === "generated";
+  const purchaseState = resolvedSearchParams?.purchase;
 
   return (
     <main className="min-h-screen bg-slate-50 text-slate-900 dark:bg-[#050508] dark:text-white">
@@ -180,7 +212,7 @@ export default async function ReaderBookDetail({
 
           <div className="mt-6 flex flex-wrap gap-3 text-[12px] text-slate-600 dark:text-white/60">
             <span className="rounded-full border border-black/10 bg-black/[0.02] px-3 py-1 dark:border-white/10 dark:bg-white/5">
-              {chaptersCount ?? 0} chapters
+              {hasReadAccess ? `${chaptersCount ?? 0} chapters` : "Paid access"}
             </span>
             <span className="rounded-full border border-black/10 bg-black/[0.02] px-3 py-1 dark:border-white/10 dark:bg-white/5">Published</span>
             <span className="rounded-full border border-emerald-600/30 bg-emerald-500/10 px-3 py-1 text-emerald-700 dark:border-emerald-400/30 dark:bg-emerald-500/10 dark:text-emerald-300" aria-label={`Language: ${languageName}`}>
@@ -202,13 +234,42 @@ export default async function ReaderBookDetail({
             {book.description || "No description yet."}
           </p>
 
+          {!hasReadAccess && !isFreeBook ? (
+            <div className="mt-6 rounded-2xl border border-amber-500/30 bg-amber-500/10 p-4 text-sm text-amber-900 dark:text-amber-200">
+              <p className="font-semibold">This book is locked.</p>
+              <p className="mt-1">
+                Buy once to unlock full reading access. Price: {formatMoney(priceAmount, priceCurrency)}.
+              </p>
+              {purchaseState === "success" ? (
+                <p className="mt-2 text-emerald-700 dark:text-emerald-300">Payment completed. Refreshing access…</p>
+              ) : null}
+              {purchaseState === "failed" ? (
+                <p className="mt-2 text-rose-700 dark:text-rose-300">Payment verification failed. Try again.</p>
+              ) : null}
+              {purchaseState === "cancelled" ? (
+                <p className="mt-2 text-slate-700 dark:text-slate-300">Checkout cancelled.</p>
+              ) : null}
+            </div>
+          ) : null}
+
           <div className="mt-8 flex flex-wrap gap-4">
-            <StartReadingLink
-              bookId={book.id}
-              firstChapterId={firstChapter?.id ?? null}
-              serverChapterId={user ? lastChapterId : null}
-            />
-            {user && (
+            {hasReadAccess ? (
+              <StartReadingLink
+                bookId={book.id}
+                firstChapterId={firstChapter?.id ?? null}
+                serverChapterId={user ? lastChapterId : null}
+              />
+            ) : user ? (
+              <PurchaseBookButton bookId={book.id} amount={priceAmount} currency={priceCurrency} />
+            ) : (
+              <Link
+                href={`/reader/signin?next=${encodeURIComponent(`/reader/books/${book.id}`)}`}
+                className="rounded-full bg-[#907AFF] px-6 py-3 text-[14px] font-semibold text-white transition hover:bg-[#8069EE]"
+              >
+                Sign in to buy
+              </Link>
+            )}
+            {user && hasReadAccess && (
               <BookmarkButton bookId={book.id} initialBookmarked={isBookmarked} />
             )}
             {originalUrl && (

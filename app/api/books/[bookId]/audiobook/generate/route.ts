@@ -27,8 +27,9 @@ async function assertFileExists(filePath: string) {
   try {
     await fs.access(filePath);
   } catch (error) {
-    const err = new Error(`Required file does not exist: ${filePath}`);
-    (err as any).cause = error;
+    const err = new Error(`Required file does not exist: ${filePath}`, {
+      cause: error instanceof Error ? error : undefined,
+    });
     throw err;
   }
 }
@@ -46,8 +47,9 @@ function runPiperTTS(text: string, outputPath: string, modelPath: string): Promi
     });
 
     child.on("error", (error) => {
-      const err = new Error(`Failed to start piper process: ${(error as Error).message}`);
-      (err as any).cause = error;
+      const err = new Error(`Failed to start piper process: ${error.message}`, {
+        cause: error,
+      });
       reject(err);
     });
 

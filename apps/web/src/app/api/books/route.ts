@@ -39,6 +39,8 @@ export async function POST(request: Request) {
       original_language: language,
       original_source: original_source || null,
       original_url: original_url || null,
+      price_amount: 499,
+      price_currency: "USD",
     })
     .select("id")
     .single();
