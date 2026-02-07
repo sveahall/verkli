@@ -9,7 +9,9 @@ import TiptapEditor from "@/components/editor/TiptapEditor";
 import AuthorStatsBar from "@/components/editor/AuthorStatsBar";
 import CommandPalette from "@/components/editor/CommandPalette";
 import DeleteBookButton from "@/components/books/DeleteBookButton";
+import { BookJobsBanner } from "@/components/books/JobStatusBanner";
 import { useToastHelpers } from "@/components/ui/Toast";
+import { useBookJobs } from "@/hooks/useBookJobs";
 import { getAudiobookEnabled, getMarketingEnabled, getTranslationsEnabled } from "@/lib/flags";
 import { getLanguageLabel, LANGUAGE_OPTIONS, normalizeLanguage, type SupportedLanguage } from "@/lib/languages";
 
@@ -247,10 +249,17 @@ export default function BookEditor({
   const publishMenuButtonRef = useRef<HTMLButtonElement>(null);
   const publishMenuRef = useRef<HTMLDivElement>(null);
 
+  const { jobs: allJobs, job: bookJob, loading: jobLoading, error: jobError, refetch: refetchBookJob, settled: jobsSettled } = useBookJobs(book.id);
+
   useEffect(() => {
     setChapters(initialChapters);
     setSelectedChapterId(initialChapters[0]?.id ?? null);
   }, [initialChapters]);
+
+  // Refresh server data when all jobs finish
+  useEffect(() => {
+    if (jobsSettled) router.refresh();
+  }, [jobsSettled, router]);
 
   useEffect(() => {
     if (!publishToast) return;
@@ -434,6 +443,14 @@ export default function BookEditor({
     if (currentTargetVersion?.status === "done" || currentTargetVersion?.published_at) return "done";
     return "idle";
   }, [currentTargetVersion?.status, currentTargetVersion?.published_at, isPollingCurrent]);
+
+  const hasGeneratedAudiobookAsset =
+    Boolean(latestAudiobookAsset?.audio_url) && latestAudiobookAsset?.status === "generated";
+  const audiobookStatusUi = isGeneratingAudiobook
+    ? "generating"
+    : hasGeneratedAudiobookAsset
+      ? "published"
+      : (book.audiobook_status ?? "not_started");
 
   const startTranslationPoll = useCallback(() => {
     stopTranslationPoll();
@@ -716,6 +733,7 @@ export default function BookEditor({
           if (data.job.status === "completed" || data.job.status === "failed") {
             stopAudiobookPoll();
             setIsGeneratingAudiobook(false);
+            refetchBookJob();
             if (data.job.status === "failed") {
               setAudiobookError(data.job.error ?? "Generation failed");
             } else {
@@ -728,7 +746,7 @@ export default function BookEditor({
         // Ignore polling errors
       }
     }, 2000);
-  }, [book.id, router, stopAudiobookPoll]);
+  }, [book.id, refetchBookJob, router, stopAudiobookPoll]);
 
   // Cleanup polling on unmount
   useEffect(() => {
@@ -755,12 +773,13 @@ export default function BookEditor({
         completedChapters: 0,
         currentChapterTitle: null,
       });
+      refetchBookJob();
       startAudiobookPoll();
     } catch {
       setAudiobookError("Generate failed");
       setIsGeneratingAudiobook(false);
     }
-  }, [book.id, isGeneratingAudiobook, startAudiobookPoll]);
+  }, [book.id, isGeneratingAudiobook, refetchBookJob, startAudiobookPoll]);
 
   const handleStartTts = useCallback(async () => {
     setTtsMessage(null);
@@ -1067,6 +1086,16 @@ export default function BookEditor({
         </div>
       )}
       <section className="mx-auto max-w-[1400px] px-6 py-12">
+        {jobLoading ? (
+          <div
+            className="mb-6 h-14 rounded-xl border border-slate-200 bg-slate-50/50 dark:border-white/10 dark:bg-white/5"
+            aria-hidden
+          />
+        ) : !jobError && allJobs.length > 0 ? (
+          <div className="mb-6">
+            <BookJobsBanner jobs={allJobs} />
+          </div>
+        ) : null}
         {getTranslationsEnabled() && bookVersions.length > 1 && (
           <div className="mb-4 max-w-[320px]">
             <label htmlFor="version-select" className="mb-1 block text-xs text-slate-500 dark:text-white/50">
@@ -1629,16 +1658,16 @@ export default function BookEditor({
               <div className="mb-2 flex items-center gap-2">
                 <span
                   className={`rounded-full px-2.5 py-1 text-xs font-medium ${
-                    book.audiobook_status === "published" || book.audiobook_status === "ready"
+                    audiobookStatusUi === "published"
                       ? "bg-[#907AFF]/15 text-[#5c4bb8] dark:bg-[#907AFF]/25 dark:text-[#b8a9ff]"
-                      : book.audiobook_status === "generating" || isGeneratingAudiobook
+                      : audiobookStatusUi === "generating"
                         ? "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300"
-                        : book.audiobook_status === "failed"
+                        : audiobookStatusUi === "failed"
                           ? "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300"
                           : "bg-slate-100 text-slate-700 dark:bg-slate-700 dark:text-slate-200"
                   }`}
                 >
-                  {isGeneratingAudiobook ? "generating" : (book.audiobook_status ?? "not_started")}
+                  {audiobookStatusUi}
                 </span>
               </div>
 
@@ -1685,7 +1714,7 @@ export default function BookEditor({
               )}
 
               {/* Error display */}
-              {(book.audiobook_status === "failed" || audiobookError) && (
+              {(audiobookStatusUi === "failed" || audiobookError) && (
                 <p className="text-xs text-red-600 dark:text-red-400" role="alert">
                   {audiobookError ?? "Generation failed."}
                 </p>
