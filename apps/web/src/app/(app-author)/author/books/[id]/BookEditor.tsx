@@ -1799,6 +1799,30 @@ export default function BookEditor({
               </a>
             </div>
             )}
+
+            <div className="rounded-xl border border-slate-200 bg-slate-50/50 p-5 dark:border-white/10 dark:bg-white/5">
+              <h2 className="mb-3 text-base font-semibold text-slate-900 dark:text-white">Marketing Portal</h2>
+              {isPublished ? (
+                <>
+                  <p className="mb-3 text-xs text-slate-500 dark:text-white/50">
+                    Plan campaigns, generate copy, and manage distribution for this book.
+                  </p>
+                  <Link
+                    href="/author/marketing"
+                    className="flex w-full items-center justify-center gap-2 rounded-lg bg-gradient-to-r from-[#907AFF] to-[#8069EE] px-3 py-2 text-sm font-semibold text-white transition hover:from-[#8069EE] hover:to-[#7058DD]"
+                  >
+                    <svg className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+                      <path fillRule="evenodd" d="M12.577 4.878a.75.75 0 01.919-.53l4.78 1.281a.75.75 0 01.531.919l-1.281 4.78a.75.75 0 01-1.449-.387l.81-3.022a19.407 19.407 0 00-5.594 5.203.75.75 0 01-1.139.093L7.55 10.81l-4.72 4.72a.75.75 0 01-1.06-1.06l5.25-5.25a.75.75 0 011.06 0l2.346 2.346a20.893 20.893 0 015.264-4.97l-2.633.706a.75.75 0 01-.919-.53z" clipRule="evenodd" />
+                    </svg>
+                    Open Marketing Portal
+                  </Link>
+                </>
+              ) : (
+                <p className="rounded-lg border border-dashed border-slate-300 bg-slate-50 px-3 py-2 text-center text-xs text-slate-500 dark:border-white/15 dark:bg-white/5 dark:text-white/50">
+                  Publish this book to unlock the Marketing Portal
+                </p>
+              )}
+            </div>
           </div>
 
           <div>
