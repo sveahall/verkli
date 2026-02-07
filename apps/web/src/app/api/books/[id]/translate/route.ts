@@ -219,8 +219,8 @@ export async function POST(
     return NextResponse.json(
       {
         ok: false,
-        error:
-          "Translation queue unavailable. Add REDIS_URL=redis://localhost:6379 to apps/web/.env.local and restart the dev server (npm run dev).",
+        error: "Translation service is currently unavailable. Please try again shortly.",
+        code: "TRANSLATION_QUEUE_UNAVAILABLE",
       },
       { status: 503 }
     );

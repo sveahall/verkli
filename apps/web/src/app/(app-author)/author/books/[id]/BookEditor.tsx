@@ -258,6 +258,7 @@ export default function BookEditor({
   const [isStartingTranslation, setIsStartingTranslation] = useState(false);
   const [isPollingTranslation, setIsPollingTranslation] = useState(false);
   const [translateMessage, setTranslateMessage] = useState<string | null>(null);
+  const [translationQueueHealthy, setTranslationQueueHealthy] = useState<boolean | null>(null);
   const [lastRequestedTargetLanguage, setLastRequestedTargetLanguage] = useState<SupportedLanguage | null>(null);
   const translationPollRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const translationPollStartedAtRef = useRef<number>(0);
@@ -492,6 +493,24 @@ export default function BookEditor({
     setTranslateMessage(null);
   }, [translateTargetLanguage]);
 
+  const checkTranslationQueueHealth = useCallback(async (): Promise<boolean> => {
+    try {
+      const res = await fetch("/api/health/queue", { cache: "no-store" });
+      const data = await res.json().catch(() => ({}));
+      const ok = res.ok && data?.translationQueue === true;
+      setTranslationQueueHealthy(ok);
+      return ok;
+    } catch {
+      setTranslationQueueHealthy(false);
+      return false;
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!getTranslationsEnabled()) return;
+    void checkTranslationQueueHealth();
+  }, [checkTranslationQueueHealth]);
+
   type TranslationUiStatus = "idle" | "translating" | "done" | "error";
   const isPollingCurrent = isPollingTranslation && lastRequestedTargetLanguage === translateTargetLanguage;
   const translationUiStatus = useMemo<TranslationUiStatus>(() => {
@@ -532,6 +551,13 @@ export default function BookEditor({
     if (isStartingTranslation) return;
     setIsStartingTranslation(true);
     setTranslateMessage(null);
+
+    const queueHealthy = await checkTranslationQueueHealth();
+    if (!queueHealthy) {
+      setTranslateMessage("Översättningstjänsten är tillfälligt otillgänglig. Försök igen snart.");
+      setIsStartingTranslation(false);
+      return;
+    }
 
     if (!activeVersion?.id) {
       setTranslateMessage("Ingen aktiv version hittades.");
@@ -594,6 +620,7 @@ export default function BookEditor({
       setIsStartingTranslation(false);
     }
   }, [
+    checkTranslationQueueHealth,
     isStartingTranslation,
     startTranslationPoll,
     translateTargetLanguage,
@@ -1591,6 +1618,11 @@ export default function BookEditor({
                   >
                     Open version
                   </button>
+                )}
+                {translationQueueHealthy === false && (
+                  <div className="mt-2 rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-800 dark:border-amber-700 dark:bg-amber-950/30 dark:text-amber-200">
+                    Translation queue är offline just nu.
+                  </div>
                 )}
                 {translateMessage && (
                   <div

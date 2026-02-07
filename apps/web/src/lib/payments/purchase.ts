@@ -1,5 +1,6 @@
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getStripeCheckoutSession } from "@/lib/payments/stripe";
+import { logAnalyticsEvent } from "@/lib/analytics/events";
 
 type ConfirmStripePurchaseArgs = {
   orderId: string;
@@ -73,7 +74,7 @@ export async function confirmStripeBookPurchase({
   const amount = typeof session.amount_total === "number" ? Math.max(0, Math.trunc(session.amount_total)) : null;
   const currency = normalizeCurrency(session.currency);
 
-  await admin
+  const paidTransition = await admin
     .from("orders" as never)
     .update({
       status: "paid",
@@ -82,11 +83,30 @@ export async function confirmStripeBookPurchase({
     })
     .eq("id", orderId)
     .eq("user_id", userId)
-    .eq("status", "pending");
+    .eq("status", "pending")
+    .select("id")
+    .maybeSingle();
+
+  const paidOrder = paidTransition.data as { id?: string } | null;
+  const paidOrderError = paidTransition.error;
+
+  if (paidOrderError) {
+    return false;
+  }
 
   const { error: entitlementError } = await admin
     .from("entitlements" as never)
     .upsert({ user_id: userId, book_id: bookId, source: "purchase" }, { onConflict: "user_id,book_id" });
+
+  if (paidOrder?.id) {
+    await logAnalyticsEvent(admin, {
+      eventType: "purchase_completed",
+      userId,
+      bookId,
+      path: `/reader/books/${bookId}`,
+      props: { provider: "stripe", orderId },
+    });
+  }
 
   return !entitlementError;
 }
