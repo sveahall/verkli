@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { Button } from "@/components/ui/button";
 
 type BookmarkButtonProps = {
   bookId: string;
@@ -33,15 +34,16 @@ export default function BookmarkButton({ bookId, initialBookmarked }: BookmarkBu
   };
 
   return (
-    <button
+    <Button
       type="button"
+      variant="secondary"
       onClick={toggle}
-      disabled={loading}
-      className="inline-flex items-center gap-2 rounded-full border border-slate-300 bg-white px-4 py-2.5 text-sm font-medium text-slate-700 transition hover:bg-slate-50 disabled:opacity-60 dark:border-white/20 dark:bg-white/10 dark:text-white dark:hover:bg-white/15"
+      isLoading={loading}
+      loadingText="Updating"
       aria-pressed={bookmarked}
-      aria-label={bookmarked ? "Ta bort bokmärke" : "Lägg till bokmärke"}
+      aria-label={bookmarked ? "Remove bookmark" : "Add bookmark"}
     >
-      {bookmarked ? "★ Bokmärkt" : "☆ Bokmärk"}
-    </button>
+      {bookmarked ? "★ Bookmarked" : "☆ Bookmark"}
+    </Button>
   );
 }
