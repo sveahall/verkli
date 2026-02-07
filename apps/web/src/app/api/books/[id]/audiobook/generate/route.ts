@@ -20,7 +20,7 @@ type ActiveJobRow = {
 };
 
 async function findActiveAudiobookJob(
-  supabase: ReturnType<typeof createClient>,
+  supabase: Awaited<ReturnType<typeof createClient>>,
   userId: string,
   bookId: string
 ): Promise<ActiveJobRow | null> {
@@ -84,7 +84,10 @@ export async function POST(
 ) {
   assertPublicEnv();
   if (!isAudiobookEnabled()) {
-    return NextResponse.json({ error: "Audiobook feature is disabled" }, { status: 403 });
+    return NextResponse.json(
+      { error: "Audiobook generation is temporarily unavailable in this environment" },
+      { status: 503 }
+    );
   }
 
   const { id: bookId } = await params;

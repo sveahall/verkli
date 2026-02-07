@@ -142,7 +142,7 @@ export function useBookJobs(
           }
         } else {
           const json = await res.json().catch(() => ({}));
-          setError(json?.error ?? "Kunde inte hämta jobbstatus");
+          setError(json?.error ?? "Kunde inte hämta status.");
         }
         setJobs([]);
         setActiveCount(0);

@@ -14,6 +14,7 @@ import { createAdminClient } from "../src/lib/supabase/admin";
 import { synthesizeTextToWavBytes } from "../src/lib/tts/piper";
 import { getTtsStorageBucket } from "../src/lib/tts/storage";
 import { QUEUE_NAMES } from "../src/lib/queue-names";
+import { sanitizeJobErrorForStorage } from "../src/lib/sanitize-job-error";
 
 const QUEUE_NAME = QUEUE_NAMES.TTS;
 const BUCKET = getTtsStorageBucket();
@@ -49,7 +50,7 @@ async function processJob(payload: TtsJobData) {
       updates.finished_at = now;
     }
     if (error) {
-      updates.error = error;
+      updates.error = sanitizeJobErrorForStorage(error);
     }
 
     const { data: current } = await supabase
@@ -138,7 +139,7 @@ async function processJob(payload: TtsJobData) {
     console.log("[tts worker] completed -", jobId, "path:", storagePath);
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
-    await updateJob("failed", {}, msg);
+    await updateJob("failed", {}, sanitizeJobErrorForStorage(msg) ?? undefined);
     console.error("[tts worker] failed -", jobId, msg);
     throw err;
   }

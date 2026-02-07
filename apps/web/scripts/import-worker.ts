@@ -61,10 +61,22 @@ async function processJob(payload: {
   const supabase = createAdminClient();
 
   const updateProgress = async (status: string, progress: number, error_message?: string | null) => {
-    await supabase
+    const { error } = await supabase
       .from("book_imports")
       .update({ status, progress, error_message: error_message ?? null, updated_at: new Date().toISOString() })
       .eq("id", importId);
+    if (error) {
+      console.error(
+        "[import worker] failed to update progress:",
+        error.message,
+        "importId:",
+        importId,
+        "status:",
+        status,
+        "progress:",
+        progress
+      );
+    }
   };
 
   try {
@@ -77,7 +89,7 @@ async function processJob(payload: {
       .eq("id", importId)
       .single();
 
-    if (existingImport?.book_version_id) {
+    if (existingImport?.book_version_id && existingImport.status === "completed") {
       const { count: existingChapters } = await supabase
         .from("chapters")
         .select("id", { count: "exact", head: true })
@@ -112,6 +124,10 @@ async function processJob(payload: {
     const { title, chapters } = await runExtract(localPath);
     console.log("[import worker] extracted title:", title || "(untitled)", "chapters:", chapters.length);
     await updateProgress("extracting", 70);
+
+    if (!chapters.length) {
+      throw new Error("Import extraction returned no chapters");
+    }
 
     const sampleText = chapters.find((ch) => ch.sourceText?.trim())?.sourceText ?? "";
     const detectedLanguage = detectLanguageFromText(sampleText);
@@ -190,7 +206,7 @@ async function processJob(payload: {
     for (let i = 0; i < chapters.length; i++) {
       const ch = chapters[i];
       const hash = contentHash(ch.sourceText);
-      await supabase.from("chapters").insert({
+      const { error: chapterInsertError } = await supabase.from("chapters").insert({
         book_id: book.id,
         book_version_id: bookVersion.id,
         title: ch.title,
@@ -199,11 +215,16 @@ async function processJob(payload: {
         content_hash: hash,
         order: i,
       });
+      if (chapterInsertError) {
+        throw new Error(
+          `Failed to insert chapter order=${i} title="${ch.title}": ${chapterInsertError.message}`
+        );
+      }
       const progress = 70 + Math.floor(((i + 1) / chapters.length) * 30);
       await updateProgress("extracting", progress);
     }
 
-    await supabase
+    const { error: finalizeError } = await supabase
       .from("book_imports")
       .update({
         book_id: book.id,
@@ -214,6 +235,9 @@ async function processJob(payload: {
         updated_at: new Date().toISOString(),
       })
       .eq("id", importId);
+    if (finalizeError) {
+      throw new Error(`Failed to finalize import status: ${finalizeError.message}`);
+    }
 
     console.log("[import worker] completed — importId:", importId, "bookId:", book.id);
 
@@ -284,11 +308,11 @@ function main() {
     console.log("[import worker] job completed:", job.id);
   });
   worker.on("failed", (job, err) => {
-    console.error("[import worker] job failed:", job?.id, err?.message);
+    console.error("[import worker] job failed:", job?.id, err?.message, err?.stack);
   });
 
   worker.on("error", (err) => {
-    console.error("[import worker] Redis/queue error:", err.message);
+    console.error("[import worker] Redis/queue error:", err.message, err.stack);
   });
 }
 

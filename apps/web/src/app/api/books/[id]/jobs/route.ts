@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { requireAuthorRoleForApi } from "@/lib/auth/require-author";
+import { isAudiobookEnabled } from "@/lib/flags";
+import { sanitizeJobError } from "@/lib/sanitize-job-error";
 
 type JobKind = "import" | "translation" | "audiobook";
 
@@ -25,6 +27,7 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> }
 ) {
   const { id: bookId } = await params;
+  const audiobookEnabled = isAudiobookEnabled();
 
   const { user, response } = await requireAuthorRoleForApi();
   if (response) return response;
@@ -91,6 +94,7 @@ export async function GET(
     .map((r) => {
       const kind = normalizeKind(r.kind);
       if (!kind) return null;
+      if (!audiobookEnabled && kind === "audiobook") return null;
 
       const input = (r.input as Record<string, unknown>) ?? {};
       const output = (r.output as Record<string, unknown>) ?? {};
@@ -147,7 +151,7 @@ export async function GET(
           null,
         progress,
         meta,
-        error: r.error ?? null,
+        error: sanitizeJobError(r.error),
         attempts: 1,
         maxAttempts: 2,
         createdAt: r.created_at,
