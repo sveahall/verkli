@@ -60,10 +60,23 @@ export async function enqueueTranslationJob(data: TranslationJobData): Promise<s
   const existing = await q.getJob(jobId);
   if (existing) {
     const state = await existing.getState();
-    if (state === "failed" || data.overwrite) {
-      await existing.remove();
-    } else {
+    console.log("[translation queue] existing job", jobId, "state:", state);
+
+    if (state === "active") {
+      // Job is actively processing — cannot safely remove.
+      console.warn("[translation queue] job is actively processing, cannot re-enqueue:", jobId);
       return existing.id ?? null;
+    }
+    if (state === "waiting" || state === "delayed") {
+      // Job is queued but not yet running.
+      if (data.overwrite) {
+        await existing.remove();
+      } else {
+        return existing.id ?? null;
+      }
+    } else {
+      // completed, failed, or unknown — always remove to allow re-enqueue.
+      await existing.remove();
     }
   }
   const job = await q.add("translate", data, { jobId });
@@ -77,7 +90,9 @@ export async function enqueueTranslationJob(data: TranslationJobData): Promise<s
       "sourceVersionId:",
       data.sourceVersionId,
       "targetLanguage:",
-      data.targetLanguage
+      data.targetLanguage,
+      "overwrite:",
+      data.overwrite ?? false
     );
   }
   return id;
