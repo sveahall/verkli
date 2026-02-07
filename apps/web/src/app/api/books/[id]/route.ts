@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { assertPublicEnv } from "@/lib/env";
 import { requireAuthorRoleForApi } from "@/lib/auth/require-author";
 
@@ -29,23 +30,79 @@ export async function DELETE(
     return NextResponse.json({ ok: false, error: "Book not found" }, { status: 404 });
   }
 
-  const { error: chaptersError } = await supabase
+  // Use admin client for cleanup of tables without CASCADE or with RLS restrictions
+  const admin = createAdminClient();
+  const warnings: string[] = [];
+
+  // 1. Collect chapter IDs before book deletion cascades them
+  const { data: chapters } = await admin
     .from("chapters")
+    .select("id")
+    .eq("book_id", id);
+
+  const chapterIds = (chapters ?? []).map((c: { id: string }) => c.id);
+
+  // 2. Delete chapter_audio_cache (no FK to books; chapters will cascade away)
+  if (chapterIds.length > 0) {
+    const { error: cacheError } = await admin
+      .from("chapter_audio_cache")
+      .delete()
+      .in("chapter_id", chapterIds);
+
+    if (cacheError) {
+      console.error("[delete-book] bookId=%s step=chapter_audio_cache error=%s", id, cacheError.message);
+      warnings.push("chapter_audio_cache_cleanup_failed");
+    }
+  }
+
+  // 3. Delete ai_jobs referencing this book (bookId stored in input JSONB, no FK)
+  const { data: userJobs } = await admin
+    .from("ai_jobs")
+    .select("id, input")
+    .eq("user_id", user.id);
+
+  const jobIdsToDelete = (userJobs ?? [])
+    .filter((j: { id: string; input: unknown }) => {
+      const input = j.input as Record<string, unknown> | null;
+      return input?.bookId === id;
+    })
+    .map((j: { id: string }) => j.id);
+
+  if (jobIdsToDelete.length > 0) {
+    const { error: jobsError } = await admin
+      .from("ai_jobs")
+      .delete()
+      .in("id", jobIdsToDelete);
+
+    if (jobsError) {
+      console.error("[delete-book] bookId=%s step=ai_jobs error=%s", id, jobsError.message);
+      warnings.push("ai_jobs_cleanup_failed");
+    }
+  }
+
+  // 4. Delete book_imports (ON DELETE SET NULL would leave orphan rows)
+  const { error: importsError } = await admin
+    .from("book_imports")
     .delete()
     .eq("book_id", id);
 
-  if (chaptersError) {
-    return NextResponse.json({ ok: false, error: chaptersError.message }, { status: 500 });
+  if (importsError) {
+    console.error("[delete-book] bookId=%s step=book_imports error=%s", id, importsError.message);
+    warnings.push("book_imports_cleanup_failed");
   }
 
-  const { error: deleteError } = await supabase
+  // 5. Delete the book — cascades: chapters, book_versions, audiobook_assets,
+  //    marketing_campaigns, translations
+  const { error: deleteError } = await admin
     .from("books")
     .delete()
-    .eq("id", id);
+    .eq("id", id)
+    .eq("author_id", user.id);
 
   if (deleteError) {
+    console.error("[delete-book] bookId=%s step=books error=%s", id, deleteError.message);
     return NextResponse.json({ ok: false, error: deleteError.message }, { status: 500 });
   }
 
-  return NextResponse.json({ ok: true });
+  return NextResponse.json(warnings.length > 0 ? { ok: true, warnings } : { ok: true });
 }

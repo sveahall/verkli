@@ -51,10 +51,10 @@ export async function getShelves(): Promise<ShelfWithDetails[]> {
     throw error;
   }
 
-  const transformed = (data || []).map((shelf: any) => ({
+  const transformed = (data || []).map((shelf: Shelf & { shelf_sections?: ShelfSection[]; shelf_books?: (ShelfBook & { books?: Book; book?: Book })[] }) => ({
     ...shelf,
     sections: shelf.shelf_sections || [],
-    shelf_books: (shelf.shelf_books || []).map((sb: any) => ({
+    shelf_books: (shelf.shelf_books || []).map((sb: ShelfBook & { books?: Book; book?: Book }) => ({
       ...sb,
       book: sb.books || sb.book || null,
     })),

@@ -23,6 +23,13 @@ const fontOptions = [
   "Merriweather",
 ];
 
+interface ProfilePreferences {
+  typography?: { fontFamily?: string; fontWeight?: string; titleSize?: string; subtitleSize?: string; textColor?: string };
+  cover_style?: string;
+  visibility?: { shelves?: string; books?: string };
+  [key: string]: unknown;
+}
+
 type SettingsPageProps = {
   user: {
     id: string;
@@ -35,7 +42,7 @@ type SettingsPageProps = {
     avatarUrl: string;
     isPublic: boolean;
     role: string;
-    preferences: Record<string, any>;
+    preferences: ProfilePreferences;
   };
 };
 

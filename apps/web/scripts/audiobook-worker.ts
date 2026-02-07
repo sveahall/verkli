@@ -20,13 +20,13 @@ assertServerEnv();
 import { Worker } from "bullmq";
 import { createAdminClient } from "../src/lib/supabase/admin";
 import { synthesizeTextToWavBytes } from "../src/lib/tts/piper";
-import { getTtsStorageBucket } from "../src/lib/tts/storage";
+import { getAudiobookStorageBucket } from "../src/lib/tts/storage";
 import { QUEUE_NAMES } from "../src/lib/queue-names";
 import type { AudiobookJobData } from "../src/lib/audiobook-queue";
 import { getNarrator } from "../src/lib/ai/providers";
 
 const QUEUE_NAME = QUEUE_NAMES.AUDIOBOOK;
-const BUCKET = getTtsStorageBucket();
+const BUCKET = getAudiobookStorageBucket();
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Utilities
@@ -411,7 +411,7 @@ async function processJob(payload: AudiobookJobData) {
       chaptersProcessed: chapterAudios.length,
     });
 
-    await updateBookStatus("ready");
+    await updateBookStatus("published");
 
     // Cleanup temp files
     await fs.rm(tmpDir, { recursive: true, force: true }).catch(() => {});
@@ -429,6 +429,10 @@ async function processJob(payload: AudiobookJobData) {
 
     await updateJob("failed", { errorDetails: msg }, msg);
     await updateBookStatus("failed");
+
+    // Cleanup temp files on failure too
+    const tmpDir = path.join(os.tmpdir(), "verkli-audiobook", jobId);
+    await fs.rm(tmpDir, { recursive: true, force: true }).catch(() => {});
 
     throw err;
   }

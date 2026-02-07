@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useSyncExternalStore } from "react";
 
 const STORAGE_KEY_PREFIX = "verkli_reading_";
 
@@ -11,23 +11,35 @@ type Props = {
   serverChapterId: string | null;
 };
 
+function getLocalChapterId(bookId: string): string | null {
+  try {
+    const raw = localStorage.getItem(`${STORAGE_KEY_PREFIX}${bookId}`);
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (parsed?.chapterId) return parsed.chapterId as string;
+    }
+  } catch {
+    // ignore
+  }
+  return null;
+}
+
+// Noop subscribe – localStorage value is only read once at mount
+const subscribeNoop = () => () => {};
+
 export default function StartReadingLink({
   bookId,
   firstChapterId,
   serverChapterId,
 }: Props) {
-  const [chapterId, setChapterId] = useState<string | null>(serverChapterId ?? firstChapterId);
-
-  useEffect(() => {
-    if (serverChapterId) return;
-    try {
-      const raw = localStorage.getItem(`${STORAGE_KEY_PREFIX}${bookId}`);
-      if (raw) {
-        const parsed = JSON.parse(raw);
-        if (parsed?.chapterId) setChapterId(parsed.chapterId);
-      }
-    } catch (_) {}
-  }, [bookId, serverChapterId]);
+  // Read localStorage-persisted chapter without useEffect + setState,
+  // avoiding "setState synchronously within an effect" warnings.
+  const localChapterId = useSyncExternalStore(
+    subscribeNoop,
+    () => (serverChapterId ? null : getLocalChapterId(bookId)),
+    () => null,
+  );
+  const chapterId = serverChapterId ?? localChapterId ?? firstChapterId;
 
   const targetChapterId = chapterId ?? firstChapterId;
   const isContinue = chapterId && chapterId !== firstChapterId;

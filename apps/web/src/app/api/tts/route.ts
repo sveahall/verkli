@@ -122,12 +122,13 @@ export async function POST(request: Request) {
 
   try {
     const wav = await synthesizeTextToWavBytes(text);
+    const wavBytes = new Uint8Array(wav);
 
-    const response = new NextResponse(wav, {
+    const response = new NextResponse(wavBytes, {
       status: 200,
       headers: {
         "Content-Type": "audio/wav",
-        "Content-Length": String(wav.byteLength),
+        "Content-Length": String(wavBytes.byteLength),
         "Cache-Control": "no-store",
       },
     });
@@ -170,4 +171,3 @@ export async function POST(request: Request) {
     );
   }
 }
-

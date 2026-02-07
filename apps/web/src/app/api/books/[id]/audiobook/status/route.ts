@@ -61,9 +61,19 @@ export async function GET(
 
   // Extract progress from job output
   const output = (job?.output as Record<string, unknown>) ?? {};
+  const hasGeneratedAsset = Boolean(asset?.audio_url) && asset?.status === "generated";
+  const resolvedBookStatus =
+    hasGeneratedAsset
+      ? "published"
+      : job?.status === "processing" || job?.status === "pending"
+        ? "generating"
+        : job?.status === "failed"
+          ? "failed"
+          : (book.audiobook_status ?? "not_started");
 
   return NextResponse.json({
-    bookStatus: book.audiobook_status,
+    bookStatus: resolvedBookStatus,
+    rawBookStatus: book.audiobook_status,
     job: job
       ? {
           id: job.id,

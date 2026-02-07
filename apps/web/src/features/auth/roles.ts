@@ -42,26 +42,21 @@ export async function updateActiveRole(role: ActiveRole): Promise<RoleUpdateResu
     active_role: role,
   };
 
-  // SECURITY FIX: Only update preferences.active_role, NOT profiles.role
-  // profiles.role is the original signup role and should NEVER change
-  await supabase
+  // SECURITY: Only update preferences.active_role.
+  // profiles.role is immutable original signup role and must never be written here.
+  const { error: profileError } = await supabase
     .from("profiles")
     .upsert(
       {
         user_id: user.id,
-        // NOTE: We intentionally do NOT include 'role' here - that's the original signup role
         preferences: nextPreferences,
       },
       { onConflict: "user_id" }
     );
 
-  // SECURITY FIX: Only update active_role in user_metadata, NOT the original role
-  // user_metadata.role is the original signup role and should NEVER change
-  await supabase.auth.updateUser({
-    data: {
-      active_role: role,
-    },
-  });
+  if (profileError) {
+    return { ok: false, error: profileError.message };
+  }
 
   return { ok: true };
 }

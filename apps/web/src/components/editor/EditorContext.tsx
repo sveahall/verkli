@@ -5,7 +5,6 @@ import {
   useContext,
   useState,
   useCallback,
-  useEffect,
   type ReactNode,
 } from "react";
 import type { TypographyConfig } from "./types";
@@ -44,32 +43,41 @@ export function EditorProvider({
   children: ReactNode;
   bookId: string;
 }) {
-  const [focusMode, setFocusModeState] = useState(false);
-  const [typeauthorMode, setTypeauthorModeState] = useState(false);
-  const [typography, setTypographyState] = useState<TypographyConfig>(defaultTypography);
-  const [preset, setPresetState] = useState("novel");
-
-  // Load from localStorage on mount
-  useEffect(() => {
+  // Initialise state from localStorage via lazy initialisers instead of
+  // useEffect + setState, avoiding cascading-render warnings.
+  const [focusMode, setFocusModeState] = useState(() => {
+    if (typeof window === "undefined") return false;
     try {
-      const storedFocus = localStorage.getItem(STORAGE_FOCUS);
-      if (storedFocus !== null) setFocusModeState(storedFocus === "true");
-
-      const storedTypeauthor = localStorage.getItem(STORAGE_TYPEauthor);
-      if (storedTypeauthor !== null) setTypeauthorModeState(storedTypeauthor === "true");
-
-      const storedTypo = localStorage.getItem(STORAGE_TYPOGRAPHY(bookId));
-      if (storedTypo) {
-        const parsed = JSON.parse(storedTypo) as TypographyConfig;
-        if (parsed && typeof parsed.fontSize === "number") setTypographyState(parsed);
+      const v = localStorage.getItem(STORAGE_FOCUS);
+      return v !== null ? v === "true" : false;
+    } catch { return false; }
+  });
+  const [typeauthorMode, setTypeauthorModeState] = useState(() => {
+    if (typeof window === "undefined") return false;
+    try {
+      const v = localStorage.getItem(STORAGE_TYPEauthor);
+      return v !== null ? v === "true" : false;
+    } catch { return false; }
+  });
+  const [typography, setTypographyState] = useState<TypographyConfig>(() => {
+    if (typeof window === "undefined") return defaultTypography;
+    try {
+      const raw = localStorage.getItem(STORAGE_TYPOGRAPHY(bookId));
+      if (raw) {
+        const parsed = JSON.parse(raw) as TypographyConfig;
+        if (parsed && typeof parsed.fontSize === "number") return parsed;
       }
-
-      const storedPreset = localStorage.getItem(STORAGE_PRESET(bookId));
-      if (storedPreset) setPresetState(storedPreset);
-    } catch {
-      // ignore parse errors
-    }
-  }, [bookId]);
+    } catch { /* ignore */ }
+    return defaultTypography;
+  });
+  const [preset, setPresetState] = useState(() => {
+    if (typeof window === "undefined") return "novel";
+    try {
+      const v = localStorage.getItem(STORAGE_PRESET(bookId));
+      if (v) return v;
+    } catch { /* ignore */ }
+    return "novel";
+  });
 
   const setFocusMode = useCallback((v: boolean) => {
     setFocusModeState(v);

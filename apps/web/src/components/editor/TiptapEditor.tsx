@@ -5,7 +5,7 @@ import StarterKit from "@tiptap/starter-kit";
 import Image from "@tiptap/extension-image";
 import TextAlign from "@tiptap/extension-text-align";
 import Placeholder from "@tiptap/extension-placeholder";
-import { useEffect, useRef, useState, useCallback } from "react";
+import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { uploadChapterMedia } from "@/lib/supabase/storage";
 import { WRITING_PRESETS, FONT_FAMILY_MAP } from "./types";
 
@@ -33,6 +33,9 @@ function countWords(text: string): number {
   return text.trim().split(/\s+/).filter(Boolean).length;
 }
 
+// Noop subscribe for useSyncExternalStore-based mount detection
+const emptySubscribe = () => () => {};
+
 export default function TiptapEditor({
   content,
   onUpdate,
@@ -42,12 +45,14 @@ export default function TiptapEditor({
   preset = "novel",
   onWordCount,
 }: TiptapEditorProps) {
-  const [mounted, setMounted] = useState(false);
+  // Use useSyncExternalStore to detect client mount without triggering
+  // a synchronous setState inside useEffect (avoids cascading-render warnings).
+  const mounted = useSyncExternalStore(
+    emptySubscribe,
+    () => true,
+    () => false,
+  );
   const debounceRef = useRef<NodeJS.Timeout | null>(null);
-
-  useEffect(() => {
-    setMounted(true);
-  }, []);
 
   const getInitialContent = () => {
     if (!content) return "";

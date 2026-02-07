@@ -20,7 +20,7 @@ const glassBaseProps = {
   mixBlendMode: "screen",
 };
 
-export default function authorForgotPassword() {
+export default function AuthorForgotPassword() {
   const [email, setEmail] = useState("");
   const [error, setError] = useState("");
   const [success, setSuccess] = useState(false);

@@ -11,4 +11,4 @@ export {
   TtsSynthesisError,
 } from "./piper";
 
-export { getTtsStorageBucket } from "./storage";
+export { getAudiobookStorageBucket, getTtsStorageBucket } from "./storage";

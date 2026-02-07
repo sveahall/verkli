@@ -590,7 +590,7 @@ function Dashboard({ user }: { user: User }) {
       ]);
       setShelves(shelvesData || []);
       setStandaloneBooks(booksData || []);
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.warn("Error loading shelves (non-critical):", error);
       // Set empty arrays on error to prevent UI crashes
       setShelves([]);
@@ -1494,7 +1494,7 @@ function Dashboard({ user }: { user: User }) {
 // ============================================
 // MAIN COMPONENT
 // ============================================
-export default function authorPage() {
+export default function AuthorPage() {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
 

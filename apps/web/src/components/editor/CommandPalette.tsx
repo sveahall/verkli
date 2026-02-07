@@ -19,6 +19,14 @@ export default function CommandPalette({ open, onClose, commands }: Props) {
   const [query, setQuery] = useState("");
   const [selected, setSelected] = useState(0);
   const inputRef = useRef<HTMLInputElement>(null);
+  // Reset query and selection when the palette opens
+  // eslint-disable-next-line react-hooks/rules-of-hooks -- legitimate reset on prop change
+  useEffect(() => {
+    if (open) {
+      setQuery("");
+      setSelected(0);
+    }
+  }, [open]);
 
   const filtered = useMemo(() => {
     if (!query.trim()) return commands;
@@ -28,8 +36,6 @@ export default function CommandPalette({ open, onClose, commands }: Props) {
 
   useEffect(() => {
     if (open) {
-      setQuery("");
-      setSelected(0);
       setTimeout(() => inputRef.current?.focus(), 50);
     }
   }, [open]);

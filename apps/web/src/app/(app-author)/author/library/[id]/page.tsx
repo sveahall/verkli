@@ -10,6 +10,14 @@ import SectionBlock from "@/components/library/SectionBlock";
 import BookCard from "@/components/library/BookCard";
 import CreateBookDialog from "@/components/books/CreateBookDialog";
 
+const DEFAULT_TYPOGRAPHY = {
+  fontFamily: "Inter",
+  fontWeight: "600",
+  titleSize: "20px",
+  subtitleSize: "14px",
+  textColor: "#ffffff",
+};
+
 export default function ShelfDetailPage() {
   const params = useParams();
   const router = useRouter();
@@ -30,13 +38,7 @@ export default function ShelfDetailPage() {
     coverType: "image" as "image" | "gradient",
     cover: "",
     coverGradient: "",
-    typography: {
-      fontFamily: "Inter",
-      fontWeight: "600",
-      titleSize: "20px",
-      subtitleSize: "14px",
-      textColor: "#ffffff",
-    },
+    typography: DEFAULT_TYPOGRAPHY,
   });
   
   // New section form
@@ -57,19 +59,24 @@ export default function ShelfDetailPage() {
       }
       const data = await getShelf(shelfId);
       if (data) {
+        const rawTypography =
+          data.typography && typeof data.typography === "object" && !Array.isArray(data.typography)
+            ? (data.typography as Partial<typeof DEFAULT_TYPOGRAPHY>)
+            : {};
+
         setShelf(data);
         setEditForm({
           name: data.name,
           subtitle: data.subtitle || "",
-          coverType: data.cover_type || "image",
+          coverType: (data.cover_type === "gradient" ? "gradient" : "image") as "image" | "gradient",
           cover: data.cover_url || "",
           coverGradient: data.cover_gradient || "",
-          typography: (data.typography as any) || {
-            fontFamily: "Inter",
-            fontWeight: "600",
-            titleSize: "20px",
-            subtitleSize: "14px",
-            textColor: "#ffffff",
+          typography: {
+            fontFamily: rawTypography.fontFamily ?? DEFAULT_TYPOGRAPHY.fontFamily,
+            fontWeight: rawTypography.fontWeight ?? DEFAULT_TYPOGRAPHY.fontWeight,
+            titleSize: rawTypography.titleSize ?? DEFAULT_TYPOGRAPHY.titleSize,
+            subtitleSize: rawTypography.subtitleSize ?? DEFAULT_TYPOGRAPHY.subtitleSize,
+            textColor: rawTypography.textColor ?? DEFAULT_TYPOGRAPHY.textColor,
           },
         });
       }

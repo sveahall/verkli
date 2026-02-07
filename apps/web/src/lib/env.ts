@@ -10,10 +10,35 @@
 // Public env (browser / Next server only)
 // ─────────────────────────────────────────────────────────────
 
-const PUBLIC_ENV_VARS = {
-  NEXT_PUBLIC_SUPABASE_URL: process.env.NEXT_PUBLIC_SUPABASE_URL,
-  NEXT_PUBLIC_SUPABASE_ANON_KEY: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
-} as const;
+type PublicEnvVars = {
+  NEXT_PUBLIC_SUPABASE_URL: string | undefined;
+  NEXT_PUBLIC_SUPABASE_ANON_KEY: string | undefined;
+};
+
+type ServerEnvVars = {
+  SUPABASE_URL: string | undefined;
+  SUPABASE_SERVICE_ROLE_KEY: string | undefined;
+  RESEND_API_KEY: string | undefined;
+  RESEND_FROM_EMAIL: string | undefined;
+  NEXT_PUBLIC_SITE_URL: string | undefined;
+};
+
+function readPublicEnvVars(): PublicEnvVars {
+  return {
+    NEXT_PUBLIC_SUPABASE_URL: process.env.NEXT_PUBLIC_SUPABASE_URL,
+    NEXT_PUBLIC_SUPABASE_ANON_KEY: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
+  };
+}
+
+function readServerEnvVars(): ServerEnvVars {
+  return {
+    SUPABASE_URL: process.env.SUPABASE_URL,
+    SUPABASE_SERVICE_ROLE_KEY: process.env.SUPABASE_SERVICE_ROLE_KEY,
+    RESEND_API_KEY: process.env.RESEND_API_KEY,
+    RESEND_FROM_EMAIL: process.env.RESEND_FROM_EMAIL,
+    NEXT_PUBLIC_SITE_URL: process.env.NEXT_PUBLIC_SITE_URL,
+  };
+}
 
 function isWorkerContext(): boolean {
   return (
@@ -26,9 +51,10 @@ function isWorkerContext(): boolean {
 export function assertPublicEnv(): void {
   if (isWorkerContext()) return;
 
+  const publicEnv = readPublicEnvVars();
   const missing: string[] = [];
-  if (!PUBLIC_ENV_VARS.NEXT_PUBLIC_SUPABASE_URL) missing.push("NEXT_PUBLIC_SUPABASE_URL");
-  if (!PUBLIC_ENV_VARS.NEXT_PUBLIC_SUPABASE_ANON_KEY) missing.push("NEXT_PUBLIC_SUPABASE_ANON_KEY");
+  if (!publicEnv.NEXT_PUBLIC_SUPABASE_URL) missing.push("NEXT_PUBLIC_SUPABASE_URL");
+  if (!publicEnv.NEXT_PUBLIC_SUPABASE_ANON_KEY) missing.push("NEXT_PUBLIC_SUPABASE_ANON_KEY");
   if (missing.length > 0) {
     throw new Error(
       `Missing required public environment variables: ${missing.join(", ")}\n` +
@@ -41,20 +67,15 @@ export function assertPublicEnv(): void {
 // Server env (Next server) and worker env (Node worker)
 // ─────────────────────────────────────────────────────────────
 
-const SERVER_ENV_VARS = {
-  SUPABASE_URL: process.env.SUPABASE_URL,
-  SUPABASE_SERVICE_ROLE_KEY: process.env.SUPABASE_SERVICE_ROLE_KEY,
-  RESEND_API_KEY: process.env.RESEND_API_KEY,
-  RESEND_FROM_EMAIL: process.env.RESEND_FROM_EMAIL,
-  NEXT_PUBLIC_SITE_URL: process.env.NEXT_PUBLIC_SITE_URL,
-} as const;
-
 export function assertServerEnv(): void {
+  const publicEnv = readPublicEnvVars();
+  const serverEnv = readServerEnvVars();
+
   if (isWorkerContext()) {
     const missing: string[] = [];
-    const url = SERVER_ENV_VARS.SUPABASE_URL || PUBLIC_ENV_VARS.NEXT_PUBLIC_SUPABASE_URL;
+    const url = serverEnv.SUPABASE_URL || publicEnv.NEXT_PUBLIC_SUPABASE_URL;
     if (!url) missing.push("SUPABASE_URL or NEXT_PUBLIC_SUPABASE_URL");
-    if (!SERVER_ENV_VARS.SUPABASE_SERVICE_ROLE_KEY) missing.push("SUPABASE_SERVICE_ROLE_KEY");
+    if (!serverEnv.SUPABASE_SERVICE_ROLE_KEY) missing.push("SUPABASE_SERVICE_ROLE_KEY");
     if (missing.length > 0) {
       throw new Error(
         `Missing required worker environment variables: ${missing.join(", ")}\n` +
@@ -66,10 +87,10 @@ export function assertServerEnv(): void {
 
   assertPublicEnv();
   const missing: string[] = [];
-  if (!SERVER_ENV_VARS.SUPABASE_SERVICE_ROLE_KEY) missing.push("SUPABASE_SERVICE_ROLE_KEY");
-  if (!SERVER_ENV_VARS.RESEND_API_KEY) missing.push("RESEND_API_KEY");
-  if (!SERVER_ENV_VARS.RESEND_FROM_EMAIL) missing.push("RESEND_FROM_EMAIL");
-  if (!SERVER_ENV_VARS.NEXT_PUBLIC_SITE_URL) missing.push("NEXT_PUBLIC_SITE_URL");
+  if (!serverEnv.SUPABASE_SERVICE_ROLE_KEY) missing.push("SUPABASE_SERVICE_ROLE_KEY");
+  if (!serverEnv.RESEND_API_KEY) missing.push("RESEND_API_KEY");
+  if (!serverEnv.RESEND_FROM_EMAIL) missing.push("RESEND_FROM_EMAIL");
+  if (!serverEnv.NEXT_PUBLIC_SITE_URL) missing.push("NEXT_PUBLIC_SITE_URL");
   if (missing.length > 0) {
     throw new Error(
       `Missing required server environment variables: ${missing.join(", ")}\n` +
@@ -85,32 +106,36 @@ export function assertServerEnv(): void {
 
 export function getServerEnv() {
   assertServerEnv();
+  const publicEnv = readPublicEnvVars();
+  const serverEnv = readServerEnvVars();
+
   if (isWorkerContext()) {
-    const url = SERVER_ENV_VARS.SUPABASE_URL || PUBLIC_ENV_VARS.NEXT_PUBLIC_SUPABASE_URL;
+    const url = serverEnv.SUPABASE_URL || publicEnv.NEXT_PUBLIC_SUPABASE_URL;
     return {
       NEXT_PUBLIC_SUPABASE_URL: url!,
       NEXT_PUBLIC_SUPABASE_ANON_KEY: "",
-      SUPABASE_SERVICE_ROLE_KEY: SERVER_ENV_VARS.SUPABASE_SERVICE_ROLE_KEY!,
-      RESEND_API_KEY: SERVER_ENV_VARS.RESEND_API_KEY ?? "",
-      RESEND_FROM_EMAIL: SERVER_ENV_VARS.RESEND_FROM_EMAIL ?? "",
-      NEXT_PUBLIC_SITE_URL: SERVER_ENV_VARS.NEXT_PUBLIC_SITE_URL ?? "",
+      SUPABASE_SERVICE_ROLE_KEY: serverEnv.SUPABASE_SERVICE_ROLE_KEY!,
+      RESEND_API_KEY: serverEnv.RESEND_API_KEY ?? "",
+      RESEND_FROM_EMAIL: serverEnv.RESEND_FROM_EMAIL ?? "",
+      NEXT_PUBLIC_SITE_URL: serverEnv.NEXT_PUBLIC_SITE_URL ?? "",
     };
   }
   return {
-    NEXT_PUBLIC_SUPABASE_URL: PUBLIC_ENV_VARS.NEXT_PUBLIC_SUPABASE_URL!,
-    NEXT_PUBLIC_SUPABASE_ANON_KEY: PUBLIC_ENV_VARS.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    SUPABASE_SERVICE_ROLE_KEY: SERVER_ENV_VARS.SUPABASE_SERVICE_ROLE_KEY!,
-    RESEND_API_KEY: SERVER_ENV_VARS.RESEND_API_KEY!,
-    RESEND_FROM_EMAIL: SERVER_ENV_VARS.RESEND_FROM_EMAIL!,
-    NEXT_PUBLIC_SITE_URL: SERVER_ENV_VARS.NEXT_PUBLIC_SITE_URL!,
+    NEXT_PUBLIC_SUPABASE_URL: publicEnv.NEXT_PUBLIC_SUPABASE_URL!,
+    NEXT_PUBLIC_SUPABASE_ANON_KEY: publicEnv.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    SUPABASE_SERVICE_ROLE_KEY: serverEnv.SUPABASE_SERVICE_ROLE_KEY!,
+    RESEND_API_KEY: serverEnv.RESEND_API_KEY!,
+    RESEND_FROM_EMAIL: serverEnv.RESEND_FROM_EMAIL!,
+    NEXT_PUBLIC_SITE_URL: serverEnv.NEXT_PUBLIC_SITE_URL!,
   };
 }
 
 export function getPublicEnv() {
   assertPublicEnv();
+  const publicEnv = readPublicEnvVars();
   return {
-    NEXT_PUBLIC_SUPABASE_URL: PUBLIC_ENV_VARS.NEXT_PUBLIC_SUPABASE_URL!,
-    NEXT_PUBLIC_SUPABASE_ANON_KEY: PUBLIC_ENV_VARS.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    NEXT_PUBLIC_SUPABASE_URL: publicEnv.NEXT_PUBLIC_SUPABASE_URL!,
+    NEXT_PUBLIC_SUPABASE_ANON_KEY: publicEnv.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
   };
 }
 
@@ -119,7 +144,9 @@ export function getPublicEnv() {
 // ─────────────────────────────────────────────────────────────
 
 export function getRedisUrl(): string | undefined {
-  return process.env.REDIS_URL ?? undefined;
+  const value = process.env.REDIS_URL;
+  if (!value || value.trim() === "") return undefined;
+  return value;
 }
 
 /** Returns Redis connection options for BullMQ; undefined if Redis not configured. */
@@ -127,12 +154,14 @@ export function getRedisConnectionOptions():
   | { host: string; port: number; password?: string }
   | undefined {
   const url = getRedisUrl();
-  if (!url || url.trim() === "") return undefined;
+  if (!url) return undefined;
   try {
     const u = new URL(url);
+    const port = u.port ? parseInt(u.port, 10) : 6379;
+    if (!Number.isFinite(port) || port <= 0) return undefined;
     return {
       host: u.hostname,
-      port: u.port ? parseInt(u.port, 10) : 6379,
+      port,
       password: u.password || undefined,
     };
   } catch {

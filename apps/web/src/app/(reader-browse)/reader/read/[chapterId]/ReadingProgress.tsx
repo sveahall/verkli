@@ -1,5 +1,17 @@
 "use client";
 
+/**
+ * ReadingProgress — persists reading progress for the current book.
+ *
+ * Logged-in users: upserts to `readings` table (server, cross-device).
+ * Anonymous users: falls back to localStorage (`verkli_reading_{bookId}`).
+ *
+ * KNOWN LIMITATION: localStorage progress for anonymous readers is NOT
+ * migrated to the `readings` table when the user later signs up / signs in.
+ * A future improvement could read all `verkli_reading_*` keys on first
+ * authenticated session and bulk-upsert them.
+ */
+
 import { useEffect } from "react";
 import { createClient } from "@/lib/supabase/client";
 

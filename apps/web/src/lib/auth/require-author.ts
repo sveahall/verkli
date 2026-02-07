@@ -9,8 +9,8 @@ export type AuthorCheckResult =
  * Verifies the current user is authenticated AND has author role.
  * Use this at the start of any author-only API route or server action.
  *
- * Checks the original signup role stored in user_metadata.role to prevent
- * readers from accessing author functionality by switching roles.
+ * Checks immutable signup role (profiles.role, with metadata fallback) to
+ * prevent readers from accessing author functionality by switching roles.
  */
 export async function requireAuthorRole(): Promise<AuthorCheckResult> {
   const supabase = await createClient();
@@ -22,8 +22,20 @@ export async function requireAuthorRole(): Promise<AuthorCheckResult> {
     return { ok: false, error: "Not authenticated", status: 401 };
   }
 
-  // Check original signup role (stored at registration)
-  const originalRole = user.user_metadata?.role;
+  // Source of truth: immutable signup role from profiles.role.
+  // Fall back to auth metadata only if profile row is missing.
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("role")
+    .eq("user_id", user.id)
+    .maybeSingle();
+
+  const profileRole = profile?.role;
+  const metadataRole = user.user_metadata?.role;
+  const originalRole =
+    profileRole === "author" || profileRole === "reader"
+      ? profileRole
+      : metadataRole;
 
   // Users who signed up as readers cannot access author features
   if (originalRole === "reader") {

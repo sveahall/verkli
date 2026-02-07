@@ -7,11 +7,15 @@ export default function AuroraBackground() {
   const mouseTarget = useRef({ x: 0.5, y: 0.5 });
   const mouseCurrent = useRef({ x: 0.5, y: 0.5 });
   const rafId = useRef<number>(0);
-  const [reduceMotion, setReduceMotion] = useState(false);
+  // Initialise from media query to avoid a synchronous setState inside
+  // useEffect (which triggers cascading-render warnings in React).
+  const [reduceMotion, setReduceMotion] = useState(() => {
+    if (typeof window === "undefined") return false;
+    return window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  });
 
   useEffect(() => {
     const mq = window.matchMedia("(prefers-reduced-motion: reduce)");
-    setReduceMotion(mq.matches);
     const handler = () => setReduceMotion(mq.matches);
     mq.addEventListener("change", handler);
     return () => mq.removeEventListener("change", handler);

@@ -34,14 +34,14 @@ const ERROR_MESSAGES: Record<string, { title: string; description: string; actio
   },
   server_error: {
     title: "Something went wrong",
-    description: "We encountered an unexpected error. Please try again or contact support if the problem persists.",
+    description: "We couldn’t complete that. Please try again or contact support if it keeps happening.",
   },
 };
 
-// Fallback for unknown error codes
+// Fallback for unknown error codes — never show technical codes to users
 const FALLBACK_ERROR = {
-  title: "An error occurred",
-  description: "Something didn't work as expected. Please try again.",
+  title: "Something went wrong",
+  description: "We couldn’t complete that. Please try again.",
 };
 
 /* ─────────────────────────────────────────────────────────────────────────────
@@ -88,7 +88,7 @@ export function ErrorBanner({ errorCode: propErrorCode, onDismiss }: ErrorBanner
   const errorCode = propErrorCode ?? searchParams.get("error");
   // Use specific error config or fallback for unknown codes
   const errorConfig = errorCode
-    ? ERROR_MESSAGES[errorCode] ?? { ...FALLBACK_ERROR, title: `Error: ${errorCode}` }
+    ? ERROR_MESSAGES[errorCode] ?? FALLBACK_ERROR
     : null;
 
   // Clean up URL when banner is shown

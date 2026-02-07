@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useSyncExternalStore } from "react";
 import AuroraBackground from "@/components/AuroraBackground";
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -155,7 +155,7 @@ function SuccessState({ queuePosition, onUseDifferentEmail }: { queuePosition: n
       style={{ animation: "waitlist-success-in 0.5s ease-out both" }}
     >
       <p className="text-[17px] font-semibold text-emerald-900 dark:text-emerald-100">
-        You're on the waitlist
+        You&apos;re on the waitlist
       </p>
       <p className="mt-2 text-[15px] text-emerald-800/90 dark:text-emerald-200/90">
         Position <span className="font-bold">#{queuePosition}</span>
@@ -324,12 +324,12 @@ function ReaderSuccessState({ queuePosition, onUseDifferentEmail }: { queuePosit
       style={{ animation: "waitlist-success-in 0.5s ease-out both" }}
     >
       <p className="text-[17px] font-semibold text-emerald-900 dark:text-emerald-100">
-        You're on the reader waitlist
+        You&apos;re on the reader waitlist
       </p>
       <p className="mt-2 text-[15px] text-emerald-800/90 dark:text-emerald-200/90">
         Position <span className="font-bold">#{queuePosition}</span>
         <br />
-        We'll be in touch when it's your turn.
+        We&apos;ll be in touch when it&apos;s your turn.
       </p>
       {onUseDifferentEmail && (
         <p className="mt-4">
@@ -373,31 +373,50 @@ function ReaderAlreadyExistsState({ queuePosition, onUseDifferentEmail }: { queu
   );
 }
 
+// Noop subscribe for useSyncExternalStore-based hydration detection
+const _subNoop = () => () => {};
+
 export default function WaitlistPage() {
-  const [queuePosition, setQueuePosition] = useState<number | null>(null);
-  const [alreadyExistsPosition, setAlreadyExistsPosition] = useState<number | null>(null);
-  const [readerQueuePosition, setReaderQueuePosition] = useState<number | null>(null);
-  const [readerAlreadyExistsPosition, setReaderAlreadyExistsPosition] = useState<number | null>(null);
-  const [hydrated, setHydrated] = useState(false);
-
-  useEffect(() => {
+  // Initialise from localStorage via lazy initialisers instead of
+  // useEffect + setState, avoiding cascading-render warnings.
+  const [queuePosition, setQueuePosition] = useState<number | null>(() => {
+    if (typeof window === "undefined") return null;
     try {
-      const authorStatus = localStorage.getItem(author_STORAGE_STATUS);
-      const authorPosition = localStorage.getItem(author_STORAGE_POSITION);
-      const pos = authorPosition ? parseInt(authorPosition, 10) : 0;
-      if (authorStatus === "success" && !Number.isNaN(pos)) setQueuePosition(pos);
-      else if (authorStatus === "exists" && !Number.isNaN(pos)) setAlreadyExistsPosition(pos);
-
-      const readerStatus = localStorage.getItem(READER_STORAGE_STATUS);
-      const readerPosition = localStorage.getItem(READER_STORAGE_POSITION);
-      const rPos = readerPosition ? parseInt(readerPosition, 10) : 0;
-      if (readerStatus === "success" && !Number.isNaN(rPos)) setReaderQueuePosition(rPos);
-      else if (readerStatus === "exists" && !Number.isNaN(rPos)) setReaderAlreadyExistsPosition(rPos);
-    } catch {
-      /* ignore */
-    }
-    setHydrated(true);
-  }, []);
+      const status = localStorage.getItem(author_STORAGE_STATUS);
+      const pos = parseInt(localStorage.getItem(author_STORAGE_POSITION) ?? "", 10);
+      if (status === "success" && !Number.isNaN(pos)) return pos;
+    } catch { /* ignore */ }
+    return null;
+  });
+  const [alreadyExistsPosition, setAlreadyExistsPosition] = useState<number | null>(() => {
+    if (typeof window === "undefined") return null;
+    try {
+      const status = localStorage.getItem(author_STORAGE_STATUS);
+      const pos = parseInt(localStorage.getItem(author_STORAGE_POSITION) ?? "", 10);
+      if (status === "exists" && !Number.isNaN(pos)) return pos;
+    } catch { /* ignore */ }
+    return null;
+  });
+  const [readerQueuePosition, setReaderQueuePosition] = useState<number | null>(() => {
+    if (typeof window === "undefined") return null;
+    try {
+      const status = localStorage.getItem(READER_STORAGE_STATUS);
+      const pos = parseInt(localStorage.getItem(READER_STORAGE_POSITION) ?? "", 10);
+      if (status === "success" && !Number.isNaN(pos)) return pos;
+    } catch { /* ignore */ }
+    return null;
+  });
+  const [readerAlreadyExistsPosition, setReaderAlreadyExistsPosition] = useState<number | null>(() => {
+    if (typeof window === "undefined") return null;
+    try {
+      const status = localStorage.getItem(READER_STORAGE_STATUS);
+      const pos = parseInt(localStorage.getItem(READER_STORAGE_POSITION) ?? "", 10);
+      if (status === "exists" && !Number.isNaN(pos)) return pos;
+    } catch { /* ignore */ }
+    return null;
+  });
+  // Detect client mount via useSyncExternalStore instead of useEffect + setState
+  const hydrated = useSyncExternalStore(_subNoop, () => true, () => false);
 
   const handleSuccess = (position: number) => {
     setQueuePosition(position);

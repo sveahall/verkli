@@ -320,6 +320,15 @@ export default async function ReaderDiscoverPage({
           </div>
         </section>
       )}
+
+      {featuredBooks.length === 0 && newBooks.length === 0 && curatedLists.length === 0 && authorsWithAvatars.length === 0 && (
+        <div className="flex flex-col items-center justify-center rounded-2xl border border-slate-200 bg-slate-50/50 px-8 py-16 text-center dark:border-white/10 dark:bg-white/5">
+          <h3 className="text-lg font-semibold text-slate-900 dark:text-white">No books yet</h3>
+          <p className="mt-2 max-w-md text-sm text-slate-500 dark:text-white/60">
+            There are no published books available right now. Check back soon as authors publish new stories.
+          </p>
+        </div>
+      )}
     </div>
   );
 }

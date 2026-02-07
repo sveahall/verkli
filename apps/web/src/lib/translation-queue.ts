@@ -9,10 +9,7 @@ import { QUEUE_NAMES } from "@/lib/queue-names";
 
 const QUEUE_NAME = QUEUE_NAMES.TRANSLATION;
 
-const connection = getRedisConnectionOptions();
-
-function createQueue(): Queue | null {
-  if (!connection) return null;
+function createQueue(connection: { host: string; port: number; password?: string }): Queue {
   return new Queue(QUEUE_NAME, {
     connection: {
       host: connection.host,
@@ -29,10 +26,26 @@ function createQueue(): Queue | null {
 }
 
 let queueInstance: Queue | null = null;
+let queueConnectionKey: string | null = null;
+
+function getConnectionKey(connection: { host: string; port: number; password?: string }): string {
+  return `${connection.host}:${connection.port}:${connection.password ?? ""}`;
+}
 
 export function getTranslationQueue(): Queue | null {
+  const connection = getRedisConnectionOptions();
   if (!connection) return null;
-  if (!queueInstance) queueInstance = createQueue();
+
+  const key = getConnectionKey(connection);
+  if (!queueInstance || queueConnectionKey !== key) {
+    if (queueInstance) {
+      void queueInstance.close().catch((err) => {
+        console.error("[translation queue] failed to close previous queue instance:", err);
+      });
+    }
+    queueInstance = createQueue(connection);
+    queueConnectionKey = key;
+  }
   return queueInstance;
 }
 
@@ -70,30 +83,60 @@ export async function enqueueTranslationJob(data: TranslationJobData): Promise<s
     if (state === "waiting" || state === "delayed") {
       // Job is queued but not yet running.
       if (data.overwrite) {
-        await existing.remove();
+        try {
+          await existing.remove();
+        } catch (err) {
+          const msg = err instanceof Error ? err.message : String(err);
+          console.warn("[translation queue] could not remove queued job before overwrite:", jobId, msg);
+          return existing.id ?? null;
+        }
       } else {
         return existing.id ?? null;
       }
     } else {
       // completed, failed, or unknown — always remove to allow re-enqueue.
-      await existing.remove();
+      try {
+        await existing.remove();
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        console.warn("[translation queue] could not remove old job before re-enqueue:", jobId, msg);
+      }
     }
   }
-  const job = await q.add("translate", data, { jobId });
-  const id = job.id ?? null;
-  if (id) {
-    console.log(
-      "[translation queue] Job enqueued:",
-      id,
+  try {
+    const job = await q.add("translate", data, { jobId });
+    const id = job.id ?? null;
+    if (id) {
+      console.log(
+        "[translation queue] Job enqueued:",
+        id,
+        "bookId:",
+        data.bookId,
+        "sourceVersionId:",
+        data.sourceVersionId,
+        "targetLanguage:",
+        data.targetLanguage,
+        "overwrite:",
+        data.overwrite ?? false
+      );
+    }
+    return id;
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    if (msg.toLowerCase().includes("job") && msg.toLowerCase().includes("exists")) {
+      const dup = await q.getJob(jobId);
+      const dupId = dup?.id ?? null;
+      console.warn("[translation queue] duplicate enqueue ignored, using existing job:", dupId ?? jobId);
+      return dupId;
+    }
+    console.error(
+      "[translation queue] failed to enqueue job:",
+      msg,
       "bookId:",
       data.bookId,
-      "sourceVersionId:",
-      data.sourceVersionId,
       "targetLanguage:",
-      data.targetLanguage,
-      "overwrite:",
-      data.overwrite ?? false
+      data.targetLanguage
     );
+    throw err;
   }
-  return id;
 }

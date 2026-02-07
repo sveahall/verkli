@@ -35,7 +35,7 @@ export default function ContentGenerator({
   if (state === "error") {
     return (
       <div className="rounded-2xl border border-dashed border-destructive/40 bg-destructive/10 p-6 text-sm text-destructive">
-        Generator is offline. We will reconnect the AI service soon.
+        We couldn’t load the generator. Try again in a moment.
       </div>
     );
   }

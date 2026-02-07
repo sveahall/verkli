@@ -3,7 +3,9 @@ import { createClient } from "@/lib/supabase/server";
 import { getShelves } from "@/lib/supabase/shelves";
 import { getAvatarUrlFromPathServer } from "@/lib/supabase/avatar";
 import ProfilePage from "@/components/author/profile/ProfilePage";
-import type { Profile } from "@/lib/supabase/types";
+import type { Tables } from "@/lib/supabase/types";
+
+type Profile = Tables<"profiles">;
 
 export default async function authorProfileRoute() {
   const supabase = await createClient();

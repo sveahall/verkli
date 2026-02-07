@@ -43,9 +43,9 @@ export default function TtsDemoPage() {
       } finally {
         URL.revokeObjectURL(url);
       }
-    } catch (err: any) {
+    } catch (err: unknown) {
       const message =
-        typeof err?.message === "string"
+        err instanceof Error && typeof err.message === "string"
           ? err.message
           : "Ett oväntat fel inträffade vid TTS-syntes.";
       setError(message);

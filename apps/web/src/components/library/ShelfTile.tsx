@@ -1,7 +1,9 @@
 "use client";
 
 import Link from "next/link";
-import type { Shelf } from "@/lib/supabase/types";
+import type { Tables } from "@/lib/supabase/types";
+
+type Shelf = Tables<"shelves">;
 
 interface ShelfTileProps {
   shelf: Shelf;

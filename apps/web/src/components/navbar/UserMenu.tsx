@@ -78,7 +78,7 @@ export default function UserMenu({ user, onSignOut, currentRole = "author", orig
       if (!response.ok) {
         const payload = await response.json().catch(() => ({}));
         console.error("Error updating role:", payload);
-        toast.error("Could not switch role. Try again.");
+        toast.error("We couldn’t switch view. Please try again.");
         return;
       }
 
@@ -201,7 +201,7 @@ export default function UserMenu({ user, onSignOut, currentRole = "author", orig
             </Link>
 
             <Link
-              href={currentRole === 'author' ? "/author/settings" : "/reader/settings"}
+              href={currentRole === 'author' ? "/author/settings" : "/reader/profile"}
               onClick={(e) => {
                 e.stopPropagation();
                 setIsOpen(false);
