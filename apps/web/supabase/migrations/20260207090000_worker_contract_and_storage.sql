@@ -277,7 +277,8 @@ SET
   file_size_limit = EXCLUDED.file_size_limit,
   allowed_mime_types = EXCLUDED.allowed_mime_types;
 
-ALTER TABLE storage.objects ENABLE ROW LEVEL SECURITY;
+-- Skip ALTER on storage.objects: on hosted Supabase we are not owner; RLS is already enabled there.
+-- On local Supabase, RLS is typically enabled by default for storage.
 
 DROP POLICY IF EXISTS storage_book_covers_select_public ON storage.objects;
 CREATE POLICY storage_book_covers_select_public ON storage.objects
