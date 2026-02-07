@@ -431,9 +431,19 @@ export default function GlobalNavbar({
         return;
       }
 
-      // SECURITY: Original signup role determines permissions - this is immutable
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("role, preferences")
+        .eq("user_id", activeUser.id)
+        .maybeSingle();
+
+      // SECURITY: Original signup role comes from immutable profiles.role.
+      // Fallback to metadata only if profile row is unavailable.
+      const profileRole = profile?.role;
       const signupRole = activeUser.user_metadata?.role;
-      if (signupRole === "author" || signupRole === "reader") {
+      if (profileRole === "author" || profileRole === "reader") {
+        setOriginalRole(profileRole);
+      } else if (signupRole === "author" || signupRole === "reader") {
         setOriginalRole(signupRole);
       } else {
         setOriginalRole(undefined);
@@ -445,17 +455,11 @@ export default function GlobalNavbar({
         nextRole = metadataRole;
       }
 
-      const { data: profile } = await supabase
-        .from("profiles")
-        .select("role, preferences")
-        .eq("user_id", activeUser.id)
-        .maybeSingle();
-
       const preferenceRole = (profile?.preferences as { active_role?: string } | null)?.active_role;
       if (preferenceRole === "author" || preferenceRole === "reader") {
         nextRole = preferenceRole;
-      } else if (profile?.role === "author" || profile?.role === "reader") {
-        nextRole = profile.role;
+      } else if (profileRole === "author" || profileRole === "reader") {
+        nextRole = profileRole;
       }
 
       setCurrentRole(nextRole);
@@ -505,7 +509,8 @@ export default function GlobalNavbar({
     document.addEventListener("keydown", handleKeyDown);
     return () => document.removeEventListener("keydown", handleKeyDown);
   }, [dropdownOpen]);
-  // Stäng mobilmeny vid navigering
+  // Close mobile menu on navigation
+  // eslint-disable-next-line react-hooks/rules-of-hooks -- legitimate close on route change
   useEffect(() => {
     setMobileMenuOpen(false);
   }, [pathname]);
@@ -570,7 +575,6 @@ export default function GlobalNavbar({
       children: [
         { label: "Product", href: "/product" },
         { label: "How it works", href: "/how-it-works" },
-        { label: "Case studies", href: "/case-studies" },
       ],
     },
     { label: "Pricing", href: "/pricing" },
