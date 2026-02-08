@@ -1,4 +1,8 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import {
+  E_INVALID_PRICE_CURRENCY,
+  E_INVALID_PRICING_COMBINATION,
+} from "@/lib/api-errors";
 
 const mocks = vi.hoisted(() => ({
   requireAuthorRoleForApi: vi.fn(),
@@ -141,7 +145,7 @@ describe("/api/books/[id] pricing settings", () => {
 
     const body = await res.json();
     expect(res.status).toBe(400);
-    expect(body.error).toBe("Invalid price_currency");
+    expect(body.error).toBe(E_INVALID_PRICE_CURRENCY);
   });
 
   it("rejects paid mode without paid amount", async () => {
@@ -168,7 +172,7 @@ describe("/api/books/[id] pricing settings", () => {
 
     const body = await res.json();
     expect(res.status).toBe(400);
-    expect(body.error).toBe("Invalid pricing combination");
+    expect(body.error).toBe(E_INVALID_PRICING_COMBINATION);
   });
 
   it("updates pricing and returns normalized settings", async () => {

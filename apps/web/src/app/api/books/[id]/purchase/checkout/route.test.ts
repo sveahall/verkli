@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { E_INVALID_BOOK_PRICING } from "@/lib/api-errors";
 
 const mocks = vi.hoisted(() => ({
   createClient: vi.fn(),
@@ -153,7 +154,7 @@ describe("POST /api/books/[id]/purchase/checkout", () => {
     const body = await res.json();
 
     expect(res.status).toBe(422);
-    expect(body.error).toBe("Book pricing is invalid");
+    expect(body.error).toBe(E_INVALID_BOOK_PRICING);
     expect(mocks.createStripeCheckoutSession).not.toHaveBeenCalled();
   });
 });
