@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
+  E_INVALID_BOOK_PRICING,
   E_INVALID_PRICE_CURRENCY,
   E_INVALID_PRICING_COMBINATION,
 } from "@/lib/api-errors";
@@ -249,5 +250,27 @@ describe("/api/books/[id] pricing settings", () => {
       pricing_model: "book_only",
       is_free: true,
     });
+  });
+
+  it("GET returns safe error key when stored pricing is invalid", async () => {
+    const supabase = makeBooksSupabase({
+      book: {
+        id: "book-1",
+        title: "Book",
+        author_id: "author-1",
+        price_amount: 499,
+        price_currency: "JPY",
+        pricing_model: "book_only",
+      },
+    });
+    mocks.createClient.mockResolvedValue(supabase.client);
+
+    const res = await GET(new Request("http://localhost/api/books/book-1"), {
+      params: Promise.resolve({ id: "book-1" }),
+    });
+    const body = await res.json();
+
+    expect(res.status).toBe(500);
+    expect(body.error).toBe(E_INVALID_BOOK_PRICING);
   });
 });

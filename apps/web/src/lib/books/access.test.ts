@@ -134,6 +134,26 @@ describe("canUserReadBook", () => {
       bookId: "book-1",
       bookAuthorId: "author-1",
       bookPriceAmount: 199,
+      bookPricingModel: "book_only",
+    });
+
+    expect(result).toBe(false);
+  });
+
+  it("fails closed when pricing model is invalid", async () => {
+    const supabase: SupabaseLikeClient = {
+      from() {
+        throw new Error("Should not query DB when pricing context is provided");
+      },
+    } as unknown as SupabaseLikeClient;
+
+    const result = await canUserReadBook({
+      supabase,
+      userId: "reader-1",
+      bookId: "book-1",
+      bookAuthorId: "author-1",
+      bookPriceAmount: 199,
+      bookPricingModel: "chapter_bundle",
     });
 
     expect(result).toBe(false);
