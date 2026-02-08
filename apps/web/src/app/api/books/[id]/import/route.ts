@@ -73,7 +73,11 @@ export async function POST(
   });
 
   if (!result.ok) {
-    return NextResponse.json({ error: result.error }, { status: result.status });
+    return apiError(
+      result.errorKey,
+      result.status,
+      result.detail ? { detail: result.detail } : undefined
+    );
   }
 
   return NextResponse.json({

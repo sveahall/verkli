@@ -17,6 +17,7 @@ import {
   E_BOOK_NOT_FOUND,
   E_BOOK_SETTINGS_LOAD_FAILED,
   E_BOOK_SETTINGS_UPDATE_FAILED,
+  E_DATABASE_ERROR,
   E_INVALID_BOOK_PRICING,
   E_INVALID_JSON,
   E_INVALID_PRICE_AMOUNT,
@@ -26,7 +27,6 @@ import {
   E_INVALID_PRICING_COMBINATION,
   E_NO_UPDATABLE_FIELDS,
   E_PAID_BOOK_REQUIRES_CURRENCY,
-  E_DATABASE_ERROR,
 } from "@/lib/api-errors";
 
 type BookSettingsRow = {
@@ -47,27 +47,42 @@ type PricingPatchBody = {
   is_free?: unknown;
 };
 
+type NormalizedStoredPricing = {
+  priceAmount: number | null;
+  priceCurrency: PriceCurrency;
+  pricingModel: PricingModel;
+};
+
 function badRequest(key: string, details?: Record<string, string>) {
   return apiError(key, 400, details ? { details } : undefined);
 }
 
-function toPricingResponse(book: BookSettingsRow) {
-  const normalizedAmount = normalizePriceAmount(book.price_amount);
-  const priceAmount = normalizedAmount != null && normalizedAmount >= 0 ? normalizedAmount : null;
+function normalizeStoredPricing(row: BookSettingsRow): NormalizedStoredPricing | null {
+  const amount = normalizePriceAmount(row.price_amount);
+  if (amount != null && amount < 0) return null;
 
-  const normalizedCurrency = normalizePriceCurrency(book.price_currency);
-  const priceCurrency: PriceCurrency = normalizedCurrency ?? "USD";
+  const currency = normalizePriceCurrency(row.price_currency);
+  if (!currency) return null;
 
-  const normalizedModel = normalizePricingModel(book.pricing_model);
-  const pricingModel: PricingModel = normalizedModel ?? "book_only";
+  const model = normalizePricingModel(row.pricing_model);
+  if (!model) return null;
 
+  return {
+    priceAmount: amount,
+    priceCurrency: currency,
+    pricingModel: model,
+  };
+}
+
+function toPricingResponse(book: BookSettingsRow, pricing: NormalizedStoredPricing) {
   return {
     id: book.id,
     title: book.title,
-    price_amount: priceAmount,
-    price_currency: priceCurrency,
-    pricing_model: pricingModel,
-    is_free: typeof book.is_free === "boolean" ? book.is_free : isFreePriceAmount(priceAmount),
+    price_amount: pricing.priceAmount,
+    price_currency: pricing.priceCurrency,
+    pricing_model: pricing.pricingModel,
+    is_free:
+      typeof book.is_free === "boolean" ? book.is_free : isFreePriceAmount(pricing.priceAmount),
     updated_at: book.updated_at ?? null,
   };
 }
@@ -214,7 +229,19 @@ export async function GET(
     return apiError(E_BOOK_NOT_FOUND, 404);
   }
 
-  return NextResponse.json(toPricingResponse(row));
+  const normalized = normalizeStoredPricing(row);
+  if (!normalized) {
+    console.error("[books.settings.get] stored pricing is invalid", {
+      bookId: id,
+      userId: user.id,
+      priceAmount: row.price_amount,
+      priceCurrency: row.price_currency,
+      pricingModel: row.pricing_model,
+    });
+    return apiError(E_INVALID_BOOK_PRICING, 500);
+  }
+
+  return NextResponse.json(toPricingResponse(row, normalized));
 }
 
 export async function PATCH(
@@ -260,29 +287,29 @@ export async function PATCH(
     return apiError(E_BOOK_NOT_FOUND, 404);
   }
 
-  const normalizedCurrency = normalizePriceCurrency(row.price_currency);
-  const normalizedModel = normalizePricingModel(row.pricing_model);
-  const normalizedAmount = normalizePriceAmount(row.price_amount);
-
-  if (!normalizedCurrency || !normalizedModel || (normalizedAmount != null && normalizedAmount < 0)) {
+  const normalized = normalizeStoredPricing(row);
+  if (!normalized) {
     console.error("[books.settings.patch] stored pricing is invalid", {
       bookId: id,
       userId: user.id,
+      priceAmount: row.price_amount,
+      priceCurrency: row.price_currency,
+      pricingModel: row.pricing_model,
     });
     return apiError(E_INVALID_BOOK_PRICING, 500);
   }
 
   const parsedPatch = parsePricingPatch(body, {
-    priceAmount: normalizedAmount,
-    priceCurrency: normalizedCurrency,
-    pricingModel: normalizedModel,
+    priceAmount: normalized.priceAmount,
+    priceCurrency: normalized.priceCurrency,
+    pricingModel: normalized.pricingModel,
   });
 
   if (!parsedPatch.ok) return parsedPatch.response;
 
   const updates = parsedPatch.updates;
   if (Object.keys(updates).length === 0) {
-    return NextResponse.json(toPricingResponse(row));
+    return NextResponse.json(toPricingResponse(row, normalized));
   }
 
   const { data: updated, error: updateError } = await supabase
@@ -303,7 +330,20 @@ export async function PATCH(
     return apiError(E_BOOK_SETTINGS_UPDATE_FAILED, 500);
   }
 
-  return NextResponse.json(toPricingResponse(updated as BookSettingsRow));
+  const updatedRow = updated as BookSettingsRow;
+  const normalizedUpdated = normalizeStoredPricing(updatedRow);
+  if (!normalizedUpdated) {
+    console.error("[books.settings.patch] updated pricing is invalid", {
+      bookId: id,
+      userId: user.id,
+      priceAmount: updatedRow.price_amount,
+      priceCurrency: updatedRow.price_currency,
+      pricingModel: updatedRow.pricing_model,
+    });
+    return apiError(E_INVALID_BOOK_PRICING, 500);
+  }
+
+  return NextResponse.json(toPricingResponse(updatedRow, normalizedUpdated));
 }
 
 export async function DELETE(
