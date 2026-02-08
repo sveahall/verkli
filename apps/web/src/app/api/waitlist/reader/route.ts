@@ -2,6 +2,16 @@ import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { Resend } from "resend";
 import { assertServerEnv, getServerEnv } from "@/lib/env";
+import {
+  apiError,
+  E_SERVER_CONFIG_ERROR,
+  E_RATE_LIMIT_EXCEEDED,
+  E_INVALID_REQUEST_BODY,
+  E_INVALID_EMAIL,
+  E_SIGNUP_VERIFICATION_FAILED,
+  E_GENERIC_ERROR,
+  E_WAITLIST_ADD_FAILED,
+} from "@/lib/api-errors";
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -79,30 +89,24 @@ export async function POST(request: Request) {
     assertServerEnv();
   } catch (error) {
     console.error("ENV_VALIDATION_ERROR", error);
-    return NextResponse.json(
-      { ok: false, error: "Server configuration error. Please contact support.", details: "Missing environment variables" },
-      { status: 500 }
-    );
+    return apiError(E_SERVER_CONFIG_ERROR, 500);
   }
 
   try {
     const ip = getClientIp(request);
     const { allowed } = checkRateLimit(ip);
     if (!allowed) {
-      return NextResponse.json(
-        { ok: false, error: "Too many signups. Try again in a few minutes.", details: "rate_limit" },
-        { status: 429 }
-      );
+      return apiError(E_RATE_LIMIT_EXCEEDED, 429);
     }
 
     const body = await request.json().catch(() => null);
     if (!body || typeof body !== "object") {
-      return NextResponse.json({ ok: false, error: "Invalid request body", details: "Expected JSON object" }, { status: 400 });
+      return apiError(E_INVALID_REQUEST_BODY, 400);
     }
 
     const rawEmail = body.email;
     if (!validateEmail(rawEmail)) {
-      return NextResponse.json({ ok: false, error: "Please enter a valid email address.", details: "Invalid email format" }, { status: 400 });
+      return apiError(E_INVALID_EMAIL, 400);
     }
 
     const email = rawEmail.trim().toLowerCase();
@@ -114,10 +118,7 @@ export async function POST(request: Request) {
       supabase = createAdminClient();
     } catch (e) {
       console.error("READER_WAITLIST_ERROR", { message: "createAdminClient failed", code: String(e), details: e instanceof Error ? e.message : "", hint: "Check SUPABASE_SERVICE_ROLE_KEY" });
-      return NextResponse.json(
-        { ok: false, error: "Server configuration error. Please try again later.", details: "Supabase client init failed" },
-        { status: 500 }
-      );
+      return apiError(E_SERVER_CONFIG_ERROR, 500);
     }
 
     const { data: inserted, error: insertError } = await supabase
@@ -137,16 +138,10 @@ export async function POST(request: Request) {
           .maybeSingle();
         if (selectError) {
           console.error("READER_WAITLIST_ERROR", { message: "Select existing failed", code: selectError.code, details: selectError.message, hint: selectError.hint });
-          return NextResponse.json(
-            { ok: false, error: "Could not verify your signup. Please try again.", details: selectError.message },
-            { status: 500 }
-          );
+          return apiError(E_SIGNUP_VERIFICATION_FAILED, 500);
         }
         if (!existing) {
-          return NextResponse.json(
-            { ok: false, error: "Something went wrong. Please try again.", details: insertError.message },
-            { status: 500 }
-          );
+          return apiError(E_GENERIC_ERROR, 500);
         }
         const position = await getPosition(supabase, existing.created_at);
         console.log("READER_WAITLIST_DUPLICATE", { email, id: existing.id });
@@ -156,18 +151,12 @@ export async function POST(request: Request) {
         );
       }
       console.error("READER_WAITLIST_ERROR", { message: insertError.message, code: insertError.code, details: insertError.details, hint: insertError.hint });
-      return NextResponse.json(
-        { ok: false, error: "Could not add you to the list. Please try again.", details: insertError.message },
-        { status: 500 }
-      );
+      return apiError(E_WAITLIST_ADD_FAILED, 500);
     }
 
     if (!inserted) {
       console.error("READER_WAITLIST_ERROR", { message: "No row returned after insert", code: "EMPTY", details: "", hint: "" });
-      return NextResponse.json(
-        { ok: false, error: "Something went wrong. Please try again.", details: "Insert returned no row" },
-        { status: 500 }
-      );
+      return apiError(E_GENERIC_ERROR, 500);
     }
 
     const position = await getPosition(supabase, inserted.created_at);
@@ -180,9 +169,6 @@ export async function POST(request: Request) {
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
     console.error("READER_WAITLIST_ERROR", { message, code: "EXCEPTION", details: err instanceof Error ? err.stack : "", hint: "" });
-    return NextResponse.json(
-      { ok: false, error: "Something went wrong. Please try again.", details: message },
-      { status: 500 }
-    );
+    return apiError(E_GENERIC_ERROR, 500);
   }
 }

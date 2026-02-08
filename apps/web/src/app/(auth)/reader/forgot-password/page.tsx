@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import { resolveErrorMessage } from "@/lib/error-messages";
 import AuthShell from "@/components/auth/AuthShell";
 import AuthCard from "@/components/auth/AuthCard";
 import { Button } from "@/components/ui/button";
@@ -29,7 +30,7 @@ export default function ReaderForgotPassword() {
     const { error } = await resetPassword(email);
 
     if (error) {
-      setError(error.message);
+      setError(resolveErrorMessage(null, "Kunde inte skicka återställningslänk. Försök igen."));
       setLoading(false);
     } else {
       setSuccess(true);

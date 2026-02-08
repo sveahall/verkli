@@ -4,7 +4,7 @@ import "./globals.css";
 import "../components/GridMotion.css";
 import "../components/GlassSurface.css";
 import GlobalThemeToggle from "@/components/GlobalThemeToggle";
-import { ToastProvider } from "@/components/ui/Toast";
+import { ToastProvider } from "@/components/ui/toast";
 
 const inter = Inter({
   variable: "--font-inter",

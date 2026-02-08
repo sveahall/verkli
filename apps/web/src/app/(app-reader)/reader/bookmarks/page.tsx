@@ -55,7 +55,7 @@ export default async function ReaderBookmarksPage() {
       <PageHeader
         eyebrow="Bookmarks"
         title="Saved moments"
-        subtitle="Keep the books you want to return to."
+        description="Keep the books you want to return to."
         actions={
           <Link
             href="/reader/library"

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useSyncExternalStore } from "react";
+import { resolveErrorMessage } from "@/lib/error-messages";
 import AuroraBackground from "@/components/AuroraBackground";
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -75,12 +76,12 @@ function WaitlistForm({
       const data = await res.json().catch(() => ({}));
 
       if (!res.ok) {
-        setErrorMessage(data.error || "Something went wrong. Try again in a moment.");
+        setErrorMessage(resolveErrorMessage(data.error));
         setState("error");
         return;
       }
       if (data.ok !== true) {
-        setErrorMessage(data.error || "Something went wrong. Try again in a moment.");
+        setErrorMessage(resolveErrorMessage(data.error));
         setState("error");
         return;
       }
@@ -245,12 +246,12 @@ function ReaderWaitlistForm({
       const data = await res.json().catch(() => ({}));
 
       if (!res.ok) {
-        setErrorMessage(data.error || "Something went wrong. Try again in a moment.");
+        setErrorMessage(resolveErrorMessage(data.error));
         setState("error");
         return;
       }
       if (data.ok !== true) {
-        setErrorMessage(data.error || "Something went wrong. Try again in a moment.");
+        setErrorMessage(resolveErrorMessage(data.error));
         setState("error");
         return;
       }

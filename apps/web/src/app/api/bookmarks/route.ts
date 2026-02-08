@@ -2,6 +2,17 @@ import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { logAnalyticsEvent } from "@/lib/analytics/events";
 import { z } from "zod";
+import {
+  apiError,
+  E_NOT_AUTHENTICATED,
+  E_INVALID_JSON,
+  E_VALIDATION_FAILED,
+  E_ALREADY_BOOKMARKED,
+  E_BOOKMARK_ADD_FAILED,
+  E_BOOKMARK_LOAD_FAILED,
+  E_BOOKMARK_REMOVE_FAILED,
+  E_INVALID_BOOK_ID,
+} from "@/lib/api-errors";
 
 const postBodySchema = z.object({
   bookId: z.string().uuid("Invalid book ID"),
@@ -12,7 +23,7 @@ export async function GET() {
   const { data: { user } } = await supabase.auth.getUser();
 
   if (!user) {
-    return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
+    return apiError(E_NOT_AUTHENTICATED, 401);
   }
 
   const { data, error } = await supabase
@@ -22,7 +33,8 @@ export async function GET() {
     .order("created_at", { ascending: false });
 
   if (error) {
-    return NextResponse.json({ error: "Failed to load bookmarks" }, { status: 500 });
+    console.error("[bookmarks] load failed", { message: error.message });
+    return apiError(E_BOOKMARK_LOAD_FAILED, 500);
   }
 
   return NextResponse.json({ bookmarks: data ?? [] });
@@ -33,21 +45,19 @@ export async function POST(request: Request) {
   const { data: { user } } = await supabase.auth.getUser();
 
   if (!user) {
-    return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
+    return apiError(E_NOT_AUTHENTICATED, 401);
   }
 
   let body: unknown;
   try {
     body = await request.json();
   } catch {
-    return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
+    return apiError(E_INVALID_JSON, 400);
   }
 
   const parsed = postBodySchema.safeParse(body);
   if (!parsed.success) {
-    const first = parsed.error.issues[0];
-    const msg = first?.message ?? "Validation failed";
-    return NextResponse.json({ error: msg }, { status: 400 });
+    return apiError(E_VALIDATION_FAILED, 400);
   }
 
   const { bookId } = parsed.data;
@@ -60,9 +70,10 @@ export async function POST(request: Request) {
 
   if (error) {
     if (error.code === "23505") {
-      return NextResponse.json({ error: "Already bookmarked" }, { status: 409 });
+      return apiError(E_ALREADY_BOOKMARKED, 409);
     }
-    return NextResponse.json({ error: "Failed to add bookmark" }, { status: 500 });
+    console.error("[bookmarks] add failed", { message: error.message });
+    return apiError(E_BOOKMARK_ADD_FAILED, 500);
   }
 
   await logAnalyticsEvent(supabase, {
@@ -81,14 +92,14 @@ export async function DELETE(request: Request) {
   const { data: { user } } = await supabase.auth.getUser();
 
   if (!user) {
-    return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
+    return apiError(E_NOT_AUTHENTICATED, 401);
   }
 
   const { searchParams } = new URL(request.url);
   const bookId = searchParams.get("bookId");
 
   if (!bookId || !z.string().uuid().safeParse(bookId).success) {
-    return NextResponse.json({ error: "Invalid or missing bookId" }, { status: 400 });
+    return apiError(E_INVALID_BOOK_ID, 400);
   }
 
   const { data: deleted, error } = await supabase
@@ -100,7 +111,8 @@ export async function DELETE(request: Request) {
     .maybeSingle();
 
   if (error) {
-    return NextResponse.json({ error: "Failed to remove bookmark" }, { status: 500 });
+    console.error("[bookmarks] remove failed", { message: error.message });
+    return apiError(E_BOOKMARK_REMOVE_FAILED, 500);
   }
 
   if (deleted) {

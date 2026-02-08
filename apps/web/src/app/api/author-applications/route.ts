@@ -5,6 +5,12 @@ import {
   getAuthorApplicationStatus,
   isLegacyAuthorRole,
 } from "@/lib/auth/author-approval";
+import {
+  apiError,
+  E_NOT_AUTHENTICATED,
+  E_APPLICATION_UPDATE_FAILED,
+  E_APPLICATION_SUBMIT_FAILED,
+} from "@/lib/api-errors";
 
 export async function GET() {
   const supabase = await createClient();
@@ -13,7 +19,7 @@ export async function GET() {
   } = await supabase.auth.getUser();
 
   if (!user) {
-    return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
+    return apiError(E_NOT_AUTHENTICATED, 401);
   }
 
   const { data: profile } = await supabase
@@ -40,7 +46,7 @@ export async function POST() {
   } = await supabase.auth.getUser();
 
   if (!user) {
-    return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
+    return apiError(E_NOT_AUTHENTICATED, 401);
   }
 
   const { data: profile } = await supabase
@@ -74,7 +80,7 @@ export async function POST() {
       .eq("user_id", user.id);
 
     if (error) {
-      return NextResponse.json({ error: "Failed to update application" }, { status: 500 });
+      return apiError(E_APPLICATION_UPDATE_FAILED, 500);
     }
 
     return NextResponse.json({ ok: true, status: "pending", reapplied: true });
@@ -85,7 +91,7 @@ export async function POST() {
     .insert({ user_id: user.id, status: "pending" } as never);
 
   if (error) {
-    return NextResponse.json({ error: "Failed to submit application" }, { status: 500 });
+    return apiError(E_APPLICATION_SUBMIT_FAILED, 500);
   }
 
   return NextResponse.json({ ok: true, status: "pending" });

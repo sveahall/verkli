@@ -9,39 +9,39 @@ import { useSearchParams, useRouter, usePathname } from "next/navigation";
 
 const ERROR_MESSAGES: Record<string, { title: string; description: string; action?: { label: string; href: string } }> = {
   author_required: {
-    title: "Author access required",
-    description: "Author features are only available to author accounts. You can continue browsing as a reader.",
+    title: "Författaråtkomst krävs",
+    description: "Författarfunktioner är bara tillgängliga för författarkonton. Du kan fortsätta läsa som läsare.",
     action: {
-      label: "Create author account",
+      label: "Skapa författarkonto",
       href: "/author/signup",
     },
   },
   session_expired: {
-    title: "Session expired",
-    description: "Your session has expired. Please sign in again to continue.",
+    title: "Sessionen har gått ut",
+    description: "Din session har gått ut. Logga in igen för att fortsätta.",
     action: {
-      label: "Sign in",
+      label: "Logga in",
       href: "/author/signin",
     },
   },
   unauthorized: {
-    title: "Access denied",
-    description: "You don't have permission to access that resource.",
+    title: "Åtkomst nekad",
+    description: "Du har inte behörighet att komma åt den resursen.",
   },
   not_found: {
-    title: "Not found",
-    description: "The page or resource you're looking for doesn't exist or has been moved.",
+    title: "Hittades inte",
+    description: "Sidan eller resursen du letar efter finns inte eller har flyttats.",
   },
   server_error: {
-    title: "Something went wrong",
-    description: "We couldn’t complete that. Please try again or contact support if it keeps happening.",
+    title: "Något gick fel",
+    description: "Vi kunde inte slutföra det. Försök igen eller kontakta support om det fortsätter.",
   },
 };
 
 // Fallback for unknown error codes — never show technical codes to users
 const FALLBACK_ERROR = {
-  title: "Something went wrong",
-  description: "We couldn’t complete that. Please try again.",
+  title: "Något gick fel",
+  description: "Vi kunde inte slutföra det. Försök igen.",
 };
 
 /* ─────────────────────────────────────────────────────────────────────────────
@@ -145,7 +145,7 @@ export function ErrorBanner({ errorCode: propErrorCode, onDismiss }: ErrorBanner
           type="button"
           onClick={handleDismiss}
           className="flex-shrink-0 rounded-md p-1 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
-          aria-label="Dismiss"
+          aria-label="Stäng"
         >
           <CloseIcon className="h-5 w-5" />
         </button>

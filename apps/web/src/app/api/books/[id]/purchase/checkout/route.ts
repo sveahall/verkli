@@ -5,6 +5,28 @@ import { assertPublicEnv } from "@/lib/env";
 import { canUserReadBook } from "@/lib/books/access";
 import { createStripeCheckoutSession } from "@/lib/payments/stripe";
 import { logAnalyticsEvent } from "@/lib/analytics/events";
+import { toBookPricing, isPaidPriceAmount } from "@/lib/books/pricing";
+import {
+  apiError,
+  E_UNAUTHORIZED,
+  E_BOOK_NOT_FOUND,
+  E_INVALID_BOOK_PRICING,
+  E_AUTHOR_CANNOT_BUY_OWN_BOOK,
+  E_BOOK_IS_FREE,
+  E_ALREADY_UNLOCKED,
+  E_CHECKOUT_START_FAILED,
+  E_CHECKOUT_SESSION_FAILED,
+} from "@/lib/api-errors";
+
+type CheckoutBookRow = {
+  id: string;
+  title: string;
+  author_id: string | null;
+  status: string | null;
+  price_amount: number | null;
+  price_currency: string | null;
+  pricing_model?: string | null;
+};
 
 function getBaseUrl(request: Request): string {
   const fromEnv = process.env.NEXT_PUBLIC_SITE_URL?.trim();
@@ -13,16 +35,6 @@ function getBaseUrl(request: Request): string {
   }
   const url = new URL(request.url);
   return `${url.protocol}//${url.host}`;
-}
-
-function normalizeCurrency(value: unknown): string {
-  const normalized = String(value ?? "USD").trim().toUpperCase();
-  return normalized || "USD";
-}
-
-function normalizeAmount(value: unknown): number {
-  if (typeof value !== "number" || Number.isNaN(value)) return 0;
-  return Math.max(0, Math.trunc(value));
 }
 
 export async function POST(
@@ -38,34 +50,58 @@ export async function POST(
   } = await supabase.auth.getUser();
 
   if (!user) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    return apiError(E_UNAUTHORIZED, 401);
   }
 
-  const { data: book, error: bookError } = await supabase
+  const { data: rawBook, error: bookError } = await supabase
     .from("books")
-    .select("id, title, author_id, status, price_amount, price_currency")
+    .select("id, title, author_id, status, price_amount, price_currency, pricing_model")
     .eq("id", bookId)
     .maybeSingle();
 
   if (bookError) {
-    return NextResponse.json({ error: bookError.message }, { status: 500 });
+    console.error("[purchase.checkout] book lookup failed", {
+      bookId,
+      userId: user.id,
+      code: bookError.code,
+      message: bookError.message,
+    });
+    return apiError(E_CHECKOUT_START_FAILED, 500);
   }
 
+  const book = rawBook as CheckoutBookRow | null;
   if (!book || (book.status && book.status !== "PUBLISHED")) {
-    return NextResponse.json({ error: "Book not found" }, { status: 404 });
+    return apiError(E_BOOK_NOT_FOUND, 404);
   }
 
-  const authorId = String((book as { author_id?: string | null }).author_id ?? "");
-  const amount = normalizeAmount((book as { price_amount?: number | null }).price_amount);
-  const currency = normalizeCurrency((book as { price_currency?: string | null }).price_currency);
+  const pricing = toBookPricing({
+    priceAmount: book.price_amount,
+    priceCurrency: book.price_currency,
+    pricingModel: book.pricing_model ?? "book_only",
+  });
 
+  if (!pricing) {
+    console.error("[purchase.checkout] invalid pricing in DB", {
+      bookId,
+      userId: user.id,
+      priceAmount: book.price_amount,
+      priceCurrency: book.price_currency,
+      pricingModel: book.pricing_model,
+    });
+    return apiError(E_INVALID_BOOK_PRICING, 422);
+  }
+
+  const authorId = String(book.author_id ?? "");
   if (authorId === user.id) {
-    return NextResponse.json({ error: "Authors cannot buy their own books" }, { status: 400 });
+    return apiError(E_AUTHOR_CANNOT_BUY_OWN_BOOK, 400);
   }
 
-  if (amount <= 0) {
-    return NextResponse.json({ error: "Book is free" }, { status: 400 });
+  if (!isPaidPriceAmount(pricing.priceAmount)) {
+    return apiError(E_BOOK_IS_FREE, 400);
   }
+
+  const amount = pricing.priceAmount;
+  const currency = pricing.priceCurrency;
 
   const hasAccess = await canUserReadBook({
     supabase,
@@ -76,7 +112,7 @@ export async function POST(
   });
 
   if (hasAccess) {
-    return NextResponse.json({ error: "Already unlocked" }, { status: 409 });
+    return apiError(E_ALREADY_UNLOCKED, 409);
   }
 
   const admin = createAdminClient();
@@ -95,19 +131,34 @@ export async function POST(
     .single();
 
   if (orderError || !order) {
-    return NextResponse.json({ error: orderError?.message ?? "Could not create order" }, { status: 500 });
+    console.error("[purchase.checkout] order insert failed", {
+      bookId,
+      userId: user.id,
+      code: orderError?.code,
+      message: orderError?.message,
+    });
+    return apiError(E_CHECKOUT_START_FAILED, 500);
   }
 
   const orderId = String((order as { id: string }).id);
   const baseUrl = getBaseUrl(request);
 
-  await logAnalyticsEvent(admin, {
-    eventType: "purchase_attempt",
-    userId: user.id,
-    bookId,
-    path: `/reader/books/${bookId}`,
-    props: { provider: "stripe", orderId },
-  });
+  try {
+    await logAnalyticsEvent(admin, {
+      eventType: "purchase_attempt",
+      userId: user.id,
+      bookId,
+      path: `/reader/books/${bookId}`,
+      props: { provider: "stripe", orderId, amount, currency },
+    });
+  } catch (error) {
+    console.warn("[purchase.checkout] analytics purchase_attempt failed", {
+      bookId,
+      userId: user.id,
+      orderId,
+      message: error instanceof Error ? error.message : String(error),
+    });
+  }
 
   try {
     const session = await createStripeCheckoutSession({
@@ -128,6 +179,8 @@ export async function POST(
       checkoutUrl: session.url,
       orderId,
       provider: "stripe",
+      amount,
+      currency,
     });
   } catch (error) {
     await admin
@@ -137,9 +190,13 @@ export async function POST(
       .eq("user_id", user.id)
       .eq("status", "pending");
 
-    return NextResponse.json(
-      { error: error instanceof Error ? error.message : "Checkout session failed" },
-      { status: 500 }
-    );
+    console.error("[purchase.checkout] stripe session failed", {
+      bookId,
+      userId: user.id,
+      orderId,
+      message: error instanceof Error ? error.message : String(error),
+    });
+
+    return apiError(E_CHECKOUT_SESSION_FAILED, 500);
   }
 }

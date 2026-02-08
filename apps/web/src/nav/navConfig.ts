@@ -79,17 +79,7 @@ export const NAV_CONFIG: Record<NavVariant, NavConfig> = {
           { label: "Profile preview", href: "/author/profile" },
         ],
       },
-      {
-        label: "Books",
-        href: "/author/books",
-        hasDropdown: true,
-        children: [
-          { label: "All books", href: "/author/books" },
-          { label: "Shelves", href: "/author/books" },
-          { label: "Drafts", href: "/author/books" },
-          { label: "Published", href: "/author/books" },
-        ],
-      },
+      { label: "Books", href: "/author/books" },
       { label: "Marketing Portal", href: "/author/marketing" },
       ...(MVP_MODE ? [] : [
         {

@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import { requireAuthorRoleForApi } from "@/lib/auth/require-author";
 import { isAudiobookEnabled } from "@/lib/flags";
 import { sanitizeJobError } from "@/lib/sanitize-job-error";
+import { apiError, E_BOOK_NOT_FOUND, E_JOB_FETCH_FAILED } from "@/lib/api-errors";
 
 type JobKind = "import" | "translation" | "audiobook";
 
@@ -42,8 +43,48 @@ export async function GET(
     .maybeSingle();
 
   if (!book || book.author_id !== user.id) {
-    return NextResponse.json({ error: "Book not found" }, { status: 404 });
+    return apiError(E_BOOK_NOT_FOUND, 404);
   }
+
+  // Import jobs from book_imports (for this book)
+  type ImportRow = {
+    id: string;
+    status: string;
+    progress: number;
+    error_message: string | null;
+    created_at: string;
+    updated_at: string;
+    file_name: string | null;
+    book_version_id: string | null;
+  };
+  const { data: importRows } = await supabase
+    .from("book_imports")
+    .select("id, status, progress, error_message, created_at, updated_at, file_name, book_version_id")
+    .eq("book_id", bookId)
+    .eq("author_id", user.id)
+    .order("created_at", { ascending: false })
+    .limit(20);
+
+  const importJobs = (importRows ?? []).map((r: ImportRow) => {
+    const status =
+      r.status === "completed" ? "completed"
+      : r.status === "failed" ? "failed"
+      : r.status === "extracting" ? "processing"
+      : "pending";
+    return {
+      id: r.id,
+      kind: "import" as const,
+      status,
+      language: null as string | null,
+      bookVersionId: r.book_version_id,
+      progress: r.progress ?? 0,
+      meta: { fileName: r.file_name ?? null },
+      error: sanitizeJobError(r.error_message),
+      createdAt: r.created_at,
+      startedAt: null as string | null,
+      finishedAt: (r.status === "completed" || r.status === "failed" ? r.updated_at : null) as string | null,
+    };
+  });
 
   // Query ai_jobs: prefer book_id column (post-migration), fallback to user_id + filter by input.bookId
   const preferredSelect =
@@ -83,10 +124,8 @@ export async function GET(
       .limit(100);
 
     if (fallback.error) {
-      return NextResponse.json(
-        { error: "Kunde inte hämta uppgifter. Försök igen senare." },
-        { status: 500 }
-      );
+      console.error("[books.jobs] fallback query failed", { bookId, message: fallback.error.message });
+      return apiError(E_JOB_FETCH_FAILED, 500);
     }
     const inputFiltered = (fallback.data ?? []).filter((r) => {
       const input = r.input as Record<string, unknown> | null;
@@ -113,7 +152,7 @@ export async function GET(
     }) as AiJobRow[];
   }
 
-  // Merge and deduplicate
+  // Merge and deduplicate ai_jobs rows
   const allRows = [...(rows ?? []), ...legacyMatches];
   const seen = new Set<string>();
   const deduped = allRows.filter((r) => {
@@ -122,8 +161,8 @@ export async function GET(
     return true;
   });
 
-  // Normalize to contract format
-  const jobs = deduped
+  // Normalize ai_jobs to contract format
+  const aiJobsNormalized = deduped
     .map((r) => {
       const kind = normalizeKind(r.kind);
       if (!kind) return null;
@@ -192,16 +231,35 @@ export async function GET(
         finishedAt: r.finished_at ?? null,
       };
     })
-    .filter(Boolean);
+    .filter(Boolean) as Array<{
+      id: string;
+      kind: JobKind;
+      status: string;
+      language: string | null;
+      bookVersionId: string | null;
+      progress: number;
+      meta: Record<string, unknown>;
+      error: string | null;
+      createdAt: string | null;
+      startedAt: string | null;
+      finishedAt: string | null;
+    }>;
+
+  // Merge import jobs with ai_jobs, sort by createdAt desc
+  const jobs = [...importJobs, ...aiJobsNormalized].sort((a, b) => {
+    const ta = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+    const tb = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+    return tb - ta;
+  });
 
   const activeCount = jobs.filter(
-    (j) => j!.status === "pending" || j!.status === "processing"
+    (j) => j.status === "pending" || j.status === "processing"
   ).length;
 
   // Summary: latest status per kind (first match wins, sorted by created_at DESC)
   const summary: Record<string, string> = {};
   for (const j of jobs) {
-    if (j && !summary[j.kind]) {
+    if (!summary[j.kind]) {
       summary[j.kind] = j.status;
     }
   }

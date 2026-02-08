@@ -8,6 +8,7 @@ import { getRedisConnectionOptions, getRedisUrl } from "@/lib/env";
 import { QUEUE_NAMES } from "@/lib/queue-names";
 
 const QUEUE_NAME = QUEUE_NAMES.IMPORT;
+export type ImportMode = "new_version" | "overwrite_draft";
 
 function createQueue(connection: { host: string; port: number; password?: string }): Queue {
   return new Queue(QUEUE_NAME, {
@@ -53,6 +54,12 @@ export type ExtractJobData = {
   filePath: string;
   fileStorage: "local" | "supabase";
   authorId: string;
+  /** Optional scoped import target (BookEditor flow) */
+  bookId?: string;
+  /** Import strategy for scoped imports */
+  mode?: ImportMode;
+  /** Optional explicit draft version to overwrite */
+  targetVersionId?: string | null;
 };
 
 export async function enqueueExtractJob(data: ExtractJobData): Promise<string | null> {

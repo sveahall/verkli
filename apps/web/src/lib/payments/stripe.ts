@@ -33,6 +33,12 @@ function getStripeSecretKey(): string {
   return key;
 }
 
+/** Safe check for author UI: whether payments can be used (no throw). */
+export function isStripeConfigured(): boolean {
+  const key = process.env.STRIPE_SECRET_KEY;
+  return Boolean(key && String(key).trim().length > 0);
+}
+
 function toStripeCurrency(value: string): string {
   return value.trim().toLowerCase();
 }

@@ -6,6 +6,19 @@ import { isSupportedLanguage, normalizeLanguageOrNull } from "@/lib/languages";
 import { assertPublicEnv } from "@/lib/env";
 import { requireAuthorRoleForApi } from "@/lib/auth/require-author";
 import { isTranslationsEnabled } from "@/lib/flags";
+import {
+  apiError,
+  E_BOOK_NOT_FOUND,
+  E_FORBIDDEN,
+  E_INVALID_SOURCE_VERSION,
+  E_INVALID_TARGET_LANGUAGE,
+  E_NO_SOURCE_VERSION,
+  E_SAME_SOURCE_TARGET_LANGUAGE,
+  E_SOURCE_LANGUAGE_MISSING,
+  E_TRANSLATION_FEATURE_DISABLED,
+  E_TRANSLATION_SERVICE_UNAVAILABLE,
+  E_VERSION_ALREADY_EXISTS,
+} from "@/lib/api-errors";
 
 function extractText(node: unknown): string {
   if (!node || typeof node !== "object") return "";
@@ -39,7 +52,7 @@ export async function POST(
   assertPublicEnv();
 
   if (!isTranslationsEnabled()) {
-    return NextResponse.json({ error: "Translation feature is disabled" }, { status: 403 });
+    return apiError(E_TRANSLATION_FEATURE_DISABLED, 403);
   }
 
   const { id: bookId } = await params;
@@ -54,10 +67,7 @@ export async function POST(
   const targetLanguage = rawTarget.trim().toLowerCase();
 
   if (!targetLanguage || !isSupportedLanguage(targetLanguage)) {
-    return NextResponse.json(
-      { ok: false, error: "Valid target language required (en, sv, etc.)" },
-      { status: 400 }
-    );
+    return apiError(E_INVALID_TARGET_LANGUAGE, 400);
   }
 
   // SECURITY: Require author role for book translation
@@ -72,11 +82,12 @@ export async function POST(
     .maybeSingle();
 
   if (bookError || !book) {
-    return NextResponse.json({ ok: false, error: "Book not found" }, { status: 404 });
+    if (bookError) console.error("[translate] book fetch failed:", bookError.message);
+    return apiError(E_BOOK_NOT_FOUND, 404);
   }
 
   if (book.author_id !== user.id) {
-    return NextResponse.json({ ok: false, error: "Forbidden" }, { status: 403 });
+    return apiError(E_FORBIDDEN, 403);
   }
 
   const bodySourceVersionId =
@@ -112,7 +123,7 @@ export async function POST(
   }
 
   if (!sourceVersionId) {
-    return NextResponse.json({ ok: false, error: "No source version found" }, { status: 400 });
+    return apiError(E_NO_SOURCE_VERSION, 400);
   }
 
   const { data: sourceVersion, error: sourceError } = await supabase
@@ -122,7 +133,8 @@ export async function POST(
     .maybeSingle();
 
   if (sourceError || !sourceVersion || sourceVersion.book_id !== bookId) {
-    return NextResponse.json({ ok: false, error: "Invalid source version" }, { status: 400 });
+    if (sourceError) console.error("[translate] source version fetch failed:", sourceError.message);
+    return apiError(E_INVALID_SOURCE_VERSION, 400);
   }
 
   const versionLanguage = normalizeLanguageOrNull(sourceVersion.language_code);
@@ -173,17 +185,11 @@ export async function POST(
       targetLanguage,
       userId: user.id,
     });
-    return NextResponse.json(
-      { ok: false, error: "Source language missing, please set language for this version", code: "SOURCE_LANGUAGE_MISSING" },
-      { status: 422 }
-    );
+    return apiError(E_SOURCE_LANGUAGE_MISSING, 422);
   }
 
   if (sourceLanguage === targetLanguage) {
-    return NextResponse.json(
-      { ok: false, error: "Target language must be different from source version language" },
-      { status: 400 }
-    );
+    return apiError(E_SAME_SOURCE_TARGET_LANGUAGE, 400);
   }
 
   const { data: existingVersion } = await supabase
@@ -194,14 +200,10 @@ export async function POST(
     .maybeSingle();
 
   if (existingVersion && !overwrite) {
-    return NextResponse.json(
-      {
-        ok: false,
-        error: `A version in ${targetLanguage} already exists for this book`,
-        existingVersionId: existingVersion.id,
-      },
-      { status: 400 }
-    );
+    return apiError(E_VERSION_ALREADY_EXISTS, 400, {
+      detail: targetLanguage,
+      existingVersionId: existingVersion.id,
+    });
   }
 
   const targetVersionId = existingVersion?.id ?? null;
@@ -216,14 +218,7 @@ export async function POST(
   });
 
   if (!jobId) {
-    return NextResponse.json(
-      {
-        ok: false,
-        error: "Translation service is currently unavailable. Please try again shortly.",
-        code: "TRANSLATION_QUEUE_UNAVAILABLE",
-      },
-      { status: 503 }
-    );
+    return apiError(E_TRANSLATION_SERVICE_UNAVAILABLE, 503);
   }
 
   return NextResponse.json({ ok: true, jobId, targetVersionId });

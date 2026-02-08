@@ -99,4 +99,43 @@ describe("canUserReadBook", () => {
 
     expect(result).toBe(false);
   });
+
+  it("blocks anonymous reader for paid book when pricing is already provided", async () => {
+    const supabase: SupabaseLikeClient = {
+      from(table: string) {
+        if (table === "entitlements") {
+          return {
+            select() {
+              return {
+                eq() {
+                  return {
+                    eq() {
+                      return {
+                        eq() {
+                          return {
+                            maybeSingle: async () => ({ data: null, error: null }),
+                          };
+                        },
+                      };
+                    },
+                  };
+                },
+              };
+            },
+          };
+        }
+        throw new Error(`Unexpected table: ${table}`);
+      },
+    } as unknown as SupabaseLikeClient;
+
+    const result = await canUserReadBook({
+      supabase,
+      userId: null,
+      bookId: "book-1",
+      bookAuthorId: "author-1",
+      bookPriceAmount: 199,
+    });
+
+    expect(result).toBe(false);
+  });
 });

@@ -1,4 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { isPaidPriceAmount, normalizePriceAmount } from "@/lib/books/pricing";
 
 export type SupabaseLikeClient = Pick<SupabaseClient, "from">;
 
@@ -9,11 +10,6 @@ type CanUserReadBookArgs = {
   bookAuthorId?: string | null;
   bookPriceAmount?: number | null;
 };
-
-function normalizePriceAmount(value: number | null | undefined): number {
-  if (typeof value !== "number" || Number.isNaN(value)) return 0;
-  return Math.max(0, Math.trunc(value));
-}
 
 /**
  * Access helper for reader content gating.
@@ -31,6 +27,9 @@ export async function canUserReadBook({
 }: CanUserReadBookArgs): Promise<boolean> {
   let authorId = bookAuthorId ?? null;
   let priceAmount = normalizePriceAmount(bookPriceAmount ?? null);
+  if (priceAmount != null && priceAmount < 0) {
+    priceAmount = 0;
+  }
 
   if (authorId == null || bookPriceAmount == null) {
     const { data: book, error } = await supabase
@@ -44,16 +43,17 @@ export async function canUserReadBook({
     }
 
     authorId = String(book.author_id ?? "");
-    priceAmount = normalizePriceAmount(
+    const normalizedFromDb = normalizePriceAmount(
       typeof book.price_amount === "number" ? book.price_amount : null
     );
+    priceAmount = normalizedFromDb != null && normalizedFromDb > 0 ? normalizedFromDb : 0;
   }
 
   if (userId && authorId === userId) {
     return true;
   }
 
-  if (priceAmount <= 0) {
+  if (!isPaidPriceAmount(priceAmount)) {
     return true;
   }
 

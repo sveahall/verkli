@@ -2,6 +2,18 @@ import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { assertPublicEnv } from "@/lib/env";
 import { requireAuthorRoleForApi } from "@/lib/auth/require-author";
+import {
+  apiError,
+  E_BOOK_NOT_FOUND,
+  E_DATABASE_ERROR,
+  E_NO_BOOK_VERSION_TO_PUBLISH,
+  E_INVALID_BOOK_VERSION,
+  E_MISSING_VISIBILITY_SETTING,
+  E_MISSING_BOOK_TITLE,
+  E_NO_CHAPTERS,
+  E_CHAPTER_NEEDS_CONTENT,
+  E_MISSING_COVER_IMAGE,
+} from "@/lib/api-errors";
 
 type PublishVisibility = "public" | "followers" | "private";
 
@@ -69,11 +81,12 @@ export async function POST(
     .maybeSingle();
 
   if (bookError) {
-    return NextResponse.json({ error: bookError.message }, { status: 500 });
+    console.error("[publish] book lookup failed", { bookId: id, code: bookError.code, message: bookError.message });
+    return apiError(E_DATABASE_ERROR, 500);
   }
 
   if (!book || book.author_id !== user.id) {
-    return NextResponse.json({ error: "Book not found" }, { status: 404 });
+    return apiError(E_BOOK_NOT_FOUND, 404);
   }
 
   let versionId = requestedVersionId;
@@ -97,7 +110,7 @@ export async function POST(
     versionId = anyVersion?.id ?? null;
   }
   if (!versionId) {
-    return NextResponse.json({ error: "Book has no version to publish" }, { status: 400 });
+    return apiError(E_NO_BOOK_VERSION_TO_PUBLISH, 400);
   }
 
   const { data: version, error: versionError } = await supabase
@@ -107,7 +120,10 @@ export async function POST(
     .maybeSingle();
 
   if (versionError || !version || version.book_id !== id) {
-    return NextResponse.json({ error: "Invalid book version" }, { status: 400 });
+    if (versionError) {
+      console.error("[publish] version lookup failed", { bookId: id, versionId, message: versionError.message });
+    }
+    return apiError(E_INVALID_BOOK_VERSION, 400);
   }
 
   if (requestedAction === "unpublish") {
@@ -120,7 +136,8 @@ export async function POST(
       .eq("id", versionId);
 
     if (versionUpdateError) {
-      return NextResponse.json({ error: versionUpdateError.message }, { status: 500 });
+      console.error("[publish] unpublish version failed", { bookId: id, versionId, message: versionUpdateError.message });
+      return apiError(E_DATABASE_ERROR, 500);
     }
 
     const { data: remainingPublished } = await supabase
@@ -141,7 +158,8 @@ export async function POST(
         .eq("id", id);
 
       if (updateError) {
-        return NextResponse.json({ error: updateError.message }, { status: 500 });
+        console.error("[publish] revert book to DRAFT failed", { bookId: id, message: updateError.message });
+        return apiError(E_DATABASE_ERROR, 500);
       }
     }
 
@@ -150,7 +168,7 @@ export async function POST(
 
   if (requestedAction === "update") {
     if (!requestedVisibility) {
-      return NextResponse.json({ error: "Missing visibility setting" }, { status: 400 });
+      return apiError(E_MISSING_VISIBILITY_SETTING, 400);
     }
 
     const { error: versionUpdateError } = await supabase
@@ -159,7 +177,8 @@ export async function POST(
       .eq("id", versionId);
 
     if (versionUpdateError) {
-      return NextResponse.json({ error: versionUpdateError.message }, { status: 500 });
+      console.error("[publish] update visibility failed", { bookId: id, versionId, message: versionUpdateError.message });
+      return apiError(E_DATABASE_ERROR, 500);
     }
 
     return NextResponse.json({ ok: true, visibility: requestedVisibility });
@@ -173,7 +192,8 @@ export async function POST(
         .eq("id", versionId);
 
       if (versionUpdateError) {
-        return NextResponse.json({ error: versionUpdateError.message }, { status: 500 });
+        console.error("[publish] update visibility on published version failed", { bookId: id, versionId, message: versionUpdateError.message });
+        return apiError(E_DATABASE_ERROR, 500);
       }
 
       return NextResponse.json({ ok: true, visibility: requestedVisibility, alreadyPublished: true });
@@ -184,10 +204,7 @@ export async function POST(
 
   const title = (book.title ?? "").trim();
   if (!title) {
-    return NextResponse.json(
-      { error: "Book must have a title before publishing" },
-      { status: 400 }
-    );
+    return apiError(E_MISSING_BOOK_TITLE, 400);
   }
 
   const { data: chapters } = await supabase
@@ -197,26 +214,17 @@ export async function POST(
     .order("order", { ascending: true });
 
   if (!chapters || chapters.length === 0) {
-    return NextResponse.json(
-      { error: "Book must have at least one chapter" },
-      { status: 400 }
-    );
+    return apiError(E_NO_CHAPTERS, 400);
   }
 
   const hasAnyContent = chapters.some((ch) => hasContent(ch.content));
   if (!hasAnyContent) {
-    return NextResponse.json(
-      { error: "At least one chapter must have content before publishing" },
-      { status: 400 }
-    );
+    return apiError(E_CHAPTER_NEEDS_CONTENT, 400);
   }
 
   const coverImage = (book as { cover_image?: string | null }).cover_image;
   if (!coverImage) {
-    return NextResponse.json(
-      { error: "Book must have a cover image before publishing" },
-      { status: 400 }
-    );
+    return apiError(E_MISSING_COVER_IMAGE, 400);
   }
 
   const now = new Date().toISOString();
@@ -232,7 +240,8 @@ export async function POST(
     .eq("id", versionId);
 
   if (versionUpdateError) {
-    return NextResponse.json({ error: versionUpdateError.message }, { status: 500 });
+    console.error("[publish] version publish update failed", { bookId: id, versionId, message: versionUpdateError.message });
+    return apiError(E_DATABASE_ERROR, 500);
   }
 
   if (book.status !== "PUBLISHED") {
@@ -246,7 +255,8 @@ export async function POST(
       .eq("id", id);
 
     if (updateError) {
-      return NextResponse.json({ error: updateError.message }, { status: 500 });
+      console.error("[publish] book status update failed", { bookId: id, message: updateError.message });
+      return apiError(E_DATABASE_ERROR, 500);
     }
   }
 

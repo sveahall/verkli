@@ -5,7 +5,7 @@ import { createPortal } from "react-dom";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import type { User } from "@supabase/supabase-js";
-import { useToastHelpers } from "@/components/ui/Toast";
+import { useToastHelpers } from "@/components/ui/toast";
 
 const USER_MENU_WIDTH = 280;
 
@@ -42,7 +42,7 @@ export default function UserMenu({ user, onSignOut, currentRole = "author", orig
   };
 
   const displayName =
-    user?.user_metadata?.full_name || user?.email?.split("@")[0] || "User";
+    user?.user_metadata?.full_name || user?.email?.split("@")[0] || "Användare";
 
   // Handle click outside to close menu
   useEffect(() => {
@@ -78,7 +78,7 @@ export default function UserMenu({ user, onSignOut, currentRole = "author", orig
       if (!response.ok) {
         const payload = await response.json().catch(() => ({}));
         console.error("Error updating role:", payload);
-        toast.error("We couldn’t switch view. Please try again.");
+        toast.error("Kunde inte byta vy. Försök igen.");
         return;
       }
 
@@ -87,7 +87,7 @@ export default function UserMenu({ user, onSignOut, currentRole = "author", orig
       router.push(currentRole === "author" ? "/reader/home" : "/author/home");
     } catch (error) {
       console.error("Error switching role:", error);
-      toast.error("Could not switch role. Try again.");
+      toast.error("Kunde inte byta roll. Försök igen.");
     }
   };
 
@@ -127,7 +127,7 @@ export default function UserMenu({ user, onSignOut, currentRole = "author", orig
           e.stopPropagation();
         }}
         className="touch-target flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-slate-300 bg-transparent text-slate-700 transition-all hover:bg-slate-100 dark:border-white/[0.4] dark:text-white dark:hover:bg-white/10 focus:outline-none focus:ring-2 focus:ring-[#907AFF]/50 focus:ring-offset-2 focus:ring-offset-background"
-        aria-label="Account menu"
+        aria-label="Kontomeny"
         aria-expanded={isOpen}
       >
         <span className="flex h-4 w-4 items-center justify-center">
@@ -197,7 +197,7 @@ export default function UserMenu({ user, onSignOut, currentRole = "author", orig
                   d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"
                 />
               </svg>
-              <span>Profile</span>
+              <span>Profil</span>
             </Link>
 
             <Link
@@ -226,7 +226,7 @@ export default function UserMenu({ user, onSignOut, currentRole = "author", orig
                   d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
                 />
               </svg>
-              <span>Settings</span>
+              <span>Inställningar</span>
             </Link>
 
             <Link
@@ -272,7 +272,7 @@ export default function UserMenu({ user, onSignOut, currentRole = "author", orig
                     d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4"
                   />
                 </svg>
-                <span>Switch to {currentRole === 'author' ? 'Reader' : 'Author'}</span>
+                <span>Byt till {currentRole === 'author' ? 'Läsare' : 'Författare'}</span>
               </button>
             )}
           </div>
@@ -300,7 +300,7 @@ export default function UserMenu({ user, onSignOut, currentRole = "author", orig
                   d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"
                 />
               </svg>
-              <span>Sign out</span>
+              <span>Logga ut</span>
             </button>
           </div>
         </div>,

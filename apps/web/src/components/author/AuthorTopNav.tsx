@@ -17,10 +17,10 @@ const glassBaseProps = {
 };
 
 const navItems = [
-  { label: "Dashboard", href: "/author/home" },
-  { label: "Marketing Portal", href: "/author/marketing" },
-  { label: "Profile", href: "/author/profile" },
-  { label: "Settings", href: "/author/settings" },
+  { label: "Översikt", href: "/author/home" },
+  { label: "Marknadsföring", href: "/author/marketing" },
+  { label: "Profil", href: "/author/profile" },
+  { label: "Inställningar", href: "/author/settings" },
 ];
 
 export default function authorTopNav({ active }: { active?: string }) {
@@ -64,7 +64,7 @@ export default function authorTopNav({ active }: { active?: string }) {
               href="/author/home"
               className="hidden rounded-full border border-black/10 bg-black/2 px-4 py-2 text-[13px] font-medium text-slate-700 transition-all hover:bg-black/10 dark:border-white/10 dark:bg-white/[0.03] dark:text-white/70 dark:hover:bg-white/[0.06] md:inline-flex"
             >
-              Back to dashboard
+              Tillbaka till översikten
             </Link>
           </div>
         </nav>

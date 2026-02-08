@@ -3,6 +3,13 @@ import { createClient } from "@/lib/supabase/server";
 import { assertPublicEnv } from "@/lib/env";
 import { normalizeLanguage } from "@/lib/languages";
 import { requireAuthorRoleForApi } from "@/lib/auth/require-author";
+import {
+  apiError,
+  E_DATABASE_ERROR,
+  E_BOOK_CREATION_INCOMPLETE,
+  E_VERSION_CREATION_FAILED,
+  E_DEFAULT_CHAPTER_CREATION_FAILED,
+} from "@/lib/api-errors";
 
 export async function POST(request: Request) {
   assertPublicEnv();
@@ -39,18 +46,17 @@ export async function POST(request: Request) {
       original_language: language,
       original_source: original_source || null,
       original_url: original_url || null,
-      price_amount: 499,
-      price_currency: "USD",
     })
     .select("id")
     .single();
 
   if (bookError) {
-    return NextResponse.json({ error: bookError.message }, { status: 500 });
+    console.error("[books.create] insert failed", { code: bookError.code, message: bookError.message });
+    return apiError(E_DATABASE_ERROR, 500);
   }
 
   if (!book?.id) {
-    return NextResponse.json({ error: "Book created but no ID returned" }, { status: 500 });
+    return apiError(E_BOOK_CREATION_INCOMPLETE, 500);
   }
 
   const { data: version, error: versionError } = await supabase
@@ -64,10 +70,8 @@ export async function POST(request: Request) {
     .single();
 
   if (versionError || !version?.id) {
-    return NextResponse.json(
-      { error: "Book created but version creation failed: " + (versionError?.message ?? "unknown error") },
-      { status: 500 }
-    );
+    console.error("[books.create] version insert failed", { bookId: book.id, message: versionError?.message });
+    return apiError(E_VERSION_CREATION_FAILED, 500);
   }
 
   const { error: chapterError } = await supabase.from("chapters").insert({
@@ -79,10 +83,8 @@ export async function POST(request: Request) {
   });
 
   if (chapterError) {
-    return NextResponse.json(
-      { error: "Book created but default chapter failed: " + chapterError.message },
-      { status: 500 }
-    );
+    console.error("[books.create] default chapter insert failed", { bookId: book.id, message: chapterError.message });
+    return apiError(E_DEFAULT_CHAPTER_CREATION_FAILED, 500);
   }
 
   return NextResponse.json({ id: book.id, versionId: version.id });

@@ -25,12 +25,12 @@ export default async function AuthorBooksPage() {
         <div className="mb-8 flex flex-wrap items-center justify-between gap-4">
           <div>
             <h1 className="text-2xl font-semibold text-slate-900 dark:text-white">
-              My books
+              Mina böcker
             </h1>
             <p className="mt-1 text-sm text-slate-500 dark:text-white/50">
               {books && books.length > 0
-                ? `${books.length} ${books.length === 1 ? "book" : "books"} in your library`
-                : "Start writing your first book"}
+                ? `${books.length} ${books.length === 1 ? "bok" : "böcker"} i ditt bibliotek`
+                : "Börja skriv din första bok"}
             </p>
           </div>
           <CreateBookEntry />
@@ -48,7 +48,7 @@ export default async function AuthorBooksPage() {
             <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" d="M10.5 19.5L3 12m0 0l7.5-7.5M3 12h18" />
             </svg>
-            Back to overview
+            Tillbaka till översikten
           </Link>
         </p>
       </div>

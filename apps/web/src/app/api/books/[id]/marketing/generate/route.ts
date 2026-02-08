@@ -4,6 +4,12 @@ import { assertPublicEnv } from "@/lib/env";
 import { isMarketingEnabled } from "@/lib/flags";
 import { getLanguageLabel, normalizeLanguage } from "@/lib/languages";
 import { requireAuthorRoleForApi } from "@/lib/auth/require-author";
+import {
+  apiError,
+  E_BOOK_NOT_FOUND,
+  E_DATABASE_ERROR,
+  E_MARKETING_FEATURE_DISABLED,
+} from "@/lib/api-errors";
 
 const CHANNELS = ["generic", "tiktok", "instagram", "x"] as const;
 type Channel = (typeof CHANNELS)[number];
@@ -18,7 +24,7 @@ export async function POST(
 ) {
   assertPublicEnv();
   if (!isMarketingEnabled()) {
-    return NextResponse.json({ error: "Marketing feature is disabled" }, { status: 403 });
+    return apiError(E_MARKETING_FEATURE_DISABLED, 403);
   }
   const { id: bookId } = await params;
 
@@ -38,10 +44,11 @@ export async function POST(
     .maybeSingle();
 
   if (bookFetchError) {
-    return NextResponse.json({ error: bookFetchError.message }, { status: 500 });
+    console.error("[marketing generate] book fetch failed:", bookFetchError.message);
+    return apiError(E_DATABASE_ERROR, 500);
   }
   if (!book || book.author_id !== user.id) {
-    return NextResponse.json({ error: "Book not found or access denied" }, { status: 404 });
+    return apiError(E_BOOK_NOT_FOUND, 404);
   }
 
   const langLabel = getLanguageLabel(language);
@@ -75,7 +82,8 @@ export async function POST(
     .single();
 
   if (upsertError) {
-    return NextResponse.json({ error: upsertError.message }, { status: 500 });
+    console.error("[marketing generate] upsert failed:", upsertError.message);
+    return apiError(E_DATABASE_ERROR, 500);
   }
 
   return NextResponse.json(upserted);

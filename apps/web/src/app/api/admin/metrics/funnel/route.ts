@@ -1,12 +1,17 @@
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import {
+  apiError,
+  E_FORBIDDEN,
+  E_FUNNEL_DATA_LOAD_FAILED,
+} from "@/lib/api-errors";
 
 const ADMIN_KEY = process.env.ADMIN_API_KEY?.trim();
 
 export async function GET(request: Request) {
   const key = request.headers.get("x-admin-key")?.trim();
   if (!ADMIN_KEY || key !== ADMIN_KEY) {
-    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    return apiError(E_FORBIDDEN, 403);
   }
 
   const admin = createAdminClient();
@@ -36,7 +41,7 @@ export async function GET(request: Request) {
   }
 
   if (queryError) {
-    return NextResponse.json({ error: "Failed to load funnel data" }, { status: 500 });
+    return apiError(E_FUNNEL_DATA_LOAD_FAILED, 500);
   }
 
   const authorCounts: Record<string, number> = {};

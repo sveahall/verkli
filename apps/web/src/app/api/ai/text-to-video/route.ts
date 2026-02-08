@@ -1,6 +1,11 @@
 import { makeVideo, type TextToVideoOptions } from "@/lib/ai/textToVideo";
 import { NextResponse } from "next/server";
 import { requireAuthorRoleForApi } from "@/lib/auth/require-author";
+import {
+  apiError,
+  E_PROMPT_TEXT_REQUIRED,
+  E_TEXT_TO_VIDEO_FAILED,
+} from "@/lib/api-errors";
 
 /** Runway text→video often takes 1–2+ minutes. */
 export const maxDuration = 300;
@@ -32,15 +37,12 @@ export async function POST(req: Request) {
       options = parseBody(body) ?? {};
     }
     if (!options.promptText) {
-      return NextResponse.json(
-        { error: "promptText is required" },
-        { status: 400 }
-      );
+      return apiError(E_PROMPT_TEXT_REQUIRED, 400);
     }
     const result = await makeVideo(options as TextToVideoOptions);
     return NextResponse.json(result);
   } catch (err) {
-    const message = err instanceof Error ? err.message : "Text-to-video failed";
-    return NextResponse.json({ error: message }, { status: 500 });
+    console.error("[text-to-video] generation failed", err instanceof Error ? err.message : String(err));
+    return apiError(E_TEXT_TO_VIDEO_FAILED, 500);
   }
 }

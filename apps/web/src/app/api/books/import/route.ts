@@ -1,13 +1,30 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { assertPublicEnv } from "@/lib/env";
-import { storeImportFile } from "@/lib/import-storage";
 import { enqueueExtractJob } from "@/lib/import-queue";
 import { requireAuthorRoleForApi } from "@/lib/auth/require-author";
+import {
+  getImportFile,
+  parseImportMode,
+  startScopedBookImport,
+  validateImportFile,
+} from "@/lib/imports/scoped-import";
+import { storeImportFile } from "@/lib/import-storage";
+import {
+  apiError,
+  E_INVALID_MULTIPART_BODY,
+  E_MISSING_FILE,
+  E_INVALID_IMPORT_MODE,
+  E_IMPORT_RECORD_CREATION_FAILED,
+  E_IMPORT_FILE_STORAGE_FAILED,
+  E_VALIDATION_FAILED,
+} from "@/lib/api-errors";
 
-const ALLOWED_EXT = [".epub", ".docx", ".html", ".htm", ".txt"];
-const MAX_SIZE_MB = 50;
-const MAX_BYTES = MAX_SIZE_MB * 1024 * 1024;
+function readOptionalString(value: FormDataEntryValue | null): string | null {
+  if (typeof value !== "string") return null;
+  const trimmed = value.trim();
+  return trimmed.length > 0 ? trimmed : null;
+}
 
 export async function POST(request: Request) {
   assertPublicEnv();
@@ -20,35 +37,72 @@ export async function POST(request: Request) {
   try {
     formData = await request.formData();
   } catch {
-    return NextResponse.json({ error: "Invalid multipart body" }, { status: 400 });
+    return apiError(E_INVALID_MULTIPART_BODY, 400);
   }
 
-  const file = formData.get("file") ?? formData.get("book");
-  if (!file || !(file instanceof File)) {
-    return NextResponse.json({ error: "Missing file (field: file or book)" }, { status: 400 });
+  const file = getImportFile(formData);
+  if (!file) {
+    return apiError(E_MISSING_FILE, 400);
   }
 
-  const ext = file.name.includes(".") ? "." + file.name.split(".").pop()!.toLowerCase() : "";
-  if (!ALLOWED_EXT.includes(ext)) {
-    return NextResponse.json(
-      { error: `Unsupported format. Allowed: ${ALLOWED_EXT.join(", ")}` },
-      { status: 400 }
-    );
+  const fileError = validateImportFile(file);
+  if (fileError) {
+    return apiError(E_VALIDATION_FAILED, 400, { detail: fileError });
   }
 
-  if (file.size > MAX_BYTES) {
-    return NextResponse.json({ error: `File too large (max ${MAX_SIZE_MB} MB)` }, { status: 400 });
+  const mode = parseImportMode({
+    mode: formData.get("mode"),
+    overwrite: formData.get("overwrite"),
+  });
+
+  if (!mode) {
+    return apiError(E_INVALID_IMPORT_MODE, 400);
   }
 
+  // Backward-compatible path for BookEditor:
+  // if a bookId is provided, run scoped import to that book.
+  const bookId = readOptionalString(formData.get("bookId"));
+  if (bookId) {
+    const targetVersionId =
+      readOptionalString(formData.get("bookVersionId")) ??
+      readOptionalString(formData.get("targetVersionId"));
+
+    const supabase = await createClient();
+    const scoped = await startScopedBookImport({
+      supabase,
+      userId: user.id,
+      bookId,
+      file,
+      mode,
+      targetVersionId,
+    });
+
+    if (!scoped.ok) {
+      return NextResponse.json({ error: scoped.error }, { status: scoped.status });
+    }
+
+    return NextResponse.json({
+      id: scoped.importId,
+      jobId: scoped.jobId,
+      status: "pending",
+      progress: 0,
+      mode: scoped.mode,
+      targetVersionId: scoped.targetVersionId,
+      message: scoped.message,
+    });
+  }
+
+  // Legacy import flow (no explicit bookId): create import record and let worker create a new book.
   const buffer = Buffer.from(await file.arrayBuffer());
-  const supabaseAdmin = await createClient();
-  const { data: importRow, error: insertError } = await supabaseAdmin
+  const supabase = await createClient();
+  const { data: importRow, error: insertError } = await supabase
     .from("book_imports")
     .insert({
       author_id: user.id,
       file_name: file.name,
       file_path: "", // set after store
       file_storage: "local",
+      mode,
       status: "pending",
       progress: 0,
     })
@@ -56,24 +110,29 @@ export async function POST(request: Request) {
     .single();
 
   if (insertError || !importRow?.id) {
-    return NextResponse.json(
-      { error: insertError?.message ?? "Failed to create import record" },
-      { status: 500 }
-    );
+    console.error("[book-import.legacy] insert failed", {
+      userId: user.id,
+      message: insertError?.message,
+    });
+    return apiError(E_IMPORT_RECORD_CREATION_FAILED, 500);
   }
 
   const store = await storeImportFile(user.id, importRow.id, file.name, buffer);
   if (!store.ok) {
-    await supabaseAdmin.from("book_imports").update({ status: "failed", error_message: store.error }).eq("id", importRow.id);
-    return NextResponse.json({ error: store.error }, { status: 500 });
+    await supabase
+      .from("book_imports")
+      .update({ status: "failed", error_message: store.error })
+      .eq("id", importRow.id);
+    return apiError(E_IMPORT_FILE_STORAGE_FAILED, 500);
   }
 
-  await supabaseAdmin
+  await supabase
     .from("book_imports")
     .update({
       file_path: store.filePath,
       file_storage: store.fileStorage,
       status: "pending",
+      error_message: null,
     })
     .eq("id", importRow.id);
 
@@ -84,19 +143,30 @@ export async function POST(request: Request) {
       filePath: store.filePath,
       fileStorage: store.fileStorage,
       authorId: user.id,
+      mode,
+      targetVersionId: null,
     });
   } catch (err) {
-    console.warn("[import] Redis unreachable or enqueue failed:", err instanceof Error ? err.message : err, "— import record created (id:", importRow.id, "). Start Redis (docker compose up -d) and run worker.");
+    console.warn("[book-import.legacy] enqueue failed", {
+      userId: user.id,
+      importId: importRow.id,
+      message: err instanceof Error ? err.message : String(err),
+    });
   }
 
   if (!jobId) {
-    console.warn("[import] REDIS_URL not set or Redis unreachable. Import record created (id:", importRow.id, "). Start Redis (docker compose up -d) and run: npm run import-worker");
+    console.warn("[book-import.legacy] REDIS_URL not set or Redis unreachable", {
+      userId: user.id,
+      importId: importRow.id,
+    });
   }
 
   return NextResponse.json({
     id: importRow.id,
+    jobId,
     status: "pending",
     progress: 0,
+    mode,
     message: jobId
       ? "Import queued"
       : "Import created; start Redis and run the worker to process (see server log).",

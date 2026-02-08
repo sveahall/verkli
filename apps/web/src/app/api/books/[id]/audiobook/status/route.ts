@@ -4,6 +4,11 @@ import { assertPublicEnv } from "@/lib/env";
 import { isAudiobookEnabled } from "@/lib/flags";
 import { requireAuthorRoleForApi } from "@/lib/auth/require-author";
 import { sanitizeJobError } from "@/lib/sanitize-job-error";
+import {
+  apiError,
+  E_AUDIOBOOK_STATUS_UNAVAILABLE,
+  E_BOOK_NOT_FOUND,
+} from "@/lib/api-errors";
 
 const AI_JOB_KIND = "audiobook_generation";
 
@@ -79,10 +84,7 @@ export async function GET(
 ) {
   assertPublicEnv();
   if (!isAudiobookEnabled()) {
-    return NextResponse.json(
-      { error: "Audiobook status is temporarily unavailable in this environment" },
-      { status: 503 }
-    );
+    return apiError(E_AUDIOBOOK_STATUS_UNAVAILABLE, 503);
   }
 
   const { id: bookId } = await params;
@@ -101,7 +103,7 @@ export async function GET(
     .maybeSingle();
 
   if (!book || book.author_id !== user.id) {
-    return NextResponse.json({ error: "Book not found" }, { status: 404 });
+    return apiError(E_BOOK_NOT_FOUND, 404);
   }
 
   const job = await findLatestAudiobookJob(supabase, user.id, bookId);

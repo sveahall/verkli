@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { FormField } from "@/components/ui/form-field";
 import { Input } from "@/components/ui/input";
 import { signUp, signInWithGoogle } from "@/lib/supabase/auth";
+import { resolveErrorMessage } from "@/lib/error-messages";
 
 export default function AuthorSignUp() {
   const [email, setEmail] = useState("");
