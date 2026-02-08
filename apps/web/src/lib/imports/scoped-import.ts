@@ -1,6 +1,13 @@
 import { storeImportFile } from "@/lib/import-storage";
 import { enqueueExtractJob, type ImportMode } from "@/lib/import-queue";
 import type { createClient } from "@/lib/supabase/server";
+import {
+  E_BOOK_NOT_FOUND,
+  E_DATABASE_ERROR,
+  E_IMPORT_FILE_STORAGE_FAILED,
+  E_IMPORT_RECORD_CREATION_FAILED,
+  E_INVALID_BOOK_VERSION,
+} from "@/lib/api-errors";
 
 export const IMPORT_ALLOWED_EXTENSIONS = [".epub", ".docx", ".html", ".htm", ".txt"] as const;
 export const IMPORT_MAX_MB = 50;
@@ -60,7 +67,8 @@ export type ScopedImportResult =
   | {
       ok: false;
       status: number;
-      error: string;
+      errorKey: string;
+      detail?: string;
     };
 
 type StartScopedBookImportArgs = {
@@ -94,11 +102,11 @@ export async function startScopedBookImport({
       userId,
       message: bookError.message,
     });
-    return { ok: false, status: 500, error: "Could not start import" };
+    return { ok: false, status: 500, errorKey: E_DATABASE_ERROR };
   }
 
   if (!typedBook || typedBook.author_id !== userId) {
-    return { ok: false, status: 404, error: "Book not found" };
+    return { ok: false, status: 404, errorKey: E_BOOK_NOT_FOUND };
   }
 
   if (mode === "overwrite_draft" && targetVersionId) {
@@ -117,15 +125,20 @@ export async function startScopedBookImport({
         targetVersionId,
         message: versionError.message,
       });
-      return { ok: false, status: 500, error: "Could not start import" };
+      return { ok: false, status: 500, errorKey: E_DATABASE_ERROR };
     }
 
     if (!typedVersion || typedVersion.book_id !== bookId) {
-      return { ok: false, status: 400, error: "Invalid draft version" };
+      return { ok: false, status: 400, errorKey: E_INVALID_BOOK_VERSION, detail: "Invalid draft version" };
     }
 
     if (typedVersion.published_at) {
-      return { ok: false, status: 400, error: "Cannot overwrite a published version" };
+      return {
+        ok: false,
+        status: 400,
+        errorKey: E_INVALID_BOOK_VERSION,
+        detail: "Cannot overwrite a published version",
+      };
     }
   }
 
@@ -153,7 +166,7 @@ export async function startScopedBookImport({
       userId,
       message: insertError?.message,
     });
-    return { ok: false, status: 500, error: "Could not start import" };
+    return { ok: false, status: 500, errorKey: E_IMPORT_RECORD_CREATION_FAILED };
   }
 
   const buffer = Buffer.from(await file.arrayBuffer());
@@ -164,7 +177,7 @@ export async function startScopedBookImport({
       .from("book_imports")
       .update({ status: "failed", error_message: stored.error })
       .eq("id", importRow.id);
-    return { ok: false, status: 500, error: "Could not store import file" };
+    return { ok: false, status: 500, errorKey: E_IMPORT_FILE_STORAGE_FAILED };
   }
 
   await supabase

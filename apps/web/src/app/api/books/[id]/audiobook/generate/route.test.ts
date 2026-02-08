@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { E_AUDIOBOOK_FEATURE_DISABLED } from "@/lib/api-errors";
 
 const mocks = vi.hoisted(() => ({
   requireAuthorRoleForApi: vi.fn(),
@@ -58,7 +59,7 @@ describe("POST /api/books/[id]/audiobook/generate", () => {
 
     expect(res.status).toBe(503);
     expect(body).toEqual({
-      error: "Audiobook generation is temporarily unavailable in this environment",
+      error: E_AUDIOBOOK_FEATURE_DISABLED,
     });
     expect(mocks.requireAuthorRoleForApi).not.toHaveBeenCalled();
     expect(mocks.createClient).not.toHaveBeenCalled();
