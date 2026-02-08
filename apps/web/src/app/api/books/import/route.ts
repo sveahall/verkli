@@ -78,7 +78,11 @@ export async function POST(request: Request) {
     });
 
     if (!scoped.ok) {
-      return NextResponse.json({ error: scoped.error }, { status: scoped.status });
+      return apiError(
+        scoped.errorKey,
+        scoped.status,
+        scoped.detail ? { detail: scoped.detail } : undefined
+      );
     }
 
     return NextResponse.json({

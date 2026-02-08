@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { E_AUDIOBOOK_STATUS_UNAVAILABLE } from "@/lib/api-errors";
 import { GET } from "./route";
 
 const { requireAuthorRoleForApi, createClient } = vi.hoisted(() => ({
@@ -45,7 +46,7 @@ describe("GET /api/books/[id]/audiobook/status", () => {
 
     expect(res.status).toBe(503);
     expect(body).toEqual({
-      error: "Audiobook status is temporarily unavailable in this environment",
+      error: E_AUDIOBOOK_STATUS_UNAVAILABLE,
     });
     expect(requireAuthorRoleForApi).not.toHaveBeenCalled();
     expect(createClient).not.toHaveBeenCalled();

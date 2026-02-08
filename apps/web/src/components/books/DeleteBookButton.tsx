@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { resolveErrorMessage } from "@/lib/error-messages";
 import { useToastHelpers } from "@/components/ui/toast";
 
 function TrashIcon({ className }: { className?: string }) {
@@ -43,7 +44,7 @@ export default function DeleteBookButton({
       const res = await fetch(`/api/books/${bookId}`, { method: "DELETE" });
       const data = await res.json().catch(() => ({}));
       if (!res.ok || data?.ok === false) {
-        setError(data?.error ?? "Kunde inte radera boken.");
+        setError(resolveErrorMessage(data?.error));
         return;
       }
       setOpen(false);
