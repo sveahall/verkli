@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { E_INVALID_IMPORT_MODE } from "@/lib/api-errors";
+import { E_INVALID_BOOK_VERSION, E_INVALID_IMPORT_MODE } from "@/lib/api-errors";
 
 const mocks = vi.hoisted(() => ({
   requireAuthorRoleForApi: vi.fn(),
@@ -123,5 +124,23 @@ describe("POST /api/books/[id]/import", () => {
       mode: "overwrite_draft",
       targetVersionId: "version-1",
     });
+  });
+
+  it("returns safe error key from scoped import helper failures", async () => {
+    mocks.startScopedBookImport.mockResolvedValueOnce({
+      ok: false,
+      status: 400,
+      errorKey: E_INVALID_BOOK_VERSION,
+      detail: "Cannot overwrite a published version",
+    });
+
+    const res = await POST(makeMultipartRequest(), {
+      params: Promise.resolve({ id: "book-1" }),
+    });
+    const body = await res.json();
+
+    expect(res.status).toBe(400);
+    expect(body.error).toBe(E_INVALID_BOOK_VERSION);
+    expect(body.detail).toBe("Cannot overwrite a published version");
   });
 });

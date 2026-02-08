@@ -862,13 +862,12 @@ export default function BookEditor({
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok || data?.ok === false) {
-        const errMsg = data?.error ?? "Kunde inte starta översättning. Försök igen.";
         if (data?.existingVersionId) {
           setTranslateMessage("Version finns redan. Öppnar befintlig version…");
           router.push(`/author/books/${book.id}?lang=${normalizeLangKey(translateTargetLanguage)}`);
           return;
         }
-        setTranslateMessage(errMsg);
+        setTranslateMessage(resolveErrorMessage(data?.error));
         return;
       }
       setTranslateMessage("Översättning startad. Väntar på att den blir klar…");
@@ -946,7 +945,7 @@ export default function BookEditor({
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
-        setPricingError((data?.error as string) ?? "Kunde inte spara. Försök igen.");
+        setPricingError(resolveErrorMessage(data?.error));
         return;
       }
       setPricingSaved(true);
@@ -955,7 +954,7 @@ export default function BookEditor({
       pricingSavedTimerRef.current = setTimeout(() => setPricingSaved(false), 3000);
       router.refresh();
     } catch {
-      setPricingError("Kunde inte spara. Försök igen.");
+      setPricingError(resolveErrorMessage(null));
     } finally {
       setPricingSaving(false);
     }

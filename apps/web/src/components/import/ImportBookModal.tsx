@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
+import { resolveErrorMessage } from "@/lib/error-messages";
 
 const ALLOWED_EXT = [".epub", ".docx", ".html", ".htm", ".txt"];
 const POLL_INTERVAL_MS = 2500;
@@ -96,7 +97,7 @@ export function ImportBookModal({ open, onClose, onImportComplete }: ImportBookM
       const data = await res.json().catch(() => ({}));
 
       if (!res.ok) {
-        setError(data?.error ?? "Kunde inte starta importen. Försök igen.");
+        setError(resolveErrorMessage(data?.error));
         return;
       }
 

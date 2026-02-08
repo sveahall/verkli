@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
+import { resolveErrorMessage } from "@/lib/error-messages";
 
 type FeedbackItem = {
   id: string;
@@ -44,7 +45,7 @@ export default function AccountFeedbackPage() {
       });
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
-        setError(data.error ?? "Failed to send");
+        setError(resolveErrorMessage(data.error));
         return;
       }
       setMessage("");
@@ -52,7 +53,7 @@ export default function AccountFeedbackPage() {
       const data = await res.json();
       setFeedback((prev) => [{ id: data.id, type, message, url: null, status: "new", created_at: data.created_at }, ...prev]);
     } catch {
-      setError("Failed to send");
+      setError(resolveErrorMessage(null, "Kunde inte skicka. Försök igen."));
     } finally {
       setSubmitting(false);
     }

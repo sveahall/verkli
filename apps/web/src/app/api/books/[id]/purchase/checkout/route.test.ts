@@ -123,6 +123,14 @@ describe("POST /api/books/[id]/purchase/checkout", () => {
 
     expect(res.status).toBe(200);
     expect(admin.state.insertedOrder).toMatchObject({ amount: 1299, currency: "SEK" });
+    expect(mocks.canUserReadBook).toHaveBeenCalledWith(
+      expect.objectContaining({
+        bookId: "book-1",
+        bookAuthorId: "author-1",
+        bookPriceAmount: 1299,
+        bookPricingModel: "book_only",
+      })
+    );
     expect(mocks.createStripeCheckoutSession).toHaveBeenCalledWith(
       expect.objectContaining({ amount: 1299, currency: "SEK" })
     );

@@ -1,5 +1,9 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { isPaidPriceAmount, normalizePriceAmount } from "@/lib/books/pricing";
+import {
+  isPaidPriceAmount,
+  normalizePriceAmount,
+  normalizePricingModel,
+} from "@/lib/books/pricing";
 
 export type SupabaseLikeClient = Pick<SupabaseClient, "from">;
 
@@ -9,6 +13,7 @@ type CanUserReadBookArgs = {
   bookId: string;
   bookAuthorId?: string | null;
   bookPriceAmount?: number | null;
+  bookPricingModel?: string | null;
 };
 
 /**
@@ -24,17 +29,19 @@ export async function canUserReadBook({
   bookId,
   bookAuthorId,
   bookPriceAmount,
+  bookPricingModel,
 }: CanUserReadBookArgs): Promise<boolean> {
   let authorId = bookAuthorId ?? null;
   let priceAmount = normalizePriceAmount(bookPriceAmount ?? null);
+  let pricingModel = normalizePricingModel(bookPricingModel ?? "book_only");
   if (priceAmount != null && priceAmount < 0) {
     priceAmount = 0;
   }
 
-  if (authorId == null || bookPriceAmount == null) {
+  if (authorId == null || bookPriceAmount == null || bookPricingModel == null) {
     const { data: book, error } = await supabase
       .from("books")
-      .select("author_id, price_amount")
+      .select("author_id, price_amount, pricing_model")
       .eq("id", bookId)
       .maybeSingle();
 
@@ -47,10 +54,17 @@ export async function canUserReadBook({
       typeof book.price_amount === "number" ? book.price_amount : null
     );
     priceAmount = normalizedFromDb != null && normalizedFromDb > 0 ? normalizedFromDb : 0;
+    pricingModel = normalizePricingModel(
+      typeof book.pricing_model === "string" ? book.pricing_model : "book_only"
+    );
   }
 
   if (userId && authorId === userId) {
     return true;
+  }
+
+  if (!pricingModel) {
+    return false;
   }
 
   if (!isPaidPriceAmount(priceAmount)) {
