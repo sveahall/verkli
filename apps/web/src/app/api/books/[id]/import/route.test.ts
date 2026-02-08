@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { E_INVALID_IMPORT_MODE } from "@/lib/api-errors";
 import { E_INVALID_BOOK_VERSION, E_INVALID_IMPORT_MODE } from "@/lib/api-errors";
 
 const mocks = vi.hoisted(() => ({
