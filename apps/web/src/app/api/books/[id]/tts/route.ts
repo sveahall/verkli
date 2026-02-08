@@ -11,6 +11,22 @@ import {
   TtsSynthesisError,
 } from "@/lib/tts/piper";
 import { requireAuthorRoleForApi } from "@/lib/auth/require-author";
+import {
+  apiError,
+  E_TTS_ENV_CONFIG_ERROR,
+  E_BOOK_NOT_FOUND,
+  E_FORBIDDEN,
+  E_NO_CHAPTERS,
+  E_NO_TEXT_IN_CHAPTERS,
+  E_TTS_DISABLED,
+  E_TTS_BUSY,
+  E_TTS_SYNTHESIS_FAILED,
+  E_TTS_UNEXPECTED_ERROR,
+  E_BUCKET_NOT_FOUND,
+  E_AUDIO_URL_GENERATION_FAILED,
+  E_DATABASE_ERROR,
+  E_VALIDATION_FAILED,
+} from "@/lib/api-errors";
 
 const DEFAULT_MAX_CHARS = 1000;
 
@@ -107,10 +123,6 @@ function getTextFromChapters(chapters: { content: string | null }[], maxChars: n
   return out.trim().slice(0, maxChars);
 }
 
-function bucketNotFoundManual(bucket: string): string {
-  return `Skapa bucket "${bucket}" i Supabase: Storage → New bucket → namn "${bucket}" → Public (för direkt uppspelning).`;
-}
-
 export async function POST(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
@@ -122,10 +134,7 @@ export async function POST(
   const envCheck = ensureTtsStorageEnv();
   if (envCheck.error) {
     console.error("[tts] Preflight env failed", { requestId, error: envCheck.error });
-    return NextResponse.json(
-      { ok: false, error: envCheck.error },
-      { status: 500 }
-    );
+    return apiError(E_TTS_ENV_CONFIG_ERROR, 500);
   }
 
   const bucket = getTtsStorageBucket();
@@ -144,11 +153,11 @@ export async function POST(
     .maybeSingle();
 
   if (bookError || !book) {
-    return NextResponse.json({ ok: false, error: "Book not found" }, { status: 404 });
+    return apiError(E_BOOK_NOT_FOUND, 404);
   }
 
   if (book.author_id !== user.id) {
-    return NextResponse.json({ ok: false, error: "Forbidden" }, { status: 403 });
+    return apiError(E_FORBIDDEN, 403);
   }
 
   const { data: chapters, error: chaptersError } = await supabase
@@ -158,19 +167,13 @@ export async function POST(
     .order("order", { ascending: true });
 
   if (chaptersError || !chapters?.length) {
-    return NextResponse.json(
-      { ok: false, error: "No chapters found for this book" },
-      { status: 400 }
-    );
+    return apiError(E_NO_CHAPTERS, 400);
   }
 
   const maxChars = Math.min(2000, DEFAULT_MAX_CHARS);
   const text = getTextFromChapters(chapters, maxChars);
   if (!text) {
-    return NextResponse.json(
-      { ok: false, error: "No text content in chapters to synthesize" },
-      { status: 400 }
-    );
+    return apiError(E_NO_TEXT_IN_CHAPTERS, 400);
   }
 
   let wavBuffer: Buffer;
@@ -178,31 +181,19 @@ export async function POST(
     wavBuffer = await synthesizeTextToWavBytes(text);
   } catch (err) {
     if (err instanceof TtsDisabledError) {
-      return NextResponse.json(
-        { ok: false, error: "TTS is disabled. Set TTS_ENABLED=true and configure TTS_BIN in .env.local." },
-        { status: 503 }
-      );
+      return apiError(E_TTS_DISABLED, 503);
     }
     if (err instanceof TtsValidationError) {
-      return NextResponse.json(
-        { ok: false, error: err.message },
-        { status: 400 }
-      );
+      return apiError(E_VALIDATION_FAILED, 400, { detail: err.message });
     }
     if (err instanceof TtsBusyError) {
-      return NextResponse.json(
-        { ok: false, error: "TTS is busy. Try again shortly." },
-        { status: 503 }
-      );
+      return apiError(E_TTS_BUSY, 503);
     }
     if (err instanceof TtsSynthesisError) {
-      return NextResponse.json(
-        { ok: false, error: err.message },
-        { status: 502 }
-      );
+      return apiError(E_TTS_SYNTHESIS_FAILED, 502);
     }
-    const msg = err instanceof Error ? err.message : "TTS synthesis failed";
-    return NextResponse.json({ ok: false, error: msg }, { status: 502 });
+    console.error("[tts] Unexpected synthesis error", { requestId, error: err instanceof Error ? err.message : String(err) });
+    return apiError(E_TTS_SYNTHESIS_FAILED, 502);
   }
 
   const storagePath = `${bookId}/${Date.now()}.wav`;
@@ -226,20 +217,7 @@ export async function POST(
         bucket,
         error: bucketCheck.error,
       });
-      const isNotFound =
-        bucketCheck.error === "Bucket not found" ||
-        String(bucketCheck.error).toLowerCase().includes("bucket") ||
-        String(bucketCheck.error).toLowerCase().includes("not found");
-      const manualSteps = bucketNotFoundManual(bucket);
-      return NextResponse.json(
-        {
-          ok: false,
-          error: isNotFound ? `Bucket "${bucket}" finns inte. ${manualSteps}` : `Storage: ${bucketCheck.error}`,
-          bucketNotFound: isNotFound,
-          manualSteps: isNotFound ? manualSteps : undefined,
-        },
-        { status: 500 }
-      );
+      return apiError(E_BUCKET_NOT_FOUND, 500, { bucket });
     }
 
     const { error: uploadError } = await admin.storage
@@ -261,25 +239,16 @@ export async function POST(
         path: storagePath,
         error: errMsg,
       });
-      const manualSteps = bucketNotFoundManual(bucket);
-      return NextResponse.json(
-        {
-          ok: false,
-          error: isBucketNotFound ? `Bucket "${bucket}" finns inte. ${manualSteps}` : `Storage upload failed. ${errMsg}`,
-          bucketNotFound: isBucketNotFound,
-          manualSteps: isBucketNotFound ? manualSteps : undefined,
-        },
-        { status: 500 }
-      );
+      if (isBucketNotFound) {
+        return apiError(E_BUCKET_NOT_FOUND, 500, { bucket });
+      }
+      return apiError(E_DATABASE_ERROR, 500);
     }
 
     const { data: urlData } = admin.storage.from(bucket).getPublicUrl(storagePath);
     const audioUrl = urlData?.publicUrl ?? null;
     if (!audioUrl) {
-      return NextResponse.json(
-        { ok: false, error: "Could not get audio URL" },
-        { status: 502 }
-      );
+      return apiError(E_AUDIO_URL_GENERATION_FAILED, 502);
     }
 
     const language = (book.language ?? "en").slice(0, 10);
@@ -298,10 +267,8 @@ export async function POST(
       if (process.env.NODE_ENV === "development") {
         console.error("[tts] audiobook_assets insert failed", insertError);
       }
-      return NextResponse.json(
-        { ok: false, error: insertError.message },
-        { status: 500 }
-      );
+      console.error("[tts] audiobook_assets insert failed", { message: insertError.message });
+      return apiError(E_DATABASE_ERROR, 500);
     }
 
     return NextResponse.json({
@@ -310,7 +277,7 @@ export async function POST(
       assetId: asset?.id,
     });
   } catch (err) {
-    const msg = err instanceof Error ? err.message : "TTS failed";
-    return NextResponse.json({ ok: false, error: msg }, { status: 500 });
+    console.error("[tts] Unexpected error", { requestId, error: err instanceof Error ? err.message : String(err) });
+    return apiError(E_TTS_UNEXPECTED_ERROR, 500);
   }
 }

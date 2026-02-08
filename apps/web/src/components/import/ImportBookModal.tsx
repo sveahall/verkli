@@ -6,6 +6,13 @@ import Link from "next/link";
 const ALLOWED_EXT = [".epub", ".docx", ".html", ".htm", ".txt"];
 const POLL_INTERVAL_MS = 2500;
 
+const STATUS_LABELS: Record<string, string> = {
+  pending: "Väntar",
+  extracting: "Extraherar",
+  completed: "Klar",
+  failed: "Misslyckades",
+};
+
 export type ImportItem = {
   id: string;
   file_name: string;
@@ -75,7 +82,7 @@ export function ImportBookModal({ open, onClose, onImportComplete }: ImportBookM
   const handleFile = async (file: File) => {
     const ext = "." + (file.name.split(".").pop() ?? "").toLowerCase();
     if (!ALLOWED_EXT.includes(ext)) {
-      setError("This file type isn’t supported. Please use EPUB, DOCX, HTML or TXT.");
+      setError("Filtypen stöds inte. Använd EPUB, DOCX, HTML eller TXT.");
       return;
     }
     setError(null);
@@ -89,11 +96,11 @@ export function ImportBookModal({ open, onClose, onImportComplete }: ImportBookM
       const data = await res.json().catch(() => ({}));
 
       if (!res.ok) {
-        setError(data?.error ?? "We couldn’t start the import. Please try again.");
+        setError(data?.error ?? "Kunde inte starta importen. Försök igen.");
         return;
       }
 
-      setSuccessMessage("Import started — we’ll process your file shortly.");
+      setSuccessMessage("Import startad — filen bearbetas inom kort.");
       const importId = data.id;
       if (importId) {
         setImportsList((prev) => [
@@ -146,7 +153,7 @@ export function ImportBookModal({ open, onClose, onImportComplete }: ImportBookM
           type="button"
           onClick={onClose}
           className="absolute right-5 top-5 z-10 text-slate-500 dark:text-white/50 hover:text-slate-900 dark:hover:text-white"
-          aria-label="Close"
+          aria-label="Stäng"
         >
           <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -154,12 +161,12 @@ export function ImportBookModal({ open, onClose, onImportComplete }: ImportBookM
         </button>
 
         <div className="p-6 border-b border-black/10 dark:border-white/10">
-          <h2 className="text-[22px] font-semibold text-slate-900 dark:text-white">Import book</h2>
+          <h2 className="text-[22px] font-semibold text-slate-900 dark:text-white">Importera bok</h2>
           <p className="mt-1 text-[14px] text-slate-600 dark:text-white/50">
-            Upload an existing book file to import chapters automatically.
+            Ladda upp en befintlig bokfil för att importera kapitel automatiskt.
           </p>
           <p className="mt-0.5 text-[13px] text-slate-500 dark:text-white/40">
-            Allowed: .epub, .docx, .html, .txt — max 50 MB
+            Tillåtna format: .epub, .docx, .html, .txt — max 50 MB
           </p>
         </div>
 
@@ -177,7 +184,7 @@ export function ImportBookModal({ open, onClose, onImportComplete }: ImportBookM
 
         {redisHint && (
           <div className="mx-6 mt-4 rounded-xl border border-amber-200 dark:border-amber-900/50 bg-amber-50 dark:bg-amber-950/30 px-4 py-3 text-[14px] text-amber-800 dark:text-amber-200">
-            Your file is queued. Processing may take a moment — if nothing happens, try again later.
+            Din fil har köats. Bearbetning kan ta en stund — om inget händer, försök igen senare.
           </div>
         )}
 
@@ -207,7 +214,7 @@ export function ImportBookModal({ open, onClose, onImportComplete }: ImportBookM
                   <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
                   <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
                 </svg>
-                Uploading…
+                Laddar upp…
               </span>
             ) : (
               <>
@@ -225,7 +232,7 @@ export function ImportBookModal({ open, onClose, onImportComplete }: ImportBookM
                   />
                 </svg>
                 <p className="mt-2 text-[14px] font-medium text-slate-700 dark:text-white/70">
-                  Drop file here or click to upload
+                  Dra och släpp fil här, eller klicka för att ladda upp
                 </p>
               </>
             )}
@@ -233,9 +240,9 @@ export function ImportBookModal({ open, onClose, onImportComplete }: ImportBookM
         </div>
 
         <div className="flex-1 overflow-y-auto p-6">
-          <h3 className="mb-3 text-[14px] font-semibold text-slate-900 dark:text-white">Import status</h3>
+          <h3 className="mb-3 text-[14px] font-semibold text-slate-900 dark:text-white">Importstatus</h3>
           {importsList.length === 0 ? (
-            <p className="text-[13px] text-slate-500 dark:text-white/40">No imports yet.</p>
+            <p className="text-[13px] text-slate-500 dark:text-white/40">Inga importer ännu.</p>
           ) : (
             <ul className="space-y-2">
               {importsList.map((imp, i) => (
@@ -253,17 +260,17 @@ export function ImportBookModal({ open, onClose, onImportComplete }: ImportBookM
                           href={`/author/books/${imp.book_id}`}
                           className="text-[#907AFF] hover:underline"
                         >
-                          Open book →
+                          Öppna bok →
                         </Link>
                       ) : imp.status === "failed" && imp.error ? (
                         <span className="text-red-500">{imp.error}</span>
                       ) : imp.status === "extracting" || imp.status === "pending" ? (
                         <span>
-                          {imp.status}
+                          {STATUS_LABELS[imp.status] ?? imp.status}
                           {imp.progress > 0 ? ` ${imp.progress}%` : ""}
                         </span>
                       ) : (
-                        imp.status
+                        STATUS_LABELS[imp.status] ?? imp.status
                       )}
                     </p>
                   </div>
@@ -276,7 +283,7 @@ export function ImportBookModal({ open, onClose, onImportComplete }: ImportBookM
                           : "bg-slate-200/80 dark:bg-white/10 text-slate-600 dark:text-white/60"
                     }`}
                   >
-                    {imp.status}
+                    {STATUS_LABELS[imp.status] ?? imp.status}
                   </span>
                 </li>
               ))}

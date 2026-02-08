@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import { resolveErrorMessage } from "@/lib/error-messages";
 import GlassSurface from "@/components/GlassSurface";
 import ThemeToggle from "@/components/ThemeToggle";
 import { resetPassword } from "@/lib/supabase/auth";
@@ -34,7 +35,7 @@ export default function AuthorForgotPassword() {
     const { error } = await resetPassword(email);
 
     if (error) {
-      setError(error.message);
+      setError(resolveErrorMessage(null, "Kunde inte skicka återställningslänk. Försök igen."));
       setLoading(false);
     } else {
       setSuccess(true);

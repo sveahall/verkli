@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useState } from "react";
+import { resolveErrorMessage } from "@/lib/error-messages";
 
 type ApplicationStatus = "none" | "pending" | "approved" | "rejected";
 
@@ -24,7 +25,7 @@ export default function AuthorApplicationCard({ initialStatus }: Props) {
       const data = await res.json().catch(() => ({}));
 
       if (!res.ok) {
-        setError(String(data?.error ?? "Could not submit application"));
+        setError(resolveErrorMessage(data?.error));
         return;
       }
 

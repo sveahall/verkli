@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { useToastHelpers } from "@/components/ui/Toast";
+import { useToastHelpers } from "@/components/ui/toast";
 
 function TrashIcon({ className }: { className?: string }) {
   return (

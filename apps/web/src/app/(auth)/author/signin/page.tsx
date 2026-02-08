@@ -10,6 +10,7 @@ import { FormField } from "@/components/ui/form-field";
 import { Input } from "@/components/ui/input";
 import { signIn, signInWithGoogle } from "@/lib/supabase/auth";
 import { createClient } from "@/lib/supabase/client";
+import { resolveErrorMessage } from "@/lib/error-messages";
 
 export default function AuthorSignIn() {
   const router = useRouter();
@@ -38,7 +39,7 @@ export default function AuthorSignIn() {
     const { error } = await signIn(email, password, staySignedIn);
 
     if (error) {
-      setError(error.message);
+      setError(resolveErrorMessage(null, "Inloggningen misslyckades. Kontrollera e-post och lösenord."));
       setLoading(false);
       return;
     }
@@ -77,7 +78,7 @@ export default function AuthorSignIn() {
     setError("");
     const { error } = await signInWithGoogle();
     if (error) {
-      setError(error.message);
+      setError(resolveErrorMessage(null, "Inloggningen misslyckades. Kontrollera e-post och lösenord."));
     }
   };
 

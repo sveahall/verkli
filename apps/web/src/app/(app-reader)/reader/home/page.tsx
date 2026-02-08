@@ -126,7 +126,7 @@ export default async function ReaderHomePage() {
       <PageHeader
         eyebrow="Reader"
         title="Welcome back"
-        subtitle="Pick up where you left off, then explore what your community is reading next."
+        description="Pick up where you left off, then explore what your community is reading next."
         actions={
           <Link href="/reader/discover" className="btn-secondary">
             Browse discover
@@ -140,7 +140,7 @@ export default async function ReaderHomePage() {
 
       <Rail
         title="Continue reading"
-        subtitle="Your open chapters, ready when you are"
+        description="Your open chapters, ready when you are"
         isEmpty={continueReading.length === 0}
         emptyState={
           <EmptyState
@@ -174,7 +174,7 @@ export default async function ReaderHomePage() {
 
       <Rail
         title="Published books"
-        subtitle="Latest public releases"
+        description="Latest public releases"
         action={
           <Link href="/reader/discover" className="btn-ghost py-1.5 text-[13px]">
             See all

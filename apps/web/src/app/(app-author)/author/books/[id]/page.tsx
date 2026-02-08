@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { normalizeLanguage } from "@/lib/languages";
+import { isStripeConfigured } from "@/lib/payments/stripe";
 import BookEditor from "./BookEditor";
 
 export default async function BookDetailPage({
@@ -100,6 +101,8 @@ export default async function BookDetailPage({
     .select("id, book_id, language, channel, status, headline, caption, cta, hashtags, share_url, created_at, updated_at")
     .eq("book_id", book.id);
 
+  const stripeConfigured = isStripeConfigured();
+
   return (
     <main className="min-h-screen bg-background text-foreground">
       <header className="mx-38 max-w-[1200px] px-0 pt-10">
@@ -108,7 +111,7 @@ export default async function BookDetailPage({
           className="inline-flex items-center gap-2 text-sm text-slate-500 transition-colors hover:text-slate-900 dark:text-white/60 dark:hover:text-white"
         >
           <span aria-hidden="true">←</span>
-          Back to books
+          Tillbaka till böcker
         </Link>
       </header>
 
@@ -119,6 +122,7 @@ export default async function BookDetailPage({
         activeVersion={activeVersion ?? null}
         latestAudiobookAsset={latestAudiobookAsset ?? null}
         marketingCampaigns={marketingCampaigns ?? []}
+        stripeConfigured={stripeConfigured}
       />
     </main>
   );

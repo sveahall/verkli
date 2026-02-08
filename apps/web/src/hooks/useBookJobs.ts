@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback, useRef } from "react";
+import { resolveErrorMessage } from "@/lib/error-messages";
 
 /* ─── Types matching GET /api/books/:id/jobs response ─────────────────────── */
 
@@ -142,7 +143,7 @@ export function useBookJobs(
           }
         } else {
           const json = await res.json().catch(() => ({}));
-          setError(json?.error ?? "Kunde inte hämta status.");
+          setError(resolveErrorMessage(json?.error, "Kunde inte hämta status."));
         }
         setJobs([]);
         setActiveCount(0);

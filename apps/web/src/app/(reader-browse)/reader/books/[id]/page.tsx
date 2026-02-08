@@ -8,6 +8,7 @@ import type { Metadata } from "next";
 import StartReadingLink from "./StartReadingLink";
 import BookmarkButton from "./BookmarkButton";
 import PurchaseBookButton from "./PurchaseBookButton";
+import PurchaseSuccessRefresh from "./PurchaseSuccessRefresh";
 
 async function getBook(id: string) {
   const supabase = await createClient();
@@ -253,9 +254,7 @@ export default async function ReaderBookDetail({
               <p className="mt-1">
                 Buy once to unlock full reading access. Price: {formatMoney(priceAmount, priceCurrency)}.
               </p>
-              {purchaseState === "success" ? (
-                <p className="mt-2 text-emerald-700 dark:text-emerald-300">Payment completed. Refreshing access…</p>
-              ) : null}
+              {purchaseState === "success" ? <PurchaseSuccessRefresh /> : null}
               {purchaseState === "failed" ? (
                 <p className="mt-2 text-rose-700 dark:text-rose-300">Payment verification failed. Try again.</p>
               ) : null}

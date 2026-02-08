@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getTtsStorageBucket } from "@/lib/tts/storage";
+import { apiError, E_NOT_AVAILABLE_IN_PRODUCTION } from "@/lib/api-errors";
 
 function maskUrl(url: string): string {
   try {
@@ -18,7 +19,7 @@ function maskUrl(url: string): string {
  */
 export async function GET() {
   if (process.env.NODE_ENV !== "development") {
-    return NextResponse.json({ error: "Not available in production" }, { status: 404 });
+    return apiError(E_NOT_AVAILABLE_IN_PRODUCTION, 404);
   }
 
   const url =

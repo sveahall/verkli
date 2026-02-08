@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { LANGUAGE_OPTIONS, type SupportedLanguage } from "@/lib/languages";
+import { resolveErrorMessage } from "@/lib/error-messages";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { FormField } from "@/components/ui/form-field";
@@ -13,7 +14,7 @@ export default function CreateBookForm() {
   const router = useRouter();
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
-  const [language, setLanguage] = useState<SupportedLanguage>("en");
+  const [language, setLanguage] = useState<SupportedLanguage>("sv");
   const [originalUrl, setOriginalUrl] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -28,7 +29,7 @@ export default function CreateBookForm() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          title: title.trim() || "Untitled",
+          title: title.trim() || "Namnlös",
           description: description.trim() || undefined,
           language,
           original_url: originalUrl.trim() || undefined,
@@ -36,13 +37,13 @@ export default function CreateBookForm() {
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
-        setError(data.error || "Failed to create book.");
+        setError(resolveErrorMessage(data.error));
         setLoading(false);
         return;
       }
       router.push(`/author/books/${data.id}`);
     } catch (err) {
-      setError("Failed to create book.");
+      setError("Kunde inte skapa boken.");
       setLoading(false);
     }
   };
@@ -51,8 +52,8 @@ export default function CreateBookForm() {
     <Card className="p-6" id="create-book">
       <div className="space-y-4">
         <div>
-          <h2 className="text-section-title">Create a new book</h2>
-          <p className="text-body">Start a new book and add translations later.</p>
+          <h2 className="text-section-title">Skapa en ny bok</h2>
+          <p className="text-body">Börja en ny bok och lägg till översättningar senare.</p>
         </div>
 
         {error && (
@@ -66,26 +67,26 @@ export default function CreateBookForm() {
 
         <form onSubmit={handleSubmit} className="grid gap-4 md:grid-cols-2">
           <FormField
-            label="Title"
-            helper="Leave blank to use Untitled."
+            label="Titel"
+            helper="Lämna blankt för att använda Namnlös."
             className="md:col-span-2"
           >
             <Input
               value={title}
               onChange={(e) => setTitle(e.target.value)}
-              placeholder="Book title"
+              placeholder="Bokens titel"
             />
           </FormField>
 
-          <FormField label="Description" helper="Optional" className="md:col-span-2">
+          <FormField label="Beskrivning" helper="Valfritt" className="md:col-span-2">
             <Input
               value={description}
               onChange={(e) => setDescription(e.target.value)}
-              placeholder="Short description"
+              placeholder="Kort beskrivning"
             />
           </FormField>
 
-          <FormField label="Language">
+          <FormField label="Språk">
             <Select value={language} onChange={(e) => setLanguage(e.target.value as SupportedLanguage)}>
               {LANGUAGE_OPTIONS.map((opt) => (
                 <option key={opt.value} value={opt.value}>
@@ -95,7 +96,7 @@ export default function CreateBookForm() {
             </Select>
           </FormField>
 
-          <FormField label="Original URL" helper="Optional">
+          <FormField label="Original-URL" helper="Valfritt">
             <Input
               type="url"
               value={originalUrl}
@@ -105,8 +106,8 @@ export default function CreateBookForm() {
           </FormField>
 
           <div className="md:col-span-2 flex justify-end">
-            <Button type="submit" isLoading={loading} loadingText="Creating">
-              Create book
+            <Button type="submit" isLoading={loading} loadingText="Skapar">
+              Skapa bok
             </Button>
           </div>
         </form>

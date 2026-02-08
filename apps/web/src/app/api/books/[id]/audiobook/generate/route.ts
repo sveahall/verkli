@@ -5,6 +5,16 @@ import { assertPublicEnv } from "@/lib/env";
 import { isAudiobookEnabled } from "@/lib/flags";
 import { requireAuthorRoleForApi } from "@/lib/auth/require-author";
 import { enqueueAudiobookJob } from "@/lib/audiobook-queue";
+import {
+  apiError,
+  E_AUDIOBOOK_FEATURE_DISABLED,
+  E_BOOK_NOT_FOUND,
+  E_BOOK_VERSION_NOT_FOUND_FOR_LANGUAGE,
+  E_DATABASE_ERROR,
+  E_JOB_CREATION_FAILED,
+  E_NO_CHAPTERS_FOR_VERSION,
+  E_QUEUE_UNAVAILABLE,
+} from "@/lib/api-errors";
 
 const AI_JOB_KIND = "audiobook_generation";
 
@@ -84,10 +94,7 @@ export async function POST(
 ) {
   assertPublicEnv();
   if (!isAudiobookEnabled()) {
-    return NextResponse.json(
-      { error: "Audiobook generation is temporarily unavailable in this environment" },
-      { status: 503 }
-    );
+    return apiError(E_AUDIOBOOK_FEATURE_DISABLED, 503);
   }
 
   const { id: bookId } = await params;
@@ -109,10 +116,11 @@ export async function POST(
     .maybeSingle();
 
   if (bookFetchError) {
-    return NextResponse.json({ error: bookFetchError.message }, { status: 500 });
+    console.error("[audiobook generate] book fetch failed:", bookFetchError.message);
+    return apiError(E_DATABASE_ERROR, 500);
   }
   if (!book || book.author_id !== user.id) {
-    return NextResponse.json({ error: "Book not found or access denied" }, { status: 404 });
+    return apiError(E_BOOK_NOT_FOUND, 404);
   }
 
   // Resolve book_version_id
@@ -126,13 +134,11 @@ export async function POST(
     .maybeSingle();
 
   if (versionError) {
-    return NextResponse.json({ error: versionError.message }, { status: 500 });
+    console.error("[audiobook generate] version fetch failed:", versionError.message);
+    return apiError(E_DATABASE_ERROR, 500);
   }
   if (!version) {
-    return NextResponse.json(
-      { error: `No version found for language: ${targetLanguage}` },
-      { status: 400 }
-    );
+    return apiError(E_BOOK_VERSION_NOT_FOUND_FOR_LANGUAGE, 400, { detail: targetLanguage });
   }
 
   // Check for existing queued/running job for this specific book.
@@ -155,13 +161,11 @@ export async function POST(
     .eq("book_version_id", version.id);
 
   if (countError) {
-    return NextResponse.json({ error: countError.message }, { status: 500 });
+    console.error("[audiobook generate] chapter count failed:", countError.message);
+    return apiError(E_DATABASE_ERROR, 500);
   }
   if (!chapterCount || chapterCount === 0) {
-    return NextResponse.json(
-      { error: "No chapters found for this book version" },
-      { status: 400 }
-    );
+    return apiError(E_NO_CHAPTERS_FOR_VERSION, 400);
   }
 
   // Get TTS config from env
@@ -212,10 +216,7 @@ export async function POST(
       }
     }
     console.error("[audiobook generate] failed to create job:", jobError?.message);
-    return NextResponse.json(
-      { error: jobError?.message ?? "Failed to create job" },
-      { status: 500 }
-    );
+    return apiError(E_JOB_CREATION_FAILED, 500);
   }
 
   // Enqueue BullMQ job
@@ -242,10 +243,7 @@ export async function POST(
       .update({ status: "failed", error: "Queue unavailable", progress: 0 })
       .eq("id", job.id);
 
-    return NextResponse.json(
-      { error: "Queue unavailable. Ensure REDIS_URL is set and Redis is running." },
-      { status: 503 }
-    );
+    return apiError(E_QUEUE_UNAVAILABLE, 503);
   }
 
   console.log("[audiobook generate] job created:", job.id, "bookId:", bookId, "chapters:", chapterCount);

@@ -35,28 +35,28 @@ export default async function AuthorPublishPicker({
           className="inline-flex items-center gap-2 text-sm text-slate-500 transition-colors hover:text-slate-900 dark:text-white/60 dark:hover:text-white"
         >
           <span aria-hidden="true">←</span>
-          Back to books
+          Tillbaka till böcker
         </Link>
 
         <div className="mt-6">
           <h1 className="text-2xl font-semibold text-slate-900 dark:text-white">
-            Choose a book to publish
+            Välj en bok att publicera
           </h1>
           <p className="mt-2 text-sm text-slate-600 dark:text-white/60">
-            Publishing happens inside the book detail. Pick a book to open its publish panel.
+            Publicering sker i bokdetaljen. Välj en bok för att öppna publiceringspanelen.
           </p>
         </div>
 
         {!books || books.length === 0 ? (
           <div className="mt-8 rounded-xl border border-slate-200 bg-slate-50/50 p-10 text-center dark:border-white/10 dark:bg-white/5">
             <p className="text-slate-600 dark:text-white/60">
-              No books yet. Create a draft first, then publish from the book detail.
+              Inga böcker ännu. Skapa ett utkast först, publicera sedan från bokdetaljen.
             </p>
             <Link
               href="/author/books"
               className="mt-4 inline-flex rounded-full bg-slate-900 px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-slate-800 dark:bg-white dark:text-slate-900 dark:hover:bg-white/90"
             >
-              Go to books
+              Gå till böcker
             </Link>
           </div>
         ) : (
@@ -68,7 +68,7 @@ export default async function AuthorPublishPicker({
                   className="flex items-center justify-between rounded-lg border border-slate-200 bg-white px-4 py-3 transition hover:bg-slate-50 dark:border-white/10 dark:bg-white/5 dark:hover:bg-white/10"
                 >
                   <span className="font-medium text-slate-900 dark:text-white">
-                    {book.title || "Untitled"}
+                    {book.title || "Namnlös"}
                   </span>
                   <span
                     className={`rounded-full px-2 py-1 text-xs font-medium ${
@@ -77,7 +77,7 @@ export default async function AuthorPublishPicker({
                         : "bg-slate-100 text-slate-600 dark:bg-white/10 dark:text-white/60"
                     }`}
                   >
-                    {book.status}
+                    {book.status === "PUBLISHED" ? "Publicerad" : "Utkast"}
                   </span>
                 </Link>
               </li>

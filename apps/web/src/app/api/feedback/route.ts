@@ -1,12 +1,20 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { z } from "zod";
+import {
+  apiError,
+  E_NOT_AUTHENTICATED,
+  E_INVALID_JSON,
+  E_VALIDATION_FAILED,
+  E_FEEDBACK_LOAD_FAILED,
+  E_FEEDBACK_SAVE_FAILED,
+} from "@/lib/api-errors";
 
 export async function GET() {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) {
-    return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
+    return apiError(E_NOT_AUTHENTICATED, 401);
   }
 
   const { data, error } = await supabase
@@ -16,7 +24,8 @@ export async function GET() {
     .order("created_at", { ascending: false });
 
   if (error) {
-    return NextResponse.json({ error: "Failed to load feedback" }, { status: 500 });
+    console.error("[feedback] load failed", { message: error.message });
+    return apiError(E_FEEDBACK_LOAD_FAILED, 500);
   }
 
   return NextResponse.json({ feedback: data ?? [] });
@@ -37,14 +46,12 @@ export async function POST(request: Request) {
   try {
     body = await request.json();
   } catch {
-    return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
+    return apiError(E_INVALID_JSON, 400);
   }
 
   const parsed = feedbackBodySchema.safeParse(body);
   if (!parsed.success) {
-    const first = parsed.error.issues[0];
-    const msg = first?.message ?? "Validation failed";
-    return NextResponse.json({ error: msg }, { status: 400 });
+    return apiError(E_VALIDATION_FAILED, 400);
   }
 
   const { type, message, url, request_id } = parsed.data;
@@ -62,7 +69,8 @@ export async function POST(request: Request) {
     .single();
 
   if (error) {
-    return NextResponse.json({ error: "Failed to save feedback" }, { status: 500 });
+    console.error("[feedback] save failed", { message: error.message });
+    return apiError(E_FEEDBACK_SAVE_FAILED, 500);
   }
 
   return NextResponse.json({ id: data.id, created_at: data.created_at }, { status: 200 });

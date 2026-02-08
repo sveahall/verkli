@@ -31,8 +31,8 @@ export function FormField({
   const errorId = error ? `${fieldId}-error` : undefined;
   const describedBy = [descriptionId, helperId, errorId].filter(Boolean).join(" ") || undefined;
 
-  const child = React.isValidElement(children)
-    ? React.cloneElement(children as React.ReactElement, {
+  const child = React.isValidElement<Record<string, unknown>>(children)
+    ? React.cloneElement(children, {
         id: fieldId,
         "aria-describedby": describedBy,
         "aria-invalid": error ? true : undefined,

@@ -1,5 +1,16 @@
 import { NextResponse } from "next/server";
 import { synthesizeTextToWavBytes, TtsBusyError, TtsDisabledError, TtsSynthesisError, TtsValidationError } from "@/lib/tts/piper";
+import {
+  apiError,
+  E_UNAUTHORIZED,
+  E_RATE_LIMIT_EXCEEDED,
+  E_INVALID_JSON,
+  E_VALIDATION_FAILED,
+  E_TTS_DISABLED,
+  E_TTS_BUSY,
+  E_TTS_SYNTHESIS_FAILED,
+  E_TTS_UNEXPECTED_ERROR,
+} from "@/lib/api-errors";
 
 /** Simple in-memory token bucket per IP. Resets on cold start / redeploy. */
 const RATE_LIMIT_WINDOW_MS = 60 * 1000; // 1 minute
@@ -75,19 +86,13 @@ function validateToken(request: Request): boolean {
 export async function POST(request: Request) {
   // Optional: simple shared secret to protect the endpoint.
   if (!validateToken(request)) {
-    return NextResponse.json(
-      { error: "Unauthorized" },
-      { status: 401 },
-    );
+    return apiError(E_UNAUTHORIZED, 401);
   }
 
   const ip = getClientIp(request);
   const { allowed, retryAfterSeconds } = checkRateLimit(ip);
   if (!allowed) {
-    const resp = NextResponse.json(
-      { error: "Too many TTS requests. Please try again later." },
-      { status: 429 },
-    );
+    const resp = apiError(E_RATE_LIMIT_EXCEEDED, 429);
     if (retryAfterSeconds != null) {
       resp.headers.set("Retry-After", String(retryAfterSeconds));
     }
@@ -98,26 +103,17 @@ export async function POST(request: Request) {
   try {
     body = await request.json();
   } catch {
-    return NextResponse.json(
-      { error: "Invalid JSON body" },
-      { status: 400 },
-    );
+    return apiError(E_INVALID_JSON, 400);
   }
 
   if (!body || typeof body !== "object") {
-    return NextResponse.json(
-      { error: "Body must be a JSON object" },
-      { status: 400 },
-    );
+    return apiError(E_INVALID_JSON, 400);
   }
 
   // Narrowing
   const text = (body as { text?: unknown }).text;
   if (typeof text !== "string") {
-    return NextResponse.json(
-      { error: "Field 'text' must be a non-empty string" },
-      { status: 400 },
-    );
+    return apiError(E_VALIDATION_FAILED, 400);
   }
 
   try {
@@ -135,22 +131,13 @@ export async function POST(request: Request) {
     return response;
   } catch (err) {
     if (err instanceof TtsDisabledError) {
-      return NextResponse.json(
-        { error: "TTS is disabled" },
-        { status: 503 },
-      );
+      return apiError(E_TTS_DISABLED, 503);
     }
     if (err instanceof TtsBusyError) {
-      return NextResponse.json(
-        { error: "TTS is busy" },
-        { status: 503 },
-      );
+      return apiError(E_TTS_BUSY, 503);
     }
     if (err instanceof TtsValidationError) {
-      return NextResponse.json(
-        { error: err.message },
-        { status: 400 },
-      );
+      return apiError(E_VALIDATION_FAILED, 400, { detail: err.message });
     }
     if (err instanceof TtsSynthesisError) {
       console.error("[tts] Synthesis error", {
@@ -158,16 +145,10 @@ export async function POST(request: Request) {
         stdout_tail: err.stdout?.slice(-500),
         stderr_tail: err.stderr?.slice(-500),
       });
-      return NextResponse.json(
-        { error: "TTS synthesis failed" },
-        { status: 500 },
-      );
+      return apiError(E_TTS_SYNTHESIS_FAILED, 500);
     }
 
     console.error("[tts] Unexpected error", err);
-    return NextResponse.json(
-      { error: "Unexpected TTS error" },
-      { status: 500 },
-    );
+    return apiError(E_TTS_UNEXPECTED_ERROR, 500);
   }
 }

@@ -88,7 +88,7 @@ export default function ReaderLibraryClient({ initialData }: ReaderLibraryClient
       <PageHeader
         eyebrow="Library"
         title="Your library"
-        subtitle="Everything you have started, saved, or finished lives here."
+        description="Everything you have started, saved, or finished lives here."
         actions={
           <Link href="/reader/discover" className="btn-secondary">
             Add new books

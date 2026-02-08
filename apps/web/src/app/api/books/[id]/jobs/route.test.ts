@@ -96,6 +96,16 @@ function makeSupabaseMock() {
       return chain;
     }
 
+    if (table === "book_imports") {
+      const chain = {
+        select: () => chain,
+        eq: () => chain,
+        order: () => chain,
+        limit: async () => ({ data: [], error: null }),
+      };
+      return chain;
+    }
+
     throw new Error(`Unexpected table query: ${table}`);
   };
 

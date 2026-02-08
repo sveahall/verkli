@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import { resolveErrorMessage } from "@/lib/error-messages";
 import AuthShell from "@/components/auth/AuthShell";
 import AuthCard from "@/components/auth/AuthCard";
 import { Button } from "@/components/ui/button";
@@ -46,7 +47,7 @@ export default function ReaderSignUp() {
     const { error } = await signUp(email, password, "reader");
 
     if (error) {
-      setError(error.message);
+      setError(resolveErrorMessage(null, "Registreringen misslyckades. Försök igen."));
       setLoading(false);
     } else {
       setSuccess(true);
@@ -57,7 +58,7 @@ export default function ReaderSignUp() {
     setError("");
     const { error } = await signInWithGoogle();
     if (error) {
-      setError(error.message);
+      setError(resolveErrorMessage(null, "Registreringen misslyckades. Försök igen."));
     }
   };
 

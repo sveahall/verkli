@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { resolveErrorMessage } from "@/lib/error-messages";
 
 type Props = {
   bookId: string;
@@ -38,7 +39,7 @@ export default function PurchaseBookButton({ bookId, amount, currency }: Props) 
       const body = await res.json().catch(() => ({}));
 
       if (!res.ok) {
-        setError(String(body?.error ?? "Could not start checkout"));
+        setError(resolveErrorMessage(body?.error));
         setLoading(false);
         return;
       }
