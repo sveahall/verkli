@@ -10,6 +10,7 @@
     "dev": "npm run -w @verkli/web dev",
     "test": "npm run -w @verkli/web test",
     "build": "npm run -w @verkli/web build",
+    "test": "npm run -w @verkli/web test",
     "start": "npm run -w @verkli/web start",
     "lint": "npm run -w @verkli/web lint",
     "desktop": "electron electron-main.js",
