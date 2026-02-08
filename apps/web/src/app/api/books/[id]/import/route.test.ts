@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { E_INVALID_IMPORT_MODE } from "@/lib/api-errors";
 
 const mocks = vi.hoisted(() => ({
   requireAuthorRoleForApi: vi.fn(),
@@ -82,7 +83,7 @@ describe("POST /api/books/[id]/import", () => {
 
     const body = await res.json();
     expect(res.status).toBe(400);
-    expect(body.error).toContain("Invalid mode");
+    expect(body.error).toBe(E_INVALID_IMPORT_MODE);
     expect(mocks.startScopedBookImport).not.toHaveBeenCalled();
   });
 
