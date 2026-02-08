@@ -91,6 +91,15 @@ export async function POST(
     return apiError(E_INVALID_BOOK_PRICING, 422);
   }
 
+  if (pricing.pricingModel !== "book_only") {
+    console.error("[purchase.checkout] unsupported pricing model", {
+      bookId,
+      userId: user.id,
+      pricingModel: pricing.pricingModel,
+    });
+    return apiError(E_INVALID_BOOK_PRICING, 422);
+  }
+
   const authorId = String(book.author_id ?? "");
   if (authorId === user.id) {
     return apiError(E_AUTHOR_CANNOT_BUY_OWN_BOOK, 400);
@@ -109,6 +118,7 @@ export async function POST(
     bookId,
     bookAuthorId: authorId,
     bookPriceAmount: amount,
+    bookPricingModel: pricing.pricingModel,
   });
 
   if (hasAccess) {
@@ -149,7 +159,7 @@ export async function POST(
       userId: user.id,
       bookId,
       path: `/reader/books/${bookId}`,
-      props: { provider: "stripe", orderId, amount, currency },
+      props: { provider: "stripe", orderId, amount, currency, pricingModel: pricing.pricingModel },
     });
   } catch (error) {
     console.warn("[purchase.checkout] analytics purchase_attempt failed", {
