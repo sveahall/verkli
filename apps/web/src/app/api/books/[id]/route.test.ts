@@ -30,7 +30,7 @@ type BookRow = {
   title: string;
   author_id: string;
   price_amount: number | null;
-  price_currency: string;
+  price_currency: string | null;
   pricing_model: string;
   is_free?: boolean;
   updated_at?: string;
@@ -272,5 +272,70 @@ describe("/api/books/[id] pricing settings", () => {
 
     expect(res.status).toBe(500);
     expect(body.error).toBe(E_INVALID_BOOK_PRICING);
+  });
+
+  it("GET allows free pricing with null currency and normalizes response currency", async () => {
+    const supabase = makeBooksSupabase({
+      book: {
+        id: "book-1",
+        title: "Book",
+        author_id: "author-1",
+        price_amount: 0,
+        price_currency: null,
+        pricing_model: "book_only",
+        is_free: true,
+      },
+    });
+    mocks.createClient.mockResolvedValue(supabase.client);
+
+    const res = await GET(new Request("http://localhost/api/books/book-1"), {
+      params: Promise.resolve({ id: "book-1" }),
+    });
+    const body = await res.json();
+
+    expect(res.status).toBe(200);
+    expect(body.price_amount).toBe(0);
+    expect(body.price_currency).toBe("USD");
+    expect(body.is_free).toBe(true);
+  });
+
+  it("PATCH allows free pricing with null currency and does not return 500", async () => {
+    const supabase = makeBooksSupabase({
+      book: {
+        id: "book-1",
+        title: "Book",
+        author_id: "author-1",
+        price_amount: 0,
+        price_currency: null,
+        pricing_model: "book_only",
+        is_free: true,
+      },
+      updatedBook: {
+        id: "book-1",
+        title: "Book",
+        author_id: "author-1",
+        price_amount: 0,
+        price_currency: null,
+        pricing_model: "book_only",
+        is_free: true,
+        updated_at: "2026-02-09T12:00:00.000Z",
+      },
+    });
+    mocks.createClient.mockResolvedValue(supabase.client);
+
+    const res = await PATCH(
+      new Request("http://localhost/api/books/book-1", {
+        method: "PATCH",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ is_free: true }),
+      }),
+      { params: Promise.resolve({ id: "book-1" }) }
+    );
+    const body = await res.json();
+
+    expect(res.status).toBe(200);
+    expect(body.price_amount).toBe(0);
+    expect(body.price_currency).toBe("USD");
+    expect(body.is_free).toBe(true);
   });
 });

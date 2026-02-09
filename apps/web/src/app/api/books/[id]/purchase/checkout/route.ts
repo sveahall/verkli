@@ -185,6 +185,22 @@ export async function POST(
       },
     });
 
+    const stripeSessionId = String(session.id ?? "").trim();
+    if (!stripeSessionId) {
+      throw new Error("Stripe session id is missing");
+    }
+
+    const { error: orderUpdateError } = await admin
+      .from("orders" as never)
+      .update({ stripe_session_id: stripeSessionId })
+      .eq("id", orderId)
+      .eq("user_id", user.id)
+      .eq("status", "pending");
+
+    if (orderUpdateError) {
+      throw new Error(`Failed to persist stripe_session_id: ${orderUpdateError.message}`);
+    }
+
     return NextResponse.json({
       checkoutUrl: session.url,
       orderId,

@@ -1,117 +1,166 @@
 "use client";
 
-import * as React from "react";
-import { cn } from "@/lib/utils";
+import {
+  createContext,
+  useContext,
+  useCallback,
+  useState,
+  useRef,
+  useEffect,
+  type ReactNode,
+} from "react";
 
-export type ToastProps = React.HTMLAttributes<HTMLDivElement> & {
-  title?: string;
-  description?: string;
-  variant?: "success" | "error" | "info";
-  action?: React.ReactNode;
+export type ToastVariant = "success" | "error" | "info" | "warning";
+
+export interface ToastItem {
+  id: string;
+  message: string;
+  variant: ToastVariant;
+  duration: number;
+}
+
+export interface ToastOptions {
+  variant?: ToastVariant;
+  duration?: number;
+}
+
+interface ToastContextValue {
+  toasts: ToastItem[];
+  toast: (message: string, options?: ToastOptions) => void;
+  dismiss: (id: string) => void;
+  dismissAll: () => void;
+}
+
+const ToastContext = createContext<ToastContextValue | null>(null);
+
+export function useToast() {
+  const context = useContext(ToastContext);
+  if (!context) {
+    throw new Error("useToast must be used within a ToastProvider");
+  }
+  return context;
+}
+
+function CheckIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+      <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.857-9.809a.75.75 0 00-1.214-.882l-3.483 4.79-1.88-1.88a.75.75 0 10-1.06 1.061l2.5 2.5a.75.75 0 001.137-.089l4-5.5z" clipRule="evenodd" />
+    </svg>
+  );
+}
+
+function ErrorIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+      <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.28 7.22a.75.75 0 00-1.06 1.06L8.94 10l-1.72 1.72a.75.75 0 101.06 1.06L10 11.06l1.72 1.72a.75.75 0 101.06-1.06L11.06 10l1.72-1.72a.75.75 0 00-1.06-1.06L10 8.94 8.28 7.22z" clipRule="evenodd" />
+    </svg>
+  );
+}
+
+function InfoIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+      <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a.75.75 0 000 1.5h.253a.25.25 0 01.244.304l-.459 2.066A1.75 1.75 0 0010.747 15H11a.75.75 0 000-1.5h-.253a.25.25 0 01-.244-.304l.459-2.066A1.75 1.75 0 009.253 9H9z" clipRule="evenodd" />
+    </svg>
+  );
+}
+
+function WarningIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+      <path fillRule="evenodd" d="M8.485 2.495c.673-1.167 2.357-1.167 3.03 0l6.28 10.875c.673 1.167-.17 2.625-1.516 2.625H3.72c-1.347 0-2.189-1.458-1.515-2.625L8.485 2.495zM10 5a.75.75 0 01.75.75v3.5a.75.75 0 01-1.5 0v-3.5A.75.75 0 0110 5zm0 9a1 1 0 100-2 1 1 0 000 2z" clipRule="evenodd" />
+    </svg>
+  );
+}
+
+function CloseIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+      <path d="M6.28 5.22a.75.75 0 00-1.06 1.06L8.94 10l-3.72 3.72a.75.75 0 101.06 1.06L10 11.06l3.72 3.72a.75.75 0 101.06-1.06L11.06 10l3.72-3.72a.75.75 0 00-1.06-1.06L10 8.94 6.28 5.22z" />
+    </svg>
+  );
+}
+
+const variantStyles: Record<ToastVariant, { container: string; icon: string }> = {
+  success: { container: "bg-emerald-50 dark:bg-emerald-950/50 border-emerald-200 dark:border-emerald-800", icon: "text-emerald-500 dark:text-emerald-400" },
+  error: { container: "bg-red-50 dark:bg-red-950/50 border-red-200 dark:border-red-800", icon: "text-red-500 dark:text-red-400" },
+  info: { container: "bg-blue-50 dark:bg-blue-950/50 border-blue-200 dark:border-blue-800", icon: "text-blue-500 dark:text-blue-400" },
+  warning: { container: "bg-amber-50 dark:bg-amber-950/50 border-amber-200 dark:border-amber-800", icon: "text-amber-500 dark:text-amber-400" },
 };
 
-const toastVariants: Record<NonNullable<ToastProps["variant"]>, string> = {
-  success: "border-emerald-200/80 bg-emerald-50/80 text-emerald-900 dark:border-emerald-500/30 dark:bg-emerald-500/10 dark:text-emerald-100",
-  error: "border-red-200/80 bg-red-50/80 text-red-900 dark:border-red-500/30 dark:bg-red-500/10 dark:text-red-100",
-  info: "border-slate-200/80 bg-white text-slate-900 dark:border-white/10 dark:bg-white/5 dark:text-white",
+const variantIcons: Record<ToastVariant, typeof CheckIcon> = {
+  success: CheckIcon,
+  error: ErrorIcon,
+  info: InfoIcon,
+  warning: WarningIcon,
 };
 
-export function Toast({
-  title,
-  description,
-  variant = "info",
-  action,
-  className,
-  ...props
-}: ToastProps) {
+function ToastItemComponent({ toast, onDismiss }: { toast: ToastItem; onDismiss: (id: string) => void }) {
+  const [isExiting, setIsExiting] = useState(false);
+  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const handleDismiss = useCallback(() => {
+    setIsExiting(true);
+    setTimeout(() => onDismiss(toast.id), 150);
+  }, [onDismiss, toast.id]);
+  useEffect(() => {
+    if (toast.duration > 0) timerRef.current = setTimeout(handleDismiss, toast.duration);
+    return () => { if (timerRef.current) clearTimeout(timerRef.current); };
+  }, [toast.duration, handleDismiss]);
+  const styles = variantStyles[toast.variant];
+  const Icon = variantIcons[toast.variant];
   return (
     <div
-      role={variant === "error" ? "alert" : "status"}
-      aria-live={variant === "error" ? "assertive" : "polite"}
-      className={cn(
-        "flex w-full max-w-md items-start justify-between gap-4 rounded-2xl border px-4 py-3 text-[14px] shadow-[0_12px_30px_rgba(15,23,42,0.1)]",
-        toastVariants[variant],
-        className
-      )}
-      {...props}
+      role="alert"
+      aria-live="polite"
+      className={`pointer-events-auto flex w-full max-w-sm items-start gap-3 rounded-xl border px-4 py-3 shadow-lg backdrop-blur-sm transition-all duration-150 ease-out ${styles.container} ${isExiting ? "translate-x-full opacity-0" : "translate-x-0 opacity-100"}`}
     >
-      <div className="space-y-1">
-        {title && <div className="text-[14px] font-semibold">{title}</div>}
-        {description && <p className="text-[13px] opacity-80">{description}</p>}
-      </div>
-      {action && <div className="flex items-center gap-2">{action}</div>}
+      <Icon className={`mt-0.5 h-5 w-5 flex-shrink-0 ${styles.icon}`} />
+      <p className="flex-1 text-sm font-medium text-gray-900 dark:text-gray-100">{toast.message}</p>
+      <button type="button" onClick={handleDismiss} className="flex-shrink-0 rounded-md p-1 text-gray-400 hover:text-gray-600 dark:text-gray-300 focus:outline-none focus:ring-2 focus:ring-gray-400 focus:ring-offset-2" aria-label="Dismiss">
+        <CloseIcon className="h-4 w-4" />
+      </button>
     </div>
   );
 }
 
-// ─── Toast context and provider for imperative toasts ────────────────────────
-
-type ToastItem = {
-  id: number;
-  title: string;
-  description?: string;
-  variant: "success" | "error" | "info";
-};
-
-type ToastContextValue = {
-  success: (title: string, description?: string) => void;
-  error: (title: string, description?: string) => void;
-  info: (title: string, description?: string) => void;
-};
-
-const ToastContext = React.createContext<ToastContextValue | null>(null);
-
-const TOAST_DURATION_MS = 5000;
-
-export function ToastProvider({ children }: { children: React.ReactNode }) {
-  const [toasts, setToasts] = React.useState<ToastItem[]>([]);
-  const idRef = React.useRef(0);
-
-  const addToast = React.useCallback(
-    (variant: "success" | "error" | "info") =>
-      (title: string, description?: string) => {
-        const id = ++idRef.current;
-        setToasts((prev) => [...prev, { id, title, description, variant }]);
-        setTimeout(() => {
-          setToasts((prev) => prev.filter((t) => t.id !== id));
-        }, TOAST_DURATION_MS);
-      },
-    []
-  );
-
-  const value = React.useMemo<ToastContextValue>(
-    () => ({
-      success: addToast("success"),
-      error: addToast("error"),
-      info: addToast("info"),
-    }),
-    [addToast]
-  );
-
+function ToastContainer({ toasts, onDismiss }: { toasts: ToastItem[]; onDismiss: (id: string) => void }) {
+  if (toasts.length === 0) return null;
   return (
-    <ToastContext.Provider value={value}>
+    <div aria-label="Notifications" className="pointer-events-none fixed inset-0 z-[9999] flex flex-col items-end justify-start gap-3 p-4 sm:p-6">
+      {toasts.map((t) => <ToastItemComponent key={t.id} toast={t} onDismiss={onDismiss} />)}
+    </div>
+  );
+}
+
+const DEFAULT_DURATION = 4000;
+const MAX_TOASTS = 5;
+let toastIdCounter = 0;
+function generateId() {
+  return `toast-${++toastIdCounter}-${Date.now()}`;
+}
+
+export function ToastProvider({ children }: { children: ReactNode }) {
+  const [toasts, setToasts] = useState<ToastItem[]>([]);
+  const dismiss = useCallback((id: string) => setToasts((prev) => prev.filter((t) => t.id !== id)), []);
+  const dismissAll = useCallback(() => setToasts([]), []);
+  const toast = useCallback((message: string, options?: ToastOptions) => {
+    const newToast: ToastItem = { id: generateId(), message, variant: options?.variant ?? "info", duration: options?.duration ?? DEFAULT_DURATION };
+    setToasts((prev) => [...prev, newToast].slice(-MAX_TOASTS));
+  }, []);
+  return (
+    <ToastContext.Provider value={{ toasts, toast, dismiss, dismissAll }}>
       {children}
-      <div
-        className="fixed bottom-6 right-6 z-[9999] flex flex-col gap-2"
-        aria-live="polite"
-      >
-        {toasts.map((t) => (
-          <Toast
-            key={t.id}
-            variant={t.variant}
-            title={t.title}
-            description={t.description}
-          />
-        ))}
-      </div>
+      <ToastContainer toasts={toasts} onDismiss={dismiss} />
     </ToastContext.Provider>
   );
 }
 
-export function useToastHelpers(): ToastContextValue {
-  const ctx = React.useContext(ToastContext);
-  if (!ctx) {
-    throw new Error("useToastHelpers must be used within a ToastProvider");
-  }
-  return ctx;
+export function useToastHelpers() {
+  const { toast } = useToast();
+  return {
+    success: (message: string, duration?: number) => toast(message, { variant: "success", duration }),
+    error: (message: string, duration?: number) => toast(message, { variant: "error", duration }),
+    info: (message: string, duration?: number) => toast(message, { variant: "info", duration }),
+    warning: (message: string, duration?: number) => toast(message, { variant: "warning", duration }),
+  };
 }
