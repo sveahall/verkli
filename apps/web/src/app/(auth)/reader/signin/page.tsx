@@ -103,7 +103,7 @@ export default function ReaderSignIn() {
               placeholder="you@example.com"
               autoComplete="email"
               required
-              invalid={Boolean(fieldErrors.email)}
+
             />
           </FormField>
 
@@ -115,7 +115,7 @@ export default function ReaderSignIn() {
               placeholder="••••••••"
               autoComplete="current-password"
               required
-              invalid={Boolean(fieldErrors.password)}
+
             />
           </FormField>
 

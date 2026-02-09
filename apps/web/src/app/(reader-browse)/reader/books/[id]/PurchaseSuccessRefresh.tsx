@@ -7,13 +7,13 @@ export default function PurchaseSuccessRefresh() {
   const router = useRouter();
 
   useEffect(() => {
-    const t = setTimeout(() => router.refresh(), 1500);
+    const t = setTimeout(() => router.refresh(), 2500);
     return () => clearTimeout(t);
   }, [router]);
 
   return (
     <p className="mt-2 text-emerald-700 dark:text-emerald-300">
-      Betalning genomförd. Uppdaterar åtkomst…
+      Payment complete. Updating access…
     </p>
   );
 }
