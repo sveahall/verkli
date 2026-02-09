@@ -1,8 +1,10 @@
 import { makeVideo, type TextToVideoOptions } from "@/lib/ai/textToVideo";
 import { NextResponse } from "next/server";
 import { requireAuthorRoleForApi } from "@/lib/auth/require-author";
+import { requireProBillingForApi } from "@/lib/billing/server";
 import {
   apiError,
+  E_UNAUTHORIZED,
   E_PROMPT_TEXT_REQUIRED,
   E_TEXT_TO_VIDEO_FAILED,
 } from "@/lib/api-errors";
@@ -26,8 +28,12 @@ function parseBody(body: unknown): Partial<TextToVideoOptions> | null {
 
 export async function POST(req: Request) {
   // SECURITY: Require author role - this endpoint uses paid Runway credits
-  const { response } = await requireAuthorRoleForApi();
+  const { user, response } = await requireAuthorRoleForApi();
   if (response) return response;
+  if (!user) return apiError(E_UNAUTHORIZED, 401);
+
+  const proGate = await requireProBillingForApi(user.id);
+  if (!proGate.ok) return proGate.response;
 
   try {
     let options: Partial<TextToVideoOptions> = {};

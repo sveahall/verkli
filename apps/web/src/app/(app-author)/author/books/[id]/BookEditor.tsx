@@ -12,6 +12,7 @@ import DeleteBookButton from "@/components/books/DeleteBookButton";
 import { BookJobsBanner } from "@/components/books/JobStatusBanner";
 import { useToastHelpers } from "@/components/ui/toast";
 import { useBookJobs, type UnifiedJob } from "@/hooks/useBookJobs";
+import { useBillingState } from "@/hooks/useBillingState";
 import { resolveErrorMessage } from "@/lib/error-messages";
 import { getAudiobookEnabled, getMarketingEnabled, getTranslationsEnabled } from "@/lib/flags";
 import { getLanguageLabel, LANGUAGE_OPTIONS, normalizeLanguage, type SupportedLanguage } from "@/lib/languages";
@@ -520,6 +521,7 @@ export default function BookEditor({
   const [pricingSaved, setPricingSaved] = useState(false);
 
   const { jobs: allJobs, job: bookJob, loading: jobLoading, error: jobError, refetch: refetchBookJob, settled: jobsSettled } = useBookJobs(book.id);
+  const billing = useBillingState();
 
   // Jobbar som ska visas i banner: aldrig audiobook när funktionen är avstängd
   const jobsForBanner = useMemo(
@@ -788,6 +790,12 @@ export default function BookEditor({
     : hasGeneratedAudiobookAsset
       ? "published"
       : (book.audiobook_status ?? "not_started");
+  const isProFeatureLocked = billing.loading || !billing.isProActive;
+  const proFeatureLockMessage = billing.loading
+    ? "Kontrollerar abonnemang…"
+    : billing.pastDue
+      ? "Din prenumeration är past_due. Uppdatera betalningen för att låsa upp funktionen."
+      : "Verkli Pro krävs för denna funktion.";
 
   const startTranslationPoll = useCallback(() => {
     stopTranslationPoll();
@@ -1510,6 +1518,21 @@ export default function BookEditor({
           </div>
         ) : null}
 
+        {billing.pastDue && (
+          <div
+            className="mb-6 rounded-xl border border-red-200 bg-red-50 px-4 py-3 dark:border-red-900/40 dark:bg-red-950/30"
+            role="alert"
+          >
+            <p className="text-sm text-red-800 dark:text-red-200">
+              Din prenumeration är <strong>past_due</strong>. Betalfunktioner är låsta tills betalningen uppdateras.{" "}
+              <Link href="/account/billing" className="underline">
+                Hantera abonnemang
+              </Link>
+              .
+            </p>
+          </div>
+        )}
+
         <nav className="mb-6 flex flex-wrap gap-2 border-b border-slate-200 dark:border-white/10 pb-3" aria-label="Bokeditor: välj vy">
           <Link
             href={`/author/books/${book.id}${activeVersion ? `?lang=${normalizeLangKey(activeVersion.language_code)}` : ""}`}
@@ -2070,11 +2093,29 @@ export default function BookEditor({
                 <button
                   type="button"
                   onClick={handleStartTranslation}
-                  disabled={isStartingTranslation}
+                  disabled={isStartingTranslation || isProFeatureLocked}
                   className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed dark:border-white/20 dark:bg-white/10 dark:text-white dark:hover:bg-white/15"
                 >
-                  {isStartingTranslation ? "Startar…" : "Starta översättning"}
+                  {isStartingTranslation
+                    ? "Startar…"
+                    : isProFeatureLocked
+                      ? billing.loading
+                        ? "Kontrollerar abonnemang…"
+                        : billing.pastDue
+                          ? "Låst: betalning krävs"
+                          : "Starta översättning (Pro krävs)"
+                      : "Starta översättning"}
                 </button>
+                {isProFeatureLocked && (
+                  <div className="mt-2 rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-800 dark:border-amber-700 dark:bg-amber-950/30 dark:text-amber-200">
+                    {proFeatureLockMessage}{" "}
+                    {!billing.loading && (
+                      <Link href="/account/billing" className="underline">
+                        Hantera abonnemang
+                      </Link>
+                    )}
+                  </div>
+                )}
                 {currentTargetVersion && (
                   <button
                     type="button"
@@ -2273,17 +2314,34 @@ export default function BookEditor({
               <button
                 type="button"
                 onClick={handleGenerateAudiobook}
-                disabled={isAudiobookActive || !audiobookFeatureEnabled}
+                disabled={isAudiobookActive || !audiobookFeatureEnabled || isProFeatureLocked}
                 className="mb-2 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-50 disabled:opacity-50 dark:border-white/20 dark:bg-white/10 dark:text-white dark:hover:bg-white/15"
               >
                 {!audiobookFeatureEnabled
                   ? "Skapa ljudbok (otillgänglig)"
+                  : isProFeatureLocked
+                  ? billing.loading
+                    ? "Kontrollerar abonnemang…"
+                    : billing.pastDue
+                      ? "Låst: betalning krävs"
+                      : "Skapa ljudbok (Pro krävs)"
                   : isAudiobookActive
                   ? effectiveAudiobookProgress
                     ? `Skapas (${effectiveAudiobookProgress.completedChapters}/${effectiveAudiobookProgress.totalChapters})…`
                     : "I kö…"
                   : "Skapa ljudbok"}
               </button>
+
+              {audiobookFeatureEnabled && isProFeatureLocked && (
+                <div className="mb-2 rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-800 dark:border-amber-700 dark:bg-amber-950/30 dark:text-amber-200">
+                  {proFeatureLockMessage}{" "}
+                  {!billing.loading && (
+                    <Link href="/account/billing" className="underline">
+                      Hantera abonnemang
+                    </Link>
+                  )}
+                </div>
+              )}
 
               {!audiobookFeatureEnabled && (
                 <p className="mb-2 text-xs text-slate-600 dark:text-white/60" role="status">
@@ -2357,11 +2415,29 @@ export default function BookEditor({
               <button
                 type="button"
                 onClick={handleGenerateMarketingCopy}
-                disabled={isGeneratingMarketing}
+                disabled={isGeneratingMarketing || isProFeatureLocked}
                 className="mb-3 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-50 disabled:opacity-50 dark:border-white/20 dark:bg-white/10 dark:text-white dark:hover:bg-white/15"
               >
-                {isGeneratingMarketing ? "Skapas…" : "Generera lanseringstext"}
+                {isGeneratingMarketing
+                  ? "Skapas…"
+                  : isProFeatureLocked
+                    ? billing.loading
+                      ? "Kontrollerar abonnemang…"
+                      : billing.pastDue
+                        ? "Låst: betalning krävs"
+                        : "Generera lanseringstext (Pro krävs)"
+                    : "Generera lanseringstext"}
               </button>
+              {isProFeatureLocked && (
+                <div className="mb-3 rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-800 dark:border-amber-700 dark:bg-amber-950/30 dark:text-amber-200">
+                  {proFeatureLockMessage}{" "}
+                  {!billing.loading && (
+                    <Link href="/account/billing" className="underline">
+                      Hantera abonnemang
+                    </Link>
+                  )}
+                </div>
+              )}
               {currentCampaign && (
                 <div className="space-y-2">
                   {currentCampaign.headline && (

@@ -5,6 +5,7 @@ import { detectLanguageFromText } from "@/lib/language-detect";
 import { isSupportedLanguage, normalizeLanguageOrNull } from "@/lib/languages";
 import { assertPublicEnv } from "@/lib/env";
 import { requireAuthorRoleForApi } from "@/lib/auth/require-author";
+import { requireProBillingForApi } from "@/lib/billing/server";
 import { isTranslationsEnabled } from "@/lib/flags";
 import {
   apiError,
@@ -73,6 +74,9 @@ export async function POST(
   // SECURITY: Require author role for book translation
   const { user, response } = await requireAuthorRoleForApi();
   if (response) return response;
+
+  const proGate = await requireProBillingForApi(user.id);
+  if (!proGate.ok) return proGate.response;
 
   const supabase = await createClient();
   const { data: book, error: bookError } = await supabase

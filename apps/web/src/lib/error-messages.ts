@@ -67,6 +67,12 @@ const ERROR_MESSAGES: Record<string, string> = {
   ALREADY_UNLOCKED: "Du har redan tillgång till denna bok.",
   CHECKOUT_START_FAILED: "Kunde inte starta betalning.",
   CHECKOUT_SESSION_FAILED: "Betalningssessionen misslyckades.",
+  INVALID_BILLING_PLAN: "Ogiltig abonnemangsplan.",
+  BILLING_CONFIG_MISSING: "Betalningskonfiguration saknas.",
+  BILLING_CHECKOUT_FAILED: "Kunde inte starta abonnemangskassan.",
+  BILLING_PORTAL_FAILED: "Kunde inte öppna abonnemangsportalen.",
+  PRO_SUBSCRIPTION_REQUIRED: "Pro-abonnemang krävs för denna funktion.",
+  SUBSCRIPTION_PAST_DUE: "Din betalning är försenad. Uppdatera abonnemanget för att fortsätta.",
 
   // Jobs
   JOB_FETCH_FAILED: "Kunde inte hämta jobbstatus.",

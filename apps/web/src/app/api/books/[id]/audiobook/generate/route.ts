@@ -4,6 +4,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { assertPublicEnv } from "@/lib/env";
 import { isAudiobookEnabled } from "@/lib/flags";
 import { requireAuthorRoleForApi } from "@/lib/auth/require-author";
+import { requireProBillingForApi } from "@/lib/billing/server";
 import { enqueueAudiobookJob } from "@/lib/audiobook-queue";
 import {
   apiError,
@@ -104,6 +105,9 @@ export async function POST(
   // SECURITY: Require author role
   const { user, response } = await requireAuthorRoleForApi();
   if (response) return response;
+
+  const proGate = await requireProBillingForApi(user.id);
+  if (!proGate.ok) return proGate.response;
 
   const supabase = await createClient();
   const admin = createAdminClient();
