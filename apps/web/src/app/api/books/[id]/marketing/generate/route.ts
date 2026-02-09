@@ -4,6 +4,7 @@ import { assertPublicEnv } from "@/lib/env";
 import { isMarketingEnabled } from "@/lib/flags";
 import { getLanguageLabel, normalizeLanguage } from "@/lib/languages";
 import { requireAuthorRoleForApi } from "@/lib/auth/require-author";
+import { requireProBillingForApi } from "@/lib/billing/server";
 import {
   apiError,
   E_BOOK_NOT_FOUND,
@@ -31,6 +32,9 @@ export async function POST(
   // SECURITY: Require author role for marketing generation
   const { user, response } = await requireAuthorRoleForApi();
   if (response) return response;
+
+  const proGate = await requireProBillingForApi(user.id);
+  if (!proGate.ok) return proGate.response;
 
   const supabase = await createClient();
   const body = await request.json().catch(() => ({}));

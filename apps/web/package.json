@@ -19,8 +19,8 @@
     "seed": "tsx scripts/seed.ts"
   },
   "dependencies": {
-    "@runwayml/sdk": "^3.11.0",
     "@floating-ui/dom": "^1.6.13",
+    "@runwayml/sdk": "^3.11.0",
     "@supabase/ssr": "^0.5.2",
     "@supabase/supabase-js": "^2.47.10",
     "@tiptap/extension-font-family": "^3.18.0",
@@ -47,6 +47,7 @@
     "react": "19.2.3",
     "react-dom": "19.2.3",
     "resend": "^6.9.1",
+    "stripe": "^17.7.0",
     "tailwind-merge": "^3.4.0"
   },
   "devDependencies": {
