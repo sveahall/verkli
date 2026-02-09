@@ -60,6 +60,7 @@ function makeSupabaseClient(book: Record<string, unknown> | null) {
 function makeAdminClient() {
   const state = {
     insertedOrder: null as Record<string, unknown> | null,
+    updatePayloads: [] as Record<string, unknown>[],
   };
 
   const ordersInsertSelectSingle = vi.fn(async () => ({ data: { id: "order-1" }, error: null }));
@@ -76,9 +77,12 @@ function makeAdminClient() {
               })),
             };
           }),
-          update: vi.fn(() => ({
-            eq: vi.fn(() => ({ eq: vi.fn(() => ({ eq: vi.fn(async () => ({ error: null })) })) })),
-          })),
+          update: vi.fn((payload: Record<string, unknown>) => {
+            state.updatePayloads.push(payload);
+            return {
+              eq: vi.fn(() => ({ eq: vi.fn(() => ({ eq: vi.fn(async () => ({ error: null })) })) })),
+            };
+          }),
         };
       }
 
@@ -123,6 +127,7 @@ describe("POST /api/books/[id]/purchase/checkout", () => {
 
     expect(res.status).toBe(200);
     expect(admin.state.insertedOrder).toMatchObject({ amount: 1299, currency: "SEK" });
+    expect(admin.state.updatePayloads).toContainEqual({ stripe_session_id: "cs_test_1" });
     expect(mocks.canUserReadBook).toHaveBeenCalledWith(
       expect.objectContaining({
         bookId: "book-1",

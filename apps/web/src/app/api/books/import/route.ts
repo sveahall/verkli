@@ -130,7 +130,7 @@ export async function POST(request: Request) {
     return apiError(E_IMPORT_FILE_STORAGE_FAILED, 500);
   }
 
-  await supabase
+  const { error: updatePathError } = await supabase
     .from("book_imports")
     .update({
       file_path: store.filePath,
@@ -139,6 +139,19 @@ export async function POST(request: Request) {
       error_message: null,
     })
     .eq("id", importRow.id);
+
+  if (updatePathError) {
+    console.error("[book-import.legacy] file_path update failed", {
+      userId: user.id,
+      importId: importRow.id,
+      message: updatePathError.message,
+    });
+    await supabase
+      .from("book_imports")
+      .update({ status: "failed", error_message: updatePathError.message })
+      .eq("id", importRow.id);
+    return apiError(E_IMPORT_RECORD_CREATION_FAILED, 500);
+  }
 
   let jobId: string | null = null;
   try {
@@ -159,10 +172,16 @@ export async function POST(request: Request) {
   }
 
   if (!jobId) {
-    console.warn("[book-import.legacy] REDIS_URL not set or Redis unreachable", {
+    const queueError = "Queue unavailable";
+    console.error("[book-import.legacy] enqueue failed; queue unavailable", {
       userId: user.id,
       importId: importRow.id,
     });
+    await supabase
+      .from("book_imports")
+      .update({ status: "failed", error_message: queueError })
+      .eq("id", importRow.id);
+    return apiError(E_IMPORT_RECORD_CREATION_FAILED, 500);
   }
 
   return NextResponse.json({
@@ -171,8 +190,6 @@ export async function POST(request: Request) {
     status: "pending",
     progress: 0,
     mode,
-    message: jobId
-      ? "Import queued"
-      : "Import created; start Redis and run the worker to process (see server log).",
+    message: "Import queued",
   });
 }

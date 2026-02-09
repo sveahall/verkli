@@ -61,15 +61,16 @@ function normalizeStoredPricing(row: BookSettingsRow): NormalizedStoredPricing |
   const amount = normalizePriceAmount(row.price_amount);
   if (amount != null && amount < 0) return null;
 
+  const isFree = isFreePriceAmount(amount);
   const currency = normalizePriceCurrency(row.price_currency);
-  if (!currency) return null;
+  if (!isFree && !currency) return null;
 
-  const model = normalizePricingModel(row.pricing_model);
+  const model = normalizePricingModel(row.pricing_model ?? "book_only");
   if (!model) return null;
 
   return {
     priceAmount: amount,
-    priceCurrency: currency,
+    priceCurrency: currency ?? "USD",
     pricingModel: model,
   };
 }
