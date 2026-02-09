@@ -19,8 +19,8 @@ export interface SelectProps extends SelectHTMLAttributes<HTMLSelectElement> {
   error?: string;
   /** Hint text displayed below the select (hidden when error is shown) */
   hint?: string;
-  /** Options for the select (or pass children instead) */
-  options?: SelectOption[];
+  /** Options for the select */
+  options: SelectOption[];
   /** Placeholder option (first disabled option) */
   placeholder?: string;
   /** Size variant */
@@ -80,7 +80,6 @@ export const Select = forwardRef<HTMLSelectElement, SelectProps>(
       startIcon,
       className = "",
       id,
-      children,
       ...props
     },
     ref
@@ -131,17 +130,15 @@ export const Select = forwardRef<HTMLSelectElement, SelectProps>(
                 {placeholder}
               </option>
             )}
-            {options
-              ? options.map((option) => (
-                  <option
-                    key={option.value}
-                    value={option.value}
-                    disabled={option.disabled}
-                  >
-                    {option.label}
-                  </option>
-                ))
-              : children}
+            {options.map((option) => (
+              <option
+                key={option.value}
+                value={option.value}
+                disabled={option.disabled}
+              >
+                {option.label}
+              </option>
+            ))}
           </select>
           <div
             className={`pointer-events-none absolute inset-y-0 flex items-center text-slate-400 dark:text-white/40 ${iconSizeStyles[selectSize]}`}
