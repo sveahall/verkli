@@ -103,7 +103,6 @@ export default function AuthorSignIn() {
               placeholder="you@example.com"
               autoComplete="email"
               required
-              invalid={Boolean(fieldErrors.email)}
             />
           </FormField>
 
@@ -115,7 +114,6 @@ export default function AuthorSignIn() {
               placeholder="••••••••"
               autoComplete="current-password"
               required
-              invalid={Boolean(fieldErrors.password)}
             />
           </FormField>
 

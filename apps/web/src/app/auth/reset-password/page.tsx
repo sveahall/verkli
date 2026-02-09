@@ -97,7 +97,7 @@ export default function ResetPassword() {
                 placeholder="••••••••"
                 autoComplete="new-password"
                 required
-                invalid={Boolean(fieldErrors.password)}
+
               />
             </FormField>
 
@@ -109,7 +109,7 @@ export default function ResetPassword() {
                 placeholder="••••••••"
                 autoComplete="new-password"
                 required
-                invalid={Boolean(fieldErrors.confirm)}
+
               />
             </FormField>
 

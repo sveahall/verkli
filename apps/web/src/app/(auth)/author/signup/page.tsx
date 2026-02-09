@@ -106,7 +106,7 @@ export default function AuthorSignUp() {
               placeholder="you@example.com"
               autoComplete="email"
               required
-              invalid={Boolean(fieldErrors.email)}
+
             />
           </FormField>
 
@@ -118,7 +118,7 @@ export default function AuthorSignUp() {
               placeholder="••••••••"
               autoComplete="new-password"
               required
-              invalid={Boolean(fieldErrors.password)}
+
             />
           </FormField>
 
@@ -130,7 +130,7 @@ export default function AuthorSignUp() {
               placeholder="••••••••"
               autoComplete="new-password"
               required
-              invalid={Boolean(fieldErrors.confirmPassword)}
+
             />
           </FormField>
 

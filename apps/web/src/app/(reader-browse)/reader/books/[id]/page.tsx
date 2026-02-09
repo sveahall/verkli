@@ -248,19 +248,27 @@ export default async function ReaderBookDetail({
             {book.description || "No description yet."}
           </p>
 
+          {purchaseState === "success" ? (
+            <div className="mt-6 rounded-2xl border border-emerald-500/30 bg-emerald-500/10 p-4 text-sm text-emerald-900 dark:text-emerald-200">
+              <PurchaseSuccessRefresh />
+            </div>
+          ) : purchaseState === "failed" ? (
+            <div className="mt-6 rounded-2xl border border-rose-500/30 bg-rose-500/10 p-4 text-sm">
+              <p className="font-semibold text-rose-700 dark:text-rose-300">Payment verification failed.</p>
+              <p className="mt-1 text-rose-700 dark:text-rose-300">Try again or contact support.</p>
+            </div>
+          ) : purchaseState === "cancelled" ? (
+            <div className="mt-6 rounded-2xl border border-slate-300/50 bg-slate-100 p-4 text-sm text-slate-700 dark:border-white/10 dark:bg-white/5 dark:text-white/60">
+              Checkout cancelled. You can try again anytime.
+            </div>
+          ) : null}
+
           {!hasReadAccess && !isFreeBook ? (
             <div className="mt-6 rounded-2xl border border-amber-500/30 bg-amber-500/10 p-4 text-sm text-amber-900 dark:text-amber-200">
               <p className="font-semibold">This book is locked.</p>
               <p className="mt-1">
-                Buy once to unlock full reading access. Price: {formatMoney(priceAmount, priceCurrency)}.
+                Unlock with a single purchase for full reading access. Price: {formatMoney(priceAmount, priceCurrency)}.
               </p>
-              {purchaseState === "success" ? <PurchaseSuccessRefresh /> : null}
-              {purchaseState === "failed" ? (
-                <p className="mt-2 text-rose-700 dark:text-rose-300">Payment verification failed. Try again.</p>
-              ) : null}
-              {purchaseState === "cancelled" ? (
-                <p className="mt-2 text-slate-700 dark:text-slate-300">Checkout cancelled.</p>
-              ) : null}
             </div>
           ) : null}
 
