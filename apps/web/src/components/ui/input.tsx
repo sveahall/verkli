@@ -21,8 +21,6 @@ export interface InputProps extends InputHTMLAttributes<HTMLInputElement> {
   inputSize?: "sm" | "md" | "lg";
   /** Full width */
   fullWidth?: boolean;
-  /** Mark as invalid (maps to aria-invalid) */
-  invalid?: boolean;
 }
 
 /* ─────────────────────────────────────────────────────────────────────────────
@@ -49,7 +47,6 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(
       endIcon,
       inputSize = "md",
       fullWidth = false,
-      invalid,
       className = "",
       id,
       ...props
@@ -58,7 +55,7 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(
   ) => {
     const generatedId = useId();
     const inputId = id || props.name || generatedId;
-    const hasError = !!error || !!invalid;
+    const hasError = !!error;
 
     return (
       <div className={`flex flex-col gap-1 ${fullWidth ? "w-full" : ""}`}>
