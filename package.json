@@ -8,8 +8,9 @@
   ],
   "scripts": {
     "dev": "npm run -w @verkli/web dev",
-    "test": "npm run -w @verkli/web test",
     "build": "npm run -w @verkli/web build",
+    "build:ci": "rm -rf apps/web/.next && npm run -w @verkli/web build",
+    "clean": "rm -rf apps/web/.next",
     "test": "npm run -w @verkli/web test",
     "start": "npm run -w @verkli/web start",
     "lint": "npm run -w @verkli/web lint",
