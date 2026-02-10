@@ -6,12 +6,14 @@
 import "./load-dotenv";
 import { assertServerEnv, getRedisConnectionOptions } from "../src/lib/env";
 
-import { Worker } from "bullmq";
+import { Worker, UnrecoverableError } from "bullmq";
 import { createAdminClient } from "../src/lib/supabase/admin";
 import type { TranslationJobData } from "../src/lib/translation-queue";
 import { translateText, sanitizeOpusOutput } from "../src/lib/opus";
 import { contentHash } from "../src/lib/import-extract";
 import { normalizeLanguageOrNull } from "../src/lib/languages";
+import { isDuplicate } from "../src/lib/workers/idempotency";
+import { checkBudget, trackUsage, BudgetExceededError } from "../src/lib/workers/budget";
 
 const QUEUE_NAME = "book-translation";
 
@@ -114,6 +116,32 @@ async function processJob(payload: TranslationJobData) {
   );
 
   try {
+    // Processor-level dedupe: skip if translation version already exists with chapters
+    // (unless overwrite is requested)
+    if (!overwrite) {
+      const normalizedTargetForDedupe = normalizeLanguageOrNull(targetLanguage);
+      const alreadyDone = await isDuplicate(async () => {
+        if (!normalizedTargetForDedupe) return false;
+        const { data: existingVersion } = await supabase
+          .from("book_versions")
+          .select("id, status")
+          .eq("book_id", bookId)
+          .eq("language_code", normalizedTargetForDedupe)
+          .maybeSingle();
+        if (!existingVersion || existingVersion.status !== "done") return false;
+        const { count } = await supabase
+          .from("chapters")
+          .select("id", { count: "exact", head: true })
+          .eq("book_version_id", existingVersion.id);
+        return (count ?? 0) > 0;
+      }, `translation:${bookId}:${targetLanguage}`);
+
+      if (alreadyDone) {
+        console.log("[translation worker] dedupe skip — translation already done");
+        return;
+      }
+    }
+
     const { data: book, error: bookFetchError } = await supabase
       .from("books")
       .select("id, title, slug, author_id, original_language, language")
@@ -121,12 +149,29 @@ async function processJob(payload: TranslationJobData) {
       .single();
 
     if (bookFetchError || !book) {
-      throw new Error(bookFetchError?.message ?? "Book not found");
+      throw new UnrecoverableError(bookFetchError?.message ?? "Book not found");
     }
 
     // Auth isolation: verify payload authorId matches book owner
     if (payload.authorId && book.author_id !== payload.authorId) {
-      throw new Error("Ownership mismatch: authorId does not match book owner");
+      throw new UnrecoverableError("Ownership mismatch: authorId does not match book owner");
+    }
+
+    // Budget gate: check token budget before AI call
+    const budgetKey = payload.authorId ?? book.author_id;
+    if (budgetKey) {
+      try {
+        checkBudget(budgetKey);
+      } catch (err) {
+        if (err instanceof BudgetExceededError) {
+          console.warn("[translation worker] budget exceeded for:", budgetKey);
+          throw new UnrecoverableError(err.message);
+        }
+        throw err;
+      }
+    } else {
+      // TODO: No orgId or userId available for budget — logging but not blocking
+      console.warn("[translation worker] no budget key available (no authorId), skipping budget check");
     }
 
     const { data: sourceVersion, error: sourceVersionError } = await supabase
@@ -136,10 +181,10 @@ async function processJob(payload: TranslationJobData) {
       .single();
 
     if (sourceVersionError || !sourceVersion) {
-      throw new Error(sourceVersionError?.message ?? "Source version not found");
+      throw new UnrecoverableError(sourceVersionError?.message ?? "Source version not found");
     }
     if (sourceVersion.book_id !== bookId) {
-      throw new Error("Source version does not belong to book");
+      throw new UnrecoverableError("Source version does not belong to book");
     }
 
     const sourceLang =
@@ -149,10 +194,10 @@ async function processJob(payload: TranslationJobData) {
     const normalizedTarget = normalizeLanguageOrNull(targetLanguage);
 
     if (!sourceLang) {
-      throw new Error("Source language missing for translation job");
+      throw new UnrecoverableError("Source language missing for translation job");
     }
     if (!normalizedTarget) {
-      throw new Error("Target language missing or unsupported for translation job");
+      throw new UnrecoverableError("Target language missing or unsupported for translation job");
     }
 
     if (targetVersionId) {
@@ -285,6 +330,17 @@ async function processJob(payload: TranslationJobData) {
 
     await supabase.from("book_versions").update({ status: "done" }).eq("id", resolvedTargetVersionId);
 
+    // Track token usage (estimate: ~1 token per 4 chars of source text)
+    const totalChars = chapterList.reduce(
+      (sum, ch) => sum + ((ch.content as string | null) ?? "").length,
+      0
+    );
+    const estimatedTokens = Math.ceil(totalChars / 4);
+    const usageKey = payload.authorId ?? book.author_id;
+    if (usageKey) {
+      trackUsage(usageKey, estimatedTokens);
+    }
+
     console.log("[translation worker] completed — bookId:", bookId, "targetVersionId:", resolvedTargetVersionId);
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
@@ -328,6 +384,8 @@ function main() {
         password: connection.password,
       },
       concurrency: 2,
+      stalledInterval: 30_000,
+      maxStalledCount: 2,
     }
   );
 

@@ -19,6 +19,7 @@ type CreateStripeCheckoutSessionInput = {
 export type StripeCheckoutSession = {
   id: string;
   url: string;
+  status?: string;
   payment_status?: string;
   currency?: string;
   amount_total?: number;

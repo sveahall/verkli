@@ -6,6 +6,7 @@ const mocks = vi.hoisted(() => ({
   createAdminClient: vi.fn(),
   canUserReadBook: vi.fn(),
   createStripeCheckoutSession: vi.fn(),
+  getStripeCheckoutSession: vi.fn(),
   logAnalyticsEvent: vi.fn(),
 }));
 
@@ -23,6 +24,7 @@ vi.mock("@/lib/books/access", () => ({
 
 vi.mock("@/lib/payments/stripe", () => ({
   createStripeCheckoutSession: mocks.createStripeCheckoutSession,
+  getStripeCheckoutSession: mocks.getStripeCheckoutSession,
 }));
 
 vi.mock("@/lib/analytics/events", () => ({
@@ -57,7 +59,19 @@ function makeSupabaseClient(book: Record<string, unknown> | null) {
   };
 }
 
-function makeAdminClient() {
+function makeChain(result: unknown) {
+  const chain: Record<string, unknown> = {};
+  const self = () => chain;
+  chain.eq = vi.fn(self);
+  chain.not = vi.fn(self);
+  chain.gte = vi.fn(self);
+  chain.order = vi.fn(self);
+  chain.limit = vi.fn(self);
+  chain.maybeSingle = vi.fn(async () => result);
+  return chain;
+}
+
+function makeAdminClient(existingPendingOrder: Record<string, unknown> | null = null) {
   const state = {
     insertedOrder: null as Record<string, unknown> | null,
     updatePayloads: [] as Record<string, unknown>[],
@@ -69,6 +83,7 @@ function makeAdminClient() {
     from: vi.fn((table: string) => {
       if (table === "orders") {
         return {
+          select: vi.fn(() => makeChain({ data: existingPendingOrder, error: null })),
           insert: vi.fn((payload: Record<string, unknown>) => {
             state.insertedOrder = payload;
             return {
@@ -102,6 +117,7 @@ describe("POST /api/books/[id]/purchase/checkout", () => {
       id: "cs_test_1",
       url: "https://checkout.stripe.test/session",
     });
+    mocks.getStripeCheckoutSession.mockResolvedValue(null);
   });
 
   it("uses exact amount and currency from DB pricing", async () => {
@@ -169,5 +185,41 @@ describe("POST /api/books/[id]/purchase/checkout", () => {
     expect(res.status).toBe(422);
     expect(body.error).toBe(E_INVALID_BOOK_PRICING);
     expect(mocks.createStripeCheckoutSession).not.toHaveBeenCalled();
+  });
+
+  it("reuses existing pending checkout session when still open", async () => {
+    const supabase = makeSupabaseClient({
+      id: "book-1",
+      title: "Paid Book",
+      author_id: "author-1",
+      status: "PUBLISHED",
+      price_amount: 1299,
+      price_currency: "SEK",
+      pricing_model: "book_only",
+    });
+    const admin = makeAdminClient({
+      id: "existing-order-1",
+      stripe_session_id: "cs_existing_1",
+    });
+
+    mocks.createClient.mockResolvedValue(supabase);
+    mocks.createAdminClient.mockReturnValue(admin.client);
+    mocks.getStripeCheckoutSession.mockResolvedValue({
+      id: "cs_existing_1",
+      url: "https://checkout.stripe.test/existing-session",
+      status: "open",
+    });
+
+    const res = await POST(new Request("http://localhost/api/books/book-1/purchase/checkout", { method: "POST" }), {
+      params: Promise.resolve({ id: "book-1" }),
+    });
+
+    const body = await res.json();
+
+    expect(res.status).toBe(200);
+    expect(body.checkoutUrl).toBe("https://checkout.stripe.test/existing-session");
+    expect(body.orderId).toBe("existing-order-1");
+    expect(mocks.createStripeCheckoutSession).not.toHaveBeenCalled();
+    expect(admin.state.insertedOrder).toBeNull();
   });
 });

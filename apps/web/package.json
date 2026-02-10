@@ -16,7 +16,8 @@
     "audiobook-worker": "tsx scripts/audiobook-worker.ts",
     "tts-worker": "tsx scripts/tts-worker.ts",
     "generate:types": "tsx scripts/generate-types.ts",
-    "seed": "tsx scripts/seed.ts"
+    "seed": "tsx scripts/seed.ts",
+    "qa:beta": "node scripts/qa-beta.mjs"
   },
   "dependencies": {
     "@floating-ui/dom": "^1.6.13",
