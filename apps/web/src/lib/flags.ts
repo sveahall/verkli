@@ -31,6 +31,10 @@ export function getDiscoveryEnabled(): boolean {
   return parseBool(process.env.NEXT_PUBLIC_DISCOVERY_ENABLED);
 }
 
+export function getOfflineReadingEnabled(): boolean {
+  return parseBool(process.env.NEXT_PUBLIC_OFFLINE_READING_ENABLED);
+}
+
 // ─── Server/API – use in API routes and server-only code ───
 export function isTranslationsEnabled(): boolean {
   return parseBool(process.env.NEXT_PUBLIC_TRANSLATIONS_ENABLED ?? process.env.TRANSLATIONS_ENABLED);
@@ -49,6 +53,10 @@ export function isMarketingEnabled(): boolean {
 
 export function isDiscoveryEnabled(): boolean {
   return parseBool(process.env.NEXT_PUBLIC_DISCOVERY_ENABLED ?? process.env.DISCOVERY_ENABLED);
+}
+
+export function isOfflineReadingEnabled(): boolean {
+  return parseBool(process.env.NEXT_PUBLIC_OFFLINE_READING_ENABLED ?? process.env.OFFLINE_READING_ENABLED);
 }
 
 export function getRecommendationsEnabled(): boolean {

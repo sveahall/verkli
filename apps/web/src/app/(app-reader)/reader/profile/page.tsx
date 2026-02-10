@@ -6,6 +6,13 @@ import PageHeader from "@/components/reader/PageHeader";
 import Rail from "@/components/reader/Rail";
 import EmptyState from "@/components/reader/EmptyState";
 
+function normalizeColor(value: unknown): "yellow" | "green" | "blue" | "rose" {
+  if (value === "yellow" || value === "green" || value === "blue" || value === "rose") {
+    return value;
+  }
+  return "yellow";
+}
+
 export default async function ReaderProfilePage() {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
@@ -77,9 +84,78 @@ export default async function ReaderProfilePage() {
     }
   }
 
+  type HighlightSummary = {
+    id: string;
+    chapterId: string;
+    bookId: string;
+    bookTitle: string;
+    chapterTitle: string;
+    snippet: string;
+    note: string | null;
+    color: "yellow" | "green" | "blue" | "rose";
+  };
+
+  const { count: highlightsTotalCount } = await supabase
+    .from("highlights" as never)
+    .select("id", { head: true, count: "exact" })
+    .eq("user_id", user.id);
+
+  const { data: rawHighlightRows } = await supabase
+    .from("highlights" as never)
+    .select("id, chapter_id, book_id, snippet, note, color, created_at")
+    .eq("user_id", user.id)
+    .order("created_at", { ascending: false })
+    .limit(24);
+
+  const highlightRows = (Array.isArray(rawHighlightRows) ? rawHighlightRows : []) as Array<Record<string, unknown>>;
+  const chapterIds = [...new Set(highlightRows.map((row) => String(row.chapter_id ?? "")).filter(Boolean))];
+  const highlightBookIds = [...new Set(highlightRows.map((row) => String(row.book_id ?? "")).filter(Boolean))];
+
+  let chapterTitleMap = new Map<string, string>();
+  let bookTitleMap = new Map<string, string>();
+
+  if (chapterIds.length > 0) {
+    const { data: chapterRows } = await supabase
+      .from("chapters")
+      .select("id, title")
+      .in("id", chapterIds);
+    chapterTitleMap = new Map((chapterRows ?? []).map((row) => [row.id, row.title]));
+  }
+
+  if (highlightBookIds.length > 0) {
+    const { data: bookRows } = await supabase
+      .from("books")
+      .select("id, title")
+      .in("id", highlightBookIds);
+    bookTitleMap = new Map((bookRows ?? []).map((row) => [row.id, row.title]));
+  }
+
+  const highlights: HighlightSummary[] = highlightRows
+    .map((row) => {
+      const id = String(row.id ?? "").trim();
+      const chapterId = String(row.chapter_id ?? "").trim();
+      const bookId = String(row.book_id ?? "").trim();
+      const snippet = String(row.snippet ?? "").trim();
+      if (!id || !chapterId || !bookId || !snippet) return null;
+
+      return {
+        id,
+        chapterId,
+        bookId,
+        bookTitle: bookTitleMap.get(bookId) ?? "Book",
+        chapterTitle: chapterTitleMap.get(chapterId) ?? "Chapter",
+        snippet,
+        note: row.note == null ? null : String(row.note),
+        color: normalizeColor(row.color),
+      } satisfies HighlightSummary;
+    })
+    .filter((row): row is HighlightSummary => row !== null)
+    .slice(0, 12);
+
   const stats: { label: string; value: string }[] = [
     { label: "Books started", value: String(booksStartedCount) },
     { label: "Books finished", value: String(booksFinishedCount) },
+    { label: "Highlights", value: String(highlightsTotalCount ?? highlights.length) },
   ];
 
   const initials = displayName
@@ -133,7 +209,7 @@ export default async function ReaderProfilePage() {
         </div>
 
         {stats.length > 0 && (
-          <div className="mt-6 grid gap-4 sm:grid-cols-2">
+          <div className="mt-6 grid gap-4 sm:grid-cols-3">
             {stats.map((stat) => (
               <div
                 key={stat.label}
@@ -180,6 +256,59 @@ export default async function ReaderProfilePage() {
           />
         ))}
       </Rail>
+
+      <section className="rounded-3xl border border-slate-200/70 bg-white/80 p-6 shadow-[0_16px_30px_rgba(15,23,42,0.08)] dark:border-white/10 dark:bg-white/5">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <h2 className="text-[18px] font-semibold text-slate-900 dark:text-white">Mina highlights</h2>
+          <span className="text-[12px] text-slate-500 dark:text-white/60">
+            {highlights.length === 1 ? "1 item" : `${highlights.length} items`}
+          </span>
+        </div>
+
+        {highlights.length === 0 ? (
+          <p className="mt-4 text-[14px] text-slate-600 dark:text-white/60">
+            You do not have any highlights yet. Open a chapter and select text to save one.
+          </p>
+        ) : (
+          <div className="mt-4 grid gap-3 md:grid-cols-2">
+            {highlights.map((highlight) => (
+              <Link
+                key={highlight.id}
+                href={`/reader/read/${highlight.chapterId}`}
+                className="block rounded-2xl border border-slate-200/70 bg-white/85 p-4 transition hover:border-slate-300 hover:bg-white dark:border-white/10 dark:bg-white/[0.03] dark:hover:bg-white/[0.05]"
+              >
+                <div className="flex items-center gap-2 text-[11px] font-medium uppercase tracking-[0.12em] text-slate-500 dark:text-white/50">
+                  <span
+                    className="h-2.5 w-2.5 rounded-full"
+                    style={{
+                      backgroundColor:
+                        highlight.color === "green"
+                          ? "#86efac"
+                          : highlight.color === "blue"
+                            ? "#93c5fd"
+                            : highlight.color === "rose"
+                              ? "#fda4af"
+                              : "#facc15",
+                    }}
+                  />
+                  {highlight.bookTitle}
+                </div>
+                <p className="mt-2 text-[14px] leading-relaxed text-slate-800 dark:text-white/85">
+                  “{highlight.snippet}”
+                </p>
+                {highlight.note && (
+                  <p className="mt-3 rounded-lg border border-slate-200/80 bg-slate-50 px-3 py-2 text-[12px] text-slate-600 dark:border-white/10 dark:bg-white/[0.02] dark:text-white/65">
+                    {highlight.note}
+                  </p>
+                )}
+                <p className="mt-3 text-[12px] text-slate-500 dark:text-white/55">
+                  {highlight.chapterTitle}
+                </p>
+              </Link>
+            ))}
+          </div>
+        )}
+      </section>
     </div>
   );
 }

@@ -1,5 +1,6 @@
 import NavbarShell from "@/nav/NavbarShell";
 import ReaderAppShell from "@/components/reader/ReaderAppShell";
+import OfflineModeIndicator from "@/components/offline/OfflineModeIndicator";
 
 /**
  * Reader browse layout - NO auth required.
@@ -14,6 +15,7 @@ export default function ReaderBrowseLayout({
   return (
     <>
       <NavbarShell variant="APP_READER" />
+      <OfflineModeIndicator />
       <ReaderAppShell>{children}</ReaderAppShell>
     </>
   );

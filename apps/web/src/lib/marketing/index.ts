@@ -13,6 +13,8 @@ export type {
   ModuleState,
 } from "./types";
 
+export type { CaptionChannel, ContentType, CaptionConfig } from "./caption-generator";
+
 // Mock data (temporary until backend implementation)
 export {
   campaigns,

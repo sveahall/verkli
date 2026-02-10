@@ -9,6 +9,9 @@ import StartReadingLink from "./StartReadingLink";
 import BookmarkButton from "./BookmarkButton";
 import PurchaseBookButton from "./PurchaseBookButton";
 import PurchaseSuccessRefresh from "./PurchaseSuccessRefresh";
+import OfflineSaveButton from "./OfflineSaveButton";
+import BookReviewsSection from "./BookReviewsSection";
+import CommentsSection from "./CommentsSection";
 
 async function getBook(id: string) {
   const supabase = await createClient();
@@ -162,6 +165,24 @@ export default async function ReaderBookDetail({
         .order("order", { ascending: true })
     : { data: [] as Array<{ id: string; title: string; order: number }> };
 
+  const { data: ratingRows } = await supabase
+    .from("reviews")
+    .select("rating")
+    .eq("book_id", book.id);
+
+  const ratingsCount = ratingRows?.length ?? 0;
+  const averageRating =
+    ratingsCount > 0
+      ? Number(
+          (
+            (ratingRows ?? []).reduce(
+              (sum, row) => sum + Number((row as { rating?: number }).rating ?? 0),
+              0
+            ) / ratingsCount
+          ).toFixed(2)
+        )
+      : null;
+
   const chaptersCount = chapters?.length ?? 0;
   const firstChapter = chapters?.[0];
 
@@ -192,6 +213,13 @@ export default async function ReaderBookDetail({
   const originalUrl = (book as { original_url?: string | null }).original_url;
   const audiobookAvailable = Boolean(audiobookAsset?.audio_url) && audiobookAsset?.status === "generated";
   const purchaseState = resolvedSearchParams?.purchase;
+  const signInHref = `/reader/signin?next=${encodeURIComponent(`/reader/books/${book.id}`)}`;
+  const chapterOptions = (chapters ?? []).map((chapter) => ({
+    id: chapter.id,
+    title: chapter.title,
+    order: chapter.order,
+  }));
+  const bookAuthorId = String((book as { author_id?: string | null }).author_id ?? "");
 
   return (
     <main className="min-h-screen bg-slate-50 text-slate-900 dark:bg-[#050508] dark:text-white">
@@ -231,6 +259,11 @@ export default async function ReaderBookDetail({
             <span className="rounded-full border border-black/10 bg-black/[0.02] px-3 py-1 dark:border-white/10 dark:bg-white/5">Published</span>
             <span className="rounded-full border border-emerald-600/30 bg-emerald-500/10 px-3 py-1 text-emerald-700 dark:border-emerald-400/30 dark:bg-emerald-500/10 dark:text-emerald-300" aria-label={`Language: ${languageName}`}>
               {languageName}
+            </span>
+            <span className="rounded-full border border-amber-600/30 bg-amber-500/10 px-3 py-1 text-amber-700 dark:border-amber-400/30 dark:bg-amber-500/10 dark:text-amber-300">
+              {averageRating !== null
+                ? `Rating ${averageRating.toFixed(1)}/5 (${ratingsCount})`
+                : "No ratings yet"}
             </span>
           </div>
 
@@ -283,11 +316,18 @@ export default async function ReaderBookDetail({
               <PurchaseBookButton bookId={book.id} amount={priceAmount} currency={priceCurrency} />
             ) : (
               <Link
-                href={`/reader/signin?next=${encodeURIComponent(`/reader/books/${book.id}`)}`}
+                href={signInHref}
                 className="rounded-full bg-[#907AFF] px-6 py-3 text-[14px] font-semibold text-white transition hover:bg-[#8069EE]"
               >
                 Sign in to buy
               </Link>
+            )}
+            {user && hasReadAccess && (
+              <OfflineSaveButton
+                bookId={book.id}
+                userId={user.id}
+                languageCode={lang}
+              />
             )}
             {user && hasReadAccess && (
               <BookmarkButton bookId={book.id} initialBookmarked={isBookmarked} />
@@ -306,6 +346,20 @@ export default async function ReaderBookDetail({
           </div>
         </div>
       </section>
+      <BookReviewsSection
+        bookId={book.id}
+        isSignedIn={Boolean(user)}
+        initialAverageRating={averageRating}
+        initialRatingsCount={ratingsCount}
+      />
+      <CommentsSection
+        bookId={book.id}
+        bookAuthorId={bookAuthorId}
+        currentUserId={user?.id ?? null}
+        isSignedIn={Boolean(user)}
+        signInHref={signInHref}
+        chapterOptions={chapterOptions}
+      />
     </main>
   );
 }

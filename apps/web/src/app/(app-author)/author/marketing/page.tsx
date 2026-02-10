@@ -37,9 +37,11 @@ export default async function authorMarketingRoute() {
     }));
   }
 
+  const bookOptions = (books ?? []).map((b) => ({ id: b.id, title: b.title ?? "" }));
+
   return (
     <div className="min-h-screen bg-gradient-to-b from-background via-background/95 to-background/90 text-foreground">
-      <MarketingDashboard initialCampaigns={campaigns} />
+      <MarketingDashboard initialCampaigns={campaigns} initialBooks={bookOptions} />
     </div>
   );
 }

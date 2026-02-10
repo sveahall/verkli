@@ -12,6 +12,23 @@ type BillingAccountRow = {
   updated_at: string;
 };
 
+type OrderState = {
+  id: string;
+  user_id: string;
+  book_id: string;
+  status: "pending" | "paid" | "failed";
+  stripe_session_id: string;
+};
+
+type PaymentRecordState = {
+  id: string;
+  user_id: string;
+  status: "pending" | "paid" | "failed";
+  stripe_session_id: string;
+  credits_delta?: number;
+  credits_applied_at?: string | null;
+};
+
 const mocks = vi.hoisted(() => ({
   createAdminClient: vi.fn(),
   getBillingAccountByStripeCustomerId: vi.fn(),
@@ -33,21 +50,24 @@ const { POST } = await import("./route");
 
 const stripe = new Stripe("sk_test_local", { apiVersion: "2024-06-20" });
 
-type OrderState = {
-  id: string;
-  user_id: string;
-  book_id: string;
-  status: "pending" | "paid" | "failed";
-  stripe_session_id: string;
-};
-
-function makeAdminClient(order: OrderState | null) {
+function makeAdminClient(input?: {
+  order?: OrderState | null;
+  donation?: PaymentRecordState | null;
+  creditTopup?: PaymentRecordState | null;
+}) {
   const state = {
-    order,
+    order: input?.order ?? null,
+    donation: input?.donation ?? null,
+    creditTopup: input?.creditTopup ?? null,
     seenEvents: new Set<string>(),
     stripeEventInserts: [] as Record<string, unknown>[],
+    stripeEventRollbacks: [] as string[],
+    creditGrantKeys: new Set<string>(),
+    creditGrantCalls: [] as Record<string, unknown>[],
     orderUpdates: [] as Array<{ id: string; payload: Record<string, unknown>; statuses: string[] }>,
     entitlementUpserts: [] as Record<string, unknown>[],
+    donationUpdates: [] as Array<{ id: string; payload: Record<string, unknown> }>,
+    creditTopupUpdates: [] as Array<{ id: string; payload: Record<string, unknown> }>,
   };
 
   const client = {
@@ -63,6 +83,16 @@ function makeAdminClient(order: OrderState | null) {
             state.seenEvents.add(eventId);
             return { error: null };
           }),
+          delete: vi.fn(() => ({
+            eq: vi.fn(async (column: string, value: string) => {
+              if (column !== "stripe_event_id") {
+                throw new Error(`Unexpected stripe_events.delete eq column: ${column}`);
+              }
+              state.stripeEventRollbacks.push(value);
+              state.seenEvents.delete(value);
+              return { error: null };
+            }),
+          })),
         };
       }
 
@@ -110,8 +140,100 @@ function makeAdminClient(order: OrderState | null) {
         };
       }
 
+      if (table === "donations") {
+        return {
+          select: vi.fn(() => ({
+            eq: vi.fn((column: string, value: string) => ({
+              maybeSingle: vi.fn(async () => {
+                if (column !== "stripe_session_id") {
+                  throw new Error(`Unexpected donations.select eq column: ${column}`);
+                }
+                if (!state.donation || state.donation.stripe_session_id !== value) {
+                  return { data: null, error: null };
+                }
+                return { data: state.donation, error: null };
+              }),
+            })),
+          })),
+          update: vi.fn((payload: Record<string, unknown>) => ({
+            eq: vi.fn(async (column: string, value: string) => {
+              if (column !== "id") {
+                throw new Error(`Unexpected donations.update eq column: ${column}`);
+              }
+              state.donationUpdates.push({ id: value, payload });
+              if (state.donation && state.donation.id === value) {
+                state.donation = {
+                  ...state.donation,
+                  status: String(payload.status ?? state.donation.status) as PaymentRecordState["status"],
+                  credits_applied_at:
+                    typeof payload.credits_applied_at === "string"
+                      ? payload.credits_applied_at
+                      : state.donation.credits_applied_at ?? null,
+                };
+              }
+              return { error: null };
+            }),
+          })),
+        };
+      }
+
+      if (table === "credit_topups") {
+        return {
+          select: vi.fn(() => ({
+            eq: vi.fn((column: string, value: string) => ({
+              maybeSingle: vi.fn(async () => {
+                if (column !== "stripe_session_id") {
+                  throw new Error(`Unexpected credit_topups.select eq column: ${column}`);
+                }
+                if (!state.creditTopup || state.creditTopup.stripe_session_id !== value) {
+                  return { data: null, error: null };
+                }
+                return { data: state.creditTopup, error: null };
+              }),
+            })),
+          })),
+          update: vi.fn((payload: Record<string, unknown>) => ({
+            eq: vi.fn(async (column: string, value: string) => {
+              if (column !== "id") {
+                throw new Error(`Unexpected credit_topups.update eq column: ${column}`);
+              }
+              state.creditTopupUpdates.push({ id: value, payload });
+              if (state.creditTopup && state.creditTopup.id === value) {
+                state.creditTopup = {
+                  ...state.creditTopup,
+                  status: String(payload.status ?? state.creditTopup.status) as PaymentRecordState["status"],
+                  credits_applied_at:
+                    typeof payload.credits_applied_at === "string"
+                      ? payload.credits_applied_at
+                      : state.creditTopup.credits_applied_at ?? null,
+                };
+              }
+              return { error: null };
+            }),
+          })),
+        };
+      }
+
       throw new Error(`Unexpected admin table ${table}`);
     }),
+    rpc: vi.fn(
+      async (
+        fnName: string,
+        args: { p_user_id: string; p_delta: number; p_source: string; p_source_id: string }
+      ) => {
+        if (fnName !== "grant_user_credits_once") {
+          throw new Error(`Unexpected rpc function ${fnName}`);
+        }
+
+        state.creditGrantCalls.push(args);
+        const key = `${args.p_source}:${args.p_source_id}`;
+        if (state.creditGrantKeys.has(key)) {
+          return { data: false, error: null };
+        }
+        state.creditGrantKeys.add(key);
+        return { data: true, error: null };
+      }
+    ),
   };
 
   return { client, state };
@@ -152,11 +274,13 @@ describe("POST /api/stripe/webhook", () => {
 
   it("is idempotent: duplicate stripe_event_id does not process event twice", async () => {
     const admin = makeAdminClient({
-      id: "order-1",
-      user_id: "reader-1",
-      book_id: "book-1",
-      status: "pending",
-      stripe_session_id: "cs_test_1",
+      order: {
+        id: "order-1",
+        user_id: "reader-1",
+        book_id: "book-1",
+        status: "pending",
+        stripe_session_id: "cs_test_1",
+      },
     });
     mocks.createAdminClient.mockReturnValue(admin.client);
 
@@ -177,8 +301,89 @@ describe("POST /api/stripe/webhook", () => {
     expect(admin.state.stripeEventInserts).toHaveLength(2);
   });
 
+  it("marks donation records as paid for payment_type=donation", async () => {
+    const admin = makeAdminClient({
+      donation: {
+        id: "donation-1",
+        user_id: "reader-1",
+        status: "pending",
+        stripe_session_id: "cs_donate_1",
+        credits_delta: 0,
+      },
+    });
+    mocks.createAdminClient.mockReturnValue(admin.client);
+
+    const payload = {
+      id: "evt_donation",
+      type: "checkout.session.completed",
+      data: {
+        object: {
+          id: "cs_donate_1",
+          payment_status: "paid",
+          metadata: {
+            payment_type: "donation",
+          },
+        },
+      },
+    };
+
+    const res = await POST(makeSignedRequest(payload, webhookSecret));
+    const body = await res.json();
+
+    expect(res.status).toBe(200);
+    expect(body).toEqual(expect.objectContaining({ received: true, processed: true }));
+    expect(admin.state.donation?.status).toBe("paid");
+    expect(admin.state.donationUpdates).toHaveLength(1);
+    expect(admin.state.creditGrantCalls).toHaveLength(0);
+    expect(admin.state.creditTopupUpdates).toHaveLength(0);
+    expect(admin.state.orderUpdates).toHaveLength(0);
+    expect(admin.state.entitlementUpserts).toHaveLength(0);
+  });
+
+  it("credits topup exactly once even if webhook is replayed with a new event id", async () => {
+    const admin = makeAdminClient({
+      creditTopup: {
+        id: "credit-topup-1",
+        user_id: "reader-1",
+        status: "pending",
+        stripe_session_id: "cs_topup_1",
+        credits_delta: 250,
+        credits_applied_at: null,
+      },
+    });
+    mocks.createAdminClient.mockReturnValue(admin.client);
+
+    const payloadA = {
+      id: "evt_credit_topup_a",
+      type: "checkout.session.completed",
+      data: {
+        object: {
+          id: "cs_topup_1",
+          payment_status: "paid",
+          metadata: {
+            payment_type: "credit_topup",
+          },
+        },
+      },
+    };
+
+    const payloadB = {
+      ...payloadA,
+      id: "evt_credit_topup_b",
+    };
+
+    const first = await POST(makeSignedRequest(payloadA, webhookSecret));
+    const second = await POST(makeSignedRequest(payloadB, webhookSecret));
+
+    expect(first.status).toBe(200);
+    expect(second.status).toBe(200);
+    expect(admin.state.creditTopup?.status).toBe("paid");
+    expect(admin.state.creditGrantCalls).toHaveLength(1);
+    expect(admin.state.creditTopupUpdates.length).toBeGreaterThanOrEqual(1);
+  });
+
   it("sets plan null and status canceled on customer.subscription.deleted", async () => {
-    const admin = makeAdminClient(null);
+    const admin = makeAdminClient();
     mocks.createAdminClient.mockReturnValue(admin.client);
 
     const existing: BillingAccountRow = {

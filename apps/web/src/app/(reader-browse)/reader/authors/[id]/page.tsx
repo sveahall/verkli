@@ -4,6 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 import { getAvatarUrlFromPathServer } from "@/lib/supabase/avatar";
 import BookCard from "@/components/reader/BookCard";
 import PageHeader from "@/components/reader/PageHeader";
+import FollowAuthorButton from "./FollowAuthorButton";
 
 export default async function ReaderAuthorProfilePage({
   params,
@@ -12,6 +13,9 @@ export default async function ReaderAuthorProfilePage({
 }) {
   const { id: userId } = await params;
   const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
 
   const { data: profile } = await supabase
     .from("profiles")
@@ -25,6 +29,19 @@ export default async function ReaderAuthorProfilePage({
 
   const avatarUrl = await getAvatarUrlFromPathServer(profile.avatar_url);
   const displayName = profile.display_name || profile.username || "author";
+  const signInHref = `/reader/signin?next=${encodeURIComponent(`/reader/authors/${userId}`)}`;
+  const isOwnProfile = user?.id === userId;
+
+  let initialFollowing = false;
+  if (user && !isOwnProfile) {
+    const { data: followRow } = await supabase
+      .from("follows")
+      .select("followee_id")
+      .eq("follower_id", user.id)
+      .eq("followee_id", userId)
+      .maybeSingle();
+    initialFollowing = Boolean(followRow);
+  }
 
   const { data: books } = await supabase
     .from("books")
@@ -62,6 +79,16 @@ export default async function ReaderAuthorProfilePage({
             <p className="text-[13px] text-slate-500 dark:text-white/60">@{profile.username}</p>
           )}
         </div>
+        {!isOwnProfile && (
+          <div className="ml-auto">
+            <FollowAuthorButton
+              authorId={userId}
+              isSignedIn={Boolean(user)}
+              signInHref={signInHref}
+              initialFollowing={initialFollowing}
+            />
+          </div>
+        )}
       </div>
 
       <section className="section-gap">

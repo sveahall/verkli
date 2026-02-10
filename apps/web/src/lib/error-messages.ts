@@ -72,7 +72,13 @@ const ERROR_MESSAGES: Record<string, string> = {
   BILLING_CHECKOUT_FAILED: "Kunde inte starta abonnemangskassan.",
   BILLING_PORTAL_FAILED: "Kunde inte öppna abonnemangsportalen.",
   PRO_SUBSCRIPTION_REQUIRED: "Pro-abonnemang krävs för denna funktion.",
+  PLUS_SUBSCRIPTION_REQUIRED: "Plus-abonnemang krävs för offline-läsning.",
   SUBSCRIPTION_PAST_DUE: "Din betalning är försenad. Uppdatera abonnemanget för att fortsätta.",
+
+  // Offline reading
+  OFFLINE_FEATURE_DISABLED: "Offline-läsning är inte aktiverad just nu.",
+  OFFLINE_MANIFEST_LOAD_FAILED: "Kunde inte hämta offline-manifestet.",
+  OFFLINE_CHAPTER_LOAD_FAILED: "Kunde inte hämta kapitel för offline-läsning.",
 
   // Jobs
   JOB_FETCH_FAILED: "Kunde inte hämta jobbstatus.",
@@ -93,6 +99,43 @@ const ERROR_MESSAGES: Record<string, string> = {
   BOOKMARK_ADD_FAILED: "Kunde inte lägga till bokmärke.",
   BOOKMARK_REMOVE_FAILED: "Kunde inte ta bort bokmärke.",
   INVALID_BOOK_ID: "Ogiltigt bok-ID.",
+
+  // Reviews
+  REVIEWS_LOAD_FAILED: "Kunde inte ladda recensioner.",
+  REVIEW_SUBMIT_FAILED: "Kunde inte skicka recensionen.",
+  REVIEW_UPDATE_FAILED: "Kunde inte uppdatera recensionen.",
+  REVIEW_AGGREGATE_FAILED: "Kunde inte hämta betygssammanfattning.",
+  ALREADY_REVIEWED: "Du har redan betygsatt den här boken.",
+  REVIEW_NOT_FOUND: "Recensionen hittades inte.",
+
+  // Comments
+  COMMENT_LOAD_FAILED: "Kunde inte ladda kommentarer.",
+  COMMENT_CREATE_FAILED: "Kunde inte skapa kommentaren.",
+  COMMENT_DELETE_FAILED: "Kunde inte radera kommentaren.",
+  COMMENT_NOT_FOUND: "Kommentaren hittades inte.",
+  INVALID_COMMENT_ID: "Ogiltigt kommentar-ID.",
+  COMMENT_PARENT_NOT_FOUND: "Svarskommentaren hittades inte.",
+  COMMENT_THREAD_DEPTH_EXCEEDED: "Endast ett svarsled stöds just nu.",
+  COMMENT_PARENT_MISMATCH: "Kommentaren kan inte svara i den här tråden.",
+  INVALID_CHAPTER_ID: "Ogiltigt kapitel-ID.",
+
+  // Follows
+  FOLLOW_LIST_FAILED: "Kunde inte ladda följerelationer.",
+  FOLLOW_CREATE_FAILED: "Kunde inte följa användaren.",
+  FOLLOW_REMOVE_FAILED: "Kunde inte sluta följa användaren.",
+  INVALID_FOLLOWEE_ID: "Ogiltigt användar-ID att följa.",
+  CANNOT_FOLLOW_SELF: "Du kan inte följa dig själv.",
+  ALREADY_FOLLOWING: "Du följer redan den här användaren.",
+
+  // Direct messages
+  MESSAGE_LIST_FAILED: "Kunde inte ladda inkorgen.",
+  MESSAGE_CONVERSATION_CREATE_FAILED: "Kunde inte starta konversationen.",
+  MESSAGE_SEND_FAILED: "Kunde inte skicka meddelandet.",
+  MESSAGE_CONVERSATION_NOT_FOUND: "Konversationen hittades inte.",
+  MESSAGE_REQUEST_ACCEPT_FAILED: "Kunde inte acceptera förfrågan.",
+  MESSAGE_BLOCK_FAILED: "Kunde inte blockera användaren.",
+  MESSAGE_BLOCKED: "Meddelanden är blockerade mellan dessa användare.",
+  MESSAGE_INVALID_RECIPIENT: "Ogiltig mottagare för meddelandet.",
 
   // Feedback
   FEEDBACK_LOAD_FAILED: "Kunde inte ladda feedback.",
@@ -126,6 +169,21 @@ const ERROR_MESSAGES: Record<string, string> = {
 
   // Dev
   NOT_AVAILABLE_IN_PRODUCTION: "Inte tillgängligt i produktion.",
+
+  // Credits
+  CREDITS_LOAD_FAILED: "Kunde inte ladda krediter. Försök igen.",
+
+  // Donation
+  DONATION_CHECKOUT_FAILED: "Kunde inte starta donationen. Försök igen.",
+  INVALID_DONATION_AMOUNT: "Ange ett giltigt belopp.",
+
+  // Referrals
+  REFERRAL_GENERATE_FAILED: "Kunde inte skapa referenskod. Försök igen.",
+  REFERRAL_REDEEM_FAILED: "Kunde inte lösa in koden. Försök igen.",
+  REFERRAL_CODE_INVALID: "Ogiltig eller utgången referenskod.",
+  REFERRAL_ALREADY_REDEEMED: "Du har redan löst in en referenskod.",
+  REFERRAL_CANNOT_USE_OWN: "Du kan inte använda din egen referenskod.",
+  INVALID_REFERRAL_CODE: "Ange en giltig referenskod.",
 
   // Pricing validation
   INVALID_PRICE_AMOUNT: "Ogiltigt prisbelopp.",

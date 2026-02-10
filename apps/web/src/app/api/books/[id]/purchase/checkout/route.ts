@@ -220,6 +220,8 @@ export async function POST(
         orderId,
         userId: user.id,
         bookId,
+        paymentType: "book_purchase",
+        amountMinor: amount,
       },
     });
 

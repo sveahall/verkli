@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { updateActiveRole } from "@/features/auth/roles";
 import NavbarShell from "@/nav/NavbarShell";
+import OfflineModeIndicator from "@/components/offline/OfflineModeIndicator";
 
 export default async function AppReaderLayout({
   children,
@@ -43,6 +44,7 @@ export default async function AppReaderLayout({
   return (
     <>
       <NavbarShell variant="APP_READER" />
+      <OfflineModeIndicator />
       {children}
     </>
   );

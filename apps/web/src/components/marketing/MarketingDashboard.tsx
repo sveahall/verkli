@@ -6,10 +6,12 @@ import ContentGenerator from "@/components/marketing/ContentGenerator";
 import DistributionChannels from "@/components/marketing/DistributionChannels";
 import PerformanceOverview from "@/components/marketing/PerformanceOverview";
 import AutomationTeaser from "@/components/marketing/AutomationTeaser";
+import MarketingCaptionPortal from "@/components/marketing/MarketingCaptionPortal";
 import { generatorOutputs } from "@/lib/marketing/mockData";
 import type { Campaign, Channel, ModuleState } from "@/lib/marketing/types";
 
 const navItems = [
+  { id: "caption-portal", label: "Caption-portal", helper: "Generera & spara" },
   { id: "campaigns", label: "Campaigns", helper: "Plan launches" },
   { id: "content", label: "Content", helper: "Hooks + blurbs" },
   { id: "distribution", label: "Distribution", helper: "Channels" },
@@ -17,8 +19,11 @@ const navItems = [
   { id: "automation", label: "Automation", helper: "Not available" },
 ];
 
+type BookOption = { id: string; title: string };
+
 type MarketingDashboardProps = {
   initialCampaigns?: Campaign[];
+  initialBooks?: BookOption[];
 };
 
 type DashboardSectionProps = {
@@ -46,7 +51,10 @@ function DashboardSection({ id, title, description, action, children }: Dashboar
   );
 }
 
-export default function MarketingDashboard({ initialCampaigns = [] }: MarketingDashboardProps) {
+export default function MarketingDashboard({
+  initialCampaigns = [],
+  initialBooks = [],
+}: MarketingDashboardProps) {
   const [campaigns] = useState<Campaign[]>(initialCampaigns);
   const [channels, setChannels] = useState<Channel[]>([]);
   const [selectedCampaignId, setSelectedCampaignId] = useState<string | null>(
@@ -129,6 +137,14 @@ export default function MarketingDashboard({ initialCampaigns = [] }: MarketingD
         </aside>
 
         <div className="flex-1 space-y-8">
+          <DashboardSection
+            id="caption-portal"
+            title="Caption-portal"
+            description="Välj bok och språk, generera captions för TikTok, Instagram, X eller Facebook och spara som asset."
+          >
+            <MarketingCaptionPortal books={initialBooks} />
+          </DashboardSection>
+
           <DashboardSection
             id="campaigns"
             title="Campaigns"

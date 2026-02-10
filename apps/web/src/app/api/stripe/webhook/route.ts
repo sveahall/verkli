@@ -23,6 +23,18 @@ type StripeWebhookEvent = {
   } | null;
 };
 
+type PaymentKind = "donation" | "credit_topup";
+type PaymentRecordTable = "donations" | "credit_topups";
+type CreditGrantSource = "donation" | "credit_topup";
+
+type PaymentRecordRow = {
+  id: string;
+  user_id: string;
+  status: string | null;
+  credits_delta: number;
+  credits_applied_at: string | null;
+};
+
 function asRecord(value: unknown): StripeRecord | null {
   if (!value || typeof value !== "object") return null;
   return value as StripeRecord;
@@ -31,6 +43,13 @@ function asRecord(value: unknown): StripeRecord | null {
 function trimToNull(value: unknown): string | null {
   const normalized = String(value ?? "").trim();
   return normalized.length > 0 ? normalized : null;
+}
+
+function toPositiveInt(value: unknown): number {
+  if (value == null) return 0;
+  const numeric = typeof value === "number" ? value : Number(value);
+  if (!Number.isFinite(numeric)) return 0;
+  return Math.max(0, Math.trunc(numeric));
 }
 
 function unixSecondsToIso(value: unknown): string | null {
@@ -58,6 +77,126 @@ function extractMetadata(value: unknown): Record<string, string> {
     }
   }
   return out;
+}
+
+function parsePaymentKind(value: unknown): PaymentKind | null {
+  const normalized = trimToNull(value)?.toLowerCase();
+  if (normalized === "donation") {
+    return "donation";
+  }
+  if (normalized === "credit_topup" || normalized === "credit-topup") {
+    return "credit_topup";
+  }
+  return true;
+}
+
+function parsePaymentKindFromMetadata(metadata: Record<string, string>): PaymentKind | null {
+  return parsePaymentKind(metadata.payment_kind ?? metadata.payment_type);
+}
+
+function asPaymentRecordRow(value: unknown): PaymentRecordRow | null {
+  const record = asRecord(value);
+  const id = trimToNull(record?.id);
+  const userId = trimToNull(record?.user_id);
+  if (!id || !userId) {
+    return null;
+  }
+
+  return {
+    id,
+    user_id: userId,
+    status: trimToNull(record?.status),
+    credits_delta: toPositiveInt(record?.credits_delta),
+    credits_applied_at: trimToNull(record?.credits_applied_at),
+  };
+}
+
+async function grantCreditsOnce(
+  admin: ReturnType<typeof createAdminClient>,
+  input: {
+    userId: string;
+    source: CreditGrantSource;
+    sourceId: string;
+    delta: number;
+  }
+): Promise<boolean> {
+  const { data, error } = await admin.rpc("grant_user_credits_once" as never, {
+    p_user_id: input.userId,
+    p_delta: input.delta,
+    p_source: input.source,
+    p_source_id: input.sourceId,
+  });
+
+  if (error) {
+    throw new Error(`grant_user_credits_once failed (${error.code}): ${error.message}`);
+  }
+
+  return data === true;
+}
+
+async function processPaymentRecordCheckoutSession(
+  admin: ReturnType<typeof createAdminClient>,
+  input: {
+    table: PaymentRecordTable;
+    label: string;
+    source: CreditGrantSource;
+    session: StripeRecord;
+  }
+): Promise<boolean> {
+  const sessionId = trimToNull(input.session.id);
+  if (!sessionId) return false;
+  if (!isPaidCheckoutSession(input.session)) return false;
+
+  const { data: paymentRecord, error: lookupError } = await admin
+    .from(input.table as never)
+    .select("id, user_id, status, credits_delta, credits_applied_at")
+    .eq("stripe_session_id", sessionId)
+    .maybeSingle();
+
+  if (lookupError) {
+    throw new Error(`${input.label} lookup failed (${lookupError.code}): ${lookupError.message}`);
+  }
+
+  const row = asPaymentRecordRow(paymentRecord);
+  if (!row) {
+    return false;
+  }
+
+  const shouldApplyCredits = row.credits_delta > 0 && !row.credits_applied_at;
+  if (shouldApplyCredits) {
+    await grantCreditsOnce(admin, {
+      userId: row.user_id,
+      source: input.source,
+      sourceId: row.id,
+      delta: row.credits_delta,
+    });
+  }
+
+  const patch: Record<string, unknown> = {};
+  if (row.status !== "paid") {
+    patch.status = "paid";
+    patch.paid_at = new Date().toISOString();
+  }
+  if (shouldApplyCredits) {
+    patch.credits_applied_at = new Date().toISOString();
+  }
+
+  if (Object.keys(patch).length > 0) {
+    const { error: updateError } = await admin
+      .from(input.table as never)
+      .update(patch)
+      .eq("id", row.id);
+
+    if (updateError) {
+      throw new Error(`${input.label} update failed (${updateError.code}): ${updateError.message}`);
+    }
+  }
+
+  return null;
+}
+
+function isPaidCheckoutSession(session: StripeRecord): boolean {
+  return trimToNull(session.payment_status) === "paid";
 }
 
 function extractPriceIdsFromSubscription(subscription: StripeRecord): string[] {
@@ -202,7 +341,7 @@ async function processBookPurchaseCheckoutSession(
   const sessionId = trimToNull(session.id);
   if (!sessionId) return false;
 
-  if (trimToNull(session.payment_status) !== "paid") {
+  if (!isPaidCheckoutSession(session)) {
     return false;
   }
 
@@ -249,6 +388,49 @@ async function processBookPurchaseCheckoutSession(
   }
 
   return true;
+}
+
+async function processDonationCheckoutSession(
+  admin: ReturnType<typeof createAdminClient>,
+  session: StripeRecord
+): Promise<boolean> {
+  return processPaymentRecordCheckoutSession(admin, {
+    table: "donations",
+    label: "Donation",
+    source: "donation",
+    session,
+  });
+}
+
+async function processCreditTopupCheckoutSession(
+  admin: ReturnType<typeof createAdminClient>,
+  session: StripeRecord
+): Promise<boolean> {
+  return processPaymentRecordCheckoutSession(admin, {
+    table: "credit_topups",
+    label: "Credit topup",
+    source: "credit_topup",
+    session,
+  });
+}
+
+async function processPaymentKindCheckoutSession(
+  admin: ReturnType<typeof createAdminClient>,
+  session: StripeRecord
+): Promise<{ handled: boolean; processed: boolean }> {
+  const metadata = extractMetadata(session.metadata);
+  const paymentKind = parsePaymentKindFromMetadata(metadata);
+  if (!paymentKind) {
+    return { handled: false, processed: false };
+  }
+
+  if (paymentKind === "donation") {
+    const processed = await processDonationCheckoutSession(admin, session);
+    return { handled: true, processed };
+  }
+
+  const processed = await processCreditTopupCheckoutSession(admin, session);
+  return { handled: true, processed };
 }
 
 async function processSubscriptionCheckoutSession(
@@ -410,6 +592,20 @@ async function recordStripeEvent(
   throw new Error(`stripe_events insert failed (${error.code}): ${error.message}`);
 }
 
+async function rollbackStripeEvent(
+  admin: ReturnType<typeof createAdminClient>,
+  eventId: string
+): Promise<void> {
+  const { error } = await admin
+    .from("stripe_events" as never)
+    .delete()
+    .eq("stripe_event_id", eventId);
+
+  if (error) {
+    throw new Error(`stripe_events rollback failed (${error.code}): ${error.message}`);
+  }
+}
+
 export async function POST(request: Request) {
   const stripeSecretKey = process.env.STRIPE_SECRET_KEY?.trim();
   const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET?.trim();
@@ -482,6 +678,14 @@ export async function POST(request: Request) {
   try {
     switch (type) {
       case "checkout.session.completed": {
+        const paymentKindResult = await processPaymentKindCheckoutSession(admin, object);
+        if (paymentKindResult.handled) {
+          return NextResponse.json({
+            received: true,
+            processed: paymentKindResult.processed,
+          });
+        }
+
         const bookProcessed = await processBookPurchaseCheckoutSession(admin, object);
         const subscriptionProcessed = await processSubscriptionCheckoutSession(admin, object);
         return NextResponse.json({
@@ -507,6 +711,16 @@ export async function POST(request: Request) {
         return NextResponse.json({ received: true, ignored: true });
     }
   } catch (error) {
+    try {
+      await rollbackStripeEvent(admin, eventId);
+    } catch (rollbackError) {
+      console.error("[stripe.webhook] failed to rollback idempotency event", {
+        eventId,
+        type,
+        message: rollbackError instanceof Error ? rollbackError.message : String(rollbackError),
+      });
+    }
+
     console.error("[stripe.webhook] processing failed", {
       eventId,
       type,

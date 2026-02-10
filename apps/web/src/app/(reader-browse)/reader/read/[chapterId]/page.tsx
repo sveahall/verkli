@@ -3,9 +3,40 @@ import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { canUserReadBook } from "@/lib/books/access";
 import { logAnalyticsEvent } from "@/lib/analytics/events";
-import TiptapRenderer from "@/components/editor/TiptapRenderer";
 import PurchaseBookButton from "../../books/[id]/PurchaseBookButton";
 import ReadingProgress from "./ReadingProgress";
+import ReaderChapterClient, { type ReaderHighlight, type ReaderSettings } from "./ReaderChapterClient";
+
+function asRecord(value: unknown): Record<string, unknown> | null {
+  if (typeof value !== "object" || value === null || Array.isArray(value)) return null;
+  return value as Record<string, unknown>;
+}
+
+function parseReaderSettings(preferences: Record<string, unknown> | null): ReaderSettings {
+  const defaults: ReaderSettings = {
+    fontSize: 16,
+    lineHeight: 1.7,
+  };
+
+  if (!preferences) return defaults;
+
+  const reader = asRecord(preferences.reader);
+  const settings = asRecord(reader?.settings);
+  const fontSize = typeof settings?.fontSize === "number" ? settings.fontSize : defaults.fontSize;
+  const lineHeight = typeof settings?.lineHeight === "number" ? settings.lineHeight : defaults.lineHeight;
+
+  return {
+    fontSize: Math.min(24, Math.max(13, fontSize)),
+    lineHeight: Math.min(2.1, Math.max(1.4, lineHeight)),
+  };
+}
+
+function normalizeHighlightColor(value: unknown): "yellow" | "green" | "blue" | "rose" {
+  if (value === "yellow" || value === "green" || value === "blue" || value === "rose") {
+    return value;
+  }
+  return "yellow";
+}
 
 export default async function ReaderReadPage({
   params,
@@ -18,7 +49,7 @@ export default async function ReaderReadPage({
 
   const { data: chapter } = await supabase
     .from("chapters")
-    .select("id, title, order, book_id")
+    .select("id, title, order, book_id, book_version_id")
     .eq("id", chapterId)
     .maybeSingle();
 
@@ -119,6 +150,52 @@ export default async function ReaderReadPage({
     .eq("id", chapterId)
     .maybeSingle();
 
+  let profilePreferences: Record<string, unknown> | null = null;
+  let initialHighlights: ReaderHighlight[] = [];
+
+  if (user) {
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("preferences")
+      .eq("user_id", user.id)
+      .maybeSingle();
+
+    profilePreferences = asRecord(profile?.preferences);
+
+    const { data: chapterHighlights } = await supabase
+      .from("highlights" as never)
+      .select("id, start_offset, end_offset, snippet, color, note, created_at, updated_at")
+      .eq("user_id", user.id)
+      .eq("chapter_id", chapter.id)
+      .order("start_offset", { ascending: true });
+
+    const rows = (Array.isArray(chapterHighlights) ? chapterHighlights : []) as Array<Record<string, unknown>>;
+    initialHighlights = rows
+      .map((row) => {
+        const id = String(row.id ?? "").trim();
+        const snippet = String(row.snippet ?? "").trim();
+        const startOffset = Number(row.start_offset ?? NaN);
+        const endOffset = Number(row.end_offset ?? NaN);
+        if (!id || !snippet || !Number.isFinite(startOffset) || !Number.isFinite(endOffset) || endOffset <= startOffset) {
+          return null;
+        }
+
+        return {
+          id,
+          startOffset,
+          endOffset,
+          snippet,
+          color: normalizeHighlightColor(row.color),
+          note: row.note == null ? null : String(row.note),
+          createdAt: String(row.created_at ?? ""),
+          updatedAt: String(row.updated_at ?? ""),
+        } satisfies ReaderHighlight;
+      })
+      .filter((row): row is ReaderHighlight => row !== null);
+  }
+
+  const initialReaderSettings = parseReaderSettings(profilePreferences);
+
   const { data: chapters } = await supabase
     .from("chapters")
     .select("id, title, order")
@@ -169,13 +246,18 @@ export default async function ReaderReadPage({
 
         <article className="rounded-[24px] border border-black/10 bg-black/[0.04] p-8 dark:border-white/10 dark:bg-white/[0.04]">
           <h1 className="text-[26px] font-semibold">{book.title}</h1>
-          <h2 className="mt-6 text-[18px] font-semibold text-slate-800 dark:text-white/80">{chapter.title}</h2>
-          <div className="mt-4 text-[15px] leading-relaxed text-slate-700 dark:text-white/70">
-            {chapterContent?.content ? (
-              <TiptapRenderer content={chapterContent.content} />
-            ) : (
-              <p>No content yet.</p>
-            )}
+          <div className="mt-6 text-[15px] leading-relaxed text-slate-700 dark:text-white/70">
+            <ReaderChapterClient
+              userId={user?.id ?? null}
+              bookId={book.id}
+              bookVersionId={chapter.book_version_id}
+              chapterId={chapter.id}
+              chapterTitle={chapter.title}
+              chapterContent={chapterContent?.content ?? null}
+              initialHighlights={initialHighlights}
+              initialPreferences={profilePreferences}
+              initialSettings={initialReaderSettings}
+            />
           </div>
         </article>
       </section>
