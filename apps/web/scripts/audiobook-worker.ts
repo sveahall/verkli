@@ -17,7 +17,7 @@ import { assertServerEnv, getRedisConnectionOptions } from "../src/lib/env";
 
 assertServerEnv();
 
-import { Worker } from "bullmq";
+import { Worker, UnrecoverableError } from "bullmq";
 import { createAdminClient } from "../src/lib/supabase/admin";
 import { synthesizeTextToWavBytes } from "../src/lib/tts/piper";
 import { getAudiobookStorageBucket } from "../src/lib/tts/storage";
@@ -25,6 +25,9 @@ import { QUEUE_NAMES } from "../src/lib/queue-names";
 import type { AudiobookJobData } from "../src/lib/audiobook-queue";
 import { getNarrator } from "../src/lib/ai/providers/workers";
 import { sanitizeJobErrorForStorage } from "../src/lib/sanitize-job-error";
+import { isDuplicate } from "../src/lib/workers/idempotency";
+import { checkBudget, trackUsage, BudgetExceededError } from "../src/lib/workers/budget";
+import { withTimeout, TimeoutError } from "../src/lib/workers/timeout";
 
 const QUEUE_NAME = QUEUE_NAMES.AUDIOBOOK;
 const BUCKET = getAudiobookStorageBucket();
@@ -211,7 +214,37 @@ async function processJob(payload: AudiobookJobData) {
       const errMsg = "Ownership mismatch: userId does not match book owner";
       console.error("[audiobook worker]", errMsg, "payload userId:", userId, "book author_id:", book.author_id);
       await updateJob("failed", {}, errMsg);
+      throw new UnrecoverableError(errMsg);
+    }
+
+    // Processor-level dedupe: skip if audiobook_assets already has a generated asset for this book+language
+    const alreadyDone = await isDuplicate(async () => {
+      const { data: existingAsset } = await supabase
+        .from("audiobook_assets")
+        .select("id")
+        .eq("book_id", bookId)
+        .eq("language", language)
+        .eq("status", "generated")
+        .maybeSingle();
+      return !!existingAsset;
+    }, `audiobook:${bookId}:${language}`);
+
+    if (alreadyDone) {
+      await updateJob("completed", { skipped: true, reason: "dedupe" });
       return;
+    }
+
+    // Budget gate: check token budget before TTS
+    const budgetKey = userId;
+    try {
+      checkBudget(budgetKey);
+    } catch (err) {
+      if (err instanceof BudgetExceededError) {
+        console.warn("[audiobook worker] budget exceeded for:", budgetKey);
+        await updateJob("failed", {}, err.message);
+        throw new UnrecoverableError(err.message);
+      }
+      throw err;
     }
 
     await updateJob("processing", { started_at: new Date().toISOString() });
@@ -271,6 +304,8 @@ async function processJob(payload: AudiobookJobData) {
       let durationSeconds: number;
       let audioUrl: string | undefined;
 
+      const TTS_TIMEOUT_MS = 300_000; // 5 minutes per chapter
+
       if (cached?.audio_path) {
         // Download cached audio from storage
         console.log(`[audiobook worker] chapter ${i} cache hit, downloading...`);
@@ -291,7 +326,11 @@ async function processJob(payload: AudiobookJobData) {
         } else {
           // Cache miss/invalid, synthesize fresh
           console.log(`[audiobook worker] chapter ${i} cache invalid, synthesizing...`);
-          const wav = await synthesizeTextToWavBytes(text);
+          const wav = await withTimeout(
+            () => synthesizeTextToWavBytes(text),
+            TTS_TIMEOUT_MS,
+            `TTS chapter ${i}`
+          );
           audioPath = path.join(tmpDir, `chapter-${i}.wav`);
           await fs.writeFile(audioPath, wav);
           durationSeconds = estimateWavDuration(wav);
@@ -307,7 +346,11 @@ async function processJob(payload: AudiobookJobData) {
         // No cache, synthesize new audio via provider registry
         console.log(`[audiobook worker] chapter ${i} synthesizing via provider: "${chapter.title}"`);
         const narrator = getNarrator();
-        const { audioBuffer: wav } = await narrator.narrate({ text });
+        const { audioBuffer: wav } = await withTimeout(
+          () => narrator.narrate({ text }),
+          TTS_TIMEOUT_MS,
+          `TTS chapter ${i}`
+        );
         audioPath = path.join(tmpDir, `chapter-${i}.wav`);
         await fs.writeFile(audioPath, wav);
         durationSeconds = estimateWavDuration(wav);
@@ -339,6 +382,14 @@ async function processJob(payload: AudiobookJobData) {
     if (chapterAudios.length === 0) {
       throw new Error("No chapters with content to generate audio for");
     }
+
+    // Track TTS usage (estimate: ~1 token per 4 chars of synthesized text)
+    const totalChars = chapters.reduce(
+      (sum, ch) => sum + getChapterText(ch.content).length,
+      0
+    );
+    const estimatedTokens = Math.ceil(totalChars / 4);
+    trackUsage(userId, estimatedTokens);
 
     // Try to stitch with ffmpeg
     const finalAudioPath = path.join(tmpDir, "audiobook-final.wav");
@@ -507,7 +558,10 @@ function main() {
         port: connection.port,
         password: connection.password,
       },
-      concurrency: 1, // Sequential - TTS is CPU-bound
+      concurrency: 2,
+      stalledInterval: 120_000,
+      lockDuration: 600_000,
+      maxStalledCount: 2,
     }
   );
 
