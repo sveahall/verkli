@@ -1,0 +1,121 @@
+# Workers Runbook (Beta)
+
+Operational guide for BullMQ workers. For basic start commands see [workers-local.md](./workers-local.md).
+
+## 1. Start Redis
+
+```bash
+# Docker (recommended for local dev)
+docker compose up -d
+
+# Verify
+redis-cli -u redis://localhost:6379 ping
+# → PONG
+```
+
+## 2. Required Environment Variables
+
+All workers read from `apps/web/.env.local`:
+
+| Variable | Required by | Notes |
+|----------|------------|-------|
+| `REDIS_URL` | All workers | e.g. `redis://localhost:6379` |
+| `SUPABASE_SERVICE_ROLE_KEY` | All workers | Service role key (bypasses RLS) |
+| `NEXT_PUBLIC_SUPABASE_URL` or `SUPABASE_URL` | All workers | At least one must be set |
+| `OPUSMT_PYTHON` | Translation worker | Path to Python with CTranslate2 |
+| `OPUSMT_MODELS_DIR` | Translation worker | Path to Opus MT model files |
+| `AUDIOBOOK_STORAGE_BUCKET` | Audiobook worker | Supabase storage bucket name |
+| `TTS_STORAGE_BUCKET` | TTS worker | Supabase storage bucket name |
+| `FFMPEG_BIN` | Audiobook worker | Optional, defaults to `ffmpeg` in PATH |
+
+## 3. Start Workers
+
+From repo root:
+
+```bash
+npm run import-worker      # book-import-extract queue
+npm run translate-worker   # book-translation queue
+npm run audiobook-worker   # audiobook-generation queue
+npm run tts-worker         # tts-generation queue
+```
+
+Each worker logs its queue name and Redis host on startup.
+
+## 4. Worker Hardening Config (Beta)
+
+| Worker | Concurrency | stalledInterval | lockDuration | maxStalledCount | Retries | Backoff |
+|--------|------------|-----------------|--------------|-----------------|---------|---------|
+| Import | 3 | 30s | default | 2 | 2 | 2s exp |
+| Translation | 2 | 30s | default | 2 | 3 | 5s exp |
+| Audiobook | 2 | 120s | 600s | 2 | 3 | 10s exp |
+| TTS | 1 | default | default | default | 2 | 2s exp |
+
+### Safety features per worker
+
+- **All workers**: Idempotent job IDs at enqueue, processor-level dedupe before work
+- **Translation**: Budget gate (100k tokens/day, 3M/month per user), `UnrecoverableError` for bad input
+- **Audiobook**: Budget gate, hard timeout (5min/chapter), `UnrecoverableError` for auth failures
+
+## 5. Budget Tracking
+
+Budget counters are **in-memory per process**. Restarting a worker resets counters.
+This is acceptable for Beta (single-instance). For production, migrate to Redis INCRBY
+with TTL-based keys (see `src/lib/workers/budget.ts` header comment).
+
+Defaults: 100 000 tokens/day, 3 000 000 tokens/month per userId.
+
+## 6. Troubleshooting Stalled Jobs
+
+A job is "stalled" when the worker stops sending heartbeats (crash, OOM, infinite loop).
+
+### Check for stalled jobs
+
+```bash
+# Connect to Redis and inspect the queue
+redis-cli -u $REDIS_URL
+
+# List stalled jobs for import queue
+SMEMBERS bull:book-import-extract:stalled
+
+# List stalled jobs for audiobook queue
+SMEMBERS bull:audiobook-generation:stalled
+
+# Check a specific job's data
+HGETALL bull:book-import-extract:{job-id}
+```
+
+### Common causes and fixes
+
+| Symptom | Likely cause | Fix |
+|---------|-------------|-----|
+| Jobs stuck in `active` | Worker crashed mid-job | Restart worker. BullMQ auto-retries after `stalledInterval` |
+| Jobs move to `failed` after stall | `maxStalledCount` exceeded | Check worker logs for OOM/crash. Increase memory or reduce concurrency |
+| Audiobook job stalls after 5min | Chapter TTS timeout | Check TTS binary. Reduce chapter length or increase timeout |
+| `BudgetExceededError` in logs | User hit daily/monthly limit | Wait for reset (midnight UTC / month rollover) or restart worker to clear in-memory counters |
+| `UnrecoverableError` in logs | Bad input data (wrong book ID, auth mismatch) | Job will NOT retry. Fix the input data and re-enqueue |
+
+### Manually re-enqueue a failed job
+
+There is no CLI for this yet. Re-trigger from the API:
+
+```bash
+# Re-trigger import
+curl -X POST http://localhost:3000/api/books/import -F file=@book.epub
+
+# Re-trigger translation
+curl -X POST http://localhost:3000/api/books/{bookId}/translate \
+  -H "Content-Type: application/json" \
+  -d '{"targetLanguage":"en"}'
+```
+
+### Drain a queue (emergency)
+
+```bash
+redis-cli -u $REDIS_URL
+DEL bull:book-import-extract:wait bull:book-import-extract:active
+# Repeat for other queues as needed
+```
+
+## 7. Monitoring
+
+Worker health is exposed at `GET /api/health/queue`. Returns Redis connectivity and queue sizes.
