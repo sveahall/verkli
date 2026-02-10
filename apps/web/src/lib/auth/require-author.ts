@@ -13,7 +13,7 @@ export type AuthorCheckResult =
  * Verifies the current user is authenticated AND has author role.
  * Use this at the start of any author-only API route or server action.
  *
- * Checks legacy author role (profiles.role / metadata) OR approved application.
+ * Checks legacy author role (profiles.role) OR approved application.
  */
 export async function requireAuthorRole(): Promise<AuthorCheckResult> {
   const supabase = await createClient();
@@ -25,7 +25,7 @@ export async function requireAuthorRole(): Promise<AuthorCheckResult> {
     return { ok: false, error: "Not authenticated", status: 401 };
   }
 
-  // Legacy role source of truth: profiles.role (fallback: auth metadata).
+  // SECURITY: Only trust profiles.role from DB — user_metadata is client-writable.
   const { data: profile } = await supabase
     .from("profiles")
     .select("role")
@@ -33,8 +33,7 @@ export async function requireAuthorRole(): Promise<AuthorCheckResult> {
     .maybeSingle();
 
   const profileRole = profile?.role;
-  const metadataRole = user.user_metadata?.role;
-  if (isLegacyAuthorRole(profileRole) || isLegacyAuthorRole(metadataRole)) {
+  if (isLegacyAuthorRole(profileRole)) {
     return { ok: true, user };
   }
 

@@ -17,26 +17,19 @@ export default async function AppReaderLayout({
     redirect("/reader/signin");
   }
 
+  // SECURITY: Always resolve role from DB — never trust user_metadata.role.
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("role, preferences")
+    .eq("user_id", user.id)
+    .maybeSingle();
+
   let role: "author" | "reader" | null = null;
-
-  const metaRole = user.user_metadata?.active_role ?? user.user_metadata?.role;
-  if (metaRole === "author" || metaRole === "reader") {
-    role = metaRole;
-  }
-
-  if (!role) {
-    const { data: profile } = await supabase
-      .from("profiles")
-      .select("role, preferences")
-      .eq("user_id", user.id)
-      .maybeSingle();
-
-    const preferenceRole = (profile?.preferences as { active_role?: string } | null)?.active_role;
-    if (preferenceRole === "author" || preferenceRole === "reader") {
-      role = preferenceRole;
-    } else if (profile?.role === "author" || profile?.role === "reader") {
-      role = profile.role;
-    }
+  const preferenceRole = (profile?.preferences as { active_role?: string } | null)?.active_role;
+  if (preferenceRole === "author" || preferenceRole === "reader") {
+    role = preferenceRole;
+  } else if (profile?.role === "author" || profile?.role === "reader") {
+    role = profile.role;
   }
 
   if (!role) {

@@ -128,18 +128,13 @@ export async function middleware(request: NextRequest) {
       return NextResponse.redirect(url)
     }
 
-    // SECURITY: allow legacy authors (metadata/profile) OR approved applications.
-    const originalRole = String(user.user_metadata?.role ?? '').toLowerCase()
-    let isLegacyAuthor = originalRole === 'author'
-
-    if (!isLegacyAuthor) {
-      const { data: profile } = await supabase
-        .from('profiles')
-        .select('role')
-        .eq('user_id', user.id)
-        .maybeSingle()
-      isLegacyAuthor = String(profile?.role ?? '').toLowerCase() === 'author'
-    }
+    // SECURITY: Only trust profiles.role from DB — user_metadata is client-writable.
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('role')
+      .eq('user_id', user.id)
+      .maybeSingle()
+    const isLegacyAuthor = String(profile?.role ?? '').toLowerCase() === 'author'
 
     if (!isLegacyAuthor) {
       const status = await getAuthorApplicationStatus(supabase, user.id)
