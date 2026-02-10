@@ -18,8 +18,8 @@ function createQueue(connection: { host: string; port: number; password?: string
       password: connection.password,
     },
     defaultJobOptions: {
-      attempts: 2,
-      backoff: { type: "exponential", delay: 2000 },
+      attempts: 3,
+      backoff: { type: "exponential", delay: 10_000 },
       removeOnComplete: { count: 100 },
       removeOnFail: { count: 100 },
     },
