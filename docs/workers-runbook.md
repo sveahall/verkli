@@ -64,9 +64,28 @@ with TTL-based keys (see `src/lib/workers/budget.ts` header comment).
 
 Defaults: 100 000 tokens/day, 3 000 000 tokens/month per userId.
 
-## 6. Troubleshooting Stalled Jobs
+## 6. Stalled Jobs — How It Works
 
-A job is "stalled" when the worker stops sending heartbeats (crash, OOM, infinite loop).
+A job is **stalled** when the worker stops sending heartbeats to Redis. BullMQ checks
+every `stalledInterval` ms. If a job has no heartbeat, it is marked stalled.
+
+**`maxStalledCount`** controls how many times a job can stall before it moves to `failed`:
+
+```
+Job starts → worker crashes → no heartbeat for stalledInterval
+  → BullMQ marks job stalled (stall count = 1)
+  → If stall count <= maxStalledCount: job is retried automatically
+  → If stall count > maxStalledCount: job moves to failed permanently
+```
+
+| Worker | stalledInterval | maxStalledCount | Meaning |
+|--------|----------------|-----------------|---------|
+| Import | 30s | 2 | Retried up to 2x after 30s silence |
+| Translation | 30s | 2 | Same |
+| Audiobook | 120s | 2 | Retried up to 2x after 2min silence (longer because TTS is slow) |
+
+This is separate from `attempts` (retry on thrown errors). A job can exhaust both
+stall retries AND error retries independently.
 
 ### Check for stalled jobs
 
@@ -107,6 +126,25 @@ curl -X POST http://localhost:3000/api/books/{bookId}/translate \
   -H "Content-Type: application/json" \
   -d '{"targetLanguage":"en"}'
 ```
+
+### Clear a single hung job
+
+```bash
+redis-cli -u $REDIS_URL
+
+# 1. Find the job ID (from logs or DB ai_jobs table)
+# 2. Remove it from the active set
+LREM bull:audiobook-generation:active 0 {job-id}
+
+# 3. Delete the job hash
+DEL bull:audiobook-generation:{job-id}
+
+# 4. Optionally move it to failed for tracking
+# (or just delete — it won't be retried)
+```
+
+Alternatively, re-deploy the worker. On startup BullMQ reclaims orphaned active
+jobs and processes them through the stall mechanism normally.
 
 ### Drain a queue (emergency)
 
