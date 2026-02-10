@@ -11,7 +11,7 @@ import { assertServerEnv, getRedisConnectionOptions } from "../src/lib/env";
 
 assertServerEnv();
 
-import { Worker } from "bullmq";
+import { Worker, UnrecoverableError } from "bullmq";
 import { resolveLocalImportPath } from "../src/lib/import-storage";
 import { runExtract, contentHash } from "../src/lib/import-extract";
 import { createAdminClient } from "../src/lib/supabase/admin";
@@ -19,6 +19,7 @@ import { enqueueTranslationJob } from "../src/lib/translation-queue";
 import { detectLanguageFromText } from "../src/lib/language-detect";
 import { normalizeLanguageOrNull } from "../src/lib/languages";
 import { sanitizeJobErrorForStorage } from "../src/lib/sanitize-job-error";
+import { isDuplicate } from "../src/lib/workers/idempotency";
 import type { ImportMode } from "../src/lib/import-queue";
 
 const QUEUE_NAME = "book-import-extract";
@@ -175,22 +176,20 @@ async function processJob(payload: ProcessJobPayload) {
 
     const importRow = importRowData as ImportRow;
 
-    // Idempotency: completed import with chapters in target version should be a no-op.
-    if (importRow.book_version_id && importRow.status === "completed") {
-      const { count: existingChapters } = await supabase
+    // Processor-level dedupe: skip if import already completed with chapters.
+    const versionId = importRow.book_version_id;
+    const alreadyDone = await isDuplicate(async () => {
+      if (!versionId || importRow.status !== "completed") return false;
+      const { count } = await supabase
         .from("chapters")
         .select("id", { count: "exact", head: true })
-        .eq("book_version_id", importRow.book_version_id);
+        .eq("book_version_id", versionId);
+      return (count ?? 0) > 0;
+    }, `import:${importId}`);
 
-      if ((existingChapters ?? 0) > 0) {
-        console.log("[import worker] idempotent skip", {
-          importId,
-          bookVersionId: importRow.book_version_id,
-          chapterCount: existingChapters,
-        });
-        await updateImport({ status: "completed", progress: 100 });
-        return;
-      }
+    if (alreadyDone) {
+      await updateImport({ status: "completed", progress: 100 });
+      return;
     }
 
     if (importRow.author_id !== authorId) {
@@ -199,7 +198,7 @@ async function processJob(payload: ProcessJobPayload) {
         progress: 0,
         error_message: "Ownership mismatch: authorId does not match import owner",
       });
-      return;
+      throw new UnrecoverableError("Ownership mismatch: authorId does not match import owner");
     }
 
     const mode = normalizeImportMode(importRow.mode ?? payload.mode, payload.overwrite);
@@ -539,7 +538,9 @@ function main() {
         port: connection.port,
         password: connection.password,
       },
-      concurrency: 2,
+      concurrency: 3,
+      stalledInterval: 30_000,
+      maxStalledCount: 2,
     }
   );
 

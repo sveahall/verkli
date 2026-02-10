@@ -205,3 +205,39 @@ TTS_RATE_LIMIT_PER_MINUTE=60
 TTS_API_TOKEN=change-me-strong-secret
 ```
 
+## Stripe subscriptions (Plus/Pro)
+
+### Required server env vars
+
+- `STRIPE_SECRET_KEY`
+- `STRIPE_WEBHOOK_SECRET`
+- `PRICE_PLUS`
+- `PRICE_PRO`
+- `STRIPE_CUSTOMER_PORTAL_RETURN_URL`
+- `STRIPE_CHECKOUT_SUCCESS_URL`
+- `STRIPE_CHECKOUT_CANCEL_URL`
+
+### Billing API
+
+- `POST /api/billing/checkout` → starts Stripe Checkout in `subscription` mode (`plan: plus|pro`)
+- `POST /api/billing/portal` → opens Stripe Customer Portal (creates customer if missing)
+- `GET /api/billing/state` → returns current billing state for signed-in user
+
+### Webhook
+
+- Endpoint: `POST /api/stripe/webhook`
+- Runtime: Node.js
+- Uses raw request body + Stripe signature verification (`STRIPE_WEBHOOK_SECRET`)
+- Idempotency: persisted in `public.stripe_events` via unique `stripe_event_id`
+- Updates `public.billing_accounts` with `plan`, `status`, `stripe_customer_id`, `stripe_subscription_id`, `current_period_end`, `cancel_at_period_end`
+
+### Configure Stripe event subscriptions
+
+Subscribe the webhook endpoint to:
+
+- `checkout.session.completed`
+- `customer.subscription.created`
+- `customer.subscription.updated`
+- `customer.subscription.deleted`
+- `invoice.payment_succeeded`
+- `invoice.payment_failed`

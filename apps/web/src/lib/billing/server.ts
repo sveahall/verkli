@@ -1,6 +1,7 @@
 import { createAdminClient } from "@/lib/supabase/admin";
 import { apiError, E_GENERIC_ERROR, E_PRO_SUBSCRIPTION_REQUIRED, E_SUBSCRIPTION_PAST_DUE } from "@/lib/api-errors";
 import { deriveBillingState, type BillingAccountRow, type BillingState } from "@/lib/billing/state";
+export type { BillingAccountRow };
 import type { BillingPlan } from "@/lib/billing/plans";
 
 export type BillingAccountPatch = {

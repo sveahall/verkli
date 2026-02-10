@@ -1,6 +1,7 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useSearchParams, useRouter } from "next/navigation";
 import { resolveErrorMessage } from "@/lib/error-messages";
 import { useBillingState } from "@/hooks/useBillingState";
 import type { BillingPlan } from "@/lib/billing/plans";
@@ -55,6 +56,40 @@ export default function BillingPage() {
   const [pendingPlan, setPendingPlan] = useState<BillingPlan | null>(null);
   const [openingPortal, setOpeningPortal] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
+
+  const searchParams = useSearchParams();
+  const router = useRouter();
+  const isCheckoutReturn = searchParams.get("checkout") === "success";
+  const [processingCheckout, setProcessingCheckout] = useState(isCheckoutReturn);
+  const pollCount = useRef(0);
+
+  const clearCheckoutParam = useCallback(() => {
+    const url = new URL(window.location.href);
+    url.searchParams.delete("checkout");
+    router.replace(url.pathname + url.search, { scroll: false });
+  }, [router]);
+
+  useEffect(() => {
+    if (!processingCheckout) return;
+
+    const interval = setInterval(async () => {
+      pollCount.current += 1;
+      await refetch();
+      if (pollCount.current >= 15) {
+        setProcessingCheckout(false);
+        clearCheckoutParam();
+      }
+    }, 2000);
+
+    return () => clearInterval(interval);
+  }, [processingCheckout, refetch, clearCheckoutParam]);
+
+  useEffect(() => {
+    if (processingCheckout && state?.isPlusActive) {
+      setProcessingCheckout(false);
+      clearCheckoutParam();
+    }
+  }, [processingCheckout, state?.isPlusActive, clearCheckoutParam]);
 
   const isPastDue = state?.status === "past_due";
 
@@ -119,6 +154,12 @@ export default function BillingPage() {
           Hantera Verkli Plus och Verkli Pro.
         </p>
       </div>
+
+      {processingCheckout && (
+        <div className="mb-6 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-800 dark:border-blue-900/50 dark:bg-blue-950/25 dark:text-blue-200">
+          Betalningen behandlas. Vänta medan vi bekräftar ditt abonnemang…
+        </div>
+      )}
 
       {isPastDue && (
         <div className="mb-6 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800 dark:border-red-900/50 dark:bg-red-950/25 dark:text-red-200">

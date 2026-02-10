@@ -3,7 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { assertPublicEnv } from "@/lib/env";
 import { canUserReadBook } from "@/lib/books/access";
-import { createStripeCheckoutSession } from "@/lib/payments/stripe";
+import { createStripeCheckoutSession, getStripeCheckoutSession } from "@/lib/payments/stripe";
 import { logAnalyticsEvent } from "@/lib/analytics/events";
 import { toBookPricing, isPaidPriceAmount } from "@/lib/books/pricing";
 import {
@@ -126,6 +126,44 @@ export async function POST(
   }
 
   const admin = createAdminClient();
+
+  // ── Server-side idempotency: reuse pending checkout if session still open ──
+  try {
+    const thirtyMinAgo = new Date(Date.now() - 30 * 60 * 1000).toISOString();
+    const { data: existingOrder } = await admin
+      .from("orders" as never)
+      .select("id, stripe_session_id")
+      .eq("user_id", user.id)
+      .eq("book_id", bookId)
+      .eq("status", "pending")
+      .not("stripe_session_id", "is", null)
+      .gte("created_at", thirtyMinAgo)
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    const existing = existingOrder as { id: string; stripe_session_id: string } | null;
+    if (existing?.stripe_session_id) {
+      const existingSession = await getStripeCheckoutSession(existing.stripe_session_id);
+      if (existingSession?.url && existingSession?.status === "open") {
+        return NextResponse.json({
+          checkoutUrl: existingSession.url,
+          orderId: existing.id,
+          provider: "stripe",
+          amount,
+          currency,
+        });
+      }
+      // Session expired/completed — fall through to create a new one
+    }
+  } catch (err) {
+    // Non-blocking: if idempotency check fails, proceed to create new session
+    console.warn("[purchase.checkout] idempotency check failed, continuing", {
+      bookId,
+      userId: user.id,
+      message: err instanceof Error ? err.message : String(err),
+    });
+  }
 
   const { data: order, error: orderError } = await admin
     .from("orders" as never)
