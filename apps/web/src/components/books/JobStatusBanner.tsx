@@ -1,16 +1,17 @@
 "use client";
 
 import type { UnifiedJob } from "@/hooks/useBookJobs";
+import { isJobActiveStatus, normalizeJobStatus, type JobStatus } from "@/lib/job-status";
 
 /**
- * Job status for display. API may return queued|pending|processing|completed|failed.
- * We normalize to: queued | running | done | failed
+ * Job status for display.
+ * Canonical status: pending | running | completed | failed.
  */
-export type JobDisplayStatus = "queued" | "running" | "done" | "failed";
+export type JobDisplayStatus = JobStatus;
 
 export type JobStatusData = {
   id: string;
-  status: string;
+  status: JobStatus;
   totalChapters?: number;
   completedChapters?: number;
   currentChapterTitle?: string | null;
@@ -21,12 +22,7 @@ export type JobStatusData = {
 } | null;
 
 function normalizeStatus(apiStatus: string): JobDisplayStatus {
-  const s = apiStatus?.toLowerCase() ?? "";
-  if (s === "completed") return "done";
-  if (s === "failed") return "failed";
-  if (s === "queued" || s === "pending") return "queued";
-  if (s === "processing") return "running";
-  return "running";
+  return normalizeJobStatus(apiStatus);
 }
 
 export type JobStatusBannerProps = {
@@ -45,17 +41,17 @@ const STATUS_STYLES: Record<
   JobDisplayStatus,
   { bg: string; text: string; label: string }
 > = {
-  queued: {
+  pending: {
     bg: "bg-amber-50 border-amber-200 dark:bg-amber-950/30 dark:border-amber-800",
     text: "text-amber-800 dark:text-amber-200",
-    label: "Köad",
+    label: "Väntar",
   },
   running: {
     bg: "bg-blue-50 border-blue-200 dark:bg-blue-950/30 dark:border-blue-800",
     text: "text-blue-800 dark:text-blue-200",
     label: "Pågår",
   },
-  done: {
+  completed: {
     bg: "bg-emerald-50 border-emerald-200 dark:bg-emerald-950/30 dark:border-emerald-800",
     text: "text-emerald-800 dark:text-emerald-200",
     label: "Klar",
@@ -116,7 +112,7 @@ export default function JobStatusBanner({
           </span>
         )}
       </div>
-      {hasProgress && (displayStatus === "running" || displayStatus === "queued") && (
+      {hasProgress && (displayStatus === "running" || displayStatus === "pending") && (
         <div className="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-black/10 dark:bg-white/10">
           <div
             className="h-full rounded-full bg-current opacity-70 transition-[width] duration-300"
@@ -171,7 +167,7 @@ function toJobStatusData(j: UnifiedJob): NonNullable<JobStatusData> {
 }
 
 /**
- * Filters jobs to show: active (pending/processing), recent failed (<5min),
+ * Filters jobs to show: active (pending/running), recent failed (<5min),
  * or recent completed (<5min). Returns [] if nothing to show.
  * Active jobs older than 30 min are treated as stale/failed.
  */
@@ -184,15 +180,16 @@ function getVisibleJobs(jobs: UnifiedJob[]): UnifiedJob[] {
     .filter((j) => {
       if (seen.has(j.id)) return false;
       seen.add(j.id);
-      if (j.status === "pending" || j.status === "processing") return true;
-      if (j.status === "failed" || j.status === "completed") {
+      const status = normalizeJobStatus(j.status);
+      if (status === "pending" || status === "running") return true;
+      if (status === "failed" || status === "completed") {
         const finished = j.finishedAt ? new Date(j.finishedAt).getTime() : 0;
         return now - finished < RECENT_MS;
       }
       return false;
     })
     .map((j) => {
-      if (j.status === "pending" || j.status === "processing") {
+      if (isJobActiveStatus(j.status)) {
         const created = j.createdAt ? new Date(j.createdAt).getTime() : 0;
         if (created > 0 && now - created > STALE_MS) {
           return { ...j, status: "failed", error: "Uppgiften verkar ha fastnat. Försök igen." };
@@ -221,7 +218,7 @@ export function BookJobsBanner({ jobs, onRetry, className }: BookJobsBannerProps
           job={toJobStatusData(j)}
           label={KIND_LABELS[j.kind] ?? j.kind}
           hideWhenEmpty
-          onRetry={j.status === "failed" && onRetry ? () => onRetry(j) : undefined}
+          onRetry={normalizeJobStatus(j.status) === "failed" && onRetry ? () => onRetry(j) : undefined}
         />
       ))}
     </div>

@@ -17,10 +17,7 @@ export function getTranslationsEnabled(): boolean {
 }
 
 export function getAudiobookEnabled(): boolean {
-  // Default to false - audiobook generation endpoint is not yet implemented (501)
-  const value = process.env.NEXT_PUBLIC_AUDIOBOOK_ENABLED;
-  if (value === undefined || value === "") return false;
-  return value.toLowerCase() === "true" || value === "1";
+  return parseBool(process.env.NEXT_PUBLIC_AUDIOBOOK_ENABLED);
 }
 
 export function getMarketingEnabled(): boolean {
@@ -40,10 +37,7 @@ export function isTranslationsEnabled(): boolean {
 }
 
 export function isAudiobookEnabled(): boolean {
-  // Default to false - audiobook generation endpoint is not yet implemented (501)
-  const value = process.env.NEXT_PUBLIC_AUDIOBOOK_ENABLED ?? process.env.AUDIOBOOK_ENABLED;
-  if (value === undefined || value === "") return false;
-  return value.toLowerCase() === "true" || value === "1";
+  return parseBool(process.env.NEXT_PUBLIC_AUDIOBOOK_ENABLED ?? process.env.AUDIOBOOK_ENABLED);
 }
 
 export function isMarketingEnabled(): boolean {
@@ -55,4 +49,31 @@ export function isMarketingEnabled(): boolean {
 
 export function isDiscoveryEnabled(): boolean {
   return parseBool(process.env.NEXT_PUBLIC_DISCOVERY_ENABLED ?? process.env.DISCOVERY_ENABLED);
+}
+
+export function getRecommendationsEnabled(): boolean {
+  const value = process.env.NEXT_PUBLIC_RECOMMENDATIONS_ENABLED;
+  if (value === undefined || value === "") return false;
+  return value.toLowerCase() === "true" || value === "1";
+}
+
+// ─── Server/API – recommendations ───
+export function isRecommendationsEnabled(): boolean {
+  const value = process.env.NEXT_PUBLIC_RECOMMENDATIONS_ENABLED ?? process.env.RECOMMENDATIONS_ENABLED;
+  if (value === undefined || value === "") return false;
+  return value.toLowerCase() === "true" || value === "1";
+}
+
+// ─── Client – social ───
+export function getSocialEnabled(): boolean {
+  const value = process.env.NEXT_PUBLIC_SOCIAL_ENABLED;
+  if (value === undefined || value === "") return false;
+  return value.toLowerCase() === "true" || value === "1";
+}
+
+// ─── Server/API – social ───
+export function isSocialEnabled(): boolean {
+  const value = process.env.NEXT_PUBLIC_SOCIAL_ENABLED ?? process.env.SOCIAL_ENABLED;
+  if (value === undefined || value === "") return false;
+  return value.toLowerCase() === "true" || value === "1";
 }

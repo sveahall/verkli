@@ -5,21 +5,21 @@
  */
 
 const CONTROLLED_MAPPINGS: Array<{ pattern: RegExp; message: string }> = [
-  { pattern: /^Queue unavailable/i, message: "Queue unavailable" },
-  { pattern: /^Ownership mismatch/i, message: "Ownership mismatch" },
-  { pattern: /^Book not found/i, message: "Book not found" },
-  { pattern: /^No chapters found/i, message: "No chapters found" },
-  { pattern: /^No version found/i, message: "No version found" },
-  { pattern: /^Job kind mismatch/i, message: "Job kind mismatch" },
-  { pattern: /^Unexpected job kind/i, message: "Job kind mismatch" },
-  { pattern: /^Missing input\.text/i, message: "Missing TTS input text" },
-  { pattern: /^Could not resolve public URL/i, message: "Failed to publish generated audio" },
-  { pattern: /^Storage upload failed/i, message: "Storage upload failed" },
-  { pattern: /^Audiobook feature is disabled/i, message: "Audiobook feature is disabled" },
+  { pattern: /^Queue unavailable/i, message: "Jobbkön är tillfälligt otillgänglig. Försök igen senare." },
+  { pattern: /^Ownership mismatch/i, message: "Du saknar behörighet för det här jobbet." },
+  { pattern: /^Book not found/i, message: "Boken hittades inte." },
+  { pattern: /^No chapters found/i, message: "Boken saknar kapitel att bearbeta." },
+  { pattern: /^No version found/i, message: "Ingen giltig version hittades för jobbet." },
+  { pattern: /^Job kind mismatch/i, message: "Ogiltig jobtyp." },
+  { pattern: /^Unexpected job kind/i, message: "Ogiltig jobtyp." },
+  { pattern: /^Missing input\.text/i, message: "Text saknas för talsyntes." },
+  { pattern: /^Could not resolve public URL/i, message: "Kunde inte publicera genererat ljud." },
+  { pattern: /^Storage upload failed/i, message: "Kunde inte spara resultatfilen." },
+  { pattern: /^Audiobook feature is disabled/i, message: "Ljudboksfunktionen är avstängd." },
 
   // Worker utility errors
-  { pattern: /Budget exceeded/i, message: "Budget exceeded — try again tomorrow" },
-  { pattern: /timed out after/i, message: "Operation timed out — try again later" },
+  { pattern: /Budget exceeded/i, message: "Dagskvoten är nådd. Försök igen imorgon." },
+  { pattern: /timed out after/i, message: "Bearbetningen tog för lång tid. Försök igen." },
 
   // Stuck-job copy used in UI (safe to preserve)
   {
@@ -27,12 +27,18 @@ const CONTROLLED_MAPPINGS: Array<{ pattern: RegExp; message: string }> = [
     message: "Uppgiften verkar ha fastnat. Försök igen.",
   },
 
+  // Social publish errors
+  { pattern: /^Social publish failed/i, message: "Publicering till sociala medier misslyckades." },
+  { pattern: /^Platform not connected/i, message: "Plattformen är inte ansluten." },
+  { pattern: /^Token expired/i, message: "Anslutningen har löpt ut. Anslut igen." },
+  { pattern: /^Publish not implemented/i, message: "Publicering stöds inte ännu för denna plattform." },
+
   // Supabase DB errors (normalized)
-  { pattern: /^duplicate key value/i, message: "Duplicate job already exists" },
-  { pattern: /^new row violates/i, message: "Database constraint violation" },
+  { pattern: /^duplicate key value/i, message: "Ett liknande jobb finns redan." },
+  { pattern: /^new row violates/i, message: "Datavalidering misslyckades." },
 ];
 
-const FALLBACK_MESSAGE = "Något gick fel. Kontakta support om problemet kvarstår.";
+const FALLBACK_MESSAGE = "Något gick fel under bearbetningen. Försök igen.";
 
 function toControlledMessage(raw: string): string {
   const normalized = raw.trim().replace(/\s+/g, " ");

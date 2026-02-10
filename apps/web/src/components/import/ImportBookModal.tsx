@@ -3,13 +3,14 @@
 import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
 import { resolveErrorMessage } from "@/lib/error-messages";
+import { isJobActiveStatus, normalizeJobStatus, type JobStatus } from "@/lib/job-status";
 
 const ALLOWED_EXT = [".epub", ".docx", ".html", ".htm", ".txt"];
 const POLL_INTERVAL_MS = 2500;
 
 const STATUS_LABELS: Record<string, string> = {
   pending: "Väntar",
-  extracting: "Extraherar",
+  running: "Pågår",
   completed: "Klar",
   failed: "Misslyckades",
 };
@@ -17,7 +18,7 @@ const STATUS_LABELS: Record<string, string> = {
 export type ImportItem = {
   id: string;
   file_name: string;
-  status: string;
+  status: JobStatus;
   progress: number;
   error: string | null;
   book_id: string | null;
@@ -30,6 +31,10 @@ type ImportBookModalProps = {
   onClose: () => void;
   onImportComplete?: (bookId: string, versionId?: string | null) => void;
 };
+
+function toImportStatus(raw: unknown): JobStatus {
+  return normalizeJobStatus(typeof raw === "string" ? raw : null);
+}
 
 export function ImportBookModal({ open, onClose, onImportComplete }: ImportBookModalProps) {
   const [importsList, setImportsList] = useState<ImportItem[]>([]);
@@ -45,7 +50,11 @@ export function ImportBookModal({ open, onClose, onImportComplete }: ImportBookM
       const res = await fetch("/api/books/imports?limit=20");
       if (res.ok) {
         const data = await res.json();
-        setImportsList(data.imports ?? []);
+        const normalized = ((data.imports as ImportItem[] | undefined) ?? []).map((item) => ({
+          ...item,
+          status: toImportStatus(item.status),
+        }));
+        setImportsList(normalized);
       }
     } catch {
       setImportsList([]);
@@ -63,9 +72,7 @@ export function ImportBookModal({ open, onClose, onImportComplete }: ImportBookM
 
   useEffect(() => {
     if (!open) return;
-    const hasPending = importsList.some(
-      (i) => i.status === "pending" || i.status === "extracting"
-    );
+    const hasPending = importsList.some((i) => isJobActiveStatus(i.status));
     if (!hasPending) return;
     const t = setInterval(fetchImports, POLL_INTERVAL_MS);
     return () => clearInterval(t);
@@ -108,7 +115,7 @@ export function ImportBookModal({ open, onClose, onImportComplete }: ImportBookM
           {
             id: importId,
             file_name: file.name,
-            status: data.status ?? "pending",
+            status: toImportStatus(data.status ?? "pending"),
             progress: data.progress ?? 0,
             error: null,
             book_id: null,
@@ -265,7 +272,7 @@ export function ImportBookModal({ open, onClose, onImportComplete }: ImportBookM
                         </Link>
                       ) : imp.status === "failed" && imp.error ? (
                         <span className="text-red-500">{imp.error}</span>
-                      ) : imp.status === "extracting" || imp.status === "pending" ? (
+                      ) : imp.status === "running" || imp.status === "pending" ? (
                         <span>
                           {STATUS_LABELS[imp.status] ?? imp.status}
                           {imp.progress > 0 ? ` ${imp.progress}%` : ""}

@@ -17,6 +17,11 @@ type BillingStateApiPayload = Partial<{
   error: string;
 }>;
 
+type UseBillingStateOptions = {
+  /** Optional auto-refresh interval in ms. Omit/0 to disable polling. */
+  pollIntervalMs?: number;
+};
+
 function toBillingState(payload: BillingStateApiPayload): BillingState {
   const plan = parseBillingPlan(payload.plan) ?? null;
   const status = normalizeBillingStatus(payload.status) ?? null;
@@ -37,7 +42,7 @@ function toBillingState(payload: BillingStateApiPayload): BillingState {
   };
 }
 
-export function useBillingState(): {
+export function useBillingState(options?: UseBillingStateOptions): {
   plan: BillingState["plan"];
   status: string | null;
   currentPeriodEnd: string | null;
@@ -52,6 +57,7 @@ export function useBillingState(): {
   error: string | null;
   refetch: () => Promise<void>;
 } {
+  const pollIntervalMs = options?.pollIntervalMs ?? 0;
   const [state, setState] = useState<BillingState | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -90,6 +96,14 @@ export function useBillingState(): {
     setLoading(true);
     void fetchState();
   }, [fetchState]);
+
+  useEffect(() => {
+    if (!pollIntervalMs || pollIntervalMs < 1000) return;
+    const interval = setInterval(() => {
+      void fetchState();
+    }, pollIntervalMs);
+    return () => clearInterval(interval);
+  }, [fetchState, pollIntervalMs]);
 
   return {
     plan: state?.plan ?? null,

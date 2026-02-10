@@ -4,13 +4,13 @@ import { sanitizeJobError, sanitizeJobErrorForStorage } from "./sanitize-job-err
 describe("sanitizeJobError", () => {
   it("maps provider/storage details to controlled message", () => {
     const raw = "Storage upload failed: permission denied for /tmp/private/secrets.log";
-    expect(sanitizeJobError(raw)).toBe("Storage upload failed");
-    expect(sanitizeJobErrorForStorage(raw)).toBe("Storage upload failed");
+    expect(sanitizeJobError(raw)).toBe("Kunde inte spara resultatfilen.");
+    expect(sanitizeJobErrorForStorage(raw)).toBe("Kunde inte spara resultatfilen.");
   });
 
   it("returns fallback for unknown raw errors", () => {
     const raw = "Error: boom\\n    at /usr/src/app/worker.ts:42:13";
-    expect(sanitizeJobError(raw)).toBe("Något gick fel. Kontakta support om problemet kvarstår.");
+    expect(sanitizeJobError(raw)).toBe("Något gick fel under bearbetningen. Försök igen.");
   });
 
   it("returns null for empty input", () => {

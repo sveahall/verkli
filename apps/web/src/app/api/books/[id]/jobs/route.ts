@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { requireAuthorRoleForApi } from "@/lib/auth/require-author";
 import { isAudiobookEnabled } from "@/lib/flags";
+import { isJobActiveStatus, normalizeJobStatus } from "@/lib/job-status";
 import { sanitizeJobError } from "@/lib/sanitize-job-error";
 import { apiError, E_BOOK_NOT_FOUND, E_JOB_FETCH_FAILED } from "@/lib/api-errors";
 
@@ -13,8 +14,6 @@ function normalizeKind(raw: string): JobKind | null {
     case "import":
     case "import_extraction":
       return "import";
-    case "translation":
-      return "translation";
     case "audiobook":
     case "audiobook_generation":
       return "audiobook";
@@ -22,6 +21,15 @@ function normalizeKind(raw: string): JobKind | null {
       return null;
   }
 }
+
+function toTranslationProgress(status: string): number {
+  const normalized = normalizeJobStatus(status);
+  if (normalized === "completed") return 100;
+  if (normalized === "running") return 50;
+  return 0;
+}
+
+const TRANSLATION_FAILED_MESSAGE = "Översättningen misslyckades. Försök igen.";
 
 export async function GET(
   _request: Request,
@@ -66,11 +74,7 @@ export async function GET(
     .limit(20);
 
   const importJobs = (importRows ?? []).map((r: ImportRow) => {
-    const status =
-      r.status === "completed" ? "completed"
-      : r.status === "failed" ? "failed"
-      : r.status === "extracting" ? "processing"
-      : "pending";
+    const status = normalizeJobStatus(r.status);
     return {
       id: r.id,
       kind: "import" as const,
@@ -81,8 +85,44 @@ export async function GET(
       meta: { fileName: r.file_name ?? null },
       error: sanitizeJobError(r.error_message),
       createdAt: r.created_at,
-      startedAt: null as string | null,
-      finishedAt: (r.status === "completed" || r.status === "failed" ? r.updated_at : null) as string | null,
+      startedAt: status === "running" ? r.updated_at : null,
+      finishedAt: status === "completed" || status === "failed" ? r.updated_at : null,
+    };
+  });
+
+  // Translation jobs from book_versions (source-of-truth for translation lifecycle).
+  type TranslationVersionRow = {
+    id: string;
+    language_code: string | null;
+    status: string;
+    created_at: string;
+    updated_at: string;
+  };
+  const { data: translationRows } = await supabase
+    .from("book_versions")
+    .select("id, language_code, status, created_at, updated_at")
+    .eq("book_id", bookId)
+    .in("status", ["translating", "done", "failed"])
+    .order("updated_at", { ascending: false })
+    .limit(20);
+
+  const translationJobs = (translationRows ?? []).map((row: TranslationVersionRow) => {
+    const status = normalizeJobStatus(row.status);
+    return {
+      id: row.id,
+      kind: "translation" as const,
+      status,
+      language: row.language_code ?? null,
+      bookVersionId: row.id,
+      progress: toTranslationProgress(row.status),
+      meta: {
+        languageCode: row.language_code ?? null,
+        bookVersionId: row.id,
+      },
+      error: status === "failed" ? TRANSLATION_FAILED_MESSAGE : null,
+      createdAt: row.updated_at ?? row.created_at,
+      startedAt: status === "running" ? row.updated_at : null,
+      finishedAt: status === "completed" || status === "failed" ? row.updated_at : null,
     };
   });
 
@@ -177,12 +217,6 @@ export async function GET(
         case "import":
           meta = { fileName: input.fileName ?? input.file_name ?? null };
           break;
-        case "translation":
-          meta = {
-            sourceVersionId: input.sourceVersionId ?? null,
-            sourceLanguage: input.sourceLanguage ?? null,
-          };
-          break;
         case "audiobook":
           meta = {
             voiceId: input.voiceId ?? null,
@@ -201,6 +235,7 @@ export async function GET(
       if (
         kind === "audiobook" &&
         progress === 0 &&
+        normalizeJobStatus(r.status) === "running" &&
         typeof output.totalChapters === "number" &&
         output.totalChapters > 0
       ) {
@@ -214,7 +249,7 @@ export async function GET(
       return {
         id: r.id,
         kind,
-        status: r.status,
+        status: normalizeJobStatus(r.status),
         language: r.language ?? (input.language as string) ?? null,
         bookVersionId:
           r.book_version_id ??
@@ -246,15 +281,13 @@ export async function GET(
     }>;
 
   // Merge import jobs with ai_jobs, sort by createdAt desc
-  const jobs = [...importJobs, ...aiJobsNormalized].sort((a, b) => {
+  const jobs = [...importJobs, ...translationJobs, ...aiJobsNormalized].sort((a, b) => {
     const ta = a.createdAt ? new Date(a.createdAt).getTime() : 0;
     const tb = b.createdAt ? new Date(b.createdAt).getTime() : 0;
     return tb - ta;
   });
 
-  const activeCount = jobs.filter(
-    (j) => j.status === "pending" || j.status === "processing"
-  ).length;
+  const activeCount = jobs.filter((j) => isJobActiveStatus(j.status)).length;
 
   // Summary: latest status per kind (first match wins, sorted by created_at DESC)
   const summary: Record<string, string> = {};

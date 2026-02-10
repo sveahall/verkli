@@ -19,7 +19,7 @@ const { requireAuthorRoleForApi } = await import(
   "@/lib/auth/require-author"
 );
 const { requireProBillingForApi } = await import("@/lib/billing/server");
-const { POST, _resetRateLimits } = await import("./route");
+const { POST } = await import("./route");
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
 function makeRequest(body: Record<string, unknown> = { promptText: "A sunset" }): Request {
@@ -64,7 +64,6 @@ function mockBillingFail() {
 describe("security: POST /api/ai/text-to-video", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    _resetRateLimits();
   });
 
   it("returns 401 when not authenticated", async () => {

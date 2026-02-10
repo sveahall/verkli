@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback, useRef } from "react";
 import { resolveErrorMessage } from "@/lib/error-messages";
+import type { JobStatus } from "@/lib/job-status";
 
 /* ─── Types matching GET /api/books/:id/jobs response ─────────────────────── */
 
@@ -10,7 +11,7 @@ export type JobKind = "import" | "translation" | "audiobook";
 export type UnifiedJob = {
   id: string;
   kind: JobKind;
-  status: string;
+  status: JobStatus;
   language: string | null;
   bookVersionId: string | null;
   progress: number;
@@ -25,7 +26,7 @@ type JobsApiResponse = {
   bookId: string;
   jobs: UnifiedJob[];
   activeCount: number;
-  summary: Record<string, string>;
+  summary: Record<string, JobStatus>;
 };
 
 /* ─── Legacy types (backward compat for BookEditor) ───────────────────────── */
@@ -33,7 +34,7 @@ type JobsApiResponse = {
 export type BookJobResponse = {
   job: {
     id: string;
-    status: string;
+    status: JobStatus;
     totalChapters?: number;
     completedChapters?: number;
     currentChapterId?: string | null;
@@ -82,10 +83,10 @@ export type UseBookJobsOpts = {
 export type UseBookJobsResult = {
   /** All jobs for this book (all kinds, most recent first) */
   jobs: UnifiedJob[];
-  /** Number of pending/processing jobs */
+  /** Number of pending/running jobs */
   activeCount: number;
-  /** Latest status per kind (e.g. { audiobook: "processing", translation: "completed" }) */
-  summary: Record<string, string>;
+  /** Latest status per kind (e.g. { audiobook: "running", translation: "completed" }) */
+  summary: Record<string, JobStatus>;
   /** True once when activeCount transitions from >0 to 0 (jobs finished) */
   settled: boolean;
   /** Legacy: latest audiobook job in old shape (backward compat for BookEditor) */
@@ -114,7 +115,7 @@ export function useBookJobs(
 
   const [jobs, setJobs] = useState<UnifiedJob[]>([]);
   const [activeCount, setActiveCount] = useState(0);
-  const [summary, setSummary] = useState<Record<string, string>>({});
+  const [summary, setSummary] = useState<Record<string, JobStatus>>({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [settled, setSettled] = useState(false);

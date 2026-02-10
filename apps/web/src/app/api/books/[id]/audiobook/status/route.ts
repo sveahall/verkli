@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { assertPublicEnv } from "@/lib/env";
 import { isAudiobookEnabled } from "@/lib/flags";
+import { normalizeJobStatus } from "@/lib/job-status";
 import { requireAuthorRoleForApi } from "@/lib/auth/require-author";
 import { sanitizeJobError } from "@/lib/sanitize-job-error";
 import {
@@ -119,13 +120,14 @@ export async function GET(
 
   // Extract progress from job output
   const output = job?.output ?? {};
+  const normalizedJobStatus = job ? normalizeJobStatus(job.status) : null;
   const hasGeneratedAsset = Boolean(asset?.audio_url) && asset?.status === "generated";
   const resolvedBookStatus =
     hasGeneratedAsset
       ? "published"
-      : job?.status === "processing" || job?.status === "pending"
+      : normalizedJobStatus === "running" || normalizedJobStatus === "pending"
         ? "generating"
-        : job?.status === "failed"
+        : normalizedJobStatus === "failed"
           ? "failed"
           : (book.audiobook_status ?? "not_started");
 
@@ -135,7 +137,7 @@ export async function GET(
     job: job
       ? {
           id: job.id,
-          status: job.status,
+          status: normalizedJobStatus ?? "pending",
           totalChapters: output.totalChapters ?? 0,
           completedChapters: output.completedChapters ?? 0,
           currentChapterId: output.currentChapterId ?? null,

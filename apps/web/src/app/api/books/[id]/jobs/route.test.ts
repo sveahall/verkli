@@ -66,21 +66,6 @@ function makeSupabaseMock() {
                   started_at: "2026-02-07T10:00:05.000Z",
                   finished_at: null,
                 },
-                {
-                  id: "job-translation",
-                  kind: "translation",
-                  status: "completed",
-                  book_id: "book-1",
-                  book_version_id: "ver-2",
-                  language: "en",
-                  progress: 100,
-                  input: { sourceLanguage: "sv" },
-                  output: {},
-                  error: null,
-                  created_at: "2026-02-07T10:01:00.000Z",
-                  started_at: "2026-02-07T10:01:01.000Z",
-                  finished_at: "2026-02-07T10:01:15.000Z",
-                },
               ],
               error: null,
             };
@@ -102,6 +87,28 @@ function makeSupabaseMock() {
         eq: () => chain,
         order: () => chain,
         limit: async () => ({ data: [], error: null }),
+      };
+      return chain;
+    }
+
+    if (table === "book_versions") {
+      const chain = {
+        select: () => chain,
+        eq: () => chain,
+        in: () => chain,
+        order: () => chain,
+        limit: async () => ({
+          data: [
+            {
+              id: "ver-2",
+              language_code: "en",
+              status: "done",
+              created_at: "2026-02-07T10:01:00.000Z",
+              updated_at: "2026-02-07T10:01:15.000Z",
+            },
+          ],
+          error: null,
+        }),
       };
       return chain;
     }
@@ -138,6 +145,7 @@ describe("GET /api/books/[id]/jobs", () => {
     expect(res.status).toBe(200);
     expect(body.jobs).toHaveLength(1);
     expect(body.jobs[0].kind).toBe("translation");
+    expect(body.jobs[0].status).toBe("completed");
     expect(body.activeCount).toBe(0);
     expect(body.summary).toEqual({ translation: "completed" });
   });

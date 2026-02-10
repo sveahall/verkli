@@ -52,7 +52,7 @@ function formatStatus(status: string | null): string {
 }
 
 export default function BillingPage() {
-  const { state, loading, error, refetch } = useBillingState();
+  const { state, loading, error, refetch } = useBillingState({ pollIntervalMs: 10_000 });
   const [pendingPlan, setPendingPlan] = useState<BillingPlan | null>(null);
   const [openingPortal, setOpeningPortal] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
@@ -239,14 +239,9 @@ export default function BillingPage() {
         >
           {openingPortal ? "Öppnar portal…" : "Hantera abonnemang"}
         </button>
-        <button
-          type="button"
-          onClick={() => void refetch()}
-          disabled={loading}
-          className="rounded-md border px-4 py-2 text-sm font-medium hover:bg-muted disabled:opacity-60"
-        >
-          Uppdatera status
-        </button>
+        <span className="inline-flex items-center text-xs text-muted-foreground">
+          Status uppdateras automatiskt var 10:e sekund.
+        </span>
       </div>
     </div>
   );

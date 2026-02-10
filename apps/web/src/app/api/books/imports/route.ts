@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { assertPublicEnv } from "@/lib/env";
 import { requireAuthorRoleForApi } from "@/lib/auth/require-author";
+import { normalizeJobStatus } from "@/lib/job-status";
 import { sanitizeJobError } from "@/lib/sanitize-job-error";
 import { apiError, E_DATABASE_ERROR } from "@/lib/api-errors";
 
@@ -35,7 +36,7 @@ export async function GET(request: Request) {
       book_version_id: r.book_version_id ?? null,
       file_name: r.file_name,
       mode: r.mode ?? "new_version",
-      status: r.status,
+      status: normalizeJobStatus(r.status),
       progress: r.progress,
       result: r.result && typeof r.result === "object" ? r.result : null,
       error: sanitizeJobError(r.error_message),

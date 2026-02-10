@@ -20,8 +20,8 @@ const RATE_LIMIT_MAX_PER_MINUTE = 5; // Runway is expensive — tight limit
 type RateLimitEntry = { tokens: number; lastRefill: number };
 const rateLimitMap = new Map<string, RateLimitEntry>();
 
-/** @internal exported for testing */
-export function _resetRateLimits() {
+/** @internal test helper */
+function _resetRateLimits() {
   rateLimitMap.clear();
 }
 

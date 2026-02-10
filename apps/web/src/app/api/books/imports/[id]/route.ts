@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { assertPublicEnv } from "@/lib/env";
 import { requireAuthorRoleForApi } from "@/lib/auth/require-author";
+import { normalizeJobStatus } from "@/lib/job-status";
 import { sanitizeJobError } from "@/lib/sanitize-job-error";
 import { enqueueExtractJob } from "@/lib/import-queue";
 import type { ImportMode } from "@/lib/import-queue";
@@ -50,7 +51,7 @@ export async function GET(
     book_version_id: row.book_version_id ?? null,
     file_name: row.file_name,
     mode: normalizeImportMode(row.mode),
-    status: row.status,
+    status: normalizeJobStatus(row.status),
     progress: row.progress,
     result: row.result && typeof row.result === "object" ? row.result : null,
     error: sanitizeJobError(row.error_message),

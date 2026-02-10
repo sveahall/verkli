@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { assertPublicEnv } from "@/lib/env";
 import { isAudiobookEnabled } from "@/lib/flags";
+import { normalizeJobStatus } from "@/lib/job-status";
 import { requireAuthorRoleForApi } from "@/lib/auth/require-author";
 import { requireProBillingForApi } from "@/lib/billing/server";
 import { enqueueAudiobookJob } from "@/lib/audiobook-queue";
@@ -151,7 +152,7 @@ export async function POST(
     return NextResponse.json({
       ok: true,
       jobId: existingJob.id,
-      status: existingJob.status,
+      status: normalizeJobStatus(existingJob.status),
       message: "Job already in progress",
       totalChapters: existingJob.output?.totalChapters ?? 0,
       completedChapters: existingJob.output?.completedChapters ?? 0,
@@ -210,7 +211,7 @@ export async function POST(
           {
             ok: true,
             jobId: activeJob.id,
-            status: activeJob.status,
+            status: normalizeJobStatus(activeJob.status),
             message: "Job already in progress",
             totalChapters: activeJob.output?.totalChapters ?? 0,
             completedChapters: activeJob.output?.completedChapters ?? 0,
@@ -256,7 +257,7 @@ export async function POST(
     {
       ok: true,
       jobId: job.id,
-      status: "queued",
+      status: "pending",
       totalChapters: chapterCount,
       language: version.language_code,
     },

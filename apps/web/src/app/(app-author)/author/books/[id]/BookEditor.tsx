@@ -15,6 +15,7 @@ import { useBookJobs, type UnifiedJob } from "@/hooks/useBookJobs";
 import { useBillingState } from "@/hooks/useBillingState";
 import { resolveErrorMessage } from "@/lib/error-messages";
 import { getAudiobookEnabled, getMarketingEnabled, getTranslationsEnabled } from "@/lib/flags";
+import { isJobActiveStatus, normalizeJobStatus } from "@/lib/job-status";
 import { getLanguageLabel, LANGUAGE_OPTIONS, normalizeLanguage, type SupportedLanguage } from "@/lib/languages";
 
 const ACCEPTED_COVER_TYPES = "image/*";
@@ -111,24 +112,24 @@ const MARKETING_CHANNEL_LABELS: Record<MarketingChannel, string> = {
   x: "X",
 };
 
-/** Status för visning: queued → running → done / failed. Konsekvent copy i hela editorn. */
+/** Status för visning: pending → running → completed / failed. Konsekvent copy i hela editorn. */
 const STATUS_LABELS = {
-  queued: "Köad",
+  pending: "Väntar",
   running: "Pågår",
-  done: "Klar",
+  completed: "Klar",
   failed: "Misslyckades",
   idle: "Väntar",
 } as const;
 
 function getAudiobookStatusLabel(status: string): string {
-  if (status === "published" || status === "generated") return STATUS_LABELS.done;
+  if (status === "published" || status === "generated") return STATUS_LABELS.completed;
   if (status === "generating") return STATUS_LABELS.running;
   if (status === "failed") return STATUS_LABELS.failed;
   return "Ingen ljudbok än";
 }
 
 function getMarketingCampaignStatusLabel(status: string): string {
-  if (status === "generated" || status === "published") return STATUS_LABELS.done;
+  if (status === "generated" || status === "published") return STATUS_LABELS.completed;
   if (status === "failed") return STATUS_LABELS.failed;
   if (status === "pending" || status === "generating") return STATUS_LABELS.running;
   return STATUS_LABELS.idle;
@@ -348,7 +349,7 @@ function ImportManusSection({
         {uploading ? "Startar import…" : "Starta import"}
       </button>
 
-      {lastResult && !importJobs.some((j) => j.status === "pending" || j.status === "processing") && (
+      {lastResult && !importJobs.some((j) => isJobActiveStatus(j.status)) && (
         <div className="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 dark:border-emerald-800 dark:bg-emerald-950/30">
           <p className="text-sm font-medium text-emerald-800 dark:text-emerald-200">Importen är påbörjad. Följ status i bannern ovan.</p>
           {lastResult.chaptersCreated != null && <p className="text-sm text-emerald-700 dark:text-emerald-300">Antal kapitel: {lastResult.chaptersCreated}</p>}
@@ -372,17 +373,17 @@ function ImportManusSection({
               <div className="flex items-center justify-between">
                 <span className="font-medium text-slate-900 dark:text-white">
                   {job.status === "pending" && "Väntar…"}
-                  {job.status === "processing" && `Importerar… ${job.progress > 0 ? `${job.progress}%` : ""}`}
+                  {job.status === "running" && `Importerar… ${job.progress > 0 ? `${job.progress}%` : ""}`}
                   {job.status === "completed" && "Import klar"}
                   {job.status === "failed" && "Import misslyckades"}
                 </span>
-                {(job.status === "pending" || job.status === "processing") && (
+                {(job.status === "pending" || job.status === "running") && (
                   <span className="text-xs text-slate-500 dark:text-white/50">
-                    {job.progress > 0 ? `${job.progress}%` : "Köad"}
+                    {job.progress > 0 ? `${job.progress}%` : "Väntar"}
                   </span>
                 )}
               </div>
-              {job.status === "processing" && job.progress > 0 && (
+              {job.status === "running" && job.progress > 0 && (
                 <div className="mt-2 h-1.5 w-full rounded-full bg-slate-200 dark:bg-white/10">
                   <div
                     className="h-1.5 rounded-full bg-[#907AFF] transition-all"
@@ -492,13 +493,11 @@ export default function BookEditor({
   const translationPollStartedAtRef = useRef<number>(0);
   const [isGeneratingAudiobook, setIsGeneratingAudiobook] = useState(false);
   const [audiobookError, setAudiobookError] = useState<string | null>(null);
-  const [audiobookJobId, setAudiobookJobId] = useState<string | null>(null);
   const [audiobookProgress, setAudiobookProgress] = useState<{
     totalChapters: number;
     completedChapters: number;
     currentChapterTitle: string | null;
   } | null>(null);
-  const audiobookPollRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const [ttsStatus, setTtsStatus] = useState<"idle" | "generating" | "uploading" | "done" | "error">("idle");
   const [ttsMessage, setTtsMessage] = useState<string | null>(null);
   const [ttsManualSteps, setTtsManualSteps] = useState<string | null>(null);
@@ -520,7 +519,7 @@ export default function BookEditor({
   const [pricingError, setPricingError] = useState<string | null>(null);
   const [pricingSaved, setPricingSaved] = useState(false);
 
-  const { jobs: allJobs, job: bookJob, loading: jobLoading, error: jobError, refetch: refetchBookJob, settled: jobsSettled } = useBookJobs(book.id);
+  const { jobs: allJobs, loading: jobLoading, error: jobError, refetch: refetchBookJob, settled: jobsSettled } = useBookJobs(book.id);
   const billing = useBillingState();
 
   // Jobbar som ska visas i banner: aldrig audiobook när funktionen är avstängd
@@ -537,11 +536,11 @@ export default function BookEditor({
     () => (getAudiobookEnabled() ? allJobs.find((j) => j.kind === "audiobook") ?? null : null),
     [allJobs]
   );
-  const isAudiobookJobActive = latestAudiobookJob?.status === "pending" || latestAudiobookJob?.status === "processing";
-  const isAudiobookJobFailed = latestAudiobookJob?.status === "failed";
+  const isAudiobookJobActive = isJobActiveStatus(latestAudiobookJob?.status);
+  const isAudiobookJobFailed = normalizeJobStatus(latestAudiobookJob?.status) === "failed";
   const isAudiobookActive = isGeneratingAudiobook || !!isAudiobookJobActive;
   const serverAudiobookProgress = useMemo(() => {
-    if (!latestAudiobookJob || (latestAudiobookJob.status !== "pending" && latestAudiobookJob.status !== "processing")) return null;
+    if (!latestAudiobookJob || !isJobActiveStatus(latestAudiobookJob.status)) return null;
     const meta = latestAudiobookJob.meta as Record<string, unknown>;
     return {
       totalChapters: (meta.totalChapters as number) ?? 0,
@@ -1087,56 +1086,31 @@ export default function BookEditor({
     );
   }, [activeVersion?.language_code, book.original_language, book.language]);
 
-  const stopAudiobookPoll = useCallback(() => {
-    if (audiobookPollRef.current) {
-      clearInterval(audiobookPollRef.current);
-      audiobookPollRef.current = null;
-    }
-  }, []);
-
-  const startAudiobookPoll = useCallback(() => {
-    stopAudiobookPoll();
-    audiobookPollRef.current = setInterval(async () => {
-      try {
-        const res = await fetch(`/api/books/${book.id}/audiobook/status`);
-        const data = await res.json();
-        if (data.job) {
-          setAudiobookProgress({
-            totalChapters: data.job.totalChapters ?? 0,
-            completedChapters: data.job.completedChapters ?? 0,
-            currentChapterTitle: data.job.currentChapterTitle ?? null,
-          });
-          // Stop polling when job is done
-          if (data.job.status === "completed" || data.job.status === "failed") {
-            stopAudiobookPoll();
-            setIsGeneratingAudiobook(false);
-            refetchBookJob();
-            if (data.job.status === "failed") {
-              setAudiobookError(data.job.error ?? "Generering kunde inte slutföras. Försök igen.");
-            } else {
-              setAudiobookError(null);
-              router.refresh();
-            }
-          }
-        }
-      } catch {
-        // Ignore polling errors
-      }
-    }, 2000);
-  }, [book.id, refetchBookJob, router, stopAudiobookPoll]);
-
-  // Cleanup polling on unmount
   useEffect(() => {
-    return () => stopAudiobookPoll();
-  }, [stopAudiobookPoll]);
+    if (!audiobookFeatureEnabled || !latestAudiobookJob) return;
+    const normalizedStatus = normalizeJobStatus(latestAudiobookJob.status);
+    const meta = latestAudiobookJob.meta as Record<string, unknown>;
 
-  // Start legacy poll when active audiobook job detected from server (e.g. after refresh)
-  useEffect(() => {
-    if (!audiobookFeatureEnabled) return;
-    if (isAudiobookJobActive && !audiobookPollRef.current) {
-      startAudiobookPoll();
+    if (isJobActiveStatus(normalizedStatus)) {
+      setIsGeneratingAudiobook(true);
+      setAudiobookError(null);
+      setAudiobookProgress({
+        totalChapters: (meta.totalChapters as number) ?? 0,
+        completedChapters: (meta.completedChapters as number) ?? 0,
+        currentChapterTitle: (meta.currentChapterTitle as string) ?? null,
+      });
+      return;
     }
-  }, [audiobookFeatureEnabled, isAudiobookJobActive, startAudiobookPoll]);
+
+    setIsGeneratingAudiobook(false);
+    if (normalizedStatus === "failed") {
+      setAudiobookError(latestAudiobookJob.error ?? "Generering kunde inte slutföras. Försök igen.");
+      return;
+    }
+    if (normalizedStatus === "completed") {
+      setAudiobookError(null);
+    }
+  }, [audiobookFeatureEnabled, latestAudiobookJob]);
 
   const handleGenerateAudiobook = useCallback(async () => {
     if (isGeneratingAudiobook || !audiobookFeatureEnabled) return;
@@ -1151,20 +1125,18 @@ export default function BookEditor({
         setIsGeneratingAudiobook(false);
         return;
       }
-      // Set initial progress and start polling
-      setAudiobookJobId(data.jobId);
+      // Set initial progress while unified jobs endpoint catches up.
       setAudiobookProgress({
         totalChapters: data.totalChapters ?? 0,
         completedChapters: 0,
         currentChapterTitle: null,
       });
-      refetchBookJob();
-      startAudiobookPoll();
+      await refetchBookJob();
     } catch {
       setAudiobookError("Kunde inte starta generering. Försök igen.");
       setIsGeneratingAudiobook(false);
     }
-  }, [audiobookFeatureEnabled, book.id, isGeneratingAudiobook, refetchBookJob, startAudiobookPoll]);
+  }, [audiobookFeatureEnabled, book.id, isGeneratingAudiobook, refetchBookJob]);
 
   const handleJobRetry = useCallback(
     async (job: UnifiedJob) => {
@@ -1172,6 +1144,57 @@ export default function BookEditor({
         handleGenerateAudiobook();
         return;
       }
+
+      if (job.kind === "translation") {
+        if (!activeVersion?.id) {
+          toast.error("Ingen aktiv källversion hittades.");
+          return;
+        }
+
+        const queueHealthy = await checkTranslationQueueHealth();
+        if (!queueHealthy) {
+          toast.error("Översättningstjänsten är tillfälligt otillgänglig. Försök igen snart.");
+          return;
+        }
+
+        const meta = job.meta as Record<string, unknown>;
+        const targetLanguage = normalizeLanguage(
+          (job.language ?? (meta.languageCode as string) ?? translateTargetLanguage) as string
+        );
+        const targetVersionId =
+          job.bookVersionId ??
+          (typeof meta.bookVersionId === "string" && meta.bookVersionId.trim().length > 0
+            ? meta.bookVersionId
+            : null);
+
+        try {
+          const res = await fetch(`/api/books/${book.id}/translate`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              targetLanguage,
+              sourceVersionId: activeVersion.id,
+              targetVersionId,
+              overwrite: true,
+            }),
+          });
+          const data = await res.json().catch(() => ({}));
+          if (!res.ok || data?.ok === false) {
+            toast.error(resolveErrorMessage(data?.error));
+            return;
+          }
+          setTranslateTargetLanguage(targetLanguage);
+          setLastRequestedTargetLanguage(targetLanguage);
+          setTranslateMessage(`Översättning återstartad (${getLanguageLabel(targetLanguage)}).`);
+          startTranslationPoll();
+          await refetchBookJob();
+          toast.success("Översättning köad igen.");
+        } catch {
+          toast.error("Kunde inte köra översättningen igen.");
+        }
+        return;
+      }
+
       if (job.kind === "import") {
         try {
           const res = await fetch(`/api/books/imports/${job.id}`, { method: "POST" });
@@ -1187,7 +1210,16 @@ export default function BookEditor({
         }
       }
     },
-    [handleGenerateAudiobook, refetchBookJob, toast]
+    [
+      activeVersion?.id,
+      book.id,
+      checkTranslationQueueHealth,
+      handleGenerateAudiobook,
+      refetchBookJob,
+      startTranslationPoll,
+      toast,
+      translateTargetLanguage,
+    ]
   );
 
   const handleStartTts = useCallback(async () => {
@@ -2075,7 +2107,7 @@ export default function BookEditor({
                   >
                     {translationUiStatus === "idle" && STATUS_LABELS.idle}
                     {translationUiStatus === "translating" && "Översätts…"}
-                    {translationUiStatus === "done" && STATUS_LABELS.done}
+                    {translationUiStatus === "done" && STATUS_LABELS.completed}
                     {translationUiStatus === "error" && STATUS_LABELS.failed}
                   </span>
                 </div>
@@ -2171,7 +2203,7 @@ export default function BookEditor({
                   {ttsStatus === "idle" && STATUS_LABELS.idle}
                   {ttsStatus === "generating" && "Skapas…"}
                   {ttsStatus === "uploading" && "Laddas upp…"}
-                  {ttsStatus === "done" && STATUS_LABELS.done}
+                  {ttsStatus === "done" && STATUS_LABELS.completed}
                   {ttsStatus === "error" && STATUS_LABELS.failed}
                 </span>
               </div>
