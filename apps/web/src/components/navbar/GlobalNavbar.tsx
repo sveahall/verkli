@@ -437,24 +437,17 @@ export default function GlobalNavbar({
         .eq("user_id", activeUser.id)
         .maybeSingle();
 
-      // SECURITY: Original signup role comes from immutable profiles.role.
-      // Fallback to metadata only if profile row is unavailable.
+      // SECURITY: Original signup role MUST come from profiles.role (DB).
+      // Never trust user_metadata.role — it is client-writable via auth.updateUser().
       const profileRole = profile?.role;
-      const signupRole = activeUser.user_metadata?.role;
       if (profileRole === "author" || profileRole === "reader") {
         setOriginalRole(profileRole);
-      } else if (signupRole === "author" || signupRole === "reader") {
-        setOriginalRole(signupRole);
       } else {
         setOriginalRole(undefined);
       }
 
+      // Resolve active display role: prefer DB preferences, then profiles.role.
       let nextRole: "author" | "reader" = "author";
-      const metadataRole = activeUser.user_metadata?.active_role ?? activeUser.user_metadata?.role;
-      if (metadataRole === "author" || metadataRole === "reader") {
-        nextRole = metadataRole;
-      }
-
       const preferenceRole = (profile?.preferences as { active_role?: string } | null)?.active_role;
       if (preferenceRole === "author" || preferenceRole === "reader") {
         nextRole = preferenceRole;

@@ -20,10 +20,12 @@ export async function POST(request: Request) {
   const result = await updateActiveRole(role);
 
   if (!result.ok) {
-    // Return 403 for role restriction, 401 for auth issues
-    const status = result.error?.includes("Reader accounts") ? 403 : 401;
-    const key = status === 403 ? E_FORBIDDEN : E_NOT_AUTHENTICATED;
-    return apiError(key, status);
+    // "Not authenticated" → 401; any other rejection (role restriction) → 403
+    const isAuthError = result.error === "Not authenticated";
+    return apiError(
+      isAuthError ? E_NOT_AUTHENTICATED : E_FORBIDDEN,
+      isAuthError ? 401 : 403,
+    );
   }
 
   return NextResponse.json({ ok: true });

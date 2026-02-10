@@ -28,10 +28,10 @@ export async function GET() {
     .eq("user_id", user.id)
     .maybeSingle();
 
+  // SECURITY: Only trust profiles.role — user_metadata is client-writable.
   const profileRole = profile?.role ?? null;
-  const metadataRole = (user.user_metadata?.role as string | undefined) ?? null;
 
-  if (isLegacyAuthorRole(profileRole) || isLegacyAuthorRole(metadataRole)) {
+  if (isLegacyAuthorRole(profileRole)) {
     return NextResponse.json({ status: "approved" });
   }
 
@@ -55,10 +55,10 @@ export async function POST() {
     .eq("user_id", user.id)
     .maybeSingle();
 
+  // SECURITY: Only trust profiles.role — user_metadata is client-writable.
   const profileRole = profile?.role ?? null;
-  const metadataRole = (user.user_metadata?.role as string | undefined) ?? null;
 
-  if (isLegacyAuthorRole(profileRole) || isLegacyAuthorRole(metadataRole)) {
+  if (isLegacyAuthorRole(profileRole)) {
     return NextResponse.json({ ok: true, status: "approved", alreadyApproved: true });
   }
 

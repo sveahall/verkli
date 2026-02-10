@@ -18,11 +18,18 @@ export async function updateActiveRole(role: ActiveRole): Promise<RoleUpdateResu
     return { ok: false, error: "Not authenticated" };
   }
 
-  // Get original signup role
-  const originalRole = user.user_metadata?.role as ActiveRole | undefined;
+  // SECURITY: Read original signup role from DB — never trust user_metadata.role
+  // (user_metadata is client-writable via auth.updateUser).
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("role, preferences")
+    .eq("user_id", user.id)
+    .maybeSingle();
+
+  const originalRole = profile?.role as ActiveRole | undefined;
 
   // SECURITY: readers can switch to author only when approved by admin.
-  if (role === "author" && originalRole === "reader") {
+  if (role === "author" && originalRole !== "author") {
     const approvalStatus = await getAuthorApplicationStatus(supabase, user.id);
     if (approvalStatus !== "approved") {
       return {
@@ -31,12 +38,6 @@ export async function updateActiveRole(role: ActiveRole): Promise<RoleUpdateResu
       };
     }
   }
-
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("preferences")
-    .eq("user_id", user.id)
-    .maybeSingle();
 
   const preferences = (profile?.preferences as Record<string, unknown> | null) || {};
   const nextPreferences = {

@@ -19,10 +19,10 @@ export default async function ReaderHomePage() {
       .eq("user_id", user.id)
       .maybeSingle();
 
+    // SECURITY: Only trust profiles.role — user_metadata is client-writable.
     const profileRole = String(profile?.role ?? "").toLowerCase();
-    const metadataRole = String(user.user_metadata?.role ?? "").toLowerCase();
 
-    if (profileRole === "author" || metadataRole === "author") {
+    if (profileRole === "author") {
       authorApplicationStatus = "approved";
     } else {
       const { data: application } = await supabase
