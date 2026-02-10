@@ -2,8 +2,18 @@
  * In-memory token/usage budget gate for AI workers.
  *
  * Tracks daily and monthly usage per key (orgId or userId).
- * Designed for single-process workers — not shared across instances.
- * For production multi-instance deployment, replace storage with Redis counters.
+ *
+ * IMPORTANT LIMITATIONS:
+ * - Counters live in process memory — restarting a worker resets all budgets.
+ * - Each worker process has its own counters — running 2 instances of the same
+ *   worker effectively doubles the allowed budget.
+ * - This is acceptable for Beta (single-instance workers). For production
+ *   multi-instance deployment, replace the Map store with Redis INCRBY counters
+ *   using keys like `budget:{userId}:{YYYY-MM-DD}` with TTL auto-expiry.
+ *
+ * DEFAULT BEHAVIOR: If no budget key is available (should not happen in practice
+ * since all jobs carry userId/authorId), the calling worker skips the check and
+ * logs a warning — jobs are never blocked by a missing key.
  *
  * Defaults: 100 000 tokens/day, 3 000 000 tokens/month.
  */
