@@ -22,7 +22,9 @@ import { sanitizeJobErrorForStorage } from "../src/lib/sanitize-job-error";
 import { isDuplicate } from "../src/lib/workers/idempotency";
 import type { ImportMode } from "../src/lib/import-queue";
 
-const QUEUE_NAME = "book-import-extract";
+import { QUEUE_NAMES } from "../src/lib/queue-names";
+
+const QUEUE_NAME = QUEUE_NAMES.IMPORT;
 const BUCKET = "book-imports";
 
 type ProcessJobPayload = {
@@ -554,6 +556,19 @@ function main() {
 
   worker.on("error", (err) => {
     console.error("[import worker] Redis/queue error:", err.message, err.stack);
+  });
+
+  // Graceful shutdown
+  process.on("SIGTERM", async () => {
+    console.log("[import worker] shutting down...");
+    await worker.close();
+    process.exit(0);
+  });
+
+  process.on("SIGINT", async () => {
+    console.log("[import worker] shutting down...");
+    await worker.close();
+    process.exit(0);
   });
 }
 

@@ -17,6 +17,10 @@ const CONTROLLED_MAPPINGS: Array<{ pattern: RegExp; message: string }> = [
   { pattern: /^Storage upload failed/i, message: "Storage upload failed" },
   { pattern: /^Audiobook feature is disabled/i, message: "Audiobook feature is disabled" },
 
+  // Worker utility errors
+  { pattern: /Budget exceeded/i, message: "Budget exceeded — try again tomorrow" },
+  { pattern: /timed out after/i, message: "Operation timed out — try again later" },
+
   // Stuck-job copy used in UI (safe to preserve)
   {
     pattern: /^Uppgiften verkar ha fastnat/i,

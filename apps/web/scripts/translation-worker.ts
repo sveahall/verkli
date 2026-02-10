@@ -15,7 +15,9 @@ import { normalizeLanguageOrNull } from "../src/lib/languages";
 import { isDuplicate } from "../src/lib/workers/idempotency";
 import { checkBudget, trackUsage, BudgetExceededError } from "../src/lib/workers/budget";
 
-const QUEUE_NAME = "book-translation";
+import { QUEUE_NAMES } from "../src/lib/queue-names";
+
+const QUEUE_NAME = QUEUE_NAMES.TRANSLATION;
 
 /**
  * Extract plain text from a TipTap JSON node (for display/debugging).
@@ -397,6 +399,19 @@ function main() {
   });
   worker.on("error", (err) => {
     console.error("[translation worker] Redis/queue error:", err.message);
+  });
+
+  // Graceful shutdown
+  process.on("SIGTERM", async () => {
+    console.log("[translation worker] shutting down...");
+    await worker.close();
+    process.exit(0);
+  });
+
+  process.on("SIGINT", async () => {
+    console.log("[translation worker] shutting down...");
+    await worker.close();
+    process.exit(0);
   });
 }
 
