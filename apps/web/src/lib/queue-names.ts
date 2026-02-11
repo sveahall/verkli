@@ -8,6 +8,8 @@ export const QUEUE_NAMES = {
   TRANSLATION: "book-translation",
   AUDIOBOOK: "audiobook-generation",
   TTS: "tts-generation",
+  SOCIAL_PUBLISH: "social-publish",
+  RECOMMENDATIONS: "recommendations",
 } as const;
 
 export type QueueName = (typeof QUEUE_NAMES)[keyof typeof QUEUE_NAMES];

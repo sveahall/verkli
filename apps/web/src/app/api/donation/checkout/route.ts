@@ -1,2 +1,3 @@
 // Backward-compatible alias. Canonical endpoint is /api/donations/checkout.
-export { runtime, POST } from "../../donations/checkout/route";
+export const runtime = "nodejs";
+export { POST } from "../../donations/checkout/route";

@@ -117,7 +117,7 @@ async function processJob(payload: SocialPublishJobData) {
       .eq("id", jobId)
       .single();
 
-    const currentOutput = (current?.output as Record<string, unknown>) ?? {};
+    const currentOutput = ((current as Record<string, unknown> | null)?.output as Record<string, unknown>) ?? {};
     updates.output = { ...currentOutput, ...outputUpdate };
 
     await supabase.from("ai_jobs" as never).update(updates).eq("id", jobId);

@@ -10,28 +10,48 @@ vi.mock("@/lib/billing/server", () => ({
   requireProBillingForApi: vi.fn(),
 }));
 
+function chainableEq(terminal: Record<string, unknown>) {
+  const handler: Record<string, unknown> = {};
+  handler.eq = vi.fn().mockReturnValue(handler);
+  handler.in = vi.fn().mockReturnValue(handler);
+  handler.maybeSingle = vi.fn().mockResolvedValue(terminal);
+  return handler;
+}
+
 vi.mock("@/lib/supabase/admin", () => ({
   createAdminClient: vi.fn(() => ({
-    from: vi.fn().mockReturnValue({
-      select: vi.fn().mockReturnValue({
-        eq: vi.fn().mockReturnValue({
-          maybeSingle: vi.fn().mockResolvedValue({
-            data: { id: "camp-1", book_id: "book-1", user_id: "u1", status: "draft" },
-            error: null,
+    from: vi.fn((table: string) => {
+      if (table === "marketing_campaigns") {
+        return {
+          select: vi.fn().mockReturnValue(
+            chainableEq({
+              data: { id: "camp-1", book_id: "book-1", user_id: "u1", status: "draft" },
+              error: null,
+            })
+          ),
+        };
+      }
+      if (table === "ai_jobs") {
+        return {
+          select: vi.fn().mockReturnValue(
+            chainableEq({ data: null, error: null })
+          ),
+          insert: vi.fn().mockReturnValue({
+            select: vi.fn().mockReturnValue({
+              single: vi.fn().mockResolvedValue({ data: { id: "job-1" }, error: null }),
+            }),
           }),
-          in: vi.fn().mockReturnValue({
-            maybeSingle: vi.fn().mockResolvedValue({ data: null, error: null }),
+          update: vi.fn().mockReturnValue({
+            eq: vi.fn().mockResolvedValue({ error: null }),
           }),
-        }),
-      }),
-      insert: vi.fn().mockReturnValue({
-        select: vi.fn().mockReturnValue({
-          single: vi.fn().mockResolvedValue({ data: { id: "job-1" }, error: null }),
-        }),
-      }),
-      update: vi.fn().mockReturnValue({
-        eq: vi.fn().mockResolvedValue({ error: null }),
-      }),
+        };
+      }
+      // fallback
+      return {
+        select: vi.fn().mockReturnValue(
+          chainableEq({ data: null, error: null })
+        ),
+      };
     }),
   })),
 }));
@@ -133,7 +153,7 @@ describe("POST /api/social/publish", () => {
   });
 
   it("returns 429 after 5 requests per minute", async () => {
-    mockAuthSuccess("u-rate");
+    mockAuthSuccess("u1");
     mockBillingOk();
 
     for (let i = 0; i < 5; i++) {

@@ -82,7 +82,7 @@ export default function MarketingCaptionPortal({ books }: MarketingCaptionPortal
           cta: cta || undefined,
         }),
       });
-      const data = (await res.json().catch(() => ({}))) as { caption?: string; error?: string };
+      const data = (await res.json().catch(() => ({}))) as { caption?: string; error?: string; fromCache?: boolean };
       if (!res.ok) {
         toast.error(resolveErrorMessage(data.error));
         return;
