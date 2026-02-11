@@ -79,6 +79,7 @@ function getContentType(ext: string): string {
     ".html": "text/html",
     ".htm": "text/html",
     ".txt": "text/plain",
+    ".pdf": "application/pdf",
   };
   return m[ext.toLowerCase()] ?? "application/octet-stream";
 }

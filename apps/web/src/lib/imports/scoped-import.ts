@@ -9,7 +9,7 @@ import {
   E_INVALID_BOOK_VERSION,
 } from "@/lib/api-errors";
 
-export const IMPORT_ALLOWED_EXTENSIONS = [".epub", ".docx", ".html", ".htm", ".txt"] as const;
+export const IMPORT_ALLOWED_EXTENSIONS = [".epub", ".docx", ".html", ".htm", ".txt", ".pdf"] as const;
 export const IMPORT_MAX_MB = 50;
 export const IMPORT_MAX_BYTES = IMPORT_MAX_MB * 1024 * 1024;
 

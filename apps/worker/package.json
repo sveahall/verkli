@@ -10,10 +10,19 @@
   },
   "dependencies": {
     "@verkli/db": "*",
-    "@verkli/shared": "*"
+    "@verkli/shared": "*",
+    "@supabase/supabase-js": "^2",
+    "bullmq": "^5",
+    "cheerio": "^1.0.0",
+    "dotenv": "^16",
+    "epub": "^1.3.0",
+    "ioredis": "^5",
+    "mammoth": "^1.8.0",
+    "pdf-parse": "^1.1.1"
   },
   "devDependencies": {
     "@types/node": "^20",
+    "@types/pdf-parse": "^1",
     "tsx": "^4.7.0",
     "typescript": "^5"
   }

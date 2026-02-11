@@ -27,7 +27,7 @@ import { QUEUE_NAMES } from "../src/lib/queue-names";
 const QUEUE_NAME = QUEUE_NAMES.IMPORT;
 const BUCKET = "book-imports";
 
-type ProcessJobPayload = {
+export type ProcessJobPayload = {
   importId: string;
   filePath: string;
   fileStorage: "local" | "supabase";
@@ -139,7 +139,8 @@ async function createNewScopedVersion(args: {
   throw new Error("Failed to create new book version");
 }
 
-async function processJob(payload: ProcessJobPayload) {
+/** Process a single import job. Exported for use by apps/worker. */
+export async function processJob(payload: ProcessJobPayload) {
   const { importId, filePath, fileStorage, authorId } = payload;
   const supabase = createAdminClient();
 
@@ -395,6 +396,21 @@ async function processJob(payload: ProcessJobPayload) {
 
     await updateImport({ status: "extracting", progress: 70, book_id: targetBookId, book_version_id: targetBookVersionId, mode });
 
+    // ─── Dedup: fetch existing content hashes so we skip identical chapters ───
+    const { data: existingChapters } = await supabase
+      .from("chapters")
+      .select("content_hash, order")
+      .eq("book_version_id", targetBookVersionId)
+      .not("content_hash", "is", null);
+
+    const existingHashes = new Set(
+      (existingChapters ?? []).map((c: { content_hash: string }) => c.content_hash)
+    );
+
+    // Build rows, skipping duplicates
+    const rows: Record<string, unknown>[] = [];
+    let dedupSkipped = 0;
+
     for (let i = 0; i < chapters.length; i++) {
       const ch = chapters[i];
       const chapterTitle = (ch.title ?? "").trim() || `Chapter ${i + 1}`;
@@ -405,27 +421,68 @@ async function processJob(payload: ProcessJobPayload) {
       const sourceText = ch.sourceText ?? "";
       const hash = contentHash(sourceText);
 
-      const { error: chapterError } = await supabase.from("chapters").upsert(
-        {
-          book_id: targetBookId,
-          book_version_id: targetBookVersionId,
-          title: chapterTitle,
-          content: sourceText,
-          source_text: sourceText,
-          content_hash: hash,
-          order: i,
-        },
-        { onConflict: "book_version_id,order" }
-      );
-
-      if (chapterError) {
-        throw new Error(
-          `Failed to insert chapter order=${i} title=\"${chapterTitle}\": ${chapterError.message}`
-        );
+      if (existingHashes.has(hash)) {
+        dedupSkipped++;
+        continue;
       }
 
-      const progress = 70 + Math.floor(((i + 1) / chapters.length) * 29);
-      await updateImport({ status: "extracting", progress });
+      rows.push({
+        book_id: targetBookId,
+        book_version_id: targetBookVersionId,
+        title: chapterTitle,
+        content: sourceText,
+        source_text: sourceText,
+        content_hash: hash,
+        order: i,
+      });
+    }
+
+    if (dedupSkipped > 0) {
+      warnings.push(`dedupe_skipped_${dedupSkipped}`);
+      console.log("[import worker] dedup skipped chapters", {
+        importId,
+        dedupSkipped,
+        totalChapters: chapters.length,
+        inserting: rows.length,
+      });
+    }
+
+    // ─── Batch insert with rollback on failure ───
+    const BATCH_SIZE = 50;
+    let insertedCount = 0;
+
+    try {
+      for (let batchStart = 0; batchStart < rows.length; batchStart += BATCH_SIZE) {
+        const batch = rows.slice(batchStart, batchStart + BATCH_SIZE);
+        const { error: batchError } = await supabase
+          .from("chapters")
+          .upsert(batch, { onConflict: "book_version_id,order" });
+
+        if (batchError) {
+          throw new Error(
+            `Batch insert failed at offset ${batchStart}: ${batchError.message}`
+          );
+        }
+
+        insertedCount += batch.length;
+        const progress = 70 + Math.floor((insertedCount / rows.length) * 29);
+        await updateImport({ status: "extracting", progress });
+      }
+    } catch (insertError) {
+      // Rollback: remove all chapters we inserted for this version to avoid orphans
+      console.error("[import worker] batch insert failed, rolling back chapters", {
+        importId,
+        targetBookVersionId,
+        insertedCount,
+        totalRows: rows.length,
+      });
+
+      await supabase
+        .from("chapters")
+        .delete()
+        .eq("book_version_id", targetBookVersionId);
+
+      throw insertError;
     }
 
     await updateImport({
@@ -437,6 +494,8 @@ async function processJob(payload: ProcessJobPayload) {
       error_message: null,
       result: {
         chapterCount: chapters.length,
+        insertedCount: rows.length,
+        dedupSkipped,
         warnings,
         mode,
         languageCode: targetLanguageCode,

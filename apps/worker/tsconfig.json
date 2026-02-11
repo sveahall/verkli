@@ -11,10 +11,9 @@
     "isolatedModules": true,
     "resolveJsonModule": true,
     "outDir": "./dist",
-    "rootDir": "./src",
     "baseUrl": ".",
     "paths": {
-      "@/*": ["./src/*"]
+      "@/*": ["../web/src/*"]
     }
   },
   "include": ["src/**/*"],

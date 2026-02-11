@@ -188,7 +188,7 @@ type LatestAudiobookAsset = {
 
 const TRANSLATION_POLL_MAX_MS = 120_000;
 
-const IMPORT_ALLOWED_EXT = [".epub", ".docx", ".html", ".htm", ".txt"];
+const IMPORT_ALLOWED_EXT = [".epub", ".docx", ".html", ".htm", ".txt", ".pdf"];
 const IMPORT_MAX_MB = 50;
 const IMPORT_MAX_BYTES = IMPORT_MAX_MB * 1024 * 1024;
 
