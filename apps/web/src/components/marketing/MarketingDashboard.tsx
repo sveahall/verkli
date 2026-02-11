@@ -1,13 +1,35 @@
 "use client";
 
-import { useMemo, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
 import CampaignList from "@/components/marketing/CampaignList";
 import ContentGenerator from "@/components/marketing/ContentGenerator";
 import DistributionChannels from "@/components/marketing/DistributionChannels";
 import PerformanceOverview from "@/components/marketing/PerformanceOverview";
 import AutomationTeaser from "@/components/marketing/AutomationTeaser";
 import MarketingCaptionPortal from "@/components/marketing/MarketingCaptionPortal";
-import type { Campaign, Channel, ModuleState } from "@/lib/marketing/types";
+import CampaignCreationFlow from "@/components/marketing/CampaignCreationFlow";
+import type { Campaign, Channel, GeneratorOutput, ModuleState } from "@/lib/marketing/types";
+
+const GENERATOR_DEFAULTS: GeneratorOutput[] = [
+  {
+    id: "hook",
+    label: "Hook generator",
+    placeholder: "Describe the moment you want to highlight...",
+    sampleOutput: "",
+  },
+  {
+    id: "blurb",
+    label: "Blurb generator",
+    placeholder: "Summarize the chapter, theme, or cliffhanger...",
+    sampleOutput: "",
+  },
+  {
+    id: "social",
+    label: "Social captions",
+    placeholder: "Share the mood, character, or release update...",
+    sampleOutput: "",
+  },
+];
 
 const navItems = [
   { id: "caption-portal", label: "Caption-portal", helper: "Generera & spara" },
@@ -54,18 +76,52 @@ export default function MarketingDashboard({
   initialCampaigns = [],
   initialBooks = [],
 }: MarketingDashboardProps) {
-  const [campaigns] = useState<Campaign[]>(initialCampaigns);
+  const [campaigns, setCampaigns] = useState<Campaign[]>(initialCampaigns);
   const [channels, setChannels] = useState<Channel[]>([]);
   const [selectedCampaignId, setSelectedCampaignId] = useState<string | null>(
     initialCampaigns[0]?.id ?? null
   );
+  const [showCreateCampaign, setShowCreateCampaign] = useState(false);
+
+  // Fetch campaigns from DB on mount if none provided
+  const fetchCampaigns = useCallback(async () => {
+    if (initialCampaigns.length > 0) return;
+    try {
+      const bookId = initialBooks[0]?.id;
+      if (!bookId) return;
+      const res = await fetch(`/api/marketing/assets?bookId=${bookId}`);
+      if (!res.ok) return;
+      const data = await res.json();
+      if (Array.isArray(data.assets) && data.assets.length > 0) {
+        const mapped: Campaign[] = data.assets.map((a: Record<string, unknown>) => ({
+          id: String(a.id),
+          name: String(a.content_type ?? "caption"),
+          objective: String(a.text ?? "").slice(0, 80),
+          status: "draft" as const,
+          updatedAt: String(a.created_at ?? new Date().toISOString()),
+          channels: [String(a.channel ?? "instagram")],
+        }));
+        setCampaigns(mapped);
+        if (!selectedCampaignId && mapped.length > 0) {
+          setSelectedCampaignId(mapped[0].id);
+        }
+      }
+    } catch {
+      // silent — show empty state
+    }
+  }, [initialBooks, initialCampaigns.length, selectedCampaignId]);
+
+  useEffect(() => {
+    fetchCampaigns();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const selectedCampaign = useMemo(() => {
     return campaigns.find((campaign) => campaign.id === selectedCampaignId) ?? null;
   }, [campaigns, selectedCampaignId]);
 
   const campaignState: ModuleState = campaigns.length ? "populated" : "empty";
-  const generatorState: ModuleState = selectedCampaign ? "populated" : "empty";
+  const generatorState: ModuleState = "populated";
   const distributionState: ModuleState = channels.length ? "populated" : "empty";
   const performanceState: ModuleState = "empty";
   const metrics: { id: string; label: string; value: string; change?: string; trend?: "up" | "down" | "flat" }[] = [];
@@ -80,6 +136,12 @@ export default function MarketingDashboard({
         channel.id === id ? { ...channel, enabled: !channel.enabled } : channel
       )
     );
+  };
+
+  const handleCampaignCreated = (campaign: Campaign) => {
+    setCampaigns((prev) => [campaign, ...prev]);
+    setSelectedCampaignId(campaign.id);
+    setShowCreateCampaign(false);
   };
 
   return (
@@ -139,7 +201,7 @@ export default function MarketingDashboard({
           <DashboardSection
             id="caption-portal"
             title="Caption-portal"
-            description="Välj bok och språk, generera captions för TikTok, Instagram, X eller Facebook och spara som asset."
+            description="V\u00e4lj bok och spr\u00e5k, generera captions f\u00f6r TikTok, Instagram, X eller Facebook och spara som asset."
           >
             <MarketingCaptionPortal books={initialBooks} />
           </DashboardSection>
@@ -152,9 +214,7 @@ export default function MarketingDashboard({
               <button
                 type="button"
                 className="rounded-full bg-gradient-to-r from-[#907AFF] to-[#8069EE] px-4 py-2 text-[13px] font-semibold text-white transition hover:from-[#8069EE] hover:to-[#7058DD]"
-                onClick={() => {
-                  // TODO: Launch campaign creation flow.
-                }}
+                onClick={() => setShowCreateCampaign(true)}
               >
                 Create campaign
               </button>
@@ -173,7 +233,11 @@ export default function MarketingDashboard({
             title="Content generator"
             description="Draft hooks, blurbs, and social captions before publishing."
           >
-            <ContentGenerator generators={[]} state={generatorState} />
+            <ContentGenerator
+              generators={GENERATOR_DEFAULTS}
+              state={generatorState}
+              bookId={initialBooks[0]?.id ?? null}
+            />
           </DashboardSection>
 
           <DashboardSection
@@ -201,6 +265,14 @@ export default function MarketingDashboard({
           </section>
         </div>
       </div>
+
+      {showCreateCampaign && (
+        <CampaignCreationFlow
+          books={initialBooks}
+          onClose={() => setShowCreateCampaign(false)}
+          onCreated={handleCampaignCreated}
+        />
+      )}
     </div>
   );
 }

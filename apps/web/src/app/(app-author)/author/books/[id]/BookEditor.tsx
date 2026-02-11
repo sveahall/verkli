@@ -16,6 +16,7 @@ import { useBillingState } from "@/hooks/useBillingState";
 import { resolveErrorMessage } from "@/lib/error-messages";
 import { getAudiobookEnabled, getMarketingEnabled, getRecommendationsEnabled, getTranslationsEnabled } from "@/lib/flags";
 import GenreSelector from "@/components/books/GenreSelector";
+import TranslationPanel from "@/components/translations/TranslationPanel";
 import { isJobActiveStatus, normalizeJobStatus } from "@/lib/job-status";
 import { getLanguageLabel, LANGUAGE_OPTIONS, normalizeLanguage, type SupportedLanguage } from "@/lib/languages";
 import { isTranslationPairSupported } from "@/lib/translation-pairs";
@@ -2194,6 +2195,17 @@ export default function BookEditor({
                   </div>
                 )}
               </div>
+            )}
+
+            {getTranslationsEnabled() && (
+              <details className="rounded-xl border border-slate-200 bg-slate-50/50 dark:border-white/10 dark:bg-white/5">
+                <summary className="cursor-pointer px-5 py-4 text-base font-semibold text-slate-900 dark:text-white">
+                  Översättningspanel
+                </summary>
+                <div className="px-5 pb-5">
+                  <TranslationPanel bookId={book.id} />
+                </div>
+              </details>
             )}
 
             <div id="tts" className="rounded-xl border border-slate-200 bg-slate-50/50 p-5 dark:border-white/10 dark:bg-white/5">

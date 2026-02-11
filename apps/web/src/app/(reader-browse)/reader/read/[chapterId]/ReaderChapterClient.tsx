@@ -18,19 +18,50 @@ type ReaderHighlight = {
   updatedAt: string;
 };
 
-type FontFamily = "serif" | "sans" | "mono";
-type TextAlign = "left" | "justify";
-type MarginSize = "narrow" | "normal" | "wide";
-type ReaderTheme = "light" | "dark";
-
 type ReaderSettings = {
   fontSize: number;
   lineHeight: number;
-  fontFamily: FontFamily;
-  textAlign: TextAlign;
-  marginSize: MarginSize;
-  theme: ReaderTheme;
 };
+
+type ReaderFont = "serif" | "sans" | "mono";
+type ReaderTheme = "light" | "sepia" | "dark";
+type ReaderWidth = "narrow" | "medium" | "wide";
+
+const FONT_OPTIONS: { value: ReaderFont; label: string; family: string }[] = [
+  { value: "serif", label: "Serif", family: "Georgia, serif" },
+  { value: "sans", label: "Sans", family: "Inter, system-ui, sans-serif" },
+  { value: "mono", label: "Mono", family: "'JetBrains Mono', monospace" },
+];
+
+const THEME_OPTIONS: { value: ReaderTheme; label: string; bg: string; text: string }[] = [
+  { value: "light", label: "Ljus", bg: "", text: "" },
+  { value: "sepia", label: "Sepia", bg: "bg-[#f5f0e8]", text: "text-[#5c4b37]" },
+  { value: "dark", label: "M\u00f6rk", bg: "bg-slate-900", text: "text-slate-200" },
+];
+
+const WIDTH_OPTIONS: { value: ReaderWidth; label: string; cls: string }[] = [
+  { value: "narrow", label: "Smal", cls: "max-w-lg" },
+  { value: "medium", label: "Medium", cls: "max-w-2xl" },
+  { value: "wide", label: "Bred", cls: "max-w-4xl" },
+];
+
+function loadLocalStorage<T>(key: string, fallback: T): T {
+  if (typeof window === "undefined") return fallback;
+  try {
+    const raw = localStorage.getItem(key);
+    return raw ? (JSON.parse(raw) as T) : fallback;
+  } catch {
+    return fallback;
+  }
+}
+
+function saveLocalStorage(key: string, value: unknown) {
+  try {
+    localStorage.setItem(key, JSON.stringify(value));
+  } catch {
+    // silent
+  }
+}
 
 type SelectionState = {
   startOffset: number;
@@ -73,19 +104,6 @@ type Props = {
 const FONT_MIN = 13;
 const FONT_MAX = 24;
 const LINE_HEIGHT_OPTIONS = [1.5, 1.7, 1.9, 2.1] as const;
-
-const FONT_FAMILY_MAP: Record<FontFamily, string> = {
-  serif: "Georgia, 'Times New Roman', serif",
-  sans: "system-ui, -apple-system, sans-serif",
-  mono: "ui-monospace, 'Cascadia Code', monospace",
-};
-
-const MARGIN_WIDTH_MAP: Record<MarginSize, string> = {
-  narrow: "640px",
-  normal: "800px",
-  wide: "960px",
-};
-
 const COLOR_ORDER: HighlightColor[] = ["yellow", "green", "blue", "rose"];
 const COLOR_META: Record<HighlightColor, { label: string; swatch: string }> = {
   yellow: { label: "Yellow", swatch: "#facc15" },
@@ -111,10 +129,6 @@ type ReaderPrefs = {
   settings?: {
     fontSize?: number;
     lineHeight?: number;
-    fontFamily?: FontFamily;
-    textAlign?: TextAlign;
-    marginSize?: MarginSize;
-    theme?: ReaderTheme;
   };
 };
 
@@ -249,10 +263,6 @@ function getReaderPrefs(preferences: Record<string, unknown>): ReaderPrefs {
     settings: {
       fontSize: typeof settings.fontSize === "number" ? settings.fontSize : undefined,
       lineHeight: typeof settings.lineHeight === "number" ? settings.lineHeight : undefined,
-      fontFamily: settings.fontFamily === "serif" || settings.fontFamily === "sans" || settings.fontFamily === "mono" ? settings.fontFamily : undefined,
-      textAlign: settings.textAlign === "left" || settings.textAlign === "justify" ? settings.textAlign : undefined,
-      marginSize: settings.marginSize === "narrow" || settings.marginSize === "normal" || settings.marginSize === "wide" ? settings.marginSize : undefined,
-      theme: settings.theme === "light" || settings.theme === "dark" ? settings.theme : undefined,
     },
   };
 }
@@ -287,6 +297,40 @@ export default function ReaderChapterClient({
   const [settings, setSettings] = useState<ReaderSettings>(initialSettings);
   const [settingsSaveState, setSettingsSaveState] = useState<"idle" | "saving" | "saved" | "error">("idle");
   const [chapterMessage, setChapterMessage] = useState<string | null>(null);
+
+  // Reader UX controls
+  const [readerFont, setReaderFont] = useState<ReaderFont>(() => loadLocalStorage("verkli_reader_font", "serif" as ReaderFont));
+  const [readerTheme, setReaderTheme] = useState<ReaderTheme>(() => loadLocalStorage("verkli_reader_theme", "light" as ReaderTheme));
+  const [readerWidth, setReaderWidth] = useState<ReaderWidth>(() => loadLocalStorage("verkli_reader_width", "medium" as ReaderWidth));
+  const [showSettingsPanel, setShowSettingsPanel] = useState(false);
+  const settingsPanelRef = useRef<HTMLDivElement>(null);
+  const settingsButtonRef = useRef<HTMLButtonElement>(null);
+
+  // Persist UX controls to localStorage
+  useEffect(() => { saveLocalStorage("verkli_reader_font", readerFont); }, [readerFont]);
+  useEffect(() => { saveLocalStorage("verkli_reader_theme", readerTheme); }, [readerTheme]);
+  useEffect(() => { saveLocalStorage("verkli_reader_width", readerWidth); }, [readerWidth]);
+
+  // Close settings panel on click outside
+  useEffect(() => {
+    if (!showSettingsPanel) return;
+    const handler = (e: MouseEvent) => {
+      if (
+        settingsPanelRef.current &&
+        !settingsPanelRef.current.contains(e.target as Node) &&
+        settingsButtonRef.current &&
+        !settingsButtonRef.current.contains(e.target as Node)
+      ) {
+        setShowSettingsPanel(false);
+      }
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, [showSettingsPanel]);
+
+  const currentFontFamily = FONT_OPTIONS.find((f) => f.value === readerFont)?.family ?? "Georgia, serif";
+  const currentTheme = THEME_OPTIONS.find((t) => t.value === readerTheme);
+  const currentWidthCls = WIDTH_OPTIONS.find((w) => w.value === readerWidth)?.cls ?? "max-w-2xl";
 
   const canCreateHighlights = Boolean(userId && bookVersionId);
   const supportsCssHighlights = useMemo(() => {
@@ -461,14 +505,9 @@ export default function ReaderChapterClient({
   useEffect(() => {
     if (!userId) return;
 
-    const prev = lastSavedSettingsRef.current;
     if (
-      settings.fontSize === prev.fontSize
-      && settings.lineHeight === prev.lineHeight
-      && settings.fontFamily === prev.fontFamily
-      && settings.textAlign === prev.textAlign
-      && settings.marginSize === prev.marginSize
-      && settings.theme === prev.theme
+      settings.fontSize === lastSavedSettingsRef.current.fontSize
+      && settings.lineHeight === lastSavedSettingsRef.current.lineHeight
     ) {
       return;
     }
@@ -490,10 +529,6 @@ export default function ReaderChapterClient({
           settings: {
             fontSize: settings.fontSize,
             lineHeight: settings.lineHeight,
-            fontFamily: settings.fontFamily,
-            textAlign: settings.textAlign,
-            marginSize: settings.marginSize,
-            theme: settings.theme,
           },
         },
       };
@@ -539,13 +574,6 @@ export default function ReaderChapterClient({
       }
     };
   }, []);
-
-  useEffect(() => {
-    document.documentElement.classList.toggle("dark", settings.theme === "dark");
-    try {
-      window.localStorage.setItem("verkli-theme", settings.theme);
-    } catch {}
-  }, [settings.theme]);
 
   const createHighlight = useCallback(async () => {
     if (!selectionState) return;
@@ -688,6 +716,94 @@ export default function ReaderChapterClient({
 
   return (
     <>
+      {/* Floating settings gear button */}
+      <div className="fixed right-4 top-4 z-[100]">
+        <button
+          ref={settingsButtonRef}
+          type="button"
+          onClick={() => setShowSettingsPanel((prev) => !prev)}
+          className="rounded-full border border-black/10 bg-white p-2.5 shadow-lg transition hover:bg-slate-50 dark:border-white/15 dark:bg-slate-800 dark:hover:bg-slate-700"
+          aria-label="Reader settings"
+        >
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-slate-700 dark:text-white/80">
+            <circle cx="12" cy="12" r="3" />
+            <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" />
+          </svg>
+        </button>
+
+        {showSettingsPanel && (
+          <div
+            ref={settingsPanelRef}
+            className="absolute right-0 top-12 w-[260px] rounded-2xl border border-black/10 bg-white p-4 shadow-xl dark:border-white/10 dark:bg-slate-900"
+          >
+            <p className="mb-3 text-[13px] font-semibold text-slate-900 dark:text-white">L&auml;sinst&auml;llningar</p>
+
+            <div className="space-y-3">
+              <div>
+                <p className="mb-1.5 text-[11px] font-medium uppercase tracking-[0.1em] text-slate-500 dark:text-white/50">Typsnitt</p>
+                <div className="flex gap-1.5">
+                  {FONT_OPTIONS.map((f) => (
+                    <button
+                      key={f.value}
+                      type="button"
+                      onClick={() => setReaderFont(f.value)}
+                      className={`flex-1 rounded-xl px-2 py-1.5 text-[12px] font-medium transition ${
+                        readerFont === f.value
+                          ? "bg-[#907AFF] text-white"
+                          : "border border-black/10 text-slate-700 hover:border-black/20 dark:border-white/15 dark:text-white/70"
+                      }`}
+                    >
+                      {f.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div>
+                <p className="mb-1.5 text-[11px] font-medium uppercase tracking-[0.1em] text-slate-500 dark:text-white/50">Tema</p>
+                <div className="flex gap-1.5">
+                  {THEME_OPTIONS.map((t) => (
+                    <button
+                      key={t.value}
+                      type="button"
+                      onClick={() => setReaderTheme(t.value)}
+                      className={`flex-1 rounded-xl px-2 py-1.5 text-[12px] font-medium transition ${
+                        readerTheme === t.value
+                          ? "bg-[#907AFF] text-white"
+                          : "border border-black/10 text-slate-700 hover:border-black/20 dark:border-white/15 dark:text-white/70"
+                      }`}
+                    >
+                      {t.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div>
+                <p className="mb-1.5 text-[11px] font-medium uppercase tracking-[0.1em] text-slate-500 dark:text-white/50">Bredd</p>
+                <div className="flex gap-1.5">
+                  {WIDTH_OPTIONS.map((w) => (
+                    <button
+                      key={w.value}
+                      type="button"
+                      onClick={() => setReaderWidth(w.value)}
+                      className={`flex-1 rounded-xl px-2 py-1.5 text-[12px] font-medium transition ${
+                        readerWidth === w.value
+                          ? "bg-[#907AFF] text-white"
+                          : "border border-black/10 text-slate-700 hover:border-black/20 dark:border-white/15 dark:text-white/70"
+                      }`}
+                    >
+                      {w.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+
+      <div className={`mx-auto ${currentWidthCls} ${currentTheme?.bg ?? ""} ${currentTheme?.text ?? ""}`}>
       <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_300px]">
         <div className="space-y-4">
           <section className="rounded-2xl border border-black/10 bg-black/[0.03] p-4 dark:border-white/10 dark:bg-white/[0.03]">
@@ -729,66 +845,6 @@ export default function ReaderChapterClient({
                 ))}
               </select>
 
-            </div>
-
-            <div className="mt-3 flex flex-wrap items-center gap-2 text-[12px] text-slate-600 dark:text-white/60">
-              <span className="font-medium text-slate-700 dark:text-white/70">Typsnitt</span>
-              {(["serif", "sans", "mono"] as const).map((ff) => (
-                <button
-                  key={ff}
-                  type="button"
-                  onClick={() => updateReaderSettings((p) => ({ ...p, fontFamily: ff }))}
-                  className={`rounded-full border px-3 py-1 font-medium transition ${
-                    settings.fontFamily === ff
-                      ? "border-[#907AFF]/50 bg-[#907AFF]/10 text-[#907AFF] dark:border-[#907AFF]/40 dark:text-[#b8a9ff]"
-                      : "border-black/10 text-slate-700 hover:border-black/20 dark:border-white/15 dark:text-white/70 dark:hover:text-white"
-                  }`}
-                >
-                  {ff === "serif" ? "Serif" : ff === "sans" ? "Sans" : "Mono"}
-                </button>
-              ))}
-
-              <span className="ml-2 font-medium text-slate-700 dark:text-white/70">Justering</span>
-              {(["left", "justify"] as const).map((ta) => (
-                <button
-                  key={ta}
-                  type="button"
-                  onClick={() => updateReaderSettings((p) => ({ ...p, textAlign: ta }))}
-                  className={`rounded-full border px-3 py-1 font-medium transition ${
-                    settings.textAlign === ta
-                      ? "border-[#907AFF]/50 bg-[#907AFF]/10 text-[#907AFF] dark:border-[#907AFF]/40 dark:text-[#b8a9ff]"
-                      : "border-black/10 text-slate-700 hover:border-black/20 dark:border-white/15 dark:text-white/70 dark:hover:text-white"
-                  }`}
-                >
-                  {ta === "left" ? "Vänster" : "Marginaljust."}
-                </button>
-              ))}
-
-              <span className="ml-2 font-medium text-slate-700 dark:text-white/70">Bredd</span>
-              {(["narrow", "normal", "wide"] as const).map((ms) => (
-                <button
-                  key={ms}
-                  type="button"
-                  onClick={() => updateReaderSettings((p) => ({ ...p, marginSize: ms }))}
-                  className={`rounded-full border px-3 py-1 font-medium transition ${
-                    settings.marginSize === ms
-                      ? "border-[#907AFF]/50 bg-[#907AFF]/10 text-[#907AFF] dark:border-[#907AFF]/40 dark:text-[#b8a9ff]"
-                      : "border-black/10 text-slate-700 hover:border-black/20 dark:border-white/15 dark:text-white/70 dark:hover:text-white"
-                  }`}
-                >
-                  {ms === "narrow" ? "Smal" : ms === "normal" ? "Normal" : "Bred"}
-                </button>
-              ))}
-
-              <span className="ml-2 font-medium text-slate-700 dark:text-white/70">Tema</span>
-              <button
-                type="button"
-                onClick={() => updateReaderSettings((p) => ({ ...p, theme: p.theme === "dark" ? "light" : "dark" }))}
-                className="rounded-full border border-black/10 px-3 py-1 font-medium text-slate-700 transition hover:border-black/20 dark:border-white/15 dark:text-white/70 dark:hover:text-white"
-              >
-                {settings.theme === "dark" ? "Ljust" : "Mörkt"}
-              </button>
-
               {userId && settingsStatusLabel && (
                 <span className={`ml-auto font-medium ${
                   settingsSaveState === "error"
@@ -808,9 +864,7 @@ export default function ReaderChapterClient({
             style={{
               ["--reader-font-size" as string]: `${settings.fontSize}px`,
               ["--reader-line-height" as string]: String(settings.lineHeight),
-              ["--reader-font-family" as string]: FONT_FAMILY_MAP[settings.fontFamily],
-              ["--reader-text-align" as string]: settings.textAlign,
-              ["--reader-max-width" as string]: MARGIN_WIDTH_MAP[settings.marginSize],
+              ["--reader-font-family" as string]: currentFontFamily,
             }}
           >
             <h2 className="mb-3 text-[18px] font-semibold text-slate-800 dark:text-white/80">{chapterTitle}</h2>
@@ -912,6 +966,7 @@ export default function ReaderChapterClient({
           )}
         </aside>
       </div>
+      </div>
 
       {selectionState && (
         <div
@@ -978,9 +1033,7 @@ export default function ReaderChapterClient({
         .reader-chapter-body .tiptap-renderer .ProseMirror {
           font-size: var(--reader-font-size, 16px);
           line-height: var(--reader-line-height, 1.75);
-          font-family: var(--reader-font-family, Georgia, 'Times New Roman', serif);
-          text-align: var(--reader-text-align, left);
-          max-width: var(--reader-max-width, 800px);
+          font-family: var(--reader-font-family, Georgia, serif);
         }
 
         .reader-chapter-body .tiptap-renderer .ProseMirror p,
