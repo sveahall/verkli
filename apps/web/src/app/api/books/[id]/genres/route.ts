@@ -1,0 +1,99 @@
+import { NextResponse } from "next/server";
+import { z } from "zod";
+import { createClient } from "@/lib/supabase/server";
+import { apiError, E_NOT_AUTHENTICATED, E_BOOK_NOT_FOUND, E_DATABASE_ERROR } from "@/lib/api-errors";
+
+export async function GET(
+  _request: Request,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  const { id: bookId } = await params;
+  const supabase = await createClient();
+
+  const { data, error } = await supabase
+    .from("book_genres")
+    .select("genre_id")
+    .eq("book_id", bookId);
+
+  if (error) {
+    return apiError(E_DATABASE_ERROR, 500);
+  }
+
+  return NextResponse.json({ genreIds: (data ?? []).map((d) => d.genre_id) });
+}
+
+const putSchema = z.object({
+  genreIds: z.array(z.string().uuid()).max(3),
+});
+
+export async function PUT(
+  request: Request,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  const { id: bookId } = await params;
+  const supabase = await createClient();
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) {
+    return apiError(E_NOT_AUTHENTICATED, 401);
+  }
+
+  // Verify ownership
+  const { data: book } = await supabase
+    .from("books")
+    .select("author_id")
+    .eq("id", bookId)
+    .maybeSingle();
+
+  if (!book) {
+    return apiError(E_BOOK_NOT_FOUND, 404);
+  }
+
+  if (book.author_id !== user.id) {
+    return apiError(E_BOOK_NOT_FOUND, 404);
+  }
+
+  let body: unknown;
+  try {
+    body = await request.json();
+  } catch {
+    return apiError(E_DATABASE_ERROR, 400);
+  }
+
+  const parsed = putSchema.safeParse(body);
+  if (!parsed.success) {
+    return apiError(E_DATABASE_ERROR, 400);
+  }
+
+  const { genreIds } = parsed.data;
+
+  // Delete existing and insert new
+  const { error: deleteError } = await supabase
+    .from("book_genres")
+    .delete()
+    .eq("book_id", bookId);
+
+  if (deleteError) {
+    return apiError(E_DATABASE_ERROR, 500);
+  }
+
+  if (genreIds.length > 0) {
+    const rows = genreIds.map((genreId) => ({
+      book_id: bookId,
+      genre_id: genreId,
+    }));
+
+    const { error: insertError } = await supabase
+      .from("book_genres")
+      .insert(rows);
+
+    if (insertError) {
+      return apiError(E_DATABASE_ERROR, 500);
+    }
+  }
+
+  return NextResponse.json({ ok: true });
+}

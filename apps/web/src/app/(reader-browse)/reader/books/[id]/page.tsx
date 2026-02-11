@@ -12,6 +12,7 @@ import PurchaseSuccessRefresh from "./PurchaseSuccessRefresh";
 import OfflineSaveButton from "./OfflineSaveButton";
 import BookReviewsSection from "./BookReviewsSection";
 import CommentsSection from "./CommentsSection";
+import SimilarBooksRail from "@/components/reader/SimilarBooksRail";
 
 async function getBook(id: string) {
   const supabase = await createClient();
@@ -346,6 +347,11 @@ export default async function ReaderBookDetail({
           </div>
         </div>
       </section>
+      <SimilarBooksRail
+        bookId={book.id}
+        authorId={book.author_id}
+        language={book.language}
+      />
       <BookReviewsSection
         bookId={book.id}
         isSignedIn={Boolean(user)}

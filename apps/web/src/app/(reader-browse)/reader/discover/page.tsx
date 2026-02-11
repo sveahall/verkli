@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { getAvatarUrlFromPathServer } from "@/lib/supabase/avatar";
-import { getDiscoveryEnabled } from "@/lib/flags";
+import { getDiscoveryEnabled, getRecommendationsEnabled } from "@/lib/flags";
 import { getLanguageLabel, LANGUAGE_OPTIONS, normalizeLanguage, type SupportedLanguage } from "@/lib/languages";
 import AuthorCard from "@/components/reader/AuthorCard";
 import BookCard from "@/components/reader/BookCard";
@@ -160,8 +160,9 @@ export default async function ReaderDiscoverPage({
 
   const supabase = await createClient();
   const discoveryEnabled = getDiscoveryEnabled();
+  const recommendationsEnabled = getRecommendationsEnabled();
 
-  const [featuredRaw, newBooksRaw, curatedLists, profiles] = await Promise.all([
+  const [featuredRaw, newBooksRaw, curatedLists, profiles, genresResult] = await Promise.all([
     discoveryEnabled ? getFeaturedBooks(supabase, language) : Promise.resolve([]),
     discoveryEnabled ? getNewBooks(supabase, language, 16) : Promise.resolve([]),
     discoveryEnabled ? getCuratedListsWithItems(supabase, language, 6) : Promise.resolve([]),
@@ -172,6 +173,13 @@ export default async function ReaderDiscoverPage({
       .eq("is_public", true)
       .limit(12)
       .then((r) => r.data ?? []),
+    recommendationsEnabled
+      ? supabase
+          .from("genres")
+          .select("id, slug, name_sv, icon, display_order")
+          .order("display_order", { ascending: true })
+          .then((r) => r.data ?? [])
+      : Promise.resolve([] as Array<{ id: string; slug: string; name_sv: string; icon: string | null; display_order: number }>),
   ]);
 
   const [featuredBooks, newBooks] = await Promise.all([
@@ -301,6 +309,24 @@ export default async function ReaderDiscoverPage({
               </div>
             </div>
           ))}
+        </section>
+      )}
+
+      {genresResult.length > 0 && (
+        <section className="space-y-5">
+          <h2 className="text-section-title">Utforska genrer</h2>
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6">
+            {genresResult.map((genre) => (
+              <Link
+                key={genre.id}
+                href={`/reader/genres?genre=${genre.slug}`}
+                className="flex items-center gap-2 rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-medium text-slate-700 transition hover:border-[#907AFF]/40 hover:bg-[#907AFF]/5 dark:border-white/10 dark:bg-white/5 dark:text-white/80 dark:hover:border-[#B8A8FF]/40 dark:hover:bg-[#907AFF]/10"
+              >
+                {genre.icon && <span>{genre.icon}</span>}
+                <span className="truncate">{genre.name_sv}</span>
+              </Link>
+            ))}
+          </div>
         </section>
       )}
 

@@ -120,3 +120,46 @@ export interface VideoProvider {
   readonly name: string;
   generate(options: VideoGenerateOptions): Promise<VideoGenerateResult>;
 }
+
+// ─────────────────────────────────────────────────────────────
+// Image Provider
+// ─────────────────────────────────────────────────────────────
+
+export interface ImageGenerateOptions {
+  prompt: string;
+  width?: number;
+  height?: number;
+  style?: string;
+}
+
+export interface ImageGenerateResult {
+  imageUrl: string | null;
+  width: number;
+  height: number;
+}
+
+export interface ImageProvider {
+  readonly name: string;
+  generate(options: ImageGenerateOptions): Promise<ImageGenerateResult>;
+  getSupportedStyles(): string[];
+}
+
+// ─────────────────────────────────────────────────────────────
+// Copywriter Provider (LLM)
+// ─────────────────────────────────────────────────────────────
+
+export interface CopywriterGenerateOptions {
+  systemPrompt: string;
+  userPrompt: string;
+  model?: string;
+}
+
+export interface CopywriterGenerateResult {
+  text: string;
+}
+
+export interface CopywriterProvider {
+  readonly name: string;
+  generate(options: CopywriterGenerateOptions): Promise<CopywriterGenerateResult>;
+  getAvailableModels(): string[];
+}

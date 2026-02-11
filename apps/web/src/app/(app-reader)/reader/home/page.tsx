@@ -1,9 +1,12 @@
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { getRecommendationsEnabled } from "@/lib/flags";
 import BookCard from "@/components/reader/BookCard";
 import EmptyState from "@/components/reader/EmptyState";
 import PageHeader from "@/components/reader/PageHeader";
 import Rail from "@/components/reader/Rail";
+import ForYouRail from "@/components/reader/ForYouRail";
 import { ErrorBannerWrapper } from "@/components/ui/ErrorBanner";
 import AuthorApplicationCard from "./AuthorApplicationCard";
 
@@ -15,9 +18,14 @@ export default async function ReaderHomePage() {
   if (user) {
     const { data: profile } = await supabase
       .from("profiles")
-      .select("role")
+      .select("role, onboarding_completed_at")
       .eq("user_id", user.id)
       .maybeSingle();
+
+    // Redirect to onboarding if recommendations enabled and not completed
+    if (getRecommendationsEnabled() && !profile?.onboarding_completed_at) {
+      redirect("/reader/onboarding");
+    }
 
     // SECURITY: Only trust profiles.role — user_metadata is client-writable.
     const profileRole = String(profile?.role ?? "").toLowerCase();
@@ -171,6 +179,8 @@ export default async function ReaderHomePage() {
           />
         ))}
       </Rail>
+
+      {user && <ForYouRail userId={user.id} />}
 
       <Rail
         title="Published books"

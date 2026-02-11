@@ -166,6 +166,9 @@ const ERROR_MESSAGES: Record<string, string> = {
   // AI
   PROMPT_TEXT_REQUIRED: "Prompttext krävs.",
   TEXT_TO_VIDEO_FAILED: "Text-till-video misslyckades.",
+  CONTENT_GENERATION_FAILED: "Innehållsgenereringen misslyckades.",
+  CONTENT_INVALID_CHANNEL_TYPE: "Innehållstypen stöds inte för den valda kanalen.",
+  CONTENT_FETCH_FAILED: "Kunde inte hämta genererat innehåll.",
 
   // Dev
   NOT_AVAILABLE_IN_PRODUCTION: "Inte tillgängligt i produktion.",

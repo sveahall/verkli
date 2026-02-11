@@ -1,7 +1,13 @@
 import Stripe from "stripe";
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { getBillingPriceConfig, getPlanFromPriceId, parseBillingPlan, type BillingPriceConfig, type BillingPlan } from "@/lib/billing/plans";
+import {
+  getBillingPriceConfig,
+  getPlanFromPriceId,
+  parseBillingPlan,
+  type BillingPriceConfig,
+  type BillingPlan,
+} from "@/lib/billing/plans";
 import {
   getBillingAccountByStripeCustomerId,
   getBillingAccountByStripeSubscriptionId,
@@ -24,16 +30,11 @@ type StripeWebhookEvent = {
 };
 
 type PaymentKind = "donation" | "credit_topup";
-type PaymentRecordTable = "donations" | "credit_topups";
-type CreditGrantSource = "donation" | "credit_topup";
 
-type PaymentRecordRow = {
-  id: string;
-  user_id: string;
-  status: string | null;
-  credits_delta: number;
-  credits_applied_at: string | null;
-};
+type FinalizeCheckoutFunction =
+  | "finalize_order_checkout_session"
+  | "finalize_donation_checkout_session"
+  | "finalize_credit_topup_checkout_session";
 
 function asRecord(value: unknown): StripeRecord | null {
   if (!value || typeof value !== "object") return null;
@@ -43,13 +44,6 @@ function asRecord(value: unknown): StripeRecord | null {
 function trimToNull(value: unknown): string | null {
   const normalized = String(value ?? "").trim();
   return normalized.length > 0 ? normalized : null;
-}
-
-function toPositiveInt(value: unknown): number {
-  if (value == null) return 0;
-  const numeric = typeof value === "number" ? value : Number(value);
-  if (!Number.isFinite(numeric)) return 0;
-  return Math.max(0, Math.trunc(numeric));
 }
 
 function unixSecondsToIso(value: unknown): string | null {
@@ -87,112 +81,11 @@ function parsePaymentKind(value: unknown): PaymentKind | null {
   if (normalized === "credit_topup" || normalized === "credit-topup") {
     return "credit_topup";
   }
-  return true;
+  return null;
 }
 
 function parsePaymentKindFromMetadata(metadata: Record<string, string>): PaymentKind | null {
   return parsePaymentKind(metadata.payment_kind ?? metadata.payment_type);
-}
-
-function asPaymentRecordRow(value: unknown): PaymentRecordRow | null {
-  const record = asRecord(value);
-  const id = trimToNull(record?.id);
-  const userId = trimToNull(record?.user_id);
-  if (!id || !userId) {
-    return null;
-  }
-
-  return {
-    id,
-    user_id: userId,
-    status: trimToNull(record?.status),
-    credits_delta: toPositiveInt(record?.credits_delta),
-    credits_applied_at: trimToNull(record?.credits_applied_at),
-  };
-}
-
-async function grantCreditsOnce(
-  admin: ReturnType<typeof createAdminClient>,
-  input: {
-    userId: string;
-    source: CreditGrantSource;
-    sourceId: string;
-    delta: number;
-  }
-): Promise<boolean> {
-  const { data, error } = await admin.rpc("grant_user_credits_once" as never, {
-    p_user_id: input.userId,
-    p_delta: input.delta,
-    p_source: input.source,
-    p_source_id: input.sourceId,
-  });
-
-  if (error) {
-    throw new Error(`grant_user_credits_once failed (${error.code}): ${error.message}`);
-  }
-
-  return data === true;
-}
-
-async function processPaymentRecordCheckoutSession(
-  admin: ReturnType<typeof createAdminClient>,
-  input: {
-    table: PaymentRecordTable;
-    label: string;
-    source: CreditGrantSource;
-    session: StripeRecord;
-  }
-): Promise<boolean> {
-  const sessionId = trimToNull(input.session.id);
-  if (!sessionId) return false;
-  if (!isPaidCheckoutSession(input.session)) return false;
-
-  const { data: paymentRecord, error: lookupError } = await admin
-    .from(input.table as never)
-    .select("id, user_id, status, credits_delta, credits_applied_at")
-    .eq("stripe_session_id", sessionId)
-    .maybeSingle();
-
-  if (lookupError) {
-    throw new Error(`${input.label} lookup failed (${lookupError.code}): ${lookupError.message}`);
-  }
-
-  const row = asPaymentRecordRow(paymentRecord);
-  if (!row) {
-    return false;
-  }
-
-  const shouldApplyCredits = row.credits_delta > 0 && !row.credits_applied_at;
-  if (shouldApplyCredits) {
-    await grantCreditsOnce(admin, {
-      userId: row.user_id,
-      source: input.source,
-      sourceId: row.id,
-      delta: row.credits_delta,
-    });
-  }
-
-  const patch: Record<string, unknown> = {};
-  if (row.status !== "paid") {
-    patch.status = "paid";
-    patch.paid_at = new Date().toISOString();
-  }
-  if (shouldApplyCredits) {
-    patch.credits_applied_at = new Date().toISOString();
-  }
-
-  if (Object.keys(patch).length > 0) {
-    const { error: updateError } = await admin
-      .from(input.table as never)
-      .update(patch)
-      .eq("id", row.id);
-
-    if (updateError) {
-      throw new Error(`${input.label} update failed (${updateError.code}): ${updateError.message}`);
-    }
-  }
-
-  return null;
 }
 
 function isPaidCheckoutSession(session: StripeRecord): boolean {
@@ -334,84 +227,50 @@ async function persistBillingAccount(
   }
 }
 
-async function processBookPurchaseCheckoutSession(
+async function finalizeCheckoutSession(
   admin: ReturnType<typeof createAdminClient>,
+  rpcName: FinalizeCheckoutFunction,
   session: StripeRecord
 ): Promise<boolean> {
   const sessionId = trimToNull(session.id);
-  if (!sessionId) return false;
+  if (!sessionId) {
+    return false;
+  }
 
   if (!isPaidCheckoutSession(session)) {
     return false;
   }
 
-  const { data: order, error: orderError } = await admin
-    .from("orders" as never)
-    .select("id, user_id, book_id, status, stripe_session_id")
-    .eq("stripe_session_id", sessionId)
-    .maybeSingle();
+  const { data, error } = await admin.rpc(rpcName as never, {
+    p_stripe_session_id: sessionId,
+  });
 
-  if (orderError) {
-    throw new Error(`Order lookup failed (${orderError.code}): ${orderError.message}`);
+  if (error) {
+    throw new Error(`${rpcName} failed (${error.code}): ${error.message}`);
   }
 
-  const row = (order as { id?: string; user_id?: string | null; book_id?: string | null; status?: string | null } | null) ?? null;
-  if (!row?.id || !row.user_id || !row.book_id) {
-    return false;
-  }
+  return data === true;
+}
 
-  if (row.status !== "paid") {
-    const { error: updateError } = await admin
-      .from("orders" as never)
-      .update({ status: "paid" })
-      .eq("id", row.id)
-      .in("status", ["pending", "failed"]);
-
-    if (updateError) {
-      throw new Error(`Order update failed (${updateError.code}): ${updateError.message}`);
-    }
-  }
-
-  const { error: entitlementError } = await admin
-    .from("entitlements" as never)
-    .upsert(
-      {
-        user_id: row.user_id,
-        book_id: row.book_id,
-        source: "purchase",
-      },
-      { onConflict: "user_id,book_id" }
-    );
-
-  if (entitlementError) {
-    throw new Error(`Entitlement upsert failed (${entitlementError.code}): ${entitlementError.message}`);
-  }
-
-  return true;
+async function processBookPurchaseCheckoutSession(
+  admin: ReturnType<typeof createAdminClient>,
+  session: StripeRecord
+): Promise<boolean> {
+  return finalizeCheckoutSession(admin, "finalize_order_checkout_session", session);
 }
 
 async function processDonationCheckoutSession(
   admin: ReturnType<typeof createAdminClient>,
   session: StripeRecord
 ): Promise<boolean> {
-  return processPaymentRecordCheckoutSession(admin, {
-    table: "donations",
-    label: "Donation",
-    source: "donation",
-    session,
-  });
+  return finalizeCheckoutSession(admin, "finalize_donation_checkout_session", session);
 }
 
 async function processCreditTopupCheckoutSession(
   admin: ReturnType<typeof createAdminClient>,
   session: StripeRecord
 ): Promise<boolean> {
-  return processPaymentRecordCheckoutSession(admin, {
-    table: "credit_topups",
-    label: "Credit topup",
-    source: "credit_topup",
-    session,
-  });
+  return finalizeCheckoutSession(admin, "finalize_credit_topup_checkout_session", session);
 }
 
 async function processPaymentKindCheckoutSession(
@@ -494,7 +353,10 @@ async function processSubscriptionEvent(
   }
 
   const planFromMetadata = parseBillingPlan(metadata.plan);
-  const planFromPrices = resolvePlanFromPriceIds(extractPriceIdsFromSubscription(subscription), priceConfig);
+  const planFromPrices = resolvePlanFromPriceIds(
+    extractPriceIdsFromSubscription(subscription),
+    priceConfig
+  );
   const fallbackPlan = parseBillingPlan(existing?.plan);
 
   if (isDeleted) {

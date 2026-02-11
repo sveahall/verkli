@@ -14,7 +14,8 @@ import { useToastHelpers } from "@/components/ui/toast";
 import { useBookJobs, type UnifiedJob } from "@/hooks/useBookJobs";
 import { useBillingState } from "@/hooks/useBillingState";
 import { resolveErrorMessage } from "@/lib/error-messages";
-import { getAudiobookEnabled, getMarketingEnabled, getTranslationsEnabled } from "@/lib/flags";
+import { getAudiobookEnabled, getMarketingEnabled, getRecommendationsEnabled, getTranslationsEnabled } from "@/lib/flags";
+import GenreSelector from "@/components/books/GenreSelector";
 import { isJobActiveStatus, normalizeJobStatus } from "@/lib/job-status";
 import { getLanguageLabel, LANGUAGE_OPTIONS, normalizeLanguage, type SupportedLanguage } from "@/lib/languages";
 
@@ -1970,6 +1971,10 @@ export default function BookEditor({
                       );
                     })}
                   </fieldset>
+
+                  {getRecommendationsEnabled() && (
+                    <GenreSelector bookId={book.id} />
+                  )}
 
                   {!isPublished && missingPublishRequirements.length > 0 && (
                     <div className="mt-4 rounded-lg border border-[#907AFF]/40 bg-[#907AFF]/10 px-3 py-3 text-xs text-[#5c4bb8] dark:border-[#907AFF]/30 dark:bg-[#907AFF]/15 dark:text-[#b8a9ff]">

@@ -28,6 +28,12 @@ export type {
   VideoProvider,
   VideoGenerateOptions,
   VideoGenerateResult,
+  ImageProvider,
+  ImageGenerateOptions,
+  ImageGenerateResult,
+  CopywriterProvider,
+  CopywriterGenerateOptions,
+  CopywriterGenerateResult,
   AIProviderErrorCode,
 } from "./types";
 
@@ -38,11 +44,15 @@ export { AIProviderError } from "./types";
 import { opusTranslator, OpusTranslator } from "./opus-translator";
 import { piperNarrator, PiperNarrator } from "./piper-narrator";
 import { runwayVideo, RunwayVideoProvider } from "./runway-video";
+import { stubImage, StubImageProvider } from "./stub-image";
+import { stubCopywriter, StubCopywriterProvider } from "./stub-copywriter";
 
 // Re-export provider classes for direct instantiation if needed
 export { OpusTranslator, opusTranslator } from "./opus-translator";
 export { PiperNarrator, piperNarrator } from "./piper-narrator";
 export { RunwayVideoProvider, runwayVideo } from "./runway-video";
+export { StubImageProvider, stubImage } from "./stub-image";
+export { StubCopywriterProvider, stubCopywriter } from "./stub-copywriter";
 
 // ─────────────────────────────────────────────────────────────
 // Provider Registry Functions
@@ -87,5 +97,33 @@ export function getVideoProvider(): typeof runwayVideo {
     case "runway":
     default:
       return runwayVideo;
+  }
+}
+
+/**
+ * Get the configured image generation provider.
+ * Defaults to stub. Swap via AI_IMAGE_PROVIDER env var.
+ */
+export function getImageProvider(): typeof stubImage {
+  const provider = process.env.AI_IMAGE_PROVIDER?.toLowerCase() ?? "stub";
+
+  switch (provider) {
+    case "stub":
+    default:
+      return stubImage;
+  }
+}
+
+/**
+ * Get the configured copywriter (LLM) provider.
+ * Defaults to stub. Swap via AI_COPYWRITER_PROVIDER env var.
+ */
+export function getCopywriterProvider(): typeof stubCopywriter {
+  const provider = process.env.AI_COPYWRITER_PROVIDER?.toLowerCase() ?? "stub";
+
+  switch (provider) {
+    case "stub":
+    default:
+      return stubCopywriter;
   }
 }

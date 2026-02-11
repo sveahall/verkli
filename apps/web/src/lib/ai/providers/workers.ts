@@ -18,6 +18,12 @@ export type {
   VideoProvider,
   VideoGenerateOptions,
   VideoGenerateResult,
+  ImageProvider,
+  ImageGenerateOptions,
+  ImageGenerateResult,
+  CopywriterProvider,
+  CopywriterGenerateOptions,
+  CopywriterGenerateResult,
   AIProviderErrorCode,
 } from "./types";
 
