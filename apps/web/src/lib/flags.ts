@@ -79,3 +79,61 @@ export function isSocialEnabled(): boolean {
   if (value === undefined || value === "") return false;
   return value.toLowerCase() === "true" || value === "1";
 }
+
+// ─── Client – book clubs ───
+export function getBookClubsEnabled(): boolean {
+  const value = process.env.NEXT_PUBLIC_BOOK_CLUBS_ENABLED;
+  if (value === undefined || value === "") return false;
+  return value.toLowerCase() === "true" || value === "1";
+}
+
+// ─── Server/API – book clubs ───
+export function isBookClubsEnabled(): boolean {
+  const value = process.env.NEXT_PUBLIC_BOOK_CLUBS_ENABLED ?? process.env.BOOK_CLUBS_ENABLED;
+  if (value === undefined || value === "") return false;
+  return value.toLowerCase() === "true" || value === "1";
+}
+
+// ─── Client – polls ───
+export function getPollsEnabled(): boolean {
+  const value = process.env.NEXT_PUBLIC_POLLS_ENABLED;
+  if (value === undefined || value === "") return false;
+  return value.toLowerCase() === "true" || value === "1";
+}
+
+// ─── Server/API – polls ───
+export function isPollsEnabled(): boolean {
+  const value = process.env.NEXT_PUBLIC_POLLS_ENABLED ?? process.env.POLLS_ENABLED;
+  if (value === undefined || value === "") return false;
+  return value.toLowerCase() === "true" || value === "1";
+}
+
+// ─── Client – newsletters ───
+export function getNewslettersEnabled(): boolean {
+  const value = process.env.NEXT_PUBLIC_NEWSLETTERS_ENABLED;
+  if (value === undefined || value === "") return false;
+  return value.toLowerCase() === "true" || value === "1";
+}
+
+// ─── Server/API – newsletters ───
+export function isNewslettersEnabled(): boolean {
+  const value = process.env.NEXT_PUBLIC_NEWSLETTERS_ENABLED ?? process.env.NEWSLETTERS_ENABLED;
+  if (value === undefined || value === "") return false;
+  return value.toLowerCase() === "true" || value === "1";
+}
+
+// ─── Client – notifications ───
+export function getNotificationsEnabled(): boolean {
+  const value = process.env.NEXT_PUBLIC_NOTIFICATIONS_ENABLED;
+  if (value === undefined || value === "") return false;
+  return value.toLowerCase() === "true" || value === "1";
+}
+
+// ─── Server/API – notifications ───
+export function isNotificationsEnabled(): boolean {
+  const value =
+    process.env.NEXT_PUBLIC_NOTIFICATIONS_ENABLED ??
+    process.env.NOTIFICATIONS_ENABLED;
+  if (value === undefined || value === "") return false;
+  return value.toLowerCase() === "true" || value === "1";
+}
