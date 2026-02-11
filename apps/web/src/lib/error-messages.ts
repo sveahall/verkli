@@ -184,6 +184,10 @@ const ERROR_MESSAGES: Record<string, string> = {
   CONTENT_INVALID_CHANNEL_TYPE: "Innehållstypen stöds inte för den valda kanalen.",
   CONTENT_FETCH_FAILED: "Kunde inte hämta genererat innehåll.",
 
+  // Stats
+  STATS_LOAD_FAILED: "Kunde inte ladda statistik. Försök igen.",
+  STATS_BOOK_NOT_FOUND: "Boken hittades inte eller tillhör inte dig.",
+
   // Dev
   NOT_AVAILABLE_IN_PRODUCTION: "Inte tillgängligt i produktion.",
 
@@ -201,6 +205,28 @@ const ERROR_MESSAGES: Record<string, string> = {
   REFERRAL_ALREADY_REDEEMED: "Du har redan löst in en referenskod.",
   REFERRAL_CANNOT_USE_OWN: "Du kan inte använda din egen referenskod.",
   INVALID_REFERRAL_CODE: "Ange en giltig referenskod.",
+
+  // Book Clubs
+  CLUBS_FEATURE_DISABLED: "Bokklubbsfunktionen är inte aktiverad.",
+  CLUB_NOT_FOUND: "Bokklubben hittades inte.",
+  CLUB_FULL: "Bokklubben är full.",
+  CLUB_ALREADY_MEMBER: "Du är redan medlem i denna bokklubb.",
+  CLUB_NOT_MEMBER: "Du är inte medlem i denna bokklubb.",
+  CLUB_OWNER_CANNOT_LEAVE: "Ägaren kan inte lämna bokklubben.",
+  CLUB_CREATE_FAILED: "Kunde inte skapa bokklubben.",
+  CLUB_UPDATE_FAILED: "Kunde inte uppdatera bokklubben.",
+  CLUB_DELETE_FAILED: "Kunde inte radera bokklubben.",
+  CLUB_MESSAGE_FAILED: "Kunde inte skicka meddelandet.",
+  CLUB_MESSAGES_LOAD_FAILED: "Kunde inte ladda meddelanden.",
+
+  // Polls
+  POLLS_FEATURE_DISABLED: "Omröstningsfunktionen är inte aktiverad.",
+  POLL_NOT_FOUND: "Omröstningen hittades inte.",
+  POLL_CLOSED: "Omröstningen är stängd.",
+  POLL_ALREADY_VOTED: "Du har redan röstat i denna omröstning.",
+  POLL_CREATE_FAILED: "Kunde inte skapa omröstningen.",
+  POLL_INVALID_OPTION: "Ogiltigt svarsalternativ.",
+  POLL_RESULTS_LOAD_FAILED: "Kunde inte ladda omröstningsresultat.",
 
   // Pricing validation
   INVALID_PRICE_AMOUNT: "Ogiltigt prisbelopp.",

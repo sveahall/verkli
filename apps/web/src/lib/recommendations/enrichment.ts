@@ -18,16 +18,20 @@ export async function enrichWithAuthors(
 
   const { data: profiles } = await supabase
     .from("profiles")
-    .select("user_id, display_name")
+    .select("user_id, display_name, username")
     .in("user_id", authorIds);
 
   const nameMap = new Map<string, string>();
   for (const p of profiles ?? []) {
-    nameMap.set(p.user_id, p.display_name ?? "Okänd författare");
+    const name =
+      (typeof p.display_name === "string" ? p.display_name.trim() : "") ||
+      (typeof p.username === "string" ? p.username.trim() : "") ||
+      "Author";
+    nameMap.set(p.user_id, name);
   }
 
   return books.map((book) => ({
     ...book,
-    author_name: nameMap.get(book.author_id) ?? "Okänd författare",
+    author_name: nameMap.get(book.author_id) ?? "Author",
   }));
 }

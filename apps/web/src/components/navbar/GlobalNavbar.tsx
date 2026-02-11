@@ -7,6 +7,7 @@ import { usePathname, useRouter } from "next/navigation";
 import GlassSurface from "@/components/GlassSurface";
 import ThemeToggle from "@/components/ThemeToggle";
 import UserMenu from "@/components/navbar/UserMenu";
+import NotificationBell from "@/components/notifications/NotificationBell";
 import { createClient } from "@/lib/supabase/client";
 import type { NavActions, NavLink } from "@/nav/navConfig";
 import type { User } from "@supabase/supabase-js";
@@ -892,7 +893,10 @@ export default function GlobalNavbar({
                   )}
 
                   {showProfileMenu && (
-                    <UserMenu user={user} onSignOut={handleSignOut} currentRole={displayRoleForMenu} originalRole={originalRole} />
+                    <>
+                      {user && <NotificationBell />}
+                      <UserMenu user={user} onSignOut={handleSignOut} currentRole={displayRoleForMenu} originalRole={originalRole} />
+                    </>
                   )}
                 </>
               ) : (

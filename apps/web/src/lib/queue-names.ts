@@ -9,7 +9,7 @@ export const QUEUE_NAMES = {
   AUDIOBOOK: "audiobook-generation",
   TTS: "tts-generation",
   SOCIAL_PUBLISH: "social-publish",
-  RECOMMENDATIONS: "recommendations",
+  RECOMMENDATIONS: "recommendations-compute",
   NOTIFICATIONS: "notifications",
 } as const;
 

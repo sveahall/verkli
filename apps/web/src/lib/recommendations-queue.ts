@@ -51,7 +51,7 @@ function getRecommendationsQueue(): Queue | null {
 
 export type RecommendationsJobData = {
   userId: string;
-  trigger: "scheduled" | "signal" | "manual";
+  trigger: "scheduled" | "onboarding" | "signal" | "manual";
 };
 
 /**

@@ -191,7 +191,7 @@ export async function POST(request: Request) {
   try {
     recommendationsJobId = await enqueueRecommendationsJob({
       userId: user.id,
-      trigger: "manual",
+      trigger: "onboarding",
     });
   } catch (err) {
     console.warn("[reader.onboarding] recommendations enqueue failed", {

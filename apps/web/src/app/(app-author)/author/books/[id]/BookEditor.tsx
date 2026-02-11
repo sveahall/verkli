@@ -19,6 +19,8 @@ import GenreSelector from "@/components/books/GenreSelector";
 import { isJobActiveStatus, normalizeJobStatus } from "@/lib/job-status";
 import { getLanguageLabel, LANGUAGE_OPTIONS, normalizeLanguage, type SupportedLanguage } from "@/lib/languages";
 import { isTranslationPairSupported } from "@/lib/translation-pairs";
+import TranslationPanel from "@/components/translations/TranslationPanel";
+import type { TranslationStatus } from "@/components/translations/TranslationStatusBadge";
 
 const ACCEPTED_COVER_TYPES = "image/*";
 

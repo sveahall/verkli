@@ -15,6 +15,7 @@ import {
   E_NOT_AUTHENTICATED,
   E_VALIDATION_FAILED,
 } from "@/lib/api-errors";
+import { createNotification } from "@/lib/notifications/server";
 
 const paramsSchema = z.object({
   id: z.string().uuid("Invalid book ID"),
@@ -275,7 +276,7 @@ export async function POST(
   if (parentCommentId) {
     const { data: parent, error: parentError } = await supabase
       .from("comments")
-      .select("id, book_id, chapter_id, parent_comment_id")
+      .select("id, book_id, chapter_id, parent_comment_id, author_id")
       .eq("id", parentCommentId)
       .maybeSingle();
 
@@ -326,6 +327,30 @@ export async function POST(
       code: insertError.code,
     });
     return apiError(E_COMMENT_CREATE_FAILED, 500);
+  }
+
+  // Fire-and-forget: notify parent comment author about the reply
+  if (parentCommentId) {
+    const { data: parentForNotify } = await supabase
+      .from("comments")
+      .select("author_id")
+      .eq("id", parentCommentId)
+      .maybeSingle();
+
+    if (parentForNotify?.author_id && parentForNotify.author_id !== user.id) {
+      createNotification({
+        userId: parentForNotify.author_id,
+        type: "comment_reply",
+        actorId: user.id,
+        title: "Nytt svar på din kommentar",
+        body: content.slice(0, 200),
+        entityId: insertedComment.id,
+        entityType: "comment",
+        data: { bookId },
+      }).catch((err) => {
+        console.error("[comments] notification failed", { error: err });
+      });
+    }
   }
 
   return NextResponse.json({ comment: insertedComment }, { status: 201 });

@@ -113,7 +113,7 @@ describe("POST /api/reader/onboarding", () => {
     });
     expect(mocks.enqueueRecommendationsJob).toHaveBeenCalledWith({
       userId: "reader-1",
-      trigger: "manual",
+      trigger: "onboarding",
     });
   });
 });

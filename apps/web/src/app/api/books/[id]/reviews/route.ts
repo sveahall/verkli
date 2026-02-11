@@ -16,6 +16,7 @@ import {
   E_REVIEW_UPDATE_FAILED,
   E_VALIDATION_FAILED,
 } from "@/lib/api-errors";
+import { createNotification } from "@/lib/notifications/server";
 
 const paramsSchema = z.object({
   id: z.string().uuid("Invalid book ID"),
@@ -326,6 +327,33 @@ export async function POST(
     });
     return apiError(E_REVIEW_SUBMIT_FAILED, 500);
   }
+
+  // Fire-and-forget: notify the book author about the new review
+  (async () => {
+    try {
+      const { data: book } = await supabase
+        .from("books")
+        .select("author_id")
+        .eq("id", bookId)
+        .single();
+
+      if (book?.author_id && book.author_id !== user.id) {
+        const reviewContent = parsedBody.data.content;
+        await createNotification({
+          userId: book.author_id,
+          type: "review",
+          actorId: user.id,
+          title: "Ny recension",
+          body: reviewContent?.slice(0, 200) || `Betyg: ${parsedBody.data.rating}/5`,
+          entityId: bookId,
+          entityType: "book",
+          data: { bookId, rating: parsedBody.data.rating },
+        });
+      }
+    } catch (err) {
+      console.error("[reviews] notification failed", { error: err });
+    }
+  })();
 
   return NextResponse.json({
     review: mapReview(created as ReviewRow, {
