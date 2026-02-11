@@ -2,6 +2,7 @@
 
 import { useCallback, useState } from "react";
 import { resolveErrorMessage } from "@/lib/error-messages";
+import { API_ROUTES } from "@/lib/api-routes";
 
 type Payload = { url?: string; error?: string };
 
@@ -12,7 +13,7 @@ export function useDonationCheckout() {
     async (amountMinor: number, currency: string = "sek") => {
       setLoading(true);
       try {
-        const res = await fetch("/api/donations/checkout", {
+        const res = await fetch(API_ROUTES.donationsCheckout, {
           method: "POST",
           credentials: "include",
           headers: { "Content-Type": "application/json" },

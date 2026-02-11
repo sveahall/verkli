@@ -232,6 +232,7 @@ async function finalizeCheckoutSession(
   rpcName: FinalizeCheckoutFunction,
   session: StripeRecord
 ): Promise<boolean> {
+  // Checkout side effects are finalized atomically in SQL functions.
   const sessionId = trimToNull(session.id);
   if (!sessionId) {
     return false;

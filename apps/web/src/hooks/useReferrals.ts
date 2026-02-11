@@ -2,6 +2,7 @@
 
 import { useCallback, useState } from "react";
 import { resolveErrorMessage } from "@/lib/error-messages";
+import { API_ROUTES } from "@/lib/api-routes";
 
 type GeneratePayload = { code?: string; error?: string };
 type RedeemPayload = { success?: boolean; creditsAdded?: number; error?: string };
@@ -13,7 +14,7 @@ export function useReferrals() {
   const generateCode = useCallback(async () => {
     setGenerateLoading(true);
     try {
-      const res = await fetch("/api/referrals/generate", {
+      const res = await fetch(API_ROUTES.referralsGenerate, {
         method: "POST",
         credentials: "include",
       });
@@ -44,7 +45,7 @@ export function useReferrals() {
   const redeemCode = useCallback(async (code: string) => {
     setRedeemLoading(true);
     try {
-      const res = await fetch("/api/referrals/redeem", {
+      const res = await fetch(API_ROUTES.referralsRedeem, {
         method: "POST",
         credentials: "include",
         headers: { "Content-Type": "application/json" },
