@@ -3,7 +3,7 @@
 import { useMemo, useState } from "react";
 import type { GeneratorOutput, ModuleState } from "@/lib/marketing/types";
 
-const emptyMessage = "Add a campaign summary to generate marketing copy.";
+const emptyMessage = "Välj en kampanj för att generera marknadsföringstext.";
 
 export default function ContentGenerator({
   generators,

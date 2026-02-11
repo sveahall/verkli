@@ -17,6 +17,10 @@ function parseReaderSettings(preferences: Record<string, unknown> | null): Reade
   const defaults: ReaderSettings = {
     fontSize: 16,
     lineHeight: 1.7,
+    fontFamily: "serif" as const,
+    textAlign: "left" as const,
+    marginSize: "normal" as const,
+    theme: "light" as const,
   };
 
   if (!preferences) return defaults;
@@ -25,10 +29,18 @@ function parseReaderSettings(preferences: Record<string, unknown> | null): Reade
   const settings = asRecord(reader?.settings);
   const fontSize = typeof settings?.fontSize === "number" ? settings.fontSize : defaults.fontSize;
   const lineHeight = typeof settings?.lineHeight === "number" ? settings.lineHeight : defaults.lineHeight;
+  const fontFamily = settings?.fontFamily === "serif" || settings?.fontFamily === "sans" || settings?.fontFamily === "mono" ? settings.fontFamily : defaults.fontFamily;
+  const textAlign = settings?.textAlign === "left" || settings?.textAlign === "justify" ? settings.textAlign : defaults.textAlign;
+  const marginSize = settings?.marginSize === "narrow" || settings?.marginSize === "normal" || settings?.marginSize === "wide" ? settings.marginSize : defaults.marginSize;
+  const theme = settings?.theme === "light" || settings?.theme === "dark" ? settings.theme : defaults.theme;
 
   return {
     fontSize: Math.min(24, Math.max(13, fontSize)),
     lineHeight: Math.min(2.1, Math.max(1.4, lineHeight)),
+    fontFamily,
+    textAlign,
+    marginSize,
+    theme,
   };
 }
 

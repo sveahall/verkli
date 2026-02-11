@@ -7,7 +7,6 @@ import DistributionChannels from "@/components/marketing/DistributionChannels";
 import PerformanceOverview from "@/components/marketing/PerformanceOverview";
 import AutomationTeaser from "@/components/marketing/AutomationTeaser";
 import MarketingCaptionPortal from "@/components/marketing/MarketingCaptionPortal";
-import { generatorOutputs } from "@/lib/marketing/mockData";
 import type { Campaign, Channel, ModuleState } from "@/lib/marketing/types";
 
 const navItems = [
@@ -174,7 +173,7 @@ export default function MarketingDashboard({
             title="Content generator"
             description="Draft hooks, blurbs, and social captions before publishing."
           >
-            <ContentGenerator generators={generatorOutputs} state={generatorState} />
+            <ContentGenerator generators={[]} state={generatorState} />
           </DashboardSection>
 
           <DashboardSection

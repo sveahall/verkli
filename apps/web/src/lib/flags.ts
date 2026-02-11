@@ -21,10 +21,7 @@ export function getAudiobookEnabled(): boolean {
 }
 
 export function getMarketingEnabled(): boolean {
-  // Default to false - marketing dashboard components use mock data and have TODOs
-  const value = process.env.NEXT_PUBLIC_MARKETING_ENABLED;
-  if (value === undefined || value === "") return false;
-  return value.toLowerCase() === "true" || value === "1";
+  return parseBool(process.env.NEXT_PUBLIC_MARKETING_ENABLED);
 }
 
 export function getDiscoveryEnabled(): boolean {
@@ -45,10 +42,7 @@ export function isAudiobookEnabled(): boolean {
 }
 
 export function isMarketingEnabled(): boolean {
-  // Default to false - marketing dashboard components use mock data and have TODOs
-  const value = process.env.NEXT_PUBLIC_MARKETING_ENABLED ?? process.env.MARKETING_ENABLED;
-  if (value === undefined || value === "") return false;
-  return value.toLowerCase() === "true" || value === "1";
+  return parseBool(process.env.NEXT_PUBLIC_MARKETING_ENABLED ?? process.env.MARKETING_ENABLED);
 }
 
 export function isDiscoveryEnabled(): boolean {

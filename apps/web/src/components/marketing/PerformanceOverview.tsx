@@ -38,23 +38,7 @@ export default function PerformanceOverview({
   }
 
   if (state === "empty") {
-    return (
-      <div className="space-y-4">
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4 opacity-70">
-          {metrics.map((metric) => (
-            <div key={metric.id} className="rounded-2xl border border-border bg-background p-4">
-              <p className="text-[12px] uppercase tracking-[0.2em] text-muted-foreground">
-                {metric.label}
-              </p>
-              <div className="mt-2 flex items-end justify-between">
-                <span className="text-[20px] font-semibold text-foreground">{metric.value}</span>
-              </div>
-            </div>
-          ))}
-        </div>
-        {renderChartPlaceholder()}
-      </div>
-    );
+    return renderChartPlaceholder();
   }
 
   return (

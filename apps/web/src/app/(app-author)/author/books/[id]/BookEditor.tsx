@@ -18,6 +18,7 @@ import { getAudiobookEnabled, getMarketingEnabled, getRecommendationsEnabled, ge
 import GenreSelector from "@/components/books/GenreSelector";
 import { isJobActiveStatus, normalizeJobStatus } from "@/lib/job-status";
 import { getLanguageLabel, LANGUAGE_OPTIONS, normalizeLanguage, type SupportedLanguage } from "@/lib/languages";
+import { isTranslationPairSupported } from "@/lib/translation-pairs";
 
 const ACCEPTED_COVER_TYPES = "image/*";
 
@@ -484,6 +485,10 @@ export default function BookEditor({
     }
     return preferred;
   }, [activeVersion?.language_code, book.original_language, book.language, existingVersionLanguages]);
+  const translationSourceLang = useMemo(
+    () => normalizeLanguage(activeVersion?.language_code ?? book.original_language ?? book.language),
+    [activeVersion?.language_code, book.original_language, book.language],
+  );
   const [translateTargetLanguage, setTranslateTargetLanguage] = useState<SupportedLanguage>(initialTargetLanguage);
   const [isStartingTranslation, setIsStartingTranslation] = useState(false);
   const [isPollingTranslation, setIsPollingTranslation] = useState(false);
@@ -2123,14 +2128,19 @@ export default function BookEditor({
                   onChange={(e) => setTranslateTargetLanguage(e.target.value as SupportedLanguage)}
                   className="mb-3 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:border-slate-500 focus:outline-none dark:border-white/20 dark:bg-white/10 dark:text-white"
                 >
-                  {LANGUAGE_OPTIONS.map((opt) => (
-                    <option key={opt.value} value={opt.value}>{opt.label}</option>
-                  ))}
+                  {LANGUAGE_OPTIONS.filter((opt) => opt.value !== translationSourceLang).map((opt) => {
+                    const supported = isTranslationPairSupported(translationSourceLang, opt.value);
+                    return (
+                      <option key={opt.value} value={opt.value} disabled={!supported}>
+                        {opt.label}{supported ? "" : " (ej tillgänglig)"}
+                      </option>
+                    );
+                  })}
                 </select>
                 <button
                   type="button"
                   onClick={handleStartTranslation}
-                  disabled={isStartingTranslation || isProFeatureLocked}
+                  disabled={isStartingTranslation || isProFeatureLocked || !isTranslationPairSupported(translationSourceLang, translateTargetLanguage)}
                   className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed dark:border-white/20 dark:bg-white/10 dark:text-white dark:hover:bg-white/15"
                 >
                   {isStartingTranslation
