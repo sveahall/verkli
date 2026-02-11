@@ -224,3 +224,11 @@ export function apiError(
 ): NextResponse {
   return NextResponse.json({ error: key, ...extra }, { status });
 }
+
+// --- Recommendations ---
+export const E_RECOMMENDATIONS_LOAD_FAILED = "RECOMMENDATIONS_LOAD_FAILED";
+export const E_GENRES_LOAD_FAILED = "GENRES_LOAD_FAILED";
+export const E_ONBOARDING_SAVE_FAILED = "ONBOARDING_SAVE_FAILED";
+// --- Translation UI ---
+export const E_TRANSLATION_LIST_FAILED = "TRANSLATION_LIST_FAILED";
+export const E_TRANSLATION_STATUS_FAILED = "TRANSLATION_STATUS_FAILED";
