@@ -3,6 +3,8 @@ import { existsSync } from "node:fs";
 import { E_INVALID_BOOK_PRICING } from "@/lib/api-errors";
 import { API_ROUTES } from "@/lib/api-routes";
 
+// Purchase checkout route contract tests.
+
 const mocks = vi.hoisted(() => ({
   createClient: vi.fn(),
   createAdminClient: vi.fn(),

@@ -50,6 +50,7 @@ export default function PurchaseBookButton({ bookId, amount, currency }: Props) 
     setError(null);
 
     try {
+      // Canonical purchase checkout path.
       const res = await fetch(API_ROUTES.bookPurchaseCheckout(bookId), {
         method: "POST",
       });

@@ -8,6 +8,8 @@ import {
 } from "@/lib/api-errors";
 import { API_ROUTES } from "@/lib/api-routes";
 
+// Credits balance route contract tests.
+
 const mocks = vi.hoisted(() => ({
   createClient: vi.fn(),
   requireProBillingForApi: vi.fn(),

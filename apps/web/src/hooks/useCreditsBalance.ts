@@ -23,6 +23,7 @@ export function useCreditsBalance(options?: { pollIntervalMs?: number }) {
     abortRef.current = controller;
     inFlightRef.current = true;
     try {
+      // Fetch through canonical API path.
       const res = await fetch(API_ROUTES.creditsBalance, {
         method: "GET",
         credentials: "include",
