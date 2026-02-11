@@ -11,6 +11,8 @@ import {
 } from "@/lib/api-errors";
 import { API_ROUTES } from "@/lib/api-routes";
 
+// Referral generate/redeem route contract tests.
+
 const mocks = vi.hoisted(() => ({
   createClient: vi.fn(),
   createAdminClient: vi.fn(),

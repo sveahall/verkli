@@ -14,6 +14,7 @@ export function useReferrals() {
   const generateCode = useCallback(async () => {
     setGenerateLoading(true);
     try {
+      // Generate route stays centralized with API_ROUTES.
       const res = await fetch(API_ROUTES.referralsGenerate, {
         method: "POST",
         credentials: "include",

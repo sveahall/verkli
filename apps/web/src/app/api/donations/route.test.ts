@@ -7,6 +7,8 @@ import {
 } from "@/lib/api-errors";
 import { API_ROUTES } from "@/lib/api-routes";
 
+// Payment route contract tests for donation checkout.
+
 const mocks = vi.hoisted(() => ({
   createClient: vi.fn(),
   createAdminClient: vi.fn(),

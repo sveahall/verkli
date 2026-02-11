@@ -13,6 +13,7 @@ export function useDonationCheckout() {
     async (amountMinor: number, currency: string = "sek") => {
       setLoading(true);
       try {
+        // Keep checkout path centralized to avoid route drift.
         const res = await fetch(API_ROUTES.donationsCheckout, {
           method: "POST",
           credentials: "include",

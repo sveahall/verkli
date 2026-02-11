@@ -2,6 +2,8 @@ import Stripe from "stripe";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { API_ROUTES } from "@/lib/api-routes";
 
+// Stripe webhook idempotency and billing projection tests.
+
 type BillingAccountRow = {
   user_id: string;
   stripe_customer_id: string | null;

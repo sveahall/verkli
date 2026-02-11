@@ -1,3 +1,4 @@
+// Canonical API paths used by UI hooks and tests.
 export const API_ROUTES = {
   donationsCheckout: "/api/donations/checkout",
   creditsBalance: "/api/credits/balance",
