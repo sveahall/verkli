@@ -184,6 +184,10 @@ const ERROR_MESSAGES: Record<string, string> = {
   CONTENT_INVALID_CHANNEL_TYPE: "Innehållstypen stöds inte för den valda kanalen.",
   CONTENT_FETCH_FAILED: "Kunde inte hämta genererat innehåll.",
 
+  // Stats
+  STATS_LOAD_FAILED: "Kunde inte ladda statistik. Försök igen.",
+  STATS_BOOK_NOT_FOUND: "Boken hittades inte eller tillhör inte dig.",
+
   // Dev
   NOT_AVAILABLE_IN_PRODUCTION: "Inte tillgängligt i produktion.",
 
