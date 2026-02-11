@@ -21,6 +21,10 @@ type ReaderHighlight = {
 type ReaderSettings = {
   fontSize: number;
   lineHeight: number;
+  fontFamily?: "serif" | "sans" | "mono";
+  textAlign?: "left" | "center" | "justify";
+  marginSize?: "narrow" | "normal" | "wide";
+  theme?: "light" | "sepia" | "dark";
 };
 
 type ReaderFont = "serif" | "sans" | "mono";
