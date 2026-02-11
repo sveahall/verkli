@@ -147,6 +147,15 @@ const ERROR_MESSAGES: Record<string, string> = {
   // Marketing
   MARKETING_FEATURE_DISABLED: "Marknadsföringsfunktionen är inte aktiverad.",
 
+  // Social
+  SOCIAL_FEATURE_DISABLED: "Social publicering är inte aktiverad.",
+  SOCIAL_INVALID_PLATFORM: "Ogiltig plattform.",
+  SOCIAL_ALREADY_CONNECTED: "Plattformen är redan ansluten.",
+  SOCIAL_PLATFORM_NOT_CONNECTED: "Plattformen är inte ansluten.",
+  SOCIAL_OAUTH_FAILED: "Inloggning till plattformen misslyckades.",
+  SOCIAL_INVALID_STATE: "Ogiltig autentiseringsdata. Försök igen.",
+  SOCIAL_CAMPAIGN_NOT_FOUND: "Kampanjen hittades inte.",
+
   // Waitlist
   SERVER_CONFIG_ERROR: "Serverfel. Försök igen senare.",
   RATE_LIMIT_EXCEEDED: "För många förfrågningar. Vänta en stund.",

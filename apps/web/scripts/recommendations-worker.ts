@@ -103,7 +103,7 @@ async function processJob(data: RecommendationsJobData) {
   }
 
   // 5. Collaborative filtering: find users sharing 2+ reads
-  let coReadBoost = new Map<string, number>();
+  const coReadBoost = new Map<string, number>();
   if (readBookIds.size >= 2) {
     const readArr = [...readBookIds].slice(0, 50);
     const { data: coReaders } = await supabase
