@@ -118,7 +118,6 @@ export async function GET(
       message: voteError.message,
       code: voteError.code,
     });
-    // Non-fatal: still return poll data, just without vote info
   }
 
   const typedVote = vote as PollVoteRow | null;
@@ -171,7 +170,6 @@ export async function PATCH(
     return apiError(E_VALIDATION_FAILED, 400);
   }
 
-  // Verify ownership
   const { data: existing } = await supabase
     .from("polls" as never)
     .select("id, author_id")

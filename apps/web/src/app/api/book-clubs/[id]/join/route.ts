@@ -47,7 +47,6 @@ export async function POST(
     return apiError(E_NOT_AUTHENTICATED, 401);
   }
 
-  // Check club exists and is public
   const { data: club, error: clubError } = await supabase
     .from("book_clubs" as never)
     .select("id, is_public, max_members")
@@ -70,7 +69,6 @@ export async function POST(
 
   const clubRow = club as ClubRow;
 
-  // Check current member count
   const { count, error: countError } = await supabase
     .from("book_club_members" as never)
     .select("user_id", { count: "exact", head: true })
@@ -91,7 +89,6 @@ export async function POST(
     return apiError(E_CLUB_FULL, 409);
   }
 
-  // Insert member
   const { error: insertError } = await supabase
     .from("book_club_members" as never)
     .insert({

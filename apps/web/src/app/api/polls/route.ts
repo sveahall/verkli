@@ -14,10 +14,7 @@ import {
 
 const createPollBodySchema = z.object({
   question: z.string().min(1).max(500),
-  options: z
-    .array(z.string().min(1).max(200))
-    .min(2)
-    .max(10),
+  options: z.array(z.string().min(1).max(200)).min(2).max(10),
   book_id: z.string().uuid().optional(),
   closes_at: z.string().datetime().optional(),
 });
@@ -56,6 +53,7 @@ export async function GET(request: Request) {
 
   const url = new URL(request.url);
   const bookId = url.searchParams.get("book_id");
+  const authorId = url.searchParams.get("author_id");
 
   let query = supabase
     .from("polls" as never)
@@ -65,6 +63,9 @@ export async function GET(request: Request) {
 
   if (bookId) {
     query = query.eq("book_id", bookId);
+  }
+  if (authorId) {
+    query = query.eq("author_id", authorId);
   }
 
   const { data, error } = await query;

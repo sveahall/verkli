@@ -80,28 +80,22 @@ export async function GET(
     return apiError(E_NOT_AUTHENTICATED, 401);
   }
 
-  // Check membership
   const isMember = await checkMembership(supabase, id, user.id);
   if (!isMember) {
     return apiError(E_CLUB_NOT_MEMBER, 403);
   }
 
-  // Parse cursor pagination
   const url = new URL(request.url);
-  const before = url.searchParams.get("before");
+  const page = Math.max(1, parseInt(url.searchParams.get("page") ?? "1", 10));
+  const limit = Math.min(100, Math.max(1, parseInt(url.searchParams.get("limit") ?? "50", 10)));
+  const offset = (page - 1) * limit;
 
-  let query = supabase
+  const { data, error } = await supabase
     .from("book_club_messages" as never)
     .select(MESSAGE_SELECT)
     .eq("club_id", id)
     .order("created_at", { ascending: false })
-    .limit(50);
-
-  if (before) {
-    query = query.lt("created_at", before);
-  }
-
-  const { data, error } = await query;
+    .range(offset, offset + limit - 1);
 
   if (error) {
     console.error("[book-clubs.messages] list failed", {
@@ -142,7 +136,6 @@ export async function POST(
     return apiError(E_NOT_AUTHENTICATED, 401);
   }
 
-  // Check membership
   const isMember = await checkMembership(supabase, id, user.id);
   if (!isMember) {
     return apiError(E_CLUB_NOT_MEMBER, 403);

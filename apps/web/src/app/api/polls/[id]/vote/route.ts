@@ -71,7 +71,6 @@ export async function POST(
 
   const { option_id } = parsedBody.data;
 
-  // Check poll exists and is active
   const { data: poll, error: pollError } = await supabase
     .from("polls" as never)
     .select("id, is_active, closes_at")
@@ -79,12 +78,6 @@ export async function POST(
     .maybeSingle();
 
   if (pollError || !poll) {
-    console.error("[polls] vote poll lookup failed", {
-      pollId: id,
-      userId: user.id,
-      message: pollError?.message,
-      code: pollError?.code,
-    });
     return apiError(E_POLL_NOT_FOUND, 404);
   }
 
@@ -98,7 +91,6 @@ export async function POST(
     return apiError(E_POLL_CLOSED, 400);
   }
 
-  // Validate option belongs to this poll
   const { data: option, error: optionError } = await supabase
     .from("poll_options" as never)
     .select("id, poll_id")
@@ -107,18 +99,11 @@ export async function POST(
     .maybeSingle();
 
   if (optionError || !option) {
-    console.error("[polls] vote option lookup failed", {
-      pollId: id,
-      optionId: option_id,
-      message: optionError?.message,
-      code: optionError?.code,
-    });
     return apiError(E_POLL_INVALID_OPTION, 400);
   }
 
   void (option as PollOptionRow);
 
-  // Insert vote
   const { error: insertError } = await supabase
     .from("poll_votes" as never)
     .insert({

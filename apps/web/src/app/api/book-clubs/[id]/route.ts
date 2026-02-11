@@ -151,7 +151,6 @@ export async function PATCH(
     return apiError(E_VALIDATION_FAILED, 400);
   }
 
-  // Verify club exists and user is the owner
   const { data: existingClub, error: lookupError } = await supabase
     .from("book_clubs" as never)
     .select(CLUB_SELECT)
@@ -228,7 +227,6 @@ export async function DELETE(
     return apiError(E_NOT_AUTHENTICATED, 401);
   }
 
-  // Verify club exists and user is the owner
   const { data: existingClub, error: lookupError } = await supabase
     .from("book_clubs" as never)
     .select("id, creator_id")

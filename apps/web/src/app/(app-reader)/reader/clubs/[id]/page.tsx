@@ -22,7 +22,6 @@ export default async function ClubDetailPage({ params }: ClubDetailPageProps) {
     redirect("/reader/signin");
   }
 
-  // Fetch club
   const { data: club } = await supabase
     .from("book_clubs" as never)
     .select("id, name, description, cover_url, is_public, max_members, current_book_id, creator_id, created_at")
@@ -45,7 +44,6 @@ export default async function ClubDetailPage({ params }: ClubDetailPageProps) {
     created_at: string;
   };
 
-  // Fetch members
   const { data: members } = await supabase
     .from("book_club_members" as never)
     .select("user_id, role, joined_at")
@@ -53,7 +51,6 @@ export default async function ClubDetailPage({ params }: ClubDetailPageProps) {
 
   const typedMembers = (members as { user_id: string; role: string; joined_at: string }[] | null) ?? [];
 
-  // Fetch messages (latest 50)
   const { data: messages } = await supabase
     .from("book_club_messages" as never)
     .select("id, user_id, content, created_at")

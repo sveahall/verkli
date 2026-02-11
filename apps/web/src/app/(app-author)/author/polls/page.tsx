@@ -33,7 +33,6 @@ export default async function AuthorPollsPage() {
 
   const supabase = await createClient();
 
-  // Fetch author's polls
   const { data: polls } = await supabase
     .from("polls" as never)
     .select("id, question, is_active, closes_at, book_id, created_at")
@@ -42,7 +41,6 @@ export default async function AuthorPollsPage() {
 
   const typedPolls = (polls as PollRow[] | null) ?? [];
 
-  // Fetch options for all polls
   const pollIds = typedPolls.map((p) => p.id);
   let typedOptions: PollOptionRow[] = [];
   if (pollIds.length > 0) {
@@ -54,7 +52,6 @@ export default async function AuthorPollsPage() {
     typedOptions = (options as PollOptionRow[] | null) ?? [];
   }
 
-  // Fetch vote counts per poll
   const voteCounts: Record<string, number> = {};
   if (pollIds.length > 0) {
     const { data: votes } = await supabase
@@ -66,7 +63,6 @@ export default async function AuthorPollsPage() {
     }
   }
 
-  // Group options by poll
   const optionsByPoll: Record<string, PollOptionRow[]> = {};
   for (const opt of typedOptions) {
     if (!optionsByPoll[opt.poll_id]) optionsByPoll[opt.poll_id] = [];

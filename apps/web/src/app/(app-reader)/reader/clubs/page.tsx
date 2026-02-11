@@ -29,7 +29,6 @@ export default async function ClubsPage() {
     redirect("/reader/signin");
   }
 
-  // Fetch public clubs
   const { data: publicClubs } = await supabase
     .from("book_clubs" as never)
     .select("id, name, description, cover_url, is_public, max_members, current_book_id, creator_id, created_at")
@@ -37,7 +36,6 @@ export default async function ClubsPage() {
     .order("created_at", { ascending: false })
     .limit(50);
 
-  // Fetch user's memberships
   const { data: memberships } = await supabase
     .from("book_club_members" as never)
     .select("club_id, role")
@@ -49,7 +47,6 @@ export default async function ClubsPage() {
     ) ?? []
   );
 
-  // Fetch user's private clubs (not public but is member)
   let privateClubs: ClubRow[] = [];
   const privateClubIds = [...memberClubIds].filter(
     (id) => !(publicClubs as ClubRow[] | null)?.some((c) => c.id === id)
@@ -62,11 +59,9 @@ export default async function ClubsPage() {
     privateClubs = (data as ClubRow[] | null) ?? [];
   }
 
-  // Count members per club
   const allClubs = [...((publicClubs as ClubRow[] | null) ?? []), ...privateClubs];
   const uniqueClubs = [...new Map(allClubs.map((c) => [c.id, c])).values()];
 
-  // Fetch member counts
   const { data: allMembers } = await supabase
     .from("book_club_members" as never)
     .select("club_id")

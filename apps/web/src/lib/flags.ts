@@ -66,6 +66,20 @@ export function isRecommendationsEnabled(): boolean {
   return value.toLowerCase() === "true" || value === "1";
 }
 
+// ─── Client – book clubs ───
+export function getBookClubsEnabled(): boolean {
+  const value = process.env.NEXT_PUBLIC_BOOK_CLUBS_ENABLED;
+  if (value === undefined || value === "") return false;
+  return value.toLowerCase() === "true" || value === "1";
+}
+
+// ─── Server/API – book clubs ───
+export function isBookClubsEnabled(): boolean {
+  const value = process.env.NEXT_PUBLIC_BOOK_CLUBS_ENABLED ?? process.env.BOOK_CLUBS_ENABLED;
+  if (value === undefined || value === "") return false;
+  return value.toLowerCase() === "true" || value === "1";
+}
+
 // ─── Client – social ───
 export function getSocialEnabled(): boolean {
   const value = process.env.NEXT_PUBLIC_SOCIAL_ENABLED;
@@ -80,42 +94,44 @@ export function isSocialEnabled(): boolean {
   return value.toLowerCase() === "true" || value === "1";
 }
 
-// ─── Client – book clubs ───
-export function getBookClubsEnabled(): boolean {
-  return parseBool(process.env.NEXT_PUBLIC_BOOK_CLUBS_ENABLED);
-}
-
-// ─── Server/API – book clubs ───
-export function isBookClubsEnabled(): boolean {
-  return parseBool(process.env.NEXT_PUBLIC_BOOK_CLUBS_ENABLED ?? process.env.BOOK_CLUBS_ENABLED);
-}
-
 // ─── Client – polls ───
 export function getPollsEnabled(): boolean {
-  return parseBool(process.env.NEXT_PUBLIC_POLLS_ENABLED);
+  const value = process.env.NEXT_PUBLIC_POLLS_ENABLED;
+  if (value === undefined || value === "") return false;
+  return value.toLowerCase() === "true" || value === "1";
 }
 
 // ─── Server/API – polls ───
 export function isPollsEnabled(): boolean {
-  return parseBool(process.env.NEXT_PUBLIC_POLLS_ENABLED ?? process.env.POLLS_ENABLED);
+  const value = process.env.NEXT_PUBLIC_POLLS_ENABLED ?? process.env.POLLS_ENABLED;
+  if (value === undefined || value === "") return false;
+  return value.toLowerCase() === "true" || value === "1";
 }
 
 // ─── Client – newsletters ───
 export function getNewslettersEnabled(): boolean {
-  return parseBool(process.env.NEXT_PUBLIC_NEWSLETTERS_ENABLED);
+  const value = process.env.NEXT_PUBLIC_NEWSLETTERS_ENABLED;
+  if (value === undefined || value === "") return false;
+  return value.toLowerCase() === "true" || value === "1";
 }
 
 // ─── Server/API – newsletters ───
 export function isNewslettersEnabled(): boolean {
-  return parseBool(process.env.NEXT_PUBLIC_NEWSLETTERS_ENABLED ?? process.env.NEWSLETTERS_ENABLED);
+  const value = process.env.NEXT_PUBLIC_NEWSLETTERS_ENABLED ?? process.env.NEWSLETTERS_ENABLED;
+  if (value === undefined || value === "") return false;
+  return value.toLowerCase() === "true" || value === "1";
 }
 
 // ─── Client – notifications ───
 export function getNotificationsEnabled(): boolean {
-  return parseBool(process.env.NEXT_PUBLIC_NOTIFICATIONS_ENABLED);
+  const value = process.env.NEXT_PUBLIC_NOTIFICATIONS_ENABLED;
+  if (value === undefined || value === "") return false;
+  return value.toLowerCase() === "true" || value === "1";
 }
 
 // ─── Server/API – notifications ───
 export function isNotificationsEnabled(): boolean {
-  return parseBool(process.env.NEXT_PUBLIC_NOTIFICATIONS_ENABLED ?? process.env.NOTIFICATIONS_ENABLED);
+  const value = process.env.NEXT_PUBLIC_NOTIFICATIONS_ENABLED ?? process.env.NOTIFICATIONS_ENABLED;
+  if (value === undefined || value === "") return false;
+  return value.toLowerCase() === "true" || value === "1";
 }

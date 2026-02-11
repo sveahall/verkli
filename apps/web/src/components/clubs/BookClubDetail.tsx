@@ -99,7 +99,6 @@ export default function BookClubDetail({
 
   return (
     <div className="space-y-6">
-      {/* Club header */}
       <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
         <div className="space-y-2">
           <h1 className="text-page-title">{club.name}</h1>
@@ -112,7 +111,6 @@ export default function BookClubDetail({
             <span>{club.is_public ? "Offentlig" : "Privat"}</span>
           </div>
         </div>
-
         <div className="flex items-center gap-2">
           {isMember && !isOwner && (
             <Button
@@ -143,7 +141,6 @@ export default function BookClubDetail({
         <p className="text-[13px] text-red-600 dark:text-red-400">{error}</p>
       )}
 
-      {/* Members list */}
       <div>
         <h2 className="mb-3 text-[15px] font-semibold text-slate-900 dark:text-white">
           Medlemmar
@@ -165,7 +162,6 @@ export default function BookClubDetail({
         </div>
       </div>
 
-      {/* Chat */}
       {isMember && (
         <div>
           <h2 className="mb-3 text-[15px] font-semibold text-slate-900 dark:text-white">

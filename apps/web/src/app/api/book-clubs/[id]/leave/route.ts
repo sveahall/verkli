@@ -46,7 +46,6 @@ export async function POST(
     return apiError(E_NOT_AUTHENTICATED, 401);
   }
 
-  // Check user is a member
   const { data: member, error: memberError } = await supabase
     .from("book_club_members" as never)
     .select("club_id, user_id, role")
@@ -73,7 +72,6 @@ export async function POST(
     return apiError(E_CLUB_OWNER_CANNOT_LEAVE, 400);
   }
 
-  // Delete member row
   const { error: deleteError } = await supabase
     .from("book_club_members" as never)
     .delete()

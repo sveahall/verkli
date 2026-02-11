@@ -132,7 +132,6 @@ export async function POST(request: Request) {
       message: (memberError as { message: string }).message,
       code: (memberError as { code: string }).code,
     });
-    // Club was created but membership failed — still return club
   }
 
   return NextResponse.json({ club: created }, { status: 201 });

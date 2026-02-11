@@ -66,7 +66,6 @@ export default function PollCard({ poll, onVoted }: PollCardProps) {
 
       setVoted(selectedOption);
 
-      // Fetch results
       const resResults = await fetch(`/api/polls/${poll.id}/results`, {
         credentials: "include",
       });
@@ -105,7 +104,6 @@ export default function PollCard({ poll, onVoted }: PollCardProps) {
 
       <div className="mt-4 space-y-2">
         {hasVoted || isClosed ? (
-          // Results view
           (results ?? poll.options.map((o) => ({ option_id: o.id, text: o.text, count: 0 }))).map(
             (r) => {
               const pct = totalVotes > 0 ? (r.count / totalVotes) * 100 : 0;
@@ -142,7 +140,6 @@ export default function PollCard({ poll, onVoted }: PollCardProps) {
             }
           )
         ) : (
-          // Voting view
           <>
             {poll.options.map((opt) => (
               <label

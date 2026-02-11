@@ -37,7 +37,6 @@ export default function ClubChat({
     scrollToBottom();
   }, [messages.length, scrollToBottom]);
 
-  // Poll for new messages every 5 seconds
   useEffect(() => {
     const fetchMessages = async () => {
       try {
@@ -78,10 +77,7 @@ export default function ClubChat({
 
         const body = (await res.json().catch(() => ({}))) as {
           error?: string;
-          id?: string;
-          content?: string;
-          user_id?: string;
-          created_at?: string;
+          message?: ChatMessage;
         };
 
         if (!res.ok) {
@@ -89,15 +85,9 @@ export default function ClubChat({
           return;
         }
 
-        setMessages((prev) => [
-          ...prev,
-          {
-            id: body.id ?? crypto.randomUUID(),
-            user_id: currentUserId,
-            content,
-            created_at: body.created_at ?? new Date().toISOString(),
-          },
-        ]);
+        if (body.message) {
+          setMessages((prev) => [...prev, body.message as ChatMessage]);
+        }
         setDraft("");
       } catch {
         setError(resolveErrorMessage(null));
@@ -105,7 +95,7 @@ export default function ClubChat({
         setSending(false);
       }
     },
-    [clubId, currentUserId, draft]
+    [clubId, draft]
   );
 
   const formatTime = (iso: string) => {
@@ -115,7 +105,6 @@ export default function ClubChat({
 
   return (
     <div className="flex flex-col rounded-xl border border-slate-200/80 bg-white dark:border-white/10 dark:bg-white/5">
-      {/* Messages */}
       <div className="flex max-h-[400px] flex-col gap-2 overflow-y-auto p-4">
         {messages.length === 0 && (
           <p className="py-8 text-center text-[13px] text-slate-400 dark:text-white/40">
@@ -153,7 +142,6 @@ export default function ClubChat({
         <div ref={bottomRef} />
       </div>
 
-      {/* Composer */}
       <form
         onSubmit={handleSend}
         className="flex items-center gap-2 border-t border-slate-200/80 p-3 dark:border-white/10"

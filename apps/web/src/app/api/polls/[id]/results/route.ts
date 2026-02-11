@@ -52,7 +52,6 @@ export async function GET(
     return apiError(E_NOT_AUTHENTICATED, 401);
   }
 
-  // Verify poll exists
   const { data: poll, error: pollError } = await supabase
     .from("polls" as never)
     .select("id")
@@ -60,16 +59,9 @@ export async function GET(
     .maybeSingle();
 
   if (pollError || !poll) {
-    console.error("[polls] results poll lookup failed", {
-      pollId: id,
-      userId: user.id,
-      message: pollError?.message,
-      code: pollError?.code,
-    });
     return apiError(E_POLL_NOT_FOUND, 404);
   }
 
-  // Fetch options
   const { data: options, error: optionsError } = await supabase
     .from("poll_options" as never)
     .select("id, poll_id, text, sort_order")
@@ -87,7 +79,6 @@ export async function GET(
 
   const typedOptions = (options ?? []) as PollOptionRow[];
 
-  // Fetch all votes for this poll
   const { data: votes, error: votesError } = await supabase
     .from("poll_votes" as never)
     .select("option_id")
@@ -104,7 +95,6 @@ export async function GET(
 
   const typedVotes = (votes ?? []) as PollVoteRow[];
 
-  // Count votes per option in JS
   const countsByOptionId = new Map<string, number>();
   for (const vote of typedVotes) {
     countsByOptionId.set(
