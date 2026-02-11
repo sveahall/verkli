@@ -1,10 +1,12 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { existsSync } from "node:fs";
 import {
   E_CREDITS_LOAD_FAILED,
   E_PRO_SUBSCRIPTION_REQUIRED,
   E_UNAUTHORIZED,
   apiError,
 } from "@/lib/api-errors";
+import { API_ROUTES } from "@/lib/api-routes";
 
 const mocks = vi.hoisted(() => ({
   createClient: vi.fn(),
@@ -57,7 +59,11 @@ function makeSupabaseClient(
   };
 }
 
-describe("GET /api/credits/balance", () => {
+describe(`GET ${API_ROUTES.creditsBalance}`, () => {
+  it("fails fast if route module file is missing", () => {
+    expect(existsSync(new URL("./balance/route.ts", import.meta.url))).toBe(true);
+  });
+
   beforeEach(() => {
     vi.clearAllMocks();
     mocks.requireProBillingForApi.mockResolvedValue({

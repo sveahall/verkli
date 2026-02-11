@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { existsSync } from "node:fs";
 import {
   E_INVALID_REFERRAL_CODE,
   E_REFERRAL_ALREADY_REDEEMED,
@@ -8,6 +9,7 @@ import {
   E_REFERRAL_REDEEM_FAILED,
   E_UNAUTHORIZED,
 } from "@/lib/api-errors";
+import { API_ROUTES } from "@/lib/api-routes";
 
 const mocks = vi.hoisted(() => ({
   createClient: vi.fn(),
@@ -171,15 +173,23 @@ function makeAdminClientForRedeem(input?: {
   return { client, state };
 }
 
+function makeGenerateRequest(): Request {
+  return new Request(`http://localhost${API_ROUTES.referralsGenerate}`, { method: "POST" });
+}
+
 function makeRedeemRequest(body: unknown): Request {
-  return new Request("http://localhost/api/referrals/redeem", {
+  return new Request(`http://localhost${API_ROUTES.referralsRedeem}`, {
     method: "POST",
     headers: { "content-type": "application/json" },
     body: JSON.stringify(body),
   });
 }
 
-describe("POST /api/referrals/generate", () => {
+describe(`POST ${API_ROUTES.referralsGenerate}`, () => {
+  it("fails fast if generate route module file is missing", () => {
+    expect(existsSync(new URL("./generate/route.ts", import.meta.url))).toBe(true);
+  });
+
   beforeEach(() => {
     vi.clearAllMocks();
   });
@@ -223,7 +233,11 @@ describe("POST /api/referrals/generate", () => {
   });
 });
 
-describe("POST /api/referrals/redeem", () => {
+describe(`POST ${API_ROUTES.referralsRedeem}`, () => {
+  it("fails fast if redeem route module file is missing", () => {
+    expect(existsSync(new URL("./redeem/route.ts", import.meta.url))).toBe(true);
+  });
+
   beforeEach(() => {
     vi.clearAllMocks();
   });

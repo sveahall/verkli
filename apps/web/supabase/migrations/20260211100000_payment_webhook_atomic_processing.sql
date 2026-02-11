@@ -1,4 +1,5 @@
 -- Atomic Stripe checkout finalization helpers for webhook processing.
+-- Re-applied on fix/payments-prod for production payment hardening.
 -- These functions lock the target row, apply status transitions exactly once,
 -- and keep entitlement / credit side effects idempotent.
 

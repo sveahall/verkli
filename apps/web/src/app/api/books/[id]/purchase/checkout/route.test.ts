@@ -1,5 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { existsSync } from "node:fs";
 import { E_INVALID_BOOK_PRICING } from "@/lib/api-errors";
+import { API_ROUTES } from "@/lib/api-routes";
 
 const mocks = vi.hoisted(() => ({
   createClient: vi.fn(),
@@ -32,6 +34,12 @@ vi.mock("@/lib/analytics/events", () => ({
 }));
 
 const { POST } = await import("./route");
+
+function makePurchaseRequest(bookId: string): Request {
+  return new Request(`http://localhost${API_ROUTES.bookPurchaseCheckout(bookId)}`, {
+    method: "POST",
+  });
+}
 
 function makeSupabaseClient(book: Record<string, unknown> | null) {
   return {
@@ -109,6 +117,10 @@ function makeAdminClient(existingPendingOrder: Record<string, unknown> | null = 
 }
 
 describe("POST /api/books/[id]/purchase/checkout", () => {
+  it("fails fast if route module file is missing", () => {
+    expect(existsSync(new URL("./route.ts", import.meta.url))).toBe(true);
+  });
+
   beforeEach(() => {
     vi.clearAllMocks();
     mocks.canUserReadBook.mockResolvedValue(false);
@@ -135,7 +147,7 @@ describe("POST /api/books/[id]/purchase/checkout", () => {
     mocks.createClient.mockResolvedValue(supabase);
     mocks.createAdminClient.mockReturnValue(admin.client);
 
-    const res = await POST(new Request("http://localhost/api/books/book-1/purchase/checkout", { method: "POST" }), {
+    const res = await POST(makePurchaseRequest("book-1"), {
       params: Promise.resolve({ id: "book-1" }),
     });
 
@@ -176,7 +188,7 @@ describe("POST /api/books/[id]/purchase/checkout", () => {
     mocks.createClient.mockResolvedValue(supabase);
     mocks.createAdminClient.mockReturnValue(makeAdminClient().client);
 
-    const res = await POST(new Request("http://localhost/api/books/book-1/purchase/checkout", { method: "POST" }), {
+    const res = await POST(makePurchaseRequest("book-1"), {
       params: Promise.resolve({ id: "book-1" }),
     });
 
@@ -210,7 +222,7 @@ describe("POST /api/books/[id]/purchase/checkout", () => {
       status: "open",
     });
 
-    const res = await POST(new Request("http://localhost/api/books/book-1/purchase/checkout", { method: "POST" }), {
+    const res = await POST(makePurchaseRequest("book-1"), {
       params: Promise.resolve({ id: "book-1" }),
     });
 
