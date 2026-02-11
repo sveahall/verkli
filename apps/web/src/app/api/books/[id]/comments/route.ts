@@ -15,6 +15,7 @@ import {
   E_NOT_AUTHENTICATED,
   E_VALIDATION_FAILED,
 } from "@/lib/api-errors";
+import { createNotification } from "@/lib/notifications/server";
 
 const paramsSchema = z.object({
   id: z.string().uuid("Invalid book ID"),
@@ -326,6 +327,31 @@ export async function POST(
       code: insertError.code,
     });
     return apiError(E_COMMENT_CREATE_FAILED, 500);
+  }
+
+  // Notify parent comment author on reply
+  if (parentCommentId && insertedComment) {
+    try {
+      const { data: parentComment } = await supabase
+        .from("comments")
+        .select("author_id")
+        .eq("id", parentCommentId)
+        .maybeSingle();
+
+      if (parentComment && parentComment.author_id !== user.id) {
+        await createNotification(supabase, {
+          userId: parentComment.author_id,
+          type: "comment_reply",
+          title: "Svar på din kommentar",
+          body: content.slice(0, 120),
+          actorId: user.id,
+          entityId: insertedComment.id,
+          entityType: "comment",
+        });
+      }
+    } catch {
+      // non-critical — don't fail the comment
+    }
   }
 
   return NextResponse.json({ comment: insertedComment }, { status: 201 });
