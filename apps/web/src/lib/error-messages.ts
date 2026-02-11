@@ -210,6 +210,10 @@ const ERROR_MESSAGES: Record<string, string> = {
   INVALID_PRICING_COMBINATION: "Ogiltig priskombination.",
   NO_UPDATABLE_FIELDS: "Inga uppdateringsbara fält angavs.",
   PAID_BOOK_REQUIRES_CURRENCY: "Betalda böcker kräver en giltig valuta.",
+
+  // Stats
+  STATS_LOAD_FAILED: "Kunde inte ladda statistik. Försök igen.",
+  STATS_BOOK_NOT_FOUND: "Boken hittades inte eller tillhör inte dig.",
 };
 
 const DEFAULT_MESSAGE = "Något gick fel. Försök igen.";

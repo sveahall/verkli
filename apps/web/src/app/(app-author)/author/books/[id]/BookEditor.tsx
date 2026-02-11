@@ -18,7 +18,8 @@ import { getAudiobookEnabled, getMarketingEnabled, getRecommendationsEnabled, ge
 import GenreSelector from "@/components/books/GenreSelector";
 import { isJobActiveStatus, normalizeJobStatus } from "@/lib/job-status";
 import { getLanguageLabel, LANGUAGE_OPTIONS, normalizeLanguage, type SupportedLanguage } from "@/lib/languages";
-import { isTranslationPairSupported } from "@/lib/translation-pairs";
+import TranslationPanel from "@/components/translations/TranslationPanel";
+import type { TranslationStatus } from "@/components/translations/TranslationStatusBadge";
 
 const ACCEPTED_COVER_TYPES = "image/*";
 
@@ -778,9 +779,8 @@ export default function BookEditor({
     void checkTranslationQueueHealth();
   }, [checkTranslationQueueHealth]);
 
-  type TranslationUiStatus = "idle" | "translating" | "done" | "error";
   const isPollingCurrent = isPollingTranslation && lastRequestedTargetLanguage === translateTargetLanguage;
-  const translationUiStatus = useMemo<TranslationUiStatus>(() => {
+  const translationUiStatus = useMemo<TranslationStatus>(() => {
     if (currentTargetVersion?.status === "failed") return "error";
     if (currentTargetVersion?.status === "translating" || isPollingCurrent) return "translating";
     if (currentTargetVersion?.status === "done" || currentTargetVersion?.published_at) return "done";
@@ -2096,104 +2096,25 @@ export default function BookEditor({
             </div>
 
             {getTranslationsEnabled() && (
-              <div className="rounded-xl border border-slate-200 bg-slate-50/50 p-5 dark:border-white/10 dark:bg-white/5">
-                <h2 className="mb-3 text-base font-semibold text-slate-900 dark:text-white">Översättning</h2>
-                <p className="mb-3 text-xs text-slate-500 dark:text-white/50">
-                  Skapa en ny språkversion av denna bok. Översättningen visas när den är klar.
-                </p>
-                <div className="mb-3 flex items-center gap-2">
-                  <span className="text-xs font-medium text-slate-500 dark:text-white/50">Status:</span>
-                  <span
-                    className={`rounded-full px-2.5 py-1 text-xs font-medium ${
-                      translationUiStatus === "translating"
-                        ? "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-200"
-                        : translationUiStatus === "done"
-                          ? "bg-[#907AFF]/15 text-[#5c4bb8] dark:bg-[#907AFF]/25 dark:text-[#b8a9ff]"
-                          : translationUiStatus === "error"
-                            ? "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-200"
-                            : "bg-slate-100 text-slate-700 dark:bg-slate-700 dark:text-slate-200"
-                    }`}
-                    role="status"
-                  >
-                    {translationUiStatus === "idle" && STATUS_LABELS.idle}
-                    {translationUiStatus === "translating" && "Översätts…"}
-                    {translationUiStatus === "done" && STATUS_LABELS.completed}
-                    {translationUiStatus === "error" && STATUS_LABELS.failed}
-                  </span>
-                </div>
-                <label htmlFor="translate-language" className="mb-1 block text-xs text-slate-500 dark:text-white/50">Målspråk</label>
-                <select
-                  id="translate-language"
-                  value={translateTargetLanguage}
-                  onChange={(e) => setTranslateTargetLanguage(e.target.value as SupportedLanguage)}
-                  className="mb-3 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:border-slate-500 focus:outline-none dark:border-white/20 dark:bg-white/10 dark:text-white"
-                >
-                  {LANGUAGE_OPTIONS.filter((opt) => opt.value !== translationSourceLang).map((opt) => {
-                    const supported = isTranslationPairSupported(translationSourceLang, opt.value);
-                    return (
-                      <option key={opt.value} value={opt.value} disabled={!supported}>
-                        {opt.label}{supported ? "" : " (ej tillgänglig)"}
-                      </option>
-                    );
-                  })}
-                </select>
-                <button
-                  type="button"
-                  onClick={handleStartTranslation}
-                  disabled={isStartingTranslation || isProFeatureLocked || !isTranslationPairSupported(translationSourceLang, translateTargetLanguage)}
-                  className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed dark:border-white/20 dark:bg-white/10 dark:text-white dark:hover:bg-white/15"
-                >
-                  {isStartingTranslation
-                    ? "Startar…"
-                    : isProFeatureLocked
-                      ? billing.loading
-                        ? "Kontrollerar abonnemang…"
-                        : billing.pastDue
-                          ? "Låst: betalning krävs"
-                          : "Starta översättning (Pro krävs)"
-                      : "Starta översättning"}
-                </button>
-                {isProFeatureLocked && (
-                  <div className="mt-2 rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-800 dark:border-amber-700 dark:bg-amber-950/30 dark:text-amber-200">
-                    {proFeatureLockMessage}{" "}
-                    {!billing.loading && (
-                      <Link href="/account/billing" className="underline">
-                        Hantera abonnemang
-                      </Link>
-                    )}
-                  </div>
-                )}
-                {currentTargetVersion && (
-                  <button
-                    type="button"
-                    onClick={() =>
-                      router.push(`/author/books/${book.id}?lang=${normalizeLangKey(currentTargetVersion.language_code)}`)
-                    }
-                    className="mt-2 w-full rounded-lg bg-slate-900 px-3 py-2 text-sm font-medium text-white transition hover:bg-slate-800 dark:bg-white dark:text-slate-900 dark:hover:bg-white/90"
-                  >
-                    Öppna version
-                  </button>
-                )}
-                {translationQueueHealthy === false && (
-                  <div className="mt-2 rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-800 dark:border-amber-700 dark:bg-amber-950/30 dark:text-amber-200">
-                    Översättningskön är offline just nu.
-                  </div>
-                )}
-                {translateMessage && (
-                  <div
-                    className={`mt-3 rounded-lg border px-3 py-2 text-sm ${
-                      translationUiStatus === "done" || translateMessage.toLowerCase().includes("klar")
-                        ? "border-[#907AFF]/40 bg-[#907AFF]/10 text-[#5c4bb8] dark:border-[#907AFF]/40 dark:bg-[#907AFF]/15 dark:text-[#b8a9ff]"
-                        : translationUiStatus === "error"
-                          ? "border-red-200 bg-red-50 text-red-800 dark:border-red-800 dark:bg-red-950/30 dark:text-red-200"
-                          : "border-slate-200 bg-slate-50 text-slate-800 dark:border-slate-700 dark:bg-slate-800/50 dark:text-slate-200"
-                    }`}
-                    role="status"
-                  >
-                    {translateMessage}
-                  </div>
-                )}
-              </div>
+              <TranslationPanel
+                bookId={book.id}
+                bookVersions={bookVersions}
+                originalLanguage={book.original_language ?? book.language ?? "sv"}
+                activeLanguageCode={activeLanguage}
+                translationSourceLang={translationSourceLang}
+                translateTargetLanguage={translateTargetLanguage}
+                onTargetLanguageChange={setTranslateTargetLanguage}
+                translationUiStatus={translationUiStatus}
+                isStartingTranslation={isStartingTranslation}
+                isProFeatureLocked={isProFeatureLocked}
+                billingLoading={billing.loading}
+                billingPastDue={billing.pastDue}
+                currentTargetVersionLangCode={currentTargetVersion ? normalizeLangKey(currentTargetVersion.language_code) : null}
+                translationQueueHealthy={translationQueueHealthy}
+                translateMessage={translateMessage}
+                onStartTranslation={handleStartTranslation}
+                onSwitchVersion={(lang) => router.push(`/author/books/${book.id}?lang=${lang}`)}
+              />
             )}
 
             <div id="tts" className="rounded-xl border border-slate-200 bg-slate-50/50 p-5 dark:border-white/10 dark:bg-white/5">

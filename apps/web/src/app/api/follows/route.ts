@@ -13,6 +13,7 @@ import {
   E_NOT_AUTHENTICATED,
   E_VALIDATION_FAILED,
 } from "@/lib/api-errors";
+import { createNotification } from "@/lib/notifications/server";
 
 const followBodySchema = z.object({
   followeeId: z.string().uuid("Invalid followee ID"),
@@ -215,6 +216,19 @@ export async function POST(request: Request) {
   }
 
   await syncLegacyAuthorFollowersInsert(supabase, user.id, followeeId);
+
+  // Fire-and-forget notification for the followee
+  createNotification({
+    userId: followeeId,
+    type: "new_follower",
+    title: "Ny följare",
+    body: "Någon har börjat följa dig.",
+    actorId: user.id,
+    entityId: user.id,
+    entityType: "user",
+  }).catch((err) => {
+    console.error("[follows] notification failed", { followeeId, err });
+  });
 
   return NextResponse.json({ ok: true, followeeId });
 }

@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 
 export const NOTIFICATION_TYPES = [
   "comment_reply",
@@ -53,7 +53,7 @@ export async function createNotification(
     throw new Error("[notifications] invalid create payload");
   }
 
-  const supabase = await createClient();
+  const supabase = createAdminClient();
   const payload = parsed.data;
 
   const { data, error } = await supabase
