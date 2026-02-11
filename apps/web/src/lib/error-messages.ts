@@ -127,6 +127,11 @@ const ERROR_MESSAGES: Record<string, string> = {
   CANNOT_FOLLOW_SELF: "Du kan inte följa dig själv.",
   ALREADY_FOLLOWING: "Du följer redan den här användaren.",
 
+  // Notifications
+  NOTIFICATION_LOAD_FAILED: "Kunde inte ladda notiser.",
+  NOTIFICATION_NOT_FOUND: "Notisen hittades inte.",
+  NOTIFICATION_UPDATE_FAILED: "Kunde inte uppdatera notisen.",
+
   // Direct messages
   MESSAGE_LIST_FAILED: "Kunde inte ladda inkorgen.",
   MESSAGE_CONVERSATION_CREATE_FAILED: "Kunde inte starta konversationen.",
