@@ -4,6 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 import { canUserReadBook } from "@/lib/books/access";
 import { logAnalyticsEvent } from "@/lib/analytics/events";
 import PurchaseBookButton from "../../books/[id]/PurchaseBookButton";
+import CommentsSection from "../../books/[id]/CommentsSection";
 import ReadingProgress from "./ReadingProgress";
 import ReaderChapterClient, { type ReaderHighlight, type ReaderSettings } from "./ReaderChapterClient";
 
@@ -205,6 +206,13 @@ export default async function ReaderReadPage({
   const chapterIndex = chapters?.findIndex((c) => c.id === chapterId) ?? 0;
   const totalChapters = chapters?.length ?? 1;
   const progressPercent = totalChapters > 0 ? Math.round(((chapterIndex + 1) / totalChapters) * 100) : 0;
+  const bookAuthorId = String((book as { author_id?: string | null }).author_id ?? "");
+  const signInHref = `/reader/signin?next=${encodeURIComponent(`/reader/read/${chapter.id}`)}`;
+  const chapterOptions = (chapters ?? []).map((item) => ({
+    id: item.id,
+    title: item.title,
+    order: item.order,
+  }));
 
   return (
     <main className="min-h-screen bg-slate-50 text-slate-900 dark:bg-[#050508] dark:text-white">
@@ -261,6 +269,16 @@ export default async function ReaderReadPage({
           </div>
         </article>
       </section>
+      <CommentsSection
+        bookId={book.id}
+        bookAuthorId={bookAuthorId}
+        currentUserId={user?.id ?? null}
+        isSignedIn={Boolean(user)}
+        signInHref={signInHref}
+        chapterOptions={chapterOptions}
+        fixedChapterId={chapter.id}
+        title={`Kommentarer: ${chapter.title}`}
+      />
     </main>
   );
 }

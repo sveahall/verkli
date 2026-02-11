@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { getAvatarUrlFromPathServer } from "@/lib/supabase/avatar";
 import BookCard from "@/components/reader/BookCard";
 import PageHeader from "@/components/reader/PageHeader";
 import Rail from "@/components/reader/Rail";
@@ -28,6 +29,60 @@ export default async function ReaderProfilePage() {
     .maybeSingle();
 
   const displayName = String(profile?.display_name || profile?.username || "Reader");
+
+  type FollowRow = {
+    followee_id: string;
+    created_at: string;
+  };
+
+  type FollowingAuthor = {
+    userId: string;
+    name: string;
+    username: string | null;
+    avatarUrl: string | null;
+    followedAt: string;
+  };
+
+  const { data: followRowsRaw } = await supabase
+    .from("follows")
+    .select("followee_id, created_at")
+    .eq("follower_id", user.id)
+    .order("created_at", { ascending: false })
+    .limit(24);
+
+  const followRows = (followRowsRaw ?? []) as FollowRow[];
+  const followeeIds = [...new Set(followRows.map((row) => row.followee_id))];
+
+  let followingAuthors: FollowingAuthor[] = [];
+  if (followeeIds.length > 0) {
+    const { data: authorProfiles } = await supabase
+      .from("profiles")
+      .select("user_id, display_name, username, avatar_url")
+      .in("user_id", followeeIds)
+      .eq("role", "author")
+      .eq("is_public", true);
+
+    const profileById = new Map(
+      (authorProfiles ?? []).map((profile) => [profile.user_id, profile] as const)
+    );
+
+    followingAuthors = (
+      await Promise.all(
+        followRows.map(async (row) => {
+          const profileRow = profileById.get(row.followee_id);
+          if (!profileRow) return null;
+
+          return {
+            userId: row.followee_id,
+            name: profileRow.display_name || profileRow.username || "Author",
+            username: profileRow.username ?? null,
+            avatarUrl: await getAvatarUrlFromPathServer(profileRow.avatar_url),
+            followedAt: row.created_at,
+          } satisfies FollowingAuthor;
+        })
+      )
+    ).filter((row): row is FollowingAuthor => row !== null);
+  }
 
   const { data: readingsRows } = await supabase
     .from("readings")
@@ -156,6 +211,7 @@ export default async function ReaderProfilePage() {
     { label: "Books started", value: String(booksStartedCount) },
     { label: "Books finished", value: String(booksFinishedCount) },
     { label: "Highlights", value: String(highlightsTotalCount ?? highlights.length) },
+    { label: "Following authors", value: String(followingAuthors.length) },
   ];
 
   const initials = displayName
@@ -209,7 +265,7 @@ export default async function ReaderProfilePage() {
         </div>
 
         {stats.length > 0 && (
-          <div className="mt-6 grid gap-4 sm:grid-cols-3">
+          <div className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
             {stats.map((stat) => (
               <div
                 key={stat.label}
@@ -220,6 +276,57 @@ export default async function ReaderProfilePage() {
                   {stat.value}
                 </p>
               </div>
+            ))}
+          </div>
+        )}
+      </section>
+
+      <section className="rounded-3xl border border-slate-200/70 bg-white/80 p-6 shadow-[0_16px_30px_rgba(15,23,42,0.08)] dark:border-white/10 dark:bg-white/5">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <h2 className="text-[18px] font-semibold text-slate-900 dark:text-white">Following authors</h2>
+          <span className="text-[12px] text-slate-500 dark:text-white/60">
+            {followingAuthors.length === 1 ? "1 author" : `${followingAuthors.length} authors`}
+          </span>
+        </div>
+
+        {followingAuthors.length === 0 ? (
+          <p className="mt-4 text-[14px] text-slate-600 dark:text-white/60">
+            You are not following any authors yet. Open an author profile and click Follow.
+          </p>
+        ) : (
+          <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+            {followingAuthors.map((author) => (
+              <Link
+                key={author.userId}
+                href={`/reader/authors/${author.userId}`}
+                className="rounded-2xl border border-slate-200/70 bg-white/85 p-4 transition hover:border-slate-300 hover:bg-white dark:border-white/10 dark:bg-white/[0.03] dark:hover:bg-white/[0.05]"
+              >
+                <div className="flex items-center gap-3">
+                  <div className="flex h-11 w-11 items-center justify-center overflow-hidden rounded-full border border-black/10 bg-slate-100 text-[12px] font-semibold text-slate-600 dark:border-white/10 dark:bg-white/10 dark:text-white/70">
+                    {author.avatarUrl ? (
+                      <img src={author.avatarUrl} alt={author.name} className="h-full w-full object-cover" />
+                    ) : (
+                      author.name
+                        .split(" ")
+                        .map((word) => word[0])
+                        .slice(0, 2)
+                        .join("")
+                        .toUpperCase()
+                    )}
+                  </div>
+                  <div className="min-w-0">
+                    <p className="truncate text-[14px] font-semibold text-slate-900 dark:text-white">
+                      {author.name}
+                    </p>
+                    <p className="truncate text-[12px] text-slate-500 dark:text-white/60">
+                      {author.username ? `@${author.username}` : "Author"}
+                    </p>
+                    <p className="mt-1 text-[11px] text-slate-400 dark:text-white/45">
+                      Followed {new Date(author.followedAt).toLocaleDateString("sv-SE")}
+                    </p>
+                  </div>
+                </div>
+              </Link>
             ))}
           </div>
         )}

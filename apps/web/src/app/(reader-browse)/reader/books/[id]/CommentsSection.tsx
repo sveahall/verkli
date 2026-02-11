@@ -56,6 +56,8 @@ type CommentsSectionProps = {
   isSignedIn: boolean;
   signInHref: string;
   chapterOptions: ChapterOption[];
+  fixedChapterId?: string | null;
+  title?: string;
 };
 
 const formatter = new Intl.DateTimeFormat("sv-SE", {
@@ -97,13 +99,15 @@ export default function CommentsSection({
   isSignedIn,
   signInHref,
   chapterOptions,
+  fixedChapterId = null,
+  title = "Kommentarer",
 }: CommentsSectionProps) {
   const toast = useToastHelpers();
   const [comments, setComments] = useState<BookComment[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [body, setBody] = useState("");
-  const [selectedChapterId, setSelectedChapterId] = useState<string>("");
+  const [selectedChapterId, setSelectedChapterId] = useState<string>(fixedChapterId ?? "");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [replyingToId, setReplyingToId] = useState<string | null>(null);
   const [replyBody, setReplyBody] = useState("");
@@ -129,7 +133,10 @@ export default function CommentsSection({
     setLoadError(null);
 
     try {
-      const response = await fetch(`/api/books/${encodeURIComponent(bookId)}/comments`, {
+      const chapterQuery = fixedChapterId
+        ? `?chapterId=${encodeURIComponent(fixedChapterId)}`
+        : "";
+      const response = await fetch(`/api/books/${encodeURIComponent(bookId)}/comments${chapterQuery}`, {
         cache: "no-store",
       });
       const payload = (await response.json().catch(() => ({}))) as CommentsResponse;
@@ -146,11 +153,15 @@ export default function CommentsSection({
     } finally {
       setIsLoading(false);
     }
-  }, [bookId]);
+  }, [bookId, fixedChapterId]);
 
   useEffect(() => {
     void loadComments();
   }, [loadComments]);
+
+  useEffect(() => {
+    setSelectedChapterId(fixedChapterId ?? "");
+  }, [fixedChapterId]);
 
   const submitComment = useCallback(
     async (input: { text: string; parentCommentId?: string | null; chapterId?: string | null }) => {
@@ -182,7 +193,7 @@ export default function CommentsSection({
         } else {
           toast.success("Kommentar publicerad.");
           setBody("");
-          setSelectedChapterId("");
+          setSelectedChapterId(fixedChapterId ?? "");
         }
 
         await loadComments();
@@ -192,7 +203,7 @@ export default function CommentsSection({
         setIsSubmitting(false);
       }
     },
-    [bookId, loadComments, toast]
+    [bookId, fixedChapterId, loadComments, toast]
   );
 
   const deleteComment = useCallback(
@@ -226,7 +237,7 @@ export default function CommentsSection({
     <section className="mx-auto max-w-[1100px] px-6 pb-14">
       <div className="rounded-[24px] border border-black/10 bg-black/[0.02] p-6 dark:border-white/10 dark:bg-white/[0.04]">
         <div className="flex flex-wrap items-center justify-between gap-3">
-          <h2 className="text-[24px] font-semibold tracking-tight">Kommentarer</h2>
+          <h2 className="text-[24px] font-semibold tracking-tight">{title}</h2>
           <span className="rounded-full border border-black/10 bg-black/[0.02] px-3 py-1 text-[12px] text-slate-600 dark:border-white/10 dark:bg-white/5 dark:text-white/60">
             {totalComments} totalt
           </span>
@@ -257,31 +268,37 @@ export default function CommentsSection({
             />
 
             <div className="mt-3 flex flex-wrap items-center justify-between gap-3">
-              <div className="flex items-center gap-2">
-                <label htmlFor="comment-chapter" className="text-[12px] text-slate-500 dark:text-white/50">
-                  Kapitel
-                </label>
-                <select
-                  id="comment-chapter"
-                  className="rounded-full border border-slate-300 bg-white px-3 py-1.5 text-[13px] text-slate-700 focus:outline-none focus:ring-2 focus:ring-[#907AFF]/30 dark:border-white/15 dark:bg-white/10 dark:text-white/80"
-                  value={selectedChapterId}
-                  onChange={(event) => setSelectedChapterId(event.target.value)}
-                >
-                  <option value="">Hela boken</option>
-                  {chapterOptions.map((chapter) => (
-                    <option key={chapter.id} value={chapter.id}>
-                      {chapter.order}. {chapter.title}
-                    </option>
-                  ))}
-                </select>
-              </div>
+              {!fixedChapterId ? (
+                <div className="flex items-center gap-2">
+                  <label htmlFor="comment-chapter" className="text-[12px] text-slate-500 dark:text-white/50">
+                    Kapitel
+                  </label>
+                  <select
+                    id="comment-chapter"
+                    className="rounded-full border border-slate-300 bg-white px-3 py-1.5 text-[13px] text-slate-700 focus:outline-none focus:ring-2 focus:ring-[#907AFF]/30 dark:border-white/15 dark:bg-white/10 dark:text-white/80"
+                    value={selectedChapterId}
+                    onChange={(event) => setSelectedChapterId(event.target.value)}
+                  >
+                    <option value="">Hela boken</option>
+                    {chapterOptions.map((chapter) => (
+                      <option key={chapter.id} value={chapter.id}>
+                        {chapter.order}. {chapter.title}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              ) : (
+                <p className="text-[12px] text-slate-500 dark:text-white/50">
+                  Tråden är kopplad till det här kapitlet.
+                </p>
+              )}
 
               <Button
                 type="button"
                 onClick={() =>
                   submitComment({
                     text: body,
-                    chapterId: selectedChapterId || null,
+                    chapterId: fixedChapterId ?? (selectedChapterId || null),
                   })
                 }
                 isLoading={isSubmitting}
