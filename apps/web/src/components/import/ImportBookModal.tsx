@@ -43,7 +43,14 @@ export function ImportBookModal({ open, onClose, onImportComplete }: ImportBookM
   const [error, setError] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [redisHint, setRedisHint] = useState(false);
-  const [lastCompletedId, setLastCompletedId] = useState<string | null>(null);
+  const [pendingImportIds, setPendingImportIds] = useState<string[]>([]);
+  const [openedAtMs, setOpenedAtMs] = useState<number | null>(null);
+
+  const parseTimestamp = (value: string | null | undefined): number => {
+    if (!value) return 0;
+    const ts = Date.parse(value);
+    return Number.isFinite(ts) ? ts : 0;
+  };
 
   const fetchImports = useCallback(async () => {
     try {
@@ -62,12 +69,19 @@ export function ImportBookModal({ open, onClose, onImportComplete }: ImportBookM
   }, []);
 
   useEffect(() => {
-    if (open) {
-      setError(null);
-      setSuccessMessage(null);
-      setRedisHint(false);
-      fetchImports();
+    if (!open) {
+      setPendingImportIds([]);
+      setOpenedAtMs(null);
+      setImportsList([]);
+      return;
     }
+
+    setError(null);
+    setSuccessMessage(null);
+    setRedisHint(false);
+    setPendingImportIds([]);
+    setOpenedAtMs(Date.now());
+    fetchImports();
   }, [open, fetchImports]);
 
   useEffect(() => {
@@ -80,12 +94,21 @@ export function ImportBookModal({ open, onClose, onImportComplete }: ImportBookM
 
   useEffect(() => {
     if (!open || !onImportComplete) return;
-    const completed = importsList.find((i) => i.status === "completed" && i.book_id);
+    if (pendingImportIds.length === 0) return;
+    if (!openedAtMs) return;
+
+    const completed = importsList.find(
+      (item) =>
+        pendingImportIds.includes(item.id) &&
+        item.status === "completed" &&
+        parseTimestamp(item.created_at) >= openedAtMs - 1_000 &&
+        item.book_id
+    );
     if (!completed) return;
-    if (completed.id === lastCompletedId) return;
-    setLastCompletedId(completed.id);
+
+    setPendingImportIds((prev) => prev.filter((id) => id !== completed.id));
     onImportComplete(completed.book_id!, completed.book_version_id ?? null);
-  }, [open, importsList, onImportComplete, lastCompletedId]);
+  }, [open, importsList, onImportComplete, pendingImportIds, openedAtMs]);
 
   const handleFile = async (file: File) => {
     const ext = "." + (file.name.split(".").pop() ?? "").toLowerCase();
@@ -111,6 +134,7 @@ export function ImportBookModal({ open, onClose, onImportComplete }: ImportBookM
       setSuccessMessage("Import startad — filen bearbetas inom kort.");
       const importId = data.id;
       if (importId) {
+        setPendingImportIds((prev) => [...prev, importId]);
         setImportsList((prev) => [
           {
             id: importId,

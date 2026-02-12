@@ -207,11 +207,21 @@ function ImportManusSection({
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [repairing, setRepairing] = useState(false);
+  const [repairMessage, setRepairMessage] = useState<string | null>(null);
   const [lastResult, setLastResult] = useState<{ chaptersCreated?: number; titleSet?: boolean; warnings?: string[] } | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const router = useRouter();
+  const visibleImportJobs = useMemo(() => {
+    if (importJobs.length === 0) return [];
+    const active = importJobs.filter((job) => isJobActiveStatus(job.status));
+    if (active.length > 0) return active;
+    return [importJobs[0]];
+  }, [importJobs]);
 
   const handleFile = useCallback((file: File | null) => {
     setError(null);
+    setRepairMessage(null);
     setLastResult(null);
     if (!file) {
       setSelectedFile(null);
@@ -266,11 +276,49 @@ function ImportManusSection({
     }
   }, [selectedFile, uploading, bookId, bookVersionId, overwrite, refetchJobs]);
 
+  const runChapterRepair = useCallback(async () => {
+    if (repairing) return;
+    if (!bookVersionId) {
+      setRepairMessage("Ingen aktiv version hittades.");
+      return;
+    }
+
+    setError(null);
+    setRepairMessage(null);
+    setRepairing(true);
+
+    try {
+      const res = await fetch(`/api/books/${bookId}/chapters/repair`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ bookVersionId }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setRepairMessage(resolveErrorMessage(data?.error as string));
+        return;
+      }
+
+      const updatedCount =
+        typeof data?.updatedCount === "number" ? Number(data.updatedCount) : 0;
+      if (updatedCount > 0) {
+        setRepairMessage(`Klart: ${updatedCount} kapitelrubriker reparerades.`);
+      } else {
+        setRepairMessage("Inget att reparera i denna version.");
+      }
+      router.refresh();
+    } catch {
+      setRepairMessage("Kunde inte reparera kapitelrubriker. Försök igen.");
+    } finally {
+      setRepairing(false);
+    }
+  }, [bookId, bookVersionId, repairing, router]);
+
   return (
     <div className="max-w-2xl space-y-6">
       <h2 className="text-xl font-semibold text-slate-900 dark:text-white">Importera manus</h2>
       <p className="text-sm text-slate-600 dark:text-white/60">
-        Ladda upp en fil för att importera kapitel till denna bok. Stödda format: EPUB, DOCX, HTML, TXT. Max {IMPORT_MAX_MB} MB.
+        Ladda upp en fil för att importera kapitel till denna bok. Stödda format: EPUB, DOCX, HTML, TXT, PDF. Max {IMPORT_MAX_MB} MB.
       </p>
 
       <div className="rounded-xl border border-slate-200 bg-slate-50/50 p-5 dark:border-white/10 dark:bg-white/5 space-y-4">
@@ -352,6 +400,25 @@ function ImportManusSection({
         {uploading ? "Startar import…" : "Starta import"}
       </button>
 
+      <div className="rounded-xl border border-slate-200 bg-slate-50/50 px-4 py-3 dark:border-white/10 dark:bg-white/5">
+        <p className="text-sm font-medium text-slate-900 dark:text-white">Reparera befintlig import</p>
+        <p className="mt-1 text-xs text-slate-600 dark:text-white/60">
+          Kör detta om kapitelrubriker redan blivit fel (t.ex. dubblerade eller i konstig ordning).
+        </p>
+        <div className="mt-3 flex items-center gap-3">
+          <button
+            type="button"
+            onClick={runChapterRepair}
+            disabled={!bookVersionId || repairing || uploading}
+            aria-label="Reparera kapitelrubriker"
+            className="rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-800 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50 dark:border-white/20 dark:bg-white/10 dark:text-white dark:hover:bg-white/15"
+          >
+            {repairing ? "Reparerar…" : "Reparera kapitelrubriker"}
+          </button>
+          {repairMessage && <p className="text-sm text-slate-700 dark:text-white/80">{repairMessage}</p>}
+        </div>
+      </div>
+
       {lastResult && !importJobs.some((j) => isJobActiveStatus(j.status)) && (
         <div className="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 dark:border-emerald-800 dark:bg-emerald-950/30">
           <p className="text-sm font-medium text-emerald-800 dark:text-emerald-200">Importen är påbörjad. Följ status i bannern ovan.</p>
@@ -359,49 +426,77 @@ function ImportManusSection({
         </div>
       )}
 
-      {importJobs.length > 0 && (
+      {visibleImportJobs.length > 0 && (
         <div className="space-y-3">
           <h3 className="text-sm font-semibold text-slate-900 dark:text-white">Importstatus</h3>
-          {importJobs.map((job) => (
-            <div
-              key={job.id}
-              className={`rounded-xl border px-4 py-3 text-sm ${
-                job.status === "failed"
-                  ? "border-red-200 bg-red-50 dark:border-red-800 dark:bg-red-950/30"
-                  : job.status === "completed"
-                    ? "border-emerald-200 bg-emerald-50 dark:border-emerald-800 dark:bg-emerald-950/30"
-                    : "border-slate-200 bg-slate-50/50 dark:border-white/10 dark:bg-white/5"
-              }`}
-            >
-              <div className="flex items-center justify-between">
-                <span className="font-medium text-slate-900 dark:text-white">
-                  {job.status === "pending" && "Väntar…"}
-                  {job.status === "running" && `Importerar… ${job.progress > 0 ? `${job.progress}%` : ""}`}
-                  {job.status === "completed" && "Import klar"}
-                  {job.status === "failed" && "Import misslyckades"}
-                </span>
-                {(job.status === "pending" || job.status === "running") && (
-                  <span className="text-xs text-slate-500 dark:text-white/50">
-                    {job.progress > 0 ? `${job.progress}%` : "Väntar"}
+          {visibleImportJobs.map((job) => {
+            const meta = (job.meta ?? {}) as Record<string, unknown>;
+            const chaptersCreated =
+              typeof meta.chaptersCreated === "number" ? meta.chaptersCreated : null;
+            const frontMatterCount =
+              typeof meta.frontMatterCount === "number" ? meta.frontMatterCount : null;
+            const titleSet = meta.titleSet === true;
+            const resolvedTitle = typeof meta.bookTitle === "string" ? meta.bookTitle : null;
+            const warnings = Array.isArray(meta.warnings)
+              ? meta.warnings.filter((value): value is string => typeof value === "string")
+              : [];
+
+            return (
+              <div
+                key={job.id}
+                className={`rounded-xl border px-4 py-3 text-sm ${
+                  job.status === "failed"
+                    ? "border-red-200 bg-red-50 dark:border-red-800 dark:bg-red-950/30"
+                    : job.status === "completed"
+                      ? "border-emerald-200 bg-emerald-50 dark:border-emerald-800 dark:bg-emerald-950/30"
+                      : "border-slate-200 bg-slate-50/50 dark:border-white/10 dark:bg-white/5"
+                }`}
+              >
+                <div className="flex items-center justify-between">
+                  <span className="font-medium text-slate-900 dark:text-white">
+                    {job.status === "pending" && "Väntar…"}
+                    {job.status === "running" && `Importerar… ${job.progress > 0 ? `${job.progress}%` : ""}`}
+                    {job.status === "completed" && "Import klar"}
+                    {job.status === "failed" && "Import misslyckades"}
                   </span>
+                  {(job.status === "pending" || job.status === "running") && (
+                    <span className="text-xs text-slate-500 dark:text-white/50">
+                      {job.progress > 0 ? `${job.progress}%` : "Väntar"}
+                    </span>
+                  )}
+                </div>
+                {job.status === "running" && job.progress > 0 && (
+                  <div className="mt-2 h-1.5 w-full rounded-full bg-slate-200 dark:bg-white/10">
+                    <div
+                      className="h-1.5 rounded-full bg-[#907AFF] transition-all"
+                      style={{ width: `${Math.min(100, job.progress)}%` }}
+                    />
+                  </div>
+                )}
+                {job.error && <p className="mt-1 text-red-700 dark:text-red-300">{job.error}</p>}
+                {job.status === "completed" && chaptersCreated != null && (
+                  <p className="mt-1 text-emerald-700 dark:text-emerald-300">
+                    {chaptersCreated} kapitel importerade
+                  </p>
+                )}
+                {job.status === "completed" && frontMatterCount != null && frontMatterCount > 0 && (
+                  <p className="mt-1 text-emerald-700 dark:text-emerald-300">
+                    {frontMatterCount} inledande avsnitt (förord/innehåll) separerades automatiskt
+                  </p>
+                )}
+                {job.status === "completed" && titleSet && resolvedTitle && (
+                  <p className="mt-1 text-emerald-700 dark:text-emerald-300">
+                    Titel satt automatiskt: {resolvedTitle}
+                  </p>
+                )}
+                {warnings.length > 0 && (
+                  <p className="mt-1 text-xs text-slate-500 dark:text-white/50">
+                    Noteringar: {warnings.join(", ")}
+                  </p>
                 )}
               </div>
-              {job.status === "running" && job.progress > 0 && (
-                <div className="mt-2 h-1.5 w-full rounded-full bg-slate-200 dark:bg-white/10">
-                  <div
-                    className="h-1.5 rounded-full bg-[#907AFF] transition-all"
-                    style={{ width: `${Math.min(100, job.progress)}%` }}
-                  />
-                </div>
-              )}
-              {job.error && <p className="mt-1 text-red-700 dark:text-red-300">{job.error}</p>}
-              {job.status === "completed" && (job.meta as Record<string, unknown>)?.chaptersCreated != null && (
-                <p className="mt-1 text-emerald-700 dark:text-emerald-300">
-                  {String((job.meta as Record<string, unknown>).chaptersCreated)} kapitel importerade
-                </p>
-              )}
-            </div>
-          ))}
+            );
+          })}
         </div>
       )}
     </div>

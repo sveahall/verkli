@@ -64,10 +64,11 @@ export async function GET(
     updated_at: string;
     file_name: string | null;
     book_version_id: string | null;
+    result: Record<string, unknown> | null;
   };
   const { data: importRows } = await supabase
     .from("book_imports")
-    .select("id, status, progress, error_message, created_at, updated_at, file_name, book_version_id")
+    .select("id, status, progress, error_message, created_at, updated_at, file_name, book_version_id, result")
     .eq("book_id", bookId)
     .eq("author_id", user.id)
     .order("created_at", { ascending: false })
@@ -75,6 +76,19 @@ export async function GET(
 
   const importJobs = (importRows ?? []).map((r: ImportRow) => {
     const status = normalizeJobStatus(r.status);
+    const result = (r.result ?? {}) as Record<string, unknown>;
+    const chapterCount =
+      typeof result.chaptersCreated === "number"
+        ? result.chaptersCreated
+        : typeof result.insertedCount === "number"
+          ? result.insertedCount
+          : typeof result.chapterCount === "number"
+            ? result.chapterCount
+            : null;
+    const warningList = Array.isArray(result.warnings)
+      ? result.warnings.filter((value): value is string => typeof value === "string")
+      : [];
+
     return {
       id: r.id,
       kind: "import" as const,
@@ -82,7 +96,19 @@ export async function GET(
       language: null as string | null,
       bookVersionId: r.book_version_id,
       progress: r.progress ?? 0,
-      meta: { fileName: r.file_name ?? null },
+      meta: {
+        fileName: r.file_name ?? null,
+        chaptersCreated: chapterCount,
+        chapterCount,
+        dedupSkipped: typeof result.dedupSkipped === "number" ? result.dedupSkipped : null,
+        frontMatterCount: typeof result.frontMatterCount === "number" ? result.frontMatterCount : null,
+        titleSet: result.titleSet === true,
+        bookTitle: typeof result.bookTitle === "string" ? result.bookTitle : null,
+        languageCode: typeof result.languageCode === "string" ? result.languageCode : null,
+        detectedLanguage:
+          typeof result.detectedLanguage === "string" ? result.detectedLanguage : null,
+        warnings: warningList,
+      },
       error: sanitizeJobError(r.error_message),
       createdAt: r.created_at,
       startedAt: status === "running" ? r.updated_at : null,

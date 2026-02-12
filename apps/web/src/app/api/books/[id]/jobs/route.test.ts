@@ -86,7 +86,28 @@ function makeSupabaseMock() {
         select: () => chain,
         eq: () => chain,
         order: () => chain,
-        limit: async () => ({ data: [], error: null }),
+        limit: async () => ({
+          data: [
+            {
+              id: "import-1",
+              status: "completed",
+              progress: 100,
+              error_message: null,
+              created_at: "2026-02-07T10:02:00.000Z",
+              updated_at: "2026-02-07T10:02:10.000Z",
+              file_name: "book.docx",
+              book_version_id: "ver-1",
+              result: {
+                chaptersCreated: 12,
+                frontMatterCount: 2,
+                titleSet: true,
+                bookTitle: "Inget kan stoppa",
+                warnings: ["dedupe_skipped_1"],
+              },
+            },
+          ],
+          error: null,
+        }),
       };
       return chain;
     }
@@ -143,10 +164,17 @@ describe("GET /api/books/[id]/jobs", () => {
     const body = await res.json();
 
     expect(res.status).toBe(200);
-    expect(body.jobs).toHaveLength(1);
-    expect(body.jobs[0].kind).toBe("translation");
+    expect(body.jobs).toHaveLength(2);
+    expect(body.jobs[0].kind).toBe("import");
     expect(body.jobs[0].status).toBe("completed");
+    expect(body.jobs[0].meta.chaptersCreated).toBe(12);
+    expect(body.jobs[0].meta.frontMatterCount).toBe(2);
+    expect(body.jobs[0].meta.titleSet).toBe(true);
+    expect(body.jobs[0].meta.bookTitle).toBe("Inget kan stoppa");
+    expect(body.jobs[0].meta.warnings).toEqual(["dedupe_skipped_1"]);
+    expect(body.jobs[1].kind).toBe("translation");
+    expect(body.jobs[1].status).toBe("completed");
     expect(body.activeCount).toBe(0);
-    expect(body.summary).toEqual({ translation: "completed" });
+    expect(body.summary).toEqual({ import: "completed", translation: "completed" });
   });
 });

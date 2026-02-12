@@ -1,5 +1,6 @@
 /**
- * Extract chapters from epub, docx, html, txt. Returns { title, chapters: { title, sourceText }[] }.
+ * Extract chapters from epub, docx, html, txt, pdf.
+ * Returns { title, chapters: { title, sourceText }[] }.
  */
 
 import * as cheerio from "cheerio";
@@ -11,12 +12,765 @@ import * as crypto from "crypto";
 export type ExtractedChapter = { title: string; sourceText: string };
 export type ExtractedBook = { title: string; chapters: ExtractedChapter[] };
 
+const DEFAULT_TITLE = "Untitled";
+const TARGET_CHAPTER_CHARS = 12_000;
+const MIN_CHAPTER_CHARS = 3_500;
+
 function hashText(text: string): string {
   return crypto.createHash("sha256").update(text, "utf8").digest("hex");
 }
 
+function normalizeInputText(text: string): string {
+  return text.replace(/\r\n?/g, "\n").trim();
+}
+
+function splitParagraphs(text: string): string[] {
+  return normalizeInputText(text)
+    .split(/\n{2,}/)
+    .map((part) => part.trim())
+    .filter(Boolean);
+}
+
+function isNumericPageReference(value: string): boolean {
+  const trimmed = value.trim();
+  if (!trimmed) return false;
+  return /^\d{1,4}$/.test(trimmed) || /^[ivxlcdm]{1,10}$/i.test(trimmed);
+}
+
+function isStandalonePageNumberParagraph(paragraph: string): boolean {
+  return isNumericPageReference(paragraph.trim());
+}
+
+function removeStandalonePaginationParagraphs(paragraphs: string[]): string[] {
+  return paragraphs.filter((paragraph, index) => {
+    if (!isStandalonePageNumberParagraph(paragraph)) return true;
+
+    const trimmed = paragraph.trim();
+    const prev = paragraphs[index - 1]?.trim() ?? "";
+    const next = paragraphs[index + 1]?.trim() ?? "";
+    const prevWords = prev ? prev.split(/\s+/).length : 0;
+    const nextWords = next ? next.split(/\s+/).length : 0;
+
+    const looksStandaloneChapterNumber =
+      /^(?:\d{1,2}|[ivxlcdm]{1,5})$/i.test(trimmed) &&
+      prevWords === 0 &&
+      nextWords >= 8;
+
+    if (looksStandaloneChapterNumber) {
+      return true;
+    }
+
+    return false;
+  });
+}
+
+function normalizeTextForChapterSplit(text: string): string {
+  const paragraphs = splitParagraphs(text);
+  if (paragraphs.length === 0) return "";
+  const cleaned = removeStandalonePaginationParagraphs(paragraphs);
+  return cleaned.join("\n\n").trim();
+}
+
+function chapterHeadingRegex(): RegExp {
+  return /^\s*((?:(?:chapter|part|book|kapitel|del|chapitre|partie|teil|capitolo|cap(?:i|\u00ed)tulo|parte|libro|livro|bok)\s+[^\n]{1,120})|(?:prologue|epilogue|preface|foreword|afterword|introduction|prolog|epilog|f[öo]rord|inledning|efterord|inneh[åa]ll(?:sf[öo]rteckning)?|contents?|table of contents|acknowledg(?:e)?ments?))\s*$/gim;
+}
+
+function looksLikePlaceholderTitle(value: string | null | undefined): boolean {
+  const normalized = String(value ?? "")
+    .trim()
+    .toLowerCase();
+
+  if (!normalized) return true;
+  return (
+    normalized === "untitled" ||
+    normalized === "namnlös" ||
+    normalized === "namnlos" ||
+    normalized === "book" ||
+    normalized === "bok" ||
+    normalized === "title"
+  );
+}
+
+function canonicalFrontMatterTitle(rawHeading: string): string {
+  const key = rawHeading
+    .trim()
+    .toLowerCase()
+    .replace(/[^\p{L}\p{N}\s]+/gu, "")
+    .replace(/\s+/g, " ");
+
+  if (
+    key === "innehåll" ||
+    key === "innehållsförteckning" ||
+    key === "innehallsforteckning" ||
+    key === "contents" ||
+    key === "content" ||
+    key === "table of contents"
+  ) {
+    return "Innehållsförteckning";
+  }
+  if (key === "förord" || key === "forord" || key === "preface" || key === "foreword") {
+    return "Förord";
+  }
+  if (key === "inledning" || key === "introduction") {
+    return "Inledning";
+  }
+  if (key === "prolog" || key === "prologue") {
+    return "Prolog";
+  }
+  if (key === "epilog" || key === "epilogue" || key === "afterword" || key === "efterord") {
+    return "Epilog";
+  }
+  if (key === "acknowledgements" || key === "acknowledgments" || key === "tack") {
+    return "Tack";
+  }
+  return rawHeading.trim();
+}
+
+function detectFrontMatterHeadingPrefix(text: string): { title: string; remainder: string } | null {
+  const trimmed = text.trim();
+  if (!trimmed) return null;
+
+  const match = trimmed.match(
+    /^(f[öo]rord|preface|foreword|inledning|introduction|prolog(?:ue)?|epilog(?:ue)?|efterord|afterword|inneh[åa]ll(?:sf[öo]rteckning)?|contents?|table of contents|acknowledg(?:e)?ments?)\b\s*[:\-–—]?\s*/i
+  );
+  if (!match) return null;
+
+  const heading = match[1] ?? "";
+  return {
+    title: canonicalFrontMatterTitle(heading),
+    remainder: trimmed.slice(match[0].length).trim(),
+  };
+}
+
+function isLikelyTocLine(text: string): boolean {
+  const trimmed = text.trim();
+  if (!trimmed) return false;
+  if (/\.{2,}\s*\d{1,4}\s*$/i.test(trimmed)) return true;
+  if (/\b\d{1,4}\b.*\b\d{1,4}\b/.test(trimmed)) return true;
+  if (/\s+\d{1,4}\s*$/i.test(trimmed) && /\p{L}/u.test(trimmed)) return true;
+  return false;
+}
+
+function splitIntroToFrontMatterSections(introText: string): ExtractedChapter[] {
+  const blocks = splitParagraphs(introText);
+  if (blocks.length === 0) return [];
+
+  const chapters: ExtractedChapter[] = [];
+  const genericBlocks: string[] = [];
+  let current: { title: string; blocks: string[] } | null = null;
+
+  const flushCurrent = () => {
+    if (!current) return;
+    const text = current.blocks.join("\n\n").trim();
+    if (text) chapters.push({ title: current.title, sourceText: text });
+    current = null;
+  };
+
+  for (const block of blocks) {
+    const heading = detectFrontMatterHeadingPrefix(block);
+    if (heading) {
+      const remainderIsPageRef = isNumericPageReference(heading.remainder);
+      const currentIsToc = current?.title === "Innehållsförteckning";
+
+      if (remainderIsPageRef) {
+        if (currentIsToc && current) {
+          current.blocks.push(block);
+          continue;
+        }
+        flushCurrent();
+        current = {
+          title: "Innehållsförteckning",
+          blocks: [block],
+        };
+        continue;
+      }
+
+      flushCurrent();
+      current = {
+        title: heading.title,
+        blocks: heading.remainder ? [heading.remainder] : [],
+      };
+      continue;
+    }
+
+    if (current && current.title === "Innehållsförteckning" && isLikelyTocLine(block)) {
+      current.blocks.push(block);
+      continue;
+    }
+
+    if (current) {
+      current.blocks.push(block);
+      continue;
+    }
+
+    genericBlocks.push(block);
+  }
+
+  flushCurrent();
+
+  if (genericBlocks.length > 0) {
+    chapters.unshift({
+      title: chapters.length > 0 ? "Front matter" : "Introduction",
+      sourceText: genericBlocks.join("\n\n").trim(),
+    });
+  }
+
+  return chapters.filter((chapter) => {
+    const sourceText = chapter.sourceText.trim();
+    if (!sourceText) return false;
+
+    const letters = sourceText.match(/\p{L}/gu)?.length ?? 0;
+    const normalizedTitle = chapter.title.trim().toLowerCase();
+    if (
+      letters < 10 &&
+      (normalizedTitle === "tack" ||
+        normalizedTitle === "acknowledgements" ||
+        normalizedTitle === "acknowledgments")
+    ) {
+      return false;
+    }
+
+    return true;
+  });
+}
+
+function splitLeadingFrontMatterParagraphs(paragraphs: string[]): {
+  frontMatter: ExtractedChapter[];
+  remaining: string[];
+} {
+  if (paragraphs.length === 0) {
+    return { frontMatter: [], remaining: paragraphs };
+  }
+
+  const leading: string[] = [];
+  let sawFrontMatterSignal = false;
+  let cursor = 0;
+  const limit = Math.min(paragraphs.length, 12);
+
+  while (cursor < limit) {
+    const paragraph = paragraphs[cursor];
+    const heading = detectFrontMatterHeadingPrefix(paragraph);
+    const looksMetadata =
+      /\b(isbn|copyright|all rights reserved|förlag|publisher|tryckning|utgiven|telefon|fax|e-post|www\.|@)\b/i.test(
+        paragraph
+      );
+    const looksTableOfContents =
+      /\b(inneh[åa]ll|contents?|table of contents)\b/i.test(paragraph) &&
+      /\b\d{1,4}\b/.test(paragraph);
+    const looksTitlePage = cursor === 0 && paragraph.length <= 140;
+
+    if (heading || looksMetadata || looksTableOfContents || looksTitlePage) {
+      if (heading || looksMetadata || looksTableOfContents) {
+        sawFrontMatterSignal = true;
+      }
+      leading.push(paragraph);
+      cursor += 1;
+      continue;
+    }
+
+    break;
+  }
+
+  if (!sawFrontMatterSignal || leading.length === 0) {
+    return { frontMatter: [], remaining: paragraphs };
+  }
+
+  const frontMatter = splitIntroToFrontMatterSections(leading.join("\n\n"));
+  if (frontMatter.length === 0) {
+    return { frontMatter: [], remaining: paragraphs };
+  }
+
+  return { frontMatter, remaining: paragraphs.slice(cursor) };
+}
+
+function inferTitleFromText(text: string): string | null {
+  const normalized = normalizeTextForChapterSplit(text);
+  if (!normalized) return null;
+
+  const lines = normalized
+    .split(/\n+/)
+    .map((line) => line.trim())
+    .filter(Boolean);
+
+  for (let i = 0; i < lines.length && i < 50; i++) {
+    const line = lines[i];
+    if (line.length < 2 || line.length > 120) continue;
+    if (/^\s*(chapter|kapitel|part|del|book|bok)\b/i.test(line)) continue;
+    if (/^\s*[\d\s:.,/\\\-–—]+$/.test(line)) continue;
+    if (detectFrontMatterHeadingPrefix(line)) continue;
+    if (/\b(isbn|copyright|telefon|phone|fax|www\.|@)\b/i.test(line)) continue;
+
+    const wordCount = line.split(/\s+/).length;
+    if (wordCount > 16) continue;
+
+    const letters = line.match(/\p{L}/gu)?.length ?? 0;
+    if (letters < 3) continue;
+
+    return line.replace(/\s+/g, " ").trim();
+  }
+
+  return null;
+}
+
+function resolveExtractedTitle(metaTitle: string | null | undefined, fullText: string): string {
+  const normalizedMeta = String(metaTitle ?? "")
+    .replace(/\s+/g, " ")
+    .trim();
+
+  if (!looksLikePlaceholderTitle(normalizedMeta)) {
+    return normalizedMeta;
+  }
+
+  return inferTitleFromText(fullText) ?? DEFAULT_TITLE;
+}
+
+function isLikelyTableOfContentsEntry(title: string): boolean {
+  const trimmed = title.trim();
+  if (!trimmed) return false;
+
+  if (/^(chapter|kapitel|part|del|book|bok)\s+(\d+|[ivxlcdm]+)$/i.test(trimmed)) {
+    return false;
+  }
+
+  if (/\.{2,}\s*\d{1,4}\s*$/i.test(trimmed)) return true;
+  if (/\b\d{1,4}\b.*\b\d{1,4}\b/.test(trimmed)) return true;
+  if (/\s+\d{1,4}\s*$/i.test(trimmed) && /\p{L}/u.test(trimmed)) return true;
+
+  return false;
+}
+
+function isLikelyStandaloneHeadingParagraph(paragraph: string, nextParagraph: string): boolean {
+  const trimmed = paragraph.trim();
+  if (!trimmed) return false;
+  if (detectFrontMatterHeadingPrefix(trimmed)) return false;
+  if (isLikelyTocLine(trimmed)) return false;
+  if (/\b(isbn|copyright|telefon|fax|e-post|www\.|@)\b/i.test(trimmed)) return false;
+  if (/^[\d\s]+$/.test(trimmed)) return false;
+  if (/[.!?,;:]$/.test(trimmed)) return false;
+
+  const words = trimmed.split(/\s+/);
+  if (words.length < 2 || words.length > 14) return false;
+  if (trimmed.length < 6 || trimmed.length > 95) return false;
+
+  const nextWords = nextParagraph.trim().split(/\s+/).filter(Boolean).length;
+  if (nextWords < 20) return false;
+
+  return true;
+}
+
+const CHAPTER_PREFIX_RE =
+  /^(chapter|part|book|kapitel|del|chapitre|partie|teil|capitolo|cap(?:i|\u00ed)tulo|parte|libro|livro|bok)\b/i;
+
+const SWEDISH_BASE_NUMERALS = [
+  "ett",
+  "en",
+  "två",
+  "tva",
+  "tre",
+  "fyra",
+  "fem",
+  "sex",
+  "sju",
+  "åtta",
+  "atta",
+  "nio",
+  "tio",
+  "elva",
+  "tolv",
+  "tretton",
+  "fjorton",
+  "femton",
+  "sexton",
+  "sjutton",
+  "arton",
+  "nitton",
+];
+
+const SWEDISH_TENS_NUMERALS = [
+  "tjugo",
+  "trettio",
+  "fyrtio",
+  "femtio",
+  "sextio",
+  "sjuttio",
+  "åttio",
+  "attio",
+  "nittio",
+];
+
+const SWEDISH_NUMERAL_WORDS = (() => {
+  const words = new Set<string>([
+    ...SWEDISH_BASE_NUMERALS,
+    ...SWEDISH_TENS_NUMERALS,
+    "första",
+    "forsta",
+    "andra",
+    "tredje",
+    "fjärde",
+    "fjaerde",
+    "fjarde",
+    "femte",
+    "sjätte",
+    "sjaette",
+    "sjatte",
+    "sjunde",
+    "åttonde",
+    "attonde",
+    "nionde",
+    "tionde",
+    "elfte",
+    "tolfte",
+  ]);
+
+  for (const ten of SWEDISH_TENS_NUMERALS) {
+    for (const base of SWEDISH_BASE_NUMERALS.slice(0, 9)) {
+      words.add(`${ten}${base}`);
+    }
+  }
+
+  return words;
+})();
+
+const AMBIGUOUS_SWEDISH_NUMERAL_PREFIXES = new Set<string>([
+  "en",
+  "ett",
+  "tre",
+  "fem",
+  "sex",
+  "sju",
+  "nio",
+  "tio",
+]);
+
+function findLongestSwedishNumeralPrefix(value: string): string | null {
+  let best: string | null = null;
+  for (const numeral of SWEDISH_NUMERAL_WORDS) {
+    if (!value.startsWith(numeral)) continue;
+    if (!best || numeral.length > best.length) {
+      best = numeral;
+    }
+  }
+  return best;
+}
+
+function splitMergedSwedishOrdinal(token: string): string {
+  const clean = token.replace(/[^\p{L}\p{N}]/gu, "");
+  const lower = clean.toLowerCase();
+
+  if (!clean || SWEDISH_NUMERAL_WORDS.has(lower)) {
+    return token;
+  }
+
+  const prefix = findLongestSwedishNumeralPrefix(lower);
+  if (!prefix) return token;
+
+  const remainder = lower.slice(prefix.length);
+  if (remainder.length < 2) return token;
+  if (SWEDISH_NUMERAL_WORDS.has(remainder)) return token;
+
+  if (AMBIGUOUS_SWEDISH_NUMERAL_PREFIXES.has(prefix)) {
+    const boundary = clean.slice(prefix.length, prefix.length + 1);
+    // Avoid collapsing OCR typos like "tretioettDen" into "tre".
+    if (!/[A-ZÅÄÖ0-9]/u.test(boundary)) {
+      return token;
+    }
+  }
+
+  return clean.slice(0, prefix.length);
+}
+
+function isLikelyCorruptedChapterTitle(title: string): boolean {
+  if (!title) return false;
+  const compact = title.replace(/\s+/g, " ").trim();
+  if (!CHAPTER_PREFIX_RE.test(compact)) return false;
+
+  // Example: "Kapitel fyrtioettDen" indicates merged chapter heading + body start.
+  if (/[a-zåäö][A-ZÅÄÖ]/u.test(compact)) return true;
+  return false;
+}
+
+function normalizeCorruptedChapterTitles(chapters: ExtractedChapter[]): ExtractedChapter[] {
+  const byOrder = [...chapters];
+  if (byOrder.length < 6) return byOrder;
+
+  const chapterLikeIndexes = byOrder
+    .map((chapter, index) => ({ chapter, index }))
+    .filter(({ chapter }) => CHAPTER_PREFIX_RE.test(chapter.title))
+    .map(({ index }) => index);
+
+  if (chapterLikeIndexes.length < 6) return byOrder;
+
+  const corruptedCount = chapterLikeIndexes.filter((index) =>
+    isLikelyCorruptedChapterTitle(byOrder[index]?.title ?? "")
+  ).length;
+
+  const titleCounts = new Map<string, number>();
+  for (const index of chapterLikeIndexes) {
+    const key = byOrder[index].title.replace(/\s+/g, " ").trim().toLowerCase();
+    titleCounts.set(key, (titleCounts.get(key) ?? 0) + 1);
+  }
+  const duplicateEntries = Array.from(titleCounts.values()).reduce(
+    (sum, count) => sum + Math.max(0, count - 1),
+    0
+  );
+
+  if (corruptedCount === 0 && duplicateEntries <= 1) {
+    return byOrder;
+  }
+
+  let chapterNumber = 1;
+  for (const chapter of byOrder) {
+    if (!CHAPTER_PREFIX_RE.test(chapter.title)) continue;
+    chapter.title = `Kapitel ${chapterNumber}`;
+    chapterNumber += 1;
+  }
+
+  return byOrder;
+}
+
+function normalizeExtractedChapters(chapters: ExtractedChapter[]): ExtractedChapter[] {
+  return normalizeCorruptedChapterTitles(chapters);
+}
+
+export function repairImportedChapterTitles(titles: string[]): string[] {
+  if (titles.length === 0) return [];
+
+  const chapterLike = titles.map((title) => ({
+    title: String(title ?? "").replace(/\s+/g, " ").trim(),
+    sourceText: "",
+  }));
+
+  return normalizeExtractedChapters(chapterLike).map((chapter) => chapter.title);
+}
+
+function splitIntoChaptersHeuristicInternal(text: string): ExtractedChapter[] {
+  const normalized = normalizeTextForChapterSplit(text);
+  if (!normalized) return [];
+
+  const headingMatches = Array.from(normalized.matchAll(chapterHeadingRegex()))
+    .map((match) => {
+      if (typeof match.index !== "number") return null;
+
+      const rawTitle = normalizeChapterHeadingTitle(
+        (match[1] ?? "").trim().slice(0, 200)
+      );
+      const frontMatter = detectFrontMatterHeadingPrefix(rawTitle);
+      const title =
+        frontMatter && !frontMatter.remainder ? frontMatter.title : rawTitle;
+
+      if (!title || isLikelyTableOfContentsEntry(title)) return null;
+
+      return {
+        start: match.index,
+        end: match.index + match[0].length,
+        title,
+      };
+    })
+    .filter(Boolean) as Array<{ start: number; end: number; title: string }>;
+
+  const inferredMatches: Array<{ start: number; end: number; title: string }> = [];
+  if (headingMatches.length < 2) {
+    const paragraphs = splitParagraphs(normalized);
+    let cursor = 0;
+    for (let i = 0; i < paragraphs.length; i++) {
+      const paragraph = paragraphs[i];
+      const nextParagraph = paragraphs[i + 1] ?? "";
+      if (!isLikelyStandaloneHeadingParagraph(paragraph, nextParagraph)) continue;
+
+      const start = normalized.indexOf(paragraph, cursor);
+      if (start === -1) continue;
+      const end = start + paragraph.length;
+      cursor = end;
+
+      const title = paragraph.trim().slice(0, 200);
+      if (isLikelyTableOfContentsEntry(title)) continue;
+      inferredMatches.push({ start, end, title });
+    }
+  }
+
+  const allMatches = [...headingMatches, ...inferredMatches]
+    .sort((a, b) => a.start - b.start)
+    .filter((current, index, arr) => {
+      if (index === 0) return true;
+      const prev = arr[index - 1];
+      return current.start >= prev.end;
+    });
+
+  if (allMatches.length === 0) {
+    return splitWithoutHeadings(normalized);
+  }
+
+  const chapters: ExtractedChapter[] = [];
+  const intro = normalized.slice(0, allMatches[0].start).trim();
+  if (intro) {
+    chapters.push(...splitIntroToFrontMatterSections(intro));
+  }
+
+  for (let i = 0; i < allMatches.length; i++) {
+    const current = allMatches[i];
+    const end = i + 1 < allMatches.length ? allMatches[i + 1].start : normalized.length;
+    const sourceText = normalized.slice(current.end, end).trim();
+    if (!sourceText) continue;
+    chapters.push({ title: current.title, sourceText });
+  }
+
+  if (chapters.length === 0) {
+    return splitWithoutHeadings(normalized);
+  }
+
+  return chapters;
+}
+
+/**
+ * Heuristic split for plain text:
+ * 1) explicit chapter-like headings
+ * 2) title-like standalone headings followed by long paragraphs
+ * 3) fallback chunking
+ */
+export function splitIntoChaptersHeuristic(text: string): ExtractedChapter[] {
+  return normalizeExtractedChapters(splitIntoChaptersHeuristicInternal(text));
+}
+
+function splitIntoChaptersHeuristicLegacy(text: string): ExtractedChapter[] {
+  // Legacy alias left for backward-compatible stack traces.
+  return splitIntoChaptersHeuristic(text);
+}
+
+function normalizeChapterHeadingTitle(rawTitle: string): string {
+  const compact = rawTitle.replace(/\s+/g, " ").trim();
+  if (!compact) return compact;
+  if (!CHAPTER_PREFIX_RE.test(compact)) return compact;
+
+  const sentence = compact.split(/[.!?]/)[0]?.trim() ?? compact;
+  const words = sentence.split(/\s+/).filter(Boolean);
+  if (words.length < 2) return sentence;
+
+  words[1] = splitMergedSwedishOrdinal(words[1]);
+  if (words.length > 3) {
+    return `${words[0]} ${words[1]}`.trim();
+  }
+
+  return words.join(" ").trim();
+}
+
+function chunkSingleBlock(block: string): string[] {
+  const clean = block.trim();
+  if (!clean) return [];
+  if (clean.length <= TARGET_CHAPTER_CHARS) return [clean];
+
+  const chunks: string[] = [];
+  const sentences = clean.match(/[^.!?]+[.!?]+(?=\s|$)|[^.!?]+$/g) ?? [clean];
+  let current = "";
+
+  for (const sentence of sentences) {
+    const next = sentence.trim();
+    if (!next) continue;
+
+    const nextLength = current.length === 0 ? next.length : current.length + 1 + next.length;
+    const shouldFlush =
+      current.length > 0 &&
+      nextLength > TARGET_CHAPTER_CHARS &&
+      current.length >= MIN_CHAPTER_CHARS;
+
+    if (shouldFlush) {
+      chunks.push(current.trim());
+      current = next;
+      continue;
+    }
+
+    current = current.length === 0 ? next : `${current} ${next}`;
+  }
+
+  if (current.trim()) {
+    chunks.push(current.trim());
+  }
+
+  return chunks.length > 0 ? chunks : [clean];
+}
+
+function splitWithoutHeadings(text: string): ExtractedChapter[] {
+  const normalized = normalizeTextForChapterSplit(text);
+  if (!normalized) return [];
+
+  const allParagraphs = splitParagraphs(normalized);
+  const { frontMatter, remaining } = splitLeadingFrontMatterParagraphs(allParagraphs);
+
+  if (remaining.length <= 1) {
+    const body = remaining[0]?.trim() ?? "";
+    if (!body) return frontMatter;
+
+    const chapters = chunkSingleBlock(body).map((sourceText, index) => ({
+      title: `Chapter ${index + 1}`,
+      sourceText,
+    }));
+
+    return [...frontMatter, ...chapters];
+  }
+
+  const bodies: string[] = [];
+  let currentParts: string[] = [];
+  let currentLength = 0;
+
+  for (const paragraph of remaining) {
+    const addition = (currentParts.length > 0 ? 2 : 0) + paragraph.length;
+    const shouldFlush =
+      currentParts.length > 0 &&
+      currentLength + addition > TARGET_CHAPTER_CHARS &&
+      currentLength >= MIN_CHAPTER_CHARS;
+
+    if (shouldFlush) {
+      bodies.push(currentParts.join("\n\n"));
+      currentParts = [paragraph];
+      currentLength = paragraph.length;
+      continue;
+    }
+
+    currentParts.push(paragraph);
+    currentLength += addition;
+  }
+
+  if (currentParts.length > 0) {
+    bodies.push(currentParts.join("\n\n"));
+  }
+
+  if (bodies.length > 1) {
+    const lastIndex = bodies.length - 1;
+    const last = bodies[lastIndex];
+    if (last.length < Math.floor(MIN_CHAPTER_CHARS / 2)) {
+      bodies[lastIndex - 1] = `${bodies[lastIndex - 1]}\n\n${last}`;
+      bodies.pop();
+    }
+  }
+
+  const chapters = bodies.map((sourceText, index) => ({
+    title: `Chapter ${index + 1}`,
+    sourceText: sourceText.trim(),
+  }));
+
+  return [...frontMatter, ...chapters];
+}
+
+function htmlToStructuredText(html: string): string {
+  const $ = cheerio.load(html);
+  const blocks: string[] = [];
+
+  $("h1, h2, h3, h4, h5, h6, p, li").each((_, el) => {
+    const text = $(el).text().replace(/\s+/g, " ").trim();
+    if (text) blocks.push(text);
+  });
+
+  if (blocks.length === 0) {
+    return $("body").text().replace(/\s+/g, " ").trim();
+  }
+
+  return blocks.join("\n\n").trim();
+}
+
 /** Get chapter content from epub (callback-based epub package). */
-function getEpubChapter(epub: { getChapter: (id: string, cb: (err: Error | null, text: string) => void) => void }, id: string): Promise<string> {
+function getEpubChapter(
+  epub: { getChapter: (id: string, cb: (err: Error | null, text: string) => void) => void },
+  id: string
+): Promise<string> {
   return new Promise((resolve, reject) => {
     epub.getChapter(id, (err: Error | null, text: string) => {
       if (err) reject(err);
@@ -39,18 +793,16 @@ export async function extractFromEpub(filePath: string): Promise<ExtractedBook> 
   return new Promise((resolve, reject) => {
     epub.on("end", async () => {
       try {
-        const title = (epub.metadata?.title as string) || "Untitled";
+        const rawTitle = (epub.metadata?.title as string) || DEFAULT_TITLE;
         const chapters: ExtractedChapter[] = [];
         const flow = (epub.flow as Array<{ id: string; title?: string; href?: string }>) ?? [];
 
-        // Build a TOC title lookup from epub.toc (table of contents) for better chapter names
         const tocTitleById = new Map<string, string>();
         const toc = (epub.toc as Array<{ id?: string; title?: string; href?: string }>) ?? [];
         for (const entry of toc) {
           if (entry.id && entry.title) {
             tocTitleById.set(entry.id, entry.title);
           }
-          // Some EPUB libraries use href-based matching
           if (entry.href && entry.title) {
             const hrefBase = entry.href.split("#")[0];
             tocTitleById.set(hrefBase, entry.title);
@@ -62,14 +814,11 @@ export async function extractFromEpub(filePath: string): Promise<ExtractedBook> 
           const text = await getEpubChapter(epub, item.id);
           const plain = htmlToPlainText(text);
           if (plain.length > 0) {
-            // Try: flow title → TOC by id → TOC by href → fallback
-            const tocTitle = tocTitleById.get(item.id) ??
+            const tocTitle =
+              tocTitleById.get(item.id) ??
               (item.href ? tocTitleById.get(item.href.split("#")[0]) : undefined);
             const chapterTitle = (item.title as string) || tocTitle || `Chapter ${i + 1}`;
-            chapters.push({
-              title: chapterTitle,
-              sourceText: plain,
-            });
+            chapters.push({ title: chapterTitle, sourceText: plain });
           }
         }
 
@@ -88,7 +837,14 @@ export async function extractFromEpub(filePath: string): Promise<ExtractedBook> 
           }
         }
 
-        resolve({ title, chapters });
+        const fullText = normalizeTextForChapterSplit(
+          chapters.map((chapter) => chapter.sourceText).join("\n\n")
+        );
+
+        resolve({
+          title: resolveExtractedTitle(rawTitle, fullText),
+          chapters,
+        });
       } catch (e) {
         reject(e);
       }
@@ -99,10 +855,35 @@ export async function extractFromEpub(filePath: string): Promise<ExtractedBook> 
 }
 
 export async function extractFromDocx(buffer: Buffer): Promise<ExtractedBook> {
-  const { value } = await mammoth.extractRawText({ buffer });
-  const full = (value ?? "").trim();
-  const chapters = splitIntoChaptersHeuristic(full);
-  return { title: "Untitled", chapters };
+  let rawText = "";
+  let htmlValue = "";
+
+  try {
+    const raw = await mammoth.extractRawText({ buffer });
+    rawText = raw.value ?? "";
+    const html = await mammoth.convertToHtml({ buffer });
+    htmlValue = html.value ?? "";
+  } catch (error) {
+    const raw = error instanceof Error ? error.message : String(error);
+    if (/Could not find main document part/i.test(raw)) {
+      throw new Error("Invalid DOCX: missing word/document.xml");
+    }
+    throw error;
+  }
+
+  const structured = normalizeInputText(htmlToStructuredText(htmlValue));
+  const fallback = normalizeInputText(rawText);
+  const source = normalizeTextForChapterSplit(structured.length > 0 ? structured : fallback);
+
+  if (!source) {
+    throw new Error("Invalid DOCX: no readable text found");
+  }
+
+  const chapters = splitIntoChaptersHeuristic(source);
+  return {
+    title: resolveExtractedTitle(DEFAULT_TITLE, source),
+    chapters,
+  };
 }
 
 export async function extractFromHtml(buffer: Buffer): Promise<ExtractedBook> {
@@ -134,178 +915,42 @@ export async function extractFromHtml(buffer: Buffer): Promise<ExtractedBook> {
   });
   flush();
 
-  if (chapters.length === 0) {
-    const body = $("body").text().replace(/\s+/g, " ").trim();
-    if (body.length > 0) chapters.push({ title: "Chapter 1", sourceText: body });
+  const structuredBody = normalizeTextForChapterSplit(htmlToStructuredText(html));
+
+  if (chapters.length === 0 && structuredBody.length > 0) {
+    chapters.push(...splitIntoChaptersHeuristic(structuredBody));
   }
 
-  return { title: $("title").text().trim() || "Untitled", chapters };
+  return {
+    title: resolveExtractedTitle($("title").text().trim(), structuredBody),
+    chapters,
+  };
 }
 
 export async function extractFromTxt(buffer: Buffer): Promise<ExtractedBook> {
-  const full = buffer.toString("utf8").trim();
-  const chapters = splitIntoChaptersHeuristic(full);
-  return { title: "Untitled", chapters };
-}
-
-/**
- * Heuristic chapter detection with multi-pattern matching and smart chunking fallback.
- *
- * Patterns matched (case-insensitive):
- * 1. "Chapter N", "Part N", "Kapitel N", "Chapitre N", "Capítulo N", "Del N" (with optional Roman numerals)
- * 2. "Prologue", "Epilogue", "Introduction", "Foreword", "Afterword", "Prolog", "Epilog", "Förord", "Inledning"
- * 3. Numbered headings like "1. Title Case Heading" or "1 — Title Here"
- *
- * If no chapter markers found and text exceeds CHUNK_TARGET_WORDS, splits at paragraph
- * boundaries into roughly equal chunks.
- */
-const CHUNK_TARGET_WORDS = 5000;
-
-function splitIntoChaptersHeuristic(text: string): ExtractedChapter[] {
-  const matches: { index: number; length: number; title: string }[] = [];
-
-  // Pattern 1: "Chapter N", "Part N", "Kapitel N", etc. with Arabic or Roman numerals
-  const chapterRe = /(?:^|\n)\s*((?:Chapter|Part|Kapitel|Chapitre|Capítulo|Del)\s+(?:\d+|[IVXLCDM]+)[:\-–—.]?\s*[^\n]*)/gi;
-  let m: RegExpExecArray | null;
-  while ((m = chapterRe.exec(text)) !== null) {
-    const title = (m[1]?.trim() || "").slice(0, 200);
-    if (title) matches.push({ index: m.index, length: m[0].length, title });
-  }
-
-  // Pattern 2: Named sections (Prologue, Epilogue, etc.)
-  const namedRe = /(?:^|\n)\s*((?:Prologue|Epilogue|Introduction|Foreword|Afterword|Preface|Prolog|Epilog|Förord|Inledning|Efterord)\s*[:\-–—]?\s*[^\n]*)/gi;
-  while ((m = namedRe.exec(text)) !== null) {
-    const title = (m[1]?.trim() || "").slice(0, 200);
-    if (title) matches.push({ index: m.index, length: m[0].length, title });
-  }
-
-  // Pattern 3: "1. Title Case" or "1 — Title" (numbered headings, only at line start)
-  const numberedRe = /(?:^|\n)\s*(\d{1,3})[.\s]+[—–\-:]?\s*([A-ZÅÄÖÉÈÜÏ][^\n]{2,80})/g;
-  while ((m = numberedRe.exec(text)) !== null) {
-    const num = m[1];
-    const heading = m[2]?.trim() || "";
-    // Only count if there are at least 2 capitalized words (avoids matching random numbered lists)
-    const capWords = heading.match(/[A-ZÅÄÖÉÈÜÏ][a-zåäöéèüïñ]+/g);
-    if (capWords && capWords.length >= 2) {
-      const title = `${num}. ${heading}`.slice(0, 200);
-      matches.push({ index: m.index, length: m[0].length, title });
-    }
-  }
-
-  // Sort matches by index position, deduplicate overlaps
-  matches.sort((a, b) => a.index - b.index);
-  const parts: { index: number; length: number; title: string }[] = [];
-  for (const match of matches) {
-    const last = parts[parts.length - 1];
-    // Skip if this match overlaps with the previous one
-    if (last && match.index < last.index + last.length) continue;
-    parts.push(match);
-  }
-
-  // If chapter markers found, split on them
-  if (parts.length >= 2) {
-    return splitOnMarkers(text, parts);
-  }
-
-  // Single marker: just use it as a divider
-  if (parts.length === 1) {
-    return splitOnMarkers(text, parts);
-  }
-
-  // No markers found — use smart chunking if text is large enough
-  const wordCount = text.split(/\s+/).length;
-  if (wordCount > CHUNK_TARGET_WORDS) {
-    return smartChunk(text, CHUNK_TARGET_WORDS);
-  }
-
-  // Short text with no markers — single chapter
-  return text.trim() ? [{ title: "Chapter 1", sourceText: text.trim() }] : [];
-}
-
-/** Split text using detected chapter markers. */
-function splitOnMarkers(
-  text: string,
-  parts: { index: number; length: number; title: string }[]
-): ExtractedChapter[] {
-  const chapters: ExtractedChapter[] = [];
-
-  // Content before first marker
-  const beforeFirst = text.slice(0, parts[0].index).trim();
-  if (beforeFirst.length > 0) {
-    chapters.push({ title: "Foreword", sourceText: beforeFirst });
-  }
-
-  for (let i = 0; i < parts.length; i++) {
-    const start = parts[i].index + parts[i].length;
-    const end = i + 1 < parts.length ? parts[i + 1].index : text.length;
-    const body = text.slice(start, end).trim();
-    if (body.length > 0) {
-      chapters.push({ title: parts[i].title, sourceText: body });
-    }
-  }
-
-  return chapters.length > 0 ? chapters : [{ title: "Chapter 1", sourceText: text.trim() }];
-}
-
-/**
- * Smart chunking: split text into ~targetWords-sized chunks at paragraph boundaries.
- * Looks for double-newlines (paragraph breaks) nearest to the target split point.
- */
-function smartChunk(text: string, targetWords: number): ExtractedChapter[] {
-  const paragraphs = text.split(/\n\s*\n/);
-  const chapters: ExtractedChapter[] = [];
-  let currentParts: string[] = [];
-  let currentWordCount = 0;
-  let chapterNum = 1;
-
-  for (const para of paragraphs) {
-    const trimmed = para.trim();
-    if (!trimmed) continue;
-
-    const paraWords = trimmed.split(/\s+/).length;
-    currentParts.push(trimmed);
-    currentWordCount += paraWords;
-
-    if (currentWordCount >= targetWords) {
-      chapters.push({
-        title: `Chapter ${chapterNum}`,
-        sourceText: currentParts.join("\n\n"),
-      });
-      chapterNum++;
-      currentParts = [];
-      currentWordCount = 0;
-    }
-  }
-
-  // Remaining content
-  if (currentParts.length > 0) {
-    const remaining = currentParts.join("\n\n");
-    if (remaining.trim().length > 0) {
-      // If remaining is very short, merge with last chapter
-      if (chapters.length > 0 && currentWordCount < targetWords * 0.3) {
-        const last = chapters[chapters.length - 1];
-        last.sourceText += "\n\n" + remaining;
-      } else {
-        chapters.push({
-          title: `Chapter ${chapterNum}`,
-          sourceText: remaining,
-        });
-      }
-    }
-  }
-
-  return chapters.length > 0 ? chapters : [{ title: "Chapter 1", sourceText: text.trim() }];
+  const source = normalizeTextForChapterSplit(buffer.toString("utf8"));
+  const chapters = splitIntoChaptersHeuristic(source);
+  return { title: resolveExtractedTitle(DEFAULT_TITLE, source), chapters };
 }
 
 export async function extractFromPdf(buffer: Buffer): Promise<ExtractedBook> {
-  // pdf-parse uses `export =` (CJS), so dynamic import yields the fn directly or on .default
   // eslint-disable-next-line @typescript-eslint/no-require-imports
-  const pdfParse = require("pdf-parse") as (buf: Buffer) => Promise<{ text: string; info?: Record<string, unknown> }>;
+  const pdfParse = require("pdf-parse") as (buf: Buffer) => Promise<{
+    text: string;
+    info?: Record<string, unknown>;
+  }>;
+
   const data = await pdfParse(buffer);
-  const title = (data.info?.Title as string) || "Untitled";
-  const chapters = splitIntoChaptersHeuristic((data.text ?? "").trim());
-  return { title, chapters };
+  const source = normalizeTextForChapterSplit((data.text ?? "").trim());
+  const chapters = splitIntoChaptersHeuristic(source);
+
+  return {
+    title: resolveExtractedTitle((data.info?.Title as string) || DEFAULT_TITLE, source),
+    chapters,
+  };
 }
+
+void splitIntoChaptersHeuristicLegacy;
 
 export function contentHash(sourceText: string): string {
   return hashText(sourceText);

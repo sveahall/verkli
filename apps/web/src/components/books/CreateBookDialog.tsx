@@ -32,7 +32,10 @@ export default function CreateBookDialog({
   const [importOpen, setImportOpen] = useState(false);
 
   useEffect(() => {
-    if (!open) return;
+    if (!open) {
+      setImportOpen(false);
+      return;
+    }
     setMode(initialMode);
     setTitle("");
     setLanguage("sv");

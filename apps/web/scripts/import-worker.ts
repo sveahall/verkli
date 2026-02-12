@@ -63,6 +63,47 @@ function isUniqueLanguageConstraint(message: string): boolean {
   );
 }
 
+function normalizeTitleValue(value: string | null | undefined): string {
+  return String(value ?? "")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function looksLikePlaceholderBookTitle(value: string | null | undefined): boolean {
+  const normalized = normalizeTitleValue(value).toLowerCase();
+  if (!normalized) return true;
+  return (
+    normalized === "untitled" ||
+    normalized === "namnlös" ||
+    normalized === "namnlos" ||
+    normalized === "book" ||
+    normalized === "bok" ||
+    normalized === "title" ||
+    normalized === "titel" ||
+    normalized === "imported"
+  );
+}
+
+function isFrontMatterChapterTitle(value: string | null | undefined): boolean {
+  const normalized = normalizeTitleValue(value).toLowerCase();
+  if (!normalized) return false;
+  return (
+    normalized === "förord" ||
+    normalized === "forord" ||
+    normalized === "inledning" ||
+    normalized === "prolog" ||
+    normalized === "epilog" ||
+    normalized === "efterord" ||
+    normalized === "innehåll" ||
+    normalized === "innehållsförteckning" ||
+    normalized === "innehallsforteckning" ||
+    normalized === "contents" ||
+    normalized === "table of contents" ||
+    normalized === "front matter" ||
+    normalized === "introduction"
+  );
+}
+
 async function ensureLocalFile(
   filePath: string,
   fileStorage: "local" | "supabase",
@@ -233,11 +274,14 @@ export async function processJob(payload: ProcessJobPayload) {
     let targetBookId: string;
     let targetBookVersionId: string;
     let targetLanguageCode: string;
+    let existingBookTitle: string | null = null;
+    let titleSet = false;
+    let resolvedBookTitle: string | null = null;
 
     if (scopedBookId) {
       const { data: bookRow, error: bookError } = await supabase
         .from("books")
-        .select("id, author_id, original_language, language")
+        .select("id, title, author_id, original_language, language")
         .eq("id", scopedBookId)
         .single();
 
@@ -250,6 +294,7 @@ export async function processJob(payload: ProcessJobPayload) {
       }
 
       targetBookId = bookRow.id;
+      existingBookTitle = normalizeTitleValue(bookRow.title);
 
       if (mode === "overwrite_draft") {
         const requestedVersionId =
@@ -392,6 +437,31 @@ export async function processJob(payload: ProcessJobPayload) {
       targetBookId = createdBookId;
       targetBookVersionId = version.id;
       targetLanguageCode = resolvedLanguage;
+      resolvedBookTitle = title;
+    }
+
+    if (scopedBookId) {
+      const extractedTitle = normalizeTitleValue(title);
+      if (extractedTitle && !looksLikePlaceholderBookTitle(extractedTitle)) {
+        resolvedBookTitle = extractedTitle;
+
+        if (looksLikePlaceholderBookTitle(existingBookTitle)) {
+          const { error: titleUpdateError } = await supabase
+            .from("books")
+            .update({ title: extractedTitle })
+            .eq("id", targetBookId)
+            .eq("author_id", authorId);
+
+          if (titleUpdateError) {
+            warnings.push("title_set_failed");
+          } else {
+            titleSet = true;
+            existingBookTitle = extractedTitle;
+          }
+        }
+      } else {
+        resolvedBookTitle = existingBookTitle;
+      }
     }
 
     await updateImport({ status: "extracting", progress: 70, book_id: targetBookId, book_version_id: targetBookVersionId, mode });
@@ -447,6 +517,10 @@ export async function processJob(payload: ProcessJobPayload) {
       });
     }
 
+    const frontMatterCount = chapters.filter((chapter) =>
+      isFrontMatterChapterTitle(chapter.title)
+    ).length;
+
     // ─── Batch insert with rollback on failure ───
     const BATCH_SIZE = 50;
     let insertedCount = 0;
@@ -494,8 +568,12 @@ export async function processJob(payload: ProcessJobPayload) {
       error_message: null,
       result: {
         chapterCount: chapters.length,
+        chaptersCreated: rows.length,
         insertedCount: rows.length,
         dedupSkipped,
+        frontMatterCount,
+        titleSet,
+        bookTitle: resolvedBookTitle,
         warnings,
         mode,
         languageCode: targetLanguageCode,
