@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { E_INVALID_BOOK_VERSION, E_INVALID_IMPORT_MODE } from "@/lib/api-errors";
+import { E_INVALID_BOOK_VERSION, E_INVALID_IMPORT_MODE, E_VALIDATION_FAILED } from "@/lib/api-errors";
 
 const mocks = vi.hoisted(() => ({
   requireAuthorRoleForApi: vi.fn(),
@@ -7,6 +7,7 @@ const mocks = vi.hoisted(() => ({
   getImportFile: vi.fn(),
   validateImportFile: vi.fn(),
   parseImportMode: vi.fn(),
+  parseRightsConfirmed: vi.fn(),
   startScopedBookImport: vi.fn(),
 }));
 
@@ -22,6 +23,7 @@ vi.mock("@/lib/imports/scoped-import", () => ({
   getImportFile: mocks.getImportFile,
   validateImportFile: mocks.validateImportFile,
   parseImportMode: mocks.parseImportMode,
+  parseRightsConfirmed: mocks.parseRightsConfirmed,
   startScopedBookImport: mocks.startScopedBookImport,
 }));
 
@@ -47,6 +49,7 @@ describe("POST /api/books/[id]/import", () => {
     mocks.getImportFile.mockReturnValue(new File(["chapter"], "book.txt", { type: "text/plain" }));
     mocks.validateImportFile.mockReturnValue(null);
     mocks.parseImportMode.mockReturnValue("new_version");
+    mocks.parseRightsConfirmed.mockReturnValue(true);
     mocks.startScopedBookImport.mockResolvedValue({
       ok: true,
       importId: "imp-1",
@@ -72,6 +75,29 @@ describe("POST /api/books/[id]/import", () => {
 
     expect(res.status).toBe(401);
     expect(mocks.startScopedBookImport).not.toHaveBeenCalled();
+  });
+
+  it("requires rights confirmation before import", async () => {
+    mocks.parseRightsConfirmed.mockReturnValueOnce(false);
+    mocks.startScopedBookImport.mockResolvedValueOnce({
+      ok: false,
+      status: 400,
+      errorKey: E_VALIDATION_FAILED,
+      detail: "Bekräfta att du har rättigheter till manus innan import.",
+    });
+
+    const res = await POST(makeMultipartRequest(), {
+      params: Promise.resolve({ id: "book-1" }),
+    });
+    const body = await res.json();
+
+    expect(res.status).toBe(400);
+    expect(body.error).toBe(E_VALIDATION_FAILED);
+    expect(mocks.startScopedBookImport).toHaveBeenCalledWith(
+      expect.objectContaining({
+        rightsConfirmed: false,
+      })
+    );
   });
 
   it("rejects invalid import mode payload", async () => {
@@ -115,6 +141,7 @@ describe("POST /api/books/[id]/import", () => {
         bookId: "book-1",
         mode: "overwrite_draft",
         targetVersionId: "version-1",
+        rightsConfirmed: true,
       })
     );
     expect(body).toMatchObject({

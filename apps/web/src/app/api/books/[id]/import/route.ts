@@ -4,6 +4,7 @@ import { assertPublicEnv } from "@/lib/env";
 import { requireAuthorRoleForApi } from "@/lib/auth/require-author";
 import {
   getImportFile,
+  parseRightsConfirmed,
   parseImportMode,
   startScopedBookImport,
   validateImportFile,
@@ -53,6 +54,7 @@ export async function POST(
     mode: formData.get("mode"),
     overwrite: formData.get("overwrite"),
   });
+  const rightsConfirmed = parseRightsConfirmed(formData.get("rightsConfirmed"));
 
   if (!mode) {
     return apiError(E_INVALID_IMPORT_MODE, 400);
@@ -70,6 +72,7 @@ export async function POST(
     file,
     mode,
     targetVersionId,
+    rightsConfirmed,
   });
 
   if (!result.ok) {

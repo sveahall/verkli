@@ -16,6 +16,11 @@ const CONTROLLED_MAPPINGS: Array<{ pattern: RegExp; message: string }> = [
   { pattern: /^Could not resolve public URL/i, message: "Kunde inte publicera genererat ljud." },
   { pattern: /^Storage upload failed/i, message: "Kunde inte spara resultatfilen." },
   { pattern: /^Audiobook feature is disabled/i, message: "Ljudboksfunktionen är avstängd." },
+  {
+    pattern: /Could not find main document part|Invalid DOCX|word\/document\.xml/i,
+    message:
+      "Filen är inte en giltig DOCX. Exportera dokumentet som Word (.docx), EPUB eller TXT och försök igen.",
+  },
 
   // Worker utility errors
   { pattern: /Budget exceeded/i, message: "Dagskvoten är nådd. Försök igen imorgon." },

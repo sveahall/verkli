@@ -5,9 +5,11 @@ import { enqueueExtractJob } from "@/lib/import-queue";
 import { requireAuthorRoleForApi } from "@/lib/auth/require-author";
 import {
   getImportFile,
+  parseRightsConfirmed,
   parseImportMode,
   startScopedBookImport,
   validateImportFile,
+  validateImportFileContents,
 } from "@/lib/imports/scoped-import";
 import { storeImportFile } from "@/lib/import-storage";
 import {
@@ -54,6 +56,7 @@ export async function POST(request: Request) {
     mode: formData.get("mode"),
     overwrite: formData.get("overwrite"),
   });
+  const rightsConfirmed = parseRightsConfirmed(formData.get("rightsConfirmed"));
 
   if (!mode) {
     return apiError(E_INVALID_IMPORT_MODE, 400);
@@ -75,6 +78,7 @@ export async function POST(request: Request) {
       file,
       mode,
       targetVersionId,
+      rightsConfirmed,
     });
 
     if (!scoped.ok) {
@@ -97,7 +101,18 @@ export async function POST(request: Request) {
   }
 
   // Legacy import flow (no explicit bookId): create import record and let worker create a new book.
+  if (!rightsConfirmed) {
+    return apiError(E_VALIDATION_FAILED, 400, {
+      detail: "Bekräfta att du har rättigheter till manus innan import.",
+    });
+  }
+
   const buffer = Buffer.from(await file.arrayBuffer());
+  const contentValidationError = validateImportFileContents(file.name, buffer);
+  if (contentValidationError) {
+    return apiError(E_VALIDATION_FAILED, 400, { detail: contentValidationError });
+  }
+
   const supabase = await createClient();
   const { data: importRow, error: insertError } = await supabase
     .from("book_imports")

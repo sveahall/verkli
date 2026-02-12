@@ -7,6 +7,7 @@ import {
   E_IMPORT_FILE_STORAGE_FAILED,
   E_IMPORT_RECORD_CREATION_FAILED,
   E_INVALID_BOOK_VERSION,
+  E_VALIDATION_FAILED,
 } from "@/lib/api-errors";
 
 export const IMPORT_ALLOWED_EXTENSIONS = [".epub", ".docx", ".html", ".htm", ".txt"] as const;
@@ -33,6 +34,12 @@ export function parseImportMode(input: {
   return rawMode === "" ? "new_version" : null;
 }
 
+export function parseRightsConfirmed(value: FormDataEntryValue | null): boolean {
+  if (typeof value !== "string") return false;
+  const normalized = value.trim().toLowerCase();
+  return normalized === "true" || normalized === "1" || normalized === "yes" || normalized === "on";
+}
+
 export function getImportFile(formData: FormData): File | null {
   const file = formData.get("file") ?? formData.get("book");
   return file instanceof File ? file : null;
@@ -53,6 +60,53 @@ export function validateImportFile(file: File): string | null {
   }
 
   return null;
+}
+
+function getFileExtension(fileName: string): string {
+  return fileName.includes(".") && fileName.split(".").pop()
+    ? `.${fileName.split(".").pop()!.toLowerCase()}`
+    : "";
+}
+
+function hasZipSignature(buffer: Buffer): boolean {
+  return (
+    buffer.length >= 4 &&
+    buffer[0] === 0x50 &&
+    buffer[1] === 0x4b &&
+    (buffer[2] === 0x03 || buffer[2] === 0x05 || buffer[2] === 0x07) &&
+    (buffer[3] === 0x04 || buffer[3] === 0x06 || buffer[3] === 0x08)
+  );
+}
+
+function bufferContainsAscii(buffer: Buffer, token: string): boolean {
+  return buffer.indexOf(Buffer.from(token, "utf8")) !== -1;
+}
+
+function validateDocxBuffer(buffer: Buffer): string | null {
+  if (!hasZipSignature(buffer)) {
+    return "Ogiltig DOCX-fil. Exportera dokumentet som Word (.docx) och försök igen.";
+  }
+
+  const hasWordDocument = bufferContainsAscii(buffer, "word/document.xml");
+  if (hasWordDocument) {
+    return null;
+  }
+
+  const looksLikeApplePagesArchive =
+    bufferContainsAscii(buffer, "Index/Document.iwa") ||
+    bufferContainsAscii(buffer, "Metadata/DocumentIdentifier");
+
+  if (looksLikeApplePagesArchive) {
+    return "Filen verkar vara ett Apple Pages-dokument med fel filändelse. Exportera från Pages som Word (.docx), EPUB eller TXT och försök igen.";
+  }
+
+  return "Ogiltig DOCX-fil. Filen saknar Word-innehåll (word/document.xml). Exportera om dokumentet som .docx.";
+}
+
+export function validateImportFileContents(fileName: string, buffer: Buffer): string | null {
+  const ext = getFileExtension(fileName);
+  if (ext !== ".docx") return null;
+  return validateDocxBuffer(buffer);
 }
 
 export type ScopedImportResult =
@@ -78,6 +132,7 @@ type StartScopedBookImportArgs = {
   file: File;
   mode: ImportMode;
   targetVersionId: string | null;
+  rightsConfirmed: boolean;
 };
 
 export async function startScopedBookImport({
@@ -87,7 +142,17 @@ export async function startScopedBookImport({
   file,
   mode,
   targetVersionId,
+  rightsConfirmed,
 }: StartScopedBookImportArgs): Promise<ScopedImportResult> {
+  if (!rightsConfirmed) {
+    return {
+      ok: false,
+      status: 400,
+      errorKey: E_VALIDATION_FAILED,
+      detail: "Bekräfta att du har rättigheter till manus innan import.",
+    };
+  }
+
   const { data: book, error: bookError } = await supabase
     .from("books")
     .select("id, author_id")
@@ -142,6 +207,17 @@ export async function startScopedBookImport({
     }
   }
 
+  const buffer = Buffer.from(await file.arrayBuffer());
+  const contentValidationError = validateImportFileContents(file.name, buffer);
+  if (contentValidationError) {
+    return {
+      ok: false,
+      status: 400,
+      errorKey: E_VALIDATION_FAILED,
+      detail: contentValidationError,
+    };
+  }
+
   const { data: insertRow, error: insertError } = await supabase
     .from("book_imports")
     .insert({
@@ -169,7 +245,6 @@ export async function startScopedBookImport({
     return { ok: false, status: 500, errorKey: E_IMPORT_RECORD_CREATION_FAILED };
   }
 
-  const buffer = Buffer.from(await file.arrayBuffer());
   const stored = await storeImportFile(userId, importRow.id, file.name, buffer);
 
   if (!stored.ok) {

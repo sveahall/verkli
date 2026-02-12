@@ -48,6 +48,48 @@ type ImportRow = {
   mode: string | null;
 };
 
+function normalizeTitleForCompare(value: string | null | undefined): string {
+  return String(value ?? "")
+    .trim()
+    .toLowerCase()
+    .replace(/\s+/g, " ");
+}
+
+function isPlaceholderBookTitle(value: string | null | undefined): boolean {
+  const normalized = normalizeTitleForCompare(value);
+  return (
+    normalized === "" ||
+    normalized === "untitled" ||
+    normalized === "imported" ||
+    normalized === "namnlös" ||
+    normalized === "namnlos" ||
+    normalized === "book" ||
+    normalized === "bok"
+  );
+}
+
+function isMeaningfulImportedTitle(value: string | null | undefined): boolean {
+  return !isPlaceholderBookTitle(value) && normalizeTitleForCompare(value).length >= 2;
+}
+
+function isFrontMatterChapterTitle(value: string | null | undefined): boolean {
+  const normalized = normalizeTitleForCompare(value);
+  return (
+    normalized === "front matter" ||
+    normalized === "introduction" ||
+    normalized === "förord" ||
+    normalized === "forord" ||
+    normalized === "inledning" ||
+    normalized === "innehållsförteckning" ||
+    normalized === "innehallsforteckning" ||
+    normalized === "prolog" ||
+    normalized === "prologue" ||
+    normalized === "epilog" ||
+    normalized === "epilogue" ||
+    normalized === "tack"
+  );
+}
+
 function normalizeImportMode(value: unknown, legacyOverwrite?: boolean): ImportMode {
   if (value === "overwrite_draft") return "overwrite_draft";
   if (value === "new_version") return "new_version";
@@ -60,6 +102,12 @@ function isUniqueLanguageConstraint(message: string): boolean {
   return (
     msg.includes("book_versions_book_id_language_code_key") ||
     (msg.includes("duplicate") && msg.includes("language_code"))
+  );
+}
+
+function isUnrecoverableImportError(message: string): boolean {
+  return /Invalid DOCX|word\/document\.xml|Could not find main document part|Unsupported format:/i.test(
+    message
   );
 }
 
@@ -212,8 +260,11 @@ async function processJob(payload: ProcessJobPayload) {
     await updateImport({ status: "extracting", progress: 30 });
 
     const extracted = await runExtract(localPath);
-    const title = extracted.title || "Imported";
+    const extractedTitle = extracted.title || "Imported";
     const chapters = extracted.chapters;
+    const frontMatterCount = chapters.filter((chapter) =>
+      isFrontMatterChapterTitle(chapter.title)
+    ).length;
 
     if (!chapters.length) {
       throw new Error("Import extraction returned no chapters");
@@ -229,6 +280,9 @@ async function processJob(payload: ProcessJobPayload) {
       warnings.push("language_detection_fallback");
     }
 
+    let titleSet = false;
+    let resolvedBookTitle: string | null = null;
+
     let targetBookId: string;
     let targetBookVersionId: string;
     let targetLanguageCode: string;
@@ -236,7 +290,7 @@ async function processJob(payload: ProcessJobPayload) {
     if (scopedBookId) {
       const { data: bookRow, error: bookError } = await supabase
         .from("books")
-        .select("id, author_id, original_language, language")
+        .select("id, author_id, original_language, language, title")
         .eq("id", scopedBookId)
         .single();
 
@@ -249,6 +303,25 @@ async function processJob(payload: ProcessJobPayload) {
       }
 
       targetBookId = bookRow.id;
+      resolvedBookTitle = bookRow.title ?? null;
+
+      if (
+        isPlaceholderBookTitle(bookRow.title) &&
+        isMeaningfulImportedTitle(extractedTitle)
+      ) {
+        const normalizedImportedTitle = String(extractedTitle).trim();
+        const { error: titleUpdateError } = await supabase
+          .from("books")
+          .update({ title: normalizedImportedTitle })
+          .eq("id", targetBookId);
+
+        if (titleUpdateError) {
+          warnings.push("book_title_update_failed");
+        } else {
+          titleSet = true;
+          resolvedBookTitle = normalizedImportedTitle;
+        }
+      }
 
       if (mode === "overwrite_draft") {
         const requestedVersionId =
@@ -332,7 +405,7 @@ async function processJob(payload: ProcessJobPayload) {
     } else {
       // Legacy flow without a target book: create a new book + initial draft version.
       const baseSlug =
-        title
+        extractedTitle
           .toLowerCase()
           .replace(/[^a-z0-9]+/g, "-")
           .replace(/(^-|-$)/g, "") || "untitled";
@@ -346,7 +419,7 @@ async function processJob(payload: ProcessJobPayload) {
         const { data: createdBook, error } = await supabase
           .from("books")
           .insert({
-            title,
+            title: extractedTitle,
             slug,
             author_id: authorId,
             status: "DRAFT",
@@ -391,6 +464,8 @@ async function processJob(payload: ProcessJobPayload) {
       targetBookId = createdBookId;
       targetBookVersionId = version.id;
       targetLanguageCode = resolvedLanguage;
+      resolvedBookTitle = extractedTitle;
+      titleSet = isMeaningfulImportedTitle(extractedTitle);
     }
 
     await updateImport({ status: "extracting", progress: 70, book_id: targetBookId, book_version_id: targetBookVersionId, mode });
@@ -437,8 +512,11 @@ async function processJob(payload: ProcessJobPayload) {
       error_message: null,
       result: {
         chapterCount: chapters.length,
+        frontMatterCount,
         warnings,
         mode,
+        titleSet,
+        bookTitle: resolvedBookTitle,
         languageCode: targetLanguageCode,
         detectedLanguage: detectedLanguage ?? null,
       },
@@ -450,6 +528,9 @@ async function processJob(payload: ProcessJobPayload) {
       bookVersionId: targetBookVersionId,
       mode,
       chapterCount: chapters.length,
+      frontMatterCount,
+      titleSet,
+      bookTitle: resolvedBookTitle,
       warnings: warnings.length,
     });
 
@@ -500,6 +581,10 @@ async function processJob(payload: ProcessJobPayload) {
         updated_at: new Date().toISOString(),
       })
       .eq("id", importId);
+
+    if (isUnrecoverableImportError(raw)) {
+      throw new UnrecoverableError(raw);
+    }
 
     throw error;
   }

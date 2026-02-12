@@ -42,6 +42,7 @@ export function ImportBookModal({ open, onClose, onImportComplete }: ImportBookM
   const [dragOver, setDragOver] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
+  const [rightsConfirmed, setRightsConfirmed] = useState(false);
   const [redisHint, setRedisHint] = useState(false);
   const [lastCompletedId, setLastCompletedId] = useState<string | null>(null);
 
@@ -65,6 +66,7 @@ export function ImportBookModal({ open, onClose, onImportComplete }: ImportBookM
     if (open) {
       setError(null);
       setSuccessMessage(null);
+      setRightsConfirmed(false);
       setRedisHint(false);
       fetchImports();
     }
@@ -88,6 +90,11 @@ export function ImportBookModal({ open, onClose, onImportComplete }: ImportBookM
   }, [open, importsList, onImportComplete, lastCompletedId]);
 
   const handleFile = async (file: File) => {
+    if (!rightsConfirmed) {
+      setError("Bekräfta att du har rättigheterna till manus innan uppladdning.");
+      return;
+    }
+
     const ext = "." + (file.name.split(".").pop() ?? "").toLowerCase();
     if (!ALLOWED_EXT.includes(ext)) {
       setError("Filtypen stöds inte. Använd EPUB, DOCX, HTML eller TXT.");
@@ -100,11 +107,13 @@ export function ImportBookModal({ open, onClose, onImportComplete }: ImportBookM
     try {
       const form = new FormData();
       form.append("file", file);
+      form.append("rightsConfirmed", "true");
       const res = await fetch("/api/books/import", { method: "POST", body: form });
       const data = await res.json().catch(() => ({}));
 
       if (!res.ok) {
-        setError(resolveErrorMessage(data?.error));
+        const detail = typeof data?.detail === "string" ? data.detail : null;
+        setError(detail ?? resolveErrorMessage(data?.error));
         return;
       }
 
@@ -176,6 +185,24 @@ export function ImportBookModal({ open, onClose, onImportComplete }: ImportBookM
           <p className="mt-0.5 text-[13px] text-slate-500 dark:text-white/40">
             Tillåtna format: .epub, .docx, .html, .txt — max 50 MB
           </p>
+        </div>
+
+        <div className="mx-6 mt-4 rounded-xl border border-black/10 dark:border-white/10 bg-black/[0.02] dark:bg-white/[0.02] px-4 py-3">
+          <label className="flex items-start gap-3 text-[13px] text-slate-700 dark:text-white/70">
+            <input
+              type="checkbox"
+              checked={rightsConfirmed}
+              onChange={(e) => {
+                setRightsConfirmed(e.target.checked);
+                if (e.target.checked) setError(null);
+              }}
+              className="mt-0.5 h-4 w-4 accent-[#907AFF]"
+              aria-label="Bekräfta rättigheter för import"
+            />
+            <span>
+              Jag bekräftar att jag äger rättigheterna till manus eller har tillstånd att publicera det.
+            </span>
+          </label>
         </div>
 
         {error && (
