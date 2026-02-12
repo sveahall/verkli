@@ -179,6 +179,57 @@ const ERROR_MESSAGES: Record<string, string> = {
   CONTENT_INVALID_CHANNEL_TYPE: "Innehållstypen stöds inte för den valda kanalen.",
   CONTENT_FETCH_FAILED: "Kunde inte hämta genererat innehåll.",
 
+  // Book clubs
+  CLUBS_FEATURE_DISABLED: "Bokklubbar är inte aktiverade.",
+  CLUB_CREATE_FAILED: "Kunde inte skapa bokklubben.",
+  CLUB_NOT_FOUND: "Bokklubben hittades inte.",
+  CLUB_UPDATE_FAILED: "Kunde inte uppdatera bokklubben.",
+  CLUB_DELETE_FAILED: "Kunde inte ta bort bokklubben.",
+  CLUB_FULL: "Bokklubben är full.",
+  CLUB_ALREADY_MEMBER: "Du är redan medlem i bokklubben.",
+  CLUB_NOT_MEMBER: "Du är inte medlem i bokklubben.",
+  CLUB_OWNER_CANNOT_LEAVE: "Ägaren kan inte lämna bokklubben.",
+  CLUB_MESSAGE_FAILED: "Kunde inte skicka meddelandet till bokklubben.",
+  CLUB_MESSAGES_LOAD_FAILED: "Kunde inte ladda bokklubbens meddelanden.",
+
+  // Genres
+  GENRES_LOAD_FAILED: "Kunde inte ladda genrer.",
+
+  // Onboarding
+  ONBOARDING_SAVE_FAILED: "Kunde inte spara onboarding.",
+
+  // Notifications
+  NOTIFICATION_LOAD_FAILED: "Kunde inte ladda notiser.",
+  NOTIFICATION_NOT_FOUND: "Notisen hittades inte.",
+  NOTIFICATION_UPDATE_FAILED: "Kunde inte uppdatera notisen.",
+
+  // Polls
+  POLLS_FEATURE_DISABLED: "Omröstningar är inte aktiverade.",
+  POLL_NOT_FOUND: "Omröstningen hittades inte.",
+  POLL_CREATE_FAILED: "Kunde inte skapa omröstningen.",
+  POLL_CLOSED: "Omröstningen är stängd.",
+  POLL_ALREADY_VOTED: "Du har redan röstat i omröstningen.",
+  POLL_INVALID_OPTION: "Ogiltigt svarsalternativ.",
+  POLL_RESULTS_LOAD_FAILED: "Kunde inte ladda omröstningsresultat.",
+
+  // Newsletters
+  NEWSLETTERS_FEATURE_DISABLED: "Nyhetsbrev är inte aktiverade.",
+  NEWSLETTER_NOT_FOUND: "Nyhetsbrevet hittades inte.",
+  NEWSLETTER_CREATE_FAILED: "Kunde inte skapa nyhetsbrevet.",
+  NEWSLETTER_UPDATE_FAILED: "Kunde inte uppdatera nyhetsbrevet.",
+  NEWSLETTER_SEND_FAILED: "Kunde inte skicka nyhetsbrevet.",
+  NEWSLETTER_ALREADY_SENT: "Nyhetsbrevet har redan skickats.",
+  NEWSLETTER_ALREADY_SUBSCRIBED: "Du prenumererar redan på detta nyhetsbrev.",
+  NEWSLETTER_SUBSCRIBE_FAILED: "Kunde inte starta prenumerationen.",
+  NEWSLETTER_SUBSCRIBERS_LOAD_FAILED: "Kunde inte ladda prenumeranter.",
+
+  // Recommendations
+  RECOMMENDATIONS_LOAD_FAILED: "Kunde inte ladda rekommendationer.",
+
+  // Translation UI
+  TRANSLATION_LIST_FAILED: "Kunde inte ladda översättningslistan.",
+  TRANSLATION_STATUS_FAILED: "Kunde inte ladda översättningsstatus.",
+
   // Dev
   NOT_AVAILABLE_IN_PRODUCTION: "Inte tillgängligt i produktion.",
 

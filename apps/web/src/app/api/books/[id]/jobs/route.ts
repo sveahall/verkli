@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { requireAuthorRoleForApi } from "@/lib/auth/require-author";
+import { getBillingStateForUser } from "@/lib/billing/server";
 import { isAudiobookEnabled } from "@/lib/flags";
 import { isJobActiveStatus, normalizeJobStatus } from "@/lib/job-status";
 import { sanitizeJobError } from "@/lib/sanitize-job-error";
@@ -40,6 +41,9 @@ export async function GET(
 
   const { user, response } = await requireAuthorRoleForApi();
   if (response) return response;
+
+  const billing = await getBillingStateForUser(user.id);
+  const translationVisibleForUser = billing.ok ? billing.state.isProActive : true;
 
   const supabase = await createClient();
 
@@ -124,13 +128,17 @@ export async function GET(
     created_at: string;
     updated_at: string;
   };
-  const { data: translationRows } = await supabase
-    .from("book_versions")
-    .select("id, language_code, status, created_at, updated_at")
-    .eq("book_id", bookId)
-    .in("status", ["translating", "done", "failed"])
-    .order("updated_at", { ascending: false })
-    .limit(20);
+  let translationRows: TranslationVersionRow[] | null = [];
+  if (translationVisibleForUser) {
+    const { data } = await supabase
+      .from("book_versions")
+      .select("id, language_code, status, created_at, updated_at")
+      .eq("book_id", bookId)
+      .in("status", ["translating", "done", "failed"])
+      .order("updated_at", { ascending: false })
+      .limit(20);
+    translationRows = (data ?? []) as TranslationVersionRow[];
+  }
 
   const translationJobs = (translationRows ?? []).map((row: TranslationVersionRow) => {
     const status = normalizeJobStatus(row.status);

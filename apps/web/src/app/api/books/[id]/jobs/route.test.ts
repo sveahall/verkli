@@ -1,9 +1,10 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { GET } from "./route";
 
-const { requireAuthorRoleForApi, createClient } = vi.hoisted(() => ({
+const { requireAuthorRoleForApi, createClient, getBillingStateForUser } = vi.hoisted(() => ({
   requireAuthorRoleForApi: vi.fn(),
   createClient: vi.fn(),
+  getBillingStateForUser: vi.fn(),
 }));
 
 vi.mock("@/lib/auth/require-author", () => ({
@@ -12,6 +13,10 @@ vi.mock("@/lib/auth/require-author", () => ({
 
 vi.mock("@/lib/supabase/server", () => ({
   createClient,
+}));
+
+vi.mock("@/lib/billing/server", () => ({
+  getBillingStateForUser,
 }));
 
 const originalEnv = {
@@ -149,6 +154,12 @@ describe("GET /api/books/[id]/jobs", () => {
       user: { id: "user-1" },
       response: null,
     });
+    getBillingStateForUser.mockResolvedValue({
+      ok: true,
+      state: {
+        isProActive: true,
+      },
+    });
     createClient.mockResolvedValue(makeSupabaseMock());
   });
 
@@ -176,5 +187,24 @@ describe("GET /api/books/[id]/jobs", () => {
     expect(body.jobs[1].status).toBe("completed");
     expect(body.activeCount).toBe(0);
     expect(body.summary).toEqual({ import: "completed", translation: "completed" });
+  });
+
+  it("hides translation jobs for non-pro users", async () => {
+    getBillingStateForUser.mockResolvedValueOnce({
+      ok: true,
+      state: {
+        isProActive: false,
+      },
+    });
+
+    const req = new Request("http://localhost/api/books/book-1/jobs");
+
+    const res = await GET(req, { params: Promise.resolve({ id: "book-1" }) });
+    const body = await res.json();
+
+    expect(res.status).toBe(200);
+    expect(body.jobs).toHaveLength(1);
+    expect(body.jobs[0].kind).toBe("import");
+    expect(body.summary).toEqual({ import: "completed" });
   });
 });

@@ -8,13 +8,34 @@ import PageHeader from "@/components/reader/PageHeader";
 import Rail from "@/components/reader/Rail";
 import ForYouRail from "@/components/reader/ForYouRail";
 import { ErrorBannerWrapper } from "@/components/ui/ErrorBanner";
+import { ErrorState } from "@/components/ui/states";
 import AuthorApplicationCard from "./AuthorApplicationCard";
 
 export default async function ReaderHomePage() {
-  const supabase = await createClient();
+  let supabase: Awaited<ReturnType<typeof createClient>>;
+
+  try {
+    supabase = await createClient();
+  } catch {
+    return (
+      <div className="section-gap-lg">
+        <ErrorState
+          title="Något gick fel"
+          description="Kunde inte ladda sidan. Försök igen senare."
+          action={
+            <Link href="/reader/home" className="btn-primary rounded-full px-5 py-2.5 text-[14px]">
+              Försök igen
+            </Link>
+          }
+        />
+      </div>
+    );
+  }
+
   const { data: { user } } = await supabase.auth.getUser();
   let authorApplicationStatus: "none" | "pending" | "approved" | "rejected" = "none";
 
+  try {
   if (user) {
     const { data: profile } = await supabase
       .from("profiles")
@@ -45,6 +66,11 @@ export default async function ReaderHomePage() {
       }
     }
   }
+  } catch (err) {
+    // Re-throw redirect errors (Next.js uses thrown responses)
+    if (err instanceof Error && err.message === "NEXT_REDIRECT") throw err;
+    // Swallow profile/application fetch errors — page renders with defaults
+  }
 
   // Continue reading: user's readings with book + author
   let continueReading: {
@@ -55,6 +81,7 @@ export default async function ReaderHomePage() {
     progress: number;
     href: string;
   }[] = [];
+  try {
   if (user) {
     const { data: readings } = await supabase
       .from("readings")
@@ -103,8 +130,18 @@ export default async function ReaderHomePage() {
       }
     }
   }
+  } catch {
+    // Swallow — continue reading rail will be empty
+  }
 
   // Published books (latest) – same as discover
+  let publishedWithAuthors: {
+    id: string;
+    title: string;
+    author: string;
+    cover: string | null;
+  }[] = [];
+  try {
   const { data: books } = await supabase
     .from("books")
     .select("id, title, cover_image, author_id")
@@ -112,7 +149,7 @@ export default async function ReaderHomePage() {
     .order("updated_at", { ascending: false })
     .limit(12);
 
-  const publishedWithAuthors = await Promise.all(
+  publishedWithAuthors = await Promise.all(
     (books ?? []).map(async (book) => {
       const { data: profile } = await supabase
         .from("profiles")
@@ -127,6 +164,9 @@ export default async function ReaderHomePage() {
       };
     })
   );
+  } catch {
+    // Swallow — published rail will be empty
+  }
 
   return (
     <div className="section-gap-lg">

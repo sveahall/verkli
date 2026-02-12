@@ -114,6 +114,26 @@ Det här är ett långt textstycke som gör att kapitel-splittningen blir stabil
     ]);
   });
 
+  it("converts chapter word labels into numeric labels", () => {
+    const repaired = repairImportedChapterTitles([
+      "Introduction",
+      "Förord",
+      "Kapitel ett",
+      "Kapitel två",
+      "Kapitel tre",
+      "Kapitel fyra",
+    ]);
+
+    expect(repaired).toEqual([
+      "Introduction",
+      "Förord",
+      "Kapitel 1",
+      "Kapitel 2",
+      "Kapitel 3",
+      "Kapitel 4",
+    ]);
+  });
+
   it("infers a book title from txt when metadata title is missing", async () => {
     const buffer = Buffer.from(
       `

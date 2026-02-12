@@ -532,15 +532,23 @@ function normalizeExtractedChapters(chapters: ExtractedChapter[]): ExtractedChap
   return normalizeCorruptedChapterTitles(chapters);
 }
 
-export function repairImportedChapterTitles(titles: string[]): string[] {
+export function normalizeChapterTitlesToNumericSequence(titles: string[]): string[] {
   if (titles.length === 0) return [];
 
-  const chapterLike = titles.map((title) => ({
-    title: String(title ?? "").replace(/\s+/g, " ").trim(),
-    sourceText: "",
-  }));
+  let chapterNumber = 1;
+  return titles.map((title) => {
+    const compact = String(title ?? "").replace(/\s+/g, " ").trim();
+    if (!compact) return compact;
+    if (!CHAPTER_PREFIX_RE.test(compact)) return compact;
 
-  return normalizeExtractedChapters(chapterLike).map((chapter) => chapter.title);
+    const normalized = `Kapitel ${chapterNumber}`;
+    chapterNumber += 1;
+    return normalized;
+  });
+}
+
+export function repairImportedChapterTitles(titles: string[]): string[] {
+  return normalizeChapterTitlesToNumericSequence(titles);
 }
 
 function splitIntoChaptersHeuristicInternal(text: string): ExtractedChapter[] {

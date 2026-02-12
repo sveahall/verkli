@@ -13,7 +13,11 @@ assertServerEnv();
 
 import { Worker, UnrecoverableError } from "bullmq";
 import { resolveLocalImportPath } from "../src/lib/import-storage";
-import { runExtract, contentHash } from "../src/lib/import-extract";
+import {
+  runExtract,
+  contentHash,
+  normalizeChapterTitlesToNumericSequence,
+} from "../src/lib/import-extract";
 import { createAdminClient } from "../src/lib/supabase/admin";
 import { enqueueTranslationJob } from "../src/lib/translation-queue";
 import { detectLanguageFromText } from "../src/lib/language-detect";
@@ -47,6 +51,40 @@ type ImportRow = {
   book_version_id: string | null;
   mode: string | null;
 };
+
+type BillingRow = {
+  plan: string | null;
+  status: string | null;
+};
+
+function isActiveBillingStatus(status: string | null | undefined): boolean {
+  const normalized = String(status ?? "").trim().toLowerCase();
+  return normalized === "active" || normalized === "trialing";
+}
+
+async function isAuthorProActive(
+  supabase: ReturnType<typeof createAdminClient>,
+  authorId: string
+): Promise<boolean> {
+  const { data, error } = await supabase
+    .from("billing_accounts")
+    .select("plan, status")
+    .eq("user_id", authorId)
+    .maybeSingle();
+
+  if (error) {
+    console.warn("[import worker] failed to check billing for translation auto-enqueue", {
+      authorId,
+      code: error.code,
+      message: error.message,
+    });
+    return false;
+  }
+
+  const row = (data ?? null) as BillingRow | null;
+  if (!row) return false;
+  return String(row.plan ?? "").trim().toLowerCase() === "pro" && isActiveBillingStatus(row.status);
+}
 
 function normalizeImportMode(value: unknown, legacyOverwrite?: boolean): ImportMode {
   if (value === "overwrite_draft") return "overwrite_draft";
@@ -261,10 +299,18 @@ export async function processJob(payload: ProcessJobPayload) {
       throw new Error("Import extraction returned no chapters");
     }
 
+    const normalizedChapterTitles = normalizeChapterTitlesToNumericSequence(
+      chapters.map((chapter, index) => chapter.title?.trim() || `Kapitel ${index + 1}`)
+    );
+    const normalizedChapters = chapters.map((chapter, index) => ({
+      ...chapter,
+      title: normalizedChapterTitles[index] || `Kapitel ${index + 1}`,
+    }));
+
     await updateImport({ status: "extracting", progress: 55 });
 
     const warnings: string[] = [];
-    const sampleText = chapters.find((ch) => ch.sourceText?.trim())?.sourceText ?? "";
+    const sampleText = normalizedChapters.find((ch) => ch.sourceText?.trim())?.sourceText ?? "";
     const detectedLanguage = detectLanguageFromText(sampleText);
     const normalizedDetected = normalizeLanguageOrNull(detectedLanguage);
     if (!normalizedDetected) {
@@ -481,9 +527,9 @@ export async function processJob(payload: ProcessJobPayload) {
     const rows: Record<string, unknown>[] = [];
     let dedupSkipped = 0;
 
-    for (let i = 0; i < chapters.length; i++) {
-      const ch = chapters[i];
-      const chapterTitle = (ch.title ?? "").trim() || `Chapter ${i + 1}`;
+    for (let i = 0; i < normalizedChapters.length; i++) {
+      const ch = normalizedChapters[i];
+      const chapterTitle = (ch.title ?? "").trim() || `Kapitel ${i + 1}`;
       if (!ch.title?.trim()) {
         warnings.push(`title_fallback_${i + 1}`);
       }
@@ -512,12 +558,12 @@ export async function processJob(payload: ProcessJobPayload) {
       console.log("[import worker] dedup skipped chapters", {
         importId,
         dedupSkipped,
-        totalChapters: chapters.length,
+        totalChapters: normalizedChapters.length,
         inserting: rows.length,
       });
     }
 
-    const frontMatterCount = chapters.filter((chapter) =>
+    const frontMatterCount = normalizedChapters.filter((chapter) =>
       isFrontMatterChapterTitle(chapter.title)
     ).length;
 
@@ -567,7 +613,7 @@ export async function processJob(payload: ProcessJobPayload) {
       progress: 100,
       error_message: null,
       result: {
-        chapterCount: chapters.length,
+        chapterCount: normalizedChapters.length,
         chaptersCreated: rows.length,
         insertedCount: rows.length,
         dedupSkipped,
@@ -586,25 +632,34 @@ export async function processJob(payload: ProcessJobPayload) {
       bookId: targetBookId,
       bookVersionId: targetBookVersionId,
       mode,
-      chapterCount: chapters.length,
+      chapterCount: normalizedChapters.length,
       warnings: warnings.length,
     });
 
     if (process.env.TRANSLATIONS_AUTO_ENQUEUE === "true") {
       const originalLang = normalizeLanguageOrNull(targetLanguageCode);
       if (originalLang && originalLang !== "en") {
-        const translationJobId = await enqueueTranslationJob({
-          bookId: targetBookId,
-          sourceVersionId: targetBookVersionId,
-          targetLanguage: "en",
-        });
-        if (translationJobId) {
-          console.log("[import worker] translation job enqueued", {
+        const proActive = await isAuthorProActive(supabase, authorId);
+        if (!proActive) {
+          console.log("[import worker] translation auto-enqueue skipped (pro required)", {
             importId,
+            authorId,
             bookId: targetBookId,
-            targetLanguage: "en",
-            jobId: translationJobId,
           });
+        } else {
+          const translationJobId = await enqueueTranslationJob({
+            bookId: targetBookId,
+            sourceVersionId: targetBookVersionId,
+            targetLanguage: "en",
+          });
+          if (translationJobId) {
+            console.log("[import worker] translation job enqueued", {
+              importId,
+              bookId: targetBookId,
+              targetLanguage: "en",
+              jobId: translationJobId,
+            });
+          }
         }
       }
     }

@@ -10,6 +10,36 @@ export function Skeleton({ className, ...props }: React.HTMLAttributes<HTMLDivEl
   );
 }
 
+export function CardSkeleton({ className }: { className?: string }) {
+  return (
+    <div className={cn("rounded-2xl border border-slate-200/70 bg-white p-4 dark:border-white/10 dark:bg-white/5", className)}>
+      <Skeleton className="mb-4 h-36 w-full rounded-xl" />
+      <Skeleton className="mb-2 h-4 w-3/4" />
+      <Skeleton className="mb-2 h-3 w-full" />
+      <Skeleton className="h-3 w-2/3" />
+    </div>
+  );
+}
+
+export function TableRowSkeleton({ columns = 4, className }: { columns?: number; className?: string }) {
+  return (
+    <div className={cn("flex items-center gap-4 border-b border-slate-100 px-4 py-3 dark:border-white/5", className)}>
+      {Array.from({ length: columns }).map((_, i) => (
+        <Skeleton key={i} className="h-3 flex-1" />
+      ))}
+    </div>
+  );
+}
+
+export function StatCardSkeleton({ className }: { className?: string }) {
+  return (
+    <div className={cn("rounded-2xl border border-slate-200/70 bg-white px-5 py-5 dark:border-white/10 dark:bg-white/5", className)}>
+      <Skeleton className="mb-3 h-8 w-20" />
+      <Skeleton className="h-3 w-24" />
+    </div>
+  );
+}
+
 export type StateProps = {
   title: string;
   description?: string;

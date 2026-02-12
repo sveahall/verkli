@@ -4,10 +4,15 @@ import {
   E_INVALID_ROLE,
   E_NOT_AUTHENTICATED,
   E_FORBIDDEN,
+  E_RATE_LIMIT_EXCEEDED,
 } from "@/lib/api-errors";
+import { createClient } from "@/lib/supabase/server";
+import { createPerUserRateLimiter } from "@/lib/rate-limit";
 import { NextResponse } from "next/server";
 
 const VALID_ROLES: ActiveRole[] = ["author", "reader"];
+
+const limiter = createPerUserRateLimiter({ maxPerMinute: 10 });
 
 export async function POST(request: Request) {
   const body = await request.json().catch(() => null);
@@ -15,6 +20,23 @@ export async function POST(request: Request) {
 
   if (!role || !VALID_ROLES.includes(role)) {
     return apiError(E_INVALID_ROLE, 400);
+  }
+
+  // Authenticate first so we can rate-limit per user
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) {
+    return apiError(E_NOT_AUTHENTICATED, 401);
+  }
+
+  const rateCheck = limiter.check(user.id);
+  if (!rateCheck.allowed) {
+    return apiError(E_RATE_LIMIT_EXCEEDED, 429, {
+      retryAfterSeconds: rateCheck.retryAfterSeconds,
+    });
   }
 
   const result = await updateActiveRole(role);

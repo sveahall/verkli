@@ -25,8 +25,6 @@ export const maxDuration = 300;
 
 const rateLimiter = createPerUserRateLimiter({ maxPerMinute: 3 });
 
-export { rateLimiter as _rateLimiter };
-
 export async function POST(
   req: Request,
   { params }: { params: Promise<{ id: string }> }

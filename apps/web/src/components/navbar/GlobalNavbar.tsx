@@ -468,6 +468,7 @@ export default function GlobalNavbar({
     getUser();
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       if (event === "SIGNED_OUT") {
+        window.localStorage.removeItem(VERKLI_ROLE_KEY);
         setUser(null);
         setCurrentRole("author");
         setOriginalRole(undefined);
@@ -510,6 +511,7 @@ export default function GlobalNavbar({
   }, [pathname]);
 
   const handleSignOut = async () => {
+    window.localStorage.removeItem(VERKLI_ROLE_KEY);
     const supabase = createClient();
     await supabase.auth.signOut();
     setUser(null);
