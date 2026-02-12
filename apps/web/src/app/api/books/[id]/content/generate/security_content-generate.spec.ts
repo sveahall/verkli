@@ -142,8 +142,11 @@ vi.mock("@/lib/ai/content-generation", async () => {
 const { requireAuthorRoleForApi } = await import("@/lib/auth/require-author");
 const { requireProBillingForApi } = await import("@/lib/billing/server");
 const { isMarketingEnabled } = await import("@/lib/flags");
-const { __setMockAuthorId } = await import("@/lib/supabase/admin") as Record<string, unknown>;
-const { POST, _rateLimiter } = await import("./route");
+const { __setMockAuthorId } = (await import("@/lib/supabase/admin")) as Record<
+  string,
+  unknown
+>;
+const { POST } = await import("./route");
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
 function makeRequest(
@@ -191,9 +194,11 @@ function mockBillingFail() {
 
 // ─── Tests ──────────────────────────────────────────────────────────────────
 describe("security: POST /api/books/[id]/content/generate", () => {
+  let userCounter = 0;
+
   beforeEach(() => {
     vi.clearAllMocks();
-    _rateLimiter._reset();
+    userCounter += 1;
     vi.mocked(isMarketingEnabled).mockReturnValue(true);
   });
 
@@ -210,7 +215,7 @@ describe("security: POST /api/books/[id]/content/generate", () => {
   });
 
   it("returns 403 when marketing feature is disabled", async () => {
-    mockAuthSuccess();
+    mockAuthSuccess(`u-${userCounter}-marketing`);
     vi.mocked(isMarketingEnabled).mockReturnValue(false);
     const res = await POST(makeRequest(), routeCtx);
     expect(res.status).toBe(403);
@@ -237,21 +242,21 @@ describe("security: POST /api/books/[id]/content/generate", () => {
   });
 
   it("returns 403 when billing gate fails", async () => {
-    mockAuthSuccess();
+    mockAuthSuccess(`u-${userCounter}-billing`);
     mockBillingFail();
     const res = await POST(makeRequest(), routeCtx);
     expect(res.status).toBe(403);
   });
 
   it("returns 400 for invalid request body", async () => {
-    mockAuthSuccess();
+    mockAuthSuccess(`u-${userCounter}-invalid-body`);
     mockBillingOk();
     const res = await POST(makeRequest({ contentType: "pdf", channel: "ig" }), routeCtx);
     expect(res.status).toBe(400);
   });
 
   it("returns 400 when channel does not support content type", async () => {
-    mockAuthSuccess();
+    mockAuthSuccess(`u-${userCounter}-invalid-channel`);
     mockBillingOk();
     // x does not support video
     const res = await POST(makeRequest({ contentType: "video", channel: "x" }), routeCtx);
@@ -261,7 +266,7 @@ describe("security: POST /api/books/[id]/content/generate", () => {
   });
 
   it("returns 200 for valid request", async () => {
-    mockAuthSuccess();
+    mockAuthSuccess(`u-${userCounter}-ok`);
     mockBillingOk();
     const res = await POST(makeRequest(), routeCtx);
     expect(res.status).toBe(200);
@@ -278,7 +283,7 @@ describe("security: POST /api/books/[id]/content/generate", () => {
     expect(res1.status).toBe(401);
 
     // 2. Feature flag fails after auth passes
-    mockAuthSuccess();
+    mockAuthSuccess(`u-${userCounter}-guard`);
     vi.mocked(isMarketingEnabled).mockReturnValue(false);
     const res2 = await POST(makeRequest(), routeCtx);
     expect(res2.status).toBe(403);

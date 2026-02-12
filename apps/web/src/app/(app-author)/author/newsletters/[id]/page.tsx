@@ -1,4 +1,5 @@
 import { redirect, notFound } from "next/navigation";
+import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { getNewslettersEnabled } from "@/lib/flags";
 import { requireAuthorRole } from "@/lib/auth/require-author";
@@ -50,12 +51,12 @@ export default async function NewsletterDetailPage({
   return (
     <div className="section-gap">
       <div className="mb-6 flex items-center gap-3">
-        <a
+        <Link
           href="/author/newsletters"
           className="text-[13px] text-slate-500 hover:text-slate-900 dark:text-white/50 dark:hover:text-white"
         >
           ← Tillbaka till nyhetsbrev
-        </a>
+        </Link>
       </div>
 
       <h1 className="text-page-title mb-6">
