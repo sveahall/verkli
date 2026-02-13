@@ -44,14 +44,14 @@ export default function ReaderForgotPassword() {
         {error && (
           <div
             role="alert"
-            className="mb-4 rounded-xl border border-red-200 bg-red-50/80 px-4 py-3 text-sm text-red-700 dark:border-red-900/40 dark:bg-red-950/40 dark:text-red-300"
+            className="mb-4 rounded-xl border border-red-200/80 bg-red-50/60 px-4 py-3 text-sm text-red-600 dark:border-red-500/20 dark:bg-red-500/10 dark:text-red-300"
           >
             {error}
           </div>
         )}
 
         {success ? (
-          <div className="rounded-lg border border-emerald-200 bg-emerald-50/80 px-4 py-4 text-sm text-emerald-700 dark:border-emerald-500/30 dark:bg-emerald-500/10 dark:text-emerald-200">
+          <div className="rounded-lg border border-emerald-200/80 bg-emerald-50/60 px-4 py-4 text-sm text-emerald-600 dark:border-emerald-500/20 dark:bg-emerald-500/10 dark:text-emerald-300">
             Check your email for a reset link.
           </div>
         ) : (
@@ -64,6 +64,7 @@ export default function ReaderForgotPassword() {
                 placeholder="you@example.com"
                 autoComplete="email"
                 required
+                fullWidth
               />
             </FormField>
 
@@ -73,7 +74,7 @@ export default function ReaderForgotPassword() {
           </form>
         )}
 
-        <p className="mt-6 text-sm text-slate-600 dark:text-white/50">
+        <p className="mt-6 text-sm text-slate-500 dark:text-white/50">
           Remembered it?{" "}
           <Link href="/reader/signin" className="font-semibold text-slate-900 dark:text-white">
             Back to sign in

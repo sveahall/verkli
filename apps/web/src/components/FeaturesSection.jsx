@@ -11,7 +11,6 @@ const features = [
     value: "100% ownership",
     image:
       "https://images.unsplash.com/photo-1507842217343-583bb7270b66?auto=format&fit=crop&w=1400&q=80",
-    gradient: "from-[#907AFF]/20 to-transparent",
     color: "#907AFF",
   },
   {
@@ -22,7 +21,6 @@ const features = [
     value: "Multi-format output",
     image:
       "https://images.unsplash.com/photo-1519681393784-d120267933ba?auto=format&fit=crop&w=1400&q=80",
-    gradient: "from-[#E29ED5]/20 to-transparent",
     color: "#E29ED5",
   },
   {
@@ -33,7 +31,6 @@ const features = [
     value: "Always-on engine",
     image:
       "https://images.unsplash.com/photo-1553877522-43269d4ea984?auto-format&fit=crop&w=1400&q=80",
-    gradient: "from-[#FCC997]/20 to-transparent",
     color: "#FCC997",
   },
   {
@@ -44,7 +41,6 @@ const features = [
     value: "Fewer logins",
     image:
       "https://images.unsplash.com/photo-1485217988980-11786ced9454?auto=format&fit=crop&w=1400&q=80",
-    gradient: "from-[#FEE9A3]/20 to-transparent",
     color: "#FEE9A3",
   },
 ];
@@ -81,23 +77,25 @@ export default function FeaturesSection() {
   }, []);
 
   return (
-    <section className="mx-auto w-full max-w-[1400px] px-6 py-14 lg:px-[115px]">
-      <div className="mb-10 flex flex-col gap-4 lg:mb-16">
-        <p className="text-sm font-semibold uppercase tracking-[0.3em] text-[#907AFF]">
+    <section className="mx-auto w-full max-w-[1080px] px-6 py-28">
+      <div className="mb-14 text-center">
+        <p className="text-[13px] font-medium uppercase tracking-[0.15em] text-[#907AFF]">
           Built for authors
         </p>
-        <h2 className="text-3xl font-semibold leading-[120%] text-slate-900 dark:text-[#F7F7F7] md:text-4xl lg:text-[42px]">
+        <h2 className="mt-4 text-[clamp(28px,4vw,48px)] font-semibold leading-[1.1] tracking-[-0.025em] text-slate-900 dark:text-white">
           Here&apos;s what you get with{" "}
-          <span className="bg-gradient-to-r from-[#907AFF] via-[#E29ED5] to-[#FCC997] bg-clip-text text-transparent">verkli.</span>
+          <span className="bg-gradient-to-r from-[#907AFF] via-[#E29ED5] to-[#FCC997] bg-clip-text text-transparent">
+            verkli.
+          </span>
         </h2>
-        <p className="max-w-2xl text-base text-slate-600 dark:text-white/60 md:text-lg">
+        <p className="mx-auto mt-4 max-w-[520px] text-[16px] leading-[1.7] text-slate-500 dark:text-white/45">
           A single workflow that protects your IP, grows your audience, and keeps
           your marketing consistent without the busywork.
         </p>
       </div>
 
       <div className="grid gap-12 lg:grid-cols-[minmax(0,1fr)_minmax(0,0.9fr)] lg:gap-16">
-        <div className="flex flex-col gap-5">
+        <div className="flex flex-col gap-4">
           {features.map((feature, index) => {
             const isActive = index === activeIndex;
             return (
@@ -110,64 +108,73 @@ export default function FeaturesSection() {
                 onFocus={() => setActiveIndex(index)}
                 onClick={() => setActiveIndex(index)}
                 aria-current={isActive ? "true" : "false"}
-                className={`feature-card group relative cursor-pointer overflow-hidden rounded-[24px] border px-6 py-6 transition-all duration-500 ease-out md:px-8 md:py-7 ${
+                className={`group relative cursor-pointer rounded-2xl border p-6 transition-all duration-400 ease-out md:p-7 ${
                   isActive
-                    ? "border-black/20 bg-black/2 scale-[1.02] dark:border-white/20 dark:bg-white/[0.08]"
-                    : "border-black/10 bg-black/2 hover:border-black/20 hover:bg-black/10 dark:border-white/8 dark:bg-white/[0.02] dark:hover:border-white/12 dark:hover:bg-white/[0.04]"
+                    ? "border-black/[0.08] bg-white shadow-[0_4px_24px_rgba(0,0,0,0.04)] dark:border-white/[0.1] dark:bg-white/[0.04]"
+                    : "border-black/[0.04] bg-white hover:border-black/[0.08] hover:shadow-[0_4px_24px_rgba(0,0,0,0.04)] dark:border-white/[0.06] dark:bg-white/[0.02] dark:hover:border-white/[0.1]"
                 }`}
               >
                 {/* Active indicator line */}
-                <div 
-                  className={`absolute left-0 top-0 h-full w-1 rounded-l-[24px] transition-all duration-500 ${
+                <div
+                  className={`absolute left-0 top-4 bottom-4 w-[3px] rounded-full transition-all duration-400 ${
                     isActive ? "opacity-100" : "opacity-0"
                   }`}
-                  style={{ background: `linear-gradient(to bottom, ${feature.color}, ${feature.color}80)` }}
-                />
-                
-                {/* Subtle glow effect */}
-                <div 
-                  className={`pointer-events-none absolute -inset-px rounded-[24px] bg-gradient-to-br ${feature.gradient} opacity-0 transition-opacity duration-500 ${
-                    isActive ? "opacity-100" : "group-hover:opacity-50"
-                  }`}
+                  style={{ background: feature.color }}
                 />
 
-                <div className="relative z-10">
+                <div className="relative">
                   <div className="flex flex-wrap items-center gap-3">
-                    <span className={`rounded-full border px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.2em] transition-all duration-300 ${
-                      isActive 
-                        ? "border-purple-400/40 bg-purple-500/10 text-purple-300" 
-                        : "border-black/20 text-slate-500 dark:border-white/12 dark:text-white/50"
-                    }`}>
+                    <span
+                      className={`rounded-full border px-3 py-1 text-[11px] font-medium uppercase tracking-[0.12em] transition-all duration-300 ${
+                        isActive
+                          ? "border-[#907AFF]/25 bg-[#907AFF]/[0.06] text-[#907AFF]"
+                          : "border-black/[0.06] text-slate-400 dark:border-white/[0.08] dark:text-white/40"
+                      }`}
+                    >
                       {feature.label}
                     </span>
-                    <span className={`text-[11px] font-medium uppercase tracking-[0.15em] transition-colors duration-300 ${
-                      isActive ? "text-slate-600 dark:text-white/60" : "text-slate-400 dark:text-white/35"
-                    }`}>
+                    <span
+                      className={`text-[11px] font-medium uppercase tracking-[0.12em] transition-colors duration-300 ${
+                        isActive
+                          ? "text-slate-500 dark:text-white/50"
+                          : "text-slate-300 dark:text-white/25"
+                      }`}
+                    >
                       {feature.value}
                     </span>
                   </div>
 
                   <h3
-                    className={`mt-4 text-xl font-semibold leading-[130%] transition-all duration-300 md:text-2xl ${
-                      isActive ? "text-slate-900 translate-x-0 dark:text-white" : "text-slate-600 dark:text-white/75"
+                    className={`mt-4 text-[18px] font-semibold leading-[1.3] transition-colors duration-300 md:text-[20px] ${
+                      isActive
+                        ? "text-slate-900 dark:text-white"
+                        : "text-slate-500 dark:text-white/60"
                     }`}
                   >
                     {feature.title}
                   </h3>
-                  
-                  <div className={`overflow-hidden transition-all duration-500 ease-out ${
-                    isActive ? "max-h-[200px] opacity-100 mt-3" : "max-h-0 opacity-0 mt-0"
-                  }`}>
-                    <p className="text-[15px] leading-[165%] text-slate-600 dark:text-white/60">
+
+                  <div
+                    className={`overflow-hidden transition-all duration-500 ease-out ${
+                      isActive
+                        ? "mt-3 max-h-[200px] opacity-100"
+                        : "mt-0 max-h-0 opacity-0"
+                    }`}
+                  >
+                    <p className="text-[15px] leading-[1.7] text-slate-500 dark:text-white/45">
                       {feature.description}
                     </p>
                   </div>
                 </div>
 
                 {/* Mobile image */}
-                <div className={`overflow-hidden rounded-[18px] border border-black/10 bg-black/2 transition-all duration-500 dark:border-white/10 dark:bg-white/5 lg:hidden ${
-                  isActive ? "mt-5 max-h-[300px] opacity-100" : "mt-0 max-h-0 opacity-0"
-                }`}>
+                <div
+                  className={`overflow-hidden rounded-xl border border-black/[0.04] transition-all duration-500 dark:border-white/[0.06] lg:hidden ${
+                    isActive
+                      ? "mt-5 max-h-[300px] opacity-100"
+                      : "mt-0 max-h-0 opacity-0"
+                  }`}
+                >
                   <div
                     className="aspect-[4/3] w-full bg-cover bg-center"
                     style={{ backgroundImage: `url(${feature.image})` }}
@@ -193,7 +200,7 @@ export default function FeaturesSection() {
                 />
               ))}
               <div className="feature-visual-frame" />
-              
+
               {/* Image counter/indicator */}
               <div className="absolute bottom-6 left-6 z-10 flex items-center gap-2">
                 {features.map((_, index) => (
@@ -201,9 +208,9 @@ export default function FeaturesSection() {
                     key={index}
                     onClick={() => setActiveIndex(index)}
                     className={`h-1.5 rounded-full transition-all duration-300 ${
-                      index === activeIndex 
-                        ? "w-8 bg-slate-900 dark:bg-white" 
-                        : "w-1.5 bg-slate-300 hover:bg-slate-500 dark:bg-white/40 dark:hover:bg-white/60"
+                      index === activeIndex
+                        ? "w-8 bg-slate-900 dark:bg-white"
+                        : "w-1.5 bg-slate-300 hover:bg-slate-400 dark:bg-white/30 dark:hover:bg-white/50"
                     }`}
                     aria-label={`View feature ${index + 1}`}
                   />

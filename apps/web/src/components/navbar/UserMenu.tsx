@@ -98,8 +98,8 @@ export default function UserMenu({ user, onSignOut, currentRole = "author", orig
       await onSignOut();
       // Refresh router to clear server cache
       router.refresh();
-      // Redirect to landing page
-      router.push("/");
+      // Route users directly to the sign-in flow they used last.
+      router.push(currentRole === "author" ? "/author/signin" : "/reader/signin");
     } catch (error) {
       console.error("Error signing out:", error);
     }
@@ -126,7 +126,7 @@ export default function UserMenu({ user, onSignOut, currentRole = "author", orig
           e.preventDefault();
           e.stopPropagation();
         }}
-        className="touch-target flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-slate-300 bg-transparent text-slate-700 transition-all hover:bg-slate-100 dark:border-white/[0.4] dark:text-white dark:hover:bg-white/10 focus:outline-none focus:ring-2 focus:ring-[#907AFF]/50 focus:ring-offset-2 focus:ring-offset-background"
+        className="flex h-11 min-h-[44px] min-w-[44px] w-11 shrink-0 items-center justify-center rounded-full border border-slate-300 bg-transparent text-slate-700 transition-all hover:bg-slate-100 dark:border-white/[0.4] dark:text-white dark:hover:bg-white/10 focus:outline-none focus:ring-2 focus:ring-[#907AFF]/50 focus:ring-offset-2 focus:ring-offset-background"
         aria-label="Kontomeny"
         aria-expanded={isOpen}
       >

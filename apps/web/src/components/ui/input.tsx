@@ -1,6 +1,7 @@
 "use client";
 
 import { forwardRef, useId, type InputHTMLAttributes, type ReactNode } from "react";
+import { cn } from "@/lib/utils";
 
 /* ─────────────────────────────────────────────────────────────────────────────
  * Types
@@ -28,9 +29,9 @@ export interface InputProps extends InputHTMLAttributes<HTMLInputElement> {
  * ───────────────────────────────────────────────────────────────────────────── */
 
 const sizeStyles = {
-  sm: "px-2.5 py-1.5 text-xs",
-  md: "px-3 py-2 text-sm",
-  lg: "px-4 py-3 text-base",
+  sm: "h-9 px-3 text-[13px]",
+  md: "h-11 px-3.5 text-[15px]",
+  lg: "h-12 px-4 text-base",
 };
 
 /* ─────────────────────────────────────────────────────────────────────────────
@@ -58,7 +59,7 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(
     const hasError = !!error;
 
     return (
-      <div className={`flex flex-col gap-1 ${fullWidth ? "w-full" : ""}`}>
+      <div className="flex w-full flex-col gap-1">
         {label && (
           <label
             htmlFor={inputId}
@@ -67,7 +68,7 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(
             {label}
           </label>
         )}
-        <div className="relative">
+        <div className="relative w-full">
           {startIcon && (
             <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3 text-slate-400 dark:text-white/40">
               {startIcon}
@@ -78,22 +79,21 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(
             id={inputId}
             aria-invalid={hasError}
             aria-describedby={hasError ? `${inputId}-error` : hint ? `${inputId}-hint` : undefined}
-            className={`
-              rounded-lg border bg-white text-slate-900
-              placeholder:text-slate-400
-              focus:outline-none focus:ring-2 focus:ring-verkli-primary/40
-              disabled:cursor-not-allowed disabled:opacity-50
-              dark:border-white/20 dark:bg-white/10 dark:text-white dark:placeholder:text-white/40
-              ${hasError
-                ? "border-red-300 focus:border-red-500 focus:ring-red-500/40 dark:border-red-700"
-                : "border-slate-300 focus:border-slate-500 dark:focus:border-white/40"
-              }
-              ${startIcon ? "pl-10" : ""}
-              ${endIcon ? "pr-10" : ""}
-              ${sizeStyles[inputSize]}
-              ${fullWidth ? "w-full" : ""}
-              ${className}
-            `}
+            className={cn(
+              "w-full rounded-xl border bg-white text-slate-900 transition-colors duration-150",
+              "border-slate-200 placeholder:text-slate-400/70",
+              "focus:outline-none focus:ring-2 focus:ring-slate-900/10 focus:border-slate-400",
+              "disabled:cursor-not-allowed disabled:opacity-50",
+              "dark:border-white/[0.1] dark:bg-white/[0.06] dark:text-white dark:placeholder:text-white/30",
+              "dark:focus:ring-white/15 dark:focus:border-white/25",
+              hasError
+                ? "border-red-300 focus:border-red-500 focus:ring-red-500/20 dark:border-red-500/50 dark:focus:border-red-400"
+                : "",
+              startIcon && "pl-10",
+              endIcon && "pr-10",
+              sizeStyles[inputSize],
+              className,
+            )}
             {...props}
           />
           {endIcon && (

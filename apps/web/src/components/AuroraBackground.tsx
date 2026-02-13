@@ -4,8 +4,7 @@ import { useEffect, useRef, useState } from "react";
 
 export default function AuroraBackground() {
   const containerRef = useRef<HTMLDivElement>(null);
-  const mouseTarget = useRef({ x: 0.5, y: 0.5 });
-  const mouseCurrent = useRef({ x: 0.5, y: 0.5 });
+  const pointerRef = useRef({ x: 0.5, y: 0.5 });
   const rafId = useRef<number>(0);
   // Initialise from media query to avoid a synchronous setState inside
   // useEffect (which triggers cascading-render warnings in React).
@@ -23,31 +22,29 @@ export default function AuroraBackground() {
 
   useEffect(() => {
     const container = containerRef.current;
-    if (!container) return;
+    if (!container || reduceMotion) return;
 
-    const handleMouseMove = (e: MouseEvent) => {
-      mouseTarget.current = {
-        x: e.clientX / window.innerWidth,
-        y: e.clientY / window.innerHeight,
+    const flushPointer = () => {
+      rafId.current = 0;
+      container.style.setProperty("--mouse-x", pointerRef.current.x.toFixed(4));
+      container.style.setProperty("--mouse-y", pointerRef.current.y.toFixed(4));
+    };
+
+    const handlePointerMove = (event: PointerEvent) => {
+      pointerRef.current = {
+        x: event.clientX / window.innerWidth,
+        y: event.clientY / window.innerHeight,
       };
+      if (rafId.current) return;
+      rafId.current = requestAnimationFrame(flushPointer);
     };
 
-    const tick = () => {
-      const lerp = 0.06;
-      mouseCurrent.current.x += (mouseTarget.current.x - mouseCurrent.current.x) * lerp;
-      mouseCurrent.current.y += (mouseTarget.current.y - mouseCurrent.current.y) * lerp;
-      container.style.setProperty("--mouse-x", String(mouseCurrent.current.x));
-      container.style.setProperty("--mouse-y", String(mouseCurrent.current.y));
-      rafId.current = requestAnimationFrame(tick);
-    };
-    rafId.current = requestAnimationFrame(tick);
-
-    window.addEventListener("mousemove", handleMouseMove);
+    window.addEventListener("pointermove", handlePointerMove, { passive: true });
     return () => {
-      cancelAnimationFrame(rafId.current);
-      window.removeEventListener("mousemove", handleMouseMove);
+      if (rafId.current) cancelAnimationFrame(rafId.current);
+      window.removeEventListener("pointermove", handlePointerMove);
     };
-  }, []);
+  }, [reduceMotion]);
 
   return (
     <>
@@ -59,7 +56,7 @@ export default function AuroraBackground() {
         .aurora-blob {
           position: absolute;
           border-radius: 50%;
-          filter: blur(80px);
+          filter: blur(64px);
           will-change: transform;
         }
         .aurora-blob-animated {
@@ -88,8 +85,8 @@ export default function AuroraBackground() {
           style={{
             left: "10%",
             top: "20%",
-            width: "90vmax",
-            height: "90vmax",
+            width: "78vmax",
+            height: "78vmax",
             background: "radial-gradient(circle, rgba(123, 92, 255, 0.35) 0%, transparent 70%)",
           }}
         />
@@ -98,8 +95,8 @@ export default function AuroraBackground() {
           style={{
             left: "50%",
             top: "60%",
-            width: "85vmax",
-            height: "85vmax",
+            width: "74vmax",
+            height: "74vmax",
             background: "radial-gradient(circle, rgba(80, 120, 255, 0.28) 0%, transparent 70%)",
           }}
         />
@@ -108,8 +105,8 @@ export default function AuroraBackground() {
           style={{
             left: "70%",
             top: "15%",
-            width: "75vmax",
-            height: "75vmax",
+            width: "66vmax",
+            height: "66vmax",
             background: "radial-gradient(circle, rgba(255, 190, 120, 0.18) 0%, transparent 70%)",
           }}
         />
@@ -118,8 +115,8 @@ export default function AuroraBackground() {
           style={{
             left: "20%",
             top: "55%",
-            width: "70vmax",
-            height: "70vmax",
+            width: "62vmax",
+            height: "62vmax",
             background: "radial-gradient(circle, rgba(255, 120, 180, 0.16) 0%, transparent 70%)",
           }}
         />

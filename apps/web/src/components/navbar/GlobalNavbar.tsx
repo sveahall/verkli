@@ -468,7 +468,8 @@ export default function GlobalNavbar({
     getUser();
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       if (event === "SIGNED_OUT") {
-        window.localStorage.removeItem(VERKLI_ROLE_KEY);
+        // Keep the last chosen experience across sign-outs so "/" can route
+        // returning users directly to the correct sign-in flow.
         setUser(null);
         setCurrentRole("author");
         setOriginalRole(undefined);
@@ -511,7 +512,6 @@ export default function GlobalNavbar({
   }, [pathname]);
 
   const handleSignOut = async () => {
-    window.localStorage.removeItem(VERKLI_ROLE_KEY);
     const supabase = createClient();
     await supabase.auth.signOut();
     setUser(null);
@@ -644,7 +644,7 @@ export default function GlobalNavbar({
               {/* Logo: min 44px touch target on mobile */}
               <Link
                 href={homeHref ?? (isauthorRoute ? "/author" : isReaderRoute ? "/reader" : "/")}
-                className="touch-target flex shrink-0 items-center justify-center rounded-md focus:outline-none focus:ring-2 focus:ring-[#907AFF]/50 focus:ring-offset-2 focus:ring-offset-background"
+                className="flex min-h-[44px] min-w-[44px] shrink-0 items-center justify-center rounded-md focus:outline-none focus:ring-2 focus:ring-[#907AFF]/50 focus:ring-offset-2 focus:ring-offset-background"
               >
                 <img
                   src="/logo-dark.svg"
@@ -961,7 +961,7 @@ export default function GlobalNavbar({
                     {/* Language selector */}
                     <button
                       type="button"
-                      className="flex h-9 w-9 items-center justify-center rounded-full border border-black/10 bg-transparent text-slate-700 transition-colors hover:text-slate-900 dark:border-white/10 dark:text-white/80 dark:hover:text-white"
+                      className="flex h-9 w-9 items-center justify-center rounded-full bg-transparent text-slate-700 transition-colors hover:text-slate-900 dark:border-white/10 dark:text-white/80 dark:hover:text-white"
                       aria-label="Select language"
                     >
                       <svg

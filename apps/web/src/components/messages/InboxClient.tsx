@@ -1,11 +1,12 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import PageHeader from "@/components/reader/PageHeader";
 import Tabs from "@/components/reader/Tabs";
 import { useToastHelpers } from "@/components/ui/toast";
 import { resolveErrorMessage } from "@/lib/error-messages";
+import { useDocumentVisible } from "@/hooks/useDocumentVisible";
 import { cn } from "@/lib/utils";
 
 type MessagingRole = "author" | "reader";
@@ -84,6 +85,7 @@ function getInitials(name: string): string {
 
 export default function InboxClient({ mode, initialConversationId = null }: InboxClientProps) {
   const toast = useToastHelpers();
+  const isVisible = useDocumentVisible();
 
   const [activeTab, setActiveTab] = useState<"accepted" | "requests">("accepted");
   const [viewerId, setViewerId] = useState<string | null>(null);
@@ -103,10 +105,15 @@ export default function InboxClient({ mode, initialConversationId = null }: Inbo
 
   const [messageBody, setMessageBody] = useState("");
   const [error, setError] = useState<string | null>(null);
+  const refreshAbortRef = useRef<AbortController | null>(null);
+  const conversationAbortRef = useRef<AbortController | null>(null);
 
   const refreshLists = useCallback(
     async (opts?: { silent?: boolean }) => {
       const silent = opts?.silent ?? false;
+      refreshAbortRef.current?.abort();
+      const controller = new AbortController();
+      refreshAbortRef.current = controller;
       if (!silent) {
         setLoadingLists(true);
       }
@@ -117,11 +124,13 @@ export default function InboxClient({ mode, initialConversationId = null }: Inbo
             method: "GET",
             cache: "no-store",
             credentials: "include",
+            signal: controller.signal,
           }),
           fetch("/api/messages/requests", {
             method: "GET",
             cache: "no-store",
             credentials: "include",
+            signal: controller.signal,
           }),
         ]);
 
@@ -140,12 +149,18 @@ export default function InboxClient({ mode, initialConversationId = null }: Inbo
         setRequestConversations(Array.isArray(requestsJson.conversations) ? requestsJson.conversations : []);
         setError(null);
       } catch (err) {
+        if (err instanceof DOMException && err.name === "AbortError") {
+          return;
+        }
         const message = err instanceof Error ? err.message : resolveErrorMessage(null);
         setError(message);
         if (!silent) {
           toast.error(message);
         }
       } finally {
+        if (refreshAbortRef.current === controller) {
+          refreshAbortRef.current = null;
+        }
         if (!silent) {
           setLoadingLists(false);
         }
@@ -157,6 +172,9 @@ export default function InboxClient({ mode, initialConversationId = null }: Inbo
   const loadConversation = useCallback(
     async (conversationId: string, opts?: { silent?: boolean }) => {
       const silent = opts?.silent ?? false;
+      conversationAbortRef.current?.abort();
+      const controller = new AbortController();
+      conversationAbortRef.current = controller;
       if (!silent) {
         setLoadingConversation(true);
       }
@@ -166,6 +184,7 @@ export default function InboxClient({ mode, initialConversationId = null }: Inbo
           method: "GET",
           cache: "no-store",
           credentials: "include",
+          signal: controller.signal,
         });
 
         const json = (await res.json().catch(() => ({}))) as DetailResponse;
@@ -183,11 +202,17 @@ export default function InboxClient({ mode, initialConversationId = null }: Inbo
         setSelectedConversation(json.conversation ?? null);
         setMessages(Array.isArray(json.messages) ? json.messages : []);
       } catch (err) {
+        if (err instanceof DOMException && err.name === "AbortError") {
+          return;
+        }
         const message = err instanceof Error ? err.message : resolveErrorMessage(null);
         if (!silent) {
           toast.error(message);
         }
       } finally {
+        if (conversationAbortRef.current === controller) {
+          conversationAbortRef.current = null;
+        }
         if (!silent) {
           setLoadingConversation(false);
         }
@@ -225,6 +250,8 @@ export default function InboxClient({ mode, initialConversationId = null }: Inbo
     if (!selectedConversationId) {
       setSelectedConversation(null);
       setMessages([]);
+      conversationAbortRef.current?.abort();
+      conversationAbortRef.current = null;
       return;
     }
 
@@ -232,6 +259,12 @@ export default function InboxClient({ mode, initialConversationId = null }: Inbo
   }, [loadConversation, selectedConversationId]);
 
   useEffect(() => {
+    if (!isVisible) return;
+    void refreshLists({ silent: true });
+    if (selectedConversationId) {
+      void loadConversation(selectedConversationId, { silent: true });
+    }
+
     const timer = setInterval(() => {
       void refreshLists({ silent: true });
       if (selectedConversationId) {
@@ -240,7 +273,16 @@ export default function InboxClient({ mode, initialConversationId = null }: Inbo
     }, POLL_INTERVAL_MS);
 
     return () => clearInterval(timer);
-  }, [loadConversation, refreshLists, selectedConversationId]);
+  }, [isVisible, loadConversation, refreshLists, selectedConversationId]);
+
+  useEffect(() => {
+    return () => {
+      refreshAbortRef.current?.abort();
+      refreshAbortRef.current = null;
+      conversationAbortRef.current?.abort();
+      conversationAbortRef.current = null;
+    };
+  }, []);
 
   const tabItems = useMemo(
     () => [

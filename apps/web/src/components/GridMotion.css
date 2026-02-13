@@ -29,11 +29,11 @@
 
 /* Radhöjd = bokhöjd (cellbredd * 3/2). Täcker hela skärmen – min 100dvh, grid fyller. */
 .gridMotion-container {
-  --book-height: calc((150vw / var(--grid-cols, 7)) * 3 / 2);
+  --book-height: clamp(92px, calc((130vw / var(--grid-cols, 7)) * 3 / 2), 250px);
   gap: 0.35rem;
   flex: none;
   position: relative;
-  width: 150vw;
+  width: 130vw;
   min-height: 100dvh;
   height: auto;
   display: grid;
@@ -41,6 +41,7 @@
   grid-template-columns: 100%;
   transform-origin: center center;
   will-change: transform;
+  contain: paint;
   z-index: 2;
 }
 
@@ -49,7 +50,7 @@
   gap: 0.35rem;
   grid-template-columns: repeat(var(--grid-cols, 7), 1fr);
   align-items: stretch;
-  will-change: transform, filter;
+  will-change: transform;
 }
 
 .row__item {
@@ -69,7 +70,7 @@
   justify-content: center;
   color: white;
   font-size: 1rem;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
 }
 
 .row__item-img {
@@ -99,4 +100,11 @@
 
 .fullview .row__item-inner {
   border-radius: 0px;
+}
+
+@media (prefers-reduced-motion: reduce), (max-width: 768px) {
+  .gridMotion-container,
+  .row {
+    will-change: auto;
+  }
 }

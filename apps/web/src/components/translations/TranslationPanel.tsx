@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import TranslationStatusBadge, { type TranslationStatus } from "./TranslationStatusBadge";
+import { useDocumentVisible } from "@/hooks/useDocumentVisible";
 
 const LANGUAGES = [
   { code: "en", label: "English" },
@@ -32,20 +33,34 @@ function mapStatus(raw: string): TranslationStatus {
 }
 
 export default function TranslationPanel({ bookId }: { bookId: string }) {
+  const isVisible = useDocumentVisible();
   const [targetLanguage, setTargetLanguage] = useState("en");
   const [translations, setTranslations] = useState<TranslationEntry[]>([]);
   const [starting, setStarting] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const fetchAbortRef = useRef<AbortController | null>(null);
 
   const fetchStatus = useCallback(async () => {
+    fetchAbortRef.current?.abort();
+    const controller = new AbortController();
+    fetchAbortRef.current = controller;
     try {
-      const res = await fetch(`/api/books/${bookId}/translation-status`);
+      const res = await fetch(`/api/books/${bookId}/translation-status`, {
+        signal: controller.signal,
+      });
       if (!res.ok) return;
       const data = await res.json();
       setTranslations(data.translations ?? []);
-    } catch {
+    } catch (error) {
+      if (error instanceof DOMException && error.name === "AbortError") {
+        return;
+      }
       // silent
+    } finally {
+      if (fetchAbortRef.current === controller) {
+        fetchAbortRef.current = null;
+      }
     }
   }, [bookId]);
 
@@ -57,6 +72,7 @@ export default function TranslationPanel({ bookId }: { bookId: string }) {
   const hasInProgress = translations.some((t) => t.status === "translating");
 
   useEffect(() => {
+    if (!isVisible) return;
     if (hasInProgress) {
       pollRef.current = setInterval(fetchStatus, 10_000);
     }
@@ -65,8 +81,10 @@ export default function TranslationPanel({ bookId }: { bookId: string }) {
         clearInterval(pollRef.current);
         pollRef.current = null;
       }
+      fetchAbortRef.current?.abort();
+      fetchAbortRef.current = null;
     };
-  }, [hasInProgress, fetchStatus]);
+  }, [hasInProgress, fetchStatus, isVisible]);
 
   const handleStartTranslation = async () => {
     setStarting(true);

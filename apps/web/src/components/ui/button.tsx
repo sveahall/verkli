@@ -3,24 +3,24 @@ import { cva, type VariantProps } from "class-variance-authority";
 import { cn } from "@/lib/utils";
 
 const buttonVariants = cva(
-  "touch-target inline-flex items-center justify-center gap-2 rounded-full font-medium transition focus:outline-none focus-visible:ring-2 focus-visible:ring-[#907AFF]/40 focus-visible:ring-offset-2 focus-visible:ring-offset-white active:scale-[0.98] disabled:pointer-events-none disabled:opacity-60 dark:focus-visible:ring-offset-[#0b0b12]",
+  "inline-flex min-h-[44px] min-w-[44px] items-center justify-center gap-2 rounded-xl font-medium transition-all duration-150 focus:outline-none focus-visible:ring-2 focus-visible:ring-slate-900/10 focus-visible:ring-offset-2 focus-visible:ring-offset-white active:scale-[0.98] disabled:pointer-events-none disabled:opacity-50 dark:focus-visible:ring-white/15 dark:focus-visible:ring-offset-transparent",
   {
     variants: {
       variant: {
         primary:
-          "bg-slate-900 text-white hover:bg-slate-800 dark:bg-white dark:text-slate-900 dark:hover:bg-white/90",
+          "bg-slate-900 text-white hover:bg-slate-800 shadow-[0_0_20px_rgba(139,92,246,0.1)] dark:bg-white dark:text-slate-900 dark:hover:bg-white/90 dark:shadow-[0_0_20px_rgba(139,92,246,0.15)]",
         secondary:
-          "border border-slate-200/80 bg-white text-slate-700 hover:border-slate-300 hover:bg-slate-50 hover:text-slate-900 dark:border-white/10 dark:bg-white/5 dark:text-white/70 dark:hover:border-white/20 dark:hover:bg-white/10 dark:hover:text-white",
+          "border border-slate-200 bg-white text-slate-600 hover:border-slate-300 hover:bg-slate-50 hover:text-slate-900 dark:border-white/[0.1] dark:bg-white/[0.06] dark:text-white/70 dark:backdrop-blur-sm dark:hover:border-white/20 dark:hover:bg-white/10 dark:hover:text-white",
         ghost:
           "text-slate-600 hover:bg-slate-100 hover:text-slate-900 dark:text-white/60 dark:hover:bg-white/10 dark:hover:text-white",
         destructive:
           "bg-red-600 text-white hover:bg-red-500 dark:bg-red-500 dark:hover:bg-red-400",
       },
       size: {
-        sm: "min-h-[40px] px-4 py-2 text-[13px]",
-        md: "min-h-[44px] px-5 py-3 text-[14px]",
+        sm: "min-h-[36px] px-4 py-2 text-[13px]",
+        md: "min-h-[44px] px-5 py-3 text-[15px]",
         lg: "min-h-[48px] px-6 py-3 text-[15px]",
-        icon: "h-11 w-11",
+        icon: "h-11 w-11 rounded-full",
       },
       fullWidth: {
         true: "w-full",

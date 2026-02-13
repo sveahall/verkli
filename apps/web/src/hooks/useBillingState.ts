@@ -1,9 +1,10 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { normalizeBillingStatus, type BillingState } from "@/lib/billing/state";
 import { parseBillingPlan } from "@/lib/billing/plans";
 import { resolveErrorMessage } from "@/lib/error-messages";
+import { useDocumentVisible } from "@/hooks/useDocumentVisible";
 
 type BillingStateApiPayload = Partial<{
   plan: string | null;
@@ -58,16 +59,25 @@ export function useBillingState(options?: UseBillingStateOptions): {
   refetch: () => Promise<void>;
 } {
   const pollIntervalMs = options?.pollIntervalMs ?? 0;
+  const isVisible = useDocumentVisible();
   const [state, setState] = useState<BillingState | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const inFlightRef = useRef(false);
+  const abortRef = useRef<AbortController | null>(null);
 
   const fetchState = useCallback(async () => {
+    if (inFlightRef.current) return;
+    abortRef.current?.abort();
+    const controller = new AbortController();
+    abortRef.current = controller;
+    inFlightRef.current = true;
     try {
       const res = await fetch("/api/billing/state", {
         method: "GET",
         credentials: "include",
         cache: "no-store",
+        signal: controller.signal,
       });
 
       const body = (await res.json().catch(() => ({}))) as BillingStateApiPayload;
@@ -84,10 +94,17 @@ export function useBillingState(options?: UseBillingStateOptions): {
 
       setState(toBillingState(body));
       setError(null);
-    } catch {
+    } catch (error) {
+      if (error instanceof DOMException && error.name === "AbortError") {
+        return;
+      }
       setError(resolveErrorMessage(null));
       setState(null);
     } finally {
+      if (abortRef.current === controller) {
+        abortRef.current = null;
+      }
+      inFlightRef.current = false;
       setLoading(false);
     }
   }, []);
@@ -98,12 +115,17 @@ export function useBillingState(options?: UseBillingStateOptions): {
   }, [fetchState]);
 
   useEffect(() => {
+    if (!isVisible) return;
     if (!pollIntervalMs || pollIntervalMs < 1000) return;
     const interval = setInterval(() => {
       void fetchState();
     }, pollIntervalMs);
-    return () => clearInterval(interval);
-  }, [fetchState, pollIntervalMs]);
+    return () => {
+      clearInterval(interval);
+      abortRef.current?.abort();
+      abortRef.current = null;
+    };
+  }, [fetchState, isVisible, pollIntervalMs]);
 
   return {
     plan: state?.plan ?? null,

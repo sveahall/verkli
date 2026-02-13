@@ -66,18 +66,18 @@ export default function ReaderSignUp() {
     return (
       <AuthShell backHref="/reader" backLabel="Back to reader home">
         <AuthCard title="Check your email" subtitle="Almost there">
-          <div className="flex flex-col items-center text-center gap-4">
-            <div className="flex h-14 w-14 items-center justify-center rounded-full bg-emerald-500/15 text-emerald-500">
-              <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+          <div className="flex flex-col items-center gap-4 text-center">
+            <div className="flex h-12 w-12 items-center justify-center rounded-full bg-emerald-50/60 text-emerald-600 dark:bg-emerald-500/10 dark:text-emerald-300">
+              <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
               </svg>
             </div>
-            <p className="text-sm text-slate-600 dark:text-white/60">
-              We sent a confirmation link to <span className="font-semibold text-slate-900 dark:text-white">{email}</span>.
+            <p className="text-[14px] leading-relaxed text-slate-500 dark:text-white/50">
+              We sent a confirmation link to <span className="font-medium text-slate-900 dark:text-white">{email}</span>.
               Open it to activate your account.
             </p>
-            <Link href="/reader/signin" className="btn-secondary w-full justify-center">
-              Back to sign in
+            <Link href="/reader/signin" className="mt-2 w-full">
+              <Button variant="secondary" fullWidth>Back to sign in</Button>
             </Link>
           </div>
         </AuthCard>
@@ -91,13 +91,13 @@ export default function ReaderSignUp() {
         {error && (
           <div
             role="alert"
-            className="mb-4 rounded-xl border border-red-200 bg-red-50/80 px-4 py-3 text-sm text-red-700 dark:border-red-900/40 dark:bg-red-950/40 dark:text-red-300"
+            className="mb-5 rounded-xl border border-red-200/80 bg-red-50/60 px-4 py-3 text-[14px] text-red-600 dark:border-red-500/20 dark:bg-red-500/10 dark:text-red-300"
           >
             {error}
           </div>
         )}
 
-        <form onSubmit={handleSubmit} className="flex flex-col gap-5">
+        <form onSubmit={handleSubmit} className="flex flex-col gap-4">
           <FormField label="Email" error={fieldErrors.email}>
             <Input
               type="email"
@@ -106,7 +106,7 @@ export default function ReaderSignUp() {
               placeholder="you@example.com"
               autoComplete="email"
               required
-
+              fullWidth
             />
           </FormField>
 
@@ -118,7 +118,7 @@ export default function ReaderSignUp() {
               placeholder="••••••••"
               autoComplete="new-password"
               required
-
+              fullWidth
             />
           </FormField>
 
@@ -130,28 +130,28 @@ export default function ReaderSignUp() {
               placeholder="••••••••"
               autoComplete="new-password"
               required
-
+              fullWidth
             />
           </FormField>
 
-          <Button type="submit" fullWidth isLoading={loading} loadingText="Creating account">
+          <Button type="submit" fullWidth isLoading={loading} loadingText="Creating account..." className="mt-1">
             Create account
           </Button>
         </form>
 
-        <div className="my-6 flex w-full items-center gap-4">
-          <div className="h-px flex-1 bg-black/10 dark:bg-white/10" />
-          <span className="text-sm text-slate-500 dark:text-white/30">or</span>
-          <div className="h-px flex-1 bg-black/10 dark:bg-white/10" />
+        <div className="my-6 flex items-center gap-4">
+          <div className="h-px flex-1 bg-slate-100 dark:bg-white/[0.06]" />
+          <span className="text-[13px] text-slate-400 dark:text-white/25">or</span>
+          <div className="h-px flex-1 bg-slate-100 dark:bg-white/[0.06]" />
         </div>
 
         <Button type="button" variant="secondary" fullWidth onClick={handleGoogleSignIn}>
           Continue with Google
         </Button>
 
-        <p className="mt-6 text-sm text-slate-600 dark:text-white/50">
+        <p className="mt-8 text-center text-[14px] text-slate-500 dark:text-white/40">
           Already have an account?{" "}
-          <Link href="/reader/signin" className="font-semibold text-slate-900 dark:text-white">
+          <Link href="/reader/signin" className="font-medium text-slate-900 hover:underline dark:text-white">
             Sign in
           </Link>
         </p>

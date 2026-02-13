@@ -1,9 +1,10 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import Link from "next/link";
 import { resolveErrorMessage } from "@/lib/error-messages";
 import { isJobActiveStatus, normalizeJobStatus, type JobStatus } from "@/lib/job-status";
+import { useDocumentVisible } from "@/hooks/useDocumentVisible";
 
 const ALLOWED_EXT = [".epub", ".docx", ".html", ".htm", ".txt"];
 const POLL_INTERVAL_MS = 2500;
@@ -37,6 +38,7 @@ function toImportStatus(raw: unknown): JobStatus {
 }
 
 export function ImportBookModal({ open, onClose, onImportComplete }: ImportBookModalProps) {
+  const isVisible = useDocumentVisible();
   const [importsList, setImportsList] = useState<ImportItem[]>([]);
   const [uploading, setUploading] = useState(false);
   const [dragOver, setDragOver] = useState(false);
@@ -45,6 +47,7 @@ export function ImportBookModal({ open, onClose, onImportComplete }: ImportBookM
   const [redisHint, setRedisHint] = useState(false);
   const [pendingImportIds, setPendingImportIds] = useState<string[]>([]);
   const [openedAtMs, setOpenedAtMs] = useState<number | null>(null);
+  const fetchAbortRef = useRef<AbortController | null>(null);
 
   const parseTimestamp = (value: string | null | undefined): number => {
     if (!value) return 0;
@@ -53,8 +56,13 @@ export function ImportBookModal({ open, onClose, onImportComplete }: ImportBookM
   };
 
   const fetchImports = useCallback(async () => {
+    fetchAbortRef.current?.abort();
+    const controller = new AbortController();
+    fetchAbortRef.current = controller;
     try {
-      const res = await fetch("/api/books/imports?limit=20");
+      const res = await fetch("/api/books/imports?limit=20", {
+        signal: controller.signal,
+      });
       if (res.ok) {
         const data = await res.json();
         const normalized = ((data.imports as ImportItem[] | undefined) ?? []).map((item) => ({
@@ -63,13 +71,22 @@ export function ImportBookModal({ open, onClose, onImportComplete }: ImportBookM
         }));
         setImportsList(normalized);
       }
-    } catch {
+    } catch (error) {
+      if (error instanceof DOMException && error.name === "AbortError") {
+        return;
+      }
       setImportsList([]);
+    } finally {
+      if (fetchAbortRef.current === controller) {
+        fetchAbortRef.current = null;
+      }
     }
   }, []);
 
   useEffect(() => {
     if (!open) {
+      fetchAbortRef.current?.abort();
+      fetchAbortRef.current = null;
       setPendingImportIds([]);
       setOpenedAtMs(null);
       setImportsList([]);
@@ -86,11 +103,16 @@ export function ImportBookModal({ open, onClose, onImportComplete }: ImportBookM
 
   useEffect(() => {
     if (!open) return;
+    if (!isVisible) return;
     const hasPending = importsList.some((i) => isJobActiveStatus(i.status));
     if (!hasPending) return;
     const t = setInterval(fetchImports, POLL_INTERVAL_MS);
-    return () => clearInterval(t);
-  }, [open, importsList, fetchImports]);
+    return () => {
+      clearInterval(t);
+      fetchAbortRef.current?.abort();
+      fetchAbortRef.current = null;
+    };
+  }, [open, importsList, fetchImports, isVisible]);
 
   useEffect(() => {
     if (!open || !onImportComplete) return;

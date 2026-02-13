@@ -40,9 +40,9 @@ export function FormField({
     : children;
 
   return (
-    <div className={cn("space-y-2", className)}>
+    <div className={cn("w-full space-y-1.5", className)}>
       <div className="flex items-center justify-between gap-4">
-        <label htmlFor={fieldId} className="text-[13px] font-medium text-slate-700 dark:text-white/70">
+        <label htmlFor={fieldId} className="text-[13px] font-medium text-slate-600 dark:text-white/50">
           {label}
           {required && <span className="text-red-500"> *</span>}
         </label>

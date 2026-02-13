@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { resolveErrorMessage } from "@/lib/error-messages";
+import { useDocumentVisible } from "@/hooks/useDocumentVisible";
 
 type ChatMessage = {
   id: string;
@@ -22,12 +23,14 @@ export default function ClubChat({
   initialMessages,
   currentUserId,
 }: ClubChatProps) {
+  const isVisible = useDocumentVisible();
   const [messages, setMessages] = useState(initialMessages);
   const [draft, setDraft] = useState("");
   const [sending, setSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const bottomRef = useRef<HTMLDivElement | null>(null);
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const fetchAbortRef = useRef<AbortController | null>(null);
 
   const scrollToBottom = useCallback(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -37,26 +40,42 @@ export default function ClubChat({
     scrollToBottom();
   }, [messages.length, scrollToBottom]);
 
-  useEffect(() => {
-    const fetchMessages = async () => {
-      try {
-        const res = await fetch(`/api/book-clubs/${clubId}/messages`, {
-          credentials: "include",
-        });
-        if (res.ok) {
-          const body = (await res.json()) as { messages: ChatMessage[] };
-          setMessages(body.messages);
-        }
-      } catch {
-        // silent poll failure
+  const fetchMessages = useCallback(async () => {
+    fetchAbortRef.current?.abort();
+    const controller = new AbortController();
+    fetchAbortRef.current = controller;
+    try {
+      const res = await fetch(`/api/book-clubs/${clubId}/messages`, {
+        credentials: "include",
+        signal: controller.signal,
+      });
+      if (res.ok) {
+        const body = (await res.json()) as { messages: ChatMessage[] };
+        setMessages(body.messages);
       }
-    };
+    } catch (error) {
+      if (error instanceof DOMException && error.name === "AbortError") {
+        return;
+      }
+      // silent poll failure
+    } finally {
+      if (fetchAbortRef.current === controller) {
+        fetchAbortRef.current = null;
+      }
+    }
+  }, [clubId]);
 
+  useEffect(() => {
+    if (!isVisible) return;
+    void fetchMessages();
     pollRef.current = setInterval(fetchMessages, 5000);
     return () => {
       if (pollRef.current) clearInterval(pollRef.current);
+      pollRef.current = null;
+      fetchAbortRef.current?.abort();
+      fetchAbortRef.current = null;
     };
-  }, [clubId]);
+  }, [fetchMessages, isVisible]);
 
   const handleSend = useCallback(
     async (e: React.FormEvent) => {

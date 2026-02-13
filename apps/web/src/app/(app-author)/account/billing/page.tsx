@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import { resolveErrorMessage } from "@/lib/error-messages";
 import { useBillingState } from "@/hooks/useBillingState";
+import { useDocumentVisible } from "@/hooks/useDocumentVisible";
 import type { BillingPlan } from "@/lib/billing/plans";
 
 type PlanCard = {
@@ -52,6 +53,7 @@ function formatStatus(status: string | null): string {
 }
 
 export default function BillingPage() {
+  const isVisible = useDocumentVisible();
   const { state, loading, error, refetch } = useBillingState({ pollIntervalMs: 10_000 });
   const [pendingPlan, setPendingPlan] = useState<BillingPlan | null>(null);
   const [openingPortal, setOpeningPortal] = useState(false);
@@ -71,6 +73,7 @@ export default function BillingPage() {
 
   useEffect(() => {
     if (!processingCheckout) return;
+    if (!isVisible) return;
 
     const interval = setInterval(async () => {
       pollCount.current += 1;
@@ -82,7 +85,7 @@ export default function BillingPage() {
     }, 2000);
 
     return () => clearInterval(interval);
-  }, [processingCheckout, refetch, clearCheckoutParam]);
+  }, [processingCheckout, refetch, clearCheckoutParam, isVisible]);
 
   useEffect(() => {
     if (processingCheckout && state?.isPlusActive) {

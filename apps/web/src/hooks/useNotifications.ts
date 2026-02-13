@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
+import { useDocumentVisible } from "@/hooks/useDocumentVisible";
 
 type Notification = {
   id: string;
@@ -17,28 +18,50 @@ type Notification = {
 };
 
 export function useUnreadCount() {
+  const isVisible = useDocumentVisible();
   const [count, setCount] = useState(0);
   const [loading, setLoading] = useState(true);
+  const inFlightRef = useRef(false);
+  const abortRef = useRef<AbortController | null>(null);
 
   const fetchCount = useCallback(async () => {
+    if (inFlightRef.current) return;
+    abortRef.current?.abort();
+    const controller = new AbortController();
+    abortRef.current = controller;
+    inFlightRef.current = true;
     try {
-      const res = await fetch("/api/notifications/unread-count");
+      const res = await fetch("/api/notifications/unread-count", {
+        signal: controller.signal,
+      });
       if (res.ok) {
         const json = await res.json();
         setCount(json.count ?? 0);
       }
-    } catch {
+    } catch (error) {
+      if (error instanceof DOMException && error.name === "AbortError") {
+        return;
+      }
       // silent
     } finally {
+      if (abortRef.current === controller) {
+        abortRef.current = null;
+      }
+      inFlightRef.current = false;
       setLoading(false);
     }
   }, []);
 
   useEffect(() => {
+    if (!isVisible) return;
     fetchCount();
     const interval = setInterval(fetchCount, 30_000);
-    return () => clearInterval(interval);
-  }, [fetchCount]);
+    return () => {
+      clearInterval(interval);
+      abortRef.current?.abort();
+      abortRef.current = null;
+    };
+  }, [fetchCount, isVisible]);
 
   return { count, loading, refetch: fetchCount };
 }

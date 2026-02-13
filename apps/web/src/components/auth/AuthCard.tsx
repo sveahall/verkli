@@ -1,5 +1,4 @@
 import type { ReactNode } from "react";
-import { Card } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
 
 export type AuthCardProps = {
@@ -20,22 +19,24 @@ export default function AuthCard({
   className,
 }: AuthCardProps) {
   return (
-    <Card className={cn("card-auth w-full", className)}>
-      <div className="flex w-full flex-col items-center px-6 py-10 text-center sm:px-10 sm:py-12">
+    <div className={cn("card-auth w-full", className)}>
+      <div className="flex w-full flex-col items-center px-8 pb-10 pt-12 text-center sm:px-12 sm:pb-12 sm:pt-14">
         {subtitle && (
-          <p className="text-sm font-medium tracking-wide text-slate-600 dark:text-white/50 sm:text-base">
+          <p className="text-[15px] font-normal text-slate-500 dark:text-white/45">
             {subtitle}
           </p>
         )}
-        <h1 className="mt-3 text-2xl font-semibold leading-[1.15] tracking-tight text-slate-900 dark:text-white sm:mt-4 sm:text-3xl md:text-[36px]">
+        <h1 className="mt-2 text-[28px] font-semibold leading-[1.2] tracking-[-0.02em] text-slate-900 dark:text-white sm:text-[32px]">
           {title}
         </h1>
         {description && (
-          <p className="mt-3 text-[14px] text-slate-600 dark:text-white/60">{description}</p>
+          <p className="mt-2 text-[15px] leading-relaxed text-slate-500 dark:text-white/50">{description}</p>
         )}
+
         <div className="mt-8 w-full text-left">{children}</div>
+
         {footer && <div className="mt-6 w-full text-center">{footer}</div>}
       </div>
-    </Card>
+    </div>
   );
 }

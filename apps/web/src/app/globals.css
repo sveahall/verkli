@@ -121,10 +121,6 @@
 
 /* Design system: page & section spacing (use across app) */
 @layer utilities {
-  .touch-target {
-    min-height: 44px;
-    min-width: 44px;
-  }
   .safe-area-inset-bottom {
     padding-bottom: env(safe-area-inset-bottom, 0);
   }
@@ -186,20 +182,10 @@
   .empty-state-base {
     @apply rounded-2xl border border-dashed border-slate-200/80 bg-slate-50/80 px-6 py-6 text-left dark:border-white/15 dark:bg-white/[0.03];
   }
-  /* Auth card: solid i light mode, glass i dark */
+  /* Auth card: solid white in light, frosted glass in dark */
   .card-auth {
-    @apply rounded-2xl border border-slate-200/80 bg-white shadow-[0_6px_20px_rgba(15,23,42,0.06)] dark:border-white/10 dark:bg-white/[0.04] dark:shadow-[0_8px_24px_rgba(0,0,0,0.2)];
+    @apply rounded-3xl border border-white/60 bg-white shadow-[0_2px_8px_rgba(0,0,0,0.04),0_16px_48px_rgba(0,0,0,0.08)] backdrop-blur-none dark:border-white/[0.1] dark:bg-white/[0.06] dark:shadow-[0_8px_32px_rgba(0,0,0,0.4),0_0_0_1px_rgba(255,255,255,0.05)_inset] dark:backdrop-blur-[48px];
   }
-}
-
-/* Light mode override för auth glass-kort – solid bakgrund */
-:root .card-auth,
-html:not(.dark) .card-auth {
-  background: white !important;
-  backdrop-filter: none !important;
-  -webkit-backdrop-filter: none !important;
-  border-color: rgb(226 232 240) !important;
-  box-shadow: 0 6px 20px rgba(15, 23, 42, 0.06) !important;
 }
 
 @layer base {
@@ -362,8 +348,9 @@ html:not(.dark) .glass-button:active {
 .proof-blob {
   position: absolute;
   border-radius: 999px;
-  filter: blur(90px);
+  filter: blur(72px);
   opacity: 0.65;
+  will-change: transform;
 }
 
 .proof-blob.blob-1 {
@@ -499,6 +486,11 @@ html:not(.dark) .glass-button:active {
   .proof-quote {
     height: auto;
   }
+
+  .proof-blob {
+    filter: blur(56px);
+    opacity: 0.5;
+  }
 }
 
 @keyframes float-slow {
@@ -537,9 +529,9 @@ html:not(.dark) .glass-button:active {
   }
 }
 
-@media (prefers-reduced-motion: reduce) {
+@media (prefers-reduced-motion: reduce), (max-width: 768px) {
   .proof-blob {
-    animation: none;
+    animation: none !important;
   }
 }
 
@@ -559,7 +551,7 @@ html:not(.dark) .glass-button:active {
 .hero-glow-drift-1 { animation: hero-glow-drift-1 18s ease-in-out infinite; }
 .hero-glow-drift-2 { animation: hero-glow-drift-2 22s ease-in-out infinite; }
 .hero-glow-drift-3 { animation: hero-glow-drift-3 14s ease-in-out infinite; }
-@media (prefers-reduced-motion: reduce) {
+@media (prefers-reduced-motion: reduce), (max-width: 768px) {
   .hero-glow-drift-1, .hero-glow-drift-2, .hero-glow-drift-3 { animation: none; }
 }
 
@@ -567,6 +559,13 @@ html:not(.dark) .glass-button:active {
   display: flex;
   flex-direction: column;
   gap: clamp(64px, 8vw, 120px);
+}
+
+@supports (content-visibility: auto) {
+  .landing-deferred {
+    content-visibility: auto;
+    contain-intrinsic-size: 900px;
+  }
 }
 
 /* Logo carousel animation */
@@ -663,6 +662,14 @@ html:not(.dark) .glass-button:active {
   padding: 14px;
   animation: scroll-covers-up 25s linear infinite;
   will-change: transform;
+}
+
+@media (prefers-reduced-motion: reduce), (max-width: 768px) {
+  .logo-carousel-track,
+  .footer-cover-grid > div {
+    animation: none !important;
+    transform: translate3d(0, 0, 0);
+  }
 }
 
 .footer-cover {
@@ -836,4 +843,49 @@ html:not(.dark) .author-light .keep-white .text-white\/50,
 html:not(.dark) .author-light .keep-white .text-white\/40,
 html:not(.dark) .author-light .keep-white .text-white\/30 {
   color: rgb(255 255 255) !important;
+}
+
+/* ── Reader hero keyframes ── */
+@keyframes reader-spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+@keyframes reader-pulse {
+  0%, 100% { transform: scale(1); opacity: 0.6; }
+  50% { transform: scale(1.15); opacity: 1; }
+}
+@keyframes reader-aurora-1 {
+  0%, 100% { transform: translate(0, 0) scale(1); }
+  33% { transform: translate(5%, 3%) scale(1.06); }
+  66% { transform: translate(-3%, 5%) scale(0.96); }
+}
+@keyframes reader-aurora-2 {
+  0%, 100% { transform: translate(0, 0) scale(1); }
+  25% { transform: translate(-4%, 6%) scale(1.08); }
+  50% { transform: translate(3%, -4%) scale(0.94); }
+  75% { transform: translate(-2%, 2%) scale(1.03); }
+}
+@keyframes reader-aurora-3 {
+  0%, 100% { transform: translate(0, 0) scale(1); }
+  40% { transform: translate(6%, -3%) scale(1.05); }
+  70% { transform: translate(-5%, 4%) scale(0.97); }
+}
+@keyframes reader-aurora-4 {
+  0%, 100% { transform: translate(0, 0) scale(1); }
+  30% { transform: translate(-3%, -5%) scale(1.04); }
+  60% { transform: translate(4%, 3%) scale(0.98); }
+}
+
+/* ── Auth shell animated orb keyframes ── */
+@keyframes auth-drift1 {
+  0% { transform: translate(0, 0) scale(1); }
+  100% { transform: translate(60px, 40px) scale(1.08); }
+}
+@keyframes auth-drift2 {
+  0% { transform: translate(0, 0) scale(1); }
+  100% { transform: translate(-50px, -30px) scale(1.05); }
+}
+@keyframes auth-drift3 {
+  0% { transform: translate(0, 0) scale(1); }
+  100% { transform: translate(40px, -50px) scale(1.1); }
 }

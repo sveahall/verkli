@@ -88,13 +88,13 @@ export default function ReaderSignIn() {
         {error && (
           <div
             role="alert"
-            className="mb-4 rounded-xl border border-red-200 bg-red-50/80 px-4 py-3 text-sm text-red-700 dark:border-red-900/40 dark:bg-red-950/40 dark:text-red-300"
+            className="mb-5 rounded-xl border border-red-200/80 bg-red-50/60 px-4 py-3 text-[14px] text-red-600 dark:border-red-500/20 dark:bg-red-500/10 dark:text-red-300"
           >
             {error}
           </div>
         )}
 
-        <form onSubmit={handleSubmit} className="flex flex-col gap-5">
+        <form onSubmit={handleSubmit} className="flex flex-col gap-4">
           <FormField label="Email" error={fieldErrors.email}>
             <Input
               type="email"
@@ -103,7 +103,7 @@ export default function ReaderSignIn() {
               placeholder="you@example.com"
               autoComplete="email"
               required
-
+              fullWidth
             />
           </FormField>
 
@@ -115,46 +115,46 @@ export default function ReaderSignIn() {
               placeholder="••••••••"
               autoComplete="current-password"
               required
-
+              fullWidth
             />
           </FormField>
 
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <label className="flex items-center gap-2 text-sm text-slate-700 dark:text-white/70">
+          <div className="flex items-center justify-between">
+            <label className="flex items-center gap-2 text-[13px] text-slate-500 dark:text-white/50">
               <input
                 type="checkbox"
                 checked={staySignedIn}
                 onChange={(e) => setStaySignedIn(e.target.checked)}
-                className="h-4 w-4 rounded border-black/20 bg-white text-[#907AFF] focus:ring-[#907AFF]/50 dark:border-white/20 dark:bg-black/20"
+                className="h-4 w-4 rounded border-slate-300 text-slate-900 focus:ring-slate-900/20 dark:border-white/20 dark:bg-white/10 dark:text-white dark:focus:ring-white/20"
               />
               Stay signed in
             </label>
             <Link
               href="/reader/forgot-password"
-              className="text-sm text-slate-600 transition hover:text-slate-900 dark:text-white/50 dark:hover:text-white/70"
+              className="text-[13px] text-slate-500 transition hover:text-slate-700 dark:text-white/40 dark:hover:text-white/60"
             >
               Forgot password?
             </Link>
           </div>
 
-          <Button type="submit" fullWidth isLoading={loading} loadingText="Signing in">
+          <Button type="submit" fullWidth isLoading={loading} loadingText="Signing in..." className="mt-1">
             Sign in
           </Button>
         </form>
 
-        <div className="my-6 flex w-full items-center gap-4">
-          <div className="h-px flex-1 bg-black/10 dark:bg-white/10" />
-          <span className="text-sm text-slate-500 dark:text-white/30">or</span>
-          <div className="h-px flex-1 bg-black/10 dark:bg-white/10" />
+        <div className="my-6 flex items-center gap-4">
+          <div className="h-px flex-1 bg-slate-100 dark:bg-white/[0.06]" />
+          <span className="text-[13px] text-slate-400 dark:text-white/25">or</span>
+          <div className="h-px flex-1 bg-slate-100 dark:bg-white/[0.06]" />
         </div>
 
         <Button type="button" variant="secondary" fullWidth onClick={handleGoogleSignIn}>
           Continue with Google
         </Button>
 
-        <p className="mt-6 text-sm text-slate-600 dark:text-white/50">
+        <p className="mt-8 text-center text-[14px] text-slate-500 dark:text-white/40">
           Don&apos;t have an account?{" "}
-          <Link href="/reader/signup" className="font-semibold text-slate-900 dark:text-white">
+          <Link href="/reader/signup" className="font-medium text-slate-900 hover:underline dark:text-white">
             Create one
           </Link>
         </p>

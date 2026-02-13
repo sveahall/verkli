@@ -73,27 +73,27 @@ export default function AuthorForgotPassword() {
         className="glass-card card-auth relative z-10 mx-4 w-full max-w-[480px] border border-black/10 dark:border-white/10 sm:mx-6 md:rounded-[32px]"
       >
         <div className="flex w-full flex-col items-center px-12 py-14 text-center">
-          <p className="text-base font-medium tracking-wide text-slate-600 dark:text-white/50">
+          <p className="text-base font-medium tracking-wide text-white/50">
             Reset your password
           </p>
-          <h1 className="mt-4 text-[32px] font-semibold leading-[1.15] tracking-tight text-slate-900 dark:text-white">
+          <h1 className="mt-4 text-[32px] font-semibold leading-[1.15] tracking-tight text-white">
             Get back in
           </h1>
 
           {error && (
-            <div className="mt-4 w-full rounded-xl border border-red-200 bg-red-50/80 px-4 py-3 text-sm text-red-700 dark:border-red-900/40 dark:bg-red-950/40 dark:text-red-300">
+            <div className="mt-4 w-full rounded-xl border border-red-200/80 bg-red-50/60 px-4 py-3 text-sm text-red-600 dark:border-red-500/20 dark:bg-red-500/10 dark:text-red-300">
               {error}
             </div>
           )}
 
           {success ? (
-            <div className="mt-6 w-full rounded-lg bg-emerald-500/10 px-4 py-4 text-sm text-emerald-600 dark:text-emerald-300">
+            <div className="mt-6 w-full rounded-lg border border-emerald-200/80 bg-emerald-50/60 px-4 py-4 text-sm text-emerald-600 dark:border-emerald-500/20 dark:bg-emerald-500/10 dark:text-emerald-300">
               Check your email for a reset link.
             </div>
           ) : (
             <form onSubmit={handleSubmit} className="mt-8 flex w-full flex-col gap-4">
               <div className="flex flex-col gap-2 text-left">
-                <label htmlFor="email" className="text-sm font-medium text-slate-700 dark:text-white/60">
+                <label htmlFor="email" className="text-sm font-medium text-white/60">
                   Email
                 </label>
                 <input
@@ -117,9 +117,9 @@ export default function AuthorForgotPassword() {
             </form>
           )}
 
-          <p className="mt-8 text-sm text-slate-600 dark:text-white/40">
+          <p className="mt-8 text-sm text-slate-500 dark:text-white/40">
             Remembered it?{" "}
-            <Link href="/author/signin" className="text-slate-900 dark:text-white/70 transition hover:text-slate-700 dark:hover:text-white">
+            <Link href="/author/signin" className="text-slate-600 transition hover:text-slate-900 dark:text-white/70 dark:hover:text-white">
               Back to sign in
             </Link>
           </p>

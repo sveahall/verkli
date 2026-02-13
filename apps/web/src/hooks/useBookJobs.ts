@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { resolveErrorMessage } from "@/lib/error-messages";
 import type { JobStatus } from "@/lib/job-status";
+import { useDocumentVisible } from "@/hooks/useDocumentVisible";
 
 /* ─── Types matching GET /api/books/:id/jobs response ─────────────────────── */
 
@@ -112,6 +113,7 @@ export function useBookJobs(
   opts?: UseBookJobsOpts
 ): UseBookJobsResult {
   const pollMs = opts?.pollIntervalMs ?? DEFAULT_POLL_MS;
+  const isVisible = useDocumentVisible();
 
   const [jobs, setJobs] = useState<UnifiedJob[]>([]);
   const [activeCount, setActiveCount] = useState(0);
@@ -123,6 +125,7 @@ export function useBookJobs(
   const prevActiveRef = useRef(0);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const mountedRef = useRef(true);
+  const abortRef = useRef<AbortController | null>(null);
 
   const fetchJobs = useCallback(async () => {
     if (!bookId) {
@@ -133,8 +136,14 @@ export function useBookJobs(
       return;
     }
 
+    abortRef.current?.abort();
+    const controller = new AbortController();
+    abortRef.current = controller;
+
     try {
-      const res = await fetch(`/api/books/${bookId}/jobs`);
+      const res = await fetch(`/api/books/${bookId}/jobs`, {
+        signal: controller.signal,
+      });
 
       if (!res.ok) {
         // 403/404/500 — don't crash, just return empty
@@ -164,12 +173,18 @@ export function useBookJobs(
         setSettled(true);
       }
       prevActiveRef.current = data.activeCount ?? 0;
-    } catch {
+    } catch (error) {
+      if (error instanceof DOMException && error.name === "AbortError") {
+        return;
+      }
       if (!mountedRef.current) return;
       setJobs([]);
       setActiveCount(0);
       setError("Nätverksfel");
     } finally {
+      if (abortRef.current === controller) {
+        abortRef.current = null;
+      }
       if (mountedRef.current) {
         setLoading(false);
       }
@@ -186,7 +201,7 @@ export function useBookJobs(
 
   // Polling: start when activeCount > 0, stop when 0
   useEffect(() => {
-    if (activeCount > 0 && bookId) {
+    if (activeCount > 0 && bookId && isVisible) {
       // Start polling if not already
       if (!intervalRef.current) {
         intervalRef.current = setInterval(fetchJobs, pollMs);
@@ -204,14 +219,18 @@ export function useBookJobs(
         clearInterval(intervalRef.current);
         intervalRef.current = null;
       }
+      abortRef.current?.abort();
+      abortRef.current = null;
     };
-  }, [activeCount, bookId, fetchJobs, pollMs]);
+  }, [activeCount, bookId, fetchJobs, isVisible, pollMs]);
 
   // Cleanup on unmount
   useEffect(() => {
     mountedRef.current = true;
     return () => {
       mountedRef.current = false;
+      abortRef.current?.abort();
+      abortRef.current = null;
     };
   }, []);
 

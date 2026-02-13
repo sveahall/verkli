@@ -104,38 +104,50 @@ export default function StatsSection() {
       ref={sectionRef}
       className="relative mx-auto w-full max-w-[1200px] px-6 py-24"
     >
-      <div className="relative overflow-hidden rounded-[40px] bg-gradient-to-br from-black/5 via-black/5 to-transparent p-12 md:p-16 dark:from-white/[0.05] dark:via-white/[0.03]">
-        {/* Background glows */}
-        <div className="pointer-events-none absolute -left-20 top-1/2 h-[300px] w-[300px] -translate-y-1/2 rounded-full bg-[#907AFF]/15 blur-[100px]" />
-        <div className="pointer-events-none absolute -right-20 top-1/2 h-[300px] w-[300px] -translate-y-1/2 rounded-full bg-[#FCC997]/10 blur-[100px]" />
-        
-        <div className="relative text-center">
-          <h2 className="text-[32px] font-semibold leading-[1.15] tracking-[-0.02em] text-slate-900 dark:text-white md:text-[40px]">
-            The numbers speak for themselves
-          </h2>
-          <p className="mx-auto mt-4 max-w-[400px] text-[16px] text-slate-600 dark:text-white/50">
-            Join thousands of authors already growing with Verkli.
-          </p>
-        </div>
+      <div className="text-center">
+        <p className="text-[13px] font-medium uppercase tracking-[0.15em] text-[#907AFF]">
+          By the numbers
+        </p>
+        <h2 className="mt-4 text-[clamp(28px,4vw,48px)] font-semibold leading-[1.1] tracking-[-0.025em] text-slate-900 dark:text-white">
+          The numbers speak{" "}
+          <span className="bg-gradient-to-r from-[#907AFF] via-[#E29ED5] to-[#FCC997] bg-clip-text text-transparent">
+            for themselves
+          </span>
+        </h2>
+        <p className="mx-auto mt-4 max-w-[420px] text-[16px] leading-[1.7] text-slate-500 dark:text-white/45">
+          Join thousands of authors already growing with Verkli.
+        </p>
+      </div>
 
-        <div className="relative mt-14 grid gap-8 md:grid-cols-3">
+      {/* Gradient wrapper with glow blobs */}
+      <div className="relative mt-16 overflow-hidden rounded-[32px] border border-black/[0.06] bg-gradient-to-br from-black/[0.03] via-transparent to-black/[0.02] p-1 dark:border-white/[0.08] dark:from-white/[0.04] dark:to-white/[0.02]">
+        {/* Glow blobs */}
+        <div className="pointer-events-none absolute -left-24 -top-24 h-64 w-64 rounded-full bg-[#907AFF]/10 blur-3xl" />
+        <div className="pointer-events-none absolute -right-24 top-0 h-64 w-64 rounded-full bg-[#E29ED5]/10 blur-3xl" />
+        <div className="pointer-events-none absolute -bottom-16 left-1/2 h-48 w-48 -translate-x-1/2 rounded-full bg-[#FCC997]/10 blur-3xl" />
+
+        <div className="grid gap-px overflow-hidden rounded-[28px] bg-black/[0.04] md:grid-cols-3 dark:bg-white/[0.06]">
           {stats.map((stat, index) => (
-            <div 
-              key={index} 
-              className="group relative text-center"
+            <div
+              key={index}
+              className="group relative bg-white/80 p-10 text-center backdrop-blur-sm transition-colors duration-300 hover:bg-white dark:bg-white/[0.03] dark:hover:bg-white/[0.06]"
             >
-              <div 
-                className="text-[56px] font-bold tracking-tight transition-all duration-300 md:text-[72px]"
+              {/* Hover glow */}
+              <div
+                className="pointer-events-none absolute inset-0 opacity-0 transition-opacity duration-500 group-hover:opacity-100"
+                style={{
+                  background: `radial-gradient(300px circle at 50% 50%, ${stat.color}12, transparent 70%)`,
+                }}
+              />
+              <div
+                className="relative text-[56px] font-bold leading-none tracking-tight md:text-[64px]"
                 style={{ color: stat.color }}
               >
                 {formatValue(animatedValues[index] ?? 0, stat.format)}
               </div>
-              <div className="mt-2 text-[15px] text-slate-600 dark:text-white/50">
+              <div className="relative mt-3 text-[15px] text-slate-500 dark:text-white/45">
                 {stat.label}
               </div>
-              
-              {/* Animated underline */}
-              <div className="mx-auto mt-4 h-1 w-12 rounded-full transition-all duration-500 group-hover:w-20" style={{ background: `linear-gradient(90deg, transparent, ${stat.color}, transparent)` }} />
             </div>
           ))}
         </div>
