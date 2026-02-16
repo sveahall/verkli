@@ -51,7 +51,14 @@ export function BillingPageContent({
   initialSessionId = null,
   initialBillingState = null,
 }: BillingPageContentProps) {
+  const hasHydratedRef = useRef(false);
   const [mounted, setMounted] = useState(false);
+  /** When returning from Stripe (portal/checkout), stay in placeholder until after hydration to avoid mismatch. */
+  const [returnFromStripeReady, setReturnFromStripeReady] = useState(false);
+
+  useEffect(() => {
+    hasHydratedRef.current = true;
+  }, []);
   useEffect(() => {
     setMounted(true);
   }, []);
@@ -67,9 +74,22 @@ export function BillingPageContent({
   const router = useRouter();
   const checkoutParam = initialCheckout ?? null;
   const sessionIdParam = initialSessionId ?? null;
+  // Only set from URL params after mount to keep server and first client render identical (no checkout-derived UI).
+  const [processingCheckout, setProcessingCheckout] = useState(false);
+
+  // Detect checkout return only after hydration; then enable processing UI and refetch/sync/burst.
+  useEffect(() => {
+    if (!hasHydratedRef.current) return;
+    if (!mounted) return;
+    if (checkoutParam === "success") setProcessingCheckout(true);
+    if (checkoutParam === "success" || checkoutParam === "cancel") {
+      const t = window.setTimeout(() => setReturnFromStripeReady(true), 400);
+      return () => window.clearTimeout(t);
+    }
+  }, [mounted, checkoutParam]);
+
   const isCheckoutSuccess = checkoutParam === "success";
   const isCheckoutCancel = checkoutParam === "cancel";
-  const [processingCheckout, setProcessingCheckout] = useState(isCheckoutSuccess);
   const [syncingFromStripe, setSyncingFromStripe] = useState(false);
   const burstCountRef = useRef(0);
   const syncDoneRef = useRef(false);
@@ -84,9 +104,10 @@ export function BillingPageContent({
     router.replace(url.pathname + url.search, { scroll: false });
   }, [router]);
 
-  // When returning from Stripe checkout (not portal), sync billing state after a short delay so hydration can finish.
+  // When returning from Stripe checkout (not portal), sync billing state after hydration. Strict deps so it does not run on every render.
   useEffect(() => {
-    if (!isCheckoutSuccess || syncDoneRef.current) return;
+    if (!hasHydratedRef.current) return;
+    if (!mounted || !isCheckoutSuccess || syncDoneRef.current) return;
     syncDoneRef.current = true;
     const t = window.setTimeout(() => {
       (async () => {
@@ -109,17 +130,19 @@ export function BillingPageContent({
       })();
     }, 600);
     return () => window.clearTimeout(t);
-  }, [isCheckoutSuccess, sessionIdParam, refetch]);
+  }, [mounted, isCheckoutSuccess, sessionIdParam, refetch]);
 
   useEffect(() => {
-    if (isCheckoutSuccess || isCheckoutCancel) {
-      void refetch();
-    }
-  }, [isCheckoutSuccess, isCheckoutCancel, refetch]);
+    if (!hasHydratedRef.current) return;
+    if (!mounted || (!isCheckoutSuccess && !isCheckoutCancel)) return;
+    if (!returnFromStripeReady) return;
+    void refetch();
+  }, [mounted, isCheckoutSuccess, isCheckoutCancel, returnFromStripeReady, refetch]);
 
   // Only poll + clear URL when we actually have session_id (return from checkout), not from portal return.
   useEffect(() => {
-    if (!processingCheckout || !isCheckoutSuccess || !isVisible || !sessionIdParam?.trim()) return;
+    if (!hasHydratedRef.current) return;
+    if (!mounted || !processingCheckout || !isCheckoutSuccess || !isVisible || !sessionIdParam?.trim()) return;
 
     const BURST_INTERVAL_MS = 2000;
     const BURST_MAX = 5;
@@ -135,18 +158,21 @@ export function BillingPageContent({
 
     const id = setInterval(tick, BURST_INTERVAL_MS);
     return () => clearInterval(id);
-  }, [processingCheckout, isCheckoutSuccess, isVisible, sessionIdParam, refetch, clearCheckoutParam]);
+  }, [mounted, processingCheckout, isCheckoutSuccess, isVisible, sessionIdParam, refetch, clearCheckoutParam]);
 
   useEffect(() => {
+    if (!hasHydratedRef.current) return;
     if (processingCheckout && isPlanActive) {
       setProcessingCheckout(false);
       clearCheckoutParam();
     }
   }, [processingCheckout, isPlanActive, clearCheckoutParam]);
 
-  // When no plan is shown, try once to recover from Stripe (e.g. subscription exists but row was missing).
+  // When no plan is shown, try once to recover from Stripe. Run only after hydration; strict deps so it does not run on every render.
   useEffect(() => {
-    if (loading || recoveryAttemptedRef.current || !state || !planCards?.length) return;
+    if (!hasHydratedRef.current) return;
+    if (!mounted || loading || recoveryAttemptedRef.current || !state || !planCards?.length) return;
+    if ((isCheckoutSuccess || isCheckoutCancel) && !returnFromStripeReady) return;
     const noPlan = !state.plan && !state.isProActive && !state.isPlusActive;
     if (!noPlan) return;
     recoveryAttemptedRef.current = true;
@@ -162,7 +188,7 @@ export function BillingPageContent({
     return () => {
       cancelled = true;
     };
-  }, [loading, state, refetch, planCards]);
+  }, [mounted, loading, state, refetch, planCards, isCheckoutSuccess, isCheckoutCancel, returnFromStripeReady]);
 
   const syncFromStripe = useCallback(async () => {
     setActionError(null);
@@ -252,54 +278,57 @@ export function BillingPageContent({
         <p className="mt-1 text-sm text-muted-foreground">{subtitle}</p>
       </div>
 
-      {processingCheckout && (
+      {mounted && processingCheckout && (
         <div className="mb-6 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-800 dark:border-blue-900/50 dark:bg-blue-950/25 dark:text-blue-200">
           Payment is being processed. Please wait while we confirm your subscription...
         </div>
       )}
 
-      {isPastDue && (
+      {mounted && isPastDue && (
         <div className="mb-6 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800 dark:border-red-900/50 dark:bg-red-950/25 dark:text-red-200">
           {pastDueMessage}
         </div>
       )}
 
       <div className="mb-6 rounded-lg border p-4">
-        {/* Same DOM structure before/after mount so server and client match at hydration (no div vs p mismatch). */}
-        {!mounted ? (
-          <div className="space-y-2 text-sm">
-            <p>
-              <span className="font-medium">Current plan:</span> —
-            </p>
-            <p>
-              <span className="font-medium">Status:</span> —
-            </p>
-          </div>
-        ) : loading && !state ? (
-          <p className="text-sm text-muted-foreground">Loading subscription status...</p>
-        ) : (
-          <div className="space-y-2 text-sm">
-            <p>
-              <span className="font-medium">Current plan:</span> {formatPlan(state?.plan ?? null)}
-            </p>
-            <p>
-              <span className="font-medium">Status:</span> {formatStatus(state?.status ?? null)}
-            </p>
-            {periodEndLabel && (
+        {/* Same DOM structure on server and first client render; when returning from Stripe keep placeholder until returnFromStripeReady (avoids hydration mismatch). */}
+        <div className="space-y-2 text-sm">
+          {!mounted || (loading && !state) || ((isCheckoutSuccess || isCheckoutCancel) && !returnFromStripeReady) ? (
+            <>
               <p>
-                <span className="font-medium">Period end:</span> {periodEndLabel}
+                <span className="font-medium">Current plan:</span> —
               </p>
-            )}
-            {state?.cancelAtPeriodEnd && (
-              <p className="text-amber-700 dark:text-amber-300">
-                Subscription will end at the end of the billing period.
+              <p>
+                <span className="font-medium">Status:</span> —
               </p>
-            )}
-          </div>
-        )}
+            </>
+          ) : (
+            <>
+              <p>
+                <span className="font-medium">Current plan:</span>{" "}
+                <span suppressHydrationWarning>{formatPlan(state?.plan ?? null)}</span>
+              </p>
+              <p>
+                <span className="font-medium">Status:</span>{" "}
+                <span suppressHydrationWarning>{formatStatus(state?.status ?? null)}</span>
+              </p>
+              {periodEndLabel && (
+                <p>
+                  <span className="font-medium">Period end:</span>{" "}
+                  <span suppressHydrationWarning>{periodEndLabel}</span>
+                </p>
+              )}
+              {state?.cancelAtPeriodEnd && (
+                <p className="text-amber-700 dark:text-amber-300">
+                  Subscription will end at the end of the billing period.
+                </p>
+              )}
+            </>
+          )}
+        </div>
       </div>
 
-      {(error || actionError) && (
+      {mounted && (error || actionError) && (
         <div className="mb-6 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700 dark:border-red-900/50 dark:bg-red-950/25 dark:text-red-200">
           {actionError ?? error}
         </div>
@@ -314,10 +343,23 @@ export function BillingPageContent({
             plan.id === "plus" && Boolean(state?.plusCancelAtPeriodEnd);
           const disabled =
             pendingPlan !== null || openingPortal || isCurrentPlan || isPlusCancelledButActive;
+          const primaryLabel = !mounted
+            ? plan.id === "plus"
+              ? "Start Plus"
+              : "Start Pro"
+            : isPlusCancelledButActive
+              ? null
+              : isCurrentPlan
+                ? "Active plan"
+                : pendingPlan === plan.id
+                  ? "Opening checkout..."
+                  : plan.id === "plus"
+                    ? "Start Plus"
+                    : "Start Pro";
           return (
             <div key={plan.id} className="rounded-lg border p-5">
               <h2 className="text-lg font-semibold">{plan.name}</h2>
-              {isPlusCancelledButActive && plusEndsAtLabel && (
+              {mounted && isPlusCancelledButActive && plusEndsAtLabel && (
                 <p className="mt-1 text-sm text-amber-700 dark:text-amber-300">
                   Cancelled but active until {plusEndsAtLabel}.
                 </p>
@@ -328,7 +370,7 @@ export function BillingPageContent({
                   <li key={bullet}>- {bullet}</li>
                 ))}
               </ul>
-              {isPlusCancelledButActive ? (
+              {mounted && isPlusCancelledButActive ? (
                 <button
                   type="button"
                   onClick={() => void openPortal()}
@@ -341,16 +383,10 @@ export function BillingPageContent({
                 <button
                   type="button"
                   onClick={() => void startCheckout(plan.id)}
-                  disabled={disabled}
+                  disabled={!mounted || disabled}
                   className="mt-5 w-full rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-60"
                 >
-                  {isCurrentPlan
-                    ? "Active plan"
-                    : pendingPlan === plan.id
-                      ? "Opening checkout..."
-                      : plan.id === "plus"
-                        ? "Start Plus"
-                        : "Start Pro"}
+                  {primaryLabel ?? "Manage subscription"}
                 </button>
               )}
             </div>
@@ -359,7 +395,7 @@ export function BillingPageContent({
       </div>
 
       <div className="mt-6 flex flex-wrap gap-3">
-        {showNoPlan && (
+        {mounted && showNoPlan && (
           <button
             type="button"
             onClick={() => void syncFromStripe()}
@@ -372,10 +408,10 @@ export function BillingPageContent({
         <button
           type="button"
           onClick={() => void openPortal()}
-          disabled={openingPortal || pendingPlan !== null}
+          disabled={!mounted || openingPortal || pendingPlan !== null}
           className="rounded-md border px-4 py-2 text-sm font-medium hover:bg-muted disabled:opacity-60"
         >
-          {openingPortal ? "Opening portal..." : "Manage subscription"}
+          {!mounted ? "Manage subscription" : openingPortal ? "Opening portal..." : "Manage subscription"}
         </button>
       </div>
     </div>

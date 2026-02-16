@@ -1,4 +1,5 @@
-import { BillingPageContent, type PlanCard } from "@/components/billing/BillingPageContent";
+import { BillingPageClient } from "@/components/billing/BillingPageClient";
+import type { PlanCard } from "@/components/billing/BillingPageContent";
 import { getBillingStateForUser } from "@/lib/billing/server";
 import { createClient } from "@/lib/supabase/server";
 
@@ -31,7 +32,7 @@ export default async function ReaderBillingPage({ searchParams }: Props) {
   }
 
   return (
-    <BillingPageContent
+    <BillingPageClient
       planCards={READER_PLAN_CARDS}
       title="Subscription"
       subtitle="Manage Verkli Plus for readers."

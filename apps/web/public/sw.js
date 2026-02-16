@@ -134,6 +134,9 @@ self.addEventListener("fetch", (event) => {
   const url = new URL(request.url);
   if (url.origin !== self.location.origin) return;
 
+  // Skip interception on localhost so dev server assets load normally (avoids "Failed to fetch" for _next/static).
+  if (url.hostname === "localhost" || url.hostname === "127.0.0.1") return;
+
   if (isStaticAssetRequest(request, url)) {
     event.respondWith(cacheFirst(request, STATIC_CACHE));
     return;
