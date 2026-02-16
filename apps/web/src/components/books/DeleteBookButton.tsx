@@ -27,7 +27,7 @@ export default function DeleteBookButton({
   bookTitle,
   redirectTo,
   onDeleted,
-  label = "Radera bok",
+  label = "Delete book",
   className,
 }: DeleteBookButtonProps) {
   const router = useRouter();
@@ -48,7 +48,7 @@ export default function DeleteBookButton({
         return;
       }
       setOpen(false);
-      toast.success(bookTitle ? `"${bookTitle}" har raderats` : "Boken har raderats");
+      toast.success(bookTitle ? `"${bookTitle}" was deleted` : "Book deleted");
       onDeleted?.();
       if (redirectTo) {
         router.push(redirectTo);
@@ -56,7 +56,7 @@ export default function DeleteBookButton({
         router.refresh();
       }
     } catch (err) {
-      const msg = err instanceof Error ? err.message : "Kunde inte radera boken.";
+      const msg = err instanceof Error ? err.message : "Could not delete book.";
       setError(msg);
     } finally {
       setIsDeleting(false);
@@ -69,7 +69,7 @@ export default function DeleteBookButton({
         type="button"
         onClick={() => setOpen(true)}
         disabled={isDeleting}
-        title="Radera bok"
+        title="Delete book"
         className={
           className ??
           "rounded-lg border border-red-200 bg-white px-3 py-2 text-sm font-medium text-red-700 transition hover:bg-red-50 disabled:opacity-50 dark:border-red-900/50 dark:bg-white/10 dark:text-red-200 dark:hover:bg-red-950/30"
@@ -82,17 +82,17 @@ export default function DeleteBookButton({
         <div className="fixed inset-0 z-[1000] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
           <div className="w-full max-w-[420px] overflow-hidden rounded-2xl border border-black/10 bg-white dark:border-white/10 dark:bg-[#0a0a0f]">
             <div className="border-b border-black/10 px-5 py-4 dark:border-white/10">
-              <h3 className="text-[18px] font-semibold text-slate-900 dark:text-white">Radera bok</h3>
+              <h3 className="text-[18px] font-semibold text-slate-900 dark:text-white">Delete book</h3>
               {bookTitle && (
                 <p className="mt-2 text-[15px] font-medium text-slate-800 dark:text-white/90">
                   &ldquo;{bookTitle}&rdquo;
                 </p>
               )}
               <p className="mt-2 text-[14px] text-slate-600 dark:text-white/60">
-                Vill du verkligen radera denna bok? Alla kapitel, översättningar och tillhörande data tas bort permanent.
+                Are you sure you want to delete this book? All chapters, translations, and related data will be permanently removed.
               </p>
               <p className="mt-1.5 text-[13px] text-red-600 dark:text-red-400">
-                Åtgärden kan inte ångras.
+                This action cannot be undone.
               </p>
             </div>
 
@@ -109,7 +109,7 @@ export default function DeleteBookButton({
                 disabled={isDeleting}
                 className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-50 disabled:opacity-50 dark:border-white/20 dark:bg-white/10 dark:text-white dark:hover:bg-white/15"
               >
-                Avbryt
+                Cancel
               </button>
               <button
                 type="button"
@@ -117,7 +117,7 @@ export default function DeleteBookButton({
                 disabled={isDeleting}
                 className="rounded-lg bg-red-600 px-3 py-2 text-sm font-semibold text-white transition hover:bg-red-700 disabled:opacity-50"
               >
-                {isDeleting ? "Raderar..." : "Radera"}
+                {isDeleting ? "Deleting..." : "Delete"}
               </button>
             </div>
           </div>

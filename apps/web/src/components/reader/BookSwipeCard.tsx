@@ -1,5 +1,7 @@
 "use client";
 
+import Image from "next/image";
+
 interface BookSwipeCardProps {
   id: string;
   title: string;
@@ -29,12 +31,15 @@ export default function BookSwipeCard({
             : "border-slate-200 bg-white dark:border-white/10 dark:bg-white/5"
       }`}
     >
-      <div className="aspect-[3/4] w-full overflow-hidden rounded-t-2xl">
+      <div className="relative aspect-[3/4] w-full overflow-hidden rounded-t-2xl">
         {cover ? (
-          <img
+          <Image
             src={cover}
             alt={title}
-            className="h-full w-full object-cover"
+            fill
+            sizes="192px"
+            className="object-cover"
+            unoptimized
           />
         ) : (
           <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-slate-200/70 via-white to-slate-100 dark:from-white/10 dark:via-white/5 dark:to-slate-900/60">

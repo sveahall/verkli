@@ -135,7 +135,10 @@ describe("security: updateActiveRole", () => {
   it("never writes profiles.role — only preferences.active_role", async () => {
     mockGetUser.mockResolvedValue({ data: { user: mockUser("u1") } });
 
-    const upsertSpy = vi.fn(() => Promise.resolve({ error: null }));
+    const upsertSpy = vi.fn(async (payload: Record<string, unknown>) => {
+      void payload;
+      return { error: null };
+    });
     mockFrom.mockImplementation((table: string) => {
       if (table === "profiles") {
         return {
@@ -154,7 +157,7 @@ describe("security: updateActiveRole", () => {
     await updateActiveRole("reader");
 
     expect(upsertSpy).toHaveBeenCalledTimes(1);
-    const [upsertArg] = upsertSpy.mock.calls[0] as [Record<string, unknown>];
+    const [upsertArg] = upsertSpy.mock.calls[0] ?? [{} as Record<string, unknown>];
     // Must NOT contain a `role` field
     expect(upsertArg).not.toHaveProperty("role");
     // Must contain preferences with active_role

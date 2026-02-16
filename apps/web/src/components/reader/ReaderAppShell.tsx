@@ -23,7 +23,6 @@ const mobileNavItems = [
       "/reader/books",
       "/reader/lists",
       "/reader/authors",
-      "/reader/writers",
       "/reader/genres",
     ],
     icon: (

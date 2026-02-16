@@ -6,6 +6,12 @@ const nextConfig: NextConfig = {
     root: path.resolve(__dirname, "../.."),
   },
   transpilePackages: ["@verkli/ui", "@verkli/shared"],
+  async redirects() {
+    return [
+      { source: "/writer", destination: "/author", permanent: true },
+      { source: "/writer/home", destination: "/author/home", permanent: true },
+    ];
+  },
   images: {
     remotePatterns: [
       {

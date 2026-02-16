@@ -66,7 +66,7 @@ export default function PollsPageClient({ polls }: PollsPageClientProps) {
   );
 
   const formatDate = (iso: string) => {
-    return new Date(iso).toLocaleDateString("sv-SE", {
+    return new Date(iso).toLocaleDateString("en-US", {
       year: "numeric",
       month: "short",
       day: "numeric",
@@ -76,12 +76,12 @@ export default function PollsPageClient({ polls }: PollsPageClientProps) {
   return (
     <div className="section-gap">
       <PageHeader
-        eyebrow="Omröstningar"
-        title="Dina omröstningar"
-        description="Skapa omröstningar för att engagera dina läsare."
+        eyebrow="Polls"
+        title="Your polls"
+        description="Create polls to engage your readers."
         actions={
           <Button onClick={() => setShowCreate(true)}>
-            Skapa omröstning
+            Create poll
           </Button>
         }
       />
@@ -92,11 +92,11 @@ export default function PollsPageClient({ polls }: PollsPageClientProps) {
 
       {polls.length === 0 ? (
         <EmptyState
-          title="Inga omröstningar ännu"
-          description="Skapa din första omröstning för att engagera dina läsare."
+          title="No polls yet"
+          description="Create your first poll to engage your readers."
           action={
             <Button onClick={() => setShowCreate(true)}>
-              Skapa omröstning
+              Create poll
             </Button>
           }
         />
@@ -121,13 +121,13 @@ export default function PollsPageClient({ polls }: PollsPageClientProps) {
                             : "bg-green-50 text-green-700 dark:bg-green-950/30 dark:text-green-400"
                         }`}
                       >
-                        {isClosed ? "Stängd" : "Aktiv"}
+                        {isClosed ? "Closed" : "Active"}
                       </span>
-                      <span>{poll.voteCount} {poll.voteCount === 1 ? "röst" : "röster"}</span>
-                      <span>{poll.options.length} alternativ</span>
-                      <span>Skapad {formatDate(poll.created_at)}</span>
+                      <span>{poll.voteCount} {poll.voteCount === 1 ? "vote" : "votes"}</span>
+                      <span>{poll.options.length} options</span>
+                      <span>Created {formatDate(poll.created_at)}</span>
                       {poll.closes_at && (
-                        <span>Stängs {formatDate(poll.closes_at)}</span>
+                        <span>Closes {formatDate(poll.closes_at)}</span>
                       )}
                     </div>
                     <div className="mt-2 flex flex-wrap gap-1.5">
@@ -148,7 +148,7 @@ export default function PollsPageClient({ polls }: PollsPageClientProps) {
                     isLoading={togglingId === poll.id}
                     loadingText="..."
                   >
-                    {poll.is_active ? "Stäng" : "Öppna"}
+                    {poll.is_active ? "Close" : "Open"}
                   </Button>
                 </div>
               </Card>

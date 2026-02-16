@@ -5,8 +5,9 @@ import Link from "next/link";
 import Image from "next/image";
 import dynamic from "next/dynamic";
 import { createClient } from "@/lib/supabase/client";
-import GridMotion from "@/components/GridMotion";
+import LazySection from "@/components/LazySection";
 import type { User } from "@supabase/supabase-js";
+import { BRAND_COLORS } from "@/lib/design/brand";
 
 const gridImages = [
   "https://images.unsplash.com/photo-1723403804231-f4e9b515fe9d?auto=format&fit=crop&w=640&q=60",
@@ -16,6 +17,7 @@ const gridRows = 9;
 const gridCols = 8;
 const gridItems = Array.from({ length: gridRows * gridCols }, (_, i) => gridImages[i % gridImages.length]);
 
+const GridMotion = dynamic(() => import("@/components/GridMotion"), { ssr: false });
 const TestimonialSection = dynamic(() => import("@/components/TestimonialSection"), { ssr: false });
 const StatsSection = dynamic(() => import("@/components/StatsSection"), { ssr: false });
 const FeaturesSection = dynamic(() => import("@/components/FeaturesSection"), { ssr: false });
@@ -92,9 +94,9 @@ function LandingPage() {
               {/* Top + bottom fade to page bg */}
               <div className="absolute inset-0 z-11 bg-gradient-to-b from-background via-transparent to-background" />
               {/* Mouse-reactive colour orbs */}
-              <div className="absolute z-12 h-[560px] w-[560px] rounded-full blur-[140px] transition-all duration-[1200ms] ease-out" style={{ background: "#907AFF", opacity: 0.15, left: "calc(var(--hero-mouse-x)*100% - 30%)", top: "calc(var(--hero-mouse-y)*100% - 30%)" }} />
-              <div className="absolute z-12 h-[380px] w-[380px] rounded-full blur-[120px] transition-all duration-[1600ms] ease-out" style={{ background: "#E29ED5", opacity: 0.10, left: "calc((1 - var(--hero-mouse-x))*100% - 20%)", top: "calc(var(--hero-mouse-y)*100% - 20%)" }} />
-              <div className="absolute z-12 h-[280px] w-[280px] rounded-full blur-[96px] transition-all duration-700 ease-out" style={{ background: "#FCC997", opacity: 0.08, left: "calc(var(--hero-mouse-x)*70% + 15%)", top: "calc((1 - var(--hero-mouse-y))*60% + 20%)" }} />
+              <div className="absolute z-12 h-[560px] w-[560px] rounded-full blur-[140px] transition-all duration-[1200ms] ease-out" style={{ background: BRAND_COLORS.violet, opacity: 0.15, left: "calc(var(--hero-mouse-x)*100% - 30%)", top: "calc(var(--hero-mouse-y)*100% - 30%)" }} />
+              <div className="absolute z-12 h-[380px] w-[380px] rounded-full blur-[120px] transition-all duration-[1600ms] ease-out" style={{ background: BRAND_COLORS.rose, opacity: 0.10, left: "calc((1 - var(--hero-mouse-x))*100% - 20%)", top: "calc(var(--hero-mouse-y)*100% - 20%)" }} />
+              <div className="absolute z-12 h-[280px] w-[280px] rounded-full blur-[96px] transition-all duration-700 ease-out" style={{ background: BRAND_COLORS.amber, opacity: 0.08, left: "calc(var(--hero-mouse-x)*70% + 15%)", top: "calc((1 - var(--hero-mouse-y))*60% + 20%)" }} />
             </div>
           </div>
 
@@ -147,7 +149,7 @@ function LandingPage() {
                 <p className="mb-4 text-[13px] font-medium uppercase tracking-[0.15em] text-[#907AFF]/80 dark:text-[#907AFF]/60">One platform</p>
                 <h2 className="text-[clamp(30px,3.5vw,44px)] font-bold leading-[1.1] tracking-[-0.03em] text-slate-900 dark:text-white">
                   Zero friction{" "}
-                  <span className="bg-gradient-to-r from-[#907AFF] via-[#E29ED5] to-[#FCC997] bg-clip-text text-transparent">book marketing.</span>
+                  <span className="text-brand-gradient">book marketing.</span>
                 </h2>
                 <p className="mt-5 max-w-[400px] text-[16px] leading-[1.7] text-slate-500 dark:text-white/50">Turn your book into structured content that publishes, adapts, and scales — without the busywork.</p>
                 <div className="mt-8">
@@ -200,58 +202,61 @@ function LandingPage() {
           </div>
         </section>
 
-        <div className="landing-deferred">
+        <LazySection className="landing-deferred" minHeight={520}>
           <TestimonialSection />
-        </div>
-        <div className="landing-deferred">
+        </LazySection>
+        <LazySection className="landing-deferred" minHeight={420}>
           <StatsSection />
-        </div>
-        <div className="landing-deferred">
+        </LazySection>
+        <LazySection className="landing-deferred" minHeight={640}>
           <FeaturesSection />
-        </div>
-        <div className="landing-deferred">
+        </LazySection>
+        <LazySection className="landing-deferred" minHeight={520}>
           <InteractiveTestimonialSection />
-        </div>
+        </LazySection>
 
         {/* ─── Why Verkli ─── */}
-        <section className="landing-deferred mx-auto w-full max-w-[1200px] px-6 py-28">
-          <div className="grid gap-14 lg:grid-cols-[1fr_1.3fr] lg:items-start">
-            <div className="lg:sticky lg:top-32">
-              <p className="text-[13px] font-medium uppercase tracking-[0.15em] text-[#907AFF]">Why Verkli</p>
-              <h2 className="mt-5 text-[clamp(28px,3.5vw,42px)] font-bold leading-[1.1] tracking-[-0.03em] text-slate-900 dark:text-white">
-                Everything you need to{" "}
-                <span className="bg-gradient-to-r from-[#907AFF] via-[#E29ED5] to-[#FCC997] bg-clip-text text-transparent">grow your audience.</span>
-              </h2>
-              <p className="mt-5 max-w-[380px] text-[16px] leading-[1.7] text-slate-500 dark:text-white/45">Simple tools that help you reach readers — without the complexity.</p>
-              <div className="mt-8">
-                <Link href="/author/signup" className="btn-secondary text-[15px]">Explore features</Link>
+        <LazySection className="landing-deferred" minHeight={860}>
+          <section className="mx-auto w-full max-w-[1200px] px-6 py-28">
+            <div className="grid gap-14 lg:grid-cols-[1fr_1.3fr] lg:items-start">
+              <div className="lg:sticky lg:top-32">
+                <p className="text-[13px] font-medium uppercase tracking-[0.15em] text-[#907AFF]">Why Verkli</p>
+                <h2 className="mt-5 text-[clamp(28px,3.5vw,42px)] font-bold leading-[1.1] tracking-[-0.03em] text-slate-900 dark:text-white">
+                  Everything you need to{" "}
+                  <span className="text-brand-gradient">grow your audience.</span>
+                </h2>
+                <p className="mt-5 max-w-[380px] text-[16px] leading-[1.7] text-slate-500 dark:text-white/45">Simple tools that help you reach readers — without the complexity.</p>
+                <div className="mt-8">
+                  <Link href="/author/signup" className="btn-secondary text-[15px]">Explore features</Link>
+                </div>
+              </div>
+              <div className="grid gap-3 sm:grid-cols-2">
+                {[
+                  { title: "Get discovered", description: "Turn your book into scroll-stopping content for TikTok, Instagram, and beyond.", color: BRAND_COLORS.violet, icon: "M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z" },
+                  { title: "Grow your audience", description: "Reach readers before they buy. Build momentum with content that connects.", color: BRAND_COLORS.rose, icon: "M18 18.72a9.094 9.094 0 003.741-.479 3 3 0 00-4.682-2.72m.94 3.198l.001.031c0 .225-.012.447-.037.666A11.944 11.944 0 0112 21c-2.17 0-4.207-.576-5.963-1.584A6.062 6.062 0 016 18.719m12 0a5.971 5.971 0 00-.941-3.197m0 0A5.995 5.995 0 0012 12.75a5.995 5.995 0 00-5.058 2.772m0 0a3 3 0 00-4.681 2.72 8.986 8.986 0 003.74.477m.94-3.197a5.971 5.971 0 00-.94 3.197M15 6.75a3 3 0 11-6 0 3 3 0 016 0zm6 3a2.25 2.25 0 11-4.5 0 2.25 2.25 0 014.5 0zm-13.5 0a2.25 2.25 0 11-4.5 0 2.25 2.25 0 014.5 0z" },
+                  { title: "Automate marketing", description: "AI-generated hooks, scripts, and captions — without daily effort.", color: BRAND_COLORS.amber, icon: "M3.75 13.5l10.5-11.25L12 10.5h8.25L9.75 21.75 12 13.5H3.75z" },
+                  { title: "Focus on writing", description: "Upload a chapter, get content. No complex tools. No learning curve.", color: BRAND_COLORS.amberSoft, icon: "M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l8.932-8.931zm0 0L19.5 7.125M18 14v4.75A2.25 2.25 0 0115.75 21H5.25A2.25 2.25 0 013 18.75V8.25A2.25 2.25 0 015.25 6H10" },
+                ].map((item) => (
+                  <div key={item.title} className="group relative overflow-hidden rounded-[22px] border border-black/[0.04] bg-white/50 p-7 backdrop-blur-sm transition-all duration-500 hover:border-black/[0.10] hover:shadow-[0_8px_30px_rgba(0,0,0,0.04)] dark:border-white/[0.06] dark:bg-white/[0.02] dark:hover:border-white/[0.12]">
+                    <div className="pointer-events-none absolute -right-8 -top-8 h-28 w-28 rounded-full blur-2xl opacity-0 transition-opacity duration-500 group-hover:opacity-40" style={{ background: item.color }} />
+                    <div className="relative">
+                      <div className="mb-5 inline-flex h-11 w-11 items-center justify-center rounded-xl transition-transform duration-300 group-hover:scale-105" style={{ background: `${item.color}12` }}>
+                        <svg className="h-5 w-5" style={{ color: item.color }} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d={item.icon} /></svg>
+                      </div>
+                      <h3 className="text-[16px] font-semibold text-slate-900 dark:text-white">{item.title}</h3>
+                      <p className="mt-2 text-[14px] leading-[1.65] text-slate-500 dark:text-white/40">{item.description}</p>
+                    </div>
+                  </div>
+                ))}
               </div>
             </div>
-            <div className="grid gap-3 sm:grid-cols-2">
-              {[
-                { title: "Get discovered", description: "Turn your book into scroll-stopping content for TikTok, Instagram, and beyond.", color: "#907AFF", icon: "M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z" },
-                { title: "Grow your audience", description: "Reach readers before they buy. Build momentum with content that connects.", color: "#E29ED5", icon: "M18 18.72a9.094 9.094 0 003.741-.479 3 3 0 00-4.682-2.72m.94 3.198l.001.031c0 .225-.012.447-.037.666A11.944 11.944 0 0112 21c-2.17 0-4.207-.576-5.963-1.584A6.062 6.062 0 016 18.719m12 0a5.971 5.971 0 00-.941-3.197m0 0A5.995 5.995 0 0012 12.75a5.995 5.995 0 00-5.058 2.772m0 0a3 3 0 00-4.681 2.72 8.986 8.986 0 003.74.477m.94-3.197a5.971 5.971 0 00-.94 3.197M15 6.75a3 3 0 11-6 0 3 3 0 016 0zm6 3a2.25 2.25 0 11-4.5 0 2.25 2.25 0 014.5 0zm-13.5 0a2.25 2.25 0 11-4.5 0 2.25 2.25 0 014.5 0z" },
-                { title: "Automate marketing", description: "AI-generated hooks, scripts, and captions — without daily effort.", color: "#FCC997", icon: "M3.75 13.5l10.5-11.25L12 10.5h8.25L9.75 21.75 12 13.5H3.75z" },
-                { title: "Focus on writing", description: "Upload a chapter, get content. No complex tools. No learning curve.", color: "#FEE9A3", icon: "M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l8.932-8.931zm0 0L19.5 7.125M18 14v4.75A2.25 2.25 0 0115.75 21H5.25A2.25 2.25 0 013 18.75V8.25A2.25 2.25 0 015.25 6H10" },
-              ].map((item) => (
-                <div key={item.title} className="group relative overflow-hidden rounded-[22px] border border-black/[0.04] bg-white/50 p-7 backdrop-blur-sm transition-all duration-500 hover:border-black/[0.10] hover:shadow-[0_8px_30px_rgba(0,0,0,0.04)] dark:border-white/[0.06] dark:bg-white/[0.02] dark:hover:border-white/[0.12]">
-                  <div className="pointer-events-none absolute -right-8 -top-8 h-28 w-28 rounded-full blur-2xl opacity-0 transition-opacity duration-500 group-hover:opacity-40" style={{ background: item.color }} />
-                  <div className="relative">
-                    <div className="mb-5 inline-flex h-11 w-11 items-center justify-center rounded-xl transition-transform duration-300 group-hover:scale-105" style={{ background: `${item.color}12` }}>
-                      <svg className="h-5 w-5" style={{ color: item.color }} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d={item.icon} /></svg>
-                    </div>
-                    <h3 className="text-[16px] font-semibold text-slate-900 dark:text-white">{item.title}</h3>
-                    <p className="mt-2 text-[14px] leading-[1.65] text-slate-500 dark:text-white/40">{item.description}</p>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        </section>
+          </section>
+        </LazySection>
 
         {/* ─── CTA ─── */}
-        <section className="landing-deferred relative mx-auto w-full max-w-[1200px] px-6 py-28">
-          <div className="group relative overflow-hidden rounded-[32px] border border-black/[0.04] bg-gradient-to-br from-[#907AFF]/[0.12] via-[#E29ED5]/[0.07] to-[#FCC997]/[0.05] shadow-[0_2px_40px_rgba(144,122,255,0.06)] dark:border-white/[0.06]">
+        <LazySection className="landing-deferred" minHeight={760}>
+          <section className="relative mx-auto w-full max-w-[1200px] px-6 py-28">
+            <div className="group relative overflow-hidden rounded-[32px] border border-black/[0.04] bg-gradient-to-br from-[#907AFF]/[0.12] via-[#E29ED5]/[0.07] to-[#FCC997]/[0.05] shadow-[0_2px_40px_rgba(144,122,255,0.06)] dark:border-white/[0.06]">
             {/* Ambient glows */}
             <div className="pointer-events-none absolute -left-32 -top-32 h-[400px] w-[400px] rounded-full bg-[#907AFF]/20 blur-[120px] transition-transform duration-[1500ms] group-hover:translate-x-10 group-hover:translate-y-8" />
             <div className="pointer-events-none absolute -bottom-20 -right-20 h-[300px] w-[300px] rounded-full bg-[#E29ED5]/15 blur-[100px] transition-transform duration-[1500ms] group-hover:-translate-x-6" />
@@ -296,8 +301,9 @@ function LandingPage() {
                 </div>
               </div>
             </div>
-          </div>
-        </section>
+            </div>
+          </section>
+        </LazySection>
 
         {/* Footer rendered globally in layout */}
       </div>

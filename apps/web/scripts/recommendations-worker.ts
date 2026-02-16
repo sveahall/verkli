@@ -264,7 +264,6 @@ async function scheduleRecomputation() {
   const { enqueueRecommendationsJob } = await import("../src/lib/recommendations-queue");
 
   const supabase = createAdminClient();
-  const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
 
   const { data: activeUsers } = await supabase
     .from("profiles")

@@ -89,7 +89,7 @@ export default function GenreSelector({ bookId }: GenreSelectorProps) {
   if (!loaded) {
     return (
       <div className="mt-4 space-y-2">
-        <p className="text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-white/50">Genrer</p>
+        <p className="text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-white/50">Genres</p>
         <div className="h-8 w-32 animate-pulse rounded bg-slate-200 dark:bg-white/10" />
       </div>
     );
@@ -100,7 +100,7 @@ export default function GenreSelector({ bookId }: GenreSelectorProps) {
   return (
     <div className="mt-4 space-y-2">
       <p className="text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-white/50">
-        Genrer (max 3)
+        Genres (max 3)
       </p>
       <div className="flex flex-wrap gap-1.5">
         {genres.map((genre) => {
@@ -116,7 +116,7 @@ export default function GenreSelector({ bookId }: GenreSelectorProps) {
                   : "border-slate-200 bg-white text-slate-600 hover:bg-slate-50 dark:border-white/10 dark:bg-white/5 dark:text-white/60 dark:hover:bg-white/10"
               }`}
             >
-              {genre.icon ? `${genre.icon} ` : ""}{genre.name_sv}
+              {genre.icon ? `${genre.icon} ` : ""}{genre.name_en}
             </button>
           );
         })}
@@ -128,7 +128,7 @@ export default function GenreSelector({ bookId }: GenreSelectorProps) {
           disabled={saving}
           className="mt-1 rounded-full bg-slate-900 px-3 py-1 text-[11px] font-medium text-white transition hover:bg-slate-800 disabled:opacity-50 dark:bg-white dark:text-slate-900 dark:hover:bg-white/90"
         >
-          {saving ? "Sparar..." : saved ? "Sparat" : "Spara genrer"}
+          {saving ? "Saving..." : saved ? "Saved" : "Save genres"}
         </button>
       )}
     </div>

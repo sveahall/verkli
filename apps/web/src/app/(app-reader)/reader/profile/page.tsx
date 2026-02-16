@@ -1,4 +1,5 @@
 import Link from "next/link";
+import Image from "next/image";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { getAvatarUrlFromPathServer } from "@/lib/supabase/avatar";
@@ -302,9 +303,9 @@ export default async function ReaderProfilePage() {
                 className="rounded-2xl border border-slate-200/70 bg-white/85 p-4 transition hover:border-slate-300 hover:bg-white dark:border-white/10 dark:bg-white/[0.03] dark:hover:bg-white/[0.05]"
               >
                 <div className="flex items-center gap-3">
-                  <div className="flex h-11 w-11 items-center justify-center overflow-hidden rounded-full border border-black/10 bg-slate-100 text-[12px] font-semibold text-slate-600 dark:border-white/10 dark:bg-white/10 dark:text-white/70">
+                  <div className="relative flex h-11 w-11 items-center justify-center overflow-hidden rounded-full border border-black/10 bg-slate-100 text-[12px] font-semibold text-slate-600 dark:border-white/10 dark:bg-white/10 dark:text-white/70">
                     {author.avatarUrl ? (
-                      <img src={author.avatarUrl} alt={author.name} className="h-full w-full object-cover" />
+                      <Image src={author.avatarUrl} alt={author.name} fill sizes="44px" className="object-cover" unoptimized />
                     ) : (
                       author.name
                         .split(" ")

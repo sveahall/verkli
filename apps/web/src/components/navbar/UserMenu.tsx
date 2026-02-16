@@ -6,6 +6,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import type { User } from "@supabase/supabase-js";
 import { useToastHelpers } from "@/components/ui/toast";
+import { setActiveRoleCookieClient } from "@/lib/active-role";
 
 const USER_MENU_WIDTH = 280;
 
@@ -42,7 +43,7 @@ export default function UserMenu({ user, onSignOut, currentRole = "author", orig
   };
 
   const displayName =
-    user?.user_metadata?.full_name || user?.email?.split("@")[0] || "Användare";
+    user?.user_metadata?.full_name || user?.email?.split("@")[0] || "User";
 
   // Handle click outside to close menu
   useEffect(() => {
@@ -78,16 +79,16 @@ export default function UserMenu({ user, onSignOut, currentRole = "author", orig
       if (!response.ok) {
         const payload = await response.json().catch(() => ({}));
         console.error("Error updating role:", payload);
-        toast.error("Kunde inte byta vy. Försök igen.");
+        toast.error("Could not switch view. Please try again.");
         return;
       }
 
-      // Refresh router to clear cache and redirect
+      setActiveRoleCookieClient(nextRole);
       router.refresh();
       router.push(currentRole === "author" ? "/reader/home" : "/author/home");
     } catch (error) {
       console.error("Error switching role:", error);
-      toast.error("Kunde inte byta roll. Försök igen.");
+      toast.error("Could not switch role. Please try again.");
     }
   };
 
@@ -127,7 +128,7 @@ export default function UserMenu({ user, onSignOut, currentRole = "author", orig
           e.stopPropagation();
         }}
         className="flex h-11 min-h-[44px] min-w-[44px] w-11 shrink-0 items-center justify-center rounded-full border border-slate-300 bg-transparent text-slate-700 transition-all hover:bg-slate-100 dark:border-white/[0.4] dark:text-white dark:hover:bg-white/10 focus:outline-none focus:ring-2 focus:ring-[#907AFF]/50 focus:ring-offset-2 focus:ring-offset-background"
-        aria-label="Kontomeny"
+        aria-label="Account menu"
         aria-expanded={isOpen}
       >
         <span className="flex h-4 w-4 items-center justify-center">
@@ -197,7 +198,7 @@ export default function UserMenu({ user, onSignOut, currentRole = "author", orig
                   d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"
                 />
               </svg>
-              <span>Profil</span>
+              <span>Profile</span>
             </Link>
 
             <Link
@@ -226,35 +227,37 @@ export default function UserMenu({ user, onSignOut, currentRole = "author", orig
                   d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
                 />
               </svg>
-              <span>Inställningar</span>
+              <span>Settings</span>
             </Link>
 
-            <Link
-              href="/account/feedback"
-              onClick={(e) => {
-                e.stopPropagation();
-                setIsOpen(false);
-              }}
-              className="flex min-h-[44px] w-full items-center gap-3 rounded-xl px-4 py-3 text-[14px] font-medium text-slate-700 dark:text-white/80 transition-all hover:bg-slate-50 dark:hover:bg-white/[0.05] hover:text-slate-900 dark:hover:text-white focus:outline-none focus:ring-2 focus:ring-inset focus:ring-[#907AFF]/30"
-            >
-              <svg
-                className="h-5 w-5 flex-shrink-0"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-                strokeWidth={1.5}
+            {currentRole === "author" && (
+              <Link
+                href="/account/feedback"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setIsOpen(false);
+                }}
+                className="flex min-h-[44px] w-full items-center gap-3 rounded-xl px-4 py-3 text-[14px] font-medium text-slate-700 dark:text-white/80 transition-all hover:bg-slate-50 dark:hover:bg-white/[0.05] hover:text-slate-900 dark:hover:text-white focus:outline-none focus:ring-2 focus:ring-inset focus:ring-[#907AFF]/30"
               >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"
-                />
-              </svg>
-              <span>Feedback</span>
-            </Link>
+                <svg
+                  className="h-5 w-5 flex-shrink-0"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                  strokeWidth={1.5}
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"
+                  />
+                </svg>
+                <span>Feedback</span>
+              </Link>
+            )}
 
             <Link
-              href="/account/billing"
+              href={currentRole === "author" ? "/author/billing" : "/reader/billing"}
               onClick={(e) => {
                 e.stopPropagation();
                 setIsOpen(false);
@@ -274,7 +277,7 @@ export default function UserMenu({ user, onSignOut, currentRole = "author", orig
                   d="M3 8.25h18M6.75 3.75h10.5A2.25 2.25 0 0119.5 6v12a2.25 2.25 0 01-2.25 2.25H6.75A2.25 2.25 0 014.5 18V6a2.25 2.25 0 012.25-2.25z"
                 />
               </svg>
-              <span>Abonnemang</span>
+              <span>Billing</span>
             </Link>
 
             {/* SECURITY: Only show role switch for authors - readers can NEVER access author mode */}
@@ -296,7 +299,7 @@ export default function UserMenu({ user, onSignOut, currentRole = "author", orig
                     d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4"
                   />
                 </svg>
-                <span>Byt till {currentRole === 'author' ? 'Läsare' : 'Författare'}</span>
+                <span>Switch to {currentRole === "author" ? "Reader" : "Author"}</span>
               </button>
             )}
           </div>
@@ -324,7 +327,7 @@ export default function UserMenu({ user, onSignOut, currentRole = "author", orig
                   d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"
                 />
               </svg>
-              <span>Logga ut</span>
+              <span>Sign out</span>
             </button>
           </div>
         </div>,

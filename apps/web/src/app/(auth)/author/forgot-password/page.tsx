@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Image from "next/image";
 import Link from "next/link";
 import { resolveErrorMessage } from "@/lib/error-messages";
 import GlassSurface from "@/components/GlassSurface";
@@ -50,8 +51,8 @@ export default function AuthorForgotPassword() {
       <header className="absolute left-6 top-6 z-20 flex w-full items-center justify-between px-6 sm:left-8 sm:top-8 sm:px-8">
         <div className="flex items-center gap-3">
           <Link href="/author" className="flex min-h-[44px] min-w-[44px] items-center" aria-label="Verkli">
-            <img src="/logo-dark.svg" alt="Verkli" className="h-8 w-auto dark:hidden" loading="eager" />
-            <img src="/favicon.svg" alt="Verkli" className="hidden h-8 w-auto dark:block" loading="eager" />
+            <Image src="/logo-dark.svg" alt="Verkli" width={140} height={32} className="h-8 w-auto dark:hidden" priority />
+            <Image src="/favicon.svg" alt="Verkli" width={32} height={32} className="hidden h-8 w-auto dark:block" priority />
           </Link>
           <Link href="/author/signin" className="btn-secondary text-[13px] gap-2 px-4 py-2.5">
             <svg className="h-4 w-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.6}>

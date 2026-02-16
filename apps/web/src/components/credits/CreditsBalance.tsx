@@ -20,7 +20,7 @@ export function CreditsBalance({
   label = "Krediter:",
   variant = "default",
 }: CreditsBalanceProps) {
-  const { balance, loading, error, refetch } = useCreditsBalance({ pollIntervalMs });
+  const { balance, loading, error } = useCreditsBalance({ pollIntervalMs });
 
   if (loading) {
     return (

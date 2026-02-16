@@ -26,7 +26,7 @@ export default function CreateBookDialog({
   const router = useRouter();
   const [mode, setMode] = useState<Mode>(initialMode);
   const [title, setTitle] = useState("");
-  const [language, setLanguage] = useState<SupportedLanguage>("sv");
+  const [language, setLanguage] = useState<SupportedLanguage>("en");
   const [creating, setCreating] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [importOpen, setImportOpen] = useState(false);
@@ -38,7 +38,7 @@ export default function CreateBookDialog({
     }
     setMode(initialMode);
     setTitle("");
-    setLanguage("sv");
+    setLanguage("en");
     setError(null);
     setCreating(false);
     setImportOpen(initialMode === "import");
@@ -72,7 +72,7 @@ export default function CreateBookDialog({
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          title: title.trim() || "Namnlös",
+          title: title.trim() || "Untitled",
           language,
         }),
       });
@@ -84,16 +84,16 @@ export default function CreateBookDialog({
       handleCreated(data.id, data.versionId ?? null, language);
       onClose();
     } catch {
-      setError("Kunde inte skapa boken. Försök igen.");
+      setError("Could not create book. Try again.");
     } finally {
       setCreating(false);
     }
   };
 
   const header = useMemo(() => {
-    if (mode === "write") return "Skriv ny bok";
-    if (mode === "import") return "Importera bok";
-    return "Lägg till bok";
+    if (mode === "write") return "Write a new book";
+    if (mode === "import") return "Import book";
+    return "Add book";
   }, [mode]);
 
   if (!open && !importOpen) return null;
@@ -124,8 +124,8 @@ export default function CreateBookDialog({
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
                     </svg>
                   </div>
-                  <h3 className="mb-2 text-[18px] font-semibold text-slate-900 dark:text-white">Skriv ny bok</h3>
-                  <p className="text-[14px] text-slate-600 dark:text-white/50">Skapa en ny bok och börja skriva</p>
+                  <h3 className="mb-2 text-[18px] font-semibold text-slate-900 dark:text-white">Write a new book</h3>
+                  <p className="text-[14px] text-slate-600 dark:text-white/50">Create a new book and start writing</p>
                 </button>
                 <button
                   onClick={() => {
@@ -139,8 +139,8 @@ export default function CreateBookDialog({
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
                     </svg>
                   </div>
-                  <h3 className="mb-2 text-[18px] font-semibold text-slate-900 dark:text-white">Importera bok</h3>
-                  <p className="text-[14px] text-slate-600 dark:text-white/50">Ladda upp en befintlig bokfil (epub, docx, html, txt)</p>
+                  <h3 className="mb-2 text-[18px] font-semibold text-slate-900 dark:text-white">Import book</h3>
+                  <p className="text-[14px] text-slate-600 dark:text-white/50">Upload an existing book file (epub, docx, html, txt)</p>
                 </button>
               </div>
             )}
@@ -148,18 +148,18 @@ export default function CreateBookDialog({
             {mode === "write" && (
               <div className="space-y-4">
                 <div>
-                  <label className="mb-2 block text-[14px] font-medium text-slate-700 dark:text-white/70">Titel</label>
+                  <label className="mb-2 block text-[14px] font-medium text-slate-700 dark:text-white/70">Title</label>
                   <input
                     type="text"
                     value={title}
                     onChange={(e) => setTitle(e.target.value)}
-                    placeholder="Bokens titel"
+                    placeholder="Book title"
                     className="w-full rounded-xl border border-black/10 dark:border-white/10 bg-black/[0.02] dark:bg-white/[0.04] px-4 py-3 text-[16px] text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-white/30 outline-none transition-all focus:border-[#907AFF]/50 focus:bg-black/10 dark:focus:bg-white/[0.06]"
                     autoFocus
                   />
                 </div>
                 <div>
-                  <label className="mb-2 block text-[14px] font-medium text-slate-700 dark:text-white/70">Språk</label>
+                  <label className="mb-2 block text-[14px] font-medium text-slate-700 dark:text-white/70">Language</label>
                   <select
                     value={language}
                     onChange={(e) => setLanguage(e.target.value as SupportedLanguage)}
@@ -178,14 +178,14 @@ export default function CreateBookDialog({
                     onClick={() => setMode("choice")}
                     className="rounded-xl border border-black/10 dark:border-white/10 bg-black/[0.02] dark:bg-white/[0.02] px-6 py-2.5 text-[14px] font-medium text-slate-700 dark:text-white/70 transition-all hover:bg-black/10 dark:hover:bg-white/[0.04]"
                   >
-                    Tillbaka
+                    Back
                   </button>
                   <button
                     onClick={handleCreate}
                     disabled={creating}
                     className="rounded-xl bg-[#907AFF] px-6 py-2.5 text-[14px] font-medium text-white transition-all hover:bg-[#8069EE] disabled:opacity-60"
                   >
-                    {creating ? "Skapar…" : "Skapa bok"}
+                    {creating ? "Creating..." : "Create book"}
                   </button>
                 </div>
               </div>

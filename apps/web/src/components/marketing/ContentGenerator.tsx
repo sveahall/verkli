@@ -3,7 +3,7 @@
 import { useCallback, useMemo, useState } from "react";
 import type { GeneratorOutput, ModuleState } from "@/lib/marketing/types";
 
-const emptyMessage = "Välj en kampanj för att generera marknadsföringstext.";
+const emptyMessage = "Choose a campaign to generate marketing copy.";
 
 const CONTENT_TYPE_MAP: Record<string, string> = {
   hook: "hook",
@@ -35,7 +35,7 @@ export default function ContentGenerator({
   const handleGenerate = useCallback(
     async (generatorId: string) => {
       if (!bookId) {
-        setErrors((prev) => ({ ...prev, [generatorId]: "V\u00e4lj en bok f\u00f6rst." }));
+        setErrors((prev) => ({ ...prev, [generatorId]: "Choose a book first." }));
         return;
       }
 
@@ -58,7 +58,7 @@ export default function ContentGenerator({
           const data = await res.json().catch(() => null);
           setErrors((prev) => ({
             ...prev,
-            [generatorId]: data?.error ?? "Generering misslyckades",
+            [generatorId]: data?.error ?? "Generation failed",
           }));
           return;
         }
@@ -66,12 +66,12 @@ export default function ContentGenerator({
         const data = await res.json();
         setOutputs((prev) => ({
           ...prev,
-          [generatorId]: data.caption ?? "Inget resultat.",
+          [generatorId]: data.caption ?? "No result.",
         }));
       } catch {
         setErrors((prev) => ({
           ...prev,
-          [generatorId]: "N\u00e4tverksfel. F\u00f6rs\u00f6k igen.",
+          [generatorId]: "Network error. Try again.",
         }));
       } finally {
         setLoading((prev) => ({ ...prev, [generatorId]: false }));
@@ -141,8 +141,8 @@ export default function ContentGenerator({
               />
               <div className="rounded-xl border border-dashed border-border bg-muted/30 p-3 text-[12px] text-muted-foreground">
                 {isLoading
-                  ? "Genererar\u2026"
-                  : outputs[generator.id] || "Resultatet visas h\u00e4r."}
+                  ? "Generating..."
+                  : outputs[generator.id] || "Result appears here."}
               </div>
               {error && (
                 <p className="text-[12px] text-red-600 dark:text-red-400">{error}</p>
@@ -153,9 +153,9 @@ export default function ContentGenerator({
               type="button"
               disabled={isLoading}
               onClick={() => handleGenerate(generator.id)}
-              className="mt-4 w-full rounded-xl bg-gradient-to-r from-[#907AFF] to-[#8069EE] px-4 py-2 text-[13px] font-semibold text-white transition hover:from-[#8069EE] hover:to-[#7058DD] disabled:cursor-not-allowed disabled:opacity-60"
-            >
-              {isLoading ? "Genererar\u2026" : "Generate copy"}
+            className="mt-4 w-full rounded-xl bg-gradient-to-r from-[#907AFF] to-[#8069EE] px-4 py-2 text-[13px] font-semibold text-white transition hover:from-[#8069EE] hover:to-[#7058DD] disabled:cursor-not-allowed disabled:opacity-60"
+          >
+              {isLoading ? "Generating..." : "Generate copy"}
             </button>
           </div>
         );

@@ -236,7 +236,8 @@ export async function reorderSections(shelfId: string, sectionIds: string[]): Pr
     const { error } = await supabase
       .from('shelf_sections')
       .update({ sort_index: update.sort_index })
-      .eq('id', update.id);
+      .eq('id', update.id)
+      .eq('shelf_id', shelfId);
 
     if (error) throw error;
   }

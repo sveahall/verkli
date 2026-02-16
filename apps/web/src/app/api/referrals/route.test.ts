@@ -165,10 +165,6 @@ function makeAdminClientForRedeem(input?: {
   return { client, state };
 }
 
-function makeGenerateRequest(): Request {
-  return new Request("http://localhost/api/referrals/generate", { method: "POST" });
-}
-
 function makeRedeemRequest(body: unknown): Request {
   return new Request("http://localhost/api/referrals/redeem", {
     method: "POST",

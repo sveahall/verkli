@@ -1,5 +1,4 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { NextResponse } from "next/server";
 import { apiError, E_BOOK_NOT_FOUND } from "@/lib/api-errors";
 
 type BookRow = { id: string; title?: string | null };

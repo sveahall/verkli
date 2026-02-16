@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import Link from "next/link";
 import { resolveErrorMessage } from "@/lib/error-messages";
 
 type FeedbackItem = {
@@ -53,7 +52,7 @@ export default function AccountFeedbackPage() {
       const data = await res.json();
       setFeedback((prev) => [{ id: data.id, type, message, url: null, status: "new", created_at: data.created_at }, ...prev]);
     } catch {
-      setError(resolveErrorMessage(null, "Kunde inte skicka. Försök igen."));
+      setError(resolveErrorMessage(null, "Could not send. Try again."));
     } finally {
       setSubmitting(false);
     }
@@ -124,7 +123,7 @@ export default function AccountFeedbackPage() {
               </div>
               <p className="mt-1 text-sm text-muted-foreground line-clamp-2">{item.message}</p>
               <p className="mt-1 text-xs text-muted-foreground">
-                {new Date(item.created_at).toLocaleDateString("sv-SE")}
+                {new Date(item.created_at).toLocaleDateString("en-US")}
               </p>
             </li>
           ))}

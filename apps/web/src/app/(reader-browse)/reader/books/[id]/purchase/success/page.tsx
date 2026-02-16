@@ -46,23 +46,24 @@ export default async function PurchaseSuccessPage({
   return (
     <main className="mx-auto flex min-h-[70vh] w-full max-w-3xl items-center px-6 py-12">
       <section className="w-full rounded-2xl border border-black/10 bg-white p-6 text-slate-900 shadow-sm dark:border-white/10 dark:bg-[#0f1115] dark:text-white">
-        <h1 className="text-2xl font-semibold">Köpstatus</h1>
+        <h1 className="text-2xl font-semibold">Purchase status</h1>
 
         {outcome === "success" ? (
           <p className="mt-3 text-sm text-emerald-700 dark:text-emerald-300">
-            Betalningen är verifierad. Boken är nu upplåst för ditt konto.
+            Payment verified. This book is now unlocked for your account.
           </p>
         ) : null}
 
         {outcome === "failed" ? (
           <p className="mt-3 text-sm text-rose-700 dark:text-rose-300">
-            Vi kunde inte verifiera köpet. Du kan försöka igen eller kontakta support.
+            We could not verify the purchase. You can try again or contact support.
           </p>
         ) : null}
 
         {outcome === "pending" ? (
           <p className="mt-3 text-sm text-slate-700 dark:text-white/75">
-            Vi tar emot betalningsbekräftelsen. Om access inte uppdateras direkt, öppna boken igen om en stund.
+            We are waiting for payment confirmation. If access does not update right away, reopen the
+            book in a moment.
           </p>
         ) : null}
 
@@ -71,20 +72,20 @@ export default async function PurchaseSuccessPage({
             href={`/reader/books/${bookId}`}
             className="rounded-lg bg-slate-900 px-4 py-2 text-sm font-medium text-white dark:bg-white dark:text-slate-900"
           >
-            Till boken
+            Go to book
           </Link>
           <Link
             href="/reader/discover"
             className="rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 dark:border-white/20 dark:text-white"
           >
-            Utforska fler böcker
+            Explore more books
           </Link>
           {requiresSignIn ? (
             <Link
               href={`/reader/signin?next=${encodeURIComponent(`/reader/books/${bookId}`)}`}
               className="rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 dark:border-white/20 dark:text-white"
             >
-              Logga in för att se access
+              Sign in to view access
             </Link>
           ) : null}
         </div>

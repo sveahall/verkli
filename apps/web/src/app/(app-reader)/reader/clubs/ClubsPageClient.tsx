@@ -33,8 +33,8 @@ export default function ClubsPageClient({ clubs }: ClubsPageClientProps) {
 
   const tabs: TabItem[] = useMemo(
     () => [
-      { id: "mine", label: "Mina klubbar", badge: `${myClubs.length}` },
-      { id: "explore", label: "Utforska", badge: `${exploreClubs.length}` },
+      { id: "mine", label: "My clubs", badge: `${myClubs.length}` },
+      { id: "explore", label: "Explore", badge: `${exploreClubs.length}` },
     ],
     [myClubs.length, exploreClubs.length]
   );
@@ -68,11 +68,11 @@ export default function ClubsPageClient({ clubs }: ClubsPageClientProps) {
   return (
     <div className="section-gap">
       <PageHeader
-        eyebrow="Bokklubbar"
-        title="Bokklubbar"
-        description="Läs tillsammans med andra. Gå med i en klubb eller skapa din egen."
+        eyebrow="Book clubs"
+        title="Book clubs"
+        description="Read together with others. Join a club or create your own."
         actions={
-          <Button onClick={() => setShowCreate(true)}>Skapa klubb</Button>
+          <Button onClick={() => setShowCreate(true)}>Create club</Button>
         }
       />
 
@@ -86,21 +86,21 @@ export default function ClubsPageClient({ clubs }: ClubsPageClientProps) {
         <EmptyState
           title={
             activeTab === "mine"
-              ? "Du är inte med i någon klubb ännu"
-              : "Inga klubbar att utforska"
+              ? "You are not in any clubs yet"
+              : "No clubs to explore"
           }
           description={
             activeTab === "mine"
-              ? "Skapa en egen bokklubb eller utforska befintliga."
-              : "Bli den första att skapa en bokklubb!"
+              ? "Create your own book club or explore existing ones."
+              : "Be the first to create a book club!"
           }
           action={
             activeTab === "mine" ? (
               <Button variant="secondary" onClick={() => setActiveTab("explore")}>
-                Utforska klubbar
+                Explore clubs
               </Button>
             ) : (
-              <Button onClick={() => setShowCreate(true)}>Skapa klubb</Button>
+              <Button onClick={() => setShowCreate(true)}>Create club</Button>
             )
           }
         />

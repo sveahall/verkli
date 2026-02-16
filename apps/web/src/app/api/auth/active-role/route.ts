@@ -1,4 +1,6 @@
-import { updateActiveRole, type ActiveRole } from "@/features/auth/roles";
+import { updateActiveRole } from "@/features/auth/roles";
+import type { ActiveRole } from "@/lib/active-role";
+import { activeRoleCookieHeader, isValidActiveRole } from "@/lib/active-role";
 import {
   apiError,
   E_INVALID_ROLE,
@@ -10,19 +12,16 @@ import { createClient } from "@/lib/supabase/server";
 import { createPerUserRateLimiter } from "@/lib/rate-limit";
 import { NextResponse } from "next/server";
 
-const VALID_ROLES: ActiveRole[] = ["author", "reader"];
-
 const limiter = createPerUserRateLimiter({ maxPerMinute: 10 });
 
 export async function POST(request: Request) {
   const body = await request.json().catch(() => null);
-  const role = body?.role as ActiveRole | undefined;
+  const role = body?.role as string | undefined;
 
-  if (!role || !VALID_ROLES.includes(role)) {
+  if (!role || !isValidActiveRole(role)) {
     return apiError(E_INVALID_ROLE, 400);
   }
 
-  // Authenticate first so we can rate-limit per user
   const supabase = await createClient();
   const {
     data: { user },
@@ -39,10 +38,9 @@ export async function POST(request: Request) {
     });
   }
 
-  const result = await updateActiveRole(role);
+  const result = await updateActiveRole(role as ActiveRole);
 
   if (!result.ok) {
-    // "Not authenticated" → 401; any other rejection (role restriction) → 403
     const isAuthError = result.error === "Not authenticated";
     return apiError(
       isAuthError ? E_NOT_AUTHENTICATED : E_FORBIDDEN,
@@ -50,5 +48,7 @@ export async function POST(request: Request) {
     );
   }
 
-  return NextResponse.json({ ok: true });
+  const res = NextResponse.json({ ok: true });
+  res.headers.set("Set-Cookie", activeRoleCookieHeader(role as ActiveRole));
+  return res;
 }

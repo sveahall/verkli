@@ -41,11 +41,11 @@ export type {
 export { AIProviderError } from "./types";
 
 // Default provider instances
-import { opusTranslator, OpusTranslator } from "./opus-translator";
-import { piperNarrator, PiperNarrator } from "./piper-narrator";
-import { runwayVideo, RunwayVideoProvider } from "./runway-video";
-import { stubImage, StubImageProvider } from "./stub-image";
-import { stubCopywriter, StubCopywriterProvider } from "./stub-copywriter";
+import { opusTranslator } from "./opus-translator";
+import { piperNarrator } from "./piper-narrator";
+import { runwayVideo } from "./runway-video";
+import { stubImage } from "./stub-image";
+import { stubCopywriter } from "./stub-copywriter";
 
 // Re-export provider classes for direct instantiation if needed
 export { OpusTranslator, opusTranslator } from "./opus-translator";

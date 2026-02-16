@@ -1,5 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { NextResponse } from "next/server";
+import { activeRoleCookieHeader } from "@/lib/active-role";
+import type { ActiveRole } from "@/lib/active-role";
 
 export async function GET(request: Request) {
   const { searchParams, origin } = new URL(request.url);
@@ -8,10 +10,10 @@ export async function GET(request: Request) {
   if (code) {
     const supabase = await createClient();
     const { error } = await supabase.auth.exchangeCodeForSession(code);
-    
+
     if (!error) {
       const { data: { user } } = await supabase.auth.getUser();
-      let role: "author" | "reader" | null = null;
+      let role: ActiveRole | null = null;
       const metaRole = user?.user_metadata?.active_role ?? user?.user_metadata?.role;
       if (metaRole === "author" || metaRole === "reader") {
         role = metaRole;
@@ -33,10 +35,13 @@ export async function GET(request: Request) {
       }
 
       const redirectPath = role === "author" ? "/author/home" : role === "reader" ? "/reader/home" : "/";
-      return NextResponse.redirect(`${origin}${redirectPath}`);
+      const res = NextResponse.redirect(`${origin}${redirectPath}`);
+      if (role) {
+        res.headers.set("Set-Cookie", activeRoleCookieHeader(role));
+      }
+      return res;
     }
   }
 
-  // Return to home if something went wrong
   return NextResponse.redirect(`${origin}/?error=auth`);
 }

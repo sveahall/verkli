@@ -16,6 +16,7 @@ const usernamePattern = /^[a-z0-9._-]+$/;
 const normalizeUsername = (value: string) => value.trim().toLowerCase();
 
 export async function updateAccount(prevState: ActionState, formData: FormData): Promise<ActionState> {
+  void prevState;
   // SECURITY: Require author role for author settings
   const roleCheck = await requireAuthorRole();
   if (!roleCheck.ok) {
@@ -104,6 +105,7 @@ export async function updateAvatarPath(path: string): Promise<ActionState> {
 }
 
 export async function updateProfile(prevState: ActionState, formData: FormData): Promise<ActionState> {
+  void prevState;
   // SECURITY: Require author role for author settings
   const roleCheck = await requireAuthorRole();
   if (!roleCheck.ok) {
@@ -137,6 +139,7 @@ export async function updateProfile(prevState: ActionState, formData: FormData):
 }
 
 export async function updatePreferences(prevState: ActionState, formData: FormData): Promise<ActionState> {
+  void prevState;
   // SECURITY: Require author role for author settings
   const roleCheck = await requireAuthorRole();
   if (!roleCheck.ok) {
@@ -198,6 +201,7 @@ export async function switchRoleToReader(): Promise<void> {
 }
 
 export async function changePassword(prevState: ActionState, formData: FormData): Promise<ActionState> {
+  void prevState;
   const password = String(formData.get("new_password") || "");
   const confirm = String(formData.get("confirm_password") || "");
 

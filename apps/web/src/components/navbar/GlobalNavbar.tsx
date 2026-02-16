@@ -3,12 +3,14 @@
 import { useState, useEffect, useRef, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import Link from "next/link";
+import Image from "next/image";
 import { usePathname, useRouter } from "next/navigation";
 import GlassSurface from "@/components/GlassSurface";
 import ThemeToggle from "@/components/ThemeToggle";
 import UserMenu from "@/components/navbar/UserMenu";
 import NotificationBell from "@/components/notifications/NotificationBell";
 import { createClient } from "@/lib/supabase/client";
+import { getActiveRoleFromCookies } from "@/lib/active-role";
 import type { NavActions, NavLink } from "@/nav/navConfig";
 import type { User } from "@supabase/supabase-js";
 
@@ -493,6 +495,16 @@ export default function GlobalNavbar({
 
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [dropdownOpen, setDropdownOpen] = useState<{ key: string; top: number; left: number } | null>(null);
+
+  const [logoHref, setLogoHref] = useState<string>(
+    () => homeHref ?? (isauthorRoute ? "/author/home" : isReaderRoute ? "/reader/home" : "/")
+  );
+  useEffect(() => {
+    const role = getActiveRoleFromCookies();
+    setLogoHref(
+      role === "reader" ? "/reader/home" : role === "author" ? "/author/home" : homeHref ?? "/"
+    );
+  }, [homeHref]);
   // Timeout så att flytt från trigger till portal inte stänger menyn (browser: number)
   const dropdownCloseTimeoutRef = useRef<number | null>(null);
   useEffect(() => {
@@ -506,8 +518,8 @@ export default function GlobalNavbar({
     return () => document.removeEventListener("keydown", handleKeyDown);
   }, [dropdownOpen]);
   // Close mobile menu on navigation
-  // eslint-disable-next-line react-hooks/rules-of-hooks -- legitimate close on route change
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- close transient UI state when route changes
     setMobileMenuOpen(false);
   }, [pathname]);
 
@@ -526,19 +538,6 @@ export default function GlobalNavbar({
   const isauthorRoute = resolvedMode === "author";
   const isReaderRoute = resolvedMode === "reader";
   const isPublicPage = resolvedMode === "public";
-  const isAuthRoute = Boolean(
-    pathname &&
-      (pathname.startsWith("/signin") ||
-        pathname.startsWith("/signup") ||
-        pathname.startsWith("/forgot-password") ||
-        pathname.startsWith("/auth") ||
-        pathname.startsWith("/author/signin") ||
-        pathname.startsWith("/author/signup") ||
-        pathname.startsWith("/author/forgot-password") ||
-        pathname.startsWith("/reader/signin") ||
-        pathname.startsWith("/reader/signup") ||
-        pathname.startsWith("/reader/forgot-password"))
-  );
 
   // För menyn: använd route när vi är i author/reader, annars använd roll från profilen
   const displayRoleForMenu: "author" | "reader" =
@@ -600,7 +599,6 @@ export default function GlobalNavbar({
         matches("/reader/books") ||
         matches("/reader/lists") ||
         matches("/reader/authors") ||
-        matches("/reader/writers") ||
         matches("/reader/genres")
       );
     }
@@ -643,17 +641,21 @@ export default function GlobalNavbar({
             <div className="flex min-w-0 items-center gap-4 sm:gap-10">
               {/* Logo: min 44px touch target on mobile */}
               <Link
-                href={homeHref ?? (isauthorRoute ? "/author" : isReaderRoute ? "/reader" : "/")}
+                href={logoHref}
                 className="flex min-h-[44px] min-w-[44px] shrink-0 items-center justify-center rounded-md focus:outline-none focus:ring-2 focus:ring-[#907AFF]/50 focus:ring-offset-2 focus:ring-offset-background"
               >
-                <img
+                <Image
                   src="/logo-dark.svg"
                   alt="Verkli"
+                  width={140}
+                  height={32}
                   className="h-8 w-auto dark:hidden"
                 />
-                <img
+                <Image
                   src="/favicon.svg"
                   alt="Verkli"
+                  width={32}
+                  height={32}
                   className="hidden h-8 w-auto dark:block"
                 />
               </Link>
@@ -836,7 +838,7 @@ export default function GlobalNavbar({
                 type="button"
                 onClick={() => setMobileMenuOpen((v) => !v)}
                 className="flex min-h-[44px] min-w-[44px] items-center justify-center rounded-full border border-slate-200/80 text-slate-700 transition-colors hover:bg-slate-100 hover:text-slate-900 focus:outline-none focus:ring-2 focus:ring-[#907AFF]/50 focus:ring-offset-2 dark:border-white/10 dark:text-white/80 dark:hover:bg-white/10 lg:hidden"
-                aria-label={mobileMenuOpen ? "Stäng meny" : "Öppna meny"}
+                aria-label={mobileMenuOpen ? "Close menu" : "Open menu"}
                 aria-expanded={mobileMenuOpen}
               >
                 {mobileMenuOpen ? (
@@ -1009,7 +1011,7 @@ export default function GlobalNavbar({
             type="button"
             onClick={() => setMobileMenuOpen(false)}
             className="absolute inset-0 bg-black/40 backdrop-blur-sm"
-            aria-label="Stäng meny"
+            aria-label="Close menu"
           />
           <div className="absolute right-0 top-0 flex h-full w-full max-w-[min(100vw,22rem)] flex-col gap-6 overflow-y-auto border-l border-slate-200/80 bg-white/95 px-6 pb-8 pt-[calc(88px+0.5rem)] shadow-xl dark:border-white/10 dark:bg-slate-950/95">
             <div className="flex flex-col gap-1">

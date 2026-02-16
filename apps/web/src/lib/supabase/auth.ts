@@ -18,6 +18,7 @@ export async function signUp(email: string, password: string, role: 'author' | '
 }
 
 export async function signIn(email: string, password: string, _persistSession: boolean = true) {
+  void _persistSession;
   const { data, error } = await supabase.auth.signInWithPassword({
     email,
     password,

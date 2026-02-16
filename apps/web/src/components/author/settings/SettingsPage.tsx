@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState, useActionState } from "react";
+import Image from "next/image";
 import { useFormStatus } from "react-dom";
 import { uploadAvatar } from "@/lib/supabase/storage";
 import {
@@ -55,7 +56,7 @@ function SaveButton({ label }: { label: string }) {
       disabled={pending}
       className="min-h-[44px] min-w-[44px] rounded-full bg-[#907AFF] px-5 py-2 text-[13px] font-semibold text-white transition-all hover:bg-[#8069EE] disabled:cursor-not-allowed disabled:opacity-60 focus:outline-none focus:ring-2 focus:ring-[#907AFF]/50 focus:ring-offset-2 focus:ring-offset-background"
     >
-      {pending ? "Sparar…" : label}
+      {pending ? "Saving..." : label}
     </button>
   );
 }
@@ -125,9 +126,9 @@ export default function SettingsPage({ user, profile }: SettingsPageProps) {
     <main className="min-h-screen min-h-dvh bg-background text-foreground">
       <div className="page-content mx-auto max-w-[1200px] section-gap pb-24 pt-8 sm:pt-10">
         <header className="space-y-2">
-          <h1 className="text-page-title">Författarinställningar</h1>
+          <h1 className="text-page-title">Author settings</h1>
           <p className="text-body max-w-2xl">
-            Hantera din publika profil, standardvärden och säkerhetsinställningar.
+            Manage your public profile, defaults, and security settings.
           </p>
         </header>
 
@@ -135,7 +136,7 @@ export default function SettingsPage({ user, profile }: SettingsPageProps) {
           <div className="flex flex-wrap items-center justify-between gap-4">
             <div>
               <h2 className="text-section-title">Konto</h2>
-              <p className="text-[14px] text-slate-600 dark:text-white/50">Uppdatera ditt visningsnamn och användarnamn.</p>
+              <p className="text-[14px] text-slate-600 dark:text-white/50">Update your display name and username.</p>
             </div>
           </div>
           <form action={accountAction} className="mt-6 grid gap-5 md:grid-cols-2">
@@ -149,7 +150,7 @@ export default function SettingsPage({ user, profile }: SettingsPageProps) {
               />
             </div>
             <div className="space-y-2">
-              <label className="text-[13px] font-semibold uppercase tracking-wider text-slate-500 dark:text-white/50">Användarnamn</label>
+              <label className="text-[13px] font-semibold uppercase tracking-wider text-slate-500 dark:text-white/50">Username</label>
               <input
                 name="username"
                 value={username}
@@ -167,7 +168,7 @@ export default function SettingsPage({ user, profile }: SettingsPageProps) {
             </div>
             <div className="flex items-end justify-between gap-4">
               <InlineFeedback state={accountState} />
-              <SaveButton label="Spara ändringar" />
+              <SaveButton label="Save changes" />
             </div>
           </form>
         </section>
@@ -175,7 +176,7 @@ export default function SettingsPage({ user, profile }: SettingsPageProps) {
         <section className="card-base p-6 sm:p-8">
           <div>
             <h2 className="text-section-title">Profil</h2>
-            <p className="text-[14px] text-slate-600 dark:text-white/50">Publika detaljer synliga på din författarsida.</p>
+            <p className="text-[14px] text-slate-600 dark:text-white/50">Public details shown on your author page.</p>
           </div>
           <form action={profileAction} className="mt-6 grid gap-6 md:grid-cols-[1.2fr_1fr]">
             <div className="space-y-4">
@@ -191,8 +192,8 @@ export default function SettingsPage({ user, profile }: SettingsPageProps) {
               </div>
               <div className="flex items-center justify-between rounded-xl border border-black/10 bg-white/80 px-4 py-3 dark:border-white/10 dark:bg-[#0b0b10]">
                 <div>
-                  <p className="text-[14px] font-medium text-slate-900 dark:text-white">Publik profil</p>
-                  <p className="text-[12px] text-slate-500 dark:text-white/50">Växla synlighet för läsare.</p>
+                  <p className="text-[14px] font-medium text-slate-900 dark:text-white">Public profile</p>
+                  <p className="text-[12px] text-slate-500 dark:text-white/50">Toggle visibility for readers.</p>
                 </div>
                 <label className="relative inline-flex cursor-pointer items-center">
                   <input
@@ -219,9 +220,9 @@ export default function SettingsPage({ user, profile }: SettingsPageProps) {
               <div className="rounded-2xl border border-black/10 bg-white/80 p-5 dark:border-white/10 dark:bg-[#0b0b10]">
                 <p className="text-[13px] font-semibold uppercase tracking-wider text-slate-500 dark:text-white/50">Avatar</p>
                 <div className="mt-4 flex items-center gap-4">
-                  <div className="h-20 w-20 overflow-hidden rounded-full border border-black/10 bg-gradient-to-br from-[#907AFF]/20 to-[#E29ED5]/20 dark:border-white/10">
+                  <div className="relative h-20 w-20 overflow-hidden rounded-full border border-black/10 bg-gradient-to-br from-[#907AFF]/20 to-[#E29ED5]/20 dark:border-white/10">
                     {avatarUrl ? (
-                      <img src={avatarUrl} alt="Avatar" className="h-full w-full object-cover" />
+                      <Image src={avatarUrl} alt="Avatar" fill sizes="80px" className="object-cover" unoptimized />
                     ) : (
                       <div className="flex h-full w-full items-center justify-center text-[24px] font-semibold text-slate-900 dark:text-white">
                         {displayName.charAt(0).toUpperCase()}
@@ -231,7 +232,7 @@ export default function SettingsPage({ user, profile }: SettingsPageProps) {
                   <div>
                     <label className="inline-flex min-h-[44px] min-w-[44px] cursor-pointer items-center gap-2 rounded-full border border-black/10 bg-black/[0.02] px-4 py-2 text-[12px] font-semibold text-slate-700 transition hover:bg-black/10 dark:border-white/10 dark:bg-white/[0.04] dark:text-white/70 dark:hover:bg-white/[0.06] focus-within:ring-2 focus-within:ring-[#907AFF]/30 focus-within:ring-offset-2">
                       <input type="file" accept="image/*" className="hidden" onChange={handleAvatarChange} />
-                      {avatarUploading ? "Laddar upp…" : "Ladda upp ny"}
+                      {avatarUploading ? "Uploading..." : "Upload new"}
                     </label>
                     <p className="mt-2 text-[12px] text-slate-500 dark:text-white/40">PNG, JPG max 2 MB.</p>
                   </div>
@@ -239,7 +240,7 @@ export default function SettingsPage({ user, profile }: SettingsPageProps) {
               </div>
               <div className="flex items-end justify-between gap-4">
                 <InlineFeedback state={profileState} />
-                <SaveButton label="Spara ändringar" />
+                <SaveButton label="Save changes" />
               </div>
             </div>
           </form>
@@ -247,8 +248,8 @@ export default function SettingsPage({ user, profile }: SettingsPageProps) {
 
         <section className="card-base p-6 sm:p-8">
           <div>
-            <h2 className="text-section-title">Författarinställningar</h2>
-            <p className="text-[14px] text-slate-600 dark:text-white/50">Standardvärden som används när du skapar nya hyllor.</p>
+            <h2 className="text-section-title">Author defaults</h2>
+            <p className="text-[14px] text-slate-600 dark:text-white/50">Default values used when creating new shelves.</p>
           </div>
           <form action={prefsAction} className="mt-6 grid gap-6">
             <div className="grid gap-5 md:grid-cols-2">
@@ -293,7 +294,7 @@ export default function SettingsPage({ user, profile }: SettingsPageProps) {
                 />
               </div>
               <div className="space-y-2">
-                <label className="text-[13px] font-semibold uppercase tracking-wider text-slate-500 dark:text-white/50">Textfärg</label>
+                <label className="text-[13px] font-semibold uppercase tracking-wider text-slate-500 dark:text-white/50">Text color</label>
                 <input
                   name="typography_text_color"
                   value={textColor}
@@ -308,7 +309,7 @@ export default function SettingsPage({ user, profile }: SettingsPageProps) {
                 <p className="text-[13px] font-semibold uppercase tracking-wider text-slate-500 dark:text-white/50">Standardomslagsstil</p>
                 <div className="flex gap-3">
                   {(["image", "gradient"] as const).map((option) => {
-                    const coverStyleLabel = option === "image" ? "Bild" : "Gradient";
+                    const coverStyleLabel = option === "image" ? "Image" : "Gradient";
                     return (
                     <label key={option} className={`flex items-center gap-2 rounded-full border px-4 py-2 text-[13px] font-medium ${
                       coverStyle === option
@@ -330,90 +331,90 @@ export default function SettingsPage({ user, profile }: SettingsPageProps) {
                 </div>
               </div>
               <div className="space-y-2">
-                <label className="text-[13px] font-semibold uppercase tracking-wider text-slate-500 dark:text-white/50">Standardsynlighet hyllor</label>
+                <label className="text-[13px] font-semibold uppercase tracking-wider text-slate-500 dark:text-white/50">Default shelf visibility</label>
                 <select
                   name="visibility_shelves"
                   value={visibilityShelves}
                   onChange={(event) => setVisibilityShelves(event.target.value)}
                   className="min-h-[44px] w-full rounded-xl border border-black/10 bg-white/80 px-4 py-3 text-[14px] text-slate-900 outline-none transition focus:border-[#907AFF]/50 focus:ring-2 focus:ring-[#907AFF]/20 focus:ring-offset-0 dark:border-white/10 dark:bg-[#0b0b10] dark:text-white"
                 >
-                  <option value="public">Publik</option>
-                  <option value="private">Privat</option>
+                  <option value="public">Public</option>
+                  <option value="private">Private</option>
                 </select>
               </div>
               <div className="space-y-2">
-                <label className="text-[13px] font-semibold uppercase tracking-wider text-slate-500 dark:text-white/50">Standardsynlighet böcker</label>
+                <label className="text-[13px] font-semibold uppercase tracking-wider text-slate-500 dark:text-white/50">Default book visibility</label>
                 <select
                   name="visibility_books"
                   value={visibilityBooks}
                   onChange={(event) => setVisibilityBooks(event.target.value)}
                   className="min-h-[44px] w-full rounded-xl border border-black/10 bg-white/80 px-4 py-3 text-[14px] text-slate-900 outline-none transition focus:border-[#907AFF]/50 focus:ring-2 focus:ring-[#907AFF]/20 focus:ring-offset-0 dark:border-white/10 dark:bg-[#0b0b10] dark:text-white"
                 >
-                  <option value="public">Publik</option>
-                  <option value="private">Privat</option>
+                  <option value="public">Public</option>
+                  <option value="private">Private</option>
                 </select>
               </div>
             </div>
 
             <div className="flex items-end justify-between gap-4">
               <InlineFeedback state={prefsState} />
-              <SaveButton label="Spara ändringar" />
+              <SaveButton label="Save changes" />
             </div>
           </form>
         </section>
 
         <section className="card-base p-6 sm:p-8">
           <div>
-            <h2 className="text-section-title">Roll</h2>
-            <p className="text-[14px] text-slate-600 dark:text-white/50">Du är inloggad som författare.</p>
+            <h2 className="text-section-title">Role</h2>
+            <p className="text-[14px] text-slate-600 dark:text-white/50">You are signed in as an author.</p>
           </div>
           <div className="mt-6 flex flex-wrap items-center justify-between gap-4">
             <div className="rounded-full border border-black/10 bg-white/80 px-4 py-2 text-[13px] font-semibold uppercase tracking-wider text-slate-700 dark:border-white/10 dark:bg-[#0b0b10] dark:text-white/70">
-              Roll: {profile.role}
+              Role: {profile.role}
             </div>
             <button
               type="button"
               onClick={() => setShowRoleModal(true)}
               className="rounded-full border border-black/10 bg-black/[0.02] px-5 py-2 text-[13px] font-semibold text-slate-700 transition-all hover:bg-black/10 dark:border-white/10 dark:bg-white/[0.04] dark:text-white/70 dark:hover:bg-white/[0.06]"
             >
-              Byt till läsare
+              Switch to reader
             </button>
           </div>
         </section>
 
         <section className="card-base p-6 sm:p-8">
           <div>
-            <h2 className="text-section-title">Säkerhet</h2>
-            <p className="text-[14px] text-slate-600 dark:text-white/50">Ändra ditt lösenord eller logga ut överallt.</p>
+            <h2 className="text-section-title">Security</h2>
+            <p className="text-[14px] text-slate-600 dark:text-white/50">Change your password or sign out everywhere.</p>
           </div>
           <form action={passwordAction} className="mt-6 grid gap-4 md:grid-cols-2">
             <input
               type="password"
               name="new_password"
-              placeholder="Nytt lösenord"
+              placeholder="New password"
               className="min-h-[44px] rounded-xl border border-black/10 bg-white/80 px-4 py-3 text-[14px] text-slate-900 outline-none transition focus:border-[#907AFF]/50 focus:ring-2 focus:ring-[#907AFF]/20 dark:border-white/10 dark:bg-[#0b0b10] dark:text-white"
             />
             <input
               type="password"
               name="confirm_password"
-              placeholder="Bekräfta lösenord"
+              placeholder="Confirm password"
               className="min-h-[44px] rounded-xl border border-black/10 bg-white/80 px-4 py-3 text-[14px] text-slate-900 outline-none transition focus:border-[#907AFF]/50 focus:ring-2 focus:ring-[#907AFF]/20 dark:border-white/10 dark:bg-[#0b0b10] dark:text-white"
             />
             <div className="flex items-center justify-between gap-4 md:col-span-2">
               <InlineFeedback state={passwordState} />
-              <SaveButton label="Uppdatera lösenord" />
+              <SaveButton label="Update password" />
             </div>
           </form>
           <form action={signOutAllSessions} className="mt-6 flex items-center justify-between rounded-2xl border border-black/10 bg-white/80 px-4 py-4 dark:border-white/10 dark:bg-[#0b0b10]">
             <div>
-              <p className="text-[14px] font-medium text-slate-900 dark:text-white">Logga ut överallt</p>
-              <p className="text-[12px] text-slate-500 dark:text-white/40">Detta avslutar alla aktiva sessioner.</p>
+              <p className="text-[14px] font-medium text-slate-900 dark:text-white">Sign out everywhere</p>
+              <p className="text-[12px] text-slate-500 dark:text-white/40">This ends all active sessions.</p>
             </div>
             <button
               type="submit"
               className="min-h-[44px] rounded-full border border-red-200 bg-red-50 px-4 py-2 text-[12px] font-semibold text-red-600 transition hover:bg-red-100 focus:outline-none focus:ring-2 focus:ring-red-500/50 focus:ring-offset-2 dark:border-red-500/30 dark:bg-red-500/10 dark:text-red-300 dark:hover:bg-red-500/20"
             >
-              Logga ut alla
+              Sign out all
             </button>
           </form>
         </section>
@@ -422,9 +423,9 @@ export default function SettingsPage({ user, profile }: SettingsPageProps) {
       {showRoleModal && (
         <div className="fixed inset-0 z-[1000] flex items-center justify-center bg-black/40 p-4 backdrop-blur-sm safe-area-inset">
           <div className="w-full max-w-[420px] max-h-[min(90dvh,32rem)] overflow-y-auto rounded-2xl border border-black/10 bg-white p-5 dark:border-white/10 dark:bg-[#0a0a0f] sm:rounded-3xl sm:p-6">
-            <h3 className="text-[18px] font-semibold text-slate-900 dark:text-white">Byta till läsare?</h3>
+            <h3 className="text-[18px] font-semibold text-slate-900 dark:text-white">Switch to reader?</h3>
             <p className="mt-2 text-[14px] text-slate-600 dark:text-white/50">
-              Du kan alltid byta tillbaka senare. Din författardata finns kvar.
+              You can always switch back later. Your author data remains.
             </p>
             <div className="mt-6 flex items-center justify-end gap-3">
               <button
@@ -432,10 +433,10 @@ export default function SettingsPage({ user, profile }: SettingsPageProps) {
                 onClick={() => setShowRoleModal(false)}
                 className="min-h-[44px] rounded-full border border-black/10 bg-black/[0.02] px-4 py-2 text-[12px] font-semibold text-slate-700 dark:border-white/10 dark:bg-white/[0.04] dark:text-white/70 focus:outline-none focus:ring-2 focus:ring-[#907AFF]/30 focus:ring-offset-2"
               >
-                Avbryt
+                Cancel
               </button>
               <form action={switchRoleToReader}>
-                <SaveButton label="Byt roll" />
+                <SaveButton label="Switch role" />
               </form>
             </div>
           </div>

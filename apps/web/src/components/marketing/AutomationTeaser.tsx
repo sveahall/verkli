@@ -10,14 +10,14 @@ export default function AutomationTeaser() {
             </svg>
           </span>
           <div>
-            <p className="text-[15px] font-semibold text-foreground">Automation (Coming soon)</p>
+            <p className="text-[15px] font-semibold text-foreground">Automation tools</p>
             <p className="text-[12px] text-muted-foreground">
               Smart schedules, auto-repurpose, and hands-free publishing.
             </p>
           </div>
         </div>
         <div className="rounded-2xl border border-dashed border-border bg-muted/30 p-4 text-sm text-muted-foreground">
-          Soon you will be able to chain prompts, schedule campaigns, and trigger content across channels.
+          Chain prompts, schedule campaigns, and trigger content across channels from one workflow.
           {/* TODO: Connect automation rules and AI pipelines here. */}
         </div>
         <button className="rounded-xl bg-gradient-to-r from-[#907AFF] to-[#8069EE] px-5 py-2.5 text-[13px] font-semibold text-white transition hover:from-[#8069EE] hover:to-[#7058DD]">

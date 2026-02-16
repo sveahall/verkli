@@ -83,6 +83,7 @@ describe("POST /api/stripe/webhook", () => {
     expect(mockUpsertBillingAccount).toHaveBeenCalledWith(
       expect.anything(),
       "user-1",
+      "author",
       expect.objectContaining({ plan: "pro" })
     );
   });

@@ -12,6 +12,7 @@ import BookCard from "@/components/library/BookCard";
 import { getShelves, createShelf, getStandaloneBooks } from "@/lib/supabase/shelves-client";
 import type { ShelfWithDetails } from "@/lib/supabase/shelves-client";
 import type { Tables } from "@/lib/supabase/types";
+import { SHELF_GRADIENT_OPTIONS } from "@/lib/design/brand";
 
 type Book = Tables<"books">;
 import type { User } from "@supabase/supabase-js";
@@ -25,7 +26,7 @@ type EmptyStateCardProps = {
 
 function EmptyStateCard({ children }: EmptyStateCardProps) {
   return (
-    <div className="empty-state-base text-helper">
+    <div className="flex min-h-[140px] w-full items-center justify-center rounded-2xl border border-dashed border-black/[0.06] px-6 py-8 text-[14px] text-slate-400 dark:border-white/[0.06] dark:text-white/30">
       {children}
     </div>
   );
@@ -495,44 +496,59 @@ export default function AuthorDashboard({ user }: { user: User }) {
   };
 
   return (
-    <main className="min-h-screen bg-gradient-to-b from-background via-background/95 to-background/90 text-foreground transition-colors duration-300">
+    <main className="min-h-screen bg-background text-foreground">
 
-      <div className="mx-auto max-w-[1400px] px-6 pt-24 pb-16">
-        <section className="mb-14 text-center">
-          <h1 className="mt-4 text-[45px] font-semibold tracking-[-0.04em] text-slate-900 dark:text-white">
+      {/* Hero banner */}
+      <section className="relative -mt-[72px] pt-15 overflow-hidden border-b border-black/[0.04] dark:border-white/[0.06]">
+        <div className="pointer-events-none absolute inset-0">
+          <div className="absolute inset-0 bg-gradient-to-b from-[#eeeaf6] via-[#f0ecf7] to-background dark:from-[#0c0a18] dark:via-[#0a0914] dark:to-background" />
+          {/* Top-left orb — extends behind navbar */}
+          <div className="absolute -left-[5%] -top-[10%] h-[550px] w-[550px] rounded-full bg-[#907AFF]/20 blur-[130px] dark:bg-[#907AFF]/12" />
+          {/* Top-right orb */}
+          <div className="absolute -right-[5%] -top-[5%] h-[450px] w-[450px] rounded-full bg-[#6C5CE7]/15 blur-[120px] dark:bg-[#6C5CE7]/10" />
+          {/* Center orb */}
+          <div className="absolute left-[40%] top-[35%] h-[400px] w-[400px] rounded-full bg-[#4F46E5]/12 blur-[110px] dark:bg-[#4F46E5]/8" />
+          {/* Bottom accent */}
+          <div className="absolute bottom-[-5%] right-[20%] h-[300px] w-[300px] rounded-full bg-[#818CF8]/10 blur-[90px] dark:bg-[#818CF8]/6" />
+        </div>
+        <div className="relative mx-auto max-w-[1400px] px-6 pb-16 pt-[120px] text-center">
+          <h1 className="text-[clamp(36px,5vw,56px)] font-bold tracking-[-0.04em] text-slate-900 dark:text-white">
             {displayName}
-            <span className="ml-2 bg-gradient-to-r from-[#907AFF] via-[#E29ED5] to-[#FCC997] bg-clip-text text-transparent">
-              ’s world
+            <span className="ml-1 text-brand-gradient">
+              &apos;s world
             </span>
           </h1>
-          <p className="mt-3 max-w-xl text-[15px] text-slate-600 dark:text-white/[0.55] mx-auto">
+          <p className="mx-auto mt-4 max-w-[480px] text-[clamp(14px,1.2vw,17px)] leading-[1.6] text-slate-500 dark:text-white/50">
             Curate shelves, experiment with new books, and keep everything you&apos;re writing in one calm workspace.
           </p>
-        </section>
+        </div>
+      </section>
 
-        {/* Translations (feature flag: show Coming soon when disabled) */}
+      <div className="mx-auto max-w-[1400px] px-6 pt-12 pb-16">
+
+        {/* Translations (feature-flagged disabled state) */}
         {!getTranslationsEnabled() && (
           <section className="mb-8">
-            <div className="rounded-2xl border border-black/10 dark:border-white/10 bg-black/[0.02] dark:bg-white/[0.04] px-5 py-4">
-              <h3 className="text-[15px] font-semibold text-slate-900 dark:text-white">Translations</h3>
-              <p className="mt-1 text-[14px] text-slate-600 dark:text-white/50">Coming soon.</p>
+            <div className="rounded-2xl border border-black/[0.06] bg-white/50 px-6 py-5 backdrop-blur-sm dark:border-white/[0.06] dark:bg-white/[0.02]">
+              <h3 className="text-[14px] font-semibold text-slate-900 dark:text-white">Translations</h3>
+              <p className="mt-1 text-[13px] text-slate-500 dark:text-white/40">Not available on your current plan.</p>
             </div>
           </section>
         )}
 
         {/* My Library */}
         <section className="mb-20">
-          <div className="mb-6 flex items-center justify-between">
-            <h2 className="text-[20px] font-semibold text-slate-900 dark:text-white">My library</h2>
+          <div className="mb-8 flex items-center justify-between">
+            <h2 className="text-[24px] font-bold tracking-[-0.02em] text-slate-900 dark:text-white">My library</h2>
             <div className="relative" ref={createDropdownRef}>
               <button 
                 onClick={() => setShowCreateDropdown(!showCreateDropdown)} 
-                className="rounded-full border border-black/10 dark:border-white/10 px-5 py-2 text-[13px] font-medium text-slate-700 dark:text-white/70 transition-all hover:bg-black/[0.01] dark:hover:bg-white/[0.06]"
+                className="inline-flex items-center gap-2 rounded-full bg-slate-900 px-5 py-2.5 text-[13px] font-semibold text-white shadow-[0_1px_3px_rgba(0,0,0,0.2)] transition-all hover:bg-slate-800 hover:shadow-[0_4px_12px_rgba(0,0,0,0.15)] active:scale-[0.97] dark:bg-white dark:text-slate-900 dark:hover:bg-white/90"
               >
-                Create
-                <svg className="ml-2 inline h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
                 </svg>
+                Create
               </button>
               {showCreateDropdown && (
                 <div className="absolute right-0 top-full mt-2 w-[200px] overflow-hidden rounded-2xl border border-black/10 dark:border-white/10 bg-white/[0.95] dark:bg-[#0a0a0f]/[0.95] p-2 backdrop-blur-xl">
@@ -594,34 +610,34 @@ export default function AuthorDashboard({ user }: { user: User }) {
           
           {shelves.length === 0 && standaloneBooks.length === 0 ? (
             // Empty state with two large actions
-            <div className="rounded-3xl border border-black/10 dark:border-white/[0.08] from-black/5 dark:from-white/[0.04] to-transparent p-12">
+            <div className="rounded-[24px] border border-black/[0.05] bg-white/70 p-12 shadow-[0_1px_3px_rgba(0,0,0,0.04),0_8px_30px_rgba(0,0,0,0.02)] backdrop-blur-sm dark:border-white/[0.06] dark:bg-white/[0.015] dark:shadow-[0_1px_3px_rgba(255,255,255,0.02)]">
               <div className="grid gap-6 md:grid-cols-2">
                 <button
                   onClick={handleCreateShelf}
-                  className="group flex h-[300px] w-auto flex-col items-center justify-center rounded-2xl border-2 border-dashed border-gray-200/20 dark:border-white/10 bg-black/[0.01] dark:bg-white/[0.02] transition-all hover:border-[#907AFF]/15 hover:bg-black/[0.02] dark:hover:bg-white/[0.04]"
+                  className="group flex h-[300px] w-auto flex-col items-center justify-center rounded-[24px] border-2 border-dashed border-black/[0.06] transition-all duration-300 hover:border-slate-300 hover:bg-slate-50 dark:border-white/[0.06] dark:hover:border-white/[0.12] dark:hover:bg-white/[0.03]"
                 >
-                  <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-xl bg-gradient-to-br from-[#907AFF]/20 to-[#E29ED5]/20">
-                    <svg className="h-8 w-8 text-[#907AFF]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+                  <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-slate-100 transition-colors group-hover:bg-slate-200 dark:bg-white/[0.06] dark:group-hover:bg-white/[0.1]">
+                    <svg className="h-6 w-6 text-slate-500 dark:text-white/50" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 6h16M4 12h16M4 18h16" />
                     </svg>
                   </div>
-                  <h3 className="mb-2 text-[20px] font-semibold text-slate-900 dark:text-white">New shelf</h3>
-                  <p className="max-w-[200px] text-center text-[14px] text-slate-600 dark:text-white/50">
+                  <h3 className="mb-2 text-[18px] font-semibold text-slate-900 dark:text-white">New shelf</h3>
+                  <p className="max-w-[200px] text-center text-[14px] text-slate-500 dark:text-white/40">
                     Organize your books into collections
                   </p>
                 </button>
                 
                 <button
                   onClick={handleCreateBook}
-                  className="group flex h-[300px] flex-col items-center justify-center rounded-2xl border-2 border-dashed border-gray-200/20 dark:border-white/10 bg-black/[0.01] dark:bg-white/[0.02] transition-all hover:border-[#907AFF]/15 hover:bg-black/[0.02] dark:hover:bg-white/[0.04]"
+                  className="group flex h-[300px] flex-col items-center justify-center rounded-[24px] border-2 border-dashed border-black/[0.06] transition-all duration-300 hover:border-slate-300 hover:bg-slate-50 dark:border-white/[0.06] dark:hover:border-white/[0.12] dark:hover:bg-white/[0.03]"
                 >
-                  <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-xl bg-gradient-to-br from-[#E29ED5]/20 to-[#FCC997]/20">
-                    <svg className="h-8 w-8 text-[#E29ED5]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
+                  <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-slate-100 transition-colors group-hover:bg-slate-200 dark:bg-white/[0.06] dark:group-hover:bg-white/[0.1]">
+                    <svg className="h-6 w-6 text-slate-500 dark:text-white/50" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
                     </svg>
                   </div>
-                  <h3 className="mb-2 text-[20px] font-semibold text-slate-900 dark:text-white">Write new book</h3>
-                  <p className="max-w-[200px] text-center text-[14px] text-slate-600 dark:text-white/50">
+                  <h3 className="mb-2 text-[18px] font-semibold text-slate-900 dark:text-white">Write new book</h3>
+                  <p className="max-w-[200px] text-center text-[14px] text-slate-500 dark:text-white/40">
                     Create a new book and start writing
                   </p>
                 </button>
@@ -629,14 +645,14 @@ export default function AuthorDashboard({ user }: { user: User }) {
             </div>
           ) : (
             // Shelves grid
-            <div className="rounded-3xl border border-black/10 dark:border-white/[0.08] dark:from-white/[0.04] to-transparent p-8">
+            <div className="rounded-[24px] border border-black/[0.05] bg-white/70 p-8 shadow-[0_1px_3px_rgba(0,0,0,0.04),0_8px_30px_rgba(0,0,0,0.02)] backdrop-blur-sm dark:border-white/[0.06] dark:bg-white/[0.015] dark:shadow-[0_1px_3px_rgba(255,255,255,0.02)]">
               {loadingShelves ? (
                 <div className="flex items-center justify-center py-20">
                   <div className="h-8 w-8 animate-spin rounded-full border-2 border-white/20 border-t-[#907AFF]"></div>
                 </div>
               ) : (
                 <div className="mb-6">
-                  <h3 className="mb-4 text-[16px] font-semibold text-slate-900 dark:text-white">Shelves</h3>
+                  <h3 className="mb-5 text-[13px] font-semibold uppercase tracking-[0.12em] text-slate-400 dark:text-white/40">Shelves</h3>
                   <div className="flex flex-wrap gap-4">
                     {shelves.map((shelf) => (
                       <div key={shelf.id} className="shrink-0 w-[220px]">
@@ -649,7 +665,7 @@ export default function AuthorDashboard({ user }: { user: User }) {
                     ))}
                     <button
                       onClick={handleCreateShelf}
-                      className="flex h-[320px] w-[220px] shrink-0 items-center justify-center rounded-2xl border-2 border-dashed border-black/20 dark:border-white/10 bg-black/[0.02] dark:bg-white/[0.02] transition-all hover:border-[#907AFF]/30 hover:bg-black/[0.01] dark:hover:bg-white/[0.04]"
+                      className="flex h-[320px] w-[220px] shrink-0 items-center justify-center rounded-2xl border-2 border-dashed border-black/[0.06] transition-all duration-300 hover:border-slate-300 hover:bg-slate-50 dark:border-white/[0.06] dark:hover:border-white/[0.12] dark:hover:bg-white/[0.03]"
                     >
                       <div className="flex flex-col items-center gap-2">
                         <svg className="h-8 w-8 text-slate-400 dark:text-white/30" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -664,8 +680,8 @@ export default function AuthorDashboard({ user }: { user: User }) {
               
               {/* Standalone books section */}
               {(standaloneBooks.length > 0 || !loadingShelves) && (
-                <div className="mt-8 border-t border-black/10 dark:border-white/[0.06] pt-8">
-                  <h3 className="mb-6 text-[20px] font-semibold text-slate-900 dark:text-white">Standalone books</h3>
+                <div className="mt-8 border-t border-black/[0.05] pt-8 dark:border-white/[0.05]">
+                  <h3 className="mb-5 text-[13px] font-semibold uppercase tracking-[0.12em] text-slate-400 dark:text-white/40">Standalone books</h3>
                   <div className="flex flex-wrap gap-4">
                     {standalonePublishedBooks.length > 0 ? (
                       standalonePublishedBooks.map((book) => (
@@ -685,7 +701,7 @@ export default function AuthorDashboard({ user }: { user: User }) {
                     )}
                     <button
                       onClick={handleCreateBook}
-                      className="flex h-[200px] w-[140px] shrink-0 items-center justify-center rounded-2xl border-2 border-dashed border-black/20 dark:border-white/10 bg-black/[0.02] dark:bg-white/[0.02] transition-all hover:border-[#907AFF]/30 hover:bg-black/[0.01] dark:hover:bg-white/[0.04]"
+                      className="flex h-[200px] w-[140px] shrink-0 items-center justify-center rounded-2xl border-2 border-dashed border-black/[0.06] transition-all duration-300 hover:border-slate-300 hover:bg-slate-50 dark:border-white/[0.06] dark:hover:border-white/[0.12] dark:hover:bg-white/[0.03]"
                     >
                       <div className="flex flex-col items-center gap-2">
                         <svg className="h-8 w-8 text-slate-400 dark:text-white/30" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -699,17 +715,18 @@ export default function AuthorDashboard({ user }: { user: User }) {
               )}
 
               {draftLibraryCards.length > 0 && (
-                <div className="mt-8 border-t border-black/10 dark:border-white/[0.06] pt-8">
+                <div className="mt-8 border-t border-black/[0.05] pt-8 dark:border-white/[0.05]">
                   <div className="mb-5 flex items-center justify-between">
                     <div>
-                      <h3 className="text-[20px] font-semibold text-slate-900 dark:text-white">Drafts</h3>
-                      <p className="mt-1 text-[13px] text-slate-600 dark:text-white/50">Only visible to you</p>
+                      <h3 className="text-[13px] font-semibold uppercase tracking-[0.12em] text-slate-400 dark:text-white/40">Drafts</h3>
+                      <p className="mt-1.5 text-[13px] text-slate-500 dark:text-white/40">Only visible to you</p>
                     </div>
                     <Link
                       href="/author/books"
-                      className="text-[12px] font-semibold uppercase tracking-wider text-slate-500 transition hover:text-slate-900 dark:text-white/50 dark:hover:text-white"
+                      className="inline-flex items-center gap-1.5 rounded-full border border-black/[0.06] px-4 py-1.5 text-[12px] font-medium text-slate-500 transition-all hover:border-black/[0.12] hover:text-slate-900 dark:border-white/[0.06] dark:text-white/50 dark:hover:border-white/[0.12] dark:hover:text-white"
                     >
                       Manage drafts
+                      <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" /></svg>
                     </Link>
                   </div>
                   <div className="flex gap-6 overflow-x-auto pb-4">
@@ -724,12 +741,14 @@ export default function AuthorDashboard({ user }: { user: User }) {
         </section>
 
         {/* Continue Reading */}
-        <section className="mb-20">
-          <div className="mb-4">
-            <p className="text-[11px] font-semibold uppercase tracking-wider text-[#907AFF]">CONTINUE READING</p>
-            <p className="mt-1 text-[14px] text-slate-600 dark:text-white/50">Jump back in</p>
+        <section className="mb-20 rounded-[24px] border border-black/[0.05] bg-white/50 p-8 backdrop-blur-sm dark:border-white/[0.05] dark:bg-white/[0.015]">
+          <div className="mb-6 flex items-end justify-between">
+            <div>
+              <p className="text-[11px] font-semibold uppercase tracking-[0.15em] text-[#6C5CE7]">Continue reading</p>
+              <h3 className="mt-2 text-[22px] font-bold tracking-[-0.02em] text-slate-900 dark:text-white">Jump back in</h3>
+            </div>
           </div>
-          <div className="flex gap-6 overflow-x-auto pb-4">
+          <div className="flex gap-5 overflow-x-auto pb-2">
             {continueReadingCards.length > 0 ? (
               continueReadingCards.map((book) => (
                 <BookCoverCard key={book.id} book={book} size="md" />
@@ -744,28 +763,31 @@ export default function AuthorDashboard({ user }: { user: User }) {
 
         {/* Explore More */}
         <section className="mb-20">
-          <h2 className="mb-10 text-[32px] font-semibold tracking-[-0.02em] text-slate-900 dark:text-white">Explore more</h2>
+          <div className="mb-10 flex items-center gap-4">
+            <h2 className="text-[clamp(26px,3vw,36px)] font-bold tracking-[-0.03em] text-slate-900 dark:text-white">Explore more</h2>
+            <div className="h-px flex-1 bg-gradient-to-r from-black/[0.06] to-transparent dark:from-white/[0.06]" />
+          </div>
 
           <div className="mb-12">
             <div className="mb-5 flex items-center justify-between">
               <div>
-                <p className="text-[11px] font-semibold uppercase tracking-wider text-[#E29ED5]">TRENDING NOW</p>
-                <p className="mt-1 text-[14px] text-slate-600 dark:text-white/50">What readers are enjoying right now</p>
+                <p className="text-[11px] font-semibold uppercase tracking-[0.15em] text-[#818CF8]">Trending now</p>
+                <p className="mt-1.5 text-[14px] text-slate-500 dark:text-white/45">What readers are enjoying right now</p>
               </div>
               <div className="flex gap-2">
-                <button className="flex h-9 w-9 items-center justify-center rounded-full border border-black/10 dark:border-white/10 text-slate-500 dark:text-white/50 transition-all hover:border-black/20 dark:hover:border-white/20 hover:bg-black/[0.02] dark:hover:bg-white/[0.03] hover:text-slate-900 dark:hover:text-white">
+                <button className="flex h-9 w-9 items-center justify-center rounded-full border border-black/[0.08] bg-white/80 text-slate-400 shadow-sm backdrop-blur-sm transition-all hover:bg-white hover:text-slate-900 hover:shadow-md dark:border-white/[0.08] dark:bg-white/[0.04] dark:text-white/40 dark:hover:bg-white/[0.08] dark:hover:text-white">
                   <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
                   </svg>
                 </button>
-                <button className="flex h-9 w-9 items-center justify-center rounded-full border border-black/10 dark:border-white/10 text-slate-500 dark:text-white/50 transition-all hover:border-black/20 dark:hover:border-white/20 hover:bg-black/[0.02] dark:hover:bg-white/[0.03] hover:text-slate-900 dark:hover:text-white">
+                <button className="flex h-9 w-9 items-center justify-center rounded-full border border-black/[0.08] bg-white/80 text-slate-400 shadow-sm backdrop-blur-sm transition-all hover:bg-white hover:text-slate-900 hover:shadow-md dark:border-white/[0.08] dark:bg-white/[0.04] dark:text-white/40 dark:hover:bg-white/[0.08] dark:hover:text-white">
                   <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
                   </svg>
                 </button>
               </div>
             </div>
-            <div className="flex gap-6 overflow-x-auto pb-4">
+            <div className="flex gap-5 overflow-x-auto pb-2">
               {trendingCards.length > 0 ? (
                 trendingCards.map((book) => <BookCoverCard key={book.id} book={book} size="lg" />)
               ) : (
@@ -774,43 +796,39 @@ export default function AuthorDashboard({ user }: { user: User }) {
             </div>
           </div>
 
-          <div className="mb-12">
-            <div className="mb-5">
-              <p className="text-[11px] font-semibold uppercase tracking-wider text-[#FCC997]">authorS ON THE RISE</p>
-                <p className="mt-1 text-[14px] text-slate-600 dark:text-white/50">Creators gaining momentum</p>
+          <div className="mb-12 rounded-[24px] border border-black/[0.05] bg-white/50 p-8 backdrop-blur-sm dark:border-white/[0.05] dark:bg-white/[0.015]">
+            <div className="mb-6">
+              <p className="text-[11px] font-semibold uppercase tracking-[0.15em] text-[#A78BFA]">Authors on the rise</p>
+                <p className="mt-1.5 text-[14px] text-slate-500 dark:text-white/45">Creators gaining momentum</p>
             </div>
-            <div className="flex gap-6 overflow-x-auto pb-4">
+            <div className="flex gap-8 overflow-x-auto pb-2">
               {featuredauthors.length > 0 ? (
                 featuredauthors.map((author) => (
-                  <div key={author.id} className="group flex flex-shrink-0 cursor-pointer flex-col items-center">
+                  <div key={author.id} className="group flex flex-shrink-0 cursor-pointer flex-col items-center gap-3">
                     <div className="relative">
-                      <div className="h-[72px] w-[72px] overflow-hidden rounded-full border-2 border-black/10 dark:border-white/10 transition-all duration-300 group-hover:border-[#907AFF]/50">
+                      <div className="h-[80px] w-[80px] overflow-hidden rounded-full ring-2 ring-black/[0.06] ring-offset-2 ring-offset-background transition-all duration-300 group-hover:ring-[#907AFF]/40 dark:ring-white/[0.08]">
                         {author.avatar ? (
                           <Image
                             src={author.avatar}
                             alt={author.name}
                             fill
                             unoptimized
-                            sizes="72px"
-                            className="object-cover"
+                            sizes="80px"
+                            className="object-cover transition-transform duration-300 group-hover:scale-110"
                           />
                         ) : (
-                          <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-[#907AFF]/20 to-[#E29ED5]/20 text-[12px] font-semibold text-slate-700 dark:text-white/70">
+                          <div className="flex h-full w-full items-center justify-center bg-slate-100 text-[14px] font-bold text-slate-500 dark:bg-white/[0.06] dark:text-white/50">
                             {author.name.charAt(0).toUpperCase()}
                           </div>
                         )}
                       </div>
-                      <div className="absolute -bottom-1 -right-1 flex h-6 w-6 items-center justify-center rounded-full bg-gradient-to-br from-[#907AFF] to-[#E29ED5]">
-                        <svg className="h-3.5 w-3.5 text-white" fill="currentColor" viewBox="0 0 20 20">
-                          <path
-                            fillRule="evenodd"
-                            d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"
-                            clipRule="evenodd"
-                          />
+                      <div className="absolute -bottom-0.5 -right-0.5 flex h-6 w-6 items-center justify-center rounded-full bg-[#907AFF] ring-2 ring-background">
+                        <svg className="h-3 w-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
                         </svg>
                       </div>
                     </div>
-                    <p className="mt-3 text-[13px] font-medium text-slate-700 dark:text-white/70 transition-colors group-hover:text-slate-900 dark:group-hover:text-white">
+                    <p className="text-[13px] font-medium text-slate-600 transition-colors group-hover:text-slate-900 dark:text-white/60 dark:group-hover:text-white">
                       {author.name.split(" ")[0]}
                     </p>
                   </div>
@@ -824,23 +842,23 @@ export default function AuthorDashboard({ user }: { user: User }) {
           <div>
             <div className="mb-5 flex items-center justify-between">
               <div>
-                <p className="text-[11px] font-semibold uppercase tracking-wider text-[#FEE9A3]">DISCOVER NEW READS</p>
-                <p className="mt-1 text-[14px] text-slate-600 dark:text-white/50">What readers are enjoying right now</p>
+                <p className="text-[11px] font-semibold uppercase tracking-[0.15em] text-[#7C3AED]">Discover new reads</p>
+                <p className="mt-1.5 text-[14px] text-slate-500 dark:text-white/45">Fresh stories picked for you</p>
               </div>
               <div className="flex gap-2">
-                <button className="flex h-9 w-9 items-center justify-center rounded-full border border-black/10 dark:border-white/10 text-slate-500 dark:text-white/50 transition-all hover:border-black/20 dark:hover:border-white/20 hover:bg-black/[0.02] dark:hover:bg-white/[0.03] hover:text-slate-900 dark:hover:text-white">
+                <button className="flex h-9 w-9 items-center justify-center rounded-full border border-black/[0.08] bg-white/80 text-slate-400 shadow-sm backdrop-blur-sm transition-all hover:bg-white hover:text-slate-900 hover:shadow-md dark:border-white/[0.08] dark:bg-white/[0.04] dark:text-white/40 dark:hover:bg-white/[0.08] dark:hover:text-white">
                   <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
                   </svg>
                 </button>
-                <button className="flex h-9 w-9 items-center justify-center rounded-full border border-black/10 dark:border-white/10 text-slate-500 dark:text-white/50 transition-all hover:border-black/20 dark:hover:border-white/20 hover:bg-black/[0.02] dark:hover:bg-white/[0.03] hover:text-slate-900 dark:hover:text-white">
+                <button className="flex h-9 w-9 items-center justify-center rounded-full border border-black/[0.08] bg-white/80 text-slate-400 shadow-sm backdrop-blur-sm transition-all hover:bg-white hover:text-slate-900 hover:shadow-md dark:border-white/[0.08] dark:bg-white/[0.04] dark:text-white/40 dark:hover:bg-white/[0.08] dark:hover:text-white">
                   <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
                   </svg>
                 </button>
               </div>
             </div>
-            <div className="flex gap-6 overflow-x-auto pb-4">
+            <div className="flex gap-5 overflow-x-auto pb-2">
               {discoverCards.length > 0 ? (
                 discoverCards.map((book) => (
                   <BookCoverCard key={book.id} book={book} size="lg" showTag />
@@ -982,12 +1000,7 @@ export default function AuthorDashboard({ user }: { user: User }) {
                 ) : (
                   <div className="space-y-3">
                     <div className="grid grid-cols-4 gap-2">
-                      {[
-                        "linear-gradient(135deg, #907AFF 0%, #E29ED5 100%)",
-                        "linear-gradient(135deg, #E29ED5 0%, #FCC997 100%)",
-                        "linear-gradient(135deg, #FCC997 0%, #FEE9A3 100%)",
-                        "linear-gradient(135deg, #907AFF 0%, #FCC997 100%)",
-                      ].map((gradient, i) => (
+                      {SHELF_GRADIENT_OPTIONS.map((gradient, i) => (
                         <button
                           key={i}
                           onClick={() => setShelfForm({ ...shelfForm, coverGradient: gradient })}

@@ -21,7 +21,7 @@ export default function InteractiveTestimonialSection() {
             </p>
             <h2 className="mt-4 text-[clamp(28px,4vw,48px)] font-semibold leading-[1.1] tracking-[-0.025em] text-slate-900 dark:text-white">
               Authors love{" "}
-              <span className="bg-gradient-to-r from-[#907AFF] via-[#E29ED5] to-[#FCC997] bg-clip-text text-transparent">
+              <span className="text-brand-gradient">
                 what we do.
               </span>
             </h2>

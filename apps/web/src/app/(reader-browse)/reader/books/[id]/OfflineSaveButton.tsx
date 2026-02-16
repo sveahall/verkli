@@ -103,7 +103,7 @@ export default function OfflineSaveButton({ bookId, userId, languageCode }: Prop
     setIsBusy(true);
     setProgress(2);
     setErrorText(null);
-    setStatusText("Hämtar offline-manifest...");
+    setStatusText("Fetching offline manifest...");
 
     try {
       const manifestResponse = await fetch(
@@ -132,10 +132,10 @@ export default function OfflineSaveButton({ bookId, userId, languageCode }: Prop
       let fetched = 0;
       for (const batch of chapterBatches) {
         setStatusText(
-          `Laddar kapitel ${Math.min(fetched + 1, chaptersToFetch.length)}-${Math.min(
+          `Loading chapters ${Math.min(fetched + 1, chaptersToFetch.length)}-${Math.min(
             fetched + batch.length,
             chaptersToFetch.length
-          )} av ${chaptersToFetch.length}...`
+          )} of ${chaptersToFetch.length}...`
         );
 
         const chapterResponse = await fetch(manifest.chapterBatchUrl, {
@@ -177,7 +177,7 @@ export default function OfflineSaveButton({ bookId, userId, languageCode }: Prop
         setProgress(Math.min(85, progressPercent));
       }
 
-      setStatusText("Synkar offline-data...");
+      setStatusText("Syncing offline data...");
       await pruneOfflineChaptersForBook(
         userId,
         manifest.bookId,
@@ -207,7 +207,7 @@ export default function OfflineSaveButton({ bookId, userId, languageCode }: Prop
       await cacheOfflineUrls(nextUrls);
 
       setProgress(100);
-      setStatusText("Sparad offline");
+      setStatusText("Saved offline");
       setIsSaved(true);
     } catch (error) {
       const message = error instanceof Error ? error.message : resolveErrorMessage(null);
@@ -224,7 +224,7 @@ export default function OfflineSaveButton({ bookId, userId, languageCode }: Prop
   const removeBookOffline = useCallback(async () => {
     setIsBusy(true);
     setErrorText(null);
-    setStatusText("Rensar offline-data...");
+    setStatusText("Clearing offline data...");
     try {
       const existingManifest = await getOfflineManifestForBook(userId, bookId);
       await removeOfflineBook(userId, bookId);
@@ -232,9 +232,9 @@ export default function OfflineSaveButton({ bookId, userId, languageCode }: Prop
         await clearOfflineUrls([existingManifest.bookUrl, ...existingManifest.chapterReaderUrls]);
       }
       setIsSaved(false);
-      setStatusText("Offline-data borttagen");
+      setStatusText("Offline data removed");
     } catch {
-      setErrorText("Kunde inte rensa offline-data för boken.");
+      setErrorText("Could not clear offline data for this book.");
       setStatusText(null);
     } finally {
       setIsBusy(false);
@@ -244,14 +244,14 @@ export default function OfflineSaveButton({ bookId, userId, languageCode }: Prop
   const clearAllOffline = useCallback(async () => {
     setIsBusy(true);
     setErrorText(null);
-    setStatusText("Rensar all offline-data...");
+    setStatusText("Clearing all offline data...");
     try {
       await clearOfflineForUser(userId);
       await clearAllOfflineContentUrls();
       setIsSaved(false);
-      setStatusText("All offline-data rensad");
+      setStatusText("All offline data cleared");
     } catch {
-      setErrorText("Kunde inte rensa all offline-data.");
+      setErrorText("Could not clear all offline data.");
       setStatusText(null);
     } finally {
       setIsBusy(false);
@@ -269,7 +269,7 @@ export default function OfflineSaveButton({ bookId, userId, languageCode }: Prop
         disabled
         className="rounded-full border border-slate-300 bg-slate-200 px-6 py-3 text-[14px] font-semibold text-slate-500 dark:border-white/10 dark:bg-white/10 dark:text-white/60"
       >
-        Kontrollerar Plus...
+        Checking Plus...
       </button>
     );
   }
@@ -277,16 +277,16 @@ export default function OfflineSaveButton({ bookId, userId, languageCode }: Prop
   if (!isPlusActive) {
     return (
       <div className="rounded-2xl border border-indigo-400/30 bg-indigo-500/10 px-4 py-3 text-sm text-indigo-900 dark:text-indigo-200">
-        <p className="font-semibold">Offline-läsning ingår i Verkli Plus.</p>
-        <p className="mt-1">Uppgradera för att kunna spara böcker och läsa utan nät.</p>
-        <Link href="/account/billing" className="mt-2 inline-flex text-[13px] font-semibold underline underline-offset-2">
-          Uppgradera till Plus
+        <p className="font-semibold">Offline reading is included in Verkli Plus.</p>
+        <p className="mt-1">Upgrade to save books and read without a connection.</p>
+        <Link href="/reader/billing" className="mt-2 inline-flex text-[13px] font-semibold underline underline-offset-2">
+          Upgrade to Plus
         </Link>
       </div>
     );
   }
 
-  const saveButtonLabel = isSaved ? "Uppdatera offline" : "Spara offline";
+  const saveButtonLabel = isSaved ? "Update offline copy" : "Save offline";
   const cannotSave = isBusy || !isOnline;
 
   return (
@@ -297,7 +297,7 @@ export default function OfflineSaveButton({ bookId, userId, languageCode }: Prop
         disabled={cannotSave}
         className="rounded-full border border-slate-300 bg-white px-6 py-3 text-[14px] font-semibold text-slate-800 transition hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-60 dark:border-white/20 dark:bg-white/10 dark:text-white dark:hover:bg-white/15"
       >
-        {cannotSave && !isOnline ? "Offline just nu" : saveButtonLabel}
+        {cannotSave && !isOnline ? "Currently offline" : saveButtonLabel}
       </button>
 
       {(isBusy || progress > 0) && (
@@ -321,7 +321,7 @@ export default function OfflineSaveButton({ bookId, userId, languageCode }: Prop
       )}
       {!isOnline && isSaved && (
         <p className="mt-2 text-[12px] text-amber-700 dark:text-amber-300">
-          Du är offline. Sparade kapitel kan läsas utan nät.
+          You are offline. Saved chapters can be read without a connection.
         </p>
       )}
 
@@ -333,7 +333,7 @@ export default function OfflineSaveButton({ bookId, userId, languageCode }: Prop
             disabled={isBusy}
             className="rounded-full border border-slate-300 px-3 py-1.5 font-medium text-slate-700 transition hover:bg-slate-100 disabled:opacity-60 dark:border-white/20 dark:text-white/80 dark:hover:bg-white/10"
           >
-            Rensa boken
+            Clear this book
           </button>
           <button
             type="button"
@@ -341,7 +341,7 @@ export default function OfflineSaveButton({ bookId, userId, languageCode }: Prop
             disabled={isBusy}
             className="rounded-full border border-rose-400/50 px-3 py-1.5 font-medium text-rose-700 transition hover:bg-rose-500/10 disabled:opacity-60 dark:text-rose-300"
           >
-            Rensa allt
+            Clear all
           </button>
         </div>
       )}

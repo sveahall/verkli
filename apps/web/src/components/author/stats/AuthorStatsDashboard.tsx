@@ -22,9 +22,9 @@ type Revenue = {
 };
 
 const periodLabels: Record<Period, string> = {
-  "7d": "7 dagar",
-  "30d": "30 dagar",
-  all: "Alla",
+  "7d": "7 days",
+  "30d": "30 days",
+  all: "All",
 };
 
 export default function AuthorStatsDashboard() {
@@ -73,7 +73,7 @@ export default function AuthorStatsDashboard() {
     <div className="mx-auto max-w-[960px] px-4 py-8 sm:px-6">
       <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <h1 className="text-xl font-bold text-slate-900 dark:text-white">
-          Statistik
+          Statistics
         </h1>
         <div className="flex gap-1 rounded-xl bg-slate-100 p-1 dark:bg-white/5">
           {(["7d", "30d", "all"] as Period[]).map((p) => (
@@ -117,7 +117,7 @@ export default function AuthorStatsDashboard() {
 
           <div className="rounded-2xl border border-slate-200/50 bg-white p-5 shadow-sm dark:border-white/10 dark:bg-slate-900">
             <h2 className="mb-4 text-[15px] font-semibold text-slate-900 dark:text-white">
-              Per bok
+              By book
             </h2>
             <StatsBookTable period={period} />
           </div>

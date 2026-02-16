@@ -81,7 +81,7 @@ export default function CreateClubDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <form onSubmit={handleSubmit}>
         <DialogHeader>
-          <DialogTitle>Skapa bokklubb</DialogTitle>
+          <DialogTitle>Create book club</DialogTitle>
         </DialogHeader>
 
         <DialogBody className="space-y-4">
@@ -96,7 +96,7 @@ export default function CreateClubDialog({
               htmlFor="club-name"
               className="text-[13px] font-medium text-slate-700 dark:text-white/70"
             >
-              Namn
+              Name
             </label>
             <input
               id="club-name"
@@ -105,7 +105,7 @@ export default function CreateClubDialog({
               maxLength={100}
               value={name}
               onChange={(e) => setName(e.target.value)}
-              placeholder="T.ex. Stockholms fantasy-klubb"
+              placeholder="e.g. Stockholm fantasy club"
               className="min-h-[44px] w-full rounded-xl border border-slate-200/80 bg-white px-4 text-[14px] text-slate-700 transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#907AFF]/40 focus-visible:ring-offset-2 focus-visible:ring-offset-white dark:border-white/10 dark:bg-white/5 dark:text-white dark:focus-visible:ring-offset-[#0b0b12]"
             />
           </div>
@@ -115,7 +115,7 @@ export default function CreateClubDialog({
               htmlFor="club-desc"
               className="text-[13px] font-medium text-slate-700 dark:text-white/70"
             >
-              Beskrivning (valfritt)
+              Description (optional)
             </label>
             <textarea
               id="club-desc"
@@ -123,7 +123,7 @@ export default function CreateClubDialog({
               rows={3}
               value={description}
               onChange={(e) => setDescription(e.target.value)}
-              placeholder="Berätta kort om klubben..."
+              placeholder="Tell people about the club..."
               className="w-full rounded-xl border border-slate-200/80 bg-white px-4 py-3 text-[14px] text-slate-700 transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#907AFF]/40 focus-visible:ring-offset-2 focus-visible:ring-offset-white dark:border-white/10 dark:bg-white/5 dark:text-white dark:focus-visible:ring-offset-[#0b0b12]"
             />
           </div>
@@ -140,7 +140,7 @@ export default function CreateClubDialog({
               htmlFor="club-public"
               className="text-[13px] text-slate-700 dark:text-white/70"
             >
-              Offentlig klubb (synlig för alla)
+              Public club (visible to everyone)
             </label>
           </div>
 
@@ -149,7 +149,7 @@ export default function CreateClubDialog({
               htmlFor="club-max"
               className="text-[13px] font-medium text-slate-700 dark:text-white/70"
             >
-              Max antal medlemmar
+              Max members
             </label>
             <select
               id="club-max"
@@ -173,15 +173,15 @@ export default function CreateClubDialog({
             variant="ghost"
             onClick={() => onOpenChange(false)}
           >
-            Avbryt
+            Cancel
           </Button>
           <Button
             type="submit"
             isLoading={loading}
-            loadingText="Skapar..."
+            loadingText="Creating..."
             disabled={!name.trim()}
           >
-            Skapa
+            Create
           </Button>
         </DialogFooter>
       </form>

@@ -106,7 +106,7 @@ export async function uploadChapterMedia(file: File, bookId: string, chapterId: 
   const fileExt = file.name.split('.').pop()
   const fileName = `${bookId}/${chapterId}/${Date.now()}.${fileExt}`
   
-  const { data, error } = await supabase.storage
+  const { error } = await supabase.storage
     .from('chapter-media')
     .upload(fileName, file, {
       cacheControl: '3600',

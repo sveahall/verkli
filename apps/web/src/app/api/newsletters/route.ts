@@ -5,7 +5,6 @@ import { isNewslettersEnabled } from "@/lib/flags";
 import { requireAuthorRoleForApi } from "@/lib/auth/require-author";
 import {
   apiError,
-  E_NOT_AUTHENTICATED,
   E_NEWSLETTERS_FEATURE_DISABLED,
   E_NEWSLETTER_CREATE_FAILED,
   E_INVALID_JSON,

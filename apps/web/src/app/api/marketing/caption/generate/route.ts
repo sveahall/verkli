@@ -40,7 +40,7 @@ export async function POST(request: Request) {
   try {
     const { caption, fromCache } = await getCachedOrGenerateCaption({
       bookId,
-      bookTitle: ownership.book.title ?? "Bok",
+      bookTitle: ownership.book.title ?? "Book",
       language,
       contentType,
       channel,

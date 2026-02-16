@@ -15,12 +15,16 @@ type BillingStateApiPayload = Partial<{
   stripeSubscriptionId: string | null;
   isPlusActive: boolean;
   isProActive: boolean;
+  plusCancelAtPeriodEnd: boolean;
+  plusPeriodEnd: string | null;
   error: string;
 }>;
 
 type UseBillingStateOptions = {
   /** Optional auto-refresh interval in ms. Omit/0 to disable polling. */
   pollIntervalMs?: number;
+  /** Server-rendered state so the plan shows immediately without waiting for first fetch. */
+  initialState?: BillingState | null;
 };
 
 function toBillingState(payload: BillingStateApiPayload): BillingState {
@@ -40,6 +44,8 @@ function toBillingState(payload: BillingStateApiPayload): BillingState {
     stripeSubscriptionId: typeof payload.stripeSubscriptionId === "string" ? payload.stripeSubscriptionId : null,
     isPlusActive,
     isProActive,
+    plusCancelAtPeriodEnd: Boolean(payload.plusCancelAtPeriodEnd),
+    plusPeriodEnd: typeof payload.plusPeriodEnd === "string" ? payload.plusPeriodEnd : null,
   };
 }
 
@@ -59,9 +65,10 @@ export function useBillingState(options?: UseBillingStateOptions): {
   refetch: () => Promise<void>;
 } {
   const pollIntervalMs = options?.pollIntervalMs ?? 0;
+  const initialState = options?.initialState ?? null;
   const isVisible = useDocumentVisible();
-  const [state, setState] = useState<BillingState | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [state, setState] = useState<BillingState | null>(initialState);
+  const [loading, setLoading] = useState(!initialState);
   const [error, setError] = useState<string | null>(null);
   const inFlightRef = useRef(false);
   const abortRef = useRef<AbortController | null>(null);
@@ -109,9 +116,24 @@ export function useBillingState(options?: UseBillingStateOptions): {
     }
   }, []);
 
+  const prevVisibleRef = useRef(isVisible);
+
   useEffect(() => {
     setLoading(true);
     void fetchState();
+  }, [fetchState]);
+
+  useEffect(() => {
+    if (isVisible && !prevVisibleRef.current) {
+      void fetchState();
+    }
+    prevVisibleRef.current = isVisible;
+  }, [isVisible, fetchState]);
+
+  useEffect(() => {
+    const onFocus = () => void fetchState();
+    window.addEventListener("focus", onFocus);
+    return () => window.removeEventListener("focus", onFocus);
   }, [fetchState]);
 
   useEffect(() => {

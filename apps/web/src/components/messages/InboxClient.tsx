@@ -66,7 +66,7 @@ function formatTime(value: string | null): string {
   if (!value) return "";
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return "";
-  return date.toLocaleString("sv-SE", {
+  return date.toLocaleString("en-US", {
     month: "short",
     day: "numeric",
     hour: "2-digit",
@@ -359,7 +359,7 @@ export default function InboxClient({ mode, initialConversationId = null }: Inbo
           throw new Error(resolveErrorMessage(json.error));
         }
 
-        toast.success("Förfrågan accepterad.");
+        toast.success("Request accepted.");
         setActiveTab("accepted");
         setSelectedConversationId(conversationId);
         await Promise.all([
@@ -389,7 +389,7 @@ export default function InboxClient({ mode, initialConversationId = null }: Inbo
           throw new Error(resolveErrorMessage(json.error));
         }
 
-        toast.success("Användaren är blockerad.");
+        toast.success("User blocked.");
 
         if (selectedConversation?.otherUser.id === targetUserId) {
           setSelectedConversationId(null);
@@ -413,17 +413,17 @@ export default function InboxClient({ mode, initialConversationId = null }: Inbo
         title={mode === "author" ? "Author inbox" : "Reader messages"}
         description={
           mode === "author"
-            ? "Hantera accepterade chattar och inkommande meddelandeförfrågningar."
-            : "Följ dina chattar och se om förfrågningar har accepterats."
+            ? "Manage accepted chats and incoming message requests."
+            : "Track your chats and see when requests are accepted."
         }
         actions={
           mode === "reader" ? (
             <Link href="/reader/authors" className="btn-secondary">
-              Hitta authors
+              Find authors
             </Link>
           ) : (
             <Link href="/author/home" className="btn-secondary">
-              Till dashboard
+              Back to dashboard
             </Link>
           )
         }
@@ -444,19 +444,19 @@ export default function InboxClient({ mode, initialConversationId = null }: Inbo
       <div className="grid gap-4 lg:grid-cols-[340px_minmax(0,1fr)]">
         <aside className="card-base-subtle p-3 sm:p-4">
           {loadingLists ? (
-            <p className="text-[13px] text-slate-500 dark:text-white/60">Laddar inkorg...</p>
+            <p className="text-[13px] text-slate-500 dark:text-white/60">Loading inbox...</p>
           ) : activeConversations.length === 0 ? (
             <p className="text-[13px] text-slate-500 dark:text-white/60">
               {activeTab === "accepted"
-                ? "Inga accepterade konversationer ännu."
-                : "Inga meddelandeförfrågningar just nu."}
+                ? "No accepted conversations yet."
+                : "No message requests right now."}
             </p>
           ) : (
             <div className="space-y-2">
               {activeConversations.map((conversation) => {
                 const isSelected = selectedConversationId === conversation.id;
                 const preview = conversation.lastMessage?.body?.trim() ||
-                  (conversation.status === "request" ? "Väntar på första meddelande." : "Ingen meddelandehistorik ännu.");
+                  (conversation.status === "request" ? "Waiting for the first message." : "No message history yet.");
 
                 return (
                   <button
@@ -525,9 +525,9 @@ export default function InboxClient({ mode, initialConversationId = null }: Inbo
         <section className="card-base-subtle flex min-h-[460px] flex-col p-4 sm:p-5">
           {!selectedConversation ? (
             <div className="empty-state-base my-auto">
-              <p className="text-[14px] font-medium text-slate-800 dark:text-white">Välj en konversation</p>
+              <p className="text-[14px] font-medium text-slate-800 dark:text-white">Select a conversation</p>
               <p className="mt-1 text-[13px] text-slate-500 dark:text-white/60">
-                När du väljer en konversation visas meddelanden här.
+                Messages will appear here when you select a conversation.
               </p>
             </div>
           ) : (
@@ -540,16 +540,16 @@ export default function InboxClient({ mode, initialConversationId = null }: Inbo
                   {selectedConversation.status === "accepted"
                     ? "Accepted"
                     : selectedConversation.canAccept
-                      ? "Ny request"
+                      ? "New request"
                       : "Pending request"}
                 </p>
               </div>
 
               <div className="mt-4 flex-1 space-y-2 overflow-y-auto pr-1">
                 {loadingConversation ? (
-                  <p className="text-[13px] text-slate-500 dark:text-white/60">Laddar konversation...</p>
+                  <p className="text-[13px] text-slate-500 dark:text-white/60">Loading conversation...</p>
                 ) : messages.length === 0 ? (
-                  <p className="text-[13px] text-slate-500 dark:text-white/60">Inga meddelanden ännu.</p>
+                  <p className="text-[13px] text-slate-500 dark:text-white/60">No messages yet.</p>
                 ) : (
                   messages.map((message) => {
                     const isOwn = message.senderId === viewerId;
@@ -604,7 +604,7 @@ export default function InboxClient({ mode, initialConversationId = null }: Inbo
               {canSend ? (
                 <form onSubmit={onSendMessage} className="mt-4 border-t border-slate-200/80 pt-3 dark:border-white/10">
                   <label htmlFor="dm-body" className="mb-2 block text-[12px] font-medium text-slate-600 dark:text-white/70">
-                    Skriv meddelande
+                    Write a message
                   </label>
                   <div className="flex items-end gap-2">
                     <textarea
@@ -613,7 +613,7 @@ export default function InboxClient({ mode, initialConversationId = null }: Inbo
                       onChange={(event) => setMessageBody(event.target.value)}
                       rows={3}
                       maxLength={2000}
-                      placeholder="Skriv ditt meddelande..."
+                      placeholder="Write your message..."
                       className="input-base min-h-[88px] resize-y"
                       disabled={sending}
                     />
@@ -622,15 +622,15 @@ export default function InboxClient({ mode, initialConversationId = null }: Inbo
                       disabled={sending || messageBody.trim().length === 0}
                       className="btn-primary mb-0.5"
                     >
-                      {sending ? "Skickar..." : "Skicka"}
+                      {sending ? "Sending..." : "Send"}
                     </button>
                   </div>
                 </form>
               ) : isPendingRequest ? (
                 <p className="mt-4 border-t border-slate-200/80 pt-3 text-[13px] text-slate-500 dark:border-white/10 dark:text-white/60">
                   {selectedConversation.requesterId === viewerId
-                    ? "Din förfrågan väntar på att accepteras."
-                    : "Acceptera förfrågan för att kunna svara."}
+                    ? "Your request is waiting to be accepted."
+                    : "Accept the request to reply."}
                 </p>
               ) : null}
             </>

@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { notFound, redirect } from "next/navigation";
+import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 
 const fallbackGradient = "linear-gradient(135deg, #907AFF 0%, #E29ED5 50%, #FCC997 100%)";
@@ -17,7 +17,7 @@ const resolveCover = (coverType?: string | null, coverUrl?: string | null, cover
       if (parsed?.from && parsed?.to) {
         return `linear-gradient(${parsed.angle ?? 135}deg, ${parsed.from}, ${parsed.to})`;
       }
-    } catch (error) {}
+    } catch {}
   }
   return fallbackGradient;
 };

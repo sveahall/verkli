@@ -44,28 +44,28 @@ const STATUS_STYLES: Record<
   pending: {
     bg: "bg-amber-50 border-amber-200 dark:bg-amber-950/30 dark:border-amber-800",
     text: "text-amber-800 dark:text-amber-200",
-    label: "Väntar",
+    label: "Pending",
   },
   running: {
     bg: "bg-blue-50 border-blue-200 dark:bg-blue-950/30 dark:border-blue-800",
     text: "text-blue-800 dark:text-blue-200",
-    label: "Pågår",
+    label: "Running",
   },
   completed: {
     bg: "bg-emerald-50 border-emerald-200 dark:bg-emerald-950/30 dark:border-emerald-800",
     text: "text-emerald-800 dark:text-emerald-200",
-    label: "Klar",
+    label: "Completed",
   },
   failed: {
     bg: "bg-red-50 border-red-200 dark:bg-red-950/30 dark:border-red-800",
     text: "text-red-800 dark:text-red-200",
-    label: "Misslyckades",
+    label: "Failed",
   },
 };
 
 export default function JobStatusBanner({
   job,
-  label = "Jobb",
+  label = "Job",
   hideWhenEmpty = false,
   onRetry,
   className,
@@ -75,14 +75,14 @@ export default function JobStatusBanner({
     return (
       <div
         role="status"
-        aria-label="Ingen pågående aktivitet"
+        aria-label="No ongoing activity"
         className={
           className ??
           "rounded-xl border border-slate-200 bg-slate-50/50 px-4 py-3 dark:border-white/10 dark:bg-white/5"
         }
       >
         <p className="text-sm text-slate-600 dark:text-white/60">
-          Ingen pågående eller nyligen avslutad aktivitet för {label}.
+          No ongoing or recently completed activity for {label}.
         </p>
       </div>
     );
@@ -107,7 +107,7 @@ export default function JobStatusBanner({
         </span>
         {hasProgress && displayStatus === "running" && (
           <span className={`text-sm ${style.text}`}>
-            {completed} / {total} kapitel
+            {completed} / {total} chapters
             {job.currentChapterTitle ? ` — ${job.currentChapterTitle}` : ""}
           </span>
         )}
@@ -123,7 +123,7 @@ export default function JobStatusBanner({
       {displayStatus === "failed" && (
         <div className="mt-2 flex flex-wrap items-center gap-2">
           <p className="text-sm text-red-700 dark:text-red-300" role="alert">
-            {job.error || "Något gick fel."}
+            {job.error || "Something went wrong."}
           </p>
           {onRetry && (
             <button
@@ -131,7 +131,7 @@ export default function JobStatusBanner({
               onClick={onRetry}
               className="rounded-md border border-red-300 bg-white px-2.5 py-1 text-xs font-medium text-red-700 transition hover:bg-red-50 dark:border-red-700 dark:bg-red-950/50 dark:text-red-300 dark:hover:bg-red-950"
             >
-              Försök igen
+              Retry
             </button>
           )}
         </div>
@@ -143,8 +143,8 @@ export default function JobStatusBanner({
 /* ─── Kind labels ──────────────────────────────────────────────────────────── */
 
 const KIND_LABELS: Record<string, string> = {
-  audiobook: "Ljudbok",
-  translation: "Översättning",
+  audiobook: "Audiobook",
+  translation: "Translation",
   import: "Import",
 };
 
@@ -192,7 +192,7 @@ function getVisibleJobs(jobs: UnifiedJob[]): UnifiedJob[] {
       if (isJobActiveStatus(j.status)) {
         const created = j.createdAt ? new Date(j.createdAt).getTime() : 0;
         if (created > 0 && now - created > STALE_MS) {
-          return { ...j, status: "failed", error: "Uppgiften verkar ha fastnat. Försök igen." };
+          return { ...j, status: "failed", error: "The task appears stuck. Try again." };
         }
       }
       return j;

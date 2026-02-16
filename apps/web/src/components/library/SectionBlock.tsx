@@ -30,7 +30,6 @@ export default function SectionBlock({
   onDeleteBook,
   onRenameSection,
   onDeleteSection,
-  onReorderBooks,
   onDragStart,
   onDragOver,
   onDrop,

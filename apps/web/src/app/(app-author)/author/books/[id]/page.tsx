@@ -105,13 +105,15 @@ export default async function BookDetailPage({
 
   return (
     <main className="min-h-screen bg-background text-foreground">
-      <header className="mx-38 max-w-[1200px] px-0 pt-10">
+      <header className="mx-auto max-w-[1400px] px-6 pt-6">
         <Link
           href="/author/books"
-          className="inline-flex items-center gap-2 text-sm text-slate-500 transition-colors hover:text-slate-900 dark:text-white/60 dark:hover:text-white"
+          className="group inline-flex items-center gap-2 rounded-full border border-black/[0.06] bg-white/60 px-4 py-2 text-[13px] font-medium text-slate-500 backdrop-blur-sm transition-all hover:border-black/[0.1] hover:bg-white hover:text-slate-900 dark:border-white/[0.06] dark:bg-white/[0.03] dark:text-white/50 dark:hover:border-white/[0.1] dark:hover:text-white"
         >
-          <span aria-hidden="true">←</span>
-          Tillbaka till böcker
+          <svg className="h-3.5 w-3.5 transition-transform group-hover:-translate-x-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
+          </svg>
+          Back to books
         </Link>
       </header>
 

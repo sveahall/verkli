@@ -48,7 +48,7 @@ export default function StatsBookTable({ period }: StatsBookTableProps) {
   if (books.length === 0) {
     return (
       <p className="py-8 text-center text-[13px] text-slate-400 dark:text-white/40">
-        Inga böcker att visa
+        No books to display
       </p>
     );
   }
@@ -59,16 +59,16 @@ export default function StatsBookTable({ period }: StatsBookTableProps) {
         <thead>
           <tr className="border-b border-slate-200/80 dark:border-white/10">
             <th className="pb-3 text-[12px] font-semibold uppercase tracking-wider text-slate-400 dark:text-white/40">
-              Bok
+              Book
             </th>
             <th className="pb-3 text-right text-[12px] font-semibold uppercase tracking-wider text-slate-400 dark:text-white/40">
-              Visningar
+              Views
             </th>
             <th className="pb-3 text-right text-[12px] font-semibold uppercase tracking-wider text-slate-400 dark:text-white/40">
-              Läsningar
+              Reads
             </th>
             <th className="pb-3 text-right text-[12px] font-semibold uppercase tracking-wider text-slate-400 dark:text-white/40">
-              Köp
+              Purchases
             </th>
           </tr>
         </thead>

@@ -32,7 +32,7 @@ const GENERATOR_DEFAULTS: GeneratorOutput[] = [
 ];
 
 const navItems = [
-  { id: "caption-portal", label: "Caption-portal", helper: "Generera & spara" },
+  { id: "caption-portal", label: "Caption portal", helper: "Generate & save" },
   { id: "campaigns", label: "Campaigns", helper: "Plan launches" },
   { id: "content", label: "Content", helper: "Hooks + blurbs" },
   { id: "distribution", label: "Distribution", helper: "Channels" },
@@ -200,8 +200,8 @@ export default function MarketingDashboard({
         <div className="flex-1 space-y-8">
           <DashboardSection
             id="caption-portal"
-            title="Caption-portal"
-            description="V\u00e4lj bok och spr\u00e5k, generera captions f\u00f6r TikTok, Instagram, X eller Facebook och spara som asset."
+            title="Caption portal"
+            description="Choose a book and language, generate captions for TikTok, Instagram, X, or Facebook, and save as assets."
           >
             <MarketingCaptionPortal books={initialBooks} />
           </DashboardSection>

@@ -176,10 +176,10 @@ export default async function ReaderDiscoverPage({
     recommendationsEnabled
       ? supabase
           .from("genres")
-          .select("id, slug, name_sv, icon, display_order")
+          .select("id, slug, name_sv, name_en, icon, display_order")
           .order("display_order", { ascending: true })
           .then((r) => r.data ?? [])
-      : Promise.resolve([] as Array<{ id: string; slug: string; name_sv: string; icon: string | null; display_order: number }>),
+      : Promise.resolve([] as Array<{ id: string; slug: string; name_sv: string; name_en: string | null; icon: string | null; display_order: number }>),
   ]);
 
   const [featuredBooks, newBooks] = await Promise.all([
@@ -314,7 +314,7 @@ export default async function ReaderDiscoverPage({
 
       {genresResult.length > 0 && (
         <section className="space-y-5">
-          <h2 className="text-section-title">Utforska genrer</h2>
+          <h2 className="text-section-title">Explore genres</h2>
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6">
             {genresResult.map((genre) => (
               <Link
@@ -323,7 +323,7 @@ export default async function ReaderDiscoverPage({
                 className="flex items-center gap-2 rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-medium text-slate-700 transition hover:border-[#907AFF]/40 hover:bg-[#907AFF]/5 dark:border-white/10 dark:bg-white/5 dark:text-white/80 dark:hover:border-[#B8A8FF]/40 dark:hover:bg-[#907AFF]/10"
               >
                 {genre.icon && <span>{genre.icon}</span>}
-                <span className="truncate">{genre.name_sv}</span>
+                <span className="truncate">{genre.name_en || genre.name_sv}</span>
               </Link>
             ))}
           </div>

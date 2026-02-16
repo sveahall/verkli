@@ -55,23 +55,23 @@ export default async function NewsletterDetailPage({
           href="/author/newsletters"
           className="text-[13px] text-slate-500 hover:text-slate-900 dark:text-white/50 dark:hover:text-white"
         >
-          ← Tillbaka till nyhetsbrev
+          ← Back to newsletters
         </Link>
       </div>
 
       <h1 className="text-page-title mb-6">
-        {typed.status === "draft" ? "Redigera nyhetsbrev" : "Nyhetsbrev"}
+        {typed.status === "draft" ? "Edit newsletter" : "Newsletter"}
       </h1>
 
       {typed.status === "sent" && (
         <div className="mb-6 flex items-center gap-3 text-[13px] text-slate-500 dark:text-white/50">
           <span className="inline-flex rounded-full bg-green-50 px-2 py-0.5 text-[11px] font-medium text-green-700 dark:bg-green-950/30 dark:text-green-400">
-            Skickat
+            Sent
           </span>
           <span>
-            Skickat till {typed.recipient_count} mottagare den{" "}
+            Sent to {typed.recipient_count} recipients on{" "}
             {typed.sent_at
-              ? new Date(typed.sent_at).toLocaleDateString("sv-SE")
+              ? new Date(typed.sent_at).toLocaleDateString("en-US")
               : "—"}
           </span>
         </div>

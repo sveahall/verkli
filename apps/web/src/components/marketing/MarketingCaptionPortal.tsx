@@ -25,15 +25,15 @@ const CONTENT_TYPES: { value: ContentType; label: string }[] = [
 ];
 
 const TONE_OPTIONS: SelectOption[] = [
-  { value: "engaging", label: "Engagerande" },
-  { value: "formal", label: "Formell" },
-  { value: "casual", label: "Avslappnad" },
+  { value: "engaging", label: "Engaging" },
+  { value: "formal", label: "Formal" },
+  { value: "casual", label: "Casual" },
 ];
 
 const LENGTH_OPTIONS: SelectOption[] = [
-  { value: "short", label: "Kort" },
+  { value: "short", label: "Short" },
   { value: "medium", label: "Medium" },
-  { value: "long", label: "Lång" },
+  { value: "long", label: "Long" },
 ];
 
 type BookOption = { id: string; title: string };
@@ -45,12 +45,12 @@ type MarketingCaptionPortalProps = {
 export default function MarketingCaptionPortal({ books }: MarketingCaptionPortalProps) {
   const toast = useToastHelpers();
   const [bookId, setBookId] = useState("");
-  const [language, setLanguage] = useState("sv");
+  const [language, setLanguage] = useState("en");
   const [contentType, setContentType] = useState<ContentType>("caption");
   const [channel, setChannel] = useState<CaptionChannel>("instagram");
   const [tone, setTone] = useState("engaging");
   const [length, setLength] = useState("medium");
-  const [cta, setCta] = useState("Läs mer på Verkli");
+  const [cta, setCta] = useState("Read more on Verkli");
   const [previewText, setPreviewText] = useState("");
   const [generateLoading, setGenerateLoading] = useState(false);
   const [saveLoading, setSaveLoading] = useState(false);
@@ -63,7 +63,7 @@ export default function MarketingCaptionPortal({ books }: MarketingCaptionPortal
 
   const generateCaption = useCallback(async () => {
     if (!bookId) {
-      toast.error("Välj en bok.");
+      toast.error("Choose a book.");
       return;
     }
     setGenerateLoading(true);
@@ -89,10 +89,10 @@ export default function MarketingCaptionPortal({ books }: MarketingCaptionPortal
       }
       if (typeof data.caption === "string") {
         setPreviewText(data.caption);
-        toast.info(data.fromCache ? "Caption från cache." : "Caption genererad.");
+        toast.info(data.fromCache ? "Caption loaded from cache." : "Caption generated.");
       }
     } catch {
-      toast.error("Kunde inte generera caption.");
+      toast.error("Could not generate caption.");
     } finally {
       setGenerateLoading(false);
     }
@@ -100,7 +100,7 @@ export default function MarketingCaptionPortal({ books }: MarketingCaptionPortal
 
   const saveAsset = useCallback(async () => {
     if (!bookId || !previewText.trim()) {
-      toast.error("Generera en caption och fyll i text innan du sparar.");
+      toast.error("Generate a caption and fill in text before saving.");
       return;
     }
     setSaveLoading(true);
@@ -123,9 +123,9 @@ export default function MarketingCaptionPortal({ books }: MarketingCaptionPortal
         toast.error(resolveErrorMessage(data.error));
         return;
       }
-      toast.success("Caption sparad som asset.");
+      toast.success("Caption saved as an asset.");
     } catch {
-      toast.error("Kunde inte spara asset.");
+      toast.error("Could not save asset.");
     } finally {
       setSaveLoading(false);
     }
@@ -139,7 +139,7 @@ export default function MarketingCaptionPortal({ books }: MarketingCaptionPortal
   if (books.length === 0) {
     return (
       <div className="rounded-2xl border border-dashed border-slate-200 bg-slate-50/50 p-6 text-sm text-slate-600 dark:border-white/10 dark:bg-white/5 dark:text-white/70">
-        Skapa minst en bok under Böcker för att använda caption-portalen.
+        Create at least one book in Books to use the caption portal.
       </div>
     );
   }
@@ -149,37 +149,37 @@ export default function MarketingCaptionPortal({ books }: MarketingCaptionPortal
       <Card>
         <CardHeader className="pb-2">
           <h3 className="text-sm font-semibold text-slate-900 dark:text-white">
-            Bok, innehållstyp och kanal
+            Book, content type, and channel
           </h3>
           <p className="text-xs text-slate-500 dark:text-white/50">
-            Välj bok och språk, sedan typ av text och kanal för format.
+            Select a book and language, then choose content type and channel.
           </p>
         </CardHeader>
         <CardContent className="space-y-4">
           <Select
-            label="Bok"
+            label="Book"
             options={bookOptions}
             value={bookId}
             onChange={(e) => setBookId(e.target.value)}
             fullWidth
-            placeholder="Välj bok"
+            placeholder="Choose book"
           />
           <Select
-            label="Språk"
+            label="Language"
             options={languageOptions}
             value={language}
             onChange={(e) => setLanguage(e.target.value)}
             fullWidth
           />
           <Select
-            label="Innehållstyp"
+            label="Content type"
             options={contentTypeOptions}
             value={contentType}
             onChange={(e) => setContentType(e.target.value as ContentType)}
             fullWidth
           />
           <Select
-            label="Kanal"
+            label="Channel"
             options={channelOptions}
             value={channel}
             onChange={(e) => setChannel(e.target.value as CaptionChannel)}
@@ -191,22 +191,22 @@ export default function MarketingCaptionPortal({ books }: MarketingCaptionPortal
       <Card>
         <CardHeader className="pb-2">
           <h3 className="text-sm font-semibold text-slate-900 dark:text-white">
-            Ton, längd och CTA
+            Tone, length, and CTA
           </h3>
           <p className="text-xs text-slate-500 dark:text-white/50">
-            Styr hur captions formuleras och avslutas.
+            Control how captions are phrased and finished.
           </p>
         </CardHeader>
         <CardContent className="space-y-4">
           <Select
-            label="Ton"
+            label="Tone"
             options={TONE_OPTIONS}
             value={tone}
             onChange={(e) => setTone(e.target.value)}
             fullWidth
           />
           <Select
-            label="Längd"
+            label="Length"
             options={LENGTH_OPTIONS}
             value={length}
             onChange={(e) => setLength(e.target.value)}
@@ -216,7 +216,7 @@ export default function MarketingCaptionPortal({ books }: MarketingCaptionPortal
             label="Call-to-action (CTA)"
             value={cta}
             onChange={(e) => setCta(e.target.value)}
-            placeholder="T.ex. Läs mer på Verkli"
+            placeholder="e.g. Read more on Verkli"
             fullWidth
           />
           <Button
@@ -224,10 +224,10 @@ export default function MarketingCaptionPortal({ books }: MarketingCaptionPortal
             variant="primary"
             onClick={generateCaption}
             isLoading={generateLoading}
-            loadingText="Genererar..."
+            loadingText="Generating..."
             fullWidth
           >
-            Generera caption
+            Generate caption
           </Button>
         </CardContent>
       </Card>
@@ -235,16 +235,16 @@ export default function MarketingCaptionPortal({ books }: MarketingCaptionPortal
       <Card className="lg:col-span-2">
         <CardHeader className="pb-2">
           <h3 className="text-sm font-semibold text-slate-900 dark:text-white">
-            Förhandsgranskning
+            Preview
           </h3>
           <p className="text-xs text-slate-500 dark:text-white/50">
-            Redigera texten om du vill innan du sparar som asset.
+            Edit text before saving as an asset.
           </p>
         </CardHeader>
         <CardContent className="space-y-4">
           <Textarea
             className="min-h-[160px] w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 placeholder:text-slate-400 dark:border-white/20 dark:bg-white/10 dark:text-white dark:placeholder:text-white/40"
-            placeholder="Klicka på Generera caption för att fylla i..."
+            placeholder="Click Generate caption to fill this in..."
             value={previewText}
             onChange={(e) => setPreviewText(e.target.value)}
             rows={6}
@@ -255,10 +255,10 @@ export default function MarketingCaptionPortal({ books }: MarketingCaptionPortal
               variant="primary"
               onClick={saveAsset}
               isLoading={saveLoading}
-              loadingText="Sparar..."
+              loadingText="Saving..."
               disabled={!previewText.trim()}
             >
-              Spara som asset
+              Save as asset
             </Button>
           </div>
         </CardContent>

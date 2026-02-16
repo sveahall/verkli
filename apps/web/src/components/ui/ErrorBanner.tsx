@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useSearchParams, useRouter, usePathname } from "next/navigation";
 
 /* ─────────────────────────────────────────────────────────────────────────────
@@ -9,39 +9,39 @@ import { useSearchParams, useRouter, usePathname } from "next/navigation";
 
 const ERROR_MESSAGES: Record<string, { title: string; description: string; action?: { label: string; href: string } }> = {
   author_required: {
-    title: "Författaråtkomst krävs",
-    description: "Författarfunktioner är bara tillgängliga för författarkonton. Du kan fortsätta läsa som läsare.",
+    title: "Author access required",
+    description: "Author features are only available to author accounts. You can continue as a reader.",
     action: {
-      label: "Skapa författarkonto",
+      label: "Create author account",
       href: "/author/signup",
     },
   },
   session_expired: {
-    title: "Sessionen har gått ut",
-    description: "Din session har gått ut. Logga in igen för att fortsätta.",
+    title: "Session expired",
+    description: "Your session has expired. Sign in again to continue.",
     action: {
-      label: "Logga in",
+      label: "Sign in",
       href: "/author/signin",
     },
   },
   unauthorized: {
-    title: "Åtkomst nekad",
-    description: "Du har inte behörighet att komma åt den resursen.",
+    title: "Access denied",
+    description: "You do not have permission to access this resource.",
   },
   not_found: {
-    title: "Hittades inte",
-    description: "Sidan eller resursen du letar efter finns inte eller har flyttats.",
+    title: "Not found",
+    description: "The page or resource you are looking for does not exist or was moved.",
   },
   server_error: {
-    title: "Något gick fel",
-    description: "Vi kunde inte slutföra det. Försök igen eller kontakta support om det fortsätter.",
+    title: "Something went wrong",
+    description: "We could not complete this request. Try again or contact support if it continues.",
   },
 };
 
 // Fallback for unknown error codes — never show technical codes to users
 const FALLBACK_ERROR = {
-  title: "Något gick fel",
-  description: "Vi kunde inte slutföra det. Försök igen.",
+  title: "Something went wrong",
+  description: "We could not complete this request. Please try again.",
 };
 
 /* ─────────────────────────────────────────────────────────────────────────────
@@ -84,6 +84,7 @@ export function ErrorBanner({ errorCode: propErrorCode, onDismiss }: ErrorBanner
   const router = useRouter();
   const pathname = usePathname();
   const [isDismissed, setIsDismissed] = useState(false);
+  const cleanedUrlRef = useRef(false);
 
   const errorCode = propErrorCode ?? searchParams.get("error");
   // Use specific error config or fallback for unknown codes
@@ -91,16 +92,15 @@ export function ErrorBanner({ errorCode: propErrorCode, onDismiss }: ErrorBanner
     ? ERROR_MESSAGES[errorCode] ?? FALLBACK_ERROR
     : null;
 
-  // Clean up URL when banner is shown
+  // Clean up URL once when banner is shown (avoid loop: searchParams in deps caused repeated router.replace)
   useEffect(() => {
-    if (errorCode && searchParams.has("error")) {
-      // Remove error param from URL without triggering navigation
-      const params = new URLSearchParams(searchParams.toString());
-      params.delete("error");
-      const newUrl = params.toString() ? `${pathname}?${params.toString()}` : pathname;
-      router.replace(newUrl, { scroll: false });
-    }
-  }, [errorCode, searchParams, pathname, router]);
+    if (cleanedUrlRef.current || !errorCode || !searchParams.has("error")) return;
+    cleanedUrlRef.current = true;
+    const params = new URLSearchParams(searchParams.toString());
+    params.delete("error");
+    const newUrl = params.toString() ? `${pathname}?${params.toString()}` : pathname;
+    router.replace(newUrl, { scroll: false });
+  }, [errorCode, pathname, router, searchParams]);
 
   const handleDismiss = () => {
     setIsDismissed(true);
@@ -145,7 +145,7 @@ export function ErrorBanner({ errorCode: propErrorCode, onDismiss }: ErrorBanner
           type="button"
           onClick={handleDismiss}
           className="flex-shrink-0 rounded-md p-1 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
-          aria-label="Stäng"
+          aria-label="Close"
         >
           <CloseIcon className="h-5 w-5" />
         </button>

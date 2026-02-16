@@ -313,7 +313,7 @@ export async function synthesizeTextToWavBytes(text: string): Promise<Buffer> {
       }
 
       return wav;
-    } catch (err) {
+    } catch {
       console.error("[tts] Failed to read WAV output", {
         error_type: "read_failed",
         duration_ms: durationMs,
@@ -324,4 +324,3 @@ export async function synthesizeTextToWavBytes(text: string): Promise<Buffer> {
     activeSyntheses = Math.max(0, activeSyntheses - 1);
   }
 }
-

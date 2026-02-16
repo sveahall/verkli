@@ -65,18 +65,18 @@ function generateCaptionText(config: CaptionConfig): string {
   const shareUrl = `/reader/books/${config.bookId}`;
   const tone = (config.tone ?? "engaging").toLowerCase();
   const length = (config.length ?? "medium").toLowerCase();
-  const cta = (config.cta ?? "Läs mer på Verkli").trim();
+  const cta = (config.cta ?? "Read more on Verkli").trim();
 
   const shortPhrases = [
-    `Nu ute: ${config.bookTitle} på ${langLabel}.`,
-    `${config.bookTitle} – nu på ${langLabel}.`,
+    `Now available: ${config.bookTitle} in ${langLabel}.`,
+    `${config.bookTitle} is now live in ${langLabel}.`,
   ];
   const mediumPhrases = [
-    `Just nu: ${config.bookTitle} tillgänglig på ${langLabel}. Upptäck boken på Verkli.`,
-    `Vi är glada att presentera ${config.bookTitle} på ${langLabel}. Läs den här.`,
+    `${config.bookTitle} is now available in ${langLabel}. Discover it on Verkli.`,
+    `We are excited to share ${config.bookTitle} in ${langLabel}. Start reading today.`,
   ];
   const longPhrases = [
-    `Boken ${config.bookTitle} är nu tillgänglig på ${langLabel}. Oavsett om du vill ha en kort hook eller en längre berättelse – hitta den på Verkli. ${shareUrl}`,
+    `${config.bookTitle} is now available in ${langLabel}. Whether you want a short hook or a longer story, you can find it on Verkli. ${shareUrl}`,
   ];
 
   let base: string;
@@ -103,11 +103,8 @@ function generateCaptionText(config: CaptionConfig): string {
           : mediumPhrases[0];
   }
 
-  if (tone === "formal") {
-    base = base.replace(/Nu ute|Just nu|Vi är glada/gi, (m) => m);
-  }
   if (tone === "casual") {
-    base = base.replace(/tillgänglig|presentera/gi, "ute");
+    base = base.replace(/available|share/gi, "out");
   }
 
   return formatForChannel(base, config.channel, cta);

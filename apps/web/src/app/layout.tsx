@@ -6,7 +6,6 @@ import "../components/GlassSurface.css";
 import GlobalThemeToggle from "@/components/GlobalThemeToggle";
 import { ToastProvider } from "@/components/ui/toast";
 import OfflineServiceWorkerRegistration from "@/components/offline/OfflineServiceWorkerRegistration";
-import WebVitalsReporter from "@/components/performance/WebVitalsReporter";
 
 const inter = Inter({
   variable: "--font-inter",
@@ -45,7 +44,6 @@ export default function RootLayout({
       >
         <script dangerouslySetInnerHTML={{ __html: themeScript }} />
         <ToastProvider>
-          <WebVitalsReporter />
           <OfflineServiceWorkerRegistration />
           {/* Content first in DOM; navbar rendered via route-group layouts */}
           <div className="relative z-0 flex min-h-0 flex-1 flex-col overflow-x-hidden">

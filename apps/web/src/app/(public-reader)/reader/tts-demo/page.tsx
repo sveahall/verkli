@@ -3,7 +3,9 @@
 import { useState } from "react";
 
 export default function TtsDemoPage() {
-  const [text, setText] = useState("Hej, detta är en svensk talsyntes från den lokala desktop-appen.");
+  const [text, setText] = useState(
+    "Hello, this is a local speech synthesis demo from the desktop app."
+  );
   const [isSpeaking, setIsSpeaking] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -11,13 +13,13 @@ export default function TtsDemoPage() {
     setError(null);
 
     if (typeof window === "undefined" || !window.electronAPI?.ttsSpeak) {
-      setError("Lokal TTS är bara tillgänglig i Verkli Desktop (Electron).");
+      setError("Local TTS is only available in Verkli Desktop (Electron).");
       return;
     }
 
     const trimmed = text.trim();
     if (!trimmed) {
-      setError("Texten får inte vara tom.");
+      setError("Text cannot be empty.");
       return;
     }
 
@@ -26,7 +28,7 @@ export default function TtsDemoPage() {
       const result = await window.electronAPI.ttsSpeak(trimmed);
       const base64 = result?.audioBase64;
       if (!base64) {
-        throw new Error("Ingen ljuddata returnerades från TTS-tjänsten.");
+        throw new Error("No audio data was returned from the TTS service.");
       }
 
       const byteCharacters = atob(base64);
@@ -47,7 +49,7 @@ export default function TtsDemoPage() {
       const message =
         err instanceof Error && typeof err.message === "string"
           ? err.message
-          : "Ett oväntat fel inträffade vid TTS-syntes.";
+          : "An unexpected error occurred during TTS synthesis.";
       setError(message);
     } finally {
       setIsSpeaking(false);
@@ -56,21 +58,21 @@ export default function TtsDemoPage() {
 
   return (
     <main className="mx-auto max-w-2xl px-4 py-10">
-      <h1 className="mb-2 text-2xl font-semibold tracking-tight">Lokal TTS-demo</h1>
+      <h1 className="mb-2 text-2xl font-semibold tracking-tight">Local TTS demo</h1>
       <p className="mb-6 text-sm text-slate-600 dark:text-slate-300">
-        Skriv en kort svensk mening och klicka på <strong>Säg</strong> för att spela upp ljudet
-        via Piper som körs lokalt i Electron-main-processen (ingen HTTP /api/tts).
+        Write a short sentence and click <strong>Speak</strong> to play audio through Piper
+        running locally in the Electron main process (no HTTP `/api/tts`).
       </p>
 
       <label className="mb-2 block text-sm font-medium text-slate-700 dark:text-slate-200">
-        Text att läsa upp
+        Text to speak
       </label>
       <textarea
         value={text}
         onChange={(event) => setText(event.target.value)}
         rows={4}
         className="mb-4 w-full rounded-md border border-slate-200 bg-white px-3 py-2 text-sm shadow-sm focus:border-slate-900 focus:outline-none focus:ring-1 focus:ring-slate-900 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-50 dark:focus:border-slate-50 dark:focus:ring-slate-50"
-        placeholder="Skriv något att läsa upp..."
+        placeholder="Type something to speak..."
       />
 
       <button
@@ -79,7 +81,7 @@ export default function TtsDemoPage() {
         disabled={isSpeaking}
         className="inline-flex items-center rounded-full bg-slate-900 px-5 py-2.5 text-sm font-medium text-white hover:bg-slate-800 disabled:cursor-not-allowed disabled:bg-slate-400 dark:bg-white dark:text-slate-900 dark:hover:bg-white/90"
       >
-        {isSpeaking ? "Spelar upp..." : "Säg"}
+        {isSpeaking ? "Playing..." : "Speak"}
       </button>
 
       {error && (
@@ -89,11 +91,10 @@ export default function TtsDemoPage() {
       )}
 
       <p className="mt-6 text-xs text-slate-500 dark:text-slate-400">
-        Tips: Om du får fel om Piper-binären eller modeller, kontrollera att du följt README för
-        lokal TTS på macOS och att miljövariablerna <code>TTS_BIN</code>, <code>TTS_MODEL_PATH</code>{" "}
-        och <code>TTS_CONFIG_PATH</code> pekar rätt.
+        Tip: If you get an error about the Piper binary or models, confirm you followed the
+        README for local TTS on macOS and that environment variables <code>TTS_BIN</code>,{" "}
+        <code>TTS_MODEL_PATH</code> and <code>TTS_CONFIG_PATH</code> point to valid paths.
       </p>
     </main>
   );
 }
-

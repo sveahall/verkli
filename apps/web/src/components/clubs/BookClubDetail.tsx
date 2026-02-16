@@ -75,7 +75,7 @@ export default function BookClubDetail({
   }, [club.id, router]);
 
   const handleDelete = useCallback(async () => {
-    if (!confirm("Är du säker på att du vill radera denna bokklubb?")) return;
+    if (!confirm("Are you sure you want to delete this book club?")) return;
     setDeleting(true);
     setError(null);
     try {
@@ -106,9 +106,9 @@ export default function BookClubDetail({
             <p className="max-w-2xl text-body">{club.description}</p>
           )}
           <div className="flex items-center gap-3 text-[13px] text-slate-500 dark:text-white/50">
-            <span>{members.length} {members.length === 1 ? "medlem" : "medlemmar"}</span>
+            <span>{members.length} {members.length === 1 ? "member" : "members"}</span>
             <span className="h-1 w-1 rounded-full bg-slate-300 dark:bg-white/30" />
-            <span>{club.is_public ? "Offentlig" : "Privat"}</span>
+            <span>{club.is_public ? "Public" : "Private"}</span>
           </div>
         </div>
         <div className="flex items-center gap-2">
@@ -118,9 +118,9 @@ export default function BookClubDetail({
               size="sm"
               onClick={handleLeave}
               isLoading={leaving}
-              loadingText="Lämnar..."
+              loadingText="Leaving..."
             >
-              Lämna klubb
+              Leave club
             </Button>
           )}
           {isOwner && (
@@ -129,9 +129,9 @@ export default function BookClubDetail({
               size="sm"
               onClick={handleDelete}
               isLoading={deleting}
-              loadingText="Raderar..."
+              loadingText="Deleting..."
             >
-              Radera klubb
+              Delete club
             </Button>
           )}
         </div>
@@ -143,7 +143,7 @@ export default function BookClubDetail({
 
       <div>
         <h2 className="mb-3 text-[15px] font-semibold text-slate-900 dark:text-white">
-          Medlemmar
+          Members
         </h2>
         <div className="flex flex-wrap gap-2">
           {members.map((m) => (
@@ -152,11 +152,11 @@ export default function BookClubDetail({
               className="inline-flex items-center gap-1.5 rounded-full border border-slate-200/80 bg-white px-3 py-1.5 text-[12px] text-slate-600 dark:border-white/10 dark:bg-white/5 dark:text-white/60"
             >
               {m.user_id.slice(0, 8)}
-              {m.role === "owner" && (
-                <span className="rounded-full bg-slate-900 px-1.5 py-0.5 text-[10px] font-medium text-white dark:bg-white dark:text-slate-900">
-                  Ägare
-                </span>
-              )}
+                  {m.role === "owner" && (
+                    <span className="rounded-full bg-slate-900 px-1.5 py-0.5 text-[10px] font-medium text-white dark:bg-white dark:text-slate-900">
+                      Owner
+                    </span>
+                  )}
             </span>
           ))}
         </div>
@@ -165,7 +165,7 @@ export default function BookClubDetail({
       {isMember && (
         <div>
           <h2 className="mb-3 text-[15px] font-semibold text-slate-900 dark:text-white">
-            Chatt
+            Chat
           </h2>
           <ClubChat
             clubId={club.id}

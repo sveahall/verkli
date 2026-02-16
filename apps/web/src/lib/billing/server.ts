@@ -5,13 +5,11 @@ import {
   isBillingStatusActive,
   normalizeBillingStatus,
   type BillingAccountRow,
+  type BillingAccountRole,
   type BillingState,
 } from "@/lib/billing/state";
-export type { BillingAccountRow };
-import { rankPlan, type BillingPlan } from "@/lib/billing/plans";
-import { resolveRolePlanFromPriceIds, type CatalogRole } from "@/lib/billing/catalog";
-import { getStripeCustomerSubscriptions } from "@/lib/payments/stripe-billing";
-import type { StripeSubscription } from "@/lib/payments/stripe-billing";
+export type { BillingAccountRow, BillingAccountRole };
+import type { BillingPlan } from "@/lib/billing/plans";
 
 export type BillingAccountPatch = {
   stripe_customer_id?: string | null;
@@ -22,16 +20,27 @@ export type BillingAccountPatch = {
   cancel_at_period_end?: boolean;
 };
 
+const PROVIDER_STRIPE = "stripe";
+
 type AdminClient = ReturnType<typeof createAdminClient>;
+
+function normalizeRole(value: unknown): BillingAccountRole | null {
+  const v = String(value ?? "").trim().toLowerCase();
+  if (v === "reader" || v === "author") return v;
+  return null;
+}
 
 function normalizeRow(row: Record<string, unknown> | null): BillingAccountRow | null {
   if (!row || typeof row !== "object") return null;
 
   const userId = String(row.user_id ?? "").trim();
-  if (!userId) return null;
+  const role = normalizeRole(row.role);
+  if (!userId || !role) return null;
 
   return {
+    provider: String(row.provider ?? PROVIDER_STRIPE).trim() || PROVIDER_STRIPE,
     user_id: userId,
+    role,
     stripe_customer_id: row.stripe_customer_id ? String(row.stripe_customer_id) : null,
     stripe_subscription_id: row.stripe_subscription_id ? String(row.stripe_subscription_id) : null,
     plan: row.plan ? String(row.plan) : null,
@@ -50,16 +59,19 @@ function toError(error: { code?: string; message: string } | null): { code?: str
   };
 }
 
-export async function getBillingAccountByUserId(
+/** Reads billing_accounts for exactly this (user_id, role). Role-scoped. */
+export async function getBillingAccountByUserIdAndRole(
   admin: AdminClient,
-  userId: string
+  userId: string,
+  role: BillingAccountRole
 ): Promise<{ row: BillingAccountRow | null; error: { code?: string; message: string } | null }> {
   const { data, error } = await admin
     .from("billing_accounts" as never)
     .select(
-      "user_id, stripe_customer_id, stripe_subscription_id, plan, status, current_period_end, cancel_at_period_end, updated_at"
+      "user_id, role, stripe_customer_id, stripe_subscription_id, plan, status, current_period_end, cancel_at_period_end, updated_at"
     )
     .eq("user_id", userId)
+    .eq("role", role)
     .maybeSingle();
 
   return {
@@ -68,6 +80,7 @@ export async function getBillingAccountByUserId(
   };
 }
 
+/** Returns one row for this Stripe customer (e.g. to resolve user_id); multiple rows may exist per customer. */
 export async function getBillingAccountByStripeCustomerId(
   admin: AdminClient,
   stripeCustomerId: string
@@ -75,9 +88,10 @@ export async function getBillingAccountByStripeCustomerId(
   const { data, error } = await admin
     .from("billing_accounts" as never)
     .select(
-      "user_id, stripe_customer_id, stripe_subscription_id, plan, status, current_period_end, cancel_at_period_end, updated_at"
+      "user_id, role, stripe_customer_id, stripe_subscription_id, plan, status, current_period_end, cancel_at_period_end, updated_at"
     )
     .eq("stripe_customer_id", stripeCustomerId)
+    .limit(1)
     .maybeSingle();
 
   return {
@@ -93,7 +107,7 @@ export async function getBillingAccountByStripeSubscriptionId(
   const { data, error } = await admin
     .from("billing_accounts" as never)
     .select(
-      "user_id, stripe_customer_id, stripe_subscription_id, plan, status, current_period_end, cancel_at_period_end, updated_at"
+      "user_id, role, stripe_customer_id, stripe_subscription_id, plan, status, current_period_end, cancel_at_period_end, updated_at"
     )
     .eq("stripe_subscription_id", stripeSubscriptionId)
     .maybeSingle();
@@ -104,123 +118,52 @@ export async function getBillingAccountByStripeSubscriptionId(
   };
 }
 
+/**
+ * Upserts billing_accounts for (user_id, role) only.
+ * ON CONFLICT (user_id, role) DO UPDATE. Never overwrites another role's row.
+ */
 export async function upsertBillingAccount(
   admin: AdminClient,
   userId: string,
+  role: BillingAccountRole,
   patch: BillingAccountPatch
 ): Promise<{ error: { code?: string; message: string } | null }> {
   const { error } = await admin.from("billing_accounts" as never).upsert(
     {
       user_id: userId,
+      role,
       ...patch,
       updated_at: new Date().toISOString(),
     },
-    { onConflict: "user_id" }
+    { onConflict: "user_id,role" }
   );
 
   return { error: toError(error) };
 }
 
-const ACTIVE_STRIPE_STATUSES = new Set(["active", "trialing"]);
-
-function stateFromStripeSubscription(
-  sub: StripeSubscription,
-  plan: BillingPlan | null,
-  stripeCustomerId: string,
-  plusEnding: { cancelAtPeriodEnd: boolean; periodEnd: string | null }
-): BillingState {
-  const status = normalizeBillingStatus(sub.status);
-  const active = isBillingStatusActive(status);
-  const currentPeriodEnd =
-    sub.current_period_end != null && Number.isFinite(sub.current_period_end)
-      ? new Date(sub.current_period_end * 1000).toISOString()
-      : null;
-  return {
-    plan,
-    status,
-    currentPeriodEnd,
-    cancelAtPeriodEnd: sub.cancel_at_period_end,
-    stripeCustomerId,
-    stripeSubscriptionId: sub.id,
-    isPlusActive: active && (plan === "plus" || plan === "pro"),
-    isProActive: active && plan === "pro",
-    plusCancelAtPeriodEnd: plusEnding.cancelAtPeriodEnd,
-    plusPeriodEnd: plusEnding.periodEnd,
-  };
-}
-
-/** When we have a Stripe customer id, resolve state from live subscriptions for the given role (catalog-based). */
-async function enrichStateFromStripe(
-  row: BillingAccountRow | null,
-  role: CatalogRole
-): Promise<BillingState | null> {
-  const customerId = row?.stripe_customer_id ?? null;
-  if (!customerId) return null;
-
-  let subscriptions: StripeSubscription[];
-  try {
-    subscriptions = await getStripeCustomerSubscriptions(customerId);
-  } catch {
-    return null;
-  }
-
-  const activeSubs = subscriptions.filter(
-    (s) => s.status && ACTIVE_STRIPE_STATUSES.has(s.status.toLowerCase())
-  );
-  if (activeSubs.length === 0) return null;
-
-  const subsForRole: { sub: StripeSubscription; plan: BillingPlan }[] = [];
-  for (const sub of activeSubs) {
-    const resolved = await resolveRolePlanFromPriceIds(sub.price_ids);
-    if (resolved && resolved.role === role) {
-      subsForRole.push({ sub, plan: resolved.planKey as BillingPlan });
-    }
-  }
-  if (subsForRole.length === 0) return null;
-
-  let best = subsForRole[0];
-  for (const entry of subsForRole) {
-    if (rankPlan(entry.plan) > rankPlan(best.plan)) {
-      best = entry;
-    }
-  }
-
-  let plusEnding: { cancelAtPeriodEnd: boolean; periodEnd: string | null } = {
-    cancelAtPeriodEnd: false,
-    periodEnd: null,
-  };
-  for (const entry of subsForRole) {
-    if (entry.plan === "plus" && entry.sub.cancel_at_period_end) {
-      plusEnding = {
-        cancelAtPeriodEnd: true,
-        periodEnd:
-          entry.sub.current_period_end != null && Number.isFinite(entry.sub.current_period_end)
-            ? new Date(entry.sub.current_period_end * 1000).toISOString()
-            : null,
-      };
-      break;
-    }
-  }
-
-  return stateFromStripeSubscription(best.sub, best.plan, customerId, plusEnding);
-}
-
 export type ActiveBillingRole = "reader" | "author";
 
 /**
- * Returns billing state scoped to role: reader sees only Plus, author only Pro.
+ * Returns billing state scoped to role: reader sees only Plus (pro masked to plus), author sees row as-is.
  */
 function scopeStateToRole(state: BillingState, role: ActiveBillingRole): BillingState {
   if (role === "reader") {
+    const displayPlus = state.plan === "pro" || state.plan === "plus";
     return {
       ...state,
       plan: state.plan === "pro" ? "plus" : state.plan,
       isProActive: false,
+      isPlusActive: displayPlus,
     };
   }
   return state;
 }
 
+/**
+ * Fetches billing state for exactly (userId, role).
+ * Query: SELECT ... FROM billing_accounts WHERE user_id = $1 AND role = $2.
+ * Does not fetch by user only; each role is isolated.
+ */
 export async function getBillingStateForUser(
   userId: string,
   role: ActiveBillingRole
@@ -229,7 +172,7 @@ export async function getBillingStateForUser(
   | { ok: false; response: Response }
 > {
   const admin = createAdminClient();
-  const { row, error } = await getBillingAccountByUserId(admin, userId);
+  const { row, error } = await getBillingAccountByUserIdAndRole(admin, userId, role);
 
   if (error) {
     console.error("[billing] failed to load billing account", {
@@ -240,17 +183,16 @@ export async function getBillingStateForUser(
     return { ok: false, response: apiError(E_GENERIC_ERROR, 500) };
   }
 
-  const stateFromLive =
-    (await enrichStateFromStripe(row, role)) ?? deriveBillingState(row);
-  const state = scopeStateToRole(stateFromLive, role);
+  // Row is source of truth; never use Stripe price_ids to compute plan for state.
+  const state = scopeStateToRole(deriveBillingState(row), role);
 
   if (process.env.BILLING_DEBUG === "1") {
     console.debug("[billing] state", {
-      subscriptionId: row?.stripe_subscription_id ?? null,
-      status: row?.status ?? null,
-      plan: row?.plan ?? null,
-      resolvedPlanKey: state.plan,
       role,
+      rowPlan: row?.plan ?? null,
+      rowStatus: row?.status ?? null,
+      rowStripeSubscriptionId: row?.stripe_subscription_id ?? null,
+      resolvedPlanKey: state.plan,
     });
   }
 

@@ -21,6 +21,8 @@ type ReaderLibraryClientProps = {
   initialData: LibraryData;
 };
 
+const EMPTY_BOOKS: LibraryBook[] = [];
+
 export default function ReaderLibraryClient({ initialData }: ReaderLibraryClientProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -36,7 +38,7 @@ export default function ReaderLibraryClient({ initialData }: ReaderLibraryClient
     saved: initialData.saved,
     finished: initialData.finished,
   };
-  const activeBooks = collections[activeTab] ?? [];
+  const activeBooks = collections[activeTab] ?? EMPTY_BOOKS;
   const cardCtaLabel =
     activeTab === "reading" ? "Resume" : activeTab === "saved" ? "Start reading" : "Re-read";
 

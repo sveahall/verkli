@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 
@@ -25,10 +26,13 @@ export default function BookClubCard({ club, onJoin, joining }: BookClubCardProp
     <Card className="flex flex-col overflow-hidden">
       <div className="relative aspect-[16/9] w-full overflow-hidden bg-gradient-to-br from-slate-200/70 via-white to-slate-100 dark:from-white/10 dark:via-white/5 dark:to-slate-900/60">
         {club.cover_url ? (
-          <img
+          <Image
             src={club.cover_url}
             alt={club.name}
-            className="h-full w-full object-cover"
+            fill
+            sizes="(min-width: 1024px) 33vw, 100vw"
+            className="object-cover"
+            unoptimized
           />
         ) : (
           <div className="flex h-full w-full items-center justify-center">
@@ -50,18 +54,18 @@ export default function BookClubCard({ club, onJoin, joining }: BookClubCardProp
           )}
         </div>
         <div className="flex items-center gap-3 text-[12px] text-slate-500 dark:text-white/50">
-          <span>{club.memberCount} {club.memberCount === 1 ? "medlem" : "medlemmar"}</span>
+          <span>{club.memberCount} {club.memberCount === 1 ? "member" : "members"}</span>
           {club.currentBook && (
             <>
               <span className="h-1 w-1 rounded-full bg-slate-300 dark:bg-white/30" />
-              <span className="truncate">Läser: {club.currentBook.title}</span>
+              <span className="truncate">Reading: {club.currentBook.title}</span>
             </>
           )}
         </div>
         {club.isMember ? (
           <Link href={`/reader/clubs/${club.id}`}>
             <Button variant="secondary" size="sm" fullWidth>
-              Visa klubb
+              View club
             </Button>
           </Link>
         ) : (
@@ -71,9 +75,9 @@ export default function BookClubCard({ club, onJoin, joining }: BookClubCardProp
             fullWidth
             onClick={() => onJoin?.(club.id)}
             isLoading={joining}
-            loadingText="Går med..."
+            loadingText="Joining..."
           >
-            Gå med
+            Join
           </Button>
         )}
       </div>

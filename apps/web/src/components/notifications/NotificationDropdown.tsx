@@ -74,14 +74,14 @@ export default function NotificationDropdown({ onClose, onCountChange }: Notific
     >
       <div className="flex items-center justify-between border-b border-slate-200/80 px-4 py-3 dark:border-white/10">
         <h3 className="text-[14px] font-semibold text-slate-900 dark:text-white">
-          Notifikationer
+          Notifications
         </h3>
         <button
           type="button"
           onClick={handleMarkAllRead}
           className="text-[12px] font-medium text-[#907AFF] hover:text-[#7058DD] transition-colors"
         >
-          Markera alla som lästa
+          Mark all as read
         </button>
       </div>
 
@@ -92,7 +92,7 @@ export default function NotificationDropdown({ onClose, onCountChange }: Notific
           </div>
         ) : notifications.length === 0 ? (
           <p className="py-8 text-center text-[13px] text-slate-400 dark:text-white/40">
-            Inga notifikationer ännu
+            No notifications yet
           </p>
         ) : (
           notifications.map((n) => (
@@ -118,7 +118,7 @@ export default function NotificationDropdown({ onClose, onCountChange }: Notific
           onClick={onClose}
           className="block text-center text-[13px] font-medium text-[#907AFF] hover:text-[#7058DD] transition-colors"
         >
-          Visa alla notifikationer
+          View all notifications
         </Link>
       </div>
     </div>

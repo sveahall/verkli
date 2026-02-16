@@ -45,7 +45,7 @@ export default function ReadingProgress({ bookId, chapterId, progressPercent }: 
       } else {
         try {
           localStorage.setItem(`${STORAGE_KEY_PREFIX}${bookId}`, JSON.stringify(payload));
-        } catch (_) {}
+        } catch {}
       }
     };
     persist();

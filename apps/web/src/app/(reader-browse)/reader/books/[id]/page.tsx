@@ -1,4 +1,5 @@
 import Link from "next/link";
+import Image from "next/image";
 import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { getLanguageLabel, getSeoLanguageLabel, normalizeLanguage } from "@/lib/languages";
@@ -233,7 +234,14 @@ export default async function ReaderBookDetail({
       <section className="mx-auto grid max-w-[1100px] gap-10 px-6 py-12 lg:grid-cols-[0.9fr_1.1fr]">
         <div className="relative overflow-hidden rounded-[28px] border border-black/10 bg-black/[0.02] dark:border-white/10 dark:bg-white/5">
           {(book as { cover_image?: string | null }).cover_image ? (
-            <img src={(book as { cover_image?: string | null }).cover_image!} alt={book.title} className="h-full w-full object-cover" />
+            <Image
+              src={(book as { cover_image?: string | null }).cover_image!}
+              alt={book.title}
+              fill
+              sizes="(min-width: 1024px) 420px, 100vw"
+              className="object-cover"
+              unoptimized
+            />
           ) : (
             <div className="flex h-full min-h-[360px] w-full items-center justify-center bg-gradient-to-br from-[#907AFF]/20 to-[#E29ED5]/20">
               <span className="text-[18px] font-semibold text-slate-700 dark:text-white/70">No cover</span>

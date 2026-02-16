@@ -42,7 +42,7 @@ export async function GET(
   const { user, response } = await requireAuthorRoleForApi();
   if (response) return response;
 
-  const billing = await getBillingStateForUser(user.id);
+  const billing = await getBillingStateForUser(user.id, "author");
   const translationVisibleForUser = billing.ok ? billing.state.isProActive : true;
 
   const supabase = await createClient();

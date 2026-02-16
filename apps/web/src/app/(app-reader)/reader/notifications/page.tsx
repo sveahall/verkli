@@ -23,14 +23,14 @@ export default function ReaderNotificationsPage() {
     <div className="mx-auto max-w-[640px] px-4 py-8 sm:px-6">
       <div className="mb-6 flex items-center justify-between">
         <h1 className="text-xl font-bold text-slate-900 dark:text-white">
-          Notifikationer
+          Notifications
         </h1>
         <button
           type="button"
           onClick={handleMarkAllRead}
           className="text-[13px] font-medium text-[#907AFF] hover:text-[#7058DD] transition-colors"
         >
-          Markera alla som lästa
+          Mark all as read
         </button>
       </div>
 
@@ -41,7 +41,7 @@ export default function ReaderNotificationsPage() {
           </div>
         ) : notifications.length === 0 ? (
           <p className="py-12 text-center text-[13px] text-slate-400 dark:text-white/40">
-            Inga notifikationer ännu
+            No notifications yet
           </p>
         ) : (
           <div className="divide-y divide-slate-100 dark:divide-white/5">
@@ -71,7 +71,7 @@ export default function ReaderNotificationsPage() {
             onClick={() => setPage((p) => p - 1)}
             className="rounded-lg px-3 py-1.5 text-[13px] font-medium text-slate-600 transition-colors hover:bg-slate-100 disabled:opacity-40 dark:text-white/60 dark:hover:bg-white/10"
           >
-            Föregående
+            Previous
           </button>
           <span className="text-[13px] text-slate-500 dark:text-white/50">
             {page} / {totalPages}
@@ -82,7 +82,7 @@ export default function ReaderNotificationsPage() {
             onClick={() => setPage((p) => p + 1)}
             className="rounded-lg px-3 py-1.5 text-[13px] font-medium text-slate-600 transition-colors hover:bg-slate-100 disabled:opacity-40 dark:text-white/60 dark:hover:bg-white/10"
           >
-            Nästa
+            Next
           </button>
         </div>
       )}

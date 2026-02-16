@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useSyncExternalStore } from "react";
+import Image from "next/image";
 import { resolveErrorMessage } from "@/lib/error-messages";
 import AuroraBackground from "@/components/AuroraBackground";
 
@@ -14,9 +15,9 @@ function validateEmail(email: string): boolean {
   return EMAIL_REGEX.test(email.trim());
 }
 
-const author_STORAGE_EMAIL = "verkli_waitlist_author_email";
-const author_STORAGE_STATUS = "verkli_waitlist_author_status";
-const author_STORAGE_POSITION = "verkli_waitlist_author_position";
+const AUTHOR_STORAGE_EMAIL = "verkli_waitlist_author_email";
+const AUTHOR_STORAGE_STATUS = "verkli_waitlist_author_status";
+const AUTHOR_STORAGE_POSITION = "verkli_waitlist_author_position";
 const READER_STORAGE_EMAIL = "verkli_waitlist_reader_email";
 const READER_STORAGE_STATUS = "verkli_waitlist_reader_status";
 const READER_STORAGE_POSITION = "verkli_waitlist_reader_position";
@@ -88,9 +89,9 @@ function WaitlistForm({
       const position = data.position ?? 0;
       const isDuplicate = data.alreadyExists === true;
       try {
-        localStorage.setItem(author_STORAGE_EMAIL, normalized);
-        localStorage.setItem(author_STORAGE_STATUS, isDuplicate ? "exists" : "success");
-        localStorage.setItem(author_STORAGE_POSITION, String(position));
+        localStorage.setItem(AUTHOR_STORAGE_EMAIL, normalized);
+        localStorage.setItem(AUTHOR_STORAGE_STATUS, isDuplicate ? "exists" : "success");
+        localStorage.setItem(AUTHOR_STORAGE_POSITION, String(position));
       } catch {
         /* ignore */
       }
@@ -383,8 +384,8 @@ export default function WaitlistPage() {
   const [queuePosition, setQueuePosition] = useState<number | null>(() => {
     if (typeof window === "undefined") return null;
     try {
-      const status = localStorage.getItem(author_STORAGE_STATUS);
-      const pos = parseInt(localStorage.getItem(author_STORAGE_POSITION) ?? "", 10);
+      const status = localStorage.getItem(AUTHOR_STORAGE_STATUS);
+      const pos = parseInt(localStorage.getItem(AUTHOR_STORAGE_POSITION) ?? "", 10);
       if (status === "success" && !Number.isNaN(pos)) return pos;
     } catch { /* ignore */ }
     return null;
@@ -392,8 +393,8 @@ export default function WaitlistPage() {
   const [alreadyExistsPosition, setAlreadyExistsPosition] = useState<number | null>(() => {
     if (typeof window === "undefined") return null;
     try {
-      const status = localStorage.getItem(author_STORAGE_STATUS);
-      const pos = parseInt(localStorage.getItem(author_STORAGE_POSITION) ?? "", 10);
+      const status = localStorage.getItem(AUTHOR_STORAGE_STATUS);
+      const pos = parseInt(localStorage.getItem(AUTHOR_STORAGE_POSITION) ?? "", 10);
       if (status === "exists" && !Number.isNaN(pos)) return pos;
     } catch { /* ignore */ }
     return null;
@@ -439,11 +440,11 @@ export default function WaitlistPage() {
     setReaderQueuePosition(null);
   };
 
-  const handleauthorUseDifferentEmail = () => {
+  const handleAuthorUseDifferentEmail = () => {
     try {
-      localStorage.removeItem(author_STORAGE_EMAIL);
-      localStorage.removeItem(author_STORAGE_STATUS);
-      localStorage.removeItem(author_STORAGE_POSITION);
+      localStorage.removeItem(AUTHOR_STORAGE_EMAIL);
+      localStorage.removeItem(AUTHOR_STORAGE_STATUS);
+      localStorage.removeItem(AUTHOR_STORAGE_POSITION);
     } catch {
       /* ignore */
     }
@@ -500,8 +501,8 @@ export default function WaitlistPage() {
             aria-hidden
           >
             <div className="flex items-center">
-              <img src="/logo-dark.svg" alt="" className="h-7 w-auto dark:hidden" />
-              <img src="/favicon.svg" alt="" className="hidden h-7 w-auto dark:block" />
+              <Image src="/logo-dark.svg" alt="" width={122} height={28} className="h-7 w-auto dark:hidden" />
+              <Image src="/favicon.svg" alt="" width={28} height={28} className="hidden h-7 w-auto dark:block" />
             </div>
           </div>
 
@@ -526,16 +527,16 @@ export default function WaitlistPage() {
             </p>
             {/* Two signups: author + reader — column on mobile, row on desktop */}
             <div className="waitlist-hero-in waitlist-hero-in-delay-3 mt-3 flex w-full flex-col gap-8 md:flex-row md:items-stretch">
-              {/* Join the waitlist as a author */}
+              {/* Join the waitlist as an author */}
               <div className="aurora-card min-w-0 flex-1 rounded-3xl border border-white/20 bg-white/10 p-6 shadow-[0_24px_48px_rgba(0,0,0,0.2),0_0_0_1px_rgba(255,255,255,0.08)] backdrop-blur-xl sm:p-8">
                 <h2 className="text-center text-sm font-semibold uppercase tracking-wider text-white/60">
-                  Join the waitlist as a author
+                  Join the waitlist as an author
                 </h2>
                 <div className="mt-4">
                   {!hydrated ? null : queuePosition !== null ? (
-                    <SuccessState queuePosition={queuePosition} onUseDifferentEmail={handleauthorUseDifferentEmail} />
+                    <SuccessState queuePosition={queuePosition} onUseDifferentEmail={handleAuthorUseDifferentEmail} />
                   ) : alreadyExistsPosition !== null ? (
-                    <AlreadyExistsState queuePosition={alreadyExistsPosition} onUseDifferentEmail={handleauthorUseDifferentEmail} />
+                    <AlreadyExistsState queuePosition={alreadyExistsPosition} onUseDifferentEmail={handleAuthorUseDifferentEmail} />
                   ) : (
                     <>
                       <WaitlistForm

@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import ThemeToggle from "@/components/ThemeToggle";
 
 export type AuthShellProps = {
@@ -53,8 +54,8 @@ export default function AuthShell({
 
       <header className="absolute left-6 top-6 z-30 flex items-center gap-3 sm:left-10 sm:top-8">
         <Link href="/" className="flex items-center">
-          <img src="/logo-dark.svg" alt="Verkli" className="h-7 w-auto dark:hidden" />
-          <img src="/favicon.svg" alt="Verkli" className="hidden h-7 w-auto dark:block" />
+          <Image src="/logo-dark.svg" alt="Verkli" width={122} height={28} className="h-7 w-auto dark:hidden" />
+          <Image src="/favicon.svg" alt="Verkli" width={28} height={28} className="hidden h-7 w-auto dark:block" />
         </Link>
         <Link
           href={backHref}

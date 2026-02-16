@@ -31,8 +31,8 @@ export type {
 export { AIProviderError } from "./types";
 
 // Worker-safe provider instances
-import { opusTranslator, OpusTranslator } from "./opus-translator";
-import { piperNarrator, PiperNarrator } from "./piper-narrator";
+import { opusTranslator } from "./opus-translator";
+import { piperNarrator } from "./piper-narrator";
 
 // Re-export provider classes for direct instantiation if needed
 export { OpusTranslator, opusTranslator } from "./opus-translator";

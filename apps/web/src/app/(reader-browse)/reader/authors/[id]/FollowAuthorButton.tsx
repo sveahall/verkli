@@ -29,7 +29,7 @@ export default function FollowAuthorButton({
         href={signInHref}
         className="inline-flex items-center rounded-full border border-slate-300 bg-white px-4 py-2 text-[13px] font-medium text-slate-700 hover:bg-slate-50 dark:border-white/15 dark:bg-white/10 dark:text-white/80 dark:hover:bg-white/15"
       >
-        Logga in för att följa
+        Sign in to follow
       </Link>
     );
   }
@@ -44,11 +44,11 @@ export default function FollowAuthorButton({
         );
         const payload = (await response.json().catch(() => ({}))) as { error?: string };
         if (!response.ok) {
-          toast.error(resolveErrorMessage(payload.error, "Kunde inte sluta följa."));
+          toast.error(resolveErrorMessage(payload.error, "Could not unfollow."));
           return;
         }
         setIsFollowing(false);
-        toast.success("Du följer inte längre författaren.");
+        toast.success("You are no longer following this author.");
         return;
       }
 
@@ -59,14 +59,14 @@ export default function FollowAuthorButton({
       });
       const payload = (await response.json().catch(() => ({}))) as { error?: string };
       if (!response.ok) {
-        toast.error(resolveErrorMessage(payload.error, "Kunde inte följa författaren."));
+        toast.error(resolveErrorMessage(payload.error, "Could not follow author."));
         return;
       }
 
       setIsFollowing(true);
-      toast.success("Du följer nu författaren.");
+      toast.success("You are now following this author.");
     } catch {
-      toast.error("Nätverksfel. Försök igen.");
+      toast.error("Network error. Please try again.");
     } finally {
       setIsPending(false);
     }
@@ -78,11 +78,11 @@ export default function FollowAuthorButton({
       variant={isFollowing ? "secondary" : "primary"}
       size="sm"
       isLoading={isPending}
-      loadingText={isFollowing ? "Tar bort..." : "Följer..."}
+      loadingText={isFollowing ? "Unfollowing..." : "Following..."}
       onClick={toggleFollow}
       aria-pressed={isFollowing}
     >
-      {isFollowing ? "Följer" : "Följ"}
+      {isFollowing ? "Following" : "Follow"}
     </Button>
   );
 }

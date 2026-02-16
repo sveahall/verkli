@@ -27,7 +27,7 @@ import { getNarrator } from "../src/lib/ai/providers/workers";
 import { sanitizeJobErrorForStorage } from "../src/lib/sanitize-job-error";
 import { isDuplicate } from "../src/lib/workers/idempotency";
 import { checkBudget, trackUsage, BudgetExceededError } from "../src/lib/workers/budget";
-import { withTimeout, TimeoutError } from "../src/lib/workers/timeout";
+import { withTimeout } from "../src/lib/workers/timeout";
 
 const QUEUE_NAME = QUEUE_NAMES.AUDIOBOOK;
 const BUCKET = getAudiobookStorageBucket();

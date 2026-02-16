@@ -1,7 +1,11 @@
 import { parseBillingPlan, type BillingPlan } from "@/lib/billing/plans";
 
+export type BillingAccountRole = "reader" | "author";
+
 export type BillingAccountRow = {
+  provider: string;
   user_id: string;
+  role: BillingAccountRole;
   stripe_customer_id: string | null;
   stripe_subscription_id: string | null;
   plan: string | null;
@@ -20,6 +24,10 @@ export type BillingState = {
   stripeSubscriptionId: string | null;
   isPlusActive: boolean;
   isProActive: boolean;
+  /** True when user has an active Plus subscription that is set to cancel at period end (avslutad men fortfarande aktiv). */
+  plusCancelAtPeriodEnd: boolean;
+  /** When Plus is cancelling, the date it ends (ISO). */
+  plusPeriodEnd: string | null;
 };
 
 const ACTIVE_STATUSES = new Set(["active", "trialing"]);
@@ -35,20 +43,26 @@ export function isBillingStatusActive(status: string | null | undefined): boolea
   return ACTIVE_STATUSES.has(normalized);
 }
 
+/**
+ * Derives state from the single billing_accounts row only.
+ * resolvedPlanKey (plan) = row.plan when row.status is active/trialing, else null.
+ * No Stripe price_id resolution; row is source of truth for UI active flags.
+ */
 export function deriveBillingState(row: BillingAccountRow | null): BillingState {
-  const plan = parseBillingPlan(row?.plan);
   const status = normalizeBillingStatus(row?.status);
   const active = isBillingStatusActive(status);
-  const isPro = active && plan === "pro";
+  const resolvedPlanKey = active ? parseBillingPlan(row?.plan) : null;
 
   return {
-    plan,
+    plan: resolvedPlanKey,
     status,
     currentPeriodEnd: row?.current_period_end ?? null,
     cancelAtPeriodEnd: Boolean(row?.cancel_at_period_end ?? false),
     stripeCustomerId: row?.stripe_customer_id ?? null,
     stripeSubscriptionId: row?.stripe_subscription_id ?? null,
-    isPlusActive: active && (plan === "plus" || plan === "pro"),
-    isProActive: isPro,
+    isPlusActive: resolvedPlanKey === "plus",
+    isProActive: resolvedPlanKey === "pro",
+    plusCancelAtPeriodEnd: false,
+    plusPeriodEnd: null,
   };
 }

@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
+import { cookies } from "next/headers";
 import { createClient } from "@/lib/supabase/server";
-import { updateActiveRole } from "@/features/auth/roles";
+import { getActiveRoleFromCookieValue } from "@/lib/active-role";
 import NavbarShell from "@/nav/NavbarShell";
 import OfflineModeIndicator from "@/components/offline/OfflineModeIndicator";
 
@@ -9,36 +10,30 @@ export default async function AppReaderLayout({
 }: {
   children: React.ReactNode;
 }) {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const cookieStore = await cookies();
+  const activeRole = getActiveRoleFromCookieValue(
+    cookieStore.get("active_role")?.value
+  );
+
+  if (!activeRole) {
+    redirect("/api/auth/sync-role?redirect=/reader/home");
+  }
+
+  if (activeRole === "author") {
+    redirect("/author/home");
+  }
+
+  let user: { id: string } | null = null;
+  try {
+    const supabase = await createClient();
+    const { data } = await supabase.auth.getUser();
+    user = data.user;
+  } catch {
+    redirect("/reader/signin");
+  }
 
   if (!user) {
     redirect("/reader/signin");
-  }
-
-  // SECURITY: Always resolve role from DB — never trust user_metadata.role.
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("role, preferences")
-    .eq("user_id", user.id)
-    .maybeSingle();
-
-  let role: "author" | "reader" | null = null;
-  const preferenceRole = (profile?.preferences as { active_role?: string } | null)?.active_role;
-  if (preferenceRole === "author" || preferenceRole === "reader") {
-    role = preferenceRole;
-  } else if (profile?.role === "author" || profile?.role === "reader") {
-    role = profile.role;
-  }
-
-  if (!role) {
-    redirect("/reader/signin");
-  }
-
-  if (role === "author") {
-    await updateActiveRole("reader");
   }
 
   return (

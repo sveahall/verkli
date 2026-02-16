@@ -3,8 +3,8 @@ import type { Metric, ModuleState } from "@/lib/marketing/types";
 const renderChartPlaceholder = () => (
   <div className="flex h-[220px] items-center justify-center rounded-2xl border border-dashed border-border bg-muted/30">
     <div className="text-center text-sm text-muted-foreground">
-      <p className="font-semibold text-foreground">Analytics coming soon</p>
-      <p className="mt-1">Charts will appear once campaigns start running.</p>
+      <p className="font-semibold text-foreground">Analytics overview</p>
+      <p className="mt-1">Charts appear once campaigns start running.</p>
     </div>
   </div>
 );

@@ -13,13 +13,6 @@ type NewsletterRow = {
   created_at: string;
 };
 
-type SubscriberRow = {
-  id: string;
-  subscriber_user_id: string;
-  status: string;
-  subscribed_at: string;
-};
-
 export default async function NewslettersPage() {
   if (!getNewslettersEnabled()) {
     redirect("/author/home");

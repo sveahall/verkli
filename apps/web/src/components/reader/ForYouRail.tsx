@@ -116,8 +116,8 @@ export default async function ForYouRail({ userId }: { userId: string }) {
 
   return (
     <Rail
-      title="Rekommenderat för dig"
-      description="Baserat på dina genrer och läshistorik"
+      title="Recommended for you"
+      description="Based on your genres and reading history"
       isEmpty={false}
     >
       {bookResults.map((book) => (

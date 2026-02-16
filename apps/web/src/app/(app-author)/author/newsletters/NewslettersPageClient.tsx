@@ -40,7 +40,7 @@ export default function NewslettersPageClient({
         credentials: "include",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          subject: "Nytt nyhetsbrev",
+          subject: "New newsletter",
           bodyHtml: "",
           bodyText: "",
         }),
@@ -71,16 +71,16 @@ export default function NewslettersPageClient({
   return (
     <div className="section-gap">
       <PageHeader
-        eyebrow="Nyhetsbrev"
-        title="Nyhetsbrev"
-        description={`Skicka nyhetsbrev till dina prenumeranter. ${subscriberCount} aktiva prenumeranter.`}
+        eyebrow="Newsletters"
+        title="Newsletters"
+        description={`Send newsletters to your subscribers. ${subscriberCount} active subscribers.`}
         actions={
           <Button
             onClick={handleCreate}
             isLoading={creating}
-            loadingText="Skapar..."
+            loadingText="Creating..."
           >
-            Nytt nyhetsbrev
+            New newsletter
           </Button>
         }
       />
@@ -91,15 +91,15 @@ export default function NewslettersPageClient({
 
       {newsletters.length === 0 ? (
         <EmptyState
-          title="Inga nyhetsbrev ännu"
-          description="Skapa ditt första nyhetsbrev för att nå dina prenumeranter."
+          title="No newsletters yet"
+          description="Create your first newsletter to reach your subscribers."
           action={
             <Button
               onClick={handleCreate}
               isLoading={creating}
-              loadingText="Skapar..."
+              loadingText="Creating..."
             >
-              Skapa nyhetsbrev
+              Create newsletter
             </Button>
           }
         />

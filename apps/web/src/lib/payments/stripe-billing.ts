@@ -20,7 +20,9 @@ export type StripeSubscription = {
   id: string;
   customer: string | null;
   status: string | null;
+  current_period_start: number | null;
   current_period_end: number | null;
+  created: number | null;
   cancel_at_period_end: boolean;
   metadata: Record<string, string>;
   price_ids: string[];
@@ -104,6 +106,9 @@ export async function createStripeSubscriptionCheckoutSession(input: {
   priceId: string;
   successUrl: string;
   cancelUrl: string;
+  /** For webhook logging; resolution from price ids is authoritative. */
+  billingRole?: "reader" | "author";
+  billingPlan?: "plus" | "pro";
 }): Promise<StripeCheckoutSession> {
   const params = new URLSearchParams();
   params.set("mode", "subscription");
@@ -114,8 +119,12 @@ export async function createStripeSubscriptionCheckoutSession(input: {
   params.set("line_items[0][quantity]", "1");
   params.set("metadata[user_id]", input.userId);
   params.set("metadata[plan]", input.plan);
+  if (input.billingRole) params.set("metadata[billing_role]", input.billingRole);
+  if (input.billingPlan) params.set("metadata[billing_plan]", input.billingPlan);
   params.set("subscription_data[metadata][user_id]", input.userId);
   params.set("subscription_data[metadata][plan]", input.plan);
+  if (input.billingRole) params.set("subscription_data[metadata][billing_role]", input.billingRole);
+  if (input.billingPlan) params.set("subscription_data[metadata][billing_plan]", input.billingPlan);
 
   const payload = await stripeRequest("/checkout/sessions", {
     method: "POST",
@@ -133,13 +142,35 @@ export async function createStripeSubscriptionCheckoutSession(input: {
   };
 }
 
+/** Fetch checkout session with line_items expanded (for sync after redirect when webhook did not run). */
+export async function getCheckoutSessionWithLineItems(sessionId: string): Promise<StripeRecord> {
+  const params = new URLSearchParams();
+  params.set("expand[]", "line_items");
+  params.set("expand[]", "line_items.data.price");
+  const payload = await stripeRequest(
+    `/checkout/sessions/${encodeURIComponent(sessionId)}?${params.toString()}`,
+    { method: "GET" }
+  );
+  const record = asRecord(payload);
+  if (!record || typeof record.id !== "string") {
+    throw new Error("Invalid Stripe checkout session response");
+  }
+  return record;
+}
+
 export async function createStripeCustomerPortalSession(input: {
   customerId: string;
   returnUrl: string;
+  /** When set, portal opens directly to manage this subscription (e.g. role-scoped). */
+  subscriptionId?: string | null;
 }): Promise<StripePortalSession> {
   const params = new URLSearchParams();
   params.set("customer", input.customerId);
   params.set("return_url", input.returnUrl);
+  if (input.subscriptionId?.trim()) {
+    params.set("flow_data[type]", "subscription_update");
+    params.set("flow_data[subscription_update][subscription]", input.subscriptionId.trim());
+  }
 
   const payload = await stripeRequest("/billing_portal/sessions", {
     method: "POST",
@@ -164,8 +195,13 @@ function extractPriceIds(record: StripeRecord): string[] {
   const ids: string[] = [];
   for (const item of items.data) {
     const itemRecord = asRecord(item);
-    const priceRecord = asRecord(itemRecord?.price);
-    const id = typeof priceRecord?.id === "string" ? priceRecord.id.trim() : "";
+    const price = itemRecord?.price;
+    const id =
+      typeof price === "string"
+        ? price.trim()
+        : typeof asRecord(price)?.id === "string"
+          ? (asRecord(price)!.id as string).trim()
+          : "";
     if (id) ids.push(id);
   }
   return ids;
@@ -194,6 +230,13 @@ function extractCustomerId(record: StripeRecord): string | null {
   return null;
 }
 
+function parseStripeTimestamp(value: unknown): number | null {
+  if (typeof value !== "number" || !Number.isFinite(value) || value <= 0) {
+    return null;
+  }
+  return value;
+}
+
 export async function getStripeSubscription(subscriptionId: string): Promise<StripeSubscription> {
   const payload = await stripeRequest(`/subscriptions/${encodeURIComponent(subscriptionId)}`, {
     method: "GET",
@@ -205,12 +248,73 @@ export async function getStripeSubscription(subscriptionId: string): Promise<Str
     id: payload.id,
     customer: extractCustomerId(payload),
     status: typeof payload.status === "string" ? payload.status : null,
-    current_period_end:
-      typeof payload.current_period_end === "number" && Number.isFinite(payload.current_period_end)
-        ? payload.current_period_end
-        : null,
+    current_period_start: parseStripeTimestamp(payload.current_period_start),
+    current_period_end: parseStripeTimestamp(payload.current_period_end),
+    created: parseStripeTimestamp(payload.created),
     cancel_at_period_end: Boolean(payload.cancel_at_period_end ?? false),
     metadata: extractMetadata(payload),
     price_ids: extractPriceIds(payload),
   };
+}
+
+export async function getStripeCustomerSubscriptions(customerId: string): Promise<StripeSubscription[]> {
+  const params = new URLSearchParams();
+  params.set("customer", customerId);
+  params.set("status", "all");
+  params.set("limit", "100");
+  params.set("expand[]", "data.items.data.price");
+
+  const payload = await stripeRequest(`/subscriptions?${params.toString()}`, {
+    method: "GET",
+  });
+
+  const record = asRecord(payload);
+  const rows = Array.isArray(record?.data) ? record.data : [];
+
+  const subscriptions: StripeSubscription[] = [];
+  for (const row of rows) {
+    const subscription = asRecord(row);
+    if (!subscription || typeof subscription.id !== "string" || !subscription.id.trim()) {
+      continue;
+    }
+
+    subscriptions.push({
+      id: subscription.id.trim(),
+      customer: extractCustomerId(subscription),
+      status: typeof subscription.status === "string" ? subscription.status : null,
+      current_period_start: parseStripeTimestamp(subscription.current_period_start),
+      current_period_end: parseStripeTimestamp(subscription.current_period_end),
+      created: parseStripeTimestamp(subscription.created),
+      cancel_at_period_end: Boolean(subscription.cancel_at_period_end ?? false),
+      metadata: extractMetadata(subscription),
+      price_ids: extractPriceIds(subscription),
+    });
+  }
+
+  return subscriptions;
+}
+
+/** List Stripe customers by email (for recovering billing row when we have no customer_id). */
+export async function listStripeCustomersByEmail(email: string): Promise<{ id: string }[]> {
+  const trimmed = String(email ?? "").trim();
+  if (!trimmed) return [];
+
+  const params = new URLSearchParams();
+  params.set("email", trimmed);
+  params.set("limit", "10");
+
+  const payload = await stripeRequest(`/customers?${params.toString()}`, {
+    method: "GET",
+  });
+
+  const record = asRecord(payload);
+  const rows = Array.isArray(record?.data) ? record.data : [];
+  const result: { id: string }[] = [];
+  for (const row of rows) {
+    const customer = asRecord(row);
+    if (customer && typeof customer.id === "string" && customer.id.trim()) {
+      result.push({ id: customer.id.trim() });
+    }
+  }
+  return result;
 }

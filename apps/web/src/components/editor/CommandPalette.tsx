@@ -20,9 +20,9 @@ export default function CommandPalette({ open, onClose, commands }: Props) {
   const [selected, setSelected] = useState(0);
   const inputRef = useRef<HTMLInputElement>(null);
   // Reset query and selection when the palette opens
-  // eslint-disable-next-line react-hooks/rules-of-hooks -- legitimate reset on prop change
   useEffect(() => {
     if (open) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- reset transient palette state on explicit open transition
       setQuery("");
       setSelected(0);
     }

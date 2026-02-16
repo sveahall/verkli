@@ -27,7 +27,7 @@ const resolveCoverBackground = (coverType?: string | null, coverUrl?: string | n
         const angle = parsed.angle ?? 135;
         return `linear-gradient(${angle}deg, ${parsed.from}, ${parsed.to})`;
       }
-    } catch (error) {}
+    } catch {}
   }
 
   return fallbackGradient;

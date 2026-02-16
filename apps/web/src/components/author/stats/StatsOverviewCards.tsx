@@ -1,5 +1,7 @@
 "use client";
 
+import type { ReactNode } from "react";
+
 type StatsOverviewCardsProps = {
   views: number;
   reads: number;
@@ -13,7 +15,7 @@ function StatCard({
   label,
   value,
 }: {
-  icon: React.ReactNode;
+  icon: ReactNode;
   label: string;
   value: string;
 }) {
@@ -47,7 +49,7 @@ export default function StatsOverviewCards({
     n >= 1000 ? `${(n / 1000).toFixed(1)}k` : String(n);
 
   const formatRevenue = (n: number) =>
-    `${n.toLocaleString("sv-SE")} ${currency}`;
+    `${n.toLocaleString("en-US")} ${currency}`;
 
   return (
     <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
@@ -58,7 +60,7 @@ export default function StatsOverviewCards({
             <path strokeLinecap="round" strokeLinejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7Z" />
           </svg>
         }
-        label="Visningar"
+        label="Views"
         value={formatNumber(views)}
       />
       <StatCard
@@ -68,7 +70,7 @@ export default function StatsOverviewCards({
             <path strokeLinecap="round" strokeLinejoin="round" d="M8 18.5h11" />
           </svg>
         }
-        label="Läsningar"
+        label="Reads"
         value={formatNumber(reads)}
       />
       <StatCard
@@ -77,7 +79,7 @@ export default function StatsOverviewCards({
             <path strokeLinecap="round" strokeLinejoin="round" d="M12 2v20M17 5H9.5a3.5 3.5 0 1 0 0 7h5a3.5 3.5 0 1 1 0 7H6" />
           </svg>
         }
-        label="Intäkter"
+        label="Revenue"
         value={formatRevenue(revenue)}
       />
       <StatCard
@@ -87,7 +89,7 @@ export default function StatsOverviewCards({
             <path strokeLinecap="round" strokeLinejoin="round" d="M8 18.5h11" />
           </svg>
         }
-        label="Publicerade böcker"
+        label="Published books"
         value={String(publishedBooks)}
       />
     </div>

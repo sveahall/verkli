@@ -38,15 +38,15 @@ const FONT_OPTIONS: { value: ReaderFont; label: string; family: string }[] = [
 ];
 
 const THEME_OPTIONS: { value: ReaderTheme; label: string; bg: string; text: string }[] = [
-  { value: "light", label: "Ljus", bg: "", text: "" },
+  { value: "light", label: "Light", bg: "", text: "" },
   { value: "sepia", label: "Sepia", bg: "bg-[#f5f0e8]", text: "text-[#5c4b37]" },
-  { value: "dark", label: "M\u00f6rk", bg: "bg-slate-900", text: "text-slate-200" },
+  { value: "dark", label: "Dark", bg: "bg-slate-900", text: "text-slate-200" },
 ];
 
 const WIDTH_OPTIONS: { value: ReaderWidth; label: string; cls: string }[] = [
-  { value: "narrow", label: "Smal", cls: "max-w-lg" },
+  { value: "narrow", label: "Narrow", cls: "max-w-lg" },
   { value: "medium", label: "Medium", cls: "max-w-2xl" },
-  { value: "wide", label: "Bred", cls: "max-w-4xl" },
+  { value: "wide", label: "Wide", cls: "max-w-4xl" },
 ];
 
 function loadLocalStorage<T>(key: string, fallback: T): T {

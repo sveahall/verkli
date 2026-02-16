@@ -1,4 +1,7 @@
+"use client";
+
 import Link from "next/link";
+import Image from "next/image";
 
 const sizeStyles = {
   sm: "w-32 sm:w-36",
@@ -68,12 +71,15 @@ export default function BookCard({
         className="block focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#907AFF]/40 focus-visible:ring-offset-2 focus-visible:ring-offset-white dark:focus-visible:ring-offset-[#0b0b12]"
       >
         <div className="relative overflow-hidden rounded-2xl border border-slate-200/70 bg-white shadow-[0_6px_20px_rgba(15,23,42,0.08)] transition-transform duration-200 group-hover:-translate-y-1 dark:border-white/10 dark:bg-white/5 dark:shadow-[0_8px_24px_rgba(0,0,0,0.35)]">
-          <div className="aspect-[3/4] w-full overflow-hidden">
+          <div className="relative aspect-[3/4] w-full overflow-hidden">
             {cover ? (
-              <img
+              <Image
                 src={cover}
                 alt={title ?? "Book cover"}
-                className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-[1.03]"
+                fill
+                sizes="(min-width: 640px) 160px, 144px"
+                className="object-cover transition-transform duration-300 group-hover:scale-[1.03]"
+                unoptimized
               />
             ) : (
               <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-slate-200/70 via-white to-slate-100 dark:from-white/10 dark:via-white/5 dark:to-slate-900/60">

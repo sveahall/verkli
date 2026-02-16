@@ -1,11 +1,13 @@
 "use client";
 
 import { useEffect, useState, useRef } from "react";
+import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import GlassCard, { glassCardProps } from "@/components/GlassCard";
 import ThemeToggle from "@/components/ThemeToggle";
 import { createClient } from "@/lib/supabase/client";
+import { setActiveRoleCookieClient } from "@/lib/active-role";
 
 const VERKLI_ROLE_KEY = "verkli_role";
 
@@ -64,8 +66,9 @@ export default function RoleSelection() {
 
   const setRoleAndGo = (role: "author" | "reader") => {
     if (typeof window !== "undefined") {
+      setActiveRoleCookieClient(role);
       localStorage.setItem(VERKLI_ROLE_KEY, role);
-      router.push(role === "author" ? "/author" : "/reader");
+      router.push(role === "author" ? "/author/home" : "/reader/home");
     }
   };
 
@@ -94,8 +97,8 @@ export default function RoleSelection() {
       {/* Logo + Back */}
       <header className="absolute left-6 top-6 z-30 flex items-center gap-3 sm:left-8 sm:top-8">
         <Link href="/" className="flex min-h-[44px] min-w-[44px] items-center" aria-label="Verkli">
-          <img src="/logo-dark.svg" alt="Verkli" className="h-8 w-auto dark:hidden" loading="eager" />
-          <img src="/favicon.svg" alt="Verkli" className="hidden h-8 w-auto dark:block" loading="eager" />
+          <Image src="/logo-dark.svg" alt="Verkli" width={140} height={32} className="h-8 w-auto dark:hidden" priority />
+          <Image src="/favicon.svg" alt="Verkli" width={32} height={32} className="hidden h-8 w-auto dark:block" priority />
         </Link>
       </header>
 
@@ -112,7 +115,7 @@ export default function RoleSelection() {
           </p>
 
           <h1 className="mt-3 text-2xl font-semibold leading-[1.15] tracking-tight text-slate-900 dark:text-white sm:mt-4 sm:text-3xl md:text-[36px]">
-            Are you a author
+            Are you an author
             <br />
             or reader?
           </h1>
@@ -129,7 +132,7 @@ export default function RoleSelection() {
               onClick={() => setRoleAndGo("author")}
               className="btn-primary w-full"
             >
-              I am a author
+              I am an author
             </button>
 
             <div className="flex w-full items-center gap-4">

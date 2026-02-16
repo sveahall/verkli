@@ -3,6 +3,7 @@ import { getBillingPriceConfig, getPriceIdForPlan } from "@/lib/billing/plans";
 
 describe("billing price mapping", () => {
   const config = getBillingPriceConfig({
+    NODE_ENV: "test",
     PRICE_PLUS: "price_plus_123",
     PRICE_PRO: "price_pro_456",
   } as NodeJS.ProcessEnv);

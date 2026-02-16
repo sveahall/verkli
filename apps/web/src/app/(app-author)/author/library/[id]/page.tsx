@@ -1,10 +1,11 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
+import Image from "next/image";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
-import { getShelf, updateShelf, createSection, updateSection, deleteSection, addBookToShelf, moveBook, removeBookFromShelf, reorderBooks, reorderSections } from "@/lib/supabase/shelves-client";
+import { getShelf, updateShelf, createSection, deleteSection, addBookToShelf, moveBook, removeBookFromShelf, reorderBooks, updateSection } from "@/lib/supabase/shelves-client";
 import type { ShelfWithDetails } from "@/lib/supabase/shelves-client";
 import SectionBlock from "@/components/library/SectionBlock";
 import BookCard from "@/components/library/BookCard";
@@ -44,11 +45,7 @@ export default function ShelfDetailPage() {
   // New section form
   const [sectionName, setSectionName] = useState("");
   
-  useEffect(() => {
-    loadShelf();
-  }, [shelfId]);
-
-  const loadShelf = async () => {
+  const loadShelf = useCallback(async () => {
     try {
       setLoading(true);
       const supabase = createClient();
@@ -85,7 +82,11 @@ export default function ShelfDetailPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [router, shelfId]);
+
+  useEffect(() => {
+    loadShelf();
+  }, [loadShelf]);
 
   const handleUpdateShelf = async () => {
     if (!shelf) return;
@@ -489,7 +490,7 @@ export default function ShelfDetailPage() {
                     </button>
                     {editForm.cover && (
                       <div className="relative mt-2 h-48 w-32 overflow-hidden rounded-lg">
-                        <img src={editForm.cover} alt="Shelf cover" className="h-full w-full object-cover" />
+                        <Image src={editForm.cover} alt="Shelf cover" fill sizes="128px" className="object-cover" unoptimized />
                         <button onClick={() => setEditForm({ ...editForm, cover: "" })} className="absolute right-1 top-1 rounded-full bg-black/60 p-1 text-white/80 hover:bg-black/80">
                           <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />

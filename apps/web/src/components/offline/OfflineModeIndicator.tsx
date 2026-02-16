@@ -26,7 +26,7 @@ export default function OfflineModeIndicator() {
 
   return (
     <div className="pointer-events-none fixed right-4 top-4 z-50 rounded-full border border-amber-500/40 bg-amber-500/15 px-3 py-1.5 text-[12px] font-semibold text-amber-900 shadow-sm backdrop-blur dark:text-amber-200">
-      Offline-läge
+      Offline mode
     </div>
   );
 }

@@ -54,6 +54,7 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(
     },
     ref
   ) => {
+    void fullWidth;
     const generatedId = useId();
     const inputId = id || props.name || generatedId;
     const hasError = !!error;

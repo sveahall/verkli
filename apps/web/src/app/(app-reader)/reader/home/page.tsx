@@ -9,7 +9,6 @@ import Rail from "@/components/reader/Rail";
 import ForYouRail from "@/components/reader/ForYouRail";
 import { ErrorBannerWrapper } from "@/components/ui/ErrorBanner";
 import { ErrorState } from "@/components/ui/states";
-import AuthorApplicationCard from "./AuthorApplicationCard";
 
 export default async function ReaderHomePage() {
   let supabase: Awaited<ReturnType<typeof createClient>>;
@@ -20,11 +19,11 @@ export default async function ReaderHomePage() {
     return (
       <div className="section-gap-lg">
         <ErrorState
-          title="Något gick fel"
-          description="Kunde inte ladda sidan. Försök igen senare."
+          title="Something went wrong"
+          description="Could not load the page. Please try again later."
           action={
             <Link href="/reader/home" className="btn-primary rounded-full px-5 py-2.5 text-[14px]">
-              Försök igen
+              Try again
             </Link>
           }
         />
@@ -168,6 +167,26 @@ export default async function ReaderHomePage() {
     // Swallow — published rail will be empty
   }
 
+  const authorCta = !user
+    ? null
+    : authorApplicationStatus === "approved"
+      ? {
+          href: "/author/home",
+          label: "Go to author view",
+          className: "btn-primary",
+        }
+      : authorApplicationStatus === "pending"
+        ? {
+            href: "/author",
+            label: "Author application pending",
+            className: "btn-secondary",
+          }
+        : {
+            href: "/author",
+            label: "Become an author",
+            className: "btn-secondary",
+          };
+
   return (
     <div className="section-gap-lg">
       <ErrorBannerWrapper />
@@ -176,15 +195,18 @@ export default async function ReaderHomePage() {
         title="Welcome back"
         description="Pick up where you left off, then explore what your community is reading next."
         actions={
-          <Link href="/reader/discover" className="btn-secondary">
-            Browse discover
-          </Link>
+          <>
+            <Link href="/reader/discover" className="btn-secondary">
+              Browse Discover
+            </Link>
+            {authorCta ? (
+              <Link href={authorCta.href} className={authorCta.className}>
+                {authorCta.label}
+              </Link>
+            ) : null}
+          </>
         }
       />
-
-      {user && authorApplicationStatus !== "approved" ? (
-        <AuthorApplicationCard initialStatus={authorApplicationStatus} />
-      ) : null}
 
       <Rail
         title="Continue reading"

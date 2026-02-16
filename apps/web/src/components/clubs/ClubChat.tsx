@@ -119,7 +119,7 @@ export default function ClubChat({
 
   const formatTime = (iso: string) => {
     const d = new Date(iso);
-    return d.toLocaleTimeString("sv-SE", { hour: "2-digit", minute: "2-digit" });
+    return d.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" });
   };
 
   return (
@@ -127,7 +127,7 @@ export default function ClubChat({
       <div className="flex max-h-[400px] flex-col gap-2 overflow-y-auto p-4">
         {messages.length === 0 && (
           <p className="py-8 text-center text-[13px] text-slate-400 dark:text-white/40">
-            Inga meddelanden ännu. Starta konversationen!
+            No messages yet. Start the conversation!
           </p>
         )}
         {messages.map((msg) => {
@@ -169,7 +169,7 @@ export default function ClubChat({
           type="text"
           value={draft}
           onChange={(e) => setDraft(e.target.value)}
-          placeholder="Skriv ett meddelande..."
+          placeholder="Write a message..."
           maxLength={2000}
           className="min-h-[44px] flex-1 rounded-full border border-slate-200/80 bg-white/90 px-4 text-[14px] text-slate-700 transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#907AFF]/40 focus-visible:ring-offset-2 focus-visible:ring-offset-white dark:border-white/10 dark:bg-white/5 dark:text-white dark:focus-visible:ring-offset-[#0b0b12]"
         />
@@ -180,7 +180,7 @@ export default function ClubChat({
           isLoading={sending}
           loadingText="..."
         >
-          Skicka
+          Send
         </Button>
       </form>
       {error && (

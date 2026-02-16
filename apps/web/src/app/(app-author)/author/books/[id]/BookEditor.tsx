@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import { useState, useCallback, useRef, useEffect, useMemo } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
@@ -16,7 +17,6 @@ import { useBillingState } from "@/hooks/useBillingState";
 import { resolveErrorMessage } from "@/lib/error-messages";
 import { getAudiobookEnabled, getMarketingEnabled, getRecommendationsEnabled, getTranslationsEnabled } from "@/lib/flags";
 import GenreSelector from "@/components/books/GenreSelector";
-import TranslationPanel from "@/components/translations/TranslationPanel";
 import { isJobActiveStatus, normalizeJobStatus } from "@/lib/job-status";
 import { getLanguageLabel, LANGUAGE_OPTIONS, normalizeLanguage, type SupportedLanguage } from "@/lib/languages";
 import { isTranslationPairSupported } from "@/lib/translation-pairs";
@@ -36,9 +36,9 @@ type Chapter = {
 type PublishVisibility = "public" | "followers" | "private";
 
 const VISIBILITY_LABELS: Record<PublishVisibility, string> = {
-  public: "Publik",
-  followers: "Bara följare",
-  private: "Privat",
+  public: "Public",
+  followers: "Followers only",
+  private: "Private",
 };
 
 const PUBLISH_VISIBILITY_OPTIONS: Array<{
@@ -48,18 +48,18 @@ const PUBLISH_VISIBILITY_OPTIONS: Array<{
 }> = [
   {
     value: "public",
-    label: "Publik",
-    description: "Synlig för alla. Visas i Utforska och på din profil.",
+    label: "Public",
+    description: "Visible to everyone. Shown in Discover and on your profile.",
   },
   {
     value: "followers",
-    label: "Bara följare",
-    description: "Synlig bara för läsare som följer dig.",
+    label: "Followers only",
+    description: "Visible only to readers who follow you.",
   },
   {
     value: "private",
-    label: "Privat",
-    description: "Bara du kan se denna version.",
+    label: "Private",
+    description: "Only you can see this version.",
   },
 ];
 
@@ -99,36 +99,36 @@ function hasReadableContent(content: string | null): boolean {
 }
 
 function describeVisibility(value: PublishVisibility): string {
-  if (value === "public") return "Synlig för alla";
-  if (value === "followers") return "Synlig bara för följare";
-  return "Bara du kan se denna version";
+  if (value === "public") return "Visible to everyone";
+  if (value === "followers") return "Visible to followers only";
+  return "Only you can see this version";
 }
 
 const MARKETING_CHANNELS = ["generic", "tiktok", "instagram", "x"] as const;
 type MarketingChannel = (typeof MARKETING_CHANNELS)[number];
 
-/** Användarvänliga etiketter för kanal (inga interna nycklar i UI) */
+/** User-friendly labels for channels (no internal keys in UI) */
 const MARKETING_CHANNEL_LABELS: Record<MarketingChannel, string> = {
-  generic: "Allmän",
+  generic: "General",
   tiktok: "TikTok",
   instagram: "Instagram",
   x: "X",
 };
 
-/** Status för visning: pending → running → completed / failed. Konsekvent copy i hela editorn. */
+/** Display status: pending -> running -> completed / failed. */
 const STATUS_LABELS = {
-  pending: "Väntar",
-  running: "Pågår",
-  completed: "Klar",
-  failed: "Misslyckades",
-  idle: "Väntar",
+  pending: "Pending",
+  running: "Running",
+  completed: "Completed",
+  failed: "Failed",
+  idle: "Pending",
 } as const;
 
 function getAudiobookStatusLabel(status: string): string {
   if (status === "published" || status === "generated") return STATUS_LABELS.completed;
   if (status === "generating") return STATUS_LABELS.running;
   if (status === "failed") return STATUS_LABELS.failed;
-  return "Ingen ljudbok än";
+  return "No audiobook yet";
 }
 
 function getMarketingCampaignStatusLabel(status: string): string {
@@ -229,12 +229,12 @@ function ImportManusSection({
     }
     const ext = "." + (file.name.split(".").pop() ?? "").toLowerCase();
     if (!IMPORT_ALLOWED_EXT.includes(ext)) {
-      setError(`Filtyper som stöds: ${IMPORT_ALLOWED_EXT.join(", ")}.`);
+      setError(`Supported file types: ${IMPORT_ALLOWED_EXT.join(", ")}.`);
       setSelectedFile(null);
       return;
     }
     if (file.size > IMPORT_MAX_BYTES) {
-      setError(`Max filstorlek är ${IMPORT_MAX_MB} MB.`);
+      setError(`Max file size is ${IMPORT_MAX_MB} MB.`);
       setSelectedFile(null);
       return;
     }
@@ -270,7 +270,7 @@ function ImportManusSection({
       if (fileInputRef.current) fileInputRef.current.value = "";
       await refetchJobs();
     } catch {
-      setError("Kunde inte starta import. Försök igen.");
+      setError("Could not start import. Try again.");
     } finally {
       setUploading(false);
     }
@@ -279,7 +279,7 @@ function ImportManusSection({
   const runChapterRepair = useCallback(async () => {
     if (repairing) return;
     if (!bookVersionId) {
-      setRepairMessage("Ingen aktiv version hittades.");
+      setRepairMessage("No active version found.");
       return;
     }
 
@@ -302,13 +302,13 @@ function ImportManusSection({
       const updatedCount =
         typeof data?.updatedCount === "number" ? Number(data.updatedCount) : 0;
       if (updatedCount > 0) {
-        setRepairMessage(`Klart: ${updatedCount} kapitelrubriker reparerades.`);
+        setRepairMessage(`Done: repaired  chapter headings.`);
       } else {
-        setRepairMessage("Inget att reparera i denna version.");
+        setRepairMessage("Nothing to repair in this version.");
       }
       router.refresh();
     } catch {
-      setRepairMessage("Kunde inte reparera kapitelrubriker. Försök igen.");
+      setRepairMessage("Could not repair chapter headings. Try again.");
     } finally {
       setRepairing(false);
     }
@@ -316,13 +316,13 @@ function ImportManusSection({
 
   return (
     <div className="max-w-2xl space-y-6">
-      <h2 className="text-xl font-semibold text-slate-900 dark:text-white">Importera manus</h2>
+      <h2 className="text-xl font-semibold text-slate-900 dark:text-white">Import manuscript</h2>
       <p className="text-sm text-slate-600 dark:text-white/60">
-        Ladda upp en fil för att importera kapitel till denna bok. Stödda format: EPUB, DOCX, HTML, TXT, PDF. Max {IMPORT_MAX_MB} MB.
+        Upload a file to import chapters into this book. Supported formats: EPUB, DOCX, HTML, TXT, PDF. Max {IMPORT_MAX_MB} MB.
       </p>
 
-      <div className="rounded-xl border border-slate-200 bg-slate-50/50 p-5 dark:border-white/10 dark:bg-white/5 space-y-4">
-        <h3 className="text-sm font-semibold text-slate-900 dark:text-white">Importbeteende</h3>
+      <div className="rounded-2xl border border-black/[0.05] bg-white/60 p-5 shadow-[0_1px_3px_rgba(0,0,0,0.02)] backdrop-blur-sm dark:border-white/[0.06] dark:bg-white/[0.02] dark:shadow-none space-y-4">
+        <h3 className="text-sm font-semibold text-slate-900 dark:text-white">Import behavior</h3>
         <div className="flex items-center gap-3">
           <input
             type="radio"
@@ -330,10 +330,10 @@ function ImportManusSection({
             name="import-mode"
             checked={!overwrite}
             onChange={() => setOverwrite(false)}
-            aria-label="Importera som ny version"
+            aria-label="Import as new version"
             className="h-4 w-4 accent-[#907AFF]"
           />
-          <label htmlFor="import-new-version" className="text-sm text-slate-700 dark:text-white/80">Importera som ny version</label>
+          <label htmlFor="import-new-version" className="text-sm text-slate-700 dark:text-white/80">Import as new version</label>
         </div>
         <div className="flex items-center gap-3">
           <input
@@ -342,21 +342,21 @@ function ImportManusSection({
             name="import-mode"
             checked={overwrite}
             onChange={() => setOverwrite(true)}
-            aria-label="Skriv över utkast"
+            aria-label="Overwrite draft"
             className="h-4 w-4 accent-[#907AFF]"
           />
-          <label htmlFor="import-overwrite" className="text-sm text-slate-700 dark:text-white/80">Skriv över utkast</label>
+          <label htmlFor="import-overwrite" className="text-sm text-slate-700 dark:text-white/80">Overwrite draft</label>
         </div>
         {overwrite && (
           <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800 dark:border-amber-800 dark:bg-amber-950/30 dark:text-amber-200" role="alert">
-            Import kan skriva över befintliga kapitel i denna version. Använd &quot;Importera som ny version&quot; om du vill behålla dem.
+            Import can overwrite existing chapters in this version. Use &quot;Import as new version&quot; if you want to keep them.
           </div>
         )}
       </div>
 
       <div
         className={`rounded-2xl border-2 border-dashed p-8 text-center transition-colors ${
-          selectedFile ? "border-[#907AFF]/40 bg-[#907AFF]/5 dark:bg-[#907AFF]/10" : "border-slate-200 dark:border-white/10 bg-slate-50/50 dark:bg-white/5"
+          selectedFile ? "border-[#907AFF]/40 bg-[#907AFF]/5 dark:bg-[#907AFF]/10" : "border-black/[0.06] dark:border-white/[0.06] bg-white/50 dark:bg-white/[0.02]"
         }`}
         onDragOver={(e) => e.preventDefault()}
         onDrop={onDrop}
@@ -366,24 +366,24 @@ function ImportManusSection({
           type="file"
           accept={IMPORT_ALLOWED_EXT.join(",")}
           className="hidden"
-          aria-label="Välj fil att importera"
+          aria-label="Choose file to import"
           onChange={(e) => handleFile(e.target.files?.[0] ?? null)}
           disabled={uploading}
         />
         <p className="text-sm text-slate-600 dark:text-white/60 mb-2">
-          Dra och släpp fil här, eller klicka för att välja. {IMPORT_ALLOWED_EXT.join(", ")} — max {IMPORT_MAX_MB} MB.
+          Drag and drop a file here, or click to choose. {IMPORT_ALLOWED_EXT.join(", ")} - max {IMPORT_MAX_MB} MB.
         </p>
         <button
           type="button"
           onClick={() => fileInputRef.current?.click()}
           disabled={uploading}
-          className="rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 dark:border-white/20 dark:bg-white/10 dark:text-white dark:hover:bg-white/15"
+          className="rounded-xl border border-black/[0.08] bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 dark:border-white/[0.08] dark:bg-white/[0.04] dark:text-white dark:hover:bg-white/[0.06]"
         >
-          Välj fil
+          Choose file
         </button>
         {selectedFile && (
           <p className="mt-3 text-sm font-medium text-slate-900 dark:text-white">
-            Vald fil: {selectedFile.name}
+            Selected file: {selectedFile.name}
           </p>
         )}
       </div>
@@ -394,26 +394,26 @@ function ImportManusSection({
         type="button"
         onClick={startImport}
         disabled={!selectedFile || uploading}
-        aria-label="Starta import"
-        className="rounded-lg bg-slate-900 px-4 py-2 text-sm font-semibold text-white transition hover:bg-slate-800 disabled:opacity-50 disabled:cursor-not-allowed dark:bg-white dark:text-slate-900"
+        aria-label="Start import"
+        className="rounded-xl bg-slate-900 px-4 py-2.5 text-[13px] font-semibold text-white shadow-sm transition-all hover:bg-slate-800 hover:shadow-md disabled:opacity-50 disabled:cursor-not-allowed dark:bg-white dark:text-slate-900"
       >
-        {uploading ? "Startar import…" : "Starta import"}
+        {uploading ? "Starting import..." : "Start import"}
       </button>
 
-      <div className="rounded-xl border border-slate-200 bg-slate-50/50 px-4 py-3 dark:border-white/10 dark:bg-white/5">
-        <p className="text-sm font-medium text-slate-900 dark:text-white">Reparera befintlig import</p>
+      <div className="rounded-xl border border-black/[0.06] bg-slate-50/50 px-4 py-3 dark:border-white/[0.06] dark:bg-white/5">
+        <p className="text-sm font-medium text-slate-900 dark:text-white">Repair existing import</p>
         <p className="mt-1 text-xs text-slate-600 dark:text-white/60">
-          Kör detta om kapitelrubriker redan blivit fel (t.ex. dubblerade eller i konstig ordning).
+          Run this if chapter headings are already incorrect (for example duplicated or out of order).
         </p>
         <div className="mt-3 flex items-center gap-3">
           <button
             type="button"
             onClick={runChapterRepair}
             disabled={!bookVersionId || repairing || uploading}
-            aria-label="Reparera kapitelrubriker"
-            className="rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-800 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50 dark:border-white/20 dark:bg-white/10 dark:text-white dark:hover:bg-white/15"
+            aria-label="Repair chapter headings"
+            className="rounded-xl border border-black/[0.08] bg-white px-4 py-2 text-sm font-semibold text-slate-800 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50 dark:border-white/[0.08] dark:bg-white/[0.04] dark:text-white dark:hover:bg-white/[0.06]"
           >
-            {repairing ? "Reparerar…" : "Reparera kapitelrubriker"}
+            {repairing ? "Repairing..." : "Repair chapter headings"}
           </button>
           {repairMessage && <p className="text-sm text-slate-700 dark:text-white/80">{repairMessage}</p>}
         </div>
@@ -421,14 +421,14 @@ function ImportManusSection({
 
       {lastResult && !importJobs.some((j) => isJobActiveStatus(j.status)) && (
         <div className="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 dark:border-emerald-800 dark:bg-emerald-950/30">
-          <p className="text-sm font-medium text-emerald-800 dark:text-emerald-200">Importen är påbörjad. Följ status i bannern ovan.</p>
-          {lastResult.chaptersCreated != null && <p className="text-sm text-emerald-700 dark:text-emerald-300">Antal kapitel: {lastResult.chaptersCreated}</p>}
+          <p className="text-sm font-medium text-emerald-800 dark:text-emerald-200">Import has started. Follow status in the banner above.</p>
+          {lastResult.chaptersCreated != null && <p className="text-sm text-emerald-700 dark:text-emerald-300">Chapter count: {lastResult.chaptersCreated}</p>}
         </div>
       )}
 
       {visibleImportJobs.length > 0 && (
         <div className="space-y-3">
-          <h3 className="text-sm font-semibold text-slate-900 dark:text-white">Importstatus</h3>
+          <h3 className="text-sm font-semibold text-slate-900 dark:text-white">Import status</h3>
           {visibleImportJobs.map((job) => {
             const meta = (job.meta ?? {}) as Record<string, unknown>;
             const chaptersCreated =
@@ -449,19 +449,19 @@ function ImportManusSection({
                     ? "border-red-200 bg-red-50 dark:border-red-800 dark:bg-red-950/30"
                     : job.status === "completed"
                       ? "border-emerald-200 bg-emerald-50 dark:border-emerald-800 dark:bg-emerald-950/30"
-                      : "border-slate-200 bg-slate-50/50 dark:border-white/10 dark:bg-white/5"
+                      : "border-black/[0.06] bg-slate-50/50 dark:border-white/[0.06] dark:bg-white/5"
                 }`}
               >
                 <div className="flex items-center justify-between">
                   <span className="font-medium text-slate-900 dark:text-white">
-                    {job.status === "pending" && "Väntar…"}
-                    {job.status === "running" && `Importerar… ${job.progress > 0 ? `${job.progress}%` : ""}`}
-                    {job.status === "completed" && "Import klar"}
-                    {job.status === "failed" && "Import misslyckades"}
+                    {job.status === "pending" && "Pending..."}
+                    {job.status === "running" && `Importing... `}
+                    {job.status === "completed" && "Import complete"}
+                    {job.status === "failed" && "Import failed"}
                   </span>
                   {(job.status === "pending" || job.status === "running") && (
                     <span className="text-xs text-slate-500 dark:text-white/50">
-                      {job.progress > 0 ? `${job.progress}%` : "Väntar"}
+                      {job.progress > 0 ? `${job.progress}%` : "Pending"}
                     </span>
                   )}
                 </div>
@@ -476,22 +476,22 @@ function ImportManusSection({
                 {job.error && <p className="mt-1 text-red-700 dark:text-red-300">{job.error}</p>}
                 {job.status === "completed" && chaptersCreated != null && (
                   <p className="mt-1 text-emerald-700 dark:text-emerald-300">
-                    {chaptersCreated} kapitel importerade
+                    {chaptersCreated} chapters imported
                   </p>
                 )}
                 {job.status === "completed" && frontMatterCount != null && frontMatterCount > 0 && (
                   <p className="mt-1 text-emerald-700 dark:text-emerald-300">
-                    {frontMatterCount} inledande avsnitt (förord/innehåll) separerades automatiskt
+                    {frontMatterCount} intro sections (foreword/contents) were split automatically
                   </p>
                 )}
                 {job.status === "completed" && titleSet && resolvedTitle && (
                   <p className="mt-1 text-emerald-700 dark:text-emerald-300">
-                    Titel satt automatiskt: {resolvedTitle}
+                    Title set automatically: {resolvedTitle}
                   </p>
                 )}
                 {warnings.length > 0 && (
                   <p className="mt-1 text-xs text-slate-500 dark:text-white/50">
-                    Noteringar: {warnings.join(", ")}
+                    Notes: {warnings.join(", ")}
                   </p>
                 )}
               </div>
@@ -535,9 +535,9 @@ export default function BookEditor({
   const [isCreating, setIsCreating] = useState(false);
   const [editingTitleId, setEditingTitleId] = useState<string | null>(null);
   const [tempTitle, setTempTitle] = useState("");
-  const [bookTitle, setBookTitle] = useState(book.title ?? "Namnlös");
+  const [bookTitle, setBookTitle] = useState(book.title ?? "Untitled");
   const [isRenamingBook, setIsRenamingBook] = useState(false);
-  const [bookTitleDraft, setBookTitleDraft] = useState(book.title ?? "Namnlös");
+  const [bookTitleDraft, setBookTitleDraft] = useState(book.title ?? "Untitled");
   const [bookTitleError, setBookTitleError] = useState<string | null>(null);
   const [bookTitleSaving, setBookTitleSaving] = useState(false);
   const [lastSaved, setLastSaved] = useState<Date | null>(null);
@@ -600,11 +600,6 @@ export default function BookEditor({
     completedChapters: number;
     currentChapterTitle: string | null;
   } | null>(null);
-  const [ttsStatus, setTtsStatus] = useState<"idle" | "generating" | "uploading" | "done" | "error">("idle");
-  const [ttsMessage, setTtsMessage] = useState<string | null>(null);
-  const [ttsManualSteps, setTtsManualSteps] = useState<string | null>(null);
-  const [ttsAudioUrl, setTtsAudioUrl] = useState<string | null>(null);
-  const [ttsVoice, setTtsVoice] = useState<string>("default");
   const pricingSavedTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const savingRef = useRef(false);
   const coverInputRef = useRef<HTMLInputElement>(null);
@@ -624,16 +619,16 @@ export default function BookEditor({
   const { jobs: allJobs, loading: jobLoading, error: jobError, refetch: refetchBookJob, settled: jobsSettled } = useBookJobs(book.id);
   const billing = useBillingState();
 
-  // Jobbar som ska visas i banner: aldrig audiobook när funktionen är avstängd
+  // Jobs shown in banner: never show audiobook when feature is disabled.
   const jobsForBanner = useMemo(
     () => (getAudiobookEnabled() ? allJobs : allJobs.filter((j) => j.kind !== "audiobook")),
     [allJobs]
   );
 
-  // Import-jobb filtrerade för inline progress i ImportManusSection
+  // Import jobs filtered for inline progress in ImportManusSection.
   const importJobs = useMemo(() => allJobs.filter((j) => j.kind === "import"), [allJobs]);
 
-  // Audiobook-state endast när funktionen är på (inga tomma/döda states, progress endast för aktiva jobtyper)
+  // Audiobook state only when feature is enabled (no empty/dead states).
   const latestAudiobookJob = useMemo(
     () => (getAudiobookEnabled() ? allJobs.find((j) => j.kind === "audiobook") ?? null : null),
     [allJobs]
@@ -772,13 +767,13 @@ export default function BookEditor({
 
   const missingPublishRequirements = useMemo(() => {
     const missing: string[] = [];
-    if (!bookTitle.trim()) missing.push("Lägg till en titel");
+    if (!bookTitle.trim()) missing.push("Add a title");
     if (!displayCoverUrl) missing.push("Ladda upp en omslagsbild");
-    if (!activeVersion?.id) missing.push("Skapa en bokversion");
+    if (!activeVersion?.id) missing.push("Create a book version");
     if (chapters.length === 0) {
-      missing.push("Lägg till minst ett kapitel");
+      missing.push("Add at least one chapter");
     } else if (!chapters.some((chapter) => hasReadableContent(chapter.content))) {
-      missing.push("Skriv innehåll i minst ett kapitel");
+      missing.push("Write content in at least one chapter");
     }
     return missing;
   }, [bookTitle, displayCoverUrl, activeVersion?.id, chapters]);
@@ -787,13 +782,13 @@ export default function BookEditor({
   const visibilityChanged = isPublished && activeVisibility != null && publishVisibility !== activeVisibility;
   const confirmCopy =
     confirmPublishAction === "publish"
-      ? `Publicera denna version som ${selectedVisibilityLabel}?`
+      ? `Publish this version as ${selectedVisibilityLabel}?`
       : confirmPublishAction === "update"
         ? `Uppdatera synlighet till ${selectedVisibilityLabel}?`
         : confirmPublishAction === "unpublish"
-          ? "Avpublicera denna version? Den kommer inte längre vara synlig för läsare."
+          ? "Unpublish this version? It will no longer be visible to readers."
           : null;
-  const publishButtonClass = `flex items-center gap-2 rounded-full border border-[#907AFF]/30 bg-[#907AFF] px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-[#7c6ae6] focus:outline-none focus:ring-2 focus:ring-[#907AFF]/50 ${
+  const publishButtonClass = `flex items-center gap-2 rounded-full bg-gradient-to-b from-[#907AFF] to-[#7c6ae6] px-5 py-2.5 text-[13px] font-semibold text-white shadow-[0_1px_2px_rgba(144,122,255,0.3),inset_0_1px_0_rgba(255,255,255,0.15)] transition-all hover:shadow-[0_4px_12px_rgba(144,122,255,0.35),inset_0_1px_0_rgba(255,255,255,0.15)] hover:brightness-110 focus:outline-none focus:ring-2 focus:ring-[#907AFF]/50 ${
     publishPanelHighlight ? "ring-2 ring-[#907AFF]/50" : ""
   }`;
 
@@ -835,13 +830,13 @@ export default function BookEditor({
     if (!isPollingTranslation || !lastRequestedTargetLanguage) return;
     if (requestedTargetVersion?.status === "done" || requestedTargetVersion?.published_at) {
       stopTranslationPoll();
-      setTranslateMessage(`Översättning klar (${getLanguageLabel(lastRequestedTargetLanguage)}).`);
+      setTranslateMessage(`Translation complete (${getLanguageLabel(lastRequestedTargetLanguage)}).`);
       setLastRequestedTargetLanguage(null);
       return;
     }
     if (requestedTargetVersion?.status === "failed") {
       stopTranslationPoll();
-      setTranslateMessage("Översättningen misslyckades. Försök igen.");
+      setTranslateMessage("Translation failed. Try again.");
       setLastRequestedTargetLanguage(null);
     }
   }, [isPollingTranslation, lastRequestedTargetLanguage, requestedTargetVersion, stopTranslationPoll]);
@@ -893,10 +888,10 @@ export default function BookEditor({
       : (book.audiobook_status ?? "not_started");
   const isProFeatureLocked = billing.loading || !billing.isProActive;
   const proFeatureLockMessage = billing.loading
-    ? "Kontrollerar abonnemang…"
+    ? "Checking subscription..."
     : billing.pastDue
-      ? "Din prenumeration är past_due. Uppdatera betalningen för att låsa upp funktionen."
-      : "Verkli Pro krävs för denna funktion.";
+      ? "Your subscription is past_due. Update payment to unlock this feature."
+      : "Verkli Pro is required for this feature.";
 
   const startTranslationPoll = useCallback(() => {
     stopTranslationPoll();
@@ -908,7 +903,7 @@ export default function BookEditor({
       const elapsed = Date.now() - translationPollStartedAtRef.current;
       if (elapsed >= TRANSLATION_POLL_MAX_MS && status === "none") {
         stopTranslationPoll();
-        setTranslateMessage("Översättning tar för lång tid. Försök igen.");
+        setTranslateMessage("Translation is taking too long. Try again.");
         setLastRequestedTargetLanguage(null);
         return;
       }
@@ -923,20 +918,20 @@ export default function BookEditor({
 
     const queueHealthy = await checkTranslationQueueHealth();
     if (!queueHealthy) {
-      setTranslateMessage("Översättningstjänsten är tillfälligt otillgänglig. Försök igen snart.");
+      setTranslateMessage("Translation service is temporarily unavailable. Try again soon.");
       setIsStartingTranslation(false);
       return;
     }
 
     if (!activeVersion?.id) {
-      setTranslateMessage("Ingen aktiv version hittades.");
+      setTranslateMessage("No active version found.");
       setIsStartingTranslation(false);
       return;
     }
 
     const existingVersion = versionsByLang.get(normalizeLangKey(translateTargetLanguage));
     if (existingVersion?.status === "translating") {
-      setTranslateMessage("Översättning pågår redan. Väntar på att den blir klar…");
+      setTranslateMessage("Translation is already running. Waiting for completion...");
       setLastRequestedTargetLanguage(translateTargetLanguage);
       startTranslationPoll();
       setIsStartingTranslation(false);
@@ -947,7 +942,7 @@ export default function BookEditor({
     let targetVersionId: string | null = null;
     if (existingVersion) {
       const shouldOverwrite = window.confirm(
-        `En version på ${getLanguageLabel(translateTargetLanguage)} finns redan. Vill du skriva över den?`
+        `A ${getLanguageLabel(translateTargetLanguage)} version already exists. Do you want to overwrite it?`
       );
       if (!shouldOverwrite) {
         router.push(`/author/books/${book.id}?lang=${normalizeLangKey(translateTargetLanguage)}`);
@@ -972,18 +967,18 @@ export default function BookEditor({
       const data = await res.json().catch(() => ({}));
       if (!res.ok || data?.ok === false) {
         if (data?.existingVersionId) {
-          setTranslateMessage("Version finns redan. Öppnar befintlig version…");
+          setTranslateMessage("Version already exists. Opening existing version...");
           router.push(`/author/books/${book.id}?lang=${normalizeLangKey(translateTargetLanguage)}`);
           return;
         }
         setTranslateMessage(resolveErrorMessage(data?.error));
         return;
       }
-      setTranslateMessage("Översättning startad. Väntar på att den blir klar…");
+      setTranslateMessage("Translation started. Waiting for completion...");
       setLastRequestedTargetLanguage(translateTargetLanguage);
       startTranslationPoll();
-    } catch (err) {
-      setTranslateMessage("Kunde inte starta översättning. Försök igen.");
+    } catch {
+      setTranslateMessage("Could not start translation. Try again.");
     } finally {
       setIsStartingTranslation(false);
     }
@@ -1001,7 +996,7 @@ export default function BookEditor({
   const handlePublishAction = async (action: "publish" | "update" | "unpublish") => {
     if (isPublishing || !activeVersion?.id) return;
     if (action === "publish" && missingPublishRequirements.length > 0) {
-      setPublishError("Åtgärda kraven innan du publicerar.");
+      setPublishError("Fix the requirements before publishing.");
       return;
     }
     setIsPublishing(true);
@@ -1025,17 +1020,17 @@ export default function BookEditor({
       router.refresh();
       succeeded = true;
       if (action === "publish") {
-        setPublishToast("Publicerad");
+        setPublishToast("Published");
       } else if (action === "unpublish") {
-        setPublishToast("Avpublicerad");
+        setPublishToast("Unpublished");
       } else {
-        setPublishToast("Publiceringsinställningar uppdaterade");
+        setPublishToast("Publishing settings updated");
       }
     } catch (err) {
       if (process.env.NODE_ENV === "development") {
         console.error("[publish failed]", err);
       }
-      setPublishError("Kunde inte uppdatera publiceringsinställningar. Försök igen.");
+      setPublishError("Could not update publishing settings. Try again.");
     } finally {
       setIsPublishing(false);
       setConfirmPublishAction(null);
@@ -1058,7 +1053,7 @@ export default function BookEditor({
         return;
       }
       setPricingSaved(true);
-      toast.success("Prissättning sparad.");
+      toast.success("Pricing saved.");
       if (pricingSavedTimerRef.current) clearTimeout(pricingSavedTimerRef.current);
       pricingSavedTimerRef.current = setTimeout(() => setPricingSaved(false), 3000);
       router.refresh();
@@ -1080,7 +1075,7 @@ export default function BookEditor({
       const file = e.target.files?.[0];
       if (!file) return;
       if (!file.type.startsWith("image/")) {
-        setCoverError("Välj en bildfil.");
+        setCoverError("Choose an image file.");
         return;
       }
       setCoverError(null);
@@ -1090,18 +1085,18 @@ export default function BookEditor({
         data: { user },
       } = await supabase.auth.getUser();
       if (!user) {
-        setCoverError("Du måste vara inloggad för att ladda upp omslag.");
+        setCoverError("You must be signed in to upload a cover.");
         setCoverUploading(false);
         return;
       }
       const { url, error: uploadError } = await uploadBookCover(file, user.id, book.id);
       if (uploadError) {
-        setCoverError("Omslag kunde inte laddas upp. Försök igen.");
+        setCoverError("Cover upload failed. Try again.");
         setCoverUploading(false);
         return;
       }
       if (!url) {
-        setCoverError("Omslag kunde inte laddas upp. Försök igen.");
+        setCoverError("Cover upload failed. Try again.");
         setCoverUploading(false);
         return;
       }
@@ -1110,7 +1105,7 @@ export default function BookEditor({
         .update({ cover_image: url })
         .eq("id", book.id);
       if (updateError) {
-        setCoverError("Omslag kunde inte sparas. Försök igen.");
+        setCoverError("Could not save cover. Try again.");
         setCoverUploading(false);
         return;
       }
@@ -1146,11 +1141,11 @@ export default function BookEditor({
     if (bookTitleSaving) return;
     const trimmed = bookTitleDraft.trim();
     if (!trimmed) {
-      setBookTitleError("Titel kan inte vara tom.");
+      setBookTitleError("Title cannot be empty.");
       return;
     }
     if (trimmed.length > 120) {
-      setBookTitleError("Titeln är för lång (max 120 tecken).");
+      setBookTitleError("Title is too long (max 120 characters).");
       return;
     }
     if (trimmed === bookTitle) {
@@ -1161,7 +1156,7 @@ export default function BookEditor({
     const supabase = createClient();
     const { error } = await supabase.from("books").update({ title: trimmed }).eq("id", book.id);
     if (error) {
-      setBookTitleError("Kunde inte spara titel. Försök igen.");
+      setBookTitleError("Could not save title. Try again.");
       setBookTitleSaving(false);
       return;
     }
@@ -1176,9 +1171,9 @@ export default function BookEditor({
   }, [book.original_url]);
 
   useEffect(() => {
-    setBookTitle(book.title ?? "Namnlös");
+    setBookTitle(book.title ?? "Untitled");
     if (!isRenamingBook) {
-      setBookTitleDraft(book.title ?? "Namnlös");
+      setBookTitleDraft(book.title ?? "Untitled");
     }
   }, [book.title, isRenamingBook]);
 
@@ -1206,7 +1201,7 @@ export default function BookEditor({
 
     setIsGeneratingAudiobook(false);
     if (normalizedStatus === "failed") {
-      setAudiobookError(latestAudiobookJob.error ?? "Generering kunde inte slutföras. Försök igen.");
+      setAudiobookError(latestAudiobookJob.error ?? "Generation could not be completed. Try again.");
       return;
     }
     if (normalizedStatus === "completed") {
@@ -1235,7 +1230,7 @@ export default function BookEditor({
       });
       await refetchBookJob();
     } catch {
-      setAudiobookError("Kunde inte starta generering. Försök igen.");
+      setAudiobookError("Could not start generation. Try again.");
       setIsGeneratingAudiobook(false);
     }
   }, [audiobookFeatureEnabled, book.id, isGeneratingAudiobook, refetchBookJob]);
@@ -1249,13 +1244,13 @@ export default function BookEditor({
 
       if (job.kind === "translation") {
         if (!activeVersion?.id) {
-          toast.error("Ingen aktiv källversion hittades.");
+          toast.error("No active source version found.");
           return;
         }
 
         const queueHealthy = await checkTranslationQueueHealth();
         if (!queueHealthy) {
-          toast.error("Översättningstjänsten är tillfälligt otillgänglig. Försök igen snart.");
+          toast.error("Translation service is temporarily unavailable. Try again soon.");
           return;
         }
 
@@ -1287,12 +1282,12 @@ export default function BookEditor({
           }
           setTranslateTargetLanguage(targetLanguage);
           setLastRequestedTargetLanguage(targetLanguage);
-          setTranslateMessage(`Översättning återstartad (${getLanguageLabel(targetLanguage)}).`);
+          setTranslateMessage(`Translation restarted (${getLanguageLabel(targetLanguage)}).`);
           startTranslationPoll();
           await refetchBookJob();
-          toast.success("Översättning köad igen.");
+          toast.success("Translation queued again.");
         } catch {
-          toast.error("Kunde inte köra översättningen igen.");
+          toast.error("Could not retry translation.");
         }
         return;
       }
@@ -1303,12 +1298,12 @@ export default function BookEditor({
           const data = await res.json().catch(() => ({}));
           if (res.ok) {
             await refetchBookJob();
-            toast.success(data?.message ?? "Importen är åter i kö.");
+            toast.success(data?.message ?? "Import re-queued.");
           } else {
             toast.error(resolveErrorMessage(data?.error));
           }
         } catch {
-          toast.error("Kunde inte köra importen igen.");
+          toast.error("Could not retry import.");
         }
       }
     },
@@ -1323,35 +1318,6 @@ export default function BookEditor({
       translateTargetLanguage,
     ]
   );
-
-  const handleStartTts = useCallback(async () => {
-    setTtsMessage(null);
-    setTtsManualSteps(null);
-    setTtsStatus("generating");
-    try {
-      const res = await fetch(`/api/books/${book.id}/tts`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ voice: ttsVoice }),
-      });
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok || data?.ok === false) {
-        setTtsStatus("error");
-        setTtsMessage(resolveErrorMessage(data?.error));
-        setTtsManualSteps(data?.manualSteps ?? null);
-        return;
-      }
-      setTtsAudioUrl(data.audioUrl ?? null);
-      setTtsStatus("done");
-      setTtsMessage("Ljud genererat. Du kan spela upp eller ladda ner.");
-      setTtsManualSteps(null);
-      router.refresh();
-    } catch (err) {
-      setTtsStatus("error");
-      setTtsMessage("Ljud kunde inte genereras. Försök igen.");
-      setTtsManualSteps(null);
-    }
-  }, [book.id, ttsVoice, router]);
 
   const currentCampaign = marketingCampaigns.find(
     (c) => c.language === marketingLanguage && c.channel === marketingChannel
@@ -1373,11 +1339,11 @@ export default function BookEditor({
       }
       router.refresh();
     } catch {
-      toast.error("Kunde inte generera. Försök igen.");
+      toast.error("Could not generate. Try again.");
     } finally {
       setIsGeneratingMarketing(false);
     }
-  }, [book.id, marketingLanguage, marketingChannel, isGeneratingMarketing, router]);
+  }, [book.id, marketingLanguage, marketingChannel, isGeneratingMarketing, router, toast]);
 
   const handleCopyMarketingToClipboard = useCallback(async () => {
     if (!currentCampaign) return;
@@ -1398,12 +1364,6 @@ export default function BookEditor({
       setMarketingCopyFeedback(false);
     }
   }, [currentCampaign]);
-
-  useEffect(() => {
-    if (latestAudiobookAsset?.audio_url && ttsStatus === "idle") {
-      setTtsStatus("done");
-    }
-  }, [latestAudiobookAsset?.audio_url, ttsStatus]);
 
   useEffect(() => {
     const stored = localStorage.getItem(STORAGE_PRESET);
@@ -1446,7 +1406,7 @@ export default function BookEditor({
       if (process.env.NODE_ENV === "development") {
         console.error("[autosave failed]", error);
       }
-      toast.error("Kunde inte spara. Ändringar kanske inte sparades.");
+      toast.error("Could not save. Changes may not have been persisted.");
       return;
     }
     setChapters((prev) => prev.map((ch) => (ch.id === chapterId ? { ...ch, content: contentString } : ch)));
@@ -1471,7 +1431,7 @@ export default function BookEditor({
         .single();
       if (versionError || !createdVersion?.id) {
         setIsCreating(false);
-        toast.error("Kunde inte skapa version. Försök igen.");
+        toast.error("Could not create version. Try again.");
         return;
       }
       targetVersionId = createdVersion.id;
@@ -1489,7 +1449,7 @@ export default function BookEditor({
       .insert({
         book_id: book.id,
         book_version_id: targetVersionId,
-        title: `Kapitel ${maxOrder + 1}`,
+        title: `Chapter ${maxOrder + 1}`,
         content: "",
         order: maxOrder + 1,
       })
@@ -1500,7 +1460,7 @@ export default function BookEditor({
       if (process.env.NODE_ENV === "development") {
         console.error("[createChapter failed]", error);
       }
-      toast.error("Kunde inte skapa kapitel. Försök igen.");
+      toast.error("Could not create chapter. Try again.");
       return;
     }
     if (data) {
@@ -1563,11 +1523,11 @@ export default function BookEditor({
   }, [focusMode]);
 
   const commands = [
-    { id: "focus", label: "Växla fokusläge", shortcut: "⌘⇧F", run: () => setFocusMode((f) => !f) },
-    { id: "new-chapter", label: "Nytt kapitel", run: handleCreateChapter },
-    { id: "preset-novel", label: "Förinställning: Roman", run: () => setPreset("novel") },
-    { id: "preset-essay", label: "Förinställning: Essä", run: () => setPreset("essay") },
-    { id: "preset-screenplay", label: "Förinställning: Manus", run: () => setPreset("screenplay") },
+    { id: "focus", label: "Toggle focus mode", shortcut: "⌘⇧F", run: () => setFocusMode((f) => !f) },
+    { id: "new-chapter", label: "New chapter", run: handleCreateChapter },
+    { id: "preset-novel", label: "Preset: Novel", run: () => setPreset("novel") },
+    { id: "preset-essay", label: "Preset: Essay", run: () => setPreset("essay") },
+    { id: "preset-screenplay", label: "Preset: Screenplay", run: () => setPreset("screenplay") },
   ];
 
   if (focusMode) {
@@ -1575,20 +1535,20 @@ export default function BookEditor({
       <>
         {/* z-[10001] so focus overlay is above navbar (z-9999) */}
         <div className="fixed inset-0 z-[10001] flex flex-col bg-background">
-          <div className="flex flex-shrink-0 items-center justify-between border-b border-slate-200/80 bg-white px-4 py-3 dark:border-white/10 dark:bg-slate-900">
+          <div className="flex flex-shrink-0 items-center justify-between border-b border-black/[0.06]/80 bg-white px-4 py-3 dark:border-white/[0.06] dark:bg-slate-900">
             <span className="text-sm text-slate-500 dark:text-white/50">
-              Fokusläge — Esc eller ⌘⇧F för att avsluta
+              Focus mode - Esc or ⌘⇧F to exit
             </span>
             <div className="flex items-center gap-4">
-              <span className="text-xs text-slate-500">{wordCount.toLocaleString()} ord</span>
+              <span className="text-xs text-slate-500">{wordCount.toLocaleString()} words</span>
               {sessionWords > 0 && (
-                <span className="text-xs text-[#5c4bb8] dark:text-[#b8a9ff]">+{sessionWords} denna session</span>
+                <span className="text-xs text-[#5c4bb8] dark:text-[#b8a9ff]">+{sessionWords} this session</span>
               )}
               <button
                 onClick={() => setFocusMode(false)}
-                className="rounded-lg bg-slate-900 px-4 py-2 text-sm font-medium text-white transition hover:bg-slate-800 dark:bg-white dark:text-slate-900 dark:hover:bg-white/90"
+                className="rounded-xl bg-slate-900 px-4 py-2.5 text-[13px] font-medium text-white shadow-sm transition-all hover:bg-slate-800 hover:shadow-md dark:bg-white dark:text-slate-900 dark:hover:bg-white/90"
               >
-                Avsluta fokus
+                Exit focus
               </button>
             </div>
           </div>
@@ -1599,7 +1559,7 @@ export default function BookEditor({
                   key={selectedChapter.id}
                   content={selectedChapter.content}
                   onUpdate={(json) => handleAutoSave(selectedChapter.id, json)}
-                  placeholder="Börja skriva..."
+                  placeholder="Start writing..."
                   bookId={book.id}
                   chapterId={selectedChapter.id}
                   preset={preset}
@@ -1608,7 +1568,7 @@ export default function BookEditor({
               </div>
             ) : (
               <div className="flex h-full items-center justify-center">
-                <p className="text-slate-500">Avsluta fokusläget för att välja ett kapitel</p>
+                <p className="text-slate-500">Exit focus mode to choose a chapter</p>
               </div>
             )}
           </div>
@@ -1624,20 +1584,20 @@ export default function BookEditor({
         <div
           role="status"
           aria-live="polite"
-          className="fixed right-6 top-24 z-[1000] rounded-lg bg-slate-900 px-4 py-2 text-[13px] font-medium text-white dark:bg-white dark:text-slate-900"
+          className="fixed right-6 top-24 z-[1000] rounded-full bg-slate-900/90 px-4 py-2 text-[13px] font-medium text-white shadow-lg backdrop-blur-sm dark:bg-white/90 dark:text-slate-900"
         >
           {publishToast}
         </div>
       )}
-      <section className="mx-auto max-w-[1400px] px-6 py-12">
+      <section className="mx-auto max-w-[1400px] px-6 pb-20 pt-8">
         {/* Job banner — visible on all panels */}
         {jobLoading ? (
           <div
-            className="mb-6 flex h-14 items-center rounded-xl border border-slate-200 bg-slate-50/50 px-4 dark:border-white/10 dark:bg-white/5"
+            className="mb-6 flex h-14 items-center rounded-xl border border-black/[0.06] bg-slate-50/50 px-4 dark:border-white/[0.06] dark:bg-white/5"
             role="status"
-            aria-label="Hämtar status"
+            aria-label="Loading status"
           >
-            <span className="text-sm text-slate-500 dark:text-white/50">Hämtar status…</span>
+            <span className="text-sm text-slate-500 dark:text-white/50">Loading status...</span>
           </div>
         ) : jobError ? (
           <div
@@ -1658,61 +1618,61 @@ export default function BookEditor({
             role="alert"
           >
             <p className="text-sm text-red-800 dark:text-red-200">
-              Din prenumeration är <strong>past_due</strong>. Betalfunktioner är låsta tills betalningen uppdateras.{" "}
-              <Link href="/account/billing" className="underline">
-                Hantera abonnemang
+              Your subscription is <strong>past_due</strong>. Billing features are locked until payment is updated.{" "}
+              <Link href="/author/billing" className="underline">
+                Manage subscription
               </Link>
               .
             </p>
           </div>
         )}
 
-        <nav className="mb-6 flex flex-wrap gap-2 border-b border-slate-200 dark:border-white/10 pb-3" aria-label="Bokeditor: välj vy">
+        <nav className="mb-8 flex flex-wrap gap-1 rounded-full border border-black/[0.06] bg-slate-100/80 p-1 backdrop-blur-sm dark:border-white/[0.06] dark:bg-white/[0.04] w-fit" aria-label="Book editor: choose view">
           <Link
             href={`/author/books/${book.id}${activeVersion ? `?lang=${normalizeLangKey(activeVersion.language_code)}` : ""}`}
-            className={`rounded-lg px-4 py-2 text-sm font-medium transition ${
+            className={`rounded-full px-5 py-2 text-[13px] font-medium transition-all ${
               editorPanel === "editor"
-                ? "bg-slate-900 text-white dark:bg-white dark:text-slate-900"
-                : "text-slate-600 hover:bg-slate-100 dark:text-white/70 dark:hover:bg-white/10"
+                ? "bg-white text-slate-900 shadow-sm dark:bg-white/[0.12] dark:text-white"
+                : "text-slate-500 hover:text-slate-700 dark:text-white/50 dark:hover:text-white/80"
             }`}
           >
-            Manus
+            Manuscript
           </Link>
           <Link
             href={`/author/books/${book.id}?panel=pricing${activeVersion ? `&lang=${normalizeLangKey(activeVersion.language_code)}` : ""}`}
-            className={`rounded-lg px-4 py-2 text-sm font-medium transition ${
+            className={`rounded-full px-5 py-2 text-[13px] font-medium transition-all ${
               editorPanel === "pricing"
-                ? "bg-slate-900 text-white dark:bg-white dark:text-slate-900"
-                : "text-slate-600 hover:bg-slate-100 dark:text-white/70 dark:hover:bg-white/10"
+                ? "bg-white text-slate-900 shadow-sm dark:bg-white/[0.12] dark:text-white"
+                : "text-slate-500 hover:text-slate-700 dark:text-white/50 dark:hover:text-white/80"
             }`}
           >
-            Prissättning och distribution
+            Pricing and distribution
           </Link>
           <Link
             href={`/author/books/${book.id}?panel=import${activeVersion ? `&lang=${normalizeLangKey(activeVersion.language_code)}` : ""}`}
-            className={`rounded-lg px-4 py-2 text-sm font-medium transition ${
+            className={`rounded-full px-5 py-2 text-[13px] font-medium transition-all ${
               editorPanel === "import"
-                ? "bg-slate-900 text-white dark:bg-white dark:text-slate-900"
-                : "text-slate-600 hover:bg-slate-100 dark:text-white/70 dark:hover:bg-white/10"
+                ? "bg-white text-slate-900 shadow-sm dark:bg-white/[0.12] dark:text-white"
+                : "text-slate-500 hover:text-slate-700 dark:text-white/50 dark:hover:text-white/80"
             }`}
           >
-            Importera manus
+            Import manuscript
           </Link>
         </nav>
 
         {editorPanel === "pricing" && (
           <div className="max-w-2xl space-y-6">
-            <h2 className="text-xl font-semibold text-slate-900 dark:text-white">Prissättning och distribution</h2>
+            <h2 className="text-[clamp(20px,2.5vw,24px)] font-bold tracking-[-0.02em] text-slate-900 dark:text-white">Pricing and distribution</h2>
 
-            <div className="rounded-xl border border-slate-200 bg-slate-50/50 p-5 dark:border-white/10 dark:bg-white/5 space-y-4">
-              <h3 className="text-sm font-semibold text-slate-900 dark:text-white">Pris och valuta</h3>
+            <div className="rounded-2xl border border-black/[0.05] bg-white/60 p-5 shadow-[0_1px_3px_rgba(0,0,0,0.02)] backdrop-blur-sm dark:border-white/[0.06] dark:bg-white/[0.02] dark:shadow-none space-y-4">
+              <h3 className="text-sm font-semibold text-slate-900 dark:text-white">Price and currency</h3>
               <div className="flex flex-wrap items-center gap-3">
-                <span className="text-sm text-slate-700 dark:text-white/80">Gratis</span>
+                <span className="text-sm text-slate-700 dark:text-white/80">Free</span>
                 <button
                   type="button"
                   role="switch"
                   aria-checked={priceAmountMinor > 0}
-                  aria-label="Bok gratis eller betald"
+                  aria-label="Book free or paid"
                   onClick={() => setPriceAmountMinor(priceAmountMinor > 0 ? 0 : 4900)}
                   className={`relative inline-flex h-6 w-11 flex-shrink-0 rounded-full border-2 border-transparent transition-colors focus:outline-none focus:ring-2 focus:ring-[#907AFF]/50 ${
                     priceAmountMinor > 0 ? "bg-[#907AFF]" : "bg-slate-200 dark:bg-slate-600"
@@ -1724,12 +1684,12 @@ export default function BookEditor({
                     }`}
                   />
                 </button>
-                <span className="text-sm text-slate-700 dark:text-white/80">Betald</span>
+                <span className="text-sm text-slate-700 dark:text-white/80">Paid</span>
               </div>
               {priceAmountMinor > 0 && (
                 <div className="flex flex-wrap gap-4 pt-2">
                   <div>
-                    <label htmlFor="price-amount" className="mb-1 block text-xs text-slate-500 dark:text-white/50">Pris (visas för läsare)</label>
+                    <label htmlFor="price-amount" className="mb-1 block text-xs text-slate-500 dark:text-white/50">Price (shown to readers)</label>
                     <input
                       id="price-amount"
                       type="number"
@@ -1741,18 +1701,18 @@ export default function BookEditor({
                         if (!Number.isFinite(v) || v < 0) return;
                         setPriceAmountMinor(Math.round(v * 100));
                       }}
-                      aria-label="Pris i valuta"
-                      className="w-28 rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:border-slate-500 focus:outline-none dark:border-white/20 dark:bg-white/10 dark:text-white"
+                      aria-label="Price in currency"
+                      className="w-28 rounded-xl border border-black/[0.08] bg-white px-3 py-2 text-sm text-slate-900 focus:border-slate-500 focus:outline-none dark:border-white/[0.08] dark:bg-white/[0.04] dark:text-white"
                     />
                   </div>
                   <div>
-                    <label htmlFor="price-currency" className="mb-1 block text-xs text-slate-500 dark:text-white/50">Valuta</label>
+                    <label htmlFor="price-currency" className="mb-1 block text-xs text-slate-500 dark:text-white/50">Currency</label>
                     <select
                       id="price-currency"
                       value={priceCurrency}
                       onChange={(e) => setPriceCurrency(e.target.value)}
-                      aria-label="Valuta"
-                      className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:border-slate-500 focus:outline-none dark:border-white/20 dark:bg-white/10 dark:text-white"
+                      aria-label="Currency"
+                      className="rounded-xl border border-black/[0.08] bg-white px-3 py-2 text-sm text-slate-900 focus:border-slate-500 focus:outline-none dark:border-white/[0.08] dark:bg-white/[0.04] dark:text-white"
                     >
                       <option value="SEK">SEK</option>
                       <option value="EUR">EUR</option>
@@ -1761,44 +1721,44 @@ export default function BookEditor({
                   </div>
                 </div>
               )}
-              <p className="text-xs text-slate-500 dark:text-white/50">Priset sparas i systemet i öre/cent. Här visas det som hela kronor eller valutaenheter.</p>
+              <p className="text-xs text-slate-500 dark:text-white/50">Price is stored in minor units (cents/ore). Here it is shown as whole currency units.</p>
             </div>
 
-            <div className="rounded-xl border border-slate-200 bg-slate-50/50 p-5 dark:border-white/10 dark:bg-white/5 space-y-3">
-              <h3 className="text-sm font-semibold text-slate-900 dark:text-white">Försäljningsmodell</h3>
+            <div className="rounded-2xl border border-black/[0.05] bg-white/60 p-5 shadow-[0_1px_3px_rgba(0,0,0,0.02)] backdrop-blur-sm dark:border-white/[0.06] dark:bg-white/[0.02] dark:shadow-none space-y-3">
+              <h3 className="text-sm font-semibold text-slate-900 dark:text-white">Sales model</h3>
               <div className="flex items-center gap-3 rounded-lg border border-[#907AFF]/30 bg-[#907AFF]/10 px-3 py-2 dark:bg-[#907AFF]/15">
-                <span className="text-sm font-medium text-slate-900 dark:text-white">Hel bok</span>
-                <span className="rounded-full bg-[#907AFF]/20 px-2 py-0.5 text-xs font-medium text-[#5c4bb8] dark:text-[#b8a9ff]">Valt</span>
+                <span className="text-sm font-medium text-slate-900 dark:text-white">Full book</span>
+                <span className="rounded-full bg-[#907AFF]/20 px-2 py-0.5 text-xs font-medium text-[#5c4bb8] dark:text-[#b8a9ff]">Selected</span>
               </div>
-              <div className="flex items-center gap-3 rounded-lg border border-slate-200 bg-slate-50/50 px-3 py-2 dark:border-white/10 dark:bg-white/5">
-                <span className="text-sm text-slate-600 dark:text-white/60">Kapitel</span>
-                <span className="text-xs text-slate-500 dark:text-white/50">Kommer senare</span>
+              <div className="flex items-center gap-3 rounded-lg border border-black/[0.06] bg-slate-50/50 px-3 py-2 dark:border-white/[0.06] dark:bg-white/5">
+                <span className="text-sm text-slate-600 dark:text-white/60">Chapter</span>
+                <span className="text-xs text-slate-500 dark:text-white/50">Coming later</span>
               </div>
-              <div className="flex items-center gap-3 rounded-lg border border-slate-200 bg-slate-50/50 px-3 py-2 dark:border-white/10 dark:bg-white/5">
-                <span className="text-sm text-slate-600 dark:text-white/60">Paket</span>
-                <span className="text-xs text-slate-500 dark:text-white/50">Kommer senare</span>
+              <div className="flex items-center gap-3 rounded-lg border border-black/[0.06] bg-slate-50/50 px-3 py-2 dark:border-white/[0.06] dark:bg-white/5">
+                <span className="text-sm text-slate-600 dark:text-white/60">Bundle</span>
+                <span className="text-xs text-slate-500 dark:text-white/50">Coming later</span>
               </div>
             </div>
 
-            <div className="rounded-xl border border-slate-200 bg-slate-50/50 p-5 dark:border-white/10 dark:bg-white/5">
-              <h3 className="text-sm font-semibold text-slate-900 dark:text-white mb-2">Synlighet och åtkomst</h3>
+            <div className="rounded-2xl border border-black/[0.05] bg-white/60 p-5 shadow-[0_1px_3px_rgba(0,0,0,0.02)] backdrop-blur-sm dark:border-white/[0.06] dark:bg-white/[0.02] dark:shadow-none">
+              <h3 className="text-sm font-semibold text-slate-900 dark:text-white mb-2">Visibility and access</h3>
               <p className="text-sm text-slate-700 dark:text-white/80">
                 {priceAmountMinor <= 0
-                  ? "Gratis — alla kan läsa boken."
-                  : "Betald — läsare behöver köpa boken eller ha tillgång via entitlement för att läsa."}
+                  ? "Free - everyone can read the book."
+                  : "Paid - readers need to purchase the book or have access via entitlement to read."}
                 {" "}
-                {currentVisibility === "followers" && "Endast följare påverkar upptäckt i utforskning, inte betalväggen."}
+                {currentVisibility === "followers" && "Followers-only affects discoverability, not the paywall."}
               </p>
             </div>
 
             {!isPublished && (
               <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 dark:border-amber-800 dark:bg-amber-950/30" role="status">
-                <p className="text-sm font-medium text-amber-800 dark:text-amber-200">Publicera boken för att kunna sälja den.</p>
+                <p className="text-sm font-medium text-amber-800 dark:text-amber-200">Publish the book before selling it.</p>
               </div>
             )}
             {priceAmountMinor > 0 && !stripeConfigured && (
               <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 dark:border-amber-800 dark:bg-amber-950/30" role="status">
-                <p className="text-sm font-medium text-amber-800 dark:text-amber-200">Betalningskonfiguration saknas. Kontakta oss för att aktivera köp.</p>
+                <p className="text-sm font-medium text-amber-800 dark:text-amber-200">Payment configuration is missing. Contact us to enable purchases.</p>
               </div>
             )}
 
@@ -1807,13 +1767,13 @@ export default function BookEditor({
                 type="button"
                 onClick={handleSavePricing}
                 disabled={pricingSaving || (priceAmountMinor === initialPriceMinor && priceCurrency === initialCurrency)}
-                aria-label="Spara prissättning"
-                className="rounded-lg bg-slate-900 px-4 py-2 text-sm font-semibold text-white transition hover:bg-slate-800 disabled:opacity-50 disabled:cursor-not-allowed dark:bg-white dark:text-slate-900"
+                aria-label="Save pricing"
+                className="rounded-xl bg-slate-900 px-4 py-2.5 text-[13px] font-semibold text-white shadow-sm transition-all hover:bg-slate-800 hover:shadow-md disabled:opacity-50 disabled:cursor-not-allowed dark:bg-white dark:text-slate-900"
               >
-                {pricingSaving ? "Sparar…" : "Spara"}
+                {pricingSaving ? "Saving..." : "Save"}
               </button>
               {pricingError && <p className="text-sm text-red-600 dark:text-red-400" role="alert">{pricingError}</p>}
-              {pricingSaved && <p className="text-sm text-emerald-600 dark:text-emerald-400" role="status">Sparat.</p>}
+              {pricingSaved && <p className="text-sm text-emerald-600 dark:text-emerald-400" role="status">Saved.</p>}
             </div>
           </div>
         )}
@@ -1838,7 +1798,7 @@ export default function BookEditor({
               id="version-select"
               value={normalizeLangKey(activeVersion?.language_code ?? activeLanguage)}
               onChange={(e) => router.push(`/author/books/${book.id}?lang=${e.target.value}`)}
-              className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:border-slate-500 focus:outline-none dark:border-white/20 dark:bg-white/10 dark:text-white"
+              className="w-full rounded-xl border border-black/[0.08] bg-white px-4 py-2.5 text-[13px] font-medium text-slate-900 shadow-sm focus:border-black/[0.15] focus:shadow-md focus:outline-none dark:border-white/[0.08] dark:bg-white/[0.04] dark:text-white"
             >
               {bookVersions.map((v) => {
                 const langKey = normalizeLangKey(v.language_code);
@@ -1853,8 +1813,8 @@ export default function BookEditor({
             </select>
           </div>
         )}
-        <div className="mb-6 flex flex-wrap items-center gap-2 text-xs">
-          <span className="text-slate-500 dark:text-white/50">
+        <div className="mb-6 flex flex-wrap items-center gap-2">
+          <span className="rounded-full border border-black/[0.05] bg-slate-50/80 px-3 py-1 text-[11px] font-medium text-slate-400 backdrop-blur-sm dark:border-white/[0.05] dark:bg-white/[0.02] dark:text-white/35">
             Version: {getLanguageLabel(activeLanguage)}
           </span>
         </div>
@@ -1862,29 +1822,29 @@ export default function BookEditor({
           <div className="min-w-0">
             {!isRenamingBook ? (
               <div className="flex flex-wrap items-center gap-3">
-                <h1 className="text-4xl font-semibold tracking-tight text-slate-900 dark:text-white">
+                <h1 className="text-[clamp(28px,3.5vw,38px)] font-bold tracking-[-0.03em] text-slate-900 dark:text-white">
                   {bookTitle}
                 </h1>
                 <span
-                  className={`rounded-full px-3 py-1 text-xs font-semibold ${
+                  className={`rounded-full px-3 py-1 text-[11px] font-semibold uppercase tracking-wide ${
                     isPublished
-                      ? "bg-[#907AFF]/15 text-[#5c4bb8] dark:bg-[#907AFF]/25 dark:text-[#b8a9ff]"
-                      : "bg-slate-100 text-slate-600 dark:bg-white/10 dark:text-white/70"
+                      ? "bg-emerald-500/10 text-emerald-600 dark:bg-emerald-400/15 dark:text-emerald-400"
+                      : "bg-slate-100 text-slate-500 dark:bg-white/[0.06] dark:text-white/50"
                   }`}
                 >
-                  {isPublished ? "Publicerad" : "Utkast"}
+                    {isPublished ? "Published" : "Draft"}
                 </span>
                 {isPublished && (
-                  <span className="rounded-full border border-slate-200 bg-white px-3 py-1 text-xs font-semibold text-slate-600 dark:border-white/10 dark:bg-white/5 dark:text-white/70">
+                  <span className="rounded-full border border-black/[0.06] bg-white/80 px-3 py-1 text-[11px] font-medium text-slate-500 backdrop-blur-sm dark:border-white/[0.06] dark:bg-white/[0.04] dark:text-white/50">
                     {currentVisibilityLabel}
                   </span>
                 )}
                 <button
                   type="button"
                   onClick={handleStartRenameBook}
-                  className="rounded-full border border-slate-200 bg-white px-3 py-1 text-xs font-medium text-slate-600 transition hover:bg-slate-50 dark:border-white/10 dark:bg-white/5 dark:text-white/70"
+                  className="rounded-full border border-black/[0.06] bg-white/80 px-3.5 py-1.5 text-[11px] font-medium text-slate-500 backdrop-blur-sm transition-all hover:border-black/[0.12] hover:text-slate-900 dark:border-white/[0.06] dark:bg-white/[0.04] dark:text-white/50 dark:hover:border-white/[0.12] dark:hover:text-white"
                 >
-                  Byt namn
+                  Rename
                 </button>
               </div>
             ) : (
@@ -1898,23 +1858,23 @@ export default function BookEditor({
                       if (e.key === "Enter") handleSaveRenameBook();
                       if (e.key === "Escape") handleCancelRenameBook();
                     }}
-                    className="min-w-[260px] rounded-lg border border-slate-300 bg-white px-3 py-2 text-base text-slate-900 focus:border-slate-500 focus:outline-none dark:border-white/20 dark:bg-white/10 dark:text-white"
+                    className="min-w-[260px] rounded-xl border border-black/[0.08] bg-white px-3 py-2 text-base text-slate-900 focus:border-slate-500 focus:outline-none dark:border-white/[0.08] dark:bg-white/[0.04] dark:text-white"
                     autoFocus
                   />
                   <button
                     type="button"
                     onClick={handleSaveRenameBook}
                     disabled={bookTitleSaving}
-                    className="rounded-lg bg-slate-900 px-3 py-2 text-xs font-medium text-white hover:bg-slate-800 disabled:opacity-60 dark:bg-white dark:text-slate-900"
+                    className="rounded-xl bg-slate-900 px-4 py-2.5 text-[13px] font-medium text-white shadow-sm hover:bg-slate-800 hover:shadow-md disabled:opacity-60 dark:bg-white dark:text-slate-900"
                   >
-                    {bookTitleSaving ? "Sparar…" : "Spara"}
+                    {bookTitleSaving ? "Saving..." : "Save"}
                   </button>
                   <button
                     type="button"
                     onClick={handleCancelRenameBook}
-                    className="rounded-lg border border-slate-300 px-3 py-2 text-xs font-medium text-slate-700 hover:bg-slate-50 dark:border-white/20 dark:text-white/70 dark:hover:bg-white/5"
+                    className="rounded-xl border border-black/[0.08] px-3 py-2 text-xs font-medium text-slate-700 hover:bg-slate-50 dark:border-white/[0.08] dark:text-white/70 dark:hover:bg-white/[0.04]"
                   >
-                    Avbryt
+                    Cancel
                   </button>
                 </div>
                 {bookTitleError && (
@@ -1922,8 +1882,8 @@ export default function BookEditor({
                 )}
               </div>
             )}
-            <p className="mt-2 text-sm text-slate-600 dark:text-white/60">
-              {isPublished ? currentVisibilitySummary : "Utkast — inte synlig för läsare ännu"} • {chapters.length} kapitel
+            <p className="mt-2.5 text-[13px] text-slate-400 dark:text-white/40">
+              {isPublished ? currentVisibilitySummary : "Draft - not visible to readers yet"} · {chapters.length} chapters
             </p>
           </div>
           <div className="w-full">
@@ -1937,9 +1897,9 @@ export default function BookEditor({
                       setSelectedChapterId(e.target.value || null);
                       setSessionStartWords(null);
                     }}
-                    className="h-11 w-full appearance-none rounded-full border border-slate-200 bg-white px-4 pr-10 text-sm font-medium text-slate-900 focus:border-slate-400 focus:outline-none dark:border-white/15 dark:bg-white/10 dark:text-white"
+                    className="h-11 w-full appearance-none rounded-full border border-black/[0.08] bg-white px-4 pr-10 text-[13px] font-medium text-slate-900 shadow-sm transition-all focus:border-black/[0.15] focus:shadow-md focus:outline-none dark:border-white/[0.08] dark:bg-white/[0.04] dark:text-white"
                   >
-                    {chapters.length === 0 && <option value="">Inga kapitel ännu</option>}
+                    {chapters.length === 0 && <option value="">No chapters yet</option>}
                     {chapters.map((chapter) => (
                       <option key={chapter.id} value={chapter.id}>
                         {chapter.title}
@@ -1964,9 +1924,9 @@ export default function BookEditor({
                   type="button"
                   onClick={handleCreateChapter}
                   disabled={isCreating}
-                  className="mt-1 h-11 w-full rounded-full bg-slate-900 px-4 text-xs font-semibold text-white transition hover:bg-slate-800 disabled:opacity-50 dark:bg-white dark:text-slate-900"
+                  className="mt-1 h-11 w-full rounded-full bg-slate-900 px-4 text-[13px] font-semibold text-white shadow-sm transition-all hover:bg-slate-800 hover:shadow-md disabled:opacity-50 dark:bg-white dark:text-slate-900 dark:hover:bg-white/90"
                 >
-                  {isCreating ? "Skapar…" : "+ Nytt kapitel"}
+                  {isCreating ? "Creating..." : "+ New chapter"}
                 </button>
               </div>
               <div className="min-w-[180px] flex-1">
@@ -1974,9 +1934,9 @@ export default function BookEditor({
                   type="button"
                   onClick={() => coverInputRef.current?.click()}
                   disabled={coverUploading}
-                  className="mt-1 h-11 w-full rounded-full border border-slate-200 bg-white px-4 text-xs font-semibold text-slate-700 transition hover:bg-slate-50 disabled:opacity-50 dark:border-white/15 dark:bg-white/10 dark:text-white dark:hover:bg-white/15"
+                  className="mt-1 h-11 w-full rounded-full border border-black/[0.08] bg-white px-4 text-[13px] font-medium text-slate-600 shadow-sm transition-all hover:border-black/[0.12] hover:shadow-md disabled:opacity-50 dark:border-white/[0.08] dark:bg-white/[0.04] dark:text-white/70 dark:hover:bg-white/[0.06]"
                 >
-                  {coverUploading ? "Laddar upp…" : "Ladda upp omslag"}
+                  {coverUploading ? "Uploading..." : "Upload cover"}
                 </button>
                 {coverError && (
                   <p className="mt-2 text-xs text-red-600 dark:text-red-400" role="alert">
@@ -1995,7 +1955,7 @@ export default function BookEditor({
                 aria-expanded={publishMenuOpen}
                 className={publishButtonClass}
               >
-                Publicera
+                Publish
                 <svg
                   className={`h-3.5 w-3.5 transition-transform ${publishMenuOpen ? "rotate-180" : ""}`}
                   viewBox="0 0 12 12"
@@ -2012,10 +1972,10 @@ export default function BookEditor({
               {publishMenuOpen && (
                 <div
                   ref={publishMenuRef}
-                  className="absolute right-0 z-[200] mt-3 w-[360px] rounded-2xl border border-slate-200 bg-white p-4 shadow-xl dark:border-white/10 dark:bg-[#0b0b12]"
+                  className="absolute right-0 z-[200] mt-3 w-[360px] rounded-2xl border border-black/[0.06] bg-white/95 p-5 shadow-2xl backdrop-blur-xl dark:border-white/[0.06] dark:bg-[#0b0b12]/95"
                 >
                   <div className="mb-2 flex items-center justify-between">
-                    <h2 className="text-sm font-semibold text-slate-900 dark:text-white">Publicera</h2>
+                    <h2 className="text-sm font-semibold text-slate-900 dark:text-white">Publish</h2>
                     <span
                       className={`rounded-full px-2.5 py-1 text-xs font-semibold ${
                         isPublished
@@ -2023,16 +1983,16 @@ export default function BookEditor({
                           : "bg-slate-100 text-slate-600 dark:bg-white/10 dark:text-white/70"
                       }`}
                     >
-                      {isPublished ? "Publicerad" : "Utkast"}
+                      {isPublished ? "Published" : "Draft"}
                     </span>
                   </div>
                   <p className="text-xs text-slate-500 dark:text-white/50">
-                    Publiceringsinställningar för denna version. Utkast är privata tills du publicerar.
+                    Publishing settings for this version. Drafts are private until you publish.
                   </p>
                   <div className="mt-3 flex flex-wrap items-center gap-2 text-xs text-slate-500 dark:text-white/50">
-                    <span>{isPublished ? currentVisibilitySummary : "Inte synlig för läsare ännu."}</span>
+                    <span>{isPublished ? currentVisibilitySummary : "Not visible to readers yet."}</span>
                     {isPublished && (
-                      <span className="rounded-full border border-slate-200 bg-white px-2 py-0.5 text-[11px] font-medium text-slate-600 dark:border-white/10 dark:bg-white/5 dark:text-white/70">
+                      <span className="rounded-full border border-black/[0.06] bg-white px-2 py-0.5 text-[11px] font-medium text-slate-600 dark:border-white/[0.06] dark:bg-white/5 dark:text-white/70">
                         {currentVisibilityLabel}
                       </span>
                     )}
@@ -2040,7 +2000,7 @@ export default function BookEditor({
 
                   <fieldset className="mt-4 space-y-2">
                     <legend className="text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-white/50">
-                      Synlighet
+                      Visibility
                     </legend>
                     {PUBLISH_VISIBILITY_OPTIONS.map((option) => {
                       const selected = publishVisibility === option.value;
@@ -2050,7 +2010,7 @@ export default function BookEditor({
                           className={`flex cursor-pointer items-start gap-3 rounded-lg border px-3 py-2 transition ${
                             selected
                               ? "border-[#907AFF]/50 bg-[#907AFF]/10 dark:border-[#907AFF]/50 dark:bg-[#907AFF]/15"
-                              : "border-slate-200 bg-white/70 hover:bg-white dark:border-white/10 dark:bg-white/5 dark:hover:bg-white/10"
+                              : "border-black/[0.06] bg-white/70 hover:bg-white dark:border-white/[0.06] dark:bg-white/5 dark:hover:bg-white/10"
                           }`}
                         >
                           <input
@@ -2079,7 +2039,7 @@ export default function BookEditor({
 
                   {!isPublished && missingPublishRequirements.length > 0 && (
                     <div className="mt-4 rounded-lg border border-[#907AFF]/40 bg-[#907AFF]/10 px-3 py-3 text-xs text-[#5c4bb8] dark:border-[#907AFF]/30 dark:bg-[#907AFF]/15 dark:text-[#b8a9ff]">
-                      <p className="mb-2 font-semibold">Innan du kan publicera</p>
+                      <p className="mb-2 font-semibold">Before you can publish</p>
                       <ul className="list-disc pl-4">
                         {missingPublishRequirements.map((item) => (
                           <li key={item}>{item}</li>
@@ -2095,8 +2055,8 @@ export default function BookEditor({
                   )}
 
                   {confirmPublishAction && confirmCopy ? (
-                    <div className="mt-4 rounded-lg border border-slate-200 bg-white px-3 py-3 text-xs text-slate-700 dark:border-white/10 dark:bg-white/5 dark:text-white/70">
-                      <p className="mb-1 font-semibold text-slate-900 dark:text-white">Bekräfta</p>
+                    <div className="mt-4 rounded-lg border border-black/[0.06] bg-white px-3 py-3 text-xs text-slate-700 dark:border-white/[0.06] dark:bg-white/5 dark:text-white/70">
+                      <p className="mb-1 font-semibold text-slate-900 dark:text-white">Confirm</p>
                       <p className="text-xs text-slate-600 dark:text-white/60">{confirmCopy}</p>
                       <div className="mt-3 flex gap-2">
                         <button
@@ -2105,14 +2065,14 @@ export default function BookEditor({
                           disabled={isPublishing}
                           className="rounded-lg bg-[#907AFF] px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-[#7c6ae6] disabled:opacity-60"
                         >
-                          {isPublishing ? "Arbetar…" : "Bekräfta"}
+                          {isPublishing ? "Working..." : "Confirm"}
                         </button>
                         <button
                           type="button"
                           onClick={() => setConfirmPublishAction(null)}
-                          className="rounded-lg border border-slate-300 px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50 dark:border-white/20 dark:text-white/70 dark:hover:bg-white/5"
+                          className="rounded-xl border border-black/[0.08] px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50 dark:border-white/[0.08] dark:text-white/70 dark:hover:bg-white/[0.04]"
                         >
-                          Avbryt
+                          Cancel
                         </button>
                       </div>
                     </div>
@@ -2125,7 +2085,7 @@ export default function BookEditor({
                           disabled={publishDisabled}
                           className="rounded-lg bg-[#907AFF] px-3 py-2 text-sm font-semibold text-white transition hover:bg-[#7c6ae6] disabled:cursor-not-allowed disabled:opacity-50"
                         >
-                          {isPublishing ? "Publicerar…" : "Publicera"}
+                          {isPublishing ? "Publishing..." : "Publish"}
                         </button>
                       )}
                       {isPublished && (
@@ -2134,9 +2094,9 @@ export default function BookEditor({
                             type="button"
                             onClick={() => setConfirmPublishAction("update")}
                             disabled={isPublishing || !visibilityChanged}
-                            className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50 dark:border-white/20 dark:bg-white/10 dark:text-white dark:hover:bg-white/15"
+                            className="rounded-xl border border-black/[0.08] bg-white px-3 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50 dark:border-white/[0.08] dark:bg-white/[0.04] dark:text-white dark:hover:bg-white/[0.06]"
                           >
-                            {isPublishing ? "Uppdaterar…" : "Uppdatera publiceringsinställningar"}
+                            {isPublishing ? "Updating..." : "Update publishing settings"}
                           </button>
                           <button
                             type="button"
@@ -2144,7 +2104,7 @@ export default function BookEditor({
                             disabled={isPublishing}
                             className="rounded-lg border border-red-200 bg-white px-3 py-2 text-sm font-semibold text-red-700 transition hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-50 dark:border-red-900/50 dark:bg-white/10 dark:text-red-200 dark:hover:bg-red-950/30"
                           >
-                            Avpublicera
+                            Unpublish
                           </button>
                         </>
                       )}
@@ -2157,26 +2117,32 @@ export default function BookEditor({
               bookId={book.id}
               bookTitle={bookTitle}
               redirectTo="/author/books"
-              className="rounded-full border border-red-200 bg-white px-5 py-2.5 text-sm font-semibold text-red-700 transition hover:bg-red-50 dark:border-red-900/50 dark:bg-white/10 dark:text-red-200 dark:hover:bg-red-950/30"
+              className="rounded-full border border-red-200/60 bg-white/80 px-5 py-2.5 text-[13px] font-medium text-red-500 backdrop-blur-sm transition-all hover:border-red-300 hover:bg-red-50 hover:text-red-700 dark:border-red-900/30 dark:bg-white/[0.03] dark:text-red-400 dark:hover:bg-red-950/20"
             />
           </div>
         </div>
 
         <div className="grid gap-8 lg:grid-cols-[280px_1fr]">
-          <div className="space-y-5">
-            <div className="rounded-xl border border-slate-200 bg-slate-50/50 p-5 dark:border-white/10 dark:bg-white/5">
-              <h2 className="mb-3 text-base font-semibold text-slate-900 dark:text-white">Omslag</h2>
+          <div className="space-y-4">
+            <div className="rounded-2xl border border-black/[0.05] bg-white/60 p-5 shadow-[0_1px_3px_rgba(0,0,0,0.02)] backdrop-blur-sm dark:border-white/[0.06] dark:bg-white/[0.02] dark:shadow-none">
+              <h2 className="mb-3 text-[14px] font-semibold tracking-[-0.01em] text-slate-800 dark:text-white/90">Cover</h2>
               <div className="space-y-2">
-                <div className="aspect-[3/4] overflow-hidden rounded-lg border border-slate-200 bg-slate-100 dark:border-white/10 dark:bg-white/5">
+                <div className="relative aspect-[3/4] overflow-hidden rounded-xl border border-black/[0.06] bg-slate-50 shadow-sm dark:border-white/[0.06] dark:bg-white/[0.02]">
                   {displayCoverUrl ? (
-                    <img
+                    <Image
                       src={displayCoverUrl}
-                      alt="Bokomslag"
-                      className="h-full w-full object-cover"
+                      alt="Book cover"
+                      fill
+                      sizes="(min-width: 1024px) 280px, 100vw"
+                      className="object-cover transition-transform hover:scale-[1.02]"
+                      unoptimized
                     />
                   ) : (
-                    <div className="flex h-full w-full items-center justify-center text-sm text-slate-500 dark:text-white/50">
-                      Ingen omslagsbild
+                    <div className="flex h-full w-full flex-col items-center justify-center gap-2 text-slate-300 dark:text-white/20">
+                      <svg className="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="m2.25 15.75 5.159-5.159a2.25 2.25 0 0 1 3.182 0l5.159 5.159m-1.5-1.5 1.409-1.409a2.25 2.25 0 0 1 3.182 0l2.909 2.909M3.75 21h16.5A2.25 2.25 0 0 0 22.5 18.75V5.25A2.25 2.25 0 0 0 20.25 3H3.75A2.25 2.25 0 0 0 1.5 5.25v13.5A2.25 2.25 0 0 0 3.75 21Z" />
+                      </svg>
+                      <span className="text-[12px]">No cover image</span>
                     </div>
                   )}
                 </div>
@@ -2192,10 +2158,10 @@ export default function BookEditor({
             </div>
 
             {getTranslationsEnabled() && (
-              <div className="rounded-xl border border-slate-200 bg-slate-50/50 p-5 dark:border-white/10 dark:bg-white/5">
-                <h2 className="mb-3 text-base font-semibold text-slate-900 dark:text-white">Översättning</h2>
+              <div className="rounded-2xl border border-black/[0.05] bg-white/60 p-5 shadow-[0_1px_3px_rgba(0,0,0,0.02)] backdrop-blur-sm dark:border-white/[0.06] dark:bg-white/[0.02] dark:shadow-none">
+                <h2 className="mb-3 text-[14px] font-semibold tracking-[-0.01em] text-slate-800 dark:text-white/90">Translation</h2>
                 <p className="mb-3 text-xs text-slate-500 dark:text-white/50">
-                  Skapa en ny språkversion av denna bok. Översättningen visas när den är klar.
+                  Create a new language version of this book. The translation appears when complete.
                 </p>
                 <div className="mb-3 flex items-center gap-2">
                   <span className="text-xs font-medium text-slate-500 dark:text-white/50">Status:</span>
@@ -2212,23 +2178,23 @@ export default function BookEditor({
                     role="status"
                   >
                     {translationUiStatus === "idle" && STATUS_LABELS.idle}
-                    {translationUiStatus === "translating" && "Översätts…"}
+                    {translationUiStatus === "translating" && "Translating..."}
                     {translationUiStatus === "done" && STATUS_LABELS.completed}
                     {translationUiStatus === "error" && STATUS_LABELS.failed}
                   </span>
                 </div>
-                <label htmlFor="translate-language" className="mb-1 block text-xs text-slate-500 dark:text-white/50">Målspråk</label>
+                <label htmlFor="translate-language" className="mb-1 block text-xs text-slate-500 dark:text-white/50">Target language</label>
                 <select
                   id="translate-language"
                   value={translateTargetLanguage}
                   onChange={(e) => setTranslateTargetLanguage(e.target.value as SupportedLanguage)}
-                  className="mb-3 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:border-slate-500 focus:outline-none dark:border-white/20 dark:bg-white/10 dark:text-white"
+                  className="mb-3 w-full rounded-xl border border-black/[0.08] bg-white px-3 py-2 text-sm text-slate-900 focus:border-slate-500 focus:outline-none dark:border-white/[0.08] dark:bg-white/[0.04] dark:text-white"
                 >
                   {LANGUAGE_OPTIONS.filter((opt) => opt.value !== translationSourceLang).map((opt) => {
                     const supported = isTranslationPairSupported(translationSourceLang, opt.value);
                     return (
                       <option key={opt.value} value={opt.value} disabled={!supported}>
-                        {opt.label}{supported ? "" : " (ej tillgänglig)"}
+                        {opt.label}{supported ? "" : " (not available)"}
                       </option>
                     );
                   })}
@@ -2237,24 +2203,24 @@ export default function BookEditor({
                   type="button"
                   onClick={handleStartTranslation}
                   disabled={isStartingTranslation || isProFeatureLocked || !isTranslationPairSupported(translationSourceLang, translateTargetLanguage)}
-                  className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed dark:border-white/20 dark:bg-white/10 dark:text-white dark:hover:bg-white/15"
+                  className="w-full rounded-xl border border-black/[0.08] bg-white px-3 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed dark:border-white/[0.08] dark:bg-white/[0.04] dark:text-white dark:hover:bg-white/[0.06]"
                 >
                   {isStartingTranslation
-                    ? "Startar…"
+                    ? "Starting..."
                     : isProFeatureLocked
                       ? billing.loading
-                        ? "Kontrollerar abonnemang…"
+                        ? "Checking subscription..."
                         : billing.pastDue
-                          ? "Låst: betalning krävs"
-                          : "Starta översättning (Pro krävs)"
-                      : "Starta översättning"}
+                          ? "Locked: payment required"
+                          : "Start translation (Pro required)"
+                      : "Start translation"}
                 </button>
                 {isProFeatureLocked && (
                   <div className="mt-2 rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-800 dark:border-amber-700 dark:bg-amber-950/30 dark:text-amber-200">
                     {proFeatureLockMessage}{" "}
                     {!billing.loading && (
-                      <Link href="/account/billing" className="underline">
-                        Hantera abonnemang
+                      <Link href="/author/billing" className="underline">
+                        Manage subscription
                       </Link>
                     )}
                   </div>
@@ -2265,14 +2231,14 @@ export default function BookEditor({
                     onClick={() =>
                       router.push(`/author/books/${book.id}?lang=${normalizeLangKey(currentTargetVersion.language_code)}`)
                     }
-                    className="mt-2 w-full rounded-lg bg-slate-900 px-3 py-2 text-sm font-medium text-white transition hover:bg-slate-800 dark:bg-white dark:text-slate-900 dark:hover:bg-white/90"
+                    className="mt-2 w-full rounded-xl bg-slate-900 px-4 py-2.5 text-[13px] font-medium text-white shadow-sm transition-all hover:bg-slate-800 hover:shadow-md dark:bg-white dark:text-slate-900 dark:hover:bg-white/90"
                   >
-                    Öppna version
+                    Open version
                   </button>
                 )}
                 {translationQueueHealthy === false && (
                   <div className="mt-2 rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-800 dark:border-amber-700 dark:bg-amber-950/30 dark:text-amber-200">
-                    Översättningskön är offline just nu.
+                    Translation queue is offline right now.
                   </div>
                 )}
                 {translateMessage && (
@@ -2282,7 +2248,7 @@ export default function BookEditor({
                         ? "border-[#907AFF]/40 bg-[#907AFF]/10 text-[#5c4bb8] dark:border-[#907AFF]/40 dark:bg-[#907AFF]/15 dark:text-[#b8a9ff]"
                         : translationUiStatus === "error"
                           ? "border-red-200 bg-red-50 text-red-800 dark:border-red-800 dark:bg-red-950/30 dark:text-red-200"
-                          : "border-slate-200 bg-slate-50 text-slate-800 dark:border-slate-700 dark:bg-slate-800/50 dark:text-slate-200"
+                          : "border-black/[0.06] bg-slate-50 text-slate-800 dark:border-slate-700 dark:bg-slate-800/50 dark:text-slate-200"
                     }`}
                     role="status"
                   >
@@ -2292,131 +2258,9 @@ export default function BookEditor({
               </div>
             )}
 
-            {getTranslationsEnabled() && (
-              <details className="rounded-xl border border-slate-200 bg-slate-50/50 dark:border-white/10 dark:bg-white/5">
-                <summary className="cursor-pointer px-5 py-4 text-base font-semibold text-slate-900 dark:text-white">
-                  Översättningspanel
-                </summary>
-                <div className="px-5 pb-5">
-                  <TranslationPanel bookId={book.id} />
-                </div>
-              </details>
-            )}
-
-            <div id="tts" className="rounded-xl border border-slate-200 bg-slate-50/50 p-5 dark:border-white/10 dark:bg-white/5">
-              <h2 className="mb-3 text-base font-semibold text-slate-900 dark:text-white">Text till tal</h2>
-              <p className="mb-3 text-xs text-slate-500 dark:text-white/50">
-                Generera ljud från bokens första kapitel. Använder standardrösten (Piper).
-              </p>
-              <div className="mb-3 flex items-center gap-2">
-                <span className="text-xs font-medium text-slate-500 dark:text-white/50">Status:</span>
-                <span
-                  className={`rounded-full px-2.5 py-1 text-xs font-medium ${
-                    ttsStatus === "generating" || ttsStatus === "uploading"
-                      ? "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-200"
-                      : ttsStatus === "done"
-                        ? "bg-[#907AFF]/15 text-[#5c4bb8] dark:bg-[#907AFF]/25 dark:text-[#b8a9ff]"
-                        : ttsStatus === "error"
-                          ? "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-200"
-                          : "bg-slate-100 text-slate-700 dark:bg-slate-700 dark:text-slate-200"
-                  }`}
-                  role="status"
-                >
-                  {ttsStatus === "idle" && STATUS_LABELS.idle}
-                  {ttsStatus === "generating" && "Skapas…"}
-                  {ttsStatus === "uploading" && "Laddas upp…"}
-                  {ttsStatus === "done" && STATUS_LABELS.completed}
-                  {ttsStatus === "error" && STATUS_LABELS.failed}
-                </span>
-              </div>
-              <label htmlFor="tts-voice" className="mb-1 block text-xs text-slate-500 dark:text-white/50">Röst</label>
-              <select
-                id="tts-voice"
-                value={ttsVoice}
-                onChange={(e) => setTtsVoice(e.target.value)}
-                className="mb-3 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:border-slate-500 focus:outline-none dark:border-white/20 dark:bg-white/10 dark:text-white"
-              >
-                <option value="default">Standard (sv_SE-nst-medium)</option>
-              </select>
-              <button
-                type="button"
-                onClick={handleStartTts}
-                disabled={ttsStatus === "generating" || ttsStatus === "uploading"}
-                className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed dark:border-white/20 dark:bg-white/10 dark:text-white dark:hover:bg-white/15"
-              >
-                {ttsStatus === "generating" || ttsStatus === "uploading"
-                  ? ttsStatus === "uploading"
-                    ? "Laddas upp…"
-                    : "Skapas…"
-                  : "Generera ljudförhandsvisning"}
-              </button>
-              {(ttsAudioUrl ?? latestAudiobookAsset?.audio_url) && (
-                <div className="mt-3 space-y-2">
-                  <audio
-                    src={ttsAudioUrl ?? latestAudiobookAsset?.audio_url ?? undefined}
-                    controls
-                    className="w-full"
-                    preload="metadata"
-                  />
-                  <div className="flex flex-wrap gap-2">
-                    <button
-                      type="button"
-                      onClick={async () => {
-                        const url = ttsAudioUrl ?? latestAudiobookAsset?.audio_url ?? "";
-                        if (url) {
-                          try {
-                            await navigator.clipboard.writeText(url);
-                            setTtsMessage("URL kopierad.");
-                            setTimeout(() => setTtsMessage(null), 2000);
-                          } catch {
-                            setTtsMessage("Kunde inte kopiera.");
-                          }
-                        }
-                      }}
-                      className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-50 dark:border-white/20 dark:bg-white/10 dark:text-white dark:hover:bg-white/15"
-                    >
-                      Kopiera ljud-URL
-                    </button>
-                    <a
-                      href={ttsAudioUrl ?? latestAudiobookAsset?.audio_url ?? "#"}
-                      download="audiobook-sample.wav"
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="inline-flex items-center rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-50 dark:border-white/20 dark:bg-white/10 dark:text-white dark:hover:bg-white/15"
-                    >
-                      Ladda ner
-                    </a>
-                  </div>
-                </div>
-              )}
-              {ttsMessage && (
-                <div
-                  className={`mt-3 rounded-lg border px-3 py-2 text-sm ${
-                    ttsStatus === "done" || ttsMessage.includes("genererat") || ttsMessage.includes("kopierad")
-                      ? "border-[#907AFF]/40 bg-[#907AFF]/10 text-[#5c4bb8] dark:border-[#907AFF]/40 dark:bg-[#907AFF]/15 dark:text-[#b8a9ff]"
-                      : ttsStatus === "error"
-                        ? "border-red-200 bg-red-50 text-red-800 dark:border-red-800 dark:bg-red-950/30 dark:text-red-200"
-                        : "border-slate-200 bg-slate-50 text-slate-800 dark:border-slate-700 dark:bg-slate-800/50 dark:text-slate-200"
-                  }`}
-                  role="status"
-                >
-                  {ttsMessage}
-                </div>
-              )}
-              {ttsManualSteps && ttsStatus === "error" && (
-                <div
-                  className="mt-3 rounded-lg border border-[#907AFF]/40 bg-[#907AFF]/10 px-3 py-3 text-sm text-[#5c4bb8] dark:border-[#907AFF]/30 dark:bg-[#907AFF]/15 dark:text-[#b8a9ff]"
-                  role="alert"
-                >
-                  <p className="mb-1 font-medium">Åtgärd krävs:</p>
-                  <p className="whitespace-pre-wrap">{ttsManualSteps}</p>
-                </div>
-              )}
-            </div>
-
-            <div className="rounded-xl border border-slate-200 bg-slate-50/50 p-5 dark:border-white/10 dark:bg-white/5">
-              <h2 className="mb-3 text-base font-semibold text-slate-900 dark:text-white">Original</h2>
-              <label htmlFor="original-url-editor" className="mb-1 block text-xs text-slate-500 dark:text-white/50">Originalet finns på Amazon</label>
+            <div className="rounded-2xl border border-black/[0.05] bg-white/60 p-5 shadow-[0_1px_3px_rgba(0,0,0,0.02)] backdrop-blur-sm dark:border-white/[0.06] dark:bg-white/[0.02] dark:shadow-none">
+              <h2 className="mb-3 text-[14px] font-semibold tracking-[-0.01em] text-slate-800 dark:text-white/90">Original</h2>
+              <label htmlFor="original-url-editor" className="mb-1 block text-xs text-slate-500 dark:text-white/50">Original is available on Amazon</label>
               <input
                 id="original-url-editor"
                 type="url"
@@ -2424,12 +2268,12 @@ export default function BookEditor({
                 onChange={(e) => setOriginalUrl(e.target.value)}
                 onBlur={handleOriginalUrlBlur}
                 placeholder="https://..."
-                className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 placeholder:text-slate-400 focus:border-slate-500 focus:outline-none dark:border-white/20 dark:bg-white/10 dark:text-white dark:placeholder:text-white/40"
+                className="w-full rounded-xl border border-black/[0.08] bg-white px-3 py-2 text-sm text-slate-900 placeholder:text-slate-400 focus:border-slate-500 focus:outline-none dark:border-white/[0.08] dark:bg-white/[0.04] dark:text-white dark:placeholder:text-white/40"
               />
             </div>
 
-            <div id="audiobook" className="rounded-xl border border-slate-200 bg-slate-50/50 p-5 dark:border-white/10 dark:bg-white/5">
-              <h2 className="mb-2 text-base font-semibold text-slate-900 dark:text-white">Ljudbok</h2>
+            <div id="audiobook" className="rounded-2xl border border-black/[0.05] bg-white/60 p-5 shadow-[0_1px_3px_rgba(0,0,0,0.02)] backdrop-blur-sm dark:border-white/[0.06] dark:bg-white/[0.02] dark:shadow-none">
+              <h2 className="mb-2 text-[14px] font-semibold tracking-[-0.01em] text-slate-800 dark:text-white/90">Audiobook</h2>
               <div className="mb-2 flex items-center gap-2">
                 <span
                   className={`rounded-full px-2.5 py-1 text-xs font-medium ${
@@ -2449,7 +2293,7 @@ export default function BookEditor({
               {isAudiobookActive && effectiveAudiobookProgress && (
                 <div className="mb-3">
                   <div className="mb-1 flex justify-between text-xs text-slate-600 dark:text-slate-400">
-                    <span>{effectiveAudiobookProgress.currentChapterTitle ?? "Bearbetar…"}</span>
+                    <span>{effectiveAudiobookProgress.currentChapterTitle ?? "Processing..."}</span>
                     <span>{effectiveAudiobookProgress.completedChapters} / {effectiveAudiobookProgress.totalChapters}</span>
                   </div>
                   <div className="h-2 w-full overflow-hidden rounded-full bg-slate-200 dark:bg-slate-700">
@@ -2469,29 +2313,29 @@ export default function BookEditor({
                 type="button"
                 onClick={handleGenerateAudiobook}
                 disabled={isAudiobookActive || !audiobookFeatureEnabled || isProFeatureLocked}
-                className="mb-2 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-50 disabled:opacity-50 dark:border-white/20 dark:bg-white/10 dark:text-white dark:hover:bg-white/15"
+                className="mb-2 w-full rounded-xl border border-black/[0.08] bg-white px-3 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-50 disabled:opacity-50 dark:border-white/[0.08] dark:bg-white/[0.04] dark:text-white dark:hover:bg-white/[0.06]"
               >
                 {!audiobookFeatureEnabled
-                  ? "Skapa ljudbok (otillgänglig)"
+                  ? "Create audiobook (unavailable)"
                   : isProFeatureLocked
                   ? billing.loading
-                    ? "Kontrollerar abonnemang…"
+                    ? "Checking subscription..."
                     : billing.pastDue
-                      ? "Låst: betalning krävs"
-                      : "Skapa ljudbok (Pro krävs)"
+                      ? "Locked: payment required"
+                      : "Create audiobook (Pro required)"
                   : isAudiobookActive
                   ? effectiveAudiobookProgress
-                    ? `Skapas (${effectiveAudiobookProgress.completedChapters}/${effectiveAudiobookProgress.totalChapters})…`
-                    : "I kö…"
-                  : "Skapa ljudbok"}
+                    ? `Generating (${effectiveAudiobookProgress.completedChapters}/${effectiveAudiobookProgress.totalChapters})...`
+                    : "Queued..."
+                  : "Create audiobook"}
               </button>
 
               {audiobookFeatureEnabled && isProFeatureLocked && (
                 <div className="mb-2 rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-800 dark:border-amber-700 dark:bg-amber-950/30 dark:text-amber-200">
                   {proFeatureLockMessage}{" "}
                   {!billing.loading && (
-                    <Link href="/account/billing" className="underline">
-                      Hantera abonnemang
+                    <Link href="/author/billing" className="underline">
+                      Manage subscription
                     </Link>
                   )}
                 </div>
@@ -2499,36 +2343,36 @@ export default function BookEditor({
 
               {!audiobookFeatureEnabled && (
                 <p className="mb-2 text-xs text-slate-600 dark:text-white/60" role="status">
-                  Ljudboksgenerering är tillfälligt avstängd eftersom worker inte är kompatibel i denna miljö.
+                  Audiobook generation is temporarily disabled because the worker is not compatible in this environment.
                 </p>
               )}
 
               {latestAudiobookAsset?.audio_url && (
                 <div className="mb-2">
                   <audio controls className="w-full" src={latestAudiobookAsset.audio_url}>
-                    Din webbläsare stöder inte ljuduppspelning.
+                    Your browser does not support audio playback.
                   </audio>
                 </div>
               )}
 
               {(audiobookStatusUi === "failed" || effectiveAudiobookError) && (
                 <p className="text-xs text-red-600 dark:text-red-400" role="alert">
-                  {effectiveAudiobookError ?? "Kunde inte skapa ljudbok. Försök igen."}
+                  {effectiveAudiobookError ?? "Could not create audiobook. Try again."}
                 </p>
               )}
             </div>
 
             {getMarketingEnabled() && (
-            <div id="marketing" className="rounded-xl border border-slate-200 bg-slate-50/50 p-5 dark:border-white/10 dark:bg-white/5">
-              <h2 className="mb-3 text-base font-semibold text-slate-900 dark:text-white">Lanseringstext</h2>
+            <div id="marketing" className="rounded-2xl border border-black/[0.05] bg-white/60 p-5 shadow-[0_1px_3px_rgba(0,0,0,0.02)] backdrop-blur-sm dark:border-white/[0.06] dark:bg-white/[0.02] dark:shadow-none">
+              <h2 className="mb-3 text-[14px] font-semibold tracking-[-0.01em] text-slate-800 dark:text-white/90">Launch copy</h2>
               <div className="mb-3 flex flex-wrap gap-2">
                 <div className="flex flex-col gap-1">
-                  <label htmlFor="marketing-channel" className="text-xs text-slate-500 dark:text-white/50">Kanal</label>
+                  <label htmlFor="marketing-channel" className="text-xs text-slate-500 dark:text-white/50">Channel</label>
                   <select
                     id="marketing-channel"
                     value={marketingChannel}
                     onChange={(e) => setMarketingChannel(e.target.value as MarketingChannel)}
-                    className="rounded-lg border border-slate-300 bg-white px-2 py-1.5 text-sm text-slate-900 focus:border-slate-500 focus:outline-none dark:border-white/20 dark:bg-white/10 dark:text-white"
+                    className="rounded-xl border border-black/[0.08] bg-white px-2 py-1.5 text-sm text-slate-900 focus:border-slate-500 focus:outline-none dark:border-white/[0.08] dark:bg-white/[0.04] dark:text-white"
                   >
                     {MARKETING_CHANNELS.map((c) => (
                       <option key={c} value={c}>{MARKETING_CHANNEL_LABELS[c]}</option>
@@ -2536,12 +2380,12 @@ export default function BookEditor({
                   </select>
                 </div>
                 <div className="flex flex-col gap-1">
-                  <label htmlFor="marketing-language" className="text-xs text-slate-500 dark:text-white/50">Språk</label>
+                  <label htmlFor="marketing-language" className="text-xs text-slate-500 dark:text-white/50">Language</label>
                   <select
                     id="marketing-language"
                     value={marketingLanguage}
                     onChange={(e) => setMarketingLanguage(e.target.value as SupportedLanguage)}
-                    className="rounded-lg border border-slate-300 bg-white px-2 py-1.5 text-sm text-slate-900 focus:border-slate-500 focus:outline-none dark:border-white/20 dark:bg-white/10 dark:text-white"
+                    className="rounded-xl border border-black/[0.08] bg-white px-2 py-1.5 text-sm text-slate-900 focus:border-slate-500 focus:outline-none dark:border-white/[0.08] dark:bg-white/[0.04] dark:text-white"
                   >
                     {LANGUAGE_OPTIONS.map((opt) => (
                       <option key={opt.value} value={opt.value}>{opt.label}</option>
@@ -2563,31 +2407,31 @@ export default function BookEditor({
                 </div>
               ) : (
                 <p className="mb-2 text-xs text-slate-500 dark:text-white/50">
-                  Ingen text för denna kanal och språk än. Generera nedan.
+                  No copy for this channel and language yet. Generate below.
                 </p>
               )}
               <button
                 type="button"
                 onClick={handleGenerateMarketingCopy}
                 disabled={isGeneratingMarketing || isProFeatureLocked}
-                className="mb-3 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-50 disabled:opacity-50 dark:border-white/20 dark:bg-white/10 dark:text-white dark:hover:bg-white/15"
+                className="mb-3 w-full rounded-xl border border-black/[0.08] bg-white px-3 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-50 disabled:opacity-50 dark:border-white/[0.08] dark:bg-white/[0.04] dark:text-white dark:hover:bg-white/[0.06]"
               >
                 {isGeneratingMarketing
-                  ? "Skapas…"
+                  ? "Generating..."
                   : isProFeatureLocked
                     ? billing.loading
-                      ? "Kontrollerar abonnemang…"
+                      ? "Checking subscription..."
                       : billing.pastDue
-                        ? "Låst: betalning krävs"
-                        : "Generera lanseringstext (Pro krävs)"
-                    : "Generera lanseringstext"}
+                        ? "Locked: payment required"
+                        : "Generate launch copy (Pro required)"
+                    : "Generate launch copy"}
               </button>
               {isProFeatureLocked && (
                 <div className="mb-3 rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-800 dark:border-amber-700 dark:bg-amber-950/30 dark:text-amber-200">
                   {proFeatureLockMessage}{" "}
                   {!billing.loading && (
-                    <Link href="/account/billing" className="underline">
-                      Hantera abonnemang
+                    <Link href="/author/billing" className="underline">
+                      Manage subscription
                     </Link>
                   )}
                 </div>
@@ -2595,25 +2439,25 @@ export default function BookEditor({
               {currentCampaign && (
                 <div className="space-y-2">
                   {currentCampaign.headline && (
-                    <p className="text-xs font-medium text-slate-500 dark:text-white/50">Rubrik</p>
+                    <p className="text-xs font-medium text-slate-500 dark:text-white/50">Headline</p>
                   )}
                   {currentCampaign.headline && (
-                    <p className="whitespace-pre-wrap break-words rounded border border-slate-200 bg-white p-2 text-xs text-slate-700 dark:border-white/10 dark:bg-white/5 dark:text-white/90">
+                    <p className="whitespace-pre-wrap break-words rounded border border-black/[0.06] bg-white p-2 text-xs text-slate-700 dark:border-white/[0.06] dark:bg-white/5 dark:text-white/90">
                       {currentCampaign.headline}
                     </p>
                   )}
                   {currentCampaign.caption && (
                     <>
-                      <p className="text-xs font-medium text-slate-500 dark:text-white/50">Text</p>
-                      <p className="whitespace-pre-wrap break-words rounded border border-slate-200 bg-white p-2 text-xs text-slate-700 dark:border-white/10 dark:bg-white/5 dark:text-white/90">
+                      <p className="text-xs font-medium text-slate-500 dark:text-white/50">Copy</p>
+                      <p className="whitespace-pre-wrap break-words rounded border border-black/[0.06] bg-white p-2 text-xs text-slate-700 dark:border-white/[0.06] dark:bg-white/5 dark:text-white/90">
                         {currentCampaign.caption}
                       </p>
                     </>
                   )}
                   {currentCampaign.cta && (
                     <>
-                      <p className="text-xs font-medium text-slate-500 dark:text-white/50">Uppmaning</p>
-                      <p className="rounded border border-slate-200 bg-white p-2 text-xs text-slate-700 dark:border-white/10 dark:bg-white/5 dark:text-white/90">
+                      <p className="text-xs font-medium text-slate-500 dark:text-white/50">Call to action</p>
+                      <p className="rounded border border-black/[0.06] bg-white p-2 text-xs text-slate-700 dark:border-white/[0.06] dark:bg-white/5 dark:text-white/90">
                         {currentCampaign.cta}
                       </p>
                     </>
@@ -2621,7 +2465,7 @@ export default function BookEditor({
                   {currentCampaign.hashtags && (
                     <>
                       <p className="text-xs font-medium text-slate-500 dark:text-white/50">Hashtags</p>
-                      <p className="rounded border border-slate-200 bg-white p-2 text-xs text-slate-700 dark:border-white/10 dark:bg-white/5 dark:text-white/90">
+                      <p className="rounded border border-black/[0.06] bg-white p-2 text-xs text-slate-700 dark:border-white/[0.06] dark:bg-white/5 dark:text-white/90">
                         {currentCampaign.hashtags}
                       </p>
                     </>
@@ -2629,13 +2473,13 @@ export default function BookEditor({
                   <button
                     type="button"
                     onClick={handleCopyMarketingToClipboard}
-                    className="w-full rounded-lg bg-slate-900 px-3 py-2 text-xs font-medium text-white hover:bg-slate-800 dark:bg-white dark:text-slate-900 dark:hover:bg-white/90"
+                    className="w-full rounded-xl bg-slate-900 px-4 py-2.5 text-[13px] font-medium text-white shadow-sm transition-all hover:bg-slate-800 hover:shadow-md dark:bg-white dark:text-slate-900 dark:hover:bg-white/90"
                   >
-                    {marketingCopyFeedback ? "Kopierat!" : "Kopiera till urklipp"}
+                    {marketingCopyFeedback ? "Copied!" : "Copy to clipboard"}
                   </button>
                 </div>
               )}
-              <p className="mt-3 text-xs text-slate-500 dark:text-white/50">Läsar-URL</p>
+              <p className="mt-3 text-xs text-slate-500 dark:text-white/50">Reader URL</p>
               <a
                 href={`/reader/books/${book.id}`}
                 target="_blank"
@@ -2647,26 +2491,26 @@ export default function BookEditor({
             </div>
             )}
 
-            <div className="rounded-xl border border-slate-200 bg-slate-50/50 p-5 dark:border-white/10 dark:bg-white/5">
-              <h2 className="mb-3 text-base font-semibold text-slate-900 dark:text-white">Marknadsportalen</h2>
+            <div className="rounded-2xl border border-black/[0.05] bg-white/60 p-5 shadow-[0_1px_3px_rgba(0,0,0,0.02)] backdrop-blur-sm dark:border-white/[0.06] dark:bg-white/[0.02] dark:shadow-none">
+              <h2 className="mb-3 text-[14px] font-semibold tracking-[-0.01em] text-slate-800 dark:text-white/90">Marketing portal</h2>
               {isPublished ? (
                 <>
                   <p className="mb-3 text-xs text-slate-500 dark:text-white/50">
-                    Planera kampanjer, generera text och hantera distribution för denna bok.
+                    Plan campaigns, generate copy, and manage distribution for this book.
                   </p>
                   <Link
                     href="/author/marketing"
-                    className="flex w-full items-center justify-center gap-2 rounded-lg bg-gradient-to-r from-[#907AFF] to-[#8069EE] px-3 py-2 text-sm font-semibold text-white transition hover:from-[#8069EE] hover:to-[#7058DD]"
+                    className="flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-b from-[#907AFF] to-[#7c6ae6] px-4 py-2.5 text-[13px] font-semibold text-white shadow-[0_1px_2px_rgba(144,122,255,0.3),inset_0_1px_0_rgba(255,255,255,0.15)] transition-all hover:shadow-[0_4px_12px_rgba(144,122,255,0.35)] hover:brightness-110"
                   >
                     <svg className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
                       <path fillRule="evenodd" d="M12.577 4.878a.75.75 0 01.919-.53l4.78 1.281a.75.75 0 01.531.919l-1.281 4.78a.75.75 0 01-1.449-.387l.81-3.022a19.407 19.407 0 00-5.594 5.203.75.75 0 01-1.139.093L7.55 10.81l-4.72 4.72a.75.75 0 01-1.06-1.06l5.25-5.25a.75.75 0 011.06 0l2.346 2.346a20.893 20.893 0 015.264-4.97l-2.633.706a.75.75 0 01-.919-.53z" clipRule="evenodd" />
                     </svg>
-                    Öppna marknadsportalen
+                    Open marketing portal
                   </Link>
                 </>
               ) : (
-                <p className="rounded-lg border border-dashed border-slate-300 bg-slate-50 px-3 py-2 text-center text-xs text-slate-500 dark:border-white/15 dark:bg-white/5 dark:text-white/50">
-                  Publicera boken för att öppna marknadsportalen
+                <p className="rounded-xl border border-dashed border-black/[0.08] bg-slate-50/50 px-3 py-3 text-center text-[12px] text-slate-400 dark:border-white/[0.06] dark:bg-white/[0.01] dark:text-white/30">
+                  Publish the book to open the marketing portal
                 </p>
               )}
             </div>
@@ -2675,7 +2519,7 @@ export default function BookEditor({
           <div>
             {selectedChapter ? (
               <>
-                <div className="mb-3 flex items-center justify-between">
+                <div className="mb-4 flex items-center justify-between">
                   {editingTitleId === selectedChapter.id ? (
                     <div className="flex flex-wrap items-center gap-2">
                       <input
@@ -2686,50 +2530,50 @@ export default function BookEditor({
                           if (e.key === "Enter") handleSaveTitle(selectedChapter.id);
                           if (e.key === "Escape") handleCancelEditTitle();
                         }}
-                        className="min-w-[200px] rounded-lg border border-slate-300 bg-white px-3 py-2 text-base text-slate-900 focus:border-slate-500 focus:outline-none dark:border-white/20 dark:bg-white/10 dark:text-white"
+                        className="min-w-[200px] rounded-xl border border-black/[0.08] bg-white px-4 py-2.5 text-base font-medium text-slate-900 shadow-sm focus:border-black/[0.15] focus:shadow-md focus:outline-none dark:border-white/[0.08] dark:bg-white/[0.04] dark:text-white"
                         autoFocus
-                        aria-label="Kapiteltitel"
+                        aria-label="Chapter title"
                       />
                       <button
                         type="button"
                         onClick={() => handleSaveTitle(selectedChapter.id)}
                         disabled={isSaving || !tempTitle.trim()}
-                        className="rounded-lg bg-slate-900 px-3 py-2 text-xs font-medium text-white hover:bg-slate-800 disabled:opacity-60 dark:bg-white dark:text-slate-900"
+                        className="rounded-xl bg-slate-900 px-4 py-2.5 text-[13px] font-semibold text-white shadow-sm hover:bg-slate-800 disabled:opacity-60 dark:bg-white dark:text-slate-900"
                       >
-                        {isSaving ? "Sparar…" : "Spara"}
+                        {isSaving ? "Saving..." : "Save"}
                       </button>
                       <button
                         type="button"
                         onClick={handleCancelEditTitle}
-                        className="rounded-lg border border-slate-300 px-3 py-2 text-xs font-medium text-slate-700 hover:bg-slate-50 dark:border-white/20 dark:text-white/70 dark:hover:bg-white/5"
+                        className="rounded-xl border border-black/[0.08] px-4 py-2.5 text-[13px] font-medium text-slate-600 hover:bg-slate-50 dark:border-white/[0.08] dark:text-white/60 dark:hover:bg-white/[0.04]"
                       >
-                        Avbryt
+                        Cancel
                       </button>
                     </div>
                   ) : (
                     <>
-                      <div className="flex items-center gap-2">
-                        <h2 className="text-xl font-semibold text-slate-900 dark:text-white">{selectedChapter.title}</h2>
+                      <div className="flex items-center gap-3">
+                        <h2 className="text-xl font-bold tracking-[-0.01em] text-slate-900 dark:text-white">{selectedChapter.title}</h2>
                         <button
                           type="button"
                           onClick={() => handleStartEditTitle(selectedChapter.id, selectedChapter.title)}
-                          className="text-xs text-slate-500 hover:text-slate-900 dark:text-white/50 dark:hover:text-white"
+                          className="rounded-full border border-black/[0.06] bg-white/80 px-3 py-1 text-[11px] font-medium text-slate-400 backdrop-blur-sm transition-all hover:border-black/[0.12] hover:text-slate-700 dark:border-white/[0.06] dark:bg-white/[0.03] dark:text-white/40 dark:hover:text-white/70"
                         >
-                          Byt namn
+                          Rename
                         </button>
                       </div>
-                      <p className="text-xs text-slate-500 dark:text-white/50">
+                      <p className="text-[12px] text-slate-400 dark:text-white/40">
                         {isSaving ? (
-                          <span className="flex items-center gap-1">
+                          <span className="flex items-center gap-1.5">
                             <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-[#907AFF]" />
-                            Sparar…
+                            Saving...
                           </span>
                         ) : lastSaved ? (
-                          <span className="text-[#5c4bb8] dark:text-[#b8a9ff]">
-                            Senast sparad {lastSaved.toLocaleTimeString()}
+                          <span className="text-emerald-500/80 dark:text-emerald-400/70">
+                            Last saved {lastSaved.toLocaleTimeString()}
                           </span>
                         ) : (
-                          "Autospar aktivt"
+                          "Autosave active"
                         )}
                       </p>
                     </>
@@ -2747,12 +2591,12 @@ export default function BookEditor({
                   onCommandPalette={() => setCommandPaletteOpen(true)}
                 />
 
-                <div className="mt-3">
+                <div className="mt-4">
                   <TiptapEditor
                     key={selectedChapter.id}
                     content={selectedChapter.content}
                     onUpdate={(json) => handleAutoSave(selectedChapter.id, json)}
-                    placeholder="Börja skriva ditt kapitel…"
+                    placeholder="Start writing your chapter..."
                     bookId={book.id}
                     chapterId={selectedChapter.id}
                     preset={preset}
@@ -2761,9 +2605,9 @@ export default function BookEditor({
                 </div>
               </>
             ) : (
-              <div className="flex h-[500px] items-center justify-center rounded-xl border border-slate-200 bg-slate-50/50 dark:border-white/10 dark:bg-white/5">
-                <p className="text-slate-500 dark:text-white/50">
-                  {chapters.length === 0 ? "Skapa ditt första kapitel för att börja skriva" : "Välj ett kapitel i sidopanelen"}
+              <div className="flex h-[500px] items-center justify-center rounded-2xl border border-dashed border-black/[0.08] bg-slate-50/30 dark:border-white/[0.06] dark:bg-white/[0.01]">
+                <p className="text-[14px] text-slate-400 dark:text-white/40">
+                  {chapters.length === 0 ? "Create your first chapter to start writing" : "Choose a chapter in the side panel"}
                 </p>
               </div>
             )}

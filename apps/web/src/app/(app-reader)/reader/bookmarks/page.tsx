@@ -68,14 +68,14 @@ export default async function ReaderBookmarksPage() {
 
       {bookmarksWithBook.length === 0 ? (
         <EmptyState
-          title="Inga bokmärken än"
-          description="Spara böcker från discover eller bibliotek så visas de här."
+          title="No bookmarks yet"
+          description="Save books from Discover or your library and they will appear here."
           action={
             <Link
               href="/reader/discover"
               className="inline-flex min-h-[40px] items-center rounded-full bg-slate-900 px-4 py-2 text-[13px] font-semibold text-white transition hover:bg-slate-800 dark:bg-white dark:text-slate-900"
             >
-              Utforska böcker
+              Explore books
             </Link>
           }
         />
@@ -99,7 +99,7 @@ export default async function ReaderBookmarksPage() {
                   href={`/reader/books/${item.book_id}`}
                   className="text-[12px] font-semibold text-slate-700 hover:text-slate-900 dark:text-white/70 dark:hover:text-white"
                 >
-                  Öppna bok
+                  Open book
                 </Link>
                 <BookmarkRemoveButton bookId={item.book_id} />
               </div>

@@ -217,9 +217,11 @@ async function findBillingAccountByRefs(
 async function persistBillingAccount(
   admin: ReturnType<typeof createAdminClient>,
   userId: string,
+  role: "reader" | "author",
   patch: BillingAccountPatch
 ): Promise<void> {
-  const { error } = await upsertBillingAccount(admin, userId, patch);
+  console.log("[billing-upsert]", { userId, role, plan: patch.plan, status: patch.status });
+  const { error } = await upsertBillingAccount(admin, userId, role, patch);
   if (error) {
     throw new Error(error.message);
   }
@@ -333,6 +335,7 @@ async function processSubscriptionCheckoutSession(
   await persistBillingAccount(
     admin,
     userId,
+    resolved.role,
     toPatch({
       stripeCustomerId: customerId ?? existing?.stripe_customer_id ?? null,
       stripeSubscriptionId: subscriptionId ?? existing?.stripe_subscription_id ?? null,
@@ -362,10 +365,15 @@ async function processSubscriptionEvent(
 
   const derivedStatus = trimToNull(subscription.status);
 
+  const priceIds = extractPriceIdsFromSubscription(subscription);
+  const resolved = await resolveRolePlanFromPriceIds(priceIds);
+
   if (isDeleted) {
+    const role = existing?.role ?? resolved?.role ?? "reader";
     await persistBillingAccount(
       admin,
       userId,
+      role,
       toPatch({
         stripeCustomerId: customerId ?? existing?.stripe_customer_id ?? null,
         stripeSubscriptionId: null,
@@ -377,9 +385,6 @@ async function processSubscriptionEvent(
     );
     return true;
   }
-
-  const priceIds = extractPriceIdsFromSubscription(subscription);
-  const resolved = await resolveRolePlanFromPriceIds(priceIds);
 
   if (!resolved) {
     console.warn("[stripe.webhook] could not resolve role/plan from price ids, skipping billing update", {
@@ -395,6 +400,7 @@ async function processSubscriptionEvent(
   await persistBillingAccount(
     admin,
     userId,
+    resolved.role,
     toPatch({
       stripeCustomerId: customerId ?? existing?.stripe_customer_id ?? null,
       stripeSubscriptionId: subscriptionId ?? existing?.stripe_subscription_id ?? null,
@@ -447,6 +453,7 @@ async function processInvoiceEvent(
   await persistBillingAccount(
     admin,
     userId,
+    resolved.role,
     toPatch({
       stripeCustomerId: customerId ?? existing?.stripe_customer_id ?? null,
       stripeSubscriptionId: subscriptionId ?? existing?.stripe_subscription_id ?? null,

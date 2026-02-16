@@ -3,7 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { parseBillingPlan } from "@/lib/billing/plans";
 import { getPriceIdForRolePlan } from "@/lib/billing/catalog";
-import { getBillingAccountByUserId, upsertBillingAccount } from "@/lib/billing/server";
+import { getBillingAccountByUserIdAndRole, upsertBillingAccount } from "@/lib/billing/server";
 import {
   createStripeCustomer,
   createStripeSubscriptionCheckoutSession,
@@ -33,9 +33,10 @@ function readCheckoutUrls(): { successUrl: string; cancelUrl: string } {
 async function ensureStripeCustomerId(
   admin: ReturnType<typeof createAdminClient>,
   userId: string,
+  role: "reader" | "author",
   email: string | null | undefined
 ): Promise<string> {
-  const { row, error } = await getBillingAccountByUserId(admin, userId);
+  const { row, error } = await getBillingAccountByUserIdAndRole(admin, userId, role);
   if (error) {
     throw new Error(`Failed to load billing account: ${error.message}`);
   }
@@ -50,7 +51,7 @@ async function ensureStripeCustomerId(
     email,
   });
 
-  const { error: upsertError } = await upsertBillingAccount(admin, userId, {
+  const { error: upsertError } = await upsertBillingAccount(admin, userId, role, {
     stripe_customer_id: customer.id,
   });
 
@@ -88,6 +89,9 @@ export async function POST(request: Request) {
   try {
     priceId = await getPriceIdForRolePlan(role, plan);
     ({ successUrl, cancelUrl } = readCheckoutUrls());
+    // So we can sync billing state when user returns (e.g. localhost where webhook does not run).
+    successUrl =
+      successUrl + (successUrl.includes("?") ? "&" : "?") + "checkout=success&session_id={CHECKOUT_SESSION_ID}";
   } catch (error) {
     console.error("[billing.checkout] catalog lookup failed", {
       userId: user.id,
@@ -108,7 +112,7 @@ export async function POST(request: Request) {
   const admin = createAdminClient();
 
   try {
-    const stripeCustomerId = await ensureStripeCustomerId(admin, user.id, user.email);
+    const stripeCustomerId = await ensureStripeCustomerId(admin, user.id, role, user.email);
     const session = await createStripeSubscriptionCheckoutSession({
       customerId: stripeCustomerId,
       plan,
@@ -116,6 +120,8 @@ export async function POST(request: Request) {
       priceId,
       successUrl,
       cancelUrl,
+      billingRole: role,
+      billingPlan: plan,
     });
 
     return NextResponse.json({ url: session.url });

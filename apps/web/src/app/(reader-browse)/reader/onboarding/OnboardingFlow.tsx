@@ -43,7 +43,7 @@ export default function OnboardingFlow() {
       setGenres(data.genres ?? []);
       setGenresLoaded(true);
     } catch {
-      setError("Kunde inte ladda genrer. Försök igen.");
+      setError("Could not load genres. Please try again.");
     }
   }, [genresLoaded]);
 
@@ -128,7 +128,7 @@ export default function OnboardingFlow() {
 
       router.push("/reader/home");
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Något gick fel. Försök igen.");
+      setError(err instanceof Error ? err.message : "Something went wrong. Please try again.");
       setStep("books");
     }
   }, [selectedGenres, bookSignals, router]);
@@ -138,10 +138,10 @@ export default function OnboardingFlow() {
       <div className="space-y-8">
         <div className="space-y-2 text-center">
           <h1 className="text-[28px] font-semibold tracking-tight text-slate-900 dark:text-white">
-            Vad gillar du att läsa?
+            What do you like to read?
           </h1>
           <p className="text-[15px] text-slate-500 dark:text-white/60">
-            Välj minst 3 genrer så kan vi rekommendera böcker till dig.
+            Pick at least 3 genres so we can recommend books for you.
           </p>
         </div>
 
@@ -164,7 +164,7 @@ export default function OnboardingFlow() {
             onClick={handleNextToBooks}
             className="rounded-full bg-[#907AFF] px-8 py-3 text-[14px] font-semibold text-white transition hover:bg-[#8069EE] disabled:cursor-not-allowed disabled:opacity-40"
           >
-            Nästa ({selectedGenres.size}/3+)
+            Next ({selectedGenres.size}/3+)
           </button>
         </div>
       </div>
@@ -176,10 +176,10 @@ export default function OnboardingFlow() {
       <div className="space-y-8">
         <div className="space-y-2 text-center">
           <h1 className="text-[28px] font-semibold tracking-tight text-slate-900 dark:text-white">
-            Vilka böcker tilltalar dig?
+            Which books appeal to you?
           </h1>
           <p className="text-[15px] text-slate-500 dark:text-white/60">
-            Gilla eller skippa — detta hjälper oss förstå din smak. Du kan också hoppa över.
+            Like or skip to help us understand your taste. You can skip this step too.
           </p>
         </div>
 
@@ -206,7 +206,7 @@ export default function OnboardingFlow() {
           </div>
         ) : (
           <p className="text-center text-sm text-slate-500 dark:text-white/50">
-            Inga böcker att visa just nu. Du kan gå vidare direkt.
+            No books to show right now. You can continue directly.
           </p>
         )}
 
@@ -216,14 +216,14 @@ export default function OnboardingFlow() {
             onClick={() => setStep("genres")}
             className="rounded-full border border-slate-200 bg-white px-6 py-3 text-[14px] font-medium text-slate-700 transition hover:bg-slate-50 dark:border-white/10 dark:bg-white/5 dark:text-white/80 dark:hover:bg-white/10"
           >
-            Tillbaka
+            Back
           </button>
           <button
             type="button"
             onClick={handleSubmit}
             className="rounded-full bg-[#907AFF] px-8 py-3 text-[14px] font-semibold text-white transition hover:bg-[#8069EE]"
           >
-            Slutför
+            Finish
           </button>
         </div>
       </div>
@@ -234,7 +234,7 @@ export default function OnboardingFlow() {
   return (
     <div className="flex flex-col items-center justify-center py-20 space-y-4">
       <div className="h-8 w-8 animate-spin rounded-full border-2 border-[#907AFF] border-t-transparent" />
-      <p className="text-[14px] text-slate-500 dark:text-white/60">Sparar dina val...</p>
+      <p className="text-[14px] text-slate-500 dark:text-white/60">Saving your choices...</p>
     </div>
   );
 }

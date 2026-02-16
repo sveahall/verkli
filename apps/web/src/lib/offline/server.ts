@@ -80,7 +80,7 @@ export async function requireOfflineBookAccess(
     return { ok: false, response: apiError(E_UNAUTHORIZED, 401) };
   }
 
-  const billing = await getBillingStateForUser(user.id);
+  const billing = await getBillingStateForUser(user.id, "reader");
   if (!billing.ok) {
     return billing;
   }

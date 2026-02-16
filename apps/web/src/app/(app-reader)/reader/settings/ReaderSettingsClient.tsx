@@ -1,6 +1,6 @@
 "use client";
 
-import { useReaderSettings, type ReaderSettingsData } from "@/hooks/useReaderSettings";
+import { useReaderSettings } from "@/hooks/useReaderSettings";
 
 const FONT_OPTIONS = [
   { value: "serif", label: "Serif", family: "Georgia, serif", preview: "Aa" },
@@ -9,18 +9,18 @@ const FONT_OPTIONS = [
 ] as const;
 
 const THEME_OPTIONS = [
-  { value: "light", label: "Ljus", bg: "bg-white", text: "text-slate-900", border: "border-slate-200" },
+  { value: "light", label: "Light", bg: "bg-white", text: "text-slate-900", border: "border-slate-200" },
   { value: "sepia", label: "Sepia", bg: "bg-[#f5f0e8]", text: "text-[#5c4b37]", border: "border-[#e0d5c5]" },
-  { value: "dark", label: "M\u00f6rk", bg: "bg-slate-900", text: "text-slate-200", border: "border-slate-700" },
+  { value: "dark", label: "Dark", bg: "bg-slate-900", text: "text-slate-200", border: "border-slate-700" },
 ] as const;
 
 const WIDTH_OPTIONS = [
-  { value: "narrow", label: "Smal", maxW: "max-w-md" },
+  { value: "narrow", label: "Narrow", maxW: "max-w-md" },
   { value: "medium", label: "Medium", maxW: "max-w-2xl" },
-  { value: "wide", label: "Bred", maxW: "max-w-4xl" },
+  { value: "wide", label: "Wide", maxW: "max-w-4xl" },
 ] as const;
 
-const PREVIEW_TEXT = "I natten l\u00e5g slottet tyst, dess torn avtecknade sig mot m\u00e5nens sken. Elin hade vandrat l\u00e4nge p\u00e5 stigen som ledde fr\u00e5n byn, och nu k\u00e4nde hon marken skifta under sina f\u00f6tter \u2014 fr\u00e5n jord till sten.";
+const PREVIEW_TEXT = "The castle stood silent in the night, its towers outlined against the moonlight. Elin had walked the forest path for hours, and now she felt the ground shift beneath her feet, from soft soil to cold stone.";
 
 function getFontFamily(value: string): string {
   return FONT_OPTIONS.find((f) => f.value === value)?.family ?? "Georgia, serif";
@@ -48,7 +48,7 @@ export default function ReaderSettingsClient() {
   return (
     <div className="space-y-8">
       {/* Font family */}
-      <Section title="Typsnitt">
+      <Section title="Font">
         <div className="flex gap-3">
           {FONT_OPTIONS.map((f) => (
             <button
@@ -71,7 +71,7 @@ export default function ReaderSettingsClient() {
       </Section>
 
       {/* Font size */}
-      <Section title="Storlek">
+      <Section title="Size">
         <div className="flex items-center gap-4">
           <span className="text-[13px] text-muted-foreground">14px</span>
           <input
@@ -91,7 +91,7 @@ export default function ReaderSettingsClient() {
       </Section>
 
       {/* Theme */}
-      <Section title="Tema">
+      <Section title="Theme">
         <div className="flex gap-3">
           {THEME_OPTIONS.map((t) => (
             <button
@@ -111,7 +111,7 @@ export default function ReaderSettingsClient() {
       </Section>
 
       {/* Line height */}
-      <Section title="Radavst\u00e5nd">
+      <Section title="Line height">
         <div className="flex items-center gap-4">
           <span className="text-[13px] text-muted-foreground">1.2</span>
           <input
@@ -131,7 +131,7 @@ export default function ReaderSettingsClient() {
       </Section>
 
       {/* Content width */}
-      <Section title="Bredd">
+      <Section title="Width">
         <div className="flex gap-3">
           {WIDTH_OPTIONS.map((w) => (
             <button
@@ -156,7 +156,7 @@ export default function ReaderSettingsClient() {
       </Section>
 
       {/* Preview */}
-      <Section title="F\u00f6rhandsgranskning">
+      <Section title="Preview">
         <div
           className={`rounded-2xl border p-6 transition-all ${theme.bg} ${theme.text} ${theme.border}`}
           style={{

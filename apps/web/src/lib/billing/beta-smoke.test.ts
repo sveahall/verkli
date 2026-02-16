@@ -3,6 +3,10 @@ import {
   parseBillingPlan,
   getBillingPriceConfig,
   getPlanFromPriceId,
+  rankPlan,
+  higherPlan,
+  resolveHighestPlanFromPriceIds,
+  planToPersist,
 } from "@/lib/billing/plans";
 import {
   deriveBillingState,
@@ -44,6 +48,7 @@ describe("parseBillingPlan", () => {
 describe("getBillingPriceConfig", () => {
   it("returns config when both env vars are set", () => {
     const config = getBillingPriceConfig({
+      NODE_ENV: "test",
       PRICE_PLUS: "price_plus_1",
       PRICE_PRO: "price_pro_1",
     } as NodeJS.ProcessEnv);
@@ -53,13 +58,13 @@ describe("getBillingPriceConfig", () => {
 
   it("throws when PRICE_PLUS is missing", () => {
     expect(() =>
-      getBillingPriceConfig({ PRICE_PRO: "price_pro_1" } as NodeJS.ProcessEnv)
+      getBillingPriceConfig({ NODE_ENV: "test", PRICE_PRO: "price_pro_1" } as NodeJS.ProcessEnv)
     ).toThrow("PRICE_PLUS");
   });
 
   it("throws when PRICE_PRO is missing", () => {
     expect(() =>
-      getBillingPriceConfig({ PRICE_PLUS: "price_plus_1" } as NodeJS.ProcessEnv)
+      getBillingPriceConfig({ NODE_ENV: "test", PRICE_PLUS: "price_plus_1" } as NodeJS.ProcessEnv)
     ).toThrow("PRICE_PRO");
   });
 
@@ -93,13 +98,79 @@ describe("getPlanFromPriceId", () => {
 });
 
 // ---------------------------------------------------------------------------
+// 3b. Plan ranking and highest plan from multiple price ids
+// ---------------------------------------------------------------------------
+
+describe("rankPlan and higherPlan", () => {
+  it("ranks pro above plus", () => {
+    expect(rankPlan("pro")).toBeGreaterThan(rankPlan("plus"));
+    expect(rankPlan("plus")).toBeGreaterThan(rankPlan(null));
+  });
+
+  it("higherPlan returns pro when one is pro", () => {
+    expect(higherPlan("plus", "pro")).toBe("pro");
+    expect(higherPlan("pro", "plus")).toBe("pro");
+    expect(higherPlan(null, "pro")).toBe("pro");
+    expect(higherPlan("plus", null)).toBe("plus");
+  });
+});
+
+describe("resolveHighestPlanFromPriceIds", () => {
+  const config = { plus: "price_plus_1", pro: "price_pro_1" };
+
+  it("returns pro when both plus and pro price ids present (two active subscriptions)", () => {
+    expect(resolveHighestPlanFromPriceIds([config.plus, config.pro], config)).toBe("pro");
+    expect(resolveHighestPlanFromPriceIds([config.pro, config.plus], config)).toBe("pro");
+  });
+
+  it("returns pro when only pro price id (webhook: pro subscription -> plan pro)", () => {
+    expect(resolveHighestPlanFromPriceIds([config.pro], config)).toBe("pro");
+  });
+
+  it("returns plus when only plus price id", () => {
+    expect(resolveHighestPlanFromPriceIds([config.plus], config)).toBe("plus");
+  });
+
+  it("ignores unknown price ids", () => {
+    expect(resolveHighestPlanFromPriceIds([config.plus, "price_unknown"], config)).toBe("plus");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// 3c. planToPersist: do not upgrade when status is not active/trialing
+// ---------------------------------------------------------------------------
+
+describe("planToPersist", () => {
+  it("allows upgrade when status is active", () => {
+    expect(planToPersist("pro", "active", "plus")).toBe("pro");
+    expect(planToPersist("pro", "trialing", "plus")).toBe("pro");
+  });
+
+  it("does not upgrade when status is past_due (keep existing)", () => {
+    expect(planToPersist("pro", "past_due", "plus")).toBe("plus");
+    expect(planToPersist("pro", "past_due", "pro")).toBe("pro");
+  });
+
+  it("does not upgrade when status is canceled or incomplete", () => {
+    expect(planToPersist("pro", "canceled", "plus")).toBe("plus");
+    expect(planToPersist("pro", "incomplete", "plus")).toBe("plus");
+  });
+
+  it("allows downgrade when inactive (e.g. derived plus, existing pro)", () => {
+    expect(planToPersist("plus", "past_due", "pro")).toBe("plus");
+  });
+});
+
+// ---------------------------------------------------------------------------
 // 4. Billing state derivation
 // ---------------------------------------------------------------------------
 
 describe("deriveBillingState", () => {
   function makeRow(overrides: Partial<BillingAccountRow> = {}): BillingAccountRow {
     return {
+      provider: "stripe",
       user_id: "user-1",
+      role: "reader",
       stripe_customer_id: null,
       stripe_subscription_id: null,
       plan: null,
@@ -125,16 +196,23 @@ describe("deriveBillingState", () => {
     expect(state.isProActive).toBe(false);
   });
 
-  it("active pro subscription includes plus", () => {
+  it("active pro subscription yields resolvedPlanKey pro only", () => {
     const state = deriveBillingState(makeRow({ plan: "pro", status: "active" }));
     expect(state.plan).toBe("pro");
-    expect(state.isPlusActive).toBe(true);
+    expect(state.isPlusActive).toBe(false);
+    expect(state.isProActive).toBe(true);
+  });
+
+  it("when multiple active subscriptions resolve to pro, state returns pro", () => {
+    const state = deriveBillingState(makeRow({ plan: "pro", status: "active" }));
+    expect(state.plan).toBe("pro");
     expect(state.isProActive).toBe(true);
   });
 
   it("trialing counts as active", () => {
     const state = deriveBillingState(makeRow({ plan: "pro", status: "trialing" }));
-    expect(state.isPlusActive).toBe(true);
+    expect(state.plan).toBe("pro");
+    expect(state.isPlusActive).toBe(false);
     expect(state.isProActive).toBe(true);
   });
 
@@ -148,6 +226,14 @@ describe("deriveBillingState", () => {
   it("canceled is not active", () => {
     const state = deriveBillingState(makeRow({ plan: "plus", status: "canceled" }));
     expect(state.isPlusActive).toBe(false);
+  });
+
+  it("author row with plan plus and status active yields resolvedPlanKey plus not pro", () => {
+    const row = makeRow({ plan: "plus", status: "active", role: "author" });
+    const state = deriveBillingState(row);
+    expect(state.plan).toBe("plus");
+    expect(state.isProActive).toBe(false);
+    expect(state.isPlusActive).toBe(true);
   });
 });
 

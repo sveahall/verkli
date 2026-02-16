@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import type { Tables } from "@/lib/supabase/types";
 
 type Book = Tables<"books">;
@@ -49,14 +50,17 @@ export default function BookCard({
         className={`${sizeClasses[size]} relative cursor-pointer overflow-hidden rounded-2xl border border-black/5 dark:border-white/5 bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-900 dark:to-slate-800 transition-all duration-500 group-hover:scale-[1.02]`}
       >
         {/* Cover Image */}
-        <div className="absolute inset-0">
-          {book.cover_image ? (
-            <img 
-              src={book.cover_image} 
-              alt={book.title} 
-              className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-110" 
-            />
-          ) : (
+          <div className="absolute inset-0">
+            {book.cover_image ? (
+              <Image
+                src={book.cover_image}
+                alt={book.title}
+                fill
+                sizes="(min-width: 1280px) 260px, (min-width: 1024px) 200px, 45vw"
+                className="object-cover transition-transform duration-500 group-hover:scale-110"
+                unoptimized
+              />
+            ) : (
             <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-[#907AFF]/30 via-[#E29ED5]/30 to-[#FCC997]/30">
               <div className="flex flex-col items-center gap-2">
                 <span className="text-4xl">📚</span>

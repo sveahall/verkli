@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -82,9 +83,9 @@ function AuthorAvatar({ author }: { author: CommentAuthor }) {
     .toUpperCase();
 
   return (
-    <div className="h-9 w-9 overflow-hidden rounded-full border border-black/10 bg-slate-100 text-[11px] font-semibold text-slate-600 dark:border-white/10 dark:bg-white/10 dark:text-white/70">
+    <div className="relative h-9 w-9 overflow-hidden rounded-full border border-black/10 bg-slate-100 text-[11px] font-semibold text-slate-600 dark:border-white/10 dark:bg-white/10 dark:text-white/70">
       {author.avatarUrl ? (
-        <img src={author.avatarUrl} alt={author.name} className="h-full w-full object-cover" />
+        <Image src={author.avatarUrl} alt={author.name} fill sizes="36px" className="object-cover" unoptimized />
       ) : (
         <div className="flex h-full w-full items-center justify-center">{initials}</div>
       )}
@@ -100,7 +101,7 @@ export default function CommentsSection({
   signInHref,
   chapterOptions,
   fixedChapterId = null,
-  title = "Kommentarer",
+  title = "Comments",
 }: CommentsSectionProps) {
   const toast = useToastHelpers();
   const [comments, setComments] = useState<BookComment[]>([]);
@@ -142,14 +143,14 @@ export default function CommentsSection({
       const payload = (await response.json().catch(() => ({}))) as CommentsResponse;
 
       if (!response.ok) {
-        const message = resolveErrorMessage(payload.error, "Kunde inte ladda kommentarer.");
+        const message = resolveErrorMessage(payload.error, "Could not load comments.");
         setLoadError(message);
         return;
       }
 
       setComments(Array.isArray(payload.comments) ? payload.comments : []);
     } catch {
-      setLoadError("Kunde inte ladda kommentarer.");
+      setLoadError("Could not load comments.");
     } finally {
       setIsLoading(false);
     }
@@ -182,23 +183,23 @@ export default function CommentsSection({
 
         const payload = (await response.json().catch(() => ({}))) as { error?: string };
         if (!response.ok) {
-          toast.error(resolveErrorMessage(payload.error, "Kunde inte publicera kommentaren."));
+          toast.error(resolveErrorMessage(payload.error, "Could not publish comment."));
           return;
         }
 
         if (input.parentCommentId) {
-          toast.success("Svar publicerat.");
+          toast.success("Reply published.");
           setReplyBody("");
           setReplyingToId(null);
         } else {
-          toast.success("Kommentar publicerad.");
+        toast.success("Comment published.");
           setBody("");
           setSelectedChapterId(fixedChapterId ?? "");
         }
 
         await loadComments();
       } catch {
-        toast.error("Kunde inte publicera kommentaren.");
+        toast.error("Could not publish comment.");
       } finally {
         setIsSubmitting(false);
       }
@@ -218,14 +219,14 @@ export default function CommentsSection({
         const payload = (await response.json().catch(() => ({}))) as { error?: string };
 
         if (!response.ok) {
-          toast.error(resolveErrorMessage(payload.error, "Kunde inte radera kommentaren."));
+          toast.error(resolveErrorMessage(payload.error, "Could not delete comment."));
           return;
         }
 
-        toast.success("Kommentar raderad.");
+        toast.success("Comment deleted.");
         await loadComments();
       } catch {
-        toast.error("Kunde inte radera kommentaren.");
+        toast.error("Could not delete comment.");
       } finally {
         setPendingDeleteId(null);
       }
@@ -239,29 +240,29 @@ export default function CommentsSection({
         <div className="flex flex-wrap items-center justify-between gap-3">
           <h2 className="text-[24px] font-semibold tracking-tight">{title}</h2>
           <span className="rounded-full border border-black/10 bg-black/[0.02] px-3 py-1 text-[12px] text-slate-600 dark:border-white/10 dark:bg-white/5 dark:text-white/60">
-            {totalComments} totalt
+            {totalComments} total
           </span>
         </div>
 
         {!isSignedIn ? (
           <div className="mt-5 rounded-2xl border border-slate-300/60 bg-slate-100/70 p-4 text-sm text-slate-700 dark:border-white/10 dark:bg-white/5 dark:text-white/70">
-            <p>Logga in för att kommentera.</p>
+            <p>Sign in to comment.</p>
             <Link
               href={signInHref}
               className="mt-3 inline-flex items-center rounded-full border border-slate-300 bg-white px-4 py-2 text-[13px] font-medium hover:bg-slate-50 dark:border-white/15 dark:bg-white/10 dark:hover:bg-white/15"
             >
-              Logga in
+              Sign in
             </Link>
           </div>
         ) : (
           <div className="mt-5 rounded-2xl border border-black/10 bg-white/70 p-4 dark:border-white/10 dark:bg-white/5">
             <label htmlFor="comment-body" className="text-[13px] font-medium text-slate-600 dark:text-white/70">
-              Ny kommentar
+              New comment
             </label>
             <Textarea
               id="comment-body"
               className="mt-2 min-h-[110px]"
-              placeholder="Skriv din kommentar..."
+              placeholder="Write your comment..."
               value={body}
               onChange={(event) => setBody(event.target.value)}
               maxLength={2000}
@@ -271,7 +272,7 @@ export default function CommentsSection({
               {!fixedChapterId ? (
                 <div className="flex items-center gap-2">
                   <label htmlFor="comment-chapter" className="text-[12px] text-slate-500 dark:text-white/50">
-                    Kapitel
+                    Chapter
                   </label>
                   <select
                     id="comment-chapter"
@@ -279,7 +280,7 @@ export default function CommentsSection({
                     value={selectedChapterId}
                     onChange={(event) => setSelectedChapterId(event.target.value)}
                   >
-                    <option value="">Hela boken</option>
+                    <option value="">Entire book</option>
                     {chapterOptions.map((chapter) => (
                       <option key={chapter.id} value={chapter.id}>
                         {chapter.order}. {chapter.title}
@@ -289,7 +290,7 @@ export default function CommentsSection({
                 </div>
               ) : (
                 <p className="text-[12px] text-slate-500 dark:text-white/50">
-                  Tråden är kopplad till det här kapitlet.
+                  This thread is linked to this chapter.
                 </p>
               )}
 
@@ -302,9 +303,9 @@ export default function CommentsSection({
                   })
                 }
                 isLoading={isSubmitting}
-                loadingText="Publicerar"
+                loadingText="Publishing"
               >
-                Publicera
+                Publish
               </Button>
             </div>
           </div>
@@ -312,13 +313,13 @@ export default function CommentsSection({
 
         <div className="mt-6 space-y-4">
           {isLoading ? (
-            <p className="text-[14px] text-slate-500 dark:text-white/50">Laddar kommentarer...</p>
+            <p className="text-[14px] text-slate-500 dark:text-white/50">Loading comments...</p>
           ) : loadError ? (
             <p className="rounded-xl border border-rose-500/30 bg-rose-500/10 px-4 py-3 text-[14px] text-rose-700 dark:text-rose-300">
               {loadError}
             </p>
           ) : comments.length === 0 ? (
-            <p className="text-[14px] text-slate-500 dark:text-white/50">Inga kommentarer än. Starta tråden.</p>
+            <p className="text-[14px] text-slate-500 dark:text-white/50">No comments yet. Start the thread.</p>
           ) : (
             comments.map((comment) => (
               <article
@@ -363,7 +364,7 @@ export default function CommentsSection({
                             setReplyBody("");
                           }}
                         >
-                          Svara
+                          Reply
                         </button>
                       )}
                       {canDeleteComment(comment.authorId) && (
@@ -373,7 +374,7 @@ export default function CommentsSection({
                           disabled={pendingDeleteId === comment.id}
                           onClick={() => deleteComment(comment.id)}
                         >
-                          {pendingDeleteId === comment.id ? "Raderar..." : "Radera"}
+                          {pendingDeleteId === comment.id ? "Deleting..." : "Delete"}
                         </button>
                       )}
                     </div>
@@ -382,7 +383,7 @@ export default function CommentsSection({
                       <div className="mt-4 rounded-xl border border-black/10 bg-black/[0.02] p-3 dark:border-white/10 dark:bg-white/5">
                         <Textarea
                           className="min-h-[90px]"
-                          placeholder="Skriv ditt svar..."
+                          placeholder="Write your reply..."
                           value={replyBody}
                           onChange={(event) => setReplyBody(event.target.value)}
                           maxLength={2000}
@@ -397,13 +398,13 @@ export default function CommentsSection({
                               setReplyBody("");
                             }}
                           >
-                            Avbryt
+                            Cancel
                           </Button>
                           <Button
                             type="button"
                             size="sm"
                             isLoading={isSubmitting}
-                            loadingText="Publicerar"
+                            loadingText="Publishing"
                             onClick={() =>
                               submitComment({
                                 text: replyBody,
@@ -412,7 +413,7 @@ export default function CommentsSection({
                               })
                             }
                           >
-                            Publicera svar
+                            Publish reply
                           </Button>
                         </div>
                       </div>

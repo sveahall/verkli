@@ -44,8 +44,8 @@ export default async function SimilarBooksRail({
   return (
     <section className="mx-auto max-w-[1100px] px-6 pb-12">
       <Rail
-        title="Liknande böcker"
-        description="Baserat på genre, författare och samlingar"
+        title="Similar books"
+        description="Based on genre, author, and collections"
         isEmpty={false}
       >
         {enriched.map((book) => (

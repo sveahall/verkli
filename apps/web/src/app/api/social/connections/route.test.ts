@@ -39,10 +39,6 @@ const { GET } = await import("./route");
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
 
-function makeRequest(): Request {
-  return new Request("http://localhost/api/social/connections", { method: "GET" });
-}
-
 function mockAuthSuccess(userId = "u1") {
   vi.mocked(requireAuthorRoleForApi).mockResolvedValue({
     user: { id: userId } as never,

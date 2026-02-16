@@ -1,19 +1,5 @@
 import Link from "next/link";
-import GlassSurface from "@/components/GlassSurface";
-
-const glassBaseProps = {
-  displace: 0.5,
-  distortionScale: -180,
-  redOffset: 0,
-  greenOffset: 10,
-  blueOffset: 20,
-  brightness: 50,
-  opacity: 0.93,
-  backgroundOpacity: 0.12,
-  blur: 12,
-  saturation: 1.2,
-  mixBlendMode: "screen",
-};
+import Image from "next/image";
 
 type ProfileHeaderProps = {
   displayName: string;
@@ -31,12 +17,11 @@ export default function ProfileHeader({
   isPublic,
 }: ProfileHeaderProps) {
   return (
-
       <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
         <div className="flex flex-col gap-6 md:flex-row md:items-center">
           <div className="relative h-20 w-20 overflow-hidden rounded-full border border-white/80 bg-gradient-to-br from-[#907AFF]/30 via-[#B892FF]/30 to-[#E29ED5]/30 dark:border-white/30">
             {avatarUrl ? (
-              <img src={avatarUrl} alt={displayName} className="h-full w-full object-cover" />
+              <Image src={avatarUrl} alt={displayName} fill sizes="80px" className="object-cover" unoptimized />
             ) : (
               <div className="flex h-full w-full items-center justify-center text-[28px] font-medium text-slate-900 dark:text-white">
                 {displayName.charAt(0).toUpperCase()}

@@ -96,7 +96,7 @@ async function publishToEmail(
 // ─────────────────────────────────────────────────────────────────────────────
 
 async function processJob(payload: SocialPublishJobData) {
-  const { jobId, campaignId, bookId, userId, platforms } = payload;
+  const { jobId, campaignId, userId, platforms } = payload;
   const supabase = createAdminClient();
 
   const updateJob = async (

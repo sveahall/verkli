@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import type { Tables } from "@/lib/supabase/types";
+import { BRAND_GRADIENTS } from "@/lib/design/brand";
 
 type Shelf = Tables<"shelves">;
 
@@ -16,7 +17,7 @@ export default function ShelfTile({ shelf, onClick, bookCount }: ShelfTileProps)
     ? { background: shelf.cover_gradient }
     : shelf.cover_url
     ? { backgroundImage: `url(${shelf.cover_url})`, backgroundSize: 'cover', backgroundPosition: 'center' }
-    : { background: 'linear-gradient(135deg, #907AFF 0%, #E29ED5 100%)' };
+    : { background: BRAND_GRADIENTS.violetToRose };
 
   const typography = shelf.typography as {
     fontFamily?: string;
