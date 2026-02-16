@@ -177,6 +177,7 @@ type BookVersion = {
   visibility?: PublishVisibility | null;
   created_at?: string;
   updated_at?: string;
+  error_message?: string | null;
 };
 
 type LatestAudiobookAsset = {
@@ -813,6 +814,7 @@ export default function BookEditor({
   );
 
   const requestedTargetVersionRef = useRef<BookVersion | null>(null);
+  const translationFailedCountRef = useRef(0);
 
   useEffect(() => {
     requestedTargetVersionRef.current = requestedTargetVersion ?? null;
@@ -829,15 +831,27 @@ export default function BookEditor({
   useEffect(() => {
     if (!isPollingTranslation || !lastRequestedTargetLanguage) return;
     if (requestedTargetVersion?.status === "done" || requestedTargetVersion?.published_at) {
+      translationFailedCountRef.current = 0;
       stopTranslationPoll();
       setTranslateMessage(`Translation complete (${getLanguageLabel(lastRequestedTargetLanguage)}).`);
       setLastRequestedTargetLanguage(null);
       return;
     }
+    if (requestedTargetVersion?.status === "translating") {
+      translationFailedCountRef.current = 0;
+      return;
+    }
     if (requestedTargetVersion?.status === "failed") {
-      stopTranslationPoll();
-      setTranslateMessage("Translation failed. Try again.");
-      setLastRequestedTargetLanguage(null);
+      translationFailedCountRef.current += 1;
+      // Only treat as terminal after 2 consecutive "failed" (avoids race: worker may not have set "translating" yet)
+      if (translationFailedCountRef.current >= 2) {
+        stopTranslationPoll();
+        setTranslateMessage(
+          (requestedTargetVersion as BookVersion).error_message?.trim() ||
+            "Translation failed. Try again."
+        );
+        setLastRequestedTargetLanguage(null);
+      }
     }
   }, [isPollingTranslation, lastRequestedTargetLanguage, requestedTargetVersion, stopTranslationPoll]);
 
@@ -895,6 +909,7 @@ export default function BookEditor({
 
   const startTranslationPoll = useCallback(() => {
     stopTranslationPoll();
+    translationFailedCountRef.current = 0;
     translationPollStartedAtRef.current = Date.now();
     setIsPollingTranslation(true);
     translationPollRef.current = setInterval(() => {
@@ -941,16 +956,22 @@ export default function BookEditor({
     let overwrite = false;
     let targetVersionId: string | null = null;
     if (existingVersion) {
-      const shouldOverwrite = window.confirm(
-        `A ${getLanguageLabel(translateTargetLanguage)} version already exists. Do you want to overwrite it?`
-      );
-      if (!shouldOverwrite) {
-        router.push(`/author/books/${book.id}?lang=${normalizeLangKey(translateTargetLanguage)}`);
-        setIsStartingTranslation(false);
-        return;
+      // Failed version: allow one-click retry without confirm
+      if (existingVersion.status === "failed") {
+        overwrite = true;
+        targetVersionId = existingVersion.id;
+      } else {
+        const shouldOverwrite = window.confirm(
+          `A ${getLanguageLabel(translateTargetLanguage)} version already exists. Do you want to overwrite it?`
+        );
+        if (!shouldOverwrite) {
+          router.push(`/author/books/${book.id}?lang=${normalizeLangKey(translateTargetLanguage)}`);
+          setIsStartingTranslation(false);
+          return;
+        }
+        overwrite = true;
+        targetVersionId = existingVersion.id;
       }
-      overwrite = true;
-      targetVersionId = existingVersion.id;
     }
 
     try {
@@ -2183,6 +2204,11 @@ export default function BookEditor({
                     {translationUiStatus === "error" && STATUS_LABELS.failed}
                   </span>
                 </div>
+                {translationUiStatus === "error" && currentTargetVersion?.error_message && (
+                  <p className="mb-3 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-800 dark:border-red-800 dark:bg-red-950/30 dark:text-red-200" role="alert">
+                    {currentTargetVersion.error_message}
+                  </p>
+                )}
                 <label htmlFor="translate-language" className="mb-1 block text-xs text-slate-500 dark:text-white/50">Target language</label>
                 <select
                   id="translate-language"
@@ -2213,7 +2239,9 @@ export default function BookEditor({
                         : billing.pastDue
                           ? "Locked: payment required"
                           : "Start translation (Pro required)"
-                      : "Start translation"}
+                      : translationUiStatus === "error"
+                        ? "Retry translation"
+                        : "Start translation"}
                 </button>
                 {isProFeatureLocked && (
                   <div className="mt-2 rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-800 dark:border-amber-700 dark:bg-amber-950/30 dark:text-amber-200">

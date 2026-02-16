@@ -18,9 +18,11 @@ type Notification = {
 type NotificationDropdownProps = {
   onClose: () => void;
   onCountChange: () => void;
+  /** When set, dropdown is positioned fixed under the anchor (for portal rendering). */
+  anchorRect?: DOMRect;
 };
 
-export default function NotificationDropdown({ onClose, onCountChange }: NotificationDropdownProps) {
+export default function NotificationDropdown({ onClose, onCountChange, anchorRect }: NotificationDropdownProps) {
   const ref = useRef<HTMLDivElement>(null);
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [loading, setLoading] = useState(true);
@@ -67,11 +69,21 @@ export default function NotificationDropdown({ onClose, onCountChange }: Notific
     onCountChange();
   };
 
+  const isPortal = anchorRect != null;
+  const style = isPortal
+    ? {
+        position: "fixed" as const,
+        top: anchorRect.bottom + 8,
+        right: Math.max(16, window.innerWidth - anchorRect.right),
+        zIndex: 10002,
+      }
+    : undefined;
+  const className =
+    "w-[360px] max-w-[calc(100vw-2rem)] overflow-hidden rounded-2xl border border-slate-200/80 bg-white shadow-xl dark:border-white/10 dark:bg-slate-900" +
+    (isPortal ? "" : " absolute right-0 top-full z-[10002] mt-2");
+
   return (
-    <div
-      ref={ref}
-      className="absolute right-0 top-full mt-2 w-[360px] max-w-[calc(100vw-2rem)] overflow-hidden rounded-2xl border border-slate-200/80 bg-white shadow-xl dark:border-white/10 dark:bg-slate-900"
-    >
+    <div ref={ref} className={className} style={style}>
       <div className="flex items-center justify-between border-b border-slate-200/80 px-4 py-3 dark:border-white/10">
         <h3 className="text-[14px] font-semibold text-slate-900 dark:text-white">
           Notifications

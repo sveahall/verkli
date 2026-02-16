@@ -1,12 +1,14 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useRef } from "react";
+import { createPortal } from "react-dom";
 import { useUnreadCount } from "@/hooks/useNotifications";
 import NotificationDropdown from "./NotificationDropdown";
 
 export default function NotificationBell() {
   const { count, refetch } = useUnreadCount();
   const [open, setOpen] = useState(false);
+  const buttonRef = useRef<HTMLDivElement>(null);
 
   const handleClose = useCallback(() => {
     setOpen(false);
@@ -17,7 +19,7 @@ export default function NotificationBell() {
   }, [refetch]);
 
   return (
-    <div className="relative">
+    <div className="relative" ref={buttonRef}>
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}
@@ -35,9 +37,11 @@ export default function NotificationBell() {
         )}
       </button>
 
-      {open && (
-        <NotificationDropdown onClose={handleClose} onCountChange={handleCountChange} />
-      )}
+      {open && typeof document !== "undefined" && buttonRef.current &&
+        createPortal(
+          <NotificationDropdown onClose={handleClose} onCountChange={handleCountChange} anchorRect={buttonRef.current.getBoundingClientRect()} />,
+          document.body
+        )}
     </div>
   );
 }

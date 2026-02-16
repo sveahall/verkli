@@ -243,7 +243,7 @@ async function processJob(payload: TranslationJobData) {
 
     await supabase
       .from("book_versions")
-      .update({ status: "translating" })
+      .update({ status: "translating", error_message: null })
       .eq("id", resolvedTargetVersionId);
 
     if (overwrite) {
@@ -306,7 +306,11 @@ async function processJob(payload: TranslationJobData) {
         } catch (err) {
           const msg = err instanceof Error ? err.message : String(err);
           console.error("[translation worker] Opus MT failed for chapter:", ch.id, msg);
-          await supabase.from("book_versions").update({ status: "failed" }).eq("id", resolvedTargetVersionId);
+          const safeMessage = msg.slice(0, 500);
+          await supabase
+            .from("book_versions")
+            .update({ status: "failed", error_message: safeMessage })
+            .eq("id", resolvedTargetVersionId);
           throw err;
         }
       }
@@ -330,7 +334,10 @@ async function processJob(payload: TranslationJobData) {
       console.log("[translation worker] chapter upserted — order:", i, "title:", ch.title);
     }
 
-    await supabase.from("book_versions").update({ status: "done" }).eq("id", resolvedTargetVersionId);
+    await supabase
+      .from("book_versions")
+      .update({ status: "done", error_message: null })
+      .eq("id", resolvedTargetVersionId);
 
     // Track token usage (estimate: ~1 token per 4 chars of source text)
     const totalChars = chapterList.reduce(
@@ -348,7 +355,11 @@ async function processJob(payload: TranslationJobData) {
     const msg = err instanceof Error ? err.message : String(err);
     console.error("[translation worker] failed — bookId:", bookId, "error:", msg);
     if (resolvedTargetVersionId) {
-      await supabase.from("book_versions").update({ status: "failed" }).eq("id", resolvedTargetVersionId);
+      const safeMessage = msg.slice(0, 500);
+      await supabase
+        .from("book_versions")
+        .update({ status: "failed", error_message: safeMessage })
+        .eq("id", resolvedTargetVersionId);
     }
     throw err;
   }
