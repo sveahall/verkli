@@ -177,3 +177,17 @@ export function resolveRolePlanFromPriceIdsWithCatalog(
 export function clearCatalogCache(): void {
   cache = null;
 }
+
+/**
+ * Returns Stripe price_id for (role, planKey). Used by checkout.
+ */
+export async function getPriceIdForRolePlan(
+  role: CatalogRole,
+  planKey: CatalogPlanKey
+): Promise<string | null> {
+  const catalog = await getPlanCatalog();
+  const row = catalog.find(
+    (r) => r.role === role && r.plan_key === planKey
+  );
+  return row?.price_id ?? null;
+}

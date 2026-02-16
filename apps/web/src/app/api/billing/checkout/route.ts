@@ -1,17 +1,19 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { parseBillingPlan, getBillingPriceConfig, getPriceIdForPlan } from "@/lib/billing/plans";
+import { parseBillingPlan } from "@/lib/billing/plans";
+import { getPriceIdForRolePlan } from "@/lib/billing/catalog";
 import { getBillingAccountByUserId, upsertBillingAccount } from "@/lib/billing/server";
 import {
   createStripeCustomer,
   createStripeSubscriptionCheckoutSession,
 } from "@/lib/payments/stripe-billing";
+import { getActiveRoleFromRequest } from "@/lib/active-role";
 import {
   apiError,
   E_UNAUTHORIZED,
   E_INVALID_BILLING_PLAN,
-  E_BILLING_CONFIG_MISSING,
+  E_FORBIDDEN,
   E_BILLING_CHECKOUT_FAILED,
 } from "@/lib/api-errors";
 
@@ -75,19 +77,32 @@ export async function POST(request: Request) {
     return apiError(E_INVALID_BILLING_PLAN, 400);
   }
 
-  let priceId: string;
+  const role = getActiveRoleFromRequest(request);
+  if (!role) {
+    return apiError(E_FORBIDDEN, 403);
+  }
+
+  let priceId: string | null = null;
   let successUrl: string;
   let cancelUrl: string;
   try {
-    const config = getBillingPriceConfig();
-    priceId = getPriceIdForPlan(plan, config);
+    priceId = await getPriceIdForRolePlan(role, plan);
     ({ successUrl, cancelUrl } = readCheckoutUrls());
   } catch (error) {
-    console.error("[billing.checkout] missing billing config", {
+    console.error("[billing.checkout] catalog lookup failed", {
       userId: user.id,
       message: error instanceof Error ? error.message : String(error),
     });
-    return apiError(E_BILLING_CONFIG_MISSING, 500);
+    return apiError(E_BILLING_CHECKOUT_FAILED, 500);
+  }
+
+  if (!priceId) {
+    console.error("[billing.checkout] no price id for role/plan in catalog", {
+      userId: user.id,
+      role,
+      plan,
+    });
+    return apiError(E_BILLING_CHECKOUT_FAILED, 500);
   }
 
   const admin = createAdminClient();

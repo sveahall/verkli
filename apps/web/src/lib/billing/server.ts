@@ -1,8 +1,17 @@
 import { createAdminClient } from "@/lib/supabase/admin";
 import { apiError, E_GENERIC_ERROR, E_PRO_SUBSCRIPTION_REQUIRED, E_SUBSCRIPTION_PAST_DUE } from "@/lib/api-errors";
-import { deriveBillingState, type BillingAccountRow, type BillingState } from "@/lib/billing/state";
+import {
+  deriveBillingState,
+  isBillingStatusActive,
+  normalizeBillingStatus,
+  type BillingAccountRow,
+  type BillingState,
+} from "@/lib/billing/state";
 export type { BillingAccountRow };
-import type { BillingPlan } from "@/lib/billing/plans";
+import { rankPlan, type BillingPlan } from "@/lib/billing/plans";
+import { resolveRolePlanFromPriceIds, type CatalogRole } from "@/lib/billing/catalog";
+import { getStripeCustomerSubscriptions } from "@/lib/payments/stripe-billing";
+import type { StripeSubscription } from "@/lib/payments/stripe-billing";
 
 export type BillingAccountPatch = {
   stripe_customer_id?: string | null;
@@ -112,8 +121,109 @@ export async function upsertBillingAccount(
   return { error: toError(error) };
 }
 
+const ACTIVE_STRIPE_STATUSES = new Set(["active", "trialing"]);
+
+function stateFromStripeSubscription(
+  sub: StripeSubscription,
+  plan: BillingPlan | null,
+  stripeCustomerId: string,
+  plusEnding: { cancelAtPeriodEnd: boolean; periodEnd: string | null }
+): BillingState {
+  const status = normalizeBillingStatus(sub.status);
+  const active = isBillingStatusActive(status);
+  const currentPeriodEnd =
+    sub.current_period_end != null && Number.isFinite(sub.current_period_end)
+      ? new Date(sub.current_period_end * 1000).toISOString()
+      : null;
+  return {
+    plan,
+    status,
+    currentPeriodEnd,
+    cancelAtPeriodEnd: sub.cancel_at_period_end,
+    stripeCustomerId,
+    stripeSubscriptionId: sub.id,
+    isPlusActive: active && (plan === "plus" || plan === "pro"),
+    isProActive: active && plan === "pro",
+    plusCancelAtPeriodEnd: plusEnding.cancelAtPeriodEnd,
+    plusPeriodEnd: plusEnding.periodEnd,
+  };
+}
+
+/** When we have a Stripe customer id, resolve state from live subscriptions for the given role (catalog-based). */
+async function enrichStateFromStripe(
+  row: BillingAccountRow | null,
+  role: CatalogRole
+): Promise<BillingState | null> {
+  const customerId = row?.stripe_customer_id ?? null;
+  if (!customerId) return null;
+
+  let subscriptions: StripeSubscription[];
+  try {
+    subscriptions = await getStripeCustomerSubscriptions(customerId);
+  } catch {
+    return null;
+  }
+
+  const activeSubs = subscriptions.filter(
+    (s) => s.status && ACTIVE_STRIPE_STATUSES.has(s.status.toLowerCase())
+  );
+  if (activeSubs.length === 0) return null;
+
+  const subsForRole: { sub: StripeSubscription; plan: BillingPlan }[] = [];
+  for (const sub of activeSubs) {
+    const resolved = await resolveRolePlanFromPriceIds(sub.price_ids);
+    if (resolved && resolved.role === role) {
+      subsForRole.push({ sub, plan: resolved.planKey as BillingPlan });
+    }
+  }
+  if (subsForRole.length === 0) return null;
+
+  let best = subsForRole[0];
+  for (const entry of subsForRole) {
+    if (rankPlan(entry.plan) > rankPlan(best.plan)) {
+      best = entry;
+    }
+  }
+
+  let plusEnding: { cancelAtPeriodEnd: boolean; periodEnd: string | null } = {
+    cancelAtPeriodEnd: false,
+    periodEnd: null,
+  };
+  for (const entry of subsForRole) {
+    if (entry.plan === "plus" && entry.sub.cancel_at_period_end) {
+      plusEnding = {
+        cancelAtPeriodEnd: true,
+        periodEnd:
+          entry.sub.current_period_end != null && Number.isFinite(entry.sub.current_period_end)
+            ? new Date(entry.sub.current_period_end * 1000).toISOString()
+            : null,
+      };
+      break;
+    }
+  }
+
+  return stateFromStripeSubscription(best.sub, best.plan, customerId, plusEnding);
+}
+
+export type ActiveBillingRole = "reader" | "author";
+
+/**
+ * Returns billing state scoped to role: reader sees only Plus, author only Pro.
+ */
+function scopeStateToRole(state: BillingState, role: ActiveBillingRole): BillingState {
+  if (role === "reader") {
+    return {
+      ...state,
+      plan: state.plan === "pro" ? "plus" : state.plan,
+      isProActive: false,
+    };
+  }
+  return state;
+}
+
 export async function getBillingStateForUser(
-  userId: string
+  userId: string,
+  role: ActiveBillingRole
 ): Promise<
   | { ok: true; row: BillingAccountRow | null; state: BillingState }
   | { ok: false; response: Response }
@@ -130,17 +240,31 @@ export async function getBillingStateForUser(
     return { ok: false, response: apiError(E_GENERIC_ERROR, 500) };
   }
 
+  const stateFromLive =
+    (await enrichStateFromStripe(row, role)) ?? deriveBillingState(row);
+  const state = scopeStateToRole(stateFromLive, role);
+
+  if (process.env.BILLING_DEBUG === "1") {
+    console.debug("[billing] state", {
+      subscriptionId: row?.stripe_subscription_id ?? null,
+      status: row?.status ?? null,
+      plan: row?.plan ?? null,
+      resolvedPlanKey: state.plan,
+      role,
+    });
+  }
+
   return {
     ok: true,
     row,
-    state: deriveBillingState(row),
+    state,
   };
 }
 
 export async function requireProBillingForApi(
   userId: string
 ): Promise<{ ok: true; state: BillingState } | { ok: false; response: Response }> {
-  const loaded = await getBillingStateForUser(userId);
+  const loaded = await getBillingStateForUser(userId, "author");
   if (!loaded.ok) return loaded;
 
   if (loaded.state.status === "past_due") {
