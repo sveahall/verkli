@@ -1,13 +1,8 @@
 import Stripe from "stripe";
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import {
-  getBillingPriceConfig,
-  getPlanFromPriceId,
-  parseBillingPlan,
-  type BillingPriceConfig,
-  type BillingPlan,
-} from "@/lib/billing/plans";
+import { parseBillingPlan, planToPersist, type BillingPlan } from "@/lib/billing/plans";
+import { resolveRolePlanFromPriceIds } from "@/lib/billing/catalog";
 import {
   getBillingAccountByStripeCustomerId,
   getBillingAccountByStripeSubscriptionId,
@@ -126,6 +121,23 @@ function extractPriceIdsFromInvoice(invoice: StripeRecord): string[] {
   return ids;
 }
 
+function extractPriceIdsFromCheckoutSession(session: StripeRecord): string[] {
+  const lineItems = asRecord(session.line_items);
+  if (!lineItems || !Array.isArray(lineItems.data)) return [];
+
+  const ids: string[] = [];
+  for (const item of lineItems.data) {
+    const itemRecord = asRecord(item);
+    const priceRecord = asRecord(itemRecord?.price);
+    const priceId = trimToNull(priceRecord?.id) ?? (typeof itemRecord?.price === "string" ? trimToNull(itemRecord.price) : null);
+    if (priceId) {
+      ids.push(priceId);
+    }
+  }
+
+  return ids;
+}
+
 function extractInvoicePeriodEnd(invoice: StripeRecord): string | null {
   const lines = asRecord(invoice.lines);
   if (lines && Array.isArray(lines.data)) {
@@ -140,20 +152,6 @@ function extractInvoicePeriodEnd(invoice: StripeRecord): string | null {
   }
 
   return unixSecondsToIso(invoice.period_end);
-}
-
-function resolvePlanFromPriceIds(
-  priceIds: string[],
-  priceConfig: BillingPriceConfig | null
-): BillingPlan | null {
-  if (!priceConfig) return null;
-
-  for (const priceId of priceIds) {
-    const plan = getPlanFromPriceId(priceId, priceConfig);
-    if (plan) return plan;
-  }
-
-  return null;
 }
 
 function toPatch(input: {
@@ -294,32 +292,43 @@ async function processPaymentKindCheckoutSession(
 
 async function processSubscriptionCheckoutSession(
   admin: ReturnType<typeof createAdminClient>,
-  session: StripeRecord
+  session: StripeRecord,
+  eventId: string
 ): Promise<boolean> {
   const mode = trimToNull(session.mode);
   const subscriptionId = extractStripeId(session.subscription);
   const customerId = extractStripeId(session.customer);
   const metadata = extractMetadata(session.metadata);
 
-  const planFromMetadata = parseBillingPlan(metadata.plan);
-
-  if (mode !== "subscription" && !subscriptionId && !planFromMetadata) {
+  if (mode !== "subscription" && !subscriptionId) {
     return false;
   }
 
   const existing = await findBillingAccountByRefs(admin, customerId, subscriptionId);
-
   const userId = trimToNull(metadata.user_id) ?? existing?.user_id ?? null;
   if (!userId) {
     return false;
   }
 
-  const status =
+  const priceIds = extractPriceIdsFromCheckoutSession(session);
+  const resolved = priceIds.length > 0 ? await resolveRolePlanFromPriceIds(priceIds) : null;
+
+  if (!resolved) {
+    if (priceIds.length > 0) {
+      console.warn("[stripe.webhook] could not resolve role/plan from price ids, skipping billing update", {
+        eventId,
+        priceIds,
+      });
+    }
+    return true;
+  }
+
+  const derivedStatus =
     trimToNull(session.payment_status) === "paid"
       ? "active"
       : trimToNull(session.status) ?? existing?.status ?? null;
-
-  const plan = planFromMetadata ?? parseBillingPlan(existing?.plan);
+  const existingPlan = parseBillingPlan(existing?.plan);
+  const plan = planToPersist(resolved.planKey as BillingPlan, derivedStatus, existingPlan);
 
   await persistBillingAccount(
     admin,
@@ -328,7 +337,7 @@ async function processSubscriptionCheckoutSession(
       stripeCustomerId: customerId ?? existing?.stripe_customer_id ?? null,
       stripeSubscriptionId: subscriptionId ?? existing?.stripe_subscription_id ?? null,
       plan: plan ?? undefined,
-      status: status ?? undefined,
+      status: derivedStatus ?? undefined,
     })
   );
 
@@ -338,7 +347,7 @@ async function processSubscriptionCheckoutSession(
 async function processSubscriptionEvent(
   admin: ReturnType<typeof createAdminClient>,
   subscription: StripeRecord,
-  priceConfig: BillingPriceConfig | null,
+  eventId: string,
   isDeleted: boolean
 ): Promise<boolean> {
   const subscriptionId = trimToNull(subscription.id);
@@ -346,18 +355,12 @@ async function processSubscriptionEvent(
   const metadata = extractMetadata(subscription.metadata);
 
   const existing = await findBillingAccountByRefs(admin, customerId, subscriptionId);
-
   const userId = trimToNull(metadata.user_id) ?? existing?.user_id ?? null;
   if (!userId) {
     return false;
   }
 
-  const planFromMetadata = parseBillingPlan(metadata.plan);
-  const planFromPrices = resolvePlanFromPriceIds(
-    extractPriceIdsFromSubscription(subscription),
-    priceConfig
-  );
-  const fallbackPlan = parseBillingPlan(existing?.plan);
+  const derivedStatus = trimToNull(subscription.status);
 
   if (isDeleted) {
     await persistBillingAccount(
@@ -375,14 +378,28 @@ async function processSubscriptionEvent(
     return true;
   }
 
+  const priceIds = extractPriceIdsFromSubscription(subscription);
+  const resolved = await resolveRolePlanFromPriceIds(priceIds);
+
+  if (!resolved) {
+    console.warn("[stripe.webhook] could not resolve role/plan from price ids, skipping billing update", {
+      eventId,
+      priceIds,
+    });
+    return true;
+  }
+
+  const existingPlan = parseBillingPlan(existing?.plan);
+  const plan = planToPersist(resolved.planKey as BillingPlan, derivedStatus, existingPlan);
+
   await persistBillingAccount(
     admin,
     userId,
     toPatch({
       stripeCustomerId: customerId ?? existing?.stripe_customer_id ?? null,
       stripeSubscriptionId: subscriptionId ?? existing?.stripe_subscription_id ?? null,
-      plan: planFromMetadata ?? planFromPrices ?? fallbackPlan ?? undefined,
-      status: trimToNull(subscription.status) ?? existing?.status ?? undefined,
+      plan: plan ?? undefined,
+      status: derivedStatus ?? existing?.status ?? undefined,
       currentPeriodEnd: unixSecondsToIso(subscription.current_period_end) ?? undefined,
       cancelAtPeriodEnd:
         typeof subscription.cancel_at_period_end === "boolean"
@@ -397,7 +414,7 @@ async function processSubscriptionEvent(
 async function processInvoiceEvent(
   admin: ReturnType<typeof createAdminClient>,
   invoice: StripeRecord,
-  priceConfig: BillingPriceConfig | null,
+  eventId: string,
   type: string
 ): Promise<boolean> {
   const customerId = extractStripeId(invoice.customer);
@@ -405,17 +422,27 @@ async function processInvoiceEvent(
   const metadata = extractMetadata(invoice.metadata);
 
   const existing = await findBillingAccountByRefs(admin, customerId, subscriptionId);
-
   const userId = trimToNull(metadata.user_id) ?? existing?.user_id ?? null;
   if (!userId) {
     return false;
   }
 
-  const planFromMetadata = parseBillingPlan(metadata.plan);
-  const planFromPrices = resolvePlanFromPriceIds(extractPriceIdsFromInvoice(invoice), priceConfig);
-  const fallbackPlan = parseBillingPlan(existing?.plan);
+  const priceIds = extractPriceIdsFromInvoice(invoice);
+  const resolved = await resolveRolePlanFromPriceIds(priceIds);
 
-  const status = type === "invoice.payment_failed" ? "past_due" : "active";
+  if (!resolved) {
+    if (priceIds.length > 0) {
+      console.warn("[stripe.webhook] could not resolve role/plan from price ids, skipping billing update", {
+        eventId,
+        priceIds,
+      });
+    }
+    return true;
+  }
+
+  const derivedStatus = type === "invoice.payment_failed" ? "past_due" : "active";
+  const existingPlan = parseBillingPlan(existing?.plan);
+  const plan = planToPersist(resolved.planKey as BillingPlan, derivedStatus, existingPlan);
 
   await persistBillingAccount(
     admin,
@@ -423,8 +450,8 @@ async function processInvoiceEvent(
     toPatch({
       stripeCustomerId: customerId ?? existing?.stripe_customer_id ?? null,
       stripeSubscriptionId: subscriptionId ?? existing?.stripe_subscription_id ?? null,
-      plan: planFromMetadata ?? planFromPrices ?? fallbackPlan ?? undefined,
-      status,
+      plan: plan ?? undefined,
+      status: derivedStatus,
       currentPeriodEnd: extractInvoicePeriodEnd(invoice) ?? undefined,
       cancelAtPeriodEnd: existing?.cancel_at_period_end,
     })
@@ -525,13 +552,6 @@ export async function POST(request: Request) {
     return NextResponse.json({ received: true, duplicate: true });
   }
 
-  let priceConfig: BillingPriceConfig | null = null;
-  try {
-    priceConfig = getBillingPriceConfig();
-  } catch {
-    // Some events do not require price mapping. Missing config is logged when needed.
-  }
-
   const object = asRecord(event.data?.object);
   if (!object) {
     return NextResponse.json({ received: true, ignored: true });
@@ -549,7 +569,11 @@ export async function POST(request: Request) {
         }
 
         const bookProcessed = await processBookPurchaseCheckoutSession(admin, object);
-        const subscriptionProcessed = await processSubscriptionCheckoutSession(admin, object);
+        const subscriptionProcessed = await processSubscriptionCheckoutSession(
+          admin,
+          object,
+          eventId
+        );
         return NextResponse.json({
           received: true,
           processed: bookProcessed || subscriptionProcessed,
@@ -557,16 +581,16 @@ export async function POST(request: Request) {
       }
       case "customer.subscription.created":
       case "customer.subscription.updated": {
-        const processed = await processSubscriptionEvent(admin, object, priceConfig, false);
+        const processed = await processSubscriptionEvent(admin, object, eventId, false);
         return NextResponse.json({ received: true, processed });
       }
       case "customer.subscription.deleted": {
-        const processed = await processSubscriptionEvent(admin, object, priceConfig, true);
+        const processed = await processSubscriptionEvent(admin, object, eventId, true);
         return NextResponse.json({ received: true, processed });
       }
       case "invoice.payment_succeeded":
       case "invoice.payment_failed": {
-        const processed = await processInvoiceEvent(admin, object, priceConfig, type);
+        const processed = await processInvoiceEvent(admin, object, eventId, type);
         return NextResponse.json({ received: true, processed });
       }
       default:
