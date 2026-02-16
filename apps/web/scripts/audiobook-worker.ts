@@ -69,6 +69,43 @@ function getChapterText(content: string | null): string {
   }
 }
 
+/** Max characters per TTS call (Piper default). Env TTS_MAX_CHARS can increase up to 20000. */
+const TTS_MAX_CHARS = (() => {
+  const raw = process.env.TTS_MAX_CHARS;
+  const n = raw ? Number(raw) : NaN;
+  if (Number.isFinite(n) && n > 0 && n <= 20000) return Math.floor(n);
+  return 1000;
+})();
+
+/**
+ * Split text into chunks of at most TTS_MAX_CHARS, preferring sentence/paragraph boundaries.
+ */
+function chunkTextForTts(text: string): string[] {
+  const trimmed = text.trim();
+  if (!trimmed) return [];
+  if (trimmed.length <= TTS_MAX_CHARS) return [trimmed];
+
+  const chunks: string[] = [];
+  let rest = trimmed;
+
+  while (rest.length > 0) {
+    if (rest.length <= TTS_MAX_CHARS) {
+      chunks.push(rest);
+      break;
+    }
+    const segment = rest.slice(0, TTS_MAX_CHARS);
+    const lastSentence = segment.match(/.*[.!?\n](?=\s|$)/s);
+    const splitAt = lastSentence
+      ? lastSentence[0].length
+      : Math.max(segment.lastIndexOf(". "), segment.lastIndexOf("! "), segment.lastIndexOf("? "), segment.lastIndexOf("\n"));
+    const cut = splitAt > 0 ? splitAt + 1 : TTS_MAX_CHARS;
+    chunks.push(rest.slice(0, cut).trim());
+    rest = rest.slice(cut).trim();
+  }
+
+  return chunks.filter((c) => c.length > 0);
+}
+
 /** Estimate WAV duration from buffer (assumes standard WAV header) */
 function estimateWavDuration(wav: Buffer): number {
   try {
@@ -95,6 +132,26 @@ interface ChapterAudio {
   durationSeconds: number;
 }
 
+/**
+ * Concatenate WAV buffers (same format). Uses first file's header and appends PCM from all.
+ * Safe fallback when ffmpeg is not available.
+ */
+function concatWavBuffers(buffers: Buffer[]): Buffer {
+  if (buffers.length === 0) throw new Error("No WAV buffers to concat");
+  if (buffers.length === 1) return buffers[0];
+
+  const header = buffers[0].slice(0, 44);
+  const pcmChunks = buffers.map((b) => (b.length > 44 ? b.slice(44) : Buffer.alloc(0)));
+  const pcm = Buffer.concat(pcmChunks);
+  const out = Buffer.alloc(44 + pcm.length);
+  header.copy(out, 0);
+  pcm.copy(out, 44);
+  // Update size in RIFF header (bytes 4–7) and data chunk size (bytes 40–43), little-endian
+  out.writeUInt32LE(out.length - 8, 4);
+  out.writeUInt32LE(pcm.length, 40);
+  return out;
+}
+
 async function stitchWithFfmpeg(
   inputPaths: string[],
   outputPath: string
@@ -108,7 +165,7 @@ async function stitchWithFfmpeg(
 
   const ffmpegBin = process.env.FFMPEG_BIN || "ffmpeg";
   const listPath = outputPath + ".txt";
-  const listContent = inputPaths.map((p) => `file '${p}'`).join("\n");
+  const listContent = inputPaths.map((p) => `file '${p.replace(/'/g, "'\\''")}'`).join("\n");
   await fs.writeFile(listPath, listContent);
 
   return new Promise((resolve) => {
@@ -125,16 +182,65 @@ async function stitchWithFfmpeg(
       if (code === 0) {
         resolve(true);
       } else {
-        console.warn("[audiobook worker] ffmpeg failed with code:", code, stderr.slice(-300));
+        console.warn(
+          "[audiobook worker] ffmpeg failed with code:",
+          code,
+          "(install with: brew install ffmpeg). stderr:",
+          stderr.slice(-400)
+        );
         resolve(false);
       }
     });
 
-    proc.on("error", async () => {
-      await fs.unlink(listPath).catch(() => {});
+    proc.on("error", (err: NodeJS.ErrnoException) => {
+      console.warn(
+        "[audiobook worker] ffmpeg spawn error:",
+        err.code ?? err.message,
+        "- is ffmpeg installed? (brew install ffmpeg)"
+      );
+      fs.unlink(listPath).catch(() => {});
       resolve(false);
     });
   });
+}
+
+/**
+ * Synthesize text that may exceed TTS max length by chunking, then stitch WAVs.
+ * Uses chunkTextForTts and stitchWithFfmpeg.
+ */
+async function synthesizeLongTextToWav(
+  synthesize: (text: string) => Promise<Buffer>,
+  text: string,
+  tmpDir: string,
+  filePrefix: string
+): Promise<{ wav: Buffer; durationSeconds: number }> {
+  const chunks = chunkTextForTts(text);
+  if (chunks.length === 0) throw new Error("No text to synthesize");
+  if (chunks.length === 1) {
+    const wav = await synthesize(chunks[0]);
+    return { wav, durationSeconds: estimateWavDuration(wav) };
+  }
+  const chunkPaths: string[] = [];
+  let totalDuration = 0;
+  for (let i = 0; i < chunks.length; i++) {
+    const wav = await synthesize(chunks[i]);
+    totalDuration += estimateWavDuration(wav);
+    const p = path.join(tmpDir, `${filePrefix}-${i}.wav`);
+    await fs.writeFile(p, wav);
+    chunkPaths.push(p);
+  }
+  const stitchedPath = path.join(tmpDir, `${filePrefix}-stitched.wav`);
+  const ok = await stitchWithFfmpeg(chunkPaths, stitchedPath);
+  let wav: Buffer;
+  if (ok) {
+    wav = await fs.readFile(stitchedPath);
+  } else {
+    // Fallback: concat WAVs in Node (no ffmpeg needed)
+    const buffers = await Promise.all(chunkPaths.map((p) => fs.readFile(p)));
+    wav = concatWavBuffers(buffers);
+    await fs.writeFile(stitchedPath, wav);
+  }
+  return { wav, durationSeconds: estimateWavDuration(wav) };
 }
 
 function createManifest(chapters: ChapterAudio[], bookId: string): object {
@@ -324,16 +430,22 @@ async function processJob(payload: AudiobookJobData) {
           const { data: urlData } = supabase.storage.from(BUCKET).getPublicUrl(cached.audio_path);
           audioUrl = urlData?.publicUrl;
         } else {
-          // Cache miss/invalid, synthesize fresh
+          // Cache miss/invalid, synthesize fresh (chunked if text > TTS_MAX_CHARS)
           console.log(`[audiobook worker] chapter ${i} cache invalid, synthesizing...`);
-          const wav = await withTimeout(
-            () => synthesizeTextToWavBytes(text),
+          const { wav, durationSeconds: dur } = await withTimeout(
+            () =>
+              synthesizeLongTextToWav(
+                (t) => synthesizeTextToWavBytes(t),
+                text,
+                tmpDir,
+                `chapter-${i}`
+              ),
             TTS_TIMEOUT_MS,
             `TTS chapter ${i}`
           );
+          durationSeconds = dur;
           audioPath = path.join(tmpDir, `chapter-${i}.wav`);
           await fs.writeFile(audioPath, wav);
-          durationSeconds = estimateWavDuration(wav);
 
           // Upload to cache
           const cachePath = `cache/${bookId}/${chapter.id}-${contentHash.slice(0, 16)}.wav`;
@@ -343,17 +455,19 @@ async function processJob(payload: AudiobookJobData) {
           audioUrl = urlData?.publicUrl;
         }
       } else {
-        // No cache, synthesize new audio via provider registry
+        // No cache, synthesize new audio via provider registry (chunked if text > TTS_MAX_CHARS)
         console.log(`[audiobook worker] chapter ${i} synthesizing via provider: "${chapter.title}"`);
         const narrator = getNarrator();
-        const { audioBuffer: wav } = await withTimeout(
-          () => narrator.narrate({ text }),
+        const synthesizeOne = (t: string) =>
+          narrator.narrate({ text: t }).then((r) => r.audioBuffer);
+        const { wav, durationSeconds: dur } = await withTimeout(
+          () => synthesizeLongTextToWav(synthesizeOne, text, tmpDir, `chapter-${i}`),
           TTS_TIMEOUT_MS,
           `TTS chapter ${i}`
         );
+        durationSeconds = dur;
         audioPath = path.join(tmpDir, `chapter-${i}.wav`);
         await fs.writeFile(audioPath, wav);
-        durationSeconds = estimateWavDuration(wav);
 
         // Upload to cache
         const cachePath = `cache/${bookId}/${chapter.id}-${contentHash.slice(0, 16)}.wav`;
@@ -403,46 +517,54 @@ async function processJob(payload: AudiobookJobData) {
     const totalDuration = chapterAudios.reduce((sum, c) => sum + c.durationSeconds, 0);
     let fileSizeBytes: number | null = null;
 
+    // Supabase Storage file size limit (e.g. 50 MB free tier). Larger books use manifest-only.
+    const MAX_STORAGE_FILE_BYTES = 50 * 1024 * 1024;
+
+    const manifest = createManifest(chapterAudios, bookId);
+    const manifestPath = `${bookId}/audiobook-manifest-${Date.now()}.json`;
+
     if (stitched) {
-      // Upload stitched audiobook
       const finalBuffer = await fs.readFile(finalAudioPath);
       fileSizeBytes = finalBuffer.length;
-      const storagePath = `${bookId}/audiobook-${Date.now()}.wav`;
 
-      const { error: uploadError } = await supabase.storage
-        .from(BUCKET)
-        .upload(storagePath, finalBuffer, {
-          contentType: "audio/wav",
-          upsert: false,
-        });
+      if (fileSizeBytes <= MAX_STORAGE_FILE_BYTES) {
+        const storagePath = `${bookId}/audiobook-${Date.now()}.wav`;
+        const { error: uploadError } = await supabase.storage
+          .from(BUCKET)
+          .upload(storagePath, finalBuffer, {
+            contentType: "audio/wav",
+            upsert: false,
+          });
 
-      if (uploadError) {
-        throw new Error(`Storage upload failed: ${uploadError.message}`);
-      }
-
-      const { data: urlData } = supabase.storage.from(BUCKET).getPublicUrl(storagePath);
-      finalAudioUrl = urlData?.publicUrl ?? null;
-
-      console.log("[audiobook worker] uploaded stitched audiobook:", finalAudioUrl);
-    } else {
-      // Fallback: create manifest for chapter-wise playback
-      console.log("[audiobook worker] ffmpeg unavailable, creating manifest instead");
-      const manifest = createManifest(chapterAudios, bookId);
-      const manifestPath = `${bookId}/audiobook-manifest-${Date.now()}.json`;
-
-      const { error: manifestError } = await supabase.storage
-        .from(BUCKET)
-        .upload(manifestPath, JSON.stringify(manifest, null, 2), {
-          contentType: "application/json",
-          upsert: false,
-        });
-
-      if (manifestError) {
-        console.warn("[audiobook worker] manifest upload failed:", manifestError.message);
+        if (!uploadError) {
+          const { data: urlData } = supabase.storage.from(BUCKET).getPublicUrl(storagePath);
+          finalAudioUrl = urlData?.publicUrl ?? null;
+          console.log("[audiobook worker] uploaded stitched audiobook:", finalAudioUrl);
+        }
       } else {
-        const { data: urlData } = supabase.storage.from(BUCKET).getPublicUrl(manifestPath);
-        manifestUrl = urlData?.publicUrl ?? null;
+        console.log(
+          "[audiobook worker] stitched file too large (",
+          Math.round(fileSizeBytes / 1024 / 1024),
+          "MB), using manifest-only playback"
+        );
       }
+    } else {
+      console.log("[audiobook worker] ffmpeg unavailable, using manifest-only playback");
+    }
+
+    // Always upload manifest so client can play by chapter (required when no single-file upload)
+    const { error: manifestError } = await supabase.storage
+      .from(BUCKET)
+      .upload(manifestPath, JSON.stringify(manifest, null, 2), {
+        contentType: "application/json",
+        upsert: false,
+      });
+
+    if (manifestError) {
+      console.warn("[audiobook worker] manifest upload failed:", manifestError.message);
+    } else {
+      const { data: urlData } = supabase.storage.from(BUCKET).getPublicUrl(manifestPath);
+      manifestUrl = urlData?.publicUrl ?? null;
     }
 
     // Create audiobook_assets record

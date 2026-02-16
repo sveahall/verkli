@@ -127,6 +127,7 @@ const STATUS_LABELS = {
 function getAudiobookStatusLabel(status: string): string {
   if (status === "published" || status === "generated") return STATUS_LABELS.completed;
   if (status === "generating") return STATUS_LABELS.running;
+  if (status === "queued") return "Queued";
   if (status === "failed") return STATUS_LABELS.failed;
   return "No audiobook yet";
 }
@@ -636,7 +637,16 @@ export default function BookEditor({
     () => (getAudiobookEnabled() ? allJobs.find((j) => j.kind === "audiobook") ?? null : null),
     [allJobs]
   );
-  const isAudiobookJobActive = isJobActiveStatus(latestAudiobookJob?.status);
+  const audiobookJobStatus = latestAudiobookJob ? normalizeJobStatus(latestAudiobookJob.status) : null;
+  const STALE_PENDING_MS = 2 * 60 * 60 * 1000; // 2 hours
+  const isAudiobookJobStale =
+    latestAudiobookJob &&
+    audiobookJobStatus === "pending" &&
+    latestAudiobookJob.createdAt &&
+    Date.now() - new Date(latestAudiobookJob.createdAt).getTime() > STALE_PENDING_MS;
+  const isAudiobookJobActive =
+    !isAudiobookJobStale &&
+    (audiobookJobStatus === "running" || audiobookJobStatus === "pending");
   const isAudiobookJobFailed = normalizeJobStatus(latestAudiobookJob?.status) === "failed";
   const isAudiobookActive = isGeneratingAudiobook || !!isAudiobookJobActive;
   const serverAudiobookProgress = useMemo(() => {
@@ -931,7 +941,9 @@ export default function BookEditor({
     Boolean(latestAudiobookAsset?.audio_url) && latestAudiobookAsset?.status === "generated";
   const audiobookFeatureEnabled = getAudiobookEnabled();
   const audiobookStatusUi = isAudiobookActive
-    ? "generating"
+    ? audiobookJobStatus === "pending"
+      ? "queued"
+      : "generating"
     : hasGeneratedAudiobookAsset
       ? "published"
       : (book.audiobook_status ?? "not_started");
@@ -2374,7 +2386,7 @@ export default function BookEditor({
                   className={`rounded-full px-2.5 py-1 text-xs font-medium ${
                     audiobookStatusUi === "published"
                       ? "bg-[#907AFF]/15 text-[#5c4bb8] dark:bg-[#907AFF]/25 dark:text-[#b8a9ff]"
-                      : audiobookStatusUi === "generating"
+                      : audiobookStatusUi === "generating" || audiobookStatusUi === "queued"
                         ? "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300"
                         : audiobookStatusUi === "failed"
                           ? "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300"
