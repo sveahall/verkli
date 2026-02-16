@@ -51,6 +51,10 @@ export function BillingPageContent({
   initialSessionId = null,
   initialBillingState = null,
 }: BillingPageContentProps) {
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => {
+    setMounted(true);
+  }, []);
   const isVisible = useDocumentVisible();
   const { state, loading, error, refetch } = useBillingState({
     pollIntervalMs: 10_000,
@@ -261,8 +265,17 @@ export function BillingPageContent({
       )}
 
       <div className="mb-6 rounded-lg border p-4">
-        {/* Use same branch when we have state (incl. server initial) to avoid hydration mismatch. */}
-        {loading && !state ? (
+        {/* Same DOM structure before/after mount so server and client match at hydration (no div vs p mismatch). */}
+        {!mounted ? (
+          <div className="space-y-2 text-sm">
+            <p>
+              <span className="font-medium">Current plan:</span> —
+            </p>
+            <p>
+              <span className="font-medium">Status:</span> —
+            </p>
+          </div>
+        ) : loading && !state ? (
           <p className="text-sm text-muted-foreground">Loading subscription status...</p>
         ) : (
           <div className="space-y-2 text-sm">
