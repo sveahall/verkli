@@ -592,8 +592,10 @@ export default function BookEditor({
   const [translateMessage, setTranslateMessage] = useState<string | null>(null);
   const [translationQueueHealthy, setTranslationQueueHealthy] = useState<boolean | null>(null);
   const [lastRequestedTargetLanguage, setLastRequestedTargetLanguage] = useState<SupportedLanguage | null>(null);
+  const [translationProgress, setTranslationProgress] = useState<{ translated: number; total: number } | null>(null);
   const translationPollRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const translationPollStartedAtRef = useRef<number>(0);
+  const lastRequestedTargetLanguageRef = useRef<SupportedLanguage | null>(null);
   const [isGeneratingAudiobook, setIsGeneratingAudiobook] = useState(false);
   const [audiobookError, setAudiobookError] = useState<string | null>(null);
   const [audiobookProgress, setAudiobookProgress] = useState<{
@@ -813,12 +815,25 @@ export default function BookEditor({
     [versionsByLang, lastRequestedTargetLanguage]
   );
 
+  type TranslationUiStatus = "idle" | "translating" | "done" | "error";
+  const isPollingCurrent = isPollingTranslation && lastRequestedTargetLanguage === translateTargetLanguage;
+  const translationUiStatus = useMemo<TranslationUiStatus>(() => {
+    if (currentTargetVersion?.status === "failed") return "error";
+    if (currentTargetVersion?.status === "translating" || isPollingCurrent) return "translating";
+    if (currentTargetVersion?.status === "done" || currentTargetVersion?.published_at) return "done";
+    return "idle";
+  }, [currentTargetVersion?.status, currentTargetVersion?.published_at, isPollingCurrent]);
+
   const requestedTargetVersionRef = useRef<BookVersion | null>(null);
   const translationFailedCountRef = useRef(0);
 
   useEffect(() => {
     requestedTargetVersionRef.current = requestedTargetVersion ?? null;
   }, [requestedTargetVersion]);
+
+  useEffect(() => {
+    lastRequestedTargetLanguageRef.current = lastRequestedTargetLanguage;
+  }, [lastRequestedTargetLanguage]);
 
   const stopTranslationPoll = useCallback(() => {
     if (translationPollRef.current) {
@@ -833,6 +848,7 @@ export default function BookEditor({
     if (requestedTargetVersion?.status === "done" || requestedTargetVersion?.published_at) {
       translationFailedCountRef.current = 0;
       stopTranslationPoll();
+      setTranslationProgress(null);
       setTranslateMessage(`Translation complete (${getLanguageLabel(lastRequestedTargetLanguage)}).`);
       setLastRequestedTargetLanguage(null);
       return;
@@ -846,6 +862,7 @@ export default function BookEditor({
       // Only treat as terminal after 2 consecutive "failed" (avoids race: worker may not have set "translating" yet)
       if (translationFailedCountRef.current >= 2) {
         stopTranslationPoll();
+        setTranslationProgress(null);
         setTranslateMessage(
           (requestedTargetVersion as BookVersion).error_message?.trim() ||
             "Translation failed. Try again."
@@ -865,6 +882,33 @@ export default function BookEditor({
     setTranslateMessage(null);
   }, [translateTargetLanguage]);
 
+  useEffect(() => {
+    if (!isPollingTranslation && translationUiStatus !== "translating") {
+      setTranslationProgress(null);
+    }
+  }, [isPollingTranslation, translationUiStatus]);
+
+  // When status is "translating" but we're not polling (e.g. page refresh), still fetch progress
+  useEffect(() => {
+    if (translationUiStatus !== "translating" || isPollingTranslation || !translateTargetLanguage || !book.id) return;
+    const tick = () => {
+      fetch(
+        `/api/books/${book.id}/translation-progress?targetLanguage=${encodeURIComponent(translateTargetLanguage)}`,
+        { cache: "no-store" }
+      )
+        .then((r) => r.json())
+        .then((data: { translated?: number; total?: number }) => {
+          const total = typeof data.total === "number" ? data.total : 0;
+          const translated = typeof data.translated === "number" ? data.translated : 0;
+          if (total > 0) setTranslationProgress({ translated, total });
+        })
+        .catch(() => {});
+    };
+    tick();
+    const id = setInterval(tick, 3000);
+    return () => clearInterval(id);
+  }, [translationUiStatus, isPollingTranslation, translateTargetLanguage, book.id]);
+
   const checkTranslationQueueHealth = useCallback(async (): Promise<boolean> => {
     try {
       const res = await fetch("/api/health/queue", { cache: "no-store" });
@@ -882,15 +926,6 @@ export default function BookEditor({
     if (!getTranslationsEnabled()) return;
     void checkTranslationQueueHealth();
   }, [checkTranslationQueueHealth]);
-
-  type TranslationUiStatus = "idle" | "translating" | "done" | "error";
-  const isPollingCurrent = isPollingTranslation && lastRequestedTargetLanguage === translateTargetLanguage;
-  const translationUiStatus = useMemo<TranslationUiStatus>(() => {
-    if (currentTargetVersion?.status === "failed") return "error";
-    if (currentTargetVersion?.status === "translating" || isPollingCurrent) return "translating";
-    if (currentTargetVersion?.status === "done" || currentTargetVersion?.published_at) return "done";
-    return "idle";
-  }, [currentTargetVersion?.status, currentTargetVersion?.published_at, isPollingCurrent]);
 
   const hasGeneratedAudiobookAsset =
     Boolean(latestAudiobookAsset?.audio_url) && latestAudiobookAsset?.status === "generated";
@@ -918,13 +953,27 @@ export default function BookEditor({
       const elapsed = Date.now() - translationPollStartedAtRef.current;
       if (elapsed >= TRANSLATION_POLL_MAX_MS && status === "none") {
         stopTranslationPoll();
+        setTranslationProgress(null);
         setTranslateMessage("Translation is taking too long. Try again.");
         setLastRequestedTargetLanguage(null);
         return;
       }
       router.refresh();
+      const lang = lastRequestedTargetLanguageRef.current;
+      if (lang && book.id) {
+        fetch(`/api/books/${book.id}/translation-progress?targetLanguage=${encodeURIComponent(lang)}`, {
+          cache: "no-store",
+        })
+          .then((r) => r.json())
+          .then((data: { translated?: number; total?: number }) => {
+            const total = typeof data.total === "number" ? data.total : 0;
+            const translated = typeof data.translated === "number" ? data.translated : 0;
+            if (total > 0) setTranslationProgress({ translated, total });
+          })
+          .catch(() => {});
+      }
     }, 3000);
-  }, [router, stopTranslationPoll]);
+  }, [router, stopTranslationPoll, book.id]);
 
   const handleStartTranslation = useCallback(async () => {
     if (isStartingTranslation) return;
@@ -2204,6 +2253,24 @@ export default function BookEditor({
                     {translationUiStatus === "error" && STATUS_LABELS.failed}
                   </span>
                 </div>
+                {(translationUiStatus === "translating" || isPollingCurrent) && translationProgress && translationProgress.total > 0 && (
+                  <div className="mb-3" role="status" aria-valuenow={translationProgress.translated} aria-valuemin={0} aria-valuemax={translationProgress.total}>
+                    <div className="mb-1 flex items-center justify-between text-xs text-slate-500 dark:text-white/50">
+                      <span>
+                        {translationProgress.translated} of {translationProgress.total} chapters
+                      </span>
+                      <span>
+                        {Math.round((translationProgress.translated / translationProgress.total) * 100)}%
+                      </span>
+                    </div>
+                    <div className="h-2 w-full overflow-hidden rounded-full bg-slate-200 dark:bg-slate-700">
+                      <div
+                        className="h-full rounded-full bg-blue-500 transition-[width] duration-300 dark:bg-blue-400"
+                        style={{ width: `${Math.min(100, (translationProgress.translated / translationProgress.total) * 100)}%` }}
+                      />
+                    </div>
+                  </div>
+                )}
                 {translationUiStatus === "error" && currentTargetVersion?.error_message && (
                   <p className="mb-3 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-800 dark:border-red-800 dark:bg-red-950/30 dark:text-red-200" role="alert">
                     {currentTargetVersion.error_message}
