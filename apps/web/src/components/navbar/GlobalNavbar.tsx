@@ -54,7 +54,7 @@ const dropdownHeaderMeta: Record<
   },
   Library: {
     title: "Library",
-    description: "Everything you have started, saved, or finished.",
+    description: "Everything you have started, bookmarked, or finished.",
   },
   "My World": {
     title: "My World",
@@ -115,8 +115,8 @@ const dropdownItemMeta: Record<
         </svg>
       ),
     },
-    Saved: {
-      description: "Saved for later and quick access.",
+    Bookmarks: {
+      description: "Bookmarked for later and quick access.",
       icon: (
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.6} className="h-4 w-4">
           <path strokeLinecap="round" strokeLinejoin="round" d="M7 4.75h10a2 2 0 0 1 2 2V19l-7-3-7 3V6.75a2 2 0 0 1 2-2Z" />
@@ -1175,7 +1175,7 @@ export default function GlobalNavbar({
                         isReaderRoute && openItem.label === "Library"
                           ? [
                               { label: "Currently reading", href: "/reader/library?tab=reading" },
-                              { label: "Saved", href: "/reader/library?tab=saved" },
+                              { label: "Bookmarks", href: "/reader/library?tab=saved" },
                               { label: "Finished", href: "/reader/library?tab=finished" },
                             ]
                           : openItem.children;

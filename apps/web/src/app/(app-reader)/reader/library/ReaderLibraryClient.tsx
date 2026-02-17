@@ -56,7 +56,7 @@ export default function ReaderLibraryClient({ initialData }: ReaderLibraryClient
   const tabs: TabItem[] = useMemo(
     () => [
       { id: "reading", label: "Currently reading", badge: `${initialData.reading.length}` },
-      { id: "saved", label: "Saved", badge: `${initialData.saved.length}` },
+      { id: "saved", label: "Bookmarks", badge: `${initialData.saved.length}` },
       { id: "finished", label: "Finished", badge: `${initialData.finished.length}` },
     ],
     [initialData.reading.length, initialData.saved.length, initialData.finished.length]
@@ -90,7 +90,7 @@ export default function ReaderLibraryClient({ initialData }: ReaderLibraryClient
       <PageHeader
         eyebrow="Library"
         title="Your library"
-        description="Everything you have started, saved, or finished lives here."
+        description="Everything you’ve started, bookmarked, or finished lives here."
         actions={
           <Link href="/reader/discover" className="btn-secondary">
             Add new books

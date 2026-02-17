@@ -53,9 +53,9 @@ export default async function ReaderBookmarksPage() {
   return (
     <div className="space-y-8">
       <PageHeader
-        eyebrow="Bookmarks"
-        title="Saved moments"
-        description="Keep the books you want to return to."
+        eyebrow="Library"
+        title="Bookmarks"
+        description="Books you’ve bookmarked for later. Quick access when you need them."
         actions={
           <Link
             href="/reader/library"
@@ -69,7 +69,7 @@ export default async function ReaderBookmarksPage() {
       {bookmarksWithBook.length === 0 ? (
         <EmptyState
           title="No bookmarks yet"
-          description="Save books from Discover or your library and they will appear here."
+          description="Bookmark books in Discover or while reading, and they’ll show up here."
           action={
             <Link
               href="/reader/discover"

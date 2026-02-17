@@ -33,6 +33,12 @@ export default function BookmarkButton({ bookId, initialBookmarked }: BookmarkBu
     }
   };
 
+  const BookmarkIcon = (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} className="h-4 w-4 shrink-0" aria-hidden>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M7 4.75h10a2 2 0 0 1 2 2V19l-7-3-7 3V6.75a2 2 0 0 1 2-2Z" />
+    </svg>
+  );
+
   return (
     <Button
       type="button"
@@ -43,7 +49,8 @@ export default function BookmarkButton({ bookId, initialBookmarked }: BookmarkBu
       aria-pressed={bookmarked}
       aria-label={bookmarked ? "Remove bookmark" : "Add bookmark"}
     >
-      {bookmarked ? "★ Bookmarked" : "☆ Bookmark"}
+      {BookmarkIcon}
+      {bookmarked ? "Bookmarked" : "Bookmark"}
     </Button>
   );
 }

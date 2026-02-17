@@ -43,7 +43,7 @@ const mobileNavItems = [
     ),
   },
   {
-    label: "Saved",
+    label: "Bookmarks",
     href: "/reader/bookmarks",
     activeMatchers: ["/reader/bookmarks"],
     icon: (
