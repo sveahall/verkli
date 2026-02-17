@@ -55,7 +55,7 @@ export default function StartReadingLink({
   return (
     <Link
       href={`/reader/read/${targetChapterId}`}
-      className="rounded-full bg-[#907AFF] px-6 py-3 text-[14px] font-semibold text-white transition hover:bg-[#8069EE]"
+      className="inline-flex h-11 min-h-11 w-fit shrink-0 items-center justify-center self-start rounded-xl bg-[#907AFF] px-4 text-sm font-semibold text-white shadow-sm transition hover:bg-[#8069EE] hover:shadow"
     >
       {isContinue ? "Continue reading" : "Start reading"}
     </Link>

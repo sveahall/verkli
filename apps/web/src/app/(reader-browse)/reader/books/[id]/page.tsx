@@ -314,43 +314,47 @@ export default async function ReaderBookDetail({
             </div>
           ) : null}
 
-          <div className="mt-8 flex flex-wrap gap-4">
-            {hasReadAccess ? (
-              <StartReadingLink
-                bookId={book.id}
-                firstChapterId={firstChapter?.id ?? null}
-                serverChapterId={user ? lastChapterId : null}
-              />
-            ) : user ? (
-              <PurchaseBookButton bookId={book.id} amount={priceAmount} currency={priceCurrency} />
-            ) : (
-              <Link
-                href={signInHref}
-                className="rounded-full bg-[#907AFF] px-6 py-3 text-[14px] font-semibold text-white transition hover:bg-[#8069EE]"
-              >
-                Sign in to buy
-              </Link>
-            )}
+          <div className="mt-9 space-y-5">
+            <div className="flex flex-wrap items-center gap-3">
+              {hasReadAccess ? (
+                <StartReadingLink
+                  bookId={book.id}
+                  firstChapterId={firstChapter?.id ?? null}
+                  serverChapterId={user ? lastChapterId : null}
+                />
+              ) : user ? (
+                <PurchaseBookButton bookId={book.id} amount={priceAmount} currency={priceCurrency} />
+              ) : (
+                <Link
+                  href={signInHref}
+                  className="inline-flex h-11 min-h-11 w-fit shrink-0 items-center justify-center self-start rounded-xl bg-[#907AFF] px-4 text-sm font-semibold text-white shadow-sm transition hover:bg-[#8069EE] hover:shadow"
+                >
+                  Sign in to buy
+                </Link>
+              )}
+              {user && hasReadAccess && (
+                <BookmarkButton bookId={book.id} initialBookmarked={isBookmarked} />
+              )}
+              {originalUrl && (
+                <a
+                  href={originalUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-600 transition hover:bg-slate-50 hover:border-slate-300 dark:border-white/15 dark:bg-white/5 dark:text-white/80 dark:hover:bg-white/10"
+                >
+                  Original on Amazon
+                  <span aria-hidden className="text-slate-400 dark:text-white/50">↗</span>
+                </a>
+              )}
+            </div>
             {user && hasReadAccess && (
-              <OfflineSaveButton
-                bookId={book.id}
-                userId={user.id}
-                languageCode={lang}
-              />
-            )}
-            {user && hasReadAccess && (
-              <BookmarkButton bookId={book.id} initialBookmarked={isBookmarked} />
-            )}
-            {originalUrl && (
-              <a
-                href={originalUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="inline-flex items-center gap-2 rounded-full border border-slate-300 bg-white px-4 py-2.5 text-sm font-medium text-slate-700 transition hover:bg-slate-50 dark:border-white/20 dark:bg-white/10 dark:text-white dark:hover:bg-white/15"
-              >
-                Original on Amazon
-                <span aria-hidden>↗</span>
-              </a>
+              <div className="border-t border-slate-200/60 pt-5 dark:border-white/10">
+                <OfflineSaveButton
+                  bookId={book.id}
+                  userId={user.id}
+                  languageCode={lang}
+                />
+              </div>
             )}
           </div>
         </div>

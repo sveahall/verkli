@@ -276,10 +276,13 @@ export default function OfflineSaveButton({ bookId, userId, languageCode }: Prop
 
   if (!isPlusActive) {
     return (
-      <div className="rounded-2xl border border-indigo-400/30 bg-indigo-500/10 px-4 py-3 text-sm text-indigo-900 dark:text-indigo-200">
-        <p className="font-semibold">Offline reading is included in Verkli Plus.</p>
-        <p className="mt-1">Upgrade to save books and read without a connection.</p>
-        <Link href="/reader/billing" className="mt-2 inline-flex text-[13px] font-semibold underline underline-offset-2">
+      <div className="max-w-md rounded-xl border border-[#907AFF]/20 bg-[#907AFF]/5 px-4 py-3 text-sm text-slate-700 dark:text-white/80">
+        <p className="font-semibold text-slate-900 dark:text-white">Offline reading is included in Verkli Plus.</p>
+        <p className="mt-1 text-slate-600 dark:text-white/70">Upgrade to save books and read without a connection.</p>
+        <Link
+          href="/reader/billing"
+          className="mt-3 inline-flex items-center rounded-lg bg-[#907AFF]/15 px-3 py-1.5 text-[13px] font-semibold text-[#907AFF] transition hover:bg-[#907AFF]/25 dark:text-[#B8A9FF] dark:hover:bg-[#907AFF]/20"
+        >
           Upgrade to Plus
         </Link>
       </div>
