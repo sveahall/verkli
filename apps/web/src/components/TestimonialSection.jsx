@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import Image from "next/image";
+import BrandGradientText from "@/components/ui/brand-gradient-text";
 
 const testimonials = [
   {
@@ -69,9 +70,9 @@ export default function TestimonialSection() {
         </p>
         <h2 className="mt-4 text-[clamp(28px,4vw,48px)] font-semibold leading-[1.1] tracking-[-0.025em] text-slate-900 dark:text-white">
           Loved by authors{" "}
-          <span className="text-brand-gradient">
+          <BrandGradientText>
             everywhere.
-          </span>
+          </BrandGradientText>
         </h2>
       </div>
 

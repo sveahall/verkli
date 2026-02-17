@@ -939,14 +939,27 @@ export default function BookEditor({
 
   const hasGeneratedAudiobookAsset =
     Boolean(latestAudiobookAsset?.audio_url) && latestAudiobookAsset?.status === "generated";
+  const latestAudiobookMeta = (latestAudiobookJob?.meta ?? {}) as Record<string, unknown>;
+  const latestAudiobookJobAudioUrl =
+    (typeof latestAudiobookMeta.audioUrl === "string" && latestAudiobookMeta.audioUrl.trim().length > 0
+      ? latestAudiobookMeta.audioUrl
+      : null) ??
+    (typeof latestAudiobookMeta.manifestUrl === "string" && latestAudiobookMeta.manifestUrl.trim().length > 0
+      ? latestAudiobookMeta.manifestUrl
+      : null);
+  const hasCompletedAudiobookJob = normalizeJobStatus(latestAudiobookJob?.status) === "completed";
+  const hasFailedAudiobookJob = normalizeJobStatus(latestAudiobookJob?.status) === "failed";
+  const audiobookPlaybackUrl = latestAudiobookAsset?.audio_url ?? latestAudiobookJobAudioUrl ?? null;
   const audiobookFeatureEnabled = getAudiobookEnabled();
   const audiobookStatusUi = isAudiobookActive
     ? audiobookJobStatus === "pending"
       ? "queued"
       : "generating"
-    : hasGeneratedAudiobookAsset
+    : hasGeneratedAudiobookAsset || hasCompletedAudiobookJob
       ? "published"
-      : (book.audiobook_status ?? "not_started");
+      : hasFailedAudiobookJob
+        ? "failed"
+        : (book.audiobook_status ?? "not_started");
   const isProFeatureLocked = billing.loading || !billing.isProActive;
   const proFeatureLockMessage = billing.loading
     ? "Checking subscription..."
@@ -2454,9 +2467,9 @@ export default function BookEditor({
                 </p>
               )}
 
-              {latestAudiobookAsset?.audio_url && (
+              {audiobookPlaybackUrl && (
                 <div className="mb-2">
-                  <audio controls className="w-full" src={latestAudiobookAsset.audio_url}>
+                  <audio controls className="w-full" src={audiobookPlaybackUrl}>
                     Your browser does not support audio playback.
                   </audio>
                 </div>

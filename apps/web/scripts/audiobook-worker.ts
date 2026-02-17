@@ -95,12 +95,34 @@ function chunkTextForTts(text: string): string[] {
     }
     const segment = rest.slice(0, TTS_MAX_CHARS);
     const lastSentence = segment.match(/.*[.!?\n](?=\s|$)/s);
-    const splitAt = lastSentence
-      ? lastSentence[0].length
-      : Math.max(segment.lastIndexOf(". "), segment.lastIndexOf("! "), segment.lastIndexOf("? "), segment.lastIndexOf("\n"));
-    const cut = splitAt > 0 ? splitAt + 1 : TTS_MAX_CHARS;
-    chunks.push(rest.slice(0, cut).trim());
-    rest = rest.slice(cut).trim();
+    const sentenceBoundary = lastSentence ? lastSentence[0].length : -1;
+    const fallbackBoundary = Math.max(
+      segment.lastIndexOf(". "),
+      segment.lastIndexOf("! "),
+      segment.lastIndexOf("? "),
+      segment.lastIndexOf("\n")
+    );
+
+    let cut =
+      sentenceBoundary > 0
+        ? sentenceBoundary
+        : fallbackBoundary > 0
+          ? fallbackBoundary + 1
+          : TTS_MAX_CHARS;
+
+    // Guardrail: never exceed TTS max and always make forward progress.
+    cut = Math.min(Math.max(cut, 1), TTS_MAX_CHARS);
+    const chunk = rest.slice(0, cut).trim();
+    if (chunk.length > 0) {
+      chunks.push(chunk);
+      rest = rest.slice(cut).trim();
+      continue;
+    }
+
+    // Fallback when the cut lands on whitespace-only segment.
+    cut = Math.min(TTS_MAX_CHARS, rest.length);
+    chunks.push(rest.slice(0, cut));
+    rest = rest.slice(cut).trimStart();
   }
 
   return chunks.filter((c) => c.length > 0);
@@ -319,7 +341,6 @@ async function processJob(payload: AudiobookJobData) {
     if (book.author_id !== userId) {
       const errMsg = "Ownership mismatch: userId does not match book owner";
       console.error("[audiobook worker]", errMsg, "payload userId:", userId, "book author_id:", book.author_id);
-      await updateJob("failed", {}, errMsg);
       throw new UnrecoverableError(errMsg);
     }
 
@@ -347,7 +368,6 @@ async function processJob(payload: AudiobookJobData) {
     } catch (err) {
       if (err instanceof BudgetExceededError) {
         console.warn("[audiobook worker] budget exceeded for:", budgetKey);
-        await updateJob("failed", {}, err.message);
         throw new UnrecoverableError(err.message);
       }
       throw err;
@@ -602,7 +622,7 @@ async function processJob(payload: AudiobookJobData) {
     const safeError = sanitizeJobErrorForStorage(msg) ?? "Något gick fel. Kontakta support om problemet kvarstår.";
     console.error("[audiobook worker] failed -", jobId, "error:", msg);
 
-    await updateJob("failed", { errorDetails: safeError }, safeError);
+    await updateJob("failed", { errorDetails: safeError }, msg);
     await updateBookStatus("failed");
 
     // Cleanup temp files on failure too

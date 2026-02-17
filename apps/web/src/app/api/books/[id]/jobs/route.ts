@@ -4,7 +4,7 @@ import { requireAuthorRoleForApi } from "@/lib/auth/require-author";
 import { getBillingStateForUser } from "@/lib/billing/server";
 import { isAudiobookEnabled } from "@/lib/flags";
 import { isJobActiveStatus, normalizeJobStatus } from "@/lib/job-status";
-import { sanitizeJobError } from "@/lib/sanitize-job-error";
+import { resolveSanitizedJobError, sanitizeJobError } from "@/lib/sanitize-job-error";
 import { apiError, E_BOOK_NOT_FOUND, E_JOB_FETCH_FAILED } from "@/lib/api-errors";
 
 type JobKind = "import" | "translation" | "audiobook";
@@ -292,7 +292,10 @@ export async function GET(
           null,
         progress,
         meta,
-        error: sanitizeJobError(r.error),
+        error: resolveSanitizedJobError(
+          r.error,
+          typeof output.errorDetails === "string" ? output.errorDetails : null
+        ),
         attempts: 1,
         maxAttempts: 2,
         createdAt: r.created_at,

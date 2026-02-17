@@ -23,9 +23,20 @@ export interface BudgetLimits {
   monthlyTokens: number;
 }
 
+function readPositiveIntEnv(key: string, fallback: number): number {
+  const raw = process.env[key];
+  if (!raw) return fallback;
+  const parsed = Number(raw);
+  if (!Number.isFinite(parsed) || parsed <= 0) return fallback;
+  return Math.floor(parsed);
+}
+
+const DEFAULT_DAILY_TOKENS = 500_000;
+const DEFAULT_MONTHLY_TOKENS = 15_000_000;
+
 const DEFAULT_LIMITS: BudgetLimits = {
-  dailyTokens: 100_000,
-  monthlyTokens: 3_000_000,
+  dailyTokens: readPositiveIntEnv("AI_BUDGET_DAILY_TOKENS", DEFAULT_DAILY_TOKENS),
+  monthlyTokens: readPositiveIntEnv("AI_BUDGET_MONTHLY_TOKENS", DEFAULT_MONTHLY_TOKENS),
 };
 
 interface UsageBucket {

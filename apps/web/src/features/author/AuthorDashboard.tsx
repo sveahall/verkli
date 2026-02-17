@@ -9,6 +9,7 @@ import { createClient } from "@/lib/supabase/client";
 import { getAvatarUrlFromPath } from "@/lib/supabase/storage";
 import ShelfTile from "@/components/library/ShelfTile";
 import BookCard from "@/components/library/BookCard";
+import BrandGradientText from "@/components/ui/brand-gradient-text";
 import { getShelves, createShelf, getStandaloneBooks } from "@/lib/supabase/shelves-client";
 import type { ShelfWithDetails } from "@/lib/supabase/shelves-client";
 import type { Tables } from "@/lib/supabase/types";
@@ -514,9 +515,9 @@ export default function AuthorDashboard({ user }: { user: User }) {
         <div className="relative mx-auto max-w-[1400px] px-6 pb-16 pt-[120px] text-center">
           <h1 className="text-[clamp(36px,5vw,56px)] font-bold tracking-[-0.04em] text-slate-900 dark:text-white">
             {displayName}
-            <span className="ml-1 text-brand-gradient">
+            <BrandGradientText className="ml-1">
               &apos;s world
-            </span>
+            </BrandGradientText>
           </h1>
           <p className="mx-auto mt-4 max-w-[480px] text-[clamp(14px,1.2vw,17px)] leading-[1.6] text-slate-500 dark:text-white/50">
             Curate shelves, experiment with new books, and keep everything you&apos;re writing in one calm workspace.

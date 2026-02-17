@@ -4,7 +4,7 @@ import { assertPublicEnv } from "@/lib/env";
 import { isAudiobookEnabled } from "@/lib/flags";
 import { normalizeJobStatus } from "@/lib/job-status";
 import { requireAuthorRoleForApi } from "@/lib/auth/require-author";
-import { sanitizeJobError } from "@/lib/sanitize-job-error";
+import { resolveSanitizedJobError } from "@/lib/sanitize-job-error";
 import {
   apiError,
   E_AUDIOBOOK_STATUS_UNAVAILABLE,
@@ -145,7 +145,10 @@ export async function GET(
           audioUrl: output.audioUrl ?? null,
           manifestUrl: output.manifestUrl ?? null,
           durationSeconds: output.durationSeconds ?? null,
-          error: sanitizeJobError(job.error) ?? sanitizeJobError(output.errorDetails as string) ?? null,
+          error: resolveSanitizedJobError(
+            job.error,
+            typeof output.errorDetails === "string" ? output.errorDetails : null
+          ),
           createdAt: job.created_at,
           startedAt: job.started_at,
           finishedAt: job.finished_at,

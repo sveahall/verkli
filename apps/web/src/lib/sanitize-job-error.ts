@@ -15,6 +15,9 @@ const CONTROLLED_MAPPINGS: Array<{ pattern: RegExp; message: string }> = [
   { pattern: /^Missing input\.text/i, message: "Text saknas för talsyntes." },
   { pattern: /^Could not resolve public URL/i, message: "Kunde inte publicera genererat ljud." },
   { pattern: /^Storage upload failed/i, message: "Kunde inte spara resultatfilen." },
+  { pattern: /object exceeded the maximum allowed size/i, message: "Ljudfilen är för stor för uppladdning." },
+  { pattern: /^Failed to stitch chapter audio chunks/i, message: "Kunde inte slå ihop ljudsegment." },
+  { pattern: /^Text is too long \(max \d+ characters\)/i, message: "Ett kapitel är för långt för talsyntes." },
   { pattern: /^Audiobook feature is disabled/i, message: "Ljudboksfunktionen är avstängd." },
 
   // Worker utility errors
@@ -39,9 +42,16 @@ const CONTROLLED_MAPPINGS: Array<{ pattern: RegExp; message: string }> = [
 ];
 
 const FALLBACK_MESSAGE = "Något gick fel under bearbetningen. Försök igen.";
+const CONTROLLED_MESSAGES = new Map(
+  CONTROLLED_MAPPINGS.map((entry) => [entry.message.toLowerCase(), entry.message])
+);
 
 function toControlledMessage(raw: string): string {
   const normalized = raw.trim().replace(/\s+/g, " ");
+  const alreadyControlled = CONTROLLED_MESSAGES.get(normalized.toLowerCase());
+  if (alreadyControlled) {
+    return alreadyControlled;
+  }
   for (const entry of CONTROLLED_MAPPINGS) {
     if (entry.pattern.test(normalized)) {
       return entry.message;
@@ -64,4 +74,20 @@ export function sanitizeJobErrorForStorage(raw: string | null | undefined): stri
 export function sanitizeJobError(raw: string | null | undefined): string | null {
   if (!raw) return null;
   return toControlledMessage(raw);
+}
+
+/**
+ * Resolve the best available user-safe error message.
+ * Prefer primary unless it collapses to fallback; then use secondary.
+ */
+export function resolveSanitizedJobError(
+  primary: string | null | undefined,
+  secondary: string | null | undefined
+): string | null {
+  const first = sanitizeJobError(primary);
+  if (first && first !== FALLBACK_MESSAGE) {
+    return first;
+  }
+  const next = sanitizeJobError(secondary);
+  return next ?? first;
 }

@@ -23,14 +23,14 @@ describe("budget", () => {
   });
 
   it("throws BudgetExceededError when daily limit is exceeded", () => {
-    trackUsage("user-1", 100_000);
-    expect(() => checkBudget("user-1")).toThrow(BudgetExceededError);
-    expect(() => checkBudget("user-1")).toThrow(/daily/);
+    trackUsage("user-1", 100);
+    expect(() => checkBudget("user-1", { dailyTokens: 100, monthlyTokens: 1000 })).toThrow(BudgetExceededError);
+    expect(() => checkBudget("user-1", { dailyTokens: 100, monthlyTokens: 1000 })).toThrow(/daily/);
   });
 
   it("throws BudgetExceededError when monthly limit is exceeded", () => {
-    trackUsage("user-1", 3_000_000);
-    expect(() => checkBudget("user-1")).toThrow(BudgetExceededError);
+    trackUsage("user-1", 1000);
+    expect(() => checkBudget("user-1", { dailyTokens: 5000, monthlyTokens: 1000 })).toThrow(BudgetExceededError);
   });
 
   it("allows usage with custom limits", () => {

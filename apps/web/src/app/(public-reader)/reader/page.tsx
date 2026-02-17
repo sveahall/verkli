@@ -4,6 +4,7 @@ import { useState, useRef, useEffect, type CSSProperties } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
+import BrandGradientText from "@/components/ui/brand-gradient-text";
 import { BRAND_COLORS } from "@/lib/design/brand";
 
 /* ── Data ── */
@@ -227,9 +228,9 @@ export default function ReaderLanding() {
         {/* Headline */}
         <h1 className="max-w-[860px] text-[clamp(42px,7.5vw,76px)] font-semibold leading-[1.08] tracking-[-0.04em] text-slate-900 dark:text-white">
           Stories that find you. <br />
-          <span className="bg-gradient-to-r from-gray-500 to-gray-900 bg-clip-text text-transparent">
+          <BrandGradientText colors={["#6b7280", "#4b5563", "#111827"]}>
             Read without the noise.
-          </span>
+          </BrandGradientText>
         </h1>
 
         {/* Sub */}
@@ -258,7 +259,7 @@ export default function ReaderLanding() {
           <p className="text-[13px] font-medium uppercase tracking-[0.15em] text-[#907AFF]">Why Verkli</p>
           <h2 id="value-heading" className="mx-auto mt-4 max-w-[640px] text-[clamp(28px,4vw,48px)] font-semibold leading-[1.1] tracking-[-0.025em] text-slate-900 dark:text-white">
             A place to{" "}
-            <span className="text-brand-gradient">discover</span>{" "}
+            <BrandGradientText>discover</BrandGradientText>{" "}
             and stay close to what you love
           </h2>
           <p className="mx-auto mt-5 max-w-[480px] text-[16px] leading-[1.7] text-slate-500 dark:text-white/50">Built for readers who want more than a feed.</p>
@@ -312,7 +313,7 @@ export default function ReaderLanding() {
           <p className="text-[13px] font-medium uppercase tracking-[0.15em] text-[#907AFF]">What makes us different</p>
           <h2 id="different-heading" className="mx-auto mt-4 max-w-[640px] text-[clamp(28px,4vw,48px)] font-semibold leading-[1.1] tracking-[-0.025em] text-slate-900 dark:text-white">
             Why Verkli is{" "}
-            <span className="text-brand-gradient">different</span>
+            <BrandGradientText>different</BrandGradientText>
           </h2>
           <p className="mx-auto mt-5 max-w-[480px] text-[16px] leading-[1.7] text-slate-500 dark:text-white/50">Not just another reading app.</p>
         </div>

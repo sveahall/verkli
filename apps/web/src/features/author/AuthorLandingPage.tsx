@@ -6,6 +6,7 @@ import Image from "next/image";
 import dynamic from "next/dynamic";
 import { createClient } from "@/lib/supabase/client";
 import LazySection from "@/components/LazySection";
+import BrandGradientText from "@/components/ui/brand-gradient-text";
 import type { User } from "@supabase/supabase-js";
 import { BRAND_COLORS } from "@/lib/design/brand";
 
@@ -109,9 +110,12 @@ function LandingPage() {
           {/* Headline */}
           <h1 className="max-w-[860px] text-[clamp(42px,7.5vw,76px)] font-regular leading-[1.08] tracking-[-0.04em] text-slate-900 dark:text-white">
             Write once. <br />
-            <span className="bg-gradient-to-r from-[#907AFF] via-[#c4a0e8] to-[#E29ED5] font-semibold bg-clip-text text-transparent">
+            <BrandGradientText
+              className="font-semibold"
+              colors={["#907AFF", "#c4a0e8", "#E29ED5"]}
+            >
               Show up everywhere.
-            </span>
+            </BrandGradientText>
           </h1>
 
           {/* Sub */}
@@ -149,7 +153,7 @@ function LandingPage() {
                 <p className="mb-4 text-[13px] font-medium uppercase tracking-[0.15em] text-[#907AFF]/80 dark:text-[#907AFF]/60">One platform</p>
                 <h2 className="text-[clamp(30px,3.5vw,44px)] font-bold leading-[1.1] tracking-[-0.03em] text-slate-900 dark:text-white">
                   Zero friction{" "}
-                  <span className="text-brand-gradient">book marketing.</span>
+                  <BrandGradientText>book marketing.</BrandGradientText>
                 </h2>
                 <p className="mt-5 max-w-[400px] text-[16px] leading-[1.7] text-slate-500 dark:text-white/50">Turn your book into structured content that publishes, adapts, and scales — without the busywork.</p>
                 <div className="mt-8">
@@ -223,7 +227,7 @@ function LandingPage() {
                 <p className="text-[13px] font-medium uppercase tracking-[0.15em] text-[#907AFF]">Why Verkli</p>
                 <h2 className="mt-5 text-[clamp(28px,3.5vw,42px)] font-bold leading-[1.1] tracking-[-0.03em] text-slate-900 dark:text-white">
                   Everything you need to{" "}
-                  <span className="text-brand-gradient">grow your audience.</span>
+                  <BrandGradientText>grow your audience.</BrandGradientText>
                 </h2>
                 <p className="mt-5 max-w-[380px] text-[16px] leading-[1.7] text-slate-500 dark:text-white/45">Simple tools that help you reach readers — without the complexity.</p>
                 <div className="mt-8">

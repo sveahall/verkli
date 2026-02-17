@@ -650,13 +650,15 @@ export default function GlobalNavbar({
                   width={140}
                   height={32}
                   className="h-8 w-auto dark:hidden"
+                  style={{ width: "auto", height: "32px" }}
                 />
                 <Image
                   src="/favicon.svg"
                   alt="Verkli"
-                  width={32}
+                  width={140}
                   height={32}
                   className="hidden h-8 w-auto dark:block"
+                  style={{ width: "auto", height: "32px" }}
                 />
               </Link>
 

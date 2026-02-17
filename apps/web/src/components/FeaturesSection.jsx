@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import BrandGradientText from "@/components/ui/brand-gradient-text";
 
 const features = [
   {
@@ -84,9 +85,9 @@ export default function FeaturesSection() {
         </p>
         <h2 className="mt-4 text-[clamp(28px,4vw,48px)] font-semibold leading-[1.1] tracking-[-0.025em] text-slate-900 dark:text-white">
           Here&apos;s what you get with{" "}
-          <span className="text-brand-gradient">
+          <BrandGradientText>
             verkli.
-          </span>
+          </BrandGradientText>
         </h2>
         <p className="mx-auto mt-4 max-w-[520px] text-[16px] leading-[1.7] text-slate-500 dark:text-white/45">
           A single workflow that protects your IP, grows your audience, and keeps

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import BrandGradientText from "@/components/ui/brand-gradient-text";
 
 export default function StatsSection() {
   const stats = useMemo(
@@ -110,9 +111,9 @@ export default function StatsSection() {
         </p>
         <h2 className="mt-4 text-[clamp(28px,4vw,48px)] font-semibold leading-[1.1] tracking-[-0.025em] text-slate-900 dark:text-white">
           The numbers speak{" "}
-          <span className="text-brand-gradient">
+          <BrandGradientText>
             for themselves
-          </span>
+          </BrandGradientText>
         </h2>
         <p className="mx-auto mt-4 max-w-[420px] text-[16px] leading-[1.7] text-slate-500 dark:text-white/45">
           Join thousands of authors already growing with Verkli.

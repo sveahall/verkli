@@ -2,6 +2,7 @@
 
 import Image from "next/image";
 import Link from "next/link";
+import BrandGradientText from "@/components/ui/brand-gradient-text";
 
 export default function InteractiveTestimonialSection() {
   return (
@@ -21,9 +22,9 @@ export default function InteractiveTestimonialSection() {
             </p>
             <h2 className="mt-4 text-[clamp(28px,4vw,48px)] font-semibold leading-[1.1] tracking-[-0.025em] text-slate-900 dark:text-white">
               Authors love{" "}
-              <span className="text-brand-gradient">
+              <BrandGradientText>
                 what we do.
-              </span>
+              </BrandGradientText>
             </h2>
             <p className="mt-5 max-w-[400px] text-[16px] leading-[1.7] text-slate-500 dark:text-white/45">
               Join thousands of authors who use Verkli to turn their stories into
