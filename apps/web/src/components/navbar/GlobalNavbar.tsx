@@ -6,7 +6,6 @@ import Link from "next/link";
 import Image from "next/image";
 import { usePathname, useRouter } from "next/navigation";
 import GlassSurface from "@/components/GlassSurface";
-import ThemeToggle from "@/components/ThemeToggle";
 import UserMenu from "@/components/navbar/UserMenu";
 import NotificationBell from "@/components/notifications/NotificationBell";
 import { createClient } from "@/lib/supabase/client";
@@ -626,11 +625,12 @@ export default function GlobalNavbar({
   return (
     <>
       {/* fixed + isolate + z-[9999] så Safari alltid ritar navbar ovanpå innehåll (DOM-ordning + explicit stacking) */}
-      <div className="fixed top-0 left-0 z-[9999] isolate w-full flex-shrink-0">
-        <header className="mx-auto w-full max-w-[100vw] overflow-x-hidden overflow-y-visible  px-4 pb-2 pt-3 md:px-6">
+      <div className="fixed top-0 left-0 right-0 z-[9999] isolate w-full flex-shrink-0 bg-background">
+        <header className="mx-auto w-full max-w-[100vw] overflow-x-hidden overflow-y-visible px-4 pb-2 pt-3 md:px-6">
         <div className="flex items-center gap-2 sm:gap-3">
         <GlassSurface
           {...glassBaseProps}
+          forceFallback
           width="100%"
           height="68px"
           borderRadius={999}
@@ -960,7 +960,7 @@ export default function GlobalNavbar({
                     </div>
                   )}
 
-                  {/* Theme toggle och Language selector */}
+                  {/* Language selector */}
                   <div className="hidden items-center gap-3 md:flex">
                     {/* Language selector */}
                     <button
@@ -985,11 +985,6 @@ export default function GlobalNavbar({
                         <path d="M42.1924 11.9722C42.3572 12.138 42.6283 12.138 42.793 11.9722L47.045 7.69522C47.2098 7.52949 47.2098 7.25683 47.045 7.0911C46.8802 6.92536 46.6092 6.92536 46.4444 7.0911L42.4927 11.066L38.5411 7.0911C38.3763 6.92536 38.1052 6.92536 37.9405 7.0911C37.7757 7.25683 37.7757 7.52949 37.9405 7.69522L42.1924 11.9722Z" fill="currentColor"/>
                       </svg>
                     </button>
-
-                    <ThemeToggle
-                      useGlass={false}
-                      className="h-9 w-9"
-                    />
                   </div>
 
                   {/* User menu för inloggade användare (ej author route) */}
@@ -1114,16 +1109,13 @@ export default function GlobalNavbar({
                 )}
               </div>
             )}
-            <div className="flex items-center gap-3">
-              <ThemeToggle useGlass={false} className="h-10 w-10" />
-            </div>
           </div>
         </div>
       )}
     </header>
       </div>
       {/* Spacer i flödet så innehåll börjar under fixed navbar; scrollar bort medan navbaren ligger kvar högst upp */}
-      <div className="h-[72px] flex-shrink-0" aria-hidden />
+      <div className="h-[88px] flex-shrink-0 bg-background" aria-hidden />
       {/* Portal: dropdown utanför navbar DOM så ingen stacking/overflow klipper; z 100 ovanför allt */}
       {typeof document !== "undefined" &&
         dropdownOpen &&

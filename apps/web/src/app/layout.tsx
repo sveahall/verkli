@@ -46,7 +46,7 @@ export default function RootLayout({
         <ToastProvider>
           <OfflineServiceWorkerRegistration />
           {/* Content first in DOM; navbar rendered via route-group layouts */}
-          <div className="relative z-0 flex min-h-0 flex-1 flex-col overflow-x-hidden">
+          <div className="relative z-0 flex min-h-0 flex-1 flex-col overflow-x-hidden bg-background">
             {children}
           </div>
           {/* Theme toggle fixed in bottom right corner on all pages */}

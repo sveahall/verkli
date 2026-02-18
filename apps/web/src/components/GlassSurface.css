@@ -7,9 +7,9 @@
   transition: opacity 0.26s ease-out;
 }
 
-/* Navbar: dropdown ska inte klippas – overflow visible */
+/* Navbar: clamp visual effects so no chromatic bleed escapes pill edge */
 .nav-glass.glass-surface {
-  overflow: visible;
+  overflow: hidden;
 }
 
 .glass-surface__filter {

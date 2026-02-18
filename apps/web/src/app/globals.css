@@ -211,6 +211,8 @@
     @apply border-border outline-ring/50;
   }
   html {
+    @apply bg-background;
+    min-height: 100%;
     -webkit-text-size-adjust: 100%;
     /* overflow inte på html – Safari gör då fixed till viewport; overflow på content-wrappern istället */
   }
@@ -275,6 +277,15 @@ html:not(.dark) .glass-button:active {
 }
 .dark .glass-button:active {
   transform: translateY(0) scale(0.98);
+}
+
+/* Theme toggle singleton guard: keep exactly one global toggle visible. */
+button:is(
+  [aria-label="Theme toggle"],
+  [aria-label="Switch to dark mode"],
+  [aria-label="Switch to light mode"]
+):not([data-theme-toggle="global"]) {
+  display: none !important;
 }
 
 .feature-visual {
@@ -735,7 +746,7 @@ html:not(.dark) .glass-button:active {
 }
 
 .glass-surface.nav-glass {
-  overflow: visible !important;
+  overflow: hidden !important;
 }
 
 .dialog-backdrop::backdrop {
