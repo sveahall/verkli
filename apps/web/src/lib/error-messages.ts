@@ -83,16 +83,6 @@ const ERROR_MESSAGES: Record<string, string> = {
   // Jobs
   JOB_FETCH_FAILED: "Kunde inte hämta jobbstatus.",
 
-  // TTS
-  TTS_DISABLED: "Talsyntes är inte aktiverad.",
-  TTS_BUSY: "Talsyntesen är upptagen. Försök igen.",
-  TTS_SYNTHESIS_FAILED: "Talsyntesen misslyckades.",
-  TTS_UNEXPECTED_ERROR: "Oväntat talsyntesfel.",
-  BUCKET_NOT_FOUND: "Lagringsutrymmet hittades inte.",
-  AUDIO_URL_GENERATION_FAILED: "Kunde inte generera ljud-URL.",
-  NO_TEXT_IN_CHAPTERS: "Inga kapitel har textinnehåll att syntetisera.",
-  TTS_ENV_CONFIG_ERROR: "TTS-konfigurationsfel.",
-
   // Bookmarks
   BOOKMARK_LOAD_FAILED: "Kunde inte ladda bokmärken.",
   ALREADY_BOOKMARKED: "Redan bokmärkt.",

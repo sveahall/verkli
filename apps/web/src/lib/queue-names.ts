@@ -7,7 +7,6 @@ export const QUEUE_NAMES = {
   IMPORT: "book-import-extract",
   TRANSLATION: "book-translation",
   AUDIOBOOK: "audiobook-generation",
-  TTS: "tts-generation",
   SOCIAL_PUBLISH: "social-publish",
   RECOMMENDATIONS: "recommendations",
   NOTIFICATIONS: "notifications",

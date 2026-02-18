@@ -16,15 +16,15 @@ import type { User } from "@supabase/supabase-js";
 const VERKLI_ROLE_KEY = "verkli_role";
 
 const glassBaseProps = {
-  displace: 0.5,
-  distortionScale: -180,
+  displace: 0.12,
+  distortionScale: -30,
   redOffset: 0,
-  greenOffset: 10,
-  blueOffset: 20,
+  greenOffset: 0,
+  blueOffset: 0,
   brightness: 50,
-  opacity: 0.93,
-  backgroundOpacity: 0.12,
-  blur: 12,
+  opacity: 0.97,
+  backgroundOpacity: 0.42,
+  blur: 28,
   saturation: 1.2,
   mixBlendMode: "screen",
 };

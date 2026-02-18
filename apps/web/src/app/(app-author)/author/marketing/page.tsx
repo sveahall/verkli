@@ -40,7 +40,7 @@ export default async function authorMarketingRoute() {
   const bookOptions = (books ?? []).map((b) => ({ id: b.id, title: b.title ?? "" }));
 
   return (
-    <div className="min-h-screen bg-background text-foreground">
+    <div className="min-h-screen bg-gradient-to-b from-slate-50/90 via-background to-background text-foreground dark:from-slate-950/80 dark:via-background dark:to-background">
       <MarketingDashboard initialCampaigns={campaigns} initialBooks={bookOptions} />
     </div>
   );

@@ -20,9 +20,9 @@ import {
 
 const AI_JOB_KIND = "audiobook_generation";
 
-// Default TTS config (matches piper.ts defaults)
-const DEFAULT_VOICE_ID = "sv_SE-nst-medium";
-const DEFAULT_MODEL_PATH = "vendor/tts/voices/sv_SE-nst-medium.onnx";
+// Narrator metadata persisted with jobs/cache keys.
+const DEFAULT_VOICE_ID = "default";
+const DEFAULT_NARRATOR_MODEL = "narrator-removed";
 
 type ActiveJobRow = {
   id: string;
@@ -175,7 +175,7 @@ export async function POST(
 
   // Get TTS config from env
   const voiceId = process.env.TTS_VOICE_ID ?? DEFAULT_VOICE_ID;
-  const modelPath = process.env.TTS_MODEL_PATH ?? DEFAULT_MODEL_PATH;
+  const modelPath = process.env.AI_NARRATOR_MODEL ?? DEFAULT_NARRATOR_MODEL;
 
   // Create ai_jobs record
   const { data: job, error: jobError } = await admin

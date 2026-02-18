@@ -13,7 +13,7 @@ import "server-only";
  *
  * Environment variables (optional, defaults shown):
  *   AI_TRANSLATOR_PROVIDER=opus  (only opus supported currently)
- *   AI_NARRATOR_PROVIDER=piper   (only piper supported currently)
+ *   Narrator provider is temporarily disabled (PIPER_REMOVED).
  *   AI_VIDEO_PROVIDER=runway     (only runway supported currently)
  */
 
@@ -42,14 +42,14 @@ export { AIProviderError } from "./types";
 
 // Default provider instances
 import { opusTranslator } from "./opus-translator";
-import { piperNarrator } from "./piper-narrator";
+import { removedNarrator } from "./narrator-removed";
 import { runwayVideo } from "./runway-video";
 import { stubImage } from "./stub-image";
 import { stubCopywriter } from "./stub-copywriter";
 
 // Re-export provider classes for direct instantiation if needed
 export { OpusTranslator, opusTranslator } from "./opus-translator";
-export { PiperNarrator, piperNarrator } from "./piper-narrator";
+export { RemovedNarrator, removedNarrator } from "./narrator-removed";
 export { RunwayVideoProvider, runwayVideo } from "./runway-video";
 export { StubImageProvider, stubImage } from "./stub-image";
 export { StubCopywriterProvider, stubCopywriter } from "./stub-copywriter";
@@ -74,16 +74,10 @@ export function getTranslator(): typeof opusTranslator {
 
 /**
  * Get the configured narrator (TTS) provider.
- * Currently only supports Piper. Future: add cloud TTS providers.
+ * Legacy local TTS has been removed. This currently returns a stub that throws PIPER_REMOVED.
  */
-export function getNarrator(): typeof piperNarrator {
-  const provider = process.env.AI_NARRATOR_PROVIDER?.toLowerCase() ?? "piper";
-
-  switch (provider) {
-    case "piper":
-    default:
-      return piperNarrator;
-  }
+export function getNarrator(): typeof removedNarrator {
+  return removedNarrator;
 }
 
 /**

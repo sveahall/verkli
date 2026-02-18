@@ -57,16 +57,19 @@ type DashboardSectionProps = {
 
 function DashboardSection({ id, title, description, action, children }: DashboardSectionProps) {
   return (
-    <section id={id} className="scroll-mt-24">
-      <div className="rounded-3xl border border-border bg-background p-6">
+    <section id={id} className="scroll-mt-28">
+      <div
+        className="rounded-3xl border border-white/60 bg-white/70 p-6 shadow-[0_0_0_1px_rgba(0,0,0,0.02),0_25px_50px_-12px_rgba(0,0,0,0.08)] backdrop-blur-xl dark:border-white/10 dark:bg-white/10 dark:shadow-[0_0_0_1px_rgba(255,255,255,0.05),0_25px_50px_-12px_rgba(0,0,0,0.4)] sm:p-8"
+        style={{ WebkitBackdropFilter: "blur(24px)", backdropFilter: "blur(24px)" }}
+      >
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div>
-            <h2 className="text-[20px] font-semibold text-foreground">{title}</h2>
-            <p className="mt-1 text-[13px] text-muted-foreground">{description}</p>
+            <h2 className="text-lg font-semibold tracking-tight text-foreground sm:text-[20px]">{title}</h2>
+            <p className="mt-1.5 max-w-2xl text-sm leading-relaxed text-muted-foreground">{description}</p>
           </div>
           {action ? <div className="flex items-center gap-2">{action}</div> : null}
         </div>
-        <div className="mt-6">{children}</div>
+        <div className="mt-8">{children}</div>
       </div>
     </section>
   );
@@ -145,59 +148,72 @@ export default function MarketingDashboard({
   };
 
   return (
-    <div className="relative mx-auto w-full max-w-[1200px] px-6 py-10 lg:px-10">
-      <div>
-        <p className="text-[12px] uppercase tracking-[0.3em] text-muted-foreground">
+    <div className="relative mx-auto w-full max-w-[1280px] px-5 py-12 sm:px-6 lg:px-10">
+      <header className="mb-10">
+        <p className="text-[11px] font-medium uppercase tracking-[0.2em] text-muted-foreground">
           Marketing tools
         </p>
-        <h1 className="mt-2 text-[32px] font-semibold text-foreground">Marketing dashboard</h1>
-        <p className="mt-3 max-w-2xl text-[15px] text-muted-foreground">
+        <h1 className="mt-2 text-[28px] font-bold tracking-[-0.02em] text-foreground sm:text-[32px]">
+          Marketing dashboard
+        </h1>
+        <p className="mt-3 max-w-xl text-[15px] leading-[1.5] text-muted-foreground">
           Plan campaigns, draft copy, and prepare distribution workflows. AI automation will plug
           into these modules later.
         </p>
-      </div>
+      </header>
 
-      <div className="mt-8 flex flex-col gap-8 lg:flex-row">
+      <div className="flex flex-col gap-10 lg:flex-row">
         <div className="lg:hidden">
-          <div className="flex items-center gap-2 overflow-x-auto rounded-2xl border border-border bg-background p-2 text-sm">
+          <nav
+            className="flex gap-1 overflow-x-auto rounded-2xl border border-white/60 bg-white/60 p-1.5 shadow-[0_0_0_1px_rgba(0,0,0,0.04)] backdrop-blur-xl dark:border-white/10 dark:bg-white/10"
+            style={{ WebkitBackdropFilter: "blur(24px)", backdropFilter: "blur(24px)" }}
+          >
             {navItems.map((item) => (
               <a
                 key={item.id}
                 href={`#${item.id}`}
-                className="whitespace-nowrap rounded-full px-3 py-2 text-[12px] font-semibold text-muted-foreground transition hover:bg-muted/40 hover:text-foreground"
+                className="whitespace-nowrap rounded-xl px-4 py-2.5 text-[13px] font-medium text-muted-foreground transition hover:bg-white/80 hover:text-foreground dark:hover:bg-white/15 dark:hover:text-white"
               >
                 {item.label}
               </a>
             ))}
-          </div>
+          </nav>
         </div>
 
-        <aside className="hidden lg:block lg:w-[220px]">
-          <div className="sticky top-24 space-y-4">
-            <div className="rounded-2xl border border-border bg-background p-4">
-              <p className="text-[12px] uppercase tracking-[0.2em] text-muted-foreground">Sections</p>
-              <nav className="mt-4 space-y-2">
+        <aside className="hidden shrink-0 lg:block lg:w-[240px]">
+          <div className="sticky top-28 space-y-5">
+            <nav
+              className="rounded-2xl border border-white/60 bg-white/60 p-3 shadow-[0_0_0_1px_rgba(0,0,0,0.04),0_8px_30px_rgba(0,0,0,0.06)] backdrop-blur-xl dark:border-white/10 dark:bg-white/10 dark:shadow-[0_0_0_1px_rgba(255,255,255,0.06),0_8px_30px_rgba(0,0,0,0.3)]"
+              style={{ WebkitBackdropFilter: "blur(24px)", backdropFilter: "blur(24px)" }}
+            >
+              <p className="px-3 py-2 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+                Sections
+              </p>
+              <div className="mt-1 space-y-0.5">
                 {navItems.map((item) => (
                   <a
                     key={item.id}
                     href={`#${item.id}`}
-                    className="flex items-center justify-between rounded-xl border border-transparent px-3 py-2 text-[13px] text-muted-foreground transition hover:border-[#907AFF]/20 hover:bg-muted/40 hover:text-foreground"
+                    className="flex items-center justify-between rounded-xl px-3 py-2.5 text-[13px] text-muted-foreground transition hover:bg-[#907AFF]/10 hover:text-foreground dark:hover:bg-[#907AFF]/15"
                   >
-                    <span>{item.label}</span>
-                    <span className="text-[10px] uppercase tracking-[0.2em] text-muted-foreground/70">
+                    <span className="font-medium">{item.label}</span>
+                    <span className="text-[11px] uppercase tracking-wider text-muted-foreground/60">
                       {item.helper}
                     </span>
                   </a>
                 ))}
-              </nav>
-            </div>
-            <div className="rounded-2xl border border-border bg-muted/30 p-4 text-[12px] text-muted-foreground">
+              </div>
+            </nav>
+            <p
+              className="rounded-xl border border-white/50 bg-white/50 px-3.5 py-2.5 text-[12px] leading-snug text-muted-foreground backdrop-blur-xl dark:border-white/10 dark:bg-white/5"
+              style={{ WebkitBackdropFilter: "blur(20px)", backdropFilter: "blur(20px)" }}
+            >
               Drafting area only. Connect data sources once the marketing service is ready.
-            </div>
+            </p>
           </div>
         </aside>
 
-        <div className="flex-1 space-y-8">
+        <div className="min-w-0 flex-1 space-y-10">
           <DashboardSection
             id="caption-portal"
             title="Caption portal"
@@ -213,7 +229,7 @@ export default function MarketingDashboard({
             action={
               <button
                 type="button"
-                className="rounded-full bg-gradient-to-r from-[#907AFF] to-[#8069EE] px-4 py-2 text-[13px] font-semibold text-white transition hover:from-[#8069EE] hover:to-[#7058DD]"
+                className="rounded-full bg-gradient-to-r from-[#907AFF] to-[#8069EE] px-4 py-2 text-[13px] font-semibold text-white shadow-[0_2px_12px_rgba(144,122,255,0.4)] transition hover:from-[#8069EE] hover:to-[#7058DD] hover:shadow-[0_4px_20px_rgba(144,122,255,0.35)]"
                 onClick={() => setShowCreateCampaign(true)}
               >
                 Create campaign
@@ -260,7 +276,7 @@ export default function MarketingDashboard({
             <PerformanceOverview metrics={metrics} state={performanceState} />
           </DashboardSection>
 
-          <section id="automation" className="scroll-mt-24">
+          <section id="automation" className="scroll-mt-28">
             <AutomationTeaser />
           </section>
         </div>

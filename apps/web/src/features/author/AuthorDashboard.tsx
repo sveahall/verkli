@@ -499,8 +499,8 @@ export default function AuthorDashboard({ user }: { user: User }) {
   return (
     <main className="min-h-screen bg-background text-foreground">
 
-      {/* Hero banner */}
-      <section className="relative -mt-[72px] pt-15 overflow-hidden border-b border-black/[0.04] dark:border-white/[0.06]">
+      {/* Hero banner — overlap matches navbar height (header pt-3 + 68px + pb-2 = 88px) */}
+      <section className="relative -mt-[88px] pt-20 overflow-hidden border-b border-black/[0.04] dark:border-white/[0.06]">
         <div className="pointer-events-none absolute inset-0">
           <div className="absolute inset-0 bg-gradient-to-b from-[#eeeaf6] via-[#f0ecf7] to-background dark:from-[#0c0a18] dark:via-[#0a0914] dark:to-background" />
           {/* Top-left orb — extends behind navbar */}

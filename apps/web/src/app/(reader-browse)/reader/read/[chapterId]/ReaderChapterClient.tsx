@@ -29,6 +29,25 @@ type ReaderSettings = {
 
 type ReaderFont = "serif" | "sans" | "mono";
 type ReaderTheme = "light" | "sepia" | "dark";
+type ReaderThemeOption = {
+  value: ReaderTheme;
+  label: string;
+  preview: string;
+  canvas: string;
+  orbOne: string;
+  orbTwo: string;
+  orbThree: string;
+  veil: string;
+  gridColor: string;
+  panelBg: string;
+  panelBorder: string;
+  chapterBg: string;
+  chapterBorder: string;
+  proseColor: string;
+  headingColor: string;
+  linkUnderline: string;
+  linkUnderlineHover: string;
+};
 
 const FONT_OPTIONS: { value: ReaderFont; label: string; family: string }[] = [
   { value: "serif", label: "Serif", family: "Georgia, serif" },
@@ -36,10 +55,64 @@ const FONT_OPTIONS: { value: ReaderFont; label: string; family: string }[] = [
   { value: "mono", label: "Mono", family: "'JetBrains Mono', monospace" },
 ];
 
-const THEME_OPTIONS: { value: ReaderTheme; label: string; bg: string; text: string }[] = [
-  { value: "light", label: "Light", bg: "", text: "" },
-  { value: "sepia", label: "Sepia", bg: "bg-[#f5f0e8]", text: "text-[#5c4b37]" },
-  { value: "dark", label: "Dark", bg: "bg-slate-900", text: "text-slate-200" },
+const THEME_OPTIONS: ReaderThemeOption[] = [
+  {
+    value: "light",
+    label: "Light",
+    preview: "linear-gradient(140deg, #eef3ff 10%, #f6f9ff 55%, #eef4ff 100%)",
+    canvas: "linear-gradient(165deg, #eef3ff 0%, #f7fbff 48%, #edf5ff 100%)",
+    orbOne: "rgba(144,122,255,0.56)",
+    orbTwo: "rgba(125,211,252,0.46)",
+    orbThree: "rgba(248,180,230,0.38)",
+    veil: "linear-gradient(180deg, rgba(255,255,255,0.42) 0%, rgba(255,255,255,0.08) 100%)",
+    gridColor: "rgba(116, 139, 179, 0.22)",
+    panelBg: "rgba(255,255,255,0.78)",
+    panelBorder: "rgba(148,163,184,0.34)",
+    chapterBg: "linear-gradient(180deg, rgba(255,255,255,0.9), rgba(252,255,255,0.86))",
+    chapterBorder: "rgba(148,163,184,0.34)",
+    proseColor: "#1e293b",
+    headingColor: "#0f172a",
+    linkUnderline: "rgba(100,116,139,0.45)",
+    linkUnderlineHover: "rgba(71,85,105,0.75)",
+  },
+  {
+    value: "sepia",
+    label: "Sepia",
+    preview: "linear-gradient(140deg, #f7efe2 5%, #f4e7d4 55%, #f0e2cf 100%)",
+    canvas: "linear-gradient(165deg, #f8f0e4 0%, #f4e8d8 48%, #efe1cc 100%)",
+    orbOne: "rgba(245, 158, 11, 0.32)",
+    orbTwo: "rgba(236, 72, 153, 0.22)",
+    orbThree: "rgba(239, 68, 68, 0.14)",
+    veil: "linear-gradient(180deg, rgba(255,250,240,0.34) 0%, rgba(251,244,232,0.1) 100%)",
+    gridColor: "rgba(156, 120, 84, 0.18)",
+    panelBg: "rgba(253,247,236,0.75)",
+    panelBorder: "rgba(180,138,104,0.34)",
+    chapterBg: "linear-gradient(180deg, rgba(255,251,243,0.86), rgba(251,242,226,0.82))",
+    chapterBorder: "rgba(171,133,101,0.34)",
+    proseColor: "#5b4633",
+    headingColor: "#402f1f",
+    linkUnderline: "rgba(146,98,63,0.46)",
+    linkUnderlineHover: "rgba(126,78,45,0.74)",
+  },
+  {
+    value: "dark",
+    label: "Dark",
+    preview: "linear-gradient(140deg, #10182c 10%, #0f172a 58%, #111f36 100%)",
+    canvas: "linear-gradient(165deg, #0f172a 0%, #10192f 54%, #0a1222 100%)",
+    orbOne: "rgba(147, 112, 219, 0.46)",
+    orbTwo: "rgba(34, 211, 238, 0.28)",
+    orbThree: "rgba(59, 130, 246, 0.22)",
+    veil: "linear-gradient(180deg, rgba(15,23,42,0.34) 0%, rgba(2,6,23,0.18) 100%)",
+    gridColor: "rgba(116, 139, 179, 0.2)",
+    panelBg: "rgba(15,23,42,0.58)",
+    panelBorder: "rgba(148,163,184,0.24)",
+    chapterBg: "linear-gradient(180deg, rgba(15,23,42,0.76), rgba(13,17,29,0.7))",
+    chapterBorder: "rgba(148,163,184,0.24)",
+    proseColor: "rgba(241,245,249,0.92)",
+    headingColor: "rgba(248,250,252,0.96)",
+    linkUnderline: "rgba(203,213,225,0.5)",
+    linkUnderlineHover: "rgba(226,232,240,0.78)",
+  },
 ];
 
 function loadLocalStorage<T>(key: string, fallback: T): T {
@@ -299,6 +372,7 @@ export default function ReaderChapterClient({
   // Reader UX controls
   const [readerFont, setReaderFont] = useState<ReaderFont>("serif");
   const [readerTheme, setReaderTheme] = useState<ReaderTheme>("light");
+  const [backgroundIntensity, setBackgroundIntensity] = useState(72);
   const [showSettingsPanel, setShowSettingsPanel] = useState(false);
   const settingsPanelRef = useRef<HTMLDivElement>(null);
   const settingsButtonRef = useRef<HTMLButtonElement>(null);
@@ -308,8 +382,11 @@ export default function ReaderChapterClient({
     const frame = window.requestAnimationFrame(() => {
       const nextFont = loadLocalStorage("verkli_reader_font", "serif" as ReaderFont);
       const nextTheme = loadLocalStorage("verkli_reader_theme", "light" as ReaderTheme);
+      const nextIntensityRaw = Number(loadLocalStorage("verkli_reader_bg_intensity", 72));
+      const nextIntensity = Number.isFinite(nextIntensityRaw) ? clamp(nextIntensityRaw, 20, 100) : 72;
       setReaderFont((prev) => (prev === nextFont ? prev : nextFont));
       setReaderTheme((prev) => (prev === nextTheme ? prev : nextTheme));
+      setBackgroundIntensity((prev) => (prev === nextIntensity ? prev : nextIntensity));
     });
     return () => window.cancelAnimationFrame(frame);
   }, []);
@@ -317,6 +394,7 @@ export default function ReaderChapterClient({
   // Persist UX controls to localStorage
   useEffect(() => { saveLocalStorage("verkli_reader_font", readerFont); }, [readerFont]);
   useEffect(() => { saveLocalStorage("verkli_reader_theme", readerTheme); }, [readerTheme]);
+  useEffect(() => { saveLocalStorage("verkli_reader_bg_intensity", backgroundIntensity); }, [backgroundIntensity]);
 
   // Close settings panel on click outside
   useEffect(() => {
@@ -336,7 +414,9 @@ export default function ReaderChapterClient({
   }, [showSettingsPanel]);
 
   const currentFontFamily = FONT_OPTIONS.find((f) => f.value === readerFont)?.family ?? "Georgia, serif";
-  const currentTheme = THEME_OPTIONS.find((t) => t.value === readerTheme);
+  const currentTheme = THEME_OPTIONS.find((t) => t.value === readerTheme) ?? THEME_OPTIONS[0];
+  const orbOpacity = 0.1 + (backgroundIntensity / 100) * 0.42;
+  const gridOpacity = 0.03 + (backgroundIntensity / 100) * 0.11;
 
   const canCreateHighlights = Boolean(userId && bookVersionId);
   const [supportsCssHighlights, setSupportsCssHighlights] = useState(false);
@@ -779,26 +859,74 @@ export default function ReaderChapterClient({
                       key={t.value}
                       type="button"
                       onClick={() => setReaderTheme(t.value)}
-                      className={`flex-1 rounded-xl px-2 py-1.5 text-[12px] font-medium transition ${
+                      className={`flex-1 rounded-xl border px-2 py-1.5 text-[12px] font-medium transition ${
                         readerTheme === t.value
-                          ? "bg-[#907AFF] text-white"
-                          : "border border-black/10 text-slate-700 hover:border-black/20 dark:border-white/15 dark:text-white/70"
+                          ? "border-[#907AFF]/45 bg-[#907AFF] text-white"
+                          : "border-black/10 text-slate-700 hover:border-black/20 dark:border-white/15 dark:text-white/70"
                       }`}
                     >
+                      <span className="mx-auto mb-1.5 block h-2.5 w-10 rounded-full" style={{ background: t.preview }} />
                       {t.label}
                     </button>
                   ))}
                 </div>
               </div>
 
+              <div>
+                <div className="mb-1.5 flex items-center justify-between">
+                  <p className="text-[11px] font-medium uppercase tracking-[0.1em] text-slate-500 dark:text-white/50">Bakgrund</p>
+                  <span className="text-[11px] font-medium text-slate-500 dark:text-white/60">{backgroundIntensity}%</span>
+                </div>
+                <input
+                  type="range"
+                  min={20}
+                  max={100}
+                  step={5}
+                  value={backgroundIntensity}
+                  onChange={(event) => {
+                    const next = Number(event.target.value);
+                    if (!Number.isFinite(next)) return;
+                    setBackgroundIntensity(clamp(next, 20, 100));
+                  }}
+                  className="w-full accent-[#907AFF]"
+                  aria-label="Background intensity"
+                />
+              </div>
             </div>
           </div>
         )}
       </div>
 
-      <div className={`${currentTheme?.bg ?? ""} ${currentTheme?.text ?? ""}`}>
-        <div className="space-y-5">
-          <section className="rounded-[24px] border border-slate-200/90 bg-white/92 p-4 shadow-[0_10px_24px_rgba(15,23,42,0.07)] dark:border-white/10 dark:bg-white/[0.04]">
+      <div className="relative overflow-hidden rounded-[30px] p-2 sm:p-3" style={{ background: currentTheme.canvas }}>
+        <div className="pointer-events-none absolute inset-0" aria-hidden>
+          <div
+            className="absolute -left-20 -top-24 h-[320px] w-[320px] rounded-full blur-[92px]"
+            style={{ backgroundColor: currentTheme.orbOne, opacity: orbOpacity }}
+          />
+          <div
+            className="absolute -right-16 top-[18%] h-[280px] w-[280px] rounded-full blur-[88px]"
+            style={{ backgroundColor: currentTheme.orbTwo, opacity: orbOpacity * 0.92 }}
+          />
+          <div
+            className="absolute bottom-[-96px] left-[22%] h-[300px] w-[300px] rounded-full blur-[96px]"
+            style={{ backgroundColor: currentTheme.orbThree, opacity: orbOpacity * 0.8 }}
+          />
+          <div
+            className="absolute inset-0"
+            style={{
+              backgroundImage: `linear-gradient(${currentTheme.gridColor} 1px, transparent 1px), linear-gradient(90deg, ${currentTheme.gridColor} 1px, transparent 1px)`,
+              backgroundSize: "30px 30px",
+              opacity: gridOpacity,
+            }}
+          />
+          <div className="absolute inset-0" style={{ background: currentTheme.veil }} />
+        </div>
+
+        <div className="relative space-y-5">
+          <section
+            className="rounded-[24px] border p-4 shadow-[0_10px_24px_rgba(15,23,42,0.07)]"
+            style={{ background: currentTheme.panelBg, borderColor: currentTheme.panelBorder }}
+          >
             <div className="flex flex-wrap items-center gap-2 text-[12px] text-slate-600 dark:text-white/60">
               <span className="text-[13px] font-semibold text-slate-900 dark:text-white">Reader settings</span>
               <button
@@ -852,14 +980,25 @@ export default function ReaderChapterClient({
 
           <div
             ref={contentRef}
-            className="reader-chapter-body rounded-[30px] border border-[#d6deea] bg-[#fffdf8] px-7 py-8 shadow-[0_18px_36px_rgba(15,23,42,0.08)] dark:border-white/10 dark:bg-white/[0.03] sm:px-11 sm:py-11"
+            className="reader-chapter-body rounded-[30px] border px-7 py-8 shadow-[0_18px_36px_rgba(15,23,42,0.08)] sm:px-11 sm:py-11"
             style={{
               ["--reader-font-size" as string]: `${settings.fontSize}px`,
               ["--reader-line-height" as string]: String(settings.lineHeight),
               ["--reader-font-family" as string]: currentFontFamily,
+              ["--reader-prose-color" as string]: currentTheme.proseColor,
+              ["--reader-heading-color" as string]: currentTheme.headingColor,
+              ["--reader-link-underline" as string]: currentTheme.linkUnderline,
+              ["--reader-link-underline-hover" as string]: currentTheme.linkUnderlineHover,
+              background: currentTheme.chapterBg,
+              borderColor: currentTheme.chapterBorder,
             }}
           >
-            <h2 className="mb-5 text-center text-[clamp(1.65rem,2.2vw,2.1rem)] font-semibold tracking-tight text-slate-900 dark:text-white">{chapterTitle}</h2>
+            <h2
+              className="mb-5 text-center text-[clamp(1.65rem,2.2vw,2.1rem)] font-semibold tracking-tight"
+              style={{ color: "var(--reader-heading-color, #0f172a)" }}
+            >
+              {chapterTitle}
+            </h2>
             {chapterContent ? (
               <TiptapRenderer content={chapterContent} />
             ) : (
@@ -885,7 +1024,10 @@ export default function ReaderChapterClient({
             </p>
           )}
 
-          <section className="rounded-[24px] border border-slate-200/90 bg-white/92 p-4 shadow-[0_10px_24px_rgba(15,23,42,0.07)] dark:border-white/10 dark:bg-white/[0.04]">
+          <section
+            className="rounded-[24px] border p-4 shadow-[0_10px_24px_rgba(15,23,42,0.07)]"
+            style={{ background: currentTheme.panelBg, borderColor: currentTheme.panelBorder }}
+          >
             <button
               type="button"
               onClick={() => setShowHighlightsPanel((prev) => !prev)}
@@ -1041,20 +1183,20 @@ export default function ReaderChapterClient({
           max-width: 78ch;
           margin-left: auto;
           margin-right: auto;
-          color: #1e293b;
+          color: var(--reader-prose-color, #1e293b);
           text-wrap: pretty;
         }
 
         .reader-chapter-body .tiptap-renderer .ProseMirror a {
           color: inherit;
           text-decoration: underline;
-          text-decoration-color: rgba(100, 116, 139, 0.45);
+          text-decoration-color: var(--reader-link-underline, rgba(100, 116, 139, 0.45));
           text-underline-offset: 2px;
           transition: text-decoration-color 180ms ease;
         }
 
         .reader-chapter-body .tiptap-renderer .ProseMirror a:hover {
-          text-decoration-color: rgba(71, 85, 105, 0.75);
+          text-decoration-color: var(--reader-link-underline-hover, rgba(71, 85, 105, 0.75));
         }
 
         .reader-chapter-body .tiptap-renderer .ProseMirror p,
@@ -1062,14 +1204,6 @@ export default function ReaderChapterClient({
         .reader-chapter-body .tiptap-renderer .ProseMirror blockquote {
           line-height: var(--reader-line-height, 1.75);
           color: inherit;
-        }
-
-        .dark .reader-chapter-body .tiptap-renderer .ProseMirror {
-          color: rgba(241, 245, 249, 0.92);
-        }
-
-        .dark .reader-chapter-body .tiptap-renderer .ProseMirror a {
-          text-decoration-color: rgba(203, 213, 225, 0.5);
         }
 
         ::highlight(reader-highlight-yellow) {

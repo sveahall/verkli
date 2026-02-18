@@ -1,7 +1,7 @@
 /**
  * BullMQ worker: process "generate" jobs for audiobook generation.
  * Run from apps/web: npm run audiobook-worker
- * Requires: REDIS_URL, TTS_BIN, TTS_MODEL_PATH, Supabase env
+ * Requires: REDIS_URL, Supabase env
  *
  * Uses ai_jobs table for job tracking (kind='audiobook_generation').
  * Progress stored in ai_jobs.output JSON field.
@@ -19,7 +19,6 @@ assertServerEnv();
 
 import { Worker, UnrecoverableError } from "bullmq";
 import { createAdminClient } from "../src/lib/supabase/admin";
-import { synthesizeTextToWavBytes } from "../src/lib/tts/piper";
 import { getAudiobookStorageBucket } from "../src/lib/tts/storage";
 import { QUEUE_NAMES } from "../src/lib/queue-names";
 import type { AudiobookJobData } from "../src/lib/audiobook-queue";
@@ -69,7 +68,7 @@ function getChapterText(content: string | null): string {
   }
 }
 
-/** Max characters per TTS call (Piper default). Env TTS_MAX_CHARS can increase up to 20000. */
+/** Max characters per TTS call. Env TTS_MAX_CHARS can increase up to 20000. */
 const TTS_MAX_CHARS = (() => {
   const raw = process.env.TTS_MAX_CHARS;
   const n = raw ? Number(raw) : NaN;
@@ -243,10 +242,8 @@ async function synthesizeLongTextToWav(
     return { wav, durationSeconds: estimateWavDuration(wav) };
   }
   const chunkPaths: string[] = [];
-  let totalDuration = 0;
   for (let i = 0; i < chunks.length; i++) {
     const wav = await synthesize(chunks[i]);
-    totalDuration += estimateWavDuration(wav);
     const p = path.join(tmpDir, `${filePrefix}-${i}.wav`);
     await fs.writeFile(p, wav);
     chunkPaths.push(p);
@@ -395,6 +392,9 @@ async function processJob(payload: AudiobookJobData) {
     await fs.mkdir(tmpDir, { recursive: true });
 
     const chapterAudios: ChapterAudio[] = [];
+    const narrator = getNarrator();
+    const synthesizeOne = (t: string) =>
+      narrator.narrate({ text: t }).then((r) => r.audioBuffer);
 
     // Process chapters sequentially
     for (let i = 0; i < chapters.length; i++) {
@@ -455,7 +455,7 @@ async function processJob(payload: AudiobookJobData) {
           const { wav, durationSeconds: dur } = await withTimeout(
             () =>
               synthesizeLongTextToWav(
-                (t) => synthesizeTextToWavBytes(t),
+                synthesizeOne,
                 text,
                 tmpDir,
                 `chapter-${i}`
@@ -477,9 +477,6 @@ async function processJob(payload: AudiobookJobData) {
       } else {
         // No cache, synthesize new audio via provider registry (chunked if text > TTS_MAX_CHARS)
         console.log(`[audiobook worker] chapter ${i} synthesizing via provider: "${chapter.title}"`);
-        const narrator = getNarrator();
-        const synthesizeOne = (t: string) =>
-          narrator.narrate({ text: t }).then((r) => r.audioBuffer);
         const { wav, durationSeconds: dur } = await withTimeout(
           () => synthesizeLongTextToWav(synthesizeOne, text, tmpDir, `chapter-${i}`),
           TTS_TIMEOUT_MS,

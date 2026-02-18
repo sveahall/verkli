@@ -35,7 +35,10 @@ function parseReaderSettings(preferences: Record<string, unknown> | null): Reade
   const fontFamily = settings?.fontFamily === "serif" || settings?.fontFamily === "sans" || settings?.fontFamily === "mono" ? settings.fontFamily : defaults.fontFamily;
   const textAlign = settings?.textAlign === "left" || settings?.textAlign === "justify" ? settings.textAlign : defaults.textAlign;
   const marginSize = settings?.marginSize === "narrow" || settings?.marginSize === "normal" || settings?.marginSize === "wide" ? settings.marginSize : defaults.marginSize;
-  const theme = settings?.theme === "light" || settings?.theme === "dark" ? settings.theme : defaults.theme;
+  const theme =
+    settings?.theme === "light" || settings?.theme === "sepia" || settings?.theme === "dark"
+      ? settings.theme
+      : defaults.theme;
 
   return {
     fontSize: Math.min(24, Math.max(13, fontSize)),
