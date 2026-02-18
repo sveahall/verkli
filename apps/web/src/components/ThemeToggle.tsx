@@ -12,6 +12,8 @@ type ThemeToggleProps = {
   glassClassName?: string;
   glassProps?: Partial<ComponentProps<typeof GlassSurface>>;
   useGlass?: boolean;
+  id?: string;
+  dataThemeToggle?: string;
 };
 
 const getPreferredTheme = (): Theme => {
@@ -39,6 +41,8 @@ export default function ThemeToggle({
   glassClassName = "",
   glassProps = {},
   useGlass = true,
+  id,
+  dataThemeToggle,
 }: ThemeToggleProps) {
   const { className: glassPropsClassName = "", ...restGlassProps } = glassProps;
   const [theme, setTheme] = useState<Theme>("light");
@@ -88,6 +92,8 @@ export default function ThemeToggle({
     return (
       <button
         type="button"
+        id={id}
+        data-theme-toggle={dataThemeToggle}
         className={placeholderClass}
         aria-label="Theme toggle"
         aria-pressed={false}
@@ -144,6 +150,8 @@ export default function ThemeToggle({
       <button
         type="button"
         onClick={() => setTheme(isDark ? "light" : "dark")}
+        id={id}
+        data-theme-toggle={dataThemeToggle}
         className={buttonClass}
         aria-pressed={isDark}
         aria-label={isDark ? "Switch to light mode" : "Switch to dark mode"}
@@ -164,6 +172,8 @@ export default function ThemeToggle({
       <button
         type="button"
         onClick={() => setTheme(isDark ? "light" : "dark")}
+        id={id}
+        data-theme-toggle={dataThemeToggle}
         className={`flex m-auto p-auto h-5 w-5 bg-transparent items-center justify-center rounded-full text-slate-900 transition-colors dark:text-white ${className}`.trim()}
         aria-pressed={isDark}
         aria-label={isDark ? "Switch to light mode" : "Switch to dark mode"}

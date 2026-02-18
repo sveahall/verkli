@@ -1,7 +1,6 @@
 import type { ReactNode } from "react";
 import Link from "next/link";
 import Image from "next/image";
-import ThemeToggle from "@/components/ThemeToggle";
 
 export type AuthShellProps = {
   children: ReactNode;
@@ -67,10 +66,6 @@ export default function AuthShell({
           {backLabel}
         </Link>
       </header>
-
-      <div className="absolute bottom-6 right-6 z-30 sm:bottom-8 sm:right-10">
-        <ThemeToggle useGlass={false} />
-      </div>
 
       <div className="relative z-20 mx-auto flex w-full max-w-[440px] flex-col items-center px-5 sm:px-0">
         {children}

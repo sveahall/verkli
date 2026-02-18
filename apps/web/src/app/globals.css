@@ -198,7 +198,7 @@
   }
   /* Empty state container */
   .empty-state-base {
-    @apply rounded-2xl border border-dashed border-slate-200/80 bg-slate-50/80 px-6 py-6 text-left dark:border-white/15 dark:bg-white/[0.03];
+    @apply rounded-2xl border border-dashed border-slate-200/80 bg-transparent px-6 py-6 text-left dark:border-white/15 dark:bg-transparent;
   }
   /* Auth card: solid white in light, frosted glass in dark */
   .card-auth {
@@ -746,7 +746,7 @@ button:is(
 }
 
 .glass-surface.nav-glass {
-  overflow: hidden !important;
+  overflow: visible !important;
 }
 
 .dialog-backdrop::backdrop {

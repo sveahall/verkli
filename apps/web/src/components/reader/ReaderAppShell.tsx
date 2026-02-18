@@ -67,20 +67,8 @@ export default function ReaderAppShell({ children }: { children: ReactNode }) {
 
   return (
     <div
-      className={
-        isImmersive
-          ? "relative min-h-[100dvh]"
-          : "relative min-h-[100dvh] bg-gradient-to-b from-slate-50 via-white to-slate-100 dark:from-[#07070c] dark:via-[#0b0b12] dark:to-[#0f111a]"
-      }
+      className="relative min-h-[100dvh] bg-background text-foreground"
     >
-      {!isImmersive && (
-        <div className="pointer-events-none absolute inset-0 -z-10 overflow-hidden">
-          <div className="absolute -top-32 right-[-8rem] h-72 w-72 rounded-full bg-sky-200/40 blur-3xl dark:bg-sky-500/10" />
-          <div className="absolute top-[30%] left-[-6rem] h-80 w-80 rounded-full bg-amber-200/30 blur-3xl dark:bg-violet-500/10" />
-          <div className="absolute bottom-[-10rem] right-[10%] h-72 w-72 rounded-full bg-emerald-200/30 blur-3xl dark:bg-emerald-500/10" />
-        </div>
-      )}
-
       {isImmersive ? (
         <div className="relative">{children}</div>
       ) : (

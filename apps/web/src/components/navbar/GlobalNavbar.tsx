@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef, type ReactNode } from "react";
+import { useState, useEffect, useMemo, useRef, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import Link from "next/link";
 import Image from "next/image";
@@ -495,14 +495,9 @@ export default function GlobalNavbar({
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [dropdownOpen, setDropdownOpen] = useState<{ key: string; top: number; left: number } | null>(null);
 
-  const [logoHref, setLogoHref] = useState<string>(
-    () => homeHref ?? (isauthorRoute ? "/author/home" : isReaderRoute ? "/reader/home" : "/")
-  );
-  useEffect(() => {
+  const logoHref = useMemo(() => {
     const role = getActiveRoleFromCookies();
-    setLogoHref(
-      role === "reader" ? "/reader/home" : role === "author" ? "/author/home" : homeHref ?? "/"
-    );
+    return role === "reader" ? "/reader/home" : role === "author" ? "/author/home" : homeHref ?? "/";
   }, [homeHref]);
   // Timeout så att flytt från trigger till portal inte stänger menyn (browser: number)
   const dropdownCloseTimeoutRef = useRef<number | null>(null);
@@ -625,12 +620,11 @@ export default function GlobalNavbar({
   return (
     <>
       {/* fixed + isolate + z-[9999] så Safari alltid ritar navbar ovanpå innehåll (DOM-ordning + explicit stacking) */}
-      <div className="fixed top-0 left-0 right-0 z-[9999] isolate w-full flex-shrink-0 bg-background">
+      <div className="fixed top-0 left-0 z-[9999] isolate w-full flex-shrink-0">
         <header className="mx-auto w-full max-w-[100vw] overflow-x-hidden overflow-y-visible px-4 pb-2 pt-3 md:px-6">
         <div className="flex items-center gap-2 sm:gap-3">
         <GlassSurface
           {...glassBaseProps}
-          forceFallback
           width="100%"
           height="68px"
           borderRadius={999}
@@ -647,18 +641,17 @@ export default function GlobalNavbar({
                 <Image
                   src="/logo-dark.svg"
                   alt="Verkli"
-                  width={140}
-                  height={32}
+                  width={796}
+                  height={221}
                   className="h-8 w-auto dark:hidden"
-                  style={{ width: "auto", height: "32px" }}
+                  priority
                 />
                 <Image
                   src="/favicon.svg"
                   alt="Verkli"
-                  width={140}
-                  height={32}
+                  width={796}
+                  height={221}
                   className="hidden h-8 w-auto dark:block"
-                  style={{ width: "auto", height: "32px" }}
                 />
               </Link>
 
@@ -1010,7 +1003,7 @@ export default function GlobalNavbar({
             className="absolute inset-0 bg-black/40 backdrop-blur-sm"
             aria-label="Close menu"
           />
-          <div className="absolute right-0 top-0 flex h-full w-full max-w-[min(100vw,22rem)] flex-col gap-6 overflow-y-auto border-l border-slate-200/80 bg-white/95 px-6 pb-8 pt-[calc(88px+0.5rem)] shadow-xl dark:border-white/10 dark:bg-slate-950/95">
+          <div className="absolute right-0 top-0 flex h-full w-full max-w-[min(100vw,22rem)] flex-col gap-6 overflow-y-auto border-l border-slate-200/80 bg-white/95 px-6 pb-8 pt-0 shadow-xl dark:border-white/10 dark:bg-slate-950/95">
             <div className="flex flex-col gap-1">
               {isPublicPage &&
                 publicNavItems.map((item) => (
@@ -1115,7 +1108,7 @@ export default function GlobalNavbar({
     </header>
       </div>
       {/* Spacer i flödet så innehåll börjar under fixed navbar; scrollar bort medan navbaren ligger kvar högst upp */}
-      <div className="h-[88px] flex-shrink-0 bg-background" aria-hidden />
+      <div className="h-[88px] flex-shrink-0" aria-hidden />
       {/* Portal: dropdown utanför navbar DOM så ingen stacking/overflow klipper; z 100 ovanför allt */}
       {typeof document !== "undefined" &&
         dropdownOpen &&

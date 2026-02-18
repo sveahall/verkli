@@ -7,6 +7,9 @@ import PurchaseBookButton from "../../books/[id]/PurchaseBookButton";
 import CommentsSection from "../../books/[id]/CommentsSection";
 import ReadingProgress from "./ReadingProgress";
 import ReaderChapterClient, { type ReaderHighlight, type ReaderSettings } from "./ReaderChapterClient";
+import ChapterTopNavigator from "./ChapterTopNavigator";
+import ManifestAudiobookPlayer from "@/components/books/ManifestAudiobookPlayer";
+import NoDownloadAudioPlayer from "@/components/books/NoDownloadAudioPlayer";
 
 function asRecord(value: unknown): Record<string, unknown> | null {
   if (typeof value !== "object" || value === null || Array.isArray(value)) return null;
@@ -95,7 +98,7 @@ export default async function ReaderReadPage({
 
   if (!hasReadAccess) {
     return (
-      <main className="min-h-screen bg-slate-50 text-slate-900 dark:bg-[#050508] dark:text-white">
+      <main className="min-h-screen bg-background text-foreground">
         <header className="mx-auto flex max-w-[900px] items-center justify-between px-6 py-8">
           <Link href={`/reader/books/${book.id}`} className="text-[13px] text-slate-600 hover:text-slate-900 dark:text-white/50 dark:hover:text-white/70">
             ← Back to book
@@ -127,6 +130,23 @@ export default async function ReaderReadPage({
   }
 
   let shouldLogStartReading = false;
+
+  const { data: latestAudiobookAsset } = await supabase
+    .from("audiobook_assets")
+    .select("id, audio_url, status, created_at")
+    .eq("book_id", book.id)
+    .eq("status", "generated")
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  const audiobookPlaybackUrl =
+    typeof latestAudiobookAsset?.audio_url === "string" && latestAudiobookAsset.audio_url.trim().length > 0
+      ? latestAudiobookAsset.audio_url
+      : null;
+  const audiobookPlaybackIsManifest = Boolean(
+    typeof audiobookPlaybackUrl === "string" && /\.json(?:$|[?#])/i.test(audiobookPlaybackUrl)
+  );
 
   if (user) {
     const { data: existingReading } = await supabase
@@ -225,48 +245,60 @@ export default async function ReaderReadPage({
     title: item.title,
     order: item.order,
   }));
+  const navChapters = chapterOptions.map((item, index) => ({
+    id: item.id,
+    title: item.title,
+    order: typeof item.order === "number" && Number.isFinite(item.order) ? item.order : index + 1,
+  }));
+  const previousChapterNav = chapterIndex > 0 ? navChapters[chapterIndex - 1] : null;
+  const nextChapterNav =
+    chapterIndex >= 0 && chapterIndex < navChapters.length - 1
+      ? navChapters[chapterIndex + 1]
+      : null;
 
   return (
-    <main className="min-h-screen bg-slate-50 text-slate-900 dark:bg-[#050508] dark:text-white">
+    <main className="min-h-screen bg-background text-foreground">
       <ReadingProgress
         bookId={book.id}
         chapterId={chapter.id}
         progressPercent={progressPercent}
+        currentChapter={chapterIndex + 1}
       />
-      <header className="mx-auto flex max-w-[1200px] items-center justify-between px-6 py-8">
+      <header className="mx-auto flex max-w-[1100px] items-center justify-between px-6 py-7">
         <Link href={`/reader/books/${book.id}`} className="text-[13px] text-slate-600 hover:text-slate-900 dark:text-white/50 dark:hover:text-white/70">
           ← Back to book
         </Link>
         <span className="text-[13px] text-slate-500 dark:text-white/40">Reading mode</span>
       </header>
 
-      <section className="mx-auto grid max-w-[1200px] gap-8 px-6 pb-16 lg:grid-cols-[280px_1fr]">
-        <aside className="rounded-[24px] border border-black/10 bg-black/[0.04] p-6 dark:border-white/10 dark:bg-white/[0.04]">
-          <h2 className="text-[16px] font-semibold">Chapters</h2>
-          <div className="mt-4 space-y-3 text-[13px] text-slate-600 dark:text-white/60">
-            {chapters && chapters.length > 0 ? (
-              chapters.map((ch) => (
-                <Link
-                  key={ch.id}
-                  href={`/reader/read/${ch.id}`}
-                  className={`block rounded-xl border px-3 py-2 transition dark:border-white/10 dark:bg-white/5 ${
-                    ch.id === chapter.id
-                      ? "border-[#907AFF]/50 bg-[#907AFF]/10 dark:border-[#907AFF]/40 dark:bg-[#907AFF]/15"
-                      : "border-black/10 bg-black/[0.02] hover:border-black/20 dark:hover:border-white/20"
-                  }`}
-                >
-                  {ch.order}. {ch.title}
-                </Link>
-              ))
-            ) : (
-              <div className="text-slate-500 dark:text-white/40">No chapters yet.</div>
-            )}
-          </div>
-        </aside>
+      <section className="mx-auto max-w-[1100px] px-6 pb-16">
+        <ChapterTopNavigator chapters={navChapters} currentChapterId={chapter.id} />
 
-        <article className="rounded-[24px] border border-black/10 bg-black/[0.04] p-8 dark:border-white/10 dark:bg-white/[0.04]">
-          <h1 className="text-[26px] font-semibold">{book.title}</h1>
-          <div className="mt-6 text-[15px] leading-relaxed text-slate-700 dark:text-white/70">
+        <article className="mt-8">
+          <h1 className="text-center text-[clamp(2.25rem,4vw,3.1rem)] font-semibold tracking-tight text-slate-900 dark:text-white">
+            {book.title}
+          </h1>
+          <p className="mt-2 text-center text-[13px] text-slate-500 dark:text-white/50">
+            Chapter {chapterIndex + 1} of {totalChapters}
+          </p>
+          {audiobookPlaybackUrl && (
+            <div className="mt-7 rounded-[26px] border border-[#8eb7e8]/35 bg-[linear-gradient(180deg,rgba(255,255,255,0.96),rgba(239,248,255,0.84))] p-5 shadow-[0_14px_36px_rgba(59,130,246,0.08)] dark:border-emerald-400/20 dark:bg-emerald-900/10 dark:shadow-none">
+              <div className="mb-3 flex items-center justify-between gap-3">
+                <p className="text-[13px] font-semibold uppercase tracking-[0.08em] text-slate-700 dark:text-emerald-200">
+                  Audiobook
+                </p>
+                <p className="text-[11px] text-slate-600 dark:text-emerald-200/80">
+                  Listen while reading
+                </p>
+              </div>
+              {audiobookPlaybackIsManifest ? (
+                <ManifestAudiobookPlayer manifestUrl={audiobookPlaybackUrl} />
+              ) : (
+                <NoDownloadAudioPlayer src={audiobookPlaybackUrl} />
+              )}
+            </div>
+          )}
+          <div className="mt-8 text-[15px] leading-relaxed text-slate-700 dark:text-white/70">
             <ReaderChapterClient
               userId={user?.id ?? null}
               bookId={book.id}
@@ -278,6 +310,40 @@ export default async function ReaderReadPage({
               initialPreferences={profilePreferences}
               initialSettings={initialReaderSettings}
             />
+          </div>
+
+          <div className="mt-10 grid gap-4 sm:grid-cols-2">
+            {previousChapterNav ? (
+              <Link
+                href={`/reader/read/${previousChapterNav.id}`}
+                className="rounded-[20px] border border-slate-200/90 bg-white/90 px-4 py-3 text-left shadow-[0_8px_22px_rgba(15,23,42,0.05)] transition hover:-translate-y-0.5 hover:border-slate-300 hover:bg-white dark:border-white/10 dark:bg-white/[0.04] dark:hover:bg-white/[0.07]"
+              >
+                <p className="text-[11px] uppercase tracking-[0.12em] text-slate-500 dark:text-white/50">Previous</p>
+                <p className="mt-1 text-[14px] font-medium text-slate-900 dark:text-white">
+                  {previousChapterNav.title}
+                </p>
+              </Link>
+            ) : (
+                <div className="rounded-2xl border border-dashed border-black/10 px-4 py-3 text-[12px] text-slate-500 dark:border-white/10 dark:text-white/50">
+                  Start of book
+                </div>
+              )}
+
+            {nextChapterNav ? (
+              <Link
+                href={`/reader/read/${nextChapterNav.id}`}
+                className="rounded-[20px] border border-slate-200/90 bg-white/90 px-4 py-3 text-right shadow-[0_8px_22px_rgba(15,23,42,0.05)] transition hover:-translate-y-0.5 hover:border-slate-300 hover:bg-white dark:border-white/10 dark:bg-white/[0.04] dark:hover:bg-white/[0.07]"
+              >
+                <p className="text-[11px] uppercase tracking-[0.12em] text-slate-500 dark:text-white/50">Next</p>
+                <p className="mt-1 text-[14px] font-medium text-slate-900 dark:text-white">
+                  {nextChapterNav.title}
+                </p>
+              </Link>
+            ) : (
+              <div className="rounded-2xl border border-dashed border-black/10 px-4 py-3 text-right text-[12px] text-slate-500 dark:border-white/10 dark:text-white/50">
+                End of book
+              </div>
+            )}
           </div>
         </article>
       </section>

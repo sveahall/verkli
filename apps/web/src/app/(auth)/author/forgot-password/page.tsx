@@ -5,7 +5,6 @@ import Image from "next/image";
 import Link from "next/link";
 import { resolveErrorMessage } from "@/lib/error-messages";
 import GlassSurface from "@/components/GlassSurface";
-import ThemeToggle from "@/components/ThemeToggle";
 import { resetPassword } from "@/lib/supabase/auth";
 
 const glassBaseProps = {
@@ -48,7 +47,7 @@ export default function AuthorForgotPassword() {
     <main className="relative flex min-h-screen flex-col items-center justify-center overflow-hidden bg-background text-foreground transition-colors duration-300">
       <div className="absolute inset-0 z-0 bg-gradient-to-br from-slate-50 via-purple-50/30 to-slate-100 dark:hidden" />
 
-      <header className="absolute left-6 top-6 z-20 flex w-full items-center justify-between px-6 sm:left-8 sm:top-8 sm:px-8">
+      <header className="absolute left-6 top-6 z-20 flex w-full items-center px-6 sm:left-8 sm:top-8 sm:px-8">
         <div className="flex items-center gap-3">
           <Link href="/author" className="flex min-h-[44px] min-w-[44px] items-center" aria-label="Verkli">
             <Image src="/logo-dark.svg" alt="Verkli" width={140} height={32} className="h-8 w-auto dark:hidden" priority />
@@ -60,9 +59,6 @@ export default function AuthorForgotPassword() {
             </svg>
             Back to Verkli
           </Link>
-        </div>
-        <div className="flex items-center">
-          <ThemeToggle glassProps={glassBaseProps} />
         </div>
       </header>
 

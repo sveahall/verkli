@@ -83,9 +83,9 @@ function AuthorAvatar({ author }: { author: CommentAuthor }) {
     .toUpperCase();
 
   return (
-    <div className="relative h-9 w-9 overflow-hidden rounded-full border border-black/10 bg-slate-100 text-[11px] font-semibold text-slate-600 dark:border-white/10 dark:bg-white/10 dark:text-white/70">
+    <div className="relative h-10 w-10 overflow-hidden rounded-full border border-slate-200 bg-slate-100 text-[11px] font-semibold text-slate-600 shadow-[0_4px_14px_rgba(15,23,42,0.12)] dark:border-white/10 dark:bg-white/10 dark:text-white/70">
       {author.avatarUrl ? (
-        <Image src={author.avatarUrl} alt={author.name} fill sizes="36px" className="object-cover" unoptimized />
+        <Image src={author.avatarUrl} alt={author.name} fill sizes="40px" className="object-cover" unoptimized />
       ) : (
         <div className="flex h-full w-full items-center justify-center">{initials}</div>
       )}
@@ -192,7 +192,7 @@ export default function CommentsSection({
           setReplyBody("");
           setReplyingToId(null);
         } else {
-        toast.success("Comment published.");
+          toast.success("Comment published.");
           setBody("");
           setSelectedChapterId(fixedChapterId ?? "");
         }

@@ -109,7 +109,7 @@ export default async function authorProfileRoute() {
   }
 
   return (
-  <div className="min-h-screen bg-gradient-to-b from-background via-background/95 to-background/90 text-foreground">
+  <div className="min-h-screen bg-background text-foreground">
       <ProfilePage
         profile={{
           displayName,

@@ -10,6 +10,8 @@ import TiptapEditor from "@/components/editor/TiptapEditor";
 import AuthorStatsBar from "@/components/editor/AuthorStatsBar";
 import CommandPalette from "@/components/editor/CommandPalette";
 import DeleteBookButton from "@/components/books/DeleteBookButton";
+import ManifestAudiobookPlayer from "@/components/books/ManifestAudiobookPlayer";
+import NoDownloadAudioPlayer from "@/components/books/NoDownloadAudioPlayer";
 import { BookJobsBanner } from "@/components/books/JobStatusBanner";
 import { useToastHelpers } from "@/components/ui/toast";
 import { useBookJobs, type UnifiedJob } from "@/hooks/useBookJobs";
@@ -950,6 +952,9 @@ export default function BookEditor({
   const hasCompletedAudiobookJob = normalizeJobStatus(latestAudiobookJob?.status) === "completed";
   const hasFailedAudiobookJob = normalizeJobStatus(latestAudiobookJob?.status) === "failed";
   const audiobookPlaybackUrl = latestAudiobookAsset?.audio_url ?? latestAudiobookJobAudioUrl ?? null;
+  const audiobookPlaybackIsManifest = Boolean(
+    typeof audiobookPlaybackUrl === "string" && /\.json(?:$|[?#])/i.test(audiobookPlaybackUrl)
+  );
   const audiobookFeatureEnabled = getAudiobookEnabled();
   const audiobookStatusUi = isAudiobookActive
     ? audiobookJobStatus === "pending"
@@ -2469,9 +2474,11 @@ export default function BookEditor({
 
               {audiobookPlaybackUrl && (
                 <div className="mb-2">
-                  <audio controls className="w-full" src={audiobookPlaybackUrl}>
-                    Your browser does not support audio playback.
-                  </audio>
+                  {audiobookPlaybackIsManifest ? (
+                    <ManifestAudiobookPlayer manifestUrl={audiobookPlaybackUrl} />
+                  ) : (
+                    <NoDownloadAudioPlayer src={audiobookPlaybackUrl} />
+                  )}
                 </div>
               )}
 

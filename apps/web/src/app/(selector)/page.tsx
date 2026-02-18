@@ -4,8 +4,7 @@ import { useEffect, useState, useRef } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import GlassCard, { glassCardProps } from "@/components/GlassCard";
-import ThemeToggle from "@/components/ThemeToggle";
+import GlassCard from "@/components/GlassCard";
 import { createClient } from "@/lib/supabase/client";
 import { setActiveRoleCookieClient } from "@/lib/active-role";
 
@@ -101,11 +100,6 @@ export default function RoleSelection() {
           <Image src="/favicon.svg" alt="Verkli" width={32} height={32} className="hidden h-8 w-auto dark:block" priority />
         </Link>
       </header>
-
-      {/* Theme toggle – samma plats som sign in */}
-      <div className="absolute bottom-8 right-8 z-30">
-        <ThemeToggle glassProps={glassCardProps} />
-      </div>
 
       {/* Samma kort som signin/signup – solid i light, glass i dark */}
       <GlassCard className="card-auth">

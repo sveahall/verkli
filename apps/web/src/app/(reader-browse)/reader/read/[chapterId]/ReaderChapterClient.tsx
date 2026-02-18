@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import TiptapRenderer from "@/components/editor/TiptapRenderer";
 import { createClient } from "@/lib/supabase/client";
 
@@ -29,7 +29,6 @@ type ReaderSettings = {
 
 type ReaderFont = "serif" | "sans" | "mono";
 type ReaderTheme = "light" | "sepia" | "dark";
-type ReaderWidth = "narrow" | "medium" | "wide";
 
 const FONT_OPTIONS: { value: ReaderFont; label: string; family: string }[] = [
   { value: "serif", label: "Serif", family: "Georgia, serif" },
@@ -41,12 +40,6 @@ const THEME_OPTIONS: { value: ReaderTheme; label: string; bg: string; text: stri
   { value: "light", label: "Light", bg: "", text: "" },
   { value: "sepia", label: "Sepia", bg: "bg-[#f5f0e8]", text: "text-[#5c4b37]" },
   { value: "dark", label: "Dark", bg: "bg-slate-900", text: "text-slate-200" },
-];
-
-const WIDTH_OPTIONS: { value: ReaderWidth; label: string; cls: string }[] = [
-  { value: "narrow", label: "Narrow", cls: "max-w-lg" },
-  { value: "medium", label: "Medium", cls: "max-w-2xl" },
-  { value: "wide", label: "Wide", cls: "max-w-4xl" },
 ];
 
 function loadLocalStorage<T>(key: string, fallback: T): T {
@@ -301,19 +294,29 @@ export default function ReaderChapterClient({
   const [settings, setSettings] = useState<ReaderSettings>(initialSettings);
   const [settingsSaveState, setSettingsSaveState] = useState<"idle" | "saving" | "saved" | "error">("idle");
   const [chapterMessage, setChapterMessage] = useState<string | null>(null);
+  const [showHighlightsPanel, setShowHighlightsPanel] = useState(false);
 
   // Reader UX controls
-  const [readerFont, setReaderFont] = useState<ReaderFont>(() => loadLocalStorage("verkli_reader_font", "serif" as ReaderFont));
-  const [readerTheme, setReaderTheme] = useState<ReaderTheme>(() => loadLocalStorage("verkli_reader_theme", "light" as ReaderTheme));
-  const [readerWidth, setReaderWidth] = useState<ReaderWidth>(() => loadLocalStorage("verkli_reader_width", "medium" as ReaderWidth));
+  const [readerFont, setReaderFont] = useState<ReaderFont>("serif");
+  const [readerTheme, setReaderTheme] = useState<ReaderTheme>("light");
   const [showSettingsPanel, setShowSettingsPanel] = useState(false);
   const settingsPanelRef = useRef<HTMLDivElement>(null);
   const settingsButtonRef = useRef<HTMLButtonElement>(null);
 
+  // Hydrate client-side preferences after mount to avoid SSR/client mismatches.
+  useEffect(() => {
+    const frame = window.requestAnimationFrame(() => {
+      const nextFont = loadLocalStorage("verkli_reader_font", "serif" as ReaderFont);
+      const nextTheme = loadLocalStorage("verkli_reader_theme", "light" as ReaderTheme);
+      setReaderFont((prev) => (prev === nextFont ? prev : nextFont));
+      setReaderTheme((prev) => (prev === nextTheme ? prev : nextTheme));
+    });
+    return () => window.cancelAnimationFrame(frame);
+  }, []);
+
   // Persist UX controls to localStorage
   useEffect(() => { saveLocalStorage("verkli_reader_font", readerFont); }, [readerFont]);
   useEffect(() => { saveLocalStorage("verkli_reader_theme", readerTheme); }, [readerTheme]);
-  useEffect(() => { saveLocalStorage("verkli_reader_width", readerWidth); }, [readerWidth]);
 
   // Close settings panel on click outside
   useEffect(() => {
@@ -334,11 +337,16 @@ export default function ReaderChapterClient({
 
   const currentFontFamily = FONT_OPTIONS.find((f) => f.value === readerFont)?.family ?? "Georgia, serif";
   const currentTheme = THEME_OPTIONS.find((t) => t.value === readerTheme);
-  const currentWidthCls = WIDTH_OPTIONS.find((w) => w.value === readerWidth)?.cls ?? "max-w-2xl";
 
   const canCreateHighlights = Boolean(userId && bookVersionId);
-  const supportsCssHighlights = useMemo(() => {
-    return Boolean(getCssHighlightsMap() && getHighlightConstructor());
+  const [supportsCssHighlights, setSupportsCssHighlights] = useState(false);
+
+  useEffect(() => {
+    const frame = window.requestAnimationFrame(() => {
+      const nextValue = Boolean(getCssHighlightsMap() && getHighlightConstructor());
+      setSupportsCssHighlights((prev) => (prev === nextValue ? prev : nextValue));
+    });
+    return () => window.cancelAnimationFrame(frame);
   }, []);
 
   const updateReaderSettings = useCallback((updater: (prev: ReaderSettings) => ReaderSettings) => {
@@ -721,12 +729,12 @@ export default function ReaderChapterClient({
   return (
     <>
       {/* Floating settings gear button */}
-      <div className="fixed right-4 top-4 z-[100]">
+      <div className="fixed right-4 top-[calc(env(safe-area-inset-top,0px)+6rem)] z-[100]">
         <button
           ref={settingsButtonRef}
           type="button"
           onClick={() => setShowSettingsPanel((prev) => !prev)}
-          className="rounded-full border border-black/10 bg-white p-2.5 shadow-lg transition hover:bg-slate-50 dark:border-white/15 dark:bg-slate-800 dark:hover:bg-slate-700"
+          className="rounded-full border border-slate-200 bg-white/95 p-2.5 shadow-[0_10px_24px_rgba(15,23,42,0.12)] transition hover:-translate-y-0.5 hover:bg-white dark:border-white/15 dark:bg-slate-800 dark:hover:bg-slate-700"
           aria-label="Reader settings"
         >
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-slate-700 dark:text-white/80">
@@ -738,7 +746,7 @@ export default function ReaderChapterClient({
         {showSettingsPanel && (
           <div
             ref={settingsPanelRef}
-            className="absolute right-0 top-12 w-[260px] rounded-2xl border border-black/10 bg-white p-4 shadow-xl dark:border-white/10 dark:bg-slate-900"
+            className="absolute right-0 top-12 w-[270px] rounded-2xl border border-slate-200 bg-white/95 p-4 shadow-[0_20px_44px_rgba(15,23,42,0.16)] dark:border-white/10 dark:bg-slate-900"
           >
             <p className="mb-3 text-[13px] font-semibold text-slate-900 dark:text-white">L&auml;sinst&auml;llningar</p>
 
@@ -783,40 +791,20 @@ export default function ReaderChapterClient({
                 </div>
               </div>
 
-              <div>
-                <p className="mb-1.5 text-[11px] font-medium uppercase tracking-[0.1em] text-slate-500 dark:text-white/50">Bredd</p>
-                <div className="flex gap-1.5">
-                  {WIDTH_OPTIONS.map((w) => (
-                    <button
-                      key={w.value}
-                      type="button"
-                      onClick={() => setReaderWidth(w.value)}
-                      className={`flex-1 rounded-xl px-2 py-1.5 text-[12px] font-medium transition ${
-                        readerWidth === w.value
-                          ? "bg-[#907AFF] text-white"
-                          : "border border-black/10 text-slate-700 hover:border-black/20 dark:border-white/15 dark:text-white/70"
-                      }`}
-                    >
-                      {w.label}
-                    </button>
-                  ))}
-                </div>
-              </div>
             </div>
           </div>
         )}
       </div>
 
-      <div className={`mx-auto ${currentWidthCls} ${currentTheme?.bg ?? ""} ${currentTheme?.text ?? ""}`}>
-      <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_300px]">
-        <div className="space-y-4">
-          <section className="rounded-2xl border border-black/10 bg-black/[0.03] p-4 dark:border-white/10 dark:bg-white/[0.03]">
+      <div className={`${currentTheme?.bg ?? ""} ${currentTheme?.text ?? ""}`}>
+        <div className="space-y-5">
+          <section className="rounded-[24px] border border-slate-200/90 bg-white/92 p-4 shadow-[0_10px_24px_rgba(15,23,42,0.07)] dark:border-white/10 dark:bg-white/[0.04]">
             <div className="flex flex-wrap items-center gap-2 text-[12px] text-slate-600 dark:text-white/60">
               <span className="text-[13px] font-semibold text-slate-900 dark:text-white">Reader settings</span>
               <button
                 type="button"
                 onClick={() => updateReaderSettings((prev) => ({ ...prev, fontSize: clamp(prev.fontSize - 1, FONT_MIN, FONT_MAX) }))}
-                className="rounded-full border border-black/10 px-3 py-1 font-medium text-slate-700 transition hover:border-black/20 hover:text-slate-900 dark:border-white/15 dark:text-white/70 dark:hover:text-white"
+                className="rounded-full border border-slate-200 px-3 py-1 font-medium text-slate-700 transition hover:border-slate-300 hover:text-slate-900 dark:border-white/15 dark:text-white/70 dark:hover:text-white"
                 aria-label="Decrease text size"
               >
                 A-
@@ -825,7 +813,7 @@ export default function ReaderChapterClient({
               <button
                 type="button"
                 onClick={() => updateReaderSettings((prev) => ({ ...prev, fontSize: clamp(prev.fontSize + 1, FONT_MIN, FONT_MAX) }))}
-                className="rounded-full border border-black/10 px-3 py-1 font-medium text-slate-700 transition hover:border-black/20 hover:text-slate-900 dark:border-white/15 dark:text-white/70 dark:hover:text-white"
+                className="rounded-full border border-slate-200 px-3 py-1 font-medium text-slate-700 transition hover:border-slate-300 hover:text-slate-900 dark:border-white/15 dark:text-white/70 dark:hover:text-white"
                 aria-label="Increase text size"
               >
                 A+
@@ -842,7 +830,7 @@ export default function ReaderChapterClient({
                   if (!Number.isFinite(next)) return;
                   updateReaderSettings((prev) => ({ ...prev, lineHeight: next }));
                 }}
-                className="rounded-full border border-black/10 bg-white/80 px-3 py-1 text-[12px] font-medium text-slate-800 dark:border-white/15 dark:bg-white/5 dark:text-white"
+                className="rounded-full border border-slate-200 bg-white/90 px-3 py-1 text-[12px] font-medium text-slate-800 dark:border-white/15 dark:bg-white/5 dark:text-white"
               >
                 {LINE_HEIGHT_OPTIONS.map((value) => (
                   <option key={value} value={String(value)}>{value.toFixed(1)}x</option>
@@ -864,14 +852,14 @@ export default function ReaderChapterClient({
 
           <div
             ref={contentRef}
-            className="reader-chapter-body rounded-2xl border border-black/10 bg-black/[0.02] p-6 dark:border-white/10 dark:bg-white/[0.02]"
+            className="reader-chapter-body rounded-[30px] border border-[#d6deea] bg-[#fffdf8] px-7 py-8 shadow-[0_18px_36px_rgba(15,23,42,0.08)] dark:border-white/10 dark:bg-white/[0.03] sm:px-11 sm:py-11"
             style={{
               ["--reader-font-size" as string]: `${settings.fontSize}px`,
               ["--reader-line-height" as string]: String(settings.lineHeight),
               ["--reader-font-family" as string]: currentFontFamily,
             }}
           >
-            <h2 className="mb-3 text-[18px] font-semibold text-slate-800 dark:text-white/80">{chapterTitle}</h2>
+            <h2 className="mb-5 text-center text-[clamp(1.65rem,2.2vw,2.1rem)] font-semibold tracking-tight text-slate-900 dark:text-white">{chapterTitle}</h2>
             {chapterContent ? (
               <TiptapRenderer content={chapterContent} />
             ) : (
@@ -896,80 +884,92 @@ export default function ReaderChapterClient({
               to save highlights and reading settings.
             </p>
           )}
+
+          <section className="rounded-[24px] border border-slate-200/90 bg-white/92 p-4 shadow-[0_10px_24px_rgba(15,23,42,0.07)] dark:border-white/10 dark:bg-white/[0.04]">
+            <button
+              type="button"
+              onClick={() => setShowHighlightsPanel((prev) => !prev)}
+              className="flex w-full items-center justify-between gap-3 text-left"
+            >
+              <div className="flex items-center gap-3">
+                <h3 className="text-[15px] font-semibold text-slate-900 dark:text-white">Highlights</h3>
+                <span className="text-[12px] text-slate-500 dark:text-white/50">{highlightCountLabel}</span>
+              </div>
+              <span className="text-[12px] font-medium text-slate-600 dark:text-white/60">
+                {showHighlightsPanel ? "Hide" : "Show"}
+              </span>
+            </button>
+
+            {chapterMessage && (
+              <p className="mt-3 rounded-xl border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-[12px] text-amber-700 dark:text-amber-200">
+                {chapterMessage}
+              </p>
+            )}
+
+            {showHighlightsPanel && (
+              <>
+                {highlights.length === 0 ? (
+                  <p className="mt-4 text-[13px] text-slate-600 dark:text-white/60">
+                    Select text in this chapter to add your first highlight.
+                  </p>
+                ) : (
+                  <div className="mt-4 space-y-3">
+                    {highlights.map((highlight) => {
+                      const colorMeta = COLOR_META[highlight.color];
+                      return (
+                        <article
+                          key={highlight.id}
+                          className="rounded-xl border border-slate-200 bg-white/85 p-3 dark:border-white/10 dark:bg-white/[0.04]"
+                        >
+                          <button
+                            type="button"
+                            onClick={() => scrollToHighlight(highlight)}
+                            className="w-full text-left"
+                          >
+                            <div className="flex items-center gap-2 text-[11px] font-medium uppercase tracking-[0.12em] text-slate-500 dark:text-white/50">
+                              <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: colorMeta.swatch }} />
+                              {colorMeta.label}
+                            </div>
+                            <p className="mt-2 text-[13px] leading-relaxed text-slate-800 dark:text-white/80">“{highlight.snippet}”</p>
+                          </button>
+
+                          <textarea
+                            value={noteDrafts[highlight.id] ?? ""}
+                            onChange={(event) => {
+                              const value = event.target.value;
+                              setNoteDrafts((prev) => ({ ...prev, [highlight.id]: value }));
+                            }}
+                            placeholder="Add a note"
+                            className="mt-3 min-h-[76px] w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-[12px] text-slate-800 outline-none transition focus:border-[#907AFF]/50 focus:ring-2 focus:ring-[#907AFF]/20 dark:border-white/10 dark:bg-white/[0.03] dark:text-white/80"
+                          />
+
+                          <div className="mt-2 flex items-center justify-between gap-2">
+                            <button
+                              type="button"
+                              onClick={() => updateHighlightNote(highlight.id)}
+                              disabled={savingNoteId === highlight.id || !userId}
+                              className="rounded-full border border-slate-200 px-3 py-1 text-[12px] font-medium text-slate-700 transition hover:border-slate-300 hover:text-slate-900 disabled:cursor-not-allowed disabled:opacity-60 dark:border-white/15 dark:text-white/70 dark:hover:text-white"
+                            >
+                              {savingNoteId === highlight.id ? "Saving..." : "Save note"}
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => deleteHighlight(highlight.id)}
+                              disabled={deletingId === highlight.id || !userId}
+                              className="rounded-full border border-red-200 px-3 py-1 text-[12px] font-medium text-red-600 transition hover:border-red-300 hover:text-red-700 disabled:cursor-not-allowed disabled:opacity-60 dark:border-red-500/40 dark:text-red-300"
+                            >
+                              {deletingId === highlight.id ? "Removing..." : "Remove"}
+                            </button>
+                          </div>
+                        </article>
+                      );
+                    })}
+                  </div>
+                )}
+              </>
+            )}
+          </section>
         </div>
-
-        <aside className="rounded-2xl border border-black/10 bg-black/[0.03] p-4 dark:border-white/10 dark:bg-white/[0.03]">
-          <div className="flex items-center justify-between gap-3">
-            <h3 className="text-[15px] font-semibold text-slate-900 dark:text-white">Highlights</h3>
-            <span className="text-[12px] text-slate-500 dark:text-white/50">{highlightCountLabel}</span>
-          </div>
-
-          {chapterMessage && (
-            <p className="mt-3 rounded-xl border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-[12px] text-amber-700 dark:text-amber-200">
-              {chapterMessage}
-            </p>
-          )}
-
-          {highlights.length === 0 ? (
-            <p className="mt-4 text-[13px] text-slate-600 dark:text-white/60">
-              Select text in this chapter to add your first highlight.
-            </p>
-          ) : (
-            <div className="mt-4 space-y-3">
-              {highlights.map((highlight) => {
-                const colorMeta = COLOR_META[highlight.color];
-                return (
-                  <article
-                    key={highlight.id}
-                    className="rounded-xl border border-black/10 bg-white/70 p-3 dark:border-white/10 dark:bg-white/[0.04]"
-                  >
-                    <button
-                      type="button"
-                      onClick={() => scrollToHighlight(highlight)}
-                      className="w-full text-left"
-                    >
-                      <div className="flex items-center gap-2 text-[11px] font-medium uppercase tracking-[0.12em] text-slate-500 dark:text-white/50">
-                        <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: colorMeta.swatch }} />
-                        {colorMeta.label}
-                      </div>
-                      <p className="mt-2 text-[13px] leading-relaxed text-slate-800 dark:text-white/80">“{highlight.snippet}”</p>
-                    </button>
-
-                    <textarea
-                      value={noteDrafts[highlight.id] ?? ""}
-                      onChange={(event) => {
-                        const value = event.target.value;
-                        setNoteDrafts((prev) => ({ ...prev, [highlight.id]: value }));
-                      }}
-                      placeholder="Add a note"
-                      className="mt-3 min-h-[76px] w-full rounded-lg border border-black/10 bg-white px-3 py-2 text-[12px] text-slate-800 outline-none transition focus:border-[#907AFF]/50 focus:ring-2 focus:ring-[#907AFF]/20 dark:border-white/10 dark:bg-white/[0.03] dark:text-white/80"
-                    />
-
-                    <div className="mt-2 flex items-center justify-between gap-2">
-                      <button
-                        type="button"
-                        onClick={() => updateHighlightNote(highlight.id)}
-                        disabled={savingNoteId === highlight.id || !userId}
-                        className="rounded-full border border-black/10 px-3 py-1 text-[12px] font-medium text-slate-700 transition hover:border-black/20 hover:text-slate-900 disabled:cursor-not-allowed disabled:opacity-60 dark:border-white/15 dark:text-white/70 dark:hover:text-white"
-                      >
-                        {savingNoteId === highlight.id ? "Saving..." : "Save note"}
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => deleteHighlight(highlight.id)}
-                        disabled={deletingId === highlight.id || !userId}
-                        className="rounded-full border border-red-200 px-3 py-1 text-[12px] font-medium text-red-600 transition hover:border-red-300 hover:text-red-700 disabled:cursor-not-allowed disabled:opacity-60 dark:border-red-500/40 dark:text-red-300"
-                      >
-                        {deletingId === highlight.id ? "Removing..." : "Remove"}
-                      </button>
-                    </div>
-                  </article>
-                );
-              })}
-            </div>
-          )}
-        </aside>
-      </div>
       </div>
 
       {selectionState && (
@@ -1038,12 +1038,38 @@ export default function ReaderChapterClient({
           font-size: var(--reader-font-size, 16px);
           line-height: var(--reader-line-height, 1.75);
           font-family: var(--reader-font-family, Georgia, serif);
+          max-width: 78ch;
+          margin-left: auto;
+          margin-right: auto;
+          color: #1e293b;
+          text-wrap: pretty;
+        }
+
+        .reader-chapter-body .tiptap-renderer .ProseMirror a {
+          color: inherit;
+          text-decoration: underline;
+          text-decoration-color: rgba(100, 116, 139, 0.45);
+          text-underline-offset: 2px;
+          transition: text-decoration-color 180ms ease;
+        }
+
+        .reader-chapter-body .tiptap-renderer .ProseMirror a:hover {
+          text-decoration-color: rgba(71, 85, 105, 0.75);
         }
 
         .reader-chapter-body .tiptap-renderer .ProseMirror p,
         .reader-chapter-body .tiptap-renderer .ProseMirror li,
         .reader-chapter-body .tiptap-renderer .ProseMirror blockquote {
           line-height: var(--reader-line-height, 1.75);
+          color: inherit;
+        }
+
+        .dark .reader-chapter-body .tiptap-renderer .ProseMirror {
+          color: rgba(241, 245, 249, 0.92);
+        }
+
+        .dark .reader-chapter-body .tiptap-renderer .ProseMirror a {
+          text-decoration-color: rgba(203, 213, 225, 0.5);
         }
 
         ::highlight(reader-highlight-yellow) {

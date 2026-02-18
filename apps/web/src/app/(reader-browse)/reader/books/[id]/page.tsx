@@ -10,7 +10,6 @@ import StartReadingLink from "./StartReadingLink";
 import BookmarkButton from "./BookmarkButton";
 import PurchaseBookButton from "./PurchaseBookButton";
 import PurchaseSuccessRefresh from "./PurchaseSuccessRefresh";
-import OfflineSaveButton from "./OfflineSaveButton";
 import BookReviewsSection from "./BookReviewsSection";
 import CommentsSection from "./CommentsSection";
 import SimilarBooksRail from "@/components/reader/SimilarBooksRail";
@@ -146,13 +145,6 @@ export default async function ReaderBookDetail({
     notFound();
   }
 
-  const { data: audiobookAsset } = await supabase
-    .from("audiobook_assets")
-    .select("id, status, audio_url")
-    .eq("book_id", book.id)
-    .limit(1)
-    .maybeSingle();
-
   const { data: authorProfile } = await supabase
     .from("profiles")
     .select("display_name, username")
@@ -213,7 +205,6 @@ export default async function ReaderBookDetail({
   const lang = normalizeLanguage(activeVersion.language_code);
   const languageName = getLanguageLabel(lang);
   const originalUrl = (book as { original_url?: string | null }).original_url;
-  const audiobookAvailable = Boolean(audiobookAsset?.audio_url) && audiobookAsset?.status === "generated";
   const purchaseState = resolvedSearchParams?.purchase;
   const signInHref = `/reader/signin?next=${encodeURIComponent(`/reader/books/${book.id}`)}`;
   const chapterOptions = (chapters ?? []).map((chapter) => ({
@@ -224,7 +215,7 @@ export default async function ReaderBookDetail({
   const bookAuthorId = String((book as { author_id?: string | null }).author_id ?? "");
 
   return (
-    <main className="min-h-screen bg-slate-50 text-slate-900 dark:bg-[#050508] dark:text-white">
+    <main className="min-h-screen bg-background text-foreground">
       <header className="mx-auto max-w-[1100px] px-6 pt-10">
         <Link href="/reader/discover" className="text-[13px] text-slate-600 hover:text-slate-900 dark:text-white/50 dark:hover:text-white/70">
           ← Back to discover
@@ -279,12 +270,6 @@ export default async function ReaderBookDetail({
           <p className="mt-4 text-[14px] font-medium text-slate-700 dark:text-white/80">
             Read in {languageName} on Verkli
           </p>
-
-          {audiobookAvailable && (
-            <p className="mt-2 text-[13px] font-medium text-emerald-700 dark:text-emerald-400">
-              Audiobook available
-            </p>
-          )}
 
           <p className="mt-6 text-[15px] leading-relaxed text-slate-600 dark:text-white/60">
             {book.description || "No description yet."}
@@ -347,15 +332,6 @@ export default async function ReaderBookDetail({
                 </a>
               )}
             </div>
-            {user && hasReadAccess && (
-              <div className="border-t border-slate-200/60 pt-5 dark:border-white/10">
-                <OfflineSaveButton
-                  bookId={book.id}
-                  userId={user.id}
-                  languageCode={lang}
-                />
-              </div>
-            )}
           </div>
         </div>
       </section>
