@@ -56,6 +56,8 @@ export type TranslationJobData = {
   targetVersionId?: string | null;
   overwrite?: boolean;
   authorId?: string;
+  /** Optional single-chapter translation mode */
+  chapterId?: string | null;
 };
 
 export async function enqueueTranslationJob(data: TranslationJobData): Promise<string | null> {
@@ -69,7 +71,11 @@ export async function enqueueTranslationJob(data: TranslationJobData): Promise<s
     console.warn("[translation queue] Redis not reachable (invalid REDIS_URL?) — job not enqueued.");
     return null;
   }
-  const jobId = `${data.bookId}-${data.targetLanguage}`;
+  const chapterSuffix =
+    typeof data.chapterId === "string" && data.chapterId.trim().length > 0
+      ? `-${data.chapterId.trim()}`
+      : "";
+  const jobId = `${data.bookId}-${data.targetLanguage}${chapterSuffix}`;
   const existing = await q.getJob(jobId);
   if (existing) {
     const state = await existing.getState();
@@ -116,6 +122,8 @@ export async function enqueueTranslationJob(data: TranslationJobData): Promise<s
         data.sourceVersionId,
         "targetLanguage:",
         data.targetLanguage,
+        "chapterId:",
+        data.chapterId ?? null,
         "overwrite:",
         data.overwrite ?? false
       );

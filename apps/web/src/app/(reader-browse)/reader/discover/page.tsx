@@ -7,6 +7,7 @@ import AuthorCard from "@/components/reader/AuthorCard";
 import BookCard from "@/components/reader/BookCard";
 import PageHeader from "@/components/reader/PageHeader";
 import Rail from "@/components/reader/Rail";
+import { DonationButton } from "@/components/donations/DonationButton";
 
 type SearchParams = { lang?: string };
 
@@ -207,6 +208,7 @@ export default async function ReaderDiscoverPage({
         subtitle={discoveryEnabled ? "Browse by language, featured picks, and curated lists. No signup required." : "Browse authors. No signup required."}
         actions={
           <div className="flex flex-wrap items-center gap-2">
+            <DonationButton size="sm" />
             <span className="text-xs font-medium text-slate-500 dark:text-white/50">Language</span>
             <div className="flex flex-wrap gap-1">
               {LANGUAGE_OPTIONS.map((opt) => (

@@ -14,7 +14,7 @@ import subprocess
 import sys
 import tempfile
 from pathlib import Path
-from typing import Iterable, List, Tuple
+from typing import Any, List, Tuple
 
 os.environ.setdefault("PYTORCH_ENABLE_MPS_FALLBACK", "1")
 os.environ.setdefault("CUDA_VISIBLE_DEVICES", "")
@@ -28,6 +28,8 @@ from qwen_tts import Qwen3TTSModel
 
 DEFAULT_MODEL_ID = "Qwen/Qwen3-TTS-12Hz-0.6B-Base"
 DEFAULT_REF_TEXT = "This is a local reference voice clip for Qwen voice clone testing."
+DEFAULT_MAX_CHARS = 350
+DEFAULT_MAX_NEW_TOKENS = 96
 
 SUPPORTED_LANGUAGES = {
     "auto",
@@ -90,6 +92,18 @@ def normalize_language(raw: str) -> str:
     if mapped not in SUPPORTED_LANGUAGES:
         return "auto"
     return mapped
+
+
+def clamp_int(value: int, min_value: int, max_value: int) -> int:
+    return max(min_value, min(max_value, int(value)))
+
+
+def env_bool(name: str, default: bool) -> bool:
+    raw = os.environ.get(name)
+    if raw is None:
+        return default
+    value = raw.strip().lower()
+    return value not in ("0", "false", "no", "off", "")
 
 
 def split_text(text: str, max_chars: int) -> List[str]:
@@ -166,6 +180,20 @@ def to_float_wav(wavs) -> np.ndarray:
     return array
 
 
+def prepare_voice_clone_prompt(
+    model: Qwen3TTSModel,
+    ref_audio: str | None,
+    ref_text: str | None,
+    xvector_only: bool,
+):
+    resolved_ref_audio, resolved_ref_text = ensure_ref_audio(ref_audio, ref_text)
+    return model.create_voice_clone_prompt(
+        ref_audio=resolved_ref_audio,
+        ref_text=None if xvector_only else resolved_ref_text,
+        x_vector_only_mode=xvector_only,
+    )
+
+
 def synthesize_chunk(
     model: Qwen3TTSModel,
     text: str,
@@ -173,6 +201,9 @@ def synthesize_chunk(
     speaker: str,
     ref_audio: str | None,
     ref_text: str | None,
+    max_new_tokens: int,
+    clone_non_streaming_mode: bool,
+    voice_clone_prompt: Any = None,
 ) -> Tuple[np.ndarray, int, str]:
     model_type = str(getattr(getattr(model, "model", None), "tts_model_type", "")).lower()
 
@@ -182,6 +213,8 @@ def synthesize_chunk(
                 text=text,
                 language=language,
                 speaker=speaker,
+                non_streaming_mode=True,
+                max_new_tokens=max_new_tokens,
             )
             return to_float_wav(wavs), int(sr), "custom"
         except Exception as err:  # noqa: BLE001
@@ -190,27 +223,54 @@ def synthesize_chunk(
                 raise
 
     if hasattr(model, "generate_voice_clone"):
-        resolved_ref_audio, resolved_ref_text = ensure_ref_audio(ref_audio, ref_text)
-        wavs, sr = model.generate_voice_clone(
+        clone_kwargs = dict(
             text=text,
             language=language,
-            ref_audio=resolved_ref_audio,
-            ref_text=resolved_ref_text,
-            non_streaming_mode=True,
-            max_new_tokens=512,
+            non_streaming_mode=clone_non_streaming_mode,
+            max_new_tokens=max_new_tokens,
         )
+        if voice_clone_prompt is not None:
+            clone_kwargs["voice_clone_prompt"] = voice_clone_prompt
+        else:
+            resolved_ref_audio, resolved_ref_text = ensure_ref_audio(ref_audio, ref_text)
+            clone_kwargs["ref_audio"] = resolved_ref_audio
+            clone_kwargs["ref_text"] = resolved_ref_text
+        wavs, sr = model.generate_voice_clone(**clone_kwargs)
         return to_float_wav(wavs), int(sr), "clone"
 
     raise RuntimeError("Qwen model lacks generate_custom_voice and generate_voice_clone")
 
 
 def parse_args() -> argparse.Namespace:
+    default_xvector_only = 1 if env_bool("QWEN_TTS_XVECTOR_ONLY", True) else 0
+    default_clone_non_streaming = 1 if env_bool("QWEN_TTS_CLONE_NON_STREAMING_MODE", False) else 0
+
     parser = argparse.ArgumentParser(description="Qwen3 TTS synthesizer")
     parser.add_argument("--output", required=True, help="Output WAV path")
     parser.add_argument("--model-id", default=DEFAULT_MODEL_ID, help="HuggingFace model id")
     parser.add_argument("--language", default="auto", help="Language code/name")
     parser.add_argument("--speaker", default="Ryan", help="Speaker id for custom voice")
-    parser.add_argument("--max-chars", type=int, default=1000, help="Chunk size for long text")
+    parser.add_argument("--max-chars", type=int, default=DEFAULT_MAX_CHARS, help="Chunk size for long text")
+    parser.add_argument(
+        "--max-new-tokens",
+        type=int,
+        default=int(os.environ.get("QWEN_TTS_MAX_NEW_TOKENS", DEFAULT_MAX_NEW_TOKENS)),
+        help="Upper bound for generated codec tokens",
+    )
+    parser.add_argument(
+        "--xvector-only",
+        type=int,
+        choices=(0, 1),
+        default=default_xvector_only,
+        help="Use x-vector only prompt mode for voice clone (faster, less strict ICL)",
+    )
+    parser.add_argument(
+        "--clone-non-streaming-mode",
+        type=int,
+        choices=(0, 1),
+        default=default_clone_non_streaming,
+        help="Enable clone non_streaming_mode",
+    )
     parser.add_argument("--ref-audio", default=os.environ.get("QWEN_TTS_REF_AUDIO"), help="Reference audio path")
     parser.add_argument("--ref-text", default=os.environ.get("QWEN_TTS_REF_TEXT"), help="Reference transcript")
     return parser.parse_args()
@@ -225,6 +285,10 @@ def main() -> int:
 
     device = pick_device()
     language = normalize_language(args.language)
+    max_chars = clamp_int(args.max_chars, 80, 500)
+    max_new_tokens = clamp_int(args.max_new_tokens, 48, 192)
+    xvector_only = bool(args.xvector_only)
+    clone_non_streaming_mode = bool(args.clone_non_streaming_mode)
 
     load_kwargs = {
         "device_map": "cpu",
@@ -236,10 +300,20 @@ def main() -> int:
     model.model.to(device)
     model.device = torch.device(device)
 
-    chunks = split_text(text, args.max_chars)
+    chunks = split_text(text, max_chars)
     if not chunks:
         print("Input text is empty after normalization.", file=sys.stderr)
         return 2
+
+    model_type = str(getattr(getattr(model, "model", None), "tts_model_type", "")).lower()
+    voice_clone_prompt = None
+    if model_type == "base" and hasattr(model, "generate_voice_clone"):
+        voice_clone_prompt = prepare_voice_clone_prompt(
+            model=model,
+            ref_audio=args.ref_audio,
+            ref_text=args.ref_text,
+            xvector_only=xvector_only,
+        )
 
     chunk_wavs: List[np.ndarray] = []
     sample_rate: int | None = None
@@ -253,6 +327,9 @@ def main() -> int:
             speaker=args.speaker,
             ref_audio=args.ref_audio,
             ref_text=args.ref_text,
+            max_new_tokens=max_new_tokens,
+            clone_non_streaming_mode=clone_non_streaming_mode,
+            voice_clone_prompt=voice_clone_prompt,
         )
         if sample_rate is None:
             sample_rate = sr
@@ -276,6 +353,9 @@ def main() -> int:
                 "device": device,
                 "method": method,
                 "chunks": len(chunks),
+                "maxChars": max_chars,
+                "maxNewTokens": max_new_tokens,
+                "xvectorOnly": xvector_only,
             }
         ),
         flush=True,

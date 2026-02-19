@@ -36,6 +36,8 @@ type Chapter = {
 };
 
 type PublishVisibility = "public" | "followers" | "private";
+type AudiobookGenerationScope = "book" | "current" | "selected";
+type AudiobookControlAction = "pause" | "resume" | "cancel";
 
 const VISIBILITY_LABELS: Record<PublishVisibility, string> = {
   public: "Public",
@@ -127,11 +129,29 @@ const STATUS_LABELS = {
 } as const;
 
 function getAudiobookStatusLabel(status: string): string {
-  if (status === "published" || status === "generated") return STATUS_LABELS.completed;
+  if (status === "published" || status === "generated" || status === "completed") return STATUS_LABELS.completed;
   if (status === "generating") return STATUS_LABELS.running;
   if (status === "queued") return "Queued";
+  if (status === "paused") return "Paused";
+  if (status === "pause_requested") return "Pause requested";
+  if (status === "cancel_requested") return "Stopping...";
+  if (status === "cancelled") return "Cancelled";
   if (status === "failed") return STATUS_LABELS.failed;
   return "No audiobook yet";
+}
+
+function formatAudiobookEta(seconds: number | null | undefined): string | null {
+  if (typeof seconds !== "number" || !Number.isFinite(seconds) || seconds < 0) return null;
+  const roundedSeconds = Math.round(seconds);
+  if (roundedSeconds < 60) return "Less than 1 min remaining";
+
+  const totalMinutes = Math.round(roundedSeconds / 60);
+  if (totalMinutes < 60) return `About ${totalMinutes} min remaining`;
+
+  const hours = Math.floor(totalMinutes / 60);
+  const minutes = totalMinutes % 60;
+  if (minutes === 0) return `About ${hours}h remaining`;
+  return `About ${hours}h ${minutes}m remaining`;
 }
 
 function getMarketingCampaignStatusLabel(status: string): string {
@@ -177,6 +197,7 @@ type BookVersion = {
   language_code: string;
   status: string;
   published_at?: string | null;
+  published_chapter_count?: number | null;
   visibility?: PublishVisibility | null;
   created_at?: string;
   updated_at?: string;
@@ -605,7 +626,12 @@ export default function BookEditor({
     totalChapters: number;
     completedChapters: number;
     currentChapterTitle: string | null;
+    estimatedSecondsRemaining: number | null;
   } | null>(null);
+  const [audiobookScope, setAudiobookScope] = useState<AudiobookGenerationScope>("book");
+  const [audiobookSelectedChapterIds, setAudiobookSelectedChapterIds] = useState<string[]>([]);
+  const [isAudiobookChapterPickerOpen, setIsAudiobookChapterPickerOpen] = useState(false);
+  const [audiobookControlPending, setAudiobookControlPending] = useState<AudiobookControlAction | null>(null);
   const pricingSavedTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const savingRef = useRef(false);
   const coverInputRef = useRef<HTMLInputElement>(null);
@@ -658,9 +684,11 @@ export default function BookEditor({
       totalChapters: (meta.totalChapters as number) ?? 0,
       completedChapters: (meta.completedChapters as number) ?? 0,
       currentChapterTitle: (meta.currentChapterTitle as string) ?? null,
+      estimatedSecondsRemaining: (meta.estimatedSecondsRemaining as number) ?? null,
     };
   }, [latestAudiobookJob]);
   const effectiveAudiobookProgress = audiobookProgress ?? serverAudiobookProgress;
+  const audiobookEtaText = formatAudiobookEta(effectiveAudiobookProgress?.estimatedSecondsRemaining);
   const effectiveAudiobookError = audiobookError ?? (isAudiobookJobFailed ? (latestAudiobookJob?.error ?? null) : null);
 
   useEffect(() => {
@@ -779,6 +807,20 @@ export default function BookEditor({
   const currentVisibilityLabel = VISIBILITY_LABELS[currentVisibility];
   const currentVisibilitySummary = describeVisibility(currentVisibility);
   const selectedVisibilityLabel = VISIBILITY_LABELS[publishVisibility];
+  const publishedChapterCount =
+    typeof activeVersion?.published_chapter_count === "number" &&
+    Number.isFinite(activeVersion.published_chapter_count)
+      ? Math.max(0, Math.floor(activeVersion.published_chapter_count))
+      : null;
+  const selectedChapterOrder =
+    typeof selectedChapter?.order === "number" && Number.isFinite(selectedChapter.order)
+      ? selectedChapter.order
+      : null;
+  const selectedChapterAlreadyPublished =
+    Boolean(isPublished) &&
+    (publishedChapterCount === null
+      ? true
+      : selectedChapterOrder != null && selectedChapterOrder < publishedChapterCount);
 
   const missingPublishRequirements = useMemo(() => {
     const missing: string[] = [];
@@ -794,6 +836,13 @@ export default function BookEditor({
   }, [bookTitle, displayCoverUrl, activeVersion?.id, chapters]);
 
   const publishDisabled = isPublishing || coverUploading || missingPublishRequirements.length > 0;
+  const chapterPublishDisabled =
+    isPublishing ||
+    coverUploading ||
+    missingPublishRequirements.length > 0 ||
+    !selectedChapter ||
+    !hasReadableContent(selectedChapter.content) ||
+    selectedChapterAlreadyPublished;
   const visibilityChanged = isPublished && activeVisibility != null && publishVisibility !== activeVisibility;
   const confirmCopy =
     confirmPublishAction === "publish"
@@ -949,19 +998,49 @@ export default function BookEditor({
     (typeof latestAudiobookMeta.manifestUrl === "string" && latestAudiobookMeta.manifestUrl.trim().length > 0
       ? latestAudiobookMeta.manifestUrl
       : null);
-  const hasCompletedAudiobookJob = normalizeJobStatus(latestAudiobookJob?.status) === "completed";
+  const latestChapterAudioUrl =
+    typeof latestAudiobookMeta.generatedChapterAudioUrl === "string" &&
+    latestAudiobookMeta.generatedChapterAudioUrl.trim().length > 0
+      ? latestAudiobookMeta.generatedChapterAudioUrl
+      : null;
+  const latestAudiobookScope =
+    typeof latestAudiobookMeta.scope === "string" ? latestAudiobookMeta.scope : "book";
+  const latestAudiobookControlState =
+    typeof latestAudiobookMeta.controlState === "string" ? latestAudiobookMeta.controlState : null;
+  const latestAudiobookPauseRequested = latestAudiobookMeta.pauseRequested === true;
+  const latestAudiobookCancelRequested = latestAudiobookMeta.cancelRequested === true;
+  const latestAudiobookChapterIds =
+    Array.isArray(latestAudiobookMeta.chapterIds) && latestAudiobookMeta.chapterIds.every((id) => typeof id === "string")
+      ? (latestAudiobookMeta.chapterIds as string[])
+      : [];
+  const hasCompletedAudiobookJob =
+    normalizeJobStatus(latestAudiobookJob?.status) === "completed" && latestAudiobookScope !== "chapter";
+  const hasCompletedChapterAudiobookJob =
+    normalizeJobStatus(latestAudiobookJob?.status) === "completed" && latestAudiobookScope === "chapter";
   const hasFailedAudiobookJob = normalizeJobStatus(latestAudiobookJob?.status) === "failed";
-  const audiobookPlaybackUrl = latestAudiobookAsset?.audio_url ?? latestAudiobookJobAudioUrl ?? null;
+  const audiobookPlaybackUrl =
+    latestAudiobookAsset?.audio_url ?? latestAudiobookJobAudioUrl ?? latestChapterAudioUrl ?? null;
   const audiobookPlaybackIsManifest = Boolean(
     typeof audiobookPlaybackUrl === "string" && /\.json(?:$|[?#])/i.test(audiobookPlaybackUrl)
   );
   const audiobookFeatureEnabled = getAudiobookEnabled();
+  const isAudiobookPaused = latestAudiobookControlState === "paused" || latestAudiobookControlState === "pause_requested";
+  const isAudiobookCancelRequested = latestAudiobookControlState === "cancel_requested" || latestAudiobookCancelRequested;
+  const isAudiobookCancelled = latestAudiobookControlState === "cancelled";
   const audiobookStatusUi = isAudiobookActive
-    ? audiobookJobStatus === "pending"
-      ? "queued"
-      : "generating"
-    : hasGeneratedAudiobookAsset || hasCompletedAudiobookJob
+    ? isAudiobookCancelRequested
+      ? "cancel_requested"
+      : isAudiobookPaused || latestAudiobookPauseRequested
+        ? latestAudiobookControlState === "pause_requested" || latestAudiobookPauseRequested
+          ? "pause_requested"
+          : "paused"
+        : audiobookJobStatus === "pending"
+          ? "queued"
+          : "generating"
+    : hasGeneratedAudiobookAsset || hasCompletedAudiobookJob || hasCompletedChapterAudiobookJob
       ? "published"
+      : isAudiobookCancelled
+        ? "cancelled"
       : hasFailedAudiobookJob
         ? "failed"
         : (book.audiobook_status ?? "not_started");
@@ -1005,7 +1084,8 @@ export default function BookEditor({
     }, 3000);
   }, [router, stopTranslationPoll, book.id]);
 
-  const handleStartTranslation = useCallback(async () => {
+  const handleStartTranslation = useCallback(
+    async (scope: "book" | "chapter" = "book") => {
     if (isStartingTranslation) return;
     setIsStartingTranslation(true);
     setTranslateMessage(null);
@@ -1023,6 +1103,12 @@ export default function BookEditor({
       return;
     }
 
+    if (scope === "chapter" && !selectedChapterId) {
+      setTranslateMessage("Select a chapter first.");
+      setIsStartingTranslation(false);
+      return;
+    }
+
     const existingVersion = versionsByLang.get(normalizeLangKey(translateTargetLanguage));
     if (existingVersion?.status === "translating") {
       setTranslateMessage("Translation is already running. Waiting for completion...");
@@ -1034,7 +1120,7 @@ export default function BookEditor({
 
     let overwrite = false;
     let targetVersionId: string | null = null;
-    if (existingVersion) {
+    if (existingVersion && scope === "book") {
       // Failed version: allow one-click retry without confirm
       if (existingVersion.status === "failed") {
         overwrite = true;
@@ -1062,6 +1148,7 @@ export default function BookEditor({
           sourceVersionId: activeVersion.id,
           targetVersionId,
           overwrite,
+          chapterId: scope === "chapter" ? selectedChapterId : null,
         }),
       });
       const data = await res.json().catch(() => ({}));
@@ -1074,7 +1161,11 @@ export default function BookEditor({
         setTranslateMessage(resolveErrorMessage(data?.error));
         return;
       }
-      setTranslateMessage("Translation started. Waiting for completion...");
+      setTranslateMessage(
+        scope === "chapter"
+          ? "Chapter translation started. Waiting for completion..."
+          : "Translation started. Waiting for completion..."
+      );
       setLastRequestedTargetLanguage(translateTargetLanguage);
       startTranslationPoll();
     } catch {
@@ -1088,10 +1179,12 @@ export default function BookEditor({
     startTranslationPoll,
     translateTargetLanguage,
     activeVersion?.id,
+    selectedChapterId,
     versionsByLang,
     book.id,
     router,
-  ]);
+    ]
+  );
 
   const handlePublishAction = async (action: "publish" | "update" | "unpublish") => {
     if (isPublishing || !activeVersion?.id) return;
@@ -1137,6 +1230,59 @@ export default function BookEditor({
       if (succeeded) setPublishMenuOpen(false);
     }
   };
+
+  const handlePublishSelectedChapter = useCallback(async () => {
+    if (isPublishing || !activeVersion?.id) return;
+    if (!selectedChapter) {
+      setPublishError("Select a chapter first.");
+      return;
+    }
+    if (!hasReadableContent(selectedChapter.content)) {
+      setPublishError("Selected chapter has no readable content.");
+      return;
+    }
+
+    const chapterLabel = selectedChapter.title?.trim() || "selected chapter";
+    const confirmed = window.confirm(`Publish only "${chapterLabel}" for readers now?`);
+    if (!confirmed) return;
+
+    setIsPublishing(true);
+    setPublishError(null);
+    let succeeded = false;
+    try {
+      const res = await fetch(`/api/books/${book.id}/publish`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          versionId: activeVersion.id,
+          visibility: publishVisibility,
+          action: "publish",
+          scope: "chapter",
+          chapterId: selectedChapter.id,
+        }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setPublishError(resolveErrorMessage(data.error));
+        return;
+      }
+      router.refresh();
+      succeeded = true;
+      setPublishToast(`Published chapter: ${chapterLabel}`);
+    } catch {
+      setPublishError("Could not publish selected chapter. Try again.");
+    } finally {
+      setIsPublishing(false);
+      if (succeeded) setPublishMenuOpen(false);
+    }
+  }, [
+    activeVersion?.id,
+    book.id,
+    isPublishing,
+    publishVisibility,
+    router,
+    selectedChapter,
+  ]);
 
   const handleSavePricing = useCallback(async () => {
     setPricingError(null);
@@ -1287,6 +1433,7 @@ export default function BookEditor({
     if (!audiobookFeatureEnabled || !latestAudiobookJob) return;
     const normalizedStatus = normalizeJobStatus(latestAudiobookJob.status);
     const meta = latestAudiobookJob.meta as Record<string, unknown>;
+    const controlState = typeof meta.controlState === "string" ? meta.controlState : null;
 
     if (isJobActiveStatus(normalizedStatus)) {
       setIsGeneratingAudiobook(true);
@@ -1295,13 +1442,18 @@ export default function BookEditor({
         totalChapters: (meta.totalChapters as number) ?? 0,
         completedChapters: (meta.completedChapters as number) ?? 0,
         currentChapterTitle: (meta.currentChapterTitle as string) ?? null,
+        estimatedSecondsRemaining: (meta.estimatedSecondsRemaining as number) ?? null,
       });
       return;
     }
 
     setIsGeneratingAudiobook(false);
     if (normalizedStatus === "failed") {
-      setAudiobookError(latestAudiobookJob.error ?? "Generation could not be completed. Try again.");
+      if (controlState === "cancelled") {
+        setAudiobookError("Generation cancelled.");
+      } else {
+        setAudiobookError(latestAudiobookJob.error ?? "Generation could not be completed. Try again.");
+      }
       return;
     }
     if (normalizedStatus === "completed") {
@@ -1309,17 +1461,131 @@ export default function BookEditor({
     }
   }, [audiobookFeatureEnabled, latestAudiobookJob]);
 
-  const handleGenerateAudiobook = useCallback(async () => {
+  useEffect(() => {
+    if (audiobookScope === "current") {
+      if (selectedChapterId) {
+        setAudiobookSelectedChapterIds([selectedChapterId]);
+      } else {
+        setAudiobookSelectedChapterIds([]);
+      }
+      return;
+    }
+
+    if (audiobookScope === "selected" && audiobookSelectedChapterIds.length === 0 && selectedChapterId) {
+      setAudiobookSelectedChapterIds([selectedChapterId]);
+    }
+  }, [audiobookScope, audiobookSelectedChapterIds.length, selectedChapterId]);
+
+  useEffect(() => {
+    setAudiobookSelectedChapterIds((prev) => prev.filter((chapterId) => chapters.some((chapter) => chapter.id === chapterId)));
+  }, [chapters]);
+
+  const audiobookRequestedChapterIds = useMemo(() => {
+    if (audiobookScope === "book") return [];
+    if (audiobookScope === "current") {
+      return selectedChapterId ? [selectedChapterId] : [];
+    }
+    return Array.from(new Set(audiobookSelectedChapterIds));
+  }, [audiobookScope, audiobookSelectedChapterIds, selectedChapterId]);
+
+  const audiobookRequestScope = useMemo<"book" | "chapter" | "chapters">(() => {
+    if (audiobookRequestedChapterIds.length === 0) return "book";
+    if (audiobookRequestedChapterIds.length === 1) return "chapter";
+    return "chapters";
+  }, [audiobookRequestedChapterIds]);
+
+  const selectedAudiobookChapters = useMemo(
+    () => chapters.filter((chapter) => audiobookRequestedChapterIds.includes(chapter.id)),
+    [chapters, audiobookRequestedChapterIds]
+  );
+
+  const audiobookSelectionSummary =
+    audiobookRequestScope === "book"
+      ? "Entire book"
+      : audiobookRequestScope === "chapter"
+        ? selectedAudiobookChapters[0]?.title ?? "Selected chapter"
+        : `${audiobookRequestedChapterIds.length} chapters selected`;
+
+  const canPauseAudiobook =
+    isAudiobookActive &&
+    audiobookControlPending === null &&
+    audiobookStatusUi !== "paused" &&
+    audiobookStatusUi !== "pause_requested" &&
+    audiobookStatusUi !== "cancel_requested";
+  const canResumeAudiobook =
+    isAudiobookActive &&
+    audiobookControlPending === null &&
+    (audiobookStatusUi === "paused" || audiobookStatusUi === "pause_requested");
+  const canCancelAudiobook =
+    isAudiobookActive &&
+    audiobookControlPending === null &&
+    audiobookStatusUi !== "cancel_requested";
+  const activeAudiobookScopeSummary =
+    latestAudiobookScope === "chapter"
+      ? (typeof latestAudiobookMeta.currentChapterTitle === "string"
+          ? latestAudiobookMeta.currentChapterTitle
+          : "Single chapter")
+      : latestAudiobookScope === "chapters"
+        ? `${Math.max(
+            1,
+            latestAudiobookChapterIds.length ||
+              (effectiveAudiobookProgress?.totalChapters ?? 0)
+          )} selected chapters`
+        : "Entire book";
+
+  const handleAudiobookControl = useCallback(
+    async (action: AudiobookControlAction) => {
+      if (!audiobookFeatureEnabled || !isAudiobookActive || audiobookControlPending) return;
+      setAudiobookError(null);
+      setAudiobookControlPending(action);
+      try {
+        const res = await fetch(`/api/books/${book.id}/audiobook/control`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ action }),
+        });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) {
+          setAudiobookError(resolveErrorMessage(data?.error));
+          return;
+        }
+        await refetchBookJob();
+      } catch {
+        setAudiobookError("Could not update generation state. Try again.");
+      } finally {
+        setAudiobookControlPending(null);
+      }
+    },
+    [audiobookControlPending, audiobookFeatureEnabled, book.id, isAudiobookActive, refetchBookJob]
+  );
+
+  const handleGenerateAudiobook = useCallback(
+    async () => {
     if (isGeneratingAudiobook || !audiobookFeatureEnabled) return;
+    if (audiobookScope !== "book" && audiobookRequestedChapterIds.length === 0) {
+      setAudiobookError("Select chapter(s) first.");
+      return;
+    }
     setAudiobookError(null);
     setAudiobookProgress(null);
     setIsGeneratingAudiobook(true);
     try {
       const langKey = normalizeLangKey(activeVersion?.language_code ?? activeLanguage);
-      const endpoint = langKey
-        ? `/api/books/${book.id}/audiobook/generate?lang=${encodeURIComponent(langKey)}`
-        : `/api/books/${book.id}/audiobook/generate`;
-      const res = await fetch(endpoint, { method: "POST" });
+      const params = new URLSearchParams();
+      if (langKey) params.set("lang", langKey);
+      const endpoint = `/api/books/${book.id}/audiobook/generate${params.size ? `?${params.toString()}` : ""}`;
+      const body =
+        audiobookRequestScope === "book"
+          ? { scope: "book" as const }
+          : {
+              scope: audiobookRequestScope,
+              chapterIds: audiobookRequestedChapterIds,
+            };
+      const res = await fetch(endpoint, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
         setAudiobookError(resolveErrorMessage(data.error));
@@ -1331,16 +1597,24 @@ export default function BookEditor({
         totalChapters: data.totalChapters ?? 0,
         completedChapters: 0,
         currentChapterTitle: null,
+        estimatedSecondsRemaining: null,
       });
       await refetchBookJob();
     } catch {
-      setAudiobookError("Could not start generation. Try again.");
+      setAudiobookError(
+        audiobookRequestScope === "book"
+          ? "Could not start generation. Try again."
+          : "Could not start selected chapter generation. Try again."
+      );
       setIsGeneratingAudiobook(false);
     }
   }, [
     activeLanguage,
     activeVersion?.language_code,
     audiobookFeatureEnabled,
+    audiobookRequestScope,
+    audiobookRequestedChapterIds,
+    audiobookScope,
     book.id,
     isGeneratingAudiobook,
     refetchBookJob,
@@ -2107,6 +2381,11 @@ export default function BookEditor({
                         {currentVisibilityLabel}
                       </span>
                     )}
+                    {isPublished && (
+                      <span className="rounded-full border border-black/[0.06] bg-white px-2 py-0.5 text-[11px] font-medium text-slate-600 dark:border-white/[0.06] dark:bg-white/5 dark:text-white/70">
+                        Chapters live: {publishedChapterCount ?? chapters.length}/{chapters.length}
+                      </span>
+                    )}
                   </div>
 
                   <fieldset className="mt-4 space-y-2">
@@ -2190,17 +2469,43 @@ export default function BookEditor({
                   ) : (
                     <div className="mt-4 flex flex-col gap-2">
                       {!isPublished && (
-                        <button
-                          type="button"
-                          onClick={() => setConfirmPublishAction("publish")}
-                          disabled={publishDisabled}
-                          className="rounded-lg bg-[#907AFF] px-3 py-2 text-sm font-semibold text-white transition hover:bg-[#7c6ae6] disabled:cursor-not-allowed disabled:opacity-50"
-                        >
-                          {isPublishing ? "Publishing..." : "Publish"}
-                        </button>
+                        <>
+                          <button
+                            type="button"
+                            onClick={() => setConfirmPublishAction("publish")}
+                            disabled={publishDisabled}
+                            className="rounded-lg bg-[#907AFF] px-3 py-2 text-sm font-semibold text-white transition hover:bg-[#7c6ae6] disabled:cursor-not-allowed disabled:opacity-50"
+                          >
+                            {isPublishing ? "Publishing..." : "Publish full book"}
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => void handlePublishSelectedChapter()}
+                            disabled={chapterPublishDisabled}
+                            className="rounded-xl border border-black/[0.08] bg-white px-3 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50 dark:border-white/[0.08] dark:bg-white/[0.04] dark:text-white dark:hover:bg-white/[0.06]"
+                          >
+                            {isPublishing
+                              ? "Publishing..."
+                              : selectedChapterAlreadyPublished
+                                ? "Selected chapter already live"
+                                : "Publish selected chapter"}
+                          </button>
+                        </>
                       )}
                       {isPublished && (
                         <>
+                          <button
+                            type="button"
+                            onClick={() => void handlePublishSelectedChapter()}
+                            disabled={chapterPublishDisabled}
+                            className="rounded-xl border border-black/[0.08] bg-white px-3 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50 dark:border-white/[0.08] dark:bg-white/[0.04] dark:text-white dark:hover:bg-white/[0.06]"
+                          >
+                            {isPublishing
+                              ? "Publishing..."
+                              : selectedChapterAlreadyPublished
+                                ? "Selected chapter already live"
+                                : "Release selected chapter"}
+                          </button>
                           <button
                             type="button"
                             onClick={() => setConfirmPublishAction("update")}
@@ -2333,24 +2638,49 @@ export default function BookEditor({
                     );
                   })}
                 </select>
-                <button
-                  type="button"
-                  onClick={handleStartTranslation}
-                  disabled={isStartingTranslation || isProFeatureLocked || !isTranslationPairSupported(translationSourceLang, translateTargetLanguage)}
-                  className="w-full rounded-xl border border-black/[0.08] bg-white px-3 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed dark:border-white/[0.08] dark:bg-white/[0.04] dark:text-white dark:hover:bg-white/[0.06]"
-                >
-                  {isStartingTranslation
-                    ? "Starting..."
-                    : isProFeatureLocked
-                      ? billing.loading
-                        ? "Checking subscription..."
-                        : billing.pastDue
-                          ? "Locked: payment required"
-                          : "Start translation (Pro required)"
-                      : translationUiStatus === "error"
-                        ? "Retry translation"
-                        : "Start translation"}
-                </button>
+                <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                  <button
+                    type="button"
+                    onClick={() => void handleStartTranslation("book")}
+                    disabled={isStartingTranslation || isProFeatureLocked || !isTranslationPairSupported(translationSourceLang, translateTargetLanguage)}
+                    className="w-full rounded-xl border border-black/[0.08] bg-white px-3 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50 dark:border-white/[0.08] dark:bg-white/[0.04] dark:text-white dark:hover:bg-white/[0.06]"
+                  >
+                    {isStartingTranslation
+                      ? "Starting..."
+                      : isProFeatureLocked
+                        ? billing.loading
+                          ? "Checking subscription..."
+                          : billing.pastDue
+                            ? "Locked: payment required"
+                            : "Translate full book (Pro)"
+                        : translationUiStatus === "error"
+                          ? "Retry full translation"
+                          : "Translate full book"}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => void handleStartTranslation("chapter")}
+                    disabled={
+                      isStartingTranslation ||
+                      isProFeatureLocked ||
+                      !selectedChapterId ||
+                      !isTranslationPairSupported(translationSourceLang, translateTargetLanguage)
+                    }
+                    className="w-full rounded-xl border border-black/[0.08] bg-white px-3 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50 dark:border-white/[0.08] dark:bg-white/[0.04] dark:text-white dark:hover:bg-white/[0.06]"
+                  >
+                    {isStartingTranslation
+                      ? "Starting..."
+                      : !selectedChapterId
+                        ? "Select chapter first"
+                        : isProFeatureLocked
+                          ? billing.loading
+                            ? "Checking subscription..."
+                            : billing.pastDue
+                              ? "Locked: payment required"
+                              : "Translate chapter (Pro)"
+                          : "Translate selected chapter"}
+                  </button>
+                </div>
                 {isProFeatureLocked && (
                   <div className="mt-2 rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-800 dark:border-amber-700 dark:bg-amber-950/30 dark:text-amber-200">
                     {proFeatureLockMessage}{" "}
@@ -2415,8 +2745,14 @@ export default function BookEditor({
                   className={`rounded-full px-2.5 py-1 text-xs font-medium ${
                     audiobookStatusUi === "published"
                       ? "bg-[#907AFF]/15 text-[#5c4bb8] dark:bg-[#907AFF]/25 dark:text-[#b8a9ff]"
+                      : audiobookStatusUi === "paused" || audiobookStatusUi === "pause_requested"
+                        ? "bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300"
+                      : audiobookStatusUi === "cancel_requested"
+                        ? "bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-300"
                       : audiobookStatusUi === "generating" || audiobookStatusUi === "queued"
                         ? "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300"
+                        : audiobookStatusUi === "cancelled"
+                          ? "bg-slate-200 text-slate-700 dark:bg-slate-700 dark:text-slate-200"
                         : audiobookStatusUi === "failed"
                           ? "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300"
                           : "bg-slate-100 text-slate-700 dark:bg-slate-700 dark:text-slate-200"
@@ -2432,6 +2768,9 @@ export default function BookEditor({
                     <span>{effectiveAudiobookProgress.currentChapterTitle ?? "Processing..."}</span>
                     <span>{effectiveAudiobookProgress.completedChapters} / {effectiveAudiobookProgress.totalChapters}</span>
                   </div>
+                  <p className="mb-1 text-[11px] text-slate-500 dark:text-slate-400">
+                    Scope: {activeAudiobookScopeSummary}
+                  </p>
                   <div className="h-2 w-full overflow-hidden rounded-full bg-slate-200 dark:bg-slate-700">
                     <div
                       className="h-full rounded-full bg-[#907AFF] transition-all duration-300"
@@ -2442,29 +2781,178 @@ export default function BookEditor({
                       }}
                     />
                   </div>
+                  <p className="mt-1 text-[11px] text-slate-500 dark:text-slate-400">
+                    {audiobookEtaText ?? "Estimating remaining time..."}
+                  </p>
                 </div>
               )}
 
-              <button
-                type="button"
-                onClick={handleGenerateAudiobook}
-                disabled={isAudiobookActive || !audiobookFeatureEnabled || isProFeatureLocked}
-                className="mb-2 w-full rounded-xl border border-black/[0.08] bg-white px-3 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-50 disabled:opacity-50 dark:border-white/[0.08] dark:bg-white/[0.04] dark:text-white dark:hover:bg-white/[0.06]"
-              >
-                {!audiobookFeatureEnabled
-                  ? "Create audiobook (unavailable)"
-                  : isProFeatureLocked
-                  ? billing.loading
-                    ? "Checking subscription..."
-                    : billing.pastDue
-                      ? "Locked: payment required"
-                      : "Create audiobook (Pro required)"
-                  : isAudiobookActive
-                  ? effectiveAudiobookProgress
-                    ? `Generating (${effectiveAudiobookProgress.completedChapters}/${effectiveAudiobookProgress.totalChapters})...`
-                    : "Queued..."
-                  : "Create audiobook"}
-              </button>
+              <div className="mb-3 grid grid-cols-3 gap-2">
+                <button
+                  type="button"
+                  onClick={() => setAudiobookScope("book")}
+                  className={`rounded-xl border px-2 py-2 text-xs font-medium transition ${
+                    audiobookScope === "book"
+                      ? "border-[#907AFF]/40 bg-[#907AFF]/10 text-[#5c4bb8] dark:border-[#907AFF]/50 dark:bg-[#907AFF]/20 dark:text-[#c5b9ff]"
+                      : "border-black/[0.08] bg-white text-slate-600 hover:bg-slate-50 dark:border-white/[0.08] dark:bg-white/[0.04] dark:text-white/80"
+                  }`}
+                >
+                  Full book
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setAudiobookScope("current")}
+                  className={`rounded-xl border px-2 py-2 text-xs font-medium transition ${
+                    audiobookScope === "current"
+                      ? "border-[#907AFF]/40 bg-[#907AFF]/10 text-[#5c4bb8] dark:border-[#907AFF]/50 dark:bg-[#907AFF]/20 dark:text-[#c5b9ff]"
+                      : "border-black/[0.08] bg-white text-slate-600 hover:bg-slate-50 dark:border-white/[0.08] dark:bg-white/[0.04] dark:text-white/80"
+                  }`}
+                >
+                  Current chapter
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setAudiobookScope("selected");
+                    setIsAudiobookChapterPickerOpen(true);
+                    if (selectedChapterId) {
+                      setAudiobookSelectedChapterIds((prev) => (
+                        prev.includes(selectedChapterId) ? prev : [...prev, selectedChapterId]
+                      ));
+                    }
+                  }}
+                  className={`rounded-xl border px-2 py-2 text-xs font-medium transition ${
+                    audiobookScope === "selected"
+                      ? "border-[#907AFF]/40 bg-[#907AFF]/10 text-[#5c4bb8] dark:border-[#907AFF]/50 dark:bg-[#907AFF]/20 dark:text-[#c5b9ff]"
+                      : "border-black/[0.08] bg-white text-slate-600 hover:bg-slate-50 dark:border-white/[0.08] dark:bg-white/[0.04] dark:text-white/80"
+                  }`}
+                >
+                  Choose chapters
+                </button>
+              </div>
+
+              <p className="mb-2 text-xs text-slate-500 dark:text-slate-400">
+                Selection: {audiobookSelectionSummary}
+              </p>
+
+              {audiobookScope === "selected" && (
+                <div className="mb-3 rounded-xl border border-black/[0.08] bg-white/70 p-3 dark:border-white/[0.08] dark:bg-white/[0.03]">
+                  <button
+                    type="button"
+                    onClick={() => setIsAudiobookChapterPickerOpen((prev) => !prev)}
+                    className="mb-2 w-full rounded-lg border border-black/[0.08] bg-white px-3 py-2 text-left text-xs font-medium text-slate-700 transition hover:bg-slate-50 dark:border-white/[0.08] dark:bg-white/[0.04] dark:text-white"
+                  >
+                    {isAudiobookChapterPickerOpen ? "Hide chapter list" : "Show chapter list"}
+                  </button>
+                  {isAudiobookChapterPickerOpen && (
+                    <>
+                      <div className="mb-2 flex flex-wrap gap-2">
+                        <button
+                          type="button"
+                          onClick={() => setAudiobookSelectedChapterIds(chapters.map((chapter) => chapter.id))}
+                          className="rounded-md border border-black/[0.08] px-2 py-1 text-[11px] text-slate-600 hover:bg-slate-50 dark:border-white/[0.08] dark:text-white/80 dark:hover:bg-white/[0.06]"
+                        >
+                          Select all
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setAudiobookSelectedChapterIds([])}
+                          className="rounded-md border border-black/[0.08] px-2 py-1 text-[11px] text-slate-600 hover:bg-slate-50 dark:border-white/[0.08] dark:text-white/80 dark:hover:bg-white/[0.06]"
+                        >
+                          Clear
+                        </button>
+                      </div>
+                      <div className="max-h-44 space-y-1 overflow-y-auto pr-1">
+                        {chapters.map((chapter) => {
+                          const checked = audiobookSelectedChapterIds.includes(chapter.id);
+                          return (
+                            <label
+                              key={chapter.id}
+                              className="flex cursor-pointer items-center gap-2 rounded-md border border-transparent px-2 py-1.5 text-xs text-slate-700 hover:border-black/[0.05] hover:bg-slate-50 dark:text-white/80 dark:hover:border-white/[0.08] dark:hover:bg-white/[0.05]"
+                            >
+                              <input
+                                type="checkbox"
+                                checked={checked}
+                                onChange={() => {
+                                  setAudiobookSelectedChapterIds((prev) => (
+                                    prev.includes(chapter.id)
+                                      ? prev.filter((id) => id !== chapter.id)
+                                      : [...prev, chapter.id]
+                                  ));
+                                }}
+                                className="h-3.5 w-3.5 rounded border-black/[0.2] text-[#907AFF] focus:ring-[#907AFF]"
+                              />
+                              <span className="truncate">{chapter.title || "Untitled chapter"}</span>
+                            </label>
+                          );
+                        })}
+                      </div>
+                    </>
+                  )}
+                </div>
+              )}
+
+              <div className="mb-2 grid grid-cols-1 gap-2">
+                <button
+                  type="button"
+                  onClick={() => void handleGenerateAudiobook()}
+                  disabled={isAudiobookActive || !audiobookFeatureEnabled || isProFeatureLocked || (audiobookScope !== "book" && audiobookRequestedChapterIds.length === 0)}
+                  className="w-full rounded-xl border border-black/[0.08] bg-white px-3 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50 dark:border-white/[0.08] dark:bg-white/[0.04] dark:text-white dark:hover:bg-white/[0.06]"
+                >
+                  {!audiobookFeatureEnabled
+                    ? "Create audiobook (unavailable)"
+                    : isProFeatureLocked
+                    ? billing.loading
+                      ? "Checking subscription..."
+                      : billing.pastDue
+                        ? "Locked: payment required"
+                        : "Create full audiobook (Pro)"
+                    : isAudiobookActive
+                    ? effectiveAudiobookProgress
+                      ? `Generating (${effectiveAudiobookProgress.completedChapters}/${effectiveAudiobookProgress.totalChapters})...`
+                      : "Queued..."
+                    : audiobookRequestScope === "book"
+                      ? "Create full audiobook"
+                      : audiobookRequestScope === "chapter"
+                        ? "Generate selected chapter"
+                        : `Generate ${audiobookRequestedChapterIds.length} chapters`}
+                </button>
+              </div>
+
+              {isAudiobookActive && (
+                <div className="mb-2 grid grid-cols-3 gap-2">
+                  <button
+                    type="button"
+                    onClick={() => void handleAudiobookControl("pause")}
+                    disabled={!canPauseAudiobook}
+                    className="rounded-xl border border-black/[0.08] bg-white px-3 py-2 text-xs font-medium text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50 dark:border-white/[0.08] dark:bg-white/[0.04] dark:text-white dark:hover:bg-white/[0.06]"
+                  >
+                    {audiobookControlPending === "pause" ? "Pausing..." : "Pause"}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => void handleAudiobookControl("resume")}
+                    disabled={!canResumeAudiobook}
+                    className="rounded-xl border border-black/[0.08] bg-white px-3 py-2 text-xs font-medium text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50 dark:border-white/[0.08] dark:bg-white/[0.04] dark:text-white dark:hover:bg-white/[0.06]"
+                  >
+                    {audiobookControlPending === "resume" ? "Resuming..." : "Resume"}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => void handleAudiobookControl("cancel")}
+                    disabled={!canCancelAudiobook}
+                    className="rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-xs font-medium text-red-700 transition hover:bg-red-100 disabled:cursor-not-allowed disabled:opacity-50 dark:border-red-800 dark:bg-red-950/30 dark:text-red-300 dark:hover:bg-red-950/50"
+                  >
+                    {audiobookControlPending === "cancel" ? "Stopping..." : "Cancel"}
+                  </button>
+                </div>
+              )}
+
+              {isAudiobookActive && (
+                <p className="mb-2 text-[11px] text-slate-500 dark:text-slate-400">
+                  Pause/cancel is applied safely between chapter boundaries.
+                </p>
+              )}
 
               {audiobookFeatureEnabled && isProFeatureLocked && (
                 <div className="mb-2 rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-800 dark:border-amber-700 dark:bg-amber-950/30 dark:text-amber-200">
@@ -2493,7 +2981,13 @@ export default function BookEditor({
                 </div>
               )}
 
-              {(audiobookStatusUi === "failed" || effectiveAudiobookError) && (
+              {audiobookStatusUi === "cancelled" && (
+                <p className="text-xs text-slate-600 dark:text-slate-300" role="status">
+                  {effectiveAudiobookError ?? "Generation cancelled."}
+                </p>
+              )}
+
+              {(audiobookStatusUi === "failed" || (effectiveAudiobookError && audiobookStatusUi !== "cancelled")) && (
                 <p className="text-xs text-red-600 dark:text-red-400" role="alert">
                   {effectiveAudiobookError ?? "Could not create audiobook. Try again."}
                 </p>

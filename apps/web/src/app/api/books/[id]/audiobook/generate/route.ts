@@ -13,6 +13,7 @@ import {
   E_BOOK_NOT_FOUND,
   E_BOOK_VERSION_NOT_FOUND_FOR_LANGUAGE,
   E_DATABASE_ERROR,
+  E_INVALID_REQUEST_BODY,
   E_JOB_CREATION_FAILED,
   E_NO_CHAPTERS_FOR_VERSION,
   E_QUEUE_UNAVAILABLE,
@@ -30,6 +31,26 @@ type ActiveJobRow = {
   output: Record<string, unknown> | null;
   input: Record<string, unknown> | null;
 };
+
+function parseOptionalId(value: unknown): string | null {
+  if (typeof value !== "string") return null;
+  const trimmed = value.trim();
+  return trimmed.length > 0 ? trimmed : null;
+}
+
+function parseOptionalIdArray(value: unknown): string[] {
+  if (!Array.isArray(value)) return [];
+  const deduped: string[] = [];
+  const seen = new Set<string>();
+  for (const raw of value) {
+    if (typeof raw !== "string") continue;
+    const id = raw.trim();
+    if (!id || seen.has(id)) continue;
+    seen.add(id);
+    deduped.push(id);
+  }
+  return deduped;
+}
 
 async function findActiveAudiobookJob(
   supabase: Awaited<ReturnType<typeof createClient>>,
@@ -102,6 +123,42 @@ export async function POST(
   const { id: bookId } = await params;
   const url = new URL(request.url);
   const langParam = url.searchParams.get("lang");
+  const queryChapterId = parseOptionalId(url.searchParams.get("chapterId"));
+
+  const rawBody = await request
+    .json()
+    .catch(() => null) as Record<string, unknown> | null;
+
+  if (rawBody !== null && (typeof rawBody !== "object" || Array.isArray(rawBody))) {
+    return apiError(E_INVALID_REQUEST_BODY, 400);
+  }
+
+  const body = (rawBody ?? {}) as Record<string, unknown>;
+  const requestedScope = typeof body.scope === "string" ? body.scope.trim().toLowerCase() : null;
+  if (
+    requestedScope &&
+    requestedScope !== "book" &&
+    requestedScope !== "chapter" &&
+    requestedScope !== "chapters" &&
+    requestedScope !== "current"
+  ) {
+    return apiError(E_INVALID_REQUEST_BODY, 400, {
+      detail: "scope must be one of: book, chapter, chapters, current",
+    });
+  }
+
+  const bodyChapterId = parseOptionalId(body.chapterId);
+  let requestedChapterIds = parseOptionalIdArray(body.chapterIds);
+  if (requestedChapterIds.length === 0) {
+    const fallbackSingle = bodyChapterId ?? queryChapterId;
+    if (fallbackSingle) requestedChapterIds = [fallbackSingle];
+  }
+
+  if (requestedScope === "book") {
+    requestedChapterIds = [];
+  } else if ((requestedScope === "chapter" || requestedScope === "current") && requestedChapterIds.length > 1) {
+    requestedChapterIds = [requestedChapterIds[0]];
+  }
 
   // SECURITY: Require author role
   const { user, response } = await requireAuthorRoleForApi();
@@ -146,6 +203,39 @@ export async function POST(
     return apiError(E_BOOK_VERSION_NOT_FOUND_FOR_LANGUAGE, 400, { detail: targetLanguage });
   }
 
+  let requestedChapterTitle: string | null = null;
+  if (requestedChapterIds.length > 0) {
+    const { data: chapters, error: chapterError } = await supabase
+      .from("chapters")
+      .select("id, title")
+      .eq("book_version_id", version.id)
+      .in("id", requestedChapterIds);
+
+    if (chapterError) {
+      console.error("[audiobook generate] chapter lookup failed:", chapterError.message);
+      return apiError(E_DATABASE_ERROR, 500);
+    }
+    const byId = new Map((chapters ?? []).map((chapter) => [chapter.id, chapter]));
+    const orderedRequested = requestedChapterIds
+      .map((chapterId) => byId.get(chapterId))
+      .filter((chapter): chapter is { id: string; title: string | null } => Boolean(chapter));
+
+    if (orderedRequested.length !== requestedChapterIds.length) {
+      const missingIds = requestedChapterIds.filter((chapterId) => !byId.has(chapterId));
+      return apiError(E_NO_CHAPTERS_FOR_VERSION, 400, {
+        detail: `chapterId(s) not found for selected version: ${missingIds.join(", ")}`,
+      });
+    }
+
+    requestedChapterIds = orderedRequested.map((chapter) => chapter.id);
+    requestedChapterTitle = requestedChapterIds.length === 1 ? (orderedRequested[0]?.title ?? null) : null;
+  }
+
+  const resolvedScope =
+    requestedChapterIds.length === 0 ? "book" : requestedChapterIds.length === 1 ? "chapter" : "chapters";
+  const chapterId = requestedChapterIds.length === 1 ? requestedChapterIds[0] : null;
+  const chapterIds = requestedChapterIds.length > 0 ? requestedChapterIds : null;
+
   // Check for existing queued/running job for this specific book.
   const existingJob = await findActiveAudiobookJob(supabase, user.id, bookId);
   if (existingJob) {
@@ -162,16 +252,20 @@ export async function POST(
     );
   }
 
-  // Count chapters for this version
-  const { count: chapterCount, error: countError } = await supabase
-    .from("chapters")
-    .select("id", { count: "exact", head: true })
-    .eq("book_version_id", version.id);
+  const chapterCount = chapterIds
+    ? chapterIds.length
+    : await (async () => {
+        const { count, error } = await supabase
+          .from("chapters")
+          .select("id", { count: "exact", head: true })
+          .eq("book_version_id", version.id);
+        if (error) {
+          console.error("[audiobook generate] chapter count failed:", error.message);
+          return null;
+        }
+        return count ?? 0;
+      })();
 
-  if (countError) {
-    console.error("[audiobook generate] chapter count failed:", countError.message);
-    return apiError(E_DATABASE_ERROR, 500);
-  }
   if (!chapterCount || chapterCount === 0) {
     return apiError(E_NO_CHAPTERS_FOR_VERSION, 400);
   }
@@ -197,12 +291,22 @@ export async function POST(
         language: version.language_code,
         voiceId,
         modelPath,
+        scope: resolvedScope,
+        chapterId,
+        chapterIds,
       },
       output: {
         totalChapters: chapterCount,
         completedChapters: 0,
-        currentChapterId: null,
+        currentChapterId: chapterId,
+        currentChapterTitle: requestedChapterTitle,
         audioUrl: null,
+        scope: resolvedScope,
+        chapterId,
+        chapterIds,
+        pauseRequested: false,
+        cancelRequested: false,
+        controlState: "queued",
         errorMessage: null,
       },
     })
@@ -241,6 +345,8 @@ export async function POST(
       language: version.language_code,
       voiceId,
       modelPath,
+      chapterId,
+      chapterIds,
     });
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
@@ -258,8 +364,15 @@ export async function POST(
         output: {
           totalChapters: chapterCount,
           completedChapters: 0,
-          currentChapterId: null,
+          currentChapterId: chapterId,
+          currentChapterTitle: requestedChapterTitle,
           audioUrl: null,
+          scope: resolvedScope,
+          chapterId,
+          chapterIds,
+          pauseRequested: false,
+          cancelRequested: false,
+          controlState: "failed",
           errorMessage: "Queue unavailable",
         },
       })
@@ -268,7 +381,17 @@ export async function POST(
     return apiError(E_QUEUE_UNAVAILABLE, 503);
   }
 
-  console.log("[audiobook generate] job created:", job.id, "bookId:", bookId, "chapters:", chapterCount);
+  console.log(
+    "[audiobook generate] job created:",
+    job.id,
+    "bookId:",
+    bookId,
+    "chapters:",
+    chapterCount,
+    "scope:",
+    resolvedScope,
+    chapterId ? `chapterId: ${chapterId}` : ""
+  );
 
   return NextResponse.json(
     {

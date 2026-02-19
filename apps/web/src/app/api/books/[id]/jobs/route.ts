@@ -31,6 +31,44 @@ function toTranslationProgress(status: string): number {
 }
 
 const TRANSLATION_FAILED_MESSAGE = "Översättningen misslyckades. Försök igen.";
+const MAX_ETA_SECONDS = 72 * 60 * 60;
+
+function toSafeChapterCount(value: unknown): number | null {
+  if (typeof value !== "number" || !Number.isFinite(value)) return null;
+  const rounded = Math.floor(value);
+  return rounded >= 0 ? rounded : null;
+}
+
+function computeEstimatedSecondsRemaining(params: {
+  status: string;
+  createdAt: string | null;
+  startedAt: string | null;
+  totalChapters: number | null;
+  completedChapters: number | null;
+}): number | null {
+  const { status, createdAt, startedAt, totalChapters, completedChapters } = params;
+  if (normalizeJobStatus(status) !== "running") return null;
+  if (typeof totalChapters !== "number" || totalChapters <= 0) return null;
+
+  const completed = Math.max(0, Math.min(totalChapters, completedChapters ?? 0));
+  const remaining = totalChapters - completed;
+  if (remaining <= 0) return 0;
+  if (completed <= 0) return null;
+
+  const startedTs = startedAt ? new Date(startedAt).getTime() : NaN;
+  const createdTs = createdAt ? new Date(createdAt).getTime() : NaN;
+  const baseTs = Number.isFinite(startedTs) ? startedTs : createdTs;
+  if (!Number.isFinite(baseTs)) return null;
+
+  const elapsedSeconds = (Date.now() - baseTs) / 1000;
+  if (!Number.isFinite(elapsedSeconds) || elapsedSeconds <= 0) return null;
+
+  const avgSecondsPerChapter = elapsedSeconds / completed;
+  if (!Number.isFinite(avgSecondsPerChapter) || avgSecondsPerChapter <= 0) return null;
+
+  const estimate = Math.round(remaining * avgSecondsPerChapter);
+  return Math.max(0, Math.min(estimate, MAX_ETA_SECONDS));
+}
 
 export async function GET(
   _request: Request,
@@ -251,17 +289,52 @@ export async function GET(
         case "import":
           meta = { fileName: input.fileName ?? input.file_name ?? null };
           break;
-        case "audiobook":
+        case "audiobook": {
+          const totalChapters = toSafeChapterCount(output.totalChapters);
+          const completedChapters = toSafeChapterCount(output.completedChapters);
+          const controlState = typeof output.controlState === "string" ? output.controlState : null;
+          const isPaused = controlState === "paused" || controlState === "pause_requested";
+          const estimatedSecondsRemaining = isPaused
+            ? null
+            : computeEstimatedSecondsRemaining({
+                status: r.status,
+                createdAt: r.created_at,
+                startedAt: r.started_at ?? null,
+                totalChapters,
+                completedChapters,
+              });
+
           meta = {
             voiceId: input.voiceId ?? null,
-            totalChapters: output.totalChapters ?? null,
-            completedChapters: output.completedChapters ?? null,
+            scope:
+              (typeof output.scope === "string" ? output.scope : null) ??
+              (typeof input.scope === "string" ? input.scope : "book"),
+            chapterId:
+              (typeof output.chapterId === "string" ? output.chapterId : null) ??
+              (typeof input.chapterId === "string" ? input.chapterId : null),
+            chapterIds:
+              (Array.isArray(output.chapterIds) && output.chapterIds.every((id) => typeof id === "string")
+                ? output.chapterIds
+                : Array.isArray(input.chapterIds) && input.chapterIds.every((id) => typeof id === "string")
+                  ? input.chapterIds
+                  : null),
+            totalChapters,
+            completedChapters,
             currentChapterTitle: output.currentChapterTitle ?? null,
             audioUrl: output.audioUrl ?? null,
             manifestUrl: output.manifestUrl ?? null,
             durationSeconds: output.durationSeconds ?? null,
+            generatedChapterAudioUrl:
+              typeof output.generatedChapterAudioUrl === "string"
+                ? output.generatedChapterAudioUrl
+                : null,
+            controlState,
+            pauseRequested: output.pauseRequested === true,
+            cancelRequested: output.cancelRequested === true,
+            estimatedSecondsRemaining,
           };
           break;
+        }
       }
 
       // Resolve progress: prefer column, fall back to output JSON for audiobook

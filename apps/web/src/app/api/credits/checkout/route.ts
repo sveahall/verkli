@@ -135,8 +135,8 @@ export async function POST(request: Request) {
 
   const creditTopupId = String((topup as { id: string }).id);
   const baseUrl = getBaseUrl(request);
-  const successUrl = `${baseUrl}/credits/success`;
-  const cancelUrl = `${baseUrl}/credits/cancel`;
+  const successUrl = `${baseUrl}/reader/profile?credits=success`;
+  const cancelUrl = `${baseUrl}/reader/profile?credits=cancel`;
 
   try {
     const session = await createCreditTopUpCheckoutSession({

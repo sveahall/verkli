@@ -36,6 +36,7 @@ const ERROR_MESSAGES: Record<string, string> = {
   // Audiobook
   AUDIOBOOK_FEATURE_DISABLED: "Ljudboksfunktionen är inte aktiverad.",
   AUDIOBOOK_STATUS_UNAVAILABLE: "Ljudboksstatus är inte tillgänglig.",
+  AUDIOBOOK_NO_ACTIVE_JOB: "Det finns ingen aktiv ljudboksgenerering att styra.",
   JOB_CREATION_FAILED: "Kunde inte skapa jobbet.",
   QUEUE_UNAVAILABLE: "Jobbkön är inte tillgänglig. Försök igen senare.",
   BOOK_VERSION_NOT_FOUND_FOR_LANGUAGE: "Ingen version hittades för det angivna språket.",

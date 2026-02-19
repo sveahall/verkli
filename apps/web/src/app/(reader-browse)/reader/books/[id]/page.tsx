@@ -8,6 +8,7 @@ import { logAnalyticsEvent } from "@/lib/analytics/events";
 import type { Metadata } from "next";
 import StartReadingLink from "./StartReadingLink";
 import BookmarkButton from "./BookmarkButton";
+import OfflineSaveButton from "./OfflineSaveButton";
 import PurchaseBookButton from "./PurchaseBookButton";
 import PurchaseSuccessRefresh from "./PurchaseSuccessRefresh";
 import BookReviewsSection from "./BookReviewsSection";
@@ -319,6 +320,13 @@ export default async function ReaderBookDetail({
               )}
               {user && hasReadAccess && (
                 <BookmarkButton bookId={book.id} initialBookmarked={isBookmarked} />
+              )}
+              {user && hasReadAccess && (
+                <OfflineSaveButton
+                  bookId={book.id}
+                  userId={user.id}
+                  languageCode={lang}
+                />
               )}
               {originalUrl && (
                 <a

@@ -5,6 +5,15 @@ import { normalizeLanguage } from "@/lib/languages";
 import { isStripeConfigured } from "@/lib/payments/stripe";
 import BookEditor from "./BookEditor";
 
+function isMissingPublishedChapterCountColumn(error: { code?: string | null; message?: string | null } | null | undefined): boolean {
+  if (!error) return false;
+  return (
+    error.code === "42703" &&
+    typeof error.message === "string" &&
+    error.message.includes("published_chapter_count")
+  );
+}
+
 export default async function BookDetailPage({
   params,
   searchParams,
@@ -38,11 +47,33 @@ export default async function BookDetailPage({
     notFound();
   }
 
-  const { data: bookVersions, error: bookVersionsError } = await supabase
+  const versionSelectBase =
+    "id, book_id, language_code, status, published_at, visibility, created_at, updated_at, error_message";
+
+  const withPublishedChapterCount = await supabase
     .from("book_versions")
-    .select("id, book_id, language_code, status, published_at, visibility, created_at, updated_at, error_message")
+    .select(`${versionSelectBase}, published_chapter_count`)
     .eq("book_id", book.id)
     .order("created_at", { ascending: true });
+
+  const fallbackWithoutPublishedChapterCount = isMissingPublishedChapterCountColumn(
+    withPublishedChapterCount.error
+  )
+    ? await supabase
+        .from("book_versions")
+        .select(versionSelectBase)
+        .eq("book_id", book.id)
+        .order("created_at", { ascending: true })
+    : null;
+
+  const bookVersions =
+    fallbackWithoutPublishedChapterCount?.data != null
+      ? fallbackWithoutPublishedChapterCount.data.map((version) => ({
+          ...version,
+          published_chapter_count: null,
+        }))
+      : withPublishedChapterCount.data;
+  const bookVersionsError = fallbackWithoutPublishedChapterCount?.error ?? withPublishedChapterCount.error;
 
   let versions = bookVersions ?? [];
   if (bookVersionsError) {
@@ -60,12 +91,20 @@ export default async function BookDetailPage({
         language_code: fallbackLanguage,
         status: "draft",
       })
-      .select("id, book_id, language_code, status, published_at, visibility, created_at, updated_at, error_message")
+      .select("*")
       .single();
     if (createVersionError) {
       console.error("Failed to auto-create book version", createVersionError);
     } else if (createdVersion) {
-      versions = [createdVersion];
+      versions = [
+        {
+          ...createdVersion,
+          published_chapter_count:
+            "published_chapter_count" in createdVersion
+              ? (createdVersion as { published_chapter_count?: number | null }).published_chapter_count ?? null
+              : null,
+        },
+      ];
       const { error: relinkError } = await supabase
         .from("chapters")
         .update({ book_version_id: createdVersion.id })

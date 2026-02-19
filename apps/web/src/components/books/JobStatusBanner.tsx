@@ -15,6 +15,7 @@ export type JobStatusData = {
   totalChapters?: number;
   completedChapters?: number;
   currentChapterTitle?: string | null;
+  estimatedSecondsRemaining?: number | null;
   error?: string | null;
   createdAt?: string | null;
   startedAt?: string | null;
@@ -23,6 +24,19 @@ export type JobStatusData = {
 
 function normalizeStatus(apiStatus: string): JobDisplayStatus {
   return normalizeJobStatus(apiStatus);
+}
+
+function formatRemainingText(seconds: number): string {
+  const roundedSeconds = Math.max(0, Math.round(seconds));
+  if (roundedSeconds < 60) return "Less than 1 min remaining";
+
+  const totalMinutes = Math.round(roundedSeconds / 60);
+  if (totalMinutes < 60) return `About ${totalMinutes} min remaining`;
+
+  const hours = Math.floor(totalMinutes / 60);
+  const minutes = totalMinutes % 60;
+  if (minutes === 0) return `About ${hours}h remaining`;
+  return `About ${hours}h ${minutes}m remaining`;
 }
 
 export type JobStatusBannerProps = {
@@ -94,6 +108,10 @@ export default function JobStatusBanner({
   const completed = job.completedChapters ?? 0;
   const hasProgress = total > 0;
   const progressPercent = hasProgress ? Math.min(100, Math.round((completed / total) * 100)) : 0;
+  const etaText =
+    typeof job.estimatedSecondsRemaining === "number" && job.estimatedSecondsRemaining >= 0
+      ? formatRemainingText(job.estimatedSecondsRemaining)
+      : null;
 
   return (
     <div
@@ -109,6 +127,7 @@ export default function JobStatusBanner({
           <span className={`text-sm ${style.text}`}>
             {completed} / {total} chapters
             {job.currentChapterTitle ? ` — ${job.currentChapterTitle}` : ""}
+            {etaText ? ` · ${etaText}` : ""}
           </span>
         )}
       </div>
@@ -159,6 +178,7 @@ function toJobStatusData(j: UnifiedJob): NonNullable<JobStatusData> {
     totalChapters: (meta.totalChapters as number) ?? (j.progress > 0 ? 100 : undefined),
     completedChapters: (meta.completedChapters as number) ?? (j.progress > 0 ? j.progress : undefined),
     currentChapterTitle: (meta.currentChapterTitle as string) ?? undefined,
+    estimatedSecondsRemaining: (meta.estimatedSecondsRemaining as number) ?? undefined,
     error: j.error ?? undefined,
     createdAt: j.createdAt,
     startedAt: j.startedAt,
@@ -191,7 +211,10 @@ function getVisibleJobs(jobs: UnifiedJob[]): UnifiedJob[] {
     .map((j) => {
       if (isJobActiveStatus(j.status)) {
         const created = j.createdAt ? new Date(j.createdAt).getTime() : 0;
-        if (created > 0 && now - created > STALE_MS) {
+        const meta = (j.meta ?? {}) as Record<string, unknown>;
+        const controlState = typeof meta.controlState === "string" ? meta.controlState : null;
+        const isPaused = controlState === "paused" || controlState === "pause_requested";
+        if (!isPaused && created > 0 && now - created > STALE_MS) {
           return { ...j, status: "failed", error: "The task appears stuck. Try again." };
         }
       }

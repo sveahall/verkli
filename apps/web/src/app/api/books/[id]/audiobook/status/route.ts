@@ -122,6 +122,13 @@ export async function GET(
   const output = job?.output ?? {};
   const normalizedJobStatus = job ? normalizeJobStatus(job.status) : null;
   const hasGeneratedAsset = Boolean(asset?.audio_url) && asset?.status === "generated";
+  const chapterIds =
+    Array.isArray(output.chapterIds) && output.chapterIds.every((id) => typeof id === "string")
+      ? (output.chapterIds as string[])
+      : null;
+  const controlState = typeof output.controlState === "string" ? output.controlState : null;
+  const pauseRequested = output.pauseRequested === true;
+  const cancelRequested = output.cancelRequested === true;
   const resolvedBookStatus =
     hasGeneratedAsset
       ? "published"
@@ -142,9 +149,23 @@ export async function GET(
           completedChapters: output.completedChapters ?? 0,
           currentChapterId: output.currentChapterId ?? null,
           currentChapterTitle: output.currentChapterTitle ?? null,
+          scope:
+            (typeof output.scope === "string" ? output.scope : null) ??
+            (typeof job.input?.scope === "string" ? job.input.scope : "book"),
+          chapterId:
+            (typeof output.chapterId === "string" ? output.chapterId : null) ??
+            (typeof job.input?.chapterId === "string" ? job.input.chapterId : null),
+          chapterIds:
+            chapterIds ??
+            (Array.isArray(job.input?.chapterIds) && job.input?.chapterIds.every((id) => typeof id === "string")
+              ? (job.input.chapterIds as string[])
+              : null),
           audioUrl: output.audioUrl ?? null,
           manifestUrl: output.manifestUrl ?? null,
           durationSeconds: output.durationSeconds ?? null,
+          controlState,
+          pauseRequested,
+          cancelRequested,
           error: resolveSanitizedJobError(
             job.error,
             typeof output.errorMessage === "string"

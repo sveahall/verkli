@@ -13,6 +13,11 @@ export default defineConfig({
     url: "http://localhost:3000",
     reuseExistingServer: true,
     timeout: 120_000,
+    env: {
+      ...process.env,
+      DONATION_CHECKOUT_MOCK_MODE: "true",
+      STRIPE_SECRET_KEY: "",
+    },
   },
   projects: [
     {

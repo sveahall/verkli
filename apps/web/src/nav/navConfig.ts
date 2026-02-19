@@ -93,7 +93,7 @@ export const NAV_CONFIG: Record<NavVariant, NavConfig> = {
             { label: "Distribution", href: "/author/marketing" },
           ],
         } as NavLink,
-        { label: "Community", href: "/author/community" },
+        { label: "Community", href: "/author/polls" },
       ]),
     ],
     actions: {
@@ -128,7 +128,7 @@ export const NAV_CONFIG: Record<NavVariant, NavConfig> = {
           { label: "Continue reading", href: "/reader/home" },
         ],
       },
-      ...(MVP_MODE ? [] : [{ label: "Community", href: "/reader/community" }]),
+      ...(MVP_MODE ? [] : [{ label: "Community", href: "/reader/clubs" }]),
     ],
     actions: {
       showSearch: true,

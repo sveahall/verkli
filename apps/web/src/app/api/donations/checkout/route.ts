@@ -25,7 +25,35 @@ function toPositiveInt(value: unknown): number {
   return Math.max(0, Math.trunc(value));
 }
 
+function isDonationCheckoutMockModeEnabled(): boolean {
+  return process.env.DONATION_CHECKOUT_MOCK_MODE === "true";
+}
+
+function hasStripeSecretKey(): boolean {
+  return Boolean(process.env.STRIPE_SECRET_KEY?.trim());
+}
+
 export async function POST(request: Request) {
+  const body = await request.json().catch(() => ({}));
+  const amountMinor = toPositiveInt(body?.amountMinor ?? body?.amount);
+  const creditsDelta = toPositiveInt(body?.creditsDelta ?? body?.creditDelta);
+  const currency =
+    typeof body?.currency === "string" && body.currency.trim()
+      ? body.currency.trim().toUpperCase()
+      : "SEK";
+
+  const baseUrl = getBaseUrl(request);
+
+  if (isDonationCheckoutMockModeEnabled() && !hasStripeSecretKey()) {
+    if (amountMinor <= 0) {
+      return apiError(E_INVALID_DONATION_AMOUNT, 400);
+    }
+    return NextResponse.json({
+      url: `${baseUrl}/donation/success?mock=donation`,
+      donationId: "mock-donation",
+    });
+  }
+
   const supabase = await createClient();
   const {
     data: { user },
@@ -34,14 +62,6 @@ export async function POST(request: Request) {
   if (!user) {
     return apiError(E_UNAUTHORIZED, 401);
   }
-
-  const body = await request.json().catch(() => ({}));
-  const amountMinor = toPositiveInt(body?.amountMinor ?? body?.amount);
-  const creditsDelta = toPositiveInt(body?.creditsDelta ?? body?.creditDelta);
-  const currency =
-    typeof body?.currency === "string" && body.currency.trim()
-      ? body.currency.trim().toUpperCase()
-      : "SEK";
 
   if (amountMinor <= 0) {
     return apiError(E_INVALID_DONATION_AMOUNT, 400);
@@ -109,7 +129,6 @@ export async function POST(request: Request) {
   }
 
   const donationId = String((donation as { id: string }).id);
-  const baseUrl = getBaseUrl(request);
 
   try {
     const session = await createDonationCheckoutSession({

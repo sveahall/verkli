@@ -66,6 +66,10 @@ export async function POST(
         ? body.targetLang
         : "";
   const targetLanguage = rawTarget.trim().toLowerCase();
+  const requestedChapterId =
+    body?.chapterId != null && String(body.chapterId).trim() !== ""
+      ? String(body.chapterId).trim()
+      : null;
 
   if (!targetLanguage || !isSupportedLanguage(targetLanguage)) {
     return apiError(E_INVALID_TARGET_LANGUAGE, 400);
@@ -141,6 +145,25 @@ export async function POST(
     return apiError(E_INVALID_SOURCE_VERSION, 400);
   }
 
+  if (requestedChapterId) {
+    const { data: sourceChapter, error: sourceChapterError } = await supabase
+      .from("chapters")
+      .select("id")
+      .eq("book_version_id", sourceVersion.id)
+      .eq("id", requestedChapterId)
+      .maybeSingle();
+
+    if (sourceChapterError) {
+      console.error("[translate] source chapter lookup failed:", sourceChapterError.message);
+      return apiError(E_INVALID_SOURCE_VERSION, 400);
+    }
+    if (!sourceChapter) {
+      return apiError(E_INVALID_SOURCE_VERSION, 400, {
+        detail: `chapterId ${requestedChapterId} not found for source version`,
+      });
+    }
+  }
+
   const versionLanguage = normalizeLanguageOrNull(sourceVersion.language_code);
   let sourceLanguage = versionLanguage;
   let sourceLanguageOrigin: "version" | "book" | "heuristic" | null = sourceLanguage ? "version" : null;
@@ -178,6 +201,7 @@ export async function POST(
     sourceVersionId,
     sourceLanguage: sourceLanguage ?? null,
     targetLanguage,
+    chapterId: requestedChapterId,
     userId: user.id,
     sourceLanguageOrigin,
   });
@@ -203,7 +227,7 @@ export async function POST(
     .eq("language_code", targetLanguage)
     .maybeSingle();
 
-  if (existingVersion && !overwrite) {
+  if (existingVersion && !overwrite && !requestedChapterId) {
     return apiError(E_VERSION_ALREADY_EXISTS, 400, {
       detail: targetLanguage,
       existingVersionId: existingVersion.id,
@@ -219,11 +243,12 @@ export async function POST(
     targetVersionId,
     overwrite,
     authorId: user.id,
+    chapterId: requestedChapterId,
   });
 
   if (!jobId) {
     return apiError(E_TRANSLATION_SERVICE_UNAVAILABLE, 503);
   }
 
-  return NextResponse.json({ ok: true, jobId, targetVersionId });
+  return NextResponse.json({ ok: true, jobId, targetVersionId, chapterId: requestedChapterId });
 }

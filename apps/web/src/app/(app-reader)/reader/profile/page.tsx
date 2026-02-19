@@ -7,6 +7,7 @@ import BookCard from "@/components/reader/BookCard";
 import PageHeader from "@/components/reader/PageHeader";
 import Rail from "@/components/reader/Rail";
 import EmptyState from "@/components/reader/EmptyState";
+import ProfileCreditsSection from "@/components/reader/ProfileCreditsSection";
 
 function normalizeColor(value: unknown): "yellow" | "green" | "blue" | "rose" {
   if (value === "yellow" || value === "green" || value === "blue" || value === "rose") {
@@ -15,7 +16,15 @@ function normalizeColor(value: unknown): "yellow" | "green" | "blue" | "rose" {
   return "yellow";
 }
 
-export default async function ReaderProfilePage() {
+type PageProps = {
+  searchParams: Promise<{ [key: string]: string | string[] | undefined }>;
+};
+
+export default async function ReaderProfilePage({ searchParams }: PageProps) {
+  const params = await searchParams;
+  const creditCheckout =
+    typeof params.credits === "string" ? params.credits : null;
+
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
 
@@ -281,6 +290,8 @@ export default async function ReaderProfilePage() {
           </div>
         )}
       </section>
+
+      <ProfileCreditsSection creditCheckout={creditCheckout} />
 
       <section className="rounded-3xl border border-slate-200/70 bg-white/80 p-6 shadow-[0_16px_30px_rgba(15,23,42,0.08)] dark:border-white/10 dark:bg-white/5">
         <div className="flex flex-wrap items-center justify-between gap-3">

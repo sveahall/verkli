@@ -235,7 +235,7 @@ export default async function ReaderReadPage({
   const { data: chapters } = await supabase
     .from("chapters")
     .select("id, title, order")
-    .eq("book_id", book.id)
+    .eq("book_version_id", chapter.book_version_id)
     .order("order", { ascending: true });
 
   const chapterIndex = chapters?.findIndex((c) => c.id === chapterId) ?? 0;

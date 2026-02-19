@@ -14,5 +14,27 @@ test.describe("public pages load without auth", () => {
     });
     expect(res?.status()).toBeLessThan(500);
     await expect(page.locator("body")).not.toBeEmpty();
+    await expect(page.getByRole("button", { name: "Donera" })).toBeVisible();
+  });
+
+  test("/donation success + cancel pages load", async ({ page }) => {
+    const successRes = await page.goto("/donation/success", { waitUntil: "domcontentloaded" });
+    expect(successRes?.status()).toBeLessThan(500);
+    await expect(page.getByRole("heading", { name: "Thank you for your donation" })).toBeVisible();
+
+    const cancelRes = await page.goto("/donation/cancel", { waitUntil: "domcontentloaded" });
+    expect(cancelRes?.status()).toBeLessThan(500);
+    await expect(page.getByRole("heading", { name: "Donation canceled" })).toBeVisible();
+  });
+
+  test("donation checkout API returns mock checkout URL", async ({ request }) => {
+    const res = await request.post("/api/donations/checkout", {
+      data: { amountMinor: 100, currency: "sek" },
+    });
+
+    expect(res.status()).toBe(200);
+    const body = await res.json();
+    expect(typeof body.url).toBe("string");
+    expect(body.url).toContain("/donation/success");
   });
 });

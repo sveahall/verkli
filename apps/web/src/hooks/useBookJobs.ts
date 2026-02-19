@@ -40,6 +40,7 @@ export type BookJobResponse = {
     completedChapters?: number;
     currentChapterId?: string | null;
     currentChapterTitle?: string | null;
+    estimatedSecondsRemaining?: number | null;
     audioUrl?: string | null;
     manifestUrl?: string | null;
     durationSeconds?: number | null;
@@ -64,6 +65,7 @@ function toLegacyJob(j: UnifiedJob): LegacyJob {
     completedChapters: (meta.completedChapters as number) ?? undefined,
     currentChapterId: undefined,
     currentChapterTitle: (meta.currentChapterTitle as string) ?? undefined,
+    estimatedSecondsRemaining: (meta.estimatedSecondsRemaining as number) ?? undefined,
     audioUrl: (meta.audioUrl as string) ?? undefined,
     manifestUrl: (meta.manifestUrl as string) ?? undefined,
     durationSeconds: (meta.durationSeconds as number) ?? undefined,

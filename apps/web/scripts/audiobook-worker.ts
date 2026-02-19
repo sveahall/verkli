@@ -74,12 +74,24 @@ function getChapterText(content: string | null): string {
   }
 }
 
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
 /** Max characters per Qwen chunk inside Python synthesizer. */
 const QWEN_MAX_CHARS = (() => {
   const raw = process.env.TTS_MAX_CHARS;
   const n = raw ? Number(raw) : NaN;
-  if (Number.isFinite(n) && n > 0 && n <= 20000) return Math.floor(n);
-  return 1000;
+  if (Number.isFinite(n) && n > 0 && n <= 20000) return Math.min(500, Math.floor(n));
+  return 350;
+})();
+
+/** Max generated codec tokens for Qwen clone/custom calls. */
+const QWEN_MAX_NEW_TOKENS = (() => {
+  const raw = process.env.QWEN_TTS_MAX_NEW_TOKENS;
+  const n = raw ? Number(raw) : NaN;
+  if (Number.isFinite(n) && n > 0) return Math.max(48, Math.min(192, Math.floor(n)));
+  return 96;
 })();
 
 /** Estimate WAV duration from buffer (assumes standard WAV header) */
@@ -176,6 +188,12 @@ async function synthesizeWithQwen(
     options.voiceId || "Ryan",
     "--max-chars",
     String(QWEN_MAX_CHARS),
+    "--max-new-tokens",
+    String(QWEN_MAX_NEW_TOKENS),
+    "--xvector-only",
+    process.env.QWEN_TTS_XVECTOR_ONLY === "0" ? "0" : "1",
+    "--clone-non-streaming-mode",
+    process.env.QWEN_TTS_CLONE_NON_STREAMING_MODE === "1" ? "1" : "0",
   ];
 
   return new Promise<QwenSynthesisResult>((resolve, reject) => {
@@ -216,6 +234,9 @@ async function synthesizeWithQwen(
 
     proc.stderr.on("data", (chunk) => {
       stderr += chunk.toString();
+      if (process.env.QWEN_TTS_VERBOSE === "1") {
+        process.stderr.write(chunk.toString());
+      }
     });
 
     proc.on("error", (error) => {
@@ -350,9 +371,28 @@ function createManifest(chapters: ChapterAudio[], bookId: string): object {
 // ─────────────────────────────────────────────────────────────────────────────
 
 async function processJob(payload: AudiobookJobData) {
-  const { jobId, bookId, bookVersionId, userId, language, voiceId, modelPath } = payload;
+  const { jobId, bookId, bookVersionId, userId, language, voiceId, modelPath, chapterId, chapterIds } = payload;
   const supabase = createAdminClient();
   const resolvedModelId = modelPath?.trim() || QWEN_MODEL_DEFAULT;
+  const selectedChapterIds = Array.from(
+    new Set(
+      (Array.isArray(chapterIds) ? chapterIds : [])
+        .filter((value): value is string => typeof value === "string")
+        .map((value) => value.trim())
+        .filter((value) => value.length > 0)
+    )
+  );
+  if (selectedChapterIds.length === 0 && typeof chapterId === "string" && chapterId.trim().length > 0) {
+    selectedChapterIds.push(chapterId.trim());
+  }
+  const singleChapterMode = selectedChapterIds.length === 1;
+  const multiChapterMode = selectedChapterIds.length > 1;
+  const selectedChapterId = singleChapterMode ? selectedChapterIds[0] : null;
+  const scope: "book" | "chapter" | "chapters" = multiChapterMode
+    ? "chapters"
+    : singleChapterMode
+      ? "chapter"
+      : "book";
 
   // Helper to update ai_jobs
   const updateJob = async (
@@ -404,8 +444,61 @@ async function processJob(payload: AudiobookJobData) {
     await supabase.from("books").update({ audiobook_status: status }).eq("id", bookId);
   };
 
+  const readControlFlags = async () => {
+    const { data } = await supabase
+      .from("ai_jobs")
+      .select("output")
+      .eq("id", jobId)
+      .maybeSingle();
+    const output = (data?.output as Record<string, unknown> | null) ?? {};
+    return {
+      pauseRequested: output.pauseRequested === true,
+      cancelRequested: output.cancelRequested === true,
+      controlState: typeof output.controlState === "string" ? output.controlState : null,
+    };
+  };
+
+  const waitWhilePausedOrCancelled = async () => {
+    let markedPaused = false;
+    for (;;) {
+      const flags = await readControlFlags();
+      if (flags.cancelRequested) {
+        throw new UnrecoverableError("AUDIOBOOK_CANCELLED");
+      }
+      if (!flags.pauseRequested) {
+        if (markedPaused || flags.controlState === "paused" || flags.controlState === "pause_requested") {
+          await updateJob("processing", {
+            pauseRequested: false,
+            cancelRequested: false,
+            controlState: "running",
+          });
+        }
+        return;
+      }
+      if (!markedPaused || flags.controlState !== "paused") {
+        markedPaused = true;
+        await updateJob("processing", {
+          pauseRequested: true,
+          cancelRequested: false,
+          controlState: "paused",
+        });
+      }
+      await sleep(1500);
+    }
+  };
+
   try {
-    console.log("[audiobook worker] job started -", jobId, "bookId:", bookId, "versionId:", bookVersionId);
+    console.log(
+      "[audiobook worker] job started -",
+      jobId,
+      "bookId:",
+      bookId,
+      "versionId:",
+      bookVersionId,
+      "scope:",
+      scope,
+      selectedChapterId ? `chapterId: ${selectedChapterId}` : ""
+    );
 
     // Auth isolation: verify userId matches book owner
     const { data: book, error: bookError } = await supabase
@@ -424,34 +517,42 @@ async function processJob(payload: AudiobookJobData) {
       throw new UnrecoverableError(errMsg);
     }
 
-    // Processor-level dedupe: skip if audiobook_assets already has a generated asset for this book+language
-    const { data: existingGeneratedAsset } = await supabase
-      .from("audiobook_assets")
-      .select("id, audio_url, duration_seconds")
-      .eq("book_id", bookId)
-      .eq("language", language)
-      .eq("status", "generated")
-      .order("created_at", { ascending: false })
-      .limit(1)
-      .maybeSingle();
+    if (scope === "book") {
+      // Processor-level dedupe: skip if audiobook_assets already has a generated asset for this book+language
+      const { data: existingGeneratedAsset } = await supabase
+        .from("audiobook_assets")
+        .select("id, audio_url, duration_seconds")
+        .eq("book_id", bookId)
+        .eq("language", language)
+        .eq("status", "generated")
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
 
-    const alreadyDone = await isDuplicate(
-      async () => Boolean(existingGeneratedAsset?.id),
-      `audiobook:${bookId}:${language}`
-    );
+      const alreadyDone = await isDuplicate(
+        async () => Boolean(existingGeneratedAsset?.id),
+        `audiobook:${bookId}:${language}`
+      );
 
-    if (alreadyDone) {
-      await updateJob("completed", {
-        skipped: true,
-        reason: "dedupe",
-        completedChapters: 0,
-        currentChapterId: null,
-        audioUrl: existingGeneratedAsset?.audio_url ?? null,
-        durationSeconds: existingGeneratedAsset?.duration_seconds ?? null,
-        errorMessage: null,
-      });
-      await updateBookStatus("published");
-      return;
+      if (alreadyDone) {
+        await updateJob("completed", {
+          skipped: true,
+          reason: "dedupe",
+          completedChapters: 0,
+          currentChapterId: null,
+          audioUrl: existingGeneratedAsset?.audio_url ?? null,
+          durationSeconds: existingGeneratedAsset?.duration_seconds ?? null,
+          errorMessage: null,
+          scope: "book",
+          chapterId: null,
+          chapterIds: null,
+          pauseRequested: false,
+          cancelRequested: false,
+          controlState: "completed",
+        });
+        await updateBookStatus("published");
+        return;
+      }
     }
 
     // Budget gate: check token budget before TTS
@@ -469,18 +570,37 @@ async function processJob(payload: AudiobookJobData) {
     await updateJob("processing", {
       started_at: new Date().toISOString(),
       errorMessage: null,
+      scope,
+      chapterId: selectedChapterId,
+      chapterIds: selectedChapterIds.length > 0 ? selectedChapterIds : null,
+      pauseRequested: false,
+      cancelRequested: false,
+      controlState: "running",
     });
-    await updateBookStatus("generating");
+    if (scope === "book") {
+      await updateBookStatus("generating");
+    }
 
     // Fetch chapters for this version, ordered by `order`
-    const { data: chapters, error: chaptersError } = await supabase
+    const { data: allChapters, error: chaptersError } = await supabase
       .from("chapters")
       .select("id, title, content, order")
       .eq("book_version_id", bookVersionId)
       .order("order", { ascending: true });
 
-    if (chaptersError || !chapters?.length) {
+    if (chaptersError || !allChapters?.length) {
       throw new Error(chaptersError?.message ?? "No chapters found for this version");
+    }
+
+    let chapters = allChapters;
+    if (selectedChapterIds.length > 0) {
+      const selectedSet = new Set(selectedChapterIds);
+      chapters = allChapters.filter((chapter) => selectedSet.has(chapter.id));
+      if (chapters.length !== selectedChapterIds.length) {
+        const foundIds = new Set(chapters.map((chapter) => chapter.id));
+        const missing = selectedChapterIds.filter((id) => !foundIds.has(id));
+        throw new Error(`Requested chapter(s) not found for this version: ${missing.join(", ")}`);
+      }
     }
 
     const totalChapters = chapters.length;
@@ -493,6 +613,12 @@ async function processJob(payload: AudiobookJobData) {
       manifestUrl: null,
       errorMessage: null,
       narratorModel: resolvedModelId,
+      scope,
+      chapterId: selectedChapterId,
+      chapterIds: selectedChapterIds.length > 0 ? selectedChapterIds : null,
+      pauseRequested: false,
+      cancelRequested: false,
+      controlState: "running",
     });
 
     // Create temp directory for this job
@@ -500,21 +626,27 @@ async function processJob(payload: AudiobookJobData) {
     await fs.mkdir(tmpDir, { recursive: true });
 
     const chapterAudios: ChapterAudio[] = [];
-    const TTS_TIMEOUT_MS = Number(
-      process.env.QWEN_TTS_TIMEOUT_MS ?? process.env.TTS_TIMEOUT_MS ?? 300_000
+    const configuredTimeoutMs = Number(
+      process.env.QWEN_TTS_TIMEOUT_MS ?? process.env.TTS_TIMEOUT_MS ?? 900_000
     );
+    const chapterTimeoutMs =
+      Number.isFinite(configuredTimeoutMs) && configuredTimeoutMs > 0
+        ? configuredTimeoutMs
+        : 900_000;
+    console.log("[audiobook worker] qwen timeout per chapter:", chapterTimeoutMs, "ms");
 
     const synthesizeOne = async (text: string, outputPath: string) => {
       return synthesizeWithQwen(text, outputPath, {
         language,
         voiceId,
         modelId: resolvedModelId,
-        timeoutMs: Number.isFinite(TTS_TIMEOUT_MS) && TTS_TIMEOUT_MS > 0 ? TTS_TIMEOUT_MS : 300_000,
+        timeoutMs: chapterTimeoutMs,
       });
     };
 
     // Process chapters sequentially
     for (let i = 0; i < chapters.length; i++) {
+      await waitWhilePausedOrCancelled();
       const chapter = chapters[i];
       const text = getChapterText(chapter.content);
 
@@ -527,6 +659,7 @@ async function processJob(payload: AudiobookJobData) {
         completedChapters: chapterAudios.length,
         currentChapterId: chapter.id,
         currentChapterTitle: chapter.title,
+        controlState: "running",
       });
 
       // Compute cache key
@@ -612,10 +745,12 @@ async function processJob(payload: AudiobookJobData) {
         durationSeconds,
       });
 
+      await waitWhilePausedOrCancelled();
       await updateJob("processing", {
         completedChapters: i + 1,
         currentChapterId: chapter.id,
         currentChapterTitle: chapter.title,
+        controlState: "running",
       });
     }
 
@@ -623,6 +758,12 @@ async function processJob(payload: AudiobookJobData) {
       completedChapters: totalChapters,
       currentChapterId: null,
       currentChapterTitle: null,
+      scope,
+      chapterId: selectedChapterId,
+      chapterIds: selectedChapterIds.length > 0 ? selectedChapterIds : null,
+      pauseRequested: false,
+      cancelRequested: false,
+      controlState: "running",
     });
 
     if (chapterAudios.length === 0) {
@@ -636,6 +777,33 @@ async function processJob(payload: AudiobookJobData) {
     );
     const estimatedTokens = Math.ceil(totalChars / 4);
     trackUsage(userId, estimatedTokens);
+
+    if (singleChapterMode) {
+      const chapterResult = chapterAudios[0];
+      await updateJob("completed", {
+        audioUrl: null,
+        manifestUrl: null,
+        generatedChapterAudioUrl: chapterResult?.audioUrl ?? null,
+        generatedChapterId: chapterResult?.chapterId ?? selectedChapterId,
+        generatedChapterTitle: chapterResult?.title ?? null,
+        durationSeconds: chapterResult?.durationSeconds ?? null,
+        chaptersProcessed: chapterAudios.length,
+        currentChapterId: null,
+        currentChapterTitle: null,
+        completedChapters: totalChapters,
+        errorMessage: null,
+        scope: "chapter",
+        chapterId: selectedChapterId,
+        chapterIds: selectedChapterIds,
+        pauseRequested: false,
+        cancelRequested: false,
+        controlState: "completed",
+      });
+
+      await fs.rm(tmpDir, { recursive: true, force: true }).catch(() => {});
+      console.log("[audiobook worker] chapter-mode completed -", jobId, "chapterId:", selectedChapterId);
+      return;
+    }
 
     // Try to stitch with ffmpeg
     const finalAudioPath = path.join(tmpDir, "audiobook-final.wav");
@@ -699,6 +867,29 @@ async function processJob(payload: AudiobookJobData) {
       manifestUrl = urlData?.publicUrl ?? null;
     }
 
+    if (multiChapterMode) {
+      await updateJob("completed", {
+        audioUrl: finalAudioUrl,
+        manifestUrl,
+        durationSeconds: totalDuration,
+        fileSizeBytes,
+        chaptersProcessed: chapterAudios.length,
+        currentChapterId: null,
+        currentChapterTitle: null,
+        completedChapters: totalChapters,
+        errorMessage: null,
+        scope: "chapters",
+        chapterId: null,
+        chapterIds: selectedChapterIds,
+        pauseRequested: false,
+        cancelRequested: false,
+        controlState: "completed",
+      });
+      await fs.rm(tmpDir, { recursive: true, force: true }).catch(() => {});
+      console.log("[audiobook worker] multi-chapter mode completed -", jobId, "chapters:", chapterAudios.length);
+      return;
+    }
+
     // Create audiobook_assets record
     await supabase.from("audiobook_assets").insert({
       book_id: bookId,
@@ -719,6 +910,12 @@ async function processJob(payload: AudiobookJobData) {
       currentChapterTitle: null,
       completedChapters: totalChapters,
       errorMessage: null,
+      scope: "book",
+      chapterId: null,
+      chapterIds: null,
+      pauseRequested: false,
+      cancelRequested: false,
+      controlState: "completed",
     });
 
     await updateBookStatus("published");
@@ -735,7 +932,10 @@ async function processJob(payload: AudiobookJobData) {
     );
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
-    const safeError = sanitizeJobErrorForStorage(msg) ?? "Något gick fel. Kontakta support om problemet kvarstår.";
+    const isCancelled = msg.includes("AUDIOBOOK_CANCELLED");
+    const safeError = isCancelled
+      ? "Generation cancelled."
+      : sanitizeJobErrorForStorage(msg) ?? "Något gick fel. Kontakta support om problemet kvarstår.";
     console.error("[audiobook worker] failed -", jobId, "error:", msg);
 
     await updateJob(
@@ -745,10 +945,18 @@ async function processJob(payload: AudiobookJobData) {
         errorMessage: safeError,
         currentChapterId: null,
         currentChapterTitle: null,
+        scope,
+        chapterId: selectedChapterId,
+        chapterIds: selectedChapterIds.length > 0 ? selectedChapterIds : null,
+        pauseRequested: false,
+        cancelRequested: false,
+        controlState: isCancelled ? "cancelled" : "failed",
       },
-      msg
+      isCancelled ? safeError : msg
     );
-    await updateBookStatus("failed");
+    if (scope === "book") {
+      await updateBookStatus("failed");
+    }
 
     // Cleanup temp files on failure too
     const tmpDir = path.join(os.tmpdir(), "verkli-audiobook", jobId);

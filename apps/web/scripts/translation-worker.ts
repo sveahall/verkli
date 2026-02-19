@@ -104,9 +104,12 @@ async function processJob(payload: TranslationJobData) {
     targetLanguage,
     targetVersionId,
     overwrite,
+    chapterId,
   } = payload;
   const supabase = createAdminClient();
   let resolvedTargetVersionId: string | null = null;
+  const selectedChapterId =
+    typeof chapterId === "string" && chapterId.trim().length > 0 ? chapterId.trim() : null;
 
   console.log(
     "[translation worker] job received — bookId:",
@@ -114,13 +117,16 @@ async function processJob(payload: TranslationJobData) {
     "sourceVersionId:",
     sourceVersionId,
     "targetLanguage:",
-    targetLanguage
+    targetLanguage,
+    "scope:",
+    selectedChapterId ? "chapter" : "book",
+    selectedChapterId ? `chapterId: ${selectedChapterId}` : ""
   );
 
   try {
     // Processor-level dedupe: skip if translation version already exists with chapters
     // (unless overwrite is requested)
-    if (!overwrite) {
+    if (!overwrite && !selectedChapterId) {
       const normalizedTargetForDedupe = normalizeLanguageOrNull(targetLanguage);
       const alreadyDone = await isDuplicate(async () => {
         if (!normalizedTargetForDedupe) return false;
@@ -247,20 +253,44 @@ async function processJob(payload: TranslationJobData) {
       .eq("id", resolvedTargetVersionId);
 
     if (overwrite) {
-      await supabase.from("chapters").delete().eq("book_version_id", resolvedTargetVersionId);
+      if (selectedChapterId) {
+        const { data: sourceChapterForDelete, error: sourceChapterForDeleteError } = await supabase
+          .from("chapters")
+          .select("order")
+          .eq("book_version_id", sourceVersionId)
+          .eq("id", selectedChapterId)
+          .maybeSingle();
+        if (sourceChapterForDeleteError || !sourceChapterForDelete) {
+          throw new Error(sourceChapterForDeleteError?.message ?? "Selected source chapter not found");
+        }
+        await supabase
+          .from("chapters")
+          .delete()
+          .eq("book_version_id", resolvedTargetVersionId)
+          .eq("order", sourceChapterForDelete.order);
+      } else {
+        await supabase.from("chapters").delete().eq("book_version_id", resolvedTargetVersionId);
+      }
     }
 
-    const { data: chapters, error: chaptersError } = await supabase
+    let chaptersQuery = supabase
       .from("chapters")
       .select("id, title, source_text, content, order")
       .eq("book_version_id", sourceVersionId)
       .order("order", { ascending: true });
+    if (selectedChapterId) {
+      chaptersQuery = chaptersQuery.eq("id", selectedChapterId);
+    }
+    const { data: chapters, error: chaptersError } = await chaptersQuery;
 
     if (chaptersError) {
       throw new Error(chaptersError.message);
     }
 
     const chapterList = chapters ?? [];
+    if (chapterList.length === 0) {
+      throw new UnrecoverableError("No chapters found to translate");
+    }
     console.log("[translation worker] translating chapters — count:", chapterList.length);
 
     for (let i = 0; i < chapterList.length; i++) {
@@ -319,11 +349,11 @@ async function processJob(payload: TranslationJobData) {
         {
           book_id: bookId,
           book_version_id: resolvedTargetVersionId,
-          title: ch.title ?? `Chapter ${i + 1}`,
+          title: ch.title ?? `Chapter ${Number(ch.order ?? i) + 1}`,
           content: translatedContent,
           source_text: sourceContent,
           content_hash: hash,
-          order: i,
+          order: Number(ch.order ?? i),
         },
         { onConflict: "book_version_id,order" }
       );
@@ -331,7 +361,7 @@ async function processJob(payload: TranslationJobData) {
         console.error("[translation worker] chapter upsert failed:", upsertError.message, upsertError.details, upsertError.hint);
         throw new Error(`Failed to upsert translated chapter: ${upsertError.message}`);
       }
-      console.log("[translation worker] chapter upserted — order:", i, "title:", ch.title);
+      console.log("[translation worker] chapter upserted — order:", ch.order, "title:", ch.title);
     }
 
     await supabase

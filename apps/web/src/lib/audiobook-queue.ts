@@ -59,6 +59,10 @@ export type AudiobookJobData = {
   language: string;
   voiceId: string;
   modelPath: string;
+  /** Optional single-chapter mode */
+  chapterId?: string | null;
+  /** Optional explicit chapter selection (single or multi-chapter scope). */
+  chapterIds?: string[] | null;
 };
 
 /**
