@@ -13,7 +13,7 @@ import "server-only";
  *
  * Environment variables (optional, defaults shown):
  *   AI_TRANSLATOR_PROVIDER=opus  (only opus supported currently)
- *   Narrator provider is temporarily disabled (PIPER_REMOVED).
+ *   Narrator provider is temporarily disabled.
  *   AI_VIDEO_PROVIDER=runway     (only runway supported currently)
  */
 
@@ -74,7 +74,7 @@ export function getTranslator(): typeof opusTranslator {
 
 /**
  * Get the configured narrator (TTS) provider.
- * Legacy local TTS has been removed. This currently returns a stub that throws PIPER_REMOVED.
+ * Legacy local TTS has been removed. This currently returns a removal stub.
  */
 export function getNarrator(): typeof removedNarrator {
   return removedNarrator;

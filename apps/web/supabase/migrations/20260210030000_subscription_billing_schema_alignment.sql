@@ -1,15 +1,6 @@
 -- Align subscription billing tables with production schema requirements.
-
-CREATE TABLE IF NOT EXISTS public.billing_accounts (
-  user_id uuid PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
-  stripe_customer_id text UNIQUE,
-  stripe_subscription_id text UNIQUE,
-  plan text,
-  status text,
-  current_period_end timestamptz,
-  cancel_at_period_end boolean NOT NULL DEFAULT false,
-  updated_at timestamptz NOT NULL DEFAULT now()
-);
+-- Canonical CREATE TABLE lives in 20260210020000_subscription_billing.sql.
+-- This migration only aligns existing schema.
 
 ALTER TABLE public.billing_accounts
   ADD COLUMN IF NOT EXISTS stripe_customer_id text,
@@ -54,12 +45,6 @@ CREATE POLICY billing_accounts_select_own ON public.billing_accounts
   FOR SELECT
   USING (auth.uid() = user_id);
 
-CREATE TABLE IF NOT EXISTS public.stripe_events (
-  stripe_event_id text PRIMARY KEY,
-  type text NOT NULL,
-  received_at timestamptz NOT NULL DEFAULT now()
-);
-
 ALTER TABLE public.stripe_events
   ADD COLUMN IF NOT EXISTS stripe_event_id text,
   ADD COLUMN IF NOT EXISTS type text,
@@ -89,11 +74,6 @@ END
 $$;
 
 ALTER TABLE public.stripe_events ENABLE ROW LEVEL SECURITY;
-
-CREATE TABLE IF NOT EXISTS public.user_credits (
-  user_id uuid PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
-  token_balance int NOT NULL DEFAULT 0
-);
 
 ALTER TABLE public.user_credits
   ADD COLUMN IF NOT EXISTS token_balance int NOT NULL DEFAULT 0;

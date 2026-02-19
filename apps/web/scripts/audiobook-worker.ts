@@ -12,7 +12,9 @@ import * as path from "path";
 import * as fs from "fs/promises";
 import * as os from "os";
 import * as crypto from "crypto";
+import { existsSync } from "node:fs";
 import { spawn } from "child_process";
+import { fileURLToPath } from "node:url";
 import { assertServerEnv, getRedisConnectionOptions } from "../src/lib/env";
 
 assertServerEnv();
@@ -22,14 +24,18 @@ import { createAdminClient } from "../src/lib/supabase/admin";
 import { getAudiobookStorageBucket } from "../src/lib/tts/storage";
 import { QUEUE_NAMES } from "../src/lib/queue-names";
 import type { AudiobookJobData } from "../src/lib/audiobook-queue";
-import { getNarrator } from "../src/lib/ai/providers/workers";
 import { sanitizeJobErrorForStorage } from "../src/lib/sanitize-job-error";
 import { isDuplicate } from "../src/lib/workers/idempotency";
 import { checkBudget, trackUsage, BudgetExceededError } from "../src/lib/workers/budget";
-import { withTimeout } from "../src/lib/workers/timeout";
 
 const QUEUE_NAME = QUEUE_NAMES.AUDIOBOOK;
 const BUCKET = getAudiobookStorageBucket();
+const SCRIPT_DIR = path.dirname(fileURLToPath(import.meta.url));
+const APP_ROOT = path.resolve(SCRIPT_DIR, "..");
+const REPO_ROOT = path.resolve(APP_ROOT, "..", "..");
+const QWEN_MODEL_DEFAULT = "Qwen/Qwen3-TTS-12Hz-0.6B-Base";
+const QWEN_SYNTH_SCRIPT_DEFAULT = path.join(SCRIPT_DIR, "qwen_tts_synthesize.py");
+const QWEN_PYTHON_DEFAULT = path.join(REPO_ROOT, "qwen3tts-env", "bin", "python3.12");
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Utilities
@@ -68,64 +74,13 @@ function getChapterText(content: string | null): string {
   }
 }
 
-/** Max characters per TTS call. Env TTS_MAX_CHARS can increase up to 20000. */
-const TTS_MAX_CHARS = (() => {
+/** Max characters per Qwen chunk inside Python synthesizer. */
+const QWEN_MAX_CHARS = (() => {
   const raw = process.env.TTS_MAX_CHARS;
   const n = raw ? Number(raw) : NaN;
   if (Number.isFinite(n) && n > 0 && n <= 20000) return Math.floor(n);
   return 1000;
 })();
-
-/**
- * Split text into chunks of at most TTS_MAX_CHARS, preferring sentence/paragraph boundaries.
- */
-function chunkTextForTts(text: string): string[] {
-  const trimmed = text.trim();
-  if (!trimmed) return [];
-  if (trimmed.length <= TTS_MAX_CHARS) return [trimmed];
-
-  const chunks: string[] = [];
-  let rest = trimmed;
-
-  while (rest.length > 0) {
-    if (rest.length <= TTS_MAX_CHARS) {
-      chunks.push(rest);
-      break;
-    }
-    const segment = rest.slice(0, TTS_MAX_CHARS);
-    const lastSentence = segment.match(/.*[.!?\n](?=\s|$)/s);
-    const sentenceBoundary = lastSentence ? lastSentence[0].length : -1;
-    const fallbackBoundary = Math.max(
-      segment.lastIndexOf(". "),
-      segment.lastIndexOf("! "),
-      segment.lastIndexOf("? "),
-      segment.lastIndexOf("\n")
-    );
-
-    let cut =
-      sentenceBoundary > 0
-        ? sentenceBoundary
-        : fallbackBoundary > 0
-          ? fallbackBoundary + 1
-          : TTS_MAX_CHARS;
-
-    // Guardrail: never exceed TTS max and always make forward progress.
-    cut = Math.min(Math.max(cut, 1), TTS_MAX_CHARS);
-    const chunk = rest.slice(0, cut).trim();
-    if (chunk.length > 0) {
-      chunks.push(chunk);
-      rest = rest.slice(cut).trim();
-      continue;
-    }
-
-    // Fallback when the cut lands on whitespace-only segment.
-    cut = Math.min(TTS_MAX_CHARS, rest.length);
-    chunks.push(rest.slice(0, cut));
-    rest = rest.slice(cut).trimStart();
-  }
-
-  return chunks.filter((c) => c.length > 0);
-}
 
 /** Estimate WAV duration from buffer (assumes standard WAV header) */
 function estimateWavDuration(wav: Buffer): number {
@@ -140,6 +95,176 @@ function estimateWavDuration(wav: Buffer): number {
   }
 }
 
+function resolveQwenSynthScriptPath(): string {
+  const configured = process.env.QWEN_TTS_SCRIPT?.trim();
+  if (configured) return configured;
+  return QWEN_SYNTH_SCRIPT_DEFAULT;
+}
+
+function resolveQwenPythonPath(): string {
+  const configured = process.env.QWEN_TTS_PYTHON?.trim();
+  if (configured) return configured;
+  if (existsSync(QWEN_PYTHON_DEFAULT)) return QWEN_PYTHON_DEFAULT;
+  return "python3.12";
+}
+
+type QwenSynthesisMetadata = {
+  outputPath?: string;
+  sampleRate?: number;
+  device?: string;
+  method?: string;
+};
+
+type QwenSynthesisResult = {
+  wav: Buffer;
+  sampleRate: number;
+  outputPath: string;
+  device: string | null;
+  method: string | null;
+};
+
+function parseQwenMetadata(stdout: string): QwenSynthesisMetadata {
+  const lines = stdout
+    .split(/\r?\n/g)
+    .map((line) => line.trim())
+    .filter((line) => line.length > 0);
+
+  for (let i = lines.length - 1; i >= 0; i--) {
+    const line = lines[i];
+    if (!line.startsWith("{")) continue;
+    try {
+      const parsed = JSON.parse(line);
+      if (parsed && typeof parsed === "object") {
+        return parsed as QwenSynthesisMetadata;
+      }
+    } catch {
+      // Keep scanning previous lines.
+    }
+  }
+
+  throw new Error("Qwen synthesizer did not return valid JSON metadata.");
+}
+
+async function synthesizeWithQwen(
+  text: string,
+  outputPath: string,
+  options: {
+    language: string;
+    voiceId: string;
+    modelId: string;
+    timeoutMs: number;
+  }
+): Promise<QwenSynthesisResult> {
+  const pythonPath = resolveQwenPythonPath();
+  const scriptPath = resolveQwenSynthScriptPath();
+
+  if (!existsSync(scriptPath)) {
+    throw new Error(
+      `Qwen synth script missing: ${scriptPath}. Skapa filen apps/web/scripts/qwen_tts_synthesize.py.`
+    );
+  }
+
+  const args = [
+    scriptPath,
+    "--output",
+    outputPath,
+    "--model-id",
+    options.modelId || QWEN_MODEL_DEFAULT,
+    "--language",
+    options.language || "sv",
+    "--speaker",
+    options.voiceId || "Ryan",
+    "--max-chars",
+    String(QWEN_MAX_CHARS),
+  ];
+
+  return new Promise<QwenSynthesisResult>((resolve, reject) => {
+    const proc = spawn(pythonPath, args, {
+      stdio: ["pipe", "pipe", "pipe"],
+      env: {
+        ...process.env,
+        PYTORCH_ENABLE_MPS_FALLBACK: process.env.PYTORCH_ENABLE_MPS_FALLBACK ?? "1",
+        CUDA_VISIBLE_DEVICES: "",
+      },
+    });
+
+    let stdout = "";
+    let stderr = "";
+    let settled = false;
+
+    const finish = (fn: () => void) => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      fn();
+    };
+
+    const timer = setTimeout(() => {
+      proc.kill("SIGKILL");
+      finish(() => {
+        reject(
+          new Error(
+            `Qwen synth timed out after ${options.timeoutMs}ms. stderr: ${stderr.slice(-500)}`
+          )
+        );
+      });
+    }, Math.max(1, options.timeoutMs));
+
+    proc.stdout.on("data", (chunk) => {
+      stdout += chunk.toString();
+    });
+
+    proc.stderr.on("data", (chunk) => {
+      stderr += chunk.toString();
+    });
+
+    proc.on("error", (error) => {
+      finish(() => {
+        reject(new Error(`Failed to start Qwen synth process (${pythonPath}): ${error.message}`));
+      });
+    });
+
+    proc.on("close", (code) => {
+      void (async () => {
+        if (code !== 0) {
+          finish(() => {
+            reject(
+              new Error(
+                `Qwen synth exited with code ${code}. stderr: ${stderr.trim() || "(no stderr)"}`
+              )
+            );
+          });
+          return;
+        }
+
+        try {
+          const metadata = parseQwenMetadata(stdout);
+          const resolvedOutputPath = metadata.outputPath?.trim() || outputPath;
+          const wav = await fs.readFile(resolvedOutputPath);
+          finish(() => {
+            resolve({
+              wav,
+              sampleRate:
+                typeof metadata.sampleRate === "number" && Number.isFinite(metadata.sampleRate)
+                  ? metadata.sampleRate
+                  : 0,
+              outputPath: resolvedOutputPath,
+              device: typeof metadata.device === "string" ? metadata.device : null,
+              method: typeof metadata.method === "string" ? metadata.method : null,
+            });
+          });
+        } catch (error) {
+          finish(() => {
+            reject(error instanceof Error ? error : new Error(String(error)));
+          });
+        }
+      })();
+    });
+
+    proc.stdin.end(text, "utf8");
+  });
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // Audio Stitching
 // ─────────────────────────────────────────────────────────────────────────────
@@ -151,26 +276,6 @@ interface ChapterAudio {
   audioPath: string;
   audioUrl?: string;
   durationSeconds: number;
-}
-
-/**
- * Concatenate WAV buffers (same format). Uses first file's header and appends PCM from all.
- * Safe fallback when ffmpeg is not available.
- */
-function concatWavBuffers(buffers: Buffer[]): Buffer {
-  if (buffers.length === 0) throw new Error("No WAV buffers to concat");
-  if (buffers.length === 1) return buffers[0];
-
-  const header = buffers[0].slice(0, 44);
-  const pcmChunks = buffers.map((b) => (b.length > 44 ? b.slice(44) : Buffer.alloc(0)));
-  const pcm = Buffer.concat(pcmChunks);
-  const out = Buffer.alloc(44 + pcm.length);
-  header.copy(out, 0);
-  pcm.copy(out, 44);
-  // Update size in RIFF header (bytes 4–7) and data chunk size (bytes 40–43), little-endian
-  out.writeUInt32LE(out.length - 8, 4);
-  out.writeUInt32LE(pcm.length, 40);
-  return out;
 }
 
 async function stitchWithFfmpeg(
@@ -225,43 +330,6 @@ async function stitchWithFfmpeg(
   });
 }
 
-/**
- * Synthesize text that may exceed TTS max length by chunking, then stitch WAVs.
- * Uses chunkTextForTts and stitchWithFfmpeg.
- */
-async function synthesizeLongTextToWav(
-  synthesize: (text: string) => Promise<Buffer>,
-  text: string,
-  tmpDir: string,
-  filePrefix: string
-): Promise<{ wav: Buffer; durationSeconds: number }> {
-  const chunks = chunkTextForTts(text);
-  if (chunks.length === 0) throw new Error("No text to synthesize");
-  if (chunks.length === 1) {
-    const wav = await synthesize(chunks[0]);
-    return { wav, durationSeconds: estimateWavDuration(wav) };
-  }
-  const chunkPaths: string[] = [];
-  for (let i = 0; i < chunks.length; i++) {
-    const wav = await synthesize(chunks[i]);
-    const p = path.join(tmpDir, `${filePrefix}-${i}.wav`);
-    await fs.writeFile(p, wav);
-    chunkPaths.push(p);
-  }
-  const stitchedPath = path.join(tmpDir, `${filePrefix}-stitched.wav`);
-  const ok = await stitchWithFfmpeg(chunkPaths, stitchedPath);
-  let wav: Buffer;
-  if (ok) {
-    wav = await fs.readFile(stitchedPath);
-  } else {
-    // Fallback: concat WAVs in Node (no ffmpeg needed)
-    const buffers = await Promise.all(chunkPaths.map((p) => fs.readFile(p)));
-    wav = concatWavBuffers(buffers);
-    await fs.writeFile(stitchedPath, wav);
-  }
-  return { wav, durationSeconds: estimateWavDuration(wav) };
-}
-
 function createManifest(chapters: ChapterAudio[], bookId: string): object {
   return {
     version: 1,
@@ -284,6 +352,7 @@ function createManifest(chapters: ChapterAudio[], bookId: string): object {
 async function processJob(payload: AudiobookJobData) {
   const { jobId, bookId, bookVersionId, userId, language, voiceId, modelPath } = payload;
   const supabase = createAdminClient();
+  const resolvedModelId = modelPath?.trim() || QWEN_MODEL_DEFAULT;
 
   // Helper to update ai_jobs
   const updateJob = async (
@@ -307,12 +376,26 @@ async function processJob(payload: AudiobookJobData) {
     // Merge output updates
     const { data: current } = await supabase
       .from("ai_jobs")
-      .select("output")
+      .select("output, progress")
       .eq("id", jobId)
       .single();
 
     const currentOutput = (current?.output as Record<string, unknown>) ?? {};
-    updates.output = { ...currentOutput, ...outputUpdate };
+    const nextOutput = { ...currentOutput, ...outputUpdate };
+    updates.output = nextOutput;
+
+    const totalChapters = Number(nextOutput.totalChapters ?? 0);
+    const completedChapters = Number(nextOutput.completedChapters ?? 0);
+    const currentProgress = Number(current?.progress ?? 0);
+
+    if (status === "completed") {
+      updates.progress = 100;
+    } else if (totalChapters > 0) {
+      const pct = Math.floor((completedChapters * 100) / totalChapters);
+      updates.progress = Math.max(currentProgress, Math.min(99, Math.max(0, pct)));
+    } else if (status === "pending") {
+      updates.progress = 0;
+    }
 
     await supabase.from("ai_jobs").update(updates).eq("id", jobId);
   };
@@ -342,19 +425,32 @@ async function processJob(payload: AudiobookJobData) {
     }
 
     // Processor-level dedupe: skip if audiobook_assets already has a generated asset for this book+language
-    const alreadyDone = await isDuplicate(async () => {
-      const { data: existingAsset } = await supabase
-        .from("audiobook_assets")
-        .select("id")
-        .eq("book_id", bookId)
-        .eq("language", language)
-        .eq("status", "generated")
-        .maybeSingle();
-      return !!existingAsset;
-    }, `audiobook:${bookId}:${language}`);
+    const { data: existingGeneratedAsset } = await supabase
+      .from("audiobook_assets")
+      .select("id, audio_url, duration_seconds")
+      .eq("book_id", bookId)
+      .eq("language", language)
+      .eq("status", "generated")
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    const alreadyDone = await isDuplicate(
+      async () => Boolean(existingGeneratedAsset?.id),
+      `audiobook:${bookId}:${language}`
+    );
 
     if (alreadyDone) {
-      await updateJob("completed", { skipped: true, reason: "dedupe" });
+      await updateJob("completed", {
+        skipped: true,
+        reason: "dedupe",
+        completedChapters: 0,
+        currentChapterId: null,
+        audioUrl: existingGeneratedAsset?.audio_url ?? null,
+        durationSeconds: existingGeneratedAsset?.duration_seconds ?? null,
+        errorMessage: null,
+      });
+      await updateBookStatus("published");
       return;
     }
 
@@ -370,7 +466,10 @@ async function processJob(payload: AudiobookJobData) {
       throw err;
     }
 
-    await updateJob("processing", { started_at: new Date().toISOString() });
+    await updateJob("processing", {
+      started_at: new Date().toISOString(),
+      errorMessage: null,
+    });
     await updateBookStatus("generating");
 
     // Fetch chapters for this version, ordered by `order`
@@ -385,16 +484,34 @@ async function processJob(payload: AudiobookJobData) {
     }
 
     const totalChapters = chapters.length;
-    await updateJob("processing", { totalChapters, completedChapters: 0 });
+    await updateJob("processing", {
+      totalChapters,
+      completedChapters: 0,
+      currentChapterId: null,
+      currentChapterTitle: null,
+      audioUrl: null,
+      manifestUrl: null,
+      errorMessage: null,
+      narratorModel: resolvedModelId,
+    });
 
     // Create temp directory for this job
     const tmpDir = path.join(os.tmpdir(), "verkli-audiobook", jobId);
     await fs.mkdir(tmpDir, { recursive: true });
 
     const chapterAudios: ChapterAudio[] = [];
-    const narrator = getNarrator();
-    const synthesizeOne = (t: string) =>
-      narrator.narrate({ text: t }).then((r) => r.audioBuffer);
+    const TTS_TIMEOUT_MS = Number(
+      process.env.QWEN_TTS_TIMEOUT_MS ?? process.env.TTS_TIMEOUT_MS ?? 300_000
+    );
+
+    const synthesizeOne = async (text: string, outputPath: string) => {
+      return synthesizeWithQwen(text, outputPath, {
+        language,
+        voiceId,
+        modelId: resolvedModelId,
+        timeoutMs: Number.isFinite(TTS_TIMEOUT_MS) && TTS_TIMEOUT_MS > 0 ? TTS_TIMEOUT_MS : 300_000,
+      });
+    };
 
     // Process chapters sequentially
     for (let i = 0; i < chapters.length; i++) {
@@ -407,7 +524,7 @@ async function processJob(payload: AudiobookJobData) {
       }
 
       await updateJob("processing", {
-        completedChapters: i,
+        completedChapters: chapterAudios.length,
         currentChapterId: chapter.id,
         currentChapterTitle: chapter.title,
       });
@@ -422,15 +539,13 @@ async function processJob(payload: AudiobookJobData) {
         .eq("chapter_id", chapter.id)
         .eq("content_hash", contentHash)
         .eq("voice_id", voiceId)
-        .eq("model_path", modelPath)
+        .eq("model_path", resolvedModelId)
         .eq("language", language)
         .maybeSingle();
 
       let audioPath: string;
       let durationSeconds: number;
       let audioUrl: string | undefined;
-
-      const TTS_TIMEOUT_MS = 300_000; // 5 minutes per chapter
 
       if (cached?.audio_path) {
         // Download cached audio from storage
@@ -450,45 +565,39 @@ async function processJob(payload: AudiobookJobData) {
           const { data: urlData } = supabase.storage.from(BUCKET).getPublicUrl(cached.audio_path);
           audioUrl = urlData?.publicUrl;
         } else {
-          // Cache miss/invalid, synthesize fresh (chunked if text > TTS_MAX_CHARS)
+          // Cache miss/invalid, synthesize fresh via local Qwen script.
           console.log(`[audiobook worker] chapter ${i} cache invalid, synthesizing...`);
-          const { wav, durationSeconds: dur } = await withTimeout(
-            () =>
-              synthesizeLongTextToWav(
-                synthesizeOne,
-                text,
-                tmpDir,
-                `chapter-${i}`
-              ),
-            TTS_TIMEOUT_MS,
-            `TTS chapter ${i}`
-          );
-          durationSeconds = dur;
-          audioPath = path.join(tmpDir, `chapter-${i}.wav`);
+          const outputPath = path.join(tmpDir, `chapter-${i}.wav`);
+          const { wav, device, method } = await synthesizeOne(text, outputPath);
+          durationSeconds = estimateWavDuration(wav);
+          audioPath = outputPath;
           await fs.writeFile(audioPath, wav);
+          console.log(
+            `[audiobook worker] chapter ${i} synthesized via qwen (device=${device ?? "unknown"}, method=${method ?? "unknown"})`
+          );
 
           // Upload to cache
           const cachePath = `cache/${bookId}/${chapter.id}-${contentHash.slice(0, 16)}.wav`;
-          await uploadAndCacheChapter(supabase, cachePath, wav, chapter.id, bookVersionId, contentHash, voiceId, modelPath, language, durationSeconds);
+          await uploadAndCacheChapter(supabase, cachePath, wav, chapter.id, bookVersionId, contentHash, voiceId, resolvedModelId, language, durationSeconds);
 
           const { data: urlData } = supabase.storage.from(BUCKET).getPublicUrl(cachePath);
           audioUrl = urlData?.publicUrl;
         }
       } else {
-        // No cache, synthesize new audio via provider registry (chunked if text > TTS_MAX_CHARS)
-        console.log(`[audiobook worker] chapter ${i} synthesizing via provider: "${chapter.title}"`);
-        const { wav, durationSeconds: dur } = await withTimeout(
-          () => synthesizeLongTextToWav(synthesizeOne, text, tmpDir, `chapter-${i}`),
-          TTS_TIMEOUT_MS,
-          `TTS chapter ${i}`
-        );
-        durationSeconds = dur;
-        audioPath = path.join(tmpDir, `chapter-${i}.wav`);
+        // No cache, synthesize new audio via local Qwen script.
+        console.log(`[audiobook worker] chapter ${i} synthesizing via qwen: "${chapter.title}"`);
+        const outputPath = path.join(tmpDir, `chapter-${i}.wav`);
+        const { wav, device, method } = await synthesizeOne(text, outputPath);
+        durationSeconds = estimateWavDuration(wav);
+        audioPath = outputPath;
         await fs.writeFile(audioPath, wav);
+        console.log(
+          `[audiobook worker] chapter ${i} synthesized via qwen (device=${device ?? "unknown"}, method=${method ?? "unknown"})`
+        );
 
         // Upload to cache
         const cachePath = `cache/${bookId}/${chapter.id}-${contentHash.slice(0, 16)}.wav`;
-        await uploadAndCacheChapter(supabase, cachePath, wav, chapter.id, bookVersionId, contentHash, voiceId, modelPath, language, durationSeconds);
+        await uploadAndCacheChapter(supabase, cachePath, wav, chapter.id, bookVersionId, contentHash, voiceId, resolvedModelId, language, durationSeconds);
 
         const { data: urlData } = supabase.storage.from(BUCKET).getPublicUrl(cachePath);
         audioUrl = urlData?.publicUrl;
@@ -501,6 +610,12 @@ async function processJob(payload: AudiobookJobData) {
         audioPath,
         audioUrl,
         durationSeconds,
+      });
+
+      await updateJob("processing", {
+        completedChapters: i + 1,
+        currentChapterId: chapter.id,
+        currentChapterTitle: chapter.title,
       });
     }
 
@@ -600,6 +715,10 @@ async function processJob(payload: AudiobookJobData) {
       durationSeconds: totalDuration,
       fileSizeBytes,
       chaptersProcessed: chapterAudios.length,
+      currentChapterId: null,
+      currentChapterTitle: null,
+      completedChapters: totalChapters,
+      errorMessage: null,
     });
 
     await updateBookStatus("published");
@@ -619,7 +738,16 @@ async function processJob(payload: AudiobookJobData) {
     const safeError = sanitizeJobErrorForStorage(msg) ?? "Något gick fel. Kontakta support om problemet kvarstår.";
     console.error("[audiobook worker] failed -", jobId, "error:", msg);
 
-    await updateJob("failed", { errorDetails: safeError }, msg);
+    await updateJob(
+      "failed",
+      {
+        errorDetails: safeError,
+        errorMessage: safeError,
+        currentChapterId: null,
+        currentChapterTitle: null,
+      },
+      msg
+    );
     await updateBookStatus("failed");
 
     // Cleanup temp files on failure too

@@ -21,8 +21,8 @@ import {
 const AI_JOB_KIND = "audiobook_generation";
 
 // Narrator metadata persisted with jobs/cache keys.
-const DEFAULT_VOICE_ID = "default";
-const DEFAULT_NARRATOR_MODEL = "narrator-removed";
+const DEFAULT_VOICE_ID = "Ryan";
+const DEFAULT_NARRATOR_MODEL = "Qwen/Qwen3-TTS-12Hz-0.6B-Base";
 
 type ActiveJobRow = {
   id: string;
@@ -149,14 +149,17 @@ export async function POST(
   // Check for existing queued/running job for this specific book.
   const existingJob = await findActiveAudiobookJob(supabase, user.id, bookId);
   if (existingJob) {
-    return NextResponse.json({
-      ok: true,
-      jobId: existingJob.id,
-      status: normalizeJobStatus(existingJob.status),
-      message: "Job already in progress",
-      totalChapters: existingJob.output?.totalChapters ?? 0,
-      completedChapters: existingJob.output?.completedChapters ?? 0,
-    });
+    return NextResponse.json(
+      {
+        ok: true,
+        jobId: existingJob.id,
+        status: normalizeJobStatus(existingJob.status),
+        message: "Job already in progress",
+        totalChapters: existingJob.output?.totalChapters ?? 0,
+        completedChapters: existingJob.output?.completedChapters ?? 0,
+      },
+      { status: 202 }
+    );
   }
 
   // Count chapters for this version
@@ -174,8 +177,8 @@ export async function POST(
   }
 
   // Get TTS config from env
-  const voiceId = process.env.TTS_VOICE_ID ?? DEFAULT_VOICE_ID;
-  const modelPath = process.env.AI_NARRATOR_MODEL ?? DEFAULT_NARRATOR_MODEL;
+  const voiceId = process.env.QWEN_TTS_VOICE_ID ?? process.env.TTS_VOICE_ID ?? DEFAULT_VOICE_ID;
+  const modelPath = process.env.AI_NARRATOR_MODEL ?? process.env.QWEN_TTS_MODEL ?? DEFAULT_NARRATOR_MODEL;
 
   // Create ai_jobs record
   const { data: job, error: jobError } = await admin
@@ -198,6 +201,9 @@ export async function POST(
       output: {
         totalChapters: chapterCount,
         completedChapters: 0,
+        currentChapterId: null,
+        audioUrl: null,
+        errorMessage: null,
       },
     })
     .select("id")
@@ -245,7 +251,18 @@ export async function POST(
     // Redis unavailable - mark job as failed
     await admin
       .from("ai_jobs")
-      .update({ status: "failed", error: "Queue unavailable", progress: 0 })
+      .update({
+        status: "failed",
+        error: "Queue unavailable",
+        progress: 0,
+        output: {
+          totalChapters: chapterCount,
+          completedChapters: 0,
+          currentChapterId: null,
+          audioUrl: null,
+          errorMessage: "Queue unavailable",
+        },
+      })
       .eq("id", job.id);
 
     return apiError(E_QUEUE_UNAVAILABLE, 503);
@@ -259,7 +276,7 @@ export async function POST(
       jobId: job.id,
       status: "pending",
       totalChapters: chapterCount,
-      language: version.language_code,
+      completedChapters: 0,
     },
     { status: 202 }
   );

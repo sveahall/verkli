@@ -1315,7 +1315,11 @@ export default function BookEditor({
     setAudiobookProgress(null);
     setIsGeneratingAudiobook(true);
     try {
-      const res = await fetch(`/api/books/${book.id}/audiobook/generate`, { method: "POST" });
+      const langKey = normalizeLangKey(activeVersion?.language_code ?? activeLanguage);
+      const endpoint = langKey
+        ? `/api/books/${book.id}/audiobook/generate?lang=${encodeURIComponent(langKey)}`
+        : `/api/books/${book.id}/audiobook/generate`;
+      const res = await fetch(endpoint, { method: "POST" });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
         setAudiobookError(resolveErrorMessage(data.error));
@@ -1333,7 +1337,14 @@ export default function BookEditor({
       setAudiobookError("Could not start generation. Try again.");
       setIsGeneratingAudiobook(false);
     }
-  }, [audiobookFeatureEnabled, book.id, isGeneratingAudiobook, refetchBookJob]);
+  }, [
+    activeLanguage,
+    activeVersion?.language_code,
+    audiobookFeatureEnabled,
+    book.id,
+    isGeneratingAudiobook,
+    refetchBookJob,
+  ]);
 
   const handleJobRetry = useCallback(
     async (job: UnifiedJob) => {

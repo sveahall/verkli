@@ -3,7 +3,7 @@
 import { useState } from "react";
 
 const REMOVED_NOTICE =
-  "PIPER_REMOVED: Lokal legacy-TTS har tagits bort. Använd Qwen3 TTS istället.";
+  "Lokal legacy-TTS har tagits bort. Använd Qwen3 TTS istället.";
 
 export default function TtsDemoPage() {
   const [text, setText] = useState(

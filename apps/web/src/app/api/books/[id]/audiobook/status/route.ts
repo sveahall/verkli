@@ -147,7 +147,11 @@ export async function GET(
           durationSeconds: output.durationSeconds ?? null,
           error: resolveSanitizedJobError(
             job.error,
-            typeof output.errorDetails === "string" ? output.errorDetails : null
+            typeof output.errorMessage === "string"
+              ? output.errorMessage
+              : typeof output.errorDetails === "string"
+                ? output.errorDetails
+                : null
           ),
           createdAt: job.created_at,
           startedAt: job.started_at,

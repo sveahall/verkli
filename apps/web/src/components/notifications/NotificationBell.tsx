@@ -8,6 +8,7 @@ import NotificationDropdown from "./NotificationDropdown";
 export default function NotificationBell() {
   const { count, refetch } = useUnreadCount();
   const [open, setOpen] = useState(false);
+  const [anchorRect, setAnchorRect] = useState<DOMRect | null>(null);
   const buttonRef = useRef<HTMLDivElement>(null);
 
   const handleClose = useCallback(() => {
@@ -18,11 +19,19 @@ export default function NotificationBell() {
     refetch();
   }, [refetch]);
 
+  const handleToggle = useCallback(() => {
+    if (!open) {
+      const rect = buttonRef.current?.getBoundingClientRect() ?? null;
+      setAnchorRect(rect);
+    }
+    setOpen((v) => !v);
+  }, [open]);
+
   return (
     <div className="relative" ref={buttonRef}>
       <button
         type="button"
-        onClick={() => setOpen((v) => !v)}
+        onClick={handleToggle}
         className="flex h-9 w-9 items-center justify-center rounded-full border border-slate-200/80 text-slate-600 transition-colors hover:bg-slate-100 hover:text-slate-900 dark:border-white/10 dark:text-white/70 dark:hover:bg-white/10 dark:hover:text-white"
         aria-label="Notifikationer"
       >
@@ -37,9 +46,9 @@ export default function NotificationBell() {
         )}
       </button>
 
-      {open && typeof document !== "undefined" && buttonRef.current &&
+      {open && typeof document !== "undefined" && anchorRect &&
         createPortal(
-          <NotificationDropdown onClose={handleClose} onCountChange={handleCountChange} anchorRect={buttonRef.current.getBoundingClientRect()} />,
+          <NotificationDropdown onClose={handleClose} onCountChange={handleCountChange} anchorRect={anchorRect} />,
           document.body
         )}
     </div>
