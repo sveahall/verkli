@@ -1,13 +1,13 @@
 "use client";
 
-import type { Channel, ModuleState } from "@/lib/marketing/types";
+import type { DistributionChannel, ModuleState } from "@/lib/marketing/types";
 
 export default function DistributionChannels({
   channels,
   state,
   onToggle,
 }: {
-  channels: Channel[];
+  channels: DistributionChannel[];
   state: ModuleState;
   onToggle: (id: string) => void;
 }) {

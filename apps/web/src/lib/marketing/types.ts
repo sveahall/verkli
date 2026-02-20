@@ -1,3 +1,22 @@
+export type ContentType = "launch_post" | "teaser" | "quote_card";
+
+export type Channel = "instagram" | "tiktok" | "x" | "facebook";
+
+export type CampaignTone = "inspiring" | "playful" | "direct";
+
+export type CampaignConfig = {
+  objective: string;
+  tone: CampaignTone;
+  callToAction: string;
+  includeHashtags: boolean;
+};
+
+export type Book = {
+  id: string;
+  title: string | null;
+  cover_image: string | null;
+};
+
 export type CampaignStatus = "draft" | "scheduled" | "active" | "finished";
 
 export type Campaign = {
@@ -12,7 +31,7 @@ export type Campaign = {
   budget?: string;
 };
 
-export type Channel = {
+export type DistributionChannel = {
   id: string;
   label: string;
   description: string;

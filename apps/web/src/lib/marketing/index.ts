@@ -4,9 +4,12 @@
 
 // Types
 export type {
+  Book,
+  CampaignConfig,
   Campaign,
   CampaignStatus,
   Channel,
+  DistributionChannel,
   Metric,
   GeneratorOutput,
   ModuleState,

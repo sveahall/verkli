@@ -8,7 +8,12 @@ import PerformanceOverview from "@/components/marketing/PerformanceOverview";
 import AutomationTeaser from "@/components/marketing/AutomationTeaser";
 import MarketingCaptionPortal from "@/components/marketing/MarketingCaptionPortal";
 import CampaignCreationFlow from "@/components/marketing/CampaignCreationFlow";
-import type { Campaign, Channel, GeneratorOutput, ModuleState } from "@/lib/marketing/types";
+import type {
+  Campaign,
+  DistributionChannel,
+  GeneratorOutput,
+  ModuleState,
+} from "@/lib/marketing/types";
 
 const GENERATOR_DEFAULTS: GeneratorOutput[] = [
   {
@@ -80,7 +85,7 @@ export default function MarketingDashboard({
   initialBooks = [],
 }: MarketingDashboardProps) {
   const [campaigns, setCampaigns] = useState<Campaign[]>(initialCampaigns);
-  const [channels, setChannels] = useState<Channel[]>([]);
+  const [channels, setChannels] = useState<DistributionChannel[]>([]);
   const [selectedCampaignId, setSelectedCampaignId] = useState<string | null>(
     initialCampaigns[0]?.id ?? null
   );
