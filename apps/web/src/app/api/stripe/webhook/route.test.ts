@@ -27,7 +27,7 @@ vi.mock("@/lib/billing/server", () => ({
 vi.mock("stripe", () => ({
   default: vi.fn().mockImplementation(() => ({
     webhooks: {
-      constructEvent: (payload: string, _sig: string) => {
+      constructEvent: (payload: string) => {
         if (!payload) throw new Error("bad");
         return {
           id: "evt_1",

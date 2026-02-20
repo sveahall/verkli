@@ -19,7 +19,6 @@ import {
   apiError,
   E_UNAUTHORIZED,
   E_FORBIDDEN,
-  E_BILLING_CONFIG_MISSING,
   E_BILLING_PORTAL_FAILED,
 } from "@/lib/api-errors";
 

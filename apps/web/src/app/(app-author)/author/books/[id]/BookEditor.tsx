@@ -2600,7 +2600,7 @@ export default function BookEditor({
                   </span>
                 </div>
                 {(translationUiStatus === "translating" || isPollingCurrent) && translationProgress && translationProgress.total > 0 && (
-                  <div className="mb-3" role="status" aria-valuenow={translationProgress.translated} aria-valuemin={0} aria-valuemax={translationProgress.total}>
+                  <div className="mb-3" role="progressbar" aria-label="Translation progress" aria-valuenow={translationProgress.translated} aria-valuemin={0} aria-valuemax={translationProgress.total}>
                     <div className="mb-1 flex items-center justify-between text-xs text-slate-500 dark:text-white/50">
                       <span>
                         {translationProgress.translated} of {translationProgress.total} chapters
