@@ -10,9 +10,9 @@ const ALLOWED_EXT = [".epub", ".docx", ".html", ".htm", ".txt"];
 const POLL_INTERVAL_MS = 2500;
 
 const STATUS_LABELS: Record<string, string> = {
-  pending: "Pending",
+  pending: "Queued",
   running: "Running",
-  completed: "Completed",
+  completed: "Succeeded",
   failed: "Failed",
 };
 

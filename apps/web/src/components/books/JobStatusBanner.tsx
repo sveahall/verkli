@@ -58,7 +58,7 @@ const STATUS_STYLES: Record<
   pending: {
     bg: "bg-amber-50 border-amber-200 dark:bg-amber-950/30 dark:border-amber-800",
     text: "text-amber-800 dark:text-amber-200",
-    label: "Pending",
+    label: "Queued",
   },
   running: {
     bg: "bg-blue-50 border-blue-200 dark:bg-blue-950/30 dark:border-blue-800",
@@ -68,7 +68,7 @@ const STATUS_STYLES: Record<
   completed: {
     bg: "bg-emerald-50 border-emerald-200 dark:bg-emerald-950/30 dark:border-emerald-800",
     text: "text-emerald-800 dark:text-emerald-200",
-    label: "Completed",
+    label: "Succeeded",
   },
   failed: {
     bg: "bg-red-50 border-red-200 dark:bg-red-950/30 dark:border-red-800",

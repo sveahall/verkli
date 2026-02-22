@@ -1,9 +1,27 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
-import MarketingDashboard from "@/components/marketing/MarketingDashboard";
-import type { Campaign } from "@/lib/marketing/types";
+import { getMarketingEnabled } from "@/lib/flags";
+import MarketingPortal from "@/components/marketing/MarketingPortal";
+import type { Book } from "@/lib/marketing/types";
 
-export default async function authorMarketingRoute() {
+type MarketingPageProps = {
+  searchParams?: Promise<Record<string, string | string[] | undefined>>;
+};
+
+export default async function AuthorMarketingPage({ searchParams }: MarketingPageProps) {
+  if (!getMarketingEnabled()) {
+    redirect("/author/home");
+  }
+
+  const resolvedSearchParams = searchParams ? await searchParams : {};
+  const rawSelectedBookId = resolvedSearchParams.bookId;
+  const selectedBookId =
+    typeof rawSelectedBookId === "string"
+      ? rawSelectedBookId
+      : Array.isArray(rawSelectedBookId)
+        ? rawSelectedBookId[0] ?? null
+        : null;
+
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
 
@@ -13,35 +31,19 @@ export default async function authorMarketingRoute() {
 
   const { data: books } = await supabase
     .from("books")
-    .select("id, title")
-    .eq("author_id", user.id);
+    .select("id, title, cover_image")
+    .eq("author_id", user.id)
+    .order("updated_at", { ascending: false });
 
-  const bookIds = (books ?? []).map((b) => b.id);
-  const bookTitleById = new Map((books ?? []).map((b) => [b.id, b.title ?? ""]));
+  const resolvedBooks: Book[] = (books ?? []).map((book) => ({
+    id: book.id,
+    title: book.title ?? null,
+    cover_image: book.cover_image ?? null,
+  }));
+  const initialBookId =
+    selectedBookId && resolvedBooks.some((book) => book.id === selectedBookId)
+      ? selectedBookId
+      : null;
 
-  let campaigns: Campaign[] = [];
-  if (bookIds.length > 0) {
-    const { data: rows } = await supabase
-      .from("marketing_campaigns")
-      .select("id, book_id, status, channel, headline, updated_at")
-      .in("book_id", bookIds)
-      .order("updated_at", { ascending: false });
-
-    campaigns = (rows ?? []).map((row) => ({
-      id: row.id,
-      name: (row.headline ?? bookTitleById.get(row.book_id) ?? "Campaign") + ` (${row.channel})`,
-      objective: "",
-      status: row.status === "published" ? "active" : row.status === "scheduled" ? "scheduled" : "draft",
-      updatedAt: row.updated_at ?? new Date().toISOString(),
-      channels: [row.channel],
-    }));
-  }
-
-  const bookOptions = (books ?? []).map((b) => ({ id: b.id, title: b.title ?? "" }));
-
-  return (
-    <div className="min-h-screen bg-gradient-to-b from-slate-50/90 via-background to-background text-foreground dark:from-slate-950/80 dark:via-background dark:to-background">
-      <MarketingDashboard initialCampaigns={campaigns} initialBooks={bookOptions} />
-    </div>
-  );
+  return <MarketingPortal books={resolvedBooks} initialBookId={initialBookId} />;
 }

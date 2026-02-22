@@ -10,6 +10,7 @@ import {
   FontSize,
   LineHeight,
 } from "@tiptap/extension-text-style";
+import { toTiptapContent } from "@/lib/tiptap-content";
 
 type TiptapRendererProps = {
   content: string | Record<string, unknown> | null;
@@ -19,16 +20,7 @@ type TiptapRendererProps = {
 export default function TiptapRenderer({ content, className = "" }: TiptapRendererProps) {
   // Parse content
   const getContent = () => {
-    if (!content) return "";
-    if (typeof content === "string") {
-      try {
-        return JSON.parse(content);
-      } catch {
-        // Plain text fallback
-        return content ? `<p>${content}</p>` : "";
-      }
-    }
-    return content;
+    return toTiptapContent(content);
   };
 
   const editor = useEditor({

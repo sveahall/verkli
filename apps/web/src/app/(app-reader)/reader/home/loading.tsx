@@ -30,23 +30,51 @@ function RailSkeleton({ count = 4 }: { count?: number }) {
   );
 }
 
+function HeroSkeleton() {
+  return (
+    <section className="card-base-subtle grid gap-7 p-6 md:p-8 lg:grid-cols-[1.2fr_0.9fr]">
+      <div className="space-y-4">
+        <Skeleton height={24} width={110} rounded="full" />
+        <Skeleton height={44} width={320} />
+        <Skeleton height={16} width={460} />
+        <div className="flex flex-wrap gap-2">
+          <Skeleton height={30} width={140} rounded="full" />
+          <Skeleton height={30} width={110} rounded="full" />
+          <Skeleton height={30} width={120} rounded="full" />
+        </div>
+        <div className="flex flex-wrap gap-3">
+          <Skeleton height={42} width={150} rounded="full" />
+          <Skeleton height={42} width={130} rounded="full" />
+        </div>
+      </div>
+      <div className="min-h-[260px] rounded-2xl border border-slate-200/80 bg-slate-200/60 dark:border-white/10 dark:bg-white/10" />
+    </section>
+  );
+}
+
+function MetricsSkeleton() {
+  return (
+    <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+      {Array.from({ length: 4 }).map((_, index) => (
+        <div key={index} className="card-base-subtle px-4 py-4 space-y-2">
+          <Skeleton height={12} width={120} />
+          <Skeleton height={30} width={64} />
+          <Skeleton height={12} width={160} />
+        </div>
+      ))}
+    </section>
+  );
+}
+
 export default function ReaderHomeLoading() {
   return (
     <div className="section-gap-lg animate-in fade-in duration-300">
-      {/* Page Header Skeleton */}
-      <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
-        <div className="space-y-3">
-          <Skeleton height={12} width={60} rounded="full" />
-          <Skeleton height={32} width={220} />
-          <Skeleton height={16} width={400} />
-        </div>
-        <Skeleton height={40} width={140} rounded="full" />
-      </div>
+      <HeroSkeleton />
+      <MetricsSkeleton />
 
-      {/* Continue Reading Rail */}
       <RailSkeleton count={4} />
-
-      {/* Published Books Rail */}
+      <RailSkeleton count={5} />
+      <RailSkeleton count={6} />
       <RailSkeleton count={6} />
     </div>
   );

@@ -25,7 +25,6 @@ All workers read from `apps/web/.env.local`:
 | `OPUSMT_PYTHON` | Translation worker | Path to Python with CTranslate2 |
 | `OPUSMT_MODELS_DIR` | Translation worker | Path to Opus MT model files |
 | `AUDIOBOOK_STORAGE_BUCKET` | Audiobook worker | Supabase storage bucket name |
-| `TTS_STORAGE_BUCKET` | TTS worker | Supabase storage bucket name |
 | `FFMPEG_BIN` | Audiobook worker | Optional, defaults to `ffmpeg` in PATH |
 
 ## 3. Start Workers
@@ -36,7 +35,6 @@ From repo root:
 npm run import-worker      # book-import-extract queue
 npm run translate-worker   # book-translation queue
 npm run audiobook-worker   # audiobook-generation queue
-npm run tts-worker         # tts-generation queue
 ```
 
 Each worker logs its queue name and Redis host on startup.
@@ -48,7 +46,6 @@ Each worker logs its queue name and Redis host on startup.
 | Import | 3 | 30s | default | 2 | 2 | 2s exp |
 | Translation | 2 | 30s | default | 2 | 3 | 5s exp |
 | Audiobook | 2 | 120s | 600s | 2 | 3 | 10s exp |
-| TTS | 1 | default | default | default | 2 | 2s exp |
 
 ### Safety features per worker
 

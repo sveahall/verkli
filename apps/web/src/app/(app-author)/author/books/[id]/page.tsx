@@ -1,8 +1,10 @@
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { normalizeLanguage } from "@/lib/languages";
 import { isStripeConfigured } from "@/lib/payments/stripe";
+import { getAudiobookStorageBucket } from "@/lib/tts/storage";
 import BookEditor from "./BookEditor";
 
 function isMissingPublishedChapterCountColumn(error: { code?: string | null; message?: string | null } | null | undefined): boolean {
@@ -123,11 +125,25 @@ export default async function BookDetailPage({
 
   const { data: latestAudiobookAsset } = await supabase
     .from("audiobook_assets")
-    .select("id, audio_url, status, created_at")
+    .select("id, audio_path, status, created_at")
     .eq("book_id", book.id)
     .order("created_at", { ascending: false })
     .limit(1)
     .maybeSingle();
+
+  const latestAudioPath =
+    typeof latestAudiobookAsset?.audio_path === "string" && latestAudiobookAsset.audio_path.trim().length > 0
+      ? latestAudiobookAsset.audio_path.trim()
+      : null;
+  let latestAudiobookSignedUrl: string | null = null;
+  if (latestAudioPath) {
+    const bucket = getAudiobookStorageBucket();
+    const admin = createAdminClient();
+    const { data: signed } = await admin.storage
+      .from(bucket)
+      .createSignedUrl(latestAudioPath, 60 * 15);
+    latestAudiobookSignedUrl = signed?.signedUrl ?? null;
+  }
 
   const { data: chapters } = await supabase
     .from("chapters")
@@ -161,7 +177,16 @@ export default async function BookDetailPage({
         chapters={chapters ?? []}
         bookVersions={versions}
         activeVersion={activeVersion ?? null}
-        latestAudiobookAsset={latestAudiobookAsset ?? null}
+        latestAudiobookAsset={
+          latestAudiobookAsset
+            ? {
+                id: latestAudiobookAsset.id,
+                audioSignedUrl: latestAudiobookSignedUrl,
+                status: latestAudiobookAsset.status,
+                created_at: latestAudiobookAsset.created_at,
+              }
+            : null
+        }
         marketingCampaigns={marketingCampaigns ?? []}
         stripeConfigured={stripeConfigured}
       />

@@ -145,6 +145,24 @@ export default async function ReaderBookDetail({
   if (!activeVersion || !activeVersion.published_at) {
     notFound();
   }
+  const lang = normalizeLanguage(activeVersion.language_code);
+  const availableLanguages = Array.from(
+    new Map(
+      (versions ?? [])
+        .filter((version) => Boolean(version.published_at))
+        .map((version) => {
+          const code = normalizeLanguage(version.language_code);
+          return [
+            code,
+            {
+              languageCode: code,
+              displayName: getLanguageLabel(code),
+              isCurrentLanguage: code === lang,
+            },
+          ] as const;
+        })
+    ).values()
+  );
 
   const { data: authorProfile } = await supabase
     .from("profiles")
@@ -203,7 +221,6 @@ export default async function ReaderBookDetail({
   }
 
   const authorName = authorProfile?.display_name || authorProfile?.username || "Author";
-  const lang = normalizeLanguage(activeVersion.language_code);
   const languageName = getLanguageLabel(lang);
   const originalUrl = (book as { original_url?: string | null }).original_url;
   const purchaseState = resolvedSearchParams?.purchase;
@@ -253,6 +270,26 @@ export default async function ReaderBookDetail({
             {authorName}
           </Link>
 
+          <div className="mt-4">
+            <p className="text-[12px] font-medium text-slate-600 dark:text-white/60">Available languages:</p>
+            <div className="mt-2 flex flex-wrap gap-2 text-[12px]">
+              {availableLanguages.map((language) => (
+                <Link
+                  key={language.languageCode}
+                  href={`/reader/books/${book.id}?lang=${encodeURIComponent(language.languageCode)}`}
+                  aria-current={language.isCurrentLanguage ? "page" : undefined}
+                  className={
+                    language.isCurrentLanguage
+                      ? "rounded-full border border-emerald-600/30 bg-emerald-500/10 px-3 py-1 text-emerald-700 dark:border-emerald-400/30 dark:bg-emerald-500/10 dark:text-emerald-300"
+                      : "rounded-full border border-black/10 bg-black/[0.02] px-3 py-1 text-slate-600 transition hover:border-black/20 hover:text-slate-900 dark:border-white/10 dark:bg-white/5 dark:text-white/60 dark:hover:border-white/20 dark:hover:text-white/80"
+                  }
+                >
+                  {language.displayName}
+                </Link>
+              ))}
+            </div>
+          </div>
+
           <div className="mt-6 flex flex-wrap gap-3 text-[12px] text-slate-600 dark:text-white/60">
             <span className="rounded-full border border-black/10 bg-black/[0.02] px-3 py-1 dark:border-white/10 dark:bg-white/5">
               {hasReadAccess ? `${chaptersCount ?? 0} chapters` : "Paid access"}
@@ -261,6 +298,19 @@ export default async function ReaderBookDetail({
             <span className="rounded-full border border-emerald-600/30 bg-emerald-500/10 px-3 py-1 text-emerald-700 dark:border-emerald-400/30 dark:bg-emerald-500/10 dark:text-emerald-300" aria-label={`Language: ${languageName}`}>
               {languageName}
             </span>
+            {book.audiobook_status === "published" ? (
+              <span className="rounded-full border border-violet-600/30 bg-violet-500/10 px-3 py-1 text-violet-700 dark:border-violet-400/30 dark:bg-violet-500/10 dark:text-violet-300">
+                Audiobook available
+              </span>
+            ) : book.audiobook_status === "generating" ? (
+              <span className="rounded-full border border-blue-600/30 bg-blue-500/10 px-3 py-1 text-blue-700 dark:border-blue-400/30 dark:bg-blue-500/10 dark:text-blue-300">
+                Audiobook generating
+              </span>
+            ) : (
+              <span className="rounded-full border border-black/10 bg-black/[0.02] px-3 py-1 dark:border-white/10 dark:bg-white/5">
+                No audio yet
+              </span>
+            )}
             <span className="rounded-full border border-amber-600/30 bg-amber-500/10 px-3 py-1 text-amber-700 dark:border-amber-400/30 dark:bg-amber-500/10 dark:text-amber-300">
               {averageRating !== null
                 ? `Rating ${averageRating.toFixed(1)}/5 (${ratingsCount})`

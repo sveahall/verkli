@@ -32,11 +32,14 @@ const ERROR_MESSAGES: Record<string, string> = {
   NO_CHAPTERS: "Boken måste ha minst ett kapitel.",
   CHAPTER_NEEDS_CONTENT: "Minst ett kapitel måste ha innehåll.",
   MISSING_COVER_IMAGE: "Boken måste ha en omslagsbild.",
+  CHAPTER_NOT_PUBLISHED: "Kapitlet är inte publicerat.",
 
   // Audiobook
   AUDIOBOOK_FEATURE_DISABLED: "Ljudboksfunktionen är inte aktiverad.",
   AUDIOBOOK_STATUS_UNAVAILABLE: "Ljudboksstatus är inte tillgänglig.",
   AUDIOBOOK_NO_ACTIVE_JOB: "Det finns ingen aktiv ljudboksgenerering att styra.",
+  AUDIO_SIGN_FAILED: "Kunde inte skapa länk till ljudfilen. Försök igen.",
+  AUDIO_PATH_INVALID: "Ljudfilen har en ogiltig sökväg.",
   JOB_CREATION_FAILED: "Kunde inte skapa jobbet.",
   QUEUE_UNAVAILABLE: "Jobbkön är inte tillgänglig. Försök igen senare.",
   BOOK_VERSION_NOT_FOUND_FOR_LANGUAGE: "Ingen version hittades för det angivna språket.",

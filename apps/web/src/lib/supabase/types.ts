@@ -116,6 +116,8 @@ export type Database = {
       }
       audiobook_assets: {
         Row: {
+          audio_bucket: string | null
+          audio_path: string | null
           audio_url: string | null
           book_id: string
           created_at: string
@@ -125,6 +127,8 @@ export type Database = {
           status: string
         }
         Insert: {
+          audio_bucket?: string | null
+          audio_path?: string | null
           audio_url?: string | null
           book_id: string
           created_at?: string
@@ -134,6 +138,8 @@ export type Database = {
           status?: string
         }
         Update: {
+          audio_bucket?: string | null
+          audio_path?: string | null
           audio_url?: string | null
           book_id?: string
           created_at?: string

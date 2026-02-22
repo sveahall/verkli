@@ -1,17 +1,49 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { assertPublicEnv } from "@/lib/env";
 import { isAudiobookEnabled } from "@/lib/flags";
 import { normalizeJobStatus } from "@/lib/job-status";
 import { requireAuthorRoleForApi } from "@/lib/auth/require-author";
 import { resolveSanitizedJobError } from "@/lib/sanitize-job-error";
+import { getAudiobookStorageBucket } from "@/lib/tts/storage";
 import {
   apiError,
   E_AUDIOBOOK_STATUS_UNAVAILABLE,
   E_BOOK_NOT_FOUND,
 } from "@/lib/api-errors";
+import { isCancelStale, forceFailCancelledJob } from "@/lib/audiobook-stale-cancel";
 
 const AI_JOB_KIND = "audiobook_generation";
+const SIGNED_URL_TTL_SECONDS = 60 * 15;
+
+function normalizeStoragePath(value: unknown): string | null {
+  if (typeof value !== "string") return null;
+  const trimmed = value.trim();
+  if (!trimmed) return null;
+  if (/^https?:\/\//i.test(trimmed)) return null;
+  return trimmed;
+}
+
+async function signAudioPath(
+  admin: ReturnType<typeof createAdminClient>,
+  path: string | null,
+  bucket: string
+): Promise<string | null> {
+  if (!path) return null;
+  const { data, error } = await admin.storage
+    .from(bucket)
+    .createSignedUrl(path, SIGNED_URL_TTL_SECONDS);
+  if (error || !data?.signedUrl) {
+    console.error("[audiobook status] failed to sign audio path", {
+      bucket,
+      path,
+      message: error?.message ?? "missing signedUrl",
+    });
+    return null;
+  }
+  return data.signedUrl;
+}
 
 type JobRow = {
   id: string;
@@ -22,6 +54,7 @@ type JobRow = {
   created_at: string;
   started_at: string | null;
   finished_at: string | null;
+  updated_at: string;
 };
 
 async function findLatestAudiobookJob(
@@ -32,7 +65,7 @@ async function findLatestAudiobookJob(
   // Preferred lookup via identity columns.
   const { data: direct, error: directError } = await supabase
     .from("ai_jobs")
-    .select("id, status, input, output, error, created_at, started_at, finished_at")
+    .select("id, status, input, output, error, created_at, started_at, finished_at, updated_at")
     .eq("kind", AI_JOB_KIND)
     .eq("user_id", userId)
     .eq("book_id", bookId)
@@ -54,7 +87,7 @@ async function findLatestAudiobookJob(
   // Legacy fallback for pre-backfill rows.
   const { data: legacyRows, error: legacyError } = await supabase
     .from("ai_jobs")
-    .select("id, status, input, output, error, created_at, started_at, finished_at")
+    .select("id, status, input, output, error, created_at, started_at, finished_at, updated_at")
     .eq("kind", AI_JOB_KIND)
     .eq("user_id", userId)
     .is("book_id", null)
@@ -95,6 +128,8 @@ export async function GET(
   if (response) return response;
 
   const supabase = await createClient();
+  const admin = createAdminClient();
+  const defaultBucket = getAudiobookStorageBucket();
 
   // Verify book ownership
   const { data: book } = await supabase
@@ -107,12 +142,22 @@ export async function GET(
     return apiError(E_BOOK_NOT_FOUND, 404);
   }
 
-  const job = await findLatestAudiobookJob(supabase, user.id, bookId);
+  let job = await findLatestAudiobookJob(supabase, user.id, bookId);
+
+  // Auto-reap stuck cancel_requested jobs after the staleness timeout.
+  if (
+    job &&
+    (job.status === "processing" || job.status === "pending") &&
+    isCancelStale(job.output, job.updated_at)
+  ) {
+    const failedOutput = await forceFailCancelledJob(job.id, job.output ?? {});
+    job = { ...job, status: "failed", output: failedOutput, finished_at: new Date().toISOString() };
+  }
 
   // Get latest asset
   const { data: asset } = await supabase
     .from("audiobook_assets")
-    .select("id, audio_url, duration_seconds, status, created_at")
+    .select("id, audio_path, duration_seconds, status, created_at")
     .eq("book_id", bookId)
     .order("created_at", { ascending: false })
     .limit(1)
@@ -121,7 +166,9 @@ export async function GET(
   // Extract progress from job output
   const output = job?.output ?? {};
   const normalizedJobStatus = job ? normalizeJobStatus(job.status) : null;
-  const hasGeneratedAsset = Boolean(asset?.audio_url) && asset?.status === "generated";
+  const assetAudioPath = normalizeStoragePath(asset?.audio_path);
+  const assetBucket = defaultBucket;
+  const hasGeneratedAsset = Boolean(assetAudioPath) && asset?.status === "generated";
   const chapterIds =
     Array.isArray(output.chapterIds) && output.chapterIds.every((id) => typeof id === "string")
       ? (output.chapterIds as string[])
@@ -129,6 +176,29 @@ export async function GET(
   const controlState = typeof output.controlState === "string" ? output.controlState : null;
   const pauseRequested = output.pauseRequested === true;
   const cancelRequested = output.cancelRequested === true;
+  const outputAudioPath = normalizeStoragePath(output.audioPath);
+  const outputAudioBucket =
+    typeof output.audioBucket === "string" && output.audioBucket.trim().length > 0
+      ? output.audioBucket.trim()
+      : defaultBucket;
+  const outputManifestPath = normalizeStoragePath(output.manifestPath);
+  const outputManifestBucket =
+    typeof output.manifestBucket === "string" && output.manifestBucket.trim().length > 0
+      ? output.manifestBucket.trim()
+      : defaultBucket;
+  const outputGeneratedChapterAudioPath =
+    normalizeStoragePath(output.generatedChapterAudioPath);
+  const outputGeneratedChapterAudioBucket =
+    typeof output.generatedChapterAudioBucket === "string" &&
+    output.generatedChapterAudioBucket.trim().length > 0
+      ? output.generatedChapterAudioBucket.trim()
+      : defaultBucket;
+  const [outputAudioUrl, outputManifestUrl, outputGeneratedChapterAudioUrl, assetAudioUrl] = await Promise.all([
+    signAudioPath(admin, outputAudioPath, outputAudioBucket),
+    signAudioPath(admin, outputManifestPath, outputManifestBucket),
+    signAudioPath(admin, outputGeneratedChapterAudioPath, outputGeneratedChapterAudioBucket),
+    signAudioPath(admin, assetAudioPath, assetBucket),
+  ]);
   const resolvedBookStatus =
     hasGeneratedAsset
       ? "published"
@@ -160,8 +230,15 @@ export async function GET(
             (Array.isArray(job.input?.chapterIds) && job.input?.chapterIds.every((id) => typeof id === "string")
               ? (job.input.chapterIds as string[])
               : null),
-          audioUrl: output.audioUrl ?? null,
-          manifestUrl: output.manifestUrl ?? null,
+          audioPath: outputAudioPath,
+          audioBucket: outputAudioBucket,
+          audioUrl: outputAudioUrl,
+          manifestPath: outputManifestPath,
+          manifestBucket: outputManifestBucket,
+          manifestUrl: outputManifestUrl,
+          generatedChapterAudioPath: outputGeneratedChapterAudioPath,
+          generatedChapterAudioBucket: outputGeneratedChapterAudioBucket,
+          generatedChapterAudioUrl: outputGeneratedChapterAudioUrl,
           durationSeconds: output.durationSeconds ?? null,
           controlState,
           pauseRequested,
@@ -182,7 +259,9 @@ export async function GET(
     asset: asset
       ? {
           id: asset.id,
-          audioUrl: asset.audio_url,
+          audioPath: assetAudioPath,
+          audioBucket: assetBucket,
+          audioUrl: assetAudioUrl,
           durationSeconds: asset.duration_seconds,
           status: asset.status,
           createdAt: asset.created_at,

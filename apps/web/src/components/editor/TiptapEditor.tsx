@@ -7,6 +7,7 @@ import TextAlign from "@tiptap/extension-text-align";
 import Placeholder from "@tiptap/extension-placeholder";
 import { useEffect, useRef, useSyncExternalStore } from "react";
 import { uploadChapterMedia } from "@/lib/supabase/storage";
+import { toTiptapContent } from "@/lib/tiptap-content";
 import { WRITING_PRESETS, FONT_FAMILY_MAP } from "./types";
 
 type PresetId = "novel" | "essay" | "screenplay";
@@ -55,15 +56,7 @@ export default function TiptapEditor({
   const debounceRef = useRef<NodeJS.Timeout | null>(null);
 
   const getInitialContent = () => {
-    if (!content) return "";
-    if (typeof content === "string") {
-      try {
-        return JSON.parse(content);
-      } catch {
-        return content ? `<p>${content}</p>` : "";
-      }
-    }
-    return content;
+    return toTiptapContent(content);
   };
 
   const editor = useEditor({

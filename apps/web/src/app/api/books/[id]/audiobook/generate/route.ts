@@ -18,18 +18,20 @@ import {
   E_NO_CHAPTERS_FOR_VERSION,
   E_QUEUE_UNAVAILABLE,
 } from "@/lib/api-errors";
+import { isCancelStale, forceFailCancelledJob } from "@/lib/audiobook-stale-cancel";
 
 const AI_JOB_KIND = "audiobook_generation";
 
 // Narrator metadata persisted with jobs/cache keys.
 const DEFAULT_VOICE_ID = "Ryan";
-const DEFAULT_NARRATOR_MODEL = "Qwen/Qwen3-TTS-12Hz-0.6B-Base";
+const DEFAULT_NARRATOR_MODEL = "Qwen/Qwen3-TTS-12Hz-0.6B-CustomVoice";
 
 type ActiveJobRow = {
   id: string;
   status: string;
   output: Record<string, unknown> | null;
   input: Record<string, unknown> | null;
+  updated_at: string;
 };
 
 function parseOptionalId(value: unknown): string | null {
@@ -60,7 +62,7 @@ async function findActiveAudiobookJob(
   // Preferred lookup via dedicated identity columns.
   const { data: byBookId, error: byBookIdError } = await supabase
     .from("ai_jobs")
-    .select("id, status, output, input")
+    .select("id, status, output, input, updated_at")
     .eq("kind", AI_JOB_KIND)
     .eq("user_id", userId)
     .eq("book_id", bookId)
@@ -78,13 +80,14 @@ async function findActiveAudiobookJob(
       status: byBookId.status,
       output: (byBookId.output as Record<string, unknown> | null) ?? null,
       input: (byBookId.input as Record<string, unknown> | null) ?? null,
+      updated_at: byBookId.updated_at,
     };
   }
 
   // Legacy fallback for rows created before `book_id` was populated.
   const { data: legacyRows, error: legacyError } = await supabase
     .from("ai_jobs")
-    .select("id, status, output, input")
+    .select("id, status, output, input, updated_at")
     .eq("kind", AI_JOB_KIND)
     .eq("user_id", userId)
     .is("book_id", null)
@@ -108,6 +111,7 @@ async function findActiveAudiobookJob(
     status: legacy.status,
     output: (legacy.output as Record<string, unknown> | null) ?? null,
     input: (legacy.input as Record<string, unknown> | null) ?? null,
+    updated_at: legacy.updated_at,
   };
 }
 
@@ -239,17 +243,38 @@ export async function POST(
   // Check for existing queued/running job for this specific book.
   const existingJob = await findActiveAudiobookJob(supabase, user.id, bookId);
   if (existingJob) {
-    return NextResponse.json(
-      {
-        ok: true,
-        jobId: existingJob.id,
-        status: normalizeJobStatus(existingJob.status),
-        message: "Job already in progress",
-        totalChapters: existingJob.output?.totalChapters ?? 0,
-        completedChapters: existingJob.output?.completedChapters ?? 0,
-      },
-      { status: 202 }
-    );
+    const existingOutput = existingJob.output ?? {};
+    if (existingOutput.controlState === "cancel_requested") {
+      if (isCancelStale(existingOutput, existingJob.updated_at)) {
+        // Worker is dead — force-fail and fall through to create a new job.
+        await forceFailCancelledJob(existingJob.id, existingOutput);
+      } else {
+        // Cancel is recent — tell the client to wait.
+        return NextResponse.json(
+          {
+            ok: true,
+            jobId: existingJob.id,
+            status: normalizeJobStatus(existingJob.status),
+            message: "Job is being cancelled, please wait",
+            totalChapters: existingOutput.totalChapters ?? 0,
+            completedChapters: existingOutput.completedChapters ?? 0,
+          },
+          { status: 202 }
+        );
+      }
+    } else {
+      return NextResponse.json(
+        {
+          ok: true,
+          jobId: existingJob.id,
+          status: normalizeJobStatus(existingJob.status),
+          message: "Job already in progress",
+          totalChapters: existingOutput.totalChapters ?? 0,
+          completedChapters: existingOutput.completedChapters ?? 0,
+        },
+        { status: 202 }
+      );
+    }
   }
 
   const chapterCount = chapterIds
@@ -300,7 +325,10 @@ export async function POST(
         completedChapters: 0,
         currentChapterId: chapterId,
         currentChapterTitle: requestedChapterTitle,
-        audioUrl: null,
+        audioPath: null,
+        audioBucket: null,
+        manifestPath: null,
+        manifestBucket: null,
         scope: resolvedScope,
         chapterId,
         chapterIds,
@@ -366,7 +394,10 @@ export async function POST(
           completedChapters: 0,
           currentChapterId: chapterId,
           currentChapterTitle: requestedChapterTitle,
-          audioUrl: null,
+          audioPath: null,
+          audioBucket: null,
+          manifestPath: null,
+          manifestBucket: null,
           scope: resolvedScope,
           chapterId,
           chapterIds,

@@ -150,6 +150,7 @@ export async function POST(
     nextOutput.pauseRequested = false;
     nextOutput.cancelRequested = true;
     nextOutput.controlState = "cancel_requested";
+    nextOutput.cancelRequestedAt = new Date().toISOString();
   }
 
   const { error: updateError } = await admin

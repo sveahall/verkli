@@ -1,13 +1,44 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { requireAuthorRoleForApi } from "@/lib/auth/require-author";
 import { getBillingStateForUser } from "@/lib/billing/server";
 import { isAudiobookEnabled } from "@/lib/flags";
 import { isJobActiveStatus, normalizeJobStatus } from "@/lib/job-status";
 import { resolveSanitizedJobError, sanitizeJobError } from "@/lib/sanitize-job-error";
 import { apiError, E_BOOK_NOT_FOUND, E_JOB_FETCH_FAILED } from "@/lib/api-errors";
+import { getAudiobookStorageBucket } from "@/lib/tts/storage";
 
 type JobKind = "import" | "translation" | "audiobook";
+const SIGNED_URL_TTL_SECONDS = 60 * 15;
+
+function normalizeStoragePath(value: unknown): string | null {
+  if (typeof value !== "string") return null;
+  const trimmed = value.trim();
+  if (!trimmed) return null;
+  if (/^https?:\/\//i.test(trimmed)) return null;
+  return trimmed;
+}
+
+async function signAudioPath(
+  admin: ReturnType<typeof createAdminClient>,
+  path: string | null,
+  bucket: string
+): Promise<string | null> {
+  if (!path) return null;
+  const { data, error } = await admin.storage
+    .from(bucket)
+    .createSignedUrl(path, SIGNED_URL_TTL_SECONDS);
+  if (error || !data?.signedUrl) {
+    console.error("[books.jobs] failed to sign audio path", {
+      bucket,
+      path,
+      message: error?.message ?? "missing signedUrl",
+    });
+    return null;
+  }
+  return data.signedUrl;
+}
 
 /** Map ai_jobs.kind values to normalized kind */
 function normalizeKind(raw: string): JobKind | null {
@@ -39,21 +70,29 @@ function toSafeChapterCount(value: unknown): number | null {
   return rounded >= 0 ? rounded : null;
 }
 
+/**
+ * Conservative chars-per-second rate for local TTS on CPU.
+ * Used as fallback ETA before any chapter has completed.
+ * Measured: ~3 chars/s on Apple Silicon CPU with Qwen 0.6B float32.
+ */
+const FALLBACK_CHARS_PER_SEC = 2.5;
+
 function computeEstimatedSecondsRemaining(params: {
   status: string;
   createdAt: string | null;
   startedAt: string | null;
   totalChapters: number | null;
   completedChapters: number | null;
+  totalTextLength: number | null;
 }): number | null {
-  const { status, createdAt, startedAt, totalChapters, completedChapters } = params;
+  const { status, createdAt, startedAt, totalChapters, completedChapters, totalTextLength } =
+    params;
   if (normalizeJobStatus(status) !== "running") return null;
   if (typeof totalChapters !== "number" || totalChapters <= 0) return null;
 
   const completed = Math.max(0, Math.min(totalChapters, completedChapters ?? 0));
   const remaining = totalChapters - completed;
   if (remaining <= 0) return 0;
-  if (completed <= 0) return null;
 
   const startedTs = startedAt ? new Date(startedAt).getTime() : NaN;
   const createdTs = createdAt ? new Date(createdAt).getTime() : NaN;
@@ -63,11 +102,22 @@ function computeEstimatedSecondsRemaining(params: {
   const elapsedSeconds = (Date.now() - baseTs) / 1000;
   if (!Number.isFinite(elapsedSeconds) || elapsedSeconds <= 0) return null;
 
-  const avgSecondsPerChapter = elapsedSeconds / completed;
-  if (!Number.isFinite(avgSecondsPerChapter) || avgSecondsPerChapter <= 0) return null;
+  // Once chapters have completed, use measured rate
+  if (completed > 0) {
+    const avgSecondsPerChapter = elapsedSeconds / completed;
+    if (!Number.isFinite(avgSecondsPerChapter) || avgSecondsPerChapter <= 0) return null;
+    const estimate = Math.round(remaining * avgSecondsPerChapter);
+    return Math.max(0, Math.min(estimate, MAX_ETA_SECONDS));
+  }
 
-  const estimate = Math.round(remaining * avgSecondsPerChapter);
-  return Math.max(0, Math.min(estimate, MAX_ETA_SECONDS));
+  // No chapters done yet — estimate from total text length
+  if (typeof totalTextLength === "number" && totalTextLength > 0) {
+    const totalEstimate = totalTextLength / FALLBACK_CHARS_PER_SEC;
+    const remainingEstimate = Math.max(0, totalEstimate - elapsedSeconds);
+    return Math.max(0, Math.min(Math.round(remainingEstimate), MAX_ETA_SECONDS));
+  }
+
+  return null;
 }
 
 export async function GET(
@@ -84,6 +134,8 @@ export async function GET(
   const translationVisibleForUser = billing.ok ? billing.state.isProActive : true;
 
   const supabase = await createClient();
+  const admin = createAdminClient();
+  const defaultBucket = getAudiobookStorageBucket();
 
   // Verify book ownership
   const { data: book } = await supabase
@@ -274,8 +326,8 @@ export async function GET(
   });
 
   // Normalize ai_jobs to contract format
-  const aiJobsNormalized = deduped
-    .map((r) => {
+  const aiJobsRaw = await Promise.all(
+    deduped.map(async (r) => {
       const kind = normalizeKind(r.kind);
       if (!kind) return null;
       if (!audiobookEnabled && kind === "audiobook") return null;
@@ -293,6 +345,28 @@ export async function GET(
           const totalChapters = toSafeChapterCount(output.totalChapters);
           const completedChapters = toSafeChapterCount(output.completedChapters);
           const controlState = typeof output.controlState === "string" ? output.controlState : null;
+          const audioPath = normalizeStoragePath(output.audioPath);
+          const audioBucket =
+            typeof output.audioBucket === "string" && output.audioBucket.trim().length > 0
+              ? output.audioBucket.trim()
+              : defaultBucket;
+          const manifestPath = normalizeStoragePath(output.manifestPath);
+          const manifestBucket =
+            typeof output.manifestBucket === "string" && output.manifestBucket.trim().length > 0
+              ? output.manifestBucket.trim()
+              : defaultBucket;
+          const generatedChapterAudioPath =
+            normalizeStoragePath(output.generatedChapterAudioPath);
+          const generatedChapterAudioBucket =
+            typeof output.generatedChapterAudioBucket === "string" &&
+            output.generatedChapterAudioBucket.trim().length > 0
+              ? output.generatedChapterAudioBucket.trim()
+              : defaultBucket;
+          const [audioUrl, manifestUrl, generatedChapterAudioUrl] = await Promise.all([
+            signAudioPath(admin, audioPath, audioBucket),
+            signAudioPath(admin, manifestPath, manifestBucket),
+            signAudioPath(admin, generatedChapterAudioPath, generatedChapterAudioBucket),
+          ]);
           const isPaused = controlState === "paused" || controlState === "pause_requested";
           const estimatedSecondsRemaining = isPaused
             ? null
@@ -302,6 +376,8 @@ export async function GET(
                 startedAt: r.started_at ?? null,
                 totalChapters,
                 completedChapters,
+                totalTextLength:
+                  typeof output.totalTextLength === "number" ? output.totalTextLength : null,
               });
 
           meta = {
@@ -321,13 +397,16 @@ export async function GET(
             totalChapters,
             completedChapters,
             currentChapterTitle: output.currentChapterTitle ?? null,
-            audioUrl: output.audioUrl ?? null,
-            manifestUrl: output.manifestUrl ?? null,
+            audioPath,
+            audioBucket,
+            audioUrl,
+            manifestPath,
+            manifestBucket,
+            manifestUrl,
             durationSeconds: output.durationSeconds ?? null,
-            generatedChapterAudioUrl:
-              typeof output.generatedChapterAudioUrl === "string"
-                ? output.generatedChapterAudioUrl
-                : null,
+            generatedChapterAudioPath,
+            generatedChapterAudioBucket,
+            generatedChapterAudioUrl,
             controlState,
             pauseRequested: output.pauseRequested === true,
             cancelRequested: output.cancelRequested === true,
@@ -376,19 +455,20 @@ export async function GET(
         finishedAt: r.finished_at ?? null,
       };
     })
-    .filter(Boolean) as Array<{
-      id: string;
-      kind: JobKind;
-      status: string;
-      language: string | null;
-      bookVersionId: string | null;
-      progress: number;
-      meta: Record<string, unknown>;
-      error: string | null;
-      createdAt: string | null;
-      startedAt: string | null;
-      finishedAt: string | null;
-    }>;
+  );
+  const aiJobsNormalized = aiJobsRaw.filter(Boolean) as Array<{
+    id: string;
+    kind: JobKind;
+    status: string;
+    language: string | null;
+    bookVersionId: string | null;
+    progress: number;
+    meta: Record<string, unknown>;
+    error: string | null;
+    createdAt: string | null;
+    startedAt: string | null;
+    finishedAt: string | null;
+  }>;
 
   // Merge import jobs with ai_jobs, sort by createdAt desc
   const jobs = [...importJobs, ...translationJobs, ...aiJobsNormalized].sort((a, b) => {

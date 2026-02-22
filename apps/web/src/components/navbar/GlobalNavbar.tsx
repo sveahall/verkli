@@ -123,7 +123,7 @@ const dropdownItemMeta: Record<
       ),
     },
     Finished: {
-      description: "Completed stories and re-reads.",
+      description: "Finished stories and re-reads.",
       icon: (
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.6} className="h-4 w-4">
           <path strokeLinecap="round" strokeLinejoin="round" d="M6.5 12.5l3.5 3.5 7-7" />

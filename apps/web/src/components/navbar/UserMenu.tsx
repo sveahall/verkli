@@ -7,6 +7,7 @@ import { useRouter } from "next/navigation";
 import type { User } from "@supabase/supabase-js";
 import { useToastHelpers } from "@/components/ui/toast";
 import { setActiveRoleCookieClient } from "@/lib/active-role";
+import { getMarketingEnabled } from "@/lib/flags";
 
 const USER_MENU_WIDTH = 280;
 
@@ -229,6 +230,33 @@ export default function UserMenu({ user, onSignOut, currentRole = "author", orig
               </svg>
               <span>Settings</span>
             </Link>
+
+            {currentRole === "author" && getMarketingEnabled() && (
+              <Link
+                href="/author/marketing"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setIsOpen(false);
+                }}
+                className="flex min-h-[44px] w-full items-center gap-3 rounded-xl px-4 py-3 text-[14px] font-medium text-slate-700 dark:text-white/80 transition-all hover:bg-slate-50 dark:hover:bg-white/[0.05] hover:text-slate-900 dark:hover:text-white focus:outline-none focus:ring-2 focus:ring-inset focus:ring-[#907AFF]/30"
+              >
+                <svg
+                  className="h-5 w-5 flex-shrink-0"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                  strokeWidth={1.5}
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    d="M4.5 16.5v-9A2.25 2.25 0 016.75 5.25h10.5A2.25 2.25 0 0119.5 7.5v9A2.25 2.25 0 0117.25 18.75H6.75A2.25 2.25 0 014.5 16.5z"
+                  />
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M8.25 9.75h7.5M8.25 13.5h5.25" />
+                </svg>
+                <span>Marketing</span>
+              </Link>
+            )}
 
             {currentRole === "author" && (
               <Link

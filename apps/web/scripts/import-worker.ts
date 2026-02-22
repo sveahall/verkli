@@ -18,6 +18,7 @@ import {
   contentHash,
   normalizeChapterTitlesToNumericSequence,
 } from "../src/lib/import-extract";
+import { plainTextToTiptapDoc } from "../src/lib/tiptap-content";
 import { createAdminClient } from "../src/lib/supabase/admin";
 import { enqueueTranslationJob } from "../src/lib/translation-queue";
 import { detectLanguageFromText } from "../src/lib/language-detect";
@@ -546,7 +547,7 @@ export async function processJob(payload: ProcessJobPayload) {
         book_id: targetBookId,
         book_version_id: targetBookVersionId,
         title: chapterTitle,
-        content: sourceText,
+        content: JSON.stringify(plainTextToTiptapDoc(sourceText)),
         source_text: sourceText,
         content_hash: hash,
         order: i,

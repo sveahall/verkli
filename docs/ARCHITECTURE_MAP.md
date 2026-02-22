@@ -4,10 +4,10 @@
 1. Systemets centrum är `apps/web` (Next.js app + API + queue producers).
 2. Data går primärt till Supabase (Auth, Postgres, Storage).
 3. Redis används som kö-backplane för BullMQ workers.
-4. Sex worker-processer finns i kod (import, translation, audiobook, tts, social, recommendations).
+4. Fem worker-processer finns i kod (import, translation, audiobook, social, recommendations).
 5. Endast fyra workers har npm-scripts idag; två startas manuellt med `npx tsx`.
 6. Betalning går via Stripe; email via Resend; video via Runway.
-7. Translation och TTS är lokala provider-flöden (Opus MT/Piper) med starkt env-beroende.
+7. Translation är ett lokalt provider-flöde (Opus MT) med starkt env-beroende.
 8. Databasschemat är splittrat över två migrationsmappar och är inte helt synkat med runtime-kod.
 
 ## Översiktsdiagram
@@ -22,7 +22,6 @@ graph TD
   Redis --> WImport["import-worker"]
   Redis --> WTrans["translation-worker"]
   Redis --> WAudio["audiobook-worker"]
-  Redis --> WTTS["tts-worker"]
   Redis --> WSocial["social-publish-worker"]
   Redis --> WReco["recommendations-worker"]
 
@@ -31,8 +30,6 @@ graph TD
   WTrans --> DB
   WAudio --> DB
   WAudio --> Storage
-  WTTS --> DB
-  WTTS --> Storage
   WSocial --> DB
   WReco --> DB
 
@@ -79,7 +76,6 @@ graph TD
 ### Storage buckets i migrationer
 - `book_covers`
 - `audiobooks`
-- `tts-outputs`
 - `content-assets`
 
 ### Storage bucket i runtimekod
@@ -91,7 +87,6 @@ graph TD
 | `book-import-extract` | import routes + scoped import lib | `scripts/import-worker.ts` | `book_imports`, `books`, `book_versions`, `chapters` |
 | `book-translation` | translate route + auto-enqueue i import worker | `scripts/translation-worker.ts` | `book_versions`, `chapters` |
 | `audiobook-generation` | audiobook generate route | `scripts/audiobook-worker.ts` | `ai_jobs`, `audiobook_assets`, `chapter_audio_cache`, storage |
-| `tts-generation` | tts job path | `scripts/tts-worker.ts` | `ai_jobs`, `audiobook_assets`, storage |
 | `social-publish` | social publish route | `scripts/social-publish-worker.ts` | `ai_jobs`, `marketing_campaigns` |
 | `recommendations` | recommendations queue + intern scheduler | `scripts/recommendations-worker.ts` | `recommendations` |
 | `notifications` | definierad i queue names | saknas worker | ej aktiv queue-flow i kod |
@@ -103,7 +98,7 @@ graph TD
 | Author app | `/author/home`, `/author/books`, `/author/publish`, `/author/stats`, `/author/marketing` | `/api/author/stats*`, `/api/books/[id]/*` |
 | Reader app | `/reader/home`, `/reader/discover`, `/reader/books/[id]`, `/reader/read/[chapterId]` | bookmarks, comments, follows, reviews, clubs, polls, notifications |
 | Billing | account billing pages | `/api/billing/*`, `/api/stripe/webhook`, `/api/books/[id]/purchase/checkout`, `/api/donations/checkout`, `/api/credits/*` |
-| Import/Translation/TTS | author book workflows | `/api/books/import*`, `/api/books/[id]/import`, `/api/books/[id]/translate*`, `/api/tts`, `/api/books/[id]/tts`, `/api/books/[id]/audiobook/*` |
+| Import/Translation/Audiobook | author book workflows | `/api/books/import*`, `/api/books/[id]/import`, `/api/books/[id]/translate*`, `/api/books/[id]/audiobook/*` |
 
 ## Tredjepart Och Integrationspunkter
 | Tjänst | Funktion | Nycklar |
@@ -115,7 +110,6 @@ graph TD
 | Supabase | Auth, DB, Storage | `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY` |
 | Redis | Queue transport | `REDIS_URL` |
 | Opus MT (lokal) | Translation provider | `OPUSMT_PYTHON`, `OPUSMT_MODELS_DIR` |
-| Piper (lokal) | TTS provider | `TTS_*` variabler |
 
 ## Säkerhetsgränser
 - API auth bygger på Supabase session från server client (`createClient`).

@@ -64,15 +64,11 @@ npm run translate-worker
 # Kräver extra env: OPUSMT_PYTHON, OPUSMT_MODELS_DIR
 ```
 
-### Terminal 5 — Audiobook / TTS worker
+### Terminal 5 — Audiobook worker
 
 ```bash
 npm run audiobook-worker
 # Lyssnar på kö: audiobook-generation
-
-# Eller TTS (separat terminal om båda behövs):
-npm run tts-worker
-# Lyssnar på kö: tts-generation
 ```
 
 > **Tips:** Du behöver bara starta de workers du faktiskt ska testa. Import-worker räcker för grundläggande bokimport.
@@ -86,7 +82,6 @@ npm run tts-worker
 | `book-import-extract` | `npm run import-worker` | `apps/web/scripts/import-worker.ts` |
 | `book-translation` | `npm run translate-worker` | `apps/web/scripts/translation-worker.ts` |
 | `audiobook-generation` | `npm run audiobook-worker` | `apps/web/scripts/audiobook-worker.ts` |
-| `tts-generation` | `npm run tts-worker` | `apps/web/scripts/tts-worker.ts` |
 
 Statuskontrakt i databasen:
 
@@ -139,13 +134,13 @@ OPUSMT_PYTHON=/abs/path/to/venv/bin/python
 OPUSMT_MODELS_DIR=/abs/path/to/apps/web/models
 ```
 
-### TTS/Audiobook-worker: binär saknas
+### Audiobook-worker: narration provider saknas
 
 ```
-TTS_BIN not found
+Narrator provider removed
 ```
 
-**Fix:** Installera Piper TTS och peka `TTS_BIN`, `TTS_MODEL_PATH`, `TTS_CONFIG_PATH` till rätt sökvägar i `.env.local`.
+**Fix:** Lokal legacy-TTS är borttaget. Integrera Qwen3 TTS istället.
 
 ### Jobb fastnar i `processing`
 
@@ -196,16 +191,6 @@ Minimal verifiering att hela kedjan fungerar.
 - [ ] Worker-logg visar `completed` utan fel
 - [ ] Boken dyker upp i din boklista i UI:t
 - [ ] `book_imports.status` = `completed` i databasen
-
-### TTS smoke test (separat)
-
-```bash
-npm run tts:smoke
-# Kör scripts/tts_smoke_test.sh
-# Verifierar att Piper-binären och modellerna fungerar
-```
-
----
 
 ## 6. Stoppa allt
 

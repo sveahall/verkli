@@ -172,6 +172,92 @@ export async function POST(
     if (!version.published_at) {
       return NextResponse.json({ ok: true, alreadyUnpublished: true });
     }
+
+    // Chapter-level unpublish: retract a single chapter (and all after it)
+    if (requestedScope === "chapter" && requestedChapterId && hasPublishedChapterCountColumn) {
+      const { data: chapter, error: chapterError } = await supabase
+        .from("chapters")
+        .select("id, order")
+        .eq("book_version_id", versionId)
+        .eq("id", requestedChapterId)
+        .maybeSingle();
+
+      if (chapterError) {
+        console.error("[publish] chapter lookup for unpublish failed", {
+          bookId: id, versionId, chapterId: requestedChapterId, message: chapterError.message,
+        });
+        return apiError(E_DATABASE_ERROR, 500);
+      }
+      if (!chapter) {
+        return apiError(E_CHAPTER_NEEDS_CONTENT, 400, { detail: "Selected chapter not found in this version." });
+      }
+
+      const chapterOrder = Number(chapter.order ?? 0);
+      const nextPublishedChapterCount = Number.isFinite(chapterOrder) ? chapterOrder : 0;
+
+      // Guard: the chapter must actually be published for unpublish to make sense.
+      // If published_chapter_count is null all chapters are live; retracting is valid.
+      // Otherwise the new count must be strictly less than the current count.
+      const currentCount =
+        typeof version.published_chapter_count === "number" && Number.isFinite(version.published_chapter_count)
+          ? Math.max(0, Math.floor(version.published_chapter_count))
+          : null;
+
+      if (currentCount !== null && nextPublishedChapterCount >= currentCount) {
+        // Chapter is already unpublished — retract would increase the count, which is a publish.
+        return NextResponse.json({ ok: true, alreadyUnpublished: true, scope: "chapter" });
+      }
+
+      if (nextPublishedChapterCount === 0) {
+        // Retracting to 0 means no chapters are published — full unpublish
+        const { error: versionUpdateError } = await supabase
+          .from("book_versions")
+          .update({ published_at: null, published_chapter_count: null })
+          .eq("id", versionId);
+
+        if (versionUpdateError) {
+          console.error("[publish] chapter unpublish (full) failed", { bookId: id, versionId, message: versionUpdateError.message });
+          return apiError(E_DATABASE_ERROR, 500);
+        }
+
+        const { data: remainingPublished } = await supabase
+          .from("book_versions")
+          .select("id")
+          .eq("book_id", id)
+          .not("published_at", "is", null)
+          .limit(1);
+
+        if (!remainingPublished || remainingPublished.length === 0) {
+          await supabase
+            .from("books")
+            .update({ status: "DRAFT", published: false, published_at: null })
+            .eq("id", id);
+        }
+
+        return NextResponse.json({ ok: true, unpublished: true, scope: "chapter", publishedChapterCount: 0 });
+      }
+
+      const { error: versionUpdateError } = await supabase
+        .from("book_versions")
+        .update({ published_chapter_count: nextPublishedChapterCount })
+        .eq("id", versionId);
+
+      if (versionUpdateError) {
+        console.error("[publish] chapter unpublish failed", {
+          bookId: id, versionId, chapterId: requestedChapterId, message: versionUpdateError.message,
+        });
+        return apiError(E_DATABASE_ERROR, 500);
+      }
+
+      return NextResponse.json({
+        ok: true,
+        scope: "chapter",
+        chapterId: requestedChapterId,
+        publishedChapterCount: nextPublishedChapterCount,
+      });
+    }
+
+    // Full version unpublish
     const unpublishPayload = hasPublishedChapterCountColumn
       ? { published_at: null, published_chapter_count: null }
       : { published_at: null };

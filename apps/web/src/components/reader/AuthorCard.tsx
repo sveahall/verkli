@@ -6,10 +6,13 @@ type AuthorCardProps = {
   avatar?: string | null;
   genre?: string;
   followers?: string;
+  meta?: string;
   href?: string;
 };
 
-export default function AuthorCard({ name, avatar, genre, followers, href = "#" }: AuthorCardProps) {
+export default function AuthorCard({ name, avatar, genre, followers, meta, href = "#" }: AuthorCardProps) {
+  const metaText = meta ?? (followers ? `${followers} followers` : null);
+
   return (
     <Link
       href={href}
@@ -29,8 +32,8 @@ export default function AuthorCard({ name, avatar, genre, followers, href = "#" 
       <div className="min-w-0">
         <p className="text-[14px] font-semibold text-slate-900 dark:text-white truncate">{name}</p>
         <p className="text-[12px] text-slate-500 dark:text-white/60 truncate">{genre ?? "Storyteller"}</p>
-        {followers && (
-          <p className="text-[11px] text-slate-400 dark:text-white/45">{followers} followers</p>
+        {metaText && (
+          <p className="text-[11px] text-slate-400 dark:text-white/45">{metaText}</p>
         )}
       </div>
     </Link>

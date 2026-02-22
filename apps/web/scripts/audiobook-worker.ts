@@ -33,7 +33,7 @@ const BUCKET = getAudiobookStorageBucket();
 const SCRIPT_DIR = path.dirname(fileURLToPath(import.meta.url));
 const APP_ROOT = path.resolve(SCRIPT_DIR, "..");
 const REPO_ROOT = path.resolve(APP_ROOT, "..", "..");
-const QWEN_MODEL_DEFAULT = "Qwen/Qwen3-TTS-12Hz-0.6B-Base";
+const QWEN_MODEL_DEFAULT = "Qwen/Qwen3-TTS-12Hz-0.6B-CustomVoice";
 const QWEN_SYNTH_SCRIPT_DEFAULT = path.join(SCRIPT_DIR, "qwen_tts_synthesize.py");
 const QWEN_PYTHON_DEFAULT = path.join(REPO_ROOT, "qwen3tts-env", "bin", "python3.12");
 
@@ -90,8 +90,24 @@ const QWEN_MAX_CHARS = (() => {
 const QWEN_MAX_NEW_TOKENS = (() => {
   const raw = process.env.QWEN_TTS_MAX_NEW_TOKENS;
   const n = raw ? Number(raw) : NaN;
-  if (Number.isFinite(n) && n > 0) return Math.max(48, Math.min(192, Math.floor(n)));
-  return 96;
+  if (Number.isFinite(n) && n > 0) return Math.max(48, Math.min(4096, Math.floor(n)));
+  return 2048;
+})();
+
+/** Chunk batch size used inside Python synth call. */
+const QWEN_BATCH_SIZE = (() => {
+  const raw = process.env.QWEN_TTS_BATCH_SIZE ?? process.env.TTS_BATCH_SIZE;
+  const n = raw ? Number(raw) : NaN;
+  if (Number.isFinite(n) && n > 0) return Math.max(1, Math.min(8, Math.floor(n)));
+  return 1;
+})();
+
+/** Worker-level concurrency for audiobook jobs (default 1 to avoid VRAM thrash). */
+const TTS_CONCURRENCY = (() => {
+  const raw = process.env.TTS_CONCURRENCY;
+  const n = raw ? Number(raw) : NaN;
+  if (Number.isFinite(n) && n > 0) return Math.max(1, Math.min(4, Math.floor(n)));
+  return 1;
 })();
 
 /** Estimate WAV duration from buffer (assumes standard WAV header) */
@@ -105,6 +121,35 @@ function estimateWavDuration(wav: Buffer): number {
   } catch {
     return 0;
   }
+}
+
+function perfNumber(value: number | undefined, digits = 2): string | null {
+  if (typeof value !== "number" || !Number.isFinite(value)) return null;
+  return value.toFixed(digits);
+}
+
+function formatQwenPerf(result: QwenSynthesisResult): string {
+  const parts: string[] = [];
+  const metrics = result.metrics ?? undefined;
+  const rtf = perfNumber(metrics?.rtf, 3);
+  const genRtf = perfNumber(metrics?.generationRtf, 3);
+  const wall = perfNumber(metrics?.wallClockSec, 2);
+  const synth = perfNumber(metrics?.synthesisSec, 2);
+  const cps = perfNumber(metrics?.charsPerSecGeneration, 1);
+  const gpuMiB = perfNumber(metrics?.gpuPeakMemoryMiB, 0);
+
+  if (wall) parts.push(`wall=${wall}s`);
+  if (synth) parts.push(`synth=${synth}s`);
+  if (rtf) parts.push(`rtf=${rtf}`);
+  if (genRtf) parts.push(`genRtf=${genRtf}`);
+  if (cps) parts.push(`chars/s=${cps}`);
+  if (gpuMiB) parts.push(`gpuPeak=${gpuMiB}MiB`);
+  if (result.batchSize) parts.push(`batch=${result.batchSize}`);
+  if (result.dtype) parts.push(`dtype=${result.dtype}`);
+  if (typeof result.torchCompile === "boolean") parts.push(`compile=${result.torchCompile ? "on" : "off"}`);
+  if (typeof result.int8 === "boolean") parts.push(`int8=${result.int8 ? "on" : "off"}`);
+
+  return parts.length > 0 ? `, ${parts.join(", ")}` : "";
 }
 
 function resolveQwenSynthScriptPath(): string {
@@ -125,6 +170,25 @@ type QwenSynthesisMetadata = {
   sampleRate?: number;
   device?: string;
   method?: string;
+  batchSize?: number;
+  dtype?: string;
+  attnImplementation?: string;
+  autocast?: boolean;
+  torchCompile?: boolean;
+  int8?: boolean;
+  metrics?: {
+    wallClockSec?: number;
+    loadSec?: number;
+    synthesisSec?: number;
+    audioSec?: number;
+    rtf?: number;
+    generationRtf?: number;
+    chars?: number;
+    charsPerSecTotal?: number;
+    charsPerSecGeneration?: number;
+    gpuPeakMemoryMiB?: number;
+    processedChunks?: number;
+  };
 };
 
 type QwenSynthesisResult = {
@@ -133,6 +197,11 @@ type QwenSynthesisResult = {
   outputPath: string;
   device: string | null;
   method: string | null;
+  metrics: QwenSynthesisMetadata["metrics"] | null;
+  batchSize: number | null;
+  dtype: string | null;
+  torchCompile: boolean | null;
+  int8: boolean | null;
 };
 
 function parseQwenMetadata(stdout: string): QwenSynthesisMetadata {
@@ -188,6 +257,8 @@ async function synthesizeWithQwen(
     options.voiceId || "Ryan",
     "--max-chars",
     String(QWEN_MAX_CHARS),
+    "--batch-size",
+    String(QWEN_BATCH_SIZE),
     "--max-new-tokens",
     String(QWEN_MAX_NEW_TOKENS),
     "--xvector-only",
@@ -202,7 +273,6 @@ async function synthesizeWithQwen(
       env: {
         ...process.env,
         PYTORCH_ENABLE_MPS_FALLBACK: process.env.PYTORCH_ENABLE_MPS_FALLBACK ?? "1",
-        CUDA_VISIBLE_DEVICES: "",
       },
     });
 
@@ -272,6 +342,16 @@ async function synthesizeWithQwen(
               outputPath: resolvedOutputPath,
               device: typeof metadata.device === "string" ? metadata.device : null,
               method: typeof metadata.method === "string" ? metadata.method : null,
+              metrics:
+                metadata.metrics && typeof metadata.metrics === "object" ? metadata.metrics : null,
+              batchSize:
+                typeof metadata.batchSize === "number" && Number.isFinite(metadata.batchSize)
+                  ? metadata.batchSize
+                  : null,
+              dtype: typeof metadata.dtype === "string" ? metadata.dtype : null,
+              torchCompile:
+                typeof metadata.torchCompile === "boolean" ? metadata.torchCompile : null,
+              int8: typeof metadata.int8 === "boolean" ? metadata.int8 : null,
             });
           });
         } catch (error) {
@@ -295,7 +375,7 @@ interface ChapterAudio {
   title: string;
   order: number;
   audioPath: string;
-  audioUrl?: string;
+  storagePath: string;
   durationSeconds: number;
 }
 
@@ -359,7 +439,7 @@ function createManifest(chapters: ChapterAudio[], bookId: string): object {
       id: ch.chapterId,
       title: ch.title,
       order: ch.order,
-      audioUrl: ch.audioUrl,
+      audioPath: ch.storagePath,
       durationSeconds: ch.durationSeconds,
     })),
     totalDurationSeconds: chapters.reduce((sum, ch) => sum + ch.durationSeconds, 0),
@@ -488,7 +568,7 @@ async function processJob(payload: AudiobookJobData) {
   };
 
   try {
-    console.log(
+    console.warn(
       "[audiobook worker] job started -",
       jobId,
       "bookId:",
@@ -521,7 +601,7 @@ async function processJob(payload: AudiobookJobData) {
       // Processor-level dedupe: skip if audiobook_assets already has a generated asset for this book+language
       const { data: existingGeneratedAsset } = await supabase
         .from("audiobook_assets")
-        .select("id, audio_url, duration_seconds")
+        .select("id, audio_path, duration_seconds")
         .eq("book_id", bookId)
         .eq("language", language)
         .eq("status", "generated")
@@ -540,7 +620,8 @@ async function processJob(payload: AudiobookJobData) {
           reason: "dedupe",
           completedChapters: 0,
           currentChapterId: null,
-          audioUrl: existingGeneratedAsset?.audio_url ?? null,
+          audioPath: existingGeneratedAsset?.audio_path ?? null,
+          audioBucket: BUCKET,
           durationSeconds: existingGeneratedAsset?.duration_seconds ?? null,
           errorMessage: null,
           scope: "book",
@@ -604,13 +685,20 @@ async function processJob(payload: AudiobookJobData) {
     }
 
     const totalChapters = chapters.length;
+    const totalTextLength = chapters.reduce(
+      (sum, ch) => sum + getChapterText(ch.content).length,
+      0
+    );
     await updateJob("processing", {
       totalChapters,
+      totalTextLength,
       completedChapters: 0,
       currentChapterId: null,
       currentChapterTitle: null,
-      audioUrl: null,
-      manifestUrl: null,
+      audioPath: null,
+      audioBucket: null,
+      manifestPath: null,
+      manifestBucket: null,
       errorMessage: null,
       narratorModel: resolvedModelId,
       scope,
@@ -633,7 +721,8 @@ async function processJob(payload: AudiobookJobData) {
       Number.isFinite(configuredTimeoutMs) && configuredTimeoutMs > 0
         ? configuredTimeoutMs
         : 900_000;
-    console.log("[audiobook worker] qwen timeout per chapter:", chapterTimeoutMs, "ms");
+    console.warn("[audiobook worker] qwen timeout per chapter:", chapterTimeoutMs, "ms");
+    console.warn("[audiobook worker] qwen batch size:", QWEN_BATCH_SIZE);
 
     const synthesizeOne = async (text: string, outputPath: string) => {
       return synthesizeWithQwen(text, outputPath, {
@@ -651,7 +740,7 @@ async function processJob(payload: AudiobookJobData) {
       const text = getChapterText(chapter.content);
 
       if (!text.trim()) {
-        console.log(`[audiobook worker] chapter ${i} (${chapter.id}) empty, skipping`);
+        console.warn(`[audiobook worker] chapter ${i} (${chapter.id}) empty, skipping`);
         continue;
       }
 
@@ -678,11 +767,11 @@ async function processJob(payload: AudiobookJobData) {
 
       let audioPath: string;
       let durationSeconds: number;
-      let audioUrl: string | undefined;
+      let storagePath: string;
 
       if (cached?.audio_path) {
         // Download cached audio from storage
-        console.log(`[audiobook worker] chapter ${i} cache hit, downloading...`);
+        console.warn(`[audiobook worker] chapter ${i} cache hit, downloading...`);
         const localPath = path.join(tmpDir, `chapter-${i}.wav`);
         const { data: audioData, error: downloadError } = await supabase.storage
           .from(BUCKET)
@@ -692,48 +781,41 @@ async function processJob(payload: AudiobookJobData) {
           const buffer = Buffer.from(await audioData.arrayBuffer());
           await fs.writeFile(localPath, buffer);
           audioPath = localPath;
+          storagePath = cached.audio_path;
           durationSeconds = cached.duration_seconds ?? estimateWavDuration(buffer);
-
-          // Get public URL for manifest
-          const { data: urlData } = supabase.storage.from(BUCKET).getPublicUrl(cached.audio_path);
-          audioUrl = urlData?.publicUrl;
         } else {
           // Cache miss/invalid, synthesize fresh via local Qwen script.
-          console.log(`[audiobook worker] chapter ${i} cache invalid, synthesizing...`);
+          console.warn(`[audiobook worker] chapter ${i} cache invalid, synthesizing...`);
           const outputPath = path.join(tmpDir, `chapter-${i}.wav`);
-          const { wav, device, method } = await synthesizeOne(text, outputPath);
+          const synthesis = await synthesizeOne(text, outputPath);
+          const { wav, device, method } = synthesis;
           durationSeconds = estimateWavDuration(wav);
-          audioPath = outputPath;
-          await fs.writeFile(audioPath, wav);
-          console.log(
-            `[audiobook worker] chapter ${i} synthesized via qwen (device=${device ?? "unknown"}, method=${method ?? "unknown"})`
+          audioPath = synthesis.outputPath || outputPath;
+          console.warn(
+            `[audiobook worker] chapter ${i} synthesized via qwen (device=${device ?? "unknown"}, method=${method ?? "unknown"}${formatQwenPerf(synthesis)})`
           );
 
           // Upload to cache
           const cachePath = `cache/${bookId}/${chapter.id}-${contentHash.slice(0, 16)}.wav`;
           await uploadAndCacheChapter(supabase, cachePath, wav, chapter.id, bookVersionId, contentHash, voiceId, resolvedModelId, language, durationSeconds);
-
-          const { data: urlData } = supabase.storage.from(BUCKET).getPublicUrl(cachePath);
-          audioUrl = urlData?.publicUrl;
+          storagePath = cachePath;
         }
       } else {
         // No cache, synthesize new audio via local Qwen script.
-        console.log(`[audiobook worker] chapter ${i} synthesizing via qwen: "${chapter.title}"`);
+        console.warn(`[audiobook worker] chapter ${i} synthesizing via qwen: "${chapter.title}"`);
         const outputPath = path.join(tmpDir, `chapter-${i}.wav`);
-        const { wav, device, method } = await synthesizeOne(text, outputPath);
+        const synthesis = await synthesizeOne(text, outputPath);
+        const { wav, device, method } = synthesis;
         durationSeconds = estimateWavDuration(wav);
-        audioPath = outputPath;
-        await fs.writeFile(audioPath, wav);
-        console.log(
-          `[audiobook worker] chapter ${i} synthesized via qwen (device=${device ?? "unknown"}, method=${method ?? "unknown"})`
+        audioPath = synthesis.outputPath || outputPath;
+        console.warn(
+          `[audiobook worker] chapter ${i} synthesized via qwen (device=${device ?? "unknown"}, method=${method ?? "unknown"}${formatQwenPerf(synthesis)})`
         );
 
         // Upload to cache
         const cachePath = `cache/${bookId}/${chapter.id}-${contentHash.slice(0, 16)}.wav`;
         await uploadAndCacheChapter(supabase, cachePath, wav, chapter.id, bookVersionId, contentHash, voiceId, resolvedModelId, language, durationSeconds);
-
-        const { data: urlData } = supabase.storage.from(BUCKET).getPublicUrl(cachePath);
-        audioUrl = urlData?.publicUrl;
+        storagePath = cachePath;
       }
 
       chapterAudios.push({
@@ -741,7 +823,7 @@ async function processJob(payload: AudiobookJobData) {
         title: chapter.title,
         order: chapter.order,
         audioPath,
-        audioUrl,
+        storagePath,
         durationSeconds,
       });
 
@@ -781,9 +863,12 @@ async function processJob(payload: AudiobookJobData) {
     if (singleChapterMode) {
       const chapterResult = chapterAudios[0];
       await updateJob("completed", {
-        audioUrl: null,
-        manifestUrl: null,
-        generatedChapterAudioUrl: chapterResult?.audioUrl ?? null,
+        audioPath: null,
+        audioBucket: null,
+        manifestPath: null,
+        manifestBucket: null,
+        generatedChapterAudioPath: chapterResult?.storagePath ?? null,
+        generatedChapterAudioBucket: BUCKET,
         generatedChapterId: chapterResult?.chapterId ?? selectedChapterId,
         generatedChapterTitle: chapterResult?.title ?? null,
         durationSeconds: chapterResult?.durationSeconds ?? null,
@@ -801,7 +886,6 @@ async function processJob(payload: AudiobookJobData) {
       });
 
       await fs.rm(tmpDir, { recursive: true, force: true }).catch(() => {});
-      console.log("[audiobook worker] chapter-mode completed -", jobId, "chapterId:", selectedChapterId);
       return;
     }
 
@@ -812,8 +896,8 @@ async function processJob(payload: AudiobookJobData) {
       finalAudioPath
     );
 
-    let finalAudioUrl: string | null = null;
-    let manifestUrl: string | null = null;
+    let finalAudioStoragePath: string | null = null;
+    let manifestStoragePath: string | null = null;
     const totalDuration = chapterAudios.reduce((sum, c) => sum + c.durationSeconds, 0);
     let fileSizeBytes: number | null = null;
 
@@ -837,19 +921,15 @@ async function processJob(payload: AudiobookJobData) {
           });
 
         if (!uploadError) {
-          const { data: urlData } = supabase.storage.from(BUCKET).getPublicUrl(storagePath);
-          finalAudioUrl = urlData?.publicUrl ?? null;
-          console.log("[audiobook worker] uploaded stitched audiobook:", finalAudioUrl);
+          finalAudioStoragePath = storagePath;
+        } else {
+          console.error("[audiobook worker] stitched upload failed", { bookId, error: uploadError.message });
         }
       } else {
-        console.log(
-          "[audiobook worker] stitched file too large (",
-          Math.round(fileSizeBytes / 1024 / 1024),
-          "MB), using manifest-only playback"
-        );
+        console.warn("[audiobook worker] stitched file too large, manifest-only", { bookId, sizeMb: Math.round(fileSizeBytes / 1024 / 1024) });
       }
     } else {
-      console.log("[audiobook worker] ffmpeg unavailable, using manifest-only playback");
+      console.warn("[audiobook worker] ffmpeg unavailable, manifest-only", { bookId });
     }
 
     // Always upload manifest so client can play by chapter (required when no single-file upload)
@@ -861,16 +941,17 @@ async function processJob(payload: AudiobookJobData) {
       });
 
     if (manifestError) {
-      console.warn("[audiobook worker] manifest upload failed:", manifestError.message);
+      console.error("[audiobook worker] manifest upload failed", { bookId, error: manifestError.message });
     } else {
-      const { data: urlData } = supabase.storage.from(BUCKET).getPublicUrl(manifestPath);
-      manifestUrl = urlData?.publicUrl ?? null;
+      manifestStoragePath = manifestPath;
     }
 
     if (multiChapterMode) {
       await updateJob("completed", {
-        audioUrl: finalAudioUrl,
-        manifestUrl,
+        audioPath: finalAudioStoragePath,
+        audioBucket: BUCKET,
+        manifestPath: manifestStoragePath,
+        manifestBucket: BUCKET,
         durationSeconds: totalDuration,
         fileSizeBytes,
         chaptersProcessed: chapterAudios.length,
@@ -886,23 +967,26 @@ async function processJob(payload: AudiobookJobData) {
         controlState: "completed",
       });
       await fs.rm(tmpDir, { recursive: true, force: true }).catch(() => {});
-      console.log("[audiobook worker] multi-chapter mode completed -", jobId, "chapters:", chapterAudios.length);
       return;
     }
 
-    // Create audiobook_assets record
+    // Create audiobook_assets record with private storage path only.
+    const assetPath = finalAudioStoragePath ?? manifestStoragePath;
     await supabase.from("audiobook_assets").insert({
       book_id: bookId,
       language,
       status: "generated",
-      audio_url: finalAudioUrl ?? manifestUrl,
+      audio_path: assetPath,
+      audio_bucket: BUCKET,
       duration_seconds: totalDuration,
     });
 
     // Mark job complete
     await updateJob("completed", {
-      audioUrl: finalAudioUrl,
-      manifestUrl,
+      audioPath: finalAudioStoragePath,
+      audioBucket: BUCKET,
+      manifestPath: manifestStoragePath,
+      manifestBucket: BUCKET,
       durationSeconds: totalDuration,
       fileSizeBytes,
       chaptersProcessed: chapterAudios.length,
@@ -923,12 +1007,12 @@ async function processJob(payload: AudiobookJobData) {
     // Cleanup temp files
     await fs.rm(tmpDir, { recursive: true, force: true }).catch(() => {});
 
-    console.log(
+    console.warn(
       "[audiobook worker] completed -",
       jobId,
       "chapters:", chapterAudios.length,
       "duration:", totalDuration,
-      "url:", finalAudioUrl ?? manifestUrl
+      "path:", finalAudioStoragePath ?? manifestStoragePath
     );
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
@@ -1018,7 +1102,12 @@ function main() {
     process.exit(1);
   }
 
-  console.log("[audiobook worker] started - queue:", QUEUE_NAME);
+  console.warn(
+    "[audiobook worker] started - queue:",
+    QUEUE_NAME,
+    "workerConcurrency:",
+    TTS_CONCURRENCY
+  );
 
   const worker = new Worker(
     QUEUE_NAME,
@@ -1033,15 +1122,15 @@ function main() {
         port: connection.port,
         password: connection.password,
       },
-      concurrency: 2,
+      concurrency: TTS_CONCURRENCY,
       stalledInterval: 120_000,
-      lockDuration: 600_000,
+      lockDuration: 3_660_000,
       maxStalledCount: 2,
     }
   );
 
   worker.on("completed", (job) => {
-    console.log("[audiobook worker] job completed:", job.id);
+    console.warn("[audiobook worker] job completed:", job.id);
   });
 
   worker.on("failed", (job, err) => {
@@ -1054,13 +1143,13 @@ function main() {
 
   // Graceful shutdown
   process.on("SIGTERM", async () => {
-    console.log("[audiobook worker] shutting down...");
+    console.warn("[audiobook worker] shutting down...");
     await worker.close();
     process.exit(0);
   });
 
   process.on("SIGINT", async () => {
-    console.log("[audiobook worker] shutting down...");
+    console.warn("[audiobook worker] shutting down...");
     await worker.close();
     process.exit(0);
   });

@@ -541,7 +541,7 @@ export default function InboxClient({ mode, initialConversationId = null }: Inbo
                     ? "Accepted"
                     : selectedConversation.canAccept
                       ? "New request"
-                      : "Pending request"}
+                      : "Awaiting request"}
                 </p>
               </div>
 

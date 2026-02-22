@@ -8,8 +8,7 @@ import CommentsSection from "../../books/[id]/CommentsSection";
 import ReadingProgress from "./ReadingProgress";
 import ReaderChapterClient, { type ReaderHighlight, type ReaderSettings } from "./ReaderChapterClient";
 import ChapterTopNavigator from "./ChapterTopNavigator";
-import ManifestAudiobookPlayer from "@/components/books/ManifestAudiobookPlayer";
-import NoDownloadAudioPlayer from "@/components/books/NoDownloadAudioPlayer";
+import ChapterAudiobookPlayer from "./ChapterAudiobookPlayer";
 
 function asRecord(value: unknown): Record<string, unknown> | null {
   if (typeof value !== "object" || value === null || Array.isArray(value)) return null;
@@ -76,17 +75,22 @@ export default async function ReaderReadPage({
 
   const { data: book } = await supabase
     .from("books")
-    .select("id, title, status, author_id, price_amount, price_currency")
+    .select("id, title, status, audiobook_status, author_id, price_amount, price_currency")
     .eq("id", chapter.book_id)
     .maybeSingle();
-
-  if (!book || book.status !== "PUBLISHED") {
-    notFound();
-  }
 
   const {
     data: { user },
   } = await supabase.auth.getUser();
+
+  if (!book) {
+    notFound();
+  }
+
+  const isAuthorView = Boolean(user?.id && (book as { author_id?: string | null }).author_id === user.id);
+  if (book.status !== "PUBLISHED" && !isAuthorView) {
+    notFound();
+  }
 
   const priceAmount = Math.max(0, Math.trunc(Number((book as { price_amount?: number | null }).price_amount ?? 0)));
   const priceCurrency = String((book as { price_currency?: string | null }).price_currency ?? "USD").trim().toUpperCase() || "USD";
@@ -133,23 +137,6 @@ export default async function ReaderReadPage({
   }
 
   let shouldLogStartReading = false;
-
-  const { data: latestAudiobookAsset } = await supabase
-    .from("audiobook_assets")
-    .select("id, audio_url, status, created_at")
-    .eq("book_id", book.id)
-    .eq("status", "generated")
-    .order("created_at", { ascending: false })
-    .limit(1)
-    .maybeSingle();
-
-  const audiobookPlaybackUrl =
-    typeof latestAudiobookAsset?.audio_url === "string" && latestAudiobookAsset.audio_url.trim().length > 0
-      ? latestAudiobookAsset.audio_url
-      : null;
-  const audiobookPlaybackIsManifest = Boolean(
-    typeof audiobookPlaybackUrl === "string" && /\.json(?:$|[?#])/i.test(audiobookPlaybackUrl)
-  );
 
   if (user) {
     const { data: existingReading } = await supabase
@@ -284,23 +271,14 @@ export default async function ReaderReadPage({
           <p className="mt-2 text-center text-[13px] text-slate-500 dark:text-white/50">
             Chapter {chapterIndex + 1} of {totalChapters}
           </p>
-          {audiobookPlaybackUrl && (
-            <div className="mt-7 rounded-[26px] border border-[#8eb7e8]/35 bg-[linear-gradient(180deg,rgba(255,255,255,0.96),rgba(239,248,255,0.84))] p-5 shadow-[0_14px_36px_rgba(59,130,246,0.08)] dark:border-emerald-400/20 dark:bg-emerald-900/10 dark:shadow-none">
-              <div className="mb-3 flex items-center justify-between gap-3">
-                <p className="text-[13px] font-semibold uppercase tracking-[0.08em] text-slate-700 dark:text-emerald-200">
-                  Audiobook
-                </p>
-                <p className="text-[11px] text-slate-600 dark:text-emerald-200/80">
-                  Listen while reading
-                </p>
-              </div>
-              {audiobookPlaybackIsManifest ? (
-                <ManifestAudiobookPlayer manifestUrl={audiobookPlaybackUrl} />
-              ) : (
-                <NoDownloadAudioPlayer src={audiobookPlaybackUrl} />
-              )}
-            </div>
-          )}
+          <ChapterAudiobookPlayer
+            bookId={book.id}
+            chapterId={chapter.id}
+            audiobookStatus={typeof (book as { audiobook_status?: string | null }).audiobook_status === "string"
+              ? (book as { audiobook_status?: string | null }).audiobook_status
+              : null}
+            isAuthorView={isAuthorView}
+          />
           <div className="mt-8 text-[15px] leading-relaxed text-slate-700 dark:text-white/70">
             <ReaderChapterClient
               userId={user?.id ?? null}

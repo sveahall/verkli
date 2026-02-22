@@ -2,9 +2,10 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { E_AUDIOBOOK_STATUS_UNAVAILABLE } from "@/lib/api-errors";
 import { GET } from "./route";
 
-const { requireAuthorRoleForApi, createClient } = vi.hoisted(() => ({
+const { requireAuthorRoleForApi, createClient, createAdminClient } = vi.hoisted(() => ({
   requireAuthorRoleForApi: vi.fn(),
   createClient: vi.fn(),
+  createAdminClient: vi.fn(),
 }));
 
 vi.mock("@/lib/auth/require-author", () => ({
@@ -13,6 +14,14 @@ vi.mock("@/lib/auth/require-author", () => ({
 
 vi.mock("@/lib/supabase/server", () => ({
   createClient,
+}));
+
+vi.mock("@/lib/supabase/admin", () => ({
+  createAdminClient,
+}));
+
+vi.mock("@/lib/tts/storage", () => ({
+  getAudiobookStorageBucket: () => "audiobooks",
 }));
 
 const originalEnv = {

@@ -1,14 +1,9 @@
 "use client";
 
-import { useEffect } from "react";
 import { ErrorState } from "@/components/ui/states";
 import { Button } from "@/components/ui/button";
 
-export default function Error({ error, reset }: { error: Error; reset: () => void }) {
-  useEffect(() => {
-    console.error(error);
-  }, [error]);
-
+export default function Error({ reset }: { error: Error; reset: () => void }) {
   return (
     <div className="page-content py-8">
       <ErrorState

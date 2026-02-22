@@ -7,7 +7,9 @@ type ManifestTrack = {
   id: string;
   title: string;
   order: number;
-  audioUrl: string;
+  chapterId: string;
+  audioUrl: string | null;
+  audioPath: string | null;
   durationSeconds: number | null;
 };
 
@@ -24,12 +26,15 @@ function formatDuration(seconds: number | null): string {
 }
 
 export default function ManifestAudiobookPlayer({
+  bookId,
   manifestUrl,
 }: {
+  bookId?: string;
   manifestUrl: string;
 }) {
   const [tracks, setTracks] = useState<ManifestTrack[]>([]);
   const [activeTrackId, setActiveTrackId] = useState<string>("");
+  const [activeTrackSrc, setActiveTrackSrc] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const chapterSelectId = useId();
@@ -56,7 +61,8 @@ export default function ManifestAudiobookPlayer({
 
             const chapter = rawChapter as Record<string, unknown>;
             const rawAudioUrl = typeof chapter.audioUrl === "string" ? chapter.audioUrl.trim() : "";
-            if (!rawAudioUrl) return null;
+            const rawAudioPath = typeof chapter.audioPath === "string" ? chapter.audioPath.trim() : "";
+            if (!rawAudioUrl && !rawAudioPath) return null;
 
             const rawId = typeof chapter.id === "string" ? chapter.id.trim() : "";
             const rawTitle = typeof chapter.title === "string" ? chapter.title.trim() : "";
@@ -65,12 +71,15 @@ export default function ManifestAudiobookPlayer({
               typeof chapter.durationSeconds === "number" && Number.isFinite(chapter.durationSeconds)
                 ? chapter.durationSeconds
                 : null;
+            const chapterId = rawId || `chapter-${index + 1}`;
 
             return {
-              id: rawId || `chapter-${index + 1}`,
+              id: chapterId,
+              chapterId,
               title: rawTitle || `Chapter ${index + 1}`,
               order: rawOrder,
-              audioUrl: rawAudioUrl,
+              audioUrl: rawAudioUrl || null,
+              audioPath: rawAudioPath || null,
               durationSeconds: rawDuration,
             };
           })
@@ -111,6 +120,66 @@ export default function ManifestAudiobookPlayer({
     if (tracks.length === 0) return null;
     return tracks.find((track) => track.id === activeTrackId) ?? tracks[0];
   }, [activeTrackId, tracks]);
+  const resolvedBookId = useMemo(() => {
+    if (typeof bookId === "string" && bookId.trim().length > 0) return bookId.trim();
+    if (typeof window === "undefined") return "";
+    const segments = window.location.pathname.split("/").filter(Boolean);
+    const booksIndex = segments.indexOf("books");
+    if (booksIndex >= 0 && booksIndex + 1 < segments.length) {
+      return segments[booksIndex + 1] ?? "";
+    }
+    return "";
+  }, [bookId]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const loadTrackSrc = async () => {
+      if (!activeTrack) {
+        setActiveTrackSrc(null);
+        return;
+      }
+      if (!resolvedBookId) {
+        setActiveTrackSrc(null);
+        setError("Could not resolve book for chapter playback.");
+        return;
+      }
+
+      try {
+        const params = new URLSearchParams({ chapterId: activeTrack.chapterId });
+        const response = await fetch(`/api/books/${resolvedBookId}/audiobook/play?${params.toString()}`, {
+          cache: "no-store",
+        });
+        if (!response.ok) {
+          throw new Error(`Track playback request failed (${response.status})`);
+        }
+
+        const payload = (await response.json()) as { audioUrl?: unknown };
+        const signedUrl =
+          typeof payload.audioUrl === "string" && payload.audioUrl.trim().length > 0
+            ? payload.audioUrl.trim()
+            : null;
+
+        if (!cancelled) {
+          setActiveTrackSrc(signedUrl);
+          if (!signedUrl) {
+            setError("No chapter audio found in audiobook manifest.");
+          }
+        }
+      } catch {
+        if (!cancelled) {
+          setActiveTrackSrc(null);
+          setError("Could not load chapter-based audiobook playback.");
+        }
+      }
+    };
+
+    void loadTrackSrc();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [activeTrack, resolvedBookId]);
 
   if (loading) {
     return (
@@ -130,6 +199,14 @@ export default function ManifestAudiobookPlayer({
 
   if (!activeTrack) {
     return null;
+  }
+
+  if (!activeTrackSrc) {
+    return (
+      <p className="text-xs text-amber-800 dark:text-amber-300" role="alert">
+        Could not load chapter-based audiobook playback.
+      </p>
+    );
   }
 
   return (
@@ -158,7 +235,7 @@ export default function ManifestAudiobookPlayer({
           );
         })}
       </select>
-      <NoDownloadAudioPlayer src={activeTrack.audioUrl} />
+      <NoDownloadAudioPlayer src={activeTrackSrc} />
     </div>
   );
 }

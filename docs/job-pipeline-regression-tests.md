@@ -12,7 +12,6 @@
 | Import worker | `npm run import-worker` |
 | Translation worker | `npm run translate-worker` |
 | Audiobook worker | `npm run audiobook-worker` |
-| TTS worker | `npm run tts-worker` |
 
 ---
 
@@ -181,7 +180,7 @@
 
 | | |
 |---|---|
-| **Repro** | 1. Simulera ett transient fel i worker (t.ex. tillfälligt oåtkomlig Piper TTS). |
+| **Repro** | 1. Simulera ett transient fel i worker (t.ex. tillfälligt oåtkomlig narrator-provider). |
 | **Förväntat** | BullMQ kör attempt 1, det misslyckas. Väntar 2 sekunder (exponential backoff). Kör attempt 2. Om attempt 2 lyckas → `status='completed'`. Om attempt 2 misslyckas → `status='failed'` permanent. |
 | **UI-beteende** | Under retry: jobbet står kvar som `processing`. Användaren ser ingen skillnad förrän det slutgiltigt lyckas eller misslyckas. |
 | **Verifiering** | Worker-loggar visar `attempt: 1` och `attempt: 2`. `ai_jobs.error` innehåller felmedelande från sista försöket om det misslyckas. |

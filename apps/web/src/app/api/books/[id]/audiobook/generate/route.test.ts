@@ -179,4 +179,139 @@ describe("POST /api/books/[id]/audiobook/generate", () => {
     // createAdminClient is called eagerly in the route (before the active-job check)
     expect(mocks.enqueueAudiobookJob).not.toHaveBeenCalled();
   });
+
+  it("persists path-only job output (never public audio URLs)", async () => {
+    process.env.NEXT_PUBLIC_AUDIOBOOK_ENABLED = "true";
+    process.env.AUDIOBOOK_ENABLED = "true";
+
+    mocks.requireAuthorRoleForApi.mockResolvedValue({
+      user: { id: "author-1" },
+      response: null,
+    });
+    mocks.requireProBillingForApi.mockResolvedValue({ ok: true, response: null });
+    mocks.enqueueAudiobookJob.mockResolvedValue("queued-1");
+
+    const booksQuery = {
+      select: vi.fn(),
+      eq: vi.fn(),
+      maybeSingle: vi.fn(),
+    };
+    booksQuery.select.mockReturnValue(booksQuery);
+    booksQuery.eq.mockReturnValue(booksQuery);
+    booksQuery.maybeSingle.mockResolvedValue({
+      data: { id: "book-1", author_id: "author-1", language: "sv", original_language: "sv" },
+      error: null,
+    });
+
+    const versionsQuery = {
+      select: vi.fn(),
+      eq: vi.fn(),
+      maybeSingle: vi.fn(),
+    };
+    versionsQuery.select.mockReturnValue(versionsQuery);
+    versionsQuery.eq.mockReturnValue(versionsQuery);
+    versionsQuery.maybeSingle.mockResolvedValue({
+      data: { id: "version-1", language_code: "sv" },
+      error: null,
+    });
+
+    const aiJobsByBookQuery = {
+      select: vi.fn(),
+      eq: vi.fn(),
+      in: vi.fn(),
+      order: vi.fn(),
+      limit: vi.fn(),
+      maybeSingle: vi.fn(),
+      is: vi.fn(),
+    };
+    aiJobsByBookQuery.select.mockReturnValue(aiJobsByBookQuery);
+    aiJobsByBookQuery.eq.mockReturnValue(aiJobsByBookQuery);
+    aiJobsByBookQuery.in.mockReturnValue(aiJobsByBookQuery);
+    aiJobsByBookQuery.order.mockReturnValue(aiJobsByBookQuery);
+    aiJobsByBookQuery.limit.mockReturnValue(aiJobsByBookQuery);
+    aiJobsByBookQuery.is.mockReturnValue(aiJobsByBookQuery);
+    aiJobsByBookQuery.maybeSingle.mockResolvedValue({
+      data: null,
+      error: null,
+    });
+
+    const aiJobsLegacyQuery = {
+      select: vi.fn(),
+      eq: vi.fn(),
+      in: vi.fn(),
+      order: vi.fn(),
+      limit: vi.fn(),
+      maybeSingle: vi.fn(),
+      is: vi.fn(),
+    };
+    aiJobsLegacyQuery.select.mockReturnValue(aiJobsLegacyQuery);
+    aiJobsLegacyQuery.eq.mockReturnValue(aiJobsLegacyQuery);
+    aiJobsLegacyQuery.in.mockReturnValue(aiJobsLegacyQuery);
+    aiJobsLegacyQuery.order.mockReturnValue(aiJobsLegacyQuery);
+    aiJobsLegacyQuery.is.mockReturnValue(aiJobsLegacyQuery);
+    aiJobsLegacyQuery.limit.mockResolvedValue({
+      data: [],
+      error: null,
+    });
+
+    const chaptersCountQuery = {
+      select: vi.fn(),
+      eq: vi.fn(),
+    };
+    chaptersCountQuery.select.mockReturnValue(chaptersCountQuery);
+    chaptersCountQuery.eq.mockResolvedValue({
+      count: 2,
+      error: null,
+    });
+
+    let aiJobsLookupCalls = 0;
+    mocks.createClient.mockResolvedValue({
+      from: vi.fn((table: string) => {
+        if (table === "books") return booksQuery;
+        if (table === "book_versions") return versionsQuery;
+        if (table === "chapters") return chaptersCountQuery;
+        if (table === "ai_jobs") {
+          aiJobsLookupCalls += 1;
+          return aiJobsLookupCalls === 1 ? aiJobsByBookQuery : aiJobsLegacyQuery;
+        }
+        throw new Error(`Unexpected table in test: ${table}`);
+      }),
+    });
+
+    const single = vi.fn().mockResolvedValue({ data: { id: "job-new-1" }, error: null });
+    const select = vi.fn().mockReturnValue({ single });
+    const insert = vi.fn().mockReturnValue({ select });
+    mocks.createAdminClient.mockReturnValue({
+      from: vi.fn((table: string) => {
+        if (table === "ai_jobs") {
+          return {
+            insert,
+            update: vi.fn(),
+            eq: vi.fn(),
+          };
+        }
+        throw new Error(`Unexpected admin table in test: ${table}`);
+      }),
+    });
+
+    const req = new Request("http://localhost/api/books/book-1/audiobook/generate", {
+      method: "POST",
+    });
+
+    const res = await POST(req, { params: Promise.resolve({ id: "book-1" }) });
+    const body = await res.json();
+
+    expect(res.status).toBe(202);
+    expect(body.jobId).toBe("job-new-1");
+    expect(insert).toHaveBeenCalledTimes(1);
+
+    const payload = insert.mock.calls[0]?.[0] as Record<string, unknown>;
+    const output = payload.output as Record<string, unknown>;
+    expect(output.audioPath).toBeNull();
+    expect(output.audioBucket).toBeNull();
+    expect(output.manifestPath).toBeNull();
+    expect(output.manifestBucket).toBeNull();
+    expect("audioUrl" in output).toBe(false);
+    expect(JSON.stringify(payload)).not.toMatch(/https?:\/\//i);
+  });
 });

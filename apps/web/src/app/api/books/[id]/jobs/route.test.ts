@@ -1,9 +1,10 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { GET } from "./route";
 
-const { requireAuthorRoleForApi, createClient, getBillingStateForUser } = vi.hoisted(() => ({
+const { requireAuthorRoleForApi, createClient, createAdminClient, getBillingStateForUser } = vi.hoisted(() => ({
   requireAuthorRoleForApi: vi.fn(),
   createClient: vi.fn(),
+  createAdminClient: vi.fn(),
   getBillingStateForUser: vi.fn(),
 }));
 
@@ -15,8 +16,16 @@ vi.mock("@/lib/supabase/server", () => ({
   createClient,
 }));
 
+vi.mock("@/lib/supabase/admin", () => ({
+  createAdminClient,
+}));
+
 vi.mock("@/lib/billing/server", () => ({
   getBillingStateForUser,
+}));
+
+vi.mock("@/lib/tts/storage", () => ({
+  getAudiobookStorageBucket: () => "audiobooks",
 }));
 
 const originalEnv = {
@@ -158,6 +167,13 @@ describe("GET /api/books/[id]/jobs", () => {
       ok: true,
       state: {
         isProActive: true,
+      },
+    });
+    createAdminClient.mockReturnValue({
+      storage: {
+        from: vi.fn().mockReturnValue({
+          createSignedUrl: vi.fn(),
+        }),
       },
     });
     createClient.mockResolvedValue(makeSupabaseMock());

@@ -8,28 +8,24 @@
   - `SUPABASE_SERVICE_ROLE_KEY=...`
   - `NEXT_PUBLIC_SUPABASE_URL=...`
   - `AUDIOBOOK_STORAGE_BUCKET=audiobooks`
-  - `TTS_STORAGE_BUCKET=tts-outputs`
 
 ## Kör från repo root
 
 - Import worker: `npm run import-worker`
 - Translation worker: `npm run translate-worker`
 - Audiobook worker: `npm run audiobook-worker`
-- TTS worker: `npm run tts-worker`
 
 ## Kör direkt i apps/web
 
 - Import worker: `npm run import-worker`
 - Translation worker: `npm run translate-worker`
 - Audiobook worker: `npm run audiobook-worker`
-- TTS worker: `npm run tts-worker`
 
 ## Köer
 
 - `book-import-extract`
 - `book-translation`
 - `audiobook-generation`
-- `tts-generation`
 
 ## Status-contract (DB)
 

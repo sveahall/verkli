@@ -10,8 +10,6 @@ import TiptapEditor from "@/components/editor/TiptapEditor";
 import AuthorStatsBar from "@/components/editor/AuthorStatsBar";
 import CommandPalette from "@/components/editor/CommandPalette";
 import DeleteBookButton from "@/components/books/DeleteBookButton";
-import ManifestAudiobookPlayer from "@/components/books/ManifestAudiobookPlayer";
-import NoDownloadAudioPlayer from "@/components/books/NoDownloadAudioPlayer";
 import { BookJobsBanner } from "@/components/books/JobStatusBanner";
 import { useToastHelpers } from "@/components/ui/toast";
 import { useBookJobs, type UnifiedJob } from "@/hooks/useBookJobs";
@@ -22,6 +20,7 @@ import GenreSelector from "@/components/books/GenreSelector";
 import { isJobActiveStatus, normalizeJobStatus } from "@/lib/job-status";
 import { getLanguageLabel, LANGUAGE_OPTIONS, normalizeLanguage, type SupportedLanguage } from "@/lib/languages";
 import { isTranslationPairSupported } from "@/lib/translation-pairs";
+import ChapterAudiobookPlayer from "@/app/(reader-browse)/reader/read/[chapterId]/ChapterAudiobookPlayer";
 
 const ACCEPTED_COVER_TYPES = "image/*";
 
@@ -121,17 +120,17 @@ const MARKETING_CHANNEL_LABELS: Record<MarketingChannel, string> = {
 
 /** Display status: pending -> running -> completed / failed. */
 const STATUS_LABELS = {
-  pending: "Pending",
+  pending: "Queued",
   running: "Running",
-  completed: "Completed",
+  completed: "Succeeded",
   failed: "Failed",
-  idle: "Pending",
+  idle: "Queued",
 } as const;
 
 function getAudiobookStatusLabel(status: string): string {
   if (status === "published" || status === "generated" || status === "completed") return STATUS_LABELS.completed;
   if (status === "generating") return STATUS_LABELS.running;
-  if (status === "queued") return "Queued";
+  if (status === "queued") return STATUS_LABELS.pending;
   if (status === "paused") return "Paused";
   if (status === "pause_requested") return "Pause requested";
   if (status === "cancel_requested") return "Stopping...";
@@ -206,7 +205,8 @@ type BookVersion = {
 
 type LatestAudiobookAsset = {
   id: string;
-  audio_url: string | null;
+  /** Signed URL (never a raw DB column). null when audio_path is missing. */
+  audioSignedUrl: string | null;
   status: string;
   created_at: string;
 } | null;
@@ -479,14 +479,14 @@ function ImportManusSection({
               >
                 <div className="flex items-center justify-between">
                   <span className="font-medium text-slate-900 dark:text-white">
-                    {job.status === "pending" && "Pending..."}
+                    {job.status === "pending" && "Queued..."}
                     {job.status === "running" && `Importing... `}
-                    {job.status === "completed" && "Import complete"}
+                    {job.status === "completed" && "Import succeeded"}
                     {job.status === "failed" && "Import failed"}
                   </span>
                   {(job.status === "pending" || job.status === "running") && (
                     <span className="text-xs text-slate-500 dark:text-white/50">
-                      {job.progress > 0 ? `${job.progress}%` : "Pending"}
+                      {job.progress > 0 ? `${job.progress}%` : "Queued"}
                     </span>
                   )}
                 </div>
@@ -988,21 +988,8 @@ export default function BookEditor({
     void checkTranslationQueueHealth();
   }, [checkTranslationQueueHealth]);
 
-  const hasGeneratedAudiobookAsset =
-    Boolean(latestAudiobookAsset?.audio_url) && latestAudiobookAsset?.status === "generated";
+  const hasGeneratedAudiobookAsset = latestAudiobookAsset?.status === "generated";
   const latestAudiobookMeta = (latestAudiobookJob?.meta ?? {}) as Record<string, unknown>;
-  const latestAudiobookJobAudioUrl =
-    (typeof latestAudiobookMeta.audioUrl === "string" && latestAudiobookMeta.audioUrl.trim().length > 0
-      ? latestAudiobookMeta.audioUrl
-      : null) ??
-    (typeof latestAudiobookMeta.manifestUrl === "string" && latestAudiobookMeta.manifestUrl.trim().length > 0
-      ? latestAudiobookMeta.manifestUrl
-      : null);
-  const latestChapterAudioUrl =
-    typeof latestAudiobookMeta.generatedChapterAudioUrl === "string" &&
-    latestAudiobookMeta.generatedChapterAudioUrl.trim().length > 0
-      ? latestAudiobookMeta.generatedChapterAudioUrl
-      : null;
   const latestAudiobookScope =
     typeof latestAudiobookMeta.scope === "string" ? latestAudiobookMeta.scope : "book";
   const latestAudiobookControlState =
@@ -1018,11 +1005,6 @@ export default function BookEditor({
   const hasCompletedChapterAudiobookJob =
     normalizeJobStatus(latestAudiobookJob?.status) === "completed" && latestAudiobookScope === "chapter";
   const hasFailedAudiobookJob = normalizeJobStatus(latestAudiobookJob?.status) === "failed";
-  const audiobookPlaybackUrl =
-    latestAudiobookAsset?.audio_url ?? latestAudiobookJobAudioUrl ?? latestChapterAudioUrl ?? null;
-  const audiobookPlaybackIsManifest = Boolean(
-    typeof audiobookPlaybackUrl === "string" && /\.json(?:$|[?#])/i.test(audiobookPlaybackUrl)
-  );
   const audiobookFeatureEnabled = getAudiobookEnabled();
   const isAudiobookPaused = latestAudiobookControlState === "paused" || latestAudiobookControlState === "pause_requested";
   const isAudiobookCancelRequested = latestAudiobookControlState === "cancel_requested" || latestAudiobookCancelRequested;
@@ -1219,10 +1201,7 @@ export default function BookEditor({
       } else {
         setPublishToast("Publishing settings updated");
       }
-    } catch (err) {
-      if (process.env.NODE_ENV === "development") {
-        console.error("[publish failed]", err);
-      }
+    } catch {
       setPublishError("Could not update publishing settings. Try again.");
     } finally {
       setIsPublishing(false);
@@ -1283,6 +1262,42 @@ export default function BookEditor({
     router,
     selectedChapter,
   ]);
+
+  const handleChapterPublishToggle = useCallback(async (chapter: Chapter, shouldPublish: boolean) => {
+    if (isPublishing || !activeVersion?.id) return;
+    if (shouldPublish && !hasReadableContent(chapter.content)) {
+      setPublishError("Chapter has no readable content.");
+      return;
+    }
+
+    setIsPublishing(true);
+    setPublishError(null);
+    try {
+      const res = await fetch(`/api/books/${book.id}/publish`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          versionId: activeVersion.id,
+          visibility: publishVisibility,
+          action: shouldPublish ? "publish" : "unpublish",
+          scope: "chapter",
+          chapterId: chapter.id,
+        }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setPublishError(resolveErrorMessage(data.error));
+        return;
+      }
+      router.refresh();
+      const label = chapter.title?.trim() || "Chapter";
+      setPublishToast(shouldPublish ? `Published: ${label}` : `Unpublished: ${label}`);
+    } catch {
+      setPublishError("Could not update chapter. Try again.");
+    } finally {
+      setIsPublishing(false);
+    }
+  }, [activeVersion?.id, book.id, isPublishing, publishVisibility, router]);
 
   const handleSavePricing = useCallback(async () => {
     setPricingError(null);
@@ -1788,9 +1803,6 @@ export default function BookEditor({
     savingRef.current = false;
     setIsSaving(false);
     if (error) {
-      if (process.env.NODE_ENV === "development") {
-        console.error("[autosave failed]", error);
-      }
       toast.error("Could not save. Changes may not have been persisted.");
       return;
     }
@@ -1842,9 +1854,6 @@ export default function BookEditor({
       .single();
     setIsCreating(false);
     if (error) {
-      if (process.env.NODE_ENV === "development") {
-        console.error("[createChapter failed]", error);
-      }
       toast.error("Could not create chapter. Try again.");
       return;
     }
@@ -1871,9 +1880,6 @@ export default function BookEditor({
     const { error } = await supabase.from("chapters").update({ title: tempTitle.trim() }).eq("id", chapterId);
     setIsSaving(false);
     if (error) {
-      if (process.env.NODE_ENV === "development") {
-        console.error("[updateChapterTitle failed]", error);
-      }
       setEditingTitleId(null);
       return;
     }
@@ -2174,36 +2180,36 @@ export default function BookEditor({
 
         {editorPanel === "editor" && (
         <>
-        {getTranslationsEnabled() && bookVersions.length > 1 && (
-          <div className="mb-4 max-w-[320px]">
-            <label htmlFor="version-select" className="mb-1 block text-xs text-slate-500 dark:text-white/50">
-              Version
-            </label>
-            <select
-              id="version-select"
-              value={normalizeLangKey(activeVersion?.language_code ?? activeLanguage)}
-              onChange={(e) => router.push(`/author/books/${book.id}?lang=${e.target.value}`)}
-              className="w-full rounded-xl border border-black/[0.08] bg-white px-4 py-2.5 text-[13px] font-medium text-slate-900 shadow-sm focus:border-black/[0.15] focus:shadow-md focus:outline-none dark:border-white/[0.08] dark:bg-white/[0.04] dark:text-white"
-            >
-              {bookVersions.map((v) => {
-                const langKey = normalizeLangKey(v.language_code);
-                const isOriginal = normalizeLangKey(book.original_language ?? book.language) === langKey;
-                const label = isOriginal ? "Original" : getLanguageLabel(langKey || "unknown");
-                return (
-                  <option key={v.id} value={langKey}>
-                    {label}
-                  </option>
-                );
-              })}
-            </select>
-          </div>
-        )}
-        <div className="mb-6 flex flex-wrap items-center gap-2">
+        <div className="mb-4 flex flex-wrap items-end gap-3">
+          {getTranslationsEnabled() && bookVersions.length > 1 && (
+            <div className="min-w-[220px] max-w-[320px]">
+              <label htmlFor="version-select" className="mb-1 block text-xs text-slate-500 dark:text-white/50">
+                Working version
+              </label>
+              <select
+                id="version-select"
+                value={normalizeLangKey(activeVersion?.language_code ?? activeLanguage)}
+                onChange={(e) => router.push(`/author/books/${book.id}?lang=${e.target.value}`)}
+                className="w-full rounded-xl border border-black/[0.08] bg-white px-4 py-2.5 text-[13px] font-medium text-slate-900 shadow-sm focus:border-black/[0.15] focus:shadow-md focus:outline-none dark:border-white/[0.08] dark:bg-white/[0.04] dark:text-white"
+              >
+                {bookVersions.map((v) => {
+                  const langKey = normalizeLangKey(v.language_code);
+                  const isOriginal = normalizeLangKey(book.original_language ?? book.language) === langKey;
+                  const label = isOriginal ? "Original" : getLanguageLabel(langKey || "unknown");
+                  return (
+                    <option key={v.id} value={langKey}>
+                      {label}
+                    </option>
+                  );
+                })}
+              </select>
+            </div>
+          )}
           <span className="rounded-full border border-black/[0.05] bg-slate-50/80 px-3 py-1 text-[11px] font-medium text-slate-400 backdrop-blur-sm dark:border-white/[0.05] dark:bg-white/[0.02] dark:text-white/35">
             Version: {getLanguageLabel(activeLanguage)}
           </span>
         </div>
-        <div className="mb-8 grid gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(520px,680px)_auto] lg:items-center">
+        <div className="mb-6 grid gap-6 rounded-3xl border border-black/[0.06] bg-white/70 p-5 shadow-[0_6px_24px_rgba(15,23,42,0.05)] backdrop-blur-sm dark:border-white/[0.06] dark:bg-white/[0.02] dark:shadow-none lg:grid-cols-[minmax(0,1fr)_auto] lg:items-start">
           <div className="min-w-0">
             {!isRenamingBook ? (
               <div className="flex flex-wrap items-center gap-3">
@@ -2270,66 +2276,6 @@ export default function BookEditor({
             <p className="mt-2.5 text-[13px] text-slate-400 dark:text-white/40">
               {isPublished ? currentVisibilitySummary : "Draft - not visible to readers yet"} · {chapters.length} chapters
             </p>
-          </div>
-          <div className="w-full">
-            <div className="flex flex-wrap items-end gap-4">
-              <div className="min-w-[200px] flex-1">
-                <div className="relative mt-1">
-                  <select
-                    id="chapter-select"
-                    value={selectedChapterId ?? ""}
-                    onChange={(e) => {
-                      setSelectedChapterId(e.target.value || null);
-                      setSessionStartWords(null);
-                    }}
-                    className="h-11 w-full appearance-none rounded-full border border-black/[0.08] bg-white px-4 pr-10 text-[13px] font-medium text-slate-900 shadow-sm transition-all focus:border-black/[0.15] focus:shadow-md focus:outline-none dark:border-white/[0.08] dark:bg-white/[0.04] dark:text-white"
-                  >
-                    {chapters.length === 0 && <option value="">No chapters yet</option>}
-                    {chapters.map((chapter) => (
-                      <option key={chapter.id} value={chapter.id}>
-                        {chapter.title}
-                      </option>
-                    ))}
-                  </select>
-                  <svg
-                    className="pointer-events-none absolute right-4 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-500 dark:text-white/60"
-                    viewBox="0 0 20 20"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  >
-                    <path d="M6 8l4 4 4-4" />
-                  </svg>
-                </div>
-              </div>
-              <div className="min-w-[180px] flex-1">
-                <button
-                  type="button"
-                  onClick={handleCreateChapter}
-                  disabled={isCreating}
-                  className="mt-1 h-11 w-full rounded-full bg-slate-900 px-4 text-[13px] font-semibold text-white shadow-sm transition-all hover:bg-slate-800 hover:shadow-md disabled:opacity-50 dark:bg-white dark:text-slate-900 dark:hover:bg-white/90"
-                >
-                  {isCreating ? "Creating..." : "+ New chapter"}
-                </button>
-              </div>
-              <div className="min-w-[180px] flex-1">
-                <button
-                  type="button"
-                  onClick={() => coverInputRef.current?.click()}
-                  disabled={coverUploading}
-                  className="mt-1 h-11 w-full rounded-full border border-black/[0.08] bg-white px-4 text-[13px] font-medium text-slate-600 shadow-sm transition-all hover:border-black/[0.12] hover:shadow-md disabled:opacity-50 dark:border-white/[0.08] dark:bg-white/[0.04] dark:text-white/70 dark:hover:bg-white/[0.06]"
-                >
-                  {coverUploading ? "Uploading..." : "Upload cover"}
-                </button>
-                {coverError && (
-                  <p className="mt-2 text-xs text-red-600 dark:text-red-400" role="alert">
-                    {coverError}
-                  </p>
-                )}
-              </div>
-            </div>
           </div>
           <div className="flex flex-wrap items-center gap-3 lg:justify-self-end">
             <div className="relative">
@@ -2529,6 +2475,14 @@ export default function BookEditor({
                 </div>
               )}
             </div>
+            {getMarketingEnabled() && (
+              <Link
+                href={`/author/marketing?bookId=${book.id}`}
+                className="rounded-full border border-black/[0.08] bg-white/80 px-5 py-2.5 text-[13px] font-medium text-slate-700 backdrop-blur-sm transition-all hover:border-black/[0.14] hover:bg-slate-50 hover:text-slate-900 dark:border-white/[0.12] dark:bg-white/[0.03] dark:text-white/85 dark:hover:bg-white/[0.06]"
+              >
+                Promote
+              </Link>
+            )}
             <DeleteBookButton
               bookId={book.id}
               bookTitle={bookTitle}
@@ -2538,8 +2492,68 @@ export default function BookEditor({
           </div>
         </div>
 
-        <div className="grid gap-8 lg:grid-cols-[280px_1fr]">
-          <div className="space-y-4">
+        <div className="mb-6 rounded-2xl border border-black/[0.06] bg-white/75 p-4 shadow-[0_4px_18px_rgba(15,23,42,0.04)] backdrop-blur-sm dark:border-white/[0.06] dark:bg-white/[0.02] dark:shadow-none">
+          <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_auto_auto] sm:items-end">
+            <div>
+              <label htmlFor="chapter-select" className="mb-1 block text-xs text-slate-500 dark:text-white/50">
+                Current chapter
+              </label>
+              <div className="relative">
+                <select
+                  id="chapter-select"
+                  value={selectedChapterId ?? ""}
+                  onChange={(e) => {
+                    setSelectedChapterId(e.target.value || null);
+                    setSessionStartWords(null);
+                  }}
+                  className="h-11 w-full appearance-none rounded-xl border border-black/[0.08] bg-white px-4 pr-10 text-[13px] font-medium text-slate-900 shadow-sm transition-all focus:border-black/[0.15] focus:shadow-md focus:outline-none dark:border-white/[0.08] dark:bg-white/[0.04] dark:text-white"
+                >
+                  {chapters.length === 0 && <option value="">No chapters yet</option>}
+                  {chapters.map((chapter) => (
+                    <option key={chapter.id} value={chapter.id}>
+                      {chapter.title}
+                    </option>
+                  ))}
+                </select>
+                <svg
+                  className="pointer-events-none absolute right-4 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-500 dark:text-white/60"
+                  viewBox="0 0 20 20"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                >
+                  <path d="M6 8l4 4 4-4" />
+                </svg>
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={handleCreateChapter}
+              disabled={isCreating}
+              className="h-11 rounded-xl bg-slate-900 px-4 text-[13px] font-semibold text-white shadow-sm transition-all hover:bg-slate-800 hover:shadow-md disabled:opacity-50 dark:bg-white dark:text-slate-900 dark:hover:bg-white/90"
+            >
+              {isCreating ? "Creating..." : "+ New chapter"}
+            </button>
+            <button
+              type="button"
+              onClick={() => coverInputRef.current?.click()}
+              disabled={coverUploading}
+              className="h-11 rounded-xl border border-black/[0.08] bg-white px-4 text-[13px] font-medium text-slate-600 shadow-sm transition-all hover:border-black/[0.12] hover:shadow-md disabled:opacity-50 dark:border-white/[0.08] dark:bg-white/[0.04] dark:text-white/70 dark:hover:bg-white/[0.06]"
+            >
+              {coverUploading ? "Uploading..." : "Upload cover"}
+            </button>
+          </div>
+          {coverError && (
+            <p className="mt-2 text-xs text-red-600 dark:text-red-400" role="alert">
+              {coverError}
+            </p>
+          )}
+        </div>
+
+        <div className="grid gap-8 lg:grid-cols-[300px_minmax(0,1fr)]">
+          <div className="space-y-4 lg:sticky lg:top-28 lg:self-start">
             <div className="rounded-2xl border border-black/[0.05] bg-white/60 p-5 shadow-[0_1px_3px_rgba(0,0,0,0.02)] backdrop-blur-sm dark:border-white/[0.06] dark:bg-white/[0.02] dark:shadow-none">
               <h2 className="mb-3 text-[14px] font-semibold tracking-[-0.01em] text-slate-800 dark:text-white/90">Cover</h2>
               <div className="space-y-2">
@@ -2570,6 +2584,85 @@ export default function BookEditor({
                   className="hidden"
                   aria-hidden
                 />
+              </div>
+            </div>
+
+            <div className="rounded-2xl border border-black/[0.05] bg-white/60 p-5 shadow-[0_1px_3px_rgba(0,0,0,0.02)] backdrop-blur-sm dark:border-white/[0.06] dark:bg-white/[0.02] dark:shadow-none">
+              <div className="mb-3 flex items-center justify-between">
+                <h2 className="text-[14px] font-semibold tracking-[-0.01em] text-slate-800 dark:text-white/90">Chapters</h2>
+                <span className="text-[11px] text-slate-400 dark:text-white/40">
+                  {isPublished
+                    ? `${publishedChapterCount ?? chapters.length}/${chapters.length} live`
+                    : `${chapters.length} total`}
+                </span>
+              </div>
+              <div className="max-h-[46vh] space-y-1 overflow-y-auto pr-1">
+                {chapters.length === 0 && (
+                  <p className="text-xs text-slate-400 dark:text-white/40">No chapters yet</p>
+                )}
+                {chapters.map((chapter) => {
+                  const chapterOrder = typeof chapter.order === "number" ? chapter.order : -1;
+                  const isChapterPublished =
+                    isPublished && (publishedChapterCount === null || chapterOrder < (publishedChapterCount ?? 0));
+                  const isSelected = chapter.id === selectedChapterId;
+                  const isNextToPublish =
+                    isPublished &&
+                    publishedChapterCount !== null &&
+                    chapterOrder === publishedChapterCount;
+                  const canToggle =
+                    !isPublishing &&
+                    isPublished &&
+                    (isChapterPublished
+                      ? publishedChapterCount === null || chapterOrder === (publishedChapterCount ?? 0) - 1
+                      : isNextToPublish || !isPublished);
+                  return (
+                    <div
+                      key={chapter.id}
+                      className={`group flex items-center gap-2 rounded-lg px-2 py-1.5 transition ${
+                        isSelected
+                          ? "bg-[#907AFF]/10 dark:bg-[#907AFF]/15"
+                          : "hover:bg-slate-50 dark:hover:bg-white/[0.04]"
+                      }`}
+                    >
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setSelectedChapterId(chapter.id);
+                          setSessionStartWords(null);
+                        }}
+                        className="min-w-0 flex-1 truncate text-left text-[12px] font-medium text-slate-700 dark:text-white/80"
+                        title={chapter.title}
+                      >
+                        {chapter.title}
+                      </button>
+                      {isPublished && (
+                        <button
+                          type="button"
+                          disabled={!canToggle || isPublishing}
+                          onClick={() => void handleChapterPublishToggle(chapter, !isChapterPublished)}
+                          title={
+                            isChapterPublished
+                              ? canToggle
+                                ? "Unpublish this chapter"
+                                : "Unpublish later chapters first"
+                              : canToggle
+                                ? "Publish this chapter"
+                                : "Publish earlier chapters first"
+                          }
+                          className={`flex-shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold transition ${
+                            isChapterPublished
+                              ? "bg-emerald-100 text-emerald-700 hover:bg-emerald-200 dark:bg-emerald-900/30 dark:text-emerald-300 dark:hover:bg-emerald-900/50"
+                              : canToggle
+                                ? "bg-slate-100 text-slate-500 hover:bg-slate-200 dark:bg-white/10 dark:text-white/50 dark:hover:bg-white/15"
+                                : "bg-slate-50 text-slate-300 dark:bg-white/5 dark:text-white/20"
+                          } disabled:cursor-not-allowed disabled:opacity-50`}
+                        >
+                          {isChapterPublished ? "Live" : "Draft"}
+                        </button>
+                      )}
+                    </div>
+                  );
+                })}
               </div>
             </div>
 
@@ -2971,13 +3064,13 @@ export default function BookEditor({
                 </p>
               )}
 
-              {audiobookPlaybackUrl && (
+              {selectedChapterId && (
                 <div className="mb-2">
-                  {audiobookPlaybackIsManifest ? (
-                    <ManifestAudiobookPlayer manifestUrl={audiobookPlaybackUrl} />
-                  ) : (
-                    <NoDownloadAudioPlayer src={audiobookPlaybackUrl} />
-                  )}
+                  <ChapterAudiobookPlayer
+                    bookId={book.id}
+                    chapterId={selectedChapterId}
+                    audiobookStatus={audiobookStatusUi}
+                  />
                 </div>
               )}
 
@@ -3123,34 +3216,37 @@ export default function BookEditor({
             </div>
             )}
 
-            <div className="rounded-2xl border border-black/[0.05] bg-white/60 p-5 shadow-[0_1px_3px_rgba(0,0,0,0.02)] backdrop-blur-sm dark:border-white/[0.06] dark:bg-white/[0.02] dark:shadow-none">
-              <h2 className="mb-3 text-[14px] font-semibold tracking-[-0.01em] text-slate-800 dark:text-white/90">Marketing portal</h2>
-              {isPublished ? (
-                <>
-                  <p className="mb-3 text-xs text-slate-500 dark:text-white/50">
-                    Plan campaigns, generate copy, and manage distribution for this book.
+            {getMarketingEnabled() && (
+              <div className="rounded-2xl border border-black/[0.05] bg-white/60 p-5 shadow-[0_1px_3px_rgba(0,0,0,0.02)] backdrop-blur-sm dark:border-white/[0.06] dark:bg-white/[0.02] dark:shadow-none">
+                <h2 className="mb-3 text-[14px] font-semibold tracking-[-0.01em] text-slate-800 dark:text-white/90">Marketing portal</h2>
+                {isPublished ? (
+                  <>
+                    <p className="mb-3 text-xs text-slate-500 dark:text-white/50">
+                      Plan campaigns, generate copy, and manage distribution for this book.
+                    </p>
+                    <Link
+                      href={`/author/marketing?bookId=${book.id}`}
+                      className="flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-b from-[#907AFF] to-[#7c6ae6] px-4 py-2.5 text-[13px] font-semibold text-white shadow-[0_1px_2px_rgba(144,122,255,0.3),inset_0_1px_0_rgba(255,255,255,0.15)] transition-all hover:shadow-[0_4px_12px_rgba(144,122,255,0.35)] hover:brightness-110"
+                    >
+                      <svg className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+                        <path fillRule="evenodd" d="M12.577 4.878a.75.75 0 01.919-.53l4.78 1.281a.75.75 0 01.531.919l-1.281 4.78a.75.75 0 01-1.449-.387l.81-3.022a19.407 19.407 0 00-5.594 5.203.75.75 0 01-1.139.093L7.55 10.81l-4.72 4.72a.75.75 0 01-1.06-1.06l5.25-5.25a.75.75 0 011.06 0l2.346 2.346a20.893 20.893 0 015.264-4.97l-2.633.706a.75.75 0 01-.919-.53z" clipRule="evenodd" />
+                      </svg>
+                      Open marketing portal
+                    </Link>
+                  </>
+                ) : (
+                  <p className="rounded-xl border border-dashed border-black/[0.08] bg-slate-50/50 px-3 py-3 text-center text-[12px] text-slate-400 dark:border-white/[0.06] dark:bg-white/[0.01] dark:text-white/30">
+                    Publish the book to open the marketing portal
                   </p>
-                  <Link
-                    href="/author/marketing"
-                    className="flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-b from-[#907AFF] to-[#7c6ae6] px-4 py-2.5 text-[13px] font-semibold text-white shadow-[0_1px_2px_rgba(144,122,255,0.3),inset_0_1px_0_rgba(255,255,255,0.15)] transition-all hover:shadow-[0_4px_12px_rgba(144,122,255,0.35)] hover:brightness-110"
-                  >
-                    <svg className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
-                      <path fillRule="evenodd" d="M12.577 4.878a.75.75 0 01.919-.53l4.78 1.281a.75.75 0 01.531.919l-1.281 4.78a.75.75 0 01-1.449-.387l.81-3.022a19.407 19.407 0 00-5.594 5.203.75.75 0 01-1.139.093L7.55 10.81l-4.72 4.72a.75.75 0 01-1.06-1.06l5.25-5.25a.75.75 0 011.06 0l2.346 2.346a20.893 20.893 0 015.264-4.97l-2.633.706a.75.75 0 01-.919-.53z" clipRule="evenodd" />
-                    </svg>
-                    Open marketing portal
-                  </Link>
-                </>
-              ) : (
-                <p className="rounded-xl border border-dashed border-black/[0.08] bg-slate-50/50 px-3 py-3 text-center text-[12px] text-slate-400 dark:border-white/[0.06] dark:bg-white/[0.01] dark:text-white/30">
-                  Publish the book to open the marketing portal
-                </p>
-              )}
-            </div>
+                )}
+              </div>
+            )}
           </div>
 
-          <div>
+          <div className="min-w-0">
             {selectedChapter ? (
               <>
+                <div className="rounded-2xl border border-black/[0.06] bg-white/70 p-5 shadow-[0_4px_18px_rgba(15,23,42,0.04)] backdrop-blur-sm dark:border-white/[0.06] dark:bg-white/[0.02] dark:shadow-none">
                 <div className="mb-4 flex items-center justify-between">
                   {editingTitleId === selectedChapter.id ? (
                     <div className="flex flex-wrap items-center gap-2">
@@ -3234,6 +3330,7 @@ export default function BookEditor({
                     preset={preset}
                     onWordCount={setWordCount}
                   />
+                </div>
                 </div>
               </>
             ) : (

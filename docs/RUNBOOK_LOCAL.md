@@ -5,7 +5,7 @@
 2. Startordning: env -> Redis -> Next -> workers.
 3. Web kör på `http://localhost:3000`.
 4. Redis kör på `redis://localhost:6379` via `docker compose up -d`.
-5. Import/translation/audiobook/tts har npm-scripts.
+5. Import/translation/audiobook har npm-scripts.
 6. Social publish och recommendations workers saknar npm-scripts och startas med `npx tsx ...`.
 7. `/api/health` och `/api/health/queue` är snabbaste sanity check.
 8. Kvalitetsstatus i nuvarande repo: build passerar, test/lint failar.
@@ -94,26 +94,11 @@ Minsta extra env:
 ```env
 AUDIOBOOK_ENABLED=true
 AUDIOBOOK_STORAGE_BUCKET=audiobooks
-TTS_BIN=/abs/path/to/piper
-TTS_MODEL_PATH=/abs/path/to/vendor/tts/voices/sv_SE-nst-medium.onnx
-TTS_CONFIG_PATH=/abs/path/to/vendor/tts/voices/sv_SE-nst-medium.onnx.json
-TTS_DATA_DIR=/abs/path/to/vendor/tts/voices
+AI_NARRATOR_MODEL=qwen3-placeholder
 ```
 Start:
 ```bash
 npm run audiobook-worker
-```
-
-### 4.4 TTS worker
-Minsta extra env:
-```env
-TTS_ENABLED=true
-TTS_STORAGE_BUCKET=tts-outputs
-TTS_BIN=/abs/path/to/piper
-```
-Start:
-```bash
-npm run tts-worker
 ```
 
 ### 4.5 Social publish worker (saknar npm-script)
@@ -164,12 +149,7 @@ Notera:
 - Kontrollera `ai_jobs` + `audiobook_assets` + `GET /api/books/[id]/audiobook/status`.
 
 ### TTS endpoint
-```bash
-curl -X POST http://localhost:3000/api/tts \
-  -H "Content-Type: application/json" \
-  -d '{"text":"Hej från lokal runbook"}' \
-  --output /tmp/verkli-tts.wav
-```
+`POST /api/tts` returnerar `410` tills Qwen3 TTS är integrerad.
 
 ## 7) Stripe/Resend/Social (endast om du testar dessa features)
 
@@ -220,7 +200,7 @@ Viktigt:
 |---|---|---|
 | Worker dör direkt med env-fel | saknad `SUPABASE_SERVICE_ROLE_KEY`/`REDIS_URL` | uppdatera `apps/web/.env.local` |
 | Translation failar direkt | saknad `OPUSMT_PYTHON`/`OPUSMT_MODELS_DIR` | sätt båda + verifiera modellfiler |
-| Audiobook/TTS failar | fel `TTS_BIN` eller saknade modellfiler | använd absolut path + kontrollera filerna |
+| Audiobook failar | narrator-provider saknas i legacy-flödet | migrera till Qwen3 TTS |
 | Social worker failar | saknad `SOCIAL_TOKEN_KEY` | sätt env eller använd mock mode i dev |
 | `npm run runway:text-to-video` failar | script pekar på saknad fil | använd API-route istället tills script fixas |
 

@@ -4,10 +4,10 @@
 1. Repo är en npm-workspace monorepo med huvudapp i `apps/web` och en sekundär worker-app i `apps/worker`.
 2. Huvudstack: Next.js 16 + React 19 + TypeScript + Supabase + BullMQ/Redis.
 3. API-ytan är stor: 96 API-routes; frontend har 70 `page.tsx` routes.
-4. Asynkron bearbetning finns för import, translation, audiobook, tts, social publish och recommendations.
+4. Asynkron bearbetning finns för import, translation, audiobook, social publish och recommendations.
 5. Databaslagret är splittrat i två migrationsspår: `apps/web/supabase/migrations` och `packages/db/supabase/migrations`.
 6. Schema-drift finns: kod använder tabeller som saknar migration i repot (t.ex. `social_connections`, `recommendations`, `book_genres`).
-7. Externa integrationer: Stripe, Supabase Auth/DB/Storage, Resend, Runway, X/TikTok/Instagram OAuth, lokal Opus MT och lokal Piper TTS.
+7. Externa integrationer: Stripe, Supabase Auth/DB/Storage, Resend, Runway, X/TikTok/Instagram OAuth och lokal Opus MT.
 8. Build-status: `npm run -w @verkli/web build:ci` passerar, men med bundler-varningar kring `epub`-beroenden.
 9. Test-status: 466 gröna, 17 röda tester (2 testfiler fallerar).
 10. Lint-status: 6 errors + 84 warnings.
@@ -121,9 +121,7 @@
 - `GET /api/books/[id]/translation-status`
 - `GET /api/books/[id]/translations`
 
-### TTS/Audiobook
-- `POST /api/tts`
-- `POST /api/books/[id]/tts`
+### Audiobook
 - `POST /api/books/[id]/audiobook/generate`
 - `GET /api/books/[id]/audiobook/status`
 - `GET /api/books/[id]/jobs`
@@ -220,7 +218,6 @@ Kod använder även:
 | `book-import-extract` | `/api/books/import`, `/api/books/[id]/import`, retry endpoint | `apps/web/scripts/import-worker.ts` | `npm run import-worker` |
 | `book-translation` | `/api/books/[id]/translate`, auto enqueue från import-worker | `apps/web/scripts/translation-worker.ts` | `npm run translate-worker` |
 | `audiobook-generation` | `/api/books/[id]/audiobook/generate` | `apps/web/scripts/audiobook-worker.ts` | `npm run audiobook-worker` |
-| `tts-generation` | TTS-job path via `ai_jobs` | `apps/web/scripts/tts-worker.ts` | `npm run tts-worker` |
 | `social-publish` | `/api/social/publish` | `apps/web/scripts/social-publish-worker.ts` | `cd apps/web && npx tsx scripts/social-publish-worker.ts` |
 | `recommendations` | intern scheduler i recommendations-worker | `apps/web/scripts/recommendations-worker.ts` | `cd apps/web && npx tsx scripts/recommendations-worker.ts` |
 
@@ -235,14 +232,13 @@ Kod använder även:
 | Tjänst | Nycklar/env | Var den används |
 |---|---|---|
 | Supabase Auth/DB | `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY` | `src/lib/supabase/*`, API-routes, workers |
-| Supabase Storage | `AUDIOBOOK_STORAGE_BUCKET`, `TTS_STORAGE_BUCKET`, `LOCAL_IMPORTS_DIR` | import, audiobook, tts, content assets |
+| Supabase Storage | `AUDIOBOOK_STORAGE_BUCKET`, `LOCAL_IMPORTS_DIR` | import, audiobook, content assets |
 | Redis/BullMQ | `REDIS_URL` | queue-libs + alla workers + `/api/health/queue` |
 | Stripe | `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, `PRICE_PLUS`, `PRICE_PRO`, `STRIPE_*_URL` | billing routes + webhook + donations/credits/book purchase |
 | Resend | `RESEND_API_KEY`, `RESEND_FROM_EMAIL` | waitlist + newsletters |
 | Runway | `RUNWAYML_API_SECRET` | `/api/ai/text-to-video`, `src/lib/ai/textToVideo.ts` |
 | Social OAuth | `X_CLIENT_ID`, `X_CLIENT_SECRET`, `INSTAGRAM_CLIENT_ID`, `INSTAGRAM_CLIENT_SECRET`, `TIKTOK_CLIENT_KEY`, `TIKTOK_CLIENT_SECRET`, `SOCIAL_OAUTH_STATE_SECRET`, `SOCIAL_TOKEN_KEY`, `SOCIAL_MOCK_MODE` | social connect/callback/publish + social worker |
 | Translation (lokal) | `OPUSMT_PYTHON`, `OPUSMT_MODELS_DIR` | translation worker + `src/lib/opus.ts` |
-| TTS (lokal) | `TTS_ENABLED`, `TTS_BIN`, `TTS_MODEL_PATH`, `TTS_CONFIG_PATH`, `TTS_DATA_DIR`, `TTS_TIMEOUT_MS`, `TTS_MAX_CHARS`, `TTS_MAX_CONCURRENCY`, `TTS_RATE_LIMIT_PER_MINUTE`, `TTS_API_TOKEN` | `/api/tts`, `/api/books/[id]/tts`, tts/audiobook workers |
 | Admin API | `ADMIN_API_KEY` | `/api/admin/*` |
 
 ## Nulägesstatus Och Risker
@@ -271,14 +267,14 @@ Kod använder även:
 - [ ] **Worker script coverage**: social/recommendations workers finns men saknar npm scripts i `apps/web/package.json` och root `package.json`.
 - [ ] **check:no-placeholders bug**: script kan skriva `Found placeholder phrase` men ändå returnera success.
 - [ ] **Docs mismatch**:
-- README säger både “ingen `/api/tts`” och dokumenterar samtidigt `/api/tts`.
+- README hade tidigare motstridiga TTS-beskrivningar (nu rensat från legacy-TTS).
 - `docs/workers-runbook.md` beskriver queue-size från `/api/health/queue`, men route returnerar endast boolsk status.
 - `docs/import-pipeline.md` beskriver translation via `translations` table, men runtime job-status ligger primärt i `book_versions`/`ai_jobs`.
 - [ ] **Translation capability gap**: API accepterar flera språk (`en/es/fr/de/it/pt/sv`), men Opus provider stödjer explicit endast `sv->en` och `en->sv`.
 - [ ] **In-memory limits**: rate-limit/budget/circuit-state är processlokalt och resetas vid restart.
 
 ## Where We Are Now
-- [x] Kärnflöden för auth, import, billing, translation, audiobook och tts finns i kod.
+- [x] Kärnflöden för auth, import, billing, translation och audiobook finns i kod.
 - [x] Build pipeline kan producera release-artifact (`build:ci` passerar).
 - [x] Flera feature-domäner är implementerade (polls, clubs, newsletters, social, referrals).
 - [ ] Repo saknar konsoliderad, verifierbar databas-sanning för hela appen.
