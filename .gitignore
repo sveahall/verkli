@@ -41,9 +41,16 @@ yarn-error.log*
 !.env.example
 
 # python envs
+qwen3tts-env/
 .venv-tts/
+.venv/
+venv/
 **/.venv*/
 **/venv/
+__pycache__/
+*.pyc
+*.pyo
+*.dylib
 
 # vercel
 .vercel
