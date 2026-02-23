@@ -39,6 +39,13 @@ const CONTROLLED_MAPPINGS: Array<{ pattern: RegExp; message: string }> = [
   // Supabase DB errors (normalized)
   { pattern: /^duplicate key value/i, message: "Ett liknande jobb finns redan." },
   { pattern: /^new row violates/i, message: "Datavalidering misslyckades." },
+
+  // TTS Preview
+  { pattern: /^WORKER_STALE$/i, message: "Jobbet avbröts (timeout). Försök igen." },
+  { pattern: /^Qwen synth timed out/i, message: "Talsyntesen tog för lång tid. Försök igen." },
+  { pattern: /^Qwen synth exited/i, message: "Talsyntesen misslyckades. Försök igen." },
+  { pattern: /^Failed to start Qwen synth/i, message: "Kunde inte starta talsyntesmotorn." },
+  { pattern: /^Storage upload failed/i, message: "Kunde inte spara ljudfilen." },
 ];
 
 const FALLBACK_MESSAGE = "Något gick fel under bearbetningen. Försök igen.";

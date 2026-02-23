@@ -2,6 +2,7 @@ import { createServerClient, type CookieOptions } from '@supabase/ssr'
 import { NextResponse, type NextRequest } from 'next/server'
 import { isBetaUser } from '@/lib/auth/beta'
 import { getAuthorApplicationStatus } from '@/lib/auth/author-approval'
+import { ACTIVE_ROLE_COOKIE } from '@/lib/active-role'
 
 /**
  * Ordningen är kritisk: waitlist-låset måste avgöras och eventuellt returnera
@@ -142,7 +143,13 @@ export async function middleware(request: NextRequest) {
         const url = request.nextUrl.clone()
         url.pathname = '/reader/home'
         url.searchParams.set('error', 'author_required')
-        return NextResponse.redirect(url)
+        const response = NextResponse.redirect(url)
+        response.cookies.set(ACTIVE_ROLE_COOKIE, 'reader', {
+          path: '/',
+          sameSite: 'lax',
+          maxAge: 31536000,
+        })
+        return response
       }
     }
   }

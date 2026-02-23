@@ -12,7 +12,7 @@ const ERROR_MESSAGES: Record<string, { title: string; description: string; actio
     title: "Author access required",
     description: "Author features are only available to author accounts. You can continue as a reader.",
     action: {
-      label: "Create author account",
+      label: "Apply for author access",
       href: "/author/signup",
     },
   },

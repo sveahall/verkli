@@ -11,6 +11,15 @@ import {
 } from "@/lib/api-errors";
 
 const VALID_STATUSES = new Set(["approved", "rejected"] as const);
+type ApplicationRow = {
+  user_id: string;
+  status: "pending" | "approved" | "rejected";
+  created_at: string;
+};
+type UserRow = {
+  id: string;
+  email: string | null;
+};
 
 function isAdmin(request: Request): boolean {
   const adminKey = process.env.ADMIN_API_KEY?.trim();
@@ -30,10 +39,39 @@ export async function GET(request: Request) {
     .order("created_at", { ascending: false });
 
   if (error) {
+    console.error("[author applications admin] failed to load applications", {
+      message: error.message,
+    });
     return apiError(E_APPLICATIONS_LOAD_FAILED, 500);
   }
 
-  return NextResponse.json({ applications: data ?? [] });
+  const applicationsData = (data ?? []) as ApplicationRow[];
+  const userIds = applicationsData.map((application) => application.user_id);
+  const emailByUserId = new Map<string, string | null>();
+
+  if (userIds.length > 0) {
+    const { data: users, error: usersError } = await admin
+      .from("users" as never)
+      .select("id, email")
+      .in("id", userIds as never);
+
+    if (usersError) {
+      console.error("[author applications admin] failed to load user emails", {
+        message: usersError.message,
+      });
+    } else {
+      for (const user of (users ?? []) as UserRow[]) {
+        emailByUserId.set(user.id, user.email ?? null);
+      }
+    }
+  }
+
+  const applications = applicationsData.map((application) => ({
+    ...application,
+    email: emailByUserId.get(application.user_id) ?? null,
+  }));
+
+  return NextResponse.json({ applications });
 }
 
 export async function PATCH(request: Request) {
@@ -68,6 +106,11 @@ export async function PATCH(request: Request) {
       .eq("user_id", userId);
 
     if (error) {
+      console.error("[author applications admin] failed to update application", {
+        userId,
+        status,
+        message: error.message,
+      });
       return apiError(E_APPLICATION_UPDATE_FAILED, 500);
     }
   } else {
@@ -76,6 +119,11 @@ export async function PATCH(request: Request) {
       .insert({ user_id: userId, status } as never);
 
     if (error) {
+      console.error("[author applications admin] failed to create application", {
+        userId,
+        status,
+        message: error.message,
+      });
       return apiError(E_APPLICATION_CREATION_FAILED, 500);
     }
   }

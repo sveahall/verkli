@@ -87,6 +87,11 @@ const ERROR_MESSAGES: Record<string, string> = {
   // Jobs
   JOB_FETCH_FAILED: "Kunde inte hämta jobbstatus.",
 
+  // TTS Preview
+  TTS_PREVIEW_JOB_NOT_FOUND: "TTS-förhandsgranskningen hittades inte.",
+  TTS_PREVIEW_INVALID_INPUT: "Ogiltig text eller parametrar. Max 500 tecken.",
+  TTS_PREVIEW_INVALID_VOICE: "Ogiltig röst. Välj en röst från listan.",
+
   // Bookmarks
   BOOKMARK_LOAD_FAILED: "Kunde inte ladda bokmärken.",
   ALREADY_BOOKMARKED: "Redan bokmärkt.",

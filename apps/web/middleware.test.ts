@@ -3,17 +3,25 @@ import { NextRequest } from "next/server";
 
 const originalBETA_LOCK = process.env.BETA_LOCK;
 const originalNEXT_PUBLIC_WAITLIST_ONLY = process.env.NEXT_PUBLIC_WAITLIST_ONLY;
+const mockGetUser = vi.fn();
+const mockFrom = vi.fn();
+const mockGetAuthorApplicationStatus = vi.fn(() => Promise.resolve(null));
 
 vi.mock("@supabase/ssr", () => ({
   createServerClient: vi.fn(() => ({
     auth: {
-      getUser: () => Promise.resolve({ data: { user: { id: "user-1" } } }),
+      getUser: mockGetUser,
     },
+    from: mockFrom,
   })),
 }));
 
 vi.mock("@/lib/auth/beta", () => ({
   isBetaUser: vi.fn(() => Promise.resolve(false)),
+}));
+
+vi.mock("@/lib/auth/author-approval", () => ({
+  getAuthorApplicationStatus: mockGetAuthorApplicationStatus,
 }));
 
 describe("middleware beta lock", () => {
@@ -22,6 +30,10 @@ describe("middleware beta lock", () => {
     process.env.BETA_LOCK = "true";
     process.env.NEXT_PUBLIC_SUPABASE_URL = "https://test.supabase.co";
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY = "anon-key";
+    mockGetUser.mockResolvedValue({ data: { user: { id: "user-1" } } });
+    mockFrom.mockReset();
+    mockGetAuthorApplicationStatus.mockReset();
+    mockGetAuthorApplicationStatus.mockResolvedValue(null);
   });
 
   afterEach(() => {
@@ -44,5 +56,46 @@ describe("middleware beta lock", () => {
     const res = await middleware(req);
     expect(res.status).toBe(307);
     expect(res.headers.get("location")).toContain("/waitlist");
+  });
+});
+
+describe("middleware author access", () => {
+  beforeEach(() => {
+    process.env.NEXT_PUBLIC_WAITLIST_ONLY = "false";
+    process.env.BETA_LOCK = "false";
+    process.env.NEXT_PUBLIC_SUPABASE_URL = "https://test.supabase.co";
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY = "anon-key";
+    mockGetUser.mockResolvedValue({ data: { user: { id: "reader-1" } } });
+    mockGetAuthorApplicationStatus.mockResolvedValue(null);
+    mockFrom.mockImplementation((table: string) => {
+      if (table === "profiles") {
+        return {
+          select: () => ({
+            eq: () => ({
+              maybeSingle: () => Promise.resolve({ data: { role: "reader" }, error: null }),
+            }),
+          }),
+        };
+      }
+      return {};
+    });
+  });
+
+  afterEach(() => {
+    mockFrom.mockReset();
+    mockGetUser.mockReset();
+    mockGetAuthorApplicationStatus.mockReset();
+  });
+
+  it("sets active_role=reader when redirecting non-approved user away from /author/home", async () => {
+    const { middleware } = await import("./middleware");
+    const req = new NextRequest("http://localhost/author/home", {
+      headers: { cookie: "active_role=author" },
+    });
+    const res = await middleware(req);
+
+    expect(res.status).toBe(307);
+    expect(res.headers.get("location")).toContain("/reader/home?error=author_required");
+    expect(res.headers.get("set-cookie") ?? "").toContain("active_role=reader");
   });
 });

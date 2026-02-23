@@ -135,3 +135,10 @@ export function isNotificationsEnabled(): boolean {
   if (value === undefined || value === "") return false;
   return value.toLowerCase() === "true" || value === "1";
 }
+
+// ─── TTS Lab (internal) ───
+export function isTtsLabEnabled(): boolean {
+  const value = process.env.NEXT_PUBLIC_TTS_LAB_ENABLED ?? process.env.TTS_LAB_ENABLED;
+  if (value === undefined || value === "") return true;
+  return value.toLowerCase() === "true" || value === "1";
+}

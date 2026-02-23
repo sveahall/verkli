@@ -1,22 +1,104 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import AuthShell from "@/components/auth/AuthShell";
 import AuthCard from "@/components/auth/AuthCard";
 import { Button } from "@/components/ui/button";
 import { FormField } from "@/components/ui/form-field";
 import { Input } from "@/components/ui/input";
+import { createClient } from "@/lib/supabase/client";
+import { resolveErrorMessage } from "@/lib/error-messages";
 import { signUp, signInWithGoogle } from "@/lib/supabase/auth";
 
+type AuthorApplicationStatus = "none" | "pending" | "approved" | "rejected";
+
+const parseApplicationStatus = (value: unknown): AuthorApplicationStatus => {
+  const normalized = String(value ?? "").toLowerCase();
+  if (normalized === "pending" || normalized === "approved" || normalized === "rejected") {
+    return normalized;
+  }
+  return "none";
+};
+
+const isExistingSupabaseUser = (
+  data: { user?: { identities?: unknown[] | null } | null } | null | undefined
+): boolean => {
+  const identities = data?.user?.identities;
+  return Array.isArray(identities) && identities.length === 0;
+};
+
 export default function AuthorSignUp() {
+  const router = useRouter();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [error, setError] = useState("");
+  const [applicationError, setApplicationError] = useState("");
   const [fieldErrors, setFieldErrors] = useState<{ email?: string; password?: string; confirmPassword?: string }>({});
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
+  const [loadingApplication, setLoadingApplication] = useState(true);
+  const [applicationLoading, setApplicationLoading] = useState(false);
+  const [loggedInEmail, setLoggedInEmail] = useState<string | null>(null);
+  const [applicationStatus, setApplicationStatus] = useState<AuthorApplicationStatus>("none");
+
+  useEffect(() => {
+    let mounted = true;
+    const supabase = createClient();
+
+    const loadSignedInUser = async () => {
+      try {
+        const {
+          data: { user },
+        } = await supabase.auth.getUser();
+
+        if (!mounted) return;
+
+        if (!user) {
+          setLoggedInEmail(null);
+          setApplicationStatus("none");
+          setLoadingApplication(false);
+          return;
+        }
+
+        setLoggedInEmail(user.email ?? null);
+
+        try {
+          const response = await fetch("/api/author-applications");
+          const payload = await response.json().catch(() => null);
+          if (!response.ok) {
+            setApplicationError(
+              resolveErrorMessage(
+                null,
+                "Could not load your author application status. Please refresh and try again."
+              )
+            );
+            setApplicationStatus("none");
+            return;
+          }
+          setApplicationStatus(parseApplicationStatus(payload?.status));
+        } finally {
+          if (mounted) {
+            setLoadingApplication(false);
+          }
+        }
+      } catch {
+        if (mounted) {
+          setLoggedInEmail(null);
+          setApplicationStatus("none");
+          setLoadingApplication(false);
+        }
+      }
+    };
+
+    void loadSignedInUser();
+
+    return () => {
+      mounted = false;
+    };
+  }, []);
 
   const validate = () => {
     const nextErrors: { email?: string; password?: string; confirmPassword?: string } = {};
@@ -43,13 +125,72 @@ export default function AuthorSignUp() {
 
     setLoading(true);
 
-    const { error } = await signUp(email, password, "author");
+    const { data, error } = await signUp(email, password, "author");
 
     if (error) {
-      setError(error.message);
+      setError(resolveErrorMessage(null, "Could not create your account. Please try again."));
       setLoading(false);
-    } else {
-      setSuccess(true);
+      return;
+    }
+
+    if (isExistingSupabaseUser(data)) {
+      setError("This email already has an account. Sign in first, then apply for author access.");
+      setLoading(false);
+      return;
+    }
+
+    setSuccess(true);
+  };
+
+  const switchToAuthorMode = async () => {
+    const response = await fetch("/api/auth/active-role", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ role: "author" }),
+    });
+
+    if (!response.ok) {
+      setApplicationError(
+        "Your author access is approved, but we could not switch your role automatically. Try again."
+      );
+      return;
+    }
+
+    router.push("/author/home");
+    router.refresh();
+  };
+
+  const handleApplyForAuthor = async () => {
+    setApplicationError("");
+    setApplicationLoading(true);
+
+    try {
+      const response = await fetch("/api/author-applications", {
+        method: "POST",
+      });
+      const payload = await response.json().catch(() => null);
+
+      if (!response.ok) {
+        setApplicationError(
+          resolveErrorMessage(null, "Could not submit your author application. Please try again.")
+        );
+        return;
+      }
+
+      const nextStatus = parseApplicationStatus(payload?.status);
+      setApplicationStatus(nextStatus === "none" ? "pending" : nextStatus);
+
+      if (nextStatus === "approved") {
+        await switchToAuthorMode();
+      }
+    } catch {
+      setApplicationError(
+        resolveErrorMessage(null, "Could not submit your author application. Please try again.")
+      );
+    } finally {
+      setApplicationLoading(false);
     }
   };
 
@@ -60,6 +201,83 @@ export default function AuthorSignUp() {
       setError(error.message);
     }
   };
+
+  if (loadingApplication) {
+    return (
+      <AuthShell backHref="/author" backLabel="Back to Verkli">
+        <AuthCard title="Preparing author access" subtitle="One moment">
+          <p className="text-center text-[14px] leading-relaxed text-slate-500 dark:text-white/50">
+            Checking your account status...
+          </p>
+        </AuthCard>
+      </AuthShell>
+    );
+  }
+
+  if (loggedInEmail) {
+    const isApproved = applicationStatus === "approved";
+    const isPending = applicationStatus === "pending";
+    const isReapply = applicationStatus === "rejected";
+    const cardTitle = isApproved
+      ? "Author access approved"
+      : isPending
+        ? "Application pending"
+        : isReapply
+          ? "Reapply for author access"
+          : "Apply for author access";
+    const cardSubtitle = isApproved ? "You're ready to publish" : "Use your existing reader account";
+
+    return (
+      <AuthShell backHref="/reader/home" backLabel="Back to reader home">
+        <AuthCard title={cardTitle} subtitle={cardSubtitle}>
+          {applicationError && (
+            <div
+              role="alert"
+              className="mb-5 rounded-xl border border-red-200/80 bg-red-50/60 px-4 py-3 text-[14px] text-red-600 dark:border-red-500/20 dark:bg-red-500/10 dark:text-red-300"
+            >
+              {applicationError}
+            </div>
+          )}
+
+          <div className="flex flex-col gap-4">
+            <p className="text-[14px] leading-relaxed text-slate-500 dark:text-white/50">
+              Signed in as <span className="font-medium text-slate-900 dark:text-white">{loggedInEmail}</span>.
+              {isApproved
+                ? " Your author access is already approved."
+                : isPending
+                  ? " Your author application is pending. Waiting for admin approval."
+                  : isReapply
+                    ? " Your previous application was rejected. You can submit a new one now."
+                    : " Submit an application to unlock author mode on this same account."}
+            </p>
+
+            {isApproved ? (
+              <Button
+                fullWidth
+                isLoading={applicationLoading}
+                loadingText="Opening author home..."
+                onClick={async () => {
+                  setApplicationLoading(true);
+                  await switchToAuthorMode();
+                  setApplicationLoading(false);
+                }}
+              >
+                Open author home
+              </Button>
+            ) : isPending ? (
+              <Link href="/reader/home" className="w-full">
+                <Button variant="secondary" fullWidth>Back to reader home</Button>
+              </Link>
+            ) : (
+              <Button fullWidth isLoading={applicationLoading} loadingText="Submitting application..." onClick={handleApplyForAuthor}>
+                {isReapply ? "Submit new application" : "Apply for author access"}
+              </Button>
+            )}
+          </div>
+        </AuthCard>
+      </AuthShell>
+    );
+  }
 
   if (success) {
     return (

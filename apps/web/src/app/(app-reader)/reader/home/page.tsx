@@ -479,12 +479,12 @@ export default async function ReaderHomePage() {
         }
       : authorApplicationStatus === "pending"
         ? {
-            href: "/author",
+            href: "/author/signup",
             label: "Author application pending",
             className: "btn-secondary",
           }
         : {
-            href: "/author",
+            href: "/author/signup",
             label: "Become an author",
             className: "btn-secondary",
           };

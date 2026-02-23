@@ -125,6 +125,13 @@ npx tsx scripts/recommendations-worker.ts
 ```
 Worker kör intern schemaläggning var 6:e timme.
 
+### 4.7 TTS Preview worker (TTS Lab)
+Ingen Redis – pollar `tts_preview_jobs` i DB.
+```bash
+npm run tts-preview-worker
+```
+Kräver Qwen TTS Python-miljö. Se [docs/tts-lab.md](./tts-lab.md).
+
 ## 5) Snabb Hälsokontroll
 ```bash
 curl -s http://localhost:3000/api/health
@@ -148,8 +155,10 @@ Notera:
 - Anropa `POST /api/books/[id]/audiobook/generate`.
 - Kontrollera `ai_jobs` + `audiobook_assets` + `GET /api/books/[id]/audiobook/status`.
 
-### TTS endpoint
-`POST /api/tts` returnerar `410` tills Qwen3 TTS är integrerad.
+### TTS Lab
+- Öppna `/author/tts-lab`, skriv text, välj röst, klicka Generate.
+- Kör `npm run tts-preview-worker` i separat terminal.
+- Worker pollar queued jobs, kör Qwen TTS, sparar i `tts_previews` bucket.
 
 ## 7) Stripe/Resend/Social (endast om du testar dessa features)
 
