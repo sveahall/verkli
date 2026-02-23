@@ -32,7 +32,7 @@ export default function PerformanceOverview({
   if (state === "error") {
     return (
       <div className="rounded-2xl border border-dashed border-destructive/40 bg-destructive/10 p-6 text-sm text-destructive">
-        We couldn’t load analytics. Try again later.
+        We couldn&apos;t load analytics. Try again later.
       </div>
     );
   }

@@ -32,7 +32,7 @@ export default function Rail({ title, subtitle, description, action, children, i
           {emptyState ?? (
             <EmptyState
               title="Nothing here yet"
-              description="Add items and they’ll show up here."
+              description="Add items and they'll show up here."
             />
           )}
         </div>

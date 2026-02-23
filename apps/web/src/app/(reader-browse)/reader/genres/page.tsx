@@ -68,7 +68,7 @@ export default async function ReaderGenresPage({
         />
         <EmptyState
           title="Something went wrong"
-          description="We couldn’t load genres. Refresh the page or try again in a moment."
+          description="We couldn't load genres. Refresh the page or try again in a moment."
           action={
             <Link href="/reader/genres" className="btn-secondary">
               Retry

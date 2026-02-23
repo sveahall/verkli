@@ -232,7 +232,7 @@ export default async function ReaderDiscoverPage({
       {discoveryEnabled && featuredBooks.length > 0 && (
         <Rail
           title={`Featured in ${langLabel}`}
-          subtitle="Editor’s picks"
+          subtitle="Editor's picks"
           isEmpty={false}
         >
           {featuredBooks.map((book) => (
@@ -291,7 +291,7 @@ export default async function ReaderDiscoverPage({
                   href={`/reader/lists/${list.slug}`}
                   className="text-sm font-medium text-emerald-600 dark:text-emerald-400 hover:underline"
                 >
-                  View all →
+                  View all
                 </Link>
               </div>
               <div className="flex gap-5 overflow-x-auto pb-2 pr-2 -mx-1">

@@ -25,7 +25,7 @@ export default function CampaignList({
   if (state === "error") {
     return (
       <div className="rounded-2xl border border-dashed border-destructive/40 bg-destructive/10 p-6 text-sm text-destructive">
-        Campaigns couldn’t be loaded. Try again in a moment.
+        Campaigns couldn&apos;t be loaded. Try again in a moment.
       </div>
     );
   }

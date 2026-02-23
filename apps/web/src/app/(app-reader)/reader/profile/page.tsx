@@ -413,7 +413,7 @@ export default async function ReaderProfilePage({ searchParams }: PageProps) {
                   {highlight.bookTitle}
                 </div>
                 <p className="mt-2 text-[14px] leading-relaxed text-slate-800 dark:text-white/85">
-                  “{highlight.snippet}”
+                  &quot;{highlight.snippet}&quot;
                 </p>
                 {highlight.note && (
                   <p className="mt-3 rounded-lg border border-slate-200/80 bg-slate-50 px-3 py-2 text-[12px] text-slate-600 dark:border-white/10 dark:bg-white/[0.02] dark:text-white/65">
