@@ -258,28 +258,16 @@ export default async function ReaderReadPage({
         <Link href={`/reader/books/${book.id}`} className="text-[13px] text-slate-600 hover:text-slate-900 dark:text-white/50 dark:hover:text-white/70">
           ← Back to book
         </Link>
-        <span className="text-[13px] text-slate-500 dark:text-white/40">Reading mode</span>
+        <span className="text-[13px] text-slate-500 dark:text-white/40">
+          Chapter {chapterIndex + 1} of {totalChapters}
+        </span>
       </header>
 
       <section className="mx-auto max-w-[1100px] px-6 pb-16">
         <ChapterTopNavigator chapters={navChapters} currentChapterId={chapter.id} />
 
         <article className="mt-8">
-          <h1 className="text-center text-[clamp(2.25rem,4vw,3.1rem)] font-semibold tracking-tight text-slate-900 dark:text-white">
-            {book.title}
-          </h1>
-          <p className="mt-2 text-center text-[13px] text-slate-500 dark:text-white/50">
-            Chapter {chapterIndex + 1} of {totalChapters}
-          </p>
-          <ChapterAudiobookPlayer
-            bookId={book.id}
-            chapterId={chapter.id}
-            audiobookStatus={typeof (book as { audiobook_status?: string | null }).audiobook_status === "string"
-              ? (book as { audiobook_status?: string | null }).audiobook_status
-              : null}
-            isAuthorView={isAuthorView}
-          />
-          <div className="mt-8 text-[15px] leading-relaxed text-slate-700 dark:text-white/70">
+          <div className="text-[15px] leading-relaxed text-slate-700 dark:text-white/70">
             <ReaderChapterClient
               userId={user?.id ?? null}
               bookId={book.id}
@@ -292,6 +280,15 @@ export default async function ReaderReadPage({
               initialSettings={initialReaderSettings}
             />
           </div>
+
+          <ChapterAudiobookPlayer
+            bookId={book.id}
+            chapterId={chapter.id}
+            audiobookStatus={typeof (book as { audiobook_status?: string | null }).audiobook_status === "string"
+              ? (book as { audiobook_status?: string | null }).audiobook_status
+              : null}
+            isAuthorView={isAuthorView}
+          />
 
           <div className="mt-10 grid gap-4 sm:grid-cols-2">
             {previousChapterNav ? (

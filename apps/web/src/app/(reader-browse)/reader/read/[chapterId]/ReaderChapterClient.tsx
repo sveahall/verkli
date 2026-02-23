@@ -828,9 +828,60 @@ export default function ReaderChapterClient({
             ref={settingsPanelRef}
             className="absolute right-0 top-12 w-[270px] rounded-2xl border border-slate-200 bg-white/95 p-4 shadow-[0_20px_44px_rgba(15,23,42,0.16)] dark:border-white/10 dark:bg-slate-900"
           >
-            <p className="mb-3 text-[13px] font-semibold text-slate-900 dark:text-white">L&auml;sinst&auml;llningar</p>
+            <div className="mb-3 flex items-center justify-between">
+              <p className="text-[13px] font-semibold text-slate-900 dark:text-white">L&auml;sinst&auml;llningar</p>
+              {userId && settingsStatusLabel && (
+                <span className={`text-[11px] font-medium ${
+                  settingsSaveState === "error"
+                    ? "text-red-600 dark:text-red-300"
+                    : "text-emerald-700 dark:text-emerald-300"
+                }`}>
+                  {settingsStatusLabel}
+                </span>
+              )}
+            </div>
 
             <div className="space-y-3">
+              <div>
+                <p className="mb-1.5 text-[11px] font-medium uppercase tracking-[0.1em] text-slate-500 dark:text-white/50">Textstorlek</p>
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => updateReaderSettings((prev) => ({ ...prev, fontSize: clamp(prev.fontSize - 1, FONT_MIN, FONT_MAX) }))}
+                    className="rounded-lg border border-slate-200 px-2.5 py-1 text-[12px] font-medium text-slate-700 transition hover:border-slate-300 dark:border-white/15 dark:text-white/70"
+                    aria-label="Decrease text size"
+                  >
+                    A-
+                  </button>
+                  <span className="min-w-[40px] text-center text-[12px] font-semibold text-slate-900 dark:text-white">{settings.fontSize}px</span>
+                  <button
+                    type="button"
+                    onClick={() => updateReaderSettings((prev) => ({ ...prev, fontSize: clamp(prev.fontSize + 1, FONT_MIN, FONT_MAX) }))}
+                    className="rounded-lg border border-slate-200 px-2.5 py-1 text-[12px] font-medium text-slate-700 transition hover:border-slate-300 dark:border-white/15 dark:text-white/70"
+                    aria-label="Increase text size"
+                  >
+                    A+
+                  </button>
+                </div>
+              </div>
+
+              <div>
+                <p className="mb-1.5 text-[11px] font-medium uppercase tracking-[0.1em] text-slate-500 dark:text-white/50">Radavst&aring;nd</p>
+                <select
+                  value={String(settings.lineHeight)}
+                  onChange={(event) => {
+                    const next = Number(event.target.value);
+                    if (!Number.isFinite(next)) return;
+                    updateReaderSettings((prev) => ({ ...prev, lineHeight: next }));
+                  }}
+                  className="w-full rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-[12px] font-medium text-slate-800 dark:border-white/15 dark:bg-white/5 dark:text-white"
+                >
+                  {LINE_HEIGHT_OPTIONS.map((value) => (
+                    <option key={value} value={String(value)}>{value.toFixed(1)}x</option>
+                  ))}
+                </select>
+              </div>
+
               <div>
                 <p className="mb-1.5 text-[11px] font-medium uppercase tracking-[0.1em] text-slate-500 dark:text-white/50">Typsnitt</p>
                 <div className="flex gap-1.5">
@@ -923,61 +974,6 @@ export default function ReaderChapterClient({
         </div>
 
         <div className="relative space-y-5">
-          <section
-            className="rounded-[24px] border p-4 shadow-[0_10px_24px_rgba(15,23,42,0.07)]"
-            style={{ background: currentTheme.panelBg, borderColor: currentTheme.panelBorder }}
-          >
-            <div className="flex flex-wrap items-center gap-2 text-[12px] text-slate-600 dark:text-white/60">
-              <span className="text-[13px] font-semibold text-slate-900 dark:text-white">Reader settings</span>
-              <button
-                type="button"
-                onClick={() => updateReaderSettings((prev) => ({ ...prev, fontSize: clamp(prev.fontSize - 1, FONT_MIN, FONT_MAX) }))}
-                className="rounded-full border border-slate-200 px-3 py-1 font-medium text-slate-700 transition hover:border-slate-300 hover:text-slate-900 dark:border-white/15 dark:text-white/70 dark:hover:text-white"
-                aria-label="Decrease text size"
-              >
-                A-
-              </button>
-              <span className="min-w-[54px] text-center font-semibold text-slate-900 dark:text-white">{settings.fontSize}px</span>
-              <button
-                type="button"
-                onClick={() => updateReaderSettings((prev) => ({ ...prev, fontSize: clamp(prev.fontSize + 1, FONT_MIN, FONT_MAX) }))}
-                className="rounded-full border border-slate-200 px-3 py-1 font-medium text-slate-700 transition hover:border-slate-300 hover:text-slate-900 dark:border-white/15 dark:text-white/70 dark:hover:text-white"
-                aria-label="Increase text size"
-              >
-                A+
-              </button>
-
-              <label htmlFor="reader-line-height" className="ml-2 font-medium text-slate-700 dark:text-white/70">
-                Line spacing
-              </label>
-              <select
-                id="reader-line-height"
-                value={String(settings.lineHeight)}
-                onChange={(event) => {
-                  const next = Number(event.target.value);
-                  if (!Number.isFinite(next)) return;
-                  updateReaderSettings((prev) => ({ ...prev, lineHeight: next }));
-                }}
-                className="rounded-full border border-slate-200 bg-white/90 px-3 py-1 text-[12px] font-medium text-slate-800 dark:border-white/15 dark:bg-white/5 dark:text-white"
-              >
-                {LINE_HEIGHT_OPTIONS.map((value) => (
-                  <option key={value} value={String(value)}>{value.toFixed(1)}x</option>
-                ))}
-              </select>
-
-              {userId && settingsStatusLabel && (
-                <span className={`ml-auto font-medium ${
-                  settingsSaveState === "error"
-                    ? "text-red-600 dark:text-red-300"
-                    : "text-emerald-700 dark:text-emerald-300"
-                }`}
-                >
-                  {settingsStatusLabel}
-                </span>
-              )}
-            </div>
-          </section>
-
           <div
             ref={contentRef}
             className="reader-chapter-body rounded-[30px] border px-7 py-8 shadow-[0_18px_36px_rgba(15,23,42,0.08)] sm:px-11 sm:py-11"

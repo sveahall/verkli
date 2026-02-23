@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 
 type NavChapter = {
@@ -28,6 +28,7 @@ export default function ChapterTopNavigator({
   currentChapterId: string;
 }) {
   const router = useRouter();
+  const [showJump, setShowJump] = useState(false);
 
   const currentIndex = useMemo(
     () => chapters.findIndex((chapter) => chapter.id === currentChapterId),
@@ -81,9 +82,13 @@ export default function ChapterTopNavigator({
             <p className="truncate text-[14px] font-semibold text-slate-900 dark:text-white">
               {currentChapter ? `${displayIndex}. ${currentChapter.title}` : "Chapter"}
             </p>
-            <span className="whitespace-nowrap text-[11px] font-medium text-slate-500 dark:text-white/50">
-              {displayIndex} / {total} • {progressPercent}%
-            </span>
+            <button
+              type="button"
+              onClick={() => setShowJump((prev) => !prev)}
+              className="whitespace-nowrap text-[11px] font-medium text-slate-500 transition hover:text-slate-700 dark:text-white/50 dark:hover:text-white/70"
+            >
+              {displayIndex} / {total} &bull; {progressPercent}%
+            </button>
           </div>
           <div className="mt-2 h-2.5 overflow-hidden rounded-full bg-slate-200 dark:bg-white/10">
             <div
@@ -104,26 +109,31 @@ export default function ChapterTopNavigator({
         </button>
       </div>
 
-      <div className="mt-3 flex items-center gap-2">
-        <label htmlFor="chapter-jump" className="text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-500 dark:text-white/50">
-          Jump
-        </label>
-        <select
-          id="chapter-jump"
-          value={currentChapterId}
-          onChange={(event) => router.push(`/reader/read/${event.target.value}`)}
-          className="flex-1 rounded-xl border border-slate-200 bg-white px-3 py-2 text-[13px] text-slate-800 outline-none transition focus:border-[#8B7BFF]/50 focus:ring-2 focus:ring-[#8B7BFF]/20 dark:border-white/15 dark:bg-white/[0.05] dark:text-white"
-        >
-          {chapters.map((chapter, index) => (
-            <option key={chapter.id} value={chapter.id}>
-              {index + 1}. {chapter.title}
-            </option>
-          ))}
-        </select>
-        <span className="hidden text-[11px] text-slate-500 dark:text-white/50 sm:inline">
-          ⌨︎ ← / →
-        </span>
-      </div>
+      {showJump && (
+        <div className="mt-3 flex items-center gap-2">
+          <label htmlFor="chapter-jump" className="text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-500 dark:text-white/50">
+            Jump
+          </label>
+          <select
+            id="chapter-jump"
+            value={currentChapterId}
+            onChange={(event) => {
+              router.push(`/reader/read/${event.target.value}`);
+              setShowJump(false);
+            }}
+            className="flex-1 rounded-xl border border-slate-200 bg-white px-3 py-2 text-[13px] text-slate-800 outline-none transition focus:border-[#8B7BFF]/50 focus:ring-2 focus:ring-[#8B7BFF]/20 dark:border-white/15 dark:bg-white/[0.05] dark:text-white"
+          >
+            {chapters.map((chapter, index) => (
+              <option key={chapter.id} value={chapter.id}>
+                {index + 1}. {chapter.title}
+              </option>
+            ))}
+          </select>
+          <span className="hidden text-[11px] text-slate-500 dark:text-white/50 sm:inline">
+            ⌨︎ ← / →
+          </span>
+        </div>
+      )}
     </div>
   );
 }

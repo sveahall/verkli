@@ -170,11 +170,7 @@ export default function ChapterAudiobookPlayer({
   }
 
   if (!audioUrl) {
-    return (
-      <p className="mt-7 text-xs text-slate-600 dark:text-white/65">
-        No audio yet
-      </p>
-    );
+    return null;
   }
 
   return (
