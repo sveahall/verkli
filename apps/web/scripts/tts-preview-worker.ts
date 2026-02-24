@@ -34,6 +34,18 @@ const STALE_MINUTES = 3;
 const DEBUG = process.env.TTS_LAB_DEBUG === "1";
 const VERBOSE_QWEN_LOGS = process.env.QWEN_TTS_VERBOSE === "1";
 let cachedQwenPythonPath: string | null = null;
+let cachedFfmpegPath: string | null = null;
+
+const VIDEO_REFERENCE_EXTENSIONS = new Set([
+  ".mp4",
+  ".mov",
+  ".m4v",
+  ".webm",
+  ".mkv",
+  ".avi",
+  ".mpeg",
+  ".mpg",
+]);
 
 function parseTimeoutMs(): number {
   const raw = process.env.QWEN_TTS_TIMEOUT_MS ?? process.env.TTS_TIMEOUT_MS;
@@ -228,6 +240,49 @@ function resolveQwenPythonPath(): string {
   );
 }
 
+function resolveFfmpegPath(): string | null {
+  if (cachedFfmpegPath) return cachedFfmpegPath;
+  const configured = process.env.QWEN_TTS_FFMPEG?.trim();
+  const candidates = [configured, "ffmpeg", "/opt/homebrew/bin/ffmpeg", "/usr/local/bin/ffmpeg"].filter(
+    (value): value is string => Boolean(value)
+  );
+
+  for (const candidate of candidates) {
+    const probe = spawnSync(candidate, ["-version"], { stdio: "ignore" });
+    if (probe.status === 0) {
+      cachedFfmpegPath = candidate;
+      return candidate;
+    }
+  }
+  return null;
+}
+
+function maybeExtractAudioFromVideo(referencePath: string, tmpDir: string): string {
+  const ext = path.extname(referencePath).toLowerCase();
+  if (!VIDEO_REFERENCE_EXTENSIONS.has(ext)) return referencePath;
+
+  const ffmpegPath = resolveFfmpegPath();
+  if (!ffmpegPath) {
+    throw new Error(
+      `[tts preview] ffmpeg missing; cannot extract audio from video reference (${path.basename(referencePath)}). Install ffmpeg or upload audio file.`
+    );
+  }
+
+  const outputPath = path.join(tmpDir, "ref-audio-extracted.wav");
+  const result = spawnSync(
+    ffmpegPath,
+    ["-y", "-i", referencePath, "-vn", "-ac", "1", "-ar", "24000", "-c:a", "pcm_s16le", outputPath],
+    { stdio: "pipe" }
+  );
+  if (result.status !== 0 || !existsSync(outputPath)) {
+    const stderr = result.stderr?.toString().slice(-400) ?? "(no stderr)";
+    throw new Error(`[tts preview] ffmpeg audio extraction failed for ${path.basename(referencePath)}: ${stderr}`);
+  }
+
+  log("extracted audio from video reference", { input: path.basename(referencePath) });
+  return outputPath;
+}
+
 function parseQwenMetadata(stdout: string): { outputPath?: string } {
   const lines = stdout
     .split(/\r?\n/g)
@@ -409,10 +464,13 @@ async function processJob(
     const outputPath = path.join(tmpDir, "output.wav");
     const voiceConfig = await resolveVoiceConfig(job.voice_id);
     const resolvedRefAudioPath = await materializeRefAudio(admin, voiceConfig.refAudio, tmpDir);
+    const preparedRefAudioPath = resolvedRefAudioPath
+      ? maybeExtractAudioFromVideo(resolvedRefAudioPath, tmpDir)
+      : null;
     const effectiveVoiceConfig: ResolvedVoiceConfig = {
       ...voiceConfig,
-      refAudio: resolvedRefAudioPath,
-      refText: resolvedRefAudioPath ? voiceConfig.refText : null,
+      refAudio: preparedRefAudioPath,
+      refText: preparedRefAudioPath ? voiceConfig.refText : null,
     };
     log("voice config resolved", {
       jobId: job.id,

@@ -17,7 +17,7 @@ import {
 
 const MAX_TEXT_LENGTH = 500;
 const MAX_REF_TEXT_LENGTH = 500;
-const MAX_REF_AUDIO_BYTES = 15 * 1024 * 1024;
+const MAX_REF_MEDIA_BYTES = 80 * 1024 * 1024;
 const TTS_PREVIEW_BUCKET = "tts_previews";
 
 const rateLimiter = createPerUserRateLimiter({ maxPerMinute: 3 });
@@ -94,6 +94,47 @@ function sanitizeStorageSegment(raw: string): string {
     .slice(0, 48);
 }
 
+/** Map non-standard / browser-specific MIME types to the canonical form
+ *  that Supabase storage accepts. */
+function normalizeMediaType(raw: string): string {
+  switch (raw.toLowerCase()) {
+    case "audio/x-m4a":
+    case "audio/mp4a-latm":
+      return "audio/mp4";
+    case "audio/x-wav":
+      return "audio/wav";
+    default:
+      return raw;
+  }
+}
+
+function extensionFromMediaType(mediaType: string): string {
+  switch (mediaType.toLowerCase()) {
+    case "video/mp4":
+      return ".mp4";
+    case "video/quicktime":
+      return ".mov";
+    case "video/webm":
+      return ".webm";
+    case "video/x-matroska":
+      return ".mkv";
+    case "audio/mpeg":
+      return ".mp3";
+    case "audio/mp4":
+    case "audio/x-m4a":
+      return ".m4a";
+    case "audio/wav":
+    case "audio/x-wav":
+      return ".wav";
+    case "audio/webm":
+      return ".webm";
+    case "audio/ogg":
+      return ".ogg";
+    default:
+      return "";
+  }
+}
+
 function encodeVoiceIdForJob(payload: VoiceJobPayload): string {
   if (!payload.profile && !payload.instruct && !payload.refText && !payload.refAudioPath) {
     return payload.speaker;
@@ -122,6 +163,20 @@ export async function POST(request: Request) {
 
   const { user, response } = await requireAuthorRoleForApi();
   if (response) return response;
+
+  const admin = createAdminClient();
+  const { data: existing } = await admin
+    .from("tts_preview_jobs")
+    .select("id")
+    .eq("user_id", user.id)
+    .in("status", ["queued", "running"])
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (existing) {
+    return NextResponse.json({ jobId: existing.id }, { status: 202 });
+  }
 
   const rl = rateLimiter.check(user.id);
   if (!rl.allowed) {
@@ -188,35 +243,21 @@ export async function POST(request: Request) {
     });
   }
   if (refAudioFile) {
-    if (!refAudioFile.type.toLowerCase().startsWith("audio/")) {
+    const mediaType = refAudioFile.type.toLowerCase();
+    if (!mediaType.startsWith("audio/") && !mediaType.startsWith("video/")) {
       return apiError(E_TTS_PREVIEW_INVALID_INPUT, 400, {
-        detail: "voiceRefAudio must be an audio file",
+        detail: "voiceRefAudio must be an audio or video file",
       });
     }
-    if (refAudioFile.size > MAX_REF_AUDIO_BYTES) {
+    if (refAudioFile.size > MAX_REF_MEDIA_BYTES) {
       return apiError(E_TTS_PREVIEW_INVALID_INPUT, 400, {
-        detail: `voiceRefAudio max size is ${MAX_REF_AUDIO_BYTES} bytes`,
+        detail: `voiceRefAudio max size is ${MAX_REF_MEDIA_BYTES} bytes`,
       });
     }
   }
   const format = body.format === "mp3" ? "mp3" : "wav";
   const speed = typeof body.speed === "number" && Number.isFinite(body.speed) ? body.speed : null;
   const seed = typeof body.seed === "number" && Number.isInteger(body.seed) ? body.seed : null;
-
-  const admin = createAdminClient();
-
-  const { data: existing } = await admin
-    .from("tts_preview_jobs")
-    .select("id")
-    .eq("user_id", user.id)
-    .in("status", ["queued", "running"])
-    .order("created_at", { ascending: false })
-    .limit(1)
-    .maybeSingle();
-
-  if (existing) {
-    return NextResponse.json({ jobId: existing.id }, { status: 202 });
-  }
 
   const { data: profile } = await admin
     .from("profiles")
@@ -229,15 +270,17 @@ export async function POST(request: Request) {
   let refAudioPath: string | null = null;
   if (refAudioFile) {
     const safeProfile = voiceProfile ? sanitizeStorageSegment(voiceProfile) : "";
-    const extension = refAudioFile.name.includes(".")
+    const extensionFromName = refAudioFile.name.includes(".")
       ? refAudioFile.name.slice(refAudioFile.name.lastIndexOf(".")).toLowerCase()
       : "";
+    const extension = extensionFromName || extensionFromMediaType(refAudioFile.type || "");
     const storagePath = safeProfile
       ? `refs/${user.id}/profile-${safeProfile}${extension}`
       : `refs/${user.id}/upload-${crypto.randomUUID()}${extension}`;
     const buffer = Buffer.from(await refAudioFile.arrayBuffer());
+    const uploadContentType = normalizeMediaType(refAudioFile.type || "application/octet-stream");
     const { error: uploadError } = await admin.storage.from(TTS_PREVIEW_BUCKET).upload(storagePath, buffer, {
-      contentType: refAudioFile.type || "application/octet-stream",
+      contentType: uploadContentType,
       upsert: true,
     });
     if (uploadError) {

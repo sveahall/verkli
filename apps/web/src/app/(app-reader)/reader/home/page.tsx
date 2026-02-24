@@ -488,19 +488,18 @@ export default async function ReaderHomePage() {
 
   return (
     <>
-      {/* Hero: 8px grid, lifted shadow */}
-      <section className="relative mb-12 min-h-0 w-full overflow-hidden rounded-b-[24px] bg-[#f5f5f7] shadow-[0_24px_48px_-20px_rgba(15,23,42,0.12),0_12px_24px_-8px_rgba(15,23,42,0.08)] dark:bg-[#0a0a0a] dark:shadow-[0_24px_48px_-12px_rgba(15,23,42,0.35)]">
-        <div className="absolute inset-0 bg-gradient-to-b from-white via-transparent to-blue-500/10 dark:from-white/[0.02] dark:to-transparent" aria-hidden />
+      {/* Hero: WOW — lifted card, accent, depth */}
+      <section className="relative mb-12 min-h-0 w-full overflow-hidden rounded-b-[28px] bg-gradient-to-b from-[#f8f8fa] to-[#f0f0f4] shadow-[0_32px_64px_-24px_rgba(15,23,42,0.14),0_16px_32px_-12px_rgba(15,23,42,0.08)] dark:from-[#0c0c10] dark:to-[#08080c] dark:shadow-[0_32px_64px_-16px_rgba(0,0,0,0.45),0_0_0_1px_rgba(255,255,255,0.04)_inset]">
+        {/* Accent bar (reference: Edukated / Gamely) */}
+        <div className="absolute inset-0 bg-gradient-to-b from-white/60 via-transparent to-[#907AFF]/5 dark:from-white/[0.03] dark:to-transparent" aria-hidden />
         <div className="relative z-10">
-          {/* Same horizontal padding everywhere for alignment */}
           <div className="mx-auto w-full max-w-7xl px-4 sm:px-6 lg:px-10">
             <div className="py-10 sm:py-12">
-              {/* Row 1: cover left, title + CTA right — 8px rhythm */}
               <div className="grid grid-cols-1 gap-8 lg:grid-cols-[auto_1fr] lg:items-center lg:gap-12">
                 {spotlight?.cover ? (
                   <Link
                     href={spotlight.href}
-                    className="block w-full max-w-[180px] overflow-hidden rounded-xl shadow-lg ring-1 ring-neutral-200/80 transition hover:ring-neutral-300 dark:ring-neutral-700 dark:hover:ring-neutral-600 sm:max-w-[200px] lg:max-w-[220px]"
+                    className="block w-full max-w-[180px] overflow-hidden rounded-2xl shadow-[0_24px_48px_-12px_rgba(15,23,42,0.2),0_12px_24px_-8px_rgba(15,23,42,0.12)] ring-1 ring-neutral-200/80 transition hover:scale-[1.02] hover:shadow-[0_28px_56px_-12px_rgba(15,23,42,0.22)] dark:ring-white/10 dark:shadow-[0_24px_48px_-12px_rgba(0,0,0,0.5)] dark:hover:shadow-[0_32px_56px_-12px_rgba(0,0,0,0.55)] sm:max-w-[200px] lg:max-w-[220px]"
                   >
                     <div className="aspect-[2/3] w-full bg-neutral-200 dark:bg-neutral-800">
                       <Image
@@ -517,7 +516,7 @@ export default async function ReaderHomePage() {
                 ) : null}
                 <div className="flex min-w-0 flex-col justify-center">
                   {spotlight ? (
-                    <span className="text-[11px] font-semibold uppercase tracking-[0.2em] text-neutral-500 dark:text-neutral-400">
+                    <span className="text-[11px] font-semibold uppercase tracking-[0.22em] text-neutral-500 dark:text-neutral-400">
                       {spotlight.badge}
                     </span>
                   ) : null}
@@ -531,7 +530,7 @@ export default async function ReaderHomePage() {
                     {spotlight ? (
                       <Link
                         href={spotlight.href}
-                        className="inline-flex h-10 items-center justify-center rounded-full bg-neutral-900 px-5 text-[14px] font-medium text-white transition hover:bg-neutral-800 dark:bg-white dark:text-neutral-900 dark:hover:bg-neutral-100"
+                        className="inline-flex h-10 items-center justify-center rounded-full bg-[#907AFF] px-5 text-[14px] font-medium text-white shadow-[0_4px_14px_-2px_rgba(144,122,255,0.45)] transition hover:bg-[#7c6aeb] hover:shadow-[0_6px_20px_-2px_rgba(144,122,255,0.5)] dark:bg-[#a78bfa] dark:text-white dark:shadow-[0_4px_14px_-2px_rgba(167,139,250,0.4)] dark:hover:bg-[#c4b5fd]"
                       >
                         Open
                       </Link>
@@ -552,7 +551,7 @@ export default async function ReaderHomePage() {
                   {spotlight && typeof spotlight.progress === "number" ? (
                     <div className="mt-4 h-1.5 w-full max-w-[240px] rounded-full bg-neutral-200 dark:bg-neutral-700">
                       <div
-                        className="h-full rounded-full bg-neutral-600 dark:bg-white"
+                        className="h-full rounded-full bg-[#907AFF] dark:bg-[#a78bfa]"
                         style={{ width: `${Math.min(Math.max(spotlight.progress, 0), 100)}%` }}
                       />
                     </div>
@@ -560,14 +559,17 @@ export default async function ReaderHomePage() {
                 </div>
               </div>
 
-              {/* Row 2: Top 5 — same left edge, 8px rhythm */}
+              {/* Row 2: Top 5 — accent bar + lifted cards (reference: Edukated / Book Lover) */}
               {top5Chart.length > 0 ? (
                 <div className="mt-10 border-t border-neutral-200/80 pt-8 dark:border-neutral-800">
-                  <div className="mb-4 flex items-center justify-between">
-                    <span className="text-[11px] font-semibold uppercase tracking-[0.18em] text-neutral-500 dark:text-neutral-400">
-                      Top in chart
-                    </span>
-                    <Link href="#top-chart" className="text-[12px] font-medium text-neutral-600 hover:text-neutral-900 dark:text-neutral-400 dark:hover:text-white">
+                  <div className="mb-4 flex items-center justify-between gap-4">
+                    <div className="flex items-center gap-3">
+                      <div className="h-8 w-1 rounded-full bg-[#907AFF]/80 dark:bg-[#a78bfa]/80" aria-hidden />
+                      <span className="text-[11px] font-semibold uppercase tracking-[0.18em] text-neutral-500 dark:text-neutral-400">
+                        Top in chart
+                      </span>
+                    </div>
+                    <Link href="#top-chart" className="text-[12px] font-medium text-[#907AFF] hover:text-[#7c6aeb] dark:text-[#a78bfa] dark:hover:text-[#c4b5fd]">
                       See all
                     </Link>
                   </div>
@@ -576,7 +578,7 @@ export default async function ReaderHomePage() {
                     <Link
                       key={book.id}
                       href={`/reader/books/${book.id}`}
-                      className="relative flex-shrink-0 overflow-hidden rounded-lg ring-1 ring-neutral-200/60 transition hover:ring-neutral-400 dark:ring-neutral-600 dark:hover:ring-neutral-500"
+                      className="relative flex-shrink-0 overflow-hidden rounded-xl shadow-[0_8px_24px_-8px_rgba(15,23,42,0.15)] ring-1 ring-neutral-200/60 transition hover:scale-[1.03] hover:shadow-[0_12px_28px_-8px_rgba(15,23,42,0.2)] hover:ring-neutral-300 dark:shadow-[0_8px_24px_-8px_rgba(0,0,0,0.4)] dark:ring-neutral-600 dark:hover:ring-neutral-500 dark:hover:shadow-[0_12px_28px_-8px_rgba(0,0,0,0.5)]"
                     >
                       <div className="aspect-[2/3] w-[88px] sm:w-[100px]">
                         {book.cover ? (
@@ -611,23 +613,24 @@ export default async function ReaderHomePage() {
       </div>
 
       <div className="mx-auto w-full max-w-7xl space-y-10 px-4 sm:px-6 lg:px-10">
+      {/* Stats: lifted cards (reference: Gamely / Edukated) */}
       <section className="grid grid-cols-1 gap-4 sm:grid-cols-2 sm:gap-6 xl:grid-cols-4 xl:gap-8">
-        <div className="card-base-subtle text-left">
+        <div className="card-base-subtle text-left shadow-[0_8px_24px_-8px_rgba(15,23,42,0.12),0_2px_8px_-4px_rgba(15,23,42,0.06)] transition hover:shadow-[0_12px_32px_-8px_rgba(15,23,42,0.14)] dark:shadow-[0_8px_24px_-8px_rgba(0,0,0,0.35)] dark:hover:shadow-[0_12px_32px_-8px_rgba(0,0,0,0.4)]">
           <p className="px-5 pt-5 text-[12px] font-medium uppercase tracking-[0.14em] text-slate-500 dark:text-white/50">Open books</p>
           <p className="mt-2 px-5 text-[28px] font-semibold tracking-tight text-slate-900 dark:text-white">{continueReading.length}</p>
           <p className="mt-1 px-5 pb-5 text-[12px] text-slate-500 dark:text-white/50">Ready to continue right now</p>
         </div>
-        <div className="card-base-subtle text-left">
+        <div className="card-base-subtle text-left shadow-[0_8px_24px_-8px_rgba(15,23,42,0.12),0_2px_8px_-4px_rgba(15,23,42,0.06)] transition hover:shadow-[0_12px_32px_-8px_rgba(15,23,42,0.14)] dark:shadow-[0_8px_24px_-8px_rgba(0,0,0,0.35)] dark:hover:shadow-[0_12px_32px_-8px_rgba(0,0,0,0.4)]">
           <p className="px-5 pt-5 text-[12px] font-medium uppercase tracking-[0.14em] text-slate-500 dark:text-white/50">Top chart books</p>
           <p className="mt-2 px-5 text-[28px] font-semibold tracking-tight text-slate-900 dark:text-white">{topChart.length}</p>
           <p className="mt-1 px-5 pb-5 text-[12px] text-slate-500 dark:text-white/50">Picked from current reader activity</p>
         </div>
-        <div className="card-base-subtle text-left">
+        <div className="card-base-subtle text-left shadow-[0_8px_24px_-8px_rgba(15,23,42,0.12),0_2px_8px_-4px_rgba(15,23,42,0.06)] transition hover:shadow-[0_12px_32px_-8px_rgba(15,23,42,0.14)] dark:shadow-[0_8px_24px_-8px_rgba(0,0,0,0.35)] dark:hover:shadow-[0_12px_32px_-8px_rgba(0,0,0,0.4)]">
           <p className="px-5 pt-5 text-[12px] font-medium uppercase tracking-[0.14em] text-slate-500 dark:text-white/50">Public releases</p>
           <p className="mt-2 px-5 text-[28px] font-semibold tracking-tight text-slate-900 dark:text-white">{totalPublishedCount}</p>
           <p className="mt-1 px-5 pb-5 text-[12px] text-slate-500 dark:text-white/50">Published books currently available</p>
         </div>
-        <div className="card-base-subtle text-left">
+        <div className="card-base-subtle text-left shadow-[0_8px_24px_-8px_rgba(15,23,42,0.12),0_2px_8px_-4px_rgba(15,23,42,0.06)] transition hover:shadow-[0_12px_32px_-8px_rgba(15,23,42,0.14)] dark:shadow-[0_8px_24px_-8px_rgba(0,0,0,0.35)] dark:hover:shadow-[0_12px_32px_-8px_rgba(0,0,0,0.4)]">
           <p className="px-5 pt-5 text-[12px] font-medium uppercase tracking-[0.14em] text-slate-500 dark:text-white/50">Active authors</p>
           <p className="mt-2 px-5 text-[28px] font-semibold tracking-tight text-slate-900 dark:text-white">{totalAuthorCount}</p>
           <p className="mt-1 px-5 pb-5 text-[12px] text-slate-500 dark:text-white/50">Creators publishing on the platform</p>

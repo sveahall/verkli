@@ -2,6 +2,7 @@
 
 import { useState, useCallback, useEffect, useRef } from "react";
 import Link from "next/link";
+import { cn } from "@/lib/utils";
 import {
   TTS_PREVIEW_VOICE_ALLOWLIST,
   TTS_PREVIEW_DEFAULT_VOICE,
@@ -26,7 +27,7 @@ export default function TtsLabPage() {
   const [voicePrompt, setVoicePrompt] = useState("");
   const [refAudioSource, setRefAudioSource] = useState<RefAudioSource>("upload");
   const [voiceRefAudio, setVoiceRefAudio] = useState<File | null>(null);
-  const [useReferenceAudio, setUseReferenceAudio] = useState(true);
+  const [voiceMode, setVoiceMode] = useState<"standard" | "clone">("standard");
   const [recordedAudioUrl, setRecordedAudioUrl] = useState<string | null>(null);
   const [recordedDurationSec, setRecordedDurationSec] = useState<number | null>(null);
   const [recordingError, setRecordingError] = useState<string | null>(null);
@@ -141,7 +142,6 @@ export default function TtsLabPage() {
         const url = URL.createObjectURL(blob);
 
         setVoiceRefAudio(file);
-        setUseReferenceAudio(true);
         setRecordedAudioUrl(url);
         setRecordedDurationSec(
           recordingStartedAtRef.current ? Math.max(1, Math.round((Date.now() - recordingStartedAtRef.current) / 1000)) : null
@@ -229,8 +229,8 @@ export default function TtsLabPage() {
       setError("Skriv in text att syntetisera.");
       return;
     }
-    if (useReferenceAudio && !voiceRefAudio) {
-      setError("Välj eller spela in ett referensljud, eller avmarkera 'Använd referensljud'.");
+    if (voiceMode === "clone" && !voiceRefAudio) {
+      setError("Välj eller spela in ett referensljud för kloning.");
       return;
     }
 
@@ -238,7 +238,7 @@ export default function TtsLabPage() {
       const voiceProfileValue = voiceProfile.trim() || undefined;
       const voicePromptValue = voicePrompt.trim() || undefined;
       const voiceRefTextValue = voiceRefText.trim() || undefined;
-      const activeReferenceAudio = useReferenceAudio ? voiceRefAudio : null;
+      const activeReferenceAudio = voiceMode === "clone" ? voiceRefAudio : null;
       const res = activeReferenceAudio
         ? await (async () => {
             const formData = new FormData();
@@ -285,6 +285,15 @@ export default function TtsLabPage() {
     }
   };
 
+  const busy = status === "running" || status === "queued";
+
+  const voiceSummary =
+    voiceMode === "clone" && voiceRefAudio
+      ? `Klonad referens (${refAudioSource === "record" ? "inspelad" : "fil"}): ${voiceRefAudio.name}`
+      : voiceProfile.trim()
+        ? `Röstprofil: ${voiceProfile.trim()}`
+        : `Basröst: ${voiceId}`;
+
   return (
     <main className="min-h-screen bg-background text-foreground">
       <div className="mx-auto max-w-2xl px-6 py-12">
@@ -301,268 +310,347 @@ export default function TtsLabPage() {
         </div>
 
         <h1 className="mb-2 text-2xl font-semibold tracking-tight">TTS Lab</h1>
-        <p className="mb-6 text-sm text-slate-600 dark:text-slate-400">
+        <p className="mb-8 text-helper">
           Intern sida för att testa Qwen TTS. Skriv text, välj röst, klicka Generate. Worker måste köras separat.
         </p>
 
-        <label className="mb-2 block text-sm font-medium text-slate-700 dark:text-slate-200">
-          Text
-        </label>
-        <textarea
-          value={text}
-          onChange={(e) => setText(e.target.value)}
-          rows={5}
-          className="mb-4 w-full rounded-md border border-slate-200 bg-white px-3 py-2 text-sm shadow-sm focus:border-slate-900 focus:outline-none focus:ring-1 focus:ring-slate-900 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-50 dark:focus:border-slate-50 dark:focus:ring-slate-50"
-          placeholder="Skriv text att syntetisera..."
-          disabled={status === "running" || status === "queued"}
-        />
-
-        <label className="mb-2 block text-sm font-medium text-slate-700 dark:text-slate-200">
-          Basröst (fallback)
-        </label>
-        <select
-          value={voiceId}
-          onChange={(e) => setVoiceId(e.target.value)}
-          className="mb-6 w-full max-w-xs rounded-md border border-slate-200 bg-white px-3 py-2 text-sm shadow-sm focus:border-slate-900 focus:outline-none focus:ring-1 focus:ring-slate-900 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-50"
-          disabled={status === "running" || status === "queued"}
-        >
-          {VOICE_OPTIONS.map((v) => (
-            <option key={v.id} value={v.id}>
-              {v.label}
-            </option>
-          ))}
-        </select>
-        <p className="-mt-4 mb-6 text-xs text-slate-500 dark:text-slate-400">
-          Används när referensljud inte används.
-        </p>
-
-        <label className="mb-2 block text-sm font-medium text-slate-700 dark:text-slate-200">
-          Tränad röstprofil (valfritt)
-        </label>
-        <input
-          type="text"
-          value={voiceProfile}
-          onChange={(e) => setVoiceProfile(e.target.value)}
-          className="mb-4 w-full max-w-xs rounded-md border border-slate-200 bg-white px-3 py-2 text-sm shadow-sm focus:border-slate-900 focus:outline-none focus:ring-1 focus:ring-slate-900 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-50"
-          placeholder="ex: storyteller_v1"
-          disabled={status === "running" || status === "queued"}
-        />
-
-        <label className="mb-2 block text-sm font-medium text-slate-700 dark:text-slate-200">
-          Referensljud för kloning (valfritt)
-        </label>
-        <div className="mb-3 flex items-center gap-5 text-sm text-slate-700 dark:text-slate-200">
-          <label className="inline-flex items-center gap-2">
-            <input
-              type="radio"
-              name="ref-audio-source"
-              checked={refAudioSource === "upload"}
-              onChange={() => {
-                stopRecording();
-                setRefAudioSource("upload");
-                clearRecordedAudio();
-                setUseReferenceAudio(true);
-              }}
-              disabled={status === "running" || status === "queued"}
-            />
-            Ladda upp fil
-          </label>
-          <label className="inline-flex items-center gap-2">
-            <input
-              type="radio"
-              name="ref-audio-source"
-              checked={refAudioSource === "record"}
-              onChange={() => {
-                setRefAudioSource("record");
-                clearRecordedAudio();
-                setRecordingError(null);
-                setUseReferenceAudio(true);
-              }}
-              disabled={status === "running" || status === "queued"}
-            />
-            Spela in nu
-          </label>
+        {/* ── Section 1: Text ── */}
+        <div className="mb-8">
+          <p className="text-eyebrow mb-3">Text</p>
+          <textarea
+            value={text}
+            onChange={(e) => setText(e.target.value)}
+            rows={5}
+            className="input-base text-sm"
+            placeholder="Skriv text att syntetisera..."
+            disabled={busy}
+          />
         </div>
 
-        {refAudioSource === "upload" ? (
-          <>
-            <input
-              type="file"
-              accept="audio/*"
-              onChange={(e) => {
-                stopRecording();
-                clearRecordedAudio();
-                setVoiceRefAudio(e.target.files?.[0] ?? null);
-                setUseReferenceAudio(Boolean(e.target.files?.[0]));
-                setRecordingError(null);
+        {/* ── Section 2: Voice mode picker ── */}
+        <div className="mb-8">
+          <p className="text-eyebrow mb-3">Röstkälla</p>
+
+          {/* Mode cards */}
+          <div className="grid grid-cols-2 gap-3">
+            <button
+              type="button"
+              onClick={() => {
+                if (isRecording) {
+                  stopRecording();
+                  stopMediaStream();
+                }
+                setVoiceMode("standard");
               }}
-              className="mb-2 block w-full max-w-xs text-sm text-slate-700 file:mr-3 file:rounded-md file:border file:border-slate-300 file:bg-slate-100 file:px-3 file:py-2 file:text-sm file:font-medium hover:file:bg-slate-200 dark:text-slate-200 dark:file:border-slate-700 dark:file:bg-slate-800 dark:hover:file:bg-slate-700"
-              disabled={status === "running" || status === "queued"}
-            />
-            {voiceRefAudio ? (
-              <div className="mb-4 flex items-center gap-3 text-xs text-slate-600 dark:text-slate-300">
-                <span>{voiceRefAudio.name}</span>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setVoiceRefAudio(null);
-                    setUseReferenceAudio(false);
-                  }}
-                  className="rounded border border-slate-300 px-2 py-0.5 hover:bg-slate-100 dark:border-slate-600 dark:hover:bg-slate-800"
-                  disabled={status === "running" || status === "queued"}
-                >
-                  Rensa
-                </button>
+              className={cn(
+                "card-base-subtle cursor-pointer px-4 py-4 text-left transition",
+                voiceMode === "standard"
+                  ? "ring-2 ring-slate-900 dark:ring-white"
+                  : "opacity-70 hover:opacity-100",
+              )}
+            >
+              <p className="text-sm font-semibold text-slate-900 dark:text-white">Standardröst</p>
+              <p className="mt-1 text-helper">Välj bland färdiga röster</p>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setVoiceMode("clone")}
+              className={cn(
+                "card-base-subtle cursor-pointer px-4 py-4 text-left transition",
+                voiceMode === "clone"
+                  ? "ring-2 ring-slate-900 dark:ring-white"
+                  : "opacity-70 hover:opacity-100",
+              )}
+            >
+              <p className="text-sm font-semibold text-slate-900 dark:text-white">Klona röst</p>
+              <p className="mt-1 text-helper">Ladda upp eller spela in referensljud</p>
+            </button>
+          </div>
+
+          {/* Expanded panel */}
+          <div className="card-base mt-3 p-5">
+            {voiceMode === "standard" ? (
+              <div className="space-y-4">
+                {/* Base voice */}
+                <div>
+                  <label className="mb-1.5 block text-sm font-medium text-slate-700 dark:text-slate-200">
+                    Basröst
+                  </label>
+                  <select
+                    value={voiceId}
+                    onChange={(e) => setVoiceId(e.target.value)}
+                    className="input-base max-w-xs text-sm"
+                    disabled={busy}
+                  >
+                    {VOICE_OPTIONS.map((v) => (
+                      <option key={v.id} value={v.id}>
+                        {v.label}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* Voice profile */}
+                <div>
+                  <label className="mb-1.5 block text-sm font-medium text-slate-700 dark:text-slate-200">
+                    Tränad röstprofil <span className="text-helper">(valfritt)</span>
+                  </label>
+                  <input
+                    type="text"
+                    value={voiceProfile}
+                    onChange={(e) => setVoiceProfile(e.target.value)}
+                    className="input-base max-w-xs text-sm"
+                    placeholder="ex: storyteller_v1"
+                    disabled={busy}
+                  />
+                </div>
+
+                {/* Voice prompt */}
+                <div>
+                  <label className="mb-1.5 block text-sm font-medium text-slate-700 dark:text-slate-200">
+                    Röstinstruktion <span className="text-helper">(valfritt)</span>
+                  </label>
+                  <textarea
+                    value={voicePrompt}
+                    onChange={(e) => setVoicePrompt(e.target.value)}
+                    rows={2}
+                    className="input-base text-sm"
+                    placeholder="ex: Warm, confident US-English narration with neutral accent."
+                    disabled={busy}
+                  />
+                </div>
               </div>
             ) : (
-              <p className="mb-4 text-xs text-slate-500 dark:text-slate-400">
-                Ladda upp en röstfil för att klona din egen röst (wav/mp3/m4a/webm fungerar).
-              </p>
+              <div className="space-y-4">
+                {/* Upload / Record toggle */}
+                <div className="flex items-center gap-5 text-sm text-slate-700 dark:text-slate-200">
+                  <label className="inline-flex items-center gap-2">
+                    <input
+                      type="radio"
+                      name="ref-audio-source"
+                      checked={refAudioSource === "upload"}
+                      onChange={() => {
+                        stopRecording();
+                        setRefAudioSource("upload");
+                        clearRecordedAudio();
+                      }}
+                      disabled={busy}
+                    />
+                    Ladda upp fil
+                  </label>
+                  <label className="inline-flex items-center gap-2">
+                    <input
+                      type="radio"
+                      name="ref-audio-source"
+                      checked={refAudioSource === "record"}
+                      onChange={() => {
+                        setRefAudioSource("record");
+                        clearRecordedAudio();
+                        setRecordingError(null);
+                      }}
+                      disabled={busy}
+                    />
+                    Spela in nu
+                  </label>
+                </div>
+
+                {/* File input / recording controls */}
+                {refAudioSource === "upload" ? (
+                  <div>
+                    <input
+                      type="file"
+                      accept="audio/*,video/*"
+                      onChange={(e) => {
+                        stopRecording();
+                        clearRecordedAudio();
+                        setVoiceRefAudio(e.target.files?.[0] ?? null);
+                        setRecordingError(null);
+                      }}
+                      className="mb-2 block w-full max-w-xs text-sm text-slate-700 file:mr-3 file:rounded-md file:border file:border-slate-300 file:bg-slate-100 file:px-3 file:py-2 file:text-sm file:font-medium hover:file:bg-slate-200 dark:text-slate-200 dark:file:border-slate-700 dark:file:bg-slate-800 dark:hover:file:bg-slate-700"
+                      disabled={busy}
+                    />
+                    {voiceRefAudio ? (
+                      <div className="flex items-center gap-3 text-xs text-slate-600 dark:text-slate-300">
+                        <span>{voiceRefAudio.name}</span>
+                        <button
+                          type="button"
+                          onClick={() => setVoiceRefAudio(null)}
+                          className="rounded border border-slate-300 px-2 py-0.5 hover:bg-slate-100 dark:border-slate-600 dark:hover:bg-slate-800"
+                          disabled={busy}
+                        >
+                          Rensa
+                        </button>
+                      </div>
+                    ) : (
+                      <p className="text-helper">
+                        wav/mp3/m4a/webm/mp4/mov fungerar.
+                      </p>
+                    )}
+                  </div>
+                ) : (
+                  <div>
+                    <div className="mb-2 flex flex-wrap items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => { void startRecording(); }}
+                        disabled={isRecording || busy}
+                        className="rounded-md border border-slate-300 px-3 py-1.5 text-sm font-medium hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-50 dark:border-slate-700 dark:hover:bg-slate-800"
+                      >
+                        Starta inspelning
+                      </button>
+                      <button
+                        type="button"
+                        onClick={stopRecording}
+                        disabled={!isRecording || busy}
+                        className="rounded-md border border-slate-300 px-3 py-1.5 text-sm font-medium hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-50 dark:border-slate-700 dark:hover:bg-slate-800"
+                      >
+                        Stoppa
+                      </button>
+                      <button
+                        type="button"
+                        onClick={clearRecordedAudio}
+                        disabled={!voiceRefAudio || busy}
+                        className="rounded-md border border-slate-300 px-3 py-1.5 text-sm font-medium hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-50 dark:border-slate-700 dark:hover:bg-slate-800"
+                      >
+                        Rensa
+                      </button>
+                      {isRecording && (
+                        <span className="text-xs font-medium text-red-600 dark:text-red-400">Inspelning pågår...</span>
+                      )}
+                    </div>
+                    {recordingError && (
+                      <p className="mb-2 text-xs text-red-600 dark:text-red-400">{recordingError}</p>
+                    )}
+                    {recordedAudioUrl ? (
+                      <div className="space-y-2">
+                        <audio controls src={recordedAudioUrl} className="w-full max-w-xs" />
+                        <p className="text-helper">
+                          Inspelad referens: {recordedDurationSec ? `${recordedDurationSec}s` : "klar"}
+                        </p>
+                      </div>
+                    ) : (
+                      <p className="text-helper">
+                        Klicka Starta, läs din text tydligt i 15-45 sek, och klicka sedan Stoppa.
+                      </p>
+                    )}
+                  </div>
+                )}
+
+                {/* Base voice (fallback for clone) */}
+                <div>
+                  <label className="mb-1.5 block text-sm font-medium text-slate-700 dark:text-slate-200">
+                    Basröst (fallback)
+                  </label>
+                  <select
+                    value={voiceId}
+                    onChange={(e) => setVoiceId(e.target.value)}
+                    className="input-base max-w-xs text-sm"
+                    disabled={busy}
+                  >
+                    {VOICE_OPTIONS.map((v) => (
+                      <option key={v.id} value={v.id}>
+                        {v.label}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* Reference text */}
+                <div>
+                  <label className="mb-1.5 block text-sm font-medium text-slate-700 dark:text-slate-200">
+                    Referenstext till ljudfil <span className="text-helper">(valfritt)</span>
+                  </label>
+                  <textarea
+                    value={voiceRefText}
+                    onChange={(e) => setVoiceRefText(e.target.value)}
+                    rows={2}
+                    className="input-base text-sm"
+                    placeholder="Skriv gärna exakt vad som sägs i referensfilen för bättre kloning."
+                    disabled={busy}
+                  />
+                </div>
+
+                {/* Voice prompt */}
+                <div>
+                  <label className="mb-1.5 block text-sm font-medium text-slate-700 dark:text-slate-200">
+                    Röstinstruktion <span className="text-helper">(valfritt)</span>
+                  </label>
+                  <textarea
+                    value={voicePrompt}
+                    onChange={(e) => setVoicePrompt(e.target.value)}
+                    rows={2}
+                    className="input-base text-sm"
+                    placeholder="ex: Warm, confident US-English narration with neutral accent."
+                    disabled={busy}
+                  />
+                </div>
+
+                {/* Collapsible guidelines */}
+                <details className="text-helper">
+                  <summary className="cursor-pointer text-sm font-medium text-slate-700 dark:text-slate-200">
+                    Guidelines för bästa röstkloning
+                  </summary>
+                  <div className="mt-2 space-y-0.5 text-xs">
+                    <p>1. Längd: 15-45 sek (minst 6 sek, helst 20+ sek).</p>
+                    <p>2. Miljö: tyst rum, nära mikrofonen, ingen musik/reverb.</p>
+                    <p>3. Innehåll: ett språk och en tydlig neutral rytm.</p>
+                    <p>4. Referenstext: skriv gärna exakt vad som sägs i ljudfilen.</p>
+                    <p>5. Röstinstruktion: beskriv accent/tone/pacing kort och konkret.</p>
+                  </div>
+                </details>
+              </div>
             )}
-          </>
-        ) : (
-          <div className="mb-4">
-            <div className="mb-2 flex flex-wrap items-center gap-2">
-              <button
-                type="button"
-                onClick={() => {
-                  void startRecording();
-                }}
-                disabled={isRecording || status === "running" || status === "queued"}
-                className="rounded-md border border-slate-300 px-3 py-1.5 text-sm font-medium hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-50 dark:border-slate-700 dark:hover:bg-slate-800"
-              >
-                Starta inspelning
-              </button>
-              <button
-                type="button"
-                onClick={stopRecording}
-                disabled={!isRecording || status === "running" || status === "queued"}
-                className="rounded-md border border-slate-300 px-3 py-1.5 text-sm font-medium hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-50 dark:border-slate-700 dark:hover:bg-slate-800"
-              >
-                Stoppa
-              </button>
-              <button
-                type="button"
-                onClick={clearRecordedAudio}
-                disabled={!voiceRefAudio || status === "running" || status === "queued"}
-                className="rounded-md border border-slate-300 px-3 py-1.5 text-sm font-medium hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-50 dark:border-slate-700 dark:hover:bg-slate-800"
-              >
-                Rensa
-              </button>
-              {isRecording && (
-                <span className="text-xs font-medium text-red-600 dark:text-red-400">Inspelning pågår...</span>
+          </div>
+        </div>
+
+        {/* ── Section 3: Generate ── */}
+        <div>
+          {/* Active voice summary pill */}
+          <div className="mb-4 inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-4 py-1.5 text-sm text-slate-700 dark:border-white/10 dark:bg-white/[0.04] dark:text-slate-200">
+            <span className="inline-block h-2 w-2 rounded-full bg-emerald-500" />
+            {voiceSummary}
+          </div>
+
+          <div>
+            <button
+              type="button"
+              onClick={handleGenerate}
+              disabled={busy || isRecording || !text.trim()}
+              className="btn-primary"
+            >
+              {busy ? `Genererar... ${progress}%` : "Generate"}
+            </button>
+          </div>
+
+          {error && (
+            <p className="mt-3 text-sm text-red-600 dark:text-red-400">{error}</p>
+          )}
+
+          {status === "succeeded" && (
+            <div className="mt-6">
+              {audioUrl ? (
+                <>
+                  <p className="mb-2 text-sm font-medium text-slate-700 dark:text-slate-200">Ljud</p>
+                  <audio ref={audioRef} src={audioUrl} controls className="w-full" />
+                </>
+              ) : (
+                <div className="rounded-md border border-amber-200 bg-amber-50 px-4 py-3 dark:border-amber-800 dark:bg-amber-950/30">
+                  <p className="mb-2 text-sm text-amber-800 dark:text-amber-200">
+                    Ljudet är klart men länken kunde inte skapas. Försök hämta igen.
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => pollStatus()}
+                    className="rounded-md bg-amber-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-amber-700"
+                  >
+                    Retry fetch
+                  </button>
+                </div>
               )}
             </div>
-            {recordingError && (
-              <p className="mb-2 text-xs text-red-600 dark:text-red-400">{recordingError}</p>
-            )}
-            {recordedAudioUrl ? (
-              <div className="space-y-2">
-                <audio controls src={recordedAudioUrl} className="w-full max-w-xs" />
-                <p className="text-xs text-slate-500 dark:text-slate-400">
-                  Inspelad referens: {recordedDurationSec ? `${recordedDurationSec}s` : "klar"}
-                </p>
-              </div>
-            ) : (
-              <p className="text-xs text-slate-500 dark:text-slate-400">
-                Klicka Starta, läs din text tydligt i 15-45 sek, och klicka sedan Stoppa.
-              </p>
-            )}
-          </div>
-        )}
-
-        {voiceRefAudio && (
-          <label className="mb-4 flex items-center gap-2 text-sm text-slate-700 dark:text-slate-200">
-            <input
-              type="checkbox"
-              checked={useReferenceAudio}
-              onChange={(e) => setUseReferenceAudio(e.target.checked)}
-              disabled={status === "running" || status === "queued"}
-            />
-            Använd referensljud i nästa generering
-          </label>
-        )}
-
-        <div className="mb-4 rounded-md border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 dark:border-slate-700 dark:bg-slate-900/30 dark:text-slate-200">
-          <p className="font-medium">Aktiv röstkälla i nästa Generate:</p>
-          <p>
-            {useReferenceAudio && voiceRefAudio
-              ? `Klonad referens (${refAudioSource === "record" ? "inspelad här" : "uppladdad fil"}): ${voiceRefAudio.name}`
-              : voiceProfile.trim()
-                ? `Röstprofil: ${voiceProfile.trim()}`
-                : `Basröst: ${voiceId}`}
-          </p>
+          )}
         </div>
-
-        <div className="mb-4 rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-600 dark:border-slate-700 dark:bg-slate-900/40 dark:text-slate-300">
-          <p className="font-medium">Guidelines för bästa röstkloning:</p>
-          <p>1. Längd: 15-45 sek (minst 6 sek, helst 20+ sek).</p>
-          <p>2. Miljö: tyst rum, nära mikrofonen, ingen musik/reverb.</p>
-          <p>3. Innehåll: ett språk och en tydlig neutral rytm.</p>
-          <p>4. Referenstext: skriv gärna exakt vad som sägs i ljudfilen.</p>
-          <p>5. Röstinstruktion: beskriv accent/tone/pacing kort och konkret.</p>
-        </div>
-
-        <label className="mb-2 block text-sm font-medium text-slate-700 dark:text-slate-200">
-          Referenstext till ljudfil (valfritt)
-        </label>
-        <textarea
-          value={voiceRefText}
-          onChange={(e) => setVoiceRefText(e.target.value)}
-          rows={2}
-          className="mb-4 w-full rounded-md border border-slate-200 bg-white px-3 py-2 text-sm shadow-sm focus:border-slate-900 focus:outline-none focus:ring-1 focus:ring-slate-900 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-50 dark:focus:border-slate-50 dark:focus:ring-slate-50"
-          placeholder="Skriv gärna exakt vad som sägs i referensfilen för bättre kloning."
-          disabled={status === "running" || status === "queued"}
-        />
-
-        <label className="mb-2 block text-sm font-medium text-slate-700 dark:text-slate-200">
-          Röstinstruktion (valfritt)
-        </label>
-        <textarea
-          value={voicePrompt}
-          onChange={(e) => setVoicePrompt(e.target.value)}
-          rows={2}
-          className="mb-6 w-full rounded-md border border-slate-200 bg-white px-3 py-2 text-sm shadow-sm focus:border-slate-900 focus:outline-none focus:ring-1 focus:ring-slate-900 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-50 dark:focus:border-slate-50 dark:focus:ring-slate-50"
-          placeholder="ex: Warm, confident US-English narration with neutral accent."
-          disabled={status === "running" || status === "queued"}
-        />
-
-        <button
-          type="button"
-          onClick={handleGenerate}
-          disabled={status === "running" || status === "queued" || isRecording || !text.trim()}
-          className="inline-flex items-center rounded-full bg-slate-900 px-5 py-2.5 text-sm font-medium text-white hover:bg-slate-800 disabled:cursor-not-allowed disabled:bg-slate-400 dark:bg-white dark:text-slate-900 dark:hover:bg-white/90"
-        >
-          {status === "running" || status === "queued" ? `Genererar... ${progress}%` : "Generate"}
-        </button>
-
-        {error && (
-          <p className="mt-3 text-sm text-red-600 dark:text-red-400">{error}</p>
-        )}
-
-        {status === "succeeded" && (
-          <div className="mt-6">
-            {audioUrl ? (
-              <>
-                <p className="mb-2 text-sm font-medium text-slate-700 dark:text-slate-200">Ljud</p>
-                <audio ref={audioRef} src={audioUrl} controls className="w-full" />
-              </>
-            ) : (
-              <div className="rounded-md border border-amber-200 bg-amber-50 px-4 py-3 dark:border-amber-800 dark:bg-amber-950/30">
-                <p className="mb-2 text-sm text-amber-800 dark:text-amber-200">
-                  Ljudet är klart men länken kunde inte skapas. Försök hämta igen.
-                </p>
-                <button
-                  type="button"
-                  onClick={() => pollStatus()}
-                  className="rounded-md bg-amber-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-amber-700"
-                >
-                  Retry fetch
-                </button>
-              </div>
-            )}
-          </div>
-        )}
 
         <p className="mt-8 text-xs text-slate-500 dark:text-slate-400">
           Kör worker lokalt: <code className="rounded bg-slate-100 px-1 dark:bg-slate-800">npm run tts-preview-worker</code>

@@ -208,6 +208,7 @@ describe("POST /api/tts/qwen/preview", () => {
     expect(res.status).toBe(202);
     expect(body).toEqual({ jobId: "existing-job-1" });
     expect(mocks.ttsInsert).not.toHaveBeenCalled();
+    expect(mocks.rateLimiterCheck).not.toHaveBeenCalled();
   });
 
   it("returns 400 for invalid voiceId", async () => {
@@ -322,5 +323,60 @@ describe("POST /api/tts/qwen/preview", () => {
     expect(parsed.instruct).toBe("Warm and calm voice");
     expect(parsed.refText).toBe("This is my reference transcript.");
     expect(parsed.refAudioPath).toMatch(/^refs\/user-1\/profile-storyteller_v1\.wav$/);
+  });
+
+  it("normalizes audio/x-m4a to audio/mp4 before upload", async () => {
+    mocks.requireAuthorRoleForApi.mockResolvedValue({
+      user: { id: "user-1" },
+      response: null,
+    });
+
+    const formData = new FormData();
+    formData.set("text", "Hej världen");
+    formData.set("voiceId", "Ryan");
+    formData.set(
+      "voiceRefAudio",
+      new File([new Uint8Array([1, 2, 3, 4])], "recording.m4a", { type: "audio/x-m4a" })
+    );
+
+    const req = new Request("http://localhost/api/tts/qwen/preview", {
+      method: "POST",
+      body: formData,
+    });
+
+    const res = await POST(req);
+    expect(res.status).toBe(200);
+    expect(mocks.storageUpload).toHaveBeenCalledTimes(1);
+
+    const uploadArgs = mocks.storageUpload.mock.calls[0] as [string, Buffer, { contentType: string }];
+    expect(uploadArgs[2].contentType).toBe("audio/mp4");
+  });
+
+  it("accepts multipart request with video reference media", async () => {
+    mocks.requireAuthorRoleForApi.mockResolvedValue({
+      user: { id: "user-1" },
+      response: null,
+    });
+
+    const formData = new FormData();
+    formData.set("text", "Hej världen");
+    formData.set("voiceId", "Ryan");
+    formData.set(
+      "voiceRefAudio",
+      new File([new Uint8Array([1, 2, 3, 4])], "clip.mp4", { type: "video/mp4" })
+    );
+
+    const req = new Request("http://localhost/api/tts/qwen/preview", {
+      method: "POST",
+      body: formData,
+    });
+
+    const res = await POST(req);
+    expect(res.status).toBe(200);
+    expect(mocks.storageUpload).toHaveBeenCalledTimes(1);
+
+    const inserted = mocks.ttsInsert.mock.calls[0]?.[0] as { voice_id?: string };
+    const parsed = JSON.parse(String(inserted.voice_id).slice(5)) as { refAudioPath?: string };
+    expect(parsed.refAudioPath).toMatch(/^refs\/user-1\/upload-[a-f0-9-]+\.mp4$/);
   });
 });
