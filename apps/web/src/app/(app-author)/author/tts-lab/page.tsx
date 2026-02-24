@@ -26,6 +26,7 @@ export default function TtsLabPage() {
   const [voicePrompt, setVoicePrompt] = useState("");
   const [refAudioSource, setRefAudioSource] = useState<RefAudioSource>("upload");
   const [voiceRefAudio, setVoiceRefAudio] = useState<File | null>(null);
+  const [useReferenceAudio, setUseReferenceAudio] = useState(true);
   const [recordedAudioUrl, setRecordedAudioUrl] = useState<string | null>(null);
   const [recordedDurationSec, setRecordedDurationSec] = useState<number | null>(null);
   const [recordingError, setRecordingError] = useState<string | null>(null);
@@ -79,7 +80,11 @@ export default function TtsLabPage() {
     setRecordingError(null);
 
     if (!("MediaRecorder" in window) || !navigator.mediaDevices?.getUserMedia) {
-      setRecordingError("Din browser stöder inte inspelning här. Ladda upp fil istället.");
+      setRecordingError(
+        window.isSecureContext
+          ? "Den här webvyn stöder inte mikrofoninspelning. Öppna sidan i Safari/Chrome direkt."
+          : "Inspelning kräver secure context (https eller localhost). Ladda upp fil istället."
+      );
       return;
     }
 
@@ -136,6 +141,7 @@ export default function TtsLabPage() {
         const url = URL.createObjectURL(blob);
 
         setVoiceRefAudio(file);
+        setUseReferenceAudio(true);
         setRecordedAudioUrl(url);
         setRecordedDurationSec(
           recordingStartedAtRef.current ? Math.max(1, Math.round((Date.now() - recordingStartedAtRef.current) / 1000)) : null
@@ -223,12 +229,17 @@ export default function TtsLabPage() {
       setError("Skriv in text att syntetisera.");
       return;
     }
+    if (useReferenceAudio && !voiceRefAudio) {
+      setError("Välj eller spela in ett referensljud, eller avmarkera 'Använd referensljud'.");
+      return;
+    }
 
     try {
       const voiceProfileValue = voiceProfile.trim() || undefined;
       const voicePromptValue = voicePrompt.trim() || undefined;
       const voiceRefTextValue = voiceRefText.trim() || undefined;
-      const res = voiceRefAudio
+      const activeReferenceAudio = useReferenceAudio ? voiceRefAudio : null;
+      const res = activeReferenceAudio
         ? await (async () => {
             const formData = new FormData();
             formData.set("text", trimmed);
@@ -236,7 +247,7 @@ export default function TtsLabPage() {
             if (voiceProfileValue) formData.set("voiceProfile", voiceProfileValue);
             if (voiceRefTextValue) formData.set("voiceRefText", voiceRefTextValue);
             if (voicePromptValue) formData.set("voicePrompt", voicePromptValue);
-            formData.set("voiceRefAudio", voiceRefAudio);
+            formData.set("voiceRefAudio", activeReferenceAudio);
             return fetch("/api/tts/qwen/preview", {
               method: "POST",
               body: formData,
@@ -307,7 +318,7 @@ export default function TtsLabPage() {
         />
 
         <label className="mb-2 block text-sm font-medium text-slate-700 dark:text-slate-200">
-          Röst
+          Basröst (fallback)
         </label>
         <select
           value={voiceId}
@@ -321,6 +332,9 @@ export default function TtsLabPage() {
             </option>
           ))}
         </select>
+        <p className="-mt-4 mb-6 text-xs text-slate-500 dark:text-slate-400">
+          Används när referensljud inte används.
+        </p>
 
         <label className="mb-2 block text-sm font-medium text-slate-700 dark:text-slate-200">
           Tränad röstprofil (valfritt)
@@ -347,6 +361,7 @@ export default function TtsLabPage() {
                 stopRecording();
                 setRefAudioSource("upload");
                 clearRecordedAudio();
+                setUseReferenceAudio(true);
               }}
               disabled={status === "running" || status === "queued"}
             />
@@ -359,8 +374,9 @@ export default function TtsLabPage() {
               checked={refAudioSource === "record"}
               onChange={() => {
                 setRefAudioSource("record");
-                setVoiceRefAudio(null);
+                clearRecordedAudio();
                 setRecordingError(null);
+                setUseReferenceAudio(true);
               }}
               disabled={status === "running" || status === "queued"}
             />
@@ -377,6 +393,7 @@ export default function TtsLabPage() {
                 stopRecording();
                 clearRecordedAudio();
                 setVoiceRefAudio(e.target.files?.[0] ?? null);
+                setUseReferenceAudio(Boolean(e.target.files?.[0]));
                 setRecordingError(null);
               }}
               className="mb-2 block w-full max-w-xs text-sm text-slate-700 file:mr-3 file:rounded-md file:border file:border-slate-300 file:bg-slate-100 file:px-3 file:py-2 file:text-sm file:font-medium hover:file:bg-slate-200 dark:text-slate-200 dark:file:border-slate-700 dark:file:bg-slate-800 dark:hover:file:bg-slate-700"
@@ -387,7 +404,10 @@ export default function TtsLabPage() {
                 <span>{voiceRefAudio.name}</span>
                 <button
                   type="button"
-                  onClick={() => setVoiceRefAudio(null)}
+                  onClick={() => {
+                    setVoiceRefAudio(null);
+                    setUseReferenceAudio(false);
+                  }}
                   className="rounded border border-slate-300 px-2 py-0.5 hover:bg-slate-100 dark:border-slate-600 dark:hover:bg-slate-800"
                   disabled={status === "running" || status === "queued"}
                 >
@@ -450,6 +470,29 @@ export default function TtsLabPage() {
             )}
           </div>
         )}
+
+        {voiceRefAudio && (
+          <label className="mb-4 flex items-center gap-2 text-sm text-slate-700 dark:text-slate-200">
+            <input
+              type="checkbox"
+              checked={useReferenceAudio}
+              onChange={(e) => setUseReferenceAudio(e.target.checked)}
+              disabled={status === "running" || status === "queued"}
+            />
+            Använd referensljud i nästa generering
+          </label>
+        )}
+
+        <div className="mb-4 rounded-md border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 dark:border-slate-700 dark:bg-slate-900/30 dark:text-slate-200">
+          <p className="font-medium">Aktiv röstkälla i nästa Generate:</p>
+          <p>
+            {useReferenceAudio && voiceRefAudio
+              ? `Klonad referens (${refAudioSource === "record" ? "inspelad här" : "uppladdad fil"}): ${voiceRefAudio.name}`
+              : voiceProfile.trim()
+                ? `Röstprofil: ${voiceProfile.trim()}`
+                : `Basröst: ${voiceId}`}
+          </p>
+        </div>
 
         <div className="mb-4 rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-600 dark:border-slate-700 dark:bg-slate-900/40 dark:text-slate-300">
           <p className="font-medium">Guidelines för bästa röstkloning:</p>
