@@ -334,3 +334,31 @@ export async function POST(request: Request) {
 
   return NextResponse.json({ jobId: job.id });
 }
+
+export async function DELETE(request: Request) {
+  if (!isTtsLabEnabled()) {
+    return apiError("TTS_LAB_DISABLED", 404);
+  }
+
+  const { user, response } = await requireAuthorRoleForApi();
+  if (response) return response;
+
+  const jobId = new URL(request.url).searchParams.get("jobId")?.trim();
+  if (!jobId) {
+    return apiError("VALIDATION_FAILED", 400, { detail: "jobId required" });
+  }
+
+  const admin = createAdminClient();
+  await admin
+    .from("tts_preview_jobs")
+    .update({
+      status: "failed",
+      error: "USER_CANCELLED",
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", jobId)
+    .eq("user_id", user.id)
+    .in("status", ["queued", "running"]);
+
+  return NextResponse.json({ ok: true });
+}

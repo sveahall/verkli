@@ -16,13 +16,16 @@ const VOICE_OPTIONS = TTS_PREVIEW_VOICE_ALLOWLIST.map((id) => ({
       : id.replaceAll("_", " "),
 }));
 
+const POLL_INTERVAL_MS = 2_000;
+const MAX_POLL_DURATION_MS = 5 * 60 * 1000;
+const QUEUED_TOO_LONG_MS = 20_000;
+
 type Status = "idle" | "queued" | "running" | "succeeded" | "failed";
 type RefAudioSource = "upload" | "record";
 
 export default function TtsLabPage() {
   const [text, setText] = useState("Hej! Detta är en test av Qwen TTS. Skriv din text här.");
   const [voiceId, setVoiceId] = useState<string>(TTS_PREVIEW_DEFAULT_VOICE);
-  const [voiceProfile, setVoiceProfile] = useState("");
   const [voiceRefText, setVoiceRefText] = useState("");
   const [voicePrompt, setVoicePrompt] = useState("");
   const [refAudioSource, setRefAudioSource] = useState<RefAudioSource>("upload");
@@ -37,8 +40,11 @@ export default function TtsLabPage() {
   const [progress, setProgress] = useState(0);
   const [audioUrl, setAudioUrl] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [queuedWarning, setQueuedWarning] = useState(false);
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const pollStartedAtRef = useRef(0);
+  const pollInFlightRef = useRef(false);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const mediaStreamRef = useRef<MediaStream | null>(null);
   const recordChunksRef = useRef<Blob[]>([]);
@@ -186,6 +192,16 @@ export default function TtsLabPage() {
   const pollStatus = useCallback(async (jobIdOverride?: string) => {
     const resolvedJobId = jobIdOverride ?? jobId;
     if (!resolvedJobId) return;
+    if (pollInFlightRef.current) return;
+
+    if (pollStartedAtRef.current && Date.now() - pollStartedAtRef.current > MAX_POLL_DURATION_MS) {
+      setError("Jobbet tog för lång tid. Kontrollera att workern körs och försök igen.");
+      setStatus("failed");
+      stopPolling();
+      return;
+    }
+
+    pollInFlightRef.current = true;
     try {
       const res = await fetch(
         `/api/tts/qwen/preview/status?jobId=${encodeURIComponent(resolvedJobId)}`
@@ -193,6 +209,7 @@ export default function TtsLabPage() {
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
         setError(data?.error ?? "Kunde inte hämta status");
+        setStatus("failed");
         stopPolling();
         return;
       }
@@ -205,6 +222,13 @@ export default function TtsLabPage() {
       setStatus(data.status);
       setProgress(data.progress ?? 0);
       setError(data.error ?? null);
+
+      if (data.status === "queued" && pollStartedAtRef.current) {
+        setQueuedWarning(Date.now() - pollStartedAtRef.current > QUEUED_TOO_LONG_MS);
+      } else {
+        setQueuedWarning(false);
+      }
+
       if (data.audioUrl) {
         setAudioUrl(data.audioUrl);
         stopPolling();
@@ -214,7 +238,10 @@ export default function TtsLabPage() {
       }
     } catch (e) {
       setError(e instanceof Error ? e.message : "Nätverksfel");
+      setStatus("failed");
       stopPolling();
+    } finally {
+      pollInFlightRef.current = false;
     }
   }, [jobId, stopPolling]);
 
@@ -223,6 +250,7 @@ export default function TtsLabPage() {
     setAudioUrl(null);
     setStatus("idle");
     setJobId(null);
+    setQueuedWarning(false);
 
     const trimmed = text.trim();
     if (!trimmed) {
@@ -235,7 +263,6 @@ export default function TtsLabPage() {
     }
 
     try {
-      const voiceProfileValue = voiceProfile.trim() || undefined;
       const voicePromptValue = voicePrompt.trim() || undefined;
       const voiceRefTextValue = voiceRefText.trim() || undefined;
       const activeReferenceAudio = voiceMode === "clone" ? voiceRefAudio : null;
@@ -244,7 +271,6 @@ export default function TtsLabPage() {
             const formData = new FormData();
             formData.set("text", trimmed);
             formData.set("voiceId", voiceId);
-            if (voiceProfileValue) formData.set("voiceProfile", voiceProfileValue);
             if (voiceRefTextValue) formData.set("voiceRefText", voiceRefTextValue);
             if (voicePromptValue) formData.set("voicePrompt", voicePromptValue);
             formData.set("voiceRefAudio", activeReferenceAudio);
@@ -259,7 +285,6 @@ export default function TtsLabPage() {
             body: JSON.stringify({
               text: trimmed,
               voiceId,
-              voiceProfile: voiceProfileValue,
               voiceRefText: voiceRefTextValue,
               voicePrompt: voicePromptValue,
             }),
@@ -275,13 +300,36 @@ export default function TtsLabPage() {
       setJobId(data.jobId);
       setStatus("queued");
       setProgress(0);
+      setQueuedWarning(false);
 
       stopPolling();
+      pollStartedAtRef.current = Date.now();
+      pollInFlightRef.current = false;
+      void pollStatus(data.jobId);
       pollRef.current = setInterval(() => {
         void pollStatus(data.jobId);
-      }, 1000);
+      }, POLL_INTERVAL_MS);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Nätverksfel");
+    }
+  };
+
+  const handleCancel = async () => {
+    stopPolling();
+    const cancelJobId = jobId;
+    setStatus("idle");
+    setJobId(null);
+    setProgress(0);
+    setError(null);
+    setQueuedWarning(false);
+    if (cancelJobId) {
+      try {
+        await fetch(`/api/tts/qwen/preview?jobId=${encodeURIComponent(cancelJobId)}`, {
+          method: "DELETE",
+        });
+      } catch {
+        // Best-effort server cancel
+      }
     }
   };
 
@@ -290,9 +338,7 @@ export default function TtsLabPage() {
   const voiceSummary =
     voiceMode === "clone" && voiceRefAudio
       ? `Klonad referens (${refAudioSource === "record" ? "inspelad" : "fil"}): ${voiceRefAudio.name}`
-      : voiceProfile.trim()
-        ? `Röstprofil: ${voiceProfile.trim()}`
-        : `Basröst: ${voiceId}`;
+      : `Basröst: ${voiceId}`;
 
   return (
     <main className="min-h-screen bg-background text-foreground">
@@ -389,21 +435,6 @@ export default function TtsLabPage() {
                       </option>
                     ))}
                   </select>
-                </div>
-
-                {/* Voice profile */}
-                <div>
-                  <label className="mb-1.5 block text-sm font-medium text-slate-700 dark:text-slate-200">
-                    Tränad röstprofil <span className="text-helper">(valfritt)</span>
-                  </label>
-                  <input
-                    type="text"
-                    value={voiceProfile}
-                    onChange={(e) => setVoiceProfile(e.target.value)}
-                    className="input-base max-w-xs text-sm"
-                    placeholder="ex: storyteller_v1"
-                    disabled={busy}
-                  />
                 </div>
 
                 {/* Voice prompt */}
@@ -612,7 +643,7 @@ export default function TtsLabPage() {
             {voiceSummary}
           </div>
 
-          <div>
+          <div className="flex items-center gap-3">
             <button
               type="button"
               onClick={handleGenerate}
@@ -621,7 +652,23 @@ export default function TtsLabPage() {
             >
               {busy ? `Genererar... ${progress}%` : "Generate"}
             </button>
+            {busy && (
+              <button
+                type="button"
+                onClick={() => { void handleCancel(); }}
+                className="rounded-md border border-slate-300 px-4 py-2 text-sm font-medium hover:bg-slate-100 dark:border-slate-700 dark:hover:bg-slate-800"
+              >
+                Avbryt
+              </button>
+            )}
           </div>
+
+          {queuedWarning && (
+            <p className="mt-2 text-xs text-amber-600 dark:text-amber-400">
+              Jobbet väntar i kö. Kontrollera att workern körs:{" "}
+              <code className="rounded bg-slate-100 px-1 dark:bg-slate-800">npm run tts-preview-worker</code>
+            </p>
+          )}
 
           {error && (
             <p className="mt-3 text-sm text-red-600 dark:text-red-400">{error}</p>
@@ -654,12 +701,6 @@ export default function TtsLabPage() {
 
         <p className="mt-8 text-xs text-slate-500 dark:text-slate-400">
           Kör worker lokalt: <code className="rounded bg-slate-100 px-1 dark:bg-slate-800">npm run tts-preview-worker</code>
-        </p>
-        <p className="mt-2 text-xs text-slate-500 dark:text-slate-400">
-          Träna/uppdatera röstprofil:{" "}
-          <code className="rounded bg-slate-100 px-1 dark:bg-slate-800">
-            npm run tts-voice-profile -- --name storyteller_v1 --speaker Ryan --ref-audio /abs/path.wav --ref-text &quot;Hej!&quot;
-          </code>
         </p>
       </div>
     </main>

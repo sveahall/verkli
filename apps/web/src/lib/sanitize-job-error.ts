@@ -41,6 +41,7 @@ const CONTROLLED_MAPPINGS: Array<{ pattern: RegExp; message: string }> = [
   { pattern: /^new row violates/i, message: "Datavalidering misslyckades." },
 
   // TTS Preview
+  { pattern: /^USER_CANCELLED$/i, message: "Jobbet avbröts." },
   { pattern: /^WORKER_STALE$/i, message: "Jobbet avbröts (timeout). Försök igen." },
   { pattern: /^Qwen synth timed out/i, message: "Talsyntesen tog för lång tid. Försök igen." },
   { pattern: /^Qwen synth exited/i, message: "Talsyntesen misslyckades. Försök igen." },
