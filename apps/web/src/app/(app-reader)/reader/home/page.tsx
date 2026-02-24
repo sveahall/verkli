@@ -132,14 +132,13 @@ export default async function ReaderHomePage() {
     data: { user },
   } = await supabase.auth.getUser();
 
-  let authorApplicationStatus: "none" | "pending" | "approved" | "rejected" = "none";
   let readerName: string | null = null;
 
   try {
     if (user) {
       const { data: profile } = await supabase
         .from("profiles")
-        .select("role, onboarding_completed_at, display_name, username")
+        .select("onboarding_completed_at, display_name, username")
         .eq("user_id", user.id)
         .maybeSingle();
 
@@ -148,24 +147,6 @@ export default async function ReaderHomePage() {
       }
 
       readerName = profile?.display_name || profile?.username || null;
-
-      // SECURITY: Only trust profiles.role; user_metadata is client-writable.
-      const profileRole = String(profile?.role ?? "").toLowerCase();
-
-      if (profileRole === "author") {
-        authorApplicationStatus = "approved";
-      } else {
-        const { data: application } = await supabase
-          .from("author_applications" as never)
-          .select("status")
-          .eq("user_id", user.id)
-          .maybeSingle();
-
-        const status = String((application as { status?: string } | null)?.status ?? "").toLowerCase();
-        if (status === "pending" || status === "approved" || status === "rejected") {
-          authorApplicationStatus = status;
-        }
-      }
     }
   } catch (err) {
     if (err instanceof Error && err.message === "NEXT_REDIRECT") throw err;
@@ -469,26 +450,6 @@ export default async function ReaderHomePage() {
     // Swallow; rails render as empty states.
   }
 
-  const authorCta = !user
-    ? null
-    : authorApplicationStatus === "approved"
-      ? {
-          href: "/author/home",
-          label: "Go to author view",
-          className: "btn-secondary",
-        }
-      : authorApplicationStatus === "pending"
-        ? {
-            href: "/author/signup",
-            label: "Author application pending",
-            className: "btn-secondary",
-          }
-        : {
-            href: "/author/signup",
-            label: "Become an author",
-            className: "btn-secondary",
-          };
-
   const spotlight: Spotlight | null = continueReading[0]
     ? {
         title: continueReading[0].title,
@@ -523,154 +484,153 @@ export default async function ReaderHomePage() {
         : null;
 
   const greeting = readerName ? `Welcome back, ${readerName.split(" ")[0]}` : "Welcome back";
+  const top5Chart = topChart.slice(0, 5);
 
   return (
-    <div className="section-gap-lg">
-      <ErrorBannerWrapper />
-
-      <section className="relative overflow-hidden rounded-[30px] border border-slate-200/80 bg-gradient-to-br from-white via-slate-50 to-white p-6 shadow-[0_18px_48px_rgba(15,23,42,0.09)] dark:border-white/10 dark:bg-[radial-gradient(circle_at_top,#1f2335_0%,#121622_55%,#0a0d16_100%)] md:p-8">
-        <div className="pointer-events-none absolute -left-20 top-2 h-56 w-56 rounded-full bg-[#907AFF]/15 blur-3xl" />
-        <div className="pointer-events-none absolute -right-20 bottom-0 h-56 w-56 rounded-full bg-[#E29ED5]/15 blur-3xl" />
-
-        <div className="relative grid gap-8 lg:grid-cols-[1.25fr_0.95fr] lg:items-end">
-          <div className="space-y-6">
-            <span className="inline-flex rounded-full border border-slate-200/80 bg-white/85 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.22em] text-slate-500 shadow-sm dark:border-white/15 dark:bg-white/10 dark:text-white/70">
-              Reader home
-            </span>
-
-            <div className="space-y-3">
-              <h1 className="text-[34px] font-semibold tracking-tight text-slate-900 dark:text-white sm:text-[40px]">
-                {greeting}
-              </h1>
-              <p className="max-w-2xl text-[15px] leading-relaxed text-slate-600 dark:text-white/65">
-                Your reading lounge is now organized like a streaming dashboard: continue instantly, check what is trending, and jump into popular authors.
-              </p>
-            </div>
-
-            <div className="flex flex-wrap gap-2">
-              <a
-                href="#continue-reading"
-                className="rounded-full border border-slate-200/80 bg-white/85 px-3 py-1.5 text-[12px] font-semibold text-slate-600 transition hover:border-slate-300 hover:text-slate-900 dark:border-white/15 dark:bg-white/10 dark:text-white/70 dark:hover:text-white"
-              >
-                Continue reading
-              </a>
-              <a
-                href="#top-chart"
-                className="rounded-full border border-slate-200/80 bg-white/85 px-3 py-1.5 text-[12px] font-semibold text-slate-600 transition hover:border-slate-300 hover:text-slate-900 dark:border-white/15 dark:bg-white/10 dark:text-white/70 dark:hover:text-white"
-              >
-                Top chart
-              </a>
-              <a
-                href="#popular-authors"
-                className="rounded-full border border-slate-200/80 bg-white/85 px-3 py-1.5 text-[12px] font-semibold text-slate-600 transition hover:border-slate-300 hover:text-slate-900 dark:border-white/15 dark:bg-white/10 dark:text-white/70 dark:hover:text-white"
-              >
-                Popular authors
-              </a>
-              <a
-                href="#new-releases"
-                className="rounded-full border border-slate-200/80 bg-white/85 px-3 py-1.5 text-[12px] font-semibold text-slate-600 transition hover:border-slate-300 hover:text-slate-900 dark:border-white/15 dark:bg-white/10 dark:text-white/70 dark:hover:text-white"
-              >
-                New releases
-              </a>
-            </div>
-
-            <div className="flex flex-wrap items-center gap-3">
-              <Link href="/reader/discover" className="btn-primary">
-                Browse discover
-              </Link>
-              <Link href="/reader/library" className="btn-secondary">
-                Open my library
-              </Link>
-              {authorCta ? (
-                <Link href={authorCta.href} className={authorCta.className}>
-                  {authorCta.label}
-                </Link>
-              ) : null}
-            </div>
-          </div>
-
-          <div className="relative min-h-[280px] overflow-hidden rounded-[24px] border border-white/60 bg-slate-950 shadow-[0_16px_36px_rgba(2,6,23,0.35)] dark:border-white/15">
-            {spotlight?.cover ? (
-              <Image
-                src={spotlight.cover}
-                alt={spotlight.title}
-                fill
-                sizes="(min-width: 1024px) 380px, 100vw"
-                className="object-cover"
-                unoptimized
-              />
-            ) : (
-              <div className="absolute inset-0 bg-gradient-to-br from-slate-700 via-slate-900 to-black" />
-            )}
-
-            <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/30 to-transparent" />
-            <div className="absolute inset-x-0 bottom-0 p-5 text-white sm:p-6">
-              {spotlight ? (
-                <>
-                  <span className="inline-flex rounded-full border border-white/30 bg-black/30 px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-white/90 backdrop-blur">
-                    {spotlight.badge}
-                  </span>
-                  <h2 className="mt-3 text-[25px] font-semibold leading-tight text-white line-clamp-2">
-                    {spotlight.title}
-                  </h2>
-                  <p className="mt-1 text-[13px] text-white/75">{spotlight.author}</p>
-
-                  <div className="mt-4 flex items-center justify-between gap-3">
-                    <p className="text-[12px] text-white/70">{spotlight.caption}</p>
+    <>
+      {/* Hero: 8px grid, lifted shadow */}
+      <section className="relative mb-12 min-h-0 w-full overflow-hidden rounded-b-[24px] bg-[#f5f5f7] shadow-[0_24px_48px_-20px_rgba(15,23,42,0.12),0_12px_24px_-8px_rgba(15,23,42,0.08)] dark:bg-[#0a0a0a] dark:shadow-[0_24px_48px_-12px_rgba(15,23,42,0.35)]">
+        <div className="absolute inset-0 bg-gradient-to-b from-white via-transparent to-blue-500/10 dark:from-white/[0.02] dark:to-transparent" aria-hidden />
+        <div className="relative z-10">
+          {/* Same horizontal padding everywhere for alignment */}
+          <div className="mx-auto w-full max-w-7xl px-4 sm:px-6 lg:px-10">
+            <div className="py-10 sm:py-12">
+              {/* Row 1: cover left, title + CTA right — 8px rhythm */}
+              <div className="grid grid-cols-1 gap-8 lg:grid-cols-[auto_1fr] lg:items-center lg:gap-12">
+                {spotlight?.cover ? (
+                  <Link
+                    href={spotlight.href}
+                    className="block w-full max-w-[180px] overflow-hidden rounded-xl shadow-lg ring-1 ring-neutral-200/80 transition hover:ring-neutral-300 dark:ring-neutral-700 dark:hover:ring-neutral-600 sm:max-w-[200px] lg:max-w-[220px]"
+                  >
+                    <div className="aspect-[2/3] w-full bg-neutral-200 dark:bg-neutral-800">
+                      <Image
+                        src={spotlight.cover}
+                        alt={spotlight.title}
+                        width={220}
+                        height={330}
+                        className="h-full w-full object-cover object-center"
+                        unoptimized
+                        sizes="(max-width: 1024px) 200px, 220px"
+                      />
+                    </div>
+                  </Link>
+                ) : null}
+                <div className="flex min-w-0 flex-col justify-center">
+                  {spotlight ? (
+                    <span className="text-[11px] font-semibold uppercase tracking-[0.2em] text-neutral-500 dark:text-neutral-400">
+                      {spotlight.badge}
+                    </span>
+                  ) : null}
+                  <h1 className="mt-2 text-[1.75rem] font-semibold leading-tight tracking-tight text-neutral-900 dark:text-white sm:text-[2.25rem] md:text-[2.5rem]">
+                    {spotlight ? spotlight.title : greeting}
+                  </h1>
+                  <p className="mt-2 text-[15px] leading-relaxed text-neutral-600 dark:text-neutral-300">
+                    {spotlight ? spotlight.author : "Your reading lounge. Continue where you left off, or discover something new."}
+                  </p>
+                  <div className="mt-6 flex flex-wrap items-center gap-3">
+                    {spotlight ? (
+                      <Link
+                        href={spotlight.href}
+                        className="inline-flex h-10 items-center justify-center rounded-full bg-neutral-900 px-5 text-[14px] font-medium text-white transition hover:bg-neutral-800 dark:bg-white dark:text-neutral-900 dark:hover:bg-neutral-100"
+                      >
+                        Open
+                      </Link>
+                    ) : null}
                     <Link
-                      href={spotlight.href}
-                      className="inline-flex min-h-[38px] min-w-[44px] items-center justify-center rounded-full border border-white/35 bg-white/15 px-4 text-[12px] font-semibold text-white backdrop-blur transition hover:bg-white/25"
+                      href="/reader/discover"
+                      className="inline-flex h-10 items-center justify-center rounded-full bg-neutral-900 px-5 text-[14px] font-medium text-white transition hover:bg-neutral-800 dark:bg-white/15 dark:text-white dark:hover:bg-white/25"
                     >
-                      Open
+                      Discover
+                    </Link>
+                    <Link
+                      href="/reader/library"
+                      className="inline-flex h-10 items-center justify-center rounded-full border border-neutral-300 bg-transparent px-5 text-[14px] font-medium text-neutral-700 transition hover:bg-neutral-100 dark:border-neutral-600 dark:text-neutral-200 dark:hover:bg-neutral-800"
+                    >
+                      My library
                     </Link>
                   </div>
-
-                  {typeof spotlight.progress === "number" && (
-                    <div className="mt-3 h-1.5 w-full rounded-full bg-white/30">
+                  {spotlight && typeof spotlight.progress === "number" ? (
+                    <div className="mt-4 h-1.5 w-full max-w-[240px] rounded-full bg-neutral-200 dark:bg-neutral-700">
                       <div
-                        className="h-full rounded-full bg-white"
+                        className="h-full rounded-full bg-neutral-600 dark:bg-white"
                         style={{ width: `${Math.min(Math.max(spotlight.progress, 0), 100)}%` }}
                       />
                     </div>
-                  )}
-                </>
-              ) : (
-                <>
-                  <h2 className="text-[23px] font-semibold text-white">Your reading lounge is ready</h2>
-                  <p className="mt-1 text-[13px] text-white/75">As soon as you open books, this space highlights what to read next.</p>
-                  <Link
-                    href="/reader/discover"
-                    className="mt-4 inline-flex min-h-[38px] min-w-[44px] items-center justify-center rounded-full border border-white/35 bg-white/15 px-4 text-[12px] font-semibold text-white backdrop-blur transition hover:bg-white/25"
-                  >
-                    Discover books
-                  </Link>
-                </>
-              )}
+                  ) : null}
+                </div>
+              </div>
+
+              {/* Row 2: Top 5 — same left edge, 8px rhythm */}
+              {top5Chart.length > 0 ? (
+                <div className="mt-10 border-t border-neutral-200/80 pt-8 dark:border-neutral-800">
+                  <div className="mb-4 flex items-center justify-between">
+                    <span className="text-[11px] font-semibold uppercase tracking-[0.18em] text-neutral-500 dark:text-neutral-400">
+                      Top in chart
+                    </span>
+                    <Link href="#top-chart" className="text-[12px] font-medium text-neutral-600 hover:text-neutral-900 dark:text-neutral-400 dark:hover:text-white">
+                      See all
+                    </Link>
+                  </div>
+                  <div className="flex gap-4 overflow-x-auto pb-1">
+                  {top5Chart.map((book, i) => (
+                    <Link
+                      key={book.id}
+                      href={`/reader/books/${book.id}`}
+                      className="relative flex-shrink-0 overflow-hidden rounded-lg ring-1 ring-neutral-200/60 transition hover:ring-neutral-400 dark:ring-neutral-600 dark:hover:ring-neutral-500"
+                    >
+                      <div className="aspect-[2/3] w-[88px] sm:w-[100px]">
+                        {book.cover ? (
+                          <Image
+                            src={book.cover}
+                            alt={book.title}
+                            width={100}
+                            height={150}
+                            className="h-full w-full object-cover"
+                            unoptimized
+                            sizes="100px"
+                          />
+                        ) : (
+                          <div className="h-full w-full bg-neutral-300 dark:bg-neutral-700" />
+                        )}
+                      </div>
+                      <span className="absolute left-1.5 top-1.5 flex h-6 w-6 items-center justify-center rounded-full bg-neutral-900/90 text-[11px] font-bold text-white dark:bg-white/95 dark:text-neutral-900">
+                        {i + 1}
+                      </span>
+                    </Link>
+                  ))}
+                </div>
+              </div>
+            ) : null}
             </div>
           </div>
         </div>
       </section>
 
-      <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-        <div className="card-base-subtle px-4 py-4">
-          <p className="text-[12px] font-medium uppercase tracking-[0.14em] text-slate-500 dark:text-white/50">Open books</p>
-          <p className="mt-2 text-[28px] font-semibold tracking-tight text-slate-900 dark:text-white">{continueReading.length}</p>
-          <p className="mt-1 text-[12px] text-slate-500 dark:text-white/50">Ready to continue right now</p>
+      <div className="mx-auto w-full max-w-7xl px-4 sm:px-6 lg:px-10">
+        <ErrorBannerWrapper />
+      </div>
+
+      <div className="mx-auto w-full max-w-7xl space-y-10 px-4 sm:px-6 lg:px-10">
+      <section className="grid grid-cols-1 gap-4 sm:grid-cols-2 sm:gap-6 xl:grid-cols-4 xl:gap-8">
+        <div className="card-base-subtle text-left">
+          <p className="px-5 pt-5 text-[12px] font-medium uppercase tracking-[0.14em] text-slate-500 dark:text-white/50">Open books</p>
+          <p className="mt-2 px-5 text-[28px] font-semibold tracking-tight text-slate-900 dark:text-white">{continueReading.length}</p>
+          <p className="mt-1 px-5 pb-5 text-[12px] text-slate-500 dark:text-white/50">Ready to continue right now</p>
         </div>
-        <div className="card-base-subtle px-4 py-4">
-          <p className="text-[12px] font-medium uppercase tracking-[0.14em] text-slate-500 dark:text-white/50">Top chart books</p>
-          <p className="mt-2 text-[28px] font-semibold tracking-tight text-slate-900 dark:text-white">{topChart.length}</p>
-          <p className="mt-1 text-[12px] text-slate-500 dark:text-white/50">Picked from current reader activity</p>
+        <div className="card-base-subtle text-left">
+          <p className="px-5 pt-5 text-[12px] font-medium uppercase tracking-[0.14em] text-slate-500 dark:text-white/50">Top chart books</p>
+          <p className="mt-2 px-5 text-[28px] font-semibold tracking-tight text-slate-900 dark:text-white">{topChart.length}</p>
+          <p className="mt-1 px-5 pb-5 text-[12px] text-slate-500 dark:text-white/50">Picked from current reader activity</p>
         </div>
-        <div className="card-base-subtle px-4 py-4">
-          <p className="text-[12px] font-medium uppercase tracking-[0.14em] text-slate-500 dark:text-white/50">Public releases</p>
-          <p className="mt-2 text-[28px] font-semibold tracking-tight text-slate-900 dark:text-white">{totalPublishedCount}</p>
-          <p className="mt-1 text-[12px] text-slate-500 dark:text-white/50">Published books currently available</p>
+        <div className="card-base-subtle text-left">
+          <p className="px-5 pt-5 text-[12px] font-medium uppercase tracking-[0.14em] text-slate-500 dark:text-white/50">Public releases</p>
+          <p className="mt-2 px-5 text-[28px] font-semibold tracking-tight text-slate-900 dark:text-white">{totalPublishedCount}</p>
+          <p className="mt-1 px-5 pb-5 text-[12px] text-slate-500 dark:text-white/50">Published books currently available</p>
         </div>
-        <div className="card-base-subtle px-4 py-4">
-          <p className="text-[12px] font-medium uppercase tracking-[0.14em] text-slate-500 dark:text-white/50">Active authors</p>
-          <p className="mt-2 text-[28px] font-semibold tracking-tight text-slate-900 dark:text-white">{totalAuthorCount}</p>
-          <p className="mt-1 text-[12px] text-slate-500 dark:text-white/50">Creators publishing on the platform</p>
+        <div className="card-base-subtle text-left">
+          <p className="px-5 pt-5 text-[12px] font-medium uppercase tracking-[0.14em] text-slate-500 dark:text-white/50">Active authors</p>
+          <p className="mt-2 px-5 text-[28px] font-semibold tracking-tight text-slate-900 dark:text-white">{totalAuthorCount}</p>
+          <p className="mt-1 px-5 pb-5 text-[12px] text-slate-500 dark:text-white/50">Creators publishing on the platform</p>
         </div>
       </section>
 
@@ -811,6 +771,7 @@ export default async function ReaderHomePage() {
           ))}
         </Rail>
       </div>
-    </div>
+      </div>
+    </>
   );
 }

@@ -65,6 +65,8 @@ export default function ReaderAppShell({ children }: { children: ReactNode }) {
     pathname?.startsWith("/reader/read") || pathname?.startsWith("/reader/books")
   );
 
+  const isReaderHome = pathname === "/reader/home";
+
   return (
     <div
       className="relative min-h-[100dvh] bg-background text-foreground"
@@ -72,7 +74,9 @@ export default function ReaderAppShell({ children }: { children: ReactNode }) {
       {isImmersive ? (
         <div className="relative">{children}</div>
       ) : (
-        <main className="page-content relative pb-24 pt-8 sm:pt-10 lg:pb-12">
+        <main
+          className={`relative pb-24 lg:pb-12 ${isReaderHome ? "pt-0" : "page-content pt-8 sm:pt-10"}`}
+        >
           {children}
         </main>
       )}

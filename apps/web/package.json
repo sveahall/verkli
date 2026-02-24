@@ -19,6 +19,7 @@
     "translate-worker": "tsx scripts/translation-worker.ts",
     "audiobook-worker": "tsx scripts/audiobook-worker.ts",
     "tts-preview-worker": "tsx scripts/tts-preview-worker.ts",
+    "tts-voice-profile": "tsx scripts/tts-voice-profile.ts",
     "social-publish-worker": "npx tsx scripts/social-publish-worker.ts",
     "recommendations-worker": "npx tsx scripts/recommendations-worker.ts",
     "generate:types": "tsx scripts/generate-types.ts",

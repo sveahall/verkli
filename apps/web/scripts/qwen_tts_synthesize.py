@@ -312,6 +312,7 @@ def synthesize_batch(
     texts: List[str],
     language: str,
     speaker: str,
+    instruct: str | None,
     ref_audio: str | None,
     ref_text: str | None,
     max_new_tokens: int,
@@ -335,6 +336,7 @@ def synthesize_batch(
                         text=to_batch_or_scalar(texts),
                         language=to_batch_or_scalar(batched_language),
                         speaker=speaker,
+                        instruct=to_batch_or_scalar([instruct] * len(texts)) if instruct else None,
                         non_streaming_mode=True,
                         max_new_tokens=max_new_tokens,
                     )
@@ -506,6 +508,11 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--model-id", default=DEFAULT_MODEL_ID, help="HuggingFace model id")
     parser.add_argument("--language", default="auto", help="Language code/name")
     parser.add_argument("--speaker", default="Ryan", help="Speaker id for custom voice")
+    parser.add_argument(
+        "--instruct",
+        default=os.environ.get("QWEN_TTS_INSTRUCT"),
+        help="Optional voice/style instruction text for custom-voice generation",
+    )
     parser.add_argument("--max-chars", type=int, default=DEFAULT_MAX_CHARS, help="Chunk size for long text")
     parser.add_argument(
         "--batch-size",
@@ -618,6 +625,7 @@ def main() -> int:
                 texts=batch_chunks,
                 language=language,
                 speaker=args.speaker,
+                instruct=args.instruct,
                 ref_audio=args.ref_audio,
                 ref_text=args.ref_text,
                 max_new_tokens=max_new_tokens,
@@ -638,6 +646,7 @@ def main() -> int:
                     texts=batch_chunks,
                     language=language,
                     speaker=args.speaker,
+                    instruct=args.instruct,
                     ref_audio=args.ref_audio,
                     ref_text=args.ref_text,
                     max_new_tokens=max_new_tokens,

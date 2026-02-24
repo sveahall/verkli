@@ -18,14 +18,6 @@ export default async function AppAuthorLayout({
     cookieStore.get("active_role")?.value
   );
 
-  if (!activeRole) {
-    redirect("/api/auth/sync-role?redirect=/author/home");
-  }
-
-  if (activeRole === "reader") {
-    redirect("/reader/home");
-  }
-
   const supabase = await createClient();
   const {
     data: { user },
@@ -40,18 +32,28 @@ export default async function AppAuthorLayout({
     .select("role")
     .eq("user_id", user.id)
     .maybeSingle();
+  const profileRole = String(profile?.role ?? "").trim().toLowerCase();
+  const isAdmin = profileRole === "admin";
+  const isLegacyAuthor = isLegacyAuthorRole(profileRole);
+  const approvalStatus = !isAdmin && !isLegacyAuthor
+    ? await getAuthorApplicationStatus(supabase, user.id)
+    : null;
+  const canAccessAuthor = isAdmin || isLegacyAuthor || approvalStatus === "approved";
 
-  if (!profile?.role) {
-    redirect("/author/signin");
+  console.log("[author guard] app-author layout role check", {
+    userId: user.id,
+    profileRole,
+    activeRole,
+    approvalStatus,
+    canAccessAuthor,
+  });
+
+  if (!canAccessAuthor) {
+    redirect("/reader/home");
   }
 
-  const isLegacyAuthor = isLegacyAuthorRole(profile.role);
-
-  if (!isLegacyAuthor) {
-    const approvalStatus = await getAuthorApplicationStatus(supabase, user.id);
-    if (approvalStatus !== "approved") {
-      redirect("/reader/home?error=author_required");
-    }
+  if (!activeRole && !isAdmin) {
+    redirect("/api/auth/sync-role?redirect=/author/home");
   }
 
   return (

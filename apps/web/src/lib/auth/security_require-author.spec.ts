@@ -65,6 +65,14 @@ describe("security: requireAuthorRole", () => {
     expect(result.ok).toBe(true);
   });
 
+  it("allows access when profiles.role is admin", async () => {
+    mockGetUser.mockResolvedValue({ data: { user: mockUser("u1") } });
+    mockProfileQuery("admin");
+
+    const result = await requireAuthorRole();
+    expect(result.ok).toBe(true);
+  });
+
   it("REJECTS user whose user_metadata.role is author but profiles.role is reader", async () => {
     // This is the core security fix — metadata must NOT grant author access
     const user = mockUser("u1", "author"); // metadata says author

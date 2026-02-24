@@ -98,4 +98,26 @@ describe("middleware author access", () => {
     expect(res.headers.get("location")).toContain("/reader/home?error=author_required");
     expect(res.headers.get("set-cookie") ?? "").toContain("active_role=reader");
   });
+
+  it("allows admin users on /author routes without redirect", async () => {
+    mockFrom.mockImplementation((table: string) => {
+      if (table === "profiles") {
+        return {
+          select: () => ({
+            eq: () => ({
+              maybeSingle: () => Promise.resolve({ data: { role: "admin" }, error: null }),
+            }),
+          }),
+        };
+      }
+      return {};
+    });
+
+    const { middleware } = await import("./middleware");
+    const req = new NextRequest("http://localhost/author/tts-lab");
+    const res = await middleware(req);
+
+    expect(res.status).toBe(200);
+    expect(res.headers.get("location")).toBeNull();
+  });
 });

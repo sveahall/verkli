@@ -421,6 +421,7 @@ export default function GlobalNavbar({
   const [loading, setLoading] = useState(true);
   const [searchValue, setSearchValue] = useState("");
   const [currentRole, setCurrentRole] = useState<"author" | "reader">("author");
+  const [canShowReaderAuthorCta, setCanShowReaderAuthorCta] = useState(true);
   // SECURITY: Track original signup role - readers can NEVER switch to author
   const [originalRole, setOriginalRole] = useState<"author" | "reader" | undefined>(undefined);
 
@@ -430,6 +431,7 @@ export default function GlobalNavbar({
       if (!activeUser) {
         setCurrentRole("author");
         setOriginalRole(undefined);
+        setCanShowReaderAuthorCta(true);
         return;
       }
 
@@ -458,6 +460,21 @@ export default function GlobalNavbar({
       }
 
       setCurrentRole(nextRole);
+
+      if (profileRole === "author") {
+        setCanShowReaderAuthorCta(false);
+        return;
+      }
+
+      const { data: application } = await supabase
+        .from("author_applications" as never)
+        .select("status")
+        .eq("user_id", activeUser.id)
+        .maybeSingle();
+
+      const applicationStatus = String((application as { status?: string } | null)?.status ?? "").toLowerCase();
+      const hasActiveAuthorFlow = applicationStatus === "pending" || applicationStatus === "approved";
+      setCanShowReaderAuthorCta(!hasActiveAuthorFlow);
     };
 
     const getUser = async () => {
@@ -576,6 +593,8 @@ export default function GlobalNavbar({
 
   const primaryAction = navActions?.primary;
   const secondaryAction = navActions?.secondary;
+  const shouldShowPrimaryAction = Boolean(primaryAction)
+    && (!isReaderRoute || primaryAction?.href !== "/author/signup" || canShowReaderAuthorCta);
   const showSearch = navActions?.showSearch ?? isauthorRoute;
   const searchPlaceholder = navActions?.searchPlaceholder ?? "Search books, authors...";
   const searchHref = navActions?.searchHref ?? (isauthorRoute ? "/author" : "/reader");
@@ -881,7 +900,7 @@ export default function GlobalNavbar({
                   )}
 
                   {/* Upgrade / Share – stil enligt referens, funktion kan kopplas senare */}
-                  {primaryAction && (
+                  {shouldShowPrimaryAction && primaryAction && (
                     <button
                       type="button"
                       onClick={() => router.push(primaryAction.href)}

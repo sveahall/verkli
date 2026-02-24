@@ -7,6 +7,7 @@ const mocks = vi.hoisted(() => ({
   ttsInsert: vi.fn(),
   rateLimiterCheck: vi.fn(),
   existingJobMaybeSingle: vi.fn(),
+  storageUpload: vi.fn(),
 }));
 
 vi.mock("@/lib/auth/require-author", () => ({
@@ -61,6 +62,11 @@ function makeAdminMock() {
       }
       return {};
     }),
+    storage: {
+      from: vi.fn(() => ({
+        upload: mocks.storageUpload,
+      })),
+    },
   };
 }
 
@@ -70,6 +76,7 @@ describe("POST /api/tts/qwen/preview", () => {
     vi.mocked(isTtsLabEnabled).mockReturnValue(true);
     mocks.rateLimiterCheck.mockReturnValue({ allowed: true });
     mocks.existingJobMaybeSingle.mockResolvedValue({ data: null, error: null });
+    mocks.storageUpload.mockResolvedValue({ data: null, error: null });
     mocks.ttsInsert.mockReturnValue({
       select: vi.fn().mockReturnValue({
         single: vi.fn().mockResolvedValue({
@@ -119,7 +126,7 @@ describe("POST /api/tts/qwen/preview", () => {
       expect.objectContaining({
         user_id: "user-1",
         text: "Hej världen",
-        voice_id: "Ryan",
+        voice_id: "ryan",
         status: "queued",
         progress: 0,
       })
@@ -236,5 +243,84 @@ describe("POST /api/tts/qwen/preview", () => {
 
     const res = await POST(req);
     expect(res.status).toBe(400);
+  });
+
+  it("encodes voice profile and instruct in voice_id when provided", async () => {
+    mocks.requireAuthorRoleForApi.mockResolvedValue({
+      user: { id: "user-1" },
+      response: null,
+    });
+
+    const req = new Request("http://localhost/api/tts/qwen/preview", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        text: "Hej världen",
+        voiceId: "Ryan",
+        voiceProfile: "storyteller_v1",
+        voicePrompt: "Warm and calm voice",
+      }),
+    });
+
+    const res = await POST(req);
+    expect(res.status).toBe(200);
+
+    const inserted = mocks.ttsInsert.mock.calls[0]?.[0] as { voice_id?: string };
+    expect(inserted.voice_id?.startsWith("json:")).toBe(true);
+
+    const parsed = JSON.parse(String(inserted.voice_id).slice(5)) as {
+      speaker: string;
+      profile?: string;
+      instruct?: string;
+    };
+    expect(parsed).toEqual({
+      speaker: "ryan",
+      profile: "storyteller_v1",
+      instruct: "Warm and calm voice",
+    });
+  });
+
+  it("accepts multipart request with ref audio and stores refAudioPath/refText", async () => {
+    mocks.requireAuthorRoleForApi.mockResolvedValue({
+      user: { id: "user-1" },
+      response: null,
+    });
+
+    const formData = new FormData();
+    formData.set("text", "Hej världen");
+    formData.set("voiceId", "Ryan");
+    formData.set("voiceProfile", "storyteller_v1");
+    formData.set("voicePrompt", "Warm and calm voice");
+    formData.set("voiceRefText", "This is my reference transcript.");
+    formData.set(
+      "voiceRefAudio",
+      new File([new Uint8Array([1, 2, 3, 4])], "sample.wav", { type: "audio/wav" })
+    );
+
+    const req = new Request("http://localhost/api/tts/qwen/preview", {
+      method: "POST",
+      body: formData,
+    });
+
+    const res = await POST(req);
+    expect(res.status).toBe(200);
+    expect(mocks.storageUpload).toHaveBeenCalledTimes(1);
+
+    const inserted = mocks.ttsInsert.mock.calls[0]?.[0] as { voice_id?: string };
+    expect(inserted.voice_id?.startsWith("json:")).toBe(true);
+
+    const parsed = JSON.parse(String(inserted.voice_id).slice(5)) as {
+      speaker: string;
+      profile?: string;
+      instruct?: string;
+      refText?: string;
+      refAudioPath?: string;
+    };
+
+    expect(parsed.speaker).toBe("ryan");
+    expect(parsed.profile).toBe("storyteller_v1");
+    expect(parsed.instruct).toBe("Warm and calm voice");
+    expect(parsed.refText).toBe("This is my reference transcript.");
+    expect(parsed.refAudioPath).toMatch(/^refs\/user-1\/profile-storyteller_v1\.wav$/);
   });
 });

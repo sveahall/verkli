@@ -135,11 +135,21 @@ export async function middleware(request: NextRequest) {
       .select('role')
       .eq('user_id', user.id)
       .maybeSingle()
-    const isLegacyAuthor = String(profile?.role ?? '').toLowerCase() === 'author'
+    const profileRole = String(profile?.role ?? '').trim().toLowerCase()
+    const isAuthorOrAdmin = profileRole === 'author' || profileRole === 'admin'
 
-    if (!isLegacyAuthor) {
+    if (!isAuthorOrAdmin) {
       const status = await getAuthorApplicationStatus(supabase, user.id)
-      if (status !== 'approved') {
+      const shouldRedirect = status !== 'approved'
+      console.log('[author guard] middleware role check', {
+        pathname,
+        userId: user.id,
+        profileRole,
+        applicationStatus: status,
+        shouldRedirect,
+      })
+
+      if (shouldRedirect) {
         const url = request.nextUrl.clone()
         url.pathname = '/reader/home'
         url.searchParams.set('error', 'author_required')

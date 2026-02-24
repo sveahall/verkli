@@ -11,7 +11,7 @@ import * as path from "path";
 import * as fs from "fs/promises";
 import * as os from "os";
 import { existsSync } from "node:fs";
-import { spawn } from "child_process";
+import { spawn, spawnSync } from "child_process";
 import { fileURLToPath } from "node:url";
 import { assertServerEnv } from "../src/lib/env";
 
@@ -25,12 +25,79 @@ const APP_ROOT = path.resolve(SCRIPT_DIR, "..");
 const REPO_ROOT = path.resolve(APP_ROOT, "..", "..");
 const QWEN_MODEL_DEFAULT = "Qwen/Qwen3-TTS-12Hz-0.6B-CustomVoice";
 const QWEN_SYNTH_SCRIPT_DEFAULT = path.join(SCRIPT_DIR, "qwen_tts_synthesize.py");
+const QWEN_VOICE_PROFILES_DEFAULT = path.join(SCRIPT_DIR, "tts-voice-profiles.json");
 const QWEN_PYTHON_DEFAULT = path.join(REPO_ROOT, "qwen3tts-env", "bin", "python3.12");
+const QWEN_PYTHON_FALLBACKS = ["python3.12", "python3.11", "python3"];
 const TTS_PREVIEW_BUCKET = "tts_previews";
 const POLL_INTERVAL_MS = 2000;
-const SYNTH_TIMEOUT_MS = 120_000;
 const STALE_MINUTES = 3;
 const DEBUG = process.env.TTS_LAB_DEBUG === "1";
+const VERBOSE_QWEN_LOGS = process.env.QWEN_TTS_VERBOSE === "1";
+let cachedQwenPythonPath: string | null = null;
+
+function parseTimeoutMs(): number {
+  const raw = process.env.QWEN_TTS_TIMEOUT_MS ?? process.env.TTS_TIMEOUT_MS;
+  const parsed = Number(raw);
+  if (!Number.isFinite(parsed) || parsed <= 0) return 120_000;
+  return Math.floor(parsed);
+}
+
+function parseMaxNewTokens(): number {
+  const raw = process.env.QWEN_TTS_MAX_NEW_TOKENS ?? process.env.TTS_MAX_NEW_TOKENS;
+  const parsed = Number(raw);
+  if (!Number.isFinite(parsed) || parsed <= 0) return 512;
+  return Math.floor(parsed);
+}
+
+const SYNTH_TIMEOUT_MS = parseTimeoutMs();
+const QWEN_MAX_NEW_TOKENS = parseMaxNewTokens();
+
+type VoiceJobPayload = {
+  speaker?: string;
+  profile?: string;
+  prompt?: string;
+  instruct?: string;
+  refText?: string;
+  refAudioPath?: string;
+};
+
+type VoiceProfile = {
+  speaker?: string;
+  refAudio?: string;
+  refText?: string;
+  prompt?: string;
+};
+
+type ResolvedVoiceConfig = {
+  speaker: string;
+  refAudio: string | null;
+  refText: string | null;
+  instruct: string | null;
+};
+
+const SUPPORTED_SPEAKERS = new Set([
+  "aiden",
+  "dylan",
+  "eric",
+  "ono_anna",
+  "ryan",
+  "serena",
+  "sohee",
+  "uncle_fu",
+  "vivian",
+]);
+
+const LEGACY_SPEAKER_ALIASES: Record<string, string> = {
+  ryan: "ryan",
+  samantha: "serena",
+  alex: "aiden",
+  alloy: "eric",
+  echo: "dylan",
+  fable: "vivian",
+  onyx: "uncle_fu",
+  nova: "ono_anna",
+  shimmer: "sohee",
+};
 
 function log(msg: string, ...args: unknown[]) {
   if (DEBUG || process.env.NODE_ENV !== "test") {
@@ -44,11 +111,121 @@ function resolveQwenSynthScriptPath(): string {
   return QWEN_SYNTH_SCRIPT_DEFAULT;
 }
 
+function resolveVoiceProfilesPath(): string {
+  const configured = process.env.QWEN_TTS_VOICE_PROFILES?.trim();
+  if (!configured) return QWEN_VOICE_PROFILES_DEFAULT;
+  if (path.isAbsolute(configured)) return configured;
+  return path.resolve(APP_ROOT, configured);
+}
+
+function decodeVoiceJobPayload(rawVoiceId: string): VoiceJobPayload {
+  if (!rawVoiceId.startsWith("json:")) {
+    return { speaker: rawVoiceId };
+  }
+
+  try {
+    const parsed = JSON.parse(rawVoiceId.slice(5)) as VoiceJobPayload;
+    if (!parsed || typeof parsed !== "object") {
+      return { speaker: rawVoiceId };
+    }
+    return parsed;
+  } catch {
+    return { speaker: rawVoiceId };
+  }
+}
+
+function sanitizeOptional(value: unknown, maxLen: number): string | null {
+  if (typeof value !== "string") return null;
+  const trimmed = value.trim();
+  if (!trimmed) return null;
+  if (trimmed.length > maxLen) return null;
+  return trimmed;
+}
+
+function normalizeSpeakerId(raw: string): string {
+  const normalized = raw.trim().toLowerCase();
+  const aliased = LEGACY_SPEAKER_ALIASES[normalized] ?? normalized;
+  if (SUPPORTED_SPEAKERS.has(aliased)) return aliased;
+  log("unsupported speaker id, fallback to ryan", { raw, normalized, aliased });
+  return "ryan";
+}
+
+async function loadVoiceProfiles(): Promise<Record<string, VoiceProfile>> {
+  const filePath = resolveVoiceProfilesPath();
+  if (!existsSync(filePath)) return {};
+  const raw = await fs.readFile(filePath, "utf8");
+  if (!raw.trim()) return {};
+  const parsed = JSON.parse(raw) as Record<string, VoiceProfile>;
+  if (!parsed || typeof parsed !== "object") return {};
+  return parsed;
+}
+
+async function resolveVoiceConfig(rawVoiceId: string): Promise<ResolvedVoiceConfig> {
+  const payload = decodeVoiceJobPayload(rawVoiceId);
+  const speaker = sanitizeOptional(payload.speaker, 64) ?? "Ryan";
+  const profileName = sanitizeOptional(payload.profile, 64);
+  const payloadPrompt = sanitizeOptional(payload.prompt, 240);
+  const payloadInstruct = sanitizeOptional(payload.instruct, 240);
+  const payloadRefText = sanitizeOptional(payload.refText, 500);
+  const payloadRefAudioPath = sanitizeOptional(payload.refAudioPath, 512);
+  let profile: VoiceProfile | null = null;
+
+  if (profileName) {
+    const profiles = await loadVoiceProfiles();
+    profile = profiles[profileName] ?? null;
+    if (!profile) {
+      throw new Error(`[tts preview] voice profile not found: ${profileName}`);
+    }
+  }
+
+  const profileSpeaker = sanitizeOptional(profile?.speaker, 64);
+  const profileRefAudio = sanitizeOptional(profile?.refAudio, 512);
+  const profileRefText = sanitizeOptional(profile?.refText, 500);
+  const profilePrompt = sanitizeOptional(profile?.prompt, 240);
+  const resolvedRefAudio = payloadRefAudioPath ?? profileRefAudio;
+  const resolvedInstruct = payloadInstruct ?? payloadPrompt ?? profilePrompt;
+  const resolvedRefText = resolvedRefAudio ? payloadRefText ?? profileRefText : null;
+
+  return {
+    speaker: normalizeSpeakerId(profileSpeaker ?? speaker),
+    refAudio: resolvedRefAudio,
+    refText: resolvedRefText,
+    instruct: resolvedInstruct,
+  };
+}
+
 function resolveQwenPythonPath(): string {
+  if (cachedQwenPythonPath) return cachedQwenPythonPath;
+
   const configured = process.env.QWEN_TTS_PYTHON?.trim();
-  if (configured) return configured;
-  if (existsSync(QWEN_PYTHON_DEFAULT)) return QWEN_PYTHON_DEFAULT;
-  return "python3.12";
+  const candidates = [configured, QWEN_PYTHON_DEFAULT, ...QWEN_PYTHON_FALLBACKS].filter(
+    (value): value is string => Boolean(value)
+  );
+
+  for (const candidate of candidates) {
+    const looksLikePath =
+      candidate.includes("/") || candidate.includes("\\") || candidate.startsWith(".");
+
+    if (looksLikePath && !existsSync(candidate)) {
+      log(`python candidate missing, skipping: ${candidate}`);
+      continue;
+    }
+
+    const probe = spawnSync(candidate, ["--version"], { stdio: "ignore" });
+    if (probe.status === 0) {
+      cachedQwenPythonPath = candidate;
+      if (configured && configured !== candidate) {
+        log(`configured QWEN_TTS_PYTHON unusable, using fallback: ${candidate}`);
+      }
+      return candidate;
+    }
+
+    log(`python candidate unavailable, skipping: ${candidate}`);
+  }
+
+  throw new Error(
+    "No usable Python runtime for Qwen TTS. Set QWEN_TTS_PYTHON to a valid executable path (for example /usr/local/bin/python3.12)."
+  );
 }
 
 function parseQwenMetadata(stdout: string): { outputPath?: string } {
@@ -68,10 +245,34 @@ function parseQwenMetadata(stdout: string): { outputPath?: string } {
   throw new Error("Qwen synthesizer did not return valid JSON metadata.");
 }
 
+async function materializeRefAudio(
+  admin: ReturnType<typeof createAdminClient>,
+  refAudio: string | null,
+  tmpDir: string
+): Promise<string | null> {
+  if (!refAudio) return null;
+
+  // Voice profiles created via script store absolute local paths.
+  if (existsSync(refAudio)) {
+    return refAudio;
+  }
+
+  // UI uploads store object keys in tts_previews bucket, e.g. refs/<user>/<file>.
+  const { data, error } = await admin.storage.from(TTS_PREVIEW_BUCKET).download(refAudio);
+  if (error) {
+    throw new Error(`[tts preview] reference audio download failed (${refAudio}): ${error.message}`);
+  }
+  const bytes = Buffer.from(await data.arrayBuffer());
+  const ext = path.extname(refAudio) || ".wav";
+  const localPath = path.join(tmpDir, `ref-audio${ext}`);
+  await fs.writeFile(localPath, bytes);
+  return localPath;
+}
+
 async function synthesizeWithQwen(
   text: string,
   outputPath: string,
-  voiceId: string
+  voiceConfig: ResolvedVoiceConfig
 ): Promise<Buffer> {
   const pythonPath = resolveQwenPythonPath();
   const scriptPath = resolveQwenSynthScriptPath();
@@ -89,18 +290,27 @@ async function synthesizeWithQwen(
     "--language",
     "auto",
     "--speaker",
-    voiceId,
+    voiceConfig.speaker,
     "--max-chars",
     "500",
     "--batch-size",
     "1",
     "--max-new-tokens",
-    "2048",
+    String(QWEN_MAX_NEW_TOKENS),
     "--xvector-only",
-    process.env.QWEN_TTS_XVECTOR_ONLY === "0" ? "0" : "1",
+    voiceConfig.refText ? "0" : process.env.QWEN_TTS_XVECTOR_ONLY === "0" ? "0" : "1",
     "--clone-non-streaming-mode",
     process.env.QWEN_TTS_CLONE_NON_STREAMING_MODE === "1" ? "1" : "0",
   ];
+  if (voiceConfig.refAudio) {
+    args.push("--ref-audio", voiceConfig.refAudio);
+  }
+  if (voiceConfig.refText) {
+    args.push("--ref-text", voiceConfig.refText);
+  }
+  if (voiceConfig.instruct) {
+    args.push("--instruct", voiceConfig.instruct);
+  }
 
   return new Promise<Buffer>((resolve, reject) => {
     const proc = spawn(pythonPath, args, {
@@ -133,7 +343,11 @@ async function synthesizeWithQwen(
       stdout += chunk.toString();
     });
     proc.stderr.on("data", (chunk) => {
-      stderr += chunk.toString();
+      const text = chunk.toString();
+      stderr += text;
+      if (VERBOSE_QWEN_LOGS) {
+        process.stderr.write(text);
+      }
     });
 
     proc.on("error", (err) => {
@@ -175,10 +389,39 @@ async function processJob(
 ): Promise<void> {
   const tmpDir = path.join(os.tmpdir(), `tts-preview-${job.id}`);
   await fs.mkdir(tmpDir, { recursive: true });
+  let heartbeatProgress = 10;
+  const heartbeat = setInterval(() => {
+    heartbeatProgress = Math.min(95, heartbeatProgress + 2);
+    void admin
+      .from("tts_preview_jobs")
+      .update({
+        progress: heartbeatProgress,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", job.id)
+      .eq("status", "running")
+      .then(({ error }) => {
+        if (error) log("heartbeat update failed", job.id, error.message);
+      });
+  }, 10_000);
 
   try {
     const outputPath = path.join(tmpDir, "output.wav");
-    const wav = await synthesizeWithQwen(job.text, outputPath, job.voice_id);
+    const voiceConfig = await resolveVoiceConfig(job.voice_id);
+    const resolvedRefAudioPath = await materializeRefAudio(admin, voiceConfig.refAudio, tmpDir);
+    const effectiveVoiceConfig: ResolvedVoiceConfig = {
+      ...voiceConfig,
+      refAudio: resolvedRefAudioPath,
+      refText: resolvedRefAudioPath ? voiceConfig.refText : null,
+    };
+    log("voice config resolved", {
+      jobId: job.id,
+      speaker: effectiveVoiceConfig.speaker,
+      hasRefAudio: Boolean(effectiveVoiceConfig.refAudio),
+      hasRefText: Boolean(effectiveVoiceConfig.refText),
+      hasInstruct: Boolean(effectiveVoiceConfig.instruct),
+    });
+    const wav = await synthesizeWithQwen(job.text, outputPath, effectiveVoiceConfig);
 
     const storagePath = `${job.user_id}/${job.id}.wav`;
     const { error: uploadError } = await admin.storage
@@ -221,6 +464,7 @@ async function processJob(
 
     log("job failed", job.id, rawMessage);
   } finally {
+    clearInterval(heartbeat);
     await fs.rm(tmpDir, { recursive: true, force: true }).catch(() => {});
   }
 }
@@ -287,7 +531,11 @@ async function pollAndProcess(): Promise<boolean> {
 }
 
 async function main(): Promise<void> {
-  log("starting – polling tts_preview_jobs (queued)");
+  log("starting – polling tts_preview_jobs (queued)", {
+    synthTimeoutMs: SYNTH_TIMEOUT_MS,
+    maxNewTokens: QWEN_MAX_NEW_TOKENS,
+    verboseQwenLogs: VERBOSE_QWEN_LOGS,
+  });
 
   const shutdown = async () => {
     log("shutting down");

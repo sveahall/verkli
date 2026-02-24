@@ -32,8 +32,8 @@ export async function requireAuthorRole(): Promise<AuthorCheckResult> {
     .eq("user_id", user.id)
     .maybeSingle();
 
-  const profileRole = profile?.role;
-  if (isLegacyAuthorRole(profileRole)) {
+  const profileRole = String(profile?.role ?? "").trim().toLowerCase();
+  if (profileRole === "admin" || isLegacyAuthorRole(profileRole)) {
     return { ok: true, user };
   }
 

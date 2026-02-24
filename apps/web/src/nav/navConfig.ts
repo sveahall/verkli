@@ -132,6 +132,7 @@ export const NAV_CONFIG: Record<NavVariant, NavConfig> = {
       ...(MVP_MODE ? [] : [{ label: "Community", href: "/reader/clubs" }]),
     ],
     actions: {
+      primary: { label: "Become an author", href: "/author/signup" },
       showSearch: true,
       searchPlaceholder: "Search books, authors...",
       searchHref: "/reader/home",
