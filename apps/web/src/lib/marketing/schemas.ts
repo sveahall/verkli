@@ -34,3 +34,25 @@ export const listAssetsQuerySchema = z.object({
 });
 
 export type ListAssetsQuery = z.infer<typeof listAssetsQuerySchema>;
+
+/** POST /api/marketing/video/generate body */
+const trailerSceneSchema = z.object({
+  visual_prompt: z.string(),
+  duration: z.number().optional(),
+});
+
+export const videoGenerateBodySchema = z.object({
+  bookId: z.string().min(1, "bookId required").uuid("invalid bookId"),
+  prompt: z.string().min(1, "prompt required").max(2_000),
+  imageUrl: z.string().min(1, "imageUrl required").url("invalid imageUrl"),
+  /** Optional trailer metadata to store in media_assets.metadata */
+  metadata: z
+    .object({
+      scenes: z.array(trailerSceneSchema).optional(),
+      caption: z.string().optional(),
+      hashtags: z.array(z.string()).optional(),
+    })
+    .optional(),
+});
+
+export type VideoGenerateBody = z.infer<typeof videoGenerateBodySchema>;

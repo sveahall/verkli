@@ -793,20 +793,68 @@ function htmlToPlainText(html: string): string {
   return $("body").text().replace(/\s+/g, " ").trim();
 }
 
-export async function extractFromEpub(filePath: string): Promise<ExtractedBook> {
+type EpubInstance = {
+  metadata?: { title?: string };
+  flow?: Array<{ id: string; title?: string; href?: string }>;
+  toc?: Array<{ id?: string; title?: string; href?: string }>;
+  spine?: Array<{ contents?: string }>;
+  on: (event: "end" | "error", listener: (...args: unknown[]) => void) => void;
+  removeListener?: (event: "end" | "error", listener: (...args: unknown[]) => void) => void;
+  off?: (event: "end" | "error", listener: (...args: unknown[]) => void) => void;
+  parse: () => void;
+  getChapter: (id: string, cb: (err: Error | null, text: string) => void) => void;
+};
+
+type EpubConstructor = new (filePath: string) => EpubInstance;
+
+function loadEpubConstructor(): EpubConstructor {
   // eslint-disable-next-line @typescript-eslint/no-require-imports
-  const EPub = require("epub");
+  const loaded = require("epub") as unknown;
+  if (typeof loaded === "function") {
+    return loaded as EpubConstructor;
+  }
+  throw new Error("EPUB parser module is not available");
+}
+
+function toError(error: unknown, fallbackMessage: string): Error {
+  if (error instanceof Error) return error;
+  const raw = String(error ?? "").trim();
+  return new Error(raw || fallbackMessage);
+}
+
+export async function extractFromEpub(filePath: string): Promise<ExtractedBook> {
+  const EPub = loadEpubConstructor();
   const epub = new EPub(filePath);
 
   return new Promise((resolve, reject) => {
-    epub.on("end", async () => {
+    let settled = false;
+
+    const settleResolve = (result: ExtractedBook) => {
+      if (settled) return;
+      settled = true;
+      cleanup();
+      resolve(result);
+    };
+
+    const settleReject = (error: unknown) => {
+      if (settled) return;
+      settled = true;
+      cleanup();
+      reject(toError(error, "EPUB parsing failed"));
+    };
+
+    const onError = (error: unknown) => {
+      settleReject(error);
+    };
+
+    const onEnd = async () => {
       try {
         const rawTitle = (epub.metadata?.title as string) || DEFAULT_TITLE;
         const chapters: ExtractedChapter[] = [];
-        const flow = (epub.flow as Array<{ id: string; title?: string; href?: string }>) ?? [];
+        const flow = epub.flow ?? [];
 
         const tocTitleById = new Map<string, string>();
-        const toc = (epub.toc as Array<{ id?: string; title?: string; href?: string }>) ?? [];
+        const toc = epub.toc ?? [];
         for (const entry of toc) {
           if (entry.id && entry.title) {
             tocTitleById.set(entry.id, entry.title);
@@ -831,7 +879,7 @@ export async function extractFromEpub(filePath: string): Promise<ExtractedBook> 
         }
 
         if (chapters.length === 0 && flow.length === 0) {
-          const spine = (epub.spine as { contents?: string }[]) ?? [];
+          const spine = epub.spine ?? [];
           for (let i = 0; i < spine.length; i++) {
             const id = spine[i]?.contents;
             if (id) {
@@ -849,16 +897,35 @@ export async function extractFromEpub(filePath: string): Promise<ExtractedBook> 
           chapters.map((chapter) => chapter.sourceText).join("\n\n")
         );
 
-        resolve({
+        settleResolve({
           title: resolveExtractedTitle(rawTitle, fullText),
           chapters,
         });
       } catch (e) {
-        reject(e);
+        settleReject(e);
       }
-    });
+    };
 
-    epub.parse();
+    const cleanup = () => {
+      if (typeof epub.removeListener === "function") {
+        epub.removeListener("end", onEnd);
+        epub.removeListener("error", onError);
+        return;
+      }
+      if (typeof epub.off === "function") {
+        epub.off("end", onEnd);
+        epub.off("error", onError);
+      }
+    };
+
+    epub.on("error", onError);
+    epub.on("end", onEnd);
+
+    try {
+      epub.parse();
+    } catch (error) {
+      settleReject(error);
+    }
   });
 }
 

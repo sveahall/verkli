@@ -8,6 +8,7 @@ import { isJobActiveStatus, normalizeJobStatus } from "@/lib/job-status";
 import { resolveSanitizedJobError, sanitizeJobError } from "@/lib/sanitize-job-error";
 import { apiError, E_BOOK_NOT_FOUND, E_JOB_FETCH_FAILED } from "@/lib/api-errors";
 import { getAudiobookStorageBucket } from "@/lib/tts/storage";
+import { isCancelStale } from "@/lib/audiobook-stale-cancel";
 
 type JobKind = "import" | "translation" | "audiobook";
 const SIGNED_URL_TTL_SECONDS = 60 * 15;
@@ -62,6 +63,7 @@ function toTranslationProgress(status: string): number {
 }
 
 const TRANSLATION_FAILED_MESSAGE = "Översättningen misslyckades. Försök igen.";
+const AUDIOBOOK_CANCEL_TIMEOUT_MESSAGE = "Cancellation timed out. Try again.";
 const MAX_ETA_SECONDS = 72 * 60 * 60;
 
 function toSafeChapterCount(value: unknown): number | null {
@@ -252,7 +254,7 @@ export async function GET(
 
   // Query ai_jobs: prefer book_id column (post-migration), fallback to user_id + filter by input.bookId
   const preferredSelect =
-    "id, kind, status, book_id, book_version_id, language, progress, input, output, error, created_at, started_at, finished_at";
+    "id, kind, status, book_id, book_version_id, language, progress, input, output, error, created_at, started_at, finished_at, updated_at";
   type AiJobRow = {
     id: string;
     kind: string;
@@ -263,6 +265,7 @@ export async function GET(
     created_at: string;
     started_at: string | null;
     finished_at: string | null;
+    updated_at?: string | null;
     book_id?: string | null;
     book_version_id?: string | null;
     language?: string | null;
@@ -282,7 +285,7 @@ export async function GET(
     // Fallback: table may lack book_id (migration not run) — fetch by user and filter in code
     const fallback = await supabase
       .from("ai_jobs")
-      .select("id, kind, status, input, output, error, created_at, started_at, finished_at")
+      .select("id, kind, status, input, output, error, created_at, started_at, finished_at, updated_at")
       .eq("user_id", user.id)
       .order("created_at", { ascending: false })
       .limit(100);
@@ -334,6 +337,8 @@ export async function GET(
 
       const input = (r.input as Record<string, unknown>) ?? {};
       const output = (r.output as Record<string, unknown>) ?? {};
+      let status = normalizeJobStatus(r.status);
+      let staleCancel = false;
 
       // Build kind-specific meta
       let meta: Record<string, unknown> = {};
@@ -342,6 +347,10 @@ export async function GET(
           meta = { fileName: input.fileName ?? input.file_name ?? null };
           break;
         case "audiobook": {
+          staleCancel = isCancelStale(output, r.updated_at ?? r.created_at);
+          if (staleCancel) {
+            status = "failed";
+          }
           const totalChapters = toSafeChapterCount(output.totalChapters);
           const completedChapters = toSafeChapterCount(output.completedChapters);
           const controlState = typeof output.controlState === "string" ? output.controlState : null;
@@ -371,7 +380,7 @@ export async function GET(
           const estimatedSecondsRemaining = isPaused
             ? null
             : computeEstimatedSecondsRemaining({
-                status: r.status,
+                status,
                 createdAt: r.created_at,
                 startedAt: r.started_at ?? null,
                 totalChapters,
@@ -410,6 +419,8 @@ export async function GET(
             controlState,
             pauseRequested: output.pauseRequested === true,
             cancelRequested: output.cancelRequested === true,
+            cancelRequestedAt:
+              typeof output.cancelRequestedAt === "string" ? output.cancelRequestedAt : null,
             estimatedSecondsRemaining,
           };
           break;
@@ -421,7 +432,7 @@ export async function GET(
       if (
         kind === "audiobook" &&
         progress === 0 &&
-        normalizeJobStatus(r.status) === "running" &&
+        status === "running" &&
         typeof output.totalChapters === "number" &&
         output.totalChapters > 0
       ) {
@@ -432,10 +443,15 @@ export async function GET(
         );
       }
 
+      const error = resolveSanitizedJobError(
+        r.error,
+        typeof output.errorDetails === "string" ? output.errorDetails : null
+      );
+
       return {
         id: r.id,
         kind,
-        status: normalizeJobStatus(r.status),
+        status,
         language: r.language ?? (input.language as string) ?? null,
         bookVersionId:
           r.book_version_id ??
@@ -444,10 +460,7 @@ export async function GET(
           null,
         progress,
         meta,
-        error: resolveSanitizedJobError(
-          r.error,
-          typeof output.errorDetails === "string" ? output.errorDetails : null
-        ),
+        error: staleCancel ? error ?? AUDIOBOOK_CANCEL_TIMEOUT_MESSAGE : error,
         attempts: 1,
         maxAttempts: 2,
         createdAt: r.created_at,
@@ -477,7 +490,22 @@ export async function GET(
     return tb - ta;
   });
 
-  const activeCount = jobs.filter((j) => isJobActiveStatus(j.status)).length;
+  // Exclude jobs stuck active for >30 min (unless paused/cancel-requested) from activeCount
+  // so the client stops polling for stale jobs.
+  const STALE_ACTIVE_MS = 30 * 60 * 1000;
+  const now = Date.now();
+  const activeCount = jobs.filter((j) => {
+    if (!isJobActiveStatus(j.status)) return false;
+    const created = j.createdAt ? new Date(j.createdAt).getTime() : 0;
+    if (created <= 0) return true;
+    if (now - created <= STALE_ACTIVE_MS) return true;
+    // Allow paused / cancel-requested jobs to stay "active"
+    const meta = j.meta as Record<string, unknown>;
+    const controlState = typeof meta.controlState === "string" ? meta.controlState : null;
+    if (controlState === "paused" || controlState === "pause_requested") return true;
+    if (controlState === "cancel_requested" || meta.cancelRequested === true) return true;
+    return false;
+  }).length;
 
   // Summary: latest status per kind (first match wins, sorted by created_at DESC)
   const summary: Record<string, string> = {};

@@ -15,6 +15,7 @@ export type Book = {
   id: string;
   title: string | null;
   cover_image: string | null;
+  description: string | null;
 };
 
 export type CampaignStatus = "draft" | "scheduled" | "active" | "finished";

@@ -143,7 +143,7 @@ describe("GET /api/billing/state", () => {
   });
 
   it("returns role-scoped state: reader gets Plus, author gets Pro (two billing_accounts rows)", async () => {
-    vi.mocked(getBillingStateForUser).mockImplementation(async (userId, role) => {
+    vi.mocked(getBillingStateForUser).mockImplementation(async (_userId, role) => {
       if (role === "reader") {
         return {
           ok: true,

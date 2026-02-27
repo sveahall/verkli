@@ -1,7 +1,7 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { getMarketingEnabled } from "@/lib/flags";
-import MarketingPortal from "@/components/marketing/MarketingPortal";
+import MarketingPortalWizard from "@/components/marketing/MarketingPortalWizard";
 import type { Book } from "@/lib/marketing/types";
 
 type MarketingPageProps = {
@@ -31,7 +31,7 @@ export default async function AuthorMarketingPage({ searchParams }: MarketingPag
 
   const { data: books } = await supabase
     .from("books")
-    .select("id, title, cover_image")
+    .select("id, title, cover_image, description")
     .eq("author_id", user.id)
     .order("updated_at", { ascending: false });
 
@@ -39,11 +39,12 @@ export default async function AuthorMarketingPage({ searchParams }: MarketingPag
     id: book.id,
     title: book.title ?? null,
     cover_image: book.cover_image ?? null,
+    description: book.description ?? null,
   }));
   const initialBookId =
     selectedBookId && resolvedBooks.some((book) => book.id === selectedBookId)
       ? selectedBookId
       : null;
 
-  return <MarketingPortal books={resolvedBooks} initialBookId={initialBookId} />;
+  return <MarketingPortalWizard books={resolvedBooks} initialBookId={initialBookId} />;
 }

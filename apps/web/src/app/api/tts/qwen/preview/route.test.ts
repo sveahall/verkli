@@ -230,7 +230,7 @@ describe("POST /api/tts/qwen/preview", () => {
     expect(mocks.ttsInsert).not.toHaveBeenCalled();
   });
 
-  it("rejects text over 500 chars", async () => {
+  it("rejects text over 2000 chars", async () => {
     mocks.requireAuthorRoleForApi.mockResolvedValue({
       user: { id: "user-1" },
       response: null,
@@ -239,7 +239,7 @@ describe("POST /api/tts/qwen/preview", () => {
     const req = new Request("http://localhost/api/tts/qwen/preview", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ text: "x".repeat(501), voiceId: "Ryan" }),
+      body: JSON.stringify({ text: "x".repeat(2001), voiceId: "Ryan" }),
     });
 
     const res = await POST(req);

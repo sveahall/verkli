@@ -666,12 +666,19 @@ export default function BookEditor({
     [allJobs]
   );
   const audiobookJobStatus = latestAudiobookJob ? normalizeJobStatus(latestAudiobookJob.status) : null;
-  const STALE_PENDING_MS = 2 * 60 * 60 * 1000; // 2 hours
-  const isAudiobookJobStale =
-    latestAudiobookJob &&
-    audiobookJobStatus === "pending" &&
-    latestAudiobookJob.createdAt &&
-    Date.now() - new Date(latestAudiobookJob.createdAt).getTime() > STALE_PENDING_MS;
+  const STALE_ACTIVE_MS = 30 * 60 * 1000; // 30 min — matches server-side & getVisibleJobs
+  const isAudiobookJobStale = (() => {
+    if (!latestAudiobookJob || !isJobActiveStatus(audiobookJobStatus)) return false;
+    const created = latestAudiobookJob.createdAt ? new Date(latestAudiobookJob.createdAt).getTime() : 0;
+    if (created <= 0) return false;
+    if (Date.now() - created <= STALE_ACTIVE_MS) return false;
+    // Allow paused / cancel-requested jobs to stay active
+    const meta = (latestAudiobookJob.meta ?? {}) as Record<string, unknown>;
+    const cs = typeof meta.controlState === "string" ? meta.controlState : null;
+    if (cs === "paused" || cs === "pause_requested" || cs === "cancel_requested") return false;
+    if (meta.cancelRequested === true) return false;
+    return true;
+  })();
   const isAudiobookJobActive =
     !isAudiobookJobStale &&
     (audiobookJobStatus === "running" || audiobookJobStatus === "pending");
@@ -1450,7 +1457,7 @@ export default function BookEditor({
     const meta = latestAudiobookJob.meta as Record<string, unknown>;
     const controlState = typeof meta.controlState === "string" ? meta.controlState : null;
 
-    if (isJobActiveStatus(normalizedStatus)) {
+    if (isJobActiveStatus(normalizedStatus) && !isAudiobookJobStale) {
       setIsGeneratingAudiobook(true);
       setAudiobookError(null);
       setAudiobookProgress({
@@ -1463,6 +1470,10 @@ export default function BookEditor({
     }
 
     setIsGeneratingAudiobook(false);
+    if (isAudiobookJobStale) {
+      setAudiobookError("The task appears stuck. Try again.");
+      return;
+    }
     if (normalizedStatus === "failed") {
       if (controlState === "cancelled") {
         setAudiobookError("Generation cancelled.");
@@ -1474,7 +1485,7 @@ export default function BookEditor({
     if (normalizedStatus === "completed") {
       setAudiobookError(null);
     }
-  }, [audiobookFeatureEnabled, latestAudiobookJob]);
+  }, [audiobookFeatureEnabled, isAudiobookJobStale, latestAudiobookJob]);
 
   useEffect(() => {
     if (audiobookScope === "current") {

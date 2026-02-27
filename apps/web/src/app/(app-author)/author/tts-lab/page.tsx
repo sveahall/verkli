@@ -17,7 +17,7 @@ const VOICE_OPTIONS = TTS_PREVIEW_VOICE_ALLOWLIST.map((id) => ({
 }));
 
 const POLL_INTERVAL_MS = 2_000;
-const MAX_POLL_DURATION_MS = 5 * 60 * 1000;
+const MAX_POLL_DURATION_MS = 30 * 60 * 1000;
 const QUEUED_TOO_LONG_MS = 20_000;
 
 type Status = "idle" | "queued" | "running" | "succeeded" | "failed";
@@ -292,7 +292,7 @@ export default function TtsLabPage() {
 
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
-        setError(data?.error ?? "Kunde inte skapa jobb");
+        setError(data?.detail ?? data?.error ?? "Kunde inte skapa jobb");
         return;
       }
 
@@ -367,10 +367,12 @@ export default function TtsLabPage() {
             value={text}
             onChange={(e) => setText(e.target.value)}
             rows={5}
+            maxLength={2000}
             className="input-base text-sm"
             placeholder="Skriv text att syntetisera..."
             disabled={busy}
           />
+          <p className="mt-1 text-xs text-slate-400">{text.length} / 2 000 tecken</p>
         </div>
 
         {/* ── Section 2: Voice mode picker ── */}
@@ -446,10 +448,12 @@ export default function TtsLabPage() {
                     value={voicePrompt}
                     onChange={(e) => setVoicePrompt(e.target.value)}
                     rows={2}
+                    maxLength={240}
                     className="input-base text-sm"
                     placeholder="ex: Warm, confident US-English narration with neutral accent."
                     disabled={busy}
                   />
+                  <p className="mt-1 text-xs text-slate-400">{voicePrompt.length} / 240 tecken</p>
                 </div>
               </div>
             ) : (
@@ -611,10 +615,12 @@ export default function TtsLabPage() {
                     value={voicePrompt}
                     onChange={(e) => setVoicePrompt(e.target.value)}
                     rows={2}
+                    maxLength={240}
                     className="input-base text-sm"
                     placeholder="ex: Warm, confident US-English narration with neutral accent."
                     disabled={busy}
                   />
+                  <p className="mt-1 text-xs text-slate-400">{voicePrompt.length} / 240 tecken</p>
                 </div>
 
                 {/* Collapsible guidelines */}

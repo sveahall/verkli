@@ -18,6 +18,7 @@ const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 /** Simple in-memory rate limit: max 10 signups per IP per 15 min. Resets on cold start. */
 const RATE_LIMIT_WINDOW_MS = 15 * 60 * 1000;
 const RATE_LIMIT_MAX = 10;
+const RATE_LIMIT_MAX_TRACKED_IPS = 10_000;
 const rateLimitMap = new Map<string, { count: number; firstAt: number }>();
 
 function getClientIp(request: Request): string {
@@ -28,11 +29,36 @@ function getClientIp(request: Request): string {
   return "unknown";
 }
 
+function pruneRateLimitMap(now: number): void {
+  for (const [key, entry] of rateLimitMap) {
+    if (now - entry.firstAt > RATE_LIMIT_WINDOW_MS) {
+      rateLimitMap.delete(key);
+    }
+  }
+
+  if (rateLimitMap.size <= RATE_LIMIT_MAX_TRACKED_IPS) {
+    return;
+  }
+
+  const overflow = rateLimitMap.size - RATE_LIMIT_MAX_TRACKED_IPS;
+  let removed = 0;
+  for (const key of rateLimitMap.keys()) {
+    rateLimitMap.delete(key);
+    removed += 1;
+    if (removed >= overflow) {
+      break;
+    }
+  }
+}
+
 function checkRateLimit(ip: string): { allowed: boolean } {
   const now = Date.now();
+  pruneRateLimitMap(now);
+
   const entry = rateLimitMap.get(ip);
   if (!entry) {
     rateLimitMap.set(ip, { count: 1, firstAt: now });
+    pruneRateLimitMap(now);
     return { allowed: true };
   }
   if (now - entry.firstAt > RATE_LIMIT_WINDOW_MS) {
@@ -145,7 +171,7 @@ export async function POST(request: Request) {
           return apiError(E_GENERIC_ERROR, 500);
         }
         const position = await getPosition(supabase, existing.created_at);
-        console.log("WAITLIST_DUPLICATE", { email, id: existing.id });
+        console.log("[waitlist] duplicate signup", { id: existing.id });
         return NextResponse.json(
           { ok: true, position, id: existing.id, alreadyExists: true },
           { status: 200 }
@@ -161,7 +187,7 @@ export async function POST(request: Request) {
     }
 
     const position = await getPosition(supabase, inserted.created_at);
-    console.log("WAITLIST_SIGNUP", { source: source ?? "unknown", position, isNew: true });
+    console.log("[waitlist] signup stored", { source: source ?? "unknown", position, isNew: true });
     sendConfirmationEmail(email, position).catch((err) => {
       console.error("WAITLIST_ERROR", { message: "Confirmation email failed", code: "RESEND", details: String(err), hint: "API still returns ok true" });
     });

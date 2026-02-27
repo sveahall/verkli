@@ -19,9 +19,9 @@ export default function ChannelSelector({ value, onChange }: ChannelSelectorProp
   return (
     <section className="card-base p-5">
       <div className="mb-3">
-        <h2 className="text-[15px] font-semibold text-slate-900 dark:text-white">Channel</h2>
+        <h2 className="text-[15px] font-semibold text-slate-900 dark:text-white">Platform</h2>
         <p className="text-[13px] text-slate-500 dark:text-white/50">
-          Choose the platform format to optimize for.
+          Where will this asset be published?
         </p>
       </div>
 

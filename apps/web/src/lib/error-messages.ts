@@ -177,6 +177,8 @@ const ERROR_MESSAGES: Record<string, string> = {
   CONTENT_GENERATION_FAILED: "Innehållsgenereringen misslyckades.",
   CONTENT_INVALID_CHANNEL_TYPE: "Innehållstypen stöds inte för den valda kanalen.",
   CONTENT_FETCH_FAILED: "Kunde inte hämta genererat innehåll.",
+  TRAILER_GENERATION_FAILED: "Kunde inte generera trailerunderlag.",
+  TRAILER_LIMIT_REACHED: "Du har nått din trailergräns för denna månad.",
 
   // Book clubs
   CLUBS_FEATURE_DISABLED: "Bokklubbar är inte aktiverade.",

@@ -189,9 +189,10 @@ function toJobStatusData(j: UnifiedJob): NonNullable<JobStatusData> {
 /**
  * Filters jobs to show: active (pending/running), recent failed (<5min),
  * or recent completed (<5min). Returns [] if nothing to show.
- * Active jobs older than 30 min are treated as stale/failed.
+ * Active jobs older than 30 min are treated as stale/failed,
+ * except when paused or cancel has been requested.
  */
-function getVisibleJobs(jobs: UnifiedJob[]): UnifiedJob[] {
+export function getVisibleJobs(jobs: UnifiedJob[]): UnifiedJob[] {
   const now = Date.now();
   const RECENT_MS = 5 * 60 * 1000;
   const STALE_MS = 30 * 60 * 1000;
@@ -214,7 +215,9 @@ function getVisibleJobs(jobs: UnifiedJob[]): UnifiedJob[] {
         const meta = (j.meta ?? {}) as Record<string, unknown>;
         const controlState = typeof meta.controlState === "string" ? meta.controlState : null;
         const isPaused = controlState === "paused" || controlState === "pause_requested";
-        if (!isPaused && created > 0 && now - created > STALE_MS) {
+        const isCancelRequested =
+          controlState === "cancel_requested" || meta.cancelRequested === true;
+        if (!isPaused && !isCancelRequested && created > 0 && now - created > STALE_MS) {
           return { ...j, status: "failed", error: "The task appears stuck. Try again." };
         }
       }

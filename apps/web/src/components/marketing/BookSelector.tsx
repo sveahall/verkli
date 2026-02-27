@@ -10,9 +10,9 @@ export default function BookSelector({ books, value, onChange }: BookSelectorPro
   return (
     <section className="card-base p-5">
       <div className="mb-3">
-        <h2 className="text-[15px] font-semibold text-slate-900 dark:text-white">Book</h2>
+        <h2 className="text-[15px] font-semibold text-slate-900 dark:text-white">Source</h2>
         <p className="text-[13px] text-slate-500 dark:text-white/50">
-          Choose which book to promote.
+          Pick the book you want to build from.
         </p>
       </div>
 

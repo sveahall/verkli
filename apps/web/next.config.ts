@@ -6,6 +6,7 @@ const nextConfig: NextConfig = {
     root: path.resolve(__dirname, "../.."),
   },
   transpilePackages: ["@verkli/ui", "@verkli/shared"],
+  serverExternalPackages: ["epub", "pdf-parse"],
   async redirects() {
     return [
       { source: "/writer", destination: "/author", permanent: true },

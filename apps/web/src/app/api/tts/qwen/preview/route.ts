@@ -15,7 +15,7 @@ import {
   TTS_PREVIEW_DEFAULT_VOICE,
 } from "@/lib/tts/preview-voices";
 
-const MAX_TEXT_LENGTH = 500;
+const MAX_TEXT_LENGTH = 2000;
 const MAX_REF_TEXT_LENGTH = 500;
 const MAX_REF_MEDIA_BYTES = 80 * 1024 * 1024;
 const TTS_PREVIEW_BUCKET = "tts_previews";

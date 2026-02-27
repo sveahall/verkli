@@ -33,7 +33,64 @@ const originalEnv = {
   AUDIOBOOK_ENABLED: process.env.AUDIOBOOK_ENABLED,
 };
 
-function makeSupabaseMock() {
+function makeSupabaseMock(options?: {
+  aiJobs?: Array<Record<string, unknown>>;
+  importRows?: Array<Record<string, unknown>>;
+  translationRows?: Array<Record<string, unknown>>;
+}) {
+  const aiJobs =
+    options?.aiJobs ??
+    [
+      {
+        id: "job-audio",
+        kind: "audiobook_generation",
+        status: "processing",
+        book_id: "book-1",
+        book_version_id: "ver-1",
+        language: "sv",
+        progress: 10,
+        input: { voiceId: "sv_SE-nst-medium" },
+        output: { totalChapters: 10, completedChapters: 1 },
+        error: "Storage upload failed: /tmp/private.log",
+        created_at: "2026-02-07T10:00:00.000Z",
+        started_at: "2026-02-07T10:00:05.000Z",
+        finished_at: null,
+        updated_at: "2026-02-07T10:00:30.000Z",
+      },
+    ];
+  const importRows =
+    options?.importRows ??
+    [
+      {
+        id: "import-1",
+        status: "completed",
+        progress: 100,
+        error_message: null,
+        created_at: "2026-02-07T10:02:00.000Z",
+        updated_at: "2026-02-07T10:02:10.000Z",
+        file_name: "book.docx",
+        book_version_id: "ver-1",
+        result: {
+          chaptersCreated: 12,
+          frontMatterCount: 2,
+          titleSet: true,
+          bookTitle: "Inget kan stoppa",
+          warnings: ["dedupe_skipped_1"],
+        },
+      },
+    ];
+  const translationRows =
+    options?.translationRows ??
+    [
+      {
+        id: "ver-2",
+        language_code: "en",
+        status: "done",
+        created_at: "2026-02-07T10:01:00.000Z",
+        updated_at: "2026-02-07T10:01:15.000Z",
+      },
+    ];
+
   const from = (table: string) => {
     if (table === "books") {
       return {
@@ -64,23 +121,7 @@ function makeSupabaseMock() {
         limit: async () => {
           if (filters.book_id === "book-1") {
             return {
-              data: [
-                {
-                  id: "job-audio",
-                  kind: "audiobook_generation",
-                  status: "processing",
-                  book_id: "book-1",
-                  book_version_id: "ver-1",
-                  language: "sv",
-                  progress: 10,
-                  input: { voiceId: "sv_SE-nst-medium" },
-                  output: { totalChapters: 10, completedChapters: 1 },
-                  error: "Storage upload failed: /tmp/private.log",
-                  created_at: "2026-02-07T10:00:00.000Z",
-                  started_at: "2026-02-07T10:00:05.000Z",
-                  finished_at: null,
-                },
-              ],
+              data: aiJobs,
               error: null,
             };
           }
@@ -101,25 +142,7 @@ function makeSupabaseMock() {
         eq: () => chain,
         order: () => chain,
         limit: async () => ({
-          data: [
-            {
-              id: "import-1",
-              status: "completed",
-              progress: 100,
-              error_message: null,
-              created_at: "2026-02-07T10:02:00.000Z",
-              updated_at: "2026-02-07T10:02:10.000Z",
-              file_name: "book.docx",
-              book_version_id: "ver-1",
-              result: {
-                chaptersCreated: 12,
-                frontMatterCount: 2,
-                titleSet: true,
-                bookTitle: "Inget kan stoppa",
-                warnings: ["dedupe_skipped_1"],
-              },
-            },
-          ],
+          data: importRows,
           error: null,
         }),
       };
@@ -133,15 +156,7 @@ function makeSupabaseMock() {
         in: () => chain,
         order: () => chain,
         limit: async () => ({
-          data: [
-            {
-              id: "ver-2",
-              language_code: "en",
-              status: "done",
-              created_at: "2026-02-07T10:01:00.000Z",
-              updated_at: "2026-02-07T10:01:15.000Z",
-            },
-          ],
+          data: translationRows,
           error: null,
         }),
       };
@@ -222,5 +237,52 @@ describe("GET /api/books/[id]/jobs", () => {
     expect(body.jobs).toHaveLength(1);
     expect(body.jobs[0].kind).toBe("import");
     expect(body.summary).toEqual({ import: "completed" });
+  });
+
+  it("marks stale cancel_requested audiobook job as failed", async () => {
+    process.env.NEXT_PUBLIC_AUDIOBOOK_ENABLED = "true";
+    process.env.AUDIOBOOK_ENABLED = "true";
+    createClient.mockResolvedValueOnce(
+      makeSupabaseMock({
+        importRows: [],
+        translationRows: [],
+        aiJobs: [
+          {
+            id: "job-stale-cancel",
+            kind: "audiobook_generation",
+            status: "processing",
+            book_id: "book-1",
+            book_version_id: "ver-1",
+            language: "sv",
+            progress: 0,
+            input: { voiceId: "sv_SE-nst-medium", scope: "book" },
+            output: {
+              controlState: "cancel_requested",
+              cancelRequested: true,
+              cancelRequestedAt: "2020-01-01T00:00:00.000Z",
+              totalChapters: 12,
+              completedChapters: 3,
+            },
+            error: null,
+            created_at: "2026-02-07T10:00:00.000Z",
+            started_at: "2026-02-07T10:00:05.000Z",
+            finished_at: null,
+            updated_at: "2020-01-01T00:00:00.000Z",
+          },
+        ],
+      })
+    );
+
+    const req = new Request("http://localhost/api/books/book-1/jobs");
+    const res = await GET(req, { params: Promise.resolve({ id: "book-1" }) });
+    const body = await res.json();
+
+    expect(res.status).toBe(200);
+    expect(body.jobs).toHaveLength(1);
+    expect(body.jobs[0].kind).toBe("audiobook");
+    expect(body.jobs[0].status).toBe("failed");
+    expect(body.jobs[0].error).toBe("Cancellation timed out. Try again.");
+    expect(body.activeCount).toBe(0);
+    expect(body.summary).toEqual({ audiobook: "failed" });
   });
 });

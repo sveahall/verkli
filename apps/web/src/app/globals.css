@@ -87,6 +87,16 @@
   --brand-rose-soft: #c4a0e8;
   --brand-amber: #FCC997;
   --brand-amber-soft: #FEE9A3;
+  /* Marketing / Creative workspace */
+  --workspace-bg: var(--background);
+  --workspace-canvas-bg: var(--card);
+  --workspace-panel-bg: var(--card);
+  --workspace-accent: var(--brand-violet);
+  --workspace-accent-muted: rgb(144 122 255 / 0.15);
+  --workspace-draft-accent: #f59e0b;
+  --workspace-final-accent: #10b981;
+  --workspace-progress-start: var(--brand-violet);
+  --workspace-progress-end: var(--brand-rose);
   color-scheme: light;
 }
 
@@ -123,6 +133,16 @@
   --sidebar-border: oklch(1 0 0 / 10%);
   --sidebar-ring: oklch(0.556 0 0);
   --auth-background: radial-gradient(100% 127.91% at 0% 0%, #3A3A4F 0%, #171620 50%, #000000 100%);
+  /* Marketing / Creative workspace (dark) */
+  --workspace-bg: var(--background);
+  --workspace-canvas-bg: oklch(0.18 0 0);
+  --workspace-panel-bg: var(--card);
+  --workspace-accent: var(--brand-violet);
+  --workspace-accent-muted: rgb(144 122 255 / 0.25);
+  --workspace-draft-accent: #fbbf24;
+  --workspace-final-accent: #34d399;
+  --workspace-progress-start: var(--brand-violet);
+  --workspace-progress-end: var(--brand-rose);
   color-scheme: dark;
 }
 
@@ -203,6 +223,56 @@
   /* Auth card: solid white in light, frosted glass in dark */
   .card-auth {
     @apply rounded-3xl border border-white/60 bg-white shadow-[0_2px_8px_rgba(0,0,0,0.04),0_16px_48px_rgba(0,0,0,0.08)] backdrop-blur-none dark:border-white/[0.1] dark:bg-white/[0.06] dark:shadow-[0_8px_32px_rgba(0,0,0,0.4),0_0_0_1px_rgba(255,255,255,0.05)_inset] dark:backdrop-blur-[48px];
+  }
+  /* Marketing Portal / Creative workspace cards */
+  .card-canvas {
+    border-radius: var(--radius-2xl);
+    border: 1px solid var(--border);
+    background: var(--card);
+    box-shadow: 0 8px 32px rgba(15, 23, 42, 0.08);
+  }
+  .dark .card-canvas {
+    border-color: rgba(255, 255, 255, 0.08);
+    background: rgba(255, 255, 255, 0.03);
+    box-shadow: 0 12px 40px rgba(0, 0, 0, 0.35);
+  }
+  .card-surface {
+    @apply rounded-xl border border-slate-200/80 bg-white dark:border-white/10 dark:bg-white/[0.06];
+  }
+  .card-draft {
+    @apply rounded-xl border border-dashed border-slate-300 bg-slate-50/50 dark:border-white/20 dark:bg-white/[0.03];
+    border-left-width: 4px;
+    border-left-style: solid;
+    border-left-color: var(--workspace-draft-accent);
+  }
+  .card-final {
+    @apply rounded-xl border border-slate-200/80 bg-white dark:border-white/10 dark:bg-white/[0.06];
+    border-left-width: 4px;
+    border-left-style: solid;
+    border-left-color: var(--workspace-final-accent);
+  }
+  /* Workspace grid: step bar + left | canvas | preview */
+  .workspace-grid {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 1.5rem;
+  }
+  @media (min-width: 1024px) {
+    .workspace-grid {
+      grid-template-columns: minmax(240px, 280px) minmax(0, 1fr) minmax(360px, 400px);
+      gap: 2rem;
+    }
+  }
+  .workspace-grid-canvas-only {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 1.5rem;
+  }
+  @media (min-width: 1024px) {
+    .workspace-grid-canvas-only {
+      grid-template-columns: minmax(0, 1fr) minmax(360px, 400px);
+      gap: 2rem;
+    }
   }
 }
 
