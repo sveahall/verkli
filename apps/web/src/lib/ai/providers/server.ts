@@ -40,12 +40,15 @@ export type {
 // Error class
 export { AIProviderError } from "./types";
 
+import type { CopywriterProvider } from "./types";
+
 // Default provider instances
 import { opusTranslator } from "./opus-translator";
 import { removedNarrator } from "./narrator-removed";
 import { runwayVideo } from "./runway-video";
 import { stubImage } from "./stub-image";
 import { stubCopywriter } from "./stub-copywriter";
+import { ollamaCopywriter } from "./ollama-copywriter";
 
 // Re-export provider classes for direct instantiation if needed
 export { OpusTranslator, opusTranslator } from "./opus-translator";
@@ -53,6 +56,7 @@ export { RemovedNarrator, removedNarrator } from "./narrator-removed";
 export { RunwayVideoProvider, runwayVideo } from "./runway-video";
 export { StubImageProvider, stubImage } from "./stub-image";
 export { StubCopywriterProvider, stubCopywriter } from "./stub-copywriter";
+export { OllamaCopywriterProvider, ollamaCopywriter } from "./ollama-copywriter";
 
 // ─────────────────────────────────────────────────────────────
 // Provider Registry Functions
@@ -112,10 +116,12 @@ export function getImageProvider(): typeof stubImage {
  * Get the configured copywriter (LLM) provider.
  * Defaults to stub. Swap via AI_COPYWRITER_PROVIDER env var.
  */
-export function getCopywriterProvider(): typeof stubCopywriter {
+export function getCopywriterProvider(): CopywriterProvider {
   const provider = process.env.AI_COPYWRITER_PROVIDER?.toLowerCase() ?? "stub";
 
   switch (provider) {
+    case "ollama":
+      return ollamaCopywriter;
     case "stub":
     default:
       return stubCopywriter;

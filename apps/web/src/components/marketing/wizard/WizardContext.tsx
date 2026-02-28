@@ -6,6 +6,7 @@ import {
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useReducer,
   type ReactNode,
 } from "react";
@@ -21,8 +22,10 @@ import {
   isStepReachable,
   wizardReducer,
   MAX_REGENERATE_ATTEMPTS,
+  type PersistedWizardState,
   type WizardState,
   type WizardStep,
+  WIZARD_STEP_ORDER,
 } from "@/components/marketing/wizard/wizard-machine";
 
 type TrailerWizardContextValue = {
@@ -83,11 +86,6 @@ function extractErrorMessage(
 
 const WIZARD_SESSION_KEY = "trailer-wizard-state";
 
-type PersistedWizardState = Pick<
-  WizardState,
-  "step" | "selectedBookId" | "feeling" | "story" | "generate" | "build"
->;
-
 function getPersistedState(): PersistedWizardState | null {
   if (typeof window === "undefined") return null;
   try {
@@ -98,7 +96,8 @@ function getPersistedState(): PersistedWizardState | null {
       !parsed ||
       typeof parsed !== "object" ||
       !("step" in parsed) ||
-      !("feeling" in parsed)
+      !("feeling" in parsed) ||
+      !WIZARD_STEP_ORDER.includes((parsed as { step: WizardStep }).step)
     ) {
       return null;
     }
@@ -125,24 +124,6 @@ function persistState(state: WizardState): void {
   }
 }
 
-function mergePersistedIntoInitial(
-  initial: WizardState,
-  saved: PersistedWizardState
-): WizardState {
-  const validBookId = initial.books.some((b) => b.id === saved.selectedBookId)
-    ? saved.selectedBookId
-    : null;
-  return {
-    ...initial,
-    step: saved.step,
-    selectedBookId: validBookId ?? initial.selectedBookId,
-    feeling: saved.feeling,
-    story: saved.story,
-    generate: saved.generate,
-    build: saved.build,
-  };
-}
-
 const FREE_TRAILER_LIMIT = 1;
 const PRO_TRAILER_LIMIT = 5;
 
@@ -153,22 +134,29 @@ export function TrailerWizardProvider({
   initialBookId = null,
   children,
 }: TrailerWizardProviderProps) {
+  const hasRestoredSessionRef = useRef(false);
   const [state, dispatch] = useReducer(
     wizardReducer,
     { books, initialBookId },
-    (arg) => {
-      const initial = createInitialWizardState(arg);
-      const saved = getPersistedState();
-      if (!saved || arg.books.length === 0) return initial;
-      return mergePersistedIntoInitial(initial, saved);
-    }
+    (arg) => createInitialWizardState(arg)
   );
+
+  useEffect(() => {
+    if (hasRestoredSessionRef.current) return;
+    if (books.length === 0) return;
+    const saved = getPersistedState();
+    if (saved) {
+      dispatch({ type: "HYDRATE_PERSISTED", persisted: saved });
+    }
+    hasRestoredSessionRef.current = true;
+  }, [books.length]);
 
   useEffect(() => {
     dispatch({ type: "SYNC_BOOKS", books, initialBookId });
   }, [books, initialBookId]);
 
   useEffect(() => {
+    if (!hasRestoredSessionRef.current) return;
     persistState(state);
   }, [state]);
 

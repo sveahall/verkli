@@ -119,4 +119,22 @@ describe("wizard-machine", () => {
     expect(state.generate.status).toBe("idle");
     expect(state.build.status).toBe("idle");
   });
+
+  it("hydrates persisted state and clamps unreachable step", () => {
+    const initial = createInitialWizardState({ books: BOOKS });
+    const hydrated = wizardReducer(initial, {
+      type: "HYDRATE_PERSISTED",
+      persisted: {
+        step: "previewScenes",
+        selectedBookId: BOOKS[1].id,
+        feeling: { genre: "fantasy", tone: "epic" },
+        story: { description: "Kort text", keywords: [] },
+        generate: initial.generate,
+        build: initial.build,
+      },
+    });
+
+    expect(hydrated.selectedBookId).toBe(BOOKS[1].id);
+    expect(hydrated.step).toBe("story");
+  });
 });

@@ -127,6 +127,11 @@ export type WizardState = {
   build: WizardBuildState;
 };
 
+export type PersistedWizardState = Pick<
+  WizardState,
+  "step" | "selectedBookId" | "feeling" | "story" | "generate" | "build"
+>;
+
 // ─── Helpers ──────────────────────────────────────────────────────────────
 
 function resolveSelectedBookId(
@@ -232,6 +237,7 @@ export function isStepReachable(
 
 type WizardAction =
   | { type: "SYNC_BOOKS"; books: Book[]; initialBookId?: string | null }
+  | { type: "HYDRATE_PERSISTED"; persisted: PersistedWizardState }
   | { type: "GO_TO_STEP"; step: WizardStep }
   | { type: "NEXT_STEP" }
   | { type: "PREVIOUS_STEP" }
@@ -295,6 +301,26 @@ export function wizardReducer(
         generate: createInitialGenerate(),
         build: createInitialBuild(),
       };
+    }
+
+    case "HYDRATE_PERSISTED": {
+      if (state.books.length === 0) return state;
+      const hydrated: WizardState = {
+        ...state,
+        step: action.persisted.step,
+        selectedBookId: resolveSelectedBookId(
+          state.books,
+          action.persisted.selectedBookId
+        ),
+        feeling: action.persisted.feeling,
+        story: action.persisted.story,
+        generate: action.persisted.generate,
+        build: action.persisted.build,
+      };
+      if (!isStepReachable(hydrated, hydrated.step)) {
+        return { ...hydrated, step: getMaxReachableStep(hydrated) };
+      }
+      return hydrated;
     }
 
     case "GO_TO_STEP":
