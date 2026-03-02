@@ -46,10 +46,23 @@ export default async function ClubDetailPage({ params }: ClubDetailPageProps) {
 
   const { data: members } = await supabase
     .from("book_club_members" as never)
-    .select("user_id, role, joined_at")
+    .select("user_id, role, joined_at, profiles:user_id(display_name, avatar_url)")
     .eq("club_id", id);
 
-  const typedMembers = (members as { user_id: string; role: string; joined_at: string }[] | null) ?? [];
+  type RawMember = {
+    user_id: string;
+    role: string;
+    joined_at: string;
+    profiles: { display_name: string | null; avatar_url: string | null } | null;
+  };
+
+  const typedMembers = ((members ?? []) as RawMember[]).map((m) => ({
+    user_id: m.user_id,
+    role: m.role,
+    joined_at: m.joined_at,
+    display_name: m.profiles?.display_name ?? null,
+    avatar_url: m.profiles?.avatar_url ?? null,
+  }));
 
   const { data: messages } = await supabase
     .from("book_club_messages" as never)

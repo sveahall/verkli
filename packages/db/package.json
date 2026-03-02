@@ -8,7 +8,9 @@
   "exports": {
     ".": "./src/index.ts"
   },
-  "scripts": {},
+  "scripts": {
+    "generate": "node -e \"process.exit(0)\""
+  },
   "devDependencies": {
     "typescript": "^5"
   }

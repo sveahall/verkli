@@ -178,7 +178,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ jobId: existing.id }, { status: 202 });
   }
 
-  const rl = rateLimiter.check(user.id);
+  const rl = await rateLimiter.check(user.id);
   if (!rl.allowed) {
     return apiError(E_RATE_LIMIT_EXCEEDED, 429, { retryAfterSeconds: rl.retryAfterSeconds });
   }

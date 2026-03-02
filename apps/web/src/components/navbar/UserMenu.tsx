@@ -29,9 +29,9 @@ interface UserMenuProps {
  * - Centralisera design och funktionalitet
  */
 export default function UserMenu({ user, onSignOut, currentRole = "author", originalRole }: UserMenuProps) {
-  // Allow switching away from author mode for approved reader-authors too.
-  // API still enforces that only approved users can switch back to author.
-  const canSwitchRole = currentRole === "author" || originalRole === "author";
+  // SECURITY: Only users whose DB profile role is "author" may switch views.
+  // Never rely on currentRole (which defaults to "author" before profile loads).
+  const canSwitchRole = originalRole === "author";
   const router = useRouter();
   const toast = useToastHelpers();
   const [isOpen, setIsOpen] = useState(false);

@@ -10,6 +10,8 @@ type Member = {
   user_id: string;
   role: string;
   joined_at: string;
+  display_name: string | null;
+  avatar_url: string | null;
 };
 
 type ClubData = {
@@ -151,7 +153,7 @@ export default function BookClubDetail({
               key={m.user_id}
               className="inline-flex items-center gap-1.5 rounded-full border border-slate-200/80 bg-white px-3 py-1.5 text-[12px] text-slate-600 dark:border-white/10 dark:bg-white/5 dark:text-white/60"
             >
-              {m.user_id.slice(0, 8)}
+              {m.display_name || m.user_id.slice(0, 8)}
                   {m.role === "owner" && (
                     <span className="rounded-full bg-slate-900 px-1.5 py-0.5 text-[10px] font-medium text-white dark:bg-white dark:text-slate-900">
                       Owner

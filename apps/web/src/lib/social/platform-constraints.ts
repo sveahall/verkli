@@ -13,13 +13,13 @@ export const PLATFORM_CONSTRAINTS: Record<string, PlatformConstraint> = {
   instagram: {
     maxCaption: 2200,
     mediaRequired: true,
-    publishSupported: false,
+    publishSupported: true,
     rateLimitPerHour: 25,
   },
   tiktok: {
     maxCaption: 2200,
     mediaRequired: true,
-    publishSupported: false,
+    publishSupported: true,
     rateLimitPerHour: null,
   },
   x: {

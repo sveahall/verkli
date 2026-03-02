@@ -22,6 +22,8 @@
     "tts-voice-profile": "tsx scripts/tts-voice-profile.ts",
     "social-publish-worker": "npx tsx scripts/social-publish-worker.ts",
     "recommendations-worker": "npx tsx scripts/recommendations-worker.ts",
+    "notifications-worker": "npx tsx scripts/notifications-worker.ts",
+    "combined-worker": "tsx scripts/combined-worker.ts",
     "generate:types": "tsx scripts/generate-types.ts",
     "seed": "tsx scripts/seed.ts",
     "qa:beta": "node scripts/qa-beta.mjs",

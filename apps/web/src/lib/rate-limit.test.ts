@@ -8,58 +8,56 @@ describe("createPerUserRateLimiter", () => {
     limiter = createPerUserRateLimiter({ maxPerMinute: 3 });
   });
 
-  it("allows requests up to the limit", () => {
-    expect(limiter.check("u1").allowed).toBe(true);
-    expect(limiter.check("u1").allowed).toBe(true);
-    expect(limiter.check("u1").allowed).toBe(true);
+  it("allows requests up to the limit", async () => {
+    expect((await limiter.check("u1")).allowed).toBe(true);
+    expect((await limiter.check("u1")).allowed).toBe(true);
+    expect((await limiter.check("u1")).allowed).toBe(true);
   });
 
-  it("blocks after exceeding the limit", () => {
-    limiter.check("u1");
-    limiter.check("u1");
-    limiter.check("u1");
-    const result = limiter.check("u1");
+  it("blocks after exceeding the limit", async () => {
+    await limiter.check("u1");
+    await limiter.check("u1");
+    await limiter.check("u1");
+    const result = await limiter.check("u1");
     expect(result.allowed).toBe(false);
     expect(result.retryAfterSeconds).toBeGreaterThan(0);
   });
 
-  it("tracks users independently", () => {
+  it("tracks users independently", async () => {
     // Exhaust user A
-    limiter.check("a");
-    limiter.check("a");
-    limiter.check("a");
-    expect(limiter.check("a").allowed).toBe(false);
+    await limiter.check("a");
+    await limiter.check("a");
+    await limiter.check("a");
+    expect((await limiter.check("a")).allowed).toBe(false);
 
     // User B still has quota
-    expect(limiter.check("b").allowed).toBe(true);
+    expect((await limiter.check("b")).allowed).toBe(true);
   });
 
-  it("_reset clears all entries", () => {
-    limiter.check("u1");
-    limiter.check("u1");
-    limiter.check("u1");
-    expect(limiter.check("u1").allowed).toBe(false);
+  it("_reset clears all entries", async () => {
+    await limiter.check("u1");
+    await limiter.check("u1");
+    await limiter.check("u1");
+    expect((await limiter.check("u1")).allowed).toBe(false);
 
     limiter._reset();
-    expect(limiter.check("u1").allowed).toBe(true);
+    expect((await limiter.check("u1")).allowed).toBe(true);
   });
 
-  it("refills after window expires", () => {
+  it("refills after window expires", async () => {
     const fast = createPerUserRateLimiter({
       maxPerMinute: 2,
       windowMs: 50,
     });
 
-    fast.check("u1");
-    fast.check("u1");
-    expect(fast.check("u1").allowed).toBe(false);
+    await fast.check("u1");
+    await fast.check("u1");
+    expect((await fast.check("u1")).allowed).toBe(false);
 
     // Wait for window to expire
-    return new Promise<void>((resolve) => {
-      setTimeout(() => {
-        expect(fast.check("u1").allowed).toBe(true);
-        resolve();
-      }, 60);
+    await new Promise<void>((resolve) => {
+      setTimeout(resolve, 60);
     });
+    expect((await fast.check("u1")).allowed).toBe(true);
   });
 });

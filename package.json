@@ -19,10 +19,17 @@
     "import-worker": "npm run -w @verkli/web import-worker",
     "translate-worker": "npm run -w @verkli/web translate-worker",
     "audiobook-worker": "npm run -w @verkli/web audiobook-worker",
+    "tts-preview-worker": "npm run -w @verkli/web tts-preview-worker",
+    "tts-lab-worker": "npm run -w @verkli/web tts-preview-worker",
+    "social-publish-worker": "npm run -w @verkli/web social-publish-worker",
+    "notifications-worker": "npm run -w @verkli/web notifications-worker",
+    "combined-worker": "npm run -w @verkli/web combined-worker",
+    "recommendations-worker": "npm run -w @verkli/web recommendations-worker",
     "tts:bench": "python3 scripts/tts-bench.py",
     "check:no-placeholders": "npm run -w @verkli/web check:no-placeholders",
     "check:no-prisma": "(test -d node_modules/@prisma/client || test -d node_modules/prisma) && (echo 'Prisma found in node_modules' && exit 1); exit 0",
-    "prepare": "husky"
+    "prepare": "husky",
+    "update": "npm install && npm run generate -w @verkli/db"
   },
   "dependencies": {
     "@runwayml/sdk": "^3.11.0",

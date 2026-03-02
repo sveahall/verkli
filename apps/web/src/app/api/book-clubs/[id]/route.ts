@@ -42,12 +42,14 @@ type MemberRow = {
   user_id: string;
   role: string;
   joined_at: string;
+  display_name: string | null;
+  avatar_url: string | null;
 };
 
 const CLUB_SELECT =
   "id, name, description, cover_url, is_public, max_members, current_book_id, creator_id, created_at";
 
-const MEMBER_SELECT = "user_id, role, joined_at";
+const MEMBER_SELECT = "user_id, role, joined_at, profiles:user_id(display_name, avatar_url)";
 
 export async function GET(
   _request: Request,
@@ -110,7 +112,20 @@ export async function GET(
     });
   }
 
-  const memberRows = (members ?? []) as MemberRow[];
+  type RawMember = {
+    user_id: string;
+    role: string;
+    joined_at: string;
+    profiles: { display_name: string | null; avatar_url: string | null } | null;
+  };
+
+  const memberRows: MemberRow[] = ((members ?? []) as RawMember[]).map((m) => ({
+    user_id: m.user_id,
+    role: m.role,
+    joined_at: m.joined_at,
+    display_name: m.profiles?.display_name ?? null,
+    avatar_url: m.profiles?.avatar_url ?? null,
+  }));
 
   return NextResponse.json({ club: clubRow, members: memberRows });
 }

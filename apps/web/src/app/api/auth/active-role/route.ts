@@ -31,7 +31,7 @@ export async function POST(request: Request) {
     return apiError(E_NOT_AUTHENTICATED, 401);
   }
 
-  const rateCheck = limiter.check(user.id);
+  const rateCheck = await limiter.check(user.id);
   if (!rateCheck.allowed) {
     return apiError(E_RATE_LIMIT_EXCEEDED, 429, {
       retryAfterSeconds: rateCheck.retryAfterSeconds,

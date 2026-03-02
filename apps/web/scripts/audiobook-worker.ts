@@ -27,6 +27,9 @@ import type { AudiobookJobData } from "../src/lib/audiobook-queue";
 import { sanitizeJobErrorForStorage } from "../src/lib/sanitize-job-error";
 import { isDuplicate } from "../src/lib/workers/idempotency";
 import { checkBudget, trackUsage, BudgetExceededError } from "../src/lib/workers/budget";
+import { getActiveProviderKey } from "../src/lib/tts/tts-provider";
+import type { TtsProvider } from "../src/lib/tts/tts-provider";
+import { OpenAiTtsProvider } from "../src/lib/tts/openai-tts-provider";
 
 const QUEUE_NAME = QUEUE_NAMES.AUDIOBOOK;
 const BUCKET = getAudiobookStorageBucket();
@@ -724,7 +727,36 @@ async function processJob(payload: AudiobookJobData) {
     console.warn("[audiobook worker] qwen timeout per chapter:", chapterTimeoutMs, "ms");
     console.warn("[audiobook worker] qwen batch size:", QWEN_BATCH_SIZE);
 
+    // Resolve TTS provider: "openai" for cloud, "qwen-local" for local subprocess
+    const providerKey = getActiveProviderKey();
+    let cloudProvider: TtsProvider | null = null;
+    if (providerKey === "openai") {
+      cloudProvider = new OpenAiTtsProvider();
+      console.warn("[audiobook worker] using cloud TTS provider:", cloudProvider.name);
+    }
+
     const synthesizeOne = async (text: string, outputPath: string) => {
+      if (cloudProvider) {
+        const result = await cloudProvider.synthesize(text, {
+          language,
+          voiceId,
+          modelId: resolvedModelId,
+          timeoutMs: chapterTimeoutMs,
+        });
+        await fs.writeFile(outputPath, result.wav);
+        return {
+          wav: result.wav,
+          sampleRate: result.sampleRate,
+          outputPath,
+          device: "cloud",
+          method: cloudProvider.name,
+          metrics: result.metadata as QwenSynthesisMetadata["metrics"],
+          batchSize: null,
+          dtype: null,
+          torchCompile: null,
+          int8: null,
+        } satisfies QwenSynthesisResult;
+      }
       return synthesizeWithQwen(text, outputPath, {
         language,
         voiceId,

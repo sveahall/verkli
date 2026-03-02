@@ -27,7 +27,7 @@ export async function POST(request: Request) {
   const proGate = await requireProBillingForApi(user.id);
   if (!proGate.ok) return proGate.response;
 
-  const rl = checkPublishRateLimit(user.id);
+  const rl = await checkPublishRateLimit(user.id);
   if (!rl.allowed) {
     return apiError(E_RATE_LIMIT_EXCEEDED, 429, {
       retryAfterSeconds: rl.retryAfterSeconds,

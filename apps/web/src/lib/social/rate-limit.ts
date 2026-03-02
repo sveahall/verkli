@@ -3,11 +3,11 @@ import { createPerUserRateLimiter } from "@/lib/rate-limit";
 const connectLimiter = createPerUserRateLimiter({ maxPerMinute: 5 });
 const publishLimiter = createPerUserRateLimiter({ maxPerMinute: 5 });
 
-export function checkConnectRateLimit(userId: string): { allowed: boolean; retryAfterSeconds?: number } {
+export async function checkConnectRateLimit(userId: string): Promise<{ allowed: boolean; retryAfterSeconds?: number }> {
   return connectLimiter.check(userId);
 }
 
-export function checkPublishRateLimit(userId: string): { allowed: boolean; retryAfterSeconds?: number } {
+export async function checkPublishRateLimit(userId: string): Promise<{ allowed: boolean; retryAfterSeconds?: number }> {
   return publishLimiter.check(userId);
 }
 

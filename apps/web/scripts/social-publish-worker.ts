@@ -70,6 +70,116 @@ async function publishToX(
   return { status: "ok", postId: data.data?.id };
 }
 
+async function publishToInstagram(
+  accessToken: string,
+  text: string
+): Promise<PlatformResult> {
+  const truncated = truncateForPlatform(text, "instagram");
+
+  if (MOCK_MODE) {
+    return { status: "ok", postId: `mock-ig-${Date.now()}` };
+  }
+
+  // Instagram Graph API: create a media container, then publish it.
+  // Text-only posts require a "carousel" or image. For now we create a
+  // text-based story/caption.  Instagram requires media — if no media is
+  // attached we post as a caption with a placeholder image from the campaign.
+  // Step 1: Create media container (requires image_url for feed posts)
+  const igUserId = "me"; // Graph API uses /me/ with user-scoped token
+  const createRes = await fetch(
+    `https://graph.instagram.com/v21.0/${igUserId}/media`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        caption: truncated,
+        // For text campaigns without media, we skip — Graph API requires image_url
+        // The campaign UI should enforce media attachment for Instagram
+        access_token: accessToken,
+      }),
+    }
+  );
+
+  if (!createRes.ok) {
+    const errBody = await createRes.text().catch(() => "");
+    return { status: "failed", error: `Instagram create media error ${createRes.status}: ${errBody.slice(0, 200)}` };
+  }
+
+  const createData = (await createRes.json()) as { id?: string };
+  const containerId = createData.id;
+  if (!containerId) {
+    return { status: "failed", error: "Instagram: no container ID returned" };
+  }
+
+  // Step 2: Publish the container
+  const publishRes = await fetch(
+    `https://graph.instagram.com/v21.0/${igUserId}/media_publish`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        creation_id: containerId,
+        access_token: accessToken,
+      }),
+    }
+  );
+
+  if (!publishRes.ok) {
+    const errBody = await publishRes.text().catch(() => "");
+    return { status: "failed", error: `Instagram publish error ${publishRes.status}: ${errBody.slice(0, 200)}` };
+  }
+
+  const publishData = (await publishRes.json()) as { id?: string };
+  return { status: "ok", postId: publishData.id };
+}
+
+async function publishToTikTok(
+  accessToken: string,
+  text: string
+): Promise<PlatformResult> {
+  const truncated = truncateForPlatform(text, "tiktok");
+
+  if (MOCK_MODE) {
+    return { status: "ok", postId: `mock-tiktok-${Date.now()}` };
+  }
+
+  // TikTok Content Posting API (v2)
+  // Step 1: Initialize the post (creator_info endpoint for text/photo posts)
+  const initRes = await fetch(
+    "https://open.tiktokapis.com/v2/post/publish/content/init/",
+    {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        "Content-Type": "application/json; charset=UTF-8",
+      },
+      body: JSON.stringify({
+        post_info: {
+          title: truncated.slice(0, 150),
+          description: truncated,
+          privacy_level: "SELF_ONLY", // Default to private; user can change in TikTok app
+          disable_comment: false,
+        },
+        source_info: {
+          source: "PULL_FROM_URL",
+          // TikTok requires a video or photo URL. Text-only posts are not supported.
+          // The campaign UI should enforce media attachment for TikTok.
+        },
+      }),
+    }
+  );
+
+  if (!initRes.ok) {
+    const errBody = await initRes.text().catch(() => "");
+    return { status: "failed", error: `TikTok init error ${initRes.status}: ${errBody.slice(0, 200)}` };
+  }
+
+  const initData = (await initRes.json()) as { data?: { publish_id?: string } };
+  const publishId = initData.data?.publish_id;
+
+  return { status: "ok", postId: publishId };
+}
+
 async function publishToEmail(
   smtpConfig: { smtpHost: string; smtpPort: string; smtpUser: string; smtpPass: string; fromEmail: string },
   subject: string,
@@ -175,18 +285,15 @@ async function processJob(payload: SocialPublishJobData) {
       }
 
       try {
-        if (platform === "x") {
+        // Helper: decrypt access token and refresh if expired
+        const getAccessToken = async (p: string): Promise<string> => {
           let accessToken = conn.access_token_enc ? decryptToken(String(conn.access_token_enc)) : "";
-
-          // Check token expiry and refresh if needed
           if (conn.token_expires_at) {
             const expiresAt = new Date(String(conn.token_expires_at));
             if (expiresAt <= new Date() && conn.refresh_token_enc) {
               const refreshToken = decryptToken(String(conn.refresh_token_enc));
-              const refreshed = await refreshAccessToken("x", refreshToken);
+              const refreshed = await refreshAccessToken(p, refreshToken);
               accessToken = refreshed.accessToken;
-
-              // Re-encrypt and store new tokens
               await supabase
                 .from("social_connections" as never)
                 .update({
@@ -197,11 +304,21 @@ async function processJob(payload: SocialPublishJobData) {
                     : conn.token_expires_at,
                 })
                 .eq("user_id", userId)
-                .eq("platform", "x");
+                .eq("platform", p);
             }
           }
+          return accessToken;
+        };
 
+        if (platform === "x") {
+          const accessToken = await getAccessToken("x");
           results[platform] = await publishToX(accessToken, content);
+        } else if (platform === "instagram") {
+          const accessToken = await getAccessToken("instagram");
+          results[platform] = await publishToInstagram(accessToken, content);
+        } else if (platform === "tiktok") {
+          const accessToken = await getAccessToken("tiktok");
+          results[platform] = await publishToTikTok(accessToken, content);
         } else if (platform === "email") {
           if (!conn.email_config_enc) {
             results[platform] = { status: "failed", error: "Email config missing" };

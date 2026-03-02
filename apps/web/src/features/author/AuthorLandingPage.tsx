@@ -126,7 +126,7 @@ function LandingPage() {
           {/* CTAs */}
           <div className="mt-10 flex items-center gap-3">
             <Link href="/author/signup" className="btn-primary min-w-[170px] text-[15px]">
-              Get started free
+              Get started (it&apos;s free)
             </Link>
             <Link href="/author/signin" className="btn-secondary min-w-[120px] text-[15px]">
               Sign in

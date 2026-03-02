@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import StatsOverviewCards from "./StatsOverviewCards";
+import StatsEngagementCards from "./StatsEngagementCards";
 import StatsBookTable from "./StatsBookTable";
 
 type Period = "7d" | "30d" | "all";
@@ -21,6 +22,13 @@ type Revenue = {
   currency: string;
 };
 
+type Engagement = {
+  reviews: number;
+  averageRating: number;
+  bookmarks: number;
+  followers: number;
+};
+
 const periodLabels: Record<Period, string> = {
   "7d": "7 days",
   "30d": "30 days",
@@ -32,14 +40,16 @@ export default function AuthorStatsDashboard() {
   const [stats, setStats] = useState<Stats | null>(null);
   const [revenue, setRevenue] = useState<Revenue | null>(null);
   const [publishedBooks, setPublishedBooks] = useState(0);
+  const [engagement, setEngagement] = useState<Engagement | null>(null);
   const [loading, setLoading] = useState(true);
 
   const fetchData = useCallback(async () => {
     setLoading(true);
     try {
-      const [statsRes, revenueRes] = await Promise.all([
+      const [statsRes, revenueRes, engagementRes] = await Promise.all([
         fetch(`/api/author/stats?period=${period}`),
         fetch("/api/author/stats/revenue"),
+        fetch("/api/author/stats/engagement"),
       ]);
 
       if (statsRes.ok) {
@@ -49,6 +59,10 @@ export default function AuthorStatsDashboard() {
       if (revenueRes.ok) {
         const json = await revenueRes.json();
         setRevenue(json);
+      }
+      if (engagementRes.ok) {
+        const json = await engagementRes.json();
+        setEngagement(json);
       }
 
       // Fetch published books count
@@ -114,6 +128,42 @@ export default function AuthorStatsDashboard() {
             publishedBooks={publishedBooks}
             currency={revenue?.currency ?? "SEK"}
           />
+
+          {engagement && (
+            <>
+              <h2 className="text-[15px] font-semibold text-slate-900 dark:text-white">
+                Engagement
+              </h2>
+              <StatsEngagementCards
+                reviews={engagement.reviews}
+                averageRating={engagement.averageRating}
+                bookmarks={engagement.bookmarks}
+                followers={engagement.followers}
+              />
+            </>
+          )}
+
+          {revenue && (revenue.orderRevenue > 0 || revenue.donationRevenue > 0) && (
+            <div className="rounded-2xl border border-slate-200/50 bg-white p-5 shadow-sm dark:border-white/10 dark:bg-slate-900">
+              <h2 className="mb-4 text-[15px] font-semibold text-slate-900 dark:text-white">
+                Revenue breakdown
+              </h2>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <p className="text-[12px] font-medium text-slate-500 dark:text-white/50">Book sales</p>
+                  <p className="text-lg font-bold text-slate-900 dark:text-white">
+                    {revenue.orderRevenue.toLocaleString("en-US")} {revenue.currency}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-[12px] font-medium text-slate-500 dark:text-white/50">Donations</p>
+                  <p className="text-lg font-bold text-slate-900 dark:text-white">
+                    {revenue.donationRevenue.toLocaleString("en-US")} {revenue.currency}
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
 
           <div className="rounded-2xl border border-slate-200/50 bg-white p-5 shadow-sm dark:border-white/10 dark:bg-slate-900">
             <h2 className="mb-4 text-[15px] font-semibold text-slate-900 dark:text-white">

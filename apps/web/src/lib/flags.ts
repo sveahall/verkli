@@ -17,7 +17,9 @@ export function getTranslationsEnabled(): boolean {
 }
 
 export function getAudiobookEnabled(): boolean {
-  return parseBool(process.env.NEXT_PUBLIC_AUDIOBOOK_ENABLED);
+  const value = process.env.NEXT_PUBLIC_AUDIOBOOK_ENABLED;
+  if (value === undefined || value === "") return false;
+  return value.toLowerCase() === "true" || value === "1";
 }
 
 export function getMarketingEnabled(): boolean {
@@ -38,7 +40,9 @@ export function isTranslationsEnabled(): boolean {
 }
 
 export function isAudiobookEnabled(): boolean {
-  return parseBool(process.env.NEXT_PUBLIC_AUDIOBOOK_ENABLED ?? process.env.AUDIOBOOK_ENABLED);
+  const value = process.env.NEXT_PUBLIC_AUDIOBOOK_ENABLED ?? process.env.AUDIOBOOK_ENABLED;
+  if (value === undefined || value === "") return false;
+  return value.toLowerCase() === "true" || value === "1";
 }
 
 export function isMarketingEnabled(): boolean {
@@ -139,6 +143,6 @@ export function isNotificationsEnabled(): boolean {
 // ─── TTS Lab (internal) ───
 export function isTtsLabEnabled(): boolean {
   const value = process.env.NEXT_PUBLIC_TTS_LAB_ENABLED ?? process.env.TTS_LAB_ENABLED;
-  if (value === undefined || value === "") return true;
+  if (value === undefined || value === "") return false;
   return value.toLowerCase() === "true" || value === "1";
 }
