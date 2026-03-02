@@ -170,13 +170,11 @@ export default async function ReaderBookDetail({
     .eq("user_id", book.author_id)
     .maybeSingle();
 
-  const { data: chapters } = hasReadAccess
-    ? await supabase
-        .from("chapters")
-        .select("id, title, order")
-        .eq("book_version_id", activeVersion.id)
-        .order("order", { ascending: true })
-    : { data: [] as Array<{ id: string; title: string; order: number }> };
+  const { data: chapters } = await supabase
+    .from("chapters")
+    .select("id, title, order")
+    .eq("book_version_id", activeVersion.id)
+    .order("order", { ascending: true });
 
   const { data: ratingRows } = await supabase
     .from("reviews")
@@ -198,6 +196,8 @@ export default async function ReaderBookDetail({
 
   const chaptersCount = chapters?.length ?? 0;
   const firstChapter = chapters?.[0];
+  const contentPattern = /^(kapitel|chapter)\s+\d/i;
+  const firstContentChapter = (chapters ?? []).find((c) => contentPattern.test(c.title ?? "")) ?? firstChapter;
 
   let lastChapterId: string | null = firstChapter?.id ?? null;
   let isBookmarked = false;
@@ -292,7 +292,7 @@ export default async function ReaderBookDetail({
 
           <div className="mt-6 flex flex-wrap gap-3 text-[12px] text-slate-600 dark:text-white/60">
             <span className="rounded-full border border-black/10 bg-black/[0.02] px-3 py-1 dark:border-white/10 dark:bg-white/5">
-              {hasReadAccess ? `${chaptersCount ?? 0} chapters` : "Paid access"}
+              {chaptersCount ?? 0} chapters
             </span>
             <span className="rounded-full border border-black/10 bg-black/[0.02] px-3 py-1 dark:border-white/10 dark:bg-white/5">Published</span>
             <span className="rounded-full border border-emerald-600/30 bg-emerald-500/10 px-3 py-1 text-emerald-700 dark:border-emerald-400/30 dark:bg-emerald-500/10 dark:text-emerald-300" aria-label={`Language: ${languageName}`}>
@@ -342,10 +342,10 @@ export default async function ReaderBookDetail({
           ) : null}
 
           {!hasReadAccess && !isFreeBook ? (
-            <div className="mt-6 rounded-2xl border border-amber-500/30 bg-amber-500/10 p-4 text-sm text-amber-900 dark:text-amber-200">
-              <p className="font-semibold">This book is locked.</p>
-              <p className="mt-1">
-                Unlock with a single purchase for full reading access. Price: {formatMoney(priceAmount, priceCurrency)}.
+            <div className="mt-6 rounded-[20px] border border-[#907AFF]/20 bg-[#907AFF]/5 p-5 text-sm">
+              <p className="font-semibold text-slate-900 dark:text-white">Denna bok kräver köp eller Verkli Plus</p>
+              <p className="mt-1 text-slate-600 dark:text-white/60">
+                Kapitel 1 är gratis att läsa. Lås upp alla kapitel för {formatMoney(priceAmount, priceCurrency)} eller med Verkli Plus.
               </p>
             </div>
           ) : null}
@@ -358,15 +358,33 @@ export default async function ReaderBookDetail({
                   firstChapterId={firstChapter?.id ?? null}
                   serverChapterId={user ? lastChapterId : null}
                 />
-              ) : user ? (
-                <PurchaseBookButton bookId={book.id} amount={priceAmount} currency={priceCurrency} />
               ) : (
-                <Link
-                  href={signInHref}
-                  className="inline-flex h-11 min-h-11 w-fit shrink-0 items-center justify-center self-start rounded-xl bg-[#907AFF] px-4 text-sm font-semibold text-white shadow-sm transition hover:bg-[#8069EE] hover:shadow"
-                >
-                  Sign in to buy
-                </Link>
+                <>
+                  {firstContentChapter && (
+                    <Link
+                      href={`/reader/read/${firstContentChapter.id}`}
+                      className="inline-flex h-11 min-h-11 items-center justify-center rounded-xl bg-emerald-600 px-5 text-sm font-semibold text-white shadow-sm transition hover:bg-emerald-700 hover:shadow"
+                    >
+                      Läs kapitel 1 gratis
+                    </Link>
+                  )}
+                  {user ? (
+                    <PurchaseBookButton bookId={book.id} amount={priceAmount} currency={priceCurrency} />
+                  ) : (
+                    <Link
+                      href={signInHref}
+                      className="inline-flex h-11 min-h-11 items-center justify-center rounded-xl bg-[#907AFF] px-5 text-sm font-semibold text-white shadow-sm transition hover:bg-[#8069EE] hover:shadow"
+                    >
+                      Logga in för att köpa
+                    </Link>
+                  )}
+                  <Link
+                    href="/reader/billing"
+                    className="inline-flex h-11 min-h-11 items-center justify-center rounded-xl border border-[#907AFF]/30 bg-[#907AFF]/10 px-5 text-sm font-semibold text-[#907AFF] transition hover:bg-[#907AFF]/20 dark:text-[#B8A9FF] dark:hover:bg-[#907AFF]/15"
+                  >
+                    Verkli Plus
+                  </Link>
+                </>
               )}
               {user && hasReadAccess && (
                 <BookmarkButton bookId={book.id} initialBookmarked={isBookmarked} />

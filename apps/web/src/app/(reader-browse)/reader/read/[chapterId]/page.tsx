@@ -1,7 +1,8 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
-import { canUserReadBook } from "@/lib/books/access";
+import { getReadAccess } from "@/lib/books/access";
+import FreemiumGate from "@/components/reader/FreemiumGate";
 import { logAnalyticsEvent } from "@/lib/analytics/events";
 import PurchaseBookButton from "../../books/[id]/PurchaseBookButton";
 import CommentsSection from "../../books/[id]/CommentsSection";
@@ -95,15 +96,18 @@ export default async function ReaderReadPage({
   const priceAmount = Math.max(0, Math.trunc(Number((book as { price_amount?: number | null }).price_amount ?? 0)));
   const priceCurrency = String((book as { price_currency?: string | null }).price_currency ?? "USD").trim().toUpperCase() || "USD";
 
-  const hasReadAccess = await canUserReadBook({
+  const readAccess = await getReadAccess({
     supabase,
     userId: user?.id ?? null,
     bookId: book.id,
+    chapterId: chapter.id,
+    bookVersionId: chapter.book_version_id,
     bookAuthorId: String((book as { author_id?: string | null }).author_id ?? ""),
     bookPriceAmount: priceAmount,
   });
 
-  if (!hasReadAccess) {
+  if (readAccess.access === "locked") {
+    const gateSignInHref = `/reader/signin?next=${encodeURIComponent(`/reader/books/${book.id}`)}`;
     return (
       <main className="min-h-screen bg-background text-foreground">
         <header className="mx-auto flex max-w-[900px] items-center justify-between px-6 py-8">
@@ -113,22 +117,28 @@ export default async function ReaderReadPage({
           <span className="text-[13px] text-slate-500 dark:text-white/40">Locked</span>
         </header>
         <section className="mx-auto max-w-[900px] px-6 pb-16">
-          <div className="rounded-[24px] border border-amber-500/30 bg-amber-500/10 p-8">
-            <h1 className="text-[24px] font-semibold">Reading is locked</h1>
+          <div className="rounded-[24px] border border-[#907AFF]/20 bg-[#907AFF]/5 p-8">
+            <h1 className="text-[24px] font-semibold text-slate-900 dark:text-white">Kapitlet är låst</h1>
             <p className="mt-3 text-[15px] text-slate-700 dark:text-white/80">
-              Buy this book to unlock all chapters.
+              Köp boken eller uppgradera till Verkli Plus för att läsa alla kapitel.
             </p>
-            <div className="mt-6">
+            <div className="mt-6 flex flex-wrap items-center gap-3">
               {user ? (
                 <PurchaseBookButton bookId={book.id} amount={priceAmount} currency={priceCurrency} />
               ) : (
                 <Link
-                  href={`/reader/signin?next=${encodeURIComponent(`/reader/books/${book.id}`)}`}
-                  className="rounded-full bg-[#907AFF] px-6 py-3 text-[14px] font-semibold text-white transition hover:bg-[#8069EE]"
+                  href={gateSignInHref}
+                  className="inline-flex h-11 min-h-11 items-center justify-center rounded-xl bg-[#907AFF] px-5 text-sm font-semibold text-white shadow-sm transition hover:bg-[#8069EE] hover:shadow"
                 >
-                  Sign in to buy
+                  Logga in för att köpa
                 </Link>
               )}
+              <Link
+                href="/reader/billing"
+                className="inline-flex h-11 min-h-11 items-center justify-center rounded-xl border border-[#907AFF]/30 bg-[#907AFF]/10 px-5 text-sm font-semibold text-[#907AFF] transition hover:bg-[#907AFF]/20 dark:text-[#B8A9FF] dark:hover:bg-[#907AFF]/15"
+              >
+                Uppgradera till Verkli Plus
+              </Link>
             </div>
           </div>
         </section>
@@ -264,7 +274,7 @@ export default async function ReaderReadPage({
       </header>
 
       <section className="mx-auto max-w-[1100px] px-6 pb-16">
-        <ChapterTopNavigator chapters={navChapters} currentChapterId={chapter.id} />
+        <ChapterTopNavigator chapters={navChapters} currentChapterId={chapter.id} disableNext={readAccess.access === "preview" && readAccess.isLastPreview} />
 
         <article className="mt-8">
           <div className="text-[15px] leading-relaxed text-slate-700 dark:text-white/70">
@@ -290,6 +300,16 @@ export default async function ReaderReadPage({
             isAuthorView={isAuthorView}
           />
 
+          {readAccess.access === "preview" && readAccess.isLastPreview && (
+            <FreemiumGate
+              bookId={book.id}
+              priceAmount={priceAmount}
+              priceCurrency={priceCurrency}
+              isSignedIn={Boolean(user)}
+              signInHref={signInHref}
+            />
+          )}
+
           <div className="mt-10 grid gap-4 sm:grid-cols-2">
             {previousChapterNav ? (
               <Link
@@ -307,7 +327,11 @@ export default async function ReaderReadPage({
                 </div>
               )}
 
-            {nextChapterNav ? (
+            {readAccess.access === "preview" && readAccess.isLastPreview ? (
+              <div className="rounded-2xl border border-dashed border-[#907AFF]/20 bg-[#907AFF]/5 px-4 py-3 text-right text-[12px] text-[#907AFF] dark:text-[#B8A9FF]">
+                Köp eller uppgradera för fler kapitel
+              </div>
+            ) : nextChapterNav ? (
               <Link
                 href={`/reader/read/${nextChapterNav.id}`}
                 className="rounded-[20px] border border-slate-200/90 bg-white/90 px-4 py-3 text-right shadow-[0_8px_22px_rgba(15,23,42,0.05)] transition hover:-translate-y-0.5 hover:border-slate-300 hover:bg-white dark:border-white/10 dark:bg-white/[0.04] dark:hover:bg-white/[0.07]"

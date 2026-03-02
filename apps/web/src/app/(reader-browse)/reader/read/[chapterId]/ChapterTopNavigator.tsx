@@ -23,9 +23,11 @@ function isTypingTarget(target: EventTarget | null): boolean {
 export default function ChapterTopNavigator({
   chapters,
   currentChapterId,
+  disableNext = false,
 }: {
   chapters: NavChapter[];
   currentChapterId: string;
+  disableNext?: boolean;
 }) {
   const router = useRouter();
   const [showJump, setShowJump] = useState(false);
@@ -38,7 +40,7 @@ export default function ChapterTopNavigator({
   const total = chapters.length;
   const currentChapter = chapters[safeIndex] ?? null;
   const previousChapter = safeIndex > 0 ? chapters[safeIndex - 1] : null;
-  const nextChapter = safeIndex < total - 1 ? chapters[safeIndex + 1] : null;
+  const nextChapter = !disableNext && safeIndex < total - 1 ? chapters[safeIndex + 1] : null;
   const previousChapterId = previousChapter?.id ?? null;
   const nextChapterId = nextChapter?.id ?? null;
   const progressPercent = total > 0 ? Math.round(((safeIndex + 1) / total) * 100) : 0;
