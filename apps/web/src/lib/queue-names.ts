@@ -10,6 +10,7 @@ export const QUEUE_NAMES = {
   SOCIAL_PUBLISH: "social-publish",
   RECOMMENDATIONS: "recommendations",
   NOTIFICATIONS: "notifications",
+  MARKETING: "marketing-campaign",
 } as const;
 
 export type QueueName = (typeof QUEUE_NAMES)[keyof typeof QUEUE_NAMES];

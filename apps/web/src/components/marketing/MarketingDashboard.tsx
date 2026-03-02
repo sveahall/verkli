@@ -282,7 +282,7 @@ export default function MarketingDashboard({
           </DashboardSection>
 
           <section id="automation" className="scroll-mt-28">
-            <AutomationTeaser />
+            <AutomationTeaser bookId={initialBooks[0]?.id ?? null} />
           </section>
         </div>
       </div>

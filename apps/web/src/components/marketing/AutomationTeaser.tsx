@@ -1,4 +1,41 @@
-export default function AutomationTeaser() {
+"use client";
+
+import { useCallback, useState } from "react";
+
+type AutomationTeaserProps = {
+  bookId: string | null;
+  language?: string;
+};
+
+export default function AutomationTeaser({ bookId, language = "en" }: AutomationTeaserProps) {
+  const [loading, setLoading] = useState(false);
+  const [result, setResult] = useState<{ jobId: string } | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  const handleGenerate = useCallback(async () => {
+    if (!bookId) return;
+    setLoading(true);
+    setError(null);
+    setResult(null);
+    try {
+      const res = await fetch(`/api/books/${bookId}/marketing/schedule`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ language, channels: ["generic", "tiktok", "instagram", "x"] }),
+      });
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        throw new Error(body.error ?? `Request failed (${res.status})`);
+      }
+      const data = await res.json();
+      setResult(data);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Something went wrong");
+    } finally {
+      setLoading(false);
+    }
+  }, [bookId, language]);
+
   return (
     <div className="relative overflow-hidden rounded-3xl border border-border bg-background p-6">
       <div className="absolute inset-0 bg-gradient-to-br from-[#907AFF]/15 via-transparent to-[#FCC997]/20 opacity-70" />
@@ -12,16 +49,33 @@ export default function AutomationTeaser() {
           <div>
             <p className="text-[15px] font-semibold text-foreground">Automation tools</p>
             <p className="text-[12px] text-muted-foreground">
-              Smart schedules, auto-repurpose, and hands-free publishing.
+              Generera kampanjinnehåll för alla kanaler med ett klick.
             </p>
           </div>
         </div>
-        <div className="rounded-2xl border border-dashed border-border bg-muted/30 p-4 text-sm text-muted-foreground">
-          Chain prompts, schedule campaigns, and trigger content across channels from one workflow.
-          {/* TODO: Connect automation rules and AI pipelines here. */}
-        </div>
-        <button className="rounded-xl bg-gradient-to-r from-[#907AFF] to-[#8069EE] px-5 py-2.5 text-[13px] font-semibold text-white transition hover:from-[#8069EE] hover:to-[#7058DD]">
-          Upgrade to PRO
+
+        {result ? (
+          <div className="rounded-2xl border border-green-200 bg-green-50 p-4 text-sm text-green-800 dark:border-green-800 dark:bg-green-950 dark:text-green-200">
+            Kampanj köad! Jobb-ID: <code className="text-xs">{result.jobId}</code>
+          </div>
+        ) : (
+          <div className="rounded-2xl border border-dashed border-border bg-muted/30 p-4 text-sm text-muted-foreground">
+            Generera headline, caption, CTA och hashtags för Generic, TikTok, Instagram och X.
+          </div>
+        )}
+
+        {error && (
+          <div className="rounded-2xl border border-red-200 bg-red-50 p-4 text-sm text-red-800 dark:border-red-800 dark:bg-red-950 dark:text-red-200">
+            {error}
+          </div>
+        )}
+
+        <button
+          onClick={handleGenerate}
+          disabled={loading || !bookId}
+          className="rounded-xl bg-gradient-to-r from-[#907AFF] to-[#8069EE] px-5 py-2.5 text-[13px] font-semibold text-white transition hover:from-[#8069EE] hover:to-[#7058DD] disabled:cursor-not-allowed disabled:opacity-50"
+        >
+          {loading ? "Genererar\u2026" : "Generera kampanj f\u00f6r alla kanaler"}
         </button>
       </div>
     </div>
