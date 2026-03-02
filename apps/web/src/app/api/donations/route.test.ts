@@ -173,8 +173,10 @@ describe("POST /api/donations/checkout", () => {
         currency: "SEK",
         donationId: "donation-1",
         creditsDelta: 25,
-        successUrl: "http://localhost/donation/success",
-        cancelUrl: "http://localhost/donation/cancel",
+        userId: "reader-1",
+        customerEmail: "reader-1@example.com",
+        successUrl: expect.stringContaining("/donation/success"),
+        cancelUrl: expect.stringContaining("/donation/cancel"),
       })
     );
   });
@@ -191,7 +193,7 @@ describe("POST /api/donations/checkout", () => {
       const body = await res.json();
 
       expect(res.status).toBe(200);
-      expect(body.url).toBe("http://localhost/donation/success?mock=donation");
+      expect(body.url).toContain("/donation/success?mock=donation");
       expect(body.donationId).toBe("mock-donation");
       expect(mocks.createClient).not.toHaveBeenCalled();
       expect(mocks.createDonationCheckoutSession).not.toHaveBeenCalled();

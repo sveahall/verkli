@@ -30,14 +30,14 @@ export default function PollsPageClient({ polls }: PollsPageClientProps) {
     <div className="section-gap">
       <PageHeader
         eyebrow="Community"
-        title="Omröstningar"
-        description="Rösta i pågående omröstningar från författare du följer."
+        title="Polls"
+        description="Vote in active polls from authors you follow."
       />
 
       {polls.length === 0 ? (
         <EmptyState
-          title="Inga aktiva omröstningar"
-          description="Det finns inga omröstningar att visa just nu. Kolla tillbaka senare!"
+          title="No active polls"
+          description="There are no polls to show right now. Check back later!"
         />
       ) : (
         <div className="space-y-4">

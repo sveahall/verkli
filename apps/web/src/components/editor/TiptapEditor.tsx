@@ -20,6 +20,7 @@ type TiptapEditorProps = {
   chapterId?: string;
   preset?: string;
   onWordCount?: (count: number) => void;
+  onDirty?: () => void;
 };
 
 function readAsDataURL(file: File): Promise<string> {
@@ -45,6 +46,7 @@ export default function TiptapEditor({
   chapterId,
   preset = "novel",
   onWordCount,
+  onDirty,
 }: TiptapEditorProps) {
   // Use useSyncExternalStore to detect client mount without triggering
   // a synchronous setState inside useEffect (avoids cascading-render warnings).
@@ -71,6 +73,7 @@ export default function TiptapEditor({
     ],
     content: getInitialContent(),
     onUpdate: ({ editor }) => {
+      onDirty?.();
       if (debounceRef.current) clearTimeout(debounceRef.current);
       debounceRef.current = setTimeout(() => {
         const json = editor.getJSON();

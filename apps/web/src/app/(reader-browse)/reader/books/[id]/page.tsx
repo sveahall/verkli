@@ -343,9 +343,9 @@ export default async function ReaderBookDetail({
 
           {!hasReadAccess && !isFreeBook ? (
             <div className="mt-6 rounded-[20px] border border-[#907AFF]/20 bg-[#907AFF]/5 p-5 text-sm">
-              <p className="font-semibold text-slate-900 dark:text-white">Denna bok kräver köp eller Verkli Plus</p>
+              <p className="font-semibold text-slate-900 dark:text-white">This book requires purchase or Verkli Plus</p>
               <p className="mt-1 text-slate-600 dark:text-white/60">
-                Kapitel 1 är gratis att läsa. Lås upp alla kapitel för {formatMoney(priceAmount, priceCurrency)} eller med Verkli Plus.
+                Chapter 1 is free to read. Unlock all chapters for {formatMoney(priceAmount, priceCurrency)} or with Verkli Plus.
               </p>
             </div>
           ) : null}
@@ -365,7 +365,7 @@ export default async function ReaderBookDetail({
                       href={`/reader/read/${firstContentChapter.id}`}
                       className="inline-flex h-11 min-h-11 items-center justify-center rounded-xl bg-emerald-600 px-5 text-sm font-semibold text-white shadow-sm transition hover:bg-emerald-700 hover:shadow"
                     >
-                      Läs kapitel 1 gratis
+                      Read chapter 1 free
                     </Link>
                   )}
                   {user ? (
@@ -375,7 +375,7 @@ export default async function ReaderBookDetail({
                       href={signInHref}
                       className="inline-flex h-11 min-h-11 items-center justify-center rounded-xl bg-[#907AFF] px-5 text-sm font-semibold text-white shadow-sm transition hover:bg-[#8069EE] hover:shadow"
                     >
-                      Logga in för att köpa
+                      Sign in to purchase
                     </Link>
                   )}
                   <Link

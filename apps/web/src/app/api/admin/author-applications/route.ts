@@ -2,13 +2,13 @@ import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import {
   apiError,
-  E_FORBIDDEN,
   E_APPLICATIONS_LOAD_FAILED,
   E_USER_ID_REQUIRED,
   E_INVALID_STATUS_VALUE,
   E_APPLICATION_UPDATE_FAILED,
   E_APPLICATION_CREATION_FAILED,
 } from "@/lib/api-errors";
+import { checkAdmin } from "@/lib/admin-auth";
 
 const VALID_STATUSES = new Set(["approved", "rejected"] as const);
 type ApplicationRow = {
@@ -21,16 +21,9 @@ type UserRow = {
   email: string | null;
 };
 
-function isAdmin(request: Request): boolean {
-  const adminKey = process.env.ADMIN_API_KEY?.trim();
-  const key = request.headers.get("x-admin-key")?.trim();
-  return Boolean(adminKey && key && key === adminKey);
-}
-
 export async function GET(request: Request) {
-  if (!isAdmin(request)) {
-    return apiError(E_FORBIDDEN, 403);
-  }
+  const denied = checkAdmin(request);
+  if (denied) return denied;
 
   const admin = createAdminClient();
   const { data, error } = await admin
@@ -75,9 +68,8 @@ export async function GET(request: Request) {
 }
 
 export async function PATCH(request: Request) {
-  if (!isAdmin(request)) {
-    return apiError(E_FORBIDDEN, 403);
-  }
+  const denied = checkAdmin(request);
+  if (denied) return denied;
 
   const body = await request.json().catch(() => null);
   const userId = typeof body?.userId === "string" ? body.userId.trim() : "";

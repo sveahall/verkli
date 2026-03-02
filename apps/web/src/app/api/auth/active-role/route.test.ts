@@ -1,5 +1,4 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { POST } from "./route";
 
 const mockGetUser = vi.fn();
 
@@ -12,6 +11,14 @@ vi.mock("@/lib/supabase/server", () => ({
 vi.mock("@/features/auth/roles", () => ({
   updateActiveRole: vi.fn(),
 }));
+
+// Force in-memory rate limiter (no Redis) so limits reset between test runs
+vi.mock("@/lib/env", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/lib/env")>();
+  return { ...actual, getRedisUrl: () => null };
+});
+
+const { POST } = await import("./route");
 
 // Import after mocks are set up
 const { updateActiveRole } = await import("@/features/auth/roles");

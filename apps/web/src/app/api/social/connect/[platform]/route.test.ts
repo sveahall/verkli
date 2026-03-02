@@ -38,6 +38,12 @@ vi.mock("@/lib/social/token-crypto", () => ({
   encryptToken: vi.fn().mockReturnValue("encrypted-mock"),
 }));
 
+// Force in-memory rate limiter (no Redis) so _reset() works between tests
+vi.mock("@/lib/env", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/lib/env")>();
+  return { ...actual, getRedisUrl: () => null };
+});
+
 const { requireAuthorRoleForApi } = await import("@/lib/auth/require-author");
 const { requireProBillingForApi } = await import("@/lib/billing/server");
 const { POST } = await import("./route");

@@ -32,10 +32,10 @@ export default function FreemiumGate({
   return (
     <div className="mt-10 rounded-[24px] border border-[#907AFF]/20 bg-[#907AFF]/5 p-8">
       <h2 className="text-[20px] font-semibold text-slate-900 dark:text-white">
-        Vill du läsa vidare?
+        Want to keep reading?
       </h2>
       <p className="mt-2 text-[14px] text-slate-600 dark:text-white/60">
-        Du har läst gratisförhandsgranskningen. Lås upp alla kapitel genom att köpa boken eller uppgradera till Verkli Plus.
+        You have read the free preview. Unlock all chapters by purchasing the book or upgrading to Verkli Plus.
       </p>
 
       <div className="mt-6 flex flex-wrap items-center gap-3">
@@ -50,7 +50,7 @@ export default function FreemiumGate({
             href={signInHref}
             className="inline-flex h-11 min-h-11 items-center justify-center rounded-xl bg-[#907AFF] px-5 text-sm font-semibold text-white shadow-sm transition hover:bg-[#8069EE] hover:shadow"
           >
-            Logga in för att köpa — {formatMoney(priceAmount, priceCurrency)}
+            Sign in to purchase — {formatMoney(priceAmount, priceCurrency)}
           </Link>
         )}
 
@@ -58,7 +58,7 @@ export default function FreemiumGate({
           href="/reader/billing"
           className="inline-flex h-11 min-h-11 items-center justify-center rounded-xl border border-[#907AFF]/30 bg-[#907AFF]/10 px-5 text-sm font-semibold text-[#907AFF] transition hover:bg-[#907AFF]/20 dark:text-[#B8A9FF] dark:hover:bg-[#907AFF]/15"
         >
-          Uppgradera till Verkli Plus
+          Upgrade to Verkli Plus
         </Link>
       </div>
     </div>

@@ -566,6 +566,7 @@ export default function BookEditor({
   const [bookTitleError, setBookTitleError] = useState<string | null>(null);
   const [bookTitleSaving, setBookTitleSaving] = useState(false);
   const [lastSaved, setLastSaved] = useState<Date | null>(null);
+  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
   const [focusMode, setFocusMode] = useState(false);
   const [preset, setPreset] = useState("novel");
   const [wordCount, setWordCount] = useState(0);
@@ -1819,6 +1820,7 @@ export default function BookEditor({
     }
     setChapters((prev) => prev.map((ch) => (ch.id === chapterId ? { ...ch, content: contentString } : ch)));
     setLastSaved(new Date());
+    setHasUnsavedChanges(false);
   }, [toast]);
 
   const handleCreateChapter = async () => {
@@ -1904,6 +1906,51 @@ export default function BookEditor({
     setTempTitle("");
   };
 
+  const [deletingChapterId, setDeletingChapterId] = useState<string | null>(null);
+
+  const handleDeleteChapter = async (chapterId: string) => {
+    if (chapters.length <= 1) {
+      toast.error("Cannot delete the only chapter.");
+      return;
+    }
+    const supabase = createClient();
+    const { error } = await supabase.from("chapters").delete().eq("id", chapterId);
+    if (error) {
+      toast.error("Could not delete chapter. Try again.");
+      setDeletingChapterId(null);
+      return;
+    }
+    const remaining = chapters.filter((ch) => ch.id !== chapterId);
+    setChapters(remaining);
+    if (selectedChapterId === chapterId) {
+      setSelectedChapterId(remaining[0]?.id ?? null);
+    }
+    setDeletingChapterId(null);
+    router.refresh();
+  };
+
+  const handleMoveChapter = async (chapterId: string, direction: "up" | "down") => {
+    const idx = chapters.findIndex((ch) => ch.id === chapterId);
+    if (idx < 0) return;
+    const swapIdx = direction === "up" ? idx - 1 : idx + 1;
+    if (swapIdx < 0 || swapIdx >= chapters.length) return;
+
+    const a = chapters[idx];
+    const b = chapters[swapIdx];
+    const newChapters = [...chapters];
+    newChapters[idx] = { ...b, order: a.order };
+    newChapters[swapIdx] = { ...a, order: b.order };
+    newChapters.sort((x, y) => x.order - y.order);
+    setChapters(newChapters);
+
+    const supabase = createClient();
+    await Promise.all([
+      supabase.from("chapters").update({ order: a.order }).eq("id", b.id),
+      supabase.from("chapters").update({ order: b.order }).eq("id", a.id),
+    ]);
+    router.refresh();
+  };
+
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
       if (e.key === "Escape" && focusMode) {
@@ -1961,6 +2008,7 @@ export default function BookEditor({
                   key={selectedChapter.id}
                   content={selectedChapter.content}
                   onUpdate={(json) => handleAutoSave(selectedChapter.id, json)}
+                  onDirty={() => setHasUnsavedChanges(true)}
                   placeholder="Start writing..."
                   bookId={book.id}
                   chapterId={selectedChapter.id}
@@ -2611,7 +2659,7 @@ export default function BookEditor({
                 {chapters.length === 0 && (
                   <p className="text-xs text-slate-400 dark:text-white/40">No chapters yet</p>
                 )}
-                {chapters.map((chapter) => {
+                {chapters.map((chapter, chapterIndex) => {
                   const chapterOrder = typeof chapter.order === "number" ? chapter.order : -1;
                   const isChapterPublished =
                     isPublished && (publishedChapterCount === null || chapterOrder < (publishedChapterCount ?? 0));
@@ -2626,50 +2674,105 @@ export default function BookEditor({
                     (isChapterPublished
                       ? publishedChapterCount === null || chapterOrder === (publishedChapterCount ?? 0) - 1
                       : isNextToPublish || !isPublished);
+                  const isConfirmingDelete = deletingChapterId === chapter.id;
                   return (
                     <div
                       key={chapter.id}
-                      className={`group flex items-center gap-2 rounded-lg px-2 py-1.5 transition ${
+                      className={`group flex items-center gap-1 rounded-lg px-2 py-1.5 transition ${
                         isSelected
                           ? "bg-[#907AFF]/10 dark:bg-[#907AFF]/15"
                           : "hover:bg-slate-50 dark:hover:bg-white/[0.04]"
                       }`}
                     >
+                      {/* Reorder buttons — visible on hover */}
+                      <div className="flex flex-shrink-0 flex-col opacity-0 transition-opacity group-hover:opacity-100">
+                        <button
+                          type="button"
+                          disabled={chapterIndex === 0}
+                          onClick={() => void handleMoveChapter(chapter.id, "up")}
+                          title="Move up"
+                          className="p-0.5 text-slate-300 hover:text-slate-600 disabled:invisible dark:text-white/20 dark:hover:text-white/60"
+                        >
+                          <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="m4.5 15.75 7.5-7.5 7.5 7.5" /></svg>
+                        </button>
+                        <button
+                          type="button"
+                          disabled={chapterIndex === chapters.length - 1}
+                          onClick={() => void handleMoveChapter(chapter.id, "down")}
+                          title="Move down"
+                          className="p-0.5 text-slate-300 hover:text-slate-600 disabled:invisible dark:text-white/20 dark:hover:text-white/60"
+                        >
+                          <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="m19.5 8.25-7.5 7.5-7.5-7.5" /></svg>
+                        </button>
+                      </div>
                       <button
                         type="button"
                         onClick={() => {
                           setSelectedChapterId(chapter.id);
                           setSessionStartWords(null);
+                          setHasUnsavedChanges(false);
                         }}
                         className="min-w-0 flex-1 truncate text-left text-[12px] font-medium text-slate-700 dark:text-white/80"
                         title={chapter.title}
                       >
                         {chapter.title}
                       </button>
-                      {isPublished && (
-                        <button
-                          type="button"
-                          disabled={!canToggle || isPublishing}
-                          onClick={() => void handleChapterPublishToggle(chapter, !isChapterPublished)}
-                          title={
-                            isChapterPublished
-                              ? canToggle
-                                ? "Unpublish this chapter"
-                                : "Unpublish later chapters first"
-                              : canToggle
-                                ? "Publish this chapter"
-                                : "Publish earlier chapters first"
-                          }
-                          className={`flex-shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold transition ${
-                            isChapterPublished
-                              ? "bg-emerald-100 text-emerald-700 hover:bg-emerald-200 dark:bg-emerald-900/30 dark:text-emerald-300 dark:hover:bg-emerald-900/50"
-                              : canToggle
-                                ? "bg-slate-100 text-slate-500 hover:bg-slate-200 dark:bg-white/10 dark:text-white/50 dark:hover:bg-white/15"
-                                : "bg-slate-50 text-slate-300 dark:bg-white/5 dark:text-white/20"
-                          } disabled:cursor-not-allowed disabled:opacity-50`}
-                        >
-                          {isChapterPublished ? "Live" : "Draft"}
-                        </button>
+                      {isConfirmingDelete ? (
+                        <div className="flex flex-shrink-0 items-center gap-1">
+                          <button
+                            type="button"
+                            onClick={() => void handleDeleteChapter(chapter.id)}
+                            className="rounded px-1.5 py-0.5 text-[10px] font-semibold text-red-600 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-900/20"
+                          >
+                            Confirm
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setDeletingChapterId(null)}
+                            className="rounded px-1.5 py-0.5 text-[10px] font-medium text-slate-400 hover:bg-slate-100 dark:text-white/40 dark:hover:bg-white/10"
+                          >
+                            Cancel
+                          </button>
+                        </div>
+                      ) : (
+                        <>
+                          {/* Delete button — visible on hover */}
+                          {chapters.length > 1 && (
+                            <button
+                              type="button"
+                              onClick={() => setDeletingChapterId(chapter.id)}
+                              title="Delete chapter"
+                              className="flex-shrink-0 p-1 text-slate-300 opacity-0 transition-opacity hover:text-red-500 group-hover:opacity-100 dark:text-white/20 dark:hover:text-red-400"
+                            >
+                              <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="m14.74 9-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 0 1-2.244 2.077H8.084a2.25 2.25 0 0 1-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 0 0-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 0 1 3.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 0 0-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 0 0-7.5 0" /></svg>
+                            </button>
+                          )}
+                          {isPublished && (
+                            <button
+                              type="button"
+                              disabled={!canToggle || isPublishing}
+                              onClick={() => void handleChapterPublishToggle(chapter, !isChapterPublished)}
+                              title={
+                                isChapterPublished
+                                  ? canToggle
+                                    ? "Unpublish this chapter"
+                                    : "Unpublish later chapters first"
+                                  : canToggle
+                                    ? "Publish this chapter"
+                                    : "Publish earlier chapters first"
+                              }
+                              className={`flex-shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold transition ${
+                                isChapterPublished
+                                  ? "bg-emerald-100 text-emerald-700 hover:bg-emerald-200 dark:bg-emerald-900/30 dark:text-emerald-300 dark:hover:bg-emerald-900/50"
+                                  : canToggle
+                                    ? "bg-slate-100 text-slate-500 hover:bg-slate-200 dark:bg-white/10 dark:text-white/50 dark:hover:bg-white/15"
+                                    : "bg-slate-50 text-slate-300 dark:bg-white/5 dark:text-white/20"
+                              } disabled:cursor-not-allowed disabled:opacity-50`}
+                            >
+                              {isChapterPublished ? "Live" : "Draft"}
+                            </button>
+                          )}
+                        </>
                       )}
                     </div>
                   );
@@ -3301,18 +3404,24 @@ export default function BookEditor({
                           Rename
                         </button>
                       </div>
-                      <p className="text-[12px] text-slate-400 dark:text-white/40">
+                      <p className="text-[12px]">
                         {isSaving ? (
-                          <span className="flex items-center gap-1.5">
-                            <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-[#907AFF]" />
+                          <span className="flex items-center gap-1.5 text-[#907AFF] dark:text-[#b8a9ff]">
+                            <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-current" />
                             Saving...
                           </span>
+                        ) : hasUnsavedChanges ? (
+                          <span className="flex items-center gap-1.5 text-amber-500 dark:text-amber-400">
+                            <span className="h-1.5 w-1.5 rounded-full bg-current" />
+                            Unsaved changes
+                          </span>
                         ) : lastSaved ? (
-                          <span className="text-emerald-500/80 dark:text-emerald-400/70">
-                            Last saved {lastSaved.toLocaleTimeString()}
+                          <span className="flex items-center gap-1.5 text-emerald-500/80 dark:text-emerald-400/70">
+                            <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="m4.5 12.75 6 6 9-13.5" /></svg>
+                            Saved
                           </span>
                         ) : (
-                          "Autosave active"
+                          <span className="text-slate-400 dark:text-white/40">Autosave active</span>
                         )}
                       </p>
                     </>
@@ -3335,6 +3444,7 @@ export default function BookEditor({
                     key={selectedChapter.id}
                     content={selectedChapter.content}
                     onUpdate={(json) => handleAutoSave(selectedChapter.id, json)}
+                    onDirty={() => setHasUnsavedChanges(true)}
                     placeholder="Start writing your chapter..."
                     bookId={book.id}
                     chapterId={selectedChapter.id}

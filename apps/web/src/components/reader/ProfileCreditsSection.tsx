@@ -19,10 +19,10 @@ export default function ProfileCreditsSection({ creditCheckout }: Props) {
     if (shownRef.current) return;
     if (creditCheckout === "success") {
       shownRef.current = true;
-      toast.success("Betalning genomförd — krediter läggs till inom kort.");
+      toast.success("Payment completed — credits will be added shortly.");
     } else if (creditCheckout === "cancel") {
       shownRef.current = true;
-      toast.error("Betalningen avbröts.");
+      toast.error("Payment was cancelled.");
     }
   }, [creditCheckout, toast]);
 
@@ -32,7 +32,7 @@ export default function ProfileCreditsSection({ creditCheckout }: Props) {
         Krediter &amp; Referral
       </h2>
       <p className="mt-1 text-[13px] text-slate-500 dark:text-white/60">
-        Se ditt saldo och bjud in vänner för att tjäna extra krediter.
+        View your balance and invite friends to earn extra credits.
       </p>
 
       <div className="mt-5">

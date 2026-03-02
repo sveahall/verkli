@@ -118,9 +118,9 @@ export default async function ReaderReadPage({
         </header>
         <section className="mx-auto max-w-[900px] px-6 pb-16">
           <div className="rounded-[24px] border border-[#907AFF]/20 bg-[#907AFF]/5 p-8">
-            <h1 className="text-[24px] font-semibold text-slate-900 dark:text-white">Kapitlet är låst</h1>
+            <h1 className="text-[24px] font-semibold text-slate-900 dark:text-white">Chapter locked</h1>
             <p className="mt-3 text-[15px] text-slate-700 dark:text-white/80">
-              Köp boken eller uppgradera till Verkli Plus för att läsa alla kapitel.
+              Purchase the book or upgrade to Verkli Plus to read all chapters.
             </p>
             <div className="mt-6 flex flex-wrap items-center gap-3">
               {user ? (
@@ -130,14 +130,14 @@ export default async function ReaderReadPage({
                   href={gateSignInHref}
                   className="inline-flex h-11 min-h-11 items-center justify-center rounded-xl bg-[#907AFF] px-5 text-sm font-semibold text-white shadow-sm transition hover:bg-[#8069EE] hover:shadow"
                 >
-                  Logga in för att köpa
+                  Sign in to purchase
                 </Link>
               )}
               <Link
                 href="/reader/billing"
                 className="inline-flex h-11 min-h-11 items-center justify-center rounded-xl border border-[#907AFF]/30 bg-[#907AFF]/10 px-5 text-sm font-semibold text-[#907AFF] transition hover:bg-[#907AFF]/20 dark:text-[#B8A9FF] dark:hover:bg-[#907AFF]/15"
               >
-                Uppgradera till Verkli Plus
+                Upgrade to Verkli Plus
               </Link>
             </div>
           </div>
@@ -329,7 +329,7 @@ export default async function ReaderReadPage({
 
             {readAccess.access === "preview" && readAccess.isLastPreview ? (
               <div className="rounded-2xl border border-dashed border-[#907AFF]/20 bg-[#907AFF]/5 px-4 py-3 text-right text-[12px] text-[#907AFF] dark:text-[#B8A9FF]">
-                Köp eller uppgradera för fler kapitel
+                Purchase or upgrade for more chapters
               </div>
             ) : nextChapterNav ? (
               <Link

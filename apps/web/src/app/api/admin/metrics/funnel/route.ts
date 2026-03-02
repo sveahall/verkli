@@ -1,18 +1,11 @@
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import {
-  apiError,
-  E_FORBIDDEN,
-  E_FUNNEL_DATA_LOAD_FAILED,
-} from "@/lib/api-errors";
-
-const ADMIN_KEY = process.env.ADMIN_API_KEY?.trim();
+import { apiError, E_FUNNEL_DATA_LOAD_FAILED } from "@/lib/api-errors";
+import { checkAdmin } from "@/lib/admin-auth";
 
 export async function GET(request: Request) {
-  const key = request.headers.get("x-admin-key")?.trim();
-  if (!ADMIN_KEY || key !== ADMIN_KEY) {
-    return apiError(E_FORBIDDEN, 403);
-  }
+  const denied = checkAdmin(request);
+  if (denied) return denied;
 
   const admin = createAdminClient();
 

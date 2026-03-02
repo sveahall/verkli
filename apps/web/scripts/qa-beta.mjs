@@ -32,7 +32,7 @@ const REQUIRED_ENV = [
 ];
 
 function checkEnv() {
-  console.log("\n══ Stage 1/4: Environment check ══\n");
+  console.log("\n══ Stage 1/7: Environment check ══\n");
   const missing = REQUIRED_ENV.filter((k) => !process.env[k]?.trim());
   if (missing.length > 0) {
     console.error("❌  Missing billing-critical environment variables:\n");
@@ -63,9 +63,12 @@ function run(label, stage, cmd) {
 // ── Main ────────────────────────────────────────────────────────────────────
 
 checkEnv();
-run("Tests (vitest)", "2/4", "npx vitest run");
-run("Lint (eslint)", "3/4", "npx eslint .");
-run("Build (next build)", "4/4", "npx next build");
+run("Tests (vitest)", "2/7", "npx vitest run");
+run("Lint (eslint)", "3/7", "npx eslint .");
+run("English-default check", "4/7", "npx tsx scripts/check-english-default.ts");
+run("No-placeholders check", "5/7", "npm run check:no-placeholders");
+run("Dead-code check", "6/7", "npm run check:dead-code");
+run("Build (next build)", "7/7", "npx next build");
 
 console.log("\n══════════════════════════════════════");
 console.log("  ✔  Beta Release Gate — ALL PASSED");
