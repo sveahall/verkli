@@ -126,11 +126,12 @@ type CanUserReadBookArgs = {
 };
 
 /**
- * Access helper for reader content gating.
+ * Access helper for reader content gating (book-level).
  * True when:
  * 1) the book is free
  * 2) the user is the book author
  * 3) the user has a purchase entitlement for the book
+ * 4) the user has an active Plus subscription
  */
 export async function canUserReadBook({
   supabase,
@@ -192,5 +193,18 @@ export async function canUserReadBook({
     .eq("source", "purchase")
     .maybeSingle();
 
-  return Boolean(entitlement);
+  if (entitlement) {
+    return true;
+  }
+
+  try {
+    const billing = await getBillingStateForUser(userId, "reader");
+    if (billing.ok && billing.state.isPlusActive) {
+      return true;
+    }
+  } catch {
+    // Non-blocking
+  }
+
+  return false;
 }
