@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
-import { apiError, E_NOT_AUTHENTICATED, E_BOOK_NOT_FOUND, E_DATABASE_ERROR } from "@/lib/api-errors";
+import { apiError, E_NOT_AUTHENTICATED, E_BOOK_NOT_FOUND, E_DATABASE_ERROR, E_INVALID_JSON, E_VALIDATION_FAILED } from "@/lib/api-errors";
 
 export async function GET(
   _request: Request,
@@ -60,12 +60,12 @@ export async function PUT(
   try {
     body = await request.json();
   } catch {
-    return apiError(E_DATABASE_ERROR, 400);
+    return apiError(E_INVALID_JSON, 400);
   }
 
   const parsed = putSchema.safeParse(body);
   if (!parsed.success) {
-    return apiError(E_DATABASE_ERROR, 400);
+    return apiError(E_VALIDATION_FAILED, 400);
   }
 
   const { genreIds } = parsed.data;

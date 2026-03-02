@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
-import { apiError, E_NOT_AUTHENTICATED } from "@/lib/api-errors";
+import { apiError, E_NOT_AUTHENTICATED, E_NOTIFICATION_LOAD_FAILED } from "@/lib/api-errors";
 
 const querySchema = z.object({
   page: z.coerce.number().int().min(1).default(1),
@@ -52,11 +52,7 @@ export async function GET(request: Request) {
       message: error.message,
       code: error.code,
     });
-    return NextResponse.json({
-      notifications: [],
-      total: 0,
-      page,
-    });
+    return apiError(E_NOTIFICATION_LOAD_FAILED, 500);
   }
 
   return NextResponse.json({

@@ -91,12 +91,21 @@ export async function DELETE(
   }
 
   // RLS already restricts to own highlights, but verify to return proper 404
-  const { data: existing } = await supabase
+  const { data: existing, error: lookupError } = await supabase
     .from("highlights")
     .select("id")
     .eq("id", highlightId)
     .eq("user_id", user.id)
     .maybeSingle();
+
+  if (lookupError) {
+    console.error("[highlights] lookup failed", {
+      userId: user.id,
+      highlightId,
+      message: lookupError.message,
+    });
+    return apiError(E_HIGHLIGHT_DELETE_FAILED, 500);
+  }
 
   if (!existing) {
     return apiError(E_HIGHLIGHT_NOT_FOUND, 404);

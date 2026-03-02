@@ -22,6 +22,12 @@ vi.mock("@/lib/supabase/admin", () => ({
   createAdminClient: mocks.createAdminClient,
 }));
 
+vi.mock("@/lib/rate-limit", () => ({
+  createPerUserRateLimiter: () => ({
+    check: () => ({ allowed: true }),
+  }),
+}));
+
 const { POST: generatePOST } = await import("./generate/route");
 const { POST: redeemPOST } = await import("./redeem/route");
 

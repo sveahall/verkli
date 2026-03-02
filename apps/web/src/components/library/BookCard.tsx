@@ -45,7 +45,13 @@ export default function BookCard({
   };
 
   return (
-    <div className="group relative" onClick={onClick}>
+    <div
+      className="group relative"
+      onClick={onClick}
+      onKeyDown={onClick ? (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onClick(); } } : undefined}
+      role={onClick ? "button" : undefined}
+      tabIndex={onClick ? 0 : undefined}
+    >
       <div
         className={`${sizeClasses[size]} relative cursor-pointer overflow-hidden rounded-2xl border border-black/5 dark:border-white/5 bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-900 dark:to-slate-800 transition-all duration-500 group-hover:scale-[1.02]`}
       >
@@ -148,8 +154,9 @@ export default function BookCard({
                 // Open actions menu
               }}
               className="flex h-8 w-8 items-center justify-center rounded-full border border-white/10 bg-black/20 text-white/90 backdrop-blur-md transition-all hover:bg-black/70"
+              aria-label="Book actions"
             >
-              <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 5v.01M12 12v.01M12 19v.01M12 6a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2z" />
               </svg>
             </button>

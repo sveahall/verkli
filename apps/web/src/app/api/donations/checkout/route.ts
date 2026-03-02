@@ -7,7 +7,11 @@ import {
   E_UNAUTHORIZED,
   E_DONATION_CHECKOUT_FAILED,
   E_INVALID_DONATION_AMOUNT,
+  E_RATE_LIMIT_EXCEEDED,
 } from "@/lib/api-errors";
+import { createPerUserRateLimiter } from "@/lib/rate-limit";
+
+const checkoutLimiter = createPerUserRateLimiter({ maxPerMinute: 5 });
 
 export const runtime = "nodejs";
 
@@ -61,6 +65,11 @@ export async function POST(request: Request) {
 
   if (!user) {
     return apiError(E_UNAUTHORIZED, 401);
+  }
+
+  const rl = await checkoutLimiter.check(user.id);
+  if (!rl.allowed) {
+    return apiError(E_RATE_LIMIT_EXCEEDED, 429);
   }
 
   if (amountMinor <= 0) {

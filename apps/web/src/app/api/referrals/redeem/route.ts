@@ -9,7 +9,11 @@ import {
   E_REFERRAL_ALREADY_REDEEMED,
   E_REFERRAL_CANNOT_USE_OWN,
   E_INVALID_REFERRAL_CODE,
+  E_RATE_LIMIT_EXCEEDED,
 } from "@/lib/api-errors";
+import { createPerUserRateLimiter } from "@/lib/rate-limit";
+
+const redeemLimiter = createPerUserRateLimiter({ maxPerMinute: 5 });
 
 export const runtime = "nodejs";
 
@@ -23,6 +27,11 @@ export async function POST(request: Request) {
 
   if (!user) {
     return apiError(E_UNAUTHORIZED, 401);
+  }
+
+  const rl = await redeemLimiter.check(user.id);
+  if (!rl.allowed) {
+    return apiError(E_RATE_LIMIT_EXCEEDED, 429);
   }
 
   const body = await request.json().catch(() => ({}));

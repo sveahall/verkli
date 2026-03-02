@@ -132,6 +132,7 @@ export async function POST(request: Request) {
       message: (memberError as { message: string }).message,
       code: (memberError as { code: string }).code,
     });
+    return apiError(E_CLUB_CREATE_FAILED, 500);
   }
 
   return NextResponse.json({ club: created }, { status: 201 });

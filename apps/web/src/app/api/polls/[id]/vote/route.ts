@@ -12,6 +12,7 @@ import {
   E_POLL_INVALID_OPTION,
   E_INVALID_JSON,
   E_VALIDATION_FAILED,
+  E_DATABASE_ERROR,
 } from "@/lib/api-errors";
 
 const paramsSchema = z.object({
@@ -124,7 +125,7 @@ export async function POST(
       message: insertError.message,
       code: insertError.code,
     });
-    return apiError(E_POLL_CLOSED, 400);
+    return apiError(E_DATABASE_ERROR, 500);
   }
 
   return NextResponse.json({ ok: true });

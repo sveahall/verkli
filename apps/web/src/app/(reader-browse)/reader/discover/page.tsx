@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
-import { getAvatarUrlFromPathServer } from "@/lib/supabase/avatar";
+import { AVATARS_BUCKET_PUBLIC } from "@/lib/supabase/config";
 import { getDiscoveryEnabled, getRecommendationsEnabled } from "@/lib/flags";
 import { getLanguageLabel, LANGUAGE_OPTIONS, normalizeLanguage, type SupportedLanguage } from "@/lib/languages";
 import AuthorCard from "@/components/reader/AuthorCard";
@@ -68,86 +68,105 @@ async function getCuratedListsWithItems(
 
   if (!lists?.length) return [];
 
-  const result: Array<{
-    id: string;
-    slug: string;
-    title: string;
-    description: string | null;
-    items: Array<{ id: string; title: string; author: string; cover: string | null }>;
-  }> = [];
+  const listIds = lists.map((l) => l.id);
 
-  for (const list of lists) {
-    const { data: items } = await supabase
-      .from("curated_list_items")
-      .select("book_id, rank")
-      .eq("list_id", list.id)
-      .order("rank", { ascending: true })
-      .limit(itemsPerList);
+  // Batch: fetch all list items in one query instead of one per list
+  const { data: allItems } = await supabase
+    .from("curated_list_items")
+    .select("list_id, book_id, rank")
+    .in("list_id", listIds)
+    .order("rank", { ascending: true });
 
-    if (!items?.length) {
-      result.push({ id: list.id, slug: list.slug, title: list.title, description: list.description ?? null, items: [] });
-      continue;
+  // Group items by list, capped at itemsPerList
+  const itemsByList = new Map<string, Array<{ book_id: string; rank: number }>>();
+  for (const item of allItems ?? []) {
+    const existing = itemsByList.get(item.list_id) ?? [];
+    if (existing.length < itemsPerList) {
+      existing.push(item);
+      itemsByList.set(item.list_id, existing);
     }
+  }
 
-    const bookIds = items.map((i) => i.book_id);
-    const { data: books } = await supabase
-      .from("books")
-      .select("id, title, cover_image, author_id")
-      .eq("status", "PUBLISHED")
-      .in("id", bookIds);
+  // Collect all unique book IDs across all lists
+  const allBookIds = [...new Set([...itemsByList.values()].flatMap((items) => items.map((i) => i.book_id)))];
 
-    const bookMap = new Map((books ?? []).map((b) => [b.id, b]));
-    const orderedBooks = items
-      .map((i) => bookMap.get(i.book_id))
-      .filter(Boolean) as Array<{ id: string; title: string; cover_image: string | null; author_id: string }>;
-
-    const withAuthors = await Promise.all(
-      orderedBooks.map(async (book) => {
-        const { data: profile } = await supabase
-          .from("profiles")
-          .select("display_name, username")
-          .eq("user_id", book.author_id)
-          .maybeSingle();
-        return {
-          id: book.id,
-          title: book.title,
-          author: profile?.display_name || profile?.username || "Author",
-          cover: book.cover_image,
-        };
-      })
-    );
-
-    result.push({
+  if (allBookIds.length === 0) {
+    return lists.map((list) => ({
       id: list.id,
       slug: list.slug,
       title: list.title,
       description: list.description ?? null,
-      items: withAuthors,
-    });
+      items: [],
+    }));
   }
 
-  return result;
+  // Batch: fetch all books in one query instead of one per list
+  const { data: allBooks } = await supabase
+    .from("books")
+    .select("id, title, cover_image, author_id")
+    .eq("status", "PUBLISHED")
+    .in("id", allBookIds);
+
+  const bookMap = new Map((allBooks ?? []).map((b) => [b.id, b]));
+
+  // Batch: fetch all author profiles in one query instead of one per book
+  const authorIds = [...new Set((allBooks ?? []).map((b) => b.author_id))];
+  const { data: profiles } = await supabase
+    .from("profiles")
+    .select("user_id, display_name, username")
+    .in("user_id", authorIds);
+
+  const authorMap = new Map(
+    (profiles ?? []).map((p) => [p.user_id, p.display_name || p.username || "Author"])
+  );
+
+  return lists.map((list) => {
+    const listItems = itemsByList.get(list.id) ?? [];
+    const items = listItems
+      .map((item) => {
+        const book = bookMap.get(item.book_id);
+        if (!book) return null;
+        return {
+          id: book.id,
+          title: book.title,
+          author: authorMap.get(book.author_id) ?? "Author",
+          cover: book.cover_image,
+        };
+      })
+      .filter(Boolean) as Array<{ id: string; title: string; author: string; cover: string | null }>;
+
+    return {
+      id: list.id,
+      slug: list.slug,
+      title: list.title,
+      description: list.description ?? null,
+      items,
+    };
+  });
 }
 
 async function enrichBooksWithAuthor(
   supabase: Awaited<ReturnType<typeof createClient>>,
   books: Array<{ id: string; title: string; cover_image: string | null; author_id: string }>
 ) {
-  return Promise.all(
-    books.map(async (book) => {
-      const { data: profile } = await supabase
-        .from("profiles")
-        .select("display_name, username")
-        .eq("user_id", book.author_id)
-        .maybeSingle();
-      return {
-        id: book.id,
-        title: book.title,
-        author: profile?.display_name || profile?.username || "Author",
-        cover: book.cover_image,
-      };
-    })
+  if (books.length === 0) return [];
+
+  const authorIds = [...new Set(books.map((b) => b.author_id))];
+  const { data: profiles } = await supabase
+    .from("profiles")
+    .select("user_id, display_name, username")
+    .in("user_id", authorIds);
+
+  const authorMap = new Map(
+    (profiles ?? []).map((p) => [p.user_id, p.display_name || p.username || "Author"])
   );
+
+  return books.map((book) => ({
+    id: book.id,
+    title: book.title,
+    author: authorMap.get(book.author_id) ?? "Author",
+    cover: book.cover_image,
+  }));
 }
 
 export default async function ReaderDiscoverPage({
@@ -188,15 +207,27 @@ export default async function ReaderDiscoverPage({
     enrichBooksWithAuthor(supabase, newBooksRaw),
   ]);
 
-  const authorsWithAvatars = await Promise.all(
-    profiles.map(async (p) => ({
+  // Resolve avatars using existing supabase client (avoids creating a new client per avatar)
+  const avatarBucket = supabase.storage.from("avatars");
+  const authorsWithAvatars = profiles.map((p) => {
+    let avatar: string | null = null;
+    const path = p.avatar_url;
+    if (path && typeof path === "string" && path.trim()) {
+      if (path.startsWith("http://") || path.startsWith("https://")) {
+        avatar = path;
+      } else if (AVATARS_BUCKET_PUBLIC) {
+        avatar = avatarBucket.getPublicUrl(path).data.publicUrl;
+      }
+      // Private bucket signed URLs would need async; skip for now (public is default)
+    }
+    return {
       id: p.user_id,
       name: p.display_name || p.username || "author",
       genre: "Storyteller",
-      avatar: await getAvatarUrlFromPathServer(p.avatar_url),
+      avatar,
       href: `/reader/authors/${p.user_id}`,
-    }))
-  );
+    };
+  });
 
   const langLabel = getLanguageLabel(language);
 
