@@ -42,6 +42,8 @@ yarn-error.log*
 
 # python envs
 qwen3tts-env/
+qwen3tts-env311/
+qwen3tts-env311c/
 .venv-tts/
 .venv/
 venv/
@@ -52,9 +54,16 @@ __pycache__/
 *.pyo
 *.dylib
 
+# accidental nested app artifacts
+apps/web/apps/
+
 # vercel
 .vercel
 
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# Model files
+*.onnx
+vendor/tts/
