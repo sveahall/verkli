@@ -13,6 +13,7 @@ import {
 import { apiError, E_GENERIC_ERROR, E_INVALID_REQUEST_BODY } from "@/lib/api-errors";
 
 export const runtime = "nodejs";
+// Node runtime is required for Stripe signature verification.
 
 type StripeRecord = Record<string, unknown>;
 
@@ -232,6 +233,7 @@ async function finalizeCheckoutSession(
   rpcName: FinalizeCheckoutFunction,
   session: StripeRecord
 ): Promise<boolean> {
+  // Checkout side effects are finalized atomically in SQL functions.
   const sessionId = trimToNull(session.id);
   if (!sessionId) {
     return false;

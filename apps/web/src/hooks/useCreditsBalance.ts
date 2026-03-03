@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { resolveErrorMessage } from "@/lib/error-messages";
 import { useDocumentVisible } from "@/hooks/useDocumentVisible";
+import { API_ROUTES } from "@/lib/api-routes";
 
 type Payload = { balance?: number; error?: string };
 
@@ -22,7 +23,8 @@ export function useCreditsBalance(options?: { pollIntervalMs?: number }) {
     abortRef.current = controller;
     inFlightRef.current = true;
     try {
-      const res = await fetch("/api/credits/balance", {
+      // Fetch through canonical API path.
+      const res = await fetch(API_ROUTES.creditsBalance, {
         method: "GET",
         credentials: "include",
         cache: "no-store",

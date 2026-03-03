@@ -1,9 +1,13 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { existsSync } from "node:fs";
 import {
   E_DONATION_CHECKOUT_FAILED,
   E_INVALID_DONATION_AMOUNT,
   E_UNAUTHORIZED,
 } from "@/lib/api-errors";
+import { API_ROUTES } from "@/lib/api-routes";
+
+// Payment route contract tests for donation checkout.
 
 const mocks = vi.hoisted(() => ({
   createClient: vi.fn(),
@@ -95,14 +99,18 @@ function makeAdminClient(existingDonation: Record<string, unknown> | null = null
 }
 
 function makeRequest(body: unknown): Request {
-  return new Request("http://localhost/api/donations/checkout", {
+  return new Request(`http://localhost${API_ROUTES.donationsCheckout}`, {
     method: "POST",
     headers: { "content-type": "application/json" },
     body: JSON.stringify(body),
   });
 }
 
-describe("POST /api/donations/checkout", () => {
+describe(`POST ${API_ROUTES.donationsCheckout}`, () => {
+  it("fails fast if route module file is missing", () => {
+    expect(existsSync(new URL("./checkout/route.ts", import.meta.url))).toBe(true);
+  });
+
   beforeEach(() => {
     vi.clearAllMocks();
     mocks.createDonationCheckoutSession.mockResolvedValue({

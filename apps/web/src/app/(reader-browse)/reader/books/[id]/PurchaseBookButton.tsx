@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { API_ROUTES } from "@/lib/api-routes";
 
 type Props = {
   bookId: string;
@@ -49,7 +50,8 @@ export default function PurchaseBookButton({ bookId, amount, currency }: Props) 
     setError(null);
 
     try {
-      const res = await fetch(`/api/books/${bookId}/purchase/checkout`, {
+      // Canonical purchase checkout path.
+      const res = await fetch(API_ROUTES.bookPurchaseCheckout(bookId), {
         method: "POST",
       });
       const body = await res.json().catch(() => ({}));
