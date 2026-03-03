@@ -1,51 +1,20 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
-import { apiError, E_GENRES_LOAD_FAILED } from "@/lib/api-errors";
-
-const FALLBACK_GENRES = [
-  "Fiction",
-  "Non-Fiction",
-  "Fantasy",
-  "Sci-Fi",
-  "Romance",
-  "Mystery",
-  "Thriller",
-  "Horror",
-  "Biography",
-  "Self-Help",
-  "History",
-  "Poetry",
-  "Drama",
-  "Children",
-  "Young Adult",
-  "Comics",
-];
+import { apiError, E_DATABASE_ERROR } from "@/lib/api-errors";
 
 export async function GET() {
-  try {
-    const supabase = await createClient();
+  const supabase = await createClient();
 
-    // Try to query the genres table
-    const { data: rows, error } = await supabase
-      .from("genres")
-      .select("id, name")
-      .order("name");
+  const { data, error } = await supabase
+    .from("genres")
+    .select("id, slug, name_sv, name_en, icon, display_order")
+    .order("display_order", { ascending: true })
+    .order("name_sv", { ascending: true });
 
-    if (!error && rows && rows.length > 0) {
-      return NextResponse.json({
-        genres: rows.map((r) => ({ id: String(r.id), name: String(r.name) })),
-      });
-    }
-
-    // Fall back to hardcoded list if genres table doesn't exist or is empty
-    const genres = FALLBACK_GENRES.map((name, i) => ({
-      id: `genre-${i}`,
-      name,
-    }));
-
-    return NextResponse.json({ genres });
-  } catch (err) {
-    console.error("[genres] unexpected error", err);
-    return apiError(E_GENRES_LOAD_FAILED, 500);
+  if (error) {
+    console.error("[genres.get] failed", { message: error.message });
+    return apiError(E_DATABASE_ERROR, 500);
   }
+
+  return NextResponse.json({ genres: data ?? [] });
 }
