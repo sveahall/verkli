@@ -9,16 +9,20 @@ vi.mock("@/lib/billing/server", () => ({
   requireProBillingForApi: vi.fn(),
 }));
 
-vi.mock("@/lib/ai/textToVideo", () => ({
-  makeVideo: vi.fn(() =>
-    Promise.resolve({ id: "video-1", status: "completed" })
-  ),
+vi.mock("@/lib/supabase/admin", () => ({
+  createAdminClient: vi.fn(),
+}));
+
+vi.mock("@/lib/marketing-queue", () => ({
+  enqueueTextToVideoJob: vi.fn(),
 }));
 
 const { requireAuthorRoleForApi } = await import(
   "@/lib/auth/require-author"
 );
 const { requireProBillingForApi } = await import("@/lib/billing/server");
+const { createAdminClient } = await import("@/lib/supabase/admin");
+const { enqueueTextToVideoJob } = await import("@/lib/marketing-queue");
 const { POST } = await import("./route");
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
@@ -60,10 +64,28 @@ function mockBillingFail() {
   });
 }
 
+function mockAdminCreateJob(jobId = "job-1") {
+  const single = vi.fn().mockResolvedValue({
+    data: { id: jobId },
+    error: null,
+  });
+  const select = vi.fn(() => ({ single }));
+  const insert = vi.fn(() => ({ select }));
+  const eq = vi.fn(() => ({ eq: vi.fn() }));
+  const update = vi.fn(() => ({ eq }));
+  const from = vi.fn((table: string) => {
+    if (table === "ai_jobs") return { insert, update };
+    throw new Error(`Unexpected table: ${table}`);
+  });
+  vi.mocked(createAdminClient).mockReturnValue({ from } as never);
+}
+
 // ─── Tests ──────────────────────────────────────────────────────────────────
 describe("security: POST /api/ai/text-to-video", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mockAdminCreateJob();
+    vi.mocked(enqueueTextToVideoJob).mockResolvedValue("job-1");
   });
 
   it("returns 401 when not authenticated", async () => {
@@ -88,14 +110,15 @@ describe("security: POST /api/ai/text-to-video", () => {
     expect(res.status).toBe(403);
   });
 
-  it("returns 200 for authenticated author with Pro billing", async () => {
+  it("returns 202 for authenticated author with Pro billing", async () => {
     mockAuthSuccess();
     mockBillingOk();
 
     const res = await POST(makeRequest());
-    expect(res.status).toBe(200);
+    expect(res.status).toBe(202);
     const body = await res.json();
-    expect(body).toHaveProperty("id");
+    expect(body).toHaveProperty("jobId", "job-1");
+    expect(body).toHaveProperty("status", "pending");
   });
 
   it("rate-limits after 5 requests per minute per user", async () => {
@@ -105,7 +128,7 @@ describe("security: POST /api/ai/text-to-video", () => {
     // First 5 should succeed
     for (let i = 0; i < 5; i++) {
       const res = await POST(makeRequest());
-      expect(res.status).toBe(200);
+      expect(res.status).toBe(202);
     }
 
     // 6th should be rate-limited
@@ -130,7 +153,7 @@ describe("security: POST /api/ai/text-to-video", () => {
     // User B should still work
     mockAuthSuccess("user-b");
     const resB = await POST(makeRequest());
-    expect(resB.status).toBe(200);
+    expect(resB.status).toBe(202);
   });
 
   it("returns 400 when promptText is missing", async () => {

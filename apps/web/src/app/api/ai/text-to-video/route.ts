@@ -1,12 +1,14 @@
-import { makeVideo, type TextToVideoOptions } from "@/lib/ai/textToVideo";
 import { NextResponse } from "next/server";
 import { requireAuthorRoleForApi } from "@/lib/auth/require-author";
 import { requireProBillingForApi } from "@/lib/billing/server";
+import { createAdminClient } from "@/lib/supabase/admin";
+import { enqueueTextToVideoJob } from "@/lib/marketing-queue";
 import {
   apiError,
   E_UNAUTHORIZED,
   E_PROMPT_TEXT_REQUIRED,
-  E_TEXT_TO_VIDEO_FAILED,
+  E_JOB_CREATION_FAILED,
+  E_QUEUE_UNAVAILABLE,
   E_RATE_LIMIT_EXCEEDED,
 } from "@/lib/api-errors";
 
@@ -44,13 +46,20 @@ function checkRateLimit(userId: string): { allowed: boolean; retryAfterSeconds?:
 const RATIOS = ["1280:720", "720:1280", "1080:1920", "1920:1080"] as const;
 const DURATIONS = [4, 6, 8] as const;
 
-function parseBody(body: unknown): Partial<TextToVideoOptions> | null {
+type ParsedTextToVideoOptions = {
+  promptText?: string;
+  duration?: 4 | 6 | 8;
+  ratio?: "1280:720" | "720:1280" | "1080:1920" | "1920:1080";
+  audio?: boolean;
+};
+
+function parseBody(body: unknown): ParsedTextToVideoOptions | null {
   if (!body || typeof body !== "object") return null;
   const o = body as Record<string, unknown>;
-  const opts: Partial<TextToVideoOptions> = {};
+  const opts: ParsedTextToVideoOptions = {};
   if (typeof o.promptText === "string" && o.promptText.trim()) opts.promptText = o.promptText.trim();
   if (typeof o.duration === "number" && DURATIONS.includes(o.duration as (typeof DURATIONS)[number])) opts.duration = o.duration as 4 | 6 | 8;
-  if (typeof o.ratio === "string" && RATIOS.includes(o.ratio as (typeof RATIOS)[number])) opts.ratio = o.ratio as TextToVideoOptions["ratio"];
+  if (typeof o.ratio === "string" && RATIOS.includes(o.ratio as (typeof RATIOS)[number])) opts.ratio = o.ratio as "1280:720" | "720:1280" | "1080:1920" | "1920:1080";
   if (typeof o.audio === "boolean") opts.audio = o.audio;
   return opts;
 }
@@ -72,20 +81,68 @@ export async function POST(req: Request) {
   const proGate = await requireProBillingForApi(user.id);
   if (!proGate.ok) return proGate.response;
 
-  try {
-    let options: Partial<TextToVideoOptions> = {};
-    const contentType = req.headers.get("content-type") ?? "";
-    if (contentType.includes("application/json")) {
-      const body = await req.json();
-      options = parseBody(body) ?? {};
-    }
-    if (!options.promptText) {
-      return apiError(E_PROMPT_TEXT_REQUIRED, 400);
-    }
-    const result = await makeVideo(options as TextToVideoOptions);
-    return NextResponse.json(result);
-  } catch (err) {
-    console.error("[text-to-video] generation failed", err instanceof Error ? err.message : String(err));
-    return apiError(E_TEXT_TO_VIDEO_FAILED, 500);
+  let options: ParsedTextToVideoOptions = {};
+  const contentType = req.headers.get("content-type") ?? "";
+  if (contentType.includes("application/json")) {
+    const body = await req.json();
+    options = parseBody(body) ?? {};
   }
+  if (!options.promptText) {
+    return apiError(E_PROMPT_TEXT_REQUIRED, 400);
+  }
+
+  const admin = createAdminClient();
+  const { data: job, error: jobError } = await admin
+    .from("ai_jobs" as never)
+    .insert({
+      user_id: user.id,
+      kind: "text_to_video",
+      status: "pending",
+      progress: 0,
+      input: {
+        options,
+      },
+      output: {
+        stage: "queued",
+      },
+    } as never)
+    .select("id")
+    .single();
+
+  if (jobError || !job?.id) {
+    console.error("[text-to-video] failed to create job", {
+      userId: user.id,
+      message: jobError?.message ?? "unknown",
+      code: jobError?.code,
+    });
+    return apiError(E_JOB_CREATION_FAILED, 500);
+  }
+
+  const queued = await enqueueTextToVideoJob({
+    jobId: job.id,
+    userId: user.id,
+    options,
+  });
+
+  if (!queued) {
+    await admin
+      .from("ai_jobs" as never)
+      .update({
+        status: "failed",
+        error: "Queue unavailable",
+      } as never)
+      .eq("id", job.id)
+      .eq("user_id", user.id);
+    return apiError(E_QUEUE_UNAVAILABLE, 503);
+  }
+
+  return NextResponse.json(
+    {
+      ok: true,
+      jobId: job.id,
+      status: "pending",
+      statusUrl: `/api/ai/jobs/${job.id}`,
+    },
+    { status: 202 }
+  );
 }

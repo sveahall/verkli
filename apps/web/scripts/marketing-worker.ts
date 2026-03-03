@@ -1,9 +1,12 @@
 /**
- * BullMQ worker: process "marketing-generate" jobs for campaign content generation.
+ * BullMQ worker: process marketing queue jobs.
  * Run from apps/web: npm run marketing-worker (requires REDIS_URL, Supabase env)
  *
- * Template-based copy generation per channel. No AI calls yet — budget gate
- * protects future AI integration.
+ * Handles:
+ * - marketing-generate (campaign copy generation)
+ * - trailer-build (trailer prompt + image-to-video + stitching + upload)
+ * - marketing-video-generate (single teaser video generation + upload)
+ * - text-to-video (Runway text-to-video)
  */
 
 import "./load-dotenv";
@@ -11,10 +14,21 @@ import { assertServerEnv, getRedisConnectionOptions } from "../src/lib/env";
 
 import { Worker, UnrecoverableError } from "bullmq";
 import { createAdminClient } from "../src/lib/supabase/admin";
-import type { MarketingJobData } from "../src/lib/marketing-queue";
+import type {
+  MarketingJobData,
+  MarketingVideoGenerateJobData,
+  TextToVideoJobData,
+  TrailerBuildJobData,
+} from "../src/lib/marketing-queue";
 import { getLanguageLabel } from "../src/lib/languages";
 import { isDuplicate } from "../src/lib/workers/idempotency";
 import { checkBudget, trackUsage, BudgetExceededError } from "../src/lib/workers/budget";
+import { generateTrailerPrompt, type TrailerGenerateRequest } from "../src/lib/ai/trailer-generation";
+import { generateImageToVideo } from "../src/lib/higgsfield";
+import { stitchSceneVideos } from "../src/lib/marketing/trailer-ffmpeg";
+import { uploadTrailerAndGetPublicUrl } from "../src/lib/marketing/trailer-storage";
+import { makeVideo } from "../src/lib/ai/textToVideo";
+import { sanitizeJobErrorForStorage } from "../src/lib/sanitize-job-error";
 
 import { QUEUE_NAMES } from "../src/lib/queue-names";
 
@@ -22,9 +36,42 @@ const QUEUE_NAME = QUEUE_NAMES.MARKETING;
 
 const CHANNELS = ["generic", "tiktok", "instagram", "x"] as const;
 type Channel = (typeof CHANNELS)[number];
+const SCENE_DURATION_SECONDS = 5;
+const MAX_SCENES = 3;
+const TRAILER_DOWNLOAD_TIMEOUT_MS = 20_000;
+const ESTIMATED_COST_USD = 0.15;
 
 function isChannel(s: string): s is Channel {
   return CHANNELS.includes(s as Channel);
+}
+
+async function fetchWithTimeout(url: string, timeoutMs: number): Promise<Response> {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    return await fetch(url, { signal: controller.signal });
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
+async function updateJob(
+  supabase: ReturnType<typeof createAdminClient>,
+  jobId: string,
+  updates: Record<string, unknown>
+): Promise<void> {
+  const { error } = await supabase
+    .from("ai_jobs")
+    .update(updates)
+    .eq("id", jobId);
+
+  if (error) {
+    console.error("[marketing worker] failed to update ai_jobs row", {
+      jobId,
+      message: error.message,
+      code: error.code,
+    });
+  }
 }
 
 function generateCopy(
@@ -74,7 +121,7 @@ function assertWorkerEnv(): void {
   }
 }
 
-async function processJob(payload: MarketingJobData) {
+async function processMarketingGenerateJob(payload: MarketingJobData) {
   const { bookId, authorId, channels, language } = payload;
   const supabase = createAdminClient();
 
@@ -186,6 +233,247 @@ async function processJob(payload: MarketingJobData) {
   );
 }
 
+async function processTrailerBuildJob(payload: TrailerBuildJobData) {
+  const { jobId, assetId, userId, coverImageUrl, trailerRequest } = payload;
+  const supabase = createAdminClient();
+
+  await updateJob(supabase, jobId, {
+    status: "processing",
+    progress: 10,
+    started_at: new Date().toISOString(),
+    error: null,
+  });
+
+  try {
+    const trailerResult = await generateTrailerPrompt(
+      trailerRequest as TrailerGenerateRequest
+    );
+    const scenes = trailerResult.output.scenes.slice(0, MAX_SCENES);
+    if (scenes.length === 0) {
+      throw new UnrecoverableError("No trailer scenes returned.");
+    }
+
+    await updateJob(supabase, jobId, { progress: 45 });
+
+    const sceneResults = await Promise.all(
+      scenes.map((scene) =>
+        generateImageToVideo({
+          prompt: scene.visual_prompt,
+          imageUrl: coverImageUrl,
+          durationSeconds: SCENE_DURATION_SECONDS,
+        })
+      )
+    );
+
+    const finalVideoBuffer = await stitchSceneVideos(
+      sceneResults.map((result) => result.videoUrl)
+    );
+
+    const uploadResult = await uploadTrailerAndGetPublicUrl(
+      supabase,
+      userId,
+      assetId,
+      finalVideoBuffer,
+      "video/mp4"
+    );
+
+    if ("error" in uploadResult) {
+      throw new Error(uploadResult.error);
+    }
+
+    const providerRequestId = sceneResults.map((result) => result.requestId).join(",");
+    const { error: readyUpdateError } = await supabase
+      .from("media_assets")
+      .update({
+        status: "ready",
+        provider: "higgsfield",
+        provider_request_id: providerRequestId,
+        output_url: uploadResult.publicUrl,
+        metadata: trailerResult.output,
+        duration_seconds: scenes.length * SCENE_DURATION_SECONDS,
+        error: null,
+      })
+      .eq("id", assetId)
+      .eq("user_id", userId);
+
+    if (readyUpdateError) {
+      throw new Error(`Failed to mark media asset ready: ${readyUpdateError.message}`);
+    }
+
+    await updateJob(supabase, jobId, {
+      status: "completed",
+      progress: 100,
+      finished_at: new Date().toISOString(),
+      output: {
+        assetId,
+        url: uploadResult.publicUrl,
+        sceneCount: scenes.length,
+        providerRequestId,
+      },
+      error: null,
+    });
+  } catch (err) {
+    const rawMessage = err instanceof Error ? err.message : String(err);
+    const safeMessage =
+      sanitizeJobErrorForStorage(rawMessage) ??
+      "Något gick fel under bearbetningen. Försök igen.";
+
+    await supabase
+      .from("media_assets")
+      .update({
+        status: "failed",
+        error: safeMessage,
+      })
+      .eq("id", assetId)
+      .eq("user_id", userId);
+
+    await updateJob(supabase, jobId, {
+      status: "failed",
+      progress: 0,
+      finished_at: new Date().toISOString(),
+      error: safeMessage,
+    });
+
+    throw err;
+  }
+}
+
+async function processMarketingVideoGenerateJob(
+  payload: MarketingVideoGenerateJobData
+) {
+  const { jobId, assetId, userId, prompt, imageUrl, metadata } = payload;
+  const supabase = createAdminClient();
+
+  await updateJob(supabase, jobId, {
+    status: "processing",
+    progress: 10,
+    started_at: new Date().toISOString(),
+    error: null,
+  });
+
+  try {
+    const startMs = Date.now();
+    const { requestId, videoUrl } = await generateImageToVideo({ prompt, imageUrl });
+    await updateJob(supabase, jobId, { progress: 55 });
+
+    const res = await fetchWithTimeout(videoUrl, TRAILER_DOWNLOAD_TIMEOUT_MS);
+    if (!res.ok) {
+      throw new Error(`Failed to fetch trailer from provider: ${res.status}`);
+    }
+    const videoBuffer = await res.arrayBuffer();
+
+    const uploadResult = await uploadTrailerAndGetPublicUrl(
+      supabase,
+      userId,
+      assetId,
+      videoBuffer,
+      res.headers.get("content-type") || "video/mp4"
+    );
+
+    if ("error" in uploadResult) {
+      throw new Error(`Trailer storage upload failed: ${uploadResult.error}`);
+    }
+
+    const generationTimeMs = Date.now() - startMs;
+    const persistedMetadata = {
+      ...(metadata?.scenes != null && { scenes: metadata.scenes }),
+      ...(metadata?.caption != null && { caption: metadata.caption }),
+      ...(metadata?.hashtags != null && { hashtags: metadata.hashtags }),
+      generation_time_ms: generationTimeMs,
+    };
+
+    const { error: updateReadyError } = await supabase
+      .from("media_assets")
+      .update({
+        status: "ready",
+        provider: "higgsfield",
+        provider_request_id: requestId,
+        output_url: uploadResult.publicUrl,
+        metadata: persistedMetadata,
+        estimated_cost_usd: ESTIMATED_COST_USD,
+        error: null,
+      })
+      .eq("id", assetId)
+      .eq("user_id", userId);
+
+    if (updateReadyError) {
+      throw new Error(`Failed to mark media asset ready: ${updateReadyError.message}`);
+    }
+
+    await updateJob(supabase, jobId, {
+      status: "completed",
+      progress: 100,
+      finished_at: new Date().toISOString(),
+      output: {
+        assetId,
+        url: uploadResult.publicUrl,
+        providerRequestId: requestId,
+      },
+      error: null,
+    });
+  } catch (err) {
+    const rawMessage = err instanceof Error ? err.message : String(err);
+    const safeMessage =
+      sanitizeJobErrorForStorage(rawMessage) ??
+      "Något gick fel under bearbetningen. Försök igen.";
+
+    await supabase
+      .from("media_assets")
+      .update({
+        status: "failed",
+        error: safeMessage,
+      })
+      .eq("id", assetId)
+      .eq("user_id", userId);
+
+    await updateJob(supabase, jobId, {
+      status: "failed",
+      progress: 0,
+      finished_at: new Date().toISOString(),
+      error: safeMessage,
+    });
+
+    throw err;
+  }
+}
+
+async function processTextToVideoJob(payload: TextToVideoJobData) {
+  const { jobId, userId, options } = payload;
+  const supabase = createAdminClient();
+
+  await updateJob(supabase, jobId, {
+    status: "processing",
+    progress: 10,
+    started_at: new Date().toISOString(),
+    error: null,
+  });
+
+  try {
+    const result = await makeVideo(options);
+    await updateJob(supabase, jobId, {
+      status: "completed",
+      progress: 100,
+      finished_at: new Date().toISOString(),
+      output: result,
+      error: null,
+    });
+  } catch (err) {
+    const rawMessage = err instanceof Error ? err.message : String(err);
+    const safeMessage =
+      sanitizeJobErrorForStorage(rawMessage) ??
+      "Något gick fel under bearbetningen. Försök igen.";
+
+    await updateJob(supabase, jobId, {
+      status: "failed",
+      progress: 0,
+      finished_at: new Date().toISOString(),
+      error: safeMessage,
+    });
+
+    throw err;
+  }
+}
+
 function main() {
   assertWorkerEnv();
 
@@ -206,8 +494,26 @@ function main() {
   const worker = new Worker(
     QUEUE_NAME,
     async (job) => {
-      if (job.name === "marketing-generate" && job.data) {
-        await processJob(job.data as MarketingJobData);
+      if (!job.data) {
+        console.warn("[marketing worker] job missing data:", job.id, job.name);
+        return;
+      }
+
+      switch (job.name) {
+        case "marketing-generate":
+          await processMarketingGenerateJob(job.data as MarketingJobData);
+          return;
+        case "trailer-build":
+          await processTrailerBuildJob(job.data as TrailerBuildJobData);
+          return;
+        case "marketing-video-generate":
+          await processMarketingVideoGenerateJob(job.data as MarketingVideoGenerateJobData);
+          return;
+        case "text-to-video":
+          await processTextToVideoJob(job.data as TextToVideoJobData);
+          return;
+        default:
+          throw new UnrecoverableError(`Unexpected marketing job name: ${job.name}`);
       }
     },
     {

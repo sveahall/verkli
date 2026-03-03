@@ -4,39 +4,18 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { requireAuthorAndMarketingEnabled } from "@/lib/auth/require-author-marketing";
 import { assertBookOwned } from "@/lib/marketing/assert-book-owner";
 import { videoGenerateBodySchema } from "@/lib/marketing/schemas";
-import { uploadTrailerAndGetPublicUrl } from "@/lib/marketing/trailer-storage";
-import { generateImageToVideo } from "@/lib/higgsfield";
+import { enqueueMarketingVideoGenerateJob } from "@/lib/marketing-queue";
 import {
   apiError,
   E_DATABASE_ERROR,
   E_INVALID_JSON,
-  E_TEXT_TO_VIDEO_FAILED,
+  E_JOB_CREATION_FAILED,
+  E_QUEUE_UNAVAILABLE,
   E_VALIDATION_FAILED,
 } from "@/lib/api-errors";
 
 export const runtime = "nodejs";
 export const maxDuration = 180;
-const TRAILER_DOWNLOAD_TIMEOUT_MS = 20_000;
-
-/** Estimated cost per 5s Higgsfield trailer (USD). */
-const ESTIMATED_COST_USD = 0.15;
-
-async function fetchWithTimeout(url: string, timeoutMs: number): Promise<Response> {
-  const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), timeoutMs);
-  try {
-    return await fetch(url, { signal: controller.signal });
-  } catch (error) {
-    if (error instanceof Error && error.name === "AbortError") {
-      throw new Error(
-        `[marketing video generate] trailer download timed out after ${timeoutMs}ms.`
-      );
-    }
-    throw error;
-  } finally {
-    clearTimeout(timeout);
-  }
-}
 
 export async function POST(request: Request) {
   const gate = await requireAuthorAndMarketingEnabled();
@@ -56,7 +35,6 @@ export async function POST(request: Request) {
 
   const { bookId, prompt, imageUrl, metadata: requestMetadata } = parsed.data;
   const supabase = await createClient();
-  const admin = createAdminClient();
 
   const ownership = await assertBookOwned(supabase, gate.user.id, bookId);
   if (!ownership.ok) return ownership.response;
@@ -86,82 +64,76 @@ export async function POST(request: Request) {
     return apiError(E_DATABASE_ERROR, 500);
   }
 
-  try {
-    const startMs = Date.now();
-    const { requestId, videoUrl } = await generateImageToVideo({ prompt, imageUrl });
+  const admin = createAdminClient();
+  const { data: job, error: jobError } = await admin
+    .from("ai_jobs" as never)
+    .insert({
+      user_id: gate.user.id,
+      kind: "marketing_video_generate",
+      book_id: bookId,
+      status: "pending",
+      progress: 0,
+      input: {
+        assetId: inserted.id,
+        prompt,
+        imageUrl,
+        metadata: requestMetadata ?? null,
+      },
+      output: {
+        stage: "queued",
+      },
+    } as never)
+    .select("id")
+    .single();
 
-    const res = await fetchWithTimeout(videoUrl, TRAILER_DOWNLOAD_TIMEOUT_MS);
-    if (!res.ok) {
-      throw new Error(`Failed to fetch trailer from provider: ${res.status}`);
-    }
-    const videoBuffer = await res.arrayBuffer();
-
-    const uploadResult = await uploadTrailerAndGetPublicUrl(
-      admin,
-      gate.user.id,
-      inserted.id,
-      videoBuffer,
-      res.headers.get("content-type") || "video/mp4"
-    );
-
-    if ("error" in uploadResult) {
-      throw new Error(`Trailer storage upload failed: ${uploadResult.error}`);
-    }
-
-    const generationTimeMs = Date.now() - startMs;
-    const metadata = {
-      ...(requestMetadata?.scenes != null && { scenes: requestMetadata.scenes }),
-      ...(requestMetadata?.caption != null && { caption: requestMetadata.caption }),
-      ...(requestMetadata?.hashtags != null && { hashtags: requestMetadata.hashtags }),
-      generation_time_ms: generationTimeMs,
-    };
-
-    const { data: updatedReady, error: updateReadyError } = await supabase
+  if (jobError || !job?.id) {
+    console.error("[marketing video generate] failed to create job", {
+      userId: gate.user.id,
+      bookId,
+      assetId: inserted.id,
+      message: jobError?.message ?? "unknown",
+      code: jobError?.code,
+    });
+    await supabase
       .from("media_assets")
-      .update({
-        status: "ready",
-        provider_request_id: requestId,
-        output_url: uploadResult.publicUrl,
-        metadata,
-        estimated_cost_usd: ESTIMATED_COST_USD,
-        error: null,
-      })
+      .update({ status: "failed", error: "Job creation failed" })
       .eq("id", inserted.id)
-      .eq("user_id", gate.user.id)
-      .select("id")
-      .single();
-
-    if (updateReadyError || !updatedReady?.id) {
-      console.error(
-        "[marketing video generate] mark ready failed:",
-        updateReadyError?.message ?? "no row updated"
-      );
-      return apiError(E_DATABASE_ERROR, 500);
-    }
-
-    return NextResponse.json({ assetId: inserted.id, url: uploadResult.publicUrl });
-  } catch (err) {
-    const message = err instanceof Error ? err.message : "Unknown Higgsfield error";
-
-    const { data: updatedFailed, error: updateFailedError } = await supabase
-      .from("media_assets")
-      .update({
-        status: "failed",
-        error: message,
-      })
-      .eq("id", inserted.id)
-      .eq("user_id", gate.user.id)
-      .select("id")
-      .single();
-
-    if (updateFailedError || !updatedFailed?.id) {
-      console.error(
-        "[marketing video generate] mark failed update error:",
-        updateFailedError?.message ?? "no row updated"
-      );
-    }
-
-    console.error("[marketing video generate] higgsfield generation failed:", message);
-    return apiError(E_TEXT_TO_VIDEO_FAILED, 502);
+      .eq("user_id", gate.user.id);
+    return apiError(E_JOB_CREATION_FAILED, 500);
   }
+
+  const queued = await enqueueMarketingVideoGenerateJob({
+    jobId: job.id,
+    assetId: inserted.id,
+    bookId,
+    userId: gate.user.id,
+    prompt,
+    imageUrl,
+    metadata: (requestMetadata as Record<string, unknown> | null | undefined) ?? null,
+  });
+
+  if (!queued) {
+    await admin
+      .from("ai_jobs" as never)
+      .update({ status: "failed", error: "Queue unavailable" } as never)
+      .eq("id", job.id)
+      .eq("user_id", gate.user.id);
+    await supabase
+      .from("media_assets")
+      .update({ status: "failed", error: "Queue unavailable" })
+      .eq("id", inserted.id)
+      .eq("user_id", gate.user.id);
+    return apiError(E_QUEUE_UNAVAILABLE, 503);
+  }
+
+  return NextResponse.json(
+    {
+      ok: true,
+      jobId: job.id,
+      assetId: inserted.id,
+      status: "pending",
+      statusUrl: `/api/ai/jobs/${job.id}`,
+    },
+    { status: 202 }
+  );
 }

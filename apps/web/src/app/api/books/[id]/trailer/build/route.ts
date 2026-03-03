@@ -6,19 +6,16 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { createPerUserRateLimiter } from "@/lib/rate-limit";
 import {
   TrailerGenerateRequestSchema,
-  generateTrailerPrompt,
 } from "@/lib/ai/trailer-generation";
-import { generateImageToVideo } from "@/lib/higgsfield";
-import { uploadTrailerAndGetPublicUrl } from "@/lib/marketing/trailer-storage";
-import { stitchSceneVideos } from "@/lib/marketing/trailer-ffmpeg";
+import { enqueueTrailerBuildJob } from "@/lib/marketing-queue";
 import {
   apiError,
   E_BOOK_NOT_FOUND,
   E_DATABASE_ERROR,
+  E_JOB_CREATION_FAILED,
   E_MARKETING_FEATURE_DISABLED,
+  E_QUEUE_UNAVAILABLE,
   E_RATE_LIMIT_EXCEEDED,
-  E_TEXT_TO_VIDEO_FAILED,
-  E_TRAILER_GENERATION_FAILED,
   E_UNAUTHORIZED,
   E_VALIDATION_FAILED,
 } from "@/lib/api-errors";
@@ -26,7 +23,6 @@ import {
 export const maxDuration = 600;
 
 const SCENE_DURATION_SECONDS = 5;
-const MAX_SCENES = 3;
 const rateLimiter = createPerUserRateLimiter({ maxPerMinute: 1 });
 
 type BookRow = {
@@ -115,24 +111,6 @@ export async function POST(
     });
   }
 
-  let trailerResult: Awaited<ReturnType<typeof generateTrailerPrompt>>;
-  try {
-    trailerResult = await generateTrailerPrompt(parsed.data);
-  } catch (err) {
-    console.error(
-      "[trailer build] trailer generation failed:",
-      err instanceof Error ? err.message : String(err)
-    );
-    return apiError(E_TRAILER_GENERATION_FAILED, 500);
-  }
-
-  const scenes = trailerResult.output.scenes.slice(0, MAX_SCENES);
-  if (scenes.length === 0) {
-    return apiError(E_TRAILER_GENERATION_FAILED, 500, {
-      detail: "No trailer scenes returned.",
-    });
-  }
-
   const { data: inserted, error: insertError } = await admin
     .from("media_assets")
     .insert({
@@ -143,9 +121,8 @@ export async function POST(
       provider: "higgsfield",
       input_json: {
         trailer_request: parsed.data,
-        trailer_generation_metadata: trailerResult.metadata,
       },
-      duration_seconds: scenes.length * SCENE_DURATION_SECONDS,
+      duration_seconds: SCENE_DURATION_SECONDS * 3,
     })
     .select("id")
     .single();
@@ -155,64 +132,60 @@ export async function POST(
     return apiError(E_DATABASE_ERROR, 500);
   }
 
-  try {
-    const sceneResults = await Promise.all(
-      scenes.map((scene) =>
-        generateImageToVideo({
-          prompt: scene.visual_prompt,
-          imageUrl: ownedBook.cover_image as string,
-          durationSeconds: SCENE_DURATION_SECONDS,
-        })
-      )
-    );
+  const { data: job, error: jobError } = await admin
+    .from("ai_jobs" as never)
+    .insert({
+      user_id: user.id,
+      kind: "trailer_build",
+      book_id: bookId,
+      status: "pending",
+      progress: 0,
+      input: {
+        assetId: inserted.id,
+        trailerRequest: parsed.data,
+        coverImageUrl: ownedBook.cover_image,
+      },
+      output: {
+        stage: "queued",
+      },
+    } as never)
+    .select("id")
+    .single();
 
-    const finalVideoBuffer = await stitchSceneVideos(
-      sceneResults.map((result) => result.videoUrl)
-    );
-
-    const uploadResult = await uploadTrailerAndGetPublicUrl(
-      admin,
-      user.id,
-      inserted.id,
-      finalVideoBuffer,
-      "video/mp4"
-    );
-
-    if ("error" in uploadResult) {
-      throw new Error(uploadResult.error);
-    }
-
-    const providerRequestId = sceneResults.map((result) => result.requestId).join(",");
-    const { error: readyUpdateError } = await admin
-      .from("media_assets")
-      .update({
-        status: "ready",
-        provider: "higgsfield",
-        provider_request_id: providerRequestId,
-        output_url: uploadResult.publicUrl,
-        metadata: trailerResult.output,
-        duration_seconds: scenes.length * SCENE_DURATION_SECONDS,
-        error: null,
-      })
-      .eq("id", inserted.id)
-      .eq("user_id", user.id);
-
-    if (readyUpdateError) {
-      console.error("[trailer build] mark ready failed:", readyUpdateError.message);
-      return apiError(E_DATABASE_ERROR, 500);
-    }
-
-    return NextResponse.json({
-      assetId: inserted.id,
-      url: uploadResult.publicUrl,
-    });
-  } catch (err) {
-    const message =
-      err instanceof Error ? err.message : "Unknown trailer build error.";
-
+  if (jobError || !job?.id) {
+    const message = jobError?.message ?? "Failed to create trailer build job.";
+    console.error("[trailer build] failed to create job:", message);
     await markMediaAssetFailed(admin, inserted.id, user.id, message);
-
-    console.error("[trailer build] failed:", message);
-    return apiError(E_TEXT_TO_VIDEO_FAILED, 502, { detail: message });
+    return apiError(E_JOB_CREATION_FAILED, 500);
   }
+
+  const queued = await enqueueTrailerBuildJob({
+    jobId: job.id,
+    assetId: inserted.id,
+    bookId,
+    userId: user.id,
+    coverImageUrl: ownedBook.cover_image,
+    trailerRequest: parsed.data as Record<string, unknown>,
+  });
+
+  if (!queued) {
+    await admin
+      .from("ai_jobs" as never)
+      .update({ status: "failed", error: "Queue unavailable" } as never)
+      .eq("id", job.id)
+      .eq("user_id", user.id);
+    await markMediaAssetFailed(admin, inserted.id, user.id, "Queue unavailable");
+    return apiError(E_QUEUE_UNAVAILABLE, 503);
+  }
+
+  return NextResponse.json(
+    {
+      ok: true,
+      jobId: job.id,
+      assetId: inserted.id,
+      status: "pending",
+      statusUrl: `/api/ai/jobs/${job.id}`,
+    },
+    { status: 202 }
+  );
 }

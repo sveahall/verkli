@@ -3,8 +3,6 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const BOOK_ID = "a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11";
 const AUTHOR_ID = "author-1";
 const COVER_IMAGE_URL = "https://cdn.example.com/cover.jpg";
-const FINAL_URL =
-  "https://project.supabase.co/storage/v1/object/public/marketing-media/trailers/author-1/asset-1.mp4";
 
 const mocks = vi.hoisted(() => ({
   requireAuthorRoleForApi: vi.fn(),
@@ -12,12 +10,9 @@ const mocks = vi.hoisted(() => ({
   isMarketingEnabled: vi.fn(),
   createAdminClient: vi.fn(),
   createPerUserRateLimiter: vi.fn(() => ({
-    check: () => ({ allowed: true }),
+    check: vi.fn().mockResolvedValue({ allowed: true }),
   })),
-  generateTrailerPrompt: vi.fn(),
-  generateImageToVideo: vi.fn(),
-  stitchSceneVideos: vi.fn(),
-  uploadTrailerAndGetPublicUrl: vi.fn(),
+  enqueueTrailerBuildJob: vi.fn(),
 }));
 
 vi.mock("@/lib/auth/require-author", () => ({
@@ -38,6 +33,10 @@ vi.mock("@/lib/supabase/admin", () => ({
 
 vi.mock("@/lib/rate-limit", () => ({
   createPerUserRateLimiter: mocks.createPerUserRateLimiter,
+}));
+
+vi.mock("@/lib/marketing-queue", () => ({
+  enqueueTrailerBuildJob: mocks.enqueueTrailerBuildJob,
 }));
 
 vi.mock("@/lib/ai/trailer-generation", () => ({
@@ -61,20 +60,6 @@ vi.mock("@/lib/ai/trailer-generation", () => ({
       };
     },
   },
-  generateTrailerPrompt: (...args: unknown[]) => mocks.generateTrailerPrompt(...args),
-}));
-
-vi.mock("@/lib/higgsfield", () => ({
-  generateImageToVideo: (...args: unknown[]) => mocks.generateImageToVideo(...args),
-}));
-
-vi.mock("@/lib/marketing/trailer-ffmpeg", () => ({
-  stitchSceneVideos: (...args: unknown[]) => mocks.stitchSceneVideos(...args),
-}));
-
-vi.mock("@/lib/marketing/trailer-storage", () => ({
-  uploadTrailerAndGetPublicUrl: (...args: unknown[]) =>
-    mocks.uploadTrailerAndGetPublicUrl(...args),
 }));
 
 const { POST } = await import("./route");
@@ -93,8 +78,10 @@ function makeRequest() {
   });
 }
 
-function mockAdminClient() {
-  const insert = vi.fn(() => ({
+function mockAdminClient(options?: { failAiJobCreate?: boolean }) {
+  const failAiJobCreate = options?.failAiJobCreate ?? false;
+
+  const mediaInsert = vi.fn(() => ({
     select: vi.fn(() => ({
       single: vi.fn().mockResolvedValue({
         data: { id: "asset-1" },
@@ -103,11 +90,23 @@ function mockAdminClient() {
     })),
   }));
 
-  const update = vi.fn(() => ({
-    eq: vi.fn(() => ({
-      eq: vi.fn().mockResolvedValue({ error: null }),
+  const mediaUpdateEqUser = vi.fn().mockResolvedValue({ error: null });
+  const mediaUpdateEqId = vi.fn(() => ({ eq: mediaUpdateEqUser }));
+  const mediaUpdate = vi.fn(() => ({ eq: mediaUpdateEqId }));
+
+  const aiInsert = vi.fn(() => ({
+    select: vi.fn(() => ({
+      single: vi.fn().mockResolvedValue(
+        failAiJobCreate
+          ? { data: null, error: { message: "insert failed", code: "500" } }
+          : { data: { id: "job-1" }, error: null }
+      ),
     })),
   }));
+
+  const aiUpdateEqUser = vi.fn().mockResolvedValue({ error: null });
+  const aiUpdateEqId = vi.fn(() => ({ eq: aiUpdateEqUser }));
+  const aiUpdate = vi.fn(() => ({ eq: aiUpdateEqId }));
 
   const from = vi.fn((table: string) => {
     if (table === "books") {
@@ -128,14 +127,18 @@ function mockAdminClient() {
     }
 
     if (table === "media_assets") {
-      return { insert, update };
+      return { insert: mediaInsert, update: mediaUpdate };
+    }
+
+    if (table === "ai_jobs") {
+      return { insert: aiInsert, update: aiUpdate };
     }
 
     throw new Error(`Unexpected table in test: ${table}`);
   });
 
   mocks.createAdminClient.mockReturnValue({ from });
-  return { insert, update };
+  return { mediaInsert, mediaUpdate, aiInsert, aiUpdate };
 }
 
 describe("POST /api/books/[id]/trailer/build", () => {
@@ -147,82 +150,69 @@ describe("POST /api/books/[id]/trailer/build", () => {
     });
     mocks.requireProBillingForApi.mockResolvedValue({ ok: true, response: null });
     mocks.isMarketingEnabled.mockReturnValue(true);
+    mocks.enqueueTrailerBuildJob.mockResolvedValue("job-1");
     mockAdminClient();
   });
 
-  it("builds trailer, uploads final mp4, and marks media asset ready", async () => {
-    mocks.generateTrailerPrompt.mockResolvedValue({
-      output: {
-        scenes: [
-          { visual_prompt: "scene one", duration: 5 },
-          { visual_prompt: "scene two", duration: 5 },
-          { visual_prompt: "scene three", duration: 5 },
-        ],
-        caption: "caption",
-        hashtags: ["#one", "#two"],
-        title_card: "My Book",
-      },
-      metadata: { provider: "stub-copywriter", stub: true },
-    });
-    mocks.generateImageToVideo
-      .mockResolvedValueOnce({ requestId: "req-1", videoUrl: "https://cdn.example.com/s1.mp4" })
-      .mockResolvedValueOnce({ requestId: "req-2", videoUrl: "https://cdn.example.com/s2.mp4" })
-      .mockResolvedValueOnce({ requestId: "req-3", videoUrl: "https://cdn.example.com/s3.mp4" });
-    mocks.stitchSceneVideos.mockResolvedValue(Buffer.from("final-video"));
-    mocks.uploadTrailerAndGetPublicUrl.mockResolvedValue({ publicUrl: FINAL_URL });
+  it("returns 202 and enqueues trailer build job", async () => {
+    const { mediaInsert } = mockAdminClient();
 
     const response = await POST(makeRequest(), {
       params: Promise.resolve({ id: BOOK_ID }),
     });
 
-    expect(response.status).toBe(200);
+    expect(response.status).toBe(202);
     const body = await response.json();
     expect(body).toEqual({
+      ok: true,
+      jobId: "job-1",
       assetId: "asset-1",
-      url: FINAL_URL,
+      status: "pending",
+      statusUrl: "/api/ai/jobs/job-1",
     });
 
-    expect(mocks.generateImageToVideo).toHaveBeenCalledTimes(3);
-    expect(mocks.generateImageToVideo).toHaveBeenNthCalledWith(
-      1,
+    expect(mediaInsert).toHaveBeenCalledWith(
       expect.objectContaining({
-        prompt: "scene one",
-        imageUrl: COVER_IMAGE_URL,
-        durationSeconds: 5,
+        user_id: AUTHOR_ID,
+        book_id: BOOK_ID,
+        status: "generating",
+        provider: "higgsfield",
+      })
+    );
+
+    expect(mocks.enqueueTrailerBuildJob).toHaveBeenCalledWith(
+      expect.objectContaining({
+        jobId: "job-1",
+        assetId: "asset-1",
+        bookId: BOOK_ID,
+        userId: AUTHOR_ID,
+        coverImageUrl: COVER_IMAGE_URL,
       })
     );
   });
 
-  it("marks media asset failed when one scene generation fails", async () => {
-    const { update } = mockAdminClient();
-
-    mocks.generateTrailerPrompt.mockResolvedValue({
-      output: {
-        scenes: [
-          { visual_prompt: "scene one", duration: 5 },
-          { visual_prompt: "scene two", duration: 5 },
-          { visual_prompt: "scene three", duration: 5 },
-        ],
-        caption: "caption",
-        hashtags: ["#one", "#two"],
-        title_card: "My Book",
-      },
-      metadata: { provider: "stub-copywriter", stub: true },
-    });
-    mocks.generateImageToVideo.mockRejectedValue(new Error("Scene generation failed"));
+  it("marks ai job and media asset failed when queue is unavailable", async () => {
+    const { mediaUpdate, aiUpdate } = mockAdminClient();
+    mocks.enqueueTrailerBuildJob.mockResolvedValue(null);
 
     const response = await POST(makeRequest(), {
       params: Promise.resolve({ id: BOOK_ID }),
     });
 
-    expect(response.status).toBe(502);
+    expect(response.status).toBe(503);
     const body = await response.json();
-    expect(body).toHaveProperty("error", "TEXT_TO_VIDEO_FAILED");
-    expect(body).toHaveProperty("detail", "Scene generation failed");
-    expect(update).toHaveBeenCalledWith(
+    expect(body).toHaveProperty("error", "QUEUE_UNAVAILABLE");
+
+    expect(aiUpdate).toHaveBeenCalledWith(
       expect.objectContaining({
         status: "failed",
-        error: "Scene generation failed",
+        error: "Queue unavailable",
+      })
+    );
+    expect(mediaUpdate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        status: "failed",
+        error: "Queue unavailable",
       })
     );
   });
