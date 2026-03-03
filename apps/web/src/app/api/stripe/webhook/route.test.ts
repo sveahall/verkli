@@ -13,6 +13,7 @@ type BillingAccountRow = {
   current_period_end: string | null;
   cancel_at_period_end: boolean;
   updated_at: string;
+  role?: "reader" | "author";
 };
 
 type OrderState = {
@@ -51,7 +52,7 @@ vi.mock("@/lib/billing/server", () => ({
 
 const { POST } = await import("./route");
 
-const stripe = new Stripe("sk_test_local", { apiVersion: "2024-06-20" });
+const stripe = new Stripe("sk_test_local", { apiVersion: "2025-02-24.acacia" });
 
 function makeAdminClient(input?: {
   order?: OrderState | null;
@@ -380,6 +381,7 @@ describe(`POST ${API_ROUTES.stripeWebhook}`, () => {
       current_period_end: null,
       cancel_at_period_end: false,
       updated_at: new Date().toISOString(),
+      role: "author",
     };
 
     mocks.getBillingAccountByStripeSubscriptionId.mockResolvedValue({
@@ -409,6 +411,7 @@ describe(`POST ${API_ROUTES.stripeWebhook}`, () => {
     expect(mocks.upsertBillingAccount).toHaveBeenCalledWith(
       admin.client,
       "author-1",
+      "author",
       expect.objectContaining({
         stripe_customer_id: "cus_123",
         stripe_subscription_id: null,
