@@ -28,7 +28,7 @@
         "./src/*"
       ],
       "@verkli/db": [
-        "../../packages/db/src/client"
+        "../../packages/db/src/index"
       ],
       "@verkli/shared": [
         "../../packages/shared/src"
