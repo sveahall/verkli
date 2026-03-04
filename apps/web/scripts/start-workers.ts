@@ -48,6 +48,7 @@ process.on("uncaughtException", async (err) => {
   process.exit(1);
 });
 
+// eslint-disable-next-line @typescript-eslint/no-unused-vars -- second param is required by Node's unhandledRejection signature
 process.on("unhandledRejection", async (reason, promise) => {
   console.error("[start-workers] unhandledRejection:", reason);
   if (isShuttingDown) return;

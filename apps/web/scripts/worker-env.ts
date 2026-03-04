@@ -4,11 +4,7 @@
  * Does not replace assertServerEnv() inside individual workers.
  */
 
-import { getRedisConnectionOptions } from "./env";
-
-const REQUIRED_WORKER_ENV = [
-  "SUPABASE_SERVICE_ROLE_KEY",
-] as const;
+import { getRedisConnectionOptions } from "../src/lib/env";
 
 export function validateWorkerEnv(): void {
   const missing: string[] = [];
