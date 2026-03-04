@@ -72,8 +72,8 @@ graph TD
 ### Migrationskällor
 | Källa | Path | Status |
 |---|---|---|
-| Primär | `apps/web/supabase/migrations` | Aktiv för nuvarande app |
-| Sekundär/legacy | `packages/db/supabase/migrations` | Delvis överlapp, ej konsoliderad |
+| Kanonisk | `apps/web/supabase/migrations` | Alla migrationer, konsoliderad 2026-03-04 |
+| Arkiverad | `packages/db/supabase/migrations_archived` | Referens, ej aktiv |
 
 ### Storage buckets i migrationer
 - `book_covers`
