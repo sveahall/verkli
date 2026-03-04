@@ -265,3 +265,209 @@ phases:
 Each phase will be a separate PR. No existing pipelines will be broken during
 migration — the normalisation layer (`lib/job-status.ts` and `job_status_view`)
 will be updated to handle both old and new schemas during the transition.
+
+---
+
+## Concrete examples
+
+### 1. Translation job
+
+```json
+{
+  "id": "a1b2c3d4-e5f6-4a7b-8c9d-0e1f2a3b4c5d",
+  "type": "translation",
+  "status": "succeeded",
+  "progress": 100,
+  "payload": {
+    "bookId": "b7e8f9a0-1234-4bcd-9ef0-abcdef123456",
+    "bookVersionId": "c3d4e5f6-7890-4abc-def0-123456789abc",
+    "sourceLanguage": "sv",
+    "targetLanguage": "en",
+    "chapterIds": [
+      "ch-001-uuid",
+      "ch-002-uuid",
+      "ch-003-uuid"
+    ]
+  },
+  "result": {
+    "translatedChapters": 3,
+    "totalChapters": 3,
+    "targetVersionId": "d4e5f6a7-8901-4bcd-ef01-23456789abcd",
+    "wordCount": 24500
+  },
+  "error": null,
+  "retries": 0,
+  "user_id": "u-author-1111-2222-3333",
+  "book_id": "b7e8f9a0-1234-4bcd-9ef0-abcdef123456",
+  "book_version_id": "d4e5f6a7-8901-4bcd-ef01-23456789abcd",
+  "language": "en",
+  "created_at": "2026-03-04T10:00:00.000Z",
+  "updated_at": "2026-03-04T10:04:32.000Z",
+  "started_at": "2026-03-04T10:00:05.000Z",
+  "finished_at": "2026-03-04T10:04:32.000Z"
+}
+```
+
+### 2. Audiobook generation job
+
+```json
+{
+  "id": "f6a7b8c9-d0e1-4f2a-3b4c-5d6e7f8a9b0c",
+  "type": "audiobook",
+  "status": "running",
+  "progress": 42,
+  "payload": {
+    "bookId": "b7e8f9a0-1234-4bcd-9ef0-abcdef123456",
+    "bookVersionId": "c3d4e5f6-7890-4abc-def0-123456789abc",
+    "voiceId": "Ryan",
+    "language": "sv",
+    "scope": "book",
+    "chapterIds": [
+      "ch-001-uuid",
+      "ch-002-uuid",
+      "ch-003-uuid",
+      "ch-004-uuid",
+      "ch-005-uuid",
+      "ch-006-uuid",
+      "ch-007-uuid"
+    ]
+  },
+  "result": {
+    "completedChapters": 3,
+    "totalChapters": 7,
+    "generatedFiles": [
+      "books/b7e8f9a0/audio/ch-001.wav",
+      "books/b7e8f9a0/audio/ch-002.wav",
+      "books/b7e8f9a0/audio/ch-003.wav"
+    ]
+  },
+  "error": null,
+  "retries": 0,
+  "user_id": "u-author-1111-2222-3333",
+  "book_id": "b7e8f9a0-1234-4bcd-9ef0-abcdef123456",
+  "book_version_id": "c3d4e5f6-7890-4abc-def0-123456789abc",
+  "language": "sv",
+  "created_at": "2026-03-04T14:00:00.000Z",
+  "updated_at": "2026-03-04T14:12:48.000Z",
+  "started_at": "2026-03-04T14:00:03.000Z",
+  "finished_at": null
+}
+```
+
+### 3. Recommendations generation job
+
+```json
+{
+  "id": "e5d4c3b2-a1f0-4e9d-8c7b-6a5f4e3d2c1b",
+  "type": "recommendations",
+  "status": "failed",
+  "progress": 60,
+  "payload": {
+    "userId": "u-reader-4444-5555-6666",
+    "strategy": "collaborative-filtering",
+    "maxResults": 20,
+    "excludeBookIds": [
+      "already-read-book-1",
+      "already-read-book-2"
+    ]
+  },
+  "result": null,
+  "error": "Embedding service timeout after 30s",
+  "retries": 2,
+  "user_id": "u-reader-4444-5555-6666",
+  "book_id": null,
+  "book_version_id": null,
+  "language": null,
+  "created_at": "2026-03-04T08:30:00.000Z",
+  "updated_at": "2026-03-04T08:31:14.000Z",
+  "started_at": "2026-03-04T08:30:02.000Z",
+  "finished_at": "2026-03-04T08:31:14.000Z"
+}
+```
+
+---
+
+## Worker implementation example
+
+Pseudo-code for a canonical worker processing loop:
+
+```
+function processJob(job):
+    row = db.selectOne("SELECT * FROM ai_jobs WHERE id = ?", job.id)
+
+    // ── Guard: already completed or cancelled ──
+    if row.status in ("succeeded", "failed", "cancelled"):
+        log("Skipping terminal job", job.id)
+        return
+
+    // ── Mark running ──
+    db.update("ai_jobs", job.id, {
+        status:     "running",
+        started_at: now(),
+        updated_at: now(),
+    })
+
+    try:
+        // ── Validate inputs ──
+        book = db.selectOne("SELECT * FROM books WHERE id = ?", row.payload.bookId)
+        if book is null:
+            throw NonRetryableError("Book not found: " + row.payload.bookId)
+
+        items = getWorkItems(row.payload)
+        total = len(items)
+
+        for i, item in enumerate(items):
+            // ── Check cancellation ──
+            fresh = db.selectOne("SELECT status FROM ai_jobs WHERE id = ?", job.id)
+            if fresh.status == "cancelled":
+                log("Job cancelled, stopping", job.id)
+                cleanup(partialResults)
+                return
+
+            // ── Do work ──
+            processItem(item)
+
+            // ── Update progress ──
+            db.update("ai_jobs", job.id, {
+                progress:   floor((i + 1) / total * 100),
+                updated_at: now(),
+            })
+
+        // ── Success ──
+        db.update("ai_jobs", job.id, {
+            status:      "succeeded",
+            progress:    100,
+            result:      buildResult(items),
+            finished_at: now(),
+            updated_at:  now(),
+        })
+
+    catch NonRetryableError as e:
+        // ── Permanent failure — do not retry ──
+        db.update("ai_jobs", job.id, {
+            status:      "failed",
+            error:       e.message,
+            finished_at: now(),
+            updated_at:  now(),
+        })
+
+    catch RetryableError as e:
+        if row.retries + 1 >= MAX_ATTEMPTS:
+            // ── Retries exhausted ──
+            db.update("ai_jobs", job.id, {
+                status:      "failed",
+                error:       e.message,
+                retries:     row.retries + 1,
+                finished_at: now(),
+                updated_at:  now(),
+            })
+        else:
+            // ── Re-queue for retry (BullMQ handles backoff) ──
+            db.update("ai_jobs", job.id, {
+                status:     "queued",
+                error:      e.message,
+                retries:    row.retries + 1,
+                updated_at: now(),
+            })
+            throw e  // let BullMQ schedule the retry
+```
