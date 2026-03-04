@@ -1,27 +1,60 @@
 /**
- * In-memory token/usage budget gate for AI workers.
+ * Redis-backed daily budget guardrails for workers.
  *
- * Tracks daily and monthly usage per key (orgId or userId).
- *
- * IMPORTANT LIMITATIONS:
- * - Counters live in process memory — restarting a worker resets all budgets.
- * - Each worker process has its own counters — running 2 instances of the same
- *   worker effectively doubles the allowed budget.
- * - This is acceptable for Beta (single-instance workers). For production
- *   multi-instance deployment, replace the Map store with Redis INCRBY counters
- *   using keys like `budget:{userId}:{YYYY-MM-DD}` with TTL auto-expiry.
- *
- * DEFAULT BEHAVIOR: If no budget key is available (should not happen in practice
- * since all jobs carry userId/authorId), the calling worker skips the check and
- * logs a warning — jobs are never blocked by a missing key.
- *
- * Defaults: 100 000 tokens/day, 3 000 000 tokens/month.
+ * Budget units are integer "cost-units" selected by each worker:
+ * - `translation`: estimated model units (roughly chars / 4).
+ * - `tts`: estimated model units (roughly chars / 4).
+ * - `video`: fixed per-job/render credits.
  */
 
-export interface BudgetLimits {
-  dailyTokens: number;
-  monthlyTokens: number;
+import Redis from "ioredis";
+
+export type BudgetPipeline = "tts" | "translation" | "video";
+
+export interface BudgetCheckInput {
+  userId: string;
+  pipeline: BudgetPipeline;
+  units: number;
+  jobId?: string | null;
+  now?: Date;
 }
+
+export interface BudgetUsageSnapshot {
+  userId: string;
+  pipeline: BudgetPipeline;
+  day: string;
+  key: string;
+  current: number;
+  limit: number;
+}
+
+const DEFAULT_DAILY_BUDGETS: Record<BudgetPipeline, number> = {
+  tts: 500_000,
+  translation: 500_000,
+  video: 100,
+};
+
+const REDIS_RESERVE_SCRIPT = `
+local key = KEYS[1]
+local increment = tonumber(ARGV[1])
+local limit = tonumber(ARGV[2])
+local ttl = tonumber(ARGV[3])
+
+local current = tonumber(redis.call("GET", key) or "0")
+if current + increment > limit then
+  return {0, current}
+end
+
+local nextValue = redis.call("INCRBY", key, increment)
+if redis.call("TTL", key) < 0 then
+  redis.call("EXPIRE", key, ttl)
+end
+
+return {1, nextValue}
+`;
+
+const touchedKeys = new Set<string>();
+let sharedRedis: Redis | null = null;
 
 function readPositiveIntEnv(key: string, fallback: number): number {
   const raw = process.env[key];
@@ -31,114 +64,197 @@ function readPositiveIntEnv(key: string, fallback: number): number {
   return Math.floor(parsed);
 }
 
-const DEFAULT_DAILY_TOKENS = 500_000;
-const DEFAULT_MONTHLY_TOKENS = 15_000_000;
-
-const DEFAULT_LIMITS: BudgetLimits = {
-  dailyTokens: readPositiveIntEnv("AI_BUDGET_DAILY_TOKENS", DEFAULT_DAILY_TOKENS),
-  monthlyTokens: readPositiveIntEnv("AI_BUDGET_MONTHLY_TOKENS", DEFAULT_MONTHLY_TOKENS),
-};
-
-interface UsageBucket {
-  tokens: number;
-  /** ISO date string (YYYY-MM-DD) for daily bucket */
-  day: string;
-  /** ISO month string (YYYY-MM) for monthly bucket */
-  month: string;
-  dailyTokens: number;
-  monthlyTokens: number;
+function getPipelineLimit(pipeline: BudgetPipeline): number {
+  switch (pipeline) {
+    case "tts":
+      return readPositiveIntEnv("TTS_DAILY_BUDGET", DEFAULT_DAILY_BUDGETS.tts);
+    case "translation":
+      return readPositiveIntEnv("TRANSLATION_DAILY_BUDGET", DEFAULT_DAILY_BUDGETS.translation);
+    case "video":
+      return readPositiveIntEnv("VIDEO_DAILY_BUDGET", DEFAULT_DAILY_BUDGETS.video);
+    default:
+      return DEFAULT_DAILY_BUDGETS[pipeline];
+  }
 }
 
-const store = new Map<string, UsageBucket>();
-
-function today(): string {
-  return new Date().toISOString().slice(0, 10);
-}
-
-function thisMonth(): string {
-  return new Date().toISOString().slice(0, 7);
-}
-
-function getOrCreate(key: string): UsageBucket {
-  const d = today();
-  const m = thisMonth();
-  const existing = store.get(key);
-
-  if (existing) {
-    // Reset daily counter if day changed
-    if (existing.day !== d) {
-      existing.dailyTokens = 0;
-      existing.day = d;
-    }
-    // Reset monthly counter if month changed
-    if (existing.month !== m) {
-      existing.monthlyTokens = 0;
-      existing.month = m;
-    }
-    return existing;
+function getRedisClient(): Redis {
+  if (sharedRedis) return sharedRedis;
+  const url = process.env.REDIS_URL?.trim();
+  if (!url) {
+    throw new Error("[budget] REDIS_URL not set. Budget guardrails require Redis.");
   }
 
-  const bucket: UsageBucket = {
-    tokens: 0,
-    day: d,
-    month: m,
-    dailyTokens: 0,
-    monthlyTokens: 0,
+  sharedRedis = new Redis(url, {
+    maxRetriesPerRequest: 1,
+    connectTimeout: 2000,
+    enableReadyCheck: false,
+  });
+  return sharedRedis;
+}
+
+function utcDay(now: Date): string {
+  return now.toISOString().slice(0, 10);
+}
+
+function ttlUntilNextUtcDay(now: Date): number {
+  const nextDayUtcMs = Date.UTC(
+    now.getUTCFullYear(),
+    now.getUTCMonth(),
+    now.getUTCDate() + 1,
+    0,
+    0,
+    0,
+    0
+  );
+  // Keep key alive one extra hour for easier operational debugging.
+  const ttl = Math.ceil((nextDayUtcMs - now.getTime()) / 1000) + 3600;
+  return Math.max(60, ttl);
+}
+
+function normalizeUnits(units: number): number {
+  if (!Number.isFinite(units) || units <= 0) return 0;
+  return Math.floor(units);
+}
+
+function buildBudgetKey(userId: string, pipeline: BudgetPipeline, day: string): string {
+  return `budget:${pipeline}:${userId}:${day}`;
+}
+
+function parseScriptResult(raw: unknown): { allowed: boolean; current: number } {
+  if (!Array.isArray(raw) || raw.length < 2) {
+    throw new Error(`[budget] Unexpected Redis result: ${String(raw)}`);
+  }
+  const allowedRaw = Number(raw[0]);
+  const currentRaw = Number(raw[1]);
+  return {
+    allowed: allowedRaw === 1,
+    current: Number.isFinite(currentRaw) ? currentRaw : 0,
   };
-  store.set(key, bucket);
-  return bucket;
 }
 
 export class BudgetExceededError extends Error {
-  constructor(key: string, period: "daily" | "monthly", used: number, limit: number) {
+  readonly details: BudgetUsageSnapshot & { jobId: string | null };
+
+  constructor(details: BudgetUsageSnapshot & { jobId: string | null }) {
     super(
-      `Budget exceeded for "${key}": ${period} usage ${used} >= limit ${limit}`
+      `Budget exceeded for "${details.userId}" in pipeline "${details.pipeline}" on ${details.day}: usage ${details.current} >= limit ${details.limit}`
     );
     this.name = "BudgetExceededError";
+    this.details = details;
   }
 }
 
 /**
- * Check whether the key still has budget. Throws BudgetExceededError if not.
+ * Reserve budget units before executing AI work.
+ * Uses Redis atomically (INCRBY + EXPIRE) with per-day UTC keys.
  */
-export function checkBudget(
-  key: string,
-  limits: BudgetLimits = DEFAULT_LIMITS
-): void {
-  const bucket = getOrCreate(key);
-
-  if (bucket.dailyTokens >= limits.dailyTokens) {
-    throw new BudgetExceededError(key, "daily", bucket.dailyTokens, limits.dailyTokens);
+export async function checkBudget(input: BudgetCheckInput): Promise<BudgetUsageSnapshot> {
+  const userId = input.userId?.trim();
+  if (!userId) {
+    throw new Error("[budget] userId is required");
   }
-  if (bucket.monthlyTokens >= limits.monthlyTokens) {
-    throw new BudgetExceededError(key, "monthly", bucket.monthlyTokens, limits.monthlyTokens);
+
+  const now = input.now ?? new Date();
+  const day = utcDay(now);
+  const key = buildBudgetKey(userId, input.pipeline, day);
+  const limit = getPipelineLimit(input.pipeline);
+  const units = normalizeUnits(input.units);
+  const jobId = input.jobId ? String(input.jobId) : "unknown";
+  const redis = getRedisClient();
+
+  touchedKeys.add(key);
+
+  if (units <= 0) {
+    const rawCurrent = await redis.get(key);
+    const current = Number(rawCurrent ?? "0");
+    if (current >= limit) {
+      console.warn(
+        `[budget] exceeded userId=${userId} pipeline=${input.pipeline} day=${day} key=${key} current=${current} limit=${limit} jobId=${jobId}`
+      );
+      throw new BudgetExceededError({
+        userId,
+        pipeline: input.pipeline,
+        day,
+        key,
+        current,
+        limit,
+        jobId,
+      });
+    }
+    return { userId, pipeline: input.pipeline, day, key, current, limit };
   }
+
+  const raw = await redis.eval(
+    REDIS_RESERVE_SCRIPT,
+    1,
+    key,
+    String(units),
+    String(limit),
+    String(ttlUntilNextUtcDay(now))
+  );
+  const parsed = parseScriptResult(raw);
+
+  if (!parsed.allowed) {
+    console.warn(
+      `[budget] exceeded userId=${userId} pipeline=${input.pipeline} day=${day} key=${key} current=${parsed.current} limit=${limit} jobId=${jobId}`
+    );
+    throw new BudgetExceededError({
+      userId,
+      pipeline: input.pipeline,
+      day,
+      key,
+      current: parsed.current,
+      limit,
+      jobId,
+    });
+  }
+
+  return {
+    userId,
+    pipeline: input.pipeline,
+    day,
+    key,
+    current: parsed.current,
+    limit,
+  };
+}
+
+export async function getUsage(input: {
+  userId: string;
+  pipeline: BudgetPipeline;
+  now?: Date;
+}): Promise<BudgetUsageSnapshot> {
+  const userId = input.userId?.trim();
+  if (!userId) {
+    throw new Error("[budget] userId is required");
+  }
+  const now = input.now ?? new Date();
+  const day = utcDay(now);
+  const key = buildBudgetKey(userId, input.pipeline, day);
+  const redis = getRedisClient();
+  const raw = await redis.get(key);
+  const current = Number(raw ?? "0");
+  const limit = getPipelineLimit(input.pipeline);
+  return {
+    userId,
+    pipeline: input.pipeline,
+    day,
+    key,
+    current: Number.isFinite(current) ? current : 0,
+    limit,
+  };
 }
 
 /**
- * Record token usage after a successful AI call.
+ * For tests only.
  */
-export function trackUsage(key: string, tokens: number): void {
-  const bucket = getOrCreate(key);
-  bucket.dailyTokens += tokens;
-  bucket.monthlyTokens += tokens;
-  bucket.tokens += tokens;
-}
-
-/**
- * Get current usage for a key (for logging/monitoring).
- */
-export function getUsage(key: string): { daily: number; monthly: number } | null {
-  const bucket = store.get(key);
-  if (!bucket) return null;
-  // Refresh counters in case of day/month rollover
-  const b = getOrCreate(key);
-  return { daily: b.dailyTokens, monthly: b.monthlyTokens };
-}
-
-/**
- * Reset all tracked usage (useful for tests).
- */
-export function resetAllBudgets(): void {
-  store.clear();
+export async function resetAllBudgets(): Promise<void> {
+  if (!sharedRedis) {
+    touchedKeys.clear();
+    return;
+  }
+  if (touchedKeys.size > 0) {
+    await sharedRedis.del(...Array.from(touchedKeys));
+  }
+  touchedKeys.clear();
 }

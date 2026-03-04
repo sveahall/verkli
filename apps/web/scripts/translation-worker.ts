@@ -13,7 +13,7 @@ import { translateText, sanitizeOpusOutput } from "../src/lib/opus";
 import { contentHash } from "../src/lib/import-extract";
 import { normalizeLanguageOrNull } from "../src/lib/languages";
 import { isDuplicate } from "../src/lib/workers/idempotency";
-import { checkBudget, trackUsage, BudgetExceededError } from "../src/lib/workers/budget";
+import { checkBudget, BudgetExceededError } from "../src/lib/workers/budget";
 
 import { QUEUE_NAMES } from "../src/lib/queue-names";
 import { startHeartbeatInterval } from "../src/lib/health/worker-heartbeat";
@@ -111,7 +111,7 @@ function assertOpusEnv(): void {
   }
 }
 
-async function processJob(payload: TranslationJobData) {
+async function processJob(payload: TranslationJobData, workerJobId?: string) {
   const {
     bookId,
     sourceVersionId,
@@ -177,23 +177,6 @@ async function processJob(payload: TranslationJobData) {
     // Auth isolation: verify payload authorId matches book owner
     if (payload.authorId && book.author_id !== payload.authorId) {
       throw new UnrecoverableError("Ownership mismatch: authorId does not match book owner");
-    }
-
-    // Budget gate: check token budget before AI call
-    const budgetKey = payload.authorId ?? book.author_id;
-    if (budgetKey) {
-      try {
-        checkBudget(budgetKey);
-      } catch (err) {
-        if (err instanceof BudgetExceededError) {
-          console.warn("[translation worker] budget exceeded for:", budgetKey);
-          throw new UnrecoverableError(err.message);
-        }
-        throw err;
-      }
-    } else {
-      // TODO: No orgId or userId available for budget — logging but not blocking
-      console.warn("[translation worker] no budget key available (no authorId), skipping budget check");
     }
 
     const { data: sourceVersion, error: sourceVersionError } = await supabase
@@ -305,6 +288,30 @@ async function processJob(payload: TranslationJobData) {
     if (chapterList.length === 0) {
       throw new UnrecoverableError("No chapters found to translate");
     }
+
+    const totalChars = chapterList.reduce(
+      (sum, ch) => sum + ((ch.content as string | null) ?? "").length,
+      0
+    );
+    const estimatedCostUnits = Math.ceil(totalChars / 4);
+    const budgetUserId = payload.authorId ?? book.author_id;
+    if (!budgetUserId) {
+      throw new UnrecoverableError("Missing authorId for translation budget enforcement");
+    }
+    try {
+      await checkBudget({
+        userId: budgetUserId,
+        pipeline: "translation",
+        units: estimatedCostUnits,
+        jobId: workerJobId ?? null,
+      });
+    } catch (err) {
+      if (err instanceof BudgetExceededError) {
+        throw new UnrecoverableError(err.message);
+      }
+      throw err;
+    }
+
     console.log("[translation worker] translating chapters — count:", chapterList.length);
 
     for (let i = 0; i < chapterList.length; i++) {
@@ -386,17 +393,6 @@ async function processJob(payload: TranslationJobData) {
       .update({ status: "done", error_message: null })
       .eq("id", resolvedTargetVersionId);
 
-    // Track token usage (estimate: ~1 token per 4 chars of source text)
-    const totalChars = chapterList.reduce(
-      (sum, ch) => sum + ((ch.content as string | null) ?? "").length,
-      0
-    );
-    const estimatedTokens = Math.ceil(totalChars / 4);
-    const usageKey = payload.authorId ?? book.author_id;
-    if (usageKey) {
-      trackUsage(usageKey, estimatedTokens);
-    }
-
     console.log("[translation worker] completed — bookId:", bookId, "targetVersionId:", resolvedTargetVersionId);
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
@@ -439,7 +435,8 @@ function main() {
     async (job) => {
       if (job.name === "translate" && job.data) {
         console.log("[translation-worker] processing job", job.id);
-        await processJob(job.data as TranslationJobData);
+        const workerJobId = job.id != null ? String(job.id) : undefined;
+        await processJob(job.data as TranslationJobData, workerJobId);
       }
     },
     {
