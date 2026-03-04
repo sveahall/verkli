@@ -1,0 +1,126 @@
+# Worker stack: Redis + all BullMQ workers.
+# Run from repo root: docker compose -f docker-compose.workers.yml up -d
+# Build: docker compose -f docker-compose.workers.yml build
+
+services:
+  redis:
+    image: redis:7-alpine
+    container_name: verkli-workers-redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 3
+
+  worker-import:
+    build:
+      context: .
+      dockerfile: infra/docker/Dockerfile.workers
+    image: verkli-worker
+    container_name: verkli-worker-import
+    restart: unless-stopped
+    env_file: .env.local
+    environment:
+      REDIS_URL: redis://redis:6379
+    command: ["npx", "tsx", "scripts/import-worker.ts"]
+    depends_on:
+      redis:
+        condition: service_healthy
+
+  worker-translation:
+    build:
+      context: .
+      dockerfile: infra/docker/Dockerfile.workers
+    image: verkli-worker
+    container_name: verkli-worker-translation
+    restart: unless-stopped
+    env_file: .env.local
+    environment:
+      REDIS_URL: redis://redis:6379
+    command: ["npx", "tsx", "scripts/translation-worker.ts"]
+    depends_on:
+      redis:
+        condition: service_healthy
+
+  worker-audiobook:
+    build:
+      context: .
+      dockerfile: infra/docker/Dockerfile.workers
+    image: verkli-worker
+    container_name: verkli-worker-audiobook
+    restart: unless-stopped
+    env_file: .env.local
+    environment:
+      REDIS_URL: redis://redis:6379
+    command: ["npx", "tsx", "scripts/audiobook-worker.ts"]
+    depends_on:
+      redis:
+        condition: service_healthy
+
+  worker-recommendations:
+    build:
+      context: .
+      dockerfile: infra/docker/Dockerfile.workers
+    image: verkli-worker
+    container_name: verkli-worker-recommendations
+    restart: unless-stopped
+    env_file: .env.local
+    environment:
+      REDIS_URL: redis://redis:6379
+    command: ["npx", "tsx", "scripts/recommendations-worker.ts"]
+    depends_on:
+      redis:
+        condition: service_healthy
+
+  worker-marketing:
+    build:
+      context: .
+      dockerfile: infra/docker/Dockerfile.workers
+    image: verkli-worker
+    container_name: verkli-worker-marketing
+    restart: unless-stopped
+    env_file: .env.local
+    environment:
+      REDIS_URL: redis://redis:6379
+    command: ["npx", "tsx", "scripts/marketing-worker.ts"]
+    depends_on:
+      redis:
+        condition: service_healthy
+
+  worker-social:
+    build:
+      context: .
+      dockerfile: infra/docker/Dockerfile.workers
+    image: verkli-worker
+    container_name: verkli-worker-social
+    restart: unless-stopped
+    env_file: .env.local
+    environment:
+      REDIS_URL: redis://redis:6379
+    command: ["npx", "tsx", "scripts/social-publish-worker.ts"]
+    depends_on:
+      redis:
+        condition: service_healthy
+
+  worker-notifications:
+    build:
+      context: .
+      dockerfile: infra/docker/Dockerfile.workers
+    image: verkli-worker
+    container_name: verkli-worker-notifications
+    restart: unless-stopped
+    env_file: .env.local
+    environment:
+      REDIS_URL: redis://redis:6379
+    command: ["npx", "tsx", "scripts/notifications-worker.ts"]
+    depends_on:
+      redis:
+        condition: service_healthy
+
+volumes:
+  redis_data:

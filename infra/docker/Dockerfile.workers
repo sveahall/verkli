@@ -1,0 +1,26 @@
+# Worker runtime image for Verkli BullMQ workers.
+# Build from repo root: docker build -f infra/docker/Dockerfile.workers .
+# Run one worker: docker run --env-file .env ... verkli-worker WORKER=import
+# Each worker is runnable independently by overriding CMD with WORKER=<name>.
+
+FROM node:20-alpine AS base
+WORKDIR /app
+
+# Copy workspace and package files
+COPY package.json package-lock.json* ./
+COPY apps/web/package.json apps/web/
+COPY packages/db/package.json packages/db/
+COPY packages/shared/package.json packages/shared/
+
+RUN npm ci --ignore-scripts
+
+# Copy source needed for workers (apps/web + packages)
+COPY apps/web apps/web
+COPY packages/db packages/db
+COPY packages/shared packages/shared
+
+WORKDIR /app/apps/web
+
+# Default: run import worker. Override in compose with command or WORKER env.
+ENV WORKER=import
+CMD ["sh", "-c", "npx tsx scripts/${WORKER}-worker.ts"]

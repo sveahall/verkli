@@ -1,0 +1,111 @@
+name: Pipeline Smoke
+
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - "apps/web/**"
+      - "scripts/pipeline-smoke-test.ts"
+      - ".github/workflows/pipeline-smoke.yml"
+      - "docs/BASELINE_SYSTEM_STATE.md"
+
+jobs:
+  pipeline-smoke:
+    if: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY != '' && (secrets.SUPABASE_URL != '' || secrets.NEXT_PUBLIC_SUPABASE_URL != '') }}
+    runs-on: ubuntu-latest
+    services:
+      redis:
+        image: redis:7
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run pipeline smoke test
+        env:
+          REDIS_URL: redis://localhost:6379
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          AUDIOBOOK_STORAGE_BUCKET: audiobooks
+          PIPELINE_SMOKE_MODE: "true"
+          PIPELINE_SMOKE_TIMEOUT_MS: "300000"
+        run: |
+          set -euo pipefail
+
+          LOG_DIR="$(mktemp -d)"
+          IMPORT_LOG="$LOG_DIR/import-worker.log"
+          TRANSLATION_LOG="$LOG_DIR/translation-worker.log"
+          AUDIOBOOK_LOG="$LOG_DIR/audiobook-worker.log"
+
+          npm run import-worker >"$IMPORT_LOG" 2>&1 &
+          IMPORT_PID=$!
+          npm run translate-worker >"$TRANSLATION_LOG" 2>&1 &
+          TRANSLATION_PID=$!
+          npm run audiobook-worker >"$AUDIOBOOK_LOG" 2>&1 &
+          AUDIOBOOK_PID=$!
+
+          cleanup() {
+            for pid in "$IMPORT_PID" "$TRANSLATION_PID" "$AUDIOBOOK_PID"; do
+              if kill -0 "$pid" 2>/dev/null; then
+                kill "$pid" 2>/dev/null || true
+              fi
+            done
+          }
+          trap cleanup EXIT
+
+          for _ in $(seq 1 60); do
+            if ! kill -0 "$IMPORT_PID" 2>/dev/null; then
+              echo "[pipeline smoke] import worker exited before ready"
+              tail -n 200 "$IMPORT_LOG" || true
+              exit 1
+            fi
+            if ! kill -0 "$TRANSLATION_PID" 2>/dev/null; then
+              echo "[pipeline smoke] translation worker exited before ready"
+              tail -n 200 "$TRANSLATION_LOG" || true
+              exit 1
+            fi
+            if ! kill -0 "$AUDIOBOOK_PID" 2>/dev/null; then
+              echo "[pipeline smoke] audiobook worker exited before ready"
+              tail -n 200 "$AUDIOBOOK_LOG" || true
+              exit 1
+            fi
+
+            if grep -Fq "[import-worker] started" "$IMPORT_LOG" \
+              && grep -Fq "[translation-worker] started" "$TRANSLATION_LOG" \
+              && grep -Fq "[audiobook-worker] started" "$AUDIOBOOK_LOG"; then
+              break
+            fi
+            sleep 1
+          done
+
+          if ! grep -Fq "[import-worker] started" "$IMPORT_LOG"; then
+            echo "[pipeline smoke] import worker did not become ready"
+            tail -n 200 "$IMPORT_LOG" || true
+            exit 1
+          fi
+          if ! grep -Fq "[translation-worker] started" "$TRANSLATION_LOG"; then
+            echo "[pipeline smoke] translation worker did not become ready"
+            tail -n 200 "$TRANSLATION_LOG" || true
+            exit 1
+          fi
+          if ! grep -Fq "[audiobook-worker] started" "$AUDIOBOOK_LOG"; then
+            echo "[pipeline smoke] audiobook worker did not become ready"
+            tail -n 200 "$AUDIOBOOK_LOG" || true
+            exit 1
+          fi
+
+          npx tsx scripts/pipeline-smoke-test.ts
