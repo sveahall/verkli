@@ -14,7 +14,6 @@
     "test:watch": "vitest",
     "test:e2e": "playwright test --config playwright.config.ts",
     "check:no-placeholders": "if rg -q 'PlaceholderPage' src --glob '!PlaceholderPage.tsx' --glob '!*.test.*' 2>/dev/null; then echo 'Found PlaceholderPage usage'; exit 1; fi; if rg -qi 'coming soon|lorem|This page is a placeholder' src --glob '!*.test.*' --glob '!PlaceholderPage.tsx' 2>/dev/null; then echo 'Found placeholder phrase'; exit 1; fi; echo 'check:no-placeholders ok'",
-    "runway:text-to-video": "tsx src/lib/ai/textToVideo.ts",
     "import-worker": "tsx scripts/import-worker.ts",
     "translate-worker": "tsx scripts/translation-worker.ts",
     "audiobook-worker": "tsx scripts/audiobook-worker.ts",
@@ -35,7 +34,6 @@
   "dependencies": {
     "@floating-ui/dom": "^1.6.13",
     "@higgsfield/client": "^0.2.1",
-    "@runwayml/sdk": "^3.11.0",
     "@supabase/ssr": "^0.5.2",
     "@supabase/supabase-js": "^2.47.10",
     "@tiptap/extension-font-family": "^3.18.0",

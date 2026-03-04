@@ -7,14 +7,13 @@ import "server-only";
  * Provider selection can be configured via environment variables.
  *
  * Usage:
- *   import { getTranslator, getNarrator, getVideoProvider } from "@/lib/ai/providers/server";
+ *   import { getTranslator, getNarrator } from "@/lib/ai/providers/server";
  *   const translator = getTranslator();
  *   const result = await translator.translate({ text, sourceLanguage, targetLanguage });
  *
  * Environment variables (optional, defaults shown):
  *   AI_TRANSLATOR_PROVIDER=opus  (only opus supported currently)
  *   Narrator provider is temporarily disabled.
- *   AI_VIDEO_PROVIDER=runway     (only runway supported currently)
  */
 
 // Types
@@ -45,7 +44,6 @@ import type { CopywriterProvider } from "./types";
 // Default provider instances
 import { opusTranslator } from "./opus-translator";
 import { removedNarrator } from "./narrator-removed";
-import { runwayVideo } from "./runway-video";
 import { stubImage } from "./stub-image";
 import { stubCopywriter } from "./stub-copywriter";
 import { ollamaCopywriter } from "./ollama-copywriter";
@@ -53,7 +51,6 @@ import { ollamaCopywriter } from "./ollama-copywriter";
 // Re-export provider classes for direct instantiation if needed
 export { OpusTranslator, opusTranslator } from "./opus-translator";
 export { RemovedNarrator, removedNarrator } from "./narrator-removed";
-export { RunwayVideoProvider, runwayVideo } from "./runway-video";
 export { StubImageProvider, stubImage } from "./stub-image";
 export { StubCopywriterProvider, stubCopywriter } from "./stub-copywriter";
 export { OllamaCopywriterProvider, ollamaCopywriter } from "./ollama-copywriter";
@@ -82,20 +79,6 @@ export function getTranslator(): typeof opusTranslator {
  */
 export function getNarrator(): typeof removedNarrator {
   return removedNarrator;
-}
-
-/**
- * Get the configured video generation provider.
- * Currently only supports Runway ML. Future: add other providers.
- */
-export function getVideoProvider(): typeof runwayVideo {
-  const provider = process.env.AI_VIDEO_PROVIDER?.toLowerCase() ?? "runway";
-
-  switch (provider) {
-    case "runway":
-    default:
-      return runwayVideo;
-  }
 }
 
 /**

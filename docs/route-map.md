@@ -1,6 +1,6 @@
 # Route Map (IA)
 
-Last updated: 2026-02-04
+Last updated: 2026-03-04
 
 ## Reader (App)
 | Route | Purpose | Primary CTA | Audience | Nav placement | Canonical / Redirect |
@@ -19,7 +19,13 @@ Last updated: 2026-02-04
 | `/reader/bookmarks` | Saved for later. | Open book | Reader | Library dropdown, Mobile tab “Saved” | Canonical |
 | `/reader/profile` | Reader profile. | Edit profile | Reader | User menu | Canonical |
 | `/reader/settings` | Reader settings. | Save settings | Reader | User menu | Canonical |
-| `/reader/community` | Community space (if enabled). | Join discussion | Reader | Top nav (only when enabled) | Canonical |
+| `/reader/clubs` | Book clubs. | Join club | Reader | Top nav | Canonical |
+| `/reader/clubs/[id]` | Club detail. | Join discussion | Reader | In-page only | Canonical |
+| `/reader/polls` | Active polls. | Vote | Reader | In-page only | Canonical |
+| `/reader/inbox` | Reader messages. | Reply | Reader | User menu | Canonical |
+| `/reader/notifications` | Notifications feed. | Mark read | Reader | User menu | Canonical |
+| `/reader/billing` | Reader billing/membership. | Manage plan | Reader | User menu | Canonical |
+| `/reader/onboarding` | Reader onboarding flow. | Complete setup | Reader | After signup | Canonical |
 
 ## Author (App)
 | Route | Purpose | Primary CTA | Audience | Nav placement | Canonical / Redirect |
@@ -35,7 +41,13 @@ Last updated: 2026-02-04
 | `/author/profile` | Public author profile preview. | Edit profile | Author | My World dropdown + User menu | Canonical |
 | `/author/settings` | Account settings. | Save settings | Author | User menu | Canonical |
 | `/author/marketing` | Marketing tools (if enabled). | Create campaign | Author | Top nav / dropdown (when enabled) | Canonical |
-| `/author/community` | Author community (if enabled). | Join discussion | Author | Top nav (when enabled) | Canonical |
+| `/author/newsletters` | Newsletter management. | Create newsletter | Author | Top nav | Canonical |
+| `/author/newsletters/[id]` | Newsletter detail/composer. | Send / Save | Author | In-page only | Canonical |
+| `/author/polls` | Poll management. | Create poll | Author | Top nav | Canonical |
+| `/author/inbox` | Author messages. | Reply | Author | User menu | Canonical |
+| `/author/notifications` | Notifications feed. | Mark read | Author | User menu | Canonical |
+| `/author/billing` | Author billing/subscription. | Manage plan | Author | User menu | Canonical |
+| `/author/tts-lab` | Internal TTS testing page. | Generate audio | Author | Dev only | Canonical |
 | `/account/feedback` | Feedback and issue reporting. | Send feedback | Author | In-page only | Canonical |
 
 ## Auth (Shared)
@@ -59,7 +71,6 @@ Last updated: 2026-02-04
 | `/reader/how-it-works` | Reader onboarding explainer. | Join | Public reader | Public top nav | Canonical |
 | `/reader/membership` | Membership page. | Start membership | Public reader | Public top nav | Canonical |
 | `/reader/faq` | Reader FAQ. | Contact support | Public reader | Public top nav | Canonical |
-| `/reader/tts-demo` | TTS demo page. | Try demo | Public reader | In-page only | Canonical |
 
 ## Public Author
 | Route | Purpose | Primary CTA | Audience | Nav placement | Canonical / Redirect |
@@ -67,9 +78,7 @@ Last updated: 2026-02-04
 | `/author` | Author marketing landing. | Start free | Public author | Public top nav | Canonical |
 | `/product` | Product overview. | Start free | Public author | Public top nav | Canonical |
 | `/how-it-works` | Author onboarding explainer. | Start free | Public author | Public top nav | Canonical |
-| `/case-studies` | Author case studies. | Start free | Public author | Public top nav | Canonical |
 | `/pricing` | Pricing page. | Start free | Public author | Public top nav | Canonical |
-| `/writer` | Author workflow overview. | Start free | Public author | Public top nav | Canonical |
 | `/faq` | Author FAQ. | Contact support | Public author | Public top nav | Canonical |
 
 ## Misc

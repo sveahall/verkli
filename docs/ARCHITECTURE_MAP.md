@@ -4,8 +4,8 @@
 1. Systemets centrum är `apps/web` (Next.js app + API + queue producers).
 2. Data går primärt till Supabase (Auth, Postgres, Storage).
 3. Redis används som kö-backplane för BullMQ workers.
-4. Fem worker-processer finns i kod (import, translation, audiobook, social, recommendations).
-5. Endast fyra workers har npm-scripts idag; två startas manuellt med `npx tsx`.
+4. Sex worker-processer finns i kod (import, translation, audiobook, social, recommendations, marketing).
+5. Fem workers har npm-scripts; en startas manuellt med `npx tsx`.
 6. Betalning går via Stripe; email via Resend; video via Runway.
 7. Translation är ett lokalt provider-flöde (Opus MT) med starkt env-beroende.
 8. Databasschemat är splittrat över två migrationsmappar och är inte helt synkat med runtime-kod.
@@ -24,6 +24,7 @@ graph TD
   Redis --> WAudio["audiobook-worker"]
   Redis --> WSocial["social-publish-worker"]
   Redis --> WReco["recommendations-worker"]
+  Redis --> WMktg["marketing-worker"]
 
   WImport --> DB
   WImport --> Storage
@@ -32,6 +33,7 @@ graph TD
   WAudio --> Storage
   WSocial --> DB
   WReco --> DB
+  WMktg --> DB
 
   Next --> Stripe["Stripe API/Webhooks"]
   Next --> Resend["Resend API"]
@@ -88,6 +90,7 @@ graph TD
 | `book-translation` | translate route + auto-enqueue i import worker | `scripts/translation-worker.ts` | `book_versions`, `chapters` |
 | `audiobook-generation` | audiobook generate route | `scripts/audiobook-worker.ts` | `ai_jobs`, `audiobook_assets`, `chapter_audio_cache`, storage |
 | `social-publish` | social publish route | `scripts/social-publish-worker.ts` | `ai_jobs`, `marketing_campaigns` |
+| `marketing-campaign` | marketing schedule route | `scripts/marketing-worker.ts` | `marketing_campaigns` |
 | `recommendations` | recommendations queue + intern scheduler | `scripts/recommendations-worker.ts` | `recommendations` |
 | `notifications` | definierad i queue names | saknas worker | ej aktiv queue-flow i kod |
 

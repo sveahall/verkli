@@ -1,9 +1,9 @@
 import { createAdminClient } from "@/lib/supabase/admin";
 import {
-  getVideoProvider,
   getImageProvider,
   getCopywriterProvider,
 } from "@/lib/ai/providers/server";
+import { generateImageToVideo } from "@/lib/higgsfield";
 import type { ContentGenerationRequest, BookSnapshot, TextContent } from "./schemas";
 import { validateTextContent } from "./schemas";
 import {
@@ -68,6 +68,7 @@ export async function generateContent(
         tone: request.tone ?? null,
         durationSeconds: request.durationSeconds ?? null,
         aspectRatio: request.aspectRatio ?? null,
+        audio: request.audio ?? true,
       },
       book_snapshot: snapshot,
     })
@@ -236,23 +237,32 @@ async function generateVideo(
   request: ContentGenerationRequest,
   snapshot: BookSnapshot
 ): Promise<DispatchResult> {
-  const videoProvider = getVideoProvider();
   const prompt = buildVideoPrompt(snapshot, request.channel, request.userPromptAddendum);
+  const coverImageUrl = snapshot.coverImageUrl?.trim() ?? "";
+  if (!coverImageUrl) {
+    throw new Error(
+      "[content generate] Cover image is required for Higgsfield video generation."
+    );
+  }
 
-  const result = await videoProvider.generate({
-    promptText: prompt,
-    duration: request.durationSeconds,
-    aspectRatio: request.aspectRatio,
+  const result = await generateImageToVideo({
+    prompt,
+    imageUrl: coverImageUrl,
+    durationSeconds: request.durationSeconds,
+    includeAudio: request.audio ?? true,
   });
 
   return {
-    assetUrl: result.videoUrl ?? null,
+    assetUrl: result.videoUrl,
     textContent: null,
     promptTemplate: null,
     promptRendered: prompt,
     metadata: {
-      provider: videoProvider.name,
-      output: result.output,
+      provider: "higgsfield",
+      requestId: result.requestId,
+      durationSeconds: request.durationSeconds ?? null,
+      aspectRatio: request.aspectRatio ?? null,
+      audio: request.audio ?? true,
     },
   };
 }

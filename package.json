@@ -32,7 +32,6 @@
     "update": "npm install && npm run generate -w @verkli/db"
   },
   "dependencies": {
-    "@runwayml/sdk": "^3.11.0",
     "@supabase/ssr": "^0.8.0",
     "@supabase/supabase-js": "^2.93.1",
     "class-variance-authority": "^0.7.1",

@@ -212,6 +212,46 @@ describe("POST /api/marketing/video/generate", () => {
         estimated_cost_usd: 0.15,
       })
     );
+    expect(mockGenerateImageToVideo).toHaveBeenCalledWith(
+      expect.objectContaining({
+        prompt: "Cinematic camera motion.",
+        imageUrl: VALID_IMAGE_URL,
+        includeAudio: true,
+      })
+    );
+  });
+
+  it("forwards audio=false to Higgsfield", async () => {
+    gateAuthor("author-1");
+    mockSupabase({ owned: true });
+    mockGenerateImageToVideo.mockResolvedValue({
+      requestId: "req-456",
+      videoUrl: "https://cdn.example.com/video.mp4",
+    });
+    vi.mocked(uploadTrailerAndGetPublicUrl).mockResolvedValue({
+      publicUrl: PUBLIC_TRAILER_URL,
+    });
+    globalThis.fetch = vi.fn().mockResolvedValue({
+      ok: true,
+      arrayBuffer: () => Promise.resolve(new ArrayBuffer(0)),
+      headers: { get: () => "video/mp4" },
+    });
+
+    const res = await POST(
+      makeRequest({
+        bookId: VALID_BOOK_ID,
+        prompt: "Cinematic camera motion.",
+        imageUrl: VALID_IMAGE_URL,
+        audio: false,
+      })
+    );
+
+    expect(res.status).toBe(200);
+    expect(mockGenerateImageToVideo).toHaveBeenCalledWith(
+      expect.objectContaining({
+        includeAudio: false,
+      })
+    );
   });
 
   it("marks asset as failed and returns 502 when Higgsfield throws", async () => {

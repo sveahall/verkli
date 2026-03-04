@@ -79,7 +79,7 @@ vi.mock("@/lib/marketing/trailer-storage", () => ({
 
 const { POST } = await import("./route");
 
-function makeRequest() {
+function makeRequest(overrides: Record<string, unknown> = {}) {
   return new Request(`http://localhost/api/books/${BOOK_ID}/trailer/build`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -89,6 +89,7 @@ function makeRequest() {
       description: "An epic adventure.",
       keywords: ["magic", "kingdom", "destiny"],
       tone: "epic",
+      ...overrides,
     }),
   });
 }
@@ -189,6 +190,41 @@ describe("POST /api/books/[id]/trailer/build", () => {
         prompt: "scene one",
         imageUrl: COVER_IMAGE_URL,
         durationSeconds: 5,
+        includeAudio: true,
+      })
+    );
+  });
+
+  it("forwards audio=false to scene video generation", async () => {
+    mocks.generateTrailerPrompt.mockResolvedValue({
+      output: {
+        scenes: [
+          { visual_prompt: "scene one", duration: 5 },
+          { visual_prompt: "scene two", duration: 5 },
+          { visual_prompt: "scene three", duration: 5 },
+        ],
+        caption: "caption",
+        hashtags: ["#one", "#two"],
+        title_card: "My Book",
+      },
+      metadata: { provider: "stub-copywriter", stub: true },
+    });
+    mocks.generateImageToVideo
+      .mockResolvedValueOnce({ requestId: "req-1", videoUrl: "https://cdn.example.com/s1.mp4" })
+      .mockResolvedValueOnce({ requestId: "req-2", videoUrl: "https://cdn.example.com/s2.mp4" })
+      .mockResolvedValueOnce({ requestId: "req-3", videoUrl: "https://cdn.example.com/s3.mp4" });
+    mocks.stitchSceneVideos.mockResolvedValue(Buffer.from("final-video"));
+    mocks.uploadTrailerAndGetPublicUrl.mockResolvedValue({ publicUrl: FINAL_URL });
+
+    const response = await POST(makeRequest({ audio: false }), {
+      params: Promise.resolve({ id: BOOK_ID }),
+    });
+
+    expect(response.status).toBe(200);
+    expect(mocks.generateImageToVideo).toHaveBeenNthCalledWith(
+      1,
+      expect.objectContaining({
+        includeAudio: false,
       })
     );
   });

@@ -334,7 +334,7 @@ export default async function ReaderProfilePage({ searchParams }: PageProps) {
                       {author.username ? `@${author.username}` : "Author"}
                     </p>
                     <p className="mt-1 text-[11px] text-slate-400 dark:text-white/45">
-                      Followed {new Date(author.followedAt).toLocaleDateString("sv-SE")}
+                      Followed {new Date(author.followedAt).toLocaleDateString("en-US")}
                     </p>
                   </div>
                 </div>
@@ -378,7 +378,7 @@ export default async function ReaderProfilePage({ searchParams }: PageProps) {
 
       <section className="rounded-3xl border border-slate-200/70 bg-white/80 p-6 shadow-[0_16px_30px_rgba(15,23,42,0.08)] dark:border-white/10 dark:bg-white/5">
         <div className="flex flex-wrap items-center justify-between gap-3">
-          <h2 className="text-[18px] font-semibold text-slate-900 dark:text-white">Mina highlights</h2>
+          <h2 className="text-[18px] font-semibold text-slate-900 dark:text-white">My highlights</h2>
           <span className="text-[12px] text-slate-500 dark:text-white/60">
             {highlights.length === 1 ? "1 item" : `${highlights.length} items`}
           </span>

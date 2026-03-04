@@ -29,7 +29,7 @@ export default async function AuthorPublishPicker({
 
   return (
     <main className="min-h-screen bg-background text-foreground">
-      <div className="mx-auto max-w-[800px] px-auto py-12">
+      <div className="mx-auto max-w-[800px] px-6 py-12">
         <Link
           href="/author/books"
           className="inline-flex items-center gap-2 text-sm text-slate-500 transition-colors hover:text-slate-900 dark:text-white/60 dark:hover:text-white"

@@ -54,7 +54,8 @@ export async function POST(request: Request) {
     return apiError(E_VALIDATION_FAILED, 400);
   }
 
-  const { bookId, prompt, imageUrl, metadata: requestMetadata } = parsed.data;
+  const { bookId, prompt, imageUrl, audio, metadata: requestMetadata } = parsed.data;
+  const includeAudio = audio ?? true;
   const supabase = await createClient();
   const admin = createAdminClient();
 
@@ -65,6 +66,7 @@ export async function POST(request: Request) {
     model: "dop-standard",
     prompt,
     imageUrl,
+    audio: includeAudio,
   };
 
   const { data: inserted, error: insertError } = await supabase
@@ -88,7 +90,11 @@ export async function POST(request: Request) {
 
   try {
     const startMs = Date.now();
-    const { requestId, videoUrl } = await generateImageToVideo({ prompt, imageUrl });
+    const { requestId, videoUrl } = await generateImageToVideo({
+      prompt,
+      imageUrl,
+      includeAudio,
+    });
 
     const res = await fetchWithTimeout(videoUrl, TRAILER_DOWNLOAD_TIMEOUT_MS);
     if (!res.ok) {

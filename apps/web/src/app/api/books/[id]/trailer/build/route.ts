@@ -126,6 +126,7 @@ export async function POST(
     return apiError(E_TRAILER_GENERATION_FAILED, 500);
   }
 
+  const includeAudio = parsed.data.audio ?? true;
   const scenes = trailerResult.output.scenes.slice(0, MAX_SCENES);
   if (scenes.length === 0) {
     return apiError(E_TRAILER_GENERATION_FAILED, 500, {
@@ -162,6 +163,7 @@ export async function POST(
           prompt: scene.visual_prompt,
           imageUrl: ownedBook.cover_image as string,
           durationSeconds: SCENE_DURATION_SECONDS,
+          includeAudio,
         })
       )
     );

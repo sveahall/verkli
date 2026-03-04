@@ -61,7 +61,7 @@ type CommentsSectionProps = {
   title?: string;
 };
 
-const formatter = new Intl.DateTimeFormat("sv-SE", {
+const formatter = new Intl.DateTimeFormat("en-US", {
   dateStyle: "medium",
   timeStyle: "short",
 });
@@ -449,7 +449,7 @@ export default function CommentsSection({
                                 disabled={pendingDeleteId === reply.id}
                                 onClick={() => deleteComment(reply.id)}
                               >
-                                {pendingDeleteId === reply.id ? "Raderar..." : "Radera"}
+                                {pendingDeleteId === reply.id ? "Deleting..." : "Delete"}
                               </button>
                             )}
                           </div>

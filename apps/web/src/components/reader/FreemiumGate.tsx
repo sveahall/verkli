@@ -4,7 +4,7 @@ import PurchaseBookButton from "@/app/(reader-browse)/reader/books/[id]/Purchase
 function formatMoney(amount: number, currency: string): string {
   const value = amount / 100;
   try {
-    return new Intl.NumberFormat("sv-SE", {
+    return new Intl.NumberFormat("en-US", {
       style: "currency",
       currency: currency.toUpperCase(),
       maximumFractionDigits: 2,

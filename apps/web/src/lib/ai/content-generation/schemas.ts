@@ -45,6 +45,7 @@ export const ContentGenerationRequestSchema = z.object({
   cta: z.string().max(100).optional(),
   durationSeconds: z.number().int().min(4).max(60).optional(),
   aspectRatio: z.string().max(20).optional(),
+  audio: z.boolean().optional().default(true),
   userPromptAddendum: z.string().max(500).optional(),
 });
 export type ContentGenerationRequest = z.infer<typeof ContentGenerationRequestSchema>;

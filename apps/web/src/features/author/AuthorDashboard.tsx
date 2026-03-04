@@ -880,7 +880,7 @@ export default function AuthorDashboard({ user }: { user: User }) {
       {showChoiceModal && (
         <div className="fixed inset-0 z-[1000] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4" onClick={() => setShowChoiceModal(false)}>
           <div className="relative w-full max-w-[600px] rounded-3xl border border-black/10 dark:border-white/10 bg-white/[0.95] dark:bg-[#0a0a0f]/[0.95] p-8 backdrop-blur-xl" onClick={(e) => e.stopPropagation()}>
-            <button onClick={() => setShowChoiceModal(false)} className="absolute right-6 top-6 text-slate-500 dark:text-white/50 transition-colors hover:text-slate-900 dark:hover:text-white">
+            <button type="button" aria-label="Close" onClick={() => setShowChoiceModal(false)} className="absolute right-6 top-6 text-slate-500 dark:text-white/50 transition-colors hover:text-slate-900 dark:hover:text-white">
               <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
             </button>
             <h2 className="mb-6 text-[28px] font-semibold text-slate-900 dark:text-white">Create new</h2>
@@ -915,7 +915,7 @@ export default function AuthorDashboard({ user }: { user: User }) {
       {showShelfModal && (
         <div className="fixed inset-0 z-[1000] flex items-start justify-center bg-black/60 backdrop-blur-sm p-4 overflow-y-auto pt-20">
           <div className="relative my-8 w-full max-w-[800px] rounded-3xl border border-black/10 dark:border-white/10 bg-white/[0.95] dark:bg-[#0a0a0f]/[0.95] p-10 backdrop-blur-xl" onClick={(e) => e.stopPropagation()}>
-            <button onClick={() => setShowShelfModal(false)} className="absolute right-6 top-6 text-slate-500 dark:text-white/50 transition-colors hover:text-slate-900 dark:hover:text-white">
+            <button type="button" aria-label="Close" onClick={() => setShowShelfModal(false)} className="absolute right-6 top-6 text-slate-500 dark:text-white/50 transition-colors hover:text-slate-900 dark:hover:text-white">
               <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
             </button>
             <h2 className="mb-8 text-[24px] font-semibold text-slate-900 dark:text-white">Create new shelf</h2>
@@ -992,7 +992,7 @@ export default function AuthorDashboard({ user }: { user: User }) {
                           sizes="128px"
                           className="object-cover"
                         />
-                        <button onClick={() => setShelfForm({ ...shelfForm, cover: "" })} className="absolute right-1 top-1 rounded-full bg-black/60 p-1 text-white/80 hover:bg-black/80">
+                        <button type="button" aria-label="Remove cover image" onClick={() => setShelfForm({ ...shelfForm, cover: "" })} className="absolute right-1 top-1 rounded-full bg-black/60 p-1 text-white/80 hover:bg-black/80">
                           <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
                         </button>
                       </div>
@@ -1153,7 +1153,7 @@ export default function AuthorDashboard({ user }: { user: User }) {
                     {shelfForm.tags.map((tag, i) => (
                       <span key={i} className="flex items-center gap-2 rounded-full bg-[#907AFF]/20 px-3 py-1 text-[13px] text-[#907AFF]">
                         {tag}
-                        <button onClick={() => setShelfForm({ ...shelfForm, tags: shelfForm.tags.filter((_, idx) => idx !== i) })} className="text-[#907AFF]/60 hover:text-[#907AFF]">
+                        <button type="button" aria-label="Remove tag" onClick={() => setShelfForm({ ...shelfForm, tags: shelfForm.tags.filter((_, idx) => idx !== i) })} className="text-[#907AFF]/60 hover:text-[#907AFF]">
                           <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
                         </button>
                       </span>
@@ -1195,7 +1195,7 @@ export default function AuthorDashboard({ user }: { user: User }) {
       {showReviewShelfModal && (
         <div className="fixed inset-0 z-[1000] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 overflow-y-auto">
           <div className="relative my-8 w-full max-w-[700px] rounded-3xl border border-black/10 dark:border-white/10 bg-white/[0.95] dark:bg-[#0a0a0f]/[0.95] p-8 backdrop-blur-xl">
-            <button onClick={() => setShowReviewShelfModal(false)} className="absolute right-6 top-6 text-slate-500 dark:text-white/50 transition-colors hover:text-slate-900 dark:hover:text-white">
+            <button type="button" aria-label="Close" onClick={() => setShowReviewShelfModal(false)} className="absolute right-6 top-6 text-slate-500 dark:text-white/50 transition-colors hover:text-slate-900 dark:hover:text-white">
               <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
             </button>
             <h2 className="mb-6 text-[28px] font-semibold text-slate-900 dark:text-white">Review shelf</h2>

@@ -188,6 +188,7 @@ export function TrailerWizardProvider({
           description: state.story.description.trim(),
           keywords: state.story.keywords,
           tone: state.feeling.tone,
+          audio: true,
         }),
       });
       const payload = (await response.json().catch(() => ({}))) as GenerateResponse;
@@ -277,6 +278,7 @@ export function TrailerWizardProvider({
           description: state.story.description.trim(),
           keywords: state.story.keywords,
           tone: state.feeling.tone,
+          audio: true,
         }),
         signal: AbortSignal.timeout(600_000),
       });

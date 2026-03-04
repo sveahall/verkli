@@ -114,7 +114,7 @@ export default function PollCard({
                 : "bg-green-50 text-green-700 dark:bg-green-950/30 dark:text-green-400"
             }`}
           >
-            {isClosed ? "Stängd" : "Aktiv"}
+            {isClosed ? "Closed" : "Active"}
           </span>
         </div>
 
@@ -142,7 +142,7 @@ export default function PollCard({
                       {r.text}
                       {isMyVote && (
                         <span className="ml-1.5 text-[11px] text-[#907AFF]">
-                          (ditt val)
+                          (your vote)
                         </span>
                       )}
                     </span>
@@ -164,7 +164,7 @@ export default function PollCard({
               );
             })}
             <p className="text-[12px] text-slate-400 dark:text-white/30">
-              {totalVotes} {totalVotes === 1 ? "röst" : "röster"} totalt
+              {totalVotes} {totalVotes === 1 ? "vote" : "votes"} total
             </p>
           </div>
         ) : (
@@ -205,19 +205,19 @@ export default function PollCard({
               onClick={handleVote}
               disabled={!selectedOptionId || !!isClosed}
               isLoading={voting}
-              loadingText="Röstar..."
+              loadingText="Voting..."
               className="mt-1"
               size="sm"
             >
-              Rösta
+              Vote
             </Button>
           </div>
         )}
 
         {closesAt && !isClosed && (
           <p className="text-[12px] text-slate-400 dark:text-white/30">
-            Stängs{" "}
-            {new Date(closesAt).toLocaleDateString("sv-SE", {
+            Closes{" "}
+            {new Date(closesAt).toLocaleDateString("en-US", {
               year: "numeric",
               month: "short",
               day: "numeric",

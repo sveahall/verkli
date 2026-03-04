@@ -10,6 +10,7 @@ type GenerateImageToVideoInput = {
   prompt: string;
   imageUrl: string;
   durationSeconds?: number;
+  includeAudio?: boolean;
 };
 
 type GenerateImageToVideoResult = {
@@ -56,6 +57,7 @@ export async function generateImageToVideo({
   prompt,
   imageUrl,
   durationSeconds,
+  includeAudio = true,
 }: GenerateImageToVideoInput): Promise<GenerateImageToVideoResult> {
   const trimmedPrompt = prompt.trim();
   const trimmedImageUrl = imageUrl.trim();
@@ -76,6 +78,7 @@ export async function generateImageToVideo({
   if (typeof durationSeconds === "number" && Number.isFinite(durationSeconds)) {
     input.duration = durationSeconds;
   }
+  input.audio = includeAudio;
 
   const result = await withTimeout(
     hf.subscribe(HIGGSFIELD_ENDPOINT, {

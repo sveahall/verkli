@@ -34,12 +34,12 @@ export default function InteractiveTestimonialSection() {
               <Link href="/author/signup" className="btn-primary">
                 Start for free
               </Link>
-              <a
-                href="#"
+              <Link
+                href="/how-it-works"
                 className="text-[14px] text-slate-400 underline underline-offset-4 transition-colors hover:text-slate-600 dark:text-white/40 dark:hover:text-white/60"
               >
-                Read case studies
-              </a>
+                Learn more
+              </Link>
             </div>
           </div>
 

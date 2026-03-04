@@ -45,6 +45,7 @@ export const videoGenerateBodySchema = z.object({
   bookId: z.string().min(1, "bookId required").uuid("invalid bookId"),
   prompt: z.string().min(1, "prompt required").max(2_000),
   imageUrl: z.string().min(1, "imageUrl required").url("invalid imageUrl"),
+  audio: z.boolean().optional().default(true),
   /** Optional trailer metadata to store in media_assets.metadata */
   metadata: z
     .object({

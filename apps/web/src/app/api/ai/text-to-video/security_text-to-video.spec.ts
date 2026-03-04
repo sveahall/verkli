@@ -9,9 +9,9 @@ vi.mock("@/lib/billing/server", () => ({
   requireProBillingForApi: vi.fn(),
 }));
 
-vi.mock("@/lib/ai/textToVideo", () => ({
-  makeVideo: vi.fn(() =>
-    Promise.resolve({ id: "video-1", status: "completed" })
+vi.mock("@/lib/higgsfield", () => ({
+  generateImageToVideo: vi.fn(() =>
+    Promise.resolve({ requestId: "req-1", videoUrl: "https://cdn.example.com/video.mp4" })
   ),
 }));
 
@@ -19,10 +19,16 @@ const { requireAuthorRoleForApi } = await import(
   "@/lib/auth/require-author"
 );
 const { requireProBillingForApi } = await import("@/lib/billing/server");
+const { generateImageToVideo } = await import("@/lib/higgsfield");
 const { POST } = await import("./route");
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
-function makeRequest(body: Record<string, unknown> = { promptText: "A sunset" }): Request {
+function makeRequest(
+  body: Record<string, unknown> = {
+    promptText: "A sunset",
+    imageUrl: "https://cdn.example.com/cover.jpg",
+  }
+): Request {
   return new Request("http://localhost/api/ai/text-to-video", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -95,7 +101,8 @@ describe("security: POST /api/ai/text-to-video", () => {
     const res = await POST(makeRequest());
     expect(res.status).toBe(200);
     const body = await res.json();
-    expect(body).toHaveProperty("id");
+    expect(body).toHaveProperty("requestId");
+    expect(body).toHaveProperty("videoUrl");
   });
 
   it("rate-limits after 5 requests per minute per user", async () => {
@@ -139,5 +146,32 @@ describe("security: POST /api/ai/text-to-video", () => {
 
     const res = await POST(makeRequest({}));
     expect(res.status).toBe(400);
+  });
+
+  it("returns 400 when imageUrl is missing", async () => {
+    mockAuthSuccess();
+    mockBillingOk();
+
+    const res = await POST(makeRequest({ promptText: "A sunset" }));
+    expect(res.status).toBe(400);
+  });
+
+  it("forwards audio=false to Higgsfield", async () => {
+    mockAuthSuccess();
+    mockBillingOk();
+
+    const res = await POST(
+      makeRequest({
+        promptText: "A sunset",
+        imageUrl: "https://cdn.example.com/cover.jpg",
+        audio: false,
+      })
+    );
+    expect(res.status).toBe(200);
+    expect(vi.mocked(generateImageToVideo)).toHaveBeenCalledWith(
+      expect.objectContaining({
+        includeAudio: false,
+      })
+    );
   });
 });

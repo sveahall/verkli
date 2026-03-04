@@ -357,7 +357,7 @@ export default async function ReaderReadPage({
         signInHref={signInHref}
         chapterOptions={chapterOptions}
         fixedChapterId={chapter.id}
-        title={`Kommentarer: ${chapter.title}`}
+        title={`Comments: ${chapter.title}`}
       />
     </main>
   );

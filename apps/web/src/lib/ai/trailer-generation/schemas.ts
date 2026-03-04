@@ -31,6 +31,7 @@ export const TrailerGenerateRequestSchema = z.object({
   description: z.string().min(1).max(2000),
   keywords: z.array(z.string().min(1).max(50)).min(1).max(10),
   tone: TrailerToneSchema,
+  audio: z.boolean().optional().default(true),
 });
 export type TrailerGenerateRequest = z.infer<typeof TrailerGenerateRequestSchema>;
 

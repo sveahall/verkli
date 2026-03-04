@@ -275,10 +275,10 @@ function LandingPage() {
                 <p className="mt-5 max-w-[400px] text-[16px] leading-[1.7] text-slate-500 dark:text-white/50">Join thousands of authors turning their books into content that reaches readers everywhere.</p>
                 <div className="mt-10 flex flex-wrap items-center gap-4">
                   <Link href="/author/signup" className="btn-primary text-[15px]">Start for free</Link>
-                  <a href="#" className="flex items-center gap-1.5 text-[15px] font-medium text-slate-500 transition-colors hover:text-slate-800 dark:text-white/45 dark:hover:text-white/70">
-                    Schedule a demo
+                  <Link href="/how-it-works" className="flex items-center gap-1.5 text-[15px] font-medium text-slate-500 transition-colors hover:text-slate-800 dark:text-white/45 dark:hover:text-white/70">
+                    How it works
                     <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" /></svg>
-                  </a>
+                  </Link>
                 </div>
               </div>
 

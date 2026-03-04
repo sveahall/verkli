@@ -2,6 +2,7 @@ import "server-only";
 import path from "node:path";
 import { tmpdir } from "node:os";
 import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { FFMPEG_CONCAT_OUTPUT_OPTIONS } from "./trailer-ffmpeg-options";
 
 type FfmpegCommand = {
   input: (value: string) => FfmpegCommand;
@@ -57,13 +58,7 @@ async function concatVideosToMp4(
     ffmpeg()
       .input(concatListPath)
       .inputOptions(["-f concat", "-safe 0"])
-      .outputOptions([
-        "-c:v libx264",
-        "-preset veryfast",
-        "-pix_fmt yuv420p",
-        "-movflags +faststart",
-        "-an",
-      ])
+      .outputOptions(FFMPEG_CONCAT_OUTPUT_OPTIONS)
       .on("end", () => resolve())
       .on("error", (error: unknown) => {
         const message =

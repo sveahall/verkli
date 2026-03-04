@@ -73,6 +73,7 @@ export default function AssetPreviewArea({
           bookId: book.id,
           prompt,
           imageUrl: book.cover_image,
+          audio: true,
         }),
       });
 

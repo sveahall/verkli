@@ -20,6 +20,7 @@ describe("ContentGenerationRequestSchema", () => {
     expect(result.success).toBe(true);
     if (result.success) {
       expect(result.data.language).toBe("sv");
+      expect(result.data.audio).toBe(true);
     }
   });
 
