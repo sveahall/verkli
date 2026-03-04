@@ -26,7 +26,7 @@ import { QUEUE_NAMES } from "../src/lib/queue-names";
 import type { AudiobookJobData } from "../src/lib/audiobook-queue";
 import { sanitizeJobErrorForStorage } from "../src/lib/sanitize-job-error";
 import { isDuplicate } from "../src/lib/workers/idempotency";
-import { checkBudget, trackUsage, BudgetExceededError } from "../src/lib/workers/budget";
+import { checkBudget, BudgetExceededError } from "../src/lib/workers/budget";
 import { getActiveProviderKey } from "../src/lib/tts/tts-provider";
 import type { TtsProvider } from "../src/lib/tts/tts-provider";
 import { OpenAiTtsProvider } from "../src/lib/tts/openai-tts-provider";
@@ -639,18 +639,6 @@ async function processJob(payload: AudiobookJobData) {
       }
     }
 
-    // Budget gate: check token budget before TTS
-    const budgetKey = userId;
-    try {
-      checkBudget(budgetKey);
-    } catch (err) {
-      if (err instanceof BudgetExceededError) {
-        console.warn("[audiobook worker] budget exceeded for:", budgetKey);
-        throw new UnrecoverableError(err.message);
-      }
-      throw err;
-    }
-
     await updateJob("processing", {
       started_at: new Date().toISOString(),
       errorMessage: null,
@@ -692,6 +680,21 @@ async function processJob(payload: AudiobookJobData) {
       (sum, ch) => sum + getChapterText(ch.content).length,
       0
     );
+    const estimatedCostUnits = Math.ceil(totalTextLength / 4);
+    try {
+      await checkBudget({
+        userId,
+        pipeline: "tts",
+        units: estimatedCostUnits,
+        jobId,
+      });
+    } catch (err) {
+      if (err instanceof BudgetExceededError) {
+        throw new UnrecoverableError(err.message);
+      }
+      throw err;
+    }
+
     await updateJob("processing", {
       totalChapters,
       totalTextLength,
@@ -883,14 +886,6 @@ async function processJob(payload: AudiobookJobData) {
     if (chapterAudios.length === 0) {
       throw new Error("No chapters with content to generate audio for");
     }
-
-    // Track TTS usage (estimate: ~1 token per 4 chars of synthesized text)
-    const totalChars = chapters.reduce(
-      (sum, ch) => sum + getChapterText(ch.content).length,
-      0
-    );
-    const estimatedTokens = Math.ceil(totalChars / 4);
-    trackUsage(userId, estimatedTokens);
 
     if (singleChapterMode) {
       const chapterResult = chapterAudios[0];

@@ -14,7 +14,7 @@ import { createAdminClient } from "../src/lib/supabase/admin";
 import type { MarketingJobData } from "../src/lib/marketing-queue";
 import { getLanguageLabel } from "../src/lib/languages";
 import { isDuplicate } from "../src/lib/workers/idempotency";
-import { checkBudget, trackUsage, BudgetExceededError } from "../src/lib/workers/budget";
+import { checkBudget, BudgetExceededError } from "../src/lib/workers/budget";
 
 import { QUEUE_NAMES } from "../src/lib/queue-names";
 
@@ -74,7 +74,7 @@ function assertWorkerEnv(): void {
   }
 }
 
-async function processJob(payload: MarketingJobData) {
+async function processJob(payload: MarketingJobData, workerJobId?: string) {
   const { bookId, authorId, channels, language } = payload;
   const supabase = createAdminClient();
 
@@ -88,17 +88,6 @@ async function processJob(payload: MarketingJobData) {
     "language:",
     language
   );
-
-  // Budget gate
-  try {
-    checkBudget(authorId);
-  } catch (err) {
-    if (err instanceof BudgetExceededError) {
-      console.warn("[marketing worker] budget exceeded for:", authorId);
-      throw new UnrecoverableError(err.message);
-    }
-    throw err;
-  }
 
   // Fetch book
   const { data: book, error: bookFetchError } = await supabase
@@ -118,6 +107,22 @@ async function processJob(payload: MarketingJobData) {
   const validChannels = channels.filter(isChannel);
   if (validChannels.length === 0) {
     throw new UnrecoverableError("No valid channels provided");
+  }
+  const estimatedCostUnits = Math.max(1, validChannels.length);
+
+  // Budget gate (video pipeline cost-units)
+  try {
+    await checkBudget({
+      userId: authorId,
+      pipeline: "video",
+      units: estimatedCostUnits,
+      jobId: workerJobId ?? null,
+    });
+  } catch (err) {
+    if (err instanceof BudgetExceededError) {
+      throw new UnrecoverableError(err.message);
+    }
+    throw err;
   }
 
   let generated = 0;
@@ -170,12 +175,6 @@ async function processJob(payload: MarketingJobData) {
     generated++;
   }
 
-  // Track usage (estimate: ~100 tokens per channel for template-based copy)
-  const estimatedTokens = generated * 100;
-  if (estimatedTokens > 0) {
-    trackUsage(authorId, estimatedTokens);
-  }
-
   console.log(
     "[marketing worker] completed — bookId:",
     bookId,
@@ -207,7 +206,8 @@ function main() {
     QUEUE_NAME,
     async (job) => {
       if (job.name === "marketing-generate" && job.data) {
-        await processJob(job.data as MarketingJobData);
+        const workerJobId = job.id != null ? String(job.id) : undefined;
+        await processJob(job.data as MarketingJobData, workerJobId);
       }
     },
     {

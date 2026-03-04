@@ -1,66 +1,157 @@
-import { describe, it, expect, beforeEach } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+
+type StoredBudget = {
+  value: number;
+  expiresAtMs: number | null;
+};
+
+const { redisStore } = vi.hoisted(() => ({
+  redisStore: new Map<string, StoredBudget>(),
+}));
+
+vi.mock("ioredis", () => ({
+  default: class MockRedis {
+    constructor() {}
+
+    private readCurrent(key: string): number {
+      const entry = redisStore.get(key);
+      if (!entry) return 0;
+      if (entry.expiresAtMs !== null && entry.expiresAtMs <= Date.now()) {
+        redisStore.delete(key);
+        return 0;
+      }
+      return entry.value;
+    }
+
+    async eval(
+      _script: string,
+      _numberOfKeys: number,
+      key: string,
+      incrementRaw: string,
+      limitRaw: string,
+      ttlRaw: string
+    ): Promise<[number, number]> {
+      const increment = Math.max(0, Math.floor(Number(incrementRaw)));
+      const limit = Math.max(0, Math.floor(Number(limitRaw)));
+      const ttlSeconds = Math.max(1, Math.floor(Number(ttlRaw)));
+      const current = this.readCurrent(key);
+
+      if (current + increment > limit) {
+        return [0, current];
+      }
+
+      const next = current + increment;
+      const existing = redisStore.get(key);
+      redisStore.set(key, {
+        value: next,
+        expiresAtMs: existing?.expiresAtMs ?? Date.now() + ttlSeconds * 1000,
+      });
+      return [1, next];
+    }
+
+    async get(key: string): Promise<string | null> {
+      const current = this.readCurrent(key);
+      if (current <= 0 && !redisStore.has(key)) return null;
+      return String(current);
+    }
+
+    async del(...keys: string[]): Promise<number> {
+      let removed = 0;
+      for (const key of keys) {
+        if (redisStore.delete(key)) {
+          removed++;
+        }
+      }
+      return removed;
+    }
+  },
+}));
+
 import {
   checkBudget,
-  trackUsage,
   getUsage,
   resetAllBudgets,
   BudgetExceededError,
 } from "../budget";
 
-describe("budget", () => {
-  beforeEach(() => {
-    resetAllBudgets();
+describe("workers/budget (redis)", () => {
+  beforeEach(async () => {
+    process.env.REDIS_URL = "redis://localhost:6379";
+    process.env.TTS_DAILY_BUDGET = "5";
+    process.env.TRANSLATION_DAILY_BUDGET = "10";
+    process.env.VIDEO_DAILY_BUDGET = "3";
+    redisStore.clear();
+    await resetAllBudgets();
   });
 
-  it("allows usage under the daily limit", () => {
-    expect(() => checkBudget("user-1")).not.toThrow();
+  it("reserves budget per user and pipeline", async () => {
+    await checkBudget({ userId: "user-1", pipeline: "translation", units: 4, jobId: "job-1" });
+    const usage = await getUsage({ userId: "user-1", pipeline: "translation" });
+    expect(usage.current).toBe(4);
+    expect(usage.limit).toBe(10);
   });
 
-  it("tracks usage and reports it", () => {
-    trackUsage("user-1", 500);
-    const usage = getUsage("user-1");
-    expect(usage).toEqual({ daily: 500, monthly: 500 });
+  it("isolates counters per pipeline for same user", async () => {
+    await checkBudget({ userId: "user-1", pipeline: "translation", units: 4, jobId: "job-1" });
+    await checkBudget({ userId: "user-1", pipeline: "tts", units: 2, jobId: "job-2" });
+
+    const translationUsage = await getUsage({ userId: "user-1", pipeline: "translation" });
+    const ttsUsage = await getUsage({ userId: "user-1", pipeline: "tts" });
+    expect(translationUsage.current).toBe(4);
+    expect(ttsUsage.current).toBe(2);
   });
 
-  it("throws BudgetExceededError when daily limit is exceeded", () => {
-    trackUsage("user-1", 100);
-    expect(() => checkBudget("user-1", { dailyTokens: 100, monthlyTokens: 1000 })).toThrow(BudgetExceededError);
-    expect(() => checkBudget("user-1", { dailyTokens: 100, monthlyTokens: 1000 })).toThrow(/daily/);
+  it("isolates counters per user for same pipeline", async () => {
+    await checkBudget({ userId: "user-1", pipeline: "video", units: 1, jobId: "job-1" });
+    await checkBudget({ userId: "user-2", pipeline: "video", units: 2, jobId: "job-2" });
+
+    const usage1 = await getUsage({ userId: "user-1", pipeline: "video" });
+    const usage2 = await getUsage({ userId: "user-2", pipeline: "video" });
+    expect(usage1.current).toBe(1);
+    expect(usage2.current).toBe(2);
   });
 
-  it("throws BudgetExceededError when monthly limit is exceeded", () => {
-    trackUsage("user-1", 1000);
-    expect(() => checkBudget("user-1", { dailyTokens: 5000, monthlyTokens: 1000 })).toThrow(BudgetExceededError);
+  it("uses UTC day suffix in keys", async () => {
+    const beforeMidnight = new Date("2026-03-04T23:59:59.000Z");
+    const afterMidnight = new Date("2026-03-05T00:00:01.000Z");
+
+    const usageA = await checkBudget({
+      userId: "user-1",
+      pipeline: "translation",
+      units: 2,
+      jobId: "job-a",
+      now: beforeMidnight,
+    });
+    const usageB = await checkBudget({
+      userId: "user-1",
+      pipeline: "translation",
+      units: 2,
+      jobId: "job-b",
+      now: afterMidnight,
+    });
+
+    expect(usageA.day).toBe("2026-03-04");
+    expect(usageB.day).toBe("2026-03-05");
+    expect(usageA.key).not.toBe(usageB.key);
   });
 
-  it("allows usage with custom limits", () => {
-    trackUsage("user-1", 50);
-    expect(() => checkBudget("user-1", { dailyTokens: 100, monthlyTokens: 1000 })).not.toThrow();
-  });
+  it("rejects when daily budget is exceeded (worker path: translation)", async () => {
+    process.env.TRANSLATION_DAILY_BUDGET = "3";
 
-  it("denies usage with custom limits", () => {
-    trackUsage("user-1", 101);
-    expect(() => checkBudget("user-1", { dailyTokens: 100, monthlyTokens: 1000 })).toThrow(
-      BudgetExceededError
-    );
-  });
+    await checkBudget({
+      userId: "author-1",
+      pipeline: "translation",
+      units: 3,
+      jobId: "translation-job-1",
+    });
 
-  it("returns null for unknown keys", () => {
-    expect(getUsage("unknown")).toBeNull();
-  });
-
-  it("accumulates multiple trackUsage calls", () => {
-    trackUsage("user-1", 100);
-    trackUsage("user-1", 200);
-    trackUsage("user-1", 300);
-    const usage = getUsage("user-1");
-    expect(usage).toEqual({ daily: 600, monthly: 600 });
-  });
-
-  it("resetAllBudgets clears everything", () => {
-    trackUsage("user-1", 1000);
-    resetAllBudgets();
-    expect(getUsage("user-1")).toBeNull();
-    expect(() => checkBudget("user-1")).not.toThrow();
+    await expect(
+      checkBudget({
+        userId: "author-1",
+        pipeline: "translation",
+        units: 1,
+        jobId: "translation-job-2",
+      })
+    ).rejects.toBeInstanceOf(BudgetExceededError);
   });
 });
