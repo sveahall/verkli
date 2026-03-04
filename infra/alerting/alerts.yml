@@ -1,0 +1,82 @@
+# Alert trigger definitions for production observability.
+# Use with GET /api/health/metrics/queue and GET /api/health/workers/crashes.
+# Wire these into your monitoring (e.g. Grafana, cron + curl, PagerDuty).
+
+alerts:
+  # --- Queue lag (backlog) ---
+  - id: queue-lag
+    name: Queue lag high
+    description: Total or per-queue depth (waiting + delayed) exceeds threshold.
+    severity: warning
+    data_source: GET /api/health/metrics/queue
+    condition:
+      metric: totals.queueDepth
+      operator: ">"
+      threshold: 100
+    per_queue_condition:
+      metric: queues.<queueName>.queueDepth
+      operator: ">"
+      threshold: 50
+    runbook: docs/INCIDENT_RUNBOOK.md#queue-backlog-recovery
+
+  # --- Failed jobs ---
+  - id: failed-jobs
+    name: Failed jobs high
+    description: Total or per-queue failed job count exceeds threshold.
+    severity: critical
+    data_source: GET /api/health/metrics/queue
+    condition:
+      metric: totals.failedJobs
+      operator: ">"
+      threshold: 10
+    per_queue_condition:
+      metric: queues.<queueName>.failedJobs
+      operator: ">"
+      threshold: 5
+    runbook: docs/INCIDENT_RUNBOOK.md#queue-backlog-recovery
+
+  # --- Worker crash ---
+  - id: worker-crash
+    name: Worker crash detected
+    description: One or more workers have stale heartbeat (no ping in 90s).
+    severity: critical
+    data_source: GET /api/health/workers/crashes
+    condition:
+      metric: crashed
+      operator: length_gt
+      threshold: 0
+    runbook: docs/INCIDENT_RUNBOOK.md#worker-crash-recovery
+
+  # --- AI cost spikes (operational) ---
+  - id: ai-cost-spike
+    name: AI cost spike
+    description: Unusual spike in AI usage; correlate with failed jobs, queue depth, or provider billing.
+    severity: warning
+    data_source: manual / provider dashboard / logs
+    condition: |
+      Monitor: translation/audiobook failed job rate, BudgetExceededError in logs,
+      OpenAI/Anthropic usage dashboards. Alert when usage exceeds baseline (e.g. 2x in 1h).
+    runbook: docs/INCIDENT_RUNBOOK.md#ai-budget-breach
+
+  # --- Budget breach ---
+  - id: budget-breach
+    name: AI budget breach
+    description: Users hitting daily/monthly token limits; jobs failing with BudgetExceededError.
+    severity: warning
+    data_source: logs (BudgetExceededError), failed jobs on translation/audiobook queues
+    condition: |
+      Alert when queues.<book-translation>.failedJobs or queues.<audiobook-generation>.failedJobs
+      increases and logs show BudgetExceededError.
+    runbook: docs/INCIDENT_RUNBOOK.md#ai-budget-breach
+
+  # --- Redis outage ---
+  - id: redis-outage
+    name: Redis unavailable
+    description: Metrics or crashes endpoint returns redis false / 503.
+    severity: critical
+    data_source: GET /api/health/metrics/queue or GET /api/health/workers/crashes
+    condition:
+      metric: redis
+      operator: "=="
+      value: false
+    runbook: docs/INCIDENT_RUNBOOK.md#redis-outage-handling

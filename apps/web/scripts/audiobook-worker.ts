@@ -23,6 +23,7 @@ import { Worker, UnrecoverableError } from "bullmq";
 import { createAdminClient } from "../src/lib/supabase/admin";
 import { getAudiobookStorageBucket } from "../src/lib/tts/storage";
 import { QUEUE_NAMES } from "../src/lib/queue-names";
+import { startHeartbeatInterval } from "../src/lib/health/worker-heartbeat";
 import type { AudiobookJobData } from "../src/lib/audiobook-queue";
 import { sanitizeJobErrorForStorage } from "../src/lib/sanitize-job-error";
 import { isDuplicate } from "../src/lib/workers/idempotency";
@@ -39,6 +40,7 @@ const REPO_ROOT = path.resolve(APP_ROOT, "..", "..");
 const QWEN_MODEL_DEFAULT = "Qwen/Qwen3-TTS-12Hz-0.6B-CustomVoice";
 const QWEN_SYNTH_SCRIPT_DEFAULT = path.join(SCRIPT_DIR, "qwen_tts_synthesize.py");
 const QWEN_PYTHON_DEFAULT = path.join(REPO_ROOT, "qwen3tts-env", "bin", "python3.12");
+const PIPELINE_SMOKE_MODE = process.env.PIPELINE_SMOKE_MODE === "true";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Utilities
@@ -112,6 +114,33 @@ const TTS_CONCURRENCY = (() => {
   if (Number.isFinite(n) && n > 0) return Math.max(1, Math.min(4, Math.floor(n)));
   return 1;
 })();
+
+function createSilentWavBuffer(durationSeconds: number, sampleRate = 22_050): Buffer {
+  const safeDuration = Number.isFinite(durationSeconds) ? Math.max(1, Math.floor(durationSeconds)) : 1;
+  const channels = 1;
+  const bitsPerSample = 16;
+  const blockAlign = channels * (bitsPerSample / 8);
+  const byteRate = sampleRate * blockAlign;
+  const sampleCount = safeDuration * sampleRate;
+  const dataSize = sampleCount * blockAlign;
+  const wav = Buffer.alloc(44 + dataSize);
+
+  wav.write("RIFF", 0);
+  wav.writeUInt32LE(36 + dataSize, 4);
+  wav.write("WAVE", 8);
+  wav.write("fmt ", 12);
+  wav.writeUInt32LE(16, 16);
+  wav.writeUInt16LE(1, 20); // PCM
+  wav.writeUInt16LE(channels, 22);
+  wav.writeUInt32LE(sampleRate, 24);
+  wav.writeUInt32LE(byteRate, 28);
+  wav.writeUInt16LE(blockAlign, 32);
+  wav.writeUInt16LE(bitsPerSample, 34);
+  wav.write("data", 36);
+  wav.writeUInt32LE(dataSize, 40);
+
+  return wav;
+}
 
 /** Estimate WAV duration from buffer (assumes standard WAV header) */
 function estimateWavDuration(wav: Buffer): number {
@@ -730,12 +759,38 @@ async function processJob(payload: AudiobookJobData) {
     // Resolve TTS provider: "openai" for cloud, "qwen-local" for local subprocess
     const providerKey = getActiveProviderKey();
     let cloudProvider: TtsProvider | null = null;
-    if (providerKey === "openai") {
+    if (!PIPELINE_SMOKE_MODE && providerKey === "openai") {
       cloudProvider = new OpenAiTtsProvider();
       console.warn("[audiobook worker] using cloud TTS provider:", cloudProvider.name);
     }
 
     const synthesizeOne = async (text: string, outputPath: string) => {
+      if (PIPELINE_SMOKE_MODE) {
+        const smokeDurationSeconds = Math.min(6, Math.max(1, Math.ceil(text.length / 80)));
+        const wav = createSilentWavBuffer(smokeDurationSeconds);
+        await fs.writeFile(outputPath, wav);
+        return {
+          wav,
+          sampleRate: 22_050,
+          outputPath,
+          device: "smoke",
+          method: "smoke",
+          metrics: {
+            wallClockSec: 0,
+            synthesisSec: 0,
+            audioSec: smokeDurationSeconds,
+            rtf: 0,
+            chars: text.length,
+            charsPerSecGeneration: text.length,
+            processedChunks: 1,
+          },
+          batchSize: 1,
+          dtype: "smoke",
+          torchCompile: false,
+          int8: false,
+        } satisfies QwenSynthesisResult;
+      }
+
       if (cloudProvider) {
         const result = await cloudProvider.synthesize(text, {
           language,
@@ -1134,17 +1189,17 @@ function main() {
     process.exit(1);
   }
 
-  console.warn(
-    "[audiobook worker] started - queue:",
-    QUEUE_NAME,
-    "workerConcurrency:",
-    TTS_CONCURRENCY
-  );
+  console.warn("[audiobook-worker] started", {
+    queue: QUEUE_NAME,
+    workerConcurrency: TTS_CONCURRENCY,
+    smokeMode: PIPELINE_SMOKE_MODE,
+  });
 
   const worker = new Worker(
     QUEUE_NAME,
     async (job) => {
       if (job.name === "generate" && job.data) {
+        console.log("[audiobook-worker] processing job", job.id);
         await processJob(job.data as AudiobookJobData);
       }
     },
@@ -1166,22 +1221,26 @@ function main() {
   });
 
   worker.on("failed", (job, err) => {
-    console.error("[audiobook worker] job failed:", job?.id, err?.message);
+    console.error("[audiobook-worker] job failed", job?.id, err?.message);
   });
 
   worker.on("error", (err) => {
     console.error("[audiobook worker] error:", err.message);
   });
 
+  const heartbeatInterval = startHeartbeatInterval(QUEUE_NAME);
+
   // Graceful shutdown
   process.on("SIGTERM", async () => {
     console.warn("[audiobook worker] shutting down...");
+    clearInterval(heartbeatInterval);
     await worker.close();
     process.exit(0);
   });
 
   process.on("SIGINT", async () => {
     console.warn("[audiobook worker] shutting down...");
+    clearInterval(heartbeatInterval);
     await worker.close();
     process.exit(0);
   });

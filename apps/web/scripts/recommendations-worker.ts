@@ -14,6 +14,7 @@ assertServerEnv();
 import { Worker } from "bullmq";
 import { createAdminClient } from "../src/lib/supabase/admin";
 import { QUEUE_NAMES } from "../src/lib/queue-names";
+import { startHeartbeatInterval } from "../src/lib/health/worker-heartbeat";
 import type { RecommendationsJobData } from "../src/lib/recommendations-queue";
 
 const QUEUE_NAME = QUEUE_NAMES.RECOMMENDATIONS;
@@ -303,12 +304,13 @@ function main() {
     process.exit(1);
   }
 
-  console.log("[recommendations worker] started - queue:", QUEUE_NAME);
+  console.log("[recommendations-worker] started", { queue: QUEUE_NAME });
 
   const worker = new Worker(
     QUEUE_NAME,
     async (job) => {
       if (job.name === "compute" && job.data) {
+        console.log("[recommendations-worker] processing job", job.id);
         await processJob(job.data as RecommendationsJobData);
       }
     },
@@ -330,12 +332,14 @@ function main() {
   });
 
   worker.on("failed", (job, err) => {
-    console.error("[recommendations worker] job failed:", job?.id, err?.message);
+    console.error("[recommendations-worker] job failed", job?.id, err?.message);
   });
 
   worker.on("error", (err) => {
     console.error("[recommendations worker] error:", err.message);
   });
+
+  const heartbeatInterval = startHeartbeatInterval(QUEUE_NAME);
 
   // Scheduled recomputation every 6 hours
   const SIX_HOURS = 6 * 60 * 60 * 1000;
@@ -348,6 +352,7 @@ function main() {
   // Graceful shutdown
   const shutdown = async () => {
     console.log("[recommendations worker] shutting down...");
+    clearInterval(heartbeatInterval);
     clearInterval(recomputeInterval);
     await worker.close();
     process.exit(0);

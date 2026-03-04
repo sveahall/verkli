@@ -15,6 +15,7 @@ assertServerEnv();
 import { Worker, UnrecoverableError } from "bullmq";
 import { createAdminClient } from "../src/lib/supabase/admin";
 import { QUEUE_NAMES } from "../src/lib/queue-names";
+import { startHeartbeatInterval } from "../src/lib/health/worker-heartbeat";
 import type { SocialPublishJobData } from "../src/lib/social-publish-queue";
 import { decryptToken, encryptToken } from "../src/lib/social/token-crypto";
 import { PUBLISHABLE_PLATFORMS } from "../src/lib/social/platform-constraints";
@@ -380,12 +381,13 @@ function main() {
     process.exit(1);
   }
 
-  console.log("[social-publish worker] started - queue:", QUEUE_NAME);
+  console.log("[social-publish-worker] started", { queue: QUEUE_NAME });
 
   const worker = new Worker(
     QUEUE_NAME,
     async (job) => {
       if (job.name === "publish" && job.data) {
+        console.log("[social-publish-worker] processing job", job.id);
         await processJob(job.data as SocialPublishJobData);
       }
     },
@@ -407,21 +409,25 @@ function main() {
   });
 
   worker.on("failed", (job, err) => {
-    console.error("[social-publish worker] job failed:", job?.id, err?.message);
+    console.error("[social-publish-worker] job failed", job?.id, err?.message);
   });
 
   worker.on("error", (err) => {
     console.error("[social-publish worker] error:", err.message);
   });
 
+  const heartbeatInterval = startHeartbeatInterval(QUEUE_NAME);
+
   process.on("SIGTERM", async () => {
     console.log("[social-publish worker] shutting down...");
+    clearInterval(heartbeatInterval);
     await worker.close();
     process.exit(0);
   });
 
   process.on("SIGINT", async () => {
     console.log("[social-publish worker] shutting down...");
+    clearInterval(heartbeatInterval);
     await worker.close();
     process.exit(0);
   });
