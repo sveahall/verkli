@@ -1,5 +1,9 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { canUserReadBook, type SupabaseLikeClient } from "./access";
+
+vi.mock("@/lib/billing/server", () => ({
+  getBillingStateForUser: vi.fn().mockResolvedValue({ ok: false }),
+}));
 
 type Row = Record<string, unknown>;
 

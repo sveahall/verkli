@@ -67,3 +67,6 @@ next-env.d.ts
 # Model files
 *.onnx
 vendor/tts/
+
+# local backup clones (do not commit)
+verkli-backup.git/
