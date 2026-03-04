@@ -28,6 +28,7 @@ import { isDuplicate } from "../src/lib/workers/idempotency";
 import type { ImportMode } from "../src/lib/import-queue";
 
 import { QUEUE_NAMES } from "../src/lib/queue-names";
+import { startHeartbeatInterval } from "../src/lib/health/worker-heartbeat";
 
 const QUEUE_NAME = QUEUE_NAMES.IMPORT;
 const BUCKET = "book-imports";
@@ -715,7 +716,7 @@ function main() {
     process.exit(1);
   }
 
-  console.log("[import worker] worker started", {
+  console.log("[import-worker] started", {
     queue: QUEUE_NAME,
     redis: `${connection.host}:${connection.port}`,
   });
@@ -724,6 +725,7 @@ function main() {
     QUEUE_NAME,
     async (job) => {
       if (job.name === "extract" && job.data) {
+        console.log("[import-worker] processing job", job.id);
         await processJob(job.data as ProcessJobPayload);
       }
     },
@@ -744,22 +746,26 @@ function main() {
   });
 
   worker.on("failed", (job, err) => {
-    console.error("[import worker] job failed:", job?.id, err?.message, err?.stack);
+    console.error("[import-worker] job failed", job?.id, err?.message, err?.stack);
   });
 
   worker.on("error", (err) => {
     console.error("[import worker] Redis/queue error:", err.message, err.stack);
   });
 
+  const heartbeatInterval = startHeartbeatInterval(QUEUE_NAME);
+
   // Graceful shutdown
   process.on("SIGTERM", async () => {
     console.log("[import worker] shutting down...");
+    clearInterval(heartbeatInterval);
     await worker.close();
     process.exit(0);
   });
 
   process.on("SIGINT", async () => {
     console.log("[import worker] shutting down...");
+    clearInterval(heartbeatInterval);
     await worker.close();
     process.exit(0);
   });

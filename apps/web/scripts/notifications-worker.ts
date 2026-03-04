@@ -15,6 +15,7 @@ assertServerEnv();
 import { Worker } from "bullmq";
 import { createAdminClient } from "../src/lib/supabase/admin";
 import { QUEUE_NAMES } from "../src/lib/queue-names";
+import { startHeartbeatInterval } from "../src/lib/health/worker-heartbeat";
 
 const QUEUE_NAME = QUEUE_NAMES.NOTIFICATIONS;
 
@@ -36,9 +37,8 @@ type NotificationJobData = {
 const worker = new Worker<NotificationJobData>(
   QUEUE_NAME,
   async (job) => {
+    console.log("[notifications-worker] processing job", job.id);
     const { userId, type, title, body, href, metadata } = job.data;
-
-    console.log(`[${QUEUE_NAME}] Processing job ${job.id} — type=${type} user=${userId}`);
 
     const supabase = createAdminClient();
 
@@ -70,11 +70,27 @@ worker.on("completed", (job) => {
 });
 
 worker.on("failed", (job, err) => {
-  console.error(`[${QUEUE_NAME}] Job ${job?.id} failed:`, err.message);
+  console.error("[notifications-worker] job failed", job?.id, err?.message);
 });
 
 worker.on("error", (err) => {
   console.error(`[${QUEUE_NAME}] Worker error:`, err.message);
 });
 
-console.log(`[${QUEUE_NAME}] Worker started, waiting for jobs...`);
+const heartbeatInterval = startHeartbeatInterval(QUEUE_NAME);
+
+process.on("SIGTERM", async () => {
+  console.log(`[${QUEUE_NAME}] Shutting down...`);
+  clearInterval(heartbeatInterval);
+  await worker.close();
+  process.exit(0);
+});
+
+process.on("SIGINT", async () => {
+  console.log(`[${QUEUE_NAME}] Shutting down...`);
+  clearInterval(heartbeatInterval);
+  await worker.close();
+  process.exit(0);
+});
+
+console.log("[notifications-worker] started");

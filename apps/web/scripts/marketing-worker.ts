@@ -17,6 +17,7 @@ import { isDuplicate } from "../src/lib/workers/idempotency";
 import { checkBudget, trackUsage, BudgetExceededError } from "../src/lib/workers/budget";
 
 import { QUEUE_NAMES } from "../src/lib/queue-names";
+import { startHeartbeatInterval } from "../src/lib/health/worker-heartbeat";
 
 const QUEUE_NAME = QUEUE_NAMES.MARKETING;
 
@@ -201,12 +202,13 @@ function main() {
     process.exit(1);
   }
 
-  console.log("[marketing worker] worker started — queue:", QUEUE_NAME, "redis:", connection.host + ":" + connection.port);
+  console.log("[marketing-worker] started", { queue: QUEUE_NAME, redis: connection.host + ":" + connection.port });
 
   const worker = new Worker(
     QUEUE_NAME,
     async (job) => {
       if (job.name === "marketing-generate" && job.data) {
+        console.log("[marketing-worker] processing job", job.id);
         await processJob(job.data as MarketingJobData);
       }
     },
@@ -226,21 +228,25 @@ function main() {
     console.log("[marketing worker] job completed:", job.id);
   });
   worker.on("failed", (job, err) => {
-    console.error("[marketing worker] job failed:", job?.id, err?.message);
+    console.error("[marketing-worker] job failed", job?.id, err?.message);
   });
   worker.on("error", (err) => {
     console.error("[marketing worker] Redis/queue error:", err.message);
   });
 
+  const heartbeatInterval = startHeartbeatInterval(QUEUE_NAME);
+
   // Graceful shutdown
   process.on("SIGTERM", async () => {
     console.log("[marketing worker] shutting down...");
+    clearInterval(heartbeatInterval);
     await worker.close();
     process.exit(0);
   });
 
   process.on("SIGINT", async () => {
     console.log("[marketing worker] shutting down...");
+    clearInterval(heartbeatInterval);
     await worker.close();
     process.exit(0);
   });

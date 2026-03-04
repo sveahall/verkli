@@ -16,8 +16,17 @@ import { isDuplicate } from "../src/lib/workers/idempotency";
 import { checkBudget, trackUsage, BudgetExceededError } from "../src/lib/workers/budget";
 
 import { QUEUE_NAMES } from "../src/lib/queue-names";
+import { startHeartbeatInterval } from "../src/lib/health/worker-heartbeat";
 
 const QUEUE_NAME = QUEUE_NAMES.TRANSLATION;
+const PIPELINE_SMOKE_MODE = process.env.PIPELINE_SMOKE_MODE === "true";
+
+function translateSmokeText(text: string, targetLanguage: string): string {
+  const trimmed = text.trim();
+  if (!trimmed) return text;
+  const normalizedTarget = targetLanguage.trim().toLowerCase();
+  return `[smoke:${normalizedTarget}] ${trimmed}`;
+}
 
 /**
  * Extract plain text from a TipTap JSON node (for display/debugging).
@@ -86,6 +95,11 @@ function assertWorkerEnv(): void {
 }
 
 function assertOpusEnv(): void {
+  if (PIPELINE_SMOKE_MODE) {
+    console.warn("[translation worker] PIPELINE_SMOKE_MODE=true — Opus MT binary checks are skipped.");
+    return;
+  }
+
   const missing: string[] = [];
   if (!process.env.OPUSMT_PYTHON?.trim()) missing.push("OPUSMT_PYTHON");
   if (!process.env.OPUSMT_MODELS_DIR?.trim()) missing.push("OPUSMT_MODELS_DIR");
@@ -303,6 +317,9 @@ async function processJob(payload: TranslationJobData) {
           // Helper function to translate a single text string via Opus MT
           const doTranslate = (text: string): string => {
             if (!text.trim()) return text;
+            if (PIPELINE_SMOKE_MODE) {
+              return translateSmokeText(text, normalizedTarget);
+            }
             const raw = translateText({
               text,
               sourceLanguage: sourceLang,
@@ -411,12 +428,17 @@ function main() {
     process.exit(1);
   }
 
-  console.log("[translation worker] worker started — queue:", QUEUE_NAME, "redis:", connection.host + ":" + connection.port);
+  console.log("[translation-worker] started", {
+    queue: QUEUE_NAME,
+    redis: connection.host + ":" + connection.port,
+    smokeMode: PIPELINE_SMOKE_MODE,
+  });
 
   const worker = new Worker(
     QUEUE_NAME,
     async (job) => {
       if (job.name === "translate" && job.data) {
+        console.log("[translation-worker] processing job", job.id);
         await processJob(job.data as TranslationJobData);
       }
     },
@@ -436,21 +458,25 @@ function main() {
     console.log("[translation worker] job completed:", job.id);
   });
   worker.on("failed", (job, err) => {
-    console.error("[translation worker] job failed:", job?.id, err?.message);
+    console.error("[translation-worker] job failed", job?.id, err?.message);
   });
   worker.on("error", (err) => {
     console.error("[translation worker] Redis/queue error:", err.message);
   });
 
+  const heartbeatInterval = startHeartbeatInterval(QUEUE_NAME);
+
   // Graceful shutdown
   process.on("SIGTERM", async () => {
     console.log("[translation worker] shutting down...");
+    clearInterval(heartbeatInterval);
     await worker.close();
     process.exit(0);
   });
 
   process.on("SIGINT", async () => {
     console.log("[translation worker] shutting down...");
+    clearInterval(heartbeatInterval);
     await worker.close();
     process.exit(0);
   });
