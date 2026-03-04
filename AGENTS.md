@@ -28,7 +28,7 @@ Guidance for AI agents and developers working in this repo.
 
 ### Migrations
 
-- **Supabase migrations** live under **`packages/db/supabase/migrations/`**. Apply them via Supabase (remote or local), not via Prisma.
+- **Supabase migrations** live under **`apps/web/supabase/migrations/`** (canonical). The legacy `packages/db/supabase/migrations/` has been archived. See `docs/DATABASE_ARCHITECTURE.md`.
 
 ### Workspace scripts
 
