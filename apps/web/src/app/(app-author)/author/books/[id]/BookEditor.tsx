@@ -2691,9 +2691,18 @@ export default function BookEditor({
               {coverError}
             </p>
           )}
+          <input
+            ref={coverInputRef}
+            type="file"
+            accept={ACCEPTED_COVER_TYPES}
+            onChange={handleCoverChange}
+            className="hidden"
+            aria-hidden
+          />
         </div>
 
-        <div className="grid gap-8 lg:grid-cols-[minmax(0,900px)_280px]">
+        <div className={tool === "edit" ? "flex flex-col" : "grid gap-8 lg:grid-cols-[minmax(0,900px)_280px]"}>
+          {tool !== "edit" && (
           <div className="space-y-4 lg:order-2 lg:sticky lg:top-28 lg:self-start">
             <div className="rounded-2xl border border-black/[0.05] bg-white/60 p-5 shadow-[0_1px_3px_rgba(0,0,0,0.02)] backdrop-blur-sm dark:border-white/[0.06] dark:bg-white/[0.02] dark:shadow-none">
               <h2 className="mb-3 text-[14px] font-semibold tracking-[-0.01em] text-slate-800 dark:text-white/90">Cover</h2>
@@ -2717,14 +2726,6 @@ export default function BookEditor({
                     </div>
                   )}
                 </div>
-                <input
-                  ref={coverInputRef}
-                  type="file"
-                  accept={ACCEPTED_COVER_TYPES}
-                  onChange={handleCoverChange}
-                  className="hidden"
-                  aria-hidden
-                />
               </div>
             </div>
 
@@ -3453,8 +3454,9 @@ export default function BookEditor({
               </div>
             )}
           </div>
+          )}
 
-          <div className="min-w-0 max-w-[900px] lg:order-1">
+          <div className={`min-w-0 max-w-[900px] ${tool === "edit" ? "mx-auto" : "lg:order-1"}`}>
             {selectedChapter ? (
               <>
                 <div className="rounded-2xl border border-black/[0.06] bg-white/70 p-5 shadow-[0_4px_18px_rgba(15,23,42,0.04)] backdrop-blur-sm dark:border-white/[0.06] dark:bg-white/[0.02] dark:shadow-none">
@@ -3559,7 +3561,7 @@ export default function BookEditor({
             ) : (
               <div className="flex h-[500px] items-center justify-center rounded-2xl border border-dashed border-black/[0.08] bg-slate-50/30 dark:border-white/[0.06] dark:bg-white/[0.01]">
                 <p className="text-[14px] text-slate-400 dark:text-white/40">
-                  {chapters.length === 0 ? "Create your first chapter to start writing" : "Choose a chapter in the side panel"}
+                  {chapters.length === 0 ? "Create your first chapter to start writing" : "Select a chapter above to edit"}
                 </p>
               </div>
             )}
