@@ -75,6 +75,7 @@ export class OpenAiTtsProvider implements TtsProvider {
       return {
         wav,
         sampleRate: 24000, // OpenAI TTS outputs 24kHz
+        format: "wav",
         metadata: {
           provider: "openai",
           model,

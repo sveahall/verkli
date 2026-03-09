@@ -2,7 +2,9 @@ import { describe, expect, it } from "vitest";
 import {
   extractFromTxt,
   repairImportedChapterTitles,
+  repairOrphanedLeadingPeriods,
   splitIntoChaptersHeuristic,
+  stripDecorativeChars,
 } from "./import-extract";
 
 describe("import-extract", () => {
@@ -132,6 +134,21 @@ Det här är ett långt textstycke som gör att kapitel-splittningen blir stabil
       "Kapitel 3",
       "Kapitel 4",
     ]);
+  });
+
+  it("strips decorative Unicode characters", () => {
+    expect(stripDecorativeChars("■Hr W")).toBe("Hr W");
+    expect(stripDecorativeChars("★ Chapter One ★")).toBe("Chapter One");
+    expect(stripDecorativeChars("● Item")).toBe("Item");
+  });
+
+  it("removes orphaned leading periods from paragraph splits", () => {
+    expect(repairOrphanedLeadingPeriods(". en sådan mamma")).toBe("en sådan mamma");
+    expect(repairOrphanedLeadingPeriods("First paragraph.\n\n. andra stycket")).toBe(
+      "First paragraph.\n\nandra stycket"
+    );
+    // Should NOT remove period when followed by uppercase (normal sentence)
+    expect(repairOrphanedLeadingPeriods(". A normal sentence")).toBe(". A normal sentence");
   });
 
   it("infers a book title from txt when metadata title is missing", async () => {

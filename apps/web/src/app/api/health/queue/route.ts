@@ -6,27 +6,45 @@ export async function GET() {
   const redis = await checkRedisHealth();
 
   if (!redis) {
+    console.warn("[health queue] Redis is unavailable.");
     return NextResponse.json(
-      { translationQueue: false, redis: false },
-      { status: 500 }
+      {
+        translationQueue: false,
+        redis: false,
+        message: "Redis is unavailable. Start Redis to enable translation queue.",
+      },
+      { status: 200 }
     );
   }
 
   const queue = getTranslationQueue();
   if (!queue) {
+    console.warn("[health queue] Translation queue is unavailable.");
     return NextResponse.json(
-      { translationQueue: false, redis: true },
-      { status: 500 }
+      {
+        translationQueue: false,
+        redis: true,
+        message: "Translation queue is unavailable.",
+      },
+      { status: 200 }
     );
   }
 
   try {
     await queue.getJobCounts("waiting", "active", "completed", "failed", "delayed");
     return NextResponse.json({ translationQueue: true, redis: true });
-  } catch {
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    console.error("[health queue] Failed to read translation queue health.", {
+      message,
+    });
     return NextResponse.json(
-      { translationQueue: false, redis: true },
-      { status: 500 }
+      {
+        translationQueue: false,
+        redis: true,
+        message: "Failed to read translation queue health.",
+      },
+      { status: 200 }
     );
   }
 }

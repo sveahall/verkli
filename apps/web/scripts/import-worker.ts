@@ -4,6 +4,7 @@
  */
 
 import "./load-dotenv";
+import "./sentry-worker-init";
 import * as path from "path";
 import * as fs from "fs/promises";
 import * as os from "os";
@@ -29,6 +30,7 @@ import type { ImportMode } from "../src/lib/import-queue";
 
 import { QUEUE_NAMES } from "../src/lib/queue-names";
 import { startHeartbeatInterval } from "../src/lib/health/worker-heartbeat";
+import { Sentry } from "./sentry-worker-init";
 
 const QUEUE_NAME = QUEUE_NAMES.IMPORT;
 const BUCKET = "book-imports";
@@ -746,6 +748,7 @@ function main() {
   });
 
   worker.on("failed", (job, err) => {
+    Sentry.captureException(err);
     console.error("[import-worker] job failed", job?.id, err?.message, err?.stack);
   });
 
@@ -754,6 +757,8 @@ function main() {
   });
 
   const heartbeatInterval = startHeartbeatInterval(QUEUE_NAME);
+
+  worker.on("closed", () => clearInterval(heartbeatInterval));
 
   // Graceful shutdown
   process.on("SIGTERM", async () => {

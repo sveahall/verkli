@@ -22,6 +22,9 @@ export async function checkRedisHealth(): Promise<boolean> {
     connectTimeout: 1500,
     enableReadyCheck: false,
   });
+  redis.on("error", () => {
+    // Prevent noisy "[ioredis] Unhandled error event" in health probes when Redis is down.
+  });
 
   try {
     await redis.connect();

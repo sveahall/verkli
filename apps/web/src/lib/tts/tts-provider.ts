@@ -7,10 +7,14 @@
  */
 
 export type TtsSynthesisResult = {
-  /** Raw WAV audio buffer */
+  /** Raw audio buffer */
   wav: Buffer;
   /** Sample rate in Hz (0 if unknown) */
   sampleRate: number;
+  /** Encoded audio format */
+  format?: "wav" | "mp3";
+  /** Encoded bitrate in kbps when known */
+  bitrateKbps?: number;
   /** Provider-specific metadata (device, RTF, etc.) */
   metadata: Record<string, unknown>;
 };
@@ -32,7 +36,16 @@ export interface TtsProvider {
 }
 
 /** Supported provider keys */
-export type TtsProviderKey = "qwen-local" | "openai";
+export type TtsProviderKey = "qwen-local" | "openai" | "elevenlabs";
+
+export function assertElevenLabsEnv(): void {
+  const missing: string[] = [];
+  if (!(process.env.ELEVENLABS_API_KEY ?? "").trim()) missing.push("ELEVENLABS_API_KEY");
+  if (!(process.env.ELEVENLABS_VOICE_ID ?? "").trim()) missing.push("ELEVENLABS_VOICE_ID");
+  if (missing.length > 0) {
+    throw new Error(`Missing required env for elevenlabs provider: ${missing.join(", ")}`);
+  }
+}
 
 /**
  * Resolve the active TTS provider key from env.
@@ -40,6 +53,10 @@ export type TtsProviderKey = "qwen-local" | "openai";
  */
 export function getActiveProviderKey(): TtsProviderKey {
   const raw = (process.env.TTS_PROVIDER ?? "").trim().toLowerCase();
+  if (raw === "elevenlabs") {
+    assertElevenLabsEnv();
+    return "elevenlabs";
+  }
   if (raw === "openai") return "openai";
   return "qwen-local";
 }

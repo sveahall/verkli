@@ -8,6 +8,7 @@
  */
 
 import "./load-dotenv";
+import "./sentry-worker-init";
 import { assertServerEnv, getRedisConnectionOptions } from "../src/lib/env";
 
 assertServerEnv();
@@ -22,6 +23,7 @@ import { PUBLISHABLE_PLATFORMS } from "../src/lib/social/platform-constraints";
 import { truncateForPlatform } from "../src/lib/social/platform-constraints";
 import { refreshAccessToken } from "../src/lib/social/oauth";
 import { sanitizeJobErrorForStorage } from "../src/lib/sanitize-job-error";
+import { Sentry } from "./sentry-worker-init";
 
 const QUEUE_NAME = QUEUE_NAMES.SOCIAL_PUBLISH;
 
@@ -409,6 +411,7 @@ function main() {
   });
 
   worker.on("failed", (job, err) => {
+    Sentry.captureException(err);
     console.error("[social-publish-worker] job failed", job?.id, err?.message);
   });
 
@@ -417,6 +420,8 @@ function main() {
   });
 
   const heartbeatInterval = startHeartbeatInterval(QUEUE_NAME);
+
+  worker.on("closed", () => clearInterval(heartbeatInterval));
 
   process.on("SIGTERM", async () => {
     console.log("[social-publish worker] shutting down...");

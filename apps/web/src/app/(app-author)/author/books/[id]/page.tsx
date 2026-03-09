@@ -156,10 +156,21 @@ export default async function BookDetailPage({
     .select("id, book_id, language, channel, status, headline, caption, cta, hashtags, share_url, created_at, updated_at")
     .eq("book_id", book.id);
 
+  const { data: authorProfile } = await supabase
+    .from("profiles")
+    .select("display_name, username")
+    .eq("user_id", book.author_id)
+    .maybeSingle();
+
+  const authorDisplayName =
+    authorProfile?.display_name?.trim() ||
+    authorProfile?.username?.trim() ||
+    "Author";
+
   const stripeConfigured = isStripeConfigured();
 
   return (
-    <main className="min-h-screen bg-background text-foreground">
+    <main className="min-h-screen bg-gray-100 text-foreground dark:bg-slate-900/50">
       <header className="mx-auto max-w-[1400px] px-6 pt-6">
         <Link
           href="/author/books"
@@ -177,6 +188,7 @@ export default async function BookDetailPage({
         chapters={chapters ?? []}
         bookVersions={versions}
         activeVersion={activeVersion ?? null}
+        authorDisplayName={authorDisplayName}
         latestAudiobookAsset={
           latestAudiobookAsset
             ? {

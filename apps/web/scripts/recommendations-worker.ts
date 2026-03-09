@@ -7,6 +7,7 @@
  */
 
 import "./load-dotenv";
+import "./sentry-worker-init";
 import { assertServerEnv, getRedisConnectionOptions } from "../src/lib/env";
 
 assertServerEnv();
@@ -15,6 +16,7 @@ import { Worker } from "bullmq";
 import { createAdminClient } from "../src/lib/supabase/admin";
 import { QUEUE_NAMES } from "../src/lib/queue-names";
 import { startHeartbeatInterval } from "../src/lib/health/worker-heartbeat";
+import { Sentry } from "./sentry-worker-init";
 import type { RecommendationsJobData } from "../src/lib/recommendations-queue";
 
 const QUEUE_NAME = QUEUE_NAMES.RECOMMENDATIONS;
@@ -332,6 +334,7 @@ function main() {
   });
 
   worker.on("failed", (job, err) => {
+    Sentry.captureException(err);
     console.error("[recommendations-worker] job failed", job?.id, err?.message);
   });
 
@@ -340,6 +343,8 @@ function main() {
   });
 
   const heartbeatInterval = startHeartbeatInterval(QUEUE_NAME);
+
+  worker.on("closed", () => clearInterval(heartbeatInterval));
 
   // Scheduled recomputation every 6 hours
   const SIX_HOURS = 6 * 60 * 60 * 1000;

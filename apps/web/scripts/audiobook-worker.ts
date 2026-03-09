@@ -8,6 +8,7 @@
  */
 
 import "./load-dotenv";
+import "./sentry-worker-init";
 import * as path from "path";
 import * as fs from "fs/promises";
 import * as os from "os";
@@ -24,13 +25,20 @@ import { createAdminClient } from "../src/lib/supabase/admin";
 import { getAudiobookStorageBucket } from "../src/lib/tts/storage";
 import { QUEUE_NAMES } from "../src/lib/queue-names";
 import { startHeartbeatInterval } from "../src/lib/health/worker-heartbeat";
+import { Sentry } from "./sentry-worker-init";
 import type { AudiobookJobData } from "../src/lib/audiobook-queue";
 import { sanitizeJobErrorForStorage } from "../src/lib/sanitize-job-error";
 import { isDuplicate } from "../src/lib/workers/idempotency";
-import { checkBudget, BudgetExceededError } from "../src/lib/workers/budget";
-import { getActiveProviderKey } from "../src/lib/tts/tts-provider";
+import {
+  checkBudget,
+  BudgetExceededError,
+  JobCostExceededError,
+  validateJobCost,
+} from "../src/lib/workers/budget";
+import { assertElevenLabsEnv, getActiveProviderKey } from "../src/lib/tts/tts-provider";
 import type { TtsProvider } from "../src/lib/tts/tts-provider";
 import { OpenAiTtsProvider } from "../src/lib/tts/openai-tts-provider";
+import { ElevenLabsTtsProvider } from "../src/lib/tts/elevenlabs-tts-provider";
 
 const QUEUE_NAME = QUEUE_NAMES.AUDIOBOOK;
 const BUCKET = getAudiobookStorageBucket();
@@ -155,6 +163,36 @@ function estimateWavDuration(wav: Buffer): number {
   }
 }
 
+type AudioFormat = "wav" | "mp3";
+
+function audioExtension(format: AudioFormat): string {
+  return format === "mp3" ? "mp3" : "wav";
+}
+
+function audioContentType(format: AudioFormat): string {
+  return format === "mp3" ? "audio/mpeg" : "audio/wav";
+}
+
+function parseMp3BitrateKbps(outputFormat: string | undefined): number | null {
+  if (!outputFormat) return null;
+  const match = outputFormat.toLowerCase().match(/^mp3_\d+_(\d+)$/);
+  if (!match) return null;
+  const parsed = Number.parseInt(match[1], 10);
+  if (!Number.isFinite(parsed) || parsed <= 0) return null;
+  return parsed;
+}
+
+function estimateMp3Duration(mp3: Buffer, bitrateKbps: number | null): number {
+  if (!bitrateKbps || bitrateKbps <= 0 || mp3.length <= 0) return 0;
+  const bits = mp3.length * 8;
+  return Math.max(0, Math.round(bits / (bitrateKbps * 1000)));
+}
+
+function estimateAudioDuration(audio: Buffer, format: AudioFormat, mp3BitrateKbps: number | null): number {
+  if (format === "mp3") return estimateMp3Duration(audio, mp3BitrateKbps);
+  return estimateWavDuration(audio);
+}
+
 function perfNumber(value: number | undefined, digits = 2): string | null {
   if (typeof value !== "number" || !Number.isFinite(value)) return null;
   return value.toFixed(digits);
@@ -227,6 +265,8 @@ type QwenSynthesisResult = {
   wav: Buffer;
   sampleRate: number;
   outputPath: string;
+  audioFormat: AudioFormat;
+  bitrateKbps: number | null;
   device: string | null;
   method: string | null;
   metrics: QwenSynthesisMetadata["metrics"] | null;
@@ -372,6 +412,8 @@ async function synthesizeWithQwen(
                   ? metadata.sampleRate
                   : 0,
               outputPath: resolvedOutputPath,
+              audioFormat: "wav",
+              bitrateKbps: null,
               device: typeof metadata.device === "string" ? metadata.device : null,
               method: typeof metadata.method === "string" ? metadata.method : null,
               metrics:
@@ -485,7 +527,16 @@ function createManifest(chapters: ChapterAudio[], bookId: string): object {
 async function processJob(payload: AudiobookJobData) {
   const { jobId, bookId, bookVersionId, userId, language, voiceId, modelPath, chapterId, chapterIds } = payload;
   const supabase = createAdminClient();
-  const resolvedModelId = modelPath?.trim() || QWEN_MODEL_DEFAULT;
+  const providerKey = getActiveProviderKey();
+  const elevenLabsVoiceId = (process.env.ELEVENLABS_VOICE_ID ?? "").trim();
+  const elevenLabsModelId = (process.env.ELEVENLABS_MODEL_ID ?? "").trim();
+  const elevenLabsOutputFormat = (process.env.ELEVENLABS_OUTPUT_FORMAT ?? "").trim();
+  const resolvedVoiceId =
+    providerKey === "elevenlabs" ? (elevenLabsVoiceId || voiceId || "default") : voiceId;
+  const resolvedModelId =
+    providerKey === "elevenlabs"
+      ? (elevenLabsModelId || modelPath?.trim() || "eleven_multilingual_v2")
+      : (modelPath?.trim() || QWEN_MODEL_DEFAULT);
   const selectedChapterIds = Array.from(
     new Set(
       (Array.isArray(chapterIds) ? chapterIds : [])
@@ -711,6 +762,12 @@ async function processJob(payload: AudiobookJobData) {
     );
     const estimatedCostUnits = Math.ceil(totalTextLength / 4);
     try {
+      validateJobCost({
+        userId,
+        pipeline: "tts",
+        jobSize: totalTextLength,
+        jobId,
+      });
       await checkBudget({
         userId,
         pipeline: "tts",
@@ -718,7 +775,7 @@ async function processJob(payload: AudiobookJobData) {
         jobId,
       });
     } catch (err) {
-      if (err instanceof BudgetExceededError) {
+      if (err instanceof BudgetExceededError || err instanceof JobCostExceededError) {
         throw new UnrecoverableError(err.message);
       }
       throw err;
@@ -759,23 +816,32 @@ async function processJob(payload: AudiobookJobData) {
     console.warn("[audiobook worker] qwen timeout per chapter:", chapterTimeoutMs, "ms");
     console.warn("[audiobook worker] qwen batch size:", QWEN_BATCH_SIZE);
 
-    // Resolve TTS provider: "openai" for cloud, "qwen-local" for local subprocess
-    const providerKey = getActiveProviderKey();
+    // Resolve TTS provider: cloud ("openai"/"elevenlabs") or local ("qwen-local").
     let cloudProvider: TtsProvider | null = null;
-    if (!PIPELINE_SMOKE_MODE && providerKey === "openai") {
-      cloudProvider = new OpenAiTtsProvider();
+    if (!PIPELINE_SMOKE_MODE) {
+      if (providerKey === "openai") {
+        cloudProvider = new OpenAiTtsProvider();
+      } else if (providerKey === "elevenlabs") {
+        assertElevenLabsEnv();
+        cloudProvider = new ElevenLabsTtsProvider();
+      }
+    }
+    if (cloudProvider) {
       console.warn("[audiobook worker] using cloud TTS provider:", cloudProvider.name);
     }
 
-    const synthesizeOne = async (text: string, outputPath: string) => {
+    const synthesizeOne = async (text: string, outputBasePath: string) => {
       if (PIPELINE_SMOKE_MODE) {
         const smokeDurationSeconds = Math.min(6, Math.max(1, Math.ceil(text.length / 80)));
         const wav = createSilentWavBuffer(smokeDurationSeconds);
+        const outputPath = `${outputBasePath}.wav`;
         await fs.writeFile(outputPath, wav);
         return {
           wav,
           sampleRate: 22_050,
           outputPath,
+          audioFormat: "wav",
+          bitrateKbps: null,
           device: "smoke",
           method: "smoke",
           metrics: {
@@ -797,15 +863,22 @@ async function processJob(payload: AudiobookJobData) {
       if (cloudProvider) {
         const result = await cloudProvider.synthesize(text, {
           language,
-          voiceId,
+          voiceId: resolvedVoiceId,
           modelId: resolvedModelId,
           timeoutMs: chapterTimeoutMs,
         });
+        const audioFormat: AudioFormat = result.format === "mp3" ? "mp3" : "wav";
+        const outputPath = `${outputBasePath}.${audioExtension(audioFormat)}`;
         await fs.writeFile(outputPath, result.wav);
         return {
           wav: result.wav,
           sampleRate: result.sampleRate,
           outputPath,
+          audioFormat,
+          bitrateKbps:
+            audioFormat === "mp3"
+              ? (result.bitrateKbps ?? parseMp3BitrateKbps(elevenLabsOutputFormat))
+              : null,
           device: "cloud",
           method: cloudProvider.name,
           metrics: result.metadata as QwenSynthesisMetadata["metrics"],
@@ -815,9 +888,10 @@ async function processJob(payload: AudiobookJobData) {
           int8: null,
         } satisfies QwenSynthesisResult;
       }
+      const outputPath = `${outputBasePath}.wav`;
       return synthesizeWithQwen(text, outputPath, {
         language,
-        voiceId,
+        voiceId: resolvedVoiceId,
         modelId: resolvedModelId,
         timeoutMs: chapterTimeoutMs,
       });
@@ -850,7 +924,7 @@ async function processJob(payload: AudiobookJobData) {
         .select("audio_path, duration_seconds")
         .eq("chapter_id", chapter.id)
         .eq("content_hash", contentHash)
-        .eq("voice_id", voiceId)
+        .eq("voice_id", resolvedVoiceId)
         .eq("model_path", resolvedModelId)
         .eq("language", language)
         .maybeSingle();
@@ -862,7 +936,8 @@ async function processJob(payload: AudiobookJobData) {
       if (cached?.audio_path) {
         // Download cached audio from storage
         console.warn(`[audiobook worker] chapter ${i} cache hit, downloading...`);
-        const localPath = path.join(tmpDir, `chapter-${i}.wav`);
+        const cachedFormat: AudioFormat = cached.audio_path.toLowerCase().endsWith(".mp3") ? "mp3" : "wav";
+        const localPath = path.join(tmpDir, `chapter-${i}.${audioExtension(cachedFormat)}`);
         const { data: audioData, error: downloadError } = await supabase.storage
           .from(BUCKET)
           .download(cached.audio_path);
@@ -872,39 +947,69 @@ async function processJob(payload: AudiobookJobData) {
           await fs.writeFile(localPath, buffer);
           audioPath = localPath;
           storagePath = cached.audio_path;
-          durationSeconds = cached.duration_seconds ?? estimateWavDuration(buffer);
+          durationSeconds =
+            cached.duration_seconds ??
+            estimateAudioDuration(
+              buffer,
+              cachedFormat,
+              cachedFormat === "mp3" ? parseMp3BitrateKbps(elevenLabsOutputFormat) : null
+            );
         } else {
           // Cache miss/invalid, synthesize fresh via local Qwen script.
           console.warn(`[audiobook worker] chapter ${i} cache invalid, synthesizing...`);
-          const outputPath = path.join(tmpDir, `chapter-${i}.wav`);
-          const synthesis = await synthesizeOne(text, outputPath);
-          const { wav, device, method } = synthesis;
-          durationSeconds = estimateWavDuration(wav);
-          audioPath = synthesis.outputPath || outputPath;
+          const outputBasePath = path.join(tmpDir, `chapter-${i}`);
+          const synthesis = await synthesizeOne(text, outputBasePath);
+          const { wav, device, method, audioFormat, bitrateKbps } = synthesis;
+          durationSeconds = estimateAudioDuration(wav, audioFormat, bitrateKbps);
+          audioPath = synthesis.outputPath || `${outputBasePath}.${audioExtension(audioFormat)}`;
           console.warn(
-            `[audiobook worker] chapter ${i} synthesized via qwen (device=${device ?? "unknown"}, method=${method ?? "unknown"}${formatQwenPerf(synthesis)})`
+            `[audiobook worker] chapter ${i} synthesized via tts (device=${device ?? "unknown"}, method=${method ?? "unknown"}${formatQwenPerf(synthesis)})`
           );
 
           // Upload to cache
-          const cachePath = `cache/${bookId}/${chapter.id}-${contentHash.slice(0, 16)}.wav`;
-          await uploadAndCacheChapter(supabase, cachePath, wav, chapter.id, bookVersionId, contentHash, voiceId, resolvedModelId, language, durationSeconds);
+          const cachePath = `cache/${bookId}/${chapter.id}-${contentHash.slice(0, 16)}.${audioExtension(audioFormat)}`;
+          await uploadAndCacheChapter(
+            supabase,
+            cachePath,
+            wav,
+            chapter.id,
+            bookVersionId,
+            contentHash,
+            resolvedVoiceId,
+            resolvedModelId,
+            language,
+            durationSeconds,
+            audioContentType(audioFormat)
+          );
           storagePath = cachePath;
         }
       } else {
         // No cache, synthesize new audio via local Qwen script.
-        console.warn(`[audiobook worker] chapter ${i} synthesizing via qwen: "${chapter.title}"`);
-        const outputPath = path.join(tmpDir, `chapter-${i}.wav`);
-        const synthesis = await synthesizeOne(text, outputPath);
-        const { wav, device, method } = synthesis;
-        durationSeconds = estimateWavDuration(wav);
-        audioPath = synthesis.outputPath || outputPath;
+        console.warn(`[audiobook worker] chapter ${i} synthesizing via tts: "${chapter.title}"`);
+        const outputBasePath = path.join(tmpDir, `chapter-${i}`);
+        const synthesis = await synthesizeOne(text, outputBasePath);
+        const { wav, device, method, audioFormat, bitrateKbps } = synthesis;
+        durationSeconds = estimateAudioDuration(wav, audioFormat, bitrateKbps);
+        audioPath = synthesis.outputPath || `${outputBasePath}.${audioExtension(audioFormat)}`;
         console.warn(
-          `[audiobook worker] chapter ${i} synthesized via qwen (device=${device ?? "unknown"}, method=${method ?? "unknown"}${formatQwenPerf(synthesis)})`
+          `[audiobook worker] chapter ${i} synthesized via tts (device=${device ?? "unknown"}, method=${method ?? "unknown"}${formatQwenPerf(synthesis)})`
         );
 
         // Upload to cache
-        const cachePath = `cache/${bookId}/${chapter.id}-${contentHash.slice(0, 16)}.wav`;
-        await uploadAndCacheChapter(supabase, cachePath, wav, chapter.id, bookVersionId, contentHash, voiceId, resolvedModelId, language, durationSeconds);
+        const cachePath = `cache/${bookId}/${chapter.id}-${contentHash.slice(0, 16)}.${audioExtension(audioFormat)}`;
+        await uploadAndCacheChapter(
+          supabase,
+          cachePath,
+          wav,
+          chapter.id,
+          bookVersionId,
+          contentHash,
+          resolvedVoiceId,
+          resolvedModelId,
+          language,
+          durationSeconds,
+          audioContentType(audioFormat)
+        );
         storagePath = cachePath;
       }
 
@@ -971,8 +1076,12 @@ async function processJob(payload: AudiobookJobData) {
       return;
     }
 
+    const finalFormat: AudioFormat = chapterAudios.every((chapterAudio) => chapterAudio.audioPath.endsWith(".mp3"))
+      ? "mp3"
+      : "wav";
+
     // Try to stitch with ffmpeg
-    const finalAudioPath = path.join(tmpDir, "audiobook-final.wav");
+    const finalAudioPath = path.join(tmpDir, `audiobook-final.${audioExtension(finalFormat)}`);
     const stitched = await stitchWithFfmpeg(
       chapterAudios.map((c) => c.audioPath),
       finalAudioPath
@@ -994,11 +1103,11 @@ async function processJob(payload: AudiobookJobData) {
       fileSizeBytes = finalBuffer.length;
 
       if (fileSizeBytes <= MAX_STORAGE_FILE_BYTES) {
-        const storagePath = `${bookId}/audiobook-${Date.now()}.wav`;
+        const storagePath = `${bookId}/audiobook-${Date.now()}.${audioExtension(finalFormat)}`;
         const { error: uploadError } = await supabase.storage
           .from(BUCKET)
           .upload(storagePath, finalBuffer, {
-            contentType: "audio/wav",
+            contentType: audioContentType(finalFormat),
             upsert: false,
           });
 
@@ -1135,18 +1244,19 @@ async function processJob(payload: AudiobookJobData) {
 async function uploadAndCacheChapter(
   supabase: ReturnType<typeof createAdminClient>,
   storagePath: string,
-  wav: Buffer,
+  audio: Buffer,
   chapterId: string,
   bookVersionId: string,
   contentHash: string,
   voiceId: string,
   modelPath: string,
   language: string,
-  durationSeconds: number
+  durationSeconds: number,
+  contentType: string
 ) {
   // Upload to storage
-  await supabase.storage.from(BUCKET).upload(storagePath, wav, {
-    contentType: "audio/wav",
+  await supabase.storage.from(BUCKET).upload(storagePath, audio, {
+    contentType,
     upsert: true,
   });
 
@@ -1161,7 +1271,7 @@ async function uploadAndCacheChapter(
       language,
       audio_path: storagePath,
       duration_seconds: durationSeconds,
-      file_size_bytes: wav.length,
+      file_size_bytes: audio.length,
     },
     { onConflict: "chapter_id,content_hash,voice_id,model_path,language" }
   );
@@ -1216,6 +1326,7 @@ function main() {
   });
 
   worker.on("failed", (job, err) => {
+    Sentry.captureException(err);
     console.error("[audiobook-worker] job failed", job?.id, err?.message);
   });
 
@@ -1224,6 +1335,8 @@ function main() {
   });
 
   const heartbeatInterval = startHeartbeatInterval(QUEUE_NAME);
+
+  worker.on("closed", () => clearInterval(heartbeatInterval));
 
   // Graceful shutdown
   process.on("SIGTERM", async () => {

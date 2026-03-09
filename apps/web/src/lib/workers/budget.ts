@@ -5,6 +5,11 @@
  * - `translation`: estimated model units (roughly chars / 4).
  * - `tts`: estimated model units (roughly chars / 4).
  * - `video`: fixed per-job/render credits.
+ *
+ * Per-job caps are validated locally before Redis budget checks:
+ * - `translation`: max chars per job.
+ * - `tts`: max chars per job.
+ * - `video`: max units per job.
  */
 
 import Redis from "ioredis";
@@ -28,10 +33,39 @@ export interface BudgetUsageSnapshot {
   limit: number;
 }
 
+type JobCostUnit = "chars" | "units";
+
+export interface JobCostCapSnapshot {
+  userId: string;
+  pipeline: BudgetPipeline;
+  jobSize: number;
+  cap: number;
+  unit: JobCostUnit;
+}
+
+export interface JobCostCheckInput {
+  userId: string;
+  pipeline: BudgetPipeline;
+  jobSize: number;
+  jobId?: string | null;
+}
+
 const DEFAULT_DAILY_BUDGETS: Record<BudgetPipeline, number> = {
   tts: 500_000,
   translation: 500_000,
   video: 100,
+};
+
+const DEFAULT_JOB_COST_CAPS: Record<BudgetPipeline, number> = {
+  tts: 50_000,
+  translation: 50_000,
+  video: 5,
+};
+
+const PIPELINE_JOB_COST_UNITS: Record<BudgetPipeline, JobCostUnit> = {
+  tts: "chars",
+  translation: "chars",
+  video: "units",
 };
 
 const REDIS_RESERVE_SCRIPT = `
@@ -74,6 +108,19 @@ function getPipelineLimit(pipeline: BudgetPipeline): number {
       return readPositiveIntEnv("VIDEO_DAILY_BUDGET", DEFAULT_DAILY_BUDGETS.video);
     default:
       return DEFAULT_DAILY_BUDGETS[pipeline];
+  }
+}
+
+function getPipelineJobCostCap(pipeline: BudgetPipeline): number {
+  switch (pipeline) {
+    case "tts":
+      return readPositiveIntEnv("TTS_JOB_CAP_CHARS", DEFAULT_JOB_COST_CAPS.tts);
+    case "translation":
+      return readPositiveIntEnv("TRANSLATION_JOB_CAP_CHARS", DEFAULT_JOB_COST_CAPS.translation);
+    case "video":
+      return readPositiveIntEnv("VIDEO_JOB_CAP_UNITS", DEFAULT_JOB_COST_CAPS.video);
+    default:
+      return DEFAULT_JOB_COST_CAPS[pipeline];
   }
 }
 
@@ -142,6 +189,52 @@ export class BudgetExceededError extends Error {
     this.name = "BudgetExceededError";
     this.details = details;
   }
+}
+
+export class JobCostExceededError extends Error {
+  readonly details: JobCostCapSnapshot & { jobId: string | null };
+
+  constructor(details: JobCostCapSnapshot & { jobId: string | null }) {
+    super(
+      `Job cost exceeded for "${details.userId}" in pipeline "${details.pipeline}": job size ${details.jobSize} ${details.unit} > cap ${details.cap} ${details.unit}`
+    );
+    this.name = "JobCostExceededError";
+    this.details = details;
+  }
+}
+
+export function validateJobCost(input: JobCostCheckInput): JobCostCapSnapshot {
+  const userId = input.userId?.trim();
+  if (!userId) {
+    throw new Error("[budget] userId is required");
+  }
+
+  const cap = getPipelineJobCostCap(input.pipeline);
+  const jobSize = normalizeUnits(input.jobSize);
+  const unit = PIPELINE_JOB_COST_UNITS[input.pipeline];
+  const jobId = input.jobId ? String(input.jobId) : "unknown";
+
+  if (jobSize > cap) {
+    console.warn(
+      `[budget] job-cap exceeded userId=${userId} pipeline=${input.pipeline} jobSize=${jobSize} cap=${cap} unit=${unit} jobId=${jobId}`
+    );
+    throw new JobCostExceededError({
+      userId,
+      pipeline: input.pipeline,
+      jobSize,
+      cap,
+      unit,
+      jobId,
+    });
+  }
+
+  return {
+    userId,
+    pipeline: input.pipeline,
+    jobSize,
+    cap,
+    unit,
+  };
 }
 
 /**

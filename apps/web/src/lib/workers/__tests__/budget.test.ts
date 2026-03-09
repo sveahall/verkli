@@ -72,6 +72,8 @@ import {
   getUsage,
   resetAllBudgets,
   BudgetExceededError,
+  JobCostExceededError,
+  validateJobCost,
 } from "../budget";
 
 describe("workers/budget (redis)", () => {
@@ -80,6 +82,9 @@ describe("workers/budget (redis)", () => {
     process.env.TTS_DAILY_BUDGET = "5";
     process.env.TRANSLATION_DAILY_BUDGET = "10";
     process.env.VIDEO_DAILY_BUDGET = "3";
+    delete process.env.TTS_JOB_CAP_CHARS;
+    delete process.env.TRANSLATION_JOB_CAP_CHARS;
+    delete process.env.VIDEO_JOB_CAP_UNITS;
     redisStore.clear();
     await resetAllBudgets();
   });
@@ -153,5 +158,38 @@ describe("workers/budget (redis)", () => {
         jobId: "translation-job-2",
       })
     ).rejects.toBeInstanceOf(BudgetExceededError);
+  });
+
+  it("rejects oversized single jobs before budget reservation", () => {
+    process.env.TRANSLATION_JOB_CAP_CHARS = "10";
+    process.env.TTS_JOB_CAP_CHARS = "12";
+    process.env.VIDEO_JOB_CAP_UNITS = "2";
+
+    expect(() =>
+      validateJobCost({
+        userId: "author-1",
+        pipeline: "translation",
+        jobSize: 11,
+        jobId: "translation-job-3",
+      })
+    ).toThrow(JobCostExceededError);
+
+    expect(() =>
+      validateJobCost({
+        userId: "author-1",
+        pipeline: "tts",
+        jobSize: 13,
+        jobId: "tts-job-1",
+      })
+    ).toThrow(JobCostExceededError);
+
+    expect(() =>
+      validateJobCost({
+        userId: "author-1",
+        pipeline: "video",
+        jobSize: 3,
+        jobId: "video-job-1",
+      })
+    ).toThrow(JobCostExceededError);
   });
 });

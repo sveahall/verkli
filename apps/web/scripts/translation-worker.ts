@@ -4,6 +4,7 @@
  */
 
 import "./load-dotenv";
+import "./sentry-worker-init";
 import { assertServerEnv, getRedisConnectionOptions } from "../src/lib/env";
 
 import { Worker, UnrecoverableError } from "bullmq";
@@ -13,10 +14,16 @@ import { translateText, sanitizeOpusOutput } from "../src/lib/opus";
 import { contentHash } from "../src/lib/import-extract";
 import { normalizeLanguageOrNull } from "../src/lib/languages";
 import { isDuplicate } from "../src/lib/workers/idempotency";
-import { checkBudget, BudgetExceededError } from "../src/lib/workers/budget";
+import {
+  checkBudget,
+  BudgetExceededError,
+  JobCostExceededError,
+  validateJobCost,
+} from "../src/lib/workers/budget";
 
 import { QUEUE_NAMES } from "../src/lib/queue-names";
 import { startHeartbeatInterval } from "../src/lib/health/worker-heartbeat";
+import { Sentry } from "./sentry-worker-init";
 
 const QUEUE_NAME = QUEUE_NAMES.TRANSLATION;
 const PIPELINE_SMOKE_MODE = process.env.PIPELINE_SMOKE_MODE === "true";
@@ -299,6 +306,12 @@ async function processJob(payload: TranslationJobData, workerJobId?: string) {
       throw new UnrecoverableError("Missing authorId for translation budget enforcement");
     }
     try {
+      validateJobCost({
+        userId: budgetUserId,
+        pipeline: "translation",
+        jobSize: totalChars,
+        jobId: workerJobId ?? null,
+      });
       await checkBudget({
         userId: budgetUserId,
         pipeline: "translation",
@@ -306,7 +319,7 @@ async function processJob(payload: TranslationJobData, workerJobId?: string) {
         jobId: workerJobId ?? null,
       });
     } catch (err) {
-      if (err instanceof BudgetExceededError) {
+      if (err instanceof BudgetExceededError || err instanceof JobCostExceededError) {
         throw new UnrecoverableError(err.message);
       }
       throw err;
@@ -455,6 +468,7 @@ function main() {
     console.log("[translation worker] job completed:", job.id);
   });
   worker.on("failed", (job, err) => {
+    Sentry.captureException(err);
     console.error("[translation-worker] job failed", job?.id, err?.message);
   });
   worker.on("error", (err) => {
@@ -462,6 +476,8 @@ function main() {
   });
 
   const heartbeatInterval = startHeartbeatInterval(QUEUE_NAME);
+
+  worker.on("closed", () => clearInterval(heartbeatInterval));
 
   // Graceful shutdown
   process.on("SIGTERM", async () => {

@@ -8,6 +8,7 @@
  */
 
 import "./load-dotenv";
+import "./sentry-worker-init";
 import { assertServerEnv, getRedisConnectionOptions } from "../src/lib/env";
 
 assertServerEnv();
@@ -16,6 +17,7 @@ import { Worker } from "bullmq";
 import { createAdminClient } from "../src/lib/supabase/admin";
 import { QUEUE_NAMES } from "../src/lib/queue-names";
 import { startHeartbeatInterval } from "../src/lib/health/worker-heartbeat";
+import { Sentry } from "./sentry-worker-init";
 
 const QUEUE_NAME = QUEUE_NAMES.NOTIFICATIONS;
 
@@ -70,6 +72,7 @@ worker.on("completed", (job) => {
 });
 
 worker.on("failed", (job, err) => {
+  Sentry.captureException(err);
   console.error("[notifications-worker] job failed", job?.id, err?.message);
 });
 
@@ -78,6 +81,8 @@ worker.on("error", (err) => {
 });
 
 const heartbeatInterval = startHeartbeatInterval(QUEUE_NAME);
+
+worker.on("closed", () => clearInterval(heartbeatInterval));
 
 process.on("SIGTERM", async () => {
   console.log(`[${QUEUE_NAME}] Shutting down...`);

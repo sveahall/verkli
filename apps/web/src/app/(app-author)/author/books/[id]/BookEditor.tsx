@@ -21,6 +21,8 @@ import { isJobActiveStatus, normalizeJobStatus } from "@/lib/job-status";
 import { getLanguageLabel, LANGUAGE_OPTIONS, normalizeLanguage, type SupportedLanguage } from "@/lib/languages";
 import { isTranslationPairSupported } from "@/lib/translation-pairs";
 import ChapterAudiobookPlayer from "@/app/(reader-browse)/reader/read/[chapterId]/ChapterAudiobookPlayer";
+import ManifestAudiobookPlayer from "@/components/books/ManifestAudiobookPlayer";
+import NoDownloadAudioPlayer from "@/components/books/NoDownloadAudioPlayer";
 
 const ACCEPTED_COVER_TYPES = "image/*";
 
@@ -135,7 +137,9 @@ function getAudiobookStatusLabel(status: string): string {
   if (status === "pause_requested") return "Pause requested";
   if (status === "cancel_requested") return "Stopping...";
   if (status === "cancelled") return "Cancelled";
-  if (status === "failed") return STATUS_LABELS.failed;
+  if (status === "idle" || status === "not_started") return "Not started";
+  if (status === "disabled") return "Worker unavailable";
+  if (status === "failed") return "Generation failed";
   return "No audiobook yet";
 }
 
@@ -528,23 +532,25 @@ function ImportManusSection({
   );
 }
 
+type Tool = "edit" | "cover" | "translate" | "audiobook" | "print" | "pricing" | "polish" | "publish" | "market" | "statistics" | "import";
+
 type Props = {
   book: Book;
   chapters: Chapter[];
   bookVersions: BookVersion[];
   activeVersion: BookVersion | null;
+  authorDisplayName?: string;
   latestAudiobookAsset?: LatestAudiobookAsset;
   marketingCampaigns?: MarketingCampaignRow[];
   stripeConfigured?: boolean;
 };
-
-type EditorPanel = "editor" | "pricing" | "import";
 
 export default function BookEditor({
   book,
   chapters: initialChapters,
   bookVersions,
   activeVersion,
+  authorDisplayName = "Author",
   latestAudiobookAsset = null,
   marketingCampaigns = [],
   stripeConfigured = false,
@@ -567,6 +573,7 @@ export default function BookEditor({
   const [bookTitleSaving, setBookTitleSaving] = useState(false);
   const [lastSaved, setLastSaved] = useState<Date | null>(null);
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
+  const [saveError, setSaveError] = useState(false);
   const [focusMode, setFocusMode] = useState(false);
   const [preset, setPreset] = useState("novel");
   const [wordCount, setWordCount] = useState(0);
@@ -782,17 +789,28 @@ export default function BookEditor({
   }, []);
 
   const panelParam = searchParams?.get("panel");
-  const editorPanel: EditorPanel =
-    panelParam === "pricing" ? "pricing" : panelParam === "import" ? "import" : "editor";
+  const [tool, setTool] = useState<Tool>(() => {
+    if (panelParam === "pricing") return "pricing";
+    if (panelParam === "import") return "import";
+    return "edit";
+  });
 
   useEffect(() => {
-    if (panelParam !== "publish") return;
-    publishMenuButtonRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
-    setPublishMenuOpen(true);
-    setPublishPanelHighlight(true);
-    const timeoutId = window.setTimeout(() => setPublishPanelHighlight(false), 1600);
-    return () => window.clearTimeout(timeoutId);
+    if (panelParam === "pricing") setTool("pricing");
+    else if (panelParam === "import") setTool("import");
   }, [panelParam]);
+
+  useEffect(() => {
+    if (tool === "publish") {
+      publishMenuButtonRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+      setPublishMenuOpen(true);
+      setPublishPanelHighlight(true);
+      const timeoutId = window.setTimeout(() => setPublishPanelHighlight(false), 1600);
+      return () => window.clearTimeout(timeoutId);
+    }
+  }, [tool]);
+
+  const showManuscript = ["edit", "cover", "translate", "audiobook", "print", "polish", "publish", "market", "statistics"].includes(tool);
 
   const selectedChapter = chapters.find((ch) => ch.id === selectedChapterId);
   const displayCoverUrl = coverPreviewUrl ?? book.cover_image;
@@ -1004,6 +1022,25 @@ export default function BookEditor({
     typeof latestAudiobookMeta.controlState === "string" ? latestAudiobookMeta.controlState : null;
   const latestAudiobookPauseRequested = latestAudiobookMeta.pauseRequested === true;
   const latestAudiobookCancelRequested = latestAudiobookMeta.cancelRequested === true;
+  const latestAudiobookManifestUrl =
+    typeof latestAudiobookMeta.manifestUrl === "string" && latestAudiobookMeta.manifestUrl.trim().length > 0
+      ? latestAudiobookMeta.manifestUrl.trim()
+      : null;
+  const latestAudiobookAudioUrl =
+    typeof latestAudiobookMeta.audioUrl === "string" && latestAudiobookMeta.audioUrl.trim().length > 0
+      ? latestAudiobookMeta.audioUrl.trim()
+      : null;
+  const latestAudiobookGeneratedChapterAudioUrl =
+    typeof latestAudiobookMeta.generatedChapterAudioUrl === "string" &&
+    latestAudiobookMeta.generatedChapterAudioUrl.trim().length > 0
+      ? latestAudiobookMeta.generatedChapterAudioUrl.trim()
+      : null;
+  const latestAudiobookAssetAudioUrl =
+    typeof latestAudiobookAsset?.audioSignedUrl === "string" && latestAudiobookAsset.audioSignedUrl.trim().length > 0
+      ? latestAudiobookAsset.audioSignedUrl.trim()
+      : null;
+  const fallbackGeneratedAudiobookUrl =
+    latestAudiobookGeneratedChapterAudioUrl ?? latestAudiobookAudioUrl ?? latestAudiobookAssetAudioUrl;
   const latestAudiobookChapterIds =
     Array.isArray(latestAudiobookMeta.chapterIds) && latestAudiobookMeta.chapterIds.every((id) => typeof id === "string")
       ? (latestAudiobookMeta.chapterIds as string[])
@@ -1017,23 +1054,33 @@ export default function BookEditor({
   const isAudiobookPaused = latestAudiobookControlState === "paused" || latestAudiobookControlState === "pause_requested";
   const isAudiobookCancelRequested = latestAudiobookControlState === "cancel_requested" || latestAudiobookCancelRequested;
   const isAudiobookCancelled = latestAudiobookControlState === "cancelled";
-  const audiobookStatusUi = isAudiobookActive
-    ? isAudiobookCancelRequested
-      ? "cancel_requested"
-      : isAudiobookPaused || latestAudiobookPauseRequested
-        ? latestAudiobookControlState === "pause_requested" || latestAudiobookPauseRequested
-          ? "pause_requested"
-          : "paused"
-        : audiobookJobStatus === "pending"
-          ? "queued"
-          : "generating"
-    : hasGeneratedAudiobookAsset || hasCompletedAudiobookJob || hasCompletedChapterAudiobookJob
-      ? "published"
-      : isAudiobookCancelled
-        ? "cancelled"
-      : hasFailedAudiobookJob
-        ? "failed"
-        : (book.audiobook_status ?? "not_started");
+  // Job table is source of truth: no job → idle. Do not derive failure from worker availability.
+  const audiobookStatusUi = !audiobookFeatureEnabled
+    ? "disabled"
+    : isAudiobookActive
+      ? isAudiobookCancelRequested
+        ? "cancel_requested"
+        : isAudiobookPaused || latestAudiobookPauseRequested
+          ? latestAudiobookControlState === "pause_requested" || latestAudiobookPauseRequested
+            ? "pause_requested"
+            : "paused"
+          : audiobookJobStatus === "pending"
+            ? "queued"
+            : "generating"
+      : hasGeneratedAudiobookAsset || hasCompletedAudiobookJob || hasCompletedChapterAudiobookJob
+        ? "published"
+        : isAudiobookCancelled
+          ? "cancelled"
+          : hasFailedAudiobookJob
+            ? "failed"
+            : !latestAudiobookJob
+              ? "idle"
+              : (book.audiobook_status ?? "idle");
+  const shouldShowGeneratedAudiobookPlayer =
+    audiobookFeatureEnabled &&
+    !isAudiobookActive &&
+    audiobookStatusUi === "published" &&
+    (Boolean(fallbackGeneratedAudiobookUrl) || Boolean(latestAudiobookManifestUrl));
   const isProFeatureLocked = billing.loading || !billing.isProActive;
   const proFeatureLockMessage = billing.loading
     ? "Checking subscription..."
@@ -1809,12 +1856,14 @@ export default function BookEditor({
     if (savingRef.current) return;
     savingRef.current = true;
     setIsSaving(true);
+    setSaveError(false);
     const supabase = createClient();
     const contentString = JSON.stringify(jsonContent);
     const { error } = await supabase.from("chapters").update({ content: contentString }).eq("id", chapterId);
     savingRef.current = false;
     setIsSaving(false);
     if (error) {
+      setSaveError(true);
       toast.error("Could not save. Changes may not have been persisted.");
       return;
     }
@@ -2077,40 +2126,72 @@ export default function BookEditor({
           </div>
         )}
 
-        <nav className="mb-8 flex flex-wrap gap-1 rounded-full border border-black/[0.06] bg-slate-100/80 p-1 backdrop-blur-sm dark:border-white/[0.06] dark:bg-white/[0.04] w-fit" aria-label="Book editor: choose view">
-          <Link
-            href={`/author/books/${book.id}${activeVersion ? `?lang=${normalizeLangKey(activeVersion.language_code)}` : ""}`}
-            className={`rounded-full px-5 py-2 text-[13px] font-medium transition-all ${
-              editorPanel === "editor"
-                ? "bg-white text-slate-900 shadow-sm dark:bg-white/[0.12] dark:text-white"
-                : "text-slate-500 hover:text-slate-700 dark:text-white/50 dark:hover:text-white/80"
-            }`}
-          >
-            Manuscript
-          </Link>
-          <Link
-            href={`/author/books/${book.id}?panel=pricing${activeVersion ? `&lang=${normalizeLangKey(activeVersion.language_code)}` : ""}`}
-            className={`rounded-full px-5 py-2 text-[13px] font-medium transition-all ${
-              editorPanel === "pricing"
-                ? "bg-white text-slate-900 shadow-sm dark:bg-white/[0.12] dark:text-white"
-                : "text-slate-500 hover:text-slate-700 dark:text-white/50 dark:hover:text-white/80"
-            }`}
-          >
-            Pricing and distribution
-          </Link>
-          <Link
-            href={`/author/books/${book.id}?panel=import${activeVersion ? `&lang=${normalizeLangKey(activeVersion.language_code)}` : ""}`}
-            className={`rounded-full px-5 py-2 text-[13px] font-medium transition-all ${
-              editorPanel === "import"
-                ? "bg-white text-slate-900 shadow-sm dark:bg-white/[0.12] dark:text-white"
-                : "text-slate-500 hover:text-slate-700 dark:text-white/50 dark:hover:text-white/80"
-            }`}
-          >
-            Import manuscript
-          </Link>
-        </nav>
+        <div className="overflow-hidden rounded-xl border border-black/[0.06] bg-white shadow-sm dark:border-white/[0.06] dark:bg-white/[0.02]">
+          <div className="flex min-h-[calc(100vh-12rem)]">
+            {/* Left sidebar — Tools */}
+            <aside className="flex w-[240px] flex-shrink-0 flex-col border-r border-black/[0.06] dark:border-white/[0.06]" aria-label="Workflow tools">
+              <h2 className="px-4 pt-5 pb-3 text-sm font-bold tracking-tight text-slate-900 dark:text-white">
+                Tools
+              </h2>
+              <nav className="flex flex-1 flex-col gap-0.5 px-2 pb-4">
+                {(["edit", "cover", "translate", "audiobook", "print", "pricing", "polish", "publish"] as const).map((t) => (
+                  <button
+                    key={t}
+                    type="button"
+                    onClick={() => setTool(t)}
+                    className={`flex w-full items-center rounded-lg px-3 py-2.5 text-left text-[13px] font-medium transition-all duration-150 ${
+                      tool === t
+                        ? "border-l-[3px] border-[#6E38F7] bg-[#F0F0F0] text-slate-900 dark:border-[#6E38F7] dark:bg-white/[0.08] dark:text-white"
+                        : "border-l-[3px] border-transparent text-slate-500 hover:bg-slate-100 hover:text-slate-700 dark:text-white/60 dark:hover:bg-white/[0.06] dark:hover:text-white/80"
+                    }`}
+                  >
+                    {t.charAt(0).toUpperCase() + t.slice(1)}
+                  </button>
+                ))}
+                <button
+                  type="button"
+                  onClick={() => setTool("market")}
+                  disabled={!getMarketingEnabled()}
+                  className={`flex w-full items-center rounded-lg px-3 py-2.5 text-left text-[13px] font-medium transition-all duration-150 ${
+                    !getMarketingEnabled()
+                      ? "cursor-not-allowed border-l-[3px] border-transparent text-slate-400 opacity-60 dark:text-white/40"
+                      : tool === "market"
+                        ? "border-l-[3px] border-[#6E38F7] bg-[#F0F0F0] text-slate-900 dark:border-[#6E38F7] dark:bg-white/[0.08] dark:text-white"
+                        : "border-l-[3px] border-transparent text-slate-500 hover:bg-slate-100 hover:text-slate-700 dark:text-white/60 dark:hover:bg-white/[0.06] dark:hover:text-white/80"
+                  }`}
+                  title={!getMarketingEnabled() ? "Marketing (unavailable)" : "Marketing"}
+                >
+                  Market
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setTool("statistics")}
+                  className={`flex w-full items-center rounded-lg px-3 py-2.5 text-left text-[13px] font-medium transition-all duration-150 ${
+                    tool === "statistics"
+                      ? "border-l-[3px] border-[#6E38F7] bg-[#F0F0F0] text-slate-900 dark:border-[#6E38F7] dark:bg-white/[0.08] dark:text-white"
+                      : "border-l-[3px] border-transparent text-slate-500 hover:bg-slate-100 hover:text-slate-700 dark:text-white/60 dark:hover:bg-white/[0.06] dark:hover:text-white/80"
+                  }`}
+                >
+                  Statistics
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setTool("import")}
+                  className={`flex w-full items-center rounded-lg px-3 py-2.5 text-left text-[13px] font-medium transition-all duration-150 ${
+                    tool === "import"
+                      ? "border-l-[3px] border-[#6E38F7] bg-[#F0F0F0] text-slate-900 dark:border-[#6E38F7] dark:bg-white/[0.08] dark:text-white"
+                      : "border-l-[3px] border-transparent text-slate-500 hover:bg-slate-100 hover:text-slate-700 dark:text-white/60 dark:hover:bg-white/[0.06] dark:hover:text-white/80"
+                  }`}
+                >
+                  Import
+                </button>
+              </nav>
+            </aside>
 
-        {editorPanel === "pricing" && (
+            {/* Main content */}
+            <div className="min-w-0 flex-1 overflow-auto p-6">
+
+        {tool === "pricing" && (
           <div className="max-w-2xl space-y-6">
             <h2 className="text-[clamp(20px,2.5vw,24px)] font-bold tracking-[-0.02em] text-slate-900 dark:text-white">Pricing and distribution</h2>
 
@@ -2228,7 +2309,7 @@ export default function BookEditor({
           </div>
         )}
 
-        {editorPanel === "import" && (
+        {tool === "import" && (
           <ImportManusSection
             bookId={book.id}
             bookVersionId={activeVersion?.id ?? null}
@@ -2237,9 +2318,9 @@ export default function BookEditor({
           />
         )}
 
-        {editorPanel === "editor" && (
+        {showManuscript && (
         <>
-        <div className="mb-4 flex flex-wrap items-end gap-3">
+        <div className="mb-6 flex flex-wrap items-end gap-3">
           {getTranslationsEnabled() && bookVersions.length > 1 && (
             <div className="min-w-[220px] max-w-[320px]">
               <label htmlFor="version-select" className="mb-1 block text-xs text-slate-500 dark:text-white/50">
@@ -2334,6 +2415,9 @@ export default function BookEditor({
             )}
             <p className="mt-2.5 text-[13px] text-slate-400 dark:text-white/40">
               {isPublished ? currentVisibilitySummary : "Draft - not visible to readers yet"} · {chapters.length} chapters
+            </p>
+            <p className="mt-1 text-sm font-normal text-slate-500 dark:text-white/50">
+              {authorDisplayName}
             </p>
           </div>
           <div className="flex flex-wrap items-center gap-3 lg:justify-self-end">
@@ -2552,46 +2636,44 @@ export default function BookEditor({
         </div>
 
         <div className="mb-6 rounded-2xl border border-black/[0.06] bg-white/75 p-4 shadow-[0_4px_18px_rgba(15,23,42,0.04)] backdrop-blur-sm dark:border-white/[0.06] dark:bg-white/[0.02] dark:shadow-none">
-          <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_auto_auto] sm:items-end">
-            <div>
-              <label htmlFor="chapter-select" className="mb-1 block text-xs text-slate-500 dark:text-white/50">
-                Current chapter
-              </label>
-              <div className="relative">
-                <select
-                  id="chapter-select"
-                  value={selectedChapterId ?? ""}
-                  onChange={(e) => {
-                    setSelectedChapterId(e.target.value || null);
+          <p className="mb-3 text-xs font-medium uppercase tracking-wider text-slate-400 dark:text-white/50">
+            Chapters
+          </p>
+          <div className="flex flex-wrap items-center gap-1.5">
+            {chapters.map((chapter, index) => {
+              const isActive = chapter.id === selectedChapterId;
+              return (
+                <button
+                  key={chapter.id}
+                  type="button"
+                  onClick={() => {
+                    setSelectedChapterId(chapter.id);
                     setSessionStartWords(null);
                   }}
-                  className="h-11 w-full appearance-none rounded-xl border border-black/[0.08] bg-white px-4 pr-10 text-[13px] font-medium text-slate-900 shadow-sm transition-all focus:border-black/[0.15] focus:shadow-md focus:outline-none dark:border-white/[0.08] dark:bg-white/[0.04] dark:text-white"
+                  className={`flex h-8 min-w-[2rem] items-center justify-center rounded-lg px-2 text-[13px] font-medium transition-colors ${
+                    isActive
+                      ? "bg-slate-900 text-white dark:bg-slate-100 dark:text-slate-900"
+                      : "border border-black/[0.08] bg-white text-slate-600 hover:bg-slate-50 dark:border-white/[0.08] dark:bg-white/[0.04] dark:text-white/70 dark:hover:bg-white/[0.06]"
+                  }`}
+                  aria-label={`Chapter ${index + 1}`}
+                  aria-current={isActive ? "true" : undefined}
                 >
-                  {chapters.length === 0 && <option value="">No chapters yet</option>}
-                  {chapters.map((chapter) => (
-                    <option key={chapter.id} value={chapter.id}>
-                      {chapter.title}
-                    </option>
-                  ))}
-                </select>
-                <svg
-                  className="pointer-events-none absolute right-4 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-500 dark:text-white/60"
-                  viewBox="0 0 20 20"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                >
-                  <path d="M6 8l4 4 4-4" />
-                </svg>
-              </div>
-            </div>
+                  {index + 1}
+                </button>
+              );
+            })}
+          </div>
+          {selectedChapter && (
+            <p className="mt-2 text-xs text-slate-500 dark:text-white/50 truncate" title={selectedChapter.title}>
+              {selectedChapter.title}
+            </p>
+          )}
+          <div className="mt-3 flex flex-wrap items-center gap-3">
             <button
               type="button"
               onClick={handleCreateChapter}
               disabled={isCreating}
-              className="h-11 rounded-xl bg-slate-900 px-4 text-[13px] font-semibold text-white shadow-sm transition-all hover:bg-slate-800 hover:shadow-md disabled:opacity-50 dark:bg-white dark:text-slate-900 dark:hover:bg-white/90"
+              className="rounded-xl bg-slate-900 px-4 py-2 text-[13px] font-semibold text-white shadow-sm transition-all hover:bg-slate-800 hover:shadow-md disabled:opacity-50 dark:bg-white dark:text-slate-900 dark:hover:bg-white/90"
             >
               {isCreating ? "Creating..." : "+ New chapter"}
             </button>
@@ -2599,7 +2681,7 @@ export default function BookEditor({
               type="button"
               onClick={() => coverInputRef.current?.click()}
               disabled={coverUploading}
-              className="h-11 rounded-xl border border-black/[0.08] bg-white px-4 text-[13px] font-medium text-slate-600 shadow-sm transition-all hover:border-black/[0.12] hover:shadow-md disabled:opacity-50 dark:border-white/[0.08] dark:bg-white/[0.04] dark:text-white/70 dark:hover:bg-white/[0.06]"
+              className="rounded-xl border border-black/[0.08] bg-white px-4 py-2 text-[13px] font-medium text-slate-600 shadow-sm transition-all hover:border-black/[0.12] hover:shadow-md disabled:opacity-50 dark:border-white/[0.08] dark:bg-white/[0.04] dark:text-white/70 dark:hover:bg-white/[0.06]"
             >
               {coverUploading ? "Uploading..." : "Upload cover"}
             </button>
@@ -2611,8 +2693,8 @@ export default function BookEditor({
           )}
         </div>
 
-        <div className="grid gap-8 lg:grid-cols-[300px_minmax(0,1fr)]">
-          <div className="space-y-4 lg:sticky lg:top-28 lg:self-start">
+        <div className="grid gap-8 lg:grid-cols-[minmax(0,900px)_280px]">
+          <div className="space-y-4 lg:order-2 lg:sticky lg:top-28 lg:self-start">
             <div className="rounded-2xl border border-black/[0.05] bg-white/60 p-5 shadow-[0_1px_3px_rgba(0,0,0,0.02)] backdrop-blur-sm dark:border-white/[0.06] dark:bg-white/[0.02] dark:shadow-none">
               <h2 className="mb-3 text-[14px] font-semibold tracking-[-0.01em] text-slate-800 dark:text-white/90">Cover</h2>
               <div className="space-y-2">
@@ -2960,6 +3042,8 @@ export default function BookEditor({
                         ? "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300"
                         : audiobookStatusUi === "cancelled"
                           ? "bg-slate-200 text-slate-700 dark:bg-slate-700 dark:text-slate-200"
+                        : audiobookStatusUi === "disabled"
+                          ? "bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300"
                         : audiobookStatusUi === "failed"
                           ? "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300"
                           : "bg-slate-100 text-slate-700 dark:bg-slate-700 dark:text-slate-200"
@@ -3188,13 +3272,26 @@ export default function BookEditor({
                 </div>
               )}
 
+              {shouldShowGeneratedAudiobookPlayer && (
+                <div className="mb-2">
+                  {fallbackGeneratedAudiobookUrl ? (
+                    <NoDownloadAudioPlayer src={fallbackGeneratedAudiobookUrl} />
+                  ) : latestAudiobookManifestUrl ? (
+                    <ManifestAudiobookPlayer
+                      bookId={book.id}
+                      manifestUrl={latestAudiobookManifestUrl}
+                    />
+                  ) : null}
+                </div>
+              )}
+
               {audiobookStatusUi === "cancelled" && (
                 <p className="text-xs text-slate-600 dark:text-slate-300" role="status">
                   {effectiveAudiobookError ?? "Generation cancelled."}
                 </p>
               )}
 
-              {(audiobookStatusUi === "failed" || (effectiveAudiobookError && audiobookStatusUi !== "cancelled")) && (
+              {audiobookStatusUi === "failed" && (
                 <p className="text-xs text-red-600 dark:text-red-400" role="alert">
                   {effectiveAudiobookError ?? "Could not create audiobook. Try again."}
                 </p>
@@ -3357,7 +3454,7 @@ export default function BookEditor({
             )}
           </div>
 
-          <div className="min-w-0">
+          <div className="min-w-0 max-w-[900px] lg:order-1">
             {selectedChapter ? (
               <>
                 <div className="rounded-2xl border border-black/[0.06] bg-white/70 p-5 shadow-[0_4px_18px_rgba(15,23,42,0.04)] backdrop-blur-sm dark:border-white/[0.06] dark:bg-white/[0.02] dark:shadow-none">
@@ -3404,11 +3501,16 @@ export default function BookEditor({
                           Rename
                         </button>
                       </div>
-                      <p className="text-[12px]">
+                      <p className="text-[12px]" role="status" aria-live="polite">
                         {isSaving ? (
                           <span className="flex items-center gap-1.5 text-[#907AFF] dark:text-[#b8a9ff]">
                             <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-current" />
                             Saving...
+                          </span>
+                        ) : saveError ? (
+                          <span className="flex items-center gap-1.5 text-red-500 dark:text-red-400">
+                            <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>
+                            Error saving
                           </span>
                         ) : hasUnsavedChanges ? (
                           <span className="flex items-center gap-1.5 text-amber-500 dark:text-amber-400">
@@ -3465,6 +3567,9 @@ export default function BookEditor({
         </div>
         </>
         )}
+            </div>
+          </div>
+        </div>
       </section>
       <CommandPalette open={commandPaletteOpen} onClose={() => setCommandPaletteOpen(false)} commands={commands} />
     </>

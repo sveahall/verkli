@@ -787,10 +787,34 @@ function getEpubChapter(
   });
 }
 
-/** Extract text from HTML string (strip tags, normalize whitespace). */
+/** Decorative Unicode block/bullet characters commonly left by EPUB tools. */
+const DECORATIVE_CHARS_RE =
+  /[\u25A0\u25AA\u25AB\u25CF\u25CB\u25C6\u25C7\u25BA\u25B6\u25B7\u25BC\u25BD\u25B2\u25B3\u2605\u2606\u2022\u2023\u2043]/g;
+
+export function stripDecorativeChars(text: string): string {
+  return text.replace(DECORATIVE_CHARS_RE, "").replace(/\s{2,}/g, " ").trim();
+}
+
+/** Remove orphaned leading periods from paragraph splits around headings. */
+export function repairOrphanedLeadingPeriods(text: string): string {
+  return text.replace(/^(\.\s+)(?=[a-zåäö])/gm, "");
+}
+
+/** Extract text from HTML string, preserving paragraph breaks between block elements. */
 function htmlToPlainText(html: string): string {
   const $ = cheerio.load(html);
-  return $("body").text().replace(/\s+/g, " ").trim();
+  const blocks: string[] = [];
+
+  $("h1, h2, h3, h4, h5, h6, p, li, blockquote, figcaption, dt, dd").each((_, el) => {
+    const text = $(el).text().replace(/\s+/g, " ").trim();
+    if (text) blocks.push(text);
+  });
+
+  if (blocks.length === 0) {
+    return $("body").text().replace(/\s+/g, " ").trim();
+  }
+
+  return blocks.join("\n\n").trim();
 }
 
 type EpubInstance = {
@@ -868,12 +892,13 @@ export async function extractFromEpub(filePath: string): Promise<ExtractedBook> 
         for (let i = 0; i < flow.length; i++) {
           const item = flow[i];
           const text = await getEpubChapter(epub, item.id);
-          const plain = htmlToPlainText(text);
+          const plain = repairOrphanedLeadingPeriods(stripDecorativeChars(htmlToPlainText(text)));
           if (plain.length > 0) {
             const tocTitle =
               tocTitleById.get(item.id) ??
               (item.href ? tocTitleById.get(item.href.split("#")[0]) : undefined);
-            const chapterTitle = (item.title as string) || tocTitle || `Chapter ${i + 1}`;
+            const rawTitle = (item.title as string) || tocTitle || `Chapter ${i + 1}`;
+            const chapterTitle = stripDecorativeChars(rawTitle);
             chapters.push({ title: chapterTitle, sourceText: plain });
           }
         }
@@ -884,10 +909,11 @@ export async function extractFromEpub(filePath: string): Promise<ExtractedBook> 
             const id = spine[i]?.contents;
             if (id) {
               const text = await getEpubChapter(epub, id);
-              const plain = htmlToPlainText(text);
+              const plain = repairOrphanedLeadingPeriods(stripDecorativeChars(htmlToPlainText(text)));
               if (plain.length > 0) {
                 const tocTitle = tocTitleById.get(id);
-                chapters.push({ title: tocTitle || `Chapter ${i + 1}`, sourceText: plain });
+                const title = stripDecorativeChars(tocTitle || `Chapter ${i + 1}`);
+                chapters.push({ title, sourceText: plain });
               }
             }
           }

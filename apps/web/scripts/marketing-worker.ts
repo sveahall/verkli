@@ -7,6 +7,7 @@
  */
 
 import "./load-dotenv";
+import "./sentry-worker-init";
 import { assertServerEnv, getRedisConnectionOptions } from "../src/lib/env";
 
 import { Worker, UnrecoverableError } from "bullmq";
@@ -14,10 +15,16 @@ import { createAdminClient } from "../src/lib/supabase/admin";
 import type { MarketingJobData } from "../src/lib/marketing-queue";
 import { getLanguageLabel } from "../src/lib/languages";
 import { isDuplicate } from "../src/lib/workers/idempotency";
-import { checkBudget, BudgetExceededError } from "../src/lib/workers/budget";
+import {
+  checkBudget,
+  BudgetExceededError,
+  JobCostExceededError,
+  validateJobCost,
+} from "../src/lib/workers/budget";
 
 import { QUEUE_NAMES } from "../src/lib/queue-names";
 import { startHeartbeatInterval } from "../src/lib/health/worker-heartbeat";
+import { Sentry } from "./sentry-worker-init";
 
 const QUEUE_NAME = QUEUE_NAMES.MARKETING;
 
@@ -113,6 +120,12 @@ async function processJob(payload: MarketingJobData, workerJobId?: string) {
 
   // Budget gate (video pipeline cost-units)
   try {
+    validateJobCost({
+      userId: authorId,
+      pipeline: "video",
+      jobSize: estimatedCostUnits,
+      jobId: workerJobId ?? null,
+    });
     await checkBudget({
       userId: authorId,
       pipeline: "video",
@@ -120,7 +133,7 @@ async function processJob(payload: MarketingJobData, workerJobId?: string) {
       jobId: workerJobId ?? null,
     });
   } catch (err) {
-    if (err instanceof BudgetExceededError) {
+    if (err instanceof BudgetExceededError || err instanceof JobCostExceededError) {
       throw new UnrecoverableError(err.message);
     }
     throw err;
@@ -228,6 +241,7 @@ function main() {
     console.log("[marketing worker] job completed:", job.id);
   });
   worker.on("failed", (job, err) => {
+    Sentry.captureException(err);
     console.error("[marketing-worker] job failed", job?.id, err?.message);
   });
   worker.on("error", (err) => {
@@ -235,6 +249,8 @@ function main() {
   });
 
   const heartbeatInterval = startHeartbeatInterval(QUEUE_NAME);
+
+  worker.on("closed", () => clearInterval(heartbeatInterval));
 
   // Graceful shutdown
   process.on("SIGTERM", async () => {

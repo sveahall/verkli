@@ -7,6 +7,7 @@
  */
 
 import "./load-dotenv";
+import "./sentry-worker-init";
 import * as path from "path";
 import * as fs from "fs/promises";
 import * as os from "os";
@@ -19,6 +20,7 @@ assertServerEnv();
 
 import { createAdminClient } from "../src/lib/supabase/admin";
 import { sanitizeJobErrorForStorage } from "../src/lib/sanitize-job-error";
+import { Sentry } from "./sentry-worker-init";
 
 const SCRIPT_DIR = path.dirname(fileURLToPath(import.meta.url));
 const APP_ROOT = path.resolve(SCRIPT_DIR, "..");
@@ -510,6 +512,7 @@ async function processJob(
   } catch (err) {
     const rawMessage = err instanceof Error ? err.message : String(err);
     const sanitized = sanitizeJobErrorForStorage(rawMessage);
+    Sentry.captureException(err);
 
     await admin
       .from("tts_preview_jobs")
@@ -611,12 +614,14 @@ async function main(): Promise<void> {
       }
     } catch (err) {
       log("loop error", err);
+      Sentry.captureException(err);
       await new Promise((r) => setTimeout(r, POLL_INTERVAL_MS));
     }
   }
 }
 
 main().catch((err) => {
+  Sentry.captureException(err);
   console.error("[tts-preview worker] fatal:", err);
   process.exit(1);
 });
