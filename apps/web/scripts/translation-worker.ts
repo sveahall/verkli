@@ -10,9 +10,11 @@ import { assertServerEnv, getRedisConnectionOptions } from "../src/lib/env";
 import { Worker, UnrecoverableError } from "bullmq";
 import { createAdminClient } from "../src/lib/supabase/admin";
 import type { TranslationJobData } from "../src/lib/translation-queue";
-import { translateText, sanitizeOpusOutput } from "../src/lib/opus";
+import { translateBatch, sanitizeTranslatedText } from "../src/lib/opus";
+import { detectLanguageWithConfidence } from "../src/lib/language-detect";
 import { contentHash } from "../src/lib/import-extract";
 import { normalizeLanguageOrNull } from "../src/lib/languages";
+import { upsertBookTranslationState } from "../src/lib/book-translation";
 import { isDuplicate } from "../src/lib/workers/idempotency";
 import {
   checkBudget,
@@ -35,6 +37,117 @@ function translateSmokeText(text: string, targetLanguage: string): string {
   return `[smoke:${normalizedTarget}] ${trimmed}`;
 }
 
+/** Max chars per batch sent to Opus MT (~1500-2000 tokens for European languages). */
+const MAX_BATCH_CHARS = 6000;
+/** Per-chunk retry attempts with exponential backoff. */
+const MAX_CHUNK_RETRY = 3;
+const RETRY_BASE_DELAY_MS = 1000;
+
+function structuredLog(event: string, data: Record<string, unknown>): void {
+  console.log(JSON.stringify({ event, ts: new Date().toISOString(), ...data }));
+}
+
+/**
+ * Collect all text strings from a TipTap JSON node in document order.
+ */
+function collectTiptapTexts(node: unknown): string[] {
+  if (!node || typeof node !== "object") return [];
+  const n = node as Record<string, unknown>;
+  if (n.type === "text" && typeof n.text === "string") return [n.text];
+  if (Array.isArray(n.content)) {
+    const texts: string[] = [];
+    for (const child of n.content) {
+      texts.push(...collectTiptapTexts(child));
+    }
+    return texts;
+  }
+  return [];
+}
+
+/**
+ * Replace text nodes in a TipTap JSON node with translations in document order.
+ */
+function replaceTiptapTexts(
+  node: unknown,
+  translations: string[],
+  cursor: { i: number },
+): unknown {
+  if (!node || typeof node !== "object") return node;
+  const n = node as Record<string, unknown>;
+  if (n.type === "text" && typeof n.text === "string") {
+    const translated = translations[cursor.i] ?? n.text;
+    cursor.i++;
+    return { ...n, text: translated };
+  }
+  if (Array.isArray(n.content)) {
+    return {
+      ...n,
+      content: n.content.map((child) => replaceTiptapTexts(child, translations, cursor)),
+    };
+  }
+  return node;
+}
+
+/**
+ * Group texts into batches where total chars per batch <= maxChars.
+ * Each text is always kept whole (never split across batches).
+ */
+function batchByChars(texts: string[], maxChars: number): string[][] {
+  const batches: string[][] = [];
+  let current: string[] = [];
+  let currentChars = 0;
+
+  for (const text of texts) {
+    if (currentChars + text.length > maxChars && current.length > 0) {
+      batches.push(current);
+      current = [];
+      currentChars = 0;
+    }
+    current.push(text);
+    currentChars += text.length;
+  }
+  if (current.length > 0) batches.push(current);
+  return batches;
+}
+
+/**
+ * Translate a batch of texts with retry (3 attempts, exponential backoff).
+ */
+async function translateBatchWithRetry(
+  texts: string[],
+  sourceLang: string,
+  targetLang: string,
+  chapterId: string,
+  batchIndex: number,
+): Promise<string[]> {
+  for (let attempt = 1; attempt <= MAX_CHUNK_RETRY; attempt++) {
+    try {
+      const raw = translateBatch({ texts, sourceLanguage: sourceLang, targetLanguage: targetLang });
+      return raw.map((t, i) => {
+        const sanitized = sanitizeTranslatedText(t);
+        if (!sanitized.trim() && texts[i].trim()) {
+          structuredLog("chunk_item_empty_fallback", { chapterId, batchIndex, itemIndex: i });
+          return texts[i];
+        }
+        return sanitized;
+      });
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      structuredLog("chunk_translation_failed", {
+        chapterId,
+        batchIndex,
+        attempt,
+        maxAttempts: MAX_CHUNK_RETRY,
+        error: msg.slice(0, 300),
+      });
+      if (attempt === MAX_CHUNK_RETRY) throw err;
+      const delay = RETRY_BASE_DELAY_MS * Math.pow(2, attempt - 1);
+      await new Promise((resolve) => setTimeout(resolve, delay));
+    }
+  }
+  throw new Error("translateBatchWithRetry: unreachable");
+}
+
 /**
  * Extract plain text from a TipTap JSON node (for display/debugging).
  */
@@ -46,35 +159,6 @@ function extractText(node: unknown): string {
     return n.content.map(extractText).join("");
   }
   return "";
-}
-
-/**
- * Recursively translate all text nodes within a TipTap JSON structure.
- * Preserves formatting (bold, italic, headings, etc.) by only modifying text content.
- */
-function translateTiptapNode(
-  node: unknown,
-  translateFn: (text: string) => string
-): unknown {
-  if (!node || typeof node !== "object") return node;
-  
-  const n = node as Record<string, unknown>;
-  
-  // If it's a text node, translate its content
-  if (n.type === "text" && typeof n.text === "string") {
-    const translated = translateFn(n.text);
-    return { ...n, text: translated };
-  }
-  
-  // If it has content array, recursively process children
-  if (Array.isArray(n.content)) {
-    return {
-      ...n,
-      content: n.content.map((child) => translateTiptapNode(child, translateFn)),
-    };
-  }
-  
-  return node;
 }
 
 /**
@@ -129,6 +213,7 @@ async function processJob(payload: TranslationJobData, workerJobId?: string) {
   } = payload;
   const supabase = createAdminClient();
   let resolvedTargetVersionId: string | null = null;
+  let translationProgress = 0;
   const selectedChapterId =
     typeof chapterId === "string" && chapterId.trim().length > 0 ? chapterId.trim() : null;
 
@@ -200,6 +285,7 @@ async function processJob(payload: TranslationJobData, workerJobId?: string) {
     }
 
     const sourceLang =
+      normalizeLanguageOrNull(payload.sourceLanguage) ??
       normalizeLanguageOrNull(sourceVersion.language_code) ??
       normalizeLanguageOrNull(book.original_language ?? null) ??
       normalizeLanguageOrNull(book.language ?? null);
@@ -255,6 +341,15 @@ async function processJob(payload: TranslationJobData, workerJobId?: string) {
       .from("book_versions")
       .update({ status: "translating", error_message: null })
       .eq("id", resolvedTargetVersionId);
+
+    if (!selectedChapterId) {
+      await upsertBookTranslationState(supabase, {
+        bookId,
+        language: normalizedTarget,
+        status: "running",
+        progress: 0,
+      });
+    }
 
     if (overwrite) {
       if (selectedChapterId) {
@@ -325,54 +420,106 @@ async function processJob(payload: TranslationJobData, workerJobId?: string) {
       throw err;
     }
 
-    console.log("[translation worker] translating chapters — count:", chapterList.length);
+    structuredLog("translation_job_started", {
+      bookId,
+      sourceVersionId,
+      targetLanguage: normalizedTarget,
+      chapterCount: chapterList.length,
+      totalChars,
+      scope: selectedChapterId ? "chapter" : "book",
+    });
 
     for (let i = 0; i < chapterList.length; i++) {
       const ch = chapterList[i];
       const sourceContent = (ch.content as string | null) ?? "";
       let translatedContent = sourceContent;
-      
+
+      structuredLog("chapter_translation_started", {
+        chapterId: ch.id,
+        chapterOrder: ch.order,
+        chapterIndex: i,
+        totalChapters: chapterList.length,
+        sourceChars: sourceContent.length,
+      });
+
       if (sourceContent.trim()) {
         try {
-          // Helper function to translate a single text string via Opus MT
-          const doTranslate = (text: string): string => {
-            if (!text.trim()) return text;
-            if (PIPELINE_SMOKE_MODE) {
-              return translateSmokeText(text, normalizedTarget);
+          if (PIPELINE_SMOKE_MODE) {
+            // Smoke mode: prefix text with smoke marker (no Opus MT)
+            if (isTiptapJson(sourceContent)) {
+              const parsed = JSON.parse(sourceContent);
+              const texts = collectTiptapTexts(parsed);
+              const translated = texts.map((t) => (t.trim() ? translateSmokeText(t, normalizedTarget) : t));
+              translatedContent = JSON.stringify(replaceTiptapTexts(parsed, translated, { i: 0 }));
+            } else {
+              const paragraphs = sourceContent.split(/\n{2,}/);
+              translatedContent = paragraphs
+                .map((p) => (p.trim() ? translateSmokeText(p, normalizedTarget) : p))
+                .join("\n\n");
             }
-            const raw = translateText({
-              text,
-              sourceLanguage: sourceLang,
-              targetLanguage: normalizedTarget,
-            });
-            const sanitized = sanitizeOpusOutput(raw);
-            if (!sanitized.trim()) {
-              throw new Error("Opus MT returned empty text after sanitization");
-            }
-            return sanitized;
-          };
-
-          if (isTiptapJson(sourceContent)) {
-            // Content is TipTap JSON - translate text nodes while preserving structure
-            console.log("[translation worker] detected TipTap JSON, translating text nodes...");
-            const parsed = JSON.parse(sourceContent);
-            const translated = translateTiptapNode(parsed, doTranslate);
-            translatedContent = JSON.stringify(translated);
-            console.log("[translation worker] translated TipTap content preview:", extractText(translated).slice(0, 100));
           } else {
-            // Plain text content - translate paragraph by paragraph
-            console.log("[translation worker] plain text content, translating paragraphs...");
-            const paragraphs = sourceContent.split(/\n{2,}/);
-            const translatedParagraphs: string[] = [];
-            for (const p of paragraphs) {
-              if (!p.trim()) continue;
-              translatedParagraphs.push(doTranslate(p));
+            // Cost optimization: skip if content is already in target language
+            const sampleText = isTiptapJson(sourceContent)
+              ? extractText(JSON.parse(sourceContent)).slice(0, 4000)
+              : sourceContent.slice(0, 4000);
+            const langCheck = detectLanguageWithConfidence(sampleText);
+
+            if (langCheck.language === normalizedTarget && langCheck.confidence > 0.95) {
+              structuredLog("chapter_skipped_already_translated", {
+                chapterId: ch.id,
+                detectedLanguage: langCheck.language,
+                confidence: Math.round(langCheck.confidence * 100) / 100,
+              });
+            } else {
+              // Batch translate with retry
+              if (isTiptapJson(sourceContent)) {
+                const parsed = JSON.parse(sourceContent);
+                const texts = collectTiptapTexts(parsed);
+                const nonEmptyMap: Array<{ index: number; text: string }> = [];
+                for (let ti = 0; ti < texts.length; ti++) {
+                  if (texts[ti].trim()) nonEmptyMap.push({ index: ti, text: texts[ti] });
+                }
+
+                if (nonEmptyMap.length > 0) {
+                  const batches = batchByChars(nonEmptyMap.map((m) => m.text), MAX_BATCH_CHARS);
+                  const allTranslated: string[] = [];
+                  for (let bi = 0; bi < batches.length; bi++) {
+                    const result = await translateBatchWithRetry(
+                      batches[bi], sourceLang, normalizedTarget, ch.id, bi,
+                    );
+                    allTranslated.push(...result);
+                  }
+
+                  const fullTexts = [...texts];
+                  for (let ti = 0; ti < nonEmptyMap.length; ti++) {
+                    fullTexts[nonEmptyMap[ti].index] = allTranslated[ti] ?? texts[nonEmptyMap[ti].index];
+                  }
+                  translatedContent = JSON.stringify(replaceTiptapTexts(parsed, fullTexts, { i: 0 }));
+                }
+              } else {
+                // Plain text — batch translate paragraphs
+                const paragraphs = sourceContent.split(/\n{2,}/).filter((p) => p.trim());
+                if (paragraphs.length > 0) {
+                  const batches = batchByChars(paragraphs, MAX_BATCH_CHARS);
+                  const allTranslated: string[] = [];
+                  for (let bi = 0; bi < batches.length; bi++) {
+                    const result = await translateBatchWithRetry(
+                      batches[bi], sourceLang, normalizedTarget, ch.id, bi,
+                    );
+                    allTranslated.push(...result);
+                  }
+                  translatedContent = allTranslated.join("\n\n");
+                }
+              }
             }
-            translatedContent = translatedParagraphs.join("\n\n");
           }
         } catch (err) {
           const msg = err instanceof Error ? err.message : String(err);
-          console.error("[translation worker] Opus MT failed for chapter:", ch.id, msg);
+          structuredLog("chapter_translation_failed", {
+            chapterId: ch.id,
+            chapterOrder: ch.order,
+            error: msg.slice(0, 500),
+          });
           const safeMessage = msg.slice(0, 500);
           await supabase
             .from("book_versions")
@@ -381,6 +528,7 @@ async function processJob(payload: TranslationJobData, workerJobId?: string) {
           throw err;
         }
       }
+
       const hash = contentHash(translatedContent);
       const { error: upsertError } = await supabase.from("chapters").upsert(
         {
@@ -395,10 +543,30 @@ async function processJob(payload: TranslationJobData, workerJobId?: string) {
         { onConflict: "book_version_id,order" }
       );
       if (upsertError) {
-        console.error("[translation worker] chapter upsert failed:", upsertError.message, upsertError.details, upsertError.hint);
+        structuredLog("chapter_upsert_failed", {
+          chapterId: ch.id,
+          error: upsertError.message,
+          details: upsertError.details,
+        });
         throw new Error(`Failed to upsert translated chapter: ${upsertError.message}`);
       }
-      console.log("[translation worker] chapter upserted — order:", ch.order, "title:", ch.title);
+
+      if (!selectedChapterId) {
+        translationProgress = Math.round(((i + 1) / chapterList.length) * 100);
+        await upsertBookTranslationState(supabase, {
+          bookId,
+          language: normalizedTarget,
+          status: "running",
+          progress: translationProgress,
+        });
+      }
+
+      structuredLog("chapter_translation_completed", {
+        chapterId: ch.id,
+        chapterOrder: ch.order,
+        sourceChars: sourceContent.length,
+        translatedChars: translatedContent.length,
+      });
     }
 
     await supabase
@@ -406,7 +574,21 @@ async function processJob(payload: TranslationJobData, workerJobId?: string) {
       .update({ status: "done", error_message: null })
       .eq("id", resolvedTargetVersionId);
 
-    console.log("[translation worker] completed — bookId:", bookId, "targetVersionId:", resolvedTargetVersionId);
+    if (!selectedChapterId) {
+      await upsertBookTranslationState(supabase, {
+        bookId,
+        language: normalizedTarget,
+        status: "completed",
+        progress: 100,
+      });
+    }
+
+    structuredLog("translation_job_completed", {
+      bookId,
+      targetVersionId: resolvedTargetVersionId,
+      chapterCount: chapterList.length,
+      totalChars,
+    });
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
     console.error("[translation worker] failed — bookId:", bookId, "error:", msg);
@@ -416,6 +598,17 @@ async function processJob(payload: TranslationJobData, workerJobId?: string) {
         .from("book_versions")
         .update({ status: "failed", error_message: safeMessage })
         .eq("id", resolvedTargetVersionId);
+    }
+    if (!selectedChapterId) {
+      const normalizedTarget = normalizeLanguageOrNull(targetLanguage);
+      if (normalizedTarget) {
+        await upsertBookTranslationState(supabase, {
+          bookId,
+          language: normalizedTarget,
+          status: "failed",
+          progress: translationProgress,
+        });
+      }
     }
     throw err;
   }

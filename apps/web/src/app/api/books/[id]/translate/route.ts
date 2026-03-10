@@ -1,254 +1,438 @@
-import { NextResponse } from "next/server";
-import { createClient } from "@/lib/supabase/server";
-import { enqueueTranslationJob } from "@/lib/translation-queue";
-import { detectLanguageFromText } from "@/lib/language-detect";
-import { isSupportedLanguage, normalizeLanguageOrNull } from "@/lib/languages";
-import { assertPublicEnv } from "@/lib/env";
-import { requireAuthorRoleForApi } from "@/lib/auth/require-author";
-import { requireProBillingForApi } from "@/lib/billing/server";
-import { isTranslationsEnabled } from "@/lib/flags";
+import { NextResponse } from "next/server"
+import { createClient } from "@/lib/supabase/server"
+import { enqueueTranslationJob } from "@/lib/translation-queue"
+import { isSupportedLanguage } from "@/lib/languages"
+import { assertPublicEnv } from "@/lib/env"
+import { requireAuthorRoleForApi } from "@/lib/auth/require-author"
+import { requireProBillingForApi } from "@/lib/billing/server"
+import { isTranslationsEnabled } from "@/lib/flags"
+import { isTranslationPairSupported } from "@/lib/translation-pairs"
+import {
+  deleteBookTranslationState,
+  resolveTranslationSourceContext,
+  upsertBookTranslationState,
+} from "@/lib/book-translation"
 import {
   apiError,
   E_BOOK_NOT_FOUND,
+  E_DATABASE_ERROR,
   E_FORBIDDEN,
+  E_INVALID_REQUEST_BODY,
   E_INVALID_SOURCE_VERSION,
   E_INVALID_TARGET_LANGUAGE,
   E_NO_SOURCE_VERSION,
   E_SAME_SOURCE_TARGET_LANGUAGE,
   E_SOURCE_LANGUAGE_MISSING,
   E_TRANSLATION_FEATURE_DISABLED,
+  E_TRANSLATION_PAIR_UNSUPPORTED,
   E_TRANSLATION_SERVICE_UNAVAILABLE,
   E_VERSION_ALREADY_EXISTS,
-} from "@/lib/api-errors";
+} from "@/lib/api-errors"
 
-function extractText(node: unknown): string {
-  if (!node || typeof node !== "object") return "";
-  if ("text" in node && typeof (node as { text?: string }).text === "string") {
-    return (node as { text: string }).text;
-  }
-  if ("content" in node && Array.isArray((node as { content?: unknown[] }).content)) {
-    return (node as { content: unknown[] }).content.map(extractText).join("");
-  }
-  return "";
+type TranslationStartSuccess = {
+  ok: true
+  targetLanguage: string
+  jobId: string
+  targetVersionId: string | null
+  chapterId: string | null
 }
 
-function extractPlainText(content: string | null | undefined): string {
-  if (!content) return "";
-  const trimmed = content.trim();
-  if (!trimmed) return "";
-  if ((trimmed.startsWith("{") && trimmed.endsWith("}")) || trimmed.startsWith("[")) {
-    try {
-      return extractText(JSON.parse(trimmed));
-    } catch {
-      return trimmed;
+type TranslationStartFailure = {
+  ok: false
+  targetLanguage: string
+  error: string
+  status: number
+  extra?: Record<string, unknown>
+}
+
+function parseRequestedLanguages(body: unknown): {
+  requestedLanguages: string[]
+  isBatchRequest: boolean
+} {
+  const record = body && typeof body === "object" ? (body as Record<string, unknown>) : {}
+  const isBatchRequest = Array.isArray(record.languages)
+
+  const rawLanguages: unknown[] = isBatchRequest
+    ? (record.languages as unknown[])
+    : [
+        typeof record.targetLanguage === "string"
+          ? record.targetLanguage
+          : typeof record.targetLang === "string"
+            ? record.targetLang
+            : "",
+      ]
+
+  const seen = new Set<string>()
+  const requestedLanguages: string[] = []
+
+  for (const rawLanguage of rawLanguages) {
+    if (typeof rawLanguage !== "string") continue
+    const language = rawLanguage.trim().toLowerCase()
+    if (!language || seen.has(language)) continue
+    seen.add(language)
+    requestedLanguages.push(language)
+  }
+
+  return { requestedLanguages, isBatchRequest }
+}
+
+async function queueTranslationTarget({
+  supabase,
+  bookId,
+  sourceVersionId,
+  sourceLanguage,
+  targetLanguage,
+  overwrite,
+  requestedChapterId,
+  userId,
+}: {
+  supabase: Awaited<ReturnType<typeof createClient>>
+  bookId: string
+  sourceVersionId: string
+  sourceLanguage: string
+  targetLanguage: string
+  overwrite: boolean
+  requestedChapterId: string | null
+  userId: string
+}): Promise<TranslationStartSuccess | TranslationStartFailure> {
+  if (!isSupportedLanguage(targetLanguage)) {
+    return {
+      ok: false,
+      targetLanguage,
+      error: E_INVALID_TARGET_LANGUAGE,
+      status: 400,
     }
   }
-  return trimmed;
+
+  if (sourceLanguage === targetLanguage) {
+    return {
+      ok: false,
+      targetLanguage,
+      error: E_SAME_SOURCE_TARGET_LANGUAGE,
+      status: 400,
+    }
+  }
+
+  if (!isTranslationPairSupported(sourceLanguage, targetLanguage)) {
+    return {
+      ok: false,
+      targetLanguage,
+      error: E_TRANSLATION_PAIR_UNSUPPORTED,
+      status: 422,
+      extra: {
+        detail: `${sourceLanguage} -> ${targetLanguage}`,
+      },
+    }
+  }
+
+  const { data: existingVersion, error: existingVersionError } = await supabase
+    .from("book_versions")
+    .select("id, status")
+    .eq("book_id", bookId)
+    .eq("language_code", targetLanguage)
+    .maybeSingle()
+
+  if (existingVersionError) {
+    console.error("[book translate] existing target version lookup failed", {
+      bookId,
+      targetLanguage,
+      userId,
+      message: existingVersionError.message,
+    })
+    return {
+      ok: false,
+      targetLanguage,
+      error: E_DATABASE_ERROR,
+      status: 500,
+    }
+  }
+
+  if (existingVersion && !overwrite && !requestedChapterId) {
+    return {
+      ok: false,
+      targetLanguage,
+      error: E_VERSION_ALREADY_EXISTS,
+      status: 400,
+      extra: {
+        detail: targetLanguage,
+        existingVersionId: existingVersion.id,
+      },
+    }
+  }
+
+  if (!requestedChapterId) {
+    try {
+      await upsertBookTranslationState(supabase, {
+        bookId,
+        language: targetLanguage,
+        status: "queued",
+        progress: 0,
+      })
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error)
+      console.error("[book translate] failed to upsert queued translation state", {
+        bookId,
+        targetLanguage,
+        userId,
+        message,
+      })
+      return {
+        ok: false,
+        targetLanguage,
+        error: E_DATABASE_ERROR,
+        status: 500,
+      }
+    }
+  }
+
+  const targetVersionId = typeof existingVersion?.id === "string" ? existingVersion.id : null
+  const jobId = await enqueueTranslationJob({
+    bookId,
+    sourceLanguage,
+    sourceVersionId,
+    targetLanguage,
+    targetVersionId,
+    overwrite,
+    authorId: userId,
+    chapterId: requestedChapterId,
+  })
+
+  if (!jobId) {
+    if (!requestedChapterId) {
+      try {
+        await deleteBookTranslationState(supabase, bookId, targetLanguage)
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error)
+        console.error("[book translate] failed to clean queued translation state", {
+          bookId,
+          targetLanguage,
+          userId,
+          message,
+        })
+      }
+    }
+
+    return {
+      ok: false,
+      targetLanguage,
+      error: E_TRANSLATION_SERVICE_UNAVAILABLE,
+      status: 503,
+    }
+  }
+
+  return {
+    ok: true,
+    targetLanguage,
+    jobId,
+    targetVersionId,
+    chapterId: requestedChapterId,
+  }
 }
 
 export async function POST(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  assertPublicEnv();
+  assertPublicEnv()
 
   if (!isTranslationsEnabled()) {
-    return apiError(E_TRANSLATION_FEATURE_DISABLED, 403);
+    return apiError(E_TRANSLATION_FEATURE_DISABLED, 403)
   }
 
-  const { id: bookId } = await params;
-
-  const body = await request.json().catch(() => ({}));
-  const rawTarget =
-    typeof body?.targetLanguage === "string"
-      ? body.targetLanguage
-      : typeof body?.targetLang === "string"
-        ? body.targetLang
-        : "";
-  const targetLanguage = rawTarget.trim().toLowerCase();
+  const body = await request.json().catch(() => ({}))
+  const { requestedLanguages, isBatchRequest } = parseRequestedLanguages(body)
   const requestedChapterId =
     body?.chapterId != null && String(body.chapterId).trim() !== ""
       ? String(body.chapterId).trim()
-      : null;
+      : null
+  const overwrite = Boolean(body?.overwrite)
+  const bodySourceVersionId =
+    body?.sourceVersionId != null && String(body.sourceVersionId).trim() !== ""
+      ? String(body.sourceVersionId).trim()
+      : null
 
-  if (!targetLanguage || !isSupportedLanguage(targetLanguage)) {
-    return apiError(E_INVALID_TARGET_LANGUAGE, 400);
+  if (requestedLanguages.length === 0) {
+    return apiError(E_INVALID_REQUEST_BODY, 400, {
+      detail: "languages or targetLanguage is required",
+    })
   }
 
-  // SECURITY: Require author role for book translation
-  const { user, response } = await requireAuthorRoleForApi();
-  if (response) return response;
+  if (requestedChapterId && requestedLanguages.length !== 1) {
+    return apiError(E_INVALID_REQUEST_BODY, 400, {
+      detail: "chapter translation supports exactly one target language",
+    })
+  }
 
-  const proGate = await requireProBillingForApi(user.id);
-  if (!proGate.ok) return proGate.response;
+  const { id: bookId } = await params
 
-  const supabase = await createClient();
+  const { user, response } = await requireAuthorRoleForApi()
+  if (response) return response
+
+  const proGate = await requireProBillingForApi(user.id)
+  if (!proGate.ok) return proGate.response
+
+  const supabase = await createClient()
   const { data: book, error: bookError } = await supabase
     .from("books")
     .select("id, author_id, original_language, language")
     .eq("id", bookId)
-    .maybeSingle();
+    .maybeSingle()
 
   if (bookError || !book) {
-    if (bookError) console.error("[translate] book fetch failed:", bookError.message);
-    return apiError(E_BOOK_NOT_FOUND, 404);
+    if (bookError) {
+      console.error("[book translate] book fetch failed", {
+        bookId,
+        userId: user.id,
+        message: bookError.message,
+      })
+    }
+    return apiError(E_BOOK_NOT_FOUND, 404)
   }
 
   if (book.author_id !== user.id) {
-    return apiError(E_FORBIDDEN, 403);
+    return apiError(E_FORBIDDEN, 403)
   }
 
-  const bodySourceVersionId =
-    body?.sourceVersionId != null && String(body.sourceVersionId).trim() !== ""
-      ? String(body.sourceVersionId).trim()
-      : null;
-  const overwrite = Boolean(body?.overwrite);
+  const sourceContext = await resolveTranslationSourceContext({
+    supabase,
+    bookId,
+    book,
+    requestedSourceVersionId: bodySourceVersionId,
+  })
 
-  let sourceVersionId = bodySourceVersionId;
-  if (!sourceVersionId) {
-    const preferredLanguage =
-      normalizeLanguageOrNull(book.original_language) ?? normalizeLanguageOrNull(book.language);
-    if (preferredLanguage) {
-      const { data: defaultVersion } = await supabase
-        .from("book_versions")
-        .select("id, language_code")
-        .eq("book_id", bookId)
-        .eq("language_code", preferredLanguage)
-        .maybeSingle();
-      sourceVersionId = defaultVersion?.id ?? null;
-    }
+  if (!sourceContext.sourceVersionId) {
+    return apiError(E_NO_SOURCE_VERSION, 400)
   }
 
-  if (!sourceVersionId) {
-    const { data: anyVersion } = await supabase
-      .from("book_versions")
-      .select("id")
-      .eq("book_id", bookId)
-      .order("created_at", { ascending: true })
-      .limit(1)
-      .maybeSingle();
-    sourceVersionId = anyVersion?.id ?? null;
-  }
-
-  if (!sourceVersionId) {
-    return apiError(E_NO_SOURCE_VERSION, 400);
-  }
-
-  const { data: sourceVersion, error: sourceError } = await supabase
-    .from("book_versions")
-    .select("id, book_id, language_code")
-    .eq("id", sourceVersionId)
-    .maybeSingle();
-
-  if (sourceError || !sourceVersion || sourceVersion.book_id !== bookId) {
-    if (sourceError) console.error("[translate] source version fetch failed:", sourceError.message);
-    return apiError(E_INVALID_SOURCE_VERSION, 400);
+  if (!sourceContext.sourceVersion) {
+    return apiError(E_INVALID_SOURCE_VERSION, 400)
   }
 
   if (requestedChapterId) {
     const { data: sourceChapter, error: sourceChapterError } = await supabase
       .from("chapters")
       .select("id")
-      .eq("book_version_id", sourceVersion.id)
+      .eq("book_version_id", sourceContext.sourceVersion.id)
       .eq("id", requestedChapterId)
-      .maybeSingle();
+      .maybeSingle()
 
     if (sourceChapterError) {
-      console.error("[translate] source chapter lookup failed:", sourceChapterError.message);
-      return apiError(E_INVALID_SOURCE_VERSION, 400);
+      console.error("[book translate] source chapter lookup failed", {
+        bookId,
+        sourceVersionId: sourceContext.sourceVersion.id,
+        chapterId: requestedChapterId,
+        userId: user.id,
+        message: sourceChapterError.message,
+      })
+      return apiError(E_INVALID_SOURCE_VERSION, 400)
     }
+
     if (!sourceChapter) {
       return apiError(E_INVALID_SOURCE_VERSION, 400, {
         detail: `chapterId ${requestedChapterId} not found for source version`,
-      });
+      })
     }
   }
 
-  const versionLanguage = normalizeLanguageOrNull(sourceVersion.language_code);
-  let sourceLanguage = versionLanguage;
-  let sourceLanguageOrigin: "version" | "book" | "heuristic" | null = sourceLanguage ? "version" : null;
-
-  if (!sourceLanguage) {
-    const bookLanguage = normalizeLanguageOrNull(book.original_language) ?? normalizeLanguageOrNull(book.language);
-    if (bookLanguage) {
-      sourceLanguage = bookLanguage;
-      sourceLanguageOrigin = "book";
-    }
-  }
-
-  if (!sourceLanguage) {
-    const { data: firstChapter } = await supabase
-      .from("chapters")
-      .select("content, source_text")
-      .eq("book_version_id", sourceVersionId)
-      .order("order", { ascending: true })
-      .limit(1)
-      .maybeSingle();
-    const sample = extractPlainText((firstChapter?.source_text as string | null) ?? firstChapter?.content ?? null);
-    const detected = detectLanguageFromText(sample);
-    if (detected) {
-      sourceLanguage = detected;
-      sourceLanguageOrigin = "heuristic";
-    }
-  }
-
-  if (sourceLanguage && !versionLanguage) {
-    await supabase.from("book_versions").update({ language_code: sourceLanguage }).eq("id", sourceVersionId);
-  }
-
-  console.log("[translate] request", {
+  console.log("[book translate] request", {
     bookId,
-    sourceVersionId,
-    sourceLanguage: sourceLanguage ?? null,
-    targetLanguage,
+    sourceVersionId: sourceContext.sourceVersion.id,
+    sourceLanguage: sourceContext.sourceLanguage ?? null,
+    sourceLanguageOrigin: sourceContext.sourceLanguageOrigin,
+    requestedLanguages,
     chapterId: requestedChapterId,
     userId: user.id,
-    sourceLanguageOrigin,
-  });
-
-  if (!sourceLanguage) {
-    console.warn("[translate] source language missing", {
-      bookId,
-      sourceVersionId,
-      targetLanguage,
-      userId: user.id,
-    });
-    return apiError(E_SOURCE_LANGUAGE_MISSING, 422);
-  }
-
-  if (sourceLanguage === targetLanguage) {
-    return apiError(E_SAME_SOURCE_TARGET_LANGUAGE, 400);
-  }
-
-  const { data: existingVersion } = await supabase
-    .from("book_versions")
-    .select("id, status")
-    .eq("book_id", bookId)
-    .eq("language_code", targetLanguage)
-    .maybeSingle();
-
-  if (existingVersion && !overwrite && !requestedChapterId) {
-    return apiError(E_VERSION_ALREADY_EXISTS, 400, {
-      detail: targetLanguage,
-      existingVersionId: existingVersion.id,
-    });
-  }
-
-  const targetVersionId = existingVersion?.id ?? null;
-
-  const jobId = await enqueueTranslationJob({
-    bookId,
-    sourceVersionId,
-    targetLanguage,
-    targetVersionId,
     overwrite,
-    authorId: user.id,
-    chapterId: requestedChapterId,
-  });
+  })
 
-  if (!jobId) {
-    return apiError(E_TRANSLATION_SERVICE_UNAVAILABLE, 503);
+  if (!sourceContext.sourceLanguage) {
+    console.warn("[book translate] source language missing", {
+      bookId,
+      sourceVersionId: sourceContext.sourceVersion.id,
+      requestedLanguages,
+      chapterId: requestedChapterId,
+      userId: user.id,
+    })
+    return apiError(E_SOURCE_LANGUAGE_MISSING, 422)
   }
 
-  return NextResponse.json({ ok: true, jobId, targetVersionId, chapterId: requestedChapterId });
+  if (!isBatchRequest) {
+    const result = await queueTranslationTarget({
+      supabase,
+      bookId,
+      sourceVersionId: sourceContext.sourceVersion.id,
+      sourceLanguage: sourceContext.sourceLanguage,
+      targetLanguage: requestedLanguages[0],
+      overwrite,
+      requestedChapterId,
+      userId: user.id,
+    })
+
+    if (!result.ok) {
+      return apiError(result.error, result.status, result.extra)
+    }
+
+    return NextResponse.json({
+      ok: true,
+      jobId: result.jobId,
+      targetVersionId: result.targetVersionId,
+      chapterId: result.chapterId,
+    })
+  }
+
+  const jobs: Array<{
+    language: string
+    jobId: string
+    targetVersionId: string | null
+  }> = []
+  const rejected: Array<{
+    language: string
+    error: string
+    detail?: string
+    existingVersionId?: string
+  }> = []
+
+  for (const targetLanguage of requestedLanguages) {
+    const result = await queueTranslationTarget({
+      supabase,
+      bookId,
+      sourceVersionId: sourceContext.sourceVersion.id,
+      sourceLanguage: sourceContext.sourceLanguage,
+      targetLanguage,
+      overwrite,
+      requestedChapterId,
+      userId: user.id,
+    })
+
+    if (result.ok) {
+      jobs.push({
+        language: result.targetLanguage,
+        jobId: result.jobId,
+        targetVersionId: result.targetVersionId,
+      })
+      continue
+    }
+
+    rejected.push({
+      language: result.targetLanguage,
+      error: result.error,
+      detail: typeof result.extra?.detail === "string" ? result.extra.detail : undefined,
+      existingVersionId:
+        typeof result.extra?.existingVersionId === "string" ? result.extra.existingVersionId : undefined,
+    })
+  }
+
+  if (jobs.length === 0) {
+    const firstRejected = rejected[0]
+    return apiError(firstRejected?.error ?? E_INVALID_REQUEST_BODY, firstRejected ? (firstRejected.error === E_TRANSLATION_SERVICE_UNAVAILABLE ? 503 : 400) : 400, {
+      rejected,
+    })
+  }
+
+  return NextResponse.json({
+    ok: true,
+    sourceVersionId: sourceContext.sourceVersion.id,
+    jobs,
+    rejected,
+  })
 }

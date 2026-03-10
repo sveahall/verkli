@@ -1,7 +1,8 @@
 import "server-only";
-import { createHiggsfieldClient } from "@higgsfield/client/v2";
+import { BatchSize, createHiggsfieldClient, SoulQuality, SoulSize } from "@higgsfield/client/v2";
 
 const HIGGSFIELD_ENDPOINT = "/v1/image2video/dop";
+const HIGGSFIELD_TEXT_TO_IMAGE_ENDPOINT = "/v1/text2image/soul";
 const HIGGSFIELD_MODEL = "dop-standard" as const;
 // Keep headroom for provider-file download + Supabase upload within route maxDuration=180s.
 const HIGGSFIELD_TIMEOUT_MS = 150_000;
@@ -16,6 +17,15 @@ type GenerateImageToVideoInput = {
 type GenerateImageToVideoResult = {
   requestId: string;
   videoUrl: string;
+};
+
+type GenerateCoverImagesInput = {
+  prompt: string;
+};
+
+type GenerateCoverImagesResult = {
+  requestId: string;
+  imageUrls: string[];
 };
 
 let hfClient: ReturnType<typeof createHiggsfieldClient> | null = null;
@@ -99,4 +109,45 @@ export async function generateImageToVideo({
   }
 
   return { requestId, videoUrl };
+}
+
+export async function generateCoverImages({
+  prompt,
+}: GenerateCoverImagesInput): Promise<GenerateCoverImagesResult> {
+  const trimmedPrompt = prompt.trim();
+
+  if (!trimmedPrompt) {
+    throw new Error("Prompt is required for Higgsfield cover generation.");
+  }
+
+  const hf = getHiggsfieldClient();
+  const result = await withTimeout(
+    hf.subscribe(HIGGSFIELD_TEXT_TO_IMAGE_ENDPOINT, {
+      input: {
+        prompt: trimmedPrompt,
+        width_and_height: SoulSize.PORTRAIT_1344x2016,
+        quality: SoulQuality.HD,
+        batch_size: BatchSize.QUAD,
+        enhance_prompt: true,
+      },
+      withPolling: true,
+    }),
+    HIGGSFIELD_TIMEOUT_MS
+  );
+
+  const requestId = result.request_id?.trim();
+  const imageUrls = Array.isArray(result.images)
+    ? result.images
+        .map((image) => image.url?.trim())
+        .filter((url): url is string => Boolean(url))
+    : [];
+
+  if (!requestId) {
+    throw new Error("Higgsfield response missing request_id.");
+  }
+  if (imageUrls.length < 4) {
+    throw new Error("Higgsfield response missing generated images.");
+  }
+
+  return { requestId, imageUrls: imageUrls.slice(0, 4) };
 }

@@ -23,8 +23,15 @@ import { isTranslationPairSupported } from "@/lib/translation-pairs";
 import ChapterAudiobookPlayer from "@/app/(reader-browse)/reader/read/[chapterId]/ChapterAudiobookPlayer";
 import ManifestAudiobookPlayer from "@/components/books/ManifestAudiobookPlayer";
 import NoDownloadAudioPlayer from "@/components/books/NoDownloadAudioPlayer";
+import dynamic from "next/dynamic";
 
-const ACCEPTED_COVER_TYPES = "image/*";
+const CoverCropModal = dynamic(() => import("@/components/books/CoverCropModal"), { ssr: false });
+import TranslatePanel from "./editor/panels/TranslatePanel";
+
+const ACCEPTED_COVER_TYPES = ".jpg,.jpeg,.png,image/jpeg,image/png";
+const ACCEPTED_COVER_EXTENSIONS = new Set(["jpg", "jpeg", "png"]);
+const ACCEPTED_COVER_MIME_TYPES = new Set(["image/jpeg", "image/png"]);
+// Cover recommended: 1600x2560
 
 const STORAGE_PRESET = "verkli_editor_preset";
 
@@ -119,6 +126,35 @@ const MARKETING_CHANNEL_LABELS: Record<MarketingChannel, string> = {
   instagram: "Instagram",
   x: "X",
 };
+
+const COVER_AI_STYLES = [
+  { value: "minimal", label: "Minimal" },
+  { value: "photographic", label: "Photographic" },
+  { value: "illustrated", label: "Illustrated" },
+  { value: "vintage", label: "Vintage" },
+] as const;
+
+function getFileExtension(fileName: string): string {
+  return fileName.split(".").pop()?.trim().toLowerCase() ?? "";
+}
+
+function isAcceptedCoverFile(file: File): boolean {
+  const extension = getFileExtension(file.name);
+  return ACCEPTED_COVER_MIME_TYPES.has(file.type) || ACCEPTED_COVER_EXTENSIONS.has(extension);
+}
+
+function getGeneratedCoverExtension(
+  contentType: string | null | undefined,
+  url: string
+): string {
+  if (contentType === "image/jpeg") return "jpg";
+  if (contentType === "image/png") return "png";
+  if (contentType === "image/webp") return "webp";
+
+  const extension = getFileExtension(url.split("?")[0] ?? "");
+  if (extension) return extension;
+  return "png";
+}
 
 /** Display status: pending -> running -> completed / failed. */
 const STATUS_LABELS = {
@@ -562,6 +598,12 @@ export default function BookEditor({
   const [selectedChapterId, setSelectedChapterId] = useState<string | null>(
     initialChapters[0]?.id ?? null
   );
+  const CHAPTERS_PER_PAGE = 21;
+  const [chapterPage, setChapterPage] = useState(() => {
+    if (!initialChapters[0]?.id) return 0;
+    const idx = initialChapters.findIndex((ch) => ch.id === initialChapters[0].id);
+    return Math.floor(Math.max(0, idx) / CHAPTERS_PER_PAGE);
+  });
   const [isSaving, setIsSaving] = useState(false);
   const [isCreating, setIsCreating] = useState(false);
   const [editingTitleId, setEditingTitleId] = useState<string | null>(null);
@@ -590,6 +632,14 @@ export default function BookEditor({
   const [coverUploading, setCoverUploading] = useState(false);
   const [coverError, setCoverError] = useState<string | null>(null);
   const [coverPreviewUrl, setCoverPreviewUrl] = useState<string | null>(null);
+  const [coverDropActive, setCoverDropActive] = useState(false);
+  const [coverAIPrompt, setCoverAIPrompt] = useState("");
+  const [coverAIStyle, setCoverAIStyle] = useState("minimal");
+  const [coverAIGeneratedUrls, setCoverAIGeneratedUrls] = useState<string[]>([]);
+  const [coverAIGenerating, setCoverAIGenerating] = useState(false);
+  const [coverAIError, setCoverAIError] = useState<string | null>(null);
+  const [coverCropSrc, setCoverCropSrc] = useState<string | null>(null);
+  const [coverAIPreviewUrl, setCoverAIPreviewUrl] = useState<string | null>(null);
   const [originalUrl, setOriginalUrl] = useState(book.original_url ?? "");
   const [marketingChannel, setMarketingChannel] = useState<MarketingChannel>("generic");
   const [marketingLanguage, setMarketingLanguage] = useState<SupportedLanguage>(
@@ -814,6 +864,85 @@ export default function BookEditor({
 
   const selectedChapter = chapters.find((ch) => ch.id === selectedChapterId);
   const displayCoverUrl = coverPreviewUrl ?? book.cover_image;
+  const saveCoverFile = useCallback(
+    async (file: File, optimisticPreviewUrl?: string | null) => {
+      const previousCoverUrl = displayCoverUrl;
+      const nextPreviewUrl = optimisticPreviewUrl?.trim() || null;
+
+      setCoverError(null);
+      if (nextPreviewUrl) setCoverPreviewUrl(nextPreviewUrl);
+      setCoverUploading(true);
+
+      try {
+        const supabase = createClient();
+        const {
+          data: { user },
+        } = await supabase.auth.getUser();
+
+        if (!user) {
+          setCoverError("You must be signed in to upload a cover.");
+          setCoverPreviewUrl(previousCoverUrl ?? null);
+          return false;
+        }
+
+        const { url, error: uploadError } = await uploadBookCover(file, user.id, book.id);
+        if (uploadError || !url) {
+          setCoverError("Cover upload failed. Try again.");
+          setCoverPreviewUrl(previousCoverUrl ?? null);
+          return false;
+        }
+
+        const { error: updateError } = await supabase
+          .from("books")
+          .update({ cover_image: url })
+          .eq("id", book.id);
+
+        if (updateError) {
+          setCoverError("Could not save cover. Try again.");
+          setCoverPreviewUrl(previousCoverUrl ?? null);
+          return false;
+        }
+
+        setCoverPreviewUrl(`${url}?t=${Date.now()}`);
+        toast.success("Cover saved.");
+        router.refresh();
+        return true;
+      } finally {
+        setCoverUploading(false);
+        if (coverInputRef.current) coverInputRef.current.value = "";
+      }
+    },
+    [book.id, displayCoverUrl, router, toast]
+  );
+
+  const handleRemoveCover = useCallback(async () => {
+    setCoverError(null);
+    setCoverUploading(true);
+    try {
+      const supabase = createClient();
+      const { error } = await supabase
+        .from("books")
+        .update({ cover_image: null })
+        .eq("id", book.id);
+      if (error) {
+        setCoverError("Could not remove cover. Try again.");
+        return;
+      }
+      setCoverPreviewUrl(null);
+      toast.success("Cover removed.");
+      router.refresh();
+    } finally {
+      setCoverUploading(false);
+    }
+  }, [book.id, router, toast]);
+
+  const handleCropSave = useCallback(
+    async (file: File) => {
+      await saveCoverFile(file);
+    },
+    [saveCoverFile]
+  );
+
   const activeVisibility = useMemo(
     () => normalizeVisibility(activeVersion?.visibility ?? null),
     [activeVersion?.visibility]
@@ -1386,51 +1515,118 @@ export default function BookEditor({
     }
   }, [book.cover_image, coverPreviewUrl]);
 
+  const handleCoverFileSelect = useCallback(
+    async (file: File | null) => {
+      if (!file) return;
+
+      if (!isAcceptedCoverFile(file)) {
+        setCoverError("Use a JPG or PNG file.");
+        if (coverInputRef.current) coverInputRef.current.value = "";
+        return;
+      }
+
+      const localPreviewUrl = URL.createObjectURL(file);
+      await saveCoverFile(file, localPreviewUrl);
+      URL.revokeObjectURL(localPreviewUrl);
+    },
+    [saveCoverFile]
+  );
+
   const handleCoverChange = useCallback(
     async (e: React.ChangeEvent<HTMLInputElement>) => {
-      const file = e.target.files?.[0];
-      if (!file) return;
-      if (!file.type.startsWith("image/")) {
-        setCoverError("Choose an image file.");
-        return;
-      }
-      setCoverError(null);
-      setCoverUploading(true);
-      const supabase = createClient();
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-      if (!user) {
-        setCoverError("You must be signed in to upload a cover.");
-        setCoverUploading(false);
-        return;
-      }
-      const { url, error: uploadError } = await uploadBookCover(file, user.id, book.id);
-      if (uploadError) {
-        setCoverError("Cover upload failed. Try again.");
-        setCoverUploading(false);
-        return;
-      }
-      if (!url) {
-        setCoverError("Cover upload failed. Try again.");
-        setCoverUploading(false);
-        return;
-      }
-      const { error: updateError } = await supabase
-        .from("books")
-        .update({ cover_image: url })
-        .eq("id", book.id);
-      if (updateError) {
-        setCoverError("Could not save cover. Try again.");
-        setCoverUploading(false);
-        return;
-      }
-      setCoverPreviewUrl(url);
-      setCoverUploading(false);
-      router.refresh();
-      if (coverInputRef.current) coverInputRef.current.value = "";
+      await handleCoverFileSelect(e.target.files?.[0] ?? null);
     },
-    [book.id, router]
+    [handleCoverFileSelect]
+  );
+
+  const handleCoverDrop = useCallback(
+    async (e: React.DragEvent<HTMLDivElement>) => {
+      e.preventDefault();
+      setCoverDropActive(false);
+      if (coverUploading) return;
+      await handleCoverFileSelect(e.dataTransfer.files?.[0] ?? null);
+    },
+    [coverUploading, handleCoverFileSelect]
+  );
+
+  const handleCoverAIGenerate = useCallback(async () => {
+    if (coverAIGenerating) return;
+
+    const prompt = coverAIPrompt.trim();
+    if (!prompt) {
+      setCoverAIError(resolveErrorMessage("PROMPT_TEXT_REQUIRED"));
+      return;
+    }
+
+    setCoverAIError(null);
+    setCoverError(null);
+    setCoverAIGenerating(true);
+    setCoverAIGeneratedUrls([]);
+
+    try {
+      const res = await fetch(`/api/books/${book.id}/cover/generate`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          prompt,
+          style: coverAIStyle,
+        }),
+      });
+      const data = await res.json().catch(() => ({}));
+
+      if (!res.ok) {
+        setCoverAIError(
+          resolveErrorMessage(data?.error, "Could not generate cover options. Try again.")
+        );
+        return;
+      }
+
+      const images = Array.isArray(data?.images)
+        ? data.images.filter((value: unknown): value is string => typeof value === "string")
+        : [];
+
+      if (images.length < 4) {
+        setCoverAIError("Could not generate cover options. Try again.");
+        return;
+      }
+
+      setCoverAIGeneratedUrls(images.slice(0, 4));
+    } catch {
+      setCoverAIError("Could not generate cover options. Try again.");
+    } finally {
+      setCoverAIGenerating(false);
+    }
+  }, [book.id, coverAIGenerating, coverAIPrompt, coverAIStyle]);
+
+  const handleCoverSetFromGenerated = useCallback(
+    async (url: string) => {
+      if (coverUploading) return;
+
+      setCoverAIError(null);
+      setCoverError(null);
+
+      try {
+        const response = await fetch(url);
+        if (!response.ok) {
+          setCoverError("Could not download generated cover. Try again.");
+          return;
+        }
+
+        const blob = await response.blob();
+        const extension = getGeneratedCoverExtension(
+          response.headers.get("content-type") || blob.type,
+          url
+        );
+        const file = new File([blob], `generated-cover.${extension}`, {
+          type: blob.type || response.headers.get("content-type") || "image/png",
+        });
+
+        await saveCoverFile(file, url);
+      } catch {
+        setCoverError("Could not save generated cover. Try again.");
+      }
+    },
+    [coverUploading, saveCoverFile]
   );
 
   const handleOriginalUrlBlur = useCallback(async () => {
@@ -1920,9 +2116,11 @@ export default function BookEditor({
       return;
     }
     if (data) {
-      setChapters([...chapters, data]);
+      const updated = [...chapters, data];
+      setChapters(updated);
       setSelectedChapterId(data.id);
       setSessionStartWords(0);
+      setChapterPage(Math.floor((updated.length - 1) / CHAPTERS_PER_PAGE));
       router.refresh();
     }
   };
@@ -2011,6 +2209,10 @@ export default function BookEditor({
         e.preventDefault();
         setFocusMode((f) => !f);
       }
+      if ((e.metaKey || e.ctrlKey) && e.key === "\\") {
+        e.preventDefault();
+        setFocusMode((f) => !f);
+      }
       if ((e.metaKey || e.ctrlKey) && e.key === "k") {
         e.preventDefault();
         setCommandPaletteOpen((o) => !o);
@@ -2021,7 +2223,7 @@ export default function BookEditor({
   }, [focusMode]);
 
   const commands = [
-    { id: "focus", label: "Toggle focus mode", shortcut: "⌘⇧F", run: () => setFocusMode((f) => !f) },
+    { id: "focus", label: "Toggle focus mode", shortcut: "⌘\\", run: () => setFocusMode((f) => !f) },
     { id: "new-chapter", label: "New chapter", run: handleCreateChapter },
     { id: "preset-novel", label: "Preset: Novel", run: () => setPreset("novel") },
     { id: "preset-essay", label: "Preset: Essay", run: () => setPreset("essay") },
@@ -2031,47 +2233,119 @@ export default function BookEditor({
   if (focusMode) {
     return (
       <>
-        {/* z-[10001] so focus overlay is above navbar (z-9999) */}
-        <div className="fixed inset-0 z-[10001] flex flex-col bg-background">
-          <div className="flex flex-shrink-0 items-center justify-between border-b border-black/[0.06]/80 bg-white px-4 py-3 dark:border-white/[0.06] dark:bg-slate-900">
-            <span className="text-sm text-slate-500 dark:text-white/50">
-              Focus mode - Esc or ⌘⇧F to exit
-            </span>
-            <div className="flex items-center gap-4">
-              <span className="text-xs text-slate-500">{wordCount.toLocaleString()} words</span>
-              {sessionWords > 0 && (
-                <span className="text-xs text-[#5c4bb8] dark:text-[#b8a9ff]">+{sessionWords} this session</span>
-              )}
-              <button
-                onClick={() => setFocusMode(false)}
-                className="rounded-xl bg-slate-900 px-4 py-2.5 text-[13px] font-medium text-white shadow-sm transition-all hover:bg-slate-800 hover:shadow-md dark:bg-white dark:text-slate-900 dark:hover:bg-white/90"
-              >
-                Exit focus
-              </button>
+        {publishToast && (
+          <div
+            role="status"
+            aria-live="polite"
+            className="fixed right-6 top-24 z-[1000] rounded-full bg-slate-900/90 px-4 py-2 text-[13px] font-medium text-white shadow-lg backdrop-blur-sm dark:bg-white/90 dark:text-slate-900"
+          >
+            {publishToast}
+          </div>
+        )}
+        <section className="mx-auto max-w-[1400px] px-6 pb-20 pt-8">
+          {jobLoading ? (
+            <div className="mb-6 flex h-14 items-center rounded-xl border border-black/[0.06] bg-slate-50/50 px-4 dark:border-white/[0.06] dark:bg-white/5" role="status" aria-label="Loading status">
+              <span className="text-sm text-slate-500 dark:text-white/50">Loading status...</span>
+            </div>
+          ) : jobError ? (
+            <div className="mb-6 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 dark:border-amber-800 dark:bg-amber-950/30" role="alert">
+              <p className="text-sm text-amber-800 dark:text-amber-200">{jobError}</p>
+            </div>
+          ) : jobsForBanner.length > 0 ? (
+            <div className="mb-6">
+              <BookJobsBanner jobs={jobsForBanner} onRetry={handleJobRetry} />
+            </div>
+          ) : null}
+          {billing.pastDue && (
+            <div className="mb-6 rounded-xl border border-red-200 bg-red-50 px-4 py-3 dark:border-red-900/40 dark:bg-red-950/30" role="alert">
+              <p className="text-sm text-red-800 dark:text-red-200">
+                Your subscription is <strong>past_due</strong>.{" "}
+                <Link href="/author/billing" className="underline">Manage subscription</Link>.
+              </p>
+            </div>
+          )}
+          <div className="overflow-hidden rounded-xl border border-black/[0.06] bg-white shadow-sm dark:border-white/[0.06] dark:bg-white/[0.02]">
+            <div className="flex min-h-[calc(100vh-12rem)]">
+              <div className="min-w-0 flex-1 overflow-auto p-6">
+                <div className="mx-auto max-w-[1100px]">
+                  <div className="border-b border-slate-200 pb-5 mb-5 dark:border-white/[0.08]">
+                    <h1 className="text-2xl font-bold tracking-[-0.02em] text-slate-900 dark:text-white">{bookTitle}</h1>
+                    <p className="mt-1 text-[15px] text-slate-500 dark:text-white/50">{authorDisplayName}</p>
+                  </div>
+                  <div className="border-b border-slate-200 pb-4 mb-5 dark:border-white/[0.08]">
+                    <p className="mb-3 text-xs font-medium uppercase tracking-wider text-slate-500 dark:text-white/50">Chapters</p>
+                    <div className="flex flex-wrap items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const idx = chapters.findIndex((c) => c.id === selectedChapterId);
+                          if (idx > 0) { setSelectedChapterId(chapters[idx - 1].id); setSessionStartWords(null); }
+                        }}
+                        disabled={!selectedChapterId || chapters.findIndex((c) => c.id === selectedChapterId) <= 0}
+                        className="flex h-8 min-w-[2rem] items-center justify-center rounded px-1 text-[13px] font-medium text-slate-600 hover:text-slate-900 disabled:opacity-40 dark:text-white/60 dark:hover:text-white"
+                        aria-label="Previous chapter"
+                      >
+                        &#171;
+                      </button>
+                      {chapters.map((chapter, index) => {
+                        const isActive = chapter.id === selectedChapterId;
+                        return (
+                          <button
+                            key={chapter.id}
+                            type="button"
+                            onClick={() => { setSelectedChapterId(chapter.id); setSessionStartWords(null); }}
+                            className={`flex h-8 min-w-[2rem] items-center justify-center rounded px-2 text-[13px] transition-colors ${
+                              isActive ? "font-semibold text-slate-900 dark:text-white" : "font-normal text-slate-500 hover:text-slate-700 dark:text-white/50 dark:hover:text-white/80"
+                            }`}
+                            aria-label={`Chapter ${index + 1}`}
+                            aria-current={isActive ? "true" : undefined}
+                          >
+                            {index + 1}
+                          </button>
+                        );
+                      })}
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const idx = chapters.findIndex((c) => c.id === selectedChapterId);
+                          if (idx >= 0 && idx < chapters.length - 1) { setSelectedChapterId(chapters[idx + 1].id); setSessionStartWords(null); }
+                        }}
+                        disabled={!selectedChapterId || chapters.findIndex((c) => c.id === selectedChapterId) >= chapters.length - 1}
+                        className="flex h-8 min-w-[2rem] items-center justify-center rounded px-1 text-[13px] font-medium text-slate-600 hover:text-slate-900 disabled:opacity-40 dark:text-white/60 dark:hover:text-white"
+                        aria-label="Next chapter"
+                      >
+                        &#187;
+                      </button>
+                    </div>
+                  </div>
+                  <div className="min-w-0">
+                    {selectedChapter ? (
+                      <TiptapEditor
+                        key={selectedChapter.id}
+                        content={selectedChapter.content}
+                        onUpdate={(json) => handleAutoSave(selectedChapter.id, json)}
+                        onDirty={() => setHasUnsavedChanges(true)}
+                        placeholder="Start writing your chapter..."
+                        bookId={book.id}
+                        chapterId={selectedChapter.id}
+                        preset={preset}
+                        onWordCount={setWordCount}
+                        onFocusModeToggle={() => setFocusMode(false)}
+                        focusMode={true}
+                      />
+                    ) : (
+                      <div className="flex h-[500px] items-center justify-center">
+                        <p className="text-[14px] text-slate-400 dark:text-white/40">
+                          {chapters.length === 0 ? "Create your first chapter to start writing" : "Select a chapter above to edit"}
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
-          <div className="flex-1 overflow-auto p-6">
-            {selectedChapter ? (
-              <div className="mx-auto max-w-3xl">
-                <TiptapEditor
-                  key={selectedChapter.id}
-                  content={selectedChapter.content}
-                  onUpdate={(json) => handleAutoSave(selectedChapter.id, json)}
-                  onDirty={() => setHasUnsavedChanges(true)}
-                  placeholder="Start writing..."
-                  bookId={book.id}
-                  chapterId={selectedChapter.id}
-                  preset={preset}
-                  onWordCount={setWordCount}
-                />
-              </div>
-            ) : (
-              <div className="flex h-full items-center justify-center">
-                <p className="text-slate-500">Exit focus mode to choose a chapter</p>
-              </div>
-            )}
-          </div>
-        </div>
+        </section>
         <CommandPalette open={commandPaletteOpen} onClose={() => setCommandPaletteOpen(false)} commands={commands} />
       </>
     );
@@ -2129,63 +2403,60 @@ export default function BookEditor({
         <div className="overflow-hidden rounded-xl border border-black/[0.06] bg-white shadow-sm dark:border-white/[0.06] dark:bg-white/[0.02]">
           <div className="flex min-h-[calc(100vh-12rem)]">
             {/* Left sidebar — Tools */}
-            <aside className="flex w-[240px] flex-shrink-0 flex-col border-r border-black/[0.06] dark:border-white/[0.06]" aria-label="Workflow tools">
-              <h2 className="px-4 pt-5 pb-3 text-sm font-bold tracking-tight text-slate-900 dark:text-white">
+            <aside className="flex w-[190px] flex-shrink-0 flex-col border-r border-black/[0.06] dark:border-white/[0.06]" aria-label="Workflow tools">
+              <h2 className="px-6 pt-7 pb-1 text-[22px] font-bold tracking-tight text-slate-900 dark:text-white">
                 Tools
               </h2>
-              <nav className="flex flex-1 flex-col gap-0.5 px-2 pb-4">
-                {(["edit", "cover", "translate", "audiobook", "print", "pricing", "polish", "publish"] as const).map((t) => (
-                  <button
-                    key={t}
-                    type="button"
-                    onClick={() => setTool(t)}
-                    className={`flex w-full items-center rounded-lg px-3 py-2.5 text-left text-[13px] font-medium transition-all duration-150 ${
-                      tool === t
-                        ? "border-l-[3px] border-[#6E38F7] bg-[#F0F0F0] text-slate-900 dark:border-[#6E38F7] dark:bg-white/[0.08] dark:text-white"
-                        : "border-l-[3px] border-transparent text-slate-500 hover:bg-slate-100 hover:text-slate-700 dark:text-white/60 dark:hover:bg-white/[0.06] dark:hover:text-white/80"
-                    }`}
-                  >
-                    {t.charAt(0).toUpperCase() + t.slice(1)}
-                  </button>
-                ))}
-                <button
-                  type="button"
-                  onClick={() => setTool("market")}
-                  disabled={!getMarketingEnabled()}
-                  className={`flex w-full items-center rounded-lg px-3 py-2.5 text-left text-[13px] font-medium transition-all duration-150 ${
-                    !getMarketingEnabled()
-                      ? "cursor-not-allowed border-l-[3px] border-transparent text-slate-400 opacity-60 dark:text-white/40"
-                      : tool === "market"
-                        ? "border-l-[3px] border-[#6E38F7] bg-[#F0F0F0] text-slate-900 dark:border-[#6E38F7] dark:bg-white/[0.08] dark:text-white"
-                        : "border-l-[3px] border-transparent text-slate-500 hover:bg-slate-100 hover:text-slate-700 dark:text-white/60 dark:hover:bg-white/[0.06] dark:hover:text-white/80"
-                  }`}
-                  title={!getMarketingEnabled() ? "Marketing (unavailable)" : "Marketing"}
-                >
-                  Market
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setTool("statistics")}
-                  className={`flex w-full items-center rounded-lg px-3 py-2.5 text-left text-[13px] font-medium transition-all duration-150 ${
-                    tool === "statistics"
-                      ? "border-l-[3px] border-[#6E38F7] bg-[#F0F0F0] text-slate-900 dark:border-[#6E38F7] dark:bg-white/[0.08] dark:text-white"
-                      : "border-l-[3px] border-transparent text-slate-500 hover:bg-slate-100 hover:text-slate-700 dark:text-white/60 dark:hover:bg-white/[0.06] dark:hover:text-white/80"
-                  }`}
-                >
-                  Statistics
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setTool("import")}
-                  className={`flex w-full items-center rounded-lg px-3 py-2.5 text-left text-[13px] font-medium transition-all duration-150 ${
-                    tool === "import"
-                      ? "border-l-[3px] border-[#6E38F7] bg-[#F0F0F0] text-slate-900 dark:border-[#6E38F7] dark:bg-white/[0.08] dark:text-white"
-                      : "border-l-[3px] border-transparent text-slate-500 hover:bg-slate-100 hover:text-slate-700 dark:text-white/60 dark:hover:bg-white/[0.06] dark:hover:text-white/80"
-                  }`}
-                >
-                  Import
-                </button>
-              </nav>
+              {(() => {
+                const allTools = ["edit", "cover", "translate", "audiobook", "print", "pricing", "polish", "publish", "market", "statistics"] as const;
+                const activeIdx = allTools.indexOf(tool as typeof allTools[number]);
+                return (
+                  <nav className="relative flex flex-1 flex-col gap-0 pl-5 pr-3 pt-6 pb-4">
+                    {/* Purple bar from first item to active item */}
+                    {activeIdx >= 0 && (
+                      <div
+                        className="absolute left-5 w-[5px] rounded-full bg-[#8B7BF7] transition-all duration-300"
+                        style={{
+                          top: `calc(1.5rem + 0px)`,
+                          height: `calc(${activeIdx * 2.75}rem + 2.75rem)`,
+                        }}
+                      />
+                    )}
+                    {/* Subtle gray track below the purple bar */}
+                    <div
+                      className="absolute left-5 bottom-4 w-[5px] rounded-full bg-slate-200/50 dark:bg-white/[0.04]"
+                      style={{
+                        top: activeIdx >= 0
+                          ? `calc(1.5rem + ${(activeIdx + 1) * 2.75}rem)`
+                          : '1.5rem',
+                      }}
+                    />
+                    {allTools.map((t) => {
+                      const isActive = tool === t;
+                      const isDisabled = t === "market" && !getMarketingEnabled();
+                      const label = t.charAt(0).toUpperCase() + t.slice(1);
+                      return (
+                        <button
+                          key={t}
+                          type="button"
+                          onClick={() => setTool(t)}
+                          disabled={isDisabled}
+                          className={`relative z-10 flex w-full items-center rounded-xl py-2.5 pl-7 pr-2 text-left text-[15px] transition-all duration-150 ${
+                            isDisabled
+                              ? "cursor-not-allowed text-slate-300/70 dark:text-white/15"
+                              : isActive
+                                ? "bg-black/[0.04] font-semibold text-slate-900 dark:bg-white/[0.06] dark:text-white"
+                                : "text-slate-400 hover:bg-black/[0.03] dark:text-white/35 dark:hover:bg-white/[0.04]"
+                          }`}
+                          title={isDisabled ? `${label} (unavailable)` : label}
+                        >
+                          {label}
+                        </button>
+                      );
+                    })}
+                  </nav>
+                );
+              })()}
             </aside>
 
             {/* Main content */}
@@ -2318,8 +2589,365 @@ export default function BookEditor({
           />
         )}
 
-        {showManuscript && (
+        {tool === "cover" && (
+          <div className="">
+        <div className="border-b mb-5 mt-7 border-black/[0.06] pb-5 dark:border-white/[0.06]">
+          <h1 className="text-2xl font-bold tracking-[-0.02em] text-slate-900 dark:text-white">
+            {bookTitle}
+          </h1>
+          <p className="mt-1 text-[15px] text-slate-500 dark:text-white/50">
+            {authorDisplayName}
+          </p>
+        </div>
+
+            <p className="mb-4 text-xs font-semibold uppercase tracking-wider text-slate-700 dark:text-white/80">
+              Cover
+            </p>
+
+            <div className="grid gap-6 lg:grid-cols-[300px_1fr]">
+              <input
+                ref={coverInputRef}
+                type="file"
+                accept={ACCEPTED_COVER_TYPES}
+                onChange={handleCoverChange}
+                className="hidden"
+                aria-hidden
+              />
+              <div>
+                {displayCoverUrl ? (
+                  <>
+                    <div className="relative overflow-hidden rounded-2xl border border-slate-200 dark:border-white/[0.08]" style={{ aspectRatio: "3/4" }}>
+                      <Image
+                        src={displayCoverUrl}
+                        alt="Book cover"
+                        fill
+                        sizes="300px"
+                        className="object-cover"
+                        unoptimized
+                      />
+                    </div>
+                    <div className="mt-3 flex flex-wrap gap-2">
+                      <button
+                        type="button"
+                        onClick={() => coverInputRef.current?.click()}
+                        disabled={coverUploading}
+                        className="rounded-xl border border-black/[0.08] bg-white px-3.5 py-2 text-[13px] font-medium text-slate-600 transition hover:bg-slate-50 disabled:opacity-50 dark:border-white/[0.08] dark:bg-white/[0.04] dark:text-white/70"
+                      >
+                        Replace
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setCoverCropSrc(displayCoverUrl)}
+                        disabled={coverUploading}
+                        className="rounded-xl border border-black/[0.08] bg-white px-3.5 py-2 text-[13px] font-medium text-slate-600 transition hover:bg-slate-50 disabled:opacity-50 dark:border-white/[0.08] dark:bg-white/[0.04] dark:text-white/70"
+                      >
+                        Crop
+                      </button>
+                      <button
+                        type="button"
+                        onClick={handleRemoveCover}
+                        disabled={coverUploading}
+                        className="rounded-xl border border-red-200/60 bg-white px-3.5 py-2 text-[13px] font-medium text-red-500 transition hover:bg-red-50 disabled:opacity-50 dark:border-red-900/30 dark:bg-white/[0.03] dark:text-red-400"
+                      >
+                        Remove
+                      </button>
+                    </div>
+                  </>
+                ) : (
+                  <div
+                    role="button"
+                    tabIndex={0}
+                    onClick={() => !coverUploading && coverInputRef.current?.click()}
+                    onKeyDown={(e) => {
+                      if ((e.key === "Enter" || e.key === " ") && !coverUploading) {
+                        e.preventDefault();
+                        coverInputRef.current?.click();
+                      }
+                    }}
+                    className={`flex cursor-pointer flex-col items-center justify-center rounded-2xl border-2 border-dashed transition-colors ${
+                      coverDropActive
+                        ? "border-[#907AFF]/60 bg-[#907AFF]/5 dark:bg-[#907AFF]/10"
+                        : "border-slate-300 bg-white dark:border-white/20 dark:bg-white/[0.02] hover:border-slate-400 dark:hover:border-white/30"
+                    } ${coverUploading ? "cursor-wait opacity-70" : ""}`}
+                    style={{ aspectRatio: "3/4" }}
+                    onDragOver={(e) => {
+                      e.preventDefault();
+                      if (!coverUploading) setCoverDropActive(true);
+                    }}
+                    onDragLeave={(e) => {
+                      e.preventDefault();
+                      if (!e.currentTarget.contains(e.relatedTarget as Node | null)) {
+                        setCoverDropActive(false);
+                      }
+                    }}
+                    onDrop={handleCoverDrop}
+                  >
+                    <div className="flex flex-col items-center justify-center gap-4 px-6 py-8">
+                      <span className="text-[14px] font-medium text-slate-500 dark:text-white/60">
+                        Upload cover
+                      </span>
+                      <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-slate-200 dark:bg-slate-700">
+                        <svg className="h-6 w-6 text-slate-500 dark:text-white/50" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5m-13.5-9L12 3m0 0 4.5 4.5M12 3v13.5" />
+                        </svg>
+                      </div>
+                      {coverUploading && (
+                        <span className="text-xs text-slate-500 dark:text-white/50">Saving...</span>
+                      )}
+                    </div>
+                  </div>
+                )}
+              </div>
+              {coverError && (
+                <p className="text-sm text-red-600 dark:text-red-400 lg:col-span-2" role="alert">
+                  {coverError}
+                </p>
+              )}
+
+              <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-[0_2px_8px_rgba(0,0,0,0.04)] dark:border-white/[0.08] dark:bg-white/[0.03] dark:shadow-none">
+                <h3 className="mb-4 text-[18px] font-medium text-slate-800 dark:text-white/90">
+                  Generate with AI
+                </h3>
+                <div className="mb-4">
+                  <label htmlFor="cover-ai-prompt" className="mb-1.5 block text-[13px] font-medium text-slate-700 dark:text-white/80">
+                    Prompt
+                  </label>
+                  <textarea
+                    id="cover-ai-prompt"
+                    value={coverAIPrompt}
+                    onChange={(e) => {
+                      setCoverAIPrompt(e.target.value);
+                      if (coverAIError) setCoverAIError(null);
+                    }}
+                    placeholder="Describe the cover you want..."
+                    rows={4}
+                    className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-[13px] text-slate-900 placeholder:text-slate-400 focus:border-slate-400 focus:outline-none dark:border-white/[0.12] dark:bg-white/[0.04] dark:text-white dark:placeholder:text-white/40"
+                  />
+                </div>
+                <div className="flex flex-wrap items-center gap-3">
+                  <div className="relative">
+                    <label htmlFor="cover-ai-style" className="sr-only">Style</label>
+                    <select
+                      id="cover-ai-style"
+                      value={coverAIStyle}
+                      onChange={(e) => {
+                        setCoverAIStyle(e.target.value);
+                        if (coverAIError) setCoverAIError(null);
+                      }}
+                      className="appearance-none rounded-xl border border-slate-200 bg-white px-4 py-2.5 pr-9 text-[13px] font-medium text-slate-700 focus:border-slate-400 focus:outline-none dark:border-white/[0.12] dark:bg-white/[0.04] dark:text-white/80"
+                    >
+                      {COVER_AI_STYLES.map(({ value, label }) => (
+                        <option key={value} value={value}>{label}</option>
+                      ))}
+                    </select>
+                    <svg className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-500 dark:text-white/50" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="m19 9-7 7-7-7" />
+                    </svg>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={handleCoverAIGenerate}
+                    disabled={coverAIGenerating}
+                    className="rounded-xl bg-[#907AFF] px-5 py-2.5 text-[13px] font-semibold text-white shadow-sm transition-all hover:bg-[#7B6BF0] hover:shadow-md disabled:opacity-50"
+                  >
+                    {coverAIGenerating ? "Generating..." : "Generate"}
+                  </button>
+                </div>
+                {coverAIError && (
+                  <p className="mt-2 text-sm text-red-600 dark:text-red-400" role="alert">
+                    {coverAIError}
+                  </p>
+                )}
+
+                {/* AI preview overlay */}
+                {coverAIPreviewUrl && (
+                  <div className="mt-4 rounded-xl border border-[#907AFF]/30 bg-[#907AFF]/5 p-4 dark:border-[#907AFF]/20 dark:bg-[#907AFF]/10">
+                    <p className="mb-3 text-[13px] font-medium text-slate-700 dark:text-white/80">Preview</p>
+                    <div className="mx-auto w-[180px]">
+                      <div className="relative aspect-[3/4] overflow-hidden rounded-xl border border-slate-200 dark:border-white/[0.08]">
+                        <Image
+                          src={coverAIPreviewUrl}
+                          alt="AI cover preview"
+                          fill
+                          sizes="180px"
+                          className="object-cover"
+                          unoptimized
+                        />
+                      </div>
+                    </div>
+                    <div className="mt-3 flex justify-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          handleCoverSetFromGenerated(coverAIPreviewUrl);
+                          setCoverAIPreviewUrl(null);
+                        }}
+                        disabled={coverUploading}
+                        className="rounded-xl bg-[#907AFF] px-4 py-2 text-[13px] font-semibold text-white transition hover:bg-[#7B6BF0] disabled:opacity-50"
+                      >
+                        {coverUploading ? "Saving..." : "Use as cover"}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setCoverAIPreviewUrl(null)}
+                        className="rounded-xl border border-black/[0.08] px-4 py-2 text-[13px] font-medium text-slate-600 transition hover:bg-slate-50 dark:border-white/[0.08] dark:text-white/60"
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+                {coverAIGeneratedUrls.length > 0 && !coverAIPreviewUrl && (
+                  <div className="mt-4">
+                    <span className="mb-2 block text-xs font-medium text-slate-500 dark:text-white/50">Generated covers — click to preview</span>
+                    <div className="grid grid-cols-2 gap-3">
+                      {coverAIGeneratedUrls.map((url, i) => (
+                        <button
+                          key={`${url}-${i}`}
+                          type="button"
+                          onClick={() => setCoverAIPreviewUrl(url)}
+                          disabled={coverUploading}
+                          className="relative aspect-[3/4] overflow-hidden rounded-xl border-2 border-transparent bg-slate-100 transition-all hover:border-[#907AFF] hover:shadow-md focus:outline-none focus:ring-2 focus:ring-[#907AFF]/50 disabled:cursor-not-allowed disabled:opacity-60 dark:bg-white/[0.04]"
+                        >
+                          <Image
+                            src={url}
+                            alt={`Generated cover ${i + 1}`}
+                            fill
+                            sizes="200px"
+                            className="object-cover"
+                            unoptimized
+                          />
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+                {!coverAIGenerating && coverAIGeneratedUrls.length === 0 && !coverAIError && (
+                  <p className="mt-3 text-[13px] text-slate-500 dark:text-white/50">
+                    No generated covers yet. Add a prompt, choose a style, and generate 4 options.
+                  </p>
+                )}
+              </div>
+            </div>
+
+            {/* Crop modal */}
+            {coverCropSrc && (
+              <CoverCropModal
+                src={coverCropSrc}
+                onSave={handleCropSave}
+                onClose={() => setCoverCropSrc(null)}
+              />
+            )}
+          </div>
+        )}
+
+        {/* Simplified edit view */}
+        {tool === "edit" && (
         <>
+        <div className="border-b mb-5 mt-7 border-black/[0.06] pb-5 mb-5 dark:border-white/[0.06]">
+          <h1 className="text-2xl font-bold tracking-[-0.02em] text-slate-900 dark:text-white">
+            {bookTitle}
+          </h1>
+          <p className="mt-1 text-[15px] text-slate-500 dark:text-white/50">
+            {authorDisplayName}
+          </p>
+        </div>
+
+        <div className="border-b border-black/[0.06] pb-4 mb-0 dark:border-white/[0.06]">
+          <p className="mb-3 text-xs font-semibold uppercase tracking-wider text-slate-900 dark:text-white">
+            Chapters
+          </p>
+          {(() => {
+            const totalPages = Math.ceil(chapters.length / CHAPTERS_PER_PAGE);
+            const startIdx = chapterPage * CHAPTERS_PER_PAGE;
+            const visibleChapters = chapters.slice(startIdx, startIdx + CHAPTERS_PER_PAGE);
+            const showPagination = totalPages > 1;
+            return (
+              <div className="flex flex-wrap items-center gap-7">
+                {showPagination && (
+                  <button
+                    type="button"
+                    onClick={() => setChapterPage(Math.max(0, chapterPage - 1))}
+                    disabled={chapterPage === 0}
+                    className="flex h-8 w-8 items-center justify-center text-base text-slate-400 transition-colors hover:text-slate-700 disabled:opacity-30 dark:text-white/40 dark:hover:text-white/70"
+                    aria-label="Previous chapters"
+                  >
+                    &laquo;
+                  </button>
+                )}
+                {visibleChapters.map((chapter, i) => {
+                  const globalIndex = startIdx + i;
+                  const isActive = chapter.id === selectedChapterId;
+                  return (
+                    <button
+                      key={chapter.id}
+                      type="button"
+                      onClick={() => {
+                        setSelectedChapterId(chapter.id);
+                        setSessionStartWords(null);
+                      }}
+                      className={`flex h-8 items-center justify-center text-sm transition-colors ${
+                        isActive
+                          ? "font-bold text-slate-900 dark:text-white"
+                          : "text-slate-400 hover:text-slate-700 dark:text-white/40 dark:hover:text-white/70"
+                      }`}
+                      aria-label={`Chapter ${globalIndex + 1}`}
+                      aria-current={isActive ? "true" : undefined}
+                    >
+                      {globalIndex + 1}
+                    </button>
+                  );
+                })}
+                {showPagination && chapterPage < totalPages - 1 && (
+                  <span className="text-sm text-slate-400 dark:text-white/40">...</span>
+                )}
+                {showPagination && (
+                  <button
+                    type="button"
+                    onClick={() => setChapterPage(Math.min(totalPages - 1, chapterPage + 1))}
+                    disabled={chapterPage >= totalPages - 1}
+                    className="flex h-8 w-8 items-center justify-center text-base text-slate-400 transition-colors hover:text-slate-700 disabled:opacity-30 dark:text-white/40 dark:hover:text-white/70"
+                    aria-label="Next chapters"
+                  >
+                    &raquo;
+                  </button>
+                )}
+              </div>
+            );
+          })()}
+        </div>
+
+        <div className="min-w-0">
+          {selectedChapter ? (
+            <TiptapEditor
+              key={selectedChapter.id}
+              content={selectedChapter.content}
+              onUpdate={(json) => handleAutoSave(selectedChapter.id, json)}
+              onDirty={() => setHasUnsavedChanges(true)}
+              placeholder="Start writing your chapter..."
+              bookId={book.id}
+              chapterId={selectedChapter.id}
+              preset={preset}
+              onWordCount={setWordCount}
+              onFocusModeToggle={() => setFocusMode((f) => !f)}
+              focusMode={focusMode}
+            />
+          ) : (
+            <div className="flex h-[500px] items-center justify-center">
+              <p className="text-[14px] text-slate-400 dark:text-white/40">
+                {chapters.length === 0 ? "Create your first chapter to start writing" : "Select a chapter above to edit"}
+              </p>
+            </div>
+          )}
+        </div>
+        </>
+        )}
+
+        {/* Full view for other tools (exclude cover — it has its own minimal layout) */}
+        {showManuscript && tool !== "edit" && tool !== "cover" && (
+        <>
+        {!(tool === "translate" && getTranslationsEnabled()) && (
         <div className="mb-6 flex flex-wrap items-end gap-3">
           {getTranslationsEnabled() && bookVersions.length > 1 && (
             <div className="min-w-[220px] max-w-[320px]">
@@ -2349,6 +2977,20 @@ export default function BookEditor({
             Version: {getLanguageLabel(activeLanguage)}
           </span>
         </div>
+        )}
+        {tool === "translate" && getTranslationsEnabled() ? (
+          <TranslatePanel
+            bookId={book.id}
+            bookTitle={bookTitle}
+            authorDisplayName={authorDisplayName}
+            bookLengthLabel={`${chapters.length} chapters`}
+            sourceLanguage={translationSourceLang}
+            sourceVersionId={activeVersion?.id ?? null}
+            isProLocked={billing.loading ? false : !!(billing.pastDue || !billing.isProActive)}
+            onMessage={setTranslateMessage}
+          />
+        ) : (
+        <>
         <div className={`mb-6 grid gap-6 rounded-3xl border border-black/[0.06] bg-white/70 p-5 shadow-[0_6px_24px_rgba(15,23,42,0.05)] backdrop-blur-sm dark:border-white/[0.06] dark:bg-white/[0.02] dark:shadow-none lg:grid-cols-[minmax(0,1fr)_auto] lg:items-start ${publishMenuOpen ? "z-[200] relative" : ""}`}>
           <div className="min-w-0">
             {!isRenamingBook ? (
@@ -2683,7 +3325,7 @@ export default function BookEditor({
               disabled={coverUploading}
               className="rounded-xl border border-black/[0.08] bg-white px-4 py-2 text-[13px] font-medium text-slate-600 shadow-sm transition-all hover:border-black/[0.12] hover:shadow-md disabled:opacity-50 dark:border-white/[0.08] dark:bg-white/[0.04] dark:text-white/70 dark:hover:bg-white/[0.06]"
             >
-              {coverUploading ? "Uploading..." : "Upload cover"}
+              {coverUploading ? "Saving..." : "Upload cover"}
             </button>
           </div>
           {coverError && (
@@ -2701,8 +3343,8 @@ export default function BookEditor({
           />
         </div>
 
-        <div className={tool === "edit" ? "flex flex-col" : "grid gap-8 lg:grid-cols-[minmax(0,900px)_280px]"}>
-          {tool !== "edit" && (
+        <div className="grid gap-8 lg:grid-cols-[minmax(0,900px)_280px]">
+          {(
           <div className="space-y-4 lg:order-2 lg:sticky lg:top-28 lg:self-start">
             <div className="rounded-2xl border border-black/[0.05] bg-white/60 p-5 shadow-[0_1px_3px_rgba(0,0,0,0.02)] backdrop-blur-sm dark:border-white/[0.06] dark:bg-white/[0.02] dark:shadow-none">
               <h2 className="mb-3 text-[14px] font-semibold tracking-[-0.01em] text-slate-800 dark:text-white/90">Cover</h2>
@@ -3456,7 +4098,7 @@ export default function BookEditor({
           </div>
           )}
 
-          <div className={`min-w-0 max-w-[900px] ${tool === "edit" ? "mx-auto" : "lg:order-1"}`}>
+          <div className="min-w-0 max-w-[900px] lg:order-1">
             {selectedChapter ? (
               <>
                 <div className="rounded-2xl border border-black/[0.06] bg-white/70 p-5 shadow-[0_4px_18px_rgba(15,23,42,0.04)] backdrop-blur-sm dark:border-white/[0.06] dark:bg-white/[0.02] dark:shadow-none">
@@ -3554,6 +4196,8 @@ export default function BookEditor({
                     chapterId={selectedChapter.id}
                     preset={preset}
                     onWordCount={setWordCount}
+                    onFocusModeToggle={() => setFocusMode((f) => !f)}
+                    focusMode={focusMode}
                   />
                 </div>
                 </div>
@@ -3567,6 +4211,8 @@ export default function BookEditor({
             )}
           </div>
         </div>
+        </>
+        )}
         </>
         )}
             </div>

@@ -36,19 +36,18 @@ function makeSupabaseMock(bookAuthorId: string) {
       };
     }
 
-    if (table === "book_versions") {
+    if (table === "book_translations") {
       return {
         select: () => ({
           eq: () => ({
             order: async () => ({
               data: [
                 {
-                  id: "ver-1",
-                  language_code: "en",
-                  status: "done",
-                  published_at: "2026-02-11T12:00:00.000Z",
+                  id: "tx-1",
+                  language: "en",
+                  status: "running",
+                  progress: 42,
                   created_at: "2026-02-11T11:00:00.000Z",
-                  updated_at: "2026-02-11T12:00:00.000Z",
                 },
               ],
               error: null,
@@ -118,9 +117,10 @@ describe("GET /api/books/[id]/translations", () => {
     expect(body.bookId).toBe("book-1");
     expect(body.translations).toHaveLength(1);
     expect(body.translations[0]).toMatchObject({
-      id: "ver-1",
-      language_code: "en",
-      is_original: true,
+      id: "tx-1",
+      language: "en",
+      status: "running",
+      progress: 42,
     });
   });
 });

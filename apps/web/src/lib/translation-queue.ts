@@ -51,6 +51,7 @@ export function getTranslationQueue(): Queue | null {
 
 export type TranslationJobData = {
   bookId: string;
+  sourceLanguage?: string | null;
   sourceVersionId: string;
   targetLanguage: string;
   targetVersionId?: string | null;
@@ -118,6 +119,8 @@ export async function enqueueTranslationJob(data: TranslationJobData): Promise<s
         id,
         "bookId:",
         data.bookId,
+        "sourceLanguage:",
+        data.sourceLanguage ?? null,
         "sourceVersionId:",
         data.sourceVersionId,
         "targetLanguage:",

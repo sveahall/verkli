@@ -31,7 +31,7 @@ const MIN_TOKEN_COUNT = 8;
 const MIN_SCORE = 3;
 const MIN_MARGIN = 2;
 
-export function detectLanguageFromText(text: string): SupportedLanguage | null {
+function scoreLanguages(text: string): Array<{ code: SupportedLanguage; score: number }> | null {
   if (!text) return null;
   const sample = text.slice(0, 4000).toLowerCase();
   const tokens = sample.match(/[a-z\u00C0-\u017F]+/g) ?? [];
@@ -62,13 +62,34 @@ export function detectLanguageFromText(text: string): SupportedLanguage | null {
     }
   }
 
-  const ranked = SUPPORTED_LANGUAGE_CODES
+  return SUPPORTED_LANGUAGE_CODES
     .map((code) => ({ code, score: scores[code] }))
     .sort((a, b) => b.score - a.score);
+}
+
+export function detectLanguageFromText(text: string): SupportedLanguage | null {
+  const ranked = scoreLanguages(text);
+  if (!ranked) return null;
 
   const top = ranked[0];
   const runnerUp = ranked[1];
   if (!top || top.score < MIN_SCORE) return null;
   if (runnerUp && top.score - runnerUp.score < MIN_MARGIN) return null;
   return top.code;
+}
+
+export function detectLanguageWithConfidence(text: string): {
+  language: SupportedLanguage | null;
+  confidence: number;
+} {
+  const ranked = scoreLanguages(text);
+  if (!ranked) return { language: null, confidence: 0 };
+
+  const top = ranked[0];
+  const runnerUp = ranked[1];
+  if (!top || top.score < MIN_SCORE) return { language: null, confidence: 0 };
+
+  const combined = top.score + (runnerUp?.score ?? 0);
+  const confidence = combined > 0 ? top.score / combined : 0;
+  return { language: top.code, confidence };
 }

@@ -1,4 +1,3 @@
-import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
@@ -171,17 +170,6 @@ export default async function BookDetailPage({
 
   return (
     <main className="min-h-screen bg-gray-100 text-foreground dark:bg-slate-900/50">
-      <header className="mx-auto max-w-[1400px] px-6 pt-6">
-        <Link
-          href="/author/books"
-          className="group inline-flex items-center gap-2 rounded-full border border-black/[0.06] bg-white/60 px-4 py-2 text-[13px] font-medium text-slate-500 backdrop-blur-sm transition-all hover:border-black/[0.1] hover:bg-white hover:text-slate-900 dark:border-white/[0.06] dark:bg-white/[0.03] dark:text-white/50 dark:hover:border-white/[0.1] dark:hover:text-white"
-        >
-          <svg className="h-3.5 w-3.5 transition-transform group-hover:-translate-x-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-            <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
-          </svg>
-          Back to books
-        </Link>
-      </header>
 
       <BookEditor
         book={book}

@@ -8,12 +8,19 @@ import fs from "fs";
 import path from "path";
 
 const TRANSLATE_TIMEOUT_MS = 120_000;
+const BATCH_TRANSLATE_TIMEOUT_MS = 240_000;
 const MAX_BUFFER_BYTES = 10 * 1024 * 1024;
 
 const REQUIRED_MODEL_FILES = ["model.bin", "source.spm", "target.spm"] as const;
 
 export type TranslateTextOptions = {
   text: string;
+  sourceLanguage: string;
+  targetLanguage: string;
+};
+
+export type TranslateBatchOptions = {
+  texts: string[];
   sourceLanguage: string;
   targetLanguage: string;
 };
@@ -139,4 +146,76 @@ export function translateText(options: TranslateTextOptions): string {
   }
 
   return (result.stdout ?? "").trim();
+}
+
+/**
+ * Sanitize a single translated text (lighter version for batch results).
+ * Unlike sanitizeOpusOutput, this doesn't filter log lines (batch mode uses JSON)
+ * and doesn't throw on empty strings.
+ */
+export function sanitizeTranslatedText(text: string): string {
+  if (!text) return text;
+  let result = text;
+  // SentencePiece whitespace
+  result = result.replace(/\u2581+/g, " ");
+  // Legacy underscore safety
+  result = result.replace(/_+/g, " ");
+  // Remove space before punctuation
+  result = result.replace(/\s+([.,!?;:])/g, "$1");
+  // Normalize newlines
+  result = result.replace(/\r\n/g, "\n").replace(/\r/g, "\n").trim();
+  return result;
+}
+
+/**
+ * Translate multiple texts in a single Python subprocess call (batch mode).
+ * Loads the model once and translates all inputs, significantly reducing overhead.
+ */
+export function translateBatch(options: TranslateBatchOptions): string[] {
+  const { texts, sourceLanguage, targetLanguage } = options;
+
+  if (texts.length === 0) return [];
+
+  const pythonPath = getPythonPath();
+  const modelDir = getModelDir(sourceLanguage, targetLanguage);
+  const scriptPath = path.join(process.cwd(), "scripts", "opus_translate.py");
+
+  const result = spawnSync(
+    pythonPath,
+    [scriptPath, modelDir, sourceLanguage, targetLanguage, "--batch"],
+    {
+      input: JSON.stringify(texts),
+      encoding: "utf-8",
+      timeout: BATCH_TRANSLATE_TIMEOUT_MS,
+      maxBuffer: MAX_BUFFER_BYTES,
+    }
+  );
+
+  if (result.error) {
+    throw new Error(`Opus MT batch spawn failed: ${result.error.message}`);
+  }
+  if (result.signal === "SIGTERM" || result.signal === "SIGKILL") {
+    throw new Error(`Opus MT batch timed out after ${BATCH_TRANSLATE_TIMEOUT_MS / 1000}s`);
+  }
+  if (result.status !== 0) {
+    const stderr = result.stderr?.trim() || "(no stderr)";
+    throw new Error(`Opus MT batch exited ${result.status}: ${stderr}`);
+  }
+
+  const stdout = (result.stdout ?? "").trim();
+  try {
+    const parsed = JSON.parse(stdout);
+    if (!Array.isArray(parsed)) {
+      throw new Error("Expected JSON array output from batch translation");
+    }
+    if (parsed.length !== texts.length) {
+      throw new Error(`Batch output length mismatch: expected ${texts.length}, got ${parsed.length}`);
+    }
+    return parsed as string[];
+  } catch (e) {
+    if (e instanceof SyntaxError) {
+      throw new Error(`Failed to parse batch translation output as JSON: ${stdout.slice(0, 200)}`);
+    }
+    throw e;
+  }
 }

@@ -21,6 +21,8 @@ type TiptapEditorProps = {
   preset?: string;
   onWordCount?: (count: number) => void;
   onDirty?: () => void;
+  onFocusModeToggle?: () => void;
+  focusMode?: boolean;
 };
 
 function readAsDataURL(file: File): Promise<string> {
@@ -47,6 +49,8 @@ export default function TiptapEditor({
   preset = "novel",
   onWordCount,
   onDirty,
+  onFocusModeToggle,
+  focusMode = false,
 }: TiptapEditorProps) {
   // Use useSyncExternalStore to detect client mount without triggering
   // a synchronous setState inside useEffect (avoids cascading-render warnings).
@@ -246,6 +250,14 @@ export default function TiptapEditor({
         <ToolbarBtn onClick={() => editor.chain().focus().setTextAlign("right").run()} active={editor.isActive({ textAlign: "right" })} title="Align right (⌘⇧R)">
           <AlignRightIcon />
         </ToolbarBtn>
+        {onFocusModeToggle != null && (
+          <>
+            <Divider />
+            <ToolbarBtn onClick={onFocusModeToggle} active={focusMode} title={focusMode ? "Exit focus (⌘\\)" : "Focus mode (⌘\\)"}>
+              {focusMode ? "Exit focus" : "Focus"}
+            </ToolbarBtn>
+          </>
+        )}
       </div>
 
       {/* Editor */}

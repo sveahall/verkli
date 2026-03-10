@@ -52,6 +52,7 @@ const ERROR_MESSAGES: Record<string, string> = {
   INVALID_SOURCE_VERSION: "Ogiltig källversion.",
   SOURCE_LANGUAGE_MISSING: "Källspråk saknas. Ange språk för versionen.",
   SAME_SOURCE_TARGET_LANGUAGE: "Målspråket måste skilja sig från källspråket.",
+  TRANSLATION_PAIR_UNSUPPORTED: "Språkparet stöds inte av översättningsmodellen.",
   VERSION_ALREADY_EXISTS: "En version på det språket finns redan.",
   TRANSLATION_SERVICE_UNAVAILABLE: "Översättningstjänsten är inte tillgänglig. Försök igen.",
 
@@ -179,6 +180,7 @@ const ERROR_MESSAGES: Record<string, string> = {
   // AI
   PROMPT_TEXT_REQUIRED: "Prompttext krävs.",
   TEXT_TO_VIDEO_FAILED: "Text-till-video misslyckades.",
+  COVER_GENERATION_FAILED: "Kunde inte generera omslagsförslag.",
   CONTENT_GENERATION_FAILED: "Innehållsgenereringen misslyckades.",
   CONTENT_INVALID_CHANNEL_TYPE: "Innehållstypen stöds inte för den valda kanalen.",
   CONTENT_FETCH_FAILED: "Kunde inte hämta genererat innehåll.",

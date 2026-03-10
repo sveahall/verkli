@@ -58,7 +58,7 @@ const DEFAULT_DAILY_BUDGETS: Record<BudgetPipeline, number> = {
 
 const DEFAULT_JOB_COST_CAPS: Record<BudgetPipeline, number> = {
   tts: 50_000,
-  translation: 50_000,
+  translation: 1_000_000,
   video: 5,
 };
 
