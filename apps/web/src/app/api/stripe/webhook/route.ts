@@ -25,7 +25,7 @@ type StripeWebhookEvent = {
   } | null;
 };
 
-type PaymentKind = "donation" | "credit_topup";
+type PaymentKind = "donation" | "credit_topup" | "translation" | "audiobook";
 
 type FinalizeCheckoutFunction =
   | "finalize_order_checkout_session"
@@ -76,6 +76,12 @@ function parsePaymentKind(value: unknown): PaymentKind | null {
   }
   if (normalized === "credit_topup" || normalized === "credit-topup") {
     return "credit_topup";
+  }
+  if (normalized === "translation") {
+    return "translation";
+  }
+  if (normalized === "audiobook") {
+    return "audiobook";
   }
   return null;
 }
@@ -275,6 +281,27 @@ async function processCreditTopupCheckoutSession(
   return finalizeCheckoutSession(admin, "finalize_credit_topup_checkout_session", session);
 }
 
+async function processTranslationCheckoutSession(
+  session: StripeRecord
+): Promise<boolean> {
+  // Translation payments are verified client-side on redirect.
+  // The webhook just logs success for audit; the actual translation
+  // is triggered when the user returns to the editor with a valid session_id.
+  if (!isPaidCheckoutSession(session)) {
+    return false;
+  }
+
+  const metadata = extractMetadata(session.metadata);
+  console.log("[stripe.webhook] translation payment completed", {
+    sessionId: trimToNull(session.id),
+    userId: metadata.user_id,
+    bookId: metadata.book_id,
+    languages: metadata.languages,
+  });
+
+  return true;
+}
+
 async function processPaymentKindCheckoutSession(
   admin: ReturnType<typeof createAdminClient>,
   session: StripeRecord
@@ -288,6 +315,23 @@ async function processPaymentKindCheckoutSession(
   if (paymentKind === "donation") {
     const processed = await processDonationCheckoutSession(admin, session);
     return { handled: true, processed };
+  }
+
+  if (paymentKind === "translation") {
+    const processed = await processTranslationCheckoutSession(session);
+    return { handled: true, processed };
+  }
+
+  if (paymentKind === "audiobook") {
+    if (isPaidCheckoutSession(session)) {
+      const metadata = extractMetadata(session.metadata);
+      console.log("[stripe.webhook] audiobook payment completed", {
+        sessionId: trimToNull(session.id),
+        userId: metadata.user_id,
+        bookId: metadata.book_id,
+      });
+    }
+    return { handled: true, processed: isPaidCheckoutSession(session) };
   }
 
   const processed = await processCreditTopupCheckoutSession(admin, session);

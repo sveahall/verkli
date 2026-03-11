@@ -6,6 +6,7 @@ import { assertPublicEnv } from "@/lib/env"
 import { requireAuthorRoleForApi } from "@/lib/auth/require-author"
 import { requireProBillingForApi } from "@/lib/billing/server"
 import { isTranslationsEnabled } from "@/lib/flags"
+import { getStripeCheckoutSession } from "@/lib/payments/stripe"
 import { isTranslationPairSupported } from "@/lib/translation-pairs"
 import {
   deleteBookTranslationState,
@@ -268,8 +269,39 @@ export async function POST(
   const { user, response } = await requireAuthorRoleForApi()
   if (response) return response
 
-  const proGate = await requireProBillingForApi(user.id)
-  if (!proGate.ok) return proGate.response
+  // Allow bypassing Pro check if a valid paid Stripe session is provided
+  const stripeSessionId =
+    body?.stripeSessionId != null && String(body.stripeSessionId).trim() !== ""
+      ? String(body.stripeSessionId).trim()
+      : null
+
+  let paidViaStripe = false
+  if (stripeSessionId) {
+    try {
+      const session = await getStripeCheckoutSession(stripeSessionId)
+      const meta = (session.metadata ?? {}) as Record<string, string>
+      if (
+        session.payment_status === "paid" &&
+        meta.payment_kind === "translation" &&
+        meta.user_id === user.id &&
+        meta.book_id === bookId
+      ) {
+        paidViaStripe = true
+      }
+    } catch (error) {
+      console.warn("[book translate] stripe session verification failed", {
+        stripeSessionId,
+        userId: user.id,
+        bookId,
+        message: error instanceof Error ? error.message : String(error),
+      })
+    }
+  }
+
+  if (!paidViaStripe) {
+    const proGate = await requireProBillingForApi(user.id)
+    if (!proGate.ok) return proGate.response
+  }
 
   const supabase = await createClient()
   const { data: book, error: bookError } = await supabase

@@ -210,6 +210,120 @@ export async function createDonationCheckoutSession(
   return payload;
 }
 
+export type CreateAudiobookCheckoutInput = {
+  amountMinor: number;
+  currency: string;
+  userId: string;
+  bookId: string;
+  language: string;
+  customerEmail?: string | null;
+  successUrl: string;
+  cancelUrl: string;
+};
+
+export async function createAudiobookCheckoutSession(
+  input: CreateAudiobookCheckoutInput
+): Promise<StripeCheckoutSession> {
+  const amount = sanitizeAmount(input.amountMinor);
+  if (amount <= 0) {
+    throw new Error("Amount must be greater than zero");
+  }
+
+  const params = new URLSearchParams();
+  params.set("mode", "payment");
+  params.set("success_url", input.successUrl);
+  params.set("cancel_url", input.cancelUrl);
+  params.set("payment_method_types[0]", "card");
+  params.set("line_items[0][quantity]", "1");
+  params.set("line_items[0][price_data][currency]", toStripeCurrency(input.currency));
+  params.set("line_items[0][price_data][unit_amount]", String(amount));
+  params.set("line_items[0][price_data][product_data][name]", "Audiobook generation");
+  params.set("client_reference_id", input.userId);
+  params.set("metadata[user_id]", input.userId);
+  params.set("metadata[book_id]", input.bookId);
+  params.set("metadata[language]", input.language);
+  params.set("metadata[amount_minor]", String(amount));
+  params.set("metadata[payment_kind]", "audiobook");
+  params.set("metadata[payment_type]", "audiobook");
+
+  if (input.customerEmail) {
+    params.set("customer_email", input.customerEmail);
+  }
+
+  const payload = await stripeRequest("/checkout/sessions", {
+    method: "POST",
+    body: params.toString(),
+  });
+
+  assertSessionShape(payload);
+  if (!payload.url) {
+    throw new Error("Stripe session URL is missing");
+  }
+  return payload;
+}
+
+export type CreateTranslationCheckoutInput = {
+  amountMinor: number;
+  currency: string;
+  userId: string;
+  bookId: string;
+  languages: string;
+  sourceVersionId: string;
+  sourceLanguage: string;
+  customerEmail?: string | null;
+  successUrl: string;
+  cancelUrl: string;
+};
+
+export async function createTranslationCheckoutSession(
+  input: CreateTranslationCheckoutInput
+): Promise<StripeCheckoutSession> {
+  const amount = sanitizeAmount(input.amountMinor);
+  if (amount <= 0) {
+    throw new Error("Amount must be greater than zero");
+  }
+
+  const langCount = input.languages.split(",").filter(Boolean).length;
+  const productName =
+    langCount === 1
+      ? `Book translation (1 language)`
+      : `Book translation (${langCount} languages)`;
+
+  const params = new URLSearchParams();
+  params.set("mode", "payment");
+  params.set("success_url", input.successUrl);
+  params.set("cancel_url", input.cancelUrl);
+  params.set("payment_method_types[0]", "card");
+  params.set("line_items[0][quantity]", "1");
+  params.set("line_items[0][price_data][currency]", toStripeCurrency(input.currency));
+  params.set("line_items[0][price_data][unit_amount]", String(amount));
+  params.set("line_items[0][price_data][product_data][name]", productName);
+  params.set("client_reference_id", input.userId);
+  params.set("metadata[user_id]", input.userId);
+  params.set("metadata[book_id]", input.bookId);
+  params.set("metadata[languages]", input.languages);
+  params.set("metadata[source_version_id]", input.sourceVersionId);
+  params.set("metadata[source_language]", input.sourceLanguage);
+  params.set("metadata[amount_minor]", String(amount));
+  params.set("metadata[payment_kind]", "translation");
+  params.set("metadata[payment_type]", "translation");
+
+  if (input.customerEmail) {
+    params.set("customer_email", input.customerEmail);
+  }
+
+  const payload = await stripeRequest("/checkout/sessions", {
+    method: "POST",
+    body: params.toString(),
+  });
+
+  assertSessionShape(payload);
+  if (!payload.url) {
+    throw new Error("Stripe session URL is missing");
+  }
+  return payload;
+}
+
 export async function createCreditTopUpCheckoutSession(
   input: CreateCreditTopUpCheckoutInput
 ): Promise<StripeCheckoutSession> {

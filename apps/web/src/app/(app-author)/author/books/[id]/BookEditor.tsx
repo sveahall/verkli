@@ -692,6 +692,9 @@ export default function BookEditor({
   const [audiobookSelectedChapterIds, setAudiobookSelectedChapterIds] = useState<string[]>([]);
   const [isAudiobookChapterPickerOpen, setIsAudiobookChapterPickerOpen] = useState(false);
   const [audiobookControlPending, setAudiobookControlPending] = useState<AudiobookControlAction | null>(null);
+  const [audiobookCheckoutModalOpen, setAudiobookCheckoutModalOpen] = useState(false);
+  const [audiobookCheckoutLoading, setAudiobookCheckoutLoading] = useState(false);
+  const audiobookCheckoutHandledRef = useRef(false);
   const pricingSavedTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const savingRef = useRef(false);
   const coverInputRef = useRef<HTMLInputElement>(null);
@@ -1831,9 +1834,86 @@ export default function BookEditor({
     [audiobookControlPending, audiobookFeatureEnabled, book.id, isAudiobookActive, refetchBookJob]
   );
 
+  // Handle audiobook checkout redirect
+  useEffect(() => {
+    if (audiobookCheckoutHandledRef.current) return;
+    const checkoutStatus = searchParams?.get("audiobook_checkout");
+    const sessionId = searchParams?.get("session_id");
+    const lang = searchParams?.get("lang");
+    if (checkoutStatus === "success" && sessionId && lang) {
+      audiobookCheckoutHandledRef.current = true;
+      const url = new URL(window.location.href);
+      url.searchParams.delete("audiobook_checkout");
+      url.searchParams.delete("session_id");
+      url.searchParams.delete("lang");
+      router.replace(url.pathname + url.search, { scroll: false });
+      // Trigger audiobook generation with paid session
+      void (async () => {
+        setIsGeneratingAudiobook(true);
+        setAudiobookError(null);
+        try {
+          const params = new URLSearchParams();
+          params.set("lang", lang);
+          const res = await fetch(`/api/books/${book.id}/audiobook/generate?${params.toString()}`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ scope: "book", stripeSessionId: sessionId }),
+          });
+          const data = await res.json().catch(() => ({}));
+          if (!res.ok) {
+            setAudiobookError(resolveErrorMessage(data.error));
+            setIsGeneratingAudiobook(false);
+            return;
+          }
+          setAudiobookProgress({
+            totalChapters: data.totalChapters ?? 0,
+            completedChapters: 0,
+            currentChapterTitle: null,
+            estimatedSecondsRemaining: null,
+          });
+          await refetchBookJob();
+        } catch {
+          setAudiobookError("Could not start generation. Try again.");
+          setIsGeneratingAudiobook(false);
+        }
+      })();
+    }
+  }, [searchParams, book.id, refetchBookJob, router, resolveErrorMessage]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const handleAudiobookCheckout = useCallback(async () => {
+    if (audiobookCheckoutLoading) return;
+    setAudiobookCheckoutLoading(true);
+    setAudiobookError(null);
+    try {
+      const langKey = normalizeLangKey(activeVersion?.language_code ?? activeLanguage);
+      const res = await fetch(`/api/books/${book.id}/audiobook/checkout`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ language: langKey || "sv" }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || !data.url) {
+        setAudiobookError(typeof data.detail === "string" ? data.detail : "Could not start checkout.");
+        return;
+      }
+      window.location.href = data.url;
+    } catch {
+      setAudiobookError("Could not start checkout. Try again.");
+    } finally {
+      setAudiobookCheckoutLoading(false);
+    }
+  }, [audiobookCheckoutLoading, activeVersion?.language_code, activeLanguage, book.id]);
+
   const handleGenerateAudiobook = useCallback(
     async () => {
     if (isGeneratingAudiobook || !audiobookFeatureEnabled) return;
+
+    // Non-Pro: show payment modal (force full book)
+    if (isProFeatureLocked) {
+      setAudiobookCheckoutModalOpen(true);
+      return;
+    }
+
     if (audiobookScope !== "book" && audiobookRequestedChapterIds.length === 0) {
       setAudiobookError("Select chapter(s) first.");
       return;
@@ -1889,6 +1969,7 @@ export default function BookEditor({
     audiobookScope,
     book.id,
     isGeneratingAudiobook,
+    isProFeatureLocked,
     refetchBookJob,
   ]);
 
@@ -3024,7 +3105,10 @@ export default function BookEditor({
             bookLengthLabel={`${chapters.length} chapters`}
             sourceLanguage={translationSourceLang}
             sourceVersionId={activeVersion?.id ?? null}
-            isProLocked={billing.loading ? false : !!(billing.pastDue || !billing.isProActive)}
+            isProLocked={!billing.isProActive}
+            billingLoading={billing.loading}
+            chapters={chapters.map((ch) => ({ id: ch.id, title: ch.title }))}
+            selectedChapterId={selectedChapterId}
             onMessage={setTranslateMessage}
             hideTitle
           />
@@ -3757,6 +3841,7 @@ export default function BookEditor({
                 </div>
               )}
 
+              {billing.isProActive ? (
               <div className="mb-3 grid grid-cols-3 gap-2">
                 <button
                   type="button"
@@ -3800,6 +3885,9 @@ export default function BookEditor({
                   Choose chapters
                 </button>
               </div>
+              ) : (
+              <p className="mb-3 text-xs text-slate-500 dark:text-slate-400">Full book generation</p>
+              )}
 
               <p className="mb-2 text-xs text-slate-500 dark:text-slate-400">
                 Selection: {audiobookSelectionSummary}
@@ -3866,21 +3954,19 @@ export default function BookEditor({
                 <button
                   type="button"
                   onClick={() => void handleGenerateAudiobook()}
-                  disabled={isAudiobookActive || !audiobookFeatureEnabled || isProFeatureLocked || (audiobookScope !== "book" && audiobookRequestedChapterIds.length === 0)}
+                  disabled={isAudiobookActive || !audiobookFeatureEnabled || billing.loading || (billing.isProActive && audiobookScope !== "book" && audiobookRequestedChapterIds.length === 0)}
                   className="w-full rounded-xl border border-black/[0.08] bg-white px-3 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50 dark:border-white/[0.08] dark:bg-white/[0.04] dark:text-white dark:hover:bg-white/[0.06]"
                 >
                   {!audiobookFeatureEnabled
                     ? "Create audiobook (unavailable)"
-                    : isProFeatureLocked
-                    ? billing.loading
-                      ? "Checking subscription..."
-                      : billing.pastDue
-                        ? "Locked: payment required"
-                        : "Create full audiobook (Pro)"
+                    : billing.loading
+                    ? "Checking subscription..."
                     : isAudiobookActive
                     ? effectiveAudiobookProgress
                       ? `Generating (${effectiveAudiobookProgress.completedChapters}/${effectiveAudiobookProgress.totalChapters})...`
                       : "Queued..."
+                    : isProFeatureLocked
+                    ? "Create full audiobook"
                     : audiobookRequestScope === "book"
                       ? "Create full audiobook"
                       : audiobookRequestScope === "chapter"
@@ -3924,14 +4010,58 @@ export default function BookEditor({
                 </p>
               )}
 
-              {audiobookFeatureEnabled && isProFeatureLocked && (
-                <div className="mb-2 rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-800 dark:border-amber-700 dark:bg-amber-950/30 dark:text-amber-200">
-                  {proFeatureLockMessage}{" "}
-                  {!billing.loading && (
-                    <Link href="/author/billing" className="underline">
-                      Manage subscription
-                    </Link>
-                  )}
+              {/* Audiobook checkout modal for non-Pro */}
+              {audiobookCheckoutModalOpen && (
+                <div
+                  className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm"
+                  onClick={(e) => { if (e.target === e.currentTarget) setAudiobookCheckoutModalOpen(false); }}
+                >
+                  <div className="relative mx-4 w-full max-w-md rounded-2xl bg-white p-8 shadow-2xl dark:bg-slate-900">
+                    <button
+                      type="button"
+                      onClick={() => setAudiobookCheckoutModalOpen(false)}
+                      className="absolute right-4 top-4 text-slate-400 hover:text-slate-600 dark:text-white/40 dark:hover:text-white/70"
+                      aria-label="Close"
+                    >
+                      <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M18 6L6 18M6 6l12 12" /></svg>
+                    </button>
+                    <h2 className="mb-6 text-center text-lg font-semibold text-slate-900 dark:text-white">
+                      Choose plan to create audiobook
+                    </h2>
+                    <div className="space-y-4">
+                      <label className="flex cursor-pointer items-start gap-3 rounded-xl border-2 border-[#907AFF] bg-[#907AFF]/5 px-4 py-4 transition">
+                        <input type="radio" name="audiobook-plan" value="per_book" defaultChecked className="mt-0.5 h-4 w-4 accent-[#907AFF]" onChange={() => {}} />
+                        <div>
+                          <p className="font-semibold text-slate-900 dark:text-white">Pay per audiobook</p>
+                          <p className="text-sm text-slate-500 dark:text-white/50">299 kr / book</p>
+                        </div>
+                      </label>
+                      <label className="flex cursor-pointer items-start gap-3 rounded-xl border-2 border-slate-200 px-4 py-4 transition hover:border-slate-300 dark:border-white/10 dark:hover:border-white/20" onClick={() => { setAudiobookCheckoutModalOpen(false); router.push("/author/billing"); }}>
+                        <input type="radio" name="audiobook-plan" value="pro" className="mt-0.5 h-4 w-4 accent-[#907AFF]" onChange={() => {}} />
+                        <div>
+                          <p className="font-semibold text-slate-900 dark:text-white">Subscribe to PRO author</p>
+                          <p className="mb-2 text-sm text-slate-500 dark:text-white/50">2 490 kr / month</p>
+                          <ul className="space-y-1 text-sm text-slate-600 dark:text-white/60">
+                            {["Unlimited audiobooks", "Unlimited translations", "Chapter-level control", "Marketing tools"].map((f) => (
+                              <li key={f} className="flex items-center gap-2">
+                                <svg className="h-4 w-4 shrink-0 text-[#907AFF]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M5 13l4 4L19 7" /></svg>
+                                {f}
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+                      </label>
+                    </div>
+                    {audiobookError && <p className="mt-4 text-center text-sm text-red-600 dark:text-red-400">{audiobookError}</p>}
+                    <button
+                      type="button"
+                      onClick={() => { setAudiobookCheckoutModalOpen(false); void handleAudiobookCheckout(); }}
+                      disabled={audiobookCheckoutLoading}
+                      className="mt-6 block w-full rounded-full bg-[#907AFF] px-6 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-[#7c6ae6] disabled:cursor-not-allowed disabled:opacity-60"
+                    >
+                      {audiobookCheckoutLoading ? "Redirecting..." : "Create full audiobook"}
+                    </button>
+                  </div>
                 </div>
               )}
 
