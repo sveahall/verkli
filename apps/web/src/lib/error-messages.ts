@@ -232,6 +232,7 @@ const ERROR_MESSAGES: Record<string, string> = {
   // Translation UI
   TRANSLATION_LIST_FAILED: "Kunde inte ladda översättningslistan.",
   TRANSLATION_STATUS_FAILED: "Kunde inte ladda översättningsstatus.",
+  TRANSLATION_CHECKOUT_FAILED: "Kunde inte starta betalning för översättning. Försök igen.",
 
   // Dev
   NOT_AVAILABLE_IN_PRODUCTION: "Inte tillgängligt i produktion.",
