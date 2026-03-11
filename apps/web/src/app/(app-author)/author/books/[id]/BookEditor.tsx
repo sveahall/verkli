@@ -570,6 +570,8 @@ function ImportManusSection({
 
 type Tool = "edit" | "cover" | "translate" | "audiobook" | "print" | "pricing" | "polish" | "publish" | "market" | "statistics" | "import";
 
+const TOOL_ORDER: Tool[] = ["edit", "cover", "translate", "audiobook", "print", "pricing", "polish", "publish", "market", "statistics"];
+
 type Props = {
   book: Book;
   chapters: Chapter[];
@@ -2408,14 +2410,14 @@ export default function BookEditor({
                 Tools
               </h2>
               {(() => {
-                const allTools = ["edit", "cover", "translate", "audiobook", "print", "pricing", "polish", "publish", "market", "statistics"] as const;
-                const activeIdx = allTools.indexOf(tool as typeof allTools[number]);
+                const allTools = TOOL_ORDER;
+                const activeIdx = allTools.indexOf(tool);
                 return (
                   <nav className="relative flex flex-1 flex-col gap-0 pl-5 pr-3 pt-6 pb-4">
                     {/* Purple bar from first item to active item */}
                     {activeIdx >= 0 && (
                       <div
-                        className="absolute left-5 w-[5px] rounded-full bg-[#8B7BF7] transition-all duration-300"
+                        className="absolute left-5 w-[8px] rounded-full bg-[#8B7BF7] transition-all duration-300"
                         style={{
                           top: `calc(1.5rem + 0px)`,
                           height: `calc(${activeIdx * 2.75}rem + 2.75rem)`,
@@ -2423,14 +2425,19 @@ export default function BookEditor({
                       />
                     )}
                     {/* Subtle gray track below the purple bar */}
-                    <div
-                      className="absolute left-5 bottom-4 w-[5px] rounded-full bg-slate-200/50 dark:bg-white/[0.04]"
-                      style={{
-                        top: activeIdx >= 0
-                          ? `calc(1.5rem + ${(activeIdx + 1) * 2.75}rem)`
-                          : '1.5rem',
-                      }}
-                    />
+                    {activeIdx < allTools.length - 1 && (
+                      <div
+                        className="absolute left-5 w-[8px] rounded-full bg-slate-200/50 dark:bg-white/[0.04]"
+                        style={{
+                          top: activeIdx >= 0
+                            ? `calc(1.5rem + ${(activeIdx + 1) * 2.75}rem)`
+                            : '1.5rem',
+                          height: activeIdx >= 0
+                            ? `calc(${(allTools.length - activeIdx - 1) * 2.75}rem)`
+                            : `calc(${allTools.length * 2.75}rem)`,
+                        }}
+                      />
+                    )}
                     {allTools.map((t) => {
                       const isActive = tool === t;
                       const isDisabled = t === "market" && !getMarketingEnabled();
@@ -2460,7 +2467,56 @@ export default function BookEditor({
             </aside>
 
             {/* Main content */}
-            <div className="min-w-0 flex-1 overflow-auto p-6">
+            <div className="relative min-w-0 flex-1 overflow-auto p-6">
+
+              {/* Shared title row + step nav — same height on all tabs */}
+              {TOOL_ORDER.includes(tool) && (
+                <div className="mb-5 flex items-center justify-between gap-4 border-b border-black/[0.06] pb-5 pt-1 dark:border-white/[0.06]">
+                  <div className="min-w-0">
+                    <h1 className="text-2xl font-bold tracking-[-0.02em] text-slate-900 dark:text-white">
+                      {bookTitle}
+                    </h1>
+                    <p className="mt-1 text-[15px] text-slate-500 dark:text-white/50">
+                      {authorDisplayName}
+                    </p>
+                  </div>
+                  {(() => {
+                    const currentIdx = TOOL_ORDER.indexOf(tool);
+                    const prevTool = currentIdx > 0 ? TOOL_ORDER[currentIdx - 1] : null;
+                    const nextTool = currentIdx >= 0 && currentIdx < TOOL_ORDER.length - 1 ? TOOL_ORDER[currentIdx + 1] : null;
+                    if (!prevTool && !nextTool) return null;
+                    const nextLabel = nextTool ? nextTool.charAt(0).toUpperCase() + nextTool.slice(1) : "";
+                    const prevLabel = prevTool ? prevTool.charAt(0).toUpperCase() + prevTool.slice(1) : "";
+                    return (
+                      <div className="flex shrink-0 items-center gap-1">
+                        {prevTool && (
+                          <button
+                            type="button"
+                            onClick={() => setTool(prevTool)}
+                            className="inline-flex items-center gap-2 rounded-md px-5 py-2.5 text-[13px] leading-none text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-600 dark:text-white/40 dark:hover:bg-white/[0.06] dark:hover:text-white/70"
+                          >
+                            <svg className="h-3 w-3 shrink-0" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" d="M15.75 19.5L8.25 12l7.5-7.5" /></svg>
+                            <span>{prevLabel}</span>
+                          </button>
+                        )}
+                        {prevTool && nextTool && (
+                          <span className="text-[11px] text-slate-200 dark:text-white/10">|</span>
+                        )}
+                        {nextTool && (
+                          <button
+                            type="button"
+                            onClick={() => setTool(nextTool)}
+                            className="inline-flex items-center gap-1.5 rounded-md px-5 py-2.5 text-[13px] leading-none text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-600 dark:text-white/40 dark:hover:bg-white/[0.06] dark:hover:text-white/70"
+                          >
+                            <span>{nextLabel}</span>
+                            <svg className="h-3 w-3 shrink-0" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5" /></svg>
+                          </button>
+                        )}
+                      </div>
+                    );
+                  })()}
+                </div>
+              )}
 
         {tool === "pricing" && (
           <div className="max-w-2xl space-y-6">
@@ -2591,15 +2647,6 @@ export default function BookEditor({
 
         {tool === "cover" && (
           <div className="">
-        <div className="border-b mb-5 mt-7 border-black/[0.06] pb-5 dark:border-white/[0.06]">
-          <h1 className="text-2xl font-bold tracking-[-0.02em] text-slate-900 dark:text-white">
-            {bookTitle}
-          </h1>
-          <p className="mt-1 text-[15px] text-slate-500 dark:text-white/50">
-            {authorDisplayName}
-          </p>
-        </div>
-
             <p className="mb-4 text-xs font-semibold uppercase tracking-wider text-slate-700 dark:text-white/80">
               Cover
             </p>
@@ -2845,15 +2892,6 @@ export default function BookEditor({
         {/* Simplified edit view */}
         {tool === "edit" && (
         <>
-        <div className="border-b mb-5 mt-7 border-black/[0.06] pb-5 mb-5 dark:border-white/[0.06]">
-          <h1 className="text-2xl font-bold tracking-[-0.02em] text-slate-900 dark:text-white">
-            {bookTitle}
-          </h1>
-          <p className="mt-1 text-[15px] text-slate-500 dark:text-white/50">
-            {authorDisplayName}
-          </p>
-        </div>
-
         <div className="border-b border-black/[0.06] pb-4 mb-0 dark:border-white/[0.06]">
           <p className="mb-3 text-xs font-semibold uppercase tracking-wider text-slate-900 dark:text-white">
             Chapters
@@ -2988,6 +3026,7 @@ export default function BookEditor({
             sourceVersionId={activeVersion?.id ?? null}
             isProLocked={billing.loading ? false : !!(billing.pastDue || !billing.isProActive)}
             onMessage={setTranslateMessage}
+            hideTitle
           />
         ) : (
         <>
@@ -2995,9 +3034,6 @@ export default function BookEditor({
           <div className="min-w-0">
             {!isRenamingBook ? (
               <div className="flex flex-wrap items-center gap-3">
-                <h1 className="text-[clamp(28px,3.5vw,38px)] font-bold tracking-[-0.03em] text-slate-900 dark:text-white">
-                  {bookTitle}
-                </h1>
                 <span
                   className={`rounded-full px-3 py-1 text-[11px] font-semibold uppercase tracking-wide ${
                     isPublished

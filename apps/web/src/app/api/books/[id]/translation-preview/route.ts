@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server"
 import { getTranslator } from "@/lib/ai/providers/server"
+import { AIProviderError } from "@/lib/ai/providers/types"
 import { requireAuthorRoleForApi } from "@/lib/auth/require-author"
 import { assertPublicEnv } from "@/lib/env"
 import {
@@ -127,6 +128,27 @@ export async function GET(
     })
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error)
+
+    if (error instanceof AIProviderError && error.code === "PROVIDER_UNAVAILABLE") {
+      console.warn("[book translation preview] local preview unavailable", {
+        bookId,
+        sourceVersionId: sourceContext.sourceVersionId,
+        sourceLanguage: sourceContext.sourceLanguage,
+        targetLanguage,
+        userId: user.id,
+        provider: error.provider,
+        code: error.code,
+        message,
+      })
+
+      return NextResponse.json({
+        originalText,
+        translatedText: "",
+        previewText: "",
+        previewUnavailable: true,
+      })
+    }
+
     console.error("[book translation preview] translation model failed", {
       bookId,
       sourceVersionId: sourceContext.sourceVersionId,

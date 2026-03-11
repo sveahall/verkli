@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest"
+import { AIProviderError } from "@/lib/ai/providers/types"
 import { E_TRANSLATION_PAIR_UNSUPPORTED } from "@/lib/api-errors"
 
 const mocks = vi.hoisted(() => ({
@@ -107,6 +108,44 @@ describe("GET /api/books/[id]/translation-preview", () => {
       text: "Hej varlden",
       sourceLanguage: "sv",
       targetLanguage: "en",
+    })
+  })
+
+  it("returns degraded preview when local provider setup is unavailable", async () => {
+    mocks.requireAuthorRoleForApi.mockResolvedValueOnce({
+      user: { id: "author-1" },
+      response: null,
+    })
+    mocks.createClient.mockResolvedValueOnce(makeSupabaseMock("author-1"))
+    mocks.resolveTranslationSourceContext.mockResolvedValueOnce({
+      sourceVersionId: "ver-1",
+      sourceVersion: { id: "ver-1", book_id: "book-1", language_code: "sv" },
+      sourceLanguage: "sv",
+      sourceLanguageOrigin: "version",
+    })
+    mocks.collectTranslationPreviewText.mockResolvedValueOnce("Hej varlden")
+    const translate = vi
+      .fn()
+      .mockRejectedValue(
+        new AIProviderError(
+          "Required model file missing or not a file",
+          "PROVIDER_UNAVAILABLE",
+          "opus-mt"
+        )
+      )
+    mocks.getTranslator.mockReturnValueOnce({ translate })
+
+    const res = await GET(new Request("http://localhost/api/books/book-1/translation-preview?targetLanguage=en"), {
+      params: Promise.resolve({ id: "book-1" }),
+    })
+    const body = await res.json()
+
+    expect(res.status).toBe(200)
+    expect(body).toEqual({
+      originalText: "Hej varlden",
+      translatedText: "",
+      previewText: "",
+      previewUnavailable: true,
     })
   })
 
