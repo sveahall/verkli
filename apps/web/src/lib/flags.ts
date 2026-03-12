@@ -31,7 +31,9 @@ export function getDiscoveryEnabled(): boolean {
 }
 
 export function getOfflineReadingEnabled(): boolean {
-  return parseBool(process.env.NEXT_PUBLIC_OFFLINE_READING_ENABLED);
+  const value = process.env.NEXT_PUBLIC_OFFLINE_READING_ENABLED;
+  if (value === undefined || value === "") return false;
+  return value.toLowerCase() === "true" || value === "1";
 }
 
 // ─── Server/API – use in API routes and server-only code ───
@@ -54,7 +56,9 @@ export function isDiscoveryEnabled(): boolean {
 }
 
 export function isOfflineReadingEnabled(): boolean {
-  return parseBool(process.env.NEXT_PUBLIC_OFFLINE_READING_ENABLED ?? process.env.OFFLINE_READING_ENABLED);
+  const value = process.env.NEXT_PUBLIC_OFFLINE_READING_ENABLED ?? process.env.OFFLINE_READING_ENABLED;
+  if (value === undefined || value === "") return false;
+  return value.toLowerCase() === "true" || value === "1";
 }
 
 export function getRecommendationsEnabled(): boolean {

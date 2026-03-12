@@ -26,6 +26,8 @@ import NoDownloadAudioPlayer from "@/components/books/NoDownloadAudioPlayer";
 import dynamic from "next/dynamic";
 
 const CoverCropModal = dynamic(() => import("@/components/books/CoverCropModal"), { ssr: false });
+import PrintPanel from "./editor/panels/PrintPanel";
+import { normalizePrintOnDemandSettings, type PrintOnDemandSettings } from "./editor/panels/print-panel";
 import TranslatePanel from "./editor/panels/TranslatePanel";
 
 const ACCEPTED_COVER_TYPES = ".jpg,.jpeg,.png,image/jpeg,image/png";
@@ -248,6 +250,7 @@ type Book = {
   audiobook_status?: string | null;
   price_amount?: number | null;
   price_currency?: string | null;
+  print_on_demand_settings?: unknown | null;
 };
 
 type BookVersion = {
@@ -666,6 +669,9 @@ export default function BookEditor({
   const [coverCropSrc, setCoverCropSrc] = useState<string | null>(null);
   const [coverAIPreviewUrl, setCoverAIPreviewUrl] = useState<string | null>(null);
   const [originalUrl, setOriginalUrl] = useState(book.original_url ?? "");
+  const [printOnDemandSettings, setPrintOnDemandSettings] = useState<PrintOnDemandSettings>(() =>
+    normalizePrintOnDemandSettings(book.print_on_demand_settings)
+  );
   const [marketingChannel, setMarketingChannel] = useState<MarketingChannel>("generic");
   const [marketingLanguage, setMarketingLanguage] = useState<SupportedLanguage>(
     normalizeLanguage(activeVersion?.language_code ?? book.original_language ?? book.language)
@@ -886,12 +892,14 @@ export default function BookEditor({
   const panelParam = searchParams?.get("panel");
   const [tool, setTool] = useState<Tool>(() => {
     if (panelParam === "pricing") return "pricing";
+    if (panelParam === "print") return "print";
     if (panelParam === "import") return "import";
     return "edit";
   });
 
   useEffect(() => {
     if (panelParam === "pricing") setTool("pricing");
+    else if (panelParam === "print") setTool("print");
     else if (panelParam === "import") setTool("import");
   }, [panelParam]);
 
@@ -1682,6 +1690,27 @@ export default function BookEditor({
     if (!error) router.refresh();
   }, [book.id, book.original_url, originalUrl, router]);
 
+  const handleSavePrintOnDemandSettings = useCallback(async (nextSettings: PrintOnDemandSettings) => {
+    const normalizedSettings = normalizePrintOnDemandSettings(nextSettings);
+    const previousSettings = printOnDemandSettings;
+    setPrintOnDemandSettings(normalizedSettings);
+
+    const supabase = createClient();
+    const { error } = await supabase
+      .from("books" as never)
+      .update({ print_on_demand_settings: normalizedSettings } as never)
+      .eq("id", book.id);
+
+    if (error) {
+      setPrintOnDemandSettings(previousSettings);
+      const message = "Could not save print on demand settings. Try again.";
+      toast.error(message);
+      return { ok: false as const, message };
+    }
+
+    return { ok: true as const };
+  }, [book.id, printOnDemandSettings, toast]);
+
   const handleStartRenameBook = useCallback(() => {
     setBookTitleError(null);
     setBookTitleDraft(bookTitle);
@@ -1726,6 +1755,10 @@ export default function BookEditor({
   useEffect(() => {
     setOriginalUrl(book.original_url ?? "");
   }, [book.original_url]);
+
+  useEffect(() => {
+    setPrintOnDemandSettings(normalizePrintOnDemandSettings(book.print_on_demand_settings));
+  }, [book.print_on_demand_settings]);
 
   useEffect(() => {
     setBookTitle(book.title ?? "Untitled");
@@ -2399,7 +2432,7 @@ export default function BookEditor({
               </p>
             </div>
           )}
-          <div className="overflow-hidden rounded-xl border border-black/[0.06] bg-white shadow-sm dark:border-white/[0.06] dark:bg-white/[0.02]">
+          <div className="overflow-hidden">
             <div className="flex min-h-[calc(100vh-12rem)]">
               <div className="min-w-0 flex-1 overflow-auto p-6">
                 <div className="mx-auto max-w-[1100px]">
@@ -3294,6 +3327,27 @@ export default function BookEditor({
           </div>
         )}
 
+        {tool === "print" && (
+          <PrintPanel
+            bookId={book.id}
+            title={bookTitle}
+            authorDisplayName={authorDisplayName}
+            coverImageUrl={displayCoverUrl}
+            originalUrl={book.original_url ?? null}
+            chapterCount={chapters.length}
+            totalWordCount={totalBookWordCount}
+            languageCode={activeLanguage}
+            isPublished={isPublished}
+            priceAmountMinor={priceAmountMinor}
+            priceCurrency={priceCurrency}
+            printOnDemandSettings={printOnDemandSettings}
+            onOpenEdit={() => setTool("edit")}
+            onOpenCover={() => setTool("cover")}
+            onOpenPublish={() => setTool("publish")}
+            onSavePrintOnDemandSettings={handleSavePrintOnDemandSettings}
+          />
+        )}
+
         {tool === "import" && (
           <ImportManusSection
             bookId={book.id}
@@ -3641,7 +3695,7 @@ export default function BookEditor({
         )}
 
         {/* Full view for other tools (exclude cover — it has its own minimal layout) */}
-        {showManuscript && tool !== "edit" && tool !== "cover" && tool !== "audiobook" && (
+        {showManuscript && tool !== "edit" && tool !== "cover" && tool !== "audiobook" && tool !== "print" && (
         <>
         {!(tool === "translate" && getTranslationsEnabled()) && (
         <div className="mb-6 flex flex-wrap items-end gap-3">

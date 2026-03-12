@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { Resend } from "resend";
 import { assertServerEnv, getServerEnv } from "@/lib/env";
+import { Resend } from "resend";
 import {
   apiError,
   E_SERVER_CONFIG_ERROR,
@@ -12,6 +12,7 @@ import {
   E_GENERIC_ERROR,
   E_WAITLIST_ADD_FAILED,
 } from "@/lib/api-errors";
+import { buildWaitlistHtml, buildWaitlistSubject } from "@/lib/emails/waitlist-confirmation";
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -86,21 +87,18 @@ async function getPosition(supabase: ReturnType<typeof createAdminClient>, creat
   return count ?? 0;
 }
 
-async function sendConfirmationEmail(email: string, position: number): Promise<void> {
+async function sendConfirmationEmail(email: string, position: number, name?: string | null): Promise<void> {
   const env = getServerEnv();
-  
+  const subject = buildWaitlistSubject({ variant: "author", email, position, name });
+  const html = buildWaitlistHtml({ variant: "author", email, position, name });
+
   try {
     const resend = new Resend(env.RESEND_API_KEY);
     const { error } = await resend.emails.send({
       from: env.RESEND_FROM_EMAIL,
       to: email,
-      subject: "You are on the Verkli waitlist",
-      html: `
-        <p>Hi there,</p>
-        <p>You're on the list. Your position: <strong>#${position}</strong>.</p>
-        <p>We'll be in touch when it's your turn.</p>
-        <p>— Verkli</p>
-      `,
+      subject,
+      html,
     });
     if (error) {
       console.error("WAITLIST_ERROR", { message: "Resend send failed", code: error.message, details: JSON.stringify(error), hint: "check RESEND_API_KEY and domain" });
@@ -132,6 +130,7 @@ export async function POST(request: Request) {
     }
 
     const rawEmail = body.email;
+    const name = typeof body.name === "string" ? body.name.trim() || null : null;
     if (!validateEmail(rawEmail)) {
       return apiError(E_INVALID_EMAIL, 400);
     }
@@ -188,7 +187,7 @@ export async function POST(request: Request) {
 
     const position = await getPosition(supabase, inserted.created_at);
     console.log("[waitlist] signup stored", { source: source ?? "unknown", position, isNew: true });
-    sendConfirmationEmail(email, position).catch((err) => {
+    sendConfirmationEmail(email, position, name).catch((err) => {
       console.error("WAITLIST_ERROR", { message: "Confirmation email failed", code: "RESEND", details: String(err), hint: "API still returns ok true" });
     });
 

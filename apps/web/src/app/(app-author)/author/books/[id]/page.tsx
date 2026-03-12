@@ -169,7 +169,7 @@ export default async function BookDetailPage({
   const stripeConfigured = isStripeConfigured();
 
   return (
-    <main className="min-h-screen bg-gray-100 text-foreground dark:bg-slate-900/50">
+    <main className="min-h-screen bg-background text-foreground">
 
       <BookEditor
         book={book}

@@ -195,7 +195,7 @@ export default function ReaderLanding() {
         {/* ── Dramatic gradient orb background — reader hero ── */}
         <div className="pointer-events-none absolute inset-0 -z-10 overflow-hidden">
           {/* Deep base */}
-          <div className="absolute inset-0 bg-[#faf8ff] dark:bg-[#06050e]" />
+          <div className="absolute inset-0 bg-background" />
 
           {/* ★ Central rotating orb — the hero visual */}
           <div className="absolute left-1/2 top-[42%] h-[min(700px,90vw)] w-[min(700px,90vw)] -translate-x-1/2 -translate-y-1/2">
