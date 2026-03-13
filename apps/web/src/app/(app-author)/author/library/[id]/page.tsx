@@ -275,7 +275,7 @@ export default function ShelfDetailPage() {
       <div className="mx-auto max-w-[1400px] px-6 pt-4 pb-2">
         <div className="flex items-center justify-between gap-4">
           <Link href="/author/home" className="text-[15px] font-medium text-slate-600 dark:text-white/60 transition-colors hover:text-slate-900 dark:hover:text-white">
-            ← Back to Library
+            <span aria-hidden>←</span> Back to Library
           </Link>
           <button
             onClick={() => setShowEditPanel(true)}

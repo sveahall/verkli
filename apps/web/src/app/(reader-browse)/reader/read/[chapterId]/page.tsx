@@ -116,7 +116,7 @@ export default async function ReaderReadPage({
       <main className="min-h-screen bg-background text-foreground">
         <header className="mx-auto flex max-w-[900px] items-center justify-between px-6 py-8">
           <Link href={`/reader/books/${book.id}`} className="text-[13px] text-slate-600 hover:text-slate-900 dark:text-white/50 dark:hover:text-white/70">
-            ← Back to book
+            <span aria-hidden>←</span> Back to book
           </Link>
           <span className="text-[13px] text-slate-500 dark:text-white/40">Locked</span>
         </header>
@@ -276,7 +276,7 @@ export default async function ReaderReadPage({
       />
       <header className="mx-auto flex max-w-[1100px] items-center justify-between px-6 py-7">
         <Link href={`/reader/books/${book.id}`} className="text-[13px] text-slate-600 hover:text-slate-900 dark:text-white/50 dark:hover:text-white/70">
-          ← Back to book
+          <span aria-hidden>←</span> Back to book
         </Link>
         <span className="text-[13px] text-slate-500 dark:text-white/40">
           Chapter {chapterIndex + 1} of {totalChapters}

@@ -55,7 +55,7 @@ export default async function NewsletterDetailPage({
           href="/author/newsletters"
           className="text-[13px] text-slate-500 hover:text-slate-900 dark:text-white/50 dark:hover:text-white"
         >
-          ← Back to newsletters
+          <span aria-hidden>←</span> Back to newsletters
         </Link>
       </div>
 

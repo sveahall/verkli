@@ -78,7 +78,7 @@ export default async function ReaderListPage({
           href="/reader/discover"
           className="mt-4 inline-block text-sm font-medium text-emerald-600 dark:text-emerald-400 hover:underline"
         >
-          ← Back to discover
+          <span aria-hidden>←</span> Back to discover
         </Link>
       </div>
     );

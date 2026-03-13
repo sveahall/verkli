@@ -14,7 +14,7 @@ export const metadata: Metadata = {
       "Browse public authors on Verkli. Discover new voices and follow your favourites.",
   },
 };
-import { getAvatarUrlFromPathServer } from "@/lib/supabase/avatar";
+import { AVATARS_BUCKET_PUBLIC } from "@/lib/supabase/config";
 import AuthorCard from "@/components/reader/AuthorCard";
 import EmptyState from "@/components/reader/EmptyState";
 import PageHeader from "@/components/reader/PageHeader";
@@ -72,13 +72,23 @@ export default async function ReaderAuthorsPage() {
     );
   }
 
-  const authorsWithAvatars = await Promise.all(
-    profiles.map(async (profile) => ({
+  const avatarBucket = supabase.storage.from("avatars");
+  const authorsWithAvatars = profiles.map((profile) => {
+    let avatar: string | null = null;
+    const avatarPath = profile.avatar_url;
+    if (avatarPath && typeof avatarPath === "string" && avatarPath.trim()) {
+      if (avatarPath.startsWith("http://") || avatarPath.startsWith("https://")) {
+        avatar = avatarPath;
+      } else if (AVATARS_BUCKET_PUBLIC) {
+        avatar = avatarBucket.getPublicUrl(avatarPath).data.publicUrl;
+      }
+    }
+    return {
       id: profile.user_id,
       name: profile.display_name || profile.username || "author",
-      avatar: await getAvatarUrlFromPathServer(profile.avatar_url),
-    }))
-  );
+      avatar,
+    };
+  });
 
   return (
     <div className="section-gap-lg">

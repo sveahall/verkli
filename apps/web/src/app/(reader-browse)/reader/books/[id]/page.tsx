@@ -324,7 +324,7 @@ export default async function ReaderBookDetail({
       />
       <header className="mx-auto max-w-[1100px] px-6 pt-10">
         <Link href="/reader/discover" className="text-[13px] text-slate-600 hover:text-slate-900 dark:text-white/50 dark:hover:text-white/70">
-          ← Back to discover
+          <span aria-hidden>←</span> Back to discover
         </Link>
       </header>
 

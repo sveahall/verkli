@@ -82,31 +82,47 @@ export async function DELETE(request: Request) {
 
   // Clean up related records before cascade delete
   // 1. chapter_audio_cache (via chapter IDs)
-  const { data: chapters } = await admin
+  const { data: chapters, error: chaptersError } = await admin
     .from("chapters")
     .select("id")
     .eq("book_id", bookId);
+
+  if (chaptersError) {
+    console.error("[admin/books] chapter lookup failed:", chaptersError.message);
+  }
 
   const chapterIds = (chapters ?? []).map((c) => c.id as string);
   if (chapterIds.length > 0) {
     await admin.from("chapter_audio_cache").delete().in("chapter_id", chapterIds);
   }
 
-  // 2. ai_jobs (filter by input->bookId)
-  const { data: jobs } = await admin
+  // 2. ai_jobs — delete by book_id column, then legacy rows by input->bookId
+  const { error: jobDeleteError } = await admin
+    .from("ai_jobs")
+    .delete()
+    .eq("book_id", bookId);
+
+  if (jobDeleteError) {
+    console.error("[admin/books] ai_jobs cleanup by book_id failed:", jobDeleteError.message);
+  }
+
+  // Legacy rows where book_id column is null but bookId is in input JSONB
+  const { data: legacyJobs } = await admin
     .from("ai_jobs")
     .select("id, input")
-    .not("input", "is", null);
+    .is("book_id", null)
+    .not("input", "is", null)
+    .limit(100);
 
-  const jobIds = (jobs ?? [])
+  const legacyJobIds = (legacyJobs ?? [])
     .filter((j) => {
       const input = j.input as Record<string, unknown> | null;
       return input?.bookId === bookId;
     })
     .map((j) => j.id as string);
 
-  if (jobIds.length > 0) {
-    await admin.from("ai_jobs").delete().in("id", jobIds);
+  if (legacyJobIds.length > 0) {
+    await admin.from("ai_jobs").delete().in("id", legacyJobIds);
   }
 
   // 3. book_imports (SET NULL won't cascade)

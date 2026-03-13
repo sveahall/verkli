@@ -6,7 +6,6 @@ import { useState, useCallback, useRef, useEffect, useMemo } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { uploadBookCover } from "@/lib/supabase/storage";
-import TiptapEditor from "@/components/editor/TiptapEditor";
 import AuthorStatsBar from "@/components/editor/AuthorStatsBar";
 import CommandPalette from "@/components/editor/CommandPalette";
 import DeleteBookButton from "@/components/books/DeleteBookButton";
@@ -26,6 +25,10 @@ import NoDownloadAudioPlayer from "@/components/books/NoDownloadAudioPlayer";
 import dynamic from "next/dynamic";
 
 const CoverCropModal = dynamic(() => import("@/components/books/CoverCropModal"), { ssr: false });
+const TiptapEditor = dynamic(() => import("@/components/editor/TiptapEditor"), {
+  ssr: false,
+  loading: () => <div className="h-[400px] animate-pulse rounded-xl bg-slate-100 dark:bg-white/5" />,
+});
 import PrintPanel from "./editor/panels/PrintPanel";
 import { normalizePrintOnDemandSettings, type PrintOnDemandSettings } from "./editor/panels/PrintPanel.helpers";
 import TranslatePanel from "./editor/panels/TranslatePanel";

@@ -93,3 +93,4 @@ export function detectLanguageWithConfidence(text: string): {
   const confidence = combined > 0 ? top.score / combined : 0;
   return { language: top.code, confidence };
 }
+
