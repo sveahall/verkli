@@ -1,5 +1,18 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
+
+export const revalidate = 300;
+
+export const metadata: Metadata = {
+  title: "Genres",
+  description:
+    "Explore books by genre on Verkli. Find exactly what you want to read.",
+  openGraph: {
+    title: "Genres | Verkli",
+    description: "Explore books by genre on Verkli.",
+  },
+};
 import { getDiscoveryEnabled } from "@/lib/flags";
 import { getLanguageLabel, LANGUAGE_OPTIONS, normalizeLanguage, type SupportedLanguage } from "@/lib/languages";
 import EmptyState from "@/components/reader/EmptyState";

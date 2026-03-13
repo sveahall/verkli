@@ -1,5 +1,19 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
+
+export const revalidate = 300;
+
+export const metadata: Metadata = {
+  title: "Authors",
+  description:
+    "Browse public authors on Verkli. Discover new voices and follow your favourites.",
+  openGraph: {
+    title: "Authors | Verkli",
+    description:
+      "Browse public authors on Verkli. Discover new voices and follow your favourites.",
+  },
+};
 import { getAvatarUrlFromPathServer } from "@/lib/supabase/avatar";
 import AuthorCard from "@/components/reader/AuthorCard";
 import EmptyState from "@/components/reader/EmptyState";

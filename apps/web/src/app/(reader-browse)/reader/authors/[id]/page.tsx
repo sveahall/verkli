@@ -6,6 +6,54 @@ import { getAvatarUrlFromPathServer } from "@/lib/supabase/avatar";
 import BookCard from "@/components/reader/BookCard";
 import PageHeader from "@/components/reader/PageHeader";
 import FollowAuthorButton from "./FollowAuthorButton";
+import type { Metadata } from "next";
+
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ id: string }>;
+}): Promise<Metadata> {
+  const { id: userId } = await params;
+  const supabase = await createClient();
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("display_name, username, bio, avatar_url, is_public")
+    .eq("user_id", userId)
+    .maybeSingle();
+
+  if (!profile || !profile.is_public) {
+    return { title: "Author not found" };
+  }
+
+  const displayName = profile.display_name || profile.username || "Author";
+  const description = profile.bio
+    ? `${profile.bio.slice(0, 150)}${profile.bio.length > 150 ? "..." : ""}`
+    : `Read books by ${displayName} on Verkli.`;
+  const avatarUrl = await getAvatarUrlFromPathServer(profile.avatar_url);
+  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "https://verkli.com";
+
+  return {
+    title: displayName,
+    description,
+    openGraph: {
+      title: `${displayName} | Verkli`,
+      description,
+      url: `${siteUrl}/reader/authors/${userId}`,
+      siteName: "Verkli",
+      type: "profile",
+      ...(avatarUrl ? { images: [{ url: avatarUrl, alt: displayName }] } : {}),
+    },
+    twitter: {
+      card: "summary",
+      title: `${displayName} | Verkli`,
+      description,
+      ...(avatarUrl ? { images: [avatarUrl] } : {}),
+    },
+    alternates: {
+      canonical: `${siteUrl}/reader/authors/${userId}`,
+    },
+  };
+}
 
 export default async function ReaderAuthorProfilePage({
   params,

@@ -1,3 +1,4 @@
+import { Suspense } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { notFound } from "next/navigation";
@@ -15,6 +16,26 @@ import PurchaseSuccessRefresh from "./PurchaseSuccessRefresh";
 import BookReviewsSection from "./BookReviewsSection";
 import CommentsSection from "./CommentsSection";
 import SimilarBooksRail from "@/components/reader/SimilarBooksRail";
+import { Skeleton } from "@/components/ui/Skeleton";
+
+function SimilarBooksRailSkeleton() {
+  return (
+    <section className="mx-auto max-w-[1100px] px-6 py-8">
+      <Skeleton height={20} width={180} className="mb-4" />
+      <div className="flex gap-4 overflow-hidden">
+        {Array.from({ length: 5 }).map((_, i) => (
+          <div key={i} className="w-[180px] flex-shrink-0">
+            <div className="aspect-[3/4] w-full animate-pulse rounded-xl bg-slate-200 dark:bg-white/10" />
+            <div className="mt-3 space-y-2">
+              <Skeleton height={16} className="w-3/4" />
+              <Skeleton height={12} className="w-1/2" />
+            </div>
+          </div>
+        ))}
+      </div>
+    </section>
+  );
+}
 
 async function getBook(id: string) {
   const supabase = await createClient();
@@ -49,7 +70,7 @@ export async function generateMetadata({
   const { id } = await params;
   const book = await getBook(id);
   if (!book || (book.status && book.status !== "PUBLISHED")) {
-    return { title: "Book not found | Verkli" };
+    return { title: "Book not found" };
   }
   const supabase = await createClient();
   const { data: versions } = await supabase
@@ -67,7 +88,7 @@ export async function generateMetadata({
     (versions ?? [])[0];
 
   if (!version || !version.published_at) {
-    return { title: "Book not found | Verkli" };
+    return { title: "Book not found" };
   }
 
   const lang = normalizeLanguage(version.language_code);
@@ -75,9 +96,28 @@ export async function generateMetadata({
   const descSuffix = `Read ${book.title} in ${getLanguageLabel(lang)} on Verkli.`;
   const description =
     `${descSuffix} ${(book.description ?? "").slice(0, 120)}${(book.description ?? "").length > 120 ? "…" : ""}`.trim();
+  const coverImage = (book as { cover_image?: string | null }).cover_image;
+  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "https://verkli.com";
   return {
-    title: `${title} | Verkli`,
+    title,
     description: description || descSuffix,
+    openGraph: {
+      title: `${title} | Verkli`,
+      description: description || descSuffix,
+      url: `${siteUrl}/reader/books/${id}`,
+      siteName: "Verkli",
+      type: "book",
+      ...(coverImage ? { images: [{ url: coverImage, alt: book.title }] } : {}),
+    },
+    twitter: {
+      card: coverImage ? "summary_large_image" : "summary",
+      title: `${title} | Verkli`,
+      description: description || descSuffix,
+      ...(coverImage ? { images: [coverImage] } : {}),
+    },
+    alternates: {
+      canonical: `${siteUrl}/reader/books/${id}`,
+    },
   };
 }
 
@@ -251,8 +291,37 @@ export default async function ReaderBookDetail({
   }));
   const bookAuthorId = String((book as { author_id?: string | null }).author_id ?? "");
 
+  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "https://verkli.com";
+  const jsonLd = {
+    "@context": "https://schema.org",
+    "@type": "Book",
+    name: book.title,
+    author: { "@type": "Person", name: authorName },
+    ...(book.description ? { description: book.description } : {}),
+    ...((book as { cover_image?: string | null }).cover_image
+      ? { image: (book as { cover_image?: string | null }).cover_image }
+      : {}),
+    inLanguage: lang,
+    url: `${siteUrl}/reader/books/${book.id}`,
+    ...(averageRating !== null
+      ? {
+          aggregateRating: {
+            "@type": "AggregateRating",
+            ratingValue: averageRating,
+            ratingCount: ratingsCount,
+            bestRating: 5,
+            worstRating: 1,
+          },
+        }
+      : {}),
+  };
+
   return (
     <main className="min-h-screen bg-background text-foreground">
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+      />
       <header className="mx-auto max-w-[1100px] px-6 pt-10">
         <Link href="/reader/discover" className="text-[13px] text-slate-600 hover:text-slate-900 dark:text-white/50 dark:hover:text-white/70">
           ← Back to discover
@@ -268,6 +337,7 @@ export default async function ReaderBookDetail({
               fill
               sizes="(min-width: 1024px) 420px, 100vw"
               className="object-cover"
+              priority
               unoptimized
             />
           ) : (
@@ -491,11 +561,13 @@ export default async function ReaderBookDetail({
         </section>
       )}
 
-      <SimilarBooksRail
-        bookId={book.id}
-        authorId={book.author_id}
-        language={book.language}
-      />
+      <Suspense fallback={<SimilarBooksRailSkeleton />}>
+        <SimilarBooksRail
+          bookId={book.id}
+          authorId={book.author_id}
+          language={book.language}
+        />
+      </Suspense>
       <BookReviewsSection
         bookId={book.id}
         isSignedIn={Boolean(user)}

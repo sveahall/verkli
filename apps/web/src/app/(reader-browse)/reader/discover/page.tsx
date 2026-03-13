@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { AVATARS_BUCKET_PUBLIC } from "@/lib/supabase/config";
@@ -10,6 +11,20 @@ import Rail from "@/components/reader/Rail";
 import { DonationButton } from "@/components/donations/DonationButton";
 
 type SearchParams = { lang?: string };
+
+export const revalidate = 300; // Revalidate every 5 minutes
+
+export const metadata: Metadata = {
+  title: "Discover books",
+  description:
+    "Browse featured books, new releases, curated lists, and public authors on Verkli. Find your next read — no signup required.",
+  openGraph: {
+    title: "Discover books | Verkli",
+    description:
+      "Browse featured books, new releases, curated lists, and public authors on Verkli.",
+    siteName: "Verkli",
+  },
+};
 
 async function getFeaturedBooks(
   supabase: Awaited<ReturnType<typeof createClient>>,

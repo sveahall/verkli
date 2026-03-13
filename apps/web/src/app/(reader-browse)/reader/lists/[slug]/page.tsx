@@ -3,6 +3,42 @@ import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import BookCard from "@/components/reader/BookCard";
 import PageHeader from "@/components/reader/PageHeader";
+import type { Metadata } from "next";
+
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ slug: string }>;
+}): Promise<Metadata> {
+  const { slug } = await params;
+  const supabase = await createClient();
+  const { data: list } = await supabase
+    .from("curated_lists")
+    .select("title, description")
+    .eq("slug", slug)
+    .eq("is_active", true)
+    .maybeSingle();
+
+  if (!list) {
+    return { title: "List not found" };
+  }
+
+  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "https://verkli.com";
+  const description = list.description || `Curated book list: ${list.title} on Verkli.`;
+  return {
+    title: list.title,
+    description,
+    openGraph: {
+      title: `${list.title} | Verkli`,
+      description,
+      url: `${siteUrl}/reader/lists/${slug}`,
+      siteName: "Verkli",
+    },
+    alternates: {
+      canonical: `${siteUrl}/reader/lists/${slug}`,
+    },
+  };
+}
 
 export default async function ReaderListPage({
   params,
@@ -60,21 +96,20 @@ export default async function ReaderListPage({
     .map((i) => bookMap.get(i.book_id))
     .filter(Boolean) as Array<{ id: string; title: string; cover_image: string | null; author_id: string }>;
 
-  const withAuthors = await Promise.all(
-    orderedBooks.map(async (book) => {
-      const { data: profile } = await supabase
-        .from("profiles")
-        .select("display_name, username")
-        .eq("user_id", book.author_id)
-        .maybeSingle();
-      return {
-        id: book.id,
-        title: book.title,
-        author: profile?.display_name || profile?.username || "Author",
-        cover: book.cover_image,
-      };
-    })
+  const authorIds = [...new Set(orderedBooks.map((b) => b.author_id))];
+  const { data: profiles } = await supabase
+    .from("profiles")
+    .select("user_id, display_name, username")
+    .in("user_id", authorIds);
+  const authorMap = new Map(
+    (profiles ?? []).map((p) => [p.user_id, p.display_name || p.username || "Author"])
   );
+  const withAuthors = orderedBooks.map((book) => ({
+    id: book.id,
+    title: book.title,
+    author: authorMap.get(book.author_id) ?? "Author",
+    cover: book.cover_image,
+  }));
 
   return (
     <div className="section-gap-lg">

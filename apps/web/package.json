@@ -47,6 +47,8 @@
     "@tiptap/pm": "^3.18.0",
     "@tiptap/react": "^3.18.0",
     "@tiptap/starter-kit": "^3.18.0",
+    "@vercel/analytics": "^2.0.1",
+    "@vercel/speed-insights": "^2.0.0",
     "@verkli/db": "*",
     "@verkli/shared": "*",
     "bullmq": "^5",
@@ -72,6 +74,7 @@
     "zod": "^3.24.1"
   },
   "devDependencies": {
+    "@next/bundle-analyzer": "^16.1.6",
     "@playwright/test": "^1.58.2",
     "@tailwindcss/postcss": "^4",
     "@types/node": "^20",

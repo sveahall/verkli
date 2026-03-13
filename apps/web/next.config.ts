@@ -1,6 +1,7 @@
 import path from "path";
 import type { NextConfig } from "next";
 import { withSentryConfig } from "@sentry/nextjs";
+import withBundleAnalyzer from "@next/bundle-analyzer";
 
 const isProduction = process.env.NODE_ENV === "production";
 
@@ -143,6 +144,10 @@ const nextConfig: NextConfig = {
   allowedDevOrigins: ["192.168.35.146"],
 };
 
-export default withSentryConfig(nextConfig, {
+const analyzedConfig = withBundleAnalyzer({
+  enabled: process.env.ANALYZE === "true",
+})(nextConfig);
+
+export default withSentryConfig(analyzedConfig, {
   silent: !process.env.CI,
 });
