@@ -75,16 +75,34 @@ export async function getReadAccess({
   }
 
   if (userId) {
-    const { data: entitlement } = await supabase
+    // Book-level entitlement (chapter_id IS NULL) grants access to everything
+    const { data: bookEntitlement } = await supabase
       .from("entitlements")
       .select("id")
       .eq("user_id", userId)
       .eq("book_id", bookId)
       .eq("source", "purchase")
+      .is("chapter_id", null)
       .maybeSingle();
 
-    if (entitlement) {
+    if (bookEntitlement) {
       return { access: "full", reason: "purchased" };
+    }
+
+    // For per_chapter: check chapter-specific entitlement
+    if (pricingModel === "per_chapter") {
+      const { data: chapterEntitlement } = await supabase
+        .from("entitlements")
+        .select("id")
+        .eq("user_id", userId)
+        .eq("book_id", bookId)
+        .eq("chapter_id", chapterId)
+        .eq("source", "purchase")
+        .maybeSingle();
+
+      if (chapterEntitlement) {
+        return { access: "full", reason: "purchased" };
+      }
     }
 
     try {
@@ -130,7 +148,7 @@ type CanUserReadBookArgs = {
  * True when:
  * 1) the book is free
  * 2) the user is the book author
- * 3) the user has a purchase entitlement for the book
+ * 3) the user has a purchase entitlement for the book (book-level)
  * 4) the user has an active Plus subscription
  */
 export async function canUserReadBook({
@@ -185,12 +203,14 @@ export async function canUserReadBook({
     return false;
   }
 
+  // Book-level entitlement (chapter_id IS NULL)
   const { data: entitlement } = await supabase
     .from("entitlements")
     .select("id")
     .eq("user_id", userId)
     .eq("book_id", bookId)
     .eq("source", "purchase")
+    .is("chapter_id", null)
     .maybeSingle();
 
   if (entitlement) {

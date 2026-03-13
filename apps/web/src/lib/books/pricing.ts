@@ -1,7 +1,7 @@
 export const PRICE_CURRENCIES = ["SEK", "EUR", "USD"] as const;
 export type PriceCurrency = (typeof PRICE_CURRENCIES)[number];
 
-export const PRICING_MODELS = ["book_only"] as const;
+export const PRICING_MODELS = ["book_only", "per_chapter"] as const;
 export type PricingModel = (typeof PRICING_MODELS)[number];
 
 export type BookPricing = {
@@ -34,6 +34,9 @@ export function normalizePricingModel(value: unknown): PricingModel | null {
   const normalized = value.trim().toLowerCase();
   if (normalized === "book_only") {
     return "book_only";
+  }
+  if (normalized === "per_chapter") {
+    return "per_chapter";
   }
   return null;
 }

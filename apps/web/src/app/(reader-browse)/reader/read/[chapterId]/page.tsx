@@ -5,6 +5,7 @@ import { getReadAccess } from "@/lib/books/access";
 import FreemiumGate from "@/components/reader/FreemiumGate";
 import { logAnalyticsEvent } from "@/lib/analytics/events";
 import PurchaseBookButton from "../../books/[id]/PurchaseBookButton";
+import PurchaseChapterButton from "../../books/[id]/PurchaseChapterButton";
 import CommentsSection from "../../books/[id]/CommentsSection";
 import ReadingProgress from "./ReadingProgress";
 import ReaderChapterClient, { type ReaderHighlight, type ReaderSettings } from "./ReaderChapterClient";
@@ -76,7 +77,7 @@ export default async function ReaderReadPage({
 
   const { data: book } = await supabase
     .from("books")
-    .select("id, title, status, audiobook_status, author_id, price_amount, price_currency")
+    .select("id, title, status, audiobook_status, author_id, price_amount, price_currency, pricing_model")
     .eq("id", chapter.book_id)
     .maybeSingle();
 
@@ -95,6 +96,8 @@ export default async function ReaderReadPage({
 
   const priceAmount = Math.max(0, Math.trunc(Number((book as { price_amount?: number | null }).price_amount ?? 0)));
   const priceCurrency = String((book as { price_currency?: string | null }).price_currency ?? "USD").trim().toUpperCase() || "USD";
+  const bookPricingModel = String((book as { pricing_model?: string | null }).pricing_model ?? "book_only");
+  const isPerChapter = bookPricingModel === "per_chapter";
 
   const readAccess = await getReadAccess({
     supabase,
@@ -104,6 +107,7 @@ export default async function ReaderReadPage({
     bookVersionId: chapter.book_version_id,
     bookAuthorId: String((book as { author_id?: string | null }).author_id ?? ""),
     bookPriceAmount: priceAmount,
+    bookPricingModel,
   });
 
   if (readAccess.access === "locked") {
@@ -120,11 +124,17 @@ export default async function ReaderReadPage({
           <div className="rounded-[24px] border border-[#907AFF]/20 bg-[#907AFF]/5 p-8">
             <h1 className="text-[24px] font-semibold text-slate-900 dark:text-white">Chapter locked</h1>
             <p className="mt-3 text-[15px] text-slate-700 dark:text-white/80">
-              Purchase the book or upgrade to Verkli Plus to read all chapters.
+              {isPerChapter
+                ? "Purchase this chapter or upgrade to Verkli Plus to read it."
+                : "Purchase the book or upgrade to Verkli Plus to read all chapters."}
             </p>
             <div className="mt-6 flex flex-wrap items-center gap-3">
               {user ? (
-                <PurchaseBookButton bookId={book.id} amount={priceAmount} currency={priceCurrency} />
+                isPerChapter ? (
+                  <PurchaseChapterButton bookId={book.id} chapterId={chapterId} amount={priceAmount} currency={priceCurrency} />
+                ) : (
+                  <PurchaseBookButton bookId={book.id} amount={priceAmount} currency={priceCurrency} />
+                )
               ) : (
                 <Link
                   href={gateSignInHref}

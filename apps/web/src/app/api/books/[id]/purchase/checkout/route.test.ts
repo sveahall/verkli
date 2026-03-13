@@ -73,6 +73,7 @@ function makeChain(result: unknown) {
   const chain: Record<string, unknown> = {};
   const self = () => chain;
   chain.eq = vi.fn(self);
+  chain.is = vi.fn(self);
   chain.not = vi.fn(self);
   chain.gte = vi.fn(self);
   chain.order = vi.fn(self);

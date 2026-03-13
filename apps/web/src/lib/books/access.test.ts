@@ -33,7 +33,11 @@ function makeSupabase(rows: { books?: Row; entitlement?: Row | null }): Supabase
                     return {
                       eq() {
                         return {
-                          maybeSingle: async () => ({ data: rows.entitlement ?? null, error: null }),
+                          is() {
+                            return {
+                              maybeSingle: async () => ({ data: rows.entitlement ?? null, error: null }),
+                            };
+                          },
                         };
                       },
                     };

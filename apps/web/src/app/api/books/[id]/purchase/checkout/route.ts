@@ -53,6 +53,17 @@ export async function POST(
     return apiError(E_UNAUTHORIZED, 401);
   }
 
+  // Parse optional chapter_id from request body
+  let chapterId: string | null = null;
+  try {
+    const body = await request.json().catch(() => null);
+    if (body && typeof body === "object" && typeof body.chapter_id === "string" && body.chapter_id.trim()) {
+      chapterId = body.chapter_id.trim();
+    }
+  } catch {
+    // No body or invalid JSON — treat as book-level purchase
+  }
+
   const { data: rawBook, error: bookError } = await supabase
     .from("books")
     .select("id, title, author_id, status, price_amount, price_currency, pricing_model")
@@ -91,13 +102,18 @@ export async function POST(
     return apiError(E_INVALID_BOOK_PRICING, 422);
   }
 
-  if (pricing.pricingModel !== "book_only") {
-    console.error("[purchase.checkout] unsupported pricing model", {
-      bookId,
-      userId: user.id,
-      pricingModel: pricing.pricingModel,
-    });
+  if (pricing.pricingModel !== "book_only" && pricing.pricingModel !== "per_chapter") {
     return apiError(E_INVALID_BOOK_PRICING, 422);
+  }
+
+  // For per_chapter, chapter_id is required
+  if (pricing.pricingModel === "per_chapter" && !chapterId) {
+    return apiError(E_INVALID_BOOK_PRICING, 400);
+  }
+
+  // For book_only, chapter_id must be null
+  if (pricing.pricingModel === "book_only") {
+    chapterId = null;
   }
 
   const authorId = String(book.author_id ?? "");
@@ -112,17 +128,63 @@ export async function POST(
   const amount = pricing.priceAmount;
   const currency = pricing.priceCurrency;
 
-  const hasAccess = await canUserReadBook({
-    supabase,
-    userId: user.id,
-    bookId,
-    bookAuthorId: authorId,
-    bookPriceAmount: amount,
-    bookPricingModel: pricing.pricingModel,
-  });
+  // Validate chapter belongs to the book and get its title
+  let chapterTitle: string | null = null;
+  if (chapterId) {
+    const { data: chapter } = await supabase
+      .from("chapters")
+      .select("id, title, book_id")
+      .eq("id", chapterId)
+      .maybeSingle();
 
-  if (hasAccess) {
-    return apiError(E_ALREADY_UNLOCKED, 409);
+    if (!chapter || String((chapter as { book_id?: string }).book_id ?? "") !== bookId) {
+      return apiError(E_BOOK_NOT_FOUND, 404);
+    }
+    chapterTitle = String((chapter as { title?: string }).title ?? "Chapter");
+  }
+
+  // Check existing access
+  if (chapterId) {
+    // For chapter purchase: check if user already has access to this chapter
+    const { data: chapterEntitlement } = await supabase
+      .from("entitlements")
+      .select("id")
+      .eq("user_id", user.id)
+      .eq("book_id", bookId)
+      .eq("chapter_id", chapterId)
+      .eq("source", "purchase")
+      .maybeSingle();
+
+    if (chapterEntitlement) {
+      return apiError(E_ALREADY_UNLOCKED, 409);
+    }
+
+    // Also check book-level entitlement
+    const { data: bookEntitlement } = await supabase
+      .from("entitlements")
+      .select("id")
+      .eq("user_id", user.id)
+      .eq("book_id", bookId)
+      .eq("source", "purchase")
+      .is("chapter_id", null)
+      .maybeSingle();
+
+    if (bookEntitlement) {
+      return apiError(E_ALREADY_UNLOCKED, 409);
+    }
+  } else {
+    const hasAccess = await canUserReadBook({
+      supabase,
+      userId: user.id,
+      bookId,
+      bookAuthorId: authorId,
+      bookPriceAmount: amount,
+      bookPricingModel: pricing.pricingModel,
+    });
+
+    if (hasAccess) {
+      return apiError(E_ALREADY_UNLOCKED, 409);
+    }
   }
 
   const admin = createAdminClient();
@@ -130,7 +192,7 @@ export async function POST(
   // ── Server-side idempotency: reuse pending checkout if session still open ──
   try {
     const thirtyMinAgo = new Date(Date.now() - 30 * 60 * 1000).toISOString();
-    const { data: existingOrder } = await admin
+    let idempotencyQuery = admin
       .from("orders" as never)
       .select("id, stripe_session_id")
       .eq("user_id", user.id)
@@ -139,8 +201,15 @@ export async function POST(
       .not("stripe_session_id", "is", null)
       .gte("created_at", thirtyMinAgo)
       .order("created_at", { ascending: false })
-      .limit(1)
-      .maybeSingle();
+      .limit(1);
+
+    if (chapterId) {
+      idempotencyQuery = idempotencyQuery.eq("chapter_id", chapterId);
+    } else {
+      idempotencyQuery = idempotencyQuery.is("chapter_id", null);
+    }
+
+    const { data: existingOrder } = await idempotencyQuery.maybeSingle();
 
     const existing = existingOrder as { id: string; stripe_session_id: string } | null;
     if (existing?.stripe_session_id) {
@@ -154,10 +223,8 @@ export async function POST(
           currency,
         });
       }
-      // Session expired/completed — fall through to create a new one
     }
   } catch (err) {
-    // Non-blocking: if idempotency check fails, proceed to create new session
     console.warn("[purchase.checkout] idempotency check failed, continuing", {
       bookId,
       userId: user.id,
@@ -165,16 +232,21 @@ export async function POST(
     });
   }
 
+  const orderPayload: Record<string, unknown> = {
+    user_id: user.id,
+    book_id: bookId,
+    amount,
+    currency,
+    provider: "stripe",
+    status: "pending",
+  };
+  if (chapterId) {
+    orderPayload.chapter_id = chapterId;
+  }
+
   const { data: order, error: orderError } = await admin
     .from("orders" as never)
-    .insert({
-      user_id: user.id,
-      book_id: bookId,
-      amount,
-      currency,
-      provider: "stripe",
-      status: "pending",
-    })
+    .insert(orderPayload)
     .select("id")
     .single();
 
@@ -190,6 +262,9 @@ export async function POST(
 
   const orderId = String((order as { id: string }).id);
   const baseUrl = getBaseUrl(request);
+  const productName = chapterTitle
+    ? `${chapterTitle} — ${String(book.title ?? "Book")}`
+    : String(book.title ?? "Book");
 
   try {
     await logAnalyticsEvent(admin, {
@@ -197,7 +272,7 @@ export async function POST(
       userId: user.id,
       bookId,
       path: `/reader/books/${bookId}`,
-      props: { provider: "stripe", orderId, amount, currency, pricingModel: pricing.pricingModel },
+      props: { provider: "stripe", orderId, amount, currency, pricingModel: pricing.pricingModel, chapterId: chapterId ?? undefined },
     });
   } catch (error) {
     console.warn("[purchase.checkout] analytics purchase_attempt failed", {
@@ -209,10 +284,21 @@ export async function POST(
   }
 
   try {
+    const metadata: Record<string, string | number> = {
+      orderId,
+      userId: user.id,
+      bookId,
+      paymentType: "book_purchase",
+      amountMinor: amount,
+    };
+    if (chapterId) {
+      metadata.chapterId = chapterId;
+    }
+
     const session = await createStripeCheckoutSession({
       amount,
       currency,
-      bookTitle: String(book.title ?? "Book"),
+      bookTitle: productName,
       customerEmail: user.email,
       successUrl: `${baseUrl}/reader/books/${bookId}/purchase/success?session_id={CHECKOUT_SESSION_ID}&order_id=${encodeURIComponent(orderId)}`,
       cancelUrl: `${baseUrl}/reader/books/${bookId}/purchase/cancel?order_id=${encodeURIComponent(orderId)}`,

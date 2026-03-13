@@ -5,7 +5,7 @@ import {
   normalizePrintOnDemandSettings,
   type BookFormat,
   type PrintOnDemandSettings,
-} from "./print-panel";
+} from "./PrintPanel.helpers";
 
 type Props = {
   bookId: string;

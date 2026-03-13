@@ -23,7 +23,7 @@ export async function confirmStripeBookPurchase({
 
   const { data: order, error: orderError } = await admin
     .from("orders" as never)
-    .select("id, user_id, book_id, status, amount, currency")
+    .select("id, user_id, book_id, chapter_id, status, amount, currency")
     .eq("id", orderId)
     .maybeSingle();
 
@@ -34,15 +34,24 @@ export async function confirmStripeBookPurchase({
   const orderUserId = String((order as { user_id?: string }).user_id ?? "");
   const orderBookId = String((order as { book_id?: string }).book_id ?? "");
   const orderStatus = String((order as { status?: string }).status ?? "");
+  const orderChapterId = (order as { chapter_id?: string | null }).chapter_id ?? null;
 
   if (orderUserId !== userId || orderBookId !== bookId) {
     return false;
   }
 
   if (orderStatus === "paid") {
-    await admin
-      .from("entitlements" as never)
-      .upsert({ user_id: userId, book_id: bookId, source: "purchase" }, { onConflict: "user_id,book_id" });
+    if (orderChapterId) {
+      await admin
+        .from("entitlements" as never)
+        .insert({ user_id: userId, book_id: bookId, chapter_id: orderChapterId, source: "purchase" })
+        .then(() => {});
+    } else {
+      await admin
+        .from("entitlements" as never)
+        .insert({ user_id: userId, book_id: bookId, source: "purchase" })
+        .then(() => {});
+    }
     return true;
   }
 
@@ -94,9 +103,19 @@ export async function confirmStripeBookPurchase({
     return false;
   }
 
+  // Create entitlement — book-level or chapter-level based on order
+  const entitlementPayload: Record<string, string> = {
+    user_id: userId,
+    book_id: bookId,
+    source: "purchase",
+  };
+  if (orderChapterId) {
+    entitlementPayload.chapter_id = orderChapterId;
+  }
+
   const { error: entitlementError } = await admin
     .from("entitlements" as never)
-    .upsert({ user_id: userId, book_id: bookId, source: "purchase" }, { onConflict: "user_id,book_id" });
+    .insert(entitlementPayload);
 
   if (paidOrder?.id) {
     await logAnalyticsEvent(admin, {
@@ -104,7 +123,7 @@ export async function confirmStripeBookPurchase({
       userId,
       bookId,
       path: `/reader/books/${bookId}`,
-      props: { provider: "stripe", orderId },
+      props: { provider: "stripe", orderId, chapterId: orderChapterId ?? undefined },
     });
   }
 

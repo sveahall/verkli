@@ -27,8 +27,9 @@ import dynamic from "next/dynamic";
 
 const CoverCropModal = dynamic(() => import("@/components/books/CoverCropModal"), { ssr: false });
 import PrintPanel from "./editor/panels/PrintPanel";
-import { normalizePrintOnDemandSettings, type PrintOnDemandSettings } from "./editor/panels/print-panel";
+import { normalizePrintOnDemandSettings, type PrintOnDemandSettings } from "./editor/panels/PrintPanel.helpers";
 import TranslatePanel from "./editor/panels/TranslatePanel";
+import PolishPanel from "./editor/panels/PolishPanel";
 
 const ACCEPTED_COVER_TYPES = ".jpg,.jpeg,.png,image/jpeg,image/png";
 const ACCEPTED_COVER_EXTENSIONS = new Set(["jpg", "jpeg", "png"]);
@@ -250,6 +251,7 @@ type Book = {
   audiobook_status?: string | null;
   price_amount?: number | null;
   price_currency?: string | null;
+  pricing_model?: string | null;
   print_on_demand_settings?: unknown | null;
 };
 
@@ -751,8 +753,10 @@ export default function BookEditor({
   const initialCurrency = ["SEK", "EUR", "USD"].includes(String(book.price_currency ?? "").trim().toUpperCase())
     ? String(book.price_currency).trim().toUpperCase()
     : "SEK";
+  const initialPricingModel: "book_only" | "per_chapter" = book.pricing_model === "per_chapter" ? "per_chapter" : "book_only";
   const [priceAmountMinor, setPriceAmountMinor] = useState(initialPriceMinor);
   const [priceCurrency, setPriceCurrency] = useState(initialCurrency);
+  const [pricingModel, setPricingModel] = useState<"book_only" | "per_chapter">(initialPricingModel);
   const [pricingSaving, setPricingSaving] = useState(false);
   const [pricingError, setPricingError] = useState<string | null>(null);
   const [pricingSaved, setPricingSaved] = useState(false);
@@ -819,7 +823,8 @@ export default function BookEditor({
       : "SEK";
     setPriceAmountMinor(minor);
     setPriceCurrency(cur);
-  }, [book.price_amount, book.price_currency]);
+    setPricingModel(book.pricing_model === "per_chapter" ? "per_chapter" : "book_only");
+  }, [book.price_amount, book.price_currency, book.pricing_model]);
 
   // Cleanup pricingSaved timer on unmount
   useEffect(() => {
@@ -1543,7 +1548,7 @@ export default function BookEditor({
       const res = await fetch(`/api/books/${book.id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ price_amount: priceAmountMinor, price_currency: priceCurrency }),
+        body: JSON.stringify({ price_amount: priceAmountMinor, price_currency: priceCurrency, pricing_model: pricingModel }),
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
@@ -1560,7 +1565,7 @@ export default function BookEditor({
     } finally {
       setPricingSaving(false);
     }
-  }, [book.id, priceAmountMinor, priceCurrency, router, toast]);
+  }, [book.id, priceAmountMinor, priceCurrency, pricingModel, router, toast]);
 
   useEffect(() => {
     if (book.cover_image && coverPreviewUrl && book.cover_image === coverPreviewUrl) {
@@ -2719,7 +2724,7 @@ export default function BookEditor({
               {priceAmountMinor > 0 && (
                 <div className="flex flex-wrap gap-4 pt-2">
                   <div>
-                    <label htmlFor="price-amount" className="mb-1 block text-xs text-slate-500 dark:text-white/50">Price (shown to readers)</label>
+                    <label htmlFor="price-amount" className="mb-1 block text-xs text-slate-500 dark:text-white/50">{pricingModel === "per_chapter" ? "Price per chapter" : "Price (shown to readers)"}</label>
                     <input
                       id="price-amount"
                       type="number"
@@ -2756,18 +2761,62 @@ export default function BookEditor({
 
             <div className="rounded-2xl border border-black/[0.05] bg-white/60 p-5 shadow-[0_1px_3px_rgba(0,0,0,0.02)] backdrop-blur-sm dark:border-white/[0.06] dark:bg-white/[0.02] dark:shadow-none space-y-3">
               <h3 className="text-sm font-semibold text-slate-900 dark:text-white">Sales model</h3>
-              <div className="flex items-center gap-3 rounded-lg border border-[#907AFF]/30 bg-[#907AFF]/10 px-3 py-2 dark:bg-[#907AFF]/15">
-                <span className="text-sm font-medium text-slate-900 dark:text-white">Full book</span>
-                <span className="rounded-full bg-[#907AFF]/20 px-2 py-0.5 text-xs font-medium text-[#5c4bb8] dark:text-[#b8a9ff]">Selected</span>
-              </div>
-              <div className="flex items-center gap-3 rounded-lg border border-black/[0.06] bg-slate-50/50 px-3 py-2 dark:border-white/[0.06] dark:bg-white/5">
-                <span className="text-sm text-slate-600 dark:text-white/60">Chapter</span>
-                <span className="text-xs text-slate-500 dark:text-white/50">Coming later</span>
-              </div>
+              <button
+                type="button"
+                onClick={() => setPricingModel("book_only")}
+                className={`flex w-full items-center gap-3 rounded-lg border px-3 py-2 text-left transition ${
+                  pricingModel === "book_only"
+                    ? "border-[#907AFF]/30 bg-[#907AFF]/10 dark:bg-[#907AFF]/15"
+                    : "border-black/[0.06] bg-slate-50/50 hover:border-black/[0.12] dark:border-white/[0.06] dark:bg-white/5 dark:hover:border-white/[0.12]"
+                }`}
+              >
+                <span className={`text-sm ${pricingModel === "book_only" ? "font-medium text-slate-900 dark:text-white" : "text-slate-600 dark:text-white/60"}`}>Full book</span>
+                {pricingModel === "book_only" && (
+                  <span className="rounded-full bg-[#907AFF]/20 px-2 py-0.5 text-xs font-medium text-[#5c4bb8] dark:text-[#b8a9ff]">Selected</span>
+                )}
+              </button>
+              <button
+                type="button"
+                onClick={() => setPricingModel("per_chapter")}
+                className={`flex w-full items-center gap-3 rounded-lg border px-3 py-2 text-left transition ${
+                  pricingModel === "per_chapter"
+                    ? "border-[#907AFF]/30 bg-[#907AFF]/10 dark:bg-[#907AFF]/15"
+                    : "border-black/[0.06] bg-slate-50/50 hover:border-black/[0.12] dark:border-white/[0.06] dark:bg-white/5 dark:hover:border-white/[0.12]"
+                }`}
+              >
+                <span className={`text-sm ${pricingModel === "per_chapter" ? "font-medium text-slate-900 dark:text-white" : "text-slate-600 dark:text-white/60"}`}>Chapter</span>
+                {pricingModel === "per_chapter" && (
+                  <span className="rounded-full bg-[#907AFF]/20 px-2 py-0.5 text-xs font-medium text-[#5c4bb8] dark:text-[#b8a9ff]">Selected</span>
+                )}
+              </button>
               <div className="flex items-center gap-3 rounded-lg border border-black/[0.06] bg-slate-50/50 px-3 py-2 dark:border-white/[0.06] dark:bg-white/5">
                 <span className="text-sm text-slate-600 dark:text-white/60">Bundle</span>
                 <span className="text-xs text-slate-500 dark:text-white/50">Coming later</span>
               </div>
+              <p className="text-xs text-slate-500 dark:text-white/50">
+                {pricingModel === "book_only"
+                  ? "Readers buy the complete book at the price above."
+                  : "Readers buy chapters individually at the price above. First chapter is always free."}
+              </p>
+              {pricingModel === "per_chapter" && chapters.length > 0 && (
+                <div className="mt-2 space-y-1">
+                  <p className="text-xs font-medium text-slate-600 dark:text-white/60">Chapter pricing preview</p>
+                  <div className="max-h-48 overflow-y-auto rounded-lg border border-black/[0.06] dark:border-white/[0.06]">
+                    {chapters.map((ch, i) => {
+                      const isFree = i === 0;
+                      const displayPrice = priceAmountMinor > 0 ? `${(priceAmountMinor / 100).toFixed(priceAmountMinor % 100 === 0 ? 0 : 2)} ${priceCurrency}` : "Free";
+                      return (
+                        <div key={ch.id} className={`flex items-center justify-between px-3 py-1.5 text-xs ${i > 0 ? "border-t border-black/[0.04] dark:border-white/[0.04]" : ""}`}>
+                          <span className="truncate text-slate-700 dark:text-white/70">{ch.title || `Chapter ${i + 1}`}</span>
+                          <span className={`ml-2 shrink-0 ${isFree ? "text-emerald-600 dark:text-emerald-400" : "text-slate-500 dark:text-white/50"}`}>
+                            {isFree ? "Free" : displayPrice}
+                          </span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
             </div>
 
             <div className="rounded-2xl border border-black/[0.05] bg-white/60 p-5 shadow-[0_1px_3px_rgba(0,0,0,0.02)] backdrop-blur-sm dark:border-white/[0.06] dark:bg-white/[0.02] dark:shadow-none">
@@ -2775,7 +2824,9 @@ export default function BookEditor({
               <p className="text-sm text-slate-700 dark:text-white/80">
                 {priceAmountMinor <= 0
                   ? "Free - everyone can read the book."
-                  : "Paid - readers need to purchase the book or have access via entitlement to read."}
+                  : pricingModel === "per_chapter"
+                    ? "Paid per chapter - readers purchase chapters individually. First chapter is free."
+                    : "Paid - readers need to purchase the book or have access via entitlement to read."}
                 {" "}
                 {currentVisibility === "followers" && "Followers-only affects discoverability, not the paywall."}
               </p>
@@ -2796,7 +2847,7 @@ export default function BookEditor({
               <button
                 type="button"
                 onClick={handleSavePricing}
-                disabled={pricingSaving || (priceAmountMinor === initialPriceMinor && priceCurrency === initialCurrency)}
+                disabled={pricingSaving || (priceAmountMinor === initialPriceMinor && priceCurrency === initialCurrency && pricingModel === initialPricingModel)}
                 aria-label="Save pricing"
                 className="rounded-xl bg-slate-900 px-4 py-2.5 text-[13px] font-semibold text-white shadow-sm transition-all hover:bg-slate-800 hover:shadow-md disabled:opacity-50 disabled:cursor-not-allowed dark:bg-white dark:text-slate-900"
               >
@@ -3345,6 +3396,22 @@ export default function BookEditor({
             onOpenCover={() => setTool("cover")}
             onOpenPublish={() => setTool("publish")}
             onSavePrintOnDemandSettings={handleSavePrintOnDemandSettings}
+          />
+        )}
+
+        {tool === "polish" && (
+          <PolishPanel
+            bookId={book.id}
+            bookTitle={bookTitle}
+            chapters={chapters}
+            selectedChapterId={selectedChapterId}
+            bookVersions={bookVersions}
+            activeVersion={activeVersion}
+            audiobookStatus={typeof book.audiobook_status === "string" ? book.audiobook_status : null}
+            onSelectChapter={(id) => { setSelectedChapterId(id); setSessionStartWords(null); }}
+            onOpenEdit={() => setTool("edit")}
+            onOpenTranslate={() => setTool("translate")}
+            onOpenAudiobook={() => setTool("audiobook")}
           />
         )}
 

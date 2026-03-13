@@ -10,6 +10,7 @@ import StartReadingLink from "./StartReadingLink";
 import BookmarkButton from "./BookmarkButton";
 import OfflineSaveButton from "./OfflineSaveButton";
 import PurchaseBookButton from "./PurchaseBookButton";
+import PurchaseChapterButton from "./PurchaseChapterButton";
 import PurchaseSuccessRefresh from "./PurchaseSuccessRefresh";
 import BookReviewsSection from "./BookReviewsSection";
 import CommentsSection from "./CommentsSection";
@@ -19,7 +20,7 @@ async function getBook(id: string) {
   const supabase = await createClient();
   const { data } = await supabase
     .from("books")
-    .select("id, title, description, cover_image, status, author_id, language, original_language, original_url, audiobook_status, price_amount, price_currency")
+    .select("id, title, description, cover_image, status, author_id, language, original_language, original_url, audiobook_status, price_amount, price_currency, pricing_model")
     .eq("id", id)
     .maybeSingle();
   return data;
@@ -93,7 +94,7 @@ export default async function ReaderBookDetail({
 
   const { data: book } = await supabase
     .from("books")
-    .select("id, title, description, cover_image, status, author_id, language, original_language, original_url, audiobook_status, price_amount, price_currency")
+    .select("id, title, description, cover_image, status, author_id, language, original_language, original_url, audiobook_status, price_amount, price_currency, pricing_model")
     .eq("id", id)
     .maybeSingle();
 
@@ -107,6 +108,8 @@ export default async function ReaderBookDetail({
 
   const priceAmount = Math.max(0, Math.trunc(Number((book as { price_amount?: number | null }).price_amount ?? 0)));
   const priceCurrency = String((book as { price_currency?: string | null }).price_currency ?? "USD").trim().toUpperCase() || "USD";
+  const pricingModel = String((book as { pricing_model?: string | null }).pricing_model ?? "book_only");
+  const isPerChapter = pricingModel === "per_chapter";
   const isFreeBook = priceAmount <= 0;
   const hasReadAccess = await canUserReadBook({
     supabase,
@@ -114,6 +117,7 @@ export default async function ReaderBookDetail({
     bookId: book.id,
     bookAuthorId: String((book as { author_id?: string | null }).author_id ?? ""),
     bookPriceAmount: priceAmount,
+    bookPricingModel: pricingModel,
   });
 
   try {
@@ -218,6 +222,21 @@ export default async function ReaderBookDetail({
     ]);
     if (readingRes.data?.chapter_id) lastChapterId = readingRes.data.chapter_id;
     isBookmarked = !!bookmarkRes.data;
+  }
+
+  // For per_chapter books, load which chapters the user has purchased
+  const purchasedChapterIds = new Set<string>();
+  if (user && isPerChapter && !isFreeBook) {
+    const { data: chapterEntitlements } = await supabase
+      .from("entitlements")
+      .select("chapter_id")
+      .eq("user_id", user.id)
+      .eq("book_id", book.id)
+      .eq("source", "purchase")
+      .not("chapter_id", "is", null);
+    for (const ent of chapterEntitlements ?? []) {
+      if (ent.chapter_id) purchasedChapterIds.add(String(ent.chapter_id));
+    }
   }
 
   const authorName = authorProfile?.display_name || authorProfile?.username || "Author";
@@ -341,11 +360,20 @@ export default async function ReaderBookDetail({
             </div>
           ) : null}
 
-          {!hasReadAccess && !isFreeBook ? (
+          {!hasReadAccess && !isFreeBook && !isPerChapter ? (
             <div className="mt-6 rounded-[20px] border border-[#907AFF]/20 bg-[#907AFF]/5 p-5 text-sm">
               <p className="font-semibold text-slate-900 dark:text-white">This book requires purchase or Verkli Plus</p>
               <p className="mt-1 text-slate-600 dark:text-white/60">
                 Chapter 1 is free to read. Unlock all chapters for {formatMoney(priceAmount, priceCurrency)} or with Verkli Plus.
+              </p>
+            </div>
+          ) : null}
+
+          {!hasReadAccess && !isFreeBook && isPerChapter ? (
+            <div className="mt-6 rounded-[20px] border border-[#907AFF]/20 bg-[#907AFF]/5 p-5 text-sm">
+              <p className="font-semibold text-slate-900 dark:text-white">Chapters available individually</p>
+              <p className="mt-1 text-slate-600 dark:text-white/60">
+                First chapter is free. Buy chapters individually for {formatMoney(priceAmount, priceCurrency)} each, or get all with Verkli Plus.
               </p>
             </div>
           ) : null}
@@ -358,6 +386,23 @@ export default async function ReaderBookDetail({
                   firstChapterId={firstChapter?.id ?? null}
                   serverChapterId={user ? lastChapterId : null}
                 />
+              ) : isPerChapter ? (
+                <>
+                  {firstContentChapter && (
+                    <Link
+                      href={`/reader/read/${firstContentChapter.id}`}
+                      className="inline-flex h-11 min-h-11 items-center justify-center rounded-xl bg-emerald-600 px-5 text-sm font-semibold text-white shadow-sm transition hover:bg-emerald-700 hover:shadow"
+                    >
+                      Read chapter 1 free
+                    </Link>
+                  )}
+                  <Link
+                    href="/reader/billing"
+                    className="inline-flex h-11 min-h-11 items-center justify-center rounded-xl border border-[#907AFF]/30 bg-[#907AFF]/10 px-5 text-sm font-semibold text-[#907AFF] transition hover:bg-[#907AFF]/20 dark:text-[#B8A9FF] dark:hover:bg-[#907AFF]/15"
+                  >
+                    Verkli Plus
+                  </Link>
+                </>
               ) : (
                 <>
                   {firstContentChapter && (
@@ -411,6 +456,42 @@ export default async function ReaderBookDetail({
           </div>
         </div>
       </section>
+      {isPerChapter && !isFreeBook && (chapters ?? []).length > 0 && (
+        <section className="mx-auto max-w-[1100px] px-6 pb-8">
+          <h2 className="text-[18px] font-semibold text-slate-900 dark:text-white mb-4">Chapters</h2>
+          <div className="space-y-2">
+            {(chapters ?? []).map((ch, idx) => {
+              const isFirst = idx === 0 || contentPattern.test(ch.title ?? "") && idx === (chapters ?? []).findIndex((c) => contentPattern.test(c.title ?? ""));
+              const isPreviewChapter = idx === 0;
+              const isPurchased = purchasedChapterIds.has(ch.id);
+              return (
+                <div key={ch.id} className="flex items-center justify-between rounded-xl border border-black/[0.06] bg-white/60 px-4 py-3 dark:border-white/[0.06] dark:bg-white/[0.02]">
+                  <div className="flex items-center gap-3 min-w-0">
+                    <span className="text-xs font-medium text-slate-400 dark:text-white/40 w-6 text-right flex-shrink-0">{ch.order}</span>
+                    <Link href={`/reader/read/${ch.id}`} className="text-sm text-slate-800 hover:text-slate-900 dark:text-white/80 dark:hover:text-white truncate">
+                      {ch.title}
+                    </Link>
+                  </div>
+                  <div className="flex-shrink-0 ml-3">
+                    {isPreviewChapter || hasReadAccess || isPurchased ? (
+                      <span className="text-xs text-emerald-600 dark:text-emerald-400 font-medium">
+                        {isPreviewChapter ? "Free" : "Unlocked"}
+                      </span>
+                    ) : user ? (
+                      <PurchaseChapterButton bookId={book.id} chapterId={ch.id} amount={priceAmount} currency={priceCurrency} />
+                    ) : (
+                      <Link href={signInHref} className="text-xs font-medium text-[#907AFF] hover:text-[#8069EE]">
+                        Sign in to buy
+                      </Link>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </section>
+      )}
+
       <SimilarBooksRail
         bookId={book.id}
         authorId={book.author_id}
