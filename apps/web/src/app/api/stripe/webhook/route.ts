@@ -227,7 +227,7 @@ async function persistBillingAccount(
   role: "reader" | "author",
   patch: BillingAccountPatch
 ): Promise<void> {
-  console.log("[billing-upsert]", { userId, role, plan: patch.plan, status: patch.status });
+  console.info("[billing-upsert]", { userId, role, plan: patch.plan, status: patch.status });
   const { error } = await upsertBillingAccount(admin, userId, role, patch);
   if (error) {
     throw new Error(error.message);
@@ -292,7 +292,7 @@ async function processTranslationCheckoutSession(
   }
 
   const metadata = extractMetadata(session.metadata);
-  console.log("[stripe.webhook] translation payment completed", {
+  console.info("[stripe.webhook] translation payment completed", {
     sessionId: trimToNull(session.id),
     userId: metadata.user_id,
     bookId: metadata.book_id,
@@ -325,7 +325,7 @@ async function processPaymentKindCheckoutSession(
   if (paymentKind === "audiobook") {
     if (isPaidCheckoutSession(session)) {
       const metadata = extractMetadata(session.metadata);
-      console.log("[stripe.webhook] audiobook payment completed", {
+      console.info("[stripe.webhook] audiobook payment completed", {
         sessionId: trimToNull(session.id),
         userId: metadata.user_id,
         bookId: metadata.book_id,

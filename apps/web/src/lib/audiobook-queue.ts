@@ -96,7 +96,7 @@ export async function enqueueAudiobookJob(data: AudiobookJobData): Promise<strin
       }
     } else {
       // Job already queued/running
-      console.log("[audiobook queue] Job already exists:", data.jobId, "state:", state);
+      console.info("[audiobook queue] Job already exists:", data.jobId, "state:", state);
       return existing.id ?? null;
     }
   }
@@ -106,7 +106,7 @@ export async function enqueueAudiobookJob(data: AudiobookJobData): Promise<strin
     const id = job.id ?? null;
 
     if (id) {
-      console.log(
+      console.info(
         "[audiobook queue] Job enqueued:",
         id,
         "bookId:", data.bookId,

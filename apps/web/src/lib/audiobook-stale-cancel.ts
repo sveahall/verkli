@@ -51,6 +51,6 @@ export async function forceFailCancelledJob(
     })
     .eq("id", jobId);
 
-  console.log("[audiobook stale-cancel] force-failed stuck job:", jobId);
+  console.info("[audiobook stale-cancel] force-failed stuck job:", jobId);
   return failedOutput;
 }

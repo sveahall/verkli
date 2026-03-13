@@ -80,7 +80,7 @@ export async function enqueueTranslationJob(data: TranslationJobData): Promise<s
   const existing = await q.getJob(jobId);
   if (existing) {
     const state = await existing.getState();
-    console.log("[translation queue] existing job", jobId, "state:", state);
+    console.info("[translation queue] existing job", jobId, "state:", state);
 
     if (state === "active") {
       // Job is actively processing — cannot safely remove.
@@ -114,7 +114,7 @@ export async function enqueueTranslationJob(data: TranslationJobData): Promise<s
     const job = await q.add("translate", data, { jobId });
     const id = job.id ?? null;
     if (id) {
-      console.log(
+      console.info(
         "[translation queue] Job enqueued:",
         id,
         "bookId:",

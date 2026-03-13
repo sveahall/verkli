@@ -10,12 +10,16 @@ import {
   E_INVALID_BOOK_VERSION,
   E_INVALID_JSON,
   E_NOT_AUTHENTICATED,
+  E_RATE_LIMIT_EXCEEDED,
   E_REVIEW_NOT_FOUND,
   E_REVIEWS_LOAD_FAILED,
   E_REVIEW_SUBMIT_FAILED,
   E_REVIEW_UPDATE_FAILED,
   E_VALIDATION_FAILED,
 } from "@/lib/api-errors";
+import { createPerUserRateLimiter } from "@/lib/rate-limit";
+
+const reviewLimiter = createPerUserRateLimiter({ maxPerMinute: 10 });
 
 const paramsSchema = z.object({
   id: z.string().uuid("Invalid book ID"),
@@ -278,6 +282,9 @@ export async function POST(
 
   if (!user) return apiError(E_NOT_AUTHENTICATED, 401);
 
+  const rl = await reviewLimiter.check(user.id);
+  if (!rl.allowed) return apiError(E_RATE_LIMIT_EXCEEDED, 429, { retryAfterSeconds: rl.retryAfterSeconds });
+
   let body: unknown;
   try {
     body = await request.json();
@@ -349,6 +356,9 @@ export async function PATCH(
   } = await supabase.auth.getUser();
 
   if (!user) return apiError(E_NOT_AUTHENTICATED, 401);
+
+  const rl = await reviewLimiter.check(user.id);
+  if (!rl.allowed) return apiError(E_RATE_LIMIT_EXCEEDED, 429, { retryAfterSeconds: rl.retryAfterSeconds });
 
   let body: unknown;
   try {

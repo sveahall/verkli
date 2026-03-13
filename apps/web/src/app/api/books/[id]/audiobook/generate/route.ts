@@ -18,9 +18,12 @@ import {
   E_JOB_CREATION_FAILED,
   E_NO_CHAPTERS_FOR_VERSION,
   E_QUEUE_UNAVAILABLE,
+  E_RATE_LIMIT_EXCEEDED,
 } from "@/lib/api-errors";
+import { createPerUserRateLimiter } from "@/lib/rate-limit";
 import { isCancelStale, forceFailCancelledJob } from "@/lib/audiobook-stale-cancel";
 
+const audiobookLimiter = createPerUserRateLimiter({ maxPerMinute: 5 });
 const AI_JOB_KIND = "audiobook_generation";
 
 // Narrator metadata persisted with jobs/cache keys.
@@ -168,6 +171,9 @@ export async function POST(
   // SECURITY: Require author role
   const { user, response } = await requireAuthorRoleForApi();
   if (response) return response;
+
+  const rl = await audiobookLimiter.check(user.id);
+  if (!rl.allowed) return apiError(E_RATE_LIMIT_EXCEEDED, 429, { retryAfterSeconds: rl.retryAfterSeconds });
 
   // Allow bypassing Pro check if a valid paid Stripe session is provided
   const stripeSessionId =
@@ -444,7 +450,7 @@ export async function POST(
     return apiError(E_QUEUE_UNAVAILABLE, 503);
   }
 
-  console.log(
+  console.info(
     "[audiobook generate] job created:",
     job.id,
     "bookId:",

@@ -34,7 +34,7 @@ export async function isDuplicate(
   try {
     const dup = await checkFn();
     if (dup && label) {
-      console.log(`[idempotency] duplicate detected, skipping: ${label}`);
+      console.info(`[idempotency] duplicate detected, skipping: ${label}`);
     }
     return dup;
   } catch (err) {

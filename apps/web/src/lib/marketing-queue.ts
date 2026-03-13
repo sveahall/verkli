@@ -75,7 +75,7 @@ export async function enqueueMarketingJob(data: MarketingJobData): Promise<strin
 
   if (existing) {
     const state = await existing.getState();
-    console.log("[marketing queue] existing job", jobId, "state:", state);
+    console.info("[marketing queue] existing job", jobId, "state:", state);
 
     if (state === "active") {
       console.warn("[marketing queue] job is actively processing, cannot re-enqueue:", jobId);
@@ -97,7 +97,7 @@ export async function enqueueMarketingJob(data: MarketingJobData): Promise<strin
     const job = await q.add("marketing-generate", data, { jobId });
     const id = job.id ?? null;
     if (id) {
-      console.log(
+      console.info(
         "[marketing queue] Job enqueued:",
         id,
         "bookId:",

@@ -169,7 +169,7 @@ export async function POST(request: Request) {
           return apiError(E_GENERIC_ERROR, 500);
         }
         const position = await getPosition(supabase, existing.created_at);
-        console.log("[reader waitlist] duplicate signup", { id: existing.id });
+        console.info("[reader waitlist] duplicate signup", { id: existing.id });
         return NextResponse.json(
           { ok: true, position, id: existing.id, alreadyExists: true },
           { status: 200 }
@@ -185,7 +185,7 @@ export async function POST(request: Request) {
     }
 
     const position = await getPosition(supabase, inserted.created_at);
-    console.log("[reader waitlist] signup stored", { source: source ?? "unknown", position, isNew: true });
+    console.info("[reader waitlist] signup stored", { source: source ?? "unknown", position, isNew: true });
     sendReaderConfirmationEmail(email, position, name).catch((err) => {
       console.error("READER_WAITLIST_ERROR", { message: "Confirmation email failed", code: "RESEND", details: String(err), hint: "API still returns ok true" });
     });

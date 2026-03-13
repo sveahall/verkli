@@ -8,9 +8,13 @@ import {
 import {
   apiError,
   E_NOT_AUTHENTICATED,
+  E_RATE_LIMIT_EXCEEDED,
   E_APPLICATION_UPDATE_FAILED,
   E_APPLICATION_SUBMIT_FAILED,
 } from "@/lib/api-errors";
+import { createPerUserRateLimiter } from "@/lib/rate-limit";
+
+const applicationLimiter = createPerUserRateLimiter({ maxPerMinute: 5 });
 
 export async function GET() {
   const supabase = await createClient();
@@ -48,6 +52,9 @@ export async function POST() {
   if (!user) {
     return apiError(E_NOT_AUTHENTICATED, 401);
   }
+
+  const rl = await applicationLimiter.check(user.id);
+  if (!rl.allowed) return apiError(E_RATE_LIMIT_EXCEEDED, 429, { retryAfterSeconds: rl.retryAfterSeconds });
 
   const { data: profile } = await supabase
     .from("profiles")

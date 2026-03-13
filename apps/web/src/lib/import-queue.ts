@@ -78,7 +78,7 @@ export async function enqueueExtractJob(data: ExtractJobData): Promise<string | 
     const job = await q.add("extract", data, { jobId: data.importId });
     const jobId = job.id ?? null;
     if (jobId) {
-      console.log("[import queue] Job enqueued:", jobId, "importId:", data.importId);
+      console.info("[import queue] Job enqueued:", jobId, "importId:", data.importId);
     }
     return jobId;
   } catch (err) {

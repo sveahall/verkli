@@ -5,10 +5,14 @@ import {
   apiError,
   E_NOT_AUTHENTICATED,
   E_INVALID_JSON,
+  E_RATE_LIMIT_EXCEEDED,
   E_VALIDATION_FAILED,
   E_FEEDBACK_LOAD_FAILED,
   E_FEEDBACK_SAVE_FAILED,
 } from "@/lib/api-errors";
+import { createPerUserRateLimiter } from "@/lib/rate-limit";
+
+const feedbackLimiter = createPerUserRateLimiter({ maxPerMinute: 5 });
 
 export async function GET() {
   const supabase = await createClient();
@@ -41,6 +45,10 @@ const feedbackBodySchema = z.object({
 export async function POST(request: Request) {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
+
+  const rateLimitKey = user?.id ?? (request.headers.get("x-forwarded-for")?.split(",")[0].trim() ?? "anon");
+  const rl = await feedbackLimiter.check(rateLimitKey);
+  if (!rl.allowed) return apiError(E_RATE_LIMIT_EXCEEDED, 429, { retryAfterSeconds: rl.retryAfterSeconds });
 
   let body: unknown;
   try {

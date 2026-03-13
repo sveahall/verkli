@@ -22,6 +22,7 @@ import {
   E_INVALID_SOURCE_VERSION,
   E_INVALID_TARGET_LANGUAGE,
   E_NO_SOURCE_VERSION,
+  E_RATE_LIMIT_EXCEEDED,
   E_SAME_SOURCE_TARGET_LANGUAGE,
   E_SOURCE_LANGUAGE_MISSING,
   E_TRANSLATION_FEATURE_DISABLED,
@@ -29,6 +30,9 @@ import {
   E_TRANSLATION_SERVICE_UNAVAILABLE,
   E_VERSION_ALREADY_EXISTS,
 } from "@/lib/api-errors"
+import { createPerUserRateLimiter } from "@/lib/rate-limit"
+
+const translateLimiter = createPerUserRateLimiter({ maxPerMinute: 5 })
 
 type TranslationStartSuccess = {
   ok: true
@@ -269,6 +273,9 @@ export async function POST(
   const { user, response } = await requireAuthorRoleForApi()
   if (response) return response
 
+  const rl = await translateLimiter.check(user.id)
+  if (!rl.allowed) return apiError(E_RATE_LIMIT_EXCEEDED, 429, { retryAfterSeconds: rl.retryAfterSeconds })
+
   // Allow bypassing Pro check if a valid paid Stripe session is provided
   const stripeSessionId =
     body?.stripeSessionId != null && String(body.stripeSessionId).trim() !== ""
@@ -366,7 +373,7 @@ export async function POST(
     }
   }
 
-  console.log("[book translate] request", {
+  console.info("[book translate] request", {
     bookId,
     sourceVersionId: sourceContext.sourceVersion.id,
     sourceLanguage: sourceContext.sourceLanguage ?? null,
