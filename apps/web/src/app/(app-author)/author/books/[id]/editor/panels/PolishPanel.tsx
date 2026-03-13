@@ -36,7 +36,6 @@ type BookVersion = {
 
 export type PolishPanelProps = {
   bookId: string;
-  bookTitle: string;
   chapters: Chapter[];
   selectedChapterId: string | null;
   bookVersions: BookVersion[];
@@ -79,7 +78,6 @@ type CompareChapter = {
 
 export default function PolishPanel({
   bookId,
-  bookTitle,
   chapters,
   selectedChapterId,
   bookVersions,

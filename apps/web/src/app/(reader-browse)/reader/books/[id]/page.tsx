@@ -461,7 +461,6 @@ export default async function ReaderBookDetail({
           <h2 className="text-[18px] font-semibold text-slate-900 dark:text-white mb-4">Chapters</h2>
           <div className="space-y-2">
             {(chapters ?? []).map((ch, idx) => {
-              const isFirst = idx === 0 || contentPattern.test(ch.title ?? "") && idx === (chapters ?? []).findIndex((c) => contentPattern.test(c.title ?? ""));
               const isPreviewChapter = idx === 0;
               const isPurchased = purchasedChapterIds.has(ch.id);
               return (

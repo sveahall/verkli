@@ -3402,7 +3402,6 @@ export default function BookEditor({
         {tool === "polish" && (
           <PolishPanel
             bookId={book.id}
-            bookTitle={bookTitle}
             chapters={chapters}
             selectedChapterId={selectedChapterId}
             bookVersions={bookVersions}
