@@ -27,7 +27,10 @@ vi.mock("@/lib/supabase/admin", () => ({
 }));
 
 vi.mock("@/lib/social/oauth-state", () => ({
-  createOAuthState: vi.fn().mockReturnValue("mock-state-token"),
+  createOAuthState: vi.fn().mockReturnValue({
+    state: "mock-state-token",
+    codeVerifier: "mock-code-verifier",
+  }),
 }));
 
 vi.mock("@/lib/social/oauth", () => ({

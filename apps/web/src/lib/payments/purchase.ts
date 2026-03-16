@@ -9,10 +9,6 @@ type ConfirmStripePurchaseArgs = {
   bookId: string;
 };
 
-function normalizeCurrency(value: string | null | undefined): string {
-  return String(value ?? "").trim().toUpperCase();
-}
-
 export async function confirmStripeBookPurchase({
   orderId,
   sessionId,
@@ -40,21 +36,6 @@ export async function confirmStripeBookPurchase({
     return false;
   }
 
-  if (orderStatus === "paid") {
-    if (orderChapterId) {
-      await admin
-        .from("entitlements" as never)
-        .insert({ user_id: userId, book_id: bookId, chapter_id: orderChapterId, source: "purchase" })
-        .then(() => {});
-    } else {
-      await admin
-        .from("entitlements" as never)
-        .insert({ user_id: userId, book_id: bookId, source: "purchase" })
-        .then(() => {});
-    }
-    return true;
-  }
-
   const session = await getStripeCheckoutSession(sessionId);
   const metadata = session.metadata ?? {};
 
@@ -63,61 +44,41 @@ export async function confirmStripeBookPurchase({
   const metadataBookId = String(metadata.book_id ?? "");
 
   if (metadataOrderId !== orderId || metadataUserId !== userId || metadataBookId !== bookId) {
-    await admin
-      .from("orders" as never)
-      .update({ status: "failed" })
-      .eq("id", orderId)
-      .eq("user_id", userId);
+    if (orderStatus === "pending") {
+      await admin
+        .from("orders" as never)
+        .update({ status: "failed" })
+        .eq("id", orderId)
+        .eq("user_id", userId)
+        .eq("status", "pending");
+    }
     return false;
   }
 
   if (session.payment_status !== "paid") {
-    await admin
-      .from("orders" as never)
-      .update({ status: "failed" })
-      .eq("id", orderId)
-      .eq("user_id", userId);
+    if (orderStatus === "pending") {
+      await admin
+        .from("orders" as never)
+        .update({ status: "failed" })
+        .eq("id", orderId)
+        .eq("user_id", userId)
+        .eq("status", "pending");
+    }
     return false;
   }
 
-  const amount = typeof session.amount_total === "number" ? Math.max(0, Math.trunc(session.amount_total)) : null;
-  const currency = normalizeCurrency(session.currency);
+  const { data: finalized, error: finalizeError } = await admin.rpc(
+    "finalize_order_checkout_session" as never,
+    {
+      p_stripe_session_id: sessionId,
+    },
+  );
 
-  const paidTransition = await admin
-    .from("orders" as never)
-    .update({
-      status: "paid",
-      ...(amount != null ? { amount } : {}),
-      ...(currency ? { currency } : {}),
-    })
-    .eq("id", orderId)
-    .eq("user_id", userId)
-    .eq("status", "pending")
-    .select("id")
-    .maybeSingle();
-
-  const paidOrder = paidTransition.data as { id?: string } | null;
-  const paidOrderError = paidTransition.error;
-
-  if (paidOrderError) {
+  if (finalizeError || finalized !== true) {
     return false;
   }
 
-  // Create entitlement — book-level or chapter-level based on order
-  const entitlementPayload: Record<string, string> = {
-    user_id: userId,
-    book_id: bookId,
-    source: "purchase",
-  };
-  if (orderChapterId) {
-    entitlementPayload.chapter_id = orderChapterId;
-  }
-
-  const { error: entitlementError } = await admin
-    .from("entitlements" as never)
-    .insert(entitlementPayload);
-
-  if (paidOrder?.id) {
+  if (orderStatus !== "paid") {
     await logAnalyticsEvent(admin, {
       eventType: "purchase_completed",
       userId,
@@ -127,7 +88,7 @@ export async function confirmStripeBookPurchase({
     });
   }
 
-  return !entitlementError;
+  return true;
 }
 
 export async function markOrderFailedForUser(orderId: string, userId: string): Promise<void> {

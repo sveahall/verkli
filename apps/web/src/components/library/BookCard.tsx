@@ -34,7 +34,7 @@ export default function BookCard({
   
   const sizeClasses = {
     sm: "h-[200px] w-[140px]",
-    md: "h-[280px] w-[200px]",
+    md: "aspect-[220/320] w-full",
     lg: "h-[360px] w-[260px]",
   };
 

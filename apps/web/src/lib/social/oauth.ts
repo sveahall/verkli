@@ -3,6 +3,8 @@
  * Handles authorization URL building, code exchange, token refresh, and revocation.
  */
 
+import crypto from "node:crypto";
+
 type TokenResponse = {
   accessToken: string;
   refreshToken?: string;
@@ -35,7 +37,8 @@ function getXConfig() {
 export function buildOAuthUrl(
   platform: string,
   redirectUri: string,
-  state: string
+  state: string,
+  codeVerifier?: string
 ): string {
   switch (platform) {
     case "instagram": {
@@ -62,14 +65,21 @@ export function buildOAuthUrl(
     }
     case "x": {
       const { clientId } = getXConfig();
+      if (!codeVerifier) {
+        throw new Error("X OAuth requires a PKCE code verifier");
+      }
+      const codeChallenge = crypto
+        .createHash("sha256")
+        .update(codeVerifier)
+        .digest("base64url");
       const params = new URLSearchParams({
         client_id: clientId,
         redirect_uri: redirectUri,
         scope: "tweet.read tweet.write users.read offline.access",
         response_type: "code",
         state,
-        code_challenge: "challenge",
-        code_challenge_method: "plain",
+        code_challenge: codeChallenge,
+        code_challenge_method: "S256",
       });
       return `https://twitter.com/i/oauth2/authorize?${params}`;
     }
@@ -81,7 +91,8 @@ export function buildOAuthUrl(
 export async function exchangeCodeForTokens(
   platform: string,
   code: string,
-  redirectUri: string
+  redirectUri: string,
+  codeVerifier?: string
 ): Promise<TokenResponse> {
   switch (platform) {
     case "instagram": {
@@ -128,6 +139,9 @@ export async function exchangeCodeForTokens(
     }
     case "x": {
       const { clientId, clientSecret } = getXConfig();
+      if (!codeVerifier) {
+        throw new Error("X OAuth requires a PKCE code verifier");
+      }
       const res = await fetch("https://api.twitter.com/2/oauth2/token", {
         method: "POST",
         headers: {
@@ -138,7 +152,7 @@ export async function exchangeCodeForTokens(
           grant_type: "authorization_code",
           redirect_uri: redirectUri,
           code,
-          code_verifier: "challenge",
+          code_verifier: codeVerifier,
         }),
       });
       if (!res.ok) throw new Error(`X token exchange failed: ${res.status}`);

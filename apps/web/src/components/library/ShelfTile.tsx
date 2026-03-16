@@ -29,7 +29,7 @@ export default function ShelfTile({ shelf, onClick, bookCount }: ShelfTileProps)
 
   return (
     <Link href={`/author/library/${shelf.id}`} onClick={onClick}>
-      <div className="group relative aspect-[220/320] min-w-0 w-full max-w-[220px] cursor-pointer overflow-hidden rounded-2xl border border-black/5 dark:border-white/5 bg-gradient-to-br from-slate-50 to-slate-100 transition-all duration-500 hover:scale-[1.02] dark:from-slate-900 dark:to-slate-800">
+      <div className="group relative aspect-[220/320] min-w-0 w-full cursor-pointer overflow-hidden rounded-2xl border border-black/5 dark:border-white/5 bg-gradient-to-br from-slate-50 to-slate-100 transition-all duration-500 hover:scale-[1.02] dark:from-slate-900 dark:to-slate-800">
         {/* Cover Background */}
         <div className="absolute inset-0" style={coverStyle} />
         

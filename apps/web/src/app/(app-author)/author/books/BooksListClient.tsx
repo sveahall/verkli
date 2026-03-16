@@ -2,8 +2,8 @@
 
 import { useState, useMemo } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import DeleteBookButton from "@/components/books/DeleteBookButton";
-import EmptyState, { BookIcon } from "@/components/reader/EmptyState";
 
 /* ─────────────────────────────────────────────────────────────────────────────
  * Types
@@ -14,6 +14,7 @@ interface Book {
   title: string | null;
   status: string;
   updated_at: string | null;
+  cover_image: string | null;
 }
 
 interface BooksListClientProps {
@@ -24,42 +25,14 @@ type SortOption = "recent" | "title" | "status";
 type FilterOption = "all" | "DRAFT" | "PUBLISHED";
 
 /* ─────────────────────────────────────────────────────────────────────────────
- * Icons
- * ───────────────────────────────────────────────────────────────────────────── */
-
-function SearchIcon({ className }: { className?: string }) {
-  return (
-    <svg className={className} fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
-      <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z" />
-    </svg>
-  );
-}
-
-function ChevronDownIcon({ className }: { className?: string }) {
-  return (
-    <svg className={className} fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
-      <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5" />
-    </svg>
-  );
-}
-
-function EditIcon({ className }: { className?: string }) {
-  return (
-    <svg className={className} fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
-      <path strokeLinecap="round" strokeLinejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l8.932-8.931zm0 0L19.5 7.125M18 14v4.75A2.25 2.25 0 0115.75 21H5.25A2.25 2.25 0 013 18.75V8.25A2.25 2.25 0 015.25 6H10" />
-    </svg>
-  );
-}
-
-/* ─────────────────────────────────────────────────────────────────────────────
- * Status Badge Component
+ * Status Badge
  * ───────────────────────────────────────────────────────────────────────────── */
 
 function StatusBadge({ status }: { status: string }) {
   const styles: Record<string, string> = {
-    PUBLISHED: "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400",
-    DRAFT: "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400",
-    ARCHIVED: "bg-slate-100 text-slate-600 dark:bg-white/10 dark:text-white/60",
+    PUBLISHED: "bg-emerald-50 text-emerald-600 dark:bg-emerald-900/20 dark:text-emerald-400",
+    DRAFT: "bg-amber-50 text-amber-600 dark:bg-amber-900/20 dark:text-amber-400",
+    ARCHIVED: "bg-[#f5f5f5] text-[#8a8a8a] dark:bg-white/5 dark:text-[#555]",
   };
 
   const labels: Record<string, string> = {
@@ -69,7 +42,7 @@ function StatusBadge({ status }: { status: string }) {
   };
 
   return (
-    <span className={`rounded-full px-2.5 py-1 text-xs font-medium ${styles[status] ?? styles.DRAFT}`}>
+    <span className={`rounded-full px-2 py-0.5 text-[11px] font-medium ${styles[status] ?? styles.DRAFT}`}>
       {labels[status] ?? status}
     </span>
   );
@@ -84,11 +57,9 @@ export default function BooksListClient({ books }: BooksListClientProps) {
   const [sortBy, setSortBy] = useState<SortOption>("recent");
   const [filterStatus, setFilterStatus] = useState<FilterOption>("all");
 
-  // Filter and sort books
   const filteredBooks = useMemo(() => {
     let result = [...books];
 
-    // Filter by search query
     if (searchQuery.trim()) {
       const query = searchQuery.toLowerCase();
       result = result.filter((book) =>
@@ -96,12 +67,10 @@ export default function BooksListClient({ books }: BooksListClientProps) {
       );
     }
 
-    // Filter by status
     if (filterStatus !== "all") {
       result = result.filter((book) => book.status === filterStatus);
     }
 
-    // Sort
     result.sort((a, b) => {
       switch (sortBy) {
         case "title":
@@ -133,91 +102,81 @@ export default function BooksListClient({ books }: BooksListClientProps) {
 
   if (books.length === 0) {
     return (
-      <EmptyState
-        icon={<BookIcon />}
-        title="Your bookshelf awaits"
-        description="Create your first book to start writing. Import an existing manuscript or start fresh with a blank page."
-        variant="centered"
-        action={
-          <div className="flex flex-col items-center gap-3 sm:flex-row">
-            <a
-              href="#create"
-              onClick={(e) => {
-                e.preventDefault();
-                // Trigger create dialog via parent - this will be improved with state management
-                const btn = document.querySelector('[data-create-book]') as HTMLButtonElement;
-                btn?.click();
-              }}
-              className="rounded-full bg-slate-900 px-6 py-2.5 text-sm font-semibold text-white transition hover:bg-slate-800 dark:bg-white dark:text-slate-900 dark:hover:bg-white/90"
-            >
-              Create your first book
-            </a>
-          </div>
-        }
-      />
+      <div className="flex flex-col items-center py-24 text-center">
+        <svg className="mb-4 h-12 w-12 text-[#ccc] dark:text-[#333]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1}>
+          <path strokeLinecap="round" strokeLinejoin="round" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
+        </svg>
+        <p className="text-[15px] font-medium text-[#1a1a1a] dark:text-[#ededed]">
+          Your bookshelf awaits
+        </p>
+        <p className="mt-1 max-w-sm text-[13px] text-[#8a8a8a] dark:text-[#555]">
+          Create your first book to start writing. Import an existing manuscript or start fresh.
+        </p>
+        <button
+          onClick={() => {
+            const btn = document.querySelector("[data-create-book]") as HTMLButtonElement;
+            btn?.click();
+          }}
+          className="mt-6 rounded-lg bg-[#1a1a1a] px-5 py-2.5 text-[13px] font-medium text-white transition-opacity hover:opacity-80 dark:bg-[#ededed] dark:text-[#0A0A0B]"
+        >
+          Create your first book
+        </button>
+      </div>
     );
   }
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-6">
       {/* Search and Filters */}
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        {/* Search */}
         <div className="relative flex-1 max-w-sm">
-          <SearchIcon className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400 dark:text-white/40" />
+          <svg className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#bbb] dark:text-[#444]" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z" />
+          </svg>
           <input
             type="text"
             placeholder="Search books..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full rounded-lg border border-slate-200 bg-white py-2 pl-9 pr-3 text-sm placeholder:text-slate-400 focus:border-slate-400 focus:outline-none focus:ring-1 focus:ring-slate-400 dark:border-white/10 dark:bg-white/5 dark:placeholder:text-white/40 dark:focus:border-white/30 dark:focus:ring-white/20"
+            className="w-full rounded-lg border border-[#e8e8e8] bg-white py-2 pl-9 pr-3 text-[13px] text-[#1a1a1a] placeholder:text-[#bbb] focus:border-[#ccc] focus:outline-none focus:ring-1 focus:ring-[#e0e0e0] dark:border-[#1e1e1e] dark:bg-[#141415] dark:text-[#ededed] dark:placeholder:text-[#444] dark:focus:border-[#333] dark:focus:ring-[#333]"
           />
         </div>
 
-        {/* Filter and Sort */}
         <div className="flex items-center gap-2">
-          {/* Status Filter */}
-          <div className="relative">
-            <select
-              value={filterStatus}
-              onChange={(e) => setFilterStatus(e.target.value as FilterOption)}
-              className="appearance-none rounded-lg border border-slate-200 bg-white py-2 pl-3 pr-8 text-sm font-medium text-slate-700 focus:border-slate-400 focus:outline-none focus:ring-1 focus:ring-slate-400 dark:border-white/10 dark:bg-white/5 dark:text-white dark:focus:border-white/30 dark:focus:ring-white/20"
-            >
-              <option value="all">All status</option>
-              <option value="DRAFT">Draft</option>
-              <option value="PUBLISHED">Published</option>
-            </select>
-            <ChevronDownIcon className="pointer-events-none absolute right-2 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400 dark:text-white/40" />
-          </div>
+          <select
+            value={filterStatus}
+            onChange={(e) => setFilterStatus(e.target.value as FilterOption)}
+            className="appearance-none rounded-lg border border-[#e8e8e8] bg-white py-2 pl-3 pr-8 text-[13px] font-medium text-[#4a4a4a] focus:border-[#ccc] focus:outline-none focus:ring-1 focus:ring-[#e0e0e0] dark:border-[#1e1e1e] dark:bg-[#141415] dark:text-[#999] dark:focus:border-[#333] dark:focus:ring-[#333]"
+          >
+            <option value="all">All status</option>
+            <option value="DRAFT">Draft</option>
+            <option value="PUBLISHED">Published</option>
+          </select>
 
-          {/* Sort */}
-          <div className="relative">
-            <select
-              value={sortBy}
-              onChange={(e) => setSortBy(e.target.value as SortOption)}
-              className="appearance-none rounded-lg border border-slate-200 bg-white py-2 pl-3 pr-8 text-sm font-medium text-slate-700 focus:border-slate-400 focus:outline-none focus:ring-1 focus:ring-slate-400 dark:border-white/10 dark:bg-white/5 dark:text-white dark:focus:border-white/30 dark:focus:ring-white/20"
-            >
-              <option value="recent">Recent</option>
-              <option value="title">Title A-Z</option>
-              <option value="status">Status</option>
-            </select>
-            <ChevronDownIcon className="pointer-events-none absolute right-2 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400 dark:text-white/40" />
-          </div>
+          <select
+            value={sortBy}
+            onChange={(e) => setSortBy(e.target.value as SortOption)}
+            className="appearance-none rounded-lg border border-[#e8e8e8] bg-white py-2 pl-3 pr-8 text-[13px] font-medium text-[#4a4a4a] focus:border-[#ccc] focus:outline-none focus:ring-1 focus:ring-[#e0e0e0] dark:border-[#1e1e1e] dark:bg-[#141415] dark:text-[#999] dark:focus:border-[#333] dark:focus:ring-[#333]"
+          >
+            <option value="recent">Recent</option>
+            <option value="title">Title A-Z</option>
+            <option value="status">Status</option>
+          </select>
         </div>
       </div>
 
-      {/* Results count */}
+      {/* Results count when filtering */}
       {(searchQuery || filterStatus !== "all") && (
-        <p className="text-sm text-slate-500 dark:text-white/50">
+        <p className="text-[13px] text-[#8a8a8a] dark:text-[#555]">
           {filteredBooks.length} {filteredBooks.length === 1 ? "book" : "books"} found
           {searchQuery && ` for "${searchQuery}"`}
         </p>
       )}
 
-      {/* Books List */}
+      {/* Books Grid */}
       {filteredBooks.length === 0 ? (
-        <div className="rounded-xl border border-slate-200 bg-slate-50/50 p-8 text-center dark:border-white/10 dark:bg-white/5">
-          <p className="text-slate-600 dark:text-white/60">
+        <div className="py-16 text-center">
+          <p className="text-[14px] text-[#8a8a8a] dark:text-[#555]">
             No books match your search.
           </p>
           <button
@@ -225,54 +184,67 @@ export default function BooksListClient({ books }: BooksListClientProps) {
               setSearchQuery("");
               setFilterStatus("all");
             }}
-            className="mt-3 text-sm font-medium text-slate-900 hover:underline dark:text-white"
+            className="mt-3 text-[13px] font-medium text-[#1a1a1a] hover:underline dark:text-[#ededed]"
           >
             Clear filters
           </button>
         </div>
       ) : (
-        <ul className="space-y-2">
+        <div className="grid grid-cols-2 gap-5 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
           {filteredBooks.map((book) => (
-            <li
-              key={book.id}
-              className="group relative flex items-center gap-3 rounded-xl border border-slate-200 bg-white px-4 py-3 transition hover:border-slate-300 hover:shadow-sm dark:border-white/10 dark:bg-white/5 dark:hover:border-white/20"
-            >
-              <Link
-                href={`/author/books/${book.id}`}
-                className="flex flex-1 items-center justify-between"
-              >
-                <div className="min-w-0 flex-1">
-                  <p className="truncate font-medium text-slate-900 dark:text-white">
-                    {book.title || "Untitled"}
-                  </p>
-                  <p className="mt-0.5 text-xs text-slate-500 dark:text-white/50">
-                    Edited {formatDate(book.updated_at)}
-                  </p>
-                </div>
-                <div className="ml-4 flex items-center gap-3">
-                  <StatusBadge status={book.status} />
+            <div key={book.id} className="group relative">
+              <Link href={`/author/books/${book.id}`} className="block">
+                <div className="relative aspect-[220/320] w-full overflow-hidden rounded-2xl border border-black/5 bg-gradient-to-br from-slate-50 to-slate-100 transition-all duration-300 group-hover:scale-[1.02] dark:border-white/5 dark:from-slate-900 dark:to-slate-800">
+                  {/* Cover */}
+                  {book.cover_image ? (
+                    <Image
+                      src={book.cover_image}
+                      alt={book.title ?? "Untitled"}
+                      fill
+                      sizes="(min-width: 1024px) 220px, (min-width: 768px) 25vw, 45vw"
+                      className="object-cover transition-transform duration-500 group-hover:scale-110"
+                      unoptimized
+                    />
+                  ) : (
+                    <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-[#907AFF]/20 via-[#E29ED5]/20 to-[#FCC997]/20">
+                      <svg className="h-8 w-8 text-white/60" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
+                      </svg>
+                    </div>
+                  )}
+
+                  {/* Gradient overlay */}
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/40 to-transparent" />
+
+                  {/* Status badge */}
+                  <div className="absolute left-3 top-3">
+                    <StatusBadge status={book.status} />
+                  </div>
+
+                  {/* Book info */}
+                  <div className="absolute bottom-0 left-0 right-0 p-4">
+                    <h3 className="mb-1 line-clamp-2 text-[15px] font-semibold leading-tight text-white drop-shadow-lg">
+                      {book.title || "Untitled"}
+                    </h3>
+                    <p className="text-[12px] text-white/70">
+                      Edited {formatDate(book.updated_at)}
+                    </p>
+                  </div>
+
+                  {/* Hover actions */}
+                  <div className="absolute right-3 top-3 flex items-center gap-1 opacity-0 transition-opacity duration-200 group-hover:opacity-100">
+                    <DeleteBookButton
+                      bookId={book.id}
+                      bookTitle={book.title}
+                      label=""
+                      className="flex h-7 w-7 items-center justify-center rounded-full border border-white/10 bg-black/40 text-white/80 backdrop-blur-md transition-colors hover:bg-red-600/80 hover:text-white"
+                    />
+                  </div>
                 </div>
               </Link>
-
-              {/* Hover Actions */}
-              <div className="flex items-center gap-1 opacity-0 transition-opacity group-hover:opacity-100">
-                <Link
-                  href={`/author/books/${book.id}`}
-                  className="rounded-lg p-2 text-slate-500 hover:bg-slate-100 hover:text-slate-700 dark:text-white/50 dark:hover:bg-white/10 dark:hover:text-white"
-                  title="Edit"
-                >
-                  <EditIcon className="h-4 w-4" />
-                </Link>
-                <DeleteBookButton
-                  bookId={book.id}
-                  bookTitle={book.title}
-                  label=""
-                  className="rounded-lg p-2 text-slate-500 hover:bg-red-50 hover:text-red-600 dark:text-white/50 dark:hover:bg-red-950/30 dark:hover:text-red-400"
-                />
-              </div>
-            </li>
+            </div>
           ))}
-        </ul>
+        </div>
       )}
     </div>
   );

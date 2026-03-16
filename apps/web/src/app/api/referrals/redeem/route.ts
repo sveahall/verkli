@@ -19,6 +19,12 @@ export const runtime = "nodejs";
 
 const REFERRAL_CREDIT_BONUS = 100;
 
+type ReferralRedemptionRow = {
+  id: string;
+  referrer_id: string;
+  code: string;
+};
+
 export async function POST(request: Request) {
   const supabase = await createClient();
   const {
@@ -60,72 +66,85 @@ export async function POST(request: Request) {
 
   const { data: existingRedemption } = await admin
     .from("referral_redemptions")
-    .select("id")
+    .select("id, referrer_id, code")
     .eq("redeemer_id", user.id)
     .maybeSingle();
 
-  if (existingRedemption) {
+  const existingRow = (existingRedemption as ReferralRedemptionRow | null) ?? null;
+  if (existingRow && (existingRow.code !== code || existingRow.referrer_id !== referrerId)) {
     return apiError(E_REFERRAL_ALREADY_REDEEMED, 409);
   }
 
   try {
-    const { error: redemptionError } = await admin.from("referral_redemptions").insert({
-      redeemer_id: user.id,
-      referrer_id: referrerId,
-      code,
-    });
+    let redemptionId = existingRow?.id ?? null;
 
-    if (redemptionError) {
-      if (redemptionError.code === "23505") {
-        return apiError(E_REFERRAL_ALREADY_REDEEMED, 409);
+    if (!redemptionId) {
+      const { data: insertedRedemption, error: redemptionError } = await admin
+        .from("referral_redemptions")
+        .insert({
+          redeemer_id: user.id,
+          referrer_id: referrerId,
+          code,
+        })
+        .select("id, referrer_id, code")
+        .single();
+
+      if (redemptionError) {
+        if (redemptionError.code === "23505") {
+          const { data: recoveredRedemption, error: recoveredError } = await admin
+            .from("referral_redemptions")
+            .select("id, referrer_id, code")
+            .eq("redeemer_id", user.id)
+            .maybeSingle();
+
+          if (recoveredError) {
+            throw recoveredError;
+          }
+
+          const recoveredRow = (recoveredRedemption as ReferralRedemptionRow | null) ?? null;
+          if (!recoveredRow || recoveredRow.code !== code || recoveredRow.referrer_id !== referrerId) {
+            return apiError(E_REFERRAL_ALREADY_REDEEMED, 409);
+          }
+
+          redemptionId = recoveredRow.id;
+        } else {
+          throw redemptionError;
+        }
+      } else {
+        redemptionId = String((insertedRedemption as ReferralRedemptionRow | null)?.id ?? "").trim();
       }
-      throw redemptionError;
     }
 
-    const { data: redeemerCredits } = await admin
-      .from("user_credits")
-      .select("user_id, token_balance")
-      .eq("user_id", user.id)
-      .maybeSingle();
-
-    const currentBalance =
-      typeof (redeemerCredits as { token_balance?: number } | null)?.token_balance === "number"
-        ? (redeemerCredits as { token_balance: number }).token_balance
-        : 0;
-
-    const { error: upsertRedeemerError } = await admin.from("user_credits").upsert(
-      {
-        user_id: user.id,
-        token_balance: currentBalance + REFERRAL_CREDIT_BONUS,
-      },
-      { onConflict: "user_id" }
-    );
-
-    if (upsertRedeemerError) {
-      throw upsertRedeemerError;
+    if (!redemptionId) {
+      throw new Error("[referrals redeem] redemption id missing after insert");
     }
 
-    const { data: referrerCredits } = await admin
-      .from("user_credits")
-      .select("user_id, token_balance")
-      .eq("user_id", referrerId)
-      .maybeSingle();
-
-    const referrerBalance =
-      typeof (referrerCredits as { token_balance?: number } | null)?.token_balance === "number"
-        ? (referrerCredits as { token_balance: number }).token_balance
-        : 0;
-
-    const { error: upsertReferrerError } = await admin.from("user_credits").upsert(
+    const { error: redeemerGrantError } = await admin.rpc(
+      "grant_user_credits_once" as never,
       {
-        user_id: referrerId,
-        token_balance: referrerBalance + REFERRAL_CREDIT_BONUS,
+        p_user_id: user.id,
+        p_delta: REFERRAL_CREDIT_BONUS,
+        p_source: "referral_redeemer",
+        p_source_id: redemptionId,
       },
-      { onConflict: "user_id" }
     );
 
-    if (upsertReferrerError) {
-      throw upsertReferrerError;
+    if (redeemerGrantError) {
+      throw redeemerGrantError;
+    }
+
+    const { error: referrerGrantError } = await admin.rpc(
+      "grant_user_credits_once" as never,
+      {
+        p_user_id: referrerId,
+        p_delta: REFERRAL_CREDIT_BONUS,
+        p_source: "referral_referrer",
+        p_source_id: redemptionId,
+      },
+    );
+
+    if (referrerGrantError) {
+      throw referrerGrantError;
     }
 
     return NextResponse.json({
@@ -133,7 +152,7 @@ export async function POST(request: Request) {
       creditsAdded: REFERRAL_CREDIT_BONUS,
     });
   } catch (err) {
-    console.error("[referrals.redeem] failed", {
+    console.error("[referrals redeem] failed", {
       userId: user.id,
       code,
       message: err instanceof Error ? err.message : String(err),

@@ -8,6 +8,7 @@
 import crypto from "node:crypto";
 
 const STATE_TTL_MS = 10 * 60 * 1000; // 10 minutes
+const CODE_VERIFIER_BYTES = 32;
 
 function getStateSecret(): string {
   const secret = process.env.SOCIAL_OAUTH_STATE_SECRET;
@@ -27,29 +28,41 @@ function sign(payload: string): string {
     .digest("base64url");
 }
 
-export function createOAuthState(userId: string, platform: string): string {
+function createCodeVerifier(): string {
+  return crypto.randomBytes(CODE_VERIFIER_BYTES).toString("base64url");
+}
+
+export function createOAuthState(
+  userId: string,
+  platform: string
+): { state: string; codeVerifier: string } {
   const ts = Date.now();
-  const payload = `${userId}:${platform}:${ts}`;
+  const codeVerifier = createCodeVerifier();
+  const payload = `${userId}:${platform}:${ts}:${codeVerifier}`;
   const sig = sign(payload);
-  const obj = { userId, platform, ts, sig };
-  return Buffer.from(JSON.stringify(obj)).toString("base64url");
+  const obj = { userId, platform, ts, codeVerifier, sig };
+  return {
+    state: Buffer.from(JSON.stringify(obj)).toString("base64url"),
+    codeVerifier,
+  };
 }
 
 export function verifyOAuthState(
   state: string
-): { userId: string; platform: string } | null {
+): { userId: string; platform: string; codeVerifier: string } | null {
   try {
     const decoded = Buffer.from(state, "base64url").toString("utf8");
     const obj = JSON.parse(decoded) as {
       userId: string;
       platform: string;
       ts: number;
+      codeVerifier: string;
       sig: string;
     };
 
-    if (!obj.userId || !obj.platform || !obj.ts || !obj.sig) return null;
+    if (!obj.userId || !obj.platform || !obj.ts || !obj.codeVerifier || !obj.sig) return null;
 
-    const payload = `${obj.userId}:${obj.platform}:${obj.ts}`;
+    const payload = `${obj.userId}:${obj.platform}:${obj.ts}:${obj.codeVerifier}`;
     const expected = sign(payload);
     if (
       !crypto.timingSafeEqual(
@@ -62,7 +75,7 @@ export function verifyOAuthState(
 
     if (Date.now() - obj.ts > STATE_TTL_MS) return null;
 
-    return { userId: obj.userId, platform: obj.platform };
+    return { userId: obj.userId, platform: obj.platform, codeVerifier: obj.codeVerifier };
   } catch {
     return null;
   }

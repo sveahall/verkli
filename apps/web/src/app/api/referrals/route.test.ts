@@ -86,15 +86,13 @@ function makeAdminClientForGenerate(input?: {
 function makeAdminClientForRedeem(input?: {
   referrerId?: string | null;
   referralCodeLookupError?: { code?: string; message: string } | null;
-  hasExistingRedemption?: boolean;
+  existingRedemption?: { id: string; referrer_id: string; code: string } | null;
   insertRedemptionError?: { code?: string; message: string } | null;
-  redeemerBalance?: number;
-  referrerBalance?: number;
-  upsertRedeemerError?: { code?: string; message: string } | null;
-  upsertReferrerError?: { code?: string; message: string } | null;
+  grantRedeemerError?: { code?: string; message: string } | null;
+  grantReferrerError?: { code?: string; message: string } | null;
 }) {
   const state = {
-    upserts: [] as Array<Record<string, unknown>>,
+    creditGrantCalls: [] as Array<Record<string, unknown>>,
   };
 
   const client = {
@@ -122,53 +120,37 @@ function makeAdminClientForRedeem(input?: {
           select: vi.fn(() => ({
             eq: vi.fn(() => ({
               maybeSingle: vi.fn(async () => ({
-                data: input?.hasExistingRedemption ? { id: "redemption-1" } : null,
+                data: input?.existingRedemption ?? null,
                 error: null,
               })),
             })),
           })),
-          insert: vi.fn(async () => ({
-            error: input?.insertRedemptionError ?? null,
-          })),
-        };
-      }
-
-      if (table === "user_credits") {
-        return {
-          select: vi.fn(() => ({
-            eq: vi.fn((_column: string, userId: string) => ({
-              maybeSingle: vi.fn(async () => {
-                if (userId === "reader-1") {
-                  return {
-                    data:
-                      typeof input?.redeemerBalance === "number"
-                        ? { user_id: userId, token_balance: input.redeemerBalance }
-                        : null,
-                    error: null,
-                  };
-                }
-                return {
-                  data:
-                    typeof input?.referrerBalance === "number"
-                      ? { user_id: userId, token_balance: input.referrerBalance }
-                      : null,
-                  error: null,
-                };
-              }),
+          insert: vi.fn((payload: Record<string, unknown>) => ({
+            select: vi.fn(() => ({
+              single: vi.fn(async () => ({
+                data: input?.insertRedemptionError
+                  ? null
+                  : {
+                      id: "redemption-1",
+                      referrer_id: String(payload.referrer_id ?? input?.referrerId ?? ""),
+                      code: String(payload.code ?? ""),
+                    },
+                error: input?.insertRedemptionError ?? null,
+              })),
             })),
           })),
-          upsert: vi.fn(async (payload: Record<string, unknown>) => {
-            state.upserts.push(payload);
-            const payloadUserId = String(payload.user_id ?? "");
-            if (payloadUserId === "reader-1") {
-              return { error: input?.upsertRedeemerError ?? null };
-            }
-            return { error: input?.upsertReferrerError ?? null };
-          }),
         };
       }
 
       throw new Error(`Unexpected table for redeem route: ${table}`);
+    }),
+    rpc: vi.fn(async (_fnName: string, args: Record<string, unknown>) => {
+      state.creditGrantCalls.push(args);
+      const source = String(args.p_source ?? "");
+      if (source === "referral_redeemer") {
+        return { data: true, error: input?.grantRedeemerError ?? null };
+      }
+      return { data: true, error: input?.grantReferrerError ?? null };
     }),
   };
 
@@ -293,7 +275,11 @@ describe(`POST ${API_ROUTES.referralsRedeem}`, () => {
     mocks.createAdminClient.mockReturnValue(
       makeAdminClientForRedeem({
         referrerId: "referrer-1",
-        hasExistingRedemption: true,
+        existingRedemption: {
+          id: "redemption-1",
+          referrer_id: "referrer-2",
+          code: "USED1234",
+        },
       }).client
     );
 
@@ -307,8 +293,6 @@ describe(`POST ${API_ROUTES.referralsRedeem}`, () => {
   it("returns success payload and creditsAdded on successful redemption", async () => {
     const admin = makeAdminClientForRedeem({
       referrerId: "referrer-1",
-      redeemerBalance: 50,
-      referrerBalance: 200,
     });
     mocks.createClient.mockResolvedValue(makeSupabaseClient("reader-1"));
     mocks.createAdminClient.mockReturnValue(admin.client);
@@ -319,14 +303,38 @@ describe(`POST ${API_ROUTES.referralsRedeem}`, () => {
     expect(res.status).toBe(200);
     expect(body.success).toBe(true);
     expect(body.creditsAdded).toBe(100);
-    expect(admin.state.upserts).toContainEqual({
-      user_id: "reader-1",
-      token_balance: 150,
+    expect(admin.state.creditGrantCalls).toContainEqual({
+      p_user_id: "reader-1",
+      p_delta: 100,
+      p_source: "referral_redeemer",
+      p_source_id: "redemption-1",
     });
-    expect(admin.state.upserts).toContainEqual({
-      user_id: "referrer-1",
-      token_balance: 300,
+    expect(admin.state.creditGrantCalls).toContainEqual({
+      p_user_id: "referrer-1",
+      p_delta: 100,
+      p_source: "referral_referrer",
+      p_source_id: "redemption-1",
     });
+  });
+
+  it("replays missing credit grants idempotently for an existing redemption", async () => {
+    const admin = makeAdminClientForRedeem({
+      referrerId: "referrer-1",
+      existingRedemption: {
+        id: "redemption-1",
+        referrer_id: "referrer-1",
+        code: "GOOD1234",
+      },
+    });
+    mocks.createClient.mockResolvedValue(makeSupabaseClient("reader-1"));
+    mocks.createAdminClient.mockReturnValue(admin.client);
+
+    const res = await redeemPOST(makeRedeemRequest({ code: "GOOD1234" }));
+    const body = await res.json();
+
+    expect(res.status).toBe(200);
+    expect(body.success).toBe(true);
+    expect(admin.state.creditGrantCalls).toHaveLength(2);
   });
 
   it("returns REFERRAL_REDEEM_FAILED on downstream DB failure", async () => {
@@ -334,7 +342,7 @@ describe(`POST ${API_ROUTES.referralsRedeem}`, () => {
     mocks.createAdminClient.mockReturnValue(
       makeAdminClientForRedeem({
         referrerId: "referrer-1",
-        insertRedemptionError: { code: "XX000", message: "boom" },
+        grantRedeemerError: { code: "XX000", message: "boom" },
       }).client
     );
 

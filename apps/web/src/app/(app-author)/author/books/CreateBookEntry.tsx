@@ -12,7 +12,7 @@ export default function CreateBookEntry() {
         type="button"
         data-create-book
         onClick={() => setOpen(true)}
-        className="rounded-full bg-slate-900 px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-slate-800 dark:bg-white dark:text-slate-900 dark:hover:bg-white/90"
+        className="inline-flex items-center gap-1.5 rounded-lg bg-[#1a1a1a] px-4 py-2 text-[13px] font-medium text-white transition-opacity hover:opacity-80 active:opacity-70 dark:bg-[#ededed] dark:text-[#0A0A0B]"
       >
         Create book
       </button>

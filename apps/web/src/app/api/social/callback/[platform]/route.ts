@@ -60,14 +60,18 @@ export async function GET(
   }
 
   // 5. Exchange code for tokens
-  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000";
-  const redirectUri = `${siteUrl}/api/social/callback/${platform}`;
+  const siteOrigin = process.env.NEXT_PUBLIC_SITE_URL?.trim() || url.origin;
+  const redirectUri = `${siteOrigin}/api/social/callback/${platform}`;
 
   let tokens;
   try {
-    tokens = await exchangeCodeForTokens(platform, code, redirectUri);
+    tokens = await exchangeCodeForTokens(platform, code, redirectUri, verified.codeVerifier);
   } catch (err) {
-    console.error("[social callback] token exchange failed:", err instanceof Error ? err.message : String(err));
+    console.error("[social callback] token exchange failed", {
+      userId: user.id,
+      platform,
+      message: err instanceof Error ? err.message : String(err),
+    });
     return apiError(E_SOCIAL_OAUTH_FAILED, 500);
   }
 
@@ -79,7 +83,7 @@ export async function GET(
     ? new Date(Date.now() + tokens.expiresIn * 1000).toISOString()
     : null;
 
-  await admin
+  const { error: upsertError } = await admin
     .from("social_connections" as never)
     .upsert(
       {
@@ -96,6 +100,16 @@ export async function GET(
       { onConflict: "user_id,platform" }
     );
 
+  if (upsertError) {
+    console.error("[social callback] connection save failed", {
+      userId: user.id,
+      platform,
+      message: upsertError.message,
+      code: upsertError.code,
+    });
+    return apiError(E_SOCIAL_OAUTH_FAILED, 500);
+  }
+
   // 7. Redirect to hardcoded path — NO user-controlled redirect
-  return NextResponse.redirect(new URL("/author/settings", siteUrl));
+  return NextResponse.redirect(new URL("/author/settings", siteOrigin));
 }

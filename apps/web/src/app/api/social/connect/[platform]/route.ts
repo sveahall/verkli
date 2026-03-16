@@ -8,6 +8,7 @@ import {
   E_SOCIAL_FEATURE_DISABLED,
   E_SOCIAL_INVALID_PLATFORM,
   E_SOCIAL_ALREADY_CONNECTED,
+  E_SOCIAL_OAUTH_FAILED,
   E_RATE_LIMIT_EXCEEDED,
 } from "@/lib/api-errors";
 import { VALID_PLATFORMS } from "@/lib/social/platform-constraints";
@@ -71,7 +72,7 @@ export async function POST(
     const emailConfig = JSON.stringify({ smtpHost, smtpPort, smtpUser, smtpPass, fromEmail });
     const encryptedConfig = encryptToken(emailConfig);
 
-    await admin
+    const { error: saveError } = await admin
       .from("social_connections" as never)
       .upsert(
         {
@@ -85,14 +86,24 @@ export async function POST(
         { onConflict: "user_id,platform" }
       );
 
+    if (saveError) {
+      console.error("[social connect] email config save failed", {
+        userId: user.id,
+        platform,
+        message: saveError.message,
+        code: saveError.code,
+      });
+      return apiError(E_SOCIAL_OAUTH_FAILED, 500);
+    }
+
     return NextResponse.json({ ok: true, platform: "email" });
   }
 
   // OAuth platforms: build auth URL
-  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000";
-  const redirectUri = `${siteUrl}/api/social/callback/${platform}`;
-  const state = createOAuthState(user.id, platform);
-  const authUrl = buildOAuthUrl(platform, redirectUri, state);
+  const siteOrigin = process.env.NEXT_PUBLIC_SITE_URL?.trim() || new URL(request.url).origin;
+  const redirectUri = `${siteOrigin}/api/social/callback/${platform}`;
+  const { state, codeVerifier } = createOAuthState(user.id, platform);
+  const authUrl = buildOAuthUrl(platform, redirectUri, state, codeVerifier);
 
   return NextResponse.json({ authUrl });
 }

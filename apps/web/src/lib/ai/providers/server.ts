@@ -59,6 +59,24 @@ export { OllamaCopywriterProvider, ollamaCopywriter } from "./ollama-copywriter"
 // Provider Registry Functions
 // ─────────────────────────────────────────────────────────────
 
+function assertProviderReadyForProduction(
+  providerName: string,
+  envVarName: string
+): void {
+  if (process.env.NODE_ENV !== "production") {
+    return;
+  }
+
+  if (!providerName.startsWith("stub")) {
+    return;
+  }
+
+  throw new Error(
+    `[ai provider] ${envVarName} resolved to ${providerName}. ` +
+      "Stub AI providers must not be used in production.",
+  );
+}
+
 /**
  * Get the configured translator provider.
  * Currently only supports Opus MT. Future: add more providers.
@@ -91,6 +109,7 @@ export function getImageProvider(): typeof stubImage {
   switch (provider) {
     case "stub":
     default:
+      assertProviderReadyForProduction(stubImage.name, "AI_IMAGE_PROVIDER");
       return stubImage;
   }
 }
@@ -107,6 +126,7 @@ export function getCopywriterProvider(): CopywriterProvider {
       return ollamaCopywriter;
     case "stub":
     default:
+      assertProviderReadyForProduction(stubCopywriter.name, "AI_COPYWRITER_PROVIDER");
       return stubCopywriter;
   }
 }
