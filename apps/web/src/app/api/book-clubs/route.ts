@@ -8,8 +8,12 @@ import {
   E_CLUB_CREATE_FAILED,
   E_INVALID_JSON,
   E_VALIDATION_FAILED,
+  E_RATE_LIMIT_EXCEEDED,
 } from "@/lib/api-errors";
 import { isBookClubsEnabled } from "@/lib/flags";
+import { createPerUserRateLimiter } from "@/lib/rate-limit";
+
+const clubRateLimiter = createPerUserRateLimiter({ maxPerMinute: 5 });
 
 const createClubBodySchema = z.object({
   name: z.string().min(1).max(100),
@@ -78,6 +82,11 @@ export async function POST(request: Request) {
 
   if (!user) {
     return apiError(E_NOT_AUTHENTICATED, 401);
+  }
+
+  const rl = await clubRateLimiter.check(user.id);
+  if (!rl.allowed) {
+    return apiError(E_RATE_LIMIT_EXCEEDED, 429);
   }
 
   let payload: unknown;

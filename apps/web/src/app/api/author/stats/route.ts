@@ -68,7 +68,8 @@ export async function GET(request: Request) {
   // Query analytics_events for events whose path contains a book ID
   let eventsQuery = supabase
     .from("analytics_events")
-    .select("event_name, path");
+    .select("event_name, path, created_at")
+    .limit(10000);
 
   if (period === "7d") {
     const since = new Date();
@@ -95,6 +96,7 @@ export async function GET(request: Request) {
   let reads = 0;
   let purchases = 0;
   let bookmarksCount = 0;
+  const dailyMap = new Map<string, { views: number; reads: number; purchases: number }>();
 
   for (const event of events ?? []) {
     const path = (event.path as string) ?? "";
@@ -102,20 +104,32 @@ export async function GET(request: Request) {
     const matchesBook = bookIds.some((id) => path.includes(id));
     if (!matchesBook) continue;
 
+    const day = ((event as Record<string, unknown>).created_at as string | undefined)?.slice(0, 10) ?? "";
+    if (day && !dailyMap.has(day)) dailyMap.set(day, { views: 0, reads: 0, purchases: 0 });
+    const dayEntry = day ? dailyMap.get(day)! : null;
+
     const nameLower = name.toLowerCase();
     if (nameLower.includes("view") || nameLower.includes("page_view")) {
       views++;
+      if (dayEntry) dayEntry.views++;
     } else if (nameLower.includes("read") || nameLower.includes("chapter_read")) {
       reads++;
+      if (dayEntry) dayEntry.reads++;
     } else if (nameLower.includes("purchase") || nameLower.includes("checkout")) {
       purchases++;
+      if (dayEntry) dayEntry.purchases++;
     } else if (nameLower.includes("bookmark") || nameLower.includes("save")) {
       bookmarksCount++;
     } else {
       // Count unknown events as views
       views++;
+      if (dayEntry) dayEntry.views++;
     }
   }
+
+  const dailyChart = [...dailyMap.entries()]
+    .sort((a, b) => a[0].localeCompare(b[0]))
+    .map(([date, d]) => ({ date, views: d.views, reads: d.reads, purchases: d.purchases }));
 
   return NextResponse.json({
     views,
@@ -123,5 +137,6 @@ export async function GET(request: Request) {
     purchases,
     bookmarks: bookmarksCount,
     period,
+    dailyChart,
   });
 }

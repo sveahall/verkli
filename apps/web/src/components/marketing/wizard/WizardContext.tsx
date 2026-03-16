@@ -74,6 +74,7 @@ type BuildResponse = {
 type BillingStateResponse = {
   isProActive?: boolean;
   plan?: string;
+  trailerUsedThisMonth?: number;
   error?: string;
 };
 
@@ -239,10 +240,11 @@ export function TrailerWizardProvider({
         return;
       }
       const isProUser = payload.isProActive === true;
+      const serverQuotaUsed = Math.max(0, Number(payload.trailerUsedThisMonth ?? 0) || 0);
       dispatch({
         type: "BUILD_QUOTA_FETCHED",
         isProUser,
-        quotaUsed: state.generate.regenerateCount,
+        quotaUsed: serverQuotaUsed,
         quotaLimit: isProUser ? PRO_TRAILER_LIMIT : FREE_TRAILER_LIMIT,
       });
     } catch {
@@ -253,7 +255,7 @@ export function TrailerWizardProvider({
         quotaLimit: FREE_TRAILER_LIMIT,
       });
     }
-  }, [state.generate.regenerateCount]);
+  }, []);
 
   const buildTrailer = useCallback(async () => {
     const book = state.books.find((b) => b.id === state.selectedBookId);

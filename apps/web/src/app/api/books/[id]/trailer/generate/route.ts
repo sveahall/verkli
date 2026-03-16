@@ -129,27 +129,58 @@ export async function POST(
     return apiError(E_TRAILER_LIMIT_REACHED, 403);
   }
 
+  // Atomic increment: use RPC or conditional upsert to prevent TOCTOU race.
+  // First try to increment an existing row (optimistic lock via current count).
   const nextTrailerCount = trailerCountThisMonth + 1;
-  const { error: usageUpsertError } = await admin
-    .from("user_usage_monthly" as never)
-    .upsert(
-      {
-        user_id: user.id,
-        usage_month: usageMonth,
-        trailer_count_this_month: nextTrailerCount,
-      } as never,
-      { onConflict: "user_id,usage_month" }
-    );
 
-  if (usageUpsertError) {
-    console.error("[trailer guardrail] failed to reserve monthly usage slot", {
-      userId: user.id,
-      usageMonth,
-      nextTrailerCount,
-      message: usageUpsertError.message,
-      code: usageUpsertError.code,
-    });
-    return apiError(E_DATABASE_ERROR, 500);
+  if (trailerCountThisMonth > 0) {
+    // Row exists — update only if count matches what we read (optimistic lock)
+    const { data: updated, error: updateError } = await admin
+      .from("user_usage_monthly" as never)
+      .update({ trailer_count_this_month: nextTrailerCount } as never)
+      .eq("user_id", user.id)
+      .eq("usage_month", usageMonth)
+      .eq("trailer_count_this_month", trailerCountThisMonth)
+      .select("trailer_count_this_month")
+      .maybeSingle();
+
+    if (updateError) {
+      console.error("[trailer guardrail] failed to reserve monthly usage slot", {
+        userId: user.id,
+        usageMonth,
+        nextTrailerCount,
+        message: updateError.message,
+        code: updateError.code,
+      });
+      return apiError(E_DATABASE_ERROR, 500);
+    }
+
+    if (!updated) {
+      // Concurrent request already incremented — re-check limit
+      return apiError(E_TRAILER_LIMIT_REACHED, 403);
+    }
+  } else {
+    // No row yet — insert with count=1. Unique constraint prevents double-insert.
+    const { error: insertError } = await admin
+      .from("user_usage_monthly" as never)
+      .upsert(
+        {
+          user_id: user.id,
+          usage_month: usageMonth,
+          trailer_count_this_month: 1,
+        } as never,
+        { onConflict: "user_id,usage_month" }
+      );
+
+    if (insertError) {
+      console.error("[trailer guardrail] failed to reserve monthly usage slot", {
+        userId: user.id,
+        usageMonth,
+        message: insertError.message,
+        code: insertError.code,
+      });
+      return apiError(E_DATABASE_ERROR, 500);
+    }
   }
 
   // 7. Generate trailer prompt metadata
@@ -166,8 +197,25 @@ export async function POST(
       metadata: result.metadata,
     });
   } catch (err) {
+    // Rollback the reserved quota slot on failure.
+    // Use optimistic lock: only decrement if count still matches what we set.
+    try {
+      await admin
+        .from("user_usage_monthly" as never)
+        .update({ trailer_count_this_month: trailerCountThisMonth } as never)
+        .eq("user_id", user.id)
+        .eq("usage_month", usageMonth)
+        .eq("trailer_count_this_month", nextTrailerCount);
+    } catch (rollbackErr) {
+      console.error("[trailer guardrail] quota rollback failed", {
+        userId: user.id,
+        usageMonth,
+        message: rollbackErr instanceof Error ? rollbackErr.message : String(rollbackErr),
+      });
+    }
+
     console.error(
-      "[trailer guardrail] trailer generation failed after usage reservation",
+      "[trailer guardrail] trailer generation failed, quota rolled back",
       err instanceof Error ? err.message : String(err)
     );
     return apiError(E_TRAILER_GENERATION_FAILED, 500);

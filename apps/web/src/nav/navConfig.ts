@@ -75,27 +75,28 @@ export const NAV_CONFIG: Record<NavVariant, NavConfig> = {
         hasDropdown: true,
         children: [
           { label: "Overview", href: "/author/home" },
-          { label: "Stats", href: "/author/stats" },
+          { label: "Analytics", href: "/author/analytics" },
           { label: "Profile preview", href: "/author/profile" },
           { label: "TTS Lab", href: "/author/tts-lab" },
         ],
       },
       { label: "Books", href: "/author/books" },
-      { label: "Marketing Portal", href: "/author/marketing" },
-      ...(MVP_MODE ? [] : [
-        {
-          label: "Marketing Tools",
-          href: "/author/marketing",
-          hasDropdown: true,
-          children: [
-            { label: "Overview", href: "/author/marketing" },
-            { label: "AI tools", href: "/author/marketing" },
-            { label: "Automations", href: "/author/marketing" },
-            { label: "Distribution", href: "/author/marketing" },
-          ],
-        } as NavLink,
-        { label: "Community", href: "/author/polls" },
-      ]),
+      ...(MVP_MODE
+        ? [{ label: "Marketing Portal", href: "/author/marketing" }]
+        : [
+            {
+              label: "Marketing",
+              href: "/author/marketing",
+              hasDropdown: true,
+              children: [
+                { label: "Overview", href: "/author/marketing" },
+                { label: "AI tools", href: "/author/marketing" },
+                { label: "Automations", href: "/author/marketing" },
+                { label: "Distribution", href: "/author/marketing" },
+              ],
+            } as NavLink,
+            { label: "Community", href: "/author/polls" },
+          ]),
     ],
     actions: {
       primary: { label: "Books", href: "/author/books" },

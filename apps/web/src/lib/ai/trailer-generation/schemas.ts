@@ -8,6 +8,7 @@ export const TrailerGenreSchema = z.enum([
   "thriller",
   "ya",
   "literary",
+  "biography",
 ]);
 export type TrailerGenre = z.infer<typeof TrailerGenreSchema>;
 
@@ -156,6 +157,25 @@ export const GENRE_TEMPLATES: Record<TrailerGenre, GenreTemplate> = {
     ],
     titleCardPattern: "{title} — en roman",
     captionPattern: "Ord som stannar kvar. Upptäck {title} på Verkli.",
+  },
+  biography: {
+    visualDirection:
+      "Documentary-style footage, archival photography transitions, portrait lighting, urban landscapes, milestone moments, dramatic black and white to color transitions",
+    atmosphere:
+      "Authentic, inspiring, determined, real-world achievement, human resilience",
+    cameraWork:
+      "Ken Burns-style pan across photos, steady tracking shots through city streets, intimate medium close-ups, time-lapse of changing eras",
+    negativeDefaults:
+      "fantasy magic swords cartoon anime fiction supernatural text watermark logo childish low-quality",
+    hashtagPool: [
+      "#BookTok", "#Biography", "#TrueStory", "#BookTrailer",
+      "#NonFiction", "#Inspiration", "#RealLife", "#BiographyBooks",
+      "#NewRelease", "#MustRead", "#BookRecommendation", "#BookCommunity",
+      "#LifeStory", "#BookLovers", "#BiographyBookTok", "#ReadingList",
+      "#InspirationalBooks", "#Memoir", "#RealStory", "#MotivationalReads",
+    ],
+    titleCardPattern: "{title} — en sann historia",
+    captionPattern: "En berättelse som inspirerar. Upptäck {title} på Verkli.",
   },
 };
 

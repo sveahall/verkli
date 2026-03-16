@@ -9,7 +9,11 @@ import {
   E_NEWSLETTER_CREATE_FAILED,
   E_INVALID_JSON,
   E_VALIDATION_FAILED,
+  E_RATE_LIMIT_EXCEEDED,
 } from "@/lib/api-errors";
+import { createPerUserRateLimiter } from "@/lib/rate-limit";
+
+const newsletterRateLimiter = createPerUserRateLimiter({ maxPerMinute: 5 });
 
 const createNewsletterBodySchema = z.object({
   subject: z.string().min(1).max(500),
@@ -69,6 +73,11 @@ export async function POST(request: Request) {
 
   const { user, response } = await requireAuthorRoleForApi();
   if (response) return response;
+
+  const rl = await newsletterRateLimiter.check(user.id);
+  if (!rl.allowed) {
+    return apiError(E_RATE_LIMIT_EXCEEDED, 429);
+  }
 
   let payload: unknown;
   try {

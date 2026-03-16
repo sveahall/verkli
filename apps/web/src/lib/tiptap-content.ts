@@ -168,7 +168,7 @@ function tryParseStoredJson(value: string): Record<string, unknown> | null {
   }
 }
 
-function extractTextFromTiptapNode(node: unknown): string {
+export function extractTextFromTiptapNode(node: unknown): string {
   if (!node || typeof node !== "object") return "";
   const candidate = node as Record<string, unknown>;
 

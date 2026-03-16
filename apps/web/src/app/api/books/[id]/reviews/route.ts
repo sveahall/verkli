@@ -6,6 +6,7 @@ import {
   E_ALREADY_REVIEWED,
   E_BOOK_NOT_FOUND,
   E_DATABASE_ERROR,
+  E_FORBIDDEN,
   E_INVALID_BOOK_ID,
   E_INVALID_BOOK_VERSION,
   E_INVALID_JSON,
@@ -18,6 +19,7 @@ import {
   E_VALIDATION_FAILED,
 } from "@/lib/api-errors";
 import { createPerUserRateLimiter } from "@/lib/rate-limit";
+import { canUserReadBook } from "@/lib/books/access";
 
 const reviewLimiter = createPerUserRateLimiter({ maxPerMinute: 10 });
 
@@ -297,6 +299,31 @@ export async function POST(
 
   const readableBook = await ensureReadableBook(supabase, bookId);
   if (!readableBook.ok) return readableBook.response;
+
+  // Verify the user has read access (purchased, free, or Plus subscriber).
+  // Authors cannot review their own books.
+  const { data: bookRow } = await supabase
+    .from("books")
+    .select("author_id, price_amount, pricing_model")
+    .eq("id", bookId)
+    .maybeSingle();
+
+  if (bookRow && String(bookRow.author_id ?? "") === user.id) {
+    return apiError(E_FORBIDDEN, 403);
+  }
+
+  const hasAccess = await canUserReadBook({
+    supabase,
+    userId: user.id,
+    bookId,
+    bookAuthorId: bookRow ? String(bookRow.author_id ?? "") : undefined,
+    bookPriceAmount: typeof bookRow?.price_amount === "number" ? bookRow.price_amount : undefined,
+    bookPricingModel: typeof bookRow?.pricing_model === "string" ? bookRow.pricing_model : undefined,
+  });
+
+  if (!hasAccess) {
+    return apiError(E_FORBIDDEN, 403);
+  }
 
   const bookVersionId = parsedBody.data.bookVersionId ?? null;
   if (bookVersionId) {

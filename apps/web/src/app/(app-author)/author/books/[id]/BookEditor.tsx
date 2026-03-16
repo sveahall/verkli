@@ -33,6 +33,9 @@ import PrintPanel from "./editor/panels/PrintPanel";
 import { normalizePrintOnDemandSettings, type PrintOnDemandSettings } from "./editor/panels/PrintPanel.helpers";
 import TranslatePanel from "./editor/panels/TranslatePanel";
 import PolishPanel from "./editor/panels/PolishPanel";
+import PublishPanel from "./editor/panels/PublishPanel";
+import MarketPanel from "./editor/panels/MarketPanel";
+import StatisticsPanel from "./editor/panels/StatisticsPanel";
 
 const ACCEPTED_COVER_TYPES = ".jpg,.jpeg,.png,image/jpeg,image/png";
 const ACCEPTED_COVER_EXTENSIONS = new Set(["jpg", "jpeg", "png"]);
@@ -598,7 +601,7 @@ function ImportManusSection({
 
 type Tool = "edit" | "cover" | "translate" | "audiobook" | "print" | "pricing" | "polish" | "publish" | "market" | "statistics" | "import";
 
-const TOOL_ORDER: Tool[] = ["edit", "cover", "translate", "audiobook", "print", "pricing", "polish", "publish", "market", "statistics"];
+const TOOL_ORDER: Tool[] = ["edit", "polish", "cover", "translate", "audiobook", "print", "pricing", "publish", "market", "statistics"];
 
 type Props = {
   book: Book;
@@ -660,7 +663,6 @@ export default function BookEditor({
   const [publishError, setPublishError] = useState<string | null>(null);
   const [publishToast, setPublishToast] = useState<string | null>(null);
   const [confirmPublishAction, setConfirmPublishAction] = useState<"publish" | "update" | "unpublish" | null>(null);
-  const [publishPanelHighlight, setPublishPanelHighlight] = useState(false);
   const [publishMenuOpen, setPublishMenuOpen] = useState(false);
   const [coverUploading, setCoverUploading] = useState(false);
   const [coverError, setCoverError] = useState<string | null>(null);
@@ -913,11 +915,8 @@ export default function BookEditor({
 
   useEffect(() => {
     if (tool === "publish") {
-      publishMenuButtonRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
-      setPublishMenuOpen(true);
-      setPublishPanelHighlight(true);
-      const timeoutId = window.setTimeout(() => setPublishPanelHighlight(false), 1600);
-      return () => window.clearTimeout(timeoutId);
+      // Close any stale popover — the publish tab now has its own dedicated panel
+      setPublishMenuOpen(false);
     }
   }, [tool]);
 
@@ -1068,9 +1067,7 @@ export default function BookEditor({
         : confirmPublishAction === "unpublish"
           ? "Unpublish this version? It will no longer be visible to readers."
           : null;
-  const publishButtonClass = `flex items-center gap-2 rounded-full bg-gradient-to-b from-[#907AFF] to-[#7c6ae6] px-5 py-2.5 text-[13px] font-semibold text-white shadow-[0_1px_2px_rgba(144,122,255,0.3),inset_0_1px_0_rgba(255,255,255,0.15)] transition-all hover:shadow-[0_4px_12px_rgba(144,122,255,0.35),inset_0_1px_0_rgba(255,255,255,0.15)] hover:brightness-110 focus:outline-none focus:ring-2 focus:ring-[#907AFF]/50 ${
-    publishPanelHighlight ? "ring-2 ring-[#907AFF]/50" : ""
-  }`;
+  const publishButtonClass = "flex items-center gap-2 rounded-full bg-gradient-to-b from-[#907AFF] to-[#7c6ae6] px-5 py-2.5 text-[13px] font-semibold text-white shadow-[0_1px_2px_rgba(144,122,255,0.3),inset_0_1px_0_rgba(255,255,255,0.15)] transition-all hover:shadow-[0_4px_12px_rgba(144,122,255,0.35),inset_0_1px_0_rgba(255,255,255,0.15)] hover:brightness-110 focus:outline-none focus:ring-2 focus:ring-[#907AFF]/50";
 
   const versionsByLang = useMemo(() => {
     const map = new Map<string, BookVersion>();
@@ -3417,6 +3414,82 @@ export default function BookEditor({
           />
         )}
 
+        {tool === "publish" && (
+          <PublishPanel
+            bookTitle={bookTitle}
+            authorDisplayName={authorDisplayName}
+            coverImageUrl={displayCoverUrl}
+            chapters={chapters}
+            selectedChapterId={selectedChapterId}
+            bookVersions={bookVersions}
+            isPublished={isPublished}
+            publishVisibility={publishVisibility}
+            publishedChapterCount={publishedChapterCount}
+            missingPublishRequirements={missingPublishRequirements}
+            publishDisabled={publishDisabled}
+            chapterPublishDisabled={chapterPublishDisabled}
+            selectedChapterAlreadyPublished={selectedChapterAlreadyPublished}
+            visibilityChanged={visibilityChanged}
+            isPublishing={isPublishing}
+            publishError={publishError}
+            confirmPublishAction={confirmPublishAction}
+            confirmCopy={confirmCopy}
+            onVisibilityChange={(v) => { setPublishVisibility(v); setPublishError(null); }}
+            onPublishFull={() => setConfirmPublishAction("publish")}
+            onPublishChapter={() => void handlePublishSelectedChapter()}
+            onUpdateSettings={() => setConfirmPublishAction("update")}
+            onUnpublish={() => setConfirmPublishAction("unpublish")}
+            onConfirm={() => confirmPublishAction && void handlePublishAction(confirmPublishAction)}
+            onCancelConfirm={() => setConfirmPublishAction(null)}
+            onChapterPublishToggle={(chapter, shouldPublish) => void handleChapterPublishToggle(chapter, shouldPublish)}
+            onSelectChapter={(id) => { setSelectedChapterId(id); setSessionStartWords(null); }}
+            onOpenCover={() => setTool("cover")}
+            genreSelector={getRecommendationsEnabled() ? <GenreSelector bookId={book.id} /> : undefined}
+          />
+        )}
+
+        {tool === "market" && getMarketingEnabled() && (
+          <MarketPanel
+            bookId={book.id}
+            isPublished={isPublished}
+            marketingCampaigns={marketingCampaigns}
+            isProLocked={isProFeatureLocked}
+            proLockMessage={proFeatureLockMessage}
+            billingLoading={billing.loading}
+            onGenerateCopy={async (channel, lang) => {
+              if (isGeneratingMarketing) return;
+              setMarketingChannel(channel);
+              setMarketingLanguage(lang as SupportedLanguage);
+              setIsGeneratingMarketing(true);
+              try {
+                const res = await fetch(`/api/books/${book.id}/marketing/generate`, {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({ language: lang, channel }),
+                });
+                if (!res.ok) {
+                  const data = await res.json().catch(() => ({}));
+                  toast.error(resolveErrorMessage(data.error));
+                  return;
+                }
+                router.refresh();
+              } catch {
+                toast.error("Could not generate. Try again.");
+              } finally {
+                setIsGeneratingMarketing(false);
+              }
+            }}
+            isGenerating={isGeneratingMarketing}
+          />
+        )}
+
+        {tool === "statistics" && (
+          <StatisticsPanel
+            bookId={book.id}
+            isPublished={isPublished}
+          />
+        )}
+
         {tool === "import" && (
           <ImportManusSection
             bookId={book.id}
@@ -3763,8 +3836,8 @@ export default function BookEditor({
         </>
         )}
 
-        {/* Full view for other tools (exclude cover — it has its own minimal layout) */}
-        {showManuscript && tool !== "edit" && tool !== "cover" && tool !== "audiobook" && tool !== "print" && (
+        {/* Full view for other tools (exclude cover, polish, publish, market — they have their own layouts) */}
+        {showManuscript && tool !== "edit" && tool !== "cover" && tool !== "audiobook" && tool !== "print" && tool !== "polish" && tool !== "publish" && tool !== "market" && tool !== "statistics" && (
         <>
         {!(tool === "translate" && getTranslationsEnabled()) && (
         <div className="mb-6 flex flex-wrap items-end gap-3">

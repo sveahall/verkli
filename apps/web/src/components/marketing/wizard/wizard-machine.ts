@@ -8,37 +8,38 @@ import type {
 // Re-export for convenience
 export type { TrailerGenre, TrailerTone, TrailerScene };
 
-// ─── Steps ─────────────────────────────────────────────────────────────────
+// ─── Steps (3-step flow) ────────────────────────────────────────────────────
 
-export type WizardStep =
-  | "selectBook"
-  | "feeling"
-  | "story"
-  | "previewScenes"
-  | "buildTrailer";
+export type WizardStep = "selectBook" | "configure" | "result";
 
 export const WIZARD_STEP_ORDER: readonly WizardStep[] = [
   "selectBook",
-  "feeling",
-  "story",
-  "previewScenes",
-  "buildTrailer",
+  "configure",
+  "result",
 ] as const;
 
 export const WIZARD_STEP_META: Record<
   WizardStep,
   { title: string; description: string }
 > = {
-  selectBook: { title: "Välj bok", description: "Välj boken du vill skapa en trailer för." },
-  feeling: { title: "Känsla", description: "Välj genre och ton." },
-  story: { title: "Historia", description: "Beskriv handlingen och nyckelord." },
-  previewScenes: { title: "Förhandsgranska", description: "Granska genererade scener." },
-  buildTrailer: { title: "Skapa trailer", description: "Bygg din färdiga boktrailer." },
+  selectBook: {
+    title: "Välj bok",
+    description: "Välj boken du vill skapa en trailer för.",
+  },
+  configure: {
+    title: "Anpassa",
+    description: "Granska och justera inställningar.",
+  },
+  result: {
+    title: "Skapa",
+    description: "Generera scener och bygg din trailer.",
+  },
 };
 
 // ─── Genre + Tone constants ───────────────────────────────────────────────
 
 export const GENRE_OPTIONS: { value: TrailerGenre; label: string }[] = [
+  { value: "biography", label: "Biografi" },
   { value: "romance", label: "Romans" },
   { value: "fantasy", label: "Fantasy" },
   { value: "thriller", label: "Thriller" },
@@ -52,6 +53,7 @@ export const GENRE_TONE_MAP: Record<TrailerGenre, TrailerTone[]> = {
   thriller: ["dark", "intense", "suspenseful", "melancholic"],
   ya: ["whimsical", "intense", "dreamy", "passionate"],
   literary: ["melancholic", "dreamy", "dark", "intense"],
+  biography: ["intense", "epic", "dreamy", "melancholic"],
 };
 
 export const TONE_LABELS: Record<TrailerTone, string> = {
@@ -75,6 +77,142 @@ export const TONE_MOOD_FILTERS: Record<TrailerTone, string> = {
   passionate: "brightness(1.0) contrast(1.2) saturate(1.5) hue-rotate(-5deg)",
   epic: "brightness(1.05) contrast(1.3) saturate(1.1)",
 };
+
+// ─── Auto-detection ─────────────────────────────────────────────────────────
+
+const GENRE_KEYWORDS: Record<TrailerGenre, string[]> = {
+  biography: [
+    "biografi", "memoar", "sann historia", "livshistoria", "uppväxt",
+    "karriär", "generation", "grundare", "entreprenör", "vd",
+    "hans liv", "hennes liv", "berättelsen om", "mannen bakom",
+    "kvinnan bakom", "true story", "biography", "memoir", "life story",
+    "founder", "entrepreneur", "ceo", "his life", "her life",
+  ],
+  romance: [
+    "kärlek", "hjärta", "passion", "romans", "förälsk", "kyss",
+    "romantik", "älska", "längtan", "begär",
+    "love", "heart", "romance", "kiss", "desire", "longing",
+  ],
+  fantasy: [
+    "magi", "drake", "trolldom", "svärd", "kungarike", "älv",
+    "demon", "profetia", "mystisk", "förtrollad", "rike",
+    "magic", "dragon", "sword", "kingdom", "elf", "sorcery", "quest",
+  ],
+  thriller: [
+    "mord", "spänning", "kriminal", "brotts", "polis", "mysterium",
+    "hot", "jakt", "misstänkt", "mörker", "fara", "detektiv",
+    "murder", "crime", "police", "mystery", "detective", "danger",
+  ],
+  ya: [
+    "tonåring", "skola", "ungdom", "kompisar", "identitet",
+    "mobbning", "uppväxt", "gymnasium",
+    "teenager", "school", "youth", "growing up", "high school",
+  ],
+  literary: [], // fallback — no specific keywords
+};
+
+const DEFAULT_GENRE_TONES: Record<TrailerGenre, TrailerTone> = {
+  romance: "passionate",
+  fantasy: "epic",
+  thriller: "suspenseful",
+  ya: "whimsical",
+  literary: "dreamy",
+  biography: "intense",
+};
+
+const STOP_WORDS = new Set([
+  "och", "att", "det", "en", "ett", "är", "var", "som", "med", "för",
+  "den", "har", "inte", "till", "på", "av", "om", "kan", "han", "hon",
+  "dem", "sin", "sitt", "sina", "från", "men", "alla", "denna", "de",
+  "hade", "ska", "skulle", "mer", "eller", "där", "här", "när", "hur",
+  "vad", "bara", "efter", "över", "under", "mot", "genom", "utan", "vid",
+  "så", "sig", "dig", "mig", "oss", "era", "deras", "vara", "bli",
+  "the", "and", "is", "in", "it", "to", "of", "for", "on", "with",
+  "at", "by", "an", "be", "this", "that", "from", "but", "not", "are",
+  "was", "were", "been", "has", "had", "have", "will", "would", "can",
+  "could", "should", "may", "might", "shall", "or", "if", "so", "no",
+  "up", "out", "do", "did", "my", "your", "his", "her", "its", "our",
+  "their", "me", "him", "us", "them", "about", "into",
+]);
+
+export function detectGenreFromText(text: string): TrailerGenre {
+  const lower = text.toLowerCase();
+  let bestGenre: TrailerGenre = "literary";
+  let bestScore = 0;
+
+  for (const [genre, keywords] of Object.entries(GENRE_KEYWORDS)) {
+    if (genre === "literary") continue;
+    const score = keywords.filter((kw) => lower.includes(kw)).length;
+    if (score > bestScore) {
+      bestScore = score;
+      bestGenre = genre as TrailerGenre;
+    }
+  }
+
+  return bestGenre;
+}
+
+export function extractKeywordsFromText(
+  text: string,
+  maxKeywords = 5
+): string[] {
+  const words = text
+    .toLowerCase()
+    .replace(/[^\p{L}\p{N}\s-]/gu, " ")
+    .split(/\s+/)
+    .filter((w) => w.length >= 3 && !STOP_WORDS.has(w));
+
+  const freq = new Map<string, number>();
+  for (const w of words) {
+    freq.set(w, (freq.get(w) ?? 0) + 1);
+  }
+
+  const sorted = [...freq.entries()].sort(
+    (a, b) => b[1] * b[0].length - a[1] * a[0].length
+  );
+
+  return sorted.slice(0, maxKeywords).map(([word]) => word);
+}
+
+export type AutoConfigResult = {
+  genre: TrailerGenre;
+  tone: TrailerTone;
+  description: string;
+  keywords: string[];
+};
+
+export function autoConfigureForBook(book: {
+  title: string | null;
+  description: string | null;
+  chapter_excerpt: string | null;
+}): AutoConfigResult {
+  // Use all available text for genre detection (title + description + chapter content)
+  const allText = [
+    book.title ?? "",
+    book.description ?? "",
+    book.chapter_excerpt ?? "",
+  ]
+    .join(" ")
+    .trim();
+
+  // For the API description field: prefer book description, fall back to chapter excerpt, then title
+  const description =
+    book.description?.trim() ||
+    book.chapter_excerpt?.trim() ||
+    book.title?.trim() ||
+    "Trailer för en bok";
+
+  const genre = detectGenreFromText(allText);
+  const tone = DEFAULT_GENRE_TONES[genre];
+  const keywords = extractKeywordsFromText(allText);
+
+  if (keywords.length === 0 && book.title) {
+    const titleWord = book.title.trim().split(/\s+/)[0];
+    if (titleWord) keywords.push(titleWord.toLowerCase());
+  }
+
+  return { genre, tone, description, keywords };
+}
 
 // ─── Constants ────────────────────────────────────────────────────────────
 
@@ -173,12 +311,31 @@ export function createInitialWizardState(input: {
   books: Book[];
   initialBookId?: string | null;
 }): WizardState {
+  const selectedBookId = resolveSelectedBookId(
+    input.books,
+    input.initialBookId
+  );
+  const selectedBook =
+    input.books.find((b) => b.id === selectedBookId) ?? null;
+
+  // Auto-configure if we have a selected book
+  const config = selectedBook ? autoConfigureForBook(selectedBook) : null;
+
+  // Skip to configure if book is pre-selected (from bookId param or single book)
+  const skipToConfig = Boolean(
+    selectedBookId && (input.initialBookId || input.books.length === 1)
+  );
+
   return {
-    step: "selectBook",
+    step: skipToConfig ? "configure" : "selectBook",
     books: input.books,
-    selectedBookId: resolveSelectedBookId(input.books, input.initialBookId),
-    feeling: { genre: null, tone: null },
-    story: { description: "", keywords: [] },
+    selectedBookId,
+    feeling: config
+      ? { genre: config.genre, tone: config.tone }
+      : { genre: null, tone: null },
+    story: config
+      ? { description: config.description, keywords: config.keywords }
+      : { description: "", keywords: [] },
     generate: createInitialGenerate(),
     build: createInitialBuild(),
   };
@@ -203,13 +360,14 @@ export function canAdvanceFromStep(
   switch (step) {
     case "selectBook":
       return Boolean(state.selectedBookId);
-    case "feeling":
-      return Boolean(state.feeling.genre) && Boolean(state.feeling.tone);
-    case "story":
-      return state.story.description.trim().length >= 20 && state.story.keywords.length >= 1;
-    case "previewScenes":
-      return state.generate.status === "ready" && state.generate.scenes.length >= 1;
-    case "buildTrailer":
+    case "configure":
+      return (
+        Boolean(state.feeling.genre) &&
+        Boolean(state.feeling.tone) &&
+        state.story.description.trim().length >= 1 &&
+        state.story.keywords.length >= 1
+      );
+    case "result":
       return false; // terminal
     default:
       return false;
@@ -220,7 +378,7 @@ export function getMaxReachableStep(state: WizardState): WizardStep {
   for (const step of WIZARD_STEP_ORDER) {
     if (!canAdvanceFromStep(state, step)) return step;
   }
-  return "buildTrailer";
+  return "result";
 }
 
 export function isStepReachable(
@@ -305,15 +463,39 @@ export function wizardReducer(
 
     case "HYDRATE_PERSISTED": {
       if (state.books.length === 0) return state;
+      const bookId = resolveSelectedBookId(
+        state.books,
+        action.persisted.selectedBookId
+      );
+      const book = state.books.find((b) => b.id === bookId) ?? null;
+
+      // Re-fill missing auto-config fields from book data (handles stale sessions)
+      let feeling = action.persisted.feeling;
+      let story = action.persisted.story;
+      if (book) {
+        const needsGenre = !feeling.genre;
+        const needsDescription = !story.description || story.description.trim().length === 0;
+        const needsKeywords = !story.keywords || story.keywords.length === 0;
+        if (needsGenre || needsDescription || needsKeywords) {
+          const config = autoConfigureForBook(book);
+          if (needsGenre) {
+            feeling = { genre: config.genre, tone: config.tone };
+          }
+          if (needsDescription) {
+            story = { ...story, description: config.description };
+          }
+          if (needsKeywords) {
+            story = { ...story, keywords: config.keywords };
+          }
+        }
+      }
+
       const hydrated: WizardState = {
         ...state,
         step: action.persisted.step,
-        selectedBookId: resolveSelectedBookId(
-          state.books,
-          action.persisted.selectedBookId
-        ),
-        feeling: action.persisted.feeling,
-        story: action.persisted.story,
+        selectedBookId: bookId,
+        feeling,
+        story,
         generate: action.persisted.generate,
         build: action.persisted.build,
       };
@@ -341,9 +523,17 @@ export function wizardReducer(
     case "SELECT_BOOK": {
       const bookId = resolveSelectedBookId(state.books, action.bookId);
       if (bookId === state.selectedBookId) return state;
+      const book = state.books.find((b) => b.id === bookId);
+      const config = book ? autoConfigureForBook(book) : null;
       return {
         ...state,
         selectedBookId: bookId,
+        feeling: config
+          ? { genre: config.genre, tone: config.tone }
+          : { genre: null, tone: null },
+        story: config
+          ? { description: config.description, keywords: config.keywords }
+          : { description: "", keywords: [] },
         generate: createInitialGenerate(),
         build: createInitialBuild(),
       };
@@ -351,10 +541,16 @@ export function wizardReducer(
 
     case "SET_GENRE": {
       const newTones = GENRE_TONE_MAP[action.genre];
-      const toneStillValid = state.feeling.tone && newTones.includes(state.feeling.tone);
+      const toneStillValid =
+        state.feeling.tone && newTones.includes(state.feeling.tone);
       return {
         ...state,
-        feeling: { genre: action.genre, tone: toneStillValid ? state.feeling.tone : null },
+        feeling: {
+          genre: action.genre,
+          tone: toneStillValid
+            ? state.feeling.tone
+            : DEFAULT_GENRE_TONES[action.genre],
+        },
         generate: createInitialGenerate(),
         build: createInitialBuild(),
       };
@@ -468,7 +664,7 @@ export function wizardReducer(
     case "RESET_BUILD":
       return {
         ...state,
-        step: "feeling",
+        step: "configure",
         generate: createInitialGenerate(),
         build: createInitialBuild(),
       };

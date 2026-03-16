@@ -44,16 +44,23 @@ export async function GET() {
   }
 
   // Count reviews and average rating
-  const { data: reviews } = await supabase
+  const { count: reviewCount } = await supabase
     .from("reviews")
-    .select("rating")
+    .select("id", { count: "exact", head: true })
     .in("book_id", bookIds);
 
-  const reviewCount = reviews?.length ?? 0;
-  const averageRating =
-    reviewCount > 0
-      ? reviews!.reduce((sum, r) => sum + (Number(r.rating) || 0), 0) / reviewCount
-      : 0;
+  let averageRating = 0;
+  if ((reviewCount ?? 0) > 0) {
+    const { data: reviews } = await supabase
+      .from("reviews")
+      .select("rating")
+      .in("book_id", bookIds)
+      .limit(5000);
+    if (reviews && reviews.length > 0) {
+      averageRating =
+        reviews.reduce((sum, r) => sum + (Number(r.rating) || 0), 0) / reviews.length;
+    }
+  }
 
   // Count bookmarks
   const { count: bookmarkCount } = await supabase
@@ -68,7 +75,7 @@ export async function GET() {
     .eq("followee_id", user.id);
 
   return NextResponse.json({
-    reviews: reviewCount,
+    reviews: reviewCount ?? 0,
     averageRating: Math.round(averageRating * 10) / 10,
     bookmarks: bookmarkCount ?? 0,
     followers: followerCount ?? 0,

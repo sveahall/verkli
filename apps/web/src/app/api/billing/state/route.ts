@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { unstable_noStore as noStore } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { getBillingStateForUser } from "@/lib/billing/server";
 import { getActiveRoleFromRequest } from "@/lib/active-role";
 import { apiError, E_UNAUTHORIZED, E_FORBIDDEN } from "@/lib/api-errors";
@@ -35,6 +36,26 @@ export async function GET(request: Request) {
     return loaded.response;
   }
 
+  // Fetch trailer usage for authors so the wizard can display accurate quota
+  let trailerUsedThisMonth = 0;
+  if (role === "author") {
+    try {
+      const admin = createAdminClient();
+      const now = new Date();
+      const usageMonth = `${now.getUTCFullYear()}-${String(now.getUTCMonth() + 1).padStart(2, "0")}-01`;
+      const { data: usage } = await admin
+        .from("user_usage_monthly" as never)
+        .select("trailer_count_this_month")
+        .eq("user_id", user.id)
+        .eq("usage_month", usageMonth)
+        .maybeSingle();
+      const row = usage as { trailer_count_this_month?: number | null } | null;
+      trailerUsedThisMonth = Math.max(0, Number(row?.trailer_count_this_month ?? 0) || 0);
+    } catch {
+      // Non-blocking — default to 0
+    }
+  }
+
   const body = {
     plan: loaded.state.plan,
     status: loaded.state.status,
@@ -46,6 +67,7 @@ export async function GET(request: Request) {
     isProActive: loaded.state.isProActive,
     plusCancelAtPeriodEnd: loaded.state.plusCancelAtPeriodEnd,
     plusPeriodEnd: loaded.state.plusPeriodEnd,
+    trailerUsedThisMonth,
   };
 
   const res = NextResponse.json(body);

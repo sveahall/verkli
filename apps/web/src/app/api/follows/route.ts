@@ -11,9 +11,13 @@ import {
   E_INVALID_FOLLOWEE_ID,
   E_INVALID_JSON,
   E_NOT_AUTHENTICATED,
+  E_RATE_LIMIT_EXCEEDED,
   E_VALIDATION_FAILED,
 } from "@/lib/api-errors";
 import { createNotification } from "@/lib/notifications/server";
+import { createPerUserRateLimiter } from "@/lib/rate-limit";
+
+const followRateLimiter = createPerUserRateLimiter({ maxPerMinute: 30 });
 
 const followBodySchema = z.object({
   followeeId: z.string().uuid("Invalid followee ID"),
@@ -171,6 +175,11 @@ export async function POST(request: Request) {
 
   if (!user) {
     return apiError(E_NOT_AUTHENTICATED, 401);
+  }
+
+  const rl = await followRateLimiter.check(user.id);
+  if (!rl.allowed) {
+    return apiError(E_RATE_LIMIT_EXCEEDED, 429);
   }
 
   let payload: unknown;

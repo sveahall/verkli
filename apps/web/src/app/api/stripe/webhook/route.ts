@@ -577,7 +577,11 @@ export async function POST(request: Request) {
         object: constructed.data.object,
       },
     };
-  } catch {
+  } catch (verifyError) {
+    console.warn("[stripe.webhook] signature verification failed", {
+      errorType: verifyError instanceof Error ? verifyError.constructor.name : "unknown",
+      message: verifyError instanceof Error ? verifyError.message : String(verifyError),
+    });
     return apiError(E_INVALID_REQUEST_BODY, 400);
   }
 

@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import StepErrorBoundary from "@/components/marketing/wizard/StepErrorBoundary";
 import StepProgressIndicator from "@/components/marketing/wizard/StepProgressIndicator";
 import WizardPreviewPanel from "@/components/marketing/wizard/WizardPreviewPanel";
@@ -8,10 +9,8 @@ import {
   useTrailerWizard,
 } from "@/components/marketing/wizard/WizardContext";
 import StepSelectBook from "@/components/marketing/wizard/steps/StepSelectBook";
-import StepFeeling from "@/components/marketing/wizard/steps/StepFeeling";
-import StepStory from "@/components/marketing/wizard/steps/StepStory";
-import StepPreviewScenes from "@/components/marketing/wizard/steps/StepPreviewScenes";
-import StepBuildTrailer from "@/components/marketing/wizard/steps/StepBuildTrailer";
+import StepConfigure from "@/components/marketing/wizard/steps/StepConfigure";
+import StepResult from "@/components/marketing/wizard/steps/StepResult";
 import {
   WIZARD_STEP_META,
   type WizardStep,
@@ -30,14 +29,10 @@ function StepRenderer() {
     switch (step) {
       case "selectBook":
         return <StepSelectBook />;
-      case "feeling":
-        return <StepFeeling />;
-      case "story":
-        return <StepStory />;
-      case "previewScenes":
-        return <StepPreviewScenes />;
-      case "buildTrailer":
-        return <StepBuildTrailer />;
+      case "configure":
+        return <StepConfigure />;
+      case "result":
+        return <StepResult />;
       default:
         return null;
     }
@@ -68,23 +63,85 @@ export default function MarketingPortalWizard({
   return (
     <main className="min-h-screen bg-background text-foreground">
       <div className="mx-auto w-full max-w-[1120px] px-6 py-10">
-        <header className="mb-6">
-          <h1 className="text-[28px] font-semibold tracking-tight text-slate-900 dark:text-white">
-            AI Asset Studio
-          </h1>
-          <p className="mt-1 text-[14px] text-slate-500 dark:text-white/50">
-            Skapa en boktrailer i fem enkla steg.
-          </p>
+        {/* Back link */}
+        <Link
+          href="/author/home"
+          className="mb-6 inline-flex items-center gap-1.5 text-[13px] font-medium text-slate-500 transition hover:text-slate-700 dark:text-white/50 dark:hover:text-white/70"
+        >
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+            <path
+              d="M10 12L6 8L10 4"
+              stroke="currentColor"
+              strokeWidth="1.5"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
+          </svg>
+          Tillbaka till Dashboard
+        </Link>
+
+        {/* Header */}
+        <header className="mb-8">
+          <div className="flex items-center gap-3">
+            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-[#907AFF] to-[#6C5CE7] shadow-sm">
+              <svg
+                width="20"
+                height="20"
+                viewBox="0 0 24 24"
+                fill="none"
+                className="text-white"
+              >
+                <path
+                  d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"
+                  stroke="currentColor"
+                  strokeWidth="1.5"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
+              </svg>
+            </div>
+            <div>
+              <h1 className="text-[24px] font-semibold tracking-tight text-slate-900 dark:text-white">
+                AI Trailer Studio
+              </h1>
+              <p className="text-[14px] text-slate-500 dark:text-white/50">
+                Skapa en boktrailer automatiskt i tre steg
+              </p>
+            </div>
+          </div>
         </header>
 
         {books.length === 0 ? (
-          <section className="card-base p-8 text-center">
-            <h2 className="text-[18px] font-semibold text-slate-900 dark:text-white">
+          <section className="card-base p-12 text-center">
+            <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-slate-100 dark:bg-white/5">
+              <svg
+                width="24"
+                height="24"
+                viewBox="0 0 24 24"
+                fill="none"
+                className="text-slate-400 dark:text-white/30"
+              >
+                <path
+                  d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1 0-5H20"
+                  stroke="currentColor"
+                  strokeWidth="1.5"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
+              </svg>
+            </div>
+            <h2 className="mt-4 text-[16px] font-semibold text-slate-900 dark:text-white">
               Inga böcker ännu
             </h2>
-            <p className="mt-2 text-[14px] text-slate-500 dark:text-white/50">
-              Lägg till en bok först, kom sedan tillbaka.
+            <p className="mt-1.5 text-[14px] text-slate-500 dark:text-white/50">
+              Du behöver minst en bok för att skapa en trailer.
             </p>
+            <Link
+              href="/author/books/new"
+              className="btn-primary mt-5 inline-flex"
+            >
+              Skapa din första bok
+            </Link>
           </section>
         ) : (
           <TrailerWizardProvider books={books} initialBookId={initialBookId}>

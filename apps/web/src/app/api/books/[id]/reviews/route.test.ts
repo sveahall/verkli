@@ -1,23 +1,30 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { E_ALREADY_REVIEWED } from "@/lib/api-errors";
+import { E_ALREADY_REVIEWED, E_FORBIDDEN } from "@/lib/api-errors";
 import { createSupabaseClientMock } from "../../../_test-helpers/supabase";
 
 const mocks = vi.hoisted(() => ({
   createClient: vi.fn(),
+  canUserReadBook: vi.fn(),
 }));
 
 vi.mock("@/lib/supabase/server", () => ({
   createClient: mocks.createClient,
 }));
 
+vi.mock("@/lib/books/access", () => ({
+  canUserReadBook: mocks.canUserReadBook,
+}));
+
 const { GET, POST } = await import("./route");
 
 const BOOK_ID = "f5f2f4b5-29ca-4878-bf26-f4f149893414";
 const USER_ID = "reader-1";
+const AUTHOR_ID = "author-1";
 
 describe("/api/books/[id]/reviews", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mocks.canUserReadBook.mockResolvedValue(true);
   });
 
   it("GET returns reviews", async () => {
@@ -110,7 +117,7 @@ describe("/api/books/[id]/reviews", () => {
     expect(body.hasMore).toBe(false);
   });
 
-  it("POST creates a review", async () => {
+  it("POST creates a review for a user with book access", async () => {
     const createdReview = {
       id: "review-2",
       user_id: USER_ID,
@@ -122,18 +129,36 @@ describe("/api/books/[id]/reviews", () => {
       updated_at: "2026-02-02T10:00:00.000Z",
     };
 
+    let booksCallCount = 0;
     const client = createSupabaseClientMock({
       userId: USER_ID,
       tables: {
-        books: {
-          select: vi.fn(() => ({
-            eq: vi.fn(() => ({
-              maybeSingle: vi.fn(async () => ({
-                data: { id: BOOK_ID },
-                error: null,
+        books: () => {
+          booksCallCount++;
+          // First call: ensureReadableBook (returns {id})
+          // Second call: access check (returns {author_id, price_amount, pricing_model})
+          if (booksCallCount === 1) {
+            return {
+              select: vi.fn(() => ({
+                eq: vi.fn(() => ({
+                  maybeSingle: vi.fn(async () => ({
+                    data: { id: BOOK_ID },
+                    error: null,
+                  })),
+                })),
+              })),
+            };
+          }
+          return {
+            select: vi.fn(() => ({
+              eq: vi.fn(() => ({
+                maybeSingle: vi.fn(async () => ({
+                  data: { author_id: AUTHOR_ID, price_amount: 0, pricing_model: "book_only" },
+                  error: null,
+                })),
               })),
             })),
-          })),
+          };
         },
         reviews: {
           insert: vi.fn(() => ({
@@ -166,21 +191,153 @@ describe("/api/books/[id]/reviews", () => {
       reviewerName: "You",
       isMine: true,
     });
+    expect(mocks.canUserReadBook).toHaveBeenCalledTimes(1);
   });
 
-  it("POST returns E_ALREADY_REVIEWED on duplicate review", async () => {
+  it("POST blocks review when user has no book access (paid book, no entitlement)", async () => {
+    mocks.canUserReadBook.mockResolvedValue(false);
+
+    let booksCallCount = 0;
     const client = createSupabaseClientMock({
       userId: USER_ID,
       tables: {
-        books: {
-          select: vi.fn(() => ({
-            eq: vi.fn(() => ({
-              maybeSingle: vi.fn(async () => ({
-                data: { id: BOOK_ID },
-                error: null,
+        books: () => {
+          booksCallCount++;
+          if (booksCallCount === 1) {
+            return {
+              select: vi.fn(() => ({
+                eq: vi.fn(() => ({
+                  maybeSingle: vi.fn(async () => ({
+                    data: { id: BOOK_ID },
+                    error: null,
+                  })),
+                })),
+              })),
+            };
+          }
+          return {
+            select: vi.fn(() => ({
+              eq: vi.fn(() => ({
+                maybeSingle: vi.fn(async () => ({
+                  data: { author_id: AUTHOR_ID, price_amount: 9900, pricing_model: "book_only" },
+                  error: null,
+                })),
               })),
             })),
+          };
+        },
+        reviews: {
+          insert: vi.fn(() => ({
+            select: vi.fn(() => ({
+              single: vi.fn(async () => ({ data: null, error: null })),
+            })),
           })),
+        },
+      },
+    });
+
+    mocks.createClient.mockResolvedValue(client as never);
+
+    const req = new Request(`http://localhost/api/books/${BOOK_ID}/reviews`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ rating: 5, content: "Fake review" }),
+    });
+
+    const res = await POST(req, { params: Promise.resolve({ id: BOOK_ID }) });
+    const body = await res.json();
+
+    expect(res.status).toBe(403);
+    expect(body.error).toBe(E_FORBIDDEN);
+    expect(mocks.canUserReadBook).toHaveBeenCalledTimes(1);
+  });
+
+  it("POST blocks author from reviewing own book", async () => {
+    let booksCallCount = 0;
+    const client = createSupabaseClientMock({
+      userId: AUTHOR_ID,
+      tables: {
+        books: () => {
+          booksCallCount++;
+          if (booksCallCount === 1) {
+            return {
+              select: vi.fn(() => ({
+                eq: vi.fn(() => ({
+                  maybeSingle: vi.fn(async () => ({
+                    data: { id: BOOK_ID },
+                    error: null,
+                  })),
+                })),
+              })),
+            };
+          }
+          return {
+            select: vi.fn(() => ({
+              eq: vi.fn(() => ({
+                maybeSingle: vi.fn(async () => ({
+                  data: { author_id: AUTHOR_ID, price_amount: 0, pricing_model: "book_only" },
+                  error: null,
+                })),
+              })),
+            })),
+          };
+        },
+        reviews: {
+          insert: vi.fn(() => ({
+            select: vi.fn(() => ({
+              single: vi.fn(async () => ({ data: null, error: null })),
+            })),
+          })),
+        },
+      },
+    });
+
+    mocks.createClient.mockResolvedValue(client as never);
+
+    const req = new Request(`http://localhost/api/books/${BOOK_ID}/reviews`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ rating: 5, content: "My own masterpiece" }),
+    });
+
+    const res = await POST(req, { params: Promise.resolve({ id: BOOK_ID }) });
+    const body = await res.json();
+
+    expect(res.status).toBe(403);
+    expect(body.error).toBe(E_FORBIDDEN);
+    // canUserReadBook should NOT be called — author check short-circuits first
+    expect(mocks.canUserReadBook).not.toHaveBeenCalled();
+  });
+
+  it("POST returns E_ALREADY_REVIEWED on duplicate review", async () => {
+    let booksCallCount = 0;
+    const client = createSupabaseClientMock({
+      userId: USER_ID,
+      tables: {
+        books: () => {
+          booksCallCount++;
+          if (booksCallCount === 1) {
+            return {
+              select: vi.fn(() => ({
+                eq: vi.fn(() => ({
+                  maybeSingle: vi.fn(async () => ({
+                    data: { id: BOOK_ID },
+                    error: null,
+                  })),
+                })),
+              })),
+            };
+          }
+          return {
+            select: vi.fn(() => ({
+              eq: vi.fn(() => ({
+                maybeSingle: vi.fn(async () => ({
+                  data: { author_id: AUTHOR_ID, price_amount: 0, pricing_model: "book_only" },
+                  error: null,
+                })),
+              })),
+            })),
+          };
         },
         reviews: {
           insert: vi.fn(() => ({
