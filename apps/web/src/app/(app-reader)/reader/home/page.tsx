@@ -1,24 +1,22 @@
-import Image from "next/image";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { getAvatarUrlFromPathServer } from "@/lib/supabase/avatar";
 import { getRecommendationsEnabled } from "@/lib/flags";
-import AuthorCard from "@/components/reader/AuthorCard";
-import BookCard from "@/components/reader/BookCard";
-import EmptyState from "@/components/reader/EmptyState";
-import Rail from "@/components/reader/Rail";
-import ForYouRail from "@/components/reader/ForYouRail";
 import { ErrorBannerWrapper } from "@/components/ui/ErrorBanner";
 import { ErrorState } from "@/components/ui/states";
+import ReaderHomePageView from "@/features/reader/reader-home/ReaderHomePageView";
 
 type ContinueReadingBook = {
   id: string;
   title: string;
+  authorId: string;
   author: string;
   cover: string | null;
   progress: number;
   href: string;
+  chapterLabel?: string | null;
+  lastOpenedLabel?: string | null;
 };
 
 type PublishedBook = {
@@ -98,6 +96,16 @@ function computeBookScore(signal: BookSignal): number {
   return Number(score.toFixed(2));
 }
 
+function formatDateLabel(value: string | null | undefined): string | null {
+  if (!value) return null;
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) return null;
+  return parsed.toLocaleDateString(undefined, {
+    month: "short",
+    day: "numeric",
+  });
+}
+
 async function resolveAvatarUrl(avatarPath: string | null | undefined): Promise<string | null> {
   if (!avatarPath) return null;
   try {
@@ -114,7 +122,7 @@ export default async function ReaderHomePage() {
     supabase = await createClient();
   } catch {
     return (
-      <div className="section-gap-lg">
+      <div className="page-content pb-24 pt-8">
         <ErrorState
           title="Something went wrong"
           description="Could not load the page. Please try again later."
@@ -150,7 +158,6 @@ export default async function ReaderHomePage() {
     }
   } catch (err) {
     if (err instanceof Error && err.message === "NEXT_REDIRECT") throw err;
-    // Swallow profile/application fetch errors; page renders with defaults.
   }
 
   let continueReading: ContinueReadingBook[] = [];
@@ -166,6 +173,8 @@ export default async function ReaderHomePage() {
 
       if (readings && readings.length > 0) {
         const bookIds = readings.map((row) => row.book_id);
+        const chapterIds = [...new Set(readings.map((row) => row.chapter_id).filter(Boolean))];
+
         const { data: books } = await supabase
           .from("books")
           .select("id, title, cover_image, author_id")
@@ -176,10 +185,15 @@ export default async function ReaderHomePage() {
           const bookMap = new Map(books.map((book) => [book.id, book]));
           const authorIds = [...new Set(books.map((book) => book.author_id))];
 
-          const { data: profiles } = await supabase
-            .from("profiles")
-            .select("user_id, display_name, username")
-            .in("user_id", authorIds);
+          const [{ data: profiles }, { data: chapterRows }] = await Promise.all([
+            supabase
+              .from("profiles")
+              .select("user_id, display_name, username")
+              .in("user_id", authorIds),
+            chapterIds.length > 0
+              ? supabase.from("chapters").select("id, title").in("id", chapterIds)
+              : Promise.resolve({ data: [] as Array<{ id: string; title: string }> }),
+          ]);
 
           const authorMap = new Map(
             (profiles ?? []).map((profile) => [
@@ -188,19 +202,28 @@ export default async function ReaderHomePage() {
             ])
           );
 
+          const chapterMap = new Map(
+            (chapterRows ?? []).map((chapter) => [chapter.id, chapter.title])
+          );
+
           continueReading = readings
-            .map((row) => {
+            .map((row): ContinueReadingBook | null => {
               const book = bookMap.get(row.book_id);
               if (!book) return null;
 
               const directHref = row.chapter_id ? `/reader/read/${row.chapter_id}` : `/reader/books/${book.id}`;
+              const lastOpened = formatDateLabel(row.updated_at);
+
               return {
-                id: book.id,
-                title: book.title,
+                id: book.id as string,
+                title: book.title as string,
+                authorId: book.author_id as string,
                 author: authorMap.get(book.author_id) ?? "Author",
-                cover: book.cover_image,
-                progress: row.progress_percent ?? 0,
+                cover: book.cover_image as string | null,
+                progress: (row.progress_percent as number) ?? 0,
                 href: directHref,
+                chapterLabel: row.chapter_id ? chapterMap.get(row.chapter_id) ?? null : null,
+                lastOpenedLabel: lastOpened ? `Last opened ${lastOpened}` : null,
               };
             })
             .filter((book): book is ContinueReadingBook => book !== null);
@@ -208,15 +231,13 @@ export default async function ReaderHomePage() {
       }
     }
   } catch {
-    // Swallow; continue reading rail will be empty.
+    // Non-blocking. Continue reading can render empty.
   }
 
   let publishedWithAuthors: PublishedBook[] = [];
   let newReleases: PublishedBook[] = [];
   let topChart: ChartBook[] = [];
   let trendingAuthors: AuthorMomentum[] = [];
-  let totalPublishedCount = 0;
-  let totalAuthorCount = 0;
 
   try {
     const { data: books } = await supabase
@@ -228,10 +249,7 @@ export default async function ReaderHomePage() {
       .limit(BOOK_POOL_LIMIT);
 
     const bookPool = books ?? [];
-    totalPublishedCount = bookPool.length;
-
     const authorIds = [...new Set(bookPool.map((book) => book.author_id))];
-    totalAuthorCount = authorIds.length;
 
     let profileMap = new Map<string, ProfileLite>();
 
@@ -404,50 +422,17 @@ export default async function ReaderHomePage() {
               ? "Reader favorite"
               : "Rising creator";
 
-        const meta = `${entry.bookCount} books live - ${compactNumber(entry.readerCount + entry.bookmarkCount)} active readers`;
-
         return {
           id: entry.id,
           name: profile?.name ?? "Author",
           avatar,
           genre,
-          meta,
+          meta: `${entry.bookCount} books live · ${compactNumber(entry.readerCount + entry.bookmarkCount)} active readers`,
         };
       })
     );
-
-    if (trendingAuthors.length === 0) {
-      trendingAuthors = await Promise.all(
-        Array.from(
-          publishedWithAuthors.reduce((map, book) => {
-            const existing = map.get(book.authorId) ?? {
-              id: book.authorId,
-              name: profileMap.get(book.authorId)?.name ?? "Author",
-              bookCount: 0,
-            };
-            existing.bookCount += 1;
-            map.set(book.authorId, existing);
-            return map;
-          }, new Map<string, { id: string; name: string; bookCount: number }>()).values()
-        )
-          .sort((a, b) => b.bookCount - a.bookCount)
-          .slice(0, 8)
-          .map(async (entry) => {
-            const profile = profileMap.get(entry.id);
-            const avatar = await resolveAvatarUrl(profile?.avatarPath);
-
-            return {
-              id: entry.id,
-              name: entry.name,
-              avatar,
-              genre: "Published author",
-              meta: `${entry.bookCount} books live`,
-            };
-          })
-      );
-    }
   } catch {
-    // Swallow; rails render as empty states.
+    // Non-blocking. Rails can render empty.
   }
 
   const spotlight: Spotlight | null = continueReading[0]
@@ -466,11 +451,11 @@ export default async function ReaderHomePage() {
           author: topChart[0].author,
           cover: topChart[0].cover,
           href: `/reader/books/${topChart[0].id}`,
-          badge: "#1 in Top chart",
+          badge: "#1 in trending",
           caption:
             topChart[0].averageRating != null
               ? `${topChart[0].averageRating.toFixed(1)} average rating`
-              : "Trending strongly this week",
+              : "Readers are opening this book right now",
         }
       : newReleases[0]
         ? {
@@ -479,302 +464,69 @@ export default async function ReaderHomePage() {
             cover: newReleases[0].cover,
             href: `/reader/books/${newReleases[0].id}`,
             badge: "Fresh release",
-            caption: "Recently published",
+            caption: "Recently published and ready to open",
           }
         : null;
 
   const greeting = readerName ? `Welcome back, ${readerName.split(" ")[0]}` : "Welcome back";
   const top5Chart = topChart.slice(0, 5);
+  const readingBookIds = new Set(continueReading.map((book) => book.id));
+  const activeAuthorIds = new Set(continueReading.map((book) => book.authorId));
+
+  const recommendedBooks = publishedWithAuthors
+    .filter((book) => activeAuthorIds.has(book.authorId) && !readingBookIds.has(book.id))
+    .slice(0, 8);
+
+  if (recommendedBooks.length < 8) {
+    topChart.forEach((book) => {
+      if (recommendedBooks.length >= 8) return;
+      if (readingBookIds.has(book.id)) return;
+      if (recommendedBooks.some((candidate) => candidate.id === book.id)) return;
+      recommendedBooks.push(book);
+    });
+  }
 
   return (
-    <>
-      {/* Hero: WOW — lifted card, accent, depth */}
-      <section className="relative mb-12 min-h-0 w-full overflow-hidden rounded-b-[28px] bg-gradient-to-b from-[#f8f8fa] to-[#f0f0f4] shadow-[0_32px_64px_-24px_rgba(15,23,42,0.14),0_16px_32px_-12px_rgba(15,23,42,0.08)] dark:from-[#0c0c10] dark:to-[#08080c] dark:shadow-[0_32px_64px_-16px_rgba(0,0,0,0.45),0_0_0_1px_rgba(255,255,255,0.04)_inset]">
-        {/* Accent bar (reference: Edukated / Gamely) */}
-        <div className="absolute inset-0 bg-gradient-to-b from-white/60 via-transparent to-[#907AFF]/5 dark:from-white/[0.03] dark:to-transparent" aria-hidden />
-        <div className="relative z-10">
-          <div className="mx-auto w-full max-w-7xl px-4 sm:px-6 lg:px-10">
-            <div className="py-10 sm:py-12">
-              <div className="grid grid-cols-1 gap-8 lg:grid-cols-[auto_1fr] lg:items-center lg:gap-12">
-                {spotlight?.cover ? (
-                  <Link
-                    href={spotlight.href}
-                    className="block w-full max-w-[180px] overflow-hidden rounded-2xl shadow-[0_24px_48px_-12px_rgba(15,23,42,0.2),0_12px_24px_-8px_rgba(15,23,42,0.12)] ring-1 ring-neutral-200/80 transition hover:scale-[1.02] hover:shadow-[0_28px_56px_-12px_rgba(15,23,42,0.22)] dark:ring-white/10 dark:shadow-[0_24px_48px_-12px_rgba(0,0,0,0.5)] dark:hover:shadow-[0_32px_56px_-12px_rgba(0,0,0,0.55)] sm:max-w-[200px] lg:max-w-[220px]"
-                  >
-                    <div className="aspect-[2/3] w-full bg-neutral-200 dark:bg-neutral-800">
-                      <Image
-                        src={spotlight.cover}
-                        alt={spotlight.title}
-                        width={220}
-                        height={330}
-                        className="h-full w-full object-cover object-center"
-                        unoptimized
-                        sizes="(max-width: 1024px) 200px, 220px"
-                      />
-                    </div>
-                  </Link>
-                ) : null}
-                <div className="flex min-w-0 flex-col justify-center">
-                  {spotlight ? (
-                    <span className="text-[11px] font-semibold uppercase tracking-[0.22em] text-neutral-500 dark:text-neutral-400">
-                      {spotlight.badge}
-                    </span>
-                  ) : null}
-                  <h1 className="mt-2 text-[1.75rem] font-semibold leading-tight tracking-tight text-neutral-900 dark:text-white sm:text-[2.25rem] md:text-[2.5rem]">
-                    {spotlight ? spotlight.title : greeting}
-                  </h1>
-                  <p className="mt-2 text-[15px] leading-relaxed text-neutral-600 dark:text-neutral-300">
-                    {spotlight ? spotlight.author : "Your reading lounge. Continue where you left off, or discover something new."}
-                  </p>
-                  <div className="mt-6 flex flex-wrap items-center gap-3">
-                    {spotlight ? (
-                      <Link
-                        href={spotlight.href}
-                        className="inline-flex h-10 items-center justify-center rounded-full bg-[#907AFF] px-5 text-[14px] font-medium text-white shadow-[0_4px_14px_-2px_rgba(144,122,255,0.45)] transition hover:bg-[#7c6aeb] hover:shadow-[0_6px_20px_-2px_rgba(144,122,255,0.5)] dark:bg-[#a78bfa] dark:text-white dark:shadow-[0_4px_14px_-2px_rgba(167,139,250,0.4)] dark:hover:bg-[#c4b5fd]"
-                      >
-                        Open
-                      </Link>
-                    ) : null}
-                    <Link
-                      href="/reader/discover"
-                      className="inline-flex h-10 items-center justify-center rounded-full bg-neutral-900 px-5 text-[14px] font-medium text-white transition hover:bg-neutral-800 dark:bg-white/15 dark:text-white dark:hover:bg-white/25"
-                    >
-                      Discover
-                    </Link>
-                    <Link
-                      href="/reader/library"
-                      className="inline-flex h-10 items-center justify-center rounded-full border border-neutral-300 bg-transparent px-5 text-[14px] font-medium text-neutral-700 transition hover:bg-neutral-100 dark:border-neutral-600 dark:text-neutral-200 dark:hover:bg-neutral-800"
-                    >
-                      My library
-                    </Link>
-                  </div>
-                  {spotlight && typeof spotlight.progress === "number" ? (
-                    <div className="mt-4 h-1.5 w-full max-w-[240px] rounded-full bg-neutral-200 dark:bg-neutral-700">
-                      <div
-                        className="h-full rounded-full bg-[#907AFF] dark:bg-[#a78bfa]"
-                        style={{ width: `${Math.min(Math.max(spotlight.progress, 0), 100)}%` }}
-                      />
-                    </div>
-                  ) : null}
-                </div>
-              </div>
-
-              {/* Row 2: Top 5 — accent bar + lifted cards (reference: Edukated / Book Lover) */}
-              {top5Chart.length > 0 ? (
-                <div className="mt-10 border-t border-neutral-200/80 pt-8 dark:border-neutral-800">
-                  <div className="mb-4 flex items-center justify-between gap-4">
-                    <div className="flex items-center gap-3">
-                      <div className="h-8 w-1 rounded-full bg-[#907AFF]/80 dark:bg-[#a78bfa]/80" aria-hidden />
-                      <span className="text-[11px] font-semibold uppercase tracking-[0.18em] text-neutral-500 dark:text-neutral-400">
-                        Top in chart
-                      </span>
-                    </div>
-                    <Link href="#top-chart" className="text-[12px] font-medium text-[#907AFF] hover:text-[#7c6aeb] dark:text-[#a78bfa] dark:hover:text-[#c4b5fd]">
-                      See all
-                    </Link>
-                  </div>
-                  <div className="flex gap-4 overflow-x-auto pb-1">
-                  {top5Chart.map((book, i) => (
-                    <Link
-                      key={book.id}
-                      href={`/reader/books/${book.id}`}
-                      className="relative flex-shrink-0 overflow-hidden rounded-xl shadow-[0_8px_24px_-8px_rgba(15,23,42,0.15)] ring-1 ring-neutral-200/60 transition hover:scale-[1.03] hover:shadow-[0_12px_28px_-8px_rgba(15,23,42,0.2)] hover:ring-neutral-300 dark:shadow-[0_8px_24px_-8px_rgba(0,0,0,0.4)] dark:ring-neutral-600 dark:hover:ring-neutral-500 dark:hover:shadow-[0_12px_28px_-8px_rgba(0,0,0,0.5)]"
-                    >
-                      <div className="aspect-[2/3] w-[88px] sm:w-[100px]">
-                        {book.cover ? (
-                          <Image
-                            src={book.cover}
-                            alt={book.title}
-                            width={100}
-                            height={150}
-                            className="h-full w-full object-cover"
-                            unoptimized
-                            sizes="100px"
-                          />
-                        ) : (
-                          <div className="h-full w-full bg-neutral-300 dark:bg-neutral-700" />
-                        )}
-                      </div>
-                      <span className="absolute left-1.5 top-1.5 flex h-6 w-6 items-center justify-center rounded-full bg-neutral-900/90 text-[11px] font-bold text-white dark:bg-white/95 dark:text-neutral-900">
-                        {i + 1}
-                      </span>
-                    </Link>
-                  ))}
-                </div>
-              </div>
-            ) : null}
-            </div>
-          </div>
-        </div>
-      </section>
-
-      <div className="mx-auto w-full max-w-7xl px-4 sm:px-6 lg:px-10">
+    <div className="page-content pb-24 pt-6 sm:pt-8 lg:pt-10">
+      <div className="section-gap">
         <ErrorBannerWrapper />
+        <ReaderHomePageView
+          greeting={greeting}
+          spotlight={spotlight}
+          continueReading={continueReading}
+          recommendedBooks={recommendedBooks.map((book) => ({
+            id: book.id,
+            title: book.title,
+            author: book.author,
+            cover: book.cover,
+            href: `/reader/books/${book.id}`,
+            tag: activeAuthorIds.has(book.authorId) ? "By an author you already read" : undefined,
+            length: "Recommended next",
+          }))}
+          trendingBooks={top5Chart.map((book, index) => ({
+            id: book.id,
+            title: book.title,
+            author: book.author,
+            cover: book.cover,
+            href: `/reader/books/${book.id}`,
+            tag: `#${index + 1}`,
+            length:
+              book.averageRating != null
+                ? `${book.averageRating.toFixed(1)} rating`
+                : `${compactNumber(book.readerCount + book.bookmarkCount)} readers`,
+          }))}
+          latestReleases={newReleases.slice(0, 8).map((book) => ({
+            id: book.id,
+            title: book.title,
+            author: book.author,
+            cover: book.cover,
+            href: `/reader/books/${book.id}`,
+            tag: "New",
+            length: formatDateLabel(book.publishedAt) ? `Published ${formatDateLabel(book.publishedAt)}` : undefined,
+          }))}
+          authorHighlights={trendingAuthors.slice(0, 5)}
+        />
       </div>
-
-      <div className="mx-auto w-full max-w-7xl space-y-10 px-4 sm:px-6 lg:px-10">
-      {/* Stats: lifted cards (reference: Gamely / Edukated) */}
-      <section className="grid grid-cols-1 gap-4 sm:grid-cols-2 sm:gap-6 xl:grid-cols-4 xl:gap-8">
-        <div className="card-base-subtle text-left shadow-[0_8px_24px_-8px_rgba(15,23,42,0.12),0_2px_8px_-4px_rgba(15,23,42,0.06)] transition hover:shadow-[0_12px_32px_-8px_rgba(15,23,42,0.14)] dark:shadow-[0_8px_24px_-8px_rgba(0,0,0,0.35)] dark:hover:shadow-[0_12px_32px_-8px_rgba(0,0,0,0.4)]">
-          <p className="px-5 pt-5 text-[12px] font-medium uppercase tracking-[0.14em] text-slate-500 dark:text-white/50">Open books</p>
-          <p className="mt-2 px-5 text-[28px] font-semibold tracking-tight text-slate-900 dark:text-white">{continueReading.length}</p>
-          <p className="mt-1 px-5 pb-5 text-[12px] text-slate-500 dark:text-white/50">Ready to continue right now</p>
-        </div>
-        <div className="card-base-subtle text-left shadow-[0_8px_24px_-8px_rgba(15,23,42,0.12),0_2px_8px_-4px_rgba(15,23,42,0.06)] transition hover:shadow-[0_12px_32px_-8px_rgba(15,23,42,0.14)] dark:shadow-[0_8px_24px_-8px_rgba(0,0,0,0.35)] dark:hover:shadow-[0_12px_32px_-8px_rgba(0,0,0,0.4)]">
-          <p className="px-5 pt-5 text-[12px] font-medium uppercase tracking-[0.14em] text-slate-500 dark:text-white/50">Top chart books</p>
-          <p className="mt-2 px-5 text-[28px] font-semibold tracking-tight text-slate-900 dark:text-white">{topChart.length}</p>
-          <p className="mt-1 px-5 pb-5 text-[12px] text-slate-500 dark:text-white/50">Picked from current reader activity</p>
-        </div>
-        <div className="card-base-subtle text-left shadow-[0_8px_24px_-8px_rgba(15,23,42,0.12),0_2px_8px_-4px_rgba(15,23,42,0.06)] transition hover:shadow-[0_12px_32px_-8px_rgba(15,23,42,0.14)] dark:shadow-[0_8px_24px_-8px_rgba(0,0,0,0.35)] dark:hover:shadow-[0_12px_32px_-8px_rgba(0,0,0,0.4)]">
-          <p className="px-5 pt-5 text-[12px] font-medium uppercase tracking-[0.14em] text-slate-500 dark:text-white/50">Public releases</p>
-          <p className="mt-2 px-5 text-[28px] font-semibold tracking-tight text-slate-900 dark:text-white">{totalPublishedCount}</p>
-          <p className="mt-1 px-5 pb-5 text-[12px] text-slate-500 dark:text-white/50">Published books currently available</p>
-        </div>
-        <div className="card-base-subtle text-left shadow-[0_8px_24px_-8px_rgba(15,23,42,0.12),0_2px_8px_-4px_rgba(15,23,42,0.06)] transition hover:shadow-[0_12px_32px_-8px_rgba(15,23,42,0.14)] dark:shadow-[0_8px_24px_-8px_rgba(0,0,0,0.35)] dark:hover:shadow-[0_12px_32px_-8px_rgba(0,0,0,0.4)]">
-          <p className="px-5 pt-5 text-[12px] font-medium uppercase tracking-[0.14em] text-slate-500 dark:text-white/50">Active authors</p>
-          <p className="mt-2 px-5 text-[28px] font-semibold tracking-tight text-slate-900 dark:text-white">{totalAuthorCount}</p>
-          <p className="mt-1 px-5 pb-5 text-[12px] text-slate-500 dark:text-white/50">Creators publishing on the platform</p>
-        </div>
-      </section>
-
-      <div id="continue-reading" className="scroll-mt-24">
-        <Rail
-          title="Continue reading"
-          description="Jump straight back into your latest chapters"
-          isEmpty={continueReading.length === 0}
-          emptyState={
-            <EmptyState
-              title="Your shelf is quiet"
-              description="Start a book and it will appear here with progress tracking."
-              action={
-                <Link
-                  href="/reader/discover"
-                  className="btn-primary rounded-full bg-slate-900 px-5 py-2.5 text-[14px] hover:bg-slate-800 dark:bg-white dark:text-slate-900 dark:hover:bg-white/95"
-                >
-                  Explore stories
-                </Link>
-              }
-            />
-          }
-        >
-          {continueReading.map((book) => (
-            <BookCard
-              key={book.id}
-              id={book.id}
-              title={book.title}
-              author={book.author}
-              cover={book.cover}
-              progress={book.progress}
-              href={book.href}
-              ctaLabel="Continue"
-              size="lg"
-            />
-          ))}
-        </Rail>
-      </div>
-
-      {user && <ForYouRail userId={user.id} />}
-
-      <div id="top-chart" className="scroll-mt-24">
-        <Rail
-          title="Top chart"
-          description="Books with the strongest reading momentum right now"
-          action={
-            <Link href="/reader/discover" className="btn-ghost py-1.5 text-[13px]">
-              View discovery
-            </Link>
-          }
-          isEmpty={topChart.length === 0}
-          emptyState={
-            <p className="text-[14px] text-slate-500 dark:text-white/50">
-              Top chart is warming up. Published books will appear here soon.
-            </p>
-          }
-        >
-          {topChart.map((book, index) => {
-            const helperText =
-              book.reviewCount > 0
-                ? `${book.reviewCount} reviews`
-                : book.readerCount > 0
-                  ? `${book.readerCount} readers`
-                  : undefined;
-
-            return (
-              <BookCard
-                key={book.id}
-                id={book.id}
-                title={book.title}
-                author={book.author}
-                cover={book.cover}
-                tag={`#${index + 1}`}
-                rating={book.averageRating ?? undefined}
-                length={helperText}
-                size="lg"
-              />
-            );
-          })}
-        </Rail>
-      </div>
-
-      <section id="popular-authors" className="space-y-5 scroll-mt-24">
-        <div className="flex flex-wrap items-end justify-between gap-4">
-          <div className="space-y-1">
-            <h2 className="text-section-title">Popular authors</h2>
-            <p className="text-helper">Creators readers are currently returning to</p>
-          </div>
-          <Link href="/reader/authors" className="btn-ghost py-1.5 text-[13px]">
-            See all authors
-          </Link>
-        </div>
-
-        {trendingAuthors.length > 0 ? (
-          <div className="flex gap-4 overflow-x-auto pb-2 pr-2 -mx-1">
-            {trendingAuthors.map((author) => (
-              <AuthorCard
-                key={author.id}
-                name={author.name}
-                avatar={author.avatar}
-                genre={author.genre}
-                meta={author.meta}
-                href={`/reader/authors/${author.id}`}
-              />
-            ))}
-          </div>
-        ) : (
-          <p className="text-[14px] text-slate-500 dark:text-white/50">
-            No author activity yet. As books are published, this list fills automatically.
-          </p>
-        )}
-      </section>
-
-      <div id="new-releases" className="scroll-mt-24">
-        <Rail
-          title="New releases"
-          description="Latest public books published on Verkli"
-          action={
-            <Link href="/reader/discover" className="btn-ghost py-1.5 text-[13px]">
-              See all
-            </Link>
-          }
-          isEmpty={newReleases.length === 0}
-          emptyState={
-            <p className="text-[14px] text-slate-500 dark:text-white/50">
-              No published books yet. Check back soon.
-            </p>
-          }
-        >
-          {newReleases.map((book) => (
-            <BookCard
-              key={book.id}
-              id={book.id}
-              title={book.title}
-              author={book.author}
-              cover={book.cover}
-            />
-          ))}
-        </Rail>
-      </div>
-      </div>
-    </>
+    </div>
   );
 }

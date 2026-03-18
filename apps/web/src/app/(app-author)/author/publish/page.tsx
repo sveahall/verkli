@@ -11,7 +11,7 @@ export default async function AuthorPublishPicker({
   const bookId = resolvedSearchParams?.id ?? resolvedSearchParams?.book;
 
   if (bookId) {
-    redirect(`/author/books/${bookId}?panel=publish`);
+    redirect(`/author/audience?bookId=${bookId}&surface=beta-readers`);
   }
 
   const supabase = await createClient();
@@ -31,11 +31,11 @@ export default async function AuthorPublishPicker({
     <main className="min-h-screen bg-background text-foreground">
       <div className="mx-auto max-w-[800px] px-6 py-12">
         <Link
-          href="/author/books"
+          href="/author/audience"
           className="inline-flex items-center gap-2 text-sm text-slate-500 transition-colors hover:text-slate-900 dark:text-white/60 dark:hover:text-white"
         >
           <span aria-hidden="true">←</span>
-          Back to books
+          Go to audience workspace
         </Link>
 
         <div className="mt-6">
@@ -43,20 +43,20 @@ export default async function AuthorPublishPicker({
             Choose a book to publish
           </h1>
           <p className="mt-2 text-sm text-slate-600 dark:text-white/60">
-            Publishing happens in the book detail view. Select a book to open the publishing panel.
+            Audience is now the canonical publishing workspace.
           </p>
         </div>
 
         {!books || books.length === 0 ? (
           <div className="mt-8 rounded-xl border border-slate-200 bg-slate-50/50 p-10 text-center dark:border-white/10 dark:bg-white/5">
             <p className="text-slate-600 dark:text-white/60">
-              No books yet. Create a draft first, then publish from the book detail view.
+              No books yet. Create a draft first, then publish from Audience.
             </p>
             <Link
-              href="/author/books"
+              href="/author/library"
               className="mt-4 inline-flex rounded-full bg-slate-900 px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-slate-800 dark:bg-white dark:text-slate-900 dark:hover:bg-white/90"
             >
-              Go to books
+              Open library
             </Link>
           </div>
         ) : (
@@ -64,7 +64,7 @@ export default async function AuthorPublishPicker({
             {books.map((book) => (
               <li key={book.id}>
                 <Link
-                  href={`/author/books/${book.id}?panel=publish`}
+                  href={`/author/audience?bookId=${book.id}&surface=beta-readers`}
                   className="flex items-center justify-between rounded-lg border border-slate-200 bg-white px-4 py-3 transition hover:bg-slate-50 dark:border-white/10 dark:bg-white/5 dark:hover:bg-white/10"
                 >
                   <span className="font-medium text-slate-900 dark:text-white">

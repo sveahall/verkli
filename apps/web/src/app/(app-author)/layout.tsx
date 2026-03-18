@@ -6,7 +6,7 @@ import {
   getAuthorApplicationStatus,
   isLegacyAuthorRole,
 } from "@/lib/auth/author-approval";
-import NavbarShell from "@/nav/NavbarShell";
+import AuthorAppShell from "@/features/author-shell/AuthorAppShell";
 
 export default async function AppAuthorLayout({
   children,
@@ -57,9 +57,6 @@ export default async function AppAuthorLayout({
   }
 
   return (
-    <>
-      <NavbarShell variant="APP_AUTHOR" />
-      {children}
-    </>
+    <AuthorAppShell>{children}</AuthorAppShell>
   );
 }

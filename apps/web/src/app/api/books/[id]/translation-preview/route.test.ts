@@ -1,6 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest"
 import { AIProviderError } from "@/lib/ai/providers/types"
-import { E_TRANSLATION_PAIR_UNSUPPORTED } from "@/lib/api-errors"
 
 const mocks = vi.hoisted(() => ({
   requireAuthorRoleForApi: vi.fn(),
@@ -149,7 +148,7 @@ describe("GET /api/books/[id]/translation-preview", () => {
     })
   })
 
-  it("rejects unsupported translation pairs", async () => {
+  it("returns pairUnsupported flag for unsupported translation pairs", async () => {
     mocks.requireAuthorRoleForApi.mockResolvedValueOnce({
       user: { id: "author-1" },
       response: null,
@@ -161,15 +160,16 @@ describe("GET /api/books/[id]/translation-preview", () => {
       sourceLanguage: "sv",
       sourceLanguageOrigin: "version",
     })
+    mocks.collectTranslationPreviewText.mockResolvedValueOnce("Hej varlden")
 
     const res = await GET(new Request("http://localhost/api/books/book-1/translation-preview?targetLanguage=de"), {
       params: Promise.resolve({ id: "book-1" }),
     })
     const body = await res.json()
 
-    expect(res.status).toBe(422)
-    expect(body.error).toBe(E_TRANSLATION_PAIR_UNSUPPORTED)
-    expect(mocks.collectTranslationPreviewText).not.toHaveBeenCalled()
+    expect(res.status).toBe(200)
+    expect(body.pairUnsupported).toBe(true)
+    expect(body.originalText).toBe("Hej varlden")
     expect(mocks.getTranslator).not.toHaveBeenCalled()
   })
 })

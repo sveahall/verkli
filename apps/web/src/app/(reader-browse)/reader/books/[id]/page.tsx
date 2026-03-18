@@ -13,10 +13,15 @@ import OfflineSaveButton from "./OfflineSaveButton";
 import PurchaseBookButton from "./PurchaseBookButton";
 import PurchaseChapterButton from "./PurchaseChapterButton";
 import PurchaseSuccessRefresh from "./PurchaseSuccessRefresh";
+import OrderPhysicalCopyButton from "./OrderPhysicalCopyButton";
 import BookReviewsSection from "./BookReviewsSection";
 import CommentsSection from "./CommentsSection";
+import FollowAuthorButton from "@/app/(reader-browse)/reader/authors/[id]/FollowAuthorButton";
 import SimilarBooksRail from "@/components/reader/SimilarBooksRail";
 import { Skeleton } from "@/components/ui/Skeleton";
+import { normalizePrintOnDemandSettings } from "@/app/(app-author)/author/books/[id]/editor/panels/PrintPanel.helpers";
+import ReaderBookPageView from "@/features/reader/reader-book/ReaderBookPageView";
+import { ReaderSectionHeader } from "@/features/reader/shared/ReaderScaffold";
 
 function SimilarBooksRailSkeleton() {
   return (
@@ -41,7 +46,7 @@ async function getBook(id: string) {
   const supabase = await createClient();
   const { data } = await supabase
     .from("books")
-    .select("id, title, description, cover_image, status, author_id, language, original_language, original_url, audiobook_status, price_amount, price_currency, pricing_model")
+    .select("id, title, description, cover_image, status, author_id, language, original_language, original_url, audiobook_status, price_amount, price_currency, pricing_model, print_on_demand_settings")
     .eq("id", id)
     .maybeSingle();
   return data;
@@ -134,7 +139,7 @@ export default async function ReaderBookDetail({
 
   const { data: book } = await supabase
     .from("books")
-    .select("id, title, description, cover_image, status, author_id, language, original_language, original_url, audiobook_status, price_amount, price_currency, pricing_model")
+    .select("id, title, description, cover_image, status, author_id, language, original_language, original_url, audiobook_status, price_amount, price_currency, pricing_model, print_on_demand_settings")
     .eq("id", id)
     .maybeSingle();
 
@@ -245,6 +250,7 @@ export default async function ReaderBookDetail({
 
   let lastChapterId: string | null = firstChapter?.id ?? null;
   let isBookmarked = false;
+  let initialFollowing = false;
   if (user && hasReadAccess) {
     const [readingRes, bookmarkRes] = await Promise.all([
       supabase
@@ -262,6 +268,16 @@ export default async function ReaderBookDetail({
     ]);
     if (readingRes.data?.chapter_id) lastChapterId = readingRes.data.chapter_id;
     isBookmarked = !!bookmarkRes.data;
+  }
+
+  if (user) {
+    const { data: followRow } = await supabase
+      .from("follows")
+      .select("followee_id")
+      .eq("follower_id", user.id)
+      .eq("followee_id", book.author_id)
+      .maybeSingle();
+    initialFollowing = !!followRow;
   }
 
   // For per_chapter books, load which chapters the user has purchased
@@ -316,271 +332,343 @@ export default async function ReaderBookDetail({
       : {}),
   };
 
+  const metaChips = (
+    <>
+      <span className="rounded-full border border-black/[0.08] bg-white/80 px-3 py-1 text-[12px] text-slate-700 dark:border-white/10 dark:bg-white/[0.05] dark:text-white/70">
+        {chaptersCount} chapters
+      </span>
+      <span className="rounded-full border border-black/[0.08] bg-white/80 px-3 py-1 text-[12px] text-slate-700 dark:border-white/10 dark:bg-white/[0.05] dark:text-white/70">
+        {languageName}
+      </span>
+      <span className="rounded-full border border-black/[0.08] bg-white/80 px-3 py-1 text-[12px] text-slate-700 dark:border-white/10 dark:bg-white/[0.05] dark:text-white/70">
+        {book.audiobook_status === "published"
+          ? "Audiobook available"
+          : book.audiobook_status === "generating"
+            ? "Audiobook generating"
+            : "Text edition"}
+      </span>
+      <span className="rounded-full border border-black/[0.08] bg-white/80 px-3 py-1 text-[12px] text-slate-700 dark:border-white/10 dark:bg-white/[0.05] dark:text-white/70">
+        {averageRating !== null ? `${averageRating.toFixed(1)} rating` : "No ratings yet"}
+      </span>
+    </>
+  );
+
+  const languageSwitcher = (
+    <div className="space-y-2">
+      <p className="text-[12px] font-semibold uppercase tracking-[0.14em] text-slate-400 dark:text-white/35">
+        Read in
+      </p>
+      <div className="flex flex-wrap gap-2">
+        {availableLanguages.map((language) => (
+          <Link
+            key={language.languageCode}
+            href={`/reader/books/${book.id}?lang=${encodeURIComponent(language.languageCode)}`}
+            aria-current={language.isCurrentLanguage ? "page" : undefined}
+            className={
+              language.isCurrentLanguage
+                ? "rounded-full bg-slate-900 px-3 py-1.5 text-[12px] font-medium text-white dark:bg-white dark:text-slate-900"
+                : "rounded-full border border-black/[0.08] bg-white/80 px-3 py-1.5 text-[12px] font-medium text-slate-700 transition hover:border-black/[0.12] hover:text-slate-900 dark:border-white/10 dark:bg-white/[0.04] dark:text-white/70 dark:hover:text-white"
+            }
+          >
+            {language.displayName}
+          </Link>
+        ))}
+      </div>
+    </div>
+  );
+
+  const notices = (
+    <>
+      {purchaseState === "success" ? (
+        <div className="rounded-2xl border border-emerald-500/30 bg-emerald-500/10 p-4 text-sm text-emerald-900 dark:text-emerald-200">
+          <PurchaseSuccessRefresh />
+        </div>
+      ) : purchaseState === "failed" ? (
+        <div className="rounded-2xl border border-rose-500/30 bg-rose-500/10 p-4 text-sm">
+          <p className="font-semibold text-rose-700 dark:text-rose-300">Payment verification failed.</p>
+          <p className="mt-1 text-rose-700 dark:text-rose-300">Try again or contact support.</p>
+        </div>
+      ) : purchaseState === "cancelled" ? (
+        <div className="rounded-2xl border border-slate-300/50 bg-slate-100 p-4 text-sm text-slate-700 dark:border-white/10 dark:bg-white/5 dark:text-white/60">
+          Checkout cancelled. You can try again anytime.
+        </div>
+      ) : null}
+
+      {!hasReadAccess && !isFreeBook && !isPerChapter ? (
+        <div className="rounded-[20px] border border-[#907AFF]/20 bg-[#907AFF]/5 p-5 text-sm">
+          <p className="font-semibold text-slate-900 dark:text-white">This book requires purchase or Verkli Plus</p>
+          <p className="mt-1 text-slate-600 dark:text-white/60">
+            Chapter 1 is free to read. Unlock all chapters for {formatMoney(priceAmount, priceCurrency)} or with Verkli Plus.
+          </p>
+        </div>
+      ) : null}
+
+      {!hasReadAccess && !isFreeBook && isPerChapter ? (
+        <div className="rounded-[20px] border border-[#907AFF]/20 bg-[#907AFF]/5 p-5 text-sm">
+          <p className="font-semibold text-slate-900 dark:text-white">Chapters available individually</p>
+          <p className="mt-1 text-slate-600 dark:text-white/60">
+            First chapter is free. Buy chapters individually for {formatMoney(priceAmount, priceCurrency)} each, or get all with Verkli Plus.
+          </p>
+        </div>
+      ) : null}
+    </>
+  );
+
+  const actionBar = (
+    <>
+      {hasReadAccess ? (
+        <StartReadingLink
+          bookId={book.id}
+          firstChapterId={firstChapter?.id ?? null}
+          serverChapterId={user ? lastChapterId : null}
+        />
+      ) : isPerChapter ? (
+        <>
+          {firstContentChapter ? (
+            <Link
+              href={`/reader/read/${firstContentChapter.id}`}
+              className="btn-primary"
+            >
+              Read chapter 1 free
+            </Link>
+          ) : null}
+          <Link href="/reader/billing" className="btn-secondary">
+            Verkli Plus
+          </Link>
+        </>
+      ) : (
+        <>
+          {firstContentChapter ? (
+            <Link
+              href={`/reader/read/${firstContentChapter.id}`}
+              className="btn-primary"
+            >
+              Read chapter 1 free
+            </Link>
+          ) : null}
+          {user ? (
+            <PurchaseBookButton bookId={book.id} amount={priceAmount} currency={priceCurrency} />
+          ) : (
+            <Link href={signInHref} className="btn-primary">
+              Sign in to purchase
+            </Link>
+          )}
+          <Link href="/reader/billing" className="btn-secondary">
+            Verkli Plus
+          </Link>
+        </>
+      )}
+    </>
+  );
+
+  const utilityBar = (
+    <>
+      {user && hasReadAccess ? (
+        <BookmarkButton bookId={book.id} initialBookmarked={isBookmarked} />
+      ) : null}
+      {user && hasReadAccess ? (
+        <OfflineSaveButton
+          bookId={book.id}
+          userId={user.id}
+          languageCode={lang}
+        />
+      ) : null}
+      {originalUrl ? (
+        <a
+          href={originalUrl}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="btn-secondary"
+        >
+          Original on Amazon
+        </a>
+      ) : null}
+    </>
+  );
+
+  const chapterRows = (
+    <div className="space-y-2">
+      {(chapters ?? []).map((chapterItem, index) => {
+        const isPreviewChapter = index === 0;
+        const isPurchased = purchasedChapterIds.has(chapterItem.id);
+        const isUnlocked = hasReadAccess || isFreeBook || isPreviewChapter || (isPerChapter && isPurchased);
+
+        return (
+          <div
+            key={chapterItem.id}
+            className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-black/[0.06] bg-white/70 px-4 py-3 dark:border-white/10 dark:bg-white/[0.03]"
+          >
+            <div className="min-w-0">
+              <div className="flex items-center gap-3">
+                <span className="w-6 flex-shrink-0 text-right text-[12px] font-medium text-slate-400 dark:text-white/35">
+                  {chapterItem.order}
+                </span>
+                <Link
+                  href={`/reader/read/${chapterItem.id}`}
+                  className="truncate text-[14px] font-medium text-slate-900 hover:text-[#7058DD] dark:text-white dark:hover:text-[#b8a8ff]"
+                >
+                  {chapterItem.title}
+                </Link>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2 text-[12px]">
+              {isUnlocked ? (
+                <span className="rounded-full border border-emerald-500/20 bg-emerald-500/10 px-3 py-1 font-medium text-emerald-700 dark:text-emerald-300">
+                  {isPreviewChapter && !hasReadAccess ? "Preview" : "Open"}
+                </span>
+              ) : user && isPerChapter ? (
+                <PurchaseChapterButton
+                  bookId={book.id}
+                  chapterId={chapterItem.id}
+                  amount={priceAmount}
+                  currency={priceCurrency}
+                />
+              ) : user ? (
+                <span className="rounded-full border border-black/[0.08] bg-white/70 px-3 py-1 font-medium text-slate-600 dark:border-white/10 dark:bg-white/[0.04] dark:text-white/60">
+                  Unlock with book access
+                </span>
+              ) : (
+                <Link href={signInHref} className="text-[12px] font-medium text-[#7058DD] hover:text-[#5f49c8]">
+                  Sign in
+                </Link>
+              )}
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+
+  const editionNotes = [
+    { label: "Language", value: languageName },
+    { label: "Access", value: isPerChapter ? "Per chapter" : isFreeBook ? "Free" : formatMoney(priceAmount, priceCurrency) },
+    {
+      label: "Audio",
+      value:
+        book.audiobook_status === "published"
+          ? "Audiobook available"
+          : book.audiobook_status === "generating"
+            ? "Audiobook generating"
+            : "Text only",
+    },
+    {
+      label: "Rating",
+      value: averageRating !== null ? `${averageRating.toFixed(1)} from ${ratingsCount} reviews` : "No ratings yet",
+    },
+  ];
+
+  const podSection = (() => {
+    const podSettings = normalizePrintOnDemandSettings(
+      (book as { print_on_demand_settings?: unknown }).print_on_demand_settings
+    );
+    const FORMAT_LABELS: Record<string, string> = { softcover: "Softcover", hardcover: "Hardcover" };
+    const podFormats = podSettings.enabled
+      ? podSettings.formats
+          .map((fmt) => {
+            const priceMinor = fmt === "softcover" ? podSettings.softcoverPriceMinor : podSettings.hardcoverPriceMinor;
+            if (!priceMinor || priceMinor <= 0) return null;
+            return { format: fmt, label: FORMAT_LABELS[fmt] ?? fmt, priceMinor, currency: podSettings.priceCurrency };
+          })
+          .filter((format): format is NonNullable<typeof format> => format !== null)
+      : [];
+
+    if (podFormats.length === 0) return null;
+
+    return (
+      <section className="rounded-[28px] border border-black/[0.06] bg-white/88 p-5 shadow-[0_18px_48px_-36px_rgba(15,23,42,0.32)] dark:border-white/10 dark:bg-white/[0.04]">
+        <ReaderSectionHeader
+          eyebrow="Print"
+          title="Order a physical copy"
+          description="Printed and shipped on demand. Delivery usually takes 5–10 business days."
+        />
+        <div className="mt-5">
+          {user ? (
+            <OrderPhysicalCopyButton bookId={book.id} formats={podFormats} />
+          ) : (
+            <Link href={signInHref} className="btn-secondary">
+              Sign in to order
+            </Link>
+          )}
+        </div>
+      </section>
+    );
+  })();
+
   return (
-    <main className="min-h-screen bg-background text-foreground">
+    <main className="min-h-screen bg-[#f7f8fb] text-foreground dark:bg-[#030712]">
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
       />
-      <header className="mx-auto max-w-[1100px] px-6 pt-10">
-        <Link href="/reader/discover" className="text-[13px] text-slate-600 hover:text-slate-900 dark:text-white/50 dark:hover:text-white/70">
-          <span aria-hidden>←</span> Back to discover
-        </Link>
-      </header>
-
-      <section className="mx-auto grid max-w-[1100px] gap-10 px-6 py-12 lg:grid-cols-[0.9fr_1.1fr]">
-        <div className="relative overflow-hidden rounded-[28px] border border-black/10 bg-black/[0.02] dark:border-white/10 dark:bg-white/5">
-          {(book as { cover_image?: string | null }).cover_image ? (
-            <Image
-              src={(book as { cover_image?: string | null }).cover_image!}
-              alt={book.title}
-              fill
-              sizes="(min-width: 1024px) 420px, 100vw"
-              className="object-cover"
-              priority
-              unoptimized
-            />
-          ) : (
-            <div className="flex h-full min-h-[360px] w-full items-center justify-center bg-gradient-to-br from-[#907AFF]/20 to-[#E29ED5]/20">
-              <span className="text-[18px] font-semibold text-slate-700 dark:text-white/70">No cover</span>
-            </div>
-          )}
-          <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/20 to-transparent" />
-        </div>
-
-        <div>
-          <h1 className="text-[36px] font-semibold tracking-tight text-slate-900 dark:text-white md:text-[44px]">
-            {book.title}
-          </h1>
-          <Link
-            href={`/reader/authors/${book.author_id}`}
-            className="mt-2 block text-[15px] text-slate-600 hover:text-slate-900 dark:text-white/60 dark:hover:text-white/80"
-          >
-            {authorName}
-          </Link>
-
-          <div className="mt-4">
-            <p className="text-[12px] font-medium text-slate-600 dark:text-white/60">Available languages:</p>
-            <div className="mt-2 flex flex-wrap gap-2 text-[12px]">
-              {availableLanguages.map((language) => (
-                <Link
-                  key={language.languageCode}
-                  href={`/reader/books/${book.id}?lang=${encodeURIComponent(language.languageCode)}`}
-                  aria-current={language.isCurrentLanguage ? "page" : undefined}
-                  className={
-                    language.isCurrentLanguage
-                      ? "rounded-full border border-emerald-600/30 bg-emerald-500/10 px-3 py-1 text-emerald-700 dark:border-emerald-400/30 dark:bg-emerald-500/10 dark:text-emerald-300"
-                      : "rounded-full border border-black/10 bg-black/[0.02] px-3 py-1 text-slate-600 transition hover:border-black/20 hover:text-slate-900 dark:border-white/10 dark:bg-white/5 dark:text-white/60 dark:hover:border-white/20 dark:hover:text-white/80"
-                  }
-                >
-                  {language.displayName}
-                </Link>
-              ))}
-            </div>
-          </div>
-
-          <div className="mt-6 flex flex-wrap gap-3 text-[12px] text-slate-600 dark:text-white/60">
-            <span className="rounded-full border border-black/10 bg-black/[0.02] px-3 py-1 dark:border-white/10 dark:bg-white/5">
-              {chaptersCount ?? 0} chapters
-            </span>
-            <span className="rounded-full border border-black/10 bg-black/[0.02] px-3 py-1 dark:border-white/10 dark:bg-white/5">Published</span>
-            <span className="rounded-full border border-emerald-600/30 bg-emerald-500/10 px-3 py-1 text-emerald-700 dark:border-emerald-400/30 dark:bg-emerald-500/10 dark:text-emerald-300" aria-label={`Language: ${languageName}`}>
-              {languageName}
-            </span>
-            {book.audiobook_status === "published" ? (
-              <span className="rounded-full border border-violet-600/30 bg-violet-500/10 px-3 py-1 text-violet-700 dark:border-violet-400/30 dark:bg-violet-500/10 dark:text-violet-300">
-                Audiobook available
-              </span>
-            ) : book.audiobook_status === "generating" ? (
-              <span className="rounded-full border border-blue-600/30 bg-blue-500/10 px-3 py-1 text-blue-700 dark:border-blue-400/30 dark:bg-blue-500/10 dark:text-blue-300">
-                Audiobook generating
-              </span>
+      <ReaderBookPageView
+        backHref="/reader/discover"
+        title={book.title}
+        authorName={authorName}
+        authorHref={`/reader/authors/${book.author_id}`}
+        cover={
+          <div className="relative aspect-[3/4] overflow-hidden rounded-[28px] border border-black/[0.08] bg-black/[0.04] shadow-[0_26px_60px_-36px_rgba(15,23,42,0.45)] dark:border-white/10 dark:bg-white/[0.05]">
+            {(book as { cover_image?: string | null }).cover_image ? (
+              <Image
+                src={(book as { cover_image?: string | null }).cover_image!}
+                alt={book.title}
+                fill
+                sizes="(min-width: 1024px) 280px, 220px"
+                className="object-cover"
+                priority
+                unoptimized
+              />
             ) : (
-              <span className="rounded-full border border-black/10 bg-black/[0.02] px-3 py-1 dark:border-white/10 dark:bg-white/5">
-                No audio yet
-              </span>
+              <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-[#907AFF]/20 to-[#E29ED5]/20">
+                <span className="text-[18px] font-semibold text-slate-700 dark:text-white/70">No cover</span>
+              </div>
             )}
-            <span className="rounded-full border border-amber-600/30 bg-amber-500/10 px-3 py-1 text-amber-700 dark:border-amber-400/30 dark:bg-amber-500/10 dark:text-amber-300">
-              {averageRating !== null
-                ? `Rating ${averageRating.toFixed(1)}/5 (${ratingsCount})`
-                : "No ratings yet"}
-            </span>
           </div>
-
-          <p className="mt-4 text-[14px] font-medium text-slate-700 dark:text-white/80">
-            Read in {languageName} on Verkli
-          </p>
-
-          <p className="mt-6 text-[15px] leading-relaxed text-slate-600 dark:text-white/60">
-            {book.description || "No description yet."}
-          </p>
-
-          {purchaseState === "success" ? (
-            <div className="mt-6 rounded-2xl border border-emerald-500/30 bg-emerald-500/10 p-4 text-sm text-emerald-900 dark:text-emerald-200">
-              <PurchaseSuccessRefresh />
-            </div>
-          ) : purchaseState === "failed" ? (
-            <div className="mt-6 rounded-2xl border border-rose-500/30 bg-rose-500/10 p-4 text-sm">
-              <p className="font-semibold text-rose-700 dark:text-rose-300">Payment verification failed.</p>
-              <p className="mt-1 text-rose-700 dark:text-rose-300">Try again or contact support.</p>
-            </div>
-          ) : purchaseState === "cancelled" ? (
-            <div className="mt-6 rounded-2xl border border-slate-300/50 bg-slate-100 p-4 text-sm text-slate-700 dark:border-white/10 dark:bg-white/5 dark:text-white/60">
-              Checkout cancelled. You can try again anytime.
-            </div>
-          ) : null}
-
-          {!hasReadAccess && !isFreeBook && !isPerChapter ? (
-            <div className="mt-6 rounded-[20px] border border-[#907AFF]/20 bg-[#907AFF]/5 p-5 text-sm">
-              <p className="font-semibold text-slate-900 dark:text-white">This book requires purchase or Verkli Plus</p>
-              <p className="mt-1 text-slate-600 dark:text-white/60">
-                Chapter 1 is free to read. Unlock all chapters for {formatMoney(priceAmount, priceCurrency)} or with Verkli Plus.
-              </p>
-            </div>
-          ) : null}
-
-          {!hasReadAccess && !isFreeBook && isPerChapter ? (
-            <div className="mt-6 rounded-[20px] border border-[#907AFF]/20 bg-[#907AFF]/5 p-5 text-sm">
-              <p className="font-semibold text-slate-900 dark:text-white">Chapters available individually</p>
-              <p className="mt-1 text-slate-600 dark:text-white/60">
-                First chapter is free. Buy chapters individually for {formatMoney(priceAmount, priceCurrency)} each, or get all with Verkli Plus.
-              </p>
-            </div>
-          ) : null}
-
-          <div className="mt-9 space-y-5">
-            <div className="flex flex-wrap items-center gap-3">
-              {hasReadAccess ? (
-                <StartReadingLink
-                  bookId={book.id}
-                  firstChapterId={firstChapter?.id ?? null}
-                  serverChapterId={user ? lastChapterId : null}
-                />
-              ) : isPerChapter ? (
-                <>
-                  {firstContentChapter && (
-                    <Link
-                      href={`/reader/read/${firstContentChapter.id}`}
-                      className="inline-flex h-11 min-h-11 items-center justify-center rounded-xl bg-emerald-600 px-5 text-sm font-semibold text-white shadow-sm transition hover:bg-emerald-700 hover:shadow"
-                    >
-                      Read chapter 1 free
-                    </Link>
-                  )}
-                  <Link
-                    href="/reader/billing"
-                    className="inline-flex h-11 min-h-11 items-center justify-center rounded-xl border border-[#907AFF]/30 bg-[#907AFF]/10 px-5 text-sm font-semibold text-[#907AFF] transition hover:bg-[#907AFF]/20 dark:text-[#B8A9FF] dark:hover:bg-[#907AFF]/15"
-                  >
-                    Verkli Plus
-                  </Link>
-                </>
-              ) : (
-                <>
-                  {firstContentChapter && (
-                    <Link
-                      href={`/reader/read/${firstContentChapter.id}`}
-                      className="inline-flex h-11 min-h-11 items-center justify-center rounded-xl bg-emerald-600 px-5 text-sm font-semibold text-white shadow-sm transition hover:bg-emerald-700 hover:shadow"
-                    >
-                      Read chapter 1 free
-                    </Link>
-                  )}
-                  {user ? (
-                    <PurchaseBookButton bookId={book.id} amount={priceAmount} currency={priceCurrency} />
-                  ) : (
-                    <Link
-                      href={signInHref}
-                      className="inline-flex h-11 min-h-11 items-center justify-center rounded-xl bg-[#907AFF] px-5 text-sm font-semibold text-white shadow-sm transition hover:bg-[#8069EE] hover:shadow"
-                    >
-                      Sign in to purchase
-                    </Link>
-                  )}
-                  <Link
-                    href="/reader/billing"
-                    className="inline-flex h-11 min-h-11 items-center justify-center rounded-xl border border-[#907AFF]/30 bg-[#907AFF]/10 px-5 text-sm font-semibold text-[#907AFF] transition hover:bg-[#907AFF]/20 dark:text-[#B8A9FF] dark:hover:bg-[#907AFF]/15"
-                  >
-                    Verkli Plus
-                  </Link>
-                </>
-              )}
-              {user && hasReadAccess && (
-                <BookmarkButton bookId={book.id} initialBookmarked={isBookmarked} />
-              )}
-              {user && hasReadAccess && (
-                <OfflineSaveButton
-                  bookId={book.id}
-                  userId={user.id}
-                  languageCode={lang}
-                />
-              )}
-              {originalUrl && (
-                <a
-                  href={originalUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-600 transition hover:bg-slate-50 hover:border-slate-300 dark:border-white/15 dark:bg-white/5 dark:text-white/80 dark:hover:bg-white/10"
-                >
-                  Original on Amazon
-                  <span aria-hidden className="text-slate-400 dark:text-white/50">↗</span>
-                </a>
-              )}
-            </div>
-          </div>
-        </div>
-      </section>
-      {isPerChapter && !isFreeBook && (chapters ?? []).length > 0 && (
-        <section className="mx-auto max-w-[1100px] px-6 pb-8">
-          <h2 className="text-[18px] font-semibold text-slate-900 dark:text-white mb-4">Chapters</h2>
-          <div className="space-y-2">
-            {(chapters ?? []).map((ch, idx) => {
-              const isPreviewChapter = idx === 0;
-              const isPurchased = purchasedChapterIds.has(ch.id);
-              return (
-                <div key={ch.id} className="flex items-center justify-between rounded-xl border border-black/[0.06] bg-white/60 px-4 py-3 dark:border-white/[0.06] dark:bg-white/[0.02]">
-                  <div className="flex items-center gap-3 min-w-0">
-                    <span className="text-xs font-medium text-slate-400 dark:text-white/40 w-6 text-right flex-shrink-0">{ch.order}</span>
-                    <Link href={`/reader/read/${ch.id}`} className="text-sm text-slate-800 hover:text-slate-900 dark:text-white/80 dark:hover:text-white truncate">
-                      {ch.title}
-                    </Link>
-                  </div>
-                  <div className="flex-shrink-0 ml-3">
-                    {isPreviewChapter || hasReadAccess || isPurchased ? (
-                      <span className="text-xs text-emerald-600 dark:text-emerald-400 font-medium">
-                        {isPreviewChapter ? "Free" : "Unlocked"}
-                      </span>
-                    ) : user ? (
-                      <PurchaseChapterButton bookId={book.id} chapterId={ch.id} amount={priceAmount} currency={priceCurrency} />
-                    ) : (
-                      <Link href={signInHref} className="text-xs font-medium text-[#907AFF] hover:text-[#8069EE]">
-                        Sign in to buy
-                      </Link>
-                    )}
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        </section>
-      )}
-
-      <Suspense fallback={<SimilarBooksRailSkeleton />}>
-        <SimilarBooksRail
-          bookId={book.id}
-          authorId={book.author_id}
-          language={book.language}
-        />
-      </Suspense>
-      <BookReviewsSection
-        bookId={book.id}
-        isSignedIn={Boolean(user)}
-        initialAverageRating={averageRating}
-        initialRatingsCount={ratingsCount}
-      />
-      <CommentsSection
-        bookId={book.id}
-        bookAuthorId={bookAuthorId}
-        currentUserId={user?.id ?? null}
-        isSignedIn={Boolean(user)}
-        signInHref={signInHref}
-        chapterOptions={chapterOptions}
+        }
+        followAction={
+          <FollowAuthorButton
+            authorId={String(book.author_id)}
+            isSignedIn={Boolean(user)}
+            signInHref={signInHref}
+            initialFollowing={initialFollowing}
+          />
+        }
+        metaChips={metaChips}
+        languageSwitcher={languageSwitcher}
+        description={book.description || "No description yet."}
+        notices={notices}
+        actionBar={actionBar}
+        utilityBar={utilityBar}
+        editionNotes={editionNotes}
+        chaptersSection={chapterRows}
+        podSection={podSection}
+        relatedSection={
+          <Suspense fallback={<SimilarBooksRailSkeleton />}>
+            <SimilarBooksRail
+              bookId={book.id}
+              authorId={book.author_id}
+              language={book.language}
+            />
+          </Suspense>
+        }
+        reviewsSection={
+          <BookReviewsSection
+            bookId={book.id}
+            isSignedIn={Boolean(user)}
+            initialAverageRating={averageRating}
+            initialRatingsCount={ratingsCount}
+          />
+        }
+        commentsSection={
+          <CommentsSection
+            bookId={book.id}
+            bookAuthorId={bookAuthorId}
+            currentUserId={user?.id ?? null}
+            isSignedIn={Boolean(user)}
+            signInHref={signInHref}
+            chapterOptions={chapterOptions}
+          />
+        }
       />
     </main>
   );

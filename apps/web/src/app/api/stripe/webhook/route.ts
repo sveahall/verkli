@@ -25,7 +25,7 @@ type StripeWebhookEvent = {
   } | null;
 };
 
-type PaymentKind = "donation" | "credit_topup" | "translation" | "audiobook";
+type PaymentKind = "donation" | "credit_topup" | "translation" | "audiobook" | "pod";
 
 type FinalizeCheckoutFunction =
   | "finalize_order_checkout_session"
@@ -82,6 +82,9 @@ function parsePaymentKind(value: unknown): PaymentKind | null {
   }
   if (normalized === "audiobook") {
     return "audiobook";
+  }
+  if (normalized === "pod") {
+    return "pod";
   }
   return null;
 }
@@ -302,6 +305,60 @@ async function processTranslationCheckoutSession(
   return true;
 }
 
+async function processPodCheckoutSession(
+  admin: ReturnType<typeof createAdminClient>,
+  session: StripeRecord
+): Promise<boolean> {
+  if (!isPaidCheckoutSession(session)) {
+    return false;
+  }
+
+  const metadata = extractMetadata(session.metadata);
+  const podOrderId = trimToNull(metadata.pod_order_id);
+  const sessionId = trimToNull(session.id);
+
+  if (!podOrderId || !sessionId) {
+    console.warn("[stripe.webhook] pod payment missing pod_order_id or session_id", {
+      sessionId,
+      metadata,
+    });
+    return false;
+  }
+
+  // Extract shipping details from the Stripe session
+  const shippingDetails = session.shipping_details ?? null;
+
+  const { error } = await admin
+    .from("pod_orders" as never)
+    .update({
+      status: "paid",
+      stripe_session_id: sessionId,
+      shipping_address: shippingDetails,
+    })
+    .eq("id", podOrderId)
+    .eq("status", "pending");
+
+  if (error) {
+    console.error("[stripe.webhook] pod order update failed", {
+      podOrderId,
+      sessionId,
+      code: error.code,
+      message: error.message,
+    });
+    return false;
+  }
+
+  console.info("[stripe.webhook] pod payment completed", {
+    sessionId,
+    podOrderId,
+    userId: metadata.user_id,
+    bookId: metadata.book_id,
+    format: metadata.format,
+  });
+
+  return true;
+}
+
 async function processPaymentKindCheckoutSession(
   admin: ReturnType<typeof createAdminClient>,
   session: StripeRecord
@@ -332,6 +389,11 @@ async function processPaymentKindCheckoutSession(
       });
     }
     return { handled: true, processed: isPaidCheckoutSession(session) };
+  }
+
+  if (paymentKind === "pod") {
+    const processed = await processPodCheckoutSession(admin, session);
+    return { handled: true, processed };
   }
 
   const processed = await processCreditTopupCheckoutSession(admin, session);

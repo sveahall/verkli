@@ -3,6 +3,8 @@ export type AnalyticsEventType =
   | "start_reading"
   | "purchase_attempt"
   | "purchase_completed"
+  | "pod_purchase_attempt"
+  | "pod_purchase_completed"
   | "bookmark_added"
   | "bookmark_removed";
 

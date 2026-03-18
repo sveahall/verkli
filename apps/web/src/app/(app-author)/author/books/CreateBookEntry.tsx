@@ -3,8 +3,12 @@
 import { useState } from "react";
 import CreateBookDialog from "@/components/books/CreateBookDialog";
 
-export default function CreateBookEntry() {
-  const [open, setOpen] = useState(false);
+export default function CreateBookEntry({
+  initialOpen = false,
+}: {
+  initialOpen?: boolean;
+}) {
+  const [open, setOpen] = useState(initialOpen);
 
   return (
     <>

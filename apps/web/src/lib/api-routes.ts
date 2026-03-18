@@ -7,4 +7,5 @@ export const API_ROUTES = {
   referralsRedeem: "/api/referrals/redeem",
   stripeWebhook: "/api/stripe/webhook",
   bookPurchaseCheckout: (bookId: string) => `/api/books/${encodeURIComponent(bookId)}/purchase/checkout`,
+  podCheckout: (bookId: string) => `/api/books/${encodeURIComponent(bookId)}/pod/checkout`,
 } as const;

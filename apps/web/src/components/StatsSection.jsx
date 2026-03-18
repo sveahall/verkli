@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import BrandGradientText from "@/components/ui/brand-gradient-text";
+import Reveal from "@/components/Reveal";
 
 export default function StatsSection() {
   const stats = useMemo(
@@ -105,6 +106,7 @@ export default function StatsSection() {
       ref={sectionRef}
       className="relative mx-auto w-full max-w-[1200px] px-6 py-24"
     >
+      <Reveal>
       <div className="text-center">
         <p className="text-[13px] font-medium uppercase tracking-[0.15em] text-[#907AFF]">
           By the numbers
@@ -153,6 +155,7 @@ export default function StatsSection() {
           ))}
         </div>
       </div>
+      </Reveal>
     </section>
   );
 }

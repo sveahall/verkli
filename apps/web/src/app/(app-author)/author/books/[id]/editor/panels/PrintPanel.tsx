@@ -3,6 +3,9 @@
 import { useMemo, useState } from "react";
 import {
   normalizePrintOnDemandSettings,
+  POD_PRICE_FLOOR,
+  POD_PRODUCTION_COST,
+  POD_SHIPPING_COST_SE,
   type BookFormat,
   type PrintOnDemandSettings,
 } from "./PrintPanel.helpers";
@@ -79,6 +82,13 @@ export default function PrintPanel({
   );
   const [isbnDraft, setIsbnDraft] = useState(persistedSettings.isbn ?? "");
   const [isbnSaved, setIsbnSaved] = useState(Boolean(persistedSettings.isbn));
+  const [priceCurrency, setPriceCurrency] = useState(persistedSettings.priceCurrency);
+  const [softcoverPrice, setSoftcoverPrice] = useState(
+    persistedSettings.softcoverPriceMinor != null ? String(persistedSettings.softcoverPriceMinor / 100) : ""
+  );
+  const [hardcoverPrice, setHardcoverPrice] = useState(
+    persistedSettings.hardcoverPriceMinor != null ? String(persistedSettings.hardcoverPriceMinor / 100) : ""
+  );
   const [saveError, setSaveError] = useState<string | null>(null);
   const [isSavingIsbn, setIsSavingIsbn] = useState(false);
   const [isSavingActivation, setIsSavingActivation] = useState(false);
@@ -93,6 +103,12 @@ export default function PrintPanel({
     });
   };
 
+  const parsePriceToMinor = (value: string): number | null => {
+    const parsed = Number.parseFloat(value.trim());
+    if (!Number.isFinite(parsed) || parsed <= 0) return null;
+    return Math.round(parsed * 100);
+  };
+
   const buildSettings = (overrides: Partial<PrintOnDemandSettings> = {}): PrintOnDemandSettings =>
     normalizePrintOnDemandSettings({
       enabled: persistedSettings.enabled,
@@ -100,6 +116,9 @@ export default function PrintPanel({
       editionLimit,
       limitCount: editionLimit === "limited" ? limitCount : null,
       isbn: persistedSettings.isbn,
+      softcoverPriceMinor: parsePriceToMinor(softcoverPrice),
+      hardcoverPriceMinor: parsePriceToMinor(hardcoverPrice),
+      priceCurrency,
       ...overrides,
     });
 
@@ -145,6 +164,21 @@ export default function PrintPanel({
     if (editionLimit === "limited" && !/^[1-9]\d*$/.test(limitCount.trim())) {
       setSaveError("Enter a copy limit above 0 before activating print on demand.");
       return;
+    }
+
+    // Validate prices for each enabled format
+    for (const fmt of selectedFormats) {
+      const priceStr = fmt === "softcover" ? softcoverPrice : hardcoverPrice;
+      const priceMinor = parsePriceToMinor(priceStr);
+      if (!priceMinor) {
+        setSaveError(`Set a price for ${FORMAT_INFO[fmt].label} before activating.`);
+        return;
+      }
+      if (priceMinor < POD_PRICE_FLOOR[fmt]) {
+        const floor = (POD_PRICE_FLOOR[fmt] / 100).toFixed(0);
+        setSaveError(`${FORMAT_INFO[fmt].label} price must be at least ${floor} ${priceCurrency} to cover production and shipping.`);
+        return;
+      }
     }
 
     if (!onSavePrintOnDemandSettings) {
@@ -195,7 +229,25 @@ export default function PrintPanel({
           <span className="text-slate-400 dark:text-white/40">
             {editionLimit === "limited" ? `Limited to ${limitCount} copies` : "Unlimited edition"}
           </span>
+          {persistedSettings.softcoverPriceMinor && selectedFormats.has("softcover") ? (
+            <span className="text-slate-500 dark:text-white/50">
+              Softcover: {(persistedSettings.softcoverPriceMinor / 100).toFixed(0)} {persistedSettings.priceCurrency}
+            </span>
+          ) : null}
+          {persistedSettings.hardcoverPriceMinor && selectedFormats.has("hardcover") ? (
+            <span className="text-slate-500 dark:text-white/50">
+              Hardcover: {(persistedSettings.hardcoverPriceMinor / 100).toFixed(0)} {persistedSettings.priceCurrency}
+            </span>
+          ) : null}
         </div>
+
+        {Array.from(selectedFormats).some((fmt) =>
+          fmt === "softcover" ? !persistedSettings.softcoverPriceMinor : !persistedSettings.hardcoverPriceMinor
+        ) && (
+          <div className="rounded-xl border border-amber-200/60 bg-amber-50/50 px-4 py-3 text-[13px] text-amber-800 dark:border-amber-800/30 dark:bg-amber-950/20 dark:text-amber-300">
+            Price not set for all formats. Readers cannot order until you set a price.
+          </div>
+        )}
 
         <div>
           <button
@@ -424,6 +476,75 @@ export default function PrintPanel({
           </div>
         )}
       </div>
+
+      {/* Pricing */}
+      {selectedFormats.size > 0 && (
+        <div>
+          <h3 className="text-sm font-semibold text-slate-900 dark:text-white">Pricing</h3>
+          <p className="mt-1 text-[13px] text-slate-400 dark:text-white/40">Set the reader price per format. You keep the margin after production and shipping.</p>
+
+          <div className="mt-3 flex items-center gap-2">
+            <span className="text-[13px] text-slate-500 dark:text-white/50">Currency</span>
+            {(["SEK", "EUR", "USD"] as const).map((cur) => (
+              <button
+                key={cur}
+                type="button"
+                onClick={() => { setPriceCurrency(cur); setSaveError(null); }}
+                className={`rounded-full px-3 py-1 text-[12px] font-medium transition ${
+                  priceCurrency === cur
+                    ? "bg-[#907AFF] text-white"
+                    : "bg-slate-100 text-slate-500 hover:bg-slate-200 dark:bg-white/[0.06] dark:text-white/60 dark:hover:bg-white/10"
+                }`}
+              >
+                {cur}
+              </button>
+            ))}
+          </div>
+
+          <div className="mt-4 space-y-4">
+            {(["softcover", "hardcover"] as const)
+              .filter((fmt) => selectedFormats.has(fmt))
+              .map((fmt) => {
+                const priceStr = fmt === "softcover" ? softcoverPrice : hardcoverPrice;
+                const setPrice = fmt === "softcover" ? setSoftcoverPrice : setHardcoverPrice;
+                const priceMinor = parsePriceToMinor(priceStr);
+                const productionCost = POD_PRODUCTION_COST[fmt];
+                const shippingCost = POD_SHIPPING_COST_SE[fmt];
+                const margin = priceMinor ? priceMinor - productionCost - shippingCost : null;
+                const belowFloor = priceMinor !== null && priceMinor < POD_PRICE_FLOOR[fmt];
+
+                return (
+                  <div key={fmt} className="rounded-xl border border-slate-100 px-4 py-3 dark:border-white/[0.08]">
+                    <div className="flex items-center justify-between">
+                      <span className="text-[13px] font-semibold text-slate-800 dark:text-white/90">
+                        {FORMAT_INFO[fmt].label}
+                      </span>
+                      <div className="flex items-center gap-2">
+                        <input
+                          type="number"
+                          min="1"
+                          step="1"
+                          value={priceStr}
+                          onChange={(e) => { setPrice(e.target.value); setSaveError(null); }}
+                          placeholder={(POD_PRICE_FLOOR[fmt] / 100).toFixed(0)}
+                          className="w-24 rounded-lg border border-black/[0.08] px-3 py-1.5 text-right text-[13px] text-slate-900 focus:border-[#907AFF] focus:outline-none focus:ring-1 focus:ring-[#907AFF] dark:border-white/[0.08] dark:bg-white/[0.04] dark:text-white"
+                        />
+                        <span className="text-[13px] text-slate-400 dark:text-white/40">{priceCurrency}</span>
+                      </div>
+                    </div>
+                    {margin !== null && (
+                      <p className={`mt-2 text-[12px] ${belowFloor ? "text-rose-600 dark:text-rose-400" : margin > 0 ? "text-emerald-600 dark:text-emerald-400" : "text-slate-400 dark:text-white/40"}`}>
+                        {belowFloor
+                          ? `Below minimum (${(POD_PRICE_FLOOR[fmt] / 100).toFixed(0)} ${priceCurrency})`
+                          : `Margin: ${(margin / 100).toFixed(0)} ${priceCurrency} (price ${((priceMinor ?? 0) / 100).toFixed(0)} - production ${(productionCost / 100).toFixed(0)} - shipping ${(shippingCost / 100).toFixed(0)})`}
+                      </p>
+                    )}
+                  </div>
+                );
+              })}
+          </div>
+        </div>
+      )}
 
       {/* Pre-requisites */}
       {(!hasContent || !hasCover || !isPublished) && (

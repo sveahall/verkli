@@ -67,7 +67,7 @@ export default function ChapterTopNavigator({
   }, [nextChapterId, previousChapterId, router]);
 
   return (
-    <div className="sticky top-4 z-30 rounded-[24px] border border-slate-200/90 bg-white/95 px-5 py-4 shadow-[0_14px_36px_rgba(15,23,42,0.09)] backdrop-blur dark:border-white/10 dark:bg-[#0b0e14]/85">
+    <div className="sticky top-[102px] z-30 rounded-[24px] border border-slate-200/90 bg-white/95 px-5 py-4 shadow-[0_14px_36px_rgba(15,23,42,0.09)] backdrop-blur dark:border-white/10 dark:bg-[#0b0e14]/85">
       <div className="flex items-center gap-3">
         <button
           type="button"

@@ -1,9 +1,11 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { updateActiveRole } from "@/features/auth/roles";
+import { ACTIVE_ROLE_COOKIE } from "@/lib/active-role";
 import { requireAuthorRole } from "@/lib/auth/require-author";
 
 export type ActionState = {
@@ -194,7 +196,22 @@ export async function switchRoleToReader(): Promise<void> {
     redirect("/author/signin");
   }
 
-  await updateActiveRole("reader");
+  const result = await updateActiveRole("reader");
+
+  if (!result.ok) {
+    console.error("[author settings] failed to switch role to reader", {
+      userId: user.id,
+      error: result.error,
+    });
+    redirect("/author/settings");
+  }
+
+  const cookieStore = await cookies();
+  cookieStore.set(ACTIVE_ROLE_COOKIE, "reader", {
+    path: "/",
+    sameSite: "lax",
+    maxAge: 31536000,
+  });
 
   revalidatePath("/author");
   redirect("/reader/home");

@@ -27,6 +27,27 @@ export type PrintOnDemandSettings = {
   editionLimit: PrintOnDemandEditionLimit;
   limitCount: number | null;
   isbn: string | null;
+  softcoverPriceMinor: number | null;
+  hardcoverPriceMinor: number | null;
+  priceCurrency: string;
+};
+
+/** Minimum price floors in minor units (production + SE domestic shipping). */
+export const POD_PRICE_FLOOR: Record<BookFormat, number> = {
+  softcover: 9400,   // 94 kr = 55 production + 39 SE shipping
+  hardcover: 14400,  // 144 kr = 95 production + 49 SE shipping
+};
+
+/** Production cost in minor units per format. */
+export const POD_PRODUCTION_COST: Record<BookFormat, number> = {
+  softcover: 5500,
+  hardcover: 9500,
+};
+
+/** SE domestic shipping cost in minor units per format. */
+export const POD_SHIPPING_COST_SE: Record<BookFormat, number> = {
+  softcover: 3900,
+  hardcover: 4900,
 };
 
 export const DEFAULT_PRINT_ON_DEMAND_SETTINGS: PrintOnDemandSettings = {
@@ -35,6 +56,9 @@ export const DEFAULT_PRINT_ON_DEMAND_SETTINGS: PrintOnDemandSettings = {
   editionLimit: "unlimited",
   limitCount: null,
   isbn: null,
+  softcoverPriceMinor: null,
+  hardcoverPriceMinor: null,
+  priceCurrency: "SEK",
 };
 
 const PRINT_FORMAT_ORDER: BookFormat[] = ["softcover", "hardcover"];
@@ -88,6 +112,14 @@ export function normalizePrintOnDemandSettings(value: unknown): PrintOnDemandSet
 
   const rawFormats = Array.isArray(raw.formats) ? raw.formats : [];
   const formats = PRINT_FORMAT_ORDER.filter((format) => rawFormats.includes(format));
+
+  const softcoverPriceMinor = normalizePositiveInteger(raw.softcoverPriceMinor);
+  const hardcoverPriceMinor = normalizePositiveInteger(raw.hardcoverPriceMinor);
+  const priceCurrency =
+    typeof raw.priceCurrency === "string" && ["SEK", "EUR", "USD"].includes(raw.priceCurrency.toUpperCase())
+      ? raw.priceCurrency.toUpperCase()
+      : "SEK";
+
   if (enabled && formats.length === 0) {
     return {
       enabled,
@@ -95,6 +127,9 @@ export function normalizePrintOnDemandSettings(value: unknown): PrintOnDemandSet
       editionLimit,
       limitCount,
       isbn,
+      softcoverPriceMinor,
+      hardcoverPriceMinor,
+      priceCurrency,
     };
   }
 
@@ -104,6 +139,9 @@ export function normalizePrintOnDemandSettings(value: unknown): PrintOnDemandSet
     editionLimit,
     limitCount,
     isbn,
+    softcoverPriceMinor,
+    hardcoverPriceMinor,
+    priceCurrency,
   };
 }
 

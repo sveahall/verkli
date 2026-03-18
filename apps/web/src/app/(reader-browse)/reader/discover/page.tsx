@@ -1,18 +1,18 @@
 import type { Metadata } from "next";
-import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { AVATARS_BUCKET_PUBLIC } from "@/lib/supabase/config";
 import { getDiscoveryEnabled, getRecommendationsEnabled } from "@/lib/flags";
-import { getLanguageLabel, LANGUAGE_OPTIONS, normalizeLanguage, type SupportedLanguage } from "@/lib/languages";
-import AuthorCard from "@/components/reader/AuthorCard";
-import BookCard from "@/components/reader/BookCard";
-import PageHeader from "@/components/reader/PageHeader";
-import Rail from "@/components/reader/Rail";
-import { DonationButton } from "@/components/donations/DonationButton";
+import {
+  getLanguageLabel,
+  LANGUAGE_OPTIONS,
+  normalizeLanguage,
+  type SupportedLanguage,
+} from "@/lib/languages";
+import ReaderDiscoverPageView from "@/features/reader/reader-discover/ReaderDiscoverPageView";
 
 type SearchParams = { lang?: string };
 
-export const revalidate = 300; // Revalidate every 5 minutes
+export const revalidate = 300;
 
 export const metadata: Metadata = {
   title: "Discover books",
@@ -43,12 +43,11 @@ async function getFeaturedBooks(
     language === "en"
       ? await base.or("language.eq.en,language.is.null")
       : await base.eq("language", language);
-  const filtered = (data ?? []).filter(
-    (b) =>
-      (b as { featured_until?: string | null }).featured_until == null ||
-      (b as { featured_until?: string | null }).featured_until! > now
+  return (data ?? []).filter(
+    (book) =>
+      (book as { featured_until?: string | null }).featured_until == null ||
+      (book as { featured_until?: string | null }).featured_until! > now
   );
-  return filtered;
 }
 
 async function getNewBooks(
@@ -83,16 +82,13 @@ async function getCuratedListsWithItems(
 
   if (!lists?.length) return [];
 
-  const listIds = lists.map((l) => l.id);
-
-  // Batch: fetch all list items in one query instead of one per list
+  const listIds = lists.map((list) => list.id);
   const { data: allItems } = await supabase
     .from("curated_list_items")
     .select("list_id, book_id, rank")
     .in("list_id", listIds)
     .order("rank", { ascending: true });
 
-  // Group items by list, capped at itemsPerList
   const itemsByList = new Map<string, Array<{ book_id: string; rank: number }>>();
   for (const item of allItems ?? []) {
     const existing = itemsByList.get(item.list_id) ?? [];
@@ -102,9 +98,7 @@ async function getCuratedListsWithItems(
     }
   }
 
-  // Collect all unique book IDs across all lists
-  const allBookIds = [...new Set([...itemsByList.values()].flatMap((items) => items.map((i) => i.book_id)))];
-
+  const allBookIds = [...new Set([...itemsByList.values()].flatMap((items) => items.map((item) => item.book_id)))];
   if (allBookIds.length === 0) {
     return lists.map((list) => ({
       id: list.id,
@@ -115,24 +109,21 @@ async function getCuratedListsWithItems(
     }));
   }
 
-  // Batch: fetch all books in one query instead of one per list
   const { data: allBooks } = await supabase
     .from("books")
     .select("id, title, cover_image, author_id")
     .eq("status", "PUBLISHED")
     .in("id", allBookIds);
 
-  const bookMap = new Map((allBooks ?? []).map((b) => [b.id, b]));
-
-  // Batch: fetch all author profiles in one query instead of one per book
-  const authorIds = [...new Set((allBooks ?? []).map((b) => b.author_id))];
+  const bookMap = new Map((allBooks ?? []).map((book) => [book.id, book]));
+  const authorIds = [...new Set((allBooks ?? []).map((book) => book.author_id))];
   const { data: profiles } = await supabase
     .from("profiles")
     .select("user_id, display_name, username")
     .in("user_id", authorIds);
 
   const authorMap = new Map(
-    (profiles ?? []).map((p) => [p.user_id, p.display_name || p.username || "Author"])
+    (profiles ?? []).map((profile) => [profile.user_id, profile.display_name || profile.username || "Author"])
   );
 
   return lists.map((list) => {
@@ -146,9 +137,10 @@ async function getCuratedListsWithItems(
           title: book.title,
           author: authorMap.get(book.author_id) ?? "Author",
           cover: book.cover_image,
+          href: `/reader/books/${book.id}`,
         };
       })
-      .filter(Boolean) as Array<{ id: string; title: string; author: string; cover: string | null }>;
+      .filter((book): book is NonNullable<typeof book> => book !== null);
 
     return {
       id: list.id,
@@ -166,14 +158,14 @@ async function enrichBooksWithAuthor(
 ) {
   if (books.length === 0) return [];
 
-  const authorIds = [...new Set(books.map((b) => b.author_id))];
+  const authorIds = [...new Set(books.map((book) => book.author_id))];
   const { data: profiles } = await supabase
     .from("profiles")
     .select("user_id, display_name, username")
     .in("user_id", authorIds);
 
   const authorMap = new Map(
-    (profiles ?? []).map((p) => [p.user_id, p.display_name || p.username || "Author"])
+    (profiles ?? []).map((profile) => [profile.user_id, profile.display_name || profile.username || "Author"])
   );
 
   return books.map((book) => ({
@@ -181,6 +173,7 @@ async function enrichBooksWithAuthor(
     title: book.title,
     author: authorMap.get(book.author_id) ?? "Author",
     cover: book.cover_image,
+    href: `/reader/books/${book.id}`,
   }));
 }
 
@@ -190,8 +183,8 @@ export default async function ReaderDiscoverPage({
   searchParams: Promise<SearchParams>;
 }) {
   const params = await searchParams;
-  const langParam = params?.lang;
-  const language = normalizeLanguage(langParam);
+  const language = normalizeLanguage(params?.lang);
+  const langLabel = getLanguageLabel(language);
 
   const supabase = await createClient();
   const discoveryEnabled = getDiscoveryEnabled();
@@ -207,14 +200,23 @@ export default async function ReaderDiscoverPage({
       .eq("role", "author")
       .eq("is_public", true)
       .limit(12)
-      .then((r) => r.data ?? []),
+      .then((result) => result.data ?? []),
     recommendationsEnabled
       ? supabase
           .from("genres")
           .select("id, slug, name_sv, name_en, icon, display_order")
           .order("display_order", { ascending: true })
-          .then((r) => r.data ?? [])
-      : Promise.resolve([] as Array<{ id: string; slug: string; name_sv: string; name_en: string | null; icon: string | null; display_order: number }>),
+          .then((result) => result.data ?? [])
+      : Promise.resolve(
+          [] as Array<{
+            id: string;
+            slug: string;
+            name_sv: string;
+            name_en: string | null;
+            icon: string | null;
+            display_order: number;
+          }>
+        ),
   ]);
 
   const [featuredBooks, newBooks] = await Promise.all([
@@ -222,187 +224,62 @@ export default async function ReaderDiscoverPage({
     enrichBooksWithAuthor(supabase, newBooksRaw),
   ]);
 
-  // Resolve avatars using existing supabase client (avoids creating a new client per avatar)
   const avatarBucket = supabase.storage.from("avatars");
-  const authorsWithAvatars = profiles.map((p) => {
+  const authorsWithAvatars = profiles.map((profile) => {
     let avatar: string | null = null;
-    const path = p.avatar_url;
-    if (path && typeof path === "string" && path.trim()) {
-      if (path.startsWith("http://") || path.startsWith("https://")) {
-        avatar = path;
+    const avatarPath = profile.avatar_url;
+    if (avatarPath && typeof avatarPath === "string" && avatarPath.trim()) {
+      if (avatarPath.startsWith("http://") || avatarPath.startsWith("https://")) {
+        avatar = avatarPath;
       } else if (AVATARS_BUCKET_PUBLIC) {
-        avatar = avatarBucket.getPublicUrl(path).data.publicUrl;
+        avatar = avatarBucket.getPublicUrl(avatarPath).data.publicUrl;
       }
-      // Private bucket signed URLs would need async; skip for now (public is default)
     }
+
     return {
-      id: p.user_id,
-      name: p.display_name || p.username || "author",
-      genre: "Storyteller",
+      id: profile.user_id,
+      name: profile.display_name || profile.username || "Author",
       avatar,
-      href: `/reader/authors/${p.user_id}`,
+      genre: profile.bio ? "Public author" : "Storyteller",
+      href: `/reader/authors/${profile.user_id}`,
     };
   });
 
-  const langLabel = getLanguageLabel(language);
+  const popularBooks = (
+    curatedLists.flatMap((list) => list.items).length > 0
+      ? curatedLists.flatMap((list) => list.items)
+      : featuredBooks.length > 0
+        ? featuredBooks
+        : newBooks
+  )
+    .filter((book, index, self) => self.findIndex((candidate) => candidate.id === book.id) === index)
+    .slice(0, 8);
+
+  const heroBook = featuredBooks[0] ?? newBooks[0] ?? popularBooks[0] ?? null;
 
   return (
-    <div className="section-gap-lg">
-      <PageHeader
-        eyebrow="Discover"
-        title="Find your next read"
-        subtitle={discoveryEnabled ? "Browse by language, featured picks, and curated lists. No signup required." : "Browse authors. No signup required."}
-        actions={
-          <div className="flex flex-wrap items-center gap-2">
-            <DonationButton size="sm" />
-            <span className="text-xs font-medium text-slate-500 dark:text-white/50">Language</span>
-            <div className="flex flex-wrap gap-1">
-              {LANGUAGE_OPTIONS.map((opt) => (
-                <Link
-                  key={opt.value}
-                  href={opt.value === "en" ? "/reader/discover" : `/reader/discover?lang=${opt.value}`}
-                  className={`rounded-full px-3 py-1.5 text-sm font-medium transition ${
-                    opt.value === language
-                      ? "bg-slate-900 text-white dark:bg-white dark:text-slate-900"
-                      : "bg-slate-100 text-slate-700 hover:bg-slate-200 dark:bg-white/10 dark:text-white/80 dark:hover:bg-white/20"
-                  }`}
-                >
-                  {opt.label}
-                </Link>
-              ))}
-            </div>
-          </div>
-        }
+    <div className="page-content pb-24 pt-8 sm:pt-10">
+      <ReaderDiscoverPageView
+        languageLabel={langLabel}
+        languageOptions={LANGUAGE_OPTIONS.map((option) => ({
+          value: option.value,
+          label: option.label,
+          href: option.value === "en" ? "/reader/discover" : `/reader/discover?lang=${option.value}`,
+          active: option.value === language,
+        }))}
+        heroBook={heroBook}
+        trendingBooks={featuredBooks.slice(0, 8).map((book) => ({ ...book, tag: "Trending" }))}
+        newBooks={newBooks.slice(0, 8).map((book) => ({ ...book, tag: "New" }))}
+        popularBooks={popularBooks.map((book, index) => ({ ...book, tag: `#${index + 1}` }))}
+        curatedLists={curatedLists}
+        authors={authorsWithAvatars.slice(0, 6)}
+        genres={genresResult.map((genre) => ({
+          id: genre.id,
+          slug: genre.slug,
+          label: genre.name_en || genre.name_sv,
+          icon: genre.icon,
+        }))}
       />
-
-      {discoveryEnabled && featuredBooks.length > 0 && (
-        <Rail
-          title={`Featured in ${langLabel}`}
-          subtitle="Editor's picks"
-          isEmpty={false}
-        >
-          {featuredBooks.map((book) => (
-            <BookCard
-              key={book.id}
-              id={book.id}
-              title={book.title}
-              author={book.author}
-              cover={book.cover}
-            />
-          ))}
-        </Rail>
-      )}
-
-      {discoveryEnabled && (
-      <Rail
-        title={`New in ${langLabel}`}
-        subtitle="Latest releases"
-        isEmpty={newBooks.length === 0}
-        emptyState={
-          <p className="text-[14px] text-slate-500 dark:text-white/50">
-            No new books in this language yet.
-          </p>
-        }
-      >
-        {newBooks.map((book) => (
-          <BookCard
-            key={book.id}
-            id={book.id}
-            title={book.title}
-            author={book.author}
-            cover={book.cover}
-          />
-        ))}
-      </Rail>
-      )}
-
-      {discoveryEnabled && curatedLists.length > 0 && (
-        <section className="space-y-8">
-          <h2 className="text-section-title">Curated lists</h2>
-          {curatedLists.map((list) => (
-            <div key={list.id} className="space-y-4">
-              <div className="flex flex-wrap items-end justify-between gap-4">
-                <div>
-                  <Link
-                    href={`/reader/lists/${list.slug}`}
-                    className="text-lg font-semibold text-slate-900 hover:text-[#7058DD] dark:text-white dark:hover:text-[#B8A8FF]"
-                  >
-                    {list.title}
-                  </Link>
-                  {list.description && (
-                    <p className="mt-1 text-sm text-slate-500 dark:text-white/60">{list.description}</p>
-                  )}
-                </div>
-                <Link
-                  href={`/reader/lists/${list.slug}`}
-                  className="text-sm font-medium text-emerald-600 dark:text-emerald-400 hover:underline"
-                >
-                  View all
-                </Link>
-              </div>
-              <div className="flex gap-5 overflow-x-auto pb-2 pr-2 -mx-1">
-                {list.items.length === 0 ? (
-                  <p className="text-sm text-slate-500 dark:text-white/50">No books in this list.</p>
-                ) : (
-                  list.items.map((book) => (
-                    <BookCard
-                      key={book.id}
-                      id={book.id}
-                      title={book.title}
-                      author={book.author}
-                      cover={book.cover}
-                    />
-                  ))
-                )}
-              </div>
-            </div>
-          ))}
-        </section>
-      )}
-
-      {genresResult.length > 0 && (
-        <section className="space-y-5">
-          <h2 className="text-section-title">Explore genres</h2>
-          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6">
-            {genresResult.map((genre) => (
-              <Link
-                key={genre.id}
-                href={`/reader/genres?genre=${genre.slug}`}
-                className="flex items-center gap-2 rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-medium text-slate-700 transition hover:border-[#907AFF]/40 hover:bg-[#907AFF]/5 dark:border-white/10 dark:bg-white/5 dark:text-white/80 dark:hover:border-[#B8A8FF]/40 dark:hover:bg-[#907AFF]/10"
-              >
-                {genre.icon && <span>{genre.icon}</span>}
-                <span className="truncate">{genre.name_en || genre.name_sv}</span>
-              </Link>
-            ))}
-          </div>
-        </section>
-      )}
-
-      {authorsWithAvatars.length > 0 && (
-        <section className="space-y-5">
-          <h2 className="text-section-title">Public authors</h2>
-          <div className="grid gap-6 md:grid-cols-2">
-            {authorsWithAvatars.map((author) => (
-              <AuthorCard
-                key={author.id}
-                name={author.name}
-                genre={author.genre}
-                avatar={author.avatar}
-                href={author.href}
-              />
-            ))}
-          </div>
-        </section>
-      )}
-
-      {featuredBooks.length === 0 && newBooks.length === 0 && curatedLists.length === 0 && authorsWithAvatars.length === 0 && (
-        <div className="flex flex-col items-center justify-center rounded-2xl border border-slate-200 bg-slate-50/50 px-8 py-16 text-center dark:border-white/10 dark:bg-white/5">
-          <h3 className="text-lg font-semibold text-slate-900 dark:text-white">No books yet</h3>
-          <p className="mt-2 max-w-md text-sm text-slate-500 dark:text-white/60">
-            There are no published books available right now. Check back soon as authors publish new stories.
-          </p>
-        </div>
-      )}
     </div>
   );
 }

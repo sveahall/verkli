@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { LANGUAGE_OPTIONS, type SupportedLanguage, normalizeLanguage } from "@/lib/languages";
+import { LANGUAGE_OPTIONS, type SupportedLanguage } from "@/lib/languages";
 import { resolveErrorMessage } from "@/lib/error-messages";
 import { ImportBookModal } from "@/components/import/ImportBookModal";
 
@@ -47,20 +47,21 @@ export default function CreateBookDialog({
   const canShowDialog = open && !importOpen;
 
   const handleCreated = (bookId: string, versionId?: string | null, lang?: SupportedLanguage) => {
+    window.dispatchEvent(new CustomEvent("author-shell:refresh-books"));
     if (onCreated) {
       onCreated(bookId, versionId ?? null, lang);
       return;
     }
-    const langParam = lang ? `?lang=${normalizeLanguage(lang)}` : "";
-    router.push(`/author/books/${bookId}${langParam}`);
+    router.push(`/author/write?book=${bookId}`);
   };
 
   const handleImportComplete = (bookId: string, versionId?: string | null) => {
+    window.dispatchEvent(new CustomEvent("author-shell:refresh-books"));
     if (onImported) {
       onImported(bookId, versionId ?? null);
       return;
     }
-    router.push(`/author/books/${bookId}`);
+    router.push(`/author/write?book=${bookId}`);
   };
 
   const handleCreate = async () => {

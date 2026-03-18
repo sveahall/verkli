@@ -18,7 +18,6 @@ import {
   E_NO_SOURCE_VERSION,
   E_SAME_SOURCE_TARGET_LANGUAGE,
   E_SOURCE_LANGUAGE_MISSING,
-  E_TRANSLATION_PAIR_UNSUPPORTED,
   E_TRANSLATION_SERVICE_UNAVAILABLE,
 } from "@/lib/api-errors"
 
@@ -84,12 +83,8 @@ export async function GET(
     return apiError(E_SAME_SOURCE_TARGET_LANGUAGE, 400)
   }
 
-  if (!isTranslationPairSupported(sourceContext.sourceLanguage, targetLanguage)) {
-    return apiError(E_TRANSLATION_PAIR_UNSUPPORTED, 422, {
-      detail: `${sourceContext.sourceLanguage} -> ${targetLanguage}`,
-    })
-  }
-
+  // Always collect source text so the "Original text" panel is populated
+  // even when the translation pair is unsupported.
   let originalText = ""
   try {
     originalText = await collectTranslationPreviewText(supabase, sourceContext.sourceVersionId, 1000)
@@ -103,6 +98,15 @@ export async function GET(
       message,
     })
     return apiError(E_TRANSLATION_SERVICE_UNAVAILABLE, 503)
+  }
+
+  if (!isTranslationPairSupported(sourceContext.sourceLanguage, targetLanguage)) {
+    return NextResponse.json({
+      originalText,
+      translatedText: "",
+      previewText: "",
+      pairUnsupported: true,
+    })
   }
 
   if (!originalText) {

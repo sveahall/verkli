@@ -595,9 +595,11 @@ export default function GlobalNavbar({
   const secondaryAction = navActions?.secondary;
   const shouldShowPrimaryAction = Boolean(primaryAction)
     && (!isReaderRoute || primaryAction?.href !== "/author/signup" || canShowReaderAuthorCta);
-  const showSearch = navActions?.showSearch ?? isauthorRoute;
+  // The authenticated author app now uses AuthorAppShell instead of GlobalNavbar.
+  // Keep search defaults for reader/public flows only.
+  const showSearch = navActions?.showSearch ?? isReaderRoute;
   const searchPlaceholder = navActions?.searchPlaceholder ?? "Search books, authors...";
-  const searchHref = navActions?.searchHref ?? (isauthorRoute ? "/author" : "/reader");
+  const searchHref = navActions?.searchHref ?? (isReaderRoute ? "/reader/home" : "/author");
   const showProfileMenu = navActions?.showProfileMenu ?? true;
   const isActiveReaderLink = (href: string) => {
     if (!pathname) return false;

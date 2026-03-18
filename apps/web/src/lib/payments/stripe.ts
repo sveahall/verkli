@@ -324,6 +324,79 @@ export async function createTranslationCheckoutSession(
   return payload;
 }
 
+export type CreatePodCheckoutInput = {
+  amountMinor: number;
+  currency: string;
+  userId: string;
+  bookId: string;
+  podOrderId: string;
+  format: string;
+  bookTitle: string;
+  customerEmail?: string | null;
+  successUrl: string;
+  cancelUrl: string;
+};
+
+/** EU countries for shipping_address_collection. */
+const EU_SHIPPING_COUNTRIES = [
+  "SE", "DE", "FR", "ES", "IT", "NL", "BE", "AT", "FI", "DK",
+  "NO", "PL", "PT", "IE", "CZ", "GR", "RO", "HU", "SK", "BG",
+  "HR", "LT", "LV", "EE", "SI", "LU", "MT", "CY",
+];
+
+export async function createPodCheckoutSession(
+  input: CreatePodCheckoutInput
+): Promise<StripeCheckoutSession> {
+  const amount = sanitizeAmount(input.amountMinor);
+  if (amount <= 0) {
+    throw new Error("Amount must be greater than zero");
+  }
+
+  const params = new URLSearchParams();
+  params.set("mode", "payment");
+  params.set("success_url", input.successUrl);
+  params.set("cancel_url", input.cancelUrl);
+  params.set("payment_method_types[0]", "card");
+  params.set("line_items[0][quantity]", "1");
+  params.set("line_items[0][price_data][currency]", toStripeCurrency(input.currency));
+  params.set("line_items[0][price_data][unit_amount]", String(amount));
+  params.set(
+    "line_items[0][price_data][product_data][name]",
+    `${input.bookTitle} (${input.format} print copy)`
+  );
+  params.set("client_reference_id", input.podOrderId);
+  params.set("metadata[user_id]", input.userId);
+  params.set("metadata[book_id]", input.bookId);
+  params.set("metadata[pod_order_id]", input.podOrderId);
+  params.set("metadata[format]", input.format);
+  params.set("metadata[amount_minor]", String(amount));
+  params.set("metadata[payment_kind]", "pod");
+  params.set("metadata[payment_type]", "pod");
+
+  // Collect shipping address at checkout
+  for (let i = 0; i < EU_SHIPPING_COUNTRIES.length; i++) {
+    params.set(
+      `shipping_address_collection[allowed_countries][${i}]`,
+      EU_SHIPPING_COUNTRIES[i]
+    );
+  }
+
+  if (input.customerEmail) {
+    params.set("customer_email", input.customerEmail);
+  }
+
+  const payload = await stripeRequest("/checkout/sessions", {
+    method: "POST",
+    body: params.toString(),
+  });
+
+  assertSessionShape(payload);
+  if (!payload.url) {
+    throw new Error("Stripe session URL is missing");
+  }
+  return payload;
+}
+
 export async function createCreditTopUpCheckoutSession(
   input: CreateCreditTopUpCheckoutInput
 ): Promise<StripeCheckoutSession> {

@@ -6,5 +6,5 @@ export default async function AuthorPublishRedirect({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  redirect(`/author/books/${id}?panel=publish`);
+  redirect(`/author/audience?bookId=${id}&surface=beta-readers`);
 }

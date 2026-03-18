@@ -3,10 +3,12 @@
 import Image from "next/image";
 import Link from "next/link";
 import BrandGradientText from "@/components/ui/brand-gradient-text";
+import Reveal from "@/components/Reveal";
 
 export default function InteractiveTestimonialSection() {
   return (
     <section className="relative mx-auto w-full max-w-[1200px] px-6 py-24">
+      <Reveal>
       {/* Large gradient wrapper card */}
       <div className="relative overflow-hidden rounded-[32px] border border-black/[0.06] bg-gradient-to-br from-black/[0.03] via-transparent to-black/[0.02] p-10 md:p-14 dark:border-white/[0.08] dark:from-white/[0.04] dark:to-white/[0.02]">
         {/* Background glow blobs */}
@@ -147,6 +149,7 @@ export default function InteractiveTestimonialSection() {
           </div>
         </div>
       </div>
+      </Reveal>
     </section>
   );
 }

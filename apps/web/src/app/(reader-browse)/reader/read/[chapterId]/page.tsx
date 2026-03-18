@@ -11,6 +11,7 @@ import ReadingProgress from "./ReadingProgress";
 import ReaderChapterClient, { type ReaderHighlight, type ReaderSettings } from "./ReaderChapterClient";
 import ChapterTopNavigator from "./ChapterTopNavigator";
 import ChapterAudiobookPlayer from "./ChapterAudiobookPlayer";
+import ReadingView from "@/features/reader/reader-reading/ReadingView";
 
 function asRecord(value: unknown): Record<string, unknown> | null {
   if (typeof value !== "object" || value === null || Array.isArray(value)) return null;
@@ -265,28 +266,81 @@ export default async function ReaderReadPage({
     chapterIndex >= 0 && chapterIndex < navChapters.length - 1
       ? navChapters[chapterIndex + 1]
       : null;
+  const progressLabel = `Chapter ${chapterIndex + 1} of ${totalChapters}${readAccess.access === "preview" ? " • Preview" : ""}`;
+  const footerNavigation = (
+    <section className="grid gap-4 sm:grid-cols-2">
+      {previousChapterNav ? (
+        <Link
+          href={`/reader/read/${previousChapterNav.id}`}
+          className="rounded-[24px] border border-slate-200/90 bg-white/92 px-4 py-4 text-left shadow-[0_14px_36px_-28px_rgba(15,23,42,0.24)] transition hover:-translate-y-0.5 hover:border-slate-300 hover:bg-white dark:border-white/10 dark:bg-white/[0.04] dark:hover:bg-white/[0.07]"
+        >
+          <p className="text-[11px] uppercase tracking-[0.12em] text-slate-500 dark:text-white/50">Previous chapter</p>
+          <p className="mt-1 text-[14px] font-medium text-slate-900 dark:text-white">
+            {previousChapterNav.title}
+          </p>
+        </Link>
+      ) : (
+        <div className="rounded-[24px] border border-dashed border-black/10 bg-white/70 px-4 py-4 text-[12px] text-slate-500 dark:border-white/10 dark:bg-white/[0.03] dark:text-white/50">
+          Start of book
+        </div>
+      )}
+
+      {readAccess.access === "preview" && readAccess.isLastPreview ? (
+        <div className="rounded-[24px] border border-dashed border-[#907AFF]/25 bg-[#907AFF]/6 px-4 py-4 text-right text-[12px] text-[#7058DD] dark:text-[#B8A9FF]">
+          Purchase or upgrade to unlock the next chapter
+        </div>
+      ) : nextChapterNav ? (
+        <Link
+          href={`/reader/read/${nextChapterNav.id}`}
+          className="rounded-[24px] border border-slate-200/90 bg-white/92 px-4 py-4 text-right shadow-[0_14px_36px_-28px_rgba(15,23,42,0.24)] transition hover:-translate-y-0.5 hover:border-slate-300 hover:bg-white dark:border-white/10 dark:bg-white/[0.04] dark:hover:bg-white/[0.07]"
+        >
+          <p className="text-[11px] uppercase tracking-[0.12em] text-slate-500 dark:text-white/50">Next chapter</p>
+          <p className="mt-1 text-[14px] font-medium text-slate-900 dark:text-white">
+            {nextChapterNav.title}
+          </p>
+        </Link>
+      ) : (
+        <div className="rounded-[24px] border border-dashed border-black/10 bg-white/70 px-4 py-4 text-right text-[12px] text-slate-500 dark:border-white/10 dark:bg-white/[0.03] dark:text-white/50">
+          End of book
+        </div>
+      )}
+    </section>
+  );
+  const commentsSection = (
+    <CommentsSection
+      bookId={book.id}
+      bookAuthorId={bookAuthorId}
+      currentUserId={user?.id ?? null}
+      isSignedIn={Boolean(user)}
+      signInHref={signInHref}
+      chapterOptions={chapterOptions}
+      fixedChapterId={chapter.id}
+      title={`Comments: ${chapter.title}`}
+    />
+  );
 
   return (
-    <main className="min-h-screen bg-background text-foreground">
+    <>
       <ReadingProgress
         bookId={book.id}
         chapterId={chapter.id}
         progressPercent={progressPercent}
         currentChapter={chapterIndex + 1}
       />
-      <header className="mx-auto flex max-w-[1100px] items-center justify-between px-6 py-7">
-        <Link href={`/reader/books/${book.id}`} className="text-[13px] text-slate-600 hover:text-slate-900 dark:text-white/50 dark:hover:text-white/70">
-          <span aria-hidden>←</span> Back to book
-        </Link>
-        <span className="text-[13px] text-slate-500 dark:text-white/40">
-          Chapter {chapterIndex + 1} of {totalChapters}
-        </span>
-      </header>
-
-      <section className="mx-auto max-w-[1100px] px-6 pb-16">
-        <ChapterTopNavigator chapters={navChapters} currentChapterId={chapter.id} disableNext={readAccess.access === "preview" && readAccess.isLastPreview} />
-
-        <article className="mt-8">
+      <ReadingView
+        backHref={`/reader/books/${book.id}`}
+        backLabel="Back to book"
+        bookTitle={book.title}
+        chapterLabel={chapter.title}
+        progressLabel={progressLabel}
+        chapterNavigator={
+          <ChapterTopNavigator
+            chapters={navChapters}
+            currentChapterId={chapter.id}
+            disableNext={readAccess.access === "preview" && readAccess.isLastPreview}
+          />
+        }
+        chapterContent={
           <div className="text-[15px] leading-relaxed text-slate-700 dark:text-white/70">
             <ReaderChapterClient
               userId={user?.id ?? null}
@@ -300,7 +354,8 @@ export default async function ReaderReadPage({
               initialSettings={initialReaderSettings}
             />
           </div>
-
+        }
+        audioPlayer={
           <ChapterAudiobookPlayer
             bookId={book.id}
             chapterId={chapter.id}
@@ -309,8 +364,9 @@ export default async function ReaderReadPage({
               : null}
             isAuthorView={isAuthorView}
           />
-
-          {readAccess.access === "preview" && readAccess.isLastPreview && (
+        }
+        gate={
+          readAccess.access === "preview" && readAccess.isLastPreview ? (
             <FreemiumGate
               bookId={book.id}
               priceAmount={priceAmount}
@@ -318,57 +374,11 @@ export default async function ReaderReadPage({
               isSignedIn={Boolean(user)}
               signInHref={signInHref}
             />
-          )}
-
-          <div className="mt-10 grid gap-4 sm:grid-cols-2">
-            {previousChapterNav ? (
-              <Link
-                href={`/reader/read/${previousChapterNav.id}`}
-                className="rounded-[20px] border border-slate-200/90 bg-white/90 px-4 py-3 text-left shadow-[0_8px_22px_rgba(15,23,42,0.05)] transition hover:-translate-y-0.5 hover:border-slate-300 hover:bg-white dark:border-white/10 dark:bg-white/[0.04] dark:hover:bg-white/[0.07]"
-              >
-                <p className="text-[11px] uppercase tracking-[0.12em] text-slate-500 dark:text-white/50">Previous</p>
-                <p className="mt-1 text-[14px] font-medium text-slate-900 dark:text-white">
-                  {previousChapterNav.title}
-                </p>
-              </Link>
-            ) : (
-                <div className="rounded-2xl border border-dashed border-black/10 px-4 py-3 text-[12px] text-slate-500 dark:border-white/10 dark:text-white/50">
-                  Start of book
-                </div>
-              )}
-
-            {readAccess.access === "preview" && readAccess.isLastPreview ? (
-              <div className="rounded-2xl border border-dashed border-[#907AFF]/20 bg-[#907AFF]/5 px-4 py-3 text-right text-[12px] text-[#907AFF] dark:text-[#B8A9FF]">
-                Purchase or upgrade for more chapters
-              </div>
-            ) : nextChapterNav ? (
-              <Link
-                href={`/reader/read/${nextChapterNav.id}`}
-                className="rounded-[20px] border border-slate-200/90 bg-white/90 px-4 py-3 text-right shadow-[0_8px_22px_rgba(15,23,42,0.05)] transition hover:-translate-y-0.5 hover:border-slate-300 hover:bg-white dark:border-white/10 dark:bg-white/[0.04] dark:hover:bg-white/[0.07]"
-              >
-                <p className="text-[11px] uppercase tracking-[0.12em] text-slate-500 dark:text-white/50">Next</p>
-                <p className="mt-1 text-[14px] font-medium text-slate-900 dark:text-white">
-                  {nextChapterNav.title}
-                </p>
-              </Link>
-            ) : (
-              <div className="rounded-2xl border border-dashed border-black/10 px-4 py-3 text-right text-[12px] text-slate-500 dark:border-white/10 dark:text-white/50">
-                End of book
-              </div>
-            )}
-          </div>
-        </article>
-      </section>
-      <CommentsSection
-        bookId={book.id}
-        bookAuthorId={bookAuthorId}
-        currentUserId={user?.id ?? null}
-        isSignedIn={Boolean(user)}
-        signInHref={signInHref}
-        chapterOptions={chapterOptions}
-        fixedChapterId={chapter.id}
-        title={`Comments: ${chapter.title}`}
+          ) : undefined
+        }
+        footerNavigation={footerNavigation}
+        commentsSection={commentsSection}
       />
-    </main>
+    </>
   );
 }

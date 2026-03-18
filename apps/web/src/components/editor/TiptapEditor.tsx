@@ -1,14 +1,21 @@
 "use client";
 
-import { useEditor, EditorContent } from "@tiptap/react";
-import StarterKit from "@tiptap/starter-kit";
 import Image from "@tiptap/extension-image";
-import TextAlign from "@tiptap/extension-text-align";
 import Placeholder from "@tiptap/extension-placeholder";
-import { useEffect, useRef, useSyncExternalStore } from "react";
+import TextAlign from "@tiptap/extension-text-align";
+import StarterKit from "@tiptap/starter-kit";
+import {
+  EditorContent,
+  EditorContext,
+  TiptapBubbleMenu as BubbleMenu,
+  TiptapFloatingMenu as FloatingMenu,
+  useEditor,
+} from "@tiptap/react";
+import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
+import type { InlineAiAction } from "@/features/book-workspace/types";
 import { uploadChapterMedia } from "@/lib/supabase/storage";
 import { toTiptapContent } from "@/lib/tiptap-content";
-import { WRITING_PRESETS, FONT_FAMILY_MAP } from "./types";
+import { FONT_FAMILY_MAP, WRITING_PRESETS } from "./types";
 
 type PresetId = "novel" | "essay" | "screenplay";
 
@@ -23,13 +30,56 @@ type TiptapEditorProps = {
   onDirty?: () => void;
   onFocusModeToggle?: () => void;
   focusMode?: boolean;
+  onInlineAction?: (action: InlineAiAction, selectedText: string) => void;
 };
+
+type SlashMenuState = {
+  from: number;
+  to: number;
+  query: string;
+};
+
+type SlashCommandId = "scene" | "dialogue" | "summary" | "audio";
+
+type SlashCommand = {
+  id: SlashCommandId;
+  label: string;
+  description: string;
+  keywords: string[];
+};
+
+const SLASH_COMMANDS: SlashCommand[] = [
+  {
+    id: "scene",
+    label: "/scene",
+    description: "Insert a scene break.",
+    keywords: ["divider", "break", "chapter"],
+  },
+  {
+    id: "dialogue",
+    label: "/dialogue",
+    description: "Start a dialogue beat.",
+    keywords: ["character", "quote", "speech"],
+  },
+  {
+    id: "summary",
+    label: "/summary",
+    description: "Add a summary prompt.",
+    keywords: ["outline", "recap", "note"],
+  },
+  {
+    id: "audio",
+    label: "/audio",
+    description: "Open audiobook generation.",
+    keywords: ["voice", "preview", "production"],
+  },
+];
 
 function readAsDataURL(file: File): Promise<string> {
   return new Promise((resolve) => {
-    const r = new FileReader();
-    r.onload = () => resolve((r.result as string) ?? "");
-    r.readAsDataURL(file);
+    const reader = new FileReader();
+    reader.onload = () => resolve((reader.result as string) ?? "");
+    reader.readAsDataURL(file);
   });
 }
 
@@ -37,7 +87,11 @@ function countWords(text: string): number {
   return text.trim().split(/\s+/).filter(Boolean).length;
 }
 
-// Noop subscribe for useSyncExternalStore-based mount detection
+function getSelectionText(editor: NonNullable<ReturnType<typeof useEditor>>): string {
+  const { from, to } = editor.state.selection;
+  return editor.state.doc.textBetween(from, to, " ").trim();
+}
+
 const emptySubscribe = () => () => {};
 
 export default function TiptapEditor({
@@ -49,21 +103,17 @@ export default function TiptapEditor({
   preset = "novel",
   onWordCount,
   onDirty,
-  onFocusModeToggle,
-  focusMode = false,
+  onFocusModeToggle: _onFocusModeToggle,
+  focusMode: _focusMode = false,
+  onInlineAction,
 }: TiptapEditorProps) {
-  // Use useSyncExternalStore to detect client mount without triggering
-  // a synchronous setState inside useEffect (avoids cascading-render warnings).
   const mounted = useSyncExternalStore(
     emptySubscribe,
     () => true,
     () => false,
   );
   const debounceRef = useRef<NodeJS.Timeout | null>(null);
-
-  const getInitialContent = () => {
-    return toTiptapContent(content);
-  };
+  const [slashMenu, setSlashMenu] = useState<SlashMenuState | null>(null);
 
   const editor = useEditor({
     immediatelyRender: false,
@@ -75,29 +125,33 @@ export default function TiptapEditor({
       TextAlign.configure({ types: ["heading", "paragraph"] }),
       Placeholder.configure({ placeholder }),
     ],
-    content: getInitialContent(),
+    content: toTiptapContent(content),
     onUpdate: ({ editor }) => {
       onDirty?.();
       if (debounceRef.current) clearTimeout(debounceRef.current);
       debounceRef.current = setTimeout(() => {
-        const json = editor.getJSON();
-        onUpdate(json);
+        onUpdate(editor.getJSON());
         onWordCount?.(countWords(editor.getText()));
       }, 500);
     },
   });
 
-  const typo = (preset && preset in WRITING_PRESETS ? WRITING_PRESETS[preset as PresetId] : null) ?? WRITING_PRESETS.novel;
+  const typography = (
+    preset && preset in WRITING_PRESETS ? WRITING_PRESETS[preset as PresetId] : null
+  ) ?? WRITING_PRESETS.novel;
+
   const typographyVars = {
-    "--verkli-font": FONT_FAMILY_MAP[typo.fontFamily],
-    "--verkli-font-size": `${typo.fontSize}px`,
-    "--verkli-line-height": String(typo.lineHeight),
-    "--verkli-para-spacing": `${typo.paragraphSpacing}rem`,
-    "--verkli-content-width": `${typo.contentWidth}ch`,
+    "--verkli-font": FONT_FAMILY_MAP[typography.fontFamily],
+    "--verkli-font-size": `${typography.fontSize}px`,
+    "--verkli-line-height": String(typography.lineHeight),
+    "--verkli-para-spacing": `${typography.paragraphSpacing}rem`,
+    "--verkli-content-width": `${typography.contentWidth}ch`,
   } as React.CSSProperties;
 
   useEffect(() => {
-    if (editor) onWordCount?.(countWords(editor.getText()));
+    if (editor) {
+      onWordCount?.(countWords(editor.getText()));
+    }
   }, [editor, onWordCount]);
 
   useEffect(() => {
@@ -106,65 +160,156 @@ export default function TiptapEditor({
     };
   }, []);
 
-  // Paste and drop images
   useEffect(() => {
     if (!editor) return;
-    const el = editor.view.dom;
+
+    const updateSlashMenu = () => {
+      const { selection } = editor.state;
+      if (!selection.empty) {
+        setSlashMenu(null);
+        return;
+      }
+
+      const { $from } = selection;
+      const textBefore = $from.parent.textBetween(0, $from.parentOffset, undefined, "\ufffc");
+      const match = textBefore.match(/(?:^|\s)\/([a-z]*)$/i);
+
+      if (!match) {
+        setSlashMenu(null);
+        return;
+      }
+
+      const query = (match[1] ?? "").toLowerCase();
+      const from = selection.from - query.length - 1;
+
+      setSlashMenu({
+        from,
+        to: selection.from,
+        query,
+      });
+    };
+
+    updateSlashMenu();
+    editor.on("selectionUpdate", updateSlashMenu);
+    editor.on("transaction", updateSlashMenu);
+
+    return () => {
+      editor.off("selectionUpdate", updateSlashMenu);
+      editor.off("transaction", updateSlashMenu);
+    };
+  }, [editor]);
+
+  useEffect(() => {
+    if (!editor) return;
+    const element = editor.view.dom;
 
     const insertImage = async (file: File) => {
       let src: string;
+
       if (bookId && chapterId) {
         const { url, error } = await uploadChapterMedia(file, bookId, chapterId);
         src = !error && url ? url : (await readAsDataURL(file)) ?? "";
       } else {
         src = (await readAsDataURL(file)) ?? "";
       }
-      if (src) editor.chain().focus().setImage({ src }).run();
-    };
 
-    const onPaste = (e: ClipboardEvent) => {
-      const file = Array.from(e.clipboardData?.items ?? []).find((i) => i.type.startsWith("image/"))?.getAsFile();
-      if (file) {
-        e.preventDefault();
-        insertImage(file);
+      if (src) {
+        editor.chain().focus().setImage({ src }).run();
       }
     };
 
-    const onDrop = (e: DragEvent) => {
-      const file = e.dataTransfer?.files?.[0];
-      if (file?.type.startsWith("image/")) {
-        e.preventDefault();
-        insertImage(file);
-      }
+    const handlePaste = (event: ClipboardEvent) => {
+      const file = Array.from(event.clipboardData?.items ?? [])
+        .find((item) => item.type.startsWith("image/"))
+        ?.getAsFile();
+
+      if (!file) return;
+      event.preventDefault();
+      void insertImage(file);
     };
 
-    el.addEventListener("paste", onPaste as EventListener);
-    el.addEventListener("drop", onDrop);
+    const handleDrop = (event: DragEvent) => {
+      const file = event.dataTransfer?.files?.[0];
+      if (!file?.type.startsWith("image/")) return;
+      event.preventDefault();
+      void insertImage(file);
+    };
+
+    element.addEventListener("paste", handlePaste as EventListener);
+    element.addEventListener("drop", handleDrop);
+
     return () => {
-      el.removeEventListener("paste", onPaste as EventListener);
-      el.removeEventListener("drop", onDrop);
+      element.removeEventListener("paste", handlePaste as EventListener);
+      element.removeEventListener("drop", handleDrop);
     };
-  }, [editor, bookId, chapterId]);
+  }, [bookId, chapterId, editor]);
 
-  // Loading state - matches final editor styling
+  const filteredSlashCommands = useMemo(() => {
+    if (!slashMenu) return [];
+
+    const query = slashMenu.query.trim();
+    if (!query) return SLASH_COMMANDS;
+
+    return SLASH_COMMANDS.filter((command) => {
+      const haystack = [command.id, command.label, ...command.keywords].join(" ").toLowerCase();
+      return haystack.includes(query);
+    });
+  }, [slashMenu]);
+
+  const runInlineAction = (action: InlineAiAction) => {
+    if (!editor) return;
+    const selectedText = getSelectionText(editor);
+    if (!selectedText) return;
+    onInlineAction?.(action, selectedText);
+  };
+
+  const runSlashCommand = (commandId: SlashCommandId) => {
+    if (!editor || !slashMenu) return;
+
+    const chain = editor.chain().focus().deleteRange({
+      from: slashMenu.from,
+      to: slashMenu.to,
+    });
+
+    switch (commandId) {
+      case "scene":
+        chain.setHorizontalRule().run();
+        break;
+      case "dialogue":
+        chain.insertContent('Character: ""').run();
+        break;
+      case "summary":
+        chain.insertContent("Summary: ").run();
+        break;
+      case "audio":
+        chain.run();
+        onInlineAction?.("audiobook", "Chapter audio");
+        break;
+      default:
+        chain.run();
+    }
+
+    setSlashMenu(null);
+  };
+
   if (!mounted || !editor) {
     return (
-      <div className="verkli-editor">
+      <div className="verkli-editor" style={typographyVars}>
         <div className="verkli-editor-loading" />
         <style jsx>{`
           .verkli-editor {
-            border: 1px solid #e2e8f0;
-            border-radius: 8px;
-            background: #fff;
-            overflow: hidden;
+            min-height: 100%;
           }
+
           .verkli-editor-loading {
-            min-height: 500px;
+            min-height: 680px;
+            border-radius: 28px;
+            background: rgba(226, 232, 240, 0.6);
           }
+
           @media (prefers-color-scheme: dark) {
-            .verkli-editor {
-              border-color: rgba(255,255,255,0.1);
-              background: rgba(15,23,42,0.5);
+            .verkli-editor-loading {
+              background: rgba(255, 255, 255, 0.05);
             }
           }
         `}</style>
@@ -173,141 +318,106 @@ export default function TiptapEditor({
   }
 
   return (
+    <EditorContext.Provider value={{ editor }}>
     <div className="verkli-editor" style={typographyVars}>
-      {/* Toolbar */}
-      <div className="verkli-toolbar">
-        <ToolbarBtn onClick={() => editor.chain().focus().undo().run()} disabled={!editor.can().undo()} title="Undo (⌘Z)">
-          <UndoIcon />
-        </ToolbarBtn>
-        <ToolbarBtn onClick={() => editor.chain().focus().redo().run()} disabled={!editor.can().redo()} title="Redo (⌘⇧Z)">
-          <RedoIcon />
-        </ToolbarBtn>
-        <Divider />
-        <ToolbarBtn onClick={() => editor.chain().focus().toggleBold().run()} active={editor.isActive("bold")} title="Bold (⌘B)">
-          <BoldIcon />
-        </ToolbarBtn>
-        <ToolbarBtn onClick={() => editor.chain().focus().toggleItalic().run()} active={editor.isActive("italic")} title="Italic (⌘I)">
-          <ItalicIcon />
-        </ToolbarBtn>
-        <ToolbarBtn onClick={() => editor.chain().focus().toggleUnderline().run()} active={editor.isActive("underline")} title="Underline (⌘U)">
-          <UnderlineIcon />
-        </ToolbarBtn>
-        <Divider />
-        <ToolbarBtn onClick={() => editor.chain().focus().toggleHeading({ level: 1 }).run()} active={editor.isActive("heading", { level: 1 })} title="Heading 1 (⌘⌥1)">
-          H1
-        </ToolbarBtn>
-        <ToolbarBtn onClick={() => editor.chain().focus().toggleHeading({ level: 2 }).run()} active={editor.isActive("heading", { level: 2 })} title="Heading 2 (⌘⌥2)">
-          H2
-        </ToolbarBtn>
-        <ToolbarBtn onClick={() => editor.chain().focus().toggleHeading({ level: 3 }).run()} active={editor.isActive("heading", { level: 3 })} title="Heading 3 (⌘⌥3)">
-          H3
-        </ToolbarBtn>
-        <Divider />
-        <ToolbarBtn onClick={() => editor.chain().focus().toggleBulletList().run()} active={editor.isActive("bulletList")} title="Bullet list (⌘⇧8)">
-          <ListIcon />
-        </ToolbarBtn>
-        <ToolbarBtn onClick={() => editor.chain().focus().toggleOrderedList().run()} active={editor.isActive("orderedList")} title="Ordered list (⌘⇧7)">
-          <OrderedListIcon />
-        </ToolbarBtn>
-        <Divider />
-        <ToolbarBtn onClick={() => editor.chain().focus().toggleBlockquote().run()} active={editor.isActive("blockquote")} title="Blockquote (⌘⇧B)">
-          <QuoteIcon />
-        </ToolbarBtn>
-        <ToolbarBtn onClick={() => editor.chain().focus().setHorizontalRule().run()} title="Horizontal rule (scene break)">
-          <HrIcon />
-        </ToolbarBtn>
-        <Divider />
-        <ToolbarBtn
-          onClick={() => {
-            const input = document.createElement("input");
-            input.type = "file";
-            input.accept = "image/*";
-            input.onchange = async (e) => {
-              const file = (e.target as HTMLInputElement).files?.[0];
-              if (!file) return;
-              let src: string;
-              if (bookId && chapterId) {
-                const { url, error } = await uploadChapterMedia(file, bookId, chapterId);
-                src = !error && url ? url : (await readAsDataURL(file)) ?? "";
-              } else {
-                src = (await readAsDataURL(file)) ?? "";
-              }
-              if (src) editor.chain().focus().setImage({ src }).run();
-            };
-            input.click();
-          }}
-          title="Insert image"
+      <BubbleMenu
+        shouldShow={({ editor, from, to }) => editor.state.doc.textBetween(from, to, " ").trim().length > 0}
+        className="verkli-bubble-menu"
+        options={{ placement: "top-start" }}
+      >
+        <MenuButton
+          label="Bold"
+          active={editor.isActive("bold")}
+          onClick={() => editor.chain().focus().toggleBold().run()}
         >
-          <ImageIcon />
-        </ToolbarBtn>
-        <Divider />
-        <ToolbarBtn onClick={() => editor.chain().focus().setTextAlign("left").run()} active={editor.isActive({ textAlign: "left" })} title="Align left (⌘⇧L)">
-          <AlignLeftIcon />
-        </ToolbarBtn>
-        <ToolbarBtn onClick={() => editor.chain().focus().setTextAlign("center").run()} active={editor.isActive({ textAlign: "center" })} title="Align center (⌘⇧E)">
-          <AlignCenterIcon />
-        </ToolbarBtn>
-        <ToolbarBtn onClick={() => editor.chain().focus().setTextAlign("right").run()} active={editor.isActive({ textAlign: "right" })} title="Align right (⌘⇧R)">
-          <AlignRightIcon />
-        </ToolbarBtn>
-        {onFocusModeToggle != null && (
-          <>
-            <Divider />
-            <ToolbarBtn onClick={onFocusModeToggle} active={focusMode} title={focusMode ? "Exit focus (⌘\\)" : "Focus mode (⌘\\)"}>
-              {focusMode ? "Exit focus" : "Focus"}
-            </ToolbarBtn>
-          </>
-        )}
-      </div>
+          <BoldIcon />
+        </MenuButton>
+        <MenuButton
+          label="Italic"
+          active={editor.isActive("italic")}
+          onClick={() => editor.chain().focus().toggleItalic().run()}
+        >
+          <ItalicIcon />
+        </MenuButton>
+        <MenuButton
+          label="Heading"
+          active={editor.isActive("heading", { level: 2 })}
+          onClick={() => editor.chain().focus().toggleHeading({ level: 2 }).run()}
+        >
+          H2
+        </MenuButton>
+        <MenuDivider />
+        <MenuButton label="Rewrite" onClick={() => runInlineAction("rewrite")}>
+          Rewrite
+        </MenuButton>
+        <MenuButton label="Improve pacing" onClick={() => runInlineAction("pacing")}>
+          Pace
+        </MenuButton>
+        <MenuButton label="Expand" onClick={() => runInlineAction("expand")}>
+          Expand
+        </MenuButton>
+        <MenuButton label="Generate audio" onClick={() => runInlineAction("audiobook")}>
+          Audio
+        </MenuButton>
+      </BubbleMenu>
 
-      {/* Editor */}
+      <FloatingMenu
+        shouldShow={() => Boolean(slashMenu)}
+        className="verkli-slash-menu"
+        options={{ placement: "bottom-start" }}
+      >
+        <div className="verkli-slash-panel">
+          <p className="verkli-slash-label">Slash commands</p>
+          <div className="verkli-slash-items">
+            {(filteredSlashCommands.length > 0 ? filteredSlashCommands : SLASH_COMMANDS).map((command) => (
+              <button
+                key={command.id}
+                type="button"
+                onMouseDown={(event) => {
+                  event.preventDefault();
+                  runSlashCommand(command.id);
+                }}
+                className="verkli-slash-item"
+              >
+                <span className="verkli-slash-title">{command.label}</span>
+                <span className="verkli-slash-description">{command.description}</span>
+              </button>
+            ))}
+          </div>
+        </div>
+      </FloatingMenu>
+
       <EditorContent editor={editor} className="verkli-content" />
 
       <style jsx global>{`
         .verkli-editor {
-          border: 1px solid #e2e8f0;
-          border-radius: 8px;
-          background: #fff;
-          overflow: hidden;
+          height: 100%;
         }
-        .dark .verkli-editor {
-          border-color: rgba(255,255,255,0.1);
-          background: rgba(15,23,42,0.5);
+
+        .verkli-content {
+          height: 100%;
         }
-        .verkli-toolbar {
-          display: flex;
-          flex-wrap: wrap;
-          align-items: center;
-          gap: 2px;
-          padding: 8px 12px;
-          border-bottom: 1px solid #e2e8f0;
-          background: #f8fafc;
-          position: sticky;
-          top: 0;
-          z-index: 10;
-        }
-        .dark .verkli-toolbar {
-          border-color: rgba(255,255,255,0.1);
-          background: rgba(30,41,59,0.5);
-        }
+
         .verkli-content .ProseMirror {
-          min-height: 500px;
-          padding: 32px 24px;
+          min-height: 680px;
+          padding: 40px 40px 96px;
           font-family: var(--verkli-font, Georgia, serif);
           font-size: var(--verkli-font-size, 17px);
           line-height: var(--verkli-line-height, 1.7);
-          color: #1e293b;
+          color: #0f172a;
           outline: none;
-          max-width: var(--verkli-content-width, 85ch);
-          margin-left: 0;
-          margin-right: auto;
+          max-width: min(var(--verkli-content-width, 72ch), 100%);
+          margin: 0 auto;
         }
+
+        .dark .verkli-content .ProseMirror {
+          color: rgba(255, 255, 255, 0.86);
+        }
+
         .verkli-content .ProseMirror p {
           margin-bottom: var(--verkli-para-spacing, 0.75em);
         }
-        .dark .verkli-content .ProseMirror {
-          color: #e2e8f0;
-        }
+
         .verkli-content .ProseMirror p.is-editor-empty:first-child::before {
           content: attr(data-placeholder);
           float: left;
@@ -315,126 +425,228 @@ export default function TiptapEditor({
           pointer-events: none;
           height: 0;
         }
+
+        .dark .verkli-content .ProseMirror p.is-editor-empty:first-child::before {
+          color: rgba(255, 255, 255, 0.25);
+        }
+
         .verkli-content .ProseMirror h1 {
-          font-size: 2rem;
+          font-size: 2.2rem;
           font-weight: 700;
-          margin: 1.5rem 0 0.75rem;
+          margin: 1.75rem 0 0.9rem;
+          letter-spacing: -0.03em;
         }
+
         .verkli-content .ProseMirror h2 {
-          font-size: 1.5rem;
-          font-weight: 600;
-          margin: 1.25rem 0 0.5rem;
+          font-size: 1.6rem;
+          font-weight: 650;
+          margin: 1.4rem 0 0.7rem;
+          letter-spacing: -0.025em;
         }
+
         .verkli-content .ProseMirror h3 {
-          font-size: 1.25rem;
+          font-size: 1.3rem;
           font-weight: 600;
-          margin: 1rem 0 0.5rem;
+          margin: 1.15rem 0 0.55rem;
         }
+
         .verkli-content .ProseMirror ul,
         .verkli-content .ProseMirror ol {
           padding-left: 1.5rem;
           margin-bottom: 0.75rem;
         }
-        .verkli-content .ProseMirror ul { list-style-type: disc; }
-        .verkli-content .ProseMirror ol { list-style-type: decimal; }
+
+        .verkli-content .ProseMirror ul {
+          list-style-type: disc;
+        }
+
+        .verkli-content .ProseMirror ol {
+          list-style-type: decimal;
+        }
+
         .verkli-content .ProseMirror blockquote {
-          border-left: 3px solid #94a3b8;
+          border-left: 3px solid rgba(148, 163, 184, 0.85);
           padding-left: 1rem;
           margin: 1rem 0;
-          font-style: italic;
           color: #64748b;
         }
+
         .dark .verkli-content .ProseMirror blockquote {
-          border-color: rgba(255,255,255,0.3);
-          color: rgba(255,255,255,0.7);
+          border-color: rgba(255, 255, 255, 0.22);
+          color: rgba(255, 255, 255, 0.7);
         }
+
         .verkli-content .ProseMirror img {
           max-width: 100%;
           height: auto;
-          border-radius: 6px;
-          margin: 1rem 0;
+          border-radius: 18px;
+          margin: 1.5rem 0;
         }
+
         .verkli-content .ProseMirror img.ProseMirror-selectednode {
-          outline: 2px solid #64748b;
-          outline-offset: 2px;
+          outline: 2px solid #907aff;
+          outline-offset: 3px;
         }
+
         .verkli-content .ProseMirror hr {
           border: none;
-          border-top: 2px solid #e2e8f0;
-          margin: 2rem 0;
+          border-top: 2px solid rgba(148, 163, 184, 0.22);
+          margin: 2.25rem 0;
         }
+
         .dark .verkli-content .ProseMirror hr {
-          border-color: rgba(255,255,255,0.15);
+          border-color: rgba(255, 255, 255, 0.16);
+        }
+
+        .verkli-bubble-menu {
+          display: flex;
+          align-items: center;
+          gap: 4px;
+          padding: 6px;
+          border: 1px solid rgba(15, 23, 42, 0.08);
+          border-radius: 16px;
+          background: rgba(255, 255, 255, 0.96);
+          box-shadow: 0 18px 48px rgba(15, 23, 42, 0.16);
+          backdrop-filter: blur(16px);
+        }
+
+        .dark .verkli-bubble-menu {
+          border-color: rgba(255, 255, 255, 0.08);
+          background: rgba(15, 17, 23, 0.94);
+        }
+
+        .verkli-slash-menu {
+          width: min(320px, calc(100vw - 48px));
+        }
+
+        .verkli-slash-panel {
+          border: 1px solid rgba(15, 23, 42, 0.08);
+          border-radius: 18px;
+          background: rgba(255, 255, 255, 0.97);
+          box-shadow: 0 22px 60px rgba(15, 23, 42, 0.18);
+          backdrop-filter: blur(16px);
+          overflow: hidden;
+        }
+
+        .dark .verkli-slash-panel {
+          border-color: rgba(255, 255, 255, 0.08);
+          background: rgba(15, 17, 23, 0.96);
+        }
+
+        .verkli-slash-label {
+          padding: 12px 14px 8px;
+          font-size: 11px;
+          font-weight: 700;
+          letter-spacing: 0.16em;
+          text-transform: uppercase;
+          color: #94a3b8;
+        }
+
+        .verkli-slash-items {
+          display: grid;
+          gap: 2px;
+          padding: 0 8px 8px;
+        }
+
+        .verkli-slash-item {
+          display: flex;
+          width: 100%;
+          flex-direction: column;
+          align-items: flex-start;
+          gap: 2px;
+          border: 0;
+          border-radius: 12px;
+          background: transparent;
+          padding: 10px 12px;
+          text-align: left;
+          transition: background 120ms ease, color 120ms ease;
+        }
+
+        .verkli-slash-item:hover {
+          background: rgba(15, 23, 42, 0.04);
+        }
+
+        .dark .verkli-slash-item:hover {
+          background: rgba(255, 255, 255, 0.06);
+        }
+
+        .verkli-slash-title {
+          font-size: 13px;
+          font-weight: 600;
+          color: #0f172a;
+        }
+
+        .dark .verkli-slash-title {
+          color: rgba(255, 255, 255, 0.92);
+        }
+
+        .verkli-slash-description {
+          font-size: 12px;
+          color: #64748b;
+        }
+
+        .dark .verkli-slash-description {
+          color: rgba(255, 255, 255, 0.5);
+        }
+
+        @media (max-width: 1024px) {
+          .verkli-content .ProseMirror {
+            min-height: 560px;
+            padding: 32px 24px 72px;
+          }
         }
       `}</style>
     </div>
+    </EditorContext.Provider>
   );
 }
 
-// Simple toolbar button
-function ToolbarBtn({ onClick, active, disabled, title, children }: {
+function MenuButton({
+  label,
+  onClick,
+  active = false,
+  children,
+}: {
+  label: string;
   onClick: () => void;
   active?: boolean;
-  disabled?: boolean;
-  title: string;
   children: React.ReactNode;
 }) {
   return (
     <button
       type="button"
-      onClick={onClick}
-      disabled={disabled}
-      title={title}
-      className={`flex h-8 min-w-8 items-center justify-center rounded px-2 text-sm font-medium transition
-        ${active ? "bg-slate-200 text-slate-900 dark:bg-white/20 dark:text-white" : "text-slate-600 hover:bg-slate-100 dark:text-white/60 dark:hover:bg-white/10"}
-        ${disabled ? "opacity-40 cursor-not-allowed" : ""}`}
+      aria-label={label}
+      onMouseDown={(event) => {
+        event.preventDefault();
+        onClick();
+      }}
+      className={`inline-flex h-9 min-w-[2.25rem] items-center justify-center rounded-xl px-2.5 text-xs font-medium transition ${
+        active
+          ? "bg-slate-900 text-white dark:bg-white dark:text-slate-900"
+          : "text-slate-600 hover:bg-slate-100 hover:text-slate-900 dark:text-white/65 dark:hover:bg-white/10 dark:hover:text-white"
+      }`}
     >
       {children}
     </button>
   );
 }
 
-function Divider() {
-  return <div className="mx-1 h-5 w-px bg-slate-200 dark:bg-white/10" />;
+function MenuDivider() {
+  return <span className="mx-1 h-5 w-px bg-slate-200 dark:bg-white/10" aria-hidden />;
 }
 
-// Icons
 function BoldIcon() {
-  return <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M6 4h8a4 4 0 014 4 4 4 0 01-4 4H6V4zM6 12h9a4 4 0 014 4 4 4 0 01-4 4H6v-8z" /></svg>;
+  return (
+    <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.2}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M6 4h8a4 4 0 014 4 4 4 0 01-4 4H6V4zM6 12h9a4 4 0 014 4 4 4 0 01-4 4H6v-8z" />
+    </svg>
+  );
 }
+
 function ItalicIcon() {
-  return <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M10 4h4m-2 0l-4 16m0 0h4" /></svg>;
-}
-function UnderlineIcon() {
-  return <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M7 4v7a5 5 0 0010 0V4M5 20h14" /></svg>;
-}
-function ListIcon() {
-  return <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M4 6h.01M4 12h.01M4 18h.01M8 6h12M8 12h12M8 18h12" /></svg>;
-}
-function OrderedListIcon() {
-  return <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M4 6h.01M4 12h.01M4 18h.01M8 6h12M8 12h12M8 18h12" /></svg>;
-}
-function QuoteIcon() {
-  return <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" /></svg>;
-}
-function UndoIcon() {
-  return <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M3 10h10a5 5 0 015 5v2M3 10l4-4M3 10l4 4" /></svg>;
-}
-function RedoIcon() {
-  return <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M21 10H11a5 5 0 00-5 5v2M21 10l-4-4M21 10l-4 4" /></svg>;
-}
-function ImageIcon() {
-  return <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>;
-}
-function AlignLeftIcon() {
-  return <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M4 6h16M4 12h10M4 18h14" /></svg>;
-}
-function AlignCenterIcon() {
-  return <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M4 6h16M7 12h10M5 18h14" /></svg>;
-}
-function AlignRightIcon() {
-  return <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M4 6h16M10 12h10M6 18h14" /></svg>;
-}
-function HrIcon() {
-  return <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M4 12h16" /></svg>;
+  return (
+    <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M10 4h4m-2 0l-4 16m0 0h4" />
+    </svg>
+  );
 }

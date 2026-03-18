@@ -9,6 +9,7 @@ import LazySection from "@/components/LazySection";
 import BrandGradientText from "@/components/ui/brand-gradient-text";
 import type { User } from "@supabase/supabase-js";
 import { BRAND_COLORS } from "@/lib/design/brand";
+import Reveal from "@/components/Reveal";
 
 const gridImages = [
   "https://images.unsplash.com/photo-1723403804231-f4e9b515fe9d?auto=format&fit=crop&w=640&q=60",
@@ -102,13 +103,13 @@ function LandingPage() {
           </div>
 
           {/* Badge */}
-          <div className="mb-8 inline-flex items-center gap-2.5 rounded-full border border-black/[0.06] bg-white/70 px-5 py-2 shadow-[0_1px_2px_rgba(0,0,0,0.04)] backdrop-blur-xl dark:border-white/[0.08] dark:bg-white/[0.04] dark:shadow-none">
+          <div className="hero-animate-down badge-shimmer mb-8 inline-flex items-center gap-2.5 rounded-full border border-black/[0.06] bg-white/70 px-5 py-2 shadow-[0_1px_2px_rgba(0,0,0,0.04)] backdrop-blur-xl dark:border-white/[0.08] dark:bg-white/[0.04] dark:shadow-none">
             <div className="h-1.5 w-1.5 animate-pulse rounded-full bg-[#907AFF]" />
             <span className="text-[13px] font-medium text-slate-600 dark:text-white/60">Now in public beta</span>
           </div>
 
           {/* Headline */}
-          <h1 className="max-w-[860px] text-[clamp(42px,7.5vw,76px)] font-regular leading-[1.08] tracking-[-0.04em] text-slate-900 dark:text-white">
+          <h1 className="hero-animate max-w-[860px] text-[clamp(42px,7.5vw,76px)] font-regular leading-[1.08] tracking-[-0.04em] text-slate-900 dark:text-white" style={{ animationDelay: '200ms' }}>
             Write once. <br />
             <BrandGradientText
               className="font-semibold"
@@ -119,12 +120,12 @@ function LandingPage() {
           </h1>
 
           {/* Sub */}
-          <p className="mt-7 max-w-[520px] text-[clamp(16px,1.5vw,19px)] leading-[1.6] text-slate-500 dark:text-white/50">
+          <p className="hero-animate mt-7 max-w-[520px] text-[clamp(16px,1.5vw,19px)] leading-[1.6] text-slate-500 dark:text-white/50" style={{ animationDelay: '400ms' }}>
             Turn your books into content, connect with readers, and build sustainable revenue — all from one platform.
           </p>
 
           {/* CTAs */}
-          <div className="mt-10 flex items-center gap-3">
+          <div className="hero-animate mt-10 flex items-center gap-3" style={{ animationDelay: '600ms' }}>
             <Link href="/author/signup" className="btn-primary min-w-[170px] text-[15px]">
               Get started (it&apos;s free)
             </Link>
@@ -134,7 +135,7 @@ function LandingPage() {
           </div>
 
           {/* Reader link */}
-          <p className="mt-16 text-[13px] text-slate-400 dark:text-white/30">
+          <p className="hero-animate mt-16 text-[13px] text-slate-400 dark:text-white/30" style={{ animationDelay: '800ms' }}>
             Looking for stories?{" "}
             <Link href="/reader" className="font-medium text-slate-500 underline decoration-slate-300 underline-offset-[3px] transition hover:text-slate-700 hover:decoration-slate-400 dark:text-white/45 dark:decoration-white/15 dark:hover:text-white/65">
               Go to reader →
@@ -143,6 +144,7 @@ function LandingPage() {
         </section>
 
         {/* ─── Bento Grid ─── */}
+        <Reveal>
         <section className="relative mx-auto w-full max-w-[1200px] px-6">
           <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3 md:gap-4">
             {/* ── Main feature card (2-col) ── */}
@@ -205,6 +207,7 @@ function LandingPage() {
             ))}
           </div>
         </section>
+        </Reveal>
 
         <LazySection className="landing-deferred" minHeight={520}>
           <TestimonialSection />
@@ -222,6 +225,7 @@ function LandingPage() {
         {/* ─── Why Verkli ─── */}
         <LazySection className="landing-deferred" minHeight={860}>
           <section className="mx-auto w-full max-w-[1200px] px-6 py-28">
+            <Reveal>
             <div className="grid gap-14 lg:grid-cols-[1fr_1.3fr] lg:items-start">
               <div className="lg:sticky lg:top-32">
                 <p className="text-[13px] font-medium uppercase tracking-[0.15em] text-[#907AFF]">Why Verkli</p>
@@ -254,12 +258,14 @@ function LandingPage() {
                 ))}
               </div>
             </div>
+            </Reveal>
           </section>
         </LazySection>
 
         {/* ─── CTA ─── */}
         <LazySection className="landing-deferred" minHeight={760}>
           <section className="relative mx-auto w-full max-w-[1200px] px-6 py-28">
+            <Reveal>
             <div className="group relative overflow-hidden rounded-[32px] border border-black/[0.04] bg-gradient-to-br from-[#907AFF]/[0.12] via-[#E29ED5]/[0.07] to-[#FCC997]/[0.05] shadow-[0_2px_40px_rgba(144,122,255,0.06)] dark:border-white/[0.06]">
             {/* Ambient glows */}
             <div className="pointer-events-none absolute -left-32 -top-32 h-[400px] w-[400px] rounded-full bg-[#907AFF]/20 blur-[120px] transition-transform duration-[1500ms] group-hover:translate-x-10 group-hover:translate-y-8" />
@@ -306,6 +312,7 @@ function LandingPage() {
               </div>
             </div>
             </div>
+            </Reveal>
           </section>
         </LazySection>
 

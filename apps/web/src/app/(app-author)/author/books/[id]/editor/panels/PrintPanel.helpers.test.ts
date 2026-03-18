@@ -68,6 +68,9 @@ describe("print panel helpers", () => {
       editionLimit: "limited",
       limitCount: 250,
       isbn: "9789112345678",
+      softcoverPriceMinor: null,
+      hardcoverPriceMinor: null,
+      priceCurrency: "SEK",
     });
   });
 
@@ -86,6 +89,9 @@ describe("print panel helpers", () => {
       editionLimit: "limited",
       limitCount: 100,
       isbn: null,
+      softcoverPriceMinor: null,
+      hardcoverPriceMinor: null,
+      priceCurrency: "SEK",
     });
   });
 });

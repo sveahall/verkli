@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import BrandGradientText from "@/components/ui/brand-gradient-text";
 import { BRAND_COLORS } from "@/lib/design/brand";
+import Reveal from "@/components/Reveal";
 
 /* ── Data ── */
 
@@ -226,7 +227,7 @@ export default function ReaderLanding() {
         </div>
 
         {/* Headline */}
-        <h1 className="max-w-[860px] text-[clamp(42px,7.5vw,76px)] font-semibold leading-[1.08] tracking-[-0.04em] text-slate-900 dark:text-white">
+        <h1 className="hero-animate max-w-[860px] text-[clamp(42px,7.5vw,76px)] font-semibold leading-[1.08] tracking-[-0.04em] text-slate-900 dark:text-white" style={{ animationDelay: '100ms' }}>
           Stories that find you. <br />
           <BrandGradientText colors={["#6b7280", "#4b5563", "#111827"]}>
             Read without the noise.
@@ -234,18 +235,18 @@ export default function ReaderLanding() {
         </h1>
 
         {/* Sub */}
-        <p className="mt-7 max-w-[520px] text-[clamp(16px,1.5vw,19px)] leading-[1.6] text-slate-500 dark:text-white/50">
+        <p className="hero-animate mt-7 max-w-[520px] text-[clamp(16px,1.5vw,19px)] leading-[1.6] text-slate-500 dark:text-white/50" style={{ animationDelay: '350ms' }}>
           Discover, follow, and immerse yourself. Verkli is where readers and authors meet — calm, human, and built for the stories that move you.
         </p>
 
         {/* CTAs */}
-        <div className="mt-10 flex items-center gap-3">
+        <div className="hero-animate mt-10 flex items-center gap-3" style={{ animationDelay: '550ms' }}>
           <Link href="/reader/discover" className="btn-primary min-w-[170px] text-[15px]">Explore stories</Link>
           <Link href="/reader/signup" className="btn-secondary min-w-[120px] text-[15px]">Join Verkli</Link>
         </div>
 
         {/* Author link */}
-        <p className="mt-16 text-[13px] text-slate-400 dark:text-white/30">
+        <p className="hero-animate mt-16 text-[13px] text-slate-400 dark:text-white/30" style={{ animationDelay: '700ms' }}>
           Are you an author?{" "}
           <Link href="/author" className="font-medium text-slate-500 underline decoration-slate-300 underline-offset-[3px] transition hover:text-slate-700 hover:decoration-slate-400 dark:text-white/45 dark:decoration-white/15 dark:hover:text-white/65">
             Go to authors page →
@@ -255,6 +256,7 @@ export default function ReaderLanding() {
 
       {/* ─── Value props ─── */}
       <section className="mx-auto w-full max-w-[1200px] px-6 py-20" aria-labelledby="value-heading">
+        <Reveal>
         <div className="text-center">
           <p className="text-[13px] font-medium uppercase tracking-[0.15em] text-[#907AFF]">Why Verkli</p>
           <h2 id="value-heading" className="mx-auto mt-4 max-w-[640px] text-[clamp(28px,4vw,48px)] font-semibold leading-[1.1] tracking-[-0.025em] text-slate-900 dark:text-white">
@@ -281,10 +283,12 @@ export default function ReaderLanding() {
             </div>
           ))}
         </div>
+        </Reveal>
       </section>
 
       {/* ─── How it works ─── */}
       <section className="mx-auto w-full max-w-[1200px] px-6 py-20" aria-labelledby="how-heading">
+        <Reveal>
         <div className="text-center">
           <p className="text-[13px] font-medium uppercase tracking-[0.15em] text-[#907AFF]">How it works</p>
           <h2 id="how-heading" className="mx-auto mt-4 max-w-[640px] text-[clamp(28px,4vw,48px)] font-semibold leading-[1.1] tracking-[-0.025em] text-slate-900 dark:text-white">
@@ -305,10 +309,12 @@ export default function ReaderLanding() {
             </div>
           ))}
         </div>
+        </Reveal>
       </section>
 
       {/* ─── Why Verkli is different ─── */}
       <section className="mx-auto w-full max-w-[1200px] px-6 py-20" aria-labelledby="different-heading">
+        <Reveal>
         <div className="text-center">
           <p className="text-[13px] font-medium uppercase tracking-[0.15em] text-[#907AFF]">What makes us different</p>
           <h2 id="different-heading" className="mx-auto mt-4 max-w-[640px] text-[clamp(28px,4vw,48px)] font-semibold leading-[1.1] tracking-[-0.025em] text-slate-900 dark:text-white">
@@ -334,10 +340,12 @@ export default function ReaderLanding() {
             </div>
           ))}
         </div>
+        </Reveal>
       </section>
 
       {/* ─── CTA ─── */}
       <section className="mx-auto w-full max-w-[1200px] px-6 py-24" aria-labelledby="cta-heading">
+        <Reveal>
         <div className="group relative overflow-hidden rounded-[40px] bg-gradient-to-br from-[#907AFF]/20 via-[#E29ED5]/12 to-[#FCC997]/10 px-8 py-20 text-center sm:px-16 sm:py-28">
           <div className="pointer-events-none absolute -left-20 -top-20 h-[350px] w-[350px] rounded-full bg-[#907AFF]/25 blur-[100px] transition-transform duration-1000 group-hover:translate-x-10 group-hover:translate-y-10" />
           <div className="pointer-events-none absolute -bottom-10 -right-10 h-[250px] w-[250px] rounded-full bg-[#E29ED5]/15 blur-[80px] transition-transform duration-1000 group-hover:-translate-x-5" />
@@ -361,6 +369,7 @@ export default function ReaderLanding() {
             </p>
           </div>
         </div>
+        </Reveal>
       </section>
     </main>
   );

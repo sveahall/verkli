@@ -51,19 +51,10 @@ export default function AuthShell({
         />
       </div>
 
-      <header className="absolute left-6 top-6 z-30 flex items-center gap-3 sm:left-10 sm:top-8">
-        <Link href="/" className="flex items-center">
+      <header className="absolute left-6 top-6 z-30 sm:left-10 sm:top-8">
+        <Link href={backHref} className="flex items-center transition-opacity hover:opacity-70">
           <Image src="/logo-dark.svg" alt="Verkli" width={122} height={28} className="h-7 w-auto dark:hidden" />
           <Image src="/favicon.svg" alt="Verkli" width={28} height={28} className="hidden h-7 w-auto dark:block" />
-        </Link>
-        <Link
-          href={backHref}
-          className="flex items-center gap-1.5 rounded-full border border-black/[0.06] bg-white/70 px-3.5 py-2 text-[13px] font-medium text-slate-600 shadow-sm backdrop-blur-md transition hover:border-black/10 hover:bg-white/90 hover:text-slate-900 dark:border-white/[0.08] dark:bg-white/[0.06] dark:text-white/60 dark:shadow-none dark:hover:border-white/15 dark:hover:bg-white/10 dark:hover:text-white"
-        >
-          <svg className="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
-            <path strokeLinecap="round" strokeLinejoin="round" d="M15 6l-6 6 6 6" />
-          </svg>
-          {backLabel}
         </Link>
       </header>
 

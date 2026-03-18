@@ -9,6 +9,8 @@ export type LibraryBook = {
   cover: string | null;
   progress?: number;
   href?: string;
+  chapterLabel?: string | null;
+  lastOpenedLabel?: string | null;
 };
 
 export type LibraryData = {
@@ -17,6 +19,16 @@ export type LibraryData = {
   finished: LibraryBook[];
   bookmarksCount: number;
 };
+
+function formatDateLabel(value: string | null | undefined): string | null {
+  if (!value) return null;
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) return null;
+  return parsed.toLocaleDateString(undefined, {
+    month: "short",
+    day: "numeric",
+  });
+}
 
 export default async function ReaderLibraryPage() {
   const supabase = await createClient();
@@ -56,25 +68,49 @@ export default async function ReaderLibraryPage() {
   const allBookIds = [...new Set([...readingBookIds, ...finishedBookIds, ...savedBookIds])];
   let books: { id: string; title: string; cover_image: string | null; author_id: string }[] = [];
   let authorNames: Record<string, string> = {};
+  const chapterIds = [...new Set(readings.map((row) => row.chapter_id).filter(Boolean))];
+  let chapterTitles = new Map<string, string>();
 
   if (allBookIds.length > 0) {
-    const { data: booksData } = await supabase
-      .from("books")
-      .select("id, title, cover_image, author_id")
-      .in("id", allBookIds)
-      .eq("status", "PUBLISHED");
+    const [{ data: booksData }, { data: chapterRows }] = await Promise.all([
+      supabase
+        .from("books")
+        .select("id, title, cover_image, author_id")
+        .in("id", allBookIds)
+        .eq("status", "PUBLISHED"),
+      chapterIds.length > 0
+        ? supabase.from("chapters").select("id, title").in("id", chapterIds)
+        : Promise.resolve({ data: [] as Array<{ id: string; title: string }> }),
+    ]);
+
     books = booksData ?? [];
+    chapterTitles = new Map((chapterRows ?? []).map((chapter) => [chapter.id, chapter.title]));
+
     const authorIds = [...new Set(books.map((b) => b.author_id))];
     const { data: profiles } = await supabase
       .from("profiles")
       .select("user_id, display_name, username")
       .in("user_id", authorIds);
+
     authorNames = Object.fromEntries(
       (profiles ?? []).map((p) => [p.user_id, p.display_name || p.username || "Author"])
     );
   }
 
   const bookMap = new Map(books.map((b) => [b.id, b]));
+  const readingRowByBookId = new Map(
+    readings.map((row) => [
+      row.book_id,
+      {
+        chapterId: row.chapter_id,
+        progress: row.progress_percent ?? 0,
+        lastOpenedLabel: formatDateLabel(row.last_read_at)
+          ? `Last opened ${formatDateLabel(row.last_read_at)}`
+          : null,
+      },
+    ])
+  );
+
   const toLibraryBook = (
     bookId: string,
     progress?: number,
@@ -82,6 +118,7 @@ export default async function ReaderLibraryPage() {
   ): LibraryBook | null => {
     const book = bookMap.get(bookId);
     if (!book) return null;
+    const readingMeta = readingRowByBookId.get(bookId);
     return {
       id: book.id,
       title: book.title,
@@ -89,6 +126,8 @@ export default async function ReaderLibraryPage() {
       cover: book.cover_image,
       progress,
       href,
+      chapterLabel: readingMeta?.chapterId ? chapterTitles.get(readingMeta.chapterId) ?? null : null,
+      lastOpenedLabel: readingMeta?.lastOpenedLabel ?? null,
     };
   };
 

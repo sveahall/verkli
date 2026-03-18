@@ -252,6 +252,11 @@ const ERROR_MESSAGES: Record<string, string> = {
   REFERRAL_CANNOT_USE_OWN: "Du kan inte använda din egen referenskod.",
   INVALID_REFERRAL_CODE: "Ange en giltig referenskod.",
 
+  // Print-on-demand
+  POD_NOT_ENABLED: "Print-on-demand är inte aktiverat för denna bok.",
+  POD_FORMAT_UNAVAILABLE: "Det valda tryckformatet är inte tillgängligt.",
+  POD_PRICE_NOT_SET: "Pris måste anges innan beställning.",
+
   // Pricing validation
   INVALID_PRICE_AMOUNT: "Ogiltigt prisbelopp.",
   INVALID_PRICE_CURRENCY: "Ogiltig valuta.",

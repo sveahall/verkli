@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import BrandGradientText from "@/components/ui/brand-gradient-text";
+import Reveal from "@/components/Reveal";
 
 const features = [
   {
@@ -79,6 +80,7 @@ export default function FeaturesSection() {
 
   return (
     <section className="mx-auto w-full max-w-[1080px] px-6 py-28">
+      <Reveal>
       <div className="mb-14 text-center">
         <p className="text-[13px] font-medium uppercase tracking-[0.15em] text-[#907AFF]">
           Built for authors
@@ -221,6 +223,7 @@ export default function FeaturesSection() {
           </div>
         </div>
       </div>
+      </Reveal>
     </section>
   );
 }

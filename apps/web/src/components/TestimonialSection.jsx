@@ -83,8 +83,8 @@ export default function TestimonialSection() {
             ref={(el) => (cardsRef.current[index] = el)}
             className={`group relative overflow-hidden rounded-[24px] border border-black/[0.06] bg-gradient-to-br from-black/[0.04] to-transparent p-8 transition-all duration-500 hover:-translate-y-2 hover:border-black/[0.1] hover:shadow-[0_12px_40px_rgba(0,0,0,0.08)] dark:border-white/[0.08] dark:from-white/[0.04] dark:to-transparent dark:hover:border-white/[0.14] dark:hover:shadow-[0_12px_40px_rgba(0,0,0,0.3)] ${
               revealed
-                ? "translate-y-0 opacity-100"
-                : "translate-y-6 opacity-0"
+                ? "translate-y-0 opacity-100 blur-0"
+                : "translate-y-8 opacity-0 blur-[6px]"
             }`}
             style={{
               transitionDelay: revealed ? `${index * 100}ms` : "0ms",

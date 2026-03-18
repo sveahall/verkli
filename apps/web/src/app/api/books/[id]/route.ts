@@ -255,15 +255,43 @@ export async function PATCH(
   const { user, response } = await requireAuthorRoleForApi();
   if (response) return response;
 
-  let body: PricingPatchBody;
+  let body: PricingPatchBody & { setup_state?: unknown };
   try {
     const parsed = await request.json();
     if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
       return badRequest(E_INVALID_JSON);
     }
-    body = parsed as PricingPatchBody;
+    body = parsed as PricingPatchBody & { setup_state?: unknown };
   } catch {
     return badRequest(E_INVALID_JSON);
+  }
+
+  // ── setup_state-only update (fast path) ──────────────────────────────
+  if (
+    body.setup_state !== undefined &&
+    !Object.prototype.hasOwnProperty.call(body, "price_amount") &&
+    !Object.prototype.hasOwnProperty.call(body, "price_currency") &&
+    !Object.prototype.hasOwnProperty.call(body, "pricing_model") &&
+    !Object.prototype.hasOwnProperty.call(body, "is_free")
+  ) {
+    const supabase = await createClient();
+    const { error: setupError } = await supabase
+      .from("books")
+      .update({ setup_state: body.setup_state } as never)
+      .eq("id", id)
+      .eq("author_id", user.id);
+
+    if (setupError) {
+      console.error("[books.settings.patch] setup_state update failed", {
+        bookId: id,
+        userId: user.id,
+        code: setupError.code,
+        message: setupError.message,
+      });
+      return apiError(E_BOOK_SETTINGS_UPDATE_FAILED, 500);
+    }
+
+    return NextResponse.json({ ok: true });
   }
 
   const supabase = await createClient();

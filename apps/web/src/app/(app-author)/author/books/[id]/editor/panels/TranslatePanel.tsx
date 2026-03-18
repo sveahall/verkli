@@ -186,12 +186,12 @@ export default function TranslatePanel({
         setTranslationPreview(nextTranslationPreview);
         setPreviewUnavailable(nextPreviewUnavailable);
       } else {
-        setOriginalPreview("");
+        // Keep existing originalPreview — source text doesn't depend on target language.
+        // Only clear the translation preview since the pair may be unsupported.
         setTranslationPreview("");
         setPreviewUnavailable(false);
       }
     } catch {
-      setOriginalPreview("");
       setTranslationPreview("");
       setPreviewUnavailable(false);
     } finally {

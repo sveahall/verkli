@@ -1,7 +1,20 @@
 export type NavVariant = "PUBLIC_AUTHOR" | "PUBLIC_READER" | "APP_AUTHOR" | "APP_READER";
 
-/** MVP: read-write-publish only. Set false to enable Community + Marketing Tools. */
-const MVP_MODE = true;
+export type AuthorWorkflowKey =
+  | "home"
+  | "library"
+  | "write"
+  | "production"
+  | "audience"
+  | "analytics";
+
+export type AuthorSidebarLink = {
+  key: AuthorWorkflowKey | "notifications" | "profile" | "settings";
+  label: string;
+  href: string;
+  icon: string;
+  bookScoped?: boolean;
+};
 
 export type NavLinkChild = {
   label: string;
@@ -34,6 +47,21 @@ export type NavConfig = {
   links: NavLink[];
   actions: NavActions;
 };
+
+export const AUTHOR_WORKFLOW_NAV: AuthorSidebarLink[] = [
+  { key: "home", label: "Home", href: "/author/home", icon: "home" },
+  { key: "library", label: "Library", href: "/author/library", icon: "library" },
+  { key: "write", label: "Write", href: "/author/write", icon: "write", bookScoped: true },
+  { key: "production", label: "Production", href: "/author/production", icon: "production", bookScoped: true },
+  { key: "audience", label: "Audience", href: "/author/audience", icon: "audience", bookScoped: true },
+  { key: "analytics", label: "Analytics", href: "/author/analytics", icon: "analytics", bookScoped: true },
+];
+
+export const AUTHOR_SIDEBAR_FOOTER: AuthorSidebarLink[] = [
+  { key: "notifications", label: "Notifications", href: "/author/notifications", icon: "notifications" },
+  { key: "profile", label: "Profile", href: "/author/profile", icon: "profile" },
+  { key: "settings", label: "Settings", href: "/author/settings", icon: "settings" },
+];
 
 export const NAV_CONFIG: Record<NavVariant, NavConfig> = {
   PUBLIC_AUTHOR: {
@@ -68,40 +96,14 @@ export const NAV_CONFIG: Record<NavVariant, NavConfig> = {
   },
   APP_AUTHOR: {
     homeHref: "/author/home",
-    links: [
-      {
-        label: "My World",
-        href: "/author/home",
-        hasDropdown: true,
-        children: [
-          { label: "Overview", href: "/author/home" },
-          { label: "Analytics", href: "/author/analytics" },
-          { label: "Profile preview", href: "/author/profile" },
-          { label: "TTS Lab", href: "/author/tts-lab" },
-        ],
-      },
-      { label: "Books", href: "/author/books" },
-      ...(MVP_MODE
-        ? [{ label: "Marketing Portal", href: "/author/marketing" }]
-        : [
-            {
-              label: "Marketing",
-              href: "/author/marketing",
-              hasDropdown: true,
-              children: [
-                { label: "Overview", href: "/author/marketing" },
-                { label: "AI tools", href: "/author/marketing" },
-                { label: "Automations", href: "/author/marketing" },
-                { label: "Distribution", href: "/author/marketing" },
-              ],
-            } as NavLink,
-            { label: "Community", href: "/author/polls" },
-          ]),
-    ],
+    links: AUTHOR_WORKFLOW_NAV.map((item) => ({
+      label: item.label,
+      href: item.href,
+    })),
     actions: {
-      primary: { label: "Books", href: "/author/books" },
-      showSearch: true,
-      searchPlaceholder: "Search books, authors...",
+      primary: { label: "Library", href: "/author/library" },
+      showSearch: false,
+      searchPlaceholder: "Search books...",
       searchHref: "/author/home",
       showProfileMenu: true,
     },
@@ -110,33 +112,13 @@ export const NAV_CONFIG: Record<NavVariant, NavConfig> = {
     homeHref: "/reader/home",
     links: [
       { label: "Home", href: "/reader/home" },
-      {
-        label: "Discover",
-        href: "/reader/discover",
-        hasDropdown: true,
-        children: [
-          { label: "Discover", href: "/reader/discover" },
-          { label: "Genres", href: "/reader/genres" },
-          { label: "Authors", href: "/reader/authors" },
-        ],
-      },
-      {
-        label: "Library",
-        href: "/reader/library",
-        hasDropdown: true,
-        children: [
-          { label: "My library", href: "/reader/library" },
-          { label: "Bookmarks", href: "/reader/bookmarks" },
-          { label: "Continue reading", href: "/reader/home" },
-        ],
-      },
-      ...(MVP_MODE ? [] : [{ label: "Community", href: "/reader/clubs" }]),
+      { label: "Discover", href: "/reader/discover" },
+      { label: "Library", href: "/reader/library" },
     ],
     actions: {
-      primary: { label: "Become an author", href: "/author/signup" },
       showSearch: true,
       searchPlaceholder: "Search books, authors...",
-      searchHref: "/reader/home",
+      searchHref: "/reader/discover",
       showProfileMenu: true,
     },
   },

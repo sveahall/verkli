@@ -39,6 +39,17 @@ export async function GET(request: Request, context: RouteContext) {
   });
   const period = parsed.success ? parsed.data.period : "30d";
 
+  const { data: chapterRows } = await supabase
+    .from("chapters")
+    .select("id, title, order")
+    .eq("book_id", bookId)
+    .order("order", { ascending: true });
+  const chapters = (chapterRows ?? []) as Array<{
+    id: string;
+    title: string | null;
+    order: number;
+  }>;
+
   // Date filter
   let since: Date | null = null;
   if (period === "7d") {
@@ -96,6 +107,12 @@ export async function GET(request: Request, context: RouteContext) {
   let avgProgress = 0;
   let activeReaders = 0;
   let completionRate = 0;
+  let readingsData: Array<{
+    progress_percent: number | null;
+    last_read_at: string;
+    current_chapter: number | null;
+    chapter_id: string | null;
+  }> = [];
 
   try {
     const { count } = await supabase
@@ -105,12 +122,14 @@ export async function GET(request: Request, context: RouteContext) {
 
     totalReaders = count ?? 0;
 
-    const { data: readingsData } = await supabase
+    const { data } = await supabase
       .from("readings")
-      .select("progress_percent, last_read_at")
+      .select("progress_percent, last_read_at, current_chapter, chapter_id")
       .eq("book_id", bookId);
 
-    if (readingsData && readingsData.length > 0) {
+    readingsData = (data ?? []) as typeof readingsData;
+
+    if (readingsData.length > 0) {
       avgProgress = Math.round(
         readingsData.reduce(
           (sum, r) => sum + (Number(r.progress_percent) || 0),
@@ -202,6 +221,75 @@ export async function GET(request: Request, context: RouteContext) {
     .sort((a, b) => a[0].localeCompare(b[0]))
     .map(([date, data]) => ({ date, ...data }));
 
+  let chapterSignals: Array<{
+    id: string;
+    title: string;
+    readerCount: number;
+    highlightCount: number;
+    completionRate: number;
+    dropoffRate: number;
+    highlightRate: number;
+  }> = [];
+
+  if (chapters.length > 0) {
+    let highlightRows: Array<{ chapter_id: string | null }> = [];
+    try {
+      const { data: highlights } = await supabase
+        .from("highlights" as never)
+        .select("chapter_id")
+        .eq("book_id", bookId);
+      highlightRows = (highlights ?? []) as typeof highlightRows;
+    } catch {
+      // highlights table may not exist — continue with zeros
+    }
+
+    const highlightCountByChapterId = new Map<string, number>();
+    for (const highlight of highlightRows) {
+      if (!highlight.chapter_id) continue;
+      highlightCountByChapterId.set(
+        highlight.chapter_id,
+        (highlightCountByChapterId.get(highlight.chapter_id) ?? 0) + 1
+      );
+    }
+
+    chapterSignals = chapters.map((chapter, index) => {
+      const reachedReaders = readingsData.filter((reading) => {
+        if (reading.chapter_id === chapter.id) return true;
+        return typeof reading.current_chapter === "number" && reading.current_chapter >= chapter.order;
+      });
+
+      const completedReaders = reachedReaders.filter((reading) => {
+        if (typeof reading.current_chapter === "number" && reading.current_chapter > chapter.order) {
+          return true;
+        }
+        const chapterThreshold = ((index + 1) / Math.max(chapters.length, 1)) * 100;
+        return (Number(reading.progress_percent) || 0) >= chapterThreshold;
+      });
+
+      const stalledReaders = reachedReaders.filter((reading) => {
+        const sameChapter =
+          reading.chapter_id === chapter.id ||
+          reading.current_chapter === chapter.order;
+        return sameChapter && (Number(reading.progress_percent) || 0) < 100;
+      });
+
+      const readerCount = reachedReaders.length;
+      const highlightCount = highlightCountByChapterId.get(chapter.id) ?? 0;
+      const completedCount = completedReaders.length;
+      const stalledCount = stalledReaders.length;
+
+      return {
+        id: chapter.id,
+        title: chapter.title?.trim() || `Chapter ${index + 1}`,
+        readerCount,
+        highlightCount,
+        completionRate: readerCount > 0 ? Math.round((completedCount / readerCount) * 100) : 0,
+        dropoffRate: readerCount > 0 ? Math.round((stalledCount / readerCount) * 100) : 0,
+        highlightRate: readerCount > 0 ? Math.round((highlightCount / readerCount) * 100) : 0,
+      };
+    });
+  }
+
   return NextResponse.json({
     period,
     overview: {
@@ -224,5 +312,6 @@ export async function GET(request: Request, context: RouteContext) {
       recent: recentReviews,
     },
     dailyChart,
+    chapterSignals,
   });
 }
