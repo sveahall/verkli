@@ -267,6 +267,7 @@ export const TOOL_ORDER: Tool[] = [
   "publish",
   "market",
   "statistics",
+  "import",
 ];
 
 export type BookEditorProps = {

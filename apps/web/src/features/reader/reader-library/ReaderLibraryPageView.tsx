@@ -2,15 +2,12 @@
 
 import { useMemo, useState } from "react";
 import Link from "next/link";
+import { BookOpen, Bookmark, CheckCircle2, Library, Plus, Search } from "lucide-react";
+import { Card, CardContent } from "@/components/ui/card";
+import { PageHeader } from "@/components/ui/page-header";
 import BookCard from "@/components/reader/BookCard";
 import type { LibraryBook, LibraryData } from "@/app/(app-reader)/reader/library/page";
-import {
-  ReaderContextCard,
-  ReaderContinueCard,
-  ReaderEmptyBlock,
-  ReaderHeroPanel,
-  ReaderSectionHeader,
-} from "@/features/reader/shared/ReaderScaffold";
+import { ReaderContinueCard } from "@/features/reader/shared/ReaderScaffold";
 
 type ReaderLibraryPageViewProps = {
   initialData: LibraryData;
@@ -18,223 +15,157 @@ type ReaderLibraryPageViewProps = {
 
 function matchesQuery(book: LibraryBook, query: string) {
   if (!query) return true;
-  const haystack = [
-    book.title,
-    book.author,
-    book.chapterLabel ?? "",
-    book.lastOpenedLabel ?? "",
-  ]
-    .join(" ")
-    .toLowerCase();
-
-  return haystack.includes(query);
+  return [book.title, book.author, book.chapterLabel ?? "", book.lastOpenedLabel ?? ""]
+    .join(" ").toLowerCase().includes(query);
 }
 
-export default function ReaderLibraryPageView({
-  initialData,
-}: ReaderLibraryPageViewProps) {
+function StatBadge({ icon, label, count, color }: { icon: React.ReactNode; label: string; count: number; color: string }) {
+  return (
+    <div className="flex items-center gap-2.5 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 dark:border-white/10 dark:bg-white/5">
+      <span className={color}>{icon}</span>
+      <span className="text-[13px] text-slate-500 dark:text-white/50">{label}</span>
+      <span className="text-[15px] font-semibold text-slate-900 dark:text-white">{count}</span>
+    </div>
+  );
+}
+
+export default function ReaderLibraryPageView({ initialData }: ReaderLibraryPageViewProps) {
   const [search, setSearch] = useState("");
   const query = search.trim().toLowerCase();
+  const isSearching = query.length > 0;
 
-  const filteredReading = useMemo(
-    () => initialData.reading.filter((book) => matchesQuery(book, query)),
-    [initialData.reading, query]
-  );
-  const filteredSaved = useMemo(
-    () => initialData.saved.filter((book) => matchesQuery(book, query)),
-    [initialData.saved, query]
-  );
-  const filteredFinished = useMemo(
-    () => initialData.finished.filter((book) => matchesQuery(book, query)),
-    [initialData.finished, query]
-  );
+  const filteredReading = useMemo(() => initialData.reading.filter((b) => matchesQuery(b, query)), [initialData.reading, query]);
+  const filteredSaved = useMemo(() => initialData.saved.filter((b) => matchesQuery(b, query)), [initialData.saved, query]);
+  const filteredFinished = useMemo(() => initialData.finished.filter((b) => matchesQuery(b, query)), [initialData.finished, query]);
 
-  const hasAnyBooks =
-    initialData.reading.length > 0 ||
-    initialData.saved.length > 0 ||
-    initialData.finished.length > 0;
+  const hasAnyBooks = initialData.reading.length > 0 || initialData.saved.length > 0 || initialData.finished.length > 0;
+  const showReading = isSearching ? filteredReading.length > 0 : initialData.reading.length > 0;
+  const showSaved = isSearching ? filteredSaved.length > 0 : initialData.saved.length > 0;
+  const showFinished = isSearching ? filteredFinished.length > 0 : initialData.finished.length > 0;
+  const noSearchResults = isSearching && !showReading && !showSaved && !showFinished;
 
   return (
-    <div className="section-gap">
-      <ReaderHeroPanel
+    <div className="space-y-8">
+      <PageHeader
         eyebrow="Library"
-        title="Your personal reading collection"
-        description="Currently reading, saved for later, and completed books live in one place with the same calm layout language as the rest of the app."
+        title="Your books"
+        description={`${initialData.reading.length} reading · ${initialData.saved.length} saved · ${initialData.finished.length} completed`}
         actions={
-          <>
-            <Link href="/reader/discover" className="btn-primary">
-              Add new books
-            </Link>
-            <Link href="/reader/home" className="btn-secondary">
-              Back to home
-            </Link>
-          </>
+          <Link href="/reader/discover" className="btn-primary inline-flex items-center gap-2 text-[13px]">
+            <Plus className="h-4 w-4" /> Add books
+          </Link>
         }
-      >
-        <div className="rounded-2xl border border-black/[0.06] bg-white/80 px-4 py-3 dark:border-white/10 dark:bg-white/[0.04]">
-          <p className="text-[12px] font-semibold uppercase tracking-[0.16em] text-slate-400 dark:text-white/35">
-            In progress
-          </p>
-          <p className="mt-2 text-[14px] text-slate-600 dark:text-white/65">
-            {initialData.reading.length === 0
-              ? "Nothing in motion yet."
-              : `${initialData.reading.length} active ${initialData.reading.length === 1 ? "book" : "books"} ready to resume.`}
-          </p>
-        </div>
-        <div className="rounded-2xl border border-black/[0.06] bg-white/80 px-4 py-3 dark:border-white/10 dark:bg-white/[0.04]">
-          <p className="text-[12px] font-semibold uppercase tracking-[0.16em] text-slate-400 dark:text-white/35">
-            Saved
-          </p>
-          <p className="mt-2 text-[14px] text-slate-600 dark:text-white/65">
-            {initialData.saved.length} saved picks, including {initialData.bookmarksCount} bookmarks.
-          </p>
-        </div>
-      </ReaderHeroPanel>
+      />
 
-      <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_300px]">
-        <div className="space-y-10">
-          <section className="space-y-4">
-            <div className="flex flex-col gap-2">
-              <label className="text-eyebrow" htmlFor="reader-library-search">
-                Search library
-              </label>
+      {/* ── Stats + Search ── */}
+      <Card>
+        <CardContent>
+          <div className="flex flex-wrap items-center gap-3">
+            <StatBadge icon={<Library className="h-3.5 w-3.5" />} label="Reading" count={initialData.reading.length} color="text-blue-500" />
+            <StatBadge icon={<Bookmark className="h-3.5 w-3.5" />} label="Saved" count={initialData.saved.length} color="text-amber-500" />
+            <StatBadge icon={<CheckCircle2 className="h-3.5 w-3.5" />} label="Completed" count={initialData.finished.length} color="text-emerald-500" />
+            <div className="relative ml-auto w-full max-w-xs">
+              <Search className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400 dark:text-white/40" />
               <input
-                id="reader-library-search"
                 value={search}
-                onChange={(event) => setSearch(event.target.value)}
-                placeholder="Search by title, author, or chapter"
-                className="input-base max-w-xl rounded-full"
+                onChange={(e) => setSearch(e.target.value)}
+                placeholder="Search library..."
+                className="input-base w-full rounded-full pl-10"
               />
             </div>
-          </section>
+          </div>
+        </CardContent>
+      </Card>
 
-          {!hasAnyBooks ? (
-            <ReaderEmptyBlock
-              title="Your library is empty"
-              description="Start reading from discovery and your books will be organized here automatically."
-              actionHref="/reader/discover"
-              actionLabel="Browse discovery"
-            />
-          ) : (
-            <>
-              <section className="space-y-4" id="currently-reading">
-                <ReaderSectionHeader
-                  eyebrow="Currently reading"
-                  title="Keep your active books moving"
-                  description="Resume from the latest chapter with progress and last-opened context."
-                />
-                {filteredReading.length === 0 ? (
-                  <ReaderEmptyBlock
-                    title="No matching active reads"
-                    description="Try another search term or clear the filter."
-                  />
-                ) : (
-                  <div className="-mx-1 flex gap-4 overflow-x-auto px-1 pb-2">
-                    {filteredReading.map((book) => (
-                      <ReaderContinueCard
-                        key={book.id}
-                        title={book.title}
-                        author={book.author}
-                        href={book.href ?? `/reader/books/${book.id}`}
-                        cover={book.cover}
-                        progress={book.progress ?? 0}
-                        chapterLabel={book.chapterLabel}
-                        lastOpenedLabel={book.lastOpenedLabel}
-                      />
-                    ))}
-                  </div>
-                )}
-              </section>
-
-              <section className="space-y-4" id="saved-books">
-                <ReaderSectionHeader
-                  eyebrow="Saved books"
-                  title="A shelf for later"
-                  description="Bookmarks, purchases, and books you wanted to keep close."
-                />
-                {filteredSaved.length === 0 ? (
-                  <ReaderEmptyBlock
-                    title="No saved matches"
-                    description="Save books from discovery or while reading and they will show up here."
-                  />
-                ) : (
-                  <div className="grid grid-cols-2 gap-5 sm:grid-cols-3 xl:grid-cols-4">
-                    {filteredSaved.map((book) => (
-                      <BookCard
-                        key={book.id}
-                        id={book.id}
-                        title={book.title}
-                        author={book.author}
-                        cover={book.cover}
-                        href={book.href}
-                        length={book.lastOpenedLabel ?? "Saved to library"}
-                        layout="grid"
-                        size="lg"
-                      />
-                    ))}
-                  </div>
-                )}
-              </section>
-
-              <section className="space-y-4" id="completed-books">
-                <ReaderSectionHeader
-                  eyebrow="Completed books"
-                  title="Finished stories"
-                  description="Return to the books you have already completed and revisit them when you want."
-                />
-                {filteredFinished.length === 0 ? (
-                  <ReaderEmptyBlock
-                    title="Nothing completed yet"
-                    description="Finish a book and it will move here automatically."
-                  />
-                ) : (
-                  <div className="grid grid-cols-2 gap-5 sm:grid-cols-3 xl:grid-cols-4">
-                    {filteredFinished.map((book) => (
-                      <BookCard
-                        key={book.id}
-                        id={book.id}
-                        title={book.title}
-                        author={book.author}
-                        cover={book.cover}
-                        href={book.href}
-                        progress={book.progress}
-                        ctaLabel="Open book"
-                        layout="grid"
-                        size="lg"
-                      />
-                    ))}
-                  </div>
-                )}
-              </section>
-            </>
-          )}
-        </div>
-
-        <aside className="space-y-4 xl:sticky xl:top-24 xl:self-start">
-          <ReaderContextCard
-            title="Library actions"
-            description="Stay close to the reading loop: discover, resume, and keep your shelves clean."
-          >
-            <Link href="/reader/discover" className="btn-secondary w-full justify-between">
-              Discover books
-            </Link>
-            <Link href="/reader/home" className="btn-secondary w-full justify-between">
-              Return home
-            </Link>
-          </ReaderContextCard>
-
-          <ReaderContextCard
-            title="Shelf snapshot"
-            description="A quick textual overview instead of dashboard-style stat cards."
-          >
-            <div className="space-y-2 text-[14px] text-slate-600 dark:text-white/65">
-              <p>{initialData.reading.length} currently reading</p>
-              <p>{initialData.saved.length} saved books</p>
-              <p>{initialData.finished.length} completed books</p>
+      {/* ── Empty library ── */}
+      {!hasAnyBooks ? (
+        <Card className="border-[#907AFF]/[0.06] bg-gradient-to-br from-[#907AFF]/[0.03] via-white to-[#E29ED5]/[0.02] dark:from-[#907AFF]/[0.08] dark:via-[#0f1117] dark:to-[#E29ED5]/[0.04]">
+          <CardContent className="py-10 text-center">
+            <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-[#907AFF]/10">
+              <BookOpen className="h-6 w-6 text-[#907AFF]" />
             </div>
-          </ReaderContextCard>
-        </aside>
-      </div>
+            <h2 className="mt-4 text-[18px] font-semibold text-slate-900 dark:text-white">Your library is empty</h2>
+            <p className="mx-auto mt-1.5 max-w-md text-[14px] text-slate-500 dark:text-white/50">
+              Start reading from discovery and your books will be organized here.
+            </p>
+            <Link href="/reader/discover" className="btn-primary mt-4 inline-flex items-center gap-2">
+              <BookOpen className="h-4 w-4" /> Browse discovery
+            </Link>
+          </CardContent>
+        </Card>
+      ) : (
+        <>
+          {noSearchResults ? (
+            <Card variant="subtle"><CardContent className="py-8 text-center"><p className="text-[15px] text-slate-500 dark:text-white/50">No books matching &ldquo;{search}&rdquo;</p></CardContent></Card>
+          ) : null}
+
+          {/* ── Currently reading ── */}
+          {showReading ? (
+            <Card>
+              <CardContent>
+                <div className="flex items-center justify-between">
+                  <h2 className="text-[17px] font-semibold text-slate-900 dark:text-white">Currently reading</h2>
+                  {filteredReading.length > 3 ? <span className="text-[12px] text-slate-400 dark:text-white/35">{filteredReading.length} books</span> : null}
+                </div>
+                <div className="mt-4 -mx-1 flex snap-x snap-mandatory gap-4 overflow-x-auto px-1 pb-2">
+                  {filteredReading.map((book) => (
+                    <div key={book.id} className="snap-start">
+                      <ReaderContinueCard title={book.title} author={book.author} href={book.href ?? `/reader/books/${book.id}`} cover={book.cover} progress={book.progress ?? 0} chapterLabel={book.chapterLabel} lastOpenedLabel={book.lastOpenedLabel} />
+                    </div>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+          ) : null}
+
+          {/* ── Saved books ── */}
+          <Card>
+            <CardContent>
+              <h2 className="text-[17px] font-semibold text-slate-900 dark:text-white">Saved for later</h2>
+              {showSaved ? (
+                <div className="mt-4 grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
+                  {filteredSaved.map((book) => <BookCard key={book.id} id={book.id} title={book.title} author={book.author} cover={book.cover} href={book.href} layout="grid" size="lg" />)}
+                </div>
+              ) : (
+                <div className="mt-4 flex items-center gap-4 rounded-2xl border border-dashed border-slate-200/80 px-5 py-5 dark:border-white/[0.08]">
+                  <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-xl bg-amber-50 dark:bg-amber-500/10">
+                    <Bookmark className="h-5 w-5 text-amber-400" />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-[14px] font-medium text-slate-600 dark:text-white/60">No saved books yet</p>
+                    <p className="text-[13px] text-slate-400 dark:text-white/35">Bookmark books from Discover to save them here.</p>
+                  </div>
+                  <Link href="/reader/discover" className="btn-secondary shrink-0 text-[13px]">
+                    <Plus className="h-3.5 w-3.5" /> Browse
+                  </Link>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* ── Completed ── */}
+          <Card>
+            <CardContent>
+              <h2 className="text-[17px] font-semibold text-slate-900 dark:text-white">Completed</h2>
+              {showFinished ? (
+                <div className="mt-4 grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
+                  {filteredFinished.map((book) => <BookCard key={book.id} id={book.id} title={book.title} author={book.author} cover={book.cover} href={book.href} progress={book.progress} ctaLabel="Open book" layout="grid" size="lg" />)}
+                </div>
+              ) : (
+                <div className="mt-4 flex items-center gap-4 rounded-2xl border border-dashed border-slate-200/80 px-5 py-5 dark:border-white/[0.08]">
+                  <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-xl bg-emerald-50 dark:bg-emerald-500/10">
+                    <CheckCircle2 className="h-5 w-5 text-emerald-400" />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-[14px] font-medium text-slate-600 dark:text-white/60">No completed books yet</p>
+                    <p className="text-[13px] text-slate-400 dark:text-white/35">Books you finish reading will appear here.</p>
+                  </div>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </>
+      )}
     </div>
   );
 }

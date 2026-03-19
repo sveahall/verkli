@@ -66,7 +66,9 @@ export default async function AppReaderLayout({
 
   return (
     <>
-      <NavbarShell variant="APP_READER" />
+      <div className="lg:hidden">
+        <NavbarShell variant="APP_READER" />
+      </div>
       <OfflineModeIndicator />
       {children}
     </>

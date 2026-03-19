@@ -1,6 +1,7 @@
 "use client";
 
 import dynamic from "next/dynamic";
+import Link from "next/link";
 import { Card, CardContent } from "@/components/ui/card";
 import type { AuthorJob } from "@/features/author-workspaces/production/useAuthorJobs";
 
@@ -19,6 +20,21 @@ const STATUS_COPY: Record<AuthorJob["status"], string> = {
   failed: "Failed",
 };
 
+function buildBookPanelHref(
+  bookId: string,
+  panel: "audiobook" | "translate" | "publish" | "print" | "market",
+  language?: string | null
+) {
+  const params = new URLSearchParams({ panel });
+  if (language?.trim()) params.set("lang", language.trim());
+  return `/author/books/${bookId}?${params.toString()}`;
+}
+
+function getMetaString(meta: Record<string, unknown>, key: string): string | null {
+  const value = meta[key];
+  return typeof value === "string" && value.trim().length > 0 ? value.trim() : null;
+}
+
 export default function JobDetailPanel({ job }: { job: AuthorJob | null }) {
   if (!job) {
     return (
@@ -32,6 +48,38 @@ export default function JobDetailPanel({ job }: { job: AuthorJob | null }) {
       </Card>
     );
   }
+
+  const meta = (job.meta ?? {}) as Record<string, unknown>;
+  const audioUrl =
+    job.kind === "audiobook"
+      ? getMetaString(meta, "generatedChapterAudioUrl") ??
+        getMetaString(meta, "audioUrl") ??
+        getMetaString(meta, "assetAudioUrl") ??
+        job.previewUrl
+      : null;
+  const manifestUrl =
+    job.kind === "audiobook"
+      ? getMetaString(meta, "manifestUrl") ?? getMetaString(meta, "assetManifestUrl")
+      : null;
+  const hasAudiobookPreview = Boolean(audioUrl || manifestUrl);
+  const reviewHref =
+    job.kind === "audiobook"
+      ? buildBookPanelHref(job.bookId, "audiobook", job.language)
+      : job.kind === "translation"
+        ? buildBookPanelHref(job.bookId, "translate", job.language)
+        : buildBookPanelHref(job.bookId, "market", job.language);
+  const publishHref =
+    job.kind === "marketing"
+      ? `/author/audience?bookId=${job.bookId}&surface=campaigns`
+      : buildBookPanelHref(job.bookId, "publish", job.language);
+  const printHref = buildBookPanelHref(job.bookId, "print", job.language);
+  const reviewLabel =
+    job.kind === "audiobook"
+      ? "Review audiobook"
+      : job.kind === "translation"
+        ? "Review translation"
+        : "Open marketing assets";
+  const publishLabel = job.kind === "marketing" ? "Open audience" : "Open publish controls";
 
   return (
     <div className="space-y-4">
@@ -92,10 +140,49 @@ export default function JobDetailPanel({ job }: { job: AuthorJob | null }) {
               <dd>{job.createdAt ? new Date(job.createdAt).toLocaleString("sv-SE") : "—"}</dd>
             </div>
           </dl>
+
+          {job.status === "completed" ? (
+            <div className="flex flex-wrap gap-2">
+              <Link
+                href={reviewHref}
+                className="inline-flex min-h-[36px] items-center justify-center rounded-xl bg-slate-900 px-3.5 py-2 text-sm font-medium text-white transition hover:bg-slate-800 dark:bg-white dark:text-slate-900 dark:hover:bg-white/90"
+              >
+                {reviewLabel}
+              </Link>
+              <Link
+                href={publishHref}
+                className="inline-flex min-h-[36px] items-center justify-center rounded-xl border border-slate-200 px-3.5 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-50 dark:border-white/10 dark:text-white/75 dark:hover:bg-white/5"
+              >
+                {publishLabel}
+              </Link>
+              {job.kind !== "marketing" ? (
+                <Link
+                  href={printHref}
+                  className="inline-flex min-h-[36px] items-center justify-center rounded-xl border border-slate-200 px-3.5 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-50 dark:border-white/10 dark:text-white/75 dark:hover:bg-white/5"
+                >
+                  Print on demand
+                </Link>
+              ) : null}
+            </div>
+          ) : null}
         </CardContent>
       </Card>
 
-      {job.previewUrl ? <ProductionAudioPreview previewUrl={job.previewUrl} /> : null}
+      {job.kind === "audiobook" && hasAudiobookPreview ? (
+        <ProductionAudioPreview
+          bookId={job.bookId}
+          audioUrl={audioUrl}
+          manifestUrl={manifestUrl}
+        />
+      ) : null}
+
+      {job.kind === "audiobook" && job.status === "completed" && !hasAudiobookPreview ? (
+        <Card>
+          <CardContent className="text-sm text-slate-600 dark:text-white/70">
+            Audiobook completed, but this job has no playable preview attached yet. Open the audiobook workflow to regenerate or inspect the asset source.
+          </CardContent>
+        </Card>
+      ) : null}
 
       <Card>
         <CardContent className="space-y-3">

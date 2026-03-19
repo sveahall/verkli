@@ -119,20 +119,15 @@ export function ReaderHeroPanel({
   return (
     <section
       className={cn(
-        "relative overflow-hidden rounded-[32px] border border-black/[0.06] bg-[radial-gradient(circle_at_top_left,_rgba(144,122,255,0.16),_rgba(255,255,255,0.96)_38%,_rgba(250,250,252,0.98)_100%)] px-5 py-6 shadow-[0_28px_80px_-40px_rgba(15,23,42,0.28)] dark:border-white/10 dark:bg-[radial-gradient(circle_at_top_left,_rgba(144,122,255,0.18),_rgba(15,23,42,0.94)_40%,_rgba(2,6,23,0.98)_100%)] sm:px-7 sm:py-8 lg:px-8 lg:py-9",
+        "overflow-hidden rounded-[32px] border border-slate-200/80 bg-[radial-gradient(ellipse_at_top_left,rgba(144,122,255,0.14),rgba(255,255,255,0.96)_30%,rgba(226,158,213,0.08)_60%,rgba(252,201,151,0.08)_100%)] px-5 py-6 shadow-[0_10px_32px_rgba(15,23,42,0.08)] dark:border-white/10 dark:bg-[radial-gradient(ellipse_at_top_left,rgba(144,122,255,0.2),rgba(255,255,255,0.04)_30%,rgba(226,158,213,0.06)_60%,rgba(252,201,151,0.06)_100%)] dark:shadow-[0_10px_30px_rgba(0,0,0,0.28)] sm:px-7 sm:py-7 lg:px-8 lg:py-8",
         className
       )}
     >
-      <div className="grid gap-6 lg:grid-cols-[240px_minmax(0,1fr)] lg:items-center">
-        <div className="max-w-[240px]">
-          <div className="aspect-[3/4]">
-            <CoverArt cover={cover} alt={coverAlt ?? title} className="h-full w-full" />
-          </div>
-        </div>
-        <div className="space-y-5">
+      <div className="grid gap-7 lg:grid-cols-[minmax(0,1fr)_260px] lg:items-center">
+        <div className="order-2 space-y-4 lg:order-1">
           {eyebrow ? <p className="text-eyebrow">{eyebrow}</p> : null}
           <div className="space-y-3">
-            <h1 className="text-[34px] font-semibold tracking-tight text-slate-950 dark:text-white sm:text-[42px]">
+            <h1 className="text-[32px] font-semibold tracking-tight text-slate-950 dark:text-white sm:text-[38px]">
               {title}
             </h1>
             <p className="max-w-2xl text-[15px] leading-relaxed text-slate-600 dark:text-white/65">
@@ -140,7 +135,16 @@ export function ReaderHeroPanel({
             </p>
           </div>
           {actions ? <div className="flex flex-wrap items-center gap-3">{actions}</div> : null}
-          {children ? <div className="grid gap-3 sm:grid-cols-2">{children}</div> : null}
+          {children ? <div className="flex flex-wrap gap-3">{children}</div> : null}
+        </div>
+        <div className="order-1 lg:order-2">
+          <div className="rounded-[28px] border border-white/70 bg-white/70 p-4 shadow-[0_18px_40px_-24px_rgba(15,23,42,0.2)] transition-transform duration-500 hover:scale-[1.02] dark:border-white/10 dark:bg-white/[0.04]">
+            <div className="mx-auto max-w-[188px]">
+              <div className="aspect-[3/4]">
+                <CoverArt cover={cover} alt={coverAlt ?? title} className="h-full w-full rounded-[24px]" />
+              </div>
+            </div>
+          </div>
         </div>
       </div>
     </section>
@@ -156,7 +160,7 @@ export function ReaderContextCard({
   return (
     <section
       className={cn(
-        "rounded-[28px] border border-black/[0.06] bg-white/88 p-5 shadow-[0_18px_48px_-36px_rgba(15,23,42,0.32)] dark:border-white/10 dark:bg-white/[0.04]",
+        "rounded-[28px] border border-black/[0.06] bg-white/88 p-5 shadow-[0_8px_28px_-12px_rgba(15,23,42,0.12)] dark:border-white/10 dark:bg-white/[0.04]",
         className
       )}
     >
@@ -183,15 +187,21 @@ export function ReaderContinueCard({
   return (
     <Link
       href={href}
-      className="group min-w-[320px] rounded-[28px] border border-black/[0.06] bg-white/92 p-4 shadow-[0_22px_54px_-42px_rgba(15,23,42,0.34)] transition hover:-translate-y-0.5 hover:border-black/[0.1] hover:shadow-[0_24px_60px_-36px_rgba(15,23,42,0.4)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#907AFF]/40 focus-visible:ring-offset-2 dark:border-white/10 dark:bg-white/[0.05] dark:hover:border-white/20"
+      className="card-base group min-w-[320px] p-4 transition-all duration-200 hover:-translate-y-0.5 hover:shadow-[0_12px_32px_rgba(15,23,42,0.1)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#907AFF]/40 focus-visible:ring-offset-2 dark:hover:shadow-[0_12px_32px_rgba(0,0,0,0.35)]"
     >
       <div className="flex items-start gap-4">
-        <div className="h-[112px] w-[82px] flex-shrink-0">
-          <CoverArt cover={cover} alt={title} className="h-full w-full rounded-[22px]" />
+        <div className="relative h-[112px] w-[82px] flex-shrink-0 overflow-hidden rounded-xl bg-slate-100 dark:bg-white/10">
+          {cover ? (
+            <Image src={cover} alt={title} fill sizes="82px" className="object-cover" unoptimized />
+          ) : (
+            <div className="flex h-full w-full items-center justify-center">
+              <BookMarked className="h-5 w-5 text-slate-300 dark:text-white/25" />
+            </div>
+          )}
         </div>
         <div className="min-w-0 flex-1 space-y-3">
           <div className="space-y-1">
-            <p className="truncate text-[16px] font-semibold text-slate-950 transition group-hover:text-[#7058DD] dark:text-white dark:group-hover:text-[#b8a8ff]">
+            <p className="truncate text-[16px] font-semibold text-slate-950 transition-colors group-hover:text-[#907AFF] dark:text-white dark:group-hover:text-[#b8a8ff]">
               {title}
             </p>
             <p className="truncate text-[13px] text-slate-500 dark:text-white/55">{author}</p>
@@ -208,15 +218,15 @@ export function ReaderContinueCard({
             ) : null}
           </div>
           <div className="space-y-2">
-            <div className="h-1.5 overflow-hidden rounded-full bg-slate-200 dark:bg-white/10">
+            <div className="h-[6px] overflow-hidden rounded-full bg-slate-100 dark:bg-white/10">
               <div
-                className="h-full rounded-full bg-slate-900 dark:bg-white"
+                className="h-full rounded-full bg-gradient-to-r from-[#907AFF] to-[#E29ED5] transition-all duration-500"
                 style={{ width: `${clampedProgress}%` }}
               />
             </div>
             <div className="flex items-center justify-between text-[12px] font-medium">
               <span className="text-slate-500 dark:text-white/50">{Math.round(clampedProgress)}% complete</span>
-              <span className="inline-flex items-center gap-1 text-slate-900 dark:text-white">
+              <span className="inline-flex items-center gap-1 text-[#907AFF] transition-colors group-hover:text-[#7058DD] dark:text-[#b8a8ff] dark:group-hover:text-[#c7baff]">
                 Resume
                 <ArrowRight className="h-3.5 w-3.5" />
               </span>
@@ -238,7 +248,7 @@ export function ReaderEmptyBlock({
   return (
     <div
       className={cn(
-        "rounded-[28px] border border-dashed border-black/[0.08] bg-white/65 px-5 py-6 dark:border-white/10 dark:bg-white/[0.03]",
+        "rounded-[24px] border border-dashed border-slate-200/80 bg-white/60 px-5 py-6 dark:border-white/[0.08] dark:bg-white/[0.02]",
         className
       )}
     >

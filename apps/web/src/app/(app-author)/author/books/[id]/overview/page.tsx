@@ -6,5 +6,5 @@ export default async function BookOverviewPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  redirect(`/author/write?bookId=${id}`);
+  redirect(`/author/books/${id}`);
 }

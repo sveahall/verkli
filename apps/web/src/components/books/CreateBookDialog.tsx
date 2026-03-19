@@ -52,7 +52,7 @@ export default function CreateBookDialog({
       onCreated(bookId, versionId ?? null, lang);
       return;
     }
-    router.push(`/author/write?book=${bookId}`);
+    router.push(`/author/books/${bookId}`);
   };
 
   const handleImportComplete = (bookId: string, versionId?: string | null) => {
@@ -61,7 +61,7 @@ export default function CreateBookDialog({
       onImported(bookId, versionId ?? null);
       return;
     }
-    router.push(`/author/write?book=${bookId}`);
+    router.push(`/author/books/${bookId}`);
   };
 
   const handleCreate = async () => {

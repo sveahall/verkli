@@ -177,6 +177,23 @@ async function enrichBooksWithAuthor(
   }));
 }
 
+function takeUniqueBooks<T extends { id: string }>(
+  books: T[],
+  seenIds: Set<string>,
+  limit: number
+): T[] {
+  const unique: T[] = [];
+
+  for (const book of books) {
+    if (seenIds.has(book.id)) continue;
+    seenIds.add(book.id);
+    unique.push(book);
+    if (unique.length >= limit) break;
+  }
+
+  return unique;
+}
+
 export default async function ReaderDiscoverPage({
   searchParams,
 }: {
@@ -256,9 +273,13 @@ export default async function ReaderDiscoverPage({
     .slice(0, 8);
 
   const heroBook = featuredBooks[0] ?? newBooks[0] ?? popularBooks[0] ?? null;
+  const consumedBookIds = new Set(heroBook ? [heroBook.id] : []);
+  const trendingBooks = takeUniqueBooks(featuredBooks, consumedBookIds, 6);
+  const popularShelfBooks = takeUniqueBooks(popularBooks, consumedBookIds, 6);
+  const latestBooks = takeUniqueBooks(newBooks, consumedBookIds, 6);
 
   return (
-    <div className="page-content pb-24 pt-8 sm:pt-10">
+    <div>
       <ReaderDiscoverPageView
         languageLabel={langLabel}
         languageOptions={LANGUAGE_OPTIONS.map((option) => ({
@@ -268,9 +289,9 @@ export default async function ReaderDiscoverPage({
           active: option.value === language,
         }))}
         heroBook={heroBook}
-        trendingBooks={featuredBooks.slice(0, 8).map((book) => ({ ...book, tag: "Trending" }))}
-        newBooks={newBooks.slice(0, 8).map((book) => ({ ...book, tag: "New" }))}
-        popularBooks={popularBooks.map((book, index) => ({ ...book, tag: `#${index + 1}` }))}
+        trendingBooks={trendingBooks.map((book) => ({ ...book, tag: "Trending" }))}
+        newBooks={latestBooks.map((book) => ({ ...book, tag: "New" }))}
+        popularBooks={popularShelfBooks.map((book, index) => ({ ...book, tag: `#${index + 1}` }))}
         curatedLists={curatedLists}
         authors={authorsWithAvatars.slice(0, 6)}
         genres={genresResult.map((genre) => ({

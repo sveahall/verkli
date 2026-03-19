@@ -17,6 +17,10 @@ const usernamePattern = /^[a-z0-9._-]+$/;
 
 const normalizeUsername = (value: string) => value.trim().toLowerCase();
 
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
 export async function updateAccount(prevState: ActionState, formData: FormData): Promise<ActionState> {
   void prevState;
   // SECURITY: Require author role for author settings
@@ -140,6 +144,55 @@ export async function updateProfile(prevState: ActionState, formData: FormData):
   return { ok: true, message: "Profile updated." };
 }
 
+export async function saveAuthorProfile(
+  prevState: ActionState,
+  formData: FormData
+): Promise<ActionState> {
+  void prevState;
+
+  const roleCheck = await requireAuthorRole();
+  if (!roleCheck.ok) {
+    return { ok: false, message: roleCheck.error };
+  }
+
+  const user = roleCheck.user;
+  const displayName = String(formData.get("display_name") || "").trim();
+  const bio = String(formData.get("bio") || "").trim();
+  const isPublic = String(formData.get("is_public") || "true") === "true";
+
+  if (!displayName) {
+    return { ok: false, message: "Display name is required." };
+  }
+
+  const supabase = await createClient();
+  const { error } = await supabase
+    .from("profiles")
+    .upsert(
+      {
+        user_id: user.id,
+        display_name: displayName,
+        bio: bio || null,
+        is_public: isPublic,
+      },
+      { onConflict: "user_id" }
+    );
+
+  if (error) {
+    return { ok: false, message: "Could not save profile." };
+  }
+
+  await supabase.auth.updateUser({
+    data: {
+      full_name: displayName,
+    },
+  });
+
+  revalidatePath("/author/profile");
+  revalidatePath("/author/settings");
+
+  return { ok: true, message: "Profile saved." };
+}
+
 export async function updatePreferences(prevState: ActionState, formData: FormData): Promise<ActionState> {
   void prevState;
   // SECURITY: Require author role for author settings
@@ -186,6 +239,89 @@ export async function updatePreferences(prevState: ActionState, formData: FormDa
   revalidatePath("/author/settings");
 
   return { ok: true, message: "Preferences saved." };
+}
+
+export async function saveAuthorSettings(
+  prevState: ActionState,
+  formData: FormData
+): Promise<ActionState> {
+  void prevState;
+
+  const roleCheck = await requireAuthorRole();
+  if (!roleCheck.ok) {
+    return { ok: false, message: roleCheck.error };
+  }
+
+  const user = roleCheck.user;
+  const defaultLanguage = String(formData.get("default_language") || "sv").trim() || "sv";
+  const defaultVisibility =
+    String(formData.get("default_visibility") || "public").trim() || "public";
+  const emailNotifications = String(formData.get("email_notifications") || "false") === "true";
+  const password = String(formData.get("new_password") || "");
+  const confirmPassword = String(formData.get("confirm_password") || "");
+
+  if (password || confirmPassword) {
+    if (password.length < 8) {
+      return { ok: false, message: "Password must be at least 8 characters." };
+    }
+
+    if (password !== confirmPassword) {
+      return { ok: false, message: "Passwords do not match." };
+    }
+  }
+
+  const supabase = await createClient();
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("preferences")
+    .eq("user_id", user.id)
+    .maybeSingle();
+
+  const existingPreferences = isRecord(profile?.preferences)
+    ? (profile.preferences as Record<string, unknown>)
+    : {};
+  const existingNotifications = isRecord(existingPreferences.notifications)
+    ? (existingPreferences.notifications as Record<string, unknown>)
+    : {};
+
+  const nextPreferences = {
+    ...existingPreferences,
+    default_language: defaultLanguage,
+    default_visibility: defaultVisibility,
+    visibility: {
+      shelves: defaultVisibility,
+      books: defaultVisibility,
+    },
+    notifications: {
+      ...existingNotifications,
+      email: emailNotifications,
+    },
+  };
+
+  const { error } = await supabase
+    .from("profiles")
+    .upsert(
+      {
+        user_id: user.id,
+        preferences: nextPreferences,
+      },
+      { onConflict: "user_id" }
+    );
+
+  if (error) {
+    return { ok: false, message: "Could not save settings." };
+  }
+
+  if (password) {
+    const { error: passwordError } = await supabase.auth.updateUser({ password });
+    if (passwordError) {
+      return { ok: false, message: "Could not update password." };
+    }
+  }
+
+  revalidatePath("/author/settings");
+
+  return { ok: true, message: password ? "Settings and password saved." : "Settings saved." };
 }
 
 export async function switchRoleToReader(): Promise<void> {

@@ -4,21 +4,25 @@ import dynamic from "next/dynamic";
 import Link from "next/link";
 import { Suspense, useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { PageHeader } from "@/components/ui/page-header";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
+import { PageHeader } from "@/components/ui/page-header";
 import NewsletterList from "@/components/newsletters/NewsletterList";
-import WorkspaceLayout from "@/features/author-workspaces/WorkspaceLayout";
 import { useAuthorWorkspace } from "@/features/author-shell/workspace-state";
+import { WorkspaceSurface } from "@/features/author-workspaces/WorkspaceLayout";
+import WorkspaceLayout from "@/features/author-workspaces/WorkspaceLayout";
 import type { Book as MarketingBook } from "@/lib/marketing/types";
 
 const MarketingPortalWizard = dynamic(
   () => import("@/components/marketing/MarketingPortalWizard"),
   {
     ssr: false,
-    loading: () => <div className="h-[520px] animate-pulse rounded-3xl bg-slate-100 dark:bg-white/5" />,
+    loading: () => (
+      <div className="h-[520px] animate-pulse rounded-2xl bg-slate-100 dark:bg-white/5" />
+    ),
   }
 );
+
+type AudienceSurface = "campaigns" | "reader-updates" | "beta-readers";
 
 type AudienceBook = MarketingBook & {
   status: string;
@@ -57,6 +61,68 @@ type AudienceWorkspaceProps = {
   newslettersEnabled: boolean;
 };
 
+const CHANNEL_LABELS: Record<string, string> = {
+  generic: "General",
+  tiktok: "TikTok",
+  instagram: "Instagram",
+  x: "X",
+};
+
+const STATUS_STYLES: Record<string, string> = {
+  generated:
+    "bg-emerald-50 text-emerald-700 dark:bg-emerald-950/30 dark:text-emerald-400",
+  active:
+    "bg-emerald-50 text-emerald-700 dark:bg-emerald-950/30 dark:text-emerald-400",
+  scheduled: "bg-blue-50 text-blue-700 dark:bg-blue-950/30 dark:text-blue-400",
+  draft: "bg-slate-100 text-slate-500 dark:bg-white/10 dark:text-white/50",
+  finished: "bg-slate-100 text-slate-500 dark:bg-white/10 dark:text-white/50",
+};
+
+const AUDIENCE_SURFACE_META: Record<
+  AudienceSurface,
+  { title: string; description: string; primaryLabel: string }
+> = {
+  campaigns: {
+    title: "Campaigns",
+    description: "Create the next campaign and keep active outreach in one list.",
+    primaryLabel: "Create campaign",
+  },
+  "reader-updates": {
+    title: "Reader updates",
+    description: "Write simple updates for subscribers and keep drafts visible.",
+    primaryLabel: "Write update",
+  },
+  "beta-readers": {
+    title: "Beta readers",
+    description: "Review book visibility and open beta settings for the current title.",
+    primaryLabel: "Open beta settings",
+  },
+};
+
+function normalizeAudienceSurface(value: string | null | undefined): AudienceSurface {
+  if (value === "reader-updates") return "reader-updates";
+  if (value === "beta-readers") return "beta-readers";
+  return "campaigns";
+}
+
+function formatRelativeDate(dateStr: string): string {
+  const diffMs = Date.now() - new Date(dateStr).getTime();
+  const diffMin = Math.floor(diffMs / 60_000);
+  if (diffMin < 1) return "Just now";
+  if (diffMin < 60) return `${diffMin}m ago`;
+  const diffHours = Math.floor(diffMin / 60);
+  if (diffHours < 24) return `${diffHours}h ago`;
+  const diffDays = Math.floor(diffHours / 24);
+  if (diffDays === 1) return "Yesterday";
+  if (diffDays < 7) return `${diffDays}d ago`;
+  return new Date(dateStr).toLocaleDateString("sv-SE");
+}
+
+function formatUpdatedAt(value: string | null): string {
+  if (!value) return "Not updated yet";
+  return `Updated ${new Date(value).toLocaleDateString("sv-SE")}`;
+}
+
 export default function AudienceWorkspace({
   books,
   campaigns,
@@ -69,34 +135,66 @@ export default function AudienceWorkspace({
 }: AudienceWorkspaceProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { setCurrentBookId, setContextPanelState, clearContextPanelState } = useAuthorWorkspace();
+  const { setCurrentBookId } = useAuthorWorkspace();
+
+  const rawSurface = searchParams.get("surface") ?? initialSurface;
+  const surface = normalizeAudienceSurface(rawSurface);
+  const surfaceMeta = AUDIENCE_SURFACE_META[surface];
+
   const [selectedBookId, setSelectedBookId] = useState<string | null>(
     initialBookId ?? books[0]?.id ?? null
   );
-  const [surface, setSurface] = useState(initialSurface ?? "campaigns");
-  const [composerOpen, setComposerOpen] = useState(initialSurface === "reader-updates");
+  const [composerOpen, setComposerOpen] = useState(surface === "reader-updates");
   const [subject, setSubject] = useState("");
   const [bodyHtml, setBodyHtml] = useState("");
   const [creatingNewsletter, setCreatingNewsletter] = useState(false);
   const [newsletterError, setNewsletterError] = useState<string | null>(null);
   const [newsletterItems, setNewsletterItems] = useState(newsletters);
+  const [wizardOpen, setWizardOpen] = useState(rawSurface === "marketing-assets");
 
   const selectedBook = useMemo(
     () => books.find((book) => book.id === selectedBookId) ?? books[0] ?? null,
     [books, selectedBookId]
   );
-  const visibleCampaigns = useMemo(
-    () => campaigns.filter((campaign) => !selectedBookId || campaign.bookId === selectedBookId),
+
+  const activeCampaigns = useMemo(
+    () =>
+      campaigns.filter(
+        (campaign) =>
+          (!selectedBookId || campaign.bookId === selectedBookId) &&
+          (campaign.status === "active" ||
+            campaign.status === "scheduled" ||
+            campaign.status === "generated")
+      ),
     [campaigns, selectedBookId]
   );
-  const betaBooks = selectedBook ? [selectedBook] : books.slice(0, 5);
+
+  useEffect(() => {
+    const nextBookId =
+      searchParams.get("bookId")?.trim() ||
+      searchParams.get("book")?.trim() ||
+      initialBookId ||
+      books[0]?.id ||
+      null;
+
+    setSelectedBookId((current) => (current === nextBookId ? current : nextBookId));
+  }, [books, initialBookId, searchParams]);
+
+  useEffect(() => {
+    if (surface !== "campaigns") {
+      setWizardOpen(false);
+    }
+    if (surface !== "reader-updates") {
+      setComposerOpen(false);
+    }
+  }, [surface]);
 
   useEffect(() => {
     const params = new URLSearchParams(searchParams.toString());
     if (selectedBookId) params.set("bookId", selectedBookId);
     else params.delete("bookId");
-    if (surface) params.set("surface", surface);
-    else params.delete("surface");
+    params.set("surface", surface);
+
     const query = params.toString();
     const nextHref = query ? `/author/audience?${query}` : "/author/audience";
     const currentHref = `${window.location.pathname}${window.location.search}`;
@@ -107,28 +205,7 @@ export default function AudienceWorkspace({
 
   useEffect(() => {
     setCurrentBookId(selectedBook?.id ?? null);
-    setContextPanelState({
-      kind: "audience",
-      payload: {
-        subscriberCount,
-        campaignCount: visibleCampaigns.length,
-        selectedBookTitle: selectedBook?.title ?? null,
-        selectedBookDescription: selectedBook?.description ?? null,
-        surface,
-      },
-    });
-    return clearContextPanelState;
-  }, [
-    clearContextPanelState,
-    selectedBook?.description,
-    selectedBook?.id,
-    selectedBook?.title,
-    setContextPanelState,
-    setCurrentBookId,
-    subscriberCount,
-    surface,
-    visibleCampaigns.length,
-  ]);
+  }, [selectedBook?.id, setCurrentBookId]);
 
   const handleCreateDraft = async () => {
     setCreatingNewsletter(true);
@@ -166,217 +243,257 @@ export default function AudienceWorkspace({
     }
   };
 
+  const pageAction = (() => {
+    if (surface === "campaigns" && marketingEnabled) {
+      return <Button onClick={() => setWizardOpen(true)}>{surfaceMeta.primaryLabel}</Button>;
+    }
+
+    if (surface === "reader-updates" && newslettersEnabled) {
+      return <Button onClick={() => setComposerOpen(true)}>{surfaceMeta.primaryLabel}</Button>;
+    }
+
+    if (surface === "beta-readers" && selectedBook) {
+      return (
+        <Button onClick={() => router.push(`/author/books/${selectedBook.id}?panel=publish`)}>
+          {surfaceMeta.primaryLabel}
+        </Button>
+      );
+    }
+
+    return null;
+  })();
+
+  const renderCampaigns = () => (
+    <div className="space-y-8">
+      {marketingEnabled && wizardOpen ? (
+        <WorkspaceSurface className="p-6 sm:p-7">
+          <div className="flex items-start justify-between gap-4">
+            <div>
+              <p className="text-eyebrow">Campaigns</p>
+              <h2 className="mt-2 text-section-title">Campaign builder</h2>
+            </div>
+            <Button size="sm" variant="ghost" onClick={() => setWizardOpen(false)}>
+              Close
+            </Button>
+          </div>
+          <div className="mt-5">
+            <Suspense
+              fallback={
+                <div className="h-[520px] animate-pulse rounded-2xl bg-slate-100 dark:bg-white/5" />
+              }
+            >
+              <MarketingPortalWizard
+                books={books}
+                initialBookId={selectedBook?.id ?? null}
+                embedded
+              />
+            </Suspense>
+          </div>
+        </WorkspaceSurface>
+      ) : (
+        <WorkspaceSurface className="p-6 sm:p-8">
+          <p className="text-eyebrow">Primary action</p>
+          <h2 className="mt-4 text-[30px] font-semibold tracking-tight text-slate-900 dark:text-white">
+            Create campaign
+          </h2>
+          <p className="mt-2 text-[15px] text-slate-500 dark:text-white/45">
+            Launch the next reader touchpoint for {selectedBook?.title ?? "your book"}.
+          </p>
+        </WorkspaceSurface>
+      )}
+
+      <section>
+        <p className="text-eyebrow">Campaigns</p>
+        <h2 className="mt-2 text-section-title">Campaigns in motion</h2>
+        {activeCampaigns.length === 0 ? (
+          <p className="mt-5 text-sm text-slate-500 dark:text-white/45">
+            No active campaigns yet.
+          </p>
+        ) : (
+          <div className="mt-5 divide-y divide-slate-200/80 dark:divide-white/10">
+            {activeCampaigns.map((campaign) => (
+              <div key={campaign.id} className="flex flex-wrap items-start gap-4 py-4 first:pt-0">
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-sm font-medium text-slate-900 dark:text-white">
+                    {campaign.headline ?? "Campaign"}
+                  </p>
+                  <p className="mt-1 text-sm text-slate-500 dark:text-white/45">
+                    {campaign.bookTitle}
+                    <span className="mx-1.5 text-slate-300 dark:text-white/15">·</span>
+                    {CHANNEL_LABELS[campaign.channel] ?? campaign.channel}
+                  </p>
+                </div>
+                <span
+                  className={`rounded-full px-2.5 py-1 text-[11px] font-semibold ${
+                    STATUS_STYLES[campaign.status] ?? STATUS_STYLES.draft
+                  }`}
+                >
+                  {campaign.status.charAt(0).toUpperCase() + campaign.status.slice(1)}
+                </span>
+                <span className="text-xs text-slate-400 dark:text-white/35">
+                  {campaign.updatedAt ? formatRelativeDate(campaign.updatedAt) : "Recently updated"}
+                </span>
+                {campaign.shareUrl ? (
+                  <a
+                    href={campaign.shareUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-sm font-medium text-slate-900 hover:text-slate-600 dark:text-white dark:hover:text-white/75"
+                  >
+                    Preview
+                  </a>
+                ) : null}
+              </div>
+            ))}
+          </div>
+        )}
+      </section>
+    </div>
+  );
+
+  const renderReaderUpdates = () => (
+    <div className="space-y-8">
+      {subscriberCount > 0 ? (
+        <p className="text-sm text-slate-500 dark:text-white/45">
+          {subscriberCount.toLocaleString("sv-SE")}{" "}
+          {subscriberCount === 1 ? "subscriber" : "subscribers"} will receive your next update.
+        </p>
+      ) : null}
+
+      {newslettersEnabled && composerOpen ? (
+        <WorkspaceSurface className="p-5">
+          <div className="space-y-3">
+            <input
+              type="text"
+              value={subject}
+              onChange={(event) => setSubject(event.target.value)}
+              placeholder="Subject line"
+              className="input-base text-[14px]"
+            />
+            <textarea
+              value={bodyHtml}
+              onChange={(event) => setBodyHtml(event.target.value)}
+              rows={6}
+              placeholder="Write your update..."
+              className="input-base resize-y text-[14px]"
+            />
+            {newsletterError ? (
+              <p className="text-[13px] text-red-600 dark:text-red-400">
+                {newsletterError}
+              </p>
+            ) : null}
+            <div className="flex flex-wrap items-center gap-2">
+              <Button
+                size="sm"
+                isLoading={creatingNewsletter}
+                loadingText="Creating..."
+                onClick={() => void handleCreateDraft()}
+              >
+                Save draft
+              </Button>
+              <Button size="sm" variant="ghost" onClick={() => setComposerOpen(false)}>
+                Cancel
+              </Button>
+            </div>
+          </div>
+        </WorkspaceSurface>
+      ) : null}
+
+      <section>
+        <p className="text-eyebrow">Reader updates</p>
+        <h2 className="mt-2 text-section-title">Drafts and sent updates</h2>
+        {newslettersEnabled ? (
+          newsletterItems.length > 0 ? (
+            <div className="mt-5">
+              <NewsletterList newsletters={newsletterItems} />
+            </div>
+          ) : (
+            <p className="mt-5 text-sm text-slate-500 dark:text-white/45">
+              No reader updates yet.
+            </p>
+          )
+        ) : (
+          <p className="mt-5 text-sm text-slate-500 dark:text-white/45">
+            Reader updates are not enabled in this environment.
+          </p>
+        )}
+      </section>
+    </div>
+  );
+
+  const renderBetaReaders = () => (
+    <WorkspaceSurface className="p-6 sm:p-8">
+      <p className="text-eyebrow">Beta readers</p>
+      <h2 className="mt-2 text-section-title">
+        {selectedBook?.title ?? "No book selected"}
+      </h2>
+      <div className="mt-5 space-y-3">
+        <p className="text-sm text-slate-500 dark:text-white/45">
+          {selectedBook?.status === "PUBLISHED"
+            ? `Current visibility: ${selectedBook.publishedVisibility ?? "public"}`
+            : "This book is still a draft. Open publish settings when you are ready for beta readers."}
+        </p>
+        <p className="text-sm text-slate-500 dark:text-white/45">
+          {formatUpdatedAt(selectedBook?.updatedAt ?? null)}
+        </p>
+        {selectedBook ? (
+          <Link
+            href={`/author/books/${selectedBook.id}?panel=publish`}
+            className="inline-flex min-h-[40px] items-center rounded-xl border border-slate-200 px-4 text-[14px] font-medium text-slate-700 transition hover:border-slate-300 hover:text-slate-900 dark:border-white/10 dark:text-white/65 dark:hover:border-white/20 dark:hover:text-white"
+          >
+            Open beta settings
+          </Link>
+        ) : null}
+      </div>
+    </WorkspaceSurface>
+  );
+
   return (
     <WorkspaceLayout
       header={
         <PageHeader
-          eyebrow="Grow"
-          title="Audience workspace"
-          description="Run campaigns, send reader updates, prepare beta releases, and generate marketing assets without leaving the shell."
+          eyebrow="Audience"
+          title={surfaceMeta.title}
+          description={surfaceMeta.description}
           actions={
-            <div className="flex flex-wrap gap-2">
-              <Button variant={surface === "campaigns" ? "primary" : "secondary"} size="sm" onClick={() => setSurface("campaigns")}>
-                Campaign queue
-              </Button>
-              <Button variant={surface === "reader-updates" ? "primary" : "secondary"} size="sm" onClick={() => {
-                setSurface("reader-updates");
-                setComposerOpen(true);
-              }}>
-                Reader updates
-              </Button>
-              <Button variant={surface === "beta-readers" ? "primary" : "secondary"} size="sm" onClick={() => setSurface("beta-readers")}>
-                Beta readers
-              </Button>
-              <Button variant={surface === "marketing-assets" ? "primary" : "secondary"} size="sm" onClick={() => setSurface("marketing-assets")}>
-                Marketing assets
-              </Button>
-            </div>
+            <>
+              {books.length > 1 ? (
+                <select
+                  value={selectedBookId ?? ""}
+                  onChange={(event) => setSelectedBookId(event.target.value || null)}
+                  className="input-base min-h-[40px] w-auto min-w-[160px] text-[14px]"
+                  aria-label="Select book"
+                >
+                  {books.map((book) => (
+                    <option key={book.id} value={book.id}>
+                      {book.title ?? "Untitled"}
+                    </option>
+                  ))}
+                </select>
+              ) : null}
+              {pageAction}
+            </>
           }
         />
       }
       main={
-        <div className="space-y-6">
-          <Card>
-            <CardContent className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-              <div>
-                <p className="text-sm font-semibold text-slate-900 dark:text-white">Selected book</p>
-                <p className="text-xs text-slate-500 dark:text-white/45">
-                  Use one book context across campaigns, updates, and beta publishing.
-                </p>
-              </div>
-              <select
-                value={selectedBookId ?? ""}
-                onChange={(event) => setSelectedBookId(event.target.value || null)}
-                className="min-h-[44px] rounded-xl border border-slate-200 bg-white px-4 text-[14px] text-slate-700 dark:border-white/10 dark:bg-white/5 dark:text-white"
-              >
-                {books.map((book) => (
-                  <option key={book.id} value={book.id}>
-                    {book.title ?? "Untitled"}
-                  </option>
-                ))}
-              </select>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardContent className="space-y-4">
-              <div>
-                <p className="text-sm font-semibold text-slate-900 dark:text-white">Campaign queue</p>
-                <p className="text-xs text-slate-500 dark:text-white/45">
-                  Recent launch assets and distribution-ready copy.
-                </p>
-              </div>
-              {visibleCampaigns.length === 0 ? (
-                <div className="rounded-2xl border border-dashed border-slate-200 px-4 py-8 text-sm text-slate-500 dark:border-white/10 dark:text-white/45">
-                  No campaign output yet.
-                </div>
-              ) : (
-                <div className="space-y-2">
-                  {visibleCampaigns.slice(0, 6).map((campaign) => (
-                    <div
-                      key={campaign.id}
-                      className="rounded-2xl border border-slate-200 px-4 py-3 dark:border-white/10"
-                    >
-                      <div className="flex items-center justify-between gap-3">
-                        <div>
-                          <p className="text-sm font-medium text-slate-900 dark:text-white">
-                            {campaign.bookTitle} • {campaign.channel}
-                          </p>
-                          <p className="text-xs text-slate-500 dark:text-white/45">
-                            {campaign.headline ?? "Generated asset"}
-                          </p>
-                        </div>
-                        <span className="text-xs text-slate-400 dark:text-white/35">{campaign.status}</span>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardContent className="space-y-4">
-              <div className="flex items-center justify-between gap-3">
-                <div>
-                  <p className="text-sm font-semibold text-slate-900 dark:text-white">Reader updates</p>
-                  <p className="text-xs text-slate-500 dark:text-white/45">
-                    Draft updates inline instead of opening a modal flow.
-                  </p>
-                </div>
-                {newslettersEnabled ? (
-                  <Button size="sm" variant="secondary" onClick={() => setComposerOpen((current) => !current)}>
-                    {composerOpen ? "Hide composer" : "New update"}
-                  </Button>
-                ) : null}
-              </div>
-
-              {newslettersEnabled && composerOpen ? (
-                <div className="space-y-3 rounded-2xl border border-slate-200 bg-slate-50 p-4 dark:border-white/10 dark:bg-white/5">
-                  <input
-                    type="text"
-                    value={subject}
-                    onChange={(event) => setSubject(event.target.value)}
-                    placeholder="Subject line"
-                    className="min-h-[44px] w-full rounded-xl border border-slate-200 bg-white px-4 text-[14px] text-slate-700 dark:border-white/10 dark:bg-white/5 dark:text-white"
-                  />
-                  <textarea
-                    value={bodyHtml}
-                    onChange={(event) => setBodyHtml(event.target.value)}
-                    rows={7}
-                    placeholder="<p>What changed for your readers this week?</p>"
-                    className="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-[14px] text-slate-700 dark:border-white/10 dark:bg-white/5 dark:text-white"
-                  />
-                  {newsletterError ? <p className="text-sm text-red-600 dark:text-red-400">{newsletterError}</p> : null}
-                  <div className="flex gap-2">
-                    <Button size="sm" isLoading={creatingNewsletter} loadingText="Creating..." onClick={() => void handleCreateDraft()}>
-                      Save draft
-                    </Button>
-                    <Button size="sm" variant="secondary" onClick={() => setComposerOpen(false)}>
-                      Collapse
-                    </Button>
-                  </div>
-                </div>
-              ) : null}
-
-              {newslettersEnabled ? (
-                <NewsletterList newsletters={newsletterItems} />
-              ) : (
-                <div className="rounded-2xl border border-dashed border-slate-200 px-4 py-8 text-sm text-slate-500 dark:border-white/10 dark:text-white/45">
-                  Reader updates are disabled for this environment.
-                </div>
-              )}
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardContent className="space-y-4">
-              <div>
-                <p className="text-sm font-semibold text-slate-900 dark:text-white">Beta readers</p>
-                <p className="text-xs text-slate-500 dark:text-white/45">
-                  Keep draft publishing visible and easy to manage from one inline section.
-                </p>
-              </div>
-              <div className="space-y-2">
-                {betaBooks.map((book) => (
-                  <div
-                    key={book.id}
-                    className="flex flex-col gap-3 rounded-2xl border border-slate-200 px-4 py-3 dark:border-white/10 lg:flex-row lg:items-center lg:justify-between"
-                  >
-                    <div>
-                      <p className="text-sm font-medium text-slate-900 dark:text-white">
-                        {book.title ?? "Untitled"}
-                      </p>
-                      <p className="text-xs text-slate-500 dark:text-white/45">
-                        {book.status === "PUBLISHED"
-                          ? `Live • ${book.publishedVisibility ?? "public"}`
-                          : "Draft • prepare a beta release from publish settings"}
-                      </p>
-                    </div>
-                    <Link
-                      href={`/author/audience?bookId=${book.id}&surface=beta-readers`}
-                      className="rounded-xl border border-slate-200 px-3 py-2 text-sm text-slate-600 transition hover:bg-slate-50 dark:border-white/10 dark:text-white/65 dark:hover:bg-white/5"
-                    >
-                      Keep inline
-                    </Link>
-                  </div>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardContent className="space-y-4">
-              <div className="flex items-center justify-between gap-3">
-                <div>
-                  <p className="text-sm font-semibold text-slate-900 dark:text-white">Marketing asset generator</p>
-                  <p className="text-xs text-slate-500 dark:text-white/45">
-                    Heavy preview surfaces lazy-load only when needed.
-                  </p>
-                </div>
-                {marketingEnabled ? (
-                  <Button size="sm" variant="secondary" onClick={() => setSurface("marketing-assets")}>
-                    Open inline generator
-                  </Button>
-                ) : null}
-              </div>
-
-              {marketingEnabled && surface === "marketing-assets" ? (
-                <Suspense fallback={<div className="h-[520px] animate-pulse rounded-3xl bg-slate-100 dark:bg-white/5" />}>
-                  <MarketingPortalWizard
-                    books={books}
-                    initialBookId={selectedBook?.id ?? null}
-                    embedded
-                  />
-                </Suspense>
-              ) : (
-                <div className="rounded-2xl border border-dashed border-slate-200 px-4 py-8 text-sm text-slate-500 dark:border-white/10 dark:text-white/45">
-                  Open the inline generator to produce launch copy and trailer assets.
-                </div>
-              )}
-            </CardContent>
-          </Card>
-        </div>
+        books.length === 0 ? (
+          <WorkspaceSurface className="p-8 text-center sm:p-10">
+            <p className="text-eyebrow">Audience</p>
+            <h2 className="mt-4 text-[30px] font-semibold tracking-tight text-slate-900 dark:text-white">
+              Create a book before you grow an audience around it
+            </h2>
+            <p className="mx-auto mt-3 max-w-xl text-[15px] leading-relaxed text-slate-500 dark:text-white/45">
+              Campaigns, updates, and beta readers become useful once a story exists.
+            </p>
+          </WorkspaceSurface>
+        ) : surface === "campaigns" ? (
+          renderCampaigns()
+        ) : surface === "reader-updates" ? (
+          renderReaderUpdates()
+        ) : (
+          renderBetaReaders()
+        )
       }
     />
   );

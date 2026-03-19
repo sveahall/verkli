@@ -9,6 +9,6 @@ export default async function WritePage({
 }) {
   const { id } = await params;
   const query = searchParams ? await searchParams : undefined;
-  const langParam = query?.lang ? `&lang=${query.lang}` : "";
-  redirect(`/author/write?bookId=${id}${langParam}`);
+  const langParam = query?.lang ? `?lang=${query.lang}` : "";
+  redirect(`/author/books/${id}${langParam}`);
 }

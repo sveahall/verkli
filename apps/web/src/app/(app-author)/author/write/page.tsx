@@ -1,48 +1,21 @@
-import { notFound } from "next/navigation";
-import BookEditor from "@/app/(app-author)/author/books/[id]/BookEditor";
-import { loadBookWorkspaceData } from "@/app/(app-author)/author/books/[id]/loadBookWorkspaceData";
-import WorkflowEmptyState from "@/features/author-shell/WorkflowEmptyState";
+import { redirect } from "next/navigation";
 
-export default async function AuthorWritePage({
+/**
+ * Legacy /author/write route — redirects to the new book workspace.
+ * Keeps old bookmarks and links working.
+ */
+export default async function AuthorWriteRedirect({
   searchParams,
 }: {
-  searchParams?: Promise<{ book?: string; bookId?: string; lang?: string; intent?: string }>;
+  searchParams?: Promise<{ book?: string; bookId?: string; lang?: string }>;
 }) {
-  const resolvedSearchParams = searchParams ? await searchParams : undefined;
-  const bookId =
-    resolvedSearchParams?.bookId?.trim() ||
-    resolvedSearchParams?.book?.trim() ||
-    null;
-  const lang = resolvedSearchParams?.lang?.trim() || null;
+  const query = searchParams ? await searchParams : undefined;
+  const bookId = query?.bookId?.trim() || query?.book?.trim() || null;
 
-  if (!bookId) {
-    return (
-      <WorkflowEmptyState
-        title="Choose a book to write"
-        description="Open a draft from Library to get the chapter sidebar, distraction-free editor, and AI writing tools."
-        primaryHref="/author/library"
-        primaryLabel="Open library"
-        secondaryHref="/author/library?action=create-book"
-        secondaryLabel="Create book"
-      />
-    );
+  if (bookId) {
+    const langParam = query?.lang ? `&lang=${query.lang}` : "";
+    redirect(`/author/books/${bookId}?panel=edit${langParam}`);
   }
 
-  const data = await loadBookWorkspaceData(bookId, lang);
-  if (!data) notFound();
-
-  return (
-    <BookEditor
-      book={data.book}
-      chapters={data.chapters}
-      bookVersions={data.versions}
-      activeVersion={data.activeVersion}
-      authorDisplayName={data.authorDisplayName}
-      latestAudiobookAsset={data.latestAudiobookAsset}
-      marketingCampaigns={data.marketingCampaigns}
-      stripeConfigured={data.stripeConfigured}
-      visibleTools={["edit"]}
-      initialTool="edit"
-    />
-  );
+  redirect("/author/library");
 }

@@ -14,7 +14,9 @@ export default function ReaderBrowseLayout({
 }) {
   return (
     <>
-      <NavbarShell variant="APP_READER" />
+      <div className="lg:hidden">
+        <NavbarShell variant="APP_READER" />
+      </div>
       <OfflineModeIndicator />
       <ReaderAppShell>{children}</ReaderAppShell>
     </>

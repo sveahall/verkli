@@ -18,7 +18,6 @@ const STORAGE_CURRENT_BOOK = "verkli_author_current_book";
 export type AuthorWorkspace =
   | "home"
   | "library"
-  | "write"
   | "production"
   | "audience"
   | "analytics";
@@ -86,11 +85,8 @@ function reducer(state: AuthorWorkspaceState, action: AuthorWorkspaceAction): Au
 
 function deriveWorkspace(pathname: string | null): AuthorWorkspace {
   if (!pathname) return "home";
-  if (pathname.startsWith("/author/library") || pathname.startsWith("/author/books")) {
+  if (pathname.startsWith("/author/library") || pathname.startsWith("/author/books") || pathname.startsWith("/author/write")) {
     return "library";
-  }
-  if (pathname.startsWith("/author/write")) {
-    return "write";
   }
   if (pathname.startsWith("/author/production")) {
     return "production";
@@ -191,9 +187,12 @@ export function AuthorWorkspaceProvider({ children }: { children: ReactNode }) {
       searchParams.get("job")?.trim() ||
       null;
 
-    if (bookId) {
-      dispatch({ type: "set-current-book", bookId });
-      window.sessionStorage.setItem(STORAGE_CURRENT_BOOK, bookId);
+    const bookIdFromPath = pathname?.match(/^\/author\/books\/([^/?]+)/)?.[1] ?? null;
+    const resolvedBookId = bookId ?? bookIdFromPath;
+
+    if (resolvedBookId) {
+      dispatch({ type: "set-current-book", bookId: resolvedBookId });
+      window.sessionStorage.setItem(STORAGE_CURRENT_BOOK, resolvedBookId);
     } else if (!state.currentBookId) {
       const lastBookId = window.sessionStorage.getItem(STORAGE_CURRENT_BOOK);
       if (lastBookId) {

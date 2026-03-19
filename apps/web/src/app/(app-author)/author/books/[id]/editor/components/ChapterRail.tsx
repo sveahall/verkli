@@ -19,9 +19,9 @@ export default function ChapterRail({
 }: Props) {
   if (variant === "compact") {
     return (
-      <div className="mb-0 border-b border-black/[0.06] pb-4 dark:border-white/[0.08]">
+      <div className="rounded-xl border border-black/[0.05] bg-white/60 px-5 py-4 shadow-[0_1px_3px_rgba(0,0,0,0.02)] backdrop-blur-sm dark:border-white/[0.06] dark:bg-white/[0.02] dark:shadow-none">
         {title ? (
-          <p className="mb-3 text-xs font-semibold uppercase tracking-wider text-slate-900 dark:text-white">
+          <p className="mb-3 text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-white/40">
             {title}
           </p>
         ) : null}

@@ -106,6 +106,23 @@ function formatDateLabel(value: string | null | undefined): string | null {
   });
 }
 
+function takeUniqueBooks<T extends { id: string }>(
+  books: T[],
+  seenIds: Set<string>,
+  limit: number
+): T[] {
+  const unique: T[] = [];
+
+  for (const book of books) {
+    if (seenIds.has(book.id)) continue;
+    seenIds.add(book.id);
+    unique.push(book);
+    if (unique.length >= limit) break;
+  }
+
+  return unique;
+}
+
 async function resolveAvatarUrl(avatarPath: string | null | undefined): Promise<string | null> {
   if (!avatarPath) return null;
   try {
@@ -122,7 +139,7 @@ export default async function ReaderHomePage() {
     supabase = await createClient();
   } catch {
     return (
-      <div className="page-content pb-24 pt-8">
+      <div>
         <ErrorState
           title="Something went wrong"
           description="Could not load the page. Please try again later."
@@ -469,26 +486,34 @@ export default async function ReaderHomePage() {
         : null;
 
   const greeting = readerName ? `Welcome back, ${readerName.split(" ")[0]}` : "Welcome back";
-  const top5Chart = topChart.slice(0, 5);
   const readingBookIds = new Set(continueReading.map((book) => book.id));
   const activeAuthorIds = new Set(continueReading.map((book) => book.authorId));
+  const consumedBookIds = new Set(readingBookIds);
 
-  const recommendedBooks = publishedWithAuthors
+  if (spotlight?.href.startsWith("/reader/books/")) {
+    consumedBookIds.add(spotlight.href.replace("/reader/books/", ""));
+  }
+
+  const recommendedPool = publishedWithAuthors
     .filter((book) => activeAuthorIds.has(book.authorId) && !readingBookIds.has(book.id))
     .slice(0, 8);
 
-  if (recommendedBooks.length < 8) {
+  if (recommendedPool.length < 8) {
     topChart.forEach((book) => {
-      if (recommendedBooks.length >= 8) return;
+      if (recommendedPool.length >= 8) return;
       if (readingBookIds.has(book.id)) return;
-      if (recommendedBooks.some((candidate) => candidate.id === book.id)) return;
-      recommendedBooks.push(book);
+      if (recommendedPool.some((candidate) => candidate.id === book.id)) return;
+      recommendedPool.push(book);
     });
   }
 
+  const recommendedBooks = takeUniqueBooks(recommendedPool, consumedBookIds, 6);
+  const trendingBooks = takeUniqueBooks(topChart, consumedBookIds, 4);
+  const latestReleases = takeUniqueBooks(newReleases, consumedBookIds, 4);
+
   return (
-    <div className="page-content pb-24 pt-6 sm:pt-8 lg:pt-10">
-      <div className="section-gap">
+    <div>
+      <div className="space-y-6">
         <ErrorBannerWrapper />
         <ReaderHomePageView
           greeting={greeting}
@@ -503,7 +528,7 @@ export default async function ReaderHomePage() {
             tag: activeAuthorIds.has(book.authorId) ? "By an author you already read" : undefined,
             length: "Recommended next",
           }))}
-          trendingBooks={top5Chart.map((book, index) => ({
+          trendingBooks={trendingBooks.map((book, index) => ({
             id: book.id,
             title: book.title,
             author: book.author,
@@ -515,7 +540,7 @@ export default async function ReaderHomePage() {
                 ? `${book.averageRating.toFixed(1)} rating`
                 : `${compactNumber(book.readerCount + book.bookmarkCount)} readers`,
           }))}
-          latestReleases={newReleases.slice(0, 8).map((book) => ({
+          latestReleases={latestReleases.map((book) => ({
             id: book.id,
             title: book.title,
             author: book.author,

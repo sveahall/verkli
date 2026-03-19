@@ -945,9 +945,10 @@ export default function BookEditorView({
   const panelParam = searchParams?.get("panel");
 
   useEffect(() => {
-    if (panelParam === "pricing" && effectiveTools.includes("pricing")) setTool("pricing");
-    else if (panelParam === "print" && effectiveTools.includes("print")) setTool("print");
-    else if (panelParam === "import" && effectiveTools.includes("import")) setTool("import");
+    const requestedPanel = panelParam?.trim() ?? null;
+    if (requestedPanel && effectiveTools.includes(requestedPanel as Tool)) {
+      setTool(requestedPanel as Tool);
+    }
   }, [effectiveTools, panelParam, setTool]);
 
   useEffect(() => {
@@ -956,6 +957,14 @@ export default function BookEditorView({
       setPublishMenuOpen(false);
     }
   }, [tool]);
+
+  const navigateToPanel = useCallback((panel: Tool) => {
+    setTool(panel);
+    const href = panel === "edit"
+      ? `/author/books/${book.id}`
+      : `/author/books/${book.id}?panel=${panel}`;
+    router.push(href, { scroll: false });
+  }, [book.id, router, setTool]);
 
   const showManuscript = ["edit", "cover", "translate", "audiobook", "print", "polish", "publish", "market", "statistics"].includes(tool);
 
@@ -2850,19 +2859,6 @@ export default function BookEditorView({
                 onInlineAction={handleInlineAiAction}
               />
             )}
-            aiAssistant={(
-              <FeatureAiAssistantPanel
-                bookTitle={bookTitle}
-                bookId={book.id}
-                activeLanguage={activeLanguage}
-                selectedChapter={selectedChapter}
-                chapters={chapters}
-                totalBookWordCount={totalBookWordCount}
-                onOpenProduction={openProductionWorkspace}
-                onOpenAudience={openAudienceMarketingWorkspace}
-                onOpenAnalytics={openAnalyticsWorkspace}
-              />
-            )}
           />
         </section>
       </>
@@ -2880,7 +2876,7 @@ export default function BookEditorView({
           {publishToast}
         </div>
       )}
-      <section className="mx-auto max-w-[1400px] px-6 pb-20 pt-8">
+      <section className="pb-20 pt-6">
         {/* Job banner — visible on all panels */}
         {jobLoading ? (
           <div
@@ -2918,127 +2914,7 @@ export default function BookEditorView({
           </div>
         )}
 
-        <div className="overflow-hidden rounded-xl border border-black/[0.06] bg-white shadow-sm dark:border-white/[0.08] dark:bg-[#0f1117] dark:shadow-[0_2px_16px_rgba(0,0,0,0.3)]">
-          <div className="flex min-h-[calc(100vh-12rem)]">
-            {/* Left sidebar — Tools */}
-            <aside className="flex w-[190px] flex-shrink-0 flex-col border-r border-black/[0.06] dark:border-white/[0.08]" aria-label="Workflow tools">
-              <h2 className="px-6 pt-7 pb-1 text-[22px] font-bold tracking-tight text-slate-900 dark:text-white">
-                Tools
-              </h2>
-              {(() => {
-                const allTools = effectiveTools;
-                const activeIdx = allTools.indexOf(tool);
-                return (
-                  <nav className="relative flex flex-1 flex-col gap-0 pl-5 pr-3 pt-6 pb-4">
-                    {/* Purple bar from first item to active item */}
-                    {activeIdx >= 0 && (
-                      <div
-                        className="absolute left-5 w-[8px] rounded-full bg-[#8B7BF7] transition-all duration-300"
-                        style={{
-                          top: `calc(1.5rem + 0px)`,
-                          height: `calc(${activeIdx * 2.75}rem + 2.75rem)`,
-                        }}
-                      />
-                    )}
-                    {/* Subtle gray track below the purple bar */}
-                    {activeIdx < allTools.length - 1 && (
-                      <div
-                        className="absolute left-5 w-[8px] rounded-full bg-slate-200/50 dark:bg-white/[0.08]"
-                        style={{
-                          top: activeIdx >= 0
-                            ? `calc(1.5rem + ${(activeIdx + 1) * 2.75}rem)`
-                            : '1.5rem',
-                          height: activeIdx >= 0
-                            ? `calc(${(allTools.length - activeIdx - 1) * 2.75}rem)`
-                            : `calc(${allTools.length * 2.75}rem)`,
-                        }}
-                      />
-                    )}
-                    {allTools.map((t) => {
-                      const isActive = tool === t;
-                      const isDisabled = t === "market" && !getMarketingEnabled();
-                      const label = t.charAt(0).toUpperCase() + t.slice(1);
-                      return (
-                        <button
-                          key={t}
-                          type="button"
-                          onClick={() => setTool(t)}
-                          disabled={isDisabled}
-                          className={`relative z-10 flex w-full items-center rounded-xl py-2.5 pl-7 pr-2 text-left text-[15px] transition-all duration-150 ${
-                            isDisabled
-                              ? "cursor-not-allowed text-slate-300/70 dark:text-white/15"
-                              : isActive
-                                ? "bg-black/[0.04] font-semibold text-slate-900 dark:bg-white/[0.08] dark:text-white"
-                                : "text-slate-400 hover:bg-black/[0.03] dark:text-white/45 dark:hover:bg-white/[0.06]"
-                          }`}
-                          title={isDisabled ? `${label} (unavailable)` : label}
-                        >
-                          {label}
-                        </button>
-                      );
-                    })}
-                  </nav>
-                );
-              })()}
-            </aside>
-
-            {/* Main content */}
-            <div className="relative min-w-0 flex-1 overflow-auto p-6">
-
-              {/* Shared title row + step nav — same height on all tabs */}
-              {effectiveTools.includes(tool) && (
-                <div className="mb-5 flex items-center justify-between gap-4 border-b border-black/[0.06] pb-5 pt-1 dark:border-white/[0.08]">
-                  <div className="min-w-0">
-                    <h1 className="text-2xl font-bold tracking-[-0.02em] text-slate-900 dark:text-white">
-                      {bookTitle}
-                    </h1>
-                    <p className="mt-1 text-[15px] text-slate-500 dark:text-white/50">
-                      {authorDisplayName}
-                    </p>
-                  </div>
-                  {tool === "audiobook" && (
-                    <p className="shrink-0 text-sm text-slate-500 dark:text-white/50">
-                      Book length: <span className="font-semibold text-slate-900 dark:text-white">{totalBookWordCount.toLocaleString("sv-SE")} words</span>
-                    </p>
-                  )}
-                  {(() => {
-                    const currentIdx = effectiveTools.indexOf(tool);
-                    if (tool === "audiobook") return null;
-                    const prevTool = currentIdx > 0 ? effectiveTools[currentIdx - 1] : null;
-                    const nextTool = currentIdx >= 0 && currentIdx < effectiveTools.length - 1 ? effectiveTools[currentIdx + 1] : null;
-                    if (!prevTool && !nextTool) return null;
-                    const nextLabel = nextTool ? nextTool.charAt(0).toUpperCase() + nextTool.slice(1) : "";
-                    const prevLabel = prevTool ? prevTool.charAt(0).toUpperCase() + prevTool.slice(1) : "";
-                    return (
-                      <div className="flex shrink-0 items-center gap-1">
-                        {prevTool && (
-                          <button
-                            type="button"
-                            onClick={() => setTool(prevTool)}
-                            className="inline-flex items-center gap-2 rounded-md px-5 py-2.5 text-[13px] leading-none text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-600 dark:text-white/40 dark:hover:bg-white/[0.06] dark:hover:text-white/70"
-                          >
-                            <svg className="h-3 w-3 shrink-0" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" d="M15.75 19.5L8.25 12l7.5-7.5" /></svg>
-                            <span>{prevLabel}</span>
-                          </button>
-                        )}
-                        {prevTool && nextTool && (
-                          <span className="text-[11px] text-slate-200 dark:text-white/10">|</span>
-                        )}
-                        {nextTool && (
-                          <button
-                            type="button"
-                            onClick={() => setTool(nextTool)}
-                            className="inline-flex items-center gap-1.5 rounded-md px-5 py-2.5 text-[13px] leading-none text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-600 dark:text-white/40 dark:hover:bg-white/[0.06] dark:hover:text-white/70"
-                          >
-                            <span>{nextLabel}</span>
-                            <svg className="h-3 w-3 shrink-0" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5" /></svg>
-                          </button>
-                        )}
-                      </div>
-                    );
-                  })()}
-                </div>
-              )}
+        <div className="min-h-[calc(100vh-12rem)]">
 
         {tool === "pricing" && (
           <div className="max-w-2xl space-y-6">
@@ -3737,9 +3613,9 @@ export default function BookEditorView({
             priceAmountMinor={priceAmountMinor}
             priceCurrency={priceCurrency}
             printOnDemandSettings={printOnDemandSettings}
-            onOpenEdit={() => setTool("edit")}
-            onOpenCover={() => setTool("cover")}
-            onOpenPublish={() => setTool("publish")}
+            onOpenEdit={() => navigateToPanel("edit")}
+            onOpenCover={() => navigateToPanel("cover")}
+            onOpenPublish={() => navigateToPanel("publish")}
             onSavePrintOnDemandSettings={handleSavePrintOnDemandSettings}
           />
         )}
@@ -3753,9 +3629,9 @@ export default function BookEditorView({
             activeVersion={activeVersion}
             audiobookStatus={typeof book.audiobook_status === "string" ? book.audiobook_status : null}
             onSelectChapter={(id) => { setSelectedChapterId(id); setSessionStartWords(null); }}
-            onOpenEdit={() => setTool("edit")}
-            onOpenTranslate={() => setTool("translate")}
-            onOpenAudiobook={() => setTool("audiobook")}
+            onOpenEdit={() => navigateToPanel("edit")}
+            onOpenTranslate={() => navigateToPanel("translate")}
+            onOpenAudiobook={() => navigateToPanel("audiobook")}
           />
         )}
 
@@ -3788,7 +3664,7 @@ export default function BookEditorView({
             onCancelConfirm={() => setConfirmPublishAction(null)}
             onChapterPublishToggle={(chapter, shouldPublish) => void handleChapterPublishToggle(chapter, shouldPublish)}
             onSelectChapter={(id) => { setSelectedChapterId(id); setSessionStartWords(null); }}
-            onOpenCover={() => setTool("cover")}
+            onOpenCover={() => navigateToPanel("cover")}
             genreSelector={getRecommendationsEnabled() ? <GenreSelector bookId={book.id} /> : undefined}
           />
         )}
@@ -5491,8 +5367,6 @@ export default function BookEditorView({
         )}
         </>
         )}
-            </div>
-          </div>
         </div>
       </section>
     </>

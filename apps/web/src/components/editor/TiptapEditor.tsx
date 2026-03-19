@@ -392,10 +392,15 @@ export default function TiptapEditor({
       <style jsx global>{`
         .verkli-editor {
           height: 100%;
+          min-height: 0;
+          display: flex;
+          flex-direction: column;
         }
 
         .verkli-content {
-          height: 100%;
+          flex: 1 1 auto;
+          min-height: 0;
+          overflow-y: auto;
         }
 
         .verkli-content .ProseMirror {

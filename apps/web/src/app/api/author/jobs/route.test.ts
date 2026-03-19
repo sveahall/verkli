@@ -155,10 +155,10 @@ describe("GET /api/author/jobs", () => {
     createAdminClient.mockReturnValue({
       storage: {
         from: vi.fn().mockReturnValue({
-          createSignedUrl: vi.fn().mockResolvedValue({
-            data: { signedUrl: "https://signed.example.com/audio.mp3" },
+          createSignedUrl: vi.fn().mockImplementation(async (path: string) => ({
+            data: { signedUrl: `https://signed.example.com/${path}` },
             error: null,
-          }),
+          })),
         }),
       },
     });
@@ -176,9 +176,13 @@ describe("GET /api/author/jobs", () => {
       kind: "audiobook",
       bookId: "book-1",
       bookTitle: "North Star",
-      previewUrl: "https://signed.example.com/audio.mp3",
+      previewUrl: "https://signed.example.com/north-star/output.mp3",
     });
     expect(body.jobs[0].logSummary).toContain("Chapter 4");
+    expect(body.jobs[0].meta).toMatchObject({
+      assetAudioUrl: "https://signed.example.com/north-star/output.mp3",
+      assetManifestUrl: null,
+    });
     expect(body.jobs[1]).toMatchObject({
       id: "ver-en",
       kind: "translation",
@@ -209,5 +213,52 @@ describe("GET /api/author/jobs", () => {
 
     expect(response.status).toBe(200);
     expect(body.jobs).toEqual([]);
+  });
+
+  it("returns manifest playback metadata when the audiobook asset is chapter-based", async () => {
+    createClient.mockResolvedValueOnce(
+      makeSupabaseMock({
+        audiobookAssets: [
+          {
+            book_id: "book-1",
+            audio_path: "north-star/audiobook-manifest.json",
+            audio_bucket: "audiobooks",
+            created_at: "2026-03-17T10:00:00.000Z",
+          },
+        ],
+        audiobookJobs: [
+          {
+            id: "job-audio",
+            kind: "audiobook_generation",
+            status: "completed",
+            book_id: "book-1",
+            book_version_id: "ver-1",
+            language: "sv",
+            progress: 100,
+            input: { voiceId: "Ryan" },
+            output: {},
+            error: null,
+            created_at: "2026-03-17T10:05:00.000Z",
+            started_at: "2026-03-17T10:06:00.000Z",
+            finished_at: "2026-03-17T10:20:00.000Z",
+          },
+        ],
+      })
+    );
+
+    const response = await GET();
+    const body = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(body.jobs[0]).toMatchObject({
+      id: "job-audio",
+      kind: "audiobook",
+      previewUrl: null,
+    });
+    expect(body.jobs[0].meta).toMatchObject({
+      manifestUrl: "https://signed.example.com/north-star/audiobook-manifest.json",
+      assetManifestUrl: "https://signed.example.com/north-star/audiobook-manifest.json",
+      assetAudioUrl: null,
+    });
   });
 });

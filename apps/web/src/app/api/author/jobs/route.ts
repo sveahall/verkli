@@ -36,6 +36,36 @@ function normalizePreviewPath(value: unknown): string | null {
   return trimmed;
 }
 
+function isManifestPath(path: string | null): boolean {
+  return Boolean(path && path.toLowerCase().endsWith(".json"));
+}
+
+async function signStoragePath(
+  admin: ReturnType<typeof createAdminClient>,
+  path: string | null,
+  bucket: string,
+  logPrefix: string,
+  logMeta: Record<string, unknown>
+): Promise<string | null> {
+  if (!path) return null;
+
+  const { data, error } = await admin.storage
+    .from(bucket)
+    .createSignedUrl(path, SIGNED_URL_TTL_SECONDS);
+
+  if (error || !data?.signedUrl) {
+    console.error(logPrefix, {
+      ...logMeta,
+      bucket,
+      path,
+      message: error?.message ?? "missing signedUrl",
+    });
+    return null;
+  }
+
+  return data.signedUrl;
+}
+
 function toTranslationProgress(status: string): number {
   const normalized = normalizeJobStatus(status);
   if (normalized === "completed") return 100;
@@ -89,6 +119,7 @@ export async function GET() {
 
   const supabase = await createClient();
   const admin = createAdminClient();
+  const defaultBucket = getAudiobookStorageBucket();
 
   const { data: books, error: booksError } = await supabase
     .from("books")
@@ -173,67 +204,116 @@ export async function GET() {
     });
   }
 
-  const previewUrlByBookId = new Map<string, string | null>();
+  const previewByBookId = new Map<
+    string,
+    { audioUrl: string | null; manifestUrl: string | null }
+  >();
   await Promise.all(
     [...latestAssetByBookId.entries()].map(async ([bookId, asset]) => {
       if (!asset.audioPath) {
-        previewUrlByBookId.set(bookId, null);
+        previewByBookId.set(bookId, { audioUrl: null, manifestUrl: null });
         return;
       }
 
-      const bucket = asset.audioBucket?.trim() || getAudiobookStorageBucket();
-      const { data, error } = await admin.storage
-        .from(bucket)
-        .createSignedUrl(asset.audioPath, SIGNED_URL_TTL_SECONDS);
+      const bucket = asset.audioBucket?.trim() || defaultBucket;
+      const signedUrl = await signStoragePath(
+        admin,
+        asset.audioPath,
+        bucket,
+        "[author jobs] preview sign failed",
+        { bookId }
+      );
 
-      if (error || !data?.signedUrl) {
-        console.error("[author jobs] preview sign failed", {
-          bookId,
-          bucket,
-          message: error?.message ?? "missing signedUrl",
-        });
-        previewUrlByBookId.set(bookId, null);
-        return;
-      }
-
-      previewUrlByBookId.set(bookId, data.signedUrl);
+      previewByBookId.set(bookId, {
+        audioUrl: isManifestPath(asset.audioPath) ? null : signedUrl,
+        manifestUrl: isManifestPath(asset.audioPath) ? signedUrl : null,
+      });
     })
   );
 
-  const audiobookJobs: AuthorJob[] = (audiobookJobsResult.data ?? [])
-    .filter((row) => typeof row.book_id === "string" && row.book_id.length > 0)
-    .map((row) => {
-      const status = normalizeJobStatus(row.status);
-      const bookId = row.book_id as string;
-      const output =
-        row.output && typeof row.output === "object"
-          ? (row.output as Record<string, unknown>)
-          : {};
-      const safeError = sanitizeJobError(row.error);
-      return {
-        id: row.id,
-        kind: "audiobook",
-        status,
-        bookId,
-        bookTitle: bookTitleById.get(bookId) ?? "Untitled",
-        language: row.language ?? null,
-        progress: Number.isFinite(row.progress) ? Math.max(0, Math.min(100, row.progress)) : 0,
-        previewUrl:
-          previewUrlByBookId.get(bookId) ??
-          (typeof output.audioUrl === "string" ? output.audioUrl : null),
-        logSummary: getAudiobookLogSummary(status, output, safeError),
-        createdAt: row.created_at ?? null,
-        startedAt: row.started_at ?? null,
-        finishedAt: row.finished_at ?? null,
-        error: safeError,
-        meta: {
-          ...(row.input && typeof row.input === "object"
-            ? (row.input as Record<string, unknown>)
-            : {}),
-          ...output,
-        },
-      };
-    });
+  const audiobookJobs: AuthorJob[] = await Promise.all(
+    (audiobookJobsResult.data ?? [])
+      .filter((row) => typeof row.book_id === "string" && row.book_id.length > 0)
+      .map(async (row) => {
+        const status = normalizeJobStatus(row.status);
+        const bookId = row.book_id as string;
+        const output =
+          row.output && typeof row.output === "object"
+            ? (row.output as Record<string, unknown>)
+            : {};
+        const safeError = sanitizeJobError(row.error);
+        const audioPath = normalizePreviewPath(output.audioPath);
+        const audioBucket =
+          typeof output.audioBucket === "string" && output.audioBucket.trim().length > 0
+            ? output.audioBucket.trim()
+            : defaultBucket;
+        const manifestPath = normalizePreviewPath(output.manifestPath);
+        const manifestBucket =
+          typeof output.manifestBucket === "string" && output.manifestBucket.trim().length > 0
+            ? output.manifestBucket.trim()
+            : defaultBucket;
+        const generatedChapterAudioPath = normalizePreviewPath(output.generatedChapterAudioPath);
+        const generatedChapterAudioBucket =
+          typeof output.generatedChapterAudioBucket === "string" &&
+          output.generatedChapterAudioBucket.trim().length > 0
+            ? output.generatedChapterAudioBucket.trim()
+            : defaultBucket;
+        const [audioUrl, manifestUrl, generatedChapterAudioUrl] = await Promise.all([
+          signStoragePath(admin, audioPath, audioBucket, "[author jobs] output audio sign failed", {
+            bookId,
+            jobId: row.id,
+          }),
+          signStoragePath(admin, manifestPath, manifestBucket, "[author jobs] output manifest sign failed", {
+            bookId,
+            jobId: row.id,
+          }),
+          signStoragePath(
+            admin,
+            generatedChapterAudioPath,
+            generatedChapterAudioBucket,
+            "[author jobs] generated chapter audio sign failed",
+            {
+              bookId,
+              jobId: row.id,
+            }
+          ),
+        ]);
+        const assetPreview = previewByBookId.get(bookId) ?? {
+          audioUrl: null,
+          manifestUrl: null,
+        };
+        return {
+          id: row.id,
+          kind: "audiobook",
+          status,
+          bookId,
+          bookTitle: bookTitleById.get(bookId) ?? "Untitled",
+          language: row.language ?? null,
+          progress: Number.isFinite(row.progress) ? Math.max(0, Math.min(100, row.progress)) : 0,
+          previewUrl:
+            generatedChapterAudioUrl ??
+            audioUrl ??
+            assetPreview.audioUrl ??
+            (typeof output.audioUrl === "string" ? output.audioUrl : null),
+          logSummary: getAudiobookLogSummary(status, output, safeError),
+          createdAt: row.created_at ?? null,
+          startedAt: row.started_at ?? null,
+          finishedAt: row.finished_at ?? null,
+          error: safeError,
+          meta: {
+            ...(row.input && typeof row.input === "object"
+              ? (row.input as Record<string, unknown>)
+              : {}),
+            ...output,
+            audioUrl,
+            manifestUrl: manifestUrl ?? assetPreview.manifestUrl,
+            generatedChapterAudioUrl,
+            assetAudioUrl: assetPreview.audioUrl,
+            assetManifestUrl: assetPreview.manifestUrl,
+          },
+        };
+      })
+  );
 
   const translationJobs: AuthorJob[] = (translationJobsResult.data ?? []).map((row) => {
     const status = normalizeJobStatus(row.status);

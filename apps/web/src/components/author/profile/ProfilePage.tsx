@@ -1,141 +1,176 @@
-import ProfileHeader from "@/components/author/profile/ProfileHeader";
-import ProfileStats from "@/components/author/profile/ProfileStats";
-import ProfileShelfCard from "@/components/author/profile/ProfileShelfCard";
-import ProfileBookCard from "@/components/author/profile/ProfileBookCard";
-import type { ReactNode } from "react";
+"use client";
 
-export type authorProfile = {
-  displayName: string;
-  username: string;
-  bio: string;
-  avatarUrl?: string | null;
-  isPublic: boolean;
+import Image from "next/image";
+import { useActionState, useState, type ChangeEvent } from "react";
+import { useFormStatus } from "react-dom";
+import { PageHeader } from "@/components/ui/page-header";
+import {
+  saveAuthorProfile,
+  updateAvatarPath,
+  type ActionState,
+} from "@/features/author/settings/actions";
+import { uploadAvatar } from "@/lib/supabase/storage";
+import WorkspaceLayout from "@/features/author-workspaces/WorkspaceLayout";
+
+const initialState: ActionState = { ok: false, message: "" };
+
+type ProfilePageProps = {
+  user: {
+    id: string;
+  };
+  profile: {
+    displayName: string;
+    bio: string;
+    avatarUrl?: string | null;
+    isPublic: boolean;
+  };
 };
 
-export type ProfileStatsData = {
-  books: number;
-  shelves: number;
-  reads: number | null;
-};
+function SaveButton() {
+  const { pending } = useFormStatus();
 
-export type ProfileShelf = {
-  id: string;
-  name: string;
-  subtitle?: string | null;
-  cover_url?: string | null;
-  cover_type?: string | null;
-  cover_gradient?: string | null;
-};
-
-export type ProfileBook = {
-  id: string;
-  title: string;
-  slug?: string | null;
-  cover_image?: string | null;
-  status?: string | null;
-};
-
-type EmptyStateCardProps = {
-  children: ReactNode;
-};
-
-function EmptyStateCard({ children }: EmptyStateCardProps) {
   return (
-    <div className="rounded-2xl border border-slate-200/80 bg-white/80 p-6 text-center text-[14px] text-slate-600 sm:rounded-[24px] sm:p-10 dark:border-white/[0.15] dark:bg-white/[0.03] dark:text-white/60">
-      {children}
-    </div>
+    <button
+      type="submit"
+      disabled={pending}
+      className="min-h-[44px] rounded-full bg-slate-900 px-5 py-2 text-[13px] font-semibold text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60 dark:bg-white dark:text-slate-900 dark:hover:bg-white/90"
+    >
+      {pending ? "Saving..." : "Save profile"}
+    </button>
   );
 }
 
-export default function ProfilePage({
-  profile,
-  stats,
-  shelves,
-  standaloneBooks,
-}: {
-  profile: authorProfile;
-  stats: ProfileStatsData;
-  shelves: ProfileShelf[];
-  standaloneBooks: ProfileBook[];
-}) {
+function InlineFeedback({ state }: { state: ActionState }) {
+  if (!state.message) return null;
   return (
-    <main className="min-h-screen bg-transparent text-foreground mt-25">
-      <div className="mx-auto flex w-full max-w-[1400px] flex-col gap-8 px-4 pb-20 pt-6 sm:gap-10 sm:px-6 sm:pt-10">
-        <ProfileHeader
-          displayName={profile.displayName}
-          username={profile.username}
-          bio={profile.bio}
-          avatarUrl={profile.avatarUrl}
-          isPublic={profile.isPublic}
+    <p className={`text-sm ${state.ok ? "text-emerald-600 dark:text-emerald-400" : "text-red-600 dark:text-red-400"}`}>
+      {state.message}
+    </p>
+  );
+}
+
+export default function ProfilePage({ user, profile }: ProfilePageProps) {
+  const [displayName, setDisplayName] = useState(profile.displayName);
+  const [bio, setBio] = useState(profile.bio);
+  const [avatarUrl, setAvatarUrl] = useState(profile.avatarUrl ?? "");
+  const [isPublic, setIsPublic] = useState(profile.isPublic);
+  const [avatarUploading, setAvatarUploading] = useState(false);
+  const [state, formAction] = useActionState(saveAuthorProfile, initialState);
+
+  const handleAvatarChange = async (event: ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    setAvatarUploading(true);
+    const { path, url, error } = await uploadAvatar(file, user.id);
+
+    if (error || !path) {
+      setAvatarUploading(false);
+      return;
+    }
+
+    const result = await updateAvatarPath(path);
+    setAvatarUploading(false);
+    if (!result.ok) {
+      return;
+    }
+
+    setAvatarUrl(url ?? "");
+  };
+
+  return (
+    <WorkspaceLayout
+      header={
+        <PageHeader
+          eyebrow="Profile"
+          title="Profile"
+          description="Update the public profile readers see."
         />
-
-        <ProfileStats books={stats.books} shelves={stats.shelves} reads={stats.reads} />
-
-        <section className="space-y-5">
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <div>
-              <h2 className="text-[22px] font-semibold text-slate-900 dark:text-white">Public shelves</h2>
-              <p className="text-[14px] text-slate-600 dark:text-white/50">
-                Curated collections your readers can explore.
-              </p>
-            </div>
-            <span className="text-[12px] font-semibold uppercase tracking-[0.25em] text-slate-400 dark:text-white/40">
-              {shelves.length} total
-            </span>
+      }
+      main={
+        <form action={formAction} className="space-y-8">
+          <div className="flex justify-end">
+            <SaveButton />
           </div>
 
-          {shelves.length === 0 ? (
-            <EmptyStateCard>
-              No shelves yet. Create one to showcase your collections.
-            </EmptyStateCard>
-          ) : (
-            <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-              {shelves.map((shelf) => (
-                <ProfileShelfCard
-                  key={shelf.id}
-                  id={shelf.id}
-                  name={shelf.name}
-                  subtitle={shelf.subtitle}
-                  coverUrl={shelf.cover_url}
-                  coverType={shelf.cover_type}
-                  coverGradient={shelf.cover_gradient}
-                />
-              ))}
+          <section className="border-t border-slate-200/80 pt-6 dark:border-white/10">
+            <h2 className="text-section-title">Avatar</h2>
+            <div className="mt-4 flex flex-wrap items-center gap-4">
+              <div className="relative h-20 w-20 overflow-hidden rounded-full border border-slate-200/80 bg-slate-100 dark:border-white/10 dark:bg-white/[0.04]">
+                {avatarUrl ? (
+                  <Image src={avatarUrl} alt="Avatar" fill sizes="80px" className="object-cover" unoptimized />
+                ) : (
+                  <div className="flex h-full w-full items-center justify-center text-[24px] font-semibold text-slate-900 dark:text-white">
+                    {displayName.charAt(0).toUpperCase()}
+                  </div>
+                )}
+              </div>
+              <div>
+                <label className="inline-flex min-h-[44px] cursor-pointer items-center rounded-full border border-slate-200 px-4 py-2 text-[13px] font-medium text-slate-700 transition hover:border-slate-300 hover:text-slate-900 dark:border-white/10 dark:text-white/70 dark:hover:border-white/20 dark:hover:text-white">
+                  <input type="file" accept="image/*" className="hidden" onChange={handleAvatarChange} />
+                  {avatarUploading ? "Uploading..." : "Upload avatar"}
+                </label>
+                <p className="mt-2 text-sm text-slate-500 dark:text-white/45">
+                  PNG or JPG, up to 2 MB.
+                </p>
+              </div>
             </div>
-          )}
-        </section>
+          </section>
 
-        <section className="space-y-5">
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <div>
-              <h2 className="text-[22px] font-semibold text-slate-900 dark:text-white">Standalone books</h2>
-              <p className="text-[14px] text-slate-600 dark:text-white/50">
-                Published titles not yet placed on a shelf.
-              </p>
-            </div>
-            <span className="text-[12px] font-semibold uppercase tracking-[0.25em] text-slate-400 dark:text-white/40">
-              {standaloneBooks.length} total
-            </span>
-          </div>
+          <section className="border-t border-slate-200/80 pt-6 dark:border-white/10">
+            <h2 className="text-section-title">Display name</h2>
+            <input
+              name="display_name"
+              value={displayName}
+              onChange={(event) => setDisplayName(event.target.value)}
+              className="input-base mt-4 min-h-[44px] text-[14px]"
+            />
+          </section>
 
-          {standaloneBooks.length === 0 ? (
-            <EmptyStateCard>No standalone books to show right now.</EmptyStateCard>
-          ) : (
-            <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-              {standaloneBooks.map((book) => (
-                <ProfileBookCard
-                  key={book.id}
-                  id={book.id}
-                  title={book.title}
-                  slug={book.slug}
-                  coverImage={book.cover_image}
-                  status={book.status}
+          <section className="border-t border-slate-200/80 pt-6 dark:border-white/10">
+            <h2 className="text-section-title">Bio</h2>
+            <textarea
+              name="bio"
+              value={bio}
+              onChange={(event) => setBio(event.target.value)}
+              rows={6}
+              className="input-base mt-4 min-h-[140px] resize-y text-[14px]"
+            />
+          </section>
+
+          <section className="border-t border-slate-200/80 pt-6 dark:border-white/10">
+            <div className="flex items-center justify-between gap-4">
+              <div>
+                <h2 className="text-section-title">Public profile</h2>
+                <p className="mt-2 text-sm text-slate-500 dark:text-white/45">
+                  Turn your public author page on or off.
+                </p>
+              </div>
+              <label className="relative inline-flex cursor-pointer items-center">
+                <input
+                  type="checkbox"
+                  checked={isPublic}
+                  onChange={(event) => setIsPublic(event.target.checked)}
+                  className="sr-only"
                 />
-              ))}
+                <span
+                  className={`h-6 w-11 rounded-full transition ${
+                    isPublic ? "bg-slate-900 dark:bg-white" : "bg-slate-200 dark:bg-white/20"
+                  }`}
+                />
+                <span
+                  className={`absolute left-1 top-1 h-4 w-4 rounded-full bg-white transition dark:bg-slate-900 ${
+                    isPublic ? "translate-x-5 dark:bg-slate-900" : ""
+                  }`}
+                />
+              </label>
+              <input type="hidden" name="is_public" value={isPublic ? "true" : "false"} />
             </div>
-          )}
-        </section>
-      </div>
-    </main>
+          </section>
+
+          <InlineFeedback state={state} />
+        </form>
+      }
+    />
   );
 }

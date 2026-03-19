@@ -1,6 +1,19 @@
-import { redirect } from "next/navigation";
+import { notFound } from "next/navigation";
+import BookEditor from "./BookEditor";
+import { loadBookWorkspaceData } from "./loadBookWorkspaceData";
+import type { Tool } from "./editor/bookEditor.shared";
 
-export default async function LegacyBookRoute({
+const VALID_PANELS: Tool[] = [
+  "edit", "cover", "translate", "audiobook", "print",
+  "pricing", "polish", "publish", "market", "statistics", "import",
+];
+
+function isValidPanel(value: string | null): value is Tool {
+  if (!value) return false;
+  return VALID_PANELS.includes(value as Tool);
+}
+
+export default async function BookWorkspacePage({
   params,
   searchParams,
 }: {
@@ -9,27 +22,23 @@ export default async function LegacyBookRoute({
 }) {
   const { id } = await params;
   const query = searchParams ? await searchParams : undefined;
-  const langParam = query?.lang ? `&lang=${query.lang}` : "";
   const panel = query?.panel?.trim() ?? null;
+  const initialTool: Tool = isValidPanel(panel) ? panel : "edit";
 
-  if (panel === "pricing" || panel === "translate" || panel === "audiobook" || panel === "print") {
-    const kindParam =
-      panel === "translate"
-        ? "&kind=translation"
-        : panel === "audiobook"
-          ? "&kind=audiobook"
-          : "";
-    redirect(`/author/production?bookId=${id}${kindParam}${langParam}`);
-  }
-  if (panel === "publish") {
-    redirect(`/author/audience?bookId=${id}&surface=beta-readers`);
-  }
-  if (panel === "market") {
-    redirect(`/author/audience?bookId=${id}&surface=campaigns`);
-  }
-  if (panel === "statistics") {
-    redirect(`/author/analytics?bookId=${id}${langParam}`);
-  }
+  const data = await loadBookWorkspaceData(id, query?.lang?.trim() ?? null);
+  if (!data) notFound();
 
-  redirect(`/author/write?bookId=${id}${langParam}`);
+  return (
+    <BookEditor
+      book={data.book}
+      chapters={data.chapters}
+      bookVersions={data.versions}
+      activeVersion={data.activeVersion}
+      authorDisplayName={data.authorDisplayName}
+      latestAudiobookAsset={data.latestAudiobookAsset}
+      marketingCampaigns={data.marketingCampaigns}
+      stripeConfigured={data.stripeConfigured}
+      initialTool={initialTool}
+    />
+  );
 }

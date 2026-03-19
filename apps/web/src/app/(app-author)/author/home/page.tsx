@@ -2,11 +2,6 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import HomeWorkspace from "@/features/author-workspaces/home/HomeWorkspace";
 
-type EventRow = {
-  event_name: string;
-  path: string | null;
-};
-
 export default async function AuthorHomePage() {
   const supabase = await createClient();
   const {
@@ -35,6 +30,7 @@ export default async function AuthorHomePage() {
 
   let campaigns: Array<{
     id: string;
+    bookId: string;
     bookTitle: string;
     channel: string;
     status: string;
@@ -52,6 +48,7 @@ export default async function AuthorHomePage() {
 
     campaigns = (campaignRows ?? []).map((campaign) => ({
       id: campaign.id,
+      bookId: campaign.book_id,
       bookTitle: bookTitleById.get(campaign.book_id) ?? "Untitled",
       channel: campaign.channel,
       status: campaign.status,
@@ -60,50 +57,34 @@ export default async function AuthorHomePage() {
     }));
   }
 
-  let views = 0;
-  let reads = 0;
-  if (bookIds.length > 0) {
-    const { data: events } = await supabase
-      .from("analytics_events")
-      .select("event_name, path")
-      .limit(5000);
-
-    for (const event of (events ?? []) as EventRow[]) {
-      const path = event.path ?? "";
-      if (!bookIds.some((bookId) => path.includes(bookId))) continue;
-      const eventName = event.event_name.toLowerCase();
-      if (eventName.includes("read") || eventName.includes("chapter_read")) {
-        reads += 1;
-      } else {
-        views += 1;
-      }
-    }
-  }
-
-  const { count: bookmarkCount } =
-    bookIds.length > 0
-      ? await supabase
-          .from("bookmarks")
-          .select("id", { count: "exact", head: true })
-          .in("book_id", bookIds)
-      : { count: 0 };
-
   const { count: subscriberCount } = await supabase
     .from("newsletter_subscriptions" as never)
     .select("id", { count: "exact", head: true })
     .eq("author_id", user.id)
     .eq("status", "active");
 
+  // ── Growth signals ──
+  const todayStart = new Date();
+  todayStart.setHours(0, 0, 0, 0);
+  const todayISO = todayStart.toISOString();
+
+  // Readers today: distinct readers across author's books
+  let readersToday = 0;
+  if (bookIds.length > 0) {
+    const { count } = await supabase
+      .from("readings")
+      .select("id", { count: "exact", head: true })
+      .in("book_id", bookIds)
+      .gte("last_read_at", todayISO);
+    readersToday = count ?? 0;
+  }
+
   return (
     <HomeWorkspace
       drafts={drafts}
       campaigns={campaigns}
-      readerActivity={{
-        views,
-        reads,
-        bookmarks: bookmarkCount ?? 0,
-        subscribers: subscriberCount ?? 0,
-      }}
+      subscriberCount={subscriberCount ?? 0}
+      readersToday={readersToday}
     />
   );
 }

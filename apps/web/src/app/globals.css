@@ -158,6 +158,9 @@
   .page-content {
     @apply mx-auto w-full max-w-6xl px-4 sm:px-6 lg:px-10;
   }
+  .workspace-page {
+    @apply mx-auto w-full max-w-[1520px] px-4 sm:px-6 lg:px-8 xl:px-10;
+  }
   .page-content-narrow {
     @apply mx-auto w-full max-w-3xl px-4 sm:px-6;
   }
