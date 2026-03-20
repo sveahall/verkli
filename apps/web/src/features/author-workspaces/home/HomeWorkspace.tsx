@@ -1,241 +1,321 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo } from "react";
-import { Button } from "@/components/ui/button";
-import { PageHeader } from "@/components/ui/page-header";
-import CreateBookEntry from "@/app/(app-author)/author/books/CreateBookEntry";
-import { useAuthorJobs } from "@/features/author-workspaces/production/useAuthorJobs";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
-  WorkspaceSurface,
-} from "@/features/author-workspaces/WorkspaceLayout";
-import WorkspaceLayout from "@/features/author-workspaces/WorkspaceLayout";
+  AudioLines,
+  Coins,
+  Languages,
+  MessageSquareText,
+  Plus,
+  ThumbsUp,
+  Users,
+  UserRoundPlus,
+} from "lucide-react";
+import CreateBookDialog from "@/components/books/CreateBookDialog";
+import { Button } from "@/components/ui/button";
+import { resolveCommandHref } from "@/features/author-shell/command-registry";
 import { useAuthorWorkspace } from "@/features/author-shell/workspace-state";
+import WorkspaceLayout from "@/features/author-workspaces/WorkspaceLayout";
+import ActivityList, {
+  type ActivityListItem,
+} from "@/features/author-workspaces/home/components/ActivityList";
+import BooksTable, {
+  type BooksTableItem,
+} from "@/features/author-workspaces/home/components/BooksTable";
+import CountrySalesCard from "@/features/author-workspaces/home/components/CountrySalesCard";
+import StatsCard from "@/features/author-workspaces/home/components/StatsCard";
+import type { DashboardStats, DashboardBook, DashboardActivity } from "./types";
 
 type HomeWorkspaceProps = {
-  drafts: Array<{
-    id: string;
-    title: string;
-    status: string;
-    updatedAt: string | null;
-  }>;
-  campaigns: Array<{
-    id: string;
-    bookId: string;
-    bookTitle: string;
-    channel: string;
-    status: string;
-    headline: string | null;
-    updatedAt: string | null;
-  }>;
-  subscriberCount: number;
-  readersToday: number;
+  stats: DashboardStats;
+  books: DashboardBook[];
+  activity: DashboardActivity[];
 };
 
-type ActivityItem = {
-  id: string;
-  label: string;
-  detail: string;
-  timestamp: string;
-  href: string;
+const ACTIVITY_HREF: Record<DashboardActivity["type"], string> = {
+  translation: "/author/production",
+  audiobook: "/author/production",
+  publish: "/author/library",
 };
 
-const JOB_KIND_LABELS: Record<string, string> = {
-  audiobook: "Audiobook ready",
-  translation: "Translation complete",
-  marketing: "Campaign updated",
-};
+const PREVIEW_COUNTRY_SALES = [
+  { country: "Poland", share: "33%" },
+  { country: "Schweiz", share: "26%" },
+  { country: "Sweden", share: "21%" },
+  { country: "France", share: "19%" },
+  { country: "Italy", share: "12%" },
+];
 
 function formatRelativeTime(dateStr: string): string {
   const diffMs = Date.now() - new Date(dateStr).getTime();
   const diffMin = Math.floor(diffMs / 60_000);
+
   if (diffMin < 1) return "Just now";
   if (diffMin < 60) return `${diffMin}m ago`;
+
   const diffHours = Math.floor(diffMin / 60);
   if (diffHours < 24) return `${diffHours}h ago`;
+
   const diffDays = Math.floor(diffHours / 24);
   if (diffDays === 1) return "Yesterday";
   if (diffDays < 7) return `${diffDays}d ago`;
+
   return new Date(dateStr).toLocaleDateString("sv-SE");
 }
 
 function formatUpdatedAt(value: string | null): string {
-  if (!value) return "Recently created";
-  return `Updated ${new Date(value).toLocaleDateString("sv-SE")}`;
+  if (!value) return "Today";
+
+  const diffMs = Date.now() - new Date(value).getTime();
+  const diffDays = Math.floor(diffMs / 86_400_000);
+
+  if (diffDays <= 0) return "Today";
+  if (diffDays === 1) return "Yesterday";
+  if (diffDays < 7) return `${diffDays} days ago`;
+
+  return new Date(value).toLocaleDateString("sv-SE");
+}
+
+function formatCompactNumber(value: number): string {
+  return new Intl.NumberFormat("en", {
+    notation: "compact",
+    maximumFractionDigits: 1,
+  }).format(value);
+}
+
+function DashboardFilter({
+  ariaLabel,
+  name,
+  options,
+}: {
+  ariaLabel: string;
+  name: string;
+  options: Array<{ value: string; label: string }>;
+}) {
+  return (
+    <div className="relative">
+      <select
+        aria-label={ariaLabel}
+        name={name}
+        defaultValue={options[0]?.value}
+        className="h-10 min-w-[150px] appearance-none rounded-lg border border-slate-200 bg-white px-4 pr-9 text-sm font-medium text-slate-700 outline-none transition focus:border-[#907AFF]/35 focus:ring-2 focus:ring-[#907AFF]/20"
+      >
+        {options.map((option) => (
+          <option key={option.value} value={option.value}>
+            {option.label}
+          </option>
+        ))}
+      </select>
+      <svg
+        aria-hidden="true"
+        viewBox="0 0 20 20"
+        fill="none"
+        className="pointer-events-none absolute right-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-400"
+      >
+        <path
+          d="M5 7.5 10 12.5 15 7.5"
+          stroke="currentColor"
+          strokeWidth="1.5"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        />
+      </svg>
+    </div>
+  );
 }
 
 export default function HomeWorkspace({
-  drafts,
-  campaigns,
-  subscriberCount,
-  readersToday,
+  stats,
+  books,
+  activity,
 }: HomeWorkspaceProps) {
-  const { jobs } = useAuthorJobs();
+  const [createDialogOpen, setCreateDialogOpen] = useState(false);
   const { setCurrentBookId } = useAuthorWorkspace();
 
-  const activeJobs = jobs.filter(
-    (job) => job.status === "pending" || job.status === "running"
+  const primaryBook = books[0] ?? null;
+
+  const statCards = useMemo(
+    () => [
+      {
+        label: "Sales",
+        growth: "34%",
+        value: formatCompactNumber(stats.sales),
+        icon: <Coins className="h-4 w-4" />,
+        toneClassName: "bg-[#EEF4FF] text-[#4F74E7]",
+      },
+      {
+        label: "Readers",
+        growth: "25%",
+        value: formatCompactNumber(stats.readers),
+        icon: <Users className="h-4 w-4" />,
+        toneClassName: "bg-[#F2EDFF] text-[#8A72FF]",
+      },
+      {
+        label: "Subscribers",
+        growth: "17%",
+        value: formatCompactNumber(stats.subscribers),
+        icon: <UserRoundPlus className="h-4 w-4" />,
+        toneClassName: "bg-[#FCEFFF] text-[#E17AD5]",
+      },
+      {
+        label: "Comments",
+        growth: "19%",
+        value: formatCompactNumber(stats.comments),
+        icon: <MessageSquareText className="h-4 w-4" />,
+        toneClassName: "bg-[#FFF3E8] text-[#F0A75B]",
+      },
+      {
+        label: "Reviews",
+        growth: "9%",
+        value: formatCompactNumber(stats.reviews),
+        icon: <ThumbsUp className="h-4 w-4" />,
+        toneClassName: "bg-[#FFF8DB] text-[#D8B53D]",
+      },
+    ],
+    [stats.comments, stats.readers, stats.reviews, stats.sales, stats.subscribers]
   );
-  const completedJobs = jobs.filter(
-    (job) => job.status === "completed" || job.status === "failed"
+
+  const activityItems: ActivityListItem[] = useMemo(
+    () =>
+      activity.map((item) => ({
+        id: item.id,
+        title: item.label,
+        bookName: item.detail,
+        timestamp: formatRelativeTime(item.timestamp),
+        href: ACTIVITY_HREF[item.type],
+      })),
+    [activity]
   );
-  const primaryDraft = drafts[0] ?? null;
 
-  const activityFeed = useMemo<ActivityItem[]>(() => {
-    if (!primaryDraft) return [];
+  const tableRows: BooksTableItem[] = useMemo(
+    () =>
+      books.map((book) => ({
+        id: book.id,
+        title: book.title,
+        href: `/author/books/${book.id}`,
+        type: "Book" as const,
+        status: (book.status === "PUBLISHED"
+          ? "Published"
+          : "Draft") as BooksTableItem["status"],
+        readers: formatCompactNumber(book.readers),
+        updated: formatUpdatedAt(book.updatedAt),
+      })),
+    [books]
+  );
 
-    const items: ActivityItem[] = [];
+  const bookFilterOptions = useMemo(
+    () => [
+      { value: "all", label: "All books" },
+      ...books.map((book) => ({
+        value: book.id,
+        label: book.title || "Untitled",
+      })),
+    ],
+    [books]
+  );
 
-    for (const job of completedJobs.slice(0, 6)) {
-      if (job.bookId !== primaryDraft.id) continue;
-      if (!job.finishedAt) continue;
-      items.push({
-        id: `job-${job.id}`,
-        label:
-          job.status === "failed"
-            ? `${job.kind.charAt(0).toUpperCase() + job.kind.slice(1)} failed`
-            : (JOB_KIND_LABELS[job.kind] ?? "Job completed"),
-        detail: job.bookTitle,
-        timestamp: job.finishedAt,
-        href: `/author/production?jobId=${job.id}&bookId=${job.bookId}`,
-      });
-    }
-
-    for (const campaign of campaigns.slice(0, 4)) {
-      if (campaign.bookId !== primaryDraft.id) continue;
-      if (!campaign.updatedAt) continue;
-      items.push({
-        id: `campaign-${campaign.id}`,
-        label: campaign.headline?.trim() || `Campaign ${campaign.status.toLowerCase()}`,
-        detail: `${campaign.bookTitle} · ${campaign.channel}`,
-        timestamp: campaign.updatedAt,
-        href: "/author/audience?surface=campaigns",
-      });
-    }
-
-    items.sort(
-      (a, b) =>
-        new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
-    );
-
-    return items.slice(0, 8);
-  }, [campaigns, completedJobs, primaryDraft]);
+  const openCreateDialog = useCallback(() => setCreateDialogOpen(true), []);
+  const closeCreateDialog = useCallback(() => setCreateDialogOpen(false), []);
 
   useEffect(() => {
-    setCurrentBookId(primaryDraft?.id ?? null);
-  }, [primaryDraft?.id, setCurrentBookId]);
+    setCurrentBookId(primaryBook?.id ?? null);
+  }, [primaryBook?.id, setCurrentBookId]);
 
   return (
-    <WorkspaceLayout
-      header={
-        <PageHeader
-          eyebrow="Home"
-          title="Workspace"
-          description="Continue the current book, check today’s movement, and review what changed."
-          actions={<CreateBookEntry />}
-        />
-      }
-      main={
-        <div className="space-y-10">
-          <section>
-            <WorkspaceSurface className="p-6 sm:p-8">
-              <p className="text-eyebrow">Continue writing</p>
-              {primaryDraft ? (
-                <div className="mt-4 flex flex-col gap-5 sm:flex-row sm:items-end sm:justify-between">
-                  <div className="min-w-0">
-                    <h2 className="truncate text-[32px] font-semibold tracking-tight text-slate-900 dark:text-white">
-                      {primaryDraft.title}
-                    </h2>
-                    <p className="mt-2 text-[15px] text-slate-500 dark:text-white/45">
-                      {formatUpdatedAt(primaryDraft.updatedAt)}
-                    </p>
-                  </div>
-                  <Link href={`/author/books/${primaryDraft.id}`}>
-                    <Button size="lg">Resume writing</Button>
-                  </Link>
-                </div>
-              ) : (
-                <div className="mt-4 flex flex-col gap-5 sm:flex-row sm:items-end sm:justify-between">
-                  <div>
-                    <h2 className="text-[28px] font-semibold tracking-tight text-slate-900 dark:text-white">
-                      Start your first book
-                    </h2>
-                    <p className="mt-2 text-[15px] text-slate-500 dark:text-white/45">
-                      Create a book to open the writing workspace.
-                    </p>
-                  </div>
-                  <CreateBookEntry />
-                </div>
-              )}
-            </WorkspaceSurface>
-          </section>
+    <>
+      <WorkspaceLayout
+        header={
+          <header>
+            <h1 className="text-[18px] font-medium uppercase tracking-[0.16em] text-slate-500">
+              Dashboard
+            </h1>
+          </header>
+        }
+        main={
+          <div className="space-y-8">
+            <section className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+              <div className="flex flex-wrap gap-3 sm:gap-4">
+                <DashboardFilter
+                  ariaLabel="Filter books"
+                  name="books-filter"
+                  options={bookFilterOptions}
+                />
+                <DashboardFilter
+                  ariaLabel="Filter time range"
+                  name="time-filter"
+                  options={[
+                    { value: "this-week", label: "This week" },
+                    { value: "last-week", label: "Last week" },
+                    { value: "this-month", label: "This month" },
+                  ]}
+                />
+              </div>
 
-          <section className="border-y border-slate-200/80 py-4 dark:border-white/10">
-            <dl className="flex flex-wrap gap-x-10 gap-y-4">
-              <div>
-                <dt className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400 dark:text-white/35">
-                  Readers today
-                </dt>
-                <dd className="mt-1 text-sm text-slate-900 dark:text-white">
-                  {readersToday.toLocaleString("sv-SE")}
-                </dd>
-              </div>
-              <div>
-                <dt className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400 dark:text-white/35">
-                  Subscribers
-                </dt>
-                <dd className="mt-1 text-sm text-slate-900 dark:text-white">
-                  {subscriberCount.toLocaleString("sv-SE")}
-                </dd>
-              </div>
-              <div>
-                <dt className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400 dark:text-white/35">
-                  Active production jobs
-                </dt>
-                <dd className="mt-1 text-sm text-slate-900 dark:text-white">
-                  {activeJobs.length}
-                </dd>
-              </div>
-            </dl>
-          </section>
+              <div className="flex flex-wrap items-center gap-3">
+                <Button
+                  type="button"
+                  aria-label="Create new book"
+                  onClick={openCreateDialog}
+                  className="h-10 rounded-lg border-0 bg-gradient-to-r from-purple-500 to-indigo-500 px-4 text-sm text-white shadow-[0_8px_20px_rgba(124,108,255,0.24)] hover:from-purple-600 hover:to-indigo-600"
+                >
+                  <Plus className="h-4 w-4" aria-hidden="true" />
+                  Create new book
+                </Button>
 
-          <section>
-            <div className="flex items-center justify-between gap-4">
-              <div>
-                <p className="text-eyebrow">Recent activity</p>
-                <h2 className="mt-2 text-section-title">Latest changes</h2>
+                <Link
+                  href={resolveCommandHref("translate-book", {
+                    bookId: primaryBook?.id ?? null,
+                  })}
+                  aria-label="Translate selected book"
+                  className="inline-flex h-10 items-center gap-2 rounded-lg border border-slate-200 bg-white px-4 text-sm font-medium text-slate-700 transition hover:border-slate-300 hover:bg-slate-50"
+                >
+                  <Languages className="h-4 w-4 text-[#7C6CFF]" aria-hidden="true" />
+                  Translate book
+                </Link>
+
+                <Link
+                  href={resolveCommandHref("generate-audiobook", {
+                    bookId: primaryBook?.id ?? null,
+                  })}
+                  aria-label="Create audiobook for selected book"
+                  className="inline-flex h-10 items-center gap-2 rounded-lg border border-slate-200 bg-white px-4 text-sm font-medium text-slate-700 transition hover:border-slate-300 hover:bg-slate-50"
+                >
+                  <AudioLines className="h-4 w-4 text-[#7C6CFF]" aria-hidden="true" />
+                  Create audiobook
+                </Link>
               </div>
-            </div>
-            {activityFeed.length > 0 ? (
-              <div className="mt-5 divide-y divide-slate-200/80 dark:divide-white/10">
-                {activityFeed.map((item) => (
-                  <Link
-                    key={item.id}
-                    href={item.href}
-                    className="flex items-start justify-between gap-4 py-4 transition first:pt-0 hover:text-slate-600 dark:hover:text-white/80"
-                  >
-                    <div className="min-w-0">
-                      <p className="text-sm font-medium text-slate-900 dark:text-white">
-                        {item.label}
-                      </p>
-                      <p className="mt-1 text-sm text-slate-500 dark:text-white/45">
-                        {item.detail}
-                      </p>
-                    </div>
-                    <span className="shrink-0 text-xs text-slate-400 dark:text-white/35">
-                      {formatRelativeTime(item.timestamp)}
-                    </span>
-                  </Link>
-                ))}
-              </div>
-            ) : (
-              <p className="mt-5 text-sm text-slate-500 dark:text-white/45">
-                Activity will appear here when this book changes.
-              </p>
-            )}
-          </section>
-        </div>
-      }
-    />
+            </section>
+
+            <section className="grid grid-cols-1 gap-6 md:grid-cols-2 xl:grid-cols-5">
+              {statCards.map((stat) => (
+                <StatsCard
+                  key={stat.label}
+                  icon={stat.icon}
+                  label={stat.label}
+                  growth={stat.growth}
+                  value={stat.value}
+                  toneClassName={stat.toneClassName}
+                />
+              ))}
+            </section>
+
+            <section className="grid grid-cols-1 gap-6 xl:grid-cols-2">
+              <CountrySalesCard items={PREVIEW_COUNTRY_SALES} />
+              <ActivityList items={activityItems} />
+            </section>
+
+            <section>
+              <BooksTable items={tableRows} />
+            </section>
+          </div>
+        }
+      />
+
+      <CreateBookDialog
+        open={createDialogOpen}
+        onClose={closeCreateDialog}
+      />
+    </>
   );
 }

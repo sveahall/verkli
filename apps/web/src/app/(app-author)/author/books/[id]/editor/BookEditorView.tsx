@@ -44,10 +44,6 @@ const TiptapEditor = dynamic(() => import("@/components/editor/TiptapEditor"), {
   ssr: false,
   loading: () => <div className="h-[400px] animate-pulse rounded-xl bg-slate-100 dark:bg-white/5" />,
 });
-const FeatureAiAssistantPanel = dynamic(() => import("@/features/book-workspace/AiAssistantPanel"), {
-  ssr: false,
-  loading: () => <div className="min-h-[calc(100vh-12rem)] animate-pulse bg-slate-100/60 dark:bg-white/5" />,
-});
 const PrintPanel = dynamic(() => import("./panels/PrintPanel"));
 const TranslatePanel = dynamic(() => import("./panels/TranslatePanel"));
 const PolishPanel = dynamic(() => import("./panels/PolishPanel"));

@@ -152,7 +152,7 @@ export default function AuthorSidebar() {
 
   return (
     <aside className="border-b border-black/[0.06] bg-white/80 backdrop-blur-xl dark:border-white/10 dark:bg-[#070b14]/85 lg:sticky lg:top-0 lg:flex lg:h-screen lg:flex-col lg:border-b-0 lg:border-r lg:border-black/[0.04] dark:lg:border-white/[0.08]">
-      <div className="px-4 py-8 lg:px-5">
+      <div className="px-4 py-8 lg:px-4">
         <Link href="/author/home" className="inline-flex items-center">
           <div>
             <Image
@@ -167,7 +167,7 @@ export default function AuthorSidebar() {
         </Link>
       </div>
 
-      <nav className="flex gap-2 overflow-x-auto px-4 pb-6 lg:flex-1 lg:flex-col lg:overflow-visible lg:px-3">
+      <nav className="flex gap-2 overflow-x-auto px-4 pb-6 lg:flex-1 lg:flex-col lg:overflow-visible lg:px-2.5">
         {AUTHOR_WORKFLOW_NAV.map((item) => (
           item.children ? (
             <div key={item.key} className="space-y-1">
@@ -209,7 +209,7 @@ export default function AuthorSidebar() {
         ))}
       </nav>
 
-      <div className="border-t border-black/[0.06] px-4 py-4 dark:border-white/10 lg:px-3">
+      <div className="border-t border-black/[0.06] px-4 py-4 dark:border-white/10 lg:px-2.5">
         <div className="flex gap-2 overflow-x-auto lg:flex-col lg:overflow-visible">
           {AUTHOR_SIDEBAR_FOOTER.map((item) => (
             <SidebarLeafLink

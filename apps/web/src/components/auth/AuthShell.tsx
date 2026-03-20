@@ -11,7 +11,6 @@ export type AuthShellProps = {
 export default function AuthShell({
   children,
   backHref = "/",
-  backLabel = "Back to Verkli",
 }: AuthShellProps) {
   return (
     <main className="relative grid min-h-screen min-h-svh place-items-center overflow-hidden bg-[#f5f5f7] text-foreground dark:bg-[#0a0a0f]">
