@@ -103,8 +103,6 @@ export default function TiptapEditor({
   preset = "novel",
   onWordCount,
   onDirty,
-  onFocusModeToggle: _onFocusModeToggle,
-  focusMode: _focusMode = false,
   onInlineAction,
 }: TiptapEditorProps) {
   const mounted = useSyncExternalStore(

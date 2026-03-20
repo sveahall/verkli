@@ -201,7 +201,7 @@ export function AuthorWorkspaceProvider({ children }: { children: ReactNode }) {
     }
 
     dispatch({ type: "set-selected-job", jobId });
-  }, [searchParams, state.currentBookId]);
+  }, [pathname, searchParams, state.currentBookId]);
 
   useEffect(() => {
     if (booksLoading || !state.currentBookId) return;
