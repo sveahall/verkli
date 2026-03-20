@@ -17,27 +17,27 @@ export default function StatsCard({
   toneClassName,
 }: StatsCardProps) {
   return (
-    <article className="rounded-xl border border-slate-200 bg-white p-6">
+    <article className="min-h-[118px] rounded-2xl bg-white px-4 py-3.5">
       <div
         className={cn(
-          "mb-6 flex h-10 w-10 items-center justify-center rounded-full",
+          "mb-4 flex h-10 w-10 items-center justify-center rounded-full",
           toneClassName
         )}
       >
         {icon}
       </div>
-      <div className="space-y-2">
-        <div className="flex items-center gap-2">
-          <p className="text-xs font-medium uppercase tracking-wide text-slate-500">
+      <div className="space-y-1.5">
+        <div className="flex items-center gap-1.5">
+          <p className="text-[11px] font-medium uppercase tracking-[0.08em] text-[#6D7386]">
             {label}
           </p>
           {growth ? (
-            <span className="text-xs font-medium text-green-600">
+            <span className="text-[11px] font-medium text-[#1FA971]">
               {growth}&thinsp;&#8599;
             </span>
           ) : null}
         </div>
-        <p className="text-3xl font-semibold text-slate-900">{value}</p>
+        <p className="text-3xl font-semibold leading-none text-slate-900">{value}</p>
       </div>
     </article>
   );

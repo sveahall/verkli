@@ -8,7 +8,7 @@ export type AuthorWorkflowKey =
   | "analytics";
 
 export type AuthorSidebarLink = {
-  key: AuthorWorkflowKey | "profile" | "settings";
+  key: AuthorWorkflowKey | "profile" | "settings" | "switch-to-reader";
   label: string;
   href: string;
   icon: string;
@@ -88,7 +88,7 @@ export const AUTHOR_WORKFLOW_NAV: AuthorSidebarLink[] = [
   },
   {
     key: "audience",
-    label: "Audience",
+    label: "Marketing",
     href: "/author/audience",
     icon: "audience",
     bookScoped: true,
@@ -135,6 +135,7 @@ export const AUTHOR_WORKFLOW_NAV: AuthorSidebarLink[] = [
 export const AUTHOR_SIDEBAR_FOOTER: AuthorSidebarLink[] = [
   { key: "profile", label: "Profile", href: "/author/profile", icon: "profile" },
   { key: "settings", label: "Settings", href: "/author/settings", icon: "settings" },
+  { key: "switch-to-reader", label: "Switch to reader", href: "/reader/home", icon: "switch-to-reader" },
 ];
 
 export const NAV_CONFIG: Record<NavVariant, NavConfig> = {

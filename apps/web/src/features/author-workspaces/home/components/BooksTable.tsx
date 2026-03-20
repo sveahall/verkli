@@ -40,10 +40,10 @@ function StatusBadge({ status }: { status: BooksTableItem["status"] }) {
   return (
     <span
       className={cn(
-        "inline-flex rounded-md px-2 py-1 text-xs font-medium",
+        "inline-flex rounded-md px-2 py-0.5 text-[13px] font-medium",
         status === "Published"
-          ? "bg-green-100 text-green-700"
-          : "bg-slate-100 text-slate-600"
+          ? "bg-[#E7F8EE] text-[#17A161]"
+          : "bg-[#F1F3F8] text-[#70788B]"
       )}
     >
       {status}
@@ -57,41 +57,41 @@ type BooksTableProps = {
 
 export default function BooksTable({ items }: BooksTableProps) {
   return (
-    <section className="rounded-xl border border-slate-200 bg-white p-6">
+    <section className="rounded-2xl bg-white px-7 py-5">
       {items.length > 0 ? (
         <div className="overflow-x-auto">
           <Table className="min-w-[640px]">
-            <TableHeader className="border-slate-200">
+            <TableHeader className="border-0">
               <tr>
-                <TableHead className="py-3 text-sm font-semibold normal-case tracking-normal text-slate-900">
+                <TableHead className="py-2.5 text-sm font-semibold normal-case tracking-normal text-slate-900">
                   Title
                 </TableHead>
-                <TableHead className="py-3 text-sm font-semibold normal-case tracking-normal text-slate-900">
+                <TableHead className="py-2.5 text-sm font-semibold normal-case tracking-normal text-slate-900">
                   Type
                 </TableHead>
-                <TableHead className="py-3 text-sm font-semibold normal-case tracking-normal text-slate-900">
+                <TableHead className="py-2.5 text-sm font-semibold normal-case tracking-normal text-slate-900">
                   Status
                 </TableHead>
-                <TableHead className="py-3 text-sm font-semibold normal-case tracking-normal text-slate-900">
+                <TableHead className="py-2.5 text-sm font-semibold normal-case tracking-normal text-slate-900">
                   Readers
                 </TableHead>
-                <TableHead className="py-3 text-sm font-semibold normal-case tracking-normal text-slate-900">
+                <TableHead className="py-2.5 text-sm font-semibold normal-case tracking-normal text-slate-900">
                   Updated
                 </TableHead>
-                <TableHead className="py-3 text-right text-sm font-semibold normal-case tracking-normal text-slate-900">
+                <TableHead className="py-2.5 text-right text-sm font-semibold normal-case tracking-normal text-slate-900">
                   Actions
                 </TableHead>
               </tr>
             </TableHeader>
 
-            <TableBody>
+            <TableBody className="divide-y-0">
               {items.map((item, index) => (
                 <TableRow key={item.id} className="hover:bg-transparent">
                   <TableCell className="py-4">
                     <div className="flex items-center gap-3">
                       <div
                         className={cn(
-                          "flex h-10 w-10 shrink-0 items-center justify-center rounded-md bg-gradient-to-br text-xs font-semibold text-white",
+                          "flex h-9 w-9 shrink-0 items-center justify-center rounded-md bg-gradient-to-br text-[11px] font-semibold text-white",
                           COVER_TONES[index % COVER_TONES.length]
                         )}
                       >
@@ -106,19 +106,19 @@ export default function BooksTable({ items }: BooksTableProps) {
                       </Link>
                     </div>
                   </TableCell>
-                  <TableCell className="py-4 text-sm text-slate-700">
+                  <TableCell className="py-2 text-sm text-slate-600">
                     {item.type}
                   </TableCell>
-                  <TableCell className="py-4 text-sm text-slate-700">
+                  <TableCell className="py-2 text-sm text-slate-600">
                     <StatusBadge status={item.status} />
                   </TableCell>
-                  <TableCell className="py-4 text-sm text-slate-700">
+                  <TableCell className="py-2 text-sm text-slate-600">
                     {item.readers}
                   </TableCell>
-                  <TableCell className="py-4 text-sm text-slate-700">
+                  <TableCell className="py-2 text-sm text-slate-600">
                     {item.updated}
                   </TableCell>
-                  <TableCell className="py-4 text-right">
+                  <TableCell className="py-2 text-right">
                     <Link
                       href={item.href}
                       aria-label={`Open ${item.title}`}

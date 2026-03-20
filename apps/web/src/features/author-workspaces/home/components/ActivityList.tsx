@@ -14,21 +14,21 @@ type ActivityListProps = {
 
 export default function ActivityList({ items }: ActivityListProps) {
   return (
-    <section className="rounded-xl border border-slate-200 bg-white p-6">
+    <section className="rounded-2xl bg-white px-7 py-5">
       <h2 className="text-lg font-semibold text-slate-900">Recent activity</h2>
 
       {items.length > 0 ? (
-        <div className="mt-5 space-y-3">
+        <div className="mt-4 space-y-4">
           {items.map((item) => (
             <Link
               key={item.id}
               href={item.href}
-              className="flex items-start justify-between gap-4 rounded-lg py-1 transition hover:bg-slate-50/70"
+              className="flex items-start justify-between gap-4 rounded-lg py-0.5 transition hover:bg-slate-50/70"
             >
               <div className="flex min-w-0 gap-3">
                 <span
                   aria-hidden="true"
-                  className="mt-1.5 h-2 w-2 shrink-0 rounded-full bg-purple-500"
+                  className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-[#7C6CFF]"
                 />
                 <div className="min-w-0">
                   <p className="text-sm font-medium text-slate-900">
@@ -39,7 +39,7 @@ export default function ActivityList({ items }: ActivityListProps) {
                   </p>
                 </div>
               </div>
-              <span className="shrink-0 text-sm text-slate-500">
+              <span className="shrink-0 pt-0.5 text-sm text-slate-500">
                 {item.timestamp}
               </span>
             </Link>

@@ -52,11 +52,11 @@ function WorldMapPlaceholder() {
 
 export default function CountrySalesCard({ items }: CountrySalesCardProps) {
   return (
-    <section className="rounded-xl border border-slate-200 bg-white p-6">
+    <section className="rounded-2xl bg-white px-7 py-5">
       <h2 className="text-lg font-semibold text-slate-900">Sales by country</h2>
 
-      <div className="mt-5 flex items-start justify-between gap-6">
-        <ul className="flex flex-col gap-2">
+      <div className="mt-4 flex items-start justify-between gap-6">
+        <ul className="flex flex-col gap-2.5 pt-1">
           {items.map((item) => (
             <li
               key={item.country}
@@ -65,7 +65,7 @@ export default function CountrySalesCard({ items }: CountrySalesCardProps) {
               <span className="inline-flex items-center gap-2.5">
                 <span
                   aria-hidden="true"
-                  className="h-2 w-2 rounded-full bg-purple-500"
+                  className="h-1.5 w-1.5 rounded-full bg-[#7C6CFF]"
                 />
                 {item.country}
               </span>
@@ -74,7 +74,7 @@ export default function CountrySalesCard({ items }: CountrySalesCardProps) {
           ))}
         </ul>
 
-        <div className="hidden min-h-[160px] flex-1 lg:block">
+        <div className="hidden min-h-[180px] flex-1 lg:block">
           <WorldMapPlaceholder />
         </div>
       </div>

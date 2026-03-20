@@ -1,13 +1,15 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   AudioLines,
+  Bell,
   Coins,
   Languages,
   MessageSquareText,
   Plus,
+  Search,
   ThumbsUp,
   Users,
   UserRoundPlus,
@@ -93,34 +95,70 @@ function DashboardFilter({
   name: string;
   options: Array<{ value: string; label: string }>;
 }) {
+  const [open, setOpen] = useState(false);
+  const [selected, setSelected] = useState(options[0]?.value ?? "");
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    function handleClickOutside(e: MouseEvent) {
+      if (ref.current && !ref.current.contains(e.target as Node)) {
+        setOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  const selectedLabel = options.find((o) => o.value === selected)?.label ?? "";
+
   return (
-    <div className="relative">
-      <select
+    <div ref={ref} className="relative">
+      <input type="hidden" name={name} value={selected} />
+      <button
+        type="button"
         aria-label={ariaLabel}
-        name={name}
-        defaultValue={options[0]?.value}
-        className="h-10 min-w-[150px] appearance-none rounded-lg border border-slate-200 bg-white px-4 pr-9 text-sm font-medium text-slate-700 outline-none transition focus:border-[#907AFF]/35 focus:ring-2 focus:ring-[#907AFF]/20"
+        aria-expanded={open}
+        onClick={() => setOpen((prev) => !prev)}
+        className="flex h-10 min-w-[132px] items-center justify-between gap-2 rounded-full bg-white px-4 text-[14px] font-normal text-[#5C6375] outline-none transition hover:bg-slate-50 focus:ring-2 focus:ring-[#907AFF]/20"
       >
-        {options.map((option) => (
-          <option key={option.value} value={option.value}>
-            {option.label}
-          </option>
-        ))}
-      </select>
-      <svg
-        aria-hidden="true"
-        viewBox="0 0 20 20"
-        fill="none"
-        className="pointer-events-none absolute right-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-400"
-      >
-        <path
-          d="M5 7.5 10 12.5 15 7.5"
-          stroke="currentColor"
-          strokeWidth="1.5"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-        />
-      </svg>
+        <span>{selectedLabel}</span>
+        <svg
+          aria-hidden="true"
+          viewBox="0 0 20 20"
+          fill="none"
+          className={`h-3.5 w-3.5 shrink-0 text-slate-400 transition-transform ${open ? "rotate-180" : ""}`}
+        >
+          <path
+            d="M5 7.5 10 12.5 15 7.5"
+            stroke="currentColor"
+            strokeWidth="1.5"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          />
+        </svg>
+      </button>
+
+      {open ? (
+        <div className="absolute left-0 top-full z-50 mt-1.5 min-w-full overflow-hidden rounded-xl border border-slate-200/80 bg-white py-1 shadow-lg shadow-black/[0.08]">
+          {options.map((option) => (
+            <button
+              key={option.value}
+              type="button"
+              onClick={() => {
+                setSelected(option.value);
+                setOpen(false);
+              }}
+              className={`flex w-full items-center px-4 py-2.5 text-[14px] transition ${
+                option.value === selected
+                  ? "bg-[#F2EDFF] font-medium text-[#7C6CFF]"
+                  : "text-[#5C6375] hover:bg-slate-50"
+              }`}
+            >
+              {option.label}
+            </button>
+          ))}
+        </div>
+      ) : null}
     </div>
   );
 }
@@ -140,7 +178,7 @@ export default function HomeWorkspace({
       {
         label: "Sales",
         growth: "34%",
-        value: formatCompactNumber(stats.sales),
+        value: `€${formatCompactNumber(stats.sales)}`,
         icon: <Coins className="h-4 w-4" />,
         toneClassName: "bg-[#EEF4FF] text-[#4F74E7]",
       },
@@ -154,21 +192,21 @@ export default function HomeWorkspace({
       {
         label: "Subscribers",
         growth: "17%",
-        value: formatCompactNumber(stats.subscribers),
+        value: stats.subscribers.toLocaleString("en"),
         icon: <UserRoundPlus className="h-4 w-4" />,
         toneClassName: "bg-[#FCEFFF] text-[#E17AD5]",
       },
       {
         label: "Comments",
         growth: "19%",
-        value: formatCompactNumber(stats.comments),
+        value: stats.comments.toLocaleString("en"),
         icon: <MessageSquareText className="h-4 w-4" />,
         toneClassName: "bg-[#FFF3E8] text-[#F0A75B]",
       },
       {
         label: "Reviews",
         growth: "9%",
-        value: formatCompactNumber(stats.reviews),
+        value: stats.reviews.toLocaleString("en"),
         icon: <ThumbsUp className="h-4 w-4" />,
         toneClassName: "bg-[#FFF8DB] text-[#D8B53D]",
       },
@@ -227,13 +265,31 @@ export default function HomeWorkspace({
       <WorkspaceLayout
         header={
           <header>
-            <h1 className="text-[18px] font-medium uppercase tracking-[0.16em] text-slate-500">
+            <h1 className="text-[17px] font-medium uppercase tracking-[0.14em] text-[#8B92A5]">
               Dashboard
             </h1>
           </header>
         }
+        headerRight={
+          <div className="flex items-center gap-2.5 pr-0.5">
+            <button
+              type="button"
+              aria-label="Search"
+              className="flex h-9 w-9 items-center justify-center rounded-lg text-[#98A0B3] transition hover:bg-slate-100 hover:text-slate-600"
+            >
+              <Search className="h-5 w-5" />
+            </button>
+            <button
+              type="button"
+              aria-label="Notifications"
+              className="flex h-9 w-9 items-center justify-center rounded-lg text-[#98A0B3] transition hover:bg-slate-100 hover:text-slate-600"
+            >
+              <Bell className="h-5 w-5" />
+            </button>
+          </div>
+        }
         main={
-          <div className="space-y-8">
+          <div className="space-y-5">
             <section className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
               <div className="flex flex-wrap gap-3 sm:gap-4">
                 <DashboardFilter
@@ -252,12 +308,12 @@ export default function HomeWorkspace({
                 />
               </div>
 
-              <div className="flex flex-wrap items-center gap-3">
+              <div className="flex flex-wrap items-center gap-2.5">
                 <Button
                   type="button"
                   aria-label="Create new book"
                   onClick={openCreateDialog}
-                  className="h-10 rounded-lg border-0 bg-gradient-to-r from-purple-500 to-indigo-500 px-4 text-sm text-white shadow-[0_8px_20px_rgba(124,108,255,0.24)] hover:from-purple-600 hover:to-indigo-600"
+                  className="h-10 min-h-0 rounded-full border-0 bg-gradient-to-r from-[#8E79FF] to-[#7A6EFF] px-5 text-[14px] font-medium text-white hover:from-[#8570FF] hover:to-[#7062FF]"
                 >
                   <Plus className="h-4 w-4" aria-hidden="true" />
                   Create new book
@@ -268,7 +324,7 @@ export default function HomeWorkspace({
                     bookId: primaryBook?.id ?? null,
                   })}
                   aria-label="Translate selected book"
-                  className="inline-flex h-10 items-center gap-2 rounded-lg border border-slate-200 bg-white px-4 text-sm font-medium text-slate-700 transition hover:border-slate-300 hover:bg-slate-50"
+                  className="inline-flex h-10 items-center gap-2 rounded-full bg-white px-4 text-[14px] font-medium text-[#4E5669] transition hover:bg-slate-50"
                 >
                   <Languages className="h-4 w-4 text-[#7C6CFF]" aria-hidden="true" />
                   Translate book
@@ -279,7 +335,7 @@ export default function HomeWorkspace({
                     bookId: primaryBook?.id ?? null,
                   })}
                   aria-label="Create audiobook for selected book"
-                  className="inline-flex h-10 items-center gap-2 rounded-lg border border-slate-200 bg-white px-4 text-sm font-medium text-slate-700 transition hover:border-slate-300 hover:bg-slate-50"
+                  className="inline-flex h-10 items-center gap-2 rounded-full bg-white px-4 text-[14px] font-medium text-[#4E5669] transition hover:bg-slate-50"
                 >
                   <AudioLines className="h-4 w-4 text-[#7C6CFF]" aria-hidden="true" />
                   Create audiobook
@@ -287,7 +343,7 @@ export default function HomeWorkspace({
               </div>
             </section>
 
-            <section className="grid grid-cols-1 gap-6 md:grid-cols-2 xl:grid-cols-5">
+            <section className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-5">
               {statCards.map((stat) => (
                 <StatsCard
                   key={stat.label}
@@ -300,7 +356,7 @@ export default function HomeWorkspace({
               ))}
             </section>
 
-            <section className="grid grid-cols-1 gap-6 xl:grid-cols-2">
+            <section className="grid grid-cols-1 gap-4 xl:grid-cols-2">
               <CountrySalesCard items={PREVIEW_COUNTRY_SALES} />
               <ActivityList items={activityItems} />
             </section>
