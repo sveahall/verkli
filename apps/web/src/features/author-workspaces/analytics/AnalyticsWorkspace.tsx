@@ -4,13 +4,10 @@ import dynamic from "next/dynamic";
 import { useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
-import { PageHeader } from "@/components/ui/page-header";
 import { useAuthorWorkspace } from "@/features/author-shell/workspace-state";
-import {
-  WorkspaceMetric,
-  WorkspaceSurface,
-} from "@/features/author-workspaces/WorkspaceLayout";
+import { WorkspaceMetric } from "@/features/author-workspaces/WorkspaceLayout";
 import WorkspaceLayout from "@/features/author-workspaces/WorkspaceLayout";
+import WorkspaceHeaderActions from "@/features/author-workspaces/components/WorkspaceHeaderActions";
 
 const AnalyticsCharts = dynamic(
   () => import("@/features/author-workspaces/analytics/AnalyticsCharts"),
@@ -66,24 +63,6 @@ type AnalyticsWorkspaceProps = {
   books: Array<{ id: string; title: string }>;
 };
 
-const ANALYTICS_SECTION_META: Record<
-  AnalyticsSection,
-  { title: string; description: string }
-> = {
-  overview: {
-    title: "Overview",
-    description: "Review the current story and the core outcome metrics in one place.",
-  },
-  "reading-behavior": {
-    title: "Reading behavior",
-    description: "See how readers move through chapters and where attention drops.",
-  },
-  revenue: {
-    title: "Revenue",
-    description: "Keep revenue totals and breakdowns visible without extra widgets.",
-  },
-};
-
 function normalizeSection(value: string | null | undefined): AnalyticsSection {
   if (value === "reading-behavior") return "reading-behavior";
   if (value === "revenue") return "revenue";
@@ -106,7 +85,6 @@ export default function AnalyticsWorkspace({
   const [refreshNonce, setRefreshNonce] = useState(0);
 
   const section = normalizeSection(searchParams.get("section"));
-  const sectionMeta = ANALYTICS_SECTION_META[section];
   const selectedBookId =
     searchParams.get("bookId") ?? searchParams.get("book") ?? books[0]?.id ?? null;
   const selectedBook =
@@ -195,7 +173,7 @@ export default function AnalyticsWorkspace({
   ).trim()}`;
 
   const renderOverview = () => (
-    <div className="space-y-8">
+    <div className="space-y-5">
       <section>
         <p className="text-eyebrow">Story</p>
         <h2 className="mt-3 text-[32px] font-semibold tracking-tight text-slate-900 dark:text-white">
@@ -206,7 +184,7 @@ export default function AnalyticsWorkspace({
         </p>
       </section>
 
-      <section className="border-y border-slate-200/80 py-4 dark:border-white/10">
+      <section className="rounded-2xl bg-white px-6 py-4 dark:bg-white/[0.04]">
         <dl className="flex flex-wrap gap-x-10 gap-y-4">
           <WorkspaceMetric
             label="Readers"
@@ -221,14 +199,14 @@ export default function AnalyticsWorkspace({
         </dl>
       </section>
 
-      <WorkspaceSurface className="p-6 sm:p-7">
+      <div className="rounded-2xl bg-white p-6 dark:bg-white/[0.04] sm:p-7">
         <AnalyticsCharts dailyChart={data.stats?.dailyChart ?? []} />
-      </WorkspaceSurface>
+      </div>
     </div>
   );
 
   const renderReadingBehavior = () => (
-    <WorkspaceSurface className="p-6 sm:p-7">
+    <div className="rounded-2xl bg-white p-6 dark:bg-white/[0.04] sm:p-7">
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div>
           <p className="text-eyebrow">Reading behavior</p>
@@ -242,7 +220,7 @@ export default function AnalyticsWorkspace({
               onClick={() => setPeriod(value)}
               className={`rounded-lg px-4 py-1.5 text-[13px] font-medium transition ${
                 period === value
-                  ? "bg-white text-slate-900 shadow-sm dark:bg-slate-800 dark:text-white"
+                  ? "bg-[#F2EDFF] text-[#7C6CFF] dark:bg-[#7C6CFF]/15 dark:text-white"
                   : "text-slate-500 hover:text-slate-700 dark:text-white/50 dark:hover:text-white/80"
               }`}
             >
@@ -281,20 +259,20 @@ export default function AnalyticsWorkspace({
           ))}
         </div>
       )}
-    </WorkspaceSurface>
+    </div>
   );
 
   const renderRevenue = () => (
-    <div className="space-y-8">
-      <WorkspaceSurface className="p-6 sm:p-7">
+    <div className="space-y-5">
+      <div className="rounded-2xl bg-white p-6 dark:bg-white/[0.04] sm:p-7">
         <p className="text-eyebrow">Revenue</p>
         <h2 className="mt-2 text-section-title">Total revenue</h2>
         <p className="mt-4 text-[32px] font-semibold tracking-tight text-slate-900 dark:text-white">
           {revenueLabel}
         </p>
-      </WorkspaceSurface>
+      </div>
 
-      <WorkspaceSurface className="p-6 sm:p-7">
+      <div className="rounded-2xl bg-white p-6 dark:bg-white/[0.04] sm:p-7">
         <p className="text-eyebrow">Breakdown</p>
         <dl className="mt-4 grid gap-4 sm:grid-cols-2">
           <div>
@@ -314,64 +292,69 @@ export default function AnalyticsWorkspace({
             </dd>
           </div>
         </dl>
-      </WorkspaceSurface>
+      </div>
     </div>
   );
 
   return (
     <WorkspaceLayout
       header={
-        <PageHeader
-          eyebrow="Analytics"
-          title={sectionMeta.title}
-          description={sectionMeta.description}
-          actions={
-            <>
-              {books.length > 0 ? (
-                <select
-                  value={selectedBookId ?? ""}
-                  onChange={(event) => updateQuery({ bookId: event.target.value || null })}
-                  className="input-base min-h-[40px] w-auto min-w-[160px] text-[14px]"
-                  aria-label="Select book"
-                >
-                  {books.map((book) => (
-                    <option key={book.id} value={book.id}>
-                      {book.title}
-                    </option>
-                  ))}
-                </select>
-              ) : null}
-              <Button onClick={() => setRefreshNonce((current) => current + 1)}>
+        <header>
+          <h1 className="text-[17px] font-medium uppercase tracking-[0.14em] text-[#8B92A5] dark:text-white/50">
+            Analytics
+          </h1>
+        </header>
+      }
+      headerRight={<WorkspaceHeaderActions />}
+      main={
+        <>
+          {books.length > 0 ? (
+            <div className="mb-5 flex flex-wrap items-center gap-3">
+              <select
+                value={selectedBookId ?? ""}
+                onChange={(event) => updateQuery({ bookId: event.target.value || null })}
+                className="h-10 min-w-[160px] rounded-full border-0 bg-white px-4 text-[14px] text-[#5C6375] outline-none ring-1 ring-slate-200/80 focus:ring-2 focus:ring-[#907AFF]/30 dark:bg-white/[0.06] dark:text-white/60 dark:ring-white/10"
+                aria-label="Select book"
+              >
+                {books.map((book) => (
+                  <option key={book.id} value={book.id}>
+                    {book.title}
+                  </option>
+                ))}
+              </select>
+              <Button
+                className="rounded-full"
+                onClick={() => setRefreshNonce((current) => current + 1)}
+              >
                 Refresh analytics
               </Button>
-            </>
-          }
-        />
-      }
-      main={
-        loading ? (
-          <div className="space-y-4">
-            <div className="h-[120px] animate-pulse rounded-2xl bg-slate-100 dark:bg-white/5" />
-            <div className="h-[72px] animate-pulse rounded-2xl bg-slate-100 dark:bg-white/5" />
-            <div className="h-[360px] animate-pulse rounded-2xl bg-slate-100 dark:bg-white/5" />
-          </div>
-        ) : books.length === 0 ? (
-          <WorkspaceSurface className="border-dashed p-8 text-center sm:p-10">
-            <p className="text-eyebrow">Analytics</p>
-            <h2 className="mt-4 text-[30px] font-semibold tracking-tight text-slate-900 dark:text-white">
-              Story signals appear once readers have something to read
-            </h2>
-            <p className="mx-auto mt-3 max-w-xl text-[15px] leading-relaxed text-slate-500 dark:text-white/45">
-              Create and publish a book, then return here to understand how readers move through the story.
-            </p>
-          </WorkspaceSurface>
-        ) : section === "overview" ? (
-          renderOverview()
-        ) : section === "reading-behavior" ? (
-          renderReadingBehavior()
-        ) : (
-          renderRevenue()
-        )
+            </div>
+          ) : null}
+
+          {loading ? (
+            <div className="space-y-4">
+              <div className="h-[120px] animate-pulse rounded-2xl bg-slate-100 dark:bg-white/5" />
+              <div className="h-[72px] animate-pulse rounded-2xl bg-slate-100 dark:bg-white/5" />
+              <div className="h-[360px] animate-pulse rounded-2xl bg-slate-100 dark:bg-white/5" />
+            </div>
+          ) : books.length === 0 ? (
+            <div className="rounded-2xl bg-white p-8 text-center dark:bg-white/[0.04] sm:p-10">
+              <p className="text-eyebrow">Analytics</p>
+              <h2 className="mt-4 text-[30px] font-semibold tracking-tight text-slate-900 dark:text-white">
+                Story signals appear once readers have something to read
+              </h2>
+              <p className="mx-auto mt-3 max-w-xl text-[15px] leading-relaxed text-slate-500 dark:text-white/45">
+                Create and publish a book, then return here to understand how readers move through the story.
+              </p>
+            </div>
+          ) : section === "overview" ? (
+            renderOverview()
+          ) : section === "reading-behavior" ? (
+            renderReadingBehavior()
+          ) : (
+            renderRevenue()
+          )}
+        </>
       }
     />
   );

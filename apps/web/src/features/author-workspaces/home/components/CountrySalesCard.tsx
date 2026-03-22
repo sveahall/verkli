@@ -1,3 +1,8 @@
+"use client";
+
+import { useCallback, useRef, useState, useSyncExternalStore } from "react";
+import { WORLD_DOTS } from "./world-map-paths";
+
 type CountrySalesItem = {
   country: string;
   share: string;
@@ -7,75 +12,239 @@ type CountrySalesCardProps = {
   items: CountrySalesItem[];
 };
 
-function WorldMapPlaceholder() {
-  return (
-    <svg
-      aria-hidden="true"
-      viewBox="0 0 360 190"
-      className="h-full w-full text-[#4168C8]"
-      fill="none"
-    >
-      <defs>
-        <pattern
-          id="dashboard-world-dots"
-          width="8"
-          height="8"
-          patternUnits="userSpaceOnUse"
-        >
-          <circle cx="2.5" cy="2.5" r="2.1" fill="currentColor" />
-        </pattern>
-      </defs>
+/* Country display-name → ISO alpha-2 */
+const NAME_TO_ALPHA2: Record<string, string> = {
+  Poland: "PL", Schweiz: "CH", Switzerland: "CH", Sweden: "SE",
+  France: "FR", Italy: "IT", Germany: "DE", Spain: "ES",
+  Norway: "NO", Finland: "FI", Denmark: "DK",
+  "United Kingdom": "GB", UK: "GB", Ireland: "IE", Portugal: "PT",
+  Austria: "AT", "Czech Republic": "CZ", Czechia: "CZ",
+  Netherlands: "NL", Belgium: "BE", Romania: "RO", Hungary: "HU",
+  Greece: "GR", Ukraine: "UA", Croatia: "HR", Serbia: "RS",
+  Slovakia: "SK", USA: "US", "United States": "US",
+  Brazil: "BR", Japan: "JP", Australia: "AU", Canada: "CA",
+  China: "CN", India: "IN", Mexico: "MX", Russia: "RU",
+};
 
-      <path
-        d="M35 61c12-13 25-17 42-18l17-13 30 4 11 17 22 4-10 16-20 4-16 31-21 18-18-10-7-27-12-8-7-18-11-7Z"
-        fill="url(#dashboard-world-dots)"
-      />
-      <path
-        d="m118 117 17 10 9 22-8 24-10 15-10-8-1-19 3-26Z"
-        fill="url(#dashboard-world-dots)"
-      />
-      <path
-        d="m192 45 24-8 27 7 22-4 18 11-11 11 10 16-14 8-5 18-18 18-16 1-9 25-20 18-15-10 4-27-11-22 5-20-9-16 8-18Z"
-        fill="url(#dashboard-world-dots)"
-      />
-      <path
-        d="m282 35 22-7 33 16 12 28-8 19-10 11-15-3-14 16-11 23-18-9-2-24 7-15-8-14 5-16-12-12Z"
-        fill="url(#dashboard-world-dots)"
-      />
-      <path
-        d="m309 136 18-3 13 8 6 20-11 17-22-4-5-24Z"
-        fill="url(#dashboard-world-dots)"
-      />
-    </svg>
+/* ISO 3166-1 numeric → alpha-2 (world-atlas feature IDs) */
+const NUM_TO_ALPHA2: Record<string, string> = {
+  "040": "AT", "056": "BE", "100": "BG", "191": "HR", "196": "CY",
+  "203": "CZ", "208": "DK", "233": "EE", "246": "FI", "250": "FR",
+  "276": "DE", "300": "GR", "348": "HU", "352": "IS", "372": "IE",
+  "380": "IT", "428": "LV", "440": "LT", "442": "LU", "470": "MT",
+  "528": "NL", "578": "NO", "616": "PL", "620": "PT", "642": "RO",
+  "643": "RU", "688": "RS", "703": "SK", "705": "SI", "724": "ES",
+  "752": "SE", "756": "CH", "804": "UA", "826": "GB",
+  "840": "US", "124": "CA", "484": "MX", "076": "BR", "032": "AR",
+  "152": "CL", "170": "CO", "604": "PE",
+  "156": "CN", "392": "JP", "410": "KR", "356": "IN", "360": "ID",
+  "764": "TH", "704": "VN", "608": "PH", "458": "MY",
+  "036": "AU", "554": "NZ",
+  "818": "EG", "710": "ZA", "566": "NG", "404": "KE", "504": "MA",
+  "012": "DZ", "788": "TN",
+};
+
+/* ── Colour helpers ─────────────────────────────────────────────── */
+const BRAND_R = 144;
+const BRAND_G = 122;
+const BRAND_B = 255;
+const BASE_DOT_LIGHT = "#C8C1E8";
+const BASE_DOT_DARK = "#3D3660";
+
+function violet(t: number): string {
+  const r = Math.round(255 - (255 - BRAND_R) * t);
+  const g = Math.round(255 - (255 - BRAND_G) * t);
+  const b = Math.round(255 - (255 - BRAND_B) * t);
+  return `rgb(${r},${g},${b})`;
+}
+
+const DOT_R = 2.8;
+const VB_W = 800;
+const VB_H = 420;
+const MIN_ZOOM = 1;
+const MAX_ZOOM = 5;
+
+function isDarkSnapshot() {
+  return document.documentElement.classList.contains("dark");
+}
+
+function subscribeDark(cb: () => void) {
+  const obs = new MutationObserver(cb);
+  obs.observe(document.documentElement, { attributes: true, attributeFilter: ["class"] });
+  return () => obs.disconnect();
+}
+
+function useIsDark() {
+  return useSyncExternalStore(subscribeDark, isDarkSnapshot, () => false);
+}
+
+/* ── Interactive dotted world map ─────────────────────────────────── */
+function WorldMap({ items }: { items: CountrySalesItem[] }) {
+  const isDark = useIsDark();
+  const baseDot = isDark ? BASE_DOT_DARK : BASE_DOT_LIGHT;
+  const salesByAlpha2 = new Map<string, number>();
+  let maxVal = 0;
+  for (const item of items) {
+    const code = NAME_TO_ALPHA2[item.country];
+    const val = parseInt(item.share, 10);
+    if (code && !isNaN(val)) {
+      salesByAlpha2.set(code, val);
+      if (val > maxVal) maxVal = val;
+    }
+  }
+
+  /* zoom / pan state */
+  const [zoom, setZoom] = useState(1);
+  const [pan, setPan] = useState({ x: 0, y: 0 });
+  const dragging = useRef(false);
+  const dragStart = useRef({ x: 0, y: 0 });
+  const panStart = useRef({ x: 0, y: 0 });
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  const clampPan = useCallback(
+    (px: number, py: number, z: number) => {
+      const maxPanX = ((z - 1) * VB_W) / 2;
+      const maxPanY = ((z - 1) * VB_H) / 2;
+      return {
+        x: Math.max(-maxPanX, Math.min(maxPanX, px)),
+        y: Math.max(-maxPanY, Math.min(maxPanY, py)),
+      };
+    },
+    [],
+  );
+
+  const handleWheel = useCallback(
+    (e: React.WheelEvent) => {
+      e.preventDefault();
+      const next = Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, zoom - e.deltaY * 0.002));
+      setZoom(next);
+      setPan((p) => clampPan(p.x, p.y, next));
+    },
+    [zoom, clampPan],
+  );
+
+  const handlePointerDown = useCallback(
+    (e: React.PointerEvent) => {
+      if (zoom <= 1) return;
+      dragging.current = true;
+      dragStart.current = { x: e.clientX, y: e.clientY };
+      panStart.current = { ...pan };
+      (e.target as HTMLElement).setPointerCapture(e.pointerId);
+    },
+    [zoom, pan],
+  );
+
+  const handlePointerMove = useCallback(
+    (e: React.PointerEvent) => {
+      if (!dragging.current || !containerRef.current) return;
+      const rect = containerRef.current.getBoundingClientRect();
+      const scaleX = VB_W / rect.width;
+      const scaleY = VB_H / rect.height;
+      const dx = (e.clientX - dragStart.current.x) * scaleX;
+      const dy = (e.clientY - dragStart.current.y) * scaleY;
+      setPan(clampPan(panStart.current.x + dx, panStart.current.y + dy, zoom));
+    },
+    [zoom, clampPan],
+  );
+
+  const handlePointerUp = useCallback(() => {
+    dragging.current = false;
+  }, []);
+
+  const handleReset = useCallback(() => {
+    setZoom(1);
+    setPan({ x: 0, y: 0 });
+  }, []);
+
+  /* viewBox derived from zoom + pan */
+  const vbW = VB_W / zoom;
+  const vbH = VB_H / zoom;
+  const vbX = (VB_W - vbW) / 2 - pan.x / zoom;
+  const vbY = (VB_H - vbH) / 2 - pan.y / zoom;
+  const viewBox = `${vbX} ${vbY} ${vbW} ${vbH}`;
+
+  return (
+    <div
+      ref={containerRef}
+      className="relative h-full w-full"
+      style={{ cursor: zoom > 1 ? "grab" : "zoom-in" }}
+    >
+      <svg
+        viewBox={viewBox}
+        className="h-full w-full"
+        aria-hidden="true"
+        onWheel={handleWheel}
+        onPointerDown={handlePointerDown}
+        onPointerMove={handlePointerMove}
+        onPointerUp={handlePointerUp}
+        onPointerLeave={handlePointerUp}
+      >
+        {WORLD_DOTS.map((dot, i) => {
+          const alpha2 = NUM_TO_ALPHA2[dot.id];
+          const share = alpha2 ? salesByAlpha2.get(alpha2) : undefined;
+          const fill =
+            share !== undefined
+              ? violet(0.5 + (share / Math.max(maxVal, 1)) * 0.5)
+              : baseDot;
+          return (
+            <circle key={i} cx={dot.x} cy={dot.y} r={DOT_R} fill={fill} />
+          );
+        })}
+      </svg>
+
+      {zoom > 1 && (
+        <button
+          type="button"
+          onClick={handleReset}
+          className="absolute bottom-2 right-2 rounded-lg bg-white/80 px-2 py-1 text-xs font-medium text-slate-500 shadow-sm ring-1 ring-slate-200 backdrop-blur transition hover:text-slate-700 dark:bg-white/10 dark:text-white/60 dark:ring-white/10 dark:hover:text-white"
+        >
+          Reset
+        </button>
+      )}
+    </div>
   );
 }
 
+/* ── Main card ──────────────────────────────────────────────────── */
 export default function CountrySalesCard({ items }: CountrySalesCardProps) {
+  const maxVal = Math.max(
+    ...items.map((it) => parseInt(it.share, 10)).filter((n) => !isNaN(n)),
+    1,
+  );
+
   return (
-    <section className="rounded-2xl bg-white px-7 py-5">
-      <h2 className="text-lg font-semibold text-slate-900">Sales by country</h2>
+    <section className="rounded-2xl bg-white px-7 py-5 dark:bg-white/[0.04]">
+      <h2 className="text-lg font-semibold text-slate-900 dark:text-white">Sales by country</h2>
 
       <div className="mt-4 flex items-start justify-between gap-6">
-        <ul className="flex flex-col gap-2.5 pt-1">
-          {items.map((item) => (
-            <li
-              key={item.country}
-              className="flex items-center justify-between gap-6 text-sm text-slate-700"
-            >
-              <span className="inline-flex items-center gap-2.5">
-                <span
-                  aria-hidden="true"
-                  className="h-1.5 w-1.5 rounded-full bg-[#7C6CFF]"
-                />
-                {item.country}
-              </span>
-              <span className="font-medium text-[#7C6CFF]">{item.share}</span>
-            </li>
-          ))}
+        <ul className="flex shrink-0 flex-col gap-2.5 pt-1">
+          {items.map((item) => {
+            const val = parseInt(item.share, 10);
+            const t = isNaN(val) ? 0.5 : 0.5 + (val / maxVal) * 0.5;
+            const color = violet(t);
+            return (
+              <li
+                key={item.country}
+                className="flex items-center justify-between gap-6 text-sm text-slate-700 dark:text-white/70"
+              >
+                <span className="inline-flex items-center gap-2.5">
+                  <span
+                    aria-hidden="true"
+                    className="h-2 w-2 rounded-full"
+                    style={{ backgroundColor: color }}
+                  />
+                  {item.country}
+                </span>
+                <span className="font-medium" style={{ color }}>
+                  {item.share}
+                </span>
+              </li>
+            );
+          })}
         </ul>
 
-        <div className="hidden min-h-[180px] flex-1 lg:block">
-          <WorldMapPlaceholder />
+        <div className="hidden min-h-[200px] flex-1 lg:block">
+          <WorldMap items={items} />
         </div>
       </div>
     </section>

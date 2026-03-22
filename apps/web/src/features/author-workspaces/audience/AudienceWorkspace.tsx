@@ -5,11 +5,10 @@ import Link from "next/link";
 import { Suspense, useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
-import { PageHeader } from "@/components/ui/page-header";
 import NewsletterList from "@/components/newsletters/NewsletterList";
 import { useAuthorWorkspace } from "@/features/author-shell/workspace-state";
-import { WorkspaceSurface } from "@/features/author-workspaces/WorkspaceLayout";
 import WorkspaceLayout from "@/features/author-workspaces/WorkspaceLayout";
+import WorkspaceHeaderActions from "@/features/author-workspaces/components/WorkspaceHeaderActions";
 import type { Book as MarketingBook } from "@/lib/marketing/types";
 
 const MarketingPortalWizard = dynamic(
@@ -245,16 +244,33 @@ export default function AudienceWorkspace({
 
   const pageAction = (() => {
     if (surface === "campaigns" && marketingEnabled) {
-      return <Button onClick={() => setWizardOpen(true)}>{surfaceMeta.primaryLabel}</Button>;
+      return (
+        <Button
+          className="rounded-full bg-gradient-to-r from-[#8E79FF] to-[#7A6EFF] text-white"
+          onClick={() => setWizardOpen(true)}
+        >
+          {surfaceMeta.primaryLabel}
+        </Button>
+      );
     }
 
     if (surface === "reader-updates" && newslettersEnabled) {
-      return <Button onClick={() => setComposerOpen(true)}>{surfaceMeta.primaryLabel}</Button>;
+      return (
+        <Button
+          className="rounded-full bg-gradient-to-r from-[#8E79FF] to-[#7A6EFF] text-white"
+          onClick={() => setComposerOpen(true)}
+        >
+          {surfaceMeta.primaryLabel}
+        </Button>
+      );
     }
 
     if (surface === "beta-readers" && selectedBook) {
       return (
-        <Button onClick={() => router.push(`/author/books/${selectedBook.id}?panel=publish`)}>
+        <Button
+          className="rounded-full bg-gradient-to-r from-[#8E79FF] to-[#7A6EFF] text-white"
+          onClick={() => router.push(`/author/books/${selectedBook.id}?panel=publish`)}
+        >
           {surfaceMeta.primaryLabel}
         </Button>
       );
@@ -264,9 +280,9 @@ export default function AudienceWorkspace({
   })();
 
   const renderCampaigns = () => (
-    <div className="space-y-8">
+    <div className="space-y-5">
       {marketingEnabled && wizardOpen ? (
-        <WorkspaceSurface className="p-6 sm:p-7">
+        <div className="rounded-2xl bg-white p-6 dark:bg-white/[0.04] sm:p-7">
           <div className="flex items-start justify-between gap-4">
             <div>
               <p className="text-eyebrow">Campaigns</p>
@@ -289,9 +305,9 @@ export default function AudienceWorkspace({
               />
             </Suspense>
           </div>
-        </WorkspaceSurface>
+        </div>
       ) : (
-        <WorkspaceSurface className="p-6 sm:p-8">
+        <div className="rounded-2xl bg-white p-6 dark:bg-white/[0.04] sm:p-8">
           <p className="text-eyebrow">Primary action</p>
           <h2 className="mt-4 text-[30px] font-semibold tracking-tight text-slate-900 dark:text-white">
             Create campaign
@@ -299,7 +315,7 @@ export default function AudienceWorkspace({
           <p className="mt-2 text-[15px] text-slate-500 dark:text-white/45">
             Launch the next reader touchpoint for {selectedBook?.title ?? "your book"}.
           </p>
-        </WorkspaceSurface>
+        </div>
       )}
 
       <section>
@@ -310,41 +326,43 @@ export default function AudienceWorkspace({
             No active campaigns yet.
           </p>
         ) : (
-          <div className="mt-5 divide-y divide-slate-200/80 dark:divide-white/10">
-            {activeCampaigns.map((campaign) => (
-              <div key={campaign.id} className="flex flex-wrap items-start gap-4 py-4 first:pt-0">
-                <div className="min-w-0 flex-1">
-                  <p className="truncate text-sm font-medium text-slate-900 dark:text-white">
-                    {campaign.headline ?? "Campaign"}
-                  </p>
-                  <p className="mt-1 text-sm text-slate-500 dark:text-white/45">
-                    {campaign.bookTitle}
-                    <span className="mx-1.5 text-slate-300 dark:text-white/15">·</span>
-                    {CHANNEL_LABELS[campaign.channel] ?? campaign.channel}
-                  </p>
-                </div>
-                <span
-                  className={`rounded-full px-2.5 py-1 text-[11px] font-semibold ${
-                    STATUS_STYLES[campaign.status] ?? STATUS_STYLES.draft
-                  }`}
-                >
-                  {campaign.status.charAt(0).toUpperCase() + campaign.status.slice(1)}
-                </span>
-                <span className="text-xs text-slate-400 dark:text-white/35">
-                  {campaign.updatedAt ? formatRelativeDate(campaign.updatedAt) : "Recently updated"}
-                </span>
-                {campaign.shareUrl ? (
-                  <a
-                    href={campaign.shareUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-sm font-medium text-slate-900 hover:text-slate-600 dark:text-white dark:hover:text-white/75"
+          <div className="mt-5 rounded-2xl bg-white dark:bg-white/[0.04]">
+            <div className="divide-y divide-slate-200/80 p-5 dark:divide-white/10">
+              {activeCampaigns.map((campaign) => (
+                <div key={campaign.id} className="flex flex-wrap items-start gap-4 py-4 first:pt-0">
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-sm font-medium text-slate-900 dark:text-white">
+                      {campaign.headline ?? "Campaign"}
+                    </p>
+                    <p className="mt-1 text-sm text-slate-500 dark:text-white/45">
+                      {campaign.bookTitle}
+                      <span className="mx-1.5 text-slate-300 dark:text-white/15">·</span>
+                      {CHANNEL_LABELS[campaign.channel] ?? campaign.channel}
+                    </p>
+                  </div>
+                  <span
+                    className={`rounded-full px-2.5 py-1 text-[11px] font-semibold ${
+                      STATUS_STYLES[campaign.status] ?? STATUS_STYLES.draft
+                    }`}
                   >
-                    Preview
-                  </a>
-                ) : null}
-              </div>
-            ))}
+                    {campaign.status.charAt(0).toUpperCase() + campaign.status.slice(1)}
+                  </span>
+                  <span className="text-xs text-slate-400 dark:text-white/35">
+                    {campaign.updatedAt ? formatRelativeDate(campaign.updatedAt) : "Recently updated"}
+                  </span>
+                  {campaign.shareUrl ? (
+                    <a
+                      href={campaign.shareUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-sm font-medium text-slate-900 hover:text-slate-600 dark:text-white dark:hover:text-white/75"
+                    >
+                      Preview
+                    </a>
+                  ) : null}
+                </div>
+              ))}
+            </div>
           </div>
         )}
       </section>
@@ -352,7 +370,7 @@ export default function AudienceWorkspace({
   );
 
   const renderReaderUpdates = () => (
-    <div className="space-y-8">
+    <div className="space-y-5">
       {subscriberCount > 0 ? (
         <p className="text-sm text-slate-500 dark:text-white/45">
           {subscriberCount.toLocaleString("sv-SE")}{" "}
@@ -361,7 +379,7 @@ export default function AudienceWorkspace({
       ) : null}
 
       {newslettersEnabled && composerOpen ? (
-        <WorkspaceSurface className="p-5">
+        <div className="rounded-2xl bg-white p-5 dark:bg-white/[0.04]">
           <div className="space-y-3">
             <input
               type="text"
@@ -385,6 +403,7 @@ export default function AudienceWorkspace({
             <div className="flex flex-wrap items-center gap-2">
               <Button
                 size="sm"
+                className="rounded-full bg-gradient-to-r from-[#8E79FF] to-[#7A6EFF] text-white"
                 isLoading={creatingNewsletter}
                 loadingText="Creating..."
                 onClick={() => void handleCreateDraft()}
@@ -396,7 +415,7 @@ export default function AudienceWorkspace({
               </Button>
             </div>
           </div>
-        </WorkspaceSurface>
+        </div>
       ) : null}
 
       <section>
@@ -422,7 +441,7 @@ export default function AudienceWorkspace({
   );
 
   const renderBetaReaders = () => (
-    <WorkspaceSurface className="p-6 sm:p-8">
+    <div className="rounded-2xl bg-white p-6 dark:bg-white/[0.04] sm:p-8">
       <p className="text-eyebrow">Beta readers</p>
       <h2 className="mt-2 text-section-title">
         {selectedBook?.title ?? "No book selected"}
@@ -439,29 +458,45 @@ export default function AudienceWorkspace({
         {selectedBook ? (
           <Link
             href={`/author/books/${selectedBook.id}?panel=publish`}
-            className="inline-flex min-h-[40px] items-center rounded-xl border border-slate-200 px-4 text-[14px] font-medium text-slate-700 transition hover:border-slate-300 hover:text-slate-900 dark:border-white/10 dark:text-white/65 dark:hover:border-white/20 dark:hover:text-white"
+            className="inline-flex min-h-[40px] items-center rounded-full border border-slate-200 px-4 text-[14px] font-medium text-slate-700 transition hover:border-slate-300 hover:text-slate-900 dark:border-white/10 dark:text-white/65 dark:hover:border-white/20 dark:hover:text-white"
           >
             Open beta settings
           </Link>
         ) : null}
       </div>
-    </WorkspaceSurface>
+    </div>
   );
 
   return (
     <WorkspaceLayout
       header={
-        <PageHeader
-          eyebrow="Audience"
-          title={surfaceMeta.title}
-          description={surfaceMeta.description}
-          actions={
-            <>
+        <header>
+          <h1 className="text-[17px] font-medium uppercase tracking-[0.14em] text-[#8B92A5] dark:text-white/50">
+            Marketing
+          </h1>
+        </header>
+      }
+      headerRight={<WorkspaceHeaderActions />}
+      main={
+        books.length === 0 ? (
+          <div className="rounded-2xl bg-white p-8 text-center dark:bg-white/[0.04] sm:p-10">
+            <p className="text-eyebrow">Audience</p>
+            <h2 className="mt-4 text-[30px] font-semibold tracking-tight text-slate-900 dark:text-white">
+              Create a book before you grow an audience around it
+            </h2>
+            <p className="mx-auto mt-3 max-w-xl text-[15px] leading-relaxed text-slate-500 dark:text-white/45">
+              Campaigns, updates, and beta readers become useful once a story exists.
+            </p>
+          </div>
+        ) : (
+          <div className="space-y-5">
+            {/* Book selector and action row */}
+            <div className="flex flex-wrap items-center gap-3">
               {books.length > 1 ? (
                 <select
                   value={selectedBookId ?? ""}
                   onChange={(event) => setSelectedBookId(event.target.value || null)}
-                  className="input-base min-h-[40px] w-auto min-w-[160px] text-[14px]"
+                  className="h-10 min-w-[160px] rounded-full border-0 bg-white px-4 text-[14px] text-[#5C6375] outline-none ring-1 ring-slate-200/80 focus:ring-2 focus:ring-[#907AFF]/30 dark:bg-white/[0.06] dark:text-white/60 dark:ring-white/10"
                   aria-label="Select book"
                 >
                   {books.map((book) => (
@@ -472,27 +507,14 @@ export default function AudienceWorkspace({
                 </select>
               ) : null}
               {pageAction}
-            </>
-          }
-        />
-      }
-      main={
-        books.length === 0 ? (
-          <WorkspaceSurface className="p-8 text-center sm:p-10">
-            <p className="text-eyebrow">Audience</p>
-            <h2 className="mt-4 text-[30px] font-semibold tracking-tight text-slate-900 dark:text-white">
-              Create a book before you grow an audience around it
-            </h2>
-            <p className="mx-auto mt-3 max-w-xl text-[15px] leading-relaxed text-slate-500 dark:text-white/45">
-              Campaigns, updates, and beta readers become useful once a story exists.
-            </p>
-          </WorkspaceSurface>
-        ) : surface === "campaigns" ? (
-          renderCampaigns()
-        ) : surface === "reader-updates" ? (
-          renderReaderUpdates()
-        ) : (
-          renderBetaReaders()
+            </div>
+
+            {surface === "campaigns"
+              ? renderCampaigns()
+              : surface === "reader-updates"
+                ? renderReaderUpdates()
+                : renderBetaReaders()}
+          </div>
         )
       }
     />

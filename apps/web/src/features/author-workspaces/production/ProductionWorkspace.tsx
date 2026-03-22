@@ -5,11 +5,10 @@ import Link from "next/link";
 import { useEffect, useMemo } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
-import { PageHeader } from "@/components/ui/page-header";
 import { cn } from "@/lib/utils";
 import { useAuthorWorkspace } from "@/features/author-shell/workspace-state";
-import { WorkspaceSurface } from "@/features/author-workspaces/WorkspaceLayout";
 import WorkspaceLayout from "@/features/author-workspaces/WorkspaceLayout";
+import WorkspaceHeaderActions from "@/features/author-workspaces/components/WorkspaceHeaderActions";
 import {
   getAudiobookEnabled,
   getMarketingEnabled,
@@ -202,9 +201,9 @@ function AssetRow({
       type="button"
       onClick={onSelect}
       className={cn(
-        "flex w-full items-start gap-3 rounded-xl px-3 py-3 text-left transition",
+        "flex w-full items-start gap-3 rounded-full px-3 py-3 text-left transition",
         isSelected
-          ? "bg-slate-100 dark:bg-white/10"
+          ? "bg-[#F2EDFF] dark:bg-[#7C6CFF]/15"
           : "hover:bg-slate-50 dark:hover:bg-white/[0.04]"
       )}
     >
@@ -238,9 +237,9 @@ function ActionLink({
     <Link
       href={href}
       className={cn(
-        "inline-flex min-h-[40px] items-center rounded-xl px-4 text-[14px] font-medium transition",
+        "inline-flex min-h-[40px] items-center rounded-full px-4 text-[14px] font-medium transition",
         primary
-          ? "bg-slate-900 text-white hover:bg-slate-800 dark:bg-white dark:text-slate-900 dark:hover:bg-white/90"
+          ? "bg-gradient-to-r from-[#8E79FF] to-[#7A6EFF] text-white"
           : "border border-slate-200 text-slate-600 hover:border-slate-300 hover:text-slate-900 dark:border-white/10 dark:text-white/60 dark:hover:border-white/20 dark:hover:text-white"
       )}
     >
@@ -314,7 +313,7 @@ function AssetWorkspaceView({ job }: { job: AuthorJob }) {
           </div>
         </div>
 
-        <WorkspaceSurface className="mt-5 p-6">
+        <div className="mt-5 rounded-2xl bg-white p-6 dark:bg-white/[0.04]">
           {job.kind === "audiobook" ? (
             (audioUrl || manifestUrl) ? (
               <ProductionAudioPreview
@@ -351,7 +350,7 @@ function AssetWorkspaceView({ job }: { job: AuthorJob }) {
               </p>
             )
           ) : null}
-        </WorkspaceSurface>
+        </div>
       </section>
 
       <section>
@@ -402,7 +401,7 @@ function AssetWorkspaceView({ job }: { job: AuthorJob }) {
             </div>
             <div className="h-2 overflow-hidden rounded-full bg-slate-100 dark:bg-white/10">
               <div
-                className="h-full rounded-full bg-slate-900 dark:bg-white"
+                className="h-full rounded-full bg-[#907AFF] dark:bg-[#907AFF]"
                 style={{ width: `${Math.max(4, job.progress)}%` }}
               />
             </div>
@@ -430,7 +429,7 @@ function ProductionEmptyState({
   onCreate: () => void;
 }) {
   return (
-    <WorkspaceSurface className="p-8 text-center sm:p-10">
+    <div className="rounded-2xl bg-white p-8 text-center dark:bg-white/[0.04] sm:p-10">
       <p className="text-eyebrow">Production</p>
       <h2 className="mt-4 text-[30px] font-semibold tracking-tight text-slate-900 dark:text-white">
         No {section === "assets" ? "assets" : section} yet
@@ -442,12 +441,16 @@ function ProductionEmptyState({
       </p>
       {hasBooks && showPrimaryAction ? (
         <div className="mt-8 flex justify-center">
-          <Button size="sm" onClick={onCreate}>
+          <Button
+            size="sm"
+            className="rounded-full bg-gradient-to-r from-[#8E79FF] to-[#7A6EFF] text-white"
+            onClick={onCreate}
+          >
             {primaryLabel}
           </Button>
         </div>
       ) : null}
-    </WorkspaceSurface>
+    </div>
   );
 }
 
@@ -544,53 +547,56 @@ export default function ProductionWorkspace({ books }: ProductionWorkspaceProps)
   return (
     <WorkspaceLayout
       header={
-        <PageHeader
-          eyebrow="Production"
-          title={sectionMeta.title}
-          description={sectionMeta.description}
-          actions={
-            <>
-              <select
-                value={bookIdFilter ?? ""}
-                onChange={(event) => updateQuery({ bookId: event.target.value || null })}
-                className="input-base min-h-[40px] w-auto min-w-[140px] text-[14px]"
-                aria-label="Filter books"
-              >
-                <option value="">All books</option>
-                {books.map((book) => (
-                  <option key={book.id} value={book.id}>
-                    {book.title}
-                  </option>
-                ))}
-              </select>
-              {canCreatePrimary ? (
-                <Button onClick={() => navigateToCreate(primaryKind)}>
-                  {primaryLabel}
-                </Button>
-              ) : null}
-            </>
-          }
-        />
+        <header>
+          <h1 className="text-[17px] font-medium uppercase tracking-[0.14em] text-[#8B92A5] dark:text-white/50">
+            Production
+          </h1>
+        </header>
       }
+      headerRight={<WorkspaceHeaderActions />}
       main={
-        loading ? (
+        <>
+        <div className="mb-6 flex flex-wrap items-center gap-3">
+          <select
+            value={bookIdFilter ?? ""}
+            onChange={(event) => updateQuery({ bookId: event.target.value || null })}
+            className="h-10 min-w-[160px] rounded-full border-0 bg-white px-4 text-[14px] text-[#5C6375] outline-none ring-1 ring-slate-200/80 focus:ring-2 focus:ring-[#907AFF]/30 dark:bg-white/[0.06] dark:text-white/60 dark:ring-white/10"
+            aria-label="Filter books"
+          >
+            <option value="">All books</option>
+            {books.map((book) => (
+              <option key={book.id} value={book.id}>
+                {book.title}
+              </option>
+            ))}
+          </select>
+          {canCreatePrimary ? (
+            <Button
+              className="rounded-full bg-gradient-to-r from-[#8E79FF] to-[#7A6EFF] text-white"
+              onClick={() => navigateToCreate(primaryKind)}
+            >
+              {primaryLabel}
+            </Button>
+          ) : null}
+        </div>
+        {loading ? (
           <div className="space-y-6">
             <div className="h-[180px] animate-pulse rounded-2xl bg-slate-100 dark:bg-white/5" />
             <div className="h-[120px] animate-pulse rounded-2xl bg-slate-100 dark:bg-white/5" />
             <div className="h-[320px] animate-pulse rounded-2xl bg-slate-100 dark:bg-white/5" />
           </div>
         ) : error ? (
-          <WorkspaceSurface className="p-6 sm:p-7">
+          <div className="rounded-2xl bg-white p-6 dark:bg-white/[0.04] sm:p-7">
             <p className="text-sm font-medium text-red-700 dark:text-red-400">{error}</p>
             <Button
               size="sm"
               variant="secondary"
-              className="mt-4"
+              className="mt-4 rounded-full"
               onClick={() => void refetch()}
             >
               Try again
             </Button>
-          </WorkspaceSurface>
+          </div>
         ) : sortedJobs.length === 0 ? (
           <ProductionEmptyState
             section={section}
@@ -625,7 +631,8 @@ export default function ProductionWorkspace({ books }: ProductionWorkspaceProps)
               )}
             </section>
           </div>
-        )
+        )}
+        </>
       }
     />
   );

@@ -22,7 +22,9 @@ export async function GET(request: Request) {
     .range(offset, offset + limit - 1);
 
   if (search) {
-    query = query.or(`display_name.ilike.%${search}%,username.ilike.%${search}%`);
+    // Escape LIKE wildcards to prevent filter injection
+    const safe = search.replace(/[%_\\]/g, "\\$&");
+    query = query.or(`display_name.ilike.%${safe}%,username.ilike.%${safe}%`);
   }
 
   const { data, error, count } = await query;

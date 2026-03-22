@@ -23,7 +23,9 @@ export async function GET(request: Request) {
     .range(offset, offset + limit - 1);
 
   if (search) {
-    query = query.ilike("title", `%${search}%`);
+    // Escape LIKE wildcards to prevent filter injection
+    const safe = search.replace(/[%_\\]/g, "\\$&");
+    query = query.ilike("title", `%${safe}%`);
   }
 
   if (status) {

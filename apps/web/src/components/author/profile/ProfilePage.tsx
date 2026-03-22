@@ -3,7 +3,7 @@
 import Image from "next/image";
 import { useActionState, useState, type ChangeEvent } from "react";
 import { useFormStatus } from "react-dom";
-import { PageHeader } from "@/components/ui/page-header";
+import WorkspaceHeaderActions from "@/features/author-workspaces/components/WorkspaceHeaderActions";
 import {
   saveAuthorProfile,
   updateAvatarPath,
@@ -33,7 +33,7 @@ function SaveButton() {
     <button
       type="submit"
       disabled={pending}
-      className="min-h-[44px] rounded-full bg-slate-900 px-5 py-2 text-[13px] font-semibold text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60 dark:bg-white dark:text-slate-900 dark:hover:bg-white/90"
+      className="min-h-[44px] rounded-full bg-gradient-to-r from-[#8E79FF] to-[#7A6EFF] px-5 py-2 text-[13px] font-semibold text-white shadow-[0_4px_12px_rgba(124,108,255,0.3)] transition hover:shadow-[0_6px_16px_rgba(124,108,255,0.4)] disabled:cursor-not-allowed disabled:opacity-60"
     >
       {pending ? "Saving..." : "Save profile"}
     </button>
@@ -81,19 +81,20 @@ export default function ProfilePage({ user, profile }: ProfilePageProps) {
   return (
     <WorkspaceLayout
       header={
-        <PageHeader
-          eyebrow="Profile"
-          title="Profile"
-          description="Update the public profile readers see."
-        />
+        <header>
+          <h1 className="text-[17px] font-medium uppercase tracking-[0.14em] text-[#8B92A5] dark:text-white/50">
+            Profile
+          </h1>
+        </header>
       }
+      headerRight={<WorkspaceHeaderActions />}
       main={
-        <form action={formAction} className="space-y-8">
+        <form action={formAction} className="space-y-4">
           <div className="flex justify-end">
             <SaveButton />
           </div>
 
-          <section className="border-t border-slate-200/80 pt-6 dark:border-white/10">
+          <section className="rounded-2xl bg-white px-7 py-5 dark:bg-white/[0.04]">
             <h2 className="text-section-title">Avatar</h2>
             <div className="mt-4 flex flex-wrap items-center gap-4">
               <div className="relative h-20 w-20 overflow-hidden rounded-full border border-slate-200/80 bg-slate-100 dark:border-white/10 dark:bg-white/[0.04]">
@@ -117,7 +118,7 @@ export default function ProfilePage({ user, profile }: ProfilePageProps) {
             </div>
           </section>
 
-          <section className="border-t border-slate-200/80 pt-6 dark:border-white/10">
+          <section className="rounded-2xl bg-white px-7 py-5 dark:bg-white/[0.04]">
             <h2 className="text-section-title">Display name</h2>
             <input
               name="display_name"
@@ -127,7 +128,7 @@ export default function ProfilePage({ user, profile }: ProfilePageProps) {
             />
           </section>
 
-          <section className="border-t border-slate-200/80 pt-6 dark:border-white/10">
+          <section className="rounded-2xl bg-white px-7 py-5 dark:bg-white/[0.04]">
             <h2 className="text-section-title">Bio</h2>
             <textarea
               name="bio"
@@ -138,7 +139,7 @@ export default function ProfilePage({ user, profile }: ProfilePageProps) {
             />
           </section>
 
-          <section className="border-t border-slate-200/80 pt-6 dark:border-white/10">
+          <section className="rounded-2xl bg-white px-7 py-5 dark:bg-white/[0.04]">
             <div className="flex items-center justify-between gap-4">
               <div>
                 <h2 className="text-section-title">Public profile</h2>
@@ -155,12 +156,12 @@ export default function ProfilePage({ user, profile }: ProfilePageProps) {
                 />
                 <span
                   className={`h-6 w-11 rounded-full transition ${
-                    isPublic ? "bg-slate-900 dark:bg-white" : "bg-slate-200 dark:bg-white/20"
+                    isPublic ? "bg-[#907AFF] dark:bg-[#907AFF]" : "bg-slate-200 dark:bg-white/20"
                   }`}
                 />
                 <span
-                  className={`absolute left-1 top-1 h-4 w-4 rounded-full bg-white transition dark:bg-slate-900 ${
-                    isPublic ? "translate-x-5 dark:bg-slate-900" : ""
+                  className={`absolute left-1 top-1 h-4 w-4 rounded-full bg-white transition ${
+                    isPublic ? "translate-x-5" : "dark:bg-slate-900"
                   }`}
                 />
               </label>

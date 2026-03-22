@@ -20,6 +20,7 @@ import {
   type AuthorSidebarLink,
 } from "@/nav/navConfig";
 import { useAuthorWorkspace } from "@/features/author-shell/workspace-state";
+import { setActiveRoleCookieClient } from "@/lib/active-role";
 
 const ICONS: Record<string, LucideIcon> = {
   home: Home,
@@ -73,9 +74,15 @@ function SidebarNavLink({
   const router = useRouter();
   const Icon = ICONS[item.icon] ?? Home;
 
+  const handleClick =
+    item.key === "switch-to-reader"
+      ? () => setActiveRoleCookieClient("reader")
+      : undefined;
+
   return (
     <Link
       href={href}
+      onClick={handleClick}
       onMouseEnter={() => router.prefetch(href)}
       className={`inline-flex min-h-[44px] items-center gap-3.5 rounded-xl px-4 py-2.5 text-[15px] font-normal transition ${
         active
@@ -109,7 +116,7 @@ export default function AuthorSidebar() {
         </Link>
       </div>
 
-      <nav className="flex gap-1.5 overflow-x-auto px-3 lg:flex-1 lg:flex-col lg:overflow-visible lg:px-3">
+      <nav className="flex gap-1.5 overflow-x-auto px-3 lg:flex-1 lg:flex-col lg:overflow-y-auto lg:px-3">
         {AUTHOR_WORKFLOW_NAV.map((item) => (
           <SidebarNavLink
             key={item.key}

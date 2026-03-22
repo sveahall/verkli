@@ -6,6 +6,7 @@ import { AVATARS_BUCKET_PUBLIC } from "./config";
 const supabase = createClient();
 
 const BOOK_COVERS_BUCKET = "book_covers";
+const ALLOWED_IMAGE_EXTS = new Set(["jpg", "jpeg", "png", "webp"]);
 
 /**
  * Upload book cover. Path must start with auth.uid() for RLS.
@@ -17,6 +18,9 @@ export async function uploadBookCover(
   bookId: string
 ): Promise<{ url: string | null; error: { message: string } | null }> {
   const ext = file.name.split(".").pop()?.toLowerCase() || "jpg";
+  if (!ALLOWED_IMAGE_EXTS.has(ext)) {
+    return { url: null, error: { message: "Only JPG, PNG, and WebP images are allowed." } };
+  }
   const path = `${userId}/${bookId}/cover.${ext}`;
 
   const { error } = await supabase.storage
@@ -77,7 +81,10 @@ export async function getAvatarUrlFromPath(
 
 // Upload user avatar to avatars bucket, path: ${userId}/avatar.${ext} (replaces existing)
 export async function uploadAvatar(file: File, userId: string) {
-  const fileExt = file.name.split(".").pop() || "png";
+  const fileExt = file.name.split(".").pop()?.toLowerCase() || "png";
+  if (!ALLOWED_IMAGE_EXTS.has(fileExt)) {
+    return { path: null, url: null, error: { message: "Only JPG, PNG, and WebP images are allowed." } };
+  }
   const path = `${userId}/avatar.${fileExt}`;
 
   const { error } = await supabase.storage

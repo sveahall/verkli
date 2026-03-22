@@ -2,9 +2,10 @@
 
 import { useActionState, useMemo, useState } from "react";
 import { useFormStatus } from "react-dom";
-import { PageHeader } from "@/components/ui/page-header";
+import WorkspaceHeaderActions from "@/features/author-workspaces/components/WorkspaceHeaderActions";
 import {
   saveAuthorSettings,
+  signOutAllSessions,
   type ActionState,
 } from "@/features/author/settings/actions";
 import WorkspaceLayout from "@/features/author-workspaces/WorkspaceLayout";
@@ -35,7 +36,7 @@ function SaveButton() {
     <button
       type="submit"
       disabled={pending}
-      className="min-h-[44px] rounded-full bg-slate-900 px-5 py-2 text-[13px] font-semibold text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60 dark:bg-white dark:text-slate-900 dark:hover:bg-white/90"
+      className="min-h-[44px] rounded-full bg-gradient-to-r from-[#8E79FF] to-[#7A6EFF] px-5 py-2 text-[13px] font-semibold text-white shadow-[0_4px_12px_rgba(124,108,255,0.3)] transition hover:shadow-[0_6px_16px_rgba(124,108,255,0.4)] disabled:cursor-not-allowed disabled:opacity-60"
     >
       {pending ? "Saving..." : "Save settings"}
     </button>
@@ -69,19 +70,21 @@ export default function SettingsPage({ user, profile }: SettingsPageProps) {
   return (
     <WorkspaceLayout
       header={
-        <PageHeader
-          eyebrow="Settings"
-          title="Settings"
-          description="Manage account security, publishing defaults, and notifications."
-        />
+        <header>
+          <h1 className="text-[17px] font-medium uppercase tracking-[0.14em] text-[#8B92A5] dark:text-white/50">
+            Settings
+          </h1>
+        </header>
       }
+      headerRight={<WorkspaceHeaderActions />}
       main={
-        <form action={formAction} className="space-y-8">
+        <>
+        <form action={formAction} className="space-y-4">
           <div className="flex justify-end">
             <SaveButton />
           </div>
 
-          <section className="border-t border-slate-200/80 pt-6 dark:border-white/10">
+          <section className="rounded-2xl bg-white px-7 py-5 dark:bg-white/[0.04]">
             <h2 className="text-section-title">Account</h2>
             <div className="mt-4 grid gap-4 md:grid-cols-2">
               <div className="space-y-2">
@@ -120,7 +123,7 @@ export default function SettingsPage({ user, profile }: SettingsPageProps) {
             </div>
           </section>
 
-          <section className="border-t border-slate-200/80 pt-6 dark:border-white/10">
+          <section className="rounded-2xl bg-white px-7 py-5 dark:bg-white/[0.04]">
             <h2 className="text-section-title">Publishing defaults</h2>
             <div className="mt-4 grid gap-4 md:grid-cols-2">
               <div className="space-y-2">
@@ -154,7 +157,7 @@ export default function SettingsPage({ user, profile }: SettingsPageProps) {
             </div>
           </section>
 
-          <section className="border-t border-slate-200/80 pt-6 dark:border-white/10">
+          <section className="rounded-2xl bg-white px-7 py-5 dark:bg-white/[0.04]">
             <div className="flex items-center justify-between gap-4">
               <div>
                 <h2 className="text-section-title">Notifications</h2>
@@ -171,12 +174,12 @@ export default function SettingsPage({ user, profile }: SettingsPageProps) {
                 />
                 <span
                   className={`h-6 w-11 rounded-full transition ${
-                    emailNotifications ? "bg-slate-900 dark:bg-white" : "bg-slate-200 dark:bg-white/20"
+                    emailNotifications ? "bg-[#907AFF] dark:bg-[#907AFF]" : "bg-slate-200 dark:bg-white/20"
                   }`}
                 />
                 <span
-                  className={`absolute left-1 top-1 h-4 w-4 rounded-full bg-white transition dark:bg-slate-900 ${
-                    emailNotifications ? "translate-x-5 dark:bg-slate-900" : ""
+                  className={`absolute left-1 top-1 h-4 w-4 rounded-full bg-white transition ${
+                    emailNotifications ? "translate-x-5" : "dark:bg-slate-900"
                   }`}
                 />
               </label>
@@ -190,6 +193,26 @@ export default function SettingsPage({ user, profile }: SettingsPageProps) {
 
           <InlineFeedback state={state} />
         </form>
+
+        <section className="mt-4 rounded-2xl bg-white px-7 py-5 dark:bg-white/[0.04]">
+          <div className="flex items-center justify-between gap-4">
+            <div>
+              <h2 className="text-section-title">Sign out</h2>
+              <p className="mt-2 text-sm text-slate-500 dark:text-white/45">
+                Sign out from all devices.
+              </p>
+            </div>
+            <form action={signOutAllSessions}>
+              <button
+                type="submit"
+                className="min-h-[44px] rounded-full border border-red-200 px-5 py-2 text-[13px] font-semibold text-red-600 transition hover:bg-red-50 dark:border-red-500/30 dark:text-red-400 dark:hover:bg-red-500/10"
+              >
+                Sign out
+              </button>
+            </form>
+          </div>
+        </section>
+        </>
       }
     />
   );

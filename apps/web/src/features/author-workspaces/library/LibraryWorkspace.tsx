@@ -3,12 +3,12 @@
 import Image from "next/image";
 import Link from "next/link";
 import { useEffect, useMemo } from "react";
+import { Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { PageHeader } from "@/components/ui/page-header";
 import CreateBookEntry from "@/app/(app-author)/author/books/CreateBookEntry";
 import { useAuthorWorkspace } from "@/features/author-shell/workspace-state";
-import { WorkspaceSurface } from "@/features/author-workspaces/WorkspaceLayout";
 import WorkspaceLayout from "@/features/author-workspaces/WorkspaceLayout";
+import WorkspaceHeaderActions from "@/features/author-workspaces/components/WorkspaceHeaderActions";
 
 type LibraryBook = {
   id: string;
@@ -51,16 +51,16 @@ export default function LibraryWorkspace({
   return (
     <WorkspaceLayout
       header={
-        <PageHeader
-          eyebrow="Library"
-          title="Your books"
-          description="Continue the current manuscript, then open any book from the library."
-          actions={<CreateBookEntry initialOpen={initialCreateOpen} />}
-        />
+        <header>
+          <h1 className="text-[17px] font-medium uppercase tracking-[0.14em] text-[#8B92A5] dark:text-white/50">
+            Library
+          </h1>
+        </header>
       }
+      headerRight={<WorkspaceHeaderActions />}
       main={
         books.length === 0 ? (
-          <WorkspaceSurface className="p-8 text-center sm:p-10">
+          <div className="rounded-2xl bg-white p-8 text-center sm:p-10 dark:bg-white/[0.04]">
             <p className="text-eyebrow">Library</p>
             <h2 className="mt-4 text-[30px] font-semibold tracking-tight text-slate-900 dark:text-white">
               Start your first book
@@ -71,12 +71,16 @@ export default function LibraryWorkspace({
             <div className="mt-8 flex justify-center">
               <CreateBookEntry initialOpen={initialCreateOpen} />
             </div>
-          </WorkspaceSurface>
+          </div>
         ) : (
-          <div className="space-y-10">
+          <div className="space-y-5">
+            <section className="flex items-center gap-2.5">
+              <CreateBookEntry initialOpen={initialCreateOpen} />
+            </section>
+
             {recentBook ? (
               <section>
-                <WorkspaceSurface className="p-6 sm:p-8">
+                <div className="rounded-2xl bg-white p-6 sm:p-8 dark:bg-white/[0.04]">
                   <p className="text-eyebrow">Continue writing</p>
                   <div className="mt-4 flex flex-col gap-5 sm:flex-row sm:items-end sm:justify-between">
                     <div className="min-w-0">
@@ -88,10 +92,15 @@ export default function LibraryWorkspace({
                       </p>
                     </div>
                     <Link href={`/author/books/${recentBook.id}`}>
-                      <Button size="lg">Open workspace</Button>
+                      <Button
+                        size="lg"
+                        className="rounded-full bg-gradient-to-r from-[#8E79FF] to-[#7A6EFF] text-white shadow-[0_4px_12px_rgba(124,108,255,0.3)] hover:shadow-[0_6px_16px_rgba(124,108,255,0.4)]"
+                      >
+                        Open workspace
+                      </Button>
                     </Link>
                   </div>
-                </WorkspaceSurface>
+                </div>
               </section>
             ) : null}
 
@@ -107,7 +116,7 @@ export default function LibraryWorkspace({
                 {visibleBooks.map((book) => (
                   <div
                     key={book.id}
-                    className="rounded-2xl border border-slate-200/80 p-4 dark:border-white/10"
+                    className="rounded-2xl bg-white p-4 dark:bg-white/[0.04]"
                   >
                     <div className="flex items-start gap-4">
                       <div className="relative h-24 w-16 shrink-0 overflow-hidden rounded-xl border border-slate-200/80 bg-slate-100 dark:border-white/10 dark:bg-white/[0.04]">
@@ -138,7 +147,7 @@ export default function LibraryWorkspace({
                         </p>
                         <div className="mt-5">
                           <Link href={`/author/books/${book.id}`}>
-                            <Button size="sm" variant="secondary">
+                            <Button size="sm" className="rounded-full">
                               Open
                             </Button>
                           </Link>

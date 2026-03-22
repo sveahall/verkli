@@ -4,12 +4,10 @@ import Link from "next/link";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   AudioLines,
-  Bell,
   Coins,
   Languages,
   MessageSquareText,
   Plus,
-  Search,
   ThumbsUp,
   Users,
   UserRoundPlus,
@@ -19,6 +17,7 @@ import { Button } from "@/components/ui/button";
 import { resolveCommandHref } from "@/features/author-shell/command-registry";
 import { useAuthorWorkspace } from "@/features/author-shell/workspace-state";
 import WorkspaceLayout from "@/features/author-workspaces/WorkspaceLayout";
+import WorkspaceHeaderActions from "@/features/author-workspaces/components/WorkspaceHeaderActions";
 import ActivityList, {
   type ActivityListItem,
 } from "@/features/author-workspaces/home/components/ActivityList";
@@ -119,7 +118,7 @@ function DashboardFilter({
         aria-label={ariaLabel}
         aria-expanded={open}
         onClick={() => setOpen((prev) => !prev)}
-        className="flex h-10 min-w-[132px] items-center justify-between gap-2 rounded-full bg-white px-4 text-[14px] font-normal text-[#5C6375] outline-none transition hover:bg-slate-50 focus:ring-2 focus:ring-[#907AFF]/20"
+        className="flex h-10 min-w-[132px] items-center justify-between gap-2 rounded-full bg-white px-4 text-[14px] font-normal text-[#5C6375] outline-none transition hover:bg-slate-50 focus:ring-2 focus:ring-[#907AFF]/20 dark:bg-white/[0.06] dark:text-white/60 dark:hover:bg-white/[0.1]"
       >
         <span>{selectedLabel}</span>
         <svg
@@ -139,7 +138,7 @@ function DashboardFilter({
       </button>
 
       {open ? (
-        <div className="absolute left-0 top-full z-50 mt-1.5 min-w-full overflow-hidden rounded-xl border border-slate-200/80 bg-white py-1 shadow-lg shadow-black/[0.08]">
+        <div className="absolute left-0 top-full z-50 mt-1.5 min-w-full overflow-hidden rounded-xl border border-slate-200/80 bg-white py-1 shadow-lg shadow-black/[0.08] dark:border-white/10 dark:bg-[#111827]">
           {options.map((option) => (
             <button
               key={option.value}
@@ -150,8 +149,8 @@ function DashboardFilter({
               }}
               className={`flex w-full items-center px-4 py-2.5 text-[14px] transition ${
                 option.value === selected
-                  ? "bg-[#F2EDFF] font-medium text-[#7C6CFF]"
-                  : "text-[#5C6375] hover:bg-slate-50"
+                  ? "bg-[#F2EDFF] font-medium text-[#7C6CFF] dark:bg-[#7C6CFF]/15"
+                  : "text-[#5C6375] hover:bg-slate-50 dark:text-white/60 dark:hover:bg-white/[0.06]"
               }`}
             >
               {option.label}
@@ -265,29 +264,12 @@ export default function HomeWorkspace({
       <WorkspaceLayout
         header={
           <header>
-            <h1 className="text-[17px] font-medium uppercase tracking-[0.14em] text-[#8B92A5]">
+            <h1 className="text-[17px] font-medium uppercase tracking-[0.14em] text-[#8B92A5] dark:text-white/50">
               Dashboard
             </h1>
           </header>
         }
-        headerRight={
-          <div className="flex items-center gap-2.5 pr-0.5">
-            <button
-              type="button"
-              aria-label="Search"
-              className="flex h-9 w-9 items-center justify-center rounded-lg text-[#98A0B3] transition hover:bg-slate-100 hover:text-slate-600"
-            >
-              <Search className="h-5 w-5" />
-            </button>
-            <button
-              type="button"
-              aria-label="Notifications"
-              className="flex h-9 w-9 items-center justify-center rounded-lg text-[#98A0B3] transition hover:bg-slate-100 hover:text-slate-600"
-            >
-              <Bell className="h-5 w-5" />
-            </button>
-          </div>
-        }
+        headerRight={<WorkspaceHeaderActions />}
         main={
           <div className="space-y-5">
             <section className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
@@ -324,7 +306,7 @@ export default function HomeWorkspace({
                     bookId: primaryBook?.id ?? null,
                   })}
                   aria-label="Translate selected book"
-                  className="inline-flex h-10 items-center gap-2 rounded-full bg-white px-4 text-[14px] font-medium text-[#4E5669] transition hover:bg-slate-50"
+                  className="inline-flex h-10 items-center gap-2 rounded-full bg-white px-4 text-[14px] font-medium text-[#4E5669] transition hover:bg-slate-50 dark:bg-white/[0.06] dark:text-white/70 dark:hover:bg-white/[0.1]"
                 >
                   <Languages className="h-4 w-4 text-[#7C6CFF]" aria-hidden="true" />
                   Translate book
@@ -335,7 +317,7 @@ export default function HomeWorkspace({
                     bookId: primaryBook?.id ?? null,
                   })}
                   aria-label="Create audiobook for selected book"
-                  className="inline-flex h-10 items-center gap-2 rounded-full bg-white px-4 text-[14px] font-medium text-[#4E5669] transition hover:bg-slate-50"
+                  className="inline-flex h-10 items-center gap-2 rounded-full bg-white px-4 text-[14px] font-medium text-[#4E5669] transition hover:bg-slate-50 dark:bg-white/[0.06] dark:text-white/70 dark:hover:bg-white/[0.1]"
                 >
                   <AudioLines className="h-4 w-4 text-[#7C6CFF]" aria-hidden="true" />
                   Create audiobook
@@ -356,7 +338,7 @@ export default function HomeWorkspace({
               ))}
             </section>
 
-            <section className="grid grid-cols-1 gap-4 xl:grid-cols-2">
+            <section className="grid grid-cols-1 gap-4 xl:grid-cols-[3fr_2fr]">
               <CountrySalesCard items={PREVIEW_COUNTRY_SALES} />
               <ActivityList items={activityItems} />
             </section>
