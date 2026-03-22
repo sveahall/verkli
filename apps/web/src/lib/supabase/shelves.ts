@@ -232,15 +232,18 @@ export async function reorderSections(shelfId: string, sectionIds: string[]): Pr
     sort_index: index,
   }));
 
-  for (const update of updates) {
-    const { error } = await supabase
-      .from('shelf_sections')
-      .update({ sort_index: update.sort_index })
-      .eq('id', update.id)
-      .eq('shelf_id', shelfId);
+  const results = await Promise.all(
+    updates.map((update) =>
+      supabase
+        .from('shelf_sections')
+        .update({ sort_index: update.sort_index })
+        .eq('id', update.id)
+        .eq('shelf_id', shelfId)
+    )
+  );
 
-    if (error) throw error;
-  }
+  const failed = results.find((r) => r.error);
+  if (failed?.error) throw failed.error;
 }
 
 export async function reorderBooks(shelfId: string, sectionId: string | null, bookIds: string[]): Promise<void> {
@@ -251,18 +254,21 @@ export async function reorderBooks(shelfId: string, sectionId: string | null, bo
     sort_index: index,
   }));
 
-  for (const update of updates) {
-    let query = supabase
-      .from('shelf_books')
-      .update({ sort_index: update.sort_index })
-      .eq('id', update.id)
-      .eq('shelf_id', shelfId);
+  const results = await Promise.all(
+    updates.map((update) => {
+      let query = supabase
+        .from('shelf_books')
+        .update({ sort_index: update.sort_index })
+        .eq('id', update.id)
+        .eq('shelf_id', shelfId);
 
-    if (sectionId === null) query = query.is('section_id', null);
-    else query = query.eq('section_id', sectionId);
+      if (sectionId === null) query = query.is('section_id', null);
+      else query = query.eq('section_id', sectionId);
 
-    const { error } = await query;
+      return query;
+    })
+  );
 
-    if (error) throw error;
-  }
+  const failed = results.find((r) => r.error);
+  if (failed?.error) throw failed.error;
 }

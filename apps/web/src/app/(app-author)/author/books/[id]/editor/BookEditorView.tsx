@@ -3551,14 +3551,14 @@ export default function BookEditorView({
                   <h2 className="mb-6 text-center text-lg font-semibold text-slate-900 dark:text-white">Choose a plan to generate audiobook</h2>
                   <div className="space-y-4">
                     <label className="flex cursor-pointer items-start gap-3 rounded-xl border-2 border-[#907AFF] bg-[#907AFF]/5 px-4 py-4 transition">
-                      <input type="radio" name="audiobook-plan-new" value="per_book" defaultChecked className="mt-0.5 h-4 w-4 accent-[#907AFF]" onChange={() => {}} />
+                      <input type="radio" name="audiobook-plan-new" value="per_book" defaultChecked className="mt-0.5 h-4 w-4 accent-[#907AFF]" />
                       <div>
                         <p className="font-semibold text-slate-900 dark:text-white">Pay per audiobook</p>
                         <p className="text-sm text-slate-500 dark:text-white/50">299 kr / book</p>
                       </div>
                     </label>
                     <label className="flex cursor-pointer items-start gap-3 rounded-xl border-2 border-slate-200 px-4 py-4 transition hover:border-slate-300 dark:border-white/10 dark:hover:border-white/20" onClick={() => { setAudiobookCheckoutModalOpen(false); router.push("/author/billing"); }}>
-                      <input type="radio" name="audiobook-plan-new" value="pro" className="mt-0.5 h-4 w-4 accent-[#907AFF]" onChange={() => {}} />
+                      <input type="radio" name="audiobook-plan-new" value="pro" className="mt-0.5 h-4 w-4 accent-[#907AFF]" />
                       <div>
                         <p className="font-semibold text-slate-900 dark:text-white">Subscribe to PRO</p>
                         <p className="mb-2 text-sm text-slate-500 dark:text-white/50">2 490 kr / month</p>
@@ -5012,14 +5012,14 @@ export default function BookEditorView({
                     </h2>
                     <div className="space-y-4">
                       <label className="flex cursor-pointer items-start gap-3 rounded-xl border-2 border-[#907AFF] bg-[#907AFF]/5 px-4 py-4 transition">
-                        <input type="radio" name="audiobook-plan" value="per_book" defaultChecked className="mt-0.5 h-4 w-4 accent-[#907AFF]" onChange={() => {}} />
+                        <input type="radio" name="audiobook-plan" value="per_book" defaultChecked className="mt-0.5 h-4 w-4 accent-[#907AFF]" />
                         <div>
                           <p className="font-semibold text-slate-900 dark:text-white">Pay per audiobook</p>
                           <p className="text-sm text-slate-500 dark:text-white/50">299 kr / book</p>
                         </div>
                       </label>
                       <label className="flex cursor-pointer items-start gap-3 rounded-xl border-2 border-slate-200 px-4 py-4 transition hover:border-slate-300 dark:border-white/10 dark:hover:border-white/20" onClick={() => { setAudiobookCheckoutModalOpen(false); router.push("/author/billing"); }}>
-                        <input type="radio" name="audiobook-plan" value="pro" className="mt-0.5 h-4 w-4 accent-[#907AFF]" onChange={() => {}} />
+                        <input type="radio" name="audiobook-plan" value="pro" className="mt-0.5 h-4 w-4 accent-[#907AFF]" />
                         <div>
                           <p className="font-semibold text-slate-900 dark:text-white">Subscribe to PRO author</p>
                           <p className="mb-2 text-sm text-slate-500 dark:text-white/50">2 490 kr / month</p>

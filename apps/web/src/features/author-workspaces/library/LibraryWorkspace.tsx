@@ -3,7 +3,6 @@
 import Image from "next/image";
 import Link from "next/link";
 import { useEffect, useMemo } from "react";
-import { Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import CreateBookEntry from "@/app/(app-author)/author/books/CreateBookEntry";
 import { useAuthorWorkspace } from "@/features/author-shell/workspace-state";

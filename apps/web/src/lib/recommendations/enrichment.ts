@@ -16,10 +16,14 @@ export async function enrichWithAuthors(
 
   const authorIds = [...new Set(books.map((b) => b.author_id))];
 
-  const { data: profiles } = await supabase
+  const { data: profiles, error } = await supabase
     .from("profiles")
     .select("user_id, display_name")
     .in("user_id", authorIds);
+
+  if (error) {
+    console.error("[enrichWithAuthors] failed to fetch profiles", error.message);
+  }
 
   const nameMap = new Map<string, string>();
   for (const p of profiles ?? []) {

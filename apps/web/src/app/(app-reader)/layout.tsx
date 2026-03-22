@@ -51,14 +51,6 @@ export default async function AppReaderLayout({
       : null;
     const canAccessAuthor = isAdmin || isLegacyAuthor || approvalStatus === "approved";
 
-    console.info("[reader guard] app-reader layout role check", {
-      userId: user.id,
-      profileRole,
-      activeRole,
-      approvalStatus,
-      canAccessAuthor,
-    });
-
     if (canAccessAuthor) {
       redirect("/author/home");
     }

@@ -1,6 +1,7 @@
 "use client";
 
-import { useCallback, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
+import DOMPurify from "dompurify";
 import { Button } from "@/components/ui/button";
 import { resolveErrorMessage } from "@/lib/error-messages";
 
@@ -32,6 +33,8 @@ export default function NewsletterComposer({
   const [success, setSuccess] = useState<string | null>(null);
 
   const isDraft = newsletter.status === "draft";
+
+  const sanitizedHtml = useMemo(() => DOMPurify.sanitize(bodyHtml), [bodyHtml]);
 
   const handleSave = useCallback(async () => {
     setSaving(true);
@@ -157,7 +160,7 @@ export default function NewsletterComposer({
         {showPreview ? (
           <div
             className="min-h-[300px] rounded-xl border border-slate-200/80 bg-white p-4 text-[14px] text-slate-700 dark:border-white/10 dark:bg-white/5 dark:text-white"
-            dangerouslySetInnerHTML={{ __html: bodyHtml }}
+            dangerouslySetInnerHTML={{ __html: sanitizedHtml }}
           />
         ) : (
           <textarea

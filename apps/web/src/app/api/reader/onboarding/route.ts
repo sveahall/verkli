@@ -87,33 +87,50 @@ export async function POST(request: Request) {
   const genreIds = uniqueStrings([...(body.genres ?? []), ...(body.genreIds ?? [])]);
   const preferences = normalizeReaderPreferences(body.preferences);
 
-  const { error: clearGenreError } = await supabase
-    .from("reader_genre_preferences")
-    .delete()
-    .eq("user_id", user.id);
-
-  if (clearGenreError) {
-    console.error("[reader.onboarding] failed to clear genre preferences", {
-      userId: user.id,
-      message: clearGenreError.message,
-    });
-    return apiError(E_DATABASE_ERROR, 500);
-  }
-
+  // Upsert new genres first, then remove stale ones (safe against partial failure)
   if (genreIds.length > 0) {
     const rows = genreIds.map((genreId) => ({
       user_id: user.id,
       genre_id: genreId,
     }));
 
-    const { error: insertGenreError } = await supabase
+    const { error: upsertGenreError } = await supabase
       .from("reader_genre_preferences")
-      .insert(rows);
+      .upsert(rows, { onConflict: "user_id,genre_id" });
 
-    if (insertGenreError) {
-      console.error("[reader.onboarding] failed to insert genre preferences", {
+    if (upsertGenreError) {
+      console.error("[reader.onboarding] failed to upsert genre preferences", {
         userId: user.id,
-        message: insertGenreError.message,
+        message: upsertGenreError.message,
+      });
+      return apiError(E_DATABASE_ERROR, 500);
+    }
+
+    // Remove genres no longer selected
+    const { error: deleteStaleError } = await supabase
+      .from("reader_genre_preferences")
+      .delete()
+      .eq("user_id", user.id)
+      .not("genre_id", "in", `(${genreIds.join(",")})`);
+
+    if (deleteStaleError) {
+      console.error("[reader.onboarding] failed to clear stale genre preferences", {
+        userId: user.id,
+        message: deleteStaleError.message,
+      });
+      return apiError(E_DATABASE_ERROR, 500);
+    }
+  } else {
+    // Clear all genre preferences
+    const { error: clearGenreError } = await supabase
+      .from("reader_genre_preferences")
+      .delete()
+      .eq("user_id", user.id);
+
+    if (clearGenreError) {
+      console.error("[reader.onboarding] failed to clear genre preferences", {
+        userId: user.id,
+        message: clearGenreError.message,
       });
       return apiError(E_DATABASE_ERROR, 500);
     }

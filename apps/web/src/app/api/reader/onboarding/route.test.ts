@@ -20,10 +20,12 @@ function makeAuthedSupabase() {
   const from = (table: string) => {
     if (table === "reader_genre_preferences") {
       return {
+        upsert: async () => ({ error: null }),
         delete: () => ({
-          eq: async () => ({ error: null }),
+          eq: () => ({
+            not: async () => ({ error: null }),
+          }),
         }),
-        insert: async () => ({ error: null }),
       };
     }
 

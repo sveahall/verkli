@@ -141,14 +141,6 @@ export async function middleware(request: NextRequest) {
     if (!isAuthorOrAdmin) {
       const status = await getAuthorApplicationStatus(supabase, user.id)
       const shouldRedirect = status !== 'approved'
-      console.log('[author guard] middleware role check', {
-        pathname,
-        userId: user.id,
-        profileRole,
-        applicationStatus: status,
-        shouldRedirect,
-      })
-
       if (shouldRedirect) {
         const url = request.nextUrl.clone()
         url.pathname = '/reader/home'

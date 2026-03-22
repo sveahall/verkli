@@ -40,14 +40,6 @@ export default async function AppAuthorLayout({
     : null;
   const canAccessAuthor = isAdmin || isLegacyAuthor || approvalStatus === "approved";
 
-  console.info("[author guard] app-author layout role check", {
-    userId: user.id,
-    profileRole,
-    activeRole,
-    approvalStatus,
-    canAccessAuthor,
-  });
-
   if (!canAccessAuthor) {
     redirect("/reader/home");
   }

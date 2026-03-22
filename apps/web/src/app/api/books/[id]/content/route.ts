@@ -21,11 +21,15 @@ export async function GET(
   const admin = createAdminClient();
 
   // Verify book ownership
-  const { data: book } = await admin
+  const { data: book, error: bookError } = await admin
     .from("books" as never)
     .select("id, author_id")
     .eq("id", bookId)
     .single();
+
+  if (bookError) {
+    return apiError(E_BOOK_NOT_FOUND, 404);
+  }
 
   const bookRow = book as Record<string, unknown> | null;
   if (!bookRow || bookRow.author_id !== user.id) {

@@ -70,27 +70,39 @@ export async function PUT(
 
   const { genreIds } = parsed.data;
 
-  // Delete existing and insert new
-  const { error: deleteError } = await supabase
-    .from("book_genres")
-    .delete()
-    .eq("book_id", bookId);
-
-  if (deleteError) {
-    return apiError(E_DATABASE_ERROR, 500);
-  }
-
+  // Upsert new genres first, then remove stale ones (safe against partial failure)
   if (genreIds.length > 0) {
     const rows = genreIds.map((genreId) => ({
       book_id: bookId,
       genre_id: genreId,
     }));
 
-    const { error: insertError } = await supabase
+    const { error: upsertError } = await supabase
       .from("book_genres")
-      .insert(rows);
+      .upsert(rows, { onConflict: "book_id,genre_id" });
 
-    if (insertError) {
+    if (upsertError) {
+      return apiError(E_DATABASE_ERROR, 500);
+    }
+
+    // Remove genres no longer selected
+    const { error: deleteError } = await supabase
+      .from("book_genres")
+      .delete()
+      .eq("book_id", bookId)
+      .not("genre_id", "in", `(${genreIds.join(",")})`);
+
+    if (deleteError) {
+      return apiError(E_DATABASE_ERROR, 500);
+    }
+  } else {
+    // Clear all genres
+    const { error: deleteError } = await supabase
+      .from("book_genres")
+      .delete()
+      .eq("book_id", bookId);
+
+    if (deleteError) {
       return apiError(E_DATABASE_ERROR, 500);
     }
   }
