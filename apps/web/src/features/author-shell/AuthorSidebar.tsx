@@ -86,7 +86,7 @@ function SidebarNavLink({
       onMouseEnter={() => router.prefetch(href)}
       className={`inline-flex min-h-[44px] items-center gap-3.5 rounded-xl px-4 py-2.5 text-[15px] font-normal transition ${
         active
-          ? "bg-gradient-to-r from-[#907AFF] to-[#7C6CFF] text-white shadow-[0_6px_16px_rgba(124,108,255,0.24)]"
+          ? "bg-gradient-to-r from-[#907AFF] to-[#7C6CFF] text-white"
           : "text-[#7A8194] hover:bg-[#F6F7FB] hover:text-[#555C70] dark:text-white/50 dark:hover:bg-white/10 dark:hover:text-white"
       }`}
     >
@@ -102,7 +102,7 @@ export default function AuthorSidebar() {
   const currentBookId = activeBook?.id ?? (booksLoading ? state.currentBookId : null);
 
   return (
-    <aside className="border-r border-[#ECEAF5] bg-white dark:border-white/10 dark:bg-[#070b14] lg:sticky lg:top-0 lg:flex lg:h-screen lg:flex-col">
+    <aside className="border-r border-[#ECEAF5] pr-4 bg-white dark:border-white/10 dark:bg-[#070b14] lg:sticky lg:top-0 lg:flex lg:h-screen lg:flex-col">
       <div className="px-5 pt-7 pb-6">
         <Link href="/author/home" className="inline-flex items-center">
           <Image
