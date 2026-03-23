@@ -71,7 +71,7 @@ export default function AuthorSignIn() {
     }
 
     const resolvedRole = nextRole ?? "author";
-    router.push(resolvedRole === "reader" ? "/author/signup" : "/author/home");
+    router.push(resolvedRole === "reader" ? "/reader/home" : "/author/home");
   };
 
   const handleGoogleSignIn = async () => {

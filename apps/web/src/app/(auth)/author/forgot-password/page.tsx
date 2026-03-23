@@ -30,6 +30,12 @@ export default function AuthorForgotPassword() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
+
+    if (!email.trim()) {
+      setError("Email is required.");
+      return;
+    }
+
     setLoading(true);
 
     const { error } = await resetPassword(email);

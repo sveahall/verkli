@@ -141,7 +141,7 @@ const nextConfig: NextConfig = {
     ],
   },
   // Allow cross-origin requests from network IP during development
-  allowedDevOrigins: ["192.168.35.146"],
+  ...(process.env.NODE_ENV === "development" ? { allowedDevOrigins: ["192.168.35.146"] } : {}),
 };
 
 const analyzedConfig = withBundleAnalyzer({
