@@ -1,9 +1,5 @@
 import { createAdminClient } from "@/lib/supabase/admin";
-import {
-  getImageProvider,
-  getCopywriterProvider,
-} from "@/lib/ai/providers/server";
-import { generateImageToVideo } from "@/lib/higgsfield";
+import { generateImageToVideo, generateCoverImages } from "@/lib/higgsfield";
 import type { ContentGenerationRequest, BookSnapshot, TextContent } from "./schemas";
 import { validateTextContent } from "./schemas";
 import {
@@ -149,8 +145,6 @@ async function generateText(
   request: ContentGenerationRequest,
   snapshot: BookSnapshot
 ): Promise<DispatchResult> {
-  const copywriter = getCopywriterProvider();
-
   const systemPrompt = buildCopywriterSystemPrompt(request.channel, request.language);
   const userPrompt = buildCopywriterUserPrompt(
     snapshot,
@@ -159,35 +153,16 @@ async function generateText(
     request.userPromptAddendum
   );
 
-  const result = await copywriter.generate({ systemPrompt, userPrompt });
-
-  let textContent: TextContent;
-  try {
-    const parsed = JSON.parse(result.text) as Record<string, unknown>;
-    textContent = {
-      headline: String(parsed.headline ?? snapshot.title),
-      body: String(parsed.body ?? ""),
-      cta: String(parsed.cta ?? "Läs på Verkli"),
-      hashtags: parsed.hashtags ? String(parsed.hashtags) : undefined,
-    };
-  } catch {
-    // Fallback to safe template if LLM returns invalid JSON
-    textContent = {
-      headline: request.headline ?? snapshot.title,
-      body: request.body ?? `Upptäck ${snapshot.title} på Verkli.`,
-      cta: request.cta ?? "Läs på Verkli",
-      hashtags: "#verkli #böcker",
-    };
-  }
-
-  // Apply user overrides if provided
-  if (request.headline) textContent.headline = request.headline;
-  if (request.body) textContent.body = request.body;
-  if (request.cta) textContent.cta = request.cta;
+  // Template-based text generation
+  const textContent: TextContent = {
+    headline: request.headline ?? snapshot.title,
+    body: request.body ?? `Upptäck ${snapshot.title} på Verkli.`,
+    cta: request.cta ?? "Läs på Verkli",
+    hashtags: "#verkli #böcker",
+  };
 
   // Validate
   const validation = validateTextContent(textContent, snapshot, request.channel);
-  const isStub = copywriter.name.startsWith("stub");
 
   return {
     assetUrl: null,
@@ -195,8 +170,7 @@ async function generateText(
     promptTemplate: systemPrompt,
     promptRendered: userPrompt,
     metadata: {
-      provider: copywriter.name,
-      ...(isStub ? { stub: true } : {}),
+      provider: "template",
       ...(validation.issues.length > 0
         ? { validationIssues: validation.issues }
         : {}),
@@ -208,27 +182,19 @@ async function generateImage(
   request: ContentGenerationRequest,
   snapshot: BookSnapshot
 ): Promise<DispatchResult> {
-  const imageProvider = getImageProvider();
   const prompt = buildImagePrompt(snapshot, request.channel, request.userPromptAddendum);
 
-  const result = await imageProvider.generate({
-    prompt,
-    width: 1024,
-    height: 1024,
-  });
-
-  const isStub = imageProvider.name.startsWith("stub");
+  const result = await generateCoverImages({ prompt });
 
   return {
-    assetUrl: result.imageUrl,
+    assetUrl: result.imageUrls[0] ?? null,
     textContent: null,
     promptTemplate: null,
     promptRendered: prompt,
     metadata: {
-      provider: imageProvider.name,
-      width: result.width,
-      height: result.height,
-      ...(isStub ? { stub: true } : {}),
+      provider: "higgsfield",
+      requestId: result.requestId,
+      imageCount: result.imageUrls.length,
     },
   };
 }

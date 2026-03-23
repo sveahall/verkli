@@ -78,6 +78,9 @@ function useIsDark() {
   return useSyncExternalStore(subscribeDark, isDarkSnapshot, () => false);
 }
 
+const CURSOR_GRAB = { cursor: "grab" } as const;
+const CURSOR_ZOOM = { cursor: "zoom-in" } as const;
+
 /* ── Interactive dotted world map ─────────────────────────────────── */
 function WorldMap({ items }: { items: CountrySalesItem[] }) {
   const isDark = useIsDark();
@@ -167,7 +170,7 @@ function WorldMap({ items }: { items: CountrySalesItem[] }) {
     <div
       ref={containerRef}
       className="relative h-full w-full"
-      style={{ cursor: zoom > 1 ? "grab" : "zoom-in" }}
+      style={zoom > 1 ? CURSOR_GRAB : CURSOR_ZOOM}
     >
       <svg
         viewBox={viewBox}

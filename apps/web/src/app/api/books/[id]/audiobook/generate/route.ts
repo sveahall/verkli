@@ -28,7 +28,7 @@ const AI_JOB_KIND = "audiobook_generation";
 
 // Narrator metadata persisted with jobs/cache keys.
 const DEFAULT_VOICE_ID = "Ryan";
-const DEFAULT_NARRATOR_MODEL = "Qwen/Qwen3-TTS-12Hz-0.6B-CustomVoice";
+const DEFAULT_NARRATOR_MODEL = "eleven_multilingual_v2";
 
 type ActiveJobRow = {
   id: string;
@@ -334,8 +334,8 @@ export async function POST(
   }
 
   // Get TTS config from env
-  const voiceId = process.env.QWEN_TTS_VOICE_ID ?? process.env.TTS_VOICE_ID ?? DEFAULT_VOICE_ID;
-  const modelPath = process.env.AI_NARRATOR_MODEL ?? process.env.QWEN_TTS_MODEL ?? DEFAULT_NARRATOR_MODEL;
+  const voiceId = process.env.ELEVENLABS_VOICE_ID ?? process.env.TTS_VOICE_ID ?? DEFAULT_VOICE_ID;
+  const modelPath = process.env.ELEVENLABS_MODEL_ID ?? DEFAULT_NARRATOR_MODEL;
 
   // Create ai_jobs record
   const { data: job, error: jobError } = await admin

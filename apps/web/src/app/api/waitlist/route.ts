@@ -87,7 +87,40 @@ async function getPosition(supabase: ReturnType<typeof createAdminClient>, creat
   return count ?? 0;
 }
 
-async function sendConfirmationEmail(email: string, position: number, name?: string | null): Promise<void> {
+type EmailSendResult = {
+  sent: boolean;
+  error?: string;
+};
+
+async function persistEmailAttempt(
+  supabase: ReturnType<typeof createAdminClient>,
+  id: string,
+  result: EmailSendResult
+): Promise<void> {
+  const payload: Record<string, unknown> = {
+    confirmation_email_status: result.sent ? "sent" : "failed",
+    confirmation_email_error: result.sent ? null : result.error ?? "unknown_error",
+    confirmation_email_last_attempt_at: new Date().toISOString(),
+  };
+  if (result.sent) {
+    payload.confirmation_email_sent_at = new Date().toISOString();
+  }
+
+  const { error } = await supabase
+    .from("waitlist")
+    .update(payload as never)
+    .eq("id", id);
+  if (error) {
+    console.error("WAITLIST_ERROR", {
+      message: "Persist email attempt failed",
+      code: error.code,
+      details: error.message,
+      hint: error.hint,
+    });
+  }
+}
+
+async function sendConfirmationEmail(email: string, position: number, name?: string | null): Promise<EmailSendResult> {
   const env = getServerEnv();
   const subject = buildWaitlistSubject({ variant: "author", email, position, name });
   const html = buildWaitlistHtml({ variant: "author", email, position, name });
@@ -102,9 +135,12 @@ async function sendConfirmationEmail(email: string, position: number, name?: str
     });
     if (error) {
       console.error("WAITLIST_ERROR", { message: "Resend send failed", code: error.message, details: JSON.stringify(error), hint: "check RESEND_API_KEY and domain" });
+      return { sent: false, error: error.message };
     }
+    return { sent: true };
   } catch (err) {
     console.error("WAITLIST_ERROR", { message: "Resend exception", code: String(err), details: err instanceof Error ? err.message : "", hint: "check RESEND_API_KEY" });
+    return { sent: false, error: err instanceof Error ? err.message : String(err) };
   }
 }
 
@@ -159,7 +195,7 @@ export async function POST(request: Request) {
       if (isUniqueViolation) {
         const { data: existing, error: selectError } = await supabase
           .from("waitlist")
-          .select("id, created_at")
+          .select("id, created_at, confirmation_email_sent_at")
           .ilike("email", email)
           .maybeSingle();
         if (selectError) {
@@ -171,8 +207,17 @@ export async function POST(request: Request) {
         }
         const position = await getPosition(supabase, existing.created_at);
         console.info("[waitlist] duplicate signup", { id: existing.id });
+        const existingRecord = existing as { id: string; created_at: string; confirmation_email_sent_at?: string | null };
+        let emailSent = false;
+        let emailError: string | undefined;
+        if (!existingRecord.confirmation_email_sent_at) {
+          const sendResult = await sendConfirmationEmail(email, position, name);
+          emailSent = sendResult.sent;
+          emailError = sendResult.error;
+          await persistEmailAttempt(supabase, existingRecord.id, sendResult);
+        }
         return NextResponse.json(
-          { ok: true, position, id: existing.id, alreadyExists: true },
+          { ok: true, position, id: existing.id, alreadyExists: true, emailSent, emailError: emailError ?? null },
           { status: 200 }
         );
       }
@@ -187,11 +232,17 @@ export async function POST(request: Request) {
 
     const position = await getPosition(supabase, inserted.created_at);
     console.info("[waitlist] signup stored", { source: source ?? "unknown", position, isNew: true });
-    sendConfirmationEmail(email, position, name).catch((err) => {
-      console.error("WAITLIST_ERROR", { message: "Confirmation email failed", code: "RESEND", details: String(err), hint: "API still returns ok true" });
-    });
+    const sendResult = await sendConfirmationEmail(email, position, name);
+    await persistEmailAttempt(supabase, inserted.id, sendResult);
 
-    return NextResponse.json({ ok: true, position, id: inserted.id, alreadyExists: false });
+    return NextResponse.json({
+      ok: true,
+      position,
+      id: inserted.id,
+      alreadyExists: false,
+      emailSent: sendResult.sent,
+      emailError: sendResult.error ?? null,
+    });
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
     console.error("WAITLIST_ERROR", { message, code: "EXCEPTION", details: err instanceof Error ? err.stack : "", hint: "" });

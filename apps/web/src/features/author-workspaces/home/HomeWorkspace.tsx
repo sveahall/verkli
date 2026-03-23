@@ -28,6 +28,12 @@ import CountrySalesCard from "@/features/author-workspaces/home/components/Count
 import StatsCard from "@/features/author-workspaces/home/components/StatsCard";
 import type { DashboardStats, DashboardBook, DashboardActivity } from "./types";
 
+const TIME_FILTER_OPTIONS: { value: string; label: string }[] = [
+  { value: "this-week", label: "This week" },
+  { value: "last-week", label: "Last week" },
+  { value: "this-month", label: "This month" },
+];
+
 type HomeWorkspaceProps = {
   stats: DashboardStats;
   books: DashboardBook[];
@@ -282,11 +288,7 @@ export default function HomeWorkspace({
                 <DashboardFilter
                   ariaLabel="Filter time range"
                   name="time-filter"
-                  options={[
-                    { value: "this-week", label: "This week" },
-                    { value: "last-week", label: "Last week" },
-                    { value: "this-month", label: "This month" },
-                  ]}
+                  options={TIME_FILTER_OPTIONS}
                 />
               </div>
 

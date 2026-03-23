@@ -107,7 +107,7 @@ describe("POST /api/books/[id]/trailer/generate guardrail", () => {
         hashtags: [],
         title_card: "",
       },
-      metadata: { provider: "stub-copywriter", stub: true },
+      metadata: { provider: "template" },
     });
   });
 

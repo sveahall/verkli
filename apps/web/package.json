@@ -17,7 +17,6 @@
     "import-worker": "tsx scripts/import-worker.ts",
     "translate-worker": "tsx scripts/translation-worker.ts",
     "audiobook-worker": "tsx scripts/audiobook-worker.ts",
-    "tts-preview-worker": "tsx scripts/tts-preview-worker.ts",
     "tts-voice-profile": "tsx scripts/tts-voice-profile.ts",
     "marketing-worker": "tsx scripts/marketing-worker.ts",
     "social-publish-worker": "npx tsx scripts/social-publish-worker.ts",
@@ -27,9 +26,7 @@
     "generate:types": "tsx scripts/generate-types.ts",
     "seed": "tsx scripts/seed.ts",
     "qa:beta": "node scripts/qa-beta.mjs",
-    "tts-prepare-ref": "../../qwen3tts-env311c/bin/python3 scripts/tts-prepare-reference.py",
-    "tts-sweep": "../../qwen3tts-env311c/bin/python3 scripts/tts-quality-sweep.py",
-    "tts-voice-design": "../../qwen3tts-env311c/bin/python3 scripts/tts-voice-design.py"
+    "qa:beta:ci": "node scripts/qa-beta.mjs"
   },
   "dependencies": {
     "@floating-ui/dom": "^1.6.13",

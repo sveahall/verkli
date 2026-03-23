@@ -1,9 +1,7 @@
 /**
- * TTS Provider Interface — abstracts local (Qwen subprocess) and cloud
- * (OpenAI TTS, ElevenLabs, etc.) synthesis behind a common contract.
+ * TTS Provider Interface — ElevenLabs is the sole TTS backend.
  *
- * The audiobook worker calls `synthesize()` regardless of backend.
- * Provider is selected via TTS_PROVIDER env var (default: "qwen-local").
+ * The audiobook worker calls `synthesize()` on the provider.
  */
 
 export type TtsSynthesisResult = {
@@ -31,12 +29,9 @@ export type TtsSynthesisOptions = {
 export interface TtsProvider {
   /** Human-readable provider name for logs */
   readonly name: string;
-  /** Synthesize text to WAV audio */
+  /** Synthesize text to audio */
   synthesize(text: string, options: TtsSynthesisOptions): Promise<TtsSynthesisResult>;
 }
-
-/** Supported provider keys */
-export type TtsProviderKey = "qwen-local" | "openai" | "elevenlabs";
 
 export function assertElevenLabsEnv(): void {
   const missing: string[] = [];
@@ -45,18 +40,4 @@ export function assertElevenLabsEnv(): void {
   if (missing.length > 0) {
     throw new Error(`Missing required env for elevenlabs provider: ${missing.join(", ")}`);
   }
-}
-
-/**
- * Resolve the active TTS provider key from env.
- * Falls back to "qwen-local" when TTS_PROVIDER is unset.
- */
-export function getActiveProviderKey(): TtsProviderKey {
-  const raw = (process.env.TTS_PROVIDER ?? "").trim().toLowerCase();
-  if (raw === "elevenlabs") {
-    assertElevenLabsEnv();
-    return "elevenlabs";
-  }
-  if (raw === "openai") return "openai";
-  return "qwen-local";
 }

@@ -1,7 +1,7 @@
 /**
  * BullMQ worker: process "generate" jobs for audiobook generation.
  * Run from apps/web: npm run audiobook-worker
- * Requires: REDIS_URL, Supabase env
+ * Requires: REDIS_URL, Supabase env, ELEVENLABS_API_KEY, ELEVENLABS_VOICE_ID
  *
  * Uses ai_jobs table for job tracking (kind='audiobook_generation').
  * Progress stored in ai_jobs.output JSON field.
@@ -13,9 +13,7 @@ import * as path from "path";
 import * as fs from "fs/promises";
 import * as os from "os";
 import * as crypto from "crypto";
-import { existsSync } from "node:fs";
 import { spawn } from "child_process";
-import { fileURLToPath } from "node:url";
 import { assertServerEnv, getRedisConnectionOptions } from "../src/lib/env";
 
 assertServerEnv();
@@ -35,19 +33,11 @@ import {
   JobCostExceededError,
   validateJobCost,
 } from "../src/lib/workers/budget";
-import { assertElevenLabsEnv, getActiveProviderKey } from "../src/lib/tts/tts-provider";
-import type { TtsProvider } from "../src/lib/tts/tts-provider";
-import { OpenAiTtsProvider } from "../src/lib/tts/openai-tts-provider";
+import { assertElevenLabsEnv } from "../src/lib/tts/tts-provider";
 import { ElevenLabsTtsProvider } from "../src/lib/tts/elevenlabs-tts-provider";
 
 const QUEUE_NAME = QUEUE_NAMES.AUDIOBOOK;
 const BUCKET = getAudiobookStorageBucket();
-const SCRIPT_DIR = path.dirname(fileURLToPath(import.meta.url));
-const APP_ROOT = path.resolve(SCRIPT_DIR, "..");
-const REPO_ROOT = path.resolve(APP_ROOT, "..", "..");
-const QWEN_MODEL_DEFAULT = "Qwen/Qwen3-TTS-12Hz-0.6B-CustomVoice";
-const QWEN_SYNTH_SCRIPT_DEFAULT = path.join(SCRIPT_DIR, "qwen_tts_synthesize.py");
-const QWEN_PYTHON_DEFAULT = path.join(REPO_ROOT, "qwen3tts-env", "bin", "python3.12");
 const PIPELINE_SMOKE_MODE = process.env.PIPELINE_SMOKE_MODE === "true";
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -91,31 +81,7 @@ function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-/** Max characters per Qwen chunk inside Python synthesizer. */
-const QWEN_MAX_CHARS = (() => {
-  const raw = process.env.TTS_MAX_CHARS;
-  const n = raw ? Number(raw) : NaN;
-  if (Number.isFinite(n) && n > 0 && n <= 20000) return Math.min(500, Math.floor(n));
-  return 350;
-})();
-
-/** Max generated codec tokens for Qwen clone/custom calls. */
-const QWEN_MAX_NEW_TOKENS = (() => {
-  const raw = process.env.QWEN_TTS_MAX_NEW_TOKENS;
-  const n = raw ? Number(raw) : NaN;
-  if (Number.isFinite(n) && n > 0) return Math.max(48, Math.min(4096, Math.floor(n)));
-  return 2048;
-})();
-
-/** Chunk batch size used inside Python synth call. */
-const QWEN_BATCH_SIZE = (() => {
-  const raw = process.env.QWEN_TTS_BATCH_SIZE ?? process.env.TTS_BATCH_SIZE;
-  const n = raw ? Number(raw) : NaN;
-  if (Number.isFinite(n) && n > 0) return Math.max(1, Math.min(8, Math.floor(n)));
-  return 1;
-})();
-
-/** Worker-level concurrency for audiobook jobs (default 1 to avoid VRAM thrash). */
+/** Worker-level concurrency for audiobook jobs. */
 const TTS_CONCURRENCY = (() => {
   const raw = process.env.TTS_CONCURRENCY;
   const n = raw ? Number(raw) : NaN;
@@ -191,253 +157,6 @@ function estimateMp3Duration(mp3: Buffer, bitrateKbps: number | null): number {
 function estimateAudioDuration(audio: Buffer, format: AudioFormat, mp3BitrateKbps: number | null): number {
   if (format === "mp3") return estimateMp3Duration(audio, mp3BitrateKbps);
   return estimateWavDuration(audio);
-}
-
-function perfNumber(value: number | undefined, digits = 2): string | null {
-  if (typeof value !== "number" || !Number.isFinite(value)) return null;
-  return value.toFixed(digits);
-}
-
-function formatQwenPerf(result: QwenSynthesisResult): string {
-  const parts: string[] = [];
-  const metrics = result.metrics ?? undefined;
-  const rtf = perfNumber(metrics?.rtf, 3);
-  const genRtf = perfNumber(metrics?.generationRtf, 3);
-  const wall = perfNumber(metrics?.wallClockSec, 2);
-  const synth = perfNumber(metrics?.synthesisSec, 2);
-  const cps = perfNumber(metrics?.charsPerSecGeneration, 1);
-  const gpuMiB = perfNumber(metrics?.gpuPeakMemoryMiB, 0);
-
-  if (wall) parts.push(`wall=${wall}s`);
-  if (synth) parts.push(`synth=${synth}s`);
-  if (rtf) parts.push(`rtf=${rtf}`);
-  if (genRtf) parts.push(`genRtf=${genRtf}`);
-  if (cps) parts.push(`chars/s=${cps}`);
-  if (gpuMiB) parts.push(`gpuPeak=${gpuMiB}MiB`);
-  if (result.batchSize) parts.push(`batch=${result.batchSize}`);
-  if (result.dtype) parts.push(`dtype=${result.dtype}`);
-  if (typeof result.torchCompile === "boolean") parts.push(`compile=${result.torchCompile ? "on" : "off"}`);
-  if (typeof result.int8 === "boolean") parts.push(`int8=${result.int8 ? "on" : "off"}`);
-
-  return parts.length > 0 ? `, ${parts.join(", ")}` : "";
-}
-
-function resolveQwenSynthScriptPath(): string {
-  const configured = process.env.QWEN_TTS_SCRIPT?.trim();
-  if (configured) return configured;
-  return QWEN_SYNTH_SCRIPT_DEFAULT;
-}
-
-function resolveQwenPythonPath(): string {
-  const configured = process.env.QWEN_TTS_PYTHON?.trim();
-  if (configured) return configured;
-  if (existsSync(QWEN_PYTHON_DEFAULT)) return QWEN_PYTHON_DEFAULT;
-  return "python3.12";
-}
-
-type QwenSynthesisMetadata = {
-  outputPath?: string;
-  sampleRate?: number;
-  device?: string;
-  method?: string;
-  batchSize?: number;
-  dtype?: string;
-  attnImplementation?: string;
-  autocast?: boolean;
-  torchCompile?: boolean;
-  int8?: boolean;
-  metrics?: {
-    wallClockSec?: number;
-    loadSec?: number;
-    synthesisSec?: number;
-    audioSec?: number;
-    rtf?: number;
-    generationRtf?: number;
-    chars?: number;
-    charsPerSecTotal?: number;
-    charsPerSecGeneration?: number;
-    gpuPeakMemoryMiB?: number;
-    processedChunks?: number;
-  };
-};
-
-type QwenSynthesisResult = {
-  wav: Buffer;
-  sampleRate: number;
-  outputPath: string;
-  audioFormat: AudioFormat;
-  bitrateKbps: number | null;
-  device: string | null;
-  method: string | null;
-  metrics: QwenSynthesisMetadata["metrics"] | null;
-  batchSize: number | null;
-  dtype: string | null;
-  torchCompile: boolean | null;
-  int8: boolean | null;
-};
-
-function parseQwenMetadata(stdout: string): QwenSynthesisMetadata {
-  const lines = stdout
-    .split(/\r?\n/g)
-    .map((line) => line.trim())
-    .filter((line) => line.length > 0);
-
-  for (let i = lines.length - 1; i >= 0; i--) {
-    const line = lines[i];
-    if (!line.startsWith("{")) continue;
-    try {
-      const parsed = JSON.parse(line);
-      if (parsed && typeof parsed === "object") {
-        return parsed as QwenSynthesisMetadata;
-      }
-    } catch {
-      // Keep scanning previous lines.
-    }
-  }
-
-  throw new Error("Qwen synthesizer did not return valid JSON metadata.");
-}
-
-async function synthesizeWithQwen(
-  text: string,
-  outputPath: string,
-  options: {
-    language: string;
-    voiceId: string;
-    modelId: string;
-    timeoutMs: number;
-  }
-): Promise<QwenSynthesisResult> {
-  const pythonPath = resolveQwenPythonPath();
-  const scriptPath = resolveQwenSynthScriptPath();
-
-  if (!existsSync(scriptPath)) {
-    throw new Error(
-      `Qwen synth script missing: ${scriptPath}. Skapa filen apps/web/scripts/qwen_tts_synthesize.py.`
-    );
-  }
-
-  const args = [
-    scriptPath,
-    "--output",
-    outputPath,
-    "--model-id",
-    options.modelId || QWEN_MODEL_DEFAULT,
-    "--language",
-    options.language || "sv",
-    "--speaker",
-    options.voiceId || "Ryan",
-    "--max-chars",
-    String(QWEN_MAX_CHARS),
-    "--batch-size",
-    String(QWEN_BATCH_SIZE),
-    "--max-new-tokens",
-    String(QWEN_MAX_NEW_TOKENS),
-    "--xvector-only",
-    process.env.QWEN_TTS_XVECTOR_ONLY === "0" ? "0" : "1",
-    "--clone-non-streaming-mode",
-    process.env.QWEN_TTS_CLONE_NON_STREAMING_MODE === "1" ? "1" : "0",
-  ];
-
-  return new Promise<QwenSynthesisResult>((resolve, reject) => {
-    const proc = spawn(pythonPath, args, {
-      stdio: ["pipe", "pipe", "pipe"],
-      env: {
-        ...process.env,
-        PYTORCH_ENABLE_MPS_FALLBACK: process.env.PYTORCH_ENABLE_MPS_FALLBACK ?? "1",
-      },
-    });
-
-    let stdout = "";
-    let stderr = "";
-    let settled = false;
-
-    const finish = (fn: () => void) => {
-      if (settled) return;
-      settled = true;
-      clearTimeout(timer);
-      fn();
-    };
-
-    const timer = setTimeout(() => {
-      proc.kill("SIGKILL");
-      finish(() => {
-        reject(
-          new Error(
-            `Qwen synth timed out after ${options.timeoutMs}ms. stderr: ${stderr.slice(-500)}`
-          )
-        );
-      });
-    }, Math.max(1, options.timeoutMs));
-
-    proc.stdout.on("data", (chunk) => {
-      stdout += chunk.toString();
-    });
-
-    proc.stderr.on("data", (chunk) => {
-      stderr += chunk.toString();
-      if (process.env.QWEN_TTS_VERBOSE === "1") {
-        process.stderr.write(chunk.toString());
-      }
-    });
-
-    proc.on("error", (error) => {
-      finish(() => {
-        reject(new Error(`Failed to start Qwen synth process (${pythonPath}): ${error.message}`));
-      });
-    });
-
-    proc.on("close", (code) => {
-      void (async () => {
-        if (code !== 0) {
-          finish(() => {
-            reject(
-              new Error(
-                `Qwen synth exited with code ${code}. stderr: ${stderr.trim() || "(no stderr)"}`
-              )
-            );
-          });
-          return;
-        }
-
-        try {
-          const metadata = parseQwenMetadata(stdout);
-          const resolvedOutputPath = metadata.outputPath?.trim() || outputPath;
-          const wav = await fs.readFile(resolvedOutputPath);
-          finish(() => {
-            resolve({
-              wav,
-              sampleRate:
-                typeof metadata.sampleRate === "number" && Number.isFinite(metadata.sampleRate)
-                  ? metadata.sampleRate
-                  : 0,
-              outputPath: resolvedOutputPath,
-              audioFormat: "wav",
-              bitrateKbps: null,
-              device: typeof metadata.device === "string" ? metadata.device : null,
-              method: typeof metadata.method === "string" ? metadata.method : null,
-              metrics:
-                metadata.metrics && typeof metadata.metrics === "object" ? metadata.metrics : null,
-              batchSize:
-                typeof metadata.batchSize === "number" && Number.isFinite(metadata.batchSize)
-                  ? metadata.batchSize
-                  : null,
-              dtype: typeof metadata.dtype === "string" ? metadata.dtype : null,
-              torchCompile:
-                typeof metadata.torchCompile === "boolean" ? metadata.torchCompile : null,
-              int8: typeof metadata.int8 === "boolean" ? metadata.int8 : null,
-            });
-          });
-        } catch (error) {
-          finish(() => {
-            reject(error instanceof Error ? error : new Error(String(error)));
-          });
-        }
-      })();
-    });
-
-    proc.stdin.end(text, "utf8");
-  });
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -521,22 +240,29 @@ function createManifest(chapters: ChapterAudio[], bookId: string): object {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// Synthesis result type
+// ─────────────────────────────────────────────────────────────────────────────
+
+type SynthesisResult = {
+  wav: Buffer;
+  sampleRate: number;
+  outputPath: string;
+  audioFormat: AudioFormat;
+  bitrateKbps: number | null;
+};
+
+// ─────────────────────────────────────────────────────────────────────────────
 // Job Processing
 // ─────────────────────────────────────────────────────────────────────────────
 
 async function processJob(payload: AudiobookJobData) {
   const { jobId, bookId, bookVersionId, userId, language, voiceId, modelPath, chapterId, chapterIds } = payload;
   const supabase = createAdminClient();
-  const providerKey = getActiveProviderKey();
   const elevenLabsVoiceId = (process.env.ELEVENLABS_VOICE_ID ?? "").trim();
   const elevenLabsModelId = (process.env.ELEVENLABS_MODEL_ID ?? "").trim();
   const elevenLabsOutputFormat = (process.env.ELEVENLABS_OUTPUT_FORMAT ?? "").trim();
-  const resolvedVoiceId =
-    providerKey === "elevenlabs" ? (elevenLabsVoiceId || voiceId || "default") : voiceId;
-  const resolvedModelId =
-    providerKey === "elevenlabs"
-      ? (elevenLabsModelId || modelPath?.trim() || "eleven_multilingual_v2")
-      : (modelPath?.trim() || QWEN_MODEL_DEFAULT);
+  const resolvedVoiceId = elevenLabsVoiceId || voiceId || "default";
+  const resolvedModelId = elevenLabsModelId || modelPath?.trim() || "eleven_multilingual_v2";
   const selectedChapterIds = Array.from(
     new Set(
       (Array.isArray(chapterIds) ? chapterIds : [])
@@ -806,31 +532,21 @@ async function processJob(payload: AudiobookJobData) {
     await fs.mkdir(tmpDir, { recursive: true });
 
     const chapterAudios: ChapterAudio[] = [];
-    const configuredTimeoutMs = Number(
-      process.env.QWEN_TTS_TIMEOUT_MS ?? process.env.TTS_TIMEOUT_MS ?? 900_000
-    );
+    const configuredTimeoutMs = Number(process.env.TTS_TIMEOUT_MS ?? 900_000);
     const chapterTimeoutMs =
       Number.isFinite(configuredTimeoutMs) && configuredTimeoutMs > 0
         ? configuredTimeoutMs
         : 900_000;
-    console.warn("[audiobook worker] qwen timeout per chapter:", chapterTimeoutMs, "ms");
-    console.warn("[audiobook worker] qwen batch size:", QWEN_BATCH_SIZE);
 
-    // Resolve TTS provider: cloud ("openai"/"elevenlabs") or local ("qwen-local").
-    let cloudProvider: TtsProvider | null = null;
+    // Create ElevenLabs provider
+    let provider: ElevenLabsTtsProvider | null = null;
     if (!PIPELINE_SMOKE_MODE) {
-      if (providerKey === "openai") {
-        cloudProvider = new OpenAiTtsProvider();
-      } else if (providerKey === "elevenlabs") {
-        assertElevenLabsEnv();
-        cloudProvider = new ElevenLabsTtsProvider();
-      }
-    }
-    if (cloudProvider) {
-      console.warn("[audiobook worker] using cloud TTS provider:", cloudProvider.name);
+      assertElevenLabsEnv();
+      provider = new ElevenLabsTtsProvider();
+      console.warn("[audiobook worker] using ElevenLabs TTS provider");
     }
 
-    const synthesizeOne = async (text: string, outputBasePath: string) => {
+    const synthesizeOne = async (text: string, outputBasePath: string): Promise<SynthesisResult> => {
       if (PIPELINE_SMOKE_MODE) {
         const smokeDurationSeconds = Math.min(6, Math.max(1, Math.ceil(text.length / 80)));
         const wav = createSilentWavBuffer(smokeDurationSeconds);
@@ -842,59 +558,28 @@ async function processJob(payload: AudiobookJobData) {
           outputPath,
           audioFormat: "wav",
           bitrateKbps: null,
-          device: "smoke",
-          method: "smoke",
-          metrics: {
-            wallClockSec: 0,
-            synthesisSec: 0,
-            audioSec: smokeDurationSeconds,
-            rtf: 0,
-            chars: text.length,
-            charsPerSecGeneration: text.length,
-            processedChunks: 1,
-          },
-          batchSize: 1,
-          dtype: "smoke",
-          torchCompile: false,
-          int8: false,
-        } satisfies QwenSynthesisResult;
+        };
       }
 
-      if (cloudProvider) {
-        const result = await cloudProvider.synthesize(text, {
-          language,
-          voiceId: resolvedVoiceId,
-          modelId: resolvedModelId,
-          timeoutMs: chapterTimeoutMs,
-        });
-        const audioFormat: AudioFormat = result.format === "mp3" ? "mp3" : "wav";
-        const outputPath = `${outputBasePath}.${audioExtension(audioFormat)}`;
-        await fs.writeFile(outputPath, result.wav);
-        return {
-          wav: result.wav,
-          sampleRate: result.sampleRate,
-          outputPath,
-          audioFormat,
-          bitrateKbps:
-            audioFormat === "mp3"
-              ? (result.bitrateKbps ?? parseMp3BitrateKbps(elevenLabsOutputFormat))
-              : null,
-          device: "cloud",
-          method: cloudProvider.name,
-          metrics: result.metadata as QwenSynthesisMetadata["metrics"],
-          batchSize: null,
-          dtype: null,
-          torchCompile: null,
-          int8: null,
-        } satisfies QwenSynthesisResult;
-      }
-      const outputPath = `${outputBasePath}.wav`;
-      return synthesizeWithQwen(text, outputPath, {
+      const result = await provider!.synthesize(text, {
         language,
         voiceId: resolvedVoiceId,
         modelId: resolvedModelId,
         timeoutMs: chapterTimeoutMs,
       });
+      const audioFormat: AudioFormat = result.format === "mp3" ? "mp3" : "wav";
+      const outputPath = `${outputBasePath}.${audioExtension(audioFormat)}`;
+      await fs.writeFile(outputPath, result.wav);
+      return {
+        wav: result.wav,
+        sampleRate: result.sampleRate,
+        outputPath,
+        audioFormat,
+        bitrateKbps:
+          audioFormat === "mp3"
+            ? (result.bitrateKbps ?? parseMp3BitrateKbps(elevenLabsOutputFormat))
+            : null,
+      };
     };
 
     // Process chapters sequentially
@@ -955,23 +640,20 @@ async function processJob(payload: AudiobookJobData) {
               cachedFormat === "mp3" ? parseMp3BitrateKbps(elevenLabsOutputFormat) : null
             );
         } else {
-          // Cache miss/invalid, synthesize fresh via local Qwen script.
+          // Cache miss/invalid, synthesize fresh
           console.warn(`[audiobook worker] chapter ${i} cache invalid, synthesizing...`);
           const outputBasePath = path.join(tmpDir, `chapter-${i}`);
           const synthesis = await synthesizeOne(text, outputBasePath);
-          const { wav, device, method, audioFormat, bitrateKbps } = synthesis;
-          durationSeconds = estimateAudioDuration(wav, audioFormat, bitrateKbps);
-          audioPath = synthesis.outputPath || `${outputBasePath}.${audioExtension(audioFormat)}`;
-          console.warn(
-            `[audiobook worker] chapter ${i} synthesized via tts (device=${device ?? "unknown"}, method=${method ?? "unknown"}${formatQwenPerf(synthesis)})`
-          );
+          durationSeconds = estimateAudioDuration(synthesis.wav, synthesis.audioFormat, synthesis.bitrateKbps);
+          audioPath = synthesis.outputPath;
+          console.warn(`[audiobook worker] chapter ${i} synthesized via elevenlabs`);
 
           // Upload to cache
-          const cachePath = `cache/${bookId}/${chapter.id}-${contentHash.slice(0, 16)}.${audioExtension(audioFormat)}`;
+          const cachePath = `cache/${bookId}/${chapter.id}-${contentHash.slice(0, 16)}.${audioExtension(synthesis.audioFormat)}`;
           await uploadAndCacheChapter(
             supabase,
             cachePath,
-            wav,
+            synthesis.wav,
             chapter.id,
             bookVersionId,
             contentHash,
@@ -979,28 +661,25 @@ async function processJob(payload: AudiobookJobData) {
             resolvedModelId,
             language,
             durationSeconds,
-            audioContentType(audioFormat)
+            audioContentType(synthesis.audioFormat)
           );
           storagePath = cachePath;
         }
       } else {
-        // No cache, synthesize new audio via local Qwen script.
-        console.warn(`[audiobook worker] chapter ${i} synthesizing via tts: "${chapter.title}"`);
+        // No cache, synthesize new audio
+        console.warn(`[audiobook worker] chapter ${i} synthesizing: "${chapter.title}"`);
         const outputBasePath = path.join(tmpDir, `chapter-${i}`);
         const synthesis = await synthesizeOne(text, outputBasePath);
-        const { wav, device, method, audioFormat, bitrateKbps } = synthesis;
-        durationSeconds = estimateAudioDuration(wav, audioFormat, bitrateKbps);
-        audioPath = synthesis.outputPath || `${outputBasePath}.${audioExtension(audioFormat)}`;
-        console.warn(
-          `[audiobook worker] chapter ${i} synthesized via tts (device=${device ?? "unknown"}, method=${method ?? "unknown"}${formatQwenPerf(synthesis)})`
-        );
+        durationSeconds = estimateAudioDuration(synthesis.wav, synthesis.audioFormat, synthesis.bitrateKbps);
+        audioPath = synthesis.outputPath;
+        console.warn(`[audiobook worker] chapter ${i} synthesized via elevenlabs`);
 
         // Upload to cache
-        const cachePath = `cache/${bookId}/${chapter.id}-${contentHash.slice(0, 16)}.${audioExtension(audioFormat)}`;
+        const cachePath = `cache/${bookId}/${chapter.id}-${contentHash.slice(0, 16)}.${audioExtension(synthesis.audioFormat)}`;
         await uploadAndCacheChapter(
           supabase,
           cachePath,
-          wav,
+          synthesis.wav,
           chapter.id,
           bookVersionId,
           contentHash,
@@ -1008,7 +687,7 @@ async function processJob(payload: AudiobookJobData) {
           resolvedModelId,
           language,
           durationSeconds,
-          audioContentType(audioFormat)
+          audioContentType(synthesis.audioFormat)
         );
         storagePath = cachePath;
       }

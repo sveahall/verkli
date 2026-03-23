@@ -88,13 +88,6 @@ export function isBookClubsEnabled(): boolean {
   return value.toLowerCase() === "true" || value === "1";
 }
 
-// ─── Client – social ───
-export function getSocialEnabled(): boolean {
-  const value = process.env.NEXT_PUBLIC_SOCIAL_ENABLED;
-  if (value === undefined || value === "") return false;
-  return value.toLowerCase() === "true" || value === "1";
-}
-
 // ─── Server/API – social ───
 export function isSocialEnabled(): boolean {
   const value = process.env.NEXT_PUBLIC_SOCIAL_ENABLED ?? process.env.SOCIAL_ENABLED;
@@ -130,23 +123,3 @@ export function isNewslettersEnabled(): boolean {
   return value.toLowerCase() === "true" || value === "1";
 }
 
-// ─── Client – notifications ───
-export function getNotificationsEnabled(): boolean {
-  const value = process.env.NEXT_PUBLIC_NOTIFICATIONS_ENABLED;
-  if (value === undefined || value === "") return false;
-  return value.toLowerCase() === "true" || value === "1";
-}
-
-// ─── Server/API – notifications ───
-export function isNotificationsEnabled(): boolean {
-  const value = process.env.NEXT_PUBLIC_NOTIFICATIONS_ENABLED ?? process.env.NOTIFICATIONS_ENABLED;
-  if (value === undefined || value === "") return false;
-  return value.toLowerCase() === "true" || value === "1";
-}
-
-// ─── TTS Lab (internal) ───
-export function isTtsLabEnabled(): boolean {
-  const value = process.env.NEXT_PUBLIC_TTS_LAB_ENABLED ?? process.env.TTS_LAB_ENABLED;
-  if (value === undefined || value === "") return false;
-  return value.toLowerCase() === "true" || value === "1";
-}

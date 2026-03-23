@@ -163,7 +163,7 @@ describe("POST /api/books/[id]/trailer/build", () => {
         hashtags: ["#one", "#two"],
         title_card: "My Book",
       },
-      metadata: { provider: "stub-copywriter", stub: true },
+      metadata: { provider: "template" },
     });
     mocks.generateImageToVideo
       .mockResolvedValueOnce({ requestId: "req-1", videoUrl: "https://cdn.example.com/s1.mp4" })
@@ -207,7 +207,7 @@ describe("POST /api/books/[id]/trailer/build", () => {
         hashtags: ["#one", "#two"],
         title_card: "My Book",
       },
-      metadata: { provider: "stub-copywriter", stub: true },
+      metadata: { provider: "template" },
     });
     mocks.generateImageToVideo
       .mockResolvedValueOnce({ requestId: "req-1", videoUrl: "https://cdn.example.com/s1.mp4" })
@@ -243,7 +243,7 @@ describe("POST /api/books/[id]/trailer/build", () => {
         hashtags: ["#one", "#two"],
         title_card: "My Book",
       },
-      metadata: { provider: "stub-copywriter", stub: true },
+      metadata: { provider: "template" },
     });
     mocks.generateImageToVideo.mockRejectedValue(new Error("Scene generation failed"));
 

@@ -110,12 +110,15 @@ function ProgressRing({
   );
 }
 
+const CHART_STYLE = { height: 72 } as const;
+const BAR_COL_STYLE = { minWidth: 3, maxWidth: 18, height: "100%" } as const;
+
 function MiniBarChart({ data }: { data: DailyPoint[] }) {
   if (data.length === 0) return null;
   const max = Math.max(...data.map((d) => d.views + d.reads), 1);
 
   return (
-    <div className="flex items-end gap-[3px]" style={{ height: 72 }}>
+    <div className="flex items-end gap-[3px]" style={CHART_STYLE}>
       {data.map((d) => {
         const total = d.views + d.reads;
         const h = (total / max) * 100;
@@ -125,7 +128,7 @@ function MiniBarChart({ data }: { data: DailyPoint[] }) {
           <div
             key={d.date}
             className="group relative flex flex-1 flex-col justify-end"
-            style={{ minWidth: 3, maxWidth: 18, height: "100%" }}
+            style={BAR_COL_STYLE}
           >
             <div className="pointer-events-none absolute -top-9 left-1/2 z-10 hidden -translate-x-1/2 whitespace-nowrap rounded-lg bg-slate-900 px-2.5 py-1 text-[10px] font-medium text-white shadow-lg group-hover:block dark:bg-white dark:text-slate-900">
               {d.date.slice(5)} &middot; {d.views} visn. &middot; {d.reads} läsn.

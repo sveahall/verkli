@@ -1,9 +1,14 @@
 "use client";
 
 import Link from "next/link";
+import dynamic from "next/dynamic";
 import { useCallback, useEffect, useRef, useState } from "react";
-import TiptapRenderer from "@/components/editor/TiptapRenderer";
 import { createClient } from "@/lib/supabase/client";
+
+const TiptapRenderer = dynamic(
+  () => import("@/components/editor/TiptapRenderer"),
+  { ssr: false }
+);
 
 type HighlightColor = "yellow" | "green" | "blue" | "rose";
 

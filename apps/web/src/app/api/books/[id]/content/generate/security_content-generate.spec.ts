@@ -133,7 +133,7 @@ vi.mock("@/lib/ai/content-generation", async () => {
         channel: "ig",
         assetUrl: null,
         textContent: { headline: "Test Book", body: "Body", cta: "Läs" },
-        metadata: { provider: "stub-copywriter", stub: true },
+        metadata: { provider: "template" },
       })
     ),
   };
