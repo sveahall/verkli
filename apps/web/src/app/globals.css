@@ -146,6 +146,17 @@
   color-scheme: dark;
 }
 
+/* Legal / policy prose styling */
+.prose-policy h2 {
+  @apply mt-10 mb-3 text-lg font-semibold text-slate-900 dark:text-white;
+}
+.prose-policy ul {
+  @apply list-disc pl-5 space-y-1.5;
+}
+.prose-policy a {
+  @apply underline underline-offset-2 text-[#907AFF] hover:text-[#7A66E0];
+}
+
 /* Design system: page & section spacing (use across app) */
 @layer utilities {
   .safe-area-inset-bottom {

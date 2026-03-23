@@ -8,6 +8,7 @@ import { SpeedInsights } from "@vercel/speed-insights/next";
 import GlobalThemeToggle from "@/components/GlobalThemeToggle";
 import { ToastProvider } from "@/components/ui/toast";
 import OfflineServiceWorkerRegistration from "@/components/offline/OfflineServiceWorkerRegistration";
+import CookieConsent from "@/components/CookieConsent";
 
 const inter = Inter({
   variable: "--font-inter",
@@ -29,7 +30,13 @@ export const metadata: Metadata = {
     template: "%s | Verkli",
   },
   description: "Verkli — the platform for authors and readers.",
-  icons: { icon: "/favi.svg" },
+  icons: {
+    icon: [
+      { url: "/favi.svg", type: "image/svg+xml" },
+      { url: "/favicon.ico", sizes: "32x32" },
+    ],
+    apple: "/apple-touch-icon.png",
+  },
   openGraph: {
     siteName: "Verkli",
     type: "website",
@@ -72,6 +79,7 @@ export default function RootLayout({
           </div>
           {/* Theme toggle fixed in bottom right corner on all pages */}
           <GlobalThemeToggle />
+          <CookieConsent />
         </ToastProvider>
         <Analytics />
         <SpeedInsights />

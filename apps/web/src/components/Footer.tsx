@@ -48,8 +48,12 @@ export default function Footer({ variant = "reader" }: { variant?: FooterVariant
         </div>
       </div>
       <div className="mt-8 flex flex-col items-center justify-between gap-4 px-4 text-[13px] text-slate-500 dark:text-white/30 md:flex-row md:px-11">
-        <span>© 2026 Verkli. All rights reserved.</span>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-4">
+          <span>© 2026 Verkli. All rights reserved.</span>
+          <Link href="/privacy" className={linkClass}>Privacy</Link>
+          <Link href="/terms" className={linkClass}>Terms</Link>
+        </div>
+        <div className="flex items-center gap-2 shrink-0">
           <span className="h-2 w-2 rounded-full bg-green-400"></span>
           <span>All systems operational</span>
         </div>
