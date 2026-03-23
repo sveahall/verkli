@@ -1,5 +1,7 @@
 import { NextResponse } from "next/server";
+import { Resend } from "resend";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { getServerEnv } from "@/lib/env";
 import {
   apiError,
   E_APPLICATIONS_LOAD_FAILED,
@@ -9,12 +11,21 @@ import {
   E_APPLICATION_CREATION_FAILED,
 } from "@/lib/api-errors";
 import { checkAdmin } from "@/lib/admin-auth";
+import {
+  buildApplicationStatusSubject,
+  buildApplicationStatusHtml,
+} from "@/lib/emails/author-application-status";
 
 const VALID_STATUSES = new Set(["approved", "rejected"] as const);
 type ApplicationRow = {
   user_id: string;
   status: "pending" | "approved" | "rejected";
   created_at: string;
+  first_name: string | null;
+  last_name: string | null;
+  email: string | null;
+  has_published_before: boolean | null;
+  published_books_url: string | null;
 };
 type UserRow = {
   id: string;
@@ -28,7 +39,7 @@ export async function GET(request: Request) {
   const admin = createAdminClient();
   const { data, error } = await admin
     .from("author_applications" as never)
-    .select("user_id, status, created_at")
+    .select("user_id, status, created_at, first_name, last_name, email, has_published_before, published_books_url")
     .order("created_at", { ascending: false });
 
   if (error) {
@@ -61,7 +72,7 @@ export async function GET(request: Request) {
 
   const applications = applicationsData.map((application) => ({
     ...application,
-    email: emailByUserId.get(application.user_id) ?? null,
+    auth_email: emailByUserId.get(application.user_id) ?? null,
   }));
 
   return NextResponse.json({ applications });
@@ -120,5 +131,50 @@ export async function PATCH(request: Request) {
     }
   }
 
-  return NextResponse.json({ ok: true, userId, status });
+  // Send notification email (best-effort, don't fail the request)
+  let emailSent = false;
+  try {
+    const { data: application } = await admin
+      .from("author_applications" as never)
+      .select("email, first_name")
+      .eq("user_id", userId)
+      .maybeSingle();
+
+    const app = application as { email?: string | null; first_name?: string | null } | null;
+    const recipientEmail = app?.email;
+
+    if (recipientEmail) {
+      const env = getServerEnv();
+      const decision = status as "approved" | "rejected";
+      const subject = buildApplicationStatusSubject({ decision, firstName: app?.first_name });
+      const html = buildApplicationStatusHtml({ decision, firstName: app?.first_name });
+
+      const resend = new Resend(env.RESEND_API_KEY);
+      const { error: sendError } = await resend.emails.send({
+        from: env.RESEND_FROM_EMAIL,
+        to: recipientEmail,
+        subject,
+        html,
+      });
+
+      if (sendError) {
+        console.error("[author applications admin] email send failed", {
+          userId,
+          email: recipientEmail,
+          error: sendError.message,
+        });
+      } else {
+        emailSent = true;
+      }
+    } else {
+      console.warn("[author applications admin] no email on application, skipping notification", { userId });
+    }
+  } catch (err) {
+    console.error("[author applications admin] email send exception", {
+      userId,
+      error: err instanceof Error ? err.message : String(err),
+    });
+  }
+
+  return NextResponse.json({ ok: true, userId, status, emailSent });
 }

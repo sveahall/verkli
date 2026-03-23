@@ -29,6 +29,8 @@ const isExistingSupabaseUser = (
   return Array.isArray(identities) && identities.length === 0;
 };
 
+type ApplicationStep = "info" | "published" | "link" | "submitted";
+
 export default function AuthorSignUp() {
   const router = useRouter();
   const [email, setEmail] = useState("");
@@ -43,6 +45,15 @@ export default function AuthorSignUp() {
   const [applicationLoading, setApplicationLoading] = useState(false);
   const [loggedInEmail, setLoggedInEmail] = useState<string | null>(null);
   const [applicationStatus, setApplicationStatus] = useState<AuthorApplicationStatus>("none");
+
+  // Questionnaire state
+  const [step, setStep] = useState<ApplicationStep>("info");
+  const [firstName, setFirstName] = useState("");
+  const [lastName, setLastName] = useState("");
+  const [contactEmail, setContactEmail] = useState("");
+  const [hasPublishedBefore, setHasPublishedBefore] = useState<boolean | null>(null);
+  const [publishedBooksUrl, setPublishedBooksUrl] = useState("");
+  const [stepErrors, setStepErrors] = useState<Record<string, string>>({});
 
   useEffect(() => {
     let mounted = true;
@@ -64,6 +75,7 @@ export default function AuthorSignUp() {
         }
 
         setLoggedInEmail(user.email ?? null);
+        if (user.email) setContactEmail(user.email);
 
         try {
           const response = await fetch("/api/author-applications");
@@ -162,13 +174,21 @@ export default function AuthorSignUp() {
     router.refresh();
   };
 
-  const handleApplyForAuthor = async () => {
+  const submitApplication = async () => {
     setApplicationError("");
     setApplicationLoading(true);
 
     try {
       const response = await fetch("/api/author-applications", {
         method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          firstName,
+          lastName,
+          email: contactEmail,
+          hasPublishedBefore: hasPublishedBefore ?? false,
+          publishedBooksUrl: hasPublishedBefore ? publishedBooksUrl : null,
+        }),
       });
       const payload = await response.json().catch(() => null);
 
@@ -181,6 +201,7 @@ export default function AuthorSignUp() {
 
       const nextStatus = parseApplicationStatus(payload?.status);
       setApplicationStatus(nextStatus === "none" ? "pending" : nextStatus);
+      setStep("submitted");
 
       if (nextStatus === "approved") {
         await switchToAuthorMode();
@@ -191,6 +212,35 @@ export default function AuthorSignUp() {
       );
     } finally {
       setApplicationLoading(false);
+    }
+  };
+
+  const handleNextFromInfo = () => {
+    const errors: Record<string, string> = {};
+    if (!firstName.trim()) errors.firstName = "First name is required.";
+    if (!lastName.trim()) errors.lastName = "Last name is required.";
+    if (!contactEmail.trim()) errors.contactEmail = "Email is required.";
+    setStepErrors(errors);
+    if (Object.keys(errors).length === 0) {
+      setStep("published");
+    }
+  };
+
+  const handlePublishedAnswer = (answer: boolean) => {
+    setHasPublishedBefore(answer);
+    if (answer) {
+      setStep("link");
+    } else {
+      void submitApplication();
+    }
+  };
+
+  const handleSubmitWithLink = () => {
+    const errors: Record<string, string> = {};
+    if (!publishedBooksUrl.trim()) errors.publishedBooksUrl = "Please add a link to your published books.";
+    setStepErrors(errors);
+    if (Object.keys(errors).length === 0) {
+      void submitApplication();
     }
   };
 
@@ -216,64 +266,139 @@ export default function AuthorSignUp() {
 
   if (loggedInEmail) {
     const isApproved = applicationStatus === "approved";
-    const isPending = applicationStatus === "pending";
-    const isReapply = applicationStatus === "rejected";
-    const cardTitle = isApproved
-      ? "Author access approved"
-      : isPending
-        ? "Application pending"
-        : isReapply
-          ? "Reapply for author access"
-          : "Apply for author access";
-    const cardSubtitle = isApproved ? "You're ready to publish" : "Use your existing reader account";
+    const isPending = applicationStatus === "pending" || step === "submitted";
 
+    if (isApproved) {
+      return (
+        <AuthShell backHref="/reader/home" backLabel="Back to reader home">
+          <AuthCard title="Author access approved" subtitle="You're ready to publish">
+            {applicationError && (
+              <div role="alert" className="mb-5 rounded-xl border border-red-200/80 bg-red-50/60 px-4 py-3 text-[14px] text-red-600 dark:border-red-500/20 dark:bg-red-500/10 dark:text-red-300">
+                {applicationError}
+              </div>
+            )}
+            <div className="flex flex-col gap-4">
+              <p className="text-[14px] leading-relaxed text-slate-500 dark:text-white/50">
+                Signed in as <span className="font-medium text-slate-900 dark:text-white">{loggedInEmail}</span>. Your author access is already approved.
+              </p>
+              <Button fullWidth isLoading={applicationLoading} loadingText="Opening author home..." onClick={async () => { setApplicationLoading(true); await switchToAuthorMode(); setApplicationLoading(false); }}>
+                Open author home
+              </Button>
+            </div>
+          </AuthCard>
+        </AuthShell>
+      );
+    }
+
+    if (isPending) {
+      return (
+        <AuthShell backHref="/reader/home" backLabel="Back to reader home">
+          <AuthCard title="Thank you for your application!" subtitle="We'll be in touch">
+            <div className="flex flex-col items-center gap-4 text-center">
+              <div className="flex h-12 w-12 items-center justify-center rounded-full bg-emerald-50/60 text-emerald-600 dark:bg-emerald-500/10 dark:text-emerald-300">
+                <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                </svg>
+              </div>
+              <p className="text-[14px] leading-relaxed text-slate-500 dark:text-white/50">
+                {hasPublishedBefore
+                  ? "Thank you for your application! We'll review your information and get back to you soon."
+                  : "Thank you for your application! We'll get back to you shortly about whether you can join."}
+              </p>
+              <Link href="/reader/home" className="mt-2 w-full">
+                <Button variant="secondary" fullWidth>Back to reader home</Button>
+              </Link>
+            </div>
+          </AuthCard>
+        </AuthShell>
+      );
+    }
+
+    // Multi-step questionnaire
     return (
       <AuthShell backHref="/reader/home" backLabel="Back to reader home">
-        <AuthCard title={cardTitle} subtitle={cardSubtitle}>
+        <AuthCard
+          title={
+            step === "info" ? "Apply to become an author"
+              : step === "published" ? "Your publishing experience"
+                : "Your published books"
+          }
+          subtitle={
+            step === "info" ? "Tell us about yourself"
+              : step === "published" ? "Step 2 of 3"
+                : "Step 3 of 3"
+          }
+        >
           {applicationError && (
-            <div
-              role="alert"
-              className="mb-5 rounded-xl border border-red-200/80 bg-red-50/60 px-4 py-3 text-[14px] text-red-600 dark:border-red-500/20 dark:bg-red-500/10 dark:text-red-300"
-            >
+            <div role="alert" className="mb-5 rounded-xl border border-red-200/80 bg-red-50/60 px-4 py-3 text-[14px] text-red-600 dark:border-red-500/20 dark:bg-red-500/10 dark:text-red-300">
               {applicationError}
             </div>
           )}
 
-          <div className="flex flex-col gap-4">
-            <p className="text-[14px] leading-relaxed text-slate-500 dark:text-white/50">
-              Signed in as <span className="font-medium text-slate-900 dark:text-white">{loggedInEmail}</span>.
-              {isApproved
-                ? " Your author access is already approved."
-                : isPending
-                  ? " Your author application is pending. Waiting for admin approval."
-                  : isReapply
-                    ? " Your previous application was rejected. You can submit a new one now."
-                    : " Submit an application to unlock author mode on this same account."}
-            </p>
+          {step === "info" && (
+            <div className="flex flex-col gap-4">
+              <p className="text-[14px] leading-relaxed text-slate-500 dark:text-white/50">
+                Signed in as <span className="font-medium text-slate-900 dark:text-white">{loggedInEmail}</span>
+              </p>
 
-            {isApproved ? (
-              <Button
-                fullWidth
-                isLoading={applicationLoading}
-                loadingText="Opening author home..."
-                onClick={async () => {
-                  setApplicationLoading(true);
-                  await switchToAuthorMode();
-                  setApplicationLoading(false);
-                }}
-              >
-                Open author home
+              <FormField label="First name" error={stepErrors.firstName}>
+                <Input value={firstName} onChange={(e) => setFirstName(e.target.value)} placeholder="Your first name" autoComplete="given-name" fullWidth />
+              </FormField>
+
+              <FormField label="Last name" error={stepErrors.lastName}>
+                <Input value={lastName} onChange={(e) => setLastName(e.target.value)} placeholder="Your last name" autoComplete="family-name" fullWidth />
+              </FormField>
+
+              <FormField label="Email address" error={stepErrors.contactEmail}>
+                <Input type="email" value={contactEmail} onChange={(e) => setContactEmail(e.target.value)} placeholder="you@example.com" autoComplete="email" fullWidth />
+              </FormField>
+
+              <Button fullWidth onClick={handleNextFromInfo} className="mt-1">
+                Continue
               </Button>
-            ) : isPending ? (
-              <Link href="/reader/home" className="w-full">
-                <Button variant="secondary" fullWidth>Back to reader home</Button>
-              </Link>
-            ) : (
-              <Button fullWidth isLoading={applicationLoading} loadingText="Submitting application..." onClick={handleApplyForAuthor}>
-                {isReapply ? "Submit new application" : "Apply for author access"}
+            </div>
+          )}
+
+          {step === "published" && (
+            <div className="flex flex-col gap-4">
+              <p className="text-[14px] leading-relaxed text-slate-500 dark:text-white/50">
+                Have you published books before?
+              </p>
+
+              <div className="flex flex-col gap-3">
+                <Button fullWidth isLoading={applicationLoading && hasPublishedBefore === false} loadingText="Submitting..." onClick={() => handlePublishedAnswer(true)}>
+                  Yes, I have published books
+                </Button>
+                <Button variant="secondary" fullWidth isLoading={applicationLoading && hasPublishedBefore === false} loadingText="Submitting..." onClick={() => handlePublishedAnswer(false)}>
+                  No, not yet
+                </Button>
+              </div>
+
+              <button type="button" onClick={() => setStep("info")} className="mt-1 text-[13px] text-slate-400 transition hover:text-slate-600 dark:text-white/40 dark:hover:text-white/60">
+                Go back
+              </button>
+            </div>
+          )}
+
+          {step === "link" && (
+            <div className="flex flex-col gap-4">
+              <p className="text-[14px] leading-relaxed text-slate-500 dark:text-white/50">
+                Where can we find your published books? Add a link so we can check them out.
+              </p>
+
+              <FormField label="Link to your published books" error={stepErrors.publishedBooksUrl}>
+                <Input type="url" value={publishedBooksUrl} onChange={(e) => setPublishedBooksUrl(e.target.value)} placeholder="https://..." fullWidth />
+              </FormField>
+
+              <Button fullWidth isLoading={applicationLoading} loadingText="Submitting..." onClick={handleSubmitWithLink} className="mt-1">
+                Submit application
               </Button>
-            )}
-          </div>
+
+              <button type="button" onClick={() => setStep("published")} className="mt-1 text-[13px] text-slate-400 transition hover:text-slate-600 dark:text-white/40 dark:hover:text-white/60">
+                Go back
+              </button>
+            </div>
+          )}
         </AuthCard>
       </AuthShell>
     );

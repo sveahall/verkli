@@ -6,7 +6,12 @@ type AuthorApplicationStatus = "pending" | "approved" | "rejected";
 
 type AuthorApplication = {
   user_id: string;
+  auth_email: string | null;
   email: string | null;
+  first_name: string | null;
+  last_name: string | null;
+  has_published_before: boolean | null;
+  published_books_url: string | null;
   status: AuthorApplicationStatus;
   created_at: string;
 };
@@ -17,6 +22,46 @@ function formatDate(value: string): string {
   return date.toLocaleString();
 }
 
+function StatusBadge({ status }: { status: AuthorApplicationStatus }) {
+  const colors: Record<AuthorApplicationStatus, string> = {
+    pending: "bg-amber-100 text-amber-800 dark:bg-amber-500/20 dark:text-amber-300",
+    approved: "bg-emerald-100 text-emerald-800 dark:bg-emerald-500/20 dark:text-emerald-300",
+    rejected: "bg-rose-100 text-rose-800 dark:bg-rose-500/20 dark:text-rose-300",
+  };
+
+  return (
+    <span className={`rounded-full px-2 py-1 text-xs font-medium ${colors[status]}`}>
+      {status}
+    </span>
+  );
+}
+
+function ApplicationDetail({ application, onExpand }: { application: AuthorApplication; onExpand: () => void }) {
+  const name = [application.first_name, application.last_name].filter(Boolean).join(" ");
+
+  return (
+    <button
+      type="button"
+      onClick={onExpand}
+      className="w-full text-left"
+    >
+      <div className="flex items-center gap-3">
+        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-slate-100 text-sm font-medium text-slate-600 dark:bg-white/10 dark:text-white/70">
+          {application.first_name?.[0]?.toUpperCase() ?? "?"}
+        </div>
+        <div className="min-w-0">
+          <p className="truncate text-sm font-medium text-slate-900 dark:text-white">
+            {name || "No name provided"}
+          </p>
+          <p className="truncate text-xs text-slate-500 dark:text-white/50">
+            {application.email ?? application.auth_email ?? "No email"}
+          </p>
+        </div>
+      </div>
+    </button>
+  );
+}
+
 export default function AdminAuthorApplicationsPage() {
   const [adminKey, setAdminKey] = useState("");
   const [applications, setApplications] = useState<AuthorApplication[]>([]);
@@ -24,6 +69,7 @@ export default function AdminAuthorApplicationsPage() {
   const [loading, setLoading] = useState(false);
   const [loaded, setLoaded] = useState(false);
   const [savingUserId, setSavingUserId] = useState<string | null>(null);
+  const [expandedUserId, setExpandedUserId] = useState<string | null>(null);
 
   const pendingCount = useMemo(
     () => applications.filter((application) => application.status === "pending").length,
@@ -139,71 +185,112 @@ export default function AdminAuthorApplicationsPage() {
           No author applications found.
         </div>
       ) : (
-        <section className="rounded-2xl border border-slate-200 bg-white p-4 dark:border-white/10 dark:bg-white/[0.02]">
-          <div className="mb-3 flex items-center justify-between">
+        <section className="space-y-4">
+          <div className="flex items-center justify-between">
             <p className="text-sm text-slate-700 dark:text-white/80">
-              {pendingCount} pending of {applications.length} total
+              <span className="font-semibold text-amber-600 dark:text-amber-400">{pendingCount} pending</span> of {applications.length} total
             </p>
           </div>
 
-          <div className="overflow-x-auto">
-            <table className="w-full min-w-[680px] text-left text-sm">
-              <thead>
-                <tr className="border-b border-slate-200 text-slate-600 dark:border-white/10 dark:text-white/60">
-                  <th className="px-3 py-2 font-medium">Email</th>
-                  <th className="px-3 py-2 font-medium">User ID</th>
-                  <th className="px-3 py-2 font-medium">Status</th>
-                  <th className="px-3 py-2 font-medium">Created</th>
-                  <th className="px-3 py-2 font-medium">Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {applications.map((application) => {
-                  const isSaving = savingUserId === application.user_id;
-                  return (
-                    <tr
-                      key={application.user_id}
-                      className="border-b border-slate-100 align-top dark:border-white/5"
-                    >
-                      <td className="px-3 py-3 text-slate-800 dark:text-white">
-                        {application.email ?? "Unknown email"}
-                      </td>
-                      <td className="px-3 py-3 font-mono text-xs text-slate-600 dark:text-white/60">
-                        {application.user_id}
-                      </td>
-                      <td className="px-3 py-3">
-                        <span className="rounded-full bg-slate-100 px-2 py-1 text-xs font-medium text-slate-700 dark:bg-white/10 dark:text-white/80">
-                          {application.status}
-                        </span>
-                      </td>
-                      <td className="px-3 py-3 text-slate-600 dark:text-white/60">
+          <div className="space-y-3">
+            {applications.map((application) => {
+              const isSaving = savingUserId === application.user_id;
+              const isExpanded = expandedUserId === application.user_id;
+              const name = [application.first_name, application.last_name].filter(Boolean).join(" ");
+
+              return (
+                <div
+                  key={application.user_id}
+                  className="rounded-2xl border border-slate-200 bg-white dark:border-white/10 dark:bg-white/[0.02]"
+                >
+                  {/* Card header */}
+                  <div className="flex items-center justify-between gap-4 p-4">
+                    <ApplicationDetail
+                      application={application}
+                      onExpand={() => setExpandedUserId(isExpanded ? null : application.user_id)}
+                    />
+
+                    <div className="flex shrink-0 items-center gap-3">
+                      <StatusBadge status={application.status} />
+                      <span className="hidden text-xs text-slate-400 dark:text-white/40 sm:inline">
                         {formatDate(application.created_at)}
-                      </td>
-                      <td className="px-3 py-3">
-                        <div className="flex gap-2">
-                          <button
-                            type="button"
-                            disabled={isSaving || application.status === "approved"}
-                            onClick={() => updateStatus(application.user_id, "approved")}
-                            className="rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-medium text-white transition hover:bg-emerald-500 disabled:cursor-not-allowed disabled:opacity-50"
-                          >
-                            {isSaving ? "Saving..." : "Approve"}
-                          </button>
-                          <button
-                            type="button"
-                            disabled={isSaving || application.status === "rejected"}
-                            onClick={() => updateStatus(application.user_id, "rejected")}
-                            className="rounded-lg bg-rose-600 px-3 py-1.5 text-xs font-medium text-white transition hover:bg-rose-500 disabled:cursor-not-allowed disabled:opacity-50"
-                          >
-                            {isSaving ? "Saving..." : "Reject"}
-                          </button>
+                      </span>
+                      <div className="flex gap-2">
+                        <button
+                          type="button"
+                          disabled={isSaving || application.status === "approved"}
+                          onClick={() => updateStatus(application.user_id, "approved")}
+                          className="rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-medium text-white transition hover:bg-emerald-500 disabled:cursor-not-allowed disabled:opacity-50"
+                        >
+                          {isSaving ? "..." : "Approve"}
+                        </button>
+                        <button
+                          type="button"
+                          disabled={isSaving || application.status === "rejected"}
+                          onClick={() => updateStatus(application.user_id, "rejected")}
+                          className="rounded-lg bg-rose-600 px-3 py-1.5 text-xs font-medium text-white transition hover:bg-rose-500 disabled:cursor-not-allowed disabled:opacity-50"
+                        >
+                          {isSaving ? "..." : "Reject"}
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Expanded details */}
+                  {isExpanded && (
+                    <div className="border-t border-slate-100 px-4 py-4 dark:border-white/5">
+                      <div className="grid gap-3 text-sm sm:grid-cols-2">
+                        <div>
+                          <p className="text-xs font-medium uppercase tracking-wider text-slate-400 dark:text-white/40">Name</p>
+                          <p className="mt-0.5 text-slate-800 dark:text-white">{name || "Not provided"}</p>
                         </div>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
+                        <div>
+                          <p className="text-xs font-medium uppercase tracking-wider text-slate-400 dark:text-white/40">Contact email</p>
+                          <p className="mt-0.5 text-slate-800 dark:text-white">{application.email ?? "Not provided"}</p>
+                        </div>
+                        <div>
+                          <p className="text-xs font-medium uppercase tracking-wider text-slate-400 dark:text-white/40">Auth email</p>
+                          <p className="mt-0.5 text-slate-800 dark:text-white">{application.auth_email ?? "Unknown"}</p>
+                        </div>
+                        <div>
+                          <p className="text-xs font-medium uppercase tracking-wider text-slate-400 dark:text-white/40">User ID</p>
+                          <p className="mt-0.5 font-mono text-xs text-slate-600 dark:text-white/60">{application.user_id}</p>
+                        </div>
+                        <div>
+                          <p className="text-xs font-medium uppercase tracking-wider text-slate-400 dark:text-white/40">Published before?</p>
+                          <p className="mt-0.5 text-slate-800 dark:text-white">
+                            {application.has_published_before === true
+                              ? "Yes"
+                              : application.has_published_before === false
+                                ? "No"
+                                : "Not answered"}
+                          </p>
+                        </div>
+                        <div>
+                          <p className="text-xs font-medium uppercase tracking-wider text-slate-400 dark:text-white/40">Published books link</p>
+                          {application.published_books_url ? (
+                            <a
+                              href={application.published_books_url}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="mt-0.5 inline-block text-blue-600 underline hover:text-blue-500 dark:text-blue-400"
+                            >
+                              {application.published_books_url}
+                            </a>
+                          ) : (
+                            <p className="mt-0.5 text-slate-400 dark:text-white/30">None</p>
+                          )}
+                        </div>
+                        <div>
+                          <p className="text-xs font-medium uppercase tracking-wider text-slate-400 dark:text-white/40">Applied</p>
+                          <p className="mt-0.5 text-slate-800 dark:text-white">{formatDate(application.created_at)}</p>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              );
+            })}
           </div>
         </section>
       )}

@@ -7,13 +7,17 @@ import type { ReactNode } from "react";
 import {
   ArrowLeftRight,
   Bell,
+  Clock,
   Compass,
   Home,
   Library,
+  PenLine,
   Search,
   UserCircle,
 } from "lucide-react";
 import { setActiveRoleCookieClient } from "@/lib/active-role";
+
+export type AuthorAccessMode = "switch" | "apply" | "pending" | "hidden";
 
 const navItems = [
   {
@@ -50,7 +54,13 @@ const isPathActive = (pathname: string | null, matchers: string[]) => {
   );
 };
 
-export default function ReaderAppShell({ children }: { children: ReactNode }) {
+export default function ReaderAppShell({
+  children,
+  authorAccess = "hidden",
+}: {
+  children: ReactNode;
+  authorAccess?: AuthorAccessMode;
+}) {
   const pathname = usePathname();
   const router = useRouter();
   const isImmersive = Boolean(pathname?.startsWith("/reader/read"));
@@ -126,17 +136,34 @@ export default function ReaderAppShell({ children }: { children: ReactNode }) {
               <span className="truncate">Profile</span>
             </Link>
           </div>
-          <button
-            type="button"
-            onClick={() => {
-              setActiveRoleCookieClient("author");
-              window.location.href = "/author/home";
-            }}
-            className="mt-2 inline-flex min-h-[44px] w-full items-center gap-3.5 rounded-xl px-4 py-2.5 text-[15px] text-[#7A8194] transition hover:bg-[#F6F7FB] hover:text-[#555C70] dark:text-white/50 dark:hover:bg-white/10 dark:hover:text-white"
-          >
-            <ArrowLeftRight className="h-[18px] w-[18px] flex-shrink-0" />
-            <span className="truncate">Switch to Author</span>
-          </button>
+          {authorAccess === "switch" && (
+            <button
+              type="button"
+              onClick={() => {
+                setActiveRoleCookieClient("author");
+                window.location.href = "/author/home";
+              }}
+              className="mt-2 inline-flex min-h-[44px] w-full items-center gap-3.5 rounded-xl px-4 py-2.5 text-[15px] text-[#7A8194] transition hover:bg-[#F6F7FB] hover:text-[#555C70] dark:text-white/50 dark:hover:bg-white/10 dark:hover:text-white"
+            >
+              <ArrowLeftRight className="h-[18px] w-[18px] flex-shrink-0" />
+              <span className="truncate">Switch to Author</span>
+            </button>
+          )}
+          {authorAccess === "apply" && (
+            <Link
+              href="/author/signup"
+              className="mt-2 inline-flex min-h-[44px] w-full items-center gap-3.5 rounded-xl px-4 py-2.5 text-[15px] text-[#7A8194] transition hover:bg-[#F6F7FB] hover:text-[#555C70] dark:text-white/50 dark:hover:bg-white/10 dark:hover:text-white"
+            >
+              <PenLine className="h-[18px] w-[18px] flex-shrink-0" />
+              <span className="truncate">Become an Author</span>
+            </Link>
+          )}
+          {authorAccess === "pending" && (
+            <div className="mt-2 inline-flex min-h-[44px] w-full items-center gap-3.5 rounded-xl px-4 py-2.5 text-[15px] text-[#7A8194]/60 dark:text-white/30">
+              <Clock className="h-[18px] w-[18px] flex-shrink-0" />
+              <span className="truncate">Application Pending</span>
+            </div>
+          )}
         </div>
       </aside>
 

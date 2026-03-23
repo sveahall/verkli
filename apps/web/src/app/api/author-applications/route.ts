@@ -43,7 +43,7 @@ export async function GET() {
   return NextResponse.json({ status: status ?? "none" });
 }
 
-export async function POST() {
+export async function POST(request: Request) {
   const supabase = await createClient();
   const {
     data: { user },
@@ -69,6 +69,13 @@ export async function POST() {
     return NextResponse.json({ ok: true, status: "approved", alreadyApproved: true });
   }
 
+  const body = await request.json().catch(() => null);
+  const firstName = typeof body?.firstName === "string" ? body.firstName.trim() : "";
+  const lastName = typeof body?.lastName === "string" ? body.lastName.trim() : "";
+  const email = typeof body?.email === "string" ? body.email.trim() : "";
+  const hasPublishedBefore = typeof body?.hasPublishedBefore === "boolean" ? body.hasPublishedBefore : null;
+  const publishedBooksUrl = typeof body?.publishedBooksUrl === "string" ? body.publishedBooksUrl.trim() : null;
+
   const admin = createAdminClient();
   const currentStatus = await getAuthorApplicationStatus(admin, user.id);
 
@@ -80,10 +87,18 @@ export async function POST() {
     return NextResponse.json({ ok: true, status: "approved", alreadyApproved: true });
   }
 
+  const applicationData = {
+    first_name: firstName || null,
+    last_name: lastName || null,
+    email: email || null,
+    has_published_before: hasPublishedBefore,
+    published_books_url: publishedBooksUrl || null,
+  };
+
   if (currentStatus === "rejected") {
     const { error } = await admin
       .from("author_applications" as never)
-      .update({ status: "pending" } as never)
+      .update({ status: "pending", ...applicationData } as never)
       .eq("user_id", user.id);
 
     if (error) {
@@ -95,7 +110,7 @@ export async function POST() {
 
   const { error } = await admin
     .from("author_applications" as never)
-    .insert({ user_id: user.id, status: "pending" } as never);
+    .insert({ user_id: user.id, status: "pending", ...applicationData } as never);
 
   if (error) {
     return apiError(E_APPLICATION_SUBMIT_FAILED, 500);
