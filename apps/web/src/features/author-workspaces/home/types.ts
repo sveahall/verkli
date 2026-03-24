@@ -22,3 +22,8 @@ export type DashboardActivity = {
   detail: string;
   timestamp: string;
 };
+
+export type CountrySale = {
+  country: string;
+  share: string;
+};

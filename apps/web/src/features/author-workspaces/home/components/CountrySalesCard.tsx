@@ -88,7 +88,8 @@ function WorldMap({ items }: { items: CountrySalesItem[] }) {
   const salesByAlpha2 = new Map<string, number>();
   let maxVal = 0;
   for (const item of items) {
-    const code = NAME_TO_ALPHA2[item.country];
+    // Support both country codes (SE) and display names (Sweden)
+    const code = NAME_TO_ALPHA2[item.country] ?? item.country;
     const val = parseInt(item.share, 10);
     if (code && !isNaN(val)) {
       salesByAlpha2.set(code, val);
@@ -208,8 +209,40 @@ function WorldMap({ items }: { items: CountrySalesItem[] }) {
   );
 }
 
+/* ── Country code → display name ─────────────────────────────────── */
+const ALPHA2_TO_NAME: Record<string, string> = {
+  PL: "Poland", CH: "Switzerland", SE: "Sweden", FR: "France", IT: "Italy",
+  DE: "Germany", ES: "Spain", NO: "Norway", FI: "Finland", DK: "Denmark",
+  GB: "United Kingdom", IE: "Ireland", PT: "Portugal", AT: "Austria",
+  CZ: "Czechia", NL: "Netherlands", BE: "Belgium", RO: "Romania",
+  HU: "Hungary", GR: "Greece", UA: "Ukraine", HR: "Croatia", RS: "Serbia",
+  SK: "Slovakia", US: "United States", BR: "Brazil", JP: "Japan",
+  AU: "Australia", CA: "Canada", CN: "China", IN: "India", MX: "Mexico",
+  RU: "Russia",
+};
+
+function displayCountryName(code: string): string {
+  return ALPHA2_TO_NAME[code] ?? code;
+}
+
 /* ── Main card ──────────────────────────────────────────────────── */
 export default function CountrySalesCard({ items }: CountrySalesCardProps) {
+  if (items.length === 0) {
+    return (
+      <section className="rounded-2xl bg-white px-7 py-5 dark:bg-white/[0.04]">
+        <h2 className="text-lg font-semibold text-slate-900 dark:text-white">Sales by country</h2>
+        <div className="mt-4 flex items-center justify-between gap-6">
+          <p className="text-sm text-slate-400 dark:text-white/40">
+            Inga försäljningar ännu.
+          </p>
+          <div className="hidden min-h-[200px] flex-1 lg:block">
+            <WorldMap items={[]} />
+          </div>
+        </div>
+      </section>
+    );
+  }
+
   const maxVal = Math.max(
     ...items.map((it) => parseInt(it.share, 10)).filter((n) => !isNaN(n)),
     1,
@@ -236,7 +269,7 @@ export default function CountrySalesCard({ items }: CountrySalesCardProps) {
                     className="h-2 w-2 rounded-full"
                     style={{ backgroundColor: color }}
                   />
-                  {item.country}
+                  {displayCountryName(item.country)}
                 </span>
                 <span className="font-medium" style={{ color }}>
                   {item.share}

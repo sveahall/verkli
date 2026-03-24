@@ -239,7 +239,7 @@ export default function PolishPanel({
   );
 
   return (
-    <div className="space-y-6">
+    <div className="mx-auto max-w-4xl space-y-6">
       {/* ── Book overview stats ── */}
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
         {[

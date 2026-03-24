@@ -26,7 +26,7 @@ import BooksTable, {
 } from "@/features/author-workspaces/home/components/BooksTable";
 import CountrySalesCard from "@/features/author-workspaces/home/components/CountrySalesCard";
 import StatsCard from "@/features/author-workspaces/home/components/StatsCard";
-import type { DashboardStats, DashboardBook, DashboardActivity } from "./types";
+import type { DashboardStats, DashboardBook, DashboardActivity, CountrySale } from "./types";
 
 const TIME_FILTER_OPTIONS: { value: string; label: string }[] = [
   { value: "this-week", label: "This week" },
@@ -38,6 +38,7 @@ type HomeWorkspaceProps = {
   stats: DashboardStats;
   books: DashboardBook[];
   activity: DashboardActivity[];
+  countrySales: CountrySale[];
 };
 
 const ACTIVITY_HREF: Record<DashboardActivity["type"], string> = {
@@ -45,14 +46,6 @@ const ACTIVITY_HREF: Record<DashboardActivity["type"], string> = {
   audiobook: "/author/production",
   publish: "/author/library",
 };
-
-const PREVIEW_COUNTRY_SALES = [
-  { country: "Poland", share: "33%" },
-  { country: "Schweiz", share: "26%" },
-  { country: "Sweden", share: "21%" },
-  { country: "France", share: "19%" },
-  { country: "Italy", share: "12%" },
-];
 
 function formatRelativeTime(dateStr: string): string {
   const diffMs = Date.now() - new Date(dateStr).getTime();
@@ -172,6 +165,7 @@ export default function HomeWorkspace({
   stats,
   books,
   activity,
+  countrySales,
 }: HomeWorkspaceProps) {
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
   const { setCurrentBookId } = useAuthorWorkspace();
@@ -341,7 +335,7 @@ export default function HomeWorkspace({
             </section>
 
             <section className="grid grid-cols-1 gap-4 xl:grid-cols-[3fr_2fr]">
-              <CountrySalesCard items={PREVIEW_COUNTRY_SALES} />
+              <CountrySalesCard items={countrySales} />
               <ActivityList items={activityItems} />
             </section>
 

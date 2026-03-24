@@ -210,57 +210,97 @@ export default function PrintPanel({
 
   /* ── Activated ── */
   if (activated) {
+    const hasMissingPrices = Array.from(selectedFormats).some((fmt) =>
+      fmt === "softcover" ? !persistedSettings.softcoverPriceMinor : !persistedSettings.hardcoverPriceMinor
+    );
+
+    const goToSettings = () => {
+      setEnabled(true);
+      setActivated(false);
+      setSaveError(null);
+    };
+
     return (
-      <div className="mx-auto max-w-xl space-y-8 py-6 text-center">
-        <div>
-          <svg className="mx-auto h-10 w-10 text-emerald-500" viewBox="0 0 20 20" fill="currentColor">
-            <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.857-9.809a.75.75 0 00-1.214-.882l-3.483 4.79-1.88-1.88a.75.75 0 10-1.06 1.061l2.5 2.5a.75.75 0 001.137-.089l4-5.5z" clipRule="evenodd" />
-          </svg>
-          <h2 className="mt-4 text-xl font-semibold tracking-tight text-slate-900 dark:text-white">
-            Print on demand is active
-          </h2>
-          <p className="mt-2 text-sm text-slate-500 dark:text-white/50">
-            Readers can now order a physical copy. Each book is printed and shipped on demand.
-          </p>
-        </div>
-
-        <div className="inline-flex flex-col gap-1 text-sm">
-          <span className="font-medium text-slate-800 dark:text-white/90">{formatLabels.join(" & ")}</span>
-          <span className="text-slate-400 dark:text-white/40">
-            {editionLimit === "limited" ? `Limited to ${limitCount} copies` : "Unlimited edition"}
-          </span>
-          {persistedSettings.softcoverPriceMinor && selectedFormats.has("softcover") ? (
-            <span className="text-slate-500 dark:text-white/50">
-              Softcover: {(persistedSettings.softcoverPriceMinor / 100).toFixed(0)} {persistedSettings.priceCurrency}
-            </span>
-          ) : null}
-          {persistedSettings.hardcoverPriceMinor && selectedFormats.has("hardcover") ? (
-            <span className="text-slate-500 dark:text-white/50">
-              Hardcover: {(persistedSettings.hardcoverPriceMinor / 100).toFixed(0)} {persistedSettings.priceCurrency}
-            </span>
-          ) : null}
-        </div>
-
-        {Array.from(selectedFormats).some((fmt) =>
-          fmt === "softcover" ? !persistedSettings.softcoverPriceMinor : !persistedSettings.hardcoverPriceMinor
-        ) && (
-          <div className="rounded-xl border border-amber-200/60 bg-amber-50/50 px-4 py-3 text-[13px] text-amber-800 dark:border-amber-800/30 dark:bg-amber-950/20 dark:text-amber-300">
-            Price not set for all formats. Readers cannot order until you set a price.
+      <div className="mx-auto max-w-2xl py-10">
+        <div className="overflow-hidden rounded-2xl border border-slate-200/80 bg-white shadow-sm dark:border-white/[0.08] dark:bg-white/[0.03] dark:shadow-none">
+          {/* Header */}
+          <div className="flex items-center gap-3.5 border-b border-slate-100 px-6 py-5 dark:border-white/[0.06]">
+            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-emerald-50 dark:bg-emerald-500/10">
+              <svg className="h-4 w-4 text-emerald-500" viewBox="0 0 20 20" fill="currentColor">
+                <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+              </svg>
+            </div>
+            <div>
+              <h2 className="text-[15px] font-semibold text-slate-900 dark:text-white">
+                Print on demand is active
+              </h2>
+              <p className="text-[13px] text-slate-500 dark:text-white/50">
+                Readers can order a physical copy. Printed and shipped on demand.
+              </p>
+            </div>
           </div>
-        )}
 
-        <div>
-          <button
-            type="button"
-            onClick={() => {
-              setEnabled(true);
-              setActivated(false);
-              setSaveError(null);
-            }}
-            className="text-sm font-medium text-[#907AFF] transition hover:text-[#7c6ae6]"
-          >
-            Edit settings
-          </button>
+          {/* Detail rows */}
+          <div className="divide-y divide-slate-100 dark:divide-white/[0.06]">
+            <div className="flex items-center justify-between px-6 py-4">
+              <span className="text-[13px] text-slate-500 dark:text-white/50">Format</span>
+              <span className="text-[13px] font-medium text-slate-900 dark:text-white">
+                {formatLabels.join(" & ")}
+              </span>
+            </div>
+            <div className="flex items-center justify-between px-6 py-4">
+              <span className="text-[13px] text-slate-500 dark:text-white/50">Edition</span>
+              <span className="text-[13px] font-medium text-slate-900 dark:text-white">
+                {editionLimit === "limited" ? `Limited — ${limitCount} copies` : "Unlimited"}
+              </span>
+            </div>
+            {persistedSettings.softcoverPriceMinor && selectedFormats.has("softcover") ? (
+              <div className="flex items-center justify-between px-6 py-4">
+                <span className="text-[13px] text-slate-500 dark:text-white/50">Softcover price</span>
+                <span className="text-[13px] font-medium text-slate-900 dark:text-white">
+                  {(persistedSettings.softcoverPriceMinor / 100).toFixed(0)} {persistedSettings.priceCurrency}
+                </span>
+              </div>
+            ) : null}
+            {persistedSettings.hardcoverPriceMinor && selectedFormats.has("hardcover") ? (
+              <div className="flex items-center justify-between px-6 py-4">
+                <span className="text-[13px] text-slate-500 dark:text-white/50">Hardcover price</span>
+                <span className="text-[13px] font-medium text-slate-900 dark:text-white">
+                  {(persistedSettings.hardcoverPriceMinor / 100).toFixed(0)} {persistedSettings.priceCurrency}
+                </span>
+              </div>
+            ) : null}
+          </div>
+
+          {/* Warning row */}
+          {hasMissingPrices && (
+            <div className="flex items-center justify-between border-t border-amber-200 bg-amber-50 px-6 py-4 dark:border-amber-800/40 dark:bg-amber-950/30">
+              <div className="flex items-center gap-2">
+                <div className="h-1.5 w-1.5 shrink-0 rounded-full bg-amber-400" />
+                <span className="text-[13px] font-medium text-amber-700 dark:text-amber-400">
+                  Price not set — readers cannot order yet
+                </span>
+              </div>
+              <button
+                type="button"
+                onClick={goToSettings}
+                className="shrink-0 text-[13px] font-semibold text-amber-800 transition hover:text-amber-900 dark:text-amber-300 dark:hover:text-amber-200"
+              >
+                Set price &rarr;
+              </button>
+            </div>
+          )}
+
+          {/* Footer */}
+          <div className="border-t border-slate-100 bg-slate-50/80 px-6 py-4 dark:border-white/[0.06] dark:bg-white/[0.02]">
+            <button
+              type="button"
+              onClick={goToSettings}
+              className="text-[13px] font-semibold text-[#907AFF] transition hover:text-[#7c6ae6]"
+            >
+              Edit settings &rarr;
+            </button>
+          </div>
         </div>
       </div>
     );

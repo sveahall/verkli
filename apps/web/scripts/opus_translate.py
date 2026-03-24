@@ -8,12 +8,22 @@ Supports: sv -> en, en -> sv
 
 import sys
 import os
+import re
 
 # Supported language pairs
 SUPPORTED_PAIRS = {
     ("sv", "en"),
     ("en", "sv"),
 }
+
+# Sentence boundary regex: split on . ! ? followed by whitespace and uppercase letter
+_SENT_RE = re.compile(r'(?<=[.!?])\s+(?=[A-ZÅÄÖÉÜ])')
+
+
+def split_sentences(text: str) -> list[str]:
+    """Split text into sentences. NMT models degenerate on very long inputs."""
+    sentences = _SENT_RE.split(text)
+    return [s for s in sentences if s.strip()]
 
 
 def main() -> None:
@@ -83,11 +93,26 @@ def main() -> None:
             non_empty = [(i, t) for i, t in enumerate(texts) if t and t.strip()]
 
             if non_empty:
-                tokenized = [sp.encode(t, out_type=str) for _, t in non_empty]
+                # Split each text into sentences to avoid model degeneration on long inputs
+                # Track which sentences belong to which original text
+                all_sentences: list[str] = []
+                sentence_map: list[tuple[int, int]] = []  # (original_index, sentence_count)
+                for orig_i, t in non_empty:
+                    sents = split_sentences(t)
+                    sentence_map.append((orig_i, len(sents)))
+                    all_sentences.extend(sents)
+
+                tokenized = [sp.encode(s, out_type=str) for s in all_sentences]
                 results = translator.translate_batch(tokenized)
-                outputs = list(texts)  # start with originals (preserves empty strings)
-                for (i, _orig), result in zip(non_empty, results):
-                    outputs[i] = sp.decode(result.hypotheses[0])
+                translated_sentences = [sp.decode(r.hypotheses[0]) for r in results]
+
+                # Reassemble: join sentences back per original text
+                outputs = list(texts)
+                offset = 0
+                for orig_i, count in sentence_map:
+                    chunk = translated_sentences[offset:offset + count]
+                    outputs[orig_i] = " ".join(chunk)
+                    offset += count
             else:
                 outputs = list(texts)
         except Exception as e:
@@ -99,10 +124,15 @@ def main() -> None:
         sys.stdout.flush()
     else:
         try:
-            source_tokens = sp.encode(raw_input, out_type=str)
-            results = translator.translate_batch([source_tokens])
-            output_tokens = results[0].hypotheses[0]
-            output = sp.decode(output_tokens)
+            sentences = split_sentences(raw_input)
+            if not sentences:
+                sys.stdout.write("\n")
+                sys.stdout.flush()
+                return
+            tokenized = [sp.encode(s, out_type=str) for s in sentences]
+            results = translator.translate_batch(tokenized)
+            translated = [sp.decode(r.hypotheses[0]) for r in results]
+            output = " ".join(translated)
         except Exception as e:
             sys.stderr.write("Translation failed: {}\n".format(e))
             sys.exit(1)

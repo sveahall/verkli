@@ -5,6 +5,7 @@ import type {
   DashboardStats,
   DashboardBook,
   DashboardActivity,
+  CountrySale,
 } from "@/features/author-workspaces/home/types";
 
 export default async function AuthorHomePage() {
@@ -47,7 +48,7 @@ export default async function AuthorHomePage() {
       reviews: 0,
     };
 
-    return <HomeWorkspace stats={stats} books={[]} activity={[]} />;
+    return <HomeWorkspace stats={stats} books={[]} activity={[]} countrySales={[]} />;
   }
 
   // ── All remaining queries in parallel ──
@@ -55,6 +56,7 @@ export default async function AuthorHomePage() {
     [readersRes, subscribersRes, reviewsRes],
     [translationsRes, audiobooksRes, publishesRes],
     readingsRes,
+    countrySalesRes,
   ] = await Promise.all([
     // Stat counts (head-only queries)
     Promise.all([
@@ -99,6 +101,13 @@ export default async function AuthorHomePage() {
       .from("readings")
       .select("book_id")
       .in("book_id", bookIds),
+    // Paid orders with country for sales-by-country breakdown
+    supabase
+      .from("orders")
+      .select("country")
+      .in("book_id", bookIds)
+      .eq("status", "paid")
+      .not("country", "is", null),
   ]);
 
   // ── Assemble stats ──
@@ -169,7 +178,22 @@ export default async function AuthorHomePage() {
   );
   const activity = activityItems.slice(0, 5);
 
+  // ── Assemble country sales ──
+  const countryCounts = new Map<string, number>();
+  for (const row of countrySalesRes.data ?? []) {
+    const c = row.country as string;
+    countryCounts.set(c, (countryCounts.get(c) ?? 0) + 1);
+  }
+  const totalCountrySales = (countrySalesRes.data ?? []).length;
+  const countrySales: CountrySale[] = [...countryCounts.entries()]
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 5)
+    .map(([code, count]) => ({
+      country: code,
+      share: `${Math.round((count / totalCountrySales) * 100)}%`,
+    }));
+
   return (
-    <HomeWorkspace stats={stats} books={dashboardBooks} activity={activity} />
+    <HomeWorkspace stats={stats} books={dashboardBooks} activity={activity} countrySales={countrySales} />
   );
 }
