@@ -71,10 +71,16 @@ export default function CommandPaletteProvider({
     };
     const handleSetItems = (event: Event) => {
       const customEvent = event as CustomEvent<CommandPaletteItem[]>;
-      setExternalItems(Array.isArray(customEvent.detail) ? customEvent.detail : []);
+      const next = Array.isArray(customEvent.detail) ? customEvent.detail : [];
+      setExternalItems((prev) => {
+        if (prev.length === next.length && prev.every((item, i) => item.id === next[i]?.id)) {
+          return prev;
+        }
+        return next;
+      });
     };
     const handleClearItems = () => {
-      setExternalItems([]);
+      setExternalItems((prev) => (prev.length === 0 ? prev : []));
     };
 
     window.addEventListener("keydown", handleKeyDown);

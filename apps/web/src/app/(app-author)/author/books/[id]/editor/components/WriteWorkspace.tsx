@@ -14,12 +14,10 @@ export default function WriteWorkspace({
   aiAssistantPanel,
 }: Props) {
   return (
-    <div className="grid gap-6 lg:grid-cols-[minmax(0,860px)_260px]">
-      <div className="space-y-3">
-        {chapterRail}
-        <div className="overflow-hidden rounded-2xl border border-black/[0.08] bg-white shadow-sm dark:border-white/[0.08] dark:bg-white/[0.03] dark:shadow-none">
-          {editorCanvas}
-        </div>
+    <div className="mx-auto w-full max-w-[820px]">
+      {chapterRail && <div className="mb-3">{chapterRail}</div>}
+      <div className="min-h-[calc(100vh-14rem)] overflow-hidden rounded-xl border border-slate-200/70 bg-white shadow-sm dark:border-white/[0.08] dark:bg-white/[0.03] dark:shadow-none">
+        {editorCanvas}
       </div>
       {aiAssistantPanel ?? null}
     </div>

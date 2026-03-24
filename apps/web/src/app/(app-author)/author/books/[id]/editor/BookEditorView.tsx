@@ -944,6 +944,8 @@ export default function BookEditorView({
     const requestedPanel = panelParam?.trim() ?? null;
     if (requestedPanel && effectiveTools.includes(requestedPanel as Tool)) {
       setTool(requestedPanel as Tool);
+    } else if (!requestedPanel) {
+      setTool("edit");
     }
   }, [effectiveTools, panelParam, setTool]);
 
@@ -2679,8 +2681,8 @@ export default function BookEditorView({
                   </div>
                 )}
                 toolbar={(
-                  <ChapterRail variant="compact" title={<span className="text-slate-500 dark:text-white/50">Chapters</span>}>
-                    <div className="flex flex-wrap items-center gap-2">
+                  <ChapterRail variant="compact" title={<span className="text-slate-400 dark:text-white/35">Ch</span>}>
+                    <div className="flex items-center gap-1">
                       <button
                         type="button"
                         onClick={() => {
@@ -2688,10 +2690,10 @@ export default function BookEditorView({
                           setSessionStartWords(null);
                         }}
                         disabled={selectedChapterIndex <= 0}
-                        className="flex h-8 min-w-[2rem] items-center justify-center rounded px-1 text-[13px] font-medium text-slate-600 hover:text-slate-900 disabled:opacity-40 dark:text-white/60 dark:hover:text-white"
+                        className="flex h-7 w-7 items-center justify-center rounded text-[13px] text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-700 disabled:opacity-30 dark:text-white/40 dark:hover:bg-white/[0.06] dark:hover:text-white/70"
                         aria-label="Previous chapter"
                       >
-                        &#171;
+                        &lsaquo;
                       </button>
                       {chapters.map((chapter, index) => {
                         const isActive = chapter.id === selectedChapterId;
@@ -2703,8 +2705,10 @@ export default function BookEditorView({
                               selectChapter(chapter.id);
                               setSessionStartWords(null);
                             }}
-                            className={`flex h-8 min-w-[2rem] items-center justify-center rounded px-2 text-[13px] transition-colors ${
-                              isActive ? "font-semibold text-slate-900 dark:text-white" : "font-normal text-slate-500 hover:text-slate-700 dark:text-white/50 dark:hover:text-white/80"
+                            className={`flex h-7 min-w-[1.75rem] items-center justify-center rounded text-[13px] transition-colors ${
+                              isActive
+                                ? "bg-slate-900 font-semibold text-white dark:bg-white dark:text-slate-900"
+                                : "text-slate-500 hover:bg-slate-100 hover:text-slate-800 dark:text-white/45 dark:hover:bg-white/[0.06] dark:hover:text-white/80"
                             }`}
                             aria-label={`Chapter ${index + 1}`}
                             aria-current={isActive ? "true" : undefined}
@@ -2720,10 +2724,10 @@ export default function BookEditorView({
                           setSessionStartWords(null);
                         }}
                         disabled={selectedChapterIndex < 0 || selectedChapterIndex >= chapters.length - 1}
-                        className="flex h-8 min-w-[2rem] items-center justify-center rounded px-1 text-[13px] font-medium text-slate-600 hover:text-slate-900 disabled:opacity-40 dark:text-white/60 dark:hover:text-white"
+                        className="flex h-7 w-7 items-center justify-center rounded text-[13px] text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-700 disabled:opacity-30 dark:text-white/40 dark:hover:bg-white/[0.06] dark:hover:text-white/70"
                         aria-label="Next chapter"
                       >
-                        &#187;
+                        &rsaquo;
                       </button>
                     </div>
                   </ChapterRail>
@@ -3964,17 +3968,17 @@ export default function BookEditorView({
         {tool === "edit" && (
           <WriteWorkspace
             chapterRail={(
-              <ChapterRail variant="compact" title="Chapters">
-                <div className="flex flex-wrap items-center gap-7">
+              <ChapterRail variant="compact" title="Ch">
+                <div className="flex items-center gap-1">
                   {totalPages > 1 && (
                     <button
                       type="button"
                       onClick={() => setChapterPage(Math.max(0, chapterPage - 1))}
                       disabled={chapterPage === 0}
-                      className="flex h-8 w-8 items-center justify-center text-base text-slate-400 transition-colors hover:text-slate-700 disabled:opacity-30 dark:text-white/40 dark:hover:text-white/70"
+                      className="flex h-7 w-7 items-center justify-center rounded text-[13px] text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-700 disabled:opacity-30 dark:text-white/40 dark:hover:bg-white/[0.06] dark:hover:text-white/70"
                       aria-label="Previous chapters"
                     >
-                      &laquo;
+                      &lsaquo;
                     </button>
                   )}
                   {visibleChapters.map((chapter, index) => {
@@ -3988,10 +3992,10 @@ export default function BookEditorView({
                           selectChapter(chapter.id);
                           setSessionStartWords(null);
                         }}
-                        className={`flex h-8 items-center justify-center text-sm transition-colors ${
+                        className={`flex h-7 min-w-[1.75rem] items-center justify-center rounded text-[13px] transition-colors ${
                           isActive
-                            ? "font-bold text-slate-900 dark:text-white"
-                            : "text-slate-400 hover:text-slate-700 dark:text-white/40 dark:hover:text-white/70"
+                            ? "bg-slate-900 font-semibold text-white dark:bg-white dark:text-slate-900"
+                            : "text-slate-500 hover:bg-slate-100 hover:text-slate-800 dark:text-white/45 dark:hover:bg-white/[0.06] dark:hover:text-white/80"
                         }`}
                         aria-label={`Chapter ${globalIndex + 1}`}
                         aria-current={isActive ? "true" : undefined}
@@ -4001,17 +4005,17 @@ export default function BookEditorView({
                     );
                   })}
                   {totalPages > 1 && chapterPage < totalPages - 1 && (
-                    <span className="text-sm text-slate-400 dark:text-white/40">...</span>
+                    <span className="px-1 text-[12px] text-slate-300 dark:text-white/25">...</span>
                   )}
                   {totalPages > 1 && (
                     <button
                       type="button"
                       onClick={() => setChapterPage(Math.min(totalPages - 1, chapterPage + 1))}
                       disabled={chapterPage >= totalPages - 1}
-                      className="flex h-8 w-8 items-center justify-center text-base text-slate-400 transition-colors hover:text-slate-700 disabled:opacity-30 dark:text-white/40 dark:hover:text-white/70"
+                      className="flex h-7 w-7 items-center justify-center rounded text-[13px] text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-700 disabled:opacity-30 dark:text-white/40 dark:hover:bg-white/[0.06] dark:hover:text-white/70"
                       aria-label="Next chapters"
                     >
-                      &raquo;
+                      &rsaquo;
                     </button>
                   )}
                 </div>

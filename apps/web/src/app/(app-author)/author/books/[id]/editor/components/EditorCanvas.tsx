@@ -17,8 +17,8 @@ export default function EditorCanvas({
 }: Props) {
   if (mode === "focus") {
     return (
-      <div className="min-w-0 flex-1 overflow-auto p-6">
-        <div className="mx-auto max-w-[1100px]">
+      <div className="min-w-0 flex-1 overflow-auto p-6 sm:p-10">
+        <div className="mx-auto max-w-[720px]">
           {header}
           {children}
         </div>
@@ -36,12 +36,12 @@ export default function EditorCanvas({
     );
   }
 
-  /* edit mode — default for full workspace write view */
+  /* edit mode — default for the write view */
   return (
     <div className="min-w-0">
       {header}
       {toolbar}
-      <div className="px-6 py-4">{children}</div>
+      <div className="px-8 py-8 sm:px-12 sm:py-10">{children}</div>
     </div>
   );
 }

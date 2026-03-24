@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useCallback, useContext } from "react";
+import { createContext, useCallback, useContext, useMemo } from "react";
 import type { Dispatch, ReactNode, SetStateAction } from "react";
 import type { CommandPaletteItem } from "@/components/editor/CommandPalette";
 
@@ -39,21 +39,30 @@ export function BookWorkspaceCommandPaletteProvider({ children }: Props) {
     );
   }, []);
 
-  const value: BookWorkspaceCommandPaletteContextValue = {
-    open: false,
-    setOpen,
-    commands: [],
-    setCommands,
-    openPalette: () => {
-      window.dispatchEvent(new CustomEvent("author-shell:open-command-palette"));
-    },
-    closePalette: () => {
-      window.dispatchEvent(new CustomEvent("author-shell:close-command-palette"));
-    },
-    togglePalette: () => {
-      window.dispatchEvent(new CustomEvent("author-shell:open-command-palette"));
-    },
-  };
+  const openPalette = useCallback(() => {
+    window.dispatchEvent(new CustomEvent("author-shell:open-command-palette"));
+  }, []);
+
+  const closePalette = useCallback(() => {
+    window.dispatchEvent(new CustomEvent("author-shell:close-command-palette"));
+  }, []);
+
+  const togglePalette = useCallback(() => {
+    window.dispatchEvent(new CustomEvent("author-shell:open-command-palette"));
+  }, []);
+
+  const value = useMemo<BookWorkspaceCommandPaletteContextValue>(
+    () => ({
+      open: false,
+      setOpen,
+      commands: [],
+      setCommands,
+      openPalette,
+      closePalette,
+      togglePalette,
+    }),
+    [setOpen, setCommands, openPalette, closePalette, togglePalette]
+  );
 
   return (
     <BookWorkspaceCommandPaletteContext.Provider value={value}>

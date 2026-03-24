@@ -54,6 +54,19 @@ const themeScript = `
   } catch (error) {}
 `;
 
+// Suppress Supabase auth AbortError in dev — fired by navigator.locks during
+// React strict-mode remounts. Harmless but blocks the error overlay.
+const suppressAbortScript = `
+  if (typeof window !== 'undefined') {
+    window.addEventListener('unhandledrejection', function(e) {
+      if (e && e.reason && e.reason.name === 'AbortError' &&
+          String(e.reason.message || '').indexOf('abort') !== -1) {
+        e.preventDefault();
+      }
+    });
+  }
+`;
+
 export default function RootLayout({
   children,
 }: Readonly<{
@@ -65,6 +78,7 @@ export default function RootLayout({
         className={`${inter.variable} ${montserratAlternates.variable} antialiased flex min-h-screen min-h-dvh min-h-svh flex-col`}
       >
         <script dangerouslySetInnerHTML={{ __html: themeScript }} />
+        <script dangerouslySetInnerHTML={{ __html: suppressAbortScript }} />
         <a
           href="#main-content"
           className="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-50 focus:rounded-lg focus:bg-slate-900 focus:px-4 focus:py-2 focus:text-white focus:outline-none"

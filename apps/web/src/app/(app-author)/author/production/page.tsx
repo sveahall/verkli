@@ -20,7 +20,7 @@ export default async function AuthorProductionPage({
 
   const { data: books } = await supabase
     .from("books")
-    .select("id, title")
+    .select("id, title, status, updated_at, cover_image, audiobook_status")
     .eq("author_id", user.id)
     .order("updated_at", { ascending: false });
 
@@ -29,6 +29,10 @@ export default async function AuthorProductionPage({
       books={(books ?? []).map((book) => ({
         id: book.id,
         title: book.title ?? "Untitled",
+        status: book.status ?? "DRAFT",
+        updatedAt: book.updated_at ?? null,
+        coverImageUrl: book.cover_image ?? null,
+        audiobookStatus: book.audiobook_status ?? null,
       }))}
     />
   );

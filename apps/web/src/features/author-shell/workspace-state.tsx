@@ -71,12 +71,16 @@ const AuthorWorkspaceContext = createContext<AuthorWorkspaceContextValue | null>
 function reducer(state: AuthorWorkspaceState, action: AuthorWorkspaceAction): AuthorWorkspaceState {
   switch (action.type) {
     case "set-current-book":
+      if (state.currentBookId === action.bookId) return state;
       return { ...state, currentBookId: action.bookId };
     case "set-active-workspace":
+      if (state.activeWorkspace === action.workspace) return state;
       return { ...state, activeWorkspace: action.workspace };
     case "set-selected-job":
+      if (state.selectedJobId === action.jobId) return state;
       return { ...state, selectedJobId: action.jobId };
     case "set-context-panel":
+      if (state.contextPanelState === action.panel) return state;
       return { ...state, contextPanelState: action.panel };
     default:
       return state;
@@ -85,7 +89,10 @@ function reducer(state: AuthorWorkspaceState, action: AuthorWorkspaceAction): Au
 
 function deriveWorkspace(pathname: string | null): AuthorWorkspace {
   if (!pathname) return "home";
-  if (pathname.startsWith("/author/library") || pathname.startsWith("/author/books") || pathname.startsWith("/author/write")) {
+  if (pathname.startsWith("/author/books") || pathname.startsWith("/author/write")) {
+    return "production";
+  }
+  if (pathname.startsWith("/author/library")) {
     return "library";
   }
   if (pathname.startsWith("/author/production")) {
@@ -149,6 +156,10 @@ export function AuthorWorkspaceProvider({ children }: { children: ReactNode }) {
         }))
       );
     } catch (error) {
+      // AbortError is expected during React strict-mode remounts and navigation —
+      // silently ignore it to avoid crashing the page or polluting the console.
+      if (error instanceof DOMException && error.name === "AbortError") return;
+      if (error instanceof Error && error.message === "signal is aborted without reason") return;
       console.error("[author shell] failed to refresh books", {
         message: error instanceof Error ? error.message : "Unknown error",
       });
@@ -205,6 +216,7 @@ export function AuthorWorkspaceProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     if (booksLoading || !state.currentBookId) return;
+    if (books.length === 0) return;
     if (books.some((book) => book.id === state.currentBookId)) return;
     dispatch({ type: "set-current-book", bookId: null });
     window.sessionStorage.removeItem(STORAGE_CURRENT_BOOK);
