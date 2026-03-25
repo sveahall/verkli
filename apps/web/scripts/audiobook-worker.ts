@@ -988,11 +988,7 @@ function main() {
       }
     },
     {
-      connection: {
-        host: connection.host,
-        port: connection.port,
-        password: connection.password,
-      },
+      connection: { ...connection },
       concurrency: TTS_CONCURRENCY,
       stalledInterval: 120_000,
       lockDuration: 3_660_000,

@@ -33,10 +33,6 @@ function isDonationCheckoutMockModeEnabled(): boolean {
   return process.env.DONATION_CHECKOUT_MOCK_MODE === "true";
 }
 
-function hasStripeSecretKey(): boolean {
-  return Boolean(process.env.STRIPE_SECRET_KEY?.trim());
-}
-
 export async function POST(request: Request) {
   const body = await request.json().catch(() => ({}));
   const amountMinor = toPositiveInt(body?.amountMinor ?? body?.amount);
@@ -48,7 +44,7 @@ export async function POST(request: Request) {
 
   const baseUrl = getBaseUrl(request);
 
-  if (isDonationCheckoutMockModeEnabled() && !hasStripeSecretKey()) {
+  if (isDonationCheckoutMockModeEnabled()) {
     if (amountMinor <= 0) {
       return apiError(E_INVALID_DONATION_AMOUNT, 400);
     }

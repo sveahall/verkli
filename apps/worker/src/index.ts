@@ -68,11 +68,7 @@ async function main() {
       }
     },
     {
-      connection: {
-        host: connection.host,
-        port: connection.port,
-        password: connection.password,
-      },
+      connection: { ...connection },
       concurrency: 3,
       stalledInterval: 30_000,
       maxStalledCount: 2,

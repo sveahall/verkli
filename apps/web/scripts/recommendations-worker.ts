@@ -317,11 +317,7 @@ function main() {
       }
     },
     {
-      connection: {
-        host: connection.host,
-        port: connection.port,
-        password: connection.password,
-      },
+      connection: { ...connection },
       concurrency: 4,
       stalledInterval: 60_000,
       lockDuration: 120_000,

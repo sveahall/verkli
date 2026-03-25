@@ -41,7 +41,7 @@ export default function EditorCanvas({
     <div className="min-w-0">
       {header}
       {toolbar}
-      <div className="px-8 py-8 sm:px-12 sm:py-10">{children}</div>
+      <div className="px-10 py-10 sm:px-14 sm:py-12">{children}</div>
     </div>
   );
 }

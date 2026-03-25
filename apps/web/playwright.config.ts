@@ -9,10 +9,10 @@ export default defineConfig({
     headless: true,
   },
   webServer: {
-    command: "npm run start",
+    command: "npm run build && npm run start",
     url: "http://localhost:3000",
-    reuseExistingServer: true,
-    timeout: 120_000,
+    reuseExistingServer: false,
+    timeout: 240_000,
     env: {
       ...process.env,
       DONATION_CHECKOUT_MOCK_MODE: "true",

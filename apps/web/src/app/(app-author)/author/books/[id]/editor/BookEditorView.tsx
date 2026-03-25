@@ -35,6 +35,7 @@ import AiAssistantPanel from "./components/AiAssistantPanel";
 import ChapterRail from "./components/ChapterRail";
 import EditorCanvas from "./components/EditorCanvas";
 import WriteWorkspace from "./components/WriteWorkspace";
+import WorkflowStepNav from "../WorkflowStepNav";
 import { useBookWorkspaceCommandPalette } from "./workspace/BookWorkspaceCommandPaletteProvider";
 import { useBookWorkspaceController } from "./hooks/useBookWorkspaceController";
 import { useChapterSelection } from "./hooks/useChapterSelection";
@@ -1060,9 +1061,16 @@ export default function BookEditorView({
   const activeLanguage = normalizeLanguage(
     activeVersion?.language_code ?? book.original_language ?? book.language
   );
+  const activeLanguageLabel = getLanguageLabel(activeLanguage);
   const isWriteOnlyWorkspace =
     effectiveTools.length === 1 && effectiveTools[0] === "edit";
   const isPublished = Boolean(activeVersion?.published_at);
+  const workspaceContentMaxWidth =
+    tool === "edit"
+      ? "max-w-[1520px]"
+      : tool === "cover" || tool === "translate" || tool === "audiobook" || tool === "market"
+        ? "max-w-[1280px]"
+        : "max-w-[1180px]";
   const currentVisibility = activeVisibility ?? publishVisibility;
   const currentVisibilityLabel = VISIBILITY_LABELS[currentVisibility];
   const currentVisibilitySummary = describeVisibility(currentVisibility);
@@ -2682,7 +2690,7 @@ export default function BookEditorView({
                 )}
                 toolbar={(
                   <ChapterRail variant="compact" title={<span className="text-slate-400 dark:text-white/35">Ch</span>}>
-                    <div className="flex items-center gap-1">
+                    <div className="flex items-center gap-0.5">
                       <button
                         type="button"
                         onClick={() => {
@@ -2690,7 +2698,7 @@ export default function BookEditorView({
                           setSessionStartWords(null);
                         }}
                         disabled={selectedChapterIndex <= 0}
-                        className="flex h-7 w-7 items-center justify-center rounded text-[13px] text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-700 disabled:opacity-30 dark:text-white/40 dark:hover:bg-white/[0.06] dark:hover:text-white/70"
+                        className="flex h-7 w-7 items-center justify-center rounded-lg text-[14px] text-slate-400 transition-colors duration-150 hover:bg-slate-100 hover:text-slate-700 disabled:opacity-30 dark:text-white/40 dark:hover:bg-white/[0.06] dark:hover:text-white/70"
                         aria-label="Previous chapter"
                       >
                         &lsaquo;
@@ -2705,9 +2713,9 @@ export default function BookEditorView({
                               selectChapter(chapter.id);
                               setSessionStartWords(null);
                             }}
-                            className={`flex h-7 min-w-[1.75rem] items-center justify-center rounded text-[13px] transition-colors ${
+                            className={`flex h-7 min-w-[1.75rem] items-center justify-center rounded-lg text-[12px] tabular-nums transition-colors duration-150 ${
                               isActive
-                                ? "bg-slate-900 font-semibold text-white dark:bg-white dark:text-slate-900"
+                                ? "bg-[#7A6EFF] font-semibold text-white shadow-[0_1px_3px_rgba(122,110,255,0.3)] dark:bg-[#8E79FF]"
                                 : "text-slate-500 hover:bg-slate-100 hover:text-slate-800 dark:text-white/45 dark:hover:bg-white/[0.06] dark:hover:text-white/80"
                             }`}
                             aria-label={`Chapter ${index + 1}`}
@@ -2724,7 +2732,7 @@ export default function BookEditorView({
                           setSessionStartWords(null);
                         }}
                         disabled={selectedChapterIndex < 0 || selectedChapterIndex >= chapters.length - 1}
-                        className="flex h-7 w-7 items-center justify-center rounded text-[13px] text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-700 disabled:opacity-30 dark:text-white/40 dark:hover:bg-white/[0.06] dark:hover:text-white/70"
+                        className="flex h-7 w-7 items-center justify-center rounded-lg text-[14px] text-slate-400 transition-colors duration-150 hover:bg-slate-100 hover:text-slate-700 disabled:opacity-30 dark:text-white/40 dark:hover:bg-white/[0.06] dark:hover:text-white/70"
                         aria-label="Next chapter"
                       >
                         &rsaquo;
@@ -2876,7 +2884,8 @@ export default function BookEditorView({
           {publishToast}
         </div>
       )}
-      <section className="pb-20">
+      <section className="pb-24">
+        <div className="mx-auto max-w-[1520px] space-y-6">
         {/* Job banner — visible on all panels */}
         {jobLoading ? (
           <div
@@ -2914,7 +2923,11 @@ export default function BookEditorView({
           </div>
         )}
 
-        <div className="min-h-[calc(100vh-12rem)] px-2 pt-2 sm:px-4 lg:px-6">
+        <div className="mb-3">
+          <WorkflowStepNav bookId={book.id} />
+        </div>
+
+        <div className={`${workspaceContentMaxWidth} min-h-[calc(100vh-12rem)] px-2 pt-1 sm:px-4 lg:px-6`}>
 
         {tool === "pricing" && (
           <div className="mx-auto max-w-3xl space-y-6">
@@ -3969,13 +3982,13 @@ export default function BookEditorView({
           <WriteWorkspace
             chapterRail={(
               <ChapterRail variant="compact" title="Ch">
-                <div className="flex items-center gap-1">
+                <div className="flex items-center gap-0.5">
                   {totalPages > 1 && (
                     <button
                       type="button"
                       onClick={() => setChapterPage(Math.max(0, chapterPage - 1))}
                       disabled={chapterPage === 0}
-                      className="flex h-7 w-7 items-center justify-center rounded text-[13px] text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-700 disabled:opacity-30 dark:text-white/40 dark:hover:bg-white/[0.06] dark:hover:text-white/70"
+                      className="flex h-7 w-7 items-center justify-center rounded-lg text-[14px] text-slate-400 transition-colors duration-150 hover:bg-slate-100 hover:text-slate-700 disabled:opacity-30 dark:text-white/40 dark:hover:bg-white/[0.06] dark:hover:text-white/70"
                       aria-label="Previous chapters"
                     >
                       &lsaquo;
@@ -3992,9 +4005,9 @@ export default function BookEditorView({
                           selectChapter(chapter.id);
                           setSessionStartWords(null);
                         }}
-                        className={`flex h-7 min-w-[1.75rem] items-center justify-center rounded text-[13px] transition-colors ${
+                        className={`flex h-7 min-w-[1.75rem] items-center justify-center rounded-lg text-[12px] tabular-nums transition-colors duration-150 ${
                           isActive
-                            ? "bg-slate-900 font-semibold text-white dark:bg-white dark:text-slate-900"
+                            ? "bg-[#7A6EFF] font-semibold text-white shadow-[0_1px_3px_rgba(122,110,255,0.3)] dark:bg-[#8E79FF]"
                             : "text-slate-500 hover:bg-slate-100 hover:text-slate-800 dark:text-white/45 dark:hover:bg-white/[0.06] dark:hover:text-white/80"
                         }`}
                         aria-label={`Chapter ${globalIndex + 1}`}
@@ -4005,14 +4018,14 @@ export default function BookEditorView({
                     );
                   })}
                   {totalPages > 1 && chapterPage < totalPages - 1 && (
-                    <span className="px-1 text-[12px] text-slate-300 dark:text-white/25">...</span>
+                    <span className="px-1 text-[11px] text-slate-300 dark:text-white/25">&hellip;</span>
                   )}
                   {totalPages > 1 && (
                     <button
                       type="button"
                       onClick={() => setChapterPage(Math.min(totalPages - 1, chapterPage + 1))}
                       disabled={chapterPage >= totalPages - 1}
-                      className="flex h-7 w-7 items-center justify-center rounded text-[13px] text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-700 disabled:opacity-30 dark:text-white/40 dark:hover:bg-white/[0.06] dark:hover:text-white/70"
+                      className="flex h-7 w-7 items-center justify-center rounded-lg text-[14px] text-slate-400 transition-colors duration-150 hover:bg-slate-100 hover:text-slate-700 disabled:opacity-30 dark:text-white/40 dark:hover:bg-white/[0.06] dark:hover:text-white/70"
                       aria-label="Next chapters"
                     >
                       &rsaquo;
@@ -4022,7 +4035,42 @@ export default function BookEditorView({
               </ChapterRail>
             )}
             editorCanvas={(
-              <EditorCanvas mode="edit">
+              <EditorCanvas
+                mode="edit"
+                header={
+                  <div className="flex items-center justify-between border-b border-slate-100 px-10 py-3 sm:px-14 dark:border-white/[0.06]">
+                    <div className="min-w-0">
+                      <h1 className="truncate text-[14px] font-semibold text-slate-700 dark:text-white/70">{bookTitle}</h1>
+                      <p className="mt-0.5 text-[12px] text-slate-400 dark:text-white/30">
+                        {selectedChapter
+                          ? `Kapitel ${chapters.findIndex((c) => c.id === selectedChapter.id) + 1} av ${chapters.length}`
+                          : `${chapters.length} kapitel`}
+                      </p>
+                    </div>
+                    <div className="flex items-center gap-3 text-[12px]">
+                      {wordCount > 0 && (
+                        <span className="tabular-nums text-slate-400 dark:text-white/30">{wordCount.toLocaleString("sv-SE")} ord</span>
+                      )}
+                      <span className={`flex items-center gap-1.5 ${
+                        isSaving
+                          ? "text-slate-400 dark:text-white/30"
+                          : hasUnsavedChanges
+                            ? "text-amber-500"
+                            : "text-emerald-500"
+                      }`}>
+                        <span className={`inline-block h-1.5 w-1.5 rounded-full ${
+                          isSaving
+                            ? "bg-slate-300 dark:bg-white/20"
+                            : hasUnsavedChanges
+                              ? "bg-amber-400"
+                              : "bg-emerald-400"
+                        }`} />
+                        {isSaving ? "Sparar..." : hasUnsavedChanges ? "Osparad" : "Sparat"}
+                      </span>
+                    </div>
+                  </div>
+                }
+              >
                 {selectedChapter ? (
                   <TiptapEditor
                     key={selectedChapter.id}
@@ -5367,6 +5415,7 @@ export default function BookEditorView({
         )}
         </>
         )}
+        </div>
         </div>
       </section>
     </>

@@ -13,6 +13,7 @@
  */
 
 import Redis from "ioredis";
+import { getRedisClientOptions } from "@/lib/env";
 
 export type BudgetPipeline = "tts" | "translation" | "video";
 
@@ -126,16 +127,12 @@ function getPipelineJobCostCap(pipeline: BudgetPipeline): number {
 
 function getRedisClient(): Redis {
   if (sharedRedis) return sharedRedis;
-  const url = process.env.REDIS_URL?.trim();
-  if (!url) {
+  const connection = getRedisClientOptions();
+  if (!connection) {
     throw new Error("[budget] REDIS_URL not set. Budget guardrails require Redis.");
   }
 
-  sharedRedis = new Redis(url, {
-    maxRetriesPerRequest: 1,
-    connectTimeout: 2000,
-    enableReadyCheck: false,
-  });
+  sharedRedis = new Redis(connection);
   return sharedRedis;
 }
 

@@ -15,7 +15,7 @@
  */
 
 import Redis from "ioredis";
-import { getRedisUrl } from "@/lib/env";
+import { getRedisClientOptions } from "@/lib/env";
 
 type RateLimitResult = { allowed: boolean; retryAfterSeconds?: number };
 type RateLimitEntry = { tokens: number; lastRefill: number };
@@ -25,23 +25,23 @@ let redisChecked = false;
 
 function getSharedRedis(): Redis | null {
   if (redisChecked) return sharedRedis;
-  redisChecked = true;
-
-  const url = getRedisUrl();
-  if (!url) return null;
+  const connection = getRedisClientOptions({ lazyConnect: true });
+  if (!connection) return null;
 
   try {
-    sharedRedis = new Redis(url, {
-      maxRetriesPerRequest: 1,
-      connectTimeout: 2000,
-      enableReadyCheck: false,
-      lazyConnect: true,
+    redisChecked = true;
+    sharedRedis = new Redis(connection);
+    sharedRedis.on("error", () => {
+      // Silent by design: limiter falls back to in-memory when Redis is unavailable.
     });
     sharedRedis.connect().catch(() => {
+      sharedRedis?.disconnect();
       sharedRedis = null;
+      redisChecked = false;
     });
     return sharedRedis;
   } catch {
+    redisChecked = false;
     return null;
   }
 }

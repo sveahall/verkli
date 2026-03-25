@@ -14,15 +14,6 @@ export default async function AppReaderLayout({
 }: {
   children: React.ReactNode;
 }) {
-  const cookieStore = await cookies();
-  const activeRole = getActiveRoleFromCookieValue(
-    cookieStore.get("active_role")?.value
-  );
-
-  if (!activeRole) {
-    redirect("/api/auth/sync-role?redirect=/reader/home");
-  }
-
   let user: { id: string } | null = null;
   let supabase: Awaited<ReturnType<typeof createClient>> | null = null;
   try {
@@ -35,6 +26,15 @@ export default async function AppReaderLayout({
 
   if (!user || !supabase) {
     redirect("/reader/signin");
+  }
+
+  const cookieStore = await cookies();
+  const activeRole = getActiveRoleFromCookieValue(
+    cookieStore.get("active_role")?.value
+  );
+
+  if (!activeRole) {
+    redirect("/api/auth/sync-role?redirect=/reader/home");
   }
 
   if (activeRole === "author") {

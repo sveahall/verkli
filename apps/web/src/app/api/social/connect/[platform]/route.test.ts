@@ -30,7 +30,11 @@ vi.mock("@/lib/social/oauth-state", () => ({
   createOAuthState: vi.fn().mockReturnValue({
     state: "mock-state-token",
     codeVerifier: "mock-code-verifier",
+    nonce: "mock-nonce",
   }),
+  createOAuthPkceCookieValue: vi.fn().mockReturnValue("mock-pkce-cookie"),
+  getOAuthPkceCookieMaxAgeSeconds: vi.fn().mockReturnValue(600),
+  getOAuthPkceCookieName: vi.fn().mockReturnValue("social_oauth_pkce_x"),
 }));
 
 vi.mock("@/lib/social/oauth", () => ({
@@ -185,5 +189,6 @@ describe("POST /api/social/connect/[platform]", () => {
     const body = await res.json();
     expect(body.authUrl).toBeDefined();
     expect(body.authUrl).toContain("twitter.com");
+    expect(res.headers.get("set-cookie") ?? "").toContain("social_oauth_pkce_x=mock-pkce-cookie");
   });
 });

@@ -179,22 +179,112 @@ export function getRedisUrl(): string | undefined {
   return value;
 }
 
+export type RedisConnectionOptions = {
+  host: string;
+  port: number;
+  username?: string;
+  password?: string;
+  db?: number;
+  tls?: Record<string, never>;
+};
+
+export type RedisClientOptions = RedisConnectionOptions & {
+  lazyConnect?: boolean;
+  maxRetriesPerRequest?: number | null;
+  connectTimeout?: number;
+  enableReadyCheck?: boolean;
+  keepAlive?: number;
+  retryStrategy?: (times: number) => number | null;
+};
+
+const DEFAULT_REDIS_CONNECT_TIMEOUT_MS = 5_000;
+const DEFAULT_REDIS_MAX_RETRIES = 3;
+const DEFAULT_REDIS_KEEP_ALIVE_MS = 10_000;
+
+function readRedisPositiveIntEnv(key: string, fallback: number): number {
+  const raw = process.env[key];
+  if (!raw) return fallback;
+  const parsed = Number(raw);
+  if (!Number.isFinite(parsed) || parsed <= 0) return fallback;
+  return Math.floor(parsed);
+}
+
+function parseRedisDb(pathname: string): number | undefined {
+  if (!pathname || pathname === "/") return undefined;
+  const normalized = pathname.startsWith("/") ? pathname.slice(1) : pathname;
+  if (!normalized) return undefined;
+
+  const parsed = Number(normalized);
+  if (!Number.isInteger(parsed) || parsed < 0) return undefined;
+  return parsed;
+}
+
+function buildRedisRetryStrategy(maxAttempts: number) {
+  return (times: number): number | null => {
+    if (times > maxAttempts) return null;
+    return Math.min(times * 200, 3_000) + Math.random() * 100;
+  };
+}
+
 /** Returns Redis connection options for BullMQ; undefined if Redis not configured. */
-export function getRedisConnectionOptions():
-  | { host: string; port: number; password?: string }
-  | undefined {
+export function getRedisConnectionOptions(): RedisConnectionOptions | undefined {
   const url = getRedisUrl();
   if (!url) return undefined;
   try {
     const u = new URL(url);
+    if (u.protocol !== "redis:" && u.protocol !== "rediss:") {
+      return undefined;
+    }
+
     const port = u.port ? parseInt(u.port, 10) : 6379;
     if (!Number.isFinite(port) || port <= 0) return undefined;
+
+    const username = u.username ? decodeURIComponent(u.username) : undefined;
+    const password = u.password ? decodeURIComponent(u.password) : undefined;
+    const db = parseRedisDb(u.pathname);
+
     return {
       host: u.hostname,
       port,
-      password: u.password || undefined,
+      username,
+      password,
+      ...(db !== undefined ? { db } : {}),
+      ...(u.protocol === "rediss:" ? { tls: {} } : {}),
     };
   } catch {
     return undefined;
   }
+}
+
+export function getRedisClientOptions(
+  overrides: Partial<RedisClientOptions> = {}
+): RedisClientOptions | undefined {
+  const connection = getRedisConnectionOptions();
+  if (!connection) return undefined;
+
+  const connectTimeout =
+    overrides.connectTimeout ??
+    readRedisPositiveIntEnv("REDIS_CONNECT_TIMEOUT_MS", DEFAULT_REDIS_CONNECT_TIMEOUT_MS);
+  const maxRetriesPerRequest =
+    overrides.maxRetriesPerRequest ??
+    readRedisPositiveIntEnv("REDIS_MAX_RETRIES", DEFAULT_REDIS_MAX_RETRIES);
+
+  return {
+    ...connection,
+    connectTimeout,
+    maxRetriesPerRequest,
+    enableReadyCheck: overrides.enableReadyCheck ?? true,
+    keepAlive: overrides.keepAlive ?? DEFAULT_REDIS_KEEP_ALIVE_MS,
+    retryStrategy:
+      overrides.retryStrategy ??
+      buildRedisRetryStrategy(
+        Math.max(
+          typeof maxRetriesPerRequest === "number"
+            ? maxRetriesPerRequest
+            : DEFAULT_REDIS_MAX_RETRIES,
+          1
+        ) * 3
+      ),
+    ...(overrides.lazyConnect !== undefined ? { lazyConnect: overrides.lazyConnect } : {}),
+  };
 }

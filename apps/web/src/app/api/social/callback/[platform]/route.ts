@@ -11,9 +11,39 @@ import {
   E_SOCIAL_OAUTH_FAILED,
 } from "@/lib/api-errors";
 import { VALID_PLATFORMS } from "@/lib/social/platform-constraints";
-import { verifyOAuthState } from "@/lib/social/oauth-state";
+import {
+  getOAuthPkceCookieName,
+  verifyOAuthPkceCookieValue,
+  verifyOAuthState,
+} from "@/lib/social/oauth-state";
 import { exchangeCodeForTokens } from "@/lib/social/oauth";
 import { encryptToken } from "@/lib/social/token-crypto";
+
+function getCookieValue(request: Request, name: string): string | null {
+  const cookieHeader = request.headers.get("cookie");
+  if (!cookieHeader) return null;
+
+  for (const part of cookieHeader.split(/;\s*/)) {
+    const separator = part.indexOf("=");
+    if (separator < 0) continue;
+    const cookieName = part.slice(0, separator);
+    if (cookieName !== name) continue;
+    return decodeURIComponent(part.slice(separator + 1));
+  }
+
+  return null;
+}
+
+function clearPkceCookie(response: NextResponse, platform: string): NextResponse {
+  response.cookies.set(getOAuthPkceCookieName(platform), "", {
+    httpOnly: true,
+    sameSite: "lax",
+    secure: process.env.NODE_ENV === "production",
+    path: `/api/social/callback/${platform}`,
+    maxAge: 0,
+  });
+  return response;
+}
 
 export async function GET(
   request: Request,
@@ -59,20 +89,37 @@ export async function GET(
     return apiError(E_SOCIAL_INVALID_STATE, 403);
   }
 
+  const pkceCookieName = getOAuthPkceCookieName(platform);
+  const pkceCookieValue = getCookieValue(request, pkceCookieName);
+  const pkce = pkceCookieValue
+    ? verifyOAuthPkceCookieValue(pkceCookieValue, {
+        platform,
+        nonce: verified.nonce,
+      })
+    : null;
+
+  if (!pkce) {
+    console.warn("[social callback] missing or invalid PKCE cookie", {
+      userId: user.id,
+      platform,
+    });
+    return clearPkceCookie(apiError(E_SOCIAL_INVALID_STATE, 403), platform);
+  }
+
   // 5. Exchange code for tokens
   const siteOrigin = process.env.NEXT_PUBLIC_SITE_URL?.trim() || url.origin;
   const redirectUri = `${siteOrigin}/api/social/callback/${platform}`;
 
   let tokens;
   try {
-    tokens = await exchangeCodeForTokens(platform, code, redirectUri, verified.codeVerifier);
+    tokens = await exchangeCodeForTokens(platform, code, redirectUri, pkce.codeVerifier);
   } catch (err) {
     console.error("[social callback] token exchange failed", {
       userId: user.id,
       platform,
       message: err instanceof Error ? err.message : String(err),
     });
-    return apiError(E_SOCIAL_OAUTH_FAILED, 500);
+    return clearPkceCookie(apiError(E_SOCIAL_OAUTH_FAILED, 500), platform);
   }
 
   // 6. Encrypt tokens and store via admin client
@@ -107,9 +154,9 @@ export async function GET(
       message: upsertError.message,
       code: upsertError.code,
     });
-    return apiError(E_SOCIAL_OAUTH_FAILED, 500);
+    return clearPkceCookie(apiError(E_SOCIAL_OAUTH_FAILED, 500), platform);
   }
 
   // 7. Redirect to hardcoded path — NO user-controlled redirect
-  return NextResponse.redirect(new URL("/author/settings", siteOrigin));
+  return clearPkceCookie(NextResponse.redirect(new URL("/author/settings", siteOrigin)), platform);
 }

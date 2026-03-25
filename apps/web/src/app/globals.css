@@ -726,6 +726,22 @@ button:is(
   animation: hero-fade-down 0.9s cubic-bezier(0.16, 1, 0.3, 1) both;
 }
 
+/* ── Workspace card entrance ── */
+@keyframes ws-fade-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.ws-enter {
+  animation: ws-fade-in 0.45s cubic-bezier(0.23, 1, 0.32, 1) both;
+}
+
 /* ── Badge shimmer sweep ── */
 @keyframes shimmer-sweep {
   0%, 30% { transform: translateX(-100%); }

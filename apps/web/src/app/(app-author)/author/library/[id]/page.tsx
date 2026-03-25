@@ -1,672 +1,395 @@
-"use client";
-
-import { useState, useEffect, useCallback } from "react";
 import Image from "next/image";
-import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
-import { createClient } from "@/lib/supabase/client";
-import { getShelf, updateShelf, createSection, deleteSection, addBookToShelf, moveBook, removeBookFromShelf, reorderBooks, updateSection } from "@/lib/supabase/shelves-client";
-import type { ShelfWithDetails } from "@/lib/supabase/shelves-client";
-import SectionBlock from "@/components/library/SectionBlock";
-import BookCard from "@/components/library/BookCard";
-import CreateBookDialog from "@/components/books/CreateBookDialog";
+import { notFound, redirect } from "next/navigation";
+import {
+  ArrowLeft,
+  BookOpen,
+  BookText,
+  Clock,
+  ExternalLink,
+  Globe,
+  Headphones,
+  Languages,
+  PenLine,
+  Tag,
+} from "lucide-react";
+import { createClient } from "@/lib/supabase/server";
 
-const DEFAULT_TYPOGRAPHY = {
-  fontFamily: "Inter",
-  fontWeight: "600",
-  titleSize: "20px",
-  subtitleSize: "14px",
-  textColor: "#ffffff",
-};
+/* ════════════════════════════════════════════════════════════════════ */
 
-export default function ShelfDetailPage() {
-  const params = useParams();
-  const router = useRouter();
-  const shelfId = params.id as string;
-  
-  const [shelf, setShelf] = useState<ShelfWithDetails | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [showEditPanel, setShowEditPanel] = useState(false);
-  const [showAddBookModal, setShowAddBookModal] = useState(false);
-  const [showCreateSectionModal, setShowCreateSectionModal] = useState(false);
-  const [selectedSectionId, setSelectedSectionId] = useState<string | null>(null);
-  const [draggedBookId, setDraggedBookId] = useState<string | null>(null);
-  
-  // Edit form state
-  const [editForm, setEditForm] = useState({
-    name: "",
-    subtitle: "",
-    coverType: "image" as "image" | "gradient",
-    cover: "",
-    coverGradient: "",
-    typography: DEFAULT_TYPOGRAPHY,
-  });
-  
-  // New section form
-  const [sectionName, setSectionName] = useState("");
-  
-  const loadShelf = useCallback(async () => {
-    try {
-      setLoading(true);
-      const supabase = createClient();
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) {
-        router.push("/author/signin");
-        return;
-      }
-      const data = await getShelf(shelfId);
-      if (data) {
-        const rawTypography =
-          data.typography && typeof data.typography === "object" && !Array.isArray(data.typography)
-            ? (data.typography as Partial<typeof DEFAULT_TYPOGRAPHY>)
-            : {};
+export default async function BookPreviewPage({
+  params,
+}: {
+  params: Promise<{ id: string }>;
+}) {
+  const { id } = await params;
+  const supabase = await createClient();
 
-        setShelf(data);
-        setEditForm({
-          name: data.name,
-          subtitle: data.subtitle || "",
-          coverType: (data.cover_type === "gradient" ? "gradient" : "image") as "image" | "gradient",
-          cover: data.cover_url || "",
-          coverGradient: data.cover_gradient || "",
-          typography: {
-            fontFamily: rawTypography.fontFamily ?? DEFAULT_TYPOGRAPHY.fontFamily,
-            fontWeight: rawTypography.fontWeight ?? DEFAULT_TYPOGRAPHY.fontWeight,
-            titleSize: rawTypography.titleSize ?? DEFAULT_TYPOGRAPHY.titleSize,
-            subtitleSize: rawTypography.subtitleSize ?? DEFAULT_TYPOGRAPHY.subtitleSize,
-            textColor: rawTypography.textColor ?? DEFAULT_TYPOGRAPHY.textColor,
-          },
-        });
-      }
-    } catch (error) {
-      console.error("Error loading shelf:", error);
-    } finally {
-      setLoading(false);
-    }
-  }, [router, shelfId]);
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) redirect("/author/signin");
 
-  useEffect(() => {
-    loadShelf();
-  }, [loadShelf]);
+  const { data: book } = await supabase
+    .from("books")
+    .select(
+      "id, title, description, cover_image, status, language, audiobook_status, price_amount, price_currency, pricing_model, author_id",
+    )
+    .eq("id", id)
+    .single();
 
-  const handleUpdateShelf = async () => {
-    if (!shelf) return;
-    
-    try {
-      await updateShelf(shelfId, {
-        name: editForm.name,
-        subtitle: editForm.subtitle || null,
-        cover_type: editForm.coverType,
-        cover_url: editForm.coverType === "image" ? editForm.cover || null : null,
-        cover_gradient: editForm.coverType === "gradient" ? editForm.coverGradient || null : null,
-        typography: editForm.typography,
-      });
-      await loadShelf();
-      setShowEditPanel(false);
-    } catch (error) {
-      console.error("Error updating shelf:", error);
-    }
-  };
+  if (!book || book.author_id !== user.id) notFound();
+  const b = book;
 
-  const handleCreateSection = async () => {
-    if (!shelf || !sectionName.trim()) return;
-    
-    try {
-      const maxSortIndex = shelf.sections.length > 0 
-        ? Math.max(...shelf.sections.map(s => s.sort_index))
-        : -1;
-      
-      await createSection({
-        shelf_id: shelfId,
-        name: sectionName.trim(),
-        sort_index: maxSortIndex + 1,
-      });
-      setSectionName("");
-      setShowCreateSectionModal(false);
-      await loadShelf();
-    } catch (error) {
-      console.error("Error creating section:", error);
-    }
-  };
+  const [{ data: chapters }, { data: versions }, { data: audioAssets }] =
+    await Promise.all([
+      supabase
+        .from("chapters")
+        .select("id, title, order")
+        .eq("book_id", id)
+        .order("order", { ascending: true }),
+      supabase
+        .from("book_versions")
+        .select("id, language_code, published_at")
+        .eq("book_id", id),
+      supabase
+        .from("audiobook_assets")
+        .select("id, language, status, duration_seconds")
+        .eq("book_id", id),
+    ]);
 
-  const handleBookAdded = async (bookId: string) => {
-    if (!shelf) return;
-    try {
-      const maxSortIndex = shelf.shelf_books
-        .filter(sb => sb.section_id === selectedSectionId)
-        .reduce((max, sb) => Math.max(max, sb.sort_index), -1);
+  const isPublished = b.status === "PUBLISHED";
+  const chapterList = chapters ?? [];
+  const translationVersions = (versions ?? []).filter(
+    (v) => v.language_code !== b.language,
+  );
+  const audioList = (audioAssets ?? []).filter(
+    (a) => a.status === "ready" || a.status === "completed",
+  );
+  const hasAudiobook = audioList.length > 0;
+  const totalAudioSec = audioList.reduce(
+    (s, a) => s + (a.duration_seconds ?? 0),
+    0,
+  );
 
-      await addBookToShelf({
-        shelf_id: shelfId,
-        book_id: bookId,
-        section_id: selectedSectionId,
-        sort_index: maxSortIndex + 1,
-      });
-      await loadShelf();
-    } catch (error) {
-      console.error("Error adding book to shelf:", error);
-    } finally {
-      setShowAddBookModal(false);
-      setSelectedSectionId(null);
-      router.push(`/author/books/${bookId}`);
-    }
-  };
-
-  const handleMoveBook = async (shelfBookId: string, targetSectionId: string | null) => {
-    if (!shelf) return;
-    
-    try {
-      const shelfBook = shelf.shelf_books.find(sb => sb.id === shelfBookId);
-      if (!shelfBook) return;
-      
-      const maxSortIndex = shelf.shelf_books
-        .filter(sb => sb.section_id === targetSectionId)
-        .reduce((max, sb) => Math.max(max, sb.sort_index), -1);
-      
-      await moveBook(shelfBookId, targetSectionId, maxSortIndex + 1);
-      await loadShelf();
-    } catch (error) {
-      console.error("Error moving book:", error);
-    }
-  };
-
-  const handleDeleteBook = async (shelfBookId: string) => {
-    try {
-      await removeBookFromShelf(shelfBookId);
-      await loadShelf();
-    } catch (error) {
-      console.error("Error deleting book:", error);
-    }
-  };
-
-  const handleDeleteSection = async (sectionId: string) => {
-    try {
-      await deleteSection(sectionId);
-      await loadShelf();
-    } catch (error) {
-      console.error("Error deleting section:", error);
-    }
-  };
-
-  const handleDragStart = (shelfBookId: string) => {
-    setDraggedBookId(shelfBookId);
-  };
-
-  const handleDragOver = (e: React.DragEvent) => {
-    e.preventDefault();
-    e.dataTransfer.dropEffect = "move";
-  };
-
-  const handleDrop = async (e: React.DragEvent, targetSectionId: string | null) => {
-    e.preventDefault();
-    if (!draggedBookId || !shelf) return;
-
-    try {
-      const shelfBook = shelf.shelf_books.find(sb => sb.id === draggedBookId);
-      if (!shelfBook) return;
-
-      const maxSortIndex = shelf.shelf_books
-        .filter(sb => sb.section_id === targetSectionId)
-        .reduce((max, sb) => Math.max(max, sb.sort_index), -1);
-
-      await moveBook(draggedBookId, targetSectionId, maxSortIndex + 1);
-      setDraggedBookId(null);
-      await loadShelf();
-    } catch (error) {
-      console.error("Error moving book:", error);
-      setDraggedBookId(null);
-    }
-  };
-
-  const handleReorderBooks = async (sectionId: string | null, bookIds: string[]) => {
-    try {
-      await reorderBooks(shelfId, sectionId, bookIds);
-      await loadShelf();
-    } catch (error) {
-      console.error("Error reordering books:", error);
-    }
-  };
-
-  if (loading) {
-    return (
-      <div className="flex min-h-screen items-center justify-center bg-background">
-        <div className="h-8 w-8 animate-spin rounded-full border-2 border-white/20 border-t-[#907AFF]"></div>
-      </div>
-    );
+  function dur(seconds: number): string {
+    const h = Math.floor(seconds / 3600);
+    const m = Math.floor((seconds % 3600) / 60);
+    if (h > 0) return `${h}h ${m}m`;
+    return `${m} min`;
   }
 
-  if (!shelf) {
-    return (
-      <div className="flex min-h-screen items-center justify-center bg-background">
-        <div className="text-center">
-          <h1 className="text-2xl font-semibold text-slate-900 dark:text-white">Shelf not found</h1>
-          <Link href="/author/home" className="mt-4 text-[#907AFF] hover:underline">
-            Back to library
-          </Link>
-        </div>
-      </div>
-    );
+  function lang(code: string): string {
+    try {
+      return (
+        new Intl.DisplayNames(["en"], { type: "language" }).of(code) ?? code
+      );
+    } catch {
+      return code;
+    }
   }
 
-  const typography = shelf.typography as {
-    fontFamily?: string;
-    fontWeight?: string;
-    titleSize?: string;
-    subtitleSize?: string;
-    textColor?: string;
-  } || {};
+  function price(): string {
+    if (!b.price_amount || b.price_amount <= 0) return "Free";
+    const amt = b.price_amount / 100;
+    return `${b.price_currency?.toUpperCase() ?? "SEK"} ${amt.toFixed(2)}`;
+  }
 
-  const coverStyle = shelf.cover_type === 'gradient' && shelf.cover_gradient
-    ? { background: shelf.cover_gradient }
-    : shelf.cover_url
-    ? { backgroundImage: `url(${shelf.cover_url})`, backgroundSize: 'cover', backgroundPosition: 'center' }
-    : { background: 'linear-gradient(135deg, #907AFF 0%, #E29ED5 100%)' };
-
-  // Group books by section
-  const booksBySection = shelf.sections.reduce((acc, section) => {
-    acc[section.id] = shelf.shelf_books.filter(sb => sb.section_id === section.id);
-    return acc;
-  }, {} as Record<string, typeof shelf.shelf_books>);
-  
-  const unsectionedBooks = shelf.shelf_books.filter(sb => !sb.section_id);
+  const availableLanguages = [
+    { code: b.language ?? "en", isOriginal: true, published: isPublished },
+    ...translationVersions.map((v) => ({
+      code: v.language_code,
+      isOriginal: false,
+      published: !!v.published_at,
+    })),
+  ];
 
   return (
-    <main className="min-h-screen bg-background text-foreground transition-colors duration-300">
-      {/* Kontextrad – ingen dubbel navbar, global nav finns redan i layout */}
-      <div className="mx-auto max-w-[1400px] px-6 pt-4 pb-2">
-        <div className="flex items-center justify-between gap-4">
-          <Link href="/author/home" className="text-[15px] font-medium text-slate-600 dark:text-white/60 transition-colors hover:text-slate-900 dark:hover:text-white">
-            <span aria-hidden>←</span> Back to Library
-          </Link>
-          <button
-            onClick={() => setShowEditPanel(true)}
-            className="rounded-full border border-black/10 dark:border-white/10 bg-black/[0.02] dark:bg-white/[0.03] px-4 py-2 text-[13px] font-medium text-slate-700 dark:text-white/70 transition-all hover:bg-black/10 dark:hover:bg-white/[0.06]"
-          >
-            Edit shelf
-          </button>
-        </div>
-      </div>
-
-      <div className="mx-auto max-w-[1400px] px-6 py-6">
-        {/* Shelf Header */}
-        <div className="mb-12 h-[400px] overflow-hidden rounded-3xl" style={coverStyle}>
-          <div className="flex h-full flex-col justify-end bg-gradient-to-t from-black/80 via-black/40 to-transparent p-10">
-            <h1
-              className="text-[48px] font-semibold text-white"
-              style={{
-                fontFamily: typography.fontFamily || 'inherit',
-                fontWeight: typography.fontWeight || '600',
-                fontSize: typography.titleSize || '48px',
-                color: typography.textColor || '#ffffff',
-              }}
+    <div className="mx-auto max-w-[1520px] px-4 pb-16 pt-8 sm:px-6 lg:px-8 xl:px-10">
+      {/* ── Breadcrumb ── */}
+      <nav className="mb-6 flex items-center justify-between">
+        <Link
+          href="/author/library"
+          className="inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-[13px] font-medium text-slate-400 transition-colors duration-150 ease-[cubic-bezier(0.23,1,0.32,1)] hover:bg-slate-100 hover:text-slate-600 dark:text-white/30 dark:hover:bg-white/[0.04] dark:hover:text-white/60"
+        >
+          <ArrowLeft className="h-3.5 w-3.5" />
+          Library
+        </Link>
+        <div className="flex items-center gap-2.5">
+          {isPublished && (
+            <Link
+              href={`/reader/books/${id}`}
+              className="inline-flex items-center gap-1.5 rounded-full border border-slate-200 px-4 py-2 text-[13px] font-medium text-slate-500 transition-[border-color,color,transform] duration-150 ease-[cubic-bezier(0.23,1,0.32,1)] hover:border-slate-300 hover:text-slate-700 active:scale-[0.97] dark:border-white/10 dark:text-white/40 dark:hover:border-white/20"
             >
-              {shelf.name}
-            </h1>
-            {shelf.subtitle && (
-              <p
-                className="mt-2 text-[20px] text-white/80"
-                style={{
-                  fontFamily: typography.fontFamily || 'inherit',
-                  fontSize: typography.subtitleSize || '20px',
-                }}
-              >
-                {shelf.subtitle}
-              </p>
+              <ExternalLink className="h-3.5 w-3.5" />
+              View as reader
+            </Link>
+          )}
+          <Link
+            href={`/author/books/${id}`}
+            className="inline-flex items-center gap-1.5 rounded-full bg-slate-900 px-4 py-2 text-[13px] font-medium text-white transition-[transform,background-color] duration-150 ease-[cubic-bezier(0.23,1,0.32,1)] hover:bg-slate-800 active:scale-[0.97] dark:bg-white dark:text-slate-900 dark:hover:bg-white/90"
+          >
+            <PenLine className="h-3.5 w-3.5" />
+            Edit book
+          </Link>
+        </div>
+      </nav>
+
+      {/* ── Hero card (cover + info + stats footer) ── */}
+      <section className="overflow-hidden rounded-2xl border border-slate-200/60 bg-white dark:border-white/[0.08] dark:bg-white/[0.04]">
+        <div className="flex flex-col gap-8 p-8 pb-0 sm:flex-row sm:items-start sm:gap-10">
+          {/* Cover — the star of the page */}
+          <div className="relative mx-auto h-[296px] w-[200px] shrink-0 overflow-hidden rounded-xl shadow-[0_8px_30px_rgba(0,0,0,0.12),0_2px_6px_rgba(0,0,0,0.06)] sm:mx-0 dark:shadow-[0_8px_30px_rgba(0,0,0,0.5)]">
+            {b.cover_image ? (
+              <Image
+                src={b.cover_image}
+                alt=""
+                fill
+                sizes="200px"
+                className="object-cover"
+                unoptimized
+              />
+            ) : (
+              <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-slate-100 to-slate-50 dark:from-white/[0.06] dark:to-white/[0.02]">
+                <BookOpen className="h-10 w-10 text-slate-200 dark:text-white/10" />
+              </div>
             )}
           </div>
+
+          {/* Info */}
+          <div className="min-w-0 flex-1 pb-8">
+            <div className="flex flex-wrap items-center gap-2">
+              <span
+                className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-[11px] font-semibold uppercase tracking-wide ${
+                  isPublished
+                    ? "bg-emerald-50 text-emerald-600 dark:bg-emerald-500/10 dark:text-emerald-400"
+                    : "bg-amber-50 text-amber-600 dark:bg-amber-500/10 dark:text-amber-400"
+                }`}
+              >
+                {isPublished ? "Published" : "Draft"}
+              </span>
+              {hasAudiobook && (
+                <span className="inline-flex items-center gap-1 rounded-full bg-violet-50 px-2.5 py-0.5 text-[11px] font-semibold text-violet-600 dark:bg-violet-500/10 dark:text-violet-400">
+                  <Headphones className="h-3 w-3" />
+                  Audiobook
+                </span>
+              )}
+            </div>
+
+            <h1 className="mt-4 text-[30px] font-bold leading-[1.15] tracking-[-0.025em] text-slate-900 dark:text-white">
+              {b.title}
+            </h1>
+
+            {b.description ? (
+              <p className="mt-3 max-w-2xl text-[15px] leading-relaxed text-slate-500 dark:text-white/45">
+                {b.description}
+              </p>
+            ) : (
+              <p className="mt-3 text-[15px] italic text-slate-300 dark:text-white/20">
+                No description added yet.
+              </p>
+            )}
+
+          </div>
         </div>
 
-        {/* Actions */}
-        <div className="mb-8 flex items-center gap-4">
-          <button
-            onClick={() => {
-              setSelectedSectionId(null);
-              setShowAddBookModal(true);
-            }}
-            className="rounded-full bg-[#907AFF] px-6 py-2.5 text-[15px] font-medium text-white transition-all hover:bg-[#8069EE]"
-          >
-            Add book
-          </button>
-          <button
-            onClick={() => setShowCreateSectionModal(true)}
-            className="rounded-full border border-black/10 dark:border-white/10 bg-black/[0.02] dark:bg-white/[0.03] px-6 py-2.5 text-[15px] font-medium text-slate-700 dark:text-white/70 transition-all hover:bg-black/10 dark:hover:bg-white/[0.06]"
-          >
-            Create section
-          </button>
+        {/* Stats footer — horizontal strip inside the hero card */}
+        <div className="grid grid-cols-2 border-t border-slate-100 lg:grid-cols-4 dark:border-white/[0.06]">
+          <StatCell
+            icon={<Globe className="h-4 w-4 text-blue-500" />}
+            label="Language"
+            value={lang(b.language ?? "en")}
+          />
+          <StatCell
+            icon={<BookText className="h-4 w-4 text-[#7c5cfc]" />}
+            label="Chapters"
+            value={String(chapterList.length)}
+          />
+          <StatCell
+            icon={<Tag className="h-4 w-4 text-emerald-500" />}
+            label="Price"
+            value={price()}
+          />
+          <StatCell
+            icon={<Clock className="h-4 w-4 text-violet-500" />}
+            label="Audio"
+            value={hasAudiobook ? dur(totalAudioSec) : "—"}
+            last
+          />
         </div>
+      </section>
 
-        {/* Sections */}
-        {shelf.sections
-          .sort((a, b) => a.sort_index - b.sort_index)
-          .map((section) => (
-            <SectionBlock
-              key={section.id}
-              section={section}
-              books={booksBySection[section.id] || []}
-              onAddBook={() => {
-                setSelectedSectionId(section.id);
-                setShowAddBookModal(true);
-              }}
-              onMoveBook={handleMoveBook}
-              onDeleteBook={handleDeleteBook}
-              onRenameSection={async (sectionId, newName) => {
-                await updateSection(sectionId, { name: newName });
-                await loadShelf();
-              }}
-              onDeleteSection={handleDeleteSection}
-              onReorderBooks={(bookIds) => handleReorderBooks(section.id, bookIds)}
-              onDragStart={handleDragStart}
-              onDragOver={handleDragOver}
-              onDrop={handleDrop}
-            />
-          ))}
+      {/* ── Content: sidebar + chapters ── */}
+      <div className="mt-6 grid gap-6 lg:grid-cols-[1fr_2fr]">
+        {/* Left column */}
+        <div className="space-y-6">
+          {/* Availability */}
+          <section className="rounded-2xl border border-slate-200/60 bg-white p-6 dark:border-white/[0.08] dark:bg-white/[0.04]">
+            <h2 className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-400 dark:text-white/30">
+              <Globe className="h-3.5 w-3.5" />
+              Available in
+            </h2>
+            <div className="mt-4 space-y-2">
+              {availableLanguages.map((l) => (
+                <div
+                  key={l.code}
+                  className="flex items-center justify-between rounded-xl bg-slate-50/80 px-4 py-3 dark:bg-white/[0.03]"
+                >
+                  <div className="flex items-center gap-2.5">
+                    <Languages className="h-4 w-4 text-blue-500" />
+                    <span className="text-[14px] font-medium text-slate-700 dark:text-white/70">
+                      {lang(l.code)}
+                    </span>
+                    {l.isOriginal && (
+                      <span className="rounded-md bg-slate-200/50 px-1.5 py-0.5 text-[10px] font-medium text-slate-500 dark:bg-white/[0.06] dark:text-white/30">
+                        Original
+                      </span>
+                    )}
+                  </div>
+                  {l.published ? (
+                    <span className="flex items-center gap-1.5 text-[12px] font-medium text-emerald-600 dark:text-emerald-400">
+                      <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
+                      Live
+                    </span>
+                  ) : (
+                    <span className="text-[12px] text-slate-400 dark:text-white/25">
+                      Draft
+                    </span>
+                  )}
+                </div>
+              ))}
+            </div>
+            <div className="mt-4 border-t border-slate-100 pt-3 dark:border-white/[0.05]">
+              <div className="flex items-center justify-between text-[13px]">
+                <span className="text-slate-400 dark:text-white/30">
+                  Pricing
+                </span>
+                <span className="font-semibold text-slate-700 dark:text-white/70">
+                  {price()}
+                </span>
+              </div>
+            </div>
+          </section>
 
-        {/* Unsectioned Books */}
-        {unsectionedBooks.length > 0 && (
-          <div className="mb-8 rounded-2xl border border-black/10 dark:border-white/[0.08] bg-gradient-to-b from-black/5 dark:from-white/[0.04] to-transparent p-6">
-            <h3 className="mb-6 text-[20px] font-semibold text-slate-900 dark:text-white">Books</h3>
-            <div 
-              className="grid grid-cols-2 gap-6 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5"
-              onDragOver={handleDragOver}
-              onDrop={(e) => handleDrop(e, null)}
-            >
-              {unsectionedBooks
-                .sort((a, b) => a.sort_index - b.sort_index)
-                .map((shelfBook) => (
+          {/* Audiobook */}
+          <section className="rounded-2xl border border-slate-200/60 bg-white p-6 dark:border-white/[0.08] dark:bg-white/[0.04]">
+            <h2 className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-400 dark:text-white/30">
+              <Headphones className="h-3.5 w-3.5" />
+              Audiobook
+            </h2>
+            {hasAudiobook ? (
+              <div className="mt-4 space-y-2">
+                {audioList.map((a) => (
                   <div
-                    key={shelfBook.id}
-                    draggable
-                    onDragStart={() => handleDragStart(shelfBook.id)}
-                    className="cursor-move"
+                    key={a.id}
+                    className="flex items-center justify-between rounded-xl bg-violet-50/50 px-4 py-3 dark:bg-violet-500/5"
                   >
-                    <BookCard
-                      book={shelfBook.book}
-                      size="sm"
-                      onClick={() => router.push(`/author/books/${shelfBook.book.id}`)}
-                      onAction={(action) => {
-                        if (action === "delete") {
-                          handleDeleteBook(shelfBook.id);
-                        }
-                      }}
-                      showStats={false}
-                    />
+                    <div className="flex items-center gap-2.5">
+                      <Headphones className="h-4 w-4 text-violet-500" />
+                      <span className="text-[14px] font-medium text-slate-700 dark:text-white/70">
+                        {lang(a.language ?? "en")}
+                      </span>
+                    </div>
+                    <span className="text-[13px] tabular-nums font-medium text-violet-600 dark:text-violet-400">
+                      {a.duration_seconds != null
+                        ? dur(a.duration_seconds)
+                        : "—"}
+                    </span>
                   </div>
                 ))}
-              <button
-                onClick={() => {
-                  setSelectedSectionId(null);
-                  setShowAddBookModal(true);
-                }}
-                className="group flex h-[200px] w-[140px] items-center justify-center rounded-2xl border-2 border-dashed border-black/20 dark:border-white/10 bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-900 dark:to-slate-800 transition-all duration-300 hover:border-[#907AFF]/50 hover:bg-gradient-to-br hover:from-[#907AFF]/5 hover:to-[#E29ED5]/5"
-              >
-                <div className="flex flex-col items-center gap-3">
-                  <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-to-br from-[#907AFF]/20 to-[#E29ED5]/20 transition-all duration-300 group-hover:scale-110 group-hover:from-[#907AFF]/30 group-hover:to-[#E29ED5]/30">
-                    <svg className="h-6 w-6 text-[#907AFF] transition-colors group-hover:text-[#8069EE]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-                    </svg>
+                <div className="mt-3 border-t border-slate-100 pt-3 dark:border-white/[0.05]">
+                  <div className="flex items-center justify-between text-[13px]">
+                    <span className="text-slate-400 dark:text-white/30">
+                      Total
+                    </span>
+                    <span className="font-semibold text-slate-700 dark:text-white/70">
+                      {dur(totalAudioSec)}
+                    </span>
                   </div>
-                  <span className="text-[13px] font-medium text-slate-600 dark:text-white/50 transition-colors group-hover:text-[#907AFF] dark:group-hover:text-[#907AFF]">
-                    Add book
+                </div>
+              </div>
+            ) : (
+              <div className="mt-4 flex flex-col items-center rounded-xl border border-dashed border-slate-200 py-8 dark:border-white/[0.08]">
+                <Headphones className="h-6 w-6 text-slate-200 dark:text-white/10" />
+                <p className="mt-2 text-[13px] text-slate-400 dark:text-white/25">
+                  No audiobook yet.
+                </p>
+                <Link
+                  href={`/author/books/${id}?panel=audiobook`}
+                  className="mt-3 rounded-full border border-[#8E79FF]/30 px-3.5 py-1 text-[12px] font-medium text-[#7c5cfc] transition-[background-color,transform] duration-150 ease-[cubic-bezier(0.23,1,0.32,1)] hover:bg-[#8E79FF]/5 active:scale-[0.97] dark:text-[#B4A0FF]"
+                >
+                  Generate audiobook
+                </Link>
+              </div>
+            )}
+          </section>
+        </div>
+
+        {/* Right: Chapters */}
+        <section className="overflow-hidden rounded-2xl border border-slate-200/60 bg-white dark:border-white/[0.08] dark:bg-white/[0.04]">
+          <div className="flex items-center justify-between border-b border-slate-100 px-7 py-4 dark:border-white/[0.05]">
+            <h2 className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-400 dark:text-white/30">
+              <BookText className="h-3.5 w-3.5" />
+              Chapters
+            </h2>
+            <span className="rounded-full bg-slate-100 px-2.5 py-0.5 text-[12px] tabular-nums font-semibold text-slate-500 dark:bg-white/[0.06] dark:text-white/40">
+              {chapterList.length}
+            </span>
+          </div>
+          {chapterList.length === 0 ? (
+            <p className="px-7 py-12 text-center text-[14px] text-slate-300 dark:text-white/20">
+              No chapters yet.
+            </p>
+          ) : (
+            <div className="max-h-[560px] overflow-y-auto">
+              {chapterList.map((ch, i) => (
+                <div
+                  key={ch.id}
+                  className="flex items-center gap-4 border-b border-slate-50 px-7 py-3.5 transition-colors duration-150 ease-[cubic-bezier(0.23,1,0.32,1)] last:border-b-0 hover:bg-slate-50/60 dark:border-white/[0.03] dark:hover:bg-white/[0.02]"
+                >
+                  <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-slate-100/70 text-[11px] font-semibold tabular-nums text-slate-400 dark:bg-white/[0.05] dark:text-white/25">
+                    {i + 1}
+                  </span>
+                  <span className="min-w-0 flex-1 truncate text-[14px] text-slate-600 dark:text-white/60">
+                    {ch.title || `Chapter ${i + 1}`}
                   </span>
                 </div>
-              </button>
+              ))}
             </div>
-          </div>
-        )}
+          )}
+        </section>
       </div>
+    </div>
+  );
+}
 
-      {/* Edit Shelf Panel */}
-      {showEditPanel && (
-        <div className="fixed inset-0 z-[1000] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
-          <div className="relative w-full max-w-[800px] rounded-3xl border border-black/10 dark:border-white/10 bg-white/95 dark:bg-[#0a0a0f]/95 p-8 backdrop-blur-xl">
-            <button type="button" aria-label="Close" onClick={() => setShowEditPanel(false)} className="absolute right-6 top-6 text-slate-500 dark:text-white/50 transition-colors hover:text-slate-900 dark:hover:text-white">
-              <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-              </svg>
-            </button>
-            <h2 className="mb-6 text-[28px] font-semibold text-slate-900 dark:text-white">Edit shelf</h2>
-            
-            {/* Same form fields as Create shelf modal */}
-            <div className="space-y-4">
-              <div>
-                <input
-                  type="text"
-                  value={editForm.name}
-                  onChange={(e) => setEditForm({ ...editForm, name: e.target.value })}
-                  placeholder="Shelf name"
-                  className="w-full rounded-xl border border-black/10 dark:border-white/10 bg-black/[0.02] dark:bg-white/[0.04] px-4 py-2.5 text-[20px] font-semibold text-slate-900 dark:text-white outline-none transition-all focus:border-[#907AFF]/50 focus:bg-black/10 dark:focus:bg-white/[0.06]"
-                />
-              </div>
-              <div>
-                <input
-                  type="text"
-                  value={editForm.subtitle}
-                  onChange={(e) => setEditForm({ ...editForm, subtitle: e.target.value })}
-                  placeholder="Optional subtitle"
-                  className="w-full rounded-xl border border-black/10 dark:border-white/10 bg-black/[0.02] dark:bg-white/[0.04] px-4 py-2.5 text-[14px] text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-white/30 outline-none transition-all focus:border-[#907AFF]/50 focus:bg-black/10 dark:focus:bg-white/[0.06]"
-                />
-              </div>
-              
-              {/* Cover chooser - same as create modal */}
-              <div>
-                <div className="mb-3 flex items-center gap-2">
-                  <span className="text-[14px] font-medium text-slate-700 dark:text-white/70">Cover</span>
-                  <div className="flex gap-2">
-                    <button
-                      onClick={() => setEditForm({ ...editForm, coverType: "image" })}
-                      className={`rounded-lg px-3 py-1 text-[12px] transition-all ${
-                        editForm.coverType === "image"
-                          ? "bg-[#907AFF] text-white"
-                          : "bg-black/[0.02] dark:bg-white/[0.02] text-slate-600 dark:text-white/70 hover:bg-black/10 dark:hover:bg-white/[0.04]"
-                      }`}
-                    >
-                      Image
-                    </button>
-                    <button
-                      onClick={() => setEditForm({ ...editForm, coverType: "gradient" })}
-                      className={`rounded-lg px-3 py-1 text-[12px] transition-all ${
-                        editForm.coverType === "gradient"
-                          ? "bg-[#907AFF] text-white"
-                          : "bg-black/[0.02] dark:bg-white/[0.02] text-slate-600 dark:text-white/70 hover:bg-black/10 dark:hover:bg-white/[0.04]"
-                      }`}
-                    >
-                      Gradient
-                    </button>
-                  </div>
-                </div>
-                
-                {editForm.coverType === "image" ? (
-                  <>
-                    <button className="flex w-full items-center justify-between rounded-xl border border-black/10 dark:border-white/10 bg-black/[0.02] dark:bg-white/[0.02] px-4 py-3 text-left transition-all hover:border-[#907AFF]/30 hover:bg-black/10 dark:hover:bg-white/[0.04]">
-                      <span className="text-[14px] text-slate-700 dark:text-white/70">+ Add shelf cover</span>
-                      <input type="file" accept="image/*" className="hidden" id="edit-shelf-cover" onChange={(e) => {
-                        const file = e.target.files?.[0];
-                        if (file) {
-                          const reader = new FileReader();
-                          reader.onload = (e) => setEditForm({ ...editForm, cover: e.target?.result as string });
-                          reader.readAsDataURL(file);
-                        }
-                      }} />
-                      <label htmlFor="edit-shelf-cover" className="cursor-pointer text-[#907AFF]">Upload</label>
-                    </button>
-                    {editForm.cover && (
-                      <div className="relative mt-2 h-48 w-32 overflow-hidden rounded-lg">
-                        <Image src={editForm.cover} alt="Shelf cover" fill sizes="128px" className="object-cover" unoptimized />
-                        <button type="button" aria-label="Remove cover" onClick={() => setEditForm({ ...editForm, cover: "" })} className="absolute right-1 top-1 rounded-full bg-black/60 p-1 text-white/80 hover:bg-black/80">
-                          <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                          </svg>
-                        </button>
-                      </div>
-                    )}
-                  </>
-                ) : (
-                  <div className="space-y-3">
-                    <div className="grid grid-cols-4 gap-2">
-                      {[
-                        "linear-gradient(135deg, #907AFF 0%, #E29ED5 100%)",
-                        "linear-gradient(135deg, #E29ED5 0%, #FCC997 100%)",
-                        "linear-gradient(135deg, #FCC997 0%, #FEE9A3 100%)",
-                        "linear-gradient(135deg, #907AFF 0%, #FCC997 100%)",
-                      ].map((gradient, i) => (
-                        <button
-                          key={i}
-                          onClick={() => setEditForm({ ...editForm, coverGradient: gradient })}
-                          className={`h-16 rounded-lg transition-all ${
-                            editForm.coverGradient === gradient ? "ring-2 ring-[#907AFF] ring-offset-2" : ""
-                          }`}
-                          style={{ background: gradient }}
-                        />
-                      ))}
-                    </div>
-                    <input
-                      type="text"
-                      value={editForm.coverGradient}
-                      onChange={(e) => setEditForm({ ...editForm, coverGradient: e.target.value })}
-                      placeholder="Or enter custom gradient CSS"
-                      className="w-full rounded-xl border border-black/10 dark:border-white/10 bg-black/[0.02] dark:bg-white/[0.04] px-4 py-2.5 text-[13px] text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-white/30 outline-none transition-all focus:border-[#907AFF]/50 focus:bg-black/10 dark:focus:bg-white/[0.06]"
-                    />
-                  </div>
-                )}
-              </div>
-
-              {/* Typography Settings - same as create modal */}
-              <div className="rounded-xl border border-black/10 dark:border-white/10 bg-black/[0.02] dark:bg-white/[0.02] p-4">
-                <h4 className="mb-4 text-[14px] font-medium text-slate-700 dark:text-white/70">Typography Settings</h4>
-                <div className="space-y-3">
-                  <div>
-                    <label className="mb-1 block text-[12px] text-slate-600 dark:text-white/50">Font Family</label>
-                    <select
-                      value={editForm.typography.fontFamily}
-                      onChange={(e) => setEditForm({ ...editForm, typography: { ...editForm.typography, fontFamily: e.target.value } })}
-                      className="w-full rounded-lg border border-black/10 dark:border-white/10 bg-black/[0.02] dark:bg-white/[0.04] px-3 py-2 text-[13px] text-slate-900 dark:text-white outline-none transition-all focus:border-[#907AFF]/50"
-                    >
-                      <option value="Inter">Inter</option>
-                      <option value="Georgia">Georgia</option>
-                      <option value="Times New Roman">Times New Roman</option>
-                      <option value="Arial">Arial</option>
-                      <option value="Helvetica">Helvetica</option>
-                    </select>
-                  </div>
-                  <div>
-                    <label className="mb-1 block text-[12px] text-slate-600 dark:text-white/50">Font Weight</label>
-                    <select
-                      value={editForm.typography.fontWeight}
-                      onChange={(e) => setEditForm({ ...editForm, typography: { ...editForm.typography, fontWeight: e.target.value } })}
-                      className="w-full rounded-lg border border-black/10 dark:border-white/10 bg-black/[0.02] dark:bg-white/[0.04] px-3 py-2 text-[13px] text-slate-900 dark:text-white outline-none transition-all focus:border-[#907AFF]/50"
-                    >
-                      <option value="400">Regular (400)</option>
-                      <option value="500">Medium (500)</option>
-                      <option value="600">Semibold (600)</option>
-                      <option value="700">Bold (700)</option>
-                    </select>
-                  </div>
-                  <div className="grid grid-cols-2 gap-3">
-                    <div>
-                      <label className="mb-1 block text-[12px] text-slate-600 dark:text-white/50">Title Size</label>
-                      <input
-                        type="text"
-                        value={editForm.typography.titleSize}
-                        onChange={(e) => setEditForm({ ...editForm, typography: { ...editForm.typography, titleSize: e.target.value } })}
-                        placeholder="20px"
-                        className="w-full rounded-lg border border-black/10 dark:border-white/10 bg-black/[0.02] dark:bg-white/[0.04] px-3 py-2 text-[13px] text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-white/30 outline-none transition-all focus:border-[#907AFF]/50"
-                      />
-                    </div>
-                    <div>
-                      <label className="mb-1 block text-[12px] text-slate-600 dark:text-white/50">Subtitle Size</label>
-                      <input
-                        type="text"
-                        value={editForm.typography.subtitleSize}
-                        onChange={(e) => setEditForm({ ...editForm, typography: { ...editForm.typography, subtitleSize: e.target.value } })}
-                        placeholder="14px"
-                        className="w-full rounded-lg border border-black/10 dark:border-white/10 bg-black/[0.02] dark:bg-white/[0.04] px-3 py-2 text-[13px] text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-white/30 outline-none transition-all focus:border-[#907AFF]/50"
-                      />
-                    </div>
-                  </div>
-                  <div>
-                    <label className="mb-1 block text-[12px] text-slate-600 dark:text-white/50">Text Color</label>
-                    <div className="flex items-center gap-2">
-                      <input
-                        type="color"
-                        value={editForm.typography.textColor}
-                        onChange={(e) => setEditForm({ ...editForm, typography: { ...editForm.typography, textColor: e.target.value } })}
-                        className="h-10 w-20 cursor-pointer rounded-lg border border-black/10 dark:border-white/10"
-                      />
-                      <input
-                        type="text"
-                        value={editForm.typography.textColor}
-                        onChange={(e) => setEditForm({ ...editForm, typography: { ...editForm.typography, textColor: e.target.value } })}
-                        placeholder="#ffffff"
-                        className="flex-1 rounded-lg border border-black/10 dark:border-white/10 bg-black/[0.02] dark:bg-white/[0.04] px-3 py-2 text-[13px] text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-white/30 outline-none transition-all focus:border-[#907AFF]/50"
-                      />
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            <div className="mt-8 flex justify-end gap-3">
-              <button
-                onClick={() => setShowEditPanel(false)}
-                className="rounded-xl border border-black/10 dark:border-white/10 bg-black/[0.02] dark:bg-white/[0.02] px-6 py-2.5 text-[14px] font-medium text-slate-700 dark:text-white/70 transition-all hover:bg-black/10 dark:hover:bg-white/[0.04]"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={handleUpdateShelf}
-                className="rounded-xl bg-[#907AFF] px-6 py-2.5 text-[14px] font-medium text-white transition-all hover:bg-[#8069EE]"
-              >
-                Save changes
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Create Section Modal */}
-      {showCreateSectionModal && (
-          <div className="fixed inset-0 z-[1000] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
-            <div className="relative w-full max-w-[500px] rounded-3xl border border-black/10 dark:border-white/10 bg-white/95 dark:bg-[#0a0a0f]/95 p-8 backdrop-blur-xl">
-              <button type="button" aria-label="Close" onClick={() => setShowCreateSectionModal(false)} className="absolute right-6 top-6 text-slate-500 dark:text-white/50 transition-colors hover:text-slate-900 dark:hover:text-white">
-                <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                </svg>
-              </button>
-              <h2 className="mb-6 text-[28px] font-semibold text-slate-900 dark:text-white">Create section</h2>
-              <input
-                type="text"
-                value={sectionName}
-                onChange={(e) => setSectionName(e.target.value)}
-                placeholder="Section name"
-                className="w-full rounded-xl border border-black/10 dark:border-white/10 bg-black/[0.02] dark:bg-white/[0.04] px-4 py-3 text-[16px] text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-white/30 outline-none transition-all focus:border-[#907AFF]/50 focus:bg-black/10 dark:focus:bg-white/[0.06]"
-                onKeyDown={(e) => {
-                  if (e.key === "Enter") handleCreateSection();
-                }}
-                autoFocus
-              />
-              <div className="mt-6 flex justify-end gap-3">
-                <button
-                  onClick={() => setShowCreateSectionModal(false)}
-                  className="rounded-xl border border-black/10 dark:border-white/10 bg-black/[0.02] dark:bg-white/[0.02] px-6 py-2.5 text-[14px] font-medium text-slate-700 dark:text-white/70 transition-all hover:bg-black/10 dark:hover:bg-white/[0.04]"
-                >
-                  Cancel
-                </button>
-                <button
-                  onClick={handleCreateSection}
-                  className="rounded-xl bg-[#907AFF] px-6 py-2.5 text-[14px] font-medium text-white transition-all hover:bg-[#8069EE]"
-                >
-                  Create section
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
-
-        <CreateBookDialog
-          open={showAddBookModal}
-          onClose={() => setShowAddBookModal(false)}
-          onCreated={(bookId) => handleBookAdded(bookId)}
-          onImported={(bookId) => handleBookAdded(bookId)}
-        />
-    </main>
+/* ─── Stat cell for hero footer ─── */
+function StatCell({
+  icon,
+  label,
+  value,
+  last = false,
+}: {
+  icon: React.ReactNode;
+  label: string;
+  value: string;
+  last?: boolean;
+}) {
+  return (
+    <div
+      className={`flex items-center gap-3 px-8 py-5 ${last ? "" : "border-r border-slate-100 dark:border-white/[0.06]"}`}
+    >
+      <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-slate-50 dark:bg-white/[0.04]">
+        {icon}
+      </div>
+      <div>
+        <p className="text-[10px] font-semibold uppercase tracking-[0.1em] text-slate-400 dark:text-white/25">
+          {label}
+        </p>
+        <p className="text-[16px] font-bold leading-tight text-slate-800 dark:text-white/80">
+          {value}
+        </p>
+      </div>
+    </div>
   );
 }

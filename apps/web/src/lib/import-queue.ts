@@ -12,11 +12,7 @@ export type ImportMode = "new_version" | "overwrite_draft";
 
 function createQueue(connection: { host: string; port: number; password?: string }): Queue {
   return new Queue(QUEUE_NAME, {
-    connection: {
-      host: connection.host,
-      port: connection.port,
-      password: connection.password,
-    },
+    connection: { ...connection },
     defaultJobOptions: {
       attempts: 2,
       backoff: { type: "exponential", delay: 2000 },
@@ -29,7 +25,7 @@ let queueInstance: Queue | null = null;
 let queueConnectionKey: string | null = null;
 
 function getConnectionKey(connection: { host: string; port: number; password?: string }): string {
-  return `${connection.host}:${connection.port}:${connection.password ?? ""}`;
+  return JSON.stringify(connection);
 }
 
 export function getImportQueue(): Queue | null {

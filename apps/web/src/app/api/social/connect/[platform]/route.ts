@@ -13,7 +13,12 @@ import {
 } from "@/lib/api-errors";
 import { VALID_PLATFORMS } from "@/lib/social/platform-constraints";
 import { buildOAuthUrl } from "@/lib/social/oauth";
-import { createOAuthState } from "@/lib/social/oauth-state";
+import {
+  createOAuthPkceCookieValue,
+  createOAuthState,
+  getOAuthPkceCookieMaxAgeSeconds,
+  getOAuthPkceCookieName,
+} from "@/lib/social/oauth-state";
 import { encryptToken } from "@/lib/social/token-crypto";
 import { checkConnectRateLimit } from "@/lib/social/rate-limit";
 
@@ -102,8 +107,18 @@ export async function POST(
   // OAuth platforms: build auth URL
   const siteOrigin = process.env.NEXT_PUBLIC_SITE_URL?.trim() || new URL(request.url).origin;
   const redirectUri = `${siteOrigin}/api/social/callback/${platform}`;
-  const { state, codeVerifier } = createOAuthState(user.id, platform);
+  const { state, codeVerifier, nonce } = createOAuthState(user.id, platform);
   const authUrl = buildOAuthUrl(platform, redirectUri, state, codeVerifier);
+  const pkceCookieValue = createOAuthPkceCookieValue({ platform, nonce, codeVerifier });
+  const result = NextResponse.json({ authUrl });
 
-  return NextResponse.json({ authUrl });
+  result.cookies.set(getOAuthPkceCookieName(platform), pkceCookieValue, {
+    httpOnly: true,
+    sameSite: "lax",
+    secure: process.env.NODE_ENV === "production",
+    path: `/api/social/callback/${platform}`,
+    maxAge: getOAuthPkceCookieMaxAgeSeconds(),
+  });
+
+  return result;
 }

@@ -8,7 +8,7 @@
  */
 
 import Redis from "ioredis";
-import { getRedisUrl } from "@/lib/env";
+import { getRedisClientOptions, getRedisUrl } from "@/lib/env";
 import { QUEUE_NAMES } from "@/lib/queue-names";
 
 const HEARTBEAT_KEY_PREFIX = "worker:heartbeat:";
@@ -40,13 +40,14 @@ function getHeartbeatTtlSeconds(): number {
 }
 
 function getRedisClient(): Redis | null {
-  const url = getRedisUrl();
-  if (!url) return null;
-  return new Redis(url, {
-    lazyConnect: true,
-    maxRetriesPerRequest: 1,
-    connectTimeout: 2000,
+  const connection = getRedisClientOptions({ lazyConnect: true });
+  if (!connection) return null;
+
+  const redis = new Redis(connection);
+  redis.on("error", () => {
+    // Heartbeats are best-effort; suppress noisy ioredis errors when Redis is down.
   });
+  return redis;
 }
 
 /**
@@ -106,10 +107,23 @@ export async function getHeartbeats(): Promise<{
     return { redis: false, heartbeats };
   }
 
-  const redis = new Redis(url, {
-    lazyConnect: true,
-    maxRetriesPerRequest: 1,
-    connectTimeout: 2000,
+  const connection = getRedisClientOptions({ lazyConnect: true });
+  if (!connection) {
+    const heartbeats: Record<string, HeartbeatStatus> = {};
+    for (const name of queueNames) {
+      heartbeats[name] = {
+        queueName: name,
+        lastSeen: null,
+        stale: true,
+        crashed: true,
+      };
+    }
+    return { redis: false, heartbeats };
+  }
+
+  const redis = new Redis(connection);
+  redis.on("error", () => {
+    // Heartbeats are best-effort; suppress noisy ioredis errors when Redis is down.
   });
 
   const heartbeats: Record<string, HeartbeatStatus> = {};
@@ -190,10 +204,12 @@ export async function setWorkersStartedAt(timestampMs: number): Promise<void> {
 export async function getWorkersStartedAt(): Promise<number | null> {
   const url = getRedisUrl();
   if (!url) return null;
-  const redis = new Redis(url, {
-    lazyConnect: true,
-    maxRetriesPerRequest: 1,
-    connectTimeout: 2000,
+  const connection = getRedisClientOptions({ lazyConnect: true });
+  if (!connection) return null;
+
+  const redis = new Redis(connection);
+  redis.on("error", () => {
+    // Best-effort status read only.
   });
   try {
     await redis.connect();

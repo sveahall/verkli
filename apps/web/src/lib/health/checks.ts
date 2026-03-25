@@ -1,6 +1,6 @@
 import Redis from "ioredis";
 import { createClient } from "@/lib/supabase/server";
-import { getRedisUrl } from "@/lib/env";
+import { getRedisClientOptions } from "@/lib/env";
 
 export async function checkDbHealth(): Promise<boolean> {
   try {
@@ -13,15 +13,10 @@ export async function checkDbHealth(): Promise<boolean> {
 }
 
 export async function checkRedisHealth(): Promise<boolean> {
-  const redisUrl = getRedisUrl();
-  if (!redisUrl) return false;
+  const connection = getRedisClientOptions({ lazyConnect: true });
+  if (!connection) return false;
 
-  const redis = new Redis(redisUrl, {
-    lazyConnect: true,
-    maxRetriesPerRequest: 1,
-    connectTimeout: 1500,
-    enableReadyCheck: false,
-  });
+  const redis = new Redis(connection);
   redis.on("error", () => {
     // Prevent noisy "[ioredis] Unhandled error event" in health probes when Redis is down.
   });

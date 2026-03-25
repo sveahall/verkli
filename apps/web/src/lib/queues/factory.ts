@@ -16,7 +16,7 @@ type QueueRegistryEntry = {
 const queueRegistry = new Map<string, QueueRegistryEntry>();
 
 function getConnectionKey(connection: RedisConnection): string {
-  return `${connection.host}:${connection.port}:${connection.password ?? ""}`;
+  return JSON.stringify(connection);
 }
 
 function getQueueRegistryKey(queueName: string): string {
@@ -28,11 +28,7 @@ function createQueue<JobName extends string>(
   connection: RedisConnection
 ): Queue {
   return new Queue(descriptor.queueName, {
-    connection: {
-      host: connection.host,
-      port: connection.port,
-      password: connection.password,
-    },
+    connection: { ...connection },
     defaultJobOptions: {
       attempts: descriptor.retryPolicy.attempts,
       backoff: { type: "exponential", delay: descriptor.retryPolicy.backoffDelayMs },

@@ -89,11 +89,7 @@ export async function getQueueDepths(): Promise<{
   }
 
   const notificationsQueue = new Queue(QUEUE_NAMES.NOTIFICATIONS, {
-    connection: {
-      host: connection.host,
-      port: connection.port,
-      password: connection.password,
-    },
+    connection: { ...connection },
   });
   try {
     const counts = await notificationsQueue.getJobCounts(

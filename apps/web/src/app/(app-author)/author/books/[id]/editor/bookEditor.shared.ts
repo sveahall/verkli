@@ -270,6 +270,77 @@ export const TOOL_ORDER: Tool[] = [
   "import",
 ];
 
+export const TOOL_META: Record<
+  Tool,
+  {
+    label: string;
+    description: string;
+    shortLabel: string;
+  }
+> = {
+  edit: {
+    label: "Write",
+    description: "Shape the manuscript, structure chapters, and keep the draft moving.",
+    shortLabel: "Draft",
+  },
+  polish: {
+    label: "Polish",
+    description: "Review readability, pacing, and compare versions before you ship.",
+    shortLabel: "Refine",
+  },
+  cover: {
+    label: "Cover",
+    description: "Upload, crop, or generate a cover that looks ready for launch.",
+    shortLabel: "Package",
+  },
+  translate: {
+    label: "Translate",
+    description: "Expand the book into more languages without leaving the workflow.",
+    shortLabel: "Localize",
+  },
+  audiobook: {
+    label: "Audiobook",
+    description: "Turn the manuscript into narration with clear language and scope controls.",
+    shortLabel: "Narrate",
+  },
+  print: {
+    label: "Print",
+    description: "Configure print-on-demand settings, editions, ISBN, and format pricing.",
+    shortLabel: "Print",
+  },
+  pricing: {
+    label: "Pricing",
+    description: "Set the business model, reader price, and access level.",
+    shortLabel: "Monetize",
+  },
+  publish: {
+    label: "Publish",
+    description: "Choose visibility, release chapters, and make the book reader-ready.",
+    shortLabel: "Release",
+  },
+  market: {
+    label: "Market",
+    description: "Generate launch assets, share links, and get campaign copy ready.",
+    shortLabel: "Promote",
+  },
+  statistics: {
+    label: "Stats",
+    description: "Track attention, progress, and traction once the book is live.",
+    shortLabel: "Measure",
+  },
+  import: {
+    label: "Import",
+    description: "Bring in a manuscript, repair structure, and replace drafts safely.",
+    shortLabel: "Ingest",
+  },
+};
+
+export function getToolHref(bookId: string, tool: Tool): string {
+  return tool === "edit"
+    ? `/author/books/${bookId}`
+    : `/author/books/${bookId}?panel=${tool}`;
+}
+
 export type BookEditorProps = {
   book: Book;
   chapters: Chapter[];

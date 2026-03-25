@@ -2,7 +2,7 @@
 
 import dynamic from "next/dynamic";
 import Link from "next/link";
-import { Suspense, useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import NewsletterList from "@/components/newsletters/NewsletterList";
@@ -11,13 +11,11 @@ import WorkspaceLayout from "@/features/author-workspaces/WorkspaceLayout";
 import WorkspaceHeaderActions from "@/features/author-workspaces/components/WorkspaceHeaderActions";
 import type { Book as MarketingBook } from "@/lib/marketing/types";
 
-const MarketingPortalWizard = dynamic(
-  () => import("@/components/marketing/MarketingPortalWizard"),
+const CampaignWizard = dynamic(
+  () => import("@/components/marketing/CampaignWizard"),
   {
     ssr: false,
-    loading: () => (
-      <div className="h-[520px] animate-pulse rounded-2xl bg-slate-100 dark:bg-white/5" />
-    ),
+    loading: () => null,
   }
 );
 
@@ -281,49 +279,48 @@ export default function AudienceWorkspace({
 
   const renderCampaigns = () => (
     <div className="space-y-5">
-      {marketingEnabled && wizardOpen ? (
-        <div className="rounded-2xl bg-white p-6 dark:bg-white/[0.04] sm:p-7">
-          <div className="flex items-start justify-between gap-4">
-            <div>
-              <p className="text-eyebrow">Campaigns</p>
-              <h2 className="mt-2 text-section-title">Campaign builder</h2>
-            </div>
-            <Button size="sm" variant="ghost" onClick={() => setWizardOpen(false)}>
-              Close
-            </Button>
-          </div>
-          <div className="mt-5">
-            <Suspense
-              fallback={
-                <div className="h-[520px] animate-pulse rounded-2xl bg-slate-100 dark:bg-white/5" />
-              }
-            >
-              <MarketingPortalWizard
-                books={books}
-                initialBookId={selectedBook?.id ?? null}
-                embedded
-              />
-            </Suspense>
-          </div>
-        </div>
-      ) : (
-        <div className="rounded-2xl bg-white p-6 dark:bg-white/[0.04] sm:p-8">
-          <p className="text-eyebrow">Primary action</p>
-          <h2 className="mt-4 text-[30px] font-semibold tracking-tight text-slate-900 dark:text-white">
-            Create campaign
-          </h2>
-          <p className="mt-2 text-[15px] text-slate-500 dark:text-white/45">
-            Launch the next reader touchpoint for {selectedBook?.title ?? "your book"}.
-          </p>
-        </div>
+      {/* Hero card */}
+      <div className="rounded-2xl bg-white p-6 dark:bg-white/[0.04] sm:p-8">
+        <p className="text-eyebrow">Kampanjer</p>
+        <h2 className="mt-4 text-[30px] font-semibold tracking-tight text-slate-900 dark:text-white">
+          Skapa kampanj
+        </h2>
+        <p className="mt-2 text-[15px] text-slate-500 dark:text-white/45">
+          Nå fler läsare med en AI-driven innehållskampanj för{" "}
+          {selectedBook?.title ?? "din bok"}.
+        </p>
+        {marketingEnabled && (
+          <button
+            className="mt-5 rounded-xl bg-[#907AFF] px-6 py-2.5 text-[14px] font-medium text-white transition-all hover:bg-[#8069EE] active:scale-[0.98]"
+            onClick={() => setWizardOpen(true)}
+          >
+            Skapa ny kampanj
+          </button>
+        )}
+      </div>
+
+      {/* Campaign wizard dialog */}
+      {marketingEnabled && (
+        <CampaignWizard
+          open={wizardOpen}
+          onOpenChange={setWizardOpen}
+          books={books}
+          initialBookId={selectedBook?.id ?? null}
+          onComplete={(config) => {
+            // TODO: POST to API to create campaign
+            console.log("Campaign created:", config);
+            router.refresh();
+          }}
+        />
       )}
 
+      {/* Active campaigns list */}
       <section>
-        <p className="text-eyebrow">Campaigns</p>
-        <h2 className="mt-2 text-section-title">Campaigns in motion</h2>
+        <p className="text-eyebrow">Aktiva</p>
+        <h2 className="mt-2 text-section-title">Kampanjer igång</h2>
         {activeCampaigns.length === 0 ? (
           <p className="mt-5 text-sm text-slate-500 dark:text-white/45">
-            No active campaigns yet.
+            Inga aktiva kampanjer ännu.
           </p>
         ) : (
           <div className="mt-5 rounded-2xl bg-white dark:bg-white/[0.04]">
@@ -332,7 +329,7 @@ export default function AudienceWorkspace({
                 <div key={campaign.id} className="flex flex-wrap items-start gap-4 py-4 first:pt-0">
                   <div className="min-w-0 flex-1">
                     <p className="truncate text-sm font-medium text-slate-900 dark:text-white">
-                      {campaign.headline ?? "Campaign"}
+                      {campaign.headline ?? "Kampanj"}
                     </p>
                     <p className="mt-1 text-sm text-slate-500 dark:text-white/45">
                       {campaign.bookTitle}
@@ -348,7 +345,7 @@ export default function AudienceWorkspace({
                     {campaign.status.charAt(0).toUpperCase() + campaign.status.slice(1)}
                   </span>
                   <span className="text-xs text-slate-400 dark:text-white/35">
-                    {campaign.updatedAt ? formatRelativeDate(campaign.updatedAt) : "Recently updated"}
+                    {campaign.updatedAt ? formatRelativeDate(campaign.updatedAt) : "Nyligen uppdaterad"}
                   </span>
                   {campaign.shareUrl ? (
                     <a
@@ -357,7 +354,7 @@ export default function AudienceWorkspace({
                       rel="noopener noreferrer"
                       className="text-sm font-medium text-slate-900 hover:text-slate-600 dark:text-white dark:hover:text-white/75"
                     >
-                      Preview
+                      Förhandsgranska
                     </a>
                   ) : null}
                 </div>

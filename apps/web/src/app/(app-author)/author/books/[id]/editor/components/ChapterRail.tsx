@@ -19,13 +19,13 @@ export default function ChapterRail({
 }: Props) {
   if (variant === "compact") {
     return (
-      <div className="flex items-center gap-3 rounded-lg bg-slate-50/80 px-4 py-2.5 dark:bg-white/[0.03]">
+      <div className="flex items-center gap-3 rounded-xl border border-slate-200/60 bg-white/80 px-4 py-2 shadow-[0_1px_2px_rgba(0,0,0,0.03)] backdrop-blur-sm dark:border-white/[0.06] dark:bg-white/[0.03] dark:shadow-none">
         {title ? (
           <span className="shrink-0 text-[11px] font-semibold uppercase tracking-widest text-slate-400 dark:text-white/30">
             {title}
           </span>
         ) : null}
-        <div className="min-w-0 flex-1">{children}</div>
+        <div className="min-w-0 flex-1 overflow-x-auto">{children}</div>
         {footer}
       </div>
     );

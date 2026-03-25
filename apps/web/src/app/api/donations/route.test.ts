@@ -220,6 +220,37 @@ describe(`POST ${API_ROUTES.donationsCheckout}`, () => {
     }
   });
 
+  it("returns mock checkout URL when donation mock mode is enabled even if Stripe key exists", async () => {
+    const previousMockMode = process.env.DONATION_CHECKOUT_MOCK_MODE;
+    const previousStripeSecret = process.env.STRIPE_SECRET_KEY;
+
+    process.env.DONATION_CHECKOUT_MOCK_MODE = "true";
+    process.env.STRIPE_SECRET_KEY = "sk_live_real_key_should_be_ignored";
+
+    try {
+      const res = await POST(makeRequest({ amountMinor: 500, currency: "sek" }));
+      const body = await res.json();
+
+      expect(res.status).toBe(200);
+      expect(body.url).toContain("/donation/success?mock=donation");
+      expect(body.donationId).toBe("mock-donation");
+      expect(mocks.createClient).not.toHaveBeenCalled();
+      expect(mocks.createDonationCheckoutSession).not.toHaveBeenCalled();
+    } finally {
+      if (previousMockMode === undefined) {
+        delete process.env.DONATION_CHECKOUT_MOCK_MODE;
+      } else {
+        process.env.DONATION_CHECKOUT_MOCK_MODE = previousMockMode;
+      }
+
+      if (previousStripeSecret === undefined) {
+        delete process.env.STRIPE_SECRET_KEY;
+      } else {
+        process.env.STRIPE_SECRET_KEY = previousStripeSecret;
+      }
+    }
+  });
+
   it("reuses existing open checkout session for same pending donation intent", async () => {
     const admin = makeAdminClient({
       id: "donation-existing-1",

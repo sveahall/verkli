@@ -646,11 +646,7 @@ function main() {
       }
     },
     {
-      connection: {
-        host: connection.host,
-        port: connection.port,
-        password: connection.password,
-      },
+      connection: { ...connection },
       concurrency: 2,
       stalledInterval: 30_000,
       maxStalledCount: 2,
