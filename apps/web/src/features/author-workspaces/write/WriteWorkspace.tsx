@@ -13,12 +13,16 @@ export default function WriteWorkspace({
 }: WriteWorkspaceProps) {
   const hasAssistant = Boolean(aiAssistant);
   return (
-    <div className="overflow-hidden rounded-2xl border border-black/[0.06] bg-white/80 shadow-[0_1px_3px_rgba(0,0,0,0.02)] backdrop-blur-sm dark:border-white/[0.06] dark:bg-[#0f1117]/80 dark:shadow-none">
+    <div className="relative overflow-hidden rounded-3xl border border-black/[0.06] bg-white/65 shadow-[0_18px_70px_rgba(15,23,42,0.08)] backdrop-blur-xl dark:border-white/[0.08] dark:bg-[#0f1117]/55">
       <div
-        className={`grid min-h-[calc(100vh-11rem)] grid-cols-1 xl:h-[calc(100vh-11rem)] ${
+        aria-hidden="true"
+        className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(144,122,255,0.10),transparent_45%),radial-gradient(circle_at_top_right,rgba(15,23,42,0.06),transparent_40%)]"
+      />
+      <div
+        className={`relative grid min-h-[calc(100vh-11rem)] grid-cols-1 xl:h-[calc(100vh-11rem)] ${
           hasAssistant
-            ? "xl:grid-cols-[280px_minmax(0,1fr)] 2xl:grid-cols-[280px_minmax(640px,1fr)_280px]"
-            : "xl:grid-cols-[280px_minmax(0,1fr)]"
+            ? "xl:grid-cols-[320px_minmax(0,1fr)] 2xl:grid-cols-[320px_minmax(640px,1fr)_320px]"
+            : "xl:grid-cols-[320px_minmax(0,1fr)]"
         }`}
       >
         <aside className="min-h-0 overflow-hidden border-b border-black/[0.06] dark:border-white/[0.06] xl:border-b-0 xl:border-r">

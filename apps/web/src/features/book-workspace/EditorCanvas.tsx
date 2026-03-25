@@ -1,5 +1,6 @@
 "use client";
 
+import { memo } from "react";
 import dynamic from "next/dynamic";
 import type {
   BookWorkspaceChapter,
@@ -56,8 +57,8 @@ function SaveIndicator({
 }) {
   if (isSaving) {
     return (
-      <span className="flex items-center gap-1.5 text-[#907AFF] dark:text-[#b8a9ff]">
-        <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-current" />
+      <span className="flex items-center gap-1.5 text-slate-600 dark:text-white/70">
+        <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-[#907AFF]" />
         Saving
       </span>
     );
@@ -66,7 +67,7 @@ function SaveIndicator({
   if (saveError) {
     return (
       <span className="flex items-center gap-1.5 text-red-500 dark:text-red-400">
-        <span className="h-1.5 w-1.5 rounded-full bg-current" />
+        <span className="h-1.5 w-1.5 rounded-full bg-red-500 dark:bg-red-400" />
         Error
       </span>
     );
@@ -74,8 +75,8 @@ function SaveIndicator({
 
   if (hasUnsavedChanges) {
     return (
-      <span className="flex items-center gap-1.5 text-amber-500 dark:text-amber-400">
-        <span className="h-1.5 w-1.5 rounded-full bg-current" />
+      <span className="flex items-center gap-1.5 text-amber-600 dark:text-amber-400">
+        <span className="h-1.5 w-1.5 rounded-full bg-amber-500 dark:bg-amber-400" />
         Unsaved
       </span>
     );
@@ -83,8 +84,8 @@ function SaveIndicator({
 
   if (lastSaved) {
     return (
-      <span className="flex items-center gap-1.5 text-emerald-500/80 dark:text-emerald-400/70">
-        <span className="h-1.5 w-1.5 rounded-full bg-current" />
+      <span className="flex items-center gap-1.5 text-emerald-600 dark:text-emerald-400/80">
+        <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 dark:bg-emerald-400" />
         Saved
       </span>
     );
@@ -95,7 +96,7 @@ function SaveIndicator({
   );
 }
 
-export default function EditorCanvas({
+function EditorCanvas({
   bookId,
   selectedChapter,
   editingTitleId,
@@ -135,7 +136,7 @@ export default function EditorCanvas({
   return (
     <div className="flex h-full min-h-0 flex-col">
       {/* ── Editor header: title + status bar ── */}
-      <div className="border-b border-slate-200/70 px-8 py-5 dark:border-white/10">
+      <div className="border-b border-slate-200/70 bg-white/55 px-8 py-5 dark:border-white/10 dark:bg-[#0f1117]/35">
         {editingTitleId === selectedChapter.id ? (
           <div className="flex flex-wrap items-center gap-2">
             <input
@@ -199,36 +200,36 @@ export default function EditorCanvas({
         )}
 
         {/* ── Compact status bar ── */}
-        <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-2 text-xs text-slate-400 dark:text-white/35">
-          <span>{wordCount.toLocaleString()} words</span>
+        <div className="mt-3 flex flex-wrap items-center gap-2.5 text-xs">
+          <span className="rounded-full border border-black/[0.06] bg-white/50 px-3 py-1 font-semibold text-slate-700 dark:border-white/[0.08] dark:bg-white/[0.03] dark:text-white/80">
+            {wordCount.toLocaleString()} words
+          </span>
           {sessionWords > 0 && (
-            <span className="text-emerald-500/80 dark:text-emerald-400/60">
+            <span className="rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 font-semibold text-emerald-800 dark:border-emerald-900/40 dark:bg-emerald-950/20 dark:text-emerald-300">
               +{sessionWords} this session
             </span>
           )}
 
-          <div className="flex items-center gap-1 border-l border-slate-200/70 pl-4 dark:border-white/10">
-            <label className="inline-flex items-center gap-1.5">
-              <span>Preset</span>
-              <select
-                value={preset}
-                onChange={(event) => onPresetChange(event.target.value)}
-                className="bg-transparent text-slate-600 outline-none dark:text-white/60"
-              >
-                <option value="novel">Novel</option>
-                <option value="essay">Essay</option>
-                <option value="screenplay">Screenplay</option>
-              </select>
-            </label>
+          <div className="ml-0 flex items-center gap-2 rounded-full border border-black/[0.06] bg-white/50 px-3 py-1 dark:border-white/[0.08] dark:bg-white/[0.03]">
+            <span className="text-slate-500 dark:text-white/55">Preset</span>
+            <select
+              value={preset}
+              onChange={(event) => onPresetChange(event.target.value)}
+              className="bg-transparent text-slate-700 outline-none dark:text-white/80"
+            >
+              <option value="novel">Novel</option>
+              <option value="essay">Essay</option>
+              <option value="screenplay">Screenplay</option>
+            </select>
           </div>
 
           <button
             type="button"
             onClick={onFocusModeToggle}
-            className={`rounded-md px-2 py-0.5 font-medium transition ${
+            className={`ml-auto rounded-full border border-black/[0.06] px-3 py-1.5 text-xs font-semibold transition ${
               focusMode
-                ? "bg-slate-900 text-white dark:bg-white dark:text-slate-900"
-                : "hover:bg-slate-100 hover:text-slate-700 dark:hover:bg-white/10 dark:hover:text-white/60"
+                ? "border-transparent bg-slate-900 text-white dark:bg-white dark:text-slate-900"
+                : "bg-white/50 text-slate-700 hover:bg-white dark:border-white/[0.08] dark:bg-white/[0.03] dark:text-white/80"
             }`}
           >
             {focusMode ? "Exit focus" : "Focus"}
@@ -237,11 +238,13 @@ export default function EditorCanvas({
           <button
             type="button"
             onClick={onCommandPalette}
-            className="ml-auto inline-flex items-center gap-1.5 rounded-md px-2 py-0.5 font-medium transition hover:bg-slate-100 hover:text-slate-700 dark:hover:bg-white/10 dark:hover:text-white/60"
+            className="rounded-full border border-black/[0.06] bg-white/50 px-3 py-1.5 text-xs font-semibold transition hover:bg-white dark:border-white/[0.08] dark:bg-white/[0.03] dark:text-white/80"
           >
-            <kbd className="rounded border border-slate-200 px-1 py-px font-mono text-[10px] dark:border-white/10">
-              ⌘K
-            </kbd>
+            <span className="inline-flex items-center gap-2">
+              <kbd className="rounded border border-slate-200 bg-white px-1.5 py-px font-mono text-[10px] dark:border-white/[0.10] dark:bg-white/[0.02]">
+                ⌘K
+              </kbd>
+            </span>
           </button>
         </div>
       </div>
@@ -266,3 +269,20 @@ export default function EditorCanvas({
     </div>
   );
 }
+
+export default memo(EditorCanvas, (prev, next) => {
+  return (
+    prev.bookId === next.bookId &&
+    prev.selectedChapter === next.selectedChapter &&
+    prev.editingTitleId === next.editingTitleId &&
+    prev.tempTitle === next.tempTitle &&
+    prev.isSaving === next.isSaving &&
+    prev.saveError === next.saveError &&
+    prev.hasUnsavedChanges === next.hasUnsavedChanges &&
+    prev.lastSaved?.getTime() === next.lastSaved?.getTime() &&
+    prev.wordCount === next.wordCount &&
+    prev.sessionWords === next.sessionWords &&
+    prev.preset === next.preset &&
+    prev.focusMode === next.focusMode
+  );
+});

@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { requireAdminOrOpsForApi } from "@/lib/admin-auth";
 import {
   getQueueDepths,
   toQueueMetrics,
@@ -9,7 +10,10 @@ import { getHeartbeats, getWorkersStartedAt } from "@/lib/health/worker-heartbea
 /**
  * Canonical health endpoint: Redis, queue metrics (depth, failed, active per queue + totals), worker heartbeats (lastSeen, stale/crashed).
  */
-export async function GET() {
+export async function GET(request: Request) {
+  const { response } = await requireAdminOrOpsForApi(request);
+  if (response) return response;
+
   const [depthsResult, heartbeatsResult, workersStartedAt] = await Promise.all([
     getQueueDepths(),
     getHeartbeats(),

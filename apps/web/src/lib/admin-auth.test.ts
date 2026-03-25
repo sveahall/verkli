@@ -1,79 +1,121 @@
-import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
-import { checkAdmin, _failMapForTesting } from "./admin-auth";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-const REAL_KEY = "test-admin-key-abc123";
-const originalEnv = process.env.ADMIN_API_KEY;
+const mockGetUser = vi.fn();
+const mockMaybeSingle = vi.fn();
 
-function req(key?: string): Request {
-  const headers: Record<string, string> = {};
-  if (key) headers["x-admin-key"] = key;
-  headers["x-forwarded-for"] = "10.0.0.1";
-  return new Request("http://localhost/api/admin/test", { headers });
-}
+vi.mock("@/lib/supabase/server", () => ({
+  createClient: vi.fn(async () => ({
+    auth: {
+      getUser: mockGetUser,
+    },
+    from: (table: string) => {
+      if (table !== "profiles") {
+        throw new Error(`Unexpected table: ${table}`);
+      }
+      return {
+        select: vi.fn(() => ({
+          eq: vi.fn(() => ({
+            maybeSingle: mockMaybeSingle,
+          })),
+        })),
+      };
+    },
+  })),
+}));
 
-describe("checkAdmin", () => {
+const {
+  hasValidOpsHealthToken,
+  requireAdminRole,
+  requireAdminRoleForApi,
+  requireAdminOrOpsForApi,
+} = await import("./admin-auth");
+
+const originalOpsToken = process.env.OPS_HEALTH_TOKEN;
+const originalHealthToken = process.env.HEALTHCHECK_TOKEN;
+
+describe("admin auth", () => {
   beforeEach(() => {
-    process.env.ADMIN_API_KEY = REAL_KEY;
-    _failMapForTesting.clear();
-    vi.spyOn(console, "info").mockImplementation(() => {});
+    vi.clearAllMocks();
+    delete process.env.HEALTHCHECK_TOKEN;
+    process.env.OPS_HEALTH_TOKEN = "ops-secret-token";
+    mockGetUser.mockResolvedValue({ data: { user: { id: "admin-1" } } });
+    mockMaybeSingle.mockResolvedValue({ data: { role: "admin" }, error: null });
+    vi.spyOn(console, "error").mockImplementation(() => {});
   });
 
   afterEach(() => {
-    process.env.ADMIN_API_KEY = originalEnv;
+    if (originalOpsToken === undefined) {
+      delete process.env.OPS_HEALTH_TOKEN;
+    } else {
+      process.env.OPS_HEALTH_TOKEN = originalOpsToken;
+    }
+
+    if (originalHealthToken === undefined) {
+      delete process.env.HEALTHCHECK_TOKEN;
+    } else {
+      process.env.HEALTHCHECK_TOKEN = originalHealthToken;
+    }
+
     vi.restoreAllMocks();
   });
 
-  it("returns null (pass) with correct key", () => {
-    expect(checkAdmin(req(REAL_KEY))).toBeNull();
-  });
+  it("returns UNAUTHORIZED when no Supabase user is present", async () => {
+    mockGetUser.mockResolvedValue({ data: { user: null } });
 
-  it("returns 403 with wrong key", () => {
-    const res = checkAdmin(req("wrong"));
-    expect(res!.status).toBe(403);
-  });
-
-  it("returns 403 when no key header sent", () => {
-    const res = checkAdmin(req());
-    expect(res!.status).toBe(403);
-  });
-
-  it("returns 429 after 5 failures from same IP", () => {
-    for (let i = 0; i < 5; i++) {
-      expect(checkAdmin(req("wrong"))!.status).toBe(403);
-    }
-    expect(checkAdmin(req("wrong"))!.status).toBe(429);
-  });
-
-  it("correct key still blocked after rate limit hit", () => {
-    for (let i = 0; i < 5; i++) {
-      checkAdmin(req("wrong"));
-    }
-    expect(checkAdmin(req(REAL_KEY))!.status).toBe(429);
-  });
-
-  it("emits structured audit log on success", () => {
-    checkAdmin(req(REAL_KEY));
-    expect(console.info).toHaveBeenCalledTimes(1);
-    const logged = JSON.parse(
-      (console.info as ReturnType<typeof vi.fn>).mock.calls[0][0],
-    );
-    expect(logged).toMatchObject({
-      audit: "admin_auth",
-      ip: "10.0.0.1",
-      path: "/api/admin/test",
-      success: true,
+    await expect(requireAdminRole()).resolves.toMatchObject({
+      ok: false,
+      error: "UNAUTHORIZED",
+      status: 401,
     });
-    expect(logged.ts).toBeDefined();
   });
 
-  it("emits structured audit log on failure", () => {
-    checkAdmin(req("wrong"));
-    const logged = JSON.parse(
-      (console.info as ReturnType<typeof vi.fn>).mock.calls[0][0],
-    );
-    expect(logged).toMatchObject({
-      audit: "admin_auth",
-      success: false,
+  it("returns FORBIDDEN when the authenticated user is not an admin", async () => {
+    mockMaybeSingle.mockResolvedValue({ data: { role: "author" }, error: null });
+
+    await expect(requireAdminRole()).resolves.toMatchObject({
+      ok: false,
+      error: "FORBIDDEN",
+      status: 403,
+      profileRole: "author",
     });
+  });
+
+  it("returns the authenticated admin user when the profile role is admin", async () => {
+    await expect(requireAdminRole()).resolves.toMatchObject({
+      ok: true,
+      user: { id: "admin-1" },
+      profileRole: "admin",
+    });
+  });
+
+  it("returns a JSON auth response for non-admin API callers", async () => {
+    mockMaybeSingle.mockResolvedValue({ data: { role: "reader" }, error: null });
+
+    const result = await requireAdminRoleForApi();
+    expect(result.user).toBeNull();
+    expect(result.response?.status).toBe(403);
+    await expect(result.response?.json()).resolves.toMatchObject({
+      error: "FORBIDDEN",
+    });
+  });
+
+  it("accepts the dedicated ops token for internal health routes", async () => {
+    const request = new Request("http://localhost/api/health/workers", {
+      headers: { "x-ops-health-token": "ops-secret-token" },
+    });
+
+    expect(hasValidOpsHealthToken(request)).toBe(true);
+    await expect(requireAdminOrOpsForApi(request)).resolves.toMatchObject({
+      access: "ops",
+      response: null,
+    });
+  });
+
+  it("supports bearer token auth for internal health routes", async () => {
+    const request = new Request("http://localhost/api/health/workers", {
+      headers: { authorization: "Bearer ops-secret-token" },
+    });
+
+    expect(hasValidOpsHealthToken(request)).toBe(true);
   });
 });

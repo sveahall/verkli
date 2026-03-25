@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 type AuthorApplicationStatus = "pending" | "approved" | "rejected";
 
@@ -63,7 +63,6 @@ function ApplicationDetail({ application, onExpand }: { application: AuthorAppli
 }
 
 export default function AdminAuthorApplicationsPage() {
-  const [adminKey, setAdminKey] = useState("");
   const [applications, setApplications] = useState<AuthorApplication[]>([]);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
@@ -82,21 +81,19 @@ export default function AdminAuthorApplicationsPage() {
 
     try {
       const response = await fetch("/api/admin/author-applications", {
-        headers: {
-          "x-admin-key": adminKey.trim(),
-        },
+        cache: "no-store",
       });
       const payload = await response.json().catch(() => null);
 
       if (!response.ok) {
-        setError("Could not load applications. Verify ADMIN_API_KEY and try again.");
+        setError(response.status === 403 ? "Access denied." : "Could not load applications.");
         return;
       }
 
       setApplications(Array.isArray(payload?.applications) ? payload.applications : []);
       setLoaded(true);
     } catch {
-      setError("Could not load applications. Verify ADMIN_API_KEY and try again.");
+      setError("Could not load applications.");
     } finally {
       setLoading(false);
     }
@@ -111,13 +108,12 @@ export default function AdminAuthorApplicationsPage() {
         method: "PATCH",
         headers: {
           "Content-Type": "application/json",
-          "x-admin-key": adminKey.trim(),
         },
         body: JSON.stringify({ userId, status }),
       });
 
       if (!response.ok) {
-        setError("Could not update application status. Verify ADMIN_API_KEY and try again.");
+        setError(response.status === 403 ? "Access denied." : "Could not update application status.");
         return;
       }
 
@@ -127,11 +123,15 @@ export default function AdminAuthorApplicationsPage() {
         )
       );
     } catch {
-      setError("Could not update application status. Verify ADMIN_API_KEY and try again.");
+      setError("Could not update application status.");
     } finally {
       setSavingUserId(null);
     }
   };
+
+  useEffect(() => {
+    void loadApplications();
+  }, []);
 
   return (
     <main className="mx-auto w-full max-w-5xl px-6 py-12">
@@ -144,29 +144,6 @@ export default function AdminAuthorApplicationsPage() {
         </p>
       </header>
 
-      <section className="mb-6 rounded-2xl border border-slate-200 bg-white p-5 dark:border-white/10 dark:bg-white/[0.02]">
-        <label className="mb-2 block text-sm font-medium text-slate-700 dark:text-white/80">
-          Admin API key
-        </label>
-        <div className="flex flex-col gap-3 sm:flex-row">
-          <input
-            type="password"
-            value={adminKey}
-            onChange={(event) => setAdminKey(event.target.value)}
-            placeholder="Paste ADMIN_API_KEY"
-            className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 outline-none transition focus:border-slate-500 dark:border-white/20 dark:bg-black/20 dark:text-white"
-          />
-          <button
-            type="button"
-            onClick={loadApplications}
-            disabled={loading || adminKey.trim().length === 0}
-            className="rounded-xl bg-slate-900 px-4 py-2 text-sm font-medium text-white transition hover:bg-slate-700 disabled:cursor-not-allowed disabled:opacity-60 dark:bg-white dark:text-slate-900 dark:hover:bg-white/90"
-          >
-            {loading ? "Loading..." : "Load applications"}
-          </button>
-        </div>
-      </section>
-
       {error ? (
         <div
           role="alert"
@@ -178,7 +155,7 @@ export default function AdminAuthorApplicationsPage() {
 
       {!loaded ? (
         <div className="rounded-2xl border border-dashed border-slate-300 px-6 py-10 text-center text-sm text-slate-600 dark:border-white/20 dark:text-white/60">
-          Enter your admin key to load author applications.
+          {loading ? "Loading author applications..." : "Loading author applications..."}
         </div>
       ) : applications.length === 0 ? (
         <div className="rounded-2xl border border-slate-200 bg-slate-50 px-6 py-10 text-center text-sm text-slate-600 dark:border-white/10 dark:bg-white/[0.02] dark:text-white/60">

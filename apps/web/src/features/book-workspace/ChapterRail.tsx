@@ -1,7 +1,8 @@
 "use client";
 
-import { useState, type ChangeEventHandler } from "react";
+import { memo, useState, type ChangeEventHandler } from "react";
 import type { BookWorkspaceChapter } from "@/features/book-workspace/types";
+import { cn } from "@/lib/utils";
 
 type ChapterRailProps = {
   bookTitle: string;
@@ -54,7 +55,9 @@ function formatWordCount(count: number): string {
   return String(count);
 }
 
-export default function ChapterRail({
+function ChapterRail({
+  bookTitle,
+  coverImageUrl,
   chapters,
   selectedChapterId,
   onSelectChapter,
@@ -77,41 +80,63 @@ export default function ChapterRail({
 
   return (
     <div className="flex h-full min-h-0 flex-col">
-      {/* ── Header ── */}
-      <div className="border-b border-black/[0.06] px-4 py-3.5 dark:border-white/[0.06]">
-        <div className="flex items-baseline justify-between gap-3">
-          <h2 className="text-sm font-semibold text-slate-900 dark:text-white">
-            Chapters
-          </h2>
-          <span className="text-[11px] text-slate-400 dark:text-white/35">
-            {chapters.length} {chapters.length === 1 ? "chapter" : "chapters"}
-            {totalWords > 0 && (
-              <>
-                <span className="mx-1 text-slate-300 dark:text-white/15">
-                  ·
-                </span>
-                {totalWords.toLocaleString()} words
-              </>
+      {/* Book header */}
+      <div className="px-5 pb-3 pt-5">
+        <div className="flex items-center gap-3">
+          <div className="relative h-12 w-12 overflow-hidden rounded-2xl border border-black/[0.06] bg-slate-50/60 dark:border-white/[0.08] dark:bg-white/[0.03]">
+            {coverImageUrl ? (
+              <img
+                src={coverImageUrl}
+                alt={`${bookTitle} cover`}
+                className="h-full w-full object-cover"
+              />
+            ) : (
+              <div className="flex h-full w-full items-center justify-center text-[11px] font-semibold text-slate-400 dark:text-white/35">
+                Cover
+              </div>
             )}
+          </div>
+
+          <div className="min-w-0">
+            <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-slate-400 dark:text-white/30">
+              Book
+            </p>
+            <p className="mt-1 truncate text-[14px] font-semibold tracking-[-0.01em] text-slate-900 dark:text-white/90">
+              {bookTitle}
+            </p>
+          </div>
+        </div>
+
+        <div className="mt-4 flex items-baseline justify-between gap-3">
+          <h2 className="text-sm font-semibold text-slate-900 dark:text-white">Chapters</h2>
+          <span className="text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-400 dark:text-white/35">
+            {chapters.length} {chapters.length === 1 ? "chapter" : "chapters"}
           </span>
         </div>
+
+        {totalWords > 0 ? (
+          <p className="mt-1 text-xs text-slate-500 dark:text-white/55">
+            {totalWords.toLocaleString()} words in the manuscript
+          </p>
+        ) : (
+          <p className="mt-1 text-xs text-slate-500 dark:text-white/55">Start by creating your first chapter.</p>
+        )}
       </div>
 
-      {/* ── Chapter list ── */}
-      <div className="min-h-0 flex-1 overflow-y-auto py-1.5">
+      {/* Chapter list */}
+      <div className="min-h-0 flex-1 overflow-y-auto px-2 pb-2">
         {chapters.length === 0 ? (
-          <div className="flex h-full min-h-[220px] items-center justify-center px-5 text-center text-sm text-slate-500 dark:text-white/45">
+          <div className="flex min-h-[220px] items-center justify-center px-5 text-center text-sm text-slate-500 dark:text-white/45">
             Create your first chapter to start writing.
           </div>
         ) : (
-          <div>
+          <div className="space-y-1.5">
             {chapters.map((chapter, index) => {
               const isActive = chapter.id === selectedChapterId;
               const words = countWords(chapter.content);
               const isEmpty = words === 0;
               const isDragTarget =
-                dropTargetChapterId === chapter.id &&
-                draggingChapterId !== chapter.id;
+                dropTargetChapterId === chapter.id && draggingChapterId !== chapter.id;
 
               return (
                 <div
@@ -136,49 +161,60 @@ export default function ChapterRail({
                     setDraggingChapterId(null);
                     setDropTargetChapterId(null);
                   }}
-                  className={`group transition ${
+                  className={`group relative transition ${
                     draggingChapterId === chapter.id ? "opacity-50" : ""
                   }`}
                 >
+                  {/* Left indicator */}
                   <div
-                    className={`flex items-center border-l-2 transition ${
+                    className={cn(
+                      "pointer-events-none absolute left-1 top-1/2 h-[calc(100%-0.5rem)] w-0.5 -translate-y-1/2 rounded-full",
+                      isActive ? "bg-[#907AFF]" : "bg-transparent"
+                    )}
+                  />
+
+                  <div
+                    className={cn(
+                      "flex items-center rounded-2xl border transition-colors",
                       isDragTarget
-                        ? "border-l-[#907AFF] bg-[#907AFF]/[0.04] dark:bg-[#907AFF]/[0.06]"
+                        ? "border-[#907AFF]/25 bg-[#907AFF]/[0.06]"
                         : isActive
-                          ? "border-l-slate-900 bg-slate-50 dark:border-l-white dark:bg-white/[0.06]"
-                          : "border-l-transparent hover:bg-slate-50/80 dark:hover:bg-white/[0.03]"
-                    }`}
+                          ? "border-slate-900/10 bg-slate-50 dark:border-white/10 dark:bg-white/[0.06]"
+                          : "border-transparent hover:bg-slate-50/70 dark:hover:bg-white/[0.03]",
+                      "py-0.5"
+                    )}
                   >
                     <button
                       type="button"
                       onClick={() => onSelectChapter(chapter.id)}
-                      className="flex min-w-0 flex-1 items-center gap-2 px-3.5 py-2"
+                      className="flex min-w-0 flex-1 items-center gap-3 rounded-2xl px-3.5 py-2.5 text-left"
                     >
-                      {/* Chapter number — subtle, no badge */}
                       <span
-                        className={`w-4 shrink-0 text-right text-[11px] tabular-nums ${
+                        className={cn(
+                          "w-5 shrink-0 text-right text-[12px] tabular-nums transition-colors",
                           isActive
                             ? "font-semibold text-slate-900 dark:text-white"
-                            : "font-medium text-slate-300 dark:text-white/20"
-                        }`}
+                            : "font-medium text-slate-400 dark:text-white/25"
+                        )}
                       >
                         {index + 1}
                       </span>
 
-                      {/* Title — primary text */}
                       <span
-                        className={`min-w-0 flex-1 truncate text-[13px] ${
+                        className={cn(
+                          "min-w-0 flex-1 truncate text-[13px] transition-colors",
                           isActive
                             ? "font-semibold text-slate-900 dark:text-white"
-                            : "font-medium text-slate-700 dark:text-white/70"
-                        }`}
+                            : "font-medium text-slate-700 dark:text-white/70",
+                          !isActive && isEmpty ? "opacity-60" : ""
+                        )}
                       >
                         {chapter.title || `Chapter ${index + 1}`}
                       </span>
 
-                      {/* Word count — right-aligned secondary */}
                       <span
-                        className={`shrink-0 text-[11px] tabular-nums ${
+                        className={cn(
+                          "shrink-0 text-[11px] tabular-nums transition-colors",
                           isEmpty
                             ? isActive
                               ? "text-slate-400 dark:text-white/30"
@@ -186,7 +222,7 @@ export default function ChapterRail({
                             : isActive
                               ? "font-medium text-slate-500 dark:text-white/45"
                               : "text-slate-400 dark:text-white/35"
-                        }`}
+                        )}
                       >
                         {formatWordCount(words)}
                       </span>
@@ -196,11 +232,10 @@ export default function ChapterRail({
                     <div className="flex shrink-0 items-center pr-2 opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100">
                       <span
                         aria-hidden="true"
-                        className={`cursor-grab text-[11px] leading-none ${
-                          isActive
-                            ? "text-slate-400 dark:text-white/30"
-                            : "text-slate-300 dark:text-white/15"
-                        }`}
+                        className={cn(
+                          "cursor-grab text-[11px] leading-none",
+                          isActive ? "text-slate-400 dark:text-white/30" : "text-slate-300 dark:text-white/15"
+                        )}
                       >
                         ⋮⋮
                       </span>
@@ -235,13 +270,13 @@ export default function ChapterRail({
         )}
       </div>
 
-      {/* ── Create chapter ── */}
-      <div className="border-t border-black/[0.06] px-4 py-3 dark:border-white/[0.06]">
+      {/* Create chapter */}
+      <div className="px-5 pb-4 pt-3">
         <button
           type="button"
           onClick={onCreateChapter}
           disabled={isCreating}
-          className="flex w-full items-center justify-center gap-2 rounded-lg border border-dashed border-slate-200 px-3 py-2 text-[13px] font-medium text-slate-500 transition hover:border-slate-300 hover:bg-slate-50 hover:text-slate-700 disabled:opacity-50 dark:border-white/10 dark:text-white/45 dark:hover:border-white/20 dark:hover:bg-white/[0.03] dark:hover:text-white/70"
+          className="flex w-full items-center justify-center gap-2 rounded-xl border border-dashed border-slate-200 px-3 py-2.5 text-[13px] font-semibold text-slate-600 transition hover:border-slate-300 hover:bg-slate-50 hover:text-slate-800 disabled:opacity-50 dark:border-white/10 dark:text-white/45 dark:hover:border-white/20 dark:hover:bg-white/[0.03] dark:hover:text-white/70"
         >
           {isCreating ? "Creating..." : "+ New chapter"}
         </button>
@@ -249,3 +284,15 @@ export default function ChapterRail({
     </div>
   );
 }
+
+export default memo(ChapterRail, (prev, next) => {
+  return (
+    prev.bookTitle === next.bookTitle &&
+    prev.coverImageUrl === next.coverImageUrl &&
+    prev.chapters === next.chapters &&
+    prev.selectedChapterId === next.selectedChapterId &&
+    prev.isCreating === next.isCreating &&
+    prev.coverUploading === next.coverUploading &&
+    prev.coverError === next.coverError
+  );
+});

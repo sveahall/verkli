@@ -19,10 +19,12 @@ type ChapterPlaybackErrorResponse = {
 };
 
 const LOADING_INDICATOR_DELAY_MS = 150;
+const READY_AUDIOBOOK_STATUSES = new Set(["published", "generated", "completed"]);
 
 export default function ChapterAudiobookPlayer({
   bookId,
   chapterId,
+  audiobookStatus,
   isAuthorView,
 }: Props) {
   const audiobookFeatureEnabled = getAudiobookEnabled();
@@ -31,8 +33,14 @@ export default function ChapterAudiobookPlayer({
     if (typeof window === "undefined") return false;
     return window.location.pathname.startsWith("/author/");
   }, [isAuthorView]);
+  const normalizedAudiobookStatus =
+    typeof audiobookStatus === "string" ? audiobookStatus.trim().toLowerCase() : null;
+  const shouldAttemptLoad =
+    resolvedIsAuthorView ||
+    normalizedAudiobookStatus == null ||
+    READY_AUDIOBOOK_STATUSES.has(normalizedAudiobookStatus);
   const [audioUrl, setAudioUrl] = useState<string | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(audiobookFeatureEnabled && shouldAttemptLoad);
   const [showLoading, setShowLoading] = useState(false);
   const [hidePlayer, setHidePlayer] = useState(false);
   const [notPublishedNotice, setNotPublishedNotice] = useState(false);
@@ -40,7 +48,14 @@ export default function ChapterAudiobookPlayer({
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!audiobookFeatureEnabled) {
+    if (!audiobookFeatureEnabled || !shouldAttemptLoad) {
+      setAudioUrl(null);
+      setLoading(false);
+      setShowLoading(false);
+      setHidePlayer(false);
+      setNotPublishedNotice(false);
+      setIsPlaying(false);
+      setError(null);
       return;
     }
 
@@ -130,9 +145,9 @@ export default function ChapterAudiobookPlayer({
         clearTimeout(loadingTimer);
       }
     };
-  }, [audiobookFeatureEnabled, bookId, chapterId, resolvedIsAuthorView]);
+  }, [audiobookFeatureEnabled, bookId, chapterId, resolvedIsAuthorView, shouldAttemptLoad]);
 
-  if (!audiobookFeatureEnabled) {
+  if (!audiobookFeatureEnabled || !shouldAttemptLoad) {
     return null;
   }
 

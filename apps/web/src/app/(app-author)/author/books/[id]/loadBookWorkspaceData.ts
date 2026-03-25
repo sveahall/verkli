@@ -4,6 +4,15 @@ import { normalizeLanguage } from "@/lib/languages";
 import { isStripeConfigured } from "@/lib/payments/stripe";
 import { getAudiobookStorageBucket } from "@/lib/tts/storage";
 
+function normalizeDefaultPublishVisibility(
+  value: unknown
+): "public" | "followers" | "private" {
+  if (value === "public" || value === "followers" || value === "private") {
+    return value;
+  }
+  return "public";
+}
+
 function isMissingPublishedChapterCountColumn(
   error: { code?: string | null; message?: string | null } | null | undefined
 ): boolean {
@@ -147,7 +156,7 @@ export async function loadBookWorkspaceData(bookId: string, langParam: string | 
 
   const { data: authorProfile } = await supabase
     .from("profiles")
-    .select("display_name, username")
+    .select("display_name, username, preferences")
     .eq("user_id", book.author_id)
     .maybeSingle();
 
@@ -155,6 +164,9 @@ export async function loadBookWorkspaceData(bookId: string, langParam: string | 
     authorProfile?.display_name?.trim() ||
     authorProfile?.username?.trim() ||
     "Author";
+  const defaultPublishVisibility = normalizeDefaultPublishVisibility(
+    (authorProfile?.preferences as { visibility?: { books?: unknown } } | null)?.visibility?.books
+  );
 
   return {
     book,
@@ -162,6 +174,7 @@ export async function loadBookWorkspaceData(bookId: string, langParam: string | 
     versions,
     activeVersion: activeVersion ?? null,
     authorDisplayName,
+    defaultPublishVisibility,
     latestAudiobookAsset: latestAudiobookAsset
       ? {
           id: latestAudiobookAsset.id,

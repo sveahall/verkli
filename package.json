@@ -16,6 +16,7 @@
     "start": "npm run -w @verkli/web start",
     "lint": "npm run -w @verkli/web lint",
     "desktop": "electron electron-main.js",
+    "start-workers": "npm run -w @verkli/web start-workers",
     "import-worker": "npm run -w @verkli/web import-worker",
     "translate-worker": "npm run -w @verkli/web translate-worker",
     "audiobook-worker": "npm run -w @verkli/web audiobook-worker",
@@ -32,17 +33,11 @@
     "update": "npm install && npm run generate -w @verkli/db"
   },
   "dependencies": {
-    "@elevenlabs/elevenlabs-js": "^2.38.0",
-    "@supabase/ssr": "^0.8.0",
     "@supabase/supabase-js": "^2.93.1",
-    "class-variance-authority": "^0.7.1",
-    "clsx": "^2.1.1",
     "dotenv": "^17.3.1",
-    "lucide-react": "^0.563.0",
     "next": "^16.1.6",
     "react": "19.2.3",
-    "react-dom": "19.2.3",
-    "tailwind-merge": "^3.4.0"
+    "react-dom": "19.2.3"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",

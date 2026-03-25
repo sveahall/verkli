@@ -1,5 +1,3 @@
-"use client";
-
 const ACCEPTED_COVER_EXTENSIONS = new Set(["jpg", "jpeg", "png"]);
 const ACCEPTED_COVER_MIME_TYPES = new Set(["image/jpeg", "image/png"]);
 
@@ -347,6 +345,7 @@ export type BookEditorProps = {
   bookVersions: BookVersion[];
   activeVersion: BookVersion | null;
   authorDisplayName?: string;
+  defaultPublishVisibility?: "public" | "followers" | "private";
   latestAudiobookAsset?: LatestAudiobookAsset;
   marketingCampaigns?: MarketingCampaignRow[];
   stripeConfigured?: boolean;

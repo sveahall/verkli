@@ -18,9 +18,11 @@ export default function EditorCanvas({
   if (mode === "focus") {
     return (
       <div className="min-w-0 flex-1 overflow-auto p-6 sm:p-10">
-        <div className="mx-auto max-w-[720px]">
-          {header}
-          {children}
+        <div className="mx-auto max-w-[760px] rounded-3xl border border-black/[0.06] bg-white/60 shadow-[0_18px_70px_rgba(15,23,42,0.08)] backdrop-blur-xl dark:border-white/[0.08] dark:bg-[#0f1117]/45">
+          <div className="p-6 sm:p-10">
+            {header}
+            <div className="mt-4">{children}</div>
+          </div>
         </div>
       </div>
     );
@@ -41,7 +43,7 @@ export default function EditorCanvas({
     <div className="min-w-0">
       {header}
       {toolbar}
-      <div className="px-10 py-10 sm:px-14 sm:py-12">{children}</div>
+      <div className="px-8 py-8 sm:px-10 sm:py-10">{children}</div>
     </div>
   );
 }

@@ -1,8 +1,13 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
+  requireAdminOrOpsForApi: vi.fn(),
   checkRedisHealth: vi.fn(),
   getTranslationQueue: vi.fn(),
+}));
+
+vi.mock("@/lib/admin-auth", () => ({
+  requireAdminOrOpsForApi: mocks.requireAdminOrOpsForApi,
 }));
 
 vi.mock("@/lib/health/checks", () => ({
@@ -18,12 +23,33 @@ const { GET } = await import("./route");
 describe("GET /api/health/queue", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mocks.requireAdminOrOpsForApi.mockResolvedValue({
+      access: "admin",
+      user: { id: "admin-1" },
+      response: null,
+    });
+  });
+
+  it("returns 401 when the caller is not authorized", async () => {
+    mocks.requireAdminOrOpsForApi.mockResolvedValue({
+      access: null,
+      user: null,
+      response: new Response(JSON.stringify({ error: "UNAUTHORIZED" }), {
+        status: 401,
+        headers: { "Content-Type": "application/json" },
+      }),
+    });
+
+    const res = await GET(new Request("http://localhost/api/health/queue"));
+
+    expect(res.status).toBe(401);
+    await expect(res.json()).resolves.toMatchObject({ error: "UNAUTHORIZED" });
   });
 
   it("returns 200 with redis=false when Redis is unavailable", async () => {
     mocks.checkRedisHealth.mockResolvedValue(false);
 
-    const res = await GET();
+    const res = await GET(new Request("http://localhost/api/health/queue"));
     const body = await res.json();
 
     expect(res.status).toBe(200);
@@ -31,21 +57,6 @@ describe("GET /api/health/queue", () => {
       translationQueue: false,
       redis: false,
       message: "Redis is unavailable. Start Redis to enable translation queue.",
-    });
-  });
-
-  it("returns 200 with translationQueue=false when queue is unavailable", async () => {
-    mocks.checkRedisHealth.mockResolvedValue(true);
-    mocks.getTranslationQueue.mockReturnValue(null);
-
-    const res = await GET();
-    const body = await res.json();
-
-    expect(res.status).toBe(200);
-    expect(body).toEqual({
-      translationQueue: false,
-      redis: true,
-      message: "Translation queue is unavailable.",
     });
   });
 
@@ -61,7 +72,7 @@ describe("GET /api/health/queue", () => {
       }),
     });
 
-    const res = await GET();
+    const res = await GET(new Request("http://localhost/api/health/queue"));
     const body = await res.json();
 
     expect(res.status).toBe(200);

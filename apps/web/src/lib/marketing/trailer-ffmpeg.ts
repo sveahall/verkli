@@ -2,6 +2,8 @@ import "server-only";
 import path from "node:path";
 import { tmpdir } from "node:os";
 import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import ffmpegPath from "ffmpeg-static";
+import ffmpeg from "fluent-ffmpeg";
 import { FFMPEG_CONCAT_OUTPUT_OPTIONS } from "./trailer-ffmpeg-options";
 
 type FfmpegCommand = {
@@ -16,11 +18,6 @@ type FfmpegCommand = {
 type FfmpegFactory = (() => FfmpegCommand) & {
   setFfmpegPath: (binaryPath: string) => void;
 };
-
-// eslint-disable-next-line @typescript-eslint/no-require-imports
-const ffmpegPath = require("ffmpeg-static") as string | null;
-// eslint-disable-next-line @typescript-eslint/no-require-imports
-const ffmpeg = require("fluent-ffmpeg") as FfmpegFactory;
 
 const MAX_SCENE_COUNT = 3;
 
@@ -52,10 +49,10 @@ async function concatVideosToMp4(
     throw new Error("[trailer build] ffmpeg-static binary path is missing.");
   }
 
-  ffmpeg.setFfmpegPath(ffmpegPath);
+  (ffmpeg as unknown as FfmpegFactory).setFfmpegPath(ffmpegPath);
 
   await new Promise<void>((resolve, reject) => {
-    ffmpeg()
+    (ffmpeg as unknown as FfmpegFactory)()
       .input(concatListPath)
       .inputOptions(["-f concat", "-safe 0"])
       .outputOptions(FFMPEG_CONCAT_OUTPUT_OPTIONS)

@@ -22,6 +22,7 @@ type Props = {
   chapterId: string;
   progressPercent: number;
   currentChapter: number;
+  userId: string | null;
 };
 
 type PostgrestLikeError = {
@@ -51,18 +52,22 @@ function logDbError(prefix: string, error: PostgrestLikeError | null) {
   });
 }
 
-export default function ReadingProgress({ bookId, chapterId, progressPercent, currentChapter }: Props) {
+export default function ReadingProgress({
+  bookId,
+  chapterId,
+  progressPercent,
+  currentChapter,
+  userId,
+}: Props) {
   useEffect(() => {
     const persist = async () => {
-      const supabase = createClient();
-      const { data: { user } } = await supabase.auth.getUser();
-
       const payload = { chapterId, progressPercent, updatedAt: Date.now() };
 
-      if (user) {
+      if (userId) {
+        const supabase = createClient();
         const nowIso = new Date().toISOString();
         const baseRow = {
-          user_id: user.id,
+          user_id: userId,
           book_id: bookId,
           chapter_id: chapterId,
           progress_percent: progressPercent,
@@ -93,7 +98,7 @@ export default function ReadingProgress({ bookId, chapterId, progressPercent, cu
           const { data, error } = await supabase
             .from("readings")
             .update(candidate)
-            .eq("user_id", user.id)
+            .eq("user_id", userId)
             .eq("book_id", bookId)
             .select("id");
 
@@ -163,7 +168,7 @@ export default function ReadingProgress({ bookId, chapterId, progressPercent, cu
       }
     };
     persist();
-  }, [bookId, chapterId, currentChapter, progressPercent]);
+  }, [bookId, chapterId, currentChapter, progressPercent, userId]);
 
   return null;
 }

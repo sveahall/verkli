@@ -32,12 +32,20 @@ All workers read from `apps/web/.env.local`:
 From repo root:
 
 ```bash
+npm run start-workers      # canonical unified runtime
+
+# or start a single worker when debugging one queue
 npm run import-worker      # book-import-extract queue
 npm run translate-worker   # book-translation queue
 npm run audiobook-worker   # audiobook-generation queue
 ```
 
-Each worker logs its queue name and Redis host on startup.
+Additional single-worker scripts are available for `marketing`, `social-publish`,
+`recommendations`, and `notifications`.
+
+The canonical production path is the unified runtime in
+`apps/web/scripts/start-workers.ts`; single-worker scripts are primarily for
+local isolation and debugging.
 
 ## 4. Worker Hardening Config (Beta)
 

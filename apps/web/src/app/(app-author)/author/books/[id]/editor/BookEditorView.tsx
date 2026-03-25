@@ -22,9 +22,6 @@ import ChapterAudiobookPlayer from "@/app/(reader-browse)/reader/read/[chapterId
 import ManifestAudiobookPlayer from "@/components/books/ManifestAudiobookPlayer";
 import NoDownloadAudioPlayer from "@/components/books/NoDownloadAudioPlayer";
 import dynamic from "next/dynamic";
-import FeatureChapterRail from "@/features/book-workspace/ChapterRail";
-import FeatureEditorCanvas from "@/features/book-workspace/EditorCanvas";
-import FeatureWriteWorkspace from "@/features/author-workspaces/write/WriteWorkspace";
 import { useAuthorWorkspace } from "@/features/author-shell/workspace-state";
 import {
   WRITE_INLINE_AI_EVENT,
@@ -32,13 +29,49 @@ import {
   type WriteInlineAiEventDetail,
 } from "@/features/book-workspace/types";
 import AiAssistantPanel from "./components/AiAssistantPanel";
-import ChapterRail from "./components/ChapterRail";
 import EditorCanvas from "./components/EditorCanvas";
-import WriteWorkspace from "./components/WriteWorkspace";
-import WorkflowStepNav from "../WorkflowStepNav";
+import BookWorkflowHeader from "../BookWorkflowHeader";
+import ImportManusSection from "./components/ImportManusSection";
 import { useBookWorkspaceCommandPalette } from "./workspace/BookWorkspaceCommandPaletteProvider";
 import { useBookWorkspaceController } from "./hooks/useBookWorkspaceController";
 import { useChapterSelection } from "./hooks/useChapterSelection";
+import {
+  ACCEPTED_COVER_TYPES,
+  COVER_AI_STYLES,
+  countWordsInContent,
+  describeVisibility,
+  formatAudiobookEta,
+  formatPlayerTime,
+  getAudiobookStatusLabel,
+  getGeneratedCoverExtension,
+  getMarketingCampaignStatusLabel,
+  hasReadableContent,
+  isAcceptedCoverFile,
+  MARKETING_CHANNEL_LABELS,
+  MARKETING_CHANNELS,
+  normalizeLangKey,
+  normalizeVisibility,
+  PUBLISH_VISIBILITY_OPTIONS,
+  STATUS_LABELS,
+  STORAGE_PRESET,
+  TRANSLATION_POLL_MAX_MS,
+  VISIBILITY_LABELS,
+  type MarketingChannel,
+} from "./BookEditorView.helpers";
+import {
+  type AudiobookControlAction,
+  type AudiobookGenerationScope,
+  type Book,
+  type BookVersion,
+  type Chapter,
+  type LatestAudiobookAsset,
+  type MarketingCampaignRow,
+  type PublishVisibility,
+  type Tool,
+} from "./BookEditorView.types";
+import FocusModeEditorView from "./views/FocusModeEditorView";
+import SimplifiedEditView from "./views/SimplifiedEditView";
+import WriteOnlyWorkspaceView from "./views/WriteOnlyWorkspaceView";
 
 const CoverCropModal = dynamic(() => import("@/components/books/CoverCropModal"), { ssr: false });
 const TiptapEditor = dynamic(() => import("@/components/editor/TiptapEditor"), {
@@ -53,577 +86,13 @@ const MarketPanel = dynamic(() => import("./panels/MarketPanel"));
 const StatisticsPanel = dynamic(() => import("./panels/StatisticsPanel"));
 import { normalizePrintOnDemandSettings, type PrintOnDemandSettings } from "./panels/PrintPanel.helpers";
 
-const ACCEPTED_COVER_TYPES = ".jpg,.jpeg,.png,image/jpeg,image/png";
-const ACCEPTED_COVER_EXTENSIONS = new Set(["jpg", "jpeg", "png"]);
-const ACCEPTED_COVER_MIME_TYPES = new Set(["image/jpeg", "image/png"]);
-// Cover recommended: 1600x2560
-
-const STORAGE_PRESET = "verkli_editor_preset";
-
-type Chapter = {
-  id: string;
-  title: string;
-  content: string | null;
-  order: number;
-  book_version_id: string;
-};
-
-type PublishVisibility = "public" | "followers" | "private";
-type AudiobookGenerationScope = "book" | "current" | "selected";
-type AudiobookControlAction = "pause" | "resume" | "cancel";
-
-const VISIBILITY_LABELS: Record<PublishVisibility, string> = {
-  public: "Public",
-  followers: "Followers only",
-  private: "Private",
-};
-
-const PUBLISH_VISIBILITY_OPTIONS: Array<{
-  value: PublishVisibility;
-  label: string;
-  description: string;
-}> = [
-  {
-    value: "public",
-    label: "Public",
-    description: "Visible to everyone. Shown in Discover and on your profile.",
-  },
-  {
-    value: "followers",
-    label: "Followers only",
-    description: "Visible only to readers who follow you.",
-  },
-  {
-    value: "private",
-    label: "Private",
-    description: "Only you can see this version.",
-  },
-];
-
-function normalizeLangKey(value: string | null | undefined): string {
-  return String(value ?? "").trim().toLowerCase();
-}
-
-function normalizeVisibility(value: string | null | undefined): PublishVisibility | null {
-  if (!value) return null;
-  const normalized = value.trim().toLowerCase();
-  if (normalized === "public" || normalized === "followers" || normalized === "private") {
-    return normalized;
-  }
-  return null;
-}
-
-function extractText(node: unknown): string {
-  if (!node || typeof node !== "object") return "";
-  if ("text" in node && typeof (node as { text?: string }).text === "string") {
-    return (node as { text: string }).text;
-  }
-  if ("content" in node && Array.isArray((node as { content?: unknown[] }).content)) {
-    return (node as { content: unknown[] }).content.map(extractText).join("");
-  }
-  return "";
-}
-
-function countWordsInContent(content: string | null): number {
-  if (!content) return 0;
-  try {
-    const parsed = JSON.parse(content);
-    const text = extractText(parsed);
-    const words = text.trim().split(/\s+/).filter(Boolean);
-    return words.length;
-  } catch {
-    const words = content.trim().split(/\s+/).filter(Boolean);
-    return words.length;
-  }
-}
-
-function hasReadableContent(content: string | null): boolean {
-  if (!content) return false;
-  try {
-    const parsed = JSON.parse(content);
-    const text = extractText(parsed);
-    return text.trim().length > 0;
-  } catch {
-    return content.trim().length > 0;
-  }
-}
-
-function describeVisibility(value: PublishVisibility): string {
-  if (value === "public") return "Visible to everyone";
-  if (value === "followers") return "Visible to followers only";
-  return "Only you can see this version";
-}
-
-const MARKETING_CHANNELS = ["generic", "tiktok", "instagram", "x"] as const;
-type MarketingChannel = (typeof MARKETING_CHANNELS)[number];
-
-/** User-friendly labels for channels (no internal keys in UI) */
-const MARKETING_CHANNEL_LABELS: Record<MarketingChannel, string> = {
-  generic: "General",
-  tiktok: "TikTok",
-  instagram: "Instagram",
-  x: "X",
-};
-
-const COVER_AI_STYLES = [
-  { value: "minimal", label: "Minimal" },
-  { value: "photographic", label: "Photographic" },
-  { value: "illustrated", label: "Illustrated" },
-  { value: "vintage", label: "Vintage" },
-] as const;
-
-function getFileExtension(fileName: string): string {
-  return fileName.split(".").pop()?.trim().toLowerCase() ?? "";
-}
-
-function isAcceptedCoverFile(file: File): boolean {
-  const extension = getFileExtension(file.name);
-  return ACCEPTED_COVER_MIME_TYPES.has(file.type) || ACCEPTED_COVER_EXTENSIONS.has(extension);
-}
-
-function getGeneratedCoverExtension(
-  contentType: string | null | undefined,
-  url: string
-): string {
-  if (contentType === "image/jpeg") return "jpg";
-  if (contentType === "image/png") return "png";
-  if (contentType === "image/webp") return "webp";
-
-  const extension = getFileExtension(url.split("?")[0] ?? "");
-  if (extension) return extension;
-  return "png";
-}
-
-/** Display status: pending -> running -> completed / failed. */
-const STATUS_LABELS = {
-  pending: "Queued",
-  running: "Running",
-  completed: "Succeeded",
-  failed: "Failed",
-  idle: "Queued",
-} as const;
-
-function getAudiobookStatusLabel(status: string): string {
-  if (status === "published" || status === "generated" || status === "completed") return STATUS_LABELS.completed;
-  if (status === "generating") return STATUS_LABELS.running;
-  if (status === "queued") return STATUS_LABELS.pending;
-  if (status === "paused") return "Paused";
-  if (status === "pause_requested") return "Pause requested";
-  if (status === "cancel_requested") return "Stopping...";
-  if (status === "cancelled") return "Cancelled";
-  if (status === "idle" || status === "not_started") return "Not started";
-  if (status === "disabled") return "Worker unavailable";
-  if (status === "failed") return "Generation failed";
-  return "No audiobook yet";
-}
-
-function formatPlayerTime(seconds: number): string {
-  if (!Number.isFinite(seconds) || seconds < 0) return "0:00";
-  const m = Math.floor(seconds / 60);
-  const s = Math.floor(seconds % 60);
-  return `${m}:${s.toString().padStart(2, "0")}`;
-}
-
-function formatAudiobookEta(seconds: number | null | undefined): string | null {
-  if (typeof seconds !== "number" || !Number.isFinite(seconds) || seconds < 0) return null;
-  const roundedSeconds = Math.round(seconds);
-  if (roundedSeconds < 60) return "Less than 1 min remaining";
-
-  const totalMinutes = Math.round(roundedSeconds / 60);
-  if (totalMinutes < 60) return `About ${totalMinutes} min remaining`;
-
-  const hours = Math.floor(totalMinutes / 60);
-  const minutes = totalMinutes % 60;
-  if (minutes === 0) return `About ${hours}h remaining`;
-  return `About ${hours}h ${minutes}m remaining`;
-}
-
-function getMarketingCampaignStatusLabel(status: string): string {
-  if (status === "generated" || status === "published") return STATUS_LABELS.completed;
-  if (status === "failed") return STATUS_LABELS.failed;
-  if (status === "pending" || status === "generating") return STATUS_LABELS.running;
-  return STATUS_LABELS.idle;
-}
-
-type MarketingCampaignRow = {
-  id: string;
-  book_id: string;
-  language: string;
-  channel: string;
-  status: string;
-  headline: string | null;
-  caption: string | null;
-  cta: string | null;
-  hashtags: string | null;
-  share_url: string | null;
-  created_at: string;
-  updated_at: string;
-};
-
-type Book = {
-  id: string;
-  title: string;
-  description: string | null;
-  cover_image: string | null;
-  status: string;
-  language?: string | null;
-  original_language?: string | null;
-  original_source?: string | null;
-  original_url?: string | null;
-  audiobook_status?: string | null;
-  price_amount?: number | null;
-  price_currency?: string | null;
-  pricing_model?: string | null;
-  print_on_demand_settings?: unknown | null;
-  setup_state?: unknown | null;
-};
-
-type BookVersion = {
-  id: string;
-  book_id: string;
-  language_code: string;
-  status: string;
-  published_at?: string | null;
-  published_chapter_count?: number | null;
-  visibility?: PublishVisibility | null;
-  created_at?: string;
-  updated_at?: string;
-  error_message?: string | null;
-};
-
-type LatestAudiobookAsset = {
-  id: string;
-  /** Signed URL (never a raw DB column). null when audio_path is missing. */
-  audioSignedUrl: string | null;
-  status: string;
-  created_at: string;
-} | null;
-
-const TRANSLATION_POLL_MAX_MS = 120_000;
-
-const IMPORT_ALLOWED_EXT = [".epub", ".docx", ".html", ".htm", ".txt", ".pdf"];
-const IMPORT_MAX_MB = 50;
-const IMPORT_MAX_BYTES = IMPORT_MAX_MB * 1024 * 1024;
-
-function ImportManusSection({
-  bookId,
-  bookVersionId,
-  refetchJobs,
-  importJobs,
-}: {
-  bookId: string;
-  bookVersionId: string | null;
-  refetchJobs: () => Promise<void>;
-  importJobs: UnifiedJob[];
-}) {
-  const [overwrite, setOverwrite] = useState(false);
-  const [selectedFile, setSelectedFile] = useState<File | null>(null);
-  const [uploading, setUploading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [repairing, setRepairing] = useState(false);
-  const [repairMessage, setRepairMessage] = useState<string | null>(null);
-  const [lastResult, setLastResult] = useState<{ chaptersCreated?: number; titleSet?: boolean; warnings?: string[] } | null>(null);
-  const fileInputRef = useRef<HTMLInputElement>(null);
-  const router = useRouter();
-  const visibleImportJobs = useMemo(() => {
-    if (importJobs.length === 0) return [];
-    const active = importJobs.filter((job) => isJobActiveStatus(job.status));
-    if (active.length > 0) return active;
-    return [importJobs[0]];
-  }, [importJobs]);
-
-  const handleFile = useCallback((file: File | null) => {
-    setError(null);
-    setRepairMessage(null);
-    setLastResult(null);
-    if (!file) {
-      setSelectedFile(null);
-      return;
-    }
-    const ext = "." + (file.name.split(".").pop() ?? "").toLowerCase();
-    if (!IMPORT_ALLOWED_EXT.includes(ext)) {
-      setError(`Supported file types: ${IMPORT_ALLOWED_EXT.join(", ")}.`);
-      setSelectedFile(null);
-      return;
-    }
-    if (file.size > IMPORT_MAX_BYTES) {
-      setError(`Max file size is ${IMPORT_MAX_MB} MB.`);
-      setSelectedFile(null);
-      return;
-    }
-    setSelectedFile(file);
-  }, []);
-
-  const onDrop = useCallback(
-    (e: React.DragEvent) => {
-      e.preventDefault();
-      handleFile(e.dataTransfer.files?.[0] ?? null);
-    },
-    [handleFile]
-  );
-
-  const startImport = useCallback(async () => {
-    if (!selectedFile || uploading) return;
-    setError(null);
-    setUploading(true);
-    try {
-      const form = new FormData();
-      form.append("file", selectedFile);
-      form.append("bookId", bookId);
-      if (bookVersionId) form.append("bookVersionId", bookVersionId);
-      form.append("overwrite", String(overwrite));
-      const res = await fetch("/api/books/import", { method: "POST", body: form });
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok) {
-        setError(resolveErrorMessage(data?.error as string));
-        return;
-      }
-      setLastResult({ chaptersCreated: undefined, titleSet: undefined });
-      setSelectedFile(null);
-      if (fileInputRef.current) fileInputRef.current.value = "";
-      await refetchJobs();
-    } catch {
-      setError("Could not start import. Try again.");
-    } finally {
-      setUploading(false);
-    }
-  }, [selectedFile, uploading, bookId, bookVersionId, overwrite, refetchJobs]);
-
-  const runChapterRepair = useCallback(async () => {
-    if (repairing) return;
-    if (!bookVersionId) {
-      setRepairMessage("No active version found.");
-      return;
-    }
-
-    setError(null);
-    setRepairMessage(null);
-    setRepairing(true);
-
-    try {
-      const res = await fetch(`/api/books/${bookId}/chapters/repair`, {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ bookVersionId }),
-      });
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok) {
-        setRepairMessage(resolveErrorMessage(data?.error as string));
-        return;
-      }
-
-      const updatedCount =
-        typeof data?.updatedCount === "number" ? Number(data.updatedCount) : 0;
-      if (updatedCount > 0) {
-        setRepairMessage(`Done: repaired  chapter headings.`);
-      } else {
-        setRepairMessage("Nothing to repair in this version.");
-      }
-      router.refresh();
-    } catch {
-      setRepairMessage("Could not repair chapter headings. Try again.");
-    } finally {
-      setRepairing(false);
-    }
-  }, [bookId, bookVersionId, repairing, router]);
-
-  return (
-    <div className="max-w-2xl space-y-6">
-      <h2 className="text-xl font-semibold text-slate-900 dark:text-white">Import manuscript</h2>
-      <p className="text-sm text-slate-600 dark:text-white/60">
-        Upload a file to import chapters into this book. Supported formats: EPUB, DOCX, HTML, TXT, PDF. Max {IMPORT_MAX_MB} MB.
-      </p>
-
-      <div className="rounded-2xl border border-black/[0.05] bg-white/60 p-5 shadow-[0_1px_3px_rgba(0,0,0,0.02)] backdrop-blur-sm dark:border-white/[0.06] dark:bg-white/[0.02] dark:shadow-none space-y-4">
-        <h3 className="text-sm font-semibold text-slate-900 dark:text-white">Import behavior</h3>
-        <div className="flex items-center gap-3">
-          <input
-            type="radio"
-            id="import-new-version"
-            name="import-mode"
-            checked={!overwrite}
-            onChange={() => setOverwrite(false)}
-            aria-label="Import as new version"
-            className="h-4 w-4 accent-[#907AFF]"
-          />
-          <label htmlFor="import-new-version" className="text-sm text-slate-700 dark:text-white/80">Import as new version</label>
-        </div>
-        <div className="flex items-center gap-3">
-          <input
-            type="radio"
-            id="import-overwrite"
-            name="import-mode"
-            checked={overwrite}
-            onChange={() => setOverwrite(true)}
-            aria-label="Overwrite draft"
-            className="h-4 w-4 accent-[#907AFF]"
-          />
-          <label htmlFor="import-overwrite" className="text-sm text-slate-700 dark:text-white/80">Overwrite draft</label>
-        </div>
-        {overwrite && (
-          <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800 dark:border-amber-800 dark:bg-amber-950/30 dark:text-amber-200" role="alert">
-            Import can overwrite existing chapters in this version. Use &quot;Import as new version&quot; if you want to keep them.
-          </div>
-        )}
-      </div>
-
-      <div
-        className={`rounded-2xl border-2 border-dashed p-8 text-center transition-colors ${
-          selectedFile ? "border-[#907AFF]/40 bg-[#907AFF]/5 dark:bg-[#907AFF]/10" : "border-black/[0.06] dark:border-white/[0.06] bg-white/50 dark:bg-white/[0.02]"
-        }`}
-        onDragOver={(e) => e.preventDefault()}
-        onDrop={onDrop}
-      >
-        <input
-          ref={fileInputRef}
-          type="file"
-          accept={IMPORT_ALLOWED_EXT.join(",")}
-          className="hidden"
-          aria-label="Choose file to import"
-          onChange={(e) => handleFile(e.target.files?.[0] ?? null)}
-          disabled={uploading}
-        />
-        <p className="text-sm text-slate-600 dark:text-white/60 mb-2">
-          Drag and drop a file here, or click to choose. {IMPORT_ALLOWED_EXT.join(", ")} - max {IMPORT_MAX_MB} MB.
-        </p>
-        <button
-          type="button"
-          onClick={() => fileInputRef.current?.click()}
-          disabled={uploading}
-          className="rounded-xl border border-black/[0.08] bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 dark:border-white/[0.08] dark:bg-white/[0.04] dark:text-white dark:hover:bg-white/[0.06]"
-        >
-          Choose file
-        </button>
-        {selectedFile && (
-          <p className="mt-3 text-sm font-medium text-slate-900 dark:text-white">
-            Selected file: {selectedFile.name}
-          </p>
-        )}
-      </div>
-
-      {error && <p className="text-sm text-red-600 dark:text-red-400" role="alert">{error}</p>}
-
-      <button
-        type="button"
-        onClick={startImport}
-        disabled={!selectedFile || uploading}
-        aria-label="Start import"
-        className="rounded-xl bg-slate-900 px-4 py-2.5 text-[13px] font-semibold text-white shadow-sm transition-all hover:bg-slate-800 hover:shadow-md disabled:opacity-50 disabled:cursor-not-allowed dark:bg-white dark:text-slate-900"
-      >
-        {uploading ? "Starting import..." : "Start import"}
-      </button>
-
-      <div className="rounded-xl border border-black/[0.06] bg-slate-50/50 px-4 py-3 dark:border-white/[0.06] dark:bg-white/5">
-        <p className="text-sm font-medium text-slate-900 dark:text-white">Repair existing import</p>
-        <p className="mt-1 text-xs text-slate-600 dark:text-white/60">
-          Run this if chapter headings are already incorrect (for example duplicated or out of order).
-        </p>
-        <div className="mt-3 flex items-center gap-3">
-          <button
-            type="button"
-            onClick={runChapterRepair}
-            disabled={!bookVersionId || repairing || uploading}
-            aria-label="Repair chapter headings"
-            className="rounded-xl border border-black/[0.08] bg-white px-4 py-2 text-sm font-semibold text-slate-800 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50 dark:border-white/[0.08] dark:bg-white/[0.04] dark:text-white dark:hover:bg-white/[0.06]"
-          >
-            {repairing ? "Repairing..." : "Repair chapter headings"}
-          </button>
-          {repairMessage && <p className="text-sm text-slate-700 dark:text-white/80">{repairMessage}</p>}
-        </div>
-      </div>
-
-      {lastResult && !importJobs.some((j) => isJobActiveStatus(j.status)) && (
-        <div className="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 dark:border-emerald-800 dark:bg-emerald-950/30">
-          <p className="text-sm font-medium text-emerald-800 dark:text-emerald-200">Import has started. Follow status in the banner above.</p>
-          {lastResult.chaptersCreated != null && <p className="text-sm text-emerald-700 dark:text-emerald-300">Chapter count: {lastResult.chaptersCreated}</p>}
-        </div>
-      )}
-
-      {visibleImportJobs.length > 0 && (
-        <div className="space-y-3">
-          <h3 className="text-sm font-semibold text-slate-900 dark:text-white">Import status</h3>
-          {visibleImportJobs.map((job) => {
-            const meta = (job.meta ?? {}) as Record<string, unknown>;
-            const chaptersCreated =
-              typeof meta.chaptersCreated === "number" ? meta.chaptersCreated : null;
-            const frontMatterCount =
-              typeof meta.frontMatterCount === "number" ? meta.frontMatterCount : null;
-            const titleSet = meta.titleSet === true;
-            const resolvedTitle = typeof meta.bookTitle === "string" ? meta.bookTitle : null;
-            const warnings = Array.isArray(meta.warnings)
-              ? meta.warnings.filter((value): value is string => typeof value === "string")
-              : [];
-
-            return (
-              <div
-                key={job.id}
-                className={`rounded-xl border px-4 py-3 text-sm ${
-                  job.status === "failed"
-                    ? "border-red-200 bg-red-50 dark:border-red-800 dark:bg-red-950/30"
-                    : job.status === "completed"
-                      ? "border-emerald-200 bg-emerald-50 dark:border-emerald-800 dark:bg-emerald-950/30"
-                      : "border-black/[0.06] bg-slate-50/50 dark:border-white/[0.06] dark:bg-white/5"
-                }`}
-              >
-                <div className="flex items-center justify-between">
-                  <span className="font-medium text-slate-900 dark:text-white">
-                    {job.status === "pending" && "Queued..."}
-                    {job.status === "running" && `Importing... `}
-                    {job.status === "completed" && "Import succeeded"}
-                    {job.status === "failed" && "Import failed"}
-                  </span>
-                  {(job.status === "pending" || job.status === "running") && (
-                    <span className="text-xs text-slate-500 dark:text-white/50">
-                      {job.progress > 0 ? `${job.progress}%` : "Queued"}
-                    </span>
-                  )}
-                </div>
-                {job.status === "running" && job.progress > 0 && (
-                  <div className="mt-2 h-1.5 w-full rounded-full bg-slate-200 dark:bg-white/10">
-                    <div
-                      className="h-1.5 rounded-full bg-[#907AFF] transition-all"
-                      style={{ width: `${Math.min(100, job.progress)}%` }}
-                    />
-                  </div>
-                )}
-                {job.error && <p className="mt-1 text-red-700 dark:text-red-300">{job.error}</p>}
-                {job.status === "completed" && chaptersCreated != null && (
-                  <p className="mt-1 text-emerald-700 dark:text-emerald-300">
-                    {chaptersCreated} chapters imported
-                  </p>
-                )}
-                {job.status === "completed" && frontMatterCount != null && frontMatterCount > 0 && (
-                  <p className="mt-1 text-emerald-700 dark:text-emerald-300">
-                    {frontMatterCount} intro sections (foreword/contents) were split automatically
-                  </p>
-                )}
-                {job.status === "completed" && titleSet && resolvedTitle && (
-                  <p className="mt-1 text-emerald-700 dark:text-emerald-300">
-                    Title set automatically: {resolvedTitle}
-                  </p>
-                )}
-                {warnings.length > 0 && (
-                  <p className="mt-1 text-xs text-slate-500 dark:text-white/50">
-                    Notes: {warnings.join(", ")}
-                  </p>
-                )}
-              </div>
-            );
-          })}
-        </div>
-      )}
-    </div>
-  );
-}
-
-type Tool = "edit" | "cover" | "translate" | "audiobook" | "print" | "pricing" | "polish" | "publish" | "market" | "statistics" | "import";
-
 type Props = {
   book: Book;
   chapters: Chapter[];
   bookVersions: BookVersion[];
   activeVersion: BookVersion | null;
   authorDisplayName?: string;
+  defaultPublishVisibility?: PublishVisibility;
   latestAudiobookAsset?: LatestAudiobookAsset;
   marketingCampaigns?: MarketingCampaignRow[];
   stripeConfigured?: boolean;
@@ -637,6 +106,7 @@ export default function BookEditorView({
   bookVersions,
   activeVersion,
   authorDisplayName = "Author",
+  defaultPublishVisibility = "public",
   latestAudiobookAsset = null,
   marketingCampaigns = [],
   stripeConfigured = false,
@@ -694,13 +164,17 @@ export default function BookEditorView({
   const [saveError, setSaveError] = useState(false);
   const [preset, setPreset] = useState("novel");
   const [wordCount, setWordCount] = useState(0);
-  const totalBookWordCount = useMemo(() => {
-    return chapters.reduce((sum, ch) => sum + countWordsInContent(ch.content), 0);
+  const chapterWordCounts = useMemo(() => {
+    return Object.fromEntries(
+      chapters.map((chapter) => [chapter.id, countWordsInContent(chapter.content)])
+    ) as Record<string, number>;
   }, [chapters]);
+  const totalBookWordCount = useMemo(() => {
+    return Object.values(chapterWordCounts).reduce((sum, count) => sum + count, 0);
+  }, [chapterWordCounts]);
   const [sessionStartWords, setSessionStartWords] = useState<number | null>(null);
   const [isPublishing, setIsPublishing] = useState(false);
   const [publishVisibility, setPublishVisibility] = useState<PublishVisibility>("public");
-  const [defaultPublishVisibility, setDefaultPublishVisibility] = useState<PublishVisibility>("public");
   const [publishError, setPublishError] = useState<string | null>(null);
   const [publishToast, setPublishToast] = useState<string | null>(null);
   const [confirmPublishAction, setConfirmPublishAction] = useState<"publish" | "update" | "unpublish" | null>(null);
@@ -913,32 +387,6 @@ export default function BookEditorView({
     setConfirmPublishAction(null);
   }, [activeVersion?.id]);
 
-  useEffect(() => {
-    let isActive = true;
-    const loadDefaultVisibility = async () => {
-      const supabase = createClient();
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
-      const { data: profile } = await supabase
-        .from("profiles")
-        .select("preferences")
-        .eq("user_id", user.id)
-        .maybeSingle();
-      const preferred =
-        (profile?.preferences as { visibility?: { books?: string } } | null)?.visibility?.books ?? null;
-      if (
-        isActive &&
-        (preferred === "public" || preferred === "followers" || preferred === "private")
-      ) {
-        setDefaultPublishVisibility(preferred);
-      }
-    };
-    void loadDefaultVisibility();
-    return () => {
-      isActive = false;
-    };
-  }, []);
-
   const panelParam = searchParams?.get("panel");
 
   useEffect(() => {
@@ -1066,11 +514,12 @@ export default function BookEditorView({
     effectiveTools.length === 1 && effectiveTools[0] === "edit";
   const isPublished = Boolean(activeVersion?.published_at);
   const workspaceContentMaxWidth =
-    tool === "edit"
-      ? "max-w-[1520px]"
+    // Premium editorial frame: keep this workspace tighter than generic pages.
+    tool === "edit" || tool === "polish"
+      ? "max-w-[980px]"
       : tool === "cover" || tool === "translate" || tool === "audiobook" || tool === "market"
-        ? "max-w-[1280px]"
-        : "max-w-[1180px]";
+        ? "max-w-[1200px]"
+        : "max-w-[1080px]";
   const currentVisibility = activeVisibility ?? publishVisibility;
   const currentVisibilityLabel = VISIBILITY_LABELS[currentVisibility];
   const currentVisibilitySummary = describeVisibility(currentVisibility);
@@ -1328,9 +777,9 @@ export default function BookEditorView({
 
   const checkTranslationQueueHealth = useCallback(async (): Promise<boolean> => {
     try {
-      const res = await fetch("/api/health/queue", { cache: "no-store" });
+      const res = await fetch("/api/translation/availability", { cache: "no-store" });
       const data = await res.json().catch(() => ({}));
-      const ok = res.ok && data?.translationQueue === true;
+      const ok = res.ok && data?.available === true;
       setTranslationQueueHealthy(ok);
       return ok;
     } catch {
@@ -2348,20 +1797,9 @@ export default function BookEditorView({
 
   useEffect(() => {
     if (selectedChapterId && sessionStartWords === null) {
-      const ch = chapters.find((c) => c.id === selectedChapterId);
-      if (ch?.content) {
-        try {
-          const parsed = typeof ch.content === "string" ? JSON.parse(ch.content) : ch.content;
-          const text = extractText(parsed);
-          setSessionStartWords(text.trim().split(/\s+/).filter(Boolean).length);
-        } catch {
-          setSessionStartWords(0);
-        }
-      } else {
-        setSessionStartWords(0);
-      }
+      setSessionStartWords(chapterWordCounts[selectedChapterId] ?? 0);
     }
-  }, [selectedChapterId, chapters, sessionStartWords]);
+  }, [chapterWordCounts, selectedChapterId, sessionStartWords]);
 
   const sessionWords = sessionStartWords !== null ? Math.max(0, wordCount - sessionStartWords) : 0;
 
@@ -2644,232 +2082,143 @@ export default function BookEditorView({
     return () => setCommands([]);
   }, [commands, setCommands]);
 
+  const jobStatusBanner = jobLoading ? (
+    <div
+      className="mb-6 flex h-14 items-center rounded-xl border border-black/[0.06] bg-slate-50/50 px-4 dark:border-white/[0.06] dark:bg-white/5"
+      role="status"
+      aria-label="Loading status"
+    >
+      <span className="text-sm text-slate-500 dark:text-white/50">
+        Loading status...
+      </span>
+    </div>
+  ) : jobError ? (
+    <div
+      className="mb-6 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 dark:border-amber-800 dark:bg-amber-950/30"
+      role="alert"
+    >
+      <p className="text-sm text-amber-800 dark:text-amber-200">{jobError}</p>
+    </div>
+  ) : jobsForBanner.length > 0 ? (
+    <div className="mb-6">
+      <BookJobsBanner jobs={jobsForBanner} onRetry={handleJobRetry} />
+    </div>
+  ) : null;
+
+  const focusModeStatusContent = (
+    <>
+      {jobStatusBanner}
+      {billing.pastDue && (
+        <div
+          className="mb-6 rounded-xl border border-red-200 bg-red-50 px-4 py-3 dark:border-red-900/40 dark:bg-red-950/30"
+          role="alert"
+        >
+          <p className="text-sm text-red-800 dark:text-red-200">
+            Your subscription is <strong>past_due</strong>.{" "}
+            <Link href="/author/billing" className="underline">
+              Manage subscription
+            </Link>
+            .
+          </p>
+        </div>
+      )}
+    </>
+  );
+
+  const writeOnlyStatusContent = (
+    <>
+      {jobStatusBanner}
+      {billing.pastDue && (
+        <div
+          className="mb-6 rounded-xl border border-red-200 bg-red-50 px-4 py-3 dark:border-red-900/40 dark:bg-red-950/30"
+          role="alert"
+        >
+          <p className="text-sm text-red-800 dark:text-red-200">
+            Your subscription is <strong>past_due</strong>. Billing features are
+            locked until payment is updated.{" "}
+            <Link href="/author/billing" className="underline">
+              Manage subscription
+            </Link>
+            .
+          </p>
+        </div>
+      )}
+    </>
+  );
+
   if (focusMode) {
     return (
-      <>
-        {publishToast && (
-          <div
-            role="status"
-            aria-live="polite"
-            className="fixed right-6 top-24 z-[1000] rounded-full bg-slate-900/90 px-4 py-2 text-[13px] font-medium text-white shadow-lg backdrop-blur-sm dark:bg-white/90 dark:text-slate-900"
-          >
-            {publishToast}
-          </div>
-        )}
-        <section className="mx-auto w-full max-w-[1760px] px-6 pb-20 pt-6 xl:px-8">
-          {jobLoading ? (
-            <div className="mb-6 flex h-14 items-center rounded-xl border border-black/[0.06] bg-slate-50/50 px-4 dark:border-white/[0.06] dark:bg-white/5" role="status" aria-label="Loading status">
-              <span className="text-sm text-slate-500 dark:text-white/50">Loading status...</span>
-            </div>
-          ) : jobError ? (
-            <div className="mb-6 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 dark:border-amber-800 dark:bg-amber-950/30" role="alert">
-              <p className="text-sm text-amber-800 dark:text-amber-200">{jobError}</p>
-            </div>
-          ) : jobsForBanner.length > 0 ? (
-            <div className="mb-6">
-              <BookJobsBanner jobs={jobsForBanner} onRetry={handleJobRetry} />
-            </div>
-          ) : null}
-          {billing.pastDue && (
-            <div className="mb-6 rounded-xl border border-red-200 bg-red-50 px-4 py-3 dark:border-red-900/40 dark:bg-red-950/30" role="alert">
-              <p className="text-sm text-red-800 dark:text-red-200">
-                Your subscription is <strong>past_due</strong>.{" "}
-                <Link href="/author/billing" className="underline">Manage subscription</Link>.
-              </p>
-            </div>
-          )}
-          <div className="overflow-hidden">
-            <div className="flex min-h-[calc(100vh-12rem)]">
-              <EditorCanvas
-                mode="focus"
-                header={(
-                  <div className="mb-5 border-b border-slate-200 pb-5 dark:border-white/[0.08]">
-                    <h1 className="text-2xl font-bold tracking-[-0.02em] text-slate-900 dark:text-white">{bookTitle}</h1>
-                    <p className="mt-1 text-[15px] text-slate-500 dark:text-white/50">{authorDisplayName}</p>
-                  </div>
-                )}
-                toolbar={(
-                  <ChapterRail variant="compact" title={<span className="text-slate-400 dark:text-white/35">Ch</span>}>
-                    <div className="flex items-center gap-0.5">
-                      <button
-                        type="button"
-                        onClick={() => {
-                          selectPreviousChapter();
-                          setSessionStartWords(null);
-                        }}
-                        disabled={selectedChapterIndex <= 0}
-                        className="flex h-7 w-7 items-center justify-center rounded-lg text-[14px] text-slate-400 transition-colors duration-150 hover:bg-slate-100 hover:text-slate-700 disabled:opacity-30 dark:text-white/40 dark:hover:bg-white/[0.06] dark:hover:text-white/70"
-                        aria-label="Previous chapter"
-                      >
-                        &lsaquo;
-                      </button>
-                      {chapters.map((chapter, index) => {
-                        const isActive = chapter.id === selectedChapterId;
-                        return (
-                          <button
-                            key={chapter.id}
-                            type="button"
-                            onClick={() => {
-                              selectChapter(chapter.id);
-                              setSessionStartWords(null);
-                            }}
-                            className={`flex h-7 min-w-[1.75rem] items-center justify-center rounded-lg text-[12px] tabular-nums transition-colors duration-150 ${
-                              isActive
-                                ? "bg-[#7A6EFF] font-semibold text-white shadow-[0_1px_3px_rgba(122,110,255,0.3)] dark:bg-[#8E79FF]"
-                                : "text-slate-500 hover:bg-slate-100 hover:text-slate-800 dark:text-white/45 dark:hover:bg-white/[0.06] dark:hover:text-white/80"
-                            }`}
-                            aria-label={`Chapter ${index + 1}`}
-                            aria-current={isActive ? "true" : undefined}
-                          >
-                            {index + 1}
-                          </button>
-                        );
-                      })}
-                      <button
-                        type="button"
-                        onClick={() => {
-                          selectNextChapter();
-                          setSessionStartWords(null);
-                        }}
-                        disabled={selectedChapterIndex < 0 || selectedChapterIndex >= chapters.length - 1}
-                        className="flex h-7 w-7 items-center justify-center rounded-lg text-[14px] text-slate-400 transition-colors duration-150 hover:bg-slate-100 hover:text-slate-700 disabled:opacity-30 dark:text-white/40 dark:hover:bg-white/[0.06] dark:hover:text-white/70"
-                        aria-label="Next chapter"
-                      >
-                        &rsaquo;
-                      </button>
-                    </div>
-                  </ChapterRail>
-                )}
-              >
-                {selectedChapter ? (
-                  <TiptapEditor
-                    key={selectedChapter.id}
-                    content={selectedChapter.content}
-                    onUpdate={(json) => handleAutoSave(selectedChapter.id, json)}
-                    onDirty={() => setHasUnsavedChanges(true)}
-                    placeholder="Start writing your chapter..."
-                    bookId={book.id}
-                    chapterId={selectedChapter.id}
-                    preset={preset}
-                    onWordCount={setWordCount}
-                    onFocusModeToggle={() => setFocusMode(false)}
-                    focusMode={true}
-                  />
-                ) : (
-                  <div className="flex h-[500px] items-center justify-center">
-                    <p className="text-[14px] text-slate-400 dark:text-white/40">
-                      {chapters.length === 0 ? "Create your first chapter to start writing" : "Select a chapter above to edit"}
-                    </p>
-                  </div>
-                )}
-              </EditorCanvas>
-            </div>
-          </div>
-        </section>
-      </>
+      <FocusModeEditorView
+        publishToast={publishToast}
+        topContent={focusModeStatusContent}
+        bookTitle={bookTitle}
+        authorDisplayName={authorDisplayName}
+        bookId={book.id}
+        chapters={chapters}
+        selectedChapterId={selectedChapterId}
+        selectedChapterIndex={selectedChapterIndex}
+        selectedChapter={selectedChapter}
+        preset={preset}
+        onSelectChapter={selectChapter}
+        onSelectPreviousChapter={selectPreviousChapter}
+        onSelectNextChapter={selectNextChapter}
+        onResetSessionWords={() => setSessionStartWords(null)}
+        onAutoSave={handleAutoSave}
+        onDirty={() => setHasUnsavedChanges(true)}
+        onWordCount={setWordCount}
+        onExitFocusMode={() => setFocusMode(false)}
+      />
     );
   }
 
   if (isWriteOnlyWorkspace) {
     return (
-      <>
-        {publishToast && (
-          <div
-            role="status"
-            aria-live="polite"
-            className="fixed right-6 top-24 z-[1000] rounded-full bg-slate-900/90 px-4 py-2 text-[13px] font-medium text-white shadow-lg backdrop-blur-sm dark:bg-white/90 dark:text-slate-900"
-          >
-            {publishToast}
-          </div>
-        )}
-        <section className="w-full px-4 pb-20 pt-6 sm:px-5 xl:px-6">
-          {jobLoading ? (
-            <div
-              className="mb-6 flex h-14 items-center rounded-xl border border-black/[0.06] bg-slate-50/50 px-4 dark:border-white/[0.06] dark:bg-white/5"
-              role="status"
-              aria-label="Loading status"
-            >
-              <span className="text-sm text-slate-500 dark:text-white/50">Loading status...</span>
-            </div>
-          ) : jobError ? (
-            <div
-              className="mb-6 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 dark:border-amber-800 dark:bg-amber-950/30"
-              role="alert"
-            >
-              <p className="text-sm text-amber-800 dark:text-amber-200">{jobError}</p>
-            </div>
-          ) : jobsForBanner.length > 0 ? (
-            <div className="mb-6">
-              <BookJobsBanner jobs={jobsForBanner} onRetry={handleJobRetry} />
-            </div>
-          ) : null}
-
-          {billing.pastDue && (
-            <div
-              className="mb-6 rounded-xl border border-red-200 bg-red-50 px-4 py-3 dark:border-red-900/40 dark:bg-red-950/30"
-              role="alert"
-            >
-              <p className="text-sm text-red-800 dark:text-red-200">
-                Your subscription is <strong>past_due</strong>. Billing features are locked until payment is updated.{" "}
-                <Link href="/author/billing" className="underline">
-                  Manage subscription
-                </Link>
-                .
-              </p>
-            </div>
-          )}
-
-          <FeatureWriteWorkspace
-            chapterRail={(
-              <FeatureChapterRail
-                bookTitle={bookTitle}
-                coverImageUrl={displayCoverUrl}
-                chapters={chapters}
-                selectedChapterId={selectedChapterId}
-                onSelectChapter={(chapterId) => {
-                  selectChapter(chapterId);
-                  setSessionStartWords(null);
-                }}
-                onCreateChapter={handleCreateChapter}
-                isCreating={isCreating}
-                onCoverChange={handleCoverChange}
-                coverUploading={coverUploading}
-                coverError={coverError}
-                onMoveChapter={handleMoveChapter}
-                onReorderChapter={handleReorderChapters}
-              />
-            )}
-            editorCanvas={(
-              <FeatureEditorCanvas
-                bookId={book.id}
-                selectedChapter={selectedChapter}
-                editingTitleId={editingTitleId}
-                tempTitle={tempTitle}
-                isSaving={isSaving}
-                saveError={saveError}
-                hasUnsavedChanges={hasUnsavedChanges}
-                lastSaved={lastSaved}
-                wordCount={wordCount}
-                sessionWords={sessionWords}
-                preset={preset}
-                focusMode={focusMode}
-                onPresetChange={setPreset}
-                onFocusModeToggle={() => setFocusMode((current) => !current)}
-                onNewChapter={handleCreateChapter}
-                onCommandPalette={openPalette}
-                onStartEditTitle={handleStartEditTitle}
-                onTempTitleChange={setTempTitle}
-                onSaveTitle={handleSaveTitle}
-                onCancelEditTitle={handleCancelEditTitle}
-                onWordCount={setWordCount}
-                onDirty={() => setHasUnsavedChanges(true)}
-                onAutoSave={handleAutoSave}
-                onInlineAction={handleInlineAiAction}
-              />
-            )}
-          />
-        </section>
-      </>
+      <WriteOnlyWorkspaceView
+        publishToast={publishToast}
+        statusContent={writeOnlyStatusContent}
+        bookId={book.id}
+        bookTitle={bookTitle}
+        authorDisplayName={authorDisplayName}
+        tool={tool}
+        tools={effectiveTools as Tool[]}
+        isPublished={isPublished}
+        chapters={chapters}
+        wordCount={wordCount}
+        activeLanguageLabel={activeLanguageLabel}
+        versionCount={bookVersions.length}
+        displayCoverUrl={displayCoverUrl}
+        selectedChapterId={selectedChapterId}
+        selectedChapter={selectedChapter}
+        editingTitleId={editingTitleId}
+        tempTitle={tempTitle}
+        isSaving={isSaving}
+        saveError={saveError}
+        hasUnsavedChanges={hasUnsavedChanges}
+        lastSaved={lastSaved}
+        sessionWords={sessionWords}
+        preset={preset}
+        focusMode={focusMode}
+        coverUploading={coverUploading}
+        coverError={coverError}
+        isCreating={isCreating}
+        onSelectChapter={selectChapter}
+        onResetSessionWords={() => setSessionStartWords(null)}
+        onCreateChapter={handleCreateChapter}
+        onCoverChange={handleCoverChange}
+        onMoveChapter={handleMoveChapter}
+        onReorderChapters={handleReorderChapters}
+        onPresetChange={setPreset}
+        onFocusModeToggle={() => setFocusMode((current) => !current)}
+        onCommandPalette={openPalette}
+        onStartEditTitle={handleStartEditTitle}
+        onTempTitleChange={setTempTitle}
+        onSaveTitle={handleSaveTitle}
+        onCancelEditTitle={handleCancelEditTitle}
+        onWordCount={setWordCount}
+        onDirty={() => setHasUnsavedChanges(true)}
+        onAutoSave={handleAutoSave}
+        onInlineAiAction={handleInlineAiAction}
+      />
     );
   }
 
@@ -2885,7 +2234,7 @@ export default function BookEditorView({
         </div>
       )}
       <section className="pb-24">
-        <div className="mx-auto max-w-[1520px] space-y-6">
+        <div className="mx-auto max-w-[1280px] space-y-6">
         {/* Job banner — visible on all panels */}
         {jobLoading ? (
           <div
@@ -2923,8 +2272,19 @@ export default function BookEditorView({
           </div>
         )}
 
-        <div className="mb-3">
-          <WorkflowStepNav bookId={book.id} />
+        <div className="mb-6">
+          <BookWorkflowHeader
+            bookId={book.id}
+            bookTitle={bookTitle}
+            authorDisplayName={authorDisplayName}
+            activeTool={tool}
+            tools={effectiveTools as Tool[]}
+            isPublished={isPublished}
+            chapterCount={chapters.length}
+            wordCount={wordCount}
+            activeLanguageLabel={activeLanguageLabel}
+            versionCount={bookVersions.length}
+          />
         </div>
 
         <div className={`${workspaceContentMaxWidth} min-h-[calc(100vh-12rem)] px-2 pt-1 sm:px-4 lg:px-6`}>
@@ -3979,121 +3339,29 @@ export default function BookEditorView({
 
         {/* Simplified edit view */}
         {tool === "edit" && (
-          <WriteWorkspace
-            chapterRail={(
-              <ChapterRail variant="compact" title="Ch">
-                <div className="flex items-center gap-0.5">
-                  {totalPages > 1 && (
-                    <button
-                      type="button"
-                      onClick={() => setChapterPage(Math.max(0, chapterPage - 1))}
-                      disabled={chapterPage === 0}
-                      className="flex h-7 w-7 items-center justify-center rounded-lg text-[14px] text-slate-400 transition-colors duration-150 hover:bg-slate-100 hover:text-slate-700 disabled:opacity-30 dark:text-white/40 dark:hover:bg-white/[0.06] dark:hover:text-white/70"
-                      aria-label="Previous chapters"
-                    >
-                      &lsaquo;
-                    </button>
-                  )}
-                  {visibleChapters.map((chapter, index) => {
-                    const globalIndex = startIndex + index;
-                    const isActive = chapter.id === selectedChapterId;
-                    return (
-                      <button
-                        key={chapter.id}
-                        type="button"
-                        onClick={() => {
-                          selectChapter(chapter.id);
-                          setSessionStartWords(null);
-                        }}
-                        className={`flex h-7 min-w-[1.75rem] items-center justify-center rounded-lg text-[12px] tabular-nums transition-colors duration-150 ${
-                          isActive
-                            ? "bg-[#7A6EFF] font-semibold text-white shadow-[0_1px_3px_rgba(122,110,255,0.3)] dark:bg-[#8E79FF]"
-                            : "text-slate-500 hover:bg-slate-100 hover:text-slate-800 dark:text-white/45 dark:hover:bg-white/[0.06] dark:hover:text-white/80"
-                        }`}
-                        aria-label={`Chapter ${globalIndex + 1}`}
-                        aria-current={isActive ? "true" : undefined}
-                      >
-                        {globalIndex + 1}
-                      </button>
-                    );
-                  })}
-                  {totalPages > 1 && chapterPage < totalPages - 1 && (
-                    <span className="px-1 text-[11px] text-slate-300 dark:text-white/25">&hellip;</span>
-                  )}
-                  {totalPages > 1 && (
-                    <button
-                      type="button"
-                      onClick={() => setChapterPage(Math.min(totalPages - 1, chapterPage + 1))}
-                      disabled={chapterPage >= totalPages - 1}
-                      className="flex h-7 w-7 items-center justify-center rounded-lg text-[14px] text-slate-400 transition-colors duration-150 hover:bg-slate-100 hover:text-slate-700 disabled:opacity-30 dark:text-white/40 dark:hover:bg-white/[0.06] dark:hover:text-white/70"
-                      aria-label="Next chapters"
-                    >
-                      &rsaquo;
-                    </button>
-                  )}
-                </div>
-              </ChapterRail>
-            )}
-            editorCanvas={(
-              <EditorCanvas
-                mode="edit"
-                header={
-                  <div className="flex items-center justify-between border-b border-slate-100 px-10 py-3 sm:px-14 dark:border-white/[0.06]">
-                    <div className="min-w-0">
-                      <h1 className="truncate text-[14px] font-semibold text-slate-700 dark:text-white/70">{bookTitle}</h1>
-                      <p className="mt-0.5 text-[12px] text-slate-400 dark:text-white/30">
-                        {selectedChapter
-                          ? `Kapitel ${chapters.findIndex((c) => c.id === selectedChapter.id) + 1} av ${chapters.length}`
-                          : `${chapters.length} kapitel`}
-                      </p>
-                    </div>
-                    <div className="flex items-center gap-3 text-[12px]">
-                      {wordCount > 0 && (
-                        <span className="tabular-nums text-slate-400 dark:text-white/30">{wordCount.toLocaleString("sv-SE")} ord</span>
-                      )}
-                      <span className={`flex items-center gap-1.5 ${
-                        isSaving
-                          ? "text-slate-400 dark:text-white/30"
-                          : hasUnsavedChanges
-                            ? "text-amber-500"
-                            : "text-emerald-500"
-                      }`}>
-                        <span className={`inline-block h-1.5 w-1.5 rounded-full ${
-                          isSaving
-                            ? "bg-slate-300 dark:bg-white/20"
-                            : hasUnsavedChanges
-                              ? "bg-amber-400"
-                              : "bg-emerald-400"
-                        }`} />
-                        {isSaving ? "Sparar..." : hasUnsavedChanges ? "Osparad" : "Sparat"}
-                      </span>
-                    </div>
-                  </div>
-                }
-              >
-                {selectedChapter ? (
-                  <TiptapEditor
-                    key={selectedChapter.id}
-                    content={selectedChapter.content}
-                    onUpdate={(json) => handleAutoSave(selectedChapter.id, json)}
-                    onDirty={() => setHasUnsavedChanges(true)}
-                    placeholder="Start writing your chapter..."
-                    bookId={book.id}
-                    chapterId={selectedChapter.id}
-                    preset={preset}
-                    onWordCount={setWordCount}
-                    onFocusModeToggle={() => setFocusMode((f) => !f)}
-                    focusMode={focusMode}
-                  />
-                ) : (
-                  <div className="flex h-[500px] items-center justify-center">
-                    <p className="text-[14px] text-slate-400 dark:text-white/40">
-                      {chapters.length === 0 ? "Create your first chapter to start writing" : "Select a chapter above to edit"}
-                    </p>
-                  </div>
-                )}
-              </EditorCanvas>
-            )}
+          <SimplifiedEditView
+            bookId={book.id}
+            bookTitle={bookTitle}
+            chapters={chapters}
+            visibleChapters={visibleChapters}
+            startIndex={startIndex}
+            totalPages={totalPages}
+            chapterPage={chapterPage}
+            selectedChapterId={selectedChapterId}
+            selectedChapter={selectedChapter}
+            wordCount={wordCount}
+            isSaving={isSaving}
+            hasUnsavedChanges={hasUnsavedChanges}
+            lastSaved={lastSaved}
+            preset={preset}
+            focusMode={focusMode}
+            onSetChapterPage={setChapterPage}
+            onSelectChapter={selectChapter}
+            onResetSessionWords={() => setSessionStartWords(null)}
+            onWordCount={setWordCount}
+            onAutoSave={handleAutoSave}
+            onDirty={() => setHasUnsavedChanges(true)}
+            onToggleFocusMode={() => setFocusMode((current) => !current)}
           />
         )}
 

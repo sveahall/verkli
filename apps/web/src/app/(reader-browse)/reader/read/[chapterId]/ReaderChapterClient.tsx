@@ -1,168 +1,43 @@
 "use client";
 
 import Link from "next/link";
-import dynamic from "next/dynamic";
-import { useCallback, useEffect, useRef, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import { createClient } from "@/lib/supabase/client";
-
-const TiptapRenderer = dynamic(
-  () => import("@/components/editor/TiptapRenderer"),
-  { ssr: false }
-);
-
-type HighlightColor = "yellow" | "green" | "blue" | "rose";
-
-type ReaderHighlight = {
-  id: string;
-  startOffset: number;
-  endOffset: number;
-  snippet: string;
-  color: HighlightColor;
-  note: string | null;
-  createdAt: string;
-  updatedAt: string;
-};
-
-type ReaderSettings = {
-  fontSize: number;
-  lineHeight: number;
-  fontFamily?: "serif" | "sans" | "mono";
-  textAlign?: "left" | "center" | "justify";
-  marginSize?: "narrow" | "normal" | "wide";
-  theme?: "light" | "sepia" | "dark";
-};
-
-type ReaderFont = "serif" | "sans" | "mono";
-type ReaderTheme = "light" | "sepia" | "dark";
-type ReaderThemeOption = {
-  value: ReaderTheme;
-  label: string;
-  preview: string;
-  canvas: string;
-  orbOne: string;
-  orbTwo: string;
-  orbThree: string;
-  veil: string;
-  gridColor: string;
-  panelBg: string;
-  panelBorder: string;
-  chapterBg: string;
-  chapterBorder: string;
-  proseColor: string;
-  headingColor: string;
-  linkUnderline: string;
-  linkUnderlineHover: string;
-};
-
-const FONT_OPTIONS: { value: ReaderFont; label: string; family: string }[] = [
-  { value: "serif", label: "Serif", family: "Georgia, serif" },
-  { value: "sans", label: "Sans", family: "Inter, system-ui, sans-serif" },
-  { value: "mono", label: "Mono", family: "'JetBrains Mono', monospace" },
-];
-
-const THEME_OPTIONS: ReaderThemeOption[] = [
-  {
-    value: "light",
-    label: "Light",
-    preview: "linear-gradient(140deg, #eef3ff 10%, #f6f9ff 55%, #eef4ff 100%)",
-    canvas: "linear-gradient(165deg, #eef3ff 0%, #f7fbff 48%, #edf5ff 100%)",
-    orbOne: "rgba(144,122,255,0.56)",
-    orbTwo: "rgba(125,211,252,0.46)",
-    orbThree: "rgba(248,180,230,0.38)",
-    veil: "linear-gradient(180deg, rgba(255,255,255,0.42) 0%, rgba(255,255,255,0.08) 100%)",
-    gridColor: "rgba(116, 139, 179, 0.22)",
-    panelBg: "rgba(255,255,255,0.78)",
-    panelBorder: "rgba(148,163,184,0.34)",
-    chapterBg: "linear-gradient(180deg, rgba(255,255,255,0.9), rgba(252,255,255,0.86))",
-    chapterBorder: "rgba(148,163,184,0.34)",
-    proseColor: "#1e293b",
-    headingColor: "#0f172a",
-    linkUnderline: "rgba(100,116,139,0.45)",
-    linkUnderlineHover: "rgba(71,85,105,0.75)",
-  },
-  {
-    value: "sepia",
-    label: "Sepia",
-    preview: "linear-gradient(140deg, #f7efe2 5%, #f4e7d4 55%, #f0e2cf 100%)",
-    canvas: "linear-gradient(165deg, #f8f0e4 0%, #f4e8d8 48%, #efe1cc 100%)",
-    orbOne: "rgba(245, 158, 11, 0.32)",
-    orbTwo: "rgba(236, 72, 153, 0.22)",
-    orbThree: "rgba(239, 68, 68, 0.14)",
-    veil: "linear-gradient(180deg, rgba(255,250,240,0.34) 0%, rgba(251,244,232,0.1) 100%)",
-    gridColor: "rgba(156, 120, 84, 0.18)",
-    panelBg: "rgba(253,247,236,0.75)",
-    panelBorder: "rgba(180,138,104,0.34)",
-    chapterBg: "linear-gradient(180deg, rgba(255,251,243,0.86), rgba(251,242,226,0.82))",
-    chapterBorder: "rgba(171,133,101,0.34)",
-    proseColor: "#5b4633",
-    headingColor: "#402f1f",
-    linkUnderline: "rgba(146,98,63,0.46)",
-    linkUnderlineHover: "rgba(126,78,45,0.74)",
-  },
-  {
-    value: "dark",
-    label: "Dark",
-    preview: "linear-gradient(140deg, #10182c 10%, #0f172a 58%, #111f36 100%)",
-    canvas: "linear-gradient(165deg, #0f172a 0%, #10192f 54%, #0a1222 100%)",
-    orbOne: "rgba(147, 112, 219, 0.46)",
-    orbTwo: "rgba(34, 211, 238, 0.28)",
-    orbThree: "rgba(59, 130, 246, 0.22)",
-    veil: "linear-gradient(180deg, rgba(15,23,42,0.34) 0%, rgba(2,6,23,0.18) 100%)",
-    gridColor: "rgba(116, 139, 179, 0.2)",
-    panelBg: "rgba(15,23,42,0.58)",
-    panelBorder: "rgba(148,163,184,0.24)",
-    chapterBg: "linear-gradient(180deg, rgba(15,23,42,0.76), rgba(13,17,29,0.7))",
-    chapterBorder: "rgba(148,163,184,0.24)",
-    proseColor: "rgba(241,245,249,0.92)",
-    headingColor: "rgba(248,250,252,0.96)",
-    linkUnderline: "rgba(203,213,225,0.5)",
-    linkUnderlineHover: "rgba(226,232,240,0.78)",
-  },
-];
-
-function loadLocalStorage<T>(key: string, fallback: T): T {
-  if (typeof window === "undefined") return fallback;
-  try {
-    const raw = localStorage.getItem(key);
-    return raw ? (JSON.parse(raw) as T) : fallback;
-  } catch {
-    return fallback;
-  }
-}
-
-function saveLocalStorage(key: string, value: unknown) {
-  try {
-    localStorage.setItem(key, JSON.stringify(value));
-  } catch {
-    // silent
-  }
-}
-
-type SelectionState = {
-  startOffset: number;
-  endOffset: number;
-  snippet: string;
-  x: number;
-  y: number;
-  placement: "top" | "bottom";
-};
-
-type TextNodeIndex = {
-  node: Text;
-  start: number;
-  end: number;
-};
-
-type HighlightRecord = {
-  id: string;
-  start_offset: number;
-  end_offset: number;
-  snippet: string;
-  color: string | null;
-  note: string | null;
-  created_at: string;
-  updated_at: string;
-};
+import ReaderChapterBody from "./components/ReaderChapterBody";
+import ReaderChapterGlobalStyles from "./components/ReaderChapterGlobalStyles";
+import ReaderHighlightComposer from "./components/ReaderHighlightComposer";
+import ReaderHighlightsPanel from "./components/ReaderHighlightsPanel";
+import ReaderSettingsPanel from "./components/ReaderSettingsPanel";
+import {
+  COLOR_ORDER,
+  HIGHLIGHT_BUCKETS,
+  FONT_OPTIONS,
+  THEME_OPTIONS,
+  clamp,
+  collectTextNodeIndex,
+  createRangeFromOffsets,
+  getCssHighlightsMap,
+  getHighlightConstructor,
+  getReaderPrefs,
+  isRecord,
+  loadLocalStorage,
+  normalizeHighlights,
+  parseHighlightRecord,
+  saveLocalStorage,
+  type HighlightColor,
+  type ReaderFont,
+  type ReaderHighlight,
+  type ReaderSettings,
+  type ReaderTheme,
+  type SelectionState,
+  type TextNodeIndex,
+} from "./ReaderChapterClient.helpers";
 
 type Props = {
   userId: string | null;
@@ -175,172 +50,6 @@ type Props = {
   initialPreferences: Record<string, unknown> | null;
   initialSettings: ReaderSettings;
 };
-
-const FONT_MIN = 13;
-const FONT_MAX = 24;
-const LINE_HEIGHT_OPTIONS = [1.5, 1.7, 1.9, 2.1] as const;
-const COLOR_ORDER: HighlightColor[] = ["yellow", "green", "blue", "rose"];
-const COLOR_META: Record<HighlightColor, { label: string; swatch: string }> = {
-  yellow: { label: "Yellow", swatch: "#facc15" },
-  green: { label: "Green", swatch: "#86efac" },
-  blue: { label: "Blue", swatch: "#93c5fd" },
-  rose: { label: "Rose", swatch: "#fda4af" },
-};
-const HIGHLIGHT_BUCKETS: Record<HighlightColor, string> = {
-  yellow: "reader-highlight-yellow",
-  green: "reader-highlight-green",
-  blue: "reader-highlight-blue",
-  rose: "reader-highlight-rose",
-};
-
-type CssHighlightsMap = {
-  set(name: string, value: unknown): void;
-  delete(name: string): void;
-};
-
-type HighlightConstructor = new (...ranges: Range[]) => unknown;
-
-type ReaderPrefs = {
-  settings?: {
-    fontSize?: number;
-    lineHeight?: number;
-  };
-};
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
-}
-
-function clamp(value: number, min: number, max: number): number {
-  return Math.min(max, Math.max(min, value));
-}
-
-function normalizeColor(value: unknown): HighlightColor {
-  if (value === "yellow" || value === "green" || value === "blue" || value === "rose") {
-    return value;
-  }
-  return "yellow";
-}
-
-function normalizeHighlights(input: ReaderHighlight[]): ReaderHighlight[] {
-  return [...input].sort((a, b) => {
-    if (a.startOffset !== b.startOffset) return a.startOffset - b.startOffset;
-    return a.endOffset - b.endOffset;
-  });
-}
-
-function getCssHighlightsMap(): CssHighlightsMap | null {
-  if (typeof CSS === "undefined") return null;
-  const maybeCss = CSS as unknown as { highlights?: CssHighlightsMap };
-  if (!maybeCss.highlights) return null;
-  if (typeof maybeCss.highlights.set !== "function" || typeof maybeCss.highlights.delete !== "function") {
-    return null;
-  }
-  return maybeCss.highlights;
-}
-
-function getHighlightConstructor(): HighlightConstructor | null {
-  if (typeof window === "undefined") return null;
-  const maybeWindow = window as unknown as { Highlight?: HighlightConstructor };
-  if (!maybeWindow.Highlight) return null;
-  return maybeWindow.Highlight;
-}
-
-function collectTextNodeIndex(root: HTMLElement): TextNodeIndex[] {
-  const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
-  const nodes: TextNodeIndex[] = [];
-  let cursor = 0;
-
-  while (walker.nextNode()) {
-    const node = walker.currentNode;
-    if (!(node instanceof Text)) continue;
-    const text = node.textContent ?? "";
-    if (!text.length) continue;
-
-    const start = cursor;
-    const end = start + text.length;
-    nodes.push({ node, start, end });
-    cursor = end;
-  }
-
-  return nodes;
-}
-
-function createRangeFromOffsets(index: TextNodeIndex[], startOffset: number, endOffset: number): Range | null {
-  if (!index.length) return null;
-  if (!Number.isFinite(startOffset) || !Number.isFinite(endOffset) || endOffset <= startOffset) return null;
-
-  const totalLength = index[index.length - 1]?.end ?? 0;
-  if (totalLength <= 0) return null;
-
-  const start = clamp(startOffset, 0, totalLength);
-  const end = clamp(endOffset, 0, totalLength);
-  if (end <= start) return null;
-
-  let startNode: Text | null = null;
-  let startNodeOffset = 0;
-  let endNode: Text | null = null;
-  let endNodeOffset = 0;
-
-  for (const entry of index) {
-    if (!startNode && start >= entry.start && start <= entry.end) {
-      startNode = entry.node;
-      startNodeOffset = start - entry.start;
-    }
-
-    if (!endNode && end >= entry.start && end <= entry.end) {
-      endNode = entry.node;
-      endNodeOffset = end - entry.start;
-    }
-
-    if (startNode && endNode) break;
-  }
-
-  if (!startNode || !endNode) return null;
-
-  const range = document.createRange();
-  range.setStart(startNode, clamp(startNodeOffset, 0, startNode.textContent?.length ?? 0));
-  range.setEnd(endNode, clamp(endNodeOffset, 0, endNode.textContent?.length ?? 0));
-  return range;
-}
-
-function parseHighlightRecord(value: unknown): ReaderHighlight | null {
-  if (!isRecord(value)) return null;
-
-  const id = String(value.id ?? "").trim();
-  const snippet = String(value.snippet ?? "").trim();
-  const startOffset = Number(value.start_offset ?? NaN);
-  const endOffset = Number(value.end_offset ?? NaN);
-
-  if (!id || !snippet || !Number.isFinite(startOffset) || !Number.isFinite(endOffset) || endOffset <= startOffset) {
-    return null;
-  }
-
-  return {
-    id,
-    snippet,
-    startOffset,
-    endOffset,
-    color: normalizeColor(value.color),
-    note: value.note == null ? null : String(value.note),
-    createdAt: String(value.created_at ?? ""),
-    updatedAt: String(value.updated_at ?? ""),
-  };
-}
-
-function getReaderPrefs(preferences: Record<string, unknown>): ReaderPrefs {
-  const reader = preferences.reader;
-  if (!isRecord(reader)) return {};
-  const settings = reader.settings;
-  if (!isRecord(settings)) return {};
-
-  return {
-    settings: {
-      fontSize: typeof settings.fontSize === "number" ? settings.fontSize : undefined,
-      lineHeight: typeof settings.lineHeight === "number" ? settings.lineHeight : undefined,
-    },
-  };
-}
 
 export default function ReaderChapterClient({
   userId,
@@ -356,6 +65,7 @@ export default function ReaderChapterClient({
   const contentRef = useRef<HTMLDivElement | null>(null);
   const settingsSaveTimeoutRef = useRef<number | null>(null);
   const settingsStatusResetTimeoutRef = useRef<number | null>(null);
+  const textNodeIndexRef = useRef<TextNodeIndex[] | null>(null);
   const preferencesRef = useRef<Record<string, unknown>>(initialPreferences ?? {});
   const lastSavedSettingsRef = useRef<ReaderSettings>(initialSettings);
 
@@ -420,6 +130,17 @@ export default function ReaderChapterClient({
 
   const currentFontFamily = FONT_OPTIONS.find((f) => f.value === readerFont)?.family ?? "Georgia, serif";
   const currentTheme = THEME_OPTIONS.find((t) => t.value === readerTheme) ?? THEME_OPTIONS[0];
+  const chapterBodyStyle = useMemo<Record<string, string>>(() => ({
+    ["--reader-font-size"]: `${settings.fontSize}px`,
+    ["--reader-line-height"]: String(settings.lineHeight),
+    ["--reader-font-family"]: currentFontFamily,
+    ["--reader-prose-color"]: currentTheme.proseColor,
+    ["--reader-heading-color"]: currentTheme.headingColor,
+    ["--reader-link-underline"]: currentTheme.linkUnderline,
+    ["--reader-link-underline-hover"]: currentTheme.linkUnderlineHover,
+    background: currentTheme.chapterBg,
+    borderColor: currentTheme.chapterBorder,
+  }), [currentFontFamily, currentTheme, settings.fontSize, settings.lineHeight]);
   const orbOpacity = 0.1 + (backgroundIntensity / 100) * 0.42;
   const gridOpacity = 0.03 + (backgroundIntensity / 100) * 0.11;
 
@@ -446,6 +167,26 @@ export default function ReaderChapterClient({
     return contentRef.current.querySelector(".ProseMirror");
   }, []);
 
+  useEffect(() => {
+    textNodeIndexRef.current = null;
+  }, [chapterContent, chapterId]);
+
+  const getTextNodeIndex = useCallback((): TextNodeIndex[] => {
+    const cached = textNodeIndexRef.current;
+    if (cached) {
+      return cached;
+    }
+
+    const root = proseRoot();
+    if (!root) {
+      return [];
+    }
+
+    const nextIndex = collectTextNodeIndex(root);
+    textNodeIndexRef.current = nextIndex;
+    return nextIndex;
+  }, [proseRoot]);
+
   const clearCssHighlightBuckets = useCallback(() => {
     const map = getCssHighlightsMap();
     if (!map) return;
@@ -463,7 +204,7 @@ export default function ReaderChapterClient({
     }
 
     clearCssHighlightBuckets();
-    const index = collectTextNodeIndex(root);
+    const index = getTextNodeIndex();
     if (!index.length) return true;
 
     const groups: Record<HighlightColor, Range[]> = {
@@ -485,7 +226,7 @@ export default function ReaderChapterClient({
     }
 
     return true;
-  }, [clearCssHighlightBuckets, highlights, proseRoot]);
+  }, [clearCssHighlightBuckets, getTextNodeIndex, highlights, proseRoot]);
 
   useEffect(() => {
     let rafId: number | null = null;
@@ -543,7 +284,7 @@ export default function ReaderChapterClient({
         return;
       }
 
-      const index = collectTextNodeIndex(root);
+      const index = getTextNodeIndex();
       if (!index.length) {
         setSelectionState(null);
         return;
@@ -597,7 +338,7 @@ export default function ReaderChapterClient({
       document.removeEventListener("mouseup", handleMouseUp);
       document.removeEventListener("keyup", handleKeyUp);
     };
-  }, [proseRoot]);
+  }, [getTextNodeIndex, proseRoot]);
 
   useEffect(() => {
     if (!userId) return;
@@ -791,13 +532,13 @@ export default function ReaderChapterClient({
     const root = proseRoot();
     if (!root) return;
 
-    const range = createRangeFromOffsets(collectTextNodeIndex(root), highlight.startOffset, highlight.endOffset);
+    const range = createRangeFromOffsets(getTextNodeIndex(), highlight.startOffset, highlight.endOffset);
     if (!range) return;
 
     const rect = range.getBoundingClientRect();
     const targetY = window.scrollY + rect.top - 170;
     window.scrollTo({ top: Math.max(0, targetY), behavior: "smooth" });
-  }, [proseRoot]);
+  }, [getTextNodeIndex, proseRoot]);
 
   const settingsStatusLabel = settingsSaveState === "saving"
     ? "Saving"
@@ -813,145 +554,23 @@ export default function ReaderChapterClient({
 
   return (
     <>
-      {/* Floating settings gear button */}
-      <div className="fixed right-4 top-[calc(env(safe-area-inset-top,0px)+6rem)] z-[100]">
-        <button
-          ref={settingsButtonRef}
-          type="button"
-          onClick={() => setShowSettingsPanel((prev) => !prev)}
-          className="rounded-full border border-slate-200 bg-white/95 p-2.5 shadow-[0_10px_24px_rgba(15,23,42,0.12)] transition hover:-translate-y-0.5 hover:bg-white dark:border-white/15 dark:bg-slate-800 dark:hover:bg-slate-700"
-          aria-label="Reader settings"
-        >
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-slate-700 dark:text-white/80">
-            <circle cx="12" cy="12" r="3" />
-            <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" />
-          </svg>
-        </button>
-
-        {showSettingsPanel && (
-          <div
-            ref={settingsPanelRef}
-            className="absolute right-0 top-12 w-[270px] rounded-2xl border border-slate-200 bg-white/95 p-4 shadow-[0_20px_44px_rgba(15,23,42,0.16)] dark:border-white/10 dark:bg-slate-900"
-          >
-            <div className="mb-3 flex items-center justify-between">
-              <p className="text-[13px] font-semibold text-slate-900 dark:text-white">L&auml;sinst&auml;llningar</p>
-              {userId && settingsStatusLabel && (
-                <span className={`text-[11px] font-medium ${
-                  settingsSaveState === "error"
-                    ? "text-red-600 dark:text-red-300"
-                    : "text-emerald-700 dark:text-emerald-300"
-                }`}>
-                  {settingsStatusLabel}
-                </span>
-              )}
-            </div>
-
-            <div className="space-y-3">
-              <div>
-                <p className="mb-1.5 text-[11px] font-medium uppercase tracking-[0.1em] text-slate-500 dark:text-white/50">Textstorlek</p>
-                <div className="flex items-center gap-2">
-                  <button
-                    type="button"
-                    onClick={() => updateReaderSettings((prev) => ({ ...prev, fontSize: clamp(prev.fontSize - 1, FONT_MIN, FONT_MAX) }))}
-                    className="rounded-lg border border-slate-200 px-2.5 py-1 text-[12px] font-medium text-slate-700 transition hover:border-slate-300 dark:border-white/15 dark:text-white/70"
-                    aria-label="Decrease text size"
-                  >
-                    A-
-                  </button>
-                  <span className="min-w-[40px] text-center text-[12px] font-semibold text-slate-900 dark:text-white">{settings.fontSize}px</span>
-                  <button
-                    type="button"
-                    onClick={() => updateReaderSettings((prev) => ({ ...prev, fontSize: clamp(prev.fontSize + 1, FONT_MIN, FONT_MAX) }))}
-                    className="rounded-lg border border-slate-200 px-2.5 py-1 text-[12px] font-medium text-slate-700 transition hover:border-slate-300 dark:border-white/15 dark:text-white/70"
-                    aria-label="Increase text size"
-                  >
-                    A+
-                  </button>
-                </div>
-              </div>
-
-              <div>
-                <p className="mb-1.5 text-[11px] font-medium uppercase tracking-[0.1em] text-slate-500 dark:text-white/50">Radavst&aring;nd</p>
-                <select
-                  value={String(settings.lineHeight)}
-                  onChange={(event) => {
-                    const next = Number(event.target.value);
-                    if (!Number.isFinite(next)) return;
-                    updateReaderSettings((prev) => ({ ...prev, lineHeight: next }));
-                  }}
-                  className="w-full rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-[12px] font-medium text-slate-800 dark:border-white/15 dark:bg-white/5 dark:text-white"
-                >
-                  {LINE_HEIGHT_OPTIONS.map((value) => (
-                    <option key={value} value={String(value)}>{value.toFixed(1)}x</option>
-                  ))}
-                </select>
-              </div>
-
-              <div>
-                <p className="mb-1.5 text-[11px] font-medium uppercase tracking-[0.1em] text-slate-500 dark:text-white/50">Typsnitt</p>
-                <div className="flex gap-1.5">
-                  {FONT_OPTIONS.map((f) => (
-                    <button
-                      key={f.value}
-                      type="button"
-                      onClick={() => setReaderFont(f.value)}
-                      className={`flex-1 rounded-xl px-2 py-1.5 text-[12px] font-medium transition ${
-                        readerFont === f.value
-                          ? "bg-[#907AFF] text-white"
-                          : "border border-black/10 text-slate-700 hover:border-black/20 dark:border-white/15 dark:text-white/70"
-                      }`}
-                    >
-                      {f.label}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              <div>
-                <p className="mb-1.5 text-[11px] font-medium uppercase tracking-[0.1em] text-slate-500 dark:text-white/50">Tema</p>
-                <div className="flex gap-1.5">
-                  {THEME_OPTIONS.map((t) => (
-                    <button
-                      key={t.value}
-                      type="button"
-                      onClick={() => setReaderTheme(t.value)}
-                      className={`flex-1 rounded-xl border px-2 py-1.5 text-[12px] font-medium transition ${
-                        readerTheme === t.value
-                          ? "border-[#907AFF]/45 bg-[#907AFF] text-white"
-                          : "border-black/10 text-slate-700 hover:border-black/20 dark:border-white/15 dark:text-white/70"
-                      }`}
-                    >
-                      <span className="mx-auto mb-1.5 block h-2.5 w-10 rounded-full" style={{ background: t.preview }} />
-                      {t.label}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              <div>
-                <div className="mb-1.5 flex items-center justify-between">
-                  <p className="text-[11px] font-medium uppercase tracking-[0.1em] text-slate-500 dark:text-white/50">Bakgrund</p>
-                  <span className="text-[11px] font-medium text-slate-500 dark:text-white/60">{backgroundIntensity}%</span>
-                </div>
-                <input
-                  type="range"
-                  min={20}
-                  max={100}
-                  step={5}
-                  value={backgroundIntensity}
-                  onChange={(event) => {
-                    const next = Number(event.target.value);
-                    if (!Number.isFinite(next)) return;
-                    setBackgroundIntensity(clamp(next, 20, 100));
-                  }}
-                  className="w-full accent-[#907AFF]"
-                  aria-label="Background intensity"
-                />
-              </div>
-            </div>
-          </div>
-        )}
-      </div>
+      <ReaderSettingsPanel
+        userId={userId}
+        showSettingsPanel={showSettingsPanel}
+        settingsButtonRef={settingsButtonRef}
+        settingsPanelRef={settingsPanelRef}
+        settingsSaveState={settingsSaveState}
+        settingsStatusLabel={settingsStatusLabel}
+        settings={settings}
+        readerFont={readerFont}
+        readerTheme={readerTheme}
+        backgroundIntensity={backgroundIntensity}
+        onToggle={() => setShowSettingsPanel((prev) => !prev)}
+        onUpdateReaderSettings={updateReaderSettings}
+        onFontChange={setReaderFont}
+        onThemeChange={setReaderTheme}
+        onBackgroundIntensityChange={setBackgroundIntensity}
+      />
 
       <div className="relative overflow-hidden rounded-[30px] p-2 sm:p-3" style={{ background: currentTheme.canvas }}>
         <div className="pointer-events-none absolute inset-0" aria-hidden>
@@ -979,33 +598,12 @@ export default function ReaderChapterClient({
         </div>
 
         <div className="relative space-y-5">
-          <div
+          <ReaderChapterBody
             ref={contentRef}
-            className="reader-chapter-body rounded-[30px] border px-7 py-8 shadow-[0_18px_36px_rgba(15,23,42,0.08)] sm:px-11 sm:py-11"
-            style={{
-              ["--reader-font-size" as string]: `${settings.fontSize}px`,
-              ["--reader-line-height" as string]: String(settings.lineHeight),
-              ["--reader-font-family" as string]: currentFontFamily,
-              ["--reader-prose-color" as string]: currentTheme.proseColor,
-              ["--reader-heading-color" as string]: currentTheme.headingColor,
-              ["--reader-link-underline" as string]: currentTheme.linkUnderline,
-              ["--reader-link-underline-hover" as string]: currentTheme.linkUnderlineHover,
-              background: currentTheme.chapterBg,
-              borderColor: currentTheme.chapterBorder,
-            }}
-          >
-            <h2
-              className="mb-5 text-center text-[clamp(1.65rem,2.2vw,2.1rem)] font-semibold tracking-tight"
-              style={{ color: "var(--reader-heading-color, #0f172a)" }}
-            >
-              {chapterTitle}
-            </h2>
-            {chapterContent ? (
-              <TiptapRenderer content={chapterContent} />
-            ) : (
-              <p className="text-[15px] text-slate-600 dark:text-white/60">No content yet.</p>
-            )}
-          </div>
+            chapterTitle={chapterTitle}
+            chapterContent={chapterContent}
+            bodyStyle={chapterBodyStyle}
+          />
 
           {!supportsCssHighlights && (
             <p className="text-[12px] text-slate-500 dark:text-white/50">
@@ -1025,210 +623,46 @@ export default function ReaderChapterClient({
             </p>
           )}
 
-          <section
-            className="rounded-[24px] border p-4 shadow-[0_10px_24px_rgba(15,23,42,0.07)]"
-            style={{ background: currentTheme.panelBg, borderColor: currentTheme.panelBorder }}
-          >
-            <button
-              type="button"
-              onClick={() => setShowHighlightsPanel((prev) => !prev)}
-              className="flex w-full items-center justify-between gap-3 text-left"
-            >
-              <div className="flex items-center gap-3">
-                <h3 className="text-[15px] font-semibold text-slate-900 dark:text-white">Highlights</h3>
-                <span className="text-[12px] text-slate-500 dark:text-white/50">{highlightCountLabel}</span>
-              </div>
-              <span className="text-[12px] font-medium text-slate-600 dark:text-white/60">
-                {showHighlightsPanel ? "Hide" : "Show"}
-              </span>
-            </button>
-
-            {chapterMessage && (
-              <p className="mt-3 rounded-xl border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-[12px] text-amber-700 dark:text-amber-200">
-                {chapterMessage}
-              </p>
-            )}
-
-            {showHighlightsPanel && (
-              <>
-                {highlights.length === 0 ? (
-                  <p className="mt-4 text-[13px] text-slate-600 dark:text-white/60">
-                    Select text in this chapter to add your first highlight.
-                  </p>
-                ) : (
-                  <div className="mt-4 space-y-3">
-                    {highlights.map((highlight) => {
-                      const colorMeta = COLOR_META[highlight.color];
-                      return (
-                        <article
-                          key={highlight.id}
-                          className="rounded-xl border border-slate-200 bg-white/85 p-3 dark:border-white/10 dark:bg-white/[0.04]"
-                        >
-                          <button
-                            type="button"
-                            onClick={() => scrollToHighlight(highlight)}
-                            className="w-full text-left"
-                          >
-                            <div className="flex items-center gap-2 text-[11px] font-medium uppercase tracking-[0.12em] text-slate-500 dark:text-white/50">
-                              <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: colorMeta.swatch }} />
-                              {colorMeta.label}
-                            </div>
-                            <p className="mt-2 text-[13px] leading-relaxed text-slate-800 dark:text-white/80">“{highlight.snippet}”</p>
-                          </button>
-
-                          <textarea
-                            value={noteDrafts[highlight.id] ?? ""}
-                            onChange={(event) => {
-                              const value = event.target.value;
-                              setNoteDrafts((prev) => ({ ...prev, [highlight.id]: value }));
-                            }}
-                            placeholder="Add a note"
-                            className="mt-3 min-h-[76px] w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-[12px] text-slate-800 outline-none transition focus:border-[#907AFF]/50 focus:ring-2 focus:ring-[#907AFF]/20 dark:border-white/10 dark:bg-white/[0.03] dark:text-white/80"
-                          />
-
-                          <div className="mt-2 flex items-center justify-between gap-2">
-                            <button
-                              type="button"
-                              onClick={() => updateHighlightNote(highlight.id)}
-                              disabled={savingNoteId === highlight.id || !userId}
-                              className="rounded-full border border-slate-200 px-3 py-1 text-[12px] font-medium text-slate-700 transition hover:border-slate-300 hover:text-slate-900 disabled:cursor-not-allowed disabled:opacity-60 dark:border-white/15 dark:text-white/70 dark:hover:text-white"
-                            >
-                              {savingNoteId === highlight.id ? "Saving..." : "Save note"}
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => deleteHighlight(highlight.id)}
-                              disabled={deletingId === highlight.id || !userId}
-                              className="rounded-full border border-red-200 px-3 py-1 text-[12px] font-medium text-red-600 transition hover:border-red-300 hover:text-red-700 disabled:cursor-not-allowed disabled:opacity-60 dark:border-red-500/40 dark:text-red-300"
-                            >
-                              {deletingId === highlight.id ? "Removing..." : "Remove"}
-                            </button>
-                          </div>
-                        </article>
-                      );
-                    })}
-                  </div>
-                )}
-              </>
-            )}
-          </section>
+          <ReaderHighlightsPanel
+            currentTheme={currentTheme}
+            highlightCountLabel={highlightCountLabel}
+            showHighlightsPanel={showHighlightsPanel}
+            chapterMessage={chapterMessage}
+            highlights={highlights}
+            noteDrafts={noteDrafts}
+            savingNoteId={savingNoteId}
+            deletingId={deletingId}
+            userId={userId}
+            onToggle={() => setShowHighlightsPanel((prev) => !prev)}
+            onNoteDraftChange={(highlightId, value) =>
+              setNoteDrafts((prev) => ({ ...prev, [highlightId]: value }))
+            }
+            onSaveNote={updateHighlightNote}
+            onDeleteHighlight={deleteHighlight}
+            onScrollToHighlight={scrollToHighlight}
+          />
         </div>
       </div>
 
       {selectionState && (
-        <div
-          className={`fixed z-[120] w-[300px] rounded-2xl border border-black/10 bg-white p-3 shadow-xl dark:border-white/10 dark:bg-slate-900 ${
-            selectionState.placement === "top" ? "-translate-x-1/2 -translate-y-full" : "-translate-x-1/2"
-          }`}
-          style={{ left: selectionState.x, top: selectionState.y }}
-          onMouseDown={(event) => event.preventDefault()}
-        >
-          <p className="line-clamp-2 text-[12px] text-slate-600 dark:text-white/60">“{selectionState.snippet}”</p>
-
-          <div className="mt-3 flex flex-wrap items-center gap-2">
-            {COLOR_ORDER.map((color) => {
-              const active = color === selectedColor;
-              return (
-                <button
-                  key={color}
-                  type="button"
-                  onClick={() => setSelectedColor(color)}
-                  className={`inline-flex items-center gap-2 rounded-full border px-2.5 py-1 text-[11px] font-medium transition ${
-                    active
-                      ? "border-[#907AFF]/50 bg-[#907AFF]/10 text-slate-900 dark:text-white"
-                      : "border-black/10 text-slate-600 hover:border-black/20 dark:border-white/15 dark:text-white/70 dark:hover:text-white"
-                  }`}
-                >
-                  <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: COLOR_META[color].swatch }} />
-                  {COLOR_META[color].label}
-                </button>
-              );
-            })}
-          </div>
-
-          <textarea
-            value={newNote}
-            onChange={(event) => setNewNote(event.target.value)}
-            placeholder="Optional note"
-            className="mt-3 min-h-[72px] w-full rounded-lg border border-black/10 bg-white px-3 py-2 text-[12px] text-slate-800 outline-none transition focus:border-[#907AFF]/50 focus:ring-2 focus:ring-[#907AFF]/20 dark:border-white/15 dark:bg-white/[0.03] dark:text-white/80"
-          />
-
-          <div className="mt-3 flex items-center justify-between gap-2">
-            <button
-              type="button"
-              onClick={() => {
-                setSelectionState(null);
-                window.getSelection()?.removeAllRanges();
-              }}
-              className="rounded-full border border-black/10 px-3 py-1 text-[12px] font-medium text-slate-700 transition hover:border-black/20 hover:text-slate-900 dark:border-white/15 dark:text-white/70 dark:hover:text-white"
-            >
-              Cancel
-            </button>
-            <button
-              type="button"
-              disabled={creatingHighlight || !canCreateHighlights}
-              onClick={createHighlight}
-              className="rounded-full bg-[#907AFF] px-4 py-1 text-[12px] font-semibold text-white transition hover:bg-[#8069EE] disabled:cursor-not-allowed disabled:opacity-60"
-            >
-              {creatingHighlight ? "Saving..." : "Save highlight"}
-            </button>
-          </div>
-        </div>
+        <ReaderHighlightComposer
+          selectionState={selectionState}
+          selectedColor={selectedColor}
+          newNote={newNote}
+          creatingHighlight={creatingHighlight}
+          canCreateHighlights={canCreateHighlights}
+          onColorChange={setSelectedColor}
+          onNoteChange={setNewNote}
+          onCancel={() => {
+            setSelectionState(null);
+            window.getSelection()?.removeAllRanges();
+          }}
+          onSave={createHighlight}
+        />
       )}
-
-      <style jsx global>{`
-        .reader-chapter-body .tiptap-renderer .ProseMirror {
-          font-size: var(--reader-font-size, 16px);
-          line-height: var(--reader-line-height, 1.75);
-          font-family: var(--reader-font-family, Georgia, serif);
-          max-width: 78ch;
-          margin-left: auto;
-          margin-right: auto;
-          color: var(--reader-prose-color, #1e293b);
-          text-wrap: pretty;
-        }
-
-        .reader-chapter-body .tiptap-renderer .ProseMirror a {
-          color: inherit;
-          text-decoration: underline;
-          text-decoration-color: var(--reader-link-underline, rgba(100, 116, 139, 0.45));
-          text-underline-offset: 2px;
-          transition: text-decoration-color 180ms ease;
-        }
-
-        .reader-chapter-body .tiptap-renderer .ProseMirror a:hover {
-          text-decoration-color: var(--reader-link-underline-hover, rgba(71, 85, 105, 0.75));
-        }
-
-        .reader-chapter-body .tiptap-renderer .ProseMirror p,
-        .reader-chapter-body .tiptap-renderer .ProseMirror li,
-        .reader-chapter-body .tiptap-renderer .ProseMirror blockquote {
-          line-height: var(--reader-line-height, 1.75);
-          color: inherit;
-        }
-
-        ::highlight(reader-highlight-yellow) {
-          background-color: rgba(250, 204, 21, 0.38);
-          color: inherit;
-        }
-
-        ::highlight(reader-highlight-green) {
-          background-color: rgba(134, 239, 172, 0.34);
-          color: inherit;
-        }
-
-        ::highlight(reader-highlight-blue) {
-          background-color: rgba(147, 197, 253, 0.34);
-          color: inherit;
-        }
-
-        ::highlight(reader-highlight-rose) {
-          background-color: rgba(253, 164, 175, 0.34);
-          color: inherit;
-        }
-      `}</style>
+      <ReaderChapterGlobalStyles />
     </>
   );
 }
 
-export type { ReaderHighlight, ReaderSettings, HighlightRecord };
+export type { HighlightRecord, ReaderHighlight, ReaderSettings } from "./ReaderChapterClient.helpers";

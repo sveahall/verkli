@@ -1,5 +1,3 @@
-"use client";
-
 import BookEditorView from "./editor/BookEditorView";
 import {
   type BookEditorProps,

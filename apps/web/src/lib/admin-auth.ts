@@ -1,90 +1,181 @@
 import { timingSafeEqual } from "crypto";
-import { apiError, E_FORBIDDEN, E_RATE_LIMIT_EXCEEDED } from "@/lib/api-errors";
+import type { User } from "@supabase/supabase-js";
+import { apiError, E_FORBIDDEN, E_UNAUTHORIZED } from "@/lib/api-errors";
+import { createClient } from "@/lib/supabase/server";
 
-// ─── Rate limiting for failed admin auth attempts ────────────────────────────
-// Max 5 failed attempts per IP per 15-minute window. In-memory; resets on deploy.
+type AdminRoleCheckResult =
+  | {
+      ok: true;
+      user: User;
+      profileRole: "admin";
+    }
+  | {
+      ok: false;
+      error: typeof E_UNAUTHORIZED | typeof E_FORBIDDEN;
+      status: 401 | 403;
+      profileRole: string | null;
+    };
 
-const WINDOW_MS = 15 * 60 * 1000;
-const MAX_FAILURES = 5;
+type AdminApiResult =
+  | {
+      user: User;
+      response: null;
+    }
+  | {
+      user: null;
+      response: Response;
+    };
 
-type FailEntry = { count: number; windowStart: number };
-const failMap = new Map<string, FailEntry>();
+type AdminOrOpsApiResult =
+  | {
+      access: "admin" | "ops";
+      user: User | null;
+      response: null;
+    }
+  | {
+      access: null;
+      user: null;
+      response: Response;
+    };
 
-function getIp(request: Request): string {
-  const fwd = request.headers.get("x-forwarded-for");
-  if (fwd) return fwd.split(",")[0]!.trim();
-  return request.headers.get("x-real-ip")?.trim() ?? "unknown";
+function safeEquals(a: string, b: string): boolean {
+  const bufferA = Buffer.from(a);
+  const bufferB = Buffer.from(b);
+  if (bufferA.length !== bufferB.length) return false;
+  return timingSafeEqual(bufferA, bufferB);
 }
 
-function recordFailure(ip: string): void {
-  const now = Date.now();
-  const entry = failMap.get(ip);
-  if (!entry || now - entry.windowStart > WINDOW_MS) {
-    failMap.set(ip, { count: 1, windowStart: now });
-  } else {
-    entry.count++;
+function getConfiguredOpsHealthToken(): string | null {
+  const raw =
+    process.env.OPS_HEALTH_TOKEN?.trim() ||
+    process.env.HEALTHCHECK_TOKEN?.trim() ||
+    "";
+  return raw.length > 0 ? raw : null;
+}
+
+function getPresentedOpsHealthToken(request: Request): string | null {
+  const explicit =
+    request.headers.get("x-ops-health-token")?.trim() ||
+    request.headers.get("x-healthcheck-token")?.trim();
+  if (explicit) return explicit;
+
+  const authorization = request.headers.get("authorization")?.trim() ?? "";
+  if (!authorization.toLowerCase().startsWith("bearer ")) return null;
+  const bearerToken = authorization.slice("bearer ".length).trim();
+  return bearerToken.length > 0 ? bearerToken : null;
+}
+
+export function hasValidOpsHealthToken(request: Request): boolean {
+  const expected = getConfiguredOpsHealthToken();
+  const provided = getPresentedOpsHealthToken(request);
+  if (!expected || !provided) return false;
+  return safeEquals(provided, expected);
+}
+
+async function loadCurrentUserRole(): Promise<{
+  user: User | null;
+  profileRole: string | null;
+}> {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) {
+    return { user: null, profileRole: null };
   }
-}
 
-function isRateLimited(ip: string): boolean {
-  const now = Date.now();
-  const entry = failMap.get(ip);
-  if (!entry) return false;
-  if (now - entry.windowStart > WINDOW_MS) {
-    failMap.delete(ip);
-    return false;
-  }
-  return entry.count >= MAX_FAILURES;
-}
+  const { data: profile, error } = await supabase
+    .from("profiles")
+    .select("role")
+    .eq("user_id", user.id)
+    .maybeSingle();
 
-// ─── Minimal audit log ──────────────────────────────────────────────────────
-
-function auditLog(ip: string, path: string, success: boolean): void {
-  console.info(
-    JSON.stringify({
-      audit: "admin_auth",
-      ip,
-      path,
-      success,
-      ts: new Date().toISOString(),
-    }),
-  );
-}
-
-// ─── Timing-safe admin key check ─────────────────────────────────────────────
-
-function keysMatch(a: string, b: string): boolean {
-  const bufA = Buffer.from(a);
-  const bufB = Buffer.from(b);
-  if (bufA.length !== bufB.length) return false;
-  return timingSafeEqual(bufA, bufB);
-}
-
-/**
- * Validate admin API key from `x-admin-key` header.
- * Returns `null` on success or a NextResponse (403/429) on failure.
- */
-export function checkAdmin(request: Request) {
-  const ip = getIp(request);
-  const path = new URL(request.url).pathname;
-
-  if (isRateLimited(ip)) {
-    auditLog(ip, path, false);
-    return apiError(E_RATE_LIMIT_EXCEEDED, 429);
+  if (error) {
+    console.error("[admin auth] failed to load profile role", {
+      userId: user.id,
+      message: error.message,
+    });
+    return { user, profileRole: null };
   }
 
-  const adminKey = process.env.ADMIN_API_KEY?.trim();
-  const key = request.headers.get("x-admin-key")?.trim();
-
-  if (!adminKey || !key || !keysMatch(key, adminKey)) {
-    recordFailure(ip);
-    auditLog(ip, path, false);
-    return apiError(E_FORBIDDEN, 403);
-  }
-
-  auditLog(ip, path, true);
-  return null;
+  return {
+    user,
+    profileRole: String(profile?.role ?? "").trim().toLowerCase() || null,
+  };
 }
 
-// Exported for testing only
-export { failMap as _failMapForTesting };
+export async function requireAdminRole(): Promise<AdminRoleCheckResult> {
+  const { user, profileRole } = await loadCurrentUserRole();
+  if (!user) {
+    return {
+      ok: false,
+      error: E_UNAUTHORIZED,
+      status: 401,
+      profileRole: null,
+    };
+  }
+
+  if (profileRole !== "admin") {
+    return {
+      ok: false,
+      error: E_FORBIDDEN,
+      status: 403,
+      profileRole,
+    };
+  }
+
+  return {
+    ok: true,
+    user,
+    profileRole: "admin",
+  };
+}
+
+export async function requireAdminRoleForApi(): Promise<AdminApiResult> {
+  const result = await requireAdminRole();
+  if (!result.ok) {
+    return {
+      user: null,
+      response: apiError(result.error, result.status),
+    };
+  }
+
+  return {
+    user: result.user,
+    response: null,
+  };
+}
+
+export async function requireAdminOrOpsForApi(
+  request: Request
+): Promise<AdminOrOpsApiResult> {
+  if (hasValidOpsHealthToken(request)) {
+    return {
+      access: "ops",
+      user: null,
+      response: null,
+    };
+  }
+
+  const admin = await requireAdminRoleForApi();
+  if (admin.response) {
+    return {
+      access: null,
+      user: null,
+      response: admin.response,
+    };
+  }
+
+  return {
+    access: "admin",
+    user: admin.user,
+    response: null,
+  };
+}
+
+export async function hasAdminOrOpsAccess(request: Request): Promise<boolean> {
+  if (hasValidOpsHealthToken(request)) return true;
+  const result = await requireAdminRole();
+  return result.ok;
+}

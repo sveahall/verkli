@@ -70,21 +70,25 @@ export default async function ReaderReadPage({
 
   const { data: chapter } = await supabase
     .from("chapters")
-    .select("id, title, order, book_id, book_version_id")
+    .select("id, title, order, book_id, book_version_id, content")
     .eq("id", chapterId)
     .maybeSingle();
 
   if (!chapter) notFound();
 
-  const { data: book } = await supabase
-    .from("books")
-    .select("id, title, status, audiobook_status, author_id, price_amount, price_currency, pricing_model")
-    .eq("id", chapter.book_id)
-    .maybeSingle();
-
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const [
+    { data: book },
+    {
+      data: { user },
+    },
+  ] = await Promise.all([
+    supabase
+      .from("books")
+      .select("id, title, status, audiobook_status, author_id, price_amount, price_currency, pricing_model")
+      .eq("id", chapter.book_id)
+      .maybeSingle(),
+    supabase.auth.getUser(),
+  ]);
 
   if (!book) {
     notFound();
@@ -188,32 +192,36 @@ export default async function ReaderReadPage({
     }
   }
 
-  const { data: chapterContent } = await supabase
-    .from("chapters")
-    .select("content")
-    .eq("id", chapterId)
-    .maybeSingle();
-
   let profilePreferences: Record<string, unknown> | null = null;
   let initialHighlights: ReaderHighlight[] = [];
 
+  const [{ data: chapters }, profileResult, chapterHighlightsResult] = await Promise.all([
+    supabase
+      .from("chapters")
+      .select("id, title, order")
+      .eq("book_version_id", chapter.book_version_id)
+      .order("order", { ascending: true }),
+    user
+      ? supabase
+          .from("profiles")
+          .select("preferences")
+          .eq("user_id", user.id)
+          .maybeSingle()
+      : Promise.resolve({ data: null }),
+    user
+      ? supabase
+          .from("highlights" as never)
+          .select("id, start_offset, end_offset, snippet, color, note, created_at, updated_at")
+          .eq("user_id", user.id)
+          .eq("chapter_id", chapter.id)
+          .order("start_offset", { ascending: true })
+      : Promise.resolve({ data: [] }),
+  ]);
+
   if (user) {
-    const { data: profile } = await supabase
-      .from("profiles")
-      .select("preferences")
-      .eq("user_id", user.id)
-      .maybeSingle();
+    profilePreferences = asRecord(profileResult?.data?.preferences);
 
-    profilePreferences = asRecord(profile?.preferences);
-
-    const { data: chapterHighlights } = await supabase
-      .from("highlights" as never)
-      .select("id, start_offset, end_offset, snippet, color, note, created_at, updated_at")
-      .eq("user_id", user.id)
-      .eq("chapter_id", chapter.id)
-      .order("start_offset", { ascending: true });
-
-    const rows = (Array.isArray(chapterHighlights) ? chapterHighlights : []) as Array<Record<string, unknown>>;
+    const rows = (Array.isArray(chapterHighlightsResult?.data) ? chapterHighlightsResult.data : []) as Array<Record<string, unknown>>;
     initialHighlights = rows
       .map((row) => {
         const id = String(row.id ?? "").trim();
@@ -239,12 +247,6 @@ export default async function ReaderReadPage({
   }
 
   const initialReaderSettings = parseReaderSettings(profilePreferences);
-
-  const { data: chapters } = await supabase
-    .from("chapters")
-    .select("id, title, order")
-    .eq("book_version_id", chapter.book_version_id)
-    .order("order", { ascending: true });
 
   const chapterIndex = chapters?.findIndex((c) => c.id === chapterId) ?? 0;
   const totalChapters = chapters?.length ?? 1;
@@ -326,6 +328,7 @@ export default async function ReaderReadPage({
         chapterId={chapter.id}
         progressPercent={progressPercent}
         currentChapter={chapterIndex + 1}
+        userId={user?.id ?? null}
       />
       <ReadingView
         backHref={`/reader/books/${book.id}`}
@@ -348,7 +351,7 @@ export default async function ReaderReadPage({
               bookVersionId={chapter.book_version_id}
               chapterId={chapter.id}
               chapterTitle={chapter.title}
-              chapterContent={chapterContent?.content ?? null}
+              chapterContent={chapter.content ?? null}
               initialHighlights={initialHighlights}
               initialPreferences={profilePreferences}
               initialSettings={initialReaderSettings}

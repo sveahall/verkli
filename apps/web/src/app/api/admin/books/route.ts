@@ -1,11 +1,11 @@
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { checkAdmin } from "@/lib/admin-auth";
+import { requireAdminRoleForApi } from "@/lib/admin-auth";
 import { apiError, E_DATABASE_ERROR } from "@/lib/api-errors";
 
 export async function GET(request: Request) {
-  const denied = checkAdmin(request);
-  if (denied) return denied;
+  const { response } = await requireAdminRoleForApi();
+  if (response) return response;
 
   const url = new URL(request.url);
   const search = url.searchParams.get("q")?.trim() ?? "";
@@ -70,8 +70,8 @@ export async function GET(request: Request) {
 }
 
 export async function DELETE(request: Request) {
-  const denied = checkAdmin(request);
-  if (denied) return denied;
+  const { response } = await requireAdminRoleForApi();
+  if (response) return response;
 
   const body = await request.json().catch(() => null);
   const bookId = typeof body?.bookId === "string" ? body.bookId.trim() : "";

@@ -4,11 +4,11 @@
 1. Systemets centrum är `apps/web` (Next.js app + API + queue producers).
 2. Data går primärt till Supabase (Auth, Postgres, Storage).
 3. Redis används som kö-backplane för BullMQ workers.
-4. Sex worker-processer finns i kod (import, translation, audiobook, social, recommendations, marketing).
-5. Fem workers har npm-scripts; en startas manuellt med `npx tsx`.
+4. Sju worker-processer finns i kod (import, translation, audiobook, social, recommendations, marketing, notifications).
+5. Kanonisk worker-runtime är `apps/web/scripts/start-workers.ts` via `npm run start-workers`; per-worker scripts finns kvar för fokuserad lokal felsökning.
 6. Betalning går via Stripe; email via Resend; video via Runway.
 7. Translation är ett lokalt provider-flöde (Opus MT) med starkt env-beroende.
-8. Databasschemat är splittrat över två migrationsmappar och är inte helt synkat med runtime-kod.
+8. Databasmigrationer har en kanonisk källa i `apps/web/supabase/migrations`; legacy-spåret i `packages/db` är arkiverat.
 
 ## Översiktsdiagram
 ```mermaid
@@ -49,7 +49,7 @@ graph TD
 | Komponent | Path | Huvudansvar |
 |---|---|---|
 | Web app | `apps/web` | Frontend, API routes, queue producers, worker scripts |
-| Worker app | `apps/worker` | Import worker-wrapper som återanvänder `apps/web`-kod |
+| Worker app | `apps/worker` | Kompatibilitetsshim som vidarebefordrar till kanonisk runtime i `apps/web/scripts/start-workers.ts` |
 
 ### Delade paket
 | Paket | Path | Huvudansvar |
@@ -92,7 +92,7 @@ graph TD
 | `social-publish` | social publish route | `scripts/social-publish-worker.ts` | `ai_jobs`, `marketing_campaigns` |
 | `marketing-campaign` | marketing schedule route | `scripts/marketing-worker.ts` | `marketing_campaigns` |
 | `recommendations` | recommendations queue + intern scheduler | `scripts/recommendations-worker.ts` | `recommendations` |
-| `notifications` | definierad i queue names | saknas worker | ej aktiv queue-flow i kod |
+| `notifications` | notification routes/jobs | `scripts/notifications-worker.ts` | notifications-relaterade side effects |
 
 ## Route Domäner (Översikt)
 | Domän | Frontend routes | API routes |
@@ -118,12 +118,11 @@ graph TD
 - API auth bygger på Supabase session från server client (`createClient`).
 - Privilegierade operationer går via service-role client (`createAdminClient`).
 - Author-gating använder DB-kontroller (`profiles.role` + `author_applications`) i middleware + route guards.
-- Admin-endpoints kräver `x-admin-key` mot `ADMIN_API_KEY`.
+- Admin-endpoints kräver en autentiserad Supabase-session där `profiles.role = 'admin'`.
+- Operativa health-endpoints kräver admin-session eller `x-ops-health-token` / bearer-token via `OPS_HEALTH_TOKEN` eller `HEALTHCHECK_TOKEN`.
 - Social OAuth state signeras och valideras med `SOCIAL_OAUTH_STATE_SECRET`.
 - Social tokens krypteras med `SOCIAL_TOKEN_KEY`.
 
 ## Kända Arkitekturluckor
-- [ ] Databas-schema är inte en enda konsoliderad källa i repo.
-- [ ] Vissa runtime-tabeller saknar migrationer i båda spåren (`social_connections`, `recommendations`, m.fl.).
-- [ ] `notifications` queue är definierad men ingen worker hittad.
-- [ ] Worker script-ytan är inkonsekvent (saknade npm scripts för social/recommendations).
+- [ ] `apps/worker` och `combined-worker.ts` finns kvar som kompatibilitetsvägar, men äger inte längre worker-runtime.
+- [ ] Per-worker scripts och den unifierade runtime:n behöver hållas funktionsparallella tills gamla startvägar kan tas bort helt.

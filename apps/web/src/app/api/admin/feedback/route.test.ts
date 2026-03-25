@@ -1,49 +1,71 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { GET } from "./route";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const originalEnv = process.env.ADMIN_API_KEY;
+const mocks = vi.hoisted(() => ({
+  requireAdminRoleForApi: vi.fn(),
+  createAdminClient: vi.fn(),
+}));
+
+vi.mock("@/lib/admin-auth", () => ({
+  requireAdminRoleForApi: mocks.requireAdminRoleForApi,
+}));
 
 vi.mock("@/lib/supabase/admin", () => ({
-  createAdminClient: vi.fn(() => ({
-    from: () => ({
-      select: () => ({
-        order: () => Promise.resolve({ data: [], error: null }),
-      }),
-    }),
-  })),
+  createAdminClient: mocks.createAdminClient,
 }));
+
+const { GET } = await import("./route");
 
 describe("GET /api/admin/feedback", () => {
   beforeEach(() => {
-    process.env.ADMIN_API_KEY = "secret-admin-key";
-  });
-
-
-  afterEach(() => {
-    process.env.ADMIN_API_KEY = originalEnv;
-  });
-
-  it("returns 403 without x-admin-key", async () => {
-    const req = new Request("http://localhost/api/admin/feedback");
-    const res = await GET(req);
-    expect(res.status).toBe(403);
-  });
-
-  it("returns 403 with wrong x-admin-key", async () => {
-    const req = new Request("http://localhost/api/admin/feedback", {
-      headers: { "x-admin-key": "wrong" },
+    vi.clearAllMocks();
+    mocks.createAdminClient.mockReturnValue({
+      from: vi.fn(() => ({
+        select: vi.fn(() => ({
+          order: vi.fn(async () => ({ data: [], error: null })),
+        })),
+      })),
     });
-    const res = await GET(req);
-    expect(res.status).toBe(403);
   });
 
-  it("returns 200 with correct x-admin-key", async () => {
-    const req = new Request("http://localhost/api/admin/feedback", {
-      headers: { "x-admin-key": "secret-admin-key" },
+  it("returns 401 when no authenticated admin session exists", async () => {
+    mocks.requireAdminRoleForApi.mockResolvedValue({
+      user: null,
+      response: new Response(JSON.stringify({ error: "UNAUTHORIZED" }), {
+        status: 401,
+        headers: { "Content-Type": "application/json" },
+      }),
     });
-    const res = await GET(req);
+
+    const res = await GET();
+
+    expect(res.status).toBe(401);
+    await expect(res.json()).resolves.toMatchObject({ error: "UNAUTHORIZED" });
+  });
+
+  it("returns 403 for authenticated non-admin users", async () => {
+    mocks.requireAdminRoleForApi.mockResolvedValue({
+      user: null,
+      response: new Response(JSON.stringify({ error: "FORBIDDEN" }), {
+        status: 403,
+        headers: { "Content-Type": "application/json" },
+      }),
+    });
+
+    const res = await GET();
+
+    expect(res.status).toBe(403);
+    await expect(res.json()).resolves.toMatchObject({ error: "FORBIDDEN" });
+  });
+
+  it("returns feedback for authenticated admins", async () => {
+    mocks.requireAdminRoleForApi.mockResolvedValue({
+      user: { id: "admin-1" },
+      response: null,
+    });
+
+    const res = await GET();
+
     expect(res.status).toBe(200);
-    const body = await res.json();
-    expect(body).toHaveProperty("feedback");
+    await expect(res.json()).resolves.toHaveProperty("feedback");
   });
 });

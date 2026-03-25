@@ -71,7 +71,16 @@ npm run dev
 Öppna: `http://localhost:3000`
 
 ## 4) Starta Workers
-Kör varje worker i egen terminal.
+Primär väg är att starta alla workers i en process. Kör separata workers bara
+om du felsöker en specifik kö.
+
+### 4.0 Kanonisk runtime
+```bash
+npm run start-workers
+```
+
+### 4.0b Fokuserad felsökning
+Kör en worker i egen terminal.
 
 ### 4.1 Import worker
 ```bash
@@ -101,10 +110,9 @@ Start:
 npm run audiobook-worker
 ```
 
-### 4.5 Social publish worker (saknar npm-script)
+### 4.5 Social publish worker
 ```bash
-cd apps/web
-npx tsx scripts/social-publish-worker.ts
+npm run social-publish-worker
 ```
 För non-mock:
 ```env
@@ -135,10 +143,11 @@ Kräver Qwen TTS Python-miljö. Se [docs/tts-lab.md](./tts-lab.md).
 ## 5) Snabb Hälsokontroll
 ```bash
 curl -s http://localhost:3000/api/health
-curl -s http://localhost:3000/api/health/queue
+curl -s -H "x-ops-health-token: $OPS_HEALTH_TOKEN" http://localhost:3000/api/health/queue
 ```
 
 Notera:
+- `/api/health` är publik men returnerar bara en minimal safe liveness-payload utan DB/Redis-detaljer för icke-admin.
 - `/api/health/queue` verifierar Redis + translation queue reachability, inte full queue-metrics per worker.
 
 ## 6) Flödes-Smoketests

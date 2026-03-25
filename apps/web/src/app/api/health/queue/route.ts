@@ -1,8 +1,12 @@
 import { NextResponse } from "next/server";
+import { requireAdminOrOpsForApi } from "@/lib/admin-auth";
 import { getTranslationQueue } from "@/lib/translation-queue";
 import { checkRedisHealth } from "@/lib/health/checks";
 
-export async function GET() {
+export async function GET(request: Request) {
+  const { response } = await requireAdminOrOpsForApi(request);
+  if (response) return response;
+
   const redis = await checkRedisHealth();
 
   if (!redis) {

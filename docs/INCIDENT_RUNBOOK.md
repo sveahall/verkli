@@ -1,6 +1,6 @@
 # Incident Runbook — Production Observability
 
-**Recommended canonical endpoint:** `GET /api/health/workers` — use this as the main health check. It returns Redis status, queue metrics (depth, failed, active per queue + totals), worker heartbeats (lastSeen, stale/crashed), and the list of crashed queues.
+**Recommended canonical endpoint:** `GET /api/health/workers` — use this as the main health check with an admin session or `x-ops-health-token`. It returns Redis status, queue metrics (depth, failed, active per queue + totals), worker heartbeats (lastSeen, stale/crashed), and the list of crashed queues.
 
 Alert definitions live in `infra/alerting/alerts.yml`. The deprecated endpoints `GET /api/health/metrics/queue` and `GET /api/health/workers/crashes` remain available but return `deprecated: true`; prefer `GET /api/health/workers` for new integrations.
 
@@ -22,7 +22,7 @@ Alert definitions live in `infra/alerting/alerts.yml`. The deprecated endpoints 
    - If running in Docker/Kubernetes, check container/pod status and logs.
 
 2. **Restart the worker**
-   - **Local / single host:** Restart the process (e.g. `npm run import-worker`, or your process manager).
+   - **Local / single host:** Restart the canonical runtime with `npm run start-workers`, or restart the targeted single-worker process if only one queue is isolated for debugging.
    - **Docker:** `docker compose restart <worker-service>` or equivalent.
    - **Kubernetes:** `kubectl rollout restart deployment/<worker-deployment>` or delete pod to reschedule.
 

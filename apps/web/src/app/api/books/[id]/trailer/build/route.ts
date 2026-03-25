@@ -24,6 +24,7 @@ import {
 } from "@/lib/api-errors";
 
 export const maxDuration = 600;
+export const runtime = "nodejs";
 
 const SCENE_DURATION_SECONDS = 5;
 const MAX_SCENES = 3;

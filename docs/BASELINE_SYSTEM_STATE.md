@@ -1,6 +1,6 @@
 # Baseline System State
 
-Last updated: 2026-03-04
+Last updated: 2026-03-25
 
 ## Scope
 
@@ -64,11 +64,15 @@ Source of truth: `apps/web/src/lib/queue-names.ts`.
 
 ## Workers
 
+- `npm run start-workers` (kanonisk unified runtime)
 - `npm run import-worker`
 - `npm run translate-worker`
 - `npm run audiobook-worker`
 - `npm run recommendations-worker`
-- `npm run combined-worker` (import + translation only)
+- `npm run marketing-worker`
+- `npm run social-publish-worker`
+- `npm run notifications-worker`
+- `npm run combined-worker` (kompatibilitetsväg för import + translation)
 
 Worker env baseline:
 

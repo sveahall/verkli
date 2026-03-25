@@ -10,7 +10,7 @@ import {
   E_APPLICATION_UPDATE_FAILED,
   E_APPLICATION_CREATION_FAILED,
 } from "@/lib/api-errors";
-import { checkAdmin } from "@/lib/admin-auth";
+import { requireAdminRoleForApi } from "@/lib/admin-auth";
 import {
   buildApplicationStatusSubject,
   buildApplicationStatusHtml,
@@ -32,9 +32,9 @@ type UserRow = {
   email: string | null;
 };
 
-export async function GET(request: Request) {
-  const denied = checkAdmin(request);
-  if (denied) return denied;
+export async function GET() {
+  const { response } = await requireAdminRoleForApi();
+  if (response) return response;
 
   const admin = createAdminClient();
   const { data, error } = await admin
@@ -79,8 +79,8 @@ export async function GET(request: Request) {
 }
 
 export async function PATCH(request: Request) {
-  const denied = checkAdmin(request);
-  if (denied) return denied;
+  const { response } = await requireAdminRoleForApi();
+  if (response) return response;
 
   const body = await request.json().catch(() => null);
   const userId = typeof body?.userId === "string" ? body.userId.trim() : "";

@@ -11,21 +11,35 @@
 
 ## Kör från repo root
 
+- Kanonisk runtime för alla workers: `npm run start-workers`
 - Import worker: `npm run import-worker`
 - Translation worker: `npm run translate-worker`
 - Audiobook worker: `npm run audiobook-worker`
+- Marketing worker: `npm run marketing-worker`
+- Social publish worker: `npm run social-publish-worker`
+- Recommendations worker: `npm run recommendations-worker`
+- Notifications worker: `npm run notifications-worker`
 
 ## Kör direkt i apps/web
 
+- Kanonisk runtime för alla workers: `npm run start-workers`
 - Import worker: `npm run import-worker`
 - Translation worker: `npm run translate-worker`
 - Audiobook worker: `npm run audiobook-worker`
+- Marketing worker: `npm run marketing-worker`
+- Social publish worker: `npm run social-publish-worker`
+- Recommendations worker: `npm run recommendations-worker`
+- Notifications worker: `npm run notifications-worker`
 
 ## Köer
 
 - `book-import-extract`
 - `book-translation`
 - `audiobook-generation`
+- `marketing-campaign`
+- `social-publish`
+- `recommendations`
+- `notifications`
 
 ## Status-contract (DB)
 

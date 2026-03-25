@@ -1,11 +1,11 @@
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { apiError, E_FEEDBACK_LOAD_FAILED } from "@/lib/api-errors";
-import { checkAdmin } from "@/lib/admin-auth";
+import { requireAdminRoleForApi } from "@/lib/admin-auth";
 
-export async function GET(request: Request) {
-  const denied = checkAdmin(request);
-  if (denied) return denied;
+export async function GET() {
+  const { response } = await requireAdminRoleForApi();
+  if (response) return response;
 
   const admin = createAdminClient();
   const { data, error } = await admin

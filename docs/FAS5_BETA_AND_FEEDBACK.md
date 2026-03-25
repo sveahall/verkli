@@ -3,7 +3,7 @@
 ## Översikt
 
 - **Beta gating**: När `BETA_LOCK=true` får endast användare med `beta_enabled` i `user_flags` komma åt appen. Övriga redirectas till `/waitlist` (sidor) eller får 403 (API).
-- **Feedback**: Användare kan skicka bug/idea/other via POST; egna feedback visas med status. Admin listar all feedback via x-admin-key.
+- **Feedback**: Användare kan skicka bug/idea/other via POST; egna feedback visas med status. Admin listar all feedback via autentiserad admin-session.
 - **Funnel metrics**: Admin-endpoint som räknar events senaste 7 dagar per event_name, uppdelat author/reader.
 - Inga mockar; allt använder Supabase.
 
@@ -15,8 +15,7 @@
 # Beta lock (FAS 5): när true, endast beta-användare och /waitlist, /auth tillåtna
 # BETA_LOCK=false
 
-# Admin API (feedback, funnel)
-# ADMIN_API_KEY=your-secret-admin-key
+# Admin API (feedback, funnel) använder Supabase-session + `profiles.role = 'admin'`
 ```
 
 ---
@@ -47,7 +46,7 @@ ON CONFLICT (user_id) DO UPDATE SET beta_enabled = true;
 - **Tabell**: `public.feedback` (id, user_id nullable, type bug|idea|other, message max 2000, url, request_id, status new|triaged|done, created_at). RLS: användare INSERT (eget user_id eller null); SELECT egna rader; admin via service role.
 - **POST /api/feedback**: Auth valfritt. Body: `{ "type": "bug"|"idea"|"other", "message": "…", "url": "…?", "request_id": "…?" }`. Returnerar `{ id, created_at }`. 400 vid ogiltig body.
 - **GET /api/feedback**: Kräver auth. Returnerar `{ feedback: [...] }` med användarens egna rader.
-- **GET /api/admin/feedback**: Kräver header `x-admin-key: <ADMIN_API_KEY>`. Returnerar `{ feedback: [...] }` med alla rader.
+- **GET /api/admin/feedback**: Kräver autentiserad admin-session. Returnerar `{ feedback: [...] }` med alla rader.
 
 ### Testa med curl
 
@@ -68,23 +67,18 @@ curl -s -X POST http://localhost:3000/api/feedback \
 curl -s http://localhost:3000/api/feedback -H "Cookie: <session>"
 # Förväntat: 200, { "feedback": [...] }
 
-# Admin lista (kräver x-admin-key)
-curl -s -H "x-admin-key: YOUR_ADMIN_API_KEY" http://localhost:3000/api/admin/feedback
-# Förväntat: 200, { "feedback": [...] }
+# Admin lista: kör i en inloggad browser-session eller med session-cookie för en admin-användare
 ```
 
 ---
 
 ## Funnel metrics
 
-- **GET /api/admin/metrics/funnel**: Kräver `x-admin-key`. Läser `analytics_events` senaste 7 dagar, grupperar per event_name, delar upp author/reader utifrån path (path innehåller "author" eller "reader"). Returnerar `{ since, author: [{ event_name, count }], reader: [...] }`.
+- **GET /api/admin/metrics/funnel**: Kräver autentiserad admin-session. Läser `analytics_events` senaste 7 dagar, grupperar per event_name, delar upp author/reader utifrån path (path innehåller "author" eller "reader"). Returnerar `{ since, author: [{ event_name, count }], reader: [...] }`.
 
 ### Testa med curl
 
-```bash
-curl -s -H "x-admin-key: YOUR_ADMIN_API_KEY" http://localhost:3000/api/admin/metrics/funnel
-# Förväntat: 200, { "since": "...", "author": [...], "reader": [...] }
-```
+Admin-funnel testas via inloggad admin-session i browser eller med en export av adminens session-cookie.
 
 ---
 

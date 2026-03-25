@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 type BookRow = {
   id: string;
@@ -14,7 +14,6 @@ type BookRow = {
 };
 
 export default function AdminBooksPage() {
-  const [adminKey, setAdminKey] = useState("");
   const [books, setBooks] = useState<BookRow[]>([]);
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
@@ -34,11 +33,11 @@ export default function AdminBooksPage() {
       if (statusFilter) params.set("status", statusFilter);
 
       const res = await fetch(`/api/admin/books?${params}`, {
-        headers: { "x-admin-key": adminKey.trim() },
+        cache: "no-store",
       });
 
       if (!res.ok) {
-        setError("Could not load books. Verify ADMIN_API_KEY.");
+        setError(res.status === 403 ? "Access denied." : "Could not load books.");
         return;
       }
 
@@ -63,7 +62,6 @@ export default function AdminBooksPage() {
         method: "DELETE",
         headers: {
           "Content-Type": "application/json",
-          "x-admin-key": adminKey.trim(),
         },
         body: JSON.stringify({ bookId }),
       });
@@ -79,6 +77,12 @@ export default function AdminBooksPage() {
     }
   };
 
+  useEffect(() => {
+    void loadBooks(1);
+    // Initial load only; subsequent loads are user-driven search/pagination actions.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   return (
     <main className="mx-auto w-full max-w-5xl px-6 py-12">
       <h1 className="mb-2 text-2xl font-semibold text-slate-900 dark:text-white">
@@ -88,16 +92,8 @@ export default function AdminBooksPage() {
         Browse and remove books that violate content policy.
       </p>
 
-      {/* Auth + Search */}
       <section className="mb-6 rounded-2xl border border-slate-200 bg-white p-5 dark:border-white/10 dark:bg-white/[0.02]">
         <div className="flex flex-col gap-3 sm:flex-row">
-          <input
-            type="password"
-            value={adminKey}
-            onChange={(e) => setAdminKey(e.target.value)}
-            placeholder="Admin API key"
-            className="w-48 rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 outline-none dark:border-white/20 dark:bg-black/20 dark:text-white"
-          />
           <input
             type="text"
             value={search}
@@ -118,7 +114,7 @@ export default function AdminBooksPage() {
           <button
             type="button"
             onClick={() => loadBooks(1)}
-            disabled={loading || !adminKey.trim()}
+            disabled={loading}
             className="rounded-xl bg-slate-900 px-4 py-2 text-sm font-medium text-white transition hover:bg-slate-700 disabled:cursor-not-allowed disabled:opacity-60 dark:bg-white dark:text-slate-900"
           >
             {loading ? "Loading..." : "Search"}
@@ -134,7 +130,7 @@ export default function AdminBooksPage() {
 
       {!loaded ? (
         <div className="rounded-2xl border border-dashed border-slate-300 px-6 py-10 text-center text-sm text-slate-600 dark:border-white/20 dark:text-white/60">
-          Enter admin key and search to load books.
+          Loading books...
         </div>
       ) : books.length === 0 ? (
         <div className="rounded-2xl border border-slate-200 bg-slate-50 px-6 py-10 text-center text-sm dark:border-white/10 dark:bg-white/[0.02] dark:text-white/60">

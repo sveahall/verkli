@@ -59,8 +59,15 @@ const themeScript = `
 const suppressAbortScript = `
   if (typeof window !== 'undefined') {
     window.addEventListener('unhandledrejection', function(e) {
-      if (e && e.reason && e.reason.name === 'AbortError' &&
-          String(e.reason.message || '').indexOf('abort') !== -1) {
+      const reason = e && e.reason;
+      const message = String((reason && reason.message) || '');
+      if (
+        reason &&
+        (
+          (reason.name === 'AbortError' && message.indexOf('abort') !== -1) ||
+          message === 'signal is aborted without reason'
+        )
+      ) {
         e.preventDefault();
       }
     });

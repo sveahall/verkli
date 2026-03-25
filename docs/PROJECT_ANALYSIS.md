@@ -6,7 +6,7 @@
 3. API-ytan: ~120 API-routes; frontend har ~80 `page.tsx` routes.
 4. Asynkron bearbetning finns för import, translation, audiobook, social publish, recommendations och marketing.
 5. Databaslagret har primärt migrationsspår i `apps/web/supabase/migrations`.
-6. Schema-drift finns: kod använder tabeller som saknar migration i repot (se `docs/SCHEMA_GAPS.md`).
+6. Tidigare schema-drift är reconcilerad i `apps/web/supabase/migrations` (se `docs/SCHEMA_GAPS.md`).
 7. Externa integrationer: Stripe, Supabase Auth/DB/Storage, Resend, Runway, X/TikTok/Instagram OAuth och lokal Qwen TTS.
 8. Build-status: `npm run build` passerar (Turbopack).
 9. Test-status: **676 gröna tester, 0 failures** (via `npm run qa:beta`).
@@ -36,12 +36,12 @@
 | `audiobook-generation` | `scripts/audiobook-worker.ts` | `npm run audiobook-worker` |
 | `social-publish` | `scripts/social-publish-worker.ts` | `npm run social-publish-worker` |
 | `marketing-campaign` | `scripts/marketing-worker.ts` | `npm run marketing-worker` |
-| `recommendations` | `scripts/recommendations-worker.ts` | manuell: `npx tsx scripts/recommendations-worker.ts` |
+| `recommendations` | `scripts/recommendations-worker.ts` | `npm run recommendations-worker` |
+| `notifications` | `scripts/notifications-worker.ts` | `npm run notifications-worker` |
 
 ## Kända Luckor
-- [ ] Schema-drift: runtime-tabeller saknar migrationer (se `docs/SCHEMA_GAPS.md`)
 - [ ] `packages/db/supabase/migrations` är legacy — ej konsoliderat med primärspår
-- [ ] `notifications` queue definierad men ingen worker finns
+- [ ] `apps/worker` och `combined-worker.ts` finns kvar som kompatibilitetsvägar
 - [ ] Translation stöder primärt `sv↔en` via Opus MT
 - [ ] In-memory rate-limit/budget resetas vid restart
 

@@ -17,6 +17,7 @@
     "import-worker": "tsx scripts/import-worker.ts",
     "translate-worker": "tsx scripts/translation-worker.ts",
     "audiobook-worker": "tsx scripts/audiobook-worker.ts",
+    "start-workers": "tsx scripts/start-workers.ts",
     "tts-voice-profile": "tsx scripts/tts-voice-profile.ts",
     "marketing-worker": "tsx scripts/marketing-worker.ts",
     "social-publish-worker": "npx tsx scripts/social-publish-worker.ts",
