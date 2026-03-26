@@ -4,6 +4,11 @@ import { assertPublicEnv } from "@/lib/env";
 import { requireAuthorRoleForApi } from "@/lib/auth/require-author";
 import { repairImportedChapterTitles } from "@/lib/import-extract";
 import {
+  getBookAsOwner,
+  getLatestBookVersion,
+  getChaptersForBook,
+} from "@/lib/books/service";
+import {
   apiError,
   E_BOOK_NOT_FOUND,
   E_DATABASE_ERROR,
@@ -13,12 +18,6 @@ import {
 
 type RepairPayload = {
   bookVersionId?: unknown;
-};
-
-type ChapterRow = {
-  id: string;
-  title: string | null;
-  order: number | null;
 };
 
 function readOptionalString(value: unknown): string | null {
@@ -38,9 +37,11 @@ export async function POST(
   assertPublicEnv();
   const { id: bookId } = await params;
 
+  // Auth
   const { user, response } = await requireAuthorRoleForApi();
   if (response) return response;
 
+  // Validation
   let body: RepairPayload = {};
   try {
     const parsed = await request.json();
@@ -55,48 +56,25 @@ export async function POST(
   const requestedVersionId = readOptionalString(body.bookVersionId);
   const supabase = await createClient();
 
-  const { data: book, error: bookError } = await supabase
-    .from("books")
-    .select("id, author_id")
-    .eq("id", bookId)
-    .maybeSingle();
-
-  if (bookError) {
-    console.error("[chapters.repair] book lookup failed", {
-      bookId,
-      userId: user.id,
-      code: bookError.code,
-      message: bookError.message,
-    });
-    return apiError(E_DATABASE_ERROR, 500);
+  // Ownership check
+  const bookResult = await getBookAsOwner(supabase, bookId, user.id, "id, author_id");
+  if (!bookResult.ok) {
+    return apiError(
+      bookResult.error === "book_not_found" ? E_BOOK_NOT_FOUND : E_DATABASE_ERROR,
+      bookResult.error === "book_not_found" ? 404 : 500,
+    );
   }
 
-  if (!book || book.author_id !== user.id) {
-    return apiError(E_BOOK_NOT_FOUND, 404);
-  }
-
+  // Resolve target version
   let targetVersionId = requestedVersionId;
   if (!targetVersionId) {
-    const { data: latestVersion, error: latestVersionError } = await supabase
-      .from("book_versions")
-      .select("id")
-      .eq("book_id", bookId)
-      .order("updated_at", { ascending: false })
-      .limit(1)
-      .maybeSingle();
-
-    if (latestVersionError) {
-      console.error("[chapters.repair] latest version lookup failed", {
-        bookId,
-        userId: user.id,
-        code: latestVersionError.code,
-        message: latestVersionError.message,
-      });
+    const versionResult = await getLatestBookVersion(supabase, bookId, { select: "id" });
+    if (!versionResult.ok) {
       return apiError(E_DATABASE_ERROR, 500);
     }
-
-    targetVersionId = latestVersion?.id ?? null;
+    targetVersionId = versionResult.data?.id ?? null;
   } else {
+    // Verify requested version belongs to this book
     const { data: version, error: versionError } = await supabase
       .from("book_versions")
       .select("id")
@@ -124,32 +102,21 @@ export async function POST(
     return apiError(E_INVALID_BOOK_VERSION, 400);
   }
 
-  const { data: chapterRows, error: chapterError } = await supabase
-    .from("chapters")
-    .select("id, title, order")
-    .eq("book_id", bookId)
-    .eq("book_version_id", targetVersionId)
-    .order("order", { ascending: true });
-
-  if (chapterError) {
-    console.error("[chapters.repair] chapter load failed", {
-      bookId,
-      userId: user.id,
-      targetVersionId,
-      code: chapterError.code,
-      message: chapterError.message,
-    });
+  // Fetch chapters for version
+  const chaptersResult = await getChaptersForBook(supabase, bookId, {
+    versionId: targetVersionId,
+    select: "id, title, order",
+  });
+  if (!chaptersResult.ok) {
     return apiError(E_DATABASE_ERROR, 500);
   }
 
-  const chapters = (chapterRows ?? []) as ChapterRow[];
+  type ChapterSlim = { id: string; title: string | null; order: number | null };
+  const chapters = chaptersResult.data as unknown as ChapterSlim[];
   if (chapters.length === 0) {
     return NextResponse.json({
       ok: true,
-      changed: false,
-      targetVersionId,
-      updatedCount: 0,
-      totalCount: 0,
+      data: { changed: false, targetVersionId, updatedCount: 0, totalCount: 0 },
     });
   }
 
@@ -190,15 +157,18 @@ export async function POST(
     }
   }
 
+  // Response
   return NextResponse.json({
     ok: true,
-    changed: updates.length > 0,
-    targetVersionId,
-    updatedCount: updates.length,
-    totalCount: chapters.length,
-    updatedTitles: updates.slice(0, 5).map((item) => ({
-      from: item.before,
-      to: item.after,
-    })),
+    data: {
+      changed: updates.length > 0,
+      targetVersionId,
+      updatedCount: updates.length,
+      totalCount: chapters.length,
+      updatedTitles: updates.slice(0, 5).map((item) => ({
+        from: item.before,
+        to: item.after,
+      })),
+    },
   });
 }

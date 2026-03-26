@@ -66,6 +66,12 @@ vi.mock("@/lib/supabase/admin", () => {
       from: vi.fn(() => ({
         select: vi.fn().mockReturnThis(),
         eq: vi.fn().mockReturnThis(),
+        maybeSingle: vi.fn().mockImplementation(() =>
+          Promise.resolve({
+            data: { id: "book-1", author_id: mockAuthorId },
+            error: null,
+          })
+        ),
         single: vi.fn().mockImplementation(() =>
           Promise.resolve({
             data: { id: "book-1", author_id: mockAuthorId },
@@ -272,7 +278,7 @@ describe("security: POST /api/books/[id]/content/generate", () => {
     expect(res.status).toBe(200);
     const body = await res.json();
     expect(body.ok).toBe(true);
-    expect(body.assetId).toBeDefined();
+    expect(body.data.assetId).toBeDefined();
   });
 
   it("guard order: auth → feature flag → rate limit → billing", async () => {

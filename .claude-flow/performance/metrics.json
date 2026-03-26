@@ -1,0 +1,32 @@
+{
+  "metrics": [
+    {
+      "timestamp": "2026-03-26T12:29:20.005Z",
+      "cpu": {
+        "usage": 100,
+        "cores": 8
+      },
+      "memory": {
+        "used": 16284,
+        "total": 16384,
+        "heap": 6
+      },
+      "latency": {
+        "avg": 50,
+        "p50": 40,
+        "p95": 100,
+        "p99": 200
+      },
+      "throughput": {
+        "requests": 1,
+        "operations": 10
+      },
+      "errors": {
+        "count": 0,
+        "rate": 0
+      }
+    }
+  ],
+  "benchmarks": {},
+  "version": "3.0.0"
+}

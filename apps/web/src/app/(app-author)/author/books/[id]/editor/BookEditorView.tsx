@@ -1,13 +1,9 @@
 "use client";
 
 import Link from "next/link";
-import Image from "next/image";
-import { useState, useCallback, useRef, useEffect, useMemo } from "react";
+import { useState, useCallback, useEffect, useMemo } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
-import { uploadBookCover } from "@/lib/supabase/storage";
-import AuthorStatsBar from "@/components/editor/AuthorStatsBar";
-import DeleteBookButton from "@/components/books/DeleteBookButton";
 import { BookJobsBanner } from "@/components/books/JobStatusBanner";
 import { useToastHelpers } from "@/components/ui/toast";
 import { useBookJobs, type UnifiedJob } from "@/hooks/useBookJobs";
@@ -15,12 +11,7 @@ import { useBillingState } from "@/hooks/useBillingState";
 import { resolveErrorMessage } from "@/lib/error-messages";
 import { getAudiobookEnabled, getMarketingEnabled, getRecommendationsEnabled, getTranslationsEnabled } from "@/lib/flags";
 import GenreSelector from "@/components/books/GenreSelector";
-import { isJobActiveStatus, normalizeJobStatus } from "@/lib/job-status";
-import { getLanguageLabel, LANGUAGE_OPTIONS, normalizeLanguage, type SupportedLanguage } from "@/lib/languages";
-import { isTranslationPairSupported } from "@/lib/translation-pairs";
-import ChapterAudiobookPlayer from "@/app/(reader-browse)/reader/read/[chapterId]/ChapterAudiobookPlayer";
-import ManifestAudiobookPlayer from "@/components/books/ManifestAudiobookPlayer";
-import NoDownloadAudioPlayer from "@/components/books/NoDownloadAudioPlayer";
+import { getLanguageLabel, normalizeLanguage, type SupportedLanguage } from "@/lib/languages";
 import dynamic from "next/dynamic";
 import { useAuthorWorkspace } from "@/features/author-shell/workspace-state";
 import {
@@ -28,63 +19,47 @@ import {
   type InlineAiAction,
   type WriteInlineAiEventDetail,
 } from "@/features/book-workspace/types";
-import AiAssistantPanel from "./components/AiAssistantPanel";
-import EditorCanvas from "./components/EditorCanvas";
 import BookWorkflowHeader from "../BookWorkflowHeader";
 import ImportManusSection from "./components/ImportManusSection";
 import { useBookWorkspaceCommandPalette } from "./workspace/BookWorkspaceCommandPaletteProvider";
 import { useBookWorkspaceController } from "./hooks/useBookWorkspaceController";
 import { useChapterSelection } from "./hooks/useChapterSelection";
+import { useBookPricing } from "./hooks/useBookPricing";
+import { useBookCover } from "./hooks/useBookCover";
+import { useBookRename } from "./hooks/useBookRename";
+import { useChapterCrud } from "./hooks/useChapterCrud";
+import { usePublishing } from "./hooks/usePublishing";
+import { useTranslation } from "./hooks/useTranslation";
+import { useAudiobook } from "./hooks/useAudiobook";
+import { useMarketing } from "./hooks/useMarketing";
 import {
-  ACCEPTED_COVER_TYPES,
-  COVER_AI_STYLES,
   countWordsInContent,
-  describeVisibility,
-  formatAudiobookEta,
-  formatPlayerTime,
-  getAudiobookStatusLabel,
-  getGeneratedCoverExtension,
-  getMarketingCampaignStatusLabel,
-  hasReadableContent,
-  isAcceptedCoverFile,
-  MARKETING_CHANNEL_LABELS,
-  MARKETING_CHANNELS,
   normalizeLangKey,
-  normalizeVisibility,
-  PUBLISH_VISIBILITY_OPTIONS,
-  STATUS_LABELS,
   STORAGE_PRESET,
-  TRANSLATION_POLL_MAX_MS,
-  VISIBILITY_LABELS,
-  type MarketingChannel,
 } from "./BookEditorView.helpers";
-import {
-  type AudiobookControlAction,
-  type AudiobookGenerationScope,
-  type Book,
-  type BookVersion,
-  type Chapter,
-  type LatestAudiobookAsset,
-  type MarketingCampaignRow,
-  type PublishVisibility,
-  type Tool,
+import type {
+  Book,
+  BookVersion,
+  Chapter,
+  LatestAudiobookAsset,
+  MarketingCampaignRow,
+  PublishVisibility,
+  Tool,
 } from "./BookEditorView.types";
 import FocusModeEditorView from "./views/FocusModeEditorView";
 import SimplifiedEditView from "./views/SimplifiedEditView";
 import WriteOnlyWorkspaceView from "./views/WriteOnlyWorkspaceView";
+import { normalizePrintOnDemandSettings, type PrintOnDemandSettings } from "./panels/PrintPanel.helpers";
 
-const CoverCropModal = dynamic(() => import("@/components/books/CoverCropModal"), { ssr: false });
-const TiptapEditor = dynamic(() => import("@/components/editor/TiptapEditor"), {
-  ssr: false,
-  loading: () => <div className="h-[400px] animate-pulse rounded-xl bg-slate-100 dark:bg-white/5" />,
-});
 const PrintPanel = dynamic(() => import("./panels/PrintPanel"));
 const TranslatePanel = dynamic(() => import("./panels/TranslatePanel"));
 const PolishPanel = dynamic(() => import("./panels/PolishPanel"));
 const PublishPanel = dynamic(() => import("./panels/PublishPanel"));
 const MarketPanel = dynamic(() => import("./panels/MarketPanel"));
 const StatisticsPanel = dynamic(() => import("./panels/StatisticsPanel"));
-import { normalizePrintOnDemandSettings, type PrintOnDemandSettings } from "./panels/PrintPanel.helpers";
+const AudiobookPanel = dynamic(() => import("./panels/AudiobookPanel"));
+const CoverPanel = dynamic(() => import("./panels/CoverPanel"));
+const PricingPanel = dynamic(() => import("./panels/PricingPanel"));
 
 type Props = {
   book: Book;
@@ -131,7 +106,14 @@ export default function BookEditorView({
     openPalette,
     setCommands,
   } = useBookWorkspaceCommandPalette();
+
+  // ── Chapters ──────────────────────────────────────────────────────────────
   const [chapters, setChapters] = useState<Chapter[]>(initialChapters);
+
+  useEffect(() => {
+    setChapters(initialChapters);
+  }, [initialChapters]);
+
   const {
     CHAPTERS_PER_PAGE,
     chapterPage,
@@ -150,18 +132,9 @@ export default function BookEditorView({
     chapters,
     initialSelectedChapterId: initialChapters[0]?.id ?? null,
   });
-  const [isSaving, setIsSaving] = useState(false);
-  const [isCreating, setIsCreating] = useState(false);
-  const [editingTitleId, setEditingTitleId] = useState<string | null>(null);
-  const [tempTitle, setTempTitle] = useState("");
-  const [bookTitle, setBookTitle] = useState(book.title ?? "Untitled");
-  const [isRenamingBook, setIsRenamingBook] = useState(false);
-  const [bookTitleDraft, setBookTitleDraft] = useState(book.title ?? "Untitled");
-  const [bookTitleError, setBookTitleError] = useState<string | null>(null);
-  const [bookTitleSaving, setBookTitleSaving] = useState(false);
-  const [lastSaved, setLastSaved] = useState<Date | null>(null);
-  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
-  const [saveError, setSaveError] = useState(false);
+
+  // ── Session & word counts ─────────────────────────────────────────────────
+  const [sessionStartWords, setSessionStartWords] = useState<number | null>(null);
   const [preset, setPreset] = useState("novel");
   const [wordCount, setWordCount] = useState(0);
   const chapterWordCounts = useMemo(() => {
@@ -172,437 +145,66 @@ export default function BookEditorView({
   const totalBookWordCount = useMemo(() => {
     return Object.values(chapterWordCounts).reduce((sum, count) => sum + count, 0);
   }, [chapterWordCounts]);
-  const [sessionStartWords, setSessionStartWords] = useState<number | null>(null);
-  const [isPublishing, setIsPublishing] = useState(false);
-  const [publishVisibility, setPublishVisibility] = useState<PublishVisibility>("public");
-  const [publishError, setPublishError] = useState<string | null>(null);
-  const [publishToast, setPublishToast] = useState<string | null>(null);
-  const [confirmPublishAction, setConfirmPublishAction] = useState<"publish" | "update" | "unpublish" | null>(null);
-  const [publishMenuOpen, setPublishMenuOpen] = useState(false);
-  const [coverUploading, setCoverUploading] = useState(false);
-  const [coverError, setCoverError] = useState<string | null>(null);
-  const [coverPreviewUrl, setCoverPreviewUrl] = useState<string | null>(null);
-  const [coverDropActive, setCoverDropActive] = useState(false);
-  const [coverAIPrompt, setCoverAIPrompt] = useState("");
-  const [coverAIStyle, setCoverAIStyle] = useState("minimal");
-  const [coverAIGeneratedUrls, setCoverAIGeneratedUrls] = useState<string[]>([]);
-  const [coverAIGenerating, setCoverAIGenerating] = useState(false);
-  const [coverAIError, setCoverAIError] = useState<string | null>(null);
-  const [coverCropSrc, setCoverCropSrc] = useState<string | null>(null);
-  const [coverAIPreviewUrl, setCoverAIPreviewUrl] = useState<string | null>(null);
-  const [originalUrl, setOriginalUrl] = useState(book.original_url ?? "");
-  const [printOnDemandSettings, setPrintOnDemandSettings] = useState<PrintOnDemandSettings>(() =>
-    normalizePrintOnDemandSettings(book.print_on_demand_settings)
-  );
-  const [marketingChannel, setMarketingChannel] = useState<MarketingChannel>("generic");
-  const [marketingLanguage, setMarketingLanguage] = useState<SupportedLanguage>(
-    normalizeLanguage(activeVersion?.language_code ?? book.original_language ?? book.language)
-  );
-  const [marketingCopyFeedback, setMarketingCopyFeedback] = useState(false);
-  const [isGeneratingMarketing, setIsGeneratingMarketing] = useState(false);
-  const existingVersionLanguages = useMemo(() => {
-    const langs = new Set<string>();
-    for (const v of bookVersions) {
-      const key = normalizeLangKey(v.language_code);
-      if (key) langs.add(key);
-    }
-    return langs;
-  }, [bookVersions]);
-  const initialTargetLanguage = useMemo<SupportedLanguage>(() => {
-    const currentLang = normalizeLanguage(activeVersion?.language_code ?? book.original_language ?? book.language);
-    const preferred = currentLang === "en" ? "sv" : "en";
-    if (!existingVersionLanguages.has(preferred)) return preferred;
-    for (const opt of LANGUAGE_OPTIONS) {
-      if (!existingVersionLanguages.has(opt.value)) return opt.value;
-    }
-    return preferred;
-  }, [activeVersion?.language_code, book.original_language, book.language, existingVersionLanguages]);
-  const translationSourceLang = useMemo(
-    () => normalizeLanguage(activeVersion?.language_code ?? book.original_language ?? book.language),
-    [activeVersion?.language_code, book.original_language, book.language],
-  );
-  const [translateTargetLanguage, setTranslateTargetLanguage] = useState<SupportedLanguage>(initialTargetLanguage);
-  const [isStartingTranslation, setIsStartingTranslation] = useState(false);
-  const [isPollingTranslation, setIsPollingTranslation] = useState(false);
-  const [translateMessage, setTranslateMessage] = useState<string | null>(null);
-  const [translationQueueHealthy, setTranslationQueueHealthy] = useState<boolean | null>(null);
-  const [lastRequestedTargetLanguage, setLastRequestedTargetLanguage] = useState<SupportedLanguage | null>(null);
-  const [translationProgress, setTranslationProgress] = useState<{ translated: number; total: number } | null>(null);
-  const translationPollRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  const translationPollStartedAtRef = useRef<number>(0);
-  const lastRequestedTargetLanguageRef = useRef<SupportedLanguage | null>(null);
-  const [isGeneratingAudiobook, setIsGeneratingAudiobook] = useState(false);
-  const [audiobookError, setAudiobookError] = useState<string | null>(null);
-  const [audiobookProgress, setAudiobookProgress] = useState<{
-    totalChapters: number;
-    completedChapters: number;
-    currentChapterTitle: string | null;
-    estimatedSecondsRemaining: number | null;
-  } | null>(null);
-  const [audiobookScope, setAudiobookScope] = useState<AudiobookGenerationScope>("book");
-  const [audiobookSelectedChapterIds, setAudiobookSelectedChapterIds] = useState<string[]>([]);
-  const [isAudiobookChapterPickerOpen, setIsAudiobookChapterPickerOpen] = useState(false);
-  const [audiobookControlPending, setAudiobookControlPending] = useState<AudiobookControlAction | null>(null);
-  const [audiobookCheckoutModalOpen, setAudiobookCheckoutModalOpen] = useState(false);
-  const [audiobookCheckoutLoading, setAudiobookCheckoutLoading] = useState(false);
-  const audiobookCheckoutHandledRef = useRef(false);
-  const [audiobookPreviewVoice, setAudiobookPreviewVoice] = useState("Ryan");
-  const [audiobookPreviewTone, setAudiobookPreviewTone] = useState("neutral");
-  const [audiobookSelectedLanguages, setAudiobookSelectedLanguages] = useState<string[]>(() => {
-    const lang = normalizeLanguage(book.language ?? book.original_language);
-    return [lang];
+  const sessionWords = sessionStartWords !== null ? Math.max(0, wordCount - sessionStartWords) : 0;
+
+  // ── Book rename ───────────────────────────────────────────────────────────
+  const {
+    bookTitle,
+    isRenamingBook,
+    bookTitleDraft,
+    setBookTitleDraft,
+    bookTitleError,
+    bookTitleSaving,
+    handleStartRenameBook,
+    handleCancelRenameBook,
+    handleSaveRenameBook,
+  } = useBookRename({ book });
+
+  // ── Cover ─────────────────────────────────────────────────────────────────
+  const cover = useBookCover({ book });
+
+  // ── Pricing ───────────────────────────────────────────────────────────────
+  const pricing = useBookPricing({ book });
+
+  // ── Publishing ────────────────────────────────────────────────────────────
+  const publishing = usePublishing({
+    book,
+    bookTitle,
+    chapters,
+    activeVersion,
+    displayCoverUrl: cover.displayCoverUrl,
+    coverUploading: cover.coverUploading,
+    selectedChapterId,
+    selectedChapter,
+    defaultPublishVisibility,
   });
-  const audiobookPreviewRef = useRef<HTMLAudioElement>(null);
-  const [abLangOpen, setAbLangOpen] = useState(false);
-  const [abVoiceOpen, setAbVoiceOpen] = useState(false);
-  const [abToneOpen, setAbToneOpen] = useState(false);
-  const abLangRef = useRef<HTMLDivElement>(null);
-  const abVoiceRef = useRef<HTMLDivElement>(null);
-  const abToneRef = useRef<HTMLDivElement>(null);
-  const [audiobookPreviewPlaying, setAudiobookPreviewPlaying] = useState(false);
-  const [audiobookPreviewCurrentTime, setAudiobookPreviewCurrentTime] = useState(0);
-  const [audiobookPreviewDuration, setAudiobookPreviewDuration] = useState(0);
-  const [audiobookPreviewSpeed, setAudiobookPreviewSpeed] = useState(1.0);
-  const pricingSavedTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const savingRef = useRef(false);
-  const coverInputRef = useRef<HTMLInputElement>(null);
-  const publishMenuButtonRef = useRef<HTMLButtonElement>(null);
-  const publishMenuRef = useRef<HTMLDivElement>(null);
 
-  const initialPriceMinor = Math.max(0, Math.trunc(Number(book.price_amount ?? 0)));
-  const initialCurrency = ["SEK", "EUR", "USD"].includes(String(book.price_currency ?? "").trim().toUpperCase())
-    ? String(book.price_currency).trim().toUpperCase()
-    : "SEK";
-  const initialPricingModel: "book_only" | "per_chapter" = book.pricing_model === "per_chapter" ? "per_chapter" : "book_only";
-  const [priceAmountMinor, setPriceAmountMinor] = useState(initialPriceMinor);
-  const [priceCurrency, setPriceCurrency] = useState(initialCurrency);
-  const [pricingModel, setPricingModel] = useState<"book_only" | "per_chapter">(initialPricingModel);
-  const [pricingSaving, setPricingSaving] = useState(false);
-  const [pricingError, setPricingError] = useState<string | null>(null);
-  const [pricingSaved, setPricingSaved] = useState(false);
-
+  // ── Jobs & billing ────────────────────────────────────────────────────────
   const { jobs: allJobs, loading: jobLoading, error: jobError, refetch: refetchBookJob, settled: jobsSettled } = useBookJobs(book.id);
   const billing = useBillingState();
 
-  // Jobs shown in banner: never show audiobook when feature is disabled.
   const jobsForBanner = useMemo(
     () => (getAudiobookEnabled() ? allJobs : allJobs.filter((j) => j.kind !== "audiobook")),
     [allJobs]
   );
-
-  // Import jobs filtered for inline progress in ImportManusSection.
   const importJobs = useMemo(() => allJobs.filter((j) => j.kind === "import"), [allJobs]);
 
-  // Audiobook state only when feature is enabled (no empty/dead states).
-  const latestAudiobookJob = useMemo(
-    () => (getAudiobookEnabled() ? allJobs.find((j) => j.kind === "audiobook") ?? null : null),
-    [allJobs]
-  );
-  const audiobookJobStatus = latestAudiobookJob ? normalizeJobStatus(latestAudiobookJob.status) : null;
-  const STALE_ACTIVE_MS = 30 * 60 * 1000; // 30 min — matches server-side & getVisibleJobs
-  const isAudiobookJobStale = (() => {
-    if (!latestAudiobookJob || !isJobActiveStatus(audiobookJobStatus)) return false;
-    const created = latestAudiobookJob.createdAt ? new Date(latestAudiobookJob.createdAt).getTime() : 0;
-    if (created <= 0) return false;
-    if (Date.now() - created <= STALE_ACTIVE_MS) return false;
-    // Allow paused / cancel-requested jobs to stay active
-    const meta = (latestAudiobookJob.meta ?? {}) as Record<string, unknown>;
-    const cs = typeof meta.controlState === "string" ? meta.controlState : null;
-    if (cs === "paused" || cs === "pause_requested" || cs === "cancel_requested") return false;
-    if (meta.cancelRequested === true) return false;
-    return true;
-  })();
-  const isAudiobookJobActive =
-    !isAudiobookJobStale &&
-    (audiobookJobStatus === "running" || audiobookJobStatus === "pending");
-  const isAudiobookJobFailed = normalizeJobStatus(latestAudiobookJob?.status) === "failed";
-  const isAudiobookActive = isGeneratingAudiobook || !!isAudiobookJobActive;
-  const serverAudiobookProgress = useMemo(() => {
-    if (!latestAudiobookJob || !isJobActiveStatus(latestAudiobookJob.status)) return null;
-    const meta = latestAudiobookJob.meta as Record<string, unknown>;
-    return {
-      totalChapters: (meta.totalChapters as number) ?? 0,
-      completedChapters: (meta.completedChapters as number) ?? 0,
-      currentChapterTitle: (meta.currentChapterTitle as string) ?? null,
-      estimatedSecondsRemaining: (meta.estimatedSecondsRemaining as number) ?? null,
-    };
-  }, [latestAudiobookJob]);
-  const effectiveAudiobookProgress = audiobookProgress ?? serverAudiobookProgress;
-  const audiobookEtaText = formatAudiobookEta(effectiveAudiobookProgress?.estimatedSecondsRemaining);
-  const effectiveAudiobookError = audiobookError ?? (isAudiobookJobFailed ? (latestAudiobookJob?.error ?? null) : null);
-
-  useEffect(() => {
-    setChapters(initialChapters);
-  }, [initialChapters]);
-
-  useEffect(() => {
-    const minor = Math.max(0, Math.trunc(Number(book.price_amount ?? 0)));
-    const cur = ["SEK", "EUR", "USD"].includes(String(book.price_currency ?? "").trim().toUpperCase())
-      ? String(book.price_currency).trim().toUpperCase()
-      : "SEK";
-    setPriceAmountMinor(minor);
-    setPriceCurrency(cur);
-    setPricingModel(book.pricing_model === "per_chapter" ? "per_chapter" : "book_only");
-  }, [book.price_amount, book.price_currency, book.pricing_model]);
-
-  // Cleanup pricingSaved timer on unmount
-  useEffect(() => {
-    return () => {
-      if (pricingSavedTimerRef.current) clearTimeout(pricingSavedTimerRef.current);
-    };
-  }, []);
-
-  // Refresh server data when all jobs finish
-  useEffect(() => {
-    if (jobsSettled) router.refresh();
-  }, [jobsSettled, router]);
-
-  useEffect(() => {
-    if (!publishToast) return;
-    const timeoutId = window.setTimeout(() => setPublishToast(null), 3000);
-    return () => window.clearTimeout(timeoutId);
-  }, [publishToast]);
-
-  useEffect(() => {
-    if (!publishMenuOpen) return;
-    const handleOutside = (event: MouseEvent) => {
-      const target = event.target as Node;
-      if (publishMenuRef.current?.contains(target)) return;
-      if (publishMenuButtonRef.current?.contains(target)) return;
-      setPublishMenuOpen(false);
-    };
-    const handleEscape = (event: KeyboardEvent) => {
-      if (event.key === "Escape") setPublishMenuOpen(false);
-    };
-    document.addEventListener("mousedown", handleOutside);
-    document.addEventListener("keydown", handleEscape);
-    return () => {
-      document.removeEventListener("mousedown", handleOutside);
-      document.removeEventListener("keydown", handleEscape);
-    };
-  }, [publishMenuOpen]);
-
-  useEffect(() => {
-    setPublishError(null);
-    setConfirmPublishAction(null);
-  }, [activeVersion?.id]);
-
-  const panelParam = searchParams?.get("panel");
-
-  useEffect(() => {
-    const requestedPanel = panelParam?.trim() ?? null;
-    if (requestedPanel && effectiveTools.includes(requestedPanel as Tool)) {
-      setTool(requestedPanel as Tool);
-    } else if (!requestedPanel) {
-      setTool("edit");
-    }
-  }, [effectiveTools, panelParam, setTool]);
-
-  useEffect(() => {
-    if (tool === "publish") {
-      // Close any stale popover — the publish tab now has its own dedicated panel
-      setPublishMenuOpen(false);
-    }
-  }, [tool]);
-
-  const navigateToPanel = useCallback((panel: Tool) => {
-    setTool(panel);
-    const href = panel === "edit"
-      ? `/author/books/${book.id}`
-      : `/author/books/${book.id}?panel=${panel}`;
-    router.push(href, { scroll: false });
-  }, [book.id, router, setTool]);
-
-  const showManuscript = ["edit", "cover", "translate", "audiobook", "print", "polish", "publish", "market", "statistics"].includes(tool);
-
-  const displayCoverUrl = coverPreviewUrl ?? book.cover_image;
-  const saveCoverFile = useCallback(
-    async (file: File, optimisticPreviewUrl?: string | null) => {
-      const previousCoverUrl = displayCoverUrl;
-      const nextPreviewUrl = optimisticPreviewUrl?.trim() || null;
-
-      setCoverError(null);
-      if (nextPreviewUrl) setCoverPreviewUrl(nextPreviewUrl);
-      setCoverUploading(true);
-
-      try {
-        const supabase = createClient();
-        const {
-          data: { user },
-        } = await supabase.auth.getUser();
-
-        if (!user) {
-          setCoverError("You must be signed in to upload a cover.");
-          setCoverPreviewUrl(previousCoverUrl ?? null);
-          return false;
-        }
-
-        const { url, error: uploadError } = await uploadBookCover(file, user.id, book.id);
-        if (uploadError || !url) {
-          setCoverError("Cover upload failed. Try again.");
-          setCoverPreviewUrl(previousCoverUrl ?? null);
-          return false;
-        }
-
-        const { error: updateError } = await supabase
-          .from("books")
-          .update({ cover_image: url })
-          .eq("id", book.id);
-
-        if (updateError) {
-          setCoverError("Could not save cover. Try again.");
-          setCoverPreviewUrl(previousCoverUrl ?? null);
-          return false;
-        }
-
-        setCoverPreviewUrl(`${url}?t=${Date.now()}`);
-        toast.success("Cover saved.");
-        router.refresh();
-        return true;
-      } finally {
-        setCoverUploading(false);
-        if (coverInputRef.current) coverInputRef.current.value = "";
-      }
-    },
-    [book.id, displayCoverUrl, router, toast]
-  );
-
-  const handleRemoveCover = useCallback(async () => {
-    setCoverError(null);
-    setCoverUploading(true);
-    try {
-      const supabase = createClient();
-      const { error } = await supabase
-        .from("books")
-        .update({ cover_image: null })
-        .eq("id", book.id);
-      if (error) {
-        setCoverError("Could not remove cover. Try again.");
-        return;
-      }
-      setCoverPreviewUrl(null);
-      toast.success("Cover removed.");
-      router.refresh();
-    } finally {
-      setCoverUploading(false);
-    }
-  }, [book.id, router, toast]);
-
-  const handleCropSave = useCallback(
-    async (file: File) => {
-      await saveCoverFile(file);
-    },
-    [saveCoverFile]
-  );
-
-  const activeVisibility = useMemo(
-    () => normalizeVisibility(activeVersion?.visibility ?? null),
-    [activeVersion?.visibility]
-  );
-
-  useEffect(() => {
-    if (!activeVersion) return;
-    const nextVisibility = activeVisibility ?? defaultPublishVisibility;
-    setPublishVisibility(nextVisibility);
-  }, [activeVersion, activeVisibility, defaultPublishVisibility]);
-
+  // ── Language helpers ──────────────────────────────────────────────────────
   const activeLanguage = normalizeLanguage(
     activeVersion?.language_code ?? book.original_language ?? book.language
   );
   const activeLanguageLabel = getLanguageLabel(activeLanguage);
-  const isWriteOnlyWorkspace =
-    effectiveTools.length === 1 && effectiveTools[0] === "edit";
-  const isPublished = Boolean(activeVersion?.published_at);
-  const workspaceContentMaxWidth =
-    // Premium editorial frame: keep this workspace tighter than generic pages.
-    tool === "edit" || tool === "polish"
-      ? "max-w-[980px]"
-      : tool === "cover" || tool === "translate" || tool === "audiobook" || tool === "market"
-        ? "max-w-[1200px]"
-        : "max-w-[1080px]";
-  const currentVisibility = activeVisibility ?? publishVisibility;
-  const currentVisibilityLabel = VISIBILITY_LABELS[currentVisibility];
-  const currentVisibilitySummary = describeVisibility(currentVisibility);
-  const selectedVisibilityLabel = VISIBILITY_LABELS[publishVisibility];
-  const publishedChapterCount =
-    typeof activeVersion?.published_chapter_count === "number" &&
-    Number.isFinite(activeVersion.published_chapter_count)
-      ? Math.max(0, Math.floor(activeVersion.published_chapter_count))
-      : null;
-  const selectedChapterOrder =
-    typeof selectedChapter?.order === "number" && Number.isFinite(selectedChapter.order)
-      ? selectedChapter.order
-      : null;
-  const selectedChapterAlreadyPublished =
-    Boolean(isPublished) &&
-    (publishedChapterCount === null
-      ? true
-      : selectedChapterOrder != null && selectedChapterOrder < publishedChapterCount);
+  const isWriteOnlyWorkspace = effectiveTools.length === 1 && effectiveTools[0] === "edit";
 
-  const missingPublishRequirements = useMemo(() => {
-    const missing: string[] = [];
-    if (!bookTitle.trim()) missing.push("Add a title");
-    if (!displayCoverUrl) missing.push("Ladda upp en omslagsbild");
-    if (!activeVersion?.id) missing.push("Create a book version");
-    if (chapters.length === 0) {
-      missing.push("Add at least one chapter");
-    } else if (!chapters.some((chapter) => hasReadableContent(chapter.content))) {
-      missing.push("Write content in at least one chapter");
-    }
-    return missing;
-  }, [bookTitle, displayCoverUrl, activeVersion?.id, chapters]);
-
-  const publishDisabled = isPublishing || coverUploading || missingPublishRequirements.length > 0;
-  const chapterPublishDisabled =
-    isPublishing ||
-    coverUploading ||
-    missingPublishRequirements.length > 0 ||
-    !selectedChapter ||
-    !hasReadableContent(selectedChapter.content) ||
-    selectedChapterAlreadyPublished;
-  const visibilityChanged = isPublished && activeVisibility != null && publishVisibility !== activeVisibility;
-  const confirmCopy =
-    confirmPublishAction === "publish"
-      ? `Publish this version as ${selectedVisibilityLabel}?`
-      : confirmPublishAction === "update"
-        ? `Uppdatera synlighet till ${selectedVisibilityLabel}?`
-        : confirmPublishAction === "unpublish"
-          ? "Unpublish this version? It will no longer be visible to readers."
-          : null;
-  const publishButtonClass = "flex items-center gap-2 rounded-full bg-gradient-to-b from-[#907AFF] to-[#7c6ae6] px-5 py-2.5 text-[13px] font-semibold text-white shadow-[0_1px_2px_rgba(144,122,255,0.3),inset_0_1px_0_rgba(255,255,255,0.15)] transition-all hover:shadow-[0_4px_12px_rgba(144,122,255,0.35),inset_0_1px_0_rgba(255,255,255,0.15)] hover:brightness-110 focus:outline-none focus:ring-2 focus:ring-[#907AFF]/50";
-
-  const versionsByLang = useMemo(() => {
-    const map = new Map<string, BookVersion>();
-    for (const v of bookVersions) {
-      const key = normalizeLangKey(v.language_code);
-      if (!key) continue;
-      map.set(key, v);
-    }
-    return map;
-  }, [bookVersions]);
-
-  const currentTargetVersion = useMemo(
-    () => versionsByLang.get(normalizeLangKey(translateTargetLanguage)),
-    [versionsByLang, translateTargetLanguage]
-  );
-
-  const requestedTargetVersion = useMemo(
-    () => (lastRequestedTargetLanguage ? versionsByLang.get(normalizeLangKey(lastRequestedTargetLanguage)) : null),
-    [versionsByLang, lastRequestedTargetLanguage]
-  );
-
+  // ── Translation ───────────────────────────────────────────────────────────
   const getBookWorkspaceHref = useCallback(
     (language?: string | null) => {
       const normalizedLanguage = language ? normalizeLangKey(language) : null;
-
       if (isWriteOnlyWorkspace) {
         const params = new URLSearchParams({ bookId: book.id });
-        if (normalizedLanguage) {
-          params.set("lang", normalizedLanguage);
-        }
+        if (normalizedLanguage) params.set("lang", normalizedLanguage);
         return `/author/write?${params.toString()}`;
       }
-
       return normalizedLanguage
         ? `/author/books/${book.id}?lang=${normalizedLanguage}`
         : `/author/books/${book.id}`;
@@ -610,675 +212,62 @@ export default function BookEditorView({
     [book.id, isWriteOnlyWorkspace]
   );
 
-  const openProductionWorkspace = useCallback(
-    (kind: "audiobook" | "translation") => {
-      router.push(`/author/production?bookId=${book.id}&kind=${kind}`);
-    },
-    [book.id, router]
-  );
-
-  const openAudienceMarketingWorkspace = useCallback(() => {
-    router.push(`/author/audience?bookId=${book.id}&surface=marketing-assets`);
-  }, [book.id, router]);
-
-  const openAudiencePublishWorkspace = useCallback(() => {
-    router.push(`/author/audience?bookId=${book.id}&surface=beta-readers`);
-  }, [book.id, router]);
-
-  const openAnalyticsWorkspace = useCallback(() => {
-    router.push(`/author/analytics?bookId=${book.id}`);
-  }, [book.id, router]);
-
-  const handleInlineAiAction = useCallback(
-    (action: InlineAiAction, selectedText: string) => {
-      const detail: WriteInlineAiEventDetail = { action, selectedText };
-      window.dispatchEvent(
-        new CustomEvent<WriteInlineAiEventDetail>(WRITE_INLINE_AI_EVENT, {
-          detail,
-        })
-      );
-
-      if (action === "audiobook") {
-        openProductionWorkspace("audiobook");
-      }
-
-      if (action === "translate") {
-        openProductionWorkspace("translation");
-      }
-    },
-    [openProductionWorkspace]
-  );
-
-  useEffect(() => {
-    if (!isWriteOnlyWorkspace) return;
-
-    setAuthorCurrentBookId(book.id);
-    setContextPanelState({
-      kind: "write",
-      payload: {
-        bookTitle,
-        activeLanguage,
-        chapterTitle: selectedChapter?.title ?? null,
-        totalBookWordCount,
-      },
-    });
-  }, [
-    activeLanguage,
-    book.id,
-    bookTitle,
-    isWriteOnlyWorkspace,
-    selectedChapter?.title,
-    setAuthorCurrentBookId,
-    setContextPanelState,
-    totalBookWordCount,
-  ]);
-
-  useEffect(() => {
-    if (!isWriteOnlyWorkspace) return;
-
-    return () => {
-      clearContextPanelState();
-    };
-  }, [clearContextPanelState, isWriteOnlyWorkspace]);
-
-  type TranslationUiStatus = "idle" | "translating" | "done" | "error";
-  const isPollingCurrent = isPollingTranslation && lastRequestedTargetLanguage === translateTargetLanguage;
-  const translationUiStatus = useMemo<TranslationUiStatus>(() => {
-    if (currentTargetVersion?.status === "failed") return "error";
-    if (currentTargetVersion?.status === "translating" || isPollingCurrent) return "translating";
-    if (currentTargetVersion?.status === "done" || currentTargetVersion?.published_at) return "done";
-    return "idle";
-  }, [currentTargetVersion?.status, currentTargetVersion?.published_at, isPollingCurrent]);
-
-  const requestedTargetVersionRef = useRef<BookVersion | null>(null);
-  const translationFailedCountRef = useRef(0);
-
-  useEffect(() => {
-    requestedTargetVersionRef.current = requestedTargetVersion ?? null;
-  }, [requestedTargetVersion]);
-
-  useEffect(() => {
-    lastRequestedTargetLanguageRef.current = lastRequestedTargetLanguage;
-  }, [lastRequestedTargetLanguage]);
-
-  const stopTranslationPoll = useCallback(() => {
-    if (translationPollRef.current) {
-      clearInterval(translationPollRef.current);
-      translationPollRef.current = null;
-    }
-    setIsPollingTranslation(false);
-  }, []);
-
-  useEffect(() => {
-    if (!isPollingTranslation || !lastRequestedTargetLanguage) return;
-    if (requestedTargetVersion?.status === "done" || requestedTargetVersion?.published_at) {
-      translationFailedCountRef.current = 0;
-      stopTranslationPoll();
-      setTranslationProgress(null);
-      setTranslateMessage(`Translation complete (${getLanguageLabel(lastRequestedTargetLanguage)}).`);
-      setLastRequestedTargetLanguage(null);
-      return;
-    }
-    if (requestedTargetVersion?.status === "translating") {
-      translationFailedCountRef.current = 0;
-      return;
-    }
-    if (requestedTargetVersion?.status === "failed") {
-      translationFailedCountRef.current += 1;
-      // Only treat as terminal after 2 consecutive "failed" (avoids race: worker may not have set "translating" yet)
-      if (translationFailedCountRef.current >= 2) {
-        stopTranslationPoll();
-        setTranslationProgress(null);
-        setTranslateMessage(
-          (requestedTargetVersion as BookVersion).error_message?.trim() ||
-            "Translation failed. Try again."
-        );
-        setLastRequestedTargetLanguage(null);
-      }
-    }
-  }, [isPollingTranslation, lastRequestedTargetLanguage, requestedTargetVersion, stopTranslationPoll]);
-
-  useEffect(() => {
-    return () => {
-      stopTranslationPoll();
-    };
-  }, [stopTranslationPoll]);
-
-  useEffect(() => {
-    setTranslateMessage(null);
-  }, [translateTargetLanguage]);
-
-  useEffect(() => {
-    if (!isPollingTranslation && translationUiStatus !== "translating") {
-      setTranslationProgress(null);
-    }
-  }, [isPollingTranslation, translationUiStatus]);
-
-  // When status is "translating" but we're not polling (e.g. page refresh), still fetch progress
-  useEffect(() => {
-    if (translationUiStatus !== "translating" || isPollingTranslation || !translateTargetLanguage || !book.id) return;
-    const tick = () => {
-      fetch(
-        `/api/books/${book.id}/translation-progress?targetLanguage=${encodeURIComponent(translateTargetLanguage)}`,
-        { cache: "no-store" }
-      )
-        .then((r) => r.json())
-        .then((data: { translated?: number; total?: number }) => {
-          const total = typeof data.total === "number" ? data.total : 0;
-          const translated = typeof data.translated === "number" ? data.translated : 0;
-          if (total > 0) setTranslationProgress({ translated, total });
-        })
-        .catch(() => {});
-    };
-    tick();
-    const id = setInterval(tick, 3000);
-    return () => clearInterval(id);
-  }, [translationUiStatus, isPollingTranslation, translateTargetLanguage, book.id]);
-
-  const checkTranslationQueueHealth = useCallback(async (): Promise<boolean> => {
-    try {
-      const res = await fetch("/api/translation/availability", { cache: "no-store" });
-      const data = await res.json().catch(() => ({}));
-      const ok = res.ok && data?.available === true;
-      setTranslationQueueHealthy(ok);
-      return ok;
-    } catch {
-      setTranslationQueueHealthy(false);
-      return false;
-    }
-  }, []);
-
-  useEffect(() => {
-    if (!getTranslationsEnabled()) return;
-    void checkTranslationQueueHealth();
-  }, [checkTranslationQueueHealth]);
-
-  const hasGeneratedAudiobookAsset = latestAudiobookAsset?.status === "generated";
-  const latestAudiobookMeta = (latestAudiobookJob?.meta ?? {}) as Record<string, unknown>;
-  const latestAudiobookScope =
-    typeof latestAudiobookMeta.scope === "string" ? latestAudiobookMeta.scope : "book";
-  const latestAudiobookControlState =
-    typeof latestAudiobookMeta.controlState === "string" ? latestAudiobookMeta.controlState : null;
-  const latestAudiobookPauseRequested = latestAudiobookMeta.pauseRequested === true;
-  const latestAudiobookCancelRequested = latestAudiobookMeta.cancelRequested === true;
-  const latestAudiobookManifestUrl =
-    typeof latestAudiobookMeta.manifestUrl === "string" && latestAudiobookMeta.manifestUrl.trim().length > 0
-      ? latestAudiobookMeta.manifestUrl.trim()
-      : null;
-  const latestAudiobookAudioUrl =
-    typeof latestAudiobookMeta.audioUrl === "string" && latestAudiobookMeta.audioUrl.trim().length > 0
-      ? latestAudiobookMeta.audioUrl.trim()
-      : null;
-  const latestAudiobookGeneratedChapterAudioUrl =
-    typeof latestAudiobookMeta.generatedChapterAudioUrl === "string" &&
-    latestAudiobookMeta.generatedChapterAudioUrl.trim().length > 0
-      ? latestAudiobookMeta.generatedChapterAudioUrl.trim()
-      : null;
-  const latestAudiobookAssetAudioUrl =
-    typeof latestAudiobookAsset?.audioSignedUrl === "string" && latestAudiobookAsset.audioSignedUrl.trim().length > 0
-      ? latestAudiobookAsset.audioSignedUrl.trim()
-      : null;
-  const fallbackGeneratedAudiobookUrl =
-    latestAudiobookGeneratedChapterAudioUrl ?? latestAudiobookAudioUrl ?? latestAudiobookAssetAudioUrl;
-  const latestAudiobookChapterIds =
-    Array.isArray(latestAudiobookMeta.chapterIds) && latestAudiobookMeta.chapterIds.every((id) => typeof id === "string")
-      ? (latestAudiobookMeta.chapterIds as string[])
-      : [];
-  const hasCompletedAudiobookJob =
-    normalizeJobStatus(latestAudiobookJob?.status) === "completed" && latestAudiobookScope !== "chapter";
-  const hasCompletedChapterAudiobookJob =
-    normalizeJobStatus(latestAudiobookJob?.status) === "completed" && latestAudiobookScope === "chapter";
-  const hasFailedAudiobookJob = normalizeJobStatus(latestAudiobookJob?.status) === "failed";
-  const audiobookFeatureEnabled = getAudiobookEnabled();
-  const isAudiobookPaused = latestAudiobookControlState === "paused" || latestAudiobookControlState === "pause_requested";
-  const isAudiobookCancelRequested = latestAudiobookControlState === "cancel_requested" || latestAudiobookCancelRequested;
-  const isAudiobookCancelled = latestAudiobookControlState === "cancelled";
-  // Job table is source of truth: no job → idle. Do not derive failure from worker availability.
-  const audiobookStatusUi = !audiobookFeatureEnabled
-    ? "disabled"
-    : isAudiobookActive
-      ? isAudiobookCancelRequested
-        ? "cancel_requested"
-        : isAudiobookPaused || latestAudiobookPauseRequested
-          ? latestAudiobookControlState === "pause_requested" || latestAudiobookPauseRequested
-            ? "pause_requested"
-            : "paused"
-          : audiobookJobStatus === "pending"
-            ? "queued"
-            : "generating"
-      : hasGeneratedAudiobookAsset || hasCompletedAudiobookJob || hasCompletedChapterAudiobookJob
-        ? "published"
-        : isAudiobookCancelled
-          ? "cancelled"
-          : hasFailedAudiobookJob
-            ? "failed"
-            : !latestAudiobookJob
-              ? "idle"
-              : (book.audiobook_status ?? "idle");
-  const shouldShowGeneratedAudiobookPlayer =
-    audiobookFeatureEnabled &&
-    !isAudiobookActive &&
-    audiobookStatusUi === "published" &&
-    (Boolean(fallbackGeneratedAudiobookUrl) || Boolean(latestAudiobookManifestUrl));
-  const isProFeatureLocked = billing.loading || !billing.isProActive;
-  const proFeatureLockMessage = billing.loading
-    ? "Checking subscription..."
-    : billing.pastDue
-      ? "Your subscription is past_due. Update payment to unlock this feature."
-      : "Verkli Pro is required for this feature.";
-
-  const startTranslationPoll = useCallback(() => {
-    stopTranslationPoll();
-    translationFailedCountRef.current = 0;
-    translationPollStartedAtRef.current = Date.now();
-    setIsPollingTranslation(true);
-    translationPollRef.current = setInterval(() => {
-      const info = requestedTargetVersionRef.current;
-      const status = info?.status ?? "none";
-      const elapsed = Date.now() - translationPollStartedAtRef.current;
-      if (elapsed >= TRANSLATION_POLL_MAX_MS && status === "none") {
-        stopTranslationPoll();
-        setTranslationProgress(null);
-        setTranslateMessage("Translation is taking too long. Try again.");
-        setLastRequestedTargetLanguage(null);
-        return;
-      }
-      router.refresh();
-      const lang = lastRequestedTargetLanguageRef.current;
-      if (lang && book.id) {
-        fetch(`/api/books/${book.id}/translation-progress?targetLanguage=${encodeURIComponent(lang)}`, {
-          cache: "no-store",
-        })
-          .then((r) => r.json())
-          .then((data: { translated?: number; total?: number }) => {
-            const total = typeof data.total === "number" ? data.total : 0;
-            const translated = typeof data.translated === "number" ? data.translated : 0;
-            if (total > 0) setTranslationProgress({ translated, total });
-          })
-          .catch(() => {});
-      }
-    }, 3000);
-  }, [router, stopTranslationPoll, book.id]);
-
-  const handleStartTranslation = useCallback(
-    async (scope: "book" | "chapter" = "book") => {
-    if (isStartingTranslation) return;
-    setIsStartingTranslation(true);
-    setTranslateMessage(null);
-
-    const queueHealthy = await checkTranslationQueueHealth();
-    if (!queueHealthy) {
-      setTranslateMessage("Translation service is temporarily unavailable. Try again soon.");
-      setIsStartingTranslation(false);
-      return;
-    }
-
-    if (!activeVersion?.id) {
-      setTranslateMessage("No active version found.");
-      setIsStartingTranslation(false);
-      return;
-    }
-
-    if (scope === "chapter" && !selectedChapterId) {
-      setTranslateMessage("Select a chapter first.");
-      setIsStartingTranslation(false);
-      return;
-    }
-
-    const existingVersion = versionsByLang.get(normalizeLangKey(translateTargetLanguage));
-    if (existingVersion?.status === "translating") {
-      setTranslateMessage("Translation is already running. Waiting for completion...");
-      setLastRequestedTargetLanguage(translateTargetLanguage);
-      startTranslationPoll();
-      setIsStartingTranslation(false);
-      return;
-    }
-
-    let overwrite = false;
-    let targetVersionId: string | null = null;
-    if (existingVersion && scope === "book") {
-      // Failed version: allow one-click retry without confirm
-      if (existingVersion.status === "failed") {
-        overwrite = true;
-        targetVersionId = existingVersion.id;
-      } else {
-        const shouldOverwrite = window.confirm(
-          `A ${getLanguageLabel(translateTargetLanguage)} version already exists. Do you want to overwrite it?`
-        );
-        if (!shouldOverwrite) {
-          router.push(getBookWorkspaceHref(translateTargetLanguage));
-          setIsStartingTranslation(false);
-          return;
-        }
-        overwrite = true;
-        targetVersionId = existingVersion.id;
-      }
-    }
-
-    try {
-      const res = await fetch(`/api/books/${book.id}/translate`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          targetLanguage: translateTargetLanguage,
-          sourceVersionId: activeVersion.id,
-          targetVersionId,
-          overwrite,
-          chapterId: scope === "chapter" ? selectedChapterId : null,
-        }),
-      });
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok || data?.ok === false) {
-        if (data?.existingVersionId) {
-          setTranslateMessage("Version already exists. Opening existing version...");
-          router.push(getBookWorkspaceHref(translateTargetLanguage));
-          return;
-        }
-        setTranslateMessage(resolveErrorMessage(data?.error));
-        return;
-      }
-      setTranslateMessage(
-        scope === "chapter"
-          ? "Chapter translation started. Waiting for completion..."
-          : "Translation started. Waiting for completion..."
-      );
-      setLastRequestedTargetLanguage(translateTargetLanguage);
-      startTranslationPoll();
-    } catch {
-      setTranslateMessage("Could not start translation. Try again.");
-    } finally {
-      setIsStartingTranslation(false);
-    }
-  }, [
-    checkTranslationQueueHealth,
-    isStartingTranslation,
-    startTranslationPoll,
-    translateTargetLanguage,
-    activeVersion?.id,
+  const translation = useTranslation({
+    book,
+    bookVersions,
+    activeVersion,
     selectedChapterId,
-    versionsByLang,
-    book.id,
     getBookWorkspaceHref,
-    router,
-    ]
+  });
+
+  // ── Audiobook ─────────────────────────────────────────────────────────────
+  const audiobook = useAudiobook({
+    book,
+    chapters,
+    activeVersion,
+    activeLanguage,
+    selectedChapterId,
+    totalBookWordCount,
+    latestAudiobookAsset,
+    billing,
+    allJobs,
+    refetchBookJob,
+  });
+
+  // ── Marketing ─────────────────────────────────────────────────────────────
+  const marketing = useMarketing({
+    book,
+    marketingCampaigns,
+    activeVersion,
+  });
+
+  // ── Chapter CRUD ──────────────────────────────────────────────────────────
+  const chapterCrud = useChapterCrud({
+    book,
+    activeVersion,
+    chapters,
+    selectedChapterId,
+    setChapters,
+    setSelectedChapterId,
+    setChapterPage,
+    setSessionStartWords,
+    chaptersPerPage: CHAPTERS_PER_PAGE,
+    getBookWorkspaceHref,
+  });
+
+  // ── Print-on-demand & original URL ────────────────────────────────────────
+  const [originalUrl, setOriginalUrl] = useState(book.original_url ?? "");
+  const [printOnDemandSettings, setPrintOnDemandSettings] = useState<PrintOnDemandSettings>(() =>
+    normalizePrintOnDemandSettings(book.print_on_demand_settings)
   );
-
-  const handlePublishAction = async (action: "publish" | "update" | "unpublish") => {
-    if (isPublishing || !activeVersion?.id) return;
-    if (action === "publish" && missingPublishRequirements.length > 0) {
-      setPublishError("Fix the requirements before publishing.");
-      return;
-    }
-    setIsPublishing(true);
-    setPublishError(null);
-    let succeeded = false;
-    try {
-      const res = await fetch(`/api/books/${book.id}/publish`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          versionId: activeVersion.id,
-          visibility: publishVisibility,
-          action,
-        }),
-      });
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok) {
-        setPublishError(resolveErrorMessage(data.error));
-        return;
-      }
-      router.refresh();
-      succeeded = true;
-      if (action === "publish") {
-        setPublishToast("Published");
-      } else if (action === "unpublish") {
-        setPublishToast("Unpublished");
-      } else {
-        setPublishToast("Publishing settings updated");
-      }
-    } catch {
-      setPublishError("Could not update publishing settings. Try again.");
-    } finally {
-      setIsPublishing(false);
-      setConfirmPublishAction(null);
-      if (succeeded) setPublishMenuOpen(false);
-    }
-  };
-
-  const handlePublishSelectedChapter = useCallback(async () => {
-    if (isPublishing || !activeVersion?.id) return;
-    if (!selectedChapter) {
-      setPublishError("Select a chapter first.");
-      return;
-    }
-    if (!hasReadableContent(selectedChapter.content)) {
-      setPublishError("Selected chapter has no readable content.");
-      return;
-    }
-
-    const chapterLabel = selectedChapter.title?.trim() || "selected chapter";
-    const confirmed = window.confirm(`Publish only "${chapterLabel}" for readers now?`);
-    if (!confirmed) return;
-
-    setIsPublishing(true);
-    setPublishError(null);
-    let succeeded = false;
-    try {
-      const res = await fetch(`/api/books/${book.id}/publish`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          versionId: activeVersion.id,
-          visibility: publishVisibility,
-          action: "publish",
-          scope: "chapter",
-          chapterId: selectedChapter.id,
-        }),
-      });
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok) {
-        setPublishError(resolveErrorMessage(data.error));
-        return;
-      }
-      router.refresh();
-      succeeded = true;
-      setPublishToast(`Published chapter: ${chapterLabel}`);
-    } catch {
-      setPublishError("Could not publish selected chapter. Try again.");
-    } finally {
-      setIsPublishing(false);
-      if (succeeded) setPublishMenuOpen(false);
-    }
-  }, [
-    activeVersion?.id,
-    book.id,
-    isPublishing,
-    publishVisibility,
-    router,
-    selectedChapter,
-  ]);
-
-  const handleChapterPublishToggle = useCallback(async (chapter: Chapter, shouldPublish: boolean) => {
-    if (isPublishing || !activeVersion?.id) return;
-    if (shouldPublish && !hasReadableContent(chapter.content)) {
-      setPublishError("Chapter has no readable content.");
-      return;
-    }
-
-    setIsPublishing(true);
-    setPublishError(null);
-    try {
-      const res = await fetch(`/api/books/${book.id}/publish`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          versionId: activeVersion.id,
-          visibility: publishVisibility,
-          action: shouldPublish ? "publish" : "unpublish",
-          scope: "chapter",
-          chapterId: chapter.id,
-        }),
-      });
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok) {
-        setPublishError(resolveErrorMessage(data.error));
-        return;
-      }
-      router.refresh();
-      const label = chapter.title?.trim() || "Chapter";
-      setPublishToast(shouldPublish ? `Published: ${label}` : `Unpublished: ${label}`);
-    } catch {
-      setPublishError("Could not update chapter. Try again.");
-    } finally {
-      setIsPublishing(false);
-    }
-  }, [activeVersion?.id, book.id, isPublishing, publishVisibility, router]);
-
-  const handleSavePricing = useCallback(async () => {
-    setPricingError(null);
-    setPricingSaving(true);
-    try {
-      const res = await fetch(`/api/books/${book.id}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ price_amount: priceAmountMinor, price_currency: priceCurrency, pricing_model: pricingModel }),
-      });
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok) {
-        setPricingError(resolveErrorMessage(data?.error));
-        return;
-      }
-      setPricingSaved(true);
-      toast.success("Pricing saved.");
-      if (pricingSavedTimerRef.current) clearTimeout(pricingSavedTimerRef.current);
-      pricingSavedTimerRef.current = setTimeout(() => setPricingSaved(false), 3000);
-      router.refresh();
-    } catch {
-      setPricingError(resolveErrorMessage(null));
-    } finally {
-      setPricingSaving(false);
-    }
-  }, [book.id, priceAmountMinor, priceCurrency, pricingModel, router, toast]);
 
   useEffect(() => {
-    if (book.cover_image && coverPreviewUrl && book.cover_image === coverPreviewUrl) {
-      setCoverPreviewUrl(null);
-    }
-  }, [book.cover_image, coverPreviewUrl]);
+    setOriginalUrl(book.original_url ?? "");
+  }, [book.original_url]);
 
-  const handleCoverFileSelect = useCallback(
-    async (file: File | null) => {
-      if (!file) return;
-
-      if (!isAcceptedCoverFile(file)) {
-        setCoverError("Use a JPG or PNG file.");
-        if (coverInputRef.current) coverInputRef.current.value = "";
-        return;
-      }
-
-      const localPreviewUrl = URL.createObjectURL(file);
-      await saveCoverFile(file, localPreviewUrl);
-      URL.revokeObjectURL(localPreviewUrl);
-    },
-    [saveCoverFile]
-  );
-
-  const handleCoverChange = useCallback(
-    async (e: React.ChangeEvent<HTMLInputElement>) => {
-      await handleCoverFileSelect(e.target.files?.[0] ?? null);
-    },
-    [handleCoverFileSelect]
-  );
-
-  const handleCoverDrop = useCallback(
-    async (e: React.DragEvent<HTMLDivElement>) => {
-      e.preventDefault();
-      setCoverDropActive(false);
-      if (coverUploading) return;
-      await handleCoverFileSelect(e.dataTransfer.files?.[0] ?? null);
-    },
-    [coverUploading, handleCoverFileSelect]
-  );
-
-  const handleCoverAIGenerate = useCallback(async () => {
-    if (coverAIGenerating) return;
-
-    const prompt = coverAIPrompt.trim();
-    if (!prompt) {
-      setCoverAIError(resolveErrorMessage("PROMPT_TEXT_REQUIRED"));
-      return;
-    }
-
-    setCoverAIError(null);
-    setCoverError(null);
-    setCoverAIGenerating(true);
-    setCoverAIGeneratedUrls([]);
-
-    try {
-      const res = await fetch(`/api/books/${book.id}/cover/generate`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          prompt,
-          style: coverAIStyle,
-        }),
-      });
-      const data = await res.json().catch(() => ({}));
-
-      if (!res.ok) {
-        setCoverAIError(
-          resolveErrorMessage(data?.error, "Could not generate cover options. Try again.")
-        );
-        return;
-      }
-
-      const images = Array.isArray(data?.images)
-        ? data.images.filter((value: unknown): value is string => typeof value === "string")
-        : [];
-
-      if (images.length < 4) {
-        setCoverAIError("Could not generate cover options. Try again.");
-        return;
-      }
-
-      setCoverAIGeneratedUrls(images.slice(0, 4));
-    } catch {
-      setCoverAIError("Could not generate cover options. Try again.");
-    } finally {
-      setCoverAIGenerating(false);
-    }
-  }, [book.id, coverAIGenerating, coverAIPrompt, coverAIStyle]);
-
-  const handleCoverSetFromGenerated = useCallback(
-    async (url: string) => {
-      if (coverUploading) return;
-
-      setCoverAIError(null);
-      setCoverError(null);
-
-      try {
-        const response = await fetch(url);
-        if (!response.ok) {
-          setCoverError("Could not download generated cover. Try again.");
-          return;
-        }
-
-        const blob = await response.blob();
-        const extension = getGeneratedCoverExtension(
-          response.headers.get("content-type") || blob.type,
-          url
-        );
-        const file = new File([blob], `generated-cover.${extension}`, {
-          type: blob.type || response.headers.get("content-type") || "image/png",
-        });
-
-        await saveCoverFile(file, url);
-      } catch {
-        setCoverError("Could not save generated cover. Try again.");
-      }
-    },
-    [coverUploading, saveCoverFile]
-  );
+  useEffect(() => {
+    setPrintOnDemandSettings(normalizePrintOnDemandSettings(book.print_on_demand_settings));
+  }, [book.print_on_demand_settings]);
 
   const handleOriginalUrlBlur = useCallback(async () => {
     const val = originalUrl.trim() || null;
@@ -1309,357 +298,154 @@ export default function BookEditorView({
     return { ok: true as const };
   }, [book.id, printOnDemandSettings, toast]);
 
-  const handleStartRenameBook = useCallback(() => {
-    setBookTitleError(null);
-    setBookTitleDraft(bookTitle);
-    setIsRenamingBook(true);
-  }, [bookTitle]);
-
-  const handleCancelRenameBook = useCallback(() => {
-    setBookTitleError(null);
-    setBookTitleDraft(bookTitle);
-    setIsRenamingBook(false);
-  }, [bookTitle]);
-
-  const handleSaveRenameBook = useCallback(async () => {
-    if (bookTitleSaving) return;
-    const trimmed = bookTitleDraft.trim();
-    if (!trimmed) {
-      setBookTitleError("Title cannot be empty.");
-      return;
-    }
-    if (trimmed.length > 120) {
-      setBookTitleError("Title is too long (max 120 characters).");
-      return;
-    }
-    if (trimmed === bookTitle) {
-      setIsRenamingBook(false);
-      return;
-    }
-    setBookTitleSaving(true);
-    const supabase = createClient();
-    const { error } = await supabase.from("books").update({ title: trimmed }).eq("id", book.id);
-    if (error) {
-      setBookTitleError("Could not save title. Try again.");
-      setBookTitleSaving(false);
-      return;
-    }
-    setBookTitle(trimmed);
-    setIsRenamingBook(false);
-    setBookTitleSaving(false);
-    router.refresh();
-  }, [bookTitleDraft, bookTitle, book.id, bookTitleSaving, router]);
+  // ── Effects: refresh, preset, session words, panel sync ───────────────────
+  useEffect(() => {
+    if (jobsSettled) router.refresh();
+  }, [jobsSettled, router]);
 
   useEffect(() => {
-    setOriginalUrl(book.original_url ?? "");
-  }, [book.original_url]);
+    const stored = localStorage.getItem(STORAGE_PRESET);
+    if (stored && ["novel", "essay", "screenplay"].includes(stored)) setPreset(stored);
+  }, []);
 
   useEffect(() => {
-    setPrintOnDemandSettings(normalizePrintOnDemandSettings(book.print_on_demand_settings));
-  }, [book.print_on_demand_settings]);
+    if (preset) localStorage.setItem(STORAGE_PRESET, preset);
+  }, [preset]);
 
   useEffect(() => {
-    setBookTitle(book.title ?? "Untitled");
-    if (!isRenamingBook) {
-      setBookTitleDraft(book.title ?? "Untitled");
+    if (selectedChapterId && sessionStartWords === null) {
+      setSessionStartWords(chapterWordCounts[selectedChapterId] ?? 0);
     }
-  }, [book.title, isRenamingBook]);
+  }, [chapterWordCounts, selectedChapterId, sessionStartWords]);
+
+  const panelParam = searchParams?.get("panel");
 
   useEffect(() => {
-    setMarketingLanguage(
-      normalizeLanguage(activeVersion?.language_code ?? book.original_language ?? book.language)
-    );
-  }, [activeVersion?.language_code, book.original_language, book.language]);
+    const requestedPanel = panelParam?.trim() ?? null;
+    if (requestedPanel && effectiveTools.includes(requestedPanel as Tool)) {
+      setTool(requestedPanel as Tool);
+    } else if (!requestedPanel) {
+      setTool("edit");
+    }
+  }, [effectiveTools, panelParam, setTool]);
 
   useEffect(() => {
-    if (!audiobookFeatureEnabled || !latestAudiobookJob) return;
-    const normalizedStatus = normalizeJobStatus(latestAudiobookJob.status);
-    const meta = latestAudiobookJob.meta as Record<string, unknown>;
-    const controlState = typeof meta.controlState === "string" ? meta.controlState : null;
-
-    if (isJobActiveStatus(normalizedStatus) && !isAudiobookJobStale) {
-      setIsGeneratingAudiobook(true);
-      setAudiobookError(null);
-      setAudiobookProgress({
-        totalChapters: (meta.totalChapters as number) ?? 0,
-        completedChapters: (meta.completedChapters as number) ?? 0,
-        currentChapterTitle: (meta.currentChapterTitle as string) ?? null,
-        estimatedSecondsRemaining: (meta.estimatedSecondsRemaining as number) ?? null,
-      });
-      return;
+    if (tool === "publish") {
+      publishing.setPublishMenuOpen(false);
     }
+  }, [tool]); // eslint-disable-line react-hooks/exhaustive-deps
 
-    setIsGeneratingAudiobook(false);
-    if (isAudiobookJobStale) {
-      setAudiobookError("The task appears stuck. Try again.");
-      return;
-    }
-    if (normalizedStatus === "failed") {
-      if (controlState === "cancelled") {
-        setAudiobookError("Generation cancelled.");
-      } else {
-        setAudiobookError(latestAudiobookJob.error ?? "Generation could not be completed. Try again.");
-      }
-      return;
-    }
-    if (normalizedStatus === "completed") {
-      setAudiobookError(null);
-    }
-  }, [audiobookFeatureEnabled, isAudiobookJobStale, latestAudiobookJob]);
+  // ── Navigation ────────────────────────────────────────────────────────────
+  const navigateToPanel = useCallback((panel: Tool) => {
+    setTool(panel);
+    const href = panel === "edit"
+      ? `/author/books/${book.id}`
+      : `/author/books/${book.id}?panel=${panel}`;
+    router.push(href, { scroll: false });
+  }, [book.id, router, setTool]);
 
-  // Close audiobook preview dropdowns on outside click
-  useEffect(() => {
-    if (!abLangOpen && !abVoiceOpen && !abToneOpen) return;
-    function handleClick(e: MouseEvent) {
-      if (abLangOpen && abLangRef.current && !abLangRef.current.contains(e.target as Node)) setAbLangOpen(false);
-      if (abVoiceOpen && abVoiceRef.current && !abVoiceRef.current.contains(e.target as Node)) setAbVoiceOpen(false);
-      if (abToneOpen && abToneRef.current && !abToneRef.current.contains(e.target as Node)) setAbToneOpen(false);
-    }
-    document.addEventListener("mousedown", handleClick);
-    return () => document.removeEventListener("mousedown", handleClick);
-  }, [abLangOpen, abVoiceOpen, abToneOpen]);
-
-  useEffect(() => {
-    if (audiobookScope === "current") {
-      if (selectedChapterId) {
-        setAudiobookSelectedChapterIds([selectedChapterId]);
-      } else {
-        setAudiobookSelectedChapterIds([]);
-      }
-      return;
-    }
-
-    if (audiobookScope === "selected" && audiobookSelectedChapterIds.length === 0 && selectedChapterId) {
-      setAudiobookSelectedChapterIds([selectedChapterId]);
-    }
-  }, [audiobookScope, audiobookSelectedChapterIds.length, selectedChapterId]);
-
-  useEffect(() => {
-    setAudiobookSelectedChapterIds((prev) => prev.filter((chapterId) => chapters.some((chapter) => chapter.id === chapterId)));
-  }, [chapters]);
-
-  const audiobookRequestedChapterIds = useMemo(() => {
-    if (audiobookScope === "book") return [];
-    if (audiobookScope === "current") {
-      return selectedChapterId ? [selectedChapterId] : [];
-    }
-    return Array.from(new Set(audiobookSelectedChapterIds));
-  }, [audiobookScope, audiobookSelectedChapterIds, selectedChapterId]);
-
-  const audiobookRequestScope = useMemo<"book" | "chapter" | "chapters">(() => {
-    if (audiobookRequestedChapterIds.length === 0) return "book";
-    if (audiobookRequestedChapterIds.length === 1) return "chapter";
-    return "chapters";
-  }, [audiobookRequestedChapterIds]);
-
-  const selectedAudiobookChapters = useMemo(
-    () => chapters.filter((chapter) => audiobookRequestedChapterIds.includes(chapter.id)),
-    [chapters, audiobookRequestedChapterIds]
-  );
-
-  const audiobookSelectionSummary =
-    audiobookRequestScope === "book"
-      ? "Entire book"
-      : audiobookRequestScope === "chapter"
-        ? selectedAudiobookChapters[0]?.title ?? "Selected chapter"
-        : `${audiobookRequestedChapterIds.length} chapters selected`;
-
-  const canPauseAudiobook =
-    isAudiobookActive &&
-    audiobookControlPending === null &&
-    audiobookStatusUi !== "paused" &&
-    audiobookStatusUi !== "pause_requested" &&
-    audiobookStatusUi !== "cancel_requested";
-  const canResumeAudiobook =
-    isAudiobookActive &&
-    audiobookControlPending === null &&
-    (audiobookStatusUi === "paused" || audiobookStatusUi === "pause_requested");
-  const canCancelAudiobook =
-    isAudiobookActive &&
-    audiobookControlPending === null &&
-    audiobookStatusUi !== "cancel_requested";
-  const activeAudiobookScopeSummary =
-    latestAudiobookScope === "chapter"
-      ? (typeof latestAudiobookMeta.currentChapterTitle === "string"
-          ? latestAudiobookMeta.currentChapterTitle
-          : "Single chapter")
-      : latestAudiobookScope === "chapters"
-        ? `${Math.max(
-            1,
-            latestAudiobookChapterIds.length ||
-              (effectiveAudiobookProgress?.totalChapters ?? 0)
-          )} selected chapters`
-        : "Entire book";
-
-  const handleAudiobookControl = useCallback(
-    async (action: AudiobookControlAction) => {
-      if (!audiobookFeatureEnabled || !isAudiobookActive || audiobookControlPending) return;
-      setAudiobookError(null);
-      setAudiobookControlPending(action);
-      try {
-        const res = await fetch(`/api/books/${book.id}/audiobook/control`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ action }),
-        });
-        const data = await res.json().catch(() => ({}));
-        if (!res.ok) {
-          setAudiobookError(resolveErrorMessage(data?.error));
-          return;
-        }
-        await refetchBookJob();
-      } catch {
-        setAudiobookError("Could not update generation state. Try again.");
-      } finally {
-        setAudiobookControlPending(null);
-      }
+  const openProductionWorkspace = useCallback(
+    (kind: "audiobook" | "translation") => {
+      router.push(`/author/production?bookId=${book.id}&kind=${kind}`);
     },
-    [audiobookControlPending, audiobookFeatureEnabled, book.id, isAudiobookActive, refetchBookJob]
+    [book.id, router]
   );
 
-  // Handle audiobook checkout redirect
-  useEffect(() => {
-    if (audiobookCheckoutHandledRef.current) return;
-    const checkoutStatus = searchParams?.get("audiobook_checkout");
-    const sessionId = searchParams?.get("session_id");
-    const lang = searchParams?.get("lang");
-    if (checkoutStatus === "success" && sessionId && lang) {
-      audiobookCheckoutHandledRef.current = true;
-      const url = new URL(window.location.href);
-      url.searchParams.delete("audiobook_checkout");
-      url.searchParams.delete("session_id");
-      url.searchParams.delete("lang");
-      router.replace(url.pathname + url.search, { scroll: false });
-      // Trigger audiobook generation with paid session
-      void (async () => {
-        setIsGeneratingAudiobook(true);
-        setAudiobookError(null);
-        try {
-          const params = new URLSearchParams();
-          params.set("lang", lang);
-          const res = await fetch(`/api/books/${book.id}/audiobook/generate?${params.toString()}`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ scope: "book", stripeSessionId: sessionId }),
-          });
-          const data = await res.json().catch(() => ({}));
-          if (!res.ok) {
-            setAudiobookError(resolveErrorMessage(data.error));
-            setIsGeneratingAudiobook(false);
-            return;
-          }
-          setAudiobookProgress({
-            totalChapters: data.totalChapters ?? 0,
-            completedChapters: 0,
-            currentChapterTitle: null,
-            estimatedSecondsRemaining: null,
-          });
-          await refetchBookJob();
-        } catch {
-          setAudiobookError("Could not start generation. Try again.");
-          setIsGeneratingAudiobook(false);
-        }
-      })();
-    }
-  }, [searchParams, book.id, refetchBookJob, router, resolveErrorMessage]); // eslint-disable-line react-hooks/exhaustive-deps
+  const openAudienceMarketingWorkspace = useCallback(() => {
+    router.push(`/author/audience?bookId=${book.id}&surface=marketing-assets`);
+  }, [book.id, router]);
 
-  const handleAudiobookCheckout = useCallback(async () => {
-    if (audiobookCheckoutLoading) return;
-    setAudiobookCheckoutLoading(true);
-    setAudiobookError(null);
-    try {
-      const langKey = normalizeLangKey(activeVersion?.language_code ?? activeLanguage);
-      const res = await fetch(`/api/books/${book.id}/audiobook/checkout`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ language: langKey || "sv" }),
-      });
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok || !data.url) {
-        setAudiobookError(typeof data.detail === "string" ? data.detail : "Could not start checkout.");
-        return;
-      }
-      window.location.href = data.url;
-    } catch {
-      setAudiobookError("Could not start checkout. Try again.");
-    } finally {
-      setAudiobookCheckoutLoading(false);
-    }
-  }, [audiobookCheckoutLoading, activeVersion?.language_code, activeLanguage, book.id]);
+  const openAudiencePublishWorkspace = useCallback(() => {
+    router.push(`/author/audience?bookId=${book.id}&surface=beta-readers`);
+  }, [book.id, router]);
 
-  const handleGenerateAudiobook = useCallback(
-    async () => {
-    if (isGeneratingAudiobook || !audiobookFeatureEnabled) return;
+  const openAnalyticsWorkspace = useCallback(() => {
+    router.push(`/author/analytics?bookId=${book.id}`);
+  }, [book.id, router]);
 
-    // Non-Pro: show payment modal (force full book)
-    if (isProFeatureLocked) {
-      setAudiobookCheckoutModalOpen(true);
-      return;
-    }
-
-    if (audiobookScope !== "book" && audiobookRequestedChapterIds.length === 0) {
-      setAudiobookError("Select chapter(s) first.");
-      return;
-    }
-    setAudiobookError(null);
-    setAudiobookProgress(null);
-    setIsGeneratingAudiobook(true);
-    try {
-      const langKey = normalizeLangKey(activeVersion?.language_code ?? activeLanguage);
-      const params = new URLSearchParams();
-      if (langKey) params.set("lang", langKey);
-      const endpoint = `/api/books/${book.id}/audiobook/generate${params.size ? `?${params.toString()}` : ""}`;
-      const body =
-        audiobookRequestScope === "book"
-          ? { scope: "book" as const }
-          : {
-              scope: audiobookRequestScope,
-              chapterIds: audiobookRequestedChapterIds,
-            };
-      const res = await fetch(endpoint, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(body),
-      });
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok) {
-        setAudiobookError(resolveErrorMessage(data.error));
-        setIsGeneratingAudiobook(false);
-        return;
-      }
-      // Set initial progress while unified jobs endpoint catches up.
-      setAudiobookProgress({
-        totalChapters: data.totalChapters ?? 0,
-        completedChapters: 0,
-        currentChapterTitle: null,
-        estimatedSecondsRemaining: null,
-      });
-      await refetchBookJob();
-    } catch {
-      setAudiobookError(
-        audiobookRequestScope === "book"
-          ? "Could not start generation. Try again."
-          : "Could not start selected chapter generation. Try again."
+  const handleInlineAiAction = useCallback(
+    (action: InlineAiAction, selectedText: string) => {
+      const detail: WriteInlineAiEventDetail = { action, selectedText };
+      window.dispatchEvent(
+        new CustomEvent<WriteInlineAiEventDetail>(WRITE_INLINE_AI_EVENT, { detail })
       );
-      setIsGeneratingAudiobook(false);
-    }
+      if (action === "audiobook") openProductionWorkspace("audiobook");
+      if (action === "translate") openProductionWorkspace("translation");
+    },
+    [openProductionWorkspace]
+  );
+
+  // ── Write-only workspace context sync ─────────────────────────────────────
+  useEffect(() => {
+    if (!isWriteOnlyWorkspace) return;
+    setAuthorCurrentBookId(book.id);
+    setContextPanelState({
+      kind: "write",
+      payload: {
+        bookTitle,
+        activeLanguage,
+        chapterTitle: selectedChapter?.title ?? null,
+        totalBookWordCount,
+      },
+    });
   }, [
-    activeLanguage,
-    activeVersion?.language_code,
-    audiobookFeatureEnabled,
-    audiobookRequestScope,
-    audiobookRequestedChapterIds,
-    audiobookScope,
-    book.id,
-    isGeneratingAudiobook,
-    isProFeatureLocked,
-    refetchBookJob,
+    activeLanguage, book.id, bookTitle, isWriteOnlyWorkspace,
+    selectedChapter?.title, setAuthorCurrentBookId, setContextPanelState, totalBookWordCount,
   ]);
 
+  useEffect(() => {
+    if (!isWriteOnlyWorkspace) return;
+    return () => { clearContextPanelState(); };
+  }, [clearContextPanelState, isWriteOnlyWorkspace]);
+
+  // ── Keyboard shortcuts ────────────────────────────────────────────────────
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if (e.key === "Escape" && focusMode) {
+        e.preventDefault();
+        setFocusMode(false);
+        return;
+      }
+      if ((e.metaKey || e.ctrlKey) && e.shiftKey && e.key === "f") {
+        e.preventDefault();
+        setFocusMode((f) => !f);
+      }
+      if ((e.metaKey || e.ctrlKey) && e.key === "\\") {
+        e.preventDefault();
+        setFocusMode((f) => !f);
+      }
+    };
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, [focusMode, setFocusMode]);
+
+  // ── Command palette ───────────────────────────────────────────────────────
+  const commands = useMemo(
+    () => [
+      { id: "focus", label: "Toggle focus mode", shortcut: "⌘\\", group: "Write", onSelect: () => setFocusMode((f) => !f) },
+      { id: "new-chapter", label: "New chapter", group: "Write", onSelect: chapterCrud.handleCreateChapter },
+      { id: "preset-novel", label: "Preset: Novel", group: "Write", onSelect: () => setPreset("novel") },
+      { id: "preset-essay", label: "Preset: Essay", group: "Write", onSelect: () => setPreset("essay") },
+      { id: "preset-screenplay", label: "Preset: Screenplay", group: "Write", onSelect: () => setPreset("screenplay") },
+      { id: "generate-audiobook", label: "Generate audiobook", group: "Workflow", icon: "audio", keywords: ["production", "voice", "audio"], onSelect: () => openProductionWorkspace("audiobook") },
+      { id: "translate-book", label: "Translate book", group: "Workflow", icon: "languages", keywords: ["production", "localize", "translation"], onSelect: () => openProductionWorkspace("translation") },
+      { id: "publish-book", label: "Publish book", group: "Workflow", icon: "rocket", keywords: ["audience", "beta readers", "publish"], onSelect: openAudiencePublishWorkspace },
+      { id: "create-campaign", label: "Create campaign", group: "Workflow", icon: "megaphone", keywords: ["audience", "marketing", "assets"], onSelect: openAudienceMarketingWorkspace },
+      { id: "open-analytics", label: "Open analytics", group: "Workflow", icon: "chart", keywords: ["growth", "engagement", "signals"], onSelect: openAnalyticsWorkspace },
+    ],
+    [chapterCrud.handleCreateChapter, openAnalyticsWorkspace, openAudienceMarketingWorkspace, openAudiencePublishWorkspace, openProductionWorkspace, setFocusMode]
+  );
+
+  useEffect(() => {
+    setCommands(commands);
+    return () => setCommands([]);
+  }, [commands, setCommands]);
+
+  // ── Job retry handler ─────────────────────────────────────────────────────
   const handleJobRetry = useCallback(
     async (job: UnifiedJob) => {
       if (job.kind === "audiobook") {
-        handleGenerateAudiobook();
+        audiobook.handleGenerateAudiobook();
         return;
       }
 
@@ -1668,23 +454,20 @@ export default function BookEditorView({
           toast.error("No active source version found.");
           return;
         }
-
-        const queueHealthy = await checkTranslationQueueHealth();
+        const queueHealthy = await translation.checkTranslationQueueHealth();
         if (!queueHealthy) {
           toast.error("Translation service is temporarily unavailable. Try again soon.");
           return;
         }
-
         const meta = job.meta as Record<string, unknown>;
         const targetLanguage = normalizeLanguage(
-          (job.language ?? (meta.languageCode as string) ?? translateTargetLanguage) as string
+          (job.language ?? (meta.languageCode as string) ?? translation.translateTargetLanguage) as string
         );
         const targetVersionId =
           job.bookVersionId ??
           (typeof meta.bookVersionId === "string" && meta.bookVersionId.trim().length > 0
             ? meta.bookVersionId
             : null);
-
         try {
           const res = await fetch(`/api/books/${book.id}/translate`, {
             method: "POST",
@@ -1701,10 +484,10 @@ export default function BookEditorView({
             toast.error(resolveErrorMessage(data?.error));
             return;
           }
-          setTranslateTargetLanguage(targetLanguage);
-          setLastRequestedTargetLanguage(targetLanguage);
-          setTranslateMessage(`Translation restarted (${getLanguageLabel(targetLanguage)}).`);
-          startTranslationPoll();
+          translation.setTranslateTargetLanguage(targetLanguage);
+          translation.setLastRequestedTargetLanguage(targetLanguage);
+          translation.setTranslateMessage(`Translation restarted (${getLanguageLabel(targetLanguage)}).`);
+          translation.startTranslationPoll();
           await refetchBookJob();
           toast.success("Translation queued again.");
         } catch {
@@ -1728,369 +511,25 @@ export default function BookEditorView({
         }
       }
     },
-    [
-      activeVersion?.id,
-      book.id,
-      checkTranslationQueueHealth,
-      handleGenerateAudiobook,
-      refetchBookJob,
-      startTranslationPoll,
-      toast,
-      translateTargetLanguage,
-    ]
+    [activeVersion?.id, audiobook, book.id, refetchBookJob, toast, translation]
   );
 
-  const currentCampaign = marketingCampaigns.find(
-    (c) => c.language === marketingLanguage && c.channel === marketingChannel
-  ) ?? null;
+  // ── Layout helpers ────────────────────────────────────────────────────────
+  const workspaceContentMaxWidth =
+    tool === "edit" || tool === "polish"
+      ? "max-w-[980px]"
+      : tool === "cover" || tool === "translate" || tool === "audiobook" || tool === "market"
+        ? "max-w-[1200px]"
+        : "max-w-[1080px]";
 
-  const handleGenerateMarketingCopy = useCallback(async () => {
-    if (isGeneratingMarketing) return;
-    setIsGeneratingMarketing(true);
-    try {
-      const res = await fetch(`/api/books/${book.id}/marketing/generate`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ language: marketingLanguage, channel: marketingChannel }),
-      });
-      if (!res.ok) {
-        const data = await res.json().catch(() => ({}));
-        toast.error(resolveErrorMessage(data.error));
-        return;
-      }
-      router.refresh();
-    } catch {
-      toast.error("Could not generate. Try again.");
-    } finally {
-      setIsGeneratingMarketing(false);
-    }
-  }, [book.id, marketingLanguage, marketingChannel, isGeneratingMarketing, router, toast]);
-
-  const handleCopyMarketingToClipboard = useCallback(async () => {
-    if (!currentCampaign) return;
-    const parts: string[] = [];
-    if (currentCampaign.caption) parts.push(currentCampaign.caption);
-    if (currentCampaign.hashtags) parts.push(currentCampaign.hashtags);
-    if (currentCampaign.share_url) {
-      const baseUrl = typeof window !== "undefined" ? window.location.origin : "";
-      parts.push(`${baseUrl}${currentCampaign.share_url}`);
-    }
-    const text = parts.join("\n\n");
-    if (!text) return;
-    try {
-      await navigator.clipboard.writeText(text);
-      setMarketingCopyFeedback(true);
-      setTimeout(() => setMarketingCopyFeedback(false), 2000);
-    } catch {
-      setMarketingCopyFeedback(false);
-    }
-  }, [currentCampaign]);
-
-  useEffect(() => {
-    const stored = localStorage.getItem(STORAGE_PRESET);
-    if (stored && ["novel", "essay", "screenplay"].includes(stored)) setPreset(stored);
-  }, []);
-
-  useEffect(() => {
-    if (preset) localStorage.setItem(STORAGE_PRESET, preset);
-  }, [preset]);
-
-  useEffect(() => {
-    if (selectedChapterId && sessionStartWords === null) {
-      setSessionStartWords(chapterWordCounts[selectedChapterId] ?? 0);
-    }
-  }, [chapterWordCounts, selectedChapterId, sessionStartWords]);
-
-  const sessionWords = sessionStartWords !== null ? Math.max(0, wordCount - sessionStartWords) : 0;
-
-  const handleAutoSave = useCallback(async (chapterId: string, jsonContent: Record<string, unknown>) => {
-    if (savingRef.current) return;
-    savingRef.current = true;
-    setIsSaving(true);
-    setSaveError(false);
-    const supabase = createClient();
-    const contentString = JSON.stringify(jsonContent);
-    const { error } = await supabase.from("chapters").update({ content: contentString }).eq("id", chapterId);
-    savingRef.current = false;
-    setIsSaving(false);
-    if (error) {
-      setSaveError(true);
-      toast.error("Could not save. Changes may not have been persisted.");
-      return;
-    }
-    setChapters((prev) => prev.map((ch) => (ch.id === chapterId ? { ...ch, content: contentString } : ch)));
-    setLastSaved(new Date());
-    setHasUnsavedChanges(false);
-  }, [toast]);
-
-  const handleCreateChapter = useCallback(async () => {
-    setIsCreating(true);
-    const supabase = createClient();
-    let targetVersionId = activeVersion?.id ?? null;
-    let targetVersionLanguage = activeVersion?.language_code ?? null;
-    if (!targetVersionId) {
-      const fallbackLanguage = normalizeLanguage(book.original_language ?? book.language);
-      const { data: createdVersion, error: versionError } = await supabase
-        .from("book_versions")
-        .insert({
-          book_id: book.id,
-          language_code: fallbackLanguage,
-          status: "draft",
-        })
-        .select("id, language_code")
-        .single();
-      if (versionError || !createdVersion?.id) {
-        setIsCreating(false);
-        toast.error("Could not create version. Try again.");
-        return;
-      }
-      targetVersionId = createdVersion.id;
-      targetVersionLanguage = createdVersion.language_code ?? fallbackLanguage;
-      await supabase
-        .from("chapters")
-        .update({ book_version_id: targetVersionId })
-        .eq("book_id", book.id)
-        .is("book_version_id", null);
-      router.push(getBookWorkspaceHref(targetVersionLanguage));
-    }
-    const maxOrder = chapters.length > 0 ? Math.max(...chapters.map((ch) => ch.order)) : 0;
-    const { data, error } = await supabase
-      .from("chapters")
-      .insert({
-        book_id: book.id,
-        book_version_id: targetVersionId,
-        title: `Chapter ${maxOrder + 1}`,
-        content: "",
-        order: maxOrder + 1,
-      })
-      .select("id, title, content, order, book_version_id")
-      .single();
-    setIsCreating(false);
-    if (error) {
-      toast.error("Could not create chapter. Try again.");
-      return;
-    }
-    if (data) {
-      const updated = [...chapters, data];
-      setChapters(updated);
-      setSelectedChapterId(data.id);
-      setSessionStartWords(0);
-      setChapterPage(Math.floor((updated.length - 1) / CHAPTERS_PER_PAGE));
-      router.refresh();
-    }
-  }, [
-    CHAPTERS_PER_PAGE,
-    activeVersion?.id,
-    activeVersion?.language_code,
-    book.id,
-    book.language,
-    book.original_language,
-    chapters,
-    getBookWorkspaceHref,
-    router,
-    setChapterPage,
-    setSelectedChapterId,
-    toast,
-  ]);
-
-  const handleStartEditTitle = (chapterId: string, currentTitle: string) => {
-    setEditingTitleId(chapterId);
-    setTempTitle(currentTitle);
-  };
-
-  const handleSaveTitle = async (chapterId: string) => {
-    if (!tempTitle.trim()) {
-      setEditingTitleId(null);
-      return;
-    }
-    setIsSaving(true);
-    const supabase = createClient();
-    const { error } = await supabase.from("chapters").update({ title: tempTitle.trim() }).eq("id", chapterId);
-    setIsSaving(false);
-    if (error) {
-      setEditingTitleId(null);
-      return;
-    }
-    setChapters(chapters.map((ch) => (ch.id === chapterId ? { ...ch, title: tempTitle.trim() } : ch)));
-    setEditingTitleId(null);
-    router.refresh();
-  };
-
-  const handleCancelEditTitle = () => {
-    setEditingTitleId(null);
-    setTempTitle("");
-  };
-
-  const [deletingChapterId, setDeletingChapterId] = useState<string | null>(null);
-
-  const handleDeleteChapter = async (chapterId: string) => {
-    if (chapters.length <= 1) {
-      toast.error("Cannot delete the only chapter.");
-      return;
-    }
-    const supabase = createClient();
-    const { error } = await supabase.from("chapters").delete().eq("id", chapterId);
-    if (error) {
-      toast.error("Could not delete chapter. Try again.");
-      setDeletingChapterId(null);
-      return;
-    }
-    const remaining = chapters.filter((ch) => ch.id !== chapterId);
-    setChapters(remaining);
-    if (selectedChapterId === chapterId) {
-      setSelectedChapterId(remaining[0]?.id ?? null);
-    }
-    setDeletingChapterId(null);
-    router.refresh();
-  };
-
-  const handleMoveChapter = async (chapterId: string, direction: "up" | "down") => {
-    const idx = chapters.findIndex((ch) => ch.id === chapterId);
-    if (idx < 0) return;
-    const swapIdx = direction === "up" ? idx - 1 : idx + 1;
-    if (swapIdx < 0 || swapIdx >= chapters.length) return;
-
-    const a = chapters[idx];
-    const b = chapters[swapIdx];
-    const newChapters = [...chapters];
-    newChapters[idx] = { ...b, order: a.order };
-    newChapters[swapIdx] = { ...a, order: b.order };
-    newChapters.sort((x, y) => x.order - y.order);
-    setChapters(newChapters);
-
-    const supabase = createClient();
-    await Promise.all([
-      supabase.from("chapters").update({ order: a.order }).eq("id", b.id),
-      supabase.from("chapters").update({ order: b.order }).eq("id", a.id),
-    ]);
-    router.refresh();
-  };
-
-  const handleReorderChapters = async (sourceChapterId: string, targetChapterId: string) => {
-    if (sourceChapterId === targetChapterId) return;
-
-    const orderedChapters = [...chapters].sort((left, right) => left.order - right.order);
-    const sourceIndex = orderedChapters.findIndex((chapter) => chapter.id === sourceChapterId);
-    const targetIndex = orderedChapters.findIndex((chapter) => chapter.id === targetChapterId);
-
-    if (sourceIndex < 0 || targetIndex < 0) return;
-
-    const nextChapters = [...orderedChapters];
-    const [movedChapter] = nextChapters.splice(sourceIndex, 1);
-    nextChapters.splice(targetIndex, 0, movedChapter);
-
-    const orderSlots = [...orderedChapters]
-      .map((chapter) => chapter.order)
-      .sort((left, right) => left - right);
-    const reorderedChapters = nextChapters.map((chapter, index) => ({
-      ...chapter,
-      order: orderSlots[index] ?? index,
-    }));
-
-    setChapters(reorderedChapters);
-
-    const supabase = createClient();
-    await Promise.all(
-      reorderedChapters.map((chapter) =>
-        supabase.from("chapters").update({ order: chapter.order }).eq("id", chapter.id)
-      )
-    );
-
-    router.refresh();
-  };
-
-  useEffect(() => {
-    const handler = (e: KeyboardEvent) => {
-      if (e.key === "Escape" && focusMode) {
-        e.preventDefault();
-        setFocusMode(false);
-        return;
-      }
-      if ((e.metaKey || e.ctrlKey) && e.shiftKey && e.key === "f") {
-        e.preventDefault();
-        setFocusMode((f) => !f);
-      }
-      if ((e.metaKey || e.ctrlKey) && e.key === "\\") {
-        e.preventDefault();
-        setFocusMode((f) => !f);
-      }
-    };
-    window.addEventListener("keydown", handler);
-    return () => window.removeEventListener("keydown", handler);
-  }, [focusMode, setFocusMode]);
-
-  const commands = useMemo(
-    () => [
-      { id: "focus", label: "Toggle focus mode", shortcut: "⌘\\", group: "Write", onSelect: () => setFocusMode((f) => !f) },
-      { id: "new-chapter", label: "New chapter", group: "Write", onSelect: handleCreateChapter },
-      { id: "preset-novel", label: "Preset: Novel", group: "Write", onSelect: () => setPreset("novel") },
-      { id: "preset-essay", label: "Preset: Essay", group: "Write", onSelect: () => setPreset("essay") },
-      { id: "preset-screenplay", label: "Preset: Screenplay", group: "Write", onSelect: () => setPreset("screenplay") },
-      {
-        id: "generate-audiobook",
-        label: "Generate audiobook",
-        group: "Workflow",
-        icon: "audio",
-        keywords: ["production", "voice", "audio"],
-        onSelect: () => openProductionWorkspace("audiobook"),
-      },
-      {
-        id: "translate-book",
-        label: "Translate book",
-        group: "Workflow",
-        icon: "languages",
-        keywords: ["production", "localize", "translation"],
-        onSelect: () => openProductionWorkspace("translation"),
-      },
-      {
-        id: "publish-book",
-        label: "Publish book",
-        group: "Workflow",
-        icon: "rocket",
-        keywords: ["audience", "beta readers", "publish"],
-        onSelect: openAudiencePublishWorkspace,
-      },
-      {
-        id: "create-campaign",
-        label: "Create campaign",
-        group: "Workflow",
-        icon: "megaphone",
-        keywords: ["audience", "marketing", "assets"],
-        onSelect: openAudienceMarketingWorkspace,
-      },
-      {
-        id: "open-analytics",
-        label: "Open analytics",
-        group: "Workflow",
-        icon: "chart",
-        keywords: ["growth", "engagement", "signals"],
-        onSelect: openAnalyticsWorkspace,
-      },
-    ],
-    [
-      handleCreateChapter,
-      openAnalyticsWorkspace,
-      openAudienceMarketingWorkspace,
-      openAudiencePublishWorkspace,
-      openProductionWorkspace,
-      setFocusMode,
-    ]
-  );
-
-  useEffect(() => {
-    setCommands(commands);
-    return () => setCommands([]);
-  }, [commands, setCommands]);
-
+  // ── Status banners (shared between views) ─────────────────────────────────
   const jobStatusBanner = jobLoading ? (
     <div
       className="mb-6 flex h-14 items-center rounded-xl border border-black/[0.06] bg-slate-50/50 px-4 dark:border-white/[0.06] dark:bg-white/5"
       role="status"
       aria-label="Loading status"
     >
-      <span className="text-sm text-slate-500 dark:text-white/50">
-        Loading status...
-      </span>
+      <span className="text-sm text-slate-500 dark:text-white/50">Loading status...</span>
     </div>
   ) : jobError ? (
     <div
@@ -2105,52 +544,29 @@ export default function BookEditorView({
     </div>
   ) : null;
 
-  const focusModeStatusContent = (
-    <>
-      {jobStatusBanner}
-      {billing.pastDue && (
-        <div
-          className="mb-6 rounded-xl border border-red-200 bg-red-50 px-4 py-3 dark:border-red-900/40 dark:bg-red-950/30"
-          role="alert"
-        >
-          <p className="text-sm text-red-800 dark:text-red-200">
-            Your subscription is <strong>past_due</strong>.{" "}
-            <Link href="/author/billing" className="underline">
-              Manage subscription
-            </Link>
-            .
-          </p>
-        </div>
-      )}
-    </>
-  );
+  const billingWarning = billing.pastDue ? (
+    <div
+      className="mb-6 rounded-xl border border-red-200 bg-red-50 px-4 py-3 dark:border-red-900/40 dark:bg-red-950/30"
+      role="alert"
+    >
+      <p className="text-sm text-red-800 dark:text-red-200">
+        Your subscription is <strong>past_due</strong>. Billing features are locked until payment is updated.{" "}
+        <Link href="/author/billing" className="underline">
+          Manage subscription
+        </Link>
+        .
+      </p>
+    </div>
+  ) : null;
 
-  const writeOnlyStatusContent = (
-    <>
-      {jobStatusBanner}
-      {billing.pastDue && (
-        <div
-          className="mb-6 rounded-xl border border-red-200 bg-red-50 px-4 py-3 dark:border-red-900/40 dark:bg-red-950/30"
-          role="alert"
-        >
-          <p className="text-sm text-red-800 dark:text-red-200">
-            Your subscription is <strong>past_due</strong>. Billing features are
-            locked until payment is updated.{" "}
-            <Link href="/author/billing" className="underline">
-              Manage subscription
-            </Link>
-            .
-          </p>
-        </div>
-      )}
-    </>
-  );
-
+  // ═══════════════════════════════════════════════════════════════════════════
+  // FOCUS MODE
+  // ═══════════════════════════════════════════════════════════════════════════
   if (focusMode) {
     return (
       <FocusModeEditorView
-        publishToast={publishToast}
-        topContent={focusModeStatusContent}
+        publishToast={publishing.publishToast}
+        topContent={<>{jobStatusBanner}{billingWarning}</>}
         bookTitle={bookTitle}
         authorDisplayName={authorDisplayName}
         bookId={book.id}
@@ -2163,114 +579,86 @@ export default function BookEditorView({
         onSelectPreviousChapter={selectPreviousChapter}
         onSelectNextChapter={selectNextChapter}
         onResetSessionWords={() => setSessionStartWords(null)}
-        onAutoSave={handleAutoSave}
-        onDirty={() => setHasUnsavedChanges(true)}
+        onAutoSave={chapterCrud.handleAutoSave}
+        onDirty={() => chapterCrud.setHasUnsavedChanges(true)}
         onWordCount={setWordCount}
         onExitFocusMode={() => setFocusMode(false)}
       />
     );
   }
 
+  // ═══════════════════════════════════════════════════════════════════════════
+  // WRITE-ONLY WORKSPACE
+  // ═══════════════════════════════════════════════════════════════════════════
   if (isWriteOnlyWorkspace) {
     return (
       <WriteOnlyWorkspaceView
-        publishToast={publishToast}
-        statusContent={writeOnlyStatusContent}
+        publishToast={publishing.publishToast}
+        statusContent={<>{jobStatusBanner}{billingWarning}</>}
         bookId={book.id}
         bookTitle={bookTitle}
         authorDisplayName={authorDisplayName}
         tool={tool}
         tools={effectiveTools as Tool[]}
-        isPublished={isPublished}
+        isPublished={publishing.isPublished}
         chapters={chapters}
         wordCount={wordCount}
         activeLanguageLabel={activeLanguageLabel}
         versionCount={bookVersions.length}
-        displayCoverUrl={displayCoverUrl}
+        displayCoverUrl={cover.displayCoverUrl}
         selectedChapterId={selectedChapterId}
         selectedChapter={selectedChapter}
-        editingTitleId={editingTitleId}
-        tempTitle={tempTitle}
-        isSaving={isSaving}
-        saveError={saveError}
-        hasUnsavedChanges={hasUnsavedChanges}
-        lastSaved={lastSaved}
+        editingTitleId={chapterCrud.editingTitleId}
+        tempTitle={chapterCrud.tempTitle}
+        isSaving={chapterCrud.isSaving}
+        saveError={chapterCrud.saveError}
+        hasUnsavedChanges={chapterCrud.hasUnsavedChanges}
+        lastSaved={chapterCrud.lastSaved}
         sessionWords={sessionWords}
         preset={preset}
         focusMode={focusMode}
-        coverUploading={coverUploading}
-        coverError={coverError}
-        isCreating={isCreating}
+        coverUploading={cover.coverUploading}
+        coverError={cover.coverError}
+        isCreating={chapterCrud.isCreating}
         onSelectChapter={selectChapter}
         onResetSessionWords={() => setSessionStartWords(null)}
-        onCreateChapter={handleCreateChapter}
-        onCoverChange={handleCoverChange}
-        onMoveChapter={handleMoveChapter}
-        onReorderChapters={handleReorderChapters}
+        onCreateChapter={chapterCrud.handleCreateChapter}
+        onCoverChange={cover.handleCoverChange}
+        onMoveChapter={chapterCrud.handleMoveChapter}
+        onReorderChapters={chapterCrud.handleReorderChapters}
         onPresetChange={setPreset}
         onFocusModeToggle={() => setFocusMode((current) => !current)}
         onCommandPalette={openPalette}
-        onStartEditTitle={handleStartEditTitle}
-        onTempTitleChange={setTempTitle}
-        onSaveTitle={handleSaveTitle}
-        onCancelEditTitle={handleCancelEditTitle}
+        onStartEditTitle={chapterCrud.handleStartEditTitle}
+        onTempTitleChange={chapterCrud.setTempTitle}
+        onSaveTitle={chapterCrud.handleSaveTitle}
+        onCancelEditTitle={chapterCrud.handleCancelEditTitle}
         onWordCount={setWordCount}
-        onDirty={() => setHasUnsavedChanges(true)}
-        onAutoSave={handleAutoSave}
+        onDirty={() => chapterCrud.setHasUnsavedChanges(true)}
+        onAutoSave={chapterCrud.handleAutoSave}
         onInlineAiAction={handleInlineAiAction}
       />
     );
   }
 
+  // ═══════════════════════════════════════════════════════════════════════════
+  // MAIN WORKSPACE
+  // ═══════════════════════════════════════════════════════════════════════════
   return (
     <>
-      {publishToast && (
+      {publishing.publishToast && (
         <div
           role="status"
           aria-live="polite"
           className="fixed right-6 top-24 z-[1000] rounded-full bg-slate-900/90 px-4 py-2 text-[13px] font-medium text-white shadow-lg backdrop-blur-sm dark:bg-white/90 dark:text-slate-900"
         >
-          {publishToast}
+          {publishing.publishToast}
         </div>
       )}
       <section className="pb-24">
         <div className="mx-auto max-w-[1280px] space-y-6">
-        {/* Job banner — visible on all panels */}
-        {jobLoading ? (
-          <div
-            className="mb-6 flex h-14 items-center rounded-xl border border-black/[0.06] bg-slate-50/50 px-4 dark:border-white/[0.06] dark:bg-white/5"
-            role="status"
-            aria-label="Loading status"
-          >
-            <span className="text-sm text-slate-500 dark:text-white/50">Loading status...</span>
-          </div>
-        ) : jobError ? (
-          <div
-            className="mb-6 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 dark:border-amber-800 dark:bg-amber-950/30"
-            role="alert"
-          >
-            <p className="text-sm text-amber-800 dark:text-amber-200">{jobError}</p>
-          </div>
-        ) : jobsForBanner.length > 0 ? (
-          <div className="mb-6">
-            <BookJobsBanner jobs={jobsForBanner} onRetry={handleJobRetry} />
-          </div>
-        ) : null}
-
-        {billing.pastDue && (
-          <div
-            className="mb-6 rounded-xl border border-red-200 bg-red-50 px-4 py-3 dark:border-red-900/40 dark:bg-red-950/30"
-            role="alert"
-          >
-            <p className="text-sm text-red-800 dark:text-red-200">
-              Your subscription is <strong>past_due</strong>. Billing features are locked until payment is updated.{" "}
-              <Link href="/author/billing" className="underline">
-                Manage subscription
-              </Link>
-              .
-            </p>
-          </div>
-        )}
+        {jobStatusBanner}
+        {billingWarning}
 
         <div className="mb-6">
           <BookWorkflowHeader
@@ -2279,7 +667,7 @@ export default function BookEditorView({
             authorDisplayName={authorDisplayName}
             activeTool={tool}
             tools={effectiveTools as Tool[]}
-            isPublished={isPublished}
+            isPublished={publishing.isPublished}
             chapterCount={chapters.length}
             wordCount={wordCount}
             activeLanguageLabel={activeLanguageLabel}
@@ -2290,686 +678,67 @@ export default function BookEditorView({
         <div className={`${workspaceContentMaxWidth} min-h-[calc(100vh-12rem)] px-2 pt-1 sm:px-4 lg:px-6`}>
 
         {tool === "pricing" && (
-          <div className="mx-auto max-w-3xl space-y-6">
-            <h2 className="text-[clamp(20px,2.5vw,24px)] font-bold tracking-[-0.02em] text-slate-900 dark:text-white">Pricing and distribution</h2>
-
-            <div className="rounded-2xl border border-black/[0.05] bg-white/60 p-5 shadow-[0_1px_3px_rgba(0,0,0,0.02)] backdrop-blur-sm dark:border-white/[0.06] dark:bg-white/[0.02] dark:shadow-none space-y-4">
-              <h3 className="text-sm font-semibold text-slate-900 dark:text-white">Price and currency</h3>
-              <div className="flex flex-wrap items-center gap-3">
-                <span className="text-sm text-slate-700 dark:text-white/80">Free</span>
-                <button
-                  type="button"
-                  role="switch"
-                  aria-checked={priceAmountMinor > 0}
-                  aria-label="Book free or paid"
-                  onClick={() => setPriceAmountMinor(priceAmountMinor > 0 ? 0 : 4900)}
-                  className={`relative inline-flex h-6 w-11 flex-shrink-0 rounded-full border-2 border-transparent transition-colors focus:outline-none focus:ring-2 focus:ring-[#907AFF]/50 ${
-                    priceAmountMinor > 0 ? "bg-[#907AFF]" : "bg-slate-200 dark:bg-slate-600"
-                  }`}
-                >
-                  <span
-                    className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow transition-transform ${
-                      priceAmountMinor > 0 ? "translate-x-5" : "translate-x-1"
-                    }`}
-                  />
-                </button>
-                <span className="text-sm text-slate-700 dark:text-white/80">Paid</span>
-              </div>
-              {priceAmountMinor > 0 && (
-                <div className="flex flex-wrap gap-4 pt-2">
-                  <div>
-                    <label htmlFor="price-amount" className="mb-1 block text-xs text-slate-500 dark:text-white/50">{pricingModel === "per_chapter" ? "Price per chapter" : "Price (shown to readers)"}</label>
-                    <input
-                      id="price-amount"
-                      type="number"
-                      min={0}
-                      step={1}
-                      value={priceAmountMinor / 100}
-                      onChange={(e) => {
-                        const v = parseFloat(e.target.value);
-                        if (!Number.isFinite(v) || v < 0) return;
-                        setPriceAmountMinor(Math.round(v * 100));
-                      }}
-                      aria-label="Price in currency"
-                      className="w-28 rounded-xl border border-black/[0.08] bg-white px-3 py-2 text-sm text-slate-900 focus:border-slate-500 focus:outline-none dark:border-white/[0.08] dark:bg-white/[0.04] dark:text-white"
-                    />
-                  </div>
-                  <div>
-                    <label htmlFor="price-currency" className="mb-1 block text-xs text-slate-500 dark:text-white/50">Currency</label>
-                    <select
-                      id="price-currency"
-                      value={priceCurrency}
-                      onChange={(e) => setPriceCurrency(e.target.value)}
-                      aria-label="Currency"
-                      className="rounded-xl border border-black/[0.08] bg-white px-3 py-2 text-sm text-slate-900 focus:border-slate-500 focus:outline-none dark:border-white/[0.08] dark:bg-white/[0.04] dark:text-white"
-                    >
-                      <option value="SEK">SEK</option>
-                      <option value="EUR">EUR</option>
-                      <option value="USD">USD</option>
-                    </select>
-                  </div>
-                </div>
-              )}
-              <p className="text-xs text-slate-500 dark:text-white/50">Price is stored in minor units (cents/ore). Here it is shown as whole currency units.</p>
-            </div>
-
-            <div className="rounded-2xl border border-black/[0.05] bg-white/60 p-5 shadow-[0_1px_3px_rgba(0,0,0,0.02)] backdrop-blur-sm dark:border-white/[0.06] dark:bg-white/[0.02] dark:shadow-none space-y-3">
-              <h3 className="text-sm font-semibold text-slate-900 dark:text-white">Sales model</h3>
-              <button
-                type="button"
-                onClick={() => setPricingModel("book_only")}
-                className={`flex w-full items-center gap-3 rounded-lg border px-3 py-2 text-left transition ${
-                  pricingModel === "book_only"
-                    ? "border-[#907AFF]/30 bg-[#907AFF]/10 dark:bg-[#907AFF]/15"
-                    : "border-black/[0.06] bg-slate-50/50 hover:border-black/[0.12] dark:border-white/[0.06] dark:bg-white/5 dark:hover:border-white/[0.12]"
-                }`}
-              >
-                <span className={`text-sm ${pricingModel === "book_only" ? "font-medium text-slate-900 dark:text-white" : "text-slate-600 dark:text-white/60"}`}>Full book</span>
-                {pricingModel === "book_only" && (
-                  <span className="rounded-full bg-[#907AFF]/20 px-2 py-0.5 text-xs font-medium text-[#5c4bb8] dark:text-[#b8a9ff]">Selected</span>
-                )}
-              </button>
-              <button
-                type="button"
-                onClick={() => setPricingModel("per_chapter")}
-                className={`flex w-full items-center gap-3 rounded-lg border px-3 py-2 text-left transition ${
-                  pricingModel === "per_chapter"
-                    ? "border-[#907AFF]/30 bg-[#907AFF]/10 dark:bg-[#907AFF]/15"
-                    : "border-black/[0.06] bg-slate-50/50 hover:border-black/[0.12] dark:border-white/[0.06] dark:bg-white/5 dark:hover:border-white/[0.12]"
-                }`}
-              >
-                <span className={`text-sm ${pricingModel === "per_chapter" ? "font-medium text-slate-900 dark:text-white" : "text-slate-600 dark:text-white/60"}`}>Chapter</span>
-                {pricingModel === "per_chapter" && (
-                  <span className="rounded-full bg-[#907AFF]/20 px-2 py-0.5 text-xs font-medium text-[#5c4bb8] dark:text-[#b8a9ff]">Selected</span>
-                )}
-              </button>
-              <div className="flex items-center gap-3 rounded-lg border border-black/[0.06] bg-slate-50/50 px-3 py-2 dark:border-white/[0.06] dark:bg-white/5">
-                <span className="text-sm text-slate-600 dark:text-white/60">Bundle</span>
-                <span className="text-xs text-slate-500 dark:text-white/50">Coming later</span>
-              </div>
-              <p className="text-xs text-slate-500 dark:text-white/50">
-                {pricingModel === "book_only"
-                  ? "Readers buy the complete book at the price above."
-                  : "Readers buy chapters individually at the price above. First chapter is always free."}
-              </p>
-              {pricingModel === "per_chapter" && chapters.length > 0 && (
-                <div className="mt-2 space-y-1">
-                  <p className="text-xs font-medium text-slate-600 dark:text-white/60">Chapter pricing preview</p>
-                  <div className="max-h-48 overflow-y-auto rounded-lg border border-black/[0.06] dark:border-white/[0.06]">
-                    {chapters.map((ch, i) => {
-                      const isFree = i === 0;
-                      const displayPrice = priceAmountMinor > 0 ? `${(priceAmountMinor / 100).toFixed(priceAmountMinor % 100 === 0 ? 0 : 2)} ${priceCurrency}` : "Free";
-                      return (
-                        <div key={ch.id} className={`flex items-center justify-between px-3 py-1.5 text-xs ${i > 0 ? "border-t border-black/[0.04] dark:border-white/[0.04]" : ""}`}>
-                          <span className="truncate text-slate-700 dark:text-white/70">{ch.title || `Chapter ${i + 1}`}</span>
-                          <span className={`ml-2 shrink-0 ${isFree ? "text-emerald-600 dark:text-emerald-400" : "text-slate-500 dark:text-white/50"}`}>
-                            {isFree ? "Free" : displayPrice}
-                          </span>
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
-              )}
-            </div>
-
-            <div className="rounded-2xl border border-black/[0.05] bg-white/60 p-5 shadow-[0_1px_3px_rgba(0,0,0,0.02)] backdrop-blur-sm dark:border-white/[0.06] dark:bg-white/[0.02] dark:shadow-none">
-              <h3 className="text-sm font-semibold text-slate-900 dark:text-white mb-2">Visibility and access</h3>
-              <p className="text-sm text-slate-700 dark:text-white/80">
-                {priceAmountMinor <= 0
-                  ? "Free - everyone can read the book."
-                  : pricingModel === "per_chapter"
-                    ? "Paid per chapter - readers purchase chapters individually. First chapter is free."
-                    : "Paid - readers need to purchase the book or have access via entitlement to read."}
-                {" "}
-                {currentVisibility === "followers" && "Followers-only affects discoverability, not the paywall."}
-              </p>
-            </div>
-
-            {!isPublished && (
-              <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 dark:border-amber-800 dark:bg-amber-950/30" role="status">
-                <p className="text-sm font-medium text-amber-800 dark:text-amber-200">Publish the book before selling it.</p>
-              </div>
-            )}
-            {priceAmountMinor > 0 && !stripeConfigured && (
-              <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 dark:border-amber-800 dark:bg-amber-950/30" role="status">
-                <p className="text-sm font-medium text-amber-800 dark:text-amber-200">Payment configuration is missing. Contact us to enable purchases.</p>
-              </div>
-            )}
-
-            <div className="flex items-center gap-3">
-              <button
-                type="button"
-                onClick={handleSavePricing}
-                disabled={pricingSaving || (priceAmountMinor === initialPriceMinor && priceCurrency === initialCurrency && pricingModel === initialPricingModel)}
-                aria-label="Save pricing"
-                className="rounded-xl bg-slate-900 px-4 py-2.5 text-[13px] font-semibold text-white shadow-sm transition-all hover:bg-slate-800 hover:shadow-md disabled:opacity-50 disabled:cursor-not-allowed dark:bg-white dark:text-slate-900"
-              >
-                {pricingSaving ? "Saving..." : "Save"}
-              </button>
-              {pricingError && <p className="text-sm text-red-600 dark:text-red-400" role="alert">{pricingError}</p>}
-              {pricingSaved && <p className="text-sm text-emerald-600 dark:text-emerald-400" role="status">Saved.</p>}
-            </div>
-          </div>
+          <PricingPanel
+            chapters={chapters}
+            priceAmountMinor={pricing.priceAmountMinor}
+            setPriceAmountMinor={pricing.setPriceAmountMinor}
+            priceCurrency={pricing.priceCurrency}
+            setPriceCurrency={pricing.setPriceCurrency}
+            pricingModel={pricing.pricingModel}
+            setPricingModel={pricing.setPricingModel}
+            pricingSaving={pricing.pricingSaving}
+            pricingDirty={pricing.pricingDirty}
+            pricingError={pricing.pricingError}
+            pricingSaved={pricing.pricingSaved}
+            handleSavePricing={pricing.handleSavePricing}
+            isPublished={publishing.isPublished}
+            stripeConfigured={stripeConfigured}
+            currentVisibility={publishing.currentVisibility}
+          />
         )}
 
         {tool === "audiobook" && (
-          <div className="mx-auto max-w-4xl space-y-6">
-            <h2 className="text-[13px] font-semibold uppercase tracking-[0.08em] text-slate-800 dark:text-white/70">AUDIOBOOK PREVIEW</h2>
-
-            {/* Dropdowns row */}
-            <div className="flex flex-wrap gap-4">
-              {/* Language dropdown */}
-              <div className="relative" ref={abLangRef}>
-                <button
-                  type="button"
-                  onClick={() => { setAbLangOpen((o) => !o); setAbVoiceOpen(false); setAbToneOpen(false); }}
-                  className="flex items-center gap-2 rounded-full border border-slate-200 bg-white px-5 py-2.5 text-[15px] font-medium text-slate-900 transition hover:border-slate-300 dark:border-white/[0.1] dark:bg-white/[0.04] dark:text-white"
-                  aria-haspopup="listbox"
-                  aria-expanded={abLangOpen}
-                >
-                  <span>{getLanguageLabel(normalizeLanguage(activeVersion?.language_code ?? activeLanguage))}</span>
-                  <svg className={`h-4 w-4 text-slate-400 transition-transform ${abLangOpen ? "rotate-180" : ""}`} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M6 9l6 6 6-6" /></svg>
-                </button>
-                {abLangOpen && (
-                  <ul className="absolute left-0 top-full z-20 mt-1 min-w-[160px] overflow-hidden rounded-xl shadow-lg border border-slate-200 bg-white py-1 dark:border-white/[0.08] dark:bg-slate-900" role="listbox">
-                    {LANGUAGE_OPTIONS.map((opt) => (
-                      <li key={opt.value} role="option" aria-selected={normalizeLanguage(activeVersion?.language_code ?? activeLanguage) === opt.value}>
-                        <button
-                          type="button"
-                          onClick={() => setAbLangOpen(false)}
-                          className={`w-full px-4 py-2 text-left text-sm transition hover:bg-slate-50 dark:hover:bg-white/10 ${
-                            normalizeLanguage(activeVersion?.language_code ?? activeLanguage) === opt.value ? "bg-[#907AFF]/8 font-medium text-[#5c4bb8] dark:bg-[#907AFF]/15 dark:text-[#b8a9ff]" : "text-slate-700 dark:text-white/80"
-                          }`}
-                        >
-                          {opt.label}
-                        </button>
-                      </li>
-                    ))}
-                  </ul>
-                )}
-              </div>
-
-              {/* Voice dropdown */}
-              <div className="relative" ref={abVoiceRef}>
-                <button
-                  type="button"
-                  onClick={() => { setAbVoiceOpen((o) => !o); setAbLangOpen(false); setAbToneOpen(false); }}
-                  className="flex items-center gap-2 rounded-full border border-slate-200 bg-white px-5 py-2.5 text-[15px] font-medium text-slate-900 transition hover:border-slate-300 dark:border-white/[0.1] dark:bg-white/[0.04] dark:text-white"
-                  aria-haspopup="listbox"
-                  aria-expanded={abVoiceOpen}
-                >
-                  <span>{audiobookPreviewVoice === "Ryan" ? "Voice" : audiobookPreviewVoice}</span>
-                  <svg className={`h-4 w-4 text-slate-400 transition-transform ${abVoiceOpen ? "rotate-180" : ""}`} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M6 9l6 6 6-6" /></svg>
-                </button>
-                {abVoiceOpen && (
-                  <ul className="absolute left-0 top-full z-20 mt-1 min-w-[140px] overflow-hidden rounded-xl border border-slate-200 bg-white py-1 shadow-lg dark:border-white/[0.08] dark:bg-slate-900" role="listbox">
-                    {[{ value: "Ryan", label: "Ryan" }, { value: "Emma", label: "Emma" }, { value: "Alex", label: "Alex" }].map((opt) => (
-                      <li key={opt.value} role="option" aria-selected={audiobookPreviewVoice === opt.value}>
-                        <button
-                          type="button"
-                          onClick={() => { setAudiobookPreviewVoice(opt.value); setAbVoiceOpen(false); }}
-                          className={`w-full px-4 py-2 text-left text-sm transition hover:bg-slate-50 dark:hover:bg-white/10 ${
-                            audiobookPreviewVoice === opt.value ? "bg-[#907AFF]/8 font-medium text-[#5c4bb8] dark:bg-[#907AFF]/15 dark:text-[#b8a9ff]" : "text-slate-700 dark:text-white/80"
-                          }`}
-                        >
-                          {opt.label}
-                        </button>
-                      </li>
-                    ))}
-                  </ul>
-                )}
-              </div>
-
-              {/* Tone dropdown */}
-              <div className="relative" ref={abToneRef}>
-                <button
-                  type="button"
-                  onClick={() => { setAbToneOpen((o) => !o); setAbLangOpen(false); setAbVoiceOpen(false); }}
-                  className="flex items-center gap-2 rounded-full border border-slate-200 bg-white px-5 py-2.5 text-[15px] font-medium text-slate-900 transition hover:border-slate-300 dark:border-white/[0.1] dark:bg-white/[0.04] dark:text-white"
-                  aria-haspopup="listbox"
-                  aria-expanded={abToneOpen}
-                >
-                  <span>{audiobookPreviewTone === "neutral" ? "Tone" : audiobookPreviewTone.charAt(0).toUpperCase() + audiobookPreviewTone.slice(1)}</span>
-                  <svg className={`h-4 w-4 text-slate-400 transition-transform ${abToneOpen ? "rotate-180" : ""}`} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M6 9l6 6 6-6" /></svg>
-                </button>
-                {abToneOpen && (
-                  <ul className="absolute left-0 top-full z-20 mt-1 min-w-[140px] overflow-hidden rounded-xl border border-slate-200 bg-white py-1 shadow-lg dark:border-white/[0.08] dark:bg-slate-900" role="listbox">
-                    {[{ value: "neutral", label: "Neutral" }, { value: "warm", label: "Warm" }, { value: "dramatic", label: "Dramatic" }].map((opt) => (
-                      <li key={opt.value} role="option" aria-selected={audiobookPreviewTone === opt.value}>
-                        <button
-                          type="button"
-                          onClick={() => { setAudiobookPreviewTone(opt.value); setAbToneOpen(false); }}
-                          className={`w-full px-4 py-2 text-left text-sm transition hover:bg-slate-50 dark:hover:bg-white/10 ${
-                            audiobookPreviewTone === opt.value ? "bg-[#907AFF]/8 font-medium text-[#5c4bb8] dark:bg-[#907AFF]/15 dark:text-[#b8a9ff]" : "text-slate-700 dark:text-white/80"
-                          }`}
-                        >
-                          {opt.label}
-                        </button>
-                      </li>
-                    ))}
-                  </ul>
-                )}
-              </div>
-            </div>
-
-            {/* Audio player */}
-            <div className="rounded-2xl border border-slate-200 bg-white px-6 py-5 dark:border-white/[0.06] dark:bg-white/[0.03]">
-              {/* Hidden audio element */}
-              {shouldShowGeneratedAudiobookPlayer && fallbackGeneratedAudiobookUrl && (
-                <audio
-                  ref={audiobookPreviewRef}
-                  src={fallbackGeneratedAudiobookUrl}
-                  onTimeUpdate={() => {
-                    if (audiobookPreviewRef.current) {
-                      setAudiobookPreviewCurrentTime(audiobookPreviewRef.current.currentTime);
-                    }
-                  }}
-                  onLoadedMetadata={() => {
-                    if (audiobookPreviewRef.current) {
-                      setAudiobookPreviewDuration(audiobookPreviewRef.current.duration);
-                    }
-                  }}
-                  onEnded={() => setAudiobookPreviewPlaying(false)}
-                />
-              )}
-
-              {/* Progress bar */}
-              <div className="mb-5">
-                <div
-                  className="relative h-1 cursor-pointer rounded-full bg-slate-200/80 dark:bg-white/10"
-                  onClick={(e) => {
-                    if (!audiobookPreviewRef.current || !audiobookPreviewDuration) return;
-                    const rect = e.currentTarget.getBoundingClientRect();
-                    const ratio = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
-                    audiobookPreviewRef.current.currentTime = ratio * audiobookPreviewDuration;
-                  }}
-                >
-                  <div
-                    className="h-full rounded-full bg-[#907AFF]/40 transition-all"
-                    style={{ width: audiobookPreviewDuration > 0 ? `${(audiobookPreviewCurrentTime / audiobookPreviewDuration) * 100}%` : "0%" }}
-                  />
-                  <div
-                    className="absolute top-1/2 h-3 w-3 -translate-y-1/2 rounded-full bg-[#907AFF] shadow-sm transition-all"
-                    style={{ left: audiobookPreviewDuration > 0 ? `calc(${(audiobookPreviewCurrentTime / audiobookPreviewDuration) * 100}% - 6px)` : "0" }}
-                  />
-                </div>
-              </div>
-
-              {/* Controls */}
-              <div className="flex items-center justify-between">
-                <span className="min-w-[90px] text-[15px] tabular-nums text-slate-500 dark:text-white/50">
-                  {formatPlayerTime(audiobookPreviewCurrentTime)} / {formatPlayerTime(audiobookPreviewDuration)}
-                </span>
-                <div className="flex items-center gap-4">
-                  {/* Previous */}
-                  <button
-                    type="button"
-                    onClick={() => {
-                      if (audiobookPreviewRef.current) {
-                        audiobookPreviewRef.current.currentTime = Math.max(0, audiobookPreviewRef.current.currentTime - 30);
-                      }
-                    }}
-                    className="text-slate-400 transition hover:text-slate-600 dark:text-white/40 dark:hover:text-white/70"
-                  >
-                    <svg className="h-5 w-5" viewBox="0 0 24 24" fill="currentColor"><path d="M6 6h2v12H6zm12 0v12l-8.5-6z" /></svg>
-                  </button>
-                  {/* Play/Pause */}
-                  <button
-                    type="button"
-                    onClick={() => {
-                      if (!audiobookPreviewRef.current) return;
-                      if (audiobookPreviewPlaying) {
-                        audiobookPreviewRef.current.pause();
-                        setAudiobookPreviewPlaying(false);
-                      } else {
-                        void audiobookPreviewRef.current.play();
-                        setAudiobookPreviewPlaying(true);
-                      }
-                    }}
-                    className="flex h-11 w-11 items-center justify-center rounded-full bg-[#907AFF] text-white transition hover:bg-[#7c6ae6]"
-                  >
-                    {audiobookPreviewPlaying ? (
-                      <svg className="h-4 w-4" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="4" width="4" height="16" /><rect x="14" y="4" width="4" height="16" /></svg>
-                    ) : (
-                      <svg className="ml-0.5 h-5 w-5" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z" /></svg>
-                    )}
-                  </button>
-                  {/* Next */}
-                  <button
-                    type="button"
-                    onClick={() => {
-                      if (audiobookPreviewRef.current) {
-                        audiobookPreviewRef.current.currentTime = Math.min(
-                          audiobookPreviewRef.current.duration || 0,
-                          audiobookPreviewRef.current.currentTime + 30
-                        );
-                      }
-                    }}
-                    className="text-slate-400 transition hover:text-slate-600 dark:text-white/40 dark:hover:text-white/70"
-                  >
-                    <svg className="h-5 w-5" viewBox="0 0 24 24" fill="currentColor"><path d="M6 18l8.5-6L6 6v12zM16 6v12h2V6h-2z" /></svg>
-                  </button>
-                </div>
-                {/* Speed */}
-                <button
-                  type="button"
-                  onClick={() => {
-                    const speeds = [0.5, 0.75, 1.0, 1.25, 1.5, 2.0];
-                    const idx = speeds.indexOf(audiobookPreviewSpeed);
-                    const next = speeds[(idx + 1) % speeds.length];
-                    setAudiobookPreviewSpeed(next);
-                    if (audiobookPreviewRef.current) {
-                      audiobookPreviewRef.current.playbackRate = next;
-                    }
-                  }}
-                  className="min-w-[40px] text-right text-[15px] font-medium tabular-nums text-slate-600 transition hover:text-slate-800 dark:text-white/60 dark:hover:text-white/80"
-                >
-                  {audiobookPreviewSpeed === 1 ? "1.0" : audiobookPreviewSpeed}x
-                </button>
-              </div>
-            </div>
-
-            {/* Two cards side by side */}
-            <div className="grid gap-6 lg:grid-cols-2 lg:items-start">
-              {/* Left card: Generate audiobook */}
-              <div className="rounded-2xl border border-slate-200 bg-white p-6 dark:border-white/[0.06] dark:bg-white/[0.03]">
-                <h3 className="text-xl font-semibold text-slate-900 dark:text-white">Increase your sales</h3>
-                <p className="mt-1.5 text-sm text-slate-500 dark:text-white/50">Turn your book into a professional audiobook</p>
-
-                {/* Info box */}
-                <div className="mt-5 rounded-xl border border-slate-200 bg-slate-50/80 p-5 dark:border-white/[0.06] dark:bg-white/[0.03]">
-                  <p className="text-[15px] text-slate-700 dark:text-white/70">
-                    Languages: <span className="font-semibold">{getLanguageLabel(normalizeLanguage(activeVersion?.language_code ?? activeLanguage))}</span>
-                  </p>
-                  <p className="mt-2 text-[15px] text-slate-700 dark:text-white/70">
-                    Estimated audiobook length: <span className="font-medium">~{(() => {
-                      const totalMinutes = Math.round(totalBookWordCount / 150);
-                      const hours = Math.floor(totalMinutes / 60);
-                      const mins = totalMinutes % 60;
-                      if (hours > 0) return `${hours}h ${mins}min`;
-                      return mins > 0 ? `${mins}min` : "< 1min";
-                    })()}</span>
-                  </p>
-                  <p className="mt-2 text-[15px] text-slate-700 dark:text-white/70">
-                    Estimated generation time: <span className="font-medium">~{(() => {
-                      const audiobookMinutes = Math.round(totalBookWordCount / 150);
-                      const genMinutes = Math.max(1, Math.round(audiobookMinutes * 0.15));
-                      return `${genMinutes}min`;
-                    })()}</span>
-                  </p>
-                  <p className="mt-3 flex items-center gap-1.5 text-[15px] font-medium text-slate-800 dark:text-white/80">
-                    <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5}><path d="M5 13l4 4L19 7" /></svg>
-                    Included in PRO
-                  </p>
-                </div>
-
-                {/* Generation progress */}
-                {isAudiobookActive && effectiveAudiobookProgress && (
-                  <div className="mt-4">
-                    <div className="mb-1 flex justify-between text-xs text-slate-600 dark:text-slate-400">
-                      <span>{effectiveAudiobookProgress.currentChapterTitle ?? "Processing..."}</span>
-                      <span>{effectiveAudiobookProgress.completedChapters} / {effectiveAudiobookProgress.totalChapters}</span>
-                    </div>
-                    <div className="h-2 w-full overflow-hidden rounded-full bg-slate-200 dark:bg-slate-700">
-                      <div
-                        className="h-full rounded-full bg-[#907AFF] transition-all duration-300"
-                        style={{
-                          width: effectiveAudiobookProgress.totalChapters > 0
-                            ? `${(effectiveAudiobookProgress.completedChapters / effectiveAudiobookProgress.totalChapters) * 100}%`
-                            : "0%",
-                        }}
-                      />
-                    </div>
-                    <p className="mt-1 text-[11px] text-slate-500 dark:text-slate-400">
-                      {audiobookEtaText ?? "Estimating remaining time..."}
-                    </p>
-                  </div>
-                )}
-
-                {/* Error messages */}
-                {audiobookStatusUi === "cancelled" && (
-                  <p className="mt-3 text-xs text-slate-600 dark:text-slate-300">{effectiveAudiobookError ?? "Generation cancelled."}</p>
-                )}
-                {audiobookStatusUi === "failed" && (
-                  <p className="mt-3 text-xs text-red-600 dark:text-red-400">{effectiveAudiobookError ?? "Could not create audiobook. Try again."}</p>
-                )}
-                {audiobookError && audiobookStatusUi !== "failed" && audiobookStatusUi !== "cancelled" && (
-                  <p className="mt-3 text-xs text-red-600 dark:text-red-400">{audiobookError}</p>
-                )}
-
-                {/* Generate button */}
-                <button
-                  type="button"
-                  onClick={() => void handleGenerateAudiobook()}
-                  disabled={isAudiobookActive || !audiobookFeatureEnabled || billing.loading || (billing.isProActive && audiobookScope !== "book" && audiobookRequestedChapterIds.length === 0)}
-                  className="mt-5 rounded-xl bg-[#907AFF] px-8 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-[#7c6ae6] disabled:cursor-not-allowed disabled:opacity-50"
-                >
-                  {!audiobookFeatureEnabled
-                    ? "Generate audiobook (unavailable)"
-                    : billing.loading
-                    ? "Checking subscription..."
-                    : isAudiobookActive
-                    ? effectiveAudiobookProgress
-                      ? `Generating (${effectiveAudiobookProgress.completedChapters}/${effectiveAudiobookProgress.totalChapters})...`
-                      : "Queued..."
-                    : "Generate audiobook"}
-                </button>
-
-                {/* Status badge */}
-                {audiobookStatusUi !== "idle" && !isAudiobookActive && (
-                  <div className="mt-4">
-                    <span
-                      className={`inline-block rounded-full px-2.5 py-1 text-xs font-medium ${
-                        audiobookStatusUi === "published"
-                          ? "bg-[#907AFF]/15 text-[#5c4bb8] dark:bg-[#907AFF]/25 dark:text-[#b8a9ff]"
-                          : audiobookStatusUi === "failed"
-                            ? "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300"
-                            : audiobookStatusUi === "cancelled"
-                              ? "bg-slate-200 text-slate-700 dark:bg-slate-700 dark:text-slate-200"
-                              : "bg-slate-100 text-slate-700 dark:bg-slate-700 dark:text-slate-200"
-                      }`}
-                    >
-                      {getAudiobookStatusLabel(audiobookStatusUi)}
-                    </span>
-                  </div>
-                )}
-
-                {/* Scope selection (Pro only) */}
-                {billing.isProActive && (
-                  <div className="mt-4 grid grid-cols-3 gap-2">
-                    <button
-                      type="button"
-                      onClick={() => setAudiobookScope("book")}
-                      className={`rounded-full border px-3 py-2 text-xs font-medium transition ${
-                        audiobookScope === "book"
-                          ? "border-[#907AFF]/40 bg-[#907AFF]/10 text-[#5c4bb8]"
-                          : "border-slate-200 bg-white text-slate-600 hover:bg-slate-50"
-                      }`}
-                    >
-                      Whole book
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setAudiobookScope("current")}
-                      className={`rounded-full border px-3 py-2 text-xs font-medium transition ${
-                        audiobookScope === "current"
-                          ? "border-[#907AFF]/40 bg-[#907AFF]/10 text-[#5c4bb8]"
-                          : "border-slate-200 bg-white text-slate-600 hover:bg-slate-50"
-                      }`}
-                    >
-                      Current chapter
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setAudiobookScope("selected");
-                        setIsAudiobookChapterPickerOpen(true);
-                        if (selectedChapterId) {
-                          setAudiobookSelectedChapterIds((prev) => (
-                            prev.includes(selectedChapterId) ? prev : [...prev, selectedChapterId]
-                          ));
-                        }
-                      }}
-                      className={`rounded-full border px-3 py-2 text-xs font-medium transition ${
-                        audiobookScope === "selected"
-                          ? "border-[#907AFF]/40 bg-[#907AFF]/10 text-[#5c4bb8]"
-                          : "border-slate-200 bg-white text-slate-600 hover:bg-slate-50"
-                      }`}
-                    >
-                      Select chapter
-                    </button>
-                  </div>
-                )}
-
-                {/* Chapter picker for selected scope */}
-                {audiobookScope === "selected" && (
-                  <div className="mt-3 rounded-xl border border-slate-200 bg-white/70 p-3 dark:border-white/[0.08] dark:bg-white/[0.03]">
-                    <button
-                      type="button"
-                      onClick={() => setIsAudiobookChapterPickerOpen((prev) => !prev)}
-                      className="mb-2 w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-left text-xs font-medium text-slate-700 transition hover:bg-slate-50 dark:border-white/[0.08] dark:bg-white/[0.04] dark:text-white"
-                    >
-                      {isAudiobookChapterPickerOpen ? "Hide chapter list" : "Show chapter list"}
-                    </button>
-                    {isAudiobookChapterPickerOpen && (
-                      <>
-                        <div className="mb-2 flex flex-wrap gap-2">
-                          <button type="button" onClick={() => setAudiobookSelectedChapterIds(chapters.map((ch) => ch.id))} className="rounded-md border border-slate-200 px-2 py-1 text-[11px] text-slate-600 hover:bg-slate-50">Select all</button>
-                          <button type="button" onClick={() => setAudiobookSelectedChapterIds([])} className="rounded-md border border-slate-200 px-2 py-1 text-[11px] text-slate-600 hover:bg-slate-50">Clear</button>
-                        </div>
-                        <div className="max-h-44 space-y-1 overflow-y-auto pr-1">
-                          {chapters.map((chapter) => (
-                            <label key={chapter.id} className="flex cursor-pointer items-center gap-2 rounded-md px-2 py-1.5 text-xs text-slate-700 hover:bg-slate-50">
-                              <input
-                                type="checkbox"
-                                checked={audiobookSelectedChapterIds.includes(chapter.id)}
-                                onChange={() => setAudiobookSelectedChapterIds((prev) => prev.includes(chapter.id) ? prev.filter((id) => id !== chapter.id) : [...prev, chapter.id])}
-                                className="h-3.5 w-3.5 rounded border-slate-300 text-[#907AFF] focus:ring-[#907AFF]"
-                              />
-                              <span className="truncate">{chapter.title || "Untitled chapter"}</span>
-                            </label>
-                          ))}
-                        </div>
-                      </>
-                    )}
-                  </div>
-                )}
-
-                {/* Control buttons during generation */}
-                {isAudiobookActive && (
-                  <div className="mt-3 grid grid-cols-3 gap-2">
-                    <button type="button" onClick={() => void handleAudiobookControl("pause")} disabled={!canPauseAudiobook} className="rounded-full border border-slate-200 bg-white px-3 py-2 text-xs font-medium text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50">
-                      {audiobookControlPending === "pause" ? "Pausing..." : "Pause"}
-                    </button>
-                    <button type="button" onClick={() => void handleAudiobookControl("resume")} disabled={!canResumeAudiobook} className="rounded-full border border-slate-200 bg-white px-3 py-2 text-xs font-medium text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50">
-                      {audiobookControlPending === "resume" ? "Resuming..." : "Resume"}
-                    </button>
-                    <button type="button" onClick={() => void handleAudiobookControl("cancel")} disabled={!canCancelAudiobook} className="rounded-full border border-red-200 bg-red-50 px-3 py-2 text-xs font-medium text-red-700 transition hover:bg-red-100 disabled:cursor-not-allowed disabled:opacity-50">
-                      {audiobookControlPending === "cancel" ? "Cancelling..." : "Cancel"}
-                    </button>
-                  </div>
-                )}
-
-                {!audiobookFeatureEnabled && (
-                  <p className="mt-2 text-xs text-slate-600 dark:text-white/60">
-                    Audiobook generation is temporarily disabled.
-                  </p>
-                )}
-              </div>
-
-              {/* Right card: Languages */}
-              <div className="rounded-2xl border border-slate-200 bg-white p-6 dark:border-white/[0.06] dark:bg-white/[0.03]">
-                <h3 className="text-xl font-semibold text-slate-900 dark:text-white">Audiobook in more languages:</h3>
-                <div className="mt-4 divide-y divide-slate-100 dark:divide-white/[0.06]">
-                  {(() => {
-                    const bookLang = normalizeLanguage(book.language ?? book.original_language);
-                    const sorted = [...LANGUAGE_OPTIONS].sort((a, b) =>
-                      a.value === bookLang ? -1 : b.value === bookLang ? 1 : 0
-                    );
-                    return sorted.map((lang) => {
-                      const isBookLang = bookLang === lang.value;
-                      const isChecked = audiobookSelectedLanguages.includes(lang.value);
-                      return (
-                        <label key={lang.value} className="flex cursor-pointer items-center justify-between py-3.5 text-[15px] text-slate-700 dark:text-white/80">
-                          <span>{lang.label}</span>
-                          <input
-                            type="checkbox"
-                            checked={isChecked}
-                            onChange={() => {
-                              if (isBookLang) return;
-                              setAudiobookSelectedLanguages((prev) =>
-                                prev.includes(lang.value)
-                                  ? prev.filter((l) => l !== lang.value)
-                                  : [...prev, lang.value]
-                              );
-                            }}
-                            disabled={isBookLang}
-                            className="h-4 w-4 rounded border-slate-300 text-[#907AFF] focus:ring-[#907AFF] disabled:cursor-default dark:border-white/20"
-                          />
-                        </label>
-                      );
-                    });
-                  })()}
-                </div>
-              </div>
-            </div>
-
-            {/* Audiobook checkout modal for non-Pro */}
-            {audiobookCheckoutModalOpen && (
-              <div
-                className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm"
-                onClick={(e) => { if (e.target === e.currentTarget) setAudiobookCheckoutModalOpen(false); }}
-              >
-                <div className="relative mx-4 w-full max-w-md rounded-2xl bg-white p-8 shadow-2xl dark:bg-slate-900">
-                  <button type="button" onClick={() => setAudiobookCheckoutModalOpen(false)} className="absolute right-4 top-4 text-slate-400 hover:text-slate-600 dark:text-white/40 dark:hover:text-white/70" aria-label="Close">
-                    <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M18 6L6 18M6 6l12 12" /></svg>
-                  </button>
-                  <h2 className="mb-6 text-center text-lg font-semibold text-slate-900 dark:text-white">Choose a plan to generate audiobook</h2>
-                  <div className="space-y-4">
-                    <label className="flex cursor-pointer items-start gap-3 rounded-xl border-2 border-[#907AFF] bg-[#907AFF]/5 px-4 py-4 transition">
-                      <input type="radio" name="audiobook-plan-new" value="per_book" defaultChecked className="mt-0.5 h-4 w-4 accent-[#907AFF]" />
-                      <div>
-                        <p className="font-semibold text-slate-900 dark:text-white">Pay per audiobook</p>
-                        <p className="text-sm text-slate-500 dark:text-white/50">299 kr / book</p>
-                      </div>
-                    </label>
-                    <label className="flex cursor-pointer items-start gap-3 rounded-xl border-2 border-slate-200 px-4 py-4 transition hover:border-slate-300 dark:border-white/10 dark:hover:border-white/20" onClick={() => { setAudiobookCheckoutModalOpen(false); router.push("/author/billing"); }}>
-                      <input type="radio" name="audiobook-plan-new" value="pro" className="mt-0.5 h-4 w-4 accent-[#907AFF]" />
-                      <div>
-                        <p className="font-semibold text-slate-900 dark:text-white">Subscribe to PRO</p>
-                        <p className="mb-2 text-sm text-slate-500 dark:text-white/50">2 490 kr / month</p>
-                        <ul className="space-y-1 text-sm text-slate-600 dark:text-white/60">
-                          {["Unlimited audiobooks", "Unlimited translations", "Chapter-level control", "Marketing tools"].map((f) => (
-                            <li key={f} className="flex items-center gap-2">
-                              <svg className="h-4 w-4 shrink-0 text-[#907AFF]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M5 13l4 4L19 7" /></svg>
-                              {f}
-                            </li>
-                          ))}
-                        </ul>
-                      </div>
-                    </label>
-                  </div>
-                  {audiobookError && <p className="mt-4 text-center text-sm text-red-600 dark:text-red-400">{audiobookError}</p>}
-                  <button
-                    type="button"
-                    onClick={() => { setAudiobookCheckoutModalOpen(false); void handleAudiobookCheckout(); }}
-                    disabled={audiobookCheckoutLoading}
-                    className="mt-6 block w-full rounded-full bg-[#907AFF] px-6 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-[#7c6ae6] disabled:cursor-not-allowed disabled:opacity-60"
-                  >
-                    {audiobookCheckoutLoading ? "Redirecting..." : "Generate full audiobook"}
-                  </button>
-                </div>
-              </div>
-            )}
-
-            {/* Generated audiobook player */}
-            {shouldShowGeneratedAudiobookPlayer && !fallbackGeneratedAudiobookUrl && latestAudiobookManifestUrl && (
-              <div className="mt-2">
-                <ManifestAudiobookPlayer bookId={book.id} manifestUrl={latestAudiobookManifestUrl} />
-              </div>
-            )}
-          </div>
+          <AudiobookPanel
+            bookId={book.id}
+            bookLanguage={book.language ?? null}
+            bookOriginalLanguage={book.original_language ?? null}
+            chapters={chapters}
+            selectedChapterId={selectedChapterId}
+            activeVersion={activeVersion}
+            activeLanguage={activeLanguage}
+            totalBookWordCount={totalBookWordCount}
+            billingLoading={billing.loading}
+            billingIsProActive={billing.isProActive}
+            audiobookFeatureEnabled={audiobook.audiobookFeatureEnabled}
+            isAudiobookActive={audiobook.isAudiobookActive}
+            audiobookStatusUi={audiobook.audiobookStatusUi}
+            audiobookError={audiobook.audiobookError}
+            effectiveAudiobookProgress={audiobook.effectiveAudiobookProgress}
+            effectiveAudiobookError={audiobook.effectiveAudiobookError}
+            audiobookEtaText={audiobook.audiobookEtaText}
+            audiobookScope={audiobook.audiobookScope}
+            setAudiobookScope={audiobook.setAudiobookScope}
+            audiobookSelectedChapterIds={audiobook.audiobookSelectedChapterIds}
+            setAudiobookSelectedChapterIds={audiobook.setAudiobookSelectedChapterIds}
+            isAudiobookChapterPickerOpen={audiobook.isAudiobookChapterPickerOpen}
+            setIsAudiobookChapterPickerOpen={audiobook.setIsAudiobookChapterPickerOpen}
+            audiobookRequestedChapterIds={audiobook.audiobookRequestedChapterIds}
+            audiobookControlPending={audiobook.audiobookControlPending}
+            canPauseAudiobook={audiobook.canPauseAudiobook}
+            canResumeAudiobook={audiobook.canResumeAudiobook}
+            canCancelAudiobook={audiobook.canCancelAudiobook}
+            handleAudiobookControl={audiobook.handleAudiobookControl}
+            handleGenerateAudiobook={audiobook.handleGenerateAudiobook}
+            audiobookSelectedLanguages={audiobook.audiobookSelectedLanguages}
+            setAudiobookSelectedLanguages={audiobook.setAudiobookSelectedLanguages}
+            audiobookCheckoutModalOpen={audiobook.audiobookCheckoutModalOpen}
+            setAudiobookCheckoutModalOpen={audiobook.setAudiobookCheckoutModalOpen}
+            audiobookCheckoutLoading={audiobook.audiobookCheckoutLoading}
+            handleAudiobookCheckout={audiobook.handleAudiobookCheckout}
+            shouldShowGeneratedAudiobookPlayer={audiobook.shouldShowGeneratedAudiobookPlayer}
+            fallbackGeneratedAudiobookUrl={audiobook.fallbackGeneratedAudiobookUrl}
+            latestAudiobookManifestUrl={audiobook.latestAudiobookManifestUrl}
+          />
         )}
 
         {tool === "print" && (
@@ -2977,14 +746,14 @@ export default function BookEditorView({
             bookId={book.id}
             title={bookTitle}
             authorDisplayName={authorDisplayName}
-            coverImageUrl={displayCoverUrl}
+            coverImageUrl={cover.displayCoverUrl}
             originalUrl={book.original_url ?? null}
             chapterCount={chapters.length}
             totalWordCount={totalBookWordCount}
             languageCode={activeLanguage}
-            isPublished={isPublished}
-            priceAmountMinor={priceAmountMinor}
-            priceCurrency={priceCurrency}
+            isPublished={publishing.isPublished}
+            priceAmountMinor={pricing.priceAmountMinor}
+            priceCurrency={pricing.priceCurrency}
             printOnDemandSettings={printOnDemandSettings}
             onOpenEdit={() => navigateToPanel("edit")}
             onOpenCover={() => navigateToPanel("cover")}
@@ -3012,30 +781,30 @@ export default function BookEditorView({
           <PublishPanel
             bookTitle={bookTitle}
             authorDisplayName={authorDisplayName}
-            coverImageUrl={displayCoverUrl}
+            coverImageUrl={cover.displayCoverUrl}
             chapters={chapters}
             selectedChapterId={selectedChapterId}
             bookVersions={bookVersions}
-            isPublished={isPublished}
-            publishVisibility={publishVisibility}
-            publishedChapterCount={publishedChapterCount}
-            missingPublishRequirements={missingPublishRequirements}
-            publishDisabled={publishDisabled}
-            chapterPublishDisabled={chapterPublishDisabled}
-            selectedChapterAlreadyPublished={selectedChapterAlreadyPublished}
-            visibilityChanged={visibilityChanged}
-            isPublishing={isPublishing}
-            publishError={publishError}
-            confirmPublishAction={confirmPublishAction}
-            confirmCopy={confirmCopy}
-            onVisibilityChange={(v) => { setPublishVisibility(v); setPublishError(null); }}
-            onPublishFull={() => setConfirmPublishAction("publish")}
-            onPublishChapter={() => void handlePublishSelectedChapter()}
-            onUpdateSettings={() => setConfirmPublishAction("update")}
-            onUnpublish={() => setConfirmPublishAction("unpublish")}
-            onConfirm={() => confirmPublishAction && void handlePublishAction(confirmPublishAction)}
-            onCancelConfirm={() => setConfirmPublishAction(null)}
-            onChapterPublishToggle={(chapter, shouldPublish) => void handleChapterPublishToggle(chapter, shouldPublish)}
+            isPublished={publishing.isPublished}
+            publishVisibility={publishing.publishVisibility}
+            publishedChapterCount={publishing.publishedChapterCount}
+            missingPublishRequirements={publishing.missingPublishRequirements}
+            publishDisabled={publishing.publishDisabled}
+            chapterPublishDisabled={publishing.chapterPublishDisabled}
+            selectedChapterAlreadyPublished={publishing.selectedChapterAlreadyPublished}
+            visibilityChanged={publishing.visibilityChanged}
+            isPublishing={publishing.isPublishing}
+            publishError={publishing.publishError}
+            confirmPublishAction={publishing.confirmPublishAction}
+            confirmCopy={publishing.confirmCopy}
+            onVisibilityChange={(v) => { publishing.setPublishVisibility(v); publishing.setPublishError(null); }}
+            onPublishFull={() => publishing.setConfirmPublishAction("publish")}
+            onPublishChapter={() => void publishing.handlePublishSelectedChapter()}
+            onUpdateSettings={() => publishing.setConfirmPublishAction("update")}
+            onUnpublish={() => publishing.setConfirmPublishAction("unpublish")}
+            onConfirm={() => publishing.confirmPublishAction && void publishing.handlePublishAction(publishing.confirmPublishAction)}
+            onCancelConfirm={() => publishing.setConfirmPublishAction(null)}
+            onChapterPublishToggle={(chapter, shouldPublish) => void publishing.handleChapterPublishToggle(chapter, shouldPublish)}
             onSelectChapter={(id) => { setSelectedChapterId(id); setSessionStartWords(null); }}
             onOpenCover={() => navigateToPanel("cover")}
             genreSelector={getRecommendationsEnabled() ? <GenreSelector bookId={book.id} /> : undefined}
@@ -3045,42 +814,25 @@ export default function BookEditorView({
         {tool === "market" && getMarketingEnabled() && (
           <MarketPanel
             bookId={book.id}
-            isPublished={isPublished}
+            isPublished={publishing.isPublished}
             marketingCampaigns={marketingCampaigns}
-            isProLocked={isProFeatureLocked}
-            proLockMessage={proFeatureLockMessage}
+            isProLocked={audiobook.isProFeatureLocked}
+            proLockMessage={audiobook.proFeatureLockMessage}
             billingLoading={billing.loading}
             onGenerateCopy={async (channel, lang) => {
-              if (isGeneratingMarketing) return;
-              setMarketingChannel(channel);
-              setMarketingLanguage(lang as SupportedLanguage);
-              setIsGeneratingMarketing(true);
-              try {
-                const res = await fetch(`/api/books/${book.id}/marketing/generate`, {
-                  method: "POST",
-                  headers: { "Content-Type": "application/json" },
-                  body: JSON.stringify({ language: lang, channel }),
-                });
-                if (!res.ok) {
-                  const data = await res.json().catch(() => ({}));
-                  toast.error(resolveErrorMessage(data.error));
-                  return;
-                }
-                router.refresh();
-              } catch {
-                toast.error("Could not generate. Try again.");
-              } finally {
-                setIsGeneratingMarketing(false);
-              }
+              if (marketing.isGeneratingMarketing) return;
+              marketing.setMarketingChannel(channel);
+              marketing.setMarketingLanguage(lang as SupportedLanguage);
+              await marketing.handleGenerateMarketingCopy();
             }}
-            isGenerating={isGeneratingMarketing}
+            isGenerating={marketing.isGeneratingMarketing}
           />
         )}
 
         {tool === "statistics" && (
           <StatisticsPanel
             bookId={book.id}
-            isPublished={isPublished}
+            isPublished={publishing.isPublished}
           />
         )}
 
@@ -3094,250 +846,34 @@ export default function BookEditorView({
         )}
 
         {tool === "cover" && (
-          <div className="mx-auto max-w-4xl space-y-5">
-            <p className="text-xs font-semibold uppercase tracking-wider text-slate-700 dark:text-white/80">
-              Cover
-            </p>
-
-            <div className="grid gap-6 lg:grid-cols-[300px_1fr]">
-              <input
-                ref={coverInputRef}
-                type="file"
-                accept={ACCEPTED_COVER_TYPES}
-                onChange={handleCoverChange}
-                className="hidden"
-                aria-hidden
-              />
-              <div>
-                {displayCoverUrl ? (
-                  <>
-                    <div className="relative overflow-hidden rounded-2xl border border-slate-200 dark:border-white/[0.08]" style={{ aspectRatio: "3/4" }}>
-                      <Image
-                        src={displayCoverUrl}
-                        alt="Book cover"
-                        fill
-                        sizes="300px"
-                        className="object-cover"
-                        unoptimized
-                      />
-                    </div>
-                    <div className="mt-3 flex flex-wrap gap-2">
-                      <button
-                        type="button"
-                        onClick={() => coverInputRef.current?.click()}
-                        disabled={coverUploading}
-                        className="rounded-xl border border-black/[0.08] bg-white px-3.5 py-2 text-[13px] font-medium text-slate-600 transition hover:bg-slate-50 disabled:opacity-50 dark:border-white/[0.08] dark:bg-white/[0.04] dark:text-white/70"
-                      >
-                        Replace
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setCoverCropSrc(displayCoverUrl)}
-                        disabled={coverUploading}
-                        className="rounded-xl border border-black/[0.08] bg-white px-3.5 py-2 text-[13px] font-medium text-slate-600 transition hover:bg-slate-50 disabled:opacity-50 dark:border-white/[0.08] dark:bg-white/[0.04] dark:text-white/70"
-                      >
-                        Crop
-                      </button>
-                      <button
-                        type="button"
-                        onClick={handleRemoveCover}
-                        disabled={coverUploading}
-                        className="rounded-xl border border-red-200/60 bg-white px-3.5 py-2 text-[13px] font-medium text-red-500 transition hover:bg-red-50 disabled:opacity-50 dark:border-red-900/30 dark:bg-white/[0.03] dark:text-red-400"
-                      >
-                        Remove
-                      </button>
-                    </div>
-                  </>
-                ) : (
-                  <div
-                    role="button"
-                    tabIndex={0}
-                    onClick={() => !coverUploading && coverInputRef.current?.click()}
-                    onKeyDown={(e) => {
-                      if ((e.key === "Enter" || e.key === " ") && !coverUploading) {
-                        e.preventDefault();
-                        coverInputRef.current?.click();
-                      }
-                    }}
-                    className={`flex cursor-pointer flex-col items-center justify-center rounded-2xl border-2 border-dashed transition-colors ${
-                      coverDropActive
-                        ? "border-[#907AFF]/60 bg-[#907AFF]/5 dark:bg-[#907AFF]/10"
-                        : "border-slate-300 bg-white dark:border-white/20 dark:bg-white/[0.02] hover:border-slate-400 dark:hover:border-white/30"
-                    } ${coverUploading ? "cursor-wait opacity-70" : ""}`}
-                    style={{ aspectRatio: "3/4" }}
-                    onDragOver={(e) => {
-                      e.preventDefault();
-                      if (!coverUploading) setCoverDropActive(true);
-                    }}
-                    onDragLeave={(e) => {
-                      e.preventDefault();
-                      if (!e.currentTarget.contains(e.relatedTarget as Node | null)) {
-                        setCoverDropActive(false);
-                      }
-                    }}
-                    onDrop={handleCoverDrop}
-                  >
-                    <div className="flex flex-col items-center justify-center gap-4 px-6 py-8">
-                      <span className="text-[14px] font-medium text-slate-500 dark:text-white/60">
-                        Upload cover
-                      </span>
-                      <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-slate-200 dark:bg-slate-700">
-                        <svg className="h-6 w-6 text-slate-500 dark:text-white/50" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                          <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5m-13.5-9L12 3m0 0 4.5 4.5M12 3v13.5" />
-                        </svg>
-                      </div>
-                      {coverUploading && (
-                        <span className="text-xs text-slate-500 dark:text-white/50">Saving...</span>
-                      )}
-                    </div>
-                  </div>
-                )}
-              </div>
-              {coverError && (
-                <p className="text-sm text-red-600 dark:text-red-400 lg:col-span-2" role="alert">
-                  {coverError}
-                </p>
-              )}
-
-              <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-[0_2px_8px_rgba(0,0,0,0.04)] dark:border-white/[0.08] dark:bg-white/[0.03] dark:shadow-none">
-                <h3 className="mb-4 text-[18px] font-medium text-slate-800 dark:text-white/90">
-                  Generate with AI
-                </h3>
-                <div className="mb-4">
-                  <label htmlFor="cover-ai-prompt" className="mb-1.5 block text-[13px] font-medium text-slate-700 dark:text-white/80">
-                    Prompt
-                  </label>
-                  <textarea
-                    id="cover-ai-prompt"
-                    value={coverAIPrompt}
-                    onChange={(e) => {
-                      setCoverAIPrompt(e.target.value);
-                      if (coverAIError) setCoverAIError(null);
-                    }}
-                    placeholder="Describe the cover you want..."
-                    rows={4}
-                    className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-[13px] text-slate-900 placeholder:text-slate-400 focus:border-slate-400 focus:outline-none dark:border-white/[0.12] dark:bg-white/[0.04] dark:text-white dark:placeholder:text-white/40"
-                  />
-                </div>
-                <div className="flex flex-wrap items-center gap-3">
-                  <div className="relative">
-                    <label htmlFor="cover-ai-style" className="sr-only">Style</label>
-                    <select
-                      id="cover-ai-style"
-                      value={coverAIStyle}
-                      onChange={(e) => {
-                        setCoverAIStyle(e.target.value);
-                        if (coverAIError) setCoverAIError(null);
-                      }}
-                      className="appearance-none rounded-xl border border-slate-200 bg-white px-4 py-2.5 pr-9 text-[13px] font-medium text-slate-700 focus:border-slate-400 focus:outline-none dark:border-white/[0.12] dark:bg-white/[0.04] dark:text-white/80"
-                    >
-                      {COVER_AI_STYLES.map(({ value, label }) => (
-                        <option key={value} value={value}>{label}</option>
-                      ))}
-                    </select>
-                    <svg className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-500 dark:text-white/50" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                      <path strokeLinecap="round" strokeLinejoin="round" d="m19 9-7 7-7-7" />
-                    </svg>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={handleCoverAIGenerate}
-                    disabled={coverAIGenerating}
-                    className="rounded-xl bg-[#907AFF] px-5 py-2.5 text-[13px] font-semibold text-white shadow-sm transition-all hover:bg-[#7B6BF0] hover:shadow-md disabled:opacity-50"
-                  >
-                    {coverAIGenerating ? "Generating..." : "Generate"}
-                  </button>
-                </div>
-                {coverAIError && (
-                  <p className="mt-2 text-sm text-red-600 dark:text-red-400" role="alert">
-                    {coverAIError}
-                  </p>
-                )}
-
-                {/* AI preview overlay */}
-                {coverAIPreviewUrl && (
-                  <div className="mt-4 rounded-xl border border-[#907AFF]/30 bg-[#907AFF]/5 p-4 dark:border-[#907AFF]/20 dark:bg-[#907AFF]/10">
-                    <p className="mb-3 text-[13px] font-medium text-slate-700 dark:text-white/80">Preview</p>
-                    <div className="mx-auto w-[180px]">
-                      <div className="relative aspect-[3/4] overflow-hidden rounded-xl border border-slate-200 dark:border-white/[0.08]">
-                        <Image
-                          src={coverAIPreviewUrl}
-                          alt="AI cover preview"
-                          fill
-                          sizes="180px"
-                          className="object-cover"
-                          unoptimized
-                        />
-                      </div>
-                    </div>
-                    <div className="mt-3 flex justify-center gap-2">
-                      <button
-                        type="button"
-                        onClick={() => {
-                          handleCoverSetFromGenerated(coverAIPreviewUrl);
-                          setCoverAIPreviewUrl(null);
-                        }}
-                        disabled={coverUploading}
-                        className="rounded-xl bg-[#907AFF] px-4 py-2 text-[13px] font-semibold text-white transition hover:bg-[#7B6BF0] disabled:opacity-50"
-                      >
-                        {coverUploading ? "Saving..." : "Use as cover"}
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setCoverAIPreviewUrl(null)}
-                        className="rounded-xl border border-black/[0.08] px-4 py-2 text-[13px] font-medium text-slate-600 transition hover:bg-slate-50 dark:border-white/[0.08] dark:text-white/60"
-                      >
-                        Cancel
-                      </button>
-                    </div>
-                  </div>
-                )}
-
-                {coverAIGeneratedUrls.length > 0 && !coverAIPreviewUrl && (
-                  <div className="mt-4">
-                    <span className="mb-2 block text-xs font-medium text-slate-500 dark:text-white/50">Generated covers — click to preview</span>
-                    <div className="grid grid-cols-2 gap-3">
-                      {coverAIGeneratedUrls.map((url, i) => (
-                        <button
-                          key={`${url}-${i}`}
-                          type="button"
-                          onClick={() => setCoverAIPreviewUrl(url)}
-                          disabled={coverUploading}
-                          className="relative aspect-[3/4] overflow-hidden rounded-xl border-2 border-transparent bg-slate-100 transition-all hover:border-[#907AFF] hover:shadow-md focus:outline-none focus:ring-2 focus:ring-[#907AFF]/50 disabled:cursor-not-allowed disabled:opacity-60 dark:bg-white/[0.04]"
-                        >
-                          <Image
-                            src={url}
-                            alt={`Generated cover ${i + 1}`}
-                            fill
-                            sizes="200px"
-                            className="object-cover"
-                            unoptimized
-                          />
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                )}
-                {!coverAIGenerating && coverAIGeneratedUrls.length === 0 && !coverAIError && (
-                  <p className="mt-3 text-[13px] text-slate-500 dark:text-white/50">
-                    No generated covers yet. Add a prompt, choose a style, and generate 4 options.
-                  </p>
-                )}
-              </div>
-            </div>
-
-            {/* Crop modal */}
-            {coverCropSrc && (
-              <CoverCropModal
-                src={coverCropSrc}
-                onSave={handleCropSave}
-                onClose={() => setCoverCropSrc(null)}
-              />
-            )}
-          </div>
+          <CoverPanel
+            coverInputRef={cover.coverInputRef}
+            coverUploading={cover.coverUploading}
+            coverError={cover.coverError}
+            displayCoverUrl={cover.displayCoverUrl}
+            coverDropActive={cover.coverDropActive}
+            setCoverDropActive={cover.setCoverDropActive}
+            coverAIPrompt={cover.coverAIPrompt}
+            setCoverAIPrompt={cover.setCoverAIPrompt}
+            coverAIStyle={cover.coverAIStyle}
+            setCoverAIStyle={cover.setCoverAIStyle}
+            coverAIGeneratedUrls={cover.coverAIGeneratedUrls}
+            coverAIGenerating={cover.coverAIGenerating}
+            coverAIError={cover.coverAIError}
+            setCoverAIError={cover.setCoverAIError}
+            coverCropSrc={cover.coverCropSrc}
+            setCoverCropSrc={cover.setCoverCropSrc}
+            coverAIPreviewUrl={cover.coverAIPreviewUrl}
+            setCoverAIPreviewUrl={cover.setCoverAIPreviewUrl}
+            handleRemoveCover={cover.handleRemoveCover}
+            handleCropSave={cover.handleCropSave}
+            handleCoverChange={cover.handleCoverChange}
+            handleCoverDrop={cover.handleCoverDrop}
+            handleCoverAIGenerate={cover.handleCoverAIGenerate}
+            handleCoverSetFromGenerated={cover.handleCoverSetFromGenerated}
+          />
         )}
 
-        {/* Simplified edit view */}
         {tool === "edit" && (
           <SimplifiedEditView
             bookId={book.id}
@@ -3350,1339 +886,38 @@ export default function BookEditorView({
             selectedChapterId={selectedChapterId}
             selectedChapter={selectedChapter}
             wordCount={wordCount}
-            isSaving={isSaving}
-            hasUnsavedChanges={hasUnsavedChanges}
-            lastSaved={lastSaved}
+            isSaving={chapterCrud.isSaving}
+            hasUnsavedChanges={chapterCrud.hasUnsavedChanges}
+            lastSaved={chapterCrud.lastSaved}
             preset={preset}
             focusMode={focusMode}
             onSetChapterPage={setChapterPage}
             onSelectChapter={selectChapter}
             onResetSessionWords={() => setSessionStartWords(null)}
             onWordCount={setWordCount}
-            onAutoSave={handleAutoSave}
-            onDirty={() => setHasUnsavedChanges(true)}
+            onAutoSave={chapterCrud.handleAutoSave}
+            onDirty={() => chapterCrud.setHasUnsavedChanges(true)}
             onToggleFocusMode={() => setFocusMode((current) => !current)}
           />
         )}
 
-        {/* Full view for other tools (exclude cover, polish, publish, market — they have their own layouts) */}
-        {showManuscript && tool !== "edit" && tool !== "cover" && tool !== "audiobook" && tool !== "print" && tool !== "polish" && tool !== "publish" && tool !== "market" && tool !== "statistics" && (
-        <>
-        {!(tool === "translate" && getTranslationsEnabled()) && (
-        <div className="mb-6 flex flex-wrap items-end gap-3">
-          {getTranslationsEnabled() && bookVersions.length > 1 && (
-            <div className="min-w-[220px] max-w-[320px]">
-              <label htmlFor="version-select" className="mb-1 block text-xs text-slate-500 dark:text-white/50">
-                Working version
-              </label>
-              <select
-                id="version-select"
-                value={normalizeLangKey(activeVersion?.language_code ?? activeLanguage)}
-                onChange={(e) => router.push(getBookWorkspaceHref(e.target.value))}
-                className="w-full rounded-xl border border-black/[0.08] bg-white px-4 py-2.5 text-[13px] font-medium text-slate-900 shadow-sm focus:border-black/[0.15] focus:shadow-md focus:outline-none dark:border-white/[0.08] dark:bg-white/[0.04] dark:text-white"
-              >
-                {bookVersions.map((v) => {
-                  const langKey = normalizeLangKey(v.language_code);
-                  const isOriginal = normalizeLangKey(book.original_language ?? book.language) === langKey;
-                  const label = isOriginal ? "Original" : getLanguageLabel(langKey || "unknown");
-                  return (
-                    <option key={v.id} value={langKey}>
-                      {label}
-                    </option>
-                  );
-                })}
-              </select>
-            </div>
-          )}
-          <span className="rounded-full border border-black/[0.05] bg-slate-50/80 px-3 py-1 text-[11px] font-medium text-slate-400 backdrop-blur-sm dark:border-white/[0.05] dark:bg-white/[0.02] dark:text-white/35">
-            Version: {getLanguageLabel(activeLanguage)}
-          </span>
-        </div>
-        )}
-        {tool === "translate" && getTranslationsEnabled() ? (
+        {tool === "translate" && getTranslationsEnabled() && (
           <TranslatePanel
             bookId={book.id}
             bookTitle={bookTitle}
             authorDisplayName={authorDisplayName}
             bookLengthLabel={`${chapters.length} chapters`}
-            sourceLanguage={translationSourceLang}
+            sourceLanguage={translation.translationSourceLang}
             sourceVersionId={activeVersion?.id ?? null}
             isProLocked={!billing.isProActive}
             billingLoading={billing.loading}
             chapters={chapters.map((ch) => ({ id: ch.id, title: ch.title }))}
             selectedChapterId={selectedChapterId}
-            onMessage={setTranslateMessage}
+            onMessage={translation.setTranslateMessage}
             hideTitle
           />
-        ) : (
-        <>
-        <div className={`mb-6 grid gap-6 rounded-3xl border border-black/[0.06] bg-white/70 p-5 shadow-[0_6px_24px_rgba(15,23,42,0.05)] backdrop-blur-sm dark:border-white/[0.06] dark:bg-white/[0.02] dark:shadow-none lg:grid-cols-[minmax(0,1fr)_auto] lg:items-start ${publishMenuOpen ? "z-[200] relative" : ""}`}>
-          <div className="min-w-0">
-            {!isRenamingBook ? (
-              <div className="flex flex-wrap items-center gap-3">
-                <span
-                  className={`rounded-full px-3 py-1 text-[11px] font-semibold uppercase tracking-wide ${
-                    isPublished
-                      ? "bg-emerald-500/10 text-emerald-600 dark:bg-emerald-400/15 dark:text-emerald-400"
-                      : "bg-slate-100 text-slate-500 dark:bg-white/[0.06] dark:text-white/50"
-                  }`}
-                >
-                    {isPublished ? "Published" : "Draft"}
-                </span>
-                {isPublished && (
-                  <span className="rounded-full border border-black/[0.06] bg-white/80 px-3 py-1 text-[11px] font-medium text-slate-500 backdrop-blur-sm dark:border-white/[0.06] dark:bg-white/[0.04] dark:text-white/50">
-                    {currentVisibilityLabel}
-                  </span>
-                )}
-                <button
-                  type="button"
-                  onClick={handleStartRenameBook}
-                  className="rounded-full border border-black/[0.06] bg-white/80 px-3.5 py-1.5 text-[11px] font-medium text-slate-500 backdrop-blur-sm transition-all hover:border-black/[0.12] hover:text-slate-900 dark:border-white/[0.06] dark:bg-white/[0.04] dark:text-white/50 dark:hover:border-white/[0.12] dark:hover:text-white"
-                >
-                  Rename
-                </button>
-              </div>
-            ) : (
-              <div className="flex flex-col gap-2">
-                <div className="flex flex-wrap items-center gap-2">
-                  <input
-                    type="text"
-                    value={bookTitleDraft}
-                    onChange={(e) => setBookTitleDraft(e.target.value)}
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter") handleSaveRenameBook();
-                      if (e.key === "Escape") handleCancelRenameBook();
-                    }}
-                    className="min-w-[260px] rounded-xl border border-black/[0.08] bg-white px-3 py-2 text-base text-slate-900 focus:border-slate-500 focus:outline-none dark:border-white/[0.08] dark:bg-white/[0.04] dark:text-white"
-                    autoFocus
-                  />
-                  <button
-                    type="button"
-                    onClick={handleSaveRenameBook}
-                    disabled={bookTitleSaving}
-                    className="rounded-xl bg-slate-900 px-4 py-2.5 text-[13px] font-medium text-white shadow-sm hover:bg-slate-800 hover:shadow-md disabled:opacity-60 dark:bg-white dark:text-slate-900"
-                  >
-                    {bookTitleSaving ? "Saving..." : "Save"}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={handleCancelRenameBook}
-                    className="rounded-xl border border-black/[0.08] px-3 py-2 text-xs font-medium text-slate-700 hover:bg-slate-50 dark:border-white/[0.08] dark:text-white/70 dark:hover:bg-white/[0.04]"
-                  >
-                    Cancel
-                  </button>
-                </div>
-                {bookTitleError && (
-                  <p className="text-xs text-red-600 dark:text-red-400">{bookTitleError}</p>
-                )}
-              </div>
-            )}
-            <p className="mt-2.5 text-[13px] text-slate-400 dark:text-white/40">
-              {isPublished ? currentVisibilitySummary : "Draft - not visible to readers yet"} · {chapters.length} chapters
-            </p>
-            <p className="mt-1 text-sm font-normal text-slate-500 dark:text-white/50">
-              {authorDisplayName}
-            </p>
-          </div>
-          <div className="flex flex-wrap items-center gap-3 lg:justify-self-end">
-            <div className="relative">
-              <button
-                ref={publishMenuButtonRef}
-                type="button"
-                onClick={() => setPublishMenuOpen((prev) => !prev)}
-                aria-expanded={publishMenuOpen}
-                className={publishButtonClass}
-              >
-                Publish
-                <svg
-                  className={`h-3.5 w-3.5 transition-transform ${publishMenuOpen ? "rotate-180" : ""}`}
-                  viewBox="0 0 12 12"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                >
-                  <path d="M3 4.5L6 7.5L9 4.5" />
-                </svg>
-              </button>
-
-              {publishMenuOpen && (
-                <div
-                  ref={publishMenuRef}
-                  className="absolute right-0 z-[200] mt-3 w-[360px] rounded-2xl border border-black/[0.06] bg-white/95 p-5 shadow-2xl backdrop-blur-xl dark:border-white/[0.06] dark:bg-[#0b0b12]/95"
-                >
-                  <div className="mb-2 flex items-center justify-between">
-                    <h2 className="text-sm font-semibold text-slate-900 dark:text-white">Publish</h2>
-                    <span
-                      className={`rounded-full px-2.5 py-1 text-xs font-semibold ${
-                        isPublished
-                          ? "bg-[#907AFF]/15 text-[#5c4bb8] dark:bg-[#907AFF]/25 dark:text-[#b8a9ff]"
-                          : "bg-slate-100 text-slate-600 dark:bg-white/10 dark:text-white/70"
-                      }`}
-                    >
-                      {isPublished ? "Published" : "Draft"}
-                    </span>
-                  </div>
-                  <p className="text-xs text-slate-500 dark:text-white/50">
-                    Publishing settings for this version. Drafts are private until you publish.
-                  </p>
-                  <div className="mt-3 flex flex-wrap items-center gap-2 text-xs text-slate-500 dark:text-white/50">
-                    <span>{isPublished ? currentVisibilitySummary : "Not visible to readers yet."}</span>
-                    {isPublished && (
-                      <span className="rounded-full border border-black/[0.06] bg-white px-2 py-0.5 text-[11px] font-medium text-slate-600 dark:border-white/[0.06] dark:bg-white/5 dark:text-white/70">
-                        {currentVisibilityLabel}
-                      </span>
-                    )}
-                    {isPublished && (
-                      <span className="rounded-full border border-black/[0.06] bg-white px-2 py-0.5 text-[11px] font-medium text-slate-600 dark:border-white/[0.06] dark:bg-white/5 dark:text-white/70">
-                        Chapters live: {publishedChapterCount ?? chapters.length}/{chapters.length}
-                      </span>
-                    )}
-                  </div>
-
-                  <fieldset className="mt-4 space-y-2">
-                    <legend className="text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-white/50">
-                      Visibility
-                    </legend>
-                    {PUBLISH_VISIBILITY_OPTIONS.map((option) => {
-                      const selected = publishVisibility === option.value;
-                      return (
-                        <label
-                          key={option.value}
-                          className={`flex cursor-pointer items-start gap-3 rounded-lg border px-3 py-2 transition ${
-                            selected
-                              ? "border-[#907AFF]/50 bg-[#907AFF]/10 dark:border-[#907AFF]/50 dark:bg-[#907AFF]/15"
-                              : "border-black/[0.06] bg-white/70 hover:bg-white dark:border-white/[0.06] dark:bg-white/5 dark:hover:bg-white/10"
-                          }`}
-                        >
-                          <input
-                            type="radio"
-                            name="publish-visibility"
-                            value={option.value}
-                            checked={selected}
-                            onChange={() => {
-                              setPublishVisibility(option.value);
-                              setPublishError(null);
-                            }}
-                            className="mt-1 h-4 w-4 accent-[#907AFF]"
-                          />
-                          <div>
-                            <p className="text-sm font-medium text-slate-900 dark:text-white">{option.label}</p>
-                            <p className="text-xs text-slate-500 dark:text-white/50">{option.description}</p>
-                          </div>
-                        </label>
-                      );
-                    })}
-                  </fieldset>
-
-                  {getRecommendationsEnabled() && (
-                    <GenreSelector bookId={book.id} />
-                  )}
-
-                  {!isPublished && missingPublishRequirements.length > 0 && (
-                    <div className="mt-4 rounded-lg border border-[#907AFF]/40 bg-[#907AFF]/10 px-3 py-3 text-xs text-[#5c4bb8] dark:border-[#907AFF]/30 dark:bg-[#907AFF]/15 dark:text-[#b8a9ff]">
-                      <p className="mb-2 font-semibold">Before you can publish</p>
-                      <ul className="list-disc pl-4">
-                        {missingPublishRequirements.map((item) => (
-                          <li key={item}>{item}</li>
-                        ))}
-                      </ul>
-                    </div>
-                  )}
-
-                  {publishError && (
-                    <div className="mt-4 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700 dark:border-red-800 dark:bg-red-950/40 dark:text-red-200">
-                      {publishError}
-                    </div>
-                  )}
-
-                  {confirmPublishAction && confirmCopy ? (
-                    <div className="mt-4 rounded-lg border border-black/[0.06] bg-white px-3 py-3 text-xs text-slate-700 dark:border-white/[0.06] dark:bg-white/5 dark:text-white/70">
-                      <p className="mb-1 font-semibold text-slate-900 dark:text-white">Confirm</p>
-                      <p className="text-xs text-slate-600 dark:text-white/60">{confirmCopy}</p>
-                      <div className="mt-3 flex gap-2">
-                        <button
-                          type="button"
-                          onClick={() => handlePublishAction(confirmPublishAction)}
-                          disabled={isPublishing}
-                          className="rounded-lg bg-[#907AFF] px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-[#7c6ae6] disabled:opacity-60"
-                        >
-                          {isPublishing ? "Working..." : "Confirm"}
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => setConfirmPublishAction(null)}
-                          className="rounded-xl border border-black/[0.08] px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50 dark:border-white/[0.08] dark:text-white/70 dark:hover:bg-white/[0.04]"
-                        >
-                          Cancel
-                        </button>
-                      </div>
-                    </div>
-                  ) : (
-                    <div className="mt-4 flex flex-col gap-2">
-                      {!isPublished && (
-                        <>
-                          <button
-                            type="button"
-                            onClick={() => setConfirmPublishAction("publish")}
-                            disabled={publishDisabled}
-                            className="rounded-lg bg-[#907AFF] px-3 py-2 text-sm font-semibold text-white transition hover:bg-[#7c6ae6] disabled:cursor-not-allowed disabled:opacity-50"
-                          >
-                            {isPublishing ? "Publishing..." : "Publish full book"}
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => void handlePublishSelectedChapter()}
-                            disabled={chapterPublishDisabled}
-                            className="rounded-xl border border-black/[0.08] bg-white px-3 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50 dark:border-white/[0.08] dark:bg-white/[0.04] dark:text-white dark:hover:bg-white/[0.06]"
-                          >
-                            {isPublishing
-                              ? "Publishing..."
-                              : selectedChapterAlreadyPublished
-                                ? "Selected chapter already live"
-                                : "Publish selected chapter"}
-                          </button>
-                        </>
-                      )}
-                      {isPublished && (
-                        <>
-                          <button
-                            type="button"
-                            onClick={() => void handlePublishSelectedChapter()}
-                            disabled={chapterPublishDisabled}
-                            className="rounded-xl border border-black/[0.08] bg-white px-3 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50 dark:border-white/[0.08] dark:bg-white/[0.04] dark:text-white dark:hover:bg-white/[0.06]"
-                          >
-                            {isPublishing
-                              ? "Publishing..."
-                              : selectedChapterAlreadyPublished
-                                ? "Selected chapter already live"
-                                : "Release selected chapter"}
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => setConfirmPublishAction("update")}
-                            disabled={isPublishing || !visibilityChanged}
-                            className="rounded-xl border border-black/[0.08] bg-white px-3 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50 dark:border-white/[0.08] dark:bg-white/[0.04] dark:text-white dark:hover:bg-white/[0.06]"
-                          >
-                            {isPublishing ? "Updating..." : "Update publishing settings"}
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => setConfirmPublishAction("unpublish")}
-                            disabled={isPublishing}
-                            className="rounded-lg border border-red-200 bg-white px-3 py-2 text-sm font-semibold text-red-700 transition hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-50 dark:border-red-900/50 dark:bg-white/10 dark:text-red-200 dark:hover:bg-red-950/30"
-                          >
-                            Unpublish
-                          </button>
-                        </>
-                      )}
-                    </div>
-                  )}
-                </div>
-              )}
-            </div>
-            {getMarketingEnabled() && (
-              <Link
-                href={`/author/marketing?bookId=${book.id}`}
-                className="rounded-full border border-black/[0.08] bg-white/80 px-5 py-2.5 text-[13px] font-medium text-slate-700 backdrop-blur-sm transition-all hover:border-black/[0.14] hover:bg-slate-50 hover:text-slate-900 dark:border-white/[0.12] dark:bg-white/[0.03] dark:text-white/85 dark:hover:bg-white/[0.06]"
-              >
-                Promote
-              </Link>
-            )}
-            <DeleteBookButton
-              bookId={book.id}
-              bookTitle={bookTitle}
-              redirectTo="/author/books"
-              className="rounded-full border border-red-200/60 bg-white/80 px-5 py-2.5 text-[13px] font-medium text-red-500 backdrop-blur-sm transition-all hover:border-red-300 hover:bg-red-50 hover:text-red-700 dark:border-red-900/30 dark:bg-white/[0.03] dark:text-red-400 dark:hover:bg-red-950/20"
-            />
-          </div>
-        </div>
-
-        <div className="mb-6 rounded-2xl border border-black/[0.06] bg-white/75 p-4 shadow-[0_4px_18px_rgba(15,23,42,0.04)] backdrop-blur-sm dark:border-white/[0.06] dark:bg-white/[0.02] dark:shadow-none">
-          <p className="mb-3 text-xs font-medium uppercase tracking-wider text-slate-400 dark:text-white/50">
-            Chapters
-          </p>
-          <div className="flex flex-wrap items-center gap-1.5">
-            {chapters.map((chapter, index) => {
-              const isActive = chapter.id === selectedChapterId;
-              return (
-                <button
-                  key={chapter.id}
-                  type="button"
-                  onClick={() => {
-                    setSelectedChapterId(chapter.id);
-                    setSessionStartWords(null);
-                  }}
-                  className={`flex h-8 min-w-[2rem] items-center justify-center rounded-lg px-2 text-[13px] font-medium transition-colors ${
-                    isActive
-                      ? "bg-slate-900 text-white dark:bg-slate-100 dark:text-slate-900"
-                      : "border border-black/[0.08] bg-white text-slate-600 hover:bg-slate-50 dark:border-white/[0.08] dark:bg-white/[0.04] dark:text-white/70 dark:hover:bg-white/[0.06]"
-                  }`}
-                  aria-label={`Chapter ${index + 1}`}
-                  aria-current={isActive ? "true" : undefined}
-                >
-                  {index + 1}
-                </button>
-              );
-            })}
-          </div>
-          {selectedChapter && (
-            <p className="mt-2 text-xs text-slate-500 dark:text-white/50 truncate" title={selectedChapter.title}>
-              {selectedChapter.title}
-            </p>
-          )}
-          <div className="mt-3 flex flex-wrap items-center gap-3">
-            <button
-              type="button"
-              onClick={handleCreateChapter}
-              disabled={isCreating}
-              className="rounded-xl bg-slate-900 px-4 py-2 text-[13px] font-semibold text-white shadow-sm transition-all hover:bg-slate-800 hover:shadow-md disabled:opacity-50 dark:bg-white dark:text-slate-900 dark:hover:bg-white/90"
-            >
-              {isCreating ? "Creating..." : "+ New chapter"}
-            </button>
-            <button
-              type="button"
-              onClick={() => coverInputRef.current?.click()}
-              disabled={coverUploading}
-              className="rounded-xl border border-black/[0.08] bg-white px-4 py-2 text-[13px] font-medium text-slate-600 shadow-sm transition-all hover:border-black/[0.12] hover:shadow-md disabled:opacity-50 dark:border-white/[0.08] dark:bg-white/[0.04] dark:text-white/70 dark:hover:bg-white/[0.06]"
-            >
-              {coverUploading ? "Saving..." : "Upload cover"}
-            </button>
-          </div>
-          {coverError && (
-            <p className="mt-2 text-xs text-red-600 dark:text-red-400" role="alert">
-              {coverError}
-            </p>
-          )}
-          <input
-            ref={coverInputRef}
-            type="file"
-            accept={ACCEPTED_COVER_TYPES}
-            onChange={handleCoverChange}
-            className="hidden"
-            aria-hidden
-          />
-        </div>
-
-        <div className="grid gap-8 lg:grid-cols-[minmax(0,900px)_280px]">
-          {(
-          <AiAssistantPanel>
-            <div className="rounded-2xl border border-black/[0.05] bg-white/60 p-5 shadow-[0_1px_3px_rgba(0,0,0,0.02)] backdrop-blur-sm dark:border-white/[0.06] dark:bg-white/[0.02] dark:shadow-none">
-              <h2 className="mb-3 text-[14px] font-semibold tracking-[-0.01em] text-slate-800 dark:text-white/90">Cover</h2>
-              <div className="space-y-2">
-                <div className="relative aspect-[3/4] overflow-hidden rounded-xl border border-black/[0.06] bg-slate-50 shadow-sm dark:border-white/[0.06] dark:bg-white/[0.02]">
-                  {displayCoverUrl ? (
-                    <Image
-                      src={displayCoverUrl}
-                      alt="Book cover"
-                      fill
-                      sizes="(min-width: 1024px) 280px, 100vw"
-                      className="object-cover transition-transform hover:scale-[1.02]"
-                      unoptimized
-                    />
-                  ) : (
-                    <div className="flex h-full w-full flex-col items-center justify-center gap-2 text-slate-300 dark:text-white/20">
-                      <svg className="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-                        <path strokeLinecap="round" strokeLinejoin="round" d="m2.25 15.75 5.159-5.159a2.25 2.25 0 0 1 3.182 0l5.159 5.159m-1.5-1.5 1.409-1.409a2.25 2.25 0 0 1 3.182 0l2.909 2.909M3.75 21h16.5A2.25 2.25 0 0 0 22.5 18.75V5.25A2.25 2.25 0 0 0 20.25 3H3.75A2.25 2.25 0 0 0 1.5 5.25v13.5A2.25 2.25 0 0 0 3.75 21Z" />
-                      </svg>
-                      <span className="text-[12px]">No cover image</span>
-                    </div>
-                  )}
-                </div>
-              </div>
-            </div>
-
-            <div className="rounded-2xl border border-black/[0.05] bg-white/60 p-5 shadow-[0_1px_3px_rgba(0,0,0,0.02)] backdrop-blur-sm dark:border-white/[0.06] dark:bg-white/[0.02] dark:shadow-none">
-              <div className="mb-3 flex items-center justify-between">
-                <h2 className="text-[14px] font-semibold tracking-[-0.01em] text-slate-800 dark:text-white/90">Chapters</h2>
-                <span className="text-[11px] text-slate-400 dark:text-white/40">
-                  {isPublished
-                    ? `${publishedChapterCount ?? chapters.length}/${chapters.length} live`
-                    : `${chapters.length} total`}
-                </span>
-              </div>
-              <div className="max-h-[46vh] space-y-1 overflow-y-auto pr-1">
-                {chapters.length === 0 && (
-                  <p className="text-xs text-slate-400 dark:text-white/40">No chapters yet</p>
-                )}
-                {chapters.map((chapter, chapterIndex) => {
-                  const chapterOrder = typeof chapter.order === "number" ? chapter.order : -1;
-                  const isChapterPublished =
-                    isPublished && (publishedChapterCount === null || chapterOrder < (publishedChapterCount ?? 0));
-                  const isSelected = chapter.id === selectedChapterId;
-                  const isNextToPublish =
-                    isPublished &&
-                    publishedChapterCount !== null &&
-                    chapterOrder === publishedChapterCount;
-                  const canToggle =
-                    !isPublishing &&
-                    isPublished &&
-                    (isChapterPublished
-                      ? publishedChapterCount === null || chapterOrder === (publishedChapterCount ?? 0) - 1
-                      : isNextToPublish || !isPublished);
-                  const isConfirmingDelete = deletingChapterId === chapter.id;
-                  return (
-                    <div
-                      key={chapter.id}
-                      className={`group flex items-center gap-1 rounded-lg px-2 py-1.5 transition ${
-                        isSelected
-                          ? "bg-[#907AFF]/10 dark:bg-[#907AFF]/15"
-                          : "hover:bg-slate-50 dark:hover:bg-white/[0.04]"
-                      }`}
-                    >
-                      {/* Reorder buttons — visible on hover */}
-                      <div className="flex flex-shrink-0 flex-col opacity-0 transition-opacity group-hover:opacity-100">
-                        <button
-                          type="button"
-                          disabled={chapterIndex === 0}
-                          onClick={() => void handleMoveChapter(chapter.id, "up")}
-                          title="Move up"
-                          className="p-0.5 text-slate-300 hover:text-slate-600 disabled:invisible dark:text-white/20 dark:hover:text-white/60"
-                        >
-                          <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="m4.5 15.75 7.5-7.5 7.5 7.5" /></svg>
-                        </button>
-                        <button
-                          type="button"
-                          disabled={chapterIndex === chapters.length - 1}
-                          onClick={() => void handleMoveChapter(chapter.id, "down")}
-                          title="Move down"
-                          className="p-0.5 text-slate-300 hover:text-slate-600 disabled:invisible dark:text-white/20 dark:hover:text-white/60"
-                        >
-                          <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="m19.5 8.25-7.5 7.5-7.5-7.5" /></svg>
-                        </button>
-                      </div>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setSelectedChapterId(chapter.id);
-                          setSessionStartWords(null);
-                          setHasUnsavedChanges(false);
-                        }}
-                        className="min-w-0 flex-1 truncate text-left text-[12px] font-medium text-slate-700 dark:text-white/80"
-                        title={chapter.title}
-                      >
-                        {chapter.title}
-                      </button>
-                      {isConfirmingDelete ? (
-                        <div className="flex flex-shrink-0 items-center gap-1">
-                          <button
-                            type="button"
-                            onClick={() => void handleDeleteChapter(chapter.id)}
-                            className="rounded px-1.5 py-0.5 text-[10px] font-semibold text-red-600 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-900/20"
-                          >
-                            Confirm
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => setDeletingChapterId(null)}
-                            className="rounded px-1.5 py-0.5 text-[10px] font-medium text-slate-400 hover:bg-slate-100 dark:text-white/40 dark:hover:bg-white/10"
-                          >
-                            Cancel
-                          </button>
-                        </div>
-                      ) : (
-                        <>
-                          {/* Delete button — visible on hover */}
-                          {chapters.length > 1 && (
-                            <button
-                              type="button"
-                              onClick={() => setDeletingChapterId(chapter.id)}
-                              title="Delete chapter"
-                              className="flex-shrink-0 p-1 text-slate-300 opacity-0 transition-opacity hover:text-red-500 group-hover:opacity-100 dark:text-white/20 dark:hover:text-red-400"
-                            >
-                              <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="m14.74 9-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 0 1-2.244 2.077H8.084a2.25 2.25 0 0 1-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 0 0-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 0 1 3.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 0 0-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 0 0-7.5 0" /></svg>
-                            </button>
-                          )}
-                          {isPublished && (
-                            <button
-                              type="button"
-                              disabled={!canToggle || isPublishing}
-                              onClick={() => void handleChapterPublishToggle(chapter, !isChapterPublished)}
-                              title={
-                                isChapterPublished
-                                  ? canToggle
-                                    ? "Unpublish this chapter"
-                                    : "Unpublish later chapters first"
-                                  : canToggle
-                                    ? "Publish this chapter"
-                                    : "Publish earlier chapters first"
-                              }
-                              className={`flex-shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold transition ${
-                                isChapterPublished
-                                  ? "bg-emerald-100 text-emerald-700 hover:bg-emerald-200 dark:bg-emerald-900/30 dark:text-emerald-300 dark:hover:bg-emerald-900/50"
-                                  : canToggle
-                                    ? "bg-slate-100 text-slate-500 hover:bg-slate-200 dark:bg-white/10 dark:text-white/50 dark:hover:bg-white/15"
-                                    : "bg-slate-50 text-slate-300 dark:bg-white/5 dark:text-white/20"
-                              } disabled:cursor-not-allowed disabled:opacity-50`}
-                            >
-                              {isChapterPublished ? "Live" : "Draft"}
-                            </button>
-                          )}
-                        </>
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-
-            {getTranslationsEnabled() && (
-              <div className="rounded-2xl border border-black/[0.05] bg-white/60 p-5 shadow-[0_1px_3px_rgba(0,0,0,0.02)] backdrop-blur-sm dark:border-white/[0.06] dark:bg-white/[0.02] dark:shadow-none">
-                <h2 className="mb-3 text-[14px] font-semibold tracking-[-0.01em] text-slate-800 dark:text-white/90">Translation</h2>
-                <p className="mb-3 text-xs text-slate-500 dark:text-white/50">
-                  Create a new language version of this book. The translation appears when complete.
-                </p>
-                <div className="mb-3 flex items-center gap-2">
-                  <span className="text-xs font-medium text-slate-500 dark:text-white/50">Status:</span>
-                  <span
-                    className={`rounded-full px-2.5 py-1 text-xs font-medium ${
-                      translationUiStatus === "translating"
-                        ? "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-200"
-                        : translationUiStatus === "done"
-                          ? "bg-[#907AFF]/15 text-[#5c4bb8] dark:bg-[#907AFF]/25 dark:text-[#b8a9ff]"
-                          : translationUiStatus === "error"
-                            ? "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-200"
-                            : "bg-slate-100 text-slate-700 dark:bg-slate-700 dark:text-slate-200"
-                    }`}
-                    role="status"
-                  >
-                    {translationUiStatus === "idle" && STATUS_LABELS.idle}
-                    {translationUiStatus === "translating" && "Translating..."}
-                    {translationUiStatus === "done" && STATUS_LABELS.completed}
-                    {translationUiStatus === "error" && STATUS_LABELS.failed}
-                  </span>
-                </div>
-                {(translationUiStatus === "translating" || isPollingCurrent) && translationProgress && translationProgress.total > 0 && (
-                  <div className="mb-3" role="progressbar" aria-label="Translation progress" aria-valuenow={translationProgress.translated} aria-valuemin={0} aria-valuemax={translationProgress.total}>
-                    <div className="mb-1 flex items-center justify-between text-xs text-slate-500 dark:text-white/50">
-                      <span>
-                        {translationProgress.translated} of {translationProgress.total} chapters
-                      </span>
-                      <span>
-                        {Math.round((translationProgress.translated / translationProgress.total) * 100)}%
-                      </span>
-                    </div>
-                    <div className="h-2 w-full overflow-hidden rounded-full bg-slate-200 dark:bg-slate-700">
-                      <div
-                        className="h-full rounded-full bg-blue-500 transition-[width] duration-300 dark:bg-blue-400"
-                        style={{ width: `${Math.min(100, (translationProgress.translated / translationProgress.total) * 100)}%` }}
-                      />
-                    </div>
-                  </div>
-                )}
-                {translationUiStatus === "error" && currentTargetVersion?.error_message && (
-                  <p className="mb-3 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-800 dark:border-red-800 dark:bg-red-950/30 dark:text-red-200" role="alert">
-                    {currentTargetVersion.error_message}
-                  </p>
-                )}
-                <label htmlFor="translate-language" className="mb-1 block text-xs text-slate-500 dark:text-white/50">Target language</label>
-                <select
-                  id="translate-language"
-                  value={translateTargetLanguage}
-                  onChange={(e) => setTranslateTargetLanguage(e.target.value as SupportedLanguage)}
-                  className="mb-3 w-full rounded-xl border border-black/[0.08] bg-white px-3 py-2 text-sm text-slate-900 focus:border-slate-500 focus:outline-none dark:border-white/[0.08] dark:bg-white/[0.04] dark:text-white"
-                >
-                  {LANGUAGE_OPTIONS.filter((opt) => opt.value !== translationSourceLang).map((opt) => {
-                    const supported = isTranslationPairSupported(translationSourceLang, opt.value);
-                    return (
-                      <option key={opt.value} value={opt.value} disabled={!supported}>
-                        {opt.label}{supported ? "" : " (not available)"}
-                      </option>
-                    );
-                  })}
-                </select>
-                <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-                  <button
-                    type="button"
-                    onClick={() => void handleStartTranslation("book")}
-                    disabled={isStartingTranslation || isProFeatureLocked || !isTranslationPairSupported(translationSourceLang, translateTargetLanguage)}
-                    className="w-full rounded-xl border border-black/[0.08] bg-white px-3 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50 dark:border-white/[0.08] dark:bg-white/[0.04] dark:text-white dark:hover:bg-white/[0.06]"
-                  >
-                    {isStartingTranslation
-                      ? "Starting..."
-                      : isProFeatureLocked
-                        ? billing.loading
-                          ? "Checking subscription..."
-                          : billing.pastDue
-                            ? "Locked: payment required"
-                            : "Translate full book (Pro)"
-                        : translationUiStatus === "error"
-                          ? "Retry full translation"
-                          : "Translate full book"}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => void handleStartTranslation("chapter")}
-                    disabled={
-                      isStartingTranslation ||
-                      isProFeatureLocked ||
-                      !selectedChapterId ||
-                      !isTranslationPairSupported(translationSourceLang, translateTargetLanguage)
-                    }
-                    className="w-full rounded-xl border border-black/[0.08] bg-white px-3 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50 dark:border-white/[0.08] dark:bg-white/[0.04] dark:text-white dark:hover:bg-white/[0.06]"
-                  >
-                    {isStartingTranslation
-                      ? "Starting..."
-                      : !selectedChapterId
-                        ? "Select chapter first"
-                        : isProFeatureLocked
-                          ? billing.loading
-                            ? "Checking subscription..."
-                            : billing.pastDue
-                              ? "Locked: payment required"
-                              : "Translate chapter (Pro)"
-                          : "Translate selected chapter"}
-                  </button>
-                </div>
-                {isProFeatureLocked && (
-                  <div className="mt-2 rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-800 dark:border-amber-700 dark:bg-amber-950/30 dark:text-amber-200">
-                    {proFeatureLockMessage}{" "}
-                    {!billing.loading && (
-                      <Link href="/author/billing" className="underline">
-                        Manage subscription
-                      </Link>
-                    )}
-                  </div>
-                )}
-                {currentTargetVersion && (
-                  <button
-                    type="button"
-                    onClick={() =>
-                      router.push(getBookWorkspaceHref(currentTargetVersion.language_code))
-                    }
-                    className="mt-2 w-full rounded-xl bg-slate-900 px-4 py-2.5 text-[13px] font-medium text-white shadow-sm transition-all hover:bg-slate-800 hover:shadow-md dark:bg-white dark:text-slate-900 dark:hover:bg-white/90"
-                  >
-                    Open version
-                  </button>
-                )}
-                {translationQueueHealthy === false && (
-                  <div className="mt-2 rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-800 dark:border-amber-700 dark:bg-amber-950/30 dark:text-amber-200">
-                    Translation queue is offline right now.
-                  </div>
-                )}
-                {translateMessage && (
-                  <div
-                    className={`mt-3 rounded-lg border px-3 py-2 text-sm ${
-                      translationUiStatus === "done" || translateMessage.toLowerCase().includes("klar")
-                        ? "border-[#907AFF]/40 bg-[#907AFF]/10 text-[#5c4bb8] dark:border-[#907AFF]/40 dark:bg-[#907AFF]/15 dark:text-[#b8a9ff]"
-                        : translationUiStatus === "error"
-                          ? "border-red-200 bg-red-50 text-red-800 dark:border-red-800 dark:bg-red-950/30 dark:text-red-200"
-                          : "border-black/[0.06] bg-slate-50 text-slate-800 dark:border-slate-700 dark:bg-slate-800/50 dark:text-slate-200"
-                    }`}
-                    role="status"
-                  >
-                    {translateMessage}
-                  </div>
-                )}
-              </div>
-            )}
-
-            <div className="rounded-2xl border border-black/[0.05] bg-white/60 p-5 shadow-[0_1px_3px_rgba(0,0,0,0.02)] backdrop-blur-sm dark:border-white/[0.06] dark:bg-white/[0.02] dark:shadow-none">
-              <h2 className="mb-3 text-[14px] font-semibold tracking-[-0.01em] text-slate-800 dark:text-white/90">Original</h2>
-              <label htmlFor="original-url-editor" className="mb-1 block text-xs text-slate-500 dark:text-white/50">Original is available on Amazon</label>
-              <input
-                id="original-url-editor"
-                type="url"
-                value={originalUrl}
-                onChange={(e) => setOriginalUrl(e.target.value)}
-                onBlur={handleOriginalUrlBlur}
-                placeholder="https://..."
-                className="w-full rounded-xl border border-black/[0.08] bg-white px-3 py-2 text-sm text-slate-900 placeholder:text-slate-400 focus:border-slate-500 focus:outline-none dark:border-white/[0.08] dark:bg-white/[0.04] dark:text-white dark:placeholder:text-white/40"
-              />
-            </div>
-
-            <div id="audiobook" className="rounded-2xl border border-black/[0.05] bg-white/60 p-5 shadow-[0_1px_3px_rgba(0,0,0,0.02)] backdrop-blur-sm dark:border-white/[0.06] dark:bg-white/[0.02] dark:shadow-none">
-              <h2 className="mb-2 text-[14px] font-semibold tracking-[-0.01em] text-slate-800 dark:text-white/90">Audiobook</h2>
-              <div className="mb-2 flex items-center gap-2">
-                <span
-                  className={`rounded-full px-2.5 py-1 text-xs font-medium ${
-                    audiobookStatusUi === "published"
-                      ? "bg-[#907AFF]/15 text-[#5c4bb8] dark:bg-[#907AFF]/25 dark:text-[#b8a9ff]"
-                      : audiobookStatusUi === "paused" || audiobookStatusUi === "pause_requested"
-                        ? "bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300"
-                      : audiobookStatusUi === "cancel_requested"
-                        ? "bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-300"
-                      : audiobookStatusUi === "generating" || audiobookStatusUi === "queued"
-                        ? "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300"
-                        : audiobookStatusUi === "cancelled"
-                          ? "bg-slate-200 text-slate-700 dark:bg-slate-700 dark:text-slate-200"
-                        : audiobookStatusUi === "disabled"
-                          ? "bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300"
-                        : audiobookStatusUi === "failed"
-                          ? "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300"
-                          : "bg-slate-100 text-slate-700 dark:bg-slate-700 dark:text-slate-200"
-                  }`}
-                >
-                  {getAudiobookStatusLabel(audiobookStatusUi)}
-                </span>
-              </div>
-
-              {isAudiobookActive && effectiveAudiobookProgress && (
-                <div className="mb-3">
-                  <div className="mb-1 flex justify-between text-xs text-slate-600 dark:text-slate-400">
-                    <span>{effectiveAudiobookProgress.currentChapterTitle ?? "Processing..."}</span>
-                    <span>{effectiveAudiobookProgress.completedChapters} / {effectiveAudiobookProgress.totalChapters}</span>
-                  </div>
-                  <p className="mb-1 text-[11px] text-slate-500 dark:text-slate-400">
-                    Scope: {activeAudiobookScopeSummary}
-                  </p>
-                  <div className="h-2 w-full overflow-hidden rounded-full bg-slate-200 dark:bg-slate-700">
-                    <div
-                      className="h-full rounded-full bg-[#907AFF] transition-all duration-300"
-                      style={{
-                        width: effectiveAudiobookProgress.totalChapters > 0
-                          ? `${(effectiveAudiobookProgress.completedChapters / effectiveAudiobookProgress.totalChapters) * 100}%`
-                          : "0%",
-                      }}
-                    />
-                  </div>
-                  <p className="mt-1 text-[11px] text-slate-500 dark:text-slate-400">
-                    {audiobookEtaText ?? "Estimating remaining time..."}
-                  </p>
-                </div>
-              )}
-
-              {billing.isProActive ? (
-              <div className="mb-3 grid grid-cols-3 gap-2">
-                <button
-                  type="button"
-                  onClick={() => setAudiobookScope("book")}
-                  className={`rounded-xl border px-2 py-2 text-xs font-medium transition ${
-                    audiobookScope === "book"
-                      ? "border-[#907AFF]/40 bg-[#907AFF]/10 text-[#5c4bb8] dark:border-[#907AFF]/50 dark:bg-[#907AFF]/20 dark:text-[#c5b9ff]"
-                      : "border-black/[0.08] bg-white text-slate-600 hover:bg-slate-50 dark:border-white/[0.08] dark:bg-white/[0.04] dark:text-white/80"
-                  }`}
-                >
-                  Full book
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setAudiobookScope("current")}
-                  className={`rounded-xl border px-2 py-2 text-xs font-medium transition ${
-                    audiobookScope === "current"
-                      ? "border-[#907AFF]/40 bg-[#907AFF]/10 text-[#5c4bb8] dark:border-[#907AFF]/50 dark:bg-[#907AFF]/20 dark:text-[#c5b9ff]"
-                      : "border-black/[0.08] bg-white text-slate-600 hover:bg-slate-50 dark:border-white/[0.08] dark:bg-white/[0.04] dark:text-white/80"
-                  }`}
-                >
-                  Current chapter
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setAudiobookScope("selected");
-                    setIsAudiobookChapterPickerOpen(true);
-                    if (selectedChapterId) {
-                      setAudiobookSelectedChapterIds((prev) => (
-                        prev.includes(selectedChapterId) ? prev : [...prev, selectedChapterId]
-                      ));
-                    }
-                  }}
-                  className={`rounded-xl border px-2 py-2 text-xs font-medium transition ${
-                    audiobookScope === "selected"
-                      ? "border-[#907AFF]/40 bg-[#907AFF]/10 text-[#5c4bb8] dark:border-[#907AFF]/50 dark:bg-[#907AFF]/20 dark:text-[#c5b9ff]"
-                      : "border-black/[0.08] bg-white text-slate-600 hover:bg-slate-50 dark:border-white/[0.08] dark:bg-white/[0.04] dark:text-white/80"
-                  }`}
-                >
-                  Choose chapters
-                </button>
-              </div>
-              ) : (
-              <p className="mb-3 text-xs text-slate-500 dark:text-slate-400">Full book generation</p>
-              )}
-
-              <p className="mb-2 text-xs text-slate-500 dark:text-slate-400">
-                Selection: {audiobookSelectionSummary}
-              </p>
-
-              {audiobookScope === "selected" && (
-                <div className="mb-3 rounded-xl border border-black/[0.08] bg-white/70 p-3 dark:border-white/[0.08] dark:bg-white/[0.03]">
-                  <button
-                    type="button"
-                    onClick={() => setIsAudiobookChapterPickerOpen((prev) => !prev)}
-                    className="mb-2 w-full rounded-lg border border-black/[0.08] bg-white px-3 py-2 text-left text-xs font-medium text-slate-700 transition hover:bg-slate-50 dark:border-white/[0.08] dark:bg-white/[0.04] dark:text-white"
-                  >
-                    {isAudiobookChapterPickerOpen ? "Hide chapter list" : "Show chapter list"}
-                  </button>
-                  {isAudiobookChapterPickerOpen && (
-                    <>
-                      <div className="mb-2 flex flex-wrap gap-2">
-                        <button
-                          type="button"
-                          onClick={() => setAudiobookSelectedChapterIds(chapters.map((chapter) => chapter.id))}
-                          className="rounded-md border border-black/[0.08] px-2 py-1 text-[11px] text-slate-600 hover:bg-slate-50 dark:border-white/[0.08] dark:text-white/80 dark:hover:bg-white/[0.06]"
-                        >
-                          Select all
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => setAudiobookSelectedChapterIds([])}
-                          className="rounded-md border border-black/[0.08] px-2 py-1 text-[11px] text-slate-600 hover:bg-slate-50 dark:border-white/[0.08] dark:text-white/80 dark:hover:bg-white/[0.06]"
-                        >
-                          Clear
-                        </button>
-                      </div>
-                      <div className="max-h-44 space-y-1 overflow-y-auto pr-1">
-                        {chapters.map((chapter) => {
-                          const checked = audiobookSelectedChapterIds.includes(chapter.id);
-                          return (
-                            <label
-                              key={chapter.id}
-                              className="flex cursor-pointer items-center gap-2 rounded-md border border-transparent px-2 py-1.5 text-xs text-slate-700 hover:border-black/[0.05] hover:bg-slate-50 dark:text-white/80 dark:hover:border-white/[0.08] dark:hover:bg-white/[0.05]"
-                            >
-                              <input
-                                type="checkbox"
-                                checked={checked}
-                                onChange={() => {
-                                  setAudiobookSelectedChapterIds((prev) => (
-                                    prev.includes(chapter.id)
-                                      ? prev.filter((id) => id !== chapter.id)
-                                      : [...prev, chapter.id]
-                                  ));
-                                }}
-                                className="h-3.5 w-3.5 rounded border-black/[0.2] text-[#907AFF] focus:ring-[#907AFF]"
-                              />
-                              <span className="truncate">{chapter.title || "Untitled chapter"}</span>
-                            </label>
-                          );
-                        })}
-                      </div>
-                    </>
-                  )}
-                </div>
-              )}
-
-              <div className="mb-2 grid grid-cols-1 gap-2">
-                <button
-                  type="button"
-                  onClick={() => void handleGenerateAudiobook()}
-                  disabled={isAudiobookActive || !audiobookFeatureEnabled || billing.loading || (billing.isProActive && audiobookScope !== "book" && audiobookRequestedChapterIds.length === 0)}
-                  className="w-full rounded-xl border border-black/[0.08] bg-white px-3 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50 dark:border-white/[0.08] dark:bg-white/[0.04] dark:text-white dark:hover:bg-white/[0.06]"
-                >
-                  {!audiobookFeatureEnabled
-                    ? "Create audiobook (unavailable)"
-                    : billing.loading
-                    ? "Checking subscription..."
-                    : isAudiobookActive
-                    ? effectiveAudiobookProgress
-                      ? `Generating (${effectiveAudiobookProgress.completedChapters}/${effectiveAudiobookProgress.totalChapters})...`
-                      : "Queued..."
-                    : isProFeatureLocked
-                    ? "Create full audiobook"
-                    : audiobookRequestScope === "book"
-                      ? "Create full audiobook"
-                      : audiobookRequestScope === "chapter"
-                        ? "Generate selected chapter"
-                        : `Generate ${audiobookRequestedChapterIds.length} chapters`}
-                </button>
-              </div>
-
-              {isAudiobookActive && (
-                <div className="mb-2 grid grid-cols-3 gap-2">
-                  <button
-                    type="button"
-                    onClick={() => void handleAudiobookControl("pause")}
-                    disabled={!canPauseAudiobook}
-                    className="rounded-xl border border-black/[0.08] bg-white px-3 py-2 text-xs font-medium text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50 dark:border-white/[0.08] dark:bg-white/[0.04] dark:text-white dark:hover:bg-white/[0.06]"
-                  >
-                    {audiobookControlPending === "pause" ? "Pausing..." : "Pause"}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => void handleAudiobookControl("resume")}
-                    disabled={!canResumeAudiobook}
-                    className="rounded-xl border border-black/[0.08] bg-white px-3 py-2 text-xs font-medium text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50 dark:border-white/[0.08] dark:bg-white/[0.04] dark:text-white dark:hover:bg-white/[0.06]"
-                  >
-                    {audiobookControlPending === "resume" ? "Resuming..." : "Resume"}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => void handleAudiobookControl("cancel")}
-                    disabled={!canCancelAudiobook}
-                    className="rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-xs font-medium text-red-700 transition hover:bg-red-100 disabled:cursor-not-allowed disabled:opacity-50 dark:border-red-800 dark:bg-red-950/30 dark:text-red-300 dark:hover:bg-red-950/50"
-                  >
-                    {audiobookControlPending === "cancel" ? "Stopping..." : "Cancel"}
-                  </button>
-                </div>
-              )}
-
-              {isAudiobookActive && (
-                <p className="mb-2 text-[11px] text-slate-500 dark:text-slate-400">
-                  Pause/cancel is applied safely between chapter boundaries.
-                </p>
-              )}
-
-              {/* Audiobook checkout modal for non-Pro */}
-              {audiobookCheckoutModalOpen && (
-                <div
-                  className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm"
-                  onClick={(e) => { if (e.target === e.currentTarget) setAudiobookCheckoutModalOpen(false); }}
-                >
-                  <div className="relative mx-4 w-full max-w-md rounded-2xl bg-white p-8 shadow-2xl dark:bg-slate-900">
-                    <button
-                      type="button"
-                      onClick={() => setAudiobookCheckoutModalOpen(false)}
-                      className="absolute right-4 top-4 text-slate-400 hover:text-slate-600 dark:text-white/40 dark:hover:text-white/70"
-                      aria-label="Close"
-                    >
-                      <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M18 6L6 18M6 6l12 12" /></svg>
-                    </button>
-                    <h2 className="mb-6 text-center text-lg font-semibold text-slate-900 dark:text-white">
-                      Choose plan to create audiobook
-                    </h2>
-                    <div className="space-y-4">
-                      <label className="flex cursor-pointer items-start gap-3 rounded-xl border-2 border-[#907AFF] bg-[#907AFF]/5 px-4 py-4 transition">
-                        <input type="radio" name="audiobook-plan" value="per_book" defaultChecked className="mt-0.5 h-4 w-4 accent-[#907AFF]" />
-                        <div>
-                          <p className="font-semibold text-slate-900 dark:text-white">Pay per audiobook</p>
-                          <p className="text-sm text-slate-500 dark:text-white/50">299 kr / book</p>
-                        </div>
-                      </label>
-                      <label className="flex cursor-pointer items-start gap-3 rounded-xl border-2 border-slate-200 px-4 py-4 transition hover:border-slate-300 dark:border-white/10 dark:hover:border-white/20" onClick={() => { setAudiobookCheckoutModalOpen(false); router.push("/author/billing"); }}>
-                        <input type="radio" name="audiobook-plan" value="pro" className="mt-0.5 h-4 w-4 accent-[#907AFF]" />
-                        <div>
-                          <p className="font-semibold text-slate-900 dark:text-white">Subscribe to PRO author</p>
-                          <p className="mb-2 text-sm text-slate-500 dark:text-white/50">2 490 kr / month</p>
-                          <ul className="space-y-1 text-sm text-slate-600 dark:text-white/60">
-                            {["Unlimited audiobooks", "Unlimited translations", "Chapter-level control", "Marketing tools"].map((f) => (
-                              <li key={f} className="flex items-center gap-2">
-                                <svg className="h-4 w-4 shrink-0 text-[#907AFF]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M5 13l4 4L19 7" /></svg>
-                                {f}
-                              </li>
-                            ))}
-                          </ul>
-                        </div>
-                      </label>
-                    </div>
-                    {audiobookError && <p className="mt-4 text-center text-sm text-red-600 dark:text-red-400">{audiobookError}</p>}
-                    <button
-                      type="button"
-                      onClick={() => { setAudiobookCheckoutModalOpen(false); void handleAudiobookCheckout(); }}
-                      disabled={audiobookCheckoutLoading}
-                      className="mt-6 block w-full rounded-full bg-[#907AFF] px-6 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-[#7c6ae6] disabled:cursor-not-allowed disabled:opacity-60"
-                    >
-                      {audiobookCheckoutLoading ? "Redirecting..." : "Create full audiobook"}
-                    </button>
-                  </div>
-                </div>
-              )}
-
-              {!audiobookFeatureEnabled && (
-                <p className="mb-2 text-xs text-slate-600 dark:text-white/60" role="status">
-                  Audiobook generation is temporarily disabled because the worker is not compatible in this environment.
-                </p>
-              )}
-
-              {selectedChapterId && (
-                <div className="mb-2">
-                  <ChapterAudiobookPlayer
-                    bookId={book.id}
-                    chapterId={selectedChapterId}
-                    audiobookStatus={audiobookStatusUi}
-                  />
-                </div>
-              )}
-
-              {shouldShowGeneratedAudiobookPlayer && (
-                <div className="mb-2">
-                  {fallbackGeneratedAudiobookUrl ? (
-                    <NoDownloadAudioPlayer src={fallbackGeneratedAudiobookUrl} />
-                  ) : latestAudiobookManifestUrl ? (
-                    <ManifestAudiobookPlayer
-                      bookId={book.id}
-                      manifestUrl={latestAudiobookManifestUrl}
-                    />
-                  ) : null}
-                </div>
-              )}
-
-              {audiobookStatusUi === "cancelled" && (
-                <p className="text-xs text-slate-600 dark:text-slate-300" role="status">
-                  {effectiveAudiobookError ?? "Generation cancelled."}
-                </p>
-              )}
-
-              {audiobookStatusUi === "failed" && (
-                <p className="text-xs text-red-600 dark:text-red-400" role="alert">
-                  {effectiveAudiobookError ?? "Could not create audiobook. Try again."}
-                </p>
-              )}
-            </div>
-
-            {getMarketingEnabled() && (
-            <div id="marketing" className="rounded-2xl border border-black/[0.05] bg-white/60 p-5 shadow-[0_1px_3px_rgba(0,0,0,0.02)] backdrop-blur-sm dark:border-white/[0.06] dark:bg-white/[0.02] dark:shadow-none">
-              <h2 className="mb-3 text-[14px] font-semibold tracking-[-0.01em] text-slate-800 dark:text-white/90">Launch copy</h2>
-              <div className="mb-3 flex flex-wrap gap-2">
-                <div className="flex flex-col gap-1">
-                  <label htmlFor="marketing-channel" className="text-xs text-slate-500 dark:text-white/50">Channel</label>
-                  <select
-                    id="marketing-channel"
-                    value={marketingChannel}
-                    onChange={(e) => setMarketingChannel(e.target.value as MarketingChannel)}
-                    className="rounded-xl border border-black/[0.08] bg-white px-2 py-1.5 text-sm text-slate-900 focus:border-slate-500 focus:outline-none dark:border-white/[0.08] dark:bg-white/[0.04] dark:text-white"
-                  >
-                    {MARKETING_CHANNELS.map((c) => (
-                      <option key={c} value={c}>{MARKETING_CHANNEL_LABELS[c]}</option>
-                    ))}
-                  </select>
-                </div>
-                <div className="flex flex-col gap-1">
-                  <label htmlFor="marketing-language" className="text-xs text-slate-500 dark:text-white/50">Language</label>
-                  <select
-                    id="marketing-language"
-                    value={marketingLanguage}
-                    onChange={(e) => setMarketingLanguage(e.target.value as SupportedLanguage)}
-                    className="rounded-xl border border-black/[0.08] bg-white px-2 py-1.5 text-sm text-slate-900 focus:border-slate-500 focus:outline-none dark:border-white/[0.08] dark:bg-white/[0.04] dark:text-white"
-                  >
-                    {LANGUAGE_OPTIONS.map((opt) => (
-                      <option key={opt.value} value={opt.value}>{opt.label}</option>
-                    ))}
-                  </select>
-                </div>
-              </div>
-              {currentCampaign ? (
-                <div className="mb-2 flex items-center gap-2">
-                  <span
-                    className={`rounded-full px-2.5 py-1 text-xs font-medium ${
-                      currentCampaign.status === "generated" || currentCampaign.status === "published"
-                        ? "bg-[#907AFF]/15 text-[#5c4bb8] dark:bg-[#907AFF]/25 dark:text-[#b8a9ff]"
-                        : "bg-slate-100 text-slate-700 dark:bg-slate-700 dark:text-slate-200"
-                    }`}
-                  >
-                    {getMarketingCampaignStatusLabel(currentCampaign.status)}
-                  </span>
-                </div>
-              ) : (
-                <p className="mb-2 text-xs text-slate-500 dark:text-white/50">
-                  No copy for this channel and language yet. Generate below.
-                </p>
-              )}
-              <button
-                type="button"
-                onClick={handleGenerateMarketingCopy}
-                disabled={isGeneratingMarketing || isProFeatureLocked}
-                className="mb-3 w-full rounded-xl border border-black/[0.08] bg-white px-3 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-50 disabled:opacity-50 dark:border-white/[0.08] dark:bg-white/[0.04] dark:text-white dark:hover:bg-white/[0.06]"
-              >
-                {isGeneratingMarketing
-                  ? "Generating..."
-                  : isProFeatureLocked
-                    ? billing.loading
-                      ? "Checking subscription..."
-                      : billing.pastDue
-                        ? "Locked: payment required"
-                        : "Generate launch copy (Pro required)"
-                    : "Generate launch copy"}
-              </button>
-              {isProFeatureLocked && (
-                <div className="mb-3 rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-800 dark:border-amber-700 dark:bg-amber-950/30 dark:text-amber-200">
-                  {proFeatureLockMessage}{" "}
-                  {!billing.loading && (
-                    <Link href="/author/billing" className="underline">
-                      Manage subscription
-                    </Link>
-                  )}
-                </div>
-              )}
-              {currentCampaign && (
-                <div className="space-y-2">
-                  {currentCampaign.headline && (
-                    <p className="text-xs font-medium text-slate-500 dark:text-white/50">Headline</p>
-                  )}
-                  {currentCampaign.headline && (
-                    <p className="whitespace-pre-wrap break-words rounded border border-black/[0.06] bg-white p-2 text-xs text-slate-700 dark:border-white/[0.06] dark:bg-white/5 dark:text-white/90">
-                      {currentCampaign.headline}
-                    </p>
-                  )}
-                  {currentCampaign.caption && (
-                    <>
-                      <p className="text-xs font-medium text-slate-500 dark:text-white/50">Copy</p>
-                      <p className="whitespace-pre-wrap break-words rounded border border-black/[0.06] bg-white p-2 text-xs text-slate-700 dark:border-white/[0.06] dark:bg-white/5 dark:text-white/90">
-                        {currentCampaign.caption}
-                      </p>
-                    </>
-                  )}
-                  {currentCampaign.cta && (
-                    <>
-                      <p className="text-xs font-medium text-slate-500 dark:text-white/50">Call to action</p>
-                      <p className="rounded border border-black/[0.06] bg-white p-2 text-xs text-slate-700 dark:border-white/[0.06] dark:bg-white/5 dark:text-white/90">
-                        {currentCampaign.cta}
-                      </p>
-                    </>
-                  )}
-                  {currentCampaign.hashtags && (
-                    <>
-                      <p className="text-xs font-medium text-slate-500 dark:text-white/50">Hashtags</p>
-                      <p className="rounded border border-black/[0.06] bg-white p-2 text-xs text-slate-700 dark:border-white/[0.06] dark:bg-white/5 dark:text-white/90">
-                        {currentCampaign.hashtags}
-                      </p>
-                    </>
-                  )}
-                  <button
-                    type="button"
-                    onClick={handleCopyMarketingToClipboard}
-                    className="w-full rounded-xl bg-slate-900 px-4 py-2.5 text-[13px] font-medium text-white shadow-sm transition-all hover:bg-slate-800 hover:shadow-md dark:bg-white dark:text-slate-900 dark:hover:bg-white/90"
-                  >
-                    {marketingCopyFeedback ? "Copied!" : "Copy to clipboard"}
-                  </button>
-                </div>
-              )}
-              <p className="mt-3 text-xs text-slate-500 dark:text-white/50">Reader URL</p>
-              <a
-                href={`/reader/books/${book.id}`}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="mt-1 block truncate text-xs text-[#5c4bb8] underline dark:text-[#b8a9ff]"
-              >
-                /reader/books/{book.id}
-              </a>
-            </div>
-            )}
-
-            {getMarketingEnabled() && (
-              <div className="rounded-2xl border border-black/[0.05] bg-white/60 p-5 shadow-[0_1px_3px_rgba(0,0,0,0.02)] backdrop-blur-sm dark:border-white/[0.06] dark:bg-white/[0.02] dark:shadow-none">
-                <h2 className="mb-3 text-[14px] font-semibold tracking-[-0.01em] text-slate-800 dark:text-white/90">Marketing portal</h2>
-                {isPublished ? (
-                  <>
-                    <p className="mb-3 text-xs text-slate-500 dark:text-white/50">
-                      Plan campaigns, generate copy, and manage distribution for this book.
-                    </p>
-                    <Link
-                      href={`/author/marketing?bookId=${book.id}`}
-                      className="flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-b from-[#907AFF] to-[#7c6ae6] px-4 py-2.5 text-[13px] font-semibold text-white shadow-[0_1px_2px_rgba(144,122,255,0.3),inset_0_1px_0_rgba(255,255,255,0.15)] transition-all hover:shadow-[0_4px_12px_rgba(144,122,255,0.35)] hover:brightness-110"
-                    >
-                      <svg className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
-                        <path fillRule="evenodd" d="M12.577 4.878a.75.75 0 01.919-.53l4.78 1.281a.75.75 0 01.531.919l-1.281 4.78a.75.75 0 01-1.449-.387l.81-3.022a19.407 19.407 0 00-5.594 5.203.75.75 0 01-1.139.093L7.55 10.81l-4.72 4.72a.75.75 0 01-1.06-1.06l5.25-5.25a.75.75 0 011.06 0l2.346 2.346a20.893 20.893 0 015.264-4.97l-2.633.706a.75.75 0 01-.919-.53z" clipRule="evenodd" />
-                      </svg>
-                      Open marketing portal
-                    </Link>
-                  </>
-                ) : (
-                  <p className="rounded-xl border border-dashed border-black/[0.08] bg-slate-50/50 px-3 py-3 text-center text-[12px] text-slate-400 dark:border-white/[0.06] dark:bg-white/[0.01] dark:text-white/30">
-                    Publish the book to open the marketing portal
-                  </p>
-                )}
-              </div>
-            )}
-          </AiAssistantPanel>
-          )}
-
-          <EditorCanvas mode="workspace">
-            {selectedChapter ? (
-              <>
-                <div className="rounded-2xl border border-black/[0.06] bg-white/70 p-5 shadow-[0_4px_18px_rgba(15,23,42,0.04)] backdrop-blur-sm dark:border-white/[0.06] dark:bg-white/[0.02] dark:shadow-none">
-                <div className="mb-4 flex items-center justify-between">
-                  {editingTitleId === selectedChapter.id ? (
-                    <div className="flex flex-wrap items-center gap-2">
-                      <input
-                        type="text"
-                        value={tempTitle}
-                        onChange={(e) => setTempTitle(e.target.value)}
-                        onKeyDown={(e) => {
-                          if (e.key === "Enter") handleSaveTitle(selectedChapter.id);
-                          if (e.key === "Escape") handleCancelEditTitle();
-                        }}
-                        className="min-w-[200px] rounded-xl border border-black/[0.08] bg-white px-4 py-2.5 text-base font-medium text-slate-900 shadow-sm focus:border-black/[0.15] focus:shadow-md focus:outline-none dark:border-white/[0.08] dark:bg-white/[0.04] dark:text-white"
-                        autoFocus
-                        aria-label="Chapter title"
-                      />
-                      <button
-                        type="button"
-                        onClick={() => handleSaveTitle(selectedChapter.id)}
-                        disabled={isSaving || !tempTitle.trim()}
-                        className="rounded-xl bg-slate-900 px-4 py-2.5 text-[13px] font-semibold text-white shadow-sm hover:bg-slate-800 disabled:opacity-60 dark:bg-white dark:text-slate-900"
-                      >
-                        {isSaving ? "Saving..." : "Save"}
-                      </button>
-                      <button
-                        type="button"
-                        onClick={handleCancelEditTitle}
-                        className="rounded-xl border border-black/[0.08] px-4 py-2.5 text-[13px] font-medium text-slate-600 hover:bg-slate-50 dark:border-white/[0.08] dark:text-white/60 dark:hover:bg-white/[0.04]"
-                      >
-                        Cancel
-                      </button>
-                    </div>
-                  ) : (
-                    <>
-                      <div className="flex items-center gap-3">
-                        <h2 className="text-xl font-bold tracking-[-0.01em] text-slate-900 dark:text-white">{selectedChapter.title}</h2>
-                        <button
-                          type="button"
-                          onClick={() => handleStartEditTitle(selectedChapter.id, selectedChapter.title)}
-                          className="rounded-full border border-black/[0.06] bg-white/80 px-3 py-1 text-[11px] font-medium text-slate-400 backdrop-blur-sm transition-all hover:border-black/[0.12] hover:text-slate-700 dark:border-white/[0.06] dark:bg-white/[0.03] dark:text-white/40 dark:hover:text-white/70"
-                        >
-                          Rename
-                        </button>
-                      </div>
-                      <p className="text-[12px]" role="status" aria-live="polite">
-                        {isSaving ? (
-                          <span className="flex items-center gap-1.5 text-[#907AFF] dark:text-[#b8a9ff]">
-                            <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-current" />
-                            Saving...
-                          </span>
-                        ) : saveError ? (
-                          <span className="flex items-center gap-1.5 text-red-500 dark:text-red-400">
-                            <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>
-                            Error saving
-                          </span>
-                        ) : hasUnsavedChanges ? (
-                          <span className="flex items-center gap-1.5 text-amber-500 dark:text-amber-400">
-                            <span className="h-1.5 w-1.5 rounded-full bg-current" />
-                            Unsaved changes
-                          </span>
-                        ) : lastSaved ? (
-                          <span className="flex items-center gap-1.5 text-emerald-500/80 dark:text-emerald-400/70">
-                            <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="m4.5 12.75 6 6 9-13.5" /></svg>
-                            Saved
-                          </span>
-                        ) : (
-                          <span className="text-slate-400 dark:text-white/40">Autosave active</span>
-                        )}
-                      </p>
-                    </>
-                  )}
-                </div>
-
-                <AuthorStatsBar
-                  wordCount={wordCount}
-                  sessionWords={sessionWords}
-                  onFocusToggle={() => setFocusMode(true)}
-                  focusMode={false}
-                  preset={preset}
-                  onPresetChange={setPreset}
-                  onNewChapter={handleCreateChapter}
-                  onCommandPalette={openPalette}
-                />
-
-                <div className="mt-4">
-                  <TiptapEditor
-                    key={selectedChapter.id}
-                    content={selectedChapter.content}
-                    onUpdate={(json) => handleAutoSave(selectedChapter.id, json)}
-                    onDirty={() => setHasUnsavedChanges(true)}
-                    placeholder="Start writing your chapter..."
-                    bookId={book.id}
-                    chapterId={selectedChapter.id}
-                    preset={preset}
-                    onWordCount={setWordCount}
-                    onFocusModeToggle={() => setFocusMode((f) => !f)}
-                    focusMode={focusMode}
-                  />
-                </div>
-                </div>
-              </>
-            ) : (
-              <div className="flex h-[500px] items-center justify-center rounded-2xl border border-dashed border-black/[0.08] bg-slate-50/30 dark:border-white/[0.06] dark:bg-white/[0.01]">
-                <p className="text-[14px] text-slate-400 dark:text-white/40">
-                  {chapters.length === 0 ? "Create your first chapter to start writing" : "Select a chapter above to edit"}
-                </p>
-              </div>
-            )}
-          </EditorCanvas>
-        </div>
-        </>
         )}
-        </>
-        )}
+
         </div>
         </div>
       </section>

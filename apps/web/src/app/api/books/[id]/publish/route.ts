@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { assertPublicEnv } from "@/lib/env";
 import { requireAuthorRoleForApi } from "@/lib/auth/require-author";
+import { getBookAsOwner } from "@/lib/books/service";
 import {
   apiError,
   E_BOOK_NOT_FOUND,
@@ -94,20 +95,28 @@ export async function POST(
   if (response) return response;
 
   const supabase = await createClient();
-  const { data: book, error: bookError } = await supabase
-    .from("books")
-    .select("id, title, author_id, status, original_language, cover_image")
-    .eq("id", id)
-    .maybeSingle();
 
-  if (bookError) {
-    console.error("[publish] book lookup failed", { bookId: id, code: bookError.code, message: bookError.message });
-    return apiError(E_DATABASE_ERROR, 500);
+  // Ownership check
+  const bookResult = await getBookAsOwner(
+    supabase,
+    id,
+    user.id,
+    "id, title, author_id, status, original_language, cover_image",
+  );
+  if (!bookResult.ok) {
+    return apiError(
+      bookResult.error === "book_not_found" ? E_BOOK_NOT_FOUND : E_DATABASE_ERROR,
+      bookResult.error === "book_not_found" ? 404 : 500,
+    );
   }
-
-  if (!book || book.author_id !== user.id) {
-    return apiError(E_BOOK_NOT_FOUND, 404);
-  }
+  const book = bookResult.data as {
+    id: string;
+    title: string | null;
+    author_id: string;
+    status: string | null;
+    original_language?: string | null;
+    cover_image?: string | null;
+  };
 
   let versionId = requestedVersionId;
   if (!versionId) {

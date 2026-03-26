@@ -6,11 +6,13 @@ import { normalizeLanguage } from "@/lib/languages";
 import { requireAuthorRoleForApi } from "@/lib/auth/require-author";
 import { requireProBillingForApi } from "@/lib/billing/server";
 import { enqueueMarketingJob } from "@/lib/marketing-queue";
+import { getBookAsOwner } from "@/lib/books/service";
 import {
   apiError,
   E_BOOK_NOT_FOUND,
   E_DATABASE_ERROR,
   E_MARKETING_FEATURE_DISABLED,
+  E_VALIDATION_FAILED,
 } from "@/lib/api-errors";
 
 const ALL_CHANNELS = ["generic", "tiktok", "instagram", "x"];
@@ -20,18 +22,22 @@ export async function POST(
   { params }: { params: Promise<{ id: string }> }
 ) {
   assertPublicEnv();
+
+  // Feature flag
   if (!isMarketingEnabled()) {
     return apiError(E_MARKETING_FEATURE_DISABLED, 403);
   }
+
   const { id: bookId } = await params;
 
+  // Auth
   const { user, response } = await requireAuthorRoleForApi();
   if (response) return response;
 
   const proGate = await requireProBillingForApi(user.id);
   if (!proGate.ok) return proGate.response;
 
-  const supabase = await createClient();
+  // Validation
   const body = await request.json().catch(() => ({}));
   const language = normalizeLanguage(body?.language);
   const channels: string[] = Array.isArray(body?.channels)
@@ -39,24 +45,20 @@ export async function POST(
     : ALL_CHANNELS;
 
   if (channels.length === 0) {
-    return NextResponse.json({ error: "No valid channels provided" }, { status: 400 });
+    return apiError(E_VALIDATION_FAILED, 400);
   }
 
-  // Verify book ownership
-  const { data: book, error: bookFetchError } = await supabase
-    .from("books")
-    .select("id, author_id")
-    .eq("id", bookId)
-    .maybeSingle();
-
-  if (bookFetchError) {
-    console.error("[marketing schedule] book fetch failed:", bookFetchError.message);
-    return apiError(E_DATABASE_ERROR, 500);
-  }
-  if (!book || book.author_id !== user.id) {
-    return apiError(E_BOOK_NOT_FOUND, 404);
+  // Ownership check
+  const supabase = await createClient();
+  const bookResult = await getBookAsOwner(supabase, bookId, user.id, "id, author_id");
+  if (!bookResult.ok) {
+    return apiError(
+      bookResult.error === "book_not_found" ? E_BOOK_NOT_FOUND : E_DATABASE_ERROR,
+      bookResult.error === "book_not_found" ? 404 : 500,
+    );
   }
 
+  // Service call
   const jobId = await enqueueMarketingJob({
     bookId,
     authorId: user.id,
@@ -71,5 +73,6 @@ export async function POST(
     );
   }
 
-  return NextResponse.json({ jobId, status: "queued" });
+  // Response
+  return NextResponse.json({ ok: true, data: { jobId, status: "queued" } });
 }

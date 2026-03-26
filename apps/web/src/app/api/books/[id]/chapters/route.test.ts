@@ -122,7 +122,7 @@ describe("GET /api/books/[id]/chapters", () => {
     const res = await GET(new Request("http://localhost"), makeParams("book-1"));
     expect(res.status).toBe(200);
     const body = await res.json();
-    expect(body.chapters).toEqual([]);
+    expect(body.data.chapters).toEqual([]);
   });
 
   it("returns chapters with normalized text", async () => {
@@ -180,10 +180,10 @@ describe("GET /api/books/[id]/chapters", () => {
     const res = await GET(new Request("http://localhost"), makeParams("book-1"));
     expect(res.status).toBe(200);
     const body = await res.json();
-    expect(body.chapters).toHaveLength(2);
-    expect(body.chapters[0].title).toBe("Intro");
-    expect(body.chapters[0].text).toBe("Hello world");
-    expect(body.chapters[1].title).toBe("Chapter 2");
-    expect(body.chapters[1].text).toBe("Para text");
+    expect(body.data.chapters).toHaveLength(2);
+    expect(body.data.chapters[0].title).toBe("Intro");
+    expect(body.data.chapters[0].text).toBe("Hello world");
+    expect(body.data.chapters[1].title).toBe("Chapter 2");
+    expect(body.data.chapters[1].text).toBe("Para text");
   });
 });

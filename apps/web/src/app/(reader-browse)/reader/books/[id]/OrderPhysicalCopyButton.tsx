@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { API_ROUTES } from "@/lib/api-routes";
-import type { BookFormat } from "@/app/(app-author)/author/books/[id]/editor/panels/PrintPanel.helpers";
+import type { BookFormat } from "@/lib/print-on-demand";
 
 type FormatOption = {
   format: BookFormat;

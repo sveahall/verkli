@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
+import { getProfilesByUserIds } from "@/lib/profiles/service";
+import { bookExists } from "@/lib/books/service";
 import {
   apiError,
   E_BOOK_NOT_FOUND,
@@ -9,6 +11,7 @@ import {
   E_COMMENT_PARENT_MISMATCH,
   E_COMMENT_PARENT_NOT_FOUND,
   E_COMMENT_THREAD_DEPTH_EXCEEDED,
+  E_DATABASE_ERROR,
   E_INVALID_BOOK_ID,
   E_INVALID_CHAPTER_ID,
   E_INVALID_JSON,
@@ -147,31 +150,26 @@ export async function GET(
     new Set(rows.map((row) => row.chapter_id).filter((id): id is string => Boolean(id)))
   );
 
-  const [{ data: profiles, error: profilesError }, { data: chapters, error: chaptersError }] =
+  const [profilesByUserId, { data: chapters, error: chaptersError }] =
     await Promise.all([
-      authorIds.length > 0
-        ? supabase
-            .from("profiles")
-            .select("user_id, display_name, username, avatar_url")
-            .in("user_id", authorIds)
-        : Promise.resolve({ data: [] as ProfileRow[], error: null }),
+      getProfilesByUserIds(supabase, authorIds, "user_id, display_name, username, avatar_url")
+        .then((map) => {
+          const result = new Map<string, ProfileRow>();
+          for (const [k, v] of map) result.set(k, v as unknown as ProfileRow);
+          return result;
+        }),
       chapterIds.length > 0
         ? supabase.from("chapters").select("id, title").in("id", chapterIds)
         : Promise.resolve({ data: [] as ChapterRow[], error: null }),
     ]);
 
-  if (profilesError || chaptersError) {
-    console.error("[comments] relation load failed", {
+  if (chaptersError) {
+    console.error("[comments] chapter load failed", {
       bookId,
-      profilesError: profilesError?.message ?? null,
       chaptersError: chaptersError?.message ?? null,
     });
     return apiError(E_COMMENT_LOAD_FAILED, 500);
   }
-
-  const profilesByUserId = new Map(
-    ((profiles ?? []) as ProfileRow[]).map((profile) => [profile.user_id, profile] as const)
-  );
   const chapterTitles = new Map(
     ((chapters ?? []) as ChapterRow[]).map((chapter) => [chapter.id, chapter.title] as const)
   );
@@ -187,10 +185,13 @@ export async function GET(
   const topLevelComments = rows.filter((row) => row.parent_comment_id === null);
 
   return NextResponse.json({
-    comments: topLevelComments.map((row) =>
-      mapComment(row, profilesByUserId, chapterTitles, repliesByParent)
-    ),
-    viewerId: user?.id ?? null,
+    ok: true,
+    data: {
+      comments: topLevelComments.map((row) =>
+        mapComment(row, profilesByUserId, chapterTitles, repliesByParent)
+      ),
+      viewerId: user?.id ?? null,
+    },
   });
 }
 
@@ -230,24 +231,12 @@ export async function POST(
   const chapterId = parsedBody.data.chapterId ?? null;
   const parentCommentId = parsedBody.data.parentCommentId ?? null;
 
-  const { data: book, error: bookError } = await supabase
-    .from("books")
-    .select("id")
-    .eq("id", bookId)
-    .maybeSingle();
-
-  if (bookError) {
-    console.error("[comments] book lookup failed", {
-      bookId,
-      userId: user.id,
-      message: bookError.message,
-      code: bookError.code,
-    });
-    return apiError(E_COMMENT_CREATE_FAILED, 500);
-  }
-
-  if (!book) {
-    return apiError(E_BOOK_NOT_FOUND, 404);
+  const existsResult = await bookExists(supabase, bookId);
+  if (!existsResult.ok) {
+    return apiError(
+      existsResult.error === "book_not_found" ? E_BOOK_NOT_FOUND : E_DATABASE_ERROR,
+      existsResult.error === "book_not_found" ? 404 : 500,
+    );
   }
 
   if (chapterId) {
@@ -354,5 +343,5 @@ export async function POST(
     }
   }
 
-  return NextResponse.json({ comment: insertedComment }, { status: 201 });
+  return NextResponse.json({ ok: true, data: { comment: insertedComment } }, { status: 201 });
 }

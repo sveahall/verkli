@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
+import { bookExists } from "@/lib/books/service";
 import {
   apiError,
   E_BOOK_NOT_FOUND,
@@ -21,28 +22,23 @@ export async function GET(
   _request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  // Validation
   const parsedParams = paramsSchema.safeParse(await params);
   if (!parsedParams.success) return apiError(E_INVALID_BOOK_ID, 400);
   const bookId = parsedParams.data.id;
 
   const supabase = await createClient();
 
-  const { data: book, error: bookError } = await supabase
-    .from("books")
-    .select("id")
-    .eq("id", bookId)
-    .maybeSingle();
-
-  if (bookError) {
-    console.error("[reviews.aggregate] book lookup failed", {
-      bookId,
-      message: bookError.message,
-    });
-    return apiError(E_DATABASE_ERROR, 500);
+  // Book existence check
+  const existsResult = await bookExists(supabase, bookId);
+  if (!existsResult.ok) {
+    return apiError(
+      existsResult.error === "book_not_found" ? E_BOOK_NOT_FOUND : E_DATABASE_ERROR,
+      existsResult.error === "book_not_found" ? 404 : 500,
+    );
   }
 
-  if (!book) return apiError(E_BOOK_NOT_FOUND, 404);
-
+  // Service call
   const { data: ratings, error } = await supabase
     .from("reviews")
     .select("rating")
@@ -56,6 +52,7 @@ export async function GET(
     return apiError(E_REVIEW_AGGREGATE_FAILED, 500);
   }
 
+  // Response
   const rows = (ratings ?? []) as RatingRow[];
   const ratingsCount = rows.length;
   const averageRating =
@@ -69,8 +66,7 @@ export async function GET(
       : null;
 
   return NextResponse.json({
-    bookId,
-    averageRating,
-    ratingsCount,
+    ok: true,
+    data: { bookId, averageRating, ratingsCount },
   });
 }

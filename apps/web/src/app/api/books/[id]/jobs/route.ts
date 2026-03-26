@@ -6,7 +6,8 @@ import { getBillingStateForUser } from "@/lib/billing/server";
 import { isAudiobookEnabled } from "@/lib/flags";
 import { isJobActiveStatus, normalizeJobStatus } from "@/lib/job-status";
 import { resolveSanitizedJobError, sanitizeJobError } from "@/lib/sanitize-job-error";
-import { apiError, E_BOOK_NOT_FOUND, E_JOB_FETCH_FAILED } from "@/lib/api-errors";
+import { getBookAsOwner } from "@/lib/books/service";
+import { apiError, E_BOOK_NOT_FOUND, E_DATABASE_ERROR, E_JOB_FETCH_FAILED } from "@/lib/api-errors";
 import { getAudiobookStorageBucket } from "@/lib/tts/storage";
 import { isCancelStale } from "@/lib/audiobook-stale-cancel";
 
@@ -140,14 +141,12 @@ export async function GET(
   const defaultBucket = getAudiobookStorageBucket();
 
   // Verify book ownership
-  const { data: book } = await supabase
-    .from("books")
-    .select("id, author_id")
-    .eq("id", bookId)
-    .maybeSingle();
-
-  if (!book || book.author_id !== user.id) {
-    return apiError(E_BOOK_NOT_FOUND, 404);
+  const bookResult = await getBookAsOwner(supabase, bookId, user.id, "id, author_id");
+  if (!bookResult.ok) {
+    return apiError(
+      bookResult.error === "book_not_found" ? E_BOOK_NOT_FOUND : E_DATABASE_ERROR,
+      bookResult.error === "book_not_found" ? 404 : 500,
+    );
   }
 
   // Import jobs from book_imports (for this book)

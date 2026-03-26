@@ -19,7 +19,7 @@ import CommentsSection from "./CommentsSection";
 import FollowAuthorButton from "@/app/(reader-browse)/reader/authors/[id]/FollowAuthorButton";
 import SimilarBooksRail from "@/components/reader/SimilarBooksRail";
 import { Skeleton } from "@/components/ui/Skeleton";
-import { normalizePrintOnDemandSettings } from "@/app/(app-author)/author/books/[id]/editor/panels/PrintPanel.helpers";
+import { normalizePrintOnDemandSettings } from "@/lib/print-on-demand";
 import ReaderBookPageView from "@/features/reader/reader-book/ReaderBookPageView";
 import { ReaderSectionHeader } from "@/features/reader/shared/ReaderScaffold";
 

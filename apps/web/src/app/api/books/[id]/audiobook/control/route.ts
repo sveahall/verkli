@@ -4,6 +4,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { assertPublicEnv } from "@/lib/env";
 import { isAudiobookEnabled } from "@/lib/flags";
 import { requireAuthorRoleForApi } from "@/lib/auth/require-author";
+import { getBookAsOwner } from "@/lib/books/service";
 import {
   apiError,
   E_AUDIOBOOK_FEATURE_DISABLED,
@@ -116,18 +117,13 @@ export async function POST(
   const supabase = await createClient();
   const admin = createAdminClient();
 
-  const { data: book, error: bookError } = await supabase
-    .from("books")
-    .select("id, author_id")
-    .eq("id", bookId)
-    .maybeSingle();
-
-  if (bookError) {
-    console.error("[audiobook control] book fetch failed:", bookError.message);
-    return apiError(E_DATABASE_ERROR, 500);
-  }
-  if (!book || book.author_id !== user.id) {
-    return apiError(E_BOOK_NOT_FOUND, 404);
+  // Ownership check
+  const bookResult = await getBookAsOwner(supabase, bookId, user.id, "id, author_id");
+  if (!bookResult.ok) {
+    return apiError(
+      bookResult.error === "book_not_found" ? E_BOOK_NOT_FOUND : E_DATABASE_ERROR,
+      bookResult.error === "book_not_found" ? 404 : 500,
+    );
   }
 
   const activeJob = await findActiveAudiobookJob(supabase, user.id, bookId);
@@ -165,8 +161,10 @@ export async function POST(
 
   return NextResponse.json({
     ok: true,
-    jobId: activeJob.id,
-    action: actionRaw,
-    controlState: nextOutput.controlState,
+    data: {
+      jobId: activeJob.id,
+      action: actionRaw,
+      controlState: nextOutput.controlState,
+    },
   });
 }

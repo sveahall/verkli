@@ -7,10 +7,12 @@ import { normalizeJobStatus } from "@/lib/job-status";
 import { requireAuthorRoleForApi } from "@/lib/auth/require-author";
 import { resolveSanitizedJobError } from "@/lib/sanitize-job-error";
 import { getAudiobookStorageBucket } from "@/lib/tts/storage";
+import { getBookAsOwner } from "@/lib/books/service";
 import {
   apiError,
   E_AUDIOBOOK_STATUS_UNAVAILABLE,
   E_BOOK_NOT_FOUND,
+  E_DATABASE_ERROR,
 } from "@/lib/api-errors";
 import { isCancelStale, forceFailCancelledJob } from "@/lib/audiobook-stale-cancel";
 
@@ -132,15 +134,14 @@ export async function GET(
   const defaultBucket = getAudiobookStorageBucket();
 
   // Verify book ownership
-  const { data: book } = await supabase
-    .from("books")
-    .select("id, author_id, audiobook_status")
-    .eq("id", bookId)
-    .maybeSingle();
-
-  if (!book || book.author_id !== user.id) {
-    return apiError(E_BOOK_NOT_FOUND, 404);
+  const bookResult = await getBookAsOwner(supabase, bookId, user.id, "id, author_id, audiobook_status");
+  if (!bookResult.ok) {
+    return apiError(
+      bookResult.error === "book_not_found" ? E_BOOK_NOT_FOUND : E_DATABASE_ERROR,
+      bookResult.error === "book_not_found" ? 404 : 500,
+    );
   }
+  const book = bookResult.data as { id: string; author_id: string; audiobook_status?: string | null };
 
   let job = await findLatestAudiobookJob(supabase, user.id, bookId);
 

@@ -7,7 +7,7 @@ import { logAnalyticsEvent } from "@/lib/analytics/events";
 import {
   normalizePrintOnDemandSettings,
   type BookFormat,
-} from "@/app/(app-author)/author/books/[id]/editor/panels/PrintPanel.helpers";
+} from "@/lib/print-on-demand";
 import {
   apiError,
   E_UNAUTHORIZED,
