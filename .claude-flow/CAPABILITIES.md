@@ -1,5 +1,5 @@
-# RuFlo V3 - Complete Capabilities Reference
-> Generated: 2026-03-26T12:19:36.931Z
+# RuFlo V3.5 - Complete Capabilities Reference
+> Updated: 2026-03-27
 > Full documentation: https://github.com/ruvnet/claude-flow
 
 ## 📋 Table of Contents
@@ -18,7 +18,7 @@
 
 ## Overview
 
-RuFlo V3 is a domain-driven design architecture for multi-agent AI coordination with:
+RuFlo V3.5 is a domain-driven design architecture for multi-agent AI coordination with:
 
 - **15-Agent Swarm Coordination** with hierarchical and mesh topologies
 - **HNSW Vector Search** - 150x-12,500x faster pattern retrieval
@@ -29,8 +29,10 @@ RuFlo V3 is a domain-driven design architecture for multi-agent AI coordination 
 ### Current Configuration
 | Setting | Value |
 |---------|-------|
-| Topology | hierarchical-mesh |
-| Max Agents | 15 |
+| Topology | hierarchical |
+| Max Agents | 8 |
+| Strategy | specialized |
+| Consensus | raft |
 | Memory Backend | hybrid |
 | HNSW Indexing | Enabled |
 | Neural Learning | Enabled |

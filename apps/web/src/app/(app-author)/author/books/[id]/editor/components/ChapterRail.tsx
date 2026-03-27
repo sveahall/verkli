@@ -19,9 +19,9 @@ export default function ChapterRail({
 }: Props) {
   if (variant === "compact") {
     return (
-      <div className="flex items-center gap-3 rounded-2xl border border-black/[0.06] bg-white/60 px-4 py-3 backdrop-blur-xl shadow-[0_12px_40px_rgba(15,23,42,0.06)] dark:border-white/[0.08] dark:bg-[#0f1117]/35 dark:shadow-none">
+      <div className="flex items-center gap-3 px-1 py-3">
         {title ? (
-          <span className="shrink-0 text-[11px] font-semibold uppercase tracking-widest text-slate-400 dark:text-white/30">
+          <span className="shrink-0 text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-400 dark:text-white/30">
             {title}
           </span>
         ) : null}
@@ -32,10 +32,10 @@ export default function ChapterRail({
   }
 
   return (
-    <div className="rounded-2xl border border-black/[0.05] bg-white/60 p-5 shadow-[0_1px_3px_rgba(0,0,0,0.02)] backdrop-blur-sm dark:border-white/[0.06] dark:bg-white/[0.02] dark:shadow-none">
+    <div className="rounded-xl border border-black/[0.04] bg-white p-5 dark:border-white/[0.06] dark:bg-[#111318]">
       {(title || subtitle) && (
         <div className="mb-3 flex items-center justify-between gap-3">
-          <h2 className="text-[14px] font-semibold tracking-[-0.01em] text-slate-800 dark:text-white/90">
+          <h2 className="text-[13px] font-semibold text-slate-700 dark:text-white/85">
             {title}
           </h2>
           {subtitle}

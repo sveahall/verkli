@@ -15,14 +15,10 @@ type WriteOnlyWorkspaceViewProps = {
   statusContent?: ReactNode;
   bookId: string;
   bookTitle: string;
-  authorDisplayName: string;
   tool: Tool;
   tools: Tool[];
-  isPublished: boolean;
   chapters: Chapter[];
   wordCount: number;
-  activeLanguageLabel: string;
-  versionCount: number;
   displayCoverUrl: string | null;
   selectedChapterId: string | null;
   selectedChapter: Chapter | null;
@@ -65,14 +61,10 @@ export default function WriteOnlyWorkspaceView({
   statusContent,
   bookId,
   bookTitle,
-  authorDisplayName,
   tool,
   tools,
-  isPublished,
   chapters,
   wordCount,
-  activeLanguageLabel,
-  versionCount,
   displayCoverUrl,
   selectedChapterId,
   selectedChapter,
@@ -121,18 +113,11 @@ export default function WriteOnlyWorkspaceView({
         <div className="mx-auto max-w-[1280px] px-4 sm:px-6 lg:px-8">
           {statusContent}
 
-          <div className="mb-6">
+          <div className="mb-5">
             <BookWorkflowHeader
               bookId={bookId}
-              bookTitle={bookTitle}
-              authorDisplayName={authorDisplayName}
               activeTool={tool}
               tools={tools}
-              isPublished={isPublished}
-              chapterCount={chapters.length}
-              wordCount={wordCount}
-              activeLanguageLabel={activeLanguageLabel}
-              versionCount={versionCount}
             />
           </div>
 

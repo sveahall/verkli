@@ -5,7 +5,7 @@ import type { Tool } from "./editor/bookEditor.shared";
 
 const VALID_PANELS: Tool[] = [
   "edit", "cover", "translate", "audiobook", "print",
-  "pricing", "polish", "publish", "market", "statistics", "import",
+  "pricing", "publish", "market", "review", "statistics", "import",
 ];
 
 function isValidPanel(value: string | null): value is Tool {

@@ -53,7 +53,7 @@ import { normalizePrintOnDemandSettings, type PrintOnDemandSettings } from "./pa
 
 const PrintPanel = dynamic(() => import("./panels/PrintPanel"));
 const TranslatePanel = dynamic(() => import("./panels/TranslatePanel"));
-const PolishPanel = dynamic(() => import("./panels/PolishPanel"));
+const ReviewPanel = dynamic(() => import("./panels/ReviewPanel"));
 const PublishPanel = dynamic(() => import("./panels/PublishPanel"));
 const MarketPanel = dynamic(() => import("./panels/MarketPanel"));
 const StatisticsPanel = dynamic(() => import("./panels/StatisticsPanel"));
@@ -493,12 +493,6 @@ export default function BookEditorView({
   );
 
   // ── Layout helpers ────────────────────────────────────────────────────────
-  const workspaceContentMaxWidth =
-    tool === "edit" || tool === "polish"
-      ? "max-w-[940px]"
-      : tool === "cover" || tool === "translate" || tool === "audiobook" || tool === "market"
-        ? "max-w-[1120px]"
-        : "max-w-[1040px]";
 
   // ── Status banners (shared between views) ─────────────────────────────────
   const jobStatusBanner = jobLoading ? (
@@ -634,31 +628,74 @@ export default function BookEditorView({
         {jobStatusBanner}
         {billingWarning}
 
-        <BookWorkflowHeader
-          bookId={book.id}
-          activeTool={tool}
-          tools={effectiveTools as Tool[]}
-        />
-
-        <div className={`mx-auto ${workspaceContentMaxWidth} min-h-[calc(100vh-14rem)]`}>
-
-        {tool === "pricing" && (
-          <PricingPanel
+        {/* ── Edit panel (has its own white card) ── */}
+        {tool === "edit" && (
+          <SimplifiedEditView
+            bookId={book.id}
+            bookTitle={bookTitle}
             chapters={chapters}
-            priceAmountMinor={pricing.priceAmountMinor}
-            setPriceAmountMinor={pricing.setPriceAmountMinor}
-            priceCurrency={pricing.priceCurrency}
-            setPriceCurrency={pricing.setPriceCurrency}
-            pricingModel={pricing.pricingModel}
-            setPricingModel={pricing.setPricingModel}
-            pricingSaving={pricing.pricingSaving}
-            pricingDirty={pricing.pricingDirty}
-            pricingError={pricing.pricingError}
-            pricingSaved={pricing.pricingSaved}
-            handleSavePricing={pricing.handleSavePricing}
+            visibleChapters={visibleChapters}
+            startIndex={startIndex}
+            totalPages={totalPages}
+            chapterPage={chapterPage}
+            selectedChapterId={selectedChapterId}
+            selectedChapter={selectedChapter}
+            wordCount={wordCount}
+            isSaving={chapterCrud.isSaving}
+            hasUnsavedChanges={chapterCrud.hasUnsavedChanges}
+            lastSaved={chapterCrud.lastSaved}
+            preset={preset}
+            focusMode={focusMode}
             isPublished={publishing.isPublished}
-            stripeConfigured={stripeConfigured}
-            currentVisibility={publishing.currentVisibility}
+            activeTool={tool}
+            tools={effectiveTools as Tool[]}
+            onSetChapterPage={setChapterPage}
+            onSelectChapter={selectChapter}
+            onResetSessionWords={() => setSessionStartWords(null)}
+            onWordCount={setWordCount}
+            onAutoSave={chapterCrud.handleAutoSave}
+            onDirty={() => chapterCrud.setHasUnsavedChanges(true)}
+            onToggleFocusMode={() => setFocusMode((current) => !current)}
+          />
+        )}
+
+        {/* ── All non-edit panels: white card with stepper inside ── */}
+        {tool !== "edit" && (
+          <div className="w-full overflow-hidden rounded-2xl border border-black/[0.04] bg-white shadow-[0_1px_3px_rgba(0,0,0,0.04)] dark:border-white/[0.06] dark:bg-[#111318] dark:shadow-none">
+            <BookWorkflowHeader
+              bookId={book.id}
+              activeTool={tool}
+              tools={effectiveTools as Tool[]}
+              bare
+            />
+            <div className="min-h-[calc(100vh-14rem)] px-6 pb-10 pt-4 sm:px-10">
+
+        {tool === "cover" && (
+          <CoverPanel
+            coverInputRef={cover.coverInputRef}
+            coverUploading={cover.coverUploading}
+            coverError={cover.coverError}
+            displayCoverUrl={cover.displayCoverUrl}
+            coverDropActive={cover.coverDropActive}
+            setCoverDropActive={cover.setCoverDropActive}
+            coverAIPrompt={cover.coverAIPrompt}
+            setCoverAIPrompt={cover.setCoverAIPrompt}
+            coverAIStyle={cover.coverAIStyle}
+            setCoverAIStyle={cover.setCoverAIStyle}
+            coverAIGeneratedUrls={cover.coverAIGeneratedUrls}
+            coverAIGenerating={cover.coverAIGenerating}
+            coverAIError={cover.coverAIError}
+            setCoverAIError={cover.setCoverAIError}
+            coverCropSrc={cover.coverCropSrc}
+            setCoverCropSrc={cover.setCoverCropSrc}
+            coverAIPreviewUrl={cover.coverAIPreviewUrl}
+            setCoverAIPreviewUrl={cover.setCoverAIPreviewUrl}
+            handleRemoveCover={cover.handleRemoveCover}
+            handleCropSave={cover.handleCropSave}
+            handleCoverChange={cover.handleCoverChange}
+            handleCoverDrop={cover.handleCoverDrop}
+            handleCoverAIGenerate={cover.handleCoverAIGenerate}
+            handleCoverSetFromGenerated={cover.handleCoverSetFromGenerated}
           />
         )}
 
@@ -706,6 +743,134 @@ export default function BookEditorView({
           />
         )}
 
+        {tool === "translate" && getTranslationsEnabled() && (
+          <TranslatePanel
+            bookId={book.id}
+            bookTitle={bookTitle}
+            authorDisplayName={authorDisplayName}
+            bookLengthLabel={`${chapters.length} chapters`}
+            sourceLanguage={translation.translationSourceLang}
+            sourceVersionId={activeVersion?.id ?? null}
+            isProLocked={!billing.isProActive}
+            billingLoading={billing.loading}
+            chapters={chapters.map((ch) => ({ id: ch.id, title: ch.title }))}
+            selectedChapterId={selectedChapterId}
+            onMessage={translation.setTranslateMessage}
+            hideTitle
+          />
+        )}
+
+        {tool === "publish" && (
+          <div className="space-y-8">
+            <PublishPanel
+              bookTitle={bookTitle}
+              authorDisplayName={authorDisplayName}
+              coverImageUrl={cover.displayCoverUrl}
+              chapters={chapters}
+              selectedChapterId={selectedChapterId}
+              bookVersions={bookVersions}
+              isPublished={publishing.isPublished}
+              publishVisibility={publishing.publishVisibility}
+              publishedChapterCount={publishing.publishedChapterCount}
+              missingPublishRequirements={publishing.missingPublishRequirements}
+              publishDisabled={publishing.publishDisabled}
+              chapterPublishDisabled={publishing.chapterPublishDisabled}
+              selectedChapterAlreadyPublished={publishing.selectedChapterAlreadyPublished}
+              visibilityChanged={publishing.visibilityChanged}
+              isPublishing={publishing.isPublishing}
+              publishError={publishing.publishError}
+              confirmPublishAction={publishing.confirmPublishAction}
+              confirmCopy={publishing.confirmCopy}
+              onVisibilityChange={(v) => { publishing.setPublishVisibility(v); publishing.setPublishError(null); }}
+              onPublishFull={() => publishing.setConfirmPublishAction("publish")}
+              onPublishChapter={() => void publishing.handlePublishSelectedChapter()}
+              onUpdateSettings={() => publishing.setConfirmPublishAction("update")}
+              onUnpublish={() => publishing.setConfirmPublishAction("unpublish")}
+              onConfirm={() => publishing.confirmPublishAction && void publishing.handlePublishAction(publishing.confirmPublishAction)}
+              onCancelConfirm={() => publishing.setConfirmPublishAction(null)}
+              onChapterPublishToggle={(chapter, shouldPublish) => void publishing.handleChapterPublishToggle(chapter, shouldPublish)}
+              onSelectChapter={(id) => { setSelectedChapterId(id); setSessionStartWords(null); }}
+              onOpenCover={() => navigateToPanel("cover")}
+              genreSelector={getRecommendationsEnabled() ? <GenreSelector bookId={book.id} /> : undefined}
+            />
+            <PricingPanel
+              chapters={chapters}
+              priceAmountMinor={pricing.priceAmountMinor}
+              setPriceAmountMinor={pricing.setPriceAmountMinor}
+              priceCurrency={pricing.priceCurrency}
+              setPriceCurrency={pricing.setPriceCurrency}
+              pricingModel={pricing.pricingModel}
+              setPricingModel={pricing.setPricingModel}
+              pricingSaving={pricing.pricingSaving}
+              pricingDirty={pricing.pricingDirty}
+              pricingError={pricing.pricingError}
+              pricingSaved={pricing.pricingSaved}
+              handleSavePricing={pricing.handleSavePricing}
+              isPublished={publishing.isPublished}
+              stripeConfigured={stripeConfigured}
+              currentVisibility={publishing.currentVisibility}
+            />
+            <PrintPanel
+              bookId={book.id}
+              title={bookTitle}
+              authorDisplayName={authorDisplayName}
+              coverImageUrl={cover.displayCoverUrl}
+              originalUrl={book.original_url ?? null}
+              chapterCount={chapters.length}
+              totalWordCount={totalBookWordCount}
+              languageCode={activeLanguage}
+              isPublished={publishing.isPublished}
+              priceAmountMinor={pricing.priceAmountMinor}
+              priceCurrency={pricing.priceCurrency}
+              printOnDemandSettings={printOnDemandSettings}
+              onOpenEdit={() => navigateToPanel("edit")}
+              onOpenCover={() => navigateToPanel("cover")}
+              onOpenPublish={() => {}}
+              onSavePrintOnDemandSettings={handleSavePrintOnDemandSettings}
+            />
+          </div>
+        )}
+
+        {tool === "review" && (
+          <ReviewPanel
+            bookId={book.id}
+            bookTitle={bookTitle}
+            chapters={chapters}
+            bookVersions={bookVersions}
+            activeVersion={activeVersion}
+            coverImageUrl={cover.displayCoverUrl}
+            audiobookStatus={typeof book.audiobook_status === "string" ? book.audiobook_status : null}
+            isPublished={publishing.isPublished}
+            printOnDemandSettings={printOnDemandSettings}
+            pricingModel={pricing.pricingModel}
+            priceAmountMinor={pricing.priceAmountMinor}
+            priceCurrency={pricing.priceCurrency}
+            marketingCampaigns={marketingCampaigns}
+            onNavigate={navigateToPanel}
+            onPublish={() => publishing.setConfirmPublishAction("publish")}
+          />
+        )}
+
+        {/* Backward compat: direct URL panels not in the main flow */}
+        {tool === "pricing" && (
+          <PricingPanel
+            chapters={chapters}
+            priceAmountMinor={pricing.priceAmountMinor}
+            setPriceAmountMinor={pricing.setPriceAmountMinor}
+            priceCurrency={pricing.priceCurrency}
+            setPriceCurrency={pricing.setPriceCurrency}
+            pricingModel={pricing.pricingModel}
+            setPricingModel={pricing.setPricingModel}
+            pricingSaving={pricing.pricingSaving}
+            pricingDirty={pricing.pricingDirty}
+            pricingError={pricing.pricingError}
+            pricingSaved={pricing.pricingSaved}
+            handleSavePricing={pricing.handleSavePricing}
+            isPublished={publishing.isPublished}
+            stripeConfigured={stripeConfigured}
+            currentVisibility={publishing.currentVisibility}
+          />
+        )}
         {tool === "print" && (
           <PrintPanel
             bookId={book.id}
@@ -726,56 +891,6 @@ export default function BookEditorView({
             onSavePrintOnDemandSettings={handleSavePrintOnDemandSettings}
           />
         )}
-
-        {tool === "polish" && (
-          <PolishPanel
-            bookId={book.id}
-            chapters={chapters}
-            selectedChapterId={selectedChapterId}
-            bookVersions={bookVersions}
-            activeVersion={activeVersion}
-            audiobookStatus={typeof book.audiobook_status === "string" ? book.audiobook_status : null}
-            onSelectChapter={(id) => { setSelectedChapterId(id); setSessionStartWords(null); }}
-            onOpenEdit={() => navigateToPanel("edit")}
-            onOpenTranslate={() => navigateToPanel("translate")}
-            onOpenAudiobook={() => navigateToPanel("audiobook")}
-          />
-        )}
-
-        {tool === "publish" && (
-          <PublishPanel
-            bookTitle={bookTitle}
-            authorDisplayName={authorDisplayName}
-            coverImageUrl={cover.displayCoverUrl}
-            chapters={chapters}
-            selectedChapterId={selectedChapterId}
-            bookVersions={bookVersions}
-            isPublished={publishing.isPublished}
-            publishVisibility={publishing.publishVisibility}
-            publishedChapterCount={publishing.publishedChapterCount}
-            missingPublishRequirements={publishing.missingPublishRequirements}
-            publishDisabled={publishing.publishDisabled}
-            chapterPublishDisabled={publishing.chapterPublishDisabled}
-            selectedChapterAlreadyPublished={publishing.selectedChapterAlreadyPublished}
-            visibilityChanged={publishing.visibilityChanged}
-            isPublishing={publishing.isPublishing}
-            publishError={publishing.publishError}
-            confirmPublishAction={publishing.confirmPublishAction}
-            confirmCopy={publishing.confirmCopy}
-            onVisibilityChange={(v) => { publishing.setPublishVisibility(v); publishing.setPublishError(null); }}
-            onPublishFull={() => publishing.setConfirmPublishAction("publish")}
-            onPublishChapter={() => void publishing.handlePublishSelectedChapter()}
-            onUpdateSettings={() => publishing.setConfirmPublishAction("update")}
-            onUnpublish={() => publishing.setConfirmPublishAction("unpublish")}
-            onConfirm={() => publishing.confirmPublishAction && void publishing.handlePublishAction(publishing.confirmPublishAction)}
-            onCancelConfirm={() => publishing.setConfirmPublishAction(null)}
-            onChapterPublishToggle={(chapter, shouldPublish) => void publishing.handleChapterPublishToggle(chapter, shouldPublish)}
-            onSelectChapter={(id) => { setSelectedChapterId(id); setSessionStartWords(null); }}
-            onOpenCover={() => navigateToPanel("cover")}
-            genreSelector={getRecommendationsEnabled() ? <GenreSelector bookId={book.id} /> : undefined}
-          />
-        )}
-
         {tool === "market" && getMarketingEnabled() && (
           <MarketPanel
             bookId={book.id}
@@ -793,14 +908,12 @@ export default function BookEditorView({
             isGenerating={marketing.isGeneratingMarketing}
           />
         )}
-
         {tool === "statistics" && (
           <StatisticsPanel
             bookId={book.id}
             isPublished={publishing.isPublished}
           />
         )}
-
         {tool === "import" && (
           <ImportManusSection
             bookId={book.id}
@@ -810,81 +923,10 @@ export default function BookEditorView({
           />
         )}
 
-        {tool === "cover" && (
-          <CoverPanel
-            coverInputRef={cover.coverInputRef}
-            coverUploading={cover.coverUploading}
-            coverError={cover.coverError}
-            displayCoverUrl={cover.displayCoverUrl}
-            coverDropActive={cover.coverDropActive}
-            setCoverDropActive={cover.setCoverDropActive}
-            coverAIPrompt={cover.coverAIPrompt}
-            setCoverAIPrompt={cover.setCoverAIPrompt}
-            coverAIStyle={cover.coverAIStyle}
-            setCoverAIStyle={cover.setCoverAIStyle}
-            coverAIGeneratedUrls={cover.coverAIGeneratedUrls}
-            coverAIGenerating={cover.coverAIGenerating}
-            coverAIError={cover.coverAIError}
-            setCoverAIError={cover.setCoverAIError}
-            coverCropSrc={cover.coverCropSrc}
-            setCoverCropSrc={cover.setCoverCropSrc}
-            coverAIPreviewUrl={cover.coverAIPreviewUrl}
-            setCoverAIPreviewUrl={cover.setCoverAIPreviewUrl}
-            handleRemoveCover={cover.handleRemoveCover}
-            handleCropSave={cover.handleCropSave}
-            handleCoverChange={cover.handleCoverChange}
-            handleCoverDrop={cover.handleCoverDrop}
-            handleCoverAIGenerate={cover.handleCoverAIGenerate}
-            handleCoverSetFromGenerated={cover.handleCoverSetFromGenerated}
-          />
+            </div>
+          </div>
         )}
 
-        {tool === "edit" && (
-          <SimplifiedEditView
-            bookId={book.id}
-            bookTitle={bookTitle}
-            chapters={chapters}
-            visibleChapters={visibleChapters}
-            startIndex={startIndex}
-            totalPages={totalPages}
-            chapterPage={chapterPage}
-            selectedChapterId={selectedChapterId}
-            selectedChapter={selectedChapter}
-            wordCount={wordCount}
-            isSaving={chapterCrud.isSaving}
-            hasUnsavedChanges={chapterCrud.hasUnsavedChanges}
-            lastSaved={chapterCrud.lastSaved}
-            preset={preset}
-            focusMode={focusMode}
-            isPublished={publishing.isPublished}
-            onSetChapterPage={setChapterPage}
-            onSelectChapter={selectChapter}
-            onResetSessionWords={() => setSessionStartWords(null)}
-            onWordCount={setWordCount}
-            onAutoSave={chapterCrud.handleAutoSave}
-            onDirty={() => chapterCrud.setHasUnsavedChanges(true)}
-            onToggleFocusMode={() => setFocusMode((current) => !current)}
-          />
-        )}
-
-        {tool === "translate" && getTranslationsEnabled() && (
-          <TranslatePanel
-            bookId={book.id}
-            bookTitle={bookTitle}
-            authorDisplayName={authorDisplayName}
-            bookLengthLabel={`${chapters.length} chapters`}
-            sourceLanguage={translation.translationSourceLang}
-            sourceVersionId={activeVersion?.id ?? null}
-            isProLocked={!billing.isProActive}
-            billingLoading={billing.loading}
-            chapters={chapters.map((ch) => ({ id: ch.id, title: ch.title }))}
-            selectedChapterId={selectedChapterId}
-            onMessage={translation.setTranslateMessage}
-            hideTitle
-          />
-        )}
-
-        </div>
         </div>
       </section>
     </>

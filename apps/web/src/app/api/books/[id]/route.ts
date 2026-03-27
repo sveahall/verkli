@@ -12,6 +12,7 @@ import {
   type PriceCurrency,
   type PricingModel,
 } from "@/lib/books/pricing";
+import { getBookAsOwner } from "@/lib/books/service";
 import {
   apiError,
   E_BOOK_NOT_FOUND,
@@ -209,26 +210,17 @@ export async function GET(
   if (response) return response;
 
   const supabase = await createClient();
-  const { data: book, error } = await supabase
-    .from("books")
-    .select("id, title, author_id, price_amount, price_currency, pricing_model, is_free, updated_at")
-    .eq("id", id)
-    .maybeSingle();
-
-  if (error) {
-    console.error("[books.settings.get] failed", {
-      bookId: id,
-      userId: user.id,
-      code: error.code,
-      message: error.message,
-    });
+  const bookResult = await getBookAsOwner<BookSettingsRow>(
+    supabase, id, user.id,
+    "id, title, author_id, price_amount, price_currency, pricing_model, is_free, updated_at",
+  );
+  if (!bookResult.ok) {
+    if (bookResult.error === "book_not_found") {
+      return apiError(E_BOOK_NOT_FOUND, 404);
+    }
     return apiError(E_BOOK_SETTINGS_LOAD_FAILED, 500);
   }
-
-  const row = book as BookSettingsRow | null;
-  if (!row || row.author_id !== user.id) {
-    return apiError(E_BOOK_NOT_FOUND, 404);
-  }
+  const row = bookResult.data;
 
   const normalized = normalizeStoredPricing(row);
   if (!normalized) {
@@ -295,26 +287,17 @@ export async function PATCH(
   }
 
   const supabase = await createClient();
-  const { data: book, error: bookError } = await supabase
-    .from("books")
-    .select("id, title, author_id, price_amount, price_currency, pricing_model, is_free")
-    .eq("id", id)
-    .maybeSingle();
-
-  if (bookError) {
-    console.error("[books.settings.patch] lookup failed", {
-      bookId: id,
-      userId: user.id,
-      code: bookError.code,
-      message: bookError.message,
-    });
+  const bookResult = await getBookAsOwner<BookSettingsRow>(
+    supabase, id, user.id,
+    "id, title, author_id, price_amount, price_currency, pricing_model, is_free",
+  );
+  if (!bookResult.ok) {
+    if (bookResult.error === "book_not_found") {
+      return apiError(E_BOOK_NOT_FOUND, 404);
+    }
     return apiError(E_BOOK_SETTINGS_UPDATE_FAILED, 500);
   }
-
-  const row = book as BookSettingsRow | null;
-  if (!row || row.author_id !== user.id) {
-    return apiError(E_BOOK_NOT_FOUND, 404);
-  }
+  const row = bookResult.data;
 
   const normalized = normalizeStoredPricing(row);
   if (!normalized) {
@@ -387,19 +370,12 @@ export async function DELETE(
   if (response) return response;
 
   const supabase = await createClient();
-  const { data: book, error: bookError } = await supabase
-    .from("books")
-    .select("id, author_id")
-    .eq("id", id)
-    .maybeSingle();
-
-  if (bookError) {
-    console.error("[delete-book] bookId=%s lookup error=%s", id, bookError.message);
+  const bookResult = await getBookAsOwner(supabase, id, user.id, "id, author_id");
+  if (!bookResult.ok) {
+    if (bookResult.error === "book_not_found") {
+      return NextResponse.json({ ok: false, error: E_BOOK_NOT_FOUND }, { status: 404 });
+    }
     return NextResponse.json({ ok: false, error: E_DATABASE_ERROR }, { status: 500 });
-  }
-
-  if (!book || book.author_id !== user.id) {
-    return NextResponse.json({ ok: false, error: E_BOOK_NOT_FOUND }, { status: 404 });
   }
 
   // Use admin client for cleanup of tables without CASCADE or with RLS restrictions

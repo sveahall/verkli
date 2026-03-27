@@ -1,9 +1,10 @@
-# Verkli-Web Specialized RuFlo Swarm
-# 6-agent hierarchical swarm for targeted repository analysis and improvement
+# Verkli-Web RuFlo V3.5 Swarm
+# Optimized for: Next.js 16 + Supabase + BullMQ monorepo
+# Book workflow: Write → Cover → Audio → Translate → Publish → Review
 
-version: "3.0.0"
+version: "3.5.0"
 name: verkli-web-swarm
-description: Specialized swarm for verkli-web monorepo — Next.js, Supabase, security, performance, workers, refactoring
+description: Specialized swarm for verkli-web — Next.js, Supabase, security, performance, workers, refactoring
 
 topology: hierarchical
 maxAgents: 8

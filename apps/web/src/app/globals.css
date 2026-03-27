@@ -97,6 +97,19 @@
   --workspace-final-accent: #10b981;
   --workspace-progress-start: var(--brand-violet);
   --workspace-progress-end: var(--brand-rose);
+  /* ── Shadow scale (3 levels) ─────────────────────────────────── */
+  --shadow-sm: 0 1px 3px rgba(15, 23, 42, 0.04);
+  --shadow-md: 0 6px 20px rgba(15, 23, 42, 0.06);
+  --shadow-lg: 0 20px 48px -12px rgba(15, 23, 42, 0.18);
+  /* ── Semantic status colors ────────────────────────────────────── */
+  --color-success: oklch(0.62 0.17 145);
+  --color-success-muted: oklch(0.95 0.04 145);
+  --color-warning: oklch(0.75 0.18 75);
+  --color-warning-muted: oklch(0.96 0.04 85);
+  --color-info: oklch(0.62 0.15 250);
+  --color-info-muted: oklch(0.95 0.03 250);
+  --color-error: oklch(0.58 0.22 27);
+  --color-error-muted: oklch(0.95 0.04 27);
   color-scheme: light;
 }
 
@@ -143,6 +156,19 @@
   --workspace-final-accent: #34d399;
   --workspace-progress-start: var(--brand-violet);
   --workspace-progress-end: var(--brand-rose);
+  /* ── Shadow scale (dark) ─────────────────────────────────────── */
+  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.2);
+  --shadow-md: 0 8px 24px rgba(0, 0, 0, 0.25);
+  --shadow-lg: 0 24px 56px -12px rgba(0, 0, 0, 0.5);
+  /* ── Semantic status colors (dark) ─────────────────────────────── */
+  --color-success: oklch(0.72 0.17 150);
+  --color-success-muted: oklch(0.28 0.05 150);
+  --color-warning: oklch(0.80 0.16 80);
+  --color-warning-muted: oklch(0.28 0.05 80);
+  --color-info: oklch(0.72 0.14 250);
+  --color-info-muted: oklch(0.28 0.04 250);
+  --color-error: oklch(0.72 0.19 25);
+  --color-error-muted: oklch(0.28 0.06 25);
   color-scheme: dark;
 }
 
@@ -196,6 +222,29 @@
   }
   .text-helper {
     @apply text-[13px] text-slate-500 dark:text-white/50;
+  }
+  /* ── Typography: fill missing steps ──────────────────────────── */
+  .text-stat {
+    @apply text-[32px] font-semibold tracking-tight text-slate-900 dark:text-white;
+  }
+  .text-stat-sm {
+    @apply text-[24px] font-semibold tracking-tight text-slate-900 dark:text-white;
+  }
+  .text-label {
+    @apply text-[13px] font-medium text-slate-700 dark:text-white/70;
+  }
+  .text-caption {
+    @apply text-[11px] font-medium text-slate-400 dark:text-white/40;
+  }
+  /* ── Shadow utilities ──────────────────────────────────────── */
+  .shadow-surface-sm {
+    box-shadow: var(--shadow-sm);
+  }
+  .shadow-surface-md {
+    box-shadow: var(--shadow-md);
+  }
+  .shadow-surface-lg {
+    box-shadow: var(--shadow-lg);
   }
   .text-brand-gradient {
     background-image: linear-gradient(

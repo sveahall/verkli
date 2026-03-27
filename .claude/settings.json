@@ -165,8 +165,10 @@
     "allow": [
       "Bash(npx @claude-flow*)",
       "Bash(npx claude-flow*)",
+      "Bash(npx ruflo*)",
       "Bash(node .claude/*)",
-      "mcp__claude-flow__:*"
+      "mcp__claude-flow__:*",
+      "mcp__ruflo__:*"
     ],
     "deny": [
       "Read(./.env)",
@@ -183,7 +185,7 @@
     "CLAUDE_FLOW_HOOKS_ENABLED": "true"
   },
   "claudeFlow": {
-    "version": "3.0.0",
+    "version": "3.5.0",
     "enabled": true,
     "platform": {
       "os": "darwin",
@@ -219,8 +221,10 @@
       }
     },
     "swarm": {
-      "topology": "hierarchical-mesh",
-      "maxAgents": 15
+      "topology": "hierarchical",
+      "maxAgents": 8,
+      "strategy": "specialized",
+      "consensus": "raft"
     },
     "memory": {
       "backend": "hybrid",

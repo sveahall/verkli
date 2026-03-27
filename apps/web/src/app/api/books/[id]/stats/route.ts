@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
 import { requireAuthorRoleForApi } from "@/lib/auth/require-author";
+import { getBookAsOwner } from "@/lib/books/service";
 import {
   apiError,
   E_BOOK_NOT_FOUND,
@@ -24,14 +25,13 @@ export async function GET(request: Request, context: RouteContext) {
   const supabase = await createClient();
 
   // Verify ownership
-  const { data: book, error: bookError } = await supabase
-    .from("books")
-    .select("id, title, author_id")
-    .eq("id", bookId)
-    .maybeSingle();
-
-  if (bookError) return apiError(E_DATABASE_ERROR, 500);
-  if (!book || book.author_id !== userId) return apiError(E_BOOK_NOT_FOUND, 404);
+  const bookResult = await getBookAsOwner(supabase, bookId, userId, "id, title, author_id");
+  if (!bookResult.ok) {
+    return apiError(
+      bookResult.error === "book_not_found" ? E_BOOK_NOT_FOUND : E_DATABASE_ERROR,
+      bookResult.error === "book_not_found" ? 404 : 500,
+    );
+  }
 
   const url = new URL(request.url);
   const parsed = querySchema.safeParse({

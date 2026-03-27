@@ -10,17 +10,13 @@ import {
   Headphones,
   Home,
   ImageIcon,
-  FileDown,
   Globe,
   Languages,
-  Megaphone,
   Pen,
   PenLine,
-  Printer,
   Repeat,
   Settings,
   Sparkles,
-  Tag,
   UserCircle,
   type LucideIcon,
 } from "lucide-react";
@@ -47,6 +43,7 @@ const ICONS: Record<string, LucideIcon> = {
  * Book workflow tabs — shown as nested items under Production
  * when the user is working on a specific book.
  */
+/** Linear 6-step production flow: Write → Cover → Audio → Translate → Publish → Review */
 const BOOK_WORKFLOW_TABS: ReadonlyArray<{
   key: string;
   label: string;
@@ -55,16 +52,11 @@ const BOOK_WORKFLOW_TABS: ReadonlyArray<{
   group: number;
 }> = [
   { key: "edit", label: "Write", panel: null, icon: PenLine, group: 0 },
-  { key: "polish", label: "Polish", panel: "polish", icon: Sparkles, group: 0 },
   { key: "cover", label: "Cover", panel: "cover", icon: ImageIcon, group: 0 },
-  { key: "translate", label: "Translate", panel: "translate", icon: Languages, group: 1 },
-  { key: "audiobook", label: "Audiobook", panel: "audiobook", icon: Headphones, group: 1 },
-  { key: "print", label: "Print", panel: "print", icon: Printer, group: 1 },
-  { key: "pricing", label: "Pricing", panel: "pricing", icon: Tag, group: 2 },
-  { key: "publish", label: "Publish", panel: "publish", icon: Globe, group: 2 },
-  { key: "market", label: "Market", panel: "market", icon: Megaphone, group: 2 },
-  { key: "statistics", label: "Stats", panel: "statistics", icon: BarChart3, group: 3 },
-  { key: "import", label: "Import", panel: "import", icon: FileDown, group: 3 },
+  { key: "audiobook", label: "Audio", panel: "audiobook", icon: Headphones, group: 0 },
+  { key: "translate", label: "Translate", panel: "translate", icon: Languages, group: 0 },
+  { key: "publish", label: "Publish", panel: "publish", icon: Globe, group: 0 },
+  { key: "review", label: "Review", panel: "review", icon: Sparkles, group: 0 },
 ];
 
 function resolveHref(

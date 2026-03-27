@@ -19,9 +19,9 @@ export type Tool =
   | "audiobook"
   | "print"
   | "pricing"
-  | "polish"
   | "publish"
   | "market"
+  | "review"
   | "statistics"
   | "import";
 

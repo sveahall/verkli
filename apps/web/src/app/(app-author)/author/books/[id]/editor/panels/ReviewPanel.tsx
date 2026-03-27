@@ -1,0 +1,443 @@
+"use client";
+
+import Image from "next/image";
+import { useMemo } from "react";
+import { getLanguageLabel } from "@/lib/languages";
+import { getAudiobookStatusLabel } from "../bookEditor.shared";
+import type { Tool } from "../BookEditorView.types";
+
+type Chapter = {
+  id: string;
+  title: string;
+  content: string | null;
+  order: number;
+  book_version_id: string;
+};
+
+type BookVersion = {
+  id: string;
+  language_code: string;
+  status: string;
+  published_at?: string | null;
+  published_chapter_count?: number | null;
+  error_message?: string | null;
+};
+
+type PrintOnDemandSettings = {
+  enabled: boolean;
+  formats: string[];
+  editionLimit: "unlimited" | "limited";
+  limitCount: number | null;
+};
+
+type MarketingCampaignRow = {
+  id: string;
+  channel: string;
+  status: string;
+  language: string;
+};
+
+export type ReviewPanelProps = {
+  bookId: string;
+  bookTitle: string;
+  chapters: Chapter[];
+  bookVersions: BookVersion[];
+  activeVersion: BookVersion | null;
+  coverImageUrl: string | null;
+  audiobookStatus: string | null;
+  isPublished: boolean;
+  printOnDemandSettings: PrintOnDemandSettings | null;
+  pricingModel: string;
+  priceAmountMinor: number;
+  priceCurrency: string;
+  marketingCampaigns: MarketingCampaignRow[];
+  onNavigate: (panel: Tool) => void;
+  onPublish?: () => void;
+};
+
+/* ── Helpers ── */
+
+function extractText(node: unknown): string {
+  if (!node || typeof node !== "object") return "";
+  const n = node as Record<string, unknown>;
+  if (n.type === "text" && typeof n.text === "string") return n.text;
+  if (Array.isArray(n.content)) return (n.content as unknown[]).map(extractText).join(" ");
+  return "";
+}
+
+function countWords(content: string | null): number {
+  if (!content) return 0;
+  try {
+    return extractText(JSON.parse(content)).split(/\s+/).filter(Boolean).length;
+  } catch {
+    return content.split(/\s+/).filter(Boolean).length;
+  }
+}
+
+function formatPrice(minor: number, currency: string): string {
+  if (minor === 0) return "Free";
+  return `${(minor / 100).toFixed(2)} ${currency.toUpperCase()}`;
+}
+
+/* ── Section card ── */
+
+function Section({
+  title,
+  children,
+  status,
+  action,
+}: {
+  title: string;
+  children: React.ReactNode;
+  status?: "ok" | "warning" | "missing";
+  action?: { label: string; onClick: () => void };
+}) {
+  return (
+    <div className="rounded-2xl border border-black/[0.05] bg-white/60 backdrop-blur-sm dark:border-white/[0.06] dark:bg-white/[0.02]">
+      <div className="flex items-center justify-between border-b border-black/[0.05] px-5 py-3 dark:border-white/[0.06]">
+        <div className="flex items-center gap-2.5">
+          {status && (
+            <span
+              className={`h-2 w-2 rounded-full ${
+                status === "ok"
+                  ? "bg-emerald-500"
+                  : status === "warning"
+                    ? "bg-amber-400"
+                    : "bg-slate-300 dark:bg-white/20"
+              }`}
+            />
+          )}
+          <h3 className="text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-white/50">
+            {title}
+          </h3>
+        </div>
+        {action && (
+          <button
+            type="button"
+            onClick={action.onClick}
+            className="rounded-lg px-2.5 py-1 text-[11px] font-semibold text-[#907AFF] transition hover:bg-[#907AFF]/10"
+          >
+            {action.label}
+          </button>
+        )}
+      </div>
+      <div className="px-5 py-4">{children}</div>
+    </div>
+  );
+}
+
+/* ── Issue row ── */
+
+function Issue({ text, onFix }: { text: string; onFix: () => void }) {
+  return (
+    <div className="flex items-center justify-between gap-3 rounded-xl border border-amber-200/60 bg-amber-50/50 px-4 py-2.5 dark:border-amber-500/15 dark:bg-amber-500/5">
+      <div className="flex items-center gap-2 text-xs text-amber-800 dark:text-amber-300">
+        <svg className="h-4 w-4 shrink-0" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
+          <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m9-.75a9 9 0 1 1-18 0 9 9 0 0 1 18 0Zm-9 3.75h.008v.008H12v-.008Z" />
+        </svg>
+        <span>{text}</span>
+      </div>
+      <button
+        type="button"
+        onClick={onFix}
+        className="shrink-0 rounded-lg px-3 py-1 text-[11px] font-semibold text-[#907AFF] transition hover:bg-[#907AFF]/10"
+      >
+        Fix
+      </button>
+    </div>
+  );
+}
+
+/* ── Main ── */
+
+export default function ReviewPanel({
+  bookTitle,
+  chapters,
+  bookVersions,
+  activeVersion,
+  coverImageUrl,
+  audiobookStatus,
+  isPublished,
+  printOnDemandSettings,
+  pricingModel,
+  priceAmountMinor,
+  priceCurrency,
+  marketingCampaigns,
+  onNavigate,
+  onPublish,
+}: ReviewPanelProps) {
+  const totalWords = useMemo(
+    () => chapters.reduce((sum, ch) => sum + countWords(ch.content), 0),
+    [chapters],
+  );
+
+  const emptyChapters = useMemo(
+    () => chapters.filter((ch) => countWords(ch.content) === 0),
+    [chapters],
+  );
+
+  const languages = useMemo(
+    () => bookVersions.map((v) => getLanguageLabel(v.language_code)),
+    [bookVersions],
+  );
+
+  const publishedVersions = useMemo(
+    () => bookVersions.filter((v) => v.published_at),
+    [bookVersions],
+  );
+
+  const podSettings = printOnDemandSettings ?? { enabled: false, formats: [] as string[], editionLimit: "unlimited" as const, limitCount: 0 };
+  const audioLabel = audiobookStatus ? getAudiobookStatusLabel(audiobookStatus) : "Not started";
+  const audioReady = audiobookStatus === "generated" || audiobookStatus === "completed" || audiobookStatus === "published";
+  const hasCover = Boolean(coverImageUrl);
+  const hasContent = totalWords > 0 && chapters.length > 0;
+  const campaignCount = marketingCampaigns.filter((c) => c.status === "generated" || c.status === "published").length;
+
+  /* ── Issues ── */
+  const issues: Array<{ text: string; panel: Tool }> = [];
+  if (!hasContent) issues.push({ text: "No chapter content yet", panel: "edit" });
+  if (emptyChapters.length > 0 && hasContent)
+    issues.push({ text: `${emptyChapters.length} empty chapter${emptyChapters.length > 1 ? "s" : ""}`, panel: "edit" });
+  if (!hasCover) issues.push({ text: "No cover image", panel: "cover" });
+  if (priceAmountMinor === 0 && pricingModel === "book_only")
+    issues.push({ text: "Book is set to free \u2014 set a price if you want to earn", panel: "publish" });
+
+  return (
+    <div className="mx-auto max-w-3xl space-y-5">
+      {/* ── Hero: Book identity ── */}
+      <div className="grid items-start gap-6 rounded-2xl border border-black/[0.05] bg-white/60 p-6 backdrop-blur-sm dark:border-white/[0.06] dark:bg-white/[0.02] sm:grid-cols-[140px_1fr]">
+        <div className="relative mx-auto aspect-[3/4] w-[140px] overflow-hidden rounded-xl border border-black/[0.06] bg-slate-50 shadow-sm dark:border-white/[0.06] dark:bg-white/[0.02] sm:mx-0">
+          {coverImageUrl ? (
+            <Image src={coverImageUrl} alt="Book cover" fill sizes="140px" className="object-cover" unoptimized />
+          ) : (
+            <div className="flex h-full w-full items-center justify-center text-slate-300 dark:text-white/15">
+              <svg className="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="m2.25 15.75 5.159-5.159a2.25 2.25 0 0 1 3.182 0l5.159 5.159m-1.5-1.5 1.409-1.409a2.25 2.25 0 0 1 3.182 0l2.909 2.909M3.75 21h16.5A2.25 2.25 0 0 0 22.5 18.75V5.25A2.25 2.25 0 0 0 20.25 3H3.75A2.25 2.25 0 0 0 1.5 5.25v13.5A2.25 2.25 0 0 0 3.75 21Z" />
+              </svg>
+            </div>
+          )}
+        </div>
+
+        <div className="min-w-0">
+          <div className="flex items-center gap-2">
+            <span
+              className={`rounded-full px-3 py-1 text-[11px] font-semibold uppercase tracking-wide ${
+                isPublished
+                  ? "bg-emerald-500/10 text-emerald-600 dark:bg-emerald-400/15 dark:text-emerald-400"
+                  : "bg-slate-100 text-slate-500 dark:bg-white/[0.06] dark:text-white/50"
+              }`}
+            >
+              {isPublished ? "Published" : "Draft"}
+            </span>
+          </div>
+          <h2 className="mt-2 text-xl font-bold tracking-tight text-slate-900 dark:text-white">
+            {bookTitle}
+          </h2>
+          <div className="mt-3 grid grid-cols-2 gap-x-6 gap-y-2 text-xs sm:grid-cols-3">
+            <div>
+              <span className="text-slate-400 dark:text-white/40">Chapters</span>
+              <p className="font-semibold text-slate-800 dark:text-white/80">{chapters.length}</p>
+            </div>
+            <div>
+              <span className="text-slate-400 dark:text-white/40">Words</span>
+              <p className="font-semibold tabular-nums text-slate-800 dark:text-white/80">{totalWords.toLocaleString()}</p>
+            </div>
+            <div>
+              <span className="text-slate-400 dark:text-white/40">Languages</span>
+              <p className="font-semibold text-slate-800 dark:text-white/80">{languages.length > 0 ? languages.join(", ") : "\u2014"}</p>
+            </div>
+            <div>
+              <span className="text-slate-400 dark:text-white/40">Price</span>
+              <p className="font-semibold text-slate-800 dark:text-white/80">{formatPrice(priceAmountMinor, priceCurrency)}</p>
+            </div>
+            <div>
+              <span className="text-slate-400 dark:text-white/40">Audio</span>
+              <p className={`font-semibold ${audioReady ? "text-emerald-600 dark:text-emerald-400" : "text-slate-800 dark:text-white/80"}`}>
+                {audioLabel}
+              </p>
+            </div>
+            <div>
+              <span className="text-slate-400 dark:text-white/40">Print</span>
+              <p className="font-semibold text-slate-800 dark:text-white/80">
+                {podSettings.enabled ? podSettings.formats.join(", ") : "Off"}
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* ── Issues ── */}
+      {issues.length > 0 && (
+        <div className="space-y-2">
+          {issues.map((issue) => (
+            <Issue key={issue.text} text={issue.text} onFix={() => onNavigate(issue.panel)} />
+          ))}
+        </div>
+      )}
+
+      {/* ── Content preview ── */}
+      <Section
+        title="Content"
+        status={hasContent ? (emptyChapters.length > 0 ? "warning" : "ok") : "missing"}
+        action={{ label: "Edit", onClick: () => onNavigate("edit") }}
+      >
+        <div className="max-h-[260px] overflow-y-auto">
+          {chapters.map((ch, i) => {
+            const words = countWords(ch.content);
+            return (
+              <div
+                key={ch.id}
+                className="flex items-center justify-between border-b border-black/[0.03] py-2 last:border-b-0 dark:border-white/[0.03]"
+              >
+                <div className="flex items-center gap-2 text-[13px]">
+                  <span className="w-5 text-right tabular-nums text-slate-400 dark:text-white/30">{i + 1}</span>
+                  <span className="text-slate-700 dark:text-white/70">{ch.title}</span>
+                </div>
+                <span className={`text-[11px] tabular-nums ${words > 0 ? "text-slate-400 dark:text-white/35" : "text-amber-500"}`}>
+                  {words > 0 ? `${words.toLocaleString()} words` : "empty"}
+                </span>
+              </div>
+            );
+          })}
+        </div>
+      </Section>
+
+      {/* ── Translations ── */}
+      {bookVersions.length > 1 && (
+        <Section
+          title="Translations"
+          status={publishedVersions.length > 0 ? "ok" : "warning"}
+          action={{ label: "Manage", onClick: () => onNavigate("translate") }}
+        >
+          <div className="space-y-2">
+            {bookVersions.map((v) => {
+              const isOriginal = v.id === activeVersion?.id;
+              return (
+                <div key={v.id} className="flex items-center justify-between text-[13px]">
+                  <span className={isOriginal ? "font-semibold text-[#907AFF]" : "text-slate-700 dark:text-white/70"}>
+                    {getLanguageLabel(v.language_code)}
+                    {isOriginal && <span className="ml-1.5 text-[10px] font-normal text-slate-400 dark:text-white/30">(original)</span>}
+                  </span>
+                  <div className="flex items-center gap-2">
+                    {v.error_message && (
+                      <span className="rounded-full bg-rose-100 px-2 py-0.5 text-[10px] font-medium text-rose-600 dark:bg-rose-500/20 dark:text-rose-400">Error</span>
+                    )}
+                    <span
+                      className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${
+                        v.published_at
+                          ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-500/20 dark:text-emerald-400"
+                          : "bg-slate-100 text-slate-500 dark:bg-white/[0.06] dark:text-white/50"
+                      }`}
+                    >
+                      {v.published_at ? "Published" : "Draft"}
+                    </span>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </Section>
+      )}
+
+      {/* ── Assets ── */}
+      <Section title="Assets">
+        <div className="grid gap-3 sm:grid-cols-3">
+          <button
+            type="button"
+            onClick={() => onNavigate("cover")}
+            className="flex items-center gap-3 rounded-xl border border-black/[0.04] bg-slate-50/50 px-3 py-3 text-left transition hover:border-black/[0.08] dark:border-white/[0.04] dark:bg-white/[0.02] dark:hover:border-white/[0.08]"
+          >
+            {coverImageUrl ? (
+              <div className="relative h-10 w-7 overflow-hidden rounded">
+                <Image src={coverImageUrl} alt="" fill sizes="28px" className="object-cover" unoptimized />
+              </div>
+            ) : (
+              <div className="flex h-10 w-7 items-center justify-center rounded bg-slate-200/50 dark:bg-white/[0.06]">
+                <svg className="h-3.5 w-3.5 text-slate-400 dark:text-white/25" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="m2.25 15.75 5.159-5.159a2.25 2.25 0 0 1 3.182 0l5.159 5.159" />
+                </svg>
+              </div>
+            )}
+            <div className="min-w-0">
+              <p className="text-xs font-semibold text-slate-700 dark:text-white/70">Cover</p>
+              <p className="text-[11px] text-slate-400 dark:text-white/35">{hasCover ? "Ready" : "Missing"}</p>
+            </div>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => onNavigate("audiobook")}
+            className="flex items-center gap-3 rounded-xl border border-black/[0.04] bg-slate-50/50 px-3 py-3 text-left transition hover:border-black/[0.08] dark:border-white/[0.04] dark:bg-white/[0.02] dark:hover:border-white/[0.08]"
+          >
+            <div className={`flex h-10 w-7 items-center justify-center rounded ${audioReady ? "bg-emerald-100/50 dark:bg-emerald-900/20" : "bg-slate-200/50 dark:bg-white/[0.06]"}`}>
+              <svg className={`h-3.5 w-3.5 ${audioReady ? "text-emerald-600 dark:text-emerald-400" : "text-slate-400 dark:text-white/25"}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M19.114 5.636a9 9 0 0 1 0 12.728M16.463 8.288a5.25 5.25 0 0 1 0 7.424M6.75 8.25l4.72-4.72a.75.75 0 0 1 1.28.53v15.88a.75.75 0 0 1-1.28.53l-4.72-4.72H4.51c-.88 0-1.704-.507-1.938-1.354A9.009 9.009 0 0 1 2.25 12c0-.83.112-1.633.322-2.396C2.806 8.756 3.63 8.25 4.51 8.25H6.75Z" />
+              </svg>
+            </div>
+            <div className="min-w-0">
+              <p className="text-xs font-semibold text-slate-700 dark:text-white/70">Audiobook</p>
+              <p className="text-[11px] text-slate-400 dark:text-white/35">{audioLabel}</p>
+            </div>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => onNavigate("publish")}
+            className="flex items-center gap-3 rounded-xl border border-black/[0.04] bg-slate-50/50 px-3 py-3 text-left transition hover:border-black/[0.08] dark:border-white/[0.04] dark:bg-white/[0.02] dark:hover:border-white/[0.08]"
+          >
+            <div className={`flex h-10 w-7 items-center justify-center rounded ${podSettings.enabled ? "bg-blue-100/50 dark:bg-blue-900/20" : "bg-slate-200/50 dark:bg-white/[0.06]"}`}>
+              <svg className={`h-3.5 w-3.5 ${podSettings.enabled ? "text-blue-600 dark:text-blue-400" : "text-slate-400 dark:text-white/25"}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M12 6.042A8.967 8.967 0 0 0 6 3.75c-1.052 0-2.062.18-3 .512v14.25A8.987 8.987 0 0 1 6 18c2.305 0 4.408.867 6 2.292m0-14.25a8.966 8.966 0 0 1 6-2.292c1.052 0 2.062.18 3 .512v14.25A8.987 8.987 0 0 0 18 18a8.967 8.967 0 0 0-6 2.292m0-14.25v14.25" />
+              </svg>
+            </div>
+            <div className="min-w-0">
+              <p className="text-xs font-semibold text-slate-700 dark:text-white/70">Print</p>
+              <p className="text-[11px] text-slate-400 dark:text-white/35">
+                {podSettings.enabled ? podSettings.formats.join(", ") : "Not configured"}
+              </p>
+            </div>
+          </button>
+        </div>
+      </Section>
+
+      {/* ── Marketing ── */}
+      {campaignCount > 0 && (
+        <Section title="Marketing" status="ok">
+          <p className="text-xs text-slate-600 dark:text-white/60">
+            {campaignCount} campaign{campaignCount > 1 ? "s" : ""} generated and ready.
+          </p>
+        </Section>
+      )}
+
+      {/* ── Primary action ── */}
+      <div className="pt-2">
+        {!isPublished ? (
+          <button
+            type="button"
+            onClick={onPublish ?? (() => onNavigate("publish"))}
+            disabled={!hasContent}
+            className="w-full rounded-2xl bg-gradient-to-b from-[#907AFF] to-[#7c6ae6] px-6 py-4 text-base font-bold text-white shadow-[0_4px_20px_rgba(144,122,255,0.30),inset_0_1px_0_rgba(255,255,255,0.15)] transition-all hover:shadow-[0_6px_28px_rgba(144,122,255,0.40)] hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            Publish book
+          </button>
+        ) : (
+          <div className="rounded-2xl border border-emerald-200/60 bg-emerald-50/40 px-5 py-4 text-center dark:border-emerald-500/15 dark:bg-emerald-500/5">
+            <p className="text-sm font-semibold text-emerald-700 dark:text-emerald-400">
+              This book is published
+            </p>
+            <p className="mt-1 text-xs text-emerald-600/70 dark:text-emerald-400/60">
+              Go to Publish to release more chapters or update settings.
+            </p>
+            <button
+              type="button"
+              onClick={() => onNavigate("publish")}
+              className="mt-3 rounded-xl border border-emerald-300/60 bg-white px-5 py-2 text-sm font-medium text-emerald-700 transition hover:bg-emerald-50 dark:border-emerald-500/20 dark:bg-white/[0.04] dark:text-emerald-400 dark:hover:bg-white/[0.06]"
+            >
+              Manage publish settings
+            </button>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}

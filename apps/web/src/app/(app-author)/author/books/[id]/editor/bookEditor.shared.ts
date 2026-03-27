@@ -248,24 +248,24 @@ export type Tool =
   | "audiobook"
   | "print"
   | "pricing"
-  | "polish"
   | "publish"
   | "market"
+  | "review"
   | "statistics"
   | "import";
 
+/**
+ * The linear production flow: Write → Cover → Audio → Translate → Publish → Review.
+ * Panels like statistics, import, print, pricing, market still exist but are not
+ * part of the main stepper — they're accessible via direct URL (?panel=…).
+ */
 export const TOOL_ORDER: Tool[] = [
   "edit",
-  "polish",
   "cover",
-  "translate",
   "audiobook",
-  "print",
-  "pricing",
+  "translate",
   "publish",
-  "market",
-  "statistics",
-  "import",
+  "review",
 ];
 
 export const TOOL_META: Record<
@@ -281,25 +281,30 @@ export const TOOL_META: Record<
     description: "Shape the manuscript, structure chapters, and keep the draft moving.",
     shortLabel: "Draft",
   },
-  polish: {
-    label: "Polish",
-    description: "Review readability, pacing, and compare versions before you ship.",
-    shortLabel: "Refine",
-  },
   cover: {
     label: "Cover",
     description: "Upload, crop, or generate a cover that looks ready for launch.",
     shortLabel: "Package",
+  },
+  audiobook: {
+    label: "Audio",
+    description: "Turn the manuscript into narration with clear language and scope controls.",
+    shortLabel: "Narrate",
   },
   translate: {
     label: "Translate",
     description: "Expand the book into more languages without leaving the workflow.",
     shortLabel: "Localize",
   },
-  audiobook: {
-    label: "Audiobook",
-    description: "Turn the manuscript into narration with clear language and scope controls.",
-    shortLabel: "Narrate",
+  publish: {
+    label: "Publish",
+    description: "Set pricing, print formats, visibility, and release chapters.",
+    shortLabel: "Release",
+  },
+  review: {
+    label: "Review",
+    description: "Final pre-publish overview — preview every detail and decide if the book is ready.",
+    shortLabel: "Review",
   },
   print: {
     label: "Print",
@@ -310,11 +315,6 @@ export const TOOL_META: Record<
     label: "Pricing",
     description: "Set the business model, reader price, and access level.",
     shortLabel: "Monetize",
-  },
-  publish: {
-    label: "Publish",
-    description: "Choose visibility, release chapters, and make the book reader-ready.",
-    shortLabel: "Release",
   },
   market: {
     label: "Market",

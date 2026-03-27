@@ -1,20 +1,24 @@
-# RuFlo V3 Runtime Configuration
-# Generated: 2026-03-26T12:19:36.931Z
+# RuFlo V3.5 Runtime Configuration — verkli-web
+# Updated: 2026-03-27
 
-version: "3.0.0"
+version: "3.5.0"
 
 swarm:
-  topology: hierarchical-mesh
-  maxAgents: 15
+  topology: hierarchical
+  maxAgents: 8
   autoScale: true
-  coordinationStrategy: consensus
+  coordinationStrategy: raft
+  strategy: specialized
+  antiDrift:
+    enabled: true
+    checkpointInterval: 5
+    sharedNamespace: verkli-swarm
 
 memory:
   backend: hybrid
   enableHNSW: true
   persistPath: .claude-flow/data
-  cacheSize: 100
-  # ADR-049: Self-Learning Memory
+  cacheSize: 200
   learningBridge:
     enabled: true
     sonaMode: balanced

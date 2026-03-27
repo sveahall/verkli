@@ -1,4 +1,4 @@
-# Claude Code Configuration - RuFlo V3
+# Claude Code Configuration - RuFlo V3.5
 
 ## Behavioral Rules (Always Enforced)
 
@@ -32,8 +32,10 @@
 
 ### Project Config
 
-- **Topology**: hierarchical-mesh
-- **Max Agents**: 15
+- **Topology**: hierarchical
+- **Max Agents**: 8
+- **Strategy**: specialized
+- **Consensus**: raft
 - **Memory**: hybrid
 - **HNSW**: Enabled
 - **Neural**: Enabled
@@ -110,7 +112,7 @@ npx @claude-flow/cli@latest swarm init --topology hierarchical --max-agents 8 --
 - Never poll TaskOutput or check swarm status — trust agents to return
 - When agent results arrive, review ALL results before proceeding
 
-## V3 CLI Commands
+## V3.5 CLI Commands
 
 ### Core Commands
 
