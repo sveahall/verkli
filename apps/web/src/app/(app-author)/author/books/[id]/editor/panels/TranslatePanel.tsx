@@ -5,22 +5,7 @@ import { useSearchParams, useRouter } from "next/navigation";
 import { getLanguageLabel, LANGUAGE_OPTIONS, isSupportedLanguage, type SupportedLanguage } from "@/lib/languages";
 import { isTranslationPairSupported } from "@/lib/translation-pairs";
 import TranslationCheckoutModal from "./TranslationCheckoutModal";
-
-/** Languages shown in "Translate into more languages" card (design list). Codes used for API where supported. */
-const TRANSLATE_MORE_LANGUAGES: Array<{ code: string; label: string }> = [
-  { code: "en", label: "English" },
-  { code: "es", label: "Spanish" },
-  { code: "it", label: "Italian" },
-  { code: "fr", label: "French" },
-  { code: "no", label: "Norwegian" },
-  { code: "de", label: "German" },
-  { code: "zh", label: "Chinese" },
-  { code: "ar", label: "Arabic" },
-  { code: "ru", label: "Russian" },
-  { code: "ko", label: "Korean" },
-  { code: "da", label: "Danish" },
-  { code: "fi", label: "Finnish" },
-];
+import { TranslateMoreLanguagesCard, TranslatePreviewPanes } from "./TranslatePanel.components";
 
 export type TranslatePanelChapter = { id: string; title: string | null };
 
@@ -77,10 +62,8 @@ export default function TranslatePanel({
   const [targetDropdownOpen, setTargetDropdownOpen] = useState(false);
   const targetDropdownRef = useRef<HTMLDivElement>(null);
 
-  // Pro chapter-level translation scope
   const [translateScope, setTranslateScope] = useState<"book" | "chapter">("book");
 
-  // Checkout modal state
   const [checkoutModalOpen, setCheckoutModalOpen] = useState(false);
   const [checkoutLanguages, setCheckoutLanguages] = useState<string[]>([]);
   const checkoutHandledRef = useRef(false);
@@ -96,14 +79,12 @@ export default function TranslatePanel({
 
     if (checkoutStatus === "success" && sessionId && languagesParam && sourceVersionId) {
       checkoutHandledRef.current = true;
-      // Clean URL params
       const url = new URL(window.location.href);
       url.searchParams.delete("translation_checkout");
       url.searchParams.delete("session_id");
       url.searchParams.delete("languages");
       router.replace(url.pathname + url.search, { scroll: false });
 
-      // Auto-trigger translation with the paid session
       const langs = languagesParam.split(",").filter(Boolean);
       void triggerPaidTranslation(langs, sessionId);
     }
@@ -186,8 +167,6 @@ export default function TranslatePanel({
         setTranslationPreview(nextTranslationPreview);
         setPreviewUnavailable(nextPreviewUnavailable);
       } else {
-        // Keep existing originalPreview — source text doesn't depend on target language.
-        // Only clear the translation preview since the pair may be unsupported.
         setTranslationPreview("");
         setPreviewUnavailable(false);
       }
@@ -203,7 +182,6 @@ export default function TranslatePanel({
     void fetchPreview();
   }, [fetchPreview]);
 
-  /** Start translation directly (Pro users) or show payment modal. */
   const handleTranslateFullBook = useCallback(async () => {
     if (!bookId || !sourceVersionId || translating || billingLoading) return;
     const toTranslate = Array.from(selectedLanguages).filter((code) =>
@@ -214,7 +192,6 @@ export default function TranslatePanel({
       return;
     }
 
-    // If not Pro, show payment modal
     if (isProLocked) {
       setCheckoutLanguages(toTranslate);
       setCheckoutModalOpen(true);
@@ -267,18 +244,15 @@ export default function TranslatePanel({
     }
   }, [bookId, sourceVersionId, selectedLanguages, translating, billingLoading, isProLocked, onMessage]);
 
-  /** Start single-language translation or show payment modal. */
   const handleTranslateSingleLanguage = useCallback(async () => {
     if (!bookId || !sourceVersionId || translating || billingLoading || !isSupportedLanguage(targetLanguage)) return;
 
-    // If not Pro, show payment modal for single language
     if (isProLocked) {
       setCheckoutLanguages([targetLanguage]);
       setCheckoutModalOpen(true);
       return;
     }
 
-    // Pro: chapter scope check
     if (translateScope === "chapter" && !selectedChapterId) {
       onMessage?.("Select a chapter first.");
       return;
@@ -332,7 +306,9 @@ export default function TranslatePanel({
   };
 
   const targetOptions = LANGUAGE_OPTIONS.filter((opt) => opt.value !== sourceLanguage);
-  const selectedForDisplay = TRANSLATE_MORE_LANGUAGES.filter((l) => selectedLanguages.has(l.code));
+  const selectedForDisplay = Array.from(selectedLanguages)
+    .filter((code) => isSupportedLanguage(code) && isTranslationPairSupported(sourceLanguage, code))
+    .map((code) => ({ code, label: getLanguageLabel(code) }));
 
   return (
     <div className="mx-auto max-w-5xl space-y-8">
@@ -433,56 +409,19 @@ export default function TranslatePanel({
           </div>
         )}
 
-        <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
-          <div className="overflow-hidden rounded-2xl shadow-sm ring-1 ring-black/5 dark:ring-white/10">
-            <div className="bg-slate-100 px-5 py-3 dark:bg-white/[0.06]">
-              <p className="text-sm font-medium text-slate-700 dark:text-white/80">Original text</p>
-            </div>
-            <div className="h-[340px] overflow-y-auto bg-slate-50/50 px-5 py-4 text-sm leading-relaxed text-slate-700 dark:bg-white/[0.02] dark:text-slate-200">
-              {loadingPreview ? (
-                <span className="text-slate-400">Loading...</span>
-              ) : originalPreview ? (
-                originalPreview
-              ) : (
-                <span className="text-slate-400">No source text available yet.</span>
-              )}
-            </div>
-          </div>
-          <div className="overflow-hidden rounded-2xl shadow-sm ring-1 ring-black/5 dark:ring-white/10">
-            <div className="bg-slate-100 px-5 py-3 dark:bg-white/[0.06]">
-              <p className="text-sm font-medium text-slate-700 dark:text-white/80">
-                {getLanguageLabel(targetLanguage)} preview
-              </p>
-            </div>
-            <div className="h-[340px] overflow-y-auto bg-slate-50/50 px-5 py-4 text-sm leading-relaxed text-slate-700 dark:bg-white/[0.02] dark:text-slate-200">
-              {loadingPreview ? (
-                <span className="text-slate-400">Loading...</span>
-              ) : translationPreview ? (
-                translationPreview
-              ) : previewUnavailable ? (
-                <div className="rounded-xl border border-dashed border-slate-200 bg-white/80 px-4 py-3 text-slate-500 dark:border-white/[0.12] dark:bg-white/[0.03] dark:text-white/60">
-                  Translation preview is unavailable on this machine until the local Opus MT model is installed.
-                </div>
-              ) : (
-                <span className="text-slate-400">Preview will appear here.</span>
-              )}
-            </div>
-            <div className="px-5 py-4">
-              <button
-                type="button"
-                onClick={() => void handleTranslateSingleLanguage()}
-                disabled={translating || billingLoading || !sourceVersionId}
-                className="block w-full rounded-full bg-[#907AFF] px-6 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-[#7c6ae6] disabled:cursor-not-allowed disabled:opacity-60"
-              >
-                {translating
-                  ? "Translating..."
-                  : translateScope === "chapter" && !isProLocked
-                    ? "Translate chapter"
-                    : "Translate full book"}
-              </button>
-            </div>
-          </div>
-        </div>
+        <TranslatePreviewPanes
+          targetLanguage={targetLanguage}
+          translateScope={translateScope}
+          isProLocked={isProLocked}
+          loadingPreview={loadingPreview}
+          originalPreview={originalPreview}
+          translationPreview={translationPreview}
+          previewUnavailable={previewUnavailable}
+          translating={translating}
+          billingLoading={billingLoading}
+          sourceVersionId={sourceVersionId}
+          onTranslate={() => void handleTranslateSingleLanguage()}
+        />
       </div>
 
       {/* Two cards */}
@@ -530,42 +469,11 @@ export default function TranslatePanel({
           </div>
         </div>
 
-        <div className="overflow-hidden rounded-2xl bg-white shadow-sm ring-1 ring-black/5 dark:bg-white/[0.03] dark:ring-white/10">
-          <div className="px-6 py-6">
-            <h3 className="mb-4 text-[15px] font-semibold text-slate-900 dark:text-white">
-              Translate into more languages:
-            </h3>
-            <ul className="max-h-[260px] divide-y divide-slate-100 overflow-y-auto text-sm dark:divide-white/[0.06]">
-              {TRANSLATE_MORE_LANGUAGES.map(({ code, label }) => {
-                const isSource = code === sourceLanguage;
-                const supported = !isSource && isSupportedLanguage(code) && isTranslationPairSupported(sourceLanguage, code);
-                return (
-                  <li key={code}>
-                    <label
-                      className={`flex items-center justify-between py-2.5 ${
-                        supported ? "cursor-pointer" : "cursor-default"
-                      }`}
-                    >
-                      <span className={supported || isSource ? "text-slate-700 dark:text-white/80" : "text-slate-400 dark:text-white/30"}>
-                        {label}
-                      </span>
-                      <input
-                        type="checkbox"
-                        checked={selectedLanguages.has(code)}
-                        onChange={() => {
-                          if (supported) toggleLanguage(code);
-                        }}
-                        disabled={!supported}
-                        aria-label={`Translate to ${label}`}
-                        className="h-4 w-4 rounded border-slate-300 accent-[#907AFF] disabled:opacity-40"
-                      />
-                    </label>
-                  </li>
-                );
-              })}
-            </ul>
-          </div>
-        </div>
+        <TranslateMoreLanguagesCard
+          sourceLanguage={sourceLanguage}
+          selectedLanguages={selectedLanguages}
+          onToggleLanguage={toggleLanguage}
+        />
       </div>
 
       {/* Status */}

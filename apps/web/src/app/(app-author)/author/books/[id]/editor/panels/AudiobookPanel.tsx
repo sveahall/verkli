@@ -1,11 +1,9 @@
 "use client";
 
 import { useRef, useState } from "react";
-import { useRouter } from "next/navigation";
 import dynamic from "next/dynamic";
 import { getLanguageLabel, LANGUAGE_OPTIONS, normalizeLanguage } from "@/lib/languages";
 import {
-  formatPlayerTime,
   getAudiobookStatusLabel,
 } from "../BookEditorView.helpers";
 import type {
@@ -14,6 +12,11 @@ import type {
   BookVersion,
   Chapter,
 } from "../BookEditorView.types";
+import {
+  AudiobookCheckoutModal,
+  AudiobookLanguageList,
+  AudiobookPreviewPlayer,
+} from "./AudiobookPanel.components";
 
 const ManifestAudiobookPlayer = dynamic(
   () => import("@/components/books/ManifestAudiobookPlayer"),
@@ -29,12 +32,9 @@ interface AudiobookPanelProps {
   activeVersion: BookVersion | null;
   activeLanguage: string;
   totalBookWordCount: number;
-  // Billing state
   billingLoading: boolean;
   billingIsProActive: boolean;
-  // Audiobook feature
   audiobookFeatureEnabled: boolean;
-  // Audiobook generation state
   isAudiobookActive: boolean;
   audiobookStatusUi: string;
   audiobookError: string | null;
@@ -46,7 +46,6 @@ interface AudiobookPanelProps {
   } | null;
   effectiveAudiobookError: string | null;
   audiobookEtaText: string | null;
-  // Audiobook scope
   audiobookScope: AudiobookGenerationScope;
   setAudiobookScope: (v: AudiobookGenerationScope) => void;
   audiobookSelectedChapterIds: string[];
@@ -54,22 +53,18 @@ interface AudiobookPanelProps {
   isAudiobookChapterPickerOpen: boolean;
   setIsAudiobookChapterPickerOpen: React.Dispatch<React.SetStateAction<boolean>>;
   audiobookRequestedChapterIds: string[];
-  // Audiobook control
   audiobookControlPending: AudiobookControlAction | null;
   canPauseAudiobook: boolean;
   canResumeAudiobook: boolean;
   canCancelAudiobook: boolean;
   handleAudiobookControl: (action: AudiobookControlAction) => Promise<void>;
   handleGenerateAudiobook: () => Promise<void>;
-  // Audiobook language selection
   audiobookSelectedLanguages: string[];
   setAudiobookSelectedLanguages: React.Dispatch<React.SetStateAction<string[]>>;
-  // Audiobook checkout
   audiobookCheckoutModalOpen: boolean;
   setAudiobookCheckoutModalOpen: (v: boolean) => void;
   audiobookCheckoutLoading: boolean;
   handleAudiobookCheckout: () => Promise<void>;
-  // Generated audiobook player
   shouldShowGeneratedAudiobookPlayer: boolean;
   fallbackGeneratedAudiobookUrl: string | null;
   latestAudiobookManifestUrl: string | null;
@@ -116,9 +111,7 @@ export default function AudiobookPanel({
   fallbackGeneratedAudiobookUrl,
   latestAudiobookManifestUrl,
 }: AudiobookPanelProps) {
-  const router = useRouter();
-
-  // Dropdown open states
+  // Dropdown open states (local UI only — not part of hook state)
   const [abLangOpen, setAbLangOpen] = useState(false);
   const [abVoiceOpen, setAbVoiceOpen] = useState(false);
   const [abToneOpen, setAbToneOpen] = useState(false);
@@ -126,14 +119,8 @@ export default function AudiobookPanel({
   const abVoiceRef = useRef<HTMLDivElement>(null);
   const abToneRef = useRef<HTMLDivElement>(null);
 
-  // Audio preview state
   const [audiobookPreviewVoice, setAudiobookPreviewVoice] = useState("Ryan");
   const [audiobookPreviewTone, setAudiobookPreviewTone] = useState("neutral");
-  const audiobookPreviewRef = useRef<HTMLAudioElement>(null);
-  const [audiobookPreviewPlaying, setAudiobookPreviewPlaying] = useState(false);
-  const [audiobookPreviewCurrentTime, setAudiobookPreviewCurrentTime] = useState(0);
-  const [audiobookPreviewDuration, setAudiobookPreviewDuration] = useState(0);
-  const [audiobookPreviewSpeed, setAudiobookPreviewSpeed] = useState(1.0);
 
   return (
     <div className="mx-auto max-w-4xl space-y-6">
@@ -235,122 +222,10 @@ export default function AudiobookPanel({
         </div>
       </div>
 
-      {/* Audio player */}
-      <div className="rounded-2xl border border-slate-200 bg-white px-6 py-5 dark:border-white/[0.06] dark:bg-white/[0.03]">
-        {/* Hidden audio element */}
-        {shouldShowGeneratedAudiobookPlayer && fallbackGeneratedAudiobookUrl && (
-          <audio
-            ref={audiobookPreviewRef}
-            src={fallbackGeneratedAudiobookUrl}
-            onTimeUpdate={() => {
-              if (audiobookPreviewRef.current) {
-                setAudiobookPreviewCurrentTime(audiobookPreviewRef.current.currentTime);
-              }
-            }}
-            onLoadedMetadata={() => {
-              if (audiobookPreviewRef.current) {
-                setAudiobookPreviewDuration(audiobookPreviewRef.current.duration);
-              }
-            }}
-            onEnded={() => setAudiobookPreviewPlaying(false)}
-          />
-        )}
-
-        {/* Progress bar */}
-        <div className="mb-5">
-          <div
-            className="relative h-1 cursor-pointer rounded-full bg-slate-200/80 dark:bg-white/10"
-            onClick={(e) => {
-              if (!audiobookPreviewRef.current || !audiobookPreviewDuration) return;
-              const rect = e.currentTarget.getBoundingClientRect();
-              const ratio = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
-              audiobookPreviewRef.current.currentTime = ratio * audiobookPreviewDuration;
-            }}
-          >
-            <div
-              className="h-full rounded-full bg-[#907AFF]/40 transition-all"
-              style={{ width: audiobookPreviewDuration > 0 ? `${(audiobookPreviewCurrentTime / audiobookPreviewDuration) * 100}%` : "0%" }}
-            />
-            <div
-              className="absolute top-1/2 h-3 w-3 -translate-y-1/2 rounded-full bg-[#907AFF] shadow-sm transition-all"
-              style={{ left: audiobookPreviewDuration > 0 ? `calc(${(audiobookPreviewCurrentTime / audiobookPreviewDuration) * 100}% - 6px)` : "0" }}
-            />
-          </div>
-        </div>
-
-        {/* Controls */}
-        <div className="flex items-center justify-between">
-          <span className="min-w-[90px] text-[15px] tabular-nums text-slate-500 dark:text-white/50">
-            {formatPlayerTime(audiobookPreviewCurrentTime)} / {formatPlayerTime(audiobookPreviewDuration)}
-          </span>
-          <div className="flex items-center gap-4">
-            {/* Previous */}
-            <button
-              type="button"
-              onClick={() => {
-                if (audiobookPreviewRef.current) {
-                  audiobookPreviewRef.current.currentTime = Math.max(0, audiobookPreviewRef.current.currentTime - 30);
-                }
-              }}
-              className="text-slate-400 transition hover:text-slate-600 dark:text-white/40 dark:hover:text-white/70"
-            >
-              <svg className="h-5 w-5" viewBox="0 0 24 24" fill="currentColor"><path d="M6 6h2v12H6zm12 0v12l-8.5-6z" /></svg>
-            </button>
-            {/* Play/Pause */}
-            <button
-              type="button"
-              onClick={() => {
-                if (!audiobookPreviewRef.current) return;
-                if (audiobookPreviewPlaying) {
-                  audiobookPreviewRef.current.pause();
-                  setAudiobookPreviewPlaying(false);
-                } else {
-                  void audiobookPreviewRef.current.play();
-                  setAudiobookPreviewPlaying(true);
-                }
-              }}
-              className="flex h-11 w-11 items-center justify-center rounded-full bg-[#907AFF] text-white transition hover:bg-[#7c6ae6]"
-            >
-              {audiobookPreviewPlaying ? (
-                <svg className="h-4 w-4" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="4" width="4" height="16" /><rect x="14" y="4" width="4" height="16" /></svg>
-              ) : (
-                <svg className="ml-0.5 h-5 w-5" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z" /></svg>
-              )}
-            </button>
-            {/* Next */}
-            <button
-              type="button"
-              onClick={() => {
-                if (audiobookPreviewRef.current) {
-                  audiobookPreviewRef.current.currentTime = Math.min(
-                    audiobookPreviewRef.current.duration || 0,
-                    audiobookPreviewRef.current.currentTime + 30
-                  );
-                }
-              }}
-              className="text-slate-400 transition hover:text-slate-600 dark:text-white/40 dark:hover:text-white/70"
-            >
-              <svg className="h-5 w-5" viewBox="0 0 24 24" fill="currentColor"><path d="M6 18l8.5-6L6 6v12zM16 6v12h2V6h-2z" /></svg>
-            </button>
-          </div>
-          {/* Speed */}
-          <button
-            type="button"
-            onClick={() => {
-              const speeds = [0.5, 0.75, 1.0, 1.25, 1.5, 2.0];
-              const idx = speeds.indexOf(audiobookPreviewSpeed);
-              const next = speeds[(idx + 1) % speeds.length];
-              setAudiobookPreviewSpeed(next);
-              if (audiobookPreviewRef.current) {
-                audiobookPreviewRef.current.playbackRate = next;
-              }
-            }}
-            className="min-w-[40px] text-right text-[15px] font-medium tabular-nums text-slate-600 transition hover:text-slate-800 dark:text-white/60 dark:hover:text-white/80"
-          >
-            {audiobookPreviewSpeed === 1 ? "1.0" : audiobookPreviewSpeed}x
-          </button>
-        </div>
-      </div>
+      {/* Audio preview player */}
+      <AudiobookPreviewPlayer
+        audioUrl={shouldShowGeneratedAudiobookPlayer ? fallbackGeneratedAudiobookUrl : null}
+      />
 
       {/* Two cards side by side */}
       <div className="grid gap-6 lg:grid-cols-2 lg:items-start">
@@ -563,89 +438,25 @@ export default function AudiobookPanel({
         {/* Right card: Languages */}
         <div className="rounded-2xl border border-slate-200 bg-white p-6 dark:border-white/[0.06] dark:bg-white/[0.03]">
           <h3 className="text-xl font-semibold text-slate-900 dark:text-white">Audiobook in more languages:</h3>
-          <div className="mt-4 divide-y divide-slate-100 dark:divide-white/[0.06]">
-            {(() => {
-              const bookLang = normalizeLanguage(bookLanguage ?? bookOriginalLanguage);
-              const sorted = [...LANGUAGE_OPTIONS].sort((a, b) =>
-                a.value === bookLang ? -1 : b.value === bookLang ? 1 : 0
-              );
-              return sorted.map((lang) => {
-                const isBookLang = bookLang === lang.value;
-                const isChecked = audiobookSelectedLanguages.includes(lang.value);
-                return (
-                  <label key={lang.value} className="flex cursor-pointer items-center justify-between py-3.5 text-[15px] text-slate-700 dark:text-white/80">
-                    <span>{lang.label}</span>
-                    <input
-                      type="checkbox"
-                      checked={isChecked}
-                      onChange={() => {
-                        if (isBookLang) return;
-                        setAudiobookSelectedLanguages((prev) =>
-                          prev.includes(lang.value)
-                            ? prev.filter((l) => l !== lang.value)
-                            : [...prev, lang.value]
-                        );
-                      }}
-                      disabled={isBookLang}
-                      className="h-4 w-4 rounded border-slate-300 text-[#907AFF] focus:ring-[#907AFF] disabled:cursor-default dark:border-white/20"
-                    />
-                  </label>
-                );
-              });
-            })()}
-          </div>
+          <AudiobookLanguageList
+            bookLanguage={bookLanguage}
+            bookOriginalLanguage={bookOriginalLanguage}
+            audiobookSelectedLanguages={audiobookSelectedLanguages}
+            setAudiobookSelectedLanguages={setAudiobookSelectedLanguages}
+          />
         </div>
       </div>
 
-      {/* Audiobook checkout modal for non-Pro */}
-      {audiobookCheckoutModalOpen && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm"
-          onClick={(e) => { if (e.target === e.currentTarget) setAudiobookCheckoutModalOpen(false); }}
-        >
-          <div className="relative mx-4 w-full max-w-md rounded-2xl bg-white p-8 shadow-2xl dark:bg-slate-900">
-            <button type="button" onClick={() => setAudiobookCheckoutModalOpen(false)} className="absolute right-4 top-4 text-slate-400 hover:text-slate-600 dark:text-white/40 dark:hover:text-white/70" aria-label="Close">
-              <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M18 6L6 18M6 6l12 12" /></svg>
-            </button>
-            <h2 className="mb-6 text-center text-lg font-semibold text-slate-900 dark:text-white">Choose a plan to generate audiobook</h2>
-            <div className="space-y-4">
-              <label className="flex cursor-pointer items-start gap-3 rounded-xl border-2 border-[#907AFF] bg-[#907AFF]/5 px-4 py-4 transition">
-                <input type="radio" name="audiobook-plan-new" value="per_book" defaultChecked className="mt-0.5 h-4 w-4 accent-[#907AFF]" />
-                <div>
-                  <p className="font-semibold text-slate-900 dark:text-white">Pay per audiobook</p>
-                  <p className="text-sm text-slate-500 dark:text-white/50">299 kr / book</p>
-                </div>
-              </label>
-              <label className="flex cursor-pointer items-start gap-3 rounded-xl border-2 border-slate-200 px-4 py-4 transition hover:border-slate-300 dark:border-white/10 dark:hover:border-white/20" onClick={() => { setAudiobookCheckoutModalOpen(false); router.push("/author/billing"); }}>
-                <input type="radio" name="audiobook-plan-new" value="pro" className="mt-0.5 h-4 w-4 accent-[#907AFF]" />
-                <div>
-                  <p className="font-semibold text-slate-900 dark:text-white">Subscribe to PRO</p>
-                  <p className="mb-2 text-sm text-slate-500 dark:text-white/50">2 490 kr / month</p>
-                  <ul className="space-y-1 text-sm text-slate-600 dark:text-white/60">
-                    {["Unlimited audiobooks", "Unlimited translations", "Chapter-level control", "Marketing tools"].map((f) => (
-                      <li key={f} className="flex items-center gap-2">
-                        <svg className="h-4 w-4 shrink-0 text-[#907AFF]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M5 13l4 4L19 7" /></svg>
-                        {f}
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              </label>
-            </div>
-            {audiobookError && <p className="mt-4 text-center text-sm text-red-600 dark:text-red-400">{audiobookError}</p>}
-            <button
-              type="button"
-              onClick={() => { setAudiobookCheckoutModalOpen(false); void handleAudiobookCheckout(); }}
-              disabled={audiobookCheckoutLoading}
-              className="mt-6 block w-full rounded-full bg-[#907AFF] px-6 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-[#7c6ae6] disabled:cursor-not-allowed disabled:opacity-60"
-            >
-              {audiobookCheckoutLoading ? "Redirecting..." : "Generate full audiobook"}
-            </button>
-          </div>
-        </div>
-      )}
+      {/* Audiobook checkout modal */}
+      <AudiobookCheckoutModal
+        open={audiobookCheckoutModalOpen}
+        onClose={() => setAudiobookCheckoutModalOpen(false)}
+        audiobookError={audiobookError}
+        audiobookCheckoutLoading={audiobookCheckoutLoading}
+        onCheckout={() => void handleAudiobookCheckout()}
+      />
 
-      {/* Generated audiobook player */}
+      {/* Generated audiobook player (manifest-based) */}
       {shouldShowGeneratedAudiobookPlayer && !fallbackGeneratedAudiobookUrl && latestAudiobookManifestUrl && (
         <div className="mt-2">
           <ManifestAudiobookPlayer bookId={bookId} manifestUrl={latestAudiobookManifestUrl} />

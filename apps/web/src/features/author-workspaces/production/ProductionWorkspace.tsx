@@ -52,9 +52,19 @@ function BookProductionCard({ book }: { book: BookItem }) {
   const isPublished = book.status === "PUBLISHED";
 
   return (
-    <div className="group rounded-2xl border border-black/[0.04] bg-white px-6 py-5 shadow-[0_1px_3px_rgba(0,0,0,0.04)] dark:border-white/[0.06] dark:bg-[#111318]">
+    <div className="group relative rounded-2xl border border-black/[0.04] bg-white px-6 py-5 shadow-[0_1px_3px_rgba(0,0,0,0.04)] dark:border-white/[0.06] dark:bg-[#111318]">
+      {/* Trash — top-right corner */}
+      <button
+        type="button"
+        className="absolute right-5 top-5 p-0.5 text-slate-300 transition-colors hover:text-slate-500 dark:text-white/15 dark:hover:text-white/40"
+        aria-label="Delete book"
+        onClick={(e) => e.preventDefault()}
+      >
+        <Trash2 className="h-[18px] w-[18px]" />
+      </button>
+
       <div className="flex items-center gap-6">
-        {/* Cover — large, matching reference */}
+        {/* Cover */}
         <Link
           href={`/author/books/${book.id}`}
           className="relative h-[100px] w-[70px] shrink-0 overflow-hidden rounded-lg bg-slate-100 shadow-[0_2px_8px_rgba(0,0,0,0.08)] dark:bg-white/[0.04]"
@@ -92,7 +102,7 @@ function BookProductionCard({ book }: { book: BookItem }) {
           </div>
         </div>
 
-        {/* PROGESS dots */}
+        {/* Progress dots */}
         <div className="min-w-0 flex-1">
           <p className="mb-2 text-xs font-bold uppercase tracking-widest text-slate-400 dark:text-white/25">
             Progress
@@ -117,16 +127,8 @@ function BookProductionCard({ book }: { book: BookItem }) {
           </div>
         </div>
 
-        {/* Continue editing + trash */}
-        <div className="flex shrink-0 flex-col items-end gap-3">
-          <button
-            type="button"
-            className="p-0.5 text-slate-300 transition-colors hover:text-slate-500 dark:text-white/15 dark:hover:text-white/40"
-            aria-label="Delete book"
-            onClick={(e) => e.preventDefault()}
-          >
-            <Trash2 className="h-[18px] w-[18px]" />
-          </button>
+        {/* Continue editing — bottom-right */}
+        <div className="shrink-0 self-end">
           <Link
             href={`/author/books/${book.id}`}
             className="inline-flex items-center gap-2 rounded-full border border-slate-200 px-4 py-2 text-sm font-medium text-slate-600 transition-colors hover:border-slate-300 hover:text-slate-800 dark:border-white/10 dark:text-white/50 dark:hover:text-white/70"

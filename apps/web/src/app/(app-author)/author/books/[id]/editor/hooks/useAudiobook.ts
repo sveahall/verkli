@@ -19,6 +19,12 @@ import {
   type Chapter,
   type LatestAudiobookAsset,
 } from "../BookEditorView.types";
+import {
+  computeAudiobookJobFlags,
+  computeAudiobookMeta,
+  computeAudiobookStatusUi,
+  computeServerAudiobookProgress,
+} from "./useAudiobook.helpers";
 
 // ── Progress type ──────────────────────────────────────────────────────────────
 
@@ -73,26 +79,13 @@ export function useAudiobook({
   const [audiobookControlPending, setAudiobookControlPending] = useState<AudiobookControlAction | null>(null);
   const [audiobookCheckoutModalOpen, setAudiobookCheckoutModalOpen] = useState(false);
   const [audiobookCheckoutLoading, setAudiobookCheckoutLoading] = useState(false);
-  const [audiobookPreviewVoice, setAudiobookPreviewVoice] = useState("Ryan");
-  const [audiobookPreviewTone, setAudiobookPreviewTone] = useState("neutral");
   const [audiobookSelectedLanguages, setAudiobookSelectedLanguages] = useState<string[]>(() => {
     const lang = normalizeLanguage(book.language ?? book.original_language);
     return [lang];
   });
-  const [abLangOpen, setAbLangOpen] = useState(false);
-  const [abVoiceOpen, setAbVoiceOpen] = useState(false);
-  const [abToneOpen, setAbToneOpen] = useState(false);
-  const [audiobookPreviewPlaying, setAudiobookPreviewPlaying] = useState(false);
-  const [audiobookPreviewCurrentTime, setAudiobookPreviewCurrentTime] = useState(0);
-  const [audiobookPreviewDuration, setAudiobookPreviewDuration] = useState(0);
-  const [audiobookPreviewSpeed, setAudiobookPreviewSpeed] = useState(1.0);
 
   // ── Refs ───────────────────────────────────────────────────────────────────
 
-  const audiobookPreviewRef = useRef<HTMLAudioElement>(null);
-  const abLangRef = useRef<HTMLDivElement>(null);
-  const abVoiceRef = useRef<HTMLDivElement>(null);
-  const abToneRef = useRef<HTMLDivElement>(null);
   const audiobookCheckoutHandledRef = useRef(false);
 
   // ── Computed: latest job & status ──────────────────────────────────────────
@@ -102,131 +95,62 @@ export function useAudiobook({
     [allJobs]
   );
 
-  const audiobookJobStatus = latestAudiobookJob ? normalizeJobStatus(latestAudiobookJob.status) : null;
-
-  const STALE_ACTIVE_MS = 30 * 60 * 1000; // 30 min — matches server-side & getVisibleJobs
-
-  const isAudiobookJobStale = (() => {
-    if (!latestAudiobookJob || !isJobActiveStatus(audiobookJobStatus)) return false;
-    const created = latestAudiobookJob.createdAt ? new Date(latestAudiobookJob.createdAt).getTime() : 0;
-    if (created <= 0) return false;
-    if (Date.now() - created <= STALE_ACTIVE_MS) return false;
-    // Allow paused / cancel-requested jobs to stay active
-    const meta = (latestAudiobookJob.meta ?? {}) as Record<string, unknown>;
-    const cs = typeof meta.controlState === "string" ? meta.controlState : null;
-    if (cs === "paused" || cs === "pause_requested" || cs === "cancel_requested") return false;
-    if (meta.cancelRequested === true) return false;
-    return true;
-  })();
-
-  const isAudiobookJobActive =
-    !isAudiobookJobStale &&
-    (audiobookJobStatus === "running" || audiobookJobStatus === "pending");
-
-  const isAudiobookJobFailed = normalizeJobStatus(latestAudiobookJob?.status) === "failed";
+  const { audiobookJobStatus, isAudiobookJobStale, isAudiobookJobActive, isAudiobookJobFailed } =
+    computeAudiobookJobFlags(latestAudiobookJob);
 
   const isAudiobookActive = isGeneratingAudiobook || !!isAudiobookJobActive;
 
-  const serverAudiobookProgress = useMemo(() => {
-    if (!latestAudiobookJob || !isJobActiveStatus(latestAudiobookJob.status)) return null;
-    const meta = latestAudiobookJob.meta as Record<string, unknown>;
-    return {
-      totalChapters: (meta.totalChapters as number) ?? 0,
-      completedChapters: (meta.completedChapters as number) ?? 0,
-      currentChapterTitle: (meta.currentChapterTitle as string) ?? null,
-      estimatedSecondsRemaining: (meta.estimatedSecondsRemaining as number) ?? null,
-    };
-  }, [latestAudiobookJob]);
+  const serverAudiobookProgress = useMemo(
+    () => computeServerAudiobookProgress(latestAudiobookJob),
+    [latestAudiobookJob]
+  );
 
   const effectiveAudiobookProgress = audiobookProgress ?? serverAudiobookProgress;
-
   const audiobookEtaText = formatAudiobookEta(effectiveAudiobookProgress?.estimatedSecondsRemaining);
-
   const effectiveAudiobookError = audiobookError ?? (isAudiobookJobFailed ? (latestAudiobookJob?.error ?? null) : null);
 
   // ── Computed: audiobook meta ───────────────────────────────────────────────
 
-  const hasGeneratedAudiobookAsset = latestAudiobookAsset?.status === "generated";
-
-  const latestAudiobookMeta = (latestAudiobookJob?.meta ?? {}) as Record<string, unknown>;
-
-  const latestAudiobookScope =
-    typeof latestAudiobookMeta.scope === "string" ? latestAudiobookMeta.scope : "book";
-
-  const latestAudiobookControlState =
-    typeof latestAudiobookMeta.controlState === "string" ? latestAudiobookMeta.controlState : null;
-
-  const latestAudiobookPauseRequested = latestAudiobookMeta.pauseRequested === true;
-
-  const latestAudiobookCancelRequested = latestAudiobookMeta.cancelRequested === true;
-
-  const latestAudiobookManifestUrl =
-    typeof latestAudiobookMeta.manifestUrl === "string" && latestAudiobookMeta.manifestUrl.trim().length > 0
-      ? latestAudiobookMeta.manifestUrl.trim()
-      : null;
-
-  const latestAudiobookAudioUrl =
-    typeof latestAudiobookMeta.audioUrl === "string" && latestAudiobookMeta.audioUrl.trim().length > 0
-      ? latestAudiobookMeta.audioUrl.trim()
-      : null;
-
-  const latestAudiobookGeneratedChapterAudioUrl =
-    typeof latestAudiobookMeta.generatedChapterAudioUrl === "string" &&
-    latestAudiobookMeta.generatedChapterAudioUrl.trim().length > 0
-      ? latestAudiobookMeta.generatedChapterAudioUrl.trim()
-      : null;
-
-  const latestAudiobookAssetAudioUrl =
-    typeof latestAudiobookAsset?.audioSignedUrl === "string" && latestAudiobookAsset.audioSignedUrl.trim().length > 0
-      ? latestAudiobookAsset.audioSignedUrl.trim()
-      : null;
-
-  const fallbackGeneratedAudiobookUrl =
-    latestAudiobookGeneratedChapterAudioUrl ?? latestAudiobookAudioUrl ?? latestAudiobookAssetAudioUrl;
-
-  const latestAudiobookChapterIds =
-    Array.isArray(latestAudiobookMeta.chapterIds) && latestAudiobookMeta.chapterIds.every((id: unknown) => typeof id === "string")
-      ? (latestAudiobookMeta.chapterIds as string[])
-      : [];
-
-  const hasCompletedAudiobookJob =
-    normalizeJobStatus(latestAudiobookJob?.status) === "completed" && latestAudiobookScope !== "chapter";
-
-  const hasCompletedChapterAudiobookJob =
-    normalizeJobStatus(latestAudiobookJob?.status) === "completed" && latestAudiobookScope === "chapter";
-
-  const hasFailedAudiobookJob = normalizeJobStatus(latestAudiobookJob?.status) === "failed";
+  const {
+    latestAudiobookMeta,
+    latestAudiobookScope,
+    latestAudiobookControlState,
+    latestAudiobookPauseRequested,
+    latestAudiobookCancelRequested,
+    latestAudiobookManifestUrl,
+    latestAudiobookAudioUrl,
+    latestAudiobookGeneratedChapterAudioUrl,
+    latestAudiobookAssetAudioUrl,
+    fallbackGeneratedAudiobookUrl,
+    latestAudiobookChapterIds,
+    hasCompletedAudiobookJob,
+    hasCompletedChapterAudiobookJob,
+    hasFailedAudiobookJob,
+    hasGeneratedAudiobookAsset,
+  } = computeAudiobookMeta(latestAudiobookJob, latestAudiobookAsset);
 
   const audiobookFeatureEnabled = getAudiobookEnabled();
-
   const isAudiobookPaused = latestAudiobookControlState === "paused" || latestAudiobookControlState === "pause_requested";
-
   const isAudiobookCancelRequested = latestAudiobookControlState === "cancel_requested" || latestAudiobookCancelRequested;
-
   const isAudiobookCancelled = latestAudiobookControlState === "cancelled";
 
   // Job table is source of truth: no job -> idle. Do not derive failure from worker availability.
-  const audiobookStatusUi = !audiobookFeatureEnabled
-    ? "disabled"
-    : isAudiobookActive
-      ? isAudiobookCancelRequested
-        ? "cancel_requested"
-        : isAudiobookPaused || latestAudiobookPauseRequested
-          ? latestAudiobookControlState === "pause_requested" || latestAudiobookPauseRequested
-            ? "pause_requested"
-            : "paused"
-          : audiobookJobStatus === "pending"
-            ? "queued"
-            : "generating"
-      : hasGeneratedAudiobookAsset || hasCompletedAudiobookJob || hasCompletedChapterAudiobookJob
-        ? "published"
-        : isAudiobookCancelled
-          ? "cancelled"
-          : hasFailedAudiobookJob
-            ? "failed"
-            : !latestAudiobookJob
-              ? "idle"
-              : (book.audiobook_status ?? "idle");
+  const audiobookStatusUi = computeAudiobookStatusUi({
+    audiobookFeatureEnabled,
+    isAudiobookActive,
+    isAudiobookCancelRequested,
+    isAudiobookPaused,
+    latestAudiobookPauseRequested,
+    latestAudiobookControlState,
+    audiobookJobStatus,
+    hasGeneratedAudiobookAsset,
+    hasCompletedAudiobookJob,
+    hasCompletedChapterAudiobookJob,
+    isAudiobookCancelled,
+    hasFailedAudiobookJob,
+    latestAudiobookJob,
+    bookAudiobookStatus: book.audiobook_status ?? null,
+  });
 
   const shouldShowGeneratedAudiobookPlayer =
     audiobookFeatureEnabled &&
@@ -235,7 +159,6 @@ export function useAudiobook({
     (Boolean(fallbackGeneratedAudiobookUrl) || Boolean(latestAudiobookManifestUrl));
 
   const isProFeatureLocked = billing.loading || !billing.isProActive;
-
   const proFeatureLockMessage = billing.loading
     ? "Checking subscription..."
     : billing.pastDue
@@ -337,19 +260,6 @@ export function useAudiobook({
       setAudiobookError(null);
     }
   }, [audiobookFeatureEnabled, isAudiobookJobStale, latestAudiobookJob]);
-
-  // ── Effect: close audiobook preview dropdowns on outside click ─────────────
-
-  useEffect(() => {
-    if (!abLangOpen && !abVoiceOpen && !abToneOpen) return;
-    function handleClick(e: MouseEvent) {
-      if (abLangOpen && abLangRef.current && !abLangRef.current.contains(e.target as Node)) setAbLangOpen(false);
-      if (abVoiceOpen && abVoiceRef.current && !abVoiceRef.current.contains(e.target as Node)) setAbVoiceOpen(false);
-      if (abToneOpen && abToneRef.current && !abToneRef.current.contains(e.target as Node)) setAbToneOpen(false);
-    }
-    document.addEventListener("mousedown", handleClick);
-    return () => document.removeEventListener("mousedown", handleClick);
-  }, [abLangOpen, abVoiceOpen, abToneOpen]);
 
   // ── Effect: audiobook scope syncing with selectedChapterId ─────────────────
 
@@ -546,12 +456,7 @@ export function useAudiobook({
 
   return {
     // State
-    isGeneratingAudiobook,
-    setIsGeneratingAudiobook,
     audiobookError,
-    setAudiobookError,
-    audiobookProgress,
-    setAudiobookProgress,
     audiobookScope,
     setAudiobookScope,
     audiobookSelectedChapterIds,
@@ -559,85 +464,28 @@ export function useAudiobook({
     isAudiobookChapterPickerOpen,
     setIsAudiobookChapterPickerOpen,
     audiobookControlPending,
-    setAudiobookControlPending,
     audiobookCheckoutModalOpen,
     setAudiobookCheckoutModalOpen,
     audiobookCheckoutLoading,
-    setAudiobookCheckoutLoading,
-    audiobookPreviewVoice,
-    setAudiobookPreviewVoice,
-    audiobookPreviewTone,
-    setAudiobookPreviewTone,
     audiobookSelectedLanguages,
     setAudiobookSelectedLanguages,
-    abLangOpen,
-    setAbLangOpen,
-    abVoiceOpen,
-    setAbVoiceOpen,
-    abToneOpen,
-    setAbToneOpen,
-    audiobookPreviewPlaying,
-    setAudiobookPreviewPlaying,
-    audiobookPreviewCurrentTime,
-    setAudiobookPreviewCurrentTime,
-    audiobookPreviewDuration,
-    setAudiobookPreviewDuration,
-    audiobookPreviewSpeed,
-    setAudiobookPreviewSpeed,
 
-    // Refs
-    audiobookPreviewRef,
-    abLangRef,
-    abVoiceRef,
-    abToneRef,
-    audiobookCheckoutHandledRef,
-
-    // Computed: job & status
-    latestAudiobookJob,
-    audiobookJobStatus,
-    isAudiobookJobStale,
-    isAudiobookJobActive,
-    isAudiobookJobFailed,
+    // Computed
     isAudiobookActive,
-    serverAudiobookProgress,
     effectiveAudiobookProgress,
     audiobookEtaText,
     effectiveAudiobookError,
-
-    // Computed: audiobook meta
-    hasGeneratedAudiobookAsset,
-    latestAudiobookMeta,
-    latestAudiobookScope,
-    latestAudiobookControlState,
-    latestAudiobookPauseRequested,
-    latestAudiobookCancelRequested,
     latestAudiobookManifestUrl,
-    latestAudiobookAudioUrl,
-    latestAudiobookGeneratedChapterAudioUrl,
-    latestAudiobookAssetAudioUrl,
     fallbackGeneratedAudiobookUrl,
-    latestAudiobookChapterIds,
-    hasCompletedAudiobookJob,
-    hasCompletedChapterAudiobookJob,
-    hasFailedAudiobookJob,
     audiobookFeatureEnabled,
-    isAudiobookPaused,
-    isAudiobookCancelRequested,
-    isAudiobookCancelled,
     audiobookStatusUi,
     shouldShowGeneratedAudiobookPlayer,
     isProFeatureLocked,
     proFeatureLockMessage,
-
-    // Computed: scope & selection
     audiobookRequestedChapterIds,
-    audiobookRequestScope,
-    selectedAudiobookChapters,
-    audiobookSelectionSummary,
     canPauseAudiobook,
     canResumeAudiobook,
     canCancelAudiobook,
-    activeAudiobookScopeSummary,
 
     // Handlers
     handleGenerateAudiobook,
