@@ -419,7 +419,7 @@ export function useAudiobook({
         }
       })();
     }
-  }, [searchParams, book.id, refetchBookJob, router]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [searchParams, book.id, refetchBookJob, router]);
 
   // ── Handlers ───────────────────────────────────────────────────────────────
 

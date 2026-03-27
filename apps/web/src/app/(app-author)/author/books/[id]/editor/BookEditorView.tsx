@@ -148,17 +148,7 @@ export default function BookEditorView({
   const sessionWords = sessionStartWords !== null ? Math.max(0, wordCount - sessionStartWords) : 0;
 
   // ── Book rename ───────────────────────────────────────────────────────────
-  const {
-    bookTitle,
-    isRenamingBook,
-    bookTitleDraft,
-    setBookTitleDraft,
-    bookTitleError,
-    bookTitleSaving,
-    handleStartRenameBook,
-    handleCancelRenameBook,
-    handleSaveRenameBook,
-  } = useBookRename({ book });
+  const { bookTitle } = useBookRename({ book });
 
   // ── Cover ─────────────────────────────────────────────────────────────────
   const cover = useBookCover({ book });
@@ -174,7 +164,6 @@ export default function BookEditorView({
     activeVersion,
     displayCoverUrl: cover.displayCoverUrl,
     coverUploading: cover.coverUploading,
-    selectedChapterId,
     selectedChapter,
     defaultPublishVisibility,
   });
@@ -193,7 +182,6 @@ export default function BookEditorView({
   const activeLanguage = normalizeLanguage(
     activeVersion?.language_code ?? book.original_language ?? book.language
   );
-  const activeLanguageLabel = getLanguageLabel(activeLanguage);
   const isWriteOnlyWorkspace = effectiveTools.length === 1 && effectiveTools[0] === "edit";
 
   // ── Translation ───────────────────────────────────────────────────────────
@@ -255,27 +243,17 @@ export default function BookEditorView({
     getBookWorkspaceHref,
   });
 
-  // ── Print-on-demand & original URL ────────────────────────────────────────
-  const [originalUrl, setOriginalUrl] = useState(book.original_url ?? "");
+  // ── Print-on-demand ──────────────────────────────────────────────────────
   const [printOnDemandSettings, setPrintOnDemandSettings] = useState<PrintOnDemandSettings>(() =>
     normalizePrintOnDemandSettings(book.print_on_demand_settings)
   );
 
-  useEffect(() => {
-    setOriginalUrl(book.original_url ?? "");
-  }, [book.original_url]);
-
-  useEffect(() => {
+  // Sync printOnDemandSettings when book prop changes (e.g. after router.refresh)
+  const [prevPodProp, setPrevPodProp] = useState(book.print_on_demand_settings);
+  if (prevPodProp !== book.print_on_demand_settings) {
+    setPrevPodProp(book.print_on_demand_settings);
     setPrintOnDemandSettings(normalizePrintOnDemandSettings(book.print_on_demand_settings));
-  }, [book.print_on_demand_settings]);
-
-  const handleOriginalUrlBlur = useCallback(async () => {
-    const val = originalUrl.trim() || null;
-    if (val === (book.original_url ?? "")) return;
-    const supabase = createClient();
-    const { error } = await supabase.from("books").update({ original_url: val }).eq("id", book.id);
-    if (!error) router.refresh();
-  }, [book.id, book.original_url, originalUrl, router]);
+  }
 
   const handleSavePrintOnDemandSettings = useCallback(async (nextSettings: PrintOnDemandSettings) => {
     const normalizedSettings = normalizePrintOnDemandSettings(nextSettings);
@@ -517,10 +495,10 @@ export default function BookEditorView({
   // ── Layout helpers ────────────────────────────────────────────────────────
   const workspaceContentMaxWidth =
     tool === "edit" || tool === "polish"
-      ? "max-w-[980px]"
+      ? "max-w-[940px]"
       : tool === "cover" || tool === "translate" || tool === "audiobook" || tool === "market"
-        ? "max-w-[1200px]"
-        : "max-w-[1080px]";
+        ? "max-w-[1120px]"
+        : "max-w-[1040px]";
 
   // ── Status banners (shared between views) ─────────────────────────────────
   const jobStatusBanner = jobLoading ? (
@@ -597,14 +575,10 @@ export default function BookEditorView({
         statusContent={<>{jobStatusBanner}{billingWarning}</>}
         bookId={book.id}
         bookTitle={bookTitle}
-        authorDisplayName={authorDisplayName}
         tool={tool}
         tools={effectiveTools as Tool[]}
-        isPublished={publishing.isPublished}
         chapters={chapters}
         wordCount={wordCount}
-        activeLanguageLabel={activeLanguageLabel}
-        versionCount={bookVersions.length}
         displayCoverUrl={cover.displayCoverUrl}
         selectedChapterId={selectedChapterId}
         selectedChapter={selectedChapter}
@@ -656,26 +630,17 @@ export default function BookEditorView({
         </div>
       )}
       <section className="pb-24">
-        <div className="mx-auto max-w-[1280px] space-y-6">
+        <div className="mx-auto max-w-[1200px] space-y-5">
         {jobStatusBanner}
         {billingWarning}
 
-        <div className="mb-6">
-          <BookWorkflowHeader
-            bookId={book.id}
-            bookTitle={bookTitle}
-            authorDisplayName={authorDisplayName}
-            activeTool={tool}
-            tools={effectiveTools as Tool[]}
-            isPublished={publishing.isPublished}
-            chapterCount={chapters.length}
-            wordCount={wordCount}
-            activeLanguageLabel={activeLanguageLabel}
-            versionCount={bookVersions.length}
-          />
-        </div>
+        <BookWorkflowHeader
+          bookId={book.id}
+          activeTool={tool}
+          tools={effectiveTools as Tool[]}
+        />
 
-        <div className={`${workspaceContentMaxWidth} min-h-[calc(100vh-12rem)] px-2 pt-1 sm:px-4 lg:px-6`}>
+        <div className={`mx-auto ${workspaceContentMaxWidth} min-h-[calc(100vh-14rem)]`}>
 
         {tool === "pricing" && (
           <PricingPanel
@@ -891,6 +856,7 @@ export default function BookEditorView({
             lastSaved={chapterCrud.lastSaved}
             preset={preset}
             focusMode={focusMode}
+            isPublished={publishing.isPublished}
             onSetChapterPage={setChapterPage}
             onSelectChapter={selectChapter}
             onResetSessionWords={() => setSessionStartWords(null)}

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, useEffect } from "react";
+import { useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { useToastHelpers } from "@/components/ui/toast";
 import { resolveErrorMessage } from "@/lib/error-messages";
@@ -48,16 +48,13 @@ export function useMarketing({
       (c) => c.language === marketingLanguage && c.channel === marketingChannel,
     ) ?? null;
 
-  // ---------------------------------------------------------------------------
-  // Effects
-  // ---------------------------------------------------------------------------
-
-  // Sync marketingLanguage when the active version changes.
-  useEffect(() => {
-    setMarketingLanguage(
-      normalizeLanguage(activeVersion?.language_code ?? book.original_language ?? book.language),
-    );
-  }, [activeVersion?.language_code, book.original_language, book.language]);
+  // Sync marketingLanguage when the active version changes
+  const derivedLanguage = normalizeLanguage(activeVersion?.language_code ?? book.original_language ?? book.language);
+  const [prevDerivedLanguage, setPrevDerivedLanguage] = useState(derivedLanguage);
+  if (prevDerivedLanguage !== derivedLanguage) {
+    setPrevDerivedLanguage(derivedLanguage);
+    setMarketingLanguage(derivedLanguage);
+  }
 
   // ---------------------------------------------------------------------------
   // Handlers

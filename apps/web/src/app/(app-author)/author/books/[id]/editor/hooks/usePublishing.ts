@@ -24,7 +24,6 @@ interface UsePublishingOptions {
   activeVersion: BookVersion | null;
   displayCoverUrl: string | null;
   coverUploading: boolean;
-  selectedChapterId: string | null;
   selectedChapter: Chapter | null;
   defaultPublishVisibility: PublishVisibility;
 }
@@ -36,7 +35,6 @@ export function usePublishing({
   activeVersion,
   displayCoverUrl,
   coverUploading,
-  selectedChapterId,
   selectedChapter,
   defaultPublishVisibility,
 }: UsePublishingOptions) {

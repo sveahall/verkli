@@ -28,16 +28,22 @@ export function useBookPricing({ book }: UseBookPricingOptions) {
   const [pricingError, setPricingError] = useState<string | null>(null);
   const [pricingSaved, setPricingSaved] = useState(false);
 
-  // Sync from book prop changes
-  useEffect(() => {
-    const minor = Math.max(0, Math.trunc(Number(book.price_amount ?? 0)));
-    const cur = ["SEK", "EUR", "USD"].includes(String(book.price_currency ?? "").trim().toUpperCase())
-      ? String(book.price_currency).trim().toUpperCase()
-      : "SEK";
-    setPriceAmountMinor(minor);
-    setPriceCurrency(cur);
-    setPricingModel(book.pricing_model === "per_chapter" ? "per_chapter" : "book_only");
-  }, [book.price_amount, book.price_currency, book.pricing_model]);
+  // Sync state when book prop changes (e.g. after router.refresh)
+  const [prevBookPricing, setPrevBookPricing] = useState({
+    amount: book.price_amount,
+    currency: book.price_currency,
+    model: book.pricing_model,
+  });
+  if (
+    prevBookPricing.amount !== book.price_amount ||
+    prevBookPricing.currency !== book.price_currency ||
+    prevBookPricing.model !== book.pricing_model
+  ) {
+    setPrevBookPricing({ amount: book.price_amount, currency: book.price_currency, model: book.pricing_model });
+    setPriceAmountMinor(initialPriceMinor);
+    setPriceCurrency(initialCurrency);
+    setPricingModel(initialPricingModel);
+  }
 
   // Cleanup timer on unmount
   useEffect(() => {
