@@ -7,6 +7,8 @@ import { useBillingState } from "@/hooks/useBillingState";
 import { getAudiobookEnabled } from "@/lib/flags";
 import { normalizeLanguage } from "@/lib/languages";
 import { useAuthorWorkspace } from "@/features/author-shell/workspace-state";
+import WorkspaceLayout from "@/features/author-workspaces/WorkspaceLayout";
+import WorkspaceHeaderActions from "@/features/author-workspaces/components/WorkspaceHeaderActions";
 import { useBookWorkspaceCommandPalette } from "./workspace/BookWorkspaceCommandPaletteProvider";
 import { useBookWorkspaceController } from "./hooks/useBookWorkspaceController";
 import { useChapterSelection } from "./hooks/useChapterSelection";
@@ -423,74 +425,85 @@ export default function BookEditorView({
           {publishing.publishToast}
         </div>
       )}
-      <section className="pb-24">
-        <div className="mx-auto max-w-[1200px] space-y-5">
-          {statusBanners}
+      <WorkspaceLayout
+        header={
+          <header>
+            <h1 className="text-base font-medium uppercase tracking-widest text-slate-400 dark:text-white/50">
+              {bookTitle}
+            </h1>
+          </header>
+        }
+        headerRight={<WorkspaceHeaderActions />}
+        mainClassName="space-y-8 pb-16"
+        main={
+          <>
+            {statusBanners}
 
-          {/* Edit panel (has its own white card) */}
-          {tool === "edit" && (
-            <SimplifiedEditView
-              bookId={book.id}
-              bookTitle={bookTitle}
-              chapters={chapters}
-              visibleChapters={visibleChapters}
-              startIndex={startIndex}
-              totalPages={totalPages}
-              chapterPage={chapterPage}
-              selectedChapterId={selectedChapterId}
-              selectedChapter={selectedChapter}
-              preset={preset}
-              focusMode={focusMode}
-              isPublished={publishing.isPublished}
-              activeTool={tool}
-              tools={effectiveTools as Tool[]}
-              onSetChapterPage={setChapterPage}
-              onSelectChapter={selectChapter}
-              onResetSessionWords={() => setSessionStartWords(null)}
-              onWordCount={setWordCount}
-              onAutoSave={chapterCrud.handleAutoSave}
-              onDirty={() => chapterCrud.setHasUnsavedChanges(true)}
-              onToggleFocusMode={() => setFocusMode((current) => !current)}
-            />
-          )}
+            {/* Edit panel (has its own white card) */}
+            {tool === "edit" && (
+              <SimplifiedEditView
+                bookId={book.id}
+                bookTitle={bookTitle}
+                chapters={chapters}
+                visibleChapters={visibleChapters}
+                startIndex={startIndex}
+                totalPages={totalPages}
+                chapterPage={chapterPage}
+                selectedChapterId={selectedChapterId}
+                selectedChapter={selectedChapter}
+                preset={preset}
+                focusMode={focusMode}
+                isPublished={publishing.isPublished}
+                activeTool={tool}
+                tools={effectiveTools as Tool[]}
+                onSetChapterPage={setChapterPage}
+                onSelectChapter={selectChapter}
+                onResetSessionWords={() => setSessionStartWords(null)}
+                onWordCount={setWordCount}
+                onAutoSave={chapterCrud.handleAutoSave}
+                onDirty={() => chapterCrud.setHasUnsavedChanges(true)}
+                onToggleFocusMode={() => setFocusMode((current) => !current)}
+              />
+            )}
 
-          {/* All non-edit panels */}
-          {tool !== "edit" && (
-            <BookEditorPanelContent
-              bookId={book.id}
-              bookTitle={bookTitle}
-              bookOriginalUrl={book.original_url ?? null}
-              bookAudiobookStatus={typeof book.audiobook_status === "string" ? book.audiobook_status : null}
-              authorDisplayName={authorDisplayName}
-              tool={tool}
-              tools={effectiveTools as Tool[]}
-              chapters={chapters}
-              activeVersion={activeVersion}
-              activeLanguage={activeLanguage}
-              bookVersions={bookVersions}
-              totalBookWordCount={totalBookWordCount}
-              selectedChapterId={selectedChapterId}
-              selectedChapter={selectedChapter}
-              importJobs={importJobs}
-              stripeConfigured={stripeConfigured}
-              marketingCampaigns={marketingCampaigns}
-              printOnDemandSettings={printOnDemandSettings}
-              onSavePrintOnDemandSettings={handleSavePrintOnDemandSettings}
-              onNavigateToPanel={navigateToPanel}
-              onSetSelectedChapterId={(id) => { setSelectedChapterId(id); setSessionStartWords(null); }}
-              onResetSessionWords={() => setSessionStartWords(null)}
-              cover={cover}
-              audiobook={{ ...audiobook, bookLanguage: book.language ?? null, bookOriginalLanguage: book.original_language ?? null }}
-              translation={translation}
-              publishing={publishing}
-              pricing={pricing}
-              marketing={marketing}
-              billing={billing}
-              refetchBookJob={refetchBookJob}
-            />
-          )}
-        </div>
-      </section>
+            {/* All non-edit panels */}
+            {tool !== "edit" && (
+              <BookEditorPanelContent
+                bookId={book.id}
+                bookTitle={bookTitle}
+                bookOriginalUrl={book.original_url ?? null}
+                bookAudiobookStatus={typeof book.audiobook_status === "string" ? book.audiobook_status : null}
+                authorDisplayName={authorDisplayName}
+                tool={tool}
+                tools={effectiveTools as Tool[]}
+                chapters={chapters}
+                activeVersion={activeVersion}
+                activeLanguage={activeLanguage}
+                bookVersions={bookVersions}
+                totalBookWordCount={totalBookWordCount}
+                selectedChapterId={selectedChapterId}
+                selectedChapter={selectedChapter}
+                importJobs={importJobs}
+                stripeConfigured={stripeConfigured}
+                marketingCampaigns={marketingCampaigns}
+                printOnDemandSettings={printOnDemandSettings}
+                onSavePrintOnDemandSettings={handleSavePrintOnDemandSettings}
+                onNavigateToPanel={navigateToPanel}
+                onSetSelectedChapterId={(id) => { setSelectedChapterId(id); setSessionStartWords(null); }}
+                onResetSessionWords={() => setSessionStartWords(null)}
+                cover={cover}
+                audiobook={{ ...audiobook, bookLanguage: book.language ?? null, bookOriginalLanguage: book.original_language ?? null }}
+                translation={translation}
+                publishing={publishing}
+                pricing={pricing}
+                marketing={marketing}
+                billing={billing}
+                refetchBookJob={refetchBookJob}
+              />
+            )}
+          </>
+        }
+      />
     </>
   );
 }

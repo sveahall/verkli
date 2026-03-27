@@ -30,7 +30,7 @@ export default function EditorCanvas({
 
   if (mode === "workspace") {
     return (
-      <div className="min-w-0 max-w-[900px] lg:order-1">
+      <div className="min-w-0 max-w-[1500px] lg:order-1">
         {header}
         {toolbar}
         <div className="mt-2">{children}</div>

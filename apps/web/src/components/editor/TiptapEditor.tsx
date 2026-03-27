@@ -450,7 +450,10 @@ export default function TiptapEditor({
 
         .verkli-content .ProseMirror {
           min-height: 680px;
-          padding: 18px 18px 96px;
+          max-width: 100%;
+          width: 100%;
+          min-width: 100%;
+          padding: 18px 18px 50px;
           font-family: var(--verkli-font, Georgia, serif);
           font-size: var(--verkli-font-size, 17px);
           line-height: var(--verkli-line-height, 1.7);

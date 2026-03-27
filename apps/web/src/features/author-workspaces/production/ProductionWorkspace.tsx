@@ -6,11 +6,11 @@ import {
   BookOpen,
   ChevronRight,
   Layers,
-  Trash2,
 } from "lucide-react";
 import { useAuthorWorkspace } from "@/features/author-shell/workspace-state";
 import WorkspaceLayout from "@/features/author-workspaces/WorkspaceLayout";
 import WorkspaceHeaderActions from "@/features/author-workspaces/components/WorkspaceHeaderActions";
+import DeleteBookButton from "@/components/books/DeleteBookButton";
 
 type BookItem = {
   id: string;
@@ -52,18 +52,16 @@ function BookProductionCard({ book }: { book: BookItem }) {
   const isPublished = book.status === "PUBLISHED";
 
   return (
-    <div className="group relative rounded-2xl border border-black/[0.04] bg-white px-6 py-5 shadow-[0_1px_3px_rgba(0,0,0,0.04)] dark:border-white/[0.06] dark:bg-[#111318]">
+    <div className="group relative rounded-2xl border border-black/[0.04] bg-white px-6 pr-0 py-5 shadow-[0_1px_3px_rgba(0,0,0,0.04)] dark:border-white/[0.06] dark:bg-[#111318]">
       {/* Trash — top-right corner */}
-      <button
-        type="button"
-        className="absolute right-5 top-5 p-0.5 text-slate-300 transition-colors hover:text-slate-500 dark:text-white/15 dark:hover:text-white/40"
-        aria-label="Delete book"
-        onClick={(e) => e.preventDefault()}
-      >
-        <Trash2 className="h-[18px] w-[18px]" />
-      </button>
+      <DeleteBookButton
+        bookId={book.id}
+        bookTitle={book.title}
+        label=""
+        className="absolute right-7 top-5 p-1 text-slate-300 transition-colors hover:text-slate-500 dark:text-white/15 dark:hover:text-white/40"
+      />
 
-      <div className="flex items-center gap-6">
+      <div className="flex items-center gap-6 pr-6">
         {/* Cover */}
         <Link
           href={`/author/books/${book.id}`}
@@ -103,13 +101,13 @@ function BookProductionCard({ book }: { book: BookItem }) {
         </div>
 
         {/* Progress dots */}
-        <div className="min-w-0 flex-1">
-          <p className="mb-2 text-xs font-bold uppercase tracking-widest text-slate-400 dark:text-white/25">
+        <div className="flex min-w-0 flex-1 flex-col items-center justify-center">
+          <p className="mb-8 text-xs font-bold uppercase tracking-widest text-slate-400 dark:text-white/25">
             Progress
           </p>
-          <div className="flex">
+          <div className="flex gap-7">
             {PIPELINE_LABELS.map((label, i) => (
-              <div key={label} className="flex flex-1 flex-col items-center gap-1.5">
+              <div key={label} className="flex flex-col items-center gap-1.5">
                 <span
                   className={`text-[11px] font-medium leading-none ${
                     done[i] ? "text-slate-600 dark:text-white/60" : "text-slate-300 dark:text-white/15"
@@ -131,7 +129,7 @@ function BookProductionCard({ book }: { book: BookItem }) {
         <div className="shrink-0 self-end">
           <Link
             href={`/author/books/${book.id}`}
-            className="inline-flex items-center gap-2 rounded-full border border-slate-200 px-4 py-2 text-sm font-medium text-slate-600 transition-colors hover:border-slate-300 hover:text-slate-800 dark:border-white/10 dark:text-white/50 dark:hover:text-white/70"
+            className="inline-flex items-center mr-0 gap-2 rounded-full border border-slate-200 px-4 py-2 text-sm font-medium text-slate-600 transition-colors hover:border-slate-300 hover:text-slate-800 dark:border-white/10 dark:text-white/50 dark:hover:text-white/70"
           >
             Continue editing
             <span className="flex h-5 w-5 items-center justify-center rounded-full border border-slate-300 dark:border-white/20">

@@ -18,11 +18,19 @@ export default async function AuthorProductionPage({
     redirect("/author/signin");
   }
 
-  const { data: books } = await supabase
-    .from("books")
-    .select("id, title, status, updated_at, cover_image, audiobook_status")
-    .eq("author_id", user.id)
-    .order("updated_at", { ascending: false });
+  const [{ data: books }, { data: profile }] = await Promise.all([
+    supabase
+      .from("books")
+      .select("id, title, status, updated_at, cover_image, audiobook_status")
+      .eq("author_id", user.id)
+      .order("updated_at", { ascending: false }),
+    supabase
+      .from("profiles")
+      .select("display_name")
+      .eq("user_id", user.id)
+      .single(),
+  ]);
+  const authorName = profile?.display_name || user.user_metadata?.full_name || null;
 
   const bookIds = (books ?? []).map((b) => b.id);
 
@@ -66,6 +74,7 @@ export default async function AuthorProductionPage({
         audiobookStatus: book.audiobook_status ?? null,
         chapterCount: chapterCountMap.get(book.id) ?? 0,
         translationCount: translationCountMap.get(book.id) ?? 0,
+        authorDisplayName: authorName ?? undefined,
       }))}
     />
   );

@@ -207,7 +207,7 @@ export default function AuthorSidebar() {
           const active = isLeafActive(item, pathname);
           const workflowBookId = bookIdFromPath ?? currentBookId;
           const showWorkflowChildren =
-            item.key === "production" && active && !!workflowBookId;
+            item.key === "production" && isOnBookPage && !!workflowBookId;
 
           return (
             <div key={item.key}>

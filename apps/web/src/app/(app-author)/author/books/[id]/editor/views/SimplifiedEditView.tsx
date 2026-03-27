@@ -73,7 +73,7 @@ export default function SimplifiedEditView({
       />
 
       {/* ── CHAPTERS / title / badge ── */}
-      <div className="flex items-center justify-between px-8 pt-5 pb-2">
+      <div className="flex items-center justify-between px-8 pt-8 pb-3">
         <span className="shrink-0 text-xs font-bold uppercase tracking-widest text-slate-400 dark:text-white/30">
           Chapters
         </span>
@@ -93,7 +93,7 @@ export default function SimplifiedEditView({
       </div>
 
       {/* ── Chapter numbers ── */}
-      <div className="flex items-center gap-1 px-7 pb-3">
+      <div className="flex items-center gap-2 px-8 pb-5">
         {totalPages > 1 && (
           <button
             type="button"
