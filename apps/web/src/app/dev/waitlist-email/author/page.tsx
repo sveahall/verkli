@@ -1,5 +1,3 @@
-"use client";
-
 import { buildWaitlistHtml } from "@/lib/emails/waitlist-confirmation";
 
 const EXAMPLE_EMAIL = "preview@example.com";
