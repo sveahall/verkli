@@ -25,10 +25,6 @@ type SimplifiedEditViewProps = {
   chapterPage: number;
   selectedChapterId: string | null;
   selectedChapter: Chapter | null;
-  wordCount: number;
-  isSaving: boolean;
-  hasUnsavedChanges: boolean;
-  lastSaved: Date | null;
   preset: string;
   focusMode: boolean;
   isPublished?: boolean;
@@ -53,10 +49,6 @@ export default function SimplifiedEditView({
   chapterPage,
   selectedChapterId,
   selectedChapter,
-  wordCount,
-  isSaving,
-  hasUnsavedChanges,
-  lastSaved,
   preset,
   focusMode,
   isPublished = false,

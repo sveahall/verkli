@@ -119,9 +119,14 @@ export function createPerUserRateLimiter(opts: {
       return checkInMemory(userId);
     },
 
-    /** @internal for tests */
+    /** @internal for tests — clears in-memory state AND resets the shared Redis singleton */
     _reset(): void {
       map.clear();
+      if (sharedRedis) {
+        sharedRedis.disconnect();
+        sharedRedis = null;
+      }
+      redisChecked = false;
     },
   };
 }

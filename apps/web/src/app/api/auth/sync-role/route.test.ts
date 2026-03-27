@@ -78,6 +78,26 @@ describe("GET /api/auth/sync-role", () => {
     expect(location).toContain("/");
   });
 
+  it("rejects protocol-relative redirect (open redirect protection)", async () => {
+    mockSupabaseWithUser();
+    mockFrom.mockReturnValue({
+      select: () => ({
+        eq: () => ({
+          maybeSingle: () =>
+            Promise.resolve({
+              data: { role: "reader", preferences: null },
+              error: null,
+            }),
+        }),
+      }),
+    });
+    const req = new Request("http://localhost/api/auth/sync-role?redirect=//evil.com/phish");
+    const res = await GET(req);
+    expect(res.status).toBe(307);
+    const location = res.headers.get("location");
+    expect(location).toBe("http://localhost/");
+  });
+
   it("falls back to profile.role when no active_role preference", async () => {
     mockSupabaseWithUser();
     mockFrom.mockReturnValue({

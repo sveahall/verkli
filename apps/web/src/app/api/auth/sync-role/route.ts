@@ -35,9 +35,10 @@ export async function GET(request: Request) {
     role = profile.role;
   }
 
-  const path = redirectTo.startsWith("/") ? redirectTo : `/${redirectTo}`;
+  // Reject protocol-relative paths (//evil.com) and non-relative paths
+  const safePath = /^\/[^/]/.test(redirectTo) || redirectTo === "/" ? redirectTo : "/";
   const url = new URL(request.url);
-  const res = NextResponse.redirect(`${url.origin}${path}`);
+  const res = NextResponse.redirect(`${url.origin}${safePath}`);
 
   if (role) {
     res.headers.set("Set-Cookie", activeRoleCookieHeader(role));
