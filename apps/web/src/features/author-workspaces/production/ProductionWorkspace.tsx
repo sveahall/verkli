@@ -66,7 +66,7 @@ function BookProductionCard({ book }: { book: BookItem }) {
   const href = `/author/books/${book.id}?panel=${nextPanel}`;
 
   return (
-    <div className="group relative rounded-2xl border border-black/[0.04] bg-white shadow-[0_1px_3px_rgba(0,0,0,0.04)] transition hover:border-black/[0.08] hover:shadow-[0_2px_8px_rgba(0,0,0,0.08)] dark:border-white/[0.06] dark:bg-[#111318] dark:hover:border-white/[0.10]">
+    <div className="group relative rounded-2xl border border-black/[0.04] bg-white shadow-[0_1px_3px_rgba(0,0,0,0.04)] transition-[border-color,box-shadow] duration-150 ease-out hover:border-black/[0.08] hover:shadow-[0_2px_8px_rgba(0,0,0,0.08)] active:scale-[0.99] dark:border-white/[0.06] dark:bg-[#111318] dark:hover:border-white/[0.10]">
       {/* Trash — top-right corner, stops link propagation */}
       <div className="absolute right-7 top-5 z-10" onClick={(e) => e.preventDefault()}>
         <DeleteBookButton
@@ -140,7 +140,7 @@ function BookProductionCard({ book }: { book: BookItem }) {
 
         {/* Continue — bottom-right */}
         <div className="shrink-0 self-end">
-          <span className="inline-flex items-center gap-2 rounded-full border border-slate-200 px-4 py-2 text-sm font-medium text-slate-600 transition-colors group-hover:border-[#907AFF]/30 group-hover:text-[#907AFF] dark:border-white/10 dark:text-white/50 dark:group-hover:border-[#907AFF]/30 dark:group-hover:text-[#907AFF]">
+          <span className="inline-flex items-center gap-2 rounded-full border border-slate-200 px-4 py-2 text-sm font-medium text-slate-600 transition-colors duration-150 ease-out group-hover:border-[#907AFF]/30 group-hover:text-[#907AFF] dark:border-white/10 dark:text-white/50 dark:group-hover:border-[#907AFF]/30 dark:group-hover:text-[#907AFF]">
             Continue editing
             <span className="flex h-5 w-5 items-center justify-center rounded-full border border-slate-300 transition-colors group-hover:border-[#907AFF]/40 dark:border-white/20">
               <ChevronRight className="h-3 w-3" />

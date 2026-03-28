@@ -21,7 +21,7 @@ import SimilarBooksRail from "@/components/reader/SimilarBooksRail";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { normalizePrintOnDemandSettings } from "@/lib/print-on-demand";
 import ReaderBookPageView from "@/features/reader/reader-book/ReaderBookPageView";
-import { ReaderSectionHeader } from "@/features/reader/shared/ReaderScaffold";
+
 
 function SimilarBooksRailSkeleton() {
   return (
@@ -332,22 +332,19 @@ export default async function ReaderBookDetail({
       : {}),
   };
 
+  const chipClass = "rounded-full border border-black/[0.06] bg-white/70 px-3 py-1 text-[11px] font-medium text-slate-600 dark:border-white/[0.08] dark:bg-white/[0.04] dark:text-white/60";
   const metaChips = (
     <>
-      <span className="rounded-full border border-black/[0.08] bg-white/80 px-3 py-1 text-[12px] text-slate-700 dark:border-white/10 dark:bg-white/[0.05] dark:text-white/70">
-        {chaptersCount} chapters
-      </span>
-      <span className="rounded-full border border-black/[0.08] bg-white/80 px-3 py-1 text-[12px] text-slate-700 dark:border-white/10 dark:bg-white/[0.05] dark:text-white/70">
-        {languageName}
-      </span>
-      <span className="rounded-full border border-black/[0.08] bg-white/80 px-3 py-1 text-[12px] text-slate-700 dark:border-white/10 dark:bg-white/[0.05] dark:text-white/70">
+      <span className={chipClass}>{chaptersCount} chapters</span>
+      <span className={chipClass}>{languageName}</span>
+      <span className={chipClass}>
         {book.audiobook_status === "published"
           ? "Audiobook available"
           : book.audiobook_status === "generating"
             ? "Audiobook generating"
             : "Text edition"}
       </span>
-      <span className="rounded-full border border-black/[0.08] bg-white/80 px-3 py-1 text-[12px] text-slate-700 dark:border-white/10 dark:bg-white/[0.05] dark:text-white/70">
+      <span className={chipClass}>
         {averageRating !== null ? `${averageRating.toFixed(1)} rating` : "No ratings yet"}
       </span>
     </>
@@ -355,7 +352,7 @@ export default async function ReaderBookDetail({
 
   const languageSwitcher = (
     <div className="space-y-2">
-      <p className="text-[12px] font-semibold uppercase tracking-[0.14em] text-slate-400 dark:text-white/35">
+      <p className="text-[11px] font-semibold uppercase tracking-wider text-slate-400 dark:text-white/35">
         Read in
       </p>
       <div className="flex flex-wrap gap-2">
@@ -366,8 +363,8 @@ export default async function ReaderBookDetail({
             aria-current={language.isCurrentLanguage ? "page" : undefined}
             className={
               language.isCurrentLanguage
-                ? "rounded-full bg-slate-900 px-3 py-1.5 text-[12px] font-medium text-white dark:bg-white dark:text-slate-900"
-                : "rounded-full border border-black/[0.08] bg-white/80 px-3 py-1.5 text-[12px] font-medium text-slate-700 transition hover:border-black/[0.12] hover:text-slate-900 dark:border-white/10 dark:bg-white/[0.04] dark:text-white/70 dark:hover:text-white"
+                ? "rounded-full bg-slate-900 px-3.5 py-1.5 text-[12px] font-semibold text-white dark:bg-white dark:text-slate-900"
+                : "rounded-full border border-black/[0.06] bg-white/60 px-3.5 py-1.5 text-[12px] font-medium text-slate-600 transition-colors duration-150 ease-out hover:border-black/[0.12] hover:text-slate-900 dark:border-white/[0.08] dark:bg-white/[0.04] dark:text-white/60 dark:hover:text-white"
             }
           >
             {language.displayName}
@@ -395,18 +392,18 @@ export default async function ReaderBookDetail({
       ) : null}
 
       {!hasReadAccess && !isFreeBook && !isPerChapter ? (
-        <div className="rounded-[20px] border border-[#907AFF]/20 bg-[#907AFF]/5 p-5 text-sm">
+        <div className="rounded-2xl border border-[#907AFF]/15 bg-[#907AFF]/[0.04] p-5 text-sm dark:border-[#907AFF]/20 dark:bg-[#907AFF]/[0.06]">
           <p className="font-semibold text-slate-900 dark:text-white">This book requires purchase or Verkli Plus</p>
-          <p className="mt-1 text-slate-600 dark:text-white/60">
+          <p className="mt-1 text-slate-500 dark:text-white/50">
             Chapter 1 is free to read. Unlock all chapters for {formatMoney(priceAmount, priceCurrency)} or with Verkli Plus.
           </p>
         </div>
       ) : null}
 
       {!hasReadAccess && !isFreeBook && isPerChapter ? (
-        <div className="rounded-[20px] border border-[#907AFF]/20 bg-[#907AFF]/5 p-5 text-sm">
+        <div className="rounded-2xl border border-[#907AFF]/15 bg-[#907AFF]/[0.04] p-5 text-sm dark:border-[#907AFF]/20 dark:bg-[#907AFF]/[0.06]">
           <p className="font-semibold text-slate-900 dark:text-white">Chapters available individually</p>
-          <p className="mt-1 text-slate-600 dark:text-white/60">
+          <p className="mt-1 text-slate-500 dark:text-white/50">
             First chapter is free. Buy chapters individually for {formatMoney(priceAmount, priceCurrency)} each, or get all with Verkli Plus.
           </p>
         </div>
@@ -487,7 +484,7 @@ export default async function ReaderBookDetail({
   );
 
   const chapterRows = (
-    <div className="space-y-2">
+    <div className="divide-y divide-black/[0.04] dark:divide-white/[0.06]">
       {(chapters ?? []).map((chapterItem, index) => {
         const isPreviewChapter = index === 0;
         const isPurchased = purchasedChapterIds.has(chapterItem.id);
@@ -496,27 +493,28 @@ export default async function ReaderBookDetail({
         return (
           <div
             key={chapterItem.id}
-            className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-black/[0.06] bg-white/70 px-4 py-3 dark:border-white/10 dark:bg-white/[0.03]"
+            className="flex items-center justify-between gap-3 py-3 first:pt-0 last:pb-0"
           >
-            <div className="min-w-0">
-              <div className="flex items-center gap-3">
-                <span className="w-6 flex-shrink-0 text-right text-[12px] font-medium text-slate-400 dark:text-white/35">
-                  {chapterItem.order}
-                </span>
-                <Link
-                  href={`/reader/read/${chapterItem.id}`}
-                  className="truncate text-[14px] font-medium text-slate-900 hover:text-[#7058DD] dark:text-white dark:hover:text-[#b8a8ff]"
-                >
-                  {chapterItem.title}
-                </Link>
-              </div>
+            <div className="flex min-w-0 items-center gap-3">
+              <span className="w-6 flex-shrink-0 text-right text-xs tabular-nums text-slate-400 dark:text-white/30">
+                {chapterItem.order}
+              </span>
+              <Link
+                href={`/reader/read/${chapterItem.id}`}
+                className="truncate text-[13px] font-medium text-slate-700 transition-colors duration-150 ease-out hover:text-[#907AFF] dark:text-white/70 dark:hover:text-[#b8a8ff]"
+              >
+                {chapterItem.title}
+              </Link>
             </div>
 
-            <div className="flex items-center gap-2 text-[12px]">
+            <div className="flex shrink-0 items-center gap-2 text-[11px]">
               {isUnlocked ? (
-                <span className="rounded-full border border-emerald-500/20 bg-emerald-500/10 px-3 py-1 font-medium text-emerald-700 dark:text-emerald-300">
-                  {isPreviewChapter && !hasReadAccess ? "Preview" : "Open"}
-                </span>
+                <Link
+                  href={`/reader/read/${chapterItem.id}`}
+                  className="rounded-full bg-emerald-500/10 px-3 py-1 font-semibold text-emerald-700 transition-[background-color,transform] duration-150 ease-out hover:bg-emerald-500/20 active:scale-[0.97] dark:text-emerald-400"
+                >
+                  {isPreviewChapter && !hasReadAccess ? "Preview" : "Read"}
+                </Link>
               ) : user && isPerChapter ? (
                 <PurchaseChapterButton
                   bookId={book.id}
@@ -525,11 +523,14 @@ export default async function ReaderBookDetail({
                   currency={priceCurrency}
                 />
               ) : user ? (
-                <span className="rounded-full border border-black/[0.08] bg-white/70 px-3 py-1 font-medium text-slate-600 dark:border-white/10 dark:bg-white/[0.04] dark:text-white/60">
-                  Unlock with book access
+                <span className="rounded-full bg-slate-100 px-3 py-1 font-medium text-slate-500 dark:bg-white/[0.06] dark:text-white/40">
+                  Locked
                 </span>
               ) : (
-                <Link href={signInHref} className="text-[12px] font-medium text-[#7058DD] hover:text-[#5f49c8]">
+                <Link
+                  href={signInHref}
+                  className="rounded-full bg-[#907AFF]/10 px-3 py-1 font-semibold text-[#907AFF] transition-colors duration-150 ease-out hover:bg-[#907AFF]/20"
+                >
                   Sign in
                 </Link>
               )}
@@ -576,13 +577,16 @@ export default async function ReaderBookDetail({
     if (podFormats.length === 0) return null;
 
     return (
-      <section className="rounded-[28px] border border-black/[0.06] bg-white/88 p-5 shadow-[0_18px_48px_-36px_rgba(15,23,42,0.32)] dark:border-white/10 dark:bg-white/[0.04]">
-        <ReaderSectionHeader
-          eyebrow="Print"
-          title="Order a physical copy"
-          description="Printed and shipped on demand. Delivery usually takes 5–10 business days."
-        />
-        <div className="mt-5">
+      <div className="rounded-2xl border border-black/[0.05] bg-white/60 backdrop-blur-sm dark:border-white/[0.06] dark:bg-white/[0.02]">
+        <div className="border-b border-black/[0.05] px-6 py-4 dark:border-white/[0.06]">
+          <h3 className="text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-white/50">
+            Physical copy
+          </h3>
+        </div>
+        <div className="space-y-3 p-5">
+          <p className="text-sm text-slate-500 dark:text-white/50">
+            Printed and shipped on demand. Delivery usually takes 5–10 business days.
+          </p>
           {user ? (
             <OrderPhysicalCopyButton bookId={book.id} formats={podFormats} />
           ) : (
@@ -591,12 +595,12 @@ export default async function ReaderBookDetail({
             </Link>
           )}
         </div>
-      </section>
+      </div>
     );
   })();
 
   return (
-    <main className="min-h-screen bg-[#f7f8fb] text-foreground dark:bg-[#030712]">
+    <main className="min-h-screen text-foreground">
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}

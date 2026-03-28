@@ -90,7 +90,7 @@ export function PrintPanelPitch({ onGetStarted }: { onGetStarted: () => void }) 
         <button
           type="button"
           onClick={onGetStarted}
-          className="rounded-full bg-[#907AFF] px-8 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-[#7c6ae6]"
+          className="rounded-full bg-[#907AFF] px-8 py-3 text-sm font-semibold text-white shadow-sm transition-[background-color,transform] duration-150 ease-out hover:bg-[#7c6ae6] active:scale-[0.97]"
         >
           Get started
         </button>
@@ -195,7 +195,7 @@ export function PrintPanelActivated({
             <button
               type="button"
               onClick={onGoToSettings}
-              className="shrink-0 text-sm font-semibold text-amber-800 transition hover:text-amber-900 dark:text-amber-300 dark:hover:text-amber-200"
+              className="shrink-0 text-sm font-semibold text-amber-800 transition-colors duration-150 ease-out hover:text-amber-900 dark:text-amber-300 dark:hover:text-amber-200"
             >
               Set price &rarr;
             </button>
@@ -206,7 +206,7 @@ export function PrintPanelActivated({
       <button
         type="button"
         onClick={onGoToSettings}
-        className="text-sm font-semibold text-[#907AFF] transition hover:text-[#7c6ae6]"
+        className="text-sm font-semibold text-[#907AFF] transition-colors duration-150 ease-out hover:text-[#7c6ae6]"
       >
         Edit print settings &rarr;
       </button>
