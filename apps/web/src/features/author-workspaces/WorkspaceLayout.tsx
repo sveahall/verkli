@@ -91,7 +91,7 @@ export function WorkspaceMetric({
   className,
 }: WorkspaceMetricProps) {
   return (
-    <div className={cn("space-y-1", className)}>
+    <div className={cn("space-y-0", className)}>
       <dt className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400 dark:text-white/35">
         {label}
       </dt>
@@ -110,7 +110,7 @@ export default function WorkspaceLayout({
   return (
     <div className={cn("w-full", className)}>
       <div className="bg-white dark:bg-transparent">
-        <div className="mx-auto flex max-w-[1520px] items-center justify-between px-4 pb-5 pt-5 sm:px-6 sm:pt-8 lg:px-8 xl:px-10">
+        <div className="mx-auto flex max-w-[1520px] items-center justify-between px-4 pb-5 pt-10 sm:px-6 sm:pt-5 lg:px-8 lg:pt-10 xl:px-10">
           <div className="min-w-0">{header}</div>
           {headerRight ? <div className="shrink-0">{headerRight}</div> : null}
         </div>
