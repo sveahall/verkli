@@ -90,7 +90,7 @@ export default function ReaderHomePageView({
   const hasCatalogShelves = recommendedBooks.length > 0 || trendingBooks.length > 0 || latestReleases.length > 0;
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-6">
       <PageHeader
         eyebrow="Home"
         title={greeting}
@@ -104,7 +104,7 @@ export default function ReaderHomePageView({
       />
 
       {/* ── Hero spotlight ── */}
-      <Card className="relative overflow-hidden border-[#907AFF]/[0.08] bg-gradient-to-br from-[#907AFF]/[0.04] via-white to-[#E29ED5]/[0.03] dark:from-[#907AFF]/[0.1] dark:via-[#0f1117] dark:to-[#E29ED5]/[0.05]">
+      <Card className="relative overflow-hidden border-[#907AFF]/[0.08] bg-gradient-to-br from-[#907AFF]/[0.04] via-white to-[#E29ED5]/[0.03] dark:from-[#907AFF]/[0.1] dark:via-[#050917] dark:to-[#E29ED5]/[0.05]">
         <div className="pointer-events-none absolute -right-32 -top-32 h-[400px] w-[400px] rounded-full bg-[#907AFF]/[0.06] blur-[100px]" />
         <div className="pointer-events-none absolute -bottom-24 -left-24 h-[300px] w-[300px] rounded-full bg-[#E29ED5]/[0.05] blur-[80px]" />
         <CardContent>
@@ -188,16 +188,16 @@ export default function ReaderHomePageView({
 
       {/* ── Empty state ── */}
       {continueReading.length === 0 && !hasCatalogShelves ? (
-        <Card className="border-[#907AFF]/[0.06] bg-gradient-to-br from-[#907AFF]/[0.03] via-white to-[#E29ED5]/[0.02] dark:from-[#907AFF]/[0.08] dark:via-[#0f1117] dark:to-[#E29ED5]/[0.04]">
-          <CardContent className="py-10 text-center">
+        <Card>
+          <CardContent className="py-12 text-center">
             <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-[#907AFF]/10">
               <BookOpen className="h-6 w-6 text-[#907AFF]" />
             </div>
             <h2 className="mt-4 text-[18px] font-semibold text-slate-900 dark:text-white">Start building your shelves</h2>
-            <p className="mx-auto mt-1.5 max-w-md text-[14px] text-slate-500 dark:text-white/50">
+            <p className="mx-auto mt-1.5 max-w-md text-[14px] leading-relaxed text-slate-500 dark:text-white/50">
               Open a book from discovery and your reading progress will appear here.
             </p>
-            <Link href="/reader/discover" className="btn-primary mt-4 inline-flex items-center gap-2">
+            <Link href="/reader/discover" className="btn-primary mt-5 inline-flex items-center gap-2">
               <BookOpen className="h-4 w-4" /> Browse discovery
             </Link>
           </CardContent>

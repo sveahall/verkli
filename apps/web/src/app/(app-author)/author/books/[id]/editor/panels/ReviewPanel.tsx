@@ -1,7 +1,7 @@
 "use client";
 
 import Image from "next/image";
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { getLanguageLabel } from "@/lib/languages";
 import { getAudiobookStatusLabel } from "../bookEditor.shared";
 import type { Tool } from "../BookEditorView.types";
@@ -54,6 +54,40 @@ export type ReviewPanelProps = {
   onNavigate: (panel: Tool) => void;
   onPublish?: () => void;
 };
+
+/* ── Copy-to-clipboard helper ── */
+
+function CopyLinkButton({ url }: { url: string }) {
+  const [copied, setCopied] = useState(false);
+
+  return (
+    <button
+      type="button"
+      onClick={() => {
+        void navigator.clipboard.writeText(url);
+        setCopied(true);
+        setTimeout(() => setCopied(false), 2000);
+      }}
+      className="flex items-center gap-2 rounded-xl border border-black/[0.06] bg-white px-4 py-2.5 text-sm font-medium text-slate-700 transition hover:bg-slate-50 dark:border-white/[0.06] dark:bg-white/[0.04] dark:text-white/70 dark:hover:bg-white/[0.06]"
+    >
+      {copied ? (
+        <>
+          <svg className="h-4 w-4 text-emerald-500" viewBox="0 0 20 20" fill="currentColor">
+            <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+          </svg>
+          Copied!
+        </>
+      ) : (
+        <>
+          <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M13.19 8.688a4.5 4.5 0 0 1 1.242 7.244l-4.5 4.5a4.5 4.5 0 0 1-6.364-6.364l1.757-1.757m13.35-.622 1.757-1.757a4.5 4.5 0 0 0-6.364-6.364l-4.5 4.5a4.5 4.5 0 0 0 1.242 7.244" />
+          </svg>
+          Copy link
+        </>
+      )}
+    </button>
+  );
+}
 
 /* ── Helpers ── */
 
@@ -151,6 +185,7 @@ function Issue({ text, onFix }: { text: string; onFix: () => void }) {
 /* ── Main ── */
 
 export default function ReviewPanel({
+  bookId,
   bookTitle,
   chapters,
   bookVersions,
@@ -203,7 +238,7 @@ export default function ReviewPanel({
     issues.push({ text: "Book is set to free \u2014 set a price if you want to earn", panel: "publish" });
 
   return (
-    <div className="mx-auto max-w-3xl space-y-5">
+    <div className="space-y-5">
       {/* ── Hero: Book identity ── */}
       <div className="grid items-start gap-6 rounded-2xl border border-black/[0.05] bg-white/60 p-6 backdrop-blur-sm dark:border-white/[0.06] dark:bg-white/[0.02] sm:grid-cols-[140px_1fr]">
         <div className="relative mx-auto aspect-[3/4] w-[140px] overflow-hidden rounded-xl border border-black/[0.06] bg-slate-50 shadow-sm dark:border-white/[0.06] dark:bg-white/[0.02] sm:mx-0">
@@ -265,6 +300,35 @@ export default function ReviewPanel({
           </div>
         </div>
       </div>
+
+      {/* ── Quick actions ── */}
+      {isPublished && (
+        <div className="flex flex-wrap gap-3">
+          <a
+            href={`/reader/books/${bookId}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex items-center gap-2 rounded-xl bg-gradient-to-b from-[#907AFF] to-[#7c6ae6] px-5 py-2.5 text-sm font-semibold text-white shadow-[0_1px_2px_rgba(144,122,255,0.3),inset_0_1px_0_rgba(255,255,255,0.15)] transition hover:shadow-[0_4px_12px_rgba(144,122,255,0.35)] hover:brightness-110"
+          >
+            <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M2.036 12.322a1.012 1.012 0 0 1 0-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178Z" />
+              <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z" />
+            </svg>
+            Preview as reader
+          </a>
+          <CopyLinkButton url={`${typeof window !== "undefined" ? window.location.origin : ""}/reader/books/${bookId}`} />
+          <button
+            type="button"
+            onClick={() => onNavigate("market")}
+            className="flex items-center gap-2 rounded-xl border border-black/[0.06] bg-white px-4 py-2.5 text-sm font-medium text-slate-700 transition hover:bg-slate-50 dark:border-white/[0.06] dark:bg-white/[0.04] dark:text-white/70 dark:hover:bg-white/[0.06]"
+          >
+            <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M10.34 15.84c-.688-.06-1.386-.09-2.09-.09H7.5a4.5 4.5 0 1 1 0-9h.75c.704 0 1.402-.03 2.09-.09m0 9.18c.253.962.584 1.892.985 2.783.247.55.06 1.21-.463 1.511l-.657.38c-.551.318-1.26.117-1.527-.461a20.845 20.845 0 0 1-1.44-4.282m3.102.069a18.03 18.03 0 0 1-.59-4.59c0-1.586.205-3.124.59-4.59m0 9.18a23.848 23.848 0 0 1 8.835 2.535M10.34 6.66a23.847 23.847 0 0 0 8.835-2.535m0 0A23.74 23.74 0 0 0 18.795 3m.38 1.125a23.91 23.91 0 0 1 1.014 5.395m-1.014 8.855c-.118.38-.245.754-.38 1.125m.38-1.125a23.91 23.91 0 0 0 1.014-5.395m0-3.46c.495.413.811 1.035.811 1.73 0 .695-.316 1.317-.811 1.73m0-3.46a24.347 24.347 0 0 1 0 3.46" />
+            </svg>
+            Promote
+          </button>
+        </div>
+      )}
 
       {/* ── Issues ── */}
       {issues.length > 0 && (
@@ -401,17 +465,46 @@ export default function ReviewPanel({
       </Section>
 
       {/* ── Marketing ── */}
-      {campaignCount > 0 && (
-        <Section title="Marketing" status="ok">
-          <p className="text-xs text-slate-600 dark:text-white/60">
-            {campaignCount} campaign{campaignCount > 1 ? "s" : ""} generated and ready.
-          </p>
-        </Section>
-      )}
+      <Section
+        title="Marketing"
+        status={campaignCount > 0 ? "ok" : "missing"}
+        action={{ label: campaignCount > 0 ? "Manage" : "Create", onClick: () => onNavigate("market") }}
+      >
+        {campaignCount > 0 ? (
+          <div className="space-y-3">
+            <p className="text-xs text-slate-600 dark:text-white/60">
+              {campaignCount} campaign{campaignCount > 1 ? "s" : ""} generated and ready.
+            </p>
+            <button
+              type="button"
+              onClick={() => onNavigate("market")}
+              className="flex items-center gap-2 text-xs font-semibold text-[#907AFF] transition hover:text-[#7c6ae6]"
+            >
+              <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
+              </svg>
+              Generate more campaigns
+            </button>
+          </div>
+        ) : (
+          <div className="space-y-3">
+            <p className="text-xs text-slate-500 dark:text-white/50">
+              No marketing campaigns yet. Generate social media posts, email copy, and more.
+            </p>
+            <button
+              type="button"
+              onClick={() => onNavigate("market")}
+              className="rounded-xl bg-[#907AFF]/10 px-4 py-2 text-xs font-semibold text-[#907AFF] transition hover:bg-[#907AFF]/20"
+            >
+              Create first campaign
+            </button>
+          </div>
+        )}
+      </Section>
 
       {/* ── Primary action ── */}
-      <div className="pt-2">
-        {!isPublished ? (
+      {!isPublished && (
+        <div className="pt-2">
           <button
             type="button"
             onClick={onPublish ?? (() => onNavigate("publish"))}
@@ -420,24 +513,8 @@ export default function ReviewPanel({
           >
             Publish book
           </button>
-        ) : (
-          <div className="rounded-2xl border border-emerald-200/60 bg-emerald-50/40 px-5 py-4 text-center dark:border-emerald-500/15 dark:bg-emerald-500/5">
-            <p className="text-sm font-semibold text-emerald-700 dark:text-emerald-400">
-              This book is published
-            </p>
-            <p className="mt-1 text-xs text-emerald-600/70 dark:text-emerald-400/60">
-              Go to Publish to release more chapters or update settings.
-            </p>
-            <button
-              type="button"
-              onClick={() => onNavigate("publish")}
-              className="mt-3 rounded-xl border border-emerald-300/60 bg-white px-5 py-2 text-sm font-medium text-emerald-700 transition hover:bg-emerald-50 dark:border-emerald-500/20 dark:bg-white/[0.04] dark:text-emerald-400 dark:hover:bg-white/[0.06]"
-            >
-              Manage publish settings
-            </button>
-          </div>
-        )}
-      </div>
+        </div>
+      )}
     </div>
   );
 }

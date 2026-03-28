@@ -46,7 +46,7 @@ export default function ReaderDiscoverPageView({
   const popularGenres = genres.slice(0, 8);
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-6">
       <PageHeader
         eyebrow="Discover"
         title="Find your next read"
@@ -63,7 +63,7 @@ export default function ReaderDiscoverPageView({
       />
 
       {/* ── Hero ── */}
-      <Card className="relative overflow-hidden border-[#907AFF]/[0.08] bg-gradient-to-br from-[#907AFF]/[0.04] via-white to-[#E29ED5]/[0.03] dark:from-[#907AFF]/[0.1] dark:via-[#0f1117] dark:to-[#E29ED5]/[0.05]">
+      <Card className="relative overflow-hidden border-[#907AFF]/[0.08] bg-gradient-to-br from-[#907AFF]/[0.04] via-white to-[#E29ED5]/[0.03] dark:from-[#907AFF]/[0.1] dark:via-[#050917] dark:to-[#E29ED5]/[0.05]">
         <div className="pointer-events-none absolute -right-32 -top-32 h-[400px] w-[400px] rounded-full bg-[#907AFF]/[0.06] blur-[100px]" />
         <div className="pointer-events-none absolute -bottom-24 left-1/4 h-[250px] w-[250px] rounded-full bg-[#E29ED5]/[0.05] blur-[80px]" />
         <CardContent>

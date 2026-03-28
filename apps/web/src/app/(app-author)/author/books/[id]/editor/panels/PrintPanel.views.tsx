@@ -123,87 +123,93 @@ export function PrintPanelActivated({
   );
 
   return (
-    <div className="mx-auto max-w-2xl py-10">
-      <div className="overflow-hidden rounded-2xl border border-slate-200/80 bg-white shadow-sm dark:border-white/[0.08] dark:bg-white/[0.03] dark:shadow-none">
-        {/* Header */}
-        <div className="flex items-center gap-3.5 border-b border-slate-100 px-6 py-5 dark:border-white/[0.06]">
-          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-emerald-50 dark:bg-emerald-500/10">
-            <svg className="h-4 w-4 text-emerald-500" viewBox="0 0 20 20" fill="currentColor">
-              <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-            </svg>
-          </div>
-          <div>
-            <h2 className="text-[15px] font-semibold text-slate-900 dark:text-white">
-              Print on demand is active
-            </h2>
-            <p className="text-[13px] text-slate-500 dark:text-white/50">
-              Readers can order a physical copy. Printed and shipped on demand.
-            </p>
-          </div>
+    <div className="space-y-6">
+      <h2 className="text-[clamp(20px,2.5vw,24px)] font-bold tracking-[-0.02em] text-slate-900 dark:text-white">
+        Print on demand
+      </h2>
+
+      <div className="rounded-2xl border border-black/[0.05] bg-white/60 p-5 shadow-[0_1px_3px_rgba(0,0,0,0.02)] backdrop-blur-sm dark:border-white/[0.06] dark:bg-white/[0.02] dark:shadow-none">
+        {/* Status */}
+        <div className="mb-4 flex items-center gap-2.5">
+          <span className="rounded-full bg-emerald-500/10 px-3 py-1 text-[11px] font-semibold uppercase tracking-wide text-emerald-600 dark:bg-emerald-400/15 dark:text-emerald-400">
+            Active
+          </span>
+          <span className="text-xs text-slate-400 dark:text-white/40">
+            Readers can order a physical copy
+          </span>
         </div>
 
         {/* Detail rows */}
-        <div className="divide-y divide-slate-100 dark:divide-white/[0.06]">
-          <div className="flex items-center justify-between px-6 py-4">
-            <span className="text-[13px] text-slate-500 dark:text-white/50">Format</span>
-            <span className="text-[13px] font-medium text-slate-900 dark:text-white">
+        <div className="divide-y divide-black/[0.04] dark:divide-white/[0.06]">
+          <div className="flex items-center justify-between py-3">
+            <span className="text-sm text-slate-500 dark:text-white/50">Format</span>
+            <span className="text-sm font-medium text-slate-900 dark:text-white">
               {formatLabels.join(" & ")}
             </span>
           </div>
-          <div className="flex items-center justify-between px-6 py-4">
-            <span className="text-[13px] text-slate-500 dark:text-white/50">Edition</span>
-            <span className="text-[13px] font-medium text-slate-900 dark:text-white">
+          <div className="flex items-center justify-between py-3">
+            <span className="text-sm text-slate-500 dark:text-white/50">Edition</span>
+            <span className="text-sm font-medium text-slate-900 dark:text-white">
               {editionLimit === "limited" ? `Limited — ${limitCount} copies` : "Unlimited"}
             </span>
           </div>
           {persistedSettings.softcoverPriceMinor && selectedFormats.has("softcover") ? (
-            <div className="flex items-center justify-between px-6 py-4">
-              <span className="text-[13px] text-slate-500 dark:text-white/50">Softcover price</span>
-              <span className="text-[13px] font-medium text-slate-900 dark:text-white">
+            <div className="flex items-center justify-between py-3">
+              <span className="text-sm text-slate-500 dark:text-white/50">Softcover price</span>
+              <span className="text-sm font-medium text-slate-900 dark:text-white">
                 {(persistedSettings.softcoverPriceMinor / 100).toFixed(0)} {persistedSettings.priceCurrency}
               </span>
             </div>
           ) : null}
           {persistedSettings.hardcoverPriceMinor && selectedFormats.has("hardcover") ? (
-            <div className="flex items-center justify-between px-6 py-4">
-              <span className="text-[13px] text-slate-500 dark:text-white/50">Hardcover price</span>
-              <span className="text-[13px] font-medium text-slate-900 dark:text-white">
+            <div className="flex items-center justify-between py-3">
+              <span className="text-sm text-slate-500 dark:text-white/50">Hardcover price</span>
+              <span className="text-sm font-medium text-slate-900 dark:text-white">
                 {(persistedSettings.hardcoverPriceMinor / 100).toFixed(0)} {persistedSettings.priceCurrency}
               </span>
             </div>
           ) : null}
+          {persistedSettings.isbn && (
+            <div className="flex items-center justify-between py-3">
+              <span className="text-sm text-slate-500 dark:text-white/50">ISBN</span>
+              <span className="font-mono text-sm font-medium text-slate-900 dark:text-white">
+                {persistedSettings.isbn}
+              </span>
+            </div>
+          )}
         </div>
+      </div>
 
-        {/* Warning row */}
-        {hasMissingPrices && (
-          <div className="flex items-center justify-between border-t border-amber-200 bg-amber-50 px-6 py-4 dark:border-amber-800/40 dark:bg-amber-950/30">
+      {/* Warning: missing prices */}
+      {hasMissingPrices && (
+        <div className="rounded-2xl border border-amber-200/60 bg-amber-50/60 p-5 dark:border-amber-500/20 dark:bg-amber-500/5">
+          <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <div className="h-1.5 w-1.5 shrink-0 rounded-full bg-amber-400" />
-              <span className="text-[13px] font-medium text-amber-700 dark:text-amber-400">
+              <svg className="h-4 w-4 shrink-0 text-amber-500" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m9-.75a9 9 0 1 1-18 0 9 9 0 0 1 18 0Zm-9 3.75h.008v.008H12v-.008Z" />
+              </svg>
+              <span className="text-sm font-medium text-amber-800 dark:text-amber-300">
                 Price not set — readers cannot order yet
               </span>
             </div>
             <button
               type="button"
               onClick={onGoToSettings}
-              className="shrink-0 text-[13px] font-semibold text-amber-800 transition hover:text-amber-900 dark:text-amber-300 dark:hover:text-amber-200"
+              className="shrink-0 text-sm font-semibold text-amber-800 transition hover:text-amber-900 dark:text-amber-300 dark:hover:text-amber-200"
             >
               Set price &rarr;
             </button>
           </div>
-        )}
-
-        {/* Footer */}
-        <div className="border-t border-slate-100 bg-slate-50/80 px-6 py-4 dark:border-white/[0.06] dark:bg-white/[0.02]">
-          <button
-            type="button"
-            onClick={onGoToSettings}
-            className="text-[13px] font-semibold text-[#907AFF] transition hover:text-[#7c6ae6]"
-          >
-            Edit settings &rarr;
-          </button>
         </div>
-      </div>
+      )}
+
+      <button
+        type="button"
+        onClick={onGoToSettings}
+        className="text-sm font-semibold text-[#907AFF] transition hover:text-[#7c6ae6]"
+      >
+        Edit print settings &rarr;
+      </button>
     </div>
   );
 }

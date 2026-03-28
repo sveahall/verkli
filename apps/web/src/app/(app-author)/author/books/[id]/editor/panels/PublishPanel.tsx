@@ -151,7 +151,7 @@ export default function PublishPanel({
   );
 
   return (
-    <div className="mx-auto max-w-3xl space-y-6">
+    <div className="space-y-6">
       {/* ── Hero card: book info + status ── */}
       <div className="grid items-start gap-6 rounded-2xl border border-black/[0.05] bg-white/60 p-6 backdrop-blur-sm dark:border-white/[0.06] dark:bg-white/[0.02] sm:grid-cols-[120px_1fr]">
         {/* Cover thumbnail */}

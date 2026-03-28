@@ -10,7 +10,6 @@ import type {
   BookVersion,
   Chapter,
   MarketingCampaignRow,
-  PublishVisibility,
   Tool,
 } from "./BookEditorView.types";
 import type { PrintOnDemandSettings } from "./panels/PrintPanel.helpers";
@@ -78,7 +77,7 @@ export default function BookEditorPanelContent({
   bookVersions,
   totalBookWordCount,
   selectedChapterId,
-  selectedChapter: _selectedChapter,
+  selectedChapter: _selectedChapter, // eslint-disable-line @typescript-eslint/no-unused-vars
   importJobs,
   stripeConfigured,
   marketingCampaigns,
@@ -262,7 +261,7 @@ export default function BookEditorPanelContent({
               printOnDemandSettings={printOnDemandSettings}
               onOpenEdit={() => onNavigateToPanel("edit")}
               onOpenCover={() => onNavigateToPanel("cover")}
-              onOpenPublish={() => {}}
+              onOpenPublish={() => onNavigateToPanel("publish")}
               onSavePrintOnDemandSettings={onSavePrintOnDemandSettings}
             />
           </div>

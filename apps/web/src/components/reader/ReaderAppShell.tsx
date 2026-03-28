@@ -76,7 +76,8 @@ export default function ReaderAppShell({
   return (
     <div className="relative min-h-[100dvh] bg-[#F0F1F6] text-foreground dark:bg-[#050917] lg:grid lg:grid-cols-[220px_minmax(0,1fr)]">
       {/* ── Desktop sidebar ── */}
-      <aside className="hidden border-r border-[#ECEAF5] bg-white pr-4 dark:border-white/10 dark:bg-[#070b14] lg:sticky lg:top-0 lg:flex lg:h-screen lg:flex-col lg:overflow-hidden">
+      <div className="hidden border-r border-[#ECEAF5] bg-white dark:border-white/10 dark:bg-[#070b14] lg:block">
+      <aside className="pr-4 lg:sticky lg:top-0 lg:flex lg:h-screen lg:flex-col lg:overflow-hidden">
         <div className="px-5 pt-7 pb-6">
           <Link href="/reader/home" className="inline-flex items-center">
             <Image
@@ -166,14 +167,15 @@ export default function ReaderAppShell({
           )}
         </div>
       </aside>
+      </div>
 
       {/* ── Main content ── */}
-      <main className="page-content relative pb-24 pt-6 sm:pt-8 lg:pb-8 lg:pt-10">{children}</main>
+      <main className="page-content relative min-h-screen bg-[radial-gradient(circle_at_top_left,rgba(144,122,255,0.05),transparent_40%),radial-gradient(circle_at_top_right,rgba(226,158,213,0.04),transparent_45%),linear-gradient(180deg,#fafbfe_0%,#f0f1f6_100%)] pb-24 pt-6 dark:bg-[radial-gradient(circle_at_top_left,rgba(144,122,255,0.07),transparent_42%),radial-gradient(circle_at_top_right,rgba(255,255,255,0.03),transparent_45%),linear-gradient(180deg,_#0a0c14_0%,_#050917_100%)] sm:pt-8 lg:pb-8 lg:pt-10">{children}</main>
 
       {/* ── Mobile bottom nav ── */}
       <nav
         aria-label="Reader navigation"
-        className="fixed bottom-0 left-0 right-0 z-[9990] border-t border-[#ECEAF5] bg-white/95 shadow-[0_-8px_24px_rgba(15,23,42,0.06)] backdrop-blur-2xl dark:border-white/10 dark:bg-[#050816]/95 lg:hidden"
+        className="fixed bottom-0 left-0 right-0 z-[9990] border-t border-[#ECEAF5] bg-white/95 shadow-[0_-8px_24px_rgba(15,23,42,0.06)] backdrop-blur-2xl dark:border-white/10 dark:bg-[#050917]/95 lg:hidden"
       >
         <div className="mx-auto flex max-w-md items-center justify-around px-6 pb-[calc(env(safe-area-inset-bottom,0)+0.5rem)] pt-2">
           {navItems.map((item) => {

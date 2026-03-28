@@ -140,7 +140,7 @@ export default function ImportManusSection({
   }, [bookId, bookVersionId, repairing, router]);
 
   return (
-    <div className="mx-auto max-w-3xl space-y-6">
+    <div className="space-y-6">
       <h2 className="text-xl font-semibold text-slate-900 dark:text-white">Import manuscript</h2>
       <p className="text-sm text-slate-600 dark:text-white/60">
         Upload a file to import chapters into this book. Supported formats: EPUB, DOCX, HTML, TXT, PDF. Max {IMPORT_MAX_MB} MB.

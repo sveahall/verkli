@@ -1,6 +1,7 @@
 "use client";
 
 import { memo, useState, type ChangeEventHandler } from "react";
+import Image from "next/image";
 import type { BookWorkspaceChapter } from "@/features/book-workspace/types";
 import { cn } from "@/lib/utils";
 
@@ -85,10 +86,13 @@ function ChapterRail({
         <div className="flex items-center gap-3">
           <div className="relative h-12 w-12 overflow-hidden rounded-2xl border border-black/[0.06] bg-slate-50/60 dark:border-white/[0.08] dark:bg-white/[0.03]">
             {coverImageUrl ? (
-              <img
+              <Image
                 src={coverImageUrl}
                 alt={`${bookTitle} cover`}
                 className="h-full w-full object-cover"
+                width={48}
+                height={48}
+                unoptimized
               />
             ) : (
               <div className="flex h-full w-full items-center justify-center text-[11px] font-semibold text-slate-400 dark:text-white/35">

@@ -36,7 +36,7 @@ function makeSupabase(config: {
         let isChapterLevel = false;
         const chain = {
           select() { return chain; },
-          eq(_col: string, _val: unknown) {
+          eq(_col: string, _val: unknown) { // eslint-disable-line @typescript-eslint/no-unused-vars
             if (_col === "chapter_id") isChapterLevel = true;
             return chain;
           },

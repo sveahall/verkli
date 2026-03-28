@@ -45,7 +45,7 @@ export default function ReaderLibraryPageView({ initialData }: ReaderLibraryPage
   const noSearchResults = isSearching && !showReading && !showSaved && !showFinished;
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-6">
       <PageHeader
         eyebrow="Library"
         title="Your books"
@@ -79,16 +79,16 @@ export default function ReaderLibraryPageView({ initialData }: ReaderLibraryPage
 
       {/* ── Empty library ── */}
       {!hasAnyBooks ? (
-        <Card className="border-[#907AFF]/[0.06] bg-gradient-to-br from-[#907AFF]/[0.03] via-white to-[#E29ED5]/[0.02] dark:from-[#907AFF]/[0.08] dark:via-[#0f1117] dark:to-[#E29ED5]/[0.04]">
-          <CardContent className="py-10 text-center">
+        <Card>
+          <CardContent className="py-12 text-center">
             <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-[#907AFF]/10">
               <BookOpen className="h-6 w-6 text-[#907AFF]" />
             </div>
             <h2 className="mt-4 text-[18px] font-semibold text-slate-900 dark:text-white">Your library is empty</h2>
-            <p className="mx-auto mt-1.5 max-w-md text-[14px] text-slate-500 dark:text-white/50">
+            <p className="mx-auto mt-1.5 max-w-md text-[14px] leading-relaxed text-slate-500 dark:text-white/50">
               Start reading from discovery and your books will be organized here.
             </p>
-            <Link href="/reader/discover" className="btn-primary mt-4 inline-flex items-center gap-2">
+            <Link href="/reader/discover" className="btn-primary mt-5 inline-flex items-center gap-2">
               <BookOpen className="h-4 w-4" /> Browse discovery
             </Link>
           </CardContent>

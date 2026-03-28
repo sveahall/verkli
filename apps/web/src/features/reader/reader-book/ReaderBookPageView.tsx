@@ -27,7 +27,7 @@ export default function ReaderBookPageView({
   backHref, title, authorName, authorHref, cover, followAction, metaChips, languageSwitcher, description, notices, actionBar, utilityBar, editionNotes, chaptersSection, podSection, relatedSection, reviewsSection, commentsSection,
 }: ReaderBookPageViewProps) {
   return (
-    <div className="mx-auto max-w-5xl space-y-8">
+    <div className="mx-auto max-w-5xl space-y-6">
       <header>
         <Link href={backHref} className="inline-flex items-center gap-2 text-[14px] font-medium text-slate-500 transition-colors hover:text-slate-900 dark:text-white/50 dark:hover:text-white">
           <ArrowLeft className="h-4 w-4" /> Back to discover
@@ -35,7 +35,7 @@ export default function ReaderBookPageView({
       </header>
 
       {/* ── Main book card ── */}
-      <Card className="relative overflow-hidden border-[#907AFF]/[0.06] bg-gradient-to-br from-[#907AFF]/[0.03] via-white to-white dark:from-[#907AFF]/[0.08] dark:via-[#0f1117] dark:to-[#0f1117]">
+      <Card className="relative overflow-hidden border-[#907AFF]/[0.06] bg-gradient-to-br from-[#907AFF]/[0.03] via-white to-white dark:from-[#907AFF]/[0.08] dark:via-[#050917] dark:to-[#050917]">
         <div className="pointer-events-none absolute -right-24 -top-24 h-[300px] w-[300px] rounded-full bg-[#907AFF]/[0.06] blur-[80px]" />
         <CardContent>
           <div className="relative grid gap-8 lg:grid-cols-[260px_minmax(0,1fr)] lg:items-start">

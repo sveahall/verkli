@@ -30,8 +30,13 @@ type ProductionWorkspaceProps = {
 
 /* ─── Pipeline ─── */
 
-const PIPELINE_LABELS = [
-  "Write", "Cover", "Audio", "Translate", "Publish", "Review",
+const PIPELINE_STEPS = [
+  { label: "Write",     panel: "edit" },
+  { label: "Cover",     panel: "cover" },
+  { label: "Audio",     panel: "audiobook" },
+  { label: "Translate", panel: "translate" },
+  { label: "Publish",   panel: "publish" },
+  { label: "Review",    panel: "review" },
 ] as const;
 
 function getPipelineDone(book: BookItem): boolean[] {
@@ -45,28 +50,36 @@ function getPipelineDone(book: BookItem): boolean[] {
   ];
 }
 
+function getNextPanel(book: BookItem): string {
+  const done = getPipelineDone(book);
+  const firstIncomplete = done.findIndex((d) => !d);
+  if (firstIncomplete === -1) return "review";
+  return PIPELINE_STEPS[firstIncomplete].panel;
+}
+
 /* ─── Book card ─── */
 
 function BookProductionCard({ book }: { book: BookItem }) {
   const done = getPipelineDone(book);
   const isPublished = book.status === "PUBLISHED";
+  const nextPanel = getNextPanel(book);
+  const href = `/author/books/${book.id}?panel=${nextPanel}`;
 
   return (
-    <div className="group relative rounded-2xl border border-black/[0.04] bg-white px-6 pr-0 py-5 shadow-[0_1px_3px_rgba(0,0,0,0.04)] dark:border-white/[0.06] dark:bg-[#111318]">
-      {/* Trash — top-right corner */}
-      <DeleteBookButton
-        bookId={book.id}
-        bookTitle={book.title}
-        label=""
-        className="absolute right-7 top-5 p-1 text-slate-300 transition-colors hover:text-slate-500 dark:text-white/15 dark:hover:text-white/40"
-      />
+    <div className="group relative rounded-2xl border border-black/[0.04] bg-white shadow-[0_1px_3px_rgba(0,0,0,0.04)] transition hover:border-black/[0.08] hover:shadow-[0_2px_8px_rgba(0,0,0,0.08)] dark:border-white/[0.06] dark:bg-[#111318] dark:hover:border-white/[0.10]">
+      {/* Trash — top-right corner, stops link propagation */}
+      <div className="absolute right-7 top-5 z-10" onClick={(e) => e.preventDefault()}>
+        <DeleteBookButton
+          bookId={book.id}
+          bookTitle={book.title}
+          label=""
+          className="p-1 text-slate-300 transition-colors hover:text-slate-500 dark:text-white/15 dark:hover:text-white/40"
+        />
+      </div>
 
-      <div className="flex items-center gap-6 pr-6">
+      <Link href={href} className="flex items-center gap-6 px-6 py-5">
         {/* Cover */}
-        <Link
-          href={`/author/books/${book.id}`}
-          className="relative h-[100px] w-[70px] shrink-0 overflow-hidden rounded-lg bg-slate-100 shadow-[0_2px_8px_rgba(0,0,0,0.08)] dark:bg-white/[0.04]"
-        >
+        <div className="relative h-[100px] w-[70px] shrink-0 overflow-hidden rounded-lg bg-slate-100 shadow-[0_2px_8px_rgba(0,0,0,0.08)] dark:bg-white/[0.04]">
           {book.coverImageUrl ? (
             <Image src={book.coverImageUrl} alt="" fill sizes="70px" className="object-cover" unoptimized />
           ) : (
@@ -74,7 +87,7 @@ function BookProductionCard({ book }: { book: BookItem }) {
               <BookOpen className="h-5 w-5 text-slate-300 dark:text-white/10" />
             </div>
           )}
-        </Link>
+        </div>
 
         {/* Title + author + badge */}
         <div className="min-w-0 shrink-0" style={{ width: 200 }}>
@@ -106,14 +119,14 @@ function BookProductionCard({ book }: { book: BookItem }) {
             Progress
           </p>
           <div className="flex gap-7">
-            {PIPELINE_LABELS.map((label, i) => (
-              <div key={label} className="flex flex-col items-center gap-1.5">
+            {PIPELINE_STEPS.map((step, i) => (
+              <div key={step.label} className="flex flex-col items-center gap-1.5">
                 <span
                   className={`text-[11px] font-medium leading-none ${
                     done[i] ? "text-slate-600 dark:text-white/60" : "text-slate-300 dark:text-white/15"
                   }`}
                 >
-                  {label}
+                  {step.label}
                 </span>
                 <span
                   className={`block h-[10px] w-[10px] rounded-full ${
@@ -125,19 +138,16 @@ function BookProductionCard({ book }: { book: BookItem }) {
           </div>
         </div>
 
-        {/* Continue editing — bottom-right */}
+        {/* Continue — bottom-right */}
         <div className="shrink-0 self-end">
-          <Link
-            href={`/author/books/${book.id}`}
-            className="inline-flex items-center mr-0 gap-2 rounded-full border border-slate-200 px-4 py-2 text-sm font-medium text-slate-600 transition-colors hover:border-slate-300 hover:text-slate-800 dark:border-white/10 dark:text-white/50 dark:hover:text-white/70"
-          >
+          <span className="inline-flex items-center gap-2 rounded-full border border-slate-200 px-4 py-2 text-sm font-medium text-slate-600 transition-colors group-hover:border-[#907AFF]/30 group-hover:text-[#907AFF] dark:border-white/10 dark:text-white/50 dark:group-hover:border-[#907AFF]/30 dark:group-hover:text-[#907AFF]">
             Continue editing
-            <span className="flex h-5 w-5 items-center justify-center rounded-full border border-slate-300 dark:border-white/20">
+            <span className="flex h-5 w-5 items-center justify-center rounded-full border border-slate-300 transition-colors group-hover:border-[#907AFF]/40 dark:border-white/20">
               <ChevronRight className="h-3 w-3" />
             </span>
-          </Link>
+          </span>
         </div>
-      </div>
+      </Link>
     </div>
   );
 }

@@ -123,7 +123,7 @@ export default function AudiobookPanel({
   const [audiobookPreviewTone, setAudiobookPreviewTone] = useState("neutral");
 
   return (
-    <div className="mx-auto max-w-4xl space-y-6">
+    <div className="space-y-6">
       <h2 className="text-[13px] font-semibold uppercase tracking-[0.08em] text-slate-800 dark:text-white/70">AUDIOBOOK PREVIEW</h2>
 
       {/* Dropdowns row */}

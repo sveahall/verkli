@@ -59,7 +59,7 @@ export function useAudiobook({
   activeLanguage,
   selectedChapterId,
   // totalBookWordCount is accepted for interface contract but not used internally at this time
-  totalBookWordCount: _totalBookWordCount,
+  totalBookWordCount: _totalBookWordCount, // eslint-disable-line @typescript-eslint/no-unused-vars
   latestAudiobookAsset,
   billing,
   allJobs,
@@ -112,17 +112,11 @@ export function useAudiobook({
   // ── Computed: audiobook meta ───────────────────────────────────────────────
 
   const {
-    latestAudiobookMeta,
-    latestAudiobookScope,
     latestAudiobookControlState,
     latestAudiobookPauseRequested,
     latestAudiobookCancelRequested,
     latestAudiobookManifestUrl,
-    latestAudiobookAudioUrl,
-    latestAudiobookGeneratedChapterAudioUrl,
-    latestAudiobookAssetAudioUrl,
     fallbackGeneratedAudiobookUrl,
-    latestAudiobookChapterIds,
     hasCompletedAudiobookJob,
     hasCompletedChapterAudiobookJob,
     hasFailedAudiobookJob,
@@ -181,18 +175,6 @@ export function useAudiobook({
     return "chapters";
   }, [audiobookRequestedChapterIds]);
 
-  const selectedAudiobookChapters = useMemo(
-    () => chapters.filter((chapter) => audiobookRequestedChapterIds.includes(chapter.id)),
-    [chapters, audiobookRequestedChapterIds]
-  );
-
-  const audiobookSelectionSummary =
-    audiobookRequestScope === "book"
-      ? "Entire book"
-      : audiobookRequestScope === "chapter"
-        ? selectedAudiobookChapters[0]?.title ?? "Selected chapter"
-        : `${audiobookRequestedChapterIds.length} chapters selected`;
-
   const canPauseAudiobook =
     isAudiobookActive &&
     audiobookControlPending === null &&
@@ -209,19 +191,6 @@ export function useAudiobook({
     isAudiobookActive &&
     audiobookControlPending === null &&
     audiobookStatusUi !== "cancel_requested";
-
-  const activeAudiobookScopeSummary =
-    latestAudiobookScope === "chapter"
-      ? (typeof latestAudiobookMeta.currentChapterTitle === "string"
-          ? latestAudiobookMeta.currentChapterTitle
-          : "Single chapter")
-      : latestAudiobookScope === "chapters"
-        ? `${Math.max(
-            1,
-            latestAudiobookChapterIds.length ||
-              (effectiveAudiobookProgress?.totalChapters ?? 0)
-          )} selected chapters`
-        : "Entire book";
 
   // ── Effect: sync audiobook state from latestAudiobookJob ───────────────────
 

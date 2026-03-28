@@ -224,13 +224,10 @@ export default function PrintPanel({
 
   /* ── Configuration ── */
   return (
-    <div className="mx-auto max-w-2xl space-y-10 py-6">
-      <div className="text-center">
-        <p className="text-xs font-semibold uppercase tracking-[0.2em] text-[#907AFF]">Print on demand</p>
-        <h2 className="mt-2 text-xl font-semibold tracking-tight text-slate-900 dark:text-white">
-          Set up your physical book
-        </h2>
-      </div>
+    <div className="space-y-6">
+      <h2 className="text-[clamp(20px,2.5vw,24px)] font-bold tracking-[-0.02em] text-slate-900 dark:text-white">
+        Print on demand
+      </h2>
 
       {/* Format */}
       <div>
