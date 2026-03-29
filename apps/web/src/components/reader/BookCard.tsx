@@ -1,5 +1,6 @@
 import Link from "next/link";
 import Image from "next/image";
+import { BookMarked } from "lucide-react";
 
 const sizeStyles = {
   sm: "w-32 sm:w-36",
@@ -49,10 +50,10 @@ export default function BookCard({
   if (isSkeleton) {
     return (
       <div className={`group ${containerClass}`}>
-        <div className="animate-pulse space-y-3">
-          <div className="aspect-[3/4] rounded-2xl border border-slate-200/70 bg-slate-200/60 dark:border-white/10 dark:bg-white/10" />
-          <div className="h-3 w-3/4 rounded-full bg-slate-200/80 dark:bg-white/10" />
-          <div className="h-3 w-1/2 rounded-full bg-slate-200/80 dark:bg-white/10" />
+        <div className="animate-pulse space-y-2">
+          <div className="aspect-[3/4] rounded-xl border border-black/[0.06] bg-[#F8F9FB] dark:border-white/[0.06] dark:bg-white/10" />
+          <div className="h-3 w-3/4 rounded-full bg-[#F8F9FB] dark:bg-white/10" />
+          <div className="h-3 w-1/2 rounded-full bg-[#F8F9FB] dark:bg-white/10" />
         </div>
       </div>
     );
@@ -66,9 +67,9 @@ export default function BookCard({
     <div className={`group ${containerClass}`}>
       <Link
         href={resolvedHref}
-        className="block focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#907AFF]/40 focus-visible:ring-offset-2 focus-visible:ring-offset-white dark:focus-visible:ring-offset-[#0b0b12]"
+        className="block focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#907AFF]/40 focus-visible:ring-offset-2"
       >
-        <div className="relative overflow-hidden rounded-2xl border border-slate-200/70 bg-white shadow-[0_4px_16px_rgba(15,23,42,0.06)] transition-all duration-300 group-hover:-translate-y-1.5 group-hover:border-[#907AFF]/20 group-hover:shadow-[0_20px_40px_-12px_rgba(144,122,255,0.15),0_8px_16px_-4px_rgba(15,23,42,0.06)] dark:border-white/10 dark:bg-white/5 dark:shadow-[0_8px_24px_rgba(0,0,0,0.35)] dark:group-hover:border-[#907AFF]/20 dark:group-hover:shadow-[0_20px_40px_-12px_rgba(144,122,255,0.12),0_8px_16px_-4px_rgba(0,0,0,0.3)]">
+        <div className="relative overflow-hidden rounded-xl border border-black/[0.06] bg-white shadow-sm transition-[transform,box-shadow] duration-200 [transition-timing-function:cubic-bezier(0.23,1,0.32,1)] group-hover:-translate-y-1 group-hover:shadow-md group-active:scale-[0.97] dark:border-white/[0.06] dark:bg-white/5">
           <div className="relative aspect-[3/4] w-full overflow-hidden">
             {cover ? (
               <Image
@@ -76,46 +77,44 @@ export default function BookCard({
                 alt={title ?? "Book cover"}
                 fill
                 sizes="(min-width: 640px) 176px, 144px"
-                className="object-cover transition-transform duration-500 group-hover:scale-[1.04]"
+                className="object-cover transition-transform duration-300 [transition-timing-function:cubic-bezier(0.23,1,0.32,1)] group-hover:scale-105"
                 unoptimized
               />
             ) : (
-              <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-[#907AFF]/10 via-white to-slate-100 dark:from-[#907AFF]/15 dark:via-white/5 dark:to-slate-900/60">
-                <span className="text-[12px] font-medium text-slate-400 dark:text-white/50">No cover</span>
+              <div className="flex h-full w-full items-center justify-center bg-[#F8F9FB] dark:bg-white/10">
+                <BookMarked className="h-6 w-6 text-[#907AFF]/30" />
               </div>
             )}
-            {/* Subtle gradient overlay at bottom for depth */}
-            <div className="pointer-events-none absolute inset-x-0 bottom-0 h-16 bg-gradient-to-t from-black/[0.06] to-transparent dark:from-black/20" />
           </div>
           {tag && (
-            <span className="absolute left-2.5 top-2.5 rounded-full bg-[#907AFF]/90 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wide text-white shadow-sm backdrop-blur-sm dark:bg-[#907AFF]/80">
+            <span className="absolute left-2 top-2 rounded-xl bg-[#907AFF] px-2 py-1 text-xs font-semibold text-white">
               {tag}
             </span>
           )}
           {hasProgress && !showCta && (
-            <div className="absolute inset-x-3 bottom-3">
-              <div className="h-1.5 w-full rounded-full bg-white/60 backdrop-blur-sm dark:bg-white/20">
+            <div className="absolute inset-x-2 bottom-2">
+              <div className="h-1.5 w-full rounded-full bg-white/60 dark:bg-white/20">
                 <div
-                  className="h-full rounded-full bg-gradient-to-r from-[#907AFF] to-[#E29ED5]"
+                  className="h-full rounded-full bg-[#907AFF]"
                   style={{ width: `${clampedProgress}%` }}
                 />
               </div>
             </div>
           )}
           {showCta && (
-            <div className="pointer-events-none absolute inset-x-3 bottom-3">
-              <div className="flex items-center justify-between gap-2 rounded-full border border-white/60 bg-white/90 px-3 py-2 text-[11px] font-semibold text-slate-900 shadow-sm backdrop-blur dark:border-white/10 dark:bg-slate-950/70 dark:text-white">
+            <div className="pointer-events-none absolute inset-x-2 bottom-2">
+              <div className="flex items-center justify-between gap-2 rounded-xl border border-black/[0.06] bg-white/90 px-2 py-1.5 text-xs font-semibold text-[#0F172A] dark:border-white/[0.06] dark:bg-white/80 dark:text-[#0F172A]">
                 <span>{ctaLabel}</span>
                 {hasProgress && (
-                  <span className="text-[11px] font-medium text-[#907AFF]">
+                  <span className="text-xs font-medium text-[#907AFF]">
                     {Math.round(clampedProgress)}%
                   </span>
                 )}
               </div>
               {hasProgress && (
-                <div className="mt-2 h-1.5 w-full rounded-full bg-white/60 backdrop-blur-sm dark:bg-white/20">
+                <div className="mt-2 h-1.5 w-full rounded-full bg-white/60 dark:bg-white/20">
                   <div
-                    className="h-full rounded-full bg-gradient-to-r from-[#907AFF] to-[#E29ED5]"
+                    className="h-full rounded-full bg-[#907AFF]"
                     style={{ width: `${clampedProgress}%` }}
                   />
                 </div>
@@ -123,17 +122,17 @@ export default function BookCard({
             </div>
           )}
         </div>
-        <div className="mt-3 space-y-1">
-          <h3 className="truncate text-[14px] font-semibold text-slate-900 transition-colors group-hover:text-[#907AFF] dark:text-white dark:group-hover:text-[#B8A8FF]">
+        <div className="mt-2 space-y-1">
+          <h3 className="truncate text-sm font-semibold text-[#0F172A] transition-colors group-hover:text-[#907AFF] dark:text-white">
             {title ?? "Untitled"}
           </h3>
-          <p className="truncate text-[12px] text-slate-500 dark:text-white/60">
+          <p className="truncate text-xs text-[#64748B] dark:text-white/60">
             {author ?? "Unknown author"}
           </p>
           {(rating || length) && (
-            <div className="flex items-center gap-2 text-[11px] text-slate-500 dark:text-white/55">
+            <div className="flex items-center gap-2 text-xs text-[#64748B] dark:text-white/55">
               {rating && <span>★ {rating.toFixed(1)}</span>}
-              {rating && length && <span className="h-1 w-1 rounded-full bg-slate-300 dark:bg-white/30" />}
+              {rating && length && <span className="h-1 w-1 rounded-full bg-[#64748B]/30" />}
               {length && <span>{length}</span>}
             </div>
           )}

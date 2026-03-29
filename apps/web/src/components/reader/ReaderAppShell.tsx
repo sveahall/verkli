@@ -67,115 +67,116 @@ export default function ReaderAppShell({
 
   if (isImmersive) {
     return (
-      <div className="relative min-h-[100dvh] bg-[#F0F1F6] text-foreground dark:bg-[#050917]">
+      <div className="dark relative min-h-[100dvh] bg-[#080C18] text-foreground">
         {children}
       </div>
     );
   }
 
   return (
-    <div className="relative min-h-[100dvh] bg-[#F0F1F6] text-foreground dark:bg-[#050917] lg:grid lg:grid-cols-[220px_minmax(0,1fr)]">
-      {/* ── Desktop sidebar ── */}
-      <div className="hidden border-r border-[#ECEAF5] bg-white dark:border-white/10 dark:bg-[#070b14] lg:block">
-      <aside className="pr-4 lg:sticky lg:top-0 lg:flex lg:h-screen lg:flex-col lg:overflow-hidden">
-        <div className="px-5 pt-7 pb-6">
-          <Link href="/reader/home" className="inline-flex items-center">
-            <Image
-              src="/logo-dark.svg"
-              alt="Verkli"
-              width={120}
-              height={26}
-              className="h-[26px] w-auto"
-              priority
-            />
-          </Link>
-        </div>
-
-        <nav className="flex min-h-0 flex-1 flex-col gap-1.5 overflow-y-auto px-3">
-          {navItems.map((item) => {
-            const active = isPathActive(pathname, item.matchers);
-            const Icon = item.icon;
-            return (
-              <Link
-                key={item.label}
-                href={item.href}
-                onMouseEnter={() => router.prefetch(item.href)}
-                className={`inline-flex min-h-[44px] items-center gap-3.5 rounded-xl px-4 py-2.5 text-[15px] font-normal transition ${
-                  active
-                    ? "bg-gradient-to-r from-[#907AFF] to-[#7C6CFF] text-white"
-                    : "text-[#7A8194] hover:bg-[#F6F7FB] hover:text-[#555C70] dark:text-white/50 dark:hover:bg-white/10 dark:hover:text-white"
-                }`}
-              >
-                <Icon className="h-[18px] w-[18px] flex-shrink-0" />
-                <span className="truncate">{item.label}</span>
-              </Link>
-            );
-          })}
-        </nav>
-
-        <div className="flex-shrink-0 px-3 py-5">
-          <div className="flex flex-col gap-1.5">
-            <Link
-              href="/reader/discover"
-              className="inline-flex min-h-[44px] w-full items-center gap-3.5 rounded-xl px-4 py-2.5 text-[15px] text-[#7A8194] transition hover:bg-[#F6F7FB] hover:text-[#555C70] dark:text-white/50 dark:hover:bg-white/10 dark:hover:text-white"
-            >
-              <Search className="h-[18px] w-[18px] flex-shrink-0" />
-              <span className="truncate">Search</span>
-            </Link>
-            <Link
-              href="/reader/notifications"
-              className="inline-flex min-h-[44px] w-full items-center gap-3.5 rounded-xl px-4 py-2.5 text-[15px] text-[#7A8194] transition hover:bg-[#F6F7FB] hover:text-[#555C70] dark:text-white/50 dark:hover:bg-white/10 dark:hover:text-white"
-            >
-              <Bell className="h-[18px] w-[18px] flex-shrink-0" />
-              <span className="truncate">Notifications</span>
-            </Link>
-            <Link
-              href="/reader/profile"
-              className="inline-flex min-h-[44px] w-full items-center gap-3.5 rounded-xl px-4 py-2.5 text-[15px] text-[#7A8194] transition hover:bg-[#F6F7FB] hover:text-[#555C70] dark:text-white/50 dark:hover:bg-white/10 dark:hover:text-white"
-            >
-              <UserCircle className="h-[18px] w-[18px] flex-shrink-0" />
-              <span className="truncate">Profile</span>
+    <div className="dark relative min-h-[100dvh] bg-[#080C18] text-foreground lg:grid lg:grid-cols-[200px_minmax(0,1fr)]">
+      {/* ── Desktop sidebar — minimal chrome ── */}
+      <div className="hidden border-r border-white/[0.06] bg-[#0B0F1E]/80 lg:block">
+        <aside className="pr-4 lg:sticky lg:top-0 lg:flex lg:h-screen lg:flex-col lg:overflow-hidden">
+          <div className="px-5 pt-7 pb-6">
+            <Link href="/reader/home" className="inline-flex items-center">
+              <Image
+                src="/logo-dark.svg"
+                alt="Verkli"
+                width={100}
+                height={22}
+                className="h-[22px] w-auto brightness-0 invert"
+                priority
+              />
             </Link>
           </div>
-          {authorAccess === "switch" && (
-            <button
-              type="button"
-              onClick={() => {
-                setActiveRoleCookieClient("author");
-                window.location.href = "/author/home";
-              }}
-              className="mt-2 inline-flex min-h-[44px] w-full items-center gap-3.5 rounded-xl px-4 py-2.5 text-[15px] text-[#7A8194] transition hover:bg-[#F6F7FB] hover:text-[#555C70] dark:text-white/50 dark:hover:bg-white/10 dark:hover:text-white"
-            >
-              <ArrowLeftRight className="h-[18px] w-[18px] flex-shrink-0" />
-              <span className="truncate">Switch to Author</span>
-            </button>
-          )}
-          {authorAccess === "apply" && (
-            <Link
-              href="/author/signup"
-              className="mt-2 inline-flex min-h-[44px] w-full items-center gap-3.5 rounded-xl px-4 py-2.5 text-[15px] text-[#7A8194] transition hover:bg-[#F6F7FB] hover:text-[#555C70] dark:text-white/50 dark:hover:bg-white/10 dark:hover:text-white"
-            >
-              <PenLine className="h-[18px] w-[18px] flex-shrink-0" />
-              <span className="truncate">Become an Author</span>
-            </Link>
-          )}
-          {authorAccess === "pending" && (
-            <div className="mt-2 inline-flex min-h-[44px] w-full items-center gap-3.5 rounded-xl px-4 py-2.5 text-[15px] text-[#7A8194]/60 dark:text-white/30">
-              <Clock className="h-[18px] w-[18px] flex-shrink-0" />
-              <span className="truncate">Application Pending</span>
+
+          <nav className="flex min-h-0 flex-1 flex-col gap-1 overflow-y-auto px-3">
+            {navItems.map((item) => {
+              const active = isPathActive(pathname, item.matchers);
+              const Icon = item.icon;
+              return (
+                <Link
+                  key={item.label}
+                  href={item.href}
+                  onMouseEnter={() => router.prefetch(item.href)}
+                  className={`inline-flex min-h-[40px] items-center gap-3 rounded-xl px-3.5 py-2 text-sm font-normal transition-colors duration-150 ${
+                    active
+                      ? "bg-[#907AFF] text-white"
+                      : "text-white/45 hover:bg-white/[0.06] hover:text-white/80"
+                  }`}
+                >
+                  <Icon className="h-[18px] w-[18px] flex-shrink-0" />
+                  <span className="truncate">{item.label}</span>
+                </Link>
+              );
+            })}
+          </nav>
+
+          <div className="flex-shrink-0 px-3 py-5">
+            <div className="mb-4 h-px bg-white/[0.06]" />
+            <div className="flex flex-col gap-1">
+              <Link
+                href="/reader/discover"
+                className="inline-flex min-h-[40px] w-full items-center gap-3 rounded-xl px-3.5 py-2 text-sm text-white/35 transition-colors duration-150 hover:bg-white/[0.06] hover:text-white/60"
+              >
+                <Search className="h-[18px] w-[18px] flex-shrink-0" />
+                <span className="truncate">Search</span>
+              </Link>
+              <Link
+                href="/reader/notifications"
+                className="inline-flex min-h-[40px] w-full items-center gap-3 rounded-xl px-3.5 py-2 text-sm text-white/35 transition-colors duration-150 hover:bg-white/[0.06] hover:text-white/60"
+              >
+                <Bell className="h-[18px] w-[18px] flex-shrink-0" />
+                <span className="truncate">Notifications</span>
+              </Link>
+              <Link
+                href="/reader/profile"
+                className="inline-flex min-h-[40px] w-full items-center gap-3 rounded-xl px-3.5 py-2 text-sm text-white/35 transition-colors duration-150 hover:bg-white/[0.06] hover:text-white/60"
+              >
+                <UserCircle className="h-[18px] w-[18px] flex-shrink-0" />
+                <span className="truncate">Profile</span>
+              </Link>
             </div>
-          )}
-        </div>
-      </aside>
+            {authorAccess === "switch" && (
+              <button
+                type="button"
+                onClick={() => {
+                  setActiveRoleCookieClient("author");
+                  window.location.href = "/author/home";
+                }}
+                className="mt-1 inline-flex min-h-[40px] w-full items-center gap-3 rounded-xl px-3.5 py-2 text-sm text-white/35 transition-colors duration-150 hover:bg-white/[0.06] hover:text-white/60"
+              >
+                <ArrowLeftRight className="h-[18px] w-[18px] flex-shrink-0" />
+                <span className="truncate">Switch to Author</span>
+              </button>
+            )}
+            {authorAccess === "apply" && (
+              <Link
+                href="/author/signup"
+                className="mt-1 inline-flex min-h-[40px] w-full items-center gap-3 rounded-xl px-3.5 py-2 text-sm text-white/35 transition-colors duration-150 hover:bg-white/[0.06] hover:text-white/60"
+              >
+                <PenLine className="h-[18px] w-[18px] flex-shrink-0" />
+                <span className="truncate">Become an Author</span>
+              </Link>
+            )}
+            {authorAccess === "pending" && (
+              <div className="mt-1 inline-flex min-h-[40px] w-full items-center gap-3 rounded-xl px-3.5 py-2 text-sm text-white/20">
+                <Clock className="h-[18px] w-[18px] flex-shrink-0" />
+                <span className="truncate">Application Pending</span>
+              </div>
+            )}
+          </div>
+        </aside>
       </div>
 
       {/* ── Main content ── */}
-      <main className="page-content relative min-h-screen bg-[radial-gradient(circle_at_top_left,rgba(144,122,255,0.05),transparent_40%),radial-gradient(circle_at_top_right,rgba(226,158,213,0.04),transparent_45%),linear-gradient(180deg,#fafbfe_0%,#f0f1f6_100%)] pb-24 pt-6 dark:bg-[radial-gradient(circle_at_top_left,rgba(144,122,255,0.07),transparent_42%),radial-gradient(circle_at_top_right,rgba(255,255,255,0.03),transparent_45%),linear-gradient(180deg,_#0a0c14_0%,_#050917_100%)] sm:pt-8 lg:pb-8 lg:pt-10">{children}</main>
+      <main className="page-content relative min-h-screen pb-24 pt-6 sm:pt-8 lg:pb-8 lg:pt-10">{children}</main>
 
       {/* ── Mobile bottom nav ── */}
       <nav
         aria-label="Reader navigation"
-        className="fixed bottom-0 left-0 right-0 z-[9990] border-t border-[#ECEAF5] bg-white/95 shadow-[0_-8px_24px_rgba(15,23,42,0.06)] backdrop-blur-2xl dark:border-white/10 dark:bg-[#050917]/95 lg:hidden"
+        className="fixed bottom-0 left-0 right-0 z-[9990] border-t border-white/[0.06] bg-[#080C18]/95 backdrop-blur-2xl lg:hidden"
       >
         <div className="mx-auto flex max-w-md items-center justify-around px-6 pb-[calc(env(safe-area-inset-bottom,0)+0.5rem)] pt-2">
           {navItems.map((item) => {
@@ -191,17 +192,15 @@ export default function ReaderAppShell({
                 <span
                   className={`flex h-8 w-8 items-center justify-center rounded-xl transition-all duration-200 ${
                     active
-                      ? "bg-gradient-to-r from-[#907AFF] to-[#7C6CFF] text-white shadow-md shadow-[#907AFF]/20"
-                      : "text-[#7A8194] group-hover:text-[#555C70] dark:text-white/40 dark:group-hover:text-white/70"
+                      ? "bg-[#907AFF] text-white"
+                      : "text-white/35 group-hover:text-white/60"
                   }`}
                 >
                   <Icon className="h-[18px] w-[18px]" />
                 </span>
                 <span
                   className={`text-[10px] font-medium transition-colors ${
-                    active
-                      ? "text-[#907AFF]"
-                      : "text-[#7A8194] dark:text-white/40"
+                    active ? "text-[#907AFF]" : "text-white/35"
                   }`}
                 >
                   {item.label}

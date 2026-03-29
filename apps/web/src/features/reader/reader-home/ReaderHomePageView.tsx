@@ -1,6 +1,6 @@
 import Image from "next/image";
 import Link from "next/link";
-import { ArrowRight, BookMarked, BookOpen, Sparkles } from "lucide-react";
+import { ArrowRight, BookMarked, BookOpen, Sparkles, TrendingUp } from "lucide-react";
 import BookCard from "@/components/reader/BookCard";
 import AuthorCard from "@/components/reader/AuthorCard";
 import { ReaderContinueCard } from "@/features/reader/shared/ReaderScaffold";
@@ -54,59 +54,42 @@ type ReaderHomePageViewProps = {
   authorHighlights: AuthorHighlight[];
 };
 
-/* ── Card wrapper matching author platform ── */
-const CARD = "rounded-2xl border border-black/[0.05] bg-white/60 shadow-[0_1px_3px_rgba(0,0,0,0.04)] backdrop-blur-sm dark:border-white/[0.06] dark:bg-white/[0.02] dark:shadow-none";
-
 function SectionHeader({
+  icon,
   label,
   title,
   action,
 }: {
+  icon?: React.ReactNode;
   label: string;
   title: string;
   action?: { href: string; text: string };
 }) {
   return (
-    <div className="flex items-center justify-between border-b border-black/[0.05] px-6 py-4 dark:border-white/[0.06]">
-      <div>
-        <p className="text-[11px] font-semibold uppercase tracking-wider text-[#907AFF]">{label}</p>
-        <h3 className="mt-0.5 text-sm font-semibold text-slate-900 dark:text-white">{title}</h3>
+    <div className="flex items-end justify-between gap-4">
+      <div className="flex items-center gap-4">
+        {icon && (
+          <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-[#907AFF]/10">
+            {icon}
+          </div>
+        )}
+        <div>
+          <p className="text-xs font-semibold uppercase tracking-wider text-[#907AFF]">
+            {label}
+          </p>
+          <h3 className="mt-0.5 text-xl font-semibold text-[#0F172A] dark:text-white">
+            {title}
+          </h3>
+        </div>
       </div>
       {action && (
         <Link
           href={action.href}
-          className="inline-flex items-center gap-1 text-[12px] font-semibold text-[#907AFF] transition-colors duration-150 ease-out hover:text-[#7058DD]"
+          className="inline-flex items-center gap-1.5 rounded-xl px-4 py-2 text-sm font-medium text-[#907AFF] transition-[background-color,color] duration-150 hover:bg-[#907AFF]/10 active:scale-[0.97]"
         >
-          {action.text} <ArrowRight className="h-3 w-3" />
+          {action.text} <ArrowRight className="h-3.5 w-3.5" />
         </Link>
       )}
-    </div>
-  );
-}
-
-function ShelfPanel({ label, title, books }: { label: string; title: string; books: ShelfBook[] }) {
-  if (books.length === 0) return null;
-  return (
-    <div className={CARD}>
-      <SectionHeader label={label} title={title} />
-      <div className="p-5">
-        <div className="grid grid-cols-2 gap-4 sm:grid-cols-3">
-          {books.map((book) => (
-            <BookCard
-              key={book.id}
-              id={book.id}
-              title={book.title}
-              author={book.author}
-              cover={book.cover}
-              href={book.href}
-              tag={book.tag}
-              length={book.length}
-              layout="grid"
-              size="lg"
-            />
-          ))}
-        </div>
-      </div>
     </div>
   );
 }
@@ -120,197 +103,301 @@ export default function ReaderHomePageView({
   latestReleases,
   authorHighlights,
 }: ReaderHomePageViewProps) {
-  const heroDescription = spotlight
-    ? `${spotlight.author} · ${spotlight.caption}`
-    : "Pick up where you left off or find something new.";
-  const featuredAuthor = authorHighlights[0] ?? null;
-  const moreAuthors = authorHighlights.slice(1, 5);
-  const hasCatalogShelves = recommendedBooks.length > 0 || trendingBooks.length > 0 || latestReleases.length > 0;
+  const heroCaption = spotlight
+    ? `${spotlight.author} \u00b7 ${spotlight.caption}`
+    : null;
+  const hasCatalogShelves =
+    recommendedBooks.length > 0 ||
+    trendingBooks.length > 0 ||
+    latestReleases.length > 0;
 
   return (
-    <div className="space-y-6">
-      {/* ── Page header ── */}
-      <header className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
-        <div>
-          <p className="text-[11px] font-semibold uppercase tracking-wider text-slate-400 dark:text-white/40">Home</p>
-          <h1 className="mt-1 text-[clamp(22px,3vw,28px)] font-bold tracking-tight text-slate-900 dark:text-white">
-            {greeting}
-          </h1>
-          <p className="mt-1 text-sm text-slate-500 dark:text-white/50">
-            Your reading home — continue active books or discover something new.
-          </p>
-        </div>
-        <div className="flex flex-wrap items-center gap-3">
-          <Link
-            href="/reader/discover"
-            className="rounded-xl border border-black/[0.06] bg-white px-4 py-2 text-sm font-medium text-slate-700 transition-colors duration-150 ease-out hover:bg-slate-50 active:scale-[0.97] dark:border-white/[0.06] dark:bg-white/[0.04] dark:text-white/70 dark:hover:bg-white/[0.06]"
-          >
-            Discover books
-          </Link>
-          <Link
-            href="/reader/library"
-            className="rounded-xl border border-black/[0.06] bg-white px-4 py-2 text-sm font-medium text-slate-700 transition-colors duration-150 ease-out hover:bg-slate-50 active:scale-[0.97] dark:border-white/[0.06] dark:bg-white/[0.04] dark:text-white/70 dark:hover:bg-white/[0.06]"
-          >
-            Open library
-          </Link>
-        </div>
-      </header>
+    <div className="space-y-8">
+      {/* ── Hero ── */}
+      <section className="relative overflow-hidden rounded-2xl bg-[#0F172A]">
+        {/* Layered atmospheric gradients */}
+        <div className="pointer-events-none absolute inset-0 bg-gradient-to-br from-[#907AFF]/20 via-transparent to-transparent" />
+        <div className="pointer-events-none absolute inset-x-0 bottom-0 h-1/2 bg-gradient-to-t from-[#0F172A] to-transparent" />
 
-      {/* ── Hero spotlight ── */}
-      <div className="relative overflow-hidden rounded-2xl border border-black/[0.05] bg-white/80 shadow-[0_1px_3px_rgba(0,0,0,0.04)] backdrop-blur-sm dark:border-white/[0.06] dark:bg-white/[0.03] dark:shadow-none">
-        <div className="pointer-events-none absolute -right-32 -top-32 h-[400px] w-[400px] rounded-full bg-[#907AFF]/[0.06] blur-[100px]" />
-        <div className="pointer-events-none absolute -bottom-24 -left-24 h-[300px] w-[300px] rounded-full bg-[#E29ED5]/[0.04] blur-[80px]" />
-        <div className="relative grid gap-6 p-6 sm:p-8 lg:grid-cols-[1fr_240px] lg:items-center">
-          <div className="space-y-4">
-            <span className="inline-flex items-center gap-1.5 rounded-full bg-[#907AFF]/10 px-3 py-1 text-[11px] font-semibold text-[#907AFF] dark:bg-[#907AFF]/20">
-              <Sparkles className="h-3 w-3" />
-              {spotlight?.badge ?? "Featured"}
-            </span>
-            <div className="space-y-2">
-              <h2 className="text-[clamp(26px,4vw,40px)] font-bold leading-[1.1] tracking-tight text-slate-900 dark:text-white">
-                {spotlight?.title ?? "Find your next read"}
-              </h2>
-              <p className="max-w-lg text-sm leading-relaxed text-slate-500 dark:text-white/50">{heroDescription}</p>
-            </div>
-            <div className="flex flex-wrap items-center gap-3">
-              <Link
-                href={spotlight?.href ?? "/reader/discover"}
-                className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-b from-[#907AFF] to-[#7c6ae6] px-5 py-2.5 text-sm font-semibold text-white shadow-[0_1px_2px_rgba(144,122,255,0.3),inset_0_1px_0_rgba(255,255,255,0.15)] transition-[transform,box-shadow] duration-150 ease-out hover:shadow-[0_4px_12px_rgba(144,122,255,0.35)] active:scale-[0.97]"
-              >
-                <BookOpen className="h-4 w-4" />
-                {spotlight?.progress != null ? "Resume reading" : "Open book"}
-              </Link>
+        {/* Cover ambient glow — high opacity for atmosphere */}
+        {spotlight?.cover && (
+          <div className="pointer-events-none absolute inset-0 opacity-50">
+            <Image
+              src={spotlight.cover}
+              alt=""
+              fill
+              className="object-cover blur-3xl saturate-150"
+              unoptimized
+              aria-hidden="true"
+            />
+          </div>
+        )}
+
+        {/* Radial glow behind cover */}
+        <div className="pointer-events-none absolute right-[8%] top-1/2 h-[400px] w-[400px] -translate-y-1/2 rounded-full bg-[#907AFF]/15 blur-3xl" />
+
+        <div className="relative p-6 sm:p-8">
+          {/* Top bar */}
+          <div className="flex items-center justify-between">
+            <p className="text-sm font-medium text-white/60">{greeting}</p>
+            <div className="flex items-center gap-4">
               <Link
                 href="/reader/discover"
-                className="text-sm font-semibold text-slate-500 transition-colors duration-150 ease-out hover:text-slate-700 dark:text-white/50 dark:hover:text-white/80"
+                className="rounded-xl bg-white/10 px-4 py-2 text-sm font-medium text-white/90 backdrop-blur-sm transition-[background-color] duration-150 hover:bg-white/20 active:scale-[0.97]"
               >
-                Discover more
+                Discover books
+              </Link>
+              <Link
+                href="/reader/library"
+                className="hidden text-sm font-medium text-white/40 transition-colors duration-150 hover:text-white/70 sm:block"
+              >
+                Open library
               </Link>
             </div>
           </div>
-          <div className="hidden lg:block">
-            <div className="relative mx-auto w-[180px]">
-              <div className="absolute inset-4 rounded-2xl bg-[#907AFF]/15 blur-2xl" />
-              <div className="relative aspect-[3/4] overflow-hidden rounded-2xl border border-white/50 bg-slate-100 shadow-[0_20px_60px_-16px_rgba(144,122,255,0.3)] dark:border-white/10">
-                {spotlight?.cover ? (
-                  <Image src={spotlight.cover} alt={spotlight.title} fill sizes="180px" className="object-cover" unoptimized />
-                ) : (
-                  <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-[#907AFF]/15 to-[#E29ED5]/10">
-                    <BookMarked className="h-10 w-10 text-[#907AFF]/30" />
+
+          {/* Spotlight content */}
+          {spotlight ? (
+            <div className="mt-6 grid items-center gap-6 pb-2 sm:grid-cols-[1fr_200px] lg:grid-cols-[1fr_300px]">
+              <div className="order-2 space-y-4 sm:order-1">
+                <span className="inline-flex items-center gap-2 rounded-xl bg-white/10 px-4 py-2 text-xs font-semibold text-white/90 backdrop-blur-sm">
+                  <Sparkles className="h-3.5 w-3.5" />
+                  {spotlight.badge}
+                </span>
+                <h2 className="text-3xl font-semibold tracking-tight text-white sm:text-4xl lg:text-5xl">
+                  {spotlight.title}
+                </h2>
+                {heroCaption && (
+                  <p className="text-sm text-white/50">{heroCaption}</p>
+                )}
+                {spotlight.progress != null && (
+                  <div className="max-w-xs">
+                    <div className="h-1.5 overflow-hidden rounded-xl bg-white/10">
+                      <div
+                        className="h-full rounded-xl bg-[#907AFF]"
+                        style={{ width: `${Math.round(Math.max(0, spotlight.progress))}%` }}
+                      />
+                    </div>
+                    <p className="mt-1.5 text-xs text-white/30">
+                      {Math.round(Math.max(0, spotlight.progress))}% complete
+                    </p>
                   </div>
                 )}
+                <div className="flex items-center gap-4 pt-2">
+                  <Link
+                    href={spotlight.href}
+                    className="inline-flex items-center gap-2 rounded-xl bg-[#907AFF] px-6 py-3 text-sm font-semibold text-white shadow-md transition-[background-color,transform] duration-150 hover:bg-[#907AFF]/90 active:scale-[0.97]"
+                  >
+                    <BookOpen className="h-4 w-4" />
+                    {spotlight.progress != null ? "Resume reading" : "Open book"}
+                  </Link>
+                  <Link
+                    href="/reader/discover"
+                    className="text-sm font-medium text-white/40 transition-colors duration-150 hover:text-white/70"
+                  >
+                    Discover more
+                  </Link>
+                </div>
+              </div>
+
+              {/* Cover with glow */}
+              <div className="order-1 sm:order-2">
+                <div className="mx-auto w-40 sm:w-full">
+                  <div className="relative aspect-[3/4] overflow-hidden rounded-2xl shadow-[0_20px_60px_-10px_rgba(144,122,255,0.35)] ring-1 ring-white/15 transition-transform duration-300 [transition-timing-function:cubic-bezier(0.23,1,0.32,1)] hover:scale-[1.02]">
+                    {spotlight.cover ? (
+                      <Image
+                        src={spotlight.cover}
+                        alt={spotlight.title}
+                        fill
+                        sizes="(min-width: 1024px) 300px, (min-width: 640px) 200px, 160px"
+                        className="object-cover"
+                        unoptimized
+                      />
+                    ) : (
+                      <div className="flex h-full w-full items-center justify-center bg-white/5">
+                        <BookMarked className="h-8 w-8 text-white/20" />
+                      </div>
+                    )}
+                  </div>
+                </div>
               </div>
             </div>
-          </div>
+          ) : (
+            <div className="mt-6 pb-2">
+              <h2 className="text-3xl font-semibold text-white sm:text-4xl">
+                Find your next read
+              </h2>
+              <p className="mt-2 text-sm text-white/50">
+                Browse the catalog and start reading
+              </p>
+              <Link
+                href="/reader/discover"
+                className="mt-6 inline-flex items-center gap-2 rounded-xl bg-[#907AFF] px-6 py-3 text-sm font-semibold text-white shadow-md transition-[background-color,transform] duration-150 hover:bg-[#907AFF]/90 active:scale-[0.97]"
+              >
+                <BookOpen className="h-4 w-4" /> Start browsing
+              </Link>
+            </div>
+          )}
         </div>
-      </div>
+      </section>
 
       {/* ── Continue reading ── */}
-      {continueReading.length > 0 ? (
-        <div className={CARD}>
+      {continueReading.length > 0 && (
+        <section>
           <SectionHeader
             label="Continue reading"
             title="Pick up where you left off"
             action={{ href: "/reader/library", text: "View all" }}
           />
-          <div className="p-5">
-            <div className="-mx-1 flex snap-x snap-mandatory gap-4 overflow-x-auto px-1 pb-2">
-              {continueReading.map((book) => (
-                <div key={book.id} className="snap-start">
-                  <ReaderContinueCard
-                    title={book.title}
-                    author={book.author}
-                    href={book.href}
-                    cover={book.cover}
-                    progress={book.progress}
-                    chapterLabel={book.chapterLabel}
-                    lastOpenedLabel={book.lastOpenedLabel}
-                  />
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
-      ) : null}
-
-      {/* ── Author spotlight ── */}
-      {featuredAuthor ? (
-        <div className={CARD}>
-          <SectionHeader label="Author spotlight" title="A voice worth following" />
-          <div className="p-5">
-            <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-              <div className="flex-1">
-                <AuthorCard
-                  name={featuredAuthor.name}
-                  avatar={featuredAuthor.avatar}
-                  genre={featuredAuthor.genre}
-                  meta={featuredAuthor.meta}
-                  href={`/reader/authors/${featuredAuthor.id}`}
+          <div className="reader-stagger mt-4 flex snap-x snap-mandatory gap-4 overflow-x-auto pb-2 [scrollbar-width:none] [-webkit-overflow-scrolling:touch] [&::-webkit-scrollbar]:hidden">
+            {continueReading.map((book) => (
+              <div key={book.id} className="snap-start">
+                <ReaderContinueCard
+                  title={book.title}
+                  author={book.author}
+                  href={book.href}
+                  cover={book.cover}
+                  progress={book.progress}
+                  chapterLabel={book.chapterLabel}
+                  lastOpenedLabel={book.lastOpenedLabel}
                 />
               </div>
-              <Link
-                href="/reader/discover"
-                className="shrink-0 self-start rounded-xl border border-black/[0.06] bg-white px-4 py-2 text-[13px] font-medium text-slate-700 transition-colors duration-150 ease-out hover:bg-slate-50 active:scale-[0.97] dark:border-white/[0.06] dark:bg-white/[0.04] dark:text-white/70 dark:hover:bg-white/[0.06]"
-              >
-                Find more authors
-              </Link>
-            </div>
+            ))}
           </div>
-        </div>
-      ) : null}
+        </section>
+      )}
+
+      {/* ── Trending ── */}
+      {trendingBooks.length > 0 && (
+        <section>
+          <SectionHeader
+            icon={<TrendingUp className="h-4 w-4 text-[#907AFF]" />}
+            label="Trending"
+            title="Readers are opening"
+            action={{ href: "/reader/discover", text: "See all" }}
+          />
+          <div className="reader-stagger mt-4 flex snap-x snap-mandatory gap-4 overflow-x-auto pb-2 [scrollbar-width:none] [-webkit-overflow-scrolling:touch] [&::-webkit-scrollbar]:hidden sm:grid sm:grid-cols-4 sm:overflow-visible">
+            {trendingBooks.map((book) => (
+              <BookCard
+                key={book.id}
+                id={book.id}
+                title={book.title}
+                author={book.author}
+                cover={book.cover}
+                href={book.href}
+                tag={book.tag}
+                length={book.length}
+                layout="grid"
+                size="lg"
+                className="min-w-[160px] sm:min-w-0"
+              />
+            ))}
+          </div>
+        </section>
+      )}
+
+      {/* ── Recommended ── */}
+      {recommendedBooks.length > 0 && (
+        <section>
+          <SectionHeader
+            icon={<Sparkles className="h-4 w-4 text-[#907AFF]" />}
+            label="Recommended"
+            title="For you"
+            action={{ href: "/reader/discover", text: "See all" }}
+          />
+          <div className="reader-stagger mt-4 flex snap-x snap-mandatory gap-4 overflow-x-auto pb-2 [scrollbar-width:none] [-webkit-overflow-scrolling:touch] [&::-webkit-scrollbar]:hidden sm:grid sm:grid-cols-3 sm:overflow-visible lg:grid-cols-6">
+            {recommendedBooks.map((book) => (
+              <BookCard
+                key={book.id}
+                id={book.id}
+                title={book.title}
+                author={book.author}
+                cover={book.cover}
+                href={book.href}
+                tag={book.tag}
+                length={book.length}
+                layout="grid"
+                className="min-w-[140px] sm:min-w-0"
+              />
+            ))}
+          </div>
+        </section>
+      )}
+
+      {/* ── New releases ── */}
+      {latestReleases.length > 0 && (
+        <section>
+          <SectionHeader
+            label="New releases"
+            title="Fresh to the catalog"
+            action={{ href: "/reader/discover", text: "See all" }}
+          />
+          <div className="reader-stagger mt-4 flex snap-x snap-mandatory gap-4 overflow-x-auto pb-2 [scrollbar-width:none] [-webkit-overflow-scrolling:touch] [&::-webkit-scrollbar]:hidden sm:grid sm:grid-cols-4 sm:overflow-visible">
+            {latestReleases.map((book) => (
+              <BookCard
+                key={book.id}
+                id={book.id}
+                title={book.title}
+                author={book.author}
+                cover={book.cover}
+                href={book.href}
+                tag={book.tag}
+                length={book.length}
+                layout="grid"
+                className="min-w-[160px] sm:min-w-0"
+              />
+            ))}
+          </div>
+        </section>
+      )}
+
+      {/* ── Author spotlight ── */}
+      {authorHighlights.length > 0 && (
+        <section>
+          <SectionHeader
+            label="Author spotlight"
+            title="Voices worth following"
+            action={{ href: "/reader/discover", text: "Find more" }}
+          />
+          <div className="reader-stagger mt-4 flex snap-x snap-mandatory gap-4 overflow-x-auto pb-2 [scrollbar-width:none] [-webkit-overflow-scrolling:touch] [&::-webkit-scrollbar]:hidden sm:grid sm:grid-cols-2 sm:overflow-visible lg:grid-cols-3">
+            {authorHighlights.map((a) => (
+              <AuthorCard
+                key={a.id}
+                name={a.name}
+                avatar={a.avatar}
+                genre={a.genre}
+                meta={a.meta}
+                href={`/reader/authors/${a.id}`}
+              />
+            ))}
+          </div>
+        </section>
+      )}
 
       {/* ── Empty state ── */}
-      {continueReading.length === 0 && !hasCatalogShelves ? (
-        <div className={CARD}>
-          <div className="px-6 py-14 text-center">
-            <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-[#907AFF]/10 dark:bg-[#907AFF]/15">
+      {continueReading.length === 0 && !hasCatalogShelves && (
+        <section className="rounded-2xl border border-black/[0.06] bg-white p-8 shadow-sm dark:border-white/[0.06] dark:bg-white/[0.04]">
+          <div className="flex flex-col items-center gap-4 text-center">
+            <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-[#907AFF]/10">
               <BookOpen className="h-6 w-6 text-[#907AFF]" />
             </div>
-            <h2 className="mt-5 text-lg font-semibold text-slate-900 dark:text-white">
-              Start building your shelves
-            </h2>
-            <p className="mx-auto mt-2 max-w-md text-sm leading-relaxed text-slate-500 dark:text-white/50">
-              Open a book from discovery and your reading progress will appear here.
-            </p>
+            <div className="space-y-1">
+              <p className="text-sm font-semibold text-[#0F172A] dark:text-white">
+                Your shelves are empty
+              </p>
+              <p className="text-xs text-[#64748B] dark:text-white/50">
+                Open a book to start building your reading history
+              </p>
+            </div>
             <Link
               href="/reader/discover"
-              className="mt-6 inline-flex items-center gap-2 rounded-xl bg-gradient-to-b from-[#907AFF] to-[#7c6ae6] px-5 py-2.5 text-sm font-semibold text-white shadow-[0_1px_2px_rgba(144,122,255,0.3),inset_0_1px_0_rgba(255,255,255,0.15)] transition-[transform,box-shadow] duration-150 ease-out hover:shadow-[0_4px_12px_rgba(144,122,255,0.35)] active:scale-[0.97]"
+              className="mt-2 inline-flex items-center gap-2 rounded-xl bg-[#907AFF] px-6 py-2.5 text-sm font-semibold text-white transition-[background-color,transform] duration-150 hover:bg-[#907AFF]/90 active:scale-[0.97]"
             >
-              <BookOpen className="h-4 w-4" /> Browse discovery
+              <BookOpen className="h-4 w-4" /> Discover books
             </Link>
           </div>
-        </div>
-      ) : null}
-
-      {/* ── Book shelves ── */}
-      {hasCatalogShelves ? (
-        <div className="grid gap-6 lg:grid-cols-2">
-          <ShelfPanel label="Recommended" title="For you" books={recommendedBooks} />
-          <ShelfPanel label="Trending" title="Readers are opening" books={trendingBooks} />
-          <ShelfPanel label="New releases" title="Fresh to the catalog" books={latestReleases} />
-        </div>
-      ) : null}
-
-      {/* ── More authors ── */}
-      {moreAuthors.length > 0 ? (
-        <div className={CARD}>
-          <SectionHeader label="More authors" title="Writers gaining momentum" />
-          <div className="p-5">
-            <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-              {moreAuthors.map((a) => (
-                <AuthorCard
-                  key={a.id}
-                  name={a.name}
-                  avatar={a.avatar}
-                  genre={a.genre}
-                  meta={a.meta}
-                  href={`/reader/authors/${a.id}`}
-                />
-              ))}
-            </div>
-          </div>
-        </div>
-      ) : null}
+        </section>
+      )}
     </div>
   );
 }

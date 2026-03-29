@@ -187,7 +187,7 @@ export function ReaderContinueCard({
   return (
     <Link
       href={href}
-      className="card-base group min-w-[320px] p-4 transition-all duration-200 hover:-translate-y-0.5 hover:shadow-[0_12px_32px_rgba(15,23,42,0.1)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#907AFF]/40 focus-visible:ring-offset-2 dark:hover:shadow-[0_12px_32px_rgba(0,0,0,0.35)]"
+      className="card-base group min-w-[320px] p-4 transition-[transform,box-shadow] duration-200 [transition-timing-function:cubic-bezier(0.23,1,0.32,1)] hover:-translate-y-1 hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#907AFF]/40 focus-visible:ring-offset-2 active:scale-[0.97]"
     >
       <div className="flex items-start gap-4">
         <div className="relative h-[112px] w-[82px] flex-shrink-0 overflow-hidden rounded-xl bg-slate-100 dark:bg-white/10">
