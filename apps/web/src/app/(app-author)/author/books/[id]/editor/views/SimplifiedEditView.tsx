@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import dynamic from "next/dynamic";
 import BookWorkflowHeader from "../../BookWorkflowHeader";
 import { countWordsInContent } from "../BookEditorView.helpers";
@@ -114,6 +114,16 @@ export default function SimplifiedEditView({
     ? chapters.find((ch) => ch.id === confirmDeleteId)
     : null;
 
+  const [isScrolled, setIsScrolled] = useState(false);
+  const [toolbarTarget, setToolbarTarget] = useState<HTMLElement | null>(null);
+
+  useEffect(() => {
+    const onScroll = () => setIsScrolled(window.scrollY > 60);
+    window.addEventListener("scroll", onScroll, { passive: true });
+    onScroll();
+    return () => window.removeEventListener("scroll", onScroll);
+  }, []);
+
   return (
     <div className="w-full rounded-2xl border border-black/[0.04] bg-white shadow-[0_1px_3px_rgba(0,0,0,0.04)] dark:border-white/[0.06] dark:bg-[#111318] dark:shadow-none">
 
@@ -126,10 +136,11 @@ export default function SimplifiedEditView({
         tools={tools}
         bare
         compact
+        mini={isScrolled}
       />
 
       {/* ── CHAPTERS / title / badge ── */}
-      <div className="flex items-center gap-4 px-8 pt-4 pb-8">
+      <div className={`flex items-center gap-4 px-8 pt-4 pb-8 ${isScrolled ? "hidden" : ""}`}>
         <div className="h-9 w-9 shrink-0" aria-hidden="true" />
         <div className="min-w-0 flex-1">
           <div className="grid grid-cols-[1fr_auto_1fr] items-center mx-2 sm:mx-6 lg:mx-16 xl:mx-20">
@@ -193,10 +204,10 @@ export default function SimplifiedEditView({
       </div>
 
       {/* ── Chapter numbers ── */}
-      <div className="flex items-center gap-4 px-8 pb-5">
-        <div className="h-9 w-9 shrink-0" aria-hidden="true" />
+      <div className={`flex items-center gap-4 ${isScrolled ? "px-4 py-1.5" : "px-8 pb-5"}`}>
+        {!isScrolled && <div className="h-9 w-9 shrink-0" aria-hidden="true" />}
         <div className="min-w-0 flex-1">
-          <div className="flex items-center justify-center gap-2 mx-2 sm:mx-6 lg:mx-16 xl:mx-20">
+          <div className={`flex items-center justify-center ${isScrolled ? "gap-1.5" : "gap-2 mx-2 sm:mx-6 lg:mx-16 xl:mx-20"}`}>
         {totalPages > 1 && (
           <button
             type="button"
@@ -275,11 +286,23 @@ export default function SimplifiedEditView({
         )}
           </div>
         </div>
-        <div className="h-9 w-9 shrink-0" aria-hidden="true" />
+        {isScrolled ? (
+          <span className="shrink-0 text-[11px] tabular-nums text-right min-w-[3rem]">
+            {saveError ? (
+              <span className="text-red-500">Failed</span>
+            ) : isSaving ? (
+              <span className="text-slate-400 dark:text-white/30">Saving...</span>
+            ) : lastSaved ? (
+              <span className="text-emerald-500 dark:text-emerald-400">Saved</span>
+            ) : null}
+          </span>
+        ) : (
+          <div className="h-9 w-9 shrink-0" aria-hidden="true" />
+        )}
       </div>
 
       {/* ── Selected chapter title (editable) ── */}
-      {selectedChapter && onStartEditTitle && (
+      {selectedChapter && onStartEditTitle && !isScrolled && (
         <div className="px-20 pb-2">
           {editingTitleId === selectedChapter.id && onSaveTitle && onCancelEditTitle && onTempTitleChange ? (
             <input
@@ -308,6 +331,9 @@ export default function SimplifiedEditView({
         </div>
       )}
 
+      {/* ── Toolbar portal target ── */}
+      <div ref={(el) => setToolbarTarget(el)} className="border-b border-slate-100 dark:border-white/[0.06]" />
+
       </div>{/* end sticky header */}
 
       {/* ── Editor content ── */}
@@ -325,6 +351,7 @@ export default function SimplifiedEditView({
             onWordCount={onWordCount}
             onFocusModeToggle={onToggleFocusMode}
             focusMode={focusMode}
+            toolbarPortalTarget={toolbarTarget}
           />
         ) : (
           <div className="flex h-[500px] items-center justify-center">
