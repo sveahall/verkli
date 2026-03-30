@@ -512,44 +512,46 @@ export default async function ReaderHomePage() {
   const latestReleases = takeUniqueBooks(newReleases, consumedBookIds, 4);
 
   return (
-    <>
-      <ErrorBannerWrapper />
-      <ReaderHomePageView
-        greeting={greeting}
-        spotlight={spotlight}
-        continueReading={continueReading}
-        recommendedBooks={recommendedBooks.map((book) => ({
-          id: book.id,
-          title: book.title,
-          author: book.author,
-          cover: book.cover,
-          href: `/reader/books/${book.id}`,
-          tag: activeAuthorIds.has(book.authorId) ? "By an author you already read" : undefined,
-          length: "Recommended next",
-        }))}
-        trendingBooks={trendingBooks.map((book, index) => ({
-          id: book.id,
-          title: book.title,
-          author: book.author,
-          cover: book.cover,
-          href: `/reader/books/${book.id}`,
-          tag: `#${index + 1}`,
-          length:
-            book.averageRating != null
-              ? `${book.averageRating.toFixed(1)} rating`
-              : `${compactNumber(book.readerCount + book.bookmarkCount)} readers`,
-        }))}
-        latestReleases={latestReleases.map((book) => ({
-          id: book.id,
-          title: book.title,
-          author: book.author,
-          cover: book.cover,
-          href: `/reader/books/${book.id}`,
-          tag: "New",
-          length: formatDateLabel(book.publishedAt) ? `Published ${formatDateLabel(book.publishedAt)}` : undefined,
-        }))}
-        authorHighlights={trendingAuthors.slice(0, 5)}
-      />
-    </>
+    <div>
+      <div className="space-y-6">
+        <ErrorBannerWrapper />
+        <ReaderHomePageView
+          greeting={greeting}
+          spotlight={spotlight}
+          continueReading={continueReading}
+          recommendedBooks={recommendedBooks.map((book) => ({
+            id: book.id,
+            title: book.title,
+            author: book.author,
+            cover: book.cover,
+            href: `/reader/books/${book.id}`,
+            tag: activeAuthorIds.has(book.authorId) ? "By an author you already read" : undefined,
+            length: "Recommended next",
+          }))}
+          trendingBooks={trendingBooks.map((book, index) => ({
+            id: book.id,
+            title: book.title,
+            author: book.author,
+            cover: book.cover,
+            href: `/reader/books/${book.id}`,
+            tag: `#${index + 1}`,
+            length:
+              book.averageRating != null
+                ? `${book.averageRating.toFixed(1)} rating`
+                : `${compactNumber(book.readerCount + book.bookmarkCount)} readers`,
+          }))}
+          latestReleases={latestReleases.map((book) => ({
+            id: book.id,
+            title: book.title,
+            author: book.author,
+            cover: book.cover,
+            href: `/reader/books/${book.id}`,
+            tag: "New",
+            length: formatDateLabel(book.publishedAt) ? `Published ${formatDateLabel(book.publishedAt)}` : undefined,
+          }))}
+          authorHighlights={trendingAuthors.slice(0, 5)}
+        />
+      </div>
+    </div>
   );
 }
