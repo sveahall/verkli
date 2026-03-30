@@ -4,6 +4,14 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { resolveErrorMessage } from "@/lib/error-messages";
 import { useToastHelpers } from "@/components/ui/toast";
+import {
+  Dialog,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogBody,
+  DialogFooter,
+} from "@/components/ui/dialog";
 
 function TrashIcon({ className }: { className?: string }) {
   return (
@@ -78,51 +86,49 @@ export default function DeleteBookButton({
         {label || <TrashIcon className="h-4 w-4" />}
       </button>
 
-      {open && (
-        <div className="fixed inset-0 z-[1000] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
-          <div className="w-full max-w-[420px] overflow-hidden rounded-2xl border border-black/10 bg-white dark:border-white/10 dark:bg-[#0a0a0f]">
-            <div className="border-b border-black/10 px-5 py-4 dark:border-white/10">
-              <h3 className="text-[18px] font-semibold text-slate-900 dark:text-white">Delete book</h3>
-              {bookTitle && (
-                <p className="mt-2 text-[15px] font-medium text-slate-800 dark:text-white/90">
-                  &ldquo;{bookTitle}&rdquo;
-                </p>
-              )}
-              <p className="mt-2 text-[14px] text-slate-600 dark:text-white/60">
-                Are you sure you want to delete this book? All chapters, translations, and related data will be permanently removed.
-              </p>
-              <p className="mt-1.5 text-[13px] text-red-600 dark:text-red-400">
-                This action cannot be undone.
-              </p>
-            </div>
-
-            {error && (
-              <div className="mx-5 mt-4 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-[13px] text-red-700 dark:border-red-900/50 dark:bg-red-950/30 dark:text-red-200">
-                {error}
-              </div>
+      <Dialog open={open} onOpenChange={setOpen}>
+        <DialogHeader>
+          <DialogTitle>Delete book</DialogTitle>
+          <DialogDescription>
+            {bookTitle && (
+              <span className="mb-2 block text-[15px] font-medium text-slate-800 dark:text-white/90">
+                &ldquo;{bookTitle}&rdquo;
+              </span>
             )}
+            Are you sure you want to delete this book? All chapters, translations, and related data will be permanently removed.
+            <span className="mt-1.5 block text-[13px] text-red-600 dark:text-red-400">
+              This action cannot be undone.
+            </span>
+          </DialogDescription>
+        </DialogHeader>
 
-            <div className="flex items-center justify-end gap-2 px-5 py-4">
-              <button
-                type="button"
-                onClick={() => setOpen(false)}
-                disabled={isDeleting}
-                className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-50 disabled:opacity-50 dark:border-white/20 dark:bg-white/10 dark:text-white dark:hover:bg-white/15"
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                onClick={handleDelete}
-                disabled={isDeleting}
-                className="rounded-lg bg-red-600 px-3 py-2 text-sm font-semibold text-white transition hover:bg-red-700 disabled:opacity-50"
-              >
-                {isDeleting ? "Deleting..." : "Delete"}
-              </button>
+        {error && (
+          <DialogBody>
+            <div className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-[13px] text-red-700 dark:border-red-900/50 dark:bg-red-950/30 dark:text-red-200">
+              {error}
             </div>
-          </div>
-        </div>
-      )}
+          </DialogBody>
+        )}
+
+        <DialogFooter>
+          <button
+            type="button"
+            onClick={() => setOpen(false)}
+            disabled={isDeleting}
+            className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-50 disabled:opacity-50 dark:border-white/20 dark:bg-white/10 dark:text-white dark:hover:bg-white/15"
+          >
+            Cancel
+          </button>
+          <button
+            type="button"
+            onClick={handleDelete}
+            disabled={isDeleting}
+            className="rounded-lg bg-red-600 px-3 py-2 text-sm font-semibold text-white transition hover:bg-red-700 disabled:opacity-50"
+          >
+            {isDeleting ? "Deleting..." : "Delete"}
+          </button>
+        </DialogFooter>
+      </Dialog>
     </>
   );
 }

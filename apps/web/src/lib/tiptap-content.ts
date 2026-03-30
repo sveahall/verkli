@@ -1,10 +1,20 @@
+export type TiptapMark = { type: "bold" } | { type: "italic" };
+
 export type TiptapInlineNode =
-  | { type: "text"; text: string }
+  | { type: "text"; text: string; marks?: TiptapMark[] }
   | { type: "hardBreak" };
+
+export type TiptapListItemNode = {
+  type: "listItem";
+  content: TiptapBlockNode[];
+};
 
 export type TiptapBlockNode =
   | { type: "paragraph"; content?: TiptapInlineNode[] }
-  | { type: "heading"; attrs: { level: 1 | 2 | 3 }; content: TiptapInlineNode[] };
+  | { type: "heading"; attrs: { level: 1 | 2 | 3 }; content: TiptapInlineNode[] }
+  | { type: "blockquote"; content: TiptapBlockNode[] }
+  | { type: "bulletList"; content: TiptapListItemNode[] }
+  | { type: "orderedList"; content: TiptapListItemNode[] };
 
 export type TiptapDocument = {
   type: "doc";
@@ -240,6 +250,214 @@ function normalizeLegacyFlattenedDoc(
       },
     ],
   };
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// HTML → TipTap JSON (preserves formatting from EPUB/DOCX)
+// ─────────────────────────────────────────────────────────────────────────────
+
+type CheerioElement = {
+  type: string;
+  name?: string;
+  data?: string;
+  children?: CheerioElement[];
+  attribs?: Record<string, string>;
+  parent?: CheerioElement;
+};
+
+function collectMarks(el: CheerioElement): TiptapMark[] {
+  const marks: TiptapMark[] = [];
+  let cursor: CheerioElement | undefined = el;
+  while (cursor) {
+    const tag = cursor.name?.toLowerCase();
+    if (tag === "strong" || tag === "b") marks.push({ type: "bold" });
+    if (tag === "em" || tag === "i") marks.push({ type: "italic" });
+    cursor = cursor.parent;
+  }
+  return marks;
+}
+
+function convertInlineChildren(el: CheerioElement, inheritedMarks: TiptapMark[] = []): TiptapInlineNode[] {
+  const nodes: TiptapInlineNode[] = [];
+  const children = el.children ?? [];
+
+  for (const child of children) {
+    if (child.type === "text") {
+      const text = (child.data ?? "").replace(/\s+/g, " ");
+      if (!text) continue;
+      const allMarks = [...inheritedMarks];
+      const node: TiptapInlineNode = { type: "text", text };
+      if (allMarks.length > 0) {
+        // Deduplicate marks
+        const seen = new Set<string>();
+        node.marks = allMarks.filter((m) => {
+          if (seen.has(m.type)) return false;
+          seen.add(m.type);
+          return true;
+        });
+      }
+      nodes.push(node);
+      continue;
+    }
+
+    const tag = child.name?.toLowerCase();
+
+    if (tag === "br") {
+      nodes.push({ type: "hardBreak" });
+      continue;
+    }
+
+    // Inline formatting elements — recurse with accumulated marks
+    if (tag === "strong" || tag === "b" || tag === "em" || tag === "i" || tag === "span" || tag === "a" || tag === "u" || tag === "s") {
+      const extraMarks: TiptapMark[] = [...inheritedMarks];
+      if (tag === "strong" || tag === "b") extraMarks.push({ type: "bold" });
+      if (tag === "em" || tag === "i") extraMarks.push({ type: "italic" });
+      nodes.push(...convertInlineChildren(child, extraMarks));
+      continue;
+    }
+
+    // Nested block element inside inline context — extract text
+    if (child.children?.length) {
+      nodes.push(...convertInlineChildren(child, inheritedMarks));
+    }
+  }
+
+  return nodes;
+}
+
+function inlineNodesToText(nodes: TiptapInlineNode[]): string {
+  return nodes
+    .map((n) => (n.type === "text" ? n.text : ""))
+    .join("")
+    .trim();
+}
+
+function convertBlockElement(el: CheerioElement): TiptapBlockNode[] {
+  const tag = el.name?.toLowerCase();
+  const blocks: TiptapBlockNode[] = [];
+
+  if (tag === "h1" || tag === "h2" || tag === "h3") {
+    const level = Number(tag[1]) as 1 | 2 | 3;
+    const content = convertInlineChildren(el);
+    if (inlineNodesToText(content)) {
+      blocks.push({ type: "heading", attrs: { level }, content });
+    }
+    return blocks;
+  }
+
+  // h4-h6 → treat as h3
+  if (tag === "h4" || tag === "h5" || tag === "h6") {
+    const content = convertInlineChildren(el);
+    if (inlineNodesToText(content)) {
+      blocks.push({ type: "heading", attrs: { level: 3 }, content });
+    }
+    return blocks;
+  }
+
+  if (tag === "p" || tag === "div") {
+    const content = convertInlineChildren(el);
+    if (inlineNodesToText(content)) {
+      blocks.push({ type: "paragraph", content });
+    }
+    return blocks;
+  }
+
+  if (tag === "blockquote") {
+    const innerBlocks = convertChildBlockElements(el);
+    if (innerBlocks.length > 0) {
+      blocks.push({ type: "blockquote", content: innerBlocks });
+    }
+    return blocks;
+  }
+
+  if (tag === "ul" || tag === "ol") {
+    const items: TiptapListItemNode[] = [];
+    for (const child of el.children ?? []) {
+      if (child.name?.toLowerCase() === "li") {
+        const liBlocks = convertChildBlockElements(child);
+        if (liBlocks.length === 0) {
+          const content = convertInlineChildren(child);
+          if (inlineNodesToText(content)) {
+            liBlocks.push({ type: "paragraph", content });
+          }
+        }
+        if (liBlocks.length > 0) {
+          items.push({ type: "listItem", content: liBlocks });
+        }
+      }
+    }
+    if (items.length > 0) {
+      blocks.push({
+        type: tag === "ol" ? "orderedList" : "bulletList",
+        content: items,
+      });
+    }
+    return blocks;
+  }
+
+  // li outside of list context — treat as paragraph
+  if (tag === "li") {
+    const content = convertInlineChildren(el);
+    if (inlineNodesToText(content)) {
+      blocks.push({ type: "paragraph", content });
+    }
+    return blocks;
+  }
+
+  // Fallback: recurse into children
+  if (el.children?.length) {
+    for (const child of el.children) {
+      if (child.type === "text") {
+        const text = (child.data ?? "").trim();
+        if (text) {
+          blocks.push({ type: "paragraph", content: [{ type: "text", text }] });
+        }
+        continue;
+      }
+      blocks.push(...convertBlockElement(child));
+    }
+  }
+
+  return blocks;
+}
+
+function convertChildBlockElements(parent: CheerioElement): TiptapBlockNode[] {
+  const blocks: TiptapBlockNode[] = [];
+  for (const child of parent.children ?? []) {
+    if (child.type === "text") {
+      const text = (child.data ?? "").trim();
+      if (text) {
+        blocks.push({ type: "paragraph", content: [{ type: "text", text }] });
+      }
+      continue;
+    }
+    if (child.type === "tag" || child.type === "script" || child.type === "style") {
+      if (child.name?.toLowerCase() === "script" || child.name?.toLowerCase() === "style") continue;
+      blocks.push(...convertBlockElement(child));
+    }
+  }
+  return blocks;
+}
+
+/**
+ * Convert HTML string to TipTap JSON document.
+ * Preserves: paragraphs, headings (h1-h3), bold, italic, lists, blockquotes.
+ * Use this instead of plainTextToTiptapDoc when the source has HTML structure.
+ */
+export function htmlToTiptapDoc(html: string): TiptapDocument {
+  // Lazy-load cheerio to avoid import at module level (cheerio is already a dependency)
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  const cheerio = require("cheerio") as typeof import("cheerio");
+  const $ = cheerio.load(html);
+
+  const body = $("body")[0];
+  if (!body) return createEmptyDoc();
+
+  const nodes = convertChildBlockElements(body as unknown as CheerioElement);
+
+  if (nodes.length === 0) return createEmptyDoc();
+
+  return { type: "doc", content: nodes };
 }
 
 export function plainTextToTiptapDoc(text: string): TiptapDocument {

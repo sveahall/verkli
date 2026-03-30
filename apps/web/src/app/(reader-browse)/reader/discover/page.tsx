@@ -1,7 +1,6 @@
 import type { Metadata } from "next";
 import { createClient } from "@/lib/supabase/server";
 import { AVATARS_BUCKET_PUBLIC } from "@/lib/supabase/config";
-import { getDiscoveryEnabled, getRecommendationsEnabled } from "@/lib/flags";
 import {
   getLanguageLabel,
   LANGUAGE_OPTIONS,
@@ -10,7 +9,15 @@ import {
 } from "@/lib/languages";
 import ReaderDiscoverPageView from "@/features/reader/reader-discover/ReaderDiscoverPageView";
 
-type SearchParams = { lang?: string };
+/* ── Search param types ── */
+
+type SearchParams = {
+  lang?: string;
+  q?: string;
+  genre?: string;
+  format?: string;
+  sort?: string;
+};
 
 export const revalidate = 300;
 
@@ -26,146 +33,140 @@ export const metadata: Metadata = {
   },
 };
 
-async function getFeaturedBooks(
-  supabase: Awaited<ReturnType<typeof createClient>>,
-  language: SupportedLanguage
-) {
-  const now = new Date().toISOString();
-  const base = supabase
-    .from("books")
-    .select("id, title, cover_image, author_id, published_at, featured_rank, featured_until")
-    .eq("status", "PUBLISHED")
-    .eq("is_featured", true)
-    .order("featured_rank", { ascending: true, nullsFirst: false })
-    .order("published_at", { ascending: false })
-    .limit(12);
-  const { data } =
-    language === "en"
-      ? await base.or("language.eq.en,language.is.null")
-      : await base.eq("language", language);
-  return (data ?? []).filter(
-    (book) =>
-      (book as { featured_until?: string | null }).featured_until == null ||
-      (book as { featured_until?: string | null }).featured_until! > now
-  );
+/* ── Valid filter values ── */
+
+const VALID_FORMATS = ["all", "ebook", "audiobook"] as const;
+type Format = (typeof VALID_FORMATS)[number];
+
+const VALID_SORTS = ["newest", "popular", "title"] as const;
+type Sort = (typeof VALID_SORTS)[number];
+
+function parseFormat(raw: string | undefined): Format {
+  if (raw && VALID_FORMATS.includes(raw as Format)) return raw as Format;
+  return "all";
 }
 
-async function getNewBooks(
-  supabase: Awaited<ReturnType<typeof createClient>>,
-  language: SupportedLanguage,
-  limit: number
-) {
-  const base = supabase
-    .from("books")
-    .select("id, title, cover_image, author_id, published_at")
-    .eq("status", "PUBLISHED")
-    .order("published_at", { ascending: false })
-    .limit(limit);
-  const { data } =
-    language === "en"
-      ? await base.or("language.eq.en,language.is.null")
-      : await base.eq("language", language);
-  return data ?? [];
+function parseSort(raw: string | undefined): Sort {
+  if (raw && VALID_SORTS.includes(raw as Sort)) return raw as Sort;
+  return "newest";
 }
 
-async function getCuratedListsWithItems(
+/* ── Data fetching ── */
+
+async function fetchFilteredBooks(
   supabase: Awaited<ReturnType<typeof createClient>>,
-  language: SupportedLanguage,
-  itemsPerList: number
+  opts: {
+    language: SupportedLanguage;
+    query: string;
+    genreSlug: string;
+    format: Format;
+    sort: Sort;
+    limit: number;
+  }
 ) {
-  const { data: lists } = await supabase
-    .from("curated_lists")
-    .select("id, slug, title, description")
-    .eq("language", language)
-    .eq("is_active", true)
-    .order("title");
+  const { language, query, genreSlug, format, sort, limit } = opts;
 
-  if (!lists?.length) return [];
+  // If filtering by genre, first get matching book IDs
+  let genreBookIds: string[] | null = null;
+  if (genreSlug) {
+    const { data: genreRows } = await supabase
+      .from("genres")
+      .select("id")
+      .eq("slug", genreSlug)
+      .limit(1);
 
-  const listIds = lists.map((list) => list.id);
-  const { data: allItems } = await supabase
-    .from("curated_list_items")
-    .select("list_id, book_id, rank")
-    .in("list_id", listIds)
-    .order("rank", { ascending: true });
+    if (genreRows && genreRows.length > 0) {
+      const genreId = genreRows[0].id;
+      const { data: junctionRows } = await supabase
+        .from("book_genres")
+        .select("book_id")
+        .eq("genre_id", genreId)
+        .limit(200);
 
-  const itemsByList = new Map<string, Array<{ book_id: string; rank: number }>>();
-  for (const item of allItems ?? []) {
-    const existing = itemsByList.get(item.list_id) ?? [];
-    if (existing.length < itemsPerList) {
-      existing.push(item);
-      itemsByList.set(item.list_id, existing);
+      genreBookIds = (junctionRows ?? []).map((r) => r.book_id);
+      if (genreBookIds.length === 0) {
+        // No books in this genre — return empty
+        return [];
+      }
+    } else {
+      // Invalid genre slug — return empty
+      return [];
     }
   }
 
-  const allBookIds = [...new Set([...itemsByList.values()].flatMap((items) => items.map((item) => item.book_id)))];
-  if (allBookIds.length === 0) {
-    return lists.map((list) => ({
-      id: list.id,
-      slug: list.slug,
-      title: list.title,
-      description: list.description ?? null,
-      items: [],
-    }));
+  // Build the main query
+  let base = supabase
+    .from("books")
+    .select(
+      "id, title, cover_image, author_id, published_at, is_featured, audiobook_status"
+    )
+    .eq("status", "PUBLISHED");
+
+  // Language filter
+  if (language === "en") {
+    base = base.or("language.eq.en,language.is.null");
+  } else {
+    base = base.eq("language", language);
   }
 
-  const { data: allBooks } = await supabase
-    .from("books")
-    .select("id, title, cover_image, author_id")
-    .eq("status", "PUBLISHED")
-    .in("id", allBookIds);
+  // Text search
+  if (query) {
+    base = base.ilike("title", `%${query}%`);
+  }
 
-  const bookMap = new Map((allBooks ?? []).map((book) => [book.id, book]));
-  const authorIds = [...new Set((allBooks ?? []).map((book) => book.author_id))];
-  const { data: profiles } = await supabase
-    .from("profiles")
-    .select("user_id, display_name, username")
-    .in("user_id", authorIds);
+  // Genre filter (restrict to genre book IDs)
+  if (genreBookIds) {
+    base = base.in("id", genreBookIds);
+  }
 
-  const authorMap = new Map(
-    (profiles ?? []).map((profile) => [profile.user_id, profile.display_name || profile.username || "Author"])
-  );
+  // Format filter
+  if (format === "audiobook") {
+    base = base.eq("audiobook_status", "published");
+  } else if (format === "ebook") {
+    base = base.or(
+      "audiobook_status.is.null,audiobook_status.eq.not_started"
+    );
+  }
 
-  return lists.map((list) => {
-    const listItems = itemsByList.get(list.id) ?? [];
-    const items = listItems
-      .map((item) => {
-        const book = bookMap.get(item.book_id);
-        if (!book) return null;
-        return {
-          id: book.id,
-          title: book.title,
-          author: authorMap.get(book.author_id) ?? "Author",
-          cover: book.cover_image,
-          href: `/reader/books/${book.id}`,
-        };
-      })
-      .filter((book): book is NonNullable<typeof book> => book !== null);
+  // Sort
+  if (sort === "popular") {
+    base = base
+      .order("is_featured", { ascending: false })
+      .order("published_at", { ascending: false });
+  } else if (sort === "title") {
+    base = base.order("title", { ascending: true });
+  } else {
+    // newest (default)
+    base = base.order("published_at", { ascending: false });
+  }
 
-    return {
-      id: list.id,
-      slug: list.slug,
-      title: list.title,
-      description: list.description ?? null,
-      items,
-    };
-  });
+  const { data } = await base.limit(limit);
+  return data ?? [];
 }
 
 async function enrichBooksWithAuthor(
   supabase: Awaited<ReturnType<typeof createClient>>,
-  books: Array<{ id: string; title: string; cover_image: string | null; author_id: string }>
+  books: Array<{
+    id: string;
+    title: string;
+    cover_image: string | null;
+    author_id: string;
+    audiobook_status?: string | null;
+  }>
 ) {
   if (books.length === 0) return [];
 
-  const authorIds = [...new Set(books.map((book) => book.author_id))];
+  const authorIds = [...new Set(books.map((b) => b.author_id))];
   const { data: profiles } = await supabase
     .from("profiles")
     .select("user_id, display_name, username")
     .in("user_id", authorIds);
 
   const authorMap = new Map(
-    (profiles ?? []).map((profile) => [profile.user_id, profile.display_name || profile.username || "Author"])
+    (profiles ?? []).map((p) => [
+      p.user_id,
+      p.display_name || p.username || "Author",
+    ])
   );
 
   return books.map((book) => ({
@@ -174,25 +175,63 @@ async function enrichBooksWithAuthor(
     author: authorMap.get(book.author_id) ?? "Author",
     cover: book.cover_image,
     href: `/reader/books/${book.id}`,
+    hasAudiobook: book.audiobook_status === "published",
   }));
 }
 
-function takeUniqueBooks<T extends { id: string }>(
-  books: T[],
-  seenIds: Set<string>,
-  limit: number
-): T[] {
-  const unique: T[] = [];
+async function fetchGenres(
+  supabase: Awaited<ReturnType<typeof createClient>>
+) {
+  const { data } = await supabase
+    .from("genres")
+    .select("id, slug, name_en, name_sv, icon, display_order")
+    .order("display_order", { ascending: true });
 
-  for (const book of books) {
-    if (seenIds.has(book.id)) continue;
-    seenIds.add(book.id);
-    unique.push(book);
-    if (unique.length >= limit) break;
-  }
-
-  return unique;
+  return (data ?? []).map((g) => ({
+    id: g.id,
+    slug: g.slug,
+    label: g.name_en || g.name_sv,
+    icon: g.icon,
+  }));
 }
+
+async function fetchAuthors(
+  supabase: Awaited<ReturnType<typeof createClient>>
+) {
+  const { data: profiles } = await supabase
+    .from("profiles")
+    .select("user_id, display_name, username, avatar_url, bio")
+    .eq("role", "author")
+    .eq("is_public", true)
+    .limit(6);
+
+  const avatarBucket = supabase.storage.from("avatars");
+
+  return (profiles ?? []).map((p) => {
+    let avatar: string | null = null;
+    const avatarPath = p.avatar_url;
+    if (avatarPath && typeof avatarPath === "string" && avatarPath.trim()) {
+      if (
+        avatarPath.startsWith("http://") ||
+        avatarPath.startsWith("https://")
+      ) {
+        avatar = avatarPath;
+      } else if (AVATARS_BUCKET_PUBLIC) {
+        avatar = avatarBucket.getPublicUrl(avatarPath).data.publicUrl;
+      }
+    }
+
+    return {
+      id: p.user_id,
+      name: p.display_name || p.username || "Author",
+      avatar,
+      genre: p.bio ? "Public author" : "Storyteller",
+      href: `/reader/authors/${p.user_id}`,
+    };
+  });
+}
+
+/* ── Page component ── */
 
 export default async function ReaderDiscoverPage({
   searchParams,
@@ -202,104 +241,64 @@ export default async function ReaderDiscoverPage({
   const params = await searchParams;
   const language = normalizeLanguage(params?.lang);
   const langLabel = getLanguageLabel(language);
+  const query = (params?.q ?? "").trim();
+  const genreSlug = (params?.genre ?? "").trim();
+  const format = parseFormat(params?.format);
+  const sort = parseSort(params?.sort);
 
   const supabase = await createClient();
-  const discoveryEnabled = getDiscoveryEnabled();
-  const recommendationsEnabled = getRecommendationsEnabled();
 
-  const [featuredRaw, newBooksRaw, curatedLists, profiles, genresResult] = await Promise.all([
-    discoveryEnabled ? getFeaturedBooks(supabase, language) : Promise.resolve([]),
-    discoveryEnabled ? getNewBooks(supabase, language, 16) : Promise.resolve([]),
-    discoveryEnabled ? getCuratedListsWithItems(supabase, language, 6) : Promise.resolve([]),
-    supabase
-      .from("profiles")
-      .select("user_id, display_name, username, avatar_url, bio")
-      .eq("role", "author")
-      .eq("is_public", true)
-      .limit(12)
-      .then((result) => result.data ?? []),
-    recommendationsEnabled
-      ? supabase
-          .from("genres")
-          .select("id, slug, name_sv, name_en, icon, display_order")
-          .order("display_order", { ascending: true })
-          .then((result) => result.data ?? [])
-      : Promise.resolve(
-          [] as Array<{
-            id: string;
-            slug: string;
-            name_sv: string;
-            name_en: string | null;
-            icon: string | null;
-            display_order: number;
-          }>
-        ),
+  const [rawBooks, genres, authors] = await Promise.all([
+    fetchFilteredBooks(supabase, {
+      language,
+      query,
+      genreSlug,
+      format,
+      sort,
+      limit: 24,
+    }),
+    fetchGenres(supabase),
+    fetchAuthors(supabase),
   ]);
 
-  const [featuredBooks, newBooks] = await Promise.all([
-    enrichBooksWithAuthor(supabase, featuredRaw),
-    enrichBooksWithAuthor(supabase, newBooksRaw),
-  ]);
+  const books = await enrichBooksWithAuthor(supabase, rawBooks);
 
-  const avatarBucket = supabase.storage.from("avatars");
-  const authorsWithAvatars = profiles.map((profile) => {
-    let avatar: string | null = null;
-    const avatarPath = profile.avatar_url;
-    if (avatarPath && typeof avatarPath === "string" && avatarPath.trim()) {
-      if (avatarPath.startsWith("http://") || avatarPath.startsWith("https://")) {
-        avatar = avatarPath;
-      } else if (AVATARS_BUCKET_PUBLIC) {
-        avatar = avatarBucket.getPublicUrl(avatarPath).data.publicUrl;
-      }
-    }
-
+  // Build language option hrefs that preserve current filters
+  const languageOptions = LANGUAGE_OPTIONS.map((opt) => {
+    const p = new URLSearchParams();
+    if (opt.value !== "en") p.set("lang", opt.value);
+    if (query) p.set("q", query);
+    if (genreSlug) p.set("genre", genreSlug);
+    if (format !== "all") p.set("format", format);
+    if (sort !== "newest") p.set("sort", sort);
+    const qs = p.toString();
     return {
-      id: profile.user_id,
-      name: profile.display_name || profile.username || "Author",
-      avatar,
-      genre: profile.bio ? "Public author" : "Storyteller",
-      href: `/reader/authors/${profile.user_id}`,
+      value: opt.value,
+      label: opt.label,
+      href: `/reader/discover${qs ? `?${qs}` : ""}`,
+      active: opt.value === language,
     };
   });
 
-  const popularBooks = (
-    curatedLists.flatMap((list) => list.items).length > 0
-      ? curatedLists.flatMap((list) => list.items)
-      : featuredBooks.length > 0
-        ? featuredBooks
-        : newBooks
-  )
-    .filter((book, index, self) => self.findIndex((candidate) => candidate.id === book.id) === index)
-    .slice(0, 8);
-
-  const heroBook = featuredBooks[0] ?? newBooks[0] ?? popularBooks[0] ?? null;
-  const consumedBookIds = new Set(heroBook ? [heroBook.id] : []);
-  const trendingBooks = takeUniqueBooks(featuredBooks, consumedBookIds, 6);
-  const popularShelfBooks = takeUniqueBooks(popularBooks, consumedBookIds, 6);
-  const latestBooks = takeUniqueBooks(newBooks, consumedBookIds, 6);
+  const activeGenre = genres.find((g) => g.slug === genreSlug) ?? null;
 
   return (
     <div>
       <ReaderDiscoverPageView
         languageLabel={langLabel}
-        languageOptions={LANGUAGE_OPTIONS.map((option) => ({
-          value: option.value,
-          label: option.label,
-          href: option.value === "en" ? "/reader/discover" : `/reader/discover?lang=${option.value}`,
-          active: option.value === language,
-        }))}
-        heroBook={heroBook}
-        trendingBooks={trendingBooks.map((book) => ({ ...book, tag: "Trending" }))}
-        newBooks={latestBooks.map((book) => ({ ...book, tag: "New" }))}
-        popularBooks={popularShelfBooks.map((book, index) => ({ ...book, tag: `#${index + 1}` }))}
-        curatedLists={curatedLists}
-        authors={authorsWithAvatars.slice(0, 6)}
-        genres={genresResult.map((genre) => ({
-          id: genre.id,
-          slug: genre.slug,
-          label: genre.name_en || genre.name_sv,
-          icon: genre.icon,
-        }))}
+        languageOptions={languageOptions}
+        books={books}
+        authors={authors}
+        genres={genres}
+        activeFilters={{
+          query,
+          language,
+          genreSlug,
+          genreLabel: activeGenre?.label ?? null,
+          format,
+          sort,
+        }}
+        resultCount={books.length}
       />
     </div>
   );

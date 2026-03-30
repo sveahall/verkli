@@ -15,9 +15,11 @@ type Props = {
   tools: Tool[];
   /** When true, renders without the card wrapper (for embedding inside another card) */
   bare?: boolean;
+  /** When true, reduces vertical spacing for sticky headers */
+  compact?: boolean;
 };
 
-function StepperContent({ bookId, activeTool, tools }: Omit<Props, "bare">) {
+function StepperContent({ bookId, activeTool, tools, compact = false }: Omit<Props, "bare">) {
   const orderedTools = STEPPER_TOOLS.filter((t) => tools.includes(t));
   const currentIndex = Math.max(0, orderedTools.indexOf(activeTool));
   const prevTool = currentIndex > 0 ? orderedTools[currentIndex - 1] : null;
@@ -26,14 +28,15 @@ function StepperContent({ bookId, activeTool, tools }: Omit<Props, "bare">) {
       ? orderedTools[currentIndex + 1]
       : null;
   const stepCount = orderedTools.length;
+  const stepperInsetClass = "mx-2 sm:mx-6 lg:mx-16 xl:mx-20";
 
   return (
     <>
-      <p className="text-center text-xs font-semibold uppercase tracking-widest text-slate-400 dark:text-white/35">
+      <p className={`text-center my-6 text-xs font-semibold uppercase tracking-widest text-slate-400 dark:text-white/35 ${compact ? "my-2" : "my-6"}`}>
         Step {currentIndex + 1} of {stepCount}
       </p>
 
-      <div className="mt-4 flex items-center gap-4">
+      <div className={`flex items-center gap-4 ${compact ? "mt-0" : "mt-4"}`}>
         {prevTool ? (
           <Link
             href={getToolHref(bookId, prevTool)}
@@ -49,7 +52,7 @@ function StepperContent({ bookId, activeTool, tools }: Omit<Props, "bare">) {
         )}
 
         <div className="min-w-0 flex-1">
-          <div className="flex justify-between">
+          <div className={`flex justify-between ${stepperInsetClass}`}>
             {orderedTools.map((t, idx) => {
               const isActive = t === activeTool;
               const isDone = idx < currentIndex;
@@ -71,7 +74,7 @@ function StepperContent({ bookId, activeTool, tools }: Omit<Props, "bare">) {
             })}
           </div>
 
-          <div className="relative mt-3 h-[2px]">
+          <div className={`relative mt-3 h-[2px] ${stepperInsetClass}`}>
             <div className="absolute inset-0 rounded-full bg-slate-200/70 dark:bg-white/[0.07]" />
             {stepCount > 1 && (
               <div
@@ -128,11 +131,11 @@ function StepperContent({ bookId, activeTool, tools }: Omit<Props, "bare">) {
   );
 }
 
-export default function BookWorkflowHeader({ bookId, activeTool, tools, bare = false }: Props) {
+export default function BookWorkflowHeader({ bookId, activeTool, tools, bare = false, compact = false }: Props) {
   if (bare) {
     return (
-      <div className="px-6 pb-5 pt-5">
-        <StepperContent bookId={bookId} activeTool={activeTool} tools={tools} />
+      <div className={compact ? "px-8 pb-2 pt-2" : "px-8 pb-8 pt-8"}>
+        <StepperContent bookId={bookId} activeTool={activeTool} tools={tools} compact={compact} />
       </div>
     );
   }

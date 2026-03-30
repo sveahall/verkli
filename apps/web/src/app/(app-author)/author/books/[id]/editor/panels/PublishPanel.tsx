@@ -1,8 +1,9 @@
 "use client";
 
 import Image from "next/image";
-import { useMemo } from "react";
+import { useMemo, useRef } from "react";
 import { getLanguageLabel } from "@/lib/languages";
+import { useToastHelpers } from "@/components/ui/toast";
 
 type PublishVisibility = "public" | "followers" | "private";
 
@@ -141,6 +142,8 @@ export default function PublishPanel({
   onOpenCover,
   genreSelector,
 }: PublishPanelProps) {
+  const toast = useToastHelpers();
+  const requirementsRef = useRef<HTMLDivElement>(null);
   const liveCount = publishedChapterCount ?? (isPublished ? chapters.length : 0);
   const totalCount = chapters.length;
   const livePercent = totalCount > 0 ? Math.round((liveCount / totalCount) * 100) : 0;
@@ -149,6 +152,13 @@ export default function PublishPanel({
     () => bookVersions.map((v) => getLanguageLabel(v.language_code)),
     [bookVersions],
   );
+
+  const handleDisabledPublishClick = () => {
+    if (missingPublishRequirements.length > 0) {
+      toast.error(missingPublishRequirements[0]);
+      requirementsRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+    }
+  };
 
   return (
     <div className="space-y-6">
@@ -225,7 +235,7 @@ export default function PublishPanel({
 
       {/* ── Requirements warning ── */}
       {!isPublished && missingPublishRequirements.length > 0 && (
-        <div className="rounded-2xl border border-amber-200/60 bg-amber-50/60 p-5 dark:border-amber-500/20 dark:bg-amber-500/5">
+        <div ref={requirementsRef} className="rounded-2xl border border-amber-200/60 bg-amber-50/60 p-5 dark:border-amber-500/20 dark:bg-amber-500/5">
           <h3 className="mb-2 text-sm font-semibold text-amber-800 dark:text-amber-300">Before you can publish</h3>
           <ul className="space-y-1.5">
             {missingPublishRequirements.map((item) => (
@@ -387,9 +397,8 @@ export default function PublishPanel({
             <>
               <button
                 type="button"
-                onClick={onPublishFull}
-                disabled={publishDisabled}
-                className="rounded-xl bg-gradient-to-b from-[#907AFF] to-[#7c6ae6] px-6 py-3 text-sm font-semibold text-white shadow-[0_1px_2px_rgba(144,122,255,0.3),inset_0_1px_0_rgba(255,255,255,0.15)] transition-all hover:shadow-[0_4px_12px_rgba(144,122,255,0.35)] hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-50"
+                onClick={publishDisabled ? handleDisabledPublishClick : onPublishFull}
+                className={`rounded-xl bg-gradient-to-b from-[#907AFF] to-[#7c6ae6] px-6 py-3 text-sm font-semibold text-white shadow-[0_1px_2px_rgba(144,122,255,0.3),inset_0_1px_0_rgba(255,255,255,0.15)] transition-all hover:shadow-[0_4px_12px_rgba(144,122,255,0.35)] hover:brightness-110 ${publishDisabled ? "cursor-not-allowed opacity-50" : ""}`}
               >
                 {isPublishing ? "Publishing..." : "Publish book"}
               </button>

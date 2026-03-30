@@ -170,7 +170,7 @@ export default function ReaderAppShell({
       </div>
 
       {/* ── Main content ── */}
-      <main className="page-content relative min-h-screen bg-[radial-gradient(circle_at_top_left,rgba(144,122,255,0.05),transparent_40%),radial-gradient(circle_at_top_right,rgba(226,158,213,0.04),transparent_45%),linear-gradient(180deg,#fafbfe_0%,#f0f1f6_100%)] pb-24 pt-6 dark:bg-[radial-gradient(circle_at_top_left,rgba(144,122,255,0.07),transparent_42%),radial-gradient(circle_at_top_right,rgba(255,255,255,0.03),transparent_45%),linear-gradient(180deg,_#0a0c14_0%,_#050917_100%)] sm:pt-8 lg:pb-8 lg:pt-10">{children}</main>
+      <main className="relative mx-auto min-h-screen w-full max-w-[1400px] px-4 pb-24 pt-6 sm:px-5 lg:px-6 lg:pb-8 lg:pt-8">{children}</main>
 
       {/* ── Mobile bottom nav ── */}
       <nav

@@ -170,7 +170,12 @@ export function useChapterCrud({
       toast.error("Cannot delete the only chapter.");
       return;
     }
+    setDeletingChapterId(chapterId);
     const supabase = createClient();
+
+    // Clean up chapter_audio_cache (no FK — must delete manually)
+    await supabase.from("chapter_audio_cache").delete().eq("chapter_id", chapterId);
+
     const { error } = await supabase.from("chapters").delete().eq("id", chapterId);
     if (error) {
       toast.error("Could not delete chapter. Try again.");
@@ -183,6 +188,7 @@ export function useChapterCrud({
       setSelectedChapterId(remaining[0]?.id ?? null);
     }
     setDeletingChapterId(null);
+    toast.success("Chapter deleted.");
     router.refresh();
   };
 

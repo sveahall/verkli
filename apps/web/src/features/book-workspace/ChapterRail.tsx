@@ -4,6 +4,13 @@ import { memo, useState, type ChangeEventHandler } from "react";
 import Image from "next/image";
 import type { BookWorkspaceChapter } from "@/features/book-workspace/types";
 import { cn } from "@/lib/utils";
+import {
+  Dialog,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from "@/components/ui/dialog";
 
 type ChapterRailProps = {
   bookTitle: string;
@@ -21,6 +28,8 @@ type ChapterRailProps = {
     sourceChapterId: string,
     targetChapterId: string
   ) => void;
+  onDeleteChapter?: (chapterId: string) => void;
+  deletingChapterId?: string | null;
 };
 
 function countWords(content: string | null): number {
@@ -66,6 +75,8 @@ function ChapterRail({
   isCreating,
   onMoveChapter,
   onReorderChapter,
+  onDeleteChapter,
+  deletingChapterId,
 }: ChapterRailProps) {
   const [draggingChapterId, setDraggingChapterId] = useState<string | null>(
     null
@@ -73,6 +84,10 @@ function ChapterRail({
   const [dropTargetChapterId, setDropTargetChapterId] = useState<
     string | null
   >(null);
+  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
+  const chapterToDelete = confirmDeleteId
+    ? chapters.find((ch) => ch.id === confirmDeleteId)
+    : null;
 
   const totalWords = chapters.reduce(
     (sum, ch) => sum + countWords(ch.content),
@@ -265,6 +280,17 @@ function ChapterRail({
                           </button>
                         </>
                       ) : null}
+                      {onDeleteChapter && chapters.length > 1 ? (
+                        <button
+                          type="button"
+                          onClick={() => setConfirmDeleteId(chapter.id)}
+                          disabled={deletingChapterId === chapter.id}
+                          className="rounded px-1 py-0.5 text-[11px] font-medium text-slate-400 transition hover:bg-red-50 hover:text-red-600 disabled:opacity-50 dark:text-white/35 dark:hover:bg-red-500/10 dark:hover:text-red-400"
+                          aria-label={`Delete ${chapter.title || `Chapter ${index + 1}`}`}
+                        >
+                          ×
+                        </button>
+                      ) : null}
                     </div>
                   </div>
                 </div>
@@ -285,6 +311,41 @@ function ChapterRail({
           {isCreating ? "Creating..." : "+ New chapter"}
         </button>
       </div>
+
+      {/* Delete confirmation dialog */}
+      {onDeleteChapter ? (
+        <Dialog open={confirmDeleteId !== null} onOpenChange={(open) => { if (!open) setConfirmDeleteId(null); }}>
+          <DialogHeader>
+            <DialogTitle>Delete chapter</DialogTitle>
+            <DialogDescription>
+              Are you sure you want to delete{" "}
+              <strong>{chapterToDelete?.title || "this chapter"}</strong>? This
+              cannot be undone.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <button
+              type="button"
+              onClick={() => setConfirmDeleteId(null)}
+              className="rounded-lg border border-slate-200 px-4 py-2 text-[13px] font-medium text-slate-700 transition hover:bg-slate-50 dark:border-white/10 dark:text-white/70 dark:hover:bg-white/[0.04]"
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                if (confirmDeleteId) {
+                  onDeleteChapter(confirmDeleteId);
+                  setConfirmDeleteId(null);
+                }
+              }}
+              className="rounded-lg bg-red-600 px-4 py-2 text-[13px] font-medium text-white transition hover:bg-red-700 dark:bg-red-600 dark:hover:bg-red-700"
+            >
+              Delete
+            </button>
+          </DialogFooter>
+        </Dialog>
+      ) : null}
     </div>
   );
 }
@@ -297,6 +358,7 @@ export default memo(ChapterRail, (prev, next) => {
     prev.selectedChapterId === next.selectedChapterId &&
     prev.isCreating === next.isCreating &&
     prev.coverUploading === next.coverUploading &&
-    prev.coverError === next.coverError
+    prev.coverError === next.coverError &&
+    prev.deletingChapterId === next.deletingChapterId
   );
 });

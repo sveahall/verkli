@@ -61,7 +61,7 @@ export function Dialog({ open, onOpenChange, children, className }: DialogProps)
       onClose={() => onOpenChange(false)}
       onClick={handleBackdropClick}
       className={cn(
-        "dialog-backdrop w-[min(92vw,520px)] rounded-2xl border border-slate-200/80 bg-white p-0 text-slate-900 shadow-[0_24px_60px_rgba(15,23,42,0.18)] focus:outline-none dark:border-white/10 dark:bg-[#0b0b12] dark:text-white",
+        "dialog-backdrop fixed inset-0 m-auto w-[min(92vw,520px)] rounded-2xl border border-slate-200/80 bg-white p-0 text-slate-900 shadow-[0_24px_60px_rgba(15,23,42,0.18)] focus:outline-none dark:border-white/10 dark:bg-[#0b0b12] dark:text-white",
         className
       )}
     >

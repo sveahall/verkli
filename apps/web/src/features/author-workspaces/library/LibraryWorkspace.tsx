@@ -10,9 +10,11 @@ import {
   Headphones,
   Library,
   Plus,
+  Trash2,
 } from "lucide-react";
 import CreateBookDialog from "@/components/books/CreateBookDialog";
 import CreateBookEntry from "@/app/(app-author)/author/books/CreateBookEntry";
+import DeleteBookButton from "@/components/books/DeleteBookButton";
 import { useAuthorWorkspace } from "@/features/author-shell/workspace-state";
 import WorkspaceLayout from "@/features/author-workspaces/WorkspaceLayout";
 import WorkspaceHeaderActions from "@/features/author-workspaces/components/WorkspaceHeaderActions";
@@ -68,6 +70,15 @@ function BookCoverCard({ book }: { book: LibraryBook }) {
             <Headphones className="h-2.5 w-2.5 text-violet-600 dark:text-violet-400" />
           </div>
         )}
+        {/* Delete — appears on hover */}
+        <div className="absolute left-1.5 top-1.5 opacity-0 transition-opacity duration-150 group-hover:opacity-100" onClick={(e) => e.preventDefault()}>
+          <DeleteBookButton
+            bookId={book.id}
+            bookTitle={book.title}
+            label=""
+            className="flex h-6 w-6 items-center justify-center rounded-full bg-white/90 text-slate-400 shadow-sm transition hover:bg-red-50 hover:text-red-500 dark:bg-black/60 dark:text-white/40 dark:hover:bg-red-950/80 dark:hover:text-red-400"
+          />
+        </div>
       </div>
       <div className="mt-2">
         <h3 className="truncate text-[13px] font-semibold text-slate-800 group-hover:text-[#5132de] dark:text-white/90 dark:group-hover:text-[#cfbfff]">

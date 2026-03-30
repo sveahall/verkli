@@ -2,6 +2,7 @@
 
 import dynamic from "next/dynamic";
 import GenreSelector from "@/components/books/GenreSelector";
+import DeleteBookButton from "@/components/books/DeleteBookButton";
 import { getMarketingEnabled, getRecommendationsEnabled, getTranslationsEnabled } from "@/lib/flags";
 import { type SupportedLanguage } from "@/lib/languages";
 import BookWorkflowHeader from "../BookWorkflowHeader";
@@ -199,6 +200,7 @@ export default function BookEditorPanelContent({
         {tool === "publish" && (
           <div className="space-y-8">
             <PublishPanel
+
               bookTitle={bookTitle}
               authorDisplayName={authorDisplayName}
               coverImageUrl={cover.displayCoverUrl}
@@ -264,6 +266,23 @@ export default function BookEditorPanelContent({
               onOpenPublish={() => onNavigateToPanel("publish")}
               onSavePrintOnDemandSettings={onSavePrintOnDemandSettings}
             />
+
+            {/* Danger zone */}
+            <div className="rounded-2xl border border-red-200/60 bg-red-50/30 px-6 py-5 dark:border-red-900/30 dark:bg-red-950/10">
+              <h3 className="text-[14px] font-semibold text-red-800 dark:text-red-300">Danger zone</h3>
+              <p className="mt-1.5 text-[13px] text-red-700/80 dark:text-red-400/70">
+                Permanently delete this book and all its chapters, translations, and audiobooks.
+              </p>
+              <div className="mt-4">
+                <DeleteBookButton
+                  bookId={bookId}
+                  bookTitle={bookTitle}
+                  redirectTo="/author/books"
+                  label="Delete this book"
+                  className="rounded-lg border border-red-300 bg-white px-4 py-2 text-[13px] font-semibold text-red-700 transition hover:bg-red-50 dark:border-red-800 dark:bg-red-950/30 dark:text-red-300 dark:hover:bg-red-950/50"
+                />
+              </div>
+            </div>
           </div>
         )}
 

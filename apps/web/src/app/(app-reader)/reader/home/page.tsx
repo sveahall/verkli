@@ -251,6 +251,38 @@ export default async function ReaderHomePage() {
     // Non-blocking. Continue reading can render empty.
   }
 
+  let readingStats = { booksReading: 0, booksFinished: 0, bookmarksCount: 0 };
+
+  try {
+    if (user) {
+      const [readingCountRes, finishedCountRes, bookmarkCountRes] =
+        await Promise.all([
+          supabase
+            .from("readings")
+            .select("*", { count: "exact", head: true })
+            .eq("user_id", user.id)
+            .lt("progress_percent", 99),
+          supabase
+            .from("readings")
+            .select("*", { count: "exact", head: true })
+            .eq("user_id", user.id)
+            .gte("progress_percent", 99),
+          supabase
+            .from("bookmarks")
+            .select("*", { count: "exact", head: true })
+            .eq("user_id", user.id),
+        ]);
+
+      readingStats = {
+        booksReading: readingCountRes.count ?? 0,
+        booksFinished: finishedCountRes.count ?? 0,
+        bookmarksCount: bookmarkCountRes.count ?? 0,
+      };
+    }
+  } catch {
+    // Non-blocking
+  }
+
   let publishedWithAuthors: PublishedBook[] = [];
   let newReleases: PublishedBook[] = [];
   let topChart: ChartBook[] = [];
@@ -550,6 +582,7 @@ export default async function ReaderHomePage() {
             length: formatDateLabel(book.publishedAt) ? `Published ${formatDateLabel(book.publishedAt)}` : undefined,
           }))}
           authorHighlights={trendingAuthors.slice(0, 5)}
+          readingStats={readingStats}
         />
       </div>
     </div>

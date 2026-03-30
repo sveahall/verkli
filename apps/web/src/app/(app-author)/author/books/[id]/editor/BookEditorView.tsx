@@ -128,7 +128,8 @@ export default function BookEditorView({
   }, [chapterWordCounts]);
   const sessionWords = sessionStartWords !== null ? Math.max(0, wordCount - sessionStartWords) : 0;
 
-  const { bookTitle } = useBookRename({ book });
+  const bookRename = useBookRename({ book });
+  const { bookTitle } = bookRename;
   const cover = useBookCover({ book });
   const pricing = useBookPricing({ book });
 
@@ -396,6 +397,8 @@ export default function BookEditorView({
         onCoverChange={cover.handleCoverChange}
         onMoveChapter={chapterCrud.handleMoveChapter}
         onReorderChapters={chapterCrud.handleReorderChapters}
+        onDeleteChapter={chapterCrud.handleDeleteChapter}
+        deletingChapterId={chapterCrud.deletingChapterId}
         onPresetChange={setPreset}
         onFocusModeToggle={() => setFocusMode((current) => !current)}
         onCommandPalette={openPalette}
@@ -463,6 +466,24 @@ export default function BookEditorView({
                 onAutoSave={chapterCrud.handleAutoSave}
                 onDirty={() => chapterCrud.setHasUnsavedChanges(true)}
                 onToggleFocusMode={() => setFocusMode((current) => !current)}
+                onDeleteChapter={chapterCrud.handleDeleteChapter}
+                onCreateChapter={chapterCrud.handleCreateChapter}
+                isCreating={chapterCrud.isCreating}
+                isSaving={chapterCrud.isSaving}
+                lastSaved={chapterCrud.lastSaved}
+                saveError={chapterCrud.saveError}
+                isRenamingBook={bookRename.isRenamingBook}
+                bookTitleDraft={bookRename.bookTitleDraft}
+                onStartRenameBook={bookRename.handleStartRenameBook}
+                onBookTitleDraftChange={bookRename.setBookTitleDraft}
+                onSaveRenameBook={bookRename.handleSaveRenameBook}
+                onCancelRenameBook={bookRename.handleCancelRenameBook}
+                editingTitleId={chapterCrud.editingTitleId}
+                tempTitle={chapterCrud.tempTitle}
+                onStartEditTitle={chapterCrud.handleStartEditTitle}
+                onTempTitleChange={chapterCrud.setTempTitle}
+                onSaveTitle={chapterCrud.handleSaveTitle}
+                onCancelEditTitle={chapterCrud.handleCancelEditTitle}
               />
             )}
 

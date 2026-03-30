@@ -546,11 +546,15 @@ export async function processJob(payload: ProcessJobPayload) {
         continue;
       }
 
+      // Use rich TipTap content from HTML extraction when available,
+      // otherwise fall back to plain text conversion.
+      const tiptapDoc = ch.tiptapContent ?? plainTextToTiptapDoc(sourceText);
+
       rows.push({
         book_id: targetBookId,
         book_version_id: targetBookVersionId,
         title: chapterTitle,
-        content: JSON.stringify(plainTextToTiptapDoc(sourceText)),
+        content: JSON.stringify(tiptapDoc),
         source_text: sourceText,
         content_hash: hash,
         order: i,

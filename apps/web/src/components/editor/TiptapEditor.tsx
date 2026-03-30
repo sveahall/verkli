@@ -3,6 +3,8 @@
 import Image from "@tiptap/extension-image";
 import Placeholder from "@tiptap/extension-placeholder";
 import TextAlign from "@tiptap/extension-text-align";
+import { TextStyle } from "@tiptap/extension-text-style";
+import { FontFamily } from "@tiptap/extension-font-family";
 import StarterKit from "@tiptap/starter-kit";
 import {
   EditorContent,
@@ -121,6 +123,8 @@ export default function TiptapEditor({
       }),
       Image.configure({ inline: false, allowBase64: true }),
       TextAlign.configure({ types: ["heading", "paragraph"] }),
+      TextStyle,
+      FontFamily,
       Placeholder.configure({ placeholder }),
     ],
     content: toTiptapContent(content),
@@ -338,12 +342,48 @@ export default function TiptapEditor({
           <ItalicIcon />
         </MenuButton>
         <MenuButton
-          label="Heading"
+          label="Heading 1"
+          active={editor.isActive("heading", { level: 1 })}
+          onClick={() => editor.chain().focus().toggleHeading({ level: 1 }).run()}
+        >
+          H1
+        </MenuButton>
+        <MenuButton
+          label="Heading 2"
           active={editor.isActive("heading", { level: 2 })}
           onClick={() => editor.chain().focus().toggleHeading({ level: 2 }).run()}
         >
           H2
         </MenuButton>
+        <MenuButton
+          label="Heading 3"
+          active={editor.isActive("heading", { level: 3 })}
+          onClick={() => editor.chain().focus().toggleHeading({ level: 3 }).run()}
+        >
+          H3
+        </MenuButton>
+        <MenuDivider />
+        <select
+          value={(editor.getAttributes("textStyle") as Record<string, string>).fontFamily ?? ""}
+          onChange={(e) => {
+            const val = e.target.value;
+            if (val) {
+              editor.chain().focus().setFontFamily(val).run();
+            } else {
+              editor.chain().focus().unsetFontFamily().run();
+            }
+          }}
+          className="h-7 rounded border border-black/10 bg-transparent px-1.5 text-[11px] font-medium text-slate-600 outline-none dark:border-white/10 dark:text-white/60"
+          title="Font family"
+        >
+          <option value="">Font</option>
+          <option value="Georgia, serif">Georgia</option>
+          <option value="'Times New Roman', serif">Times</option>
+          <option value="'Merriweather', serif">Merriweather</option>
+          <option value="'Inter', sans-serif">Inter</option>
+          <option value="'Lora', serif">Lora</option>
+          <option value="monospace">Monospace</option>
+        </select>
         <MenuDivider />
         <MenuButton label="Rewrite" onClick={() => runInlineAction("rewrite")}>
           Rewrite
@@ -385,8 +425,8 @@ export default function TiptapEditor({
         </div>
       </FloatingMenu>
 
-      {/* Fixed toolbar */}
-      <div className="verkli-toolbar flex items-center gap-0.5 border-b border-slate-100 px-4 py-1.5 dark:border-white/[0.06]">
+      {/* Sticky toolbar */}
+      <div className="verkli-toolbar sticky top-0 z-10 flex items-center gap-0.5 border-b border-slate-100 bg-white/95 px-4 py-1.5 backdrop-blur-sm dark:border-white/[0.06] dark:bg-[#111318]/95">
         <ToolbarButton label="Undo" onClick={() => editor.chain().focus().undo().run()}>
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 7v6h6"/><path d="M21 17a9 9 0 0 0-9-9 9 9 0 0 0-6 2.3L3 13"/></svg>
         </ToolbarButton>
@@ -561,6 +601,7 @@ export default function TiptapEditor({
           background: rgba(255, 255, 255, 0.96);
           box-shadow: 0 18px 48px rgba(15, 23, 42, 0.16);
           backdrop-filter: blur(16px);
+          z-index: 50;
         }
 
         .dark .verkli-bubble-menu {

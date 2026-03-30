@@ -43,6 +43,8 @@ type WriteOnlyWorkspaceViewProps = {
     sourceChapterId: string,
     targetChapterId: string
   ) => void;
+  onDeleteChapter?: (chapterId: string) => void;
+  deletingChapterId?: string | null;
   onPresetChange: (value: string) => void;
   onFocusModeToggle: () => void;
   onCommandPalette: () => void;
@@ -86,6 +88,8 @@ export default function WriteOnlyWorkspaceView({
   onCoverChange,
   onMoveChapter,
   onReorderChapters,
+  onDeleteChapter,
+  deletingChapterId,
   onPresetChange,
   onFocusModeToggle,
   onCommandPalette,
@@ -139,6 +143,8 @@ export default function WriteOnlyWorkspaceView({
                 coverError={coverError}
                 onMoveChapter={onMoveChapter}
                 onReorderChapter={onReorderChapters}
+                onDeleteChapter={onDeleteChapter}
+                deletingChapterId={deletingChapterId}
               />
             }
             editorCanvas={

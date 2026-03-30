@@ -12,8 +12,10 @@ import {
   Languages,
   PenLine,
   Tag,
+  Trash2,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
+import DeleteBookButton from "@/components/books/DeleteBookButton";
 
 /* ════════════════════════════════════════════════════════════════════ */
 
@@ -132,6 +134,13 @@ export default async function BookPreviewPage({
             <PenLine className="h-3.5 w-3.5" />
             Edit book
           </Link>
+          <DeleteBookButton
+            bookId={id}
+            bookTitle={b.title}
+            redirectTo="/author/library"
+            label=""
+            className="inline-flex items-center justify-center rounded-full border border-slate-200 p-2 text-slate-400 transition-[border-color,color,transform] duration-150 ease-[cubic-bezier(0.23,1,0.32,1)] hover:border-red-200 hover:text-red-500 active:scale-[0.97] dark:border-white/10 dark:text-white/30 dark:hover:border-red-800 dark:hover:text-red-400"
+          />
         </div>
       </nav>
 
