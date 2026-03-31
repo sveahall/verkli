@@ -104,6 +104,7 @@ export default function BookEditorPanelContent({
         activeTool={tool}
         tools={tools}
         bare
+        compact
       />
       <div className="min-h-[calc(100vh-14rem)] px-6 pb-10 pt-4 sm:px-10">
 
@@ -133,6 +134,10 @@ export default function BookEditorPanelContent({
             handleCoverDrop={cover.handleCoverDrop}
             handleCoverAIGenerate={cover.handleCoverAIGenerate}
             handleCoverSetFromGenerated={cover.handleCoverSetFromGenerated}
+            coverAITemplate={cover.coverAITemplate}
+            setCoverAITemplate={cover.setCoverAITemplate}
+            coverAITemplateFields={cover.coverAITemplateFields}
+            setCoverAITemplateFields={cover.setCoverAITemplateFields}
           />
         )}
 

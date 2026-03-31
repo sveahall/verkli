@@ -2,7 +2,7 @@
 
 import { useRef, useState } from "react";
 import dynamic from "next/dynamic";
-import { getLanguageLabel, LANGUAGE_OPTIONS, normalizeLanguage } from "@/lib/languages";
+import { getLanguageLabel, normalizeLanguage } from "@/lib/languages";
 import {
   getAudiobookStatusLabel,
 } from "../BookEditorView.helpers";
@@ -112,10 +112,8 @@ export default function AudiobookPanel({
   latestAudiobookManifestUrl,
 }: AudiobookPanelProps) {
   // Dropdown open states (local UI only — not part of hook state)
-  const [abLangOpen, setAbLangOpen] = useState(false);
   const [abVoiceOpen, setAbVoiceOpen] = useState(false);
   const [abToneOpen, setAbToneOpen] = useState(false);
-  const abLangRef = useRef<HTMLDivElement>(null);
   const abVoiceRef = useRef<HTMLDivElement>(null);
   const abToneRef = useRef<HTMLDivElement>(null);
 
@@ -123,47 +121,21 @@ export default function AudiobookPanel({
   const [audiobookPreviewTone, setAudiobookPreviewTone] = useState("neutral");
 
   return (
-    <div className="space-y-6">
+    <div className="mx-auto max-w-5xl space-y-6">
       <h2 className="text-[13px] font-semibold uppercase tracking-[0.08em] text-slate-800 dark:text-white/70">AUDIOBOOK PREVIEW</h2>
 
       {/* Dropdowns row */}
       <div className="flex flex-wrap gap-4">
-        {/* Language dropdown */}
-        <div className="relative" ref={abLangRef}>
-          <button
-            type="button"
-            onClick={() => { setAbLangOpen((o) => !o); setAbVoiceOpen(false); setAbToneOpen(false); }}
-            className="flex items-center gap-2 rounded-full border border-slate-200 bg-white px-5 py-2.5 text-[15px] font-medium text-slate-900 transition hover:border-slate-300 dark:border-white/[0.1] dark:bg-white/[0.04] dark:text-white"
-            aria-haspopup="listbox"
-            aria-expanded={abLangOpen}
-          >
-            <span>{getLanguageLabel(normalizeLanguage(activeVersion?.language_code ?? activeLanguage))}</span>
-            <svg className={`h-4 w-4 text-slate-400 transition-transform ${abLangOpen ? "rotate-180" : ""}`} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M6 9l6 6 6-6" /></svg>
-          </button>
-          {abLangOpen && (
-            <ul className="absolute left-0 top-full z-20 mt-1 min-w-[160px] overflow-hidden rounded-xl shadow-lg border border-slate-200 bg-white py-1 dark:border-white/[0.08] dark:bg-slate-900" role="listbox">
-              {LANGUAGE_OPTIONS.map((opt) => (
-                <li key={opt.value} role="option" aria-selected={normalizeLanguage(activeVersion?.language_code ?? activeLanguage) === opt.value}>
-                  <button
-                    type="button"
-                    onClick={() => setAbLangOpen(false)}
-                    className={`w-full px-4 py-2 text-left text-sm transition hover:bg-slate-50 dark:hover:bg-white/10 ${
-                      normalizeLanguage(activeVersion?.language_code ?? activeLanguage) === opt.value ? "bg-[#907AFF]/8 font-medium text-[#5c4bb8] dark:bg-[#907AFF]/15 dark:text-[#b8a9ff]" : "text-slate-700 dark:text-white/80"
-                    }`}
-                  >
-                    {opt.label}
-                  </button>
-                </li>
-              ))}
-            </ul>
-          )}
+        {/* Language badge (read-only — tied to active book version) */}
+        <div className="flex items-center gap-2 rounded-full border border-slate-200 bg-white px-5 py-2.5 text-sm font-medium text-slate-900 dark:border-white/[0.1] dark:bg-white/[0.04] dark:text-white">
+          {getLanguageLabel(normalizeLanguage(activeVersion?.language_code ?? activeLanguage))}
         </div>
 
         {/* Voice dropdown */}
         <div className="relative" ref={abVoiceRef}>
           <button
             type="button"
-            onClick={() => { setAbVoiceOpen((o) => !o); setAbLangOpen(false); setAbToneOpen(false); }}
+            onClick={() => { setAbVoiceOpen((o) => !o); setAbToneOpen(false); }}
             className="flex items-center gap-2 rounded-full border border-slate-200 bg-white px-5 py-2.5 text-[15px] font-medium text-slate-900 transition hover:border-slate-300 dark:border-white/[0.1] dark:bg-white/[0.04] dark:text-white"
             aria-haspopup="listbox"
             aria-expanded={abVoiceOpen}
@@ -194,7 +166,7 @@ export default function AudiobookPanel({
         <div className="relative" ref={abToneRef}>
           <button
             type="button"
-            onClick={() => { setAbToneOpen((o) => !o); setAbLangOpen(false); setAbVoiceOpen(false); }}
+            onClick={() => { setAbToneOpen((o) => !o); setAbVoiceOpen(false); }}
             className="flex items-center gap-2 rounded-full border border-slate-200 bg-white px-5 py-2.5 text-[15px] font-medium text-slate-900 transition hover:border-slate-300 dark:border-white/[0.1] dark:bg-white/[0.04] dark:text-white"
             aria-haspopup="listbox"
             aria-expanded={abToneOpen}

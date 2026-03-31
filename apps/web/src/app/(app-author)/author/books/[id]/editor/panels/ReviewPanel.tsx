@@ -238,7 +238,7 @@ export default function ReviewPanel({
     issues.push({ text: "Book is set to free \u2014 set a price if you want to earn", panel: "publish" });
 
   return (
-    <div className="space-y-5">
+    <div className="mx-auto max-w-4xl space-y-5">
       {/* ── Hero: Book identity ── */}
       <div className="grid items-start gap-6 rounded-2xl border border-black/[0.05] bg-white/60 p-6 backdrop-blur-sm dark:border-white/[0.06] dark:bg-white/[0.02] sm:grid-cols-[140px_1fr]">
         <div className="relative mx-auto aspect-[3/4] w-[140px] overflow-hidden rounded-xl border border-black/[0.06] bg-slate-50 shadow-sm dark:border-white/[0.06] dark:bg-white/[0.02] sm:mx-0">

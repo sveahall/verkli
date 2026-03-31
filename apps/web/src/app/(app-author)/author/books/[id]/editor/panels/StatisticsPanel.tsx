@@ -92,7 +92,7 @@ export default function StatisticsPanel({
       data.overview.bookmarks > 0);
 
   return (
-    <div className="space-y-5">
+    <div className="mx-auto max-w-4xl space-y-5">
       {/* Period selector */}
       <div className="flex items-center justify-end">
         <div className="flex gap-0.5 rounded-xl bg-slate-100/80 p-0.5 dark:bg-white/5">

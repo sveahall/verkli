@@ -224,7 +224,7 @@ export default function PrintPanel({
 
   /* ── Configuration ── */
   return (
-    <div className="space-y-6">
+    <div className="mx-auto max-w-4xl space-y-6">
       <h2 className="text-[clamp(20px,2.5vw,24px)] font-bold tracking-[-0.02em] text-slate-900 dark:text-white">
         Print on demand
       </h2>

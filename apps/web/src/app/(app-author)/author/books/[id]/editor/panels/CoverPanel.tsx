@@ -3,7 +3,7 @@
 import Image from "next/image";
 import dynamic from "next/dynamic";
 import { ImageIcon, Sparkles, Upload } from "lucide-react";
-import { ACCEPTED_COVER_TYPES, COVER_AI_STYLES } from "../BookEditorView.helpers";
+import { ACCEPTED_COVER_TYPES, COVER_AI_STYLES, COVER_TEMPLATES } from "../BookEditorView.helpers";
 
 const CoverCropModal = dynamic(() => import("@/components/books/CoverCropModal"), { ssr: false });
 
@@ -32,6 +32,10 @@ interface CoverPanelProps {
   handleCoverDrop: (e: React.DragEvent<HTMLDivElement>) => void;
   handleCoverAIGenerate: () => void;
   handleCoverSetFromGenerated: (url: string) => void;
+  coverAITemplate: string | null;
+  setCoverAITemplate: (v: string | null) => void;
+  coverAITemplateFields: Record<string, string>;
+  setCoverAITemplateFields: (v: Record<string, string>) => void;
 }
 
 export default function CoverPanel({
@@ -59,12 +63,20 @@ export default function CoverPanel({
   handleCoverDrop,
   handleCoverAIGenerate,
   handleCoverSetFromGenerated,
+  coverAITemplate,
+  setCoverAITemplate,
+  coverAITemplateFields,
+  setCoverAITemplateFields,
 }: CoverPanelProps) {
+  const selectedTemplate = coverAITemplate
+    ? COVER_TEMPLATES.find((t) => t.id === coverAITemplate) ?? null
+    : null;
+
   return (
-    <div className="space-y-8">
+    <div className="mx-20 mt-10 max-w-6xl space-y-8">
       {/* ── Header ── */}
       <div>
-        <div className="flex items-center gap-2.5">
+        <div className="flex items-center justify-center gap-2.5">
           <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-[#907AFF]/10 dark:bg-[#907AFF]/15">
             <ImageIcon className="h-4 w-4 text-[#907AFF]" />
           </div>
@@ -72,7 +84,7 @@ export default function CoverPanel({
             Book Cover
           </h2>
         </div>
-        <p className="mt-2 text-sm text-slate-500 dark:text-white/45">
+        <p className="my-6 text-sm text-slate-500 justify-center text-center mx-auto dark:text-white/45">
           Upload your own cover image or generate one with AI. Recommended size: 1600 &times; 2400px (3:4 ratio).
         </p>
       </div>
@@ -92,17 +104,17 @@ export default function CoverPanel({
         </p>
       )}
 
-      <div className="grid gap-8 lg:grid-cols-[280px_1fr]">
+      <div className="grid gap-8 pt-10 lg:grid-cols-[300px_1fr]">
         {/* ── Cover preview ── */}
         <div>
           {displayCoverUrl ? (
             <div className="space-y-4">
-              <div className="relative overflow-hidden rounded-2xl border border-black/[0.06] shadow-[0_4px_20px_rgba(0,0,0,0.08)] dark:border-white/[0.08] dark:shadow-[0_4px_20px_rgba(0,0,0,0.3)]" style={{ aspectRatio: "3/4" }}>
+              <div className="relative overflow-hidden rounded-2xl border border-black/[0.06] shadow-md dark:border-white/[0.08]" style={{ aspectRatio: "3/4" }}>
                 <Image
                   src={displayCoverUrl}
                   alt="Book cover"
                   fill
-                  sizes="280px"
+                  sizes="300px"
                   className="object-cover"
                   unoptimized
                 />
@@ -112,7 +124,7 @@ export default function CoverPanel({
                   type="button"
                   onClick={() => coverInputRef.current?.click()}
                   disabled={coverUploading}
-                  className="flex-1 rounded-xl border border-black/[0.08] bg-white py-2 text-[13px] font-medium text-slate-600 transition hover:bg-slate-50 disabled:opacity-50 dark:border-white/[0.08] dark:bg-white/[0.04] dark:text-white/70"
+                  className="flex-1 rounded-xl border border-black/[0.08] bg-white py-2.5 text-xs font-medium text-slate-600 transition-all hover:bg-slate-50 hover:border-black/[0.12] active:scale-[0.97] disabled:opacity-50 dark:border-white/[0.08] dark:bg-white/[0.04] dark:text-white/70"
                 >
                   Replace
                 </button>
@@ -120,7 +132,7 @@ export default function CoverPanel({
                   type="button"
                   onClick={() => setCoverCropSrc(displayCoverUrl)}
                   disabled={coverUploading}
-                  className="flex-1 rounded-xl border border-black/[0.08] bg-white py-2 text-[13px] font-medium text-slate-600 transition hover:bg-slate-50 disabled:opacity-50 dark:border-white/[0.08] dark:bg-white/[0.04] dark:text-white/70"
+                  className="flex-1 rounded-xl border border-black/[0.08] bg-white py-2.5 text-xs font-medium text-slate-600 transition-all hover:bg-slate-50 hover:border-black/[0.12] active:scale-[0.97] disabled:opacity-50 dark:border-white/[0.08] dark:bg-white/[0.04] dark:text-white/70"
                 >
                   Crop
                 </button>
@@ -128,7 +140,7 @@ export default function CoverPanel({
                   type="button"
                   onClick={handleRemoveCover}
                   disabled={coverUploading}
-                  className="rounded-xl border border-red-200/60 bg-white px-3 py-2 text-[13px] font-medium text-red-500 transition hover:bg-red-50 disabled:opacity-50 dark:border-red-900/30 dark:bg-white/[0.03] dark:text-red-400"
+                  className="rounded-xl border border-red-200/60 bg-white px-4 py-2.5 text-xs font-medium text-red-500 transition-all hover:bg-red-50 hover:border-red-300 active:scale-[0.97] disabled:opacity-50 dark:border-red-900/30 dark:bg-white/[0.03] dark:text-red-400"
                 >
                   Remove
                 </button>
@@ -185,34 +197,110 @@ export default function CoverPanel({
 
         {/* ── AI generation ── */}
         <div className="space-y-5">
-          <div className="rounded-2xl border border-slate-100 bg-slate-50/50 p-6 dark:border-white/[0.06] dark:bg-white/[0.02]">
+          <div className="rounded-2xl border border-slate-100 bg-slate-50/50 p-8 dark:border-white/[0.06] dark:bg-white/[0.02]">
             <div className="flex items-center gap-2.5">
-              <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-[#907AFF]/10 dark:bg-[#907AFF]/15">
+              <div className="flex h-7 w-7 items-center justify-center rounded-xl bg-[#907AFF]/10 dark:bg-[#907AFF]/15">
                 <Sparkles className="h-3.5 w-3.5 text-[#907AFF]" />
               </div>
-              <h3 className="text-[15px] font-semibold text-slate-800 dark:text-white/90">
+              <h3 className="text-sm font-semibold text-slate-800 dark:text-white/90">
                 Generate with AI
               </h3>
             </div>
 
+            {/* Template dropdown */}
+            {coverAITemplate !== null && (
+              <div className="mt-6 space-y-4">
+                <div>
+                  <label htmlFor="cover-template" className="mb-1.5 block text-xs font-medium text-slate-600 dark:text-white/60">
+                    Starting point
+                  </label>
+                  <div className="relative">
+                    <select
+                      id="cover-template"
+                      value={coverAITemplate}
+                      onChange={(e) => {
+                        setCoverAITemplate(e.target.value);
+                        setCoverAITemplateFields({});
+                        if (coverAIError) setCoverAIError(null);
+                      }}
+                      className="w-full appearance-none rounded-xl border border-slate-200 bg-white px-4 py-2.5 pr-9 text-sm font-medium text-slate-700 focus:border-[#907AFF]/40 focus:outline-none focus:ring-2 focus:ring-[#907AFF]/10 dark:border-white/[0.10] dark:bg-white/[0.04] dark:text-white/80"
+                    >
+                      {COVER_TEMPLATES.map((t) => (
+                        <option key={t.id} value={t.id}>{t.label} — {t.description}</option>
+                      ))}
+                    </select>
+                    <svg className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400 dark:text-white/40" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="m19 9-7 7-7-7" />
+                    </svg>
+                  </div>
+                </div>
+
+                {/* Template fields */}
+                {selectedTemplate?.fields.map((field) => (
+                  <div key={field.id}>
+                    <label htmlFor={`cover-field-${field.id}`} className="mb-1.5 block text-xs font-medium text-slate-600 dark:text-white/60">
+                      {field.label}
+                    </label>
+                    <input
+                      id={`cover-field-${field.id}`}
+                      type="text"
+                      value={coverAITemplateFields[field.id] ?? ""}
+                      onChange={(e) => {
+                        setCoverAITemplateFields({ ...coverAITemplateFields, [field.id]: e.target.value });
+                        if (coverAIError) setCoverAIError(null);
+                      }}
+                      placeholder={field.placeholder}
+                      className="w-full rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm text-slate-900 placeholder:text-slate-400 focus:border-[#907AFF]/40 focus:outline-none focus:ring-2 focus:ring-[#907AFF]/10 dark:border-white/[0.10] dark:bg-white/[0.04] dark:text-white dark:placeholder:text-white/30"
+                    />
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* Custom prompt textarea */}
+            {coverAITemplate === null && (
+              <div className="mt-6">
+                <label htmlFor="cover-ai-prompt" className="mb-2 block text-xs font-medium text-slate-600 dark:text-white/60">
+                  Describe the cover you want
+                </label>
+                <textarea
+                  id="cover-ai-prompt"
+                  value={coverAIPrompt}
+                  onChange={(e) => {
+                    setCoverAIPrompt(e.target.value);
+                    if (coverAIError) setCoverAIError(null);
+                  }}
+                  placeholder="Be specific: describe the scene, colors, mood, and key elements..."
+                  rows={4}
+                  className="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 placeholder:text-slate-400 focus:border-[#907AFF]/40 focus:outline-none focus:ring-2 focus:ring-[#907AFF]/10 dark:border-white/[0.10] dark:bg-white/[0.04] dark:text-white dark:placeholder:text-white/30"
+                />
+                <p className="mt-1.5 text-[11px] text-slate-400 dark:text-white/30">
+                  Tip: focus on the visual scene, not text or layout — we handle typography automatically.
+                </p>
+              </div>
+            )}
+
+            {/* Toggle between template and custom */}
             <div className="mt-4">
-              <label htmlFor="cover-ai-prompt" className="mb-1.5 block text-[13px] font-medium text-slate-600 dark:text-white/60">
-                Describe the cover you want
-              </label>
-              <textarea
-                id="cover-ai-prompt"
-                value={coverAIPrompt}
-                onChange={(e) => {
-                  setCoverAIPrompt(e.target.value);
+              <button
+                type="button"
+                onClick={() => {
+                  if (coverAITemplate) {
+                    setCoverAITemplate(null);
+                  } else {
+                    setCoverAITemplate(COVER_TEMPLATES[0]?.id ?? null);
+                    setCoverAITemplateFields({});
+                  }
                   if (coverAIError) setCoverAIError(null);
                 }}
-                placeholder="A serene mountain landscape at sunset with a silhouette..."
-                rows={3}
-                className="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-[13px] text-slate-900 placeholder:text-slate-400 focus:border-[#907AFF]/40 focus:outline-none focus:ring-2 focus:ring-[#907AFF]/10 dark:border-white/[0.10] dark:bg-white/[0.04] dark:text-white dark:placeholder:text-white/30"
-              />
+                className="text-xs font-medium text-slate-400 underline decoration-slate-300 underline-offset-2 transition-colors hover:text-[#907AFF] dark:text-white/40 dark:decoration-white/20 dark:hover:text-[#907AFF]"
+              >
+                {coverAITemplate ? "Write a custom prompt instead" : "Use a template instead"}
+              </button>
             </div>
 
-            <div className="mt-4 flex flex-wrap items-center gap-3">
+            {/* Style + Generate */}
+            <div className="mt-6 flex flex-wrap items-center gap-3">
               <div className="relative">
                 <label htmlFor="cover-ai-style" className="sr-only">Style</label>
                 <select
@@ -222,7 +310,7 @@ export default function CoverPanel({
                     setCoverAIStyle(e.target.value);
                     if (coverAIError) setCoverAIError(null);
                   }}
-                  className="appearance-none rounded-xl border border-slate-200 bg-white px-4 py-2.5 pr-9 text-[13px] font-medium text-slate-700 focus:border-[#907AFF]/40 focus:outline-none focus:ring-2 focus:ring-[#907AFF]/10 dark:border-white/[0.10] dark:bg-white/[0.04] dark:text-white/80"
+                  className="appearance-none rounded-xl border border-slate-200 bg-white px-4 py-2.5 pr-9 text-xs font-medium text-slate-700 focus:border-[#907AFF]/40 focus:outline-none focus:ring-2 focus:ring-[#907AFF]/10 dark:border-white/[0.10] dark:bg-white/[0.04] dark:text-white/80"
                 >
                   {COVER_AI_STYLES.map(({ value, label }) => (
                     <option key={value} value={value}>{label}</option>
@@ -236,7 +324,7 @@ export default function CoverPanel({
                 type="button"
                 onClick={handleCoverAIGenerate}
                 disabled={coverAIGenerating}
-                className="inline-flex items-center gap-2 rounded-xl bg-[#907AFF] px-5 py-2.5 text-[13px] font-semibold text-white shadow-sm transition-all hover:bg-[#7B6BF0] hover:shadow-md disabled:opacity-50"
+                className="inline-flex items-center gap-2 rounded-xl bg-[#907AFF] px-6 py-2.5 text-xs font-semibold text-white shadow-sm transition-all hover:bg-[#7B6BF0] hover:shadow-md active:scale-[0.97] disabled:opacity-50"
               >
                 <Sparkles className="h-3.5 w-3.5" />
                 {coverAIGenerating ? "Generating..." : "Generate"}
@@ -244,35 +332,37 @@ export default function CoverPanel({
             </div>
 
             {coverAIError && (
-              <p className="mt-3 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-600 dark:border-red-900/30 dark:bg-red-950/20 dark:text-red-400" role="alert">
+              <p className="mt-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-600 dark:border-red-900/30 dark:bg-red-950/20 dark:text-red-400" role="alert">
                 {coverAIError}
               </p>
             )}
 
             {!coverAIGenerating && coverAIGeneratedUrls.length === 0 && !coverAIError && (
-              <p className="mt-4 text-[13px] text-slate-400 dark:text-white/35">
-                Describe your ideal cover, choose a style, and we&apos;ll generate 4 options for you.
+              <p className="mt-6 text-xs text-slate-400 dark:text-white/35">
+                {coverAITemplate
+                  ? "Customize the fields above, pick a style, and we'll generate 4 cover options."
+                  : "Describe your ideal cover, choose a style, and we'll generate 4 options for you."}
               </p>
             )}
           </div>
 
           {/* AI preview overlay */}
           {coverAIPreviewUrl && (
-            <div className="rounded-2xl border border-[#907AFF]/20 bg-[#907AFF]/[0.04] p-5 dark:border-[#907AFF]/15 dark:bg-[#907AFF]/[0.06]">
-              <p className="mb-3 text-[13px] font-semibold text-slate-700 dark:text-white/80">Preview</p>
-              <div className="mx-auto w-[180px]">
-                <div className="relative aspect-[3/4] overflow-hidden rounded-xl border border-slate-200 shadow-sm dark:border-white/[0.08]">
+            <div className="rounded-2xl border border-[#907AFF]/20 bg-[#907AFF]/[0.04] p-6 dark:border-[#907AFF]/15 dark:bg-[#907AFF]/[0.06]">
+              <p className="mb-4 text-xs font-semibold text-slate-700 dark:text-white/80">Preview</p>
+              <div className="mx-auto w-[200px]">
+                <div className="relative aspect-[3/4] overflow-hidden rounded-xl border border-slate-200 shadow-md dark:border-white/[0.08]">
                   <Image
                     src={coverAIPreviewUrl}
                     alt="AI cover preview"
                     fill
-                    sizes="180px"
+                    sizes="200px"
                     className="object-cover"
                     unoptimized
                   />
                 </div>
               </div>
-              <div className="mt-4 flex justify-center gap-2">
+              <div className="mt-6 flex justify-center gap-2">
                 <button
                   type="button"
                   onClick={() => {
@@ -280,14 +370,14 @@ export default function CoverPanel({
                     setCoverAIPreviewUrl(null);
                   }}
                   disabled={coverUploading}
-                  className="rounded-xl bg-[#907AFF] px-5 py-2.5 text-[13px] font-semibold text-white transition hover:bg-[#7B6BF0] disabled:opacity-50"
+                  className="rounded-xl bg-[#907AFF] px-6 py-2.5 text-xs font-semibold text-white transition-all hover:bg-[#7B6BF0] active:scale-[0.97] disabled:opacity-50"
                 >
                   {coverUploading ? "Saving..." : "Use as cover"}
                 </button>
                 <button
                   type="button"
                   onClick={() => setCoverAIPreviewUrl(null)}
-                  className="rounded-xl border border-black/[0.08] px-5 py-2.5 text-[13px] font-medium text-slate-600 transition hover:bg-slate-50 dark:border-white/[0.08] dark:text-white/60"
+                  className="rounded-xl border border-black/[0.08] px-6 py-2.5 text-xs font-medium text-slate-600 transition-all hover:bg-slate-50 active:scale-[0.97] dark:border-white/[0.08] dark:text-white/60"
                 >
                   Cancel
                 </button>
@@ -297,24 +387,24 @@ export default function CoverPanel({
 
           {coverAIGeneratedUrls.length > 0 && !coverAIPreviewUrl && (
             <div>
-              <p className="mb-3 text-[13px] font-medium text-slate-500 dark:text-white/50">
+              <p className="mb-4 text-xs font-medium text-slate-500 dark:text-white/50">
                 Generated covers — click to preview
               </p>
-              <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+              <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
                 {coverAIGeneratedUrls.map((url, i) => (
                   <button
                     key={`${url}-${i}`}
                     type="button"
                     onClick={() => setCoverAIPreviewUrl(url)}
                     disabled={coverUploading}
-                    className="group relative aspect-[3/4] overflow-hidden rounded-xl border-2 border-transparent bg-slate-100 transition-all hover:border-[#907AFF] hover:shadow-lg focus:outline-none focus:ring-2 focus:ring-[#907AFF]/50 disabled:cursor-not-allowed disabled:opacity-60 dark:bg-white/[0.04]"
+                    className="group relative aspect-[3/4] overflow-hidden rounded-xl border-2 border-transparent bg-slate-100 shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:border-[#907AFF] hover:shadow-md focus:outline-none focus:ring-2 focus:ring-[#907AFF]/50 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60 dark:bg-white/[0.04]"
                   >
                     <Image
                       src={url}
                       alt={`Generated cover ${i + 1}`}
                       fill
                       sizes="200px"
-                      className="object-cover transition-transform group-hover:scale-[1.02]"
+                      className="object-cover transition-transform duration-300 group-hover:scale-[1.03]"
                       unoptimized
                     />
                   </button>

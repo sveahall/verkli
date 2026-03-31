@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useMemo, useCallback, useRef, useEffect } from "react";
 import dynamic from "next/dynamic";
 import BookWorkflowHeader from "../../BookWorkflowHeader";
 import { countWordsInContent } from "../BookEditorView.helpers";
@@ -13,15 +13,19 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 
-const TiptapEditor = dynamic(
-  () => import("@/components/editor/TiptapEditor"),
-  {
-    ssr: false,
-    loading: () => (
-      <div className="h-[400px] animate-pulse rounded-xl bg-slate-50 dark:bg-white/5" />
-    ),
-  }
-);
+const editorImport = () => import("@/components/editor/TiptapEditor");
+
+// Start downloading the editor chunk immediately, don't wait for render
+if (typeof window !== "undefined") editorImport();
+
+const TiptapEditor = dynamic(editorImport, {
+  ssr: false,
+  loading: () => (
+    <div className="flex h-[300px] items-center justify-center rounded-xl bg-slate-50 dark:bg-white/5">
+      <span className="text-sm text-slate-400 dark:text-white/30">Loading editor...</span>
+    </div>
+  ),
+});
 
 type SimplifiedEditViewProps = {
   bookId: string;
@@ -114,33 +118,68 @@ export default function SimplifiedEditView({
     ? chapters.find((ch) => ch.id === confirmDeleteId)
     : null;
 
-  const [isScrolled, setIsScrolled] = useState(false);
   const [toolbarTarget, setToolbarTarget] = useState<HTMLElement | null>(null);
+  const toolbarRefCb = useCallback((el: HTMLElement | null) => setToolbarTarget(el), []);
 
+  // Stable ref for onAutoSave to prevent TiptapEditor re-renders
+  const onAutoSaveRef = useRef(onAutoSave);
   useEffect(() => {
-    const onScroll = () => setIsScrolled(window.scrollY > 60);
-    window.addEventListener("scroll", onScroll, { passive: true });
-    onScroll();
-    return () => window.removeEventListener("scroll", onScroll);
-  }, []);
+    onAutoSaveRef.current = onAutoSave;
+  }, [onAutoSave]);
+
+  // Memoize word counts so JSON.parse isn't called on every render
+  const wordCounts = useMemo(() => {
+    const map = new Map<string, number>();
+    for (const ch of visibleChapters) {
+      map.set(ch.id, countWordsInContent(ch.content));
+    }
+    return map;
+  }, [visibleChapters]);
+
+  // Stable callback that never changes identity — prevents TiptapEditor re-renders
+  const handleAutoSave = useCallback(
+    (json: Record<string, unknown>) => {
+      if (selectedChapterId) onAutoSaveRef.current(selectedChapterId, json);
+    },
+    [selectedChapterId]
+  );
+
+  // Memoize editor to prevent unnecessary re-renders
+  const editorElement = useMemo(() => {
+    if (!selectedChapter) return null;
+    return (
+      <TiptapEditor
+        key={selectedChapter.id}
+        content={selectedChapter.content}
+        onUpdate={handleAutoSave}
+        onDirty={onDirty}
+        placeholder="Start writing your chapter..."
+        bookId={bookId}
+        chapterId={selectedChapter.id}
+        preset={preset}
+        onWordCount={onWordCount}
+        onFocusModeToggle={onToggleFocusMode}
+        focusMode={focusMode}
+        toolbarPortalTarget={toolbarTarget}
+      />
+    );
+  }, [selectedChapter, handleAutoSave, onDirty, bookId, preset, onWordCount, onToggleFocusMode, focusMode, toolbarTarget]);
 
   return (
     <div className="w-full rounded-2xl border border-black/[0.04] bg-white shadow-[0_1px_3px_rgba(0,0,0,0.04)] dark:border-white/[0.06] dark:bg-[#111318] dark:shadow-none">
 
-      {/* ── Sticky header: stepper + chapters + chapter title ── */}
-      <div className="sticky top-0 z-20 rounded-t-2xl border-b border-black/[0.04] bg-white/95 backdrop-blur-md dark:border-white/[0.04] dark:bg-[#111318]/95">
-      {/* ── Workflow stepper ── */}
+      {/* ── Workflow stepper (scrolls away) ── */}
+      <div className="rounded-t-2xl bg-white dark:bg-[#111318]">
       <BookWorkflowHeader
         bookId={bookId}
         activeTool={activeTool}
         tools={tools}
         bare
         compact
-        mini={isScrolled}
       />
 
       {/* ── CHAPTERS / title / badge ── */}
-      <div className={`flex items-center gap-4 px-8 pt-4 pb-8 ${isScrolled ? "hidden" : ""}`}>
+      <div className="flex items-center mt-6 gap-4 px-6 pt-4 pb-4">
         <div className="h-9 w-9 shrink-0" aria-hidden="true" />
         <div className="min-w-0 flex-1">
           <div className="grid grid-cols-[1fr_auto_1fr] items-center mx-2 sm:mx-6 lg:mx-16 xl:mx-20">
@@ -202,12 +241,16 @@ export default function SimplifiedEditView({
         </div>
         <div className="h-9 w-9 shrink-0" aria-hidden="true" />
       </div>
+      </div>{/* end non-sticky section */}
+
+      {/* ── Sticky: chapter numbers + toolbar ── */}
+      <div className="sticky top-0 z-20 border-b border-black/[0.04] bg-white dark:border-white/[0.04] dark:bg-[#111318]">
 
       {/* ── Chapter numbers ── */}
-      <div className={`flex items-center gap-4 ${isScrolled ? "px-4 py-1.5" : "px-8 pb-5"}`}>
-        {!isScrolled && <div className="h-9 w-9 shrink-0" aria-hidden="true" />}
-        <div className="min-w-0 flex-1">
-          <div className={`flex items-center justify-center ${isScrolled ? "gap-1.5" : "gap-2 mx-2 sm:mx-6 lg:mx-16 xl:mx-20"}`}>
+      <div className="grid grid-cols-[auto_1fr_auto] items-center gap-2 px-8 py-3">
+        <div className="flex items-center" aria-hidden="true" />
+        <div className="min-w-0">
+          <div className="flex items-center justify-center gap-2">
         {totalPages > 1 && (
           <button
             type="button"
@@ -222,7 +265,7 @@ export default function SimplifiedEditView({
         {visibleChapters.map((chapter, index) => {
           const globalIndex = startIndex + index;
           const isActive = chapter.id === selectedChapterId;
-          const chapterWords = countWordsInContent(chapter.content);
+          const chapterWords = wordCounts.get(chapter.id) ?? 0;
           const isEmpty = chapterWords === 0;
           return (
             <div key={chapter.id} className="group/ch relative">
@@ -232,7 +275,7 @@ export default function SimplifiedEditView({
                   onSelectChapter(chapter.id);
                   onResetSessionWords();
                 }}
-                className={`flex h-8 min-w-[2rem] items-center justify-center rounded text-sm tabular-nums transition-all duration-150 ${
+                className={`flex h-8 min-w-[2.4rem] items-center justify-center rounded text-sm tabular-nums transition-colors duration-150 ${
                   isActive
                     ? "bg-slate-800 font-bold text-white dark:bg-white dark:text-slate-900"
                     : "text-slate-400 hover:bg-slate-100 hover:text-slate-700 dark:text-white/35 dark:hover:bg-white/[0.06]"
@@ -272,38 +315,22 @@ export default function SimplifiedEditView({
           </button>
         )}
 
-        {onCreateChapter && (
-          <button
-            type="button"
-            onClick={onCreateChapter}
-            disabled={isCreating}
-            className="ml-1 flex h-8 w-8 items-center justify-center rounded border border-dashed border-slate-300 text-sm text-slate-400 transition hover:border-[#907AFF] hover:text-[#907AFF] disabled:opacity-40 dark:border-white/15 dark:text-white/30 dark:hover:border-[#907AFF] dark:hover:text-[#907AFF]"
-            aria-label="Add chapter"
-            title={isCreating ? "Creating..." : "Add chapter"}
-          >
-            +
-          </button>
-        )}
           </div>
         </div>
-        {isScrolled ? (
-          <span className="shrink-0 text-[11px] tabular-nums text-right min-w-[3rem]">
-            {saveError ? (
-              <span className="text-red-500">Failed</span>
-            ) : isSaving ? (
-              <span className="text-slate-400 dark:text-white/30">Saving...</span>
-            ) : lastSaved ? (
-              <span className="text-emerald-500 dark:text-emerald-400">Saved</span>
-            ) : null}
-          </span>
-        ) : (
-          <div className="h-9 w-9 shrink-0" aria-hidden="true" />
-        )}
+        <span className="text-[11px] tabular-nums text-right min-w-[3rem]">
+          {saveError ? (
+            <span className="text-red-500">Failed</span>
+          ) : isSaving ? (
+            <span className="text-slate-400 dark:text-white/30">Saving...</span>
+          ) : lastSaved ? (
+            <span className="text-emerald-500 dark:text-emerald-400">Saved</span>
+          ) : null}
+        </span>
       </div>
 
       {/* ── Selected chapter title (editable) ── */}
-      {selectedChapter && onStartEditTitle && !isScrolled && (
-        <div className="mx-auto max-w-3xl px-6 pb-2">
+      {selectedChapter && onStartEditTitle && (
+        <div className="mx-auto max-w-7xl px-16 pt-4 pb-1">
           {editingTitleId === selectedChapter.id && onSaveTitle && onCancelEditTitle && onTempTitleChange ? (
             <input
               type="text"
@@ -331,29 +358,42 @@ export default function SimplifiedEditView({
         </div>
       )}
 
-      {/* ── Toolbar portal target ── */}
-      <div ref={(el) => setToolbarTarget(el)} className="border-b border-slate-100 dark:border-white/[0.06]" />
+
+      {/* ── Toolbar row: portal target + actions ── */}
+      <div className="flex items-center gap-2 px-10 pb-4 max-w-7xl mx-auto">
+        <div ref={toolbarRefCb} className="min-w-0 flex-1" />
+        {onCreateChapter && (
+          <button
+            type="button"
+            onClick={onCreateChapter}
+            disabled={isCreating}
+            className="flex flex-col shrink-0 items-left justify-center gap-1 rounded-lg px-3 py-2 text-slate-500 transition-colors hover:bg-[#907AFF]/5 hover:text-[#907AFF] disabled:opacity-40 dark:text-white/20 dark:hover:text-[#907AFF]"
+            aria-label="Add chapter"
+            title={isCreating ? "Creating..." : "Add chapter"}
+          >
+            <span className="text-base leading-none">+</span>
+            <span className="text-[10px] leading-none">add chapter</span>
+          </button>
+        )}
+        <button
+          type="button"
+          onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}
+          className="flex flex-col shrink-0 items-center justify-center gap-1 rounded-lg px-3 py-2 text-slate-300 transition-colors hover:border-[#907AFF]/30 hover:bg-[#907AFF]/5 hover:text-[#907AFF] dark:border-white/10 dark:text-white/20 dark:hover:border-[#907AFF]/30 dark:hover:text-[#907AFF]"
+          aria-label="Scroll to top"
+          title="Scroll to top"
+        >
+          <svg width="14" height="14" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+            <path d="M8 12.5V3.5M8 3.5L3.5 8M8 3.5L12.5 8" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+          </svg>
+          <span className="text-[11px] text-slate-500 dark:text-white/20">scroll to top</span>
+        </button>
+      </div>
 
       </div>{/* end sticky header */}
 
       {/* ── Editor content ── */}
-      <div className="mx-auto max-w-3xl px-6 py-8 sm:px-10 sm:py-10">
-        {selectedChapter ? (
-          <TiptapEditor
-            key={selectedChapter.id}
-            content={selectedChapter.content}
-            onUpdate={(json) => onAutoSave(selectedChapter.id, json)}
-            onDirty={onDirty}
-            placeholder="Start writing your chapter..."
-            bookId={bookId}
-            chapterId={selectedChapter.id}
-            preset={preset}
-            onWordCount={onWordCount}
-            onFocusModeToggle={onToggleFocusMode}
-            focusMode={focusMode}
-            toolbarPortalTarget={toolbarTarget}
-          />
-        ) : (
+      <div className="mx-auto max-w-7xl px-18 py-0 sm:px-10 sm:py-10">
+        {editorElement ?? (
           <div className="flex h-[500px] items-center justify-center">
             <p className="text-sm text-slate-400 dark:text-white/35">
               {chapters.length === 0
@@ -398,6 +438,7 @@ export default function SimplifiedEditView({
           </DialogFooter>
         </Dialog>
       )}
+
     </div>
   );
 }

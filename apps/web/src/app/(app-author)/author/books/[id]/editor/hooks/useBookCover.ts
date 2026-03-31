@@ -9,6 +9,8 @@ import { resolveErrorMessage } from "@/lib/error-messages";
 import {
   isAcceptedCoverFile,
   getGeneratedCoverExtension,
+  COVER_TEMPLATES,
+  buildTemplatePrompt,
 } from "../BookEditorView.helpers";
 import type { Book } from "../BookEditorView.types";
 
@@ -32,6 +34,8 @@ export function useBookCover({ book }: UseBookCoverOptions) {
   const [coverAIError, setCoverAIError] = useState<string | null>(null);
   const [coverCropSrc, setCoverCropSrc] = useState<string | null>(null);
   const [coverAIPreviewUrl, setCoverAIPreviewUrl] = useState<string | null>(null);
+  const [coverAITemplate, setCoverAITemplate] = useState<string | null>(COVER_TEMPLATES[0]?.id ?? null);
+  const [coverAITemplateFields, setCoverAITemplateFields] = useState<Record<string, string>>({});
 
   const displayCoverUrl = coverPreviewUrl ?? book.cover_image;
 
@@ -155,7 +159,12 @@ export function useBookCover({ book }: UseBookCoverOptions) {
 
   const handleCoverAIGenerate = useCallback(async () => {
     if (coverAIGenerating) return;
-    const prompt = coverAIPrompt.trim();
+    let prompt: string;
+    if (coverAITemplate) {
+      prompt = buildTemplatePrompt(coverAITemplate, coverAITemplateFields) ?? "";
+    } else {
+      prompt = coverAIPrompt.trim();
+    }
     if (!prompt) {
       setCoverAIError(resolveErrorMessage("PROMPT_TEXT_REQUIRED"));
       return;
@@ -190,7 +199,7 @@ export function useBookCover({ book }: UseBookCoverOptions) {
     } finally {
       setCoverAIGenerating(false);
     }
-  }, [book.id, coverAIGenerating, coverAIPrompt, coverAIStyle]);
+  }, [book.id, coverAIGenerating, coverAIPrompt, coverAIStyle, coverAITemplate, coverAITemplateFields]);
 
   const handleCoverSetFromGenerated = useCallback(
     async (url: string) => {
@@ -239,6 +248,10 @@ export function useBookCover({ book }: UseBookCoverOptions) {
     setCoverCropSrc,
     coverAIPreviewUrl,
     setCoverAIPreviewUrl,
+    coverAITemplate,
+    setCoverAITemplate,
+    coverAITemplateFields,
+    setCoverAITemplateFields,
     handleRemoveCover,
     handleCropSave,
     handleCoverChange,

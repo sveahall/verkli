@@ -34,13 +34,7 @@ function StepperContent({ bookId, activeTool, tools, compact = false, mini = fal
 
   return (
     <>
-      {!mini && (
-        <p className={`text-center text-xs font-semibold uppercase tracking-widest text-slate-400 dark:text-white/35 ${compact ? "my-2" : "my-6"}`}>
-          Step {currentIndex + 1} of {stepCount}
-        </p>
-      )}
-
-      <div className={`flex items-center ${mini ? "gap-2" : "gap-4"} ${mini ? "mt-0" : compact ? "mt-0" : "mt-4"}`}>
+      <div className={`flex mt-15 items-center ${mini ? "gap-2" : "gap-4"} ${mini ? "mt-0" : compact ? "mt-0" : "mt-4"}`}>
         {prevTool ? (
           <Link
             href={getToolHref(bookId, prevTool)}

@@ -145,7 +145,7 @@ export default function MarketPanel({
   }
 
   return (
-    <div className="space-y-6">
+    <div className="mx-auto max-w-4xl space-y-6">
       {/* ── Two paths: Quick copy + Trailer studio ── */}
       <div className="grid gap-4 sm:grid-cols-2">
         {/* Trailer studio card */}
