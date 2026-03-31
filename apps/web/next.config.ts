@@ -106,7 +106,7 @@ const nextConfig: NextConfig = {
     root: path.resolve(__dirname, "../.."),
   },
   transpilePackages: ["@verkli/ui", "@verkli/shared"],
-  serverExternalPackages: ["epub", "pdf-parse"],
+  serverExternalPackages: ["epub", "pdf-parse", "bullmq"],
   async headers() {
     return [
       {
