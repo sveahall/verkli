@@ -20,6 +20,12 @@ vi.mock("@/lib/auth/require-author", () => ({
   requireAuthorRoleForApi: mocks.requireAuthorRoleForApi,
 }));
 
+// Force in-memory rate limiter (no Redis) so limits don't leak between test files
+vi.mock("@/lib/env", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/lib/env")>();
+  return { ...actual, getRedisUrl: () => null, getRedisConnectionOptions: () => undefined, getRedisClientOptions: () => undefined };
+});
+
 const { GET, POST } = await import("./route");
 const { POST: votePOST } = await import("./[id]/vote/route");
 

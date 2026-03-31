@@ -3,7 +3,12 @@ import { describe, it, expect, beforeEach, vi } from "vitest";
 // Force in-memory rate limiter (no Redis) so _reset() and window expiry work deterministically
 vi.mock("@/lib/env", async (importOriginal) => {
   const actual = await importOriginal<typeof import("@/lib/env")>();
-  return { ...actual, getRedisUrl: () => null };
+  return {
+    ...actual,
+    getRedisUrl: () => null,
+    getRedisConnectionOptions: () => undefined,
+    getRedisClientOptions: () => undefined,
+  };
 });
 
 import { createPerUserRateLimiter } from "./rate-limit";

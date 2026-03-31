@@ -63,7 +63,7 @@ vi.mock("@/lib/social-publish-queue", () => ({
 // Force in-memory rate limiter (no Redis) so _reset() works between tests
 vi.mock("@/lib/env", async (importOriginal) => {
   const actual = await importOriginal<typeof import("@/lib/env")>();
-  return { ...actual, getRedisUrl: () => null };
+  return { ...actual, getRedisUrl: () => null, getRedisConnectionOptions: () => undefined, getRedisClientOptions: () => undefined };
 });
 
 const { requireAuthorRoleForApi } = await import("@/lib/auth/require-author");
