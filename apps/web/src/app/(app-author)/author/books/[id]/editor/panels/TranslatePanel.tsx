@@ -150,14 +150,29 @@ export default function TranslatePanel({
     return () => document.removeEventListener("click", close);
   }, [targetDropdownOpen]);
 
+  const previewAbortRef = useRef<AbortController | null>(null);
+
   const fetchPreview = useCallback(async () => {
     if (!bookId || !targetLanguage) return;
+
+    // Abort any in-flight preview request to prevent stale responses overwriting state
+    previewAbortRef.current?.abort();
+    const controller = new AbortController();
+    previewAbortRef.current = controller;
+
     setLoadingPreview(true);
+    setTranslationPreview("");
+    setPreviewUnavailable(false);
     try {
       const res = await fetch(
-        `/api/books/${bookId}/translation-preview?targetLanguage=${encodeURIComponent(targetLanguage)}`
+        `/api/books/${bookId}/translation-preview?targetLanguage=${encodeURIComponent(targetLanguage)}`,
+        { signal: controller.signal },
       );
+      if (controller.signal.aborted) return;
+
       const data = await res.json().catch(() => ({}));
+      if (controller.signal.aborted) return;
+
       const nextOriginalPreview = typeof data.originalText === "string" ? data.originalText : "";
       const nextTranslationPreview = typeof data.previewText === "string" ? data.previewText : "";
       const nextPreviewUnavailable = Boolean(data?.previewUnavailable);
@@ -170,11 +185,14 @@ export default function TranslatePanel({
         setTranslationPreview("");
         setPreviewUnavailable(false);
       }
-    } catch {
+    } catch (err) {
+      if (err instanceof DOMException && err.name === "AbortError") return;
       setTranslationPreview("");
       setPreviewUnavailable(false);
     } finally {
-      setLoadingPreview(false);
+      if (!controller.signal.aborted) {
+        setLoadingPreview(false);
+      }
     }
   }, [bookId, targetLanguage]);
 
