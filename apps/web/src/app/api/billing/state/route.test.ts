@@ -62,12 +62,12 @@ describe("GET /api/billing/state", () => {
         status: "active",
         currentPeriodEnd: null,
         cancelAtPeriodEnd: false,
-        stripeCustomerId: null,
-        stripeSubscriptionId: null,
         isPlusActive: true,
         isProActive: false,
         plusCancelAtPeriodEnd: false,
         plusPeriodEnd: null,
+        stripeCustomerId: null,
+        stripeSubscriptionId: null,
       },
     });
 
@@ -93,12 +93,12 @@ describe("GET /api/billing/state", () => {
         status: "active",
         currentPeriodEnd: null,
         cancelAtPeriodEnd: false,
-        stripeCustomerId: null,
-        stripeSubscriptionId: null,
         isPlusActive: true,
         isProActive: true,
         plusCancelAtPeriodEnd: false,
         plusPeriodEnd: null,
+        stripeCustomerId: null,
+        stripeSubscriptionId: null,
       },
     });
 
@@ -123,12 +123,12 @@ describe("GET /api/billing/state", () => {
         status: null,
         currentPeriodEnd: null,
         cancelAtPeriodEnd: false,
-        stripeCustomerId: null,
-        stripeSubscriptionId: null,
         isPlusActive: false,
         isProActive: false,
         plusCancelAtPeriodEnd: false,
         plusPeriodEnd: null,
+        stripeCustomerId: null,
+        stripeSubscriptionId: null,
       },
     });
 

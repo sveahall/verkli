@@ -306,9 +306,14 @@ export default function AudienceWorkspace({
           onOpenChange={setWizardOpen}
           books={books}
           initialBookId={selectedBook?.id ?? null}
-          onComplete={(config) => {
-            // TODO: POST to API to create campaign
-            console.log("Campaign created:", config);
+          onComplete={async (config) => {
+            for (const channel of config.channels) {
+              await fetch(`/api/books/${config.bookId}/marketing/generate`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ channel, language: "en" }),
+              });
+            }
             router.refresh();
           }}
         />
