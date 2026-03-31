@@ -303,7 +303,7 @@ export default function SimplifiedEditView({
 
       {/* ── Selected chapter title (editable) ── */}
       {selectedChapter && onStartEditTitle && !isScrolled && (
-        <div className="px-20 pb-2">
+        <div className="mx-auto max-w-3xl px-6 pb-2">
           {editingTitleId === selectedChapter.id && onSaveTitle && onCancelEditTitle && onTempTitleChange ? (
             <input
               type="text"
@@ -337,7 +337,7 @@ export default function SimplifiedEditView({
       </div>{/* end sticky header */}
 
       {/* ── Editor content ── */}
-      <div className="px-10 py-8 sm:px-14 sm:py-10">
+      <div className="mx-auto max-w-3xl px-6 py-8 sm:px-10 sm:py-10">
         {selectedChapter ? (
           <TiptapEditor
             key={selectedChapter.id}
