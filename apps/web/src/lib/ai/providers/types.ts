@@ -76,5 +76,6 @@ export interface TranslateResult {
 export interface TranslatorProvider {
   readonly name: string;
   translate(options: TranslateOptions): Promise<TranslateResult>;
+  translateBatch?(texts: string[], sourceLanguage: string, targetLanguage: string): Promise<string[]>;
   getSupportedPairs(): string[];
 }

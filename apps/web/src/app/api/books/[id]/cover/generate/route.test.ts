@@ -20,7 +20,7 @@ vi.mock("@/lib/supabase/admin", () => ({
   createAdminClient: mocks.createAdminClient,
 }));
 
-vi.mock("@/lib/higgsfield", () => ({
+vi.mock("@/lib/nvidia-sd3", () => ({
   generateCoverImages: (...args: unknown[]) => mocks.generateCoverImages(...args),
 }));
 
@@ -176,9 +176,9 @@ describe("POST /api/books/[id]/cover/generate", () => {
     });
   });
 
-  it("returns 502 when Higgsfield generation fails", async () => {
+  it("returns 502 when NVIDIA SD3 generation fails", async () => {
     mockBookLookup({ found: true });
-    mocks.generateCoverImages.mockRejectedValue(new Error("Higgsfield timeout"));
+    mocks.generateCoverImages.mockRejectedValue(new Error("NVIDIA SD3 timeout"));
 
     const response = await POST(
       makeRequest({

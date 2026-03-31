@@ -1,5 +1,6 @@
 import { createAdminClient } from "@/lib/supabase/admin";
-import { generateImageToVideo, generateCoverImages } from "@/lib/higgsfield";
+import { generateImageToVideo } from "@/lib/higgsfield";
+import { generateCoverImages } from "@/lib/nvidia-sd3";
 import type { ContentGenerationRequest, BookSnapshot, TextContent } from "./schemas";
 import { validateTextContent } from "./schemas";
 import {
@@ -192,7 +193,7 @@ async function generateImage(
     promptTemplate: null,
     promptRendered: prompt,
     metadata: {
-      provider: "higgsfield",
+      provider: "nvidia-sd3",
       requestId: result.requestId,
       imageCount: result.imageUrls.length,
     },

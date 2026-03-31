@@ -3,7 +3,7 @@
  * Used for UI labels, SEO text, and normalizing book.language.
  */
 
-export const SUPPORTED_LANGUAGE_CODES = ["en", "es", "fr", "de", "it", "pt", "sv"] as const;
+export const SUPPORTED_LANGUAGE_CODES = ["en", "es", "fr", "de", "it", "pt", "sv", "ru", "zh", "ja", "ko", "ar"] as const;
 export type SupportedLanguage = (typeof SUPPORTED_LANGUAGE_CODES)[number];
 
 const DISPLAY_NAMES: Record<SupportedLanguage, string> = {
@@ -14,6 +14,11 @@ const DISPLAY_NAMES: Record<SupportedLanguage, string> = {
   it: "Italian",
   pt: "Portuguese",
   sv: "Swedish",
+  ru: "Russian",
+  zh: "Chinese",
+  ja: "Japanese",
+  ko: "Korean",
+  ar: "Arabic",
 };
 
 const SEO_LABELS: Record<SupportedLanguage, string> = {
@@ -24,6 +29,11 @@ const SEO_LABELS: Record<SupportedLanguage, string> = {
   it: "in Italian",
   pt: "in Portuguese",
   sv: "in Swedish",
+  ru: "in Russian",
+  zh: "in Chinese",
+  ja: "in Japanese",
+  ko: "in Korean",
+  ar: "in Arabic",
 };
 
 export function isSupportedLanguage(code: string): code is SupportedLanguage {

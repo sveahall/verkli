@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { requireAuthorRoleForApi } from "@/lib/auth/require-author";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { generateCoverImages } from "@/lib/higgsfield";
+import { generateCoverImages } from "@/lib/nvidia-sd3";
 import {
   apiError,
   E_BOOK_NOT_FOUND,
@@ -156,8 +156,8 @@ export async function POST(
       images: imageUrls,
     });
   } catch (error) {
-    const message = error instanceof Error ? error.message : "Unknown Higgsfield error";
-    console.error("[cover generate] higgsfield generation failed:", message);
+    const message = error instanceof Error ? error.message : "Unknown image generation error";
+    console.error("[cover generate] NVIDIA SD3 generation failed:", message);
     return apiError(E_COVER_GENERATION_FAILED, 502);
   }
 }

@@ -7,14 +7,16 @@ import { isTranslationPairSupported } from "@/lib/translation-pairs";
 const TRANSLATE_MORE_LANGUAGES: Array<{ code: string; label: string }> = [
   { code: "en", label: "English" },
   { code: "es", label: "Spanish" },
-  { code: "it", label: "Italian" },
   { code: "fr", label: "French" },
-  { code: "no", label: "Norwegian" },
   { code: "de", label: "German" },
-  { code: "zh", label: "Chinese" },
-  { code: "ar", label: "Arabic" },
+  { code: "pt", label: "Portuguese" },
+  { code: "it", label: "Italian" },
   { code: "ru", label: "Russian" },
+  { code: "zh", label: "Chinese" },
+  { code: "ja", label: "Japanese" },
   { code: "ko", label: "Korean" },
+  { code: "ar", label: "Arabic" },
+  { code: "no", label: "Norwegian" },
   { code: "da", label: "Danish" },
   { code: "fi", label: "Finnish" },
 ];
@@ -77,7 +79,7 @@ export function TranslatePreviewPanes({
             translationPreview
           ) : previewUnavailable ? (
             <div className="rounded-xl border border-dashed border-slate-200 bg-white/80 px-4 py-3 text-slate-500 dark:border-white/[0.12] dark:bg-white/[0.03] dark:text-white/60">
-              Translation preview is unavailable on this machine until the local Opus MT model is installed.
+              Translation preview is temporarily unavailable for this language pair.
             </div>
           ) : (
             <span className="text-slate-400">Preview will appear here.</span>

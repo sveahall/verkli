@@ -6,7 +6,7 @@ const mocks = vi.hoisted(() => ({
   createClient: vi.fn(),
   resolveTranslationSourceContext: vi.fn(),
   collectTranslationPreviewText: vi.fn(),
-  getTranslator: vi.fn(),
+  getTranslatorForPair: vi.fn(),
 }))
 
 vi.mock("@/lib/auth/require-author", () => ({
@@ -23,7 +23,7 @@ vi.mock("@/lib/book-translation", () => ({
 }))
 
 vi.mock("@/lib/ai/providers/server", () => ({
-  getTranslator: mocks.getTranslator,
+  getTranslatorForPair: mocks.getTranslatorForPair,
 }))
 
 const { GET } = await import("./route")
@@ -90,7 +90,7 @@ describe("GET /api/books/[id]/translation-preview", () => {
     })
     mocks.collectTranslationPreviewText.mockResolvedValueOnce("Hej varlden")
     const translate = vi.fn().mockResolvedValue({ translatedText: "Hello world" })
-    mocks.getTranslator.mockReturnValueOnce({ translate })
+    mocks.getTranslatorForPair.mockReturnValueOnce({ translate })
 
     const res = await GET(new Request("http://localhost/api/books/book-1/translation-preview?targetLanguage=en"), {
       params: Promise.resolve({ id: "book-1" }),
@@ -132,7 +132,7 @@ describe("GET /api/books/[id]/translation-preview", () => {
           "opus-mt"
         )
       )
-    mocks.getTranslator.mockReturnValueOnce({ translate })
+    mocks.getTranslatorForPair.mockReturnValueOnce({ translate })
 
     const res = await GET(new Request("http://localhost/api/books/book-1/translation-preview?targetLanguage=en"), {
       params: Promise.resolve({ id: "book-1" }),
@@ -162,7 +162,8 @@ describe("GET /api/books/[id]/translation-preview", () => {
     })
     mocks.collectTranslationPreviewText.mockResolvedValueOnce("Hej varlden")
 
-    const res = await GET(new Request("http://localhost/api/books/book-1/translation-preview?targetLanguage=de"), {
+    // it (Italian) is not supported by Opus or Riva, so sv→it is unsupported
+    const res = await GET(new Request("http://localhost/api/books/book-1/translation-preview?targetLanguage=it"), {
       params: Promise.resolve({ id: "book-1" }),
     })
     const body = await res.json()
@@ -170,6 +171,6 @@ describe("GET /api/books/[id]/translation-preview", () => {
     expect(res.status).toBe(200)
     expect(body.pairUnsupported).toBe(true)
     expect(body.originalText).toBe("Hej varlden")
-    expect(mocks.getTranslator).not.toHaveBeenCalled()
+    expect(mocks.getTranslatorForPair).not.toHaveBeenCalled()
   })
 })

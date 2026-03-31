@@ -124,7 +124,7 @@ export default function CoverPanel({
                   type="button"
                   onClick={() => coverInputRef.current?.click()}
                   disabled={coverUploading}
-                  className="flex-1 rounded-xl border border-black/[0.08] bg-white py-2.5 text-xs font-medium text-slate-600 transition-all hover:bg-slate-50 hover:border-black/[0.12] active:scale-[0.97] disabled:opacity-50 dark:border-white/[0.08] dark:bg-white/[0.04] dark:text-white/70"
+                  className="flex-1 rounded-xl border border-black/[0.08] bg-white py-2.5 text-xs font-medium text-slate-600 transition hover:bg-slate-50 hover:border-black/[0.12] active:scale-[0.97] disabled:opacity-50 dark:border-white/[0.08] dark:bg-white/[0.04] dark:text-white/70"
                 >
                   Replace
                 </button>
@@ -132,7 +132,7 @@ export default function CoverPanel({
                   type="button"
                   onClick={() => setCoverCropSrc(displayCoverUrl)}
                   disabled={coverUploading}
-                  className="flex-1 rounded-xl border border-black/[0.08] bg-white py-2.5 text-xs font-medium text-slate-600 transition-all hover:bg-slate-50 hover:border-black/[0.12] active:scale-[0.97] disabled:opacity-50 dark:border-white/[0.08] dark:bg-white/[0.04] dark:text-white/70"
+                  className="flex-1 rounded-xl border border-black/[0.08] bg-white py-2.5 text-xs font-medium text-slate-600 transition hover:bg-slate-50 hover:border-black/[0.12] active:scale-[0.97] disabled:opacity-50 dark:border-white/[0.08] dark:bg-white/[0.04] dark:text-white/70"
                 >
                   Crop
                 </button>
@@ -140,7 +140,7 @@ export default function CoverPanel({
                   type="button"
                   onClick={handleRemoveCover}
                   disabled={coverUploading}
-                  className="rounded-xl border border-red-200/60 bg-white px-4 py-2.5 text-xs font-medium text-red-500 transition-all hover:bg-red-50 hover:border-red-300 active:scale-[0.97] disabled:opacity-50 dark:border-red-900/30 dark:bg-white/[0.03] dark:text-red-400"
+                  className="rounded-xl border border-red-200/60 bg-white px-4 py-2.5 text-xs font-medium text-red-500 transition hover:bg-red-50 hover:border-red-300 active:scale-[0.97] disabled:opacity-50 dark:border-red-900/30 dark:bg-white/[0.03] dark:text-red-400"
                 >
                   Remove
                 </button>
@@ -157,7 +157,7 @@ export default function CoverPanel({
                   coverInputRef.current?.click();
                 }
               }}
-              className={`flex cursor-pointer flex-col items-center justify-center rounded-2xl border-2 border-dashed transition-all ${
+              className={`flex cursor-pointer flex-col items-center justify-center rounded-2xl border-2 border-dashed transition-colors ${
                 coverDropActive
                   ? "border-[#907AFF]/60 bg-[#907AFF]/5 dark:bg-[#907AFF]/10"
                   : "border-slate-200 bg-slate-50/50 hover:border-[#907AFF]/40 hover:bg-[#907AFF]/[0.03] dark:border-white/15 dark:bg-white/[0.02] dark:hover:border-[#907AFF]/30"
@@ -324,7 +324,7 @@ export default function CoverPanel({
                 type="button"
                 onClick={handleCoverAIGenerate}
                 disabled={coverAIGenerating}
-                className="inline-flex items-center gap-2 rounded-xl bg-[#907AFF] px-6 py-2.5 text-xs font-semibold text-white shadow-sm transition-all hover:bg-[#7B6BF0] hover:shadow-md active:scale-[0.97] disabled:opacity-50"
+                className="inline-flex items-center gap-2 rounded-xl bg-[#907AFF] px-6 py-2.5 text-xs font-semibold text-white shadow-sm transition hover:bg-[#7B6BF0] hover:shadow-md active:scale-[0.97] disabled:opacity-50"
               >
                 <Sparkles className="h-3.5 w-3.5" />
                 {coverAIGenerating ? "Generating..." : "Generate"}
@@ -370,14 +370,14 @@ export default function CoverPanel({
                     setCoverAIPreviewUrl(null);
                   }}
                   disabled={coverUploading}
-                  className="rounded-xl bg-[#907AFF] px-6 py-2.5 text-xs font-semibold text-white transition-all hover:bg-[#7B6BF0] active:scale-[0.97] disabled:opacity-50"
+                  className="rounded-xl bg-[#907AFF] px-6 py-2.5 text-xs font-semibold text-white transition hover:bg-[#7B6BF0] active:scale-[0.97] disabled:opacity-50"
                 >
                   {coverUploading ? "Saving..." : "Use as cover"}
                 </button>
                 <button
                   type="button"
                   onClick={() => setCoverAIPreviewUrl(null)}
-                  className="rounded-xl border border-black/[0.08] px-6 py-2.5 text-xs font-medium text-slate-600 transition-all hover:bg-slate-50 active:scale-[0.97] dark:border-white/[0.08] dark:text-white/60"
+                  className="rounded-xl border border-black/[0.08] px-6 py-2.5 text-xs font-medium text-slate-600 transition hover:bg-slate-50 active:scale-[0.97] dark:border-white/[0.08] dark:text-white/60"
                 >
                   Cancel
                 </button>
@@ -397,14 +397,14 @@ export default function CoverPanel({
                     type="button"
                     onClick={() => setCoverAIPreviewUrl(url)}
                     disabled={coverUploading}
-                    className="group relative aspect-[3/4] overflow-hidden rounded-xl border-2 border-transparent bg-slate-100 shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:border-[#907AFF] hover:shadow-md focus:outline-none focus:ring-2 focus:ring-[#907AFF]/50 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60 dark:bg-white/[0.04]"
+                    className="group relative aspect-[3/4] overflow-hidden rounded-xl border-2 border-transparent bg-slate-100 shadow-sm transition duration-150 hover:-translate-y-0.5 hover:border-[#907AFF] hover:shadow-md focus:outline-none focus:ring-2 focus:ring-[#907AFF]/50 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60 dark:bg-white/[0.04]"
                   >
                     <Image
                       src={url}
                       alt={`Generated cover ${i + 1}`}
                       fill
                       sizes="200px"
-                      className="object-cover transition-transform duration-300 group-hover:scale-[1.03]"
+                      className="object-cover transition-transform duration-200 group-hover:scale-[1.03]"
                       unoptimized
                     />
                   </button>

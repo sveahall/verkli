@@ -8,6 +8,11 @@ const COMMON_WORDS: Record<SupportedLanguage, string[]> = {
   it: ["il", "lo", "la", "gli", "le", "e", "che", "non", "una", "per", "con"],
   pt: ["o", "a", "os", "as", "e", "de", "que", "não", "para", "uma", "com"],
   sv: ["och", "det", "att", "som", "inte", "är", "en", "ett", "på", "med", "för", "har"],
+  ru: ["и", "в", "не", "на", "что", "он", "как", "это", "она", "по", "но"],
+  zh: [],
+  ja: [],
+  ko: [],
+  ar: ["في", "من", "على", "إلى", "أن", "هذا", "التي", "التي", "كان", "لا", "ما"],
 };
 
 const WORD_SETS: Record<SupportedLanguage, Set<string>> = SUPPORTED_LANGUAGE_CODES.reduce(
@@ -25,6 +30,11 @@ const CHAR_HINTS: Partial<Record<SupportedLanguage, RegExp>> = {
   es: /[ñáéíóúü¿¡]/g,
   pt: /[ãõçáéíóú]/g,
   it: /[àèéìíîòóù]/g,
+  ru: /[\u0400-\u04FF]/g,
+  zh: /[\u4E00-\u9FFF]/g,
+  ja: /[\u3040-\u309F\u30A0-\u30FF]/g,
+  ko: /[\uAC00-\uD7AF\u1100-\u11FF]/g,
+  ar: /[\u0600-\u06FF]/g,
 };
 
 const MIN_TOKEN_COUNT = 8;

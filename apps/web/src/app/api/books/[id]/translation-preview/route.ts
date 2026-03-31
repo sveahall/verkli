@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server"
-import { getTranslator } from "@/lib/ai/providers/server"
+import { getTranslatorForPair } from "@/lib/ai/providers/server"
 import { AIProviderError } from "@/lib/ai/providers/types"
 import { requireAuthorRoleForApi } from "@/lib/auth/require-author"
 import { assertPublicEnv } from "@/lib/env"
@@ -9,7 +9,7 @@ import {
 } from "@/lib/book-translation"
 import { createClient } from "@/lib/supabase/server"
 import { isSupportedLanguage } from "@/lib/languages"
-import { isTranslationPairSupported } from "@/lib/translation-pairs"
+import { isTranslationPairSupported, getProviderForPair } from "@/lib/translation-pairs"
 import {
   apiError,
   E_BOOK_NOT_FOUND,
@@ -85,9 +85,11 @@ export async function GET(
 
   // Always collect source text so the "Original text" panel is populated
   // even when the translation pair is unsupported.
+  // Use shorter preview for API-based translation (Riva 8K context limit).
+  const previewWordLimit = getProviderForPair(sourceContext.sourceLanguage, targetLanguage) === "opus" ? 1000 : 300
   let originalText = ""
   try {
-    originalText = await collectTranslationPreviewText(supabase, sourceContext.sourceVersionId, 1000)
+    originalText = await collectTranslationPreviewText(supabase, sourceContext.sourceVersionId, previewWordLimit)
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error)
     console.error("[book translation preview] failed to collect preview text", {
@@ -118,7 +120,15 @@ export async function GET(
   }
 
   try {
-    const translator = getTranslator()
+    const translator = getTranslatorForPair(sourceContext.sourceLanguage, targetLanguage)
+    if (!translator) {
+      return NextResponse.json({
+        originalText,
+        translatedText: "",
+        previewText: "",
+        pairUnsupported: true,
+      })
+    }
     const result = await translator.translate({
       text: originalText,
       sourceLanguage: sourceContext.sourceLanguage,

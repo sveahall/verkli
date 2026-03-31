@@ -10,7 +10,11 @@ import { assertServerEnv, getRedisConnectionOptions } from "../src/lib/env";
 import { Worker, UnrecoverableError } from "bullmq";
 import { createAdminClient } from "../src/lib/supabase/admin";
 import type { TranslationJobData } from "../src/lib/translation-queue";
-import { translateBatch, sanitizeTranslatedText } from "../src/lib/opus";
+import { translateBatch as opusTranslateBatch, sanitizeTranslatedText } from "../src/lib/opus";
+import { nvidiaRivaTranslator } from "../src/lib/ai/providers/nvidia-riva-translator";
+import { opusTranslator } from "../src/lib/ai/providers/opus-translator";
+import { ChainTranslator } from "../src/lib/ai/providers/chain-translator";
+import { getProviderForPair, type TranslationProvider } from "../src/lib/translation-pairs";
 import { detectLanguageWithConfidence } from "../src/lib/language-detect";
 import { contentHash } from "../src/lib/import-extract";
 import { normalizeLanguageOrNull } from "../src/lib/languages";
@@ -111,7 +115,8 @@ function batchByChars(texts: string[], maxChars: number): string[][] {
 }
 
 /**
- * Translate a batch of texts with retry (3 attempts, exponential backoff).
+ * Translate a batch of texts via the appropriate provider, with retry.
+ * Opus MT output is sanitized; NVIDIA Riva output is used as-is.
  */
 async function translateBatchWithRetry(
   texts: string[],
@@ -119,17 +124,31 @@ async function translateBatchWithRetry(
   targetLang: string,
   chapterId: string,
   batchIndex: number,
+  provider: TranslationProvider,
 ): Promise<string[]> {
   for (let attempt = 1; attempt <= MAX_CHUNK_RETRY; attempt++) {
     try {
-      const raw = translateBatch({ texts, sourceLanguage: sourceLang, targetLanguage: targetLang });
-      return raw.map((t, i) => {
-        const sanitized = sanitizeTranslatedText(t);
-        if (!sanitized.trim() && texts[i].trim()) {
+      let results: string[];
+
+      if (provider === "opus") {
+        const raw = opusTranslateBatch({ texts, sourceLanguage: sourceLang, targetLanguage: targetLang });
+        results = raw.map((t) => sanitizeTranslatedText(t));
+      } else if (provider === "nvidia-riva") {
+        results = await nvidiaRivaTranslator.translateBatch(texts, sourceLang, targetLang);
+      } else {
+        // chain: sv → en (Opus) → target (Riva), or source (Riva) → en → sv (Opus)
+        const chain = sourceLang === "sv"
+          ? new ChainTranslator(opusTranslator, nvidiaRivaTranslator)
+          : new ChainTranslator(nvidiaRivaTranslator, opusTranslator);
+        results = await chain.translateBatch(texts, sourceLang, targetLang);
+      }
+
+      return results.map((t, i) => {
+        if (!t.trim() && texts[i].trim()) {
           structuredLog("chunk_item_empty_fallback", { chapterId, batchIndex, itemIndex: i });
           return texts[i];
         }
-        return sanitized;
+        return t;
       });
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
@@ -139,6 +158,7 @@ async function translateBatchWithRetry(
         attempt,
         maxAttempts: MAX_CHUNK_RETRY,
         error: msg.slice(0, 300),
+        provider,
       });
       if (attempt === MAX_CHUNK_RETRY) throw err;
       const delay = RETRY_BASE_DELAY_MS * Math.pow(2, attempt - 1);
@@ -195,10 +215,17 @@ function assertOpusEnv(): void {
   if (!process.env.OPUSMT_PYTHON?.trim()) missing.push("OPUSMT_PYTHON");
   if (!process.env.OPUSMT_MODELS_DIR?.trim()) missing.push("OPUSMT_MODELS_DIR");
   if (missing.length > 0) {
-    console.error(
-      `[translation worker] Missing required env: ${missing.join(", ")}. Set them in apps/web/.env.local.`
+    // Warn instead of exit — Opus env is only needed for sv<->en pairs.
+    // NVIDIA Riva handles other language pairs via API.
+    console.warn(
+      `[translation worker] Missing Opus MT env: ${missing.join(", ")}. sv<->en translations will fail. Other pairs use NVIDIA Riva.`
     );
-    process.exit(1);
+  }
+
+  if (!process.env.NVIDIA_NIM_API_KEY?.trim()) {
+    console.warn(
+      "[translation worker] NVIDIA_NIM_API_KEY not set. Non-Opus language pairs will fail."
+    );
   }
 }
 
@@ -296,6 +323,13 @@ async function processJob(payload: TranslationJobData, workerJobId?: string) {
     }
     if (!normalizedTarget) {
       throw new UnrecoverableError("Target language missing or unsupported for translation job");
+    }
+
+    const translationProvider = getProviderForPair(sourceLang, normalizedTarget);
+    if (!translationProvider) {
+      throw new UnrecoverableError(
+        `Unsupported translation pair: ${sourceLang} -> ${normalizedTarget}`
+      );
     }
 
     if (targetVersionId) {
@@ -427,6 +461,7 @@ async function processJob(payload: TranslationJobData, workerJobId?: string) {
       chapterCount: chapterList.length,
       totalChars,
       scope: selectedChapterId ? "chapter" : "book",
+      provider: translationProvider,
     });
 
     for (let i = 0; i < chapterList.length; i++) {
@@ -485,7 +520,7 @@ async function processJob(payload: TranslationJobData, workerJobId?: string) {
                   const allTranslated: string[] = [];
                   for (let bi = 0; bi < batches.length; bi++) {
                     const result = await translateBatchWithRetry(
-                      batches[bi], sourceLang, normalizedTarget, ch.id, bi,
+                      batches[bi], sourceLang, normalizedTarget, ch.id, bi, translationProvider,
                     );
                     allTranslated.push(...result);
                   }
@@ -504,7 +539,7 @@ async function processJob(payload: TranslationJobData, workerJobId?: string) {
                   const allTranslated: string[] = [];
                   for (let bi = 0; bi < batches.length; bi++) {
                     const result = await translateBatchWithRetry(
-                      batches[bi], sourceLang, normalizedTarget, ch.id, bi,
+                      batches[bi], sourceLang, normalizedTarget, ch.id, bi, translationProvider,
                     );
                     allTranslated.push(...result);
                   }

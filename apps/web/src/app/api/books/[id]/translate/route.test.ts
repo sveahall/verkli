@@ -165,7 +165,8 @@ describe("POST /api/books/[id]/translate", () => {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          languages: ["en", "de"],
+          // sv→en is supported (Opus), sv→it is unsupported (no provider for Italian)
+          languages: ["en", "it"],
           sourceVersionId: "ver-source",
         }),
       }),
@@ -185,9 +186,9 @@ describe("POST /api/books/[id]/translate", () => {
     ])
     expect(body.rejected).toEqual([
       {
-        language: "de",
+        language: "it",
         error: E_TRANSLATION_PAIR_UNSUPPORTED,
-        detail: "sv -> de",
+        detail: "sv -> it",
       },
     ])
     expect(mocks.enqueueTranslationJob).toHaveBeenCalledTimes(1)

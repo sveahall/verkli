@@ -7,7 +7,7 @@
 
 import type { TranslatorProvider, TranslateOptions, TranslateResult } from "./types";
 import { AIProviderError } from "./types";
-import { translateText, sanitizeOpusOutput } from "@/lib/opus";
+import { translateText, translateBatch as opusTranslateBatch, sanitizeOpusOutput, sanitizeTranslatedText } from "@/lib/opus";
 
 const SUPPORTED_PAIRS = ["sv -> en", "en -> sv"];
 
@@ -18,7 +18,6 @@ export class OpusTranslator implements TranslatorProvider {
     const { text, sourceLanguage, targetLanguage } = options;
 
     try {
-      // translateText is synchronous but we wrap in Promise for interface consistency
       const rawOutput = translateText({
         text,
         sourceLanguage,
@@ -28,6 +27,19 @@ export class OpusTranslator implements TranslatorProvider {
       const translatedText = sanitizeOpusOutput(rawOutput);
 
       return { translatedText };
+    } catch (err) {
+      throw AIProviderError.fromError(err, this.name);
+    }
+  }
+
+  async translateBatch(texts: string[], sourceLanguage: string, targetLanguage: string): Promise<string[]> {
+    try {
+      const raw = opusTranslateBatch({ texts, sourceLanguage, targetLanguage });
+      return raw.map((t, i) => {
+        const sanitized = sanitizeTranslatedText(t);
+        if (!sanitized.trim() && texts[i].trim()) return texts[i];
+        return sanitized;
+      });
     } catch (err) {
       throw AIProviderError.fromError(err, this.name);
     }
