@@ -21,9 +21,11 @@ import {
   E_TRAILER_GENERATION_FAILED,
   E_UNAUTHORIZED,
   E_VALIDATION_FAILED,
+  E_INVALID_BOOK_ID,
+  isValidUuid,
 } from "@/lib/api-errors";
 
-export const maxDuration = 600;
+export const maxDuration = 300;
 export const runtime = "nodejs";
 
 const SCENE_DURATION_SECONDS = 5;
@@ -93,6 +95,8 @@ export async function POST(
   }
 
   const { id: bookId } = await params;
+  if (!isValidUuid(bookId)) return apiError(E_INVALID_BOOK_ID, 400);
+
   const admin = createAdminClient();
 
   const { data: book, error: bookError } = await admin
