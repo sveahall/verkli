@@ -114,7 +114,7 @@ export default function WorkspaceLayout({
           <div className="min-w-0">{header}</div>
           {headerRight ? <div className="shrink-0">{headerRight}</div> : null}
         </div>
-        <div className="h-px bg-gradient-to-r from-[#E8E1FC] via-[#DDD5F9] to-transparent dark:from-white/10 dark:via-white/5 dark:to-transparent" />
+        <div className="h-px bg-gradient-to-r from-[#907AFF]/20 via-[#E29ED5]/15 to-transparent dark:from-[#907AFF]/15 dark:via-white/5 dark:to-transparent" />
       </div>
       <div className={cn("mx-auto max-w-[1520px] px-4 pb-10 pt-6 sm:px-6 lg:px-8 xl:px-10", mainClassName)}>
         {main}

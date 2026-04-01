@@ -113,13 +113,16 @@ function SidebarNavLink({
       href={href}
       onClick={handleClick}
       onMouseEnter={() => router.prefetch(href)}
-      className={`flex w-full min-h-[44px] items-center gap-3.5 rounded-xl px-4 py-2.5 text-[15px] font-normal transition ${
+      className={`group/nav relative flex w-full min-h-[44px] items-center gap-3.5 rounded-xl px-4 py-2.5 text-[15px] font-normal transition-all duration-200 ease-[cubic-bezier(0.23,1,0.32,1)] ${
         active
-          ? "bg-gradient-to-r from-[#907AFF] to-[#7C6CFF] text-white"
-          : "text-[#7A8194] hover:bg-[#F6F7FB] hover:text-[#555C70] dark:text-white/50 dark:hover:bg-white/10 dark:hover:text-white"
+          ? "bg-gradient-to-r from-[#907AFF] to-[#7C6CFF] text-white shadow-sm shadow-[#907AFF]/15"
+          : "text-[#7A8194] hover:bg-[#F6F7FB] hover:text-[#555C70] hover:translate-x-0.5 dark:text-white/50 dark:hover:bg-white/10 dark:hover:text-white"
       }`}
     >
-      <Icon className="h-[18px] w-[18px] flex-shrink-0" />
+      {active && (
+        <span className="absolute -left-1 top-1/2 h-6 w-1 -translate-y-1/2 rounded-full bg-[#907AFF] shadow-sm shadow-[#907AFF]/30" />
+      )}
+      <Icon className={`h-[18px] w-[18px] flex-shrink-0 transition-transform duration-200 ${active ? "" : "group-hover/nav:scale-110"}`} />
       <span className="truncate">{item.label}</span>
     </Link>
   );
@@ -225,8 +228,8 @@ export default function AuthorSidebar() {
                 />
                 {showWorkflowChildren && (
                   <div className="mt-1">
-                    <div className="mb-1 pl-7">
-                      <span className="text-[11px] font-medium uppercase tracking-wider text-slate-400 dark:text-white/30">
+                    <div className="mb-1 pl-7" title={activeBook?.title ?? "Book"}>
+                      <span className="block truncate max-w-[160px] text-[11px] font-semibold uppercase tracking-wider text-slate-400 dark:text-white/30">
                         {activeBook?.title ?? "Book"}
                       </span>
                     </div>
