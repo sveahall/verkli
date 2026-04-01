@@ -10,6 +10,12 @@ export type CoverTextLayer = {
   width: number;
   align: "left" | "center" | "right";
   letterSpacing: number;
+  /** Text shadow / glow */
+  shadowColor: string;
+  shadowBlur: number;
+  /** Text outline stroke */
+  stroke: string;
+  strokeWidth: number;
 };
 
 export type CoverFilters = {

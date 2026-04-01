@@ -63,11 +63,15 @@ export function useCoverEditor() {
         fontSize: defaults?.fontSize ?? 48,
         fontStyle: defaults?.fontStyle ?? "bold",
         fill: defaults?.fill ?? "#FFFFFF",
-        x: 50,
-        y: 50,
-        width: 300,
+        x: defaults?.x ?? 50,
+        y: defaults?.y ?? 50,
+        width: defaults?.width ?? 300,
         align: defaults?.align ?? "center",
         letterSpacing: 0,
+        shadowColor: defaults?.shadowColor ?? "rgba(0,0,0,0.5)",
+        shadowBlur: defaults?.shadowBlur ?? 4,
+        stroke: defaults?.stroke ?? "",
+        strokeWidth: defaults?.strokeWidth ?? 0,
       };
       setTextLayers((prev) => [...prev, layer]);
       setSelectedLayerId(layer.id);
