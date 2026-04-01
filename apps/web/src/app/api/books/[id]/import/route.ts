@@ -10,6 +10,8 @@ import {
 } from "@/lib/imports/scoped-import";
 import {
   apiError,
+  isValidUuid,
+  E_INVALID_BOOK_ID,
   E_INVALID_MULTIPART_BODY,
   E_MISSING_FILE,
   E_INVALID_IMPORT_MODE,
@@ -29,6 +31,8 @@ export async function POST(
   assertPublicEnv();
 
   const { id: bookId } = await params;
+  if (!isValidUuid(bookId)) return apiError(E_INVALID_BOOK_ID, 400);
+
   const { user, response } = await requireAuthorRoleForApi();
   if (response) return response;
 

@@ -50,7 +50,7 @@ describe("GET /api/books/[id]/audiobook/status", () => {
   it("returns 503 and skips auth/db lookup when feature flag is off", async () => {
     const req = new Request("http://localhost/api/books/book-1/audiobook/status");
 
-    const res = await GET(req, { params: Promise.resolve({ id: "book-1" }) });
+    const res = await GET(req, { params: Promise.resolve({ id: "00000000-0000-4000-8000-000000000001" }) });
     const body = await res.json();
 
     expect(res.status).toBe(503);

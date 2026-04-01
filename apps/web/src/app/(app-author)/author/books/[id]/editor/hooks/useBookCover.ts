@@ -228,6 +228,17 @@ export function useBookCover({ book }: UseBookCoverOptions) {
     [coverUploading, saveCoverFile]
   );
 
+  // Cover editor modal
+  const [coverEditorOpen, setCoverEditorOpen] = useState(false);
+
+  const handleEditorSave = useCallback(
+    async (file: File) => {
+      await saveCoverFile(file);
+      setCoverEditorOpen(false);
+    },
+    [saveCoverFile]
+  );
+
   return {
     coverInputRef,
     coverUploading,
@@ -252,11 +263,14 @@ export function useBookCover({ book }: UseBookCoverOptions) {
     setCoverAITemplate,
     coverAITemplateFields,
     setCoverAITemplateFields,
+    coverEditorOpen,
+    setCoverEditorOpen,
     handleRemoveCover,
     handleCropSave,
     handleCoverChange,
     handleCoverDrop,
     handleCoverAIGenerate,
     handleCoverSetFromGenerated,
+    handleEditorSave,
   };
 }

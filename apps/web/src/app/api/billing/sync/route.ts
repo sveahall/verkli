@@ -14,14 +14,18 @@ import {
   type BillingAccountPatch,
 } from "@/lib/billing/server";
 import { getActiveRoleFromRequest } from "@/lib/active-role";
+import { createPerUserRateLimiter } from "@/lib/rate-limit";
 import {
   apiError,
   E_UNAUTHORIZED,
   E_FORBIDDEN,
   E_INVALID_REQUEST_BODY,
+  E_RATE_LIMIT_EXCEEDED,
 } from "@/lib/api-errors";
 
 export const runtime = "nodejs";
+
+const syncLimiter = createPerUserRateLimiter({ maxPerMinute: 5 });
 
 const ACTIVE_STATUSES = new Set(["active", "trialing"]);
 
@@ -79,6 +83,11 @@ export async function POST(request: Request) {
 
   if (!user) {
     return apiError(E_UNAUTHORIZED, 401);
+  }
+
+  const rl = await syncLimiter.check(user.id);
+  if (!rl.allowed) {
+    return apiError(E_RATE_LIMIT_EXCEEDED, 429, { retryAfterSeconds: rl.retryAfterSeconds });
   }
 
   const role = getActiveRoleFromRequest(request);

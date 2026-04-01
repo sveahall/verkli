@@ -29,6 +29,8 @@ import {
   E_TRANSLATION_PAIR_UNSUPPORTED,
   E_TRANSLATION_SERVICE_UNAVAILABLE,
   E_VERSION_ALREADY_EXISTS,
+  E_INVALID_BOOK_ID,
+  isValidUuid,
 } from "@/lib/api-errors"
 import { createPerUserRateLimiter } from "@/lib/rate-limit"
 
@@ -269,6 +271,7 @@ export async function POST(
   }
 
   const { id: bookId } = await params
+  if (!isValidUuid(bookId)) return apiError(E_INVALID_BOOK_ID, 400)
 
   const { user, response } = await requireAuthorRoleForApi()
   if (response) return response

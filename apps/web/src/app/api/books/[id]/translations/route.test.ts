@@ -24,7 +24,7 @@ function makeSupabaseMock(bookAuthorId: string) {
           eq: () => ({
             maybeSingle: async () => ({
               data: {
-                id: "book-1",
+                id: "00000000-0000-4000-8000-000000000001",
                 author_id: bookAuthorId,
                 original_language: "en",
                 language: "en",
@@ -78,7 +78,7 @@ describe("GET /api/books/[id]/translations", () => {
     });
 
     const res = await GET(new Request("http://localhost/api/books/book-1/translations"), {
-      params: Promise.resolve({ id: "book-1" }),
+      params: Promise.resolve({ id: "00000000-0000-4000-8000-000000000001" }),
     });
 
     expect(res.status).toBe(401);
@@ -93,7 +93,7 @@ describe("GET /api/books/[id]/translations", () => {
     mocks.createClient.mockResolvedValueOnce(makeSupabaseMock("author-2"));
 
     const res = await GET(new Request("http://localhost/api/books/book-1/translations"), {
-      params: Promise.resolve({ id: "book-1" }),
+      params: Promise.resolve({ id: "00000000-0000-4000-8000-000000000001" }),
     });
     const body = await res.json();
 
@@ -109,12 +109,12 @@ describe("GET /api/books/[id]/translations", () => {
     mocks.createClient.mockResolvedValueOnce(makeSupabaseMock("author-1"));
 
     const res = await GET(new Request("http://localhost/api/books/book-1/translations"), {
-      params: Promise.resolve({ id: "book-1" }),
+      params: Promise.resolve({ id: "00000000-0000-4000-8000-000000000001" }),
     });
     const body = await res.json();
 
     expect(res.status).toBe(200);
-    expect(body.bookId).toBe("book-1");
+    expect(body.bookId).toBe("00000000-0000-4000-8000-000000000001");
     expect(body.translations).toHaveLength(1);
     expect(body.translations[0]).toMatchObject({
       id: "tx-1",

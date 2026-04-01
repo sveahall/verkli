@@ -14,7 +14,9 @@ import {
   E_CHAPTER_NOT_PUBLISHED,
   E_DATABASE_ERROR,
   E_FORBIDDEN,
+  E_INVALID_BOOK_ID,
   E_VALIDATION_FAILED,
+  isValidUuid,
 } from "@/lib/api-errors";
 
 const SIGNED_URL_TTL_SECONDS = 60 * 15;
@@ -44,6 +46,8 @@ export async function GET(
   }
 
   const { id: bookId } = await params;
+  if (!isValidUuid(bookId)) return apiError(E_INVALID_BOOK_ID, 400);
+
   const chapterId = new URL(request.url).searchParams.get("chapterId")?.trim() ?? "";
   if (!chapterId) {
     return apiError(E_VALIDATION_FAILED, 400, {

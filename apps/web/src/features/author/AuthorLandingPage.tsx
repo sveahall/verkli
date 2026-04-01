@@ -11,22 +11,6 @@ import type { User } from "@supabase/supabase-js";
 import { BRAND_COLORS } from "@/lib/design/brand";
 import Reveal from "@/components/Reveal";
 
-const gridImages = [
-  "https://images.unsplash.com/photo-1723403804231-f4e9b515fe9d?auto=format&fit=crop&w=640&q=60",
-  "https://images.unsplash.com/photo-1748370987492-eb390a61dcda?auto=format&fit=crop&w=640&q=60",
-];
-const gridRows = 9;
-const gridCols = 8;
-const gridItems = Array.from({ length: gridRows * gridCols }, (_, i) => gridImages[i % gridImages.length]);
-
-const GridMotion = dynamic(() => import("@/components/GridMotion"), { ssr: false });
-const TestimonialSection = dynamic(() => import("@/components/TestimonialSection"), { ssr: false });
-const StatsSection = dynamic(() => import("@/components/StatsSection"), { ssr: false });
-const FeaturesSection = dynamic(() => import("@/components/FeaturesSection"), { ssr: false });
-const InteractiveTestimonialSection = dynamic(
-  () => import("@/features/author/InteractiveTestimonialSection"),
-  { ssr: false }
-);
 const AuthorDashboard = dynamic(() => import("@/features/author/AuthorDashboard"), { ssr: false });
 // ============================================
 // LANDING PAGE (for non-authenticated users)
@@ -88,10 +72,8 @@ function LandingPage() {
           {/* GridMotion texture + layered overlays */}
           <div className="pointer-events-none absolute inset-0 -z-10 overflow-hidden">
             <div className="relative h-full w-full">
-              <div className="absolute inset-0 z-0">
-                <GridMotion items={gridItems} gradientColor="black" rows={gridRows} cols={gridCols} />
-              </div>
-              {/* White/dark wash to soften grid */}
+              <div className="absolute inset-0 z-0 bg-[radial-gradient(circle_at_30%_40%,rgba(144,122,255,0.06),transparent_60%),radial-gradient(circle_at_70%_60%,rgba(226,158,213,0.04),transparent_50%)]" />
+              {/* White/dark wash */}
               <div className="absolute inset-0 z-10 bg-white/[0.82] dark:bg-[#050508]/80" />
               {/* Top + bottom fade to page bg */}
               <div className="absolute inset-0 z-11 bg-gradient-to-b from-background via-transparent to-background" />
@@ -125,11 +107,11 @@ function LandingPage() {
           </p>
 
           {/* CTAs */}
-          <div className="hero-animate mt-10 flex items-center gap-3" style={{ animationDelay: '600ms' }}>
-            <Link href="/author/signup" className="btn-primary min-w-[170px] text-[15px]">
+          <div className="hero-animate mt-10 flex w-full flex-col items-center gap-3 px-4 sm:w-auto sm:flex-row sm:px-0" style={{ animationDelay: '600ms' }}>
+            <Link href="/author/signup" className="btn-primary w-full text-center text-[15px] sm:w-auto sm:min-w-[170px]">
               Get started (it&apos;s free)
             </Link>
-            <Link href="/author/signin" className="btn-secondary min-w-[120px] text-[15px]">
+            <Link href="/author/signin" className="btn-secondary w-full text-center text-[15px] sm:w-auto sm:min-w-[120px]">
               Sign in
             </Link>
           </div>
@@ -209,19 +191,6 @@ function LandingPage() {
         </section>
         </Reveal>
 
-        <LazySection className="landing-deferred" minHeight={520}>
-          <TestimonialSection />
-        </LazySection>
-        <LazySection className="landing-deferred" minHeight={420}>
-          <StatsSection />
-        </LazySection>
-        <LazySection className="landing-deferred" minHeight={640}>
-          <FeaturesSection />
-        </LazySection>
-        <LazySection className="landing-deferred" minHeight={520}>
-          <InteractiveTestimonialSection />
-        </LazySection>
-
         {/* ─── Why Verkli ─── */}
         <LazySection className="landing-deferred" minHeight={860}>
           <section className="mx-auto w-full max-w-[1200px] px-6 py-28">
@@ -271,7 +240,7 @@ function LandingPage() {
             <div className="pointer-events-none absolute -left-32 -top-32 h-[400px] w-[400px] rounded-full bg-[#907AFF]/20 blur-[120px] transition-transform duration-[1500ms] group-hover:translate-x-10 group-hover:translate-y-8" />
             <div className="pointer-events-none absolute -bottom-20 -right-20 h-[300px] w-[300px] rounded-full bg-[#E29ED5]/15 blur-[100px] transition-transform duration-[1500ms] group-hover:-translate-x-6" />
 
-            <div className="relative grid items-center gap-10 p-10 md:p-16 lg:grid-cols-[1.4fr_1fr] lg:gap-16">
+            <div className="relative grid items-center gap-8 p-6 sm:p-10 md:p-16 lg:grid-cols-[1.4fr_1fr] lg:gap-16">
               {/* Left — copy */}
               <div>
                 <p className="text-[13px] font-medium uppercase tracking-[0.15em] text-slate-500 dark:text-white/40">Get started today</p>

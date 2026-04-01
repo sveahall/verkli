@@ -19,6 +19,8 @@ import {
   E_NO_CHAPTERS_FOR_VERSION,
   E_QUEUE_UNAVAILABLE,
   E_RATE_LIMIT_EXCEEDED,
+  E_INVALID_BOOK_ID,
+  isValidUuid,
 } from "@/lib/api-errors";
 import { createPerUserRateLimiter } from "@/lib/rate-limit";
 import { isCancelStale, forceFailCancelledJob } from "@/lib/audiobook-stale-cancel";
@@ -129,6 +131,8 @@ export async function POST(
   }
 
   const { id: bookId } = await params;
+  if (!isValidUuid(bookId)) return apiError(E_INVALID_BOOK_ID, 400);
+
   const url = new URL(request.url);
   const langParam = url.searchParams.get("lang");
   const queryChapterId = parseOptionalId(url.searchParams.get("chapterId"));

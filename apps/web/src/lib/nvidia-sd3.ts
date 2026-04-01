@@ -5,9 +5,6 @@ const NVIDIA_API_URL =
   "https://ai.api.nvidia.com/v1/genai/stabilityai/stable-diffusion-3-medium";
 const NVIDIA_TIMEOUT_MS = 150_000;
 
-/** Portrait book cover: 1024x1536 (2:3 ratio, multiples of 64). */
-const COVER_WIDTH = 1024;
-const COVER_HEIGHT = 1536;
 const BOOK_COVERS_BUCKET = "book_covers";
 
 type GenerateCoverImagesInput = {
@@ -45,12 +42,11 @@ async function generateSingleImage(
       body: JSON.stringify({
         prompt,
         negative_prompt:
-          "blurry, low quality, distorted text, watermark, signature, cropped, deformed",
+          "text, letters, words, title, typography, book, book cover, physical book, table, shelf, blurry, low quality, watermark, signature, cropped, deformed, hands, fingers",
         cfg_scale: 7,
-        height: COVER_HEIGHT,
-        width: COVER_WIDTH,
+        aspect_ratio: "2:3",
         steps: 40,
-        seed: 0,
+        seed: Math.floor(Math.random() * 2147483647),
       }),
       signal: controller.signal,
     });

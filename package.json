@@ -15,7 +15,6 @@
     "test:e2e": "npm run -w @verkli/web test:e2e",
     "start": "npm run -w @verkli/web start",
     "lint": "npm run -w @verkli/web lint",
-    "desktop": "electron electron-main.js",
     "start-workers": "npm run -w @verkli/web start-workers",
     "import-worker": "npm run -w @verkli/web import-worker",
     "translate-worker": "npm run -w @verkli/web translate-worker",
@@ -33,7 +32,6 @@
     "update": "npm install && npm run generate -w @verkli/db"
   },
   "dependencies": {
-    "@mindstudio-ai/agent": "^0.1.32",
     "@supabase/supabase-js": "^2.93.1",
     "dotenv": "^17.3.1",
     "next": "^16.1.6",
@@ -46,7 +44,6 @@
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "agentic-flow": "^2.0.7",
-    "electron": "^34.0.0",
     "eslint": "^9",
     "eslint-config-next": "16.1.4",
     "husky": "^9.1.7",

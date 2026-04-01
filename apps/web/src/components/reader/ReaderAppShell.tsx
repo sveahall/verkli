@@ -170,7 +170,7 @@ export default function ReaderAppShell({
       </div>
 
       {/* ── Main content ── */}
-      <main className="relative mx-auto min-h-screen w-full max-w-[1400px] px-4 pb-24 pt-6 sm:px-5 lg:px-6 lg:pb-8 lg:pt-8">{children}</main>
+      <main className="relative mx-auto min-h-screen w-full max-w-[1400px] px-4 pb-24 pt-4 sm:px-5 sm:pt-6 lg:px-6 lg:pb-8 lg:pt-8">{children}</main>
 
       {/* ── Mobile bottom nav ── */}
       <nav

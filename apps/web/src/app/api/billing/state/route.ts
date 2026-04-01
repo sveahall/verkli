@@ -61,8 +61,6 @@ export async function GET(request: Request) {
     status: loaded.state.status,
     currentPeriodEnd: loaded.state.currentPeriodEnd,
     cancelAtPeriodEnd: loaded.state.cancelAtPeriodEnd,
-    stripeCustomerId: loaded.state.stripeCustomerId,
-    stripeSubscriptionId: loaded.state.stripeSubscriptionId,
     isPlusActive: loaded.state.isPlusActive,
     isProActive: loaded.state.isProActive,
     plusCancelAtPeriodEnd: loaded.state.plusCancelAtPeriodEnd,

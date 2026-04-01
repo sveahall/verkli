@@ -49,7 +49,7 @@ function makeRequest(payload: unknown) {
 
 function mockBookLookup({ found }: { found: boolean }) {
   const booksMaybeSingle = vi.fn().mockResolvedValue({
-    data: found ? { id: "00000000-0000-4000-8000-000000000001", title: "The Snow Fox" } : null,
+    data: found ? { id: "00000000-0000-4000-8000-000000000001" } : null,
     error: null,
   });
   const booksEqAuthor = vi.fn(() => ({ maybeSingle: booksMaybeSingle }));
@@ -179,13 +179,13 @@ describe("POST /api/books/[id]/cover/generate", () => {
       ],
     });
     expect(mocks.generateCoverImages).toHaveBeenCalledWith({
-      prompt: expect.stringContaining('book titled "The Snow Fox"'),
+      prompt: expect.stringContaining("no text"),
     });
     expect(mocks.generateCoverImages).toHaveBeenCalledWith({
-      prompt: expect.stringContaining("Business book cover"),
+      prompt: expect.stringContaining("Business atmosphere"),
     });
     expect(mocks.generateCoverImages).toHaveBeenCalledWith({
-      prompt: expect.stringContaining("centered title layout"),
+      prompt: expect.stringContaining("A fox in snow"),
     });
   });
 

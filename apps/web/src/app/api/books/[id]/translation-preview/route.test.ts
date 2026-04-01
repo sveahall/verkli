@@ -37,7 +37,7 @@ function makeSupabaseMock(bookAuthorId: string) {
             eq: () => ({
               maybeSingle: async () => ({
                 data: {
-                  id: "book-1",
+                  id: "00000000-0000-4000-8000-000000000001",
                   author_id: bookAuthorId,
                   original_language: "sv",
                   language: "sv",
@@ -69,7 +69,7 @@ describe("GET /api/books/[id]/translation-preview", () => {
     })
 
     const res = await GET(new Request("http://localhost/api/books/book-1/translation-preview?targetLanguage=en"), {
-      params: Promise.resolve({ id: "book-1" }),
+      params: Promise.resolve({ id: "00000000-0000-4000-8000-000000000001" }),
     })
 
     expect(res.status).toBe(401)
@@ -84,7 +84,7 @@ describe("GET /api/books/[id]/translation-preview", () => {
     mocks.createClient.mockResolvedValueOnce(makeSupabaseMock("author-1"))
     mocks.resolveTranslationSourceContext.mockResolvedValueOnce({
       sourceVersionId: "ver-1",
-      sourceVersion: { id: "ver-1", book_id: "book-1", language_code: "sv" },
+      sourceVersion: { id: "ver-1", book_id: "00000000-0000-4000-8000-000000000001", language_code: "sv" },
       sourceLanguage: "sv",
       sourceLanguageOrigin: "version",
     })
@@ -93,7 +93,7 @@ describe("GET /api/books/[id]/translation-preview", () => {
     mocks.getTranslatorForPair.mockReturnValueOnce({ translate })
 
     const res = await GET(new Request("http://localhost/api/books/book-1/translation-preview?targetLanguage=en"), {
-      params: Promise.resolve({ id: "book-1" }),
+      params: Promise.resolve({ id: "00000000-0000-4000-8000-000000000001" }),
     })
     const body = await res.json()
 
@@ -118,7 +118,7 @@ describe("GET /api/books/[id]/translation-preview", () => {
     mocks.createClient.mockResolvedValueOnce(makeSupabaseMock("author-1"))
     mocks.resolveTranslationSourceContext.mockResolvedValueOnce({
       sourceVersionId: "ver-1",
-      sourceVersion: { id: "ver-1", book_id: "book-1", language_code: "sv" },
+      sourceVersion: { id: "ver-1", book_id: "00000000-0000-4000-8000-000000000001", language_code: "sv" },
       sourceLanguage: "sv",
       sourceLanguageOrigin: "version",
     })
@@ -135,7 +135,7 @@ describe("GET /api/books/[id]/translation-preview", () => {
     mocks.getTranslatorForPair.mockReturnValueOnce({ translate })
 
     const res = await GET(new Request("http://localhost/api/books/book-1/translation-preview?targetLanguage=en"), {
-      params: Promise.resolve({ id: "book-1" }),
+      params: Promise.resolve({ id: "00000000-0000-4000-8000-000000000001" }),
     })
     const body = await res.json()
 
@@ -156,7 +156,7 @@ describe("GET /api/books/[id]/translation-preview", () => {
     mocks.createClient.mockResolvedValueOnce(makeSupabaseMock("author-1"))
     mocks.resolveTranslationSourceContext.mockResolvedValueOnce({
       sourceVersionId: "ver-1",
-      sourceVersion: { id: "ver-1", book_id: "book-1", language_code: "sv" },
+      sourceVersion: { id: "ver-1", book_id: "00000000-0000-4000-8000-000000000001", language_code: "sv" },
       sourceLanguage: "sv",
       sourceLanguageOrigin: "version",
     })
@@ -164,7 +164,7 @@ describe("GET /api/books/[id]/translation-preview", () => {
 
     // it (Italian) is not supported by Opus or Riva, so sv→it is unsupported
     const res = await GET(new Request("http://localhost/api/books/book-1/translation-preview?targetLanguage=it"), {
-      params: Promise.resolve({ id: "book-1" }),
+      params: Promise.resolve({ id: "00000000-0000-4000-8000-000000000001" }),
     })
     const body = await res.json()
 

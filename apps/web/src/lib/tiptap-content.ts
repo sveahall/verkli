@@ -265,17 +265,6 @@ type CheerioElement = {
   parent?: CheerioElement;
 };
 
-function collectMarks(el: CheerioElement): TiptapMark[] {
-  const marks: TiptapMark[] = [];
-  let cursor: CheerioElement | undefined = el;
-  while (cursor) {
-    const tag = cursor.name?.toLowerCase();
-    if (tag === "strong" || tag === "b") marks.push({ type: "bold" });
-    if (tag === "em" || tag === "i") marks.push({ type: "italic" });
-    cursor = cursor.parent;
-  }
-  return marks;
-}
 
 function convertInlineChildren(el: CheerioElement, inheritedMarks: TiptapMark[] = []): TiptapInlineNode[] {
   const nodes: TiptapInlineNode[] = [];

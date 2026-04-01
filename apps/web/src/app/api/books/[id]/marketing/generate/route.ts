@@ -7,8 +7,10 @@ import { requireAuthorRoleForApi } from "@/lib/auth/require-author";
 import { requireProBillingForApi } from "@/lib/billing/server";
 import {
   apiError,
+  isValidUuid,
   E_BOOK_NOT_FOUND,
   E_DATABASE_ERROR,
+  E_INVALID_BOOK_ID,
   E_MARKETING_FEATURE_DISABLED,
 } from "@/lib/api-errors";
 
@@ -28,6 +30,7 @@ export async function POST(
     return apiError(E_MARKETING_FEATURE_DISABLED, 403);
   }
   const { id: bookId } = await params;
+  if (!isValidUuid(bookId)) return apiError(E_INVALID_BOOK_ID, 400);
 
   // SECURITY: Require author role for marketing generation
   const { user, response } = await requireAuthorRoleForApi();

@@ -1024,7 +1024,7 @@ export default function GlobalNavbar({
             className="absolute inset-0 bg-black/40 backdrop-blur-sm"
             aria-label="Close menu"
           />
-          <div className="absolute right-0 top-0 flex h-full w-full max-w-[min(100vw,22rem)] flex-col gap-6 overflow-y-auto border-l border-slate-200/80 bg-white/95 px-6 pb-8 pt-0 shadow-xl dark:border-white/10 dark:bg-slate-950/95">
+          <div className="absolute right-0 top-0 flex h-full w-full max-w-[min(100vw,22rem)] flex-col gap-6 overflow-y-auto border-l border-slate-200/80 bg-white/95 px-6 pb-8 pt-20 shadow-xl dark:border-white/10 dark:bg-slate-950/95">
             <div className="flex flex-col gap-1">
               {isPublicPage &&
                 publicNavItems.map((item) => (

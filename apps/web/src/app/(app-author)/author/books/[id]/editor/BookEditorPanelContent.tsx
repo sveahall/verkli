@@ -138,6 +138,11 @@ export default function BookEditorPanelContent({
             setCoverAITemplate={cover.setCoverAITemplate}
             coverAITemplateFields={cover.coverAITemplateFields}
             setCoverAITemplateFields={cover.setCoverAITemplateFields}
+            coverEditorOpen={cover.coverEditorOpen}
+            setCoverEditorOpen={cover.setCoverEditorOpen}
+            handleEditorSave={cover.handleEditorSave}
+            bookTitle={bookTitle}
+            authorName={authorDisplayName}
           />
         )}
 

@@ -12,7 +12,6 @@ import {
   Languages,
   PenLine,
   Tag,
-  Trash2,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import DeleteBookButton from "@/components/books/DeleteBookButton";
@@ -146,9 +145,9 @@ export default async function BookPreviewPage({
 
       {/* ── Hero card (cover + info + stats footer) ── */}
       <section className="overflow-hidden rounded-2xl border border-slate-200/60 bg-white dark:border-white/[0.08] dark:bg-white/[0.04]">
-        <div className="flex flex-col gap-8 p-8 pb-0 sm:flex-row sm:items-start sm:gap-10">
+        <div className="flex flex-col gap-6 p-4 pb-0 sm:flex-row sm:items-start sm:gap-10 sm:p-8 sm:pb-0">
           {/* Cover — the star of the page */}
-          <div className="relative mx-auto h-[296px] w-[200px] shrink-0 overflow-hidden rounded-xl shadow-[0_8px_30px_rgba(0,0,0,0.12),0_2px_6px_rgba(0,0,0,0.06)] sm:mx-0 dark:shadow-[0_8px_30px_rgba(0,0,0,0.5)]">
+          <div className="relative mx-auto h-[240px] w-[160px] shrink-0 overflow-hidden rounded-xl shadow-[0_8px_30px_rgba(0,0,0,0.12),0_2px_6px_rgba(0,0,0,0.06)] sm:mx-0 sm:h-[296px] sm:w-[200px] dark:shadow-[0_8px_30px_rgba(0,0,0,0.5)]">
             {b.cover_image ? (
               <Image
                 src={b.cover_image}
@@ -185,7 +184,7 @@ export default async function BookPreviewPage({
               )}
             </div>
 
-            <h1 className="mt-4 text-[30px] font-bold leading-[1.15] tracking-[-0.025em] text-slate-900 dark:text-white">
+            <h1 className="mt-4 text-2xl font-bold leading-[1.15] tracking-[-0.025em] text-slate-900 sm:text-[30px] dark:text-white">
               {b.title}
             </h1>
 
@@ -336,7 +335,7 @@ export default async function BookPreviewPage({
 
         {/* Right: Chapters */}
         <section className="overflow-hidden rounded-2xl border border-slate-200/60 bg-white dark:border-white/[0.08] dark:bg-white/[0.04]">
-          <div className="flex items-center justify-between border-b border-slate-100 px-7 py-4 dark:border-white/[0.05]">
+          <div className="flex items-center justify-between border-b border-slate-100 px-4 py-3 sm:px-7 sm:py-4 dark:border-white/[0.05]">
             <h2 className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-400 dark:text-white/30">
               <BookText className="h-3.5 w-3.5" />
               Chapters
@@ -386,7 +385,7 @@ function StatCell({
 }) {
   return (
     <div
-      className={`flex items-center gap-3 px-8 py-5 ${last ? "" : "border-r border-slate-100 dark:border-white/[0.06]"}`}
+      className={`flex items-center gap-2 px-4 py-3 sm:gap-3 sm:px-8 sm:py-5 ${last ? "" : "border-r border-slate-100 dark:border-white/[0.06]"}`}
     >
       <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-slate-50 dark:bg-white/[0.04]">
         {icon}

@@ -45,7 +45,7 @@ function makeSupabaseMock(options?: {
         id: "job-audio",
         kind: "audiobook_generation",
         status: "processing",
-        book_id: "book-1",
+        book_id: "00000000-0000-4000-8000-000000000001",
         book_version_id: "ver-1",
         language: "sv",
         progress: 10,
@@ -97,7 +97,7 @@ function makeSupabaseMock(options?: {
         select: () => ({
           eq: () => ({
             maybeSingle: async () => ({
-              data: { id: "book-1", author_id: "user-1" },
+              data: { id: "00000000-0000-4000-8000-000000000001", author_id: "user-1" },
               error: null,
             }),
           }),
@@ -119,7 +119,7 @@ function makeSupabaseMock(options?: {
         },
         order: () => chain,
         limit: async () => {
-          if (filters.book_id === "book-1") {
+          if (filters.book_id === "00000000-0000-4000-8000-000000000001") {
             return {
               data: aiJobs,
               error: null,
@@ -202,7 +202,7 @@ describe("GET /api/books/[id]/jobs", () => {
   it("filters out audiobook jobs when feature flag is off", async () => {
     const req = new Request("http://localhost/api/books/book-1/jobs");
 
-    const res = await GET(req, { params: Promise.resolve({ id: "book-1" }) });
+    const res = await GET(req, { params: Promise.resolve({ id: "00000000-0000-4000-8000-000000000001" }) });
     const body = await res.json();
 
     expect(res.status).toBe(200);
@@ -230,7 +230,7 @@ describe("GET /api/books/[id]/jobs", () => {
 
     const req = new Request("http://localhost/api/books/book-1/jobs");
 
-    const res = await GET(req, { params: Promise.resolve({ id: "book-1" }) });
+    const res = await GET(req, { params: Promise.resolve({ id: "00000000-0000-4000-8000-000000000001" }) });
     const body = await res.json();
 
     expect(res.status).toBe(200);
@@ -251,7 +251,7 @@ describe("GET /api/books/[id]/jobs", () => {
             id: "job-stale-cancel",
             kind: "audiobook_generation",
             status: "processing",
-            book_id: "book-1",
+            book_id: "00000000-0000-4000-8000-000000000001",
             book_version_id: "ver-1",
             language: "sv",
             progress: 0,
@@ -274,7 +274,7 @@ describe("GET /api/books/[id]/jobs", () => {
     );
 
     const req = new Request("http://localhost/api/books/book-1/jobs");
-    const res = await GET(req, { params: Promise.resolve({ id: "book-1" }) });
+    const res = await GET(req, { params: Promise.resolve({ id: "00000000-0000-4000-8000-000000000001" }) });
     const body = await res.json();
 
     expect(res.status).toBe(200);

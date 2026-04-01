@@ -40,7 +40,7 @@ describe("GET /api/books/[id]/chapters", () => {
 
   it("returns 401 when not authenticated", async () => {
     mockUnauthorized();
-    const res = await GET(new Request("http://localhost"), makeParams("book-1"));
+    const res = await GET(new Request("http://localhost"), makeParams("00000000-0000-4000-8000-000000000001"));
     expect(res.status).toBe(401);
   });
 
@@ -60,7 +60,7 @@ describe("GET /api/books/[id]/chapters", () => {
     });
     mocks.createClient.mockResolvedValue({ from: mockFrom });
 
-    const res = await GET(new Request("http://localhost"), makeParams("book-1"));
+    const res = await GET(new Request("http://localhost"), makeParams("00000000-0000-4000-8000-000000000001"));
     expect(res.status).toBe(404);
   });
 
@@ -72,7 +72,7 @@ describe("GET /api/books/[id]/chapters", () => {
           select: vi.fn(() => ({
             eq: vi.fn(() => ({
               maybeSingle: vi.fn().mockResolvedValue({
-                data: { id: "book-1", author_id: "other-author" },
+                data: { id: "00000000-0000-4000-8000-000000000001", author_id: "other-author" },
                 error: null,
               }),
             })),
@@ -83,7 +83,7 @@ describe("GET /api/books/[id]/chapters", () => {
     });
     mocks.createClient.mockResolvedValue({ from: mockFrom });
 
-    const res = await GET(new Request("http://localhost"), makeParams("book-1"));
+    const res = await GET(new Request("http://localhost"), makeParams("00000000-0000-4000-8000-000000000001"));
     expect(res.status).toBe(404);
   });
 
@@ -95,7 +95,7 @@ describe("GET /api/books/[id]/chapters", () => {
           select: vi.fn(() => ({
             eq: vi.fn(() => ({
               maybeSingle: vi.fn().mockResolvedValue({
-                data: { id: "book-1", author_id: "author-1" },
+                data: { id: "00000000-0000-4000-8000-000000000001", author_id: "author-1" },
                 error: null,
               }),
             })),
@@ -119,7 +119,7 @@ describe("GET /api/books/[id]/chapters", () => {
     });
     mocks.createClient.mockResolvedValue({ from: mockFrom });
 
-    const res = await GET(new Request("http://localhost"), makeParams("book-1"));
+    const res = await GET(new Request("http://localhost"), makeParams("00000000-0000-4000-8000-000000000001"));
     expect(res.status).toBe(200);
     const body = await res.json();
     expect(body.data.chapters).toEqual([]);
@@ -133,7 +133,7 @@ describe("GET /api/books/[id]/chapters", () => {
           select: vi.fn(() => ({
             eq: vi.fn(() => ({
               maybeSingle: vi.fn().mockResolvedValue({
-                data: { id: "book-1", author_id: "author-1" },
+                data: { id: "00000000-0000-4000-8000-000000000001", author_id: "author-1" },
                 error: null,
               }),
             })),
@@ -177,7 +177,7 @@ describe("GET /api/books/[id]/chapters", () => {
     });
     mocks.createClient.mockResolvedValue({ from: mockFrom });
 
-    const res = await GET(new Request("http://localhost"), makeParams("book-1"));
+    const res = await GET(new Request("http://localhost"), makeParams("00000000-0000-4000-8000-000000000001"));
     expect(res.status).toBe(200);
     const body = await res.json();
     expect(body.data.chapters).toHaveLength(2);

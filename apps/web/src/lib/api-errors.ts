@@ -296,3 +296,12 @@ export function apiError(
 ): NextResponse {
   return NextResponse.json({ error: key, ...extra }, { status });
 }
+
+// ─── Validation helpers ─────────────────────────────────────────────────────
+
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+/** Returns true when `value` is a valid v4-style UUID string. */
+export function isValidUuid(value: string): boolean {
+  return UUID_RE.test(value);
+}

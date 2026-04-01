@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { requireAuthorRoleForApi } from "@/lib/auth/require-author";
 import { normalizeJobStatus, isJobActiveStatus } from "@/lib/job-status";
-import { apiError, E_BOOK_NOT_FOUND, E_DATABASE_ERROR } from "@/lib/api-errors";
+import { apiError, isValidUuid, E_BOOK_NOT_FOUND, E_DATABASE_ERROR, E_INVALID_BOOK_ID } from "@/lib/api-errors";
 
 function toTranslationProgress(status: string): number {
   const normalized = normalizeJobStatus(status);
@@ -16,6 +16,8 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> }
 ) {
   const { id: bookId } = await params;
+  if (!isValidUuid(bookId)) return apiError(E_INVALID_BOOK_ID, 400);
+
   const url = new URL(request.url);
   const languageFilter = url.searchParams.get("language")?.trim() || null;
   const versionIdFilter = url.searchParams.get("versionId")?.trim() || null;

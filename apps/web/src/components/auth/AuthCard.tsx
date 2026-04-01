@@ -20,7 +20,7 @@ export default function AuthCard({
 }: AuthCardProps) {
   return (
     <div className={cn("card-auth w-full", className)}>
-      <div className="flex w-full flex-col items-center px-8 pb-10 pt-12 text-center sm:px-12 sm:pb-12 sm:pt-14">
+      <div className="flex w-full flex-col items-center px-5 pb-8 pt-10 text-center sm:px-12 sm:pb-12 sm:pt-14">
         {subtitle && (
           <p className="text-[15px] font-normal text-slate-500 dark:text-white/45">
             {subtitle}

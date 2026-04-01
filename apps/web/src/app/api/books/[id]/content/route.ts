@@ -3,6 +3,8 @@ import { requireAuthorRoleForApi } from "@/lib/auth/require-author";
 import { createAdminClient } from "@/lib/supabase/admin";
 import {
   apiError,
+  isValidUuid,
+  E_INVALID_BOOK_ID,
   E_UNAUTHORIZED,
   E_BOOK_NOT_FOUND,
   E_CONTENT_FETCH_FAILED,
@@ -18,6 +20,8 @@ export async function GET(
   if (!user) return apiError(E_UNAUTHORIZED, 401);
 
   const { id: bookId } = await params;
+  if (!isValidUuid(bookId)) return apiError(E_INVALID_BOOK_ID, 400);
+
   const admin = createAdminClient();
 
   // Verify book ownership

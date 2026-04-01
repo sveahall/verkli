@@ -70,3 +70,12 @@ vendor/tts/
 
 # local backup clones (do not commit)
 verkli-backup.git/
+
+# legacy/dev artifacts (untracked)
+*.patch
+*.stat
+*.aiff
+electron-*.js
+electron-preload.js
+test_qwen3_tts.py
+FETCH_HEAD

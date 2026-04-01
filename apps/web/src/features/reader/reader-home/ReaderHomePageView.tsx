@@ -92,16 +92,6 @@ function SectionHeader({
   );
 }
 
-function ScrollRail({ children }: { children: React.ReactNode }) {
-  return (
-    <div className="-mx-4 sm:-mx-5 lg:-mx-6">
-      <div className="flex snap-x snap-mandatory gap-4 overflow-x-auto px-4 pb-2 sm:px-5 lg:px-6 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-        {children}
-      </div>
-    </div>
-  );
-}
-
 export default function ReaderHomePageView({
   greeting,
   spotlight,
@@ -112,11 +102,6 @@ export default function ReaderHomePageView({
   authorHighlights,
   readingStats,
 }: ReaderHomePageViewProps) {
-  const totalStats =
-    readingStats.booksReading +
-    readingStats.booksFinished +
-    readingStats.bookmarksCount;
-
   return (
     <div className="reader-stagger space-y-6">
       {/* ── Header ── */}
@@ -133,7 +118,7 @@ export default function ReaderHomePageView({
         {/* ── Main column ── */}
         <div className="space-y-4">
           {/* Hero Spotlight */}
-          <section className="card-base flex items-center gap-6 p-6">
+          <section className="card-base flex items-center gap-4 p-4 sm:gap-6 sm:p-6">
             <Link
               href={spotlight?.href ?? "/reader/discover"}
               className="group relative w-[100px] flex-shrink-0 sm:w-[120px]"
@@ -160,7 +145,7 @@ export default function ReaderHomePageView({
                 <Sparkles className="h-3 w-3" />
                 {spotlight?.badge ?? "Featured"}
               </span>
-              <h2 className="text-xl font-semibold tracking-tight text-[#0F172A] dark:text-white sm:text-2xl">
+              <h2 className="text-lg font-semibold tracking-tight text-[#0F172A] sm:text-xl lg:text-2xl dark:text-white">
                 {spotlight?.title ?? "Find your next read"}
               </h2>
               <p className="text-sm text-[#64748B] dark:text-white/50">
@@ -168,17 +153,17 @@ export default function ReaderHomePageView({
                   ? `${spotlight.author} \u00b7 ${spotlight.caption}`
                   : "Browse discovery or pick up where you left off."}
               </p>
-              <div className="flex items-center gap-4 pt-1">
+              <div className="flex flex-col gap-2 pt-1 sm:flex-row sm:items-center sm:gap-4">
                 <Link
                   href={spotlight?.href ?? "/reader/discover"}
-                  className="btn-primary inline-flex items-center gap-2 text-sm"
+                  className="btn-primary inline-flex w-full items-center justify-center gap-2 text-sm sm:w-auto"
                 >
                   <BookOpen className="h-4 w-4" />
                   {spotlight?.progress != null ? "Resume" : "Open book"}
                 </Link>
                 <Link
                   href="/reader/discover"
-                  className="text-sm font-medium text-[#64748B] transition-colors hover:text-[#0F172A] dark:text-white/50 dark:hover:text-white"
+                  className="text-center text-sm font-medium text-[#64748B] transition-colors hover:text-[#0F172A] sm:text-left dark:text-white/50 dark:hover:text-white"
                 >
                   Discover more
                 </Link>
@@ -275,11 +260,11 @@ export default function ReaderHomePageView({
         {/* ── Sidebar ── */}
         <div className="space-y-4">
           {/* Reading Stats */}
-          <section className="card-base p-6">
+          <section className="card-base p-4 sm:p-6">
             <h3 className="text-sm font-semibold uppercase tracking-wider text-[#64748B] dark:text-white/50">
               Your Reading
             </h3>
-            <div className="mt-4 grid grid-cols-3 gap-2 text-center">
+            <div className="mt-3 grid grid-cols-3 gap-2 text-center sm:mt-4">
               <div className="rounded-xl bg-[#F8F9FB] py-4 dark:bg-white/[0.06]">
                 <p className="text-2xl font-semibold text-[#0F172A] dark:text-white">
                   {readingStats.booksReading}

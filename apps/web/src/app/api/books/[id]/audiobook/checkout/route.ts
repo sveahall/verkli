@@ -12,6 +12,8 @@ import {
   E_FORBIDDEN,
   E_CHECKOUT_SESSION_FAILED,
   E_RATE_LIMIT_EXCEEDED,
+  E_INVALID_BOOK_ID,
+  isValidUuid,
 } from "@/lib/api-errors"
 
 const checkoutLimiter = createPerUserRateLimiter({ maxPerMinute: 5 })
@@ -48,6 +50,7 @@ export async function POST(
   }
 
   const { id: bookId } = await params
+  if (!isValidUuid(bookId)) return apiError(E_INVALID_BOOK_ID, 400)
 
   let body: Record<string, unknown>
   try {

@@ -1,13 +1,15 @@
 import { NextResponse } from "next/server"
 import { createClient } from "@/lib/supabase/server"
 import { requireAuthorRoleForApi } from "@/lib/auth/require-author"
-import { apiError, E_BOOK_NOT_FOUND, E_DATABASE_ERROR } from "@/lib/api-errors"
+import { apiError, isValidUuid, E_BOOK_NOT_FOUND, E_DATABASE_ERROR, E_INVALID_BOOK_ID } from "@/lib/api-errors"
 
 export async function GET(
   _request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
   const { id: bookId } = await params
+  if (!isValidUuid(bookId)) return apiError(E_INVALID_BOOK_ID, 400)
+
   const { user, response } = await requireAuthorRoleForApi()
   if (response) return response
 

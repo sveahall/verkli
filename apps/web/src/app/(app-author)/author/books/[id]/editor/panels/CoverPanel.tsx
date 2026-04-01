@@ -2,10 +2,11 @@
 
 import Image from "next/image";
 import dynamic from "next/dynamic";
-import { ImageIcon, Sparkles, Upload } from "lucide-react";
+import { ImageIcon, PenLine, Sparkles, Upload } from "lucide-react";
 import { ACCEPTED_COVER_TYPES, COVER_AI_STYLES, COVER_TEMPLATES } from "../BookEditorView.helpers";
 
 const CoverCropModal = dynamic(() => import("@/components/books/CoverCropModal"), { ssr: false });
+const CoverEditorModal = dynamic(() => import("@/components/books/cover-editor/CoverEditorModal"), { ssr: false });
 
 interface CoverPanelProps {
   coverInputRef: React.RefObject<HTMLInputElement | null>;
@@ -36,6 +37,11 @@ interface CoverPanelProps {
   setCoverAITemplate: (v: string | null) => void;
   coverAITemplateFields: Record<string, string>;
   setCoverAITemplateFields: (v: Record<string, string>) => void;
+  coverEditorOpen: boolean;
+  setCoverEditorOpen: (v: boolean) => void;
+  handleEditorSave: (file: File) => Promise<void>;
+  bookTitle: string;
+  authorName: string;
 }
 
 export default function CoverPanel({
@@ -67,6 +73,11 @@ export default function CoverPanel({
   setCoverAITemplate,
   coverAITemplateFields,
   setCoverAITemplateFields,
+  coverEditorOpen,
+  setCoverEditorOpen,
+  handleEditorSave,
+  bookTitle,
+  authorName,
 }: CoverPanelProps) {
   const selectedTemplate = coverAITemplate
     ? COVER_TEMPLATES.find((t) => t.id === coverAITemplate) ?? null
@@ -127,6 +138,15 @@ export default function CoverPanel({
                   className="flex-1 rounded-xl border border-black/[0.08] bg-white py-2.5 text-xs font-medium text-slate-600 transition hover:bg-slate-50 hover:border-black/[0.12] active:scale-[0.97] disabled:opacity-50 dark:border-white/[0.08] dark:bg-white/[0.04] dark:text-white/70"
                 >
                   Replace
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setCoverEditorOpen(true)}
+                  disabled={coverUploading}
+                  className="flex-1 inline-flex items-center justify-center gap-1 rounded-xl border border-[#907AFF]/20 bg-[#907AFF]/5 py-2.5 text-xs font-medium text-[#907AFF] transition hover:bg-[#907AFF]/10 hover:border-[#907AFF]/30 active:scale-[0.97] disabled:opacity-50"
+                >
+                  <PenLine className="h-3 w-3" />
+                  Edit
                 </button>
                 <button
                   type="button"
@@ -421,6 +441,17 @@ export default function CoverPanel({
           src={coverCropSrc}
           onSave={handleCropSave}
           onClose={() => setCoverCropSrc(null)}
+        />
+      )}
+
+      {/* Cover editor modal */}
+      {coverEditorOpen && displayCoverUrl && (
+        <CoverEditorModal
+          imageUrl={displayCoverUrl}
+          bookTitle={bookTitle}
+          authorName={authorName}
+          onSave={handleEditorSave}
+          onClose={() => setCoverEditorOpen(false)}
         />
       )}
     </div>

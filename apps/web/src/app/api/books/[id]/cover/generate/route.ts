@@ -3,19 +3,25 @@ import { z } from "zod";
 import { requireAuthorRoleForApi } from "@/lib/auth/require-author";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { generateCoverImages } from "@/lib/nvidia-sd3";
+import { createPerUserRateLimiter } from "@/lib/rate-limit";
 import {
   apiError,
+  isValidUuid,
   E_BOOK_NOT_FOUND,
   E_COVER_GENERATION_FAILED,
   E_DATABASE_ERROR,
+  E_INVALID_BOOK_ID,
   E_INVALID_JSON,
   E_PROMPT_TEXT_REQUIRED,
+  E_RATE_LIMIT_EXCEEDED,
   E_UNAUTHORIZED,
   E_VALIDATION_FAILED,
 } from "@/lib/api-errors";
 
 export const runtime = "nodejs";
 export const maxDuration = 180;
+
+const coverLimiter = createPerUserRateLimiter({ maxPerMinute: 3 });
 
 const coverGenerateSchema = z.object({
   prompt: z.string().max(2000),
@@ -27,17 +33,14 @@ const COVER_STYLE_PROMPTS: Record<
   string
 > = {
   minimal:
-    "professional minimalist book cover, Scandinavian design style, restrained palette, elegant composition",
+    "clean minimalist artwork, Scandinavian design aesthetic, restrained muted palette, elegant negative space, soft gradients, vertical composition",
   photographic:
-    "professional photographic book cover, cinematic lighting, premium publishing detail, high-end editorial mood",
+    "cinematic photograph, professional editorial lighting, shallow depth of field, high-end visual mood, 8k detail, vertical composition",
   illustrated:
-    "professional illustrated book cover, expressive shapes, rich storytelling atmosphere, painterly detail",
+    "expressive digital illustration, rich painterly brushwork, vivid storytelling atmosphere, detailed artistic composition, vertical format",
   vintage:
-    "professional vintage-inspired book cover, classic print texture, retro palette, timeless publishing aesthetic",
+    "retro-inspired artwork, classic print texture, aged warm palette, timeless nostalgic atmosphere, mid-century aesthetic, vertical composition",
 };
-
-const COVER_LAYOUT_INSTRUCTIONS =
-  "bold modern typography, strong contrast, clear visual hierarchy, centered title layout, balanced margins, vertical book cover, premium bookstore-ready composition";
 
 function getPrimaryGenreLabel(
   genres: Array<{ name_en?: string | null; name_sv?: string | null; slug?: string | null }>
@@ -48,24 +51,23 @@ function getPrimaryGenreLabel(
 }
 
 function buildCoverPrompt({
-  title,
   genre,
   userPrompt,
   style,
 }: {
-  title: string;
   genre: string;
   userPrompt: string;
   style: z.infer<typeof coverGenerateSchema>["style"];
 }): string {
-  const normalizedTitle = title.trim() || "Untitled";
-  const normalizedGenre = genre.trim() || "general";
+  const genreAtmosphere = genre.trim() && genre.trim() !== "general"
+    ? `${genre.trim()} atmosphere`
+    : "";
   return [
-    `${COVER_STYLE_PROMPTS[style]} ${normalizedGenre} book cover for a book titled "${normalizedTitle}"`,
+    COVER_STYLE_PROMPTS[style],
+    genreAtmosphere,
     userPrompt.trim(),
-    COVER_LAYOUT_INSTRUCTIONS,
-    "professional cover design, polished typography treatment, readable at thumbnail size",
-  ].join(" ");
+    "no text, no letters, no words, no title, no typography, no book, no frame",
+  ].filter(Boolean).join(", ");
 }
 
 export async function POST(
@@ -75,6 +77,11 @@ export async function POST(
   const { user, response } = await requireAuthorRoleForApi();
   if (response) return response;
   if (!user) return apiError(E_UNAUTHORIZED, 401);
+
+  const rl = await coverLimiter.check(user.id);
+  if (!rl.allowed) {
+    return apiError(E_RATE_LIMIT_EXCEEDED, 429, { retryAfterSeconds: rl.retryAfterSeconds });
+  }
 
   let body: unknown;
   try {
@@ -96,10 +103,12 @@ export async function POST(
   }
 
   const { id: bookId } = await params;
+  if (!isValidUuid(bookId)) return apiError(E_INVALID_BOOK_ID, 400);
+
   const admin = createAdminClient();
   const { data: book, error: bookError } = await admin
     .from("books")
-    .select("id, title")
+    .select("id")
     .eq("id", bookId)
     .eq("author_id", user.id)
     .maybeSingle();
@@ -144,7 +153,6 @@ export async function POST(
   try {
     const { requestId, imageUrls } = await generateCoverImages({
       prompt: buildCoverPrompt({
-        title: String((book as { title?: string | null }).title ?? ""),
         genre: getPrimaryGenreLabel(genres),
         userPrompt: prompt,
         style: parsed.data.style,

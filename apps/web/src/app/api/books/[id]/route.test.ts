@@ -100,7 +100,7 @@ describe("/api/books/[id] pricing settings", () => {
   it("returns 404 when book is not owned by author", async () => {
     const supabase = makeBooksSupabase({
       book: {
-        id: "book-1",
+        id: "00000000-0000-4000-8000-000000000001",
         title: "Book",
         author_id: "other-author",
         price_amount: 0,
@@ -116,7 +116,7 @@ describe("/api/books/[id] pricing settings", () => {
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ price_amount: 100, price_currency: "USD" }),
       }),
-      { params: Promise.resolve({ id: "book-1" }) }
+      { params: Promise.resolve({ id: "00000000-0000-4000-8000-000000000001" }) }
     );
 
     expect(res.status).toBe(404);
@@ -125,7 +125,7 @@ describe("/api/books/[id] pricing settings", () => {
   it("rejects invalid currency allowlist", async () => {
     const supabase = makeBooksSupabase({
       book: {
-        id: "book-1",
+        id: "00000000-0000-4000-8000-000000000001",
         title: "Book",
         author_id: "author-1",
         price_amount: 0,
@@ -141,7 +141,7 @@ describe("/api/books/[id] pricing settings", () => {
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ price_amount: 200, price_currency: "JPY" }),
       }),
-      { params: Promise.resolve({ id: "book-1" }) }
+      { params: Promise.resolve({ id: "00000000-0000-4000-8000-000000000001" }) }
     );
 
     const body = await res.json();
@@ -152,7 +152,7 @@ describe("/api/books/[id] pricing settings", () => {
   it("rejects paid mode without paid amount", async () => {
     const supabase = makeBooksSupabase({
       book: {
-        id: "book-1",
+        id: "00000000-0000-4000-8000-000000000001",
         title: "Book",
         author_id: "author-1",
         price_amount: 0,
@@ -168,7 +168,7 @@ describe("/api/books/[id] pricing settings", () => {
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ is_free: false }),
       }),
-      { params: Promise.resolve({ id: "book-1" }) }
+      { params: Promise.resolve({ id: "00000000-0000-4000-8000-000000000001" }) }
     );
 
     const body = await res.json();
@@ -179,7 +179,7 @@ describe("/api/books/[id] pricing settings", () => {
   it("updates pricing and returns normalized settings", async () => {
     const supabase = makeBooksSupabase({
       book: {
-        id: "book-1",
+        id: "00000000-0000-4000-8000-000000000001",
         title: "Book",
         author_id: "author-1",
         price_amount: 0,
@@ -188,7 +188,7 @@ describe("/api/books/[id] pricing settings", () => {
         is_free: true,
       },
       updatedBook: {
-        id: "book-1",
+        id: "00000000-0000-4000-8000-000000000001",
         title: "Book",
         author_id: "author-1",
         price_amount: 1299,
@@ -206,7 +206,7 @@ describe("/api/books/[id] pricing settings", () => {
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ price_amount: 1299, price_currency: "sek", pricing_model: "book_only" }),
       }),
-      { params: Promise.resolve({ id: "book-1" }) }
+      { params: Promise.resolve({ id: "00000000-0000-4000-8000-000000000001" }) }
     );
 
     const body = await res.json();
@@ -225,7 +225,7 @@ describe("/api/books/[id] pricing settings", () => {
   it("GET returns pricing settings for owner", async () => {
     const supabase = makeBooksSupabase({
       book: {
-        id: "book-1",
+        id: "00000000-0000-4000-8000-000000000001",
         title: "Book",
         author_id: "author-1",
         price_amount: 0,
@@ -238,13 +238,13 @@ describe("/api/books/[id] pricing settings", () => {
     mocks.createClient.mockResolvedValue(supabase.client);
 
     const res = await GET(new Request("http://localhost/api/books/book-1"), {
-      params: Promise.resolve({ id: "book-1" }),
+      params: Promise.resolve({ id: "00000000-0000-4000-8000-000000000001" }),
     });
 
     const body = await res.json();
     expect(res.status).toBe(200);
     expect(body).toMatchObject({
-      id: "book-1",
+      id: "00000000-0000-4000-8000-000000000001",
       price_amount: 0,
       price_currency: "USD",
       pricing_model: "book_only",
@@ -255,7 +255,7 @@ describe("/api/books/[id] pricing settings", () => {
   it("GET returns safe error key when stored pricing is invalid", async () => {
     const supabase = makeBooksSupabase({
       book: {
-        id: "book-1",
+        id: "00000000-0000-4000-8000-000000000001",
         title: "Book",
         author_id: "author-1",
         price_amount: 499,
@@ -266,7 +266,7 @@ describe("/api/books/[id] pricing settings", () => {
     mocks.createClient.mockResolvedValue(supabase.client);
 
     const res = await GET(new Request("http://localhost/api/books/book-1"), {
-      params: Promise.resolve({ id: "book-1" }),
+      params: Promise.resolve({ id: "00000000-0000-4000-8000-000000000001" }),
     });
     const body = await res.json();
 
@@ -277,7 +277,7 @@ describe("/api/books/[id] pricing settings", () => {
   it("GET allows free pricing with null currency and normalizes response currency", async () => {
     const supabase = makeBooksSupabase({
       book: {
-        id: "book-1",
+        id: "00000000-0000-4000-8000-000000000001",
         title: "Book",
         author_id: "author-1",
         price_amount: 0,
@@ -289,7 +289,7 @@ describe("/api/books/[id] pricing settings", () => {
     mocks.createClient.mockResolvedValue(supabase.client);
 
     const res = await GET(new Request("http://localhost/api/books/book-1"), {
-      params: Promise.resolve({ id: "book-1" }),
+      params: Promise.resolve({ id: "00000000-0000-4000-8000-000000000001" }),
     });
     const body = await res.json();
 
@@ -302,7 +302,7 @@ describe("/api/books/[id] pricing settings", () => {
   it("PATCH allows free pricing with null currency and does not return 500", async () => {
     const supabase = makeBooksSupabase({
       book: {
-        id: "book-1",
+        id: "00000000-0000-4000-8000-000000000001",
         title: "Book",
         author_id: "author-1",
         price_amount: 0,
@@ -311,7 +311,7 @@ describe("/api/books/[id] pricing settings", () => {
         is_free: true,
       },
       updatedBook: {
-        id: "book-1",
+        id: "00000000-0000-4000-8000-000000000001",
         title: "Book",
         author_id: "author-1",
         price_amount: 0,
@@ -329,7 +329,7 @@ describe("/api/books/[id] pricing settings", () => {
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ is_free: true }),
       }),
-      { params: Promise.resolve({ id: "book-1" }) }
+      { params: Promise.resolve({ id: "00000000-0000-4000-8000-000000000001" }) }
     );
     const body = await res.json();
 

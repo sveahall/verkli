@@ -53,7 +53,7 @@ function adminWith(tables: Record<string, ChainableQuery>, storage?: { signedUrl
   };
 }
 
-const BOOK_ID = "book-1";
+const BOOK_ID = "00000000-0000-4000-8000-000000000001";
 const CHAPTER_ID = "ch-1";
 const AUTHOR_ID = "author-1";
 const READER_ID = "reader-1";

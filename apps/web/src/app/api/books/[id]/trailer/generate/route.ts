@@ -13,6 +13,8 @@ import {
   E_DATABASE_ERROR,
   E_TRAILER_GENERATION_FAILED,
   E_TRAILER_LIMIT_REACHED,
+  E_INVALID_BOOK_ID,
+  isValidUuid,
 } from "@/lib/api-errors";
 import { createPerUserRateLimiter } from "@/lib/rate-limit";
 import {
@@ -73,6 +75,8 @@ export async function POST(
 
   // 5. Verify book ownership
   const { id: bookId } = await params;
+  if (!isValidUuid(bookId)) return apiError(E_INVALID_BOOK_ID, 400);
+
   const admin = createAdminClient();
   const { data: book } = await admin
     .from("books" as never)

@@ -67,7 +67,7 @@ describe("POST /api/books/[id]/import", () => {
     });
 
     const res = await POST(makeMultipartRequest(), {
-      params: Promise.resolve({ id: "book-1" }),
+      params: Promise.resolve({ id: "00000000-0000-4000-8000-000000000001" }),
     });
 
     expect(res.status).toBe(401);
@@ -78,7 +78,7 @@ describe("POST /api/books/[id]/import", () => {
     mocks.parseImportMode.mockReturnValueOnce(null);
 
     const res = await POST(makeMultipartRequest(), {
-      params: Promise.resolve({ id: "book-1" }),
+      params: Promise.resolve({ id: "00000000-0000-4000-8000-000000000001" }),
     });
 
     const body = await res.json();
@@ -103,7 +103,7 @@ describe("POST /api/books/[id]/import", () => {
     form.set("bookVersionId", "version-1");
 
     const res = await POST(makeMultipartRequest(form), {
-      params: Promise.resolve({ id: "book-1" }),
+      params: Promise.resolve({ id: "00000000-0000-4000-8000-000000000001" }),
     });
 
     const body = await res.json();
@@ -112,7 +112,7 @@ describe("POST /api/books/[id]/import", () => {
     expect(mocks.startScopedBookImport).toHaveBeenCalledWith(
       expect.objectContaining({
         userId: "author-1",
-        bookId: "book-1",
+        bookId: "00000000-0000-4000-8000-000000000001",
         mode: "overwrite_draft",
         targetVersionId: "version-1",
       })
@@ -134,7 +134,7 @@ describe("POST /api/books/[id]/import", () => {
     });
 
     const res = await POST(makeMultipartRequest(), {
-      params: Promise.resolve({ id: "book-1" }),
+      params: Promise.resolve({ id: "00000000-0000-4000-8000-000000000001" }),
     });
     const body = await res.json();
 

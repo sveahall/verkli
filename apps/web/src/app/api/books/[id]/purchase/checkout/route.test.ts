@@ -137,7 +137,7 @@ describe("POST /api/books/[id]/purchase/checkout", () => {
 
   it("uses exact amount and currency from DB pricing", async () => {
     const supabase = makeSupabaseClient({
-      id: "book-1",
+      id: "00000000-0000-4000-8000-000000000001",
       title: "Paid Book",
       author_id: "author-1",
       status: "PUBLISHED",
@@ -150,8 +150,8 @@ describe("POST /api/books/[id]/purchase/checkout", () => {
     mocks.createClient.mockResolvedValue(supabase);
     mocks.createAdminClient.mockReturnValue(admin.client);
 
-    const res = await POST(makePurchaseRequest("book-1"), {
-      params: Promise.resolve({ id: "book-1" }),
+    const res = await POST(makePurchaseRequest("00000000-0000-4000-8000-000000000001"), {
+      params: Promise.resolve({ id: "00000000-0000-4000-8000-000000000001" }),
     });
 
     const body = await res.json();
@@ -161,7 +161,7 @@ describe("POST /api/books/[id]/purchase/checkout", () => {
     expect(admin.state.updatePayloads).toContainEqual({ stripe_session_id: "cs_test_1" });
     expect(mocks.canUserReadBook).toHaveBeenCalledWith(
       expect.objectContaining({
-        bookId: "book-1",
+        bookId: "00000000-0000-4000-8000-000000000001",
         bookAuthorId: "author-1",
         bookPriceAmount: 1299,
         bookPricingModel: "book_only",
@@ -179,7 +179,7 @@ describe("POST /api/books/[id]/purchase/checkout", () => {
 
   it("rejects checkout when stored pricing is invalid", async () => {
     const supabase = makeSupabaseClient({
-      id: "book-1",
+      id: "00000000-0000-4000-8000-000000000001",
       title: "Paid Book",
       author_id: "author-1",
       status: "PUBLISHED",
@@ -191,8 +191,8 @@ describe("POST /api/books/[id]/purchase/checkout", () => {
     mocks.createClient.mockResolvedValue(supabase);
     mocks.createAdminClient.mockReturnValue(makeAdminClient().client);
 
-    const res = await POST(makePurchaseRequest("book-1"), {
-      params: Promise.resolve({ id: "book-1" }),
+    const res = await POST(makePurchaseRequest("00000000-0000-4000-8000-000000000001"), {
+      params: Promise.resolve({ id: "00000000-0000-4000-8000-000000000001" }),
     });
 
     const body = await res.json();
@@ -204,7 +204,7 @@ describe("POST /api/books/[id]/purchase/checkout", () => {
 
   it("reuses existing pending checkout session when still open", async () => {
     const supabase = makeSupabaseClient({
-      id: "book-1",
+      id: "00000000-0000-4000-8000-000000000001",
       title: "Paid Book",
       author_id: "author-1",
       status: "PUBLISHED",
@@ -225,8 +225,8 @@ describe("POST /api/books/[id]/purchase/checkout", () => {
       status: "open",
     });
 
-    const res = await POST(makePurchaseRequest("book-1"), {
-      params: Promise.resolve({ id: "book-1" }),
+    const res = await POST(makePurchaseRequest("00000000-0000-4000-8000-000000000001"), {
+      params: Promise.resolve({ id: "00000000-0000-4000-8000-000000000001" }),
     });
 
     const body = await res.json();

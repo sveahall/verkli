@@ -15,14 +15,18 @@ import {
   listStripeCustomersByEmail,
 } from "@/lib/payments/stripe-billing";
 import { getActiveRoleFromRequest } from "@/lib/active-role";
+import { createPerUserRateLimiter } from "@/lib/rate-limit";
 import {
   apiError,
   E_UNAUTHORIZED,
   E_FORBIDDEN,
   E_BILLING_PORTAL_FAILED,
+  E_RATE_LIMIT_EXCEEDED,
 } from "@/lib/api-errors";
 
 export const runtime = "nodejs";
+
+const portalLimiter = createPerUserRateLimiter({ maxPerMinute: 5 });
 
 const ACTIVE_STATUSES = new Set(["active", "trialing"]);
 
@@ -134,6 +138,11 @@ export async function POST(request: Request) {
 
   if (!user) {
     return apiError(E_UNAUTHORIZED, 401);
+  }
+
+  const rl = await portalLimiter.check(user.id);
+  if (!rl.allowed) {
+    return apiError(E_RATE_LIMIT_EXCEEDED, 429, { retryAfterSeconds: rl.retryAfterSeconds });
   }
 
   const role = getActiveRoleFromRequest(request);

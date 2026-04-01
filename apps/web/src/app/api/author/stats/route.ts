@@ -1,10 +1,9 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
+import { requireAuthorRoleForApi } from "@/lib/auth/require-author";
 import {
   apiError,
-  E_NOT_AUTHENTICATED,
-  E_FORBIDDEN,
   E_DATABASE_ERROR,
 } from "@/lib/api-errors";
 
@@ -13,25 +12,10 @@ const querySchema = z.object({
 });
 
 export async function GET(request: Request) {
+  const { user, response } = await requireAuthorRoleForApi();
+  if (response) return response;
+
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  if (!user) {
-    return apiError(E_NOT_AUTHENTICATED, 401);
-  }
-
-  // Verify author role
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("role")
-    .eq("user_id", user.id)
-    .maybeSingle();
-
-  if (!profile || profile.role !== "author") {
-    return apiError(E_FORBIDDEN, 403);
-  }
 
   const url = new URL(request.url);
   const parsed = querySchema.safeParse({

@@ -10,7 +10,6 @@ import {
   Headphones,
   Library,
   Plus,
-  Trash2,
 } from "lucide-react";
 import CreateBookDialog from "@/components/books/CreateBookDialog";
 import CreateBookEntry from "@/app/(app-author)/author/books/CreateBookEntry";
@@ -181,42 +180,42 @@ export default function LibraryWorkspace({
         ) : (
           <div className="space-y-5">
             {/* Metric strip */}
-            <div className="grid grid-cols-3 gap-3">
-              <div className="flex items-center gap-3 rounded-2xl bg-white px-5 py-4 dark:bg-white/[0.04]">
-                <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-[#7c5cfc]/10">
+            <div className="grid grid-cols-3 gap-2 sm:gap-3">
+              <div className="flex items-center gap-2 rounded-2xl bg-white px-3 py-3 sm:gap-3 sm:px-5 sm:py-4 dark:bg-white/[0.04]">
+                <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-[#7c5cfc]/10 sm:h-9 sm:w-9">
                   <Library className="h-4 w-4 text-[#7c5cfc]" />
                 </div>
                 <div>
-                  <p className="text-[22px] font-bold tabular-nums leading-none text-slate-900 dark:text-white">
+                  <p className="text-lg font-bold tabular-nums leading-none text-slate-900 sm:text-[22px] dark:text-white">
                     {books.length}
                   </p>
-                  <p className="mt-0.5 text-[11px] font-medium uppercase tracking-[0.08em] text-slate-400 dark:text-white/35">
+                  <p className="mt-0.5 text-[10px] font-medium uppercase tracking-[0.08em] text-slate-400 sm:text-[11px] dark:text-white/35">
                     {books.length === 1 ? "Book" : "Books"}
                   </p>
                 </div>
               </div>
-              <div className="flex items-center gap-3 rounded-2xl bg-white px-5 py-4 dark:bg-white/[0.04]">
-                <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-emerald-500/10">
+              <div className="flex items-center gap-2 rounded-2xl bg-white px-3 py-3 sm:gap-3 sm:px-5 sm:py-4 dark:bg-white/[0.04]">
+                <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-emerald-500/10 sm:h-9 sm:w-9">
                   <CheckCircle2 className="h-4 w-4 text-emerald-500" />
                 </div>
                 <div>
-                  <p className="text-[22px] font-bold tabular-nums leading-none text-slate-900 dark:text-white">
+                  <p className="text-lg font-bold tabular-nums leading-none text-slate-900 sm:text-[22px] dark:text-white">
                     {publishedCount}
                   </p>
-                  <p className="mt-0.5 text-[11px] font-medium uppercase tracking-[0.08em] text-slate-400 dark:text-white/35">
+                  <p className="mt-0.5 text-[10px] font-medium uppercase tracking-[0.08em] text-slate-400 sm:text-[11px] dark:text-white/35">
                     Published
                   </p>
                 </div>
               </div>
-              <div className="flex items-center gap-3 rounded-2xl bg-white px-5 py-4 dark:bg-white/[0.04]">
-                <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-amber-500/10">
+              <div className="flex items-center gap-2 rounded-2xl bg-white px-3 py-3 sm:gap-3 sm:px-5 sm:py-4 dark:bg-white/[0.04]">
+                <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-amber-500/10 sm:h-9 sm:w-9">
                   <FileEdit className="h-4 w-4 text-amber-500" />
                 </div>
                 <div>
-                  <p className="text-[22px] font-bold tabular-nums leading-none text-slate-900 dark:text-white">
+                  <p className="text-lg font-bold tabular-nums leading-none text-slate-900 sm:text-[22px] dark:text-white">
                     {draftCount}
                   </p>
-                  <p className="mt-0.5 text-[11px] font-medium uppercase tracking-[0.08em] text-slate-400 dark:text-white/35">
+                  <p className="mt-0.5 text-[10px] font-medium uppercase tracking-[0.08em] text-slate-400 sm:text-[11px] dark:text-white/35">
                     {draftCount === 1 ? "Draft" : "Drafts"}
                   </p>
                 </div>
@@ -224,8 +223,8 @@ export default function LibraryWorkspace({
             </div>
 
             {/* Bookshelf surface */}
-            <div className="rounded-2xl bg-white px-7 py-7 dark:bg-white/[0.04]">
-              <div className="grid grid-cols-[repeat(auto-fill,minmax(130px,170px))] items-start gap-x-5 gap-y-7">
+            <div className="rounded-2xl bg-white px-4 py-5 sm:px-7 sm:py-7 dark:bg-white/[0.04]">
+              <div className="grid grid-cols-[repeat(auto-fill,minmax(110px,1fr))] items-start gap-x-4 gap-y-5 sm:grid-cols-[repeat(auto-fill,minmax(130px,170px))] sm:gap-x-5 sm:gap-y-7">
                 {books.map((book) => (
                   <BookCoverCard key={book.id} book={book} />
                 ))}

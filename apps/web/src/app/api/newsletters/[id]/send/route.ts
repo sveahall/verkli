@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
 import { isNewslettersEnabled } from "@/lib/flags";
+import { createPerUserRateLimiter } from "@/lib/rate-limit";
 import {
   apiError,
   E_NOT_AUTHENTICATED,
@@ -10,9 +11,12 @@ import {
   E_NEWSLETTER_ALREADY_SENT,
   E_NEWSLETTER_SEND_FAILED,
   E_FORBIDDEN,
+  E_RATE_LIMIT_EXCEEDED,
   E_VALIDATION_FAILED,
 } from "@/lib/api-errors";
 import { sendNewsletter } from "@/lib/newsletters/send";
+
+const sendLimiter = createPerUserRateLimiter({ maxPerMinute: 2 });
 
 const paramsSchema = z.object({
   id: z.string().uuid("Invalid newsletter ID"),
@@ -46,6 +50,11 @@ export async function POST(
 
   if (!user) {
     return apiError(E_NOT_AUTHENTICATED, 401);
+  }
+
+  const rl = await sendLimiter.check(user.id);
+  if (!rl.allowed) {
+    return apiError(E_RATE_LIMIT_EXCEEDED, 429, { retryAfterSeconds: rl.retryAfterSeconds });
   }
 
   // Verify newsletter exists and belongs to user
