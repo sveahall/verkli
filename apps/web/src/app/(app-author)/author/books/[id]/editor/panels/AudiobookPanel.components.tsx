@@ -9,21 +9,58 @@ import { formatPlayerTime } from "../BookEditorView.helpers";
 
 interface AudiobookPreviewPlayerProps {
   audioUrl: string | null;
+  bookId: string;
 }
 
-export function AudiobookPreviewPlayer({ audioUrl }: AudiobookPreviewPlayerProps) {
+export function AudiobookPreviewPlayer({ audioUrl, bookId }: AudiobookPreviewPlayerProps) {
   const audioRef = useRef<HTMLAudioElement>(null);
   const [playing, setPlaying] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
   const [speed, setSpeed] = useState(1.0);
+  const [previewLoading, setPreviewLoading] = useState(false);
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [previewError, setPreviewError] = useState<string | null>(null);
+
+  const effectiveAudioUrl = previewUrl ?? audioUrl;
+
+  const handleGeneratePreview = async () => {
+    setPreviewLoading(true);
+    setPreviewError(null);
+    try {
+      const res = await fetch(`/api/books/${bookId}/audiobook/preview`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({}),
+      });
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        setPreviewError(body?.detail ?? "Preview unavailable");
+        return;
+      }
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      setPreviewUrl(url);
+      // Auto-play after loading
+      setTimeout(() => {
+        if (audioRef.current) {
+          audioRef.current.src = url;
+          void audioRef.current.play().then(() => setPlaying(true));
+        }
+      }, 100);
+    } catch {
+      setPreviewError("Could not generate preview");
+    } finally {
+      setPreviewLoading(false);
+    }
+  };
 
   return (
     <div className="rounded-2xl border border-slate-200 bg-white px-6 py-5 dark:border-white/[0.06] dark:bg-white/[0.03]">
-      {audioUrl && (
+      {effectiveAudioUrl && (
         <audio
           ref={audioRef}
-          src={audioUrl}
+          src={effectiveAudioUrl}
           onTimeUpdate={() => {
             if (audioRef.current) setCurrentTime(audioRef.current.currentTime);
           }}
@@ -122,6 +159,36 @@ export function AudiobookPreviewPlayer({ audioUrl }: AudiobookPreviewPlayerProps
           {speed === 1 ? "1.0" : speed}x
         </button>
       </div>
+
+      {/* Preview voice button */}
+      {!effectiveAudioUrl && (
+        <div className="mt-4 text-center">
+          <button
+            type="button"
+            onClick={handleGeneratePreview}
+            disabled={previewLoading}
+            className="inline-flex items-center gap-2 rounded-xl border border-[#907AFF]/20 bg-[#907AFF]/5 px-4 py-2.5 text-[13px] font-semibold text-[#907AFF] transition hover:bg-[#907AFF]/10 active:scale-[0.97] disabled:opacity-50"
+          >
+            {previewLoading ? (
+              <>
+                <span className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-[#907AFF]/30 border-t-[#907AFF]" />
+                Generating preview...
+              </>
+            ) : (
+              <>
+                <svg className="h-4 w-4" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z" /></svg>
+                Preview voice
+              </>
+            )}
+          </button>
+          <p className="mt-2 text-[11px] text-slate-400 dark:text-white/30">
+            Generates a short sample from your first chapter
+          </p>
+          {previewError && (
+            <p className="mt-2 text-[12px] text-red-500">{previewError}</p>
+          )}
+        </div>
+      )}
     </div>
   );
 }

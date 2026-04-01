@@ -56,7 +56,7 @@ export function TranslatePreviewPanes({
         <div className="bg-slate-100 px-5 py-3 dark:bg-white/[0.06]">
           <p className="text-sm font-medium text-slate-700 dark:text-white/80">Original text</p>
         </div>
-        <div className="h-[340px] overflow-y-auto bg-slate-50/50 px-5 py-4 text-sm leading-relaxed text-slate-700 dark:bg-white/[0.02] dark:text-slate-200">
+        <div className="h-[340px] overflow-y-auto whitespace-pre-line bg-slate-50/50 px-5 py-4 text-sm leading-relaxed text-slate-700 dark:bg-white/[0.02] dark:text-slate-200">
           {loadingPreview ? (
             <span className="text-slate-400">Loading...</span>
           ) : originalPreview ? (
@@ -72,7 +72,7 @@ export function TranslatePreviewPanes({
             {getLanguageLabel(targetLanguage)} preview
           </p>
         </div>
-        <div className="h-[340px] overflow-y-auto bg-slate-50/50 px-5 py-4 text-sm leading-relaxed text-slate-700 dark:bg-white/[0.02] dark:text-slate-200">
+        <div className="h-[340px] overflow-y-auto whitespace-pre-line bg-slate-50/50 px-5 py-4 text-sm leading-relaxed text-slate-700 dark:bg-white/[0.02] dark:text-slate-200">
           {loadingPreview ? (
             <span className="text-slate-400">Loading...</span>
           ) : translationPreview ? (

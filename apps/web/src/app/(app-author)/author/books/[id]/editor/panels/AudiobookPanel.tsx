@@ -197,6 +197,7 @@ export default function AudiobookPanel({
       {/* Audio preview player */}
       <AudiobookPreviewPlayer
         audioUrl={shouldShowGeneratedAudiobookPlayer ? fallbackGeneratedAudiobookUrl : null}
+        bookId={bookId}
       />
 
       {/* Two cards side by side */}

@@ -30,13 +30,19 @@ export type BookTranslationState = {
   progress: number;
 };
 
+const BLOCK_TYPES = new Set(["paragraph", "heading", "blockquote", "codeBlock", "bulletList", "orderedList", "listItem", "horizontalRule"]);
+
 export function extractText(node: unknown): string {
   if (!node || typeof node !== "object") return "";
-  if ("text" in node && typeof (node as { text?: string }).text === "string") {
-    return (node as { text: string }).text;
+  const n = node as Record<string, unknown>;
+  if ("text" in n && typeof n.text === "string") {
+    return n.text;
   }
-  if ("content" in node && Array.isArray((node as { content?: unknown[] }).content)) {
-    return (node as { content: unknown[] }).content.map(extractText).join("");
+  if ("content" in n && Array.isArray(n.content)) {
+    const isBlock = typeof n.type === "string" && BLOCK_TYPES.has(n.type);
+    const separator = isBlock ? "\n\n" : "";
+    const inner = (n.content as unknown[]).map(extractText).filter(Boolean).join(separator);
+    return isBlock ? inner + "\n\n" : inner;
   }
   return "";
 }
