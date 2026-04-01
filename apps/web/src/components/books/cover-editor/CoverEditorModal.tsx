@@ -91,24 +91,21 @@ export default function CoverEditorModal({
       const cssFilter = filtersToCss(editor.filters);
       const needsFilter = cssFilter !== "brightness(1) contrast(1) saturate(1)";
 
-      let finalBlob: Blob;
-      if (needsFilter) {
-        const img = new window.Image();
-        img.src = dataUrl;
-        await new Promise<void>((resolve, reject) => { img.onload = () => resolve(); img.onerror = reject; });
-        const canvas = document.createElement("canvas");
-        canvas.width = CANVAS_WIDTH * 2;
-        canvas.height = CANVAS_HEIGHT * 2;
-        const ctx = canvas.getContext("2d")!;
-        ctx.filter = cssFilter;
-        ctx.drawImage(img, 0, 0);
-        finalBlob = await new Promise<Blob>((resolve, reject) =>
-          canvas.toBlob((b) => (b ? resolve(b) : reject(new Error("Export failed"))), "image/png")
-        );
-      } else {
-        const res = await fetch(dataUrl);
-        finalBlob = await res.blob();
-      }
+      // Convert data URL to image for canvas operations
+      const img = new window.Image();
+      img.src = dataUrl;
+      await new Promise<void>((resolve, reject) => { img.onload = () => resolve(); img.onerror = reject; });
+
+      const canvas = document.createElement("canvas");
+      canvas.width = CANVAS_WIDTH * 2;
+      canvas.height = CANVAS_HEIGHT * 2;
+      const ctx = canvas.getContext("2d")!;
+      if (needsFilter) ctx.filter = cssFilter;
+      ctx.drawImage(img, 0, 0);
+
+      const finalBlob = await new Promise<Blob>((resolve, reject) =>
+        canvas.toBlob((b) => (b ? resolve(b) : reject(new Error("Export failed"))), "image/png")
+      );
 
       // Persist editor state so layers can be restored on next edit
       saveCoverEditorState(bookId, backgroundUrl, editor.textLayers, editor.filters);
