@@ -12,12 +12,14 @@ import {
 import { storeImportFile } from "@/lib/import-storage";
 import {
   apiError,
+  isValidUuid,
   E_INVALID_MULTIPART_BODY,
   E_MISSING_FILE,
   E_INVALID_IMPORT_MODE,
   E_IMPORT_RECORD_CREATION_FAILED,
   E_IMPORT_FILE_STORAGE_FAILED,
   E_VALIDATION_FAILED,
+  E_INVALID_BOOK_ID,
 } from "@/lib/api-errors";
 
 function readOptionalString(value: FormDataEntryValue | null): string | null {
@@ -62,6 +64,9 @@ export async function POST(request: Request) {
   // Backward-compatible path for BookEditor:
   // if a bookId is provided, run scoped import to that book.
   const bookId = readOptionalString(formData.get("bookId"));
+  if (bookId && !isValidUuid(bookId)) {
+    return apiError(E_INVALID_BOOK_ID, 400);
+  }
   if (bookId) {
     const targetVersionId =
       readOptionalString(formData.get("bookVersionId")) ??

@@ -12,6 +12,38 @@ import { ACTIVE_ROLE_COOKIE } from '@/lib/active-role'
  * därefter (endast när låset är av) Supabase.
  */
 export async function middleware(request: NextRequest) {
+  // -------------------------------------------------------------------------
+  // CSRF protection: verify Origin header on state-changing requests.
+  // -------------------------------------------------------------------------
+  const method = request.method
+  const isStateChanging = method === 'POST' || method === 'PUT' || method === 'PATCH' || method === 'DELETE'
+  if (isStateChanging) {
+    const origin = request.headers.get('origin')
+    const pathname = request.nextUrl.pathname
+    // Skip Stripe webhook — it uses its own signature verification
+    const isStripeWebhook = pathname === '/api/stripe/webhook' || pathname.startsWith('/api/stripe/webhook/')
+    // Only enforce when Origin header is present (same-origin requests may omit it)
+    if (origin && !isStripeWebhook) {
+      const siteUrl = process.env.NEXT_PUBLIC_SITE_URL
+      if (siteUrl) {
+        let allowed = false
+        try {
+          const expectedOrigin = new URL(siteUrl).origin
+          allowed = origin === expectedOrigin
+        } catch {
+          // If NEXT_PUBLIC_SITE_URL is malformed, reject for safety
+          allowed = false
+        }
+        if (!allowed) {
+          return new NextResponse(JSON.stringify({ error: 'Forbidden' }), {
+            status: 403,
+            headers: { 'Content-Type': 'application/json' },
+          })
+        }
+      }
+    }
+  }
+
   const waitlistOnly = process.env.NEXT_PUBLIC_WAITLIST_ONLY === 'true'
 
   if (waitlistOnly) {
