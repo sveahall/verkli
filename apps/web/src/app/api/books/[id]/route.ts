@@ -266,6 +266,16 @@ export async function PATCH(
     !Object.prototype.hasOwnProperty.call(body, "pricing_model") &&
     !Object.prototype.hasOwnProperty.call(body, "is_free")
   ) {
+    // C3: Validate setup_state is a plain object with bounded size
+    const ss = body.setup_state;
+    if (ss !== null && (typeof ss !== "object" || Array.isArray(ss))) {
+      return badRequest(E_INVALID_JSON);
+    }
+    const serialized = JSON.stringify(ss);
+    if (serialized.length > 10_000) {
+      return badRequest(E_INVALID_JSON);
+    }
+
     const supabase = await createClient();
     const { error: setupError } = await supabase
       .from("books")

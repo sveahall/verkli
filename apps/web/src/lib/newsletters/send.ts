@@ -2,6 +2,31 @@ import { Resend } from "resend";
 import { getServerEnv } from "@/lib/env";
 import { createAdminClient } from "@/lib/supabase/admin";
 
+/** Allowed HTML tags for newsletter content. Strips scripts, iframes, event handlers. */
+const ALLOWED_TAGS = new Set([
+  "p", "br", "b", "strong", "i", "em", "u", "s", "a", "ul", "ol", "li",
+  "h1", "h2", "h3", "h4", "h5", "h6", "blockquote", "pre", "code",
+  "img", "div", "span", "table", "thead", "tbody", "tr", "td", "th", "hr",
+]);
+
+const EVENT_HANDLER_RE = /\s+on\w+\s*=/gi;
+const JAVASCRIPT_URI_RE = /javascript\s*:/gi;
+
+function sanitizeNewsletterHtml(html: string): string {
+  return html
+    // Remove script/iframe/object/embed tags and their content
+    .replace(/<(script|iframe|object|embed|form|input|textarea|button|select)[^>]*>[\s\S]*?<\/\1>/gi, "")
+    .replace(/<(script|iframe|object|embed|form|input|textarea|button|select)[^>]*\/?>/gi, "")
+    // Remove event handler attributes (onclick, onerror, etc.)
+    .replace(EVENT_HANDLER_RE, " ")
+    // Remove javascript: URIs
+    .replace(JAVASCRIPT_URI_RE, "")
+    // Remove tags not in allowlist (keep their text content)
+    .replace(/<\/?([a-z][a-z0-9]*)\b[^>]*>/gi, (match, tag) => {
+      return ALLOWED_TAGS.has(tag.toLowerCase()) ? match : "";
+    });
+}
+
 type SubscriberRow = {
   subscriber_user_id: string;
   profiles: { email: string | null; display_name: string | null } | null;
@@ -82,7 +107,8 @@ export async function sendNewsletter(
   // Send via Resend batch API
   const resend = new Resend(env.RESEND_API_KEY);
 
-  const htmlBody = nl.body_html || "<p></p>";
+  // C1: Server-side sanitize HTML to prevent XSS in email delivery
+  const htmlBody = sanitizeNewsletterHtml(nl.body_html || "<p></p>");
   const textBody = nl.body_text || "";
 
   const batchMessages = emails.map((recipient) => ({

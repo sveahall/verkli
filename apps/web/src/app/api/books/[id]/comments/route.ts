@@ -16,9 +16,13 @@ import {
   E_INVALID_CHAPTER_ID,
   E_INVALID_JSON,
   E_NOT_AUTHENTICATED,
+  E_RATE_LIMIT_EXCEEDED,
   E_VALIDATION_FAILED,
 } from "@/lib/api-errors";
 import { createNotification } from "@/lib/notifications/server";
+import { createPerUserRateLimiter } from "@/lib/rate-limit";
+
+const commentLimiter = createPerUserRateLimiter({ maxPerMinute: 10 });
 
 const paramsSchema = z.object({
   id: z.string().uuid("Invalid book ID"),
@@ -215,6 +219,12 @@ export async function POST(
     return apiError(E_NOT_AUTHENTICATED, 401);
   }
 
+  // C4: Rate limit comment creation
+  const rl = await commentLimiter.check(user.id);
+  if (!rl.allowed) {
+    return apiError(E_RATE_LIMIT_EXCEEDED, 429);
+  }
+
   let body: unknown;
   try {
     body = await request.json();
@@ -227,7 +237,8 @@ export async function POST(
     return apiError(E_VALIDATION_FAILED, 400);
   }
 
-  const content = parsedBody.data.body.trim();
+  // C2: Strip HTML tags to prevent stored XSS
+  const content = parsedBody.data.body.trim().replace(/<[^>]*>/g, "");
   const chapterId = parsedBody.data.chapterId ?? null;
   const parentCommentId = parsedBody.data.parentCommentId ?? null;
 
