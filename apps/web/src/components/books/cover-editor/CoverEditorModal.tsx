@@ -35,21 +35,11 @@ export default function CoverEditorModal({
   const editor = useCoverEditor();
   const initRef = useRef(false);
 
-  // Load fonts on mount, then auto-add title/author layers (guard against StrictMode double-fire)
+  // Load fonts on mount (no auto-add text — user clicks +Title/+Author when ready)
   useEffect(() => {
     if (initRef.current) return;
     initRef.current = true;
-    loadAllFonts().then(() => {
-      setFontsLoaded(true);
-      if (bookTitle) {
-        editor.addTextLayer({ text: bookTitle, fontSize: 48, fontStyle: "bold", y: 420 });
-      }
-      if (authorName) {
-        editor.addTextLayer({ text: authorName, fontSize: 22, fontStyle: "normal", y: 530 });
-      }
-    });
-    // Only run once on mount
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    loadAllFonts().then(() => setFontsLoaded(true));
   }, []);
 
   // Keyboard shortcuts
@@ -201,6 +191,8 @@ export default function CoverEditorModal({
                 onUpdateLayer={editor.updateTextLayer}
                 onRemoveLayer={editor.removeTextLayer}
                 onSelectLayer={editor.setSelectedLayerId}
+                bookTitle={bookTitle}
+                authorName={authorName}
               />
             ) : (
               <CoverEditorFilterPanel

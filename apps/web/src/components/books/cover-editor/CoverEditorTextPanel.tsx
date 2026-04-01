@@ -17,6 +17,8 @@ type CoverEditorTextPanelProps = {
   onUpdateLayer: (id: string, patch: Partial<CoverTextLayer>) => void;
   onRemoveLayer: (id: string) => void;
   onSelectLayer: (id: string | null) => void;
+  bookTitle?: string;
+  authorName?: string;
 };
 
 export default function CoverEditorTextPanel({
@@ -26,6 +28,8 @@ export default function CoverEditorTextPanel({
   onUpdateLayer,
   onRemoveLayer,
   onSelectLayer,
+  bookTitle = "Book Title",
+  authorName = "Author Name",
 }: CoverEditorTextPanelProps) {
   const centerHorizontally = () => {
     if (!selectedLayer) return;
@@ -48,8 +52,8 @@ export default function CoverEditorTextPanel({
         </p>
         <div className="flex flex-wrap gap-2">
           {[
-            { label: "Title", defaults: { text: "Book Title", fontSize: 48, fontStyle: "bold" as const, y: 400, width: 300, x: 50 } },
-            { label: "Author", defaults: { text: "Author Name", fontSize: 22, fontStyle: "normal" as const, y: 530, width: 300, x: 50 } },
+            { label: "Title", defaults: { text: bookTitle, fontSize: 48, fontStyle: "bold" as const, y: 400, width: 300, x: 50 } },
+            { label: "Author", defaults: { text: authorName, fontSize: 22, fontStyle: "normal" as const, y: 530, width: 300, x: 50 } },
             { label: "Subtitle", defaults: { text: "Subtitle", fontSize: 16, fontStyle: "normal" as const, y: 470, width: 300, x: 50 } },
           ].map((item) => (
             <button key={item.label} type="button" onClick={() => onAddLayer(item.defaults)} className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 px-3 py-2 text-[13px] font-medium text-slate-600 transition hover:border-[#907AFF]/40 hover:bg-[#907AFF]/5 hover:text-[#907AFF] active:scale-[0.97] dark:border-white/10 dark:text-white/60">
