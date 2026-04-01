@@ -38,6 +38,7 @@ const mocks = vi.hoisted(() => ({
   getBillingAccountByStripeCustomerId: vi.fn(),
   getBillingAccountByStripeSubscriptionId: vi.fn(),
   upsertBillingAccount: vi.fn(),
+  resolveRolePlanFromPriceIds: vi.fn(),
 }));
 
 vi.mock("@/lib/supabase/admin", () => ({
@@ -48,6 +49,10 @@ vi.mock("@/lib/billing/server", () => ({
   getBillingAccountByStripeCustomerId: mocks.getBillingAccountByStripeCustomerId,
   getBillingAccountByStripeSubscriptionId: mocks.getBillingAccountByStripeSubscriptionId,
   upsertBillingAccount: mocks.upsertBillingAccount,
+}));
+
+vi.mock("@/lib/billing/catalog", () => ({
+  resolveRolePlanFromPriceIds: mocks.resolveRolePlanFromPriceIds,
 }));
 
 const { POST } = await import("./route");
@@ -256,6 +261,7 @@ describe(`POST ${API_ROUTES.stripeWebhook}`, () => {
     mocks.getBillingAccountByStripeCustomerId.mockResolvedValue({ row: null, error: null });
     mocks.getBillingAccountByStripeSubscriptionId.mockResolvedValue({ row: null, error: null });
     mocks.upsertBillingAccount.mockResolvedValue({ error: null });
+    mocks.resolveRolePlanFromPriceIds.mockResolvedValue(null);
   });
 
   it("is idempotent: duplicate stripe_event_id does not process event twice", async () => {
@@ -366,6 +372,232 @@ describe(`POST ${API_ROUTES.stripeWebhook}`, () => {
     expect(admin.state.creditTopup?.status).toBe("paid");
     expect(admin.state.creditGrantCalls).toHaveLength(1);
     expect(admin.state.creditTopupUpdates.length).toBeGreaterThanOrEqual(1);
+  });
+
+  it("creates/updates billing account with plan from price ID on customer.subscription.created", async () => {
+    const admin = makeAdminClient();
+    mocks.createAdminClient.mockReturnValue(admin.client);
+
+    const existing: BillingAccountRow = {
+      user_id: "author-1",
+      stripe_customer_id: "cus_200",
+      stripe_subscription_id: null,
+      plan: null,
+      status: null,
+      current_period_end: null,
+      cancel_at_period_end: false,
+      updated_at: new Date().toISOString(),
+      role: "author",
+    };
+
+    mocks.getBillingAccountByStripeCustomerId.mockResolvedValue({
+      row: existing,
+      error: null,
+    });
+    mocks.resolveRolePlanFromPriceIds.mockResolvedValue({
+      role: "author",
+      planKey: "plus",
+    });
+
+    const payload = {
+      id: "evt_sub_created",
+      type: "customer.subscription.created",
+      data: {
+        object: {
+          id: "sub_200",
+          customer: "cus_200",
+          status: "active",
+          current_period_end: 1700000000,
+          cancel_at_period_end: false,
+          metadata: {},
+          items: {
+            data: [{ price: { id: "price_plus" } }],
+          },
+        },
+      },
+    };
+
+    const res = await POST(makeSignedRequest(payload, webhookSecret));
+
+    expect(res.status).toBe(200);
+    expect(mocks.upsertBillingAccount).toHaveBeenCalledTimes(1);
+    expect(mocks.upsertBillingAccount).toHaveBeenCalledWith(
+      admin.client,
+      "author-1",
+      "author",
+      expect.objectContaining({
+        stripe_customer_id: "cus_200",
+        stripe_subscription_id: "sub_200",
+        plan: "plus",
+        status: "active",
+        current_period_end: new Date(1700000000 * 1000).toISOString(),
+        cancel_at_period_end: false,
+      })
+    );
+  });
+
+  it("updates plan when price changes and cancel_at_period_end on customer.subscription.updated", async () => {
+    const admin = makeAdminClient();
+    mocks.createAdminClient.mockReturnValue(admin.client);
+
+    const existing: BillingAccountRow = {
+      user_id: "author-1",
+      stripe_customer_id: "cus_300",
+      stripe_subscription_id: "sub_300",
+      plan: "plus",
+      status: "active",
+      current_period_end: null,
+      cancel_at_period_end: false,
+      updated_at: new Date().toISOString(),
+      role: "author",
+    };
+
+    mocks.getBillingAccountByStripeSubscriptionId.mockResolvedValue({
+      row: existing,
+      error: null,
+    });
+    mocks.resolveRolePlanFromPriceIds.mockResolvedValue({
+      role: "author",
+      planKey: "pro",
+    });
+
+    const payload = {
+      id: "evt_sub_updated",
+      type: "customer.subscription.updated",
+      data: {
+        object: {
+          id: "sub_300",
+          customer: "cus_300",
+          status: "active",
+          current_period_end: 1700100000,
+          cancel_at_period_end: true,
+          metadata: {},
+          items: {
+            data: [{ price: { id: "price_pro" } }],
+          },
+        },
+      },
+    };
+
+    const res = await POST(makeSignedRequest(payload, webhookSecret));
+
+    expect(res.status).toBe(200);
+    expect(mocks.upsertBillingAccount).toHaveBeenCalledTimes(1);
+    expect(mocks.upsertBillingAccount).toHaveBeenCalledWith(
+      admin.client,
+      "author-1",
+      "author",
+      expect.objectContaining({
+        stripe_customer_id: "cus_300",
+        stripe_subscription_id: "sub_300",
+        plan: "pro",
+        status: "active",
+        current_period_end: new Date(1700100000 * 1000).toISOString(),
+        cancel_at_period_end: true,
+      })
+    );
+  });
+
+  it("updates billing status to past_due on invoice.payment_failed without clearing the plan", async () => {
+    const admin = makeAdminClient();
+    mocks.createAdminClient.mockReturnValue(admin.client);
+
+    const existing: BillingAccountRow = {
+      user_id: "author-1",
+      stripe_customer_id: "cus_400",
+      stripe_subscription_id: "sub_400",
+      plan: "pro",
+      status: "active",
+      current_period_end: null,
+      cancel_at_period_end: false,
+      updated_at: new Date().toISOString(),
+      role: "author",
+    };
+
+    mocks.getBillingAccountByStripeSubscriptionId.mockResolvedValue({
+      row: existing,
+      error: null,
+    });
+    mocks.resolveRolePlanFromPriceIds.mockResolvedValue({
+      role: "author",
+      planKey: "pro",
+    });
+
+    const payload = {
+      id: "evt_invoice_failed",
+      type: "invoice.payment_failed",
+      data: {
+        object: {
+          id: "in_400",
+          customer: "cus_400",
+          subscription: "sub_400",
+          metadata: {},
+          lines: {
+            data: [
+              {
+                price: { id: "price_pro" },
+                period: { end: 1700200000 },
+              },
+            ],
+          },
+        },
+      },
+    };
+
+    const res = await POST(makeSignedRequest(payload, webhookSecret));
+
+    expect(res.status).toBe(200);
+    expect(mocks.upsertBillingAccount).toHaveBeenCalledTimes(1);
+    expect(mocks.upsertBillingAccount).toHaveBeenCalledWith(
+      admin.client,
+      "author-1",
+      "author",
+      expect.objectContaining({
+        stripe_customer_id: "cus_400",
+        stripe_subscription_id: "sub_400",
+        plan: "pro",
+        status: "past_due",
+        current_period_end: new Date(1700200000 * 1000).toISOString(),
+      })
+    );
+  });
+
+  it("returns 400 when stripe-signature header is missing", async () => {
+    const admin = makeAdminClient();
+    mocks.createAdminClient.mockReturnValue(admin.client);
+
+    const body = JSON.stringify({
+      id: "evt_no_sig",
+      type: "checkout.session.completed",
+      data: { object: { id: "cs_test_999", payment_status: "paid" } },
+    });
+
+    const req = new Request(`http://localhost${API_ROUTES.stripeWebhook}`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body,
+    });
+
+    const res = await POST(req);
+
+    expect(res.status).toBe(400);
+    expect(mocks.upsertBillingAccount).not.toHaveBeenCalled();
+  });
+
+  it("returns 400 when webhook signature is invalid", async () => {
+    const admin = makeAdminClient();
+    mocks.createAdminClient.mockReturnValue(admin.client);
+
+    const payload = {
+      id: "evt_bad_sig",
+      type: "checkout.session.completed",
+      data: { object: { id: "cs_test_998", payment_status: "paid" } },
+    };
+
+    const res = await POST(makeSignedRequest(payload, "whsec_wrong_secret"));
+
+    expect(res.status).toBe(400);
+    expect(mocks.upsertBillingAccount).not.toHaveBeenCalled();
   });
 
   it("sets plan null and status canceled on customer.subscription.deleted", async () => {
