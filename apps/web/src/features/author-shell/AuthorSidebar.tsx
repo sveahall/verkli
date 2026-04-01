@@ -187,62 +187,142 @@ export default function AuthorSidebar() {
     ? pathname.match(/^\/author\/books\/([^/?]+)/)?.[1] ?? null
     : null;
 
+  /* Mobile bottom nav items — subset of main nav for one-hand reach */
+  const mobileNavItems = AUTHOR_WORKFLOW_NAV.filter(
+    (item) => ["home", "library", "production"].includes(item.key)
+  );
+
   return (
-    <aside className="border-r border-[#ECEAF5] pr-4 bg-white dark:border-white/10 dark:bg-[#070b14] lg:sticky lg:top-0 lg:flex lg:h-screen lg:flex-col">
-      <div className="px-5 pt-7 pb-6">
-        <Link href="/author/home" className="inline-flex items-center">
-          <Image
-            src="/logo-dark.svg"
-            alt="Verkli"
-            width={120}
-            height={26}
-            className="h-[26px] w-auto"
-            priority
-          />
-        </Link>
-      </div>
-
-      <nav className="flex gap-1.5 overflow-x-auto px-3 lg:flex-1 lg:flex-col lg:overflow-y-auto lg:px-3">
-        {AUTHOR_WORKFLOW_NAV.map((item) => {
-          const active = isLeafActive(item, pathname);
-          const workflowBookId = bookIdFromPath ?? currentBookId;
-          const showWorkflowChildren =
-            item.key === "production" && isOnBookPage && !!workflowBookId;
-
-          return (
-            <div key={item.key}>
-              <SidebarNavLink
-                item={item}
-                href={resolveHref(item.href, item.bookScoped, currentBookId)}
-                active={active}
-              />
-              {showWorkflowChildren && (
-                <div className="mt-1">
-                  <div className="mb-1 pl-7">
-                    <span className="text-[11px] font-medium uppercase tracking-wider text-slate-400 dark:text-white/30">
-                      {activeBook?.title ?? "Book"}
-                    </span>
-                  </div>
-                  <BookWorkflowNav bookId={workflowBookId} isOnBookPage={isOnBookPage} />
-                </div>
-              )}
-            </div>
-          );
-        })}
-      </nav>
-
-      <div className="px-3 py-5">
-        <div className="flex gap-1.5 overflow-x-auto lg:flex-col lg:overflow-visible">
-          {AUTHOR_SIDEBAR_FOOTER.map((item) => (
-            <SidebarNavLink
-              key={item.key}
-              item={item}
-              href={item.href}
-              active={isLeafActive(item, pathname)}
+    <>
+      {/* ── Desktop sidebar ── */}
+      <aside className="hidden border-r border-[#ECEAF5] pr-4 bg-white dark:border-white/10 dark:bg-[#070b14] lg:sticky lg:top-0 lg:flex lg:h-screen lg:flex-col">
+        <div className="px-5 pt-7 pb-6">
+          <Link href="/author/home" className="inline-flex items-center">
+            <Image
+              src="/logo-dark.svg"
+              alt="Verkli"
+              width={120}
+              height={26}
+              className="h-[26px] w-auto"
+              priority
             />
-          ))}
+          </Link>
         </div>
-      </div>
-    </aside>
+
+        <nav className="flex flex-1 flex-col gap-1.5 overflow-y-auto px-3">
+          {AUTHOR_WORKFLOW_NAV.map((item) => {
+            const active = isLeafActive(item, pathname);
+            const workflowBookId = bookIdFromPath ?? currentBookId;
+            const showWorkflowChildren =
+              item.key === "production" && isOnBookPage && !!workflowBookId;
+
+            return (
+              <div key={item.key}>
+                <SidebarNavLink
+                  item={item}
+                  href={resolveHref(item.href, item.bookScoped, currentBookId)}
+                  active={active}
+                />
+                {showWorkflowChildren && (
+                  <div className="mt-1">
+                    <div className="mb-1 pl-7">
+                      <span className="text-[11px] font-medium uppercase tracking-wider text-slate-400 dark:text-white/30">
+                        {activeBook?.title ?? "Book"}
+                      </span>
+                    </div>
+                    <BookWorkflowNav bookId={workflowBookId} isOnBookPage={isOnBookPage} />
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </nav>
+
+        <div className="px-3 py-5">
+          <div className="flex flex-col gap-1.5">
+            {AUTHOR_SIDEBAR_FOOTER.map((item) => (
+              <SidebarNavLink
+                key={item.key}
+                item={item}
+                href={item.href}
+                active={isLeafActive(item, pathname)}
+              />
+            ))}
+          </div>
+        </div>
+      </aside>
+
+      {/* ── Mobile bottom nav ── */}
+      <nav
+        aria-label="Author navigation"
+        className="fixed bottom-0 left-0 right-0 z-[9990] border-t border-[#ECEAF5] bg-white/95 shadow-[0_-8px_24px_rgba(15,23,42,0.06)] backdrop-blur-2xl dark:border-white/10 dark:bg-[#050917]/95 lg:hidden"
+      >
+        <div className="mx-auto flex max-w-md items-center justify-around px-4 pb-[calc(env(safe-area-inset-bottom,0px)+0.5rem)] pt-2">
+          {mobileNavItems.map((item) => {
+            const active = isLeafActive(item, pathname);
+            const Icon = ICONS[item.icon] ?? Home;
+            return (
+              <Link
+                key={item.key}
+                href={resolveHref(item.href, item.bookScoped, currentBookId)}
+                aria-current={active ? "page" : undefined}
+                className="group flex flex-col items-center gap-1 px-3 py-1.5"
+              >
+                <span
+                  className={`flex h-8 w-8 items-center justify-center rounded-xl transition-all duration-200 ${
+                    active
+                      ? "bg-gradient-to-r from-[#907AFF] to-[#7C6CFF] text-white shadow-md shadow-[#907AFF]/20"
+                      : "text-[#7A8194] group-hover:text-[#555C70] dark:text-white/40 dark:group-hover:text-white/70"
+                  }`}
+                >
+                  <Icon className="h-[18px] w-[18px]" />
+                </span>
+                <span
+                  className={`text-[10px] font-medium transition-colors ${
+                    active
+                      ? "text-[#907AFF]"
+                      : "text-[#7A8194] dark:text-white/40"
+                  }`}
+                >
+                  {item.label}
+                </span>
+              </Link>
+            );
+          })}
+          {/* Settings shortcut */}
+          {AUTHOR_SIDEBAR_FOOTER.filter((item) => item.key === "settings").map((item) => {
+            const active = isLeafActive(item, pathname);
+            const Icon = ICONS[item.icon] ?? Settings;
+            return (
+              <Link
+                key={item.key}
+                href={item.href}
+                aria-current={active ? "page" : undefined}
+                className="group flex flex-col items-center gap-1 px-3 py-1.5"
+              >
+                <span
+                  className={`flex h-8 w-8 items-center justify-center rounded-xl transition-all duration-200 ${
+                    active
+                      ? "bg-gradient-to-r from-[#907AFF] to-[#7C6CFF] text-white shadow-md shadow-[#907AFF]/20"
+                      : "text-[#7A8194] group-hover:text-[#555C70] dark:text-white/40 dark:group-hover:text-white/70"
+                  }`}
+                >
+                  <Icon className="h-[18px] w-[18px]" />
+                </span>
+                <span
+                  className={`text-[10px] font-medium transition-colors ${
+                    active
+                      ? "text-[#907AFF]"
+                      : "text-[#7A8194] dark:text-white/40"
+                  }`}
+                >
+                  {item.label}
+                </span>
+              </Link>
+            );
+          })}
+        </div>
+      </nav>
+    </>
   );
 }

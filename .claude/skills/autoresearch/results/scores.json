@@ -1,0 +1,8 @@
+{
+  "history": [],
+  "current_best": {
+    "file": "prompts/current.txt",
+    "pass_rate": null,
+    "version": "v0"
+  }
+}

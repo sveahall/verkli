@@ -229,7 +229,7 @@ function displayCountryName(code: string): string {
 export default function CountrySalesCard({ items }: CountrySalesCardProps) {
   if (items.length === 0) {
     return (
-      <section className="rounded-2xl bg-white px-7 py-5 dark:bg-white/[0.04]">
+      <section className="rounded-2xl bg-white px-4 py-4 sm:px-7 sm:py-5 dark:bg-white/[0.04]">
         <h2 className="text-lg font-semibold text-slate-900 dark:text-white">Sales by country</h2>
         <div className="mt-4 flex items-center justify-between gap-6">
           <p className="text-sm text-slate-400 dark:text-white/40">

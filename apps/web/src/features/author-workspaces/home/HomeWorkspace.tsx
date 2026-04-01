@@ -180,6 +180,8 @@ export default function HomeWorkspace({
         value: `€${formatCompactNumber(stats.sales)}`,
         icon: <Coins className="h-4 w-4" />,
         toneClassName: "bg-[#EEF4FF] text-[#4F74E7]",
+        href: "/author/analytics/sales",
+        description: "Totala intäkter från bokförsäljning, inklusive ordrar och donationer.",
       },
       {
         label: "Readers",
@@ -187,6 +189,8 @@ export default function HomeWorkspace({
         value: formatCompactNumber(stats.readers),
         icon: <Users className="h-4 w-4" />,
         toneClassName: "bg-[#F2EDFF] text-[#8A72FF]",
+        href: "/author/analytics/readers",
+        description: "Antal unika läsare som har börjat läsa dina böcker.",
       },
       {
         label: "Subscribers",
@@ -194,6 +198,8 @@ export default function HomeWorkspace({
         value: stats.subscribers.toLocaleString("en"),
         icon: <UserRoundPlus className="h-4 w-4" />,
         toneClassName: "bg-[#FCEFFF] text-[#E17AD5]",
+        href: "/author/analytics/subscribers",
+        description: "Aktiva prenumeranter som följer dina nyhetsbrev.",
       },
       {
         label: "Comments",
@@ -201,6 +207,8 @@ export default function HomeWorkspace({
         value: stats.comments.toLocaleString("en"),
         icon: <MessageSquareText className="h-4 w-4" />,
         toneClassName: "bg-[#FFF3E8] text-[#F0A75B]",
+        href: "/author/analytics/comments",
+        description: "Kommentarer från läsare på dina publicerade böcker.",
       },
       {
         label: "Reviews",
@@ -208,6 +216,8 @@ export default function HomeWorkspace({
         value: stats.reviews.toLocaleString("en"),
         icon: <ThumbsUp className="h-4 w-4" />,
         toneClassName: "bg-[#FFF8DB] text-[#D8B53D]",
+        href: "/author/analytics/reviews",
+        description: "Recensioner och betyg från läsare på dina böcker.",
       },
     ],
     [stats.comments, stats.readers, stats.reviews, stats.sales, stats.subscribers]
@@ -330,6 +340,8 @@ export default function HomeWorkspace({
                   growth={stat.growth}
                   value={stat.value}
                   toneClassName={stat.toneClassName}
+                  href={stat.href}
+                  description={stat.description}
                 />
               ))}
             </section>

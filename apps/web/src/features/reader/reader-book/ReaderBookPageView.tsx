@@ -59,9 +59,9 @@ export default function ReaderBookPageView({
         {/* Decorative glow */}
         <div className="pointer-events-none absolute -right-32 -top-32 h-[320px] w-[320px] rounded-full bg-[#907AFF]/[0.07] blur-[100px]" />
 
-        <div className="relative grid gap-8 p-6 sm:p-8 lg:grid-cols-[260px_minmax(0,1fr)] lg:items-start">
+        <div className="relative grid gap-6 p-4 sm:gap-8 sm:p-6 md:p-8 lg:grid-cols-[260px_minmax(0,1fr)] lg:items-start">
           {/* Cover */}
-          <div className="relative mx-auto w-full max-w-[260px] lg:mx-0">
+          <div className="relative mx-auto w-full max-w-[200px] sm:max-w-[260px] lg:mx-0">
             <div className="absolute inset-4 rounded-2xl bg-[#907AFF]/10 blur-2xl" />
             <div className="relative">{cover}</div>
           </div>
@@ -110,11 +110,11 @@ export default function ReaderBookPageView({
       </div>
 
       {/* ── Edition details (inline bar) ── */}
-      <div className="grid grid-cols-2 gap-4 xl:grid-cols-4">
+      <div className="grid grid-cols-2 gap-3 sm:gap-4 xl:grid-cols-4">
         {editionNotes.map((item) => (
           <div
             key={item.label}
-            className="rounded-2xl border border-black/[0.05] bg-white/60 px-5 py-4 backdrop-blur-sm dark:border-white/[0.06] dark:bg-white/[0.02]"
+            className="rounded-2xl border border-black/[0.05] bg-white/60 px-3 py-3 backdrop-blur-sm sm:px-5 sm:py-4 dark:border-white/[0.06] dark:bg-white/[0.02]"
           >
             <p className="text-[11px] font-semibold uppercase tracking-wider text-slate-400 dark:text-white/35">
               {item.label}

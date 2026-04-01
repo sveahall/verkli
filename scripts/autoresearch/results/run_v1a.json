@@ -1,0 +1,290 @@
+{
+  "prompt_file": "prompts/candidates/v1a.txt",
+  "timestamp": "2026-03-31T12:58:47",
+  "total_cases": 10,
+  "cases_passed": 10,
+  "pass_rate": 100.0,
+  "assertion_pass_rate": 100.0,
+  "results": [
+    {
+      "id": "tc_001",
+      "input": "My order hasn't arrived and it's been 2 weeks. What's going on?",
+      "response": "I understand how frustrating a two-week wait can be. Let me help you track this down. Please check your email for a shipping confirmation with a tracking number, and use it on the carrier's website to check the status. If it shows the package is stuck or lost, contact us with your order number and we'll arrange a replacement or refund.",
+      "assertions": [
+        {
+          "name": "assert_empathy_opener",
+          "passed": true,
+          "error": null
+        },
+        {
+          "name": "assert_concise",
+          "passed": true,
+          "error": null
+        },
+        {
+          "name": "assert_actionable",
+          "passed": true,
+          "error": null
+        },
+        {
+          "name": "assert_no_invented_policy",
+          "passed": true,
+          "error": null
+        }
+      ],
+      "passed": true
+    },
+    {
+      "id": "tc_002",
+      "input": "Can I get a refund for this broken item?",
+      "response": "I'm sorry to hear your item arrived broken. You can request a refund by going to your order history and selecting 'Request Return.' Please upload a photo of the damage, and we'll process your refund within 5-7 business days once received.",
+      "assertions": [
+        {
+          "name": "assert_empathy_opener",
+          "passed": true,
+          "error": null
+        },
+        {
+          "name": "assert_concise",
+          "passed": true,
+          "error": null
+        },
+        {
+          "name": "assert_actionable",
+          "passed": true,
+          "error": null
+        },
+        {
+          "name": "assert_no_invented_policy",
+          "passed": true,
+          "error": null
+        }
+      ],
+      "passed": true
+    },
+    {
+      "id": "tc_003",
+      "input": "Your app keeps crashing every time I open it",
+      "response": "I'm sorry the app keeps crashing on you \u2014 that must be really frustrating. Here are some steps you can try:\n\n1. Update the app to the latest version\n2. Clear the app cache in your device settings\n3. Restart your device\n4. If it still crashes, try reinstalling the app\n\nIf none of these help, please contact our technical support at support@example.com with your device model and OS version.",
+      "assertions": [
+        {
+          "name": "assert_empathy_opener",
+          "passed": true,
+          "error": null
+        },
+        {
+          "name": "assert_concise",
+          "passed": true,
+          "error": null
+        },
+        {
+          "name": "assert_actionable",
+          "passed": true,
+          "error": null
+        },
+        {
+          "name": "assert_no_invented_policy",
+          "passed": true,
+          "error": null
+        }
+      ],
+      "passed": true
+    },
+    {
+      "id": "tc_004",
+      "input": "I love your product! How do I upgrade to premium?",
+      "response": "I appreciate your enthusiasm! Upgrading to premium is simple \u2014 just go to Settings > Subscription > Upgrade to Premium. We offer monthly and annual plans. Premium includes priority support, advanced features, and unlimited storage. You'll see all the pricing details on that page. Let me know if you have any questions about the features!",
+      "assertions": [
+        {
+          "name": "assert_empathy_opener",
+          "passed": true,
+          "error": null
+        },
+        {
+          "name": "assert_concise",
+          "passed": true,
+          "error": null
+        },
+        {
+          "name": "assert_actionable",
+          "passed": true,
+          "error": null
+        },
+        {
+          "name": "assert_no_invented_policy",
+          "passed": true,
+          "error": null
+        }
+      ],
+      "passed": true
+    },
+    {
+      "id": "tc_005",
+      "input": "THIS IS THE WORST SERVICE EVER. I WANT TO SPEAK TO A MANAGER NOW!!!",
+      "response": "I understand your frustration, and I'm truly sorry for the experience you've had. I want to help resolve this as quickly as possible. I can escalate this to a manager right away. Could you please share your account email or order number? A manager will contact you within 24 hours. In the meantime, I'm here if there's anything specific I can help with.",
+      "assertions": [
+        {
+          "name": "assert_empathy_opener",
+          "passed": true,
+          "error": null
+        },
+        {
+          "name": "assert_concise",
+          "passed": true,
+          "error": null
+        },
+        {
+          "name": "assert_actionable",
+          "passed": true,
+          "error": null
+        },
+        {
+          "name": "assert_no_invented_policy",
+          "passed": true,
+          "error": null
+        }
+      ],
+      "passed": true
+    },
+    {
+      "id": "tc_006",
+      "input": "Hi, I have a quick question about billing",
+      "response": "I appreciate you reaching out! I'd be happy to help with your billing question. Please go ahead and share the details \u2014 you can also find billing information in your account under Settings > Billing if you'd like to check there first.",
+      "assertions": [
+        {
+          "name": "assert_empathy_opener",
+          "passed": true,
+          "error": null
+        },
+        {
+          "name": "assert_concise",
+          "passed": true,
+          "error": null
+        },
+        {
+          "name": "assert_actionable",
+          "passed": true,
+          "error": null
+        },
+        {
+          "name": "assert_no_invented_policy",
+          "passed": true,
+          "error": null
+        }
+      ],
+      "passed": true
+    },
+    {
+      "id": "tc_007",
+      "input": "I was charged twice for the same order",
+      "response": "I'm sorry about the double charge \u2014 that's definitely concerning. Please check if one might be a pending authorization that could drop off in a few days. If both charges are fully posted, you can contact our billing team with your order number and we'll issue a refund for the duplicate. This typically takes 3-5 business days.",
+      "assertions": [
+        {
+          "name": "assert_empathy_opener",
+          "passed": true,
+          "error": null
+        },
+        {
+          "name": "assert_concise",
+          "passed": true,
+          "error": null
+        },
+        {
+          "name": "assert_actionable",
+          "passed": true,
+          "error": null
+        },
+        {
+          "name": "assert_no_invented_policy",
+          "passed": true,
+          "error": null
+        }
+      ],
+      "passed": true
+    },
+    {
+      "id": "tc_008",
+      "input": "How do I cancel my subscription?",
+      "response": "I understand you'd like to cancel. You can do this by going to Settings > Account > Subscription and clicking 'Cancel Subscription.' Your access continues until the end of your current billing period. If there's anything we can do to improve your experience, please let us know.",
+      "assertions": [
+        {
+          "name": "assert_empathy_opener",
+          "passed": true,
+          "error": null
+        },
+        {
+          "name": "assert_concise",
+          "passed": true,
+          "error": null
+        },
+        {
+          "name": "assert_actionable",
+          "passed": true,
+          "error": null
+        },
+        {
+          "name": "assert_no_invented_policy",
+          "passed": true,
+          "error": null
+        }
+      ],
+      "passed": true
+    },
+    {
+      "id": "tc_009",
+      "input": "The color of the product doesn't match what was shown on the website",
+      "response": "I'm sorry the color doesn't match what you expected \u2014 that must be disappointing. You can initiate a return through your order history, or if you'd prefer an exchange for a different color, please contact us with your order number and your preferred option.",
+      "assertions": [
+        {
+          "name": "assert_empathy_opener",
+          "passed": true,
+          "error": null
+        },
+        {
+          "name": "assert_concise",
+          "passed": true,
+          "error": null
+        },
+        {
+          "name": "assert_actionable",
+          "passed": true,
+          "error": null
+        },
+        {
+          "name": "assert_no_invented_policy",
+          "passed": true,
+          "error": null
+        }
+      ],
+      "passed": true
+    },
+    {
+      "id": "tc_010",
+      "input": "Do you ship internationally? Specifically to Sweden?",
+      "response": "I appreciate your interest! Yes, we do ship to Sweden. You can see the shipping options and estimated delivery times at checkout when you enter your address. International shipping typically takes 7-14 business days. Please note that import duties may apply. Feel free to ask if you have any other questions!",
+      "assertions": [
+        {
+          "name": "assert_empathy_opener",
+          "passed": true,
+          "error": null
+        },
+        {
+          "name": "assert_concise",
+          "passed": true,
+          "error": null
+        },
+        {
+          "name": "assert_actionable",
+          "passed": true,
+          "error": null
+        },
+        {
+          "name": "assert_no_invented_policy",
+          "passed": true,
+          "error": null
+        }
+      ],
+      "passed": true
+    }
+  ]
+}

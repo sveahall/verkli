@@ -77,59 +77,62 @@ function BookProductionCard({ book }: { book: BookItem }) {
         />
       </div>
 
-      <Link href={href} className="flex items-center gap-6 px-6 py-5">
-        {/* Cover */}
-        <div className="relative h-[100px] w-[70px] shrink-0 overflow-hidden rounded-lg bg-slate-100 shadow-[0_2px_8px_rgba(0,0,0,0.08)] dark:bg-white/[0.04]">
-          {book.coverImageUrl ? (
-            <Image src={book.coverImageUrl} alt="" fill sizes="70px" className="object-cover" unoptimized />
-          ) : (
-            <div className="flex h-full items-center justify-center">
-              <BookOpen className="h-5 w-5 text-slate-300 dark:text-white/10" />
-            </div>
-          )}
-        </div>
+      <Link href={href} className="flex flex-col gap-4 px-4 py-4 sm:flex-row sm:items-center sm:gap-6 sm:px-6 sm:py-5">
+        {/* Cover + Title row on mobile */}
+        <div className="flex items-center gap-4 sm:contents">
+          {/* Cover */}
+          <div className="relative h-[80px] w-[56px] shrink-0 overflow-hidden rounded-lg bg-slate-100 shadow-[0_2px_8px_rgba(0,0,0,0.08)] sm:h-[100px] sm:w-[70px] dark:bg-white/[0.04]">
+            {book.coverImageUrl ? (
+              <Image src={book.coverImageUrl} alt="" fill sizes="70px" className="object-cover" unoptimized />
+            ) : (
+              <div className="flex h-full items-center justify-center">
+                <BookOpen className="h-5 w-5 text-slate-300 dark:text-white/10" />
+              </div>
+            )}
+          </div>
 
-        {/* Title + author + badge */}
-        <div className="min-w-0 shrink-0" style={{ width: 200 }}>
-          <h3 className="truncate text-base font-semibold text-slate-900 dark:text-white">
-            {book.title}
-          </h3>
-          {book.authorDisplayName && (
-            <p className="mt-0.5 truncate text-sm text-slate-500 dark:text-white/45">
-              {book.authorDisplayName}
-            </p>
-          )}
-          <div className="mt-2 inline-flex items-center gap-1.5">
-            <span
-              className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-0.5 text-[11px] font-semibold ${
-                isPublished
-                  ? "border-emerald-200 text-emerald-600 dark:border-emerald-800/30 dark:text-emerald-400"
-                  : "border-slate-200 text-slate-500 dark:border-white/10 dark:text-white/40"
-              }`}
-            >
-              <span className={`h-2 w-2 rounded-full ${isPublished ? "bg-emerald-500" : "bg-[#907AFF]"}`} />
-              {isPublished ? "Published" : "Draft"}
-            </span>
+          {/* Title + author + badge */}
+          <div className="min-w-0 flex-1 sm:w-[200px] sm:flex-initial sm:shrink-0">
+            <h3 className="truncate text-[15px] font-semibold text-slate-900 sm:text-base dark:text-white">
+              {book.title}
+            </h3>
+            {book.authorDisplayName && (
+              <p className="mt-0.5 truncate text-sm text-slate-500 dark:text-white/45">
+                {book.authorDisplayName}
+              </p>
+            )}
+            <div className="mt-2 inline-flex items-center gap-1.5">
+              <span
+                className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-0.5 text-[11px] font-semibold ${
+                  isPublished
+                    ? "border-emerald-200 text-emerald-600 dark:border-emerald-800/30 dark:text-emerald-400"
+                    : "border-slate-200 text-slate-500 dark:border-white/10 dark:text-white/40"
+                }`}
+              >
+                <span className={`h-2 w-2 rounded-full ${isPublished ? "bg-emerald-500" : "bg-[#907AFF]"}`} />
+                {isPublished ? "Published" : "Draft"}
+              </span>
+            </div>
           </div>
         </div>
 
         {/* Progress dots */}
-        <div className="flex min-w-0 flex-1 flex-col items-center justify-center">
-          <p className="mb-8 text-xs font-bold uppercase tracking-widest text-slate-400 dark:text-white/25">
+        <div className="flex min-w-0 flex-1 flex-col items-start sm:items-center sm:justify-center">
+          <p className="mb-3 text-xs font-bold uppercase tracking-widest text-slate-400 sm:mb-8 dark:text-white/25">
             Progress
           </p>
-          <div className="flex gap-7">
+          <div className="flex gap-4 sm:gap-7">
             {PIPELINE_STEPS.map((step, i) => (
               <div key={step.label} className="flex flex-col items-center gap-1.5">
                 <span
-                  className={`text-[11px] font-medium leading-none ${
+                  className={`text-[10px] font-medium leading-none sm:text-[11px] ${
                     done[i] ? "text-slate-600 dark:text-white/60" : "text-slate-300 dark:text-white/15"
                   }`}
                 >
                   {step.label}
                 </span>
                 <span
-                  className={`block h-[10px] w-[10px] rounded-full ${
+                  className={`block h-2 w-2 rounded-full sm:h-[10px] sm:w-[10px] ${
                     done[i] ? "bg-[#907AFF]" : "bg-slate-200 dark:bg-white/10"
                   }`}
                 />
@@ -138,8 +141,8 @@ function BookProductionCard({ book }: { book: BookItem }) {
           </div>
         </div>
 
-        {/* Continue — bottom-right */}
-        <div className="shrink-0 self-end">
+        {/* Continue */}
+        <div className="shrink-0 self-start sm:self-end">
           <span className="inline-flex items-center gap-2 rounded-full border border-slate-200 px-4 py-2 text-sm font-medium text-slate-600 transition-colors duration-150 ease-out group-hover:border-[#907AFF]/30 group-hover:text-[#907AFF] dark:border-white/10 dark:text-white/50 dark:group-hover:border-[#907AFF]/30 dark:group-hover:text-[#907AFF]">
             Continue editing
             <span className="flex h-5 w-5 items-center justify-center rounded-full border border-slate-300 transition-colors group-hover:border-[#907AFF]/40 dark:border-white/20">

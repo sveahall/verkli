@@ -201,18 +201,21 @@ export function AuthorWorkspaceProvider({ children }: { children: ReactNode }) {
     const bookIdFromPath = pathname?.match(/^\/author\/books\/([^/?]+)/)?.[1] ?? null;
     const resolvedBookId = bookId ?? bookIdFromPath;
 
-    if (resolvedBookId) {
+    if (resolvedBookId && resolvedBookId !== "undefined" && resolvedBookId !== "null") {
       dispatch({ type: "set-current-book", bookId: resolvedBookId });
       window.sessionStorage.setItem(STORAGE_CURRENT_BOOK, resolvedBookId);
-    } else if (!state.currentBookId) {
+    } else {
       const lastBookId = window.sessionStorage.getItem(STORAGE_CURRENT_BOOK);
-      if (lastBookId) {
+      if (lastBookId && lastBookId !== "undefined" && lastBookId !== "null") {
         dispatch({ type: "set-current-book", bookId: lastBookId });
       }
     }
 
     dispatch({ type: "set-selected-job", jobId });
-  }, [pathname, searchParams, state.currentBookId]);
+    // Note: state.currentBookId intentionally excluded to prevent infinite
+    // loop with the book-validation effect below that resets stale IDs.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pathname, searchParams]);
 
   useEffect(() => {
     if (booksLoading || !state.currentBookId) return;

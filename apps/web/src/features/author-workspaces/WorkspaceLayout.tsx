@@ -110,7 +110,7 @@ export default function WorkspaceLayout({
   return (
     <div className={cn("w-full", className)}>
       <div className="bg-white dark:bg-transparent">
-        <div className="mx-auto flex max-w-[1520px] items-center justify-between px-4 pb-5 pt-10 sm:px-6 sm:pt-5 lg:px-8 lg:pt-10 xl:px-10">
+        <div className="mx-auto flex max-w-[1520px] items-center justify-between px-4 pb-4 pt-6 sm:px-6 sm:pb-5 sm:pt-5 lg:px-8 lg:pt-10 xl:px-10">
           <div className="min-w-0">{header}</div>
           {headerRight ? <div className="shrink-0">{headerRight}</div> : null}
         </div>

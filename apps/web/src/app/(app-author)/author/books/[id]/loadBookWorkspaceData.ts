@@ -28,7 +28,11 @@ function isMissingPublishedChapterCountColumn(
  * Loads all data needed by BookEditor. Shared across workspace pages.
  * Returns null if the book doesn't exist or doesn't belong to the user.
  */
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
 export async function loadBookWorkspaceData(bookId: string, langParam: string | null = null) {
+  if (!bookId || !UUID_RE.test(bookId)) return null;
+
   const supabase = await createClient();
   const {
     data: { user },

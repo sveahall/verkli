@@ -258,12 +258,12 @@ export default function AuthorDashboard() {
 
   return (
     <main className="min-h-screen bg-white text-foreground dark:bg-[#0A0A0B]">
-      <div className="mx-auto max-w-[1200px] px-6 pt-10 pb-24">
+      <div className="mx-auto max-w-[1200px] px-4 pt-6 pb-24 sm:px-6 sm:pt-10">
 
         {/* Header */}
-        <div className="mb-2 flex items-end justify-between">
+        <div className="mb-2 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
           <div>
-            <h1 className="text-[32px] font-semibold tracking-[-0.04em] text-[#1a1a1a] dark:text-[#ededed]">
+            <h1 className="text-2xl font-semibold tracking-[-0.04em] text-[#1a1a1a] sm:text-[32px] dark:text-[#ededed]">
               My library
             </h1>
             {!loadingShelves && (shelves.length > 0 || standaloneBooks.length > 0) && (
