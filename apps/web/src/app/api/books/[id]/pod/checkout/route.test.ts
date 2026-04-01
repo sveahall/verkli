@@ -93,7 +93,7 @@ function mockNoUser() {
 }
 
 function mockBookLookup(
-  supabaseFrom: ReturnType<typeof vi.fn>,
+  _supabaseFrom: ReturnType<typeof vi.fn>,
   maybeSingle: ReturnType<typeof vi.fn>,
   opts: { found: boolean; authorId?: string; status?: string; podSettings?: unknown }
 ) {

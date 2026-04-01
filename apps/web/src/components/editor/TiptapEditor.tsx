@@ -5,6 +5,9 @@ import Placeholder from "@tiptap/extension-placeholder";
 import TextAlign from "@tiptap/extension-text-align";
 import { TextStyle } from "@tiptap/extension-text-style";
 import { FontFamily } from "@tiptap/extension-font-family";
+import Underline from "@tiptap/extension-underline";
+import Highlight from "@tiptap/extension-highlight";
+import CharacterCount from "@tiptap/extension-character-count";
 import StarterKit from "@tiptap/starter-kit";
 import {
   EditorContent,
@@ -132,6 +135,9 @@ export default function TiptapEditor({
       TextAlign.configure({ types: ["heading", "paragraph"] }),
       TextStyle,
       FontFamily,
+      Underline,
+      Highlight.configure({ multicolor: true }),
+      CharacterCount,
       Placeholder.configure({ placeholder }),
     ],
     content: toTiptapContent(content),
@@ -450,8 +456,11 @@ export default function TiptapEditor({
             <ToolbarButton label="Italic" active={editor.isActive("italic")} onClick={() => editor.chain().focus().toggleItalic().run()}>
               <em>I</em>
             </ToolbarButton>
-            <ToolbarButton label="Underline" onClick={() => editor.chain().focus().run()}>
+            <ToolbarButton label="Underline" active={editor.isActive("underline")} onClick={() => editor.chain().focus().toggleUnderline().run()}>
               <span className="underline">U</span>
+            </ToolbarButton>
+            <ToolbarButton label="Strikethrough" active={editor.isActive("strike")} onClick={() => editor.chain().focus().toggleStrike().run()}>
+              <span className="line-through">S</span>
             </ToolbarButton>
             <ToolbarDivider />
             <ToolbarButton label="Heading 1" active={editor.isActive("heading", { level: 1 })} onClick={() => editor.chain().focus().toggleHeading({ level: 1 }).run()}>
