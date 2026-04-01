@@ -14,6 +14,8 @@ import {
   E_DATABASE_ERROR,
   E_INVALID_BOOK_VERSION,
   E_INVALID_JSON,
+  E_INVALID_BOOK_ID,
+  isValidUuid,
 } from "@/lib/api-errors";
 
 type RepairPayload = {
@@ -36,6 +38,7 @@ export async function POST(
 ) {
   assertPublicEnv();
   const { id: bookId } = await params;
+  if (!isValidUuid(bookId)) return apiError(E_INVALID_BOOK_ID, 400);
 
   // Auth
   const { user, response } = await requireAuthorRoleForApi();

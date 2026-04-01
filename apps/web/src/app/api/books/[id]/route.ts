@@ -28,6 +28,8 @@ import {
   E_INVALID_PRICING_COMBINATION,
   E_NO_UPDATABLE_FIELDS,
   E_PAID_BOOK_REQUIRES_CURRENCY,
+  E_INVALID_BOOK_ID,
+  isValidUuid,
 } from "@/lib/api-errors";
 
 type BookSettingsRow = {
@@ -205,6 +207,7 @@ export async function GET(
 ) {
   assertPublicEnv();
   const { id } = await params;
+  if (!isValidUuid(id)) return apiError(E_INVALID_BOOK_ID, 400);
 
   const { user, response } = await requireAuthorRoleForApi();
   if (response) return response;
@@ -243,6 +246,7 @@ export async function PATCH(
 ) {
   assertPublicEnv();
   const { id } = await params;
+  if (!isValidUuid(id)) return apiError(E_INVALID_BOOK_ID, 400);
 
   const { user, response } = await requireAuthorRoleForApi();
   if (response) return response;
@@ -374,6 +378,7 @@ export async function DELETE(
 ) {
   assertPublicEnv();
   const { id } = await params;
+  if (!isValidUuid(id)) return apiError(E_INVALID_BOOK_ID, 400);
 
   // SECURITY: Require author role for book deletion
   const { user, response } = await requireAuthorRoleForApi();

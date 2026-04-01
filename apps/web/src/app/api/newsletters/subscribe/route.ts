@@ -10,7 +10,11 @@ import {
   E_NEWSLETTER_SUBSCRIBE_FAILED,
   E_INVALID_JSON,
   E_VALIDATION_FAILED,
+  E_RATE_LIMIT_EXCEEDED,
 } from "@/lib/api-errors";
+import { createPerUserRateLimiter } from "@/lib/rate-limit";
+
+const subscribeLimiter = createPerUserRateLimiter({ maxPerMinute: 5 });
 
 const subscribeBodySchema = z.object({
   authorId: z.string().uuid("Invalid author ID"),
@@ -29,6 +33,9 @@ export async function POST(request: Request) {
   if (!user) {
     return apiError(E_NOT_AUTHENTICATED, 401);
   }
+
+  const rl = await subscribeLimiter.check(user.id);
+  if (!rl.allowed) return apiError(E_RATE_LIMIT_EXCEEDED, 429, { retryAfterSeconds: rl.retryAfterSeconds });
 
   let payload: unknown;
   try {

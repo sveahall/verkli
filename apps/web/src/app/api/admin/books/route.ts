@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { requireAdminRoleForApi } from "@/lib/admin-auth";
-import { apiError, E_DATABASE_ERROR } from "@/lib/api-errors";
+import { apiError, E_DATABASE_ERROR, E_INVALID_BOOK_ID, isValidUuid } from "@/lib/api-errors";
 
 export async function GET(request: Request) {
   const { response } = await requireAdminRoleForApi();
@@ -78,6 +78,9 @@ export async function DELETE(request: Request) {
 
   if (!bookId) {
     return apiError("INVALID_BOOK_ID", 400);
+  }
+  if (!isValidUuid(bookId)) {
+    return apiError(E_INVALID_BOOK_ID, 400);
   }
 
   const admin = createAdminClient();

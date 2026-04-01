@@ -1,3 +1,5 @@
+import "server-only";
+
 import { createAdminClient } from "@/lib/supabase/admin";
 
 /** How long to wait after cancel was requested before force-failing the job. */

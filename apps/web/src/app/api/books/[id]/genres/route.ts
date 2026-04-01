@@ -1,13 +1,14 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
-import { apiError, E_NOT_AUTHENTICATED, E_BOOK_NOT_FOUND, E_DATABASE_ERROR, E_INVALID_JSON, E_VALIDATION_FAILED } from "@/lib/api-errors";
+import { apiError, E_NOT_AUTHENTICATED, E_BOOK_NOT_FOUND, E_DATABASE_ERROR, E_INVALID_JSON, E_VALIDATION_FAILED, E_INVALID_BOOK_ID, isValidUuid } from "@/lib/api-errors";
 
 export async function GET(
   _request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
   const { id: bookId } = await params;
+  if (!isValidUuid(bookId)) return apiError(E_INVALID_BOOK_ID, 400);
   const supabase = await createClient();
 
   const { data, error } = await supabase
@@ -31,6 +32,7 @@ export async function PUT(
   { params }: { params: Promise<{ id: string }> }
 ) {
   const { id: bookId } = await params;
+  if (!isValidUuid(bookId)) return apiError(E_INVALID_BOOK_ID, 400);
   const supabase = await createClient();
 
   const {

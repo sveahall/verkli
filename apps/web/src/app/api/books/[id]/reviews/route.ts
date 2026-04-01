@@ -21,7 +21,7 @@ import {
 import { createPerUserRateLimiter } from "@/lib/rate-limit";
 import { canUserReadBook } from "@/lib/books/access";
 
-const reviewLimiter = createPerUserRateLimiter({ maxPerMinute: 10 });
+const reviewLimiter = createPerUserRateLimiter({ maxPerMinute: 5 });
 
 const paramsSchema = z.object({
   id: z.string().uuid("Invalid book ID"),

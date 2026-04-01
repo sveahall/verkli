@@ -12,6 +12,8 @@ import {
   E_BOOK_NOT_FOUND,
   E_DATABASE_ERROR,
   E_INVALID_REQUEST_BODY,
+  E_INVALID_BOOK_ID,
+  isValidUuid,
 } from "@/lib/api-errors";
 
 const AI_JOB_KIND = "audiobook_generation";
@@ -96,6 +98,7 @@ export async function POST(
   }
 
   const { id: bookId } = await params;
+  if (!isValidUuid(bookId)) return apiError(E_INVALID_BOOK_ID, 400);
 
   const body = await request
     .json()

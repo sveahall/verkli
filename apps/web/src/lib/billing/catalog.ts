@@ -1,3 +1,5 @@
+import "server-only";
+
 /**
  * Billing plan catalog: maps Stripe price_id to (role, plan_key) via DB table billing_plan_catalog.
  * Single source of truth for plan resolution; no hardcoded price ids in code.

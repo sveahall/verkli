@@ -9,6 +9,9 @@ export default defineConfig({
   resolve: {
     alias: {
       "@": path.resolve(__dirname, "./src"),
+      // Stub out the Next.js server-only package so Vitest can import
+      // modules that use `import "server-only"` without failing.
+      "server-only": path.resolve(__dirname, "./src/__mocks__/server-only.ts"),
     },
   },
 });

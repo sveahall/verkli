@@ -1,3 +1,5 @@
+import "server-only";
+
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getStripeCheckoutSession } from "@/lib/payments/stripe";
 import { logAnalyticsEvent } from "@/lib/analytics/events";

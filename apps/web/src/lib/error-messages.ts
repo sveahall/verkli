@@ -171,6 +171,7 @@ const ERROR_MESSAGES: Record<string, string> = {
   // Admin
   APPLICATIONS_LOAD_FAILED: "Kunde inte ladda ansökningar.",
   USER_ID_REQUIRED: "Användar-ID krävs.",
+  INVALID_USER_ID: "Ogiltigt användar-ID.",
   INVALID_STATUS_VALUE: "Ogiltigt statusvärde.",
   APPLICATION_UPDATE_FAILED: "Kunde inte uppdatera ansökan.",
   APPLICATION_SUBMIT_FAILED: "Kunde inte skicka ansökan.",

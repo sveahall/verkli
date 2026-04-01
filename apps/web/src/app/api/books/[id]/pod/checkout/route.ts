@@ -19,6 +19,8 @@ import {
   E_POD_FORMAT_UNAVAILABLE,
   E_POD_PRICE_NOT_SET,
   E_INVALID_REQUEST_BODY,
+  E_INVALID_BOOK_ID,
+  isValidUuid,
 } from "@/lib/api-errors";
 
 type PodBookRow = {
@@ -44,6 +46,7 @@ export async function POST(
 ) {
   assertPublicEnv();
   const { id: bookId } = await params;
+  if (!isValidUuid(bookId)) return apiError(E_INVALID_BOOK_ID, 400);
 
   const supabase = await createClient();
   const {

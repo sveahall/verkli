@@ -3,7 +3,7 @@ import { assertPublicEnv } from "@/lib/env";
 import { requireAuthorRoleForApi } from "@/lib/auth/require-author";
 import { createClient } from "@/lib/supabase/server";
 import { getBookAsOwner, getChaptersForBook } from "@/lib/books/service";
-import { apiError, E_BOOK_NOT_FOUND, E_DATABASE_ERROR } from "@/lib/api-errors";
+import { apiError, E_BOOK_NOT_FOUND, E_DATABASE_ERROR, E_INVALID_BOOK_ID, isValidUuid } from "@/lib/api-errors";
 
 function extractText(node: unknown): string {
   if (node == null) return "";
@@ -38,6 +38,7 @@ export async function GET(
 ) {
   assertPublicEnv();
   const { id: bookId } = await params;
+  if (!isValidUuid(bookId)) return apiError(E_INVALID_BOOK_ID, 400);
 
   // Auth
   const { user, response } = await requireAuthorRoleForApi();

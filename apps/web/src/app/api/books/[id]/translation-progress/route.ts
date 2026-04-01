@@ -6,7 +6,7 @@ import {
   getBookVersions,
   countChaptersForVersion,
 } from "@/lib/books/service";
-import { apiError, E_BOOK_NOT_FOUND, E_FORBIDDEN } from "@/lib/api-errors";
+import { apiError, E_BOOK_NOT_FOUND, E_FORBIDDEN, E_INVALID_BOOK_ID, isValidUuid } from "@/lib/api-errors";
 
 /**
  * GET /api/books/[id]/translation-progress?targetLanguage=en
@@ -17,6 +17,7 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> }
 ) {
   const { id: bookId } = await params;
+  if (!isValidUuid(bookId)) return apiError(E_INVALID_BOOK_ID, 400);
   const { searchParams } = new URL(request.url);
   const targetLanguage = normalizeLanguageOrNull(searchParams.get("targetLanguage") ?? "");
 

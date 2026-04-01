@@ -49,11 +49,15 @@ export async function GET(request: Request) {
     });
   }
 
-  // Query analytics_events for events whose path contains a book ID
+  // Build a server-side filter so we only fetch events for this author's books
+  const pathFilter = bookIds
+    .map((id) => `path.like.%${id}%`)
+    .join(",");
+
   let eventsQuery = supabase
     .from("analytics_events")
     .select("event_name, path, created_at")
-    .limit(10000);
+    .or(pathFilter);
 
   if (period === "7d") {
     const since = new Date();
@@ -75,7 +79,7 @@ export async function GET(request: Request) {
     return apiError(E_DATABASE_ERROR, 500);
   }
 
-  // Filter events that match author's books
+  // Aggregate events (already filtered server-side to this author's books)
   let views = 0;
   let reads = 0;
   let purchases = 0;
@@ -83,12 +87,9 @@ export async function GET(request: Request) {
   const dailyMap = new Map<string, { views: number; reads: number; purchases: number }>();
 
   for (const event of events ?? []) {
-    const path = (event.path as string) ?? "";
     const name = (event.event_name as string) ?? "";
-    const matchesBook = bookIds.some((id) => path.includes(id));
-    if (!matchesBook) continue;
 
-    const day = ((event as Record<string, unknown>).created_at as string | undefined)?.slice(0, 10) ?? "";
+    const day = (event.created_at as string | undefined)?.slice(0, 10) ?? "";
     if (day && !dailyMap.has(day)) dailyMap.set(day, { views: 0, reads: 0, purchases: 0 });
     const dayEntry = day ? dailyMap.get(day)! : null;
 

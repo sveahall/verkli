@@ -16,6 +16,8 @@ import {
   E_ALREADY_UNLOCKED,
   E_CHECKOUT_START_FAILED,
   E_CHECKOUT_SESSION_FAILED,
+  E_INVALID_BOOK_ID,
+  isValidUuid,
 } from "@/lib/api-errors";
 
 type CheckoutBookRow = {
@@ -43,6 +45,7 @@ export async function POST(
 ) {
   assertPublicEnv();
   const { id: bookId } = await params;
+  if (!isValidUuid(bookId)) return apiError(E_INVALID_BOOK_ID, 400);
 
   const supabase = await createClient();
   const {

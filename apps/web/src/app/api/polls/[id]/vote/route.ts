@@ -13,7 +13,11 @@ import {
   E_INVALID_JSON,
   E_VALIDATION_FAILED,
   E_DATABASE_ERROR,
+  E_RATE_LIMIT_EXCEEDED,
 } from "@/lib/api-errors";
+import { createPerUserRateLimiter } from "@/lib/rate-limit";
+
+const voteLimiter = createPerUserRateLimiter({ maxPerMinute: 10 });
 
 const paramsSchema = z.object({
   id: z.string().uuid("Invalid poll ID"),
@@ -57,6 +61,9 @@ export async function POST(
   if (!user) {
     return apiError(E_NOT_AUTHENTICATED, 401);
   }
+
+  const rl = await voteLimiter.check(user.id);
+  if (!rl.allowed) return apiError(E_RATE_LIMIT_EXCEEDED, 429, { retryAfterSeconds: rl.retryAfterSeconds });
 
   let body: unknown;
   try {

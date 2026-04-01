@@ -14,6 +14,8 @@ import {
   E_NO_CHAPTERS,
   E_CHAPTER_NEEDS_CONTENT,
   E_MISSING_COVER_IMAGE,
+  E_INVALID_BOOK_ID,
+  isValidUuid,
 } from "@/lib/api-errors";
 
 type PublishVisibility = "public" | "followers" | "private";
@@ -72,6 +74,7 @@ export async function POST(
 ) {
   assertPublicEnv();
   const { id } = await params;
+  if (!isValidUuid(id)) return apiError(E_INVALID_BOOK_ID, 400);
   const body = await request.json().catch(() => ({}));
   const versionFromBody =
     body?.versionId != null && String(body.versionId).trim() !== ""

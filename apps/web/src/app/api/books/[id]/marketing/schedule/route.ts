@@ -13,6 +13,8 @@ import {
   E_DATABASE_ERROR,
   E_MARKETING_FEATURE_DISABLED,
   E_VALIDATION_FAILED,
+  E_INVALID_BOOK_ID,
+  isValidUuid,
 } from "@/lib/api-errors";
 
 const ALL_CHANNELS = ["generic", "tiktok", "instagram", "x"];
@@ -29,6 +31,7 @@ export async function POST(
   }
 
   const { id: bookId } = await params;
+  if (!isValidUuid(bookId)) return apiError(E_INVALID_BOOK_ID, 400);
 
   // Auth
   const { user, response } = await requireAuthorRoleForApi();
