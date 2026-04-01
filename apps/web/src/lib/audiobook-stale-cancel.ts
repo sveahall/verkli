@@ -44,7 +44,7 @@ export async function forceFailCancelledJob(
     errorMessage: "Cancellation timed out — job force-stopped.",
   };
 
-  await admin
+  const { error } = await admin
     .from("ai_jobs")
     .update({
       status: "failed",
@@ -52,6 +52,11 @@ export async function forceFailCancelledJob(
       output: failedOutput,
     })
     .eq("id", jobId);
+
+  if (error) {
+    console.error("[audiobook stale-cancel] failed to force-fail job:", jobId, error);
+    throw new Error(`Failed to force-fail cancelled job ${jobId}: ${error.message}`);
+  }
 
   console.info("[audiobook stale-cancel] force-failed stuck job:", jobId);
   return failedOutput;

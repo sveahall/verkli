@@ -16,5 +16,12 @@ export async function GET() {
     return apiError(E_DATABASE_ERROR, 500);
   }
 
-  return NextResponse.json({ genres: data ?? [] });
+  return NextResponse.json(
+    { genres: data ?? [] },
+    {
+      headers: {
+        "Cache-Control": "public, s-maxage=3600, stale-while-revalidate=86400",
+      },
+    },
+  );
 }

@@ -65,8 +65,15 @@ export async function GET(
         )
       : null;
 
-  return NextResponse.json({
-    ok: true,
-    data: { bookId, averageRating, ratingsCount },
-  });
+  return NextResponse.json(
+    {
+      ok: true,
+      data: { bookId, averageRating, ratingsCount },
+    },
+    {
+      headers: {
+        "Cache-Control": "public, s-maxage=300, stale-while-revalidate=3600",
+      },
+    },
+  );
 }

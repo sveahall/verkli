@@ -22,7 +22,7 @@ type ProfileRow = {
   avatar_url: string | null;
 };
 
-export async function GET() {
+export async function GET(request: Request) {
   if (!isNewslettersEnabled()) {
     return apiError(E_NEWSLETTERS_FEATURE_DISABLED, 403);
   }
@@ -30,14 +30,21 @@ export async function GET() {
   const { user, response } = await requireAuthorRoleForApi();
   if (response) return response;
 
+  // Pagination params
+  const url = new URL(request.url);
+  const page = Math.max(1, Number(url.searchParams.get("page")) || 1);
+  const limit = Math.min(200, Math.max(1, Number(url.searchParams.get("limit")) || 50));
+  const offset = (page - 1) * limit;
+
   const supabase = await createClient();
 
-  const { data: subscriptions, error } = await supabase
+  const { data: subscriptions, error, count } = await supabase
     .from("newsletter_subscriptions" as never)
-    .select("id, subscriber_user_id, status, subscribed_at")
+    .select("id, subscriber_user_id, status, subscribed_at", { count: "exact" })
     .eq("author_id", user.id)
     .eq("status", "active")
-    .order("subscribed_at", { ascending: false });
+    .order("subscribed_at", { ascending: false })
+    .range(offset, offset + limit - 1);
 
   if (error) {
     console.error("[newsletters] subscribers list failed", {
@@ -79,5 +86,5 @@ export async function GET() {
     };
   });
 
-  return NextResponse.json({ subscribers });
+  return NextResponse.json({ subscribers, total: count ?? 0, page, limit });
 }

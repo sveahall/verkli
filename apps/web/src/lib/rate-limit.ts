@@ -88,12 +88,19 @@ export function createPerUserRateLimiter(opts: {
     const key = `rl:${userId}:${max}`;
 
     try {
-      const current = await redis.incr(key);
-
-      if (current === 1) {
-        // First request in window — set expiry
-        await redis.expire(key, windowSec);
-      }
+      // Atomic INCR + EXPIRE via Lua script to avoid TOCTOU race condition.
+      // If the process crashes between INCR and EXPIRE as separate commands,
+      // the key would persist forever without a TTL.
+      const current = (await redis.eval(
+        `local current = redis.call('INCR', KEYS[1])
+if current == 1 then
+  redis.call('EXPIRE', KEYS[1], ARGV[1])
+end
+return current`,
+        1,
+        key,
+        windowSec
+      )) as number;
 
       if (current > max) {
         const ttl = await redis.ttl(key);

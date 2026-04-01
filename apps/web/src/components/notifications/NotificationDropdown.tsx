@@ -56,17 +56,35 @@ export default function NotificationDropdown({ onClose, onCountChange, anchorRec
   }, [onClose]);
 
   const handleMarkRead = async (id: string) => {
-    await fetch(`/api/notifications/${id}`, { method: "PATCH" });
-    setNotifications((prev) =>
-      prev.map((n) => (n.id === id ? { ...n, read: true } : n))
+    const prev = notifications;
+    setNotifications((cur) =>
+      cur.map((n) => (n.id === id ? { ...n, read: true } : n))
     );
     onCountChange();
+
+    try {
+      const res = await fetch(`/api/notifications/${id}`, { method: "PATCH" });
+      if (!res.ok) throw new Error("mark-read failed");
+    } catch {
+      // Revert optimistic update on failure
+      setNotifications(prev);
+      onCountChange();
+    }
   };
 
   const handleMarkAllRead = async () => {
-    await fetch("/api/notifications/mark-all-read", { method: "POST" });
-    setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
+    const prev = notifications;
+    setNotifications((cur) => cur.map((n) => ({ ...n, read: true })));
     onCountChange();
+
+    try {
+      const res = await fetch("/api/notifications/mark-all-read", { method: "POST" });
+      if (!res.ok) throw new Error("mark-all-read failed");
+    } catch {
+      // Revert optimistic update on failure
+      setNotifications(prev);
+      onCountChange();
+    }
   };
 
   const isPortal = anchorRect != null;

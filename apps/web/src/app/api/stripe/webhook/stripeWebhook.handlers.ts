@@ -481,6 +481,11 @@ export async function processStripeWebhookEvent(
         admin,
         object
       );
+      // Only attempt subscription processing if the book purchase handler
+      // did not claim this session — avoids double-processing.
+      if (bookProcessed) {
+        return { received: true, processed: true };
+      }
       const subscriptionProcessed = await processSubscriptionCheckoutSession(
         admin,
         object,
@@ -488,7 +493,7 @@ export async function processStripeWebhookEvent(
       );
       return {
         received: true,
-        processed: bookProcessed || subscriptionProcessed,
+        processed: subscriptionProcessed,
       };
     }
     case "customer.subscription.created":

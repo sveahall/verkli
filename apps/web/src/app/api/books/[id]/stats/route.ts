@@ -70,7 +70,7 @@ export async function GET(request: Request, context: RouteContext) {
     let eventsQuery = supabase
       .from("analytics_events")
       .select("event_name, path, created_at")
-      .limit(10000);
+      .like("path", `%${bookId}%`);
 
     if (since) {
       eventsQuery = eventsQuery.gte("created_at", since.toISOString());
@@ -79,9 +79,6 @@ export async function GET(request: Request, context: RouteContext) {
     const { data: events } = await eventsQuery;
 
     for (const event of events ?? []) {
-      const path = (event.path as string) ?? "";
-      if (!path.includes(bookId)) continue;
-
       const name = ((event.event_name as string) ?? "").toLowerCase();
       const day = (event.created_at as string).slice(0, 10);
 
@@ -164,6 +161,33 @@ export async function GET(request: Request, context: RouteContext) {
   }> = [];
 
   try {
+    // Get true total count
+    const { count: totalReviewCount } = await supabase
+      .from("reviews")
+      .select("id", { count: "exact", head: true })
+      .eq("book_id", bookId);
+
+    reviewCount = totalReviewCount ?? 0;
+
+    // Get all ratings for accurate average (only the rating column, no limit)
+    const { data: allRatings } = await supabase
+      .from("reviews")
+      .select("rating")
+      .eq("book_id", bookId);
+
+    if (allRatings && allRatings.length > 0) {
+      averageRating =
+        Math.round(
+          (allRatings.reduce(
+            (sum, r) => sum + (Number(r.rating) || 0),
+            0,
+          ) /
+            allRatings.length) *
+            10,
+        ) / 10;
+    }
+
+    // Get recent reviews for display (limited to 10)
     const { data: reviews } = await supabase
       .from("reviews")
       .select("rating, content, created_at")
@@ -172,18 +196,6 @@ export async function GET(request: Request, context: RouteContext) {
       .limit(10);
 
     recentReviews = (reviews ?? []) as typeof recentReviews;
-    reviewCount = recentReviews.length;
-    if (reviewCount > 0) {
-      averageRating =
-        Math.round(
-          (recentReviews.reduce(
-            (sum, r) => sum + (Number(r.rating) || 0),
-            0,
-          ) /
-            reviewCount) *
-            10,
-        ) / 10;
-    }
   } catch {
     // reviews table may not exist — continue with zeros
   }
