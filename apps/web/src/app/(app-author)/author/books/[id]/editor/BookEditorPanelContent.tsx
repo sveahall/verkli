@@ -141,6 +141,7 @@ export default function BookEditorPanelContent({
             coverEditorOpen={cover.coverEditorOpen}
             setCoverEditorOpen={cover.setCoverEditorOpen}
             handleEditorSave={cover.handleEditorSave}
+            bookId={bookId}
             bookTitle={bookTitle}
             authorName={authorDisplayName}
           />

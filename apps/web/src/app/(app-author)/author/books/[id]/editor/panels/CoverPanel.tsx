@@ -40,6 +40,7 @@ interface CoverPanelProps {
   coverEditorOpen: boolean;
   setCoverEditorOpen: (v: boolean) => void;
   handleEditorSave: (file: File) => Promise<void>;
+  bookId: string;
   bookTitle: string;
   authorName: string;
 }
@@ -76,6 +77,7 @@ export default function CoverPanel({
   coverEditorOpen,
   setCoverEditorOpen,
   handleEditorSave,
+  bookId,
   bookTitle,
   authorName,
 }: CoverPanelProps) {
@@ -448,6 +450,7 @@ export default function CoverPanel({
       {coverEditorOpen && displayCoverUrl && (
         <CoverEditorModal
           imageUrl={displayCoverUrl}
+          bookId={bookId}
           bookTitle={bookTitle}
           authorName={authorName}
           onSave={handleEditorSave}
