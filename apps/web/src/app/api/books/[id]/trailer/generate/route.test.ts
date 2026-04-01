@@ -39,6 +39,12 @@ vi.mock("@/lib/ai/trailer-generation", () => ({
   generateTrailerPrompt: mocks.generateTrailerPrompt,
 }));
 
+// Force in-memory rate limiter (no Redis)
+vi.mock("@/lib/env", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/lib/env")>();
+  return { ...actual, getRedisUrl: () => null, getRedisConnectionOptions: () => undefined, getRedisClientOptions: () => undefined };
+});
+
 const { POST } = await import("./route");
 
 function makeRequest(): Request {
@@ -64,7 +70,7 @@ function setupAdminClient(trailerCountThisMonth: number) {
   booksQuery.select.mockReturnValue(booksQuery);
   booksQuery.eq.mockReturnValue(booksQuery);
   booksQuery.single.mockResolvedValue({
-    data: { id: "book-1", author_id: "author-1" },
+    data: { id: "00000000-0000-4000-8000-000000000001", author_id: "author-1" },
     error: null,
   });
 
@@ -119,7 +125,7 @@ describe("POST /api/books/[id]/trailer/generate guardrail", () => {
       state: { isProActive: false } as never,
     });
 
-    const res = await POST(makeRequest(), { params: Promise.resolve({ id: "book-1" }) });
+    const res = await POST(makeRequest(), { params: Promise.resolve({ id: "00000000-0000-4000-8000-000000000001" }) });
     const body = await res.json();
 
     expect(res.status).toBe(403);
@@ -135,7 +141,7 @@ describe("POST /api/books/[id]/trailer/generate guardrail", () => {
       state: { isProActive: true } as never,
     });
 
-    const res = await POST(makeRequest(), { params: Promise.resolve({ id: "book-1" }) });
+    const res = await POST(makeRequest(), { params: Promise.resolve({ id: "00000000-0000-4000-8000-000000000001" }) });
     const body = await res.json();
 
     expect(res.status).toBe(403);

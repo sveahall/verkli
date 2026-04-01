@@ -1,5 +1,11 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
+// Force in-memory rate limiter (no Redis)
+vi.mock("@/lib/env", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/lib/env")>();
+  return { ...actual, getRedisUrl: () => null, getRedisConnectionOptions: () => undefined, getRedisClientOptions: () => undefined };
+});
+
 const mocks = vi.hoisted(() => ({
   createClient: vi.fn(),
   createAdminClient: vi.fn(),

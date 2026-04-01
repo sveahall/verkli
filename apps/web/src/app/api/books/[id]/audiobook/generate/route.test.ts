@@ -29,6 +29,12 @@ vi.mock("@/lib/audiobook-queue", () => ({
   enqueueAudiobookJob: mocks.enqueueAudiobookJob,
 }));
 
+// Force in-memory rate limiter (no Redis)
+vi.mock("@/lib/env", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/lib/env")>();
+  return { ...actual, getRedisUrl: () => null, getRedisConnectionOptions: () => undefined, getRedisClientOptions: () => undefined };
+});
+
 const { POST } = await import("./route");
 
 const originalEnv = {
@@ -60,7 +66,7 @@ describe("POST /api/books/[id]/audiobook/generate", () => {
       method: "POST",
     });
 
-    const res = await POST(req, { params: Promise.resolve({ id: "book-1" }) });
+    const res = await POST(req, { params: Promise.resolve({ id: "00000000-0000-4000-8000-000000000001" }) });
     const body = await res.json();
 
     expect(res.status).toBe(503);
@@ -89,7 +95,7 @@ describe("POST /api/books/[id]/audiobook/generate", () => {
       method: "POST",
     });
 
-    const res = await POST(req, { params: Promise.resolve({ id: "book-1" }) });
+    const res = await POST(req, { params: Promise.resolve({ id: "00000000-0000-4000-8000-000000000001" }) });
 
     expect(res.status).toBe(401);
     expect(mocks.requireProBillingForApi).not.toHaveBeenCalled();
@@ -116,7 +122,7 @@ describe("POST /api/books/[id]/audiobook/generate", () => {
     booksQuery.select.mockReturnValue(booksQuery);
     booksQuery.eq.mockReturnValue(booksQuery);
     booksQuery.maybeSingle.mockResolvedValue({
-      data: { id: "book-1", author_id: "author-1", language: "sv", original_language: "sv" },
+      data: { id: "00000000-0000-4000-8000-000000000001", author_id: "author-1", language: "sv", original_language: "sv" },
       error: null,
     });
 
@@ -152,7 +158,7 @@ describe("POST /api/books/[id]/audiobook/generate", () => {
         id: "job-active-1",
         status: "processing",
         output: { totalChapters: 10, completedChapters: 2 },
-        input: { bookId: "book-1" },
+        input: { bookId: "00000000-0000-4000-8000-000000000001" },
       },
       error: null,
     });
@@ -170,7 +176,7 @@ describe("POST /api/books/[id]/audiobook/generate", () => {
       method: "POST",
     });
 
-    const res = await POST(req, { params: Promise.resolve({ id: "book-1" }) });
+    const res = await POST(req, { params: Promise.resolve({ id: "00000000-0000-4000-8000-000000000001" }) });
     const body = await res.json();
 
     expect(res.status).toBe(202);
@@ -199,7 +205,7 @@ describe("POST /api/books/[id]/audiobook/generate", () => {
     booksQuery.select.mockReturnValue(booksQuery);
     booksQuery.eq.mockReturnValue(booksQuery);
     booksQuery.maybeSingle.mockResolvedValue({
-      data: { id: "book-1", author_id: "author-1", language: "sv", original_language: "sv" },
+      data: { id: "00000000-0000-4000-8000-000000000001", author_id: "author-1", language: "sv", original_language: "sv" },
       error: null,
     });
 
@@ -298,7 +304,7 @@ describe("POST /api/books/[id]/audiobook/generate", () => {
       method: "POST",
     });
 
-    const res = await POST(req, { params: Promise.resolve({ id: "book-1" }) });
+    const res = await POST(req, { params: Promise.resolve({ id: "00000000-0000-4000-8000-000000000001" }) });
     const body = await res.json();
 
     expect(res.status).toBe(202);

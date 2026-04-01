@@ -15,6 +15,12 @@ vi.mock("@/lib/flags", () => ({
   isBookClubsEnabled: mocks.isBookClubsEnabled,
 }));
 
+// Force in-memory rate limiter (no Redis)
+vi.mock("@/lib/env", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/lib/env")>();
+  return { ...actual, getRedisUrl: () => null, getRedisConnectionOptions: () => undefined, getRedisClientOptions: () => undefined };
+});
+
 const { GET, POST } = await import("./route");
 
 const USER_ID = "reader-1";

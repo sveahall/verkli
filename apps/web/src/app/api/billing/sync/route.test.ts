@@ -36,6 +36,12 @@ vi.mock("@/lib/active-role", () => ({
   getActiveRoleFromRequest: mocks.getActiveRoleFromRequest,
 }));
 
+// Force in-memory rate limiter (no Redis)
+vi.mock("@/lib/env", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/lib/env")>();
+  return { ...actual, getRedisUrl: () => null, getRedisConnectionOptions: () => undefined, getRedisClientOptions: () => undefined };
+});
+
 const { POST, GET } = await import("./route");
 
 function mockUser(id = "user-1") {

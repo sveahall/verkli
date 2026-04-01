@@ -90,6 +90,12 @@ vi.mock("@/lib/supabase/admin", () => {
   };
 });
 
+// Force in-memory rate limiter (no Redis)
+vi.mock("@/lib/env", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/lib/env")>();
+  return { ...actual, getRedisUrl: () => null, getRedisConnectionOptions: () => undefined, getRedisClientOptions: () => undefined };
+});
+
 vi.mock("@/lib/ai/content-generation", async () => {
   const { z } = await import("zod");
 

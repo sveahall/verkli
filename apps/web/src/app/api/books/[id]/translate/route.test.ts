@@ -40,6 +40,12 @@ vi.mock("@/lib/book-translation", () => ({
   deleteBookTranslationState: mocks.deleteBookTranslationState,
 }))
 
+// Force in-memory rate limiter (no Redis)
+vi.mock("@/lib/env", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/lib/env")>();
+  return { ...actual, getRedisUrl: () => null, getRedisConnectionOptions: () => undefined, getRedisClientOptions: () => undefined };
+})
+
 const { POST } = await import("./route")
 
 function makeBookVersionsQuery(existingVersion: { id: string; status: string } | null = null) {
@@ -64,7 +70,7 @@ function makeSupabaseMock() {
             eq: () => ({
               maybeSingle: async () => ({
                 data: {
-                  id: "book-1",
+                  id: "00000000-0000-4000-8000-000000000001",
                   author_id: "author-1",
                   original_language: "sv",
                   language: "sv",
@@ -114,7 +120,7 @@ describe("POST /api/books/[id]/translate", () => {
     mocks.createClient.mockResolvedValue(makeSupabaseMock())
     mocks.resolveTranslationSourceContext.mockResolvedValue({
       sourceVersionId: "ver-source",
-      sourceVersion: { id: "ver-source", book_id: "book-1", language_code: "sv" },
+      sourceVersion: { id: "ver-source", book_id: "00000000-0000-4000-8000-000000000001", language_code: "sv" },
       sourceLanguage: "sv",
       sourceLanguageOrigin: "version",
     })
@@ -135,7 +141,7 @@ describe("POST /api/books/[id]/translate", () => {
         }),
       }),
       {
-        params: Promise.resolve({ id: "book-1" }),
+        params: Promise.resolve({ id: "00000000-0000-4000-8000-000000000001" }),
       }
     )
     const body = await res.json()
@@ -149,7 +155,7 @@ describe("POST /api/books/[id]/translate", () => {
     })
     expect(mocks.enqueueTranslationJob).toHaveBeenCalledWith(
       expect.objectContaining({
-        bookId: "book-1",
+        bookId: "00000000-0000-4000-8000-000000000001",
         sourceLanguage: "sv",
         sourceVersionId: "ver-source",
         targetLanguage: "en",
@@ -171,7 +177,7 @@ describe("POST /api/books/[id]/translate", () => {
         }),
       }),
       {
-        params: Promise.resolve({ id: "book-1" }),
+        params: Promise.resolve({ id: "00000000-0000-4000-8000-000000000001" }),
       }
     )
     const body = await res.json()

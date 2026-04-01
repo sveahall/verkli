@@ -15,6 +15,12 @@ vi.mock("@/lib/books/access", () => ({
   canUserReadBook: mocks.canUserReadBook,
 }));
 
+// Force in-memory rate limiter (no Redis)
+vi.mock("@/lib/env", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/lib/env")>();
+  return { ...actual, getRedisUrl: () => null, getRedisConnectionOptions: () => undefined, getRedisClientOptions: () => undefined };
+});
+
 const { GET, POST } = await import("./route");
 
 const BOOK_ID = "f5f2f4b5-29ca-4878-bf26-f4f149893414";

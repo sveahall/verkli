@@ -24,6 +24,19 @@ vi.mock("@/lib/nvidia-sd3", () => ({
   generateCoverImages: (...args: unknown[]) => mocks.generateCoverImages(...args),
 }));
 
+vi.mock("@/lib/rate-limit", () => ({
+  createPerUserRateLimiter: () => ({
+    check: () => ({ allowed: true }),
+    _reset: () => {},
+  }),
+}));
+
+// Force in-memory rate limiter (no Redis)
+vi.mock("@/lib/env", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/lib/env")>();
+  return { ...actual, getRedisUrl: () => null, getRedisConnectionOptions: () => undefined, getRedisClientOptions: () => undefined };
+});
+
 const { POST, maxDuration } = await import("./route");
 
 function makeRequest(payload: unknown) {
@@ -36,7 +49,7 @@ function makeRequest(payload: unknown) {
 
 function mockBookLookup({ found }: { found: boolean }) {
   const booksMaybeSingle = vi.fn().mockResolvedValue({
-    data: found ? { id: "book-1", title: "The Snow Fox" } : null,
+    data: found ? { id: "00000000-0000-4000-8000-000000000001", title: "The Snow Fox" } : null,
     error: null,
   });
   const booksEqAuthor = vi.fn(() => ({ maybeSingle: booksMaybeSingle }));
@@ -85,7 +98,7 @@ describe("POST /api/books/[id]/cover/generate", () => {
       body: "not json",
     });
 
-    const response = await POST(request, { params: Promise.resolve({ id: "book-1" }) });
+    const response = await POST(request, { params: Promise.resolve({ id: "00000000-0000-4000-8000-000000000001" }) });
 
     expect(response.status).toBe(400);
   });
@@ -96,7 +109,7 @@ describe("POST /api/books/[id]/cover/generate", () => {
         prompt: "   ",
         style: "minimal",
       }),
-      { params: Promise.resolve({ id: "book-1" }) }
+      { params: Promise.resolve({ id: "00000000-0000-4000-8000-000000000001" }) }
     );
     const body = await response.json();
 
@@ -110,7 +123,7 @@ describe("POST /api/books/[id]/cover/generate", () => {
         prompt: "A fox in snow",
         style: "invalid-style",
       }),
-      { params: Promise.resolve({ id: "book-1" }) }
+      { params: Promise.resolve({ id: "00000000-0000-4000-8000-000000000001" }) }
     );
     const body = await response.json();
 
@@ -126,7 +139,7 @@ describe("POST /api/books/[id]/cover/generate", () => {
         prompt: "A fox in snow",
         style: "minimal",
       }),
-      { params: Promise.resolve({ id: "book-1" }) }
+      { params: Promise.resolve({ id: "00000000-0000-4000-8000-000000000001" }) }
     );
     const body = await response.json();
 
@@ -151,7 +164,7 @@ describe("POST /api/books/[id]/cover/generate", () => {
         prompt: "A fox in snow",
         style: "illustrated",
       }),
-      { params: Promise.resolve({ id: "book-1" }) }
+      { params: Promise.resolve({ id: "00000000-0000-4000-8000-000000000001" }) }
     );
     const body = await response.json();
 
@@ -185,7 +198,7 @@ describe("POST /api/books/[id]/cover/generate", () => {
         prompt: "A fox in snow",
         style: "minimal",
       }),
-      { params: Promise.resolve({ id: "book-1" }) }
+      { params: Promise.resolve({ id: "00000000-0000-4000-8000-000000000001" }) }
     );
     const body = await response.json();
 
