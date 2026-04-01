@@ -45,16 +45,16 @@ export default function EditorSidePanel({
 
   if (!open) {
     return (
-      <div className="flex flex-col items-center gap-1 border-l border-slate-100 bg-white py-3 dark:border-white/[0.06] dark:bg-[#111318]">
+      <div className="flex w-12 flex-col items-center gap-2 border-l border-slate-100 bg-slate-50/50 py-4 dark:border-white/[0.06] dark:bg-white/[0.02]">
         {TAB_CONFIG.map((t) => (
           <button
             key={t.id}
             type="button"
             onClick={() => { setTab(t.id); onToggle(); }}
-            className="flex h-9 w-9 items-center justify-center rounded-xl text-slate-400 transition hover:bg-slate-50 hover:text-slate-700 dark:text-white/30 dark:hover:bg-white/5 dark:hover:text-white/60"
+            className="flex h-10 w-10 flex-col items-center justify-center gap-0.5 rounded-xl text-slate-400 transition hover:bg-white hover:text-[#907AFF] hover:shadow-sm dark:text-white/30 dark:hover:bg-white/5 dark:hover:text-[#907AFF]"
             title={t.label}
           >
-            <t.icon className="h-4 w-4" />
+            <t.icon className="h-5 w-5" />
           </button>
         ))}
       </div>

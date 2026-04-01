@@ -2,6 +2,7 @@
 
 import { useState, useMemo, useCallback, useRef, useEffect } from "react";
 import dynamic from "next/dynamic";
+import type { Editor } from "@tiptap/react";
 import BookWorkflowHeader from "../../BookWorkflowHeader";
 import { countWordsInContent } from "../BookEditorView.helpers";
 import type { Chapter, Tool } from "../BookEditorView.types";
@@ -12,6 +13,9 @@ import {
   DialogDescription,
   DialogFooter,
 } from "@/components/ui/dialog";
+
+const EditorSidePanel = dynamic(() => import("@/components/editor/EditorSidePanel"), { ssr: false });
+const EditorStatusBar = dynamic(() => import("@/components/editor/EditorStatusBar"), { ssr: false });
 
 const editorImport = () => import("@/components/editor/TiptapEditor");
 
@@ -120,6 +124,11 @@ export default function SimplifiedEditView({
 
   const [toolbarTarget, setToolbarTarget] = useState<HTMLElement | null>(null);
   const toolbarRefCb = useCallback((el: HTMLElement | null) => setToolbarTarget(el), []);
+  const [sidePanelOpen, setSidePanelOpen] = useState(true);
+  const [tiptapEditor, setTiptapEditor] = useState<Editor | null>(null);
+  const [liveWordCount, setLiveWordCount] = useState(0);
+  const handleEditorReady = useCallback((ed: Editor) => setTiptapEditor(ed), []);
+  const handleWordCountWrapped = useCallback((count: number) => { setLiveWordCount(count); onWordCount(count); }, [onWordCount]);
 
   // Stable ref for onAutoSave to prevent TiptapEditor re-renders
   const onAutoSaveRef = useRef(onAutoSave);
@@ -157,13 +166,14 @@ export default function SimplifiedEditView({
         bookId={bookId}
         chapterId={selectedChapter.id}
         preset={preset}
-        onWordCount={onWordCount}
+        onWordCount={handleWordCountWrapped}
         onFocusModeToggle={onToggleFocusMode}
         focusMode={focusMode}
         toolbarPortalTarget={toolbarTarget}
+        onEditorReady={handleEditorReady}
       />
     );
-  }, [selectedChapter, handleAutoSave, onDirty, bookId, preset, onWordCount, onToggleFocusMode, focusMode, toolbarTarget]);
+  }, [selectedChapter, handleAutoSave, onDirty, bookId, preset, handleWordCountWrapped, onToggleFocusMode, focusMode, toolbarTarget, handleEditorReady]);
 
   return (
     <div className="w-full rounded-2xl border border-black/[0.04] bg-white shadow-[0_1px_3px_rgba(0,0,0,0.04)] dark:border-white/[0.06] dark:bg-[#111318] dark:shadow-none">
@@ -225,16 +235,6 @@ export default function SimplifiedEditView({
               >
                 <span className={`h-2 w-2 rounded-full ${isPublished ? "bg-emerald-500" : "bg-[#907AFF]"}`} />
                 {isPublished ? "Published" : "Draft"}
-              </span>
-              {/* Save status */}
-              <span className="shrink-0 text-[11px] tabular-nums">
-                {saveError ? (
-                  <span className="text-red-500">Save failed</span>
-                ) : isSaving ? (
-                  <span className="text-slate-400 dark:text-white/30">Saving...</span>
-                ) : lastSaved ? (
-                  <span className="text-emerald-500 dark:text-emerald-400">Saved</span>
-                ) : null}
               </span>
             </div>
           </div>
@@ -317,15 +317,6 @@ export default function SimplifiedEditView({
 
           </div>
         </div>
-        <span className="text-[11px] tabular-nums text-right min-w-[3rem]">
-          {saveError ? (
-            <span className="text-red-500">Failed</span>
-          ) : isSaving ? (
-            <span className="text-slate-400 dark:text-white/30">Saving...</span>
-          ) : lastSaved ? (
-            <span className="text-emerald-500 dark:text-emerald-400">Saved</span>
-          ) : null}
-        </span>
       </div>
 
       {/* ── Selected chapter title (editable) ── */}
@@ -391,17 +382,47 @@ export default function SimplifiedEditView({
 
       </div>{/* end sticky header */}
 
-      {/* ── Editor content ── */}
-      <div className="mx-auto max-w-7xl px-18 py-0 sm:px-10 sm:py-10">
-        {editorElement ?? (
-          <div className="flex h-[500px] items-center justify-center">
-            <p className="text-sm text-slate-400 dark:text-white/35">
-              {chapters.length === 0
-                ? "Create your first chapter to start writing"
-                : "Select a chapter above to edit"}
-            </p>
+      {/* ── Editor content + side panel (inside white card) ── */}
+      <div className="flex min-h-[520px]">
+        {/* Main writing surface */}
+        <div className="min-w-0 flex-1">
+          <div className="mx-auto max-w-7xl px-6 py-0 sm:px-10 sm:py-10">
+            {editorElement ?? (
+              <div className="flex h-[500px] items-center justify-center">
+                <p className="text-sm text-slate-400 dark:text-white/35">
+                  {chapters.length === 0
+                    ? "Create your first chapter to start writing"
+                    : "Select a chapter above to edit"}
+                </p>
+              </div>
+            )}
           </div>
+        </div>
+
+        {/* Side panel — inside the card, right edge */}
+        {tiptapEditor && (
+          <EditorSidePanel
+            editor={tiptapEditor}
+            preset={preset}
+            onPresetChange={() => {}}
+            open={sidePanelOpen}
+            onToggle={() => setSidePanelOpen((v) => !v)}
+          />
         )}
+      </div>
+
+      {/* ── Status bar (inside card, at bottom) ── */}
+      <div className="rounded-b-2xl border-t border-black/[0.04] dark:border-white/[0.04]">
+        <EditorStatusBar
+          wordCount={liveWordCount}
+          isSaving={isSaving}
+          hasUnsavedChanges={false}
+          lastSaved={lastSaved}
+          focusMode={focusMode}
+          sidePanelOpen={sidePanelOpen}
+          onToggleFocusMode={onToggleFocusMode}
+          onToggleSidePanel={() => setSidePanelOpen((v) => !v)}
+        />
       </div>
 
       {/* Delete chapter confirmation */}

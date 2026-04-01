@@ -45,7 +45,7 @@ export default function EditorStatusBar({
     : formatLastSaved(lastSaved);
 
   return (
-    <div className="flex items-center justify-between border-t border-slate-100 bg-white px-4 py-2 text-[12px] text-slate-400 dark:border-white/[0.06] dark:bg-[#111318] dark:text-white/30">
+    <div className="flex items-center justify-between bg-slate-50/60 px-5 py-2.5 text-[13px] text-slate-500 dark:bg-white/[0.02] dark:text-white/35">
       {/* Left: stats */}
       <div className="flex items-center gap-4">
         <span className="inline-flex items-center gap-1.5 tabular-nums">

@@ -36,6 +36,8 @@ type TiptapEditorProps = {
   onInlineAction?: (action: InlineAiAction, selectedText: string) => void;
   /** When set, toolbar is portaled into this element (for sticky header integration) */
   toolbarPortalTarget?: HTMLElement | null;
+  /** Called when the Tiptap editor instance is ready */
+  onEditorReady?: (editor: NonNullable<ReturnType<typeof useEditor>>) => void;
 };
 
 type SlashMenuState = {
@@ -110,6 +112,7 @@ export default function TiptapEditor({
   onDirty,
   onInlineAction,
   toolbarPortalTarget,
+  onEditorReady,
 }: TiptapEditorProps) {
   const mounted = useSyncExternalStore(
     emptySubscribe,
@@ -157,8 +160,9 @@ export default function TiptapEditor({
   useEffect(() => {
     if (editor) {
       onWordCount?.(countWords(editor.getText()));
+      onEditorReady?.(editor);
     }
-  }, [editor, onWordCount]);
+  }, [editor, onWordCount, onEditorReady]);
 
   useEffect(() => {
     return () => {
