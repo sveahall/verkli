@@ -6,7 +6,7 @@ type ReadingViewProps = {
   backHref: string;
   backLabel: string;
   bookTitle: string;
-  chapterLabel: string;
+  chapterLabel?: string;
   progressLabel: string;
   chapterNavigator: ReactNode;
   chapterContent: ReactNode;
@@ -20,7 +20,6 @@ export default function ReadingView({
   backHref,
   backLabel,
   bookTitle,
-  chapterLabel,
   progressLabel,
   chapterNavigator,
   chapterContent,
@@ -30,49 +29,41 @@ export default function ReadingView({
   commentsSection,
 }: ReadingViewProps) {
   return (
-    <main className="min-h-screen bg-[#f7f8fb] text-foreground dark:bg-[#030712]">
-      <div className="mx-auto max-w-6xl px-4 py-6 sm:px-6 lg:px-8">
-        <div className="mx-auto max-w-[820px] space-y-6">
-          <section className="overflow-hidden rounded-[32px] border border-black/[0.06] bg-[radial-gradient(ellipse_at_top_left,_rgba(144,122,255,0.12),_rgba(255,255,255,0.96)_35%,_rgba(250,250,252,0.98)_100%)] p-5 shadow-[0_8px_28px_-12px_rgba(15,23,42,0.12)] dark:border-white/10 dark:bg-[radial-gradient(ellipse_at_top_left,_rgba(144,122,255,0.14),_rgba(15,23,42,0.94)_38%,_rgba(2,6,23,0.98)_100%)] sm:p-6">
-            <div className="flex flex-col gap-5 sm:flex-row sm:items-end sm:justify-between">
-              <div className="space-y-1">
-                <Link
-                  href={backHref}
-                  className="btn-ghost inline-flex items-center gap-2 px-0 text-[14px] text-slate-500 transition-colors hover:text-slate-900 dark:text-white/50 dark:hover:text-white"
-                >
-                  <ArrowLeft className="h-4 w-4" />
-                  {backLabel}
-                </Link>
-                <div className="space-y-2">
-                  <p className="text-eyebrow">Reading view</p>
-                  <div>
-                    <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-400 dark:text-white/35">
-                      {bookTitle}
-                    </p>
-                    <h1 className="text-[28px] font-semibold tracking-tight text-slate-950 dark:text-white sm:text-[34px]">
-                      {chapterLabel}
-                    </h1>
-                  </div>
-                </div>
-              </div>
-              <div className="rounded-[20px] border border-black/[0.06] bg-white/78 px-4 py-3 shadow-[0_2px_8px_rgba(15,23,42,0.04)] dark:border-white/10 dark:bg-white/[0.05]">
-                <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[#907AFF]/70 dark:text-[#907AFF]/50">
-                  Progress
-                </p>
-                <p className="mt-2 text-[14px] font-semibold text-slate-900 dark:text-white">{progressLabel}</p>
-              </div>
-            </div>
-          </section>
+    <main className="min-h-screen bg-[#F8F9FB] text-[#0F172A] dark:bg-[#030712] dark:text-white">
+      <div className="mx-auto max-w-5xl px-4 pt-4 pb-8 sm:px-6">
+        <div className="mx-auto max-w-[720px]">
+          {/* Compact header: back + book title + progress */}
+          <header className="mb-4 flex items-center gap-4">
+            <Link
+              href={backHref}
+              className="inline-flex items-center gap-1.5 text-sm text-[#64748B] transition-colors hover:text-[#0F172A] dark:text-white/50 dark:hover:text-white"
+            >
+              <ArrowLeft className="h-3.5 w-3.5" />
+              <span className="hidden sm:inline">{backLabel}</span>
+            </Link>
+            <span className="min-w-0 flex-1 truncate text-center text-sm font-medium text-[#0F172A] dark:text-white/80">
+              {bookTitle}
+            </span>
+            <span className="whitespace-nowrap text-xs text-[#64748B] dark:text-white/40">
+              {progressLabel}
+            </span>
+          </header>
 
-          <div className="space-y-5">
-            {chapterNavigator}
+          {/* Chapter navigator — directly below header */}
+          {chapterNavigator}
+
+          {/* Content — seamless with navigator */}
+          <div className="mt-4 space-y-6">
             {chapterContent}
             {audioPlayer}
             {gate}
             {footerNavigation}
           </div>
 
-          {commentsSection}
+          {/* Comments */}
+          <div className="mt-8">
+            {commentsSection}
+          </div>
         </div>
       </div>
     </main>

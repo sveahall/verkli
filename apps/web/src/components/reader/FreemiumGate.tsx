@@ -30,15 +30,15 @@ export default function FreemiumGate({
   signInHref,
 }: FreemiumGateProps) {
   return (
-    <div className="mt-10 rounded-[24px] border border-[#907AFF]/20 bg-[#907AFF]/5 p-8">
-      <h2 className="text-[20px] font-semibold text-slate-900 dark:text-white">
+    <div className="rounded-2xl border border-[#907AFF]/15 bg-[#907AFF]/[0.04] p-6">
+      <h2 className="text-xl font-semibold text-[#0F172A] dark:text-white">
         Want to keep reading?
       </h2>
-      <p className="mt-2 text-[14px] text-slate-600 dark:text-white/60">
+      <p className="mt-2 text-sm text-[#64748B] dark:text-white/60">
         You have read the free preview. Unlock all chapters by purchasing the book or upgrading to Verkli Plus.
       </p>
 
-      <div className="mt-6 flex flex-wrap items-center gap-3">
+      <div className="mt-6 flex flex-wrap items-center gap-4">
         {isSignedIn ? (
           <PurchaseBookButton
             bookId={bookId}
@@ -48,7 +48,7 @@ export default function FreemiumGate({
         ) : (
           <Link
             href={signInHref}
-            className="inline-flex h-11 min-h-11 items-center justify-center rounded-xl bg-[#907AFF] px-5 text-sm font-semibold text-white shadow-sm transition hover:bg-[#8069EE] hover:shadow"
+            className="inline-flex h-11 items-center justify-center rounded-xl bg-[#907AFF] px-6 text-sm font-semibold text-white shadow-sm transition-all duration-200 hover:bg-[#7A66E0] active:scale-[0.97]"
           >
             Sign in to purchase — {formatMoney(priceAmount, priceCurrency)}
           </Link>
@@ -56,7 +56,7 @@ export default function FreemiumGate({
 
         <Link
           href="/reader/billing"
-          className="inline-flex h-11 min-h-11 items-center justify-center rounded-xl border border-[#907AFF]/30 bg-[#907AFF]/10 px-5 text-sm font-semibold text-[#907AFF] transition hover:bg-[#907AFF]/20 dark:text-[#B8A9FF] dark:hover:bg-[#907AFF]/15"
+          className="inline-flex h-11 items-center justify-center rounded-xl border border-[#907AFF]/25 px-6 text-sm font-semibold text-[#907AFF] transition-colors hover:bg-[#907AFF]/10 dark:text-[#B8A9FF]"
         >
           Upgrade to Verkli Plus
         </Link>

@@ -494,6 +494,8 @@ export default function BookEditorView({
                 bookTitle={bookTitle}
                 bookOriginalUrl={book.original_url ?? null}
                 bookAudiobookStatus={typeof book.audiobook_status === "string" ? book.audiobook_status : null}
+                bookTrailerStatus={typeof book.trailer_status === "string" ? book.trailer_status : null}
+                bookTrailerUrl={typeof book.trailer_url === "string" ? book.trailer_url : null}
                 authorDisplayName={authorDisplayName}
                 tool={tool}
                 tools={effectiveTools as Tool[]}

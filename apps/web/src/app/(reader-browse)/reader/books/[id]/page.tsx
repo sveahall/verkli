@@ -23,6 +23,7 @@ import { normalizePrintOnDemandSettings } from "@/lib/print-on-demand";
 import ReaderBookPageView from "@/features/reader/reader-book/ReaderBookPageView";
 
 
+
 function SimilarBooksRailSkeleton() {
   return (
     <section className="mx-auto max-w-[1100px] px-6 py-8">
@@ -46,7 +47,7 @@ async function getBook(id: string) {
   const supabase = await createClient();
   const { data } = await supabase
     .from("books")
-    .select("id, title, description, cover_image, status, author_id, language, original_language, original_url, audiobook_status, price_amount, price_currency, pricing_model, print_on_demand_settings")
+    .select("id, title, description, cover_image, status, author_id, language, original_language, original_url, audiobook_status, price_amount, price_currency, pricing_model, print_on_demand_settings, trailer_url")
     .eq("id", id)
     .maybeSingle();
   return data;
@@ -139,7 +140,7 @@ export default async function ReaderBookDetail({
 
   const { data: book } = await supabase
     .from("books")
-    .select("id, title, description, cover_image, status, author_id, language, original_language, original_url, audiobook_status, price_amount, price_currency, pricing_model, print_on_demand_settings")
+    .select("id, title, description, cover_image, status, author_id, language, original_language, original_url, audiobook_status, price_amount, price_currency, pricing_model, print_on_demand_settings, trailer_url")
     .eq("id", id)
     .maybeSingle();
 
@@ -165,17 +166,13 @@ export default async function ReaderBookDetail({
     bookPricingModel: pricingModel,
   });
 
-  try {
-    await logAnalyticsEvent(supabase, {
-      eventType: "book_view",
-      userId: user?.id ?? null,
-      bookId: book.id,
-      path: `/reader/books/${book.id}`,
-      props: { hasReadAccess },
-    });
-  } catch {
-    // Non-blocking for reader flow.
-  }
+  logAnalyticsEvent(supabase, {
+    eventType: "book_view",
+    userId: user?.id ?? null,
+    bookId: book.id,
+    path: `/reader/books/${book.id}`,
+    props: { hasReadAccess },
+  }).catch(() => {});
 
   const { data: versions } = await supabase
     .from("book_versions")
@@ -603,7 +600,7 @@ export default async function ReaderBookDetail({
     <main className="min-h-screen text-foreground">
       <script
         type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd).replace(/</g, "\\u003c") }}
       />
       <ReaderBookPageView
         backHref="/reader/discover"
@@ -620,7 +617,6 @@ export default async function ReaderBookDetail({
                 sizes="(min-width: 1024px) 280px, 220px"
                 className="object-cover"
                 priority
-                unoptimized
               />
             ) : (
               <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-[#907AFF]/20 to-[#E29ED5]/20">
@@ -643,6 +639,7 @@ export default async function ReaderBookDetail({
         notices={notices}
         actionBar={actionBar}
         utilityBar={utilityBar}
+        trailerSection={null}
         editionNotes={editionNotes}
         chaptersSection={chapterRows}
         podSection={podSection}

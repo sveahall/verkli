@@ -98,7 +98,7 @@ async function fetchFilteredBooks(
   let base = supabase
     .from("books")
     .select(
-      "id, title, cover_image, author_id, published_at, is_featured, audiobook_status"
+      "id, title, cover_image, author_id, published_at, is_featured, audiobook_status, trailer_url"
     )
     .eq("status", "PUBLISHED");
 
@@ -152,6 +152,7 @@ async function enrichBooksWithAuthor(
     cover_image: string | null;
     author_id: string;
     audiobook_status?: string | null;
+    trailer_url?: string | null;
   }>
 ) {
   if (books.length === 0) return [];
@@ -176,6 +177,7 @@ async function enrichBooksWithAuthor(
     cover: book.cover_image,
     href: `/reader/books/${book.id}`,
     hasAudiobook: book.audiobook_status === "published",
+    hasTrailer: Boolean(book.trailer_url),
   }));
 }
 

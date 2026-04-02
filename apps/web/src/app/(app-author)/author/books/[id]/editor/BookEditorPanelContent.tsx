@@ -37,6 +37,8 @@ interface BookEditorPanelContentProps {
   bookTitle: string;
   bookOriginalUrl: string | null;
   bookAudiobookStatus: string | null;
+  bookTrailerStatus: string | null;
+  bookTrailerUrl: string | null;
   authorDisplayName: string;
   tool: Tool;
   tools: Tool[];
@@ -96,6 +98,8 @@ export default function BookEditorPanelContent({
   billing,
   refetchBookJob,
   bookAudiobookStatus,
+  bookTrailerStatus,
+  bookTrailerUrl,
 }: BookEditorPanelContentProps) {
   return (
     <div className="w-full overflow-hidden rounded-2xl border border-black/[0.04] bg-white shadow-[0_1px_3px_rgba(0,0,0,0.04)] dark:border-white/[0.06] dark:bg-[#111318] dark:shadow-none">
@@ -372,6 +376,11 @@ export default function BookEditorPanelContent({
               await marketing.handleGenerateMarketingCopy();
             }}
             isGenerating={marketing.isGeneratingMarketing}
+            trailerStatus={bookTrailerStatus}
+            trailerUrl={bookTrailerUrl}
+            coverImage={cover.displayCoverUrl}
+            bookTitle={bookTitle}
+            bookDescription=""
           />
         )}
         {tool === "statistics" && (

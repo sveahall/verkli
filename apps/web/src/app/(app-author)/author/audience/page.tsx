@@ -63,73 +63,80 @@ export default async function AuthorAudiencePage({
   const chapterExcerptMap = new Map<string, string>();
   const publishedVisibilityByBookId = new Map<string, string | null>();
 
-  if (bookIds.length > 0) {
-    const { data: chapters } = await supabase
-      .from("chapters")
-      .select("book_id, content")
-      .in("book_id", bookIds)
-      .order("order", { ascending: true });
+  type CampaignRow = {
+    id: string;
+    book_id: string;
+    channel: string;
+    status: string;
+    headline: string | null;
+    share_url: string | null;
+    updated_at: string | null;
+  };
+  type NewsletterRow = {
+    id: string;
+    subject: string;
+    status: string;
+    sent_at: string | null;
+    recipient_count: number;
+    created_at: string;
+  };
 
-    for (const chapter of (chapters ?? []) as Array<{ book_id: string; content: unknown }>) {
+  const [chaptersResult, versionsResult, campaignsResult, newslettersResult, subscriberCountResult] =
+    await Promise.all([
+      bookIds.length > 0
+        ? supabase
+            .from("chapters")
+            .select("book_id, content")
+            .in("book_id", bookIds)
+            .order("order", { ascending: true })
+        : Promise.resolve({ data: [] as Array<{ book_id: string; content: unknown }> }),
+      bookIds.length > 0
+        ? supabase
+            .from("book_versions")
+            .select("book_id, visibility, published_at, updated_at")
+            .in("book_id", bookIds)
+            .not("published_at", "is", null)
+            .order("updated_at", { ascending: false })
+        : Promise.resolve({ data: [] as Array<{ book_id: string; visibility: string | null; published_at: string | null; updated_at: string | null }> }),
+      bookIds.length > 0
+        ? supabase
+            .from("marketing_campaigns")
+            .select("id, book_id, channel, status, headline, share_url, updated_at")
+            .in("book_id", bookIds)
+            .order("updated_at", { ascending: false })
+        : Promise.resolve({ data: [] as CampaignRow[] }),
+      newslettersEnabled
+        ? supabase
+            .from("newsletters" as never)
+            .select("id, subject, status, sent_at, recipient_count, created_at")
+            .eq("author_id", user.id)
+            .order("created_at", { ascending: false })
+        : Promise.resolve({ data: [] as NewsletterRow[] }),
+      newslettersEnabled
+        ? supabase
+            .from("newsletter_subscriptions" as never)
+            .select("id", { count: "exact", head: true })
+            .eq("author_id", user.id)
+            .eq("status", "active")
+        : Promise.resolve({ count: 0 }),
+    ]);
+
+  if (bookIds.length > 0) {
+    for (const chapter of ((chaptersResult.data ?? []) as Array<{ book_id: string; content: unknown }>)) {
       if (chapterExcerptMap.has(chapter.book_id)) continue;
       const text = extractPlainText(chapter.content);
       if (text) chapterExcerptMap.set(chapter.book_id, text.slice(0, 2000));
     }
 
-    const { data: versions } = await supabase
-      .from("book_versions")
-      .select("book_id, visibility, published_at, updated_at")
-      .in("book_id", bookIds)
-      .not("published_at", "is", null)
-      .order("updated_at", { ascending: false });
-
-    for (const version of versions ?? []) {
+    for (const version of (versionsResult.data ?? [])) {
       if (publishedVisibilityByBookId.has(version.book_id)) continue;
       publishedVisibilityByBookId.set(version.book_id, version.visibility ?? null);
     }
   }
 
-  const { data: campaigns } =
-    bookIds.length > 0
-      ? await supabase
-          .from("marketing_campaigns")
-          .select("id, book_id, channel, status, headline, share_url, updated_at")
-          .in("book_id", bookIds)
-          .order("updated_at", { ascending: false })
-      : { data: [] as Array<{
-          id: string;
-          book_id: string;
-          channel: string;
-          status: string;
-          headline: string | null;
-          share_url: string | null;
-          updated_at: string | null;
-        }> };
-
-  const { data: newsletters } =
-    newslettersEnabled
-      ? await supabase
-          .from("newsletters" as never)
-          .select("id, subject, status, sent_at, recipient_count, created_at")
-          .eq("author_id", user.id)
-          .order("created_at", { ascending: false })
-      : { data: [] as Array<{
-          id: string;
-          subject: string;
-          status: string;
-          sent_at: string | null;
-          recipient_count: number;
-          created_at: string;
-        }> };
-
-  const { count: subscriberCount } =
-    newslettersEnabled
-      ? await supabase
-          .from("newsletter_subscriptions" as never)
-          .select("id", { count: "exact", head: true })
-          .eq("author_id", user.id)
-          .eq("status", "active")
-      : { count: 0 };
+  const campaigns = campaignsResult.data as CampaignRow[] | null;
+  const newsletters = newslettersResult.data as NewsletterRow[] | null;
+  const subscriberCount = "count" in subscriberCountResult ? subscriberCountResult.count : 0;
 
   const bookTitleById = new Map(
     (books ?? []).map((book) => [book.id, book.title ?? "Untitled"] as const)

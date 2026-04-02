@@ -37,7 +37,7 @@ const connectSrc = [
   "https://billing.stripe.com",
   "https://api.resend.com",
   "https://*.sentry.io",
-  "https://o*.ingest.sentry.io",
+  "https://*.ingest.sentry.io",
   "https://runwayml.com",
   "https://*.runwayml.com",
   "https://vitals.vercel-insights.com",

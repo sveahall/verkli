@@ -31,7 +31,6 @@ export default function CoverStep({ coverImageUrl, onComplete, onOpenCover }: Pr
             width={128}
             height={192}
             className="h-full w-full object-cover"
-            unoptimized
           />
         </div>
       ) : (

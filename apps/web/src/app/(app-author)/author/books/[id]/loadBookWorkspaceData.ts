@@ -121,13 +121,36 @@ export async function loadBookWorkspaceData(bookId: string, langParam: string | 
     versions.find((v) => normalizeLanguage(v.language_code) === originalLang) ??
     versions[0];
 
-  const { data: latestAudiobookAsset } = await supabase
-    .from("audiobook_assets")
-    .select("id, audio_path, status, created_at")
-    .eq("book_id", book.id)
-    .order("created_at", { ascending: false })
-    .limit(1)
-    .maybeSingle();
+  const [
+    { data: latestAudiobookAsset },
+    { data: chapters },
+    { data: marketingCampaigns },
+    { data: authorProfile },
+  ] = await Promise.all([
+    supabase
+      .from("audiobook_assets")
+      .select("id, audio_path, status, created_at")
+      .eq("book_id", book.id)
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle(),
+    supabase
+      .from("chapters")
+      .select("id, title, content, order, book_version_id")
+      .eq("book_version_id", activeVersion?.id ?? "")
+      .order("order", { ascending: true }),
+    supabase
+      .from("marketing_campaigns")
+      .select(
+        "id, book_id, language, channel, status, headline, caption, cta, hashtags, share_url, created_at, updated_at"
+      )
+      .eq("book_id", book.id),
+    supabase
+      .from("profiles")
+      .select("display_name, username, preferences")
+      .eq("user_id", book.author_id)
+      .maybeSingle(),
+  ]);
 
   const latestAudioPath =
     typeof latestAudiobookAsset?.audio_path === "string" &&
@@ -144,25 +167,6 @@ export async function loadBookWorkspaceData(bookId: string, langParam: string | 
       .createSignedUrl(latestAudioPath, 60 * 15);
     latestAudiobookSignedUrl = signed?.signedUrl ?? null;
   }
-
-  const { data: chapters } = await supabase
-    .from("chapters")
-    .select("id, title, content, order, book_version_id")
-    .eq("book_version_id", activeVersion?.id ?? "")
-    .order("order", { ascending: true });
-
-  const { data: marketingCampaigns } = await supabase
-    .from("marketing_campaigns")
-    .select(
-      "id, book_id, language, channel, status, headline, caption, cta, hashtags, share_url, created_at, updated_at"
-    )
-    .eq("book_id", book.id);
-
-  const { data: authorProfile } = await supabase
-    .from("profiles")
-    .select("display_name, username, preferences")
-    .eq("user_id", book.author_id)
-    .maybeSingle();
 
   const authorDisplayName =
     authorProfile?.display_name?.trim() ||

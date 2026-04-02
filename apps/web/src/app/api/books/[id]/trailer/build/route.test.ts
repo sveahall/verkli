@@ -116,6 +116,10 @@ function mockAdminClient() {
     })),
   }));
 
+  const booksUpdate = vi.fn(() => ({
+    eq: vi.fn().mockResolvedValue({ error: null }),
+  }));
+
   const from = vi.fn((table: string) => {
     if (table === "books") {
       return {
@@ -131,6 +135,7 @@ function mockAdminClient() {
             }),
           })),
         })),
+        update: booksUpdate,
       };
     }
 

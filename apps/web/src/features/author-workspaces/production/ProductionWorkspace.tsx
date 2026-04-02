@@ -83,7 +83,7 @@ function BookProductionCard({ book }: { book: BookItem }) {
           {/* Cover */}
           <div className="relative h-[80px] w-[56px] shrink-0 overflow-hidden rounded-lg bg-slate-100 shadow-[0_2px_8px_rgba(0,0,0,0.08)] sm:h-[100px] sm:w-[70px] dark:bg-white/[0.04]">
             {book.coverImageUrl ? (
-              <Image src={book.coverImageUrl} alt="" fill sizes="70px" className="object-cover" unoptimized />
+              <Image src={book.coverImageUrl} alt="" fill sizes="70px" className="object-cover" />
             ) : (
               <div className="flex h-full items-center justify-center">
                 <BookOpen className="h-5 w-5 text-slate-300 dark:text-white/10" />

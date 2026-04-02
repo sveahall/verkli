@@ -120,6 +120,12 @@ export async function POST(
     });
   }
 
+  // Mark book as generating
+  await admin
+    .from("books")
+    .update({ trailer_status: "generating" })
+    .eq("id", bookId);
+
   let trailerResult: Awaited<ReturnType<typeof generateTrailerPrompt>>;
   try {
     trailerResult = await generateTrailerPrompt(parsed.data);
@@ -209,6 +215,12 @@ export async function POST(
       return apiError(E_DATABASE_ERROR, 500);
     }
 
+    // Denormalize trailer URL onto books row for fast reader queries
+    await admin
+      .from("books")
+      .update({ trailer_url: uploadResult.publicUrl, trailer_status: "ready" })
+      .eq("id", bookId);
+
     return NextResponse.json({
       assetId: inserted.id,
       url: uploadResult.publicUrl,
@@ -218,6 +230,12 @@ export async function POST(
       err instanceof Error ? err.message : "Unknown trailer build error.";
 
     await markMediaAssetFailed(admin, inserted.id, user.id, message);
+
+    // Mark book trailer as failed
+    await admin
+      .from("books")
+      .update({ trailer_status: "failed" })
+      .eq("id", bookId);
 
     console.error("[trailer build] failed:", message);
     return apiError(E_TEXT_TO_VIDEO_FAILED, 502, { detail: message });

@@ -1,8 +1,9 @@
 "use client";
 
-import { useState, useMemo, useCallback } from "react";
+import { useState, useMemo, useCallback, useEffect, useRef } from "react";
 import Link from "next/link";
 import { LANGUAGE_OPTIONS, type SupportedLanguage } from "@/lib/languages";
+import type { TrailerGenre, TrailerTone } from "@/lib/ai/trailer-generation/schemas";
 
 type MarketingChannel = "generic" | "tiktok" | "instagram" | "x";
 
@@ -53,7 +54,256 @@ export type MarketPanelProps = {
   billingLoading: boolean;
   onGenerateCopy: (channel: MarketingChannel, language: string) => Promise<void>;
   isGenerating: boolean;
+  trailerStatus?: string | null;
+  trailerUrl?: string | null;
+  coverImage?: string | null;
+  bookTitle?: string;
+  bookDescription?: string;
 };
+
+const TRAILER_GENRES: { value: TrailerGenre; label: string }[] = [
+  { value: "romance", label: "Romance" },
+  { value: "fantasy", label: "Fantasy" },
+  { value: "thriller", label: "Thriller" },
+  { value: "ya", label: "Young Adult" },
+  { value: "literary", label: "Literary Fiction" },
+  { value: "biography", label: "Biography" },
+];
+
+const TRAILER_TONES: { value: TrailerTone; label: string }[] = [
+  { value: "dark", label: "Dark" },
+  { value: "dreamy", label: "Dreamy" },
+  { value: "intense", label: "Intense" },
+  { value: "whimsical", label: "Whimsical" },
+  { value: "melancholic", label: "Melancholic" },
+  { value: "suspenseful", label: "Suspenseful" },
+  { value: "passionate", label: "Passionate" },
+  { value: "epic", label: "Epic" },
+];
+
+function TrailerCard({
+  bookId,
+  trailerStatus: initialStatus,
+  trailerUrl: initialUrl,
+  coverImage,
+  isProLocked,
+  bookTitle,
+  bookDescription,
+}: {
+  bookId: string;
+  trailerStatus: string | null;
+  trailerUrl: string | null;
+  coverImage: string | null;
+  isProLocked: boolean;
+  bookTitle: string;
+  bookDescription: string;
+}) {
+  const [status, setStatus] = useState(initialStatus);
+  const [url, setUrl] = useState(initialUrl);
+  const [genre, setGenre] = useState<TrailerGenre>("literary");
+  const [tone, setTone] = useState<TrailerTone>("dreamy");
+  const [error, setError] = useState<string | null>(null);
+  const [isBuilding, setIsBuilding] = useState(false);
+  const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  // Poll for status while generating
+  useEffect(() => {
+    if (status !== "generating") {
+      if (pollRef.current) clearInterval(pollRef.current);
+      return;
+    }
+
+    pollRef.current = setInterval(async () => {
+      try {
+        const res = await fetch(`/api/books/${bookId}/trailer/status`);
+        if (!res.ok) return;
+        const data = await res.json();
+        if (data.status === "ready" && data.url) {
+          setStatus("ready");
+          setUrl(data.url);
+        } else if (data.status === "failed") {
+          setStatus("failed");
+          setError("Trailer generation failed. Try again.");
+        }
+      } catch {
+        // Ignore polling errors
+      }
+    }, 10_000);
+
+    return () => {
+      if (pollRef.current) clearInterval(pollRef.current);
+    };
+  }, [status, bookId]);
+
+  const handleGenerate = async () => {
+    if (isProLocked || !coverImage) return;
+    setIsBuilding(true);
+    setError(null);
+    setStatus("generating");
+
+    try {
+      const res = await fetch(`/api/books/${bookId}/trailer/build`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          title: bookTitle || "Untitled",
+          genre,
+          description: bookDescription || bookTitle || "A new book",
+          keywords: [genre, tone],
+          tone,
+          audio: true,
+        }),
+      });
+
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data?.message ?? `Request failed (${res.status})`);
+      }
+
+      const data = await res.json();
+      if (data.url) {
+        setStatus("ready");
+        setUrl(data.url);
+      }
+      // Otherwise status stays "generating" and polling handles it
+    } catch (err) {
+      setStatus("failed");
+      setError(err instanceof Error ? err.message : "Trailer generation failed.");
+    } finally {
+      setIsBuilding(false);
+    }
+  };
+
+  // Ready state — show video
+  if (status === "ready" && url) {
+    return (
+      <div className="flex flex-col gap-3 rounded-2xl border border-black/[0.05] bg-white/60 p-5 backdrop-blur-sm dark:border-white/[0.06] dark:bg-white/[0.02]">
+        <div className="flex items-center gap-3">
+          <div className="rounded-xl bg-gradient-to-br from-[#907AFF] to-[#7c6ae6] p-2.5 text-white shadow-sm">
+            <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" d="m15.75 10.5 4.72-4.72a.75.75 0 0 1 1.28.53v11.38a.75.75 0 0 1-1.28.53l-4.72-4.72M4.5 18.75h9a2.25 2.25 0 0 0 2.25-2.25v-9a2.25 2.25 0 0 0-2.25-2.25h-9A2.25 2.25 0 0 0 2.25 7.5v9a2.25 2.25 0 0 0 2.25 2.25Z" />
+            </svg>
+          </div>
+          <div>
+            <h3 className="text-sm font-semibold text-slate-900 dark:text-white">Book Trailer</h3>
+            <p className="text-[11px] text-slate-400 dark:text-white/40">Your trailer is live for readers</p>
+          </div>
+        </div>
+        <video
+          src={url}
+          controls
+          playsInline
+          preload="metadata"
+          poster={coverImage ?? undefined}
+          className="w-full rounded-xl"
+          controlsList="nodownload"
+          onContextMenu={(e) => e.preventDefault()}
+        />
+        <button
+          type="button"
+          onClick={() => {
+            setStatus(null);
+            setUrl(null);
+          }}
+          className="rounded-xl border border-black/[0.08] bg-white px-4 py-2 text-[13px] font-medium text-slate-600 transition hover:bg-slate-50 dark:border-white/[0.08] dark:bg-white/[0.04] dark:text-white/70 dark:hover:bg-white/[0.06]"
+        >
+          Regenerate trailer
+        </button>
+      </div>
+    );
+  }
+
+  // Generating state
+  if (status === "generating") {
+    return (
+      <div className="flex flex-col items-center gap-4 rounded-2xl border border-black/[0.05] bg-white/60 p-5 text-center backdrop-blur-sm dark:border-white/[0.06] dark:bg-white/[0.02]">
+        <div className="rounded-xl bg-gradient-to-br from-[#907AFF] to-[#7c6ae6] p-2.5 text-white shadow-sm">
+          <svg className="h-5 w-5 animate-pulse" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" d="m15.75 10.5 4.72-4.72a.75.75 0 0 1 1.28.53v11.38a.75.75 0 0 1-1.28.53l-4.72-4.72M4.5 18.75h9a2.25 2.25 0 0 0 2.25-2.25v-9a2.25 2.25 0 0 0-2.25-2.25h-9A2.25 2.25 0 0 0 2.25 7.5v9a2.25 2.25 0 0 0 2.25 2.25Z" />
+          </svg>
+        </div>
+        <div>
+          <h3 className="text-sm font-semibold text-slate-900 dark:text-white">Creating your trailer...</h3>
+          <p className="mt-1 text-xs text-slate-500 dark:text-white/50">
+            This usually takes a few minutes. You can leave this page — we&apos;ll finish in the background.
+          </p>
+        </div>
+        <div className="h-1.5 w-full max-w-xs overflow-hidden rounded-full bg-slate-100 dark:bg-white/[0.06]">
+          <div className="h-full animate-pulse rounded-full bg-gradient-to-r from-[#907AFF] to-[#E29ED5]" />
+        </div>
+      </div>
+    );
+  }
+
+  // Default / failed — show generate form
+  return (
+    <div className="flex flex-col gap-3 rounded-2xl border border-black/[0.05] bg-white/60 p-5 backdrop-blur-sm dark:border-white/[0.06] dark:bg-white/[0.02]">
+      <div className="flex items-center gap-3">
+        <div className="rounded-xl bg-gradient-to-br from-[#907AFF] to-[#7c6ae6] p-2.5 text-white shadow-sm">
+          <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" d="m15.75 10.5 4.72-4.72a.75.75 0 0 1 1.28.53v11.38a.75.75 0 0 1-1.28.53l-4.72-4.72M4.5 18.75h9a2.25 2.25 0 0 0 2.25-2.25v-9a2.25 2.25 0 0 0-2.25-2.25h-9A2.25 2.25 0 0 0 2.25 7.5v9a2.25 2.25 0 0 0 2.25 2.25Z" />
+          </svg>
+        </div>
+        <div>
+          <h3 className="text-sm font-semibold text-slate-900 dark:text-white">AI Book Trailer</h3>
+          <p className="text-[11px] text-slate-400 dark:text-white/40">Generate a cinematic trailer from your cover</p>
+        </div>
+      </div>
+
+      {error && (
+        <div className="rounded-lg border border-red-200/60 bg-red-50/60 px-3 py-2 text-xs text-red-700 dark:border-red-900/30 dark:bg-red-950/10 dark:text-red-400">
+          {error}
+        </div>
+      )}
+
+      {!coverImage && (
+        <p className="text-xs text-amber-600 dark:text-amber-400">
+          Upload a cover image first to generate a trailer.
+        </p>
+      )}
+
+      <div className="grid grid-cols-2 gap-2">
+        <div>
+          <label className="mb-1 block text-[10px] font-semibold uppercase tracking-wider text-slate-400 dark:text-white/40">
+            Genre
+          </label>
+          <select
+            value={genre}
+            onChange={(e) => setGenre(e.target.value as TrailerGenre)}
+            className="w-full rounded-lg border border-black/[0.08] bg-white px-2.5 py-2 text-xs text-slate-700 dark:border-white/[0.08] dark:bg-white/[0.04] dark:text-white/70"
+          >
+            {TRAILER_GENRES.map((g) => (
+              <option key={g.value} value={g.value}>{g.label}</option>
+            ))}
+          </select>
+        </div>
+        <div>
+          <label className="mb-1 block text-[10px] font-semibold uppercase tracking-wider text-slate-400 dark:text-white/40">
+            Tone
+          </label>
+          <select
+            value={tone}
+            onChange={(e) => setTone(e.target.value as TrailerTone)}
+            className="w-full rounded-lg border border-black/[0.08] bg-white px-2.5 py-2 text-xs text-slate-700 dark:border-white/[0.08] dark:bg-white/[0.04] dark:text-white/70"
+          >
+            {TRAILER_TONES.map((t) => (
+              <option key={t.value} value={t.value}>{t.label}</option>
+            ))}
+          </select>
+        </div>
+      </div>
+
+      <button
+        type="button"
+        onClick={() => void handleGenerate()}
+        disabled={isBuilding || isProLocked || !coverImage}
+        className="w-full rounded-xl bg-gradient-to-b from-[#907AFF] to-[#7c6ae6] px-4 py-3 text-sm font-semibold text-white shadow-[0_1px_2px_rgba(144,122,255,0.3),inset_0_1px_0_rgba(255,255,255,0.15)] transition-all hover:shadow-[0_4px_12px_rgba(144,122,255,0.35)] hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-50"
+      >
+        {isBuilding ? "Starting..." : "Generate trailer"}
+      </button>
+    </div>
+  );
+}
 
 function statusLabel(status: string): string {
   if (status === "generated" || status === "published") return "Ready";
@@ -81,6 +331,11 @@ export default function MarketPanel({
   billingLoading,
   onGenerateCopy,
   isGenerating,
+  trailerStatus,
+  trailerUrl,
+  coverImage,
+  bookTitle,
+  bookDescription,
 }: MarketPanelProps) {
   const [selectedChannel, setSelectedChannel] = useState<MarketingChannel>("generic");
   const [language, setLanguage] = useState<SupportedLanguage>("en");
@@ -148,30 +403,16 @@ export default function MarketPanel({
     <div className="mx-auto max-w-4xl space-y-6">
       {/* ── Two paths: Quick copy + Trailer studio ── */}
       <div className="grid gap-4 sm:grid-cols-2">
-        {/* Trailer studio card */}
-        <Link
-          href={`/author/marketing?bookId=${bookId}`}
-          className="group flex flex-col gap-3 rounded-2xl border border-black/[0.05] bg-white/60 p-5 backdrop-blur-sm transition hover:border-[#907AFF]/30 hover:shadow-md dark:border-white/[0.06] dark:bg-white/[0.02] dark:hover:border-[#907AFF]/30"
-        >
-          <div className="flex items-center gap-3">
-            <div className="rounded-xl bg-gradient-to-br from-[#907AFF] to-[#7c6ae6] p-2.5 text-white shadow-sm">
-              <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" d="m15.75 10.5 4.72-4.72a.75.75 0 0 1 1.28.53v11.38a.75.75 0 0 1-1.28.53l-4.72-4.72M4.5 18.75h9a2.25 2.25 0 0 0 2.25-2.25v-9a2.25 2.25 0 0 0-2.25-2.25h-9A2.25 2.25 0 0 0 2.25 7.5v9a2.25 2.25 0 0 0 2.25 2.25Z" />
-              </svg>
-            </div>
-            <div>
-              <h3 className="text-sm font-semibold text-slate-900 dark:text-white">AI Trailer Studio</h3>
-              <p className="text-[11px] text-slate-400 dark:text-white/40">Create a book trailer with AI</p>
-            </div>
-          </div>
-          <p className="text-xs text-slate-500 dark:text-white/50">
-            Generate AI-powered video trailers for TikTok, Instagram Reels, and more.
-          </p>
-          <span className="mt-auto inline-flex items-center gap-1 text-xs font-medium text-[#907AFF] transition group-hover:gap-2">
-            Open studio
-            <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" d="M13.5 4.5 21 12m0 0-7.5 7.5M21 12H3" /></svg>
-          </span>
-        </Link>
+        {/* Trailer section */}
+        <TrailerCard
+          bookId={bookId}
+          trailerStatus={trailerStatus ?? null}
+          trailerUrl={trailerUrl ?? null}
+          coverImage={coverImage ?? null}
+          isProLocked={isProLocked}
+          bookTitle={bookTitle ?? ""}
+          bookDescription={bookDescription ?? ""}
+        />
 
         {/* Reader link card */}
         <div className="flex flex-col gap-3 rounded-2xl border border-black/[0.05] bg-white/60 p-5 backdrop-blur-sm dark:border-white/[0.06] dark:bg-white/[0.02]">

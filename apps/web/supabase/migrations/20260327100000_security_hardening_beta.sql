@@ -48,12 +48,16 @@ CREATE POLICY author_applications_insert_own ON public.author_applications
 
 -- ============================================================================
 -- W-2: public.users SELECT policy exposes emails to anon role
+--      (Skipped: public.users table does not exist in this project)
 -- ============================================================================
 
-DROP POLICY IF EXISTS "Users are viewable by everyone" ON public.users;
-CREATE POLICY "Users are viewable by authenticated"
-  ON public.users FOR SELECT
-  USING (auth.role() = 'authenticated');
+DO $$
+BEGIN
+  IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'users') THEN
+    EXECUTE 'DROP POLICY IF EXISTS "Users are viewable by everyone" ON public.users';
+    EXECUTE $policy$CREATE POLICY "Users are viewable by authenticated" ON public.users FOR SELECT USING (auth.role() = 'authenticated')$policy$;
+  END IF;
+END $$;
 
 
 -- ============================================================================

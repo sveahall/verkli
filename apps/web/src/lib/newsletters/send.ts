@@ -2,29 +2,53 @@ import { Resend } from "resend";
 import { getServerEnv } from "@/lib/env";
 import { createAdminClient } from "@/lib/supabase/admin";
 
-/** Allowed HTML tags for newsletter content. Strips scripts, iframes, event handlers. */
+/** Allowed HTML tags for newsletter content. */
 const ALLOWED_TAGS = new Set([
   "p", "br", "b", "strong", "i", "em", "u", "s", "a", "ul", "ol", "li",
   "h1", "h2", "h3", "h4", "h5", "h6", "blockquote", "pre", "code",
   "img", "div", "span", "table", "thead", "tbody", "tr", "td", "th", "hr",
 ]);
 
-const EVENT_HANDLER_RE = /\s+on\w+\s*=/gi;
-const JAVASCRIPT_URI_RE = /javascript\s*:/gi;
+const ALLOWED_ATTRS = new Set([
+  "href", "src", "alt", "title", "class", "style", "width", "height", "target", "rel",
+]);
 
+const DANGEROUS_TAGS_RE = /<(script|iframe|object|embed|form|input|textarea|button|select|style|link|meta|base|applet|svg|math)\b[^>]*>[\s\S]*?<\/\1\s*>/gi;
+const DANGEROUS_SELF_CLOSING_RE = /<(script|iframe|object|embed|form|input|textarea|button|select|style|link|meta|base|applet|svg|math)\b[^>]*\/?>/gi;
+const EVENT_HANDLER_RE = /\s+on[a-z]+\s*=\s*(?:"[^"]*"|'[^']*'|[^\s>]*)/gi;
+const DANGEROUS_URI_RE = /(href|src|action|formaction|xlink:href|data)\s*=\s*(?:"[^"]*javascript\s*:[^"]*"|'[^']*javascript\s*:[^']*')/gi;
+const DATA_URI_SCRIPT_RE = /(href|src)\s*=\s*(?:"[^"]*data\s*:[^"]*text\/html[^"]*"|'[^']*data\s*:[^']*text\/html[^']*')/gi;
+
+/**
+ * Multi-pass regex sanitizer for newsletter HTML.
+ * Strips dangerous tags, event handlers, and javascript: URIs.
+ * Runs multiple passes to catch nested bypass attempts.
+ */
 function sanitizeNewsletterHtml(html: string): string {
-  return html
-    // Remove script/iframe/object/embed tags and their content
-    .replace(/<(script|iframe|object|embed|form|input|textarea|button|select)[^>]*>[\s\S]*?<\/\1>/gi, "")
-    .replace(/<(script|iframe|object|embed|form|input|textarea|button|select)[^>]*\/?>/gi, "")
-    // Remove event handler attributes (onclick, onerror, etc.)
-    .replace(EVENT_HANDLER_RE, " ")
-    // Remove javascript: URIs
-    .replace(JAVASCRIPT_URI_RE, "")
-    // Remove tags not in allowlist (keep their text content)
-    .replace(/<\/?([a-z][a-z0-9]*)\b[^>]*>/gi, (match, tag) => {
-      return ALLOWED_TAGS.has(tag.toLowerCase()) ? match : "";
-    });
+  let result = html;
+
+  // Two passes to catch nested/malformed tags (e.g., <scr<script>ipt>)
+  for (let pass = 0; pass < 2; pass++) {
+    result = result
+      .replace(DANGEROUS_TAGS_RE, "")
+      .replace(DANGEROUS_SELF_CLOSING_RE, "")
+      .replace(EVENT_HANDLER_RE, " ")
+      .replace(DANGEROUS_URI_RE, "")
+      .replace(DATA_URI_SCRIPT_RE, "");
+  }
+
+  // Strip tags not in allowlist, and strip non-allowed attributes from allowed tags
+  result = result.replace(/<\/?([a-z][a-z0-9]*)\b([^>]*)>/gi, (match, tag, attrs) => {
+    if (!ALLOWED_TAGS.has(tag.toLowerCase())) return "";
+    // Strip non-allowed attributes
+    const cleanAttrs = (attrs as string).replace(
+      /\s+([a-z][a-z0-9-]*)\s*=\s*(?:"[^"]*"|'[^']*'|[^\s>]*)/gi,
+      (attrMatch, attrName) => ALLOWED_ATTRS.has(attrName.toLowerCase()) ? attrMatch : "",
+    );
+    return `<${match.startsWith("</") ? "/" : ""}${tag}${cleanAttrs}>`;
+  });
+
+  return result;
 }
 
 type SubscriberRow = {

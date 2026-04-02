@@ -141,8 +141,8 @@ export default function ReaderChapterClient({
     background: currentTheme.chapterBg,
     borderColor: currentTheme.chapterBorder,
   }), [currentFontFamily, currentTheme, settings.fontSize, settings.lineHeight]);
-  const orbOpacity = 0.1 + (backgroundIntensity / 100) * 0.42;
-  const gridOpacity = 0.03 + (backgroundIntensity / 100) * 0.11;
+  // Background intensity preserved for settings panel but orbs/grid removed
+  void backgroundIntensity;
 
   const canCreateHighlights = Boolean(userId && bookVersionId);
   const [supportsCssHighlights, setSupportsCssHighlights] = useState(false);
@@ -572,76 +572,49 @@ export default function ReaderChapterClient({
         onBackgroundIntensityChange={setBackgroundIntensity}
       />
 
-      <div className="relative overflow-hidden rounded-[30px] p-2 sm:p-3" style={{ background: currentTheme.canvas }}>
-        <div className="pointer-events-none absolute inset-0" aria-hidden>
-          <div
-            className="absolute -left-20 -top-24 h-[320px] w-[320px] rounded-full blur-[92px]"
-            style={{ backgroundColor: currentTheme.orbOne, opacity: orbOpacity }}
-          />
-          <div
-            className="absolute -right-16 top-[18%] h-[280px] w-[280px] rounded-full blur-[88px]"
-            style={{ backgroundColor: currentTheme.orbTwo, opacity: orbOpacity * 0.92 }}
-          />
-          <div
-            className="absolute bottom-[-96px] left-[22%] h-[300px] w-[300px] rounded-full blur-[96px]"
-            style={{ backgroundColor: currentTheme.orbThree, opacity: orbOpacity * 0.8 }}
-          />
-          <div
-            className="absolute inset-0"
-            style={{
-              backgroundImage: `linear-gradient(${currentTheme.gridColor} 1px, transparent 1px), linear-gradient(90deg, ${currentTheme.gridColor} 1px, transparent 1px)`,
-              backgroundSize: "30px 30px",
-              opacity: gridOpacity,
-            }}
-          />
-          <div className="absolute inset-0" style={{ background: currentTheme.veil }} />
-        </div>
+      <div className="space-y-4">
+        <ReaderChapterBody
+          ref={contentRef}
+          chapterTitle={chapterTitle}
+          chapterContent={chapterContent}
+          bodyStyle={chapterBodyStyle}
+        />
 
-        <div className="relative space-y-5">
-          <ReaderChapterBody
-            ref={contentRef}
-            chapterTitle={chapterTitle}
-            chapterContent={chapterContent}
-            bodyStyle={chapterBodyStyle}
-          />
+        {!supportsCssHighlights && (
+          <p className="text-xs text-[#64748B] dark:text-white/50">
+            This browser cannot draw inline highlights yet. Your saved highlights still appear in the panel.
+          </p>
+        )}
 
-          {!supportsCssHighlights && (
-            <p className="text-[12px] text-slate-500 dark:text-white/50">
-              This browser cannot draw inline highlights yet. Your saved highlights still appear in the panel.
-            </p>
-          )}
+        {!userId && (
+          <p className="text-sm text-[#64748B] dark:text-white/60">
+            <Link
+              href={`/reader/signin?next=${encodeURIComponent(`/reader/read/${chapterId}`)}`}
+              className="font-semibold text-[#907AFF] transition-colors hover:text-[#7A66E0]"
+            >
+              Sign in
+            </Link>{" "}
+            to save highlights and reading settings.
+          </p>
+        )}
 
-          {!userId && (
-            <p className="text-[13px] text-slate-600 dark:text-white/60">
-              <Link
-                href={`/reader/signin?next=${encodeURIComponent(`/reader/read/${chapterId}`)}`}
-                className="font-semibold text-[#7058DD] hover:text-[#5f49c8]"
-              >
-                Sign in
-              </Link>{" "}
-              to save highlights and reading settings.
-            </p>
-          )}
-
-          <ReaderHighlightsPanel
-            currentTheme={currentTheme}
-            highlightCountLabel={highlightCountLabel}
-            showHighlightsPanel={showHighlightsPanel}
-            chapterMessage={chapterMessage}
-            highlights={highlights}
-            noteDrafts={noteDrafts}
-            savingNoteId={savingNoteId}
-            deletingId={deletingId}
-            userId={userId}
-            onToggle={() => setShowHighlightsPanel((prev) => !prev)}
-            onNoteDraftChange={(highlightId, value) =>
-              setNoteDrafts((prev) => ({ ...prev, [highlightId]: value }))
-            }
-            onSaveNote={updateHighlightNote}
-            onDeleteHighlight={deleteHighlight}
-            onScrollToHighlight={scrollToHighlight}
-          />
-        </div>
+        <ReaderHighlightsPanel
+          highlightCountLabel={highlightCountLabel}
+          showHighlightsPanel={showHighlightsPanel}
+          chapterMessage={chapterMessage}
+          highlights={highlights}
+          noteDrafts={noteDrafts}
+          savingNoteId={savingNoteId}
+          deletingId={deletingId}
+          userId={userId}
+          onToggle={() => setShowHighlightsPanel((prev) => !prev)}
+          onNoteDraftChange={(highlightId, value) =>
+            setNoteDrafts((prev) => ({ ...prev, [highlightId]: value }))
+          }
+          onSaveNote={updateHighlightNote}
+          onDeleteHighlight={deleteHighlight}
+          onScrollToHighlight={scrollToHighlight}
+        />
       </div>
 
       {selectionState && (

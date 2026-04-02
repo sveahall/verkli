@@ -316,7 +316,7 @@ export default async function ReaderProfilePage({ searchParams }: PageProps) {
                 <div className="flex items-center gap-3">
                   <div className="relative flex h-11 w-11 items-center justify-center overflow-hidden rounded-full border border-black/10 bg-slate-100 text-[12px] font-semibold text-slate-600 dark:border-white/10 dark:bg-white/10 dark:text-white/70">
                     {author.avatarUrl ? (
-                      <Image src={author.avatarUrl} alt={author.name} fill sizes="44px" className="object-cover" unoptimized />
+                      <Image src={author.avatarUrl} alt={author.name} fill sizes="44px" className="object-cover" />
                     ) : (
                       author.name
                         .split(" ")

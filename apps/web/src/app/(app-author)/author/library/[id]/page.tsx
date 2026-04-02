@@ -155,7 +155,6 @@ export default async function BookPreviewPage({
                 fill
                 sizes="200px"
                 className="object-cover"
-                unoptimized
               />
             ) : (
               <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-slate-100 to-slate-50 dark:from-white/[0.06] dark:to-white/[0.02]">

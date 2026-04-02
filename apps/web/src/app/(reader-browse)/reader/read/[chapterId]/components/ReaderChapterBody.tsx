@@ -26,11 +26,11 @@ const ReaderChapterBody = memo(
     return (
       <div
         ref={ref}
-        className="reader-chapter-body rounded-[30px] border px-7 py-8 shadow-[0_18px_36px_rgba(15,23,42,0.08)] sm:px-11 sm:py-11"
+        className="reader-chapter-body rounded-2xl border border-black/[0.06] bg-white px-6 py-8 shadow-sm dark:border-white/10 dark:bg-white/[0.03] sm:px-10 sm:py-10"
         style={bodyStyle as CSSProperties}
       >
         <h2
-          className="mb-5 text-center text-[clamp(1.65rem,2.2vw,2.1rem)] font-semibold tracking-tight"
+          className="mb-6 text-center text-2xl font-semibold tracking-tight sm:text-3xl"
           style={{ color: "var(--reader-heading-color, #0f172a)" }}
         >
           {chapterTitle}

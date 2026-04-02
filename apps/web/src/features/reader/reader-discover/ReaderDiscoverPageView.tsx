@@ -12,6 +12,7 @@ type DiscoverBook = {
   cover: string | null;
   href: string;
   hasAudiobook?: boolean;
+  hasTrailer?: boolean;
 };
 
 type DiscoverAuthor = {
@@ -252,6 +253,7 @@ export default function ReaderDiscoverPageView({
                 cover={book.cover}
                 href={book.href}
                 tag={book.hasAudiobook ? "Audio" : undefined}
+                hasTrailer={book.hasTrailer}
                 layout="grid"
               />
             ))}

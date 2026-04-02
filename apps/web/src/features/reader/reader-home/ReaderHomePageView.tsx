@@ -30,6 +30,7 @@ type ShelfBook = {
   href: string;
   tag?: string;
   length?: string;
+  hasTrailer?: boolean;
 };
 
 type AuthorHighlight = {
@@ -131,7 +132,6 @@ export default function ReaderHomePageView({
                     fill
                     sizes="120px"
                     className="object-cover"
-                    unoptimized
                   />
                 ) : (
                   <div className="flex h-full w-full items-center justify-center bg-[#F8F9FB] dark:bg-white/5">
@@ -200,7 +200,6 @@ export default function ReaderHomePageView({
                           fill
                           sizes="40px"
                           className="object-cover"
-                          unoptimized
                         />
                       ) : (
                         <div className="flex h-full w-full items-center justify-center bg-[#F8F9FB] dark:bg-white/5">
@@ -316,7 +315,6 @@ export default function ReaderHomePageView({
                           fill
                           sizes="36px"
                           className="object-cover"
-                          unoptimized
                         />
                       ) : (
                         author.name
@@ -373,6 +371,7 @@ export default function ReaderHomePageView({
                 href={book.href}
                 tag={book.tag}
                 length={book.length}
+                hasTrailer={book.hasTrailer}
                 layout="grid"
               />
             ))}
@@ -397,6 +396,7 @@ export default function ReaderHomePageView({
                 href={book.href}
                 tag={book.tag}
                 length={book.length}
+                hasTrailer={book.hasTrailer}
                 layout="grid"
               />
             ))}
@@ -421,6 +421,7 @@ export default function ReaderHomePageView({
                 href={book.href}
                 tag={book.tag}
                 length={book.length}
+                hasTrailer={book.hasTrailer}
                 layout="grid"
               />
             ))}

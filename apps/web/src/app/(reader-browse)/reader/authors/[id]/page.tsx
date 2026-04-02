@@ -21,8 +21,19 @@ export async function generateMetadata({
     .eq("user_id", userId)
     .maybeSingle();
 
-  if (!profile || !profile.is_public) {
+  if (!profile) {
     return { title: "Author not found" };
+  }
+
+  if (!profile.is_public) {
+    const { count } = await supabase
+      .from("books")
+      .select("id", { count: "exact", head: true })
+      .eq("author_id", userId)
+      .eq("status", "PUBLISHED");
+    if (!count || count === 0) {
+      return { title: "Author not found" };
+    }
   }
 
   const displayName = profile.display_name || profile.username || "Author";
@@ -72,8 +83,21 @@ export default async function ReaderAuthorProfilePage({
     .eq("user_id", userId)
     .maybeSingle();
 
-  if (!profile || !profile.is_public) {
+  if (!profile) {
     notFound();
+  }
+
+  // Authors with published books are always visible (home page already shows them).
+  // Only enforce is_public for users without published books.
+  if (!profile.is_public) {
+    const { count } = await supabase
+      .from("books")
+      .select("id", { count: "exact", head: true })
+      .eq("author_id", userId)
+      .eq("status", "PUBLISHED");
+    if (!count || count === 0) {
+      notFound();
+    }
   }
 
   const avatarUrl = await getAvatarUrlFromPathServer(profile.avatar_url);
@@ -115,7 +139,7 @@ export default async function ReaderAuthorProfilePage({
       <div className="flex flex-wrap items-center gap-4 rounded-2xl border border-slate-200/70 bg-white/80 px-5 py-4 shadow-[0_8px_24px_rgba(15,23,42,0.06)] dark:border-white/10 dark:bg-white/5">
         <div className="relative h-16 w-16 overflow-hidden rounded-full border border-black/10 bg-slate-100 dark:border-white/10 dark:bg-white/10">
           {avatarUrl ? (
-            <Image src={avatarUrl} alt={displayName} fill sizes="64px" className="object-cover" unoptimized />
+            <Image src={avatarUrl} alt={displayName} fill sizes="64px" className="object-cover" />
           ) : (
             <div className="flex h-full w-full items-center justify-center text-[18px] font-semibold text-slate-600 dark:text-white/70">
               {displayName.split(" ").map((w: string) => w[0]).slice(0, 2).join("")}

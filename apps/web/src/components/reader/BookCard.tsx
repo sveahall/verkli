@@ -1,5 +1,6 @@
 import Link from "next/link";
 import Image from "next/image";
+import { Play } from "lucide-react";
 
 const sizeStyles = {
   sm: "w-32 sm:w-36",
@@ -18,6 +19,7 @@ type BookCardProps = {
   length?: string;
   progress?: number;
   ctaLabel?: string;
+  hasTrailer?: boolean;
   size?: keyof typeof sizeStyles;
   isSkeleton?: boolean;
   layout?: "rail" | "grid";
@@ -35,6 +37,7 @@ export default function BookCard({
   length,
   progress,
   ctaLabel,
+  hasTrailer,
   size = "md",
   isSkeleton,
   layout = "rail",
@@ -77,7 +80,6 @@ export default function BookCard({
                 fill
                 sizes="(min-width: 640px) 176px, 144px"
                 className="object-cover transition-transform duration-500 group-hover:scale-[1.04]"
-                unoptimized
               />
             ) : (
               <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-[#907AFF]/10 via-white to-slate-100 dark:from-[#907AFF]/15 dark:via-white/5 dark:to-slate-900/60">
@@ -90,6 +92,11 @@ export default function BookCard({
           {tag && (
             <span className="absolute left-2.5 top-2.5 rounded-full bg-[#907AFF]/90 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wide text-white shadow-sm backdrop-blur-sm dark:bg-[#907AFF]/80">
               {tag}
+            </span>
+          )}
+          {hasTrailer && (
+            <span className="absolute right-2 top-2 rounded-full bg-slate-900/70 p-1.5 text-white backdrop-blur-sm dark:bg-white/20">
+              <Play className="h-3 w-3 fill-current" />
             </span>
           )}
           {hasProgress && !showCta && (

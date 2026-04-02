@@ -99,7 +99,7 @@ export default function ProfilePage({ user, profile }: ProfilePageProps) {
             <div className="mt-4 flex flex-wrap items-center gap-4">
               <div className="relative h-20 w-20 overflow-hidden rounded-full border border-slate-200/80 bg-slate-100 dark:border-white/10 dark:bg-white/[0.04]">
                 {avatarUrl ? (
-                  <Image src={avatarUrl} alt="Avatar" fill sizes="80px" className="object-cover" unoptimized />
+                  <Image src={avatarUrl} alt="Avatar" fill sizes="80px" className="object-cover" />
                 ) : (
                   <div className="flex h-full w-full items-center justify-center text-[24px] font-semibold text-slate-900 dark:text-white">
                     {displayName.charAt(0).toUpperCase()}

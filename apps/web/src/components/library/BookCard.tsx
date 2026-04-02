@@ -64,7 +64,6 @@ export default function BookCard({
                 fill
                 sizes="(min-width: 1280px) 260px, (min-width: 1024px) 200px, 45vw"
                 className="object-cover transition-transform duration-500 group-hover:scale-110"
-                unoptimized
               />
             ) : (
             <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-[#907AFF]/30 via-[#E29ED5]/30 to-[#FCC997]/30">

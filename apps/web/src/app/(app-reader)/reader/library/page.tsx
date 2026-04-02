@@ -38,22 +38,23 @@ export default async function ReaderLibraryPage() {
     redirect("/reader/signin");
   }
 
-  const { data: readingsRows } = await supabase
-    .from("readings")
-    .select("book_id, chapter_id, progress_percent, last_read_at")
-    .eq("user_id", user.id)
-    .order("last_read_at", { ascending: false });
-
-  const { data: bookmarkRows } = await supabase
-    .from("bookmarks")
-    .select("book_id")
-    .eq("user_id", user.id);
-
-  const { data: entitlementRows } = await supabase
-    .from("entitlements" as never)
-    .select("book_id")
-    .eq("user_id", user.id)
-    .eq("source", "purchase");
+  const [{ data: readingsRows }, { data: bookmarkRows }, { data: entitlementRows }] =
+    await Promise.all([
+      supabase
+        .from("readings")
+        .select("book_id, chapter_id, progress_percent, last_read_at")
+        .eq("user_id", user.id)
+        .order("last_read_at", { ascending: false }),
+      supabase
+        .from("bookmarks")
+        .select("book_id")
+        .eq("user_id", user.id),
+      supabase
+        .from("entitlements" as never)
+        .select("book_id")
+        .eq("user_id", user.id)
+        .eq("source", "purchase"),
+    ]);
 
   const readings = readingsRows ?? [];
   const bookmarksCount = bookmarkRows?.length ?? 0;

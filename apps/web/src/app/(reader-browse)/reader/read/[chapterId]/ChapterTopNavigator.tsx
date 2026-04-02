@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
+import { ChevronLeft, ChevronRight } from "lucide-react";
 
 type NavChapter = {
   id: string;
@@ -67,75 +68,82 @@ export default function ChapterTopNavigator({
   }, [nextChapterId, previousChapterId, router]);
 
   return (
-    <div className="sticky top-[102px] z-30 rounded-[24px] border border-slate-200/90 bg-white/95 px-5 py-4 shadow-[0_14px_36px_rgba(15,23,42,0.09)] backdrop-blur dark:border-white/10 dark:bg-[#0b0e14]/85">
-      <div className="flex items-center gap-3">
-        <button
-          type="button"
-          onClick={() => previousChapter && router.push(`/reader/read/${previousChapter.id}`)}
-          disabled={!previousChapter}
-          className="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-700 shadow-sm transition hover:-translate-y-0.5 hover:border-slate-300 hover:bg-white disabled:cursor-not-allowed disabled:opacity-40 dark:border-white/15 dark:bg-white/[0.06] dark:text-white/80 dark:hover:bg-white/10"
-          aria-label="Previous chapter"
-        >
-          ←
-        </button>
+    <div className="sticky top-[64px] z-30">
+      <div className="rounded-xl border border-black/[0.06] bg-white/95 px-3 py-2.5 shadow-sm backdrop-blur-lg dark:border-white/10 dark:bg-[#0b0e14]/90">
+        <div className="flex items-center gap-2">
+          {/* Prev button */}
+          <button
+            type="button"
+            onClick={() => previousChapter && router.push(`/reader/read/${previousChapter.id}`)}
+            disabled={!previousChapter}
+            className={`inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-xl border text-sm transition-all duration-200 ${
+              previousChapter
+                ? "border-black/[0.06] text-[#0F172A] hover:-translate-y-0.5 hover:border-[#907AFF]/30 hover:text-[#907AFF] active:scale-95 dark:border-white/10 dark:text-white dark:hover:border-[#907AFF]/30"
+                : "pointer-events-none border-transparent text-[#64748B]/30 dark:text-white/20"
+            }`}
+            aria-label="Previous chapter"
+          >
+            <ChevronLeft className="h-3.5 w-3.5" />
+          </button>
 
-        <div className="min-w-0 flex-1">
-          <div className="flex items-center justify-between gap-3">
-            <p className="truncate text-[14px] font-semibold text-slate-900 dark:text-white">
-              {currentChapter ? `${displayIndex}. ${currentChapter.title}` : "Chapter"}
-            </p>
+          {/* Chapter info + progress */}
+          <div className="min-w-0 flex-1">
             <button
               type="button"
               onClick={() => setShowJump((prev) => !prev)}
-              className="whitespace-nowrap text-[11px] font-medium text-slate-500 transition hover:text-slate-700 dark:text-white/50 dark:hover:text-white/70"
+              className="flex w-full items-center justify-between gap-2"
             >
-              {displayIndex} / {total} &bull; {progressPercent}%
+              <span className="truncate text-sm font-medium text-[#0F172A] dark:text-white">
+                {currentChapter ? currentChapter.title : "Chapter"}
+              </span>
+              <span className="shrink-0 text-xs tabular-nums text-[#64748B] dark:text-white/40">
+                {displayIndex} of {total}
+              </span>
             </button>
+            <div className="mt-1.5 h-[3px] overflow-hidden rounded-full bg-black/[0.06] dark:bg-white/10">
+              <div
+                className="h-full rounded-full bg-[#907AFF] transition-all duration-500 ease-[cubic-bezier(0.23,1,0.32,1)]"
+                style={{ width: `${Math.max(progressPercent, total > 0 ? 2 : 0)}%` }}
+              />
+            </div>
           </div>
-          <div className="mt-2 h-2.5 overflow-hidden rounded-full bg-slate-200 dark:bg-white/10">
-            <div
-              className="h-full rounded-full bg-gradient-to-r from-[#8B7BFF] via-[#6E8BFF] to-[#56C8B3] shadow-[0_0_0_1px_rgba(255,255,255,0.24)_inset] transition-all duration-300"
-              style={{ width: `${Math.max(progressPercent, total > 0 ? 3 : 0)}%` }}
-            />
-          </div>
-        </div>
 
-        <button
-          type="button"
-          onClick={() => nextChapter && router.push(`/reader/read/${nextChapter.id}`)}
-          disabled={!nextChapter}
-          className="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-700 shadow-sm transition hover:-translate-y-0.5 hover:border-slate-300 hover:bg-white disabled:cursor-not-allowed disabled:opacity-40 dark:border-white/15 dark:bg-white/[0.06] dark:text-white/80 dark:hover:bg-white/10"
-          aria-label="Next chapter"
-        >
-          →
-        </button>
-      </div>
-
-      {showJump && (
-        <div className="mt-3 flex items-center gap-2">
-          <label htmlFor="chapter-jump" className="text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-500 dark:text-white/50">
-            Jump
-          </label>
-          <select
-            id="chapter-jump"
-            value={currentChapterId}
-            onChange={(event) => {
-              router.push(`/reader/read/${event.target.value}`);
-              setShowJump(false);
-            }}
-            className="flex-1 rounded-xl border border-slate-200 bg-white px-3 py-2 text-[13px] text-slate-800 outline-none transition focus:border-[#8B7BFF]/50 focus:ring-2 focus:ring-[#8B7BFF]/20 dark:border-white/15 dark:bg-white/[0.05] dark:text-white"
+          {/* Next button */}
+          <button
+            type="button"
+            onClick={() => nextChapter && router.push(`/reader/read/${nextChapter.id}`)}
+            disabled={!nextChapter}
+            className={`inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-xl border text-sm transition-all duration-200 ${
+              nextChapter
+                ? "border-black/[0.06] text-[#0F172A] hover:-translate-y-0.5 hover:border-[#907AFF]/30 hover:text-[#907AFF] active:scale-95 dark:border-white/10 dark:text-white dark:hover:border-[#907AFF]/30"
+                : "pointer-events-none border-transparent text-[#64748B]/30 dark:text-white/20"
+            }`}
+            aria-label="Next chapter"
           >
-            {chapters.map((chapter, index) => (
-              <option key={chapter.id} value={chapter.id}>
-                {index + 1}. {chapter.title}
-              </option>
-            ))}
-          </select>
-          <span className="hidden text-[11px] text-slate-500 dark:text-white/50 sm:inline">
-            ⌨︎ ← / →
-          </span>
+            <ChevronRight className="h-3.5 w-3.5" />
+          </button>
         </div>
-      )}
+
+        {showJump && (
+          <div className="mt-2 border-t border-black/[0.06] pt-2 dark:border-white/10">
+            <select
+              id="chapter-jump"
+              value={currentChapterId}
+              onChange={(event) => {
+                router.push(`/reader/read/${event.target.value}`);
+                setShowJump(false);
+              }}
+              className="w-full rounded-xl border border-black/[0.06] bg-white px-3 py-2 text-sm text-[#0F172A] outline-none transition focus:border-[#907AFF]/40 focus:ring-2 focus:ring-[#907AFF]/15 dark:border-white/10 dark:bg-white/[0.05] dark:text-white"
+            >
+              {chapters.map((chapter, index) => (
+                <option key={chapter.id} value={chapter.id}>
+                  {index + 1}. {chapter.title}
+                </option>
+              ))}
+            </select>
+          </div>
+        )}
+      </div>
     </div>
   );
 }

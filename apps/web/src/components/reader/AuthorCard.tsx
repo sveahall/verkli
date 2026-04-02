@@ -20,7 +20,7 @@ export default function AuthorCard({ name, avatar, genre, followers, meta, href 
     >
       <div className="relative flex h-12 w-12 items-center justify-center overflow-hidden rounded-full bg-gradient-to-br from-[#907AFF]/15 to-[#E29ED5]/15 text-[14px] font-semibold text-slate-600 ring-2 ring-white/80 dark:from-[#907AFF]/20 dark:to-[#E29ED5]/20 dark:text-white/70 dark:ring-white/10">
         {avatar ? (
-          <Image src={avatar} alt={name} fill sizes="48px" className="object-cover" unoptimized />
+          <Image src={avatar} alt={name} fill sizes="48px" className="object-cover" />
         ) : (
           name
             .split(" ")

@@ -129,7 +129,6 @@ export default function ReaderLibraryPageView({ initialData }: ReaderLibraryPage
                             fill
                             sizes="80px"
                             className="object-cover"
-                            unoptimized
                           />
                         ) : (
                           <div className="flex h-full w-full items-center justify-center">

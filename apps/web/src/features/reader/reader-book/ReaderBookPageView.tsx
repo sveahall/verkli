@@ -14,6 +14,7 @@ type ReaderBookPageViewProps = {
   notices?: React.ReactNode;
   actionBar: React.ReactNode;
   utilityBar?: React.ReactNode;
+  trailerSection?: React.ReactNode;
   editionNotes: Array<{ label: string; value: string }>;
   chaptersSection: React.ReactNode;
   podSection?: React.ReactNode;
@@ -35,6 +36,7 @@ export default function ReaderBookPageView({
   notices,
   actionBar,
   utilityBar,
+  trailerSection,
   editionNotes,
   chaptersSection,
   podSection,
@@ -108,6 +110,9 @@ export default function ReaderBookPageView({
           </div>
         </div>
       </div>
+
+      {/* ── Trailer ── */}
+      {trailerSection}
 
       {/* ── Edition details (inline bar) ── */}
       <div className="grid grid-cols-2 gap-3 sm:gap-4 xl:grid-cols-4">

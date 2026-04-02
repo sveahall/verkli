@@ -27,6 +27,7 @@ type PublishedBook = {
   cover: string | null;
   publishedAt: string | null;
   updatedAt: string;
+  trailerUrl: string | null;
 };
 
 type ChartBook = PublishedBook & {
@@ -328,6 +329,7 @@ export default async function ReaderHomePage() {
       cover: book.cover_image,
       publishedAt: book.published_at,
       updatedAt: book.updated_at,
+      trailerUrl: (book as { trailer_url?: string | null }).trailer_url ?? null,
     }));
 
     newReleases = publishedWithAuthors.slice(0, 14);
@@ -559,6 +561,7 @@ export default async function ReaderHomePage() {
             href: `/reader/books/${book.id}`,
             tag: activeAuthorIds.has(book.authorId) ? "By an author you already read" : undefined,
             length: "Recommended next",
+            hasTrailer: Boolean(book.trailerUrl),
           }))}
           trendingBooks={trendingBooks.map((book, index) => ({
             id: book.id,
@@ -571,6 +574,7 @@ export default async function ReaderHomePage() {
               book.averageRating != null
                 ? `${book.averageRating.toFixed(1)} rating`
                 : `${compactNumber(book.readerCount + book.bookmarkCount)} readers`,
+            hasTrailer: Boolean(book.trailerUrl),
           }))}
           latestReleases={latestReleases.map((book) => ({
             id: book.id,
@@ -580,6 +584,7 @@ export default async function ReaderHomePage() {
             href: `/reader/books/${book.id}`,
             tag: "New",
             length: formatDateLabel(book.publishedAt) ? `Published ${formatDateLabel(book.publishedAt)}` : undefined,
+            hasTrailer: Boolean(book.trailerUrl),
           }))}
           authorHighlights={trendingAuthors.slice(0, 5)}
           readingStats={readingStats}

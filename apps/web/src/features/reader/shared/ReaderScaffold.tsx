@@ -71,7 +71,6 @@ function CoverArt({
           fill
           sizes="(max-width: 1024px) 220px, 280px"
           className="object-cover"
-          unoptimized
         />
       ) : (
         <div className="flex h-full w-full items-center justify-center bg-[radial-gradient(circle_at_top,_rgba(144,122,255,0.22),_rgba(255,255,255,0.92)_55%,_rgba(15,23,42,0.04)_100%)] dark:bg-[radial-gradient(circle_at_top,_rgba(144,122,255,0.24),_rgba(15,23,42,0.82)_58%,_rgba(15,23,42,0.74)_100%)]">
@@ -192,7 +191,7 @@ export function ReaderContinueCard({
       <div className="flex items-start gap-4">
         <div className="relative h-[112px] w-[82px] flex-shrink-0 overflow-hidden rounded-xl bg-slate-100 dark:bg-white/10">
           {cover ? (
-            <Image src={cover} alt={title} fill sizes="82px" className="object-cover" unoptimized />
+            <Image src={cover} alt={title} fill sizes="82px" className="object-cover" />
           ) : (
             <div className="flex h-full w-full items-center justify-center">
               <BookMarked className="h-5 w-5 text-slate-300 dark:text-white/25" />

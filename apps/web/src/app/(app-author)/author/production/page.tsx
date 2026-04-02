@@ -34,21 +34,22 @@ export default async function AuthorProductionPage({
 
   const bookIds = (books ?? []).map((b) => b.id);
 
-  const { data: chapters } =
+  const [{ data: chapters }, { data: translations }] =
     bookIds.length > 0
-      ? await supabase
-          .from("chapters")
-          .select("book_id")
-          .in("book_id", bookIds)
-      : { data: [] as { book_id: string }[] };
-
-  const { data: translations } =
-    bookIds.length > 0
-      ? await supabase
-          .from("translations")
-          .select("original_book_id")
-          .in("original_book_id", bookIds)
-      : { data: [] as { original_book_id: string }[] };
+      ? await Promise.all([
+          supabase
+            .from("chapters")
+            .select("book_id")
+            .in("book_id", bookIds),
+          supabase
+            .from("translations")
+            .select("original_book_id")
+            .in("original_book_id", bookIds),
+        ])
+      : [
+          { data: [] as { book_id: string }[] },
+          { data: [] as { original_book_id: string }[] },
+        ];
 
   const chapterCountMap = new Map<string, number>();
   (chapters ?? []).forEach((ch) => {

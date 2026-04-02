@@ -32,7 +32,6 @@ export default function BookClubCard({ club, onJoin, joining }: BookClubCardProp
             fill
             sizes="(min-width: 1024px) 33vw, 100vw"
             className="object-cover"
-            unoptimized
           />
         ) : (
           <div className="flex h-full w-full items-center justify-center">

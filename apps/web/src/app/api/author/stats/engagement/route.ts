@@ -25,11 +25,22 @@ export async function GET() {
     });
   }
 
-  // Count reviews and average rating
-  const { count: reviewCount } = await supabase
-    .from("reviews")
-    .select("id", { count: "exact", head: true })
-    .in("book_id", bookIds);
+  // Count reviews, bookmarks, and followers in parallel (all independent)
+  const [{ count: reviewCount }, { count: bookmarkCount }, { count: followerCount }] =
+    await Promise.all([
+      supabase
+        .from("reviews")
+        .select("id", { count: "exact", head: true })
+        .in("book_id", bookIds),
+      supabase
+        .from("bookmarks")
+        .select("id", { count: "exact", head: true })
+        .in("book_id", bookIds),
+      supabase
+        .from("follows")
+        .select("id", { count: "exact", head: true })
+        .eq("followee_id", user.id),
+    ]);
 
   let averageRating = 0;
   if ((reviewCount ?? 0) > 0) {
@@ -43,18 +54,6 @@ export async function GET() {
         reviews.reduce((sum, r) => sum + (Number(r.rating) || 0), 0) / reviews.length;
     }
   }
-
-  // Count bookmarks
-  const { count: bookmarkCount } = await supabase
-    .from("bookmarks")
-    .select("id", { count: "exact", head: true })
-    .in("book_id", bookIds);
-
-  // Count followers
-  const { count: followerCount } = await supabase
-    .from("follows")
-    .select("id", { count: "exact", head: true })
-    .eq("followee_id", user.id);
 
   return NextResponse.json({
     reviews: reviewCount ?? 0,
