@@ -1,9 +1,11 @@
 "use client";
 
 import Image from "next/image";
-import { useMemo, useRef } from "react";
+import { useMemo, useRef, useState, useCallback } from "react";
+import { useRouter } from "next/navigation";
 import { getLanguageLabel } from "@/lib/languages";
 import { useToastHelpers } from "@/components/ui/toast";
+import { createClient } from "@/lib/supabase/client";
 
 type PublishVisibility = "public" | "followers" | "private";
 
@@ -61,7 +63,9 @@ const VISIBILITY_OPTIONS: Array<{
 ];
 
 export type PublishPanelProps = {
+  bookId: string;
   bookTitle: string;
+  bookDescription: string | null;
   authorDisplayName: string;
   coverImageUrl: string | null;
   chapters: Chapter[];
@@ -112,7 +116,9 @@ function extractTextSimple(node: unknown): string {
 }
 
 export default function PublishPanel({
+  bookId,
   bookTitle,
+  bookDescription,
   authorDisplayName,
   coverImageUrl,
   chapters,
@@ -142,6 +148,7 @@ export default function PublishPanel({
   onOpenCover,
   genreSelector,
 }: PublishPanelProps) {
+  const router = useRouter();
   const toast = useToastHelpers();
   const requirementsRef = useRef<HTMLDivElement>(null);
   const liveCount = publishedChapterCount ?? (isPublished ? chapters.length : 0);
@@ -152,6 +159,27 @@ export default function PublishPanel({
     () => bookVersions.map((v) => getLanguageLabel(v.language_code)),
     [bookVersions],
   );
+
+  // ── Description inline editor ──────────────────────────────────────────────
+  const [descDraft, setDescDraft] = useState(bookDescription ?? "");
+  const [descSaving, setDescSaving] = useState(false);
+
+  const handleSaveDescription = useCallback(async () => {
+    const trimmed = descDraft.trim() || null;
+    const current = (bookDescription ?? "").trim() || null;
+    if (trimmed === current) return;
+    setDescSaving(true);
+    const supabase = createClient();
+    const { error } = await supabase
+      .from("books")
+      .update({ description: trimmed })
+      .eq("id", bookId);
+    if (error) {
+      toast.error("Could not save description. Try again.");
+    }
+    setDescSaving(false);
+    router.refresh();
+  }, [descDraft, bookDescription, bookId, router, toast]);
 
   const handleDisabledPublishClick = () => {
     if (missingPublishRequirements.length > 0) {
@@ -209,6 +237,27 @@ export default function PublishPanel({
           </div>
           <h2 className="mt-2 text-lg font-bold tracking-tight text-slate-900 dark:text-white">{bookTitle}</h2>
           <p className="text-sm text-slate-500 dark:text-white/50">{authorDisplayName}</p>
+          {/* Description */}
+          <div className="mt-3">
+            <label className="mb-1.5 block text-[11px] font-semibold uppercase tracking-wider text-slate-400 dark:text-white/35">
+              Description
+            </label>
+            <div className="relative">
+              <textarea
+                value={descDraft}
+                onChange={(e) => setDescDraft(e.target.value)}
+                onBlur={() => void handleSaveDescription()}
+                placeholder="A short description shown to readers…"
+                rows={3}
+                className="w-full resize-none rounded-xl border border-black/[0.07] bg-slate-50/60 px-3 py-2.5 text-[13px] leading-relaxed text-slate-800 placeholder-slate-300 outline-none transition-all focus:border-[#907AFF]/40 focus:bg-white dark:border-white/[0.06] dark:bg-white/[0.03] dark:text-white/80 dark:placeholder-white/20 dark:focus:border-[#907AFF]/30 dark:focus:bg-white/[0.05]"
+              />
+              {descSaving && (
+                <span className="absolute bottom-2.5 right-3 text-[11px] text-slate-400 dark:text-white/30">
+                  Saving…
+                </span>
+              )}
+            </div>
+          </div>
           <div className="mt-3 flex flex-wrap gap-x-5 gap-y-1 text-xs text-slate-400 dark:text-white/40">
             <span>{totalCount} chapters</span>
             {isPublished && <span>{liveCount}/{totalCount} live</span>}

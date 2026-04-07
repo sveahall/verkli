@@ -100,10 +100,10 @@ export default function ReaderAppShell({
                 key={item.label}
                 href={item.href}
                 onMouseEnter={() => router.prefetch(item.href)}
-                className={`inline-flex min-h-[44px] items-center gap-3.5 rounded-xl px-4 py-2.5 text-[15px] font-normal transition ${
+                className={`inline-flex min-h-[44px] items-center gap-3.5 rounded-xl px-4 py-2.5 text-[15px] transition-colors duration-150 ease-out ${
                   active
-                    ? "bg-gradient-to-r from-[#907AFF] to-[#7C6CFF] text-white"
-                    : "text-[#7A8194] hover:bg-[#F6F7FB] hover:text-[#555C70] dark:text-white/50 dark:hover:bg-white/10 dark:hover:text-white"
+                    ? "bg-[#907AFF]/[0.09] font-medium text-[#907AFF] dark:bg-[#907AFF]/[0.14] dark:text-[#B8AAFF]"
+                    : "font-normal text-[#8B92A5] hover:bg-black/[0.04] hover:text-[#1E2535] dark:text-white/50 dark:hover:bg-white/[0.06] dark:hover:text-white"
                 }`}
               >
                 <Icon className="h-[18px] w-[18px] flex-shrink-0" />
@@ -189,19 +189,19 @@ export default function ReaderAppShell({
                 className="group flex flex-col items-center gap-1 px-3 py-1.5"
               >
                 <span
-                  className={`flex h-8 w-8 items-center justify-center rounded-xl transition-all duration-200 ${
+                  className={`flex h-8 w-8 items-center justify-center rounded-xl transition-colors duration-150 ${
                     active
-                      ? "bg-gradient-to-r from-[#907AFF] to-[#7C6CFF] text-white shadow-md shadow-[#907AFF]/20"
-                      : "text-[#7A8194] group-hover:text-[#555C70] dark:text-white/40 dark:group-hover:text-white/70"
+                      ? "text-[#907AFF] dark:text-[#B8AAFF]"
+                      : "text-[#8B92A5] group-hover:text-[#1E2535] dark:text-white/40 dark:group-hover:text-white/70"
                   }`}
                 >
                   <Icon className="h-[18px] w-[18px]" />
                 </span>
                 <span
-                  className={`text-[10px] font-medium transition-colors ${
+                  className={`text-[10px] transition-colors duration-150 ${
                     active
-                      ? "text-[#907AFF]"
-                      : "text-[#7A8194] dark:text-white/40"
+                      ? "font-semibold text-[#907AFF] dark:text-[#B8AAFF]"
+                      : "font-medium text-[#8B92A5] dark:text-white/40"
                   }`}
                 >
                   {item.label}

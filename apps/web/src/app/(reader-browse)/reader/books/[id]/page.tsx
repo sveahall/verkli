@@ -603,6 +603,7 @@ export default async function ReaderBookDetail({
         dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd).replace(/</g, "\\u003c") }}
       />
       <ReaderBookPageView
+        coverUrl={(book as { cover_image?: string | null }).cover_image ?? null}
         backHref="/reader/discover"
         title={book.title}
         authorName={authorName}

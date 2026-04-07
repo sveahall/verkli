@@ -55,6 +55,7 @@ export default function ProfilePage({ user, profile }: ProfilePageProps) {
   const [avatarUrl, setAvatarUrl] = useState(profile.avatarUrl ?? "");
   const [isPublic, setIsPublic] = useState(profile.isPublic);
   const [avatarUploading, setAvatarUploading] = useState(false);
+  const [avatarError, setAvatarError] = useState<string | null>(null);
   const [state, formAction] = useActionState(saveAuthorProfile, initialState);
 
   const handleAvatarChange = async (event: ChangeEvent<HTMLInputElement>) => {
@@ -62,16 +63,19 @@ export default function ProfilePage({ user, profile }: ProfilePageProps) {
     if (!file) return;
 
     setAvatarUploading(true);
+    setAvatarError(null);
     const { path, url, error } = await uploadAvatar(file, user.id);
 
     if (error || !path) {
       setAvatarUploading(false);
+      setAvatarError("Upload failed. Check file type and size (max 2 MB).");
       return;
     }
 
     const result = await updateAvatarPath(path);
     setAvatarUploading(false);
     if (!result.ok) {
+      setAvatarError("Could not save avatar. Please try again.");
       return;
     }
 
@@ -82,7 +86,7 @@ export default function ProfilePage({ user, profile }: ProfilePageProps) {
     <WorkspaceLayout
       header={
         <header>
-          <h1 className="text-[17px] font-medium uppercase tracking-[0.14em] text-[#8B92A5] dark:text-white/50">
+          <h1 className="text-[22px] font-semibold tracking-tight text-slate-900 dark:text-white">
             Profile
           </h1>
         </header>
@@ -90,10 +94,6 @@ export default function ProfilePage({ user, profile }: ProfilePageProps) {
       headerRight={<WorkspaceHeaderActions />}
       main={
         <form action={formAction} className="space-y-4">
-          <div className="flex justify-end">
-            <SaveButton />
-          </div>
-
           <section className="rounded-2xl bg-white px-7 py-5 dark:bg-white/[0.04]">
             <h2 className="text-section-title">Avatar</h2>
             <div className="mt-4 flex flex-wrap items-center gap-4">
@@ -114,12 +114,15 @@ export default function ProfilePage({ user, profile }: ProfilePageProps) {
                 <p className="mt-2 text-sm text-slate-500 dark:text-white/45">
                   PNG or JPG, up to 2 MB.
                 </p>
+                {avatarError && (
+                  <p className="mt-1.5 text-sm text-red-600 dark:text-red-400">{avatarError}</p>
+                )}
               </div>
             </div>
           </section>
 
           <section className="rounded-2xl bg-white px-7 py-5 dark:bg-white/[0.04]">
-            <h2 className="text-section-title">Display name</h2>
+            <h2 className="text-section-title">Pen name</h2>
             <input
               name="display_name"
               value={displayName}
@@ -144,7 +147,7 @@ export default function ProfilePage({ user, profile }: ProfilePageProps) {
               <div>
                 <h2 className="text-section-title">Public profile</h2>
                 <p className="mt-2 text-sm text-slate-500 dark:text-white/45">
-                  Turn your public author page on or off.
+                  When enabled, readers can find your author page and books in the discovery feed.
                 </p>
               </div>
               <label className="relative inline-flex cursor-pointer items-center">
@@ -170,6 +173,10 @@ export default function ProfilePage({ user, profile }: ProfilePageProps) {
           </section>
 
           <InlineFeedback state={state} />
+
+          <div className="flex justify-end">
+            <SaveButton />
+          </div>
         </form>
       }
     />

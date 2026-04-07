@@ -13,6 +13,7 @@ export type AudiobookGenerationScope = "book" | "current" | "selected";
 export type AudiobookControlAction = "pause" | "resume" | "cancel";
 
 export type Tool =
+  | "dashboard"
   | "edit"
   | "cover"
   | "translate"
@@ -21,9 +22,11 @@ export type Tool =
   | "pricing"
   | "publish"
   | "market"
+  | "trailer"
   | "review"
   | "statistics"
-  | "import";
+  | "import"
+  | "ai";
 
 export type MarketingCampaignRow = {
   id: string;

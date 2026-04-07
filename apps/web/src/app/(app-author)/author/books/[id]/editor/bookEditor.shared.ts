@@ -242,6 +242,7 @@ export type LatestAudiobookAsset = {
 } | null;
 
 export type Tool =
+  | "dashboard"
   | "edit"
   | "cover"
   | "translate"
@@ -250,9 +251,11 @@ export type Tool =
   | "pricing"
   | "publish"
   | "market"
+  | "trailer"
   | "review"
   | "statistics"
-  | "import";
+  | "import"
+  | "ai";
 
 /**
  * The linear production flow: Write → Cover → Audio → Translate → Publish → Review.
@@ -268,6 +271,22 @@ export const TOOL_ORDER: Tool[] = [
   "review",
 ];
 
+/**
+ * Extended tool order including dashboard as the landing view.
+ * Dashboard is intentionally not in TOOL_ORDER (stepper flow).
+ */
+export const ALL_TOOLS: Tool[] = [
+  "dashboard",
+  ...TOOL_ORDER,
+  "trailer",
+  "market",
+  "ai",
+  "statistics",
+  "import",
+  "print",
+  "pricing",
+];
+
 export const TOOL_META: Record<
   Tool,
   {
@@ -276,6 +295,11 @@ export const TOOL_META: Record<
     shortLabel: string;
   }
 > = {
+  dashboard: {
+    label: "Dashboard",
+    description: "Overview of your book with quick access to every area.",
+    shortLabel: "Overview",
+  },
   edit: {
     label: "Write",
     description: "Shape the manuscript, structure chapters, and keep the draft moving.",
@@ -331,12 +355,22 @@ export const TOOL_META: Record<
     description: "Bring in a manuscript, repair structure, and replace drafts safely.",
     shortLabel: "Ingest",
   },
+  trailer: {
+    label: "Trailer",
+    description: "Generate an AI-powered video trailer for your book.",
+    shortLabel: "Trailer",
+  },
+  ai: {
+    label: "AI Assistant",
+    description: "Chat with an AI writing assistant about your manuscript.",
+    shortLabel: "AI",
+  },
 };
 
 export function getToolHref(bookId: string, tool: Tool): string {
-  return tool === "edit"
-    ? `/author/books/${bookId}`
-    : `/author/books/${bookId}?panel=${tool}`;
+  if (tool === "edit") return `/author/books/${bookId}`;
+  if (tool === "dashboard") return `/author/books/${bookId}?panel=dashboard`;
+  return `/author/books/${bookId}?panel=${tool}`;
 }
 
 export type BookEditorProps = {

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { LANGUAGE_OPTIONS, type SupportedLanguage } from "@/lib/languages";
 import { resolveErrorMessage } from "@/lib/error-messages";
@@ -19,17 +19,19 @@ type CreateBookDialogProps = {
 export default function CreateBookDialog({
   open,
   onClose,
-  initialMode = "choice",
+  initialMode = "write",
   onCreated,
   onImported,
 }: CreateBookDialogProps) {
   const router = useRouter();
   const [mode, setMode] = useState<Mode>(initialMode);
   const [title, setTitle] = useState("");
+  const [description, setDescription] = useState("");
   const [language, setLanguage] = useState<SupportedLanguage>("en");
   const [creating, setCreating] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [importOpen, setImportOpen] = useState(false);
+  const titleInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (!open) {
@@ -38,6 +40,7 @@ export default function CreateBookDialog({
     }
     setMode(initialMode);
     setTitle("");
+    setDescription("");
     setLanguage("en");
     setError(null);
     setCreating(false);
@@ -46,7 +49,8 @@ export default function CreateBookDialog({
 
   const canShowDialog = open && !importOpen;
 
-  const handleCreated = (bookId: string, versionId?: string | null, lang?: SupportedLanguage) => {
+  const handleCreated = (bookId: string | undefined, versionId?: string | null, lang?: SupportedLanguage) => {
+    if (!bookId) return;
     window.dispatchEvent(new CustomEvent("author-shell:refresh-books"));
     if (onCreated) {
       onCreated(bookId, versionId ?? null, lang);
@@ -66,6 +70,11 @@ export default function CreateBookDialog({
 
   const handleCreate = async () => {
     if (creating) return;
+    if (!title.trim()) {
+      setError("Please add a title to continue.");
+      titleInputRef.current?.focus();
+      return;
+    }
     setCreating(true);
     setError(null);
     try {
@@ -74,6 +83,7 @@ export default function CreateBookDialog({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           title: title.trim() || "Untitled",
+          description: description.trim() || undefined,
           language,
         }),
       });
@@ -82,7 +92,10 @@ export default function CreateBookDialog({
         setError(resolveErrorMessage(data?.error));
         return;
       }
-      handleCreated(data.id, data.versionId ?? null, language);
+      // Support both flat { id } and wrapped { data: { id } } API shapes
+      const bookId: string | undefined = data?.data?.id ?? data?.id;
+      const versionId: string | null = data?.data?.versionId ?? data?.versionId ?? null;
+      handleCreated(bookId, versionId, language);
       onClose();
     } catch {
       setError("Could not create book. Try again.");
@@ -92,9 +105,9 @@ export default function CreateBookDialog({
   };
 
   const header = useMemo(() => {
-    if (mode === "write") return "Write a new book";
+    if (mode === "write") return "New book";
     if (mode === "import") return "Import book";
-    return "Add book";
+    return "New book";
   }, [mode]);
 
   if (!open && !importOpen) return null;
@@ -161,12 +174,26 @@ export default function CreateBookDialog({
                 <div>
                   <label className="mb-2 block text-[14px] font-medium text-slate-700 dark:text-white/70">Title</label>
                   <input
+                    ref={titleInputRef}
                     type="text"
                     value={title}
-                    onChange={(e) => setTitle(e.target.value)}
+                    onChange={(e) => { setTitle(e.target.value); if (error) setError(null); }}
                     placeholder="Book title"
-                    className="w-full rounded-xl border border-black/10 dark:border-white/10 bg-black/[0.02] dark:bg-white/[0.04] px-4 py-3 text-[16px] text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-white/30 outline-none transition-all focus:border-[#907AFF]/50 focus:bg-black/10 dark:focus:bg-white/[0.06]"
+                    className={`w-full rounded-xl border bg-black/[0.02] dark:bg-white/[0.04] px-4 py-3 text-[16px] text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-white/30 outline-none transition-all focus:bg-black/10 dark:focus:bg-white/[0.06] ${error ? "border-red-400 dark:border-red-500 focus:border-red-400" : "border-black/10 dark:border-white/10 focus:border-[#907AFF]/50"}`}
                     autoFocus
+                  />
+                </div>
+                <div>
+                  <label className="mb-2 block text-[14px] font-medium text-slate-700 dark:text-white/70">
+                    Description
+                    <span className="ml-1.5 text-[12px] font-normal text-slate-400 dark:text-white/30">(optional)</span>
+                  </label>
+                  <textarea
+                    value={description}
+                    onChange={(e) => setDescription(e.target.value)}
+                    placeholder="A short description of your book"
+                    rows={3}
+                    className="w-full resize-none rounded-xl border border-black/10 dark:border-white/10 bg-black/[0.02] dark:bg-white/[0.04] px-4 py-3 text-[15px] text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-white/30 outline-none transition-all focus:border-[#907AFF]/50 focus:bg-black/10 dark:focus:bg-white/[0.06]"
                   />
                 </div>
                 <div>
@@ -186,10 +213,10 @@ export default function CreateBookDialog({
                 {error && <p className="text-sm text-red-600 dark:text-red-400">{error}</p>}
                 <div className="flex justify-end gap-3">
                   <button
-                    onClick={() => setMode("choice")}
+                    onClick={onClose}
                     className="rounded-xl border border-black/10 dark:border-white/10 bg-black/[0.02] dark:bg-white/[0.02] px-6 py-2.5 text-[14px] font-medium text-slate-700 dark:text-white/70 transition-all hover:bg-black/10 dark:hover:bg-white/[0.04]"
                   >
-                    Back
+                    Cancel
                   </button>
                   <button
                     onClick={handleCreate}
@@ -199,6 +226,17 @@ export default function CreateBookDialog({
                     {creating ? "Creating..." : "Create book"}
                   </button>
                 </div>
+                <p className="text-center text-[13px] text-slate-400 dark:text-white/30">
+                  or{" "}
+                  <button
+                    type="button"
+                    onClick={() => { setMode("import"); setImportOpen(true); }}
+                    className="underline underline-offset-2 transition-colors hover:text-slate-600 dark:hover:text-white/50"
+                  >
+                    import from file
+                  </button>
+                  {" "}(.epub, .docx, .txt)
+                </p>
               </div>
             )}
           </div>

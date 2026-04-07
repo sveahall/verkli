@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useState, useCallback, useEffect, useMemo } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useBookJobs } from "@/hooks/useBookJobs";
@@ -28,6 +29,7 @@ import {
   normalizeLangKey,
   STORAGE_PRESET,
 } from "./BookEditorView.helpers";
+import { ALL_TOOLS } from "./bookEditor.shared";
 import type {
   Book,
   BookVersion,
@@ -40,6 +42,7 @@ import type {
 import FocusModeEditorView from "./views/FocusModeEditorView";
 import SimplifiedEditView from "./views/SimplifiedEditView";
 import WriteOnlyWorkspaceView from "./views/WriteOnlyWorkspaceView";
+import BookDashboard from "./views/BookDashboard";
 import BookEditorPanelContent from "./BookEditorPanelContent";
 import { BookEditorStatusBanners } from "./components/BookEditorStatusBanners";
 
@@ -247,7 +250,7 @@ export default function BookEditorView({
 
   useEffect(() => {
     const requestedPanel = panelParam?.trim() ?? null;
-    if (requestedPanel && effectiveTools.includes(requestedPanel as Tool)) {
+    if (requestedPanel && (effectiveTools.includes(requestedPanel as Tool) || ALL_TOOLS.includes(requestedPanel as Tool))) {
       setTool(requestedPanel as Tool);
     } else if (!requestedPanel) {
       setTool("edit");
@@ -431,16 +434,59 @@ export default function BookEditorView({
       <WorkspaceLayout
         header={
           <header>
-            <h1 className="text-base font-medium uppercase tracking-widest text-slate-400 dark:text-white/50">
-              {bookTitle}
-            </h1>
+            <nav className="flex items-center gap-1.5 text-[14px]">
+              <Link
+                href="/author/library"
+                className="text-slate-400 transition-colors hover:text-slate-600 dark:text-white/40 dark:hover:text-white/70"
+              >
+                Library
+              </Link>
+              <span className="text-slate-300 dark:text-white/20" aria-hidden>/</span>
+              <span className="max-w-[220px] truncate font-medium text-slate-700 dark:text-white/80">
+                {bookTitle}
+              </span>
+            </nav>
           </header>
         }
-        headerRight={<WorkspaceHeaderActions />}
+        headerRight={
+          <div className="flex items-center gap-2">
+            {publishing.isPublished && (
+              <Link
+                href={`/reader/books/${book.id}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-1.5 rounded-full border border-slate-200 px-3 py-1.5 text-[13px] font-medium text-slate-600 transition hover:border-slate-300 hover:text-slate-800 dark:border-white/10 dark:text-white/60 dark:hover:border-white/20 dark:hover:text-white"
+              >
+                View as reader
+                <svg className="h-3 w-3" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                  <path d="M2.5 9.5l7-7M9.5 2.5H4m5.5 0v5.5" />
+                </svg>
+              </Link>
+            )}
+            <WorkspaceHeaderActions />
+          </div>
+        }
         mainClassName="space-y-8 pb-16"
         main={
           <>
             {statusBanners}
+
+            {/* Dashboard overview */}
+            {tool === "dashboard" && (
+              <BookDashboard
+                bookId={book.id}
+                bookTitle={bookTitle}
+                chapters={chapters}
+                coverImageUrl={cover.displayCoverUrl}
+                isPublished={publishing.isPublished}
+                audiobookStatus={typeof book.audiobook_status === "string" ? book.audiobook_status : null}
+                trailerStatus={typeof book.trailer_status === "string" ? book.trailer_status : null}
+                hasTranslations={bookVersions.length > 1}
+                hasPricing={pricing.priceAmountMinor > 0}
+                totalWordCount={totalBookWordCount}
+                onNavigate={(panel) => navigateToPanel(panel as Tool)}
+              />
+            )}
 
             {/* Edit panel (has its own white card) */}
             {tool === "edit" && (
@@ -488,10 +534,11 @@ export default function BookEditorView({
             )}
 
             {/* All non-edit panels */}
-            {tool !== "edit" && (
+            {tool !== "edit" && tool !== "dashboard" && (
               <BookEditorPanelContent
                 bookId={book.id}
                 bookTitle={bookTitle}
+                bookDescription={book.description ?? null}
                 bookOriginalUrl={book.original_url ?? null}
                 bookAudiobookStatus={typeof book.audiobook_status === "string" ? book.audiobook_status : null}
                 bookTrailerStatus={typeof book.trailer_status === "string" ? book.trailer_status : null}

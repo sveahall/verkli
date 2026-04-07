@@ -2,15 +2,19 @@
 
 import Image from "next/image";
 import Link from "next/link";
+import { useState } from "react";
 import {
   BookOpen,
   ChevronRight,
   Layers,
+  Plus,
 } from "lucide-react";
 import { useAuthorWorkspace } from "@/features/author-shell/workspace-state";
 import WorkspaceLayout from "@/features/author-workspaces/WorkspaceLayout";
 import WorkspaceHeaderActions from "@/features/author-workspaces/components/WorkspaceHeaderActions";
 import DeleteBookButton from "@/components/books/DeleteBookButton";
+import CreateBookDialog from "@/components/books/CreateBookDialog";
+import { useAuthorLocale } from "@/lib/author-locale";
 
 type BookItem = {
   id: string;
@@ -158,33 +162,60 @@ function BookProductionCard({ book }: { book: BookItem }) {
 /* ─── Empty state ─── */
 
 function EmptyState() {
+  const [open, setOpen] = useState(false);
+  const t = useAuthorLocale();
+
   return (
-    <div className="mx-auto max-w-md py-16 text-center">
-      <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl bg-slate-100 dark:bg-white/[0.06]">
-        <Layers className="h-7 w-7 text-slate-300 dark:text-white/20" />
+    <>
+      <div className="mx-auto max-w-md py-16 text-center">
+        <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl bg-slate-100 dark:bg-white/[0.06]">
+          <Layers className="h-7 w-7 text-slate-300 dark:text-white/20" />
+        </div>
+        <h2 className="mt-5 text-xl font-semibold text-slate-800 dark:text-white">
+          {t("production.emptyTitle")}
+        </h2>
+        <p className="mt-2 text-sm leading-relaxed text-slate-500 dark:text-white/45">
+          {t("production.emptyBody")}
+        </p>
+        <div className="mt-6">
+          <button
+            type="button"
+            onClick={() => setOpen(true)}
+            className="inline-flex items-center gap-2 rounded-full bg-[#907AFF] px-5 py-2.5 text-sm font-medium text-white transition hover:bg-[#7a67f2]"
+          >
+            <Plus className="h-4 w-4" />
+            {t("production.createBook")}
+          </button>
+        </div>
       </div>
-      <h2 className="mt-5 text-xl font-semibold text-slate-800 dark:text-white">
-        Inga böcker ännu
-      </h2>
-      <p className="mt-2 text-sm leading-relaxed text-slate-500 dark:text-white/45">
-        Skapa din första bok i Library för att komma igång med produktion.
-      </p>
-      <div className="mt-6">
-        <Link
-          href="/author/library?action=create-book"
-          className="inline-flex items-center rounded-full bg-[#907AFF] px-5 py-2.5 text-sm font-medium text-white transition hover:bg-[#7a67f2]"
-        >
-          Skapa bok
-        </Link>
-      </div>
-    </div>
+      <CreateBookDialog open={open} onClose={() => setOpen(false)} />
+    </>
   );
 }
 
 /* ─── Main ─── */
 
+function NewBookButton() {
+  const [open, setOpen] = useState(false);
+  const t = useAuthorLocale();
+  return (
+    <>
+      <button
+        type="button"
+        onClick={() => setOpen(true)}
+        className="inline-flex items-center gap-2 rounded-full bg-gradient-to-r from-[#907AFF] to-[#7C6CFF] px-4 py-2 text-[13px] font-medium text-white shadow-sm shadow-[#907AFF]/20 transition-all hover:opacity-90 active:scale-[0.97]"
+      >
+        <Plus className="h-3.5 w-3.5" />
+        {t("production.createBook")}
+      </button>
+      <CreateBookDialog open={open} onClose={() => setOpen(false)} />
+    </>
+  );
+}
+
 export default function ProductionWorkspace({ books }: ProductionWorkspaceProps) {
   void useAuthorWorkspace();
+  const t = useAuthorLocale();
 
   return (
     <WorkspaceLayout
@@ -195,7 +226,12 @@ export default function ProductionWorkspace({ books }: ProductionWorkspaceProps)
           </h1>
         </header>
       }
-      headerRight={<WorkspaceHeaderActions />}
+      headerRight={
+        <div className="flex items-center gap-2">
+          <NewBookButton />
+          <WorkspaceHeaderActions />
+        </div>
+      }
       main={
         books.length === 0 ? (
           <EmptyState />
@@ -203,10 +239,10 @@ export default function ProductionWorkspace({ books }: ProductionWorkspaceProps)
           <div>
             <div className="mb-8">
               <h2 className="text-2xl font-bold text-slate-900 dark:text-white">
-                Välj bok att arbeta med
+                {t("production.sectionTitle")}
               </h2>
               <p className="mt-2 text-base text-slate-500 dark:text-white/45">
-                Öppna en bok för att skriva, redigera, översätta, generera ljudbok och mer.
+                {t("production.sectionBody")}
               </p>
             </div>
             <div className="flex flex-col gap-4">

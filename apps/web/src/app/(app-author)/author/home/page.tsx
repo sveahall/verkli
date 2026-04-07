@@ -161,8 +161,11 @@ export default async function AuthorHomePage() {
     });
   }
 
+  const seenPublishBookIds = new Set<string>();
   for (const p of publishesRes.data ?? []) {
     if (!p.published_at) continue;
+    if (seenPublishBookIds.has(p.book_id)) continue;
+    seenPublishBookIds.add(p.book_id);
     activityItems.push({
       id: `publish-${p.id}`,
       type: "publish",

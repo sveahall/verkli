@@ -107,7 +107,7 @@ export default function ReaderHomePageView({
     <div className="reader-stagger space-y-6">
       {/* ── Header ── */}
       <header>
-        <h1 className="text-2xl font-semibold tracking-tight text-[#0F172A] dark:text-white">
+        <h1 className="text-2xl font-semibold tracking-tight text-[#0F172A] dark:text-white sm:text-3xl">
           {greeting}
         </h1>
       </header>
@@ -119,7 +119,17 @@ export default function ReaderHomePageView({
         {/* ── Main column ── */}
         <div className="space-y-4">
           {/* Hero Spotlight */}
-          <section className="card-base flex items-center gap-4 p-4 sm:gap-6 sm:p-6">
+          <section className="card-base relative flex items-center gap-4 overflow-hidden p-4 sm:gap-6 sm:p-6">
+            {/* Atmospheric cover backdrop */}
+            {spotlight?.cover && (
+              <img
+                src={spotlight.cover}
+                alt=""
+                aria-hidden="true"
+                className="pointer-events-none absolute inset-0 h-full w-full scale-110 object-cover opacity-[0.08] dark:opacity-[0.22]"
+                style={{ filter: "blur(80px) saturate(2)" }}
+              />
+            )}
             <Link
               href={spotlight?.href ?? "/reader/discover"}
               className="group relative w-[100px] flex-shrink-0 sm:w-[120px]"
@@ -263,30 +273,24 @@ export default function ReaderHomePageView({
             <h3 className="text-sm font-semibold uppercase tracking-wider text-[#64748B] dark:text-white/50">
               Your Reading
             </h3>
-            <div className="mt-3 grid grid-cols-3 gap-2 text-center sm:mt-4">
-              <div className="rounded-xl bg-[#F8F9FB] py-4 dark:bg-white/[0.06]">
-                <p className="text-2xl font-semibold text-[#0F172A] dark:text-white">
+            <div className="mt-3 flex divide-x divide-black/[0.05] text-center dark:divide-white/[0.07] sm:mt-4">
+              <div className="flex-1 py-3">
+                <p className="text-3xl font-semibold tracking-tight text-[#0F172A] dark:text-white">
                   {readingStats.booksReading}
                 </p>
-                <p className="mt-0.5 text-xs text-[#64748B] dark:text-white/50">
-                  Reading
-                </p>
+                <p className="mt-0.5 text-xs text-[#64748B] dark:text-white/50">Reading</p>
               </div>
-              <div className="rounded-xl bg-[#F8F9FB] py-4 dark:bg-white/[0.06]">
-                <p className="text-2xl font-semibold text-[#0F172A] dark:text-white">
+              <div className="flex-1 py-3">
+                <p className="text-3xl font-semibold tracking-tight text-[#0F172A] dark:text-white">
                   {readingStats.booksFinished}
                 </p>
-                <p className="mt-0.5 text-xs text-[#64748B] dark:text-white/50">
-                  Finished
-                </p>
+                <p className="mt-0.5 text-xs text-[#64748B] dark:text-white/50">Finished</p>
               </div>
-              <div className="rounded-xl bg-[#F8F9FB] py-4 dark:bg-white/[0.06]">
-                <p className="text-2xl font-semibold text-[#0F172A] dark:text-white">
+              <div className="flex-1 py-3">
+                <p className="text-3xl font-semibold tracking-tight text-[#0F172A] dark:text-white">
                   {readingStats.bookmarksCount}
                 </p>
-                <p className="mt-0.5 text-xs text-[#64748B] dark:text-white/50">
-                  Saved
-                </p>
+                <p className="mt-0.5 text-xs text-[#64748B] dark:text-white/50">Saved</p>
               </div>
             </div>
           </section>
@@ -355,7 +359,7 @@ export default function ReaderHomePageView({
          ════════════════════════════════════════════ */}
 
       {trendingBooks.length > 0 && (
-        <section className="space-y-4">
+        <section className="space-y-4 mb-0">
           <SectionHeader
             title="Trending"
             action={{ href: "/reader/discover", text: "See all" }}
@@ -380,7 +384,7 @@ export default function ReaderHomePageView({
       )}
 
       {recommendedBooks.length > 0 && (
-        <section className="space-y-4">
+        <section className="space-y-4 mt-0">
           <SectionHeader
             title="Recommended for you"
             action={{ href: "/reader/discover", text: "See all" }}

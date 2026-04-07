@@ -5,17 +5,17 @@ export default defineConfig({
   timeout: 60_000,
   retries: 0,
   use: {
-    baseURL: "http://127.0.0.1:3100",
+    baseURL: "http://localhost:3000",
     headless: true,
   },
   webServer: {
-    command: "npm run start",
-    url: "http://127.0.0.1:3100",
+    command: "npm run dev",
+    url: "http://localhost:3000",
     reuseExistingServer: true,
     timeout: 240_000,
     env: {
       ...process.env,
-      PORT: "3100",
+      PORT: "3000",
       DONATION_CHECKOUT_MOCK_MODE: "true",
       STRIPE_SECRET_KEY: "",
     },

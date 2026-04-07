@@ -4,8 +4,8 @@ import { loadBookWorkspaceData } from "./loadBookWorkspaceData";
 import type { Tool } from "./editor/bookEditor.shared";
 
 const VALID_PANELS: Tool[] = [
-  "edit", "cover", "translate", "audiobook", "print",
-  "pricing", "publish", "market", "review", "statistics", "import",
+  "dashboard", "edit", "cover", "translate", "audiobook", "print",
+  "pricing", "publish", "market", "trailer", "review", "statistics", "import", "ai",
 ];
 
 function isValidPanel(value: string | null): value is Tool {

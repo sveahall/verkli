@@ -29,10 +29,12 @@ export default async function AppAuthorLayout({
 
   const { data: profile } = await supabase
     .from("profiles")
-    .select("role")
+    .select("role, preferences")
     .eq("user_id", user.id)
     .maybeSingle();
   const profileRole = String(profile?.role ?? "").trim().toLowerCase();
+  const prefs = (profile?.preferences ?? {}) as Record<string, unknown>;
+  const preferredLocale = typeof prefs.uiLanguage === "string" ? prefs.uiLanguage : null;
   const isAdmin = profileRole === "admin";
   const isLegacyAuthor = isLegacyAuthorRole(profileRole);
   const approvalStatus = !isAdmin && !isLegacyAuthor
@@ -49,6 +51,6 @@ export default async function AppAuthorLayout({
   }
 
   return (
-    <AuthorAppShell>{children}</AuthorAppShell>
+    <AuthorAppShell preferredLocale={preferredLocale}>{children}</AuthorAppShell>
   );
 }

@@ -159,6 +159,7 @@ export default async function ReaderHomePage() {
   } = await supabase.auth.getUser();
 
   let readerName: string | null = null;
+  let isOnboarded = false;
 
   try {
     if (user) {
@@ -173,6 +174,7 @@ export default async function ReaderHomePage() {
       }
 
       readerName = profile?.display_name || profile?.username || null;
+      isOnboarded = Boolean(profile?.onboarding_completed_at);
     }
   } catch (err) {
     if (err instanceof Error && err.message === "NEXT_REDIRECT") throw err;
@@ -519,7 +521,12 @@ export default async function ReaderHomePage() {
           }
         : null;
 
-  const greeting = readerName ? `Welcome back, ${readerName.split(" ")[0]}` : "Welcome back";
+  const isReturning = isOnboarded || continueReading.length > 0;
+  const greeting = !user
+    ? "Discover your next read"
+    : isReturning
+      ? readerName ? `Welcome back, ${readerName.split(" ")[0]}` : "Welcome back"
+      : readerName ? `Welcome, ${readerName.split(" ")[0]}` : "Welcome";
   const readingBookIds = new Set(continueReading.map((book) => book.id));
   const activeAuthorIds = new Set(continueReading.map((book) => book.authorId));
   const consumedBookIds = new Set(readingBookIds);

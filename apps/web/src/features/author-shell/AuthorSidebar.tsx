@@ -128,6 +128,27 @@ function SidebarNavLink({
   );
 }
 
+/**
+ * Hard-navigates to /reader/home after setting the active_role cookie.
+ * Must NOT use Next.js <Link> — soft navigation may serve a stale prefetch
+ * that was cached while active_role=author, causing an immediate redirect back.
+ */
+function SwitchToReaderButton() {
+  return (
+    <button
+      type="button"
+      onClick={() => {
+        setActiveRoleCookieClient("reader");
+        window.location.href = "/reader/home";
+      }}
+      className="group/nav relative flex w-full min-h-[44px] items-center gap-3.5 rounded-xl px-4 py-2.5 text-[15px] font-normal transition-all duration-200 ease-[cubic-bezier(0.23,1,0.32,1)] text-[#7A8194] hover:bg-[#F6F7FB] hover:text-[#555C70] hover:translate-x-0.5 dark:text-white/50 dark:hover:bg-white/10 dark:hover:text-white"
+    >
+      <Repeat className="h-[18px] w-[18px] flex-shrink-0 transition-transform duration-200 group-hover/nav:scale-110" />
+      <span className="truncate">Open reader app</span>
+    </button>
+  );
+}
+
 function BookWorkflowNav({ bookId, isOnBookPage }: { bookId: string; isOnBookPage: boolean }) {
   const searchParams = useSearchParams();
   const rawPanel = searchParams.get("panel")?.trim() || null;
@@ -243,14 +264,18 @@ export default function AuthorSidebar() {
 
         <div className="px-3 py-5">
           <div className="flex flex-col gap-1.5">
-            {AUTHOR_SIDEBAR_FOOTER.map((item) => (
-              <SidebarNavLink
-                key={item.key}
-                item={item}
-                href={item.href}
-                active={isLeafActive(item, pathname)}
-              />
-            ))}
+            {AUTHOR_SIDEBAR_FOOTER.map((item) =>
+              item.key === "switch-to-reader" ? (
+                <SwitchToReaderButton key={item.key} />
+              ) : (
+                <SidebarNavLink
+                  key={item.key}
+                  item={item}
+                  href={item.href}
+                  active={isLeafActive(item, pathname)}
+                />
+              )
+            )}
           </div>
         </div>
       </aside>

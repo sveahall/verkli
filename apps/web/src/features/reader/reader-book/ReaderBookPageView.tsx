@@ -2,6 +2,7 @@ import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
 
 type ReaderBookPageViewProps = {
+  coverUrl?: string | null;
   backHref: string;
   title: string;
   authorName: string;
@@ -24,6 +25,7 @@ type ReaderBookPageViewProps = {
 };
 
 export default function ReaderBookPageView({
+  coverUrl,
   backHref,
   title,
   authorName,
@@ -58,6 +60,16 @@ export default function ReaderBookPageView({
 
       {/* ── Hero card ── */}
       <div className="relative overflow-hidden rounded-2xl border border-black/[0.05] bg-white/80 shadow-[0_1px_3px_rgba(0,0,0,0.04)] backdrop-blur-sm dark:border-white/[0.06] dark:bg-white/[0.03] dark:shadow-none">
+        {/* Atmospheric cover backdrop */}
+        {coverUrl && (
+          <img
+            src={coverUrl}
+            alt=""
+            aria-hidden="true"
+            className="pointer-events-none absolute inset-0 h-full w-full scale-110 object-cover opacity-[0.07] dark:opacity-[0.2]"
+            style={{ filter: "blur(80px) saturate(2)" }}
+          />
+        )}
         {/* Decorative glow */}
         <div className="pointer-events-none absolute -right-32 -top-32 h-[320px] w-[320px] rounded-full bg-[#907AFF]/[0.07] blur-[100px]" />
 

@@ -27,6 +27,7 @@ const TranslatePanel = dynamic(() => import("./panels/TranslatePanel"));
 const ReviewPanel = dynamic(() => import("./panels/ReviewPanel"));
 const PublishPanel = dynamic(() => import("./panels/PublishPanel"));
 const MarketPanel = dynamic(() => import("./panels/MarketPanel"));
+const TrailerPanel = dynamic(() => import("./panels/TrailerPanel"));
 const StatisticsPanel = dynamic(() => import("./panels/StatisticsPanel"));
 const AudiobookPanel = dynamic(() => import("./panels/AudiobookPanel"));
 const CoverPanel = dynamic(() => import("./panels/CoverPanel"));
@@ -35,6 +36,7 @@ const PricingPanel = dynamic(() => import("./panels/PricingPanel"));
 interface BookEditorPanelContentProps {
   bookId: string;
   bookTitle: string;
+  bookDescription: string | null;
   bookOriginalUrl: string | null;
   bookAudiobookStatus: string | null;
   bookTrailerStatus: string | null;
@@ -70,6 +72,7 @@ interface BookEditorPanelContentProps {
 export default function BookEditorPanelContent({
   bookId,
   bookTitle,
+  bookDescription,
   bookOriginalUrl,
   authorDisplayName,
   tool,
@@ -215,8 +218,9 @@ export default function BookEditorPanelContent({
         {tool === "publish" && (
           <div className="space-y-8">
             <PublishPanel
-
+              bookId={bookId}
               bookTitle={bookTitle}
+              bookDescription={bookDescription}
               authorDisplayName={authorDisplayName}
               coverImageUrl={cover.displayCoverUrl}
               chapters={chapters}
@@ -381,6 +385,19 @@ export default function BookEditorPanelContent({
             coverImage={cover.displayCoverUrl}
             bookTitle={bookTitle}
             bookDescription=""
+          />
+        )}
+        {tool === "trailer" && (
+          <TrailerPanel
+            bookId={bookId}
+            bookTitle={bookTitle}
+            bookDescription={bookDescription}
+            coverImage={cover.displayCoverUrl}
+            isPublished={publishing.isPublished}
+            trailerStatus={bookTrailerStatus ?? null}
+            trailerUrl={bookTrailerUrl ?? null}
+            isProLocked={!billing.isProActive}
+            billingLoading={billing.loading}
           />
         )}
         {tool === "statistics" && (
