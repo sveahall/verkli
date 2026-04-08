@@ -397,6 +397,68 @@ export async function createPodCheckoutSession(
   return payload;
 }
 
+export type CreateAuthorSubscriptionCheckoutInput = {
+  authorId: string;
+  authorName: string;
+  priceMonthlyMinor: number;
+  currency: string;
+  subscriberUserId: string;
+  subscriptionRecordId: string;
+  customerEmail?: string | null;
+  successUrl: string;
+  cancelUrl: string;
+};
+
+/** Recurring monthly subscription checkout for a reader subscribing to an author. */
+export async function createAuthorSubscriptionCheckoutSession(
+  input: CreateAuthorSubscriptionCheckoutInput
+): Promise<StripeCheckoutSession> {
+  const amount = sanitizeAmount(input.priceMonthlyMinor);
+  if (amount <= 0) {
+    throw new Error("Monthly price must be greater than zero");
+  }
+
+  const params = new URLSearchParams();
+  params.set("mode", "subscription");
+  params.set("success_url", input.successUrl);
+  params.set("cancel_url", input.cancelUrl);
+  params.set("payment_method_types[0]", "card");
+  params.set("line_items[0][quantity]", "1");
+  params.set("line_items[0][price_data][currency]", toStripeCurrency(input.currency));
+  params.set("line_items[0][price_data][unit_amount]", String(amount));
+  params.set("line_items[0][price_data][product_data][name]", `${input.authorName} — Monthly subscription`);
+  params.set("line_items[0][price_data][recurring][interval]", "month");
+  params.set("client_reference_id", input.subscriptionRecordId);
+  params.set("metadata[subscriber_user_id]", input.subscriberUserId);
+  params.set("metadata[author_id]", input.authorId);
+  params.set("metadata[subscription_record_id]", input.subscriptionRecordId);
+  params.set("metadata[amount_monthly]", String(amount));
+  params.set("metadata[currency]", toStripeCurrency(input.currency));
+  params.set("metadata[payment_kind]", "author_subscription");
+  params.set("metadata[payment_type]", "author_subscription");
+
+  if (input.customerEmail) {
+    params.set("customer_email", input.customerEmail);
+  }
+
+  const payload = await stripeRequest("/checkout/sessions", {
+    method: "POST",
+    body: params.toString(),
+  });
+
+  assertSessionShape(payload);
+  if (!payload.url) {
+    throw new Error("Stripe session URL is missing");
+  }
+  return payload;
+}
+
+export async function cancelStripeSubscription(stripeSubscriptionId: string): Promise<void> {
+  await stripeRequest(`/subscriptions/${encodeURIComponent(stripeSubscriptionId)}`, {
+    method: "DELETE",
+  });
+}
+
 export async function createCreditTopUpCheckoutSession(
   input: CreateCreditTopUpCheckoutInput
 ): Promise<StripeCheckoutSession> {

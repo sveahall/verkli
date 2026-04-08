@@ -27,6 +27,7 @@ type SettingsPageProps = {
   profile: {
     preferences: ProfilePreferences;
   };
+  subscriptionPlanSection?: React.ReactNode;
 };
 
 function SaveButton() {
@@ -52,7 +53,7 @@ function InlineFeedback({ state }: { state: ActionState }) {
   );
 }
 
-export default function SettingsPage({ user, profile }: SettingsPageProps) {
+export default function SettingsPage({ user, profile, subscriptionPlanSection }: SettingsPageProps) {
   const preferences = useMemo(() => profile.preferences || {}, [profile.preferences]);
   const [emailNotifications, setEmailNotifications] = useState(
     preferences.notifications?.email ?? true
@@ -193,6 +194,10 @@ export default function SettingsPage({ user, profile }: SettingsPageProps) {
 
           <InlineFeedback state={state} />
         </form>
+
+        {subscriptionPlanSection ? (
+          <div className="mt-4">{subscriptionPlanSection}</div>
+        ) : null}
 
         <section className="mt-4 rounded-2xl bg-white px-7 py-5 dark:bg-white/[0.04]">
           <div className="flex items-center justify-between gap-4">

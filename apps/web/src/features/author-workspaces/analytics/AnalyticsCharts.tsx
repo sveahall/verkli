@@ -302,59 +302,53 @@ function BooksTable({ rows }: { rows: BookRow[] }) {
 function RevenueBreakdown({
   orderRevenue,
   donationRevenue,
+  subscriptionMRR,
+  activeSubscriberCount,
   currency,
 }: {
   orderRevenue: number;
   donationRevenue: number;
+  subscriptionMRR: number;
+  activeSubscriberCount: number;
   currency: string;
 }) {
-  const total = orderRevenue + donationRevenue;
-  const orderPct = total > 0 ? Math.round((orderRevenue / total) * 100) : 0;
-  const donationPct = 100 - orderPct;
+  const total = orderRevenue + donationRevenue + subscriptionMRR;
+
+  const streams = [
+    { label: "Book sales", value: orderRevenue, color: "bg-[#907AFF]", sub: null },
+    { label: "Subscriptions", value: subscriptionMRR, color: "bg-emerald-400", sub: activeSubscriberCount > 0 ? `${activeSubscriberCount} active subscriber${activeSubscriberCount !== 1 ? "s" : ""} · MRR` : "No active subscribers" },
+    { label: "Donations", value: donationRevenue, color: "bg-pink-400", sub: null },
+  ];
 
   return (
     <div className="space-y-4">
-      <div>
-        <div className="flex items-center justify-between text-[13px]">
-          <div className="flex items-center gap-2">
-            <span className="h-2.5 w-2.5 rounded-full bg-[#907AFF]" />
-            <span className="text-slate-600 dark:text-white/60">Book sales</span>
+      {streams.map(({ label, value, color, sub }) => {
+        const pct = total > 0 ? Math.round((value / total) * 100) : 0;
+        return (
+          <div key={label}>
+            <div className="flex items-center justify-between text-[13px]">
+              <div className="flex items-center gap-2">
+                <span className={`h-2.5 w-2.5 rounded-full ${color}`} />
+                <div>
+                  <span className="text-slate-600 dark:text-white/60">{label}</span>
+                  {sub ? (
+                    <p className="text-[11px] text-slate-400 dark:text-white/30">{sub}</p>
+                  ) : null}
+                </div>
+              </div>
+              <div className="text-right">
+                <span className="font-semibold text-slate-900 dark:text-white">
+                  {fmtCurrency(value, currency)}
+                </span>
+                <span className="ml-2 text-[12px] text-slate-400 dark:text-white/30">{pct}%</span>
+              </div>
+            </div>
+            <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-slate-100 dark:bg-white/8">
+              <div className={`h-full rounded-full ${color}`} style={{ width: `${pct}%` }} />
+            </div>
           </div>
-          <div className="text-right">
-            <span className="font-semibold text-slate-900 dark:text-white">
-              {fmtCurrency(orderRevenue, currency)}
-            </span>
-            <span className="ml-2 text-[12px] text-slate-400 dark:text-white/30">{orderPct}%</span>
-          </div>
-        </div>
-        <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-slate-100 dark:bg-white/8">
-          <div
-            className="h-full rounded-full bg-[#907AFF]"
-            style={{ width: `${orderPct}%` }}
-          />
-        </div>
-      </div>
-
-      <div>
-        <div className="flex items-center justify-between text-[13px]">
-          <div className="flex items-center gap-2">
-            <span className="h-2.5 w-2.5 rounded-full bg-pink-400" />
-            <span className="text-slate-600 dark:text-white/60">Donations</span>
-          </div>
-          <div className="text-right">
-            <span className="font-semibold text-slate-900 dark:text-white">
-              {fmtCurrency(donationRevenue, currency)}
-            </span>
-            <span className="ml-2 text-[12px] text-slate-400 dark:text-white/30">{donationPct}%</span>
-          </div>
-        </div>
-        <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-slate-100 dark:bg-white/8">
-          <div
-            className="h-full rounded-full bg-pink-400"
-            style={{ width: `${donationPct}%` }}
-          />
-        </div>
-      </div>
+        );
+      })}
     </div>
   );
 }
@@ -513,7 +507,11 @@ export default function AnalyticsDashboard({
         <KPICard
           label="Revenue"
           value={fmtCurrency(totalRevenue, currency)}
-          sub={purchases > 0 ? `${purchases} sales` : "No sales yet"}
+          sub={
+            (data.revenue?.activeSubscriberCount ?? 0) > 0
+              ? `${data.revenue?.activeSubscriberCount} subscriber${(data.revenue?.activeSubscriberCount ?? 0) !== 1 ? "s" : ""} · ${purchases} sales`
+              : purchases > 0 ? `${purchases} sales` : "No sales yet"
+          }
           accent="green"
         />
         <KPICard
@@ -622,6 +620,8 @@ export default function AnalyticsDashboard({
             <RevenueBreakdown
               orderRevenue={data.revenue?.orderRevenue ?? 0}
               donationRevenue={data.revenue?.donationRevenue ?? 0}
+              subscriptionMRR={data.revenue?.subscriptionMRR ?? 0}
+              activeSubscriberCount={data.revenue?.activeSubscriberCount ?? 0}
               currency={currency}
             />
           </div>

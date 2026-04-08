@@ -68,6 +68,8 @@ export type AnalyticsData = {
     totalRevenue: number;
     orderRevenue: number;
     donationRevenue: number;
+    subscriptionMRR: number;
+    activeSubscriberCount: number;
     currency: string;
   } | null;
   engagement: {

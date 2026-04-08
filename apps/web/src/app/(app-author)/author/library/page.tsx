@@ -25,16 +25,21 @@ export default async function AuthorLibraryPage({
 
   const bookIds = (books ?? []).map((b) => b.id);
 
-  const { data: chapterRows } = bookIds.length > 0
-    ? await supabase
-        .from("chapters")
-        .select("book_id")
-        .in("book_id", bookIds)
-    : { data: [] };
+  const [chaptersResult, translationsResult] = bookIds.length > 0
+    ? await Promise.all([
+        supabase.from("chapters").select("book_id").in("book_id", bookIds),
+        supabase.from("translations").select("original_book_id").in("original_book_id", bookIds),
+      ])
+    : [{ data: [] as Array<{ book_id: string }> }, { data: [] as Array<{ original_book_id: string }> }];
 
   const chapterCountMap: Record<string, number> = {};
-  for (const ch of chapterRows ?? []) {
+  for (const ch of chaptersResult.data ?? []) {
     chapterCountMap[ch.book_id] = (chapterCountMap[ch.book_id] ?? 0) + 1;
+  }
+
+  const translationCountMap: Record<string, number> = {};
+  for (const tr of translationsResult.data ?? []) {
+    translationCountMap[tr.original_book_id] = (translationCountMap[tr.original_book_id] ?? 0) + 1;
   }
 
   return (
@@ -48,6 +53,7 @@ export default async function AuthorLibraryPage({
         coverImageUrl: book.cover_image ?? null,
         audiobookStatus: book.audiobook_status ?? null,
         chapterCount: chapterCountMap[book.id] ?? 0,
+        translationCount: translationCountMap[book.id] ?? 0,
       }))}
       initialCreateOpen={resolvedSearchParams?.action === "create-book"}
     />

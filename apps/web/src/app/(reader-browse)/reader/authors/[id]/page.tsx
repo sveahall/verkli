@@ -6,6 +6,7 @@ import { createClient } from "@/lib/supabase/server";
 import { getAvatarUrlFromPathServer } from "@/lib/supabase/avatar";
 import BookCard from "@/components/reader/BookCard";
 import FollowAuthorButton from "./FollowAuthorButton";
+import SubscribeAuthorButton from "./SubscribeAuthorButton";
 import type { Metadata } from "next";
 
 /* ── Metadata ── */
@@ -83,6 +84,7 @@ export default async function ReaderAuthorProfilePage({
     profileRes,
     booksRes,
     followerCountRes,
+    subscriptionPlanRes,
   ] = await Promise.all([
     supabase.auth.getUser(),
     supabase
@@ -100,11 +102,22 @@ export default async function ReaderAuthorProfilePage({
       .from("follows")
       .select("followee_id", { count: "exact", head: true })
       .eq("followee_id", userId),
+    supabase
+      .from("author_subscription_plans" as never)
+      .select("enabled, price_monthly, currency, description")
+      .eq("author_id", userId)
+      .maybeSingle(),
   ]);
 
   const profile = profileRes.data;
   const books = booksRes.data ?? [];
   const followerCount = followerCountRes.count ?? 0;
+  const subscriptionPlan = subscriptionPlanRes.data as {
+    enabled: boolean;
+    price_monthly: number;
+    currency: string;
+    description: string | null;
+  } | null;
 
   const hasPublishedBooks = books.length > 0;
   const isPublicProfile = profile?.is_public ?? false;
@@ -157,14 +170,27 @@ export default async function ReaderAuthorProfilePage({
   const isOwnProfile = user?.id === userId;
 
   let initialFollowing = false;
+  let initialSubscribed = false;
   if (user && !isOwnProfile) {
-    const { data: followRow } = await supabase
-      .from("follows")
-      .select("followee_id")
-      .eq("follower_id", user.id)
-      .eq("followee_id", userId)
-      .maybeSingle();
-    initialFollowing = Boolean(followRow);
+    const [followRow, subRow] = await Promise.all([
+      supabase
+        .from("follows")
+        .select("followee_id")
+        .eq("follower_id", user.id)
+        .eq("followee_id", userId)
+        .maybeSingle(),
+      subscriptionPlan?.enabled
+        ? supabase
+            .from("author_subscriptions" as never)
+            .select("id")
+            .eq("subscriber_user_id", user.id)
+            .eq("author_id", userId)
+            .eq("status" as never, "active")
+            .maybeSingle()
+        : Promise.resolve({ data: null }),
+    ]);
+    initialFollowing = Boolean(followRow.data);
+    initialSubscribed = Boolean(subRow.data);
   }
 
   // Hero backdrop: first book cover, or null
@@ -253,15 +279,25 @@ export default async function ReaderAuthorProfilePage({
               </div>
             </div>
 
-            {/* Follow button */}
+            {/* Follow + Subscribe buttons */}
             {!isOwnProfile && (
-              <div className="flex-shrink-0">
+              <div className="flex flex-shrink-0 items-center gap-2">
                 <FollowAuthorButton
                   authorId={userId}
                   isSignedIn={Boolean(user)}
                   signInHref={signInHref}
                   initialFollowing={initialFollowing}
                 />
+                {subscriptionPlan?.enabled && (
+                  <SubscribeAuthorButton
+                    authorId={userId}
+                    priceMonthlyMinor={subscriptionPlan.price_monthly}
+                    currency={subscriptionPlan.currency}
+                    isSignedIn={Boolean(user)}
+                    signInHref={signInHref}
+                    initialSubscribed={initialSubscribed}
+                  />
+                )}
               </div>
             )}
           </div>

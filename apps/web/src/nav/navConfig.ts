@@ -3,7 +3,6 @@ export type NavVariant = "PUBLIC_AUTHOR" | "PUBLIC_READER" | "APP_AUTHOR" | "APP
 export type AuthorWorkflowKey =
   | "home"
   | "library"
-  | "production"
   | "audience"
   | "analytics";
 
@@ -58,34 +57,6 @@ export type NavConfig = {
 export const AUTHOR_WORKFLOW_NAV: AuthorSidebarLink[] = [
   { key: "home", label: "Home", href: "/author/home", icon: "home" },
   { key: "library", label: "Library", href: "/author/library", icon: "library" },
-  {
-    key: "production",
-    label: "Production",
-    href: "/author/production",
-    icon: "production",
-    bookScoped: true,
-    children: [
-      { key: "assets", label: "Assets", href: "/author/production", bookScoped: true },
-      {
-        key: "audiobooks",
-        label: "Audiobooks",
-        href: "/author/production?kind=audiobook",
-        bookScoped: true,
-      },
-      {
-        key: "translations",
-        label: "Translations",
-        href: "/author/production?kind=translation",
-        bookScoped: true,
-      },
-      {
-        key: "exports",
-        label: "Exports",
-        href: "/author/production?kind=marketing",
-        bookScoped: true,
-      },
-    ],
-  },
   {
     key: "audience",
     label: "Marketing",

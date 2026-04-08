@@ -7,7 +7,11 @@ vi.mock("@/lib/billing/server", () => ({
 
 type Row = Record<string, unknown>;
 
-function makeSupabase(rows: { books?: Row; entitlement?: Row | null }): SupabaseLikeClient {
+function makeSupabase(rows: {
+  books?: Row;
+  entitlement?: Row | null;
+  authorSubscription?: Row | null;
+}): SupabaseLikeClient {
   return {
     from(table: string) {
       if (table === "books") {
@@ -46,6 +50,13 @@ function makeSupabase(rows: { books?: Row; entitlement?: Row | null }): Supabase
               },
             };
           },
+        };
+      }
+      if (table === "author_subscriptions") {
+        return {
+          select() { return this; },
+          eq() { return this; },
+          maybeSingle: async () => ({ data: rows.authorSubscription ?? null, error: null }),
         };
       }
       throw new Error(`Unexpected table: ${table}`);

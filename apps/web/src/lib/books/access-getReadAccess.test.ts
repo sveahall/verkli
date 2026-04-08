@@ -14,6 +14,7 @@ function makeSupabase(config: {
   book?: Row | null;
   bookEntitlement?: Row | null;
   chapterEntitlement?: Row | null;
+  authorSubscription?: Row | null;
   chapters?: Row[];
 }): SupabaseLikeClient {
   return {
@@ -61,6 +62,13 @@ function makeSupabase(config: {
               },
             };
           },
+        };
+      }
+      if (table === "author_subscriptions") {
+        return {
+          select() { return this; },
+          eq() { return this; },
+          maybeSingle: async () => ({ data: config.authorSubscription ?? null, error: null }),
         };
       }
       throw new Error(`Unexpected table: ${table}`);
@@ -231,6 +239,13 @@ describe("getReadAccess", () => {
             select() { return this; },
             eq() { return this; },
             order: async () => ({ data: [{ id: "ch-1", title: "Chapter 1", order: 0 }], error: null }),
+          };
+        }
+        if (table === "author_subscriptions") {
+          return {
+            select() { return this; },
+            eq() { return this; },
+            maybeSingle: async () => ({ data: null, error: null }),
           };
         }
         throw new Error(`Unexpected table: ${table}`);

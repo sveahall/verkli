@@ -84,45 +84,69 @@ function LandingPage() {
             </div>
           </div>
 
-          {/* Badge */}
-          <div className="hero-animate-down badge-shimmer mb-8 inline-flex items-center gap-2.5 rounded-full border border-black/[0.06] bg-white/70 px-5 py-2 shadow-[0_1px_2px_rgba(0,0,0,0.04)] backdrop-blur-xl dark:border-white/[0.08] dark:bg-white/[0.04] dark:shadow-none">
-            <div className="h-1.5 w-1.5 animate-pulse rounded-full bg-[#907AFF]" />
-            <span className="text-[13px] font-medium text-slate-600 dark:text-white/60">Now in public beta</span>
+          <div className="mx-auto w-full max-w-[1280px]">
+            <div className="grid items-center gap-12 lg:grid-cols-[0.95fr_1.05fr] lg:gap-10">
+              <div className="flex flex-col items-center text-center lg:items-start lg:text-left">
+                <div className="hero-animate-down mb-7 inline-flex items-center rounded-full border border-black/[0.08] bg-white/80 px-4 py-1.5 backdrop-blur-xl dark:border-white/[0.12] dark:bg-white/[0.04]">
+                  <span className="text-[10px] font-medium uppercase tracking-[0.16em] text-slate-600 dark:text-white/60">Premium author OS</span>
+                </div>
+
+                <h1 className="hero-animate max-w-[700px] text-[clamp(52px,7vw,96px)] font-semibold leading-[0.94] tracking-[-0.05em] text-slate-900 dark:text-white" style={{ animationDelay: "180ms" }}>
+                  Write once.
+                  <br />
+                  <span className="bg-[linear-gradient(110deg,#6f58df_0%,#907AFF_55%,#c894e6_100%)] bg-clip-text text-transparent">
+                    Build demand.
+                  </span>
+                </h1>
+
+                <p className="hero-animate mt-7 max-w-[520px] text-[clamp(17px,1.3vw,20px)] leading-[1.6] text-slate-600 dark:text-white/50" style={{ animationDelay: "340ms" }}>
+                  Turn every chapter into premium content that grows your audience and compounds recurring revenue.
+                </p>
+
+                <div className="hero-animate mt-10 flex w-full flex-col items-center gap-3 sm:w-auto sm:flex-row lg:items-start" style={{ animationDelay: "500ms" }}>
+                  <Link href="/author/signup" className="btn-primary w-full rounded-full px-8 py-3.5 text-center text-[15px] shadow-[0_18px_40px_rgba(111,88,223,0.32)] sm:w-auto sm:min-w-[192px]">
+                    Start for free
+                  </Link>
+                  <Link href="/how-it-works" className="btn-secondary w-full rounded-full border-black/10 bg-white/80 px-7 py-3.5 text-center text-[15px] sm:w-auto sm:min-w-[178px]">
+                    See how it works
+                  </Link>
+                </div>
+
+                <p className="hero-animate mt-5 text-[11px] uppercase tracking-[0.12em] text-slate-400 dark:text-white/30" style={{ animationDelay: "640ms" }}>
+                  No credit card required · 2-minute setup · Trusted by 2,000+ authors
+                </p>
+              </div>
+
+              <div className="hero-animate relative mx-auto w-full max-w-[720px] lg:mx-0" style={{ animationDelay: "560ms" }}>
+                <div className="relative overflow-hidden rounded-[36px] border border-black/[0.08] bg-white/75 p-3 shadow-[0_26px_80px_rgba(15,23,42,0.18)] backdrop-blur-xl dark:border-white/[0.1] dark:bg-white/[0.03]">
+                  <div className="pointer-events-none absolute -right-24 -top-24 h-72 w-72 rounded-full bg-[#907AFF]/22 blur-[100px]" />
+
+                  <div className="relative overflow-hidden rounded-[28px]">
+                    <Image
+                      src="https://images.unsplash.com/photo-1506880018603-83d5b814b5a6?auto=format&fit=crop&w=1800&q=80"
+                      alt="Minimal premium author desk and workspace"
+                      width={1600}
+                      height={1100}
+                      sizes="(max-width: 1024px) 92vw, 720px"
+                      className="h-[330px] w-full object-cover sm:h-[390px] lg:h-[430px]"
+                      priority
+                    />
+                    <div className="absolute inset-0 bg-gradient-to-t from-slate-900/45 via-slate-900/5 to-transparent" />
+
+                    <div className="absolute bottom-4 left-4 right-4 rounded-2xl border border-white/40 bg-white/90 p-4 backdrop-blur-xl">
+                      <p className="text-[10px] uppercase tracking-[0.14em] text-slate-500">Weekly reach</p>
+                      <div className="mt-1 flex items-end justify-between gap-3">
+                        <p className="text-[30px] font-semibold tracking-[-0.03em] text-slate-900">+42k</p>
+                        <p className="rounded-full border border-emerald-200 bg-emerald-50 px-2 py-0.5 text-[11px] font-medium text-emerald-700">
+                          +31% WoW
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
           </div>
-
-          {/* Headline */}
-          <h1 className="hero-animate max-w-[860px] text-[clamp(42px,7.5vw,76px)] font-regular leading-[1.08] tracking-[-0.04em] text-slate-900 dark:text-white" style={{ animationDelay: '200ms' }}>
-            Write once. <br />
-            <BrandGradientText
-              className="font-semibold"
-              colors={["#907AFF", "#c4a0e8", "#E29ED5"]}
-            >
-              Show up everywhere.
-            </BrandGradientText>
-          </h1>
-
-          {/* Sub */}
-          <p className="hero-animate mt-7 max-w-[520px] text-[clamp(16px,1.5vw,19px)] leading-[1.6] text-slate-500 dark:text-white/50" style={{ animationDelay: '400ms' }}>
-            Turn your books into content, connect with readers, and build sustainable revenue — all from one platform.
-          </p>
-
-          {/* CTAs */}
-          <div className="hero-animate mt-10 flex w-full flex-col items-center gap-3 px-4 sm:w-auto sm:flex-row sm:px-0" style={{ animationDelay: '600ms' }}>
-            <Link href="/author/signup" className="btn-primary w-full text-center text-[15px] sm:w-auto sm:min-w-[170px]">
-              Get started (it&apos;s free)
-            </Link>
-            <Link href="/author/signin" className="btn-secondary w-full text-center text-[15px] sm:w-auto sm:min-w-[120px]">
-              Sign in
-            </Link>
-          </div>
-
-          {/* Reader link */}
-          <p className="hero-animate mt-16 text-[13px] text-slate-400 dark:text-white/30" style={{ animationDelay: '800ms' }}>
-            Looking for stories?{" "}
-            <Link href="/reader" className="font-medium text-slate-500 underline decoration-slate-300 underline-offset-[3px] transition hover:text-slate-700 hover:decoration-slate-400 dark:text-white/45 dark:decoration-white/15 dark:hover:text-white/65">
-              Go to reader →
-            </Link>
-          </p>
         </section>
 
         {/* ─── Bento Grid ─── */}

@@ -76,13 +76,11 @@ function resolveHref(
 function isLeafActive(item: AuthorSidebarLink, pathname: string) {
   if (item.key === "home") return pathname.startsWith("/author/home");
   if (item.key === "library") {
-    return pathname.startsWith("/author/library");
-  }
-  if (item.key === "production") {
     return (
-      pathname.startsWith("/author/production") ||
+      pathname.startsWith("/author/library") ||
       pathname.startsWith("/author/books") ||
-      pathname.startsWith("/author/write")
+      pathname.startsWith("/author/write") ||
+      pathname.startsWith("/author/production")
     );
   }
   if (item.key === "profile") return pathname.startsWith("/author/profile");
@@ -213,7 +211,7 @@ export default function AuthorSidebar() {
 
   /* Mobile bottom nav items — subset of main nav for one-hand reach */
   const mobileNavItems = AUTHOR_WORKFLOW_NAV.filter(
-    (item) => ["home", "library", "production"].includes(item.key)
+    (item) => ["home", "library", "audience", "analytics"].includes(item.key)
   );
 
   return (
@@ -238,7 +236,7 @@ export default function AuthorSidebar() {
             const active = isLeafActive(item, pathname);
             const workflowBookId = bookIdFromPath ?? currentBookId;
             const showWorkflowChildren =
-              item.key === "production" && isOnBookPage && !!workflowBookId;
+              item.key === "library" && isOnBookPage && !!workflowBookId;
 
             return (
               <div key={item.key}>

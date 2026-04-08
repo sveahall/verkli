@@ -9,7 +9,7 @@ export async function GET() {
   const supabase = await createClient();
 
   // Get author's book IDs and donations in parallel (both only need user.id)
-  const [{ data: books }, { data: donations }] = await Promise.all([
+  const [{ data: books }, { data: donations }, { data: activeSubscriptions }] = await Promise.all([
     supabase
       .from("books")
       .select("id")
@@ -19,6 +19,11 @@ export async function GET() {
       .select("amount")
       .eq("recipient_id", user.id)
       .eq("status", "completed"),
+    supabase
+      .from("author_subscriptions" as never)
+      .select("amount_monthly, currency")
+      .eq("author_id", user.id)
+      .eq("status" as never, "active"),
   ]);
 
   const bookIds = (books ?? []).map((b) => b.id as string);
@@ -43,10 +48,20 @@ export async function GET() {
     donationRevenue += Number(donation.amount) || 0;
   }
 
+  // Subscription MRR: sum of all active subscriptions' monthly prices
+  let subscriptionMRR = 0;
+  let activeSubscriberCount = 0;
+  for (const sub of (activeSubscriptions ?? []) as Array<{ amount_monthly: number; currency: string }>) {
+    subscriptionMRR += Number(sub.amount_monthly) || 0;
+    activeSubscriberCount++;
+  }
+
   return NextResponse.json({
-    totalRevenue: orderRevenue + donationRevenue,
+    totalRevenue: orderRevenue + donationRevenue + subscriptionMRR,
     orderRevenue,
     donationRevenue,
+    subscriptionMRR,
+    activeSubscriberCount,
     currency: "SEK",
   });
 }

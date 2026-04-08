@@ -250,10 +250,74 @@ async function processPaymentKindCheckoutSession(
     };
   }
 
+  if (paymentKind === "author_subscription") {
+    return {
+      handled: true,
+      processed: await processAuthorSubscriptionCheckoutSession(admin, session),
+    };
+  }
+
   return {
     handled: true,
     processed: await processCreditTopupCheckoutSession(admin, session),
   };
+}
+
+async function processAuthorSubscriptionCheckoutSession(
+  admin: AdminClient,
+  session: StripeRecord
+): Promise<boolean> {
+  const metadata = extractMetadata(session.metadata);
+  const subscriberUserId = trimToNull(metadata.subscriber_user_id);
+  const authorId = trimToNull(metadata.author_id);
+  const amountMonthlyStr = trimToNull(metadata.amount_monthly);
+  const currency = trimToNull(metadata.currency) ?? "sek";
+  const subscriptionId = extractStripeId(session.subscription);
+  const customerId = extractStripeId(session.customer);
+
+  if (!subscriberUserId || !authorId || !subscriptionId) {
+    console.warn("[stripe.webhook] author_subscription missing required metadata", {
+      sessionId: trimToNull(session.id),
+      subscriberUserId,
+      authorId,
+      subscriptionId,
+    });
+    return false;
+  }
+
+  const amountMonthly = parseInt(amountMonthlyStr ?? "0", 10) || 0;
+
+  const { error } = await admin.rpc("upsert_author_subscription" as never, {
+    p_subscriber_user_id: subscriberUserId,
+    p_author_id: authorId,
+    p_stripe_subscription_id: subscriptionId,
+    p_stripe_customer_id: customerId ?? null,
+    p_amount_monthly: amountMonthly,
+    p_currency: currency,
+    p_status: "active",
+    p_current_period_start: null,
+    p_current_period_end: null,
+  } as never);
+
+  if (error) {
+    console.error("[stripe.webhook] upsert_author_subscription failed", {
+      subscriberUserId,
+      authorId,
+      message: error.message,
+      code: error.code,
+    });
+    return false;
+  }
+
+  console.info("[stripe.webhook] author subscription activated", {
+    subscriberUserId,
+    authorId,
+    subscriptionId,
+    amountMonthly,
+    currency,
+  });
+
+  return true;
 }
 
 async function processSubscriptionCheckoutSession(

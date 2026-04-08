@@ -113,6 +113,20 @@ export async function getReadAccess({
     } catch {
       // Non-blocking — fall through to preview/locked
     }
+
+    // Author subscription: active subscription to this book's author grants full access
+    if (authorId) {
+      const { data: authorSub } = await supabase
+        .from("author_subscriptions" as never)
+        .select("id")
+        .eq("subscriber_user_id", userId)
+        .eq("author_id", authorId)
+        .eq("status" as never, "active")
+        .maybeSingle();
+      if (authorSub) {
+        return { access: "full", reason: "purchased" };
+      }
+    }
   }
 
   const { data: allChapters } = await supabase
@@ -224,6 +238,20 @@ export async function canUserReadBook({
     }
   } catch {
     // Non-blocking
+  }
+
+  // Author subscription: active subscription to this book's author grants full access
+  if (authorId) {
+    const { data: authorSub } = await supabase
+      .from("author_subscriptions" as never)
+      .select("id")
+      .eq("subscriber_user_id", userId)
+      .eq("author_id", authorId)
+      .eq("status" as never, "active")
+      .maybeSingle();
+    if (authorSub) {
+      return true;
+    }
   }
 
   return false;
