@@ -67,14 +67,14 @@ export default function ReaderAppShell({
 
   if (isImmersive) {
     return (
-      <div className="relative min-h-[100dvh] bg-[#F0F1F6] text-foreground dark:bg-[#050917]">
+      <div className="relative min-h-[100dvh] bg-[#EEEFF8] text-foreground dark:bg-[#050917]">
         {children}
       </div>
     );
   }
 
   return (
-    <div className="relative min-h-[100dvh] bg-[#F0F1F6] text-foreground dark:bg-[#050917] lg:grid lg:grid-cols-[220px_minmax(0,1fr)]">
+    <div className="relative min-h-[100dvh] bg-[#EEEFF8] text-foreground dark:bg-[#050917] lg:grid lg:grid-cols-[220px_minmax(0,1fr)]">
       {/* ── Desktop sidebar ── */}
       <div className="hidden border-r border-[#ECEAF5] bg-white dark:border-white/10 dark:bg-[#070b14] lg:block">
       <aside className="pr-4 lg:sticky lg:top-0 lg:flex lg:h-screen lg:flex-col lg:overflow-hidden">

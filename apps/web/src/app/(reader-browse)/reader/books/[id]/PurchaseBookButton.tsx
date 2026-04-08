@@ -82,7 +82,7 @@ export default function PurchaseBookButton({ bookId, amount, currency }: Props) 
         type="button"
         onClick={handlePurchase}
         disabled={loading}
-        className="rounded-full bg-[#907AFF] px-6 py-3 text-[14px] font-semibold text-white transition hover:bg-[#8069EE] disabled:cursor-not-allowed disabled:opacity-60"
+        className="btn-primary disabled:cursor-not-allowed disabled:opacity-60"
       >
         {loading ? "Opening checkout…" : `Buy book (${formatMoney(amount, currency)})`}
       </button>

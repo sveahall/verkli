@@ -13,6 +13,7 @@ type BookCardProps = {
   id?: string;
   title?: string;
   author?: string;
+  genre?: string;
   cover?: string | null;
   href?: string;
   tag?: string;
@@ -31,6 +32,7 @@ export default function BookCard({
   id,
   title,
   author,
+  genre,
   cover,
   href,
   tag,
@@ -137,6 +139,11 @@ export default function BookCard({
           </h3>
           <p className="truncate text-[12px] text-slate-500 dark:text-white/60">
             {author ?? "Unknown author"}
+            {genre && (
+              <span className="before:mx-1 before:content-['·'] before:text-slate-300 before:dark:text-white/20">
+                {genre}
+              </span>
+            )}
           </p>
           {(rating || length) && (
             <div className="flex items-center gap-2 text-[11px] text-slate-500 dark:text-white/55">

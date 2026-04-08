@@ -79,3 +79,4 @@ electron-*.js
 electron-preload.js
 test_qwen3_tts.py
 FETCH_HEAD
+.gstack/

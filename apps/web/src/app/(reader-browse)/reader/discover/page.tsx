@@ -14,7 +14,7 @@ import ReaderDiscoverPageView from "@/features/reader/reader-discover/ReaderDisc
 type SearchParams = {
   lang?: string;
   q?: string;
-  genre?: string;
+  genre?: string; // comma-separated slugs, e.g. "fiction,romance"
   format?: string;
   sort?: string;
 };
@@ -58,38 +58,37 @@ async function fetchFilteredBooks(
   opts: {
     language: SupportedLanguage;
     query: string;
-    genreSlug: string;
+    genreSlugs: string[];
     format: Format;
     sort: Sort;
     limit: number;
   }
 ) {
-  const { language, query, genreSlug, format, sort, limit } = opts;
+  const { language, query, genreSlugs, format, sort, limit } = opts;
 
-  // If filtering by genre, first get matching book IDs
+  // If filtering by genres, get all matching book IDs (union across selected genres)
   let genreBookIds: string[] | null = null;
-  if (genreSlug) {
+  if (genreSlugs.length > 0) {
     const { data: genreRows } = await supabase
       .from("genres")
       .select("id")
-      .eq("slug", genreSlug)
-      .limit(1);
+      .in("slug", genreSlugs);
 
     if (genreRows && genreRows.length > 0) {
-      const genreId = genreRows[0].id;
+      const genreIds = genreRows.map((r) => r.id);
       const { data: junctionRows } = await supabase
         .from("book_genres")
         .select("book_id")
-        .eq("genre_id", genreId)
-        .limit(200);
+        .in("genre_id", genreIds)
+        .limit(500);
 
-      genreBookIds = (junctionRows ?? []).map((r) => r.book_id);
+      // Deduplicate — a book tagged with multiple selected genres appears once
+      genreBookIds = [...new Set((junctionRows ?? []).map((r) => r.book_id))];
       if (genreBookIds.length === 0) {
-        // No books in this genre — return empty
         return [];
       }
     } else {
-      // Invalid genre slug — return empty
+      // None of the requested slugs exist — return empty
       return [];
     }
   }
@@ -114,7 +113,7 @@ async function fetchFilteredBooks(
     base = base.ilike("title", `%${query}%`);
   }
 
-  // Genre filter (restrict to genre book IDs)
+  // Genre filter (restrict to matched book IDs)
   if (genreBookIds) {
     base = base.in("id", genreBookIds);
   }
@@ -157,23 +156,45 @@ async function enrichBooksWithAuthor(
 ) {
   if (books.length === 0) return [];
 
+  const bookIds = books.map((b) => b.id);
   const authorIds = [...new Set(books.map((b) => b.author_id))];
-  const { data: profiles } = await supabase
-    .from("profiles")
-    .select("user_id, display_name, username")
-    .in("user_id", authorIds);
+
+  const [profilesRes, genreJunctionRes] = await Promise.all([
+    supabase
+      .from("profiles")
+      .select("user_id, display_name, username")
+      .in("user_id", authorIds),
+    supabase
+      .from("book_genres")
+      .select("book_id, genres(name_en, icon)")
+      .in("book_id", bookIds)
+      .limit(bookIds.length * 3), // at most 3 genres per book
+  ]);
 
   const authorMap = new Map(
-    (profiles ?? []).map((p) => [
+    (profilesRes.data ?? []).map((p) => [
       p.user_id,
-      p.display_name || p.username || "Author",
+      p.display_name || p.username || "Unknown author",
     ])
   );
+
+  // Pick the first genre per book as the display genre
+  const genreMap = new Map<string, string>();
+  for (const row of genreJunctionRes.data ?? []) {
+    if (!genreMap.has(row.book_id)) {
+      const g = Array.isArray(row.genres) ? row.genres[0] : row.genres;
+      if (g && typeof g === "object" && "name_en" in g && g.name_en) {
+        const icon = "icon" in g && g.icon ? `${g.icon} ` : "";
+        genreMap.set(row.book_id, `${icon}${g.name_en}`);
+      }
+    }
+  }
 
   return books.map((book) => ({
     id: book.id,
     title: book.title,
-    author: authorMap.get(book.author_id) ?? "Author",
+    author: authorMap.get(book.author_id) ?? "Unknown author",
+    genre: genreMap.get(book.id) ?? null,
     cover: book.cover_image,
     href: `/reader/books/${book.id}`,
     hasAudiobook: book.audiobook_status === "published",
@@ -244,7 +265,10 @@ export default async function ReaderDiscoverPage({
   const language = normalizeLanguage(params?.lang);
   const langLabel = getLanguageLabel(language);
   const query = (params?.q ?? "").trim();
-  const genreSlug = (params?.genre ?? "").trim();
+  const genreSlugs = (params?.genre ?? "")
+    .split(",")
+    .map((s) => s.trim())
+    .filter(Boolean);
   const format = parseFormat(params?.format);
   const sort = parseSort(params?.sort);
 
@@ -254,7 +278,7 @@ export default async function ReaderDiscoverPage({
     fetchFilteredBooks(supabase, {
       language,
       query,
-      genreSlug,
+      genreSlugs,
       format,
       sort,
       limit: 24,
@@ -270,7 +294,7 @@ export default async function ReaderDiscoverPage({
     const p = new URLSearchParams();
     if (opt.value !== "en") p.set("lang", opt.value);
     if (query) p.set("q", query);
-    if (genreSlug) p.set("genre", genreSlug);
+    if (genreSlugs.length > 0) p.set("genre", genreSlugs.join(","));
     if (format !== "all") p.set("format", format);
     if (sort !== "newest") p.set("sort", sort);
     const qs = p.toString();
@@ -281,8 +305,6 @@ export default async function ReaderDiscoverPage({
       active: opt.value === language,
     };
   });
-
-  const activeGenre = genres.find((g) => g.slug === genreSlug) ?? null;
 
   return (
     <div>
@@ -295,8 +317,7 @@ export default async function ReaderDiscoverPage({
         activeFilters={{
           query,
           language,
-          genreSlug,
-          genreLabel: activeGenre?.label ?? null,
+          genreSlugs,
           format,
           sort,
         }}

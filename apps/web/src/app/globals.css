@@ -283,6 +283,14 @@
   .empty-state-base {
     @apply rounded-2xl border border-dashed border-slate-200/80 bg-transparent px-6 py-6 text-left dark:border-white/15 dark:bg-transparent;
   }
+  /* Hide scrollbar while preserving scroll behavior — used for horizontal book rails */
+  .scrollbar-none {
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+  }
+  .scrollbar-none::-webkit-scrollbar {
+    display: none;
+  }
   /* Auth card: solid white in light, frosted glass in dark */
   .card-auth {
     @apply rounded-3xl border border-white/60 bg-white shadow-[0_2px_8px_rgba(0,0,0,0.04),0_16px_48px_rgba(0,0,0,0.08)] backdrop-blur-none dark:border-white/[0.1] dark:bg-white/[0.06] dark:shadow-[0_8px_32px_rgba(0,0,0,0.4),0_0_0_1px_rgba(255,255,255,0.05)_inset] dark:backdrop-blur-[48px];

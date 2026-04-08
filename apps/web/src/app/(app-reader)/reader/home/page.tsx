@@ -566,7 +566,7 @@ export default async function ReaderHomePage() {
             author: book.author,
             cover: book.cover,
             href: `/reader/books/${book.id}`,
-            tag: activeAuthorIds.has(book.authorId) ? "By an author you already read" : undefined,
+            tag: activeAuthorIds.has(book.authorId) ? "Familiar" : undefined,
             length: "Recommended next",
             hasTrailer: Boolean(book.trailerUrl),
           }))}

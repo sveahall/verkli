@@ -1,6 +1,7 @@
 import { Suspense } from "react";
 import Link from "next/link";
 import Image from "next/image";
+import { Lock } from "lucide-react";
 import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { getLanguageLabel, getSeoLanguageLabel, normalizeLanguage } from "@/lib/languages";
@@ -506,12 +507,21 @@ export default async function ReaderBookDetail({
 
             <div className="flex shrink-0 items-center gap-2 text-[11px]">
               {isUnlocked ? (
-                <Link
-                  href={`/reader/read/${chapterItem.id}`}
-                  className="rounded-full bg-emerald-500/10 px-3 py-1 font-semibold text-emerald-700 transition-[background-color,transform] duration-150 ease-out hover:bg-emerald-500/20 active:scale-[0.97] dark:text-emerald-400"
-                >
-                  {isPreviewChapter && !hasReadAccess ? "Preview" : "Read"}
-                </Link>
+                isPreviewChapter && !hasReadAccess ? (
+                  <Link
+                    href={`/reader/read/${chapterItem.id}`}
+                    className="rounded-full border border-emerald-500/25 bg-emerald-500/[0.08] px-3 py-1 font-semibold text-emerald-700 transition-[background-color,transform] duration-150 ease-out hover:bg-emerald-500/15 active:scale-[0.97] dark:text-emerald-400"
+                  >
+                    Preview
+                  </Link>
+                ) : (
+                  <Link
+                    href={`/reader/read/${chapterItem.id}`}
+                    className="rounded-full border border-[#907AFF]/20 bg-[#907AFF]/[0.07] px-3 py-1 font-semibold text-[#907AFF] transition-[background-color,transform] duration-150 ease-out hover:bg-[#907AFF]/12 active:scale-[0.97] dark:text-[#B8AAFF]"
+                  >
+                    Read
+                  </Link>
+                )
               ) : user && isPerChapter ? (
                 <PurchaseChapterButton
                   bookId={book.id}
@@ -520,7 +530,8 @@ export default async function ReaderBookDetail({
                   currency={priceCurrency}
                 />
               ) : user ? (
-                <span className="rounded-full bg-slate-100 px-3 py-1 font-medium text-slate-500 dark:bg-white/[0.06] dark:text-white/40">
+                <span className="inline-flex items-center gap-1 rounded-full bg-slate-100/80 px-3 py-1 font-medium text-slate-400 dark:bg-white/[0.05] dark:text-white/30">
+                  <Lock className="h-3 w-3" />
                   Locked
                 </span>
               ) : (

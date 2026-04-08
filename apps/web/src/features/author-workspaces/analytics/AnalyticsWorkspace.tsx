@@ -1,36 +1,63 @@
 "use client";
 
 import dynamic from "next/dynamic";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Button } from "@/components/ui/button";
 import { useAuthorWorkspace } from "@/features/author-shell/workspace-state";
-import { WorkspaceMetric } from "@/features/author-workspaces/WorkspaceLayout";
 import WorkspaceLayout from "@/features/author-workspaces/WorkspaceLayout";
 import WorkspaceHeaderActions from "@/features/author-workspaces/components/WorkspaceHeaderActions";
+import { cn } from "@/lib/utils";
 
-const AnalyticsCharts = dynamic(
+const AnalyticsDashboard = dynamic(
   () => import("@/features/author-workspaces/analytics/AnalyticsCharts"),
   {
     ssr: false,
     loading: () => (
-      <div className="h-[520px] animate-pulse rounded-3xl bg-slate-100 dark:bg-white/5" />
+      <div className="space-y-4">
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+          {[...Array<number>(4)].map((_, i) => (
+            <div key={i} className="h-[110px] animate-pulse rounded-2xl bg-slate-100 dark:bg-white/5" />
+          ))}
+        </div>
+        <div className="h-[320px] animate-pulse rounded-2xl bg-slate-100 dark:bg-white/5" />
+        <div className="grid gap-4 lg:grid-cols-2">
+          <div className="h-[260px] animate-pulse rounded-2xl bg-slate-100 dark:bg-white/5" />
+          <div className="h-[260px] animate-pulse rounded-2xl bg-slate-100 dark:bg-white/5" />
+        </div>
+      </div>
     ),
   }
 );
 
-type AnalyticsSection = "overview" | "reading-behavior" | "revenue";
-type Period = "7d" | "30d" | "all";
+export type Period = "7d" | "30d" | "all";
 
-type DailyPoint = {
+export type DailyPoint = {
   date: string;
   views: number;
   reads: number;
   purchases: number;
 };
 
-type AuthorDashboardData = {
-  stats: {
+export type ChapterSignal = {
+  id: string;
+  title: string;
+  readerCount: number;
+  highlightCount: number;
+  completionRate: number;
+  dropoffRate: number;
+  highlightRate: number;
+};
+
+export type BookRow = {
+  id: string;
+  title: string;
+  views: number;
+  reads: number;
+  purchases: number;
+};
+
+export type AnalyticsData = {
+  overviewStats: {
     views: number;
     reads: number;
     purchases: number;
@@ -43,316 +70,254 @@ type AuthorDashboardData = {
     donationRevenue: number;
     currency: string;
   } | null;
+  engagement: {
+    reviews: number;
+    averageRating: number;
+    bookmarks: number;
+    followers: number;
+  } | null;
+  booksTable: BookRow[];
+  bookDetail: {
+    overview: {
+      views: number;
+      reads: number;
+      purchases: number;
+      bookmarks: number;
+      revenue: number;
+      currency: string;
+    };
+    readers: {
+      total: number;
+      active: number;
+      avgProgress: number;
+      completionRate: number;
+    };
+    reviews: {
+      count: number;
+      averageRating: number;
+    };
+    dailyChart: DailyPoint[];
+    chapterSignals: ChapterSignal[];
+  } | null;
+  marketingCampaigns: MarketingCampaign[];
 };
 
-type ChapterSignal = {
+export type MarketingCampaign = {
   id: string;
-  title: string;
-  readerCount: number;
-  highlightCount: number;
-  completionRate: number;
-  dropoffRate: number;
-  highlightRate: number;
-};
-
-type BookStatsResponse = {
-  chapterSignals?: ChapterSignal[];
+  channel: string;
+  status: string;
+  created_at: string;
 };
 
 type AnalyticsWorkspaceProps = {
   books: Array<{ id: string; title: string }>;
 };
 
-function normalizeSection(value: string | null | undefined): AnalyticsSection {
-  if (value === "reading-behavior") return "reading-behavior";
-  if (value === "revenue") return "revenue";
-  return "overview";
+function BookTab({
+  label,
+  active,
+  onClick,
+}: {
+  label: string;
+  active: boolean;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={cn(
+        "shrink-0 rounded-full px-4 py-2 text-[13px] font-medium transition-all",
+        active
+          ? "bg-[#907AFF] text-white shadow-sm shadow-[#907AFF]/20"
+          : "bg-white text-slate-500 ring-1 ring-slate-200/80 hover:text-slate-800 dark:bg-white/[0.06] dark:text-white/50 dark:ring-white/10 dark:hover:text-white/80"
+      )}
+    >
+      {label}
+    </button>
+  );
 }
 
-export default function AnalyticsWorkspace({
-  books,
-}: AnalyticsWorkspaceProps) {
+function PeriodSelector({
+  period,
+  onChange,
+}: {
+  period: Period;
+  onChange: (p: Period) => void;
+}) {
+  return (
+    <div className="flex shrink-0 gap-1 rounded-xl bg-slate-100 p-1 dark:bg-white/5">
+      {(["7d", "30d", "all"] as Period[]).map((p) => (
+        <button
+          key={p}
+          type="button"
+          onClick={() => onChange(p)}
+          className={cn(
+            "rounded-lg px-3 py-1.5 text-[12px] font-semibold tracking-wide transition-all",
+            period === p
+              ? "bg-white text-slate-900 shadow-sm dark:bg-white/10 dark:text-white"
+              : "text-slate-500 hover:text-slate-700 dark:text-white/45 dark:hover:text-white/70"
+          )}
+        >
+          {p === "all" ? "All time" : p.toUpperCase()}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+export default function AnalyticsWorkspace({ books }: AnalyticsWorkspaceProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { setCurrentBookId } = useAuthorWorkspace();
-  const [period, setPeriod] = useState<Period>("30d");
-  const [data, setData] = useState<AuthorDashboardData>({
-    stats: null,
-    revenue: null,
-  });
-  const [chapterSignals, setChapterSignals] = useState<ChapterSignal[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [refreshNonce, setRefreshNonce] = useState(0);
 
-  const section = normalizeSection(searchParams.get("section"));
-  const selectedBookId =
-    searchParams.get("bookId") ?? searchParams.get("book") ?? books[0]?.id ?? null;
-  const selectedBook =
-    books.find((book) => book.id === selectedBookId) ?? books[0] ?? null;
+  const [period, setPeriod] = useState<Period>("30d");
+  const [loading, setLoading] = useState(true);
+  const [data, setData] = useState<AnalyticsData>({
+    overviewStats: null,
+    revenue: null,
+    engagement: null,
+    booksTable: [],
+    bookDetail: null,
+    marketingCampaigns: [],
+  });
+
+  const bookId = searchParams.get("bookId") ?? "all";
+  const selectedBook = bookId === "all" ? null : (books.find((b) => b.id === bookId) ?? null);
+
+  useEffect(() => {
+    setCurrentBookId(selectedBook?.id ?? null);
+  }, [selectedBook?.id, setCurrentBookId]);
 
   useEffect(() => {
     let cancelled = false;
+    setLoading(true);
 
     const run = async () => {
-      setLoading(true);
       try {
-        const [statsRes, revenueRes, selectedBookRes] = await Promise.all([
-          fetch(`/api/author/stats?period=${period}`),
-          fetch("/api/author/stats/revenue"),
-          selectedBookId
-            ? fetch(`/api/books/${selectedBookId}/stats?period=${period}`)
-            : Promise.resolve(null),
-        ]);
+        if (bookId === "all") {
+          const [statsRes, revenueRes, booksRes, engRes, campaignsRes] = await Promise.all([
+            fetch(`/api/author/stats?period=${period}`),
+            fetch("/api/author/stats/revenue"),
+            fetch(`/api/author/stats/books?period=${period}`),
+            fetch("/api/author/stats/engagement"),
+            fetch("/api/author/marketing/campaigns"),
+          ]);
 
-        const [stats, revenue, selectedBookStats] = await Promise.all([
-          statsRes.ok ? statsRes.json() : Promise.resolve(null),
-          revenueRes.ok ? revenueRes.json() : Promise.resolve(null),
-          selectedBookRes && "ok" in selectedBookRes && selectedBookRes.ok
-            ? (selectedBookRes.json() as Promise<BookStatsResponse>)
-            : Promise.resolve(null),
-        ]);
+          const [stats, revenue, booksData, engagement, campaigns] = await Promise.all([
+            statsRes.ok ? statsRes.json() : null,
+            revenueRes.ok ? revenueRes.json() : null,
+            booksRes.ok ? booksRes.json() : null,
+            engRes.ok ? engRes.json() : null,
+            campaignsRes.ok ? campaignsRes.json() : null,
+          ]);
 
-        if (cancelled) return;
+          if (!cancelled) {
+            setData({
+              overviewStats: stats,
+              revenue,
+              engagement,
+              booksTable: (booksData?.books as BookRow[]) ?? [],
+              bookDetail: null,
+              marketingCampaigns: (campaigns?.campaigns as MarketingCampaign[]) ?? [],
+            });
+          }
+        } else {
+          const [bookRes, revenueRes, engRes, campaignsRes] = await Promise.all([
+            fetch(`/api/books/${bookId}/stats?period=${period}`),
+            fetch("/api/author/stats/revenue"),
+            fetch("/api/author/stats/engagement"),
+            fetch("/api/author/marketing/campaigns"),
+          ]);
 
-        setData({
-          stats,
-          revenue,
-        });
-        setChapterSignals(selectedBookStats?.chapterSignals ?? []);
+          const [bookDetail, revenue, engagement, campaigns] = await Promise.all([
+            bookRes.ok ? bookRes.json() : null,
+            revenueRes.ok ? revenueRes.json() : null,
+            engRes.ok ? engRes.json() : null,
+            campaignsRes.ok ? campaignsRes.json() : null,
+          ]);
+
+          if (!cancelled) {
+            setData({
+              overviewStats: null,
+              revenue,
+              engagement,
+              booksTable: [],
+              bookDetail,
+              marketingCampaigns: (campaigns?.campaigns as MarketingCampaign[]) ?? [],
+            });
+          }
+        }
       } catch {
-        if (cancelled) return;
-        setData({
-          stats: null,
-          revenue: null,
-        });
-        setChapterSignals([]);
+        // continue with empty data
       } finally {
         if (!cancelled) setLoading(false);
       }
     };
 
     void run();
-
     return () => {
       cancelled = true;
     };
-  }, [period, refreshNonce, selectedBookId]);
+  }, [bookId, period]);
 
-  const totalHighlights = useMemo(
-    () => chapterSignals.reduce((sum, signal) => sum + signal.highlightCount, 0),
-    [chapterSignals]
-  );
-
-  const averageCompletion = useMemo(() => {
-    if (chapterSignals.length === 0) return 0;
-    const total = chapterSignals.reduce(
-      (sum, signal) => sum + signal.completionRate,
-      0
-    );
-    return Math.round(total / chapterSignals.length);
-  }, [chapterSignals]);
-
-  useEffect(() => {
-    setCurrentBookId(selectedBook?.id ?? null);
-  }, [selectedBook?.id, setCurrentBookId]);
-
-  const updateQuery = (next: Record<string, string | null>) => {
+  const updateBookId = (id: string) => {
     const params = new URLSearchParams(searchParams.toString());
-    Object.entries(next).forEach(([key, value]) => {
-      if (!value) params.delete(key);
-      else params.set(key, value);
-    });
+    if (id === "all") {
+      params.delete("bookId");
+    } else {
+      params.set("bookId", id);
+    }
     const query = params.toString();
-    router.replace(query ? `/author/analytics?${query}` : "/author/analytics", {
-      scroll: false,
-    });
+    router.replace(query ? `/author/analytics?${query}` : "/author/analytics", { scroll: false });
   };
-
-  const revenueLabel = `${(data.revenue?.totalRevenue ?? 0).toLocaleString("sv-SE")} ${(
-    data.revenue?.currency ?? "SEK"
-  ).trim()}`;
-
-  const renderOverview = () => (
-    <div className="space-y-5">
-      <section>
-        <p className="text-eyebrow">Story</p>
-        <h2 className="mt-3 text-[32px] font-semibold tracking-tight text-slate-900 dark:text-white">
-          {selectedBook?.title ?? "All books"}
-        </h2>
-        <p className="mt-2 max-w-2xl text-[15px] leading-relaxed text-slate-500 dark:text-white/45">
-          Track how attention turns into reading and revenue.
-        </p>
-      </section>
-
-      <section className="rounded-2xl bg-white px-6 py-4 dark:bg-white/[0.04]">
-        <dl className="flex flex-wrap gap-x-10 gap-y-4">
-          <WorkspaceMetric
-            label="Readers"
-            value={(data.stats?.reads ?? 0).toLocaleString("sv-SE")}
-          />
-          <WorkspaceMetric label="Revenue" value={revenueLabel} />
-          <WorkspaceMetric label="Completion" value={`${averageCompletion}%`} />
-          <WorkspaceMetric
-            label="Highlights"
-            value={totalHighlights.toLocaleString("sv-SE")}
-          />
-        </dl>
-      </section>
-
-      <div className="rounded-2xl bg-white p-6 dark:bg-white/[0.04] sm:p-7">
-        <AnalyticsCharts dailyChart={data.stats?.dailyChart ?? []} />
-      </div>
-    </div>
-  );
-
-  const renderReadingBehavior = () => (
-    <div className="rounded-2xl bg-white p-6 dark:bg-white/[0.04] sm:p-7">
-      <div className="flex flex-wrap items-center justify-between gap-4">
-        <div>
-          <p className="text-eyebrow">Reading behavior</p>
-          <h2 className="mt-2 text-section-title">Chapter signals</h2>
-        </div>
-        <div className="flex gap-2 rounded-xl bg-slate-100 p-1 dark:bg-white/5">
-          {(["7d", "30d", "all"] as Period[]).map((value) => (
-            <button
-              key={value}
-              type="button"
-              onClick={() => setPeriod(value)}
-              className={`rounded-lg px-4 py-1.5 text-[13px] font-medium transition ${
-                period === value
-                  ? "bg-[#F2EDFF] text-[#7C6CFF] dark:bg-[#7C6CFF]/15 dark:text-white"
-                  : "text-slate-500 hover:text-slate-700 dark:text-white/50 dark:hover:text-white/80"
-              }`}
-            >
-              {value === "all" ? "All time" : value}
-            </button>
-          ))}
-        </div>
-      </div>
-
-      {chapterSignals.length === 0 ? (
-        <p className="mt-6 text-sm text-slate-500 dark:text-white/45">
-          Reading behavior appears once this book has chapter-level data.
-        </p>
-      ) : (
-        <div className="mt-6 divide-y divide-slate-200/80 dark:divide-white/10">
-          {chapterSignals.map((signal) => (
-            <div key={signal.id} className="grid gap-4 py-4 first:pt-0 sm:grid-cols-[minmax(0,1fr)_auto_auto_auto] sm:items-start">
-              <div className="min-w-0">
-                <p className="truncate text-sm font-medium text-slate-900 dark:text-white">
-                  {signal.title}
-                </p>
-                <p className="mt-1 text-sm text-slate-500 dark:text-white/45">
-                  {signal.readerCount.toLocaleString("sv-SE")} readers
-                </p>
-              </div>
-              <div className="text-sm text-slate-600 dark:text-white/55">
-                Completion {signal.completionRate}%
-              </div>
-              <div className="text-sm text-slate-600 dark:text-white/55">
-                Drop-off {signal.dropoffRate}%
-              </div>
-              <div className="text-sm text-slate-600 dark:text-white/55">
-                Highlights {signal.highlightCount}
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
-    </div>
-  );
-
-  const renderRevenue = () => (
-    <div className="space-y-5">
-      <div className="rounded-2xl bg-white p-6 dark:bg-white/[0.04] sm:p-7">
-        <p className="text-eyebrow">Revenue</p>
-        <h2 className="mt-2 text-section-title">Total revenue</h2>
-        <p className="mt-4 text-[32px] font-semibold tracking-tight text-slate-900 dark:text-white">
-          {revenueLabel}
-        </p>
-      </div>
-
-      <div className="rounded-2xl bg-white p-6 dark:bg-white/[0.04] sm:p-7">
-        <p className="text-eyebrow">Breakdown</p>
-        <dl className="mt-4 grid gap-4 sm:grid-cols-2">
-          <div>
-            <dt className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400 dark:text-white/35">
-              Book sales
-            </dt>
-            <dd className="mt-1 text-sm text-slate-900 dark:text-white">
-              {(data.revenue?.orderRevenue ?? 0).toLocaleString("sv-SE")} {data.revenue?.currency ?? "SEK"}
-            </dd>
-          </div>
-          <div>
-            <dt className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400 dark:text-white/35">
-              Donations
-            </dt>
-            <dd className="mt-1 text-sm text-slate-900 dark:text-white">
-              {(data.revenue?.donationRevenue ?? 0).toLocaleString("sv-SE")} {data.revenue?.currency ?? "SEK"}
-            </dd>
-          </div>
-        </dl>
-      </div>
-    </div>
-  );
 
   return (
     <WorkspaceLayout
       header={
-        <header>
-          <h1 className="text-[17px] font-medium uppercase tracking-[0.14em] text-[#8B92A5] dark:text-white/50">
-            Analytics
-          </h1>
-        </header>
+        <h1 className="text-[17px] font-medium uppercase tracking-[0.14em] text-[#8B92A5] dark:text-white/50">
+          Analytics
+        </h1>
       }
       headerRight={<WorkspaceHeaderActions />}
       main={
         <>
-          {books.length > 0 ? (
-            <div className="mb-5 flex flex-wrap items-center gap-3">
-              <select
-                value={selectedBookId ?? ""}
-                onChange={(event) => updateQuery({ bookId: event.target.value || null })}
-                className="h-10 min-w-[160px] rounded-full border-0 bg-white px-4 text-[14px] text-[#5C6375] outline-none ring-1 ring-slate-200/80 focus:ring-2 focus:ring-[#907AFF]/30 dark:bg-white/[0.06] dark:text-white/60 dark:ring-white/10"
-                aria-label="Select book"
-              >
-                {books.map((book) => (
-                  <option key={book.id} value={book.id}>
-                    {book.title}
-                  </option>
-                ))}
-              </select>
-              <Button
-                className="rounded-full"
-                onClick={() => setRefreshNonce((current) => current + 1)}
-              >
-                Refresh analytics
-              </Button>
+          <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
+            <div className="flex items-center gap-2 overflow-x-auto pb-1">
+              <BookTab
+                label="All books"
+                active={bookId === "all"}
+                onClick={() => updateBookId("all")}
+              />
+              {books.map((book) => (
+                <BookTab
+                  key={book.id}
+                  label={book.title}
+                  active={bookId === book.id}
+                  onClick={() => updateBookId(book.id)}
+                />
+              ))}
             </div>
-          ) : null}
+            <PeriodSelector period={period} onChange={setPeriod} />
+          </div>
 
-          {loading ? (
-            <div className="space-y-4">
-              <div className="h-[120px] animate-pulse rounded-2xl bg-slate-100 dark:bg-white/5" />
-              <div className="h-[72px] animate-pulse rounded-2xl bg-slate-100 dark:bg-white/5" />
-              <div className="h-[360px] animate-pulse rounded-2xl bg-slate-100 dark:bg-white/5" />
-            </div>
-          ) : books.length === 0 ? (
-            <div className="rounded-2xl bg-white p-8 text-center dark:bg-white/[0.04] sm:p-10">
-              <p className="text-eyebrow">Analytics</p>
-              <h2 className="mt-4 text-[30px] font-semibold tracking-tight text-slate-900 dark:text-white">
+          {books.length === 0 ? (
+            <div className="rounded-2xl bg-white p-10 text-center dark:bg-white/[0.04]">
+              <h2 className="text-[26px] font-semibold tracking-tight text-slate-900 dark:text-white">
                 Story signals appear once readers have something to read
               </h2>
-              <p className="mx-auto mt-3 max-w-xl text-[15px] leading-relaxed text-slate-500 dark:text-white/45">
-                Create and publish a book, then return here to understand how readers move through the story.
+              <p className="mx-auto mt-3 max-w-md text-[15px] leading-relaxed text-slate-500 dark:text-white/45">
+                Create and publish a book, then return here to understand how readers move through your story.
               </p>
             </div>
-          ) : section === "overview" ? (
-            renderOverview()
-          ) : section === "reading-behavior" ? (
-            renderReadingBehavior()
           ) : (
-            renderRevenue()
+            <AnalyticsDashboard
+              bookId={bookId}
+              selectedBook={selectedBook}
+              period={period}
+              data={data}
+              loading={loading}
+            />
           )}
         </>
       }

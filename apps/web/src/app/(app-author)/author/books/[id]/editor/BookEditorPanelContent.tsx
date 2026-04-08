@@ -3,7 +3,7 @@
 import dynamic from "next/dynamic";
 import GenreSelector from "@/components/books/GenreSelector";
 import DeleteBookButton from "@/components/books/DeleteBookButton";
-import { getMarketingEnabled, getRecommendationsEnabled, getTranslationsEnabled } from "@/lib/flags";
+import { getMarketingEnabled, getTranslationsEnabled } from "@/lib/flags";
 import { type SupportedLanguage } from "@/lib/languages";
 import BookWorkflowHeader from "../BookWorkflowHeader";
 import ImportManusSection from "./components/ImportManusSection";
@@ -248,7 +248,7 @@ export default function BookEditorPanelContent({
               onChapterPublishToggle={(chapter, shouldPublish) => void publishing.handleChapterPublishToggle(chapter, shouldPublish)}
               onSelectChapter={(id) => { onSetSelectedChapterId(id); onResetSessionWords(); }}
               onOpenCover={() => onNavigateToPanel("cover")}
-              genreSelector={getRecommendationsEnabled() ? <GenreSelector bookId={bookId} /> : undefined}
+              genreSelector={<GenreSelector bookId={bookId} />}
             />
             <PricingPanel
               chapters={chapters}

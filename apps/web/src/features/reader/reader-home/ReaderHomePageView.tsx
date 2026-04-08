@@ -76,17 +76,17 @@ function SectionHeader({
   action?: { href: string; text: string };
 }) {
   return (
-    <div className="flex items-end justify-between">
-      <h3 className="text-xl font-semibold text-[#0F172A] dark:text-white">
+    <div className="flex items-center justify-between">
+      <h3 className="text-xl font-semibold text-[#0F172A] dark:text-white sm:text-2xl">
         {title}
       </h3>
       {action && (
         <Link
           href={action.href}
-          className="inline-flex items-center gap-1 text-sm font-medium text-[#907AFF] transition-colors hover:text-[#7058DD]"
+          className="inline-flex items-center gap-1 rounded-full border border-[#907AFF]/20 bg-[#907AFF]/[0.06] px-3 py-1 text-xs font-medium text-[#907AFF] transition-colors hover:bg-[#907AFF]/10 dark:border-[#907AFF]/25 dark:bg-[#907AFF]/[0.08]"
         >
           {action.text}
-          <ArrowRight className="h-3.5 w-3.5" />
+          <ArrowRight className="h-3 w-3" />
         </Link>
       )}
     </div>
@@ -107,7 +107,7 @@ export default function ReaderHomePageView({
     <div className="reader-stagger space-y-6">
       {/* ── Header ── */}
       <header>
-        <h1 className="text-2xl font-semibold tracking-tight text-[#0F172A] dark:text-white sm:text-3xl">
+        <h1 className="text-3xl font-semibold tracking-tight text-[#0F172A] dark:text-white sm:text-4xl">
           {greeting}
         </h1>
       </header>
@@ -132,9 +132,9 @@ export default function ReaderHomePageView({
             )}
             <Link
               href={spotlight?.href ?? "/reader/discover"}
-              className="group relative w-[100px] flex-shrink-0 sm:w-[120px]"
+              className="group relative w-[120px] flex-shrink-0 sm:w-[150px] lg:w-[170px]"
             >
-              <div className="relative aspect-[3/4] overflow-hidden rounded-xl border border-black/[0.06] shadow-sm transition-transform duration-500 ease-[cubic-bezier(0.23,1,0.32,1)] group-hover:scale-[1.04] dark:border-white/10">
+              <div className="relative aspect-[3/4] overflow-hidden rounded-2xl border border-black/[0.06] shadow-md transition-transform duration-500 ease-[cubic-bezier(0.23,1,0.32,1)] group-hover:scale-[1.03] dark:border-white/10">
                 {spotlight?.cover ? (
                   <Image
                     src={spotlight.cover}
@@ -155,7 +155,7 @@ export default function ReaderHomePageView({
                 <Sparkles className="h-3 w-3" />
                 {spotlight?.badge ?? "Featured"}
               </span>
-              <h2 className="text-lg font-semibold tracking-tight text-[#0F172A] sm:text-xl lg:text-2xl dark:text-white">
+              <h2 className="text-xl font-semibold tracking-tight text-[#0F172A] sm:text-2xl lg:text-[28px] dark:text-white">
                 {spotlight?.title ?? "Find your next read"}
               </h2>
               <p className="text-sm text-[#64748B] dark:text-white/50">
@@ -183,33 +183,33 @@ export default function ReaderHomePageView({
 
           {/* Continue Reading */}
           {continueReading.length > 0 && (
-            <section className="card-base p-6">
+            <section className="card-base p-4 sm:p-6">
               <div className="flex items-center justify-between">
                 <h3 className="text-lg font-semibold text-[#0F172A] dark:text-white">
                   Continue Reading
                 </h3>
                 <Link
                   href="/reader/library"
-                  className="inline-flex items-center gap-1 text-sm font-medium text-[#907AFF] hover:text-[#7058DD]"
+                  className="inline-flex items-center gap-1 rounded-full border border-[#907AFF]/20 bg-[#907AFF]/[0.06] px-3 py-1 text-xs font-medium text-[#907AFF] transition-colors hover:bg-[#907AFF]/10 dark:border-[#907AFF]/25 dark:bg-[#907AFF]/[0.08]"
                 >
-                  View all <ArrowRight className="h-3.5 w-3.5" />
+                  View all <ArrowRight className="h-3 w-3" />
                 </Link>
               </div>
-              <div className="mt-4 space-y-3">
+              <div className="mt-4 space-y-1">
                 {continueReading.slice(0, 4).map((book) => (
                   <Link
                     key={book.id}
                     href={book.href}
-                    className="group flex items-center gap-4 rounded-xl p-2 transition-colors hover:bg-[#F8F9FB] dark:hover:bg-white/[0.04]"
+                    className="group flex items-center gap-3 rounded-xl p-2 transition-colors hover:bg-[#F8F9FB] dark:hover:bg-white/[0.04]"
                   >
-                    <div className="relative h-[56px] w-[40px] flex-shrink-0 overflow-hidden rounded-lg border border-black/[0.06] dark:border-white/10">
+                    <div className="relative h-[60px] w-[42px] flex-shrink-0 overflow-hidden rounded-lg border border-black/[0.06] shadow-sm dark:border-white/10">
                       {book.cover ? (
                         <Image
                           src={book.cover}
                           alt={book.title}
                           fill
-                          sizes="40px"
-                          className="object-cover"
+                          sizes="42px"
+                          className="object-cover transition-transform duration-300 group-hover:scale-[1.06]"
                         />
                       ) : (
                         <div className="flex h-full w-full items-center justify-center bg-[#F8F9FB] dark:bg-white/5">
@@ -217,26 +217,24 @@ export default function ReaderHomePageView({
                         </div>
                       )}
                     </div>
-                    <div className="min-w-0 flex-1">
-                      <p className="truncate text-sm font-medium text-[#0F172A] group-hover:text-[#907AFF] dark:text-white">
+                    <div className="min-w-0 flex-1 space-y-1.5">
+                      <p className="truncate text-sm font-medium text-[#0F172A] transition-colors group-hover:text-[#907AFF] dark:text-white">
                         {book.title}
                       </p>
                       <p className="truncate text-xs text-[#64748B] dark:text-white/50">
-                        {book.author}
+                        {book.chapterLabel ?? book.author}
                       </p>
-                    </div>
-                    <div className="flex w-24 flex-shrink-0 items-center gap-2">
-                      <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-black/[0.06] dark:bg-white/10">
-                        <div
-                          className="h-full rounded-full bg-[#907AFF]"
-                          style={{
-                            width: `${Math.max(0, Math.min(100, book.progress))}%`,
-                          }}
-                        />
+                      <div className="flex items-center gap-2">
+                        <div className="h-1 flex-1 overflow-hidden rounded-full bg-black/[0.06] dark:bg-white/10">
+                          <div
+                            className="h-full rounded-full bg-gradient-to-r from-[#907AFF] to-[#A48FFF]"
+                            style={{ width: `${Math.max(0, Math.min(100, book.progress))}%` }}
+                          />
+                        </div>
+                        <span className="text-[11px] font-medium tabular-nums text-[#64748B] dark:text-white/40">
+                          {Math.round(book.progress)}%
+                        </span>
                       </div>
-                      <span className="text-xs font-medium text-[#64748B] dark:text-white/40">
-                        {Math.round(book.progress)}%
-                      </span>
                     </div>
                   </Link>
                 ))}
@@ -311,7 +309,7 @@ export default function ReaderHomePageView({
                     href={`/reader/authors/${author.id}`}
                     className="group flex items-center gap-3"
                   >
-                    <div className="relative flex h-9 w-9 flex-shrink-0 items-center justify-center overflow-hidden rounded-full bg-[#907AFF]/10 text-xs font-semibold text-[#907AFF]">
+                    <div className="relative flex h-9 w-9 flex-shrink-0 items-center justify-center overflow-hidden rounded-full bg-[#907AFF]/10 text-xs font-semibold text-[#907AFF] ring-1 ring-black/[0.06] dark:ring-white/[0.08]">
                       {author.avatar ? (
                         <Image
                           src={author.avatar}
@@ -346,9 +344,10 @@ export default function ReaderHomePageView({
             )}
             <Link
               href="/reader/authors"
-              className="mt-4 flex w-full items-center justify-center rounded-xl bg-[#907AFF]/10 py-2 text-sm font-medium text-[#907AFF] transition-colors hover:bg-[#907AFF]/15"
+              className="mt-4 flex w-full items-center justify-center gap-1.5 rounded-xl bg-[#907AFF]/[0.08] py-2.5 text-xs font-semibold tracking-wide text-[#907AFF] transition-colors hover:bg-[#907AFF]/[0.13] dark:bg-[#907AFF]/[0.10]"
             >
               Explore all authors
+              <ArrowRight className="h-3 w-3" />
             </Link>
           </section>
         </div>
@@ -364,20 +363,42 @@ export default function ReaderHomePageView({
             title="Trending"
             action={{ href: "/reader/discover", text: "See all" }}
           />
-          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
-            {trendingBooks.map((book) => (
-              <BookCard
+          <div className="card-base divide-y divide-black/[0.04] px-4 py-1 dark:divide-white/[0.05]">
+            {trendingBooks.map((book, i) => (
+              <Link
                 key={book.id}
-                id={book.id}
-                title={book.title}
-                author={book.author}
-                cover={book.cover}
                 href={book.href}
-                tag={book.tag}
-                length={book.length}
-                hasTrailer={book.hasTrailer}
-                layout="grid"
-              />
+                className="group flex items-center gap-4 py-3 transition-colors duration-150 first:pt-3.5 last:pb-3.5"
+              >
+                <span className="w-6 flex-shrink-0 text-center text-sm font-semibold tabular-nums text-[#64748B] dark:text-white/35">
+                  {i + 1}
+                </span>
+                <div className="relative h-[52px] w-[36px] flex-shrink-0 overflow-hidden rounded-lg border border-black/[0.06] shadow-sm dark:border-white/10">
+                  {book.cover ? (
+                    <Image
+                      src={book.cover}
+                      alt={book.title ?? ""}
+                      fill
+                      sizes="36px"
+                      className="object-cover transition-transform duration-500 group-hover:scale-[1.08]"
+                    />
+                  ) : (
+                    <div className="flex h-full w-full items-center justify-center bg-[#F8F9FB] dark:bg-white/5">
+                      <BookMarked className="h-3 w-3 text-[#64748B]/40" />
+                    </div>
+                  )}
+                </div>
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-[14px] font-semibold text-[#0F172A] transition-colors group-hover:text-[#907AFF] dark:text-white dark:group-hover:text-[#b8a8ff]">
+                    {book.title}
+                  </p>
+                  <p className="truncate text-xs text-[#64748B] dark:text-white/50">
+                    {book.author}
+                    {book.length && <span className="before:mx-1.5 before:content-['·']">{book.length}</span>}
+                  </p>
+                </div>
+                <ArrowRight className="h-3.5 w-3.5 flex-shrink-0 text-[#64748B]/40 transition-transform duration-150 group-hover:translate-x-0.5 dark:text-white/30" />
+              </Link>
             ))}
           </div>
         </section>
@@ -389,21 +410,24 @@ export default function ReaderHomePageView({
             title="Recommended for you"
             action={{ href: "/reader/discover", text: "See all" }}
           />
-          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
-            {recommendedBooks.map((book) => (
-              <BookCard
-                key={book.id}
-                id={book.id}
-                title={book.title}
-                author={book.author}
-                cover={book.cover}
-                href={book.href}
-                tag={book.tag}
-                length={book.length}
-                hasTrailer={book.hasTrailer}
-                layout="grid"
-              />
-            ))}
+          <div className="-mx-4 sm:mx-0">
+            <div className="scrollbar-none flex gap-3 overflow-x-auto px-4 pb-1 sm:grid sm:grid-cols-3 sm:overflow-visible sm:px-0 md:grid-cols-4 lg:grid-cols-5">
+              {recommendedBooks.map((book) => (
+                <div key={book.id} className="w-[148px] flex-shrink-0 sm:w-auto">
+                  <BookCard
+                    id={book.id}
+                    title={book.title}
+                    author={book.author}
+                    cover={book.cover}
+                    href={book.href}
+                    tag={book.tag}
+                    length={book.length}
+                    hasTrailer={book.hasTrailer}
+                    layout="grid"
+                  />
+                </div>
+              ))}
+            </div>
           </div>
         </section>
       )}
@@ -414,21 +438,24 @@ export default function ReaderHomePageView({
             title="New releases"
             action={{ href: "/reader/discover", text: "See all" }}
           />
-          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
-            {latestReleases.map((book) => (
-              <BookCard
-                key={book.id}
-                id={book.id}
-                title={book.title}
-                author={book.author}
-                cover={book.cover}
-                href={book.href}
-                tag={book.tag}
-                length={book.length}
-                hasTrailer={book.hasTrailer}
-                layout="grid"
-              />
-            ))}
+          <div className="-mx-4 sm:mx-0">
+            <div className="scrollbar-none flex gap-3 overflow-x-auto px-4 pb-1 sm:grid sm:grid-cols-3 sm:overflow-visible sm:px-0 md:grid-cols-4 lg:grid-cols-5">
+              {latestReleases.map((book) => (
+                <div key={book.id} className="w-[148px] flex-shrink-0 sm:w-auto">
+                  <BookCard
+                    id={book.id}
+                    title={book.title}
+                    author={book.author}
+                    cover={book.cover}
+                    href={book.href}
+                    tag={book.tag}
+                    length={book.length}
+                    hasTrailer={book.hasTrailer}
+                    layout="grid"
+                  />
+                </div>
+              ))}
+            </div>
           </div>
         </section>
       )}

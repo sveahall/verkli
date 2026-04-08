@@ -59,19 +59,22 @@ export default function ReaderBookPageView({
       </header>
 
       {/* ── Hero card ── */}
-      <div className="relative overflow-hidden rounded-2xl border border-black/[0.05] bg-white/80 shadow-[0_1px_3px_rgba(0,0,0,0.04)] backdrop-blur-sm dark:border-white/[0.06] dark:bg-white/[0.03] dark:shadow-none">
-        {/* Atmospheric cover backdrop */}
-        {coverUrl && (
-          <img
-            src={coverUrl}
-            alt=""
-            aria-hidden="true"
-            className="pointer-events-none absolute inset-0 h-full w-full scale-110 object-cover opacity-[0.07] dark:opacity-[0.2]"
-            style={{ filter: "blur(80px) saturate(2)" }}
-          />
-        )}
-        {/* Decorative glow */}
-        <div className="pointer-events-none absolute -right-32 -top-32 h-[320px] w-[320px] rounded-full bg-[#907AFF]/[0.07] blur-[100px]" />
+      <div className="card-base relative bg-white/80 backdrop-blur-sm dark:bg-white/[0.03]">
+        {/* Inner clipping layer — keeps filter:blur inside card without clipping cover shadow */}
+        <div className="pointer-events-none absolute inset-0 overflow-hidden rounded-2xl">
+          {/* Atmospheric cover backdrop */}
+          {coverUrl && (
+            <img
+              src={coverUrl}
+              alt=""
+              aria-hidden="true"
+              className="absolute inset-0 h-full w-full scale-110 object-cover opacity-[0.11] dark:opacity-[0.22]"
+              style={{ filter: "blur(72px) saturate(2.2)" }}
+            />
+          )}
+          {/* Decorative glow — contained inside clip layer */}
+          <div className="absolute right-0 top-0 h-72 w-72 translate-x-24 -translate-y-24 rounded-full bg-[#907AFF]/[0.10] blur-[80px]" />
+        </div>
 
         <div className="relative grid gap-6 p-4 sm:gap-8 sm:p-6 md:p-8 lg:grid-cols-[260px_minmax(0,1fr)] lg:items-start">
           {/* Cover */}
@@ -126,31 +129,30 @@ export default function ReaderBookPageView({
       {/* ── Trailer ── */}
       {trailerSection}
 
-      {/* ── Edition details (inline bar) ── */}
-      <div className="grid grid-cols-2 gap-3 sm:gap-4 xl:grid-cols-4">
-        {editionNotes.map((item) => (
-          <div
-            key={item.label}
-            className="rounded-2xl border border-black/[0.05] bg-white/60 px-3 py-3 backdrop-blur-sm sm:px-5 sm:py-4 dark:border-white/[0.06] dark:bg-white/[0.02]"
-          >
-            <p className="text-[11px] font-semibold uppercase tracking-wider text-slate-400 dark:text-white/35">
-              {item.label}
-            </p>
-            <p className="mt-1.5 text-sm font-semibold text-slate-900 dark:text-white">
-              {item.value}
-            </p>
-          </div>
-        ))}
+      {/* ── Edition details — unified bar with dividers ── */}
+      <div className="card-base overflow-hidden">
+        <div className="flex flex-col divide-y divide-slate-200/60 dark:divide-white/[0.06] sm:flex-row sm:divide-x sm:divide-y-0">
+          {editionNotes.map((item) => (
+            <div key={item.label} className="flex-1 px-5 py-4 sm:px-6">
+              <p className="text-xs font-medium uppercase tracking-wider text-[#64748B] dark:text-white/40">
+                {item.label}
+              </p>
+              <p className="mt-1 text-sm font-semibold text-[#0F172A] dark:text-white">
+                {item.value}
+              </p>
+            </div>
+          ))}
+        </div>
       </div>
 
       {/* ── Chapters ── */}
-      <div className="rounded-2xl border border-black/[0.05] bg-white/60 backdrop-blur-sm dark:border-white/[0.06] dark:bg-white/[0.02]">
-        <div className="border-b border-black/[0.05] px-6 py-4 dark:border-white/[0.06]">
-          <h3 className="text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-white/50">
+      <div className="card-base overflow-hidden">
+        <div className="flex items-center justify-between border-b border-slate-200/60 px-6 py-4 dark:border-white/[0.06]">
+          <h3 className="text-sm font-semibold text-[#0F172A] dark:text-white">
             Chapters
           </h3>
         </div>
-        <div className="p-4 sm:p-5">{chaptersSection}</div>
+        <div className="px-4 py-2 sm:px-6">{chaptersSection}</div>
       </div>
 
       {/* ── Print on demand ── */}

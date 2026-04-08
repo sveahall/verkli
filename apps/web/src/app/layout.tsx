@@ -20,6 +20,7 @@ const montserratAlternates = Montserrat_Alternates({
   weight: ["400", "500", "600", "700"],
 });
 
+
 export const metadata: Metadata = {
   metadataBase: new URL(
     process.env.NEXT_PUBLIC_SITE_URL ?? "https://verkli.com"
@@ -39,9 +40,13 @@ export const metadata: Metadata = {
   openGraph: {
     siteName: "Verkli",
     type: "website",
+    title: "Verkli",
+    description: "Verkli — the platform for authors and readers.",
   },
   twitter: {
-    card: "summary",
+    card: "summary_large_image",
+    title: "Verkli",
+    description: "Verkli — the platform for authors and readers.",
   },
 };
 
