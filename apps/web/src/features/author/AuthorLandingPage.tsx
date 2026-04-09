@@ -12,6 +12,20 @@ import { BRAND_COLORS } from "@/lib/design/brand";
 import Reveal from "@/components/Reveal";
 
 const AuthorDashboard = dynamic(() => import("@/features/author/AuthorDashboard"), { ssr: false });
+
+const PARTNERS = [
+  "Amazon KDP",
+  "Apple Books",
+  "Spotify",
+  "Audible",
+  "Kobo",
+  "Barnes & Noble",
+  "Google Play",
+  "Scribd",
+  "BookBub",
+  "Draft2Digital",
+];
+
 // ============================================
 // LANDING PAGE (for non-authenticated users)
 // ============================================
@@ -60,6 +74,16 @@ function LandingPage() {
 
   return (
     <main className="author-light relative min-h-screen bg-background text-foreground transition-colors duration-300 -mt-[88px]">
+      {/* Marquee keyframe */}
+      <style>{`
+        @keyframes marquee {
+          from { transform: translateX(0); }
+          to { transform: translateX(-50%); }
+        }
+        .marquee-track { animation: marquee 28s linear infinite; }
+        .marquee-track:hover { animation-play-state: paused; }
+      `}</style>
+
       <div className="section-stack">
         {/* ─── Hero ─── */}
         <section
@@ -67,84 +91,88 @@ function LandingPage() {
           onMouseMove={handleHeroMouseMove}
           onMouseLeave={handleHeroMouseLeave}
           style={heroMotionStyle}
-          className="relative isolate mx-auto flex min-h-screen w-full max-w-[1800px] flex-col items-center justify-center overflow-hidden px-6 pb-32 pt-[88px] text-center md:pb-44"
+          className="relative isolate mx-auto flex w-full max-w-[1800px] flex-col items-center overflow-hidden px-6 pb-0 pt-[140px] text-center"
         >
-          {/* GridMotion texture + layered overlays */}
+          {/* Layered background overlays */}
           <div className="pointer-events-none absolute inset-0 -z-10 overflow-hidden">
             <div className="relative h-full w-full">
               <div className="absolute inset-0 z-0 bg-[radial-gradient(circle_at_30%_40%,rgba(144,122,255,0.06),transparent_60%),radial-gradient(circle_at_70%_60%,rgba(226,158,213,0.04),transparent_50%)]" />
-              {/* White/dark wash */}
               <div className="absolute inset-0 z-10 bg-white/[0.82] dark:bg-[#050508]/80" />
-              {/* Top + bottom fade to page bg */}
               <div className="absolute inset-0 z-11 bg-gradient-to-b from-background via-transparent to-background" />
-              {/* Mouse-reactive colour orbs */}
               <div className="absolute z-12 h-[560px] w-[560px] rounded-full blur-[140px] transition-all duration-[1200ms] ease-out" style={{ background: BRAND_COLORS.violet, opacity: 0.15, left: "calc(var(--hero-mouse-x)*100% - 30%)", top: "calc(var(--hero-mouse-y)*100% - 30%)" }} />
               <div className="absolute z-12 h-[380px] w-[380px] rounded-full blur-[120px] transition-all duration-[1600ms] ease-out" style={{ background: BRAND_COLORS.rose, opacity: 0.10, left: "calc((1 - var(--hero-mouse-x))*100% - 20%)", top: "calc(var(--hero-mouse-y)*100% - 20%)" }} />
               <div className="absolute z-12 h-[280px] w-[280px] rounded-full blur-[96px] transition-all duration-700 ease-out" style={{ background: BRAND_COLORS.amber, opacity: 0.08, left: "calc(var(--hero-mouse-x)*70% + 15%)", top: "calc((1 - var(--hero-mouse-y))*60% + 20%)" }} />
             </div>
           </div>
 
-          <div className="mx-auto w-full max-w-[1280px]">
-            <div className="grid items-center gap-12 lg:grid-cols-[0.95fr_1.05fr] lg:gap-10">
-              <div className="flex flex-col items-center text-center lg:items-start lg:text-left">
-                <div className="hero-animate-down mb-7 inline-flex items-center rounded-full border border-black/[0.08] bg-white/80 px-4 py-1.5 backdrop-blur-xl dark:border-white/[0.12] dark:bg-white/[0.04]">
-                  <span className="text-[10px] font-medium uppercase tracking-[0.16em] text-slate-600 dark:text-white/60">Premium author OS</span>
-                </div>
-
-                <h1 className="hero-animate max-w-[700px] text-[clamp(52px,7vw,96px)] font-semibold leading-[0.94] tracking-[-0.05em] text-slate-900 dark:text-white" style={{ animationDelay: "180ms" }}>
-                  Write once.
-                  <br />
-                  <span className="bg-[linear-gradient(110deg,#6f58df_0%,#907AFF_55%,#c894e6_100%)] bg-clip-text text-transparent">
-                    Build demand.
-                  </span>
-                </h1>
-
-                <p className="hero-animate mt-7 max-w-[520px] text-[clamp(17px,1.3vw,20px)] leading-[1.6] text-slate-600 dark:text-white/50" style={{ animationDelay: "340ms" }}>
-                  Turn every chapter into premium content that grows your audience and compounds recurring revenue.
-                </p>
-
-                <div className="hero-animate mt-10 flex w-full flex-col items-center gap-3 sm:w-auto sm:flex-row lg:items-start" style={{ animationDelay: "500ms" }}>
-                  <Link href="/author/signup" className="btn-primary w-full rounded-full px-8 py-3.5 text-center text-[15px] shadow-[0_18px_40px_rgba(111,88,223,0.32)] sm:w-auto sm:min-w-[192px]">
-                    Start for free
-                  </Link>
-                  <Link href="/how-it-works" className="btn-secondary w-full rounded-full border-black/10 bg-white/80 px-7 py-3.5 text-center text-[15px] sm:w-auto sm:min-w-[178px]">
-                    See how it works
-                  </Link>
-                </div>
-
-                <p className="hero-animate mt-5 text-[11px] uppercase tracking-[0.12em] text-slate-400 dark:text-white/30" style={{ animationDelay: "640ms" }}>
-                  No credit card required · 2-minute setup · Trusted by 2,000+ authors
-                </p>
+          <div className="mx-auto w-full">
+            <div className="flex flex-col items-center text-center">
+              {/* Badge */}
+              <div className="hero-animate-down mb-7 inline-flex items-center gap-2 rounded-full border border-black/[0.08] bg-white/80 px-4 py-1.5 backdrop-blur-xl dark:border-white/[0.12] dark:bg-white/[0.04]">
+                <span className="h-1.5 w-1.5 rounded-full bg-[#907AFF]" />
+                <span className="text-[10px] font-medium uppercase tracking-[0.16em] text-slate-600 dark:text-white/60">Premium author OS</span>
               </div>
 
-              <div className="hero-animate relative mx-auto w-full max-w-[720px] lg:mx-0" style={{ animationDelay: "560ms" }}>
-                <div className="relative overflow-hidden rounded-[36px] border border-black/[0.08] bg-white/75 p-3 shadow-[0_26px_80px_rgba(15,23,42,0.18)] backdrop-blur-xl dark:border-white/[0.1] dark:bg-white/[0.03]">
-                  <div className="pointer-events-none absolute -right-24 -top-24 h-72 w-72 rounded-full bg-[#907AFF]/22 blur-[100px]" />
+              {/* Headline */}
+              <h1 className="hero-animate max-w-[820px] text-[clamp(48px,6.5vw,88px)] font-semibold leading-[0.94] tracking-[-0.05em] text-slate-900 dark:text-white" style={{ animationDelay: "180ms" }}>
+                Write once.<br />
+                <span className="bg-[linear-gradient(110deg,#6f58df_0%,#907AFF_55%,#c894e6_100%)] bg-clip-text text-transparent">
+                  Show up everywhere.
+                </span>
+              </h1>
 
-                  <div className="relative overflow-hidden rounded-[28px]">
-                    <Image
-                      src="https://images.unsplash.com/photo-1506880018603-83d5b814b5a6?auto=format&fit=crop&w=1800&q=80"
-                      alt="Minimal premium author desk and workspace"
-                      width={1600}
-                      height={1100}
-                      sizes="(max-width: 1024px) 92vw, 720px"
-                      className="h-[330px] w-full object-cover sm:h-[390px] lg:h-[430px]"
-                      priority
-                    />
-                    <div className="absolute inset-0 bg-gradient-to-t from-slate-900/45 via-slate-900/5 to-transparent" />
+              {/* Subtitle */}
+              <p className="hero-animate mt-6 max-w-[500px] text-[clamp(16px,1.2vw,19px)] leading-[1.65] text-slate-500 dark:text-white/50" style={{ animationDelay: "340ms" }}>
+                Turn every chapter into premium content that grows your audience and compounds recurring revenue.
+              </p>
 
-                    <div className="absolute bottom-4 left-4 right-4 rounded-2xl border border-white/40 bg-white/90 p-4 backdrop-blur-xl">
-                      <p className="text-[10px] uppercase tracking-[0.14em] text-slate-500">Weekly reach</p>
-                      <div className="mt-1 flex items-end justify-between gap-3">
-                        <p className="text-[30px] font-semibold tracking-[-0.03em] text-slate-900">+42k</p>
-                        <p className="rounded-full border border-emerald-200 bg-emerald-50 px-2 py-0.5 text-[11px] font-medium text-emerald-700">
-                          +31% WoW
-                        </p>
-                      </div>
-                    </div>
-                  </div>
-                </div>
+              {/* CTAs */}
+              <div className="hero-animate mt-9 flex flex-col items-center gap-3 sm:flex-row" style={{ animationDelay: "500ms" }}>
+                <Link href="/author/signup" className="btn-primary w-full rounded-full px-8 py-3.5 text-center text-[15px] shadow-[0_18px_40px_rgba(111,88,223,0.32)] sm:w-auto sm:min-w-[192px]">
+                  Start for free
+                </Link>
+                <Link href="/how-it-works" className="btn-secondary w-full rounded-full border-black/10 bg-white/80 px-7 py-3.5 text-center text-[15px] sm:w-auto sm:min-w-[178px]">
+                  See how it works
+                </Link>
               </div>
+
+              {/* Dashboard screenshot — clipped with bottom fade */}
+              <div className="hero-animate relative mx-auto mt-12 w-full" style={{ animationDelay: "720ms", maxHeight: "500px" }}>
+                <Image
+                  src="/images/Namnlös design (1).png"
+                  alt="Verkli dashboard on laptop and mobile"
+                  width={500}
+                  height={600}
+                  sizes="(max-width: 524px) 90vw, 500px"
+                  className="mx-auto w-full max-w-[1200px] object-contain object-top"
+                  priority
+                />
+                {/* Bottom fade cut */}
+                <div className="pointer-events-none absolute bottom-0 left-0 right-0 h-40 bg-gradient-to-t from-background via-background/80 to-transparent" />
+              </div>
+            </div>
+          </div>
+        </section>
+
+        {/* ─── Partners marquee ─── */}
+        <section className="w-full overflow-hidden border-y border-black/[0.05] bg-white/50 py-5 backdrop-blur-sm dark:border-white/[0.05] dark:bg-white/[0.015]">
+          <p className="mb-4 text-center text-[10px] font-medium uppercase tracking-[0.18em] text-slate-400 dark:text-white/25">
+            Publish on every platform
+          </p>
+          <div className="relative">
+            {/* Left + right edge fades */}
+            <div className="pointer-events-none absolute left-0 top-0 z-10 h-full w-24 bg-gradient-to-r from-white/90 to-transparent dark:from-[#050508]/90" />
+            <div className="pointer-events-none absolute right-0 top-0 z-10 h-full w-24 bg-gradient-to-l from-white/90 to-transparent dark:from-[#050508]/90" />
+
+            <div className="marquee-track flex w-max items-center gap-12">
+              {[...PARTNERS, ...PARTNERS].map((name, i) => (
+                <span
+                  key={i}
+                  className="whitespace-nowrap text-[15px] font-semibold tracking-[-0.01em] text-slate-400/80 transition-colors duration-300 hover:text-slate-600 dark:text-white/20 dark:hover:text-white/40"
+                >
+                  {name}
+                </span>
+              ))}
             </div>
           </div>
         </section>
