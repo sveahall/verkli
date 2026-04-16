@@ -199,10 +199,10 @@ export function BillingPageContent({
       if (res.ok && data?.ok) {
         await refetch();
       } else if (!res.ok && data?.reason) {
-        setActionError(data.reason === "no_matching_subscription" ? "Ingen matchande prenumeration hittades." : data.reason);
+        setActionError(data.reason === "no_matching_subscription" ? "No matching subscription found." : data.reason);
       }
     } catch {
-      setActionError("Kunde inte synka. Försök igen.");
+      setActionError("Sync failed. Please try again.");
     } finally {
       setSyncingFromStripe(false);
     }
@@ -402,7 +402,7 @@ export function BillingPageContent({
             disabled={syncingFromStripe}
             className="rounded-md border border-primary/50 bg-primary/10 px-4 py-2 text-sm font-medium text-primary hover:bg-primary/20 disabled:opacity-60"
           >
-            {syncingFromStripe ? "Synkar..." : "Synka prenumeration från Stripe"}
+            {syncingFromStripe ? "Syncing..." : "Sync subscription from Stripe"}
           </button>
         )}
         <button

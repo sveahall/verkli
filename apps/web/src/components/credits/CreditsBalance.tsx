@@ -8,7 +8,7 @@ type CreditsBalanceProps = {
   /** Refresh interval in ms; 0 = no polling */
   pollIntervalMs?: number;
   className?: string;
-  /** Label before the number, e.g. "Krediter:" */
+  /** Label before the number, e.g. "Credits:" */
   label?: string;
   /** Show compact (only number) or with label */
   variant?: "default" | "compact";
@@ -17,7 +17,7 @@ type CreditsBalanceProps = {
 export function CreditsBalance({
   pollIntervalMs = 0,
   className,
-  label = "Krediter:",
+  label = "Credits:",
   variant = "default",
 }: CreditsBalanceProps) {
   const { balance, loading, error } = useCreditsBalance({ pollIntervalMs });

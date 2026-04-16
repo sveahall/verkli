@@ -112,12 +112,12 @@ function formatRelativeDate(dateStr: string): string {
   const diffDays = Math.floor(diffHours / 24);
   if (diffDays === 1) return "Yesterday";
   if (diffDays < 7) return `${diffDays}d ago`;
-  return new Date(dateStr).toLocaleDateString("sv-SE");
+  return new Date(dateStr).toLocaleDateString("en-GB");
 }
 
 function formatUpdatedAt(value: string | null): string {
   if (!value) return "Not updated yet";
-  return `Updated ${new Date(value).toLocaleDateString("sv-SE")}`;
+  return `Updated ${new Date(value).toLocaleDateString("en-GB")}`;
 }
 
 export default function AudienceWorkspace({
@@ -281,20 +281,20 @@ export default function AudienceWorkspace({
     <div className="space-y-5">
       {/* Hero card */}
       <div className="rounded-2xl bg-white p-6 dark:bg-white/[0.04] sm:p-8">
-        <p className="text-eyebrow">Kampanjer</p>
+        <p className="text-eyebrow">Campaigns</p>
         <h2 className="mt-4 text-[30px] font-semibold tracking-tight text-slate-900 dark:text-white">
-          Skapa kampanj
+          Create campaign
         </h2>
         <p className="mt-2 text-[15px] text-slate-500 dark:text-white/45">
-          Nå fler läsare med en AI-driven innehållskampanj för{" "}
-          {selectedBook?.title ?? "din bok"}.
+          Reach more readers with an AI-powered content campaign for{" "}
+          {selectedBook?.title ?? "your book"}.
         </p>
         {marketingEnabled && (
           <button
             className="mt-5 rounded-xl bg-[#907AFF] px-6 py-2.5 text-[14px] font-medium text-white transition-all hover:bg-[#8069EE] active:scale-[0.98]"
             onClick={() => setWizardOpen(true)}
           >
-            Skapa ny kampanj
+            Create new campaign
           </button>
         )}
       </div>
@@ -321,11 +321,11 @@ export default function AudienceWorkspace({
 
       {/* Active campaigns list */}
       <section>
-        <p className="text-eyebrow">Aktiva</p>
-        <h2 className="mt-2 text-section-title">Kampanjer igång</h2>
+        <p className="text-eyebrow">Active</p>
+        <h2 className="mt-2 text-section-title">Live campaigns</h2>
         {activeCampaigns.length === 0 ? (
           <p className="mt-5 text-sm text-slate-500 dark:text-white/45">
-            Inga aktiva kampanjer ännu.
+            No active campaigns yet.
           </p>
         ) : (
           <div className="mt-5 rounded-2xl bg-white dark:bg-white/[0.04]">
@@ -334,7 +334,7 @@ export default function AudienceWorkspace({
                 <div key={campaign.id} className="flex flex-wrap items-start gap-4 py-4 first:pt-0">
                   <div className="min-w-0 flex-1">
                     <p className="truncate text-sm font-medium text-slate-900 dark:text-white">
-                      {campaign.headline ?? "Kampanj"}
+                      {campaign.headline ?? "Campaign"}
                     </p>
                     <p className="mt-1 text-sm text-slate-500 dark:text-white/45">
                       {campaign.bookTitle}
@@ -350,7 +350,7 @@ export default function AudienceWorkspace({
                     {campaign.status.charAt(0).toUpperCase() + campaign.status.slice(1)}
                   </span>
                   <span className="text-xs text-slate-400 dark:text-white/35">
-                    {campaign.updatedAt ? formatRelativeDate(campaign.updatedAt) : "Nyligen uppdaterad"}
+                    {campaign.updatedAt ? formatRelativeDate(campaign.updatedAt) : "Recently updated"}
                   </span>
                   {campaign.shareUrl ? (
                     <a
@@ -359,7 +359,7 @@ export default function AudienceWorkspace({
                       rel="noopener noreferrer"
                       className="text-sm font-medium text-slate-900 hover:text-slate-600 dark:text-white dark:hover:text-white/75"
                     >
-                      Förhandsgranska
+                      Preview
                     </a>
                   ) : null}
                 </div>
@@ -375,7 +375,7 @@ export default function AudienceWorkspace({
     <div className="space-y-5">
       {subscriberCount > 0 ? (
         <p className="text-sm text-slate-500 dark:text-white/45">
-          {subscriberCount.toLocaleString("sv-SE")}{" "}
+          {subscriberCount.toLocaleString("en-US")}{" "}
           {subscriberCount === 1 ? "subscriber" : "subscribers"} will receive your next update.
         </p>
       ) : null}

@@ -190,7 +190,7 @@ export default function HomeWorkspace({
                 type="button"
                 aria-label="New book"
                 onClick={openCreateDialog}
-                className="h-10 min-h-0 rounded-full border-0 bg-gradient-to-r from-[#8E79FF] to-[#7A6EFF] px-5 text-[14px] font-medium text-white hover:from-[#8570FF] hover:to-[#7062FF]"
+                className="h-10 min-h-0 rounded-full border-0 bg-gradient-to-r from-[#8E79FF] to-[#7A6EFF] px-5 text-[14px] font-medium text-white shadow-[0_2px_10px_rgba(15,23,42,0.04)] hover:from-[#8570FF] hover:to-[#7062FF]"
               >
                 <Plus className="h-4 w-4" aria-hidden="true" />
                 New book
@@ -201,7 +201,7 @@ export default function HomeWorkspace({
                   bookId: primaryBook?.id ?? null,
                 })}
                 aria-label="Translate selected book"
-                className="inline-flex h-10 items-center gap-2 rounded-full bg-white px-4 text-[14px] font-medium text-[#4E5669] transition hover:bg-slate-50 dark:bg-white/[0.06] dark:text-white/70 dark:hover:bg-white/[0.1]"
+                className="inline-flex h-10 items-center gap-2 rounded-full bg-white px-4 text-[14px] font-medium text-[#4E5669] shadow-[0_2px_10px_rgba(15,23,42,0.04)] transition hover:bg-slate-50 dark:bg-white/[0.06] dark:text-white/70 dark:hover:bg-white/[0.1]"
               >
                 <Languages className="h-4 w-4 text-[#7C6CFF]" aria-hidden="true" />
                 Translate book
@@ -212,7 +212,7 @@ export default function HomeWorkspace({
                   bookId: primaryBook?.id ?? null,
                 })}
                 aria-label="Create audiobook for selected book"
-                className="inline-flex h-10 items-center gap-2 rounded-full bg-white px-4 text-[14px] font-medium text-[#4E5669] transition hover:bg-slate-50 dark:bg-white/[0.06] dark:text-white/70 dark:hover:bg-white/[0.1]"
+                className="inline-flex h-10 items-center gap-2 rounded-full bg-white px-4 text-[14px] font-medium text-[#4E5669] shadow-[0_2px_10px_rgba(15,23,42,0.04)] transition hover:bg-slate-50 dark:bg-white/[0.06] dark:text-white/70 dark:hover:bg-white/[0.1]"
               >
                 <AudioLines className="h-4 w-4 text-[#7C6CFF]" aria-hidden="true" />
                 Create audiobook

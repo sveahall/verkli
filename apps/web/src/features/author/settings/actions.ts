@@ -110,6 +110,34 @@ export async function updateAvatarPath(path: string): Promise<ActionState> {
   return { ok: true, message: "Avatar saved." };
 }
 
+/** Update profiles.cover_image with storage path only (called after cover upload). */
+export async function updateCoverImagePath(path: string): Promise<ActionState> {
+  const roleCheck = await requireAuthorRole();
+  if (!roleCheck.ok) {
+    return { ok: false, message: roleCheck.error };
+  }
+  const user = roleCheck.user;
+
+  const supabase = await createClient();
+
+  const { error } = await supabase
+    .from("profiles")
+    .upsert(
+      { user_id: user.id, cover_image: path },
+      { onConflict: "user_id" }
+    );
+
+  if (error) {
+    if (process.env.NODE_ENV === "development") {
+      console.error("[cover image profile update failed]", error);
+    }
+    return { ok: false, message: "Could not save cover image." };
+  }
+
+  revalidatePath("/author/profile");
+  return { ok: true, message: "Cover image saved." };
+}
+
 export async function updateProfile(prevState: ActionState, formData: FormData): Promise<ActionState> {
   void prevState;
   // SECURITY: Require author role for author settings
@@ -159,10 +187,20 @@ export async function saveAuthorProfile(
   const displayName = String(formData.get("display_name") || "").trim();
   const bio = String(formData.get("bio") || "").trim();
   const isPublic = String(formData.get("is_public") || "true") === "true";
+  const websiteUrl = String(formData.get("website_url") || "").trim() || null;
+  const twitterHandle = String(formData.get("social_twitter") || "").trim().replace(/^@/, "") || null;
+  const instagramHandle = String(formData.get("social_instagram") || "").trim().replace(/^@/, "") || null;
+  const tiktokHandle = String(formData.get("social_tiktok") || "").trim().replace(/^@/, "") || null;
 
   if (!displayName) {
     return { ok: false, message: "Display name is required." };
   }
+
+  const socialLinks = {
+    ...(twitterHandle ? { twitter: twitterHandle } : {}),
+    ...(instagramHandle ? { instagram: instagramHandle } : {}),
+    ...(tiktokHandle ? { tiktok: tiktokHandle } : {}),
+  };
 
   const supabase = await createClient();
   const { error } = await supabase
@@ -173,6 +211,8 @@ export async function saveAuthorProfile(
         display_name: displayName,
         bio: bio || null,
         is_public: isPublic,
+        website_url: websiteUrl,
+        social_links: socialLinks,
       },
       { onConflict: "user_id" }
     );

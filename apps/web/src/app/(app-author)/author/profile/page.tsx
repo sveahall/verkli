@@ -24,16 +24,24 @@ export default async function AuthorProfileRoute() {
 
   const profile = profileRow as Profile | null;
   const avatarPath = profile?.avatar_url ?? null;
-  const avatarUrl =
-    (await getAvatarUrlFromPathServer(avatarPath)) ||
-    user.user_metadata?.avatar_url ||
-    null;
+  const coverPath = profile?.cover_image ?? null;
+
+  const [avatarUrl, coverImageUrl] = await Promise.all([
+    getAvatarUrlFromPathServer(avatarPath).then(
+      (url) => url || user.user_metadata?.avatar_url || null
+    ),
+    getAvatarUrlFromPathServer(coverPath),
+  ]);
 
   const displayName =
     profile?.display_name ||
     user.user_metadata?.full_name ||
     user.email?.split("@")[0] ||
     "author";
+
+  const socialLinks = (profile?.social_links && typeof profile.social_links === "object" && !Array.isArray(profile.social_links))
+    ? (profile.social_links as Record<string, string>)
+    : {};
 
   return (
     <div className="min-h-screen bg-background text-foreground">
@@ -43,7 +51,14 @@ export default async function AuthorProfileRoute() {
           displayName,
           bio: profile?.bio?.trim() ?? "",
           avatarUrl,
+          coverImageUrl,
           isPublic: profile?.is_public ?? true,
+          websiteUrl: profile?.website_url ?? "",
+          socialLinks: {
+            twitter: socialLinks.twitter ?? "",
+            instagram: socialLinks.instagram ?? "",
+            tiktok: socialLinks.tiktok ?? "",
+          },
         }}
       />
     </div>

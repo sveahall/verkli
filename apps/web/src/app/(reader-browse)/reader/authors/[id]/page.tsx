@@ -1,6 +1,6 @@
 import Link from "next/link";
 import Image from "next/image";
-import { ArrowLeft, ArrowRight, BookOpen, Users } from "lucide-react";
+import { ArrowLeft, ArrowRight, BookOpen, Users, Globe, Twitter, Instagram, Sparkles } from "lucide-react";
 import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { getAvatarUrlFromPathServer } from "@/lib/supabase/avatar";
@@ -21,7 +21,7 @@ export async function generateMetadata({
   const [profileRes, booksCountRes] = await Promise.all([
     supabase
       .from("profiles")
-      .select("display_name, username, bio, avatar_url, is_public")
+      .select("display_name, username, bio, avatar_url, cover_image, is_public, website_url, social_links")
       .eq("user_id", userId)
       .maybeSingle(),
     supabase
@@ -89,7 +89,7 @@ export default async function ReaderAuthorProfilePage({
     supabase.auth.getUser(),
     supabase
       .from("profiles")
-      .select("user_id, display_name, username, bio, avatar_url, is_public")
+      .select("user_id, display_name, username, bio, avatar_url, cover_image, is_public, website_url, social_links")
       .eq("user_id", userId)
       .maybeSingle(),
     supabase
@@ -162,10 +162,22 @@ export default async function ReaderAuthorProfilePage({
     }
   }
 
-  const avatarUrl = await getAvatarUrlFromPathServer(profile?.avatar_url ?? null);
+  const [avatarUrl, coverImageUrl] = await Promise.all([
+    getAvatarUrlFromPathServer(profile?.avatar_url ?? null),
+    getAvatarUrlFromPathServer(profile?.cover_image ?? null),
+  ]);
   const displayName = profile?.display_name || profile?.username || "Author";
   const bio = profile?.bio ?? null;
   const username = profile?.username ?? null;
+  const websiteUrl = profile?.website_url ?? null;
+  const rawSocialLinks = (profile?.social_links && typeof profile.social_links === "object" && !Array.isArray(profile.social_links))
+    ? (profile.social_links as Record<string, string>)
+    : {};
+  const socialLinks = {
+    twitter: rawSocialLinks.twitter ?? null,
+    instagram: rawSocialLinks.instagram ?? null,
+    tiktok: rawSocialLinks.tiktok ?? null,
+  };
   const signInHref = `/reader/signin?next=${encodeURIComponent(`/reader/authors/${userId}`)}`;
   const isOwnProfile = user?.id === userId;
 
@@ -193,8 +205,9 @@ export default async function ReaderAuthorProfilePage({
     initialSubscribed = Boolean(subRow.data);
   }
 
-  // Hero backdrop: first book cover, or null
-  const heroBackdrop = books.find((b) => b.cover_image)?.cover_image ?? null;
+  // Hero: prefer author's custom cover, fall back to blurred book cover
+  const heroBackdrop = coverImageUrl ?? books.find((b) => b.cover_image)?.cover_image ?? null;
+  const useBlurEffect = !coverImageUrl; // only blur book covers, not the custom banner
   const initials = displayName
     .split(" ")
     .map((w: string) => w[0])
@@ -226,7 +239,7 @@ export default async function ReaderAuthorProfilePage({
             fill
             aria-hidden
             className="object-cover"
-            style={{ filter: "blur(40px) saturate(1.4)", transform: "scale(1.1)" }}
+            style={useBlurEffect ? { filter: "blur(40px) saturate(1.4)", transform: "scale(1.1)" } : undefined}
             priority
           />
         ) : (
@@ -429,16 +442,66 @@ export default async function ReaderAuthorProfilePage({
       )}
 
       {/* ══════════════════════════════════════════════════
-          ABOUT — full bio
+          ABOUT — full bio + links
          ══════════════════════════════════════════════════ */}
-      {bio && bio.length > 80 && (
-        <section className="card-base space-y-3 p-6">
+      {(bio || websiteUrl || socialLinks.twitter || socialLinks.instagram || socialLinks.tiktok) && (
+        <section className="card-base space-y-4 p-6">
           <h2 className="text-[11px] font-semibold uppercase tracking-widest text-[#64748B] dark:text-white/40">
             About
           </h2>
-          <p className="text-[14px] leading-relaxed text-[#334155] dark:text-white/70">
-            {bio}
-          </p>
+          {bio && (
+            <p className="text-[14px] leading-relaxed text-[#334155] dark:text-white/70">
+              {bio}
+            </p>
+          )}
+          {(websiteUrl || socialLinks.twitter || socialLinks.instagram || socialLinks.tiktok) && (
+            <div className="flex flex-wrap gap-2 pt-1">
+              {websiteUrl && (
+                <a
+                  href={websiteUrl.startsWith("http") ? websiteUrl : `https://${websiteUrl}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1.5 rounded-full border border-[#E2E8F0] bg-white px-3 py-1.5 text-[12px] font-medium text-[#334155] transition hover:border-[#CBD5E1] hover:bg-[#F8FAFC] dark:border-white/10 dark:bg-white/[0.04] dark:text-white/70 dark:hover:bg-white/[0.08]"
+                >
+                  <Globe className="h-3.5 w-3.5 text-[#64748B] dark:text-white/50" />
+                  Website
+                </a>
+              )}
+              {socialLinks.twitter && (
+                <a
+                  href={`https://x.com/${socialLinks.twitter}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1.5 rounded-full border border-[#E2E8F0] bg-white px-3 py-1.5 text-[12px] font-medium text-[#334155] transition hover:border-[#CBD5E1] hover:bg-[#F8FAFC] dark:border-white/10 dark:bg-white/[0.04] dark:text-white/70 dark:hover:bg-white/[0.08]"
+                >
+                  <Twitter className="h-3.5 w-3.5 text-[#64748B] dark:text-white/50" />
+                  @{socialLinks.twitter}
+                </a>
+              )}
+              {socialLinks.instagram && (
+                <a
+                  href={`https://instagram.com/${socialLinks.instagram}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1.5 rounded-full border border-[#E2E8F0] bg-white px-3 py-1.5 text-[12px] font-medium text-[#334155] transition hover:border-[#CBD5E1] hover:bg-[#F8FAFC] dark:border-white/10 dark:bg-white/[0.04] dark:text-white/70 dark:hover:bg-white/[0.08]"
+                >
+                  <Instagram className="h-3.5 w-3.5 text-[#64748B] dark:text-white/50" />
+                  @{socialLinks.instagram}
+                </a>
+              )}
+              {socialLinks.tiktok && (
+                <a
+                  href={`https://tiktok.com/@${socialLinks.tiktok}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1.5 rounded-full border border-[#E2E8F0] bg-white px-3 py-1.5 text-[12px] font-medium text-[#334155] transition hover:border-[#CBD5E1] hover:bg-[#F8FAFC] dark:border-white/10 dark:bg-white/[0.04] dark:text-white/70 dark:hover:bg-white/[0.08]"
+                >
+                  <Sparkles className="h-3.5 w-3.5 text-[#64748B] dark:text-white/50" />
+                  @{socialLinks.tiktok}
+                </a>
+              )}
+            </div>
+          )}
         </section>
       )}
 

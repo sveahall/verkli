@@ -135,7 +135,7 @@ export default function CreateBookDialog({
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
               </svg>
             </button>
-            <h2 className="mb-6 text-[24px] font-semibold text-slate-900 dark:text-white">{header}</h2>
+            <h2 className="mb-6 text-[24px] font-normal text-slate-900 dark:text-white">{header}</h2>
 
             {mode === "choice" && (
               <div className="grid gap-4 md:grid-cols-2">
@@ -172,7 +172,7 @@ export default function CreateBookDialog({
             {mode === "write" && (
               <div className="space-y-4">
                 <div>
-                  <label className="mb-2 block text-[14px] font-medium text-slate-700 dark:text-white/70">Title</label>
+                  <label className="mb-2 block text-[14px] font-normal text-slate-700 dark:text-white/70">Title</label>
                   <input
                     ref={titleInputRef}
                     type="text"
@@ -184,7 +184,7 @@ export default function CreateBookDialog({
                   />
                 </div>
                 <div>
-                  <label className="mb-2 block text-[14px] font-medium text-slate-700 dark:text-white/70">
+                  <label className="mb-2 block text-[14px] font-normal text-slate-700 dark:text-white/70">
                     Description
                     <span className="ml-1.5 text-[12px] font-normal text-slate-400 dark:text-white/30">(optional)</span>
                   </label>
@@ -197,7 +197,7 @@ export default function CreateBookDialog({
                   />
                 </div>
                 <div>
-                  <label className="mb-2 block text-[14px] font-medium text-slate-700 dark:text-white/70">Language</label>
+                  <label className="mb-2 block text-[14px] font-normal text-slate-700 dark:text-white/70">Language</label>
                   <select
                     value={language}
                     onChange={(e) => setLanguage(e.target.value as SupportedLanguage)}
@@ -214,14 +214,14 @@ export default function CreateBookDialog({
                 <div className="flex justify-end gap-3">
                   <button
                     onClick={onClose}
-                    className="rounded-xl border border-black/10 dark:border-white/10 bg-black/[0.02] dark:bg-white/[0.02] px-6 py-2.5 text-[14px] font-medium text-slate-700 dark:text-white/70 transition-all hover:bg-black/10 dark:hover:bg-white/[0.04]"
+                    className="rounded-xl border border-black/10 dark:border-white/10 bg-black/[0.02] dark:bg-white/[0.02] px-6 py-2.5 text-[14px] font-normal text-slate-700 dark:text-white/70 transition-all hover:bg-black/10 dark:hover:bg-white/[0.04]"
                   >
                     Cancel
                   </button>
                   <button
                     onClick={handleCreate}
                     disabled={creating}
-                    className="rounded-xl bg-[#907AFF] px-6 py-2.5 text-[14px] font-medium text-white transition-all hover:bg-[#8069EE] disabled:opacity-60"
+                    className="rounded-xl bg-[#907AFF] px-6 py-2.5 text-[14px] font-normal text-white transition-all hover:bg-[#8069EE] disabled:opacity-60"
                   >
                     {creating ? "Creating..." : "Create book"}
                   </button>

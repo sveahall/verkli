@@ -201,7 +201,7 @@ function BookCoverCard({ book }: { book: LibraryBook }) {
 function AddBookCard({ onOpen }: { onOpen: () => void }) {
   return (
     <button type="button" onClick={onOpen} className="group w-full text-left">
-      <div className="flex aspect-[2/3] flex-col items-center justify-center gap-3 rounded-xl border-2 border-dashed border-slate-200/80 transition-all duration-200 ease-[cubic-bezier(0.23,1,0.32,1)] group-hover:border-[#907AFF]/40 group-hover:bg-[#907AFF]/[0.04] group-active:scale-[0.97] dark:border-white/[0.10] dark:group-hover:border-[#907AFF]/30 dark:group-hover:bg-[#907AFF]/[0.06]">
+      <div className="flex aspect-[2/3] bg-white flex-col items-center justify-center gap-3 rounded-xl border-2 border-dashed border-slate-200/80 transition-all duration-200 ease-[cubic-bezier(0.23,1,0.32,1)] group-hover:border-[#907AFF]/40 group-hover:bg-[#907AFF]/[0.04] group-active:scale-[0.97] dark:border-white/[0.10] dark:group-hover:border-[#907AFF]/30 dark:group-hover:bg-[#907AFF]/[0.06]">
         <div className="flex h-10 w-10 items-center justify-center rounded-full bg-slate-100/80 transition-all duration-200 group-hover:bg-[#907AFF]/[0.12] dark:bg-white/[0.04] dark:group-hover:bg-[#907AFF]/[0.15]">
           <Plus className="h-4 w-4 text-slate-400 transition-colors group-hover:text-[#907AFF] dark:text-white/25 dark:group-hover:text-[#cfbfff]" />
         </div>
@@ -302,7 +302,7 @@ export default function LibraryWorkspace({
               {recentBook && (
                 <Link
                   href={getBookHref(recentBook)}
-                  className="ws-enter group mb-7 flex items-center gap-4 rounded-2xl border border-[#907AFF]/15 bg-gradient-to-r from-[#907AFF]/[0.05] to-transparent px-5 py-3.5 transition-all duration-200 ease-[cubic-bezier(0.23,1,0.32,1)] hover:border-[#907AFF]/30 hover:bg-[#907AFF]/[0.08] dark:border-[#907AFF]/10 dark:from-[#907AFF]/[0.07] dark:hover:border-[#907AFF]/25"
+                  className="ws-enter group mb-7 flex items-center gap-4 rounded-2xl border border-slate-200/80 bg-white px-5 py-3.5 shadow-[0_2px_10px_rgba(15,23,42,0.04)] transition-all duration-200 ease-[cubic-bezier(0.23,1,0.32,1)] hover:border-[#907AFF]/30 hover:shadow-[0_8px_22px_rgba(15,23,42,0.08)] dark:border-white/10 dark:bg-white/[0.03] dark:hover:border-[#907AFF]/25"
                   style={{ animationDelay: "0ms" }}
                 >
                   {recentBook.coverImageUrl ? (
@@ -321,14 +321,17 @@ export default function LibraryWorkspace({
                     </div>
                   )}
                   <div className="min-w-0 flex-1">
-                    <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-[#907AFF]">
+                    <p className="text-[11px] font-medium tracking-[0.02em] text-[#6D7386] dark:text-white/55">
                       Continue editing
                     </p>
-                    <p className="truncate text-[13px] font-semibold text-slate-800 dark:text-white/90">
+                    <p className="truncate text-[14px] font-medium text-slate-900 dark:text-white">
                       {recentBook.title}
                     </p>
+                    <p className="mt-0.5 text-[11px] text-slate-500 dark:text-white/40">
+                      Last updated {formatDate(recentBook.updatedAt)}
+                    </p>
                   </div>
-                  <ChevronRight className="h-4 w-4 shrink-0 text-slate-300 transition-all duration-200 group-hover:translate-x-0.5 group-hover:text-[#907AFF] dark:text-white/20" />
+                  <ChevronRight className="h-4 w-4 shrink-0 text-slate-400 transition-all duration-200 group-hover:translate-x-0.5 group-hover:text-[#907AFF] dark:text-white/30" />
                 </Link>
               )}
 

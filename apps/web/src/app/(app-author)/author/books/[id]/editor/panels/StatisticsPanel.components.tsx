@@ -97,7 +97,7 @@ export function MiniBarChart({ data }: { data: DailyPoint[] }) {
             style={BAR_COL_STYLE}
           >
             <div className="pointer-events-none absolute -top-9 left-1/2 z-10 hidden -translate-x-1/2 whitespace-nowrap rounded-lg bg-slate-900 px-2.5 py-1 text-[10px] font-medium text-white shadow-lg group-hover:block dark:bg-white dark:text-slate-900">
-              {d.date.slice(5)} &middot; {d.views} visn. &middot; {d.reads} läsn.
+              {d.date.slice(5)} &middot; {d.views} views &middot; {d.reads} reads
             </div>
             <div
               className="w-full rounded-t-sm bg-[#907AFF]/40"
@@ -162,7 +162,7 @@ export function InsightCard({ data }: { data: StatsData }) {
   if (data.reviews.averageRating >= 4 && data.reviews.count >= 2) {
     insights.push({
       icon: "star",
-      text: `Snittbetyg ${data.reviews.averageRating}/5 baserat på ${data.reviews.count} recensioner.`,
+      text: `Average rating ${data.reviews.averageRating}/5 based on ${data.reviews.count} reviews.`,
       color: "amber",
     });
   }
@@ -170,7 +170,7 @@ export function InsightCard({ data }: { data: StatsData }) {
   if (data.readers.total >= 5 && data.readers.completionRate >= 50) {
     insights.push({
       icon: "check",
-      text: `${data.readers.completionRate}% av läsarna slutför boken — stark retention.`,
+      text: `${data.readers.completionRate}% of readers finish the book — strong retention.`,
       color: "emerald",
     });
   }
@@ -178,7 +178,7 @@ export function InsightCard({ data }: { data: StatsData }) {
   if (data.readers.active > 0) {
     insights.push({
       icon: "user",
-      text: `${data.readers.active} aktiv${data.readers.active === 1 ? "" : "a"} läsare den senaste veckan.`,
+      text: `${data.readers.active} active reader${data.readers.active === 1 ? "" : "s"} in the past week.`,
       color: "blue",
     });
   }
@@ -186,7 +186,7 @@ export function InsightCard({ data }: { data: StatsData }) {
   if (data.overview.bookmarks >= 3) {
     insights.push({
       icon: "bookmark",
-      text: `${data.overview.bookmarks} läsare har sparat boken.`,
+      text: `${data.overview.bookmarks} reader${data.overview.bookmarks === 1 ? " has" : "s have"} bookmarked the book.`,
       color: "purple",
     });
   }
@@ -194,7 +194,7 @@ export function InsightCard({ data }: { data: StatsData }) {
   if (data.readers.total >= 5 && data.readers.completionRate < 25) {
     insights.push({
       icon: "info",
-      text: `${data.readers.completionRate}% slutförda — överväg att se över de första kapitlen.`,
+      text: `${data.readers.completionRate}% completed — consider reviewing the opening chapters.`,
       color: "amber",
     });
   }

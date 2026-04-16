@@ -19,9 +19,9 @@ export type StatisticsPanelProps = {
 };
 
 const PERIOD_LABELS: Record<Period, string> = {
-  "7d": "7 dagar",
-  "30d": "30 dagar",
-  all: "Alla",
+  "7d": "7 days",
+  "30d": "30 days",
+  all: "All",
 };
 
 function fmt(n: number): string {
@@ -73,10 +73,10 @@ export default function StatisticsPanel({
           </div>
           <div>
             <h2 className="text-lg font-semibold text-slate-900 dark:text-white">
-              Publicera boken för att se statistik
+              Publish your book to see statistics
             </h2>
             <p className="mt-1.5 max-w-md text-[13px] leading-relaxed text-slate-500 dark:text-white/50">
-              Statistik samlas in när din bok är publicerad och läsare interagerar med den.
+              Statistics are collected once your book is published and readers interact with it.
             </p>
           </div>
         </div>
@@ -127,11 +127,11 @@ export default function StatisticsPanel({
           {/* Hero metrics row */}
           <div className="rounded-2xl border border-black/[0.05] bg-white/60 backdrop-blur-sm dark:border-white/[0.06] dark:bg-white/[0.02]">
             <div className="grid grid-cols-2 divide-x divide-black/[0.04] dark:divide-white/[0.04] sm:grid-cols-4">
-              <HeroStat label="Visningar" value={fmt(data.overview.views)} />
-              <HeroStat label="Läsningar" value={fmt(data.overview.reads)} />
-              <HeroStat label="Bokmärken" value={fmt(data.overview.bookmarks)} />
+              <HeroStat label="Views" value={fmt(data.overview.views)} />
+              <HeroStat label="Reads" value={fmt(data.overview.reads)} />
+              <HeroStat label="Bookmarks" value={fmt(data.overview.bookmarks)} />
               <HeroStat
-                label="Intäkter"
+                label="Revenue"
                 value={
                   data.overview.revenue > 0
                     ? `${data.overview.revenue.toLocaleString("sv-SE")} kr`
@@ -146,16 +146,16 @@ export default function StatisticsPanel({
             <div className="rounded-2xl border border-black/[0.05] bg-white/60 p-5 backdrop-blur-sm dark:border-white/[0.06] dark:bg-white/[0.02]">
               <div className="mb-3 flex items-center justify-between">
                 <span className="text-[12px] font-semibold text-slate-700 dark:text-white/70">
-                  Aktivitet
+                  Activity
                 </span>
                 <div className="flex items-center gap-3">
                   <span className="flex items-center gap-1.5 text-[10px] text-slate-400 dark:text-white/30">
                     <span className="inline-block h-1.5 w-1.5 rounded-full bg-[#907AFF]" />
-                    Visningar
+                    Views
                   </span>
                   <span className="flex items-center gap-1.5 text-[10px] text-slate-400 dark:text-white/30">
                     <span className="inline-block h-1.5 w-1.5 rounded-full bg-[#907AFF]/40" />
-                    Läsningar
+                    Reads
                   </span>
                 </div>
               </div>
@@ -166,7 +166,7 @@ export default function StatisticsPanel({
           {/* Reader funnel */}
           <div className="rounded-2xl border border-black/[0.05] bg-white/60 p-5 backdrop-blur-sm dark:border-white/[0.06] dark:bg-white/[0.02]">
             <span className="mb-4 block text-[12px] font-semibold text-slate-700 dark:text-white/70">
-              Läsare
+              Readers
             </span>
 
             {data.readers.total > 0 ? (
@@ -174,14 +174,14 @@ export default function StatisticsPanel({
                 <div className="flex flex-col items-center gap-1">
                   <ProgressRing value={data.readers.avgProgress} color="#907AFF" />
                   <span className="mt-1 text-[11px] font-medium text-slate-500 dark:text-white/40">
-                    Snittläsning
+                    Avg. progress
                   </span>
                 </div>
 
                 <div className="flex flex-col items-center gap-1">
                   <ProgressRing value={data.readers.completionRate} color="#10b981" />
                   <span className="mt-1 text-[11px] font-medium text-slate-500 dark:text-white/40">
-                    Slutfört
+                    Completed
                   </span>
                 </div>
 
@@ -191,7 +191,7 @@ export default function StatisticsPanel({
                       {data.readers.total}
                     </span>
                     <span className="ml-1.5 text-[11px] text-slate-400 dark:text-white/40">
-                      totalt
+                      total
                     </span>
                   </div>
                   <div>
@@ -199,7 +199,7 @@ export default function StatisticsPanel({
                       {data.readers.active}
                     </span>
                     <span className="ml-1.5 text-[11px] text-slate-400 dark:text-white/40">
-                      aktiva (7d)
+                      active (7d)
                     </span>
                   </div>
                 </div>
@@ -212,7 +212,7 @@ export default function StatisticsPanel({
                   </svg>
                 </div>
                 <span className="text-[13px] text-slate-400 dark:text-white/40">
-                  Inga läsare ännu — dela din bok för att komma igång.
+                  No readers yet — share your book to get started.
                 </span>
               </div>
             )}
@@ -222,7 +222,7 @@ export default function StatisticsPanel({
           <div className="rounded-2xl border border-black/[0.05] bg-white/60 p-5 backdrop-blur-sm dark:border-white/[0.06] dark:bg-white/[0.02]">
             <div className="mb-4 flex items-center justify-between">
               <span className="text-[12px] font-semibold text-slate-700 dark:text-white/70">
-                Recensioner
+                Reviews
               </span>
               {data.reviews.count > 0 && (
                 <div className="flex items-center gap-2">
@@ -269,7 +269,7 @@ export default function StatisticsPanel({
                   </svg>
                 </div>
                 <span className="text-[13px] text-slate-400 dark:text-white/40">
-                  Inga recensioner ännu.
+                  No reviews yet.
                 </span>
               </div>
             )}
@@ -281,9 +281,9 @@ export default function StatisticsPanel({
           ) : (
             <div className="rounded-2xl border border-dashed border-black/[0.06] bg-slate-50/40 px-5 py-6 text-center dark:border-white/[0.06] dark:bg-white/[0.01]">
               <p className="text-[13px] text-slate-400 dark:text-white/40">
-                Ingen aktivitet ännu under {PERIOD_LABELS[period].toLowerCase()}.
-                Dela boken via <span className="font-medium text-slate-500 dark:text-white/50">Market</span>-fliken
-                för att nå läsare.
+                No activity yet for the {PERIOD_LABELS[period].toLowerCase()} period.
+                Share your book via the <span className="font-medium text-slate-500 dark:text-white/50">Market</span> tab
+                to reach readers.
               </p>
             </div>
           )}
@@ -301,7 +301,7 @@ export default function StatisticsPanel({
               </div>
               <div>
                 <p className="text-[13px] font-semibold text-slate-900 dark:text-white">Analytics Dashboard</p>
-                <p className="text-[11px] text-slate-400 dark:text-white/40">Se statistik för alla böcker, trender och djupanalys</p>
+                <p className="text-[11px] text-slate-400 dark:text-white/40">View statistics for all books, trends, and in-depth analysis</p>
               </div>
             </div>
             <svg className="h-4 w-4 text-slate-300 transition group-hover:translate-x-0.5 group-hover:text-[#907AFF] dark:text-white/20" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">

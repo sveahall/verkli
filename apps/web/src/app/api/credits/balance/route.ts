@@ -1,6 +1,5 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
-import { requireProBillingForApi } from "@/lib/billing/server";
 import { apiError, E_UNAUTHORIZED, E_CREDITS_LOAD_FAILED } from "@/lib/api-errors";
 
 export const runtime = "nodejs";
@@ -13,11 +12,6 @@ export async function GET() {
 
   if (!user) {
     return apiError(E_UNAUTHORIZED, 401);
-  }
-
-  const proGate = await requireProBillingForApi(user.id);
-  if (!proGate.ok) {
-    return proGate.response;
   }
 
   const { data: row, error } = await supabase

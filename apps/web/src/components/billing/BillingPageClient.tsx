@@ -14,7 +14,7 @@ const BillingPageContent = dynamic(
           default: function BillingLoadError() {
             return (
               <div className="mx-auto max-w-4xl px-6 py-12 text-center">
-                <p className="text-muted-foreground">Kunde inte ladda sidan. Ladda om eller försök igen senare.</p>
+                <p className="text-muted-foreground">Could not load the page. Reload or try again later.</p>
               </div>
             );
           },

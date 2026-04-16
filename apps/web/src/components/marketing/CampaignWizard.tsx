@@ -24,13 +24,13 @@ type PostFrequency = "1-3" | "4-5" | "6+";
 type WeekDay = "mon" | "tue" | "wed" | "thu" | "fri" | "sat" | "sun";
 
 const WEEKDAY_LABELS: Record<WeekDay, string> = {
-  mon: "Mån",
-  tue: "Tis",
-  wed: "Ons",
-  thu: "Tor",
-  fri: "Fre",
-  sat: "Lör",
-  sun: "Sön",
+  mon: "Mon",
+  tue: "Tue",
+  wed: "Wed",
+  thu: "Thu",
+  fri: "Fri",
+  sat: "Sat",
+  sun: "Sun",
 };
 
 const WEEKDAYS: WeekDay[] = ["mon", "tue", "wed", "thu", "fri", "sat", "sun"];
@@ -38,10 +38,10 @@ const WEEKDAYS: WeekDay[] = ["mon", "tue", "wed", "thu", "fri", "sat", "sun"];
 type ContentTemplate = "custom" | "launch" | "engagement" | "awareness";
 
 const TEMPLATE_OPTIONS: { value: ContentTemplate; label: string }[] = [
-  { value: "custom", label: "Anpassad" },
-  { value: "launch", label: "Bokrelease" },
-  { value: "engagement", label: "Läsarengagemang" },
-  { value: "awareness", label: "Synlighet" },
+  { value: "custom", label: "Custom" },
+  { value: "launch", label: "Book release" },
+  { value: "engagement", label: "Reader engagement" },
+  { value: "awareness", label: "Visibility" },
 ];
 
 // ─── Shared interactive styles (matching app design tokens) ──────────────────
@@ -130,9 +130,9 @@ const CHANNELS: ChannelConfig[] = [
 ];
 
 const FREQUENCY_OPTIONS: { value: PostFrequency; label: string }[] = [
-  { value: "1-3", label: "1–3 gånger" },
-  { value: "4-5", label: "4–5 gånger" },
-  { value: "6+", label: "6+ gånger" },
+  { value: "1-3", label: "1–3 times" },
+  { value: "4-5", label: "4–5 times" },
+  { value: "6+", label: "6+ times" },
 ];
 
 const CHANNEL_DAY_COLORS: Record<ChannelId, string> = {
@@ -234,10 +234,10 @@ function StepSelectBook({
     <div className="space-y-5">
       <div>
         <h3 className="text-[16px] font-semibold text-slate-900 dark:text-white">
-          Vilken bok vill du marknadsföra?
+          Which book do you want to promote?
         </h3>
         <p className="mt-1.5 text-[14px] text-slate-500 dark:text-white/50">
-          Välj boken som kampanjen ska handla om.
+          Choose the book this campaign will be about.
         </p>
       </div>
 
@@ -270,7 +270,7 @@ function StepSelectBook({
                   "truncate text-[15px] font-medium",
                   isSelected ? "text-[#6C5CE7] dark:text-[#A99AFF]" : "text-slate-900 dark:text-white"
                 )}>
-                  {book.title ?? "Namnlös bok"}
+                  {book.title ?? "Untitled book"}
                 </p>
               </div>
               {isSelected && (
@@ -311,10 +311,10 @@ function StepChannels({
         <div className="flex items-start justify-between gap-4">
           <div>
             <h3 className="text-[16px] font-semibold text-slate-900 dark:text-white">
-              Var vill du publicera?
+              Where do you want to publish?
             </h3>
             <p className="mt-1.5 text-[14px] text-slate-500 dark:text-white/50">
-              Du kan välja flera plattformar
+              You can select multiple platforms
             </p>
           </div>
           <label className="flex shrink-0 cursor-pointer items-center gap-2 text-[13px] text-slate-500 dark:text-white/50">
@@ -324,7 +324,7 @@ function StepChannels({
               onChange={onToggleAll}
               className="h-4 w-4 rounded border-black/20 text-[#907AFF] accent-[#907AFF] dark:border-white/20"
             />
-            Välj alla
+            Select all
           </label>
         </div>
 
@@ -359,7 +359,7 @@ function StepChannels({
 
       <div>
         <h3 className="text-[16px] font-semibold text-slate-900 dark:text-white">
-          Hur ofta vill du publicera per vecka?
+          How often do you want to post per week?
         </h3>
         <div className="mt-3 flex flex-wrap gap-2.5">
           {FREQUENCY_OPTIONS.map((opt) => {
@@ -408,7 +408,7 @@ function StepSchedule({
   const [activeChannelTab, setActiveChannelTab] = useState<ChannelId | "all">("all");
 
   const startDateObj = new Date(startDate + "T00:00:00");
-  const formattedDate = startDateObj.toLocaleDateString("sv-SE", {
+  const formattedDate = startDateObj.toLocaleDateString("en-GB", {
     weekday: "long",
     day: "numeric",
     month: "long",
@@ -423,10 +423,10 @@ function StepSchedule({
         </span>
         <div className="flex-1">
           <h3 className="text-[15px] font-semibold text-slate-900 dark:text-white">
-            Startdatum
+            Start date
           </h3>
           <p className="mt-0.5 text-[13px] text-slate-500 dark:text-white/50">
-            Välj när ditt innehållsschema ska börja
+            Choose when your content schedule should begin
           </p>
           <div className="mt-3 flex items-center gap-3">
             <input
@@ -451,7 +451,7 @@ function StepSchedule({
         </span>
         <div className="flex-1">
           <h3 className="text-[15px] font-semibold text-slate-900 dark:text-white">
-            Välj en veckomall
+            Choose a weekly template
           </h3>
           <div className="mt-3 flex flex-wrap gap-2">
             {TEMPLATE_OPTIONS.map((opt) => {
@@ -484,7 +484,7 @@ function StepSchedule({
         </span>
         <div className="min-w-0 flex-1">
           <h3 className="text-[15px] font-semibold text-slate-900 dark:text-white">
-            Veckoschema
+            Weekly schedule
           </h3>
 
           {channelList.length > 0 && (
@@ -498,7 +498,7 @@ function StepSchedule({
                   activeChannelTab === "all" ? CARD_SELECTED : `${CARD_IDLE} ${CARD_HOVER}`
                 )}
               >
-                Alla
+                All
               </button>
               {channelList.map((ch) => (
                 <button
@@ -782,7 +782,7 @@ function CampaignWizardInner({
 
         {/* Title */}
         <h2 className="text-[22px] font-semibold text-slate-900 dark:text-white">
-          Skapa kampanj
+          Create campaign
         </h2>
 
         {/* Progress */}
@@ -840,7 +840,7 @@ function CampaignWizardInner({
               CARD_IDLE
             )}
           >
-            {state.step === 1 ? "Avbryt" : "Tillbaka"}
+            {state.step === 1 ? "Cancel" : "Back"}
           </button>
           <button
             type="button"
@@ -851,7 +851,7 @@ function CampaignWizardInner({
               PRESSABLE
             )}
           >
-            {isLastStep ? "Skapa kampanj" : "Fortsätt"}
+            {isLastStep ? "Create campaign" : "Continue"}
           </button>
         </div>
       </div>

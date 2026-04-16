@@ -342,7 +342,7 @@ export async function POST(
         await createNotification(supabase, {
           userId: parentComment.author_id,
           type: "comment_reply",
-          title: "Svar på din kommentar",
+          title: "Reply to your comment",
           body: content.slice(0, 120),
           actorId: user.id,
           entityId: insertedComment.id,

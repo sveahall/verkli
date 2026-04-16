@@ -5,20 +5,20 @@
  */
 
 const CONTROLLED_MAPPINGS: Array<{ pattern: RegExp; message: string }> = [
-  { pattern: /^Queue unavailable/i, message: "Jobbkön är tillfälligt otillgänglig. Försök igen senare." },
-  { pattern: /^Ownership mismatch/i, message: "Du saknar behörighet för det här jobbet." },
+  { pattern: /^Queue unavailable/i, message: "Kön är tillfälligt otillgänglig. Försök igen senare." },
+  { pattern: /^Ownership mismatch/i, message: "Du har inte behörighet för detta jobb." },
   { pattern: /^Book not found/i, message: "Boken hittades inte." },
-  { pattern: /^No chapters found/i, message: "Boken saknar kapitel att bearbeta." },
+  { pattern: /^No chapters found/i, message: "Boken har inga kapitel att bearbeta." },
   { pattern: /^No version found/i, message: "Ingen giltig version hittades för jobbet." },
-  { pattern: /^Job kind mismatch/i, message: "Ogiltig jobtyp." },
-  { pattern: /^Unexpected job kind/i, message: "Ogiltig jobtyp." },
+  { pattern: /^Job kind mismatch/i, message: "Ogiltig jobbtyp." },
+  { pattern: /^Unexpected job kind/i, message: "Ogiltig jobbtyp." },
   { pattern: /^Missing input\.text/i, message: "Text saknas för talsyntes." },
   { pattern: /^Could not resolve public URL/i, message: "Kunde inte publicera genererat ljud." },
   { pattern: /^Storage upload failed/i, message: "Kunde inte spara resultatfilen." },
-  { pattern: /object exceeded the maximum allowed size/i, message: "Ljudfilen är för stor för uppladdning." },
+  { pattern: /object exceeded the maximum allowed size/i, message: "Ljudfilen är för stor att ladda upp." },
   { pattern: /^Failed to stitch chapter audio chunks/i, message: "Kunde inte slå ihop ljudsegment." },
   { pattern: /^Text is too long \(max \d+ characters\)/i, message: "Ett kapitel är för långt för talsyntes." },
-  { pattern: /^Audiobook feature is disabled/i, message: "Ljudboksfunktionen är avstängd." },
+  { pattern: /^Audiobook feature is disabled/i, message: "Ljudboksfunktionen är inaktiverad." },
 
   // Worker utility errors
   { pattern: /Budget exceeded/i, message: "Dagskvoten är nådd. Försök igen imorgon." },
@@ -32,9 +32,9 @@ const CONTROLLED_MAPPINGS: Array<{ pattern: RegExp; message: string }> = [
 
   // Social publish errors
   { pattern: /^Social publish failed/i, message: "Publicering till sociala medier misslyckades." },
-  { pattern: /^Platform not connected/i, message: "Plattformen är inte ansluten." },
-  { pattern: /^Token expired/i, message: "Anslutningen har löpt ut. Anslut igen." },
-  { pattern: /^Publish not implemented/i, message: "Publicering stöds inte ännu för denna plattform." },
+  { pattern: /^Platform not connected/i, message: "Den här plattformen är inte ansluten." },
+  { pattern: /^Token expired/i, message: "Anslutningen har gått ut. Anslut igen." },
+  { pattern: /^Publish not implemented/i, message: "Publicering stöds ännu inte för den här plattformen." },
 
   // Supabase DB errors (normalized)
   { pattern: /^duplicate key value/i, message: "Ett liknande jobb finns redan." },
@@ -45,7 +45,7 @@ const CONTROLLED_MAPPINGS: Array<{ pattern: RegExp; message: string }> = [
   { pattern: /^WORKER_STALE$/i, message: "Jobbet avbröts (timeout). Försök igen." },
   { pattern: /^Qwen synth timed out/i, message: "Talsyntesen tog för lång tid. Försök igen." },
   { pattern: /^Qwen synth exited/i, message: "Talsyntesen misslyckades. Försök igen." },
-  { pattern: /^Failed to start Qwen synth/i, message: "Kunde inte starta talsyntesmotorn." },
+  { pattern: /^Failed to start Qwen synth/i, message: "Kunde inte starta talsyntesmotor." },
   { pattern: /^Storage upload failed/i, message: "Kunde inte spara ljudfilen." },
 ];
 

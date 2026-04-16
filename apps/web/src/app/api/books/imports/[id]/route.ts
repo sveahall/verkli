@@ -129,6 +129,6 @@ export async function POST(
   return NextResponse.json({
     ok: true,
     id,
-    message: jobId ? "Importen är åter i kö." : "Importen är återställd; starta workern för att köra den.",
+    message: jobId ? "Import re-queued." : "Import reset; start the worker to process it.",
   });
 }

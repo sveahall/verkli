@@ -57,7 +57,7 @@ type BooksTableProps = {
 
 export default function BooksTable({ items }: BooksTableProps) {
   return (
-    <section className="rounded-2xl bg-white px-4 py-4 sm:px-7 sm:py-5 dark:bg-white/[0.04]">
+    <section className="rounded-2xl bg-white px-4 py-4 shadow-[0_2px_10px_rgba(15,23,42,0.04)] sm:px-7 sm:py-5 dark:bg-white/[0.04]">
       {items.length > 0 ? (
         <div className="overflow-x-auto">
           <Table className="min-w-[640px]">

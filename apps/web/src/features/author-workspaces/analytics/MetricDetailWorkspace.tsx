@@ -31,28 +31,28 @@ const METRIC_CONFIG: Record<
   }
 > = {
   sales: {
-    title: "Försäljning",
+    title: "Sales",
     icon: Coins,
     toneClassName: "bg-[#EEF4FF] text-[#4F74E7]",
     unit: "SEK",
   },
   readers: {
-    title: "Läsare",
+    title: "Readers",
     icon: Users,
     toneClassName: "bg-[#F2EDFF] text-[#8A72FF]",
   },
   subscribers: {
-    title: "Prenumeranter",
+    title: "Subscribers",
     icon: UserRoundPlus,
     toneClassName: "bg-[#FCEFFF] text-[#E17AD5]",
   },
   comments: {
-    title: "Kommentarer",
+    title: "Comments",
     icon: MessageSquareText,
     toneClassName: "bg-[#FFF3E8] text-[#F0A75B]",
   },
   reviews: {
-    title: "Recensioner",
+    title: "Reviews",
     icon: ThumbsUp,
     toneClassName: "bg-[#FFF8DB] text-[#D8B53D]",
   },
@@ -125,7 +125,7 @@ function RatingStars({ rating }: { rating: number }) {
 
 function SalesTable({ rows }: { rows: Array<Record<string, unknown>> }) {
   if (rows.length === 0) {
-    return <EmptyState message="Inga ordrar ännu." />;
+    return <EmptyState message="No orders yet." />;
   }
 
   return (
@@ -134,11 +134,11 @@ function SalesTable({ rows }: { rows: Array<Record<string, unknown>> }) {
         <thead>
           <tr className="border-b border-slate-200/80 dark:border-white/10">
             <Th>Order</Th>
-            <Th>Datum</Th>
-            <Th>Bok</Th>
-            <Th>Land</Th>
-            <Th>Belopp</Th>
-            <Th>Betalstatus</Th>
+            <Th>Date</Th>
+            <Th>Book</Th>
+            <Th>Country</Th>
+            <Th>Amount</Th>
+            <Th>Payment status</Th>
           </tr>
         </thead>
         <tbody className="divide-y divide-slate-100 dark:divide-white/5">
@@ -166,7 +166,7 @@ function SalesTable({ rows }: { rows: Array<Record<string, unknown>> }) {
 
 function ReadersTable({ rows }: { rows: Array<Record<string, unknown>> }) {
   if (rows.length === 0) {
-    return <EmptyState message="Inga läsare ännu." />;
+    return <EmptyState message="No readers yet." />;
   }
 
   return (
@@ -174,9 +174,9 @@ function ReadersTable({ rows }: { rows: Array<Record<string, unknown>> }) {
       <table className="w-full">
         <thead>
           <tr className="border-b border-slate-200/80 dark:border-white/10">
-            <Th>Bok</Th>
-            <Th>Läsare</Th>
-            <Th>Senaste aktivitet</Th>
+            <Th>Book</Th>
+            <Th>Readers</Th>
+            <Th>Latest activity</Th>
           </tr>
         </thead>
         <tbody className="divide-y divide-slate-100 dark:divide-white/5">
@@ -197,7 +197,7 @@ function ReadersTable({ rows }: { rows: Array<Record<string, unknown>> }) {
 
 function SubscribersTable({ rows }: { rows: Array<Record<string, unknown>> }) {
   if (rows.length === 0) {
-    return <EmptyState message="Inga prenumeranter ännu." />;
+    return <EmptyState message="No subscribers yet." />;
   }
 
   return (
@@ -205,9 +205,9 @@ function SubscribersTable({ rows }: { rows: Array<Record<string, unknown>> }) {
       <table className="w-full">
         <thead>
           <tr className="border-b border-slate-200/80 dark:border-white/10">
-            <Th>E-post</Th>
+            <Th>Email</Th>
             <Th>Status</Th>
-            <Th>Prenumererade</Th>
+            <Th>Subscribed</Th>
           </tr>
         </thead>
         <tbody className="divide-y divide-slate-100 dark:divide-white/5">
@@ -230,7 +230,7 @@ function SubscribersTable({ rows }: { rows: Array<Record<string, unknown>> }) {
 
 function CommentsTable({ rows }: { rows: Array<Record<string, unknown>> }) {
   if (rows.length === 0) {
-    return <EmptyState message="Inga kommentarer ännu." />;
+    return <EmptyState message="No comments yet." />;
   }
 
   return (
@@ -238,9 +238,9 @@ function CommentsTable({ rows }: { rows: Array<Record<string, unknown>> }) {
       <table className="w-full">
         <thead>
           <tr className="border-b border-slate-200/80 dark:border-white/10">
-            <Th>Bok</Th>
-            <Th>Kommentar</Th>
-            <Th>Datum</Th>
+            <Th>Book</Th>
+            <Th>Comment</Th>
+            <Th>Date</Th>
           </tr>
         </thead>
         <tbody className="divide-y divide-slate-100 dark:divide-white/5">
@@ -263,7 +263,7 @@ function CommentsTable({ rows }: { rows: Array<Record<string, unknown>> }) {
 
 function ReviewsTable({ rows }: { rows: Array<Record<string, unknown>> }) {
   if (rows.length === 0) {
-    return <EmptyState message="Inga recensioner ännu." />;
+    return <EmptyState message="No reviews yet." />;
   }
 
   return (
@@ -271,10 +271,10 @@ function ReviewsTable({ rows }: { rows: Array<Record<string, unknown>> }) {
       <table className="w-full">
         <thead>
           <tr className="border-b border-slate-200/80 dark:border-white/10">
-            <Th>Bok</Th>
-            <Th>Betyg</Th>
-            <Th>Recension</Th>
-            <Th>Datum</Th>
+            <Th>Book</Th>
+            <Th>Rating</Th>
+            <Th>Review</Th>
+            <Th>Date</Th>
           </tr>
         </thead>
         <tbody className="divide-y divide-slate-100 dark:divide-white/5">
@@ -352,7 +352,7 @@ export default function MetricDetailWorkspace({
           <Link
             href="/author/home"
             className="flex h-8 w-8 items-center justify-center rounded-lg text-slate-400 transition hover:bg-slate-100 hover:text-slate-600 dark:text-white/40 dark:hover:bg-white/10 dark:hover:text-white/70"
-            aria-label="Tillbaka till dashboard"
+            aria-label="Back to dashboard"
           >
             <ArrowLeft className="h-4 w-4" />
           </Link>
@@ -407,7 +407,7 @@ export default function MetricDetailWorkspace({
                     {config.title}
                   </h2>
                   <p className="text-[12px] text-slate-400 dark:text-white/35">
-                    {rows.length} {rows.length === 1 ? "post" : "poster"}
+                    {rows.length} {rows.length === 1 ? "entry" : "entries"}
                   </p>
                 </div>
               </div>
@@ -434,16 +434,16 @@ function getSummaryCards(
       const countries = new Set(rows.map((r) => String(r.country ?? "")).filter((c) => c !== "—"));
       return [
         {
-          label: "Totalt",
+          label: "Total",
           value: `${summary.total.toLocaleString("sv-SE")} SEK`,
         },
-        { label: "Ordrar", value: rows.length.toLocaleString("sv-SE") },
+        { label: "Orders", value: rows.length.toLocaleString("sv-SE") },
         {
-          label: "Betalda",
+          label: "Paid",
           value: paid.toLocaleString("sv-SE"),
-          sparkline: `▕ ${pending} väntande`,
+          sparkline: `▕ ${pending} pending`,
         },
-        { label: "Länder", value: countries.size.toLocaleString("sv-SE") },
+        { label: "Countries", value: countries.size.toLocaleString("sv-SE") },
       ];
     }
     case "readers": {
@@ -452,16 +452,16 @@ function getSummaryCards(
         0
       );
       return [
-        { label: "Totalt läsare", value: totalReaders.toLocaleString("sv-SE") },
-        { label: "Böcker", value: rows.length.toLocaleString("sv-SE") },
+        { label: "Total readers", value: totalReaders.toLocaleString("sv-SE") },
+        { label: "Books", value: rows.length.toLocaleString("sv-SE") },
         {
-          label: "Snitt per bok",
+          label: "Avg. per book",
           value:
             rows.length > 0
               ? Math.round(totalReaders / rows.length).toLocaleString("sv-SE")
               : "0",
         },
-        { label: "Period", value: "Alla" },
+        { label: "Period", value: "All" },
       ];
     }
     case "subscribers": {
@@ -470,10 +470,10 @@ function getSummaryCards(
         (r) => r.status === "unsubscribed"
       ).length;
       return [
-        { label: "Aktiva", value: active.toLocaleString("sv-SE") },
-        { label: "Totalt", value: rows.length.toLocaleString("sv-SE") },
+        { label: "Active", value: active.toLocaleString("sv-SE") },
+        { label: "Total", value: rows.length.toLocaleString("sv-SE") },
         {
-          label: "Avprenumererade",
+          label: "Unsubscribed",
           value: unsubscribed.toLocaleString("sv-SE"),
         },
         {
@@ -487,14 +487,14 @@ function getSummaryCards(
     }
     case "comments":
       return [
-        { label: "Totalt", value: summary.total.toLocaleString("sv-SE") },
+        { label: "Total", value: summary.total.toLocaleString("sv-SE") },
         {
-          label: "Böcker",
+          label: "Books",
           value: new Set(rows.map((r) => String(r.bookTitle ?? "")))
             .size.toLocaleString("sv-SE"),
         },
-        { label: "Period", value: "Alla" },
-        { label: "Senaste", value: rows[0] ? formatDate(rows[0].date) : "—" },
+        { label: "Period", value: "All" },
+        { label: "Latest", value: rows[0] ? formatDate(rows[0].date) : "—" },
       ];
     case "reviews": {
       const avgRating =
@@ -502,17 +502,17 @@ function getSummaryCards(
           ? rows.reduce((s, r) => s + (Number(r.rating) || 0), 0) / rows.length
           : 0;
       return [
-        { label: "Totalt", value: summary.total.toLocaleString("sv-SE") },
+        { label: "Total", value: summary.total.toLocaleString("sv-SE") },
         {
-          label: "Snittbetyg",
+          label: "Avg. rating",
           value: avgRating > 0 ? `${avgRating.toFixed(1)} ★` : "—",
         },
         {
-          label: "Böcker",
+          label: "Books",
           value: new Set(rows.map((r) => String(r.bookTitle ?? "")))
             .size.toLocaleString("sv-SE"),
         },
-        { label: "Senaste", value: rows[0] ? formatDate(rows[0].date) : "—" },
+        { label: "Latest", value: rows[0] ? formatDate(rows[0].date) : "—" },
       ];
     }
     default:

@@ -30,7 +30,7 @@ export default function ReaderForgotPassword() {
     const { error } = await resetPassword(email);
 
     if (error) {
-      setError(resolveErrorMessage(null, "Kunde inte skicka återställningslänk. Försök igen."));
+      setError(resolveErrorMessage(null, "Could not send reset link. Please try again."));
       setLoading(false);
     } else {
       setSuccess(true);

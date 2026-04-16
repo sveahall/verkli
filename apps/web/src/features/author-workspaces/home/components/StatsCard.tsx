@@ -37,7 +37,7 @@ export default function StatsCard({
   const content = (
     <article
       className={cn(
-        "relative min-h-[118px] rounded-2xl bg-white px-4 py-3.5 dark:bg-white/[0.04]",
+        "relative min-h-[118px] rounded-2xl bg-white px-4 py-3.5 shadow-[0_2px_10px_rgba(15,23,42,0.04)] dark:bg-white/[0.04]",
         href && "cursor-pointer transition-all duration-200 hover:shadow-md hover:shadow-black/[0.06] hover:-translate-y-0.5 active:scale-[0.98] dark:hover:bg-white/[0.06]"
       )}
       onMouseEnter={handleMouseEnter}
@@ -51,7 +51,7 @@ export default function StatsCard({
       >
         {icon}
       </div>
-      <div className="space-y-1.5">
+      <div className="space-y-1.5 pb-1">
         <div className="flex items-center gap-1.5">
           <p className="text-[11px] font-medium uppercase tracking-[0.08em] text-[#6D7386] dark:text-white/50">
             {label}
@@ -62,7 +62,7 @@ export default function StatsCard({
             </span>
           ) : null}
         </div>
-        <p className="text-3xl font-semibold leading-none text-slate-900 dark:text-white">{value}</p>
+        <p className="text-3xl font-normal leading-tight tracking-[-0.01em] text-slate-900 dark:text-white">{value}</p>
       </div>
 
       {description && showTooltip ? (

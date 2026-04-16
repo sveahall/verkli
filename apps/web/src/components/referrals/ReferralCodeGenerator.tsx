@@ -24,16 +24,16 @@ export function ReferralCodeGenerator() {
     const result = await generateCode();
     if (result.ok && result.code) {
       setCode(result.code);
-      toast.success("Referenskod skapad.");
+      toast.success("Referral code created.");
     } else {
-      toast.error(result.error ?? "Kunde inte skapa kod.");
+      toast.error(result.error ?? "Could not create code.");
     }
   }, [generateCode, toast]);
 
   const handleCopy = useCallback(() => {
     if (!code) return;
     void navigator.clipboard.writeText(code).then(() => {
-      toast.success("Koden kopierad till urklipp.");
+      toast.success("Code copied to clipboard.");
     });
   }, [code, toast]);
 
@@ -41,10 +41,10 @@ export function ReferralCodeGenerator() {
     <Card>
       <CardHeader className="pb-2">
         <h3 className="text-sm font-semibold text-slate-900 dark:text-white">
-          Din referenskod
+          Your referral code
         </h3>
         <p className="text-xs text-slate-500 dark:text-white/50">
-          Dela koden så får både du och den du bjuder in krediter när de löst in den.
+          Share this code — both you and the person you invite earn credits when they redeem it.
         </p>
       </CardHeader>
       <CardContent className="space-y-3">
@@ -58,7 +58,7 @@ export function ReferralCodeGenerator() {
               variant="secondary"
               size="icon"
               onClick={handleCopy}
-              aria-label="Kopiera kod"
+              aria-label="Copy code"
             >
               <CopyIcon className="h-4 w-4" />
             </Button>
@@ -69,9 +69,9 @@ export function ReferralCodeGenerator() {
             variant="primary"
             onClick={handleGenerate}
             isLoading={generateLoading}
-            loadingText="Skapar..."
+            loadingText="Creating..."
           >
-            Skapa referenskod
+            Create referral code
           </Button>
         )}
       </CardContent>

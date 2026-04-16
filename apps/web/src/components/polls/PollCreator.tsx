@@ -66,7 +66,7 @@ export default function PollCreator({
         .filter((o) => o.length > 0);
 
       if (trimmedOptions.length < 2) {
-        setError("Minst två svarsalternativ krävs.");
+        setError("At least two answer options are required.");
         setLoading(false);
         return;
       }
@@ -109,7 +109,7 @@ export default function PollCreator({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <form onSubmit={handleSubmit}>
         <DialogHeader>
-          <DialogTitle>Skapa omröstning</DialogTitle>
+          <DialogTitle>Create poll</DialogTitle>
         </DialogHeader>
 
         <DialogBody className="space-y-4">
@@ -124,7 +124,7 @@ export default function PollCreator({
               htmlFor="poll-question"
               className="text-[13px] font-medium text-slate-700 dark:text-white/70"
             >
-              Fråga
+              Question
             </label>
             <input
               id="poll-question"
@@ -133,14 +133,14 @@ export default function PollCreator({
               maxLength={500}
               value={question}
               onChange={(e) => setQuestion(e.target.value)}
-              placeholder="Vilken bok ska vi läsa härnäst?"
+              placeholder="Which book should we read next?"
               className="min-h-[44px] w-full rounded-xl border border-slate-200/80 bg-white px-4 text-[14px] text-slate-700 transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#907AFF]/40 focus-visible:ring-offset-2 focus-visible:ring-offset-white dark:border-white/10 dark:bg-white/5 dark:text-white dark:focus-visible:ring-offset-[#0b0b12]"
             />
           </div>
 
           <div className="space-y-2">
             <label className="text-[13px] font-medium text-slate-700 dark:text-white/70">
-              Svarsalternativ
+              Answer options
             </label>
             {options.map((opt, i) => (
               <div key={i} className="flex items-center gap-2">
@@ -149,7 +149,7 @@ export default function PollCreator({
                   maxLength={200}
                   value={opt}
                   onChange={(e) => updateOption(i, e.target.value)}
-                  placeholder={`Alternativ ${i + 1}`}
+                  placeholder={`Option ${i + 1}`}
                   className="min-h-[40px] flex-1 rounded-xl border border-slate-200/80 bg-white px-4 text-[14px] text-slate-700 transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#907AFF]/40 focus-visible:ring-offset-2 focus-visible:ring-offset-white dark:border-white/10 dark:bg-white/5 dark:text-white dark:focus-visible:ring-offset-[#0b0b12]"
                 />
                 {options.length > 2 && (
@@ -157,7 +157,7 @@ export default function PollCreator({
                     type="button"
                     onClick={() => removeOption(i)}
                     className="flex h-8 w-8 items-center justify-center rounded-full text-slate-400 hover:bg-red-50 hover:text-red-600 dark:text-white/40 dark:hover:bg-red-950/30 dark:hover:text-red-400"
-                    aria-label="Ta bort alternativ"
+                    aria-label="Remove option"
                   >
                     <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
                       <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
@@ -172,7 +172,7 @@ export default function PollCreator({
                 onClick={addOption}
                 className="text-[13px] font-medium text-slate-500 hover:text-slate-900 dark:text-white/50 dark:hover:text-white"
               >
-                + Lägg till alternativ
+                + Add option
               </button>
             )}
           </div>
@@ -182,7 +182,7 @@ export default function PollCreator({
               htmlFor="poll-closes"
               className="text-[13px] font-medium text-slate-700 dark:text-white/70"
             >
-              Stängs (valfritt)
+              Closes (optional)
             </label>
             <input
               id="poll-closes"
@@ -200,15 +200,15 @@ export default function PollCreator({
             variant="ghost"
             onClick={() => onOpenChange(false)}
           >
-            Avbryt
+            Cancel
           </Button>
           <Button
             type="submit"
             isLoading={loading}
-            loadingText="Skapar..."
+            loadingText="Creating..."
             disabled={!question.trim()}
           >
-            Skapa omröstning
+            Create poll
           </Button>
         </DialogFooter>
       </form>

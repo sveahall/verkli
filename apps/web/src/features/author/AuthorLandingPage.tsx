@@ -105,7 +105,7 @@ function LandingPage() {
             </div>
           </div>
 
-          <div className="mx-auto w-full">
+          <div className="mx-auto w-full max-w-[1100px]">
             <div className="flex flex-col items-center text-center">
               {/* Badge */}
               <div className="hero-animate-down mb-7 inline-flex items-center gap-2 rounded-full border border-black/[0.08] bg-white/80 px-4 py-1.5 backdrop-blur-xl dark:border-white/[0.12] dark:bg-white/[0.04]">
@@ -137,14 +137,15 @@ function LandingPage() {
               </div>
 
               {/* Dashboard screenshot — clipped with bottom fade */}
-              <div className="hero-animate relative mx-auto mt-12 w-full" style={{ animationDelay: "720ms", maxHeight: "500px" }}>
+              <div className="hero-animate relative mt-0 w-full overflow-hidden" style={{ animationDelay: "720ms", maxHeight: "480px" }}>
                 <Image
                   src="/images/Namnlös design (1).png"
                   alt="Verkli dashboard on laptop and mobile"
-                  width={500}
-                  height={600}
-                  sizes="(max-width: 524px) 90vw, 500px"
-                  className="mx-auto w-full max-w-[1200px] object-contain object-top"
+                  width={3072}
+                  height={1728}
+                  sizes="(max-width: 640px) 95vw, (max-width: 1200px) 85vw, 1060px"
+                  quality={90}
+                  className="w-full object-contain object-top"
                   priority
                 />
                 {/* Bottom fade cut */}

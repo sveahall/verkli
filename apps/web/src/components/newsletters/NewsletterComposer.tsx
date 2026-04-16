@@ -59,7 +59,7 @@ export default function NewsletterComposer({
         return;
       }
 
-      setSuccess("Utkast sparat");
+      setSuccess("Draft saved");
       onSaved?.();
     } catch {
       setError(resolveErrorMessage(null));
@@ -69,7 +69,7 @@ export default function NewsletterComposer({
   }, [newsletter.id, subject, bodyHtml, onSaved]);
 
   const handleSend = useCallback(async () => {
-    if (!confirm("Är du säker på att du vill skicka detta nyhetsbrev? Detta kan inte ångras.")) {
+    if (!confirm("Are you sure you want to send this newsletter? This cannot be undone.")) {
       return;
     }
 
@@ -107,7 +107,7 @@ export default function NewsletterComposer({
         return;
       }
 
-      setSuccess(`Nyhetsbrev skickat till ${body.recipientCount ?? 0} prenumeranter`);
+      setSuccess(`Newsletter sent to ${body.recipientCount ?? 0} subscribers`);
       onSent?.();
     } catch {
       setError(resolveErrorMessage(null));
@@ -130,7 +130,7 @@ export default function NewsletterComposer({
           htmlFor="nl-subject"
           className="text-[13px] font-medium text-slate-700 dark:text-white/70"
         >
-          Ämne
+          Subject
         </label>
         <input
           id="nl-subject"
@@ -138,7 +138,7 @@ export default function NewsletterComposer({
           value={subject}
           onChange={(e) => setSubject(e.target.value)}
           disabled={!isDraft}
-          placeholder="Ämnesrad för nyhetsbrevet..."
+          placeholder="Subject line for the newsletter..."
           className="min-h-[44px] w-full rounded-xl border border-slate-200/80 bg-white px-4 text-[14px] text-slate-700 transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#907AFF]/40 focus-visible:ring-offset-2 focus-visible:ring-offset-white disabled:opacity-60 dark:border-white/10 dark:bg-white/5 dark:text-white dark:focus-visible:ring-offset-[#0b0b12]"
         />
       </div>
@@ -146,14 +146,14 @@ export default function NewsletterComposer({
       <div className="space-y-1.5">
         <div className="flex items-center justify-between">
           <label className="text-[13px] font-medium text-slate-700 dark:text-white/70">
-            Innehåll (HTML)
+            Content (HTML)
           </label>
           <button
             type="button"
             onClick={() => setShowPreview(!showPreview)}
             className="text-[12px] font-medium text-[#907AFF] hover:text-[#7A66E0]"
           >
-            {showPreview ? "Redigera" : "Förhandsgranska"}
+            {showPreview ? "Edit" : "Preview"}
           </button>
         </div>
 
@@ -168,7 +168,7 @@ export default function NewsletterComposer({
             onChange={(e) => setBodyHtml(e.target.value)}
             disabled={!isDraft}
             rows={15}
-            placeholder="<h1>Hej!</h1><p>Här kommer nyheter...</p>"
+            placeholder="<h1>Hello!</h1><p>Here's the latest news...</p>"
             className="w-full rounded-xl border border-slate-200/80 bg-white px-4 py-3 font-mono text-[13px] text-slate-700 transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#907AFF]/40 focus-visible:ring-offset-2 focus-visible:ring-offset-white disabled:opacity-60 dark:border-white/10 dark:bg-white/5 dark:text-white dark:focus-visible:ring-offset-[#0b0b12]"
           />
         )}
@@ -180,25 +180,25 @@ export default function NewsletterComposer({
             variant="secondary"
             onClick={handleSave}
             isLoading={saving}
-            loadingText="Sparar..."
+            loadingText="Saving..."
             disabled={!subject.trim()}
           >
-            Spara utkast
+            Save draft
           </Button>
           <Button
             onClick={handleSend}
             isLoading={sending}
-            loadingText="Skickar..."
+            loadingText="Sending..."
             disabled={!subject.trim()}
           >
-            Skicka nyhetsbrev
+            Send newsletter
           </Button>
         </div>
       )}
 
       {!isDraft && (
         <p className="text-[13px] text-slate-500 dark:text-white/50">
-          Detta nyhetsbrev har redan skickats och kan inte redigeras.
+          This newsletter has already been sent and cannot be edited.
         </p>
       )}
     </div>

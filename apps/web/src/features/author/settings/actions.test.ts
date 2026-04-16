@@ -110,6 +110,8 @@ describe("author settings actions", () => {
         display_name: "Jane Author",
         bio: "Writes Scandinavian fiction.",
         is_public: true,
+        website_url: null,
+        social_links: {},
       },
       { onConflict: "user_id" }
     );

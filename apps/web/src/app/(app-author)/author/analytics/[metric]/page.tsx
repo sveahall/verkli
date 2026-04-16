@@ -71,7 +71,7 @@ export default async function MetricDetailPage({
     const bookTitleById = new Map(books.map((b) => [b.id, b.title ?? "Untitled"]));
     rows = orderList.map((order) => ({
       id: order.id,
-      bookTitle: bookTitleById.get(order.book_id) ?? "Okänd bok",
+      bookTitle: bookTitleById.get(order.book_id) ?? "Unknown book",
       amount: Number(order.amount) || 0,
       currency: (order.currency as string) ?? "SEK",
       status: order.status,
@@ -103,7 +103,7 @@ export default async function MetricDetailPage({
 
     rows = [...byBook.entries()].map(([bookId, data]) => ({
       id: bookId,
-      bookTitle: bookTitleById.get(bookId) ?? "Okänd bok",
+      bookTitle: bookTitleById.get(bookId) ?? "Unknown book",
       readerCount: data.count,
       latestRead: data.latest,
     }));
@@ -144,7 +144,7 @@ export default async function MetricDetailPage({
     const bookTitleById = new Map(books.map((b) => [b.id, b.title ?? "Untitled"]));
     rows = commentList.map((c) => ({
       id: c.id,
-      bookTitle: bookTitleById.get(c.book_id) ?? "Okänd bok",
+      bookTitle: bookTitleById.get(c.book_id) ?? "Unknown book",
       content: (c.body as string)?.slice(0, 120) ?? "",
       date: c.created_at,
     }));
@@ -167,7 +167,7 @@ export default async function MetricDetailPage({
     const bookTitleById = new Map(books.map((b) => [b.id, b.title ?? "Untitled"]));
     rows = reviewList.map((r) => ({
       id: r.id,
-      bookTitle: bookTitleById.get(r.book_id) ?? "Okänd bok",
+      bookTitle: bookTitleById.get(r.book_id) ?? "Unknown book",
       rating: Number(r.rating) || 0,
       text: (r.content as string)?.slice(0, 120) ?? "",
       date: r.created_at,

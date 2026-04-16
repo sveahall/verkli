@@ -33,7 +33,12 @@ CREATE POLICY notifications_insert_authenticated ON public.notifications
 -- Other user lookups should use the profiles table.
 -- ═══════════════════════════════════════════════════════════════
 
-DROP POLICY IF EXISTS "Users are viewable by authenticated" ON public.users;
-CREATE POLICY "Users can view own row" ON public.users
-  FOR SELECT
-  USING (auth.uid() = id);
+DO $$
+BEGIN
+  IF to_regclass('public.users') IS NOT NULL THEN
+    DROP POLICY IF EXISTS "Users are viewable by authenticated" ON public.users;
+    CREATE POLICY "Users can view own row" ON public.users
+      FOR SELECT
+      USING (auth.uid() = id);
+  END IF;
+END $$;

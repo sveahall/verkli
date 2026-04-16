@@ -14,8 +14,8 @@ type ActivityListProps = {
 
 export default function ActivityList({ items }: ActivityListProps) {
   return (
-    <section className="rounded-2xl bg-white px-7 py-5 dark:bg-white/[0.04]">
-      <h2 className="text-lg font-semibold text-slate-900 dark:text-white">Recent activity</h2>
+    <section className="rounded-2xl bg-white px-7 py-5 shadow-[0_2px_10px_rgba(15,23,42,0.04)] dark:bg-white/[0.04]">
+      <h2 className="text-xl font-normal text-slate-900 dark:text-white">Recent activity</h2>
 
       {items.length > 0 ? (
         <div className="mt-4 space-y-4">

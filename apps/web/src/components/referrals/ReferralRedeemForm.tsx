@@ -17,19 +17,19 @@ export function ReferralRedeemForm() {
       e.preventDefault();
       const trimmed = code.trim();
       if (!trimmed) {
-        toast.error("Ange en referenskod.");
+        toast.error("Please enter a referral code.");
         return;
       }
       const result = await redeemCode(trimmed);
       if (result.ok) {
         toast.success(
           result.creditsAdded > 0
-            ? `${result.creditsAdded} krediter tillagda. Tack!`
-            : "Kod löst in."
+            ? `${result.creditsAdded} credits added. Thank you!`
+            : "Code redeemed."
         );
         setCode("");
       } else {
-        toast.error(result.error ?? "Kunde inte lösa in koden.");
+        toast.error(result.error ?? "Could not redeem code.");
       }
     },
     [code, redeemCode, toast]
@@ -39,17 +39,17 @@ export function ReferralRedeemForm() {
     <Card>
       <CardHeader className="pb-2">
         <h3 className="text-sm font-semibold text-slate-900 dark:text-white">
-          Lösa in referenskod
+          Redeem referral code
         </h3>
         <p className="text-xs text-slate-500 dark:text-white/50">
-          Har du fått en kod? Ange den här så läggs krediter till ditt konto.
+          Have a code? Enter it here to add credits to your account.
         </p>
       </CardHeader>
       <CardContent>
         <form onSubmit={handleSubmit} className="flex flex-col gap-3 sm:flex-row sm:items-end">
           <Input
-            label="Referenskod"
-            placeholder="T.ex. ABC12XYZ"
+            label="Referral code"
+            placeholder="e.g. ABC12XYZ"
             value={code}
             onChange={(e) => setCode(e.target.value.toUpperCase())}
             fullWidth
@@ -61,11 +61,11 @@ export function ReferralRedeemForm() {
             type="submit"
             variant="primary"
             isLoading={redeemLoading}
-            loadingText="Löser in..."
+            loadingText="Redeeming..."
             disabled={!code.trim() || redeemLoading}
             className="sm:w-auto"
           >
-            Lösa in
+            Redeem
           </Button>
         </form>
       </CardContent>

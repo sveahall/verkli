@@ -257,7 +257,7 @@ export default function AuthorDashboard() {
   };
 
   return (
-    <main className="min-h-screen bg-white text-foreground dark:bg-[#0A0A0B]">
+    <main className="min-h-screen bg-gray-50 text-foreground dark:bg-gray-900">
       <div className="mx-auto max-w-[1200px] px-4 pt-6 pb-24 sm:px-6 sm:pt-10">
 
         {/* Header */}

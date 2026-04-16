@@ -155,7 +155,7 @@ export function useBookJobs(
           }
         } else {
           const json = await res.json().catch(() => ({}));
-          setError(resolveErrorMessage(json?.error, "Kunde inte hämta status."));
+          setError(resolveErrorMessage(json?.error, "Could not fetch status."));
         }
         setJobs([]);
         setActiveCount(0);
@@ -182,7 +182,7 @@ export function useBookJobs(
       if (!mountedRef.current) return;
       setJobs([]);
       setActiveCount(0);
-      setError("Nätverksfel");
+      setError("Network error.");
     } finally {
       if (abortRef.current === controller) {
         abortRef.current = null;

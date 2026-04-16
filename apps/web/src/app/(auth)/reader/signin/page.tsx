@@ -39,7 +39,7 @@ export default function ReaderSignIn() {
     const { error } = await signIn(email, password, staySignedIn);
 
     if (error) {
-      setError(resolveErrorMessage(null, "Inloggningen misslyckades. Kontrollera e-post och lösenord."));
+      setError(resolveErrorMessage(null, "Sign in failed. Check your email and password."));
       setLoading(false);
       return;
     }
@@ -78,7 +78,7 @@ export default function ReaderSignIn() {
     setError("");
     const { error } = await signInWithGoogle();
     if (error) {
-      setError(resolveErrorMessage(null, "Inloggningen misslyckades. Kontrollera e-post och lösenord."));
+      setError(resolveErrorMessage(null, "Sign in failed. Check your email and password."));
     }
   };
 

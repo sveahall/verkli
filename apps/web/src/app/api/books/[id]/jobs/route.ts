@@ -63,7 +63,7 @@ function toTranslationProgress(status: string): number {
   return 0;
 }
 
-const TRANSLATION_FAILED_MESSAGE = "Översättningen misslyckades. Försök igen.";
+const TRANSLATION_FAILED_MESSAGE = "Translation failed. Please try again.";
 const AUDIOBOOK_CANCEL_TIMEOUT_MESSAGE = "Cancellation timed out. Try again.";
 const MAX_ETA_SECONDS = 72 * 60 * 60;
 
