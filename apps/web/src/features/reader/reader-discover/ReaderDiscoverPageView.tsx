@@ -72,7 +72,6 @@ function buildFilterHref(
   return `/reader/discover${str ? `?${str}` : ""}`;
 }
 
-/** Returns genreSlugs with slug toggled on or off */
 function toggleGenre(current: string[], slug: string): string[] {
   return current.includes(slug)
     ? current.filter((s) => s !== slug)
@@ -84,27 +83,71 @@ function buildClearAllHref(language: string): string {
   return `/reader/discover?lang=${language}`;
 }
 
-/* ── Styled select with custom chevron ── */
+function getInitials(name: string): string {
+  return name
+    .split(" ")
+    .slice(0, 2)
+    .map((n) => n[0])
+    .join("")
+    .toUpperCase();
+}
 
-function FilterSelect({
-  name,
+/* ── Language select (form-submitted) ── */
+
+function LanguageSelect({
   defaultValue,
-  children,
+  options,
 }: {
-  name: string;
   defaultValue: string;
-  children: React.ReactNode;
+  options: LanguageOption[];
 }) {
   return (
     <div className="relative">
       <select
-        name={name}
+        name="lang"
         defaultValue={defaultValue}
-        className="h-9 appearance-none rounded-xl border border-slate-200/80 bg-white py-0 pl-3 pr-8 text-sm font-medium text-[#0F172A] transition-colors focus:border-[#907AFF]/40 focus:outline-none focus:ring-2 focus:ring-[#907AFF]/20 dark:border-white/10 dark:bg-white/[0.04] dark:text-white"
+        className="h-8 appearance-none rounded-lg border border-slate-200/80 bg-white py-0 pl-3 pr-7 text-xs font-medium text-[#0F172A] transition-colors focus:border-[#907AFF]/40 focus:outline-none focus:ring-2 focus:ring-[#907AFF]/20 dark:border-white/10 dark:bg-white/[0.04] dark:text-white"
       >
-        {children}
+        {options.map((o) => (
+          <option key={o.value} value={o.value}>
+            {o.label}
+          </option>
+        ))}
       </select>
-      <ChevronDown className="pointer-events-none absolute right-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-[#64748B] dark:text-white/40" />
+      <ChevronDown className="pointer-events-none absolute right-2 top-1/2 h-3 w-3 -translate-y-1/2 text-[#64748B] dark:text-white/40" />
+    </div>
+  );
+}
+
+/* ── Pill toggle group (link-based, no form submit) ── */
+
+function PillGroup({
+  activeFilters,
+  field,
+  options,
+}: {
+  activeFilters: ActiveFilters;
+  field: "format" | "sort";
+  options: { value: string; label: string }[];
+}) {
+  return (
+    <div className="flex items-center rounded-lg border border-slate-200/80 bg-white p-0.5 dark:border-white/10 dark:bg-white/[0.04]">
+      {options.map((opt) => {
+        const isActive = activeFilters[field] === opt.value;
+        return (
+          <Link
+            key={opt.value}
+            href={buildFilterHref(activeFilters, { [field]: opt.value })}
+            className={`rounded-md px-3 py-1 text-xs font-medium transition-all duration-200 ease-[cubic-bezier(0.23,1,0.32,1)] active:scale-[0.97] ${
+              isActive
+                ? "bg-[#907AFF]/[0.09] text-[#907AFF] dark:bg-[#907AFF]/[0.14] dark:text-[#B8AAFF]"
+                : "text-[#64748B] hover:text-[#0F172A] dark:text-white/40 dark:hover:text-white/70"
+            }`}
+          >
+            {opt.label}
+          </Link>
+        );
+      })}
     </div>
   );
 }
@@ -115,6 +158,7 @@ export default function ReaderDiscoverPageView({
   languageLabel,
   languageOptions,
   books,
+  authors,
   genres,
   activeFilters,
   resultCount,
@@ -126,15 +170,15 @@ export default function ReaderDiscoverPageView({
 
   return (
     <div className="reader-stagger space-y-5">
-      {/* ── Unified hero card: atmospheric depth + search + genres ── */}
+      {/* ── Hero card: search + atmospheric depth + genre rail ── */}
       <div className="card-base relative overflow-hidden">
-        {/* Clipping layer — prevents filter:blur from painting outside card bounds in Chrome */}
+        {/* Atmospheric glows — contained within card bounds */}
         <div className="pointer-events-none absolute inset-0 overflow-hidden rounded-2xl">
-          {/* Decorative purple glow — positioned inside so blur stays contained */}
-          <div className="absolute -right-8 -top-8 h-40 w-40 rounded-full bg-[#907AFF]/[0.10] blur-[64px]" />
+          <div className="absolute -right-12 -top-12 h-56 w-56 rounded-full bg-[#907AFF]/[0.12] blur-[80px]" />
+          <div className="absolute -bottom-8 -left-8 h-40 w-40 rounded-full bg-[#E29ED5]/[0.07] blur-[60px]" />
         </div>
 
-        {/* ── Title + search ── */}
+        {/* Title + search */}
         <div className="relative p-6 sm:p-8">
           <div className="mb-5">
             <h1 className="text-3xl font-semibold tracking-tight text-[#0F172A] dark:text-white">
@@ -169,26 +213,28 @@ export default function ReaderDiscoverPageView({
                   type="text"
                   name="q"
                   defaultValue={activeFilters.query}
-                  placeholder="Search by title..."
-                  className="h-12 w-full rounded-xl border border-slate-200/80 bg-slate-100/70 pl-10 pr-4 text-sm text-[#0F172A] placeholder:text-[#64748B]/60 transition-colors duration-150 focus:border-[#907AFF]/40 focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#907AFF]/20 dark:border-white/10 dark:bg-white/[0.06] dark:text-white dark:placeholder:text-white/30 dark:focus:bg-white/[0.09]"
+                  placeholder="Search by title or author..."
+                  className="h-12 w-full rounded-xl border border-slate-200/80 bg-slate-100/70 pl-10 pr-4 text-sm text-[#0F172A] placeholder:text-[#64748B]/60 transition-[border-color,background-color,box-shadow] duration-200 ease-[cubic-bezier(0.23,1,0.32,1)] focus:border-[#907AFF]/40 focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#907AFF]/20 dark:border-white/10 dark:bg-white/[0.06] dark:text-white dark:placeholder:text-white/30 dark:focus:bg-white/[0.09]"
                 />
               </div>
-              <button type="submit" className="btn-primary shrink-0 text-sm">
+              <button
+                type="submit"
+                className="btn-primary shrink-0 text-sm transition-[transform,box-shadow] duration-200 ease-[cubic-bezier(0.23,1,0.32,1)] active:scale-[0.97]"
+              >
                 Search
               </button>
             </div>
           </form>
         </div>
 
-        {/* ── Genre chips — multi-select, always-scroll rail ── */}
+        {/* Genre chips — multi-select horizontal scroll rail */}
         {genres.length > 0 && (
           <div className="relative border-t border-slate-200/60 dark:border-white/[0.06]">
             <div className="px-6 pb-5 pt-3 sm:px-8">
               <div className="scrollbar-none flex gap-2 overflow-x-auto pb-0.5">
-                {/* "All genres" clears selection */}
                 <Link
                   href={buildFilterHref(activeFilters, { genreSlugs: [] })}
-                  className={`flex-shrink-0 rounded-full border px-3.5 py-1.5 text-sm font-medium transition-colors duration-150 ease-out ${
+                  className={`flex-shrink-0 rounded-full border px-3.5 py-1.5 text-sm font-medium transition-all duration-200 ease-[cubic-bezier(0.23,1,0.32,1)] active:scale-[0.97] ${
                     activeFilters.genreSlugs.length === 0
                       ? "border-[#907AFF]/30 bg-[#907AFF]/[0.09] text-[#907AFF] dark:bg-[#907AFF]/[0.14] dark:text-[#B8AAFF]"
                       : "border-slate-200/80 bg-white/80 text-[#64748B] hover:border-[#907AFF]/20 hover:text-[#907AFF] dark:border-white/10 dark:bg-white/[0.03] dark:text-white/50 dark:hover:text-[#B8AAFF]"
@@ -205,7 +251,7 @@ export default function ReaderDiscoverPageView({
                       href={buildFilterHref(activeFilters, {
                         genreSlugs: toggleGenre(activeFilters.genreSlugs, g.slug),
                       })}
-                      className={`flex-shrink-0 rounded-full border px-3.5 py-1.5 text-sm font-medium transition-colors duration-150 ease-out ${
+                      className={`flex-shrink-0 rounded-full border px-3.5 py-1.5 text-sm font-medium transition-all duration-200 ease-[cubic-bezier(0.23,1,0.32,1)] active:scale-[0.97] ${
                         isActive
                           ? "border-[#907AFF]/30 bg-[#907AFF]/[0.09] text-[#907AFF] dark:bg-[#907AFF]/[0.14] dark:text-[#B8AAFF]"
                           : "border-slate-200/80 bg-white/80 text-[#64748B] hover:border-[#907AFF]/20 hover:text-[#907AFF] dark:border-white/10 dark:bg-white/[0.03] dark:text-white/50 dark:hover:text-[#B8AAFF]"
@@ -218,7 +264,6 @@ export default function ReaderDiscoverPageView({
                 })}
               </div>
 
-              {/* Active genre summary — shown when 2+ genres selected */}
               {activeFilters.genreSlugs.length >= 2 && (
                 <p className="mt-2 text-[11px] text-[#64748B] dark:text-white/40">
                   Showing books in{" "}
@@ -239,6 +284,57 @@ export default function ReaderDiscoverPageView({
         )}
       </div>
 
+      {/* ── Featured authors rail ── */}
+      {authors.length > 0 && !activeFilters.query && activeFilters.genreSlugs.length === 0 && (
+        <section>
+          <div className="mb-3 flex items-center justify-between">
+            <h2 className="text-sm font-semibold text-[#0F172A] dark:text-white">
+              Featured authors
+            </h2>
+          </div>
+          <div className="scrollbar-none -mx-0.5 flex gap-3 overflow-x-auto px-0.5 pb-1">
+            {authors.map((author) => (
+              <Link
+                key={author.id}
+                href={author.href}
+                className="group flex-shrink-0"
+              >
+                <div className="flex w-[88px] flex-col items-center gap-2">
+                  {/* Avatar */}
+                  <div className="relative h-16 w-16 overflow-hidden rounded-2xl border border-slate-200/80 bg-slate-100 shadow-sm transition-[transform,box-shadow] duration-200 ease-[cubic-bezier(0.23,1,0.32,1)] group-hover:-translate-y-1 group-hover:shadow-md dark:border-white/10 dark:bg-white/[0.06]">
+                    {author.avatar ? (
+                      /* eslint-disable-next-line @next/next/no-img-element */
+                      <img
+                        src={author.avatar}
+                        alt={author.name}
+                        className="h-full w-full object-cover"
+                      />
+                    ) : (
+                      <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-[#907AFF]/20 to-[#E29ED5]/20">
+                        <span className="text-base font-semibold text-[#907AFF]">
+                          {getInitials(author.name)}
+                        </span>
+                      </div>
+                    )}
+                  </div>
+                  {/* Name + genre */}
+                  <div className="w-full text-center">
+                    <p className="truncate text-xs font-medium text-[#0F172A] dark:text-white">
+                      {author.name}
+                    </p>
+                    {author.genre && (
+                      <p className="truncate text-[10px] text-[#64748B] dark:text-white/40">
+                        {author.genre}
+                      </p>
+                    )}
+                  </div>
+                </div>
+              </Link>
+            ))}
+          </div>
+        </section>
+      )}
+
       {/* ── Filter bar ── */}
       <form
         method="get"
@@ -254,34 +350,46 @@ export default function ReaderDiscoverPageView({
 
         <SlidersHorizontal className="h-4 w-4 flex-shrink-0 text-[#64748B] dark:text-white/40" />
 
-        <FilterSelect name="lang" defaultValue={activeFilters.language}>
-          {languageOptions.map((o) => (
-            <option key={o.value} value={o.value}>
-              {o.label}
-            </option>
-          ))}
-        </FilterSelect>
+        {/* Language: still a form-submitted select (many options) */}
+        <LanguageSelect
+          defaultValue={activeFilters.language}
+          options={languageOptions}
+        />
 
-        <FilterSelect name="format" defaultValue={activeFilters.format}>
-          <option value="all">All formats</option>
-          <option value="ebook">E-book</option>
-          <option value="audiobook">Audiobook</option>
-        </FilterSelect>
+        {/* Format: link-based pill group */}
+        <PillGroup
+          activeFilters={activeFilters}
+          field="format"
+          options={[
+            { value: "all", label: "All" },
+            { value: "ebook", label: "E-book" },
+            { value: "audiobook", label: "Audio" },
+          ]}
+        />
 
-        <FilterSelect name="sort" defaultValue={activeFilters.sort}>
-          <option value="newest">Newest</option>
-          <option value="popular">Popular</option>
-          <option value="title">A &ndash; Z</option>
-        </FilterSelect>
+        {/* Sort: link-based pill group */}
+        <PillGroup
+          activeFilters={activeFilters}
+          field="sort"
+          options={[
+            { value: "newest", label: "Newest" },
+            { value: "popular", label: "Popular" },
+            { value: "title", label: "A–Z" },
+          ]}
+        />
 
-        <button type="submit" className="btn-secondary h-9 text-sm">
+        {/* Language apply — only needed when language changes */}
+        <button
+          type="submit"
+          className="btn-secondary h-8 text-xs transition-[transform] duration-200 ease-[cubic-bezier(0.23,1,0.32,1)] active:scale-[0.97]"
+        >
           Apply
         </button>
 
         {hasActiveFilters && (
           <Link
             href={buildClearAllHref(activeFilters.language)}
-            className="text-sm font-medium text-[#64748B] transition-colors hover:text-[#0F172A] dark:text-white/40 dark:hover:text-white/70"
+            className="text-xs font-medium text-[#64748B] transition-colors duration-150 hover:text-[#0F172A] dark:text-white/40 dark:hover:text-white/70"
           >
             Clear all
           </Link>
@@ -292,19 +400,24 @@ export default function ReaderDiscoverPageView({
       {books.length > 0 ? (
         <section>
           <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
-            {books.map((book) => (
-              <BookCard
+            {books.map((book, i) => (
+              <div
                 key={book.id}
-                id={book.id}
-                title={book.title}
-                author={book.author}
-                genre={book.genre ?? undefined}
-                cover={book.cover}
-                href={book.href}
-                tag={book.hasAudiobook ? "Audio" : undefined}
-                hasTrailer={book.hasTrailer}
-                layout="grid"
-              />
+                className="animate-[reader-fade-up_0.4s_cubic-bezier(0.23,1,0.32,1)_both]"
+                style={{ animationDelay: `${Math.min(i * 35, 420)}ms` }}
+              >
+                <BookCard
+                  id={book.id}
+                  title={book.title}
+                  author={book.author}
+                  genre={book.genre ?? undefined}
+                  cover={book.cover}
+                  href={book.href}
+                  tag={book.hasAudiobook ? "Audio" : undefined}
+                  hasTrailer={book.hasTrailer}
+                  layout="grid"
+                />
+              </div>
             ))}
           </div>
         </section>
@@ -321,7 +434,7 @@ export default function ReaderDiscoverPageView({
           </p>
           <Link
             href={buildClearAllHref(activeFilters.language)}
-            className="btn-primary mt-6 inline-flex items-center gap-2 text-sm"
+            className="btn-primary mt-6 inline-flex items-center gap-2 text-sm transition-[transform] duration-200 ease-[cubic-bezier(0.23,1,0.32,1)] active:scale-[0.97]"
           >
             Clear all filters
           </Link>
