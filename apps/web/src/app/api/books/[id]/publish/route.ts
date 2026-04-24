@@ -104,7 +104,7 @@ export async function POST(
     supabase,
     id,
     user.id,
-    "id, title, author_id, status, original_language, cover_image",
+    "id, title, author_id, status, original_language, language, cover_image",
   );
   if (!bookResult.ok) {
     return apiError(
@@ -118,16 +118,23 @@ export async function POST(
     author_id: string;
     status: string | null;
     original_language?: string | null;
+    language?: string | null;
     cover_image?: string | null;
   };
 
   let versionId = requestedVersionId;
   if (!versionId) {
+    // Prefer the book's original_language, then fall back to `language`
+    // (the legacy column some Swedish-first books populate instead) before
+    // hard-coding "en". Otherwise a Swedish author with `original_language`
+    // null publishes whatever happens to be first by created_at.
+    const preferredLanguage =
+      book.original_language ?? book.language ?? "en";
     const { data: defaultVersion } = await supabase
       .from("book_versions")
       .select("id")
       .eq("book_id", id)
-      .eq("language_code", (book as { original_language?: string | null }).original_language ?? "en")
+      .eq("language_code", preferredLanguage)
       .maybeSingle();
     versionId = defaultVersion?.id ?? null;
   }

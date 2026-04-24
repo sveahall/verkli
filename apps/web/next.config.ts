@@ -106,7 +106,14 @@ const nextConfig: NextConfig = {
     root: path.resolve(__dirname, "../.."),
   },
   transpilePackages: ["@verkli/ui", "@verkli/shared"],
-  serverExternalPackages: ["epub", "pdf-parse", "bullmq"],
+  // Keep heavy/native-binding parsers out of the route bundle. `cheerio`
+  // (~500 KB) and `mammoth` (~1 MB) were previously being bundled into the
+  // chapter-repair route via `import-extract.ts`.
+  serverExternalPackages: ["epub", "pdf-parse", "bullmq", "cheerio", "mammoth"],
+  experimental: {
+    // Tree-shake barrel imports for large UI/animation libs.
+    optimizePackageImports: ["lucide-react", "@tiptap/core", "motion"],
+  },
   async headers() {
     return [
       {

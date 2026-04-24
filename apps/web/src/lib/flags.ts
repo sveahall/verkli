@@ -123,3 +123,19 @@ export function isNewslettersEnabled(): boolean {
   return value.toLowerCase() === "true" || value === "1";
 }
 
+// ─── Client – AI writing assistant ───
+export function getAiChatEnabled(): boolean {
+  const value = process.env.NEXT_PUBLIC_AI_CHAT_ENABLED;
+  if (value === undefined || value === "") return false;
+  return value.toLowerCase() === "true" || value === "1";
+}
+
+// ─── Server/API – AI writing assistant ───
+// Defaults OFF: every request is a billable LLM call, so opt-in explicitly via
+// env. When disabled the chat route returns deterministic template replies.
+export function isAiChatEnabled(): boolean {
+  const value = process.env.NEXT_PUBLIC_AI_CHAT_ENABLED ?? process.env.AI_CHAT_ENABLED;
+  if (value === undefined || value === "") return false;
+  return value.toLowerCase() === "true" || value === "1";
+}
+

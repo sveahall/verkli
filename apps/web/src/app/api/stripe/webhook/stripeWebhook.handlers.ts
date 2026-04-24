@@ -1,4 +1,5 @@
 import { createAdminClient } from "@/lib/supabase/admin";
+import { notifyPodFulfillment } from "@/lib/payments/pod-fulfillment-email";
 import { resolveRolePlanFromPriceIds } from "@/lib/billing/catalog";
 import {
   getBillingAccountByStripeCustomerId,
@@ -29,6 +30,50 @@ import {
 } from "./stripeWebhook.helpers";
 
 type AdminClient = ReturnType<typeof createAdminClient>;
+
+/**
+ * Stripe does NOT include `line_items` in the `checkout.session.completed`
+ * event body — it must be fetched with `listLineItems` (or via `expand`).
+ * This resolver is injected so tests can stub it out.
+ */
+export type SessionLineItemsResolver = (
+  sessionId: string
+) => Promise<readonly StripeRecord[]>;
+
+async function resolvePriceIdsForCheckoutSession(
+  session: StripeRecord,
+  resolveLineItems?: SessionLineItemsResolver
+): Promise<string[]> {
+  const inline = extractPriceIdsFromCheckoutSession(session);
+  if (inline.length > 0 || !resolveLineItems) return inline;
+
+  const sessionId = trimToNull(session.id);
+  if (!sessionId) return [];
+
+  try {
+    const items = await resolveLineItems(sessionId);
+    if (!items || items.length === 0) return [];
+
+    const ids: string[] = [];
+    for (const item of items) {
+      const price = item?.price;
+      if (price && typeof price === "object") {
+        const priceId = trimToNull((price as StripeRecord).id);
+        if (priceId) ids.push(priceId);
+      } else if (typeof price === "string") {
+        const priceId = trimToNull(price);
+        if (priceId) ids.push(priceId);
+      }
+    }
+    return ids;
+  } catch (error) {
+    console.error("[stripe.webhook] listLineItems failed", {
+      sessionId,
+      message: error instanceof Error ? error.message : String(error),
+    });
+    return [];
+  }
+}
 
 export type StripeWebhookResponseBody =
   | { received: true; processed: boolean }
@@ -176,15 +221,20 @@ async function processPodCheckoutSession(
     return false;
   }
 
-  const { error } = await admin
+  const shippingAddress =
+    (session.shipping_details as Record<string, unknown> | null) ?? null;
+
+  const { data: updated, error } = await admin
     .from("pod_orders" as never)
     .update({
       status: "paid",
       stripe_session_id: sessionId,
-      shipping_address: session.shipping_details ?? null,
+      shipping_address: shippingAddress,
     })
     .eq("id", podOrderId)
-    .eq("status", "pending");
+    .eq("status", "pending")
+    .select("id, user_id, book_id, format, amount, currency")
+    .maybeSingle();
 
   if (error) {
     console.error("[stripe.webhook] pod order update failed", {
@@ -203,6 +253,25 @@ async function processPodCheckoutSession(
     bookId: metadata.book_id,
     format: metadata.format,
   });
+
+  if (updated) {
+    const row = updated as Record<string, unknown>;
+    // Fire-and-forget: manual-fulfillment email to the operator inbox. Errors
+    // inside notifyPodFulfillment are logged, never thrown.
+    void notifyPodFulfillment(admin, {
+      podOrderId: String(row.id ?? podOrderId),
+      bookId: String(row.book_id ?? metadata.book_id ?? ""),
+      userId: String(row.user_id ?? metadata.user_id ?? ""),
+      format: typeof row.format === "string" ? row.format : null,
+      amountMinor: typeof row.amount === "number" ? row.amount : null,
+      currency: typeof row.currency === "string" ? row.currency : null,
+      stripeSessionId: sessionId,
+      shippingAddress:
+        (shippingAddress as unknown as Parameters<
+          typeof notifyPodFulfillment
+        >[1]["shippingAddress"]) ?? null,
+    });
+  }
 
   return true;
 }
@@ -323,7 +392,8 @@ async function processAuthorSubscriptionCheckoutSession(
 async function processSubscriptionCheckoutSession(
   admin: AdminClient,
   session: StripeRecord,
-  eventId: string
+  eventId: string,
+  resolveLineItems?: SessionLineItemsResolver
 ): Promise<boolean> {
   const mode = trimToNull(session.mode);
   const subscriptionId = extractStripeId(session.subscription);
@@ -344,7 +414,10 @@ async function processSubscriptionCheckoutSession(
     return false;
   }
 
-  const priceIds = extractPriceIdsFromCheckoutSession(session);
+  const priceIds = await resolvePriceIdsForCheckoutSession(
+    session,
+    resolveLineItems
+  );
   const resolved =
     priceIds.length > 0 ? await resolveRolePlanFromPriceIds(priceIds) : null;
 
@@ -529,7 +602,8 @@ export async function processStripeWebhookEvent(
   admin: AdminClient,
   type: string,
   eventId: string,
-  object: StripeRecord
+  object: StripeRecord,
+  resolveLineItems?: SessionLineItemsResolver
 ): Promise<StripeWebhookResponseBody> {
   switch (type) {
     case "checkout.session.completed": {
@@ -553,7 +627,8 @@ export async function processStripeWebhookEvent(
       const subscriptionProcessed = await processSubscriptionCheckoutSession(
         admin,
         object,
-        eventId
+        eventId,
+        resolveLineItems
       );
       return {
         received: true,

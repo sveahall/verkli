@@ -8,6 +8,7 @@ import {
   E_INVALID_JSON,
   E_VALIDATION_FAILED,
   E_ALREADY_BOOKMARKED,
+  E_BOOK_NOT_FOUND,
   E_BOOKMARK_ADD_FAILED,
   E_BOOKMARK_LOAD_FAILED,
   E_BOOKMARK_REMOVE_FAILED,
@@ -71,6 +72,12 @@ export async function POST(request: Request) {
   if (error) {
     if (error.code === "23505") {
       return apiError(E_ALREADY_BOOKMARKED, 409);
+    }
+    // 23503 = foreign_key_violation: the referenced book was already deleted
+    // (or never existed). Returning 500 here was misleading — the client
+    // should show a "book not found" message, not a generic error.
+    if (error.code === "23503") {
+      return apiError(E_BOOK_NOT_FOUND, 404);
     }
     console.error("[bookmarks] add failed", { message: error.message });
     return apiError(E_BOOKMARK_ADD_FAILED, 500);

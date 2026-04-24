@@ -17,6 +17,8 @@ function createQueue(connection: { host: string; port: number; password?: string
       attempts: 2,
       backoff: { type: "exponential", delay: 2000 },
       removeOnComplete: { count: 500 },
+      // Without a failed-job cap, Redis accumulates dead jobs indefinitely.
+      removeOnFail: { count: 500 },
     },
   });
 }

@@ -9,6 +9,7 @@ import {
 import {
   asRecord,
   trimToNull,
+  type StripeRecord,
   type StripeWebhookEvent,
 } from "./stripeWebhook.helpers";
 import {
@@ -39,9 +40,9 @@ export async function POST(request: Request) {
     return apiError(E_INVALID_REQUEST_BODY, 400);
   }
 
+  const stripe = new Stripe(stripeSecretKey);
   let event: StripeWebhookEvent;
   try {
-    const stripe = new Stripe(stripeSecretKey);
     const constructed = stripe.webhooks.constructEvent(
       rawBody,
       signature,
@@ -97,9 +98,27 @@ export async function POST(request: Request) {
     return NextResponse.json({ received: true, ignored: true });
   }
 
+  // Stripe's `checkout.session.completed` payload never includes `line_items`.
+  // Provide a resolver so the subscription handler can pull price ids via
+  // `listLineItems` and actually persist the plan.
+  const resolveLineItems = async (
+    sessionId: string
+  ): Promise<readonly StripeRecord[]> => {
+    const result = await stripe.checkout.sessions.listLineItems(sessionId, {
+      limit: 100,
+    });
+    return (result?.data ?? []) as unknown as readonly StripeRecord[];
+  };
+
   try {
     return NextResponse.json(
-      await processStripeWebhookEvent(admin, type, eventId, object)
+      await processStripeWebhookEvent(
+        admin,
+        type,
+        eventId,
+        object,
+        resolveLineItems
+      )
     );
   } catch (error) {
     try {

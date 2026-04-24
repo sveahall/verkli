@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef } from "react";
 import type { TrailerGenre, TrailerTone } from "@/lib/ai/trailer-generation/schemas";
+import { getMarketingEnabled } from "@/lib/flags";
 
 export type TrailerPanelProps = {
   bookId: string;
@@ -46,6 +47,7 @@ export default function TrailerPanel({
   isProLocked,
   billingLoading,
 }: TrailerPanelProps) {
+  const marketingEnabled = getMarketingEnabled();
   const [status, setStatus] = useState<string | null>(initialStatus);
   const [url, setUrl] = useState<string | null>(initialUrl);
   const [genre, setGenre] = useState<TrailerGenre>("literary");
@@ -130,6 +132,22 @@ export default function TrailerPanel({
     setStatus(null);
     setUrl(null);
   };
+
+  if (!marketingEnabled) {
+    return (
+      <div className="mx-20 mt-10 max-w-6xl">
+        <div className="rounded-2xl border border-slate-200/80 bg-white/80 p-5 text-[13px] text-slate-600 dark:border-white/10 dark:bg-white/[0.04] dark:text-white/65">
+          <p className="text-[14px] font-semibold text-slate-800 dark:text-white">
+            Trailers are currently disabled.
+          </p>
+          <p className="mt-1">
+            Marketing tools are turned off for this environment. Ask an admin to
+            enable the marketing feature flag to generate book trailers.
+          </p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="mx-20 mt-10 max-w-6xl">

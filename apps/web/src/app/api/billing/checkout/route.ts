@@ -8,12 +8,11 @@ import {
   createStripeCustomer,
   createStripeSubscriptionCheckoutSession,
 } from "@/lib/payments/stripe-billing";
-import { getActiveRoleFromRequest } from "@/lib/active-role";
+import { resolveBillingRole } from "@/lib/auth/billing-role";
 import {
   apiError,
   E_UNAUTHORIZED,
   E_INVALID_BILLING_PLAN,
-  E_FORBIDDEN,
   E_BILLING_CHECKOUT_FAILED,
   E_RATE_LIMIT_EXCEEDED,
 } from "@/lib/api-errors";
@@ -87,10 +86,10 @@ export async function POST(request: Request) {
     return apiError(E_INVALID_BILLING_PLAN, 400);
   }
 
-  const role = getActiveRoleFromRequest(request);
-  if (!role) {
-    return apiError(E_FORBIDDEN, 403);
-  }
+  // The active_role cookie is client-writable; resolve the real role the
+  // user may transact on so a reader cannot switch their cookie and buy the
+  // author Pro plan (or vice versa).
+  const role = await resolveBillingRole(request, user.id);
 
   let priceId: string | null = null;
   let successUrl: string;

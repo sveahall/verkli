@@ -3,8 +3,8 @@ import { unstable_noStore as noStore } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getBillingStateForUser } from "@/lib/billing/server";
-import { getActiveRoleFromRequest } from "@/lib/active-role";
-import { apiError, E_UNAUTHORIZED, E_FORBIDDEN } from "@/lib/api-errors";
+import { resolveBillingRole } from "@/lib/auth/billing-role";
+import { apiError, E_UNAUTHORIZED } from "@/lib/api-errors";
 
 export const runtime = "nodejs";
 
@@ -26,10 +26,9 @@ export async function GET(request: Request) {
     return apiError(E_UNAUTHORIZED, 401);
   }
 
-  const role = getActiveRoleFromRequest(request);
-  if (!role) {
-    return apiError(E_FORBIDDEN, 403);
-  }
+  // Read the real role the user is allowed to query billing for — prevents
+  // a reader from reading an author billing row by flipping the cookie.
+  const role = await resolveBillingRole(request, user.id);
 
   const loaded = await getBillingStateForUser(user.id, role);
   if (!loaded.ok) {

@@ -75,7 +75,14 @@ export default function DeleteBookButton({
     <>
       <button
         type="button"
-        onClick={() => setOpen(true)}
+        onClick={(event) => {
+          // DeleteBookButton is frequently nested inside <Link>. Without
+          // stopping propagation the row navigates to the editor as the
+          // dialog tries to open.
+          event.preventDefault();
+          event.stopPropagation();
+          setOpen(true);
+        }}
         disabled={isDeleting}
         title="Delete book"
         className={

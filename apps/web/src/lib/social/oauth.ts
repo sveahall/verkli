@@ -5,6 +5,16 @@
 
 import crypto from "node:crypto";
 
+/**
+ * Every external OAuth call must have a bounded timeout — a hung third-party
+ * host should fail fast rather than leaving the caller waiting.
+ */
+const OAUTH_FETCH_TIMEOUT_MS = 10_000;
+
+function oauthFetchInit(init: RequestInit = {}): RequestInit {
+  return { ...init, signal: init.signal ?? AbortSignal.timeout(OAUTH_FETCH_TIMEOUT_MS) };
+}
+
 type TokenResponse = {
   accessToken: string;
   refreshToken?: string;
@@ -104,10 +114,10 @@ export async function exchangeCodeForTokens(
         redirect_uri: redirectUri,
         code,
       });
-      const res = await fetch("https://api.instagram.com/oauth/access_token", {
-        method: "POST",
-        body,
-      });
+      const res = await fetch(
+        "https://api.instagram.com/oauth/access_token",
+        oauthFetchInit({ method: "POST", body })
+      );
       if (!res.ok) throw new Error(`Instagram token exchange failed: ${res.status}`);
       const data = (await res.json()) as Record<string, unknown>;
       return {
@@ -117,17 +127,20 @@ export async function exchangeCodeForTokens(
     }
     case "tiktok": {
       const { clientKey, clientSecret } = getTikTokConfig();
-      const res = await fetch("https://open.tiktokapis.com/v2/oauth/token/", {
-        method: "POST",
-        headers: { "Content-Type": "application/x-www-form-urlencoded" },
-        body: new URLSearchParams({
-          client_key: clientKey,
-          client_secret: clientSecret,
-          grant_type: "authorization_code",
-          redirect_uri: redirectUri,
-          code,
-        }),
-      });
+      const res = await fetch(
+        "https://open.tiktokapis.com/v2/oauth/token/",
+        oauthFetchInit({
+          method: "POST",
+          headers: { "Content-Type": "application/x-www-form-urlencoded" },
+          body: new URLSearchParams({
+            client_key: clientKey,
+            client_secret: clientSecret,
+            grant_type: "authorization_code",
+            redirect_uri: redirectUri,
+            code,
+          }),
+        })
+      );
       if (!res.ok) throw new Error(`TikTok token exchange failed: ${res.status}`);
       const data = (await res.json()) as Record<string, unknown>;
       return {
@@ -142,19 +155,22 @@ export async function exchangeCodeForTokens(
       if (!codeVerifier) {
         throw new Error("X OAuth requires a PKCE code verifier");
       }
-      const res = await fetch("https://api.twitter.com/2/oauth2/token", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/x-www-form-urlencoded",
-          Authorization: `Basic ${Buffer.from(`${clientId}:${clientSecret}`).toString("base64")}`,
-        },
-        body: new URLSearchParams({
-          grant_type: "authorization_code",
-          redirect_uri: redirectUri,
-          code,
-          code_verifier: codeVerifier,
-        }),
-      });
+      const res = await fetch(
+        "https://api.twitter.com/2/oauth2/token",
+        oauthFetchInit({
+          method: "POST",
+          headers: {
+            "Content-Type": "application/x-www-form-urlencoded",
+            Authorization: `Basic ${Buffer.from(`${clientId}:${clientSecret}`).toString("base64")}`,
+          },
+          body: new URLSearchParams({
+            grant_type: "authorization_code",
+            redirect_uri: redirectUri,
+            code,
+            code_verifier: codeVerifier,
+          }),
+        })
+      );
       if (!res.ok) throw new Error(`X token exchange failed: ${res.status}`);
       const data = (await res.json()) as Record<string, unknown>;
       return {
@@ -175,17 +191,20 @@ export async function refreshAccessToken(
   switch (platform) {
     case "x": {
       const { clientId, clientSecret } = getXConfig();
-      const res = await fetch("https://api.twitter.com/2/oauth2/token", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/x-www-form-urlencoded",
-          Authorization: `Basic ${Buffer.from(`${clientId}:${clientSecret}`).toString("base64")}`,
-        },
-        body: new URLSearchParams({
-          grant_type: "refresh_token",
-          refresh_token: refreshToken,
-        }),
-      });
+      const res = await fetch(
+        "https://api.twitter.com/2/oauth2/token",
+        oauthFetchInit({
+          method: "POST",
+          headers: {
+            "Content-Type": "application/x-www-form-urlencoded",
+            Authorization: `Basic ${Buffer.from(`${clientId}:${clientSecret}`).toString("base64")}`,
+          },
+          body: new URLSearchParams({
+            grant_type: "refresh_token",
+            refresh_token: refreshToken,
+          }),
+        })
+      );
       if (!res.ok) throw new Error(`X token refresh failed: ${res.status}`);
       const data = (await res.json()) as Record<string, unknown>;
       return {
@@ -196,16 +215,19 @@ export async function refreshAccessToken(
     }
     case "tiktok": {
       const { clientKey, clientSecret } = getTikTokConfig();
-      const res = await fetch("https://open.tiktokapis.com/v2/oauth/token/", {
-        method: "POST",
-        headers: { "Content-Type": "application/x-www-form-urlencoded" },
-        body: new URLSearchParams({
-          client_key: clientKey,
-          client_secret: clientSecret,
-          grant_type: "refresh_token",
-          refresh_token: refreshToken,
-        }),
-      });
+      const res = await fetch(
+        "https://open.tiktokapis.com/v2/oauth/token/",
+        oauthFetchInit({
+          method: "POST",
+          headers: { "Content-Type": "application/x-www-form-urlencoded" },
+          body: new URLSearchParams({
+            client_key: clientKey,
+            client_secret: clientSecret,
+            grant_type: "refresh_token",
+            refresh_token: refreshToken,
+          }),
+        })
+      );
       if (!res.ok) throw new Error(`TikTok token refresh failed: ${res.status}`);
       const data = (await res.json()) as Record<string, unknown>;
       return {
@@ -226,30 +248,36 @@ export async function revokeToken(
   switch (platform) {
     case "x": {
       const { clientId, clientSecret } = getXConfig();
-      await fetch("https://api.twitter.com/2/oauth2/revoke", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/x-www-form-urlencoded",
-          Authorization: `Basic ${Buffer.from(`${clientId}:${clientSecret}`).toString("base64")}`,
-        },
-        body: new URLSearchParams({
-          token: accessToken,
-          token_type_hint: "access_token",
-        }),
-      });
+      await fetch(
+        "https://api.twitter.com/2/oauth2/revoke",
+        oauthFetchInit({
+          method: "POST",
+          headers: {
+            "Content-Type": "application/x-www-form-urlencoded",
+            Authorization: `Basic ${Buffer.from(`${clientId}:${clientSecret}`).toString("base64")}`,
+          },
+          body: new URLSearchParams({
+            token: accessToken,
+            token_type_hint: "access_token",
+          }),
+        })
+      );
       break;
     }
     case "tiktok": {
       const { clientKey, clientSecret } = getTikTokConfig();
-      await fetch("https://open.tiktokapis.com/v2/oauth/revoke/", {
-        method: "POST",
-        headers: { "Content-Type": "application/x-www-form-urlencoded" },
-        body: new URLSearchParams({
-          client_key: clientKey,
-          client_secret: clientSecret,
-          token: accessToken,
-        }),
-      });
+      await fetch(
+        "https://open.tiktokapis.com/v2/oauth/revoke/",
+        oauthFetchInit({
+          method: "POST",
+          headers: { "Content-Type": "application/x-www-form-urlencoded" },
+          body: new URLSearchParams({
+            client_key: clientKey,
+            client_secret: clientSecret,
+            token: accessToken,
+          }),
+        })
+      );
       break;
     }
     default:

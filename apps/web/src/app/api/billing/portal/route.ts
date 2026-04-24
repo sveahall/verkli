@@ -14,12 +14,11 @@ import {
   getStripeCustomerSubscriptions,
   listStripeCustomersByEmail,
 } from "@/lib/payments/stripe-billing";
-import { getActiveRoleFromRequest } from "@/lib/active-role";
+import { resolveBillingRole } from "@/lib/auth/billing-role";
 import { createPerUserRateLimiter } from "@/lib/rate-limit";
 import {
   apiError,
   E_UNAUTHORIZED,
-  E_FORBIDDEN,
   E_BILLING_PORTAL_FAILED,
   E_RATE_LIMIT_EXCEEDED,
 } from "@/lib/api-errors";
@@ -145,10 +144,9 @@ export async function POST(request: Request) {
     return apiError(E_RATE_LIMIT_EXCEEDED, 429, { retryAfterSeconds: rl.retryAfterSeconds });
   }
 
-  const role = getActiveRoleFromRequest(request);
-  if (!role) {
-    return apiError(E_FORBIDDEN, 403);
-  }
+  // Cookie is user-writable — resolve the real role the user is allowed to
+  // transact on before opening a portal session for that billing row.
+  const role = await resolveBillingRole(request, user.id);
 
   // Land back on the same billing page (reader/billing or author/billing) to avoid redirect chains and reload loops.
   const baseUrl = getAppBaseUrl(request);

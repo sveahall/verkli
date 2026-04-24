@@ -62,13 +62,16 @@ export async function GET(request: Request) {
   return NextResponse.json({ users, total: count ?? 0, page, limit });
 }
 
+const MANAGEABLE_ROLES = new Set(["reader", "author"]);
+
 export async function PATCH(request: Request) {
-  const { response } = await requireAdminRoleForApi();
-  if (response) return response;
+  const { user: adminUser, response } = await requireAdminRoleForApi();
+  if (response || !adminUser) return response ?? apiError("UNAUTHORIZED", 401);
 
   const body = await request.json().catch(() => null);
   const userId = typeof body?.userId === "string" ? body.userId.trim() : "";
   const betaEnabled = typeof body?.betaEnabled === "boolean" ? body.betaEnabled : undefined;
+  const roleRaw = typeof body?.role === "string" ? body.role.trim().toLowerCase() : undefined;
 
   if (!userId) {
     return apiError("USER_ID_REQUIRED", 400);
@@ -90,6 +93,80 @@ export async function PATCH(request: Request) {
     if (error) {
       console.error("[admin/users] beta flag update failed:", error.message);
       return apiError(E_DATABASE_ERROR, 500);
+    }
+
+    // Audit log — best-effort, mirror the author-applications flow.
+    try {
+      await admin.from("audit_log").insert({
+        entity_type: "user",
+        entity_id: userId,
+        action: betaEnabled ? "beta_enable" : "beta_disable",
+        actor_user_id: adminUser.id,
+        actor_role: "admin",
+        meta: { beta_enabled: betaEnabled },
+      });
+    } catch (auditError) {
+      console.error("[admin/users] audit log insert failed", {
+        userId,
+        adminUserId: adminUser.id,
+        message:
+          auditError instanceof Error ? auditError.message : String(auditError),
+      });
+    }
+  }
+
+  if (roleRaw !== undefined) {
+    // Admins may flip between reader ⇄ author. Promotions/demotions to
+    // "admin" go through a separate controlled path — admin creation is
+    // intentionally not self-service from this endpoint.
+    if (!MANAGEABLE_ROLES.has(roleRaw)) {
+      return apiError("VALIDATION_FAILED", 400);
+    }
+    if (userId === adminUser.id) {
+      return apiError("FORBIDDEN", 403);
+    }
+
+    // Refuse to demote another admin via this endpoint.
+    const { data: existingProfile } = await admin
+      .from("profiles")
+      .select("role")
+      .eq("user_id", userId)
+      .maybeSingle();
+    const existingRole = String(existingProfile?.role ?? "").trim().toLowerCase();
+    if (existingRole === "admin") {
+      return apiError("FORBIDDEN", 403);
+    }
+
+    const { error: roleError } = await admin
+      .from("profiles")
+      .update({ role: roleRaw })
+      .eq("user_id", userId);
+
+    if (roleError) {
+      console.error("[admin/users] role update failed", {
+        userId,
+        role: roleRaw,
+        message: roleError.message,
+      });
+      return apiError(E_DATABASE_ERROR, 500);
+    }
+
+    try {
+      await admin.from("audit_log").insert({
+        entity_type: "user",
+        entity_id: userId,
+        action: "role_change",
+        actor_user_id: adminUser.id,
+        actor_role: "admin",
+        meta: { from: existingRole || null, to: roleRaw },
+      });
+    } catch (auditError) {
+      console.error("[admin/users] audit log insert failed", {
+        userId,
+        adminUserId: adminUser.id,
+        message:
+          auditError instanceof Error ? auditError.message : String(auditError),
+      });
     }
   }
 

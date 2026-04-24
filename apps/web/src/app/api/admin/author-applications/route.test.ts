@@ -198,6 +198,12 @@ describe("PATCH /api/admin/author-applications", () => {
       eq: vi.fn().mockResolvedValue({ error: null }),
     });
 
+    const profileUpdateFn = vi.fn().mockReturnValue({
+      eq: vi.fn(() => ({
+        neq: vi.fn().mockResolvedValue({ error: null }),
+      })),
+    });
+
     buildFromMock({
       author_applications: {
         select: vi.fn(() => ({
@@ -209,6 +215,7 @@ describe("PATCH /api/admin/author-applications", () => {
         })),
         update: updateFn,
       },
+      profiles: { update: profileUpdateFn },
     });
 
     const res = await PATCH(makeRequest("PATCH", { userId: "u1", status: "approved" }));
@@ -218,6 +225,7 @@ describe("PATCH /api/admin/author-applications", () => {
     expect(body.ok).toBe(true);
     expect(body.status).toBe("approved");
     expect(updateFn).toHaveBeenCalledWith({ status: "approved" });
+    expect(profileUpdateFn).toHaveBeenCalledWith({ role: "author" });
   });
 
   it("rejects an existing application", async () => {
@@ -254,6 +262,12 @@ describe("PATCH /api/admin/author-applications", () => {
 
     const insertFn = vi.fn().mockResolvedValue({ error: null });
 
+    const profileUpdateFn = vi.fn().mockReturnValue({
+      eq: vi.fn(() => ({
+        neq: vi.fn().mockResolvedValue({ error: null }),
+      })),
+    });
+
     buildFromMock({
       author_applications: {
         select: vi.fn(() => ({
@@ -265,6 +279,7 @@ describe("PATCH /api/admin/author-applications", () => {
         })),
         insert: insertFn,
       },
+      profiles: { update: profileUpdateFn },
     });
 
     const res = await PATCH(makeRequest("PATCH", { userId: "u1", status: "approved" }));
@@ -273,6 +288,7 @@ describe("PATCH /api/admin/author-applications", () => {
     const body = await res.json();
     expect(body.ok).toBe(true);
     expect(insertFn).toHaveBeenCalledWith({ user_id: "u1", status: "approved" });
+    expect(profileUpdateFn).toHaveBeenCalledWith({ role: "author" });
   });
 
   it("returns 500 when update fails", async () => {

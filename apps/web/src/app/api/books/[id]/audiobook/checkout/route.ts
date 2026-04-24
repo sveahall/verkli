@@ -4,6 +4,7 @@ import { requireAuthorRoleForApi } from "@/lib/auth/require-author"
 import { getAudiobookEnabled } from "@/lib/flags"
 import { createAudiobookCheckoutSession } from "@/lib/payments/stripe"
 import { createPerUserRateLimiter } from "@/lib/rate-limit"
+import { getRequestBaseUrl } from "@/lib/request-url"
 import {
   apiError,
   E_AUDIOBOOK_FEATURE_DISABLED,
@@ -23,15 +24,6 @@ export const runtime = "nodejs"
 /** Price for full audiobook generation in SEK minor units (299 kr = 29900 öre). */
 const PRICE_PER_AUDIOBOOK_MINOR = 29900
 const CURRENCY = "SEK"
-
-function getBaseUrl(request: Request): string {
-  const fromEnv = process.env.NEXT_PUBLIC_SITE_URL?.trim()
-  if (fromEnv) {
-    return fromEnv.endsWith("/") ? fromEnv.slice(0, -1) : fromEnv
-  }
-  const url = new URL(request.url)
-  return `${url.protocol}//${url.host}`
-}
 
 export async function POST(
   request: Request,
@@ -83,7 +75,7 @@ export async function POST(
     return apiError(E_FORBIDDEN, 403)
   }
 
-  const baseUrl = getBaseUrl(request)
+  const baseUrl = getRequestBaseUrl(request)
   const successUrl = `${baseUrl}/author/books/${bookId}/editor?panel=audiobook&audiobook_checkout=success&session_id={CHECKOUT_SESSION_ID}&lang=${encodeURIComponent(language)}`
   const cancelUrl = `${baseUrl}/author/books/${bookId}/editor?panel=audiobook&audiobook_checkout=cancel`
 

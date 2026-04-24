@@ -2,6 +2,7 @@ import { generateImageToVideo } from "@/lib/higgsfield";
 import { NextResponse } from "next/server";
 import { requireAuthorRoleForApi } from "@/lib/auth/require-author";
 import { requireProBillingForApi } from "@/lib/billing/server";
+import { validateProviderImageUrl } from "@/lib/security/url-allowlist";
 import {
   apiError,
   E_UNAUTHORIZED,
@@ -93,9 +94,17 @@ export async function POST(req: Request) {
         detail: "imageUrl required",
       });
     }
+    // SSRF guard: user-supplied imageUrl must be on the approved hostlist
+    // before we hand it to an external provider that may follow redirects.
+    const urlCheck = validateProviderImageUrl(options.imageUrl);
+    if (!urlCheck.ok) {
+      return apiError("VALIDATION_FAILED", 400, {
+        detail: "imageUrl host not allowed",
+      });
+    }
     const result = await generateImageToVideo({
       prompt: options.promptText,
-      imageUrl: options.imageUrl,
+      imageUrl: urlCheck.url.toString(),
       durationSeconds: options.duration,
       includeAudio: options.audio ?? true,
     });

@@ -44,7 +44,10 @@ type BookReviewsSectionProps = {
 function formatDate(dateIso: string): string {
   const date = new Date(dateIso);
   if (Number.isNaN(date.getTime())) return "";
-  return new Intl.DateTimeFormat(undefined, {
+  // Explicit locale: `undefined` defers to the runtime, so SSR (server
+  // locale) and CSR (browser locale) can produce different strings and
+  // trigger hydration mismatches.
+  return new Intl.DateTimeFormat("en-US", {
     year: "numeric",
     month: "short",
     day: "numeric",
@@ -138,10 +141,23 @@ export default function BookReviewsSection({
     void loadReviews(page);
   }, [loadReviews, page]);
 
+  // Only reset the draft when the *identity* of my review changes (i.e. it
+  // appeared or disappeared). Re-running this on every rating/content
+  // change would wipe an in-progress edit if the list refreshes while the
+  // user is mid-typing in a second tab. The React Compiler identifies the
+  // `.id` key alone as safe here since `myReview` is otherwise used only
+  // as initial-state-on-change.
+  const myReviewId = myReview?.id ?? null;
+  const myReviewRating = myReview?.rating ?? 0;
+  const myReviewContent = myReview?.content ?? "";
   useEffect(() => {
-    setSelectedRating(myReview?.rating ?? 0);
-    setContent(myReview?.content ?? "");
-  }, [myReview?.id, myReview?.rating, myReview?.content]);
+    setSelectedRating(myReviewRating);
+    setContent(myReviewContent);
+    // We intentionally depend only on the id — re-running on rating/content
+    // changes would wipe the user's in-progress draft. The compiler is OK
+    // with this because the dependent values are captured above as plain
+    // expressions.
+  }, [myReviewId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleSubmit = async () => {
     if (savingReview || !isSignedIn) return;
@@ -177,6 +193,37 @@ export default function BookReviewsSection({
       await Promise.all([loadAggregate(), loadReviews(firstPage)]);
     } catch {
       setSaveError("Could not save your review.");
+    } finally {
+      setSavingReview(false);
+    }
+  };
+
+  const handleDelete = async () => {
+    if (savingReview || !isSignedIn || !myReview) return;
+    if (!window.confirm("Delete your review? This cannot be undone.")) return;
+
+    setSavingReview(true);
+    setSaveError(null);
+
+    try {
+      const res = await fetch(`/api/books/${bookId}/reviews`, {
+        method: "DELETE",
+      });
+
+      const payload = (await res.json().catch(() => ({}))) as { error?: string };
+      if (!res.ok) {
+        setSaveError(resolveErrorMessage(payload?.error, "Could not delete your review."));
+        return;
+      }
+
+      setMyReview(null);
+      setSelectedRating(0);
+      setContent("");
+      const firstPage = 1;
+      setPage(firstPage);
+      await Promise.all([loadAggregate(), loadReviews(firstPage)]);
+    } catch {
+      setSaveError("Could not delete your review.");
     } finally {
       setSavingReview(false);
     }
@@ -241,20 +288,32 @@ export default function BookReviewsSection({
                   </p>
                 ) : null}
 
-                <button
-                  type="button"
-                  onClick={handleSubmit}
-                  disabled={savingReview}
-                  className="mt-4 inline-flex min-h-[44px] items-center justify-center rounded-full bg-gradient-to-r from-[#907AFF] via-[#A68EFF] to-[#E29ED5] px-5 py-2.5 text-[14px] font-semibold text-white shadow-[0_10px_24px_rgba(144,122,255,0.30)] transition hover:brightness-105 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#907AFF]/50 focus-visible:ring-offset-2 focus-visible:ring-offset-white disabled:cursor-not-allowed disabled:opacity-60 dark:focus-visible:ring-offset-[#08070f]"
-                >
-                  {savingReview
-                    ? myReview
-                      ? "Updating..."
-                      : "Submitting..."
-                    : myReview
-                      ? "Update review"
-                      : "Submit review"}
-                </button>
+                <div className="mt-4 flex flex-wrap gap-2">
+                  <button
+                    type="button"
+                    onClick={handleSubmit}
+                    disabled={savingReview}
+                    className="inline-flex min-h-[44px] items-center justify-center rounded-full bg-gradient-to-r from-[#907AFF] via-[#A68EFF] to-[#E29ED5] px-5 py-2.5 text-[14px] font-semibold text-white shadow-[0_10px_24px_rgba(144,122,255,0.30)] transition hover:brightness-105 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#907AFF]/50 focus-visible:ring-offset-2 focus-visible:ring-offset-white disabled:cursor-not-allowed disabled:opacity-60 dark:focus-visible:ring-offset-[#08070f]"
+                  >
+                    {savingReview
+                      ? myReview
+                        ? "Saving..."
+                        : "Submitting..."
+                      : myReview
+                        ? "Update review"
+                        : "Submit review"}
+                  </button>
+                  {myReview ? (
+                    <button
+                      type="button"
+                      onClick={handleDelete}
+                      disabled={savingReview}
+                      className="inline-flex min-h-[44px] items-center justify-center rounded-full border border-rose-300/70 bg-white px-4 py-2.5 text-[13px] font-medium text-rose-600 transition hover:border-rose-400 hover:bg-rose-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-400/40 focus-visible:ring-offset-2 focus-visible:ring-offset-white disabled:cursor-not-allowed disabled:opacity-60 dark:border-rose-400/40 dark:bg-transparent dark:text-rose-300 dark:hover:bg-rose-500/10 dark:focus-visible:ring-offset-[#08070f]"
+                    >
+                      Delete review
+                    </button>
+                  ) : null}
+                </div>
               </div>
             ) : (
               <div className="rounded-2xl border border-slate-200/80 bg-white/90 p-5 text-[14px] text-slate-700 shadow-[0_8px_24px_rgba(15,23,42,0.05)] dark:border-white/10 dark:bg-white/[0.05] dark:text-white/70">

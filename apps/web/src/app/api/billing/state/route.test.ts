@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
 const mockGetUser = vi.fn();
-const mockGetActiveRoleFromRequest = vi.fn();
+const mockResolveBillingRole = vi.fn();
 
 vi.mock("@/lib/supabase/server", () => ({
   createClient: vi.fn(() =>
@@ -11,9 +11,8 @@ vi.mock("@/lib/supabase/server", () => ({
   ),
 }));
 
-vi.mock("@/lib/active-role", () => ({
-  getActiveRoleFromRequest: (...args: unknown[]) =>
-    mockGetActiveRoleFromRequest(...args),
+vi.mock("@/lib/auth/billing-role", () => ({
+  resolveBillingRole: (...args: unknown[]) => mockResolveBillingRole(...args),
 }));
 
 vi.mock("@/lib/billing/server", () => ({
@@ -31,20 +30,35 @@ describe("GET /api/billing/state", () => {
     });
   });
 
-  it("returns 403 when active_role cookie is missing", async () => {
-    mockGetActiveRoleFromRequest.mockReturnValue(null);
+  it("defaults to reader when no author-role claim present (no 403)", async () => {
+    mockResolveBillingRole.mockResolvedValue("reader");
+    vi.mocked(getBillingStateForUser).mockResolvedValue({
+      ok: true,
+      row: null,
+      state: {
+        plan: null,
+        status: null,
+        currentPeriodEnd: null,
+        cancelAtPeriodEnd: false,
+        isPlusActive: false,
+        isProActive: false,
+        plusCancelAtPeriodEnd: false,
+        plusPeriodEnd: null,
+        stripeCustomerId: null,
+        stripeSubscriptionId: null,
+      },
+    });
 
     const req = new Request("http://localhost/api/billing/state");
     const res = await GET(req);
 
-    expect(res.status).toBe(403);
-    expect(mockGetActiveRoleFromRequest).toHaveBeenCalledWith(req);
-    expect(getBillingStateForUser).not.toHaveBeenCalled();
+    expect(res.status).toBe(200);
+    expect(getBillingStateForUser).toHaveBeenCalledWith("user-1", "reader");
   });
 
   it("returns 401 when user is not authenticated", async () => {
     mockGetUser.mockResolvedValue({ data: { user: null } });
-    mockGetActiveRoleFromRequest.mockReturnValue("reader");
+    mockResolveBillingRole.mockResolvedValue("reader");
 
     const req = new Request("http://localhost/api/billing/state");
     const res = await GET(req);
@@ -53,7 +67,7 @@ describe("GET /api/billing/state", () => {
   });
 
   it("returns role-scoped state for reader: only Plus (isProActive false)", async () => {
-    mockGetActiveRoleFromRequest.mockReturnValue("reader");
+    mockResolveBillingRole.mockResolvedValue("reader");
     vi.mocked(getBillingStateForUser).mockResolvedValue({
       ok: true,
       row: null,
@@ -84,7 +98,7 @@ describe("GET /api/billing/state", () => {
   });
 
   it("returns role-scoped state for author: can have Pro", async () => {
-    mockGetActiveRoleFromRequest.mockReturnValue("author");
+    mockResolveBillingRole.mockResolvedValue("author");
     vi.mocked(getBillingStateForUser).mockResolvedValue({
       ok: true,
       row: null,
@@ -114,7 +128,7 @@ describe("GET /api/billing/state", () => {
   });
 
   it("returns Cache-Control no-store so state is never cached", async () => {
-    mockGetActiveRoleFromRequest.mockReturnValue("reader");
+    mockResolveBillingRole.mockResolvedValue("reader");
     vi.mocked(getBillingStateForUser).mockResolvedValue({
       ok: true,
       row: null,
@@ -183,7 +197,7 @@ describe("GET /api/billing/state", () => {
     const readerReq = new Request("http://localhost/api/billing/state", {
       headers: { cookie: "active_role=reader" },
     });
-    mockGetActiveRoleFromRequest.mockReturnValue("reader");
+    mockResolveBillingRole.mockResolvedValue("reader");
     const readerRes = await GET(readerReq);
     const readerBody = await readerRes.json();
     expect(readerRes.status).toBe(200);
@@ -194,7 +208,7 @@ describe("GET /api/billing/state", () => {
     const authorReq = new Request("http://localhost/api/billing/state", {
       headers: { cookie: "active_role=author" },
     });
-    mockGetActiveRoleFromRequest.mockReturnValue("author");
+    mockResolveBillingRole.mockResolvedValue("author");
     const authorRes = await GET(authorReq);
     const authorBody = await authorRes.json();
     expect(authorRes.status).toBe(200);

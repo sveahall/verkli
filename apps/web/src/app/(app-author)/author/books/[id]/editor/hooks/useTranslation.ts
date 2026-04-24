@@ -214,8 +214,21 @@ export function useTranslation({
         fetch(`/api/books/${book.id}/translation-progress?targetLanguage=${encodeURIComponent(lang)}`, {
           cache: "no-store",
         })
-          .then((r) => r.json())
-          .then((data: { translated?: number; total?: number }) => {
+          .then(async (r) => {
+            // Session expired mid-translation — stop polling and surface a
+            // recovery message instead of silently retrying every 3s.
+            if (r.status === 401) {
+              stopTranslationPoll();
+              setTranslationProgress(null);
+              setTranslateMessage("Your session expired. Sign in and reopen the translation panel to resume.");
+              setLastRequestedTargetLanguage(null);
+              return null;
+            }
+            if (!r.ok) return null;
+            return r.json() as Promise<{ translated?: number; total?: number }>;
+          })
+          .then((data) => {
+            if (!data) return;
             const total = typeof data.total === "number" ? data.total : 0;
             const translated = typeof data.translated === "number" ? data.translated : 0;
             if (total > 0) setTranslationProgress({ translated, total });

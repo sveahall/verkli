@@ -7,6 +7,8 @@ import { requireAuthorRoleForApi } from "@/lib/auth/require-author"
 import { requireProBillingForApi } from "@/lib/billing/server"
 import { isTranslationsEnabled } from "@/lib/flags"
 import { getStripeCheckoutSession } from "@/lib/payments/stripe"
+import { claimStripeSessionRedemption } from "@/lib/payments/session-redemption"
+import { createAdminClient } from "@/lib/supabase/admin"
 import { isTranslationPairSupported } from "@/lib/translation-pairs"
 import {
   deleteBookTranslationState,
@@ -296,7 +298,27 @@ export async function POST(
         meta.user_id === user.id &&
         meta.book_id === bookId
       ) {
-        paidViaStripe = true
+        // Atomic one-time claim: the first caller wins the INSERT, every
+        // subsequent attempt with the same session id is rejected. This
+        // prevents replaying a single paid session to unlock unlimited
+        // translations across languages.
+        const admin = createAdminClient()
+        try {
+          const claimed = await claimStripeSessionRedemption(admin, {
+            sessionId: stripeSessionId,
+            kind: "translation",
+            userId: user.id,
+            bookId,
+          })
+          paidViaStripe = claimed
+        } catch (error) {
+          console.error("[book translate] redemption claim failed", {
+            stripeSessionId,
+            userId: user.id,
+            bookId,
+            message: error instanceof Error ? error.message : String(error),
+          })
+        }
       }
     } catch (error) {
       console.warn("[book translate] stripe session verification failed", {

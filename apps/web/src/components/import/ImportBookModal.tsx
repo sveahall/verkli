@@ -138,6 +138,14 @@ export function ImportBookModal({ open, onClose, onImportComplete }: ImportBookM
       setError("File type is not supported. Use EPUB, DOCX, HTML, or TXT.");
       return;
     }
+    // Client-side size check so a user on a slow connection doesn't upload
+    // 200 MB before the server rejects it. The UI already promises "max
+    // 50 MB" — enforce it before we start the upload.
+    const MAX_BYTES = 50 * 1024 * 1024;
+    if (file.size > MAX_BYTES) {
+      setError("File is too large. Maximum size is 50 MB.");
+      return;
+    }
     setError(null);
     setSuccessMessage(null);
     setRedisHint(false);
@@ -180,6 +188,12 @@ export function ImportBookModal({ open, onClose, onImportComplete }: ImportBookM
       ) {
         setRedisHint(true);
       }
+    } catch (err) {
+      // Previously a network failure reset `uploading` in `finally` but
+      // left `error` null, so the spinner disappeared with no feedback.
+      setError(
+        err instanceof Error ? err.message : "Upload failed. Try again."
+      );
     } finally {
       setUploading(false);
     }

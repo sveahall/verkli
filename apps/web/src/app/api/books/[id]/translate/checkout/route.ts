@@ -6,6 +6,7 @@ import { isSupportedLanguage } from "@/lib/languages"
 import { isTranslationPairSupported } from "@/lib/translation-pairs"
 import { createTranslationCheckoutSession } from "@/lib/payments/stripe"
 import { createPerUserRateLimiter } from "@/lib/rate-limit"
+import { getRequestBaseUrl } from "@/lib/request-url"
 import {
   apiError,
   E_TRANSLATION_FEATURE_DISABLED,
@@ -23,15 +24,6 @@ export const runtime = "nodejs"
 /** Price per language in SEK minor units (199 kr = 19900 öre). */
 const PRICE_PER_LANGUAGE_MINOR = 19900
 const CURRENCY = "SEK"
-
-function getBaseUrl(request: Request): string {
-  const fromEnv = process.env.NEXT_PUBLIC_SITE_URL?.trim()
-  if (fromEnv) {
-    return fromEnv.endsWith("/") ? fromEnv.slice(0, -1) : fromEnv
-  }
-  const url = new URL(request.url)
-  return `${url.protocol}//${url.host}`
-}
 
 export async function POST(
   request: Request,
@@ -114,7 +106,7 @@ export async function POST(
   }
 
   const amountMinor = PRICE_PER_LANGUAGE_MINOR * validLanguages.length
-  const baseUrl = getBaseUrl(request)
+  const baseUrl = getRequestBaseUrl(request)
   const languagesParam = validLanguages.join(",")
 
   const successUrl = `${baseUrl}/author/books/${bookId}/editor?panel=translate&translation_checkout=success&session_id={CHECKOUT_SESSION_ID}&languages=${encodeURIComponent(languagesParam)}`

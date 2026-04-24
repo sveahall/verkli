@@ -131,10 +131,6 @@ export default function PricingPanel({
             <span className="rounded-full bg-[#907AFF]/20 px-2 py-0.5 text-xs font-medium text-[#5c4bb8] dark:text-[#b8a9ff]">Selected</span>
           )}
         </button>
-        <div className="flex items-center gap-3 rounded-lg border border-black/[0.06] bg-slate-50/50 px-3 py-2 dark:border-white/[0.06] dark:bg-white/5">
-          <span className="text-sm text-slate-600 dark:text-white/60">Bundle</span>
-          <span className="text-xs text-slate-500 dark:text-white/50">Coming later</span>
-        </div>
         <p className="text-xs text-slate-500 dark:text-white/50">
           {pricingModel === "book_only"
             ? "Readers buy the complete book at the price above."

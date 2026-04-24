@@ -42,16 +42,13 @@ export async function logAnalyticsEvent(
   };
 
   const { error } = await table.insert(payload as never);
-
-  // Rollout safety: if new columns are not present yet, retry with legacy payload.
-  if (error && /event_type|book_id/i.test(error.message ?? "")) {
-    await table.insert(
-      {
-        event_name: input.eventType,
-        user_id: input.userId ?? null,
-        path: input.path ?? null,
-        props: input.props ?? null,
-      } as never
-    );
+  if (error) {
+    // Post-migration, the new columns always exist. A failure here is a real
+    // signal (RLS, queue overload) and should surface once — not retry into a
+    // duplicate write with a legacy payload.
+    console.warn("[analytics] insert failed", {
+      eventType: input.eventType,
+      message: error.message,
+    });
   }
 }

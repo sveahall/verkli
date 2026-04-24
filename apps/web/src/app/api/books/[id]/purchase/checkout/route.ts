@@ -6,6 +6,7 @@ import { canUserReadBook } from "@/lib/books/access";
 import { createStripeCheckoutSession, getStripeCheckoutSession } from "@/lib/payments/stripe";
 import { logAnalyticsEvent } from "@/lib/analytics/events";
 import { toBookPricing, isPaidPriceAmount } from "@/lib/books/pricing";
+import { getRequestBaseUrl } from "@/lib/request-url";
 import {
   apiError,
   E_UNAUTHORIZED,
@@ -29,15 +30,6 @@ type CheckoutBookRow = {
   price_currency: string | null;
   pricing_model?: string | null;
 };
-
-function getBaseUrl(request: Request): string {
-  const fromEnv = process.env.NEXT_PUBLIC_SITE_URL?.trim();
-  if (fromEnv) {
-    return fromEnv.endsWith("/") ? fromEnv.slice(0, -1) : fromEnv;
-  }
-  const url = new URL(request.url);
-  return `${url.protocol}//${url.host}`;
-}
 
 export async function POST(
   request: Request,
@@ -264,7 +256,7 @@ export async function POST(
   }
 
   const orderId = String((order as { id: string }).id);
-  const baseUrl = getBaseUrl(request);
+  const baseUrl = getRequestBaseUrl(request);
   const productName = chapterTitle
     ? `${chapterTitle} — ${String(book.title ?? "Book")}`
     : String(book.title ?? "Book");

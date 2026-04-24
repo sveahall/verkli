@@ -156,8 +156,12 @@ describe("planToPersist", () => {
     expect(planToPersist("pro", "incomplete", "plus")).toBe("plus");
   });
 
-  it("allows downgrade when inactive (e.g. derived plus, existing pro)", () => {
-    expect(planToPersist("plus", "past_due", "pro")).toBe("plus");
+  it("keeps existing plan when inactive even if derived is lower (no silent demote)", () => {
+    // A transient past_due on a monthly retry must not strip a paying
+    // customer's "pro" down to "plus" — that's what subscription.deleted is
+    // for. Webhook-driven plan mutations only honour active/trialing.
+    expect(planToPersist("plus", "past_due", "pro")).toBe("pro");
+    expect(planToPersist("plus", "canceled", "pro")).toBe("pro");
   });
 });
 

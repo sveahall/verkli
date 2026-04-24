@@ -14,20 +14,12 @@ import {
   E_RATE_LIMIT_EXCEEDED,
 } from "@/lib/api-errors";
 import { createPerUserRateLimiter } from "@/lib/rate-limit";
+import { getRequestBaseUrl } from "@/lib/request-url";
 
 const checkoutLimiter = createPerUserRateLimiter({ maxPerMinute: 5 });
 
 export const runtime = "nodejs";
 
-function getBaseUrl(request: Request): string {
-  const fromEnv = process.env.NEXT_PUBLIC_SITE_URL?.trim();
-  if (fromEnv) {
-    return fromEnv.endsWith("/") ? fromEnv.slice(0, -1) : fromEnv;
-  }
-
-  const url = new URL(request.url);
-  return `${url.protocol}//${url.host}`;
-}
 
 function toPositiveInt(value: unknown): number {
   return typeof value === "number" && Number.isFinite(value)
@@ -143,7 +135,7 @@ export async function POST(request: Request) {
   }
 
   const creditTopupId = String((topup as { id: string }).id);
-  const baseUrl = getBaseUrl(request);
+  const baseUrl = getRequestBaseUrl(request);
   const successUrl = `${baseUrl}/reader/profile?credits=success`;
   const cancelUrl = `${baseUrl}/reader/profile?credits=cancel`;
 

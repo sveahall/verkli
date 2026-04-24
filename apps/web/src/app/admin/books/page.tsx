@@ -57,6 +57,7 @@ export default function AdminBooksPage() {
     if (!confirm(`Delete "${title}"? This cannot be undone.`)) return;
 
     setDeletingId(bookId);
+    setError("");
     try {
       const res = await fetch("/api/admin/books", {
         method: "DELETE",
@@ -66,12 +67,27 @@ export default function AdminBooksPage() {
         body: JSON.stringify({ bookId }),
       });
 
-      if (res.ok) {
-        setBooks((prev) => prev.filter((b) => b.id !== bookId));
-        setTotal((prev) => prev - 1);
+      if (!res.ok) {
+        // Previously failures here were silent and the row was optimistically
+        // removed, which masked permission/RLS errors: the admin UI showed
+        // "gone" while the DB still held the book. Surface the actual status.
+        const body = (await res.json().catch(() => null)) as { error?: unknown } | null;
+        const detail =
+          body && typeof body.error === "string"
+            ? body.error
+            : `Delete failed (${res.status})`;
+        setError(`Could not delete "${title}": ${detail}`);
+        return;
       }
-    } catch {
-      // silent
+
+      setBooks((prev) => prev.filter((b) => b.id !== bookId));
+      setTotal((prev) => prev - 1);
+    } catch (err) {
+      setError(
+        err instanceof Error
+          ? `Could not delete "${title}": ${err.message}`
+          : `Could not delete "${title}".`
+      );
     } finally {
       setDeletingId(null);
     }

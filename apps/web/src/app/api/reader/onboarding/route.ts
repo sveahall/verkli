@@ -11,19 +11,21 @@ import {
 } from "@/lib/api-errors";
 
 const onboardingSchema = z.object({
-  genres: z.array(z.string().min(1)).max(30).optional(),
-  genreIds: z.array(z.string().min(1)).max(30).optional(),
+  // Genre IDs must be UUIDs — they are interpolated into a PostgREST
+  // `not.in` filter below. Enforcing uuid() prevents filter-string injection.
+  genres: z.array(z.string().uuid()).max(30).optional(),
+  genreIds: z.array(z.string().uuid()).max(30).optional(),
   preferences: z
     .object({
       fiction_ratio: z.number().finite().optional(),
       reading_speed: z.number().finite().optional(),
-      languages: z.array(z.string().min(1)).max(20).optional(),
+      languages: z.array(z.string().min(1).max(16)).max(20).optional(),
     })
     .optional(),
   bookSignals: z
     .array(
       z.object({
-        bookId: z.string().min(1),
+        bookId: z.string().uuid(),
         signal: z.enum(["like", "skip"]),
       })
     )

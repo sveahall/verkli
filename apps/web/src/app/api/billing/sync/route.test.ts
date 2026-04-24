@@ -11,7 +11,7 @@ const mocks = vi.hoisted(() => ({
   planToPersist: vi.fn(),
   getBillingAccountByUserIdAndRole: vi.fn(),
   upsertBillingAccount: vi.fn(),
-  getActiveRoleFromRequest: vi.fn(),
+  resolveBillingRole: vi.fn(),
 }));
 
 vi.mock("@/lib/supabase/server", () => ({ createClient: mocks.createClient }));
@@ -32,8 +32,8 @@ vi.mock("@/lib/billing/server", () => ({
   getBillingAccountByUserIdAndRole: mocks.getBillingAccountByUserIdAndRole,
   upsertBillingAccount: mocks.upsertBillingAccount,
 }));
-vi.mock("@/lib/active-role", () => ({
-  getActiveRoleFromRequest: mocks.getActiveRoleFromRequest,
+vi.mock("@/lib/auth/billing-role", () => ({
+  resolveBillingRole: mocks.resolveBillingRole,
 }));
 
 // Force in-memory rate limiter (no Redis)
@@ -80,23 +80,29 @@ describe("POST /api/billing/sync", () => {
     expect(res.status).toBe(401);
   });
 
-  it("returns 403 when no active role", async () => {
+  it("defaults to reader when no author-role claim present", async () => {
+    // Previously returned 403; the route now always resolves to an effective
+    // billing role. With a non-subscription session we reach the 400 path.
     mockUser();
-    mocks.getActiveRoleFromRequest.mockReturnValue(null);
+    mocks.resolveBillingRole.mockResolvedValue("reader");
+    mocks.getCheckoutSessionWithLineItems.mockResolvedValue({
+      mode: "payment",
+      metadata: { user_id: "user-1" },
+    });
     const res = await POST(makePostReq({ session_id: "cs_test" }));
-    expect(res.status).toBe(403);
+    expect(res.status).toBe(400);
   });
 
   it("returns 400 when session_id is missing", async () => {
     mockUser();
-    mocks.getActiveRoleFromRequest.mockReturnValue("reader");
+    mocks.resolveBillingRole.mockResolvedValue("reader");
     const res = await POST(makePostReq({}));
     expect(res.status).toBe(400);
   });
 
   it("returns 400 when session mode is not subscription", async () => {
     mockUser();
-    mocks.getActiveRoleFromRequest.mockReturnValue("reader");
+    mocks.resolveBillingRole.mockResolvedValue("reader");
     mocks.getCheckoutSessionWithLineItems.mockResolvedValue({
       mode: "payment",
       metadata: { user_id: "user-1" },
@@ -107,7 +113,7 @@ describe("POST /api/billing/sync", () => {
 
   it("returns 403 when session user_id does not match", async () => {
     mockUser();
-    mocks.getActiveRoleFromRequest.mockReturnValue("reader");
+    mocks.resolveBillingRole.mockResolvedValue("reader");
     mocks.getCheckoutSessionWithLineItems.mockResolvedValue({
       mode: "subscription",
       metadata: { user_id: "other-user" },
@@ -119,7 +125,7 @@ describe("POST /api/billing/sync", () => {
 
   it("syncs billing on valid session", async () => {
     mockUser();
-    mocks.getActiveRoleFromRequest.mockReturnValue("reader");
+    mocks.resolveBillingRole.mockResolvedValue("reader");
     mocks.getCheckoutSessionWithLineItems.mockResolvedValue({
       mode: "subscription",
       metadata: { user_id: "user-1" },
@@ -153,16 +159,20 @@ describe("GET /api/billing/sync", () => {
     expect(res.status).toBe(401);
   });
 
-  it("returns 403 when no active role", async () => {
+  it("defaults to reader when no author-role claim present", async () => {
+    // Previously returned 403; the route now resolves to reader by default
+    // and proceeds to the billing lookup (which returns 400 without a row).
     mockUser();
-    mocks.getActiveRoleFromRequest.mockReturnValue(null);
+    mocks.resolveBillingRole.mockResolvedValue("reader");
+    mocks.getBillingAccountByUserIdAndRole.mockResolvedValue({ row: null, error: null });
+    mocks.listStripeCustomersByEmail.mockResolvedValue([]);
     const res = await GET(makeGetReq());
-    expect(res.status).toBe(403);
+    expect(res.status).toBe(400);
   });
 
   it("returns 400 when no billing row or customer found", async () => {
     mockUser();
-    mocks.getActiveRoleFromRequest.mockReturnValue("reader");
+    mocks.resolveBillingRole.mockResolvedValue("reader");
     mocks.getBillingAccountByUserIdAndRole.mockResolvedValue({ row: null, error: null });
     mocks.listStripeCustomersByEmail.mockResolvedValue([]);
 

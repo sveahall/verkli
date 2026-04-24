@@ -1,4 +1,12 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterAll } from "vitest";
+
+// The SSRF allowlist consults these env vars; register the test CDN so the
+// fake imageUrl used below passes the guard and the behavioural tests keep
+// exercising the non-validation code paths.
+process.env.AI_IMAGE_URL_EXTRA_HOSTS = "cdn.example.com";
+afterAll(() => {
+  delete process.env.AI_IMAGE_URL_EXTRA_HOSTS;
+});
 
 // ─── Mocks ──────────────────────────────────────────────────────────────────
 vi.mock("@/lib/auth/require-author", () => ({

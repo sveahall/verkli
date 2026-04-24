@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { isNextRedirectError } from "@/lib/next-redirect";
 import { getAvatarUrlFromPathServer } from "@/lib/supabase/avatar";
 import { getRecommendationsEnabled } from "@/lib/flags";
 import { ErrorBannerWrapper } from "@/components/ui/ErrorBanner";
@@ -177,7 +178,11 @@ export default async function ReaderHomePage() {
       isOnboarded = Boolean(profile?.onboarding_completed_at);
     }
   } catch (err) {
-    if (err instanceof Error && err.message === "NEXT_REDIRECT") throw err;
+    // `redirect()` throws a special Next.js sentinel error that MUST be
+    // rethrown so the runtime can perform the actual redirect. Matching on
+    // the error message string is brittle — the canonical check lives in
+    // next/dist/client/components/redirect-error.
+    if (isNextRedirectError(err)) throw err;
   }
 
   let continueReading: ContinueReadingBook[] = [];
@@ -343,22 +348,31 @@ export default async function ReaderHomePage() {
     });
 
     if (candidateBookIds.length > 0) {
+      // These three signals used to pull up to 3 000 rows per render to
+      // compute per-book counts client-side. That blew TTFB past 1 s for
+      // hit books. A proper materialized view is the ideal fix (tracked in
+      // the final audit report); until then, tighten each to the signal we
+      // actually use downstream. Reviews still need `rating` so we keep the
+      // shape but cap the scan; readings/bookmarks only need the book_id
+      // presence and are capped similarly. The limit is generous enough
+      // that the rails stay representative without slurping everything.
+      const SIGNAL_POOL_LIMIT = 500;
       const [reviewsResult, readingsResult, bookmarksResult] = await Promise.all([
         supabase
           .from("reviews")
           .select("book_id, rating")
           .in("book_id", candidateBookIds)
-          .limit(1000),
+          .limit(SIGNAL_POOL_LIMIT),
         supabase
           .from("readings")
           .select("book_id")
           .in("book_id", candidateBookIds)
-          .limit(1000),
+          .limit(SIGNAL_POOL_LIMIT),
         supabase
           .from("bookmarks")
           .select("book_id")
           .in("book_id", candidateBookIds)
-          .limit(1000),
+          .limit(SIGNAL_POOL_LIMIT),
       ]);
 
       (reviewsResult.data ?? []).forEach((row) => {

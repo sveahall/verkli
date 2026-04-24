@@ -70,8 +70,8 @@ export async function GET(request: Request) {
 }
 
 export async function DELETE(request: Request) {
-  const { response } = await requireAdminRoleForApi();
-  if (response) return response;
+  const { user: adminUser, response } = await requireAdminRoleForApi();
+  if (response || !adminUser) return response ?? apiError("UNAUTHORIZED", 401);
 
   const body = await request.json().catch(() => null);
   const bookId = typeof body?.bookId === "string" ? body.bookId.trim() : "";
@@ -139,6 +139,25 @@ export async function DELETE(request: Request) {
   if (error) {
     console.error("[admin/books] delete failed:", error.message);
     return apiError(E_DATABASE_ERROR, 500);
+  }
+
+  // Audit trail — best-effort.
+  try {
+    await admin.from("audit_log").insert({
+      entity_type: "book",
+      entity_id: bookId,
+      action: "delete",
+      actor_user_id: adminUser.id,
+      actor_role: "admin",
+      meta: { chapters_deleted: chapterIds.length },
+    });
+  } catch (auditError) {
+    console.error("[admin/books] audit log insert failed", {
+      bookId,
+      adminUserId: adminUser.id,
+      message:
+        auditError instanceof Error ? auditError.message : String(auditError),
+    });
   }
 
   return NextResponse.json({ ok: true, bookId });

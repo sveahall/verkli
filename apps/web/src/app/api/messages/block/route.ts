@@ -46,8 +46,11 @@ export async function POST(request: Request) {
   const admin = createAdminClient();
 
   try {
+    // Anyone authenticated may block a user they're in a conversation with.
+    // Previously only "author" could block, which left readers unable to stop
+    // harassment from authors who messaged them first.
     const currentUserRole = await getMessagingRoleForUser(admin, user.id);
-    if (currentUserRole !== "author") {
+    if (!currentUserRole) {
       return apiError(E_FORBIDDEN, 403);
     }
 

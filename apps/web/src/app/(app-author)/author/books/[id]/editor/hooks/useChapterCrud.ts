@@ -35,6 +35,11 @@ export function useChapterCrud({
   const router = useRouter();
   const toast = useToastHelpers();
   const savingRef = useRef(false);
+  // Latest keystroke content keyed by chapter id, captured while a save is
+  // already in flight. When the in-flight save finishes we flush these so no
+  // input is silently dropped (the previous behaviour was to `return` when a
+  // save was in flight, leaving new keystrokes unpersisted).
+  const pendingSavesRef = useRef<Map<string, Record<string, unknown>>>(new Map());
 
   const [isSaving, setIsSaving] = useState(false);
   const [isCreating, setIsCreating] = useState(false);
@@ -46,21 +51,54 @@ export function useChapterCrud({
   const [deletingChapterId, setDeletingChapterId] = useState<string | null>(null);
 
   const handleAutoSave = useCallback(async (chapterId: string, jsonContent: Record<string, unknown>) => {
-    if (savingRef.current) return;
+    // If a save is already running, record the latest content instead of
+    // dropping it — we'll flush after the in-flight save completes.
+    if (savingRef.current) {
+      pendingSavesRef.current.set(chapterId, jsonContent);
+      setHasUnsavedChanges(true);
+      return;
+    }
+
+    // Inner loop flushes any keystrokes that arrived during a save. Defined
+    // locally so the outer callback does not need to self-reference.
+    async function persistOnce(id: string, payload: Record<string, unknown>): Promise<{ ok: boolean; serialized: string }> {
+      const serialized = JSON.stringify(payload);
+      const supabase = createClient();
+      const { error } = await supabase
+        .from("chapters")
+        .update({ content: serialized })
+        .eq("id", id);
+      return { ok: !error, serialized };
+    }
+
     savingRef.current = true;
     setIsSaving(true);
     setSaveError(false);
-    const supabase = createClient();
-    const contentString = JSON.stringify(jsonContent);
-    const { error } = await supabase.from("chapters").update({ content: contentString }).eq("id", chapterId);
+
+    let currentPayload = jsonContent;
+    let persisted: { ok: boolean; serialized: string } = { ok: false, serialized: "" };
+    // Loop until no more pending writes exist for this chapter — guarantees
+    // the final keystroke is persisted even if several arrive while saving.
+    while (true) {
+      persisted = await persistOnce(chapterId, currentPayload);
+      if (!persisted.ok) break;
+      const queued = pendingSavesRef.current.get(chapterId);
+      if (!queued) break;
+      pendingSavesRef.current.delete(chapterId);
+      currentPayload = queued;
+    }
+
     savingRef.current = false;
     setIsSaving(false);
-    if (error) {
+
+    if (!persisted.ok) {
       setSaveError(true);
       toast.error("Could not save. Changes may not have been persisted.");
       return;
     }
-    setChapters((prev) => prev.map((ch) => (ch.id === chapterId ? { ...ch, content: contentString } : ch)));
+
+    const lastSerialized = persisted.serialized;
+    setChapters((prev) => prev.map((ch) => (ch.id === chapterId ? { ...ch, content: lastSerialized } : ch)));
     setLastSaved(new Date());
     setHasUnsavedChanges(false);
   }, [setChapters, toast]);
@@ -173,6 +211,16 @@ export function useChapterCrud({
     setDeletingChapterId(chapterId);
     const supabase = createClient();
 
+    // Clean up ai_jobs that reference this chapter BEFORE deleting the
+    // chapter — otherwise audiobook/translation jobs keep polling a row
+    // that no longer exists and their UI surfaces "orphan" chapter titles.
+    // `ai_jobs` stores the chapter id inside the `input` JSONB (no FK),
+    // so we filter with a JSON path expression.
+    await supabase
+      .from("ai_jobs")
+      .delete()
+      .filter("input->>chapterId", "eq", chapterId);
+
     // Clean up chapter_audio_cache (no FK — must delete manually)
     await supabase.from("chapter_audio_cache").delete().eq("chapter_id", chapterId);
 
@@ -206,11 +254,13 @@ export function useChapterCrud({
     newChapters.sort((x, y) => x.order - y.order);
     setChapters(newChapters);
 
+    // Two-phase swap via a negative sentinel avoids the UNIQUE(book_id, order)
+    // collision that `Promise.all` of two in-place UPDATEs would hit.
     const supabase = createClient();
-    await Promise.all([
-      supabase.from("chapters").update({ order: a.order }).eq("id", b.id),
-      supabase.from("chapters").update({ order: b.order }).eq("id", a.id),
-    ]);
+    const sentinel = -Math.abs(a.order) - 1;
+    await supabase.from("chapters").update({ order: sentinel }).eq("id", a.id);
+    await supabase.from("chapters").update({ order: a.order }).eq("id", b.id);
+    await supabase.from("chapters").update({ order: b.order }).eq("id", a.id);
     router.refresh();
   };
 
@@ -237,12 +287,23 @@ export function useChapterCrud({
 
     setChapters(reorderedChapters);
 
+    // Two-phase rewrite to avoid transient duplicate values on the
+    // UNIQUE(book_id, order) constraint: move every row to a unique negative
+    // sentinel first, then assign the final target slots. Order matters more
+    // than speed here — `Promise.all` of overlapping values would race.
     const supabase = createClient();
-    await Promise.all(
-      reorderedChapters.map((chapter) =>
-        supabase.from("chapters").update({ order: chapter.order }).eq("id", chapter.id)
-      )
-    );
+    for (let i = 0; i < reorderedChapters.length; i++) {
+      await supabase
+        .from("chapters")
+        .update({ order: -(i + 1) })
+        .eq("id", reorderedChapters[i].id);
+    }
+    for (const chapter of reorderedChapters) {
+      await supabase
+        .from("chapters")
+        .update({ order: chapter.order })
+        .eq("id", chapter.id);
+    }
 
     router.refresh();
   };

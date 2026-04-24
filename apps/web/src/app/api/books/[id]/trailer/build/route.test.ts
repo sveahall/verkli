@@ -1,4 +1,11 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterAll, beforeEach, describe, expect, it, vi } from "vitest";
+
+// Ensure the cover-image SSRF allowlist accepts the fake test URL so the
+// behavioural tests exercise the non-validation code paths below.
+process.env.AI_IMAGE_URL_EXTRA_HOSTS = "cdn.example.com";
+afterAll(() => {
+  delete process.env.AI_IMAGE_URL_EXTRA_HOSTS;
+});
 
 const BOOK_ID = "a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11";
 const AUTHOR_ID = "author-1";

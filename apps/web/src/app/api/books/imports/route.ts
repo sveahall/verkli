@@ -15,7 +15,11 @@ export async function GET(request: Request) {
 
   const supabase = await createClient();
   const { searchParams } = new URL(request.url);
-  const limit = Math.min(Math.max(1, parseInt(searchParams.get("limit") ?? "50", 10)), 100);
+  const parsedLimit = parseInt(searchParams.get("limit") ?? "50", 10);
+  const limit = Math.min(
+    Math.max(1, Number.isFinite(parsedLimit) ? parsedLimit : 50),
+    100
+  );
 
   const { data: rows, error } = await supabase
     .from("book_imports")

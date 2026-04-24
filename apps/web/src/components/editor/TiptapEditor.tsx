@@ -220,15 +220,31 @@ export default function TiptapEditor({
     const element = editor.view.dom;
 
     const insertImage = async (file: File) => {
-      let src: string;
-
+      // Uploading through storage keeps the chapter JSON small. Falling back
+      // to a base64 data URL here used to silently inline megabytes of image
+      // bytes into the chapter `content` column, which then bloated every
+      // subsequent save/read. Now we either get a storage URL or we tell
+      // the user the upload failed — no silent bloat.
       if (bookId && chapterId) {
         const { url, error } = await uploadChapterMedia(file, bookId, chapterId);
-        src = !error && url ? url : (await readAsDataURL(file)) ?? "";
-      } else {
-        src = (await readAsDataURL(file)) ?? "";
+        if (!error && url) {
+          editor.chain().focus().setImage({ src: url }).run();
+          return;
+        }
+        console.warn("[TiptapEditor] image upload failed", {
+          message: error ?? "unknown",
+        });
+        // Surface the failure via the browser alert for now — the editor
+        // doesn't have its own toast handle wired in at this layer.
+        if (typeof window !== "undefined") {
+          window.alert("Couldn't upload that image. Check your connection and try again.");
+        }
+        return;
       }
 
+      // No bookId/chapterId context — this only happens in the scratchpad
+      // editor where nothing is ever persisted. Inline is fine there.
+      const src = (await readAsDataURL(file)) ?? "";
       if (src) {
         editor.chain().focus().setImage({ src }).run();
       }

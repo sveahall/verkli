@@ -68,6 +68,7 @@ export default async function PublicShelfPage({ params }: { params: Promise<{ id
   }
 
   const cover = resolveCover(shelf.cover_type, shelf.cover_url, shelf.cover_gradient);
+  const isOwner = Boolean(user && user.id === shelf.user_id);
   type BookSummary = {
     id: string;
     title: string;
@@ -91,7 +92,10 @@ export default async function PublicShelfPage({ params }: { params: Promise<{ id
             style={{ backgroundImage: cover }}
           />
           <div className="space-y-3 px-6 py-6 sm:px-8 sm:py-8">
-            <Link href="/author/profile" className="text-eyebrow text-[11px] inline-block hover:text-slate-600 dark:hover:text-white/60">
+            <Link
+              href={isOwner ? "/author/profile" : `/reader/authors/${shelf.user_id}`}
+              className="text-eyebrow text-[11px] inline-block hover:text-slate-600 dark:hover:text-white/60"
+            >
               Back to profile
             </Link>
             <h1 className="text-page-title">{shelf.name}</h1>
@@ -112,7 +116,7 @@ export default async function PublicShelfPage({ params }: { params: Promise<{ id
               {books.map((book) => (
                 <Link
                   key={book.id}
-                  href={`/author/books/${book.id}`}
+                  href={isOwner ? `/author/books/${book.id}` : `/reader/books/${book.id}`}
                   className="card-base-subtle group overflow-hidden transition-all hover:-translate-y-0.5 hover:shadow-[0_12px_28px_rgba(15,23,42,0.1)] dark:hover:shadow-[0_12px_28px_rgba(0,0,0,0.35)]"
                 >
                   <div

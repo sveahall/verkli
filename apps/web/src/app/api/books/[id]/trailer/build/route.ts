@@ -11,6 +11,7 @@ import {
 import { generateImageToVideo } from "@/lib/higgsfield";
 import { uploadTrailerAndGetPublicUrl } from "@/lib/marketing/trailer-storage";
 import { stitchSceneVideos } from "@/lib/marketing/trailer-ffmpeg";
+import { validateProviderImageUrl } from "@/lib/security/url-allowlist";
 import {
   apiError,
   E_BOOK_NOT_FOUND,
@@ -119,6 +120,16 @@ export async function POST(
       detail: { cover_image: ["Book cover image is required to build trailer."] },
     });
   }
+  // SSRF guard — `cover_image` is a free-form user-writable column. Refuse
+  // anything that isn't on the approved host-list before handing it to
+  // Higgsfield (which may fetch/redirect server-side on our behalf).
+  const coverUrlCheck = validateProviderImageUrl(ownedBook.cover_image);
+  if (!coverUrlCheck.ok) {
+    return apiError(E_VALIDATION_FAILED, 400, {
+      detail: { cover_image: ["Book cover image must be a supported URL before trailer build."] },
+    });
+  }
+  const safeCoverImageUrl = coverUrlCheck.url.toString();
 
   // Mark book as generating
   await admin
@@ -172,7 +183,7 @@ export async function POST(
       scenes.map((scene) =>
         generateImageToVideo({
           prompt: scene.visual_prompt,
-          imageUrl: ownedBook.cover_image as string,
+          imageUrl: safeCoverImageUrl,
           durationSeconds: SCENE_DURATION_SECONDS,
           includeAudio,
         })

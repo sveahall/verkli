@@ -79,8 +79,8 @@ export async function GET() {
 }
 
 export async function PATCH(request: Request) {
-  const { response } = await requireAdminRoleForApi();
-  if (response) return response;
+  const { user: adminUser, response } = await requireAdminRoleForApi();
+  if (response || !adminUser) return response ?? apiError("UNAUTHORIZED", 401);
 
   const body = await request.json().catch(() => null);
   const userId = typeof body?.userId === "string" ? body.userId.trim() : "";
@@ -129,6 +129,54 @@ export async function PATCH(request: Request) {
       });
       return apiError(E_APPLICATION_CREATION_FAILED, 500);
     }
+  }
+
+  // Keep profiles.role in sync so downstream queries that filter on role (the
+  // discover page, reader/authors/[id], etc.) include the newly approved user
+  // without a second manual promotion step.
+  if (status === "approved") {
+    const { error: roleSyncError } = await admin
+      .from("profiles")
+      .update({ role: "author" })
+      .eq("user_id", userId)
+      .neq("role", "admin");
+    if (roleSyncError) {
+      console.error("[author applications admin] profile role sync failed", {
+        userId,
+        message: roleSyncError.message,
+      });
+    }
+  }
+
+  // Audit trail: record who approved/rejected which application so admin
+  // actions are non-repudiable. Best-effort — wrapped so a missing table
+  // (test environments, early deploys before the audit_log migration) or a
+  // transient DB error cannot take down the admin action itself.
+  try {
+    const { error: auditError } = await admin.from("audit_log").insert({
+      entity_type: "author_application",
+      entity_id: userId,
+      action: status === "approved" ? "approve" : "reject",
+      actor_user_id: adminUser.id,
+      actor_role: "admin",
+      meta: { status },
+    });
+    if (auditError) {
+      console.error("[author applications admin] audit log insert failed", {
+        userId,
+        adminUserId: adminUser.id,
+        status,
+        message: auditError.message,
+      });
+    }
+  } catch (auditError) {
+    console.error("[author applications admin] audit log insert threw", {
+      userId,
+      adminUserId: adminUser.id,
+      status,
+      message:
+        auditError instanceof Error ? auditError.message : String(auditError),
+    });
   }
 
   // Send notification email (best-effort, don't fail the request)

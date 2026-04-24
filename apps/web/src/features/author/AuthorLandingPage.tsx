@@ -114,7 +114,7 @@ function LandingPage() {
               </div>
 
               {/* Headline */}
-              <h1 className="hero-animate max-w-[820px] text-[clamp(48px,6.5vw,88px)] font-semibold leading-[0.94] tracking-[-0.05em] text-slate-900 dark:text-white" style={{ animationDelay: "180ms" }}>
+              <h1 className="hero-animate max-w-[820px] text-[clamp(48px,6.5vw,88px)] font-regular leading-[0.94] tracking-[-0.05em] text-slate-900 dark:text-white" style={{ animationDelay: "180ms" }}>
                 Write once.<br />
                 <span className="bg-[linear-gradient(110deg,#6f58df_0%,#907AFF_55%,#c894e6_100%)] bg-clip-text text-transparent">
                   Show up everywhere.
@@ -158,7 +158,7 @@ function LandingPage() {
         {/* ─── Partners marquee ─── */}
         <section className="w-full overflow-hidden border-y border-black/[0.05] bg-white/50 py-5 backdrop-blur-sm dark:border-white/[0.05] dark:bg-white/[0.015]">
           <p className="mb-4 text-center text-[10px] font-medium uppercase tracking-[0.18em] text-slate-400 dark:text-white/25">
-            Publish on every platform
+            Our partners
           </p>
           <div className="relative">
             {/* Left + right edge fades */}

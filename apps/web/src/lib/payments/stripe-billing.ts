@@ -36,8 +36,13 @@ function getStripeSecretKey(): string {
   return key;
 }
 
+const STRIPE_REQUEST_TIMEOUT_MS = 15_000;
+
 async function stripeRequest(path: string, init: RequestInit): Promise<unknown> {
   const key = getStripeSecretKey();
+  // Bound the call so a hung Stripe API doesn't pin the request handler
+  // waiting forever. The SDK ships its own timeout; this hand-rolled path
+  // was missing one entirely.
   const res = await fetch(`${STRIPE_API_BASE}${path}`, {
     ...init,
     headers: {
@@ -46,6 +51,7 @@ async function stripeRequest(path: string, init: RequestInit): Promise<unknown> 
       ...(init.headers ?? {}),
     },
     cache: "no-store",
+    signal: init.signal ?? AbortSignal.timeout(STRIPE_REQUEST_TIMEOUT_MS),
   });
 
   const text = await res.text();

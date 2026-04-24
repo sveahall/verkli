@@ -4,6 +4,36 @@ import { isBetaUser } from '@/lib/auth/beta'
 import { getAuthorApplicationStatus } from '@/lib/auth/author-approval'
 import { ACTIVE_ROLE_COOKIE } from '@/lib/active-role'
 
+// ---------------------------------------------------------------------------
+// In-memory cache of `profiles.role` keyed by user id. Middleware otherwise
+// fires a Supabase profile lookup on *every* request matched by the config
+// (and `/author/*` triggers the fetch unconditionally). TTL is short enough
+// that a role change propagates within a minute, long enough to absorb the
+// prefetch storms a navigation produces.
+// ---------------------------------------------------------------------------
+const AUTHOR_ROLE_CACHE_TTL_MS = 60_000
+const AUTHOR_ROLE_CACHE_MAX = 512
+type CachedRoleEntry = { role: string; expiresAt: number }
+const authorRoleCache = new Map<string, CachedRoleEntry>()
+
+function readCachedAuthorRole(userId: string): string | null {
+  const entry = authorRoleCache.get(userId)
+  if (!entry) return null
+  if (entry.expiresAt <= Date.now()) {
+    authorRoleCache.delete(userId)
+    return null
+  }
+  return entry.role
+}
+
+function writeCachedAuthorRole(userId: string, role: string): void {
+  if (authorRoleCache.size >= AUTHOR_ROLE_CACHE_MAX) {
+    const first = authorRoleCache.keys().next().value
+    if (first) authorRoleCache.delete(first)
+  }
+  authorRoleCache.set(userId, { role, expiresAt: Date.now() + AUTHOR_ROLE_CACHE_TTL_MS })
+}
+
 /**
  * Ordningen är kritisk: waitlist-låset måste avgöras och eventuellt returnera
  * redirect INNAN Supabase initieras. Annars körs createServerClient och
@@ -20,8 +50,9 @@ export async function middleware(request: NextRequest) {
   if (isStateChanging) {
     const origin = request.headers.get('origin')
     const pathname = request.nextUrl.pathname
-    // Skip Stripe webhook — it uses its own signature verification
-    const isStripeWebhook = pathname === '/api/stripe/webhook' || pathname.startsWith('/api/stripe/webhook/')
+    // Skip Stripe webhook — it uses its own signature verification.
+    // Strict equality: no sub-route should auto-inherit the CSRF exemption.
+    const isStripeWebhook = pathname === '/api/stripe/webhook'
     // Only enforce when Origin header is present (same-origin requests may omit it)
     if (origin && !isStripeWebhook) {
       const siteUrl = process.env.NEXT_PUBLIC_SITE_URL
@@ -162,12 +193,19 @@ export async function middleware(request: NextRequest) {
     }
 
     // SECURITY: Only trust profiles.role from DB — user_metadata is client-writable.
-    const { data: profile } = await supabase
-      .from('profiles')
-      .select('role')
-      .eq('user_id', user.id)
-      .maybeSingle()
-    const profileRole = String(profile?.role ?? '').trim().toLowerCase()
+    // Use a short-lived process-local cache to avoid a DB round-trip on every
+    // request (prefetches, RSC payloads, API calls under /author). TTL is tight
+    // enough that flipping a role propagates within a minute.
+    let profileRole = readCachedAuthorRole(user.id)
+    if (profileRole == null) {
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('role')
+        .eq('user_id', user.id)
+        .maybeSingle()
+      profileRole = String(profile?.role ?? '').trim().toLowerCase()
+      writeCachedAuthorRole(user.id, profileRole)
+    }
     const isAuthorOrAdmin = profileRole === 'author' || profileRole === 'admin'
 
     if (!isAuthorOrAdmin) {

@@ -16,7 +16,7 @@ const mocks = vi.hoisted(() => ({
   listStripeCustomersByEmail: vi.fn(),
   getStripeCustomerSubscriptions: vi.fn(),
   resolveRolePlanFromPriceIds: vi.fn(),
-  getActiveRoleFromRequest: vi.fn(),
+  resolveBillingRole: vi.fn(),
 }));
 
 vi.mock("@/lib/supabase/server", () => ({ createClient: mocks.createClient }));
@@ -38,7 +38,9 @@ vi.mock("@/lib/payments/stripe-billing", () => ({
   listStripeCustomersByEmail: mocks.listStripeCustomersByEmail,
   getStripeCustomerSubscriptions: mocks.getStripeCustomerSubscriptions,
 }));
-vi.mock("@/lib/active-role", () => ({ getActiveRoleFromRequest: mocks.getActiveRoleFromRequest }));
+vi.mock("@/lib/auth/billing-role", () => ({
+  resolveBillingRole: mocks.resolveBillingRole,
+}));
 
 const { POST } = await import("./route");
 
@@ -64,17 +66,28 @@ describe("POST /api/billing/portal", () => {
     expect(res.status).toBe(401);
   });
 
-  it("returns 403 when no active role", async () => {
+  it("defaults to reader when no author-role claim present", async () => {
+    // Previously returned 403; the portal is now always accessible for an
+    // authenticated user — `resolveBillingRole` demotes an unverified
+    // "author" cookie to "reader" automatically.
     mockAuthedUser();
-    mocks.getActiveRoleFromRequest.mockReturnValue(null);
+    mocks.resolveBillingRole.mockResolvedValue("reader");
+    mocks.createAdminClient.mockReturnValue({});
+    mocks.getBillingAccountByUserIdAndRole.mockResolvedValue({
+      row: { stripe_customer_id: "cus_existing" },
+      error: null,
+    });
+    mocks.createStripeCustomerPortalSession.mockResolvedValue({
+      url: "https://billing.stripe.com/portal_default",
+    });
     const req = new Request("http://localhost/api/billing/portal", { method: "POST" });
     const res = await POST(req);
-    expect(res.status).toBe(403);
+    expect(res.status).toBe(200);
   });
 
   it("returns portal URL on success", async () => {
     mockAuthedUser();
-    mocks.getActiveRoleFromRequest.mockReturnValue("reader");
+    mocks.resolveBillingRole.mockResolvedValue("reader");
     mocks.createAdminClient.mockReturnValue({});
     mocks.getBillingAccountByUserIdAndRole.mockResolvedValue({
       row: { stripe_customer_id: "cus_existing" },
@@ -93,7 +106,7 @@ describe("POST /api/billing/portal", () => {
 
   it("creates new Stripe customer when none exists", async () => {
     mockAuthedUser();
-    mocks.getActiveRoleFromRequest.mockReturnValue("author");
+    mocks.resolveBillingRole.mockResolvedValue("author");
     mocks.createAdminClient.mockReturnValue({});
     mocks.getBillingAccountByUserIdAndRole.mockResolvedValue({
       row: { stripe_customer_id: null },
@@ -114,7 +127,7 @@ describe("POST /api/billing/portal", () => {
 
   it("returns 500 when portal session creation fails", async () => {
     mockAuthedUser();
-    mocks.getActiveRoleFromRequest.mockReturnValue("reader");
+    mocks.resolveBillingRole.mockResolvedValue("reader");
     mocks.createAdminClient.mockReturnValue({});
     mocks.getBillingAccountByUserIdAndRole.mockResolvedValue({
       row: { stripe_customer_id: "cus_existing" },

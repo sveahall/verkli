@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useSetupState } from "./useSetupState";
 import SetupStepIndicator from "./SetupStepIndicator";
@@ -73,16 +74,31 @@ export default function SetupWizard({ book, chapters, initialSetupState, onSwitc
   const chapterCount = chapters.length;
   const hasContent = chapters.some((ch) => hasReadableContent(ch.content));
 
+  const [publishError, setPublishError] = useState<string | null>(null);
+
   const handlePublishComplete = async (choice: "publish" | "draft") => {
+    setPublishError(null);
     if (choice === "publish" && book.status !== "PUBLISHED") {
+      // Do NOT swallow publish errors: the wizard would otherwise mark setup
+      // "complete" while the book stays in DRAFT. Surface the failure so the
+      // user can fix the underlying issue (missing cover, visibility, etc.).
       try {
-        await fetch(`/api/books/${encodeURIComponent(book.id)}/publish`, {
+        const res = await fetch(`/api/books/${encodeURIComponent(book.id)}/publish`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ visibility: "public" }),
         });
-      } catch {
-        // publish error is non-blocking for setup completion
+        if (!res.ok) {
+          const body = (await res.json().catch(() => null)) as { error?: unknown } | null;
+          const message =
+            (body && typeof body.error === "string" ? body.error : null) ??
+            `Publish failed (${res.status})`;
+          setPublishError(message);
+          return;
+        }
+      } catch (err) {
+        setPublishError(err instanceof Error ? err.message : "Publish failed");
+        return;
       }
     }
     await completeSetup(choice);
@@ -144,12 +160,22 @@ export default function SetupWizard({ book, chapters, initialSetupState, onSwitc
           />
         )}
         {currentStep === "publish" && (
-          <PublishStep
-            bookTitle={book.title}
-            isAlreadyPublished={book.status === "PUBLISHED"}
-            onComplete={handlePublishComplete}
-            isSaving={isSaving}
-          />
+          <>
+            <PublishStep
+              bookTitle={book.title}
+              isAlreadyPublished={book.status === "PUBLISHED"}
+              onComplete={handlePublishComplete}
+              isSaving={isSaving}
+            />
+            {publishError && (
+              <div
+                role="alert"
+                className="mx-auto mt-4 max-w-xl rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-center text-[13px] text-red-700 dark:border-red-900/50 dark:bg-red-950/30 dark:text-red-200"
+              >
+                {publishError}
+              </div>
+            )}
+          </>
         )}
       </div>
 

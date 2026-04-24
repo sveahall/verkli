@@ -74,7 +74,9 @@ describe("POST /api/reader/onboarding", () => {
 
     const req = new Request("http://localhost/api/reader/onboarding", {
       method: "POST",
-      body: JSON.stringify({ genres: ["genre-1"] }),
+      body: JSON.stringify({
+        genres: ["00000000-0000-4000-8000-000000000001"],
+      }),
       headers: { "content-type": "application/json" },
     });
 
@@ -92,13 +94,21 @@ describe("POST /api/reader/onboarding", () => {
     const req = new Request("http://localhost/api/reader/onboarding", {
       method: "POST",
       body: JSON.stringify({
-        genres: ["genre-1", "genre-2"],
+        genres: [
+          "00000000-0000-4000-8000-000000000001",
+          "00000000-0000-4000-8000-000000000002",
+        ],
         preferences: {
           fiction_ratio: 0.7,
           reading_speed: 320,
           languages: ["sv", "en"],
         },
-        bookSignals: [{ bookId: "book-1", signal: "like" }],
+        bookSignals: [
+          {
+            bookId: "00000000-0000-4000-8000-0000000000aa",
+            signal: "like",
+          },
+        ],
       }),
       headers: { "content-type": "application/json" },
     });

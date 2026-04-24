@@ -13,7 +13,7 @@ import {
   upsertBillingAccount,
   type BillingAccountPatch,
 } from "@/lib/billing/server";
-import { getActiveRoleFromRequest } from "@/lib/active-role";
+import { resolveBillingRole } from "@/lib/auth/billing-role";
 import { createPerUserRateLimiter } from "@/lib/rate-limit";
 import {
   apiError,
@@ -90,10 +90,8 @@ export async function POST(request: Request) {
     return apiError(E_RATE_LIMIT_EXCEEDED, 429, { retryAfterSeconds: rl.retryAfterSeconds });
   }
 
-  const role = getActiveRoleFromRequest(request);
-  if (!role) {
-    return apiError(E_FORBIDDEN, 403);
-  }
+  // The POST path derives the role from the Stripe session's price ids later
+  // (`resolved.role`); no need to consult the cookie here.
 
   let sessionId: string | null = null;
   try {
@@ -177,10 +175,7 @@ export async function GET(request: Request) {
     return apiError(E_UNAUTHORIZED, 401);
   }
 
-  const role = getActiveRoleFromRequest(request);
-  if (!role) {
-    return apiError(E_FORBIDDEN, 403);
-  }
+  const role = await resolveBillingRole(request, user.id);
 
   const admin = createAdminClient();
   const { row, error } = await getBillingAccountByUserIdAndRole(admin, user.id, role);

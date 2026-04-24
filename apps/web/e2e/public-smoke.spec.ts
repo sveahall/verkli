@@ -14,7 +14,7 @@ test.describe("public pages load without auth", () => {
     });
     expect(res?.status()).toBeLessThan(500);
     await expect(page.locator("body")).not.toBeEmpty();
-    await expect(page.getByRole("heading", { name: "Find your next read" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Discover books" })).toBeVisible();
   });
 
   test("/donation success + cancel pages load", async ({ page }) => {

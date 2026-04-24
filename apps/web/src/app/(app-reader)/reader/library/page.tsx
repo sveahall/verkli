@@ -38,22 +38,33 @@ export default async function ReaderLibraryPage() {
     redirect("/reader/signin");
   }
 
+  // Hard caps so a power user's reading history doesn't ship thousands of
+  // rows to every /reader/library render. The library page only shows the
+  // most recent items anyway — the previous unbounded scan regressed badly
+  // once someone had a few hundred opened books.
+  const LIBRARY_MAX_READINGS = 200;
+  const LIBRARY_MAX_BOOKMARKS = 200;
+  const LIBRARY_MAX_ENTITLEMENTS = 200;
+
   const [{ data: readingsRows }, { data: bookmarkRows }, { data: entitlementRows }] =
     await Promise.all([
       supabase
         .from("readings")
         .select("book_id, chapter_id, progress_percent, last_read_at")
         .eq("user_id", user.id)
-        .order("last_read_at", { ascending: false }),
+        .order("last_read_at", { ascending: false })
+        .limit(LIBRARY_MAX_READINGS),
       supabase
         .from("bookmarks")
         .select("book_id")
-        .eq("user_id", user.id),
+        .eq("user_id", user.id)
+        .limit(LIBRARY_MAX_BOOKMARKS),
       supabase
         .from("entitlements" as never)
         .select("book_id")
         .eq("user_id", user.id)
-        .eq("source", "purchase"),
+        .eq("source", "purchase")
+        .limit(LIBRARY_MAX_ENTITLEMENTS),
     ]);
 
   const readings = readingsRows ?? [];

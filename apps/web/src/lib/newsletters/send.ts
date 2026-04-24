@@ -1,6 +1,36 @@
 import { Resend } from "resend";
 import { getServerEnv } from "@/lib/env";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { createUnsubscribeToken } from "@/lib/newsletters/unsubscribe-token";
+
+function getUnsubscribeBaseUrl(): string {
+  const base =
+    process.env.NEXT_PUBLIC_SITE_URL?.trim() ||
+    process.env.NEXT_PUBLIC_APP_URL?.trim() ||
+    "";
+  if (!base) {
+    throw new Error(
+      "Cannot render unsubscribe URL: set NEXT_PUBLIC_SITE_URL (or NEXT_PUBLIC_APP_URL)"
+    );
+  }
+  return base.endsWith("/") ? base.slice(0, -1) : base;
+}
+
+function buildUnsubscribeUrl(authorId: string, subscriberUserId: string): string {
+  const token = createUnsubscribeToken(authorId, subscriberUserId);
+  const base = getUnsubscribeBaseUrl();
+  return `${base}/api/newsletters/unsubscribe?token=${encodeURIComponent(token)}`;
+}
+
+function renderUnsubscribeFooter(unsubscribeUrl: string): string {
+  return (
+    `<hr style="margin:32px 0;border:none;border-top:1px solid #e5e7eb" />` +
+    `<p style="color:#64748b;font-size:12px;line-height:1.5;margin:0">` +
+    `You received this email because you subscribed to this author's newsletter. ` +
+    `<a href="${unsubscribeUrl}" style="color:#64748b;text-decoration:underline">Unsubscribe</a>.` +
+    `</p>`
+  );
+}
 
 /** Allowed HTML tags for newsletter content. */
 const ALLOWED_TAGS = new Set([
@@ -56,6 +86,12 @@ type SubscriberRow = {
   profiles: { email: string | null; display_name: string | null } | null;
 };
 
+type RecipientWithIdentity = {
+  email: string;
+  name: string | undefined;
+  subscriberUserId: string;
+};
+
 type NewsletterRow = {
   id: string;
   author_id: string;
@@ -105,14 +141,19 @@ export async function sendNewsletter(
 
   const rows = (subscribers ?? []) as unknown as SubscriberRow[];
 
-  // Filter to subscribers that have an email
-  const emails = rows
+  // Filter to subscribers that have an email, keeping the subscriber id so we
+  // can produce a signed per-recipient unsubscribe URL.
+  const emails: RecipientWithIdentity[] = rows
     .map((r) => {
       const profile = r.profiles;
       if (!profile || !profile.email) return null;
-      return { email: profile.email, name: profile.display_name ?? undefined };
+      return {
+        email: profile.email,
+        name: profile.display_name ?? undefined,
+        subscriberUserId: r.subscriber_user_id,
+      };
     })
-    .filter((e): e is { email: string; name: string | undefined } => e !== null);
+    .filter((e): e is RecipientWithIdentity => e !== null);
 
   if (emails.length === 0) {
     // Mark as sent with 0 recipients
@@ -132,16 +173,30 @@ export async function sendNewsletter(
   const resend = new Resend(env.RESEND_API_KEY);
 
   // C1: Server-side sanitize HTML to prevent XSS in email delivery
-  const htmlBody = sanitizeNewsletterHtml(nl.body_html || "<p></p>");
+  const sanitizedHtml = sanitizeNewsletterHtml(nl.body_html || "<p></p>");
   const textBody = nl.body_text || "";
 
-  const batchMessages = emails.map((recipient) => ({
-    from: env.RESEND_FROM_EMAIL,
-    to: recipient.email,
-    subject: nl.subject,
-    html: htmlBody,
-    text: textBody,
-  }));
+  const batchMessages = emails.map((recipient) => {
+    const unsubscribeUrl = buildUnsubscribeUrl(nl.author_id, recipient.subscriberUserId);
+    const htmlForRecipient = sanitizedHtml + renderUnsubscribeFooter(unsubscribeUrl);
+    const textForRecipient =
+      textBody +
+      (textBody.length > 0 ? "\n\n" : "") +
+      `Unsubscribe: ${unsubscribeUrl}`;
+    return {
+      from: env.RESEND_FROM_EMAIL,
+      to: recipient.email,
+      subject: nl.subject,
+      html: htmlForRecipient,
+      text: textForRecipient,
+      // RFC 2369 / RFC 8058: let mail clients offer a one-click unsubscribe.
+      // Mandatory in practice for bulk senders to avoid spam classification.
+      headers: {
+        "List-Unsubscribe": `<${unsubscribeUrl}>`,
+        "List-Unsubscribe-Post": "List-Unsubscribe=One-Click",
+      },
+    };
+  });
 
   // Resend batch API supports up to 100 emails per call
   const BATCH_SIZE = 100;

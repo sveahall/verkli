@@ -97,6 +97,20 @@ export async function GET(
 
   const clubRow = club as ClubRow;
 
+  // Private clubs must only be readable by creator or members — do not leak
+  // name / description / members to arbitrary authenticated users.
+  if (!clubRow.is_public && clubRow.creator_id !== user.id) {
+    const { data: membership } = await supabase
+      .from("book_club_members" as never)
+      .select("user_id")
+      .eq("club_id", id)
+      .eq("user_id", user.id)
+      .maybeSingle();
+    if (!membership) {
+      return apiError(E_CLUB_NOT_FOUND, 404);
+    }
+  }
+
   const { data: members, error: membersError } = await supabase
     .from("book_club_members" as never)
     .select(MEMBER_SELECT)

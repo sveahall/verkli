@@ -80,7 +80,18 @@ export function resolveHighestPlanFromPriceIds(
 
 export const ACTIVE_SUBSCRIPTION_STATUSES = new Set(["active", "trialing"]);
 
-/** Plan to persist from webhook: only allow upgrade when status is active/trialing; otherwise do not raise (e.g. past_due/canceled). */
+/**
+ * Plan to persist from a webhook.
+ *
+ * Rules:
+ *  - status active/trialing: allow upgrade to max(derived, existing).
+ *  - any other status (past_due, unpaid, paused, incomplete, canceled, ...):
+ *    keep the existing plan untouched. A transient payment failure must
+ *    never silently demote a paying customer mid-retry.
+ *
+ * `customer.subscription.deleted` handles the "truly cancelled" case
+ * separately in `processSubscriptionEvent` (plan cleared to null).
+ */
 export function planToPersist(
   derivedPlan: BillingPlan | null,
   derivedStatus: string | null,
@@ -89,6 +100,5 @@ export function planToPersist(
   const status = String(derivedStatus ?? "").trim().toLowerCase();
   const active = status.length > 0 && ACTIVE_SUBSCRIPTION_STATUSES.has(status);
   if (active) return higherPlan(derivedPlan, existingPlan);
-  if (rankPlan(derivedPlan) <= rankPlan(existingPlan)) return derivedPlan;
   return existingPlan;
 }

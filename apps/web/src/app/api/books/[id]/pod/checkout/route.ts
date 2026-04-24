@@ -22,6 +22,7 @@ import {
   E_INVALID_BOOK_ID,
   isValidUuid,
 } from "@/lib/api-errors";
+import { getRequestBaseUrl } from "@/lib/request-url";
 
 type PodBookRow = {
   id: string;
@@ -30,15 +31,6 @@ type PodBookRow = {
   status: string | null;
   print_on_demand_settings: unknown;
 };
-
-function getBaseUrl(request: Request): string {
-  const fromEnv = process.env.NEXT_PUBLIC_SITE_URL?.trim();
-  if (fromEnv) {
-    return fromEnv.endsWith("/") ? fromEnv.slice(0, -1) : fromEnv;
-  }
-  const url = new URL(request.url);
-  return `${url.protocol}//${url.host}`;
-}
 
 export async function POST(
   request: Request,
@@ -184,7 +176,7 @@ export async function POST(
   }
 
   const podOrderId = String((order as { id: string }).id);
-  const baseUrl = getBaseUrl(request);
+  const baseUrl = getRequestBaseUrl(request);
 
   try {
     await logAnalyticsEvent(admin, {

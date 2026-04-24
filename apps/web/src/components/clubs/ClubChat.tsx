@@ -37,7 +37,22 @@ export default function ClubChat({
   }, []);
 
   useEffect(() => {
-    scrollToBottom();
+    // Only auto-scroll if the user is already near the bottom of the chat.
+    // Otherwise they're reading backlog and a new message jerking the view
+    // to the bottom would be infuriating.
+    const anchor = bottomRef.current;
+    if (!anchor) return;
+    const scroller =
+      anchor.closest('[data-club-chat-scroll="true"]') ?? document.scrollingElement ?? document.documentElement;
+    if (!(scroller instanceof HTMLElement)) {
+      scrollToBottom();
+      return;
+    }
+    const distanceFromBottom =
+      scroller.scrollHeight - scroller.scrollTop - scroller.clientHeight;
+    if (distanceFromBottom < 200) {
+      scrollToBottom();
+    }
   }, [messages.length, scrollToBottom]);
 
   const fetchMessages = useCallback(async () => {

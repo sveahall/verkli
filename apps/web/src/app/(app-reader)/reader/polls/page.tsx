@@ -1,4 +1,6 @@
 import { redirect } from "next/navigation";
+import { PageHeader } from "@/components/ui/page-header";
+import EmptyState from "@/components/reader/EmptyState";
 import { createClient } from "@/lib/supabase/server";
 import { getPollsEnabled } from "@/lib/flags";
 import PollsPageClient from "./PollsPageClient";
@@ -25,7 +27,22 @@ type PollVoteRow = {
 
 export default async function ReaderPollsPage() {
   if (!getPollsEnabled()) {
-    redirect("/reader/library");
+    // Prefer a neutral empty state over a silent redirect: a deep-linked
+    // bookmark to /reader/polls should land the user on something that
+    // explains the feature state, not bounce them to the library.
+    return (
+      <div className="section-gap">
+        <PageHeader
+          eyebrow="Community"
+          title="Polls"
+          description="Vote in active polls from authors you follow."
+        />
+        <EmptyState
+          title="Polls are not available yet"
+          description="We're still rolling polls out. Check back soon."
+        />
+      </div>
+    );
   }
 
   const supabase = await createClient();

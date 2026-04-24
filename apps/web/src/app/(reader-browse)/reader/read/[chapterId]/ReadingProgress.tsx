@@ -14,6 +14,10 @@ import { useEffect } from "react";
 import { createClient } from "@/lib/supabase/client";
 
 const STORAGE_KEY_PREFIX = "verkli_reading_";
+// Debounce upserts so a scrolling reader doesn't fire hundreds of Supabase
+// writes — previous behaviour wrote on every progress-percent change which
+// can easily be 100+/minute on a long chapter.
+const PERSIST_DEBOUNCE_MS = 2000;
 
 type Props = {
   bookId: string;
@@ -31,37 +35,40 @@ export default function ReadingProgress({
   userId,
 }: Props) {
   useEffect(() => {
-    const persist = async () => {
-      if (userId) {
-        const supabase = createClient();
-        const { error } = await supabase.from("readings").upsert(
-          {
-            user_id: userId,
-            book_id: bookId,
-            chapter_id: chapterId,
-            progress_percent: progressPercent,
-            updated_at: new Date().toISOString(),
-          },
-          { onConflict: "user_id,book_id" },
-        );
+    const handle = setTimeout(() => {
+      void (async () => {
+        if (userId) {
+          const supabase = createClient();
+          const { error } = await supabase.from("readings").upsert(
+            {
+              user_id: userId,
+              book_id: bookId,
+              chapter_id: chapterId,
+              progress_percent: progressPercent,
+              updated_at: new Date().toISOString(),
+            },
+            { onConflict: "user_id,book_id" },
+          );
 
-        if (error) {
-          console.error("[ReadingProgress] upsert failed", {
-            code: error.code,
-            message: error.message,
-            details: error.details,
-          });
+          if (error) {
+            console.error("[ReadingProgress] upsert failed", {
+              code: error.code,
+              message: error.message,
+              details: error.details,
+            });
+          }
+        } else {
+          try {
+            const payload = { chapterId, progressPercent, updatedAt: Date.now() };
+            localStorage.setItem(`${STORAGE_KEY_PREFIX}${bookId}`, JSON.stringify(payload));
+          } catch {
+            /* quota exceeded — ignore */
+          }
         }
-      } else {
-        try {
-          const payload = { chapterId, progressPercent, updatedAt: Date.now() };
-          localStorage.setItem(`${STORAGE_KEY_PREFIX}${bookId}`, JSON.stringify(payload));
-        } catch {
-          /* quota exceeded — ignore */
-        }
-      }
-    };
-    persist();
+      })();
+    }, PERSIST_DEBOUNCE_MS);
+
+    return () => clearTimeout(handle);
   }, [bookId, chapterId, currentChapter, progressPercent, userId]);
 
   return null;

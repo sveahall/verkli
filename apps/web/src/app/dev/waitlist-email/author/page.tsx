@@ -1,8 +1,12 @@
+import { notFound } from "next/navigation";
 import { buildWaitlistHtml } from "@/lib/emails/waitlist-confirmation";
 
 const EXAMPLE_EMAIL = "preview@example.com";
 
 export default function AuthorWaitlistEmailPreviewPage() {
+  if (process.env.NODE_ENV === "production") {
+    notFound();
+  }
   const html = buildWaitlistHtml({
     variant: "author",
     email: EXAMPLE_EMAIL,

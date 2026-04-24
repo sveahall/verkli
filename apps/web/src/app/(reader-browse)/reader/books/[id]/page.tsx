@@ -651,7 +651,22 @@ export default async function ReaderBookDetail({
         notices={notices}
         actionBar={actionBar}
         utilityBar={utilityBar}
-        trailerSection={null}
+        trailerSection={
+          book.trailer_url ? (
+            <section className="mx-auto mt-6 max-w-[1100px] px-6">
+              <div className="overflow-hidden rounded-[28px] border border-slate-200/80 bg-black/5 shadow-[0_20px_50px_rgba(15,23,42,0.08)] dark:border-white/10 dark:bg-black/30">
+                <video
+                  src={book.trailer_url}
+                  controls
+                  playsInline
+                  preload="metadata"
+                  poster={book.cover_image || undefined}
+                  className="h-auto w-full"
+                />
+              </div>
+            </section>
+          ) : null
+        }
         editionNotes={editionNotes}
         chaptersSection={chapterRows}
         podSection={podSection}

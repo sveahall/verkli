@@ -373,6 +373,9 @@ export async function createBook(
       bookId: book.id,
       message: versionError?.message,
     });
+    // Roll the orphan `books` row back manually. Without this, every failed
+    // create accumulates an "Untitled" phantom in the author's library.
+    await rollbackPartialCreate(supabase, book.id, null);
     return { ok: false, error: "version_creation_failed" };
   }
 
@@ -389,10 +392,36 @@ export async function createBook(
       bookId: book.id,
       message: chapterError.message,
     });
+    await rollbackPartialCreate(supabase, book.id, version.id);
     return { ok: false, error: "default_chapter_creation_failed" };
   }
 
   return { ok: true, data: { bookId: book.id, versionId: version.id } };
+}
+
+/**
+ * Best-effort cleanup when createBook fails after the books/book_versions
+ * insert. We cannot run a real transaction without an RPC, so we roll back
+ * the rows we just created so the author doesn't end up with a stuck
+ * half-book.
+ */
+async function rollbackPartialCreate(
+  supabase: SupabaseClient,
+  bookId: string,
+  versionId: string | null,
+): Promise<void> {
+  try {
+    if (versionId) {
+      await supabase.from("book_versions").delete().eq("id", versionId);
+    }
+    await supabase.from("books").delete().eq("id", bookId);
+  } catch (err) {
+    console.error("[books/service.createBook] rollback failed", {
+      bookId,
+      versionId,
+      message: err instanceof Error ? err.message : String(err),
+    });
+  }
 }
 
 // ---------------------------------------------------------------------------

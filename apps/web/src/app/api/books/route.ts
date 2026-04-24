@@ -26,21 +26,38 @@ export async function POST(request: Request) {
   const { user, response } = await requireAuthorRoleForApi();
   if (response) return response;
 
-  // Validation
+  // Validation — hard caps on user-controlled strings so a bad client can't
+  // insert 1 MB titles or descriptions into the DB.
+  const MAX_TITLE_LEN = 200;
+  const MAX_DESCRIPTION_LEN = 4000;
+  const MAX_URL_LEN = 2048;
   const body = await request.json().catch(() => ({}));
-  const title = String(body?.title ?? "Untitled").trim() || "Untitled";
-  const description = body?.description != null ? String(body.description).trim() || null : null;
+  const rawTitle = String(body?.title ?? "Untitled").trim();
+  const title = (rawTitle || "Untitled").slice(0, MAX_TITLE_LEN);
+  const description =
+    body?.description != null
+      ? (String(body.description).trim() || "").slice(0, MAX_DESCRIPTION_LEN) || null
+      : null;
   const language = normalizeLanguage(body?.language);
-  const original_source = body?.original_source != null ? String(body.original_source).trim() || null : null;
-  const original_url = body?.original_url != null ? String(body.original_url).trim() || null : null;
+  const original_source =
+    body?.original_source != null
+      ? (String(body.original_source).trim() || "").slice(0, 100) || null
+      : null;
+  const original_url =
+    body?.original_url != null
+      ? (String(body.original_url).trim() || "").slice(0, MAX_URL_LEN) || null
+      : null;
 
+  // Add a short random suffix so two rapid POSTs with the same title in the
+  // same millisecond don't collide on `slug` (unique constraint).
+  const slugSuffix = `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`;
   const slug =
     title
       .toLowerCase()
       .replace(/[^a-z0-9]+/g, "-")
       .replace(/(^-|-$)/g, "") +
     "-" +
-    Date.now();
+    slugSuffix;
 
   // Service call
   const supabase = await createClient();

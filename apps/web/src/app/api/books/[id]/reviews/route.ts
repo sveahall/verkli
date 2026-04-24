@@ -460,3 +460,46 @@ export async function PATCH(
     }),
   });
 }
+
+export async function DELETE(
+  _request: Request,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  const parsedParams = paramsSchema.safeParse(await params);
+  if (!parsedParams.success) return apiError(E_INVALID_BOOK_ID, 400);
+  const bookId = parsedParams.data.id;
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) return apiError(E_NOT_AUTHENTICATED, 401);
+
+  const rl = await reviewLimiter.check(user.id);
+  if (!rl.allowed) return apiError(E_RATE_LIMIT_EXCEEDED, 429, { retryAfterSeconds: rl.retryAfterSeconds });
+
+  const { data: deleted, error } = await supabase
+    .from("reviews")
+    .delete()
+    .eq("book_id", bookId)
+    .eq("user_id", user.id)
+    .select("id")
+    .maybeSingle();
+
+  if (error) {
+    console.error("[reviews] delete failed", {
+      bookId,
+      userId: user.id,
+      message: error.message,
+      code: error.code,
+    });
+    return apiError(E_DATABASE_ERROR, 500);
+  }
+
+  if (!deleted) {
+    return apiError(E_REVIEW_NOT_FOUND, 404);
+  }
+
+  return NextResponse.json({ ok: true });
+}

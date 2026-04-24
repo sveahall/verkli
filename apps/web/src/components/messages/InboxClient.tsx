@@ -8,6 +8,7 @@ import { useToastHelpers } from "@/components/ui/toast";
 import { resolveErrorMessage } from "@/lib/error-messages";
 import { useDocumentVisible } from "@/hooks/useDocumentVisible";
 import { cn } from "@/lib/utils";
+import { createClient as createSupabaseBrowserClient } from "@/lib/supabase/client";
 
 type MessagingRole = "author" | "reader";
 type ConversationStatus = "request" | "accepted" | "blocked";
@@ -60,7 +61,11 @@ type InboxClientProps = {
   initialConversationId?: string | null;
 };
 
-const POLL_INTERVAL_MS = 5000;
+// Realtime drives live updates (<1s). Polling stays as a fallback for flaky
+// connections; interval is long because realtime handles the common case.
+const POLL_INTERVAL_MS = 30000;
+// Debounce realtime bursts so a flood of INSERTs triggers a single refresh.
+const REALTIME_REFRESH_DEBOUNCE_MS = 250;
 
 function formatTime(value: string | null): string {
   if (!value) return "";
@@ -274,6 +279,64 @@ export default function InboxClient({ mode, initialConversationId = null }: Inbo
 
     return () => clearInterval(timer);
   }, [isVisible, loadConversation, refreshLists, selectedConversationId]);
+
+  // Supabase Realtime: subscribe to message + conversation changes so the inbox
+  // updates instantly. RLS scopes events to rows this user can see, so we can
+  // listen broadly and rely on the server filter. Falls back to polling above.
+  useEffect(() => {
+    if (!viewerId) return;
+
+    const supabase = createSupabaseBrowserClient();
+    let debounceListsTimer: ReturnType<typeof setTimeout> | null = null;
+    let debounceConversationTimer: ReturnType<typeof setTimeout> | null = null;
+    const scheduleListsRefresh = () => {
+      if (debounceListsTimer) return;
+      debounceListsTimer = setTimeout(() => {
+        debounceListsTimer = null;
+        void refreshLists({ silent: true });
+      }, REALTIME_REFRESH_DEBOUNCE_MS);
+    };
+    const scheduleConversationRefresh = (conversationId: string | null) => {
+      if (!conversationId) return;
+      if (debounceConversationTimer) return;
+      debounceConversationTimer = setTimeout(() => {
+        debounceConversationTimer = null;
+        void loadConversation(conversationId, { silent: true });
+      }, REALTIME_REFRESH_DEBOUNCE_MS);
+    };
+
+    const channel = supabase
+      .channel(`inbox:${viewerId}`)
+      .on(
+        "postgres_changes",
+        { event: "INSERT", schema: "public", table: "messages" },
+        (payload) => {
+          const conversationId =
+            (payload.new as { conversation_id?: string } | null)?.conversation_id ?? null;
+          scheduleListsRefresh();
+          if (conversationId && conversationId === selectedConversationId) {
+            scheduleConversationRefresh(conversationId);
+          }
+        }
+      )
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "conversations" },
+        () => {
+          scheduleListsRefresh();
+          if (selectedConversationId) {
+            scheduleConversationRefresh(selectedConversationId);
+          }
+        }
+      )
+      .subscribe();
+
+    return () => {
+      if (debounceListsTimer) clearTimeout(debounceListsTimer);
+      if (debounceConversationTimer) clearTimeout(debounceConversationTimer);
+      void supabase.removeChannel(channel);
+    };
+  }, [viewerId, selectedConversationId, refreshLists, loadConversation]);
 
   useEffect(() => {
     return () => {

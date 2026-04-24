@@ -100,6 +100,9 @@ describe("middleware author access", () => {
   });
 
   it("allows admin users on /author routes without redirect", async () => {
+    // Use a distinct user id so the in-middleware role cache from the
+    // previous test ("reader-1" → reader) does not leak into this one.
+    mockGetUser.mockResolvedValue({ data: { user: { id: "admin-1" } } });
     mockFrom.mockImplementation((table: string) => {
       if (table === "profiles") {
         return {

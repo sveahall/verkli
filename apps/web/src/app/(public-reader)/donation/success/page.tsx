@@ -14,7 +14,7 @@ export default function DonationSuccessPage() {
             href="/reader/home"
             className="rounded-lg bg-slate-900 px-4 py-2 text-sm font-medium text-white dark:bg-white dark:text-slate-900"
           >
-            Till reader home
+            Back to reader home
           </Link>
           <Link
             href="/reader/discover"

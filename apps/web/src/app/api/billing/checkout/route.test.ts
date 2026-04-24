@@ -9,7 +9,7 @@ const mocks = vi.hoisted(() => ({
   upsertBillingAccount: vi.fn(),
   createStripeCustomer: vi.fn(),
   createStripeSubscriptionCheckoutSession: vi.fn(),
-  getActiveRoleFromRequest: vi.fn(),
+  resolveBillingRole: vi.fn(),
 }));
 
 vi.mock("@/lib/supabase/server", () => ({ createClient: mocks.createClient }));
@@ -24,7 +24,9 @@ vi.mock("@/lib/payments/stripe-billing", () => ({
   createStripeCustomer: mocks.createStripeCustomer,
   createStripeSubscriptionCheckoutSession: mocks.createStripeSubscriptionCheckoutSession,
 }));
-vi.mock("@/lib/active-role", () => ({ getActiveRoleFromRequest: mocks.getActiveRoleFromRequest }));
+vi.mock("@/lib/auth/billing-role", () => ({
+  resolveBillingRole: mocks.resolveBillingRole,
+}));
 vi.mock("@/lib/rate-limit", () => ({
   createPerUserRateLimiter: () => ({
     check: () => ({ allowed: true }),
@@ -81,23 +83,36 @@ describe("POST /api/billing/checkout", () => {
     expect(res.status).toBe(400);
   });
 
-  it("returns 403 when no active role", async () => {
+  it("defaults to reader when no author-role claim present", async () => {
+    // Previously returned 403; the route now always resolves an effective
+    // billing role (reader by default) so the user gets a signable checkout
+    // session instead of being locked out when the cookie is missing.
     mockAuthedUser();
     mocks.parseBillingPlan.mockReturnValue("plus");
-    mocks.getActiveRoleFromRequest.mockReturnValue(null);
+    mocks.resolveBillingRole.mockResolvedValue("reader");
+    mocks.getPriceIdForRolePlan.mockResolvedValue("price_123");
+    mocks.createAdminClient.mockReturnValue({});
+    mocks.getBillingAccountByUserIdAndRole.mockResolvedValue({
+      row: { stripe_customer_id: "cus_existing" },
+      error: null,
+    });
+    mocks.createStripeSubscriptionCheckoutSession.mockResolvedValue({
+      url: "https://checkout.stripe.com/session_reader",
+    });
     const req = new Request("http://localhost/api/billing/checkout", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ plan: "plus" }),
     });
     const res = await POST(req);
-    expect(res.status).toBe(403);
+    expect(res.status).toBe(200);
+    expect(mocks.resolveBillingRole).toHaveBeenCalled();
   });
 
   it("returns checkout URL on success", async () => {
     mockAuthedUser();
     mocks.parseBillingPlan.mockReturnValue("plus");
-    mocks.getActiveRoleFromRequest.mockReturnValue("reader");
+    mocks.resolveBillingRole.mockResolvedValue("reader");
     mocks.getPriceIdForRolePlan.mockResolvedValue("price_123");
     mocks.createAdminClient.mockReturnValue({});
     mocks.getBillingAccountByUserIdAndRole.mockResolvedValue({
@@ -122,7 +137,7 @@ describe("POST /api/billing/checkout", () => {
   it("creates new Stripe customer when none exists", async () => {
     mockAuthedUser();
     mocks.parseBillingPlan.mockReturnValue("plus");
-    mocks.getActiveRoleFromRequest.mockReturnValue("reader");
+    mocks.resolveBillingRole.mockResolvedValue("reader");
     mocks.getPriceIdForRolePlan.mockResolvedValue("price_123");
     mocks.createAdminClient.mockReturnValue({});
     mocks.getBillingAccountByUserIdAndRole.mockResolvedValue({

@@ -10,19 +10,11 @@ import {
   E_RATE_LIMIT_EXCEEDED,
 } from "@/lib/api-errors";
 import { createPerUserRateLimiter } from "@/lib/rate-limit";
+import { getRequestBaseUrl } from "@/lib/request-url";
 
 const checkoutLimiter = createPerUserRateLimiter({ maxPerMinute: 5 });
 
 export const runtime = "nodejs";
-
-function getBaseUrl(request: Request): string {
-  const fromEnv = process.env.NEXT_PUBLIC_SITE_URL?.trim();
-  if (fromEnv) {
-    return fromEnv.endsWith("/") ? fromEnv.slice(0, -1) : fromEnv;
-  }
-  const url = new URL(request.url);
-  return `${url.protocol}//${url.host}`;
-}
 
 function toPositiveInt(value: unknown): number {
   if (typeof value !== "number" || !Number.isFinite(value)) return 0;
@@ -30,6 +22,9 @@ function toPositiveInt(value: unknown): number {
 }
 
 function isDonationCheckoutMockModeEnabled(): boolean {
+  // Mock mode MUST be restricted to development to avoid handing out
+  // "success" URLs without a real Stripe session in production.
+  if (process.env.NODE_ENV === "production") return false;
   return process.env.DONATION_CHECKOUT_MOCK_MODE === "true";
 }
 
@@ -42,7 +37,7 @@ export async function POST(request: Request) {
       ? body.currency.trim().toUpperCase()
       : "SEK";
 
-  const baseUrl = getBaseUrl(request);
+  const baseUrl = getRequestBaseUrl(request);
 
   if (isDonationCheckoutMockModeEnabled()) {
     if (amountMinor <= 0) {

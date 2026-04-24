@@ -25,12 +25,18 @@ function formatConcatPath(filePath: string): string {
   return filePath.replace(/'/g, "'\\''");
 }
 
+const SCENE_DOWNLOAD_TIMEOUT_MS = 60_000;
+
 async function downloadSceneVideoToFile(
   sceneUrl: string,
   outputPath: string,
   index: number
 ): Promise<void> {
-  const response = await fetch(sceneUrl);
+  // A hung provider host would otherwise pin a BullMQ worker slot
+  // indefinitely — bound every external download.
+  const response = await fetch(sceneUrl, {
+    signal: AbortSignal.timeout(SCENE_DOWNLOAD_TIMEOUT_MS),
+  });
   if (!response.ok) {
     throw new Error(
       `[trailer build] scene ${index} download failed with status ${response.status}.`

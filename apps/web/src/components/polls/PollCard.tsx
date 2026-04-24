@@ -42,9 +42,19 @@ export default function PollCard({
   const [error, setError] = useState<string | null>(null);
   const [results, setResults] = useState<ResultOption[] | null>(null);
   const [totalVotes, setTotalVotes] = useState(0);
+  // Whether the poll is closed by time is computed client-side after mount.
+  // Reading `new Date()` during render would produce different SSR/CSR
+  // output near the close boundary and trigger a hydration warning.
+  const [closedByTime, setClosedByTime] = useState(false);
+  useEffect(() => {
+    if (!closesAt) return;
+    const update = () => setClosedByTime(new Date(closesAt) < new Date());
+    update();
+    const interval = setInterval(update, 30_000);
+    return () => clearInterval(interval);
+  }, [closesAt]);
 
-  const isClosed =
-    !isActive || (closesAt && new Date(closesAt) < new Date());
+  const isClosed: boolean = !isActive || closedByTime;
 
   // Load results when user has voted or poll is closed
   const loadResults = useCallback(async () => {

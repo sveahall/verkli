@@ -1,4 +1,6 @@
 import { redirect } from "next/navigation";
+import { PageHeader } from "@/components/ui/page-header";
+import EmptyState from "@/components/reader/EmptyState";
 import { createClient } from "@/lib/supabase/server";
 import { getBookClubsEnabled } from "@/lib/flags";
 import ClubsPageClient from "./ClubsPageClient";
@@ -17,7 +19,19 @@ export type ClubRow = {
 
 export default async function ClubsPage() {
   if (!getBookClubsEnabled()) {
-    redirect("/reader/library");
+    return (
+      <div className="section-gap">
+        <PageHeader
+          eyebrow="Community"
+          title="Book clubs"
+          description="Read together with other readers."
+        />
+        <EmptyState
+          title="Book clubs are not available yet"
+          description="We're still rolling clubs out. Check back soon."
+        />
+      </div>
+    );
   }
 
   const supabase = await createClient();

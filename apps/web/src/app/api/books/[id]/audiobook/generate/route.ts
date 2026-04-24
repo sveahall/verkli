@@ -8,6 +8,7 @@ import { requireAuthorRoleForApi } from "@/lib/auth/require-author";
 import { requireProBillingForApi } from "@/lib/billing/server";
 import { enqueueAudiobookJob } from "@/lib/audiobook-queue";
 import { getStripeCheckoutSession } from "@/lib/payments/stripe";
+import { claimStripeSessionRedemption } from "@/lib/payments/session-redemption";
 import {
   apiError,
   E_AUDIOBOOK_FEATURE_DISABLED,
@@ -185,6 +186,9 @@ export async function POST(
       ? body.stripeSessionId.trim()
       : null;
 
+  const supabase = await createClient();
+  const admin = createAdminClient();
+
   let paidViaStripe = false;
   if (stripeSessionId) {
     try {
@@ -196,7 +200,23 @@ export async function POST(
         meta.user_id === user.id &&
         meta.book_id === bookId
       ) {
-        paidViaStripe = true;
+        // Atomic one-time claim so the same paid session cannot unlock
+        // repeated audiobook generations.
+        try {
+          paidViaStripe = await claimStripeSessionRedemption(admin, {
+            sessionId: stripeSessionId,
+            kind: "audiobook",
+            userId: user.id,
+            bookId,
+          });
+        } catch (error) {
+          console.error("[audiobook generate] redemption claim failed", {
+            stripeSessionId,
+            userId: user.id,
+            bookId,
+            message: error instanceof Error ? error.message : String(error),
+          });
+        }
       }
     } catch (error) {
       console.warn("[audiobook generate] stripe session verification failed", {
@@ -212,9 +232,6 @@ export async function POST(
     const proGate = await requireProBillingForApi(user.id);
     if (!proGate.ok) return proGate.response;
   }
-
-  const supabase = await createClient();
-  const admin = createAdminClient();
 
   // Fetch book with versions
   const { data: book, error: bookFetchError } = await supabase

@@ -19,7 +19,15 @@ type ChapterPlaybackErrorResponse = {
 };
 
 const LOADING_INDICATOR_DELAY_MS = 150;
-const READY_AUDIOBOOK_STATUSES = new Set(["published", "generated", "completed"]);
+// Keep in sync with the audiobook worker's terminal-success vocabulary.
+// The worker and the author library also emit "ready" — without it the
+// reader player silently refuses to fetch newly-rendered audiobooks.
+const READY_AUDIOBOOK_STATUSES = new Set([
+  "published",
+  "generated",
+  "completed",
+  "ready",
+]);
 
 export default function ChapterAudiobookPlayer({
   bookId,
