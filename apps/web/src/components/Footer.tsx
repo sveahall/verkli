@@ -36,7 +36,7 @@ export default function Footer({ variant = "reader" }: { variant?: FooterVariant
           <ul className={columnLinkClass}>
             <li><Link href="/reader/discover" className={linkClass}>Discover</Link></li>
             <li><Link href="/reader/signin" className={linkClass}>Sign in</Link></li>
-            <li><Link href="/reader/membership" className={linkClass}>Membership</Link></li>
+            <li><Link href="/pricing" className={linkClass}>Membership</Link></li>
           </ul>
         </div>
         <div className="space-y-4">
