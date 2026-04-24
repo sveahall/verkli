@@ -4,7 +4,7 @@ import EmptyState from "@/components/reader/EmptyState";
 // The feed is not a real product surface yet — links from older promos used
 // to land here and be silently redirected to /reader/home, which meant the
 // user could never tell whether the feature existed or where their bookmark
-// went. Render an honest "coming soon" state instead.
+// went. Render an honest not-yet-live state instead.
 export default function ReaderFeedPage() {
   return (
     <div className="section-gap">
