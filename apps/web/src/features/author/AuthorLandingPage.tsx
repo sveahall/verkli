@@ -116,7 +116,7 @@ function LandingPage() {
               {/* Headline */}
               <h1 className="hero-animate max-w-[820px] text-[clamp(48px,6.5vw,88px)] font-semibold leading-[0.94] tracking-[-0.05em] text-slate-900 dark:text-white" style={{ animationDelay: "180ms" }}>
                 Write once.<br />
-                <span className="bg-[linear-gradient(110deg,#6f58df_0%,#907AFF_55%,#c894e6_100%)] bg-clip-text text-transparent">
+                <span className="bg-[linear-gradient(110deg,#907AFF_0%,#E29ED5_55%,#FCC997_100%)] bg-clip-text text-transparent">
                   Show up everywhere.
                 </span>
               </h1>
