@@ -82,11 +82,12 @@ export default function ThemeToggle({
 
   // Fixed placeholder: identical on server and first client render to avoid hydration mismatch
   // (parent className can differ by build/cache; never use it until mounted).
+  // Default size 44px (min touch target). Parent can override via className.
   const placeholderClass =
-    "flex h-9 w-9 items-center justify-center rounded-full border border-slate-200/80 bg-white/90 text-slate-700 shadow-sm";
+    "flex h-11 w-11 items-center justify-center rounded-full border border-slate-200/80 bg-white/90 text-slate-700 shadow-sm";
 
   const buttonClass =
-    `flex h-9 w-9 items-center justify-center rounded-full bg-transparent text-slate-700 transition-colors hover:text-slate-900 dark:border-white/10 dark:text-white/80 dark:hover:text-white ${className}`.trim();
+    `flex h-11 w-11 items-center justify-center rounded-full bg-transparent text-slate-700 transition-colors hover:text-slate-900 dark:border-white/10 dark:text-white/80 dark:hover:text-white ${className}`.trim();
 
   if (!mounted) {
     return (
