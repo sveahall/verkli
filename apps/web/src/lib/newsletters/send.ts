@@ -1,4 +1,5 @@
 import { Resend } from "resend";
+import sanitizeHtml from "sanitize-html";
 import { getServerEnv } from "@/lib/env";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createUnsubscribeToken } from "@/lib/newsletters/unsubscribe-token";
@@ -32,53 +33,52 @@ function renderUnsubscribeFooter(unsubscribeUrl: string): string {
   );
 }
 
-/** Allowed HTML tags for newsletter content. */
-const ALLOWED_TAGS = new Set([
-  "p", "br", "b", "strong", "i", "em", "u", "s", "a", "ul", "ol", "li",
-  "h1", "h2", "h3", "h4", "h5", "h6", "blockquote", "pre", "code",
-  "img", "div", "span", "table", "thead", "tbody", "tr", "td", "th", "hr",
-]);
+// Parser-based sanitizer config. Email-safe allowlist of tags + attributes;
+// `sanitize-html` parses to a DOM tree (htmlparser2) so it doesn't fall over
+// on malformed/nested constructs the way a regex sweep can.
+const NEWSLETTER_SANITIZE_OPTIONS: sanitizeHtml.IOptions = {
+  allowedTags: [
+    "p", "br", "b", "strong", "i", "em", "u", "s", "a", "ul", "ol", "li",
+    "h1", "h2", "h3", "h4", "h5", "h6", "blockquote", "pre", "code",
+    "img", "div", "span", "table", "thead", "tbody", "tr", "td", "th", "hr",
+  ],
+  allowedAttributes: {
+    a: ["href", "title", "target", "rel"],
+    img: ["src", "alt", "title", "width", "height"],
+    "*": ["class", "style", "width", "height"],
+  },
+  allowedSchemes: ["http", "https", "mailto"],
+  allowedSchemesByTag: {
+    img: ["http", "https", "data"],
+  },
+  allowProtocolRelative: false,
+  // sanitize-html strips style attributes by default unless opted in. Keep
+  // them but constrain to safe declarations so newsletter authors can theme
+  // colors/spacing without smuggling `expression()` / `url(javascript:…)`.
+  allowedStyles: {
+    "*": {
+      color: [/^#[0-9a-fA-F]{3,8}$/, /^rgb\(/, /^rgba\(/, /^[a-zA-Z]+$/],
+      "background-color": [/^#[0-9a-fA-F]{3,8}$/, /^rgb\(/, /^rgba\(/, /^[a-zA-Z]+$/],
+      "text-align": [/^(left|right|center|justify)$/],
+      "font-size": [/^\d+(\.\d+)?(px|em|rem|%)$/],
+      "font-weight": [/^(normal|bold|\d{3})$/],
+      "line-height": [/^\d+(\.\d+)?(px|em|rem|%)?$/],
+      margin: [/^[\d\s.pxemr%-]+$/],
+      padding: [/^[\d\s.pxemr%-]+$/],
+      border: [/^[\d\s.pxemr%#a-fA-F-]+(solid|dashed|dotted)?[\d\s.pxemr%#a-fA-F-]*$/],
+      "border-radius": [/^\d+(\.\d+)?(px|em|rem|%)$/],
+    },
+  },
+  // Force-add rel="noopener noreferrer" on links so a compromised newsletter
+  // can't reach back into the email client's window in clients that respect it.
+  transformTags: {
+    a: sanitizeHtml.simpleTransform("a", { rel: "noopener noreferrer" }, true),
+  },
+  disallowedTagsMode: "discard",
+};
 
-const ALLOWED_ATTRS = new Set([
-  "href", "src", "alt", "title", "class", "style", "width", "height", "target", "rel",
-]);
-
-const DANGEROUS_TAGS_RE = /<(script|iframe|object|embed|form|input|textarea|button|select|style|link|meta|base|applet|svg|math)\b[^>]*>[\s\S]*?<\/\1\s*>/gi;
-const DANGEROUS_SELF_CLOSING_RE = /<(script|iframe|object|embed|form|input|textarea|button|select|style|link|meta|base|applet|svg|math)\b[^>]*\/?>/gi;
-const EVENT_HANDLER_RE = /\s+on[a-z]+\s*=\s*(?:"[^"]*"|'[^']*'|[^\s>]*)/gi;
-const DANGEROUS_URI_RE = /(href|src|action|formaction|xlink:href|data)\s*=\s*(?:"[^"]*javascript\s*:[^"]*"|'[^']*javascript\s*:[^']*')/gi;
-const DATA_URI_SCRIPT_RE = /(href|src)\s*=\s*(?:"[^"]*data\s*:[^"]*text\/html[^"]*"|'[^']*data\s*:[^']*text\/html[^']*')/gi;
-
-/**
- * Multi-pass regex sanitizer for newsletter HTML.
- * Strips dangerous tags, event handlers, and javascript: URIs.
- * Runs multiple passes to catch nested bypass attempts.
- */
 function sanitizeNewsletterHtml(html: string): string {
-  let result = html;
-
-  // Two passes to catch nested/malformed tags (e.g., <scr<script>ipt>)
-  for (let pass = 0; pass < 2; pass++) {
-    result = result
-      .replace(DANGEROUS_TAGS_RE, "")
-      .replace(DANGEROUS_SELF_CLOSING_RE, "")
-      .replace(EVENT_HANDLER_RE, " ")
-      .replace(DANGEROUS_URI_RE, "")
-      .replace(DATA_URI_SCRIPT_RE, "");
-  }
-
-  // Strip tags not in allowlist, and strip non-allowed attributes from allowed tags
-  result = result.replace(/<\/?([a-z][a-z0-9]*)\b([^>]*)>/gi, (match, tag, attrs) => {
-    if (!ALLOWED_TAGS.has(tag.toLowerCase())) return "";
-    // Strip non-allowed attributes
-    const cleanAttrs = (attrs as string).replace(
-      /\s+([a-z][a-z0-9-]*)\s*=\s*(?:"[^"]*"|'[^']*'|[^\s>]*)/gi,
-      (attrMatch, attrName) => ALLOWED_ATTRS.has(attrName.toLowerCase()) ? attrMatch : "",
-    );
-    return `<${match.startsWith("</") ? "/" : ""}${tag}${cleanAttrs}>`;
-  });
-
-  return result;
+  return sanitizeHtml(html, NEWSLETTER_SANITIZE_OPTIONS);
 }
 
 type SubscriberRow = {

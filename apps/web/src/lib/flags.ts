@@ -1,25 +1,28 @@
 /**
- * Feature flags – env-based. Used to hide UI sections and gate API routes.
- * Client: read NEXT_PUBLIC_* (available in browser).
- * Server/API: read same env; no NEXT_PUBLIC_ prefix needed for server-only checks.
+ * Feature flags – env-based.
  *
- * Default: "true" when unset so existing deploys keep behavior. Set to "false" to disable a feature.
+ * IMPORTANT: NEXT_PUBLIC_* env vars are baked into the JS bundle at `next build`
+ * time. Flipping any flag below requires a redeploy, NOT a runtime config change.
+ * Cohort-gated soft-launch protocol depends on this — see CEO plan §C2.
+ *
+ * Default behavior: when the env var is undefined, empty, or any non-truthy
+ * value, the flag is OFF. To enable a flag, set the env var to "true" or "1"
+ * EXPLICITLY in the deploy environment. There is no implicit-true behavior.
  */
 
 function parseBool(value: string | undefined): boolean {
-  if (value === undefined || value === "") return true;
-  return value.toLowerCase() === "true" || value === "1";
+  if (value === undefined || value === "") return false;
+  const v = value.toLowerCase();
+  return v === "true" || v === "1";
 }
 
-// ─── Client (NEXT_PUBLIC_*) – use in client components and server components ───
+// ─── Client (NEXT_PUBLIC_*) — read in client/server components ───
 export function getTranslationsEnabled(): boolean {
   return parseBool(process.env.NEXT_PUBLIC_TRANSLATIONS_ENABLED);
 }
 
 export function getAudiobookEnabled(): boolean {
-  const value = process.env.NEXT_PUBLIC_AUDIOBOOK_ENABLED;
-  if (value === undefined || value === "") return false;
-  return value.toLowerCase() === "true" || value === "1";
+  return parseBool(process.env.NEXT_PUBLIC_AUDIOBOOK_ENABLED);
 }
 
 export function getMarketingEnabled(): boolean {
@@ -31,111 +34,104 @@ export function getDiscoveryEnabled(): boolean {
 }
 
 export function getOfflineReadingEnabled(): boolean {
-  const value = process.env.NEXT_PUBLIC_OFFLINE_READING_ENABLED;
-  if (value === undefined || value === "") return false;
-  return value.toLowerCase() === "true" || value === "1";
-}
-
-// ─── Server/API – use in API routes and server-only code ───
-export function isTranslationsEnabled(): boolean {
-  return parseBool(process.env.NEXT_PUBLIC_TRANSLATIONS_ENABLED ?? process.env.TRANSLATIONS_ENABLED);
-}
-
-export function isAudiobookEnabled(): boolean {
-  const value = process.env.NEXT_PUBLIC_AUDIOBOOK_ENABLED ?? process.env.AUDIOBOOK_ENABLED;
-  if (value === undefined || value === "") return false;
-  return value.toLowerCase() === "true" || value === "1";
-}
-
-export function isMarketingEnabled(): boolean {
-  return parseBool(process.env.NEXT_PUBLIC_MARKETING_ENABLED ?? process.env.MARKETING_ENABLED);
-}
-
-export function isDiscoveryEnabled(): boolean {
-  return parseBool(process.env.NEXT_PUBLIC_DISCOVERY_ENABLED ?? process.env.DISCOVERY_ENABLED);
-}
-
-export function isOfflineReadingEnabled(): boolean {
-  const value = process.env.NEXT_PUBLIC_OFFLINE_READING_ENABLED ?? process.env.OFFLINE_READING_ENABLED;
-  if (value === undefined || value === "") return false;
-  return value.toLowerCase() === "true" || value === "1";
+  return parseBool(process.env.NEXT_PUBLIC_OFFLINE_READING_ENABLED);
 }
 
 export function getRecommendationsEnabled(): boolean {
-  const value = process.env.NEXT_PUBLIC_RECOMMENDATIONS_ENABLED;
-  if (value === undefined || value === "") return false;
-  return value.toLowerCase() === "true" || value === "1";
+  return parseBool(process.env.NEXT_PUBLIC_RECOMMENDATIONS_ENABLED);
 }
 
-// ─── Server/API – recommendations ───
-export function isRecommendationsEnabled(): boolean {
-  const value = process.env.NEXT_PUBLIC_RECOMMENDATIONS_ENABLED ?? process.env.RECOMMENDATIONS_ENABLED;
-  if (value === undefined || value === "") return false;
-  return value.toLowerCase() === "true" || value === "1";
-}
-
-// ─── Client – book clubs ───
 export function getBookClubsEnabled(): boolean {
-  const value = process.env.NEXT_PUBLIC_BOOK_CLUBS_ENABLED;
-  if (value === undefined || value === "") return false;
-  return value.toLowerCase() === "true" || value === "1";
+  return parseBool(process.env.NEXT_PUBLIC_BOOK_CLUBS_ENABLED);
 }
 
-// ─── Server/API – book clubs ───
-export function isBookClubsEnabled(): boolean {
-  const value = process.env.NEXT_PUBLIC_BOOK_CLUBS_ENABLED ?? process.env.BOOK_CLUBS_ENABLED;
-  if (value === undefined || value === "") return false;
-  return value.toLowerCase() === "true" || value === "1";
-}
-
-// ─── Server/API – social ───
-export function isSocialEnabled(): boolean {
-  const value = process.env.NEXT_PUBLIC_SOCIAL_ENABLED ?? process.env.SOCIAL_ENABLED;
-  if (value === undefined || value === "") return false;
-  return value.toLowerCase() === "true" || value === "1";
-}
-
-// ─── Client – polls ───
 export function getPollsEnabled(): boolean {
-  const value = process.env.NEXT_PUBLIC_POLLS_ENABLED;
-  if (value === undefined || value === "") return false;
-  return value.toLowerCase() === "true" || value === "1";
+  return parseBool(process.env.NEXT_PUBLIC_POLLS_ENABLED);
 }
 
-// ─── Server/API – polls ───
-export function isPollsEnabled(): boolean {
-  const value = process.env.NEXT_PUBLIC_POLLS_ENABLED ?? process.env.POLLS_ENABLED;
-  if (value === undefined || value === "") return false;
-  return value.toLowerCase() === "true" || value === "1";
-}
-
-// ─── Client – newsletters ───
 export function getNewslettersEnabled(): boolean {
-  const value = process.env.NEXT_PUBLIC_NEWSLETTERS_ENABLED;
-  if (value === undefined || value === "") return false;
-  return value.toLowerCase() === "true" || value === "1";
+  return parseBool(process.env.NEXT_PUBLIC_NEWSLETTERS_ENABLED);
 }
 
-// ─── Server/API – newsletters ───
-export function isNewslettersEnabled(): boolean {
-  const value = process.env.NEXT_PUBLIC_NEWSLETTERS_ENABLED ?? process.env.NEWSLETTERS_ENABLED;
-  if (value === undefined || value === "") return false;
-  return value.toLowerCase() === "true" || value === "1";
-}
-
-// ─── Client – AI writing assistant ───
 export function getAiChatEnabled(): boolean {
-  const value = process.env.NEXT_PUBLIC_AI_CHAT_ENABLED;
-  if (value === undefined || value === "") return false;
-  return value.toLowerCase() === "true" || value === "1";
+  return parseBool(process.env.NEXT_PUBLIC_AI_CHAT_ENABLED);
 }
 
-// ─── Server/API – AI writing assistant ───
+export function getFreemiumGateEnabled(): boolean {
+  return parseBool(process.env.NEXT_PUBLIC_FREEMIUM_GATE_ENABLED);
+}
+
+// ─── Server/API — also reads non-public fallback for server-only contexts ───
+export function isTranslationsEnabled(): boolean {
+  return parseBool(
+    process.env.NEXT_PUBLIC_TRANSLATIONS_ENABLED ?? process.env.TRANSLATIONS_ENABLED
+  );
+}
+
+export function isAudiobookEnabled(): boolean {
+  return parseBool(
+    process.env.NEXT_PUBLIC_AUDIOBOOK_ENABLED ?? process.env.AUDIOBOOK_ENABLED
+  );
+}
+
+export function isMarketingEnabled(): boolean {
+  return parseBool(
+    process.env.NEXT_PUBLIC_MARKETING_ENABLED ?? process.env.MARKETING_ENABLED
+  );
+}
+
+export function isDiscoveryEnabled(): boolean {
+  return parseBool(
+    process.env.NEXT_PUBLIC_DISCOVERY_ENABLED ?? process.env.DISCOVERY_ENABLED
+  );
+}
+
+export function isOfflineReadingEnabled(): boolean {
+  return parseBool(
+    process.env.NEXT_PUBLIC_OFFLINE_READING_ENABLED ?? process.env.OFFLINE_READING_ENABLED
+  );
+}
+
+export function isRecommendationsEnabled(): boolean {
+  return parseBool(
+    process.env.NEXT_PUBLIC_RECOMMENDATIONS_ENABLED ?? process.env.RECOMMENDATIONS_ENABLED
+  );
+}
+
+export function isBookClubsEnabled(): boolean {
+  return parseBool(
+    process.env.NEXT_PUBLIC_BOOK_CLUBS_ENABLED ?? process.env.BOOK_CLUBS_ENABLED
+  );
+}
+
+export function isSocialEnabled(): boolean {
+  return parseBool(
+    process.env.NEXT_PUBLIC_SOCIAL_ENABLED ?? process.env.SOCIAL_ENABLED
+  );
+}
+
+export function isPollsEnabled(): boolean {
+  return parseBool(
+    process.env.NEXT_PUBLIC_POLLS_ENABLED ?? process.env.POLLS_ENABLED
+  );
+}
+
+export function isNewslettersEnabled(): boolean {
+  return parseBool(
+    process.env.NEXT_PUBLIC_NEWSLETTERS_ENABLED ?? process.env.NEWSLETTERS_ENABLED
+  );
+}
+
 // Defaults OFF: every request is a billable LLM call, so opt-in explicitly via
 // env. When disabled the chat route returns deterministic template replies.
 export function isAiChatEnabled(): boolean {
-  const value = process.env.NEXT_PUBLIC_AI_CHAT_ENABLED ?? process.env.AI_CHAT_ENABLED;
-  if (value === undefined || value === "") return false;
-  return value.toLowerCase() === "true" || value === "1";
+  return parseBool(
+    process.env.NEXT_PUBLIC_AI_CHAT_ENABLED ?? process.env.AI_CHAT_ENABLED
+  );
 }
 
+export function isFreemiumGateEnabled(): boolean {
+  return parseBool(
+    process.env.NEXT_PUBLIC_FREEMIUM_GATE_ENABLED ?? process.env.FREEMIUM_GATE_ENABLED
+  );
+}

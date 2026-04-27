@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { requireAuthorRoleForApi } from "@/lib/auth/require-author";
-import { createAdminClient } from "@/lib/supabase/admin";
+import { createClient } from "@/lib/supabase/server";
 import {
   apiError,
   E_BOOK_NOT_FOUND,
@@ -22,9 +22,11 @@ export async function GET(
   const { id: bookId } = await params;
   if (!UUID_RE.test(bookId)) return apiError(E_INVALID_BOOK_ID, 400);
 
-  const admin = createAdminClient();
-
-  const { data: book, error } = await admin
+  // Books SELECT RLS allows author + visibility checks; the explicit
+  // `.eq("author_id", user.id)` filter still scopes the result to the
+  // owner, but RLS now provides defense-in-depth.
+  const supabase = await createClient();
+  const { data: book, error } = await supabase
     .from("books")
     .select("trailer_url, trailer_status")
     .eq("id", bookId)

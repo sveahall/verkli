@@ -44,7 +44,7 @@ describe("POST /api/referrals/generate", () => {
 
   it("returns existing code when user already has one", async () => {
     mockSupabaseWithUser();
-    mockAdminFrom.mockReturnValue({
+    mockFrom.mockReturnValue({
       select: () => ({
         eq: () => ({
           maybeSingle: () =>
@@ -63,7 +63,7 @@ describe("POST /api/referrals/generate", () => {
 
   it("generates and inserts new code when none exists", async () => {
     mockSupabaseWithUser();
-    mockAdminFrom.mockImplementation((table: string) => {
+    mockFrom.mockImplementation((table: string) => {
       if (table === "referral_codes") {
         return {
           select: () => ({
@@ -87,7 +87,7 @@ describe("POST /api/referrals/generate", () => {
   it("retries on unique constraint violation", async () => {
     mockSupabaseWithUser();
     let insertAttempts = 0;
-    mockAdminFrom.mockImplementation((table: string) => {
+    mockFrom.mockImplementation((table: string) => {
       if (table === "referral_codes") {
         return {
           select: () => ({

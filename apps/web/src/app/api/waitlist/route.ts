@@ -12,64 +12,19 @@ import {
   E_GENERIC_ERROR,
   E_WAITLIST_ADD_FAILED,
 } from "@/lib/api-errors";
+import { createPerUserRateLimiter } from "@/lib/rate-limit";
+import { getClientIpFromRequest } from "@/lib/request-ip";
 import { buildWaitlistHtml, buildWaitlistSubject } from "@/lib/emails/waitlist-confirmation";
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
-/** Simple in-memory rate limit: max 10 signups per IP per 15 min. Resets on cold start. */
-const RATE_LIMIT_WINDOW_MS = 15 * 60 * 1000;
-const RATE_LIMIT_MAX = 10;
-const RATE_LIMIT_MAX_TRACKED_IPS = 10_000;
-const rateLimitMap = new Map<string, { count: number; firstAt: number }>();
-
-function getClientIp(request: Request): string {
-  const forwarded = request.headers.get("x-forwarded-for");
-  if (forwarded) return forwarded.split(",")[0].trim();
-  const realIp = request.headers.get("x-real-ip");
-  if (realIp) return realIp.trim();
-  return "unknown";
-}
-
-function pruneRateLimitMap(now: number): void {
-  for (const [key, entry] of rateLimitMap) {
-    if (now - entry.firstAt > RATE_LIMIT_WINDOW_MS) {
-      rateLimitMap.delete(key);
-    }
-  }
-
-  if (rateLimitMap.size <= RATE_LIMIT_MAX_TRACKED_IPS) {
-    return;
-  }
-
-  const overflow = rateLimitMap.size - RATE_LIMIT_MAX_TRACKED_IPS;
-  let removed = 0;
-  for (const key of rateLimitMap.keys()) {
-    rateLimitMap.delete(key);
-    removed += 1;
-    if (removed >= overflow) {
-      break;
-    }
-  }
-}
-
-function checkRateLimit(ip: string): { allowed: boolean } {
-  const now = Date.now();
-  pruneRateLimitMap(now);
-
-  const entry = rateLimitMap.get(ip);
-  if (!entry) {
-    rateLimitMap.set(ip, { count: 1, firstAt: now });
-    pruneRateLimitMap(now);
-    return { allowed: true };
-  }
-  if (now - entry.firstAt > RATE_LIMIT_WINDOW_MS) {
-    rateLimitMap.set(ip, { count: 1, firstAt: now });
-    return { allowed: true };
-  }
-  entry.count += 1;
-  if (entry.count > RATE_LIMIT_MAX) return { allowed: false };
-  return { allowed: true };
-}
+// 10 signups per IP per 15 min. Backed by Redis when REDIS_URL is set so the
+// budget is shared across serverless instances; falls back to in-memory only
+// when Redis is unavailable.
+const waitlistLimiter = createPerUserRateLimiter({
+  maxPerMinute: 10,
+  windowMs: 15 * 60 * 1000,
+});
 
 function validateEmail(email: unknown): email is string {
   return typeof email === "string" && EMAIL_REGEX.test(email.trim());
@@ -154,8 +109,8 @@ export async function POST(request: Request) {
   }
 
   try {
-    const ip = getClientIp(request);
-    const { allowed } = checkRateLimit(ip);
+    const ip = getClientIpFromRequest(request);
+    const { allowed } = await waitlistLimiter.check(`waitlist:${ip}`);
     if (!allowed) {
       return apiError(E_RATE_LIMIT_EXCEEDED, 429);
     }

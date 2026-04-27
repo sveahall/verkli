@@ -1,6 +1,13 @@
 /**
  * BullMQ translation queue. Uses same REDIS_URL as import queue.
- * If REDIS_URL is missing, enqueue is skipped and null is returned.
+ *
+ * Production (NODE_ENV === "production"):
+ *   - missing REDIS_URL              → throws TranslationQueueUnavailableError
+ *   - Redis connection unreachable   → throws TranslationQueueUnavailableError
+ * Dev/test:
+ *   - both cases above log a warning and return null (preserves existing dev DX)
+ *
+ * Callers must handle the error path explicitly. See CEO plan §C6.
  */
 
 import { Queue } from "bullmq";
@@ -8,6 +15,13 @@ import { getRedisConnectionOptions, getRedisUrl } from "@/lib/env";
 import { QUEUE_NAMES } from "@/lib/queue-names";
 
 const QUEUE_NAME = QUEUE_NAMES.TRANSLATION;
+
+export class TranslationQueueUnavailableError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "TranslationQueueUnavailableError";
+  }
+}
 
 function createQueue(connection: { host: string; port: number; password?: string }): Queue {
   return new Queue(QUEUE_NAME, {
@@ -58,16 +72,28 @@ export type TranslationJobData = {
 };
 
 export async function enqueueTranslationJob(data: TranslationJobData): Promise<string | null> {
+  const isProd = process.env.NODE_ENV === "production";
+
   const url = getRedisUrl();
   if (!url || url.trim() === "") {
-    console.warn("[translation queue] REDIS_URL not set — job not enqueued.");
+    const msg = "[translation queue] REDIS_URL not set — translation job not enqueued";
+    if (isProd) {
+      throw new TranslationQueueUnavailableError(msg);
+    }
+    console.warn(`${msg} (dev: returning null)`);
     return null;
   }
+
   const q = getTranslationQueue();
   if (!q) {
-    console.warn("[translation queue] Redis not reachable (invalid REDIS_URL?) — job not enqueued.");
+    const msg = "[translation queue] Redis connection failed — translation job not enqueued";
+    if (isProd) {
+      throw new TranslationQueueUnavailableError(msg);
+    }
+    console.warn(`${msg} (dev: returning null)`);
     return null;
   }
+
   const chapterSuffix =
     typeof data.chapterId === "string" && data.chapterId.trim().length > 0
       ? `-${data.chapterId.trim()}`

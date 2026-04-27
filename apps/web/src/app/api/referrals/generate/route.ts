@@ -1,6 +1,5 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
-import { createAdminClient } from "@/lib/supabase/admin";
 import { apiError, E_UNAUTHORIZED, E_REFERRAL_GENERATE_FAILED } from "@/lib/api-errors";
 
 export const runtime = "nodejs";
@@ -26,9 +25,11 @@ export async function POST() {
     return apiError(E_UNAUTHORIZED, 401);
   }
 
-  const admin = createAdminClient();
-
-  const { data: existing } = await admin
+  // RLS policies on `referral_codes` already gate SELECT/INSERT to
+  // `auth.uid() = user_id`. Using the user-bound client means a bug here
+  // (e.g. forgetting `.eq('user_id', user.id)` on a write) cannot affect
+  // another user's row.
+  const { data: existing } = await supabase
     .from("referral_codes")
     .select("code")
     .eq("user_id", user.id)
@@ -44,7 +45,7 @@ export async function POST() {
   const maxAttempts = 10;
 
   while (attempts < maxAttempts) {
-    const { error } = await admin.from("referral_codes").insert({
+    const { error } = await supabase.from("referral_codes").insert({
       user_id: user.id,
       code,
     });

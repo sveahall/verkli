@@ -47,13 +47,26 @@ export function isValidActiveRole(role: string): role is ActiveRole {
   return VALID_ROLES.includes(role as ActiveRole);
 }
 
-/** Build Set-Cookie header value for active_role. Not httpOnly so client can read. */
+/**
+ * Build Set-Cookie header value for active_role. Not httpOnly so the client
+ * can read it (used as a UI hint; server still cross-checks role from DB).
+ * `Secure` is added in production so the cookie isn't sent over plain HTTP.
+ */
 export function activeRoleCookieHeader(role: ActiveRole): string {
-  return `${ACTIVE_ROLE_COOKIE}=${role}; Path=/; SameSite=Lax; Max-Age=31536000`;
+  const isProduction =
+    typeof process !== "undefined" && process.env.NODE_ENV === "production";
+  const secure = isProduction ? "; Secure" : "";
+  return `${ACTIVE_ROLE_COOKIE}=${role}; Path=/; SameSite=Lax; Max-Age=31536000${secure}`;
 }
 
 /** Client-only: set active_role cookie so logo and server read same value. */
 export function setActiveRoleCookieClient(role: ActiveRole): void {
   if (typeof document === "undefined") return;
-  document.cookie = activeRoleCookieHeader(role);
+  // In the browser we can detect HTTPS without relying on NODE_ENV (which
+  // bundlers may inline at build time). Secure attribute on http://localhost
+  // is harmless because browsers ignore it for non-secure origins.
+  const isSecureContext =
+    typeof window !== "undefined" && window.location?.protocol === "https:";
+  const secure = isSecureContext ? "; Secure" : "";
+  document.cookie = `${ACTIVE_ROLE_COOKIE}=${role}; Path=/; SameSite=Lax; Max-Age=31536000${secure}`;
 }

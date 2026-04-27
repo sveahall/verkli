@@ -1,6 +1,6 @@
 import { createServerClient, type CookieOptions } from '@supabase/ssr'
 import { NextResponse, type NextRequest } from 'next/server'
-import { isBetaUser } from '@/lib/auth/beta'
+import { isBetaUser, BetaCheckTransientError } from '@/lib/auth/beta'
 import { getAuthorApplicationStatus } from '@/lib/auth/author-approval'
 import { ACTIVE_ROLE_COOKIE } from '@/lib/active-role'
 
@@ -43,34 +43,76 @@ function writeCachedAuthorRole(userId: string, role: string): void {
  */
 export async function middleware(request: NextRequest) {
   // -------------------------------------------------------------------------
-  // CSRF protection: verify Origin header on state-changing requests.
+  // CSRF protection: verify Origin / Sec-Fetch-Site on state-changing requests.
+  //
+  // Layered checks (any one of these must hold):
+  //   (a) Sec-Fetch-Site is present and equals "same-origin" or "none"
+  //       — this is browser-vouched and not forgeable from a cross-site form.
+  //   (b) Origin header is present and matches NEXT_PUBLIC_SITE_URL.
+  //
+  // Fail-closed semantics: in production we require NEXT_PUBLIC_SITE_URL to be
+  // set; if it isn't we reject with 500 rather than silently disabling CSRF.
   // -------------------------------------------------------------------------
   const method = request.method
   const isStateChanging = method === 'POST' || method === 'PUT' || method === 'PATCH' || method === 'DELETE'
   if (isStateChanging) {
-    const origin = request.headers.get('origin')
     const pathname = request.nextUrl.pathname
-    // Skip Stripe webhook — it uses its own signature verification.
-    // Strict equality: no sub-route should auto-inherit the CSRF exemption.
+    // Stripe webhook has its own HMAC signature verification.
     const isStripeWebhook = pathname === '/api/stripe/webhook'
-    // Only enforce when Origin header is present (same-origin requests may omit it)
-    if (origin && !isStripeWebhook) {
+    if (!isStripeWebhook) {
+      const secFetchSite = request.headers.get('sec-fetch-site')
+      const origin = request.headers.get('origin')
       const siteUrl = process.env.NEXT_PUBLIC_SITE_URL
-      if (siteUrl) {
-        let allowed = false
-        try {
-          const expectedOrigin = new URL(siteUrl).origin
-          allowed = origin === expectedOrigin
-        } catch {
-          // If NEXT_PUBLIC_SITE_URL is malformed, reject for safety
-          allowed = false
-        }
-        if (!allowed) {
-          return new NextResponse(JSON.stringify({ error: 'Forbidden' }), {
-            status: 403,
+      const isProduction = process.env.NODE_ENV === 'production'
+
+      if (!siteUrl) {
+        if (isProduction) {
+          console.error('[csrf] NEXT_PUBLIC_SITE_URL is unset in production — refusing state-changing request')
+          return new NextResponse(JSON.stringify({ error: 'ServerMisconfiguration' }), {
+            status: 500,
             headers: { 'Content-Type': 'application/json' },
           })
         }
+        // In dev / test we allow the request through to keep local DX painless,
+        // but Sec-Fetch-Site still gives us a layer of protection if present.
+      }
+
+      let expectedOrigin: string | null = null
+      if (siteUrl) {
+        try {
+          expectedOrigin = new URL(siteUrl).origin
+        } catch {
+          if (isProduction) {
+            console.error('[csrf] NEXT_PUBLIC_SITE_URL is malformed — refusing state-changing request')
+            return new NextResponse(JSON.stringify({ error: 'ServerMisconfiguration' }), {
+              status: 500,
+              headers: { 'Content-Type': 'application/json' },
+            })
+          }
+        }
+      }
+
+      // Sec-Fetch-Site is the strongest signal because the browser sets it
+      // and it isn't sent on cross-site form submissions. Trust it when present.
+      const sameOriginByFetchMetadata =
+        secFetchSite === 'same-origin' || secFetchSite === 'none'
+      const sameOriginByOrigin =
+        !!(origin && expectedOrigin && origin === expectedOrigin)
+
+      // If neither signal vouches for same-origin, reject. We only allow the
+      // "no signal at all" case (no Sec-Fetch-Site, no Origin) when a non-browser
+      // client is plausibly hitting the API outside production.
+      const noBrowserSignals = !secFetchSite && !origin
+      const allowed =
+        sameOriginByFetchMetadata ||
+        sameOriginByOrigin ||
+        (!isProduction && noBrowserSignals)
+
+      if (!allowed) {
+        return new NextResponse(JSON.stringify({ error: 'Forbidden' }), {
+          status: 403,
+          headers: { 'Content-Type': 'application/json' },
+        })
       }
     }
   }
@@ -141,7 +183,44 @@ export async function middleware(request: NextRequest) {
     const isRootAssetWithExt = /^\/[^/]+\.[a-z0-9]+$/i.test(p)
 
     const allowedPath = isWaitlist || isAuth || isApiWaitlist || isApiAuth || isNext || isKnownRoot || isRootAssetWithExt
-    const isBeta = user ? await isBetaUser(supabase, user.id) : false
+    let isBeta = false
+    if (user) {
+      try {
+        isBeta = await isBetaUser(supabase, user.id)
+      } catch (err) {
+        if (err instanceof BetaCheckTransientError) {
+          console.error('[middleware] beta check transient error', {
+            path: p,
+            userId: user.id,
+            error: err.message,
+            cause: err.cause,
+          })
+          if (p.startsWith('/api/')) {
+            return new NextResponse(
+              JSON.stringify({ error: 'ServiceTemporarilyUnavailable' }),
+              {
+                status: 503,
+                headers: {
+                  'Content-Type': 'application/json',
+                  'Retry-After': '15',
+                },
+              },
+            )
+          }
+          return new NextResponse(
+            'Service temporarily unavailable. Please try again in a moment.',
+            {
+              status: 503,
+              headers: {
+                'Content-Type': 'text/plain; charset=utf-8',
+                'Retry-After': '15',
+              },
+            },
+          )
+        }
+        throw err
+      }
+    }
 
     if (!allowedPath && !isBeta) {
       if (p.startsWith('/api/')) {
@@ -220,6 +299,7 @@ export async function middleware(request: NextRequest) {
           path: '/',
           sameSite: 'lax',
           maxAge: 31536000,
+          secure: process.env.NODE_ENV === 'production',
         })
         return response
       }

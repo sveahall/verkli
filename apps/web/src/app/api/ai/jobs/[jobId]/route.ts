@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { requireAuthorRoleForApi } from "@/lib/auth/require-author";
-import { createAdminClient } from "@/lib/supabase/admin";
+import { createClient } from "@/lib/supabase/server";
 import { normalizeJobStatus } from "@/lib/job-status";
 import { sanitizeJobError } from "@/lib/sanitize-job-error";
 import { apiError, E_JOB_FETCH_FAILED } from "@/lib/api-errors";
@@ -34,9 +34,12 @@ export async function GET(
   if (response) return response;
 
   const { jobId } = await params;
-  const admin = createAdminClient();
 
-  const { data, error } = await admin
+  // RLS policy `ai_jobs_select_own` restricts SELECT to `auth.uid() = user_id`,
+  // so the user-bound client cannot leak another user's job even if the
+  // explicit `user_id` check below regresses.
+  const supabase = await createClient();
+  const { data, error } = await supabase
     .from("ai_jobs" as never)
     .select("id, status, progress, output, error, user_id, kind, created_at, started_at, finished_at, updated_at")
     .eq("id", jobId)
