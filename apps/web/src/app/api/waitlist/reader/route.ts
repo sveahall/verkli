@@ -15,6 +15,7 @@ import {
 import { createPerUserRateLimiter } from "@/lib/rate-limit";
 import { getClientIpFromRequest } from "@/lib/request-ip";
 import { buildWaitlistHtml, buildWaitlistSubject } from "@/lib/emails/waitlist-confirmation";
+import { logAnalyticsEvent } from "@/lib/analytics/events";
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -187,6 +188,21 @@ export async function POST(request: Request) {
 
     const position = await getPosition(supabase, inserted.created_at);
     console.info("[reader waitlist] signup stored", { source: source ?? "unknown", position, isNew: true });
+
+    // Cohort funnel metric: waitlist_signup (reader variant). Failures bubble
+    // up as console.error from logAnalyticsEvent — never silent.
+    await logAnalyticsEvent(supabase, {
+      eventType: "waitlist_signup",
+      userId: null,
+      path: "/waitlist",
+      props: {
+        variant: "reader",
+        source: source ?? null,
+        follow_author: followAuthor ?? null,
+        position,
+      },
+    });
+
     const sendResult = await sendReaderConfirmationEmail(email, position, name);
     await persistEmailAttempt(supabase, inserted.id, sendResult);
 

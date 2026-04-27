@@ -6,7 +6,12 @@ export type AnalyticsEventType =
   | "pod_purchase_attempt"
   | "pod_purchase_completed"
   | "bookmark_added"
-  | "bookmark_removed";
+  | "bookmark_removed"
+  // Cohort funnel events (PR 2 observability). Emitted from waitlist, admin
+  // grant, and publish flows; consumed by /api/admin/metrics/funnel.
+  | "waitlist_signup"
+  | "beta_granted"
+  | "first_publish";
 
 type SupabaseLikeClient = {
   from: (table: string) => unknown;
@@ -44,10 +49,14 @@ export async function logAnalyticsEvent(
   const { error } = await table.insert(payload as never);
   if (error) {
     // Post-migration, the new columns always exist. A failure here is a real
-    // signal (RLS, queue overload) and should surface once — not retry into a
-    // duplicate write with a legacy payload.
-    console.warn("[analytics] insert failed", {
+    // signal (RLS, queue overload, transient network) and must NOT be silent.
+    // PR 2 observability requires structured error logging on every failed
+    // metric write so the soft-launch funnel doesn't quietly under-count.
+    console.error("[analytics] insert failed", {
       eventType: input.eventType,
+      userId: input.userId ?? null,
+      bookId: input.bookId ?? null,
+      path: input.path ?? null,
       message: error.message,
     });
   }

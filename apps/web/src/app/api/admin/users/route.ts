@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { requireAdminRoleForApi } from "@/lib/admin-auth";
 import { apiError, E_DATABASE_ERROR, E_INVALID_USER_ID, isValidUuid } from "@/lib/api-errors";
+import { logAnalyticsEvent } from "@/lib/analytics/events";
 
 export async function GET(request: Request) {
   const { response } = await requireAdminRoleForApi();
@@ -93,6 +94,17 @@ export async function PATCH(request: Request) {
     if (error) {
       console.error("[admin/users] beta flag update failed:", error.message);
       return apiError(E_DATABASE_ERROR, 500);
+    }
+
+    // Cohort funnel metric: beta_granted (only on grant, not on revoke).
+    // logAnalyticsEvent self-logs failures via console.error.
+    if (betaEnabled) {
+      await logAnalyticsEvent(admin, {
+        eventType: "beta_granted",
+        userId,
+        path: "/admin/users",
+        props: { actor_user_id: adminUser.id },
+      });
     }
 
     // Audit log — best-effort, mirror the author-applications flow.

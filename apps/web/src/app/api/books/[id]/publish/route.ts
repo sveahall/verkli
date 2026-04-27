@@ -1,8 +1,10 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { assertPublicEnv } from "@/lib/env";
 import { requireAuthorRoleForApi } from "@/lib/auth/require-author";
 import { getBookAsOwner } from "@/lib/books/service";
+import { logAnalyticsEvent } from "@/lib/analytics/events";
 import {
   apiError,
   E_BOOK_NOT_FOUND,
@@ -469,6 +471,15 @@ export async function POST(
         console.error("[publish] book status update failed", { bookId: id, message: updateError.message });
         return apiError(E_DATABASE_ERROR, 500);
       }
+
+      // Cohort funnel metric: first_publish — emitted on every transition to
+      // PUBLISHED. The funnel deduplicates by author via DISTINCT(author_id)
+      // on books.published=true, so per-book firings are safe.
+      await emitFirstPublishEvent({
+        bookId: id,
+        userId: user.id,
+        scope: "chapter",
+      });
     }
 
     return NextResponse.json({
@@ -517,7 +528,43 @@ export async function POST(
       console.error("[publish] book status update failed", { bookId: id, message: updateError.message });
       return apiError(E_DATABASE_ERROR, 500);
     }
+
+    // Cohort funnel metric: first_publish on full-version publish path.
+    await emitFirstPublishEvent({
+      bookId: id,
+      userId: user.id,
+      scope: "book",
+    });
   }
 
   return NextResponse.json({ ok: true });
+}
+
+/**
+ * Best-effort funnel emission for first_publish. Uses the service-role admin
+ * client because analytics_events RLS blocks the author session, but we want
+ * the cohort metric regardless of who initiated the publish. Failures are
+ * logged via console.error inside logAnalyticsEvent; this never throws.
+ */
+async function emitFirstPublishEvent(input: {
+  bookId: string;
+  userId: string;
+  scope: "book" | "chapter";
+}): Promise<void> {
+  try {
+    const admin = createAdminClient();
+    await logAnalyticsEvent(admin, {
+      eventType: "first_publish",
+      userId: input.userId,
+      bookId: input.bookId,
+      path: `/api/books/${input.bookId}/publish`,
+      props: { scope: input.scope },
+    });
+  } catch (err) {
+    console.error("[publish] first_publish metric emission failed", {
+      bookId: input.bookId,
+      userId: input.userId,
+      message: err instanceof Error ? err.message : String(err),
+    });
+  }
 }

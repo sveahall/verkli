@@ -15,6 +15,7 @@ import {
 import { createPerUserRateLimiter } from "@/lib/rate-limit";
 import { getClientIpFromRequest } from "@/lib/request-ip";
 import { buildWaitlistHtml, buildWaitlistSubject } from "@/lib/emails/waitlist-confirmation";
+import { logAnalyticsEvent } from "@/lib/analytics/events";
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -185,6 +186,16 @@ export async function POST(request: Request) {
 
     const position = await getPosition(supabase, inserted.created_at);
     console.info("[waitlist] signup stored", { source: source ?? "unknown", position, isNew: true });
+
+    // Cohort funnel metric: waitlist_signup. Errors are logged inside
+    // logAnalyticsEvent — never silent. Awaited so test harness can assert.
+    await logAnalyticsEvent(supabase, {
+      eventType: "waitlist_signup",
+      userId: null,
+      path: "/waitlist",
+      props: { variant: "author", source: source ?? null, role: role ?? null, position },
+    });
+
     const sendResult = await sendConfirmationEmail(email, position, name);
     await persistEmailAttempt(supabase, inserted.id, sendResult);
 
