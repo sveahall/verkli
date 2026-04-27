@@ -8,6 +8,30 @@
  * Default behavior: when the env var is undefined, empty, or any non-truthy
  * value, the flag is OFF. To enable a flag, set the env var to "true" or "1"
  * EXPLICITLY in the deploy environment. There is no implicit-true behavior.
+ *
+ * ─── Deploy env checklist for cohort-gated soft launch ──────────────────────
+ *
+ * Required to KEEP a feature visible after this build (set in staging + prod):
+ *
+ *   NEXT_PUBLIC_TRANSLATIONS_ENABLED=true   author translations + UI tab
+ *   NEXT_PUBLIC_MARKETING_ENABLED=true      marketing/trailer/social UI
+ *   NEXT_PUBLIC_DISCOVERY_ENABLED=true      /reader/discover, /reader/genres
+ *
+ * Required OFF for cohort-gated soft launch (default; do NOT set):
+ *
+ *   NEXT_PUBLIC_AUDIOBOOK_ENABLED          (D4: defer audiobook to P1, flag-on later)
+ *   NEXT_PUBLIC_FREEMIUM_GATE_ENABLED      (D4 + D11: no quota gating during cohort window)
+ *
+ * Other flags also default OFF unless explicitly set; see individual functions.
+ *
+ * Flag changes require redeploy. Rollback procedure is the same: change env,
+ * trigger redeploy, wait ~2 min for build. There is no runtime flip.
+ *
+ * ─── Server-only fallback ───────────────────────────────────────────────────
+ *
+ * The isXxx server functions also accept a non-public env (e.g. MARKETING_ENABLED)
+ * as a fallback when the NEXT_PUBLIC_ form is not set. Use only for server-only
+ * gating that should NOT leak to the client bundle. Same default-OFF semantics.
  */
 
 function parseBool(value: string | undefined): boolean {

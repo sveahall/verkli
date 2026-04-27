@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { requireAuthorRoleForApi } from "@/lib/auth/require-author";
 import { getBillingStateForUser } from "@/lib/billing/server";
-import { isMarketingEnabled } from "@/lib/flags";
+import { isFreemiumGateEnabled, isMarketingEnabled } from "@/lib/flags";
 import { createAdminClient } from "@/lib/supabase/admin";
 import {
   apiError,
@@ -122,7 +122,10 @@ export async function POST(
     0,
     Number(usageRow?.trailer_count_this_month ?? 0) || 0
   );
-  if (trailerCountThisMonth >= monthlyLimit) {
+  // Freemium gate: when off (default during cohort-gated soft launch) the
+  // monthly limit is not enforced, but usage is still recorded so the counter
+  // is current the moment the flag flips on. See CEO plan §C2 / D11.
+  if (isFreemiumGateEnabled() && trailerCountThisMonth >= monthlyLimit) {
     console.warn("[trailer guardrail] trailer limit reached", {
       userId: user.id,
       usageMonth,

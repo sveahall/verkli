@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
+import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { AVATARS_BUCKET_PUBLIC } from "@/lib/supabase/config";
+import { getDiscoveryEnabled } from "@/lib/flags";
 import {
   getLanguageLabel,
   LANGUAGE_OPTIONS,
@@ -261,6 +263,13 @@ export default async function ReaderDiscoverPage({
 }: {
   searchParams: Promise<SearchParams>;
 }) {
+  // When the discovery flag is off (default during cohort-gated soft launch),
+  // /reader/discover is not part of the user-facing entry surface.
+  // Set NEXT_PUBLIC_DISCOVERY_ENABLED=true to expose it. See lib/flags.ts.
+  if (!getDiscoveryEnabled()) {
+    notFound();
+  }
+
   const params = await searchParams;
   const language = normalizeLanguage(params?.lang);
   const langLabel = getLanguageLabel(language);

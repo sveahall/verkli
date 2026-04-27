@@ -5,6 +5,7 @@ const mocks = vi.hoisted(() => ({
   requireAuthorRoleForApi: vi.fn(),
   getBillingStateForUser: vi.fn(),
   isMarketingEnabled: vi.fn(),
+  isFreemiumGateEnabled: vi.fn(),
   createAdminClient: vi.fn(),
   createPerUserRateLimiter: vi.fn(() => ({
     check: vi.fn(() => ({ allowed: true })),
@@ -22,6 +23,7 @@ vi.mock("@/lib/billing/server", () => ({
 
 vi.mock("@/lib/flags", () => ({
   isMarketingEnabled: mocks.isMarketingEnabled,
+  isFreemiumGateEnabled: mocks.isFreemiumGateEnabled,
 }));
 
 vi.mock("@/lib/supabase/admin", () => ({
@@ -79,6 +81,7 @@ function setupAdminClient(trailerCountThisMonth: number) {
     eq: vi.fn(),
     maybeSingle: vi.fn(),
     upsert: vi.fn(),
+    update: vi.fn(),
   };
   usageQuery.select.mockReturnValue(usageQuery);
   usageQuery.eq.mockReturnValue(usageQuery);
@@ -87,6 +90,8 @@ function setupAdminClient(trailerCountThisMonth: number) {
     error: null,
   });
   usageQuery.upsert.mockResolvedValue({ error: null });
+  // optimistic-lock update path returns the updated row so the route proceeds
+  usageQuery.update.mockReturnValue(usageQuery);
 
   const from = vi.fn((table: string) => {
     if (table === "books") return booksQuery;
@@ -106,6 +111,7 @@ describe("POST /api/books/[id]/trailer/generate guardrail", () => {
       response: null,
     });
     mocks.isMarketingEnabled.mockReturnValue(true);
+    mocks.isFreemiumGateEnabled.mockReturnValue(true);
     mocks.generateTrailerPrompt.mockResolvedValue({
       output: {
         scenes: [],
@@ -147,5 +153,35 @@ describe("POST /api/books/[id]/trailer/generate guardrail", () => {
     expect(res.status).toBe(403);
     expect(body.error).toBe(E_TRAILER_LIMIT_REACHED);
     expect(mocks.generateTrailerPrompt).not.toHaveBeenCalled();
+  });
+
+  it("does NOT enforce monthly limit when freemium gate is off (free user at limit)", async () => {
+    setupAdminClient(1);
+    mocks.isFreemiumGateEnabled.mockReturnValue(false);
+    mocks.getBillingStateForUser.mockResolvedValue({
+      ok: true,
+      row: null,
+      state: { isProActive: false } as never,
+    });
+
+    const res = await POST(makeRequest(), { params: Promise.resolve({ id: "00000000-0000-4000-8000-000000000001" }) });
+
+    expect(res.status).not.toBe(403);
+    expect(mocks.generateTrailerPrompt).toHaveBeenCalled();
+  });
+
+  it("does NOT enforce monthly limit when freemium gate is off (pro user past limit)", async () => {
+    setupAdminClient(10);
+    mocks.isFreemiumGateEnabled.mockReturnValue(false);
+    mocks.getBillingStateForUser.mockResolvedValue({
+      ok: true,
+      row: null,
+      state: { isProActive: true } as never,
+    });
+
+    const res = await POST(makeRequest(), { params: Promise.resolve({ id: "00000000-0000-4000-8000-000000000001" }) });
+
+    expect(res.status).not.toBe(403);
+    expect(mocks.generateTrailerPrompt).toHaveBeenCalled();
   });
 });
