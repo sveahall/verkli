@@ -80,3 +80,71 @@ alerts:
       operator: "=="
       value: false
     runbook: docs/INCIDENT_RUNBOOK.md#redis-outage-handling
+
+  # ─── Cohort-gated soft launch alerts (PR 2) ───────────────────────────────
+  # These alerts are scoped to the soft-launch cohort window. They cover the
+  # gates the eng review (v1) called out as observability gaps.
+
+  # --- Middleware p99 latency ---
+  - id: middleware-p99-latency
+    name: Middleware p99 latency high
+    description: |
+      Middleware p99 over the last 5 minutes exceeds threshold. Likely cause:
+      cold-start cache misses on isBetaUser / authorRoleCache, or Supabase
+      slow path on user_flags / profiles lookups. See PR 0 §C4.
+    severity: warning
+    data_source: hosting platform metrics (Vercel, Grafana, etc.)
+    condition:
+      metric: middleware.duration_p99_ms
+      operator: ">"
+      threshold: 250
+    runbook: docs/INCIDENT_RUNBOOK.md#middleware-latency
+
+  # --- BETA_LOCK environment drift ---
+  - id: beta-lock-misconfig
+    name: BETA_LOCK misconfigured during soft launch
+    description: |
+      During the cohort-gated soft launch BETA_LOCK must equal the literal
+      string "true" on production (middleware checks `process.env.BETA_LOCK
+      === 'true'` — "TRUE", "1", or unset all silently disable the gate and
+      open the app to anyone authenticated). Compare deploy env at the
+      hosting platform against the expected production config; alert on
+      drift.
+    severity: critical
+    data_source: deploy config diff (Vercel env, secrets manager, CI/CD)
+    condition: |
+      Alert when production deploy env has BETA_LOCK !== "true". Schedule:
+      compare on every deploy + scheduled drift-check (hourly).
+    runbook: docs/INCIDENT_RUNBOOK.md#beta-lock-drift
+
+  # --- Waitlist signup anomaly ---
+  - id: waitlist-signup-anomaly
+    name: Waitlist signup rate anomalous
+    description: |
+      Sustained waitlist signup rate exceeds baseline by >5x for >10 minutes.
+      Likely cause: bot flooding (request-ip / rate-limit bypass) or unwanted
+      traffic spike. The Redis-backed limiter (10/15min/IP) covers normal
+      flooding; this alert catches distributed bot patterns or limiter
+      regressions.
+    severity: warning
+    data_source: Supabase reader_waitlist insert rate, /api/waitlist 429 rate
+    condition: |
+      Alert when reader_waitlist insert rate over 10 minutes exceeds 5× the
+      trailing 24h baseline AND /api/waitlist 429 rate is also climbing
+      (limiter pressure).
+    runbook: docs/INCIDENT_RUNBOOK.md#waitlist-anomaly
+
+  # --- Feedback rate anomaly ---
+  - id: feedback-rate-anomaly
+    name: Feedback submission rate anomalous
+    description: |
+      In-app feedback (FAS5) submission rate over 10 minutes exceeds 3× the
+      trailing 24h baseline. Likely cause: cohort users hitting a regression
+      or failure mode in numbers. Triage immediately during soft launch —
+      this is the canary for cohort-perceived breakage.
+    severity: warning
+    data_source: feedback table insert rate, /api/feedback 5xx rate
+    condition: |
+      Alert when feedback insert rate over 10 minutes exceeds 3× the trailing
+      24h baseline OR /api/feedback 5xx rate > 1% over 5 minutes.
+    runbook: docs/INCIDENT_RUNBOOK.md#feedback-anomaly
