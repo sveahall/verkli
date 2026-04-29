@@ -4,6 +4,10 @@ import { createClient } from "@/lib/supabase/server";
 import { isNextRedirectError } from "@/lib/next-redirect";
 import { getAvatarUrlFromPathServer } from "@/lib/supabase/avatar";
 import { getRecommendationsEnabled } from "@/lib/flags";
+import {
+  getPublicAuthorInfoMap,
+  resolvePublicAuthorName,
+} from "@/lib/authors/public-author";
 import { ErrorBannerWrapper } from "@/components/ui/ErrorBanner";
 import { ErrorState } from "@/components/ui/states";
 import ReaderHomePageView from "@/features/reader/reader-home/ReaderHomePageView";
@@ -210,20 +214,17 @@ export default async function ReaderHomePage() {
           const bookMap = new Map(books.map((book) => [book.id, book]));
           const authorIds = [...new Set(books.map((book) => book.author_id))];
 
-          const [{ data: profiles }, { data: chapterRows }] = await Promise.all([
-            supabase
-              .from("profiles")
-              .select("user_id, display_name, username")
-              .in("user_id", authorIds),
+          const [authorInfoMap, { data: chapterRows }] = await Promise.all([
+            getPublicAuthorInfoMap(authorIds),
             chapterIds.length > 0
               ? supabase.from("chapters").select("id, title").in("id", chapterIds)
               : Promise.resolve({ data: [] as Array<{ id: string; title: string }> }),
           ]);
 
           const authorMap = new Map(
-            (profiles ?? []).map((profile) => [
-              profile.user_id,
-              profile.display_name || profile.username || "Author",
+            authorIds.map((authorId) => [
+              authorId,
+              resolvePublicAuthorName(authorInfoMap.get(authorId)),
             ])
           );
 
@@ -311,20 +312,34 @@ export default async function ReaderHomePage() {
     let profileMap = new Map<string, ProfileLite>();
 
     if (authorIds.length > 0) {
-      const { data: profiles } = await supabase
-        .from("profiles")
-        .select("user_id, display_name, username, avatar_url, bio")
-        .in("user_id", authorIds);
+      // Read public author identity through the admin-bypass helper so
+      // RLS-private (is_public=false) authors who have published a public
+      // book still get a real name + avatar in the reader's home rail.
+      // Bio is fetched separately below — it stays RLS-gated because it's a
+      // personal-profile field, not authorship attribution.
+      const [authorInfoMap, profilesRes] = await Promise.all([
+        getPublicAuthorInfoMap(authorIds),
+        supabase
+          .from("profiles")
+          .select("user_id, bio")
+          .in("user_id", authorIds),
+      ]);
+      const bioMap = new Map(
+        (profilesRes.data ?? []).map((row) => [row.user_id, row.bio ?? null])
+      );
 
       profileMap = new Map(
-        (profiles ?? []).map((profile) => [
-          profile.user_id,
-          {
-            name: profile.display_name || profile.username || "Author",
-            avatarPath: profile.avatar_url,
-            bio: profile.bio,
-          },
-        ])
+        authorIds.map((authorId) => {
+          const info = authorInfoMap.get(authorId);
+          return [
+            authorId,
+            {
+              name: resolvePublicAuthorName(info),
+              avatarPath: info?.avatar_url ?? null,
+              bio: bioMap.get(authorId) ?? null,
+            },
+          ];
+        })
       );
     }
 

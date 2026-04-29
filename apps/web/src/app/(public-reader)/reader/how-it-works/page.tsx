@@ -1,5 +1,5 @@
-import { redirect } from "next/navigation";
+import ReaderLanding from "../page";
 
 export default function Page() {
-  redirect("/reader");
+  return <ReaderLanding />;
 }

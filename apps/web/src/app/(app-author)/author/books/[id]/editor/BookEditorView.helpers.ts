@@ -1,4 +1,5 @@
 import type { PublishVisibility } from "./BookEditorView.types";
+import { extractTextFromTiptapNode, countWordsInContent } from "@/lib/tiptap-content";
 
 export const ACCEPTED_COVER_TYPES = ".jpg,.jpeg,.png,image/jpeg,image/png";
 
@@ -54,36 +55,13 @@ export function normalizeVisibility(
   return null;
 }
 
-function extractText(node: unknown): string {
-  if (!node || typeof node !== "object") return "";
-  if ("text" in node && typeof (node as { text?: string }).text === "string") {
-    return (node as { text: string }).text;
-  }
-  if (
-    "content" in node &&
-    Array.isArray((node as { content?: unknown[] }).content)
-  ) {
-    return (node as { content: unknown[] }).content.map(extractText).join("");
-  }
-  return "";
-}
-
-export function countWordsInContent(content: string | null): number {
-  if (!content) return 0;
-  try {
-    const parsed = JSON.parse(content);
-    const text = extractText(parsed);
-    return text.trim().split(/\s+/).filter(Boolean).length;
-  } catch {
-    return content.trim().split(/\s+/).filter(Boolean).length;
-  }
-}
+export { countWordsInContent };
 
 export function hasReadableContent(content: string | null): boolean {
   if (!content) return false;
   try {
     const parsed = JSON.parse(content);
-    return extractText(parsed).trim().length > 0;
+    return extractTextFromTiptapNode(parsed).trim().length > 0;
   } catch {
     return content.trim().length > 0;
   }

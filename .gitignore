@@ -71,6 +71,11 @@ vendor/tts/
 # local backup clones (do not commit)
 verkli-backup.git/
 
+# claude code runtime artifacts
+.claude/scheduled_tasks.lock
+.claude/worktrees/
+.claude-flow/
+
 # legacy/dev artifacts (untracked)
 *.patch
 *.stat

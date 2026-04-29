@@ -34,6 +34,12 @@ export async function GET(request: Request) {
   } else if (profile?.role === "author" || profile?.role === "reader") {
     role = profile.role;
   }
+  if (!role) {
+    const metadataRole = user.user_metadata?.active_role ?? user.user_metadata?.role;
+    if (metadataRole === "author" || metadataRole === "reader") {
+      role = metadataRole;
+    }
+  }
 
   // Reject protocol-relative paths (//evil.com) and non-relative paths
   const safePath = /^\/[^/]/.test(redirectTo) || redirectTo === "/" ? redirectTo : "/";

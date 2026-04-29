@@ -1,6 +1,5 @@
 "use client";
 
-import dynamic from "next/dynamic";
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
@@ -10,14 +9,6 @@ import { useAuthorWorkspace } from "@/features/author-shell/workspace-state";
 import WorkspaceLayout from "@/features/author-workspaces/WorkspaceLayout";
 import WorkspaceHeaderActions from "@/features/author-workspaces/components/WorkspaceHeaderActions";
 import type { Book as MarketingBook } from "@/lib/marketing/types";
-
-const CampaignWizard = dynamic(
-  () => import("@/components/marketing/CampaignWizard"),
-  {
-    ssr: false,
-    loading: () => null,
-  }
-);
 
 type AudienceSurface = "campaigns" | "reader-updates" | "beta-readers";
 
@@ -147,8 +138,6 @@ export default function AudienceWorkspace({
   const [creatingNewsletter, setCreatingNewsletter] = useState(false);
   const [newsletterError, setNewsletterError] = useState<string | null>(null);
   const [newsletterItems, setNewsletterItems] = useState(newsletters);
-  const [wizardOpen, setWizardOpen] = useState(rawSurface === "marketing-assets");
-
   const selectedBook = useMemo(
     () => books.find((book) => book.id === selectedBookId) ?? books[0] ?? null,
     [books, selectedBookId]
@@ -178,9 +167,6 @@ export default function AudienceWorkspace({
   }, [books, initialBookId, searchParams]);
 
   useEffect(() => {
-    if (surface !== "campaigns") {
-      setWizardOpen(false);
-    }
     if (surface !== "reader-updates") {
       setComposerOpen(false);
     }
@@ -243,12 +229,16 @@ export default function AudienceWorkspace({
   const pageAction = (() => {
     if (surface === "campaigns" && marketingEnabled) {
       return (
-        <Button
-          className="rounded-full bg-gradient-to-r from-[#8E79FF] to-[#7A6EFF] text-white"
-          onClick={() => setWizardOpen(true)}
+        <Link
+          className="inline-flex items-center rounded-full bg-gradient-to-r from-[#8E79FF] to-[#7A6EFF] px-5 py-2 text-[14px] font-medium text-white"
+          href={
+            selectedBook?.id
+              ? `/author/marketing?bookId=${selectedBook.id}`
+              : "/author/marketing"
+          }
         >
           {surfaceMeta.primaryLabel}
-        </Button>
+        </Link>
       );
     }
 
@@ -279,45 +269,30 @@ export default function AudienceWorkspace({
 
   const renderCampaigns = () => (
     <div className="space-y-5">
-      {/* Hero card */}
+      {/* Hero card → routes to the proper marketing portal */}
       <div className="rounded-2xl bg-white p-6 dark:bg-white/[0.04] sm:p-8">
         <p className="text-eyebrow">Campaigns</p>
         <h2 className="mt-4 text-[30px] font-semibold tracking-tight text-slate-900 dark:text-white">
           Create campaign
         </h2>
         <p className="mt-2 text-[15px] text-slate-500 dark:text-white/45">
-          Reach more readers with an AI-powered content campaign for{" "}
-          {selectedBook?.title ?? "your book"}.
+          Build an AI-powered content drop for{" "}
+          {selectedBook?.title ?? "your book"} — trailers, podcast clips, and
+          captions in every language.
         </p>
         {marketingEnabled && (
-          <button
-            className="mt-5 rounded-xl bg-[#907AFF] px-6 py-2.5 text-[14px] font-medium text-white transition-all hover:bg-[#8069EE] active:scale-[0.98]"
-            onClick={() => setWizardOpen(true)}
+          <Link
+            className="mt-5 inline-flex items-center rounded-xl bg-[#907AFF] px-6 py-2.5 text-[14px] font-medium text-white transition-all hover:bg-[#8069EE] active:scale-[0.98]"
+            href={
+              selectedBook?.id
+                ? `/author/marketing?bookId=${selectedBook.id}`
+                : "/author/marketing"
+            }
           >
-            Create new campaign
-          </button>
+            Open marketing portal
+          </Link>
         )}
       </div>
-
-      {/* Campaign wizard dialog */}
-      {marketingEnabled && (
-        <CampaignWizard
-          open={wizardOpen}
-          onOpenChange={setWizardOpen}
-          books={books}
-          initialBookId={selectedBook?.id ?? null}
-          onComplete={async (config) => {
-            for (const channel of config.channels) {
-              await fetch(`/api/books/${config.bookId}/marketing/generate`, {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ channel, language: "en" }),
-              });
-            }
-            router.refresh();
-          }}
-        />
-      )}
 
       {/* Active campaigns list */}
       <section>

@@ -20,7 +20,7 @@ import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from "reac
 import { createPortal } from "react-dom";
 import type { InlineAiAction } from "@/features/book-workspace/types";
 import { uploadChapterMedia } from "@/lib/supabase/storage";
-import { toTiptapContent } from "@/lib/tiptap-content";
+import { toTiptapContent, countWords } from "@/lib/tiptap-content";
 import { FONT_FAMILY_MAP, WRITING_PRESETS } from "./types";
 
 type PresetId = "novel" | "essay" | "screenplay";
@@ -91,10 +91,6 @@ function readAsDataURL(file: File): Promise<string> {
     reader.onload = () => resolve((reader.result as string) ?? "");
     reader.readAsDataURL(file);
   });
-}
-
-function countWords(text: string): number {
-  return text.trim().split(/\s+/).filter(Boolean).length;
 }
 
 function getSelectionText(editor: NonNullable<ReturnType<typeof useEditor>>): string {

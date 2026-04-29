@@ -652,9 +652,81 @@ export async function processStripeWebhookEvent(
         received: true,
         processed: await processInvoiceEvent(admin, object, eventId, type),
       };
+    case "account.updated":
+      return {
+        received: true,
+        processed: await processAccountUpdatedEvent(admin, object),
+      };
     default:
       return { received: true, ignored: true };
   }
+}
+
+// Stripe Connect account state changed — sync our cache row and emit audit
+// events on the transitions that matter (KYC submitted, payouts enabled).
+// This handler is called from the main switch above for `account.updated`.
+export async function processAccountUpdatedEvent(
+  admin: AdminClient,
+  object: StripeRecord
+): Promise<boolean> {
+  const accountId = trimToNull((object as { id?: unknown }).id);
+  if (!accountId) return false;
+
+  // Lazy import to keep the webhook entrypoint lean and avoid pulling Stripe
+  // SDK into the cold-start path when we only need the helper's DB writes.
+  const [{ applyAccountUpdated }, { recordAudit }] = await Promise.all([
+    import("@/lib/payments/stripe-connect"),
+    import("@/lib/audit"),
+  ]);
+
+  const result = await applyAccountUpdated(
+    admin,
+    object as unknown as import("stripe").default.Account
+  );
+  if (!result.userId) {
+    // Account ID is not ours — Stripe routes account.updated to all platforms
+    // an account is connected to, so this is an expected no-op.
+    return false;
+  }
+
+  const before = result.before;
+  const after = result.after;
+  if (!before || !after) return false;
+
+  // Emit audit on the meaningful transitions, not on every requirements blip.
+  if (!before.details_submitted && after.details_submitted) {
+    void recordAudit(admin, {
+      action: "billing.connect_kyc_submitted",
+      target: { type: "billing_account", id: result.userId },
+      after: { stripe_account_id: accountId, country: after.country },
+    });
+  }
+  if (!before.payouts_enabled && after.payouts_enabled) {
+    void recordAudit(admin, {
+      action: "billing.connect_payouts_enabled",
+      target: { type: "billing_account", id: result.userId },
+      after: { stripe_account_id: accountId },
+    });
+  } else if (before.payouts_enabled && !after.payouts_enabled) {
+    void recordAudit(admin, {
+      action: "billing.connect_payouts_disabled",
+      target: { type: "billing_account", id: result.userId },
+      before: { payouts_enabled: true },
+      after: { payouts_enabled: false, requirements: after.requirements },
+    });
+  } else if (
+    JSON.stringify(before.requirements ?? null) !==
+    JSON.stringify(after.requirements ?? null)
+  ) {
+    void recordAudit(admin, {
+      action: "billing.connect_requirements_changed",
+      target: { type: "billing_account", id: result.userId },
+      before: { requirements: before.requirements },
+      after: { requirements: after.requirements },
+    });
+  }
+
+  return true;
 }
 
 export async function recordStripeEvent(

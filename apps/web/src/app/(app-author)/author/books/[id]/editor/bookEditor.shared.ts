@@ -1,3 +1,5 @@
+import { extractTextFromTiptapNode } from "@/lib/tiptap-content";
+
 const ACCEPTED_COVER_EXTENSIONS = new Set(["jpg", "jpeg", "png"]);
 const ACCEPTED_COVER_MIME_TYPES = new Set(["image/jpeg", "image/png"]);
 
@@ -61,33 +63,16 @@ export function normalizeVisibility(value: string | null | undefined): PublishVi
   return null;
 }
 
-export function extractText(node: unknown): string {
-  if (!node || typeof node !== "object") return "";
-  if ("text" in node && typeof (node as { text?: string }).text === "string") {
-    return (node as { text: string }).text;
-  }
-  if ("content" in node && Array.isArray((node as { content?: unknown[] }).content)) {
-    return (node as { content: unknown[] }).content.map(extractText).join("");
-  }
-  return "";
-}
-
-export function countWordsInContent(content: string | null): number {
-  if (!content) return 0;
-  try {
-    const parsed = JSON.parse(content);
-    const text = extractText(parsed);
-    return text.trim().split(/\s+/).filter(Boolean).length;
-  } catch {
-    return content.trim().split(/\s+/).filter(Boolean).length;
-  }
-}
+export {
+  extractTextFromTiptapNode as extractText,
+  countWordsInContent,
+} from "@/lib/tiptap-content";
 
 export function hasReadableContent(content: string | null): boolean {
   if (!content) return false;
   try {
     const parsed = JSON.parse(content);
-    return extractText(parsed).trim().length > 0;
+    return extractTextFromTiptapNode(parsed).trim().length > 0;
   } catch {
     return content.trim().length > 0;
   }
@@ -379,6 +364,7 @@ export type BookEditorProps = {
   bookVersions: BookVersion[];
   activeVersion: BookVersion | null;
   authorDisplayName?: string;
+  authorDisplayNameSet?: boolean;
   defaultPublishVisibility?: "public" | "followers" | "private";
   latestAudiobookAsset?: LatestAudiobookAsset;
   marketingCampaigns?: MarketingCampaignRow[];

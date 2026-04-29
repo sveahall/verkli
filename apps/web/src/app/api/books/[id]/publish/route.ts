@@ -16,9 +16,11 @@ import {
   E_NO_CHAPTERS,
   E_CHAPTER_NEEDS_CONTENT,
   E_MISSING_COVER_IMAGE,
+  E_AUTHOR_DISPLAY_NAME_REQUIRED,
   E_INVALID_BOOK_ID,
   isValidUuid,
 } from "@/lib/api-errors";
+import { extractTextFromTiptapNode } from "@/lib/tiptap-content";
 
 type PublishVisibility = "public" | "followers" | "private";
 type PublishScope = "book" | "chapter";
@@ -27,24 +29,10 @@ function hasContent(content: string | null): boolean {
   if (!content) return false;
   try {
     const parsed = JSON.parse(content);
-    const text = extractText(parsed);
-    return text.trim().length > 0;
+    return extractTextFromTiptapNode(parsed).trim().length > 0;
   } catch {
     return content.trim().length > 0;
   }
-}
-
-function extractText(node: unknown): string {
-  if (!node || typeof node !== "object") return "";
-  if ("text" in node && typeof (node as { text?: string }).text === "string") {
-    return (node as { text: string }).text;
-  }
-  if ("content" in node && Array.isArray((node as { content?: unknown[] }).content)) {
-    return (node as { content: unknown[] }).content
-      .map(extractText)
-      .join("");
-  }
-  return "";
 }
 
 function normalizeVisibility(value: unknown): PublishVisibility | null {
@@ -364,6 +352,26 @@ export async function POST(
   const title = (book.title ?? "").trim();
   if (!title) {
     return apiError(E_MISSING_BOOK_TITLE, 400);
+  }
+
+  // Require a public-facing display name on the author's profile before
+  // letting their book go live. Without this, reader-facing surfaces
+  // (authors list, book detail, dashboard rail) all fall back to the
+  // generic "Author" placeholder, which leaves real readers staring at
+  // identical anonymous tiles. Checking on every publish/chapter-release
+  // (but not on unpublish or visibility-only updates above) means a missing
+  // name surfaces immediately and is fixable in /author/profile.
+  const { data: authorProfile } = await supabase
+    .from("profiles")
+    .select("display_name, username")
+    .eq("user_id", book.author_id)
+    .maybeSingle();
+  const hasDisplayName = Boolean(
+    (authorProfile?.display_name ?? "").trim() ||
+      (authorProfile?.username ?? "").trim()
+  );
+  if (!hasDisplayName) {
+    return apiError(E_AUTHOR_DISPLAY_NAME_REQUIRED, 400);
   }
 
   const { data: chapters } = await supabase

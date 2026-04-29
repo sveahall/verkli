@@ -2,6 +2,11 @@
 
 import { useCallback, useEffect, useMemo, useRef, useSyncExternalStore, useState } from "react";
 import { cn } from "@/lib/utils";
+import {
+  SUPPORTED_LANGUAGE_CODES,
+  getLanguageLabel,
+  type SupportedLanguage,
+} from "@/lib/languages";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -9,6 +14,7 @@ type CampaignBook = {
   id: string;
   title: string | null;
   cover_image: string | null;
+  language?: string | null;
 };
 
 type ChannelId =
@@ -18,6 +24,8 @@ type ChannelId =
   | "facebook"
   | "x"
   | "threads";
+
+type ContentTypeId = "text" | "trailer" | "podcast";
 
 type PostFrequency = "1-3" | "4-5" | "6+";
 
@@ -144,13 +152,24 @@ const CHANNEL_DAY_COLORS: Record<ChannelId, string> = {
   threads: "bg-green-300 dark:bg-green-500/50",
 };
 
+// ─── Content type config ─────────────────────────────────────────────────────
+
+const CONTENT_TYPES: { id: ContentTypeId; label: string; description: string; emoji: string }[] = [
+  { id: "text", label: "Text card", description: "Caption + hashtags ready to copy", emoji: "✍️" },
+  { id: "trailer", label: "Book trailer", description: "AI video trailer (5–15s)", emoji: "🎬" },
+  { id: "podcast", label: "Podcast clip", description: "Narrated chapter excerpt", emoji: "🎙️" },
+];
+
 // ─── Wizard state ────────────────────────────────────────────────────────────
 
-type WizardStep = 1 | 2 | 3;
+const TOTAL_STEPS = 5;
+type WizardStep = 1 | 2 | 3 | 4 | 5;
 
 type CampaignWizardState = {
   step: WizardStep;
   selectedBookId: string | null;
+  languages: Set<SupportedLanguage>;
+  contentTypes: Set<ContentTypeId>;
   channels: Set<ChannelId>;
   frequency: PostFrequency | null;
   startDate: string;
@@ -158,7 +177,10 @@ type CampaignWizardState = {
   schedule: Map<WeekDay, ChannelId[]>;
 };
 
-function createInitialState(bookId: string | null): CampaignWizardState {
+function createInitialState(
+  bookId: string | null,
+  bookLanguage: SupportedLanguage = "en"
+): CampaignWizardState {
   const today = new Date();
   const nextMonday = new Date(today);
   nextMonday.setDate(today.getDate() + ((8 - today.getDay()) % 7 || 7));
@@ -167,6 +189,8 @@ function createInitialState(bookId: string | null): CampaignWizardState {
   return {
     step: 1,
     selectedBookId: bookId,
+    languages: new Set([bookLanguage]),
+    contentTypes: new Set<ContentTypeId>(["text"]),
     channels: new Set(),
     frequency: null,
     startDate: dateStr,
@@ -288,7 +312,116 @@ function StepSelectBook({
   );
 }
 
-// ─── Step 2: Channels + frequency ────────────────────────────────────────────
+// ─── Step 2: Languages ───────────────────────────────────────────────────────
+
+function StepLanguages({
+  languages,
+  onToggle,
+}: {
+  languages: Set<SupportedLanguage>;
+  onToggle: (lang: SupportedLanguage) => void;
+}) {
+  return (
+    <div className="space-y-5">
+      <div>
+        <h3 className="text-[16px] font-semibold text-slate-900 dark:text-white">
+          Which languages do you want to publish in?
+        </h3>
+        <p className="mt-1.5 text-[14px] text-slate-500 dark:text-white/50">
+          Each post is regenerated for every language you pick.
+        </p>
+      </div>
+      <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+        {SUPPORTED_LANGUAGE_CODES.map((code) => {
+          const isSelected = languages.has(code);
+          return (
+            <button
+              key={code}
+              type="button"
+              onClick={() => onToggle(code)}
+              className={cn(
+                "rounded-xl border px-3 py-2.5 text-left text-[14px] font-medium",
+                PRESSABLE,
+                isSelected ? CARD_SELECTED : `${CARD_IDLE} ${CARD_HOVER}`
+              )}
+            >
+              <span className="block text-[12px] uppercase tracking-wider text-slate-400 dark:text-white/35">
+                {code}
+              </span>
+              <span className={cn(
+                isSelected ? "text-slate-900 dark:text-white" : "text-slate-700 dark:text-white/70"
+              )}>
+                {getLanguageLabel(code)}
+              </span>
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+// ─── Step 3: Content types ───────────────────────────────────────────────────
+
+function StepContentTypes({
+  contentTypes,
+  onToggle,
+}: {
+  contentTypes: Set<ContentTypeId>;
+  onToggle: (id: ContentTypeId) => void;
+}) {
+  return (
+    <div className="space-y-5">
+      <div>
+        <h3 className="text-[16px] font-semibold text-slate-900 dark:text-white">
+          What kind of content should we generate?
+        </h3>
+        <p className="mt-1.5 text-[14px] text-slate-500 dark:text-white/50">
+          Pick at least one. Trailers and podcast clips are generated on demand.
+        </p>
+      </div>
+      <div className="grid gap-2.5">
+        {CONTENT_TYPES.map((opt) => {
+          const isSelected = contentTypes.has(opt.id);
+          return (
+            <button
+              key={opt.id}
+              type="button"
+              onClick={() => onToggle(opt.id)}
+              className={cn(
+                "flex items-start gap-3.5 rounded-2xl border px-5 py-4 text-left",
+                PRESSABLE,
+                isSelected ? CARD_SELECTED : `${CARD_IDLE} ${CARD_HOVER}`
+              )}
+            >
+              <span className="text-[24px] leading-none">{opt.emoji}</span>
+              <div className="min-w-0 flex-1">
+                <p className={cn(
+                  "text-[15px] font-medium",
+                  isSelected ? "text-slate-900 dark:text-white" : "text-slate-800 dark:text-white/80"
+                )}>
+                  {opt.label}
+                </p>
+                <p className="mt-0.5 text-[13px] text-slate-500 dark:text-white/45">
+                  {opt.description}
+                </p>
+              </div>
+              {isSelected && (
+                <div className="mt-1 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-[#907AFF] text-white">
+                  <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
+                    <path d="M2.5 6L5 8.5L9.5 3.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                  </svg>
+                </div>
+              )}
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+// ─── Step 4: Channels + frequency ────────────────────────────────────────────
 
 function StepChannels({
   channels,
@@ -574,19 +707,23 @@ function StepSchedule({
 
 // ─── Main component ──────────────────────────────────────────────────────────
 
+export type CampaignWizardCompleteConfig = {
+  bookId: string;
+  languages: SupportedLanguage[];
+  contentTypes: ContentTypeId[];
+  channels: ChannelId[];
+  frequency: PostFrequency;
+  startDate: string;
+  template: ContentTemplate;
+  schedule: Record<string, string[]>;
+};
+
 type CampaignWizardProps = {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   books: CampaignBook[];
   initialBookId?: string | null;
-  onComplete?: (config: {
-    bookId: string;
-    channels: ChannelId[];
-    frequency: PostFrequency;
-    startDate: string;
-    template: ContentTemplate;
-    schedule: Record<string, string[]>;
-  }) => void;
+  onComplete?: (config: CampaignWizardCompleteConfig) => void | Promise<void>;
 };
 
 export default function CampaignWizard({
@@ -642,9 +779,14 @@ function CampaignWizardInner({
   initialBookId?: string | null;
   onComplete?: CampaignWizardProps["onComplete"];
 }) {
+  const startBookId = initialBookId ?? books[0]?.id ?? null;
+  const startBook = books.find((b) => b.id === startBookId) ?? books[0] ?? null;
+  const startLang = (startBook?.language ?? "en") as SupportedLanguage;
   const [state, setState] = useState<CampaignWizardState>(() =>
-    createInitialState(initialBookId ?? books[0]?.id ?? null)
+    createInitialState(startBookId, SUPPORTED_LANGUAGE_CODES.includes(startLang) ? startLang : "en")
   );
+  const [submitting, setSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
   const [visible, setVisible] = useState(false);
   const panelRef = useRef<HTMLDivElement>(null);
 
@@ -660,21 +802,32 @@ function CampaignWizardInner({
       case 1:
         return Boolean(state.selectedBookId);
       case 2:
-        return state.channels.size > 0 && state.frequency !== null;
+        return state.languages.size > 0;
       case 3:
+        return state.contentTypes.size > 0;
+      case 4:
+        return state.channels.size > 0 && state.frequency !== null;
+      case 5:
         return true;
       default:
         return false;
     }
-  }, [state.step, state.selectedBookId, state.channels.size, state.frequency]);
+  }, [
+    state.step,
+    state.selectedBookId,
+    state.languages.size,
+    state.contentTypes.size,
+    state.channels.size,
+    state.frequency,
+  ]);
 
   const goNext = useCallback(() => {
     setState((prev) => {
-      if (prev.step === 2) {
+      if (prev.step === 4) {
         const schedule = buildDefaultSchedule(prev.channels, prev.frequency);
-        return { ...prev, step: 3 as WizardStep, schedule };
+        return { ...prev, step: 5 as WizardStep, schedule };
       }
-      if (prev.step < 3) {
+      if (prev.step < TOTAL_STEPS) {
         return { ...prev, step: (prev.step + 1) as WizardStep };
       }
       return prev;
@@ -687,13 +840,39 @@ function CampaignWizardInner({
     );
   }, []);
 
+  const toggleLanguage = useCallback((lang: SupportedLanguage) => {
+    setState((prev) => {
+      const next = new Set(prev.languages);
+      if (next.has(lang)) {
+        if (next.size === 1) return prev;
+        next.delete(lang);
+      } else {
+        next.add(lang);
+      }
+      return { ...prev, languages: next };
+    });
+  }, []);
+
+  const toggleContentType = useCallback((id: ContentTypeId) => {
+    setState((prev) => {
+      const next = new Set(prev.contentTypes);
+      if (next.has(id)) {
+        if (next.size === 1) return prev;
+        next.delete(id);
+      } else {
+        next.add(id);
+      }
+      return { ...prev, contentTypes: next };
+    });
+  }, []);
+
   const close = useCallback(() => {
     setVisible(false);
     // Wait for exit animation before unmounting
     setTimeout(() => onClose(), 200);
   }, [onClose]);
 
-  const handleComplete = useCallback(() => {
+  const handleComplete = useCallback(async () => {
     if (!state.selectedBookId || !state.frequency) return;
 
     const scheduleObj: Record<string, string[]> = {};
@@ -701,16 +880,26 @@ function CampaignWizardInner({
       scheduleObj[day] = chs;
     });
 
-    onComplete?.({
-      bookId: state.selectedBookId,
-      channels: [...state.channels],
-      frequency: state.frequency,
-      startDate: state.startDate,
-      template: state.template,
-      schedule: scheduleObj,
-    });
-
-    close();
+    setSubmitting(true);
+    setSubmitError(null);
+    try {
+      await onComplete?.({
+        bookId: state.selectedBookId,
+        languages: [...state.languages],
+        contentTypes: [...state.contentTypes],
+        channels: [...state.channels],
+        frequency: state.frequency,
+        startDate: state.startDate,
+        template: state.template,
+        schedule: scheduleObj,
+      });
+      close();
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "Could not create campaign.";
+      setSubmitError(msg);
+    } finally {
+      setSubmitting(false);
+    }
   }, [state, onComplete, close]);
 
   const toggleChannel = useCallback((id: ChannelId) => {
@@ -744,7 +933,7 @@ function CampaignWizardInner({
     });
   }, []);
 
-  const isLastStep = state.step === 3;
+  const isLastStep = state.step === TOTAL_STEPS;
 
   return (
     <div
@@ -787,7 +976,7 @@ function CampaignWizardInner({
 
         {/* Progress */}
         <div className="mt-5">
-          <WizardProgress step={state.step} totalSteps={3} />
+          <WizardProgress step={state.step} totalSteps={TOTAL_STEPS} />
         </div>
 
         {/* Step content */}
@@ -801,6 +990,20 @@ function CampaignWizardInner({
           )}
 
           {state.step === 2 && (
+            <StepLanguages
+              languages={state.languages}
+              onToggle={toggleLanguage}
+            />
+          )}
+
+          {state.step === 3 && (
+            <StepContentTypes
+              contentTypes={state.contentTypes}
+              onToggle={toggleContentType}
+            />
+          )}
+
+          {state.step === 4 && (
             <StepChannels
               channels={state.channels}
               frequency={state.frequency}
@@ -812,7 +1015,7 @@ function CampaignWizardInner({
             />
           )}
 
-          {state.step === 3 && (
+          {state.step === 5 && (
             <StepSchedule
               channels={state.channels}
               startDate={state.startDate}
@@ -829,13 +1032,20 @@ function CampaignWizardInner({
           )}
         </div>
 
+        {submitError && (
+          <p className="mt-4 text-[13px] text-red-600 dark:text-red-400">
+            {submitError}
+          </p>
+        )}
+
         {/* Footer */}
         <div className="mt-8 flex items-center justify-between gap-3">
           <button
             type="button"
             onClick={state.step === 1 ? close : goBack}
+            disabled={submitting}
             className={cn(
-              "rounded-xl border px-6 py-2.5 text-[14px] font-medium transition-all",
+              "rounded-xl border px-6 py-2.5 text-[14px] font-medium transition-all disabled:opacity-50",
               PRESSABLE,
               CARD_IDLE
             )}
@@ -845,13 +1055,17 @@ function CampaignWizardInner({
           <button
             type="button"
             onClick={isLastStep ? handleComplete : goNext}
-            disabled={!canAdvance}
+            disabled={!canAdvance || submitting}
             className={cn(
               "rounded-xl bg-[#907AFF] px-6 py-2.5 text-[14px] font-medium text-white transition-all hover:bg-[#8069EE] disabled:opacity-50",
               PRESSABLE
             )}
           >
-            {isLastStep ? "Create campaign" : "Continue"}
+            {submitting
+              ? "Creating…"
+              : isLastStep
+                ? "Create campaign"
+                : "Continue"}
           </button>
         </div>
       </div>

@@ -13,6 +13,7 @@ import {
   E_RATE_LIMIT_EXCEEDED,
   E_VALIDATION_FAILED,
 } from "@/lib/api-errors";
+import { extractTextFromTiptapNode } from "@/lib/tiptap-content";
 
 const previewLimiter = createPerUserRateLimiter({ maxPerMinute: 5 });
 
@@ -77,7 +78,7 @@ export async function POST(
       // Extract plain text from TipTap JSON
       try {
         const parsed = JSON.parse(raw);
-        const text = extractText(parsed);
+        const text = extractTextFromTiptapNode(parsed);
         if (text.trim().length > 20) {
           previewText = text.trim().slice(0, MAX_PREVIEW_CHARS);
         }
@@ -117,13 +118,3 @@ export async function POST(
   }
 }
 
-function extractText(node: unknown): string {
-  if (!node || typeof node !== "object") return "";
-  if ("text" in node && typeof (node as { text?: string }).text === "string") {
-    return (node as { text: string }).text;
-  }
-  if ("content" in node && Array.isArray((node as { content?: unknown[] }).content)) {
-    return (node as { content: unknown[] }).content.map(extractText).join(" ");
-  }
-  return "";
-}

@@ -4,6 +4,7 @@ import Image from "next/image";
 import { useMemo, useState } from "react";
 import { getLanguageLabel } from "@/lib/languages";
 import { getAudiobookStatusLabel } from "../bookEditor.shared";
+import { countWordsInContent } from "@/lib/tiptap-content";
 import type { Tool } from "../BookEditorView.types";
 
 type Chapter = {
@@ -91,22 +92,7 @@ function CopyLinkButton({ url }: { url: string }) {
 
 /* ── Helpers ── */
 
-function extractText(node: unknown): string {
-  if (!node || typeof node !== "object") return "";
-  const n = node as Record<string, unknown>;
-  if (n.type === "text" && typeof n.text === "string") return n.text;
-  if (Array.isArray(n.content)) return (n.content as unknown[]).map(extractText).join(" ");
-  return "";
-}
-
-function countWords(content: string | null): number {
-  if (!content) return 0;
-  try {
-    return extractText(JSON.parse(content)).split(/\s+/).filter(Boolean).length;
-  } catch {
-    return content.split(/\s+/).filter(Boolean).length;
-  }
-}
+const countWords = countWordsInContent;
 
 function formatPrice(minor: number, currency: string): string {
   if (minor === 0) return "Free";

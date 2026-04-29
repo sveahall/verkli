@@ -161,4 +161,52 @@ describe("PUT /api/reader/settings", () => {
     expect(body.settings.font_size).toBe(20);
     expect(body.settings.theme).toBe("sepia");
   });
+
+  it("accepts camelCase settings from reader clients", async () => {
+    mockSupabaseWithUser();
+    let upsertPayload = null as Record<string, unknown> | null;
+    mockFrom.mockImplementation((table: string) => {
+      if (table === "profiles") {
+        return {
+          select: () => ({
+            eq: () => ({
+              maybeSingle: () =>
+                Promise.resolve({ data: { preferences: {} }, error: null }),
+            }),
+          }),
+          upsert: (payload: Record<string, unknown>) => {
+            upsertPayload = payload;
+            return Promise.resolve({ error: null });
+          },
+        };
+      }
+      return {};
+    });
+
+    const req = new Request("http://localhost/api/reader/settings", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ fontSize: 20, lineHeight: 1.8, contentWidth: "wide" }),
+    });
+    const res = await PUT(req);
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.settings).toMatchObject({
+      font_size: 20,
+      line_height: 1.8,
+      content_width: "wide",
+    });
+    expect(upsertPayload?.preferences).toMatchObject({
+      reader: {
+        settings: {
+          fontSize: 20,
+          font_size: 20,
+          lineHeight: 1.8,
+          line_height: 1.8,
+          contentWidth: "wide",
+          content_width: "wide",
+        },
+      },
+    });
+  });
 });

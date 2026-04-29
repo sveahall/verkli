@@ -2,6 +2,11 @@ import path from "path";
 import type { NextConfig } from "next";
 import { withSentryConfig } from "@sentry/nextjs";
 import withBundleAnalyzer from "@next/bundle-analyzer";
+import createNextIntlPlugin from "next-intl/plugin";
+
+// next-intl 4 plugin — points at the server-side request config that
+// resolves the locale per request (cookie → user preference → default).
+const withNextIntl = createNextIntlPlugin("./src/lib/i18n/request.ts");
 
 const isProduction = process.env.NODE_ENV === "production";
 
@@ -22,6 +27,8 @@ const scriptSrc = [
   "https://js.sentry-cdn.com",
   "https://runwayml.com",
   "https://*.runwayml.com",
+  "https://us-assets.i.posthog.com",
+  "https://eu-assets.i.posthog.com",
 ];
 
 if (!isProduction) {
@@ -58,6 +65,10 @@ const connectSrc = [
   "https://open.tiktokapis.com",
   "https://*.tiktokapis.com",
   "https://*.tiktok.com",
+  "https://us.i.posthog.com",
+  "https://eu.i.posthog.com",
+  "https://us-assets.i.posthog.com",
+  "https://eu-assets.i.posthog.com",
 ];
 
 if (!isProduction) {
@@ -156,6 +167,8 @@ const analyzedConfig = withBundleAnalyzer({
   enabled: process.env.ANALYZE === "true",
 })(nextConfig);
 
-export default withSentryConfig(analyzedConfig, {
+const intlConfig = withNextIntl(analyzedConfig);
+
+export default withSentryConfig(intlConfig, {
   silent: !process.env.CI,
 });

@@ -59,7 +59,7 @@ export async function PUT(request: Request) {
     );
 
   if (error) {
-    console.error("[subscription-plan] upsert failed", { userId: user.id, message: error.message });
+    console.error("[author subscription-plan] upsert failed", { userId: user.id, message: error.message });
     return apiError(E_DATABASE_ERROR, 500);
   }
 

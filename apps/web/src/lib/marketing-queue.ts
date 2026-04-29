@@ -52,6 +52,8 @@ export type MarketingJobData = {
   channels: string[];
   language: string;
   campaignId?: string;
+  /** When set, the worker expands a marketing_campaign_plans row into marketing_posts. */
+  campaignPlanId?: string;
 };
 
 export async function enqueueMarketingJob(data: MarketingJobData): Promise<string | null> {
@@ -66,7 +68,13 @@ export async function enqueueMarketingJob(data: MarketingJobData): Promise<strin
     return null;
   }
 
-  const jobId = makeJobId("marketing", data.authorId, data.bookId, data.language);
+  const jobId = makeJobId(
+    "marketing",
+    data.authorId,
+    data.bookId,
+    data.language,
+    data.campaignPlanId ?? "legacy"
+  );
   const existing = await q.getJob(jobId);
 
   if (existing) {

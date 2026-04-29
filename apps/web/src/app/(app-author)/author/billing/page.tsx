@@ -3,6 +3,8 @@ import type { PlanCard } from "@/components/billing/BillingPageContent";
 import { getBillingStateForUser } from "@/lib/billing/server";
 import { createClient } from "@/lib/supabase/server";
 
+export const dynamic = "force-dynamic";
+
 const AUTHOR_PLAN_CARDS: PlanCard[] = [
   {
     id: "pro",

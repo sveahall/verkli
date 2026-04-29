@@ -52,6 +52,7 @@ type Props = {
   bookVersions: BookVersion[];
   activeVersion: BookVersion | null;
   authorDisplayName?: string;
+  authorDisplayNameSet?: boolean;
   defaultPublishVisibility?: PublishVisibility;
   latestAudiobookAsset?: LatestAudiobookAsset;
   marketingCampaigns?: MarketingCampaignRow[];
@@ -66,6 +67,7 @@ export default function BookEditorView({
   bookVersions,
   activeVersion,
   authorDisplayName = "Author",
+  authorDisplayNameSet = true,
   defaultPublishVisibility = "public",
   latestAudiobookAsset = null,
   marketingCampaigns = [],
@@ -146,6 +148,7 @@ export default function BookEditorView({
     coverUploading: cover.coverUploading,
     selectedChapter,
     defaultPublishVisibility,
+    authorDisplayNameSet,
   });
 
   // ── Jobs & billing ────────────────────────────────────────────────────────

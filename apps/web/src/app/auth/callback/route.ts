@@ -2,6 +2,7 @@ import { createClient } from "@/lib/supabase/server";
 import { NextResponse } from "next/server";
 import { activeRoleCookieHeader } from "@/lib/active-role";
 import type { ActiveRole } from "@/lib/active-role";
+import { capturePostHogAsync } from "@/lib/analytics/posthog-server";
 
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
@@ -14,6 +15,27 @@ export async function GET(request: Request) {
 
     if (!error) {
       const { data: { user } } = await supabase.auth.getUser();
+
+      // PostHog: distinguish first-session (sign-up) vs returning (sign-in).
+      // Heuristic: user.created_at within the last 5 minutes ⇒ sign-up.
+      if (user?.id) {
+        const createdMs = user.created_at
+          ? new Date(user.created_at).getTime()
+          : 0;
+        const isFresh =
+          createdMs > 0 && Date.now() - createdMs < 5 * 60 * 1000;
+        const provider =
+          (user.app_metadata as { provider?: string } | undefined)?.provider;
+        await capturePostHogAsync({
+          distinctId: user.id,
+          event: isFresh ? "auth_signup" : "auth_signin",
+          properties: {
+            email_domain: user.email ? user.email.split("@")[1] : undefined,
+            provider,
+          },
+        });
+      }
+
       let role: ActiveRole | null = null;
       const metaRole = user?.user_metadata?.active_role ?? user?.user_metadata?.role;
       if (metaRole === "author" || metaRole === "reader") {

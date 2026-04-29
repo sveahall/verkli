@@ -1,0 +1,58 @@
+{
+  "author": {
+    "nav": {
+      "home": "Home",
+      "books": "Books",
+      "marketing": "Marketing",
+      "newsletters": "Newsletters",
+      "polls": "Polls",
+      "stats": "Stats",
+      "profile": "Profile",
+      "settings": "Settings",
+      "billing": "Billing",
+      "payouts": "Payouts",
+      "inbox": "Inbox",
+      "notifications": "Notifications",
+      "feedback": "Feedback",
+      "signOut": "Sign out"
+    },
+    "billing": {
+      "payouts": {
+        "title": "Payouts",
+        "subtitle": "Verkli uses Stripe Connect Express. KYC once; Stripe handles payouts and tax forms.",
+        "setupTitle": "Set up payouts",
+        "setupBody": "We use Stripe Connect Express. You complete KYC with Stripe (a few minutes), then we can pay out to your bank account monthly.",
+        "platformFee": "Platform fee: 30% (same as Apple, Spotify, Patreon)",
+        "schedule": "Default schedule: monthly · PRO/PRO+ can choose weekly",
+        "taxForms": "Stripe handles tax forms (1099 / control statements)",
+        "startOnboarding": "Start onboarding",
+        "continueOnboarding": "Continue onboarding",
+        "kycRequired": "KYC required",
+        "kycSubmitted": "KYC submitted",
+        "payoutsOk": "Payouts OK",
+        "payoutsPending": "Payouts pending",
+        "salesOk": "Sales OK",
+        "salesPending": "Sales pending",
+        "pending": "Pending",
+        "available": "Available",
+        "paidOut": "Paid out",
+        "balanceComingSoon": "Ledger data wires up in Week 3 alongside PRO tier SKUs. Stripe Dashboard has the full ledger today — open it from your Stripe account.",
+        "payouts_enabled": "Stripe onboarding complete — payouts active.",
+        "kyc_submitted": "KYC submitted. Stripe is reviewing — usually clears within a few minutes.",
+        "kyc_incomplete": "Onboarding started but not completed. Click \"Continue onboarding\" to finish.",
+        "needs_onboarding": "Set up payouts before you can sell books.",
+        "onboarding_failed": "Something went wrong with onboarding. Try again."
+      }
+    },
+    "common": {
+      "save": "Save",
+      "cancel": "Cancel",
+      "delete": "Delete",
+      "edit": "Edit",
+      "back": "Back",
+      "loading": "Loading…",
+      "saving": "Saving…",
+      "saved": "Saved"
+    }
+  }
+}

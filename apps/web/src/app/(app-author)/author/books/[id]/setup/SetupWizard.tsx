@@ -12,6 +12,7 @@ import PrintStep from "./steps/PrintStep";
 import PricingStep from "./steps/PricingStep";
 import PublishStep from "./steps/PublishStep";
 import type { BookSetupState } from "@/lib/books/setup-state";
+import { hasReadableContent } from "@/app/(app-author)/author/books/[id]/editor/BookEditorView.helpers";
 
 type Chapter = {
   id: string;
@@ -36,27 +37,6 @@ type Props = {
   onSwitchToEditor: (panel?: string) => void;
 };
 
-function hasReadableContent(content: string | null): boolean {
-  if (!content) return false;
-  try {
-    const parsed = JSON.parse(content);
-    const text = extractText(parsed);
-    return text.trim().length > 0;
-  } catch {
-    return content.trim().length > 0;
-  }
-}
-
-function extractText(node: unknown): string {
-  if (!node || typeof node !== "object") return "";
-  if ("text" in node && typeof (node as { text?: string }).text === "string") {
-    return (node as { text: string }).text;
-  }
-  if ("content" in node && Array.isArray((node as { content?: unknown[] }).content)) {
-    return (node as { content: unknown[] }).content.map(extractText).join("");
-  }
-  return "";
-}
 
 export default function SetupWizard({ book, chapters, initialSetupState, onSwitchToEditor }: Props) {
   const router = useRouter();

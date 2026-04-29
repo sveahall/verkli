@@ -11,6 +11,7 @@ import {
 } from "@/lib/api-errors";
 import { createPerUserRateLimiter } from "@/lib/rate-limit";
 import { getRequestBaseUrl } from "@/lib/request-url";
+import { isDonationsEnabled } from "@/lib/flags";
 
 const checkoutLimiter = createPerUserRateLimiter({ maxPerMinute: 5 });
 
@@ -38,6 +39,15 @@ export async function POST(request: Request) {
       : "SEK";
 
   const baseUrl = getRequestBaseUrl(request);
+
+  // Sprint 0.5 (Task 11): donations are gated behind a top-level flag in
+  // production. Until enabled per environment, treat the route as 404 so the
+  // entry point is fully hidden. Mock-mode below remains a dev/test escape
+  // hatch when both NODE_ENV !== production AND DONATION_CHECKOUT_MOCK_MODE
+  // is explicitly set.
+  if (process.env.NODE_ENV === "production" && !isDonationsEnabled()) {
+    return new NextResponse("Not Found", { status: 404 });
+  }
 
   if (isDonationCheckoutMockModeEnabled()) {
     if (amountMinor <= 0) {

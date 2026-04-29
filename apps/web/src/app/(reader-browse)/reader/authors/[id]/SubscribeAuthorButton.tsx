@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { formatMoney } from "@/lib/format-money";
 
 type Props = {
   authorId: string;
@@ -10,19 +11,6 @@ type Props = {
   signInHref: string;
   initialSubscribed: boolean;
 };
-
-function formatMoney(minor: number, currency: string): string {
-  const value = minor / 100;
-  try {
-    return new Intl.NumberFormat(undefined, {
-      style: "currency",
-      currency: currency.toUpperCase(),
-      maximumFractionDigits: 0,
-    }).format(value);
-  } catch {
-    return `${value.toFixed(0)} ${currency.toUpperCase()}`;
-  }
-}
 
 export default function SubscribeAuthorButton({
   authorId,
@@ -51,7 +39,7 @@ export default function SubscribeAuthorButton({
         href={signInHref}
         className="rounded-full bg-white/10 px-4 py-2.5 text-[13px] font-semibold text-white ring-1 ring-white/20 backdrop-blur-sm transition hover:bg-white/20"
       >
-        Subscribe · {formatMoney(priceMonthlyMinor, currency)}/mo
+        Subscribe · {formatMoney(priceMonthlyMinor, currency, 0)}/mo
       </a>
     );
   }
@@ -101,7 +89,7 @@ export default function SubscribeAuthorButton({
         disabled={loading}
         className="rounded-full bg-white/10 px-4 py-2.5 text-[13px] font-semibold text-white ring-1 ring-white/20 backdrop-blur-sm transition hover:bg-white/20 disabled:cursor-not-allowed disabled:opacity-60"
       >
-        {loading ? "Opening checkout…" : `Subscribe · ${formatMoney(priceMonthlyMinor, currency)}/mo`}
+        {loading ? "Opening checkout…" : `Subscribe · ${formatMoney(priceMonthlyMinor, currency, 0)}/mo`}
       </button>
       {error ? (
         <p className="text-[12px] text-rose-300">{error}</p>

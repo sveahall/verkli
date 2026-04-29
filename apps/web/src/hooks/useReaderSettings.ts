@@ -43,6 +43,7 @@ function saveToLocalStorage(settings: ReaderSettingsData) {
 export function useReaderSettings(isLoggedIn: boolean) {
   const [settings, setSettings] = useState<ReaderSettingsData>(() => loadFromLocalStorage());
   const [isLoading, setIsLoading] = useState(true);
+  const [saveStatus, setSaveStatus] = useState<"idle" | "saving" | "saved" | "error">("idle");
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Load from API on mount if logged in
@@ -80,16 +81,18 @@ export function useReaderSettings(isLoggedIn: boolean) {
 
         // Debounced save to API
         if (isLoggedIn) {
+          setSaveStatus("saving");
           if (debounceRef.current) clearTimeout(debounceRef.current);
           debounceRef.current = setTimeout(async () => {
             try {
-              await fetch("/api/reader/settings", {
+              const res = await fetch("/api/reader/settings", {
                 method: "PUT",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify(partial),
+                body: JSON.stringify(next),
               });
+              setSaveStatus(res.ok ? "saved" : "error");
             } catch {
-              // silent
+              setSaveStatus("error");
             }
           }, 500);
         }
@@ -107,5 +110,5 @@ export function useReaderSettings(isLoggedIn: boolean) {
     };
   }, []);
 
-  return { settings, updateSettings, isLoading };
+  return { settings, updateSettings, isLoading, saveStatus };
 }

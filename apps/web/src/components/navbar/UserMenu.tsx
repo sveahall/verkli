@@ -204,7 +204,7 @@ export default function UserMenu({ user, onSignOut, currentRole = "author", orig
             </Link>
 
             <Link
-              href={currentRole === 'author' ? "/author/settings" : "/reader/profile"}
+              href={currentRole === 'author' ? "/author/settings" : "/reader/settings"}
               onClick={(e) => {
                 e.stopPropagation();
                 setIsOpen(false);

@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { API_ROUTES } from "@/lib/api-routes";
+import { formatMoney } from "@/lib/format-money";
 
 type Props = {
   bookId: string;
@@ -28,18 +29,6 @@ function resolveCheckoutError(key: string | null | undefined): string {
   return CHECKOUT_ERRORS[key] ?? DEFAULT_CHECKOUT_ERROR;
 }
 
-function formatMoney(amount: number, currency: string): string {
-  const value = amount / 100;
-  try {
-    return new Intl.NumberFormat(undefined, {
-      style: "currency",
-      currency: currency.toUpperCase(),
-      maximumFractionDigits: 2,
-    }).format(value);
-  } catch {
-    return `${value.toFixed(2)} ${currency.toUpperCase()}`;
-  }
-}
 
 export default function PurchaseChapterButton({ bookId, chapterId, amount, currency, label }: Props) {
   const [loading, setLoading] = useState(false);

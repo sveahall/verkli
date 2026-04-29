@@ -11,6 +11,7 @@ import { Input } from "@/components/ui/input";
 import { signIn, signInWithGoogle } from "@/lib/supabase/auth";
 import { createClient } from "@/lib/supabase/client";
 import { resolveErrorMessage } from "@/lib/error-messages";
+import { setActiveRoleCookieClient } from "@/lib/active-role";
 
 export default function ReaderSignIn() {
   const router = useRouter();
@@ -36,42 +37,48 @@ export default function ReaderSignIn() {
     if (!validate()) return;
 
     setLoading(true);
-    const { error } = await signIn(email, password, staySignedIn);
+    try {
+      const { error } = await signIn(email, password, staySignedIn);
 
-    if (error) {
-      setError(resolveErrorMessage(null, "Sign in failed. Check your email and password."));
-      setLoading(false);
-      return;
-    }
-
-    const supabase = createClient();
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
-
-    let nextRole: "author" | "reader" | null = null;
-    const metaRole = user?.user_metadata?.active_role ?? user?.user_metadata?.role;
-    if (metaRole === "author" || metaRole === "reader") {
-      nextRole = metaRole;
-    }
-
-    if (!nextRole && user?.id) {
-      const { data: profile } = await supabase
-        .from("profiles")
-        .select("role, preferences")
-        .eq("user_id", user.id)
-        .maybeSingle();
-
-      const preferenceRole = (profile?.preferences as { active_role?: string } | null)?.active_role;
-      if (preferenceRole === "author" || preferenceRole === "reader") {
-        nextRole = preferenceRole;
-      } else if (profile?.role === "author" || profile?.role === "reader") {
-        nextRole = profile.role;
+      if (error) {
+        setError(resolveErrorMessage(error.code, "Sign in failed. Check your email and password."));
+        setLoading(false);
+        return;
       }
-    }
 
-    const resolvedRole = nextRole ?? "reader";
-    router.push(resolvedRole === "author" ? "/author/home" : "/reader/home");
+      const supabase = createClient();
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+
+      let nextRole: "author" | "reader" | null = null;
+      const metaRole = user?.user_metadata?.active_role ?? user?.user_metadata?.role;
+      if (metaRole === "author" || metaRole === "reader") {
+        nextRole = metaRole;
+      }
+
+      if (!nextRole && user?.id) {
+        const { data: profile } = await supabase
+          .from("profiles")
+          .select("role, preferences")
+          .eq("user_id", user.id)
+          .maybeSingle();
+
+        const preferenceRole = (profile?.preferences as { active_role?: string } | null)?.active_role;
+        if (preferenceRole === "author" || preferenceRole === "reader") {
+          nextRole = preferenceRole;
+        } else if (profile?.role === "author" || profile?.role === "reader") {
+          nextRole = profile.role;
+        }
+      }
+
+      const resolvedRole = nextRole ?? "reader";
+      setActiveRoleCookieClient(resolvedRole);
+      router.replace(resolvedRole === "author" ? "/author/home" : "/reader/home");
+    } catch {
+      setError("Sign in failed. Please try again.");
+      setLoading(false);
+    }
   };
 
   const handleGoogleSignIn = async () => {

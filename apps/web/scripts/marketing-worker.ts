@@ -21,12 +21,202 @@ import {
   JobCostExceededError,
   validateJobCost,
 } from "../src/lib/workers/budget";
+import { expandSchedule } from "../src/lib/marketing/expand-schedule";
+import { buildPostCopy } from "../src/lib/marketing/post-templates";
+import type {
+  CampaignPlanContentType,
+  CampaignPlanTemplate,
+} from "../src/lib/marketing/schemas";
 
 import { QUEUE_NAMES } from "../src/lib/queue-names";
 import { startHeartbeatInterval } from "../src/lib/health/worker-heartbeat";
 import { Sentry } from "./sentry-worker-init";
 
 const QUEUE_NAME = QUEUE_NAMES.MARKETING;
+
+type CampaignPlan = {
+  id: string;
+  book_id: string;
+  author_id: string;
+  template: CampaignPlanTemplate;
+  channels: string[];
+  languages: string[];
+  content_types: string[];
+  start_date: string;
+  duration_weeks: number;
+  weekly_schedule: Record<string, string[]>;
+};
+
+async function processCampaignPlanJob(
+  payload: MarketingJobData,
+  workerJobId?: string
+): Promise<void> {
+  if (!payload.campaignPlanId) {
+    throw new UnrecoverableError("campaignPlanId missing on job");
+  }
+
+  const supabase = createAdminClient();
+  const planId = payload.campaignPlanId;
+
+  console.log("[marketing worker] expanding plan:", planId);
+
+  const { data: planRaw, error: planErr } = await supabase
+    .from("marketing_campaign_plans")
+    .select(
+      `id, book_id, author_id, template, channels, languages, content_types,
+       start_date, duration_weeks, weekly_schedule`
+    )
+    .eq("id", planId)
+    .maybeSingle();
+
+  if (planErr || !planRaw) {
+    throw new UnrecoverableError(
+      `Plan not found: ${planErr?.message ?? planId}`
+    );
+  }
+
+  const plan = planRaw as unknown as CampaignPlan;
+
+  if (plan.author_id !== payload.authorId) {
+    throw new UnrecoverableError("Ownership mismatch on campaign plan");
+  }
+
+  const { data: book, error: bookErr } = await supabase
+    .from("books")
+    .select("id, title, author_id")
+    .eq("id", plan.book_id)
+    .single();
+
+  if (bookErr || !book) {
+    await markPlanFailed(supabase, planId, "book_not_found");
+    throw new UnrecoverableError(`Book missing: ${bookErr?.message ?? plan.book_id}`);
+  }
+
+  const expanded = expandSchedule({
+    startDate: plan.start_date,
+    durationWeeks: plan.duration_weeks,
+    weeklySchedule: plan.weekly_schedule,
+    languages: plan.languages,
+    contentTypes: plan.content_types as CampaignPlanContentType[],
+    template: plan.template,
+  });
+
+  if (expanded.length === 0) {
+    await markPlanFailed(supabase, planId, "empty_schedule");
+    throw new UnrecoverableError("Schedule expanded to zero posts");
+  }
+
+  // Cost gate sized by post volume
+  const estimatedCostUnits = Math.max(1, Math.ceil(expanded.length / 10));
+  try {
+    validateJobCost({
+      userId: payload.authorId,
+      pipeline: "video",
+      jobSize: estimatedCostUnits,
+      jobId: workerJobId ?? null,
+    });
+    await checkBudget({
+      userId: payload.authorId,
+      pipeline: "video",
+      units: estimatedCostUnits,
+      jobId: workerJobId ?? null,
+    });
+  } catch (err) {
+    if (err instanceof BudgetExceededError || err instanceof JobCostExceededError) {
+      await markPlanFailed(supabase, planId, err.message);
+      throw new UnrecoverableError(err.message);
+    }
+    throw err;
+  }
+
+  // Skip if posts already exist for this plan (re-run protection)
+  const alreadyDone = await isDuplicate(async () => {
+    const { count } = await supabase
+      .from("marketing_posts")
+      .select("id", { count: "exact", head: true })
+      .eq("campaign_plan_id", planId);
+    return (count ?? 0) > 0;
+  }, `marketing-plan:${planId}`);
+
+  if (alreadyDone) {
+    console.log("[marketing worker] plan already expanded, skipping:", planId);
+    await supabase
+      .from("marketing_campaign_plans")
+      .update({ status: "active", generation_error: null })
+      .eq("id", planId);
+    return;
+  }
+
+  const rows = expanded.map((post) => {
+    const copy = buildPostCopy({
+      bookId: plan.book_id,
+      bookTitle: book.title ?? "Untitled",
+      language: post.language,
+      channel: post.channel,
+      contentType: post.contentType,
+      template: plan.template,
+      variantIndex: post.variantIndex,
+    });
+
+    // Trailer + podcast posts start as draft (need on-demand asset generation).
+    // Text posts are immediately ready.
+    const status: string = post.contentType === "text" ? "ready" : "draft";
+
+    return {
+      campaign_plan_id: planId,
+      book_id: plan.book_id,
+      author_id: plan.author_id,
+      scheduled_for: post.scheduledFor.toISOString(),
+      channel: post.channel,
+      language: post.language,
+      content_type: post.contentType,
+      status,
+      headline: copy.headline,
+      caption: copy.caption,
+      hashtags: copy.hashtags,
+      cta: copy.cta,
+      share_url: copy.shareUrl,
+      mode: "organic",
+      paid_config: {},
+      metadata: { variantIndex: post.variantIndex, langLabel: getLanguageLabel(post.language) },
+    };
+  });
+
+  // Insert in chunks to avoid payload limits
+  const CHUNK = 200;
+  for (let i = 0; i < rows.length; i += CHUNK) {
+    const slice = rows.slice(i, i + CHUNK);
+    const { error: insertErr } = await supabase.from("marketing_posts").insert(slice);
+    if (insertErr) {
+      console.error("[marketing worker] insert failed:", insertErr.message);
+      await markPlanFailed(supabase, planId, insertErr.message);
+      throw new Error(insertErr.message);
+    }
+  }
+
+  await supabase
+    .from("marketing_campaign_plans")
+    .update({ status: "active", generation_error: null })
+    .eq("id", planId);
+
+  console.log(
+    "[marketing worker] plan expanded — planId:",
+    planId,
+    "posts:",
+    rows.length
+  );
+}
+
+async function markPlanFailed(
+  supabase: ReturnType<typeof createAdminClient>,
+  planId: string,
+  error: string
+): Promise<void> {
+  await supabase
+    .from("marketing_campaign_plans")
+    .update({ status: "failed", generation_error: error.slice(0, 500) })
+    .eq("id", planId);
+}
 
 const CHANNELS = ["generic", "tiktok", "instagram", "x"] as const;
 type Channel = (typeof CHANNELS)[number];
@@ -219,10 +409,15 @@ function main() {
   const worker = new Worker(
     QUEUE_NAME,
     async (job) => {
-      if (job.name === "marketing-generate" && job.data) {
-        console.log("[marketing-worker] processing job", job.id);
-        const workerJobId = job.id != null ? String(job.id) : undefined;
-        await processJob(job.data as MarketingJobData, workerJobId);
+      if (job.name !== "marketing-generate" || !job.data) return;
+      console.log("[marketing-worker] processing job", job.id);
+      const workerJobId = job.id != null ? String(job.id) : undefined;
+      const data = job.data as MarketingJobData;
+
+      if (data.campaignPlanId) {
+        await processCampaignPlanJob(data, workerJobId);
+      } else {
+        await processJob(data, workerJobId);
       }
     },
     {

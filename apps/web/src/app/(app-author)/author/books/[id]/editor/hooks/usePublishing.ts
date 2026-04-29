@@ -26,6 +26,7 @@ interface UsePublishingOptions {
   coverUploading: boolean;
   selectedChapter: Chapter | null;
   defaultPublishVisibility: PublishVisibility;
+  authorDisplayNameSet?: boolean;
 }
 
 export function usePublishing({
@@ -37,6 +38,7 @@ export function usePublishing({
   coverUploading,
   selectedChapter,
   defaultPublishVisibility,
+  authorDisplayNameSet = true,
 }: UsePublishingOptions) {
   const router = useRouter();
 
@@ -72,8 +74,11 @@ export function usePublishing({
     } else if (!chapters.some((chapter) => hasReadableContent(chapter.content))) {
       missing.push("Write content in at least one chapter");
     }
+    if (!authorDisplayNameSet) {
+      missing.push("Add a display name in your author profile");
+    }
     return missing;
-  }, [bookTitle, displayCoverUrl, activeVersion?.id, chapters]);
+  }, [bookTitle, displayCoverUrl, activeVersion?.id, chapters, authorDisplayNameSet]);
 
   const publishedChapterCount =
     typeof activeVersion?.published_chapter_count === "number" &&

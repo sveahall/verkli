@@ -1,0 +1,58 @@
+{
+  "author": {
+    "nav": {
+      "home": "Hem",
+      "books": "Böcker",
+      "marketing": "Marknadsföring",
+      "newsletters": "Nyhetsbrev",
+      "polls": "Omröstningar",
+      "stats": "Statistik",
+      "profile": "Profil",
+      "settings": "Inställningar",
+      "billing": "Fakturering",
+      "payouts": "Utbetalningar",
+      "inbox": "Inkorg",
+      "notifications": "Aviseringar",
+      "feedback": "Feedback",
+      "signOut": "Logga ut"
+    },
+    "billing": {
+      "payouts": {
+        "title": "Utbetalningar",
+        "subtitle": "Verkli använder Stripe Connect Express. KYC en gång; Stripe sköter utbetalningar och skatteformulär.",
+        "setupTitle": "Sätt upp utbetalningar",
+        "setupBody": "Vi använder Stripe Connect Express. Du gör KYC en gång hos Stripe (några minuter), sedan kan vi betala ut till ditt bankkonto månadsvis.",
+        "platformFee": "Plattformsavgift: 30% (samma som Apple, Spotify, Patreon)",
+        "schedule": "Standardschema: månadsvis · PRO/PRO+ kan välja veckovis",
+        "taxForms": "Stripe sköter skatteformulär (1099 / kontrolluppgifter)",
+        "startOnboarding": "Starta onboarding",
+        "continueOnboarding": "Fortsätt onboarding",
+        "kycRequired": "KYC krävs",
+        "kycSubmitted": "KYC inskickad",
+        "payoutsOk": "Utbetalningar OK",
+        "payoutsPending": "Utbetalningar väntar",
+        "salesOk": "Försäljning OK",
+        "salesPending": "Försäljning väntar",
+        "pending": "Pending",
+        "available": "Tillgängligt",
+        "paidOut": "Utbetalat",
+        "balanceComingSoon": "Saldo-data kopplas på i Vecka 3 när PRO-tier-SKUer landar. Stripe Dashboard har full ledger idag — öppna den från ditt Stripe-konto.",
+        "payouts_enabled": "Stripe-onboarding klar — utbetalningar aktiverade.",
+        "kyc_submitted": "KYC-uppgifter inskickade. Stripe granskar — vanligtvis klart inom några minuter.",
+        "kyc_incomplete": "Onboarding påbörjad men inte slutförd. Klicka \"Fortsätt onboarding\" för att slutföra.",
+        "needs_onboarding": "Sätt upp utbetalningar för att kunna sälja böcker.",
+        "onboarding_failed": "Något gick fel i onboardingen. Försök igen."
+      }
+    },
+    "common": {
+      "save": "Spara",
+      "cancel": "Avbryt",
+      "delete": "Ta bort",
+      "edit": "Redigera",
+      "back": "Tillbaka",
+      "loading": "Laddar…",
+      "saving": "Sparar…",
+      "saved": "Sparat"
+    }
+  }
+}

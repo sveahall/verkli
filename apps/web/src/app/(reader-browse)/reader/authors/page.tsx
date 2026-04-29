@@ -15,22 +15,28 @@ export const metadata: Metadata = {
   },
 };
 import { AVATARS_BUCKET_PUBLIC } from "@/lib/supabase/config";
+import { getDiscoverHref } from "@/lib/flags";
+import {
+  getPublicAuthorInfoMap,
+  resolvePublicAuthorName,
+} from "@/lib/authors/public-author";
 import AuthorCard from "@/components/reader/AuthorCard";
 import EmptyState from "@/components/reader/EmptyState";
 import PageHeader from "@/components/reader/PageHeader";
 
 export default async function ReaderAuthorsPage() {
   const supabase = await createClient();
+  const discoverHref = getDiscoverHref();
 
-  const { data: profiles, error } = await supabase
-    .from("profiles")
-    .select("user_id, display_name, username, avatar_url, bio")
-    .eq("role", "author")
-    .eq("is_public", true)
+  const { data: publishedBooks, error: booksError } = await supabase
+    .from("books")
+    .select("author_id, published_at, updated_at")
+    .eq("status", "PUBLISHED")
+    .order("published_at", { ascending: false })
     .order("updated_at", { ascending: false })
-    .limit(36);
+    .limit(500);
 
-  if (error) {
+  if (booksError) {
     return (
       <div className="section-gap-lg">
         <PageHeader
@@ -51,7 +57,21 @@ export default async function ReaderAuthorsPage() {
     );
   }
 
-  if (!profiles || profiles.length === 0) {
+  const authorIdsInOrder: string[] = [];
+  const seenAuthorIds = new Set<string>();
+  for (const book of publishedBooks ?? []) {
+    if (!book.author_id || seenAuthorIds.has(book.author_id)) continue;
+    seenAuthorIds.add(book.author_id);
+    authorIdsInOrder.push(book.author_id);
+    if (authorIdsInOrder.length >= 36) break;
+  }
+
+  // Read author public identity through the admin-client helper so RLS-private
+  // profiles (is_public=false) still surface their book-author attribution.
+  // See lib/authors/public-author.ts for the rationale.
+  const authorInfoMap = await getPublicAuthorInfoMap(authorIdsInOrder);
+
+  if (authorIdsInOrder.length === 0) {
     return (
       <div className="section-gap-lg">
         <PageHeader
@@ -63,9 +83,11 @@ export default async function ReaderAuthorsPage() {
           title="No authors yet"
           description="As authors publish, their profiles will appear here."
           action={
-            <Link href="/reader/discover" className="btn-primary">
-              Discover books
-            </Link>
+            discoverHref ? (
+              <Link href={discoverHref} className="btn-primary">
+                Discover books
+              </Link>
+            ) : undefined
           }
         />
       </div>
@@ -73,10 +95,11 @@ export default async function ReaderAuthorsPage() {
   }
 
   const avatarBucket = supabase.storage.from("avatars");
-  const authorsWithAvatars = profiles.map((profile) => {
+  const authorsWithAvatars = authorIdsInOrder.map((authorId) => {
+    const info = authorInfoMap.get(authorId);
     let avatar: string | null = null;
-    const avatarPath = profile.avatar_url;
-    if (avatarPath && typeof avatarPath === "string" && avatarPath.trim()) {
+    const avatarPath = info?.avatar_url;
+    if (avatarPath && avatarPath.trim()) {
       if (avatarPath.startsWith("http://") || avatarPath.startsWith("https://")) {
         avatar = avatarPath;
       } else if (AVATARS_BUCKET_PUBLIC) {
@@ -84,8 +107,8 @@ export default async function ReaderAuthorsPage() {
       }
     }
     return {
-      id: profile.user_id,
-      name: profile.display_name || profile.username || "author",
+      id: authorId,
+      name: resolvePublicAuthorName(info),
       avatar,
     };
   });
@@ -97,9 +120,11 @@ export default async function ReaderAuthorsPage() {
         title="Authors"
         subtitle="Browse public author profiles and open their books."
         actions={
-          <Link href="/reader/discover" className="btn-secondary">
-            Discover books
-          </Link>
+          discoverHref ? (
+            <Link href={discoverHref} className="btn-secondary">
+              Discover books
+            </Link>
+          ) : undefined
         }
       />
 

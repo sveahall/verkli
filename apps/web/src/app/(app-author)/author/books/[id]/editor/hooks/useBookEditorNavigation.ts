@@ -43,7 +43,7 @@ export function useBookEditorNavigation({
 
   const openProductionWorkspace = useCallback(
     (kind: "audiobook" | "translation") => {
-      router.push(`/author/production?bookId=${bookId}&kind=${kind}`);
+      router.push(`/author/books/${bookId}?panel=${kind}`);
     },
     [bookId, router]
   );

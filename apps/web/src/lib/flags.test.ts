@@ -1,14 +1,17 @@
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import {
   getAudiobookEnabled,
+  getDiscoverHref,
   getDiscoveryEnabled,
   getFreemiumGateEnabled,
   getMarketingEnabled,
+  getSprint0DemoBadgeEnabled,
   getTranslationsEnabled,
   isAudiobookEnabled,
   isDiscoveryEnabled,
   isFreemiumGateEnabled,
   isMarketingEnabled,
+  isSprint0DemoBadgeEnabled,
   isTranslationsEnabled,
 } from "./flags";
 
@@ -18,11 +21,13 @@ const FLAG_ENV_VARS = [
   "NEXT_PUBLIC_DISCOVERY_ENABLED",
   "NEXT_PUBLIC_AUDIOBOOK_ENABLED",
   "NEXT_PUBLIC_FREEMIUM_GATE_ENABLED",
+  "NEXT_PUBLIC_SPRINT0_DEMO_BADGE_ENABLED",
   "TRANSLATIONS_ENABLED",
   "MARKETING_ENABLED",
   "DISCOVERY_ENABLED",
   "AUDIOBOOK_ENABLED",
   "FREEMIUM_GATE_ENABLED",
+  "SPRINT0_DEMO_BADGE_ENABLED",
 ] as const;
 
 describe("flags — default-OFF semantics", () => {
@@ -55,6 +60,15 @@ describe("flags — default-OFF semantics", () => {
 
   it("getDiscoveryEnabled defaults to false when env unset", () => {
     expect(getDiscoveryEnabled()).toBe(false);
+  });
+
+  it("getDiscoverHref returns null when discovery flag is unset", () => {
+    expect(getDiscoverHref()).toBeNull();
+  });
+
+  it("getDiscoverHref returns the route when discovery flag is on", () => {
+    process.env.NEXT_PUBLIC_DISCOVERY_ENABLED = "true";
+    expect(getDiscoverHref()).toBe("/reader/discover");
   });
 
   it("getAudiobookEnabled defaults to false when env unset", () => {
@@ -125,5 +139,23 @@ describe("flags — default-OFF semantics", () => {
   it("isXxx falls back to non-public env when NEXT_PUBLIC_ unset", () => {
     process.env.MARKETING_ENABLED = "true";
     expect(isMarketingEnabled()).toBe(true);
+  });
+
+  it("getSprint0DemoBadgeEnabled defaults to false", () => {
+    expect(getSprint0DemoBadgeEnabled()).toBe(false);
+  });
+
+  it("getSprint0DemoBadgeEnabled enables when NEXT_PUBLIC_SPRINT0_DEMO_BADGE_ENABLED=true", () => {
+    process.env.NEXT_PUBLIC_SPRINT0_DEMO_BADGE_ENABLED = "true";
+    expect(getSprint0DemoBadgeEnabled()).toBe(true);
+  });
+
+  it("isSprint0DemoBadgeEnabled defaults to false", () => {
+    expect(isSprint0DemoBadgeEnabled()).toBe(false);
+  });
+
+  it("isSprint0DemoBadgeEnabled accepts non-public fallback", () => {
+    process.env.SPRINT0_DEMO_BADGE_ENABLED = "1";
+    expect(isSprint0DemoBadgeEnabled()).toBe(true);
   });
 });

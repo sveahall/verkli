@@ -4,6 +4,8 @@ import { getMarketingEnabled, getNewslettersEnabled } from "@/lib/flags";
 import { extractTextFromTiptapNode } from "@/lib/tiptap-content";
 import AudienceWorkspace from "@/features/author-workspaces/audience/AudienceWorkspace";
 
+export const dynamic = "force-dynamic";
+
 function extractPlainText(content: unknown): string {
   if (typeof content === "string") {
     try {

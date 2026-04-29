@@ -4,6 +4,10 @@ import { ArrowLeft, ArrowRight, BookOpen, Users, Globe, Twitter, Instagram, Spar
 import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { getAvatarUrlFromPathServer } from "@/lib/supabase/avatar";
+import {
+  getPublicAuthorInfoMap,
+  resolvePublicAuthorName,
+} from "@/lib/authors/public-author";
 import BookCard from "@/components/reader/BookCard";
 import FollowAuthorButton from "./FollowAuthorButton";
 import SubscribeAuthorButton from "./SubscribeAuthorButton";
@@ -18,7 +22,7 @@ export async function generateMetadata({
 }): Promise<Metadata> {
   const { id: userId } = await params;
   const supabase = await createClient();
-  const [profileRes, booksCountRes] = await Promise.all([
+  const [profileRes, booksCountRes, authorInfoMap] = await Promise.all([
     supabase
       .from("profiles")
       .select("display_name, username, bio, avatar_url, cover_image, is_public, website_url, social_links")
@@ -29,21 +33,27 @@ export async function generateMetadata({
       .select("id", { count: "exact", head: true })
       .eq("author_id", userId)
       .eq("status", "PUBLISHED"),
+    getPublicAuthorInfoMap([userId]),
   ]);
 
   const profile = profileRes.data;
   const publishedCount = booksCountRes.count ?? 0;
+  const publicAuthorInfo = authorInfoMap.get(userId);
 
   if (!profile?.is_public && publishedCount === 0) {
     return { title: "Author not found" };
   }
 
-  const displayName = profile?.display_name || profile?.username || "Author";
+  // displayName + avatar always come from the admin-bypass helper so that
+  // RLS-private authors who have published a public book still get a proper
+  // attribution. bio/description still respects the RLS-bound profile read.
+  const displayName = resolvePublicAuthorName(publicAuthorInfo);
   const bio = profile?.bio ?? null;
   const description = bio
     ? `${bio.slice(0, 150)}${bio.length > 150 ? "..." : ""}`
     : `Read books by ${displayName} on Verkli.`;
-  const avatarUrl = await getAvatarUrlFromPathServer(profile?.avatar_url ?? null);
+  const avatarPath = publicAuthorInfo?.avatar_url ?? profile?.avatar_url ?? null;
+  const avatarUrl = await getAvatarUrlFromPathServer(avatarPath);
   const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "https://verkli.com";
 
   return {
@@ -85,6 +95,7 @@ export default async function ReaderAuthorProfilePage({
     booksRes,
     followerCountRes,
     subscriptionPlanRes,
+    authorInfoMap,
   ] = await Promise.all([
     supabase.auth.getUser(),
     supabase
@@ -107,9 +118,11 @@ export default async function ReaderAuthorProfilePage({
       .select("enabled, price_monthly, currency, description")
       .eq("author_id", userId)
       .maybeSingle(),
+    getPublicAuthorInfoMap([userId]),
   ]);
 
   const profile = profileRes.data;
+  const publicAuthorInfo = authorInfoMap.get(userId);
   const books = booksRes.data ?? [];
   const followerCount = followerCountRes.count ?? 0;
   const subscriptionPlan = subscriptionPlanRes.data as {
@@ -162,13 +175,16 @@ export default async function ReaderAuthorProfilePage({
     }
   }
 
+  const avatarPath = publicAuthorInfo?.avatar_url ?? profile?.avatar_url ?? null;
   const [avatarUrl, coverImageUrl] = await Promise.all([
-    getAvatarUrlFromPathServer(profile?.avatar_url ?? null),
+    getAvatarUrlFromPathServer(avatarPath),
     getAvatarUrlFromPathServer(profile?.cover_image ?? null),
   ]);
-  const displayName = profile?.display_name || profile?.username || "Author";
+  // displayName/username sourced via admin-bypass helper so RLS-private authors
+  // who have published a public book still surface their book-author name.
+  const displayName = resolvePublicAuthorName(publicAuthorInfo);
   const bio = profile?.bio ?? null;
-  const username = profile?.username ?? null;
+  const username = publicAuthorInfo?.username ?? profile?.username ?? null;
   const websiteUrl = profile?.website_url ?? null;
   const rawSocialLinks = (profile?.social_links && typeof profile.social_links === "object" && !Array.isArray(profile.social_links))
     ? (profile.social_links as Record<string, string>)

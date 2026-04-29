@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { countWords as _countWords } from "@/lib/tiptap-content";
 
 // ─── Enums ──────────────────────────────────────────────────────────────────
 
@@ -204,9 +205,7 @@ const BANNED_TERMS = [
   "mind-blowing",
 ];
 
-export function countWords(text: string): number {
-  return text.trim().split(/\s+/).filter(Boolean).length;
-}
+export const countWords = _countWords;
 
 export function truncateWords(text: string, maxWords: number): string {
   const words = text.trim().split(/\s+/).filter(Boolean);

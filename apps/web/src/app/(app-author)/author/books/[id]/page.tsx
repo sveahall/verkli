@@ -35,6 +35,7 @@ export default async function BookWorkspacePage({
       bookVersions={data.versions}
       activeVersion={data.activeVersion}
       authorDisplayName={data.authorDisplayName}
+      authorDisplayNameSet={data.authorDisplayNameSet}
       defaultPublishVisibility={data.defaultPublishVisibility}
       latestAudiobookAsset={data.latestAudiobookAsset}
       marketingCampaigns={data.marketingCampaigns}

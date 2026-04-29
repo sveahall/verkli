@@ -7,6 +7,7 @@ import { createClient } from "@/lib/supabase/server";
 import { getLanguageLabel, getSeoLanguageLabel, normalizeLanguage } from "@/lib/languages";
 import { canUserReadBook } from "@/lib/books/access";
 import { logAnalyticsEvent } from "@/lib/analytics/events";
+import { capturePostHog } from "@/lib/analytics/posthog-server";
 import type { Metadata } from "next";
 import StartReadingLink from "./StartReadingLink";
 import BookmarkButton from "./BookmarkButton";
@@ -22,6 +23,7 @@ import SimilarBooksRail from "@/components/reader/SimilarBooksRail";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { normalizePrintOnDemandSettings } from "@/lib/print-on-demand";
 import ReaderBookPageView from "@/features/reader/reader-book/ReaderBookPageView";
+import { formatMoney } from "@/lib/format-money";
 
 
 
@@ -54,18 +56,6 @@ async function getBook(id: string) {
   return data;
 }
 
-function formatMoney(amount: number, currency: string): string {
-  const value = amount / 100;
-  try {
-    return new Intl.NumberFormat(undefined, {
-      style: "currency",
-      currency: currency.toUpperCase(),
-      maximumFractionDigits: 2,
-    }).format(value);
-  } catch {
-    return `${value.toFixed(2)} ${currency.toUpperCase()}`;
-  }
-}
 
 export async function generateMetadata({
   params,
@@ -174,6 +164,19 @@ export default async function ReaderBookDetail({
     path: `/reader/books/${book.id}`,
     props: { hasReadAccess },
   }).catch(() => {});
+
+  if (user?.id) {
+    capturePostHog({
+      distinctId: user.id,
+      event: "book_opened",
+      properties: {
+        book_id: book.id,
+        book_title: book.title,
+        has_read_access: hasReadAccess,
+        path: `/reader/books/${book.id}`,
+      },
+    });
+  }
 
   const { data: versions } = await supabase
     .from("book_versions")

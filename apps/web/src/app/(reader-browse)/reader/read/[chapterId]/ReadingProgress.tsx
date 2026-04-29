@@ -39,13 +39,16 @@ export default function ReadingProgress({
       void (async () => {
         if (userId) {
           const supabase = createClient();
+          const now = new Date().toISOString();
           const { error } = await supabase.from("readings").upsert(
             {
               user_id: userId,
               book_id: bookId,
               chapter_id: chapterId,
               progress_percent: progressPercent,
-              updated_at: new Date().toISOString(),
+              current_chapter: currentChapter,
+              last_read_at: now,
+              updated_at: now,
             },
             { onConflict: "user_id,book_id" },
           );

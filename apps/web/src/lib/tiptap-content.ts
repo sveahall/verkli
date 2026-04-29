@@ -40,8 +40,23 @@ function normalizeInlineText(text: string): string {
   return text.replace(/\s+/g, " ").trim();
 }
 
-function countWords(text: string): number {
+// Exported so callers can avoid re-defining this trivially. Takes plain text
+// (already extracted), not a Tiptap node.
+export function countWords(text: string): number {
   return text.trim().split(/\s+/).filter(Boolean).length;
+}
+
+// Parses a stored Tiptap JSON string (or falls back to plain text) and counts
+// words. Canonical replacement for the ~6 local copies scattered across panels
+// and API routes.
+export function countWordsInContent(content: string | null): number {
+  if (!content) return 0;
+  try {
+    const parsed = JSON.parse(content);
+    return countWords(extractTextFromTiptapNode(parsed));
+  } catch {
+    return countWords(content);
+  }
 }
 
 function countLetters(text: string): number {
@@ -438,6 +453,14 @@ export function htmlToTiptapDoc(html: string): TiptapDocument {
   // eslint-disable-next-line @typescript-eslint/no-require-imports
   const cheerio = require("cheerio") as typeof import("cheerio");
   const $ = cheerio.load(html);
+
+  // Defense-in-depth: strip elements that the TipTap schema cannot represent
+  // anyway, *before* we walk. cheerio's parser treats `<noscript>` content as
+  // raw text (browser-style), so failing to remove noscript here causes its
+  // inner HTML to leak as paragraph text. See tests/security/hostile-epub.test.ts.
+  $(
+    "script, style, noscript, iframe, object, embed, form, svg, math, link, meta"
+  ).remove();
 
   const body = $("body")[0];
   if (!body) return createEmptyDoc();

@@ -6,5 +6,5 @@ export default async function SettingsPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  redirect(`/author/production?bookId=${id}`);
+  redirect(`/author/books/${id}`);
 }

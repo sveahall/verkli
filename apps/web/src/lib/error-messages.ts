@@ -33,6 +33,8 @@ const ERROR_MESSAGES: Record<string, string> = {
   CHAPTER_NEEDS_CONTENT: "At least one chapter must have content.",
   MISSING_COVER_IMAGE: "The book must have a cover image.",
   CHAPTER_NOT_PUBLISHED: "The chapter is not published.",
+  AUTHOR_DISPLAY_NAME_REQUIRED:
+    "Add a display name in your author profile before publishing.",
 
   // Audiobook
   AUDIOBOOK_FEATURE_DISABLED: "The audiobook feature is not enabled.",

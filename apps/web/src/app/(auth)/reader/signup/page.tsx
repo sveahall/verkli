@@ -47,7 +47,7 @@ export default function ReaderSignUp() {
     const { error } = await signUp(email, password, "reader");
 
     if (error) {
-      setError(resolveErrorMessage(null, "Registration failed. Please try again."));
+      setError(resolveErrorMessage(error.code, error.message || "Registration failed. Please try again."));
       setLoading(false);
     } else {
       setSuccess(true);
@@ -58,7 +58,7 @@ export default function ReaderSignUp() {
     setError("");
     const { error } = await signInWithGoogle();
     if (error) {
-      setError(resolveErrorMessage(null, "Registration failed. Please try again."));
+      setError(resolveErrorMessage(error.code, error.message || "Registration failed. Please try again."));
     }
   };
 

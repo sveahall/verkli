@@ -12,10 +12,14 @@ import {
 
 const readerSettingsSchema = z.object({
   font_family: z.enum(["serif", "sans", "mono"]).optional(),
+  fontFamily: z.enum(["serif", "sans", "mono"]).optional(),
   font_size: z.number().min(12).max(32).optional(),
+  fontSize: z.number().min(12).max(32).optional(),
   theme: z.enum(["light", "dark", "sepia"]).optional(),
   line_height: z.number().min(1.0).max(3.0).optional(),
+  lineHeight: z.number().min(1.0).max(3.0).optional(),
   content_width: z.enum(["narrow", "medium", "wide"]).optional(),
+  contentWidth: z.enum(["narrow", "medium", "wide"]).optional(),
 });
 
 type ReaderSettingsRow = {
@@ -122,25 +126,30 @@ export async function PUT(request: Request) {
     ...existingSettings,
   };
 
-  // Map snake_case API fields to what the existing reader code uses
-  if (updates.font_family !== undefined) {
-    nextSettings.fontFamily = updates.font_family;
-    nextSettings.font_family = updates.font_family;
+  const fontFamily = updates.font_family ?? updates.fontFamily;
+  const fontSize = updates.font_size ?? updates.fontSize;
+  const lineHeight = updates.line_height ?? updates.lineHeight;
+  const contentWidth = updates.content_width ?? updates.contentWidth;
+
+  // Map settings to both current reader keys and legacy snake_case keys.
+  if (fontFamily !== undefined) {
+    nextSettings.fontFamily = fontFamily;
+    nextSettings.font_family = fontFamily;
   }
-  if (updates.font_size !== undefined) {
-    nextSettings.fontSize = updates.font_size;
-    nextSettings.font_size = updates.font_size;
+  if (fontSize !== undefined) {
+    nextSettings.fontSize = fontSize;
+    nextSettings.font_size = fontSize;
   }
   if (updates.theme !== undefined) {
     nextSettings.theme = updates.theme;
   }
-  if (updates.line_height !== undefined) {
-    nextSettings.lineHeight = updates.line_height;
-    nextSettings.line_height = updates.line_height;
+  if (lineHeight !== undefined) {
+    nextSettings.lineHeight = lineHeight;
+    nextSettings.line_height = lineHeight;
   }
-  if (updates.content_width !== undefined) {
-    nextSettings.contentWidth = updates.content_width;
-    nextSettings.content_width = updates.content_width;
+  if (contentWidth !== undefined) {
+    nextSettings.contentWidth = contentWidth;
+    nextSettings.content_width = contentWidth;
   }
 
   const nextPreferences: Record<string, unknown> = {

@@ -28,6 +28,7 @@ export default function SubscriptionPlanSection({
   const [description, setDescription] = useState(initialDescription ?? "");
   const [saving, setSaving] = useState(false);
   const [status, setStatus] = useState<"idle" | "ok" | "error">("idle");
+  const [errorMessage, setErrorMessage] = useState("");
 
   const handleSave = async () => {
     if (saving) return;
@@ -36,6 +37,7 @@ export default function SubscriptionPlanSection({
 
     const priceMinor = Math.round(parseFloat(price) * 100);
     if (!Number.isFinite(priceMinor) || priceMinor < 100) {
+      setErrorMessage("Enter a monthly price of at least 1.");
       setStatus("error");
       setSaving(false);
       return;
@@ -52,8 +54,16 @@ export default function SubscriptionPlanSection({
           description: description.trim() || null,
         }),
       });
-      setStatus(res.ok ? "ok" : "error");
+      if (!res.ok) {
+        const body = (await res.json().catch(() => ({}))) as { error?: string };
+        setErrorMessage(body.error ?? "Could not save subscription settings.");
+        setStatus("error");
+        return;
+      }
+      setErrorMessage("");
+      setStatus("ok");
     } catch {
+      setErrorMessage("Could not save subscription settings.");
       setStatus("error");
     } finally {
       setSaving(false);
@@ -151,7 +161,7 @@ export default function SubscriptionPlanSection({
         )}
         {status === "error" && (
           <span className="text-[13px] text-red-600 dark:text-red-400">
-            Could not save. Check the price is at least 1.
+            {errorMessage || "Could not save subscription settings."}
           </span>
         )}
       </div>

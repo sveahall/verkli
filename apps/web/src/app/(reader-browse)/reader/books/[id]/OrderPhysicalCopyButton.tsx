@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { API_ROUTES } from "@/lib/api-routes";
 import type { BookFormat } from "@/lib/print-on-demand";
+import { formatMoney } from "@/lib/format-money";
 
 type FormatOption = {
   format: BookFormat;
@@ -33,18 +34,6 @@ function resolveError(key: string | null | undefined): string {
   return CHECKOUT_ERRORS[key] ?? DEFAULT_ERROR;
 }
 
-function formatMoney(amount: number, currency: string): string {
-  const value = amount / 100;
-  try {
-    return new Intl.NumberFormat(undefined, {
-      style: "currency",
-      currency: currency.toUpperCase(),
-      maximumFractionDigits: 0,
-    }).format(value);
-  } catch {
-    return `${value.toFixed(0)} ${currency.toUpperCase()}`;
-  }
-}
 
 export default function OrderPhysicalCopyButton({ bookId, formats }: Props) {
   const [selectedFormat, setSelectedFormat] = useState<BookFormat>(formats[0].format);
@@ -114,7 +103,7 @@ export default function OrderPhysicalCopyButton({ bookId, formats }: Props) {
       >
         {loading
           ? "Opening checkout..."
-          : `Order ${selected.label.toLowerCase()} (${formatMoney(selected.priceMinor, selected.currency)})`}
+          : `Order ${selected.label.toLowerCase()} (${formatMoney(selected.priceMinor, selected.currency, 0)})`}
       </button>
       {error ? <p className="text-sm text-rose-600 dark:text-rose-400">{error}</p> : null}
     </div>

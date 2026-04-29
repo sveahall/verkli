@@ -168,10 +168,11 @@ export async function loadBookWorkspaceData(bookId: string, langParam: string | 
     latestAudiobookSignedUrl = signed?.signedUrl ?? null;
   }
 
+  const trimmedDisplayName = authorProfile?.display_name?.trim() ?? "";
+  const trimmedUsername = authorProfile?.username?.trim() ?? "";
+  const authorDisplayNameSet = Boolean(trimmedDisplayName || trimmedUsername);
   const authorDisplayName =
-    authorProfile?.display_name?.trim() ||
-    authorProfile?.username?.trim() ||
-    "Author";
+    trimmedDisplayName || trimmedUsername || "Author";
   const defaultPublishVisibility = normalizeDefaultPublishVisibility(
     (authorProfile?.preferences as { visibility?: { books?: unknown } } | null)?.visibility?.books
   );
@@ -182,6 +183,7 @@ export async function loadBookWorkspaceData(bookId: string, langParam: string | 
     versions,
     activeVersion: activeVersion ?? null,
     authorDisplayName,
+    authorDisplayNameSet,
     defaultPublishVisibility,
     latestAudiobookAsset: latestAudiobookAsset
       ? {

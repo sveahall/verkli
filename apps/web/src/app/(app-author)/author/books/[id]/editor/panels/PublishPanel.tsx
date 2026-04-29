@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { getLanguageLabel } from "@/lib/languages";
 import { useToastHelpers } from "@/components/ui/toast";
 import { createClient } from "@/lib/supabase/client";
+import { hasReadableContent } from "@/app/(app-author)/author/books/[id]/editor/BookEditorView.helpers";
 
 type PublishVisibility = "public" | "followers" | "private";
 
@@ -96,24 +97,6 @@ export type PublishPanelProps = {
   genreSelector?: React.ReactNode;
 };
 
-function hasReadableContent(content: string | null): boolean {
-  if (!content) return false;
-  try {
-    const parsed = JSON.parse(content);
-    const text = extractTextSimple(parsed);
-    return text.trim().length > 0;
-  } catch {
-    return content.trim().length > 0;
-  }
-}
-
-function extractTextSimple(node: unknown): string {
-  if (!node || typeof node !== "object") return "";
-  const n = node as Record<string, unknown>;
-  if (n.type === "text" && typeof n.text === "string") return n.text;
-  if (Array.isArray(n.content)) return (n.content as unknown[]).map(extractTextSimple).join("");
-  return "";
-}
 
 export default function PublishPanel({
   bookId,

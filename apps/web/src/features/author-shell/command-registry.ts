@@ -116,11 +116,11 @@ export function resolveCommandHref(
       return bookId ? `/author/books/${bookId}` : "/author/library";
     case "generate-audiobook":
       return bookId
-        ? `/author/production?bookId=${bookId}&kind=audiobook`
+        ? `/author/books/${bookId}?panel=audiobook`
         : "/author/production?kind=audiobook";
     case "translate-book":
       return bookId
-        ? `/author/production?bookId=${bookId}&kind=translation`
+        ? `/author/books/${bookId}?panel=translation`
         : "/author/production?kind=translation";
     case "publish-book":
       return bookId

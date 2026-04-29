@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { isSprint0DemoBadgeEnabled } from "@/lib/flags";
 import HomeWorkspace from "@/features/author-workspaces/home/HomeWorkspace";
 import type {
   DashboardStats,
@@ -7,6 +8,20 @@ import type {
   DashboardActivity,
   CountrySale,
 } from "@/features/author-workspaces/home/types";
+
+function Sprint0DemoBadge() {
+  if (!isSprint0DemoBadgeEnabled()) return null;
+  return (
+    <div
+      role="status"
+      data-testid="sprint0-demo-badge"
+      className="mx-6 mt-4 rounded-md border border-dashed border-amber-500/50 bg-amber-500/10 px-3 py-1.5 text-xs font-medium text-amber-900 dark:text-amber-200"
+    >
+      Sprint&nbsp;0 demo flag active
+      (NEXT_PUBLIC_SPRINT0_DEMO_BADGE_ENABLED=true)
+    </div>
+  );
+}
 
 export default async function AuthorHomePage() {
   const supabase = await createClient();
@@ -48,7 +63,12 @@ export default async function AuthorHomePage() {
       reviews: 0,
     };
 
-    return <HomeWorkspace stats={stats} books={[]} activity={[]} countrySales={[]} />;
+    return (
+      <>
+        <Sprint0DemoBadge />
+        <HomeWorkspace stats={stats} books={[]} activity={[]} countrySales={[]} />
+      </>
+    );
   }
 
   // ── All remaining queries in parallel ──
@@ -197,6 +217,9 @@ export default async function AuthorHomePage() {
     }));
 
   return (
-    <HomeWorkspace stats={stats} books={dashboardBooks} activity={activity} countrySales={countrySales} />
+    <>
+      <Sprint0DemoBadge />
+      <HomeWorkspace stats={stats} books={dashboardBooks} activity={activity} countrySales={countrySales} />
+    </>
   );
 }

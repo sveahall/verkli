@@ -8,6 +8,7 @@ import GlobalThemeToggle from "@/components/GlobalThemeToggle";
 import { ToastProvider } from "@/components/ui/toast";
 import OfflineServiceWorkerRegistration from "@/components/offline/OfflineServiceWorkerRegistration";
 import CookieConsent from "@/components/CookieConsent";
+import PostHogProvider from "@/components/analytics/PostHogProvider";
 
 const inter = Inter({
   variable: "--font-inter",
@@ -96,16 +97,18 @@ export default function RootLayout({
         >
           Skip to content
         </a>
-        <ToastProvider>
-          <OfflineServiceWorkerRegistration />
-          {/* Content first in DOM; navbar rendered via route-group layouts */}
-          <div id="main-content" className="relative z-0 flex min-h-0 flex-1 flex-col overflow-x-clip bg-background">
-            {children}
-          </div>
-          {/* Theme toggle fixed in bottom right corner on all pages */}
-          <GlobalThemeToggle />
-          <CookieConsent />
-        </ToastProvider>
+        <PostHogProvider>
+          <ToastProvider>
+            <OfflineServiceWorkerRegistration />
+            {/* Content first in DOM; navbar rendered via route-group layouts */}
+            <div id="main-content" className="relative z-0 flex min-h-0 flex-1 flex-col overflow-x-clip bg-background">
+              {children}
+            </div>
+            {/* Theme toggle fixed in bottom right corner on all pages */}
+            <GlobalThemeToggle />
+            <CookieConsent />
+          </ToastProvider>
+        </PostHogProvider>
         <Analytics />
         <SpeedInsights />
       </body>

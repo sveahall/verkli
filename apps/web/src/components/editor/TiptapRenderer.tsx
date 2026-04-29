@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useMemo } from "react";
 import { useEditor, EditorContent } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import Image from "@tiptap/extension-image";
@@ -18,10 +19,7 @@ type TiptapRendererProps = {
 };
 
 export default function TiptapRenderer({ content, className = "" }: TiptapRendererProps) {
-  // Parse content
-  const getContent = () => {
-    return toTiptapContent(content);
-  };
+  const parsedContent = useMemo(() => toTiptapContent(content), [content]);
 
   const editor = useEditor({
     immediatelyRender: false,
@@ -44,8 +42,13 @@ export default function TiptapRenderer({ content, className = "" }: TiptapRender
         types: ["heading", "paragraph"],
       }),
     ],
-    content: getContent(),
+    content: parsedContent,
   });
+
+  useEffect(() => {
+    if (!editor) return;
+    editor.commands.setContent(parsedContent);
+  }, [editor, parsedContent]);
 
   if (!editor) {
     return (

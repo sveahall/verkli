@@ -57,6 +57,17 @@ export function getDiscoveryEnabled(): boolean {
   return parseBool(process.env.NEXT_PUBLIC_DISCOVERY_ENABLED);
 }
 
+/**
+ * Resolve the canonical discover route href, or `null` when the discovery
+ * feature is gated off. Use this for any user-facing CTA that points at
+ * /reader/discover so the link is hidden instead of leading to a 404 during
+ * soft-launch / cohort gating. The route itself still 404s on direct access
+ * — that gating contract is intentional and unchanged.
+ */
+export function getDiscoverHref(): string | null {
+  return getDiscoveryEnabled() ? "/reader/discover" : null;
+}
+
 export function getOfflineReadingEnabled(): boolean {
   return parseBool(process.env.NEXT_PUBLIC_OFFLINE_READING_ENABLED);
 }
@@ -83,6 +94,20 @@ export function getAiChatEnabled(): boolean {
 
 export function getFreemiumGateEnabled(): boolean {
   return parseBool(process.env.NEXT_PUBLIC_FREEMIUM_GATE_ENABLED);
+}
+
+// Sprint-0 demo flag. Toggles a small visible badge on the author home page so
+// the flag-flip pipeline (env -> redeploy -> bundle update) can be exercised
+// end-to-end. Default OFF in every environment. Safe to leave permanently OFF.
+export function getSprint0DemoBadgeEnabled(): boolean {
+  return parseBool(process.env.NEXT_PUBLIC_SPRINT0_DEMO_BADGE_ENABLED);
+}
+
+// Sprint-0.5: feature gate for donations. While the donation flow ships its
+// real Stripe path, the entry points stay hidden until this is explicitly
+// enabled in production. Default OFF.
+export function getDonationsEnabled(): boolean {
+  return parseBool(process.env.NEXT_PUBLIC_DONATIONS_ENABLED);
 }
 
 // ─── Server/API — also reads non-public fallback for server-only contexts ───
@@ -157,5 +182,18 @@ export function isAiChatEnabled(): boolean {
 export function isFreemiumGateEnabled(): boolean {
   return parseBool(
     process.env.NEXT_PUBLIC_FREEMIUM_GATE_ENABLED ?? process.env.FREEMIUM_GATE_ENABLED
+  );
+}
+
+export function isSprint0DemoBadgeEnabled(): boolean {
+  return parseBool(
+    process.env.NEXT_PUBLIC_SPRINT0_DEMO_BADGE_ENABLED ??
+      process.env.SPRINT0_DEMO_BADGE_ENABLED
+  );
+}
+
+export function isDonationsEnabled(): boolean {
+  return parseBool(
+    process.env.NEXT_PUBLIC_DONATIONS_ENABLED ?? process.env.DONATIONS_ENABLED
   );
 }

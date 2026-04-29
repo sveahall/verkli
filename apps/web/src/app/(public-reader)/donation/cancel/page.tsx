@@ -1,5 +1,7 @@
 import Link from "next/link";
 
+export const dynamic = "force-dynamic";
+
 export default function DonationCancelPage() {
   return (
     <main className="mx-auto flex min-h-[70vh] w-full max-w-3xl items-center px-6 py-12">

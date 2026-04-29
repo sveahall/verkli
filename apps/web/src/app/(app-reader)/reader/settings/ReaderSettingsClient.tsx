@@ -31,7 +31,7 @@ function getThemeClasses(value: string) {
 }
 
 export default function ReaderSettingsClient() {
-  const { settings, updateSettings, isLoading } = useReaderSettings(true);
+  const { settings, updateSettings, isLoading, saveStatus } = useReaderSettings(true);
 
   if (isLoading) {
     return (
@@ -47,6 +47,18 @@ export default function ReaderSettingsClient() {
 
   return (
     <div className="space-y-8">
+      <div className="min-h-5 text-sm" aria-live="polite">
+        {saveStatus === "saving" ? (
+          <span className="text-muted-foreground">Saving preferences...</span>
+        ) : null}
+        {saveStatus === "saved" ? (
+          <span className="text-emerald-600 dark:text-emerald-400">Preferences saved.</span>
+        ) : null}
+        {saveStatus === "error" ? (
+          <span className="text-red-600 dark:text-red-400">Could not save preferences. Try again.</span>
+        ) : null}
+      </div>
+
       {/* Font family */}
       <Section title="Font">
         <div className="flex gap-3">

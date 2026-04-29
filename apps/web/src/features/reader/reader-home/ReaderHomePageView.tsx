@@ -10,6 +10,7 @@ import {
 } from "lucide-react";
 import BookCard from "@/components/reader/BookCard";
 import AuthorCard from "@/components/reader/AuthorCard";
+import { getDiscoverHref } from "@/lib/flags";
 
 type ContinueReadingBook = {
   id: string;
@@ -103,6 +104,13 @@ export default function ReaderHomePageView({
   authorHighlights,
   readingStats,
 }: ReaderHomePageViewProps) {
+  const discoverHref = getDiscoverHref();
+  // Spotlight CTA falls back to the user's library so the primary action stays
+  // useful when discovery is gated off.
+  const spotlightFallbackHref = discoverHref ?? "/reader/library";
+  const seeAllAction = discoverHref
+    ? { href: discoverHref, text: "See all" }
+    : undefined;
   return (
     <div className="reader-stagger space-y-6">
       {/* ── Header ── */}
@@ -131,7 +139,7 @@ export default function ReaderHomePageView({
               />
             )}
             <Link
-              href={spotlight?.href ?? "/reader/discover"}
+              href={spotlight?.href ?? spotlightFallbackHref}
               className="group relative w-[120px] flex-shrink-0 sm:w-[150px] lg:w-[170px]"
             >
               <div className="relative aspect-[3/4] overflow-hidden rounded-2xl border border-black/[0.06] shadow-md transition-transform duration-500 ease-[cubic-bezier(0.23,1,0.32,1)] group-hover:scale-[1.03] dark:border-white/10">
@@ -165,18 +173,20 @@ export default function ReaderHomePageView({
               </p>
               <div className="flex flex-col gap-2 pt-1 sm:flex-row sm:items-center sm:gap-4">
                 <Link
-                  href={spotlight?.href ?? "/reader/discover"}
+                  href={spotlight?.href ?? spotlightFallbackHref}
                   className="btn-primary inline-flex w-full items-center justify-center gap-2 text-sm sm:w-auto"
                 >
                   <BookOpen className="h-4 w-4" />
                   {spotlight?.progress != null ? "Resume" : "Open book"}
                 </Link>
-                <Link
-                  href="/reader/discover"
-                  className="text-center text-sm font-medium text-[#64748B] transition-colors hover:text-[#0F172A] sm:text-left dark:text-white/50 dark:hover:text-white"
-                >
-                  Discover more
-                </Link>
+                {discoverHref && (
+                  <Link
+                    href={discoverHref}
+                    className="text-center text-sm font-medium text-[#64748B] transition-colors hover:text-[#0F172A] sm:text-left dark:text-white/50 dark:hover:text-white"
+                  >
+                    Discover more
+                  </Link>
+                )}
               </div>
             </div>
           </section>
@@ -243,9 +253,9 @@ export default function ReaderHomePageView({
           )}
 
           {/* Discover CTA — when no continue reading */}
-          {continueReading.length === 0 && (
+          {continueReading.length === 0 && discoverHref && (
             <Link
-              href="/reader/discover"
+              href={discoverHref}
               className="card-base group flex items-center gap-4 p-6 transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md"
             >
               <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-xl bg-[#907AFF]/10 text-[#907AFF]">
@@ -361,7 +371,7 @@ export default function ReaderHomePageView({
         <section className="space-y-4 mb-0">
           <SectionHeader
             title="Trending"
-            action={{ href: "/reader/discover", text: "See all" }}
+            action={seeAllAction}
           />
           <div className="card-base divide-y divide-black/[0.04] px-4 py-1 dark:divide-white/[0.05]">
             {trendingBooks.map((book, i) => (
@@ -408,7 +418,7 @@ export default function ReaderHomePageView({
         <section className="space-y-4 mt-0">
           <SectionHeader
             title="Recommended for you"
-            action={{ href: "/reader/discover", text: "See all" }}
+            action={seeAllAction}
           />
           <div className="-mx-4 sm:mx-0">
             <div className="scrollbar-none flex gap-3 overflow-x-auto px-4 pb-1 sm:grid sm:grid-cols-3 sm:overflow-visible sm:px-0 md:grid-cols-4 lg:grid-cols-5">
@@ -436,7 +446,7 @@ export default function ReaderHomePageView({
         <section className="space-y-4">
           <SectionHeader
             title="New releases"
-            action={{ href: "/reader/discover", text: "See all" }}
+            action={seeAllAction}
           />
           <div className="-mx-4 sm:mx-0">
             <div className="scrollbar-none flex gap-3 overflow-x-auto px-4 pb-1 sm:grid sm:grid-cols-3 sm:overflow-visible sm:px-0 md:grid-cols-4 lg:grid-cols-5">

@@ -1,5 +1,6 @@
 import Link from "next/link";
 import Image from "next/image";
+import { getDiscoverHref } from "@/lib/flags";
 
 type FooterVariant = "reader" | "author";
 
@@ -10,6 +11,7 @@ const columnHeaderClass =
 const columnLinkClass = "space-y-3 text-[15px] text-slate-600 dark:text-white/50";
 
 export default function Footer({ variant = "reader" }: { variant?: FooterVariant }) {
+  const discoverHref = getDiscoverHref();
   return (
     <footer data-variant={variant} className="relative mx-auto w-full max-w-[100vw] px-4 pb-8 pt-6 md:px-6 md:pb-12 md:pt-8">
       <div className="grid gap-8 rounded-2xl bg-gradient-to-b from-black/[0.04] to-transparent px-4 py-6 sm:gap-10 sm:rounded-[32px] sm:px-6 sm:py-10 md:grid-cols-[1.5fr_1fr_1fr_1fr] md:gap-12 md:px-11 md:py-12 dark:from-white/[0.04]">
@@ -34,7 +36,9 @@ export default function Footer({ variant = "reader" }: { variant?: FooterVariant
         <div className="space-y-4">
           <p className={columnHeaderClass}>Readers</p>
           <ul className={columnLinkClass}>
-            <li><Link href="/reader/discover" className={linkClass}>Discover</Link></li>
+            {discoverHref && (
+              <li><Link href={discoverHref} className={linkClass}>Discover</Link></li>
+            )}
             <li><Link href="/reader/signin" className={linkClass}>Sign in</Link></li>
             <li><Link href="/pricing" className={linkClass}>Membership</Link></li>
           </ul>

@@ -1,5 +1,7 @@
 import { redirect } from "next/navigation";
 import { cookies } from "next/headers";
+import { NextIntlClientProvider } from "next-intl";
+import { getLocale, getMessages } from "next-intl/server";
 import { createClient } from "@/lib/supabase/server";
 import { getActiveRoleFromCookieValue } from "@/lib/active-role";
 import {
@@ -50,7 +52,17 @@ export default async function AppAuthorLayout({
     redirect("/api/auth/sync-role?redirect=/author/home");
   }
 
+  // Phase 0.4: hand the (app-author) tree a NextIntlClientProvider so client
+  // components can call `useTranslations()`. Locale and messages come from
+  // `lib/i18n/request.ts` which resolves cookie → profile.preferences.uiLanguage
+  // → default (en). Reader and public stay outside this boundary so they
+  // remain English by `check:english-default`.
+  const locale = await getLocale();
+  const messages = await getMessages();
+
   return (
-    <AuthorAppShell preferredLocale={preferredLocale}>{children}</AuthorAppShell>
+    <NextIntlClientProvider locale={locale} messages={messages}>
+      <AuthorAppShell preferredLocale={preferredLocale}>{children}</AuthorAppShell>
+    </NextIntlClientProvider>
   );
 }

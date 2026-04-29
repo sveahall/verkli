@@ -64,7 +64,7 @@ export const AUTHOR_WORKFLOW_NAV: AuthorSidebarLink[] = [
     icon: "audience",
     bookScoped: true,
     children: [
-      { key: "campaigns", label: "Campaigns", href: "/author/audience?surface=campaigns", bookScoped: true },
+      { key: "campaigns", label: "Campaigns", href: "/author/marketing", bookScoped: true },
       {
         key: "reader-updates",
         label: "Reader updates",

@@ -3,6 +3,7 @@ import Image from "next/image";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { getAvatarUrlFromPathServer } from "@/lib/supabase/avatar";
+import { getDiscoverHref } from "@/lib/flags";
 import BookCard from "@/components/reader/BookCard";
 import PageHeader from "@/components/reader/PageHeader";
 import Rail from "@/components/reader/Rail";
@@ -231,6 +232,8 @@ export default async function ReaderProfilePage({ searchParams }: PageProps) {
     .toUpperCase()
     .slice(0, 2) || "?";
 
+  const discoverHref = getDiscoverHref();
+
   return (
     <div className="space-y-10">
       <PageHeader
@@ -265,12 +268,14 @@ export default async function ReaderProfilePage({ searchParams }: PageProps) {
             >
               Bookmarks
             </Link>
-            <Link
-              href="/reader/discover"
-              className="inline-flex min-h-[40px] items-center rounded-full border border-slate-200/80 bg-white/80 px-4 py-2 text-[13px] font-medium text-slate-700 transition hover:border-slate-300 hover:text-slate-900 dark:border-white/10 dark:bg-white/5 dark:text-white/70 dark:hover:text-white"
-            >
-              Discover
-            </Link>
+            {discoverHref && (
+              <Link
+                href={discoverHref}
+                className="inline-flex min-h-[40px] items-center rounded-full border border-slate-200/80 bg-white/80 px-4 py-2 text-[13px] font-medium text-slate-700 transition hover:border-slate-300 hover:text-slate-900 dark:border-white/10 dark:bg-white/5 dark:text-white/70 dark:hover:text-white"
+              >
+                Discover
+              </Link>
+            )}
           </div>
         </div>
 
@@ -351,14 +356,20 @@ export default async function ReaderProfilePage({ searchParams }: PageProps) {
         emptyState={
           <EmptyState
             title="No reads yet"
-            description="Start a book from Discover and it will appear here."
+            description={
+              discoverHref
+                ? "Start a book from Discover and it will appear here."
+                : "Open a book and it will appear here."
+            }
             action={
-              <Link
-                href="/reader/discover"
-                className="btn-primary rounded-full bg-slate-900 px-5 py-2.5 text-[14px] hover:bg-slate-800 dark:bg-white dark:text-slate-900 dark:hover:bg-white/95"
-              >
-                Explore stories
-              </Link>
+              discoverHref ? (
+                <Link
+                  href={discoverHref}
+                  className="btn-primary rounded-full bg-slate-900 px-5 py-2.5 text-[14px] hover:bg-slate-800 dark:bg-white dark:text-slate-900 dark:hover:bg-white/95"
+                >
+                  Explore stories
+                </Link>
+              ) : undefined
             }
           />
         }

@@ -1,18 +1,6 @@
 import Link from "next/link";
 import PurchaseBookButton from "@/app/(reader-browse)/reader/books/[id]/PurchaseBookButton";
-
-function formatMoney(amount: number, currency: string): string {
-  const value = amount / 100;
-  try {
-    return new Intl.NumberFormat("en-US", {
-      style: "currency",
-      currency: currency.toUpperCase(),
-      maximumFractionDigits: 2,
-    }).format(value);
-  } catch {
-    return `${value.toFixed(2)} ${currency.toUpperCase()}`;
-  }
-}
+import { formatMoney } from "@/lib/format-money";
 
 type FreemiumGateProps = {
   bookId: string;

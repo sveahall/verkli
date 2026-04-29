@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
+  E_AUTHOR_DISPLAY_NAME_REQUIRED,
   E_BOOK_NOT_FOUND,
   E_DATABASE_ERROR,
   E_INVALID_BOOK_ID,
@@ -79,6 +80,9 @@ function buildSupabaseMock({
   defaultVersion = { id: VERSION_ID } as { id: string } | null,
   anyVersion = null as { id: string } | null,
   updateError = null as { message?: string } | null,
+  authorProfile = { display_name: "Author Name", username: null as string | null } as
+    | { display_name: string | null; username: string | null }
+    | null,
 }: {
   version?: {
     id: string;
@@ -92,6 +96,7 @@ function buildSupabaseMock({
   defaultVersion?: { id: string } | null;
   anyVersion?: { id: string } | null;
   updateError?: { message?: string } | null;
+  authorProfile?: { display_name: string | null; username: string | null } | null;
 } = {}) {
   // Track version select calls to differentiate between version lookups
   let versionSelectCount = 0;
@@ -140,13 +145,20 @@ function buildSupabaseMock({
                 })),
               };
             }
-            // Version details lookup (by versionId)
+            // Version details lookup (by versionId) and post-unpublish
+            // sibling-version check (.eq().not().limit()).
             return {
               eq: vi.fn(() => ({
                 maybeSingle: vi.fn().mockResolvedValue({
                   data: version,
                   error: versionError,
                 }),
+                not: vi.fn(() => ({
+                  limit: vi.fn().mockResolvedValue({
+                    data: [],
+                    error: null,
+                  }),
+                })),
               })),
             };
           }),
@@ -171,6 +183,18 @@ function buildSupabaseMock({
         return {
           update: vi.fn(() => ({
             eq: vi.fn().mockResolvedValue({ error: updateError }),
+          })),
+        };
+      }
+      if (table === "profiles") {
+        return {
+          select: vi.fn(() => ({
+            eq: vi.fn(() => ({
+              maybeSingle: vi.fn().mockResolvedValue({
+                data: authorProfile,
+                error: null,
+              }),
+            })),
           })),
         };
       }
@@ -375,6 +399,101 @@ describe("POST /api/books/[id]/publish", () => {
     expect(res.status).toBe(400);
     const body = await res.json();
     expect(body.error).toBe(E_MISSING_COVER_IMAGE);
+  });
+
+  it("returns 400 when author display name is missing", async () => {
+    mocks.getBookAsOwner.mockResolvedValue({
+      ok: true,
+      data: {
+        id: BOOK_ID,
+        title: "My Book",
+        author_id: "author-1",
+        status: "DRAFT",
+        original_language: "en",
+        cover_image: "https://cdn.example.com/cover.jpg",
+      },
+    });
+    buildSupabaseMock({
+      authorProfile: { display_name: null, username: null },
+    });
+
+    const res = await POST(makeRequest({}), makeParams());
+    expect(res.status).toBe(400);
+    const body = await res.json();
+    expect(body.error).toBe(E_AUTHOR_DISPLAY_NAME_REQUIRED);
+  });
+
+  it("treats whitespace-only display name as missing", async () => {
+    mocks.getBookAsOwner.mockResolvedValue({
+      ok: true,
+      data: {
+        id: BOOK_ID,
+        title: "My Book",
+        author_id: "author-1",
+        status: "DRAFT",
+        original_language: "en",
+        cover_image: "https://cdn.example.com/cover.jpg",
+      },
+    });
+    buildSupabaseMock({
+      authorProfile: { display_name: "   ", username: "" },
+    });
+
+    const res = await POST(makeRequest({}), makeParams());
+    expect(res.status).toBe(400);
+    const body = await res.json();
+    expect(body.error).toBe(E_AUTHOR_DISPLAY_NAME_REQUIRED);
+  });
+
+  it("accepts username as fallback when display_name is missing", async () => {
+    mocks.getBookAsOwner.mockResolvedValue({
+      ok: true,
+      data: {
+        id: BOOK_ID,
+        title: "My Book",
+        author_id: "author-1",
+        status: "DRAFT",
+        original_language: "en",
+        cover_image: "https://cdn.example.com/cover.jpg",
+      },
+    });
+    buildSupabaseMock({
+      authorProfile: { display_name: null, username: "my-handle" },
+    });
+
+    const res = await POST(makeRequest({}), makeParams());
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.ok).toBe(true);
+  });
+
+  it("does not require display name when unpublishing", async () => {
+    mocks.getBookAsOwner.mockResolvedValue({
+      ok: true,
+      data: {
+        id: BOOK_ID,
+        title: "My Book",
+        author_id: "author-1",
+        status: "PUBLISHED",
+        original_language: "en",
+        cover_image: "https://cdn.example.com/cover.jpg",
+      },
+    });
+    buildSupabaseMock({
+      version: {
+        id: VERSION_ID,
+        book_id: BOOK_ID,
+        published_at: "2026-01-01T00:00:00.000Z",
+        visibility: "public",
+        published_chapter_count: null,
+      },
+      authorProfile: { display_name: null, username: null },
+    });
+
+    const res = await POST(makeRequest({ action: "unpublish" }), makeParams());
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.ok).toBe(true);
   });
 
   it("returns 200 for successful publish", async () => {

@@ -14,6 +14,7 @@ import {
   Search,
 } from "lucide-react";
 import BookCard from "@/components/reader/BookCard";
+import { getDiscoverHref } from "@/lib/flags";
 import type { LibraryBook, LibraryData } from "@/app/(app-reader)/reader/library/page";
 
 type ReaderLibraryPageViewProps = {
@@ -30,6 +31,7 @@ export default function ReaderLibraryPageView({ initialData }: ReaderLibraryPage
   const [search, setSearch] = useState("");
   const query = search.trim().toLowerCase();
   const isSearching = query.length > 0;
+  const discoverHref = getDiscoverHref();
 
   const filteredReading = useMemo(() => initialData.reading.filter((b) => matchesQuery(b, query)), [initialData.reading, query]);
   const filteredSaved = useMemo(() => initialData.saved.filter((b) => matchesQuery(b, query)), [initialData.saved, query]);
@@ -56,12 +58,14 @@ export default function ReaderLibraryPageView({ initialData }: ReaderLibraryPage
             {initialData.reading.length} reading &middot; {initialData.saved.length} saved &middot; {initialData.finished.length} completed
           </p>
         </div>
-        <Link
-          href="/reader/discover"
-          className="btn-primary inline-flex items-center gap-2 self-start text-sm sm:self-auto"
-        >
-          <Plus className="h-4 w-4" /> Add books
-        </Link>
+        {discoverHref && (
+          <Link
+            href={discoverHref}
+            className="btn-primary inline-flex items-center gap-2 self-start text-sm sm:self-auto"
+          >
+            <Plus className="h-4 w-4" /> Add books
+          </Link>
+        )}
       </header>
 
       {/* ── Search ── */}
@@ -87,14 +91,18 @@ export default function ReaderLibraryPageView({ initialData }: ReaderLibraryPage
             Your library is empty
           </h2>
           <p className="mx-auto mt-1 max-w-md text-sm text-[#64748B] dark:text-white/50">
-            Start reading from Discover and your books will be organized here.
+            {discoverHref
+              ? "Start reading from Discover and your books will be organized here."
+              : "Open a book and your library will fill in here."}
           </p>
-          <Link
-            href="/reader/discover"
-            className="btn-primary mt-6 inline-flex items-center gap-2 text-sm"
-          >
-            <BookOpen className="h-4 w-4" /> Browse Discover
-          </Link>
+          {discoverHref && (
+            <Link
+              href={discoverHref}
+              className="btn-primary mt-6 inline-flex items-center gap-2 text-sm"
+            >
+              <BookOpen className="h-4 w-4" /> Browse Discover
+            </Link>
+          )}
         </section>
       ) : (
         <>
@@ -212,15 +220,19 @@ export default function ReaderLibraryPageView({ initialData }: ReaderLibraryPage
                       No saved books yet
                     </p>
                     <p className="text-xs text-[#64748B] dark:text-white/40">
-                      Bookmark books from Discover to save them here.
+                      {discoverHref
+                        ? "Bookmark books from Discover to save them here."
+                        : "Bookmark a book and it will save here."}
                     </p>
                   </div>
-                  <Link
-                    href="/reader/discover"
-                    className="btn-secondary shrink-0 text-sm"
-                  >
-                    Browse
-                  </Link>
+                  {discoverHref && (
+                    <Link
+                      href={discoverHref}
+                      className="btn-secondary shrink-0 text-sm"
+                    >
+                      Browse
+                    </Link>
+                  )}
                 </div>
               )}
             </section>

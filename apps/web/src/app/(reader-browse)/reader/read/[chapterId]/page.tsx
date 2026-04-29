@@ -12,6 +12,9 @@ import ReaderChapterClient, { type ReaderHighlight, type ReaderSettings } from "
 import ChapterTopNavigator from "./ChapterTopNavigator";
 import ChapterAudiobookPlayer from "./ChapterAudiobookPlayer";
 import ReadingView from "@/features/reader/reader-reading/ReadingView";
+import { extractTextFromTiptapNode } from "@/lib/tiptap-content";
+import LanguageSwitcher, { type LanguageOption } from "./LanguageSwitcher";
+import { getLanguageLabel, normalizeLanguage } from "@/lib/languages";
 
 function asRecord(value: unknown): Record<string, unknown> | null {
   if (typeof value !== "object" || value === null || Array.isArray(value)) return null;
@@ -59,6 +62,23 @@ function normalizeHighlightColor(value: unknown): "yellow" | "green" | "blue" | 
   return "yellow";
 }
 
+function hasReadableChapterContent(content: unknown): boolean {
+  if (typeof content === "string") {
+    const trimmed = content.trim();
+    if (!trimmed) return false;
+    try {
+      const parsed: unknown = JSON.parse(trimmed);
+      return extractTextFromTiptapNode(parsed).replace(/\s+/g, " ").trim().length > 0;
+    } catch {
+      return trimmed.length > 0;
+    }
+  }
+  if (content && typeof content === "object") {
+    return extractTextFromTiptapNode(content).replace(/\s+/g, " ").trim().length > 0;
+  }
+  return false;
+}
+
 export default async function ReaderReadPage({
   params,
 }: {
@@ -70,7 +90,7 @@ export default async function ReaderReadPage({
 
   const { data: chapter } = await supabase
     .from("chapters")
-    .select("id, title, order, book_id, book_version_id, content")
+    .select("id, title, order, book_id, book_version_id, content, source_text")
     .eq("id", chapterId)
     .maybeSingle();
 
@@ -245,6 +265,79 @@ export default async function ReaderReadPage({
   }
 
   const initialReaderSettings = parseReaderSettings(profilePreferences);
+  const chapterContent = hasReadableChapterContent(chapter.content)
+    ? chapter.content
+    : ((chapter as { source_text?: string | null }).source_text ?? null);
+
+  // Multi-language switcher data (Week 1 / ROADMAP Phase 0.2). Resolves
+  // sibling chapter ids across published language versions of the same book,
+  // matched by `order`. Languages without a sibling at this order are
+  // omitted (translation in progress / not yet ready).
+  const chapterOrder = typeof chapter.order === "number" ? chapter.order : null;
+  let languageOptions: LanguageOption[] = [];
+  let currentLanguageCode = "en";
+  if (chapterOrder !== null) {
+    const { data: versionRows } = await supabase
+      .from("book_versions")
+      .select("id, language_code, published_at")
+      .eq("book_id", book.id)
+      .not("published_at", "is", null);
+
+    const versions = (versionRows ?? []) as Array<{
+      id: string;
+      language_code: string;
+      published_at: string | null;
+    }>;
+    const versionIds = versions.map((v) => v.id);
+
+    if (versionIds.length > 0) {
+      const [{ data: siblingChapterRows }, { data: audiobookAssetRows }] =
+        await Promise.all([
+          supabase
+            .from("chapters")
+            .select("id, book_version_id, order")
+            .in("book_version_id", versionIds)
+            .eq("order", chapterOrder),
+          supabase
+            .from("audiobook_assets")
+            .select("book_id, language, status")
+            .eq("book_id", book.id),
+        ]);
+
+      const siblingByVersionId = new Map<string, string>(
+        ((siblingChapterRows ?? []) as Array<{ id: string; book_version_id: string }>).map(
+          (row) => [row.book_version_id, row.id] as const
+        )
+      );
+      const audiobookByLang = new Set(
+        ((audiobookAssetRows ?? []) as Array<{ language: string | null; status: string | null }>)
+          .filter((row) => (row.status ?? "").toLowerCase() === "generated")
+          .map((row) => normalizeLanguage(row.language ?? ""))
+          .filter(Boolean)
+      );
+
+      languageOptions = versions
+        .map((v): LanguageOption | null => {
+          const siblingId = siblingByVersionId.get(v.id);
+          if (!siblingId) return null;
+          const code = normalizeLanguage(v.language_code) || v.language_code;
+          return {
+            code,
+            label: getLanguageLabel(code),
+            chapterId: siblingId,
+            hasAudio: audiobookByLang.has(code),
+          };
+        })
+        .filter((x): x is LanguageOption => x !== null)
+        .sort((a, b) => a.label.localeCompare(b.label));
+
+      const currentVersion = versions.find((v) => v.id === chapter.book_version_id);
+      if (currentVersion) {
+        currentLanguageCode =
+          normalizeLanguage(currentVersion.language_code) || currentVersion.language_code;
+      }
+    }
+  }
 
   const chapterIndex = chapters?.findIndex((c) => c.id === chapterId) ?? 0;
   const totalChapters = chapters?.length ?? 1;
@@ -343,13 +436,23 @@ export default async function ReaderReadPage({
         }
         chapterContent={
           <div>
+            {languageOptions.length > 1 ? (
+              <div className="mb-4">
+                <LanguageSwitcher
+                  bookId={book.id}
+                  currentLanguage={currentLanguageCode}
+                  options={languageOptions}
+                />
+              </div>
+            ) : null}
             <ReaderChapterClient
+              key={chapter.id}
               userId={user?.id ?? null}
               bookId={book.id}
               bookVersionId={chapter.book_version_id}
               chapterId={chapter.id}
               chapterTitle={chapter.title}
-              chapterContent={chapter.content ?? null}
+              chapterContent={chapterContent}
               initialHighlights={initialHighlights}
               initialPreferences={profilePreferences}
               initialSettings={initialReaderSettings}

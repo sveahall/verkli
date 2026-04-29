@@ -11,6 +11,7 @@ import {
   DialogDescription,
   DialogFooter,
 } from "@/components/ui/dialog";
+import { countWordsInContent } from "@/lib/tiptap-content";
 
 type ChapterRailProps = {
   bookTitle: string;
@@ -32,31 +33,7 @@ type ChapterRailProps = {
   deletingChapterId?: string | null;
 };
 
-function countWords(content: string | null): number {
-  if (!content) return 0;
-  try {
-    const extract = (node: unknown): string => {
-      if (!node || typeof node !== "object") return "";
-      if ("text" in node) return (node as { text: string }).text;
-      if (
-        "content" in node &&
-        Array.isArray((node as { content: unknown[] }).content)
-      ) {
-        return (node as { content: unknown[] }).content.map(extract).join("");
-      }
-      return "";
-    };
-    return extract(JSON.parse(content))
-      .trim()
-      .split(/\s+/)
-      .filter(Boolean).length;
-  } catch {
-    return content
-      .trim()
-      .split(/\s+/)
-      .filter(Boolean).length;
-  }
-}
+const countWords = countWordsInContent;
 
 function formatWordCount(count: number): string {
   if (count === 0) return "Empty";
