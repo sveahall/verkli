@@ -1,0 +1,55 @@
+# Verkli
+
+Verkli is a publishing platform for indie authors. Authors publish books in
+multiple languages with optional audiobook and print-on-demand editions.
+Readers discover and read books on the web.
+
+This file follows the llms.txt convention. It is intended for AI agents that
+want a fast, machine-readable map of the site.
+
+## What you can do here
+
+- Discover published books and their authors
+- Read book metadata (title, description, language, price, formats)
+- Follow links to canonical pages for human reading
+
+You cannot purchase, write, or perform any account-level actions through the
+public API. Those flows require a logged-in user in the web app.
+
+## Important URLs
+
+- Site root: https://verkli.com
+- Reader home: https://verkli.com/reader
+- Discover: https://verkli.com/reader/discover
+- All authors: https://verkli.com/reader/authors
+- Genres: https://verkli.com/reader/genres
+- How it works: https://verkli.com/reader/how-it-works
+- Sitemap: https://verkli.com/sitemap.xml
+- Robots: https://verkli.com/robots.txt
+
+## Public API (read-only)
+
+Base: https://verkli.com/api/public
+
+- GET /books — list published books (page, limit, q, language, is_free)
+- GET /books/{id} — single book by UUID
+- GET /authors/{id} — public author profile + their published books
+- GET /openapi.json — OpenAPI 3.1 schema for this API
+
+Rate limit: 60 requests per minute per IP.
+No authentication required. No write endpoints.
+
+## Structured data
+
+Every published book and public author page includes JSON-LD:
+
+- Books emit schema.org/Book with author, language, offers, image, url
+- Authors emit schema.org/Person with name, description, sameAs, url
+
+## Policies
+
+- Drafts and unpublished books are never returned by the public API
+- Private author profiles are returned only when they have at least one
+  published book
+- All payloads are stable: fields may be added, never removed without a
+  deprecation period

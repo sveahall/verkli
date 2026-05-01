@@ -231,8 +231,27 @@ export default async function ReaderAuthorProfilePage({
     .join("")
     .toUpperCase();
 
+  const authorSiteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "https://verkli.com";
+  const canonicalAuthorUrl = `${authorSiteUrl}/reader/authors/${userId}`;
+  const sameAs = [socialLinks.twitter, socialLinks.instagram, socialLinks.tiktok, websiteUrl]
+    .filter((v): v is string => typeof v === "string" && v.startsWith("http"));
+  const authorJsonLd = {
+    "@context": "https://schema.org",
+    "@type": "Person",
+    "@id": canonicalAuthorUrl,
+    name: displayName,
+    ...(bio ? { description: bio } : {}),
+    ...(avatarUrl ? { image: avatarUrl } : {}),
+    url: canonicalAuthorUrl,
+    ...(sameAs.length > 0 ? { sameAs } : {}),
+  };
+
   return (
     <div className="space-y-6 pb-8">
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(authorJsonLd).replace(/</g, "\\u003c") }}
+      />
 
       {/* ── Back link ── */}
       <Link

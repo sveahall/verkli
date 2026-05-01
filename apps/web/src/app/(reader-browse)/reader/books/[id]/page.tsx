@@ -220,6 +220,19 @@ export default async function ReaderBookDetail({
     .eq("user_id", book.author_id)
     .maybeSingle();
 
+  const { data: genreJunction } = await supabase
+    .from("book_genres")
+    .select("genres(name, name_en)")
+    .eq("book_id", book.id);
+  const bookGenres = (genreJunction ?? [])
+    .map((row) => {
+      const g = Array.isArray(row.genres) ? row.genres[0] : row.genres;
+      if (!g || typeof g !== "object") return null;
+      const value = ("name_en" in g && g.name_en) || ("name" in g && g.name) || null;
+      return typeof value === "string" && value.trim() ? value.trim() : null;
+    })
+    .filter((g): g is string => Boolean(g));
+
   const { data: chapters } = await supabase
     .from("chapters")
     .select("id, title, order")
@@ -309,17 +322,46 @@ export default async function ReaderBookDetail({
   const bookAuthorId = String((book as { author_id?: string | null }).author_id ?? "");
 
   const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "https://verkli.com";
+  const canonicalBookUrl = `${siteUrl}/reader/books/${book.id}`;
+  const podSettings = normalizePrintOnDemandSettings(book.print_on_demand_settings);
+  const bookFormats: string[] = ["https://schema.org/EBook"];
+  if (book.audiobook_status === "published") bookFormats.push("https://schema.org/AudiobookFormat");
+  if (podSettings.enabled) bookFormats.push("https://schema.org/Paperback");
+  const jsonLdOffer = isFreeBook
+    ? {
+        "@type": "Offer",
+        price: "0",
+        priceCurrency: priceCurrency,
+        availability: "https://schema.org/InStock",
+        url: canonicalBookUrl,
+      }
+    : {
+        "@type": "Offer",
+        price: (priceAmount / 100).toFixed(2),
+        priceCurrency: priceCurrency,
+        availability: "https://schema.org/InStock",
+        url: canonicalBookUrl,
+      };
   const jsonLd = {
     "@context": "https://schema.org",
     "@type": "Book",
+    "@id": canonicalBookUrl,
     name: book.title,
-    author: { "@type": "Person", name: authorName },
+    author: {
+      "@type": "Person",
+      name: authorName,
+      url: `${siteUrl}/reader/authors/${book.author_id}`,
+    },
     ...(book.description ? { description: book.description } : {}),
     ...((book as { cover_image?: string | null }).cover_image
       ? { image: (book as { cover_image?: string | null }).cover_image }
       : {}),
     inLanguage: lang,
-    url: `${siteUrl}/reader/books/${book.id}`,
+    url: canonicalBookUrl,
+    bookFormat: bookFormats,
+    offers: jsonLdOffer,
+    ...(bookGenres.length > 0 ? { genre: bookGenres } : {}),
+    ...(activeVersion.published_at ? { datePublished: activeVersion.published_at } : {}),
     ...(averageRating !== null
       ? {
           aggregateRating: {
