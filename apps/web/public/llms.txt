@@ -32,9 +32,12 @@ public API. Those flows require a logged-in user in the web app.
 Base: https://verkli.com/api/public
 
 - GET /books — list published books (page, limit, q, language, is_free)
-- GET /books/{id} — single book by UUID
-- GET /authors/{id} — public author profile + their published books
+- GET /books/{id} — single book by UUID or slug
+- GET /authors/{id} — public author profile + published books (UUID or username)
 - GET /openapi.json — OpenAPI 3.1 schema for this API
+- POST /mcp — Model Context Protocol endpoint (JSON-RPC 2.0,
+  streamable HTTP). Tools: search_books, get_book, get_author.
+  GET /mcp returns server info.
 
 Rate limit: 60 requests per minute per IP.
 No authentication required. No write endpoints.

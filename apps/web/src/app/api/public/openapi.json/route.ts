@@ -102,12 +102,15 @@ export function GET() {
       "/authors/{id}": {
         get: {
           summary: "Get a public author profile and their published books",
+          description:
+            "Accepts either a user UUID or a username. UUIDs are matched against `user_id`; everything else is matched against `username`.",
           parameters: [
             {
               name: "id",
               in: "path",
               required: true,
-              schema: { type: "string", format: "uuid" },
+              description: "Author UUID or username",
+              schema: { type: "string" },
             },
           ],
           responses: {
@@ -127,6 +130,22 @@ export function GET() {
         get: {
           summary: "This OpenAPI document",
           responses: { "200": { description: "OpenAPI 3.1 document" } },
+        },
+      },
+      "/mcp": {
+        get: {
+          summary: "MCP server info (transport metadata, tool names)",
+          responses: { "200": { description: "MCP server info" } },
+        },
+        post: {
+          summary: "Model Context Protocol endpoint (JSON-RPC 2.0)",
+          description:
+            "Streamable HTTP transport. Methods: initialize, tools/list, tools/call. Tools: search_books, get_book, get_author. See https://modelcontextprotocol.io.",
+          responses: {
+            "200": { description: "JSON-RPC response" },
+            "204": { description: "Notification accepted (no response body)" },
+            "429": { description: "Rate limit exceeded" },
+          },
         },
       },
     },
