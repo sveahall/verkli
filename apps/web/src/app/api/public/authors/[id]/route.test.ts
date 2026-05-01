@@ -17,10 +17,13 @@ const { GET } = await import("./route");
 const AUTHOR_ID = "22222222-2222-4222-8222-222222222222";
 const ALLOW = () => ({ allowed: true });
 
-function profileChain(data: unknown) {
+function profileChain(data: unknown, eqColumns?: string[]) {
   const chain: Record<string, unknown> = {};
   chain.select = vi.fn(() => chain);
-  chain.eq = vi.fn(() => chain);
+  chain.eq = vi.fn((col: string) => {
+    eqColumns?.push(col);
+    return chain;
+  });
   chain.maybeSingle = vi.fn(() => Promise.resolve({ data, error: null }));
   return chain;
 }
@@ -43,11 +46,36 @@ describe("/api/public/authors/[id] GET", () => {
     mocks.rateLimitCheck.mockImplementation(ALLOW);
   });
 
-  it("returns 400 for invalid UUID", async () => {
-    const res = await GET(new Request("http://localhost/api/public/authors/bad"), {
-      params: Promise.resolve({ id: "bad" }),
+  it("returns 400 for input that is neither UUID nor a valid username", async () => {
+    const res = await GET(new Request("http://localhost/api/public/authors/bad%20handle"), {
+      params: Promise.resolve({ id: "bad handle" }),
     });
     expect(res.status).toBe(400);
+  });
+
+  it("looks up by username when input is not a UUID", async () => {
+    const profile = {
+      user_id: AUTHOR_ID,
+      display_name: "Demo",
+      username: "demo-author",
+      bio: null,
+      avatar_url: null,
+      is_public: true,
+      website_url: null,
+      social_links: null,
+    };
+    const eqCols: string[] = [];
+    mocks.createAdminClient.mockReturnValue({
+      from: vi.fn((t: string) => (t === "profiles" ? profileChain(profile, eqCols) : booksChain([]))),
+    });
+    const res = await GET(new Request("http://localhost/api/public/authors/demo-author"), {
+      params: Promise.resolve({ id: "demo-author" }),
+    });
+    expect(res.status).toBe(200);
+    expect(eqCols).toContain("username");
+    expect(eqCols).not.toContain("user_id");
+    const body = await res.json();
+    expect(body.username).toBe("demo-author");
   });
 
   it("returns 404 for private profile with no published books", async () => {

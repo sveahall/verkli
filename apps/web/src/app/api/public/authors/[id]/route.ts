@@ -15,6 +15,8 @@ import {
 } from "@/lib/api/public-book";
 import { getClientIp, publicApiRateLimiter } from "../../_shared";
 
+const USERNAME_RE = /^[a-z0-9](?:[a-z0-9_-]{0,62}[a-z0-9])?$/i;
+
 type ProfileRow = {
   user_id: string;
   display_name: string | null;
@@ -52,36 +54,41 @@ export async function GET(
     });
   }
 
-  const { id } = await params;
-  if (!isValidUuid(id)) {
+  const { id: param } = await params;
+  const isUuid = isValidUuid(param);
+  if (!isUuid && !USERNAME_RE.test(param)) {
     return apiError(E_INVALID_USER_ID, 400);
   }
 
   const supabase = createAdminClient();
+  const profileQuery = supabase
+    .from("profiles")
+    .select("user_id, display_name, username, bio, avatar_url, is_public, website_url, social_links");
+  const profileRes = await (isUuid
+    ? profileQuery.eq("user_id", param).maybeSingle()
+    : profileQuery.eq("username", param).maybeSingle());
 
-  const [profileRes, booksRes] = await Promise.all([
-    supabase
-      .from("profiles")
-      .select("user_id, display_name, username, bio, avatar_url, is_public, website_url, social_links")
-      .eq("user_id", id)
-      .maybeSingle(),
-    supabase
-      .from("books")
-      .select(PUBLIC_BOOK_COLUMNS)
-      .eq("author_id", id)
-      .eq("status", "PUBLISHED")
-      .order("updated_at", { ascending: false }),
-  ]);
-
-  if (profileRes.error || booksRes.error) {
+  if (profileRes.error) {
     return apiError(E_DATABASE_ERROR, 500);
   }
-
   const profile = profileRes.data as ProfileRow | null;
-  const books = (booksRes.data ?? []) as unknown as BookRow[];
+  if (!profile) {
+    return NextResponse.json({ error: "AUTHOR_NOT_FOUND" }, { status: 404 });
+  }
 
-  const isVisible = (profile?.is_public === true) || books.length > 0;
-  if (!profile || !isVisible) {
+  const { data: bookRows, error: booksError } = await supabase
+    .from("books")
+    .select(PUBLIC_BOOK_COLUMNS)
+    .eq("author_id", profile.user_id)
+    .eq("status", "PUBLISHED")
+    .order("updated_at", { ascending: false });
+  if (booksError) {
+    return apiError(E_DATABASE_ERROR, 500);
+  }
+  const books = (bookRows ?? []) as unknown as BookRow[];
+
+  const isVisible = profile.is_public === true || books.length > 0;
+  if (!isVisible) {
     return NextResponse.json({ error: "AUTHOR_NOT_FOUND" }, { status: 404 });
   }
 
