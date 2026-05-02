@@ -52,7 +52,6 @@ test.describe("Book Trailer Feature — Reader Side", () => {
     const badgeCount = await playBadges.count();
 
     // This is informational — badges only show after migration + data
-    // eslint-disable-next-line no-console
     console.log(`Found ${badgeCount} trailer badges on discover page`);
 
     // Page should render without errors

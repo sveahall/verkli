@@ -9,7 +9,6 @@ import { getClientIpFromRequest } from "@/lib/request-ip";
 import {
   apiError,
   E_VALIDATION_FAILED,
-  E_GENERIC_ERROR,
   E_RATE_LIMIT_EXCEEDED,
 } from "@/lib/api-errors";
 

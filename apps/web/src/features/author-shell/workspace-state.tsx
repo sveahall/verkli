@@ -214,7 +214,6 @@ export function AuthorWorkspaceProvider({ children }: { children: ReactNode }) {
     dispatch({ type: "set-selected-job", jobId });
     // Note: state.currentBookId intentionally excluded to prevent infinite
     // loop with the book-validation effect below that resets stale IDs.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pathname, searchParams]);
 
   useEffect(() => {

@@ -1,3 +1,4 @@
+import Image from "next/image";
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
 
@@ -64,10 +65,12 @@ export default function ReaderBookPageView({
         <div className="pointer-events-none absolute inset-0 overflow-hidden rounded-2xl">
           {/* Atmospheric cover backdrop */}
           {coverUrl && (
-            <img
+            <Image
               src={coverUrl}
               alt=""
               aria-hidden="true"
+              fill
+              sizes="100vw"
               className="absolute inset-0 h-full w-full scale-110 object-cover opacity-[0.11] dark:opacity-[0.22]"
               style={{ filter: "blur(72px) saturate(2.2)" }}
             />

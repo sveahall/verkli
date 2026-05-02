@@ -103,7 +103,6 @@ export default function SimplifiedEditView({
   isCreating = false,
   isSaving = false,
   lastSaved = null,
-  saveError: _saveError = false,
   isRenamingBook = false,
   bookTitleDraft = "",
   onStartRenameBook,

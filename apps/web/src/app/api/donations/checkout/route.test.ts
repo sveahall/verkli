@@ -96,12 +96,8 @@ function mockAdminClient({
   const reuseEq1 = vi.fn(() => ({ eq: reuseEq2 }));
   const reuseSelect = vi.fn(() => ({ eq: reuseEq1 }));
 
-  let selectCallCount = 0;
   const from = vi.fn(() => ({
-    select: (..._args: unknown[]) => {
-      selectCallCount++;
-      return reuseSelect();
-    },
+    select: () => reuseSelect(),
     insert: vi.fn(() => ({ select: insertSelect })),
     update: vi.fn(() => ({ eq: updateEq0 })),
   }));

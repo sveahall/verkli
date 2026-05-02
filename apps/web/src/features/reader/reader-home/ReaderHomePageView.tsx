@@ -130,10 +130,12 @@ export default function ReaderHomePageView({
           <section className="card-base relative flex items-center gap-4 overflow-hidden p-4 sm:gap-6 sm:p-6">
             {/* Atmospheric cover backdrop */}
             {spotlight?.cover && (
-              <img
+              <Image
                 src={spotlight.cover}
                 alt=""
                 aria-hidden="true"
+                fill
+                sizes="100vw"
                 className="pointer-events-none absolute inset-0 h-full w-full scale-110 object-cover opacity-[0.08] dark:opacity-[0.22]"
                 style={{ filter: "blur(80px) saturate(2)" }}
               />
