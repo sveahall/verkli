@@ -11,33 +11,43 @@
 
 import { Suspense, useEffect } from "react";
 import { usePathname, useSearchParams } from "next/navigation";
-import posthog from "posthog-js";
 
-let posthogInitialized = false;
+type PostHogClient = typeof import("posthog-js").default;
 
-function initPostHogOnce(): boolean {
-  if (posthogInitialized) return true;
-  if (typeof window === "undefined") return false;
+let posthogClient: PostHogClient | null = null;
+let posthogInitPromise: Promise<PostHogClient | null> | null = null;
+
+function initPostHogOnce(): Promise<PostHogClient | null> {
+  if (posthogClient) return Promise.resolve(posthogClient);
+  if (typeof window === "undefined") return Promise.resolve(null);
 
   const key = process.env.NEXT_PUBLIC_POSTHOG_KEY;
-  if (!key) return false;
+  if (!key) return Promise.resolve(null);
 
   const host = process.env.NEXT_PUBLIC_POSTHOG_HOST ?? "https://us.i.posthog.com";
 
-  try {
-    posthog.init(key, {
-      api_host: host,
-      capture_pageview: false, // We do this manually on App Router transitions.
-      capture_pageleave: true,
-      persistence: "localStorage",
-      autocapture: false,
-      disable_session_recording: true,
-    });
-    posthogInitialized = true;
-    return true;
-  } catch {
-    return false;
-  }
+  posthogInitPromise ??= import("posthog-js")
+    .then(({ default: posthog }) => {
+      if (posthogClient) return posthogClient;
+
+      try {
+        posthog.init(key, {
+          api_host: host,
+          capture_pageview: false, // We do this manually on App Router transitions.
+          capture_pageleave: true,
+          persistence: "localStorage",
+          autocapture: false,
+          disable_session_recording: true,
+        });
+        posthogClient = posthog;
+        return posthog;
+      } catch {
+        return null;
+      }
+    })
+    .catch(() => null);
+
+  return posthogInitPromise;
 }
 
 function PostHogPageview() {
@@ -45,17 +55,25 @@ function PostHogPageview() {
   const searchParams = useSearchParams();
 
   useEffect(() => {
-    if (!initPostHogOnce()) return;
     if (!pathname) return;
 
     const search = searchParams?.toString();
     const url = search ? `${pathname}?${search}` : pathname;
+    let cancelled = false;
 
-    try {
-      posthog.capture("$pageview", { $current_url: url, path: pathname });
-    } catch {
-      // ignore
-    }
+    void initPostHogOnce().then((posthog) => {
+      if (cancelled || !posthog) return;
+
+      try {
+        posthog.capture("$pageview", { $current_url: url, path: pathname });
+      } catch {
+        // ignore
+      }
+    });
+
+    return () => {
+      cancelled = true;
+    };
   }, [pathname, searchParams]);
 
   return null;
