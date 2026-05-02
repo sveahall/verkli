@@ -17,12 +17,7 @@ import {
 const EditorSidePanel = dynamic(() => import("@/components/editor/EditorSidePanel"), { ssr: false });
 const EditorStatusBar = dynamic(() => import("@/components/editor/EditorStatusBar"), { ssr: false });
 
-const editorImport = () => import("@/components/editor/TiptapEditor");
-
-// Start downloading the editor chunk immediately, don't wait for render
-if (typeof window !== "undefined") editorImport();
-
-const TiptapEditor = dynamic(editorImport, {
+const TiptapEditor = dynamic(() => import("@/components/editor/TiptapEditor"), {
   ssr: false,
   loading: () => (
     <div className="flex h-[300px] items-center justify-center rounded-xl bg-slate-50 dark:bg-white/5">
