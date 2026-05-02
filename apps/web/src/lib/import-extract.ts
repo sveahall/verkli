@@ -8,7 +8,7 @@ import * as mammoth from "mammoth";
 import * as fs from "fs/promises";
 import * as path from "path";
 import * as crypto from "crypto";
-import { htmlToTiptapDoc } from "./tiptap-content";
+import { htmlToTiptapDoc } from "./tiptap-content-html";
 
 export type ExtractedChapter = {
   title: string;

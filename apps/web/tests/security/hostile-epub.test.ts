@@ -23,7 +23,8 @@
  */
 
 import { describe, expect, it } from "vitest";
-import { htmlToTiptapDoc, type TiptapDocument } from "@/lib/tiptap-content";
+import { htmlToTiptapDoc } from "@/lib/tiptap-content-html";
+import type { TiptapDocument } from "@/lib/tiptap-content";
 
 const ATTACK_VECTORS: Array<{ name: string; xhtml: string }> = [
   {
