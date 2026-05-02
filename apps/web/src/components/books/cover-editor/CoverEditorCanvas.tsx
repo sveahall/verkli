@@ -5,9 +5,7 @@ import { Stage, Layer, Image as KonvaImage, Text, Transformer, Line } from "reac
 import type Konva from "konva";
 import type { CoverTextLayer, CoverFilters } from "./cover-editor.types";
 import { filtersToCss } from "./cover-editor.filters";
-
-const CANVAS_WIDTH = 400;
-const CANVAS_HEIGHT = 600;
+import { CANVAS_WIDTH, CANVAS_HEIGHT } from "./cover-editor.constants";
 const SNAP_THRESHOLD = 8;
 const GUIDE_COLOR = "#907AFF";
 
@@ -209,5 +207,3 @@ export default function CoverEditorCanvas({
     </div>
   );
 }
-
-export { CANVAS_WIDTH, CANVAS_HEIGHT };

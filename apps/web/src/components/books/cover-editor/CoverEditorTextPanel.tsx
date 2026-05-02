@@ -2,7 +2,7 @@
 
 import { AlignCenter, AlignVerticalJustifyCenter, Plus, Trash2, Type } from "lucide-react";
 import { COVER_EDITOR_FONTS } from "./cover-editor.fonts";
-import { CANVAS_WIDTH, CANVAS_HEIGHT } from "./CoverEditorCanvas";
+import { CANVAS_WIDTH, CANVAS_HEIGHT } from "./cover-editor.constants";
 import type { CoverTextLayer } from "./cover-editor.types";
 
 const COLOR_PRESETS = [

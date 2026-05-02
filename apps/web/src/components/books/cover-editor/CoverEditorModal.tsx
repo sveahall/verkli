@@ -1,15 +1,26 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import dynamic from "next/dynamic";
 import { ImageIcon, Undo2, Redo2, X, Download } from "lucide-react";
 import type Konva from "konva";
-import CoverEditorCanvas, { CANVAS_WIDTH, CANVAS_HEIGHT } from "./CoverEditorCanvas";
 import CoverEditorTextPanel from "./CoverEditorTextPanel";
 import CoverEditorFilterPanel from "./CoverEditorFilterPanel";
 import { useCoverEditor } from "./useCoverEditor";
 import { loadAllFonts } from "./cover-editor.fonts";
 import { filtersToCss } from "./cover-editor.filters";
 import { saveCoverEditorState, loadCoverEditorState } from "./cover-editor.storage";
+import { CANVAS_WIDTH, CANVAS_HEIGHT } from "./cover-editor.constants";
+
+const CoverEditorCanvas = dynamic(() => import("./CoverEditorCanvas"), {
+  ssr: false,
+  loading: () => (
+    <div
+      className="animate-pulse rounded-xl bg-slate-200/80 shadow-[0_8px_40px_rgba(0,0,0,0.12)] dark:bg-white/5"
+      style={{ width: CANVAS_WIDTH, height: CANVAS_HEIGHT }}
+    />
+  ),
+});
 
 type Tab = "text" | "filters";
 
