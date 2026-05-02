@@ -17,6 +17,17 @@ type JsonRpcRequest = {
   params?: Record<string, unknown>;
 };
 
+function isJsonRpcRequest(value: unknown): value is JsonRpcRequest {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return false;
+  const req = value as Record<string, unknown>;
+  const id = req.id;
+  return (
+    req.jsonrpc === "2.0" &&
+    typeof req.method === "string" &&
+    (id === undefined || id === null || typeof id === "number" || typeof id === "string")
+  );
+}
+
 function rpcResult(id: JsonRpcRequest["id"], result: unknown) {
   return { jsonrpc: "2.0" as const, id: id ?? null, result };
 }
@@ -132,18 +143,22 @@ export async function POST(request: Request) {
   if (Array.isArray(body)) {
     const responses: unknown[] = [];
     for (const item of body) {
-      const res = await dispatch(item as JsonRpcRequest);
+      if (!isJsonRpcRequest(item)) {
+        responses.push(rpcError(null, -32600, "Invalid Request"));
+        continue;
+      }
+      const res = await dispatch(item);
       if (res !== null) responses.push(res);
     }
     if (responses.length === 0) return new Response(null, { status: 204 });
     return NextResponse.json(responses);
   }
 
-  if (!body || typeof body !== "object") {
+  if (!isJsonRpcRequest(body)) {
     return NextResponse.json(rpcError(null, -32600, "Invalid Request"), { status: 400 });
   }
 
-  const res = await dispatch(body as JsonRpcRequest);
+  const res = await dispatch(body);
   if (res === null) return new Response(null, { status: 204 });
   return NextResponse.json(res);
 }

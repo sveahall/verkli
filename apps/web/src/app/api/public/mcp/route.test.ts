@@ -113,6 +113,25 @@ describe("/api/public/mcp", () => {
     expect(body.error.code).toBe(-32000);
   });
 
+  it("returns -32600 for malformed items inside a batch request", async () => {
+    const res = await POST(
+      new Request("http://localhost/api/public/mcp", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify([null, { jsonrpc: "2.0", id: 2, method: "ping" }]),
+      })
+    );
+
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body[0]).toMatchObject({
+      jsonrpc: "2.0",
+      id: null,
+      error: { code: -32600, message: "Invalid Request" },
+    });
+    expect(body[1]).toMatchObject({ jsonrpc: "2.0", id: 2, result: {} });
+  });
+
   it("tools/call get_book returns null when book not found", async () => {
     mocks.getBook.mockResolvedValue(null);
     const res = await POST(
