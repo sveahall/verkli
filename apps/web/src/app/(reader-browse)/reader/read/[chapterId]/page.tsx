@@ -183,37 +183,18 @@ export default async function ReaderReadPage({
     );
   }
 
-  let shouldLogStartReading = false;
-
-  if (user) {
-    const { data: existingReading } = await supabase
-      .from("readings")
-      .select("chapter_id")
-      .eq("user_id", user.id)
-      .eq("book_id", book.id)
-      .maybeSingle();
-    shouldLogStartReading = !existingReading;
-  } else {
-    shouldLogStartReading = Number(chapter.order ?? 0) === 1;
-  }
-
-  if (shouldLogStartReading) {
-    logAnalyticsEvent(supabase, {
-      eventType: "start_reading",
-      userId: user?.id ?? null,
-      bookId: book.id,
-      path: `/reader/read/${chapter.id}`,
-      props: {
-        chapterId: chapter.id,
-        chapterOrder: chapter.order,
-      },
-    }).catch(() => {});
-  }
-
   let profilePreferences: Record<string, unknown> | null = null;
   let initialHighlights: ReaderHighlight[] = [];
 
-  const [{ data: chapters }, profileResult, chapterHighlightsResult] = await Promise.all([
+  // Fold the `existingReading` lookup into the same parallel batch as the
+  // chapter list, profile preferences, and highlights — they have no
+  // ordering dependency and were previously serialised behind it.
+  const [
+    { data: chapters },
+    profileResult,
+    chapterHighlightsResult,
+    existingReadingResult,
+  ] = await Promise.all([
     supabase
       .from("chapters")
       .select("id, title, order")
@@ -234,7 +215,32 @@ export default async function ReaderReadPage({
           .eq("chapter_id", chapter.id)
           .order("start_offset", { ascending: true })
       : Promise.resolve({ data: [] }),
+    user
+      ? supabase
+          .from("readings")
+          .select("chapter_id")
+          .eq("user_id", user.id)
+          .eq("book_id", book.id)
+          .maybeSingle()
+      : Promise.resolve({ data: null }),
   ]);
+
+  const shouldLogStartReading = user
+    ? !existingReadingResult?.data
+    : Number(chapter.order ?? 0) === 1;
+
+  if (shouldLogStartReading) {
+    logAnalyticsEvent(supabase, {
+      eventType: "start_reading",
+      userId: user?.id ?? null,
+      bookId: book.id,
+      path: `/reader/read/${chapter.id}`,
+      props: {
+        chapterId: chapter.id,
+        chapterOrder: chapter.order,
+      },
+    }).catch(() => {});
+  }
 
   if (user) {
     profilePreferences = asRecord(profileResult?.data?.preferences);
