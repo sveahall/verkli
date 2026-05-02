@@ -1,4 +1,4 @@
-import { Suspense } from "react";
+import { cache, Suspense } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { Lock } from "lucide-react";
@@ -46,7 +46,10 @@ function SimilarBooksRailSkeleton() {
   );
 }
 
-async function getBook(id: string) {
+// React `cache()` dedupes the per-request fetches. generateMetadata and the
+// page handler both need the same `book` row and `book_versions` list; without
+// caching we hit Supabase twice per render.
+const getBook = cache(async (id: string) => {
   const supabase = await createClient();
   const { data } = await supabase
     .from("books")
@@ -54,7 +57,17 @@ async function getBook(id: string) {
     .eq("id", id)
     .maybeSingle();
   return data;
-}
+});
+
+const getBookVersions = cache(async (bookId: string) => {
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from("book_versions")
+    .select("id, language_code, published_at")
+    .eq("book_id", bookId)
+    .order("created_at", { ascending: true });
+  return data ?? [];
+});
 
 
 export async function generateMetadata({
@@ -69,20 +82,15 @@ export async function generateMetadata({
   if (!book || (book.status && book.status !== "PUBLISHED")) {
     return { title: "Book not found" };
   }
-  const supabase = await createClient();
-  const { data: versions } = await supabase
-    .from("book_versions")
-    .select("id, language_code, published_at")
-    .eq("book_id", id)
-    .order("created_at", { ascending: true });
+  const versions = await getBookVersions(id);
 
   const resolvedSearchParams = searchParams ? await searchParams : undefined;
   const requestedLang = resolvedSearchParams?.lang ? normalizeLanguage(resolvedSearchParams.lang) : null;
   const originalLang = normalizeLanguage((book as { original_language?: string | null }).original_language ?? book.language);
   const version =
-    (requestedLang ? (versions ?? []).find((v) => normalizeLanguage(v.language_code) === requestedLang) : null) ??
-    (versions ?? []).find((v) => normalizeLanguage(v.language_code) === originalLang) ??
-    (versions ?? [])[0];
+    (requestedLang ? versions.find((v) => normalizeLanguage(v.language_code) === requestedLang) : null) ??
+    versions.find((v) => normalizeLanguage(v.language_code) === originalLang) ??
+    versions[0];
 
   if (!version || !version.published_at) {
     return { title: "Book not found" };
@@ -129,11 +137,9 @@ export default async function ReaderBookDetail({
 
   const supabase = await createClient();
 
-  const { data: book } = await supabase
-    .from("books")
-    .select("id, title, description, cover_image, status, author_id, language, original_language, original_url, audiobook_status, price_amount, price_currency, pricing_model, print_on_demand_settings, trailer_url")
-    .eq("id", id)
-    .maybeSingle();
+  // Reuses the cached fetch from generateMetadata when the same request
+  // already loaded the book row.
+  const book = await getBook(id);
 
   if (!book || (book.status && book.status !== "PUBLISHED")) {
     notFound();
@@ -178,19 +184,15 @@ export default async function ReaderBookDetail({
     });
   }
 
-  const { data: versions } = await supabase
-    .from("book_versions")
-    .select("id, language_code, published_at")
-    .eq("book_id", book.id)
-    .order("created_at", { ascending: true });
+  const versions = await getBookVersions(book.id);
 
   const resolvedSearchParams = searchParams ? await searchParams : undefined;
   const requestedLang = resolvedSearchParams?.lang ? normalizeLanguage(resolvedSearchParams.lang) : null;
   const originalLang = normalizeLanguage((book as { original_language?: string | null }).original_language ?? book.language);
   const activeVersion =
-    (requestedLang ? (versions ?? []).find((v) => normalizeLanguage(v.language_code) === requestedLang) : null) ??
-    (versions ?? []).find((v) => normalizeLanguage(v.language_code) === originalLang) ??
-    (versions ?? [])[0];
+    (requestedLang ? versions.find((v) => normalizeLanguage(v.language_code) === requestedLang) : null) ??
+    versions.find((v) => normalizeLanguage(v.language_code) === originalLang) ??
+    versions[0];
 
   if (!activeVersion || !activeVersion.published_at) {
     notFound();
@@ -214,17 +216,29 @@ export default async function ReaderBookDetail({
     ).values()
   );
 
-  const { data: authorProfile } = await supabase
-    .from("profiles")
-    .select("display_name, username")
-    .eq("user_id", book.author_id)
-    .maybeSingle();
+  // These four reads are independent — fan them out so TTFB is bounded by
+  // the slowest single round-trip instead of the sum.
+  const [authorProfileRes, genreJunctionRes, chaptersRes, ratingRowsRes] =
+    await Promise.all([
+      supabase
+        .from("profiles")
+        .select("display_name, username")
+        .eq("user_id", book.author_id)
+        .maybeSingle(),
+      supabase
+        .from("book_genres")
+        .select("genres(name, name_en)")
+        .eq("book_id", book.id),
+      supabase
+        .from("chapters")
+        .select("id, title, order")
+        .eq("book_version_id", activeVersion.id)
+        .order("order", { ascending: true }),
+      supabase.from("reviews").select("rating").eq("book_id", book.id),
+    ]);
 
-  const { data: genreJunction } = await supabase
-    .from("book_genres")
-    .select("genres(name, name_en)")
-    .eq("book_id", book.id);
-  const bookGenres = (genreJunction ?? [])
+  const authorProfile = authorProfileRes.data;
+  const bookGenres = (genreJunctionRes.data ?? [])
     .map((row) => {
       const g = Array.isArray(row.genres) ? row.genres[0] : row.genres;
       if (!g || typeof g !== "object") return null;
@@ -232,17 +246,8 @@ export default async function ReaderBookDetail({
       return typeof value === "string" && value.trim() ? value.trim() : null;
     })
     .filter((g): g is string => Boolean(g));
-
-  const { data: chapters } = await supabase
-    .from("chapters")
-    .select("id, title, order")
-    .eq("book_version_id", activeVersion.id)
-    .order("order", { ascending: true });
-
-  const { data: ratingRows } = await supabase
-    .from("reviews")
-    .select("rating")
-    .eq("book_id", book.id);
+  const chapters = chaptersRes.data;
+  const ratingRows = ratingRowsRes.data;
 
   const ratingsCount = ratingRows?.length ?? 0;
   const averageRating =
