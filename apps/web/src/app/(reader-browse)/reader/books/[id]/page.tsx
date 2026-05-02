@@ -270,46 +270,52 @@ export default async function ReaderBookDetail({
   let lastChapterId: string | null = firstChapter?.id ?? null;
   let isBookmarked = false;
   let initialFollowing = false;
-  if (user && hasReadAccess) {
-    const [readingRes, bookmarkRes] = await Promise.all([
-      supabase
-        .from("readings")
-        .select("chapter_id")
-        .eq("user_id", user.id)
-        .eq("book_id", book.id)
-        .maybeSingle(),
-      supabase
-        .from("bookmarks")
-        .select("id")
-        .eq("user_id", user.id)
-        .eq("book_id", book.id)
-        .maybeSingle(),
-    ]);
+  const purchasedChapterIds = new Set<string>();
+
+  // Fan out the four user-scoped reads (readings, bookmarks, follows,
+  // entitlements). They were previously serialized across three sequential
+  // blocks; with hasReadAccess already known, none of them depend on each
+  // other so a single Promise.all collapses three round-trips into one.
+  if (user) {
+    const [readingRes, bookmarkRes, followRes, entitlementsRes] =
+      await Promise.all([
+        hasReadAccess
+          ? supabase
+              .from("readings")
+              .select("chapter_id")
+              .eq("user_id", user.id)
+              .eq("book_id", book.id)
+              .maybeSingle()
+          : Promise.resolve({ data: null }),
+        hasReadAccess
+          ? supabase
+              .from("bookmarks")
+              .select("id")
+              .eq("user_id", user.id)
+              .eq("book_id", book.id)
+              .maybeSingle()
+          : Promise.resolve({ data: null }),
+        supabase
+          .from("follows")
+          .select("followee_id")
+          .eq("follower_id", user.id)
+          .eq("followee_id", book.author_id)
+          .maybeSingle(),
+        isPerChapter && !isFreeBook
+          ? supabase
+              .from("entitlements")
+              .select("chapter_id")
+              .eq("user_id", user.id)
+              .eq("book_id", book.id)
+              .eq("source", "purchase")
+              .not("chapter_id", "is", null)
+          : Promise.resolve({ data: [] as Array<{ chapter_id: string | null }> }),
+      ]);
+
     if (readingRes.data?.chapter_id) lastChapterId = readingRes.data.chapter_id;
     isBookmarked = !!bookmarkRes.data;
-  }
-
-  if (user) {
-    const { data: followRow } = await supabase
-      .from("follows")
-      .select("followee_id")
-      .eq("follower_id", user.id)
-      .eq("followee_id", book.author_id)
-      .maybeSingle();
-    initialFollowing = !!followRow;
-  }
-
-  // For per_chapter books, load which chapters the user has purchased
-  const purchasedChapterIds = new Set<string>();
-  if (user && isPerChapter && !isFreeBook) {
-    const { data: chapterEntitlements } = await supabase
-      .from("entitlements")
-      .select("chapter_id")
-      .eq("user_id", user.id)
-      .eq("book_id", book.id)
-      .eq("source", "purchase")
-      .not("chapter_id", "is", null);
-    for (const ent of chapterEntitlements ?? []) {
+    initialFollowing = !!followRes.data;
+    for (const ent of entitlementsRes.data ?? []) {
       if (ent.chapter_id) purchasedChapterIds.add(String(ent.chapter_id));
     }
   }
