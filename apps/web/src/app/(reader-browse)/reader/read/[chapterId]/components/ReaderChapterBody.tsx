@@ -7,9 +7,19 @@ import {
   type CSSProperties,
 } from "react";
 
+// Skeleton fallback prevents a layout pop when the lazy bundle is fetching:
+// the chapter card height stays stable instead of flashing empty → loaded.
 const TiptapRenderer = dynamic(
   () => import("@/components/editor/TiptapRenderer"),
-  { ssr: false }
+  {
+    ssr: false,
+    loading: () => (
+      <div
+        aria-hidden
+        className="h-32 animate-pulse rounded bg-slate-100 dark:bg-white/5"
+      />
+    ),
+  }
 );
 
 type ReaderChapterBodyProps = {
