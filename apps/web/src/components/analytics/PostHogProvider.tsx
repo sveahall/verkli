@@ -17,7 +17,7 @@ type PostHogClient = typeof import("posthog-js").default;
 let posthogClient: PostHogClient | null = null;
 let posthogInitPromise: Promise<PostHogClient | null> | null = null;
 
-function initPostHogOnce(): Promise<PostHogClient | null> {
+export function initPostHogOnce(): Promise<PostHogClient | null> {
   if (posthogClient) return Promise.resolve(posthogClient);
   if (typeof window === "undefined") return Promise.resolve(null);
 
@@ -42,10 +42,14 @@ function initPostHogOnce(): Promise<PostHogClient | null> {
         posthogClient = posthog;
         return posthog;
       } catch {
+        posthogInitPromise = null;
         return null;
       }
     })
-    .catch(() => null);
+    .catch(() => {
+      posthogInitPromise = null;
+      return null;
+    });
 
   return posthogInitPromise;
 }
