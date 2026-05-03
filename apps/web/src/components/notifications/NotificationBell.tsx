@@ -2,8 +2,15 @@
 
 import { useState, useCallback, useRef } from "react";
 import { createPortal } from "react-dom";
+import dynamic from "next/dynamic";
 import { useUnreadCount } from "@/hooks/useNotifications";
-import NotificationDropdown from "./NotificationDropdown";
+
+// The dropdown only renders when the bell is opened, so its module (and the
+// `NotificationItem` it pulls in) doesn't need to ship in the navbar's chunk.
+const NotificationDropdown = dynamic(
+  () => import("./NotificationDropdown"),
+  { ssr: false, loading: () => null }
+);
 
 export default function NotificationBell() {
   const { count, refetch } = useUnreadCount();
