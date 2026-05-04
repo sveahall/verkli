@@ -2,6 +2,7 @@
 
 import CommandPaletteProvider from "@/features/author-shell/CommandPaletteProvider";
 import AuthorSidebar from "@/features/author-shell/AuthorSidebar";
+import DemoModeToggle from "@/features/author-shell/DemoModeToggle";
 import { AuthorWorkspaceProvider } from "@/features/author-shell/workspace-state";
 import { LocaleProvider } from "@/lib/author-locale";
 
@@ -24,6 +25,7 @@ export default function AuthorAppShell({
               </main>
             </div>
           </div>
+          <DemoModeToggle />
         </CommandPaletteProvider>
       </AuthorWorkspaceProvider>
     </LocaleProvider>
