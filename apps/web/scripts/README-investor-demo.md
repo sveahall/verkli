@@ -37,10 +37,23 @@ Day 2 — see "Verifying idempotency" below.
 - 9 `book_translations` tracking rows, all `status = completed`, `progress = 100`
 - 10 `audiobook_assets` rows (one per language) pointing at
   `/demo-assets/audio/<lang>.mp3`
-- 40 `marketing_campaigns` rows: 10 languages × 4 channels
+- 12 `marketing_campaigns` rows: 3 languages (`sv`, `en`, `fr`) × 4 channels
   (`tiktok`, `instagram`, `x`, `youtube`), each with localized headline /
   caption / cta / hashtags and `metadata.thumbnail_url` pointing at
-  `/demo-assets/social/<lang>-<channel>.svg`
+  `/demo-assets/social/<lang>-<channel>.svg`. The Distribution-façaden in
+  the demo only renders these 3 languages — keep `MARKETING_LANGUAGES`
+  in `seed-investor-demo.ts` in sync if the UI changes.
+
+The seed also runs a `delete-stale` step against `marketing_campaigns` for
+the demo book, removing any rows whose `demo_run_id` does not match the
+current run. This prevents a wider language/channel set from a previous
+seed iteration from sticking around silently.
+
+If `apps/web/public/demo-assets/trailer.mp4` exists on disk (produced by
+`regenerate-demo-trailer.ts`), the seed sets `books.trailer_url` to
+`/demo-assets/trailer.mp4` and `books.trailer_status` to `'ready'`. If the
+file is missing both columns are reset to NULL on every run, so the
+reader UI hides the trailer section until the asset is actually there.
 
 POD modal data is provisioned in subsequent days of the demo plan, not by
 this script.
@@ -52,11 +65,20 @@ The seed expects these static assets to already be on disk under
 clone is enough — but if you need to regenerate them:
 
 ```bash
-# 10 short MP3 snippets (macOS only — uses the `say` command + ffmpeg-static)
-npx tsx apps/web/scripts/generate-demo-audio.ts
+# 10 short MP3 snippets — ElevenLabs eleven_multilingual_v2 with the
+# team voice. Requires ELEVENLABS_API_KEY + ELEVENLABS_VOICE_ID in
+# apps/web/.env.local. ~2 500 chars per full regen.
+npx tsx apps/web/scripts/regenerate-demo-audio-elevenlabs.ts
 
 # 40 native-format SVG thumbnails (any platform; pure string templating)
 npx tsx apps/web/scripts/generate-demo-social-thumbs.ts
+
+# 1 ~5s book trailer via Higgsfield image-to-video. Requires
+# HF_CREDENTIALS (KEY_ID:KEY_SECRET) in apps/web/.env.local AND a publicly
+# fetchable cover image URL passed as CLI arg or COVER_IMAGE_URL env. The
+# seed picks the resulting trailer.mp4 up automatically — books.trailer_url
+# stays NULL until the file exists on disk.
+npx tsx apps/web/scripts/regenerate-demo-trailer.ts <cover-image-url>
 ```
 
 If either set is missing the seed aborts with a pointer to the right script.
@@ -105,7 +127,9 @@ npx tsx apps/web/scripts/seed-investor-demo.ts
 #   chapters touched:    10
 #   translation rows:    9
 #   audiobook assets:    10
-#   marketing campaigns: 40
+#   marketing campaigns: 12
+#   stale campaigns gc:  28 on first run after the 10→3 language narrowing,
+#                        0 on every run thereafter
 # After two runs, the underlying tables still hold exactly:
 #   1 row in profiles where username='verkli-demo'
 #   1 row in books where slug='the-haunted-diary'
@@ -113,7 +137,7 @@ npx tsx apps/web/scripts/seed-investor-demo.ts
 #   10 rows in chapters across those versions
 #   9 rows in book_translations for that book
 #   10 rows in audiobook_assets for that book (one per language)
-#   40 rows in marketing_campaigns (10 langs × 4 channels)
+#   12 rows in marketing_campaigns (3 langs × 4 channels)
 ```
 
 `demo_run_id` is the only column that changes between runs — it gets refreshed

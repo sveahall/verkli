@@ -50,11 +50,13 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const PUBLIC_DIR = path.resolve(__dirname, "..", "public");
 const AUDIO_DIR = path.join(PUBLIC_DIR, "demo-assets", "audio");
 const SOCIAL_DIR = path.join(PUBLIC_DIR, "demo-assets", "social");
+const TRAILER_PATH = path.join(PUBLIC_DIR, "demo-assets", "trailer.mp4");
+const TRAILER_PUBLIC_URL = "/demo-assets/trailer.mp4";
 
-// macOS `say` → ffmpeg-static produces MP3 at 96 kbps mono (see
-// scripts/generate-demo-audio.ts). 96 kbps ≈ 12_000 bytes/sec, which lets
-// us derive an honest duration_seconds without shelling out to ffprobe.
-const AUDIO_BYTES_PER_SECOND = 12_000;
+// ElevenLabs default `mp3_44100_128` = 128 kbps ≈ 16_000 bytes/sec, which
+// lets us derive an honest duration_seconds without shelling out to ffprobe.
+// See scripts/regenerate-demo-audio-elevenlabs.ts.
+const AUDIO_BYTES_PER_SECOND = 16_000;
 
 type SocialChannel = "tiktok" | "instagram" | "x" | "youtube";
 
@@ -73,6 +75,12 @@ const SOCIAL_CHANNELS: ReadonlyArray<SocialChannelSpec> = [
   { id: "x", width: 1200, height: 675, aspect: "16:9" },
   { id: "youtube", width: 1080, height: 1920, aspect: "9:16" },
 ];
+
+// Per the demo plan we only seed marketing_campaigns for these 3 languages
+// (3 × 4 channels = 12 rows). Day 2 mistakenly seeded all 10 languages × 4
+// channels (= 40 rows); the delete-stale step below cleans up the surplus
+// on subsequent runs. Distribution-façaden visar bara dessa 3.
+const MARKETING_LANGUAGES: ReadonlyArray<string> = ["sv", "en", "fr"];
 
 interface SocialCopy {
   cta: string;
@@ -152,6 +160,7 @@ interface SeedResult {
   translationRowsTouched: number;
   audiobookAssetsTouched: number;
   campaignsTouched: number;
+  staleCampaignsDeleted: number;
 }
 
 // ─────────────────────────────────────────────────────────────────────────
@@ -267,6 +276,7 @@ async function ensureDemoBook(
     throw new Error("Source-language demo translation missing — check haunted-diary.ts");
   }
 
+  const trailerOnDisk = existsSync(TRAILER_PATH);
   const bookFields = {
     title: sourceTranslation.title,
     slug: DEMO_BOOK_SLUG,
@@ -279,6 +289,11 @@ async function ensureDemoBook(
     original_language: ORIGINAL_LANGUAGE,
     demo_pod_enabled: false,
     demo_run_id: demoRunId,
+    // Pick up the pre-baked Higgsfield trailer if regenerate-demo-trailer.ts
+    // has produced one. If the .mp4 isn't on disk yet, leave both NULL so
+    // the reader UI hides the trailer section instead of pointing at a 404.
+    trailer_url: trailerOnDisk ? TRAILER_PUBLIC_URL : null,
+    trailer_status: trailerOnDisk ? "ready" : null,
   };
 
   if (existing?.id) {
@@ -359,12 +374,18 @@ async function upsertVersionAndChapter(
     versionId = insertedVersion.id;
   }
 
-  // Chapters are unique-by-(version, order=0) for this single-chapter demo.
+  // Chapters: one per version in this single-chapter demo. We don't filter
+  // on .eq("order", 0) because PostgREST treats the `order` filter param as
+  // a sort directive and rejects "eq.0" as an unparseable order specifier
+  // when chained this way. Instead, fetch the single chapter for the
+  // version (sorted by `order` ASC so we get chapter 0 deterministically
+  // even if a future seed adds more chapters per version).
   const { data: existingChapter, error: chLookupErr } = await supabase
     .from("chapters")
     .select("id")
     .eq("book_version_id", versionId)
-    .eq("order", 0)
+    .order("order", { ascending: true })
+    .limit(1)
     .maybeSingle();
   if (chLookupErr) {
     throw new Error(
@@ -578,13 +599,37 @@ async function main(): Promise<SeedResult> {
     await upsertAudiobookAsset(supabase, bookId, demoRunId, translation);
     audiobookAssetsTouched += 1;
 
-    for (const channel of SOCIAL_CHANNELS) {
-      await upsertMarketingCampaign(supabase, bookId, demoRunId, translation, channel);
-      campaignsTouched += 1;
+    if (MARKETING_LANGUAGES.includes(translation.language_code)) {
+      for (const channel of SOCIAL_CHANNELS) {
+        await upsertMarketingCampaign(supabase, bookId, demoRunId, translation, channel);
+        campaignsTouched += 1;
+      }
+      console.log(
+        `[seed] [${translation.quality}] ${translation.language_code} — version+chapter+audio+${SOCIAL_CHANNELS.length} campaigns ready`
+      );
+    } else {
+      console.log(
+        `[seed] [${translation.quality}] ${translation.language_code} — version+chapter+audio ready (no campaigns: not in MARKETING_LANGUAGES)`
+      );
     }
+  }
 
+  // Delete-stale: drop any marketing_campaigns rows for the demo book that
+  // are not stamped with this run's demo_run_id. Cleans up rows from earlier
+  // seed iterations that targeted a wider language set or different channels.
+  const { data: staleRows, error: staleErr } = await supabase
+    .from("marketing_campaigns")
+    .delete()
+    .eq("book_id", bookId)
+    .neq("demo_run_id", demoRunId)
+    .select("id");
+  if (staleErr) {
+    throw new Error(`Delete stale marketing_campaigns failed: ${staleErr.message}`);
+  }
+  const staleCampaignsDeleted = staleRows?.length ?? 0;
+  if (staleCampaignsDeleted > 0) {
     console.log(
-      `[seed] [${translation.quality}] ${translation.language_code} — version+chapter+audio+${SOCIAL_CHANNELS.length} campaigns ready`
+      `[seed] Deleted ${staleCampaignsDeleted} stale marketing_campaigns rows from prior runs`
     );
   }
 
@@ -597,6 +642,7 @@ async function main(): Promise<SeedResult> {
     translationRowsTouched,
     audiobookAssetsTouched,
     campaignsTouched,
+    staleCampaignsDeleted,
   };
 }
 
@@ -611,6 +657,7 @@ main()
     console.log(`  translation rows:   ${result.translationRowsTouched}`);
     console.log(`  audiobook assets:   ${result.audiobookAssetsTouched}`);
     console.log(`  marketing campaigns:${result.campaignsTouched}`);
+    console.log(`  stale campaigns gc: ${result.staleCampaignsDeleted}`);
     console.log(`  login email:        ${DEMO_AUTHOR_EMAIL}`);
     console.log(`  login password:     ${DEMO_AUTHOR_PASSWORD}`);
   })
