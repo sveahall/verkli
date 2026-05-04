@@ -189,10 +189,17 @@ export default async function ReaderHomePage() {
     if (isNextRedirectError(err)) throw err;
   }
 
-  let continueReading: ContinueReadingBook[] = [];
+  // The three blocks below (continueReading, readingStats, bookPool) used to
+  // run sequentially even though none of them depend on each other's data.
+  // Each block opens 3-4 round-trips, so awaiting them in series stacked up
+  // a notable chunk of TTFB on /reader/home. Wrap each in its own helper and
+  // run all three in Promise.all — the page now blocks on the slowest block,
+  // not the sum.
 
-  try {
-    if (user) {
+  async function loadContinueReading(): Promise<ContinueReadingBook[]> {
+    if (!user) return [];
+
+    try {
       const { data: readings } = await supabase
         .from("readings")
         .select("book_id, progress_percent, updated_at, chapter_id")
@@ -200,70 +207,75 @@ export default async function ReaderHomePage() {
         .order("updated_at", { ascending: false })
         .limit(8);
 
-      if (readings && readings.length > 0) {
-        const bookIds = readings.map((row) => row.book_id);
-        const chapterIds = [...new Set(readings.map((row) => row.chapter_id).filter(Boolean))];
+      if (!readings || readings.length === 0) return [];
 
-        const { data: books } = await supabase
-          .from("books")
-          .select("id, title, cover_image, author_id")
-          .eq("status", "PUBLISHED")
-          .in("id", bookIds);
+      const bookIds = readings.map((row) => row.book_id);
+      const chapterIds = [...new Set(readings.map((row) => row.chapter_id).filter(Boolean))];
 
-        if (books && books.length > 0) {
-          const bookMap = new Map(books.map((book) => [book.id, book]));
-          const authorIds = [...new Set(books.map((book) => book.author_id))];
+      const { data: books } = await supabase
+        .from("books")
+        .select("id, title, cover_image, author_id")
+        .eq("status", "PUBLISHED")
+        .in("id", bookIds);
 
-          const [authorInfoMap, { data: chapterRows }] = await Promise.all([
-            getPublicAuthorInfoMap(authorIds),
-            chapterIds.length > 0
-              ? supabase.from("chapters").select("id, title").in("id", chapterIds)
-              : Promise.resolve({ data: [] as Array<{ id: string; title: string }> }),
-          ]);
+      if (!books || books.length === 0) return [];
 
-          const authorMap = new Map(
-            authorIds.map((authorId) => [
-              authorId,
-              resolvePublicAuthorName(authorInfoMap.get(authorId)),
-            ])
-          );
+      const bookMap = new Map(books.map((book) => [book.id, book]));
+      const authorIds = [...new Set(books.map((book) => book.author_id))];
 
-          const chapterMap = new Map(
-            (chapterRows ?? []).map((chapter) => [chapter.id, chapter.title])
-          );
+      const [authorInfoMap, { data: chapterRows }] = await Promise.all([
+        getPublicAuthorInfoMap(authorIds),
+        chapterIds.length > 0
+          ? supabase.from("chapters").select("id, title").in("id", chapterIds)
+          : Promise.resolve({ data: [] as Array<{ id: string; title: string }> }),
+      ]);
 
-          continueReading = readings
-            .map((row): ContinueReadingBook | null => {
-              const book = bookMap.get(row.book_id);
-              if (!book) return null;
+      const authorMap = new Map(
+        authorIds.map((authorId) => [
+          authorId,
+          resolvePublicAuthorName(authorInfoMap.get(authorId)),
+        ])
+      );
 
-              const directHref = row.chapter_id ? `/reader/read/${row.chapter_id}` : `/reader/books/${book.id}`;
-              const lastOpened = formatDateLabel(row.updated_at);
+      const chapterMap = new Map(
+        (chapterRows ?? []).map((chapter) => [chapter.id, chapter.title])
+      );
 
-              return {
-                id: book.id as string,
-                title: book.title as string,
-                authorId: book.author_id as string,
-                author: authorMap.get(book.author_id) ?? "Author",
-                cover: book.cover_image as string | null,
-                progress: (row.progress_percent as number) ?? 0,
-                href: directHref,
-                chapterLabel: row.chapter_id ? chapterMap.get(row.chapter_id) ?? null : null,
-                lastOpenedLabel: lastOpened ? `Last opened ${lastOpened}` : null,
-              };
-            })
-            .filter((book): book is ContinueReadingBook => book !== null);
-        }
-      }
+      return readings
+        .map((row): ContinueReadingBook | null => {
+          const book = bookMap.get(row.book_id);
+          if (!book) return null;
+
+          const directHref = row.chapter_id ? `/reader/read/${row.chapter_id}` : `/reader/books/${book.id}`;
+          const lastOpened = formatDateLabel(row.updated_at);
+
+          return {
+            id: book.id as string,
+            title: book.title as string,
+            authorId: book.author_id as string,
+            author: authorMap.get(book.author_id) ?? "Author",
+            cover: book.cover_image as string | null,
+            progress: (row.progress_percent as number) ?? 0,
+            href: directHref,
+            chapterLabel: row.chapter_id ? chapterMap.get(row.chapter_id) ?? null : null,
+            lastOpenedLabel: lastOpened ? `Last opened ${lastOpened}` : null,
+          };
+        })
+        .filter((book): book is ContinueReadingBook => book !== null);
+    } catch {
+      // Non-blocking. Continue reading can render empty.
+      return [];
     }
-  } catch {
-    // Non-blocking. Continue reading can render empty.
   }
 
-  let readingStats = { booksReading: 0, booksFinished: 0, bookmarksCount: 0 };
+  async function loadReadingStats(): Promise<{
+    booksReading: number;
+    booksFinished: number;
+    bookmarksCount: number;
+  }> {
+    if (!user) return { booksReading: 0, booksFinished: 0, bookmarksCount: 0 };
 
-  try {
-    if (user) {
+    try {
       const [readingCountRes, finishedCountRes, bookmarkCountRes] =
         await Promise.all([
           supabase
@@ -282,23 +294,31 @@ export default async function ReaderHomePage() {
             .eq("user_id", user.id),
         ]);
 
-      readingStats = {
+      return {
         booksReading: readingCountRes.count ?? 0,
         booksFinished: finishedCountRes.count ?? 0,
         bookmarksCount: bookmarkCountRes.count ?? 0,
       };
+    } catch {
+      return { booksReading: 0, booksFinished: 0, bookmarksCount: 0 };
     }
-  } catch {
-    // Non-blocking
   }
 
-  let publishedWithAuthors: PublishedBook[] = [];
-  let newReleases: PublishedBook[] = [];
-  let topChart: ChartBook[] = [];
-  let trendingAuthors: AuthorMomentum[] = [];
+  type BookPoolResult = {
+    publishedWithAuthors: PublishedBook[];
+    newReleases: PublishedBook[];
+    topChart: ChartBook[];
+    trendingAuthors: AuthorMomentum[];
+  };
 
-  try {
-    const { data: books } = await supabase
+  async function loadBookPool(): Promise<BookPoolResult> {
+    let publishedWithAuthors: PublishedBook[] = [];
+    let newReleases: PublishedBook[] = [];
+    let topChart: ChartBook[] = [];
+    let trendingAuthors: AuthorMomentum[] = [];
+
+    try {
+      const { data: books } = await supabase
       .from("books")
       .select("id, title, cover_image, author_id, published_at, updated_at")
       .eq("status", "PUBLISHED")
@@ -513,9 +533,20 @@ export default async function ReaderHomePage() {
         };
       })
     );
-  } catch {
-    // Non-blocking. Rails can render empty.
+    } catch {
+      // Non-blocking. Rails can render empty.
+    }
+
+    return { publishedWithAuthors, newReleases, topChart, trendingAuthors };
   }
+
+  const [continueReading, readingStats, bookPool] = await Promise.all([
+    loadContinueReading(),
+    loadReadingStats(),
+    loadBookPool(),
+  ]);
+
+  const { publishedWithAuthors, newReleases, topChart, trendingAuthors } = bookPool;
 
   const spotlight: Spotlight | null = continueReading[0]
     ? {
