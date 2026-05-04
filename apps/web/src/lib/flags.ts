@@ -110,6 +110,16 @@ export function getDonationsEnabled(): boolean {
   return parseBool(process.env.NEXT_PUBLIC_DONATIONS_ENABLED);
 }
 
+// Investor pitch demo façade. When ON, profiles flagged demo_mode see the
+// pre-baked demo flow (cover-gen fallback, language badges, social grid
+// façade, POD modal). Real production/distribution APIs are bypassed. Default
+// OFF in every environment — only the staging instance used for the pitch
+// rep should set this. Activation requires both the flag AND the user's
+// demo_mode column; the URL ?demo=1 is entry-convenience only.
+export function getDemoFacadeEnabled(): boolean {
+  return parseBool(process.env.NEXT_PUBLIC_DEMO_FACADE_ENABLED);
+}
+
 // ─── Server/API — also reads non-public fallback for server-only contexts ───
 export function isTranslationsEnabled(): boolean {
   return parseBool(
@@ -195,5 +205,11 @@ export function isSprint0DemoBadgeEnabled(): boolean {
 export function isDonationsEnabled(): boolean {
   return parseBool(
     process.env.NEXT_PUBLIC_DONATIONS_ENABLED ?? process.env.DONATIONS_ENABLED
+  );
+}
+
+export function isDemoFacadeEnabled(): boolean {
+  return parseBool(
+    process.env.NEXT_PUBLIC_DEMO_FACADE_ENABLED ?? process.env.DEMO_FACADE_ENABLED
   );
 }
