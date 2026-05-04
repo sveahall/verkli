@@ -2,12 +2,24 @@
 
 import Link from "next/link";
 import type { Tool } from "./editor/bookEditor.shared";
-import { TOOL_META, TOOL_ORDER, getToolHref } from "./editor/bookEditor.shared";
+import { TOOL_META, getToolHref } from "./editor/bookEditor.shared";
 
-/** Only the 6 linear flow steps appear in the stepper */
-const STEPPER_TOOLS: Tool[] = TOOL_ORDER.filter(
-  (t) => t !== "statistics" && t !== "import" && t !== "print" && t !== "pricing" && t !== "market"
-);
+/**
+ * Tools that should never appear in the stepper, regardless of which tools
+ * the parent passes in. The stepper is the linear "produce → publish" flow
+ * surface; ancillary panels (analytics, import, marketing, etc.) live
+ * elsewhere in the workspace navigation.
+ */
+const NON_STEPPER_TOOLS: ReadonlySet<Tool> = new Set([
+  "statistics",
+  "import",
+  "print",
+  "pricing",
+  "market",
+  "trailer",
+  "ai",
+  "dashboard",
+]);
 
 type Props = {
   bookId: string;
@@ -22,7 +34,10 @@ type Props = {
 };
 
 function StepperContent({ bookId, activeTool, tools, compact = false, mini = false }: Omit<Props, "bare">) {
-  const orderedTools = STEPPER_TOOLS.filter((t) => tools.includes(t));
+  // Order comes from the `tools` prop so demo-only entries like 'production'
+  // appear in the position the parent inserts them at (between cover and
+  // audiobook for the investor pitch). We then strip non-stepper tools.
+  const orderedTools = tools.filter((t) => !NON_STEPPER_TOOLS.has(t));
   const currentIndex = Math.max(0, orderedTools.indexOf(activeTool));
   const prevTool = currentIndex > 0 ? orderedTools[currentIndex - 1] : null;
   const nextTool =

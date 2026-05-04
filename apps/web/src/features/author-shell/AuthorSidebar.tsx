@@ -59,6 +59,19 @@ const BOOK_WORKFLOW_TABS: ReadonlyArray<{
   { key: "review", label: "Review", panel: "review", icon: Sparkles, group: 0 },
 ];
 
+/**
+ * Demo-only "Production" tab inserted between Cover and Audio when
+ * demoModeActive=true. Reuses the Sparkles icon to signal a 1-click
+ * "produce everything" affordance (matches the panel's CTA icon).
+ */
+const DEMO_PRODUCTION_TAB = {
+  key: "production",
+  label: "Production",
+  panel: "production" as const,
+  icon: Sparkles,
+  group: 0,
+} as const;
+
 function resolveHref(
   href: string,
   bookScoped: boolean | undefined,
@@ -147,15 +160,34 @@ function SwitchToReaderButton() {
   );
 }
 
-function BookWorkflowNav({ bookId, isOnBookPage }: { bookId: string; isOnBookPage: boolean }) {
+function BookWorkflowNav({
+  bookId,
+  isOnBookPage,
+  demoModeActive,
+}: {
+  bookId: string;
+  isOnBookPage: boolean;
+  demoModeActive: boolean;
+}) {
   const searchParams = useSearchParams();
   const rawPanel = searchParams.get("panel")?.trim() || null;
   // Only highlight a tab when actually on the book editor page
   const activePanel = isOnBookPage ? (rawPanel ?? "edit") : null;
 
+  // Insert the demo-only "Production" tab between Cover and Audio when the
+  // current viewer is in demo mode. Real users see the unmodified 6-step
+  // sidebar.
+  const tabs = demoModeActive
+    ? [
+        ...BOOK_WORKFLOW_TABS.slice(0, 2),
+        DEMO_PRODUCTION_TAB,
+        ...BOOK_WORKFLOW_TABS.slice(2),
+      ]
+    : BOOK_WORKFLOW_TABS;
+
   return (
     <div className="flex flex-col gap-0.5 pb-1 pl-4">
-      {BOOK_WORKFLOW_TABS.map((tab, i) => {
+      {tabs.map((tab, i) => {
         const isActive =
           tab.panel === null
             ? activePanel === "edit"
@@ -165,7 +197,7 @@ function BookWorkflowNav({ bookId, isOnBookPage }: { bookId: string; isOnBookPag
             ? `/author/books/${bookId}`
             : `/author/books/${bookId}?panel=${tab.panel}`;
         const Icon = tab.icon;
-        const prevTab = i > 0 ? BOOK_WORKFLOW_TABS[i - 1] : null;
+        const prevTab = i > 0 ? tabs[i - 1] : null;
         const showDivider = prevTab !== null && prevTab.group !== tab.group;
 
         return (
@@ -200,7 +232,11 @@ function BookWorkflowNav({ bookId, isOnBookPage }: { bookId: string; isOnBookPag
   );
 }
 
-export default function AuthorSidebar() {
+export default function AuthorSidebar({
+  demoModeActive = false,
+}: {
+  demoModeActive?: boolean;
+}) {
   const { state, activeBook } = useAuthorWorkspace();
   const pathname = usePathname();
   const currentBookId = activeBook?.id ?? state.currentBookId;
@@ -252,7 +288,7 @@ export default function AuthorSidebar() {
                         {activeBook?.title ?? "Book"}
                       </span>
                     </div>
-                    <BookWorkflowNav bookId={workflowBookId} isOnBookPage={isOnBookPage} />
+                    <BookWorkflowNav bookId={workflowBookId} isOnBookPage={isOnBookPage} demoModeActive={demoModeActive} />
                   </div>
                 )}
               </div>

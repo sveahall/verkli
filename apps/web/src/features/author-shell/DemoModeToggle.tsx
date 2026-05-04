@@ -1,18 +1,19 @@
 "use client";
 
-import { useState, useSyncExternalStore } from "react";
+import { useSyncExternalStore } from "react";
 
 /**
  * Floating "Toggle demo mode" button for local development.
  *
- * Renders only when running on localhost AND in development mode (matched by
- * `process.env.NODE_ENV` baked at build time). Calls the matching dev-only
- * API route which flips `profiles.demo_mode` for the signed-in user, then
- * reloads the page so the layout re-evaluates `isDemoModeActive` and the
- * Production sidebar entry appears/disappears.
+ * Renders only when running on localhost AND in development mode. Uses a
+ * plain HTML <form> POST so it works even when React hydration is partly
+ * broken on the underlying page (e.g. the Library hydration mismatch on
+ * /author/library would otherwise eat React click handlers).
  *
- * The component is mounted globally inside AuthorAppShell — it gates itself
- * via `useEffect` so production bundles never even render it.
+ * The matching API route flips `profiles.demo_mode` for the signed-in user
+ * and 303-redirects back to the referer, which gives us a free page reload
+ * so the layout re-evaluates `isDemoModeActive` and the Production sidebar
+ * entry appears/disappears.
  */
 function subscribeNoop(): () => void {
   return () => undefined;
@@ -31,63 +32,33 @@ function isLocalhostClient(): boolean {
 }
 
 export default function DemoModeToggle() {
-  // useSyncExternalStore avoids the "setState in useEffect" React-compiler
-  // warning: server snapshot is always false (so SSR renders nothing), and
-  // the client snapshot reads window.location at render time.
+  // useSyncExternalStore: server snapshot is always false (so SSR renders
+  // nothing — no hydration mismatch on the pill itself), client snapshot
+  // checks window.location at first render.
   const visible = useSyncExternalStore(
     subscribeNoop,
     isLocalhostClient,
     () => false
   );
-  const [pending, setPending] = useState(false);
-  const [message, setMessage] = useState<string | null>(null);
 
   if (!visible) return null;
 
-  async function handleClick() {
-    setPending(true);
-    setMessage(null);
-    try {
-      const res = await fetch("/api/dev/toggle-demo-mode", { method: "POST" });
-      const json = (await res.json().catch(() => ({}))) as {
-        ok?: boolean;
-        demo_mode?: boolean;
-        error?: string;
-      };
-      if (!res.ok || !json.ok) {
-        setMessage(json.error ?? `Failed (${res.status})`);
-        setPending(false);
-        return;
-      }
-      setMessage(`demo_mode → ${String(json.demo_mode)}; reloading…`);
-      // Reload so server components re-render with the new flag.
-      window.location.reload();
-    } catch (err) {
-      setMessage(err instanceof Error ? err.message : String(err));
-      setPending(false);
-    }
-  }
-
+  // Position: bottom-left to dodge the Next.js dev indicator (bottom-right).
+  // Z-index pushed past anything reasonable so we land on top of every
+  // overlay, including dev-mode error popups.
   return (
-    <div
-      // pointer-events-none on the wrapper, restored on the button so the
-      // overlay never blocks normal UI hits.
-      className="pointer-events-none fixed bottom-4 right-4 z-[9999] flex flex-col items-end gap-1"
+    <form
+      method="post"
+      action="/api/dev/toggle-demo-mode"
+      className="pointer-events-none fixed bottom-4 left-4 z-[2147483646] flex flex-col items-start gap-1"
       aria-live="polite"
     >
       <button
-        type="button"
-        onClick={handleClick}
-        disabled={pending}
-        className="pointer-events-auto rounded-full border border-amber-300 bg-amber-50/95 px-3 py-1.5 text-[11px] font-medium text-amber-900 shadow-md backdrop-blur transition hover:bg-amber-100 disabled:opacity-60"
+        type="submit"
+        className="pointer-events-auto rounded-full border-2 border-amber-400 bg-amber-50 px-3 py-1.5 text-[11px] font-semibold text-amber-900 shadow-lg transition hover:bg-amber-100"
       >
-        {pending ? "Toggling…" : "Toggle demo mode (dev)"}
+        🎭 Toggle demo mode (dev)
       </button>
-      {message ? (
-        <span className="pointer-events-auto rounded-md bg-slate-900/90 px-2 py-1 text-[11px] text-white shadow">
-          {message}
-        </span>
-      ) : null}
-    </div>
+    </form>
   );
 }

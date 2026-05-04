@@ -9,6 +9,7 @@ import {
   isLegacyAuthorRole,
 } from "@/lib/auth/author-approval";
 import AuthorAppShell from "@/features/author-shell/AuthorAppShell";
+import { isDemoModeActive } from "@/lib/flags";
 
 export default async function AppAuthorLayout({
   children,
@@ -31,11 +32,14 @@ export default async function AppAuthorLayout({
 
   const { data: profile } = await supabase
     .from("profiles")
-    .select("role, preferences")
+    .select("role, preferences, demo_mode")
     .eq("user_id", user.id)
     .maybeSingle();
   const profileRole = String(profile?.role ?? "").trim().toLowerCase();
   const prefs = (profile?.preferences ?? {}) as Record<string, unknown>;
+  const demoModeActive = isDemoModeActive({
+    demo_mode: (profile as { demo_mode?: boolean | null } | null)?.demo_mode,
+  });
   const preferredLocale = typeof prefs.uiLanguage === "string" ? prefs.uiLanguage : null;
   const isAdmin = profileRole === "admin";
   const isLegacyAuthor = isLegacyAuthorRole(profileRole);
@@ -62,7 +66,12 @@ export default async function AppAuthorLayout({
 
   return (
     <NextIntlClientProvider locale={locale} messages={messages}>
-      <AuthorAppShell preferredLocale={preferredLocale}>{children}</AuthorAppShell>
+      <AuthorAppShell
+        preferredLocale={preferredLocale}
+        demoModeActive={demoModeActive}
+      >
+        {children}
+      </AuthorAppShell>
     </NextIntlClientProvider>
   );
 }

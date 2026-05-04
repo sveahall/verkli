@@ -71,5 +71,15 @@ export async function POST(request: Request) {
     );
   }
 
+  // Form submissions (Content-Type: application/x-www-form-urlencoded) get
+  // a 303 redirect back to the page they came from so a plain <form action>
+  // works without any client JS. JSON callers fall through to the JSON body.
+  const contentType = (request.headers.get("content-type") ?? "").toLowerCase();
+  const isFormSubmit = contentType.includes("application/x-www-form-urlencoded");
+  if (isFormSubmit) {
+    const referer = request.headers.get("referer") ?? `${url.origin}/author`;
+    return NextResponse.redirect(referer, { status: 303 });
+  }
+
   return NextResponse.json({ ok: true, demo_mode: next });
 }

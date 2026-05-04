@@ -345,13 +345,22 @@ export function useDemoProduction(
     cancelPending();
     const startedAt = deps.now();
     const selectedLanguagesAtStart = selectedLanguages.slice();
-    setState((prev) =>
-      reduceDemoProduction(prev, {
+    setState((prev) => {
+      const next = reduceDemoProduction(prev, {
         type: "start",
         startedAt,
         selectedLanguages: selectedLanguagesAtStart,
-      })
-    );
+      });
+      // The source language ("sv") is already in its original form — it
+      // doesn't need a translation pass, so its badge is ready the moment
+      // production starts. Without this, "10 languages ready" would always
+      // tick as 9 because only the 3 primary + 6 secondary translations
+      // get scheduled flips.
+      if (selectedLanguagesAtStart.includes("sv")) {
+        return reduceDemoProduction(next, { type: "lang_ready", lang: "sv" });
+      }
+      return next;
+    });
     deps.recordTelemetry({ event: "start", t: 0 });
 
     const timeline = planDemoTimeline({
