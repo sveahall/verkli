@@ -147,7 +147,7 @@ export async function loadBookWorkspaceData(bookId: string, langParam: string | 
       .eq("book_id", book.id),
     supabase
       .from("profiles")
-      .select("display_name, username, preferences")
+      .select("display_name, username, preferences, demo_mode")
       .eq("user_id", book.author_id)
       .maybeSingle(),
   ]);
@@ -195,5 +195,8 @@ export async function loadBookWorkspaceData(bookId: string, langParam: string | 
       : null,
     marketingCampaigns: marketingCampaigns ?? [],
     stripeConfigured: isStripeConfigured(),
+    authorDemoMode: Boolean(
+      (authorProfile as { demo_mode?: boolean | null } | null)?.demo_mode
+    ),
   };
 }

@@ -1,10 +1,11 @@
 import { notFound } from "next/navigation";
 import BookEditor from "./BookEditor";
 import { loadBookWorkspaceData } from "./loadBookWorkspaceData";
-import type { Tool } from "./editor/bookEditor.shared";
+import { TOOL_ORDER, type Tool } from "./editor/bookEditor.shared";
+import { isDemoModeActive } from "@/lib/flags";
 
 const VALID_PANELS: Tool[] = [
-  "dashboard", "edit", "cover", "translate", "audiobook", "print",
+  "dashboard", "edit", "cover", "translate", "audiobook", "production", "print",
   "pricing", "publish", "market", "trailer", "review", "statistics", "import", "ai",
 ];
 
@@ -28,6 +29,17 @@ export default async function BookWorkspacePage({
   const data = await loadBookWorkspaceData(id, query?.lang?.trim() ?? null);
   if (!data) notFound();
 
+  // Demo-only sidebar entry. The "Production" tool is the investor-pitch
+  // façade that consolidates audiobook + translation generation behind a
+  // single "Produce everything" button. It only appears when both
+  // (a) the deployment-level demo flag is on AND (b) this profile is the
+  // protected demo author. Real users never see it; the regular editor
+  // panels stay untouched.
+  const demoActive = isDemoModeActive({ demo_mode: data.authorDemoMode });
+  const visibleTools: Tool[] | undefined = demoActive
+    ? insertProductionBeforeAudiobook(TOOL_ORDER)
+    : undefined;
+
   return (
     <BookEditor
       book={data.book}
@@ -41,6 +53,13 @@ export default async function BookWorkspacePage({
       marketingCampaigns={data.marketingCampaigns}
       stripeConfigured={data.stripeConfigured}
       initialTool={initialTool}
+      visibleTools={visibleTools}
     />
   );
+}
+
+function insertProductionBeforeAudiobook(order: ReadonlyArray<Tool>): Tool[] {
+  const idx = order.indexOf("audiobook");
+  if (idx === -1) return [...order, "production"];
+  return [...order.slice(0, idx), "production", ...order.slice(idx)];
 }

@@ -213,3 +213,20 @@ export function isDemoFacadeEnabled(): boolean {
     process.env.NEXT_PUBLIC_DEMO_FACADE_ENABLED ?? process.env.DEMO_FACADE_ENABLED
   );
 }
+
+/**
+ * The single source of truth for whether the investor-pitch demo façade
+ * should activate for a given user. Both conditions are required:
+ *   - The deployment-level flag must be on (only staging/pitch instances).
+ *   - The user's profile must be flagged demo_mode (only the seeded demo
+ *     account, never a real author).
+ *
+ * Use this everywhere in client + server code that toggles between real
+ * production/distribution UIs and their demo-façade variants. Inlining
+ * the two checks separately drifts as the demo grows.
+ */
+export function isDemoModeActive(
+  user: { demo_mode?: boolean | null } | null | undefined
+): boolean {
+  return isDemoFacadeEnabled() && Boolean(user?.demo_mode);
+}

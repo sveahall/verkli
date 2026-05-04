@@ -18,6 +18,7 @@ export type Tool =
   | "cover"
   | "translate"
   | "audiobook"
+  | "production"
   | "print"
   | "pricing"
   | "publish"

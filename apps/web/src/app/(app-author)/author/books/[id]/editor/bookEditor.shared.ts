@@ -232,6 +232,7 @@ export type Tool =
   | "cover"
   | "translate"
   | "audiobook"
+  | "production"
   | "print"
   | "pricing"
   | "publish"
@@ -263,6 +264,7 @@ export const TOOL_ORDER: Tool[] = [
 export const ALL_TOOLS: Tool[] = [
   "dashboard",
   ...TOOL_ORDER,
+  "production",
   "trailer",
   "market",
   "ai",
@@ -299,6 +301,11 @@ export const TOOL_META: Record<
     label: "Audio",
     description: "Turn the manuscript into narration with clear language and scope controls.",
     shortLabel: "Narrate",
+  },
+  production: {
+    label: "Production",
+    description: "Produce everything in one click: audiobook + translations across all languages.",
+    shortLabel: "Produce",
   },
   translate: {
     label: "Translate",

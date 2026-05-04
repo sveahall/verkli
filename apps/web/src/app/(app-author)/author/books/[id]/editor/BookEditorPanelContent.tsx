@@ -32,6 +32,7 @@ const StatisticsPanel = dynamic(() => import("./panels/StatisticsPanel"));
 const AudiobookPanel = dynamic(() => import("./panels/AudiobookPanel"));
 const CoverPanel = dynamic(() => import("./panels/CoverPanel"));
 const PricingPanel = dynamic(() => import("./panels/PricingPanel"));
+const ProductionFacade = dynamic(() => import("./panels/ProductionFacade"));
 
 interface BookEditorPanelContentProps {
   bookId: string;
@@ -153,6 +154,8 @@ export default function BookEditorPanelContent({
             authorName={authorDisplayName}
           />
         )}
+
+        {tool === "production" && <ProductionFacade bookId={bookId} />}
 
         {tool === "audiobook" && (
           <AudiobookPanel
