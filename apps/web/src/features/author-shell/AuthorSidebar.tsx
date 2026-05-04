@@ -60,15 +60,24 @@ const BOOK_WORKFLOW_TABS: ReadonlyArray<{
 ];
 
 /**
- * Demo-only "Production" tab inserted between Cover and Audio when
- * demoModeActive=true. Reuses the Sparkles icon to signal a 1-click
- * "produce everything" affordance (matches the panel's CTA icon).
+ * Demo-only tabs inserted between Cover and Audio when demoModeActive=true.
+ * Production = Day 3 (audiobook + translation paraply-step), Distribute =
+ * Day 4 (cross-channel social launch). Both reuse the Sparkles icon to
+ * signal "one-click magic" affordances.
  */
 const DEMO_PRODUCTION_TAB = {
   key: "production",
   label: "Production",
   panel: "production" as const,
   icon: Sparkles,
+  group: 0,
+} as const;
+
+const DEMO_DISTRIBUTE_TAB = {
+  key: "distribute",
+  label: "Distribute",
+  panel: "distribute" as const,
+  icon: Globe,
   group: 0,
 } as const;
 
@@ -174,13 +183,14 @@ function BookWorkflowNav({
   // Only highlight a tab when actually on the book editor page
   const activePanel = isOnBookPage ? (rawPanel ?? "edit") : null;
 
-  // Insert the demo-only "Production" tab between Cover and Audio when the
-  // current viewer is in demo mode. Real users see the unmodified 6-step
-  // sidebar.
+  // Insert the demo-only Production + Distribute tabs between Cover and
+  // Audio when the current viewer is in demo mode. Real users see the
+  // unmodified 6-step sidebar.
   const tabs = demoModeActive
     ? [
         ...BOOK_WORKFLOW_TABS.slice(0, 2),
         DEMO_PRODUCTION_TAB,
+        DEMO_DISTRIBUTE_TAB,
         ...BOOK_WORKFLOW_TABS.slice(2),
       ]
     : BOOK_WORKFLOW_TABS;

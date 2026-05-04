@@ -5,8 +5,8 @@ import { TOOL_ORDER, type Tool } from "./editor/bookEditor.shared";
 import { isDemoModeActive } from "@/lib/flags";
 
 const VALID_PANELS: Tool[] = [
-  "dashboard", "edit", "cover", "translate", "audiobook", "production", "print",
-  "pricing", "publish", "market", "trailer", "review", "statistics", "import", "ai",
+  "dashboard", "edit", "cover", "translate", "audiobook", "production", "distribute",
+  "print", "pricing", "publish", "market", "trailer", "review", "statistics", "import", "ai",
 ];
 
 function isValidPanel(value: string | null): value is Tool {
@@ -37,7 +37,7 @@ export default async function BookWorkspacePage({
   // panels stay untouched.
   const demoActive = isDemoModeActive({ demo_mode: data.authorDemoMode });
   const visibleTools: Tool[] | undefined = demoActive
-    ? insertProductionBeforeAudiobook(TOOL_ORDER)
+    ? insertDemoStepsIntoOrder(TOOL_ORDER)
     : undefined;
 
   return (
@@ -58,8 +58,22 @@ export default async function BookWorkspacePage({
   );
 }
 
-function insertProductionBeforeAudiobook(order: ReadonlyArray<Tool>): Tool[] {
+/**
+ * Insert the demo-only stepper entries into the linear flow:
+ *   - "production" right before "audiobook" (Day 3 façade)
+ *   - "distribute" right after "production" (Day 4 façade)
+ *
+ * Real users get the unmodified TOOL_ORDER; demo users get the two extra
+ * paraply-steps that bundle audiobook+translations and TikTok/IG/X/YT
+ * launch into one-click affordances.
+ */
+function insertDemoStepsIntoOrder(order: ReadonlyArray<Tool>): Tool[] {
   const idx = order.indexOf("audiobook");
-  if (idx === -1) return [...order, "production"];
-  return [...order.slice(0, idx), "production", ...order.slice(idx)];
+  if (idx === -1) return [...order, "production", "distribute"];
+  return [
+    ...order.slice(0, idx),
+    "production",
+    "distribute",
+    ...order.slice(idx),
+  ];
 }

@@ -19,6 +19,7 @@ export type Tool =
   | "translate"
   | "audiobook"
   | "production"
+  | "distribute"
   | "print"
   | "pricing"
   | "publish"

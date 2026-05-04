@@ -233,6 +233,7 @@ export type Tool =
   | "translate"
   | "audiobook"
   | "production"
+  | "distribute"
   | "print"
   | "pricing"
   | "publish"
@@ -265,6 +266,7 @@ export const ALL_TOOLS: Tool[] = [
   "dashboard",
   ...TOOL_ORDER,
   "production",
+  "distribute",
   "trailer",
   "market",
   "ai",
@@ -306,6 +308,11 @@ export const TOOL_META: Record<
     label: "Production",
     description: "Produce everything in one click: audiobook + translations across all languages.",
     shortLabel: "Produce",
+  },
+  distribute: {
+    label: "Distribute",
+    description: "Launch globally: native posts on TikTok, Instagram, X, and YouTube Shorts in every language at once.",
+    shortLabel: "Launch",
   },
   translate: {
     label: "Translate",

@@ -2,7 +2,9 @@
 
 import CommandPaletteProvider from "@/features/author-shell/CommandPaletteProvider";
 import AuthorSidebar from "@/features/author-shell/AuthorSidebar";
+import DemoModeBadge from "@/features/author-shell/DemoModeBadge";
 import DemoModeToggle from "@/features/author-shell/DemoModeToggle";
+import MicroHookOverlay from "@/features/author-shell/MicroHookOverlay";
 import { AuthorWorkspaceProvider } from "@/features/author-shell/workspace-state";
 import { LocaleProvider } from "@/lib/author-locale";
 
@@ -30,6 +32,8 @@ export default function AuthorAppShell({
               </main>
             </div>
           </div>
+          {demoModeActive ? <DemoModeBadge /> : null}
+          <MicroHookOverlay enabled={demoModeActive} />
           <DemoModeToggle />
         </CommandPaletteProvider>
       </AuthorWorkspaceProvider>
