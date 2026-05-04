@@ -32,6 +32,8 @@ vi.mock("@/lib/translation-queue", () => ({
 
 vi.mock("@/lib/flags", () => ({
   isTranslationsEnabled: mocks.isTranslationsEnabled,
+  // Demo guard reads this; off by default in tests so the guard is a no-op.
+  isDemoFacadeEnabled: () => false,
 }))
 
 vi.mock("@/lib/book-translation", () => ({

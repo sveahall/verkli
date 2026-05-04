@@ -135,7 +135,12 @@ export default function BookEditorView({
 
   const bookRename = useBookRename({ book });
   const { bookTitle } = bookRename;
-  const cover = useBookCover({ book });
+  // The 'production' tool only ever lands in effectiveTools when the page-
+  // level isDemoModeActive(profile) check returned true, so its presence
+  // here is a clean proxy for "this viewer is in demo mode" without
+  // having to thread a separate prop through every panel container.
+  const isDemoEditorView = effectiveTools.includes("production");
+  const cover = useBookCover({ book, demoFallbackEnabled: isDemoEditorView });
   const pricing = useBookPricing({ book });
 
   // ── Publishing ────────────────────────────────────────────────────────────

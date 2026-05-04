@@ -130,6 +130,7 @@ export default function BookEditorPanelContent({
             coverAIStyle={cover.coverAIStyle}
             setCoverAIStyle={cover.setCoverAIStyle}
             coverAIGeneratedUrls={cover.coverAIGeneratedUrls}
+            coverAIGeneratedSource={cover.coverAIGeneratedSource}
             coverAIGenerating={cover.coverAIGenerating}
             coverAIError={cover.coverAIError}
             setCoverAIError={cover.setCoverAIError}

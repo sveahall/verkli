@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1536" width="1024" height="1536" role="img" aria-label="Aged parchment cover with scratched ink lettering and wax seal">
+
+  <defs>
+    <radialGradient id="parchGrad" cx="50%" cy="42%" r="65%">
+      <stop offset="0%" stop-color="#f3e3c2"/>
+      <stop offset="60%" stop-color="#E8DBC1"/>
+      <stop offset="100%" stop-color="#a08660"/>
+    </radialGradient>
+    <pattern id="parchSpeckles" width="14" height="14" patternUnits="userSpaceOnUse">
+      <circle cx="3" cy="6" r="0.7" fill="#6e4f2b" fill-opacity="0.18"/>
+      <circle cx="9" cy="2" r="0.5" fill="#6e4f2b" fill-opacity="0.12"/>
+      <circle cx="11" cy="11" r="0.9" fill="#6e4f2b" fill-opacity="0.22"/>
+    </pattern>
+  </defs>
+  <rect width="1024" height="1536" fill="url(#parchGrad)"/>
+  <rect width="1024" height="1536" fill="url(#parchSpeckles)"/>
+  <!-- torn vignette edges -->
+  <path d="M0 0 Q 512 40 1024 0 L 1024 80 Q 512 30 0 80 Z" fill="#7c5a32" fill-opacity="0.35"/>
+  <path d="M0 1536 Q 512 1496 1024 1536 L 1024 1456 Q 512 1506 0 1456 Z" fill="#7c5a32" fill-opacity="0.35"/>
+  <!-- scratched ink lettering placeholder: cross/plus mark -->
+  <g transform="translate(512, 691.2)" stroke="#1d100a" stroke-linecap="round" stroke-opacity="0.85">
+    <path d="M-180 0 L 180 0" stroke-width="6"/>
+    <path d="M0 -240 L 0 240" stroke-width="6"/>
+    <circle r="58" fill="none" stroke-width="4" stroke-opacity="0.7"/>
+    <circle r="120" fill="none" stroke-width="2" stroke-dasharray="6 8" stroke-opacity="0.55"/>
+  </g>
+  <!-- wax seal -->
+  <g transform="translate(512, 1198.08)">
+    <circle r="80" fill="#8b1f1c"/>
+    <circle r="80" fill="none" stroke="#5a0d0b" stroke-width="2"/>
+    <circle r="68" fill="none" stroke="#c33c38" stroke-width="1.4" stroke-opacity="0.8"/>
+    <text text-anchor="middle" y="14" font-family="Georgia, serif" font-size="42" font-weight="700" fill="#2a0807" fill-opacity="0.85">V</text>
+  </g>
+  <!-- ink spatter -->
+  <circle cx="0" cy="0" r="1" fill="#1d100a" fill-opacity="0.2"/><circle cx="173" cy="491" r="2" fill="#1d100a" fill-opacity="0.30000000000000004"/><circle cx="346" cy="982" r="3" fill="#1d100a" fill-opacity="0.4"/><circle cx="519" cy="1473" r="4" fill="#1d100a" fill-opacity="0.2"/><circle cx="692" cy="428" r="1" fill="#1d100a" fill-opacity="0.30000000000000004"/><circle cx="865" cy="919" r="2" fill="#1d100a" fill-opacity="0.4"/><circle cx="14" cy="1410" r="3" fill="#1d100a" fill-opacity="0.2"/><circle cx="187" cy="365" r="4" fill="#1d100a" fill-opacity="0.30000000000000004"/>
+
+</svg>

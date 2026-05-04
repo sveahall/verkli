@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { requireAuthorRoleForApi } from "@/lib/auth/require-author";
+import { evaluateDemoGuard } from "@/lib/demo-guard";
 import { createClient } from "@/lib/supabase/server";
 import { isAudiobookEnabled } from "@/lib/flags";
 import { createPerUserRateLimiter } from "@/lib/rate-limit";
@@ -36,6 +37,10 @@ export async function POST(
   if (!rl.allowed) {
     return apiError(E_RATE_LIMIT_EXCEEDED, 429, { retryAfterSeconds: rl.retryAfterSeconds });
   }
+
+  // Demo-mode short-circuit (see lib/demo-guard).
+  const guard = await evaluateDemoGuard(createClient, user.id, "audiobook/preview");
+  if (guard.shouldSkip && guard.response) return guard.response;
 
   const { id: bookId } = await params;
   if (!isValidUuid(bookId)) return apiError(E_INVALID_BOOK_ID, 400);

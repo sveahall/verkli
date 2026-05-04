@@ -4,6 +4,7 @@ import { enqueueTranslationJob } from "@/lib/translation-queue"
 import { isSupportedLanguage } from "@/lib/languages"
 import { assertPublicEnv } from "@/lib/env"
 import { requireAuthorRoleForApi } from "@/lib/auth/require-author"
+import { evaluateDemoGuard } from "@/lib/demo-guard"
 import { requireProBillingForApi } from "@/lib/billing/server"
 import { isTranslationsEnabled } from "@/lib/flags"
 import { getStripeCheckoutSession } from "@/lib/payments/stripe"
@@ -280,6 +281,10 @@ export async function POST(
 
   const rl = await translateLimiter.check(user.id)
   if (!rl.allowed) return apiError(E_RATE_LIMIT_EXCEEDED, 429, { retryAfterSeconds: rl.retryAfterSeconds })
+
+  // Demo-mode short-circuit (see lib/demo-guard).
+  const guard = await evaluateDemoGuard(createClient, user.id, "books/translate")
+  if (guard.shouldSkip && guard.response) return guard.response
 
   // Allow bypassing Pro check if a valid paid Stripe session is provided
   const stripeSessionId =

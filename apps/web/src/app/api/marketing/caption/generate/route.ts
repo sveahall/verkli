@@ -5,6 +5,7 @@ import { normalizeLanguage } from "@/lib/languages";
 import { getCachedOrGenerateCaption } from "@/lib/marketing/caption-generator";
 import { assertBookOwned } from "@/lib/marketing/assert-book-owner";
 import { captionGenerateBodySchema } from "@/lib/marketing/schemas";
+import { evaluateDemoGuard } from "@/lib/demo-guard";
 import {
   apiError,
   E_DATABASE_ERROR,
@@ -34,6 +35,12 @@ export async function POST(request: Request) {
   const language = normalizeLanguage(rawLang);
 
   const supabase = await createClient();
+
+  // Demo-mode short-circuit (see lib/demo-guard). Reuses the already-
+  // instantiated supabase client.
+  const guard = await evaluateDemoGuard(() => Promise.resolve(supabase), gate.user.id, "marketing/caption/generate");
+  if (guard.shouldSkip && guard.response) return guard.response;
+
   const ownership = await assertBookOwned(supabase, gate.user.id, bookId);
   if (!ownership.ok) return ownership.response;
 

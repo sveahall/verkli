@@ -20,6 +20,8 @@ interface CoverPanelProps {
   coverAIStyle: string;
   setCoverAIStyle: (v: string) => void;
   coverAIGeneratedUrls: string[];
+  /** "live" or "fallback" when a generation has finished; null otherwise. Demo-only. */
+  coverAIGeneratedSource?: "live" | "fallback" | null;
   coverAIGenerating: boolean;
   coverAIError: string | null;
   setCoverAIError: (v: string | null) => void;
@@ -57,6 +59,7 @@ export default function CoverPanel({
   coverAIStyle,
   setCoverAIStyle,
   coverAIGeneratedUrls,
+  coverAIGeneratedSource = null,
   coverAIGenerating,
   coverAIError,
   setCoverAIError,
@@ -409,9 +412,17 @@ export default function CoverPanel({
 
           {coverAIGeneratedUrls.length > 0 && !coverAIPreviewUrl && (
             <div>
-              <p className="mb-4 text-xs font-medium text-slate-500 dark:text-white/50">
-                Generated covers — click to preview
-              </p>
+              <div className="mb-4 flex items-center justify-between">
+                <p className="text-xs font-medium text-slate-500 dark:text-white/50">
+                  Generated covers — click to preview
+                </p>
+                {coverAIGeneratedSource ? (
+                  <span className="inline-flex items-center gap-1 rounded-full bg-[var(--brand-violet)]/10 px-2 py-0.5 text-[10px] font-semibold text-[var(--brand-violet)]">
+                    <span className="inline-block h-1.5 w-1.5 rounded-full bg-[var(--brand-violet)]" aria-hidden />
+                    Generated just now
+                  </span>
+                ) : null}
+              </div>
               <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
                 {coverAIGeneratedUrls.map((url, i) => (
                   <button

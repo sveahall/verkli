@@ -2,8 +2,10 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { requireAuthorRoleForApi } from "@/lib/auth/require-author";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { createClient } from "@/lib/supabase/server";
 import { generateCoverImages } from "@/lib/nvidia-sd3";
 import { createPerUserRateLimiter } from "@/lib/rate-limit";
+import { isDemoFacadeEnabled } from "@/lib/flags";
 import {
   apiError,
   isValidUuid,
@@ -78,9 +80,30 @@ export async function POST(
   if (response) return response;
   if (!user) return apiError(E_UNAUTHORIZED, 401);
 
-  const rl = await coverLimiter.check(user.id);
-  if (!rl.allowed) {
-    return apiError(E_RATE_LIMIT_EXCEEDED, 429, { retryAfterSeconds: rl.retryAfterSeconds });
+  // Whitelist the investor-pitch demo profile from the 3/min cover-gen
+  // rate limit. The demo flow re-rolls the cover live on stage; the limit
+  // is a paranoia guard against runaway clients, not a billing gate, and
+  // tripping it mid-pitch would mask a slow generation as a "blocked"
+  // failure. Skipped only when the deployment flag is on AND the
+  // signed-in profile is flagged demo_mode (so production users still
+  // see the limit).
+  let demoBypass = false;
+  if (isDemoFacadeEnabled()) {
+    const guardSupabase = await createClient();
+    const { data: profile } = await guardSupabase
+      .from("profiles")
+      .select("demo_mode")
+      .eq("user_id", user.id)
+      .maybeSingle();
+    demoBypass = Boolean(
+      (profile as { demo_mode?: boolean | null } | null)?.demo_mode
+    );
+  }
+  if (!demoBypass) {
+    const rl = await coverLimiter.check(user.id);
+    if (!rl.allowed) {
+      return apiError(E_RATE_LIMIT_EXCEEDED, 429, { retryAfterSeconds: rl.retryAfterSeconds });
+    }
   }
 
   let body: unknown;
@@ -150,22 +173,34 @@ export async function POST(
     genres = (genreRows ?? []) as Array<{ name_en?: string | null; name_sv?: string | null; slug?: string | null }>;
   }
 
-  try {
-    const { requestId, imageUrls } = await generateCoverImages({
-      prompt: buildCoverPrompt({
-        genre: getPrimaryGenreLabel(genres),
-        userPrompt: prompt,
-        style: parsed.data.style,
-      }),
-    });
-
-    return NextResponse.json({
-      requestId,
-      images: imageUrls,
-    });
-  } catch (error) {
-    const message = error instanceof Error ? error.message : "Unknown image generation error";
-    console.error("[cover generate] NVIDIA SD3 generation failed:", message);
-    return apiError(E_COVER_GENERATION_FAILED, 502);
+  // One silent retry: NVIDIA SD3 occasionally returns a transient 502/504
+  // and a single re-run typically succeeds. Anything beyond one retry is
+  // a real outage and should bubble up so the client can switch to the
+  // pre-baked fallback.
+  const finalPrompt = buildCoverPrompt({
+    genre: getPrimaryGenreLabel(genres),
+    userPrompt: prompt,
+    style: parsed.data.style,
+  });
+  let lastError: unknown = null;
+  for (let attempt = 0; attempt < 2; attempt++) {
+    try {
+      const { requestId, imageUrls } = await generateCoverImages({ prompt: finalPrompt });
+      return NextResponse.json({ requestId, images: imageUrls });
+    } catch (error) {
+      lastError = error;
+      const message = error instanceof Error ? error.message : String(error);
+      if (attempt === 0) {
+        console.warn(
+          `[cover generate] NVIDIA SD3 attempt 1 failed (${message}); retrying once.`
+        );
+        continue;
+      }
+      console.error(
+        `[cover generate] NVIDIA SD3 generation failed after retry: ${message}`
+      );
+    }
   }
+  void lastError;
+  return apiError(E_COVER_GENERATION_FAILED, 502);
 }

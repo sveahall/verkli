@@ -24,6 +24,9 @@ import { Skeleton } from "@/components/ui/Skeleton";
 import { normalizePrintOnDemandSettings } from "@/lib/print-on-demand";
 import ReaderBookPageView from "@/features/reader/reader-book/ReaderBookPageView";
 import { formatMoney } from "@/lib/format-money";
+import { createAdminClient } from "@/lib/supabase/admin";
+import { isDemoModeActive } from "@/lib/flags";
+import DemoReaderFinale, { type DemoChapterByLang } from "./DemoReaderFinale";
 
 
 
@@ -68,6 +71,97 @@ const getBookVersions = cache(async (bookId: string) => {
     .order("created_at", { ascending: true });
   return data ?? [];
 });
+
+interface DemoFinaleData {
+  chapters: DemoChapterByLang[];
+}
+
+/**
+ * Server-side fetch for the demo reader-finalen: pulls the first paragraph
+ * of every translated chapter so the client component can morph between
+ * languages without further round-trips. Returns null when the book's
+ * author is not the demo profile or the demo flag is off.
+ */
+async function loadDemoFinaleData(
+  bookId: string,
+  authorId: string
+): Promise<DemoFinaleData | null> {
+  if (!authorId) return null;
+  // Use the admin client because we need to read demo_mode bypassing RLS.
+  // The check is read-only and cheap.
+  const admin = createAdminClient();
+  const { data: profile } = await admin
+    .from("profiles")
+    .select("demo_mode")
+    .eq("user_id", authorId)
+    .maybeSingle();
+  const demoMode = (profile as { demo_mode?: boolean | null } | null)?.demo_mode;
+  if (!isDemoModeActive({ demo_mode: demoMode })) return null;
+
+  // One round-trip pulls all chapters for this book; we narrow to the
+  // book_versions row that matches each chapter so we know the language.
+  const { data: rows } = await admin
+    .from("chapters")
+    .select("content, book_version_id, book_versions(language_code)")
+    .eq("book_id", bookId)
+    .order("order", { ascending: true });
+
+  const chapters: DemoChapterByLang[] = [];
+  for (const row of (rows ?? []) as Array<{
+    content: string | null;
+    book_versions?: { language_code?: string | null } | null;
+  }>) {
+    const lang = row.book_versions?.language_code;
+    if (!lang) continue;
+    const excerpt = extractFirstParagraph(row.content);
+    if (excerpt) chapters.push({ language_code: lang, excerpt });
+  }
+
+  // De-dupe by language (we only want one excerpt per lang in case a
+  // future seed adds multiple chapters per version) and sort with sv first
+  // so the demo opens on the source language.
+  const seen = new Set<string>();
+  const ordered = chapters
+    .filter((c) => {
+      if (seen.has(c.language_code)) return false;
+      seen.add(c.language_code);
+      return true;
+    })
+    .sort((a, b) => {
+      if (a.language_code === "sv") return -1;
+      if (b.language_code === "sv") return 1;
+      return a.language_code.localeCompare(b.language_code);
+    });
+
+  return ordered.length > 0 ? { chapters: ordered } : null;
+}
+
+/** Pull the first paragraph plaintext out of a TipTap JSON document. */
+function extractFirstParagraph(raw: string | null): string | null {
+  if (!raw) return null;
+  try {
+    const doc = JSON.parse(raw) as {
+      content?: Array<{
+        type?: string;
+        content?: Array<{ type?: string; text?: string }>;
+      }>;
+    };
+    for (const node of doc.content ?? []) {
+      if (node.type === "paragraph") {
+        const text = (node.content ?? [])
+          .map((t) => (t.type === "text" ? (t.text ?? "") : ""))
+          .join("")
+          .trim();
+        if (text) return text;
+      }
+    }
+  } catch {
+    // fall through — return raw text if not valid JSON
+    const trimmed = raw.trim();
+    if (trimmed) return trimmed.slice(0, 500);
+  }
+  return null;
+}
 
 
 export async function generateMetadata({
@@ -185,6 +279,12 @@ export default async function ReaderBookDetail({
   }
 
   const versions = await getBookVersions(book.id);
+
+  // Demo-finalen detection. If the book's author is the seeded demo
+  // profile AND the deployment-level demo flag is on, we render the
+  // pitch-tuned above-the-fold layout. Real users never trigger this
+  // branch — `isDemoModeActive` short-circuits when either piece is off.
+  const demoFinaleData = await loadDemoFinaleData(book.id, book.author_id ?? "");
 
   const resolvedSearchParams = searchParams ? await searchParams : undefined;
   const requestedLang = resolvedSearchParams?.lang ? normalizeLanguage(resolvedSearchParams.lang) : null;
@@ -669,6 +769,16 @@ export default async function ReaderBookDetail({
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd).replace(/</g, "\\u003c") }}
       />
+      {demoFinaleData ? (
+        <div className="mx-auto mt-6 w-full max-w-[1280px] px-4 sm:px-6 lg:px-10">
+          <DemoReaderFinale
+            bookTitle={book.title}
+            coverImageUrl={(book as { cover_image?: string | null }).cover_image ?? null}
+            trailerUrl={(book as { trailer_url?: string | null }).trailer_url ?? null}
+            chapters={demoFinaleData.chapters}
+          />
+        </div>
+      ) : null}
       <ReaderBookPageView
         coverUrl={(book as { cover_image?: string | null }).cover_image ?? null}
         backHref="/reader/discover"

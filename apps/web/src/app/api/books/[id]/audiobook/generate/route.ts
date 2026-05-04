@@ -25,6 +25,7 @@ import {
 } from "@/lib/api-errors";
 import { createPerUserRateLimiter } from "@/lib/rate-limit";
 import { isCancelStale, forceFailCancelledJob } from "@/lib/audiobook-stale-cancel";
+import { evaluateDemoGuard } from "@/lib/demo-guard";
 
 const audiobookLimiter = createPerUserRateLimiter({ maxPerMinute: 5 });
 const AI_JOB_KIND = "audiobook_generation";
@@ -179,6 +180,12 @@ export async function POST(
 
   const rl = await audiobookLimiter.check(user.id);
   if (!rl.allowed) return apiError(E_RATE_LIMIT_EXCEEDED, 429, { retryAfterSeconds: rl.retryAfterSeconds });
+
+  // Demo-mode short-circuit: investor-pitch profile must never queue real
+  // audiobook jobs (real money, real worker time). The factory form keeps
+  // createClient() out of the hot path when the demo flag is off.
+  const guard = await evaluateDemoGuard(createClient, user.id, "audiobook/generate");
+  if (guard.shouldSkip && guard.response) return guard.response;
 
   // Allow bypassing Pro check if a valid paid Stripe session is provided
   const stripeSessionId =

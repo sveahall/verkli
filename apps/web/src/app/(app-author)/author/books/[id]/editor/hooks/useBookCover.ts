@@ -16,9 +16,24 @@ import type { Book } from "../BookEditorView.types";
 
 interface UseBookCoverOptions {
   book: Book;
+  /**
+   * Demo-only: when true, the AI cover generation races a 15s timeout. On
+   * timeout (or any error) the four pre-baked /demo-assets/covers/0[1-4].svg
+   * fallbacks are surfaced so the demo never stalls. The "Generated just
+   * now" badge in the UI is rendered regardless of source.
+   */
+  demoFallbackEnabled?: boolean;
 }
 
-export function useBookCover({ book }: UseBookCoverOptions) {
+const DEMO_COVER_TIMEOUT_MS = 15_000;
+const DEMO_FALLBACK_COVERS: ReadonlyArray<string> = [
+  "/demo-assets/covers/01.svg",
+  "/demo-assets/covers/02.svg",
+  "/demo-assets/covers/03.svg",
+  "/demo-assets/covers/04.svg",
+];
+
+export function useBookCover({ book, demoFallbackEnabled = false }: UseBookCoverOptions) {
   const router = useRouter();
   const toast = useToastHelpers();
   const coverInputRef = useRef<HTMLInputElement>(null);
@@ -32,6 +47,15 @@ export function useBookCover({ book }: UseBookCoverOptions) {
   const [coverAIGeneratedUrls, setCoverAIGeneratedUrls] = useState<string[]>([]);
   const [coverAIGenerating, setCoverAIGenerating] = useState(false);
   const [coverAIError, setCoverAIError] = useState<string | null>(null);
+  /**
+   * Tracks the source of the most-recent generation. "live" when NVIDIA
+   * SD3 returned within the timeout window, "fallback" when we swapped to
+   * the pre-baked SVG covers. The cover panel uses this to render the
+   * "Generated just now" badge without ever leaking the source.
+   */
+  const [coverAIGeneratedSource, setCoverAIGeneratedSource] = useState<
+    "live" | "fallback" | null
+  >(null);
   const [coverCropSrc, setCoverCropSrc] = useState<string | null>(null);
   const [coverAIPreviewUrl, setCoverAIPreviewUrl] = useState<string | null>(null);
   const [coverAITemplate, setCoverAITemplate] = useState<string | null>(COVER_TEMPLATES[0]?.id ?? null);
@@ -173,7 +197,9 @@ export function useBookCover({ book }: UseBookCoverOptions) {
     setCoverError(null);
     setCoverAIGenerating(true);
     setCoverAIGeneratedUrls([]);
-    try {
+    setCoverAIGeneratedSource(null);
+
+    const liveCall = async (): Promise<string[] | null> => {
       const res = await fetch(`/api/books/${book.id}/cover/generate`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -181,25 +207,62 @@ export function useBookCover({ book }: UseBookCoverOptions) {
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
-        setCoverAIError(
-          resolveErrorMessage(data?.error, "Could not generate cover options. Try again.")
-        );
-        return;
+        if (!demoFallbackEnabled) {
+          setCoverAIError(
+            resolveErrorMessage(data?.error, "Could not generate cover options. Try again.")
+          );
+        }
+        return null;
       }
       const images = Array.isArray(data?.images)
         ? data.images.filter((value: unknown): value is string => typeof value === "string")
         : [];
-      if (images.length < 4) {
-        setCoverAIError("Could not generate cover options. Try again.");
-        return;
+      return images.length >= 4 ? images.slice(0, 4) : null;
+    };
+
+    try {
+      if (demoFallbackEnabled) {
+        // Race the live call against a 15s timeout. Whichever resolves
+        // first wins. On timeout (or any throw / null result), fall back
+        // to the pre-baked SVG covers — the demo must never stall here.
+        const timeoutSentinel = Symbol("timeout");
+        const liveResult = await Promise.race<string[] | null | typeof timeoutSentinel>([
+          liveCall().catch(() => null),
+          new Promise<typeof timeoutSentinel>((resolve) =>
+            setTimeout(() => resolve(timeoutSentinel), DEMO_COVER_TIMEOUT_MS)
+          ),
+        ]);
+        if (liveResult && liveResult !== timeoutSentinel) {
+          setCoverAIGeneratedUrls(liveResult);
+          setCoverAIGeneratedSource("live");
+        } else {
+          setCoverAIGeneratedUrls([...DEMO_FALLBACK_COVERS]);
+          setCoverAIGeneratedSource("fallback");
+        }
+      } else {
+        const images = await liveCall();
+        if (!images) {
+          if (!coverAIError) {
+            setCoverAIError("Could not generate cover options. Try again.");
+          }
+          return;
+        }
+        setCoverAIGeneratedUrls(images);
+        setCoverAIGeneratedSource("live");
       }
-      setCoverAIGeneratedUrls(images.slice(0, 4));
     } catch {
-      setCoverAIError("Could not generate cover options. Try again.");
+      if (demoFallbackEnabled) {
+        // Even on unexpected throws, show the fallback in demo mode so
+        // the pitch never lands on an error toast.
+        setCoverAIGeneratedUrls([...DEMO_FALLBACK_COVERS]);
+        setCoverAIGeneratedSource("fallback");
+      } else {
+        setCoverAIError("Could not generate cover options. Try again.");
+      }
     } finally {
       setCoverAIGenerating(false);
     }
-  }, [book.id, coverAIGenerating, coverAIPrompt, coverAIStyle, coverAITemplate, coverAITemplateFields]);
+  }, [book.id, coverAIGenerating, coverAIPrompt, coverAIStyle, coverAITemplate, coverAITemplateFields, coverAIError, demoFallbackEnabled]);
 
   const handleCoverSetFromGenerated = useCallback(
     async (url: string) => {
@@ -252,6 +315,7 @@ export function useBookCover({ book }: UseBookCoverOptions) {
     coverAIStyle,
     setCoverAIStyle,
     coverAIGeneratedUrls,
+    coverAIGeneratedSource,
     coverAIGenerating,
     coverAIError,
     setCoverAIError,

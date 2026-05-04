@@ -37,6 +37,8 @@ vi.mock("@/lib/billing/server", () => ({
 
 vi.mock("@/lib/flags", () => ({
   isMarketingEnabled: mocks.isMarketingEnabled,
+  // Demo guard reads this; off in unit tests.
+  isDemoFacadeEnabled: () => false,
 }));
 
 vi.mock("@/lib/supabase/admin", () => ({

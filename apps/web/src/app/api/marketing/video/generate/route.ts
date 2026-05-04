@@ -4,6 +4,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { requireAuthorAndMarketingEnabled } from "@/lib/auth/require-author-marketing";
 import { assertBookOwned } from "@/lib/marketing/assert-book-owner";
 import { videoGenerateBodySchema } from "@/lib/marketing/schemas";
+import { evaluateDemoGuard } from "@/lib/demo-guard";
 import { uploadTrailerAndGetPublicUrl } from "@/lib/marketing/trailer-storage";
 import { generateImageToVideo } from "@/lib/higgsfield";
 import {
@@ -58,6 +59,12 @@ export async function POST(request: Request) {
   const includeAudio = audio ?? true;
   const supabase = await createClient();
   const admin = createAdminClient();
+
+  // Demo-mode short-circuit — keeps the demo profile from burning Higgsfield
+  // credits if anything stray fires this endpoint mid-pitch. Reuses the
+  // already-instantiated supabase client.
+  const guard = await evaluateDemoGuard(() => Promise.resolve(supabase), gate.user.id, "marketing/video/generate");
+  if (guard.shouldSkip && guard.response) return guard.response;
 
   const ownership = await assertBookOwned(supabase, gate.user.id, bookId);
   if (!ownership.ok) return ownership.response;

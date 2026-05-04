@@ -1,5 +1,7 @@
 import { NextResponse } from "next/server";
 import { requireAuthorRoleForApi } from "@/lib/auth/require-author";
+import { createClient } from "@/lib/supabase/server";
+import { evaluateDemoGuard } from "@/lib/demo-guard";
 import { requireProBillingForApi } from "@/lib/billing/server";
 import { isMarketingEnabled } from "@/lib/flags";
 import { createAdminClient } from "@/lib/supabase/admin";
@@ -70,6 +72,10 @@ export async function POST(
   if (!isMarketingEnabled()) {
     return apiError(E_MARKETING_FEATURE_DISABLED, 403);
   }
+
+  // Demo-mode short-circuit (see lib/demo-guard).
+  const guard = await evaluateDemoGuard(createClient, user.id, "trailer/build");
+  if (guard.shouldSkip && guard.response) return guard.response;
 
   const rl = await rateLimiter.check(user.id);
   if (!rl.allowed) {
