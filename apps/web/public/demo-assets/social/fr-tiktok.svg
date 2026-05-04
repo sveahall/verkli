@@ -1,0 +1,60 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1080 1920" width="1080" height="1920" role="img" aria-label="Le journal hanté — TikTok thumbnail">
+  <defs>
+    <linearGradient id="bgGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#907AFF"/>
+      <stop offset="55%" stop-color="#E29ED5"/>
+      <stop offset="100%" stop-color="#FCC997"/>
+    </linearGradient>
+    <linearGradient id="cardGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#1A1430"/>
+      <stop offset="100%" stop-color="#0E0B1A"/>
+    </linearGradient>
+    <radialGradient id="orbGrad" cx="20%" cy="15%" r="60%">
+      <stop offset="0%" stop-color="#FDF8EE" stop-opacity="0.45"/>
+      <stop offset="60%" stop-color="#FDF8EE" stop-opacity="0.05"/>
+      <stop offset="100%" stop-color="#FDF8EE" stop-opacity="0"/>
+    </radialGradient>
+    <style><![CDATA[
+      .display {
+        font-family: "Montserrat Alternates", "Inter", ui-sans-serif, system-ui, sans-serif;
+        font-weight: 700;
+        letter-spacing: -0.02em;
+      }
+      .body {
+        font-family: "Inter", ui-sans-serif, system-ui, sans-serif;
+        font-weight: 500;
+      }
+    ]]></style>
+  </defs>
+
+  <!-- Brand gradient backdrop -->
+  <rect width="1080" height="1920" fill="url(#bgGrad)"/>
+  <rect width="1080" height="1920" fill="url(#orbGrad)"/>
+
+  <!-- Cover card -->
+  <rect x="118.80000000000001" y="345.59999999999997" width="842.4" height="960" rx="43" ry="43" fill="url(#cardGrad)" stroke="#FDF8EE" stroke-opacity="0.08" stroke-width="2"/>
+
+  <!-- Eyebrow -->
+  <text class="body" x="540" y="556.8" text-anchor="middle" fill="#FCC997" font-size="24" letter-spacing="0.22em" style="text-transform: uppercase;">Verkli Audiobook</text>
+
+  <!-- Title (single line; title length is bounded by the language list above) -->
+  <text class="display" x="540" y="825.5999999999999" text-anchor="middle" fill="#FDF8EE" font-size="81">Le journal hanté</text>
+
+  <!-- Byline -->
+  <text class="body" x="540" y="979.2" text-anchor="middle" fill="#FDF8EE" fill-opacity="0.78" font-size="30">par Astrid Halvorsen</text>
+
+  <!-- CTA outside the card -->
+  <text class="display" x="540" y="1497.6000000000001" text-anchor="middle" fill="#0E0B1A" font-size="54">▶  Écouter maintenant</text>
+
+  <!-- Verkli wordmark -->
+  <text class="display" x="540" y="1877" text-anchor="middle" fill="#0E0B1A" fill-opacity="0.78" font-size="30" letter-spacing="0.12em">VERKLI</text>
+
+  <!-- Lang badge (top-left) -->
+  <circle cx="77" cy="68" r="34" fill="#0E0B1A" fill-opacity="0.78"/>
+  <text class="body" x="77" y="76.16" text-anchor="middle" fill="#FDF8EE" font-size="24" letter-spacing="0.06em">FR</text>
+
+  <!-- Channel chip (top-right) -->
+  <rect x="893.72" y="43" width="143.28" height="50" rx="25" ry="25" fill="#0E0B1A" fill-opacity="0.78"/>
+  <text class="body" x="965.36" y="76.16" text-anchor="middle" fill="#FDF8EE" font-size="24" letter-spacing="0.18em">TIKTOK</text>
+</svg>

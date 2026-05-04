@@ -29,6 +29,9 @@
 
 import "./load-dotenv";
 import { randomUUID } from "node:crypto";
+import { existsSync, statSync } from "node:fs";
+import * as path from "node:path";
+import { fileURLToPath } from "node:url";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { createAdminClient } from "../src/lib/supabase/admin";
 import {
@@ -43,6 +46,103 @@ import {
 
 const DEMO_AUTHOR_PASSWORD = "VerkliDemo!2026";
 
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const PUBLIC_DIR = path.resolve(__dirname, "..", "public");
+const AUDIO_DIR = path.join(PUBLIC_DIR, "demo-assets", "audio");
+const SOCIAL_DIR = path.join(PUBLIC_DIR, "demo-assets", "social");
+
+// macOS `say` → ffmpeg-static produces MP3 at 96 kbps mono (see
+// scripts/generate-demo-audio.ts). 96 kbps ≈ 12_000 bytes/sec, which lets
+// us derive an honest duration_seconds without shelling out to ffprobe.
+const AUDIO_BYTES_PER_SECOND = 12_000;
+
+type SocialChannel = "tiktok" | "instagram" | "x" | "youtube";
+
+interface SocialChannelSpec {
+  id: SocialChannel;
+  width: number;
+  height: number;
+  aspect: string;
+}
+
+// Mirrors scripts/generate-demo-social-thumbs.ts. Kept in sync by hand —
+// both files are short, demo-scoped, and edited together.
+const SOCIAL_CHANNELS: ReadonlyArray<SocialChannelSpec> = [
+  { id: "tiktok", width: 1080, height: 1920, aspect: "9:16" },
+  { id: "instagram", width: 1080, height: 1350, aspect: "4:5" },
+  { id: "x", width: 1200, height: 675, aspect: "16:9" },
+  { id: "youtube", width: 1080, height: 1920, aspect: "9:16" },
+];
+
+interface SocialCopy {
+  cta: string;
+  caption: string;
+  hashtags: string;
+}
+
+const SOCIAL_COPY_BY_LANG: Record<string, SocialCopy> = {
+  sv: {
+    cta: "Lyssna nu",
+    caption:
+      "En kort gotisk berättelse om en dagbok som vägrar tystna. Lyssna på det första kapitlet.",
+    hashtags: "#verkli #ljudbok #gotisk #thaunteddiary",
+  },
+  en: {
+    cta: "Listen now",
+    caption:
+      "A short gothic tale about a diary that refuses to fall silent. Hear the first chapter.",
+    hashtags: "#verkli #audiobook #gothic #thaunteddiary",
+  },
+  de: {
+    cta: "Jetzt anhören",
+    caption:
+      "Eine kurze gotische Erzählung über ein Tagebuch, das nicht schweigen will. Höre das erste Kapitel.",
+    hashtags: "#verkli #hörbuch #gotik #thaunteddiary",
+  },
+  fr: {
+    cta: "Écouter maintenant",
+    caption:
+      "Un court récit gothique sur un journal qui refuse de se taire. Écoutez le premier chapitre.",
+    hashtags: "#verkli #livreaudio #gothique #thaunteddiary",
+  },
+  es: {
+    cta: "Escuchar ahora",
+    caption:
+      "Un breve relato gótico sobre un diario que se niega a callar. Escucha el primer capítulo.",
+    hashtags: "#verkli #audiolibro #gotico #thaunteddiary",
+  },
+  it: {
+    cta: "Ascolta ora",
+    caption:
+      "Un breve racconto gotico su un diario che si rifiuta di tacere. Ascolta il primo capitolo.",
+    hashtags: "#verkli #audiolibro #gotico #thaunteddiary",
+  },
+  nl: {
+    cta: "Nu luisteren",
+    caption:
+      "Een kort gotisch verhaal over een dagboek dat weigert te zwijgen. Luister naar het eerste hoofdstuk.",
+    hashtags: "#verkli #luisterboek #gotiek #thaunteddiary",
+  },
+  pt: {
+    cta: "Ouvir agora",
+    caption:
+      "Um breve conto gótico sobre um diário que se recusa a calar-se. Ouve o primeiro capítulo.",
+    hashtags: "#verkli #audiolivro #gotico #thaunteddiary",
+  },
+  pl: {
+    cta: "Posłuchaj teraz",
+    caption:
+      "Krótka gotycka opowieść o pamiętniku, który nie chce milczeć. Posłuchaj pierwszego rozdziału.",
+    hashtags: "#verkli #audiobook #gotyk #thaunteddiary",
+  },
+  ja: {
+    cta: "今すぐ聴く",
+    caption:
+      "沈黙を拒む日記をめぐる短い怪奇譚。第一話を聴いてみてください。",
+    hashtags: "#verkli #オーディオブック #怪奇 #thaunteddiary",
+  },
+};
+
 interface SeedResult {
   demoRunId: string;
   authorId: string;
@@ -50,6 +150,8 @@ interface SeedResult {
   versionsTouched: number;
   chaptersTouched: number;
   translationRowsTouched: number;
+  audiobookAssetsTouched: number;
+  campaignsTouched: number;
 }
 
 // ─────────────────────────────────────────────────────────────────────────
@@ -329,6 +431,125 @@ async function upsertTranslationTracking(
   }
 }
 
+async function upsertAudiobookAsset(
+  supabase: SupabaseClient,
+  bookId: string,
+  demoRunId: string,
+  translation: DemoTranslation
+): Promise<{ touched: boolean }> {
+  const lang = translation.language_code;
+  const audioFile = path.join(AUDIO_DIR, `${lang}.mp3`);
+  if (!existsSync(audioFile)) {
+    throw new Error(
+      `Missing demo audio file ${audioFile}. Run: npx tsx scripts/generate-demo-audio.ts`
+    );
+  }
+  const sizeBytes = statSync(audioFile).size;
+  const durationSeconds = Math.max(1, Math.round(sizeBytes / AUDIO_BYTES_PER_SECOND));
+  const audioUrl = `/demo-assets/audio/${lang}.mp3`;
+  const nowIso = new Date().toISOString();
+
+  // audiobook_assets has no UNIQUE on (book_id, language). Lookup the oldest
+  // matching demo row (we manage these exclusively for the demo book) and
+  // update it; otherwise insert. .order(...).limit(1).maybeSingle() makes the
+  // call resilient to a stray duplicate from prior seed iterations.
+  const { data: existing, error: lookupErr } = await supabase
+    .from("audiobook_assets")
+    .select("id")
+    .eq("book_id", bookId)
+    .eq("language", lang)
+    .order("created_at", { ascending: true })
+    .limit(1)
+    .maybeSingle();
+  if (lookupErr) {
+    throw new Error(`Lookup audiobook_assets (${lang}) failed: ${lookupErr.message}`);
+  }
+
+  const fields = {
+    book_id: bookId,
+    language: lang,
+    status: "generated" as const,
+    audio_url: audioUrl,
+    audio_path: null as string | null,
+    duration_seconds: durationSeconds,
+    demo_run_id: demoRunId,
+    last_generated_at: nowIso,
+  };
+
+  if (existing?.id) {
+    const { error: updateErr } = await supabase
+      .from("audiobook_assets")
+      .update(fields)
+      .eq("id", existing.id);
+    if (updateErr) {
+      throw new Error(`Update audiobook_assets (${lang}) failed: ${updateErr.message}`);
+    }
+  } else {
+    const { error: insertErr } = await supabase.from("audiobook_assets").insert(fields);
+    if (insertErr) {
+      throw new Error(`Insert audiobook_assets (${lang}) failed: ${insertErr.message}`);
+    }
+  }
+  return { touched: true };
+}
+
+async function upsertMarketingCampaign(
+  supabase: SupabaseClient,
+  bookId: string,
+  demoRunId: string,
+  translation: DemoTranslation,
+  channel: SocialChannelSpec
+): Promise<{ touched: boolean }> {
+  const lang = translation.language_code;
+  const copy = SOCIAL_COPY_BY_LANG[lang];
+  if (!copy) {
+    throw new Error(`Missing SOCIAL_COPY_BY_LANG entry for ${lang}`);
+  }
+
+  const thumbFile = path.join(SOCIAL_DIR, `${lang}-${channel.id}.svg`);
+  if (!existsSync(thumbFile)) {
+    throw new Error(
+      `Missing demo social thumbnail ${thumbFile}. Run: npx tsx scripts/generate-demo-social-thumbs.ts`
+    );
+  }
+  const thumbnailUrl = `/demo-assets/social/${lang}-${channel.id}.svg`;
+  const nowIso = new Date().toISOString();
+
+  const fields = {
+    book_id: bookId,
+    language: lang,
+    status: "generated" as const,
+    channel: channel.id,
+    headline: translation.title,
+    caption: copy.caption,
+    cta: copy.cta,
+    hashtags: copy.hashtags,
+    share_url: `/book/${DEMO_BOOK_SLUG}?lang=${lang}`,
+    metadata: {
+      thumbnail_url: thumbnailUrl,
+      native_format: {
+        width: channel.width,
+        height: channel.height,
+        aspect: channel.aspect,
+      },
+      demo: true,
+    },
+    demo_run_id: demoRunId,
+    last_generated_at: nowIso,
+  };
+
+  // UNIQUE (book_id, language, channel) lets us upsert directly.
+  const { error } = await supabase
+    .from("marketing_campaigns")
+    .upsert(fields, { onConflict: "book_id,language,channel" });
+  if (error) {
+    throw new Error(
+      `Upsert marketing_campaigns (${lang}/${channel.id}) failed: ${error.message}`
+    );
+  }
+  return { touched: true };
+}
+
 // ─────────────────────────────────────────────────────────────────────────
 // Main
 // ─────────────────────────────────────────────────────────────────────────
@@ -344,6 +565,8 @@ async function main(): Promise<SeedResult> {
   let versionsTouched = 0;
   let chaptersTouched = 0;
   let translationRowsTouched = 0;
+  let audiobookAssetsTouched = 0;
+  let campaignsTouched = 0;
 
   for (const translation of DEMO_TRANSLATIONS) {
     await upsertVersionAndChapter(supabase, bookId, demoRunId, translation);
@@ -351,8 +574,17 @@ async function main(): Promise<SeedResult> {
     chaptersTouched += 1;
     await upsertTranslationTracking(supabase, bookId, demoRunId, translation);
     if (translation.language_code !== ORIGINAL_LANGUAGE) translationRowsTouched += 1;
+
+    await upsertAudiobookAsset(supabase, bookId, demoRunId, translation);
+    audiobookAssetsTouched += 1;
+
+    for (const channel of SOCIAL_CHANNELS) {
+      await upsertMarketingCampaign(supabase, bookId, demoRunId, translation, channel);
+      campaignsTouched += 1;
+    }
+
     console.log(
-      `[seed] [${translation.quality}] ${translation.language_code} — version+chapter ready`
+      `[seed] [${translation.quality}] ${translation.language_code} — version+chapter+audio+${SOCIAL_CHANNELS.length} campaigns ready`
     );
   }
 
@@ -363,6 +595,8 @@ async function main(): Promise<SeedResult> {
     versionsTouched,
     chaptersTouched,
     translationRowsTouched,
+    audiobookAssetsTouched,
+    campaignsTouched,
   };
 }
 
@@ -375,6 +609,8 @@ main()
     console.log(`  versions touched:   ${result.versionsTouched}`);
     console.log(`  chapters touched:   ${result.chaptersTouched}`);
     console.log(`  translation rows:   ${result.translationRowsTouched}`);
+    console.log(`  audiobook assets:   ${result.audiobookAssetsTouched}`);
+    console.log(`  marketing campaigns:${result.campaignsTouched}`);
     console.log(`  login email:        ${DEMO_AUTHOR_EMAIL}`);
     console.log(`  login password:     ${DEMO_AUTHOR_PASSWORD}`);
   })

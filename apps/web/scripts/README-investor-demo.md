@@ -35,9 +35,31 @@ Day 2 — see "Verifying idempotency" below.
 - 10 `book_versions` (1 SV original + 3 A-quality + 6 B-quality)
 - 10 `chapters` (single-chapter demo, one per version)
 - 9 `book_translations` tracking rows, all `status = completed`, `progress = 100`
+- 10 `audiobook_assets` rows (one per language) pointing at
+  `/demo-assets/audio/<lang>.mp3`
+- 40 `marketing_campaigns` rows: 10 languages × 4 channels
+  (`tiktok`, `instagram`, `x`, `youtube`), each with localized headline /
+  caption / cta / hashtags and `metadata.thumbnail_url` pointing at
+  `/demo-assets/social/<lang>-<channel>.svg`
 
-Audiobook assets, marketing campaigns, social mocks, and POD modal data are
-provisioned in subsequent days of the demo plan, not by this script.
+POD modal data is provisioned in subsequent days of the demo plan, not by
+this script.
+
+## Asset prerequisites
+
+The seed expects these static assets to already be on disk under
+`apps/web/public/demo-assets/`. They are committed to the repo so a fresh
+clone is enough — but if you need to regenerate them:
+
+```bash
+# 10 short MP3 snippets (macOS only — uses the `say` command + ffmpeg-static)
+npx tsx apps/web/scripts/generate-demo-audio.ts
+
+# 40 native-format SVG thumbnails (any platform; pure string templating)
+npx tsx apps/web/scripts/generate-demo-social-thumbs.ts
+```
+
+If either set is missing the seed aborts with a pointer to the right script.
 
 ## Prerequisites
 
@@ -79,15 +101,19 @@ npx tsx apps/web/scripts/seed-investor-demo.ts
 npx tsx apps/web/scripts/seed-investor-demo.ts
 
 # Expected on each run:
-#   versions touched:   10
-#   chapters touched:   10
-#   translation rows:   9
+#   versions touched:    10
+#   chapters touched:    10
+#   translation rows:    9
+#   audiobook assets:    10
+#   marketing campaigns: 40
 # After two runs, the underlying tables still hold exactly:
 #   1 row in profiles where username='verkli-demo'
 #   1 row in books where slug='the-haunted-diary'
 #   10 rows in book_versions for that book
 #   10 rows in chapters across those versions
 #   9 rows in book_translations for that book
+#   10 rows in audiobook_assets for that book (one per language)
+#   40 rows in marketing_campaigns (10 langs × 4 channels)
 ```
 
 `demo_run_id` is the only column that changes between runs — it gets refreshed
