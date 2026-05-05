@@ -27,10 +27,10 @@ interface UseBookCoverOptions {
 
 const DEMO_COVER_TIMEOUT_MS = 15_000;
 const DEMO_FALLBACK_COVERS: ReadonlyArray<string> = [
-  "/demo-assets/covers/01.svg",
-  "/demo-assets/covers/02.svg",
-  "/demo-assets/covers/03.svg",
-  "/demo-assets/covers/04.svg",
+  "/demo-assets/covers/01.png",
+  "/demo-assets/covers/02.png",
+  "/demo-assets/covers/03.png",
+  "/demo-assets/covers/04.png",
 ];
 
 export function useBookCover({ book, demoFallbackEnabled = false }: UseBookCoverOptions) {
