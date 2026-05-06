@@ -26,12 +26,28 @@ interface UseBookCoverOptions {
 }
 
 const DEMO_COVER_TIMEOUT_MS = 15_000;
+/**
+ * When the live SD3 call fails (or times out) in demo mode, we don't snap
+ * the fallback PNGs onto the screen instantly — that would deflate the
+ * "Generated just now"-replik on stage. Instead we hold the loader for a
+ * minimum window and tick a progress phrase so the audience sees the
+ * machine "thinking". After the floor we set the generated URLs and the
+ * panel staggers them in 250 ms apart per index.
+ */
+const DEMO_FALLBACK_MIN_DURATION_MS = 8_000;
 const DEMO_FALLBACK_COVERS: ReadonlyArray<string> = [
   "/demo-assets/covers/01.png",
   "/demo-assets/covers/02.png",
   "/demo-assets/covers/03.png",
   "/demo-assets/covers/04.png",
 ];
+
+export type DemoCoverPhase =
+  | "idle"
+  | "analyzing" // 0–3 s   "Analyzing book context…"
+  | "generating" // 3–6 s "Generating cover variations…"
+  | "rendering" // 6–8 s  "Rendering 4 styles…"
+  | "done";
 
 export function useBookCover({ book, demoFallbackEnabled = false }: UseBookCoverOptions) {
   const router = useRouter();
@@ -56,6 +72,12 @@ export function useBookCover({ book, demoFallbackEnabled = false }: UseBookCover
   const [coverAIGeneratedSource, setCoverAIGeneratedSource] = useState<
     "live" | "fallback" | null
   >(null);
+  /**
+   * Pacing phase exposed to the cover panel. Only meaningful during the
+   * demo-fallback path; idle/done in every other case so the existing UI
+   * treats it as a no-op.
+   */
+  const [coverAIPhase, setCoverAIPhase] = useState<DemoCoverPhase>("idle");
   const [coverCropSrc, setCoverCropSrc] = useState<string | null>(null);
   const [coverAIPreviewUrl, setCoverAIPreviewUrl] = useState<string | null>(null);
   const [coverAITemplate, setCoverAITemplate] = useState<string | null>(COVER_TEMPLATES[0]?.id ?? null);
@@ -198,6 +220,7 @@ export function useBookCover({ book, demoFallbackEnabled = false }: UseBookCover
     setCoverAIGenerating(true);
     setCoverAIGeneratedUrls([]);
     setCoverAIGeneratedSource(null);
+    setCoverAIPhase(demoFallbackEnabled ? "analyzing" : "idle");
 
     const liveCall = async (): Promise<string[] | null> => {
       const res = await fetch(`/api/books/${book.id}/cover/generate`, {
@@ -223,19 +246,41 @@ export function useBookCover({ book, demoFallbackEnabled = false }: UseBookCover
     try {
       if (demoFallbackEnabled) {
         // Race the live call against a 15s timeout. Whichever resolves
-        // first wins. On timeout (or any throw / null result), fall back
-        // to the pre-baked SVG covers — the demo must never stall here.
+        // first wins. On live-success the phase ticks straight to "done"
+        // and the result lands. On timeout / error / null we hold the
+        // loader for a minimum 8s window with rolling progress text, then
+        // surface the pre-baked PNGs — the panel staggers them 250 ms
+        // apart per index so they don't snap in all at once.
+        const startedAt = Date.now();
         const timeoutSentinel = Symbol("timeout");
+        const phaseTimers: Array<ReturnType<typeof setTimeout>> = [];
+        // 0 ms: phase already set to "analyzing" above. Schedule the
+        // 3s and 6s ticks; cleared if live wins early.
+        phaseTimers.push(setTimeout(() => setCoverAIPhase("generating"), 3_000));
+        phaseTimers.push(setTimeout(() => setCoverAIPhase("rendering"), 6_000));
+
         const liveResult = await Promise.race<string[] | null | typeof timeoutSentinel>([
           liveCall().catch(() => null),
           new Promise<typeof timeoutSentinel>((resolve) =>
             setTimeout(() => resolve(timeoutSentinel), DEMO_COVER_TIMEOUT_MS)
           ),
         ]);
+
         if (liveResult && liveResult !== timeoutSentinel) {
+          // Live wins — clear the staged ticks and surface the result.
+          for (const t of phaseTimers) clearTimeout(t);
+          setCoverAIPhase("done");
           setCoverAIGeneratedUrls(liveResult);
           setCoverAIGeneratedSource("live");
         } else {
+          // Fallback path — enforce minimum loader floor before swapping.
+          const elapsed = Date.now() - startedAt;
+          const remaining = Math.max(0, DEMO_FALLBACK_MIN_DURATION_MS - elapsed);
+          if (remaining > 0) {
+            await new Promise((resolve) => setTimeout(resolve, remaining));
+          }
+          for (const t of phaseTimers) clearTimeout(t);
+          setCoverAIPhase("done");
           setCoverAIGeneratedUrls([...DEMO_FALLBACK_COVERS]);
           setCoverAIGeneratedSource("fallback");
         }
@@ -316,6 +361,7 @@ export function useBookCover({ book, demoFallbackEnabled = false }: UseBookCover
     setCoverAIStyle,
     coverAIGeneratedUrls,
     coverAIGeneratedSource,
+    coverAIPhase,
     coverAIGenerating,
     coverAIError,
     setCoverAIError,

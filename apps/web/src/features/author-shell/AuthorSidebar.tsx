@@ -183,15 +183,16 @@ function BookWorkflowNav({
   // Only highlight a tab when actually on the book editor page
   const activePanel = isOnBookPage ? (rawPanel ?? "edit") : null;
 
-  // Insert the demo-only Production + Distribute tabs between Cover and
-  // Audio when the current viewer is in demo mode. Real users see the
+  // In demo mode the book sidebar is reduced to the three steps the
+  // pitch actually walks through — Cover, Production, Distribute — so
+  // the investor never has the option to click into the real
+  // Write/Audio/Translate/Publish/Review panels. Real users see the
   // unmodified 6-step sidebar.
   const tabs = demoModeActive
     ? [
-        ...BOOK_WORKFLOW_TABS.slice(0, 2),
+        BOOK_WORKFLOW_TABS.find((t) => t.key === "cover")!,
         DEMO_PRODUCTION_TAB,
         DEMO_DISTRIBUTE_TAB,
-        ...BOOK_WORKFLOW_TABS.slice(2),
       ]
     : BOOK_WORKFLOW_TABS;
 

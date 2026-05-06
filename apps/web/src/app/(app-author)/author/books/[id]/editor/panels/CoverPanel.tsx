@@ -22,6 +22,8 @@ interface CoverPanelProps {
   coverAIGeneratedUrls: string[];
   /** "live" or "fallback" when a generation has finished; null otherwise. Demo-only. */
   coverAIGeneratedSource?: "live" | "fallback" | null;
+  /** Demo-only pacing phase used to render anticipation copy under the loader. */
+  coverAIPhase?: "idle" | "analyzing" | "generating" | "rendering" | "done";
   coverAIGenerating: boolean;
   coverAIError: string | null;
   setCoverAIError: (v: string | null) => void;
@@ -60,6 +62,7 @@ export default function CoverPanel({
   setCoverAIStyle,
   coverAIGeneratedUrls,
   coverAIGeneratedSource = null,
+  coverAIPhase = "idle",
   coverAIGenerating,
   coverAIError,
   setCoverAIError,
@@ -362,6 +365,43 @@ export default function CoverPanel({
               </p>
             )}
 
+            {/*
+             * Demo-mode anticipation loader. Only rendered when the hook is
+             * actively in one of the demo phases. The text rotates through
+             * Analyzing → Generating → Rendering as the cover-gen call
+             * resolves; "done" phase shows nothing because the cards
+             * themselves take over the visual focus.
+             */}
+            {coverAIGenerating && coverAIPhase !== "idle" && coverAIPhase !== "done" ? (
+              <div
+                className="mt-4 flex items-center gap-3 rounded-xl border border-[var(--brand-violet)]/20 bg-[var(--brand-violet)]/[0.04] px-4 py-3"
+                aria-live="polite"
+              >
+                <span className="relative inline-flex h-2 w-2">
+                  <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-[var(--brand-violet)]/60" />
+                  <span className="relative inline-flex h-2 w-2 rounded-full bg-[var(--brand-violet)]" />
+                </span>
+                <span
+                  // key on phase forces a fresh fade on each tick.
+                  key={coverAIPhase}
+                  className="text-xs font-medium text-slate-700 dark:text-white/70"
+                  style={{ animation: "demoCoverPhaseFade 280ms ease-out" }}
+                >
+                  {coverAIPhase === "analyzing"
+                    ? "Analyzing book context…"
+                    : coverAIPhase === "generating"
+                      ? "Generating cover variations…"
+                      : "Rendering 4 styles…"}
+                </span>
+                <style>{`
+                  @keyframes demoCoverPhaseFade {
+                    0% { opacity: 0; transform: translateY(2px); }
+                    100% { opacity: 1; transform: translateY(0); }
+                  }
+                `}</style>
+              </div>
+            ) : null}
+
             {!coverAIGenerating && coverAIGeneratedUrls.length === 0 && !coverAIError && (
               <p className="mt-6 text-xs text-slate-400 dark:text-white/35">
                 {coverAITemplate
@@ -412,6 +452,13 @@ export default function CoverPanel({
 
           {coverAIGeneratedUrls.length > 0 && !coverAIPreviewUrl && (
             <div>
+              <style>{`
+                @keyframes demoCoverCardIn {
+                  0% { opacity: 0; transform: translateY(8px) scale(0.96); }
+                  60% { opacity: 1; }
+                  100% { opacity: 1; transform: translateY(0) scale(1); }
+                }
+              `}</style>
               <div className="mb-4 flex items-center justify-between">
                 <p className="text-xs font-medium text-slate-500 dark:text-white/50">
                   Generated covers — click to preview
@@ -430,6 +477,17 @@ export default function CoverPanel({
                     type="button"
                     onClick={() => setCoverAIPreviewUrl(url)}
                     disabled={coverUploading}
+                    // Demo: staggered entry, 250ms apart per index, only
+                    // when the source is "fallback" (live results land all
+                    // at once — no anticipation hold to spread out).
+                    style={
+                      coverAIGeneratedSource === "fallback"
+                        ? {
+                            animation: "demoCoverCardIn 360ms cubic-bezier(0.34, 1.56, 0.64, 1) both",
+                            animationDelay: `${i * 250}ms`,
+                          }
+                        : undefined
+                    }
                     className="group relative aspect-[3/4] overflow-hidden rounded-xl border-2 border-transparent bg-slate-100 shadow-sm transition duration-150 hover:-translate-y-0.5 hover:border-[#907AFF] hover:shadow-md focus:outline-none focus:ring-2 focus:ring-[#907AFF]/50 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60 dark:bg-white/[0.04]"
                   >
                     <Image
