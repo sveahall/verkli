@@ -184,6 +184,32 @@ export interface DemoProductionDeps {
 }
 
 export const TELEMETRY_STORAGE_KEY = "demo_telemetry";
+/**
+ * State snapshot persistence key. The full DemoProductionState (status,
+ * badges, startedAt, completedAt) is mirrored here on every transition.
+ * On hook mount we read this back and, if a session was in flight when
+ * the page reloaded, resume from the appropriate point in the timeline
+ * instead of restarting from idle.
+ */
+export const STATE_STORAGE_KEY = "demo_production_state";
+
+/** Sessions older than this are treated as stale and discarded on resume. */
+export const STATE_RESUME_WINDOW_MS = 30_000;
+
+/**
+ * Pure helper: given the planned full timeline and the elapsed time since
+ * the start event, return only the events that haven't fired yet, with
+ * their `at` rebased to `at - elapsedMs` so the caller can hand them to
+ * setTimeout directly. Exported for tests.
+ */
+export function remainingDemoTimeline(
+  fullTimeline: ReadonlyArray<DemoTimelineEvent>,
+  elapsedMs: number
+): DemoTimelineEvent[] {
+  return fullTimeline
+    .filter((event) => event.at > elapsedMs)
+    .map((event) => ({ ...event, at: event.at - elapsedMs }));
+}
 
 const defaultDeps: DemoProductionDeps = {
   schedule(ms, fn) {
@@ -304,11 +330,47 @@ export function useDemoProduction(
     [options.deps]
   );
 
-  const [state, setState] = useState<DemoProductionState>(initialState);
+  // Lazy initializer pulls a previous in-flight session out of localStorage
+  // when the user refreshed mid-pacing. Anything older than the resume
+  // window is discarded so a stale 'producing' snapshot from yesterday
+  // doesn't ghost the UI.
+  const [state, setState] = useState<DemoProductionState>(() => {
+    if (typeof window === "undefined") return initialState;
+    try {
+      const raw = window.localStorage.getItem(STATE_STORAGE_KEY);
+      if (!raw) return initialState;
+      const parsed = JSON.parse(raw) as DemoProductionState;
+      if (
+        parsed.status === "producing" &&
+        typeof parsed.startedAt === "number" &&
+        Date.now() - parsed.startedAt < STATE_RESUME_WINDOW_MS
+      ) {
+        return parsed;
+      }
+      return initialState;
+    } catch {
+      return initialState;
+    }
+  });
   const [selectedLanguages, setSelectedLanguages] = useState<DemoLanguage[]>(
     () => [...DEMO_LANGUAGES]
   );
   const [audiobookEnabled, setAudiobookEnabled] = useState<boolean>(true);
+
+  // Persist the state snapshot on every change so a refresh mid-pacing can
+  // hydrate back to it. Cleared on reset.
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    try {
+      if (state.status === "idle") {
+        window.localStorage.removeItem(STATE_STORAGE_KEY);
+      } else {
+        window.localStorage.setItem(STATE_STORAGE_KEY, JSON.stringify(state));
+      }
+    } catch {
+      // best-effort
+    }
+  }, [state]);
 
   const cancelHandlesRef = useRef<Array<() => void>>([]);
 
@@ -329,6 +391,49 @@ export function useDemoProduction(
       cancelPending();
     };
   }, [cancelPending]);
+
+  // Resume effect — runs once on mount. If lazy-init pulled an in-flight
+  // session out of localStorage, this re-schedules the remaining timeline
+  // events so the pacing animation continues from the right offset. Pure
+  // side-effect setup; no setState in render.
+  useEffect(() => {
+    if (state.status !== "producing" || state.startedAt == null) return;
+    const elapsed = deps.now() - state.startedAt;
+    if (elapsed >= PACING.completedAt) {
+      // The full pacing window already elapsed during the refresh — close out.
+      setState((prev) =>
+        reduceDemoProduction(prev, { type: "done", completedAt: deps.now() })
+      );
+      return;
+    }
+    const fullTimeline = planDemoTimeline({
+      selectedLanguages: DEMO_LANGUAGES,
+      audiobookEnabled: true,
+      secondaryJitter: () => 0,
+    });
+    const remaining = remainingDemoTimeline(fullTimeline, elapsed);
+    for (const event of remaining) {
+      const cancel = deps.schedule(event.at, () => {
+        if (event.kind === "lang_ready") {
+          setState((prev) =>
+            reduceDemoProduction(prev, { type: "lang_ready", lang: event.lang })
+          );
+        } else if (event.kind === "audiobook_ready") {
+          setState((prev) =>
+            reduceDemoProduction(prev, { type: "audiobook_ready" })
+          );
+        } else {
+          setState((prev) =>
+            reduceDemoProduction(prev, { type: "done", completedAt: deps.now() })
+          );
+        }
+      });
+      cancelHandlesRef.current.push(cancel);
+    }
+    // Run once on mount only — `state` deliberately omitted so we don't
+    // re-schedule on every state transition.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const toggleLanguage = useCallback((lang: DemoLanguage) => {
     setSelectedLanguages((prev) =>

@@ -278,7 +278,14 @@ export default function AuthorSidebar({
         </div>
 
         <nav className="flex flex-1 flex-col gap-1.5 overflow-y-auto px-3">
-          {AUTHOR_WORKFLOW_NAV.map((item) => {
+          {AUTHOR_WORKFLOW_NAV.filter((item) => {
+            // Demo nav guardrail: hide entries that pull the investor away
+            // from the demo flow. Marketing, Analytics, Settings each have
+            // a façade equivalent (Distribute, Production, … or none) so
+            // surfacing them just creates dead-end clicks during the pitch.
+            if (!demoModeActive) return true;
+            return !["audience", "analytics", "settings"].includes(item.key);
+          }).map((item) => {
             const active = isLeafActive(item, pathname);
             const workflowBookId = bookIdFromPath ?? currentBookId;
             const showWorkflowChildren =

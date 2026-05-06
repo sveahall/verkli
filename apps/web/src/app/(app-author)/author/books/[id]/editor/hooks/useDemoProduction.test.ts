@@ -19,6 +19,7 @@ import {
   PACING,
   planDemoTimeline,
   reduceDemoProduction,
+  remainingDemoTimeline,
   type DemoLanguage,
   type DemoProductionState,
   type DemoTimelineEvent,
@@ -194,6 +195,62 @@ describe("reduceDemoProduction (completion-callback semantics)", () => {
 
     const noAudio = reduceDemoProduction(idle, { type: "audiobook_ready" });
     expect(noAudio).toBe(idle);
+  });
+});
+
+describe("remainingDemoTimeline (state-resume guardrail)", () => {
+  it("drops events that have already fired and rebases future events to the elapsed time", () => {
+    const full = planDemoTimeline({
+      selectedLanguages: ALL_LANGS,
+      audiobookEnabled: true,
+      secondaryJitter: () => 0,
+    });
+    // Halfway through the pacing window.
+    const elapsed = 6500;
+    const remaining = remainingDemoTimeline(full, elapsed);
+
+    // Every remaining event must be scheduled in the future.
+    for (const ev of remaining) {
+      expect(ev.at).toBeGreaterThan(0);
+    }
+    // None of the primary trio (en/de/fr at 0/1500/3000) should remain;
+    // audiobook_ready at 6000 should also be gone (elapsed=6500 > 6000).
+    expect(remaining.some((e) => e.kind === "audiobook_ready")).toBe(false);
+    expect(
+      remaining.some(
+        (e) =>
+          e.kind === "lang_ready" &&
+          ["en", "de", "fr"].includes(e.lang)
+      )
+    ).toBe(false);
+    // The 'done' event survives, rebased.
+    const done = remaining.find((e) => e.kind === "done");
+    expect(done?.at).toBe(PACING.completedAt - elapsed);
+  });
+
+  it("returns an empty list once elapsed >= completedAt", () => {
+    const full = planDemoTimeline({
+      selectedLanguages: ALL_LANGS,
+      audiobookEnabled: true,
+      secondaryJitter: () => 0,
+    });
+    expect(remainingDemoTimeline(full, PACING.completedAt + 100)).toHaveLength(0);
+  });
+
+  it("returns the full schedule when elapsed=0 (rebases are no-ops)", () => {
+    const full = planDemoTimeline({
+      selectedLanguages: ALL_LANGS,
+      audiobookEnabled: true,
+      secondaryJitter: () => 0,
+    });
+    const remaining = remainingDemoTimeline(full, 0);
+    // remainingDemoTimeline uses `at > elapsedMs`, so the first event at
+    // exactly t=0 (the en lang_ready) is excluded — matches the hook's
+    // resume semantics: anything that would have fired at-or-before the
+    // current moment is treated as already-applied.
+    expect(remaining.length).toBe(full.length - 1);
+    expect(remaining[remaining.length - 1].kind).toBe("done");
+    expect(remaining[remaining.length - 1].at).toBe(PACING.completedAt);
   });
 });
 

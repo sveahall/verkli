@@ -83,6 +83,18 @@ export interface DemoDistributionTelemetryEvent {
 }
 
 export const DISTRIBUTION_TELEMETRY_KEY = "demo_telemetry";
+export const DISTRIBUTION_STATE_KEY = "demo_distribution_state";
+export const DISTRIBUTION_RESUME_WINDOW_MS = 30_000;
+
+/** Pure helper: remaining events after `elapsedMs` of the full timeline. */
+export function remainingDistributionTimeline(
+  fullTimeline: ReadonlyArray<DemoDistributionTimelineEvent>,
+  elapsedMs: number
+): DemoDistributionTimelineEvent[] {
+  return fullTimeline
+    .filter((event) => event.at > elapsedMs)
+    .map((event) => ({ ...event, at: event.at - elapsedMs }));
+}
 
 export function cellKey(channel: DemoChannel, language: DemoDistributionLanguage): string {
   return `${channel}:${language}`;
@@ -250,8 +262,41 @@ export function useDemoDistribution(
     [options.deps]
   );
 
-  const [state, setState] = useState<DemoDistributionState>(initialState);
+  // Lazy-init from localStorage so refresh-during-pacing resumes the
+  // animation instead of restarting from idle.
+  const [state, setState] = useState<DemoDistributionState>(() => {
+    if (typeof window === "undefined") return initialState;
+    try {
+      const raw = window.localStorage.getItem(DISTRIBUTION_STATE_KEY);
+      if (!raw) return initialState;
+      const parsed = JSON.parse(raw) as DemoDistributionState;
+      if (
+        parsed.status === "launching" &&
+        typeof parsed.startedAt === "number" &&
+        Date.now() - parsed.startedAt < DISTRIBUTION_RESUME_WINDOW_MS
+      ) {
+        return parsed;
+      }
+      return initialState;
+    } catch {
+      return initialState;
+    }
+  });
   const cancelHandlesRef = useRef<Array<() => void>>([]);
+
+  // Persist state on every change. Cleared on reset.
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    try {
+      if (state.status === "idle") {
+        window.localStorage.removeItem(DISTRIBUTION_STATE_KEY);
+      } else {
+        window.localStorage.setItem(DISTRIBUTION_STATE_KEY, JSON.stringify(state));
+      }
+    } catch {
+      // best-effort
+    }
+  }, [state]);
 
   const cancelPending = useCallback(() => {
     for (const cancel of cancelHandlesRef.current) {
@@ -267,6 +312,41 @@ export function useDemoDistribution(
   useEffect(() => {
     return () => cancelPending();
   }, [cancelPending]);
+
+  // Resume effect: if we lazy-hydrated an in-flight session, re-schedule
+  // remaining cell-flip + done events so pacing continues smoothly.
+  useEffect(() => {
+    if (state.status !== "launching" || state.startedAt == null) return;
+    const elapsed = deps.now() - state.startedAt;
+    if (elapsed >= DISTRIBUTION_PACING.completedAt) {
+      setState((prev) =>
+        reduceDemoDistribution(prev, { type: "done", completedAt: deps.now() })
+      );
+      return;
+    }
+    const fullTimeline = planDistributionTimeline({ cellJitter: () => 0 });
+    const remaining = remainingDistributionTimeline(fullTimeline, elapsed);
+    for (const event of remaining) {
+      const cancel = deps.schedule(event.at, () => {
+        if (event.kind === "cell_ready") {
+          setState((prev) =>
+            reduceDemoDistribution(prev, {
+              type: "cell_ready",
+              channel: event.channel,
+              language: event.language,
+            })
+          );
+        } else {
+          setState((prev) =>
+            reduceDemoDistribution(prev, { type: "done", completedAt: deps.now() })
+          );
+        }
+      });
+      cancelHandlesRef.current.push(cancel);
+    }
+    // Mount-only resume; runs once.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const reset = useCallback(() => {
     cancelPending();

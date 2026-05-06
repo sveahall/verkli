@@ -20,16 +20,28 @@ export default function AuthorAppShell({
    * in the sidebar. */
   demoModeActive?: boolean;
 }) {
+  // FixedViewportShell: under the investor-pitch demo we lock the app
+  // shell to h-screen + overflow-hidden so the screen never scrolls
+  // mid-pitch — every façade view fits the viewport by design. Real users
+  // get the standard scrollable layout.
+  const outerHeight = demoModeActive
+    ? "h-screen overflow-hidden"
+    : "min-h-screen";
+  const innerHeight = demoModeActive
+    ? "h-screen grid-cols-1 lg:grid-cols-[220px_minmax(0,1fr)]"
+    : "min-h-screen grid-cols-1 lg:grid-cols-[220px_minmax(0,1fr)]";
+  const mainOverflow = demoModeActive
+    ? "min-w-0 overflow-y-auto"
+    : "min-w-0 pb-20 lg:pb-0";
+
   return (
     <LocaleProvider locale={preferredLocale}>
       <AuthorWorkspaceProvider>
         <CommandPaletteProvider>
-          <div className="min-h-screen bg-[#F8F9FD] text-foreground dark:bg-[#050917]">
-            <div className="grid min-h-screen grid-cols-1 lg:grid-cols-[220px_minmax(0,1fr)]">
+          <div className={`${outerHeight} bg-[#F8F9FD] text-foreground dark:bg-[#050917]`}>
+            <div className={`grid ${innerHeight}`}>
               <AuthorSidebar demoModeActive={demoModeActive} />
-              <main className="min-w-0 pb-20 lg:pb-0">
-                {children}
-              </main>
+              <main className={mainOverflow}>{children}</main>
             </div>
           </div>
           {demoModeActive ? <DemoModeBadge /> : null}
