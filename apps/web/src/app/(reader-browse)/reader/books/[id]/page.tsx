@@ -770,15 +770,26 @@ export default async function ReaderBookDetail({
         dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd).replace(/</g, "\\u003c") }}
       />
       {demoFinaleData ? (
-        <div className="mx-auto mt-6 w-full max-w-[1280px] px-4 sm:px-6 lg:px-10">
+        <div className="mx-auto w-full max-w-[1280px] px-4 py-6 sm:px-6 lg:px-10 lg:py-10">
           <DemoReaderFinale
             bookTitle={book.title}
-            coverImageUrl={(book as { cover_image?: string | null }).cover_image ?? null}
+            coverImageUrl={
+              (book as { cover_image?: string | null }).cover_image ??
+              // Demo book has no real cover_image yet; fall back to the
+              // first pre-baked demo cover so the hero never renders empty.
+              "/demo-assets/covers/01.png"
+            }
             trailerUrl={(book as { trailer_url?: string | null }).trailer_url ?? null}
             chapters={demoFinaleData.chapters}
           />
         </div>
       ) : null}
+      {/*
+       * Hide the standard reader UI behind the demo hero. The pitch
+       * lives entirely above the fold — comments, similar-books,
+       * reviews etc. would only fragment the moment if shown.
+       */}
+      <div className={demoFinaleData ? "hidden" : "contents"}>
       <ReaderBookPageView
         coverUrl={(book as { cover_image?: string | null }).cover_image ?? null}
         backHref="/reader/discover"
@@ -864,6 +875,7 @@ export default async function ReaderBookDetail({
           />
         }
       />
+      </div>
     </main>
   );
 }
