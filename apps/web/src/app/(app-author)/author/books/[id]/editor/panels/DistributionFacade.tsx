@@ -98,72 +98,112 @@ export default function DistributionFacade({ bookId, marketingCampaigns }: Distr
   const showSummary = isDone;
 
   return (
-    <section className="flex w-full flex-col gap-6">
-      <header>
-        <p className="text-eyebrow">Distribute</p>
-        <h2 className="text-page-title flex items-center gap-2">
-          <Globe className="h-7 w-7 text-[var(--brand-violet)]" aria-hidden />
-          Launch globally
-        </h2>
-        <p className="text-body mt-1 max-w-xl">
-          Native posts on TikTok, Instagram, X, and YouTube Shorts — in every
-          language you produced — all in parallel.
-        </p>
-      </header>
+    <section
+      aria-label="Demo distribution façade"
+      className="relative isolate overflow-hidden rounded-[28px] border border-slate-200/80 bg-[#FDFAF4] shadow-[0_24px_72px_-32px_rgba(124,92,252,0.18)]"
+    >
+      {/* Ambient brand orbs — same atmospheric language as Production + Reader */}
+      <div aria-hidden className="pointer-events-none absolute inset-0 overflow-hidden">
+        <div
+          className="absolute -left-24 -top-32 h-[360px] w-[360px] rounded-full opacity-25 blur-3xl"
+          style={{ background: "var(--brand-violet)" }}
+        />
+        <div
+          className="absolute -right-20 top-32 h-[300px] w-[300px] rounded-full opacity-20 blur-3xl"
+          style={{ background: "var(--brand-rose)" }}
+        />
+        <div
+          className="absolute -bottom-32 left-1/3 h-[340px] w-[340px] rounded-full opacity-20 blur-3xl"
+          style={{ background: "var(--brand-amber)" }}
+        />
+      </div>
 
-      <PrintOnDemandToggle disabled={isLaunching} />
-
-      <div className="flex items-center justify-between gap-3 rounded-2xl border border-slate-200 bg-gradient-to-br from-white to-slate-50 p-5">
-        <div>
-          <p className="text-label text-slate-700">Ready when you are</p>
-          <p className="text-helper">
-            {DEMO_CHANNELS.length} channels × {DEMO_DISTRIBUTION_LANGUAGES.length} languages — façade
-            demo, no real APIs hit.
-          </p>
-        </div>
-        <div className="flex items-center gap-2">
+      <div className="relative flex flex-col gap-7 p-6 sm:p-10">
+        {/* ── Hero header ─────────────────────────────────────────── */}
+        <header className="flex items-start justify-between gap-4">
+          <div className="flex flex-col gap-2">
+            <span className="inline-flex items-center gap-1.5 self-start rounded-full border border-[var(--brand-violet)]/20 bg-white/70 px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-[0.22em] text-[var(--brand-violet)] backdrop-blur">
+              <Globe className="h-2.5 w-2.5" aria-hidden />
+              Distribute
+            </span>
+            <h2
+              className="text-balance text-[36px] font-bold leading-[1.05] tracking-[-0.02em] text-slate-900 sm:text-[44px]"
+              style={{ fontFamily: 'var(--font-montserrat-alternates), "Inter", ui-sans-serif, system-ui, sans-serif' }}
+            >
+              Launch{" "}
+              <span className="bg-gradient-to-r from-[var(--brand-violet)] via-[var(--brand-rose)] to-[var(--brand-amber)] bg-clip-text text-transparent">
+                globally
+              </span>
+            </h2>
+            <p className="text-body max-w-xl text-slate-600">
+              Native posts on TikTok, Instagram, X, and YouTube Shorts — in
+              every language you produced — all in parallel.
+            </p>
+          </div>
           {isDone ? (
             <button
               type="button"
               onClick={reset}
-              className="rounded-md border border-slate-200 px-3 py-1.5 text-label text-slate-600 hover:bg-slate-50"
+              className="rounded-full border border-slate-200 bg-white/80 px-3 py-1.5 text-[12px] font-medium text-slate-600 backdrop-blur hover:bg-white"
             >
               Reset
             </button>
           ) : null}
+        </header>
+
+        {/* ── POD toggle ──────────────────────────────────────────── */}
+        <PrintOnDemandToggle disabled={isLaunching} />
+
+        {/* ── Hero CTA ────────────────────────────────────────────── */}
+        <div className="flex flex-col items-center gap-3 py-2">
           <button
             type="button"
             onClick={start}
             disabled={isLaunching}
-            className="inline-flex items-center gap-2 rounded-lg bg-[var(--brand-violet)] px-5 py-2.5 text-label font-semibold text-white shadow-sm transition hover:bg-[var(--brand-violet-hover)] active:bg-[var(--brand-violet-active)] disabled:cursor-not-allowed disabled:opacity-60"
+            className="group relative inline-flex items-center gap-2.5 overflow-hidden rounded-full bg-[var(--brand-violet)] px-8 py-3.5 text-[15px] font-semibold text-white shadow-[0_18px_40px_-12px_rgba(124,92,252,0.65)] transition-all duration-300 hover:bg-[var(--brand-violet-hover)] hover:shadow-[0_24px_48px_-12px_rgba(124,92,252,0.75)] active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-70"
           >
-            <Globe className="h-4 w-4" aria-hidden />
-            Launch globally
+            <span
+              aria-hidden
+              className="absolute inset-0 -translate-x-full bg-gradient-to-r from-transparent via-white/25 to-transparent transition-transform duration-700 group-hover:translate-x-full"
+            />
+            <Globe className="relative h-4 w-4" aria-hidden />
+            <span className="relative">
+              {isLaunching ? "Launching…" : "Launch globally"}
+            </span>
           </button>
+          <p className="text-[12px] text-slate-500">
+            {DEMO_CHANNELS.length} channels × {DEMO_DISTRIBUTION_LANGUAGES.length} languages · 17 seconds end-to-end
+          </p>
         </div>
+
+        {/* ── Live status + grid ──────────────────────────────────── */}
+        {state.status !== "idle" ? (
+          <div className="rounded-2xl border border-slate-200 bg-white/90 p-5 shadow-sm backdrop-blur">
+            <div className="flex items-center justify-between">
+              <div className="flex flex-col gap-0.5">
+                <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-slate-400">
+                  {isDone ? "Live" : "Launching"}
+                </p>
+                <p className="text-[18px] font-semibold tracking-tight text-slate-900">
+                  {isDone ? "12 live posts" : `${readyCount}/12 posts`}
+                </p>
+              </div>
+              {isDone ? <CheckmarkPop /> : null}
+            </div>
+
+            <div className="mt-5 space-y-5">
+              {DEMO_CHANNELS.map((channel) => (
+                <ChannelRow
+                  key={channel}
+                  channel={channel}
+                  state={state.cells}
+                  campaigns={campaigns}
+                />
+              ))}
+            </div>
+          </div>
+        ) : null}
       </div>
-
-      {state.status !== "idle" ? (
-        <div className="space-y-5">
-          <div className="flex items-center justify-between">
-            <p className="text-section-title">
-              {isDone ? "12 live posts" : `Launching ${readyCount}/12 posts…`}
-            </p>
-            {isDone ? <CheckmarkPop /> : null}
-          </div>
-
-          <div className="space-y-4">
-            {DEMO_CHANNELS.map((channel) => (
-              <ChannelRow
-                key={channel}
-                channel={channel}
-                state={state.cells}
-                campaigns={campaigns}
-              />
-            ))}
-          </div>
-        </div>
-      ) : null}
 
       {showSummary ? <SummaryOverlay /> : null}
     </section>
@@ -313,34 +353,42 @@ function PrintOnDemandToggle({ disabled }: { disabled: boolean }) {
   }
 
   return (
-    <div className="rounded-2xl border border-slate-200 bg-white p-5">
-      <label
-        className={`flex cursor-pointer items-start gap-3 ${
-          disabled ? "cursor-not-allowed opacity-60" : ""
+    <label
+      className={`group flex cursor-pointer items-start gap-3 rounded-2xl border bg-white/85 p-4 shadow-sm backdrop-blur transition-all ${
+        enabled
+          ? "border-[var(--brand-violet)]/30 ring-2 ring-[var(--brand-violet)]/15"
+          : "border-slate-200 hover:border-slate-300"
+      } ${disabled ? "cursor-not-allowed opacity-60" : ""}`}
+    >
+      <input
+        type="checkbox"
+        className="sr-only"
+        checked={enabled}
+        onChange={handleToggle}
+        disabled={disabled}
+      />
+      <span
+        className={`mt-0.5 flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-xl ${
+          enabled
+            ? "bg-[var(--brand-violet)] text-white shadow-[0_6px_16px_-6px_rgba(124,92,252,0.55)]"
+            : "bg-slate-100 text-slate-500"
         }`}
       >
-        <input
-          type="checkbox"
-          className="mt-1 h-4 w-4 rounded border-slate-300 text-[var(--brand-violet)] focus:ring-[var(--brand-violet)]"
-          checked={enabled}
-          onChange={handleToggle}
-          disabled={disabled}
-        />
-        <span>
-          <span className="flex items-center gap-2 text-label text-slate-800">
-            <Printer className="h-4 w-4" aria-hidden />
-            Enable global print
-          </span>
-          <span className="text-helper">
-            Send the manuscript to {POD_PARTNERS.length} print partners. Hardcover
-            and paperback live in 24 h.
-          </span>
+        <Printer className="h-4 w-4" aria-hidden />
+      </span>
+      <span className="min-w-0 flex-1">
+        <span className="flex items-center gap-2 text-[14px] font-semibold text-slate-900">
+          Enable global print
+          {enabled ? (
+            <Check className="h-3.5 w-3.5 text-[var(--brand-violet)]" aria-hidden />
+          ) : null}
         </span>
-      </label>
-      {showModal ? (
-        <PodModal onClose={() => setShowModal(false)} />
-      ) : null}
-    </div>
+        <span className="text-[12px] text-slate-500">
+          Send the manuscript to {POD_PARTNERS.length} print partners. Hardcover and paperback live in 24 h.
+        </span>
+      </span>
+      {showModal ? <PodModal onClose={() => setShowModal(false)} /> : null}
+    </label>
   );
 }
 
@@ -442,8 +490,8 @@ function SummaryOverlay() {
 function CheckmarkPop() {
   return (
     <span
-      className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-[var(--brand-violet)] text-white"
-      style={{ animation: "demoCheckPop 200ms cubic-bezier(0.34, 1.56, 0.64, 1)" }}
+      className="inline-flex h-9 w-9 items-center justify-center rounded-full bg-[var(--brand-violet)] text-white shadow-[0_8px_20px_-6px_rgba(124,92,252,0.5)]"
+      style={{ animation: "demoCheckPop 220ms cubic-bezier(0.34, 1.56, 0.64, 1)" }}
       aria-label="distribution complete"
     >
       <Check className="h-5 w-5" aria-hidden />

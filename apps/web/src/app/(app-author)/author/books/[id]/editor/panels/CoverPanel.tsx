@@ -228,42 +228,71 @@ export default function CoverPanel({
 
         {/* ── AI generation ── */}
         <div className="space-y-5">
-          <div className="rounded-2xl border border-slate-100 bg-slate-50/50 p-8 dark:border-white/[0.06] dark:bg-white/[0.02]">
-            <div className="flex items-center gap-2.5">
-              <div className="flex h-7 w-7 items-center justify-center rounded-xl bg-[#907AFF]/10 dark:bg-[#907AFF]/15">
-                <Sparkles className="h-3.5 w-3.5 text-[#907AFF]" />
+          {/* Demo mode: cinematic single-click panel matching Production / Distribute */}
+          {demoMode ? (
+            <div className="relative isolate overflow-hidden rounded-[28px] border border-slate-200/80 bg-[#FDFAF4] p-8 shadow-[0_24px_72px_-32px_rgba(124,92,252,0.18)] sm:p-10">
+              {/* Ambient brand orbs */}
+              <div aria-hidden className="pointer-events-none absolute inset-0 overflow-hidden">
+                <div
+                  className="absolute -left-24 -top-32 h-[300px] w-[300px] rounded-full opacity-25 blur-3xl"
+                  style={{ background: "var(--brand-violet)" }}
+                />
+                <div
+                  className="absolute -right-20 top-24 h-[260px] w-[260px] rounded-full opacity-20 blur-3xl"
+                  style={{ background: "var(--brand-rose)" }}
+                />
+                <div
+                  className="absolute -bottom-24 left-1/3 h-[280px] w-[280px] rounded-full opacity-20 blur-3xl"
+                  style={{ background: "var(--brand-amber)" }}
+                />
               </div>
-              <h3 className="text-sm font-semibold text-slate-800 dark:text-white/90">
-                {demoMode ? "Cover" : "Generate with AI"}
-              </h3>
-            </div>
 
-            {/* Demo mode: single-click panel — no inputs / dropdowns */}
-            {demoMode ? (
-              <div className="mt-6 flex flex-col items-center gap-4 py-6 text-center">
-                <p className="max-w-sm text-sm text-slate-600 dark:text-white/60">
-                  Based on your book&rsquo;s title, synopsis, and genre.
+              <div className="relative flex flex-col items-center gap-5 text-center">
+                <span className="inline-flex items-center gap-1.5 rounded-full border border-[var(--brand-violet)]/20 bg-white/70 px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-[0.22em] text-[var(--brand-violet)] backdrop-blur">
+                  <Sparkles className="h-2.5 w-2.5" />
+                  Cover
+                </span>
+                <h2
+                  className="text-balance text-[32px] font-bold leading-[1.05] tracking-[-0.02em] text-slate-900 sm:text-[40px]"
+                  style={{ fontFamily: 'var(--font-montserrat-alternates), "Inter", ui-sans-serif, system-ui, sans-serif' }}
+                >
+                  Generate{" "}
+                  <span className="bg-gradient-to-r from-[var(--brand-violet)] via-[var(--brand-rose)] to-[var(--brand-amber)] bg-clip-text text-transparent">
+                    cover
+                  </span>
+                </h2>
+                <p className="max-w-sm text-[14px] leading-relaxed text-slate-600">
+                  Based on your book&rsquo;s title, synopsis, and genre. Four variations in 8 seconds.
                 </p>
+
                 <button
                   type="button"
                   onClick={handleCoverAIGenerate}
                   disabled={coverAIGenerating}
-                  className="inline-flex items-center gap-2 rounded-2xl bg-[#907AFF] px-7 py-3 text-base font-semibold text-white shadow-[0_8px_24px_-8px_rgba(124,92,252,0.5)] transition hover:bg-[#7B6BF0] hover:shadow-[0_12px_32px_-8px_rgba(124,92,252,0.6)] active:scale-[0.97] disabled:cursor-not-allowed disabled:opacity-60"
+                  className="group/btn relative mt-2 inline-flex items-center gap-2.5 overflow-hidden rounded-full bg-[var(--brand-violet)] px-8 py-3.5 text-[15px] font-semibold text-white shadow-[0_18px_40px_-12px_rgba(124,92,252,0.65)] transition-all duration-300 hover:bg-[var(--brand-violet-hover)] hover:shadow-[0_24px_48px_-12px_rgba(124,92,252,0.75)] active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-70"
                 >
-                  <Sparkles className="h-4 w-4" />
-                  {coverAIGenerating ? "Generating…" : "Generate cover"}
+                  <span
+                    aria-hidden
+                    className="absolute inset-0 -translate-x-full bg-gradient-to-r from-transparent via-white/25 to-transparent transition-transform duration-700 group-hover/btn:translate-x-full"
+                  />
+                  <Sparkles className="relative h-4 w-4" />
+                  <span className="relative">
+                    {coverAIGenerating ? "Generating…" : "Generate cover"}
+                  </span>
                 </button>
+
                 {coverAIError && (
                   <p
-                    className="rounded-xl border border-red-200 bg-red-50 px-4 py-2 text-xs text-red-600 dark:border-red-900/30 dark:bg-red-950/20 dark:text-red-400"
+                    className="rounded-xl border border-red-200 bg-red-50 px-4 py-2 text-xs text-red-600"
                     role="alert"
                   >
                     {coverAIError}
                   </p>
                 )}
+
                 {coverAIGenerating && coverAIPhase !== "idle" && coverAIPhase !== "done" ? (
                   <div
-                    className="flex items-center gap-3 rounded-xl border border-[var(--brand-violet)]/20 bg-[var(--brand-violet)]/[0.04] px-4 py-3"
+                    className="mt-2 flex items-center gap-3 rounded-full border border-[var(--brand-violet)]/25 bg-white/80 px-4 py-2 shadow-sm backdrop-blur"
                     aria-live="polite"
                   >
                     <span className="relative inline-flex h-2 w-2">
@@ -272,7 +301,7 @@ export default function CoverPanel({
                     </span>
                     <span
                       key={coverAIPhase}
-                      className="text-xs font-medium text-slate-700 dark:text-white/70"
+                      className="text-[12px] font-medium text-slate-700"
                       style={{ animation: "demoCoverPhaseFade 280ms ease-out" }}
                     >
                       {coverAIPhase === "analyzing"
@@ -290,7 +319,19 @@ export default function CoverPanel({
                   </div>
                 ) : null}
               </div>
-            ) : null}
+            </div>
+          ) : null}
+
+          {!demoMode ? (
+          <div className="rounded-2xl border border-slate-100 bg-slate-50/50 p-8 dark:border-white/[0.06] dark:bg-white/[0.02]">
+            <div className="flex items-center gap-2.5">
+              <div className="flex h-7 w-7 items-center justify-center rounded-xl bg-[#907AFF]/10 dark:bg-[#907AFF]/15">
+                <Sparkles className="h-3.5 w-3.5 text-[#907AFF]" />
+              </div>
+              <h3 className="text-sm font-semibold text-slate-800 dark:text-white/90">
+                Generate with AI
+              </h3>
+            </div>
 
             {/* Real (non-demo) AI form: template dropdown */}
             {!demoMode && coverAITemplate !== null && (
@@ -469,6 +510,7 @@ export default function CoverPanel({
               </p>
             )}
           </div>
+          ) : null}
 
           {/* AI preview overlay */}
           {coverAIPreviewUrl && (
