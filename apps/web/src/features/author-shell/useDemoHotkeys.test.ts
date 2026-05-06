@@ -6,12 +6,15 @@
 
 import { describe, expect, it } from "vitest";
 import {
-  DEMO_BOOK_ID,
+  extractCurrentBookIdFromPathname,
   mapHotkeyEvent,
   RESETTABLE_DEMO_KEYS,
+  SEEDED_DEMO_BOOK_ID,
   type MapHotkeyEventInput,
 } from "./useDemoHotkeys";
 import { isDemoSwHostAllowed } from "./DemoServiceWorker";
+
+const CURRENT = "11111111-2222-3333-4444-555555555555";
 
 const baseInput: MapHotkeyEventInput = {
   key: "1",
@@ -20,7 +23,8 @@ const baseInput: MapHotkeyEventInput = {
   shiftKey: false,
   altKey: false,
   inEditable: false,
-  bookId: DEMO_BOOK_ID,
+  currentBookId: CURRENT,
+  seededDemoBookId: SEEDED_DEMO_BOOK_ID,
 };
 
 function input(overrides: Partial<MapHotkeyEventInput>): MapHotkeyEventInput {
@@ -28,33 +32,41 @@ function input(overrides: Partial<MapHotkeyEventInput>): MapHotkeyEventInput {
 }
 
 describe("mapHotkeyEvent — navigation digits", () => {
-  it("maps 1/2/4 to the corresponding panel URL", () => {
+  it("maps 1/2/4 to panels of the CURRENT book (not the seeded demo book)", () => {
     expect(mapHotkeyEvent(input({ key: "1" }))).toEqual({
       kind: "navigate",
-      href: `/author/books/${DEMO_BOOK_ID}?panel=cover`,
+      href: `/author/books/${CURRENT}?panel=cover`,
     });
     expect(mapHotkeyEvent(input({ key: "2" }))).toEqual({
       kind: "navigate",
-      href: `/author/books/${DEMO_BOOK_ID}?panel=production`,
+      href: `/author/books/${CURRENT}?panel=production`,
     });
     expect(mapHotkeyEvent(input({ key: "4" }))).toEqual({
       kind: "navigate",
-      href: `/author/books/${DEMO_BOOK_ID}?panel=distribute`,
+      href: `/author/books/${CURRENT}?panel=distribute`,
     });
   });
 
-  it("maps 3 to distribute + openPod=true", () => {
+  it("maps 3 to distribute + openPod=true on the current book", () => {
     expect(mapHotkeyEvent(input({ key: "3" }))).toEqual({
       kind: "navigate",
-      href: `/author/books/${DEMO_BOOK_ID}?panel=distribute`,
+      href: `/author/books/${CURRENT}?panel=distribute`,
       openPod: true,
     });
   });
 
-  it("maps 5 to the reader-finalen URL for the seeded demo book", () => {
-    expect(mapHotkeyEvent(input({ key: "5" }))).toEqual({
+  it("becomes a no-op when the user isn't on a book page (no current bookId)", () => {
+    expect(mapHotkeyEvent(input({ key: "1", currentBookId: null }))).toBeNull();
+    expect(mapHotkeyEvent(input({ key: "2", currentBookId: null }))).toBeNull();
+    expect(mapHotkeyEvent(input({ key: "4", currentBookId: null }))).toBeNull();
+  });
+
+  it("maps 5 to the seeded demo book reader URL even with no current book", () => {
+    expect(
+      mapHotkeyEvent(input({ key: "5", currentBookId: null }))
+    ).toEqual({
       kind: "navigate",
-      href: `/reader/books/${DEMO_BOOK_ID}`,
+      href: `/reader/books/${SEEDED_DEMO_BOOK_ID}`,
     });
   });
 
@@ -113,6 +125,35 @@ describe("mapHotkeyEvent — failover bindings", () => {
     expect(RESETTABLE_DEMO_KEYS).toContain("demo_telemetry");
     expect(RESETTABLE_DEMO_KEYS).toContain("demo_degraded_mode");
     expect(RESETTABLE_DEMO_KEYS).toContain("demo_micro_hook_dismissed");
+  });
+});
+
+describe("extractCurrentBookIdFromPathname", () => {
+  it("pulls the uuid out of /author/books/<id>", () => {
+    expect(
+      extractCurrentBookIdFromPathname("/author/books/576969ff-fd9d-45dd-bd46-04fcd535978f")
+    ).toBe("576969ff-fd9d-45dd-bd46-04fcd535978f");
+    expect(
+      extractCurrentBookIdFromPathname(
+        "/author/books/576969ff-fd9d-45dd-bd46-04fcd535978f/edit"
+      )
+    ).toBe("576969ff-fd9d-45dd-bd46-04fcd535978f");
+  });
+
+  it("pulls the uuid out of /reader/books/<id>", () => {
+    expect(
+      extractCurrentBookIdFromPathname(`/reader/books/${SEEDED_DEMO_BOOK_ID}`)
+    ).toBe(SEEDED_DEMO_BOOK_ID);
+  });
+
+  it("returns null on non-book routes", () => {
+    expect(extractCurrentBookIdFromPathname("/author/library")).toBeNull();
+    expect(extractCurrentBookIdFromPathname("/reader/discover")).toBeNull();
+    expect(extractCurrentBookIdFromPathname("/")).toBeNull();
+  });
+
+  it("returns null when the path segment isn't a uuid", () => {
+    expect(extractCurrentBookIdFromPathname("/author/books/not-a-uuid")).toBeNull();
   });
 });
 

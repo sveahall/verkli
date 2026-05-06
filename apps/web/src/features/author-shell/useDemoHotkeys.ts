@@ -25,8 +25,20 @@ import { useEffect, useRef } from "react";
  * jsdom; the adapter just dispatches the resolved action.
  */
 
-/** UUID of the seeded "Inget kan stoppa oss nu / haunted-diary" demo book. */
-export const DEMO_BOOK_ID = "6abdd304-7bc3-41a1-a841-4bf764621ac3";
+/**
+ * UUID of the seeded "the-haunted-diary" demo book that lives under the
+ * verkli-demo author. Hotkey '5' (reader-finalen) always navigates here
+ * because it's the only book with the full multilingual chapter data
+ * the reader-finalen demo needs.
+ *
+ * Hotkeys 1-4 (author panels) navigate within the CURRENT book the user
+ * is editing — extracted from the URL — so they don't drop a logged-in
+ * user onto a book they don't own.
+ */
+export const SEEDED_DEMO_BOOK_ID = "6abdd304-7bc3-41a1-a841-4bf764621ac3";
+
+/** Backward-compat alias for tests; new code should use SEEDED_DEMO_BOOK_ID. */
+export const DEMO_BOOK_ID = SEEDED_DEMO_BOOK_ID;
 
 export const DEGRADED_MODE_KEY = "demo_degraded_mode";
 export const BACKUP_VIDEO_EVENT = "demo:backup-video";
@@ -56,7 +68,11 @@ export interface MapHotkeyEventInput {
    * shortcuts must NOT fire while the user is typing — only Cmd+Shift
    * combinations bypass that guard. */
   inEditable: boolean;
-  bookId: string;
+  /** Current book id (from URL). Used by hotkeys 1-4 to stay within the
+   * book the user is editing. Null when not on a book page. */
+  currentBookId: string | null;
+  /** Hardcoded id of the seeded demo book (for hotkey 5 → reader). */
+  seededDemoBookId: string;
 }
 
 /**
@@ -79,32 +95,35 @@ export function mapHotkeyEvent(input: MapHotkeyEventInput): DemoHotkeyAction | n
   // Plain digit shortcuts — guard against inputs and modified keys.
   if (input.altKey || cmdOrCtrl || input.shiftKey || input.inEditable) return null;
 
+  // Hotkeys 1-4 navigate within the CURRENT book. If the user isn't on a
+  // book page (e.g. on the library) there's nothing to scope to, so the
+  // shortcut becomes a no-op — better than dropping them on a 404.
+  const currentBookHref = (panel: string) =>
+    input.currentBookId
+      ? `/author/books/${input.currentBookId}?panel=${panel}`
+      : null;
+
   switch (input.key) {
-    case "1":
-      return {
-        kind: "navigate",
-        href: `/author/books/${input.bookId}?panel=cover`,
-      };
-    case "2":
-      return {
-        kind: "navigate",
-        href: `/author/books/${input.bookId}?panel=production`,
-      };
-    case "3":
-      return {
-        kind: "navigate",
-        href: `/author/books/${input.bookId}?panel=distribute`,
-        openPod: true,
-      };
-    case "4":
-      return {
-        kind: "navigate",
-        href: `/author/books/${input.bookId}?panel=distribute`,
-      };
+    case "1": {
+      const href = currentBookHref("cover");
+      return href ? { kind: "navigate", href } : null;
+    }
+    case "2": {
+      const href = currentBookHref("production");
+      return href ? { kind: "navigate", href } : null;
+    }
+    case "3": {
+      const href = currentBookHref("distribute");
+      return href ? { kind: "navigate", href, openPod: true } : null;
+    }
+    case "4": {
+      const href = currentBookHref("distribute");
+      return href ? { kind: "navigate", href } : null;
+    }
     case "5":
       return {
         kind: "navigate",
-        href: `/reader/books/${DEMO_BOOK_ID}`,
+        href: `/reader/books/${input.seededDemoBookId}`,
       };
     default:
       return null;
@@ -120,8 +139,15 @@ function isElementEditable(target: EventTarget | null): boolean {
 
 interface UseDemoHotkeysOptions {
   enabled: boolean;
-  /** Optional override — defaults to the seeded demo book; tests may pass another id. */
-  bookId?: string;
+}
+
+/**
+ * Pull the current book uuid out of /author/books/<id>... or
+ * /reader/books/<id>... pathnames. Returns null on any other route.
+ */
+export function extractCurrentBookIdFromPathname(pathname: string): string | null {
+  const match = pathname.match(/^\/(?:author|reader)\/books\/([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})/i);
+  return match ? match[1] : null;
 }
 
 interface DemoHotkeysExecutor {
@@ -179,7 +205,7 @@ function buildDefaultExecutor(): DemoHotkeysExecutor {
   };
 }
 
-export function useDemoHotkeys({ enabled, bookId = DEMO_BOOK_ID }: UseDemoHotkeysOptions): void {
+export function useDemoHotkeys({ enabled }: UseDemoHotkeysOptions): void {
   const executorRef = useRef<DemoHotkeysExecutor | null>(null);
   if (executorRef.current === null) {
     executorRef.current = buildDefaultExecutor();
@@ -190,6 +216,9 @@ export function useDemoHotkeys({ enabled, bookId = DEMO_BOOK_ID }: UseDemoHotkey
     if (typeof window === "undefined") return;
 
     const onKeyDown = (event: KeyboardEvent) => {
+      // Read the live pathname on each keypress so navigating between
+      // books picks up the new id without remounting the hook.
+      const currentBookId = extractCurrentBookIdFromPathname(window.location.pathname);
       const action = mapHotkeyEvent({
         key: event.key,
         metaKey: event.metaKey,
@@ -197,7 +226,8 @@ export function useDemoHotkeys({ enabled, bookId = DEMO_BOOK_ID }: UseDemoHotkey
         shiftKey: event.shiftKey,
         altKey: event.altKey,
         inEditable: isElementEditable(event.target),
-        bookId,
+        currentBookId,
+        seededDemoBookId: SEEDED_DEMO_BOOK_ID,
       });
       if (!action) return;
       const executor = executorRef.current;
@@ -232,5 +262,5 @@ export function useDemoHotkeys({ enabled, bookId = DEMO_BOOK_ID }: UseDemoHotkey
 
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [enabled, bookId]);
+  }, [enabled]);
 }
