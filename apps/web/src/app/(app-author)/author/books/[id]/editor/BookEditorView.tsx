@@ -546,6 +546,7 @@ export default function BookEditorView({
               <BookEditorPanelContent
                 bookId={book.id}
                 bookTitle={bookTitle}
+                demoMode={isDemoEditorView}
                 bookDescription={book.description ?? null}
                 bookOriginalUrl={book.original_url ?? null}
                 bookAudiobookStatus={typeof book.audiobook_status === "string" ? book.audiobook_status : null}

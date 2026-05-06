@@ -14,7 +14,10 @@ import { Globe, Pause, Play } from "lucide-react";
  */
 export interface DemoChapterByLang {
   language_code: string;
+  /** First paragraph (used for the hero quote). */
   excerpt: string;
+  /** All paragraphs joined with \n\n — rendered inline as the chapter body. */
+  fullText: string;
 }
 
 interface Props {
@@ -22,6 +25,8 @@ interface Props {
   coverImageUrl: string | null;
   trailerUrl: string | null;
   chapters: ReadonlyArray<DemoChapterByLang>;
+  /** Optional per-language chapter UUID for the "Read full chapter →" link. */
+  readChapterByLang?: Record<string, string>;
 }
 
 const LANGUAGE_FLAGS: Record<string, string> = {
@@ -55,6 +60,7 @@ export default function DemoReaderFinale({
   coverImageUrl,
   trailerUrl,
   chapters,
+  readChapterByLang,
 }: Props) {
   const langs = useMemo(
     () => chapters.map((c) => c.language_code),
@@ -258,6 +264,44 @@ export default function DemoReaderFinale({
             </audio>
           </div>
         </div>
+      </div>
+
+      {/* ── Inline chapter body — answers "och vad läser man?" ── */}
+      <div className="relative border-t border-slate-200/60 bg-white/80 px-6 py-10 sm:px-10 sm:py-12 lg:px-16 lg:py-14">
+        <article
+          // key on activeLang re-mounts the article so the fade re-fires
+          // and the scroll position resets when the user switches language.
+          key={`body-${activeLang}`}
+          className="mx-auto max-w-[64ch] text-[16px] leading-[1.7] text-slate-800"
+          style={{ animation: "demoFadeIn 320ms ease-out" }}
+        >
+          <p className="text-eyebrow mb-4 text-[var(--brand-violet)]">
+            Chapter one — {LANGUAGE_NAMES[activeLang] ?? activeLang.toUpperCase()}
+          </p>
+          {(activeChapter?.fullText ?? "")
+            .split(/\n{2,}/)
+            .filter((p) => p.trim().length > 0)
+            .map((paragraph, idx) => (
+              <p
+                key={idx}
+                className="mb-5 last:mb-0"
+                style={{ fontFamily: '"Iowan Old Style", Georgia, "Times New Roman", serif' }}
+              >
+                {paragraph}
+              </p>
+            ))}
+          {readChapterByLang && readChapterByLang[activeLang] ? (
+            <p className="mt-8 text-[13px]">
+              <a
+                href={`/reader/read/${readChapterByLang[activeLang]}`}
+                className="inline-flex items-center gap-1.5 font-semibold text-[var(--brand-violet)] underline decoration-[var(--brand-violet)]/30 underline-offset-4 hover:decoration-[var(--brand-violet)]"
+              >
+                Read the full chapter
+                <span aria-hidden>→</span>
+              </a>
+            </p>
+          ) : null}
+        </article>
       </div>
 
       <style>{`

@@ -74,6 +74,8 @@ const getBookVersions = cache(async (bookId: string) => {
 
 interface DemoFinaleData {
   chapters: DemoChapterByLang[];
+  /** Per-language chapter ID for the "Read full →" link, when available. */
+  readChapterByLang: Record<string, string>;
 }
 
 /**
@@ -102,19 +104,30 @@ async function loadDemoFinaleData(
   // book_versions row that matches each chapter so we know the language.
   const { data: rows } = await admin
     .from("chapters")
-    .select("content, book_version_id, book_versions(language_code)")
+    .select("id, content, book_version_id, book_versions(language_code)")
     .eq("book_id", bookId)
     .order("order", { ascending: true });
 
   const chapters: DemoChapterByLang[] = [];
+  const readChapterByLang: Record<string, string> = {};
   for (const row of (rows ?? []) as Array<{
+    id: string;
     content: string | null;
     book_versions?: { language_code?: string | null } | null;
   }>) {
     const lang = row.book_versions?.language_code;
     if (!lang) continue;
-    const excerpt = extractFirstParagraph(row.content);
-    if (excerpt) chapters.push({ language_code: lang, excerpt });
+    const fullText = extractAllParagraphs(row.content);
+    const excerpt =
+      extractFirstParagraph(row.content) ?? fullText.split("\n\n")[0] ?? "";
+    if (excerpt || fullText) {
+      chapters.push({
+        language_code: lang,
+        excerpt,
+        fullText: fullText || excerpt,
+      });
+      if (row.id) readChapterByLang[lang] = row.id;
+    }
   }
 
   // De-dupe by language (we only want one excerpt per lang in case a
@@ -133,7 +146,39 @@ async function loadDemoFinaleData(
       return a.language_code.localeCompare(b.language_code);
     });
 
-  return ordered.length > 0 ? { chapters: ordered } : null;
+  return ordered.length > 0
+    ? { chapters: ordered, readChapterByLang }
+    : null;
+}
+
+/**
+ * Pull every paragraph plaintext out of a TipTap JSON document, joined
+ * with double-newlines. Used to render the full chapter inline in the
+ * demo reader-finalen.
+ */
+function extractAllParagraphs(raw: string | null): string {
+  if (!raw) return "";
+  try {
+    const doc = JSON.parse(raw) as {
+      content?: Array<{
+        type?: string;
+        content?: Array<{ type?: string; text?: string }>;
+      }>;
+    };
+    const paragraphs: string[] = [];
+    for (const node of doc.content ?? []) {
+      if (node.type === "paragraph") {
+        const text = (node.content ?? [])
+          .map((t) => (t.type === "text" ? (t.text ?? "") : ""))
+          .join("")
+          .trim();
+        if (text) paragraphs.push(text);
+      }
+    }
+    return paragraphs.join("\n\n");
+  } catch {
+    return raw.trim();
+  }
 }
 
 /** Pull the first paragraph plaintext out of a TipTap JSON document. */
@@ -781,6 +826,7 @@ export default async function ReaderBookDetail({
             }
             trailerUrl={(book as { trailer_url?: string | null }).trailer_url ?? null}
             chapters={demoFinaleData.chapters}
+            readChapterByLang={demoFinaleData.readChapterByLang}
           />
         </div>
       ) : null}

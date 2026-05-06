@@ -69,6 +69,8 @@ interface BookEditorPanelContentProps {
   marketing: Pick<ReturnType<typeof useMarketing>, "isGeneratingMarketing" | "setMarketingChannel" | "setMarketingLanguage" | "handleGenerateMarketingCopy">;
   billing: Pick<ReturnType<typeof useBillingState>, "loading" | "isProActive">;
   refetchBookJob: () => Promise<void>;
+  /** True when the parent (BookEditorView) detected demo mode via effectiveTools. */
+  demoMode?: boolean;
 }
 
 export default function BookEditorPanelContent({
@@ -105,6 +107,7 @@ export default function BookEditorPanelContent({
   bookAudiobookStatus,
   bookTrailerStatus,
   bookTrailerUrl,
+  demoMode = false,
 }: BookEditorPanelContentProps) {
   return (
     <div className="w-full overflow-hidden rounded-2xl border border-black/[0.04] bg-white shadow-[0_1px_3px_rgba(0,0,0,0.04)] dark:border-white/[0.06] dark:bg-[#111318] dark:shadow-none">
@@ -132,6 +135,7 @@ export default function BookEditorPanelContent({
             coverAIGeneratedUrls={cover.coverAIGeneratedUrls}
             coverAIGeneratedSource={cover.coverAIGeneratedSource}
             coverAIPhase={cover.coverAIPhase}
+            demoMode={demoMode}
             coverAIGenerating={cover.coverAIGenerating}
             coverAIError={cover.coverAIError}
             setCoverAIError={cover.setCoverAIError}

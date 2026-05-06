@@ -24,6 +24,8 @@ interface CoverPanelProps {
   coverAIGeneratedSource?: "live" | "fallback" | null;
   /** Demo-only pacing phase used to render anticipation copy under the loader. */
   coverAIPhase?: "idle" | "analyzing" | "generating" | "rendering" | "done";
+  /** Demo-only: when true, the AI form (template/prompt/style dropdowns) is replaced with a single big "Generate cover" button. */
+  demoMode?: boolean;
   coverAIGenerating: boolean;
   coverAIError: string | null;
   setCoverAIError: (v: string | null) => void;
@@ -63,6 +65,7 @@ export default function CoverPanel({
   coverAIGeneratedUrls,
   coverAIGeneratedSource = null,
   coverAIPhase = "idle",
+  demoMode = false,
   coverAIGenerating,
   coverAIError,
   setCoverAIError,
@@ -231,12 +234,66 @@ export default function CoverPanel({
                 <Sparkles className="h-3.5 w-3.5 text-[#907AFF]" />
               </div>
               <h3 className="text-sm font-semibold text-slate-800 dark:text-white/90">
-                Generate with AI
+                {demoMode ? "Cover" : "Generate with AI"}
               </h3>
             </div>
 
-            {/* Template dropdown */}
-            {coverAITemplate !== null && (
+            {/* Demo mode: single-click panel — no inputs / dropdowns */}
+            {demoMode ? (
+              <div className="mt-6 flex flex-col items-center gap-4 py-6 text-center">
+                <p className="max-w-sm text-sm text-slate-600 dark:text-white/60">
+                  Based on your book&rsquo;s title, synopsis, and genre.
+                </p>
+                <button
+                  type="button"
+                  onClick={handleCoverAIGenerate}
+                  disabled={coverAIGenerating}
+                  className="inline-flex items-center gap-2 rounded-2xl bg-[#907AFF] px-7 py-3 text-base font-semibold text-white shadow-[0_8px_24px_-8px_rgba(124,92,252,0.5)] transition hover:bg-[#7B6BF0] hover:shadow-[0_12px_32px_-8px_rgba(124,92,252,0.6)] active:scale-[0.97] disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  <Sparkles className="h-4 w-4" />
+                  {coverAIGenerating ? "Generating…" : "Generate cover"}
+                </button>
+                {coverAIError && (
+                  <p
+                    className="rounded-xl border border-red-200 bg-red-50 px-4 py-2 text-xs text-red-600 dark:border-red-900/30 dark:bg-red-950/20 dark:text-red-400"
+                    role="alert"
+                  >
+                    {coverAIError}
+                  </p>
+                )}
+                {coverAIGenerating && coverAIPhase !== "idle" && coverAIPhase !== "done" ? (
+                  <div
+                    className="flex items-center gap-3 rounded-xl border border-[var(--brand-violet)]/20 bg-[var(--brand-violet)]/[0.04] px-4 py-3"
+                    aria-live="polite"
+                  >
+                    <span className="relative inline-flex h-2 w-2">
+                      <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-[var(--brand-violet)]/60" />
+                      <span className="relative inline-flex h-2 w-2 rounded-full bg-[var(--brand-violet)]" />
+                    </span>
+                    <span
+                      key={coverAIPhase}
+                      className="text-xs font-medium text-slate-700 dark:text-white/70"
+                      style={{ animation: "demoCoverPhaseFade 280ms ease-out" }}
+                    >
+                      {coverAIPhase === "analyzing"
+                        ? "Analyzing book context…"
+                        : coverAIPhase === "generating"
+                          ? "Generating cover variations…"
+                          : "Rendering 4 styles…"}
+                    </span>
+                    <style>{`
+                      @keyframes demoCoverPhaseFade {
+                        0% { opacity: 0; transform: translateY(2px); }
+                        100% { opacity: 1; transform: translateY(0); }
+                      }
+                    `}</style>
+                  </div>
+                ) : null}
+              </div>
+            ) : null}
+
+            {/* Real (non-demo) AI form: template dropdown */}
+            {!demoMode && coverAITemplate !== null && (
               <div className="mt-6 space-y-4">
                 <div>
                   <label htmlFor="cover-template" className="mb-1.5 block text-xs font-medium text-slate-600 dark:text-white/60">
@@ -285,8 +342,8 @@ export default function CoverPanel({
               </div>
             )}
 
-            {/* Custom prompt textarea */}
-            {coverAITemplate === null && (
+            {/* Custom prompt textarea (real mode only) */}
+            {!demoMode && coverAITemplate === null && (
               <div className="mt-6">
                 <label htmlFor="cover-ai-prompt" className="mb-2 block text-xs font-medium text-slate-600 dark:text-white/60">
                   Describe the cover you want
@@ -308,7 +365,8 @@ export default function CoverPanel({
               </div>
             )}
 
-            {/* Toggle between template and custom */}
+            {/* Toggle between template and custom (real mode only) */}
+            {!demoMode && (
             <div className="mt-4">
               <button
                 type="button"
@@ -326,8 +384,10 @@ export default function CoverPanel({
                 {coverAITemplate ? "Write a custom prompt instead" : "Use a template instead"}
               </button>
             </div>
+            )}
 
-            {/* Style + Generate */}
+            {/* Style + Generate (real mode only) */}
+            {!demoMode && (
             <div className="mt-6 flex flex-wrap items-center gap-3">
               <div className="relative">
                 <label htmlFor="cover-ai-style" className="sr-only">Style</label>
@@ -358,21 +418,20 @@ export default function CoverPanel({
                 {coverAIGenerating ? "Generating..." : "Generate"}
               </button>
             </div>
+            )}
 
-            {coverAIError && (
+            {!demoMode && coverAIError && (
               <p className="mt-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-600 dark:border-red-900/30 dark:bg-red-950/20 dark:text-red-400" role="alert">
                 {coverAIError}
               </p>
             )}
 
             {/*
-             * Demo-mode anticipation loader. Only rendered when the hook is
-             * actively in one of the demo phases. The text rotates through
-             * Analyzing → Generating → Rendering as the cover-gen call
-             * resolves; "done" phase shows nothing because the cards
-             * themselves take over the visual focus.
+             * Real-mode anticipation loader (already rendered inline in the
+             * demo-mode branch above). Same treatment, just lives outside
+             * the simplified one-click panel.
              */}
-            {coverAIGenerating && coverAIPhase !== "idle" && coverAIPhase !== "done" ? (
+            {!demoMode && coverAIGenerating && coverAIPhase !== "idle" && coverAIPhase !== "done" ? (
               <div
                 className="mt-4 flex items-center gap-3 rounded-xl border border-[var(--brand-violet)]/20 bg-[var(--brand-violet)]/[0.04] px-4 py-3"
                 aria-live="polite"
