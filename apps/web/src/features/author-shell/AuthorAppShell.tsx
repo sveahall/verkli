@@ -2,8 +2,11 @@
 
 import CommandPaletteProvider from "@/features/author-shell/CommandPaletteProvider";
 import AuthorSidebar from "@/features/author-shell/AuthorSidebar";
+import BackupVideoOverlay from "@/features/author-shell/BackupVideoOverlay";
+import DemoHotkeysHost from "@/features/author-shell/DemoHotkeysHost";
 import DemoModeBadge from "@/features/author-shell/DemoModeBadge";
 import DemoModeToggle from "@/features/author-shell/DemoModeToggle";
+import DemoServiceWorker from "@/features/author-shell/DemoServiceWorker";
 import MicroHookOverlay from "@/features/author-shell/MicroHookOverlay";
 import { AuthorWorkspaceProvider } from "@/features/author-shell/workspace-state";
 import { LocaleProvider } from "@/lib/author-locale";
@@ -46,6 +49,9 @@ export default function AuthorAppShell({
           </div>
           {demoModeActive ? <DemoModeBadge /> : null}
           <MicroHookOverlay enabled={demoModeActive} />
+          <DemoHotkeysHost enabled={demoModeActive} />
+          <BackupVideoOverlay enabled={demoModeActive} />
+          <DemoServiceWorker enabled={demoModeActive} />
           <DemoModeToggle />
         </CommandPaletteProvider>
       </AuthorWorkspaceProvider>

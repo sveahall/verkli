@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { POD_MODAL_EVENT } from "@/features/author-shell/useDemoHotkeys";
 import {
   Check,
   Globe,
@@ -301,6 +302,19 @@ const POD_PARTNERS = [
 function PrintOnDemandToggle({ disabled }: { disabled: boolean }) {
   const [enabled, setEnabled] = useState(false);
   const [showModal, setShowModal] = useState(false);
+
+  // Demo hotkey '3' fires a POD_MODAL_EVENT after navigating to the
+  // distribute panel; we listen for it here and pop the modal so the
+  // presenter can demonstrate POD without manually finding the toggle.
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const onOpen = () => {
+      setEnabled(true);
+      setShowModal(true);
+    };
+    window.addEventListener(POD_MODAL_EVENT, onOpen);
+    return () => window.removeEventListener(POD_MODAL_EVENT, onOpen);
+  }, []);
 
   function handleToggle() {
     if (disabled) return;
