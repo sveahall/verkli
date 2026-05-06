@@ -8,15 +8,9 @@ import { Globe, Pause, Play } from "lucide-react";
  * /reader/books/[id]. Rendered only when the viewer's profile is the
  * seeded demo author AND the demo flag is on. Real users never see it.
  *
- * Layout (above-the-fold, single screen on a laptop pitch monitor):
- *   - Dramatic dark gradient hero with ambient brand-color orbs.
- *   - Big book cover on the left with a soft floating shadow.
- *   - Right column: brand-gradient eyebrow, display title, "Available
- *     in 10 languages" badge with all flag emoji, italic chapter
- *     excerpt that morphs on language switch, sleek audio player
- *     band, language pill row.
- *   - Trailer takes over the cover frame when books.trailer_url is
- *     set; the trailer plays muted on autoplay loop.
+ * Light-mode hero matching the rest of the reader surface (cream/paper
+ * tones with brand-gradient accents), not a standalone dark card. Big
+ * cover, display title, language switcher, audio band.
  */
 export interface DemoChapterByLang {
   language_code: string;
@@ -104,30 +98,31 @@ export default function DemoReaderFinale({
   return (
     <section
       aria-label="Demo reader finale"
-      className="relative isolate overflow-hidden rounded-[28px] bg-[#0E0B1A] text-white shadow-[0_40px_120px_-40px_rgba(15,23,42,0.5)]"
+      // Light cream/paper base with very subtle ambient brand glow on the
+      // edges. Reads as part of the reader surface, not a foreign card.
+      className="relative isolate overflow-hidden rounded-[28px] border border-slate-200/80 bg-[#FDFAF4] shadow-[0_24px_72px_-32px_rgba(124,92,252,0.18)]"
     >
-      {/* Ambient background — brand orbs over a deep ink base */}
+      {/* Soft brand-gradient atmosphere — present but never dominant */}
       <div aria-hidden className="pointer-events-none absolute inset-0 overflow-hidden">
         <div
-          className="absolute -left-32 -top-32 h-[420px] w-[420px] rounded-full opacity-40 blur-3xl"
+          className="absolute -left-32 -top-40 h-[420px] w-[420px] rounded-full opacity-25 blur-3xl"
           style={{ background: "var(--brand-violet)" }}
         />
         <div
-          className="absolute -right-24 top-24 h-[380px] w-[380px] rounded-full opacity-30 blur-3xl"
+          className="absolute -right-24 top-32 h-[340px] w-[340px] rounded-full opacity-20 blur-3xl"
           style={{ background: "var(--brand-rose)" }}
         />
         <div
-          className="absolute -bottom-32 left-1/3 h-[420px] w-[420px] rounded-full opacity-25 blur-3xl"
+          className="absolute -bottom-32 left-1/3 h-[380px] w-[380px] rounded-full opacity-25 blur-3xl"
           style={{ background: "var(--brand-amber)" }}
         />
-        <div className="absolute inset-0 bg-gradient-to-b from-transparent via-transparent to-[#0E0B1A]/80" />
       </div>
 
       <div className="relative grid gap-8 p-6 sm:p-10 lg:grid-cols-[minmax(280px,400px)_minmax(0,1fr)] lg:gap-12">
         {/* ── Cover / trailer ──────────────────────────────────── */}
         <div className="flex justify-center lg:justify-start">
           <div
-            className="group relative aspect-[2/3] w-full max-w-[400px] overflow-hidden rounded-2xl shadow-[0_24px_60px_-12px_rgba(0,0,0,0.65)] ring-1 ring-white/10"
+            className="group relative aspect-[2/3] w-full max-w-[400px] overflow-hidden rounded-2xl shadow-[0_24px_60px_-12px_rgba(15,23,42,0.25)] ring-1 ring-slate-200/60"
             style={{ animation: "demoHeroCoverIn 600ms cubic-bezier(0.34, 1.56, 0.64, 1) both" }}
           >
             {trailerUrl ? (
@@ -148,12 +143,10 @@ export default function DemoReaderFinale({
                 className="absolute inset-0 h-full w-full object-cover transition-transform duration-700 ease-out group-hover:scale-[1.02]"
               />
             ) : (
-              <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-[var(--brand-violet)]/40 via-[var(--brand-rose)]/30 to-[var(--brand-amber)]/40 text-3xl font-bold">
+              <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-[var(--brand-violet)]/20 via-[var(--brand-rose)]/15 to-[var(--brand-amber)]/20 text-3xl font-bold text-slate-700">
                 {bookTitle}
               </div>
             )}
-            {/* Subtle glare/shine sweep on hover */}
-            <div className="pointer-events-none absolute inset-0 bg-gradient-to-tr from-transparent via-white/0 to-white/10 opacity-0 transition-opacity duration-500 group-hover:opacity-100" />
           </div>
         </div>
 
@@ -162,10 +155,10 @@ export default function DemoReaderFinale({
           className="flex min-w-0 flex-col justify-center gap-5"
           style={{ animation: "demoHeroTextIn 700ms ease-out 120ms both" }}
         >
-          <span className="inline-flex items-center gap-2 self-start rounded-full bg-white/10 px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.22em] text-white/85 backdrop-blur">
+          <span className="inline-flex items-center gap-2 self-start rounded-full border border-[var(--brand-violet)]/20 bg-white/70 px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.22em] text-[var(--brand-violet)] shadow-sm backdrop-blur">
             <Globe className="h-3 w-3" aria-hidden />
             Available in {chapters.length} languages
-            <span className="ml-2 flex items-center gap-1 text-[15px]" aria-hidden>
+            <span className="ml-2 flex items-center gap-1 text-[14px]" aria-hidden>
               {langs.map((l) => (
                 <span key={l} className="leading-none">
                   {LANGUAGE_FLAGS[l] ?? "🏳️"}
@@ -178,14 +171,12 @@ export default function DemoReaderFinale({
             className="text-balance text-[44px] font-bold leading-[1.05] tracking-[-0.02em] sm:text-[56px]"
             style={{ fontFamily: 'var(--font-montserrat-alternates), "Inter", ui-sans-serif, system-ui, sans-serif' }}
           >
-            <span
-              className="bg-gradient-to-r from-[var(--brand-violet)] via-[var(--brand-rose)] to-[var(--brand-amber)] bg-clip-text text-transparent"
-            >
+            <span className="bg-gradient-to-r from-[var(--brand-violet)] via-[var(--brand-rose)] to-[var(--brand-amber)] bg-clip-text text-transparent">
               {bookTitle}
             </span>
           </h1>
 
-          {/* Language switcher — flag pills, no labels */}
+          {/* Language switcher — flag pills only */}
           <div className="flex flex-wrap gap-1.5">
             {langs.map((l) => {
               const selected = l === activeLang;
@@ -199,8 +190,8 @@ export default function DemoReaderFinale({
                   title={LANGUAGE_NAMES[l] ?? l}
                   className={`flex h-9 w-9 items-center justify-center rounded-full text-[18px] transition-all duration-200 ${
                     selected
-                      ? "bg-white shadow-[0_8px_20px_-6px_rgba(255,255,255,0.4)] ring-2 ring-[var(--brand-violet)]"
-                      : "bg-white/10 backdrop-blur hover:bg-white/20 hover:scale-[1.08]"
+                      ? "bg-white shadow-[0_6px_18px_-4px_rgba(124,92,252,0.45)] ring-2 ring-[var(--brand-violet)]"
+                      : "border border-slate-200 bg-white/60 hover:scale-[1.08] hover:border-[var(--brand-violet)]/30 hover:bg-white"
                   }`}
                 >
                   <span aria-hidden>{LANGUAGE_FLAGS[l] ?? "🏳️"}</span>
@@ -212,21 +203,21 @@ export default function DemoReaderFinale({
           {/* Live-morphing chapter excerpt */}
           <blockquote
             key={activeLang}
-            className="rounded-2xl border border-white/10 bg-white/5 p-5 text-[15px] italic leading-[1.65] text-white/85 backdrop-blur-sm"
+            className="rounded-2xl border border-slate-200/70 bg-white/70 p-5 text-[15px] italic leading-[1.65] text-slate-700 shadow-sm backdrop-blur-sm"
             style={{ animation: "demoFadeIn 320ms ease-out" }}
           >
-            <span className="select-none text-[28px] leading-none text-white/30">“</span>
+            <span className="select-none text-[28px] leading-none text-[var(--brand-violet)]/40">“</span>
             {activeChapter?.excerpt ?? "—"}
-            <span className="select-none text-[28px] leading-none text-white/30">”</span>
+            <span className="select-none text-[28px] leading-none text-[var(--brand-violet)]/40">”</span>
           </blockquote>
 
-          {/* Audio bar */}
-          <div className="flex items-center gap-4 rounded-2xl bg-gradient-to-r from-[var(--brand-violet)]/30 via-[var(--brand-rose)]/20 to-[var(--brand-amber)]/25 p-3 pl-4 ring-1 ring-white/10 backdrop-blur">
+          {/* Audio bar — light, brand-violet primary */}
+          <div className="flex items-center gap-4 rounded-2xl border border-slate-200/70 bg-white p-3 pl-4 shadow-sm">
             <button
               type="button"
               onClick={handlePlayPause}
               aria-label={audioPlaying ? "Pause audiobook" : "Play audiobook"}
-              className="inline-flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-full bg-white text-[#0E0B1A] shadow-[0_8px_20px_-4px_rgba(255,255,255,0.5)] transition hover:scale-[1.05] active:scale-[0.96]"
+              className="inline-flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-full bg-[var(--brand-violet)] text-white shadow-[0_8px_20px_-4px_rgba(124,92,252,0.5)] transition hover:scale-[1.05] hover:bg-[var(--brand-violet-hover)] active:scale-[0.96]"
             >
               {audioPlaying ? (
                 <Pause className="h-5 w-5" aria-hidden />
@@ -235,20 +226,19 @@ export default function DemoReaderFinale({
               )}
             </button>
             <div className="min-w-0 flex-1">
-              <p className="text-[13px] font-semibold tracking-tight">
+              <p className="text-[13px] font-semibold tracking-tight text-slate-900">
                 Audiobook in {LANGUAGE_NAMES[activeLang] ?? activeLang.toUpperCase()}
               </p>
-              <p className="truncate text-[12px] text-white/60">
+              <p className="truncate text-[12px] text-slate-500">
                 Narrated with the author&rsquo;s cloned voice · {activeLang.toUpperCase()}
               </p>
             </div>
-            {/* Pulsing ring when playing */}
             {audioPlaying ? (
               <div className="hidden items-center gap-1 sm:flex" aria-hidden>
                 {[0.4, 0.7, 1.0, 0.6, 0.3].map((s, i) => (
                   <span
                     key={i}
-                    className="block w-[3px] rounded-full bg-white/80"
+                    className="block w-[3px] rounded-full bg-[var(--brand-violet)]/70"
                     style={{
                       height: `${10 + s * 14}px`,
                       animation: `demoAudioBar 800ms ease-in-out ${i * 80}ms infinite`,
