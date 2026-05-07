@@ -183,7 +183,7 @@ export default function ProductionFacade({ bookId }: ProductionFacadeProps) {
                     title={LANGUAGE_NAMES[lang]}
                     className={`flex h-9 w-9 items-center justify-center rounded-full text-[16px] transition-all duration-200 disabled:cursor-not-allowed ${
                       selected
-                        ? "bg-white shadow-[0_6px_16px_-6px_rgba(124,92,252,0.4)] ring-2 ring-[var(--brand-violet)]"
+                        ? "scale-110 bg-white shadow-[0_0_0_4px_rgba(124,92,252,0.18),0_8px_22px_-6px_rgba(124,92,252,0.55)] ring-[3px] ring-[var(--brand-violet)]"
                         : "border border-slate-200 bg-white/60 hover:scale-[1.08] hover:border-[var(--brand-violet)]/30 hover:bg-white"
                     }`}
                   >
@@ -220,24 +220,44 @@ export default function ProductionFacade({ bookId }: ProductionFacadeProps) {
         {/* ── Live status ─────────────────────────────────────────── */}
         {state.status !== "idle" ? (
           <div className="rounded-2xl border border-slate-200 bg-white/90 p-5 shadow-sm backdrop-blur">
-            <div className="flex items-center justify-between">
-              <div className="flex flex-col gap-0.5">
-                <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-slate-400">
-                  {isDone ? "Live" : "In progress"}
-                </p>
-                <p className="text-[18px] font-semibold tracking-tight text-slate-900">
-                  {isDone
-                    ? `${readyCount} languages ready`
-                    : `Producing ${selectedLanguages.length} languages…`}
-                </p>
-              </div>
-              <div className="flex items-center gap-3">
-                <span className="font-mono text-[13px] font-semibold text-slate-500">
-                  {readyCount}/{selectedLanguages.length}
+            <div className="flex items-center justify-between gap-4">
+              <div className="flex items-baseline gap-3">
+                {/* Big swelling counter — the focal point during the 17 s
+                    pacing window. Brand-gradient text-fill when complete
+                    so the eye lands on it from across the room. */}
+                <span
+                  key={readyCount}
+                  className={`tabular-nums text-[36px] font-bold leading-none tracking-[-0.02em] sm:text-[44px] ${
+                    isDone
+                      ? "bg-gradient-to-r from-[var(--brand-violet)] via-[var(--brand-rose)] to-[var(--brand-amber)] bg-clip-text text-transparent"
+                      : "text-slate-900"
+                  }`}
+                  style={{
+                    fontFamily: 'var(--font-montserrat-alternates), "Inter", ui-sans-serif, system-ui, sans-serif',
+                    animation: "demoCountPop 320ms cubic-bezier(0.34, 1.56, 0.64, 1)",
+                  }}
+                >
+                  {readyCount}
                 </span>
-                {isDone ? <CheckmarkPop /> : <ProgressRing value={readyCount / Math.max(1, selectedLanguages.length)} />}
+                <span className="text-[18px] font-medium text-slate-400">/ {selectedLanguages.length}</span>
+                <div className="ml-3 flex flex-col gap-0.5">
+                  <p className="text-[10px] font-semibold uppercase tracking-[0.22em] text-[var(--brand-violet)]">
+                    {isDone ? "Live" : "Producing"}
+                  </p>
+                  <p className="text-[14px] font-medium text-slate-700">
+                    {isDone ? "languages ready" : "languages in flight"}
+                  </p>
+                </div>
               </div>
+              {isDone ? <CheckmarkPop /> : <ProgressRing value={readyCount / Math.max(1, selectedLanguages.length)} />}
             </div>
+            <style>{`
+              @keyframes demoCountPop {
+                0% { transform: scale(0.8); opacity: 0.4; }
+                60% { transform: scale(1.08); opacity: 1; }
+                100% { transform: scale(1); opacity: 1; }
+              }
+            `}</style>
 
             <ul className="mt-5 grid gap-2 sm:grid-cols-2">
               {selectedLanguages.map((lang) => {

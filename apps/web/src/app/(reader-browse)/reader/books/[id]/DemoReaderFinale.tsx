@@ -196,7 +196,7 @@ export default function DemoReaderFinale({
                   title={LANGUAGE_NAMES[l] ?? l}
                   className={`flex h-9 w-9 items-center justify-center rounded-full text-[18px] transition-all duration-200 ${
                     selected
-                      ? "bg-white shadow-[0_6px_18px_-4px_rgba(124,92,252,0.45)] ring-2 ring-[var(--brand-violet)]"
+                      ? "scale-110 bg-white shadow-[0_0_0_4px_rgba(124,92,252,0.18),0_8px_22px_-6px_rgba(124,92,252,0.55)] ring-[3px] ring-[var(--brand-violet)]"
                       : "border border-slate-200 bg-white/60 hover:scale-[1.08] hover:border-[var(--brand-violet)]/30 hover:bg-white"
                   }`}
                 >

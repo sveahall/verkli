@@ -16,14 +16,25 @@ export const dynamic = "force-dynamic";
  */
 async function handle(request: Request): Promise<NextResponse> {
   const supabase = await createClient();
-  await supabase.auth.signOut().catch(() => undefined);
+  try {
+    const { error } = await supabase.auth.signOut();
+    if (error) {
+      console.warn("[auth signout] Supabase signOut returned an error", {
+        message: error.message,
+      });
+    }
+  } catch (error) {
+    console.warn("[auth signout] Supabase signOut failed", {
+      message: error instanceof Error ? error.message : String(error),
+    });
+  }
 
   // Honor an explicit ?redirect=... if it points back at our own origin;
   // otherwise drop the user on the homepage.
   const url = new URL(request.url);
   const requested = url.searchParams.get("redirect");
   let target = "/";
-  if (requested && requested.startsWith("/")) {
+  if (requested && (requested === "/" || /^\/[^/]/.test(requested))) {
     target = requested;
   }
   return NextResponse.redirect(new URL(target, url.origin), { status: 303 });

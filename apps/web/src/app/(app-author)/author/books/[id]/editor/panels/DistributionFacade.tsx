@@ -179,17 +179,41 @@ export default function DistributionFacade({ bookId, marketingCampaigns }: Distr
         {/* ── Live status + grid ──────────────────────────────────── */}
         {state.status !== "idle" ? (
           <div className="rounded-2xl border border-slate-200 bg-white/90 p-5 shadow-sm backdrop-blur">
-            <div className="flex items-center justify-between">
-              <div className="flex flex-col gap-0.5">
-                <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-slate-400">
-                  {isDone ? "Live" : "Launching"}
-                </p>
-                <p className="text-[18px] font-semibold tracking-tight text-slate-900">
-                  {isDone ? "12 live posts" : `${readyCount}/12 posts`}
-                </p>
+            <div className="flex items-center justify-between gap-4">
+              <div className="flex items-baseline gap-3">
+                <span
+                  key={readyCount}
+                  className={`tabular-nums text-[36px] font-bold leading-none tracking-[-0.02em] sm:text-[44px] ${
+                    isDone
+                      ? "bg-gradient-to-r from-[var(--brand-violet)] via-[var(--brand-rose)] to-[var(--brand-amber)] bg-clip-text text-transparent"
+                      : "text-slate-900"
+                  }`}
+                  style={{
+                    fontFamily: 'var(--font-montserrat-alternates), "Inter", ui-sans-serif, system-ui, sans-serif',
+                    animation: "demoCountPop 320ms cubic-bezier(0.34, 1.56, 0.64, 1)",
+                  }}
+                >
+                  {readyCount}
+                </span>
+                <span className="text-[18px] font-medium text-slate-400">/ 12</span>
+                <div className="ml-3 flex flex-col gap-0.5">
+                  <p className="text-[10px] font-semibold uppercase tracking-[0.22em] text-[var(--brand-violet)]">
+                    {isDone ? "Live" : "Launching"}
+                  </p>
+                  <p className="text-[14px] font-medium text-slate-700">
+                    {isDone ? "posts live" : "posts going out"}
+                  </p>
+                </div>
               </div>
               {isDone ? <CheckmarkPop /> : null}
             </div>
+            <style>{`
+              @keyframes demoCountPop {
+                0% { transform: scale(0.8); opacity: 0.4; }
+                60% { transform: scale(1.08); opacity: 1; }
+                100% { transform: scale(1); opacity: 1; }
+              }
+            `}</style>
 
             <div className="mt-5 space-y-5">
               {DEMO_CHANNELS.map((channel) => (

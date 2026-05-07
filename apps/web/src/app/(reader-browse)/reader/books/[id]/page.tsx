@@ -822,7 +822,7 @@ export default async function ReaderBookDetail({
               (book as { cover_image?: string | null }).cover_image ??
               // Demo book has no real cover_image yet; fall back to the
               // first pre-baked demo cover so the hero never renders empty.
-              "/demo-assets/covers/01.png"
+              "/demo-assets/covers/01.jpg"
             }
             trailerUrl={(book as { trailer_url?: string | null }).trailer_url ?? null}
             chapters={demoFinaleData.chapters}

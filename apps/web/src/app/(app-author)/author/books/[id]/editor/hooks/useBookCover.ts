@@ -36,10 +36,10 @@ const DEMO_COVER_TIMEOUT_MS = 15_000;
  */
 const DEMO_FALLBACK_MIN_DURATION_MS = 8_000;
 const DEMO_FALLBACK_COVERS: ReadonlyArray<string> = [
-  "/demo-assets/covers/01.png",
-  "/demo-assets/covers/02.png",
-  "/demo-assets/covers/03.png",
-  "/demo-assets/covers/04.png",
+  "/demo-assets/covers/01.jpg",
+  "/demo-assets/covers/02.jpg",
+  "/demo-assets/covers/03.jpg",
+  "/demo-assets/covers/04.jpg",
 ];
 
 export type DemoCoverPhase =
