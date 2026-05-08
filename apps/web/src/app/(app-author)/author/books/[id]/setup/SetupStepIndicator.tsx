@@ -38,7 +38,7 @@ export default function SetupStepIndicator({ currentStep, setupState, onStepClic
               disabled={!canNavigate}
               className={`flex-shrink-0 rounded-full px-3 py-1.5 text-[12px] font-medium transition ${
                 isCurrent
-                  ? "bg-[#907AFF] text-white"
+                  ? "bg-[#0F172A] text-white"
                   : isDone
                     ? "bg-emerald-500/10 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-400"
                     : isSkipped

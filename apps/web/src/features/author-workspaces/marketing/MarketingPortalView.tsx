@@ -178,7 +178,7 @@ export default function MarketingPortalView({
             </p>
             <Link
               href="/author/books/new"
-              className="mt-5 inline-flex items-center rounded-full bg-[#907AFF] px-5 py-2.5 text-[14px] font-medium text-white hover:bg-[#8069EE]"
+              className="mt-5 inline-flex items-center rounded-full bg-[#0F172A] px-5 py-2.5 text-[14px] font-medium text-white hover:bg-[#1E293B]"
             >
               Add a book
             </Link>
@@ -213,7 +213,7 @@ export default function MarketingPortalView({
             <div className="mt-5 flex flex-wrap items-center gap-3">
               <Button
                 onClick={() => setWizardOpen(true)}
-                className="rounded-full bg-gradient-to-r from-[#8E79FF] to-[#7A6EFF] px-6 text-white"
+                className="rounded-full bg-[#0F172A] px-6 text-white hover:bg-[#1E293B]"
               >
                 Create campaign
               </Button>

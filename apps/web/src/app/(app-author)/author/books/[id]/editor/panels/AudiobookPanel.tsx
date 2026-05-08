@@ -273,7 +273,7 @@ export default function AudiobookPanel({
             type="button"
             onClick={() => void handleGenerateAudiobook()}
             disabled={isAudiobookActive || !audiobookFeatureEnabled || billingLoading || (billingIsProActive && audiobookScope !== "book" && audiobookRequestedChapterIds.length === 0)}
-            className="mt-5 rounded-xl bg-[#907AFF] px-8 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-[#7c6ae6] disabled:cursor-not-allowed disabled:opacity-50"
+            className="mt-5 rounded-xl bg-[#0F172A] px-8 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-[#1E293B] disabled:cursor-not-allowed disabled:opacity-50"
           >
             {!audiobookFeatureEnabled
               ? "Generate audiobook (unavailable)"

@@ -41,7 +41,7 @@ function SaveButton() {
     <button
       type="submit"
       disabled={pending}
-      className="min-h-[44px] rounded-full bg-[#907AFF] px-6 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-[#907AFF]/90 hover:shadow-md active:scale-[0.97] disabled:cursor-not-allowed disabled:opacity-60"
+      className="min-h-[44px] rounded-full bg-[#0F172A] px-6 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-[#1E293B] hover:shadow-md active:scale-[0.97] disabled:cursor-not-allowed disabled:opacity-60"
     >
       {pending ? "Saving…" : "Save profile"}
     </button>
@@ -216,7 +216,7 @@ export default function ProfilePage({ user, profile }: ProfilePageProps) {
                         className="object-cover"
                       />
                     ) : (
-                      <div className="flex h-full w-full items-center justify-center bg-[#907AFF] text-2xl font-bold text-white">
+                      <div className="flex h-full w-full items-center justify-center bg-[#0F172A] text-2xl font-bold text-white">
                         {initials}
                       </div>
                     )}

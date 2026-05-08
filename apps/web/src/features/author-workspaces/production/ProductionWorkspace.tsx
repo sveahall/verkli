@@ -181,7 +181,7 @@ function EmptyState() {
           <button
             type="button"
             onClick={() => setOpen(true)}
-            className="inline-flex items-center gap-2 rounded-full bg-[#907AFF] px-5 py-2.5 text-sm font-medium text-white transition hover:bg-[#7a67f2]"
+            className="inline-flex items-center gap-2 rounded-full bg-[#0F172A] px-5 py-2.5 text-sm font-medium text-white transition hover:bg-[#1E293B]"
           >
             <Plus className="h-4 w-4" />
             {t("production.createBook")}

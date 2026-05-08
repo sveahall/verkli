@@ -1,7 +1,7 @@
 import { notFound } from "next/navigation";
 import BookEditor from "./BookEditor";
 import { loadBookWorkspaceData } from "./loadBookWorkspaceData";
-import { TOOL_ORDER, type Tool } from "./editor/bookEditor.shared";
+import type { Tool } from "./editor/bookEditor.shared";
 import { isDemoModeActive } from "@/lib/flags";
 
 const VALID_PANELS: Tool[] = [
@@ -35,9 +35,13 @@ export default async function BookWorkspacePage({
   // (a) the deployment-level demo flag is on AND (b) this profile is the
   // protected demo author. Real users never see it; the regular editor
   // panels stay untouched.
+  //
+  // In demo mode the stepper + sidebar both collapse to the three pitch
+  // surfaces the investor walks through (Cover → Production → Distribute).
+  // Direct URL navigation to other panels still resolves via ALL_TOOLS.
   const demoActive = isDemoModeActive({ demo_mode: data.authorDemoMode });
   const visibleTools: Tool[] | undefined = demoActive
-    ? insertDemoStepsIntoOrder(TOOL_ORDER)
+    ? (["cover", "production", "distribute"] as Tool[])
     : undefined;
 
   return (
@@ -56,24 +60,4 @@ export default async function BookWorkspacePage({
       visibleTools={visibleTools}
     />
   );
-}
-
-/**
- * Insert the demo-only stepper entries into the linear flow:
- *   - "production" right before "audiobook" (Day 3 façade)
- *   - "distribute" right after "production" (Day 4 façade)
- *
- * Real users get the unmodified TOOL_ORDER; demo users get the two extra
- * paraply-steps that bundle audiobook+translations and TikTok/IG/X/YT
- * launch into one-click affordances.
- */
-function insertDemoStepsIntoOrder(order: ReadonlyArray<Tool>): Tool[] {
-  const idx = order.indexOf("audiobook");
-  if (idx === -1) return [...order, "production", "distribute"];
-  return [
-    ...order.slice(0, idx),
-    "production",
-    "distribute",
-    ...order.slice(idx),
-  ];
 }

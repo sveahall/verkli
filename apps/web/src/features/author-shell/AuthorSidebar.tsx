@@ -135,7 +135,7 @@ function SidebarNavLink({
       onMouseEnter={() => router.prefetch(href)}
       className={`group/nav relative flex w-full min-h-[44px] items-center gap-3.5 rounded-xl px-5 py-2.5 text-[15px] font-normal transition-all duration-200 ${
         active
-          ? "bg-gradient-to-r bg-[#907AFF] text-white"
+          ? "bg-[#0F172A] text-white"
           : "text-[#7A8194] hover:bg-[#F6F7FB] hover:text-[#555C70] hover:translate-x-0.5 dark:text-white/50 dark:hover:bg-white/10 dark:hover:text-white"
       }`}
     >
@@ -351,7 +351,7 @@ export default function AuthorSidebar({
                 <span
                   className={`flex h-8 w-8 items-center justify-center rounded-xl transition-all duration-200 ${
                     active
-                      ? "bg-gradient-to-r from-[#907AFF] to-[#7C6CFF] text-white shadow-md shadow-[#907AFF]/20"
+                      ? "bg-[#0F172A] text-white shadow-md shadow-[#0F172A]/20"
                       : "text-[#7A8194] group-hover:text-[#555C70] dark:text-white/40 dark:group-hover:text-white/70"
                   }`}
                 >
@@ -383,7 +383,7 @@ export default function AuthorSidebar({
                 <span
                   className={`flex h-8 w-8 items-center justify-center rounded-xl transition-all duration-200 ${
                     active
-                      ? "bg-gradient-to-r from-[#907AFF] to-[#7C6CFF] text-white shadow-md shadow-[#907AFF]/20"
+                      ? "bg-[#0F172A] text-white shadow-md shadow-[#0F172A]/20"
                       : "text-[#7A8194] group-hover:text-[#555C70] dark:text-white/40 dark:group-hover:text-white/70"
                   }`}
                 >

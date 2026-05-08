@@ -152,7 +152,7 @@ export default function SubscriptionPlanSection({
           type="button"
           onClick={handleSave}
           disabled={saving}
-          className="min-h-[44px] rounded-full bg-gradient-to-r from-[#8E79FF] to-[#7A6EFF] px-5 py-2 text-[13px] font-semibold text-white shadow-[0_4px_12px_rgba(124,108,255,0.3)] transition hover:shadow-[0_6px_16px_rgba(124,108,255,0.4)] disabled:cursor-not-allowed disabled:opacity-60"
+          className="min-h-[44px] rounded-full bg-[#0F172A] px-5 py-2 text-[13px] font-semibold text-white shadow-[0_4px_12px_rgba(15,23,42,0.18)] transition hover:bg-[#1E293B] hover:shadow-[0_6px_16px_rgba(15,23,42,0.24)] disabled:cursor-not-allowed disabled:opacity-60"
         >
           {saving ? "Saving…" : "Save subscription settings"}
         </button>

@@ -95,21 +95,23 @@ export default function CoverPanel({
     : null;
 
   return (
-    <div className="mx-20 mt-10 max-w-6xl space-y-8">
-      {/* ── Header ── */}
-      <div>
-        <div className="flex items-center justify-center gap-2.5">
-          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-[#907AFF]/10 dark:bg-[#907AFF]/15">
-            <ImageIcon className="h-4 w-4 text-[#907AFF]" />
+    <div className={`mx-auto w-full max-w-[1080px] px-6 ${demoMode ? "mt-6 space-y-5 sm:mt-8" : "mt-10 space-y-8 sm:px-12"}`}>
+      {/* ── Header (real-mode only — demo mode lets the panels speak for themselves) ── */}
+      {!demoMode && (
+        <div>
+          <div className="flex items-center justify-center gap-2.5">
+            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-[#907AFF]/10 dark:bg-[#907AFF]/15">
+              <ImageIcon className="h-4 w-4 text-[#907AFF]" />
+            </div>
+            <h2 className="text-lg font-semibold text-slate-900 dark:text-white">
+              Book Cover
+            </h2>
           </div>
-          <h2 className="text-lg font-semibold text-slate-900 dark:text-white">
-            Book Cover
-          </h2>
+          <p className="my-6 text-sm text-slate-500 justify-center text-center mx-auto dark:text-white/45">
+            Upload your own cover image or generate one with AI. Recommended size: 1600 &times; 2400px (3:4 ratio).
+          </p>
         </div>
-        <p className="my-6 text-sm text-slate-500 justify-center text-center mx-auto dark:text-white/45">
-          Upload your own cover image or generate one with AI. Recommended size: 1600 &times; 2400px (3:4 ratio).
-        </p>
-      </div>
+      )}
 
       <input
         ref={coverInputRef}
@@ -126,21 +128,29 @@ export default function CoverPanel({
         </p>
       )}
 
-      <div className="grid gap-8 pt-10 lg:grid-cols-[300px_1fr]">
+      <div className={`grid items-stretch ${demoMode ? "gap-6 pt-2 lg:grid-cols-[minmax(260px,320px)_1fr]" : "gap-8 pt-10 lg:grid-cols-[300px_1fr]"}`}>
         {/* ── Cover preview ── */}
-        <div>
+        <div className={demoMode ? "flex flex-col" : ""}>
           {displayCoverUrl ? (
-            <div className="space-y-4">
-              <div className="relative overflow-hidden rounded-2xl border border-black/[0.06] shadow-md dark:border-white/[0.08]" style={{ aspectRatio: "3/4" }}>
+            <div className={demoMode ? "flex h-full flex-col" : "space-y-4"}>
+              <div
+                className={`relative overflow-hidden ${
+                  demoMode
+                    ? "rounded-3xl ring-1 ring-slate-200/70 dark:ring-white/[0.08]"
+                    : "rounded-2xl border border-black/[0.06] dark:border-white/[0.08]"
+                }`}
+                style={{ aspectRatio: "3/4" }}
+              >
                 <Image
                   src={displayCoverUrl}
                   alt="Book cover"
                   fill
-                  sizes="300px"
+                  sizes="320px"
                   className="object-cover"
                   unoptimized
                 />
               </div>
+              {!demoMode && (
               <div className="flex gap-2">
                 <button
                   type="button"
@@ -176,6 +186,7 @@ export default function CoverPanel({
                   Remove
                 </button>
               </div>
+              )}
             </div>
           ) : (
             <div
@@ -227,55 +238,41 @@ export default function CoverPanel({
         </div>
 
         {/* ── AI generation ── */}
-        <div className="space-y-5">
-          {/* Demo mode: cinematic single-click panel matching Production / Distribute */}
+        <div className={demoMode ? "flex flex-col" : "space-y-5"}>
+          {/* Demo mode: editorial, left-aligned, type-driven panel */}
           {demoMode ? (
-            <div className="relative isolate overflow-hidden rounded-[28px] border border-slate-200/80 bg-[#FDFAF4] p-8 shadow-[0_24px_72px_-32px_rgba(124,92,252,0.18)] sm:p-10">
-              {/* Ambient brand orbs */}
-              <div aria-hidden className="pointer-events-none absolute inset-0 overflow-hidden">
-                <div
-                  className="absolute -left-24 -top-32 h-[300px] w-[300px] rounded-full opacity-25 blur-3xl"
-                  style={{ background: "var(--brand-violet)" }}
-                />
-                <div
-                  className="absolute -right-20 top-24 h-[260px] w-[260px] rounded-full opacity-20 blur-3xl"
-                  style={{ background: "var(--brand-rose)" }}
-                />
-                <div
-                  className="absolute -bottom-24 left-1/3 h-[280px] w-[280px] rounded-full opacity-20 blur-3xl"
-                  style={{ background: "var(--brand-amber)" }}
-                />
+            <div className="relative isolate flex h-full min-h-[420px] flex-col justify-between overflow-hidden rounded-3xl px-10 py-10 ring-1 ring-slate-200/70 sm:px-12 sm:py-12 dark:ring-white/[0.08]">
+
+              {/* Single warm wash — corner glow, not a centered orb */}
+
+
+              {/* Middle zone: headline + body — left-aligned, editorial */}
+              <div className="relative space-y-4">
+                <h2
+                  className="text-[40px] font-semibold leading-[0.98] tracking-[-0.028em] text-slate-900 sm:text-[52px]"
+                >
+                  Cover, in
+                  <br />
+                  eight seconds.
+                </h2>
+                <p className="max-w-[34ch] text-[14px] leading-relaxed text-slate-500">
+                  Four variations from your title, synopsis, and genre.
+                </p>
               </div>
 
-              <div className="relative flex flex-col items-center gap-5 text-center">
-                <span className="inline-flex items-center gap-1.5 rounded-full border border-[var(--brand-violet)]/20 bg-white/70 px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-[0.22em] text-[var(--brand-violet)] backdrop-blur">
-                  <Sparkles className="h-2.5 w-2.5" />
-                  Cover
-                </span>
-                <h2
-                  className="text-balance text-[32px] font-bold leading-[1.05] tracking-[-0.02em] text-slate-900 sm:text-[40px]"
-                  style={{ fontFamily: 'var(--font-montserrat-alternates), "Inter", ui-sans-serif, system-ui, sans-serif' }}
-                >
-                  Generate{" "}
-                  <span className="bg-gradient-to-r from-[var(--brand-violet)] via-[var(--brand-rose)] to-[var(--brand-amber)] bg-clip-text text-transparent">
-                    cover
-                  </span>
-                </h2>
-                <p className="max-w-sm text-[14px] leading-relaxed text-slate-600">
-                  Based on your book&rsquo;s title, synopsis, and genre. Four variations in 8 seconds.
-                </p>
-
+              {/* Bottom zone: CTA + supporting meta */}
+              <div className="relative flex flex-wrap items-center gap-3">
                 <button
                   type="button"
                   onClick={handleCoverAIGenerate}
                   disabled={coverAIGenerating}
-                  className="group/btn relative mt-2 inline-flex items-center gap-2.5 overflow-hidden rounded-full bg-[var(--brand-violet)] px-8 py-3.5 text-[15px] font-semibold text-white shadow-[0_18px_40px_-12px_rgba(124,92,252,0.65)] transition-all duration-300 hover:bg-[var(--brand-violet-hover)] hover:shadow-[0_24px_48px_-12px_rgba(124,92,252,0.75)] active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-70"
+                  className="group/btn relative inline-flex items-center gap-2 overflow-hidden rounded-full bg-[#0F172A] px-6 py-3 text-[14px] font-medium text-white transition-all duration-300 hover:bg-[#1E293B] hover:shadow-[0_1px_2px_rgba(15,23,42,0.2),0_18px_36px_-10px_rgba(15,23,42,0.5)] active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-70"
                 >
                   <span
                     aria-hidden
-                    className="absolute inset-0 -translate-x-full bg-gradient-to-r from-transparent via-white/25 to-transparent transition-transform duration-700 group-hover/btn:translate-x-full"
+                    className="absolute inset-0 -translate-x-full bg-gradient-to-r from-transparent via-white/20 to-transparent transition-transform duration-700 group-hover/btn:translate-x-full"
                   />
-                  <Sparkles className="relative h-4 w-4" />
+                  <Sparkles className="relative h-3.5 w-3.5" />
                   <span className="relative">
                     {coverAIGenerating ? "Generating…" : "Generate cover"}
                   </span>
@@ -283,7 +280,7 @@ export default function CoverPanel({
 
                 {coverAIError && (
                   <p
-                    className="rounded-xl border border-red-200 bg-red-50 px-4 py-2 text-xs text-red-600"
+                    className="basis-full rounded-xl border border-red-200 bg-red-50 px-4 py-2 text-xs text-red-600"
                     role="alert"
                   >
                     {coverAIError}
@@ -292,16 +289,16 @@ export default function CoverPanel({
 
                 {coverAIGenerating && coverAIPhase !== "idle" && coverAIPhase !== "done" ? (
                   <div
-                    className="mt-2 flex items-center gap-3 rounded-full border border-[var(--brand-violet)]/25 bg-white/80 px-4 py-2 shadow-sm backdrop-blur"
+                    className="basis-full mt-1 inline-flex w-fit items-center gap-2.5 rounded-full bg-white px-3.5 py-1.5 ring-1 ring-slate-200/70"
                     aria-live="polite"
                   >
-                    <span className="relative inline-flex h-2 w-2">
+                    <span className="relative inline-flex h-1.5 w-1.5">
                       <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-[var(--brand-violet)]/60" />
-                      <span className="relative inline-flex h-2 w-2 rounded-full bg-[var(--brand-violet)]" />
+                      <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-[var(--brand-violet)]" />
                     </span>
                     <span
                       key={coverAIPhase}
-                      className="text-[12px] font-medium text-slate-700"
+                      className="text-[11px] font-medium text-slate-600"
                       style={{ animation: "demoCoverPhaseFade 280ms ease-out" }}
                     >
                       {coverAIPhase === "analyzing"
@@ -453,7 +450,7 @@ export default function CoverPanel({
                 type="button"
                 onClick={handleCoverAIGenerate}
                 disabled={coverAIGenerating}
-                className="inline-flex items-center gap-2 rounded-xl bg-[#907AFF] px-6 py-2.5 text-xs font-semibold text-white shadow-sm transition hover:bg-[#7B6BF0] hover:shadow-md active:scale-[0.97] disabled:opacity-50"
+                className="inline-flex items-center gap-2 rounded-xl bg-[#0F172A] px-6 py-2.5 text-xs font-semibold text-white shadow-sm transition hover:bg-[#1E293B] hover:shadow-md active:scale-[0.97] disabled:opacity-50"
               >
                 <Sparkles className="h-3.5 w-3.5" />
                 {coverAIGenerating ? "Generating..." : "Generate"}
@@ -536,7 +533,7 @@ export default function CoverPanel({
                     setCoverAIPreviewUrl(null);
                   }}
                   disabled={coverUploading}
-                  className="rounded-xl bg-[#907AFF] px-6 py-2.5 text-xs font-semibold text-white transition hover:bg-[#7B6BF0] active:scale-[0.97] disabled:opacity-50"
+                  className="rounded-xl bg-[#0F172A] px-6 py-2.5 text-xs font-semibold text-white transition hover:bg-[#1E293B] active:scale-[0.97] disabled:opacity-50"
                 >
                   {coverUploading ? "Saving..." : "Use as cover"}
                 </button>

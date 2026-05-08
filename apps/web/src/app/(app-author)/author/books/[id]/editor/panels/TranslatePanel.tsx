@@ -402,7 +402,7 @@ export default function TranslatePanel({
               onClick={() => setTranslateScope("book")}
               className={`rounded-full px-4 py-1.5 text-xs font-medium transition ${
                 translateScope === "book"
-                  ? "bg-[#907AFF] text-white shadow-sm"
+                  ? "bg-[#0F172A] text-white shadow-sm"
                   : "bg-slate-100 text-slate-600 hover:bg-slate-200 dark:bg-white/[0.06] dark:text-white/70 dark:hover:bg-white/10"
               }`}
             >
@@ -413,7 +413,7 @@ export default function TranslatePanel({
               onClick={() => setTranslateScope("chapter")}
               className={`rounded-full px-4 py-1.5 text-xs font-medium transition ${
                 translateScope === "chapter"
-                  ? "bg-[#907AFF] text-white shadow-sm"
+                  ? "bg-[#0F172A] text-white shadow-sm"
                   : "bg-slate-100 text-slate-600 hover:bg-slate-200 dark:bg-white/[0.06] dark:text-white/70 dark:hover:bg-white/10"
               }`}
             >
@@ -473,7 +473,7 @@ export default function TranslatePanel({
               type="button"
               onClick={() => void handleTranslateFullBook()}
               disabled={translating || billingLoading || !sourceVersionId}
-              className="block w-full rounded-full bg-[#907AFF] px-4 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-[#7c6ae6] disabled:cursor-not-allowed disabled:opacity-60"
+              className="block w-full rounded-full bg-[#0F172A] px-4 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-[#1E293B] disabled:cursor-not-allowed disabled:opacity-60"
             >
               {translating ? "Translating..." : "Translate full book"}
             </button>

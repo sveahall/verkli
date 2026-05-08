@@ -297,7 +297,7 @@ function TrailerCard({
         type="button"
         onClick={() => void handleGenerate()}
         disabled={isBuilding || isProLocked || !coverImage}
-        className="w-full rounded-xl bg-gradient-to-b from-[#907AFF] to-[#7c6ae6] px-4 py-3 text-sm font-semibold text-white shadow-[0_1px_2px_rgba(144,122,255,0.3),inset_0_1px_0_rgba(255,255,255,0.15)] transition-all hover:shadow-[0_4px_12px_rgba(144,122,255,0.35)] hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-50"
+        className="w-full rounded-xl bg-[#0F172A] px-4 py-3 text-sm font-semibold text-white shadow-[0_1px_2px_rgba(15,23,42,0.3),inset_0_1px_0_rgba(255,255,255,0.08)] transition-all hover:bg-[#1E293B] hover:shadow-[0_4px_12px_rgba(15,23,42,0.35)] disabled:cursor-not-allowed disabled:opacity-50"
       >
         {isBuilding ? "Starting..." : "Generate trailer"}
       </button>
@@ -574,7 +574,7 @@ export default function MarketPanel({
               type="button"
               onClick={() => void onGenerateCopy(selectedChannel, language)}
               disabled={isGenerating || isProLocked}
-              className="w-full rounded-xl bg-gradient-to-b from-[#907AFF] to-[#7c6ae6] px-4 py-3 text-sm font-semibold text-white shadow-[0_1px_2px_rgba(144,122,255,0.3),inset_0_1px_0_rgba(255,255,255,0.15)] transition-all hover:shadow-[0_4px_12px_rgba(144,122,255,0.35)] hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-50"
+              className="w-full rounded-xl bg-[#0F172A] px-4 py-3 text-sm font-semibold text-white shadow-[0_1px_2px_rgba(15,23,42,0.3),inset_0_1px_0_rgba(255,255,255,0.08)] transition-all hover:bg-[#1E293B] hover:shadow-[0_4px_12px_rgba(15,23,42,0.35)] disabled:cursor-not-allowed disabled:opacity-50"
             >
               {isGenerating
                 ? "Generating..."

@@ -66,51 +66,23 @@ export default function ProductionFacade({ bookId }: ProductionFacadeProps) {
   return (
     <section
       aria-label="Demo production façade"
-      className="relative isolate overflow-hidden rounded-[28px] border border-slate-200/80 bg-[#FDFAF4] shadow-[0_24px_72px_-32px_rgba(124,92,252,0.18)]"
+      className="relative isolate overflow-hidden rounded-3xl ring-1 ring-slate-200/70 dark:ring-white/[0.08]"
     >
-      {/* Ambient brand orbs — same atmospheric language as reader-finalen */}
-      <div aria-hidden className="pointer-events-none absolute inset-0 overflow-hidden">
-        <div
-          className="absolute -left-24 -top-32 h-[360px] w-[360px] rounded-full opacity-25 blur-3xl"
-          style={{ background: "var(--brand-violet)" }}
-        />
-        <div
-          className="absolute -right-20 top-24 h-[300px] w-[300px] rounded-full opacity-20 blur-3xl"
-          style={{ background: "var(--brand-rose)" }}
-        />
-        <div
-          className="absolute -bottom-32 left-1/3 h-[340px] w-[340px] rounded-full opacity-20 blur-3xl"
-          style={{ background: "var(--brand-amber)" }}
-        />
-      </div>
-
-      <div className="relative flex flex-col gap-7 p-6 sm:p-10">
+      <div className="relative flex flex-col gap-6 p-6 sm:p-10">
         {/* ── Hero header ─────────────────────────────────────────── */}
-        <header className="flex items-start justify-between gap-4">
-          <div className="flex flex-col gap-2">
-            <span className="inline-flex items-center gap-1.5 self-start rounded-full border border-[var(--brand-violet)]/20 bg-white/70 px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-[0.22em] text-[var(--brand-violet)] backdrop-blur">
-              <Sparkles className="h-2.5 w-2.5" aria-hidden />
-              Production
-            </span>
-            <h2
-              className="text-balance text-[36px] font-bold leading-[1.05] tracking-[-0.02em] text-slate-900 sm:text-[44px]"
-              style={{ fontFamily: 'var(--font-montserrat-alternates), "Inter", ui-sans-serif, system-ui, sans-serif' }}
-            >
-              Produce{" "}
-              <span className="bg-gradient-to-r from-[var(--brand-violet)] via-[var(--brand-rose)] to-[var(--brand-amber)] bg-clip-text text-transparent">
-                everything
-              </span>
-            </h2>
-            <p className="text-body max-w-xl text-slate-600">
-              One click. The audiobook narrates with your cloned voice and the
-              book translates into every language you pick — all in parallel.
-            </p>
-          </div>
+        <header className="relative flex flex-col items-center gap-3 text-center">
+          <h2 className="text-[26px] font-semibold leading-[1.1] tracking-[-0.02em] text-slate-900 sm:text-[32px]">
+            Produce everything.
+          </h2>
+          <p className="max-w-[44ch] text-[14px] leading-relaxed text-slate-500">
+            One click. The audiobook narrates with your cloned voice and the
+            book translates into every language you pick — all in parallel.
+          </p>
           {isDone ? (
             <button
               type="button"
               onClick={reset}
-              className="rounded-full border border-slate-200 bg-white/80 px-3 py-1.5 text-[12px] font-medium text-slate-600 backdrop-blur hover:bg-white"
+              className="absolute right-0 top-0 rounded-full border border-slate-200 bg-white px-3 py-1.5 text-[12px] font-medium text-slate-600 hover:bg-slate-50"
             >
               Reset
             </button>
@@ -118,13 +90,13 @@ export default function ProductionFacade({ bookId }: ProductionFacadeProps) {
         </header>
 
         {/* ── Audiobook toggle + Language picker ──────────────────── */}
-        <div className="grid gap-4 sm:grid-cols-[260px_minmax(0,1fr)]">
+        <div className="grid gap-6 sm:grid-cols-[260px_minmax(0,1fr)]">
           {/* Audiobook card */}
           <label
-            className={`group flex cursor-pointer items-start gap-3 rounded-2xl border bg-white/85 p-4 shadow-sm backdrop-blur transition-all ${
+            className={`group flex cursor-pointer items-start gap-3 rounded-2xl border bg-white p-4 transition-colors ${
               audiobookEnabled
-                ? "border-[var(--brand-violet)]/30 ring-2 ring-[var(--brand-violet)]/15"
-                : "border-slate-200 hover:border-slate-300"
+                ? "border-[var(--brand-violet)]/30"
+                : "border-slate-100 hover:border-slate-200"
             } ${isProducing ? "cursor-not-allowed opacity-60" : ""}`}
           >
             <input
@@ -137,7 +109,7 @@ export default function ProductionFacade({ bookId }: ProductionFacadeProps) {
             <span
               className={`mt-0.5 flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-xl ${
                 audiobookEnabled
-                  ? "bg-[var(--brand-violet)] text-white shadow-[0_6px_16px_-6px_rgba(124,92,252,0.55)]"
+                  ? "bg-[var(--brand-violet)] text-white"
                   : "bg-slate-100 text-slate-500"
               }`}
             >
@@ -157,9 +129,9 @@ export default function ProductionFacade({ bookId }: ProductionFacadeProps) {
           </label>
 
           {/* Language picker */}
-          <div className="rounded-2xl border border-slate-200 bg-white/85 p-4 shadow-sm backdrop-blur">
+          <div className="rounded-2xl border border-slate-100 bg-white p-4">
             <div className="flex items-center justify-between gap-3">
-              <span className="flex items-center gap-2 text-[14px] font-semibold text-slate-900">
+              <span className="flex items-center gap-2 text-[14px] font-medium text-slate-900">
                 <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-slate-100 text-slate-600">
                   <Languages className="h-3.5 w-3.5" aria-hidden />
                 </span>
@@ -183,8 +155,8 @@ export default function ProductionFacade({ bookId }: ProductionFacadeProps) {
                     title={LANGUAGE_NAMES[lang]}
                     className={`flex h-9 w-9 items-center justify-center rounded-full text-[16px] transition-all duration-200 disabled:cursor-not-allowed ${
                       selected
-                        ? "scale-110 bg-white shadow-[0_0_0_4px_rgba(124,92,252,0.18),0_8px_22px_-6px_rgba(124,92,252,0.55)] ring-[3px] ring-[var(--brand-violet)]"
-                        : "border border-slate-200 bg-white/60 hover:scale-[1.08] hover:border-[var(--brand-violet)]/30 hover:bg-white"
+                        ? "bg-white ring-1 ring-[var(--brand-violet)]"
+                        : "border border-slate-100 bg-white hover:border-[var(--brand-violet)]/30"
                     }`}
                   >
                     <span aria-hidden>{LANGUAGE_FLAGS[lang]}</span>
@@ -201,7 +173,7 @@ export default function ProductionFacade({ bookId }: ProductionFacadeProps) {
             type="button"
             onClick={start}
             disabled={isProducing}
-            className="group relative inline-flex items-center gap-2.5 overflow-hidden rounded-full bg-[var(--brand-violet)] px-8 py-3.5 text-[15px] font-semibold text-white shadow-[0_18px_40px_-12px_rgba(124,92,252,0.65)] transition-all duration-300 hover:bg-[var(--brand-violet-hover)] hover:shadow-[0_24px_48px_-12px_rgba(124,92,252,0.75)] active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-70"
+            className="group relative inline-flex items-center gap-2 overflow-hidden rounded-full bg-[#0F172A] px-6 py-3 text-[14px] font-medium text-white transition-colors duration-200 hover:bg-[#1E293B] active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-70"
           >
             <span
               aria-hidden
@@ -219,7 +191,7 @@ export default function ProductionFacade({ bookId }: ProductionFacadeProps) {
 
         {/* ── Live status ─────────────────────────────────────────── */}
         {state.status !== "idle" ? (
-          <div className="rounded-2xl border border-slate-200 bg-white/90 p-5 shadow-sm backdrop-blur">
+          <div className="rounded-2xl border border-slate-100 bg-white p-5">
             <div className="flex items-center justify-between gap-4">
               <div className="flex items-baseline gap-3">
                 {/* Big swelling counter — the focal point during the 17 s
@@ -227,13 +199,10 @@ export default function ProductionFacade({ bookId }: ProductionFacadeProps) {
                     so the eye lands on it from across the room. */}
                 <span
                   key={readyCount}
-                  className={`tabular-nums text-[36px] font-bold leading-none tracking-[-0.02em] sm:text-[44px] ${
-                    isDone
-                      ? "bg-gradient-to-r from-[var(--brand-violet)] via-[var(--brand-rose)] to-[var(--brand-amber)] bg-clip-text text-transparent"
-                      : "text-slate-900"
+                  className={`tabular-nums text-[28px] font-semibold leading-none tracking-[-0.02em] sm:text-[32px] ${
+                    isDone ? "text-[var(--brand-violet)]" : "text-slate-900"
                   }`}
                   style={{
-                    fontFamily: 'var(--font-montserrat-alternates), "Inter", ui-sans-serif, system-ui, sans-serif',
                     animation: "demoCountPop 320ms cubic-bezier(0.34, 1.56, 0.64, 1)",
                   }}
                 >
@@ -265,17 +234,13 @@ export default function ProductionFacade({ bookId }: ProductionFacadeProps) {
                 return (
                   <li
                     key={lang}
-                    className={`flex items-center justify-between rounded-xl border px-3 py-2 transition-all duration-300 ${
+                    className={`flex items-center justify-between rounded-xl border px-3 py-2 transition-colors duration-300 ${
                       ready
-                        ? "border-[var(--brand-violet)]/35 bg-[var(--brand-violet)]/[0.06]"
-                        : "border-slate-200 bg-white/70"
+                        ? "border-[var(--brand-violet)]/30 bg-[var(--brand-violet)]/[0.06]"
+                        : "border-slate-100 bg-white"
                     }`}
                     style={{
-                      transform: ready ? "scale(1)" : "scale(0.96)",
-                      opacity: ready ? 1 : 0.55,
-                      boxShadow: ready
-                        ? "0 0 0 4px color-mix(in oklab, var(--brand-violet) 10%, transparent)"
-                        : "none",
+                      opacity: ready ? 1 : 0.6,
                     }}
                   >
                     <span className="flex items-center gap-2.5 text-[13px] font-medium text-slate-800">
@@ -372,11 +337,11 @@ function AudiobookReadyPanel({
     selectedLanguages.find((l) => l === "en") ?? selectedLanguages[0] ?? "en";
   return (
     <div
-      className="mt-5 flex items-center justify-between gap-3 rounded-2xl border border-[var(--brand-violet)]/25 bg-gradient-to-r from-[var(--brand-violet)]/[0.10] via-[var(--brand-rose)]/[0.10] to-[var(--brand-amber)]/[0.14] px-4 py-3 shadow-sm"
+      className="mt-5 flex items-center justify-between gap-3 rounded-2xl border border-[var(--brand-violet)]/20 bg-[var(--brand-violet)]/[0.04] px-4 py-3"
       style={{ animation: "demoPopIn 360ms cubic-bezier(0.34, 1.56, 0.64, 1)" }}
     >
       <div className="flex items-center gap-3">
-        <span className="flex h-10 w-10 items-center justify-center rounded-full bg-white shadow-[0_8px_18px_-6px_rgba(124,92,252,0.45)]">
+        <span className="flex h-10 w-10 items-center justify-center rounded-full bg-white">
           <Headphones className="h-4 w-4 text-[var(--brand-violet)]" aria-hidden />
         </span>
         <div>
@@ -391,7 +356,7 @@ function AudiobookReadyPanel({
         onClick={() => {
           void onPlay(defaultLang);
         }}
-        className="inline-flex items-center gap-2 rounded-full bg-[var(--brand-violet)] px-4 py-2 text-[13px] font-semibold text-white shadow-[0_10px_24px_-8px_rgba(124,92,252,0.55)] transition hover:bg-[var(--brand-violet-hover)] active:scale-[0.97]"
+        className="inline-flex items-center gap-2 rounded-full bg-[#0F172A] px-4 py-2 text-[13px] font-medium text-white transition-colors hover:bg-[#1E293B] active:scale-[0.97]"
       >
         <Play className="ml-0.5 h-3.5 w-3.5" aria-hidden /> Play
       </button>
@@ -409,7 +374,7 @@ function AudiobookReadyPanel({
 function CheckmarkPop() {
   return (
     <span
-      className="inline-flex h-9 w-9 items-center justify-center rounded-full bg-[var(--brand-violet)] text-white shadow-[0_8px_20px_-6px_rgba(124,92,252,0.5)]"
+      className="inline-flex h-9 w-9 items-center justify-center rounded-full bg-[var(--brand-violet)] text-white"
       style={{ animation: "demoCheckPop 220ms cubic-bezier(0.34, 1.56, 0.64, 1)" }}
       aria-label="all done"
     >

@@ -278,7 +278,7 @@ export default function PrintPanel({
             onClick={() => setEditionLimit("unlimited")}
             className={`rounded-full px-4 py-1.5 text-[13px] font-medium transition ${
               editionLimit === "unlimited"
-                ? "bg-[#907AFF] text-white"
+                ? "bg-[#0F172A] text-white"
                 : "bg-slate-100 text-slate-500 hover:bg-slate-200 dark:bg-white/[0.06] dark:text-white/60 dark:hover:bg-white/10"
             }`}
           >
@@ -289,7 +289,7 @@ export default function PrintPanel({
             onClick={() => setEditionLimit("limited")}
             className={`rounded-full px-4 py-1.5 text-[13px] font-medium transition ${
               editionLimit === "limited"
-                ? "bg-[#907AFF] text-white"
+                ? "bg-[#0F172A] text-white"
                 : "bg-slate-100 text-slate-500 hover:bg-slate-200 dark:bg-white/[0.06] dark:text-white/60 dark:hover:bg-white/10"
             }`}
           >
@@ -342,7 +342,7 @@ export default function PrintPanel({
               type="button"
               onClick={handleSaveIsbn}
               disabled={isSavingIsbn || !isbnDraft.replace(/\D/g, "").trim()}
-              className="rounded-full bg-[#907AFF] px-4 py-1.5 text-[13px] font-semibold text-white transition hover:bg-[#7c6ae6] disabled:opacity-40"
+              className="rounded-full bg-[#0F172A] px-4 py-1.5 text-[13px] font-semibold text-white transition hover:bg-[#1E293B] disabled:opacity-40"
             >
               {isSavingIsbn ? "Saving..." : "Save"}
             </button>
@@ -365,7 +365,7 @@ export default function PrintPanel({
                 onClick={() => { setPriceCurrency(cur); setSaveError(null); }}
                 className={`rounded-full px-3 py-1 text-[12px] font-medium transition ${
                   priceCurrency === cur
-                    ? "bg-[#907AFF] text-white"
+                    ? "bg-[#0F172A] text-white"
                     : "bg-slate-100 text-slate-500 hover:bg-slate-200 dark:bg-white/[0.06] dark:text-white/60 dark:hover:bg-white/10"
                 }`}
               >
@@ -472,7 +472,7 @@ export default function PrintPanel({
           type="button"
           disabled={isSavingActivation || selectedFormats.size === 0}
           onClick={() => void handleActivate()}
-          className="rounded-full bg-[#907AFF] px-6 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-[#7c6ae6] disabled:opacity-40 disabled:cursor-not-allowed"
+          className="rounded-full bg-[#0F172A] px-6 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-[#1E293B] disabled:opacity-40 disabled:cursor-not-allowed"
         >
           {isSavingActivation
             ? "Saving..."

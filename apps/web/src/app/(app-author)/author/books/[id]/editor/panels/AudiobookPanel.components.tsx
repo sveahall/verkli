@@ -122,7 +122,7 @@ export function AudiobookPreviewPlayer({ audioUrl, bookId }: AudiobookPreviewPla
                 setPlaying(true);
               }
             }}
-            className="flex h-11 w-11 items-center justify-center rounded-full bg-[#907AFF] text-white transition hover:bg-[#7c6ae6]"
+            className="flex h-11 w-11 items-center justify-center rounded-full bg-[#0F172A] text-white transition hover:bg-[#1E293B]"
           >
             {playing ? (
               <svg className="h-4 w-4" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="4" width="4" height="16" /><rect x="14" y="4" width="4" height="16" /></svg>
@@ -256,7 +256,7 @@ export function AudiobookCheckoutModal({
           type="button"
           onClick={() => { onClose(); onCheckout(); }}
           disabled={audiobookCheckoutLoading}
-          className="mt-6 block w-full rounded-full bg-[#907AFF] px-6 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-[#7c6ae6] disabled:cursor-not-allowed disabled:opacity-60"
+          className="mt-6 block w-full rounded-full bg-[#0F172A] px-6 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-[#1E293B] disabled:cursor-not-allowed disabled:opacity-60"
         >
           {audiobookCheckoutLoading ? "Redirecting..." : "Generate full audiobook"}
         </button>

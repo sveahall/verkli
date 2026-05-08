@@ -572,7 +572,7 @@ function PostDrawer({
                 onClick={() => onGenerateTrailer(post.id)}
                 isLoading={post.status === "asset_pending"}
                 loadingText="Generating…"
-                className="mt-3 w-full rounded-full bg-gradient-to-r from-[#8E79FF] to-[#7A6EFF] text-white"
+                className="mt-3 w-full rounded-full bg-[#0F172A] text-white hover:bg-[#1E293B]"
               >
                 {post.mediaAssetUrl ? "Regenerate trailer" : "Generate trailer"}
               </Button>
@@ -640,7 +640,7 @@ function PostDrawer({
               <Button
                 size="sm"
                 onClick={() => copy(fullCaption(post), "all")}
-                className="rounded-full bg-gradient-to-r from-[#8E79FF] to-[#7A6EFF] text-white"
+                className="rounded-full bg-[#0F172A] text-white hover:bg-[#1E293B]"
               >
                 {copyFlash === "all" ? "Copied!" : "Copy caption + hashtags"}
               </Button>

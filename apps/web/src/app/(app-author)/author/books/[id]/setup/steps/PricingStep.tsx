@@ -68,7 +68,7 @@ export default function PricingStep({ currentPriceAmount, currentPriceCurrency, 
         <button
           type="button"
           onClick={onComplete}
-          className="rounded-full bg-[#907AFF] px-6 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-[#7c6ae6]"
+          className="rounded-full bg-[#0F172A] px-6 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-[#1E293B]"
         >
           Continue
         </button>

@@ -124,7 +124,7 @@ export function usePublishing({
           : null;
 
   const publishButtonClass =
-    "flex items-center gap-2 rounded-full bg-gradient-to-b from-[#907AFF] to-[#7c6ae6] px-5 py-2.5 text-[13px] font-semibold text-white shadow-[0_1px_2px_rgba(144,122,255,0.3),inset_0_1px_0_rgba(255,255,255,0.15)] transition-all hover:shadow-[0_4px_12px_rgba(144,122,255,0.35),inset_0_1px_0_rgba(255,255,255,0.15)] hover:brightness-110 focus:outline-none focus:ring-2 focus:ring-[#907AFF]/50";
+    "flex items-center gap-2 rounded-full bg-[#0F172A] px-5 py-2.5 text-[13px] font-semibold text-white shadow-[0_1px_2px_rgba(15,23,42,0.3),inset_0_1px_0_rgba(255,255,255,0.08)] transition-all hover:bg-[#1E293B] hover:shadow-[0_4px_12px_rgba(15,23,42,0.35),inset_0_1px_0_rgba(255,255,255,0.08)] focus:outline-none focus:ring-2 focus:ring-[#0F172A]/50";
 
   // ---------------------------------------------------------------------------
   // Effects

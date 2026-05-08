@@ -100,51 +100,23 @@ export default function DistributionFacade({ bookId, marketingCampaigns }: Distr
   return (
     <section
       aria-label="Demo distribution façade"
-      className="relative isolate overflow-hidden rounded-[28px] border border-slate-200/80 bg-[#FDFAF4] shadow-[0_24px_72px_-32px_rgba(124,92,252,0.18)]"
+      className="relative isolate overflow-hidden rounded-3xl ring-1 ring-slate-200/70 dark:ring-white/[0.08]"
     >
-      {/* Ambient brand orbs — same atmospheric language as Production + Reader */}
-      <div aria-hidden className="pointer-events-none absolute inset-0 overflow-hidden">
-        <div
-          className="absolute -left-24 -top-32 h-[360px] w-[360px] rounded-full opacity-25 blur-3xl"
-          style={{ background: "var(--brand-violet)" }}
-        />
-        <div
-          className="absolute -right-20 top-32 h-[300px] w-[300px] rounded-full opacity-20 blur-3xl"
-          style={{ background: "var(--brand-rose)" }}
-        />
-        <div
-          className="absolute -bottom-32 left-1/3 h-[340px] w-[340px] rounded-full opacity-20 blur-3xl"
-          style={{ background: "var(--brand-amber)" }}
-        />
-      </div>
-
-      <div className="relative flex flex-col gap-7 p-6 sm:p-10">
+      <div className="relative flex flex-col gap-6 p-6 sm:p-10">
         {/* ── Hero header ─────────────────────────────────────────── */}
-        <header className="flex items-start justify-between gap-4">
-          <div className="flex flex-col gap-2">
-            <span className="inline-flex items-center gap-1.5 self-start rounded-full border border-[var(--brand-violet)]/20 bg-white/70 px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-[0.22em] text-[var(--brand-violet)] backdrop-blur">
-              <Globe className="h-2.5 w-2.5" aria-hidden />
-              Distribute
-            </span>
-            <h2
-              className="text-balance text-[36px] font-bold leading-[1.05] tracking-[-0.02em] text-slate-900 sm:text-[44px]"
-              style={{ fontFamily: 'var(--font-montserrat-alternates), "Inter", ui-sans-serif, system-ui, sans-serif' }}
-            >
-              Launch{" "}
-              <span className="bg-gradient-to-r from-[var(--brand-violet)] via-[var(--brand-rose)] to-[var(--brand-amber)] bg-clip-text text-transparent">
-                globally
-              </span>
-            </h2>
-            <p className="text-body max-w-xl text-slate-600">
-              Native posts on TikTok, Instagram, X, and YouTube Shorts — in
-              every language you produced — all in parallel.
-            </p>
-          </div>
+        <header className="relative flex flex-col items-center gap-3 text-center">
+          <h2 className="text-[26px] font-semibold leading-[1.1] tracking-[-0.02em] text-slate-900 sm:text-[32px]">
+            Launch globally.
+          </h2>
+          <p className="max-w-[44ch] text-[14px] leading-relaxed text-slate-500">
+            Native posts on TikTok, Instagram, X, and YouTube Shorts — in
+            every language you produced — all in parallel.
+          </p>
           {isDone ? (
             <button
               type="button"
               onClick={reset}
-              className="rounded-full border border-slate-200 bg-white/80 px-3 py-1.5 text-[12px] font-medium text-slate-600 backdrop-blur hover:bg-white"
+              className="absolute right-0 top-0 rounded-full border border-slate-200 bg-white px-3 py-1.5 text-[12px] font-medium text-slate-600 hover:bg-slate-50"
             >
               Reset
             </button>
@@ -160,7 +132,7 @@ export default function DistributionFacade({ bookId, marketingCampaigns }: Distr
             type="button"
             onClick={start}
             disabled={isLaunching}
-            className="group relative inline-flex items-center gap-2.5 overflow-hidden rounded-full bg-[var(--brand-violet)] px-8 py-3.5 text-[15px] font-semibold text-white shadow-[0_18px_40px_-12px_rgba(124,92,252,0.65)] transition-all duration-300 hover:bg-[var(--brand-violet-hover)] hover:shadow-[0_24px_48px_-12px_rgba(124,92,252,0.75)] active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-70"
+            className="group relative inline-flex items-center gap-2 overflow-hidden rounded-full bg-[#0F172A] px-6 py-3 text-[14px] font-medium text-white transition-colors duration-200 hover:bg-[#1E293B] active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-70"
           >
             <span
               aria-hidden
@@ -178,18 +150,15 @@ export default function DistributionFacade({ bookId, marketingCampaigns }: Distr
 
         {/* ── Live status + grid ──────────────────────────────────── */}
         {state.status !== "idle" ? (
-          <div className="rounded-2xl border border-slate-200 bg-white/90 p-5 shadow-sm backdrop-blur">
+          <div className="rounded-2xl border border-slate-100 bg-white p-5">
             <div className="flex items-center justify-between gap-4">
               <div className="flex items-baseline gap-3">
                 <span
                   key={readyCount}
-                  className={`tabular-nums text-[36px] font-bold leading-none tracking-[-0.02em] sm:text-[44px] ${
-                    isDone
-                      ? "bg-gradient-to-r from-[var(--brand-violet)] via-[var(--brand-rose)] to-[var(--brand-amber)] bg-clip-text text-transparent"
-                      : "text-slate-900"
+                  className={`tabular-nums text-[28px] font-semibold leading-none tracking-[-0.02em] sm:text-[32px] ${
+                    isDone ? "text-[var(--brand-violet)]" : "text-slate-900"
                   }`}
                   style={{
-                    fontFamily: 'var(--font-montserrat-alternates), "Inter", ui-sans-serif, system-ui, sans-serif',
                     animation: "demoCountPop 320ms cubic-bezier(0.34, 1.56, 0.64, 1)",
                   }}
                 >
@@ -303,10 +272,9 @@ function ThumbnailCard({
 
   return (
     <article
-      className={`group relative shrink-0 snap-start overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm transition-all duration-300 ${widthClass}`}
+      className={`group relative shrink-0 snap-start overflow-hidden rounded-2xl border border-slate-100 bg-white transition-opacity duration-300 ${widthClass}`}
       style={{
-        opacity: ready ? 1 : 0.35,
-        transform: ready ? "translateY(0) scale(1)" : "translateY(6px) scale(0.97)",
+        opacity: ready ? 1 : 0.4,
       }}
     >
       <div
@@ -324,7 +292,7 @@ function ThumbnailCard({
           className="absolute inset-0 h-full w-full object-cover transition-transform duration-300 ease-out group-hover:scale-[1.03]"
           loading="lazy"
         />
-        <span className="absolute right-2 top-2 inline-flex items-center gap-1 rounded-full bg-black/55 px-2 py-0.5 text-[10px] font-medium text-white backdrop-blur">
+        <span className="absolute right-2 top-2 inline-flex items-center gap-1 rounded-full bg-slate-900/70 px-2 py-0.5 text-[10px] font-medium text-white">
           {LANGUAGE_FLAGS[language]} {language.toUpperCase()}
         </span>
         {ready ? (
@@ -333,7 +301,7 @@ function ThumbnailCard({
           </span>
         ) : null}
       </div>
-      <div className="space-y-1 p-3 transition-shadow duration-300 group-hover:shadow-[0_8px_24px_rgba(15,23,42,0.08)]">
+      <div className="space-y-1 p-3">
         <p className="line-clamp-2 text-label text-slate-900">{headline}</p>
         <p className="line-clamp-2 text-caption text-slate-500">{caption}</p>
         <div className="flex items-center justify-between gap-2 pt-1">
@@ -378,10 +346,10 @@ function PrintOnDemandToggle({ disabled }: { disabled: boolean }) {
 
   return (
     <label
-      className={`group flex cursor-pointer items-start gap-3 rounded-2xl border bg-white/85 p-4 shadow-sm backdrop-blur transition-all ${
+      className={`group mx-auto flex max-w-md cursor-pointer items-center gap-2.5 rounded-xl border bg-white px-3 py-2.5 transition-colors ${
         enabled
-          ? "border-[var(--brand-violet)]/30 ring-2 ring-[var(--brand-violet)]/15"
-          : "border-slate-200 hover:border-slate-300"
+          ? "border-[var(--brand-violet)]/30"
+          : "border-slate-100 hover:border-slate-200"
       } ${disabled ? "cursor-not-allowed opacity-60" : ""}`}
     >
       <input
@@ -392,23 +360,23 @@ function PrintOnDemandToggle({ disabled }: { disabled: boolean }) {
         disabled={disabled}
       />
       <span
-        className={`mt-0.5 flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-xl ${
+        className={`flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-lg ${
           enabled
-            ? "bg-[var(--brand-violet)] text-white shadow-[0_6px_16px_-6px_rgba(124,92,252,0.55)]"
+            ? "bg-[var(--brand-violet)] text-white"
             : "bg-slate-100 text-slate-500"
         }`}
       >
-        <Printer className="h-4 w-4" aria-hidden />
+        <Printer className="h-3.5 w-3.5" aria-hidden />
       </span>
       <span className="min-w-0 flex-1">
-        <span className="flex items-center gap-2 text-[14px] font-semibold text-slate-900">
+        <span className="flex items-center gap-1.5 text-[13px] font-medium text-slate-900">
           Enable global print
           {enabled ? (
-            <Check className="h-3.5 w-3.5 text-[var(--brand-violet)]" aria-hidden />
+            <Check className="h-3 w-3 text-[var(--brand-violet)]" aria-hidden />
           ) : null}
         </span>
-        <span className="text-[12px] text-slate-500">
-          Send the manuscript to {POD_PARTNERS.length} print partners. Hardcover and paperback live in 24 h.
+        <span className="text-[11px] text-slate-500">
+          {POD_PARTNERS.length} print partners · live in 24 h
         </span>
       </span>
       {showModal ? <PodModal onClose={() => setShowModal(false)} /> : null}
@@ -427,7 +395,7 @@ function PodModal({ onClose }: { onClose: () => void }) {
       aria-label="Print on demand — partners notified"
     >
       <div
-        className="w-full max-w-md rounded-2xl border border-slate-200 bg-white p-6 shadow-2xl"
+        className="w-full max-w-md rounded-2xl border border-slate-100 bg-white p-6"
         style={{ animation: "demoPopIn 280ms cubic-bezier(0.34, 1.56, 0.64, 1)" }}
       >
         <div className="flex items-center gap-2">
@@ -453,7 +421,7 @@ function PodModal({ onClose }: { onClose: () => void }) {
           <button
             type="button"
             onClick={onClose}
-            className="rounded-md bg-[var(--brand-violet)] px-4 py-2 text-label font-medium text-white hover:bg-[var(--brand-violet-hover)]"
+            className="rounded-md bg-[#0F172A] px-4 py-2 text-label font-medium text-white hover:bg-[#1E293B]"
           >
             Got it
           </button>
@@ -490,13 +458,13 @@ function SummaryOverlay() {
       aria-live="polite"
     >
       <div
-        className="rounded-3xl border border-white/30 bg-gradient-to-br from-[var(--brand-violet)]/95 via-[var(--brand-rose)]/95 to-[var(--brand-amber)]/95 px-12 py-10 text-center text-white shadow-[0_24px_72px_rgba(15,23,42,0.35)]"
+        className="rounded-3xl border border-slate-200 bg-white px-12 py-10 text-center"
         style={{ animation: "demoSummaryPop 360ms cubic-bezier(0.34, 1.56, 0.64, 1)" }}
       >
-        <p className="text-[12px] font-semibold uppercase tracking-[0.3em] text-white/80">
+        <p className="text-[10px] font-semibold uppercase tracking-[0.24em] text-slate-400">
           Live
         </p>
-        <p className="mt-2 text-[36px] font-bold leading-tight tracking-tight">
+        <p className="mt-2 text-[26px] font-semibold leading-tight tracking-[-0.02em] text-slate-900 sm:text-[32px]">
           10 languages · audiobook · 12 live posts
         </p>
       </div>
@@ -514,7 +482,7 @@ function SummaryOverlay() {
 function CheckmarkPop() {
   return (
     <span
-      className="inline-flex h-9 w-9 items-center justify-center rounded-full bg-[var(--brand-violet)] text-white shadow-[0_8px_20px_-6px_rgba(124,92,252,0.5)]"
+      className="inline-flex h-9 w-9 items-center justify-center rounded-full bg-[var(--brand-violet)] text-white"
       style={{ animation: "demoCheckPop 220ms cubic-bezier(0.34, 1.56, 0.64, 1)" }}
       aria-label="distribution complete"
     >

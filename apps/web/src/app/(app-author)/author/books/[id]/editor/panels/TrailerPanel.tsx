@@ -314,7 +314,7 @@ export default function TrailerPanel({
             type="button"
             onClick={() => void handleGenerate()}
             disabled={isGenerating || isProLocked || !coverImage || billingLoading}
-            className="w-full rounded-lg bg-gradient-to-r from-[#907AFF] to-[#7c6ae6] px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:shadow-md disabled:opacity-50 disabled:cursor-not-allowed"
+            className="w-full rounded-lg bg-[#0F172A] px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-[#1E293B] hover:shadow-md disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {isGenerating ? "Generating..." : "Generate Trailer"}
           </button>

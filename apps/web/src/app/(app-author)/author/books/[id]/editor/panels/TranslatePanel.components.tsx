@@ -90,7 +90,7 @@ export function TranslatePreviewPanes({
             type="button"
             onClick={onTranslate}
             disabled={translating || billingLoading || !sourceVersionId}
-            className="block w-full rounded-full bg-[#907AFF] px-6 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-[#7c6ae6] disabled:cursor-not-allowed disabled:opacity-60"
+            className="block w-full rounded-full bg-[#0F172A] px-6 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-[#1E293B] disabled:cursor-not-allowed disabled:opacity-60"
           >
             {translating
               ? "Translating..."

@@ -393,7 +393,7 @@ export default function BookDashboard({
             {/* CTA */}
             <button
               onClick={() => onNavigate("edit")}
-              className="hidden shrink-0 items-center gap-2 rounded-xl bg-[#907AFF] px-4 py-2.5 text-sm font-medium text-white shadow-sm transition-[transform,box-shadow] duration-200 ease-[cubic-bezier(0.23,1,0.32,1)] hover:-translate-y-0.5 hover:shadow-[0_4px_16px_rgba(144,122,255,0.35)] active:scale-[0.97] sm:flex"
+              className="hidden shrink-0 items-center gap-2 rounded-xl bg-[#0F172A] px-4 py-2.5 text-sm font-medium text-white shadow-sm transition-[transform,background-color,box-shadow] duration-200 ease-[cubic-bezier(0.23,1,0.32,1)] hover:-translate-y-0.5 hover:bg-[#1E293B] hover:shadow-[0_4px_16px_rgba(15,23,42,0.35)] active:scale-[0.97] sm:flex"
             >
               <PencilIcon className="h-4 w-4" />
               Continue writing
@@ -404,7 +404,7 @@ export default function BookDashboard({
           <div className="px-6 pb-6 sm:hidden">
             <button
               onClick={() => onNavigate("edit")}
-              className="flex w-full items-center justify-center gap-2 rounded-xl bg-[#907AFF] py-2.5 text-sm font-medium text-white transition-[transform,box-shadow] duration-200 ease-[cubic-bezier(0.23,1,0.32,1)] active:scale-[0.97]"
+              className="flex w-full items-center justify-center gap-2 rounded-xl bg-[#0F172A] py-2.5 text-sm font-medium text-white transition-[transform,background-color,box-shadow] duration-200 ease-[cubic-bezier(0.23,1,0.32,1)] hover:bg-[#1E293B] active:scale-[0.97]"
             >
               <PencilIcon className="h-4 w-4" />
               Continue writing

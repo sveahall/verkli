@@ -294,7 +294,7 @@ export default function ReviewPanel({
             href={`/reader/books/${bookId}`}
             target="_blank"
             rel="noopener noreferrer"
-            className="flex items-center gap-2 rounded-xl bg-gradient-to-b from-[#907AFF] to-[#7c6ae6] px-5 py-2.5 text-sm font-semibold text-white shadow-[0_1px_2px_rgba(144,122,255,0.3),inset_0_1px_0_rgba(255,255,255,0.15)] transition-[transform,box-shadow] duration-150 ease-out hover:shadow-[0_4px_12px_rgba(144,122,255,0.35)] active:scale-[0.97]"
+            className="flex items-center gap-2 rounded-xl bg-[#0F172A] px-5 py-2.5 text-sm font-semibold text-white shadow-[0_1px_2px_rgba(15,23,42,0.3),inset_0_1px_0_rgba(255,255,255,0.08)] transition-[transform,background-color,box-shadow] duration-150 ease-out hover:bg-[#1E293B] hover:shadow-[0_4px_12px_rgba(15,23,42,0.35)] active:scale-[0.97]"
           >
             <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M2.036 12.322a1.012 1.012 0 0 1 0-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178Z" />
@@ -495,7 +495,7 @@ export default function ReviewPanel({
             type="button"
             onClick={onPublish ?? (() => onNavigate("publish"))}
             disabled={!hasContent}
-            className="w-full rounded-2xl bg-gradient-to-b from-[#907AFF] to-[#7c6ae6] px-6 py-4 text-base font-bold text-white shadow-[0_4px_20px_rgba(144,122,255,0.30),inset_0_1px_0_rgba(255,255,255,0.15)] transition-[transform,box-shadow] duration-150 ease-out hover:shadow-[0_6px_28px_rgba(144,122,255,0.40)] active:scale-[0.97] disabled:cursor-not-allowed disabled:opacity-50"
+            className="w-full rounded-2xl bg-[#0F172A] px-6 py-4 text-base font-bold text-white shadow-[0_4px_20px_rgba(15,23,42,0.30),inset_0_1px_0_rgba(255,255,255,0.08)] transition-[transform,background-color,box-shadow] duration-150 ease-out hover:bg-[#1E293B] hover:shadow-[0_6px_28px_rgba(15,23,42,0.40)] active:scale-[0.97] disabled:cursor-not-allowed disabled:opacity-50"
           >
             Publish book
           </button>
