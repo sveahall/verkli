@@ -54,24 +54,39 @@ test.describe("Demo pitch flow — visual e2e", () => {
     const session = (await tokenRes.json()) as {
       access_token: string;
       refresh_token: string;
+      expires_at?: number;
+      expires_in?: number;
+      token_type?: string;
+      user?: unknown;
     };
     // Supabase ssr stores the auth payload as a JSON cookie keyed off the
     // project ref. Match the same name @supabase/ssr writes server-side.
     const projectRef = new URL(supabaseUrl).hostname.split(".")[0];
+    const expiresAt =
+      session.expires_at ??
+      Math.floor(Date.now() / 1000) + (session.expires_in ?? 3600);
     const cookieValue = `base64-${Buffer.from(
       JSON.stringify({
         access_token: session.access_token,
         refresh_token: session.refresh_token,
-        token_type: "bearer",
+        expires_at: expiresAt,
+        expires_in: session.expires_in ?? 3600,
+        token_type: session.token_type ?? "bearer",
+        user: session.user,
       })
-    ).toString("base64")}`;
+    ).toString("base64url")}`;
     await context.addCookies([
       {
         name: `sb-${projectRef}-auth-token`,
         value: cookieValue,
-        domain: "localhost",
-        path: "/",
+        url: "http://localhost:3000",
         httpOnly: true,
+        sameSite: "Lax",
+      },
+      {
+        name: "active_role",
+        value: "author",
+        url: "http://localhost:3000",
         sameSite: "Lax",
       },
     ]);
@@ -103,9 +118,13 @@ test.describe("Demo pitch flow — visual e2e", () => {
     await cta.click();
     // Wait for the "languages ready" terminal state — pacing schedule is
     // 17 500 ms total, plus a bit of slack for animation/render.
-    await expect(
-      page.getByText(/10 languages ready|9 languages ready/i)
-    ).toBeVisible({ timeout: 25_000 });
+    const productionRegion = page.getByRole("region", {
+      name: /Demo production façade/i,
+    });
+    await expect(productionRegion.getByLabel("all done")).toBeVisible({
+      timeout: 25_000,
+    });
+    await expect(productionRegion.getByText("languages ready")).toBeVisible();
     await page.screenshot({
       path: "test-results/demo-production-done.png",
       fullPage: false,

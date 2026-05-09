@@ -305,6 +305,10 @@ export interface UseDemoProductionResult {
   reset: () => void;
   /** Trigger audiobook playback for one language; the panel calls this on Play click. */
   playLanguage: (lang: DemoLanguage) => Promise<void>;
+  /** Pause whichever language is currently playing. No-op if nothing is playing. */
+  pausePlayback: () => void;
+  /** Currently-playing language, or null when paused / nothing started. */
+  playingLanguage: DemoLanguage | null;
 }
 
 /**
@@ -373,6 +377,37 @@ export function useDemoProduction(
   }, [state]);
 
   const cancelHandlesRef = useRef<Array<() => void>>([]);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+  const [playingLanguage, setPlayingLanguage] = useState<DemoLanguage | null>(null);
+
+  const stopAudio = useCallback(() => {
+    const a = audioRef.current;
+    if (a) {
+      try {
+        a.pause();
+      } catch {
+        // ignore
+      }
+    }
+    audioRef.current = null;
+    setPlayingLanguage(null);
+  }, []);
+
+  // Stop any in-flight audio when the consumer unmounts so it doesn't keep
+  // playing in the background.
+  useEffect(() => {
+    return () => {
+      const a = audioRef.current;
+      if (a) {
+        try {
+          a.pause();
+        } catch {
+          // ignore
+        }
+      }
+      audioRef.current = null;
+    };
+  }, []);
 
   const cancelPending = useCallback(() => {
     for (const cancel of cancelHandlesRef.current) {
@@ -515,16 +550,79 @@ export function useDemoProduction(
   const playLanguage = useCallback(
     async (lang: DemoLanguage) => {
       const url = `/demo-assets/audio/${lang}.mp3`;
-      await deps.playAudio(url);
       deps.recordTelemetry({
         event: "audio_play",
         t:
           state.startedAt != null ? deps.now() - state.startedAt : 0,
         lang,
       });
+      // SSR / non-browser path: fall back to deps.playAudio (also the test seam).
+      if (typeof window === "undefined") {
+        await deps.playAudio(url);
+        return;
+      }
+      // Resume the same element if the click is on the language we already
+      // had paused — keeps the playhead instead of restarting from 0.
+      if (audioRef.current && audioRef.current.src.endsWith(`${lang}.mp3`)) {
+        try {
+          await audioRef.current.play();
+          setPlayingLanguage(lang);
+        } catch {
+          // ignore
+        }
+        return;
+      }
+      // Switching languages: stop the previous one before starting the new.
+      if (audioRef.current) {
+        try {
+          audioRef.current.pause();
+        } catch {
+          // ignore
+        }
+        audioRef.current = null;
+      }
+      const audio = new Audio(url);
+      audioRef.current = audio;
+      audio.addEventListener("ended", () => {
+        if (audioRef.current === audio) {
+          audioRef.current = null;
+          setPlayingLanguage(null);
+        }
+      });
+      audio.addEventListener("pause", () => {
+        if (audioRef.current === audio && !audio.ended) {
+          setPlayingLanguage(null);
+        }
+      });
+      try {
+        await audio.play();
+        setPlayingLanguage(lang);
+      } catch {
+        if (audioRef.current === audio) {
+          audioRef.current = null;
+        }
+        setPlayingLanguage(null);
+      }
     },
     [deps, state.startedAt]
   );
+
+  const pausePlayback = useCallback(() => {
+    const a = audioRef.current;
+    if (!a) return;
+    try {
+      a.pause();
+    } catch {
+      // ignore
+    }
+    setPlayingLanguage(null);
+  }, []);
+
+  // Stop audio when the demo is reset so a fresh run doesn't have a stale
+  // narration leaking from the previous round.
+  useEffect(() => {
+    if (state.status === "idle") stopAudio();
+  }, [state.status, stopAudio]);
 
   return {
     state,
@@ -535,5 +633,7 @@ export function useDemoProduction(
     start,
     reset,
     playLanguage,
+    pausePlayback,
+    playingLanguage,
   };
 }

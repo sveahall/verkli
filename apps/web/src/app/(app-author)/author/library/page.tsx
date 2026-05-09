@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import LibraryWorkspace from "@/features/author-workspaces/library/LibraryWorkspace";
+import { isDemoModeActive } from "@/lib/flags";
 
 export default async function AuthorLibraryPage({
   searchParams,
@@ -16,6 +17,15 @@ export default async function AuthorLibraryPage({
   if (!user) {
     redirect("/author/signin");
   }
+
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("demo_mode")
+    .eq("user_id", user.id)
+    .maybeSingle();
+  const demoModeActive = isDemoModeActive({
+    demo_mode: (profile as { demo_mode?: boolean | null } | null)?.demo_mode,
+  });
 
   const { data: books } = await supabase
     .from("books")
@@ -56,6 +66,7 @@ export default async function AuthorLibraryPage({
         translationCount: translationCountMap[book.id] ?? 0,
       }))}
       initialCreateOpen={resolvedSearchParams?.action === "create-book"}
+      demoModeActive={demoModeActive}
     />
   );
 }

@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo } from "react";
-import { Check, Headphones, Languages, Play, Sparkles } from "lucide-react";
+import { Check, Headphones, Languages, Pause, Play, Sparkles } from "lucide-react";
 import {
   DEMO_LANGUAGES,
   type DemoLanguage,
@@ -50,6 +50,8 @@ export default function ProductionFacade({ bookId }: ProductionFacadeProps) {
     start,
     reset,
     playLanguage,
+    pausePlayback,
+    playingLanguage,
   } = useDemoProduction();
 
   const isProducing = state.status === "producing";
@@ -90,10 +92,10 @@ export default function ProductionFacade({ bookId }: ProductionFacadeProps) {
         </header>
 
         {/* ── Audiobook toggle + Language picker ──────────────────── */}
-        <div className="grid gap-6 sm:grid-cols-[260px_minmax(0,1fr)]">
+        <div className="flex flex-col gap-6 sm:flex-row sm:flex-wrap sm:items-stretch sm:justify-center">
           {/* Audiobook card */}
           <label
-            className={`group flex cursor-pointer items-start gap-3 rounded-2xl border bg-white p-4 transition-colors ${
+            className={`group flex cursor-pointer items-center justify-center gap-3 rounded-2xl border bg-white p-4 transition-colors sm:w-[460px] ${
               audiobookEnabled
                 ? "border-[var(--brand-violet)]/30"
                 : "border-slate-100 hover:border-slate-200"
@@ -107,7 +109,7 @@ export default function ProductionFacade({ bookId }: ProductionFacadeProps) {
               disabled={isProducing}
             />
             <span
-              className={`mt-0.5 flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-xl ${
+              className={`flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-xl ${
                 audiobookEnabled
                   ? "bg-[var(--brand-violet)] text-white"
                   : "bg-slate-100 text-slate-500"
@@ -129,7 +131,7 @@ export default function ProductionFacade({ bookId }: ProductionFacadeProps) {
           </label>
 
           {/* Language picker */}
-          <div className="rounded-2xl border border-slate-100 bg-white p-4">
+          <div className="rounded-2xl border border-slate-100 bg-white p-4 sm:w-[460px]">
             <div className="flex items-center justify-between gap-3">
               <span className="flex items-center gap-2 text-[14px] font-medium text-slate-900">
                 <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-slate-100 text-slate-600">
@@ -231,6 +233,7 @@ export default function ProductionFacade({ bookId }: ProductionFacadeProps) {
             <ul className="mt-5 grid gap-2 sm:grid-cols-2">
               {selectedLanguages.map((lang) => {
                 const ready = state.badges[lang];
+                const canPlay = ready && audiobookEnabled && state.audiobookReady;
                 return (
                   <li
                     key={lang}
@@ -247,7 +250,31 @@ export default function ProductionFacade({ bookId }: ProductionFacadeProps) {
                       <span className="text-[16px]" aria-hidden>{LANGUAGE_FLAGS[lang]}</span>
                       {LANGUAGE_NAMES[lang]}
                     </span>
-                    {ready ? (
+                    {canPlay ? (
+                      playingLanguage === lang ? (
+                        <button
+                          type="button"
+                          onClick={() => pausePlayback()}
+                          aria-label={`Pause ${LANGUAGE_NAMES[lang]} audiobook`}
+                          className="inline-flex items-center gap-1 rounded-full bg-[var(--brand-violet)] px-2.5 py-1 text-[11px] font-medium text-white transition-colors hover:opacity-90 active:scale-[0.97]"
+                        >
+                          <Pause className="h-3 w-3" aria-hidden />
+                          Pause
+                        </button>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            void playLanguage(lang);
+                          }}
+                          aria-label={`Play ${LANGUAGE_NAMES[lang]} audiobook`}
+                          className="inline-flex items-center gap-1 rounded-full bg-[#0F172A] px-2.5 py-1 text-[11px] font-medium text-white transition-colors hover:bg-[#1E293B] active:scale-[0.97]"
+                        >
+                          <Play className="ml-0.5 h-3 w-3" aria-hidden />
+                          Play
+                        </button>
+                      )
+                    ) : ready ? (
                       <Check className="h-4 w-4 text-[var(--brand-violet)]" aria-label="ready" />
                     ) : (
                       <span className="flex h-4 w-4 items-center justify-center" aria-hidden>
@@ -259,12 +286,7 @@ export default function ProductionFacade({ bookId }: ProductionFacadeProps) {
               })}
             </ul>
 
-            {audiobookEnabled && state.audiobookReady ? (
-              <AudiobookReadyPanel
-                selectedLanguages={selectedLanguages}
-                onPlay={playLanguage}
-              />
-            ) : audiobookEnabled ? (
+            {audiobookEnabled && !state.audiobookReady ? (
               <AudiobookPulsing />
             ) : null}
           </div>
@@ -320,51 +342,6 @@ function AudiobookPulsing() {
         @keyframes demoPulse {
           0%, 100% { transform: scaleY(0.6); opacity: 0.6; }
           50% { transform: scaleY(1.4); opacity: 1; }
-        }
-      `}</style>
-    </div>
-  );
-}
-
-function AudiobookReadyPanel({
-  selectedLanguages,
-  onPlay,
-}: {
-  selectedLanguages: DemoLanguage[];
-  onPlay: (lang: DemoLanguage) => Promise<void>;
-}) {
-  const defaultLang: DemoLanguage =
-    selectedLanguages.find((l) => l === "en") ?? selectedLanguages[0] ?? "en";
-  return (
-    <div
-      className="mt-5 flex items-center justify-between gap-3 rounded-2xl border border-[var(--brand-violet)]/20 bg-[var(--brand-violet)]/[0.04] px-4 py-3"
-      style={{ animation: "demoPopIn 360ms cubic-bezier(0.34, 1.56, 0.64, 1)" }}
-    >
-      <div className="flex items-center gap-3">
-        <span className="flex h-10 w-10 items-center justify-center rounded-full bg-white">
-          <Headphones className="h-4 w-4 text-[var(--brand-violet)]" aria-hidden />
-        </span>
-        <div>
-          <p className="text-[13px] font-semibold text-slate-900">Audiobook ready</p>
-          <p className="text-[11px] text-slate-500">
-            {LANGUAGE_NAMES[defaultLang]} · narrated with the author&rsquo;s cloned voice
-          </p>
-        </div>
-      </div>
-      <button
-        type="button"
-        onClick={() => {
-          void onPlay(defaultLang);
-        }}
-        className="inline-flex items-center gap-2 rounded-full bg-[#0F172A] px-4 py-2 text-[13px] font-medium text-white transition-colors hover:bg-[#1E293B] active:scale-[0.97]"
-      >
-        <Play className="ml-0.5 h-3.5 w-3.5" aria-hidden /> Play
-      </button>
-      <style>{`
-        @keyframes demoPopIn {
-          0% { transform: scale(0.92); opacity: 0; }
-          80% { transform: scale(1.02); opacity: 1; }
-          100% { transform: scale(1); opacity: 1; }
         }
       `}</style>
     </div>

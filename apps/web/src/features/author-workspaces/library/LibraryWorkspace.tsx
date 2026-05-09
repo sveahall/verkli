@@ -34,6 +34,10 @@ type LibraryBook = {
 type LibraryWorkspaceProps = {
   books: LibraryBook[];
   initialCreateOpen?: boolean;
+  /** When true the investor-pitch demo façade is active. Book cards must
+   * land on the demo flow (Cover → Production → Distribute), never on the
+   * real next-incomplete panel like audiobook/translate. */
+  demoModeActive?: boolean;
 };
 
 /* ─── Pipeline ─── */
@@ -65,7 +69,11 @@ function getNextPanel(book: LibraryBook): string {
   return PIPELINE_STEPS[firstIncomplete].panel ?? "";
 }
 
-function getBookHref(book: LibraryBook): string {
+function getBookHref(book: LibraryBook, demoModeActive = false): string {
+  // Demo mode: the sidebar/stepper is reduced to Cover → Production →
+  // Distribute. Always land on the first demo step regardless of pipeline
+  // completion, so the investor never sees the legacy AudiobookPanel.
+  if (demoModeActive) return `/author/books/${book.id}?panel=cover`;
   const panel = getNextPanel(book);
   return panel ? `/author/books/${book.id}?panel=${panel}` : `/author/books/${book.id}`;
 }
@@ -83,12 +91,18 @@ function formatDate(value: string | null): string {
 
 /* ─── Book cover card ─── */
 
-function BookCoverCard({ book }: { book: LibraryBook }) {
+function BookCoverCard({
+  book,
+  demoModeActive,
+}: {
+  book: LibraryBook;
+  demoModeActive: boolean;
+}) {
   const isPublished = book.status === "PUBLISHED";
   const hasAudiobook =
     book.audiobookStatus === "ready" || book.audiobookStatus === "completed";
 
-  const href = getBookHref(book);
+  const href = getBookHref(book, demoModeActive);
   const pipelineDone = getPipelineDone(book);
   const doneCount = pipelineDone.filter(Boolean).length;
   const secondaryInfo =
@@ -250,6 +264,7 @@ function EmptyState({ onOpen }: { onOpen: () => void }) {
 export default function LibraryWorkspace({
   books,
   initialCreateOpen = false,
+  demoModeActive = false,
 }: LibraryWorkspaceProps) {
   const { setCurrentBookId } = useAuthorWorkspace();
   const t = useAuthorLocale();
@@ -289,7 +304,7 @@ export default function LibraryWorkspace({
               {/* ── Continue editing banner ── */}
               {recentBook && (
                 <Link
-                  href={getBookHref(recentBook)}
+                  href={getBookHref(recentBook, demoModeActive)}
                   className="ws-enter group mb-7 flex items-center gap-4 rounded-2xl border border-slate-200/80 bg-white px-5 py-3.5 shadow-[0_2px_10px_rgba(15,23,42,0.04)] transition-all duration-200 ease-[cubic-bezier(0.23,1,0.32,1)] hover:border-[#907AFF]/30 hover:shadow-[0_8px_22px_rgba(15,23,42,0.08)] dark:border-white/10 dark:bg-white/[0.03] dark:hover:border-[#907AFF]/25"
                   style={{ animationDelay: "0ms" }}
                 >
@@ -337,7 +352,7 @@ export default function LibraryWorkspace({
                     className="ws-enter"
                     style={{ animationDelay: `${(i + 1) * 55 + 40}ms` }}
                   >
-                    <BookCoverCard book={book} />
+                    <BookCoverCard book={book} demoModeActive={demoModeActive} />
                   </div>
                 ))}
               </div>
