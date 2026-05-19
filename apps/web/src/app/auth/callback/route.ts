@@ -1,6 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import { NextResponse } from "next/server";
-import { activeRoleCookieHeader } from "@/lib/active-role";
+import { activeRoleCookieHeader, resolveActiveRoleFromProfile } from "@/lib/active-role";
 import type { ActiveRole } from "@/lib/active-role";
 import { capturePostHogAsync } from "@/lib/analytics/posthog-server";
 
@@ -49,12 +49,7 @@ export async function GET(request: Request) {
           .eq("user_id", user.id)
           .maybeSingle();
 
-        const preferenceRole = (profile?.preferences as { active_role?: string } | null)?.active_role;
-        if (preferenceRole === "author" || preferenceRole === "reader") {
-          role = preferenceRole;
-        } else if (profile?.role === "author" || profile?.role === "reader") {
-          role = profile.role;
-        }
+        role = resolveActiveRoleFromProfile(profile);
       }
 
       const redirectPath = role === "author" ? "/author/home" : role === "reader" ? "/reader/home" : "/";

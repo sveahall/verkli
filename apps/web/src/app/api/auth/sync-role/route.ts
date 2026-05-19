@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
-import { activeRoleCookieHeader } from "@/lib/active-role";
+import { activeRoleCookieHeader, resolveActiveRoleFromProfile } from "@/lib/active-role";
 import type { ActiveRole } from "@/lib/active-role";
 import { apiError, E_UNAUTHORIZED } from "@/lib/api-errors";
 
@@ -27,13 +27,7 @@ export async function GET(request: Request) {
     .eq("user_id", user.id)
     .maybeSingle();
 
-  let role: ActiveRole | null = null;
-  const preferenceRole = (profile?.preferences as { active_role?: string } | null)?.active_role;
-  if (preferenceRole === "author" || preferenceRole === "reader") {
-    role = preferenceRole;
-  } else if (profile?.role === "author" || profile?.role === "reader") {
-    role = profile.role;
-  }
+  let role: ActiveRole | null = resolveActiveRoleFromProfile(profile);
   if (!role) {
     const metadataRole = user.user_metadata?.active_role ?? user.user_metadata?.role;
     if (metadataRole === "author" || metadataRole === "reader") {

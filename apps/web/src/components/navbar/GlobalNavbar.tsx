@@ -9,7 +9,7 @@ import GlassSurface from "@/components/GlassSurface";
 import UserMenu from "@/components/navbar/UserMenu";
 import NotificationBell from "@/components/notifications/NotificationBell";
 import { createClient } from "@/lib/supabase/client";
-import { getActiveRoleFromCookies } from "@/lib/active-role";
+import { getActiveRoleFromCookies, resolveActiveRoleFromProfile } from "@/lib/active-role";
 import type { NavActions, NavLink } from "@/nav/navConfig";
 import type { User } from "@supabase/supabase-js";
 import {
@@ -80,15 +80,10 @@ export default function GlobalNavbar({
         setOriginalRole(undefined);
       }
 
-      // Resolve active display role: prefer DB preferences, then profiles.role.
-      let nextRole: "author" | "reader" = "author";
-      const preferenceRole = (profile?.preferences as { active_role?: string } | null)?.active_role;
-      if (preferenceRole === "author" || preferenceRole === "reader") {
-        nextRole = preferenceRole;
-      } else if (profileRole === "author" || profileRole === "reader") {
-        nextRole = profileRole;
-      }
-
+      // Resolve active display role via the shared helper so the precedence
+      // (preferences.active_role → profiles.role) stays consistent across
+      // sign-in pages, auth/callback, and /api/auth/sync-role.
+      const nextRole = resolveActiveRoleFromProfile(profile) ?? "author";
       setCurrentRole(nextRole);
 
       if (profileRole === "author") {

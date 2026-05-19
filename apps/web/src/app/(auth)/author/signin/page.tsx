@@ -11,7 +11,7 @@ import { Input } from "@/components/ui/input";
 import { signIn, signInWithGoogle } from "@/lib/supabase/auth";
 import { createClient } from "@/lib/supabase/client";
 import { resolveErrorMessage } from "@/lib/error-messages";
-import { setActiveRoleCookieClient } from "@/lib/active-role";
+import { resolveActiveRoleFromProfile, setActiveRoleCookieClient } from "@/lib/active-role";
 
 export default function AuthorSignIn() {
   const router = useRouter();
@@ -64,12 +64,7 @@ export default function AuthorSignIn() {
           .eq("user_id", user.id)
           .maybeSingle();
 
-        const preferenceRole = (profile?.preferences as { active_role?: string } | null)?.active_role;
-        if (preferenceRole === "author" || preferenceRole === "reader") {
-          nextRole = preferenceRole;
-        } else if (profile?.role === "author" || profile?.role === "reader") {
-          nextRole = profile.role;
-        }
+        nextRole = resolveActiveRoleFromProfile(profile);
       }
 
       const resolvedRole = nextRole ?? "author";

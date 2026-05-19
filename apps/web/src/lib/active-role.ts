@@ -59,6 +59,31 @@ export function activeRoleCookieHeader(role: ActiveRole): string {
   return `${ACTIVE_ROLE_COOKIE}=${role}; Path=/; SameSite=Lax; Max-Age=31536000${secure}`;
 }
 
+/**
+ * Resolve the active role from a profile row.
+ *
+ * Pick order: `preferences.active_role` first (user's latest in-app switch),
+ * then `profiles.role` (original signup role) as fallback. Both are validated
+ * against the allowed-roles list so corrupted DB state can't smuggle in a
+ * bogus role string.
+ *
+ * Centralised here because GlobalNavbar, PublicRoleCta, auth/callback,
+ * /api/auth/sync-role and the author/reader sign-in pages all derived the
+ * same thing inline, with subtle differences in null handling.
+ *
+ * SECURITY: never read `user_metadata.role` — that field is client-writable
+ * via `supabase.auth.updateUser({ data: {...} })`. The authoritative source
+ * is always `profiles` in the DB.
+ */
+export function resolveActiveRoleFromProfile(
+  profile: { role?: string | null; preferences?: unknown } | null | undefined
+): ActiveRole | null {
+  const preferenceRole = (profile?.preferences as { active_role?: string } | null)?.active_role;
+  const parsedPreference = parseRole(preferenceRole);
+  if (parsedPreference) return parsedPreference;
+  return parseRole(profile?.role);
+}
+
 /** Client-only: set active_role cookie so logo and server read same value. */
 export function setActiveRoleCookieClient(role: ActiveRole): void {
   if (typeof document === "undefined") return;
