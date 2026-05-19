@@ -149,6 +149,36 @@ To rewind any UI cached against `demo_run_id`, simply re-run the seed. The
 new `demo_run_id` invalidates whatever the façade had stored for the previous
 rehearsal.
 
+## Pitch laptop: run prod build, not dev server
+
+For the live investor pitch, always run the demo against a production build:
+
+```bash
+npm run build && PORT=3000 npx next start
+```
+
+**Why:** `next dev --webpack` lazy-compiles dynamic-import chunks
+(`CoverPanel`, `ProductionFacade`, `DistributionFacade` in
+`BookEditorPanelContent.tsx`). Each first-time navigation to a panel triggers
+a webpack rebuild, which fires Fast Refresh, which remounts the demo hooks
+and **resets `state.status` mid-pacing** — the 13s production timeline never
+reaches "all done" because the in-flight `setTimeout` schedule gets cancelled.
+
+The Playwright spec `apps/web/e2e/demo-pitch.spec.ts` is the canary: against
+prod build it's 4/4 green in ~40 s; against `npm run dev` two of the four
+tests fail intermittently for exactly this reason. Treat that as a fact about
+dev mode, not a bug in the demo itself.
+
+Pre-pitch checklist:
+
+1. `git status` clean on the pitch branch.
+2. `npm run build` succeeds locally.
+3. `npx next start` boots on the pitch laptop.
+4. `npx playwright test e2e/demo-pitch.spec.ts` is 4/4 green against the
+   running prod server.
+5. Open `/author/books/<DEMO_BOOK_ID>?panel=cover` in Chrome, run through
+   1→2→3→4→5 once with the keyboard before the audience arrives.
+
 ## Related files
 
 - Migration: `apps/web/supabase/migrations/20260504100000_investor_demo_facade.sql`

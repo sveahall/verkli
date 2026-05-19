@@ -21,9 +21,17 @@ export default function ResetPassword() {
 
   useEffect(() => {
     const supabase = createClient();
-    supabase.auth.getSession().then(({ data }) => {
-      setHasSession(!!data.session);
-    });
+    supabase.auth
+      .getSession()
+      .then(({ data }) => {
+        setHasSession(!!data.session);
+      })
+      .catch((err) => {
+        // Without this the invalid-link warning never surfaces on transient
+        // network errors — the page stays in its initial null-loading state.
+        console.warn("[reset-password] getSession failed", err);
+        setHasSession(false);
+      });
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       if (event === "PASSWORD_RECOVERY" || event === "SIGNED_IN") {
         setHasSession(!!session);

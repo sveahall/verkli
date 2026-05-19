@@ -44,6 +44,28 @@ function freshState(): DemoProductionState {
 }
 
 describe("planDemoTimeline (timing)", () => {
+  it("locks the investor-pitch pacing to the 13.5s Day 5 sequence", () => {
+    const timeline = planDemoTimeline({
+      selectedLanguages: ALL_LANGS,
+      audiobookEnabled: true,
+      secondaryJitter: () => 0,
+    });
+
+    expect(timeline).toEqual([
+      { kind: "lang_ready", at: 0, lang: "en" },
+      { kind: "lang_ready", at: 1500, lang: "de" },
+      { kind: "lang_ready", at: 3000, lang: "fr" },
+      { kind: "audiobook_ready", at: 6000 },
+      { kind: "lang_ready", at: 7000, lang: "es" },
+      { kind: "lang_ready", at: 8000, lang: "it" },
+      { kind: "lang_ready", at: 9000, lang: "nl" },
+      { kind: "lang_ready", at: 10000, lang: "pt" },
+      { kind: "lang_ready", at: 11000, lang: "pl" },
+      { kind: "lang_ready", at: 12000, lang: "ja" },
+      { kind: "done", at: 13500 },
+    ]);
+  });
+
   it("schedules the primary trio (en/de/fr) at 0/1500/3000ms when all 10 languages are selected", () => {
     const timeline = planDemoTimeline({
       selectedLanguages: ALL_LANGS,

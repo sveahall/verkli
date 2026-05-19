@@ -1,6 +1,6 @@
 "use client";
 
-import type { BookFormat, PrintOnDemandSettings } from "./PrintPanel.helpers";
+import type { BookFormat, PrintOnDemandSettings } from "@/lib/print-on-demand";
 
 const FORMAT_INFO: Record<
   BookFormat,

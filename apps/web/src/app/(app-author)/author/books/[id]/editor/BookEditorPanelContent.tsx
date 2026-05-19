@@ -13,7 +13,7 @@ import type {
   MarketingCampaignRow,
   Tool,
 } from "./BookEditorView.types";
-import type { PrintOnDemandSettings } from "./panels/PrintPanel.helpers";
+import type { PrintOnDemandSettings } from "@/lib/print-on-demand";
 import type { useBookCover } from "./hooks/useBookCover";
 import type { useAudiobook } from "./hooks/useAudiobook";
 import type { useTranslation } from "./hooks/useTranslation";

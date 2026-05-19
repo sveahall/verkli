@@ -29,6 +29,9 @@ export default function TranslationCheckoutModal({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const backdropRef = useRef<HTMLDivElement>(null);
+  // Synchronous re-entry guard: `loading` state updates lag a render behind
+  // rapid double-clicks and a duplicate POST would charge the card twice.
+  const submittingRef = useRef(false);
 
   const languageCount = languages.length;
   const perLanguagePrice = 199;
@@ -45,10 +48,12 @@ export default function TranslationCheckoutModal({
   }, [open, onClose]);
 
   const handleSubmit = useCallback(async () => {
-    if (loading) return;
+    if (submittingRef.current) return;
+    submittingRef.current = true;
 
     if (plan === "pro") {
       onProSubscribe();
+      submittingRef.current = false;
       return;
     }
 
@@ -75,8 +80,9 @@ export default function TranslationCheckoutModal({
       setError("Could not start checkout. Try again.");
     } finally {
       setLoading(false);
+      submittingRef.current = false;
     }
-  }, [plan, loading, bookId, languages, sourceVersionId, onProSubscribe, onCheckoutStarted]);
+  }, [plan, bookId, languages, sourceVersionId, onProSubscribe, onCheckoutStarted]);
 
   if (!open) return null;
 

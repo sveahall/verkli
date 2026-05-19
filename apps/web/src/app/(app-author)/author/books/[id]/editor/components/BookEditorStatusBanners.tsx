@@ -10,6 +10,9 @@ interface BookEditorStatusBannersProps {
   jobsForBanner: UnifiedJob[];
   billingPastDue: boolean;
   onJobRetry: (job: UnifiedJob) => Promise<void>;
+  /** Investor-pitch demo: suppress the "Loading status..." flash and billing
+   * past-due warning so the pitch surfaces never show housekeeping chrome. */
+  suppressInDemo?: boolean;
 }
 
 export function BookEditorStatusBanners({
@@ -18,7 +21,9 @@ export function BookEditorStatusBanners({
   jobsForBanner,
   billingPastDue,
   onJobRetry,
+  suppressInDemo = false,
 }: BookEditorStatusBannersProps) {
+  if (suppressInDemo) return null;
   const jobStatusBanner = jobLoading ? (
     <div
       className="mb-6 flex h-14 items-center rounded-xl border border-black/[0.06] bg-slate-50/50 px-4 dark:border-white/[0.06] dark:bg-white/5"

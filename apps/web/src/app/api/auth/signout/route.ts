@@ -11,8 +11,10 @@ export const dynamic = "force-dynamic";
  * cookies and redirects back to the homepage. Used during demo prep when
  * switching between the demo author account and a real account.
  *
- * GET is allowed so a presenter can paste the URL into the address bar
- * during a pitch; POST is the proper form-post path.
+ * GET is permitted only for top-level browser navigation (Sec-Fetch-Dest:
+ * document) so presenters can paste the URL into the address bar during a
+ * pitch. Prefetch hints, <img> embeds, and cross-origin scripts cannot
+ * trigger an unintended signout.
  */
 async function handle(request: Request): Promise<NextResponse> {
   const supabase = await createClient();
@@ -37,10 +39,19 @@ async function handle(request: Request): Promise<NextResponse> {
   if (requested && (requested === "/" || /^\/[^/]/.test(requested))) {
     target = requested;
   }
-  return NextResponse.redirect(new URL(target, url.origin), { status: 303 });
+  const response = NextResponse.redirect(new URL(target, url.origin), { status: 303 });
+  response.headers.set("Cache-Control", "no-store");
+  return response;
 }
 
 export async function GET(request: Request) {
+  // Block prefetch/embed-based GETs that could log a user out involuntarily.
+  // Browsers set Sec-Fetch-Dest=document for top-level navigation only.
+  // Older clients that omit the header are allowed through for compatibility.
+  const dest = request.headers.get("sec-fetch-dest");
+  if (dest && dest !== "document") {
+    return new NextResponse(null, { status: 405, headers: { "Cache-Control": "no-store" } });
+  }
   return handle(request);
 }
 

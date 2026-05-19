@@ -1,3 +1,8 @@
+// GENERATED FILE — DO NOT EDIT.
+// Regenerate with: npm run generate:types
+// Source: `supabase gen types typescript` against the project database.
+// Manual edits will be overwritten on the next regeneration.
+
 export type Json =
   | string
   | number

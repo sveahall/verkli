@@ -99,13 +99,16 @@ test.describe("Demo pitch flow — visual e2e", () => {
     // Demo CTA exists.
     const cta = page.getByRole("button", { name: /Generate cover/i });
     await expect(cta).toBeVisible({ timeout: 15_000 });
+    // Let the cover preview image paint before screenshotting so the
+    // artifact reflects the populated pitch state, not the half-loaded one.
+    await page.waitForLoadState("networkidle");
     await page.screenshot({
       path: "test-results/demo-cover.png",
       fullPage: false,
     });
   });
 
-  test("production panel runs the 18 s pacing", async ({ page }) => {
+  test("production panel runs the 13 s pacing", async ({ page }) => {
     await page.goto(`/author/books/${DEMO_BOOK_ID}?panel=production`, {
       waitUntil: "domcontentloaded",
     });
@@ -117,12 +120,12 @@ test.describe("Demo pitch flow — visual e2e", () => {
     });
     await cta.click();
     // Wait for the "languages ready" terminal state — pacing schedule is
-    // 17 500 ms total, plus a bit of slack for animation/render.
+    // 13 500 ms total, plus slack for animation/render.
     const productionRegion = page.getByRole("region", {
       name: /Demo production façade/i,
     });
     await expect(productionRegion.getByLabel("all done")).toBeVisible({
-      timeout: 25_000,
+      timeout: 20_000,
     });
     await expect(productionRegion.getByText("languages ready")).toBeVisible();
     await page.screenshot({
@@ -142,9 +145,13 @@ test.describe("Demo pitch flow — visual e2e", () => {
       fullPage: false,
     });
     await cta.click();
-    await expect(page.getByText("12 live posts")).toBeVisible({
-      timeout: 25_000,
+    const distributionRegion = page.getByRole("region", {
+      name: /Demo distribution façade/i,
     });
+    await expect(
+      distributionRegion.getByLabel("distribution complete")
+    ).toBeVisible({ timeout: 25_000 });
+    await expect(distributionRegion.getByText("posts live")).toBeVisible();
     await page.screenshot({
       path: "test-results/demo-distribute-done.png",
       fullPage: false,

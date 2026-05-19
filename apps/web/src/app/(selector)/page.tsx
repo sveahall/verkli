@@ -60,7 +60,9 @@ export default function RoleSelection() {
       }
     };
 
-    checkUserRole();
+    checkUserRole().catch((err) => {
+      console.warn("[role-selector] checkUserRole failed", err);
+    });
   }, [router]);
 
   const setRoleAndGo = (role: "author" | "reader") => {

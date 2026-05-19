@@ -3,7 +3,7 @@
 import { useState, useCallback } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { useToastHelpers } from "@/components/ui/toast";
-import { normalizePrintOnDemandSettings, type PrintOnDemandSettings } from "../panels/PrintPanel.helpers";
+import { normalizePrintOnDemandSettings, type PrintOnDemandSettings } from "@/lib/print-on-demand";
 import type { Book } from "../BookEditorView.types";
 
 export interface UseBookPrintOnDemandOptions {

@@ -165,15 +165,13 @@ export async function POST(request: Request) {
         console.info("[reader waitlist] duplicate signup", { id: existing.id });
         const existingRecord = existing as { id: string; created_at: string; confirmation_email_sent_at?: string | null };
         let emailSent = false;
-        let emailError: string | undefined;
         if (!existingRecord.confirmation_email_sent_at) {
           const sendResult = await sendReaderConfirmationEmail(email, position, name);
           emailSent = sendResult.sent;
-          emailError = sendResult.error;
           await persistEmailAttempt(supabase, existingRecord.id, sendResult);
         }
         return NextResponse.json(
-          { ok: true, position, id: existing.id, alreadyExists: true, emailSent, emailError: emailError ?? null },
+          { ok: true, position, id: existing.id, alreadyExists: true, emailSent },
           { status: 200 }
         );
       }
@@ -212,7 +210,6 @@ export async function POST(request: Request) {
       id: inserted.id,
       alreadyExists: false,
       emailSent: sendResult.sent,
-      emailError: sendResult.error ?? null,
     });
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);

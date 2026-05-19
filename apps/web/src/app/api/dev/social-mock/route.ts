@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { encryptToken } from "@/lib/social/token-crypto";
 import { VALID_PLATFORMS } from "@/lib/social/platform-constraints";
@@ -13,16 +14,21 @@ export async function POST(request: Request) {
     return apiError(E_NOT_AVAILABLE_IN_PRODUCTION, 404);
   }
 
+  // Require an authenticated session and forcibly scope writes to the caller.
+  // Defense in depth: even if NODE_ENV is misconfigured in staging, an
+  // anonymous caller can't plant social rows on someone else's account.
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) {
+    return NextResponse.json({ error: "Not signed in" }, { status: 401 });
+  }
+  const userId = user.id;
+
   const url = new URL(request.url);
   const action = url.searchParams.get("action");
   const platform = url.searchParams.get("platform");
 
   const body = await request.json().catch(() => ({})) as Record<string, string>;
-  const userId = body.userId;
-
-  if (!userId) {
-    return NextResponse.json({ error: "userId required" }, { status: 400 });
-  }
 
   const admin = createAdminClient();
 

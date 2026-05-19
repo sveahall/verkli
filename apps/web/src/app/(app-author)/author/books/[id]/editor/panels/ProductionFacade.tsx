@@ -1,7 +1,8 @@
 "use client";
 
+import Link from "next/link";
 import { useMemo } from "react";
-import { Check, Headphones, Languages, Pause, Play, Sparkles } from "lucide-react";
+import { ArrowRight, Check, Headphones, Languages, Pause, Play, Sparkles } from "lucide-react";
 import {
   DEMO_LANGUAGES,
   type DemoLanguage,
@@ -39,8 +40,6 @@ const LANGUAGE_NAMES: Record<DemoLanguage, string> = {
 };
 
 export default function ProductionFacade({ bookId }: ProductionFacadeProps) {
-  void bookId;
-
   const {
     state,
     selectedLanguages,
@@ -187,7 +186,11 @@ export default function ProductionFacade({ bookId }: ProductionFacadeProps) {
             </span>
           </button>
           <p className="text-[12px] text-slate-500">
-            No queue · no payments · 18 seconds end-to-end
+            No queue · no payments · 13 seconds end-to-end
+          </p>
+          <p className="text-[11px] font-medium text-slate-400">
+            <span className="text-slate-300 line-through">Traditional pipeline: 3–6 weeks · ~$3,800</span>
+            <span className="ml-2 text-[var(--brand-violet)]">→ 13 seconds · $0</span>
           </p>
         </div>
 
@@ -286,8 +289,21 @@ export default function ProductionFacade({ bookId }: ProductionFacadeProps) {
               })}
             </ul>
 
-            {audiobookEnabled && !state.audiobookReady ? (
-              <AudiobookPulsing />
+            {audiobookEnabled && isProducing ? (
+              <AudiobookPulsing audiobookReady={state.audiobookReady} />
+            ) : null}
+
+            {isDone ? (
+              <div className="mt-6 flex flex-col items-center gap-2">
+                <Link
+                  href={`/author/books/${bookId}?panel=distribute`}
+                  className="group inline-flex items-center gap-2 rounded-full bg-[var(--brand-violet)] px-5 py-2.5 text-[13px] font-semibold text-white shadow-[0_8px_22px_-6px_rgba(124,92,252,0.55)] transition hover:scale-[1.02] hover:bg-[var(--brand-violet-hover)] active:scale-[0.98]"
+                >
+                  Next · Launch globally
+                  <ArrowRight className="h-3.5 w-3.5 transition-transform group-hover:translate-x-0.5" aria-hidden />
+                </Link>
+                <p className="text-[11px] text-slate-400">Press 3 to jump · 4 to skip POD</p>
+              </div>
             ) : null}
           </div>
         ) : null}
@@ -319,7 +335,7 @@ function ProgressRing({ value }: { value: number }) {
   );
 }
 
-function AudiobookPulsing() {
+function AudiobookPulsing({ audiobookReady }: { audiobookReady: boolean }) {
   return (
     <div
       className="mt-5 flex items-center gap-3 rounded-xl border border-dashed border-slate-200 bg-white/60 px-4 py-3"
@@ -337,7 +353,9 @@ function AudiobookPulsing() {
           />
         ))}
       </div>
-      <span className="text-[13px] text-slate-600">Audiobook narrating…</span>
+      <span className="text-[13px] text-slate-600">
+        {audiobookReady ? "Audiobook ready · narrating in every language…" : "Audiobook narrating…"}
+      </span>
       <style>{`
         @keyframes demoPulse {
           0%, 100% { transform: scaleY(0.6); opacity: 0.6; }

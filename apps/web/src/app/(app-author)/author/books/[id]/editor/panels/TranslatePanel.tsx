@@ -70,26 +70,6 @@ export default function TranslatePanel({
 
   const sourceLabel = getLanguageLabel(sourceLanguage);
 
-  // Handle return from Stripe checkout
-  useEffect(() => {
-    if (checkoutHandledRef.current) return;
-    const checkoutStatus = searchParams?.get("translation_checkout");
-    const sessionId = searchParams?.get("session_id");
-    const languagesParam = searchParams?.get("languages");
-
-    if (checkoutStatus === "success" && sessionId && languagesParam && sourceVersionId) {
-      checkoutHandledRef.current = true;
-      const url = new URL(window.location.href);
-      url.searchParams.delete("translation_checkout");
-      url.searchParams.delete("session_id");
-      url.searchParams.delete("languages");
-      router.replace(url.pathname + url.search, { scroll: false });
-
-      const langs = languagesParam.split(",").filter(Boolean);
-      void triggerPaidTranslation(langs, sessionId);
-    }
-  }, [searchParams, sourceVersionId, router]); // eslint-disable-line react-hooks/exhaustive-deps
-
   const triggerPaidTranslation = useCallback(async (languages: string[], stripeSessionId: string) => {
     if (!bookId || !sourceVersionId) return;
     setTranslating(true);
@@ -138,6 +118,27 @@ export default function TranslatePanel({
       setTranslating(false);
     }
   }, [bookId, sourceVersionId, onMessage]);
+
+  // Handle return from Stripe checkout. Runs once per mount via
+  // checkoutHandledRef so re-renders from prop changes can't double-fire.
+  useEffect(() => {
+    if (checkoutHandledRef.current) return;
+    const checkoutStatus = searchParams?.get("translation_checkout");
+    const sessionId = searchParams?.get("session_id");
+    const languagesParam = searchParams?.get("languages");
+
+    if (checkoutStatus === "success" && sessionId && languagesParam && sourceVersionId) {
+      checkoutHandledRef.current = true;
+      const url = new URL(window.location.href);
+      url.searchParams.delete("translation_checkout");
+      url.searchParams.delete("session_id");
+      url.searchParams.delete("languages");
+      router.replace(url.pathname + url.search, { scroll: false });
+
+      const langs = languagesParam.split(",").filter(Boolean);
+      void triggerPaidTranslation(langs, sessionId);
+    }
+  }, [searchParams, sourceVersionId, router, triggerPaidTranslation]);
 
   useEffect(() => {
     if (!targetDropdownOpen) return;
@@ -198,6 +199,9 @@ export default function TranslatePanel({
 
   useEffect(() => {
     void fetchPreview();
+    return () => {
+      previewAbortRef.current?.abort();
+    };
   }, [fetchPreview]);
 
   const handleTranslateFullBook = useCallback(async () => {

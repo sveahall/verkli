@@ -37,4 +37,23 @@ describe("/api/auth/signout", () => {
     expect(res.status).toBe(303);
     expect(res.headers.get("location")).toBe("http://localhost/");
   });
+
+  it("blocks GET when Sec-Fetch-Dest is not 'document' (prefetch/embed guard)", async () => {
+    const res = await GET(
+      new Request("http://localhost/api/auth/signout", {
+        headers: { "sec-fetch-dest": "image" },
+      })
+    );
+
+    expect(mockSignOut).not.toHaveBeenCalled();
+    expect(res.status).toBe(405);
+  });
+
+  it("sets Cache-Control: no-store on the redirect response", async () => {
+    const res = await POST(
+      new Request("http://localhost/api/auth/signout", { method: "POST" })
+    );
+
+    expect(res.headers.get("cache-control")).toBe("no-store");
+  });
 });

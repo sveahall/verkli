@@ -34,23 +34,25 @@ const SECONDARY_LANGUAGES: ReadonlyArray<DemoLanguage> = [
 ];
 
 /**
- * Pacing schedule. Each entry is (delayMs, language). Values come straight
- * from the demo plan:
- *   0–5s    primary trio (en/de/fr) light up at 0/1500/3000 ms
- *   6s      audiobook Play button is allowed to appear
- *   11–15s  secondary six tick in at ~700 ms intervals
- *   15–18s  "all ready" plus final checkmark pop
+ * Pacing schedule. Each entry is (delayMs, language). Investor-pitch tuned —
+ * tighter than the original plan because Day-N live-QA showed the post-
+ * audiobook gap was bleeding tension out of the room.
  *
- * Hard rule from the plan: no step ≥ 3 s without a visible change. The
- * widest gap below is 3 s (3000 → 6000) which is exactly the audiobook
- * waveform pulse-up — that is the "visual change" filling the window.
+ *   0–3s    primary trio (en/de/fr) light up at 0/1500/3000 ms
+ *   3–6s    audiobook waveform pulses, then the Play button appears at 6 s
+ *   6–13s   secondary six tick in at ~1 s intervals starting 7 s
+ *   13–14s  "all ready" plus final checkmark pop
+ *
+ * Hard rule: no step ≥ 2 s without a visible change. The widest gap is
+ * 3000 → 6000 (audiobook waveform pulse-up — the visible change) and
+ * 6000 → 7000 (audiobook ready check + first secondary).
  */
 export const PACING = {
   primaryStarts: [0, 1500, 3000] as const, // ms offsets, indexed with PRIMARY_LANGUAGES
   audiobookReadyAt: 6000,
-  secondaryBaseStarts: [11000, 11800, 12600, 13300, 14000, 14800] as const,
-  secondaryJitterMs: 500,
-  completedAt: 17500,
+  secondaryBaseStarts: [7000, 8000, 9000, 10000, 11000, 12000] as const,
+  secondaryJitterMs: 400,
+  completedAt: 13500,
 } as const;
 
 // ─── Pure planning helpers ─────────────────────────────────────────────────
@@ -379,6 +381,12 @@ export function useDemoProduction(
   const cancelHandlesRef = useRef<Array<() => void>>([]);
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const [playingLanguage, setPlayingLanguage] = useState<DemoLanguage | null>(null);
+  // Resume-effect guard. The lazy initializer above already discarded any
+  // pre-existing session older than STATE_RESUME_WINDOW_MS, so when this is
+  // false on mount and state.status === "producing" we know the session is
+  // mid-pacing and should be resumed. Flipped to true after the first run so
+  // subsequent re-renders (or HMR) don't schedule duplicate timers.
+  const hasResumedRef = useRef(false);
 
   const stopAudio = useCallback(() => {
     const a = audioRef.current;
@@ -427,18 +435,25 @@ export function useDemoProduction(
     };
   }, [cancelPending]);
 
-  // Resume effect — runs once on mount. If lazy-init pulled an in-flight
-  // session out of localStorage, this re-schedules the remaining timeline
-  // events so the pacing animation continues from the right offset. Pure
-  // side-effect setup; no setState in render.
+  // Resume effect — re-schedules in-flight timeline events when a page
+  // refresh dropped us back into the hook with state.status === "producing".
+  // The hasResumedRef guard keeps it idempotent: even though deps may change
+  // identity (in tests that swap deps), we only resume once per mount.
   useEffect(() => {
+    if (hasResumedRef.current) return;
     if (state.status !== "producing" || state.startedAt == null) return;
+    hasResumedRef.current = true;
     const elapsed = deps.now() - state.startedAt;
     if (elapsed >= PACING.completedAt) {
-      // The full pacing window already elapsed during the refresh — close out.
-      setState((prev) =>
-        reduceDemoProduction(prev, { type: "done", completedAt: deps.now() })
-      );
+      // The full pacing window already elapsed during the refresh — close
+      // out async so the state transition happens after this effect
+      // finishes, not synchronously inside it.
+      const cancel = deps.schedule(0, () => {
+        setState((prev) =>
+          reduceDemoProduction(prev, { type: "done", completedAt: deps.now() })
+        );
+      });
+      cancelHandlesRef.current.push(cancel);
       return;
     }
     const fullTimeline = planDemoTimeline({
@@ -465,10 +480,7 @@ export function useDemoProduction(
       });
       cancelHandlesRef.current.push(cancel);
     }
-    // Run once on mount only — `state` deliberately omitted so we don't
-    // re-schedule on every state transition.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [deps, state.status, state.startedAt]);
 
   const toggleLanguage = useCallback((lang: DemoLanguage) => {
     setSelectedLanguages((prev) =>
@@ -478,8 +490,9 @@ export function useDemoProduction(
 
   const reset = useCallback(() => {
     cancelPending();
+    stopAudio();
     setState((prev) => reduceDemoProduction(prev, { type: "reset" }));
-  }, [cancelPending]);
+  }, [cancelPending, stopAudio]);
 
   const start = useCallback(() => {
     cancelPending();
@@ -618,11 +631,9 @@ export function useDemoProduction(
     setPlayingLanguage(null);
   }, []);
 
-  // Stop audio when the demo is reset so a fresh run doesn't have a stale
-  // narration leaking from the previous round.
-  useEffect(() => {
-    if (state.status === "idle") stopAudio();
-  }, [state.status, stopAudio]);
+  // Audio stop is wired directly into reset() (above) so we don't need an
+  // effect to react to state.status — keeps the side-effect explicit and
+  // avoids a synchronous setState inside a useEffect body.
 
   return {
     state,

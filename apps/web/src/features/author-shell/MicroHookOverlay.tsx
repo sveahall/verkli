@@ -46,7 +46,11 @@ export default function MicroHookOverlay({
   );
   const [open, setOpen] = useState(true);
 
-  // Auto-fade timer + global click listener for "any click dismisses".
+  // Stay visible until the presenter intentionally dismisses (Esc) or
+  // 12s have elapsed — long enough to read aloud once. We don't dismiss
+  // on a single global click anymore: the presenter often clicks
+  // "Generate cover" while still narrating the hook, and previously the
+  // line vanished before they finished speaking it.
   useEffect(() => {
     if (!enabled || dismissed) return;
     const close = () => {
@@ -57,12 +61,14 @@ export default function MicroHookOverlay({
         // best-effort
       }
     };
-    const fadeTimer = window.setTimeout(close, 3000);
-    const onClick = () => close();
-    window.addEventListener("click", onClick, { once: true, capture: true });
+    const fadeTimer = window.setTimeout(close, 12_000);
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") close();
+    };
+    window.addEventListener("keydown", onKey);
     return () => {
       window.clearTimeout(fadeTimer);
-      window.removeEventListener("click", onClick, true);
+      window.removeEventListener("keydown", onKey);
     };
   }, [enabled, dismissed]);
 

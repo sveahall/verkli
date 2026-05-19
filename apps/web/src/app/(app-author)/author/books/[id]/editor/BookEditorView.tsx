@@ -342,6 +342,7 @@ export default function BookEditorView({
       jobsForBanner={jobsForBanner}
       billingPastDue={billing.pastDue ?? false}
       onJobRetry={handleJobRetry}
+      suppressInDemo={isDemoEditorView}
     />
   );
 

@@ -8,7 +8,7 @@ import {
   POD_SHIPPING_COST_SE,
   type BookFormat,
   type PrintOnDemandSettings,
-} from "./PrintPanel.helpers";
+} from "@/lib/print-on-demand";
 import { PrintPanelActivated, PrintPanelPitch } from "./PrintPanel.views";
 
 const FORMAT_INFO: Record<

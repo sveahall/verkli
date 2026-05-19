@@ -1,8 +1,11 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import {
+  ArrowRight,
   Check,
+  ExternalLink,
   Globe,
   Music2,
   Play,
@@ -11,6 +14,7 @@ import {
   Twitter,
   Youtube,
 } from "lucide-react";
+import { SEEDED_DEMO_BOOK_ID } from "@/features/author-shell/useDemoHotkeys";
 import {
   cellKey,
   DEMO_CHANNELS,
@@ -19,6 +23,7 @@ import {
   type DemoChannel,
   type DemoDistributionLanguage,
 } from "../hooks/useDemoDistribution";
+import { POD_MODAL_EVENT } from "@/features/author-shell/useDemoHotkeys";
 import type { MarketingCampaignRow } from "../BookEditorView.types";
 
 interface DistributionFacadeProps {
@@ -146,6 +151,10 @@ export default function DistributionFacade({ bookId, marketingCampaigns }: Distr
           <p className="text-[12px] text-slate-500">
             {DEMO_CHANNELS.length} channels × {DEMO_DISTRIBUTION_LANGUAGES.length} languages · 17 seconds end-to-end
           </p>
+          <p className="text-[11px] font-medium text-slate-400">
+            <span className="text-slate-300 line-through">Traditional ad-spend: ~$8,500/launch</span>
+            <span className="ml-2 text-[var(--brand-violet)]">→ $0 · ~380M reach</span>
+          </p>
         </div>
 
         {/* ── Live status + grid ──────────────────────────────────── */}
@@ -247,6 +256,13 @@ function ChannelRow({
   );
 }
 
+const FAKE_HANDLE: Record<DemoChannel, string> = {
+  tiktok: "tiktok.com/@verkli",
+  instagram: "instagram.com/verkli.books",
+  x: "x.com/verkli",
+  youtube: "youtube.com/@verkli",
+};
+
 function ThumbnailCard({
   channel,
   language,
@@ -264,6 +280,7 @@ function ThumbnailCard({
   const caption = campaign?.caption ?? "";
   const hashtags = campaign?.hashtags ?? "";
   const cta = campaign?.cta ?? "Listen now";
+  const fakeHandle = FAKE_HANDLE[channel];
 
   // Snap-card sizing per channel aspect: vertical formats are narrower,
   // wide formats wider, so the row reads at a glance.
@@ -300,6 +317,12 @@ function ThumbnailCard({
             <Check className="h-3 w-3" aria-hidden />
           </span>
         ) : null}
+        {ready ? (
+          <span className="pointer-events-none absolute inset-x-0 bottom-0 flex items-center justify-between gap-1 bg-gradient-to-t from-slate-900/85 to-transparent px-2.5 py-1.5 text-[10px] font-medium text-white opacity-0 transition-opacity duration-200 group-hover:opacity-100">
+            <span className="truncate">{fakeHandle}</span>
+            <ExternalLink className="h-3 w-3 flex-shrink-0" aria-hidden />
+          </span>
+        ) : null}
       </div>
       <div className="space-y-1 p-3">
         <p className="line-clamp-2 text-label text-slate-900">{headline}</p>
@@ -333,6 +356,18 @@ const POD_PARTNERS = [
 function PrintOnDemandToggle({ disabled }: { disabled: boolean }) {
   const [enabled, setEnabled] = useState(false);
   const [showModal, setShowModal] = useState(false);
+
+  // Hotkey 3 dispatches POD_MODAL_EVENT after navigating to /distribute.
+  // Honor it: enable + open modal so the presenter never has to fumble.
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const onOpen = () => {
+      setEnabled(true);
+      setShowModal(true);
+    };
+    window.addEventListener(POD_MODAL_EVENT, onOpen);
+    return () => window.removeEventListener(POD_MODAL_EVENT, onOpen);
+  }, []);
 
   function handleToggle() {
     if (disabled) return;
@@ -385,18 +420,28 @@ function PrintOnDemandToggle({ disabled }: { disabled: boolean }) {
 }
 
 function PodModal({ onClose }: { onClose: () => void }) {
-  // No backdrop click outside the modal closes it — the demo is short, the
-  // user can dismiss with the explicit Close button.
+  // Backdrop click + Esc both dismiss — the live presenter needs to be
+  // able to recover instantly if they hit the Launch CTA next.
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onClose();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [onClose]);
+
   return (
     <div
       className="fixed inset-0 z-[2000] flex items-center justify-center bg-slate-900/50 px-4 backdrop-blur-sm"
       role="dialog"
       aria-modal="true"
       aria-label="Print on demand — partners notified"
+      onClick={onClose}
     >
       <div
         className="w-full max-w-md rounded-2xl border border-slate-100 bg-white p-6"
         style={{ animation: "demoPopIn 280ms cubic-bezier(0.34, 1.56, 0.64, 1)" }}
+        onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center gap-2">
           <span className="inline-flex h-9 w-9 items-center justify-center rounded-full bg-[var(--brand-violet)]/10 text-[var(--brand-violet)]">
@@ -444,28 +489,50 @@ function SummaryOverlay() {
   const [visible, setVisible] = useState(true);
 
   useEffect(() => {
-    // Auto-fade after 3s. Day 5 will replace this with a hand-off into the
-    // reader-finale view; for now it just tells the audience we're done.
-    const id = window.setTimeout(() => setVisible(false), 3000);
-    return () => window.clearTimeout(id);
+    // Auto-fade after 6s — investor needs time to read the headline.
+    // Click anywhere or press Esc to dismiss earlier.
+    const id = window.setTimeout(() => setVisible(false), 6000);
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setVisible(false);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => {
+      window.clearTimeout(id);
+      window.removeEventListener("keydown", onKey);
+    };
   }, []);
 
   if (!visible) return null;
 
   return (
     <div
-      className="pointer-events-none fixed inset-0 z-[1500] flex items-center justify-center"
+      className="fixed inset-0 z-[1500] flex cursor-pointer items-center justify-center bg-slate-900/10 backdrop-blur-[2px]"
       aria-live="polite"
+      onClick={() => setVisible(false)}
     >
       <div
-        className="rounded-3xl border border-slate-200 bg-white px-12 py-10 text-center"
+        className="rounded-3xl border border-slate-200 bg-white px-12 py-10 text-center shadow-[0_24px_72px_-12px_rgba(15,23,42,0.25)]"
         style={{ animation: "demoSummaryPop 360ms cubic-bezier(0.34, 1.56, 0.64, 1)" }}
+        onClick={(e) => e.stopPropagation()}
       >
         <p className="text-[10px] font-semibold uppercase tracking-[0.24em] text-slate-400">
-          Live
+          Live · 35 seconds end-to-end
         </p>
         <p className="mt-2 text-[26px] font-semibold leading-tight tracking-[-0.02em] text-slate-900 sm:text-[32px]">
-          10 languages · audiobook · 12 live posts
+          10 languages · audiobook · 12 native posts
+        </p>
+        <p className="mt-2 text-[14px] font-medium text-[var(--brand-violet)]">
+          $0 ad-budget · ~380M global reach
+        </p>
+        <Link
+          href={`/reader/books/${SEEDED_DEMO_BOOK_ID}`}
+          className="group mt-5 inline-flex items-center gap-2 rounded-full bg-[var(--brand-violet)] px-5 py-2.5 text-[13px] font-semibold text-white shadow-[0_8px_22px_-6px_rgba(124,92,252,0.55)] transition hover:scale-[1.02] hover:bg-[var(--brand-violet-hover)] active:scale-[0.98]"
+        >
+          See it live in the reader
+          <ArrowRight className="h-3.5 w-3.5 transition-transform group-hover:translate-x-0.5" aria-hidden />
+        </Link>
+        <p className="mt-3 text-[10px] uppercase tracking-[0.22em] text-slate-400">
+          Press 5 · click anywhere · Esc to close
         </p>
       </div>
       <style>{`

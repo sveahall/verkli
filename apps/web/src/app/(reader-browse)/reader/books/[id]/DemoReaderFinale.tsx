@@ -161,17 +161,30 @@ export default function DemoReaderFinale({
           className="flex min-w-0 flex-col justify-center gap-5"
           style={{ animation: "demoHeroTextIn 700ms ease-out 120ms both" }}
         >
-          <span className="inline-flex items-center gap-2 self-start rounded-full border border-[var(--brand-violet)]/20 bg-white/70 px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.22em] text-[var(--brand-violet)] shadow-sm backdrop-blur">
-            <Globe className="h-3 w-3" aria-hidden />
-            Available in {chapters.length} languages
-            <span className="ml-2 flex items-center gap-1 text-[14px]" aria-hidden>
-              {langs.map((l) => (
-                <span key={l} className="leading-none">
-                  {LANGUAGE_FLAGS[l] ?? "🏳️"}
-                </span>
-              ))}
+          <div className="flex flex-wrap items-center gap-2 self-start">
+            <span className="inline-flex items-center gap-1.5 rounded-full border border-[var(--brand-violet)]/25 bg-white/85 px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-[0.2em] text-[var(--brand-violet)] shadow-sm backdrop-blur">
+              Step 4 of 4 · Reader
             </span>
-          </span>
+            <span className="inline-flex items-center gap-2 rounded-full border border-[var(--brand-violet)]/20 bg-white/70 px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.22em] text-[var(--brand-violet)] shadow-sm backdrop-blur">
+              <Globe className="h-3 w-3" aria-hidden />
+              Available in {chapters.length} languages
+              <span className="ml-1 flex items-center gap-0.5 text-[13px]" aria-hidden>
+                {langs.slice(0, 4).map((l) => (
+                  <span key={l} className="leading-none">
+                    {LANGUAGE_FLAGS[l] ?? "🏳️"}
+                  </span>
+                ))}
+                {langs.length > 4 ? (
+                  <span className="ml-1 text-[10px] tracking-normal text-[var(--brand-violet)]/70">
+                    +{langs.length - 4}
+                  </span>
+                ) : null}
+              </span>
+            </span>
+            <span className="inline-flex items-center gap-1 rounded-full border border-[var(--brand-amber)]/30 bg-white/70 px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-[0.2em] text-[var(--brand-amber)] shadow-sm backdrop-blur">
+              ~4.2M readers in TAM
+            </span>
+          </div>
 
           <h1
             className="text-balance text-[44px] font-bold leading-[1.05] tracking-[-0.02em] sm:text-[56px]"
@@ -291,15 +304,29 @@ export default function DemoReaderFinale({
               </p>
             ))}
           {readChapterByLang && readChapterByLang[activeLang] ? (
-            <p className="mt-8 text-[13px]">
-              <a
-                href={`/reader/read/${readChapterByLang[activeLang]}`}
-                className="inline-flex items-center gap-1.5 font-semibold text-[var(--brand-violet)] underline decoration-[var(--brand-violet)]/30 underline-offset-4 hover:decoration-[var(--brand-violet)]"
-              >
-                Read the full chapter
-                <span aria-hidden>→</span>
-              </a>
-            </p>
+            <div className="mt-10 rounded-2xl border border-[var(--brand-violet)]/20 bg-gradient-to-br from-[var(--brand-violet)]/[0.05] via-white to-[var(--brand-rose)]/[0.04] p-5 shadow-sm">
+              <p className="text-eyebrow text-[var(--brand-violet)]">
+                Chapter 2 · early access
+              </p>
+              <p className="mt-1.5 text-[15px] font-semibold leading-snug text-slate-900">
+                412 readers already pre-ordered in {LANGUAGE_NAMES[activeLang] ?? activeLang.toUpperCase()}
+              </p>
+              <p className="mt-1 text-[13px] text-slate-500">
+                The next chapter unlocks in 72 h. Continue reading on launch day.
+              </p>
+              <div className="mt-3 flex flex-wrap items-center gap-3">
+                <a
+                  href={`/reader/read/${readChapterByLang[activeLang]}`}
+                  className="inline-flex items-center gap-1.5 rounded-full bg-[var(--brand-violet)] px-4 py-1.5 text-[12px] font-semibold text-white shadow-[0_6px_16px_-6px_rgba(124,92,252,0.55)] transition hover:scale-[1.02] hover:bg-[var(--brand-violet-hover)]"
+                >
+                  Pre-order · 1.99 €
+                  <span aria-hidden>→</span>
+                </a>
+                <span className="text-[11px] uppercase tracking-[0.18em] text-slate-400">
+                  $821 in pre-orders today · {LANGUAGE_NAMES[activeLang] ?? activeLang.toUpperCase()}
+                </span>
+              </div>
+            </div>
           ) : null}
         </article>
       </div>

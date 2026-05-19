@@ -6,21 +6,14 @@ import * as Sentry from "@sentry/nextjs";
 //   2. Throws a deliberate error so `instrumentation.ts#onRequestError` /
 //      `Sentry.captureRequestError` reports it via the Next.js hook.
 //
-// Guarded by NODE_ENV !== "production" AND a one-shot env opt-in so it cannot
-// be reached on a live deployment by accident. Set
-// `SENTRY_TEST_ENDPOINT_ENABLED=true` to allow.
-//
-// To verify the client-side pipeline, append `?mode=client-trigger` to read
-// instructions on how to trigger from the browser (no server-side throw).
+// Guarded by NODE_ENV !== "production" — cannot be reached on a live
+// deployment. To verify the client-side pipeline, append `?mode=client-trigger`
+// to read instructions on how to trigger from the browser.
 
 export const dynamic = "force-dynamic";
 
-const ALLOWED_IN_PROD = false;
-
 function isAllowed(): boolean {
-  if (process.env.NODE_ENV !== "production") return true;
-  if (!ALLOWED_IN_PROD) return false;
-  return process.env.SENTRY_TEST_ENDPOINT_ENABLED === "true";
+  return process.env.NODE_ENV !== "production";
 }
 
 export async function GET(request: Request) {

@@ -283,6 +283,8 @@ export function useDemoDistribution(
     }
   });
   const cancelHandlesRef = useRef<Array<() => void>>([]);
+  // Resume-effect guard — see the matching pattern in useDemoProduction.
+  const hasResumedRef = useRef(false);
 
   // Persist state on every change. Cleared on reset.
   useEffect(() => {
@@ -314,14 +316,22 @@ export function useDemoDistribution(
   }, [cancelPending]);
 
   // Resume effect: if we lazy-hydrated an in-flight session, re-schedule
-  // remaining cell-flip + done events so pacing continues smoothly.
+  // remaining cell-flip + done events so pacing continues smoothly. The
+  // hasResumedRef guard keeps the work idempotent across re-renders.
   useEffect(() => {
+    if (hasResumedRef.current) return;
     if (state.status !== "launching" || state.startedAt == null) return;
+    hasResumedRef.current = true;
     const elapsed = deps.now() - state.startedAt;
     if (elapsed >= DISTRIBUTION_PACING.completedAt) {
-      setState((prev) =>
-        reduceDemoDistribution(prev, { type: "done", completedAt: deps.now() })
-      );
+      // Defer the close-out so the state transition happens after this
+      // effect returns instead of as a synchronous setState in body.
+      const cancel = deps.schedule(0, () => {
+        setState((prev) =>
+          reduceDemoDistribution(prev, { type: "done", completedAt: deps.now() })
+        );
+      });
+      cancelHandlesRef.current.push(cancel);
       return;
     }
     const fullTimeline = planDistributionTimeline({ cellJitter: () => 0 });
@@ -344,9 +354,7 @@ export function useDemoDistribution(
       });
       cancelHandlesRef.current.push(cancel);
     }
-    // Mount-only resume; runs once.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [deps, state.status, state.startedAt]);
 
   const reset = useCallback(() => {
     cancelPending();

@@ -243,8 +243,20 @@ export function useBookCover({ book, demoFallbackEnabled = false }: UseBookCover
       return images.length >= 4 ? images.slice(0, 4) : null;
     };
 
+    // Cmd+Shift+D failover: degraded mode skips the live API + 8s loader
+    // entirely and snaps the fallback covers onto the screen. Set by the
+    // demo hotkey handler when the presenter knows ahead of time that
+    // network is bad.
+    const degradedMode =
+      typeof window !== "undefined" &&
+      window.localStorage.getItem("demo_degraded_mode") === "1";
+
     try {
-      if (demoFallbackEnabled) {
+      if (demoFallbackEnabled && degradedMode) {
+        setCoverAIPhase("done");
+        setCoverAIGeneratedUrls([...DEMO_FALLBACK_COVERS]);
+        setCoverAIGeneratedSource("fallback");
+      } else if (demoFallbackEnabled) {
         // Race the live call against a 15s timeout. Whichever resolves
         // first wins. On live-success the phase ticks straight to "done"
         // and the result lands. On timeout / error / null we hold the

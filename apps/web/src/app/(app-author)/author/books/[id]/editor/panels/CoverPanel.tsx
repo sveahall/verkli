@@ -1,8 +1,9 @@
 "use client";
 
 import Image from "next/image";
+import Link from "next/link";
 import dynamic from "next/dynamic";
-import { ImageIcon, PenLine, Sparkles, Upload } from "lucide-react";
+import { ArrowRight, ImageIcon, PenLine, Sparkles, Upload } from "lucide-react";
 import { ACCEPTED_COVER_TYPES, COVER_AI_STYLES, COVER_TEMPLATES } from "../BookEditorView.helpers";
 
 const CoverCropModal = dynamic(() => import("@/components/books/CoverCropModal"), { ssr: false });
@@ -96,6 +97,8 @@ export default function CoverPanel({
 
   return (
     <div className={`mx-auto w-full max-w-[1080px] px-6 ${demoMode ? "mt-6 space-y-5 sm:mt-8" : "mt-10 space-y-8 sm:px-12"}`}>
+      {/* Step number/name dropped — the workflow stepper above already shows
+          step position; keep only the pacing badge inside the hero copy. */}
       {/* ── Header (real-mode only — demo mode lets the panels speak for themselves) ── */}
       {!demoMode && (
         <div>
@@ -131,7 +134,10 @@ export default function CoverPanel({
       <div className={`grid items-stretch ${demoMode ? "gap-6 pt-2 lg:grid-cols-[minmax(260px,320px)_1fr]" : "gap-8 pt-10 lg:grid-cols-[300px_1fr]"}`}>
         {/* ── Cover preview ── */}
         <div className={demoMode ? "flex flex-col" : ""}>
-          {displayCoverUrl ? (
+          {/* Demo pitch: if the seeded book hasn't had its cover hydrated
+              yet, fall back to a static placeholder so the left half is
+              never empty when the presenter lands here. */}
+          {displayCoverUrl || demoMode ? (
             <div className={demoMode ? "flex h-full flex-col" : "space-y-4"}>
               <div
                 className={`relative overflow-hidden ${
@@ -142,12 +148,23 @@ export default function CoverPanel({
                 style={{ aspectRatio: "3/4" }}
               >
                 <Image
-                  src={displayCoverUrl}
+                  src={
+                    demoMode
+                      ? // Demo pitch: prefer the live preview (when the
+                        // presenter clicked Generate this rehearsal), then
+                        // fall back to the local demo asset rather than the
+                        // seeded Supabase URL — keeps the pitch resilient
+                        // to venue wifi, and the demo SW already pre-caches
+                        // /demo-assets/covers/*.
+                        coverAIPreviewUrl ?? "/demo-assets/covers/01.jpg"
+                      : displayCoverUrl ?? ""
+                  }
                   alt="Book cover"
                   fill
                   sizes="320px"
                   className="object-cover"
                   unoptimized
+                  priority={demoMode}
                 />
               </div>
               {!demoMode && (
@@ -599,6 +616,18 @@ export default function CoverPanel({
                   </button>
                 ))}
               </div>
+              {demoMode && (
+                <div className="mt-6 flex flex-col items-center gap-1.5">
+                  <Link
+                    href={`/author/books/${bookId}?panel=production`}
+                    className="group inline-flex items-center gap-2 rounded-full bg-[var(--brand-violet)] px-5 py-2.5 text-[13px] font-semibold text-white shadow-[0_8px_22px_-6px_rgba(124,92,252,0.55)] transition hover:scale-[1.02] hover:bg-[var(--brand-violet-hover)] active:scale-[0.98]"
+                  >
+                    Next · Produce everything
+                    <ArrowRight className="h-3.5 w-3.5 transition-transform group-hover:translate-x-0.5" aria-hidden />
+                  </Link>
+                  <p className="text-[11px] text-slate-400">Press 2 to jump</p>
+                </div>
+              )}
             </div>
           )}
         </div>

@@ -1,63 +1,40 @@
 import { getRequestConfig } from "next-intl/server";
 import { cookies } from "next/headers";
-import { createClient } from "@/lib/supabase/server";
-import {
-  DEFAULT_AUTHOR_LOCALE,
-  resolveAuthorLocale,
-  type AuthorLocale,
-} from "./config";
 
-// Server-side locale resolver (Phase 0.4).
-//
-// Verkli has no URL-based i18n routing; locale is per-user, persisted in
-// `profiles.preferences.uiLanguage`. Resolution order:
-//   1. Explicit cookie `verkli-locale` (set by the locale switcher in the
-//      author dashboard) — useful for unauthenticated dev / preview.
-//   2. Authenticated user's `profiles.preferences.uiLanguage`.
-//   3. Default ("en").
-//
-// next-intl calls this once per request via the plugin in next.config.ts.
-// The messages bundle is sourced from `apps/web/messages/<locale>.json`.
+/**
+ * Server-side request config for next-intl. Pointed at by
+ * `createNextIntlPlugin("./src/lib/i18n/request.ts")` in next.config.ts.
+ *
+ * Locale resolution order:
+ *   1. `NEXT_LOCALE` cookie (authoritative — set by the author settings
+ *      flow when the user picks a UI language).
+ *   2. Default `"en"` — keeps the English-first policy intact for reader
+ *      and public pages, which never set the cookie. The author dashboard
+ *      can still render Swedish copy when the cookie is present.
+ *
+ * Messages are loaded from `apps/web/messages/<locale>.json`. The dictionary
+ * is shared between author and reader trees; pages outside the author shell
+ * just never call `useTranslations()`, so the load is effectively free.
+ */
+const SUPPORTED_LOCALES = ["en", "sv"] as const;
+type SupportedLocale = (typeof SUPPORTED_LOCALES)[number];
+const DEFAULT_LOCALE: SupportedLocale = "en";
+const LOCALE_COOKIE = "NEXT_LOCALE";
 
-const COOKIE_KEY = "verkli-locale";
-
-async function resolveLocale(): Promise<AuthorLocale> {
-  try {
-    const cookieStore = await cookies();
-    const cookieLocale = cookieStore.get(COOKIE_KEY)?.value;
-    if (cookieLocale) {
-      const fromCookie = resolveAuthorLocale(cookieLocale);
-      if (fromCookie !== DEFAULT_AUTHOR_LOCALE) return fromCookie;
-      // even if it resolves to default, prefer the explicit signal
-      return fromCookie;
-    }
-  } catch {
-    // ignore — likely outside a request context
-  }
-
-  try {
-    const supabase = await createClient();
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
-    if (user?.id) {
-      const { data: profile } = await supabase
-        .from("profiles")
-        .select("preferences")
-        .eq("user_id", user.id)
-        .maybeSingle();
-      const prefs = (profile?.preferences ?? {}) as { uiLanguage?: unknown };
-      return resolveAuthorLocale(prefs.uiLanguage);
-    }
-  } catch {
-    // ignore — fallback to default
-  }
-
-  return DEFAULT_AUTHOR_LOCALE;
+function isSupported(value: string | undefined): value is SupportedLocale {
+  return (
+    typeof value === "string" &&
+    (SUPPORTED_LOCALES as readonly string[]).includes(value)
+  );
 }
 
 export default getRequestConfig(async () => {
-  const locale = await resolveLocale();
+  const cookieStore = await cookies();
+  const cookieLocale = cookieStore.get(LOCALE_COOKIE)?.value;
+  const locale: SupportedLocale = isSupported(cookieLocale)
+    ? cookieLocale
+    : DEFAULT_LOCALE;
+
   const messages = (await import(`../../../messages/${locale}.json`)).default;
   return { locale, messages };
 });

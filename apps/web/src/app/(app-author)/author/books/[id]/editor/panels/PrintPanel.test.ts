@@ -6,7 +6,7 @@ import {
   estimatePrintInteriorPages,
   extractIsbnCandidate,
   normalizePrintOnDemandSettings,
-} from "./PrintPanel.helpers";
+} from "@/lib/print-on-demand";
 
 describe("print panel helpers", () => {
   it("extracts a 13-digit ISBN from URL-like metadata", () => {
