@@ -166,13 +166,6 @@ export function formatAudiobookEta(seconds: number | null | undefined): string |
   return `About ${hours}h ${minutes}m remaining`;
 }
 
-export function getMarketingCampaignStatusLabel(status: string): string {
-  if (status === "generated" || status === "published") return STATUS_LABELS.completed;
-  if (status === "failed") return STATUS_LABELS.failed;
-  if (status === "pending" || status === "generating") return STATUS_LABELS.running;
-  return STATUS_LABELS.idle;
-}
-
 export type MarketingCampaignRow = {
   id: string;
   book_id: string;

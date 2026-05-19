@@ -215,7 +215,7 @@ export function buildTemplatePrompt(
   return parts.join(", ");
 }
 
-export function getFileExtension(fileName: string): string {
+function getFileExtension(fileName: string): string {
   const normalized = fileName.split("?")[0]?.split("#")[0] ?? fileName;
   const leaf = normalized.split("/").pop() ?? normalized;
   if (!leaf.includes(".")) {
@@ -245,7 +245,7 @@ export function getGeneratedCoverExtension(
   return "png";
 }
 
-export const STATUS_LABELS = {
+const STATUS_LABELS = {
   pending: "Queued",
   running: "Running",
   completed: "Succeeded",
@@ -296,17 +296,6 @@ export function formatAudiobookEta(
   const minutes = totalMinutes % 60;
   if (minutes === 0) return `About ${hours}h remaining`;
   return `About ${hours}h ${minutes}m remaining`;
-}
-
-export function getMarketingCampaignStatusLabel(status: string): string {
-  if (status === "generated" || status === "published") {
-    return STATUS_LABELS.completed;
-  }
-  if (status === "failed") return STATUS_LABELS.failed;
-  if (status === "pending" || status === "generating") {
-    return STATUS_LABELS.running;
-  }
-  return STATUS_LABELS.idle;
 }
 
 export const TRANSLATION_POLL_MAX_MS = 120_000;
