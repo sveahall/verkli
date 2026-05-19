@@ -2,295 +2,45 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
-/**
- * The 10 languages the investor-pitch demo claims it can produce. Order is
- * meaningful — the first three are the "A-quality" flagship languages that
- * appear in the early-pacing window, the rest fill in during the second
- * pacing window. Mirrors apps/web/scripts/seed-data/haunted-diary.ts.
- */
-export const DEMO_LANGUAGES = [
-  "en",
-  "de",
-  "fr",
-  "es",
-  "it",
-  "nl",
-  "pt",
-  "pl",
-  "ja",
-  "sv",
-] as const;
+import {
+  DEMO_LANGUAGES,
+  PACING,
+  initialDemoProductionState,
+  planDemoTimeline,
+  reduceDemoProduction,
+  remainingDemoTimeline,
+  type DemoLanguage,
+  type DemoProductionState,
+} from "./useDemoProduction.plan";
+import {
+  STATE_RESUME_WINDOW_MS,
+  STATE_STORAGE_KEY,
+  defaultDemoProductionDeps,
+  type DemoProductionDeps,
+} from "./useDemoProduction.deps";
 
-export type DemoLanguage = (typeof DEMO_LANGUAGES)[number];
-
-const PRIMARY_LANGUAGES: ReadonlyArray<DemoLanguage> = ["en", "de", "fr"];
-const SECONDARY_LANGUAGES: ReadonlyArray<DemoLanguage> = [
-  "es",
-  "it",
-  "nl",
-  "pt",
-  "pl",
-  "ja",
-];
-
-/**
- * Pacing schedule. Each entry is (delayMs, language). Investor-pitch tuned —
- * tighter than the original plan because Day-N live-QA showed the post-
- * audiobook gap was bleeding tension out of the room.
- *
- *   0–3s    primary trio (en/de/fr) light up at 0/1500/3000 ms
- *   3–6s    audiobook waveform pulses, then the Play button appears at 6 s
- *   6–13s   secondary six tick in at ~1 s intervals starting 7 s
- *   13–14s  "all ready" plus final checkmark pop
- *
- * Hard rule: no step ≥ 2 s without a visible change. The widest gap is
- * 3000 → 6000 (audiobook waveform pulse-up — the visible change) and
- * 6000 → 7000 (audiobook ready check + first secondary).
- */
-export const PACING = {
-  primaryStarts: [0, 1500, 3000] as const, // ms offsets, indexed with PRIMARY_LANGUAGES
-  audiobookReadyAt: 6000,
-  secondaryBaseStarts: [7000, 8000, 9000, 10000, 11000, 12000] as const,
-  secondaryJitterMs: 400,
-  completedAt: 13500,
-} as const;
-
-// ─── Pure planning helpers ─────────────────────────────────────────────────
-// Extracted so they can be exercised in node-env unit tests without React.
-
-export type DemoTimelineEvent =
-  | { kind: "lang_ready"; at: number; lang: DemoLanguage }
-  | { kind: "audiobook_ready"; at: number }
-  | { kind: "done"; at: number };
-
-export interface PlanDemoTimelineArgs {
-  selectedLanguages: ReadonlyArray<DemoLanguage>;
-  audiobookEnabled: boolean;
-  /** Optional deterministic jitter in [0, secondaryJitterMs). Tests pass 0; production passes Math.random()*max. */
-  secondaryJitter?: (index: number) => number;
-}
-
-/**
- * Build the full schedule of events the façade will fire, in chronological
- * order. Pure — no side effects. The hook converts each entry into a
- * setTimeout callback; tests inspect the schedule directly.
- */
-export function planDemoTimeline(
-  args: PlanDemoTimelineArgs
-): DemoTimelineEvent[] {
-  const events: DemoTimelineEvent[] = [];
-  const isSelected = (l: DemoLanguage) => args.selectedLanguages.includes(l);
-
-  PRIMARY_LANGUAGES.forEach((lang, idx) => {
-    if (!isSelected(lang)) return;
-    events.push({ kind: "lang_ready", at: PACING.primaryStarts[idx], lang });
-  });
-
-  if (args.audiobookEnabled) {
-    events.push({ kind: "audiobook_ready", at: PACING.audiobookReadyAt });
-  }
-
-  SECONDARY_LANGUAGES.forEach((lang, idx) => {
-    if (!isSelected(lang)) return;
-    const jitter = args.secondaryJitter ? args.secondaryJitter(idx) : 0;
-    events.push({
-      kind: "lang_ready",
-      at: PACING.secondaryBaseStarts[idx] + jitter,
-      lang,
-    });
-  });
-
-  events.push({ kind: "done", at: PACING.completedAt });
-
-  // Stable chronological sort; tie-breaks preserve insertion order.
-  return events
-    .map((e, i) => ({ e, i }))
-    .sort((a, b) => a.e.at - b.e.at || a.i - b.i)
-    .map(({ e }) => e);
-}
-
-export type DemoProductionAction =
-  | { type: "start"; startedAt: number; selectedLanguages: ReadonlyArray<DemoLanguage> }
-  | { type: "lang_ready"; lang: DemoLanguage }
-  | { type: "audiobook_ready" }
-  | { type: "done"; completedAt: number }
-  | { type: "reset" };
-
-/**
- * State-machine reducer. Every transition is testable via simple object
- * comparison. The hook drives this with a useState setter.
- */
-export function reduceDemoProduction(
-  state: DemoProductionState,
-  action: DemoProductionAction
-): DemoProductionState {
-  switch (action.type) {
-    case "start":
-      return {
-        status: "producing",
-        badges: emptyBadges(),
-        audiobookReady: false,
-        startedAt: action.startedAt,
-        completedAt: null,
-      };
-    case "lang_ready":
-      if (state.status !== "producing") return state;
-      return { ...state, badges: { ...state.badges, [action.lang]: true } };
-    case "audiobook_ready":
-      if (state.status !== "producing") return state;
-      return { ...state, audiobookReady: true };
-    case "done":
-      return { ...state, status: "done", completedAt: action.completedAt };
-    case "reset":
-      return initialState;
-    default:
-      return state;
-  }
-}
-
-export type DemoProductionStatus = "idle" | "producing" | "done";
-
-export interface DemoProductionState {
-  status: DemoProductionStatus;
-  /** Per-language readiness map. Languages not in selectedLanguages stay 'pending' for the whole run. */
-  badges: Record<DemoLanguage, boolean>;
-  audiobookReady: boolean;
-  startedAt: number | null;
-  completedAt: number | null;
-}
-
-export interface DemoProductionTelemetryEvent {
-  /** Phase identifier — start, lang_ready, audiobook_ready, done. */
-  event: string;
-  /** Wall-clock ms since startedAt. */
-  t: number;
-  /** Language code when relevant. */
-  lang?: DemoLanguage;
-}
-
-/**
- * Side-effect dependencies the hook needs. Default impls plug into the
- * browser; tests pass stubs (no real audio, no real localStorage).
- */
-export interface DemoProductionDeps {
-  /** Schedule a callback after `ms` milliseconds. Returns a cancel handle. */
-  schedule: (ms: number, fn: () => void) => () => void;
-  /** Wall-clock for telemetry timestamps. */
-  now: () => number;
-  /** Play the per-language ready ping. Defaults to a Web Audio short tone. */
-  playSuccessPing: () => void;
-  /** Play an mp3 by URL. Defaults to creating an HTMLAudioElement. */
-  playAudio: (url: string) => Promise<void>;
-  /** Persist a telemetry record. Defaults to appending to localStorage. */
-  recordTelemetry: (event: DemoProductionTelemetryEvent) => void;
-}
-
-export const TELEMETRY_STORAGE_KEY = "demo_telemetry";
-/**
- * State snapshot persistence key. The full DemoProductionState (status,
- * badges, startedAt, completedAt) is mirrored here on every transition.
- * On hook mount we read this back and, if a session was in flight when
- * the page reloaded, resume from the appropriate point in the timeline
- * instead of restarting from idle.
- */
-export const STATE_STORAGE_KEY = "demo_production_state";
-
-/** Sessions older than this are treated as stale and discarded on resume. */
-export const STATE_RESUME_WINDOW_MS = 30_000;
-
-/**
- * Pure helper: given the planned full timeline and the elapsed time since
- * the start event, return only the events that haven't fired yet, with
- * their `at` rebased to `at - elapsedMs` so the caller can hand them to
- * setTimeout directly. Exported for tests.
- */
-export function remainingDemoTimeline(
-  fullTimeline: ReadonlyArray<DemoTimelineEvent>,
-  elapsedMs: number
-): DemoTimelineEvent[] {
-  return fullTimeline
-    .filter((event) => event.at > elapsedMs)
-    .map((event) => ({ ...event, at: event.at - elapsedMs }));
-}
-
-const defaultDeps: DemoProductionDeps = {
-  schedule(ms, fn) {
-    if (typeof window === "undefined") {
-      return () => undefined;
-    }
-    const id = window.setTimeout(fn, ms);
-    return () => window.clearTimeout(id);
-  },
-  now() {
-    return Date.now();
-  },
-  playSuccessPing() {
-    if (typeof window === "undefined") return;
-    const Ctx =
-      (window as unknown as { AudioContext?: typeof AudioContext })
-        .AudioContext ??
-      (window as unknown as { webkitAudioContext?: typeof AudioContext })
-        .webkitAudioContext;
-    if (!Ctx) return;
-    try {
-      const ctx = new Ctx();
-      const osc = ctx.createOscillator();
-      const gain = ctx.createGain();
-      // -20 dB ≈ 0.1 linear gain. Short envelope: 5 ms attack, 45 ms decay.
-      osc.type = "sine";
-      osc.frequency.value = 880;
-      gain.gain.setValueAtTime(0, ctx.currentTime);
-      gain.gain.linearRampToValueAtTime(0.1, ctx.currentTime + 0.005);
-      gain.gain.linearRampToValueAtTime(0, ctx.currentTime + 0.05);
-      osc.connect(gain);
-      gain.connect(ctx.destination);
-      osc.start();
-      osc.stop(ctx.currentTime + 0.06);
-      osc.onended = () => {
-        ctx.close().catch(() => undefined);
-      };
-    } catch {
-      // Audio is best-effort; never block the UI on Web Audio failures.
-    }
-  },
-  async playAudio(url) {
-    if (typeof window === "undefined") return;
-    const audio = new Audio(url);
-    await audio.play().catch(() => undefined);
-  },
-  recordTelemetry(event) {
-    if (typeof window === "undefined") return;
-    try {
-      const raw = window.localStorage.getItem(TELEMETRY_STORAGE_KEY);
-      const list = raw ? (JSON.parse(raw) as DemoProductionTelemetryEvent[]) : [];
-      list.push(event);
-      // Cap to the last 200 events so the demo can run repeatedly without
-      // the localStorage entry growing unbounded.
-      const trimmed = list.length > 200 ? list.slice(list.length - 200) : list;
-      window.localStorage.setItem(TELEMETRY_STORAGE_KEY, JSON.stringify(trimmed));
-    } catch {
-      // Telemetry is best-effort; never throw out of the hook on storage errors.
-    }
-  },
-};
-
-function emptyBadges(): Record<DemoLanguage, boolean> {
-  return DEMO_LANGUAGES.reduce<Record<DemoLanguage, boolean>>(
-    (acc, lang) => {
-      acc[lang] = false;
-      return acc;
-    },
-    {} as Record<DemoLanguage, boolean>
-  );
-}
-
-const initialState: DemoProductionState = {
-  status: "idle",
-  badges: emptyBadges(),
-  audiobookReady: false,
-  startedAt: null,
-  completedAt: null,
-};
+// Re-exports for callers (façade panel, tests) that historically imported
+// from this file. Keeps the public API stable while the implementation is
+// split across `.plan.ts` (pure helpers) and `.deps.ts` (browser defaults).
+export {
+  DEMO_LANGUAGES,
+  PACING,
+  planDemoTimeline,
+  reduceDemoProduction,
+  remainingDemoTimeline,
+} from "./useDemoProduction.plan";
+export type {
+  DemoLanguage,
+  DemoProductionState,
+  DemoProductionStatus,
+  DemoProductionAction,
+  DemoTimelineEvent,
+  PlanDemoTimelineArgs,
+} from "./useDemoProduction.plan";
+export type {
+  DemoProductionDeps,
+  DemoProductionTelemetryEvent,
+} from "./useDemoProduction.deps";
 
 interface DemoProductionOptions {
   /** Override deps (tests). */
@@ -329,7 +79,7 @@ export function useDemoProduction(
   options: DemoProductionOptions = {}
 ): UseDemoProductionResult {
   const deps: DemoProductionDeps = useMemo(
-    () => ({ ...defaultDeps, ...(options.deps ?? {}) }),
+    () => ({ ...defaultDemoProductionDeps, ...(options.deps ?? {}) }),
     // The `deps` object is intentionally re-computed only when the override
     // shape changes; in production callers don't pass `options.deps` at all
     // so this stays stable.
@@ -341,10 +91,10 @@ export function useDemoProduction(
   // window is discarded so a stale 'producing' snapshot from yesterday
   // doesn't ghost the UI.
   const [state, setState] = useState<DemoProductionState>(() => {
-    if (typeof window === "undefined") return initialState;
+    if (typeof window === "undefined") return initialDemoProductionState;
     try {
       const raw = window.localStorage.getItem(STATE_STORAGE_KEY);
-      if (!raw) return initialState;
+      if (!raw) return initialDemoProductionState;
       const parsed = JSON.parse(raw) as DemoProductionState;
       if (
         parsed.status === "producing" &&
@@ -353,9 +103,9 @@ export function useDemoProduction(
       ) {
         return parsed;
       }
-      return initialState;
+      return initialDemoProductionState;
     } catch {
-      return initialState;
+      return initialDemoProductionState;
     }
   });
   const [selectedLanguages, setSelectedLanguages] = useState<DemoLanguage[]>(
@@ -519,11 +269,7 @@ export function useDemoProduction(
     const timeline = planDemoTimeline({
       selectedLanguages: selectedLanguagesAtStart,
       audiobookEnabled,
-      secondaryJitter: (idx) =>
-        Math.floor(Math.random() * PACING.secondaryJitterMs) +
-        // Add a tiny per-index nudge so two consecutive entries with the
-        // same jitter still preserve a stable visual order.
-        idx * 0,
+      secondaryJitter: () => Math.floor(Math.random() * PACING.secondaryJitterMs),
     });
 
     for (const event of timeline) {
@@ -565,8 +311,7 @@ export function useDemoProduction(
       const url = `/demo-assets/audio/${lang}.mp3`;
       deps.recordTelemetry({
         event: "audio_play",
-        t:
-          state.startedAt != null ? deps.now() - state.startedAt : 0,
+        t: state.startedAt != null ? deps.now() - state.startedAt : 0,
         lang,
       });
       // SSR / non-browser path: fall back to deps.playAudio (also the test seam).
@@ -630,10 +375,6 @@ export function useDemoProduction(
     }
     setPlayingLanguage(null);
   }, []);
-
-  // Audio stop is wired directly into reset() (above) so we don't need an
-  // effect to react to state.status — keeps the side-effect explicit and
-  // avoids a synchronous setState inside a useEffect body.
 
   return {
     state,
