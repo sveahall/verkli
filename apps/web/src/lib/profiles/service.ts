@@ -1,5 +1,8 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Tables } from "@/lib/supabase/types";
+import type { ServiceResult } from "@/lib/books/service";
+
+export type { ServiceResult };
 
 // ---------------------------------------------------------------------------
 // Row types
@@ -75,6 +78,74 @@ export async function getProfilesByUserIds(
   }
 
   return map;
+}
+
+// ---------------------------------------------------------------------------
+// Single profile
+// ---------------------------------------------------------------------------
+
+/**
+ * Fetch the role and preferences for a single user by their user_id.
+ * Returns `null` when no profile row exists.
+ */
+export async function getProfileRoleAndPreferences(
+  supabase: SupabaseClient,
+  userId: string,
+): Promise<ServiceResult<{ role: string | null; preferences: Record<string, unknown> | null } | null>> {
+  const { data, error } = await supabase
+    .from("profiles")
+    .select("role, preferences")
+    .eq("user_id", userId)
+    .maybeSingle();
+
+  if (error) {
+    console.error("[profiles/service.getProfileRoleAndPreferences] query failed", {
+      userId,
+      code: error.code,
+      message: error.message,
+    });
+    return { ok: false, error: "database_error" };
+  }
+
+  if (!data) {
+    return { ok: true, data: null };
+  }
+
+  return {
+    ok: true,
+    data: {
+      role: typeof data.role === "string" ? data.role : null,
+      preferences:
+        data.preferences != null && typeof data.preferences === "object" && !Array.isArray(data.preferences)
+          ? (data.preferences as Record<string, unknown>)
+          : null,
+    },
+  };
+}
+
+/**
+ * Upsert reader preferences for a user.
+ * Conflict target is `user_id`.
+ */
+export async function upsertProfilePreferences(
+  supabase: SupabaseClient,
+  userId: string,
+  preferences: Record<string, unknown>,
+): Promise<ServiceResult<null>> {
+  const { error } = await supabase
+    .from("profiles")
+    .upsert({ user_id: userId, preferences }, { onConflict: "user_id" });
+
+  if (error) {
+    console.error("[profiles/service.upsertProfilePreferences] upsert failed", {
+      userId,
+      code: error.code,
+      message: error.message,
+    });
+    return { ok: false, error: "database_error" };
+  }
+
+  return { ok: true, data: null };
 }
 
 /**

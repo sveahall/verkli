@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
+import { getProfileRoleAndPreferences } from "@/lib/profiles/service";
 
 export default function PublicRoleCta({
   targetRole,
@@ -32,12 +33,13 @@ export default function PublicRoleCta({
         return;
       }
 
-      const { data: profile } = await supabase
-        .from("profiles")
-        .select("role, preferences")
-        .eq("user_id", user.id)
-        .maybeSingle();
+      const result = await getProfileRoleAndPreferences(supabase, user.id);
+      if (!result.ok) {
+        setShow(false);
+        return;
+      }
 
+      const profile = result.data;
       const preferenceRole = (profile?.preferences as { active_role?: string } | null)?.active_role;
       if (preferenceRole === targetRole || profile?.role === targetRole) {
         setShow(true);

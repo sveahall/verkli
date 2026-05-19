@@ -9,6 +9,12 @@ import {
   useState,
 } from "react";
 import { createClient } from "@/lib/supabase/client";
+import { upsertProfilePreferences } from "@/lib/profiles/service";
+import {
+  createHighlight as createHighlightService,
+  updateHighlightNote as updateHighlightNoteService,
+  deleteHighlight as deleteHighlightService,
+} from "@/lib/highlights/service";
 import ReaderChapterBody from "./components/ReaderChapterBody";
 import ReaderChapterGlobalStyles from "./components/ReaderChapterGlobalStyles";
 import ReaderHighlightComposer from "./components/ReaderHighlightComposer";
@@ -371,14 +377,9 @@ export default function ReaderChapterClient({
         },
       };
 
-      const { error } = await supabase
-        .from("profiles")
-        .upsert({
-          user_id: userId,
-          preferences: nextPreferences,
-        }, { onConflict: "user_id" });
+      const result = await upsertProfilePreferences(supabase, userId, nextPreferences);
 
-      if (error) {
+      if (!result.ok) {
         setSettingsSaveState("error");
         return;
       }
@@ -430,7 +431,7 @@ export default function ReaderChapterClient({
     setChapterMessage(null);
 
     const supabase = createClient();
-    const payload = {
+    const highlightResult = await createHighlightService(supabase, {
       user_id: userId,
       book_id: bookId,
       book_version_id: bookVersionId,
@@ -440,18 +441,12 @@ export default function ReaderChapterClient({
       snippet: selectionState.snippet,
       color: selectedColor,
       note: newNote.trim() ? newNote.trim() : null,
-    };
-
-    const { data, error } = await supabase
-      .from("highlights" as never)
-      .insert(payload as never)
-      .select("id, start_offset, end_offset, snippet, color, note, created_at, updated_at")
-      .maybeSingle();
+    });
 
     setCreatingHighlight(false);
 
-    if (error) {
-      if (error.code === "23505") {
+    if (!highlightResult.ok) {
+      if (highlightResult.error === "duplicate") {
         setChapterMessage("That text is already highlighted.");
       } else {
         setChapterMessage("Could not save highlight right now.");
@@ -459,7 +454,7 @@ export default function ReaderChapterClient({
       return;
     }
 
-    const parsed = parseHighlightRecord(data as unknown);
+    const parsed = parseHighlightRecord(highlightResult.data as unknown);
     if (!parsed) {
       setChapterMessage("Highlight saved, but UI could not refresh this item.");
       return;
@@ -480,14 +475,11 @@ export default function ReaderChapterClient({
     setChapterMessage(null);
 
     const supabase = createClient();
-    const { error } = await supabase
-      .from("highlights" as never)
-      .update({ note: nextNote ? nextNote : null } as never)
-      .eq("id", highlightId);
+    const noteResult = await updateHighlightNoteService(supabase, highlightId, nextNote ? nextNote : null);
 
     setSavingNoteId(null);
 
-    if (error) {
+    if (!noteResult.ok) {
       setChapterMessage("Could not save note.");
       return;
     }
@@ -508,14 +500,11 @@ export default function ReaderChapterClient({
     setChapterMessage(null);
 
     const supabase = createClient();
-    const { error } = await supabase
-      .from("highlights" as never)
-      .delete()
-      .eq("id", highlightId);
+    const deleteResult = await deleteHighlightService(supabase, highlightId);
 
     setDeletingId(null);
 
-    if (error) {
+    if (!deleteResult.ok) {
       setChapterMessage("Could not delete highlight.");
       return;
     }

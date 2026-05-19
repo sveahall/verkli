@@ -425,6 +425,75 @@ async function rollbackPartialCreate(
 }
 
 // ---------------------------------------------------------------------------
+// Author book list
+// ---------------------------------------------------------------------------
+
+/**
+ * Fetch a lightweight list of books owned by an author, ordered by
+ * most recently updated first.
+ *
+ * Used by the author shell to populate the book switcher; keep the select
+ * minimal so this stays fast.
+ */
+export async function listBooksByAuthor(
+  supabase: SupabaseClient,
+  authorId: string,
+): Promise<ServiceResult<{ id: string; title: string | null; status: string | null; updated_at: string | null }[]>> {
+  const { data, error } = await supabase
+    .from("books")
+    .select("id, title, status, updated_at")
+    .eq("author_id", authorId)
+    .order("updated_at", { ascending: false });
+
+  if (error) {
+    console.error("[books/service.listBooksByAuthor] query failed", {
+      authorId,
+      code: error.code,
+      message: error.message,
+    });
+    return { ok: false, error: "database_error" };
+  }
+
+  return {
+    ok: true,
+    data: (data ?? []).map((book) => ({
+      id: book.id as string,
+      title: typeof book.title === "string" ? book.title : null,
+      status: typeof book.status === "string" ? book.status : null,
+      updated_at: typeof book.updated_at === "string" ? book.updated_at : null,
+    })),
+  };
+}
+
+/**
+ * Update the description of a book owned by the current user.
+ *
+ * Does not verify ownership — callers must ensure the supabase client is
+ * scoped to the author and RLS will reject unauthorized updates.
+ */
+export async function updateBookDescription(
+  supabase: SupabaseClient,
+  bookId: string,
+  description: string | null,
+): Promise<ServiceResult<null>> {
+  const { error } = await supabase
+    .from("books")
+    .update({ description })
+    .eq("id", bookId);
+
+  if (error) {
+    console.error("[books/service.updateBookDescription] update failed", {
+      bookId,
+      code: error.code,
+      message: error.message,
+    });
+    return { ok: false, error: "database_error" };
+  }
+
+  return { ok: true, data: null };
+}
+
+// ---------------------------------------------------------------------------
 // Chapter count
 // ---------------------------------------------------------------------------
 

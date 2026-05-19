@@ -3,13 +3,6 @@ import { extractTextFromTiptapNode } from "@/lib/tiptap-content";
 const ACCEPTED_COVER_EXTENSIONS = new Set(["jpg", "jpeg", "png"]);
 const ACCEPTED_COVER_MIME_TYPES = new Set(["image/jpeg", "image/png"]);
 
-export const ACCEPTED_COVER_TYPES = ".jpg,.jpeg,.png,image/jpeg,image/png";
-export const STORAGE_PRESET = "verkli_editor_preset";
-export const TRANSLATION_POLL_MAX_MS = 120_000;
-export const IMPORT_ALLOWED_EXT = [".epub", ".docx", ".html", ".htm", ".txt", ".pdf"];
-export const IMPORT_MAX_MB = 50;
-export const IMPORT_MAX_BYTES = IMPORT_MAX_MB * 1024 * 1024;
-
 export type Chapter = {
   id: string;
   title: string;
@@ -21,12 +14,6 @@ export type Chapter = {
 export type PublishVisibility = "public" | "followers" | "private";
 export type AudiobookGenerationScope = "book" | "current" | "selected";
 export type AudiobookControlAction = "pause" | "resume" | "cancel";
-
-export const VISIBILITY_LABELS: Record<PublishVisibility, string> = {
-  public: "Public",
-  followers: "Followers only",
-  private: "Private",
-};
 
 export const PUBLISH_VISIBILITY_OPTIONS: Array<{
   value: PublishVisibility;

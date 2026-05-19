@@ -12,6 +12,7 @@ import {
 } from "react";
 import { usePathname, useSearchParams } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
+import { listBooksByAuthor } from "@/lib/books/service";
 
 const STORAGE_CURRENT_BOOK = "verkli_author_current_book";
 
@@ -132,27 +133,22 @@ export function AuthorWorkspaceProvider({ children }: { children: ReactNode }) {
         return;
       }
 
-      const { data, error } = await supabase
-        .from("books")
-        .select("id, title, status, updated_at")
-        .eq("author_id", user.id)
-        .order("updated_at", { ascending: false });
+      const result = await listBooksByAuthor(supabase, user.id);
 
-      if (error) {
+      if (!result.ok) {
         console.error("[author shell] failed to load books", {
-          message: error.message,
-          code: error.code,
+          error: result.error,
         });
         setBooks([]);
         return;
       }
 
       setBooks(
-        (data ?? []).map((book) => ({
+        result.data.map((book) => ({
           id: book.id,
-          title: book.title ?? null,
-          status: typeof book.status === "string" ? book.status : null,
-          updatedAt: typeof book.updated_at === "string" ? book.updated_at : null,
+          title: book.title,
+          status: book.status,
+          updatedAt: book.updated_at,
         }))
       );
     } catch (error) {

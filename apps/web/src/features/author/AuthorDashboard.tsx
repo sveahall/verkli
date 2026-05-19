@@ -9,8 +9,13 @@ import { createClient } from "@/lib/supabase/client";
 import ShelfTile from "@/components/library/ShelfTile";
 import BookCard from "@/components/library/BookCard";
 
-import { getShelves, createShelf, getStandaloneBooks } from "@/lib/supabase/shelves-client";
-import type { ShelfWithDetails } from "@/lib/supabase/shelves-client";
+import {
+  getShelves,
+  createShelf,
+  getStandaloneBooks,
+  addBookToShelf,
+} from "@/lib/shelves/service";
+import type { ShelfWithDetails } from "@/lib/shelves/service";
 import type { Tables } from "@/lib/supabase/types";
 import { SHELF_GRADIENT_OPTIONS } from "@/lib/design/brand";
 
@@ -96,21 +101,15 @@ export default function AuthorDashboard() {
   const loadShelves = async () => {
     try {
       setLoadingShelves(true);
-      const [shelvesData, booksData] = await Promise.all([
-        getShelves().catch((err) => {
-          console.warn("Error loading shelves (non-critical):", err);
-          return [];
-        }),
-        getStandaloneBooks().catch((err) => {
-          console.warn("Error loading standalone books (non-critical):", err);
-          return [];
-        }),
+      const supabase = createClient();
+      const [shelvesResult, booksResult] = await Promise.all([
+        getShelves(supabase),
+        getStandaloneBooks(supabase),
       ]);
-      setShelves(shelvesData || []);
-      setStandaloneBooks(booksData || []);
+      setShelves(shelvesResult.ok ? shelvesResult.data : []);
+      setStandaloneBooks(booksResult.ok ? booksResult.data : []);
     } catch (error: unknown) {
       console.warn("Error loading shelves (non-critical):", error);
-      // Set empty arrays on error to prevent UI crashes
       setShelves([]);
       setStandaloneBooks([]);
     } finally {
@@ -184,11 +183,12 @@ export default function AuthorDashboard() {
   const handleReviewShelfConfirm = async () => {
     try {
       // Create shelf in database
-      const maxSortIndex = shelves.length > 0 
+      const maxSortIndex = shelves.length > 0
         ? Math.max(...shelves.map(s => s.sort_index))
         : -1;
-      
-      await createShelf({
+
+      const supabase = createClient();
+      await createShelf(supabase, {
         name: shelfForm.name || "New Shelf",
         subtitle: shelfForm.subtitle || null,
         cover_type: shelfForm.coverType,
@@ -229,14 +229,12 @@ export default function AuthorDashboard() {
     try {
       if (selectedShelfId) {
         const supabase = createClient();
-        await supabase
-          .from("shelf_books")
-          .insert({
-            shelf_id: selectedShelfId,
-            book_id: bookId,
-            section_id: null,
-            sort_index: 0,
-          });
+        await addBookToShelf(supabase, {
+          shelf_id: selectedShelfId,
+          book_id: bookId,
+          section_id: null,
+          sort_index: 0,
+        });
       }
       setSelectedShelfId(null);
       setShowBookModal(false);

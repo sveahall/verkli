@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { getLanguageLabel } from "@/lib/languages";
 import { useToastHelpers } from "@/components/ui/toast";
 import { createClient } from "@/lib/supabase/client";
+import { updateBookDescription } from "@/lib/books/service";
 import { hasReadableContent } from "@/app/(app-author)/author/books/[id]/editor/BookEditorView.helpers";
 
 type PublishVisibility = "public" | "followers" | "private";
@@ -153,11 +154,8 @@ export default function PublishPanel({
     if (trimmed === current) return;
     setDescSaving(true);
     const supabase = createClient();
-    const { error } = await supabase
-      .from("books")
-      .update({ description: trimmed })
-      .eq("id", bookId);
-    if (error) {
+    const result = await updateBookDescription(supabase, bookId, trimmed);
+    if (!result.ok) {
       toast.error("Could not save description. Try again.");
     }
     setDescSaving(false);

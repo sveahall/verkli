@@ -12,6 +12,7 @@
 
 import { useEffect } from "react";
 import { createClient } from "@/lib/supabase/client";
+import { upsertReadingProgress } from "@/lib/readings/service";
 
 const STORAGE_KEY_PREFIX = "verkli_reading_";
 // Debounce upserts so a scrolling reader doesn't fire hundreds of Supabase
@@ -40,26 +41,15 @@ export default function ReadingProgress({
         if (userId) {
           const supabase = createClient();
           const now = new Date().toISOString();
-          const { error } = await supabase.from("readings").upsert(
-            {
-              user_id: userId,
-              book_id: bookId,
-              chapter_id: chapterId,
-              progress_percent: progressPercent,
-              current_chapter: currentChapter,
-              last_read_at: now,
-              updated_at: now,
-            },
-            { onConflict: "user_id,book_id" },
-          );
-
-          if (error) {
-            console.error("[ReadingProgress] upsert failed", {
-              code: error.code,
-              message: error.message,
-              details: error.details,
-            });
-          }
+          await upsertReadingProgress(supabase, {
+            user_id: userId,
+            book_id: bookId,
+            chapter_id: chapterId,
+            progress_percent: progressPercent,
+            current_chapter: currentChapter,
+            last_read_at: now,
+            updated_at: now,
+          });
         } else {
           try {
             const payload = { chapterId, progressPercent, updatedAt: Date.now() };
