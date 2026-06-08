@@ -48,13 +48,15 @@ export default function ReadingProgress({
               progress_percent: progressPercent,
               current_chapter: currentChapter,
               last_read_at: now,
-              updated_at: now,
             },
             { onConflict: "user_id,book_id" },
           );
 
           if (error) {
-            console.error("[ReadingProgress] upsert failed", {
+            // Best-effort background write — a failed progress save must never
+            // interrupt reading. Logged at warn level (not error) so it does
+            // not surface in the dev error overlay.
+            console.warn("[ReadingProgress] upsert failed", {
               code: error.code,
               message: error.message,
               details: error.details,

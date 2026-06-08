@@ -1,60 +1,78 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1080 1920" width="1080" height="1920" role="img" aria-label="Den hemsökta dagboken — YouTube Shorts thumbnail">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1080 1920" width="1080" height="1920" role="img" aria-label="Den hemsökta dagboken — YouTube Shorts (SV)">
   <defs>
     <linearGradient id="bgGrad" x1="0%" y1="0%" x2="100%" y2="100%">
       <stop offset="0%" stop-color="#907AFF"/>
       <stop offset="55%" stop-color="#E29ED5"/>
       <stop offset="100%" stop-color="#FCC997"/>
     </linearGradient>
-    <linearGradient id="cardGrad" x1="0%" y1="0%" x2="0%" y2="100%">
-      <stop offset="0%" stop-color="#1A1430"/>
+    <linearGradient id="avatarGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#907AFF"/>
+      <stop offset="100%" stop-color="#E29ED5"/>
+    </linearGradient>
+    <linearGradient id="videoGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#241A3D"/>
+      <stop offset="55%" stop-color="#140E26"/>
       <stop offset="100%" stop-color="#0E0B1A"/>
     </linearGradient>
-    <radialGradient id="orbGrad" cx="20%" cy="15%" r="60%">
-      <stop offset="0%" stop-color="#FDF8EE" stop-opacity="0.45"/>
-      <stop offset="60%" stop-color="#FDF8EE" stop-opacity="0.05"/>
-      <stop offset="100%" stop-color="#FDF8EE" stop-opacity="0"/>
+    <radialGradient id="videoGlow" cx="50%" cy="34%" r="55%">
+      <stop offset="0%" stop-color="#907AFF" stop-opacity="0.55"/>
+      <stop offset="60%" stop-color="#E29ED5" stop-opacity="0.12"/>
+      <stop offset="100%" stop-color="#E29ED5" stop-opacity="0"/>
     </radialGradient>
+    <linearGradient id="scrim" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#000000" stop-opacity="0"/>
+      <stop offset="100%" stop-color="#000000" stop-opacity="0.72"/>
+    </linearGradient>
     <style><![CDATA[
-      .display {
-        font-family: "Montserrat Alternates", "Inter", ui-sans-serif, system-ui, sans-serif;
-        font-weight: 700;
-        letter-spacing: -0.02em;
-      }
-      .body {
-        font-family: "Inter", ui-sans-serif, system-ui, sans-serif;
-        font-weight: 500;
-      }
+      .display { font-family: "Montserrat Alternates", "Inter", ui-sans-serif, system-ui, sans-serif; font-weight: 700; letter-spacing: -0.02em; }
+      .body { font-family: "Inter", ui-sans-serif, system-ui, sans-serif; font-weight: 500; }
+      .bold { font-family: "Inter", ui-sans-serif, system-ui, sans-serif; font-weight: 700; }
+      .serif { font-family: "Georgia", "Times New Roman", serif; font-style: italic; }
     ]]></style>
   </defs>
+  
+  <rect width="1080" height="1920" fill="url(#videoGrad)"/>
+  <rect width="1080" height="1920" fill="url(#videoGlow)"/>
 
-  <!-- Brand gradient backdrop -->
-  <rect width="1080" height="1920" fill="url(#bgGrad)"/>
-  <rect width="1080" height="1920" fill="url(#orbGrad)"/>
+  <!-- Cover-art title, set large as the video's hero frame -->
+  <text class="body" x="80" y="576" fill="#FCC997" font-size="30" letter-spacing="0.24em" style="text-transform:uppercase;">Verkli Audiobook</text>
+  <text class="display" x="80" y="672" fill="#FDF8EE" font-size="92"><tspan x="80" dy="0">Den hemsökta</tspan><tspan x="80" dy="104">dagboken</tspan></text>
+  <text class="body" x="80" y="904" fill="#FDF8EE" fill-opacity="0.72" font-size="34">av Astrid Halvorsen</text>
 
-  <!-- Cover card -->
-  <rect x="118.80000000000001" y="345.59999999999997" width="842.4" height="960" rx="43" ry="43" fill="url(#cardGrad)" stroke="#FDF8EE" stroke-opacity="0.08" stroke-width="2"/>
+  <!-- Center play button -->
+  <circle cx="540" cy="960" r="92" fill="#FDF8EE" fill-opacity="0.16"/>
+  <circle cx="540" cy="960" r="92" fill="none" stroke="#FDF8EE" stroke-opacity="0.5" stroke-width="3"/>
+  <g transform="translate(504,924) scale(3)"><path d="M8 5v14l11-7z" fill="#FDF8EE"/></g>
 
-  <!-- Eyebrow -->
-  <text class="body" x="540" y="556.8" text-anchor="middle" fill="#FCC997" font-size="24" letter-spacing="0.22em" style="text-transform: uppercase;">Verkli Audiobook</text>
+  <!-- Duration pill -->
+  <rect x="880" y="60" width="140" height="58" rx="29" fill="#000000" fill-opacity="0.5"/>
+  <text class="bold" x="950" y="98" text-anchor="middle" fill="#FDF8EE" font-size="30">0:59</text>
 
-  <!-- Title (single line; title length is bounded by the language list above) -->
-  <text class="display" x="540" y="825.5999999999999" text-anchor="middle" fill="#FDF8EE" font-size="81">Den hemsökta dagboken</text>
+  <!-- Channel chip top-left -->
+  <text class="bold" x="80" y="100" fill="#FDF8EE" font-size="34">YouTube Shorts</text>
+  <rect x="80" y="120" width="84" height="44" rx="22" fill="#907AFF"/>
+  <text class="bold" x="122" y="151" text-anchor="middle" fill="#FDF8EE" font-size="26">SV</text>
 
-  <!-- Byline -->
-  <text class="body" x="540" y="979.2" text-anchor="middle" fill="#FDF8EE" fill-opacity="0.78" font-size="30">av Astrid Halvorsen</text>
+  <!-- Right action rail -->
+  <circle cx="930" cy="920" r="52" fill="url(#avatarGrad)"/>
+  <text class="display" x="930" y="938.72" text-anchor="middle" fill="#FDF8EE" font-size="54.6">V</text>
+  <g transform="translate(892,1042) scale(3.1666666666666665)"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z" fill="#FDF8EE"/></g>
+     <text class="bold" x="930" y="1158" text-anchor="middle" fill="#FDF8EE" font-size="32">3.2K</text>
+  <g transform="translate(892,1242) scale(3.1666666666666665)"><path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2z" fill="#FDF8EE"/></g>
+     <text class="bold" x="930" y="1358" text-anchor="middle" fill="#FDF8EE" font-size="32">126</text>
+  <g transform="translate(892,1442) scale(3.1666666666666665)"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z" fill="#FDF8EE"/></g>
+     <text class="bold" x="930" y="1558" text-anchor="middle" fill="#FDF8EE" font-size="32">539</text>
 
-  <!-- CTA outside the card -->
-  <text class="display" x="540" y="1497.6000000000001" text-anchor="middle" fill="#0E0B1A" font-size="54">▶  Lyssna nu</text>
+  <!-- Bottom scrim + caption -->
+  <rect x="0" y="1460" width="1080" height="460" fill="url(#scrim)"/>
+  <text class="bold" x="80" y="1520" fill="#FDF8EE" font-size="40">@verkli</text>
+  <text class="body" x="80" y="1580" fill="#FDF8EE" font-size="38"><tspan x="80" dy="0">Den hemsökta dagboken —</tspan><tspan x="80" dy="56">Kapitel 1 (hela ljudet). En</tspan><tspan x="80" dy="56">dagbok…</tspan></text>
+  <text class="bold" x="80" y="1778" fill="#FCC997" font-size="36">#shorts  #audiobook  #gothicfiction</text>
 
-  <!-- Verkli wordmark -->
-  <text class="display" x="540" y="1877" text-anchor="middle" fill="#0E0B1A" fill-opacity="0.78" font-size="30" letter-spacing="0.12em">VERKLI</text>
+  <!-- Views + progress bar -->
+  <g transform="translate(80,1800) scale(1.5)"><path d="M8 5v14l11-7z" fill="#FDF8EE"/></g><text class="bold" x="128" y="1830" fill="#FDF8EE" font-size="32">53.5K views</text>
+  <rect x="0" y="1906" width="1080" height="14" fill="#FDF8EE" fill-opacity="0.25"/>
+  <rect x="0" y="1906" width="367.20000000000005" height="14" fill="#FDF8EE"/>
 
-  <!-- Lang badge (top-left) -->
-  <circle cx="77" cy="68" r="34" fill="#0E0B1A" fill-opacity="0.78"/>
-  <text class="body" x="77" y="76.16" text-anchor="middle" fill="#FDF8EE" font-size="24" letter-spacing="0.06em">SV</text>
-
-  <!-- Channel chip (top-right) -->
-  <rect x="774.6800000000001" y="43" width="262.32" height="50" rx="25" ry="25" fill="#0E0B1A" fill-opacity="0.78"/>
-  <text class="body" x="905.84" y="76.16" text-anchor="middle" fill="#FDF8EE" font-size="24" letter-spacing="0.18em">YOUTUBE SHORTS</text>
 </svg>

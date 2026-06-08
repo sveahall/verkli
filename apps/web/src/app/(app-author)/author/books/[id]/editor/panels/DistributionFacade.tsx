@@ -4,14 +4,21 @@ import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import {
   ArrowRight,
+  AtSign,
   Check,
+  Copy,
   ExternalLink,
+  Eye,
   Globe,
+  Heart,
+  MessageCircle,
   Music2,
   Play,
   Printer,
+  Repeat2,
   Sparkles,
   Twitter,
+  X as XIcon,
   Youtube,
 } from "lucide-react";
 import { SEEDED_DEMO_BOOK_ID } from "@/features/author-shell/useDemoHotkeys";
@@ -23,6 +30,13 @@ import {
   type DemoChannel,
   type DemoDistributionLanguage,
 } from "../hooks/useDemoDistribution";
+import {
+  CHANNEL_META,
+  DEMO_POST_COUNT,
+  formatMetric,
+  getDemoSocialPost,
+  type DemoSocialPost,
+} from "@/lib/demo-social-posts";
 import { POD_MODAL_EVENT } from "@/features/author-shell/useDemoHotkeys";
 import type { MarketingCampaignRow } from "../BookEditorView.types";
 
@@ -30,20 +44,6 @@ interface DistributionFacadeProps {
   bookId: string;
   marketingCampaigns: MarketingCampaignRow[];
 }
-
-const CHANNEL_LABEL: Record<DemoChannel, string> = {
-  tiktok: "TikTok",
-  instagram: "Instagram",
-  x: "X",
-  youtube: "YouTube Shorts",
-};
-
-const CHANNEL_ASPECT: Record<DemoChannel, "vertical" | "square" | "wide"> = {
-  tiktok: "vertical",
-  instagram: "square",
-  x: "wide",
-  youtube: "vertical",
-};
 
 const ASPECT_CLASS: Record<"vertical" | "square" | "wide", string> = {
   vertical: "aspect-[9/16]",
@@ -66,36 +66,25 @@ function ChannelIcon({ channel }: { channel: DemoChannel }) {
       return <Sparkles className={className} aria-hidden />;
     case "x":
       return <Twitter className={className} aria-hidden />;
+    case "threads":
+      return <AtSign className={className} aria-hidden />;
     case "youtube":
       return <Youtube className={className} aria-hidden />;
   }
 }
 
-interface CampaignByKey {
-  byKey: Record<string, MarketingCampaignRow | undefined>;
-}
-
-function indexCampaigns(rows: MarketingCampaignRow[]): CampaignByKey {
-  const byKey: Record<string, MarketingCampaignRow | undefined> = {};
-  for (const r of rows) {
-    if (
-      DEMO_CHANNELS.includes(r.channel as DemoChannel) &&
-      DEMO_DISTRIBUTION_LANGUAGES.includes(r.language as DemoDistributionLanguage)
-    ) {
-      byKey[cellKey(r.channel as DemoChannel, r.language as DemoDistributionLanguage)] = r;
-    }
-  }
-  return { byKey };
-}
-
 export default function DistributionFacade({ bookId, marketingCampaigns }: DistributionFacadeProps) {
   void bookId;
+  // Display content is sourced from the shared demo-social-posts module so the
+  // grid, the generated artwork, and the preview modal stay in lockstep. The
+  // seeded marketing_campaigns rows are no longer needed for rendering.
+  void marketingCampaigns;
   const { state, start, reset } = useDemoDistribution();
+  const [preview, setPreview] = useState<DemoSocialPost | null>(null);
 
   const isLaunching = state.status === "launching";
   const isDone = state.status === "done";
 
-  const campaigns = useMemo(() => indexCampaigns(marketingCampaigns), [marketingCampaigns]);
   const readyCount = useMemo(
     () => Object.values(state.cells).filter(Boolean).length,
     [state.cells]
@@ -114,8 +103,9 @@ export default function DistributionFacade({ bookId, marketingCampaigns }: Distr
             Launch globally.
           </h2>
           <p className="max-w-[44ch] text-[14px] leading-relaxed text-slate-500">
-            Native posts on TikTok, Instagram, X, and YouTube Shorts — in
-            every language you produced — all in parallel.
+            Native posts on TikTok, Instagram, X, Threads, and YouTube
+            Shorts — video, image, and text — in every language you produced,
+            all in parallel.
           </p>
           {isDone ? (
             <button
@@ -173,7 +163,7 @@ export default function DistributionFacade({ bookId, marketingCampaigns }: Distr
                 >
                   {readyCount}
                 </span>
-                <span className="text-[18px] font-medium text-slate-400">/ 12</span>
+                <span className="text-[18px] font-medium text-slate-400">/ {DEMO_POST_COUNT}</span>
                 <div className="ml-3 flex flex-col gap-0.5">
                   <p className="text-[10px] font-semibold uppercase tracking-[0.22em] text-[var(--brand-violet)]">
                     {isDone ? "Live" : "Launching"}
@@ -199,7 +189,7 @@ export default function DistributionFacade({ bookId, marketingCampaigns }: Distr
                   key={channel}
                   channel={channel}
                   state={state.cells}
-                  campaigns={campaigns}
+                  onOpen={setPreview}
                 />
               ))}
             </div>
@@ -207,28 +197,41 @@ export default function DistributionFacade({ bookId, marketingCampaigns }: Distr
         ) : null}
       </div>
 
+      {preview ? (
+        <PostPreviewModal post={preview} onClose={() => setPreview(null)} />
+      ) : null}
       {showSummary ? <SummaryOverlay /> : null}
     </section>
   );
 }
 
+const POST_TYPE_LABEL: Record<DemoSocialPost["type"], string> = {
+  video: "Video",
+  image: "Image",
+  text: "Text",
+};
+
 function ChannelRow({
   channel,
   state,
-  campaigns,
+  onOpen,
 }: {
   channel: DemoChannel;
   state: Record<string, boolean>;
-  campaigns: CampaignByKey;
+  onOpen: (post: DemoSocialPost) => void;
 }) {
-  const aspect = CHANNEL_ASPECT[channel];
+  const meta = CHANNEL_META[channel];
+  const aspect = meta.aspect;
   return (
     <div>
       <div className="mb-2 flex items-center gap-2">
         <span className="inline-flex h-7 w-7 items-center justify-center rounded-full bg-slate-100">
           <ChannelIcon channel={channel} />
         </span>
-        <span className="text-label text-slate-800">{CHANNEL_LABEL[channel]}</span>
+        <span className="text-label text-slate-800">{meta.label}</span>
+        <span className="rounded-full bg-slate-100 px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-slate-500">
+          {POST_TYPE_LABEL[meta.type]}
+        </span>
         <span className="text-caption text-slate-400">
           {aspect === "vertical" ? "9:16" : aspect === "square" ? "1:1" : "16:9"}
         </span>
@@ -240,14 +243,13 @@ function ChannelRow({
       >
         {DEMO_DISTRIBUTION_LANGUAGES.map((language) => {
           const ready = Boolean(state[cellKey(channel, language)]);
-          const campaign = campaigns.byKey[cellKey(channel, language)];
           return (
             <ThumbnailCard
               key={`${channel}:${language}`}
               channel={channel}
               language={language}
               ready={ready}
-              campaign={campaign}
+              onOpen={onOpen}
             />
           );
         })}
@@ -256,31 +258,25 @@ function ChannelRow({
   );
 }
 
-const FAKE_HANDLE: Record<DemoChannel, string> = {
-  tiktok: "tiktok.com/@verkli",
-  instagram: "instagram.com/verkli.books",
-  x: "x.com/verkli",
-  youtube: "youtube.com/@verkli",
-};
-
 function ThumbnailCard({
   channel,
   language,
   ready,
-  campaign,
+  onOpen,
 }: {
   channel: DemoChannel;
   language: DemoDistributionLanguage;
   ready: boolean;
-  campaign: MarketingCampaignRow | undefined;
+  onOpen: (post: DemoSocialPost) => void;
 }) {
-  const aspect = CHANNEL_ASPECT[channel];
+  const post = getDemoSocialPost(channel, language);
+  const meta = CHANNEL_META[channel];
+  const aspect = meta.aspect;
   const thumbnailUrl = `/demo-assets/social/${language}-${channel}.svg`;
-  const headline = campaign?.headline ?? "—";
-  const caption = campaign?.caption ?? "";
-  const hashtags = campaign?.hashtags ?? "";
-  const cta = campaign?.cta ?? "Listen now";
-  const fakeHandle = FAKE_HANDLE[channel];
+  const primaryMetric =
+    post.metrics.views != null
+      ? `${formatMetric(post.metrics.views)} views`
+      : `${formatMetric(post.metrics.likes)} likes`;
 
   // Snap-card sizing per channel aspect: vertical formats are narrower,
   // wide formats wider, so the row reads at a glance.
@@ -288,24 +284,23 @@ function ThumbnailCard({
     aspect === "vertical" ? "w-[180px]" : aspect === "square" ? "w-[260px]" : "w-[360px]";
 
   return (
-    <article
-      className={`group relative shrink-0 snap-start overflow-hidden rounded-2xl border border-slate-100 bg-white transition-opacity duration-300 ${widthClass}`}
-      style={{
-        opacity: ready ? 1 : 0.4,
-      }}
+    <button
+      type="button"
+      onClick={() => ready && onOpen(post)}
+      disabled={!ready}
+      aria-label={`Preview ${post.title} — ${meta.label} (${language.toUpperCase()})`}
+      className={`group relative shrink-0 snap-start overflow-hidden rounded-2xl border border-slate-100 bg-white text-left transition-all duration-300 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#907AFF]/40 focus-visible:ring-offset-2 ${widthClass} ${
+        ready ? "cursor-pointer hover:-translate-y-0.5 hover:shadow-[0_12px_28px_-12px_rgba(15,23,42,0.3)]" : "cursor-default"
+      }`}
+      style={{ opacity: ready ? 1 : 0.4 }}
     >
-      <div
-        className={`relative ${ASPECT_CLASS[aspect]} bg-slate-100`}
-        // Scale-up + soft shadow on hover. Spec: 1.0 → 1.03, no click handler.
-        // Tailwind's group-hover handles the wrapper, transition is on inner
-        // `<img>` for clarity.
-      >
+      <div className={`relative ${ASPECT_CLASS[aspect]} bg-slate-100`}>
         {/* eslint-disable-next-line @next/next/no-img-element -- SVG thumbnails are
             tiny static demo assets we ship; next/image+SVG would require
             dangerouslyAllowSVG and adds no real perf win at this scale. */}
         <img
           src={thumbnailUrl}
-          alt={`${headline} — ${CHANNEL_LABEL[channel]} (${language.toUpperCase()})`}
+          alt={`${post.title} — ${meta.label} (${language.toUpperCase()})`}
           className="absolute inset-0 h-full w-full object-cover transition-transform duration-300 ease-out group-hover:scale-[1.03]"
           loading="lazy"
         />
@@ -319,22 +314,189 @@ function ThumbnailCard({
         ) : null}
         {ready ? (
           <span className="pointer-events-none absolute inset-x-0 bottom-0 flex items-center justify-between gap-1 bg-gradient-to-t from-slate-900/85 to-transparent px-2.5 py-1.5 text-[10px] font-medium text-white opacity-0 transition-opacity duration-200 group-hover:opacity-100">
-            <span className="truncate">{fakeHandle}</span>
-            <ExternalLink className="h-3 w-3 flex-shrink-0" aria-hidden />
+            <span className="truncate">{post.handle}</span>
+            <span className="inline-flex items-center gap-1">
+              Preview <ExternalLink className="h-3 w-3 flex-shrink-0" aria-hidden />
+            </span>
           </span>
         ) : null}
       </div>
       <div className="space-y-1 p-3">
-        <p className="line-clamp-2 text-label text-slate-900">{headline}</p>
-        <p className="line-clamp-2 text-caption text-slate-500">{caption}</p>
+        <p className="line-clamp-2 text-label text-slate-900">{post.caption}</p>
         <div className="flex items-center justify-between gap-2 pt-1">
-          <span className="line-clamp-1 text-[10px] text-slate-400">{hashtags}</span>
-          <span className="inline-flex items-center gap-1 text-[10px] font-medium text-[var(--brand-violet)]">
-            <Play className="h-3 w-3" aria-hidden /> {cta}
+          <span className="line-clamp-1 text-[10px] text-slate-400">
+            {post.hashtags.slice(0, 2).join(" ")}
+          </span>
+          <span className="inline-flex flex-shrink-0 items-center gap-1 text-[10px] font-medium text-[var(--brand-violet)]">
+            <Heart className="h-3 w-3" aria-hidden /> {primaryMetric}
           </span>
         </div>
       </div>
-    </article>
+    </button>
+  );
+}
+
+// ─── Post preview modal (native-platform chrome) ───────────────────────────
+
+function PostPreviewModal({
+  post,
+  onClose,
+}: {
+  post: DemoSocialPost;
+  onClose: () => void;
+}) {
+  const [copied, setCopied] = useState(false);
+
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onClose();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [onClose]);
+
+  const meta = CHANNEL_META[post.channel];
+  const thumbnailUrl = `/demo-assets/social/${post.language}-${post.channel}.svg`;
+  const fullCaption = `${post.caption}\n\n${post.hashtags.join(" ")}`;
+  const artWidthClass =
+    meta.aspect === "vertical"
+      ? "w-[260px]"
+      : meta.aspect === "square"
+        ? "w-[360px]"
+        : "w-full sm:w-[460px]";
+
+  async function copyCaption() {
+    try {
+      await navigator.clipboard.writeText(fullCaption);
+      setCopied(true);
+      window.setTimeout(() => setCopied(false), 1800);
+    } catch {
+      // best-effort — clipboard may be unavailable
+    }
+  }
+
+  return (
+    <div
+      className="fixed inset-0 z-[2200] flex items-center justify-center bg-slate-900/55 px-4 backdrop-blur-sm"
+      role="dialog"
+      aria-modal="true"
+      aria-label={`${post.label} post preview`}
+      onClick={onClose}
+    >
+      <div
+        className="flex max-h-[88vh] w-full max-w-3xl flex-col gap-6 overflow-y-auto rounded-3xl border border-slate-100 bg-white p-6 sm:flex-row sm:p-7"
+        style={{ animation: "demoPopIn 280ms cubic-bezier(0.34, 1.56, 0.64, 1)" }}
+        onClick={(e) => e.stopPropagation()}
+      >
+        <style>{`
+          @keyframes demoPopIn {
+            0% { transform: scale(0.9); opacity: 0; }
+            80% { transform: scale(1.02); opacity: 1; }
+            100% { transform: scale(1); opacity: 1; }
+          }
+        `}</style>
+        {/* Native artwork */}
+        <div className={`mx-auto flex-shrink-0 ${artWidthClass}`}>
+          <div
+            className={`overflow-hidden rounded-2xl border border-slate-100 shadow-[0_16px_40px_-16px_rgba(15,23,42,0.35)] ${ASPECT_CLASS[meta.aspect]}`}
+          >
+            {/* eslint-disable-next-line @next/next/no-img-element -- static demo SVG */}
+            <img
+              src={thumbnailUrl}
+              alt={`${post.title} — ${post.label}`}
+              className="h-full w-full object-cover"
+            />
+          </div>
+        </div>
+
+        {/* Meta panel */}
+        <div className="flex min-w-0 flex-1 flex-col">
+          <div className="flex items-center justify-between gap-3">
+            <span className="inline-flex items-center gap-2">
+              <span className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-slate-100">
+                <ChannelIcon channel={post.channel} />
+              </span>
+              <span className="flex flex-col leading-tight">
+                <span className="text-label text-slate-900">{post.label}</span>
+                <span className="text-[11px] text-slate-400">
+                  {post.handle} · {LANGUAGE_FLAGS[post.language]} {post.language.toUpperCase()}
+                </span>
+              </span>
+            </span>
+            <button
+              type="button"
+              onClick={onClose}
+              aria-label="Close preview"
+              className="inline-flex h-8 w-8 items-center justify-center rounded-full text-slate-400 hover:bg-slate-100 hover:text-slate-700"
+            >
+              <XIcon className="h-4 w-4" aria-hidden />
+            </button>
+          </div>
+
+          <span className="mt-3 inline-flex w-fit items-center gap-1.5 rounded-full bg-slate-100 px-2.5 py-1 text-[11px] font-medium text-slate-600">
+            {post.type === "text" ? (
+              <MessageCircle className="h-3 w-3" aria-hidden />
+            ) : post.type === "image" ? (
+              <Sparkles className="h-3 w-3" aria-hidden />
+            ) : (
+              <Play className="h-3 w-3" aria-hidden />
+            )}
+            {POST_TYPE_LABEL[post.type]} post
+            {post.durationLabel ? ` · ${post.durationLabel}` : ""}
+          </span>
+
+          <p className="mt-4 whitespace-pre-line text-[14px] leading-relaxed text-slate-800">
+            {post.caption}
+          </p>
+
+          <div className="mt-3 flex flex-wrap gap-1.5">
+            {post.hashtags.map((tag) => (
+              <span
+                key={tag}
+                className="rounded-full bg-[var(--brand-violet)]/10 px-2 py-0.5 text-[11px] font-medium text-[var(--brand-violet)]"
+              >
+                {tag}
+              </span>
+            ))}
+          </div>
+
+          <div className="mt-4 flex flex-wrap items-center gap-x-5 gap-y-2 text-[12px] text-slate-500">
+            {post.metrics.views != null ? (
+              <span className="inline-flex items-center gap-1.5">
+                <Eye className="h-3.5 w-3.5" aria-hidden /> {formatMetric(post.metrics.views)}
+              </span>
+            ) : null}
+            <span className="inline-flex items-center gap-1.5">
+              <Heart className="h-3.5 w-3.5" aria-hidden /> {formatMetric(post.metrics.likes)}
+            </span>
+            <span className="inline-flex items-center gap-1.5">
+              <MessageCircle className="h-3.5 w-3.5" aria-hidden /> {formatMetric(post.metrics.comments)}
+            </span>
+            <span className="inline-flex items-center gap-1.5">
+              <Repeat2 className="h-3.5 w-3.5" aria-hidden /> {formatMetric(post.metrics.shares)}
+            </span>
+          </div>
+
+          <div className="mt-auto flex flex-wrap items-center gap-2 pt-5">
+            <Link
+              href={`/reader/books/${SEEDED_DEMO_BOOK_ID}`}
+              className="group inline-flex items-center gap-2 rounded-full bg-[var(--brand-violet)] px-4 py-2 text-[13px] font-semibold text-white shadow-[0_8px_22px_-6px_rgba(124,92,252,0.55)] transition hover:scale-[1.02] hover:bg-[var(--brand-violet-hover)] active:scale-[0.98]"
+            >
+              {post.cta}
+              <ArrowRight className="h-3.5 w-3.5 transition-transform group-hover:translate-x-0.5" aria-hidden />
+            </Link>
+            <button
+              type="button"
+              onClick={copyCaption}
+              className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-4 py-2 text-[13px] font-medium text-slate-600 hover:bg-slate-50"
+            >
+              {copied ? <Check className="h-3.5 w-3.5 text-[var(--brand-violet)]" aria-hidden /> : <Copy className="h-3.5 w-3.5" aria-hidden />}
+              {copied ? "Copied" : "Copy caption"}
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
   );
 }
 
@@ -519,7 +681,7 @@ function SummaryOverlay() {
           Live · 35 seconds end-to-end
         </p>
         <p className="mt-2 text-[26px] font-semibold leading-tight tracking-[-0.02em] text-slate-900 sm:text-[32px]">
-          10 languages · audiobook · 12 native posts
+          10 languages · audiobook · {DEMO_POST_COUNT} native posts
         </p>
         <p className="mt-2 text-[14px] font-medium text-[var(--brand-violet)]">
           $0 ad-budget · ~380M global reach

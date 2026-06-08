@@ -130,10 +130,11 @@ describe("reduceDemoDistribution (completion-callback semantics)", () => {
 });
 
 describe("coverage", () => {
-  it("schedules exactly one cell_ready event per (channel, language) — 4 × 3 = 12 cells", () => {
+  it("schedules exactly one cell_ready event per (channel, language) cell", () => {
+    const expectedCells = DEMO_CHANNELS.length * DEMO_DISTRIBUTION_LANGUAGES.length;
     const timeline = planDistributionTimeline({ cellJitter: () => 0 });
     const cellEvents = timeline.filter((e) => e.kind === "cell_ready");
-    expect(cellEvents).toHaveLength(12);
+    expect(cellEvents).toHaveLength(expectedCells);
 
     const seen = new Set<string>();
     for (const ev of cellEvents) {
@@ -142,6 +143,6 @@ describe("coverage", () => {
       expect(seen.has(key)).toBe(false);
       seen.add(key);
     }
-    expect(seen.size).toBe(12);
+    expect(seen.size).toBe(expectedCells);
   });
 });

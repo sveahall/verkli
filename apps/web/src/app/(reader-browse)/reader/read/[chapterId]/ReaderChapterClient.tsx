@@ -145,15 +145,6 @@ export default function ReaderChapterClient({
   void backgroundIntensity;
 
   const canCreateHighlights = Boolean(userId && bookVersionId);
-  const [supportsCssHighlights, setSupportsCssHighlights] = useState(false);
-
-  useEffect(() => {
-    const frame = window.requestAnimationFrame(() => {
-      const nextValue = Boolean(getCssHighlightsMap() && getHighlightConstructor());
-      setSupportsCssHighlights((prev) => (prev === nextValue ? prev : nextValue));
-    });
-    return () => window.cancelAnimationFrame(frame);
-  }, []);
 
   const updateReaderSettings = useCallback((updater: (prev: ReaderSettings) => ReaderSettings) => {
     setSettings((prev) => updater(prev));
@@ -580,12 +571,6 @@ export default function ReaderChapterClient({
           bodyStyle={chapterBodyStyle}
         />
 
-        {!supportsCssHighlights && (
-          <p className="text-xs text-[#64748B] dark:text-white/50">
-            This browser cannot draw inline highlights yet. Your saved highlights still appear in the panel.
-          </p>
-        )}
-
         {!userId && (
           <p className="text-sm text-[#64748B] dark:text-white/60">
             <Link
@@ -598,6 +583,7 @@ export default function ReaderChapterClient({
           </p>
         )}
 
+        {highlights.length > 0 && (
         <ReaderHighlightsPanel
           highlightCountLabel={highlightCountLabel}
           showHighlightsPanel={showHighlightsPanel}
@@ -615,6 +601,7 @@ export default function ReaderChapterClient({
           onDeleteHighlight={deleteHighlight}
           onScrollToHighlight={scrollToHighlight}
         />
+        )}
       </div>
 
       {selectionState && (

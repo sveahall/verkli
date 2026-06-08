@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 675" width="1200" height="675" role="img" aria-label="The Haunted Diary — X (EN)">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 675" width="1200" height="675" role="img" aria-label="Le journal hanté — Threads (FR)">
   <defs>
     <linearGradient id="bgGrad" x1="0%" y1="0%" x2="100%" y2="100%">
       <stop offset="0%" stop-color="#907AFF"/>
@@ -39,26 +39,26 @@
   <circle cx="100" cy="96" r="44" fill="url(#avatarGrad)"/>
   <text class="display" x="100" y="111.84" text-anchor="middle" fill="#FDF8EE" font-size="46.2">V</text>
   <text class="bold" x="166" y="84" fill="#0F1419" font-size="36">Verkli</text>
-  <circle cx="308" cy="72" r="18" fill="#1D9BF0"/><g transform="translate(295.04,59.04) scale(1.0799999999999998)"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z" fill="#FFFFFF"/></g>
-  <text class="body" x="166" y="128" fill="#536471" font-size="30">@verkli · 2h</text>
+  <circle cx="308" cy="72" r="18" fill="#0F1419"/><g transform="translate(295.04,59.04) scale(1.0799999999999998)"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z" fill="#FFFFFF"/></g>
+  <text class="body" x="166" y="128" fill="#536471" font-size="30">@verkli.books · 2h</text>
   <!-- Channel chip -->
-  <text class="bold" x="1144" y="84" text-anchor="end" fill="#536471" font-size="30">X · EN</text>
+  <text class="bold" x="1144" y="84" text-anchor="end" fill="#536471" font-size="30">Threads · FR</text>
 
   <!-- Body -->
-  <text class="body" x="56" y="210" fill="#0F1419" font-size="40"><tspan x="56" dy="0">A diary that refuses to fall silent.</tspan><tspan x="56" dy="50">“The Haunted Diary” is now an audiobook</tspan><tspan x="56" dy="50">in…</tspan></text>
-  <text class="bold" x="56" y="376" fill="#907AFF" font-size="34">#audiobook  #gothicfiction  #verkli</text>
+  <text class="body" x="56" y="210" fill="#0F1419" font-size="40"><tspan x="56" dy="0">On vient de lancer « Le journal hanté »</tspan><tspan x="56" dy="50">en livre audio dans 10 langues — le même</tspan><tspan x="56" dy="50">jour,…</tspan></text>
+  <text class="bold" x="56" y="376" fill="#907AFF" font-size="34">#booklovers  #audiobook  #verkli</text>
 
   <!-- Link preview -->
   <rect x="56" y="430" width="1088" height="150" rx="20" fill="#F7F9F9" stroke="#E1E8ED" stroke-width="2"/>
   <rect x="72" y="446" width="118" height="118" rx="12" fill="url(#bgGrad)"/>
-  <text class="display" x="214" y="488" fill="#0F1419" font-size="34">The Haunted Diary</text>
-  <text class="body" x="214" y="530" fill="#536471" font-size="28">by Astrid Halvorsen · Listen free</text>
+  <text class="display" x="214" y="488" fill="#0F1419" font-size="34">Le journal hanté</text>
+  <text class="body" x="214" y="530" fill="#536471" font-size="28">par Astrid Halvorsen · Écouter</text>
   <text class="body" x="214" y="564" fill="#8899A6" font-size="26">verkli.com</text>
 
   <!-- Engagement -->
-  <g transform="translate(56,589) scale(1.5833333333333333)"><path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2z" fill="#536471"/></g><text class="body" x="108" y="619" fill="#536471" font-size="30">56</text>
-  <g transform="translate(296,589) scale(1.5833333333333333)"><path d="M23 7l-4-4v3h-9v2h9v3l4-4zM1 17l4 4v-3h9v-2H5v-3l-4 4z" fill="#536471"/></g><text class="body" x="348" y="619" fill="#536471" font-size="30">213</text>
-  <g transform="translate(536,589) scale(1.5833333333333333)"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z" fill="#536471"/></g><text class="body" x="588" y="619" fill="#536471" font-size="30">842</text>
+  <g transform="translate(56,589) scale(1.5833333333333333)"><path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2z" fill="#536471"/></g><text class="body" x="108" y="619" fill="#536471" font-size="30">73</text>
+  <g transform="translate(296,589) scale(1.5833333333333333)"><path d="M23 7l-4-4v3h-9v2h9v3l4-4zM1 17l4 4v-3h9v-2H5v-3l-4 4z" fill="#536471"/></g><text class="body" x="348" y="619" fill="#536471" font-size="30">105</text>
+  <g transform="translate(536,589) scale(1.5833333333333333)"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z" fill="#536471"/></g><text class="body" x="588" y="619" fill="#536471" font-size="30">829</text>
   <g transform="translate(776,589) scale(1.5833333333333333)"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z" fill="#536471"/></g><text class="body" x="828" y="619" fill="#536471" font-size="30"></text>
 
 </svg>

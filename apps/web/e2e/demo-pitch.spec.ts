@@ -162,10 +162,13 @@ test.describe("Demo pitch flow — visual e2e", () => {
     await page.goto(`/reader/books/${DEMO_BOOK_ID}`, {
       waitUntil: "domcontentloaded",
     });
-    await expect(page.getByText(/Available in 10 languages/i)).toBeVisible({
-      timeout: 15_000,
-    });
-    await expect(page.getByText(/Audiobook in/i)).toBeVisible();
+    const readerRegion = page.getByRole("region", { name: "Reader" });
+    await expect(readerRegion).toBeVisible({ timeout: 15_000 });
+    await expect(readerRegion.getByText("Read in")).toBeVisible();
+    await expect(readerRegion.getByRole("button", { name: "Swedish" })).toBeVisible();
+    await expect(readerRegion.getByRole("button", { name: "English" })).toBeVisible();
+    await expect(readerRegion.getByRole("button", { name: "Portuguese" })).toBeVisible();
+    await expect(readerRegion.getByText(/Audiobook in/i)).toBeVisible();
     await page.screenshot({
       path: "test-results/demo-reader.png",
       fullPage: false,

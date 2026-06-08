@@ -62,6 +62,41 @@ function normalizeHighlightColor(value: unknown): "yellow" | "green" | "blue" | 
   return "yellow";
 }
 
+/**
+ * The reading card renders the chapter title as its own centered heading
+ * (see ReaderChapterBody). Most stored chapters *also* begin with a heading
+ * node repeating that same title, which rendered the title twice. Strip the
+ * leading heading when its text matches the chapter title so it shows once.
+ */
+function stripLeadingTitleHeading(content: unknown, title: string): unknown {
+  const wanted = title.replace(/\s+/g, " ").trim().toLowerCase();
+  if (!wanted) return content;
+
+  const process = (doc: unknown): unknown => {
+    if (!doc || typeof doc !== "object") return doc;
+    const d = doc as { content?: unknown[] };
+    if (!Array.isArray(d.content) || d.content.length === 0) return doc;
+    const first = d.content[0] as { type?: string } | undefined;
+    if (first?.type !== "heading") return doc;
+    const headingText = extractTextFromTiptapNode(first).replace(/\s+/g, " ").trim().toLowerCase();
+    if (headingText && headingText === wanted) {
+      return { ...d, content: d.content.slice(1) };
+    }
+    return doc;
+  };
+
+  if (typeof content === "string") {
+    try {
+      const parsed: unknown = JSON.parse(content.trim());
+      const stripped = process(parsed);
+      return stripped === parsed ? content : JSON.stringify(stripped);
+    } catch {
+      return content;
+    }
+  }
+  return process(content);
+}
+
 function hasReadableChapterContent(content: unknown): boolean {
   if (typeof content === "string") {
     const trimmed = content.trim();
@@ -271,9 +306,13 @@ export default async function ReaderReadPage({
   }
 
   const initialReaderSettings = parseReaderSettings(profilePreferences);
-  const chapterContent = hasReadableChapterContent(chapter.content)
+  const rawChapterContent = hasReadableChapterContent(chapter.content)
     ? chapter.content
     : ((chapter as { source_text?: string | null }).source_text ?? null);
+  const chapterContent = stripLeadingTitleHeading(rawChapterContent, chapter.title) as
+    | string
+    | Record<string, unknown>
+    | null;
 
   // Multi-language switcher data (Week 1 / ROADMAP Phase 0.2). Resolves
   // sibling chapter ids across published language versions of the same book,
@@ -366,7 +405,13 @@ export default async function ReaderReadPage({
       ? navChapters[chapterIndex + 1]
       : null;
   const progressLabel = `Chapter ${chapterIndex + 1} of ${totalChapters}${readAccess.access === "preview" ? " • Preview" : ""}`;
-  const footerNavigation = (
+  // For a single-chapter book there's no prev/next and no preview gate — the
+  // "Start of book / End of book" placeholders would just read as empty. Skip.
+  const showFooterNavigation =
+    Boolean(previousChapterNav) ||
+    Boolean(nextChapterNav) ||
+    (readAccess.access === "preview" && readAccess.isLastPreview);
+  const footerNavigation = !showFooterNavigation ? null : (
     <section className="grid gap-4 sm:grid-cols-2">
       {previousChapterNav ? (
         <Link

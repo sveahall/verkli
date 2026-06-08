@@ -1,39 +1,32 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  DEMO_CHANNELS,
+  DEMO_DISTRIBUTION_LANGUAGES,
+  type DemoChannel,
+  type DemoDistributionLanguage,
+} from "@/lib/demo-social-posts";
+
+// Re-export so existing imports from this hook keep working. The channel /
+// language source of truth now lives in @/lib/demo-social-posts so the SVG
+// generator and the façade can share it without pulling in React.
+export {
+  DEMO_CHANNELS,
+  DEMO_DISTRIBUTION_LANGUAGES,
+  type DemoChannel,
+  type DemoDistributionLanguage,
+};
 
 /**
- * The 4 social channels the investor-pitch demo claims it can launch into
- * simultaneously. Order is meaningful — it drives the row order on screen
- * AND the kanal-by-kanal pacing window. Mirrors the channel column on
- * marketing_campaigns and the social-thumbnail aspect map in
- * scripts/generate-demo-social-thumbs.ts.
- */
-export const DEMO_CHANNELS = [
-  "tiktok",
-  "instagram",
-  "x",
-  "youtube",
-] as const;
-
-export type DemoChannel = (typeof DEMO_CHANNELS)[number];
-
-/**
- * The 3 launch languages — matches MARKETING_LANGUAGES in
- * scripts/seed-investor-demo.ts (sv/en/fr) and the 12 marketing_campaigns
- * rows seeded against the demo book.
- */
-export const DEMO_DISTRIBUTION_LANGUAGES = ["sv", "en", "fr"] as const;
-export type DemoDistributionLanguage = (typeof DEMO_DISTRIBUTION_LANGUAGES)[number];
-
-/**
- * Pacing schedule. Spec from the Day 4 plan:
- *   < 1s    first thumbnail visible
- *   0–3s    TikTok row fills (first thumb at 200 ms so it lands < 1 s)
- *   3–7s    Instagram row fills
- *   7–12s   X row fills
- *   12–17s  YouTube Shorts row fills
- *   ~17s    overall complete; SummaryOverlay can mount
+ * Pacing schedule. 5 channels fill in sequence over ~17s:
+ *   < 1s     first thumbnail visible
+ *   0.2–2.8s TikTok row fills (first thumb at 200 ms so it lands < 1 s)
+ *   2.8–6s   Instagram row fills
+ *   6–9s     X row fills
+ *   9–12s    Threads row fills
+ *   12–16.5s YouTube Shorts row fills
+ *   ~17s     overall complete; SummaryOverlay can mount
  *
  * Within each row, the 3 language cells stagger with random 0-500 ms
  * jitter on top of the row's base offset, so the reveal feels organic
@@ -41,10 +34,11 @@ export type DemoDistributionLanguage = (typeof DEMO_DISTRIBUTION_LANGUAGES)[numb
  */
 export const DISTRIBUTION_PACING = {
   rowWindows: {
-    tiktok: { start: 200, end: 3000 },
-    instagram: { start: 3000, end: 7000 },
-    x: { start: 7000, end: 12000 },
-    youtube: { start: 12000, end: 17000 },
+    tiktok: { start: 200, end: 2800 },
+    instagram: { start: 2800, end: 6000 },
+    x: { start: 6000, end: 9000 },
+    threads: { start: 9000, end: 12000 },
+    youtube: { start: 12000, end: 16500 },
   } as const,
   rowJitterMs: 500,
   completedAt: 17500,

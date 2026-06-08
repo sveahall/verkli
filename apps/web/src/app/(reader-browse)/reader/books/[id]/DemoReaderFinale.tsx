@@ -1,16 +1,17 @@
 "use client";
 
 import { useMemo, useRef, useState } from "react";
-import { Globe, Pause, Play } from "lucide-react";
+import { Pause, Play } from "lucide-react";
 
 /**
  * Reader-finalen — investor-pitch demo override for the top of
  * /reader/books/[id]. Rendered only when the viewer's profile is the
  * seeded demo author AND the demo flag is on. Real users never see it.
  *
- * Light-mode hero matching the rest of the reader surface (cream/paper
- * tones with brand-gradient accents), not a standalone dark card. Big
- * cover, display title, language switcher, audio band.
+ * Styled to match the rest of the reader surface (see DESIGN.md and
+ * ReaderBookPageView): white `card-base` panel, brand-violet (#907AFF)
+ * accents, platform language pills, and a Georgia reading body matching
+ * the real chapter reader. No bespoke surfaces, fonts, or shadows.
  */
 export interface DemoChapterByLang {
   language_code: string;
@@ -78,6 +79,8 @@ export default function DemoReaderFinale({
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const [audioPlaying, setAudioPlaying] = useState(false);
 
+  const activeLangName = LANGUAGE_NAMES[activeLang] ?? activeLang.toUpperCase();
+
   function handlePlayPause() {
     const el = audioRef.current;
     if (!el) return;
@@ -103,33 +106,26 @@ export default function DemoReaderFinale({
 
   return (
     <section
-      aria-label="Demo reader finale"
-      // Light cream/paper base with very subtle ambient brand glow on the
-      // edges. Reads as part of the reader surface, not a foreign card.
-      className="relative isolate overflow-hidden rounded-[28px] border border-slate-200/80 bg-[#FDFAF4] shadow-[0_24px_72px_-32px_rgba(124,92,252,0.18)]"
+      aria-label="Reader"
+      data-demo-reader
+      className="card-base relative isolate overflow-hidden bg-white/80 backdrop-blur-sm dark:bg-white/[0.03]"
     >
-      {/* Soft brand-gradient atmosphere — present but never dominant */}
-      <div aria-hidden className="pointer-events-none absolute inset-0 overflow-hidden">
-        <div
-          className="absolute -left-32 -top-40 h-[420px] w-[420px] rounded-full opacity-25 blur-3xl"
-          style={{ background: "var(--brand-violet)" }}
-        />
-        <div
-          className="absolute -right-24 top-32 h-[340px] w-[340px] rounded-full opacity-20 blur-3xl"
-          style={{ background: "var(--brand-rose)" }}
-        />
-        <div
-          className="absolute -bottom-32 left-1/3 h-[380px] w-[380px] rounded-full opacity-25 blur-3xl"
-          style={{ background: "var(--brand-amber)" }}
-        />
+      {/* Atmospheric brand glow — contained, subtle, matches ReaderBookPageView */}
+      <div
+        aria-hidden
+        className="pointer-events-none absolute inset-0 overflow-hidden rounded-2xl"
+      >
+        <div className="absolute right-0 top-0 h-72 w-72 translate-x-24 -translate-y-24 rounded-full bg-[#907AFF]/[0.10] blur-[80px]" />
+        <div className="absolute bottom-0 left-1/4 h-72 w-72 translate-y-24 rounded-full bg-[#E29ED5]/[0.08] blur-[80px]" />
       </div>
 
-      <div className="relative grid gap-8 p-6 sm:p-10 lg:grid-cols-[minmax(280px,400px)_minmax(0,1fr)] lg:gap-12">
+      <div className="relative grid gap-6 p-4 sm:gap-8 sm:p-6 md:p-8 lg:grid-cols-[260px_minmax(0,1fr)] lg:items-start">
         {/* ── Cover / trailer ──────────────────────────────────── */}
-        <div className="flex justify-center lg:justify-start">
+        <div className="relative mx-auto w-full max-w-[200px] sm:max-w-[260px] lg:mx-0">
+          <div className="absolute inset-4 rounded-2xl bg-[#907AFF]/10 blur-2xl" />
           <div
-            className="group relative aspect-[2/3] w-full max-w-[400px] overflow-hidden rounded-2xl shadow-[0_24px_60px_-12px_rgba(15,23,42,0.25)] ring-1 ring-slate-200/60"
-            style={{ animation: "demoHeroCoverIn 600ms cubic-bezier(0.34, 1.56, 0.64, 1) both" }}
+            className="group relative aspect-[2/3] w-full overflow-hidden rounded-2xl border border-black/[0.08] shadow-surface-md ring-1 ring-slate-200/60 dark:border-white/10 dark:ring-white/10"
+            style={{ animation: "demoHeroCoverIn 600ms cubic-bezier(0.16, 1, 0.3, 1) both" }}
           >
             {trailerUrl ? (
               <video
@@ -149,7 +145,7 @@ export default function DemoReaderFinale({
                 className="absolute inset-0 h-full w-full object-cover transition-transform duration-700 ease-out group-hover:scale-[1.02]"
               />
             ) : (
-              <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-[var(--brand-violet)]/20 via-[var(--brand-rose)]/15 to-[var(--brand-amber)]/20 text-3xl font-bold text-slate-700">
+              <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-[#907AFF]/20 to-[#E29ED5]/20 text-2xl font-semibold text-slate-700 dark:text-white/70">
                 {bookTitle}
               </div>
             )}
@@ -158,85 +154,62 @@ export default function DemoReaderFinale({
 
         {/* ── Headline + lang + audio ──────────────────────────── */}
         <div
-          className="flex min-w-0 flex-col justify-center gap-5"
-          style={{ animation: "demoHeroTextIn 700ms ease-out 120ms both" }}
+          className="flex min-w-0 flex-col gap-5"
+          style={{ animation: "demoHeroTextIn 700ms cubic-bezier(0.16, 1, 0.3, 1) 120ms both" }}
         >
-          <div className="flex flex-wrap items-center gap-2 self-start">
-            <span className="inline-flex items-center gap-1.5 rounded-full border border-[var(--brand-violet)]/25 bg-white/85 px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-[0.2em] text-[var(--brand-violet)] shadow-sm backdrop-blur">
-              Step 4 of 4 · Reader
-            </span>
-            <span className="inline-flex items-center gap-2 rounded-full border border-[var(--brand-violet)]/20 bg-white/70 px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.22em] text-[var(--brand-violet)] shadow-sm backdrop-blur">
-              <Globe className="h-3 w-3" aria-hidden />
-              Available in {chapters.length} languages
-              <span className="ml-1 flex items-center gap-0.5 text-[13px]" aria-hidden>
-                {langs.slice(0, 4).map((l) => (
-                  <span key={l} className="leading-none">
-                    {LANGUAGE_FLAGS[l] ?? "🏳️"}
-                  </span>
-                ))}
-                {langs.length > 4 ? (
-                  <span className="ml-1 text-[10px] tracking-normal text-[var(--brand-violet)]/70">
-                    +{langs.length - 4}
-                  </span>
-                ) : null}
-              </span>
-            </span>
-            <span className="inline-flex items-center gap-1 rounded-full border border-[var(--brand-amber)]/30 bg-white/70 px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-[0.2em] text-[var(--brand-amber)] shadow-sm backdrop-blur">
-              ~4.2M readers in TAM
-            </span>
-          </div>
-
-          <h1
-            className="text-balance text-[44px] font-bold leading-[1.05] tracking-[-0.02em] sm:text-[56px]"
-            style={{ fontFamily: 'var(--font-montserrat-alternates), "Inter", ui-sans-serif, system-ui, sans-serif' }}
-          >
-            <span className="bg-gradient-to-r from-[var(--brand-violet)] via-[var(--brand-rose)] to-[var(--brand-amber)] bg-clip-text text-transparent">
-              {bookTitle}
-            </span>
+          {/* Title — solid slate heading, matching ReaderBookPageView */}
+          <h1 className="text-balance text-[clamp(26px,4vw,40px)] font-bold leading-[1.1] tracking-tight text-slate-900 dark:text-white">
+            {bookTitle}
           </h1>
 
-          {/* Language switcher — flag pills only */}
-          <div className="flex flex-wrap gap-1.5">
-            {langs.map((l) => {
-              const selected = l === activeLang;
-              return (
-                <button
-                  key={l}
-                  type="button"
-                  onClick={() => handleSelectLang(l)}
-                  aria-pressed={selected}
-                  aria-label={LANGUAGE_NAMES[l] ?? l}
-                  title={LANGUAGE_NAMES[l] ?? l}
-                  className={`flex h-9 w-9 items-center justify-center rounded-full text-[18px] transition-all duration-200 ${
-                    selected
-                      ? "scale-110 bg-white shadow-[0_0_0_4px_rgba(124,92,252,0.18),0_8px_22px_-6px_rgba(124,92,252,0.55)] ring-[3px] ring-[var(--brand-violet)]"
-                      : "border border-slate-200 bg-white/60 hover:scale-[1.08] hover:border-[var(--brand-violet)]/30 hover:bg-white"
-                  }`}
-                >
-                  <span aria-hidden>{LANGUAGE_FLAGS[l] ?? "🏳️"}</span>
-                </button>
-              );
-            })}
+          {/* Language switcher — platform pill style (see page.tsx languageSwitcher) */}
+          <div className="space-y-2">
+            <p className="text-[11px] font-semibold uppercase tracking-wider text-slate-400 dark:text-white/35">
+              Read in
+            </p>
+            <div className="flex flex-wrap gap-2">
+              {langs.map((l) => {
+                const selected = l === activeLang;
+                return (
+                  <button
+                    key={l}
+                    type="button"
+                    onClick={() => handleSelectLang(l)}
+                    aria-pressed={selected}
+                    className={
+                      selected
+                        ? "inline-flex items-center gap-1.5 rounded-full bg-slate-900 px-3.5 py-1.5 text-[12px] font-semibold text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#907AFF]/40 focus-visible:ring-offset-2 dark:bg-white dark:text-slate-900"
+                        : "inline-flex items-center gap-1.5 rounded-full border border-black/[0.06] bg-white/60 px-3.5 py-1.5 text-[12px] font-medium text-slate-600 transition-colors duration-150 ease-out hover:border-black/[0.12] hover:text-slate-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#907AFF]/40 focus-visible:ring-offset-2 dark:border-white/[0.08] dark:bg-white/[0.04] dark:text-white/60 dark:hover:text-white"
+                    }
+                  >
+                    <span aria-hidden className="text-[14px] leading-none">
+                      {LANGUAGE_FLAGS[l] ?? "🏳️"}
+                    </span>
+                    {LANGUAGE_NAMES[l] ?? l}
+                  </button>
+                );
+              })}
+            </div>
           </div>
 
           {/* Live-morphing chapter excerpt */}
           <blockquote
             key={activeLang}
-            className="rounded-2xl border border-slate-200/70 bg-white/70 p-5 text-[15px] italic leading-[1.65] text-slate-700 shadow-sm backdrop-blur-sm"
-            style={{ animation: "demoFadeIn 320ms ease-out" }}
+            className="rounded-2xl border border-slate-200/70 bg-white/70 p-5 text-[15px] italic leading-relaxed text-slate-600 shadow-surface-sm backdrop-blur-sm dark:border-white/[0.08] dark:bg-white/[0.04] dark:text-white/60"
+            style={{ animation: "demoFadeIn 320ms cubic-bezier(0.16, 1, 0.3, 1)" }}
           >
-            <span className="select-none text-[28px] leading-none text-[var(--brand-violet)]/40">“</span>
+            <span className="select-none text-[28px] leading-none text-[#907AFF]/40">“</span>
             {activeChapter?.excerpt ?? "—"}
-            <span className="select-none text-[28px] leading-none text-[var(--brand-violet)]/40">”</span>
+            <span className="select-none text-[28px] leading-none text-[#907AFF]/40">”</span>
           </blockquote>
 
-          {/* Audio bar — light, brand-violet primary */}
-          <div className="flex items-center gap-4 rounded-2xl border border-slate-200/70 bg-white p-3 pl-4 shadow-sm">
+          {/* Audio bar */}
+          <div className="flex items-center gap-4 rounded-2xl border border-slate-200/70 bg-white p-3 pl-4 shadow-surface-sm dark:border-white/[0.08] dark:bg-white/[0.04]">
             <button
               type="button"
               onClick={handlePlayPause}
               aria-label={audioPlaying ? "Pause audiobook" : "Play audiobook"}
-              className="inline-flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-full bg-[var(--brand-violet)] text-white shadow-[0_8px_20px_-4px_rgba(124,92,252,0.5)] transition hover:scale-[1.05] hover:bg-[var(--brand-violet-hover)] active:scale-[0.96]"
+              className="inline-flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-full bg-[#907AFF] text-white shadow-surface-sm transition-transform duration-200 ease-out hover:scale-[1.05] hover:bg-[#8069EE] active:scale-[0.96] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#907AFF]/40 focus-visible:ring-offset-2"
             >
               {audioPlaying ? (
                 <Pause className="h-5 w-5" aria-hidden />
@@ -245,11 +218,11 @@ export default function DemoReaderFinale({
               )}
             </button>
             <div className="min-w-0 flex-1">
-              <p className="text-[13px] font-semibold tracking-tight text-slate-900">
-                Audiobook in {LANGUAGE_NAMES[activeLang] ?? activeLang.toUpperCase()}
+              <p className="text-[13px] font-semibold tracking-tight text-slate-900 dark:text-white">
+                Audiobook in {activeLangName}
               </p>
-              <p className="truncate text-[12px] text-slate-500">
-                Narrated with the author&rsquo;s cloned voice · {activeLang.toUpperCase()}
+              <p className="truncate text-[12px] text-slate-500 dark:text-white/50">
+                Narrated with the author&rsquo;s cloned voice
               </p>
             </div>
             {audioPlaying ? (
@@ -257,7 +230,7 @@ export default function DemoReaderFinale({
                 {[0.4, 0.7, 1.0, 0.6, 0.3].map((s, i) => (
                   <span
                     key={i}
-                    className="block w-[3px] rounded-full bg-[var(--brand-violet)]/70"
+                    className="block w-[3px] rounded-full bg-[#907AFF]/70"
                     style={{
                       height: `${10 + s * 14}px`,
                       animation: `demoAudioBar 800ms ease-in-out ${i * 80}ms infinite`,
@@ -279,18 +252,14 @@ export default function DemoReaderFinale({
         </div>
       </div>
 
-      {/* ── Inline chapter body — answers "och vad läser man?" ── */}
-      <div className="relative border-t border-slate-200/60 bg-white/80 px-6 py-10 sm:px-10 sm:py-12 lg:px-16 lg:py-14">
+      {/* ── Inline chapter body — matches the real reader (Georgia serif) ── */}
+      <div className="relative border-t border-slate-200/60 bg-white/60 px-6 py-10 sm:px-10 sm:py-12 lg:px-16 lg:py-14 dark:border-white/[0.06] dark:bg-white/[0.02]">
         <article
-          // key on activeLang re-mounts the article so the fade re-fires
-          // and the scroll position resets when the user switches language.
           key={`body-${activeLang}`}
-          className="mx-auto max-w-[64ch] text-[16px] leading-[1.7] text-slate-800"
-          style={{ animation: "demoFadeIn 320ms ease-out" }}
+          className="mx-auto max-w-[64ch] text-[17px] leading-[1.7] text-slate-800 dark:text-white/80"
+          style={{ animation: "demoFadeIn 320ms cubic-bezier(0.16, 1, 0.3, 1)" }}
         >
-          <p className="text-eyebrow mb-4 text-[var(--brand-violet)]">
-            Chapter one — {LANGUAGE_NAMES[activeLang] ?? activeLang.toUpperCase()}
-          </p>
+          <p className="text-eyebrow mb-4">Chapter one — {activeLangName}</p>
           {(activeChapter?.fullText ?? "")
             .split(/\n{2,}/)
             .filter((p) => p.trim().length > 0)
@@ -298,34 +267,28 @@ export default function DemoReaderFinale({
               <p
                 key={idx}
                 className="mb-5 last:mb-0"
-                style={{ fontFamily: '"Iowan Old Style", Georgia, "Times New Roman", serif' }}
+                style={{ fontFamily: "Georgia, serif" }}
               >
                 {paragraph}
               </p>
             ))}
           {readChapterByLang && readChapterByLang[activeLang] ? (
-            <div className="mt-10 rounded-2xl border border-[var(--brand-violet)]/20 bg-gradient-to-br from-[var(--brand-violet)]/[0.05] via-white to-[var(--brand-rose)]/[0.04] p-5 shadow-sm">
-              <p className="text-eyebrow text-[var(--brand-violet)]">
-                Chapter 2 · early access
-              </p>
-              <p className="mt-1.5 text-[15px] font-semibold leading-snug text-slate-900">
-                412 readers already pre-ordered in {LANGUAGE_NAMES[activeLang] ?? activeLang.toUpperCase()}
-              </p>
-              <p className="mt-1 text-[13px] text-slate-500">
-                The next chapter unlocks in 72 h. Continue reading on launch day.
-              </p>
-              <div className="mt-3 flex flex-wrap items-center gap-3">
-                <a
-                  href={`/reader/read/${readChapterByLang[activeLang]}`}
-                  className="inline-flex items-center gap-1.5 rounded-full bg-[var(--brand-violet)] px-4 py-1.5 text-[12px] font-semibold text-white shadow-[0_6px_16px_-6px_rgba(124,92,252,0.55)] transition hover:scale-[1.02] hover:bg-[var(--brand-violet-hover)]"
-                >
-                  Pre-order · 1.99 €
-                  <span aria-hidden>→</span>
-                </a>
-                <span className="text-[11px] uppercase tracking-[0.18em] text-slate-400">
-                  $821 in pre-orders today · {LANGUAGE_NAMES[activeLang] ?? activeLang.toUpperCase()}
-                </span>
+            <div className="mt-10 flex flex-col gap-3 rounded-2xl border border-slate-200/70 bg-white/70 p-5 shadow-surface-sm dark:border-white/[0.08] dark:bg-white/[0.04] sm:flex-row sm:items-center sm:justify-between">
+              <div>
+                <p className="text-[15px] font-semibold leading-snug text-slate-900 dark:text-white">
+                  Continue reading in {activeLangName}
+                </p>
+                <p className="mt-1 text-[13px] text-slate-500 dark:text-white/50">
+                  Pick up the full chapter where the preview ends.
+                </p>
               </div>
+              <a
+                href={`/reader/read/${readChapterByLang[activeLang]}`}
+                className="inline-flex shrink-0 items-center gap-1.5 rounded-full bg-[#907AFF] px-4 py-2 text-[13px] font-semibold text-white shadow-surface-sm transition-transform duration-200 ease-out hover:scale-[1.02] hover:bg-[#8069EE] active:scale-[0.97] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#907AFF]/40 focus-visible:ring-offset-2"
+              >
+                Read full chapter
+                <span aria-hidden>→</span>
+              </a>
             </div>
           ) : null}
         </article>
@@ -347,6 +310,11 @@ export default function DemoReaderFinale({
         @keyframes demoAudioBar {
           0%, 100% { transform: scaleY(0.5); opacity: 0.6; }
           50% { transform: scaleY(1.4); opacity: 1; }
+        }
+        @media (prefers-reduced-motion: reduce) {
+          [data-demo-reader], [data-demo-reader] * {
+            animation: none !important;
+          }
         }
       `}</style>
     </section>
