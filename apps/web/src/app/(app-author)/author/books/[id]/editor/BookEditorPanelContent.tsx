@@ -143,6 +143,8 @@ export default function BookEditorPanelContent({
             setCoverCropSrc={cover.setCoverCropSrc}
             coverAIPreviewUrl={cover.coverAIPreviewUrl}
             setCoverAIPreviewUrl={cover.setCoverAIPreviewUrl}
+            demoCoverUrl={cover.demoCoverUrl}
+            handleDemoRemoveCover={cover.handleDemoRemoveCover}
             handleRemoveCover={cover.handleRemoveCover}
             handleCropSave={cover.handleCropSave}
             handleCoverChange={cover.handleCoverChange}

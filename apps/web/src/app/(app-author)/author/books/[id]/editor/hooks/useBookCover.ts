@@ -83,7 +83,72 @@ export function useBookCover({ book, demoFallbackEnabled = false }: UseBookCover
   const [coverAITemplate, setCoverAITemplate] = useState<string | null>(COVER_TEMPLATES[0]?.id ?? null);
   const [coverAITemplateFields, setCoverAITemplateFields] = useState<Record<string, string>>({});
 
+  /**
+   * Demo-only local cover lifecycle. The pitch displays a local asset
+   * (decoupled from Supabase for wifi-resilience), so the Replace / Edit /
+   * Crop / Remove affordances operate on local state instead of persisting —
+   * instant, network-free, and reset on refresh between rehearsals.
+   */
+  const [demoCoverOverride, setDemoCoverOverride] = useState<string | null>(null);
+  const [demoCoverRemoved, setDemoCoverRemoved] = useState(false);
+
   const displayCoverUrl = coverPreviewUrl ?? book.cover_image;
+
+  /**
+   * Effective cover URL shown in demo mode: a freshly-previewed AI cover wins,
+   * then any locally edited/uploaded override, then the seeded demo asset.
+   * Null only after the presenter removes it (surfaces the empty + Generate
+   * state, which is the whole point of making the demo cover deletable).
+   */
+  const demoCoverUrl =
+    coverAIPreviewUrl ??
+    (demoCoverRemoved ? null : demoCoverOverride ?? "/demo-assets/covers/01.jpg");
+
+  /**
+   * Persist the demo cover lifecycle to localStorage so Remove / Replace /
+   * Edit / Crop survive a page refresh — the pitch is judged by refreshing,
+   * and localStorage keeps it instant + offline (no Supabase round-trip).
+   */
+  const demoCoverStorageKey = `verkli_demo_cover_${book.id}`;
+  const persistDemoCover = useCallback(
+    (next: { removed: boolean; override: string | null }) => {
+      if (typeof window === "undefined") return;
+      try {
+        if (!next.removed && !next.override) {
+          window.localStorage.removeItem(demoCoverStorageKey);
+        } else {
+          window.localStorage.setItem(demoCoverStorageKey, JSON.stringify(next));
+        }
+      } catch {
+        // Quota exceeded or storage disabled — in-session state still works.
+      }
+    },
+    [demoCoverStorageKey]
+  );
+
+  // Rehydrate the demo cover lifecycle from localStorage on mount (demo only).
+  // Server + first client render use the seeded defaults (removed=false),
+  // then this effect applies any persisted removal/override — no SSR mismatch.
+  useEffect(() => {
+    if (!demoFallbackEnabled || typeof window === "undefined") return;
+    // Always sync to THIS book's stored state (or defaults when absent), so a
+    // previous book's removal/override never leaks if the hook re-keys to a
+    // different bookId without a fresh localStorage entry.
+    let removed = false;
+    let override: string | null = null;
+    try {
+      const raw = window.localStorage.getItem(demoCoverStorageKey);
+      if (raw) {
+        const parsed = JSON.parse(raw) as { removed?: boolean; override?: string | null };
+        removed = Boolean(parsed.removed);
+        override = typeof parsed.override === "string" ? parsed.override : null;
+      }
+    } catch {
+      // Corrupt entry — fall back to defaults (seeded cover).
+    }
+    setDemoCoverRemoved(removed);
+    setDemoCoverOverride(override);
+  }, [demoFallbackEnabled, demoCoverStorageKey]);
 
   // Sync preview URL when book prop changes
   useEffect(() => {
@@ -164,11 +229,60 @@ export function useBookCover({ book, demoFallbackEnabled = false }: UseBookCover
     }
   }, [book.id, router, toast]);
 
+  /**
+   * Demo-only: swap the displayed cover to a local object URL produced by an
+   * upload / crop / editor save. No Supabase write — keeps the pitch instant
+   * and offline-safe. Revokes the previous blob URL to avoid leaks.
+   */
+  const applyDemoLocalCover = useCallback(
+    (file: File) =>
+      // Resolves once the image is read + persisted, so callers can await
+      // before toasting / closing a modal (no early success on a not-yet-set
+      // cover). Read as a data URL (not an object URL) so it survives a
+      // refresh once persisted to localStorage — object URLs die with the page.
+      new Promise<boolean>((resolve) => {
+        setCoverError(null);
+        const reader = new FileReader();
+        reader.onload = () => {
+          const dataUrl = typeof reader.result === "string" ? reader.result : null;
+          if (!dataUrl) {
+            setCoverError("Could not read image. Try again.");
+            resolve(false);
+            return;
+          }
+          setDemoCoverOverride(dataUrl);
+          setDemoCoverRemoved(false);
+          setCoverAIPreviewUrl(null);
+          persistDemoCover({ removed: false, override: dataUrl });
+          resolve(true);
+        };
+        reader.onerror = () => {
+          setCoverError("Could not read image. Try again.");
+          resolve(false);
+        };
+        reader.readAsDataURL(file);
+      }),
+    [persistDemoCover]
+  );
+
+  /** Demo-only: clear the local cover so the empty + Generate state shows. */
+  const handleDemoRemoveCover = useCallback(() => {
+    setDemoCoverOverride(null);
+    setDemoCoverRemoved(true);
+    setCoverAIPreviewUrl(null);
+    persistDemoCover({ removed: true, override: null });
+    toast.success("Cover removed.");
+  }, [persistDemoCover, toast]);
+
   const handleCropSave = useCallback(
     async (file: File) => {
+      if (demoFallbackEnabled) {
+        if (await applyDemoLocalCover(file)) toast.success("Cover updated.");
+        return;
+      }
       await saveCoverFile(file);
     },
-    [saveCoverFile]
+    [demoFallbackEnabled, applyDemoLocalCover, saveCoverFile, toast]
   );
 
   const handleCoverFileSelect = useCallback(
@@ -188,9 +302,20 @@ export function useBookCover({ book, demoFallbackEnabled = false }: UseBookCover
 
   const handleCoverChange = useCallback(
     async (e: React.ChangeEvent<HTMLInputElement>) => {
-      await handleCoverFileSelect(e.target.files?.[0] ?? null);
+      const file = e.target.files?.[0] ?? null;
+      if (demoFallbackEnabled) {
+        if (coverInputRef.current) coverInputRef.current.value = "";
+        if (!file) return;
+        if (!isAcceptedCoverFile(file)) {
+          setCoverError("Use a JPG or PNG file.");
+          return;
+        }
+        if (await applyDemoLocalCover(file)) toast.success("Cover updated.");
+        return;
+      }
+      await handleCoverFileSelect(file);
     },
-    [handleCoverFileSelect]
+    [demoFallbackEnabled, applyDemoLocalCover, handleCoverFileSelect, toast]
   );
 
   const handleCoverDrop = useCallback(
@@ -198,9 +323,19 @@ export function useBookCover({ book, demoFallbackEnabled = false }: UseBookCover
       e.preventDefault();
       setCoverDropActive(false);
       if (coverUploading) return;
-      await handleCoverFileSelect(e.dataTransfer.files?.[0] ?? null);
+      const file = e.dataTransfer.files?.[0] ?? null;
+      if (demoFallbackEnabled) {
+        if (!file) return;
+        if (!isAcceptedCoverFile(file)) {
+          setCoverError("Use a JPG or PNG file.");
+          return;
+        }
+        if (await applyDemoLocalCover(file)) toast.success("Cover updated.");
+        return;
+      }
+      await handleCoverFileSelect(file);
     },
-    [coverUploading, handleCoverFileSelect]
+    [coverUploading, demoFallbackEnabled, applyDemoLocalCover, handleCoverFileSelect, toast]
   );
 
   const handleCoverAIGenerate = useCallback(async () => {
@@ -323,6 +458,37 @@ export function useBookCover({ book, demoFallbackEnabled = false }: UseBookCover
 
   const handleCoverSetFromGenerated = useCallback(
     async (url: string) => {
+      if (demoFallbackEnabled) {
+        // Demo: adopt the chosen cover locally + persist so it survives a
+        // refresh and clears any prior removal — no Supabase round-trip.
+        // Local/cached assets (/demo-assets/*, data:) are stored as-is (tiny,
+        // SW-cached). A remote live-SD3 URL is fetched to a data URL first so
+        // it doesn't break on refresh/offline.
+        if (url.startsWith("/") || url.startsWith("data:")) {
+          setDemoCoverOverride(url);
+          setDemoCoverRemoved(false);
+          setCoverAIPreviewUrl(null);
+          persistDemoCover({ removed: false, override: url });
+          toast.success("Cover updated.");
+          return;
+        }
+        try {
+          const response = await fetch(url);
+          const blob = await response.blob();
+          const file = new File([blob], "generated-cover", {
+            type: blob.type || "image/png",
+          });
+          if (await applyDemoLocalCover(file)) toast.success("Cover updated.");
+        } catch {
+          // Network failed — store the URL directly as a best-effort fallback.
+          setDemoCoverOverride(url);
+          setDemoCoverRemoved(false);
+          setCoverAIPreviewUrl(null);
+          persistDemoCover({ removed: false, override: url });
+          toast.success("Cover updated.");
+        }
+        return;
+      }
       if (coverUploading) return;
       setCoverAIError(null);
       setCoverError(null);
@@ -345,7 +511,7 @@ export function useBookCover({ book, demoFallbackEnabled = false }: UseBookCover
         setCoverError("Could not save generated cover. Try again.");
       }
     },
-    [coverUploading, saveCoverFile]
+    [demoFallbackEnabled, persistDemoCover, applyDemoLocalCover, toast, coverUploading, saveCoverFile]
   );
 
   // Cover editor modal
@@ -353,10 +519,16 @@ export function useBookCover({ book, demoFallbackEnabled = false }: UseBookCover
 
   const handleEditorSave = useCallback(
     async (file: File) => {
+      if (demoFallbackEnabled) {
+        const ok = await applyDemoLocalCover(file);
+        setCoverEditorOpen(false);
+        if (ok) toast.success("Cover updated.");
+        return;
+      }
       await saveCoverFile(file);
       setCoverEditorOpen(false);
     },
-    [saveCoverFile]
+    [demoFallbackEnabled, applyDemoLocalCover, saveCoverFile, toast]
   );
 
   return {
@@ -365,6 +537,7 @@ export function useBookCover({ book, demoFallbackEnabled = false }: UseBookCover
     coverError,
     coverPreviewUrl,
     displayCoverUrl,
+    demoCoverUrl,
     coverDropActive,
     setCoverDropActive,
     coverAIPrompt,
@@ -388,6 +561,7 @@ export function useBookCover({ book, demoFallbackEnabled = false }: UseBookCover
     coverEditorOpen,
     setCoverEditorOpen,
     handleRemoveCover,
+    handleDemoRemoveCover,
     handleCropSave,
     handleCoverChange,
     handleCoverDrop,

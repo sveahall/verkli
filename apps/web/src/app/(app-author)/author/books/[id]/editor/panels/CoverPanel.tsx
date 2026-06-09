@@ -34,6 +34,10 @@ interface CoverPanelProps {
   setCoverCropSrc: (v: string | null) => void;
   coverAIPreviewUrl: string | null;
   setCoverAIPreviewUrl: (v: string | null) => void;
+  /** Demo-only: effective locally-displayed cover URL (null once removed). */
+  demoCoverUrl?: string | null;
+  /** Demo-only: clears the local cover, revealing the empty + Generate state. */
+  handleDemoRemoveCover?: () => void;
   handleRemoveCover: () => void;
   handleCropSave: (file: File) => Promise<void>;
   handleCoverChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
@@ -74,6 +78,8 @@ export default function CoverPanel({
   setCoverCropSrc,
   coverAIPreviewUrl,
   setCoverAIPreviewUrl,
+  demoCoverUrl = null,
+  handleDemoRemoveCover,
   handleRemoveCover,
   handleCropSave,
   handleCoverChange,
@@ -134,10 +140,11 @@ export default function CoverPanel({
       <div className={`grid items-stretch ${demoMode ? "gap-6 pt-2 lg:grid-cols-[minmax(260px,320px)_1fr]" : "gap-8 pt-10 lg:grid-cols-[300px_1fr]"}`}>
         {/* ── Cover preview ── */}
         <div className={demoMode ? "flex flex-col" : ""}>
-          {/* Demo pitch: if the seeded book hasn't had its cover hydrated
-              yet, fall back to a static placeholder so the left half is
-              never empty when the presenter lands here. */}
-          {displayCoverUrl || demoMode ? (
+          {/* Demo pitch: the cover is driven by a local asset (decoupled from
+              Supabase for wifi-resilience). demoCoverUrl carries the seeded
+              fallback, any local edit/upload, or null once the presenter
+              removes it — which surfaces the upload + Generate empty state. */}
+          {(demoMode ? demoCoverUrl : displayCoverUrl) ? (
             <div className={demoMode ? "flex h-full flex-col" : "space-y-4"}>
               <div
                 className={`relative overflow-hidden ${
@@ -148,17 +155,7 @@ export default function CoverPanel({
                 style={{ aspectRatio: "3/4" }}
               >
                 <Image
-                  src={
-                    demoMode
-                      ? // Demo pitch: prefer the live preview (when the
-                        // presenter clicked Generate this rehearsal), then
-                        // fall back to the local demo asset rather than the
-                        // seeded Supabase URL — keeps the pitch resilient
-                        // to venue wifi, and the demo SW already pre-caches
-                        // /demo-assets/covers/*.
-                        coverAIPreviewUrl ?? "/demo-assets/covers/01.jpg"
-                      : displayCoverUrl ?? ""
-                  }
+                  src={demoMode ? demoCoverUrl ?? "" : displayCoverUrl ?? ""}
                   alt="Book cover"
                   fill
                   sizes="320px"
@@ -199,6 +196,42 @@ export default function CoverPanel({
                   onClick={handleRemoveCover}
                   disabled={coverUploading}
                   className="rounded-xl border border-red-200/60 bg-white px-4 py-2.5 text-xs font-medium text-red-500 transition hover:bg-red-50 hover:border-red-300 active:scale-[0.97] disabled:opacity-50 dark:border-red-900/30 dark:bg-white/[0.03] dark:text-red-400"
+                >
+                  Remove
+                </button>
+              </div>
+              )}
+              {/* Demo cover controls — same affordances as the real page, but
+                  wired to local-only handlers (no Supabase write) so the pitch
+                  stays instant and offline-safe. */}
+              {demoMode && (
+              <div className="mt-4 flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => coverInputRef.current?.click()}
+                  className="flex-1 rounded-xl border border-black/[0.08] bg-white py-2.5 text-xs font-medium text-slate-600 transition hover:bg-slate-50 hover:border-black/[0.12] active:scale-[0.97] dark:border-white/[0.08] dark:bg-white/[0.04] dark:text-white/70"
+                >
+                  Replace
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setCoverEditorOpen(true)}
+                  className="flex-1 inline-flex items-center justify-center gap-1 rounded-xl border border-[#907AFF]/20 bg-[#907AFF]/5 py-2.5 text-xs font-medium text-[#907AFF] transition hover:bg-[#907AFF]/10 hover:border-[#907AFF]/30 active:scale-[0.97]"
+                >
+                  <PenLine className="h-3 w-3" />
+                  Edit
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setCoverCropSrc(demoCoverUrl)}
+                  className="flex-1 rounded-xl border border-black/[0.08] bg-white py-2.5 text-xs font-medium text-slate-600 transition hover:bg-slate-50 hover:border-black/[0.12] active:scale-[0.97] dark:border-white/[0.08] dark:bg-white/[0.04] dark:text-white/70"
+                >
+                  Crop
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleDemoRemoveCover?.()}
+                  className="rounded-xl border border-red-200/60 bg-white px-4 py-2.5 text-xs font-medium text-red-500 transition hover:bg-red-50 hover:border-red-300 active:scale-[0.97] dark:border-red-900/30 dark:bg-white/[0.03] dark:text-red-400"
                 >
                   Remove
                 </button>
@@ -643,9 +676,9 @@ export default function CoverPanel({
       )}
 
       {/* Cover editor modal */}
-      {coverEditorOpen && displayCoverUrl && (
+      {coverEditorOpen && (demoMode ? demoCoverUrl : displayCoverUrl) && (
         <CoverEditorModal
-          imageUrl={displayCoverUrl}
+          imageUrl={(demoMode ? demoCoverUrl : displayCoverUrl) as string}
           bookId={bookId}
           bookTitle={bookTitle}
           authorName={authorName}
