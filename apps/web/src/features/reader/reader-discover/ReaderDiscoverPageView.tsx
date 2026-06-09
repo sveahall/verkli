@@ -138,7 +138,7 @@ function PillGroup({
           <Link
             key={opt.value}
             href={buildFilterHref(activeFilters, { [field]: opt.value })}
-            className={`rounded-md px-3.5 py-2.5 text-[13px] font-medium leading-[18px] transition-all duration-200 ease-[cubic-bezier(0.23,1,0.32,1)] active:scale-[0.97] ${
+            className={`rounded-md px-3.5 py-3 text-[13px] font-medium leading-5 transition-all duration-200 ease-[cubic-bezier(0.23,1,0.32,1)] active:scale-[0.97] ${
               isActive
                 ? "bg-[#907AFF]/[0.09] text-[#907AFF] dark:bg-[#907AFF]/[0.14] dark:text-[#B8AAFF]"
                 : "text-[#64748B] hover:text-[#0F172A] dark:text-white/40 dark:hover:text-white/70"
