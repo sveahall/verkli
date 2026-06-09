@@ -104,7 +104,7 @@ export default function BookCard({
             <div className="pointer-events-none absolute inset-x-0 bottom-0 h-16 bg-gradient-to-t from-black/[0.06] to-transparent dark:from-black/20" />
           </div>
           {tag && (
-            <span className="absolute left-2.5 top-2.5 rounded-full bg-[#907AFF]/90 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wide text-white shadow-sm backdrop-blur-sm dark:bg-[#907AFF]/80">
+            <span className="absolute left-2.5 top-2.5 rounded-full bg-[#907AFF]/90 px-2.5 py-1 text-[11px] font-semibold uppercase tracking-wide text-white shadow-sm backdrop-blur-sm dark:bg-[#907AFF]/80">
               {tag}
             </span>
           )}

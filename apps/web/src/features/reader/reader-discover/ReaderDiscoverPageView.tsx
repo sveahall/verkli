@@ -323,7 +323,7 @@ export default function ReaderDiscoverPageView({
                       {author.name}
                     </p>
                     {author.genre && (
-                      <p className="truncate text-[10px] text-[#64748B] dark:text-white/40">
+                      <p className="truncate text-[11px] text-[#64748B] dark:text-white/40">
                         {author.genre}
                       </p>
                     )}

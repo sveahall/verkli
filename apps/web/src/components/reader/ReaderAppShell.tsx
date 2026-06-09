@@ -198,7 +198,7 @@ export default function ReaderAppShell({
                   <Icon className="h-[18px] w-[18px]" />
                 </span>
                 <span
-                  className={`text-[10px] transition-colors duration-150 ${
+                  className={`text-[11px] transition-colors duration-150 ${
                     active
                       ? "font-semibold text-[#907AFF] dark:text-[#B8AAFF]"
                       : "font-medium text-[#8B92A5] dark:text-white/40"
