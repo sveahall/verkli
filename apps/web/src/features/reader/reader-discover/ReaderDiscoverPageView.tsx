@@ -138,7 +138,7 @@ function PillGroup({
           <Link
             key={opt.value}
             href={buildFilterHref(activeFilters, { [field]: opt.value })}
-            className={`rounded-md px-3 py-1 text-xs font-medium transition-all duration-200 ease-[cubic-bezier(0.23,1,0.32,1)] active:scale-[0.97] ${
+            className={`rounded-md px-3.5 py-2.5 text-[13px] font-medium leading-[18px] transition-all duration-200 ease-[cubic-bezier(0.23,1,0.32,1)] active:scale-[0.97] ${
               isActive
                 ? "bg-[#907AFF]/[0.09] text-[#907AFF] dark:bg-[#907AFF]/[0.14] dark:text-[#B8AAFF]"
                 : "text-[#64748B] hover:text-[#0F172A] dark:text-white/40 dark:hover:text-white/70"
@@ -234,7 +234,7 @@ export default function ReaderDiscoverPageView({
               <div className="scrollbar-none flex gap-2 overflow-x-auto pb-0.5">
                 <Link
                   href={buildFilterHref(activeFilters, { genreSlugs: [] })}
-                  className={`flex-shrink-0 rounded-full border px-3.5 py-1.5 text-sm font-medium transition-all duration-200 ease-[cubic-bezier(0.23,1,0.32,1)] active:scale-[0.97] ${
+                  className={`flex-shrink-0 rounded-full border px-4 py-3 text-sm font-medium transition-all duration-200 ease-[cubic-bezier(0.23,1,0.32,1)] active:scale-[0.97] ${
                     activeFilters.genreSlugs.length === 0
                       ? "border-[#907AFF]/30 bg-[#907AFF]/[0.09] text-[#907AFF] dark:bg-[#907AFF]/[0.14] dark:text-[#B8AAFF]"
                       : "border-slate-200/80 bg-white/80 text-[#64748B] hover:border-[#907AFF]/20 hover:text-[#907AFF] dark:border-white/10 dark:bg-white/[0.03] dark:text-white/50 dark:hover:text-[#B8AAFF]"
@@ -251,7 +251,7 @@ export default function ReaderDiscoverPageView({
                       href={buildFilterHref(activeFilters, {
                         genreSlugs: toggleGenre(activeFilters.genreSlugs, g.slug),
                       })}
-                      className={`flex-shrink-0 rounded-full border px-3.5 py-1.5 text-sm font-medium transition-all duration-200 ease-[cubic-bezier(0.23,1,0.32,1)] active:scale-[0.97] ${
+                      className={`flex-shrink-0 rounded-full border px-4 py-3 text-sm font-medium transition-all duration-200 ease-[cubic-bezier(0.23,1,0.32,1)] active:scale-[0.97] ${
                         isActive
                           ? "border-[#907AFF]/30 bg-[#907AFF]/[0.09] text-[#907AFF] dark:bg-[#907AFF]/[0.14] dark:text-[#B8AAFF]"
                           : "border-slate-200/80 bg-white/80 text-[#64748B] hover:border-[#907AFF]/20 hover:text-[#907AFF] dark:border-white/10 dark:bg-white/[0.03] dark:text-white/50 dark:hover:text-[#B8AAFF]"
@@ -381,7 +381,7 @@ export default function ReaderDiscoverPageView({
         {/* Language apply — only needed when language changes */}
         <button
           type="submit"
-          className="btn-secondary h-8 text-xs transition-[transform] duration-200 ease-[cubic-bezier(0.23,1,0.32,1)] active:scale-[0.97]"
+          className="btn-secondary text-[13px] transition-[transform] duration-200 ease-[cubic-bezier(0.23,1,0.32,1)] active:scale-[0.97]"
         >
           Apply
         </button>
