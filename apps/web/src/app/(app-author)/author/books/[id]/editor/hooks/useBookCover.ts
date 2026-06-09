@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { uploadBookCover } from "@/lib/supabase/storage";
 import { useToastHelpers } from "@/components/ui/toast";
+import { DEMO_COVER_STORAGE_PREFIX } from "@/features/author-shell/useDemoHotkeys";
 import { resolveErrorMessage } from "@/lib/error-messages";
 import {
   isAcceptedCoverFile,
@@ -109,7 +110,7 @@ export function useBookCover({ book, demoFallbackEnabled = false }: UseBookCover
    * Edit / Crop survive a page refresh — the pitch is judged by refreshing,
    * and localStorage keeps it instant + offline (no Supabase round-trip).
    */
-  const demoCoverStorageKey = `verkli_demo_cover_${book.id}`;
+  const demoCoverStorageKey = `${DEMO_COVER_STORAGE_PREFIX}${book.id}`;
   const persistDemoCover = useCallback(
     (next: { removed: boolean; override: string | null }) => {
       if (typeof window === "undefined") return;

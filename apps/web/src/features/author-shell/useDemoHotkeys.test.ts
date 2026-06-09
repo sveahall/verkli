@@ -6,8 +6,10 @@
 
 import { describe, expect, it } from "vitest";
 import {
+  DEMO_COVER_STORAGE_PREFIX,
   extractCurrentBookIdFromPathname,
   mapHotkeyEvent,
+  RESETTABLE_DEMO_KEY_PREFIXES,
   RESETTABLE_DEMO_KEYS,
   SEEDED_DEMO_BOOK_ID,
   type MapHotkeyEventInput,
@@ -121,6 +123,8 @@ describe("mapHotkeyEvent — failover bindings", () => {
     expect(RESETTABLE_DEMO_KEYS).toContain("demo_telemetry");
     expect(RESETTABLE_DEMO_KEYS).toContain("demo_degraded_mode");
     expect(RESETTABLE_DEMO_KEYS).toContain("demo_micro_hook_dismissed");
+    // Per-book keys (dynamic suffixes) are reset by prefix instead.
+    expect(RESETTABLE_DEMO_KEY_PREFIXES).toContain(DEMO_COVER_STORAGE_PREFIX);
   });
 });
 

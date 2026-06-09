@@ -49,6 +49,17 @@ export const RESETTABLE_DEMO_KEYS: ReadonlyArray<string> = [
   "demo_degraded_mode",
 ];
 
+/**
+ * Storage key prefix for the per-book demo cover lifecycle written by
+ * useBookCover (`verkli_demo_cover_<bookId>`). Per-book keys have dynamic
+ * suffixes, so reset matches them by prefix instead of the static list.
+ */
+export const DEMO_COVER_STORAGE_PREFIX = "verkli_demo_cover_";
+
+export const RESETTABLE_DEMO_KEY_PREFIXES: ReadonlyArray<string> = [
+  DEMO_COVER_STORAGE_PREFIX,
+];
+
 export type DemoHotkeyAction =
   | { kind: "navigate"; href: string; openPod?: boolean }
   | { kind: "open-backup-video" }
@@ -188,6 +199,19 @@ function buildDefaultExecutor(): DemoHotkeysExecutor {
       if (typeof window === "undefined") return;
       try {
         for (const key of RESETTABLE_DEMO_KEYS) {
+          window.localStorage.removeItem(key);
+        }
+        // Prefix-matched keys (per-book entries with dynamic suffixes).
+        // Collect first, then remove — deleting while iterating by index
+        // shifts localStorage's key order and skips entries.
+        const prefixed: string[] = [];
+        for (let i = 0; i < window.localStorage.length; i++) {
+          const key = window.localStorage.key(i);
+          if (key && RESETTABLE_DEMO_KEY_PREFIXES.some((p) => key.startsWith(p))) {
+            prefixed.push(key);
+          }
+        }
+        for (const key of prefixed) {
           window.localStorage.removeItem(key);
         }
       } catch {
