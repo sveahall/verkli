@@ -12,7 +12,7 @@
  *      the two book pages paint instantly on navigation.
  */
 
-const CACHE_VERSION = "demo-pitch-v2";
+const CACHE_VERSION = "demo-pitch-v3";
 const PRECACHE_NAME = `${CACHE_VERSION}-precache`;
 const RUNTIME_NAME = `${CACHE_VERSION}-runtime`;
 
@@ -33,6 +33,23 @@ const PRECACHE_URLS = [
   "/demo-assets/audio/pt.mp3",
   "/demo-assets/audio/pl.mp3",
   "/demo-assets/audio/ja.mp3",
+  // Social thumbnails (3 langs × 5 channels) — distribution grid. Without
+  // these the grid breaks offline if it hasn't been viewed online first.
+  "/demo-assets/social/sv-instagram.svg",
+  "/demo-assets/social/sv-threads.svg",
+  "/demo-assets/social/sv-tiktok.svg",
+  "/demo-assets/social/sv-x.svg",
+  "/demo-assets/social/sv-youtube.svg",
+  "/demo-assets/social/en-instagram.svg",
+  "/demo-assets/social/en-threads.svg",
+  "/demo-assets/social/en-tiktok.svg",
+  "/demo-assets/social/en-x.svg",
+  "/demo-assets/social/en-youtube.svg",
+  "/demo-assets/social/fr-instagram.svg",
+  "/demo-assets/social/fr-threads.svg",
+  "/demo-assets/social/fr-tiktok.svg",
+  "/demo-assets/social/fr-x.svg",
+  "/demo-assets/social/fr-youtube.svg",
 ];
 
 self.addEventListener("install", (event) => {
@@ -78,7 +95,13 @@ function isBookPageRequest(url) {
 
 async function staleWhileRevalidate(request, cacheName) {
   const cache = await caches.open(cacheName);
-  const cached = await cache.match(request);
+  // Serve from the runtime cache first, then fall back to the install-time
+  // precache specifically — otherwise precached demo assets are never served
+  // offline, since they live in a different cache. Scope the fallback to the
+  // demo precache (NOT a global caches.match) so we never serve a stale
+  // /reader/books/* page out of the production reader cache.
+  const precache = await caches.open(PRECACHE_NAME);
+  const cached = (await cache.match(request)) || (await precache.match(request));
   const networkPromise = fetch(request)
     .then((response) => {
       if (response && response.ok) {
