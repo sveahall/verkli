@@ -84,8 +84,20 @@ export default function BookCard({
                 className="object-cover transition-transform duration-500 group-hover:scale-[1.04]"
               />
             ) : (
-              <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-[#907AFF]/10 via-white to-slate-100 dark:from-[#907AFF]/15 dark:via-white/5 dark:to-slate-900/60">
-                <span className="text-[12px] font-medium text-slate-400 dark:text-white/50">No cover</span>
+              /* No-cover fallback: typeset the title over the brand wash so the
+                 card reads as a deliberate "text cover", not a missing asset. */
+              <div className="relative flex h-full w-full items-center justify-center overflow-hidden bg-gradient-to-br from-[#907AFF]/[0.16] via-[#E29ED5]/[0.10] to-[#FCC997]/[0.20] p-4 dark:from-[#907AFF]/25 dark:via-[#E29ED5]/10 dark:to-[#FCC997]/15">
+                <div
+                  aria-hidden
+                  className="absolute inset-x-4 top-4 h-px bg-gradient-to-r from-transparent via-[#907AFF]/30 to-transparent"
+                />
+                <span className="line-clamp-4 text-center text-[15px] font-semibold leading-snug tracking-tight text-slate-700 dark:text-white/80">
+                  {title ?? "Untitled"}
+                </span>
+                <div
+                  aria-hidden
+                  className="absolute inset-x-4 bottom-4 h-px bg-gradient-to-r from-transparent via-[#907AFF]/30 to-transparent"
+                />
               </div>
             )}
             {/* Subtle gradient overlay at bottom for depth */}
