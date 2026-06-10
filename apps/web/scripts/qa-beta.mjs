@@ -18,6 +18,13 @@ const requireFromHere = createRequire(import.meta.url);
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const webRoot = resolve(__dirname, "..");
 
+// Snapshot the pre-dotenv environment BEFORE loading .env.local. The vitest
+// stage runs with this hermetic env (like CI does): feature flags meant for
+// the running app — e.g. NEXT_PUBLIC_DEMO_FACADE_ENABLED during pitch prep —
+// must not leak into unit tests, where they change code paths (demo-guard
+// starts querying `profiles`) and break supabase mocks.
+const hermeticEnv = { ...process.env };
+
 // Load .env.local so we can validate billing env vars
 config({ path: resolve(webRoot, ".env.local") });
 
@@ -189,10 +196,10 @@ async function checkRedisReachable() {
 
 // ── Stage runners ───────────────────────────────────────────────────────────
 
-function run(label, stage, cmd) {
+function run(label, stage, cmd, env = process.env) {
   console.log(`\n══ Stage ${stage}: ${label} ══\n`);
   try {
-    execSync(cmd, { cwd: webRoot, stdio: "inherit" });
+    execSync(cmd, { cwd: webRoot, stdio: "inherit", env });
     console.log(`\n✔  ${label} passed.\n`);
   } catch {
     console.error(`\n❌  ${label} failed. Fix the errors above and retry.\n`);
@@ -204,7 +211,7 @@ function run(label, stage, cmd) {
 
 checkEnv();
 await checkRedisReachable();
-run("Tests (vitest)", "2/7", "npx vitest run");
+run("Tests (vitest)", "2/7", "npx vitest run", hermeticEnv);
 run("Lint (eslint)", "3/7", "npx eslint .");
 run("English-default check", "4/7", "npx tsx scripts/check-english-default.ts");
 run("No-placeholders check", "5/7", "npm run check:no-placeholders");
