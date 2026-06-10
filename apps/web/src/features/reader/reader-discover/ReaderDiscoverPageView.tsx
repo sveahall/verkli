@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { BookOpen, ChevronDown, Search, SlidersHorizontal } from "lucide-react";
+import { ArrowRight, BookOpen, ChevronDown, Search, SlidersHorizontal } from "lucide-react";
 import BookCard from "@/components/reader/BookCard";
 
 /* ── Types ── */
@@ -149,6 +149,71 @@ function PillGroup({
         );
       })}
     </div>
+  );
+}
+
+/** Curated layout fires only for a sparse, unfiltered catalog — with search
+ * or genre filters active a plain grid reads as results, not curation. */
+function isCuratedLayout(books: DiscoverBook[], filters: ActiveFilters): boolean {
+  return (
+    books.length <= 4 &&
+    !filters.query &&
+    filters.genreSlugs.length === 0
+  );
+}
+
+/** Editorial feature card: cover + typeset metadata + CTA. Same visual
+ * language as BookCard (brand wash fallback, violet accents, 3:4 cover). */
+function FeaturedBookCard({ book }: { book: DiscoverBook }) {
+  return (
+    <Link
+      href={book.href}
+      className="group block animate-[reader-fade-up_0.4s_cubic-bezier(0.23,1,0.32,1)_both] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#907AFF]/40 focus-visible:ring-offset-2"
+    >
+      <div className="relative flex flex-col gap-6 overflow-hidden rounded-3xl border border-slate-200/70 bg-white p-6 shadow-[0_4px_16px_rgba(15,23,42,0.06)] transition-all duration-300 group-hover:-translate-y-1 group-hover:border-[#907AFF]/20 group-hover:shadow-[0_20px_40px_-12px_rgba(144,122,255,0.15)] sm:flex-row sm:items-center sm:gap-8 sm:p-8 dark:border-white/10 dark:bg-white/5">
+        {/* Ambient corner wash — same brand language as the rest of the app */}
+        <div
+          aria-hidden
+          className="pointer-events-none absolute -right-16 -top-16 h-56 w-56 rounded-full bg-[#907AFF]/[0.08] blur-[70px]"
+        />
+        <div className="relative aspect-[3/4] w-40 flex-shrink-0 overflow-hidden rounded-2xl border border-slate-200/70 shadow-[0_8px_24px_rgba(15,23,42,0.10)] sm:w-48 dark:border-white/10">
+          {book.cover ? (
+            /* eslint-disable-next-line @next/next/no-img-element */
+            <img
+              src={book.cover}
+              alt={book.title}
+              className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-[1.03]"
+            />
+          ) : (
+            <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-[#907AFF]/[0.16] via-[#E29ED5]/[0.10] to-[#FCC997]/[0.20] p-4 dark:from-[#907AFF]/25 dark:via-[#E29ED5]/10 dark:to-[#FCC997]/15">
+              <span className="line-clamp-4 text-center text-[15px] font-semibold leading-snug tracking-tight text-slate-700 dark:text-white/80">
+                {book.title}
+              </span>
+            </div>
+          )}
+        </div>
+        <div className="relative min-w-0">
+          <p className="text-xs font-semibold uppercase tracking-wider text-[#907AFF]">
+            {book.genre ?? "Featured"}
+          </p>
+          <h2 className="mt-2 text-[26px] font-semibold leading-tight tracking-tight text-[#0F172A] sm:text-[30px] dark:text-white">
+            {book.title}
+          </h2>
+          <p className="mt-2 text-sm text-[#64748B] dark:text-white/55">
+            {book.author}
+            {book.hasAudiobook && (
+              <span className="before:mx-1.5 before:content-['·'] before:text-slate-300 before:dark:text-white/20">
+                Audiobook available
+              </span>
+            )}
+          </p>
+          <span className="mt-5 inline-flex items-center gap-2 rounded-full bg-[#0F172A] px-5 py-2.5 text-[13px] font-semibold text-white transition-colors group-hover:bg-[#1E293B] dark:bg-white dark:text-slate-900">
+            Open book
+            <ArrowRight className="h-3.5 w-3.5 transition-transform group-hover:translate-x-0.5" aria-hidden />
+          </span>
+        </div>
+      </div>
+    </Link>
   );
 }
 
@@ -396,8 +461,39 @@ export default function ReaderDiscoverPageView({
         )}
       </form>
 
-      {/* ── Results grid ── */}
+      {/* ── Results ── */}
       {books.length > 0 ? (
+        isCuratedLayout(books, activeFilters) ? (
+          /* Sparse catalog, no active filters: the first title gets an
+             editorial feature treatment instead of a lonely thumbnail grid —
+             a curated shelf, not an empty store. */
+          <section className="space-y-6">
+            <FeaturedBookCard book={books[0]} />
+            {books.length > 1 && (
+              <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
+                {books.slice(1).map((book, i) => (
+                  <div
+                    key={book.id}
+                    className="animate-[reader-fade-up_0.4s_cubic-bezier(0.23,1,0.32,1)_both]"
+                    style={{ animationDelay: `${Math.min((i + 1) * 35, 420)}ms` }}
+                  >
+                    <BookCard
+                      id={book.id}
+                      title={book.title}
+                      author={book.author}
+                      genre={book.genre ?? undefined}
+                      cover={book.cover}
+                      href={book.href}
+                      tag={book.hasAudiobook ? "Audio" : undefined}
+                      hasTrailer={book.hasTrailer}
+                      layout="grid"
+                    />
+                  </div>
+                ))}
+              </div>
+            )}
+          </section>
+        ) : (
         <section>
           <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
             {books.map((book, i) => (
@@ -421,6 +517,7 @@ export default function ReaderDiscoverPageView({
             ))}
           </div>
         </section>
+        )
       ) : (
         <section className="card-base p-8 text-center">
           <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-[#907AFF]/10">
