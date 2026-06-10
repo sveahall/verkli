@@ -145,7 +145,7 @@ export default function MarketingPortalView({
         headerRight={<WorkspaceHeaderActions />}
         main={
           <div className="rounded-2xl bg-white p-8 text-center dark:bg-white/[0.04]">
-            <p className="text-eyebrow">Coming soon</p>
+            <p className="text-eyebrow">Not yet enabled</p>
             <h2 className="mt-4 text-[24px] font-semibold tracking-tight text-slate-900 dark:text-white">
               Marketing is not enabled in this environment yet.
             </h2>
