@@ -115,9 +115,15 @@ export default function ReaderHomePageView({
     <div className="reader-stagger space-y-6">
       {/* ── Header ── */}
       <header>
-        <h1 className="text-page-title">
+        <p className="text-xs font-semibold uppercase tracking-wider text-[#907AFF]">
+          Home
+        </p>
+        <h1 className="mt-1 text-page-title">
           {greeting}
         </h1>
+        <p className="mt-1 text-sm text-[#64748B] dark:text-white/50">
+          Pick up where you left off, or find your next read.
+        </p>
       </header>
 
       {/* ════════════════════════════════════════════
