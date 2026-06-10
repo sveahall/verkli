@@ -78,7 +78,7 @@ function SectionHeader({
 }) {
   return (
     <div className="flex items-center justify-between">
-      <h3 className="text-xl font-semibold text-[#0F172A] dark:text-white sm:text-2xl">
+      <h3 className="text-section-title">
         {title}
       </h3>
       {action && (
@@ -115,7 +115,7 @@ export default function ReaderHomePageView({
     <div className="reader-stagger space-y-6">
       {/* ── Header ── */}
       <header>
-        <h1 className="text-3xl font-semibold tracking-tight text-[#0F172A] dark:text-white sm:text-4xl">
+        <h1 className="text-page-title">
           {greeting}
         </h1>
       </header>

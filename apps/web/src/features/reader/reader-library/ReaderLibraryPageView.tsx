@@ -51,7 +51,7 @@ export default function ReaderLibraryPageView({ initialData }: ReaderLibraryPage
           <p className="text-xs font-semibold uppercase tracking-wider text-[#907AFF]">
             Library
           </p>
-          <h1 className="mt-1 text-2xl font-semibold tracking-tight text-[#0F172A] dark:text-white">
+          <h1 className="mt-1 text-page-title">
             Your books
           </h1>
           <p className="mt-1 text-sm text-[#64748B] dark:text-white/50">
