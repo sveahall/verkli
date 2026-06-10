@@ -24,10 +24,10 @@ pitch. Mål-tid: under 3 minuter för golden path.
 5. **Nollställ allt demo-state:** `Cmd+Shift+R` (rensar demo-localStorage,
    inkl. per-bok cover-state, och laddar om). Kör detta före VARJE rehearsal
    så varje genomkörning startar identiskt.
-6. **NEEDS MANUAL CHECK — live cover-generering:** klicka Generate på
-   cover-steget en gång. Landar varianterna snabbt (live kan vara nästan
-   omedelbar) ⇒ live-vägen (flux.1-schnell/SDXL-failover, fixad 2026-06-09)
-   funkar för kontots API-nyckel. Felar live tidigt hålls loadern minst 8 s
+6. **Live cover-generering — VERIFIERAD 2026-06-10:** direkttest mot
+   `/cover/generate` gav 200 med 4 bilder på ~11 s via flux.1-schnell
+   (ingen failover behövdes). Klicka ändå Generate en gång som sanity-
+   check på pitch-laptopen. Felar live tidigt hålls loadern minst 8 s
    innan fallback-covers visas; hänger live tar fallbacken över vid 15 s-
    timeouten. Oavsett väg visas "Generated just now". Avgör nedan vilket
    Generate-läge du kör.
