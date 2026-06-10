@@ -2,7 +2,9 @@ import NavbarShell from "@/nav/NavbarShell";
 import ReaderAppShell from "@/components/reader/ReaderAppShell";
 import type { AuthorAccessMode } from "@/components/reader/ReaderAppShell";
 import OfflineModeIndicator from "@/components/offline/OfflineModeIndicator";
+import DemoCookieAutoAccept from "@/features/author-shell/DemoCookieAutoAccept";
 import { createClient } from "@/lib/supabase/server";
+import { isDemoModeActive } from "@/lib/flags";
 import {
   getAuthorApplicationStatus,
   isLegacyAuthorRole,
@@ -20,6 +22,7 @@ export default async function ReaderBrowseLayout({
   children: React.ReactNode;
 }) {
   let authorAccess: AuthorAccessMode = "hidden";
+  let demoModeActive = false;
 
   try {
     const supabase = await createClient();
@@ -30,9 +33,16 @@ export default async function ReaderBrowseLayout({
     if (user) {
       const { data: profile } = await supabase
         .from("profiles")
-        .select("role")
+        .select("role, demo_mode")
         .eq("user_id", user.id)
         .maybeSingle();
+
+      // Demo pitch: the reader finale is part of the golden path, and the
+      // cookie banner overlapping it on stage looks broken. Mirror the
+      // author shell's auto-accept (same flag + profile gating).
+      demoModeActive = isDemoModeActive({
+        demo_mode: (profile as { demo_mode?: boolean | null } | null)?.demo_mode,
+      });
 
       const profileRole = String(profile?.role ?? "").trim().toLowerCase();
 
@@ -59,6 +69,7 @@ export default async function ReaderBrowseLayout({
         <NavbarShell variant="APP_READER" />
       </div>
       <OfflineModeIndicator />
+      <DemoCookieAutoAccept enabled={demoModeActive} />
       <ReaderAppShell authorAccess={authorAccess}>{children}</ReaderAppShell>
     </>
   );
