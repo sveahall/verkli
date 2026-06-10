@@ -170,7 +170,21 @@ export default function ReaderAppShell({
       </div>
 
       {/* ── Main content ── */}
-      <main className="relative mx-auto min-h-screen w-full max-w-[1400px] px-4 pb-24 pt-4 sm:px-5 sm:pt-6 lg:px-6 lg:pb-8 lg:pt-8">{children}</main>
+      <main className="relative isolate mx-auto min-h-screen w-full max-w-[1400px] px-4 pb-24 pt-4 sm:px-5 sm:pt-6 lg:px-6 lg:pb-8 lg:pt-8">
+        {/* Ambient brand wash — reader surfaces get the violet→rose→amber
+            atmosphere (DESIGN.md allows decorative treatment in reader hero).
+            Static (no drift) and pointer-events-none: zero interaction or
+            reduced-motion risk, purely sets the mood behind the content. */}
+        <div
+          aria-hidden
+          className="pointer-events-none absolute inset-x-0 top-0 -z-10 h-[480px] overflow-hidden"
+        >
+          <div className="absolute -top-24 left-1/2 h-[420px] w-[min(900px,90%)] -translate-x-1/2 rounded-full bg-[radial-gradient(ellipse_at_center,rgba(144,122,255,0.10),rgba(226,158,213,0.06)_45%,transparent_70%)] blur-2xl dark:bg-[radial-gradient(ellipse_at_center,rgba(144,122,255,0.16),rgba(226,158,213,0.08)_45%,transparent_70%)]" />
+          <div className="absolute right-[8%] top-10 h-40 w-40 rounded-full bg-[#FCC997]/[0.14] blur-[70px] dark:bg-[#FCC997]/[0.10]" />
+          <div className="absolute left-[6%] top-32 h-32 w-32 rounded-full bg-[#907AFF]/[0.10] blur-[60px] dark:bg-[#907AFF]/[0.14]" />
+        </div>
+        {children}
+      </main>
 
       {/* ── Mobile bottom nav ── */}
       <nav
