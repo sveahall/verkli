@@ -172,12 +172,6 @@ export async function POST(
     return proGate.response;
   }
 
-  // Mark book as generating
-  await admin
-    .from("books")
-    .update({ trailer_status: "generating" })
-    .eq("id", bookId);
-
   let trailerResult: Awaited<ReturnType<typeof generateTrailerPrompt>>;
   try {
     trailerResult = await generateTrailerPrompt(parsed.data);
@@ -196,6 +190,42 @@ export async function POST(
       detail: "No trailer scenes returned.",
     });
   }
+
+  // Claim the paid one-off — atomic, single-use — BEFORE mutating any book or
+  // media state, so a duplicate replay (e.g. double-submit after a successful
+  // trailer) returns 409 without overwriting an already-ready trailer. PRO
+  // authors skip this. Released below if the build fails.
+  let redeemedViaSession = false;
+  if (!proGate.ok && paidSessionEligible && stripeSessionId) {
+    try {
+      redeemedViaSession = await claimStripeSessionRedemption(admin, {
+        sessionId: stripeSessionId,
+        kind: "trailer",
+        userId: user.id,
+        bookId,
+      });
+    } catch (error) {
+      console.error("[trailer build] redemption claim failed", {
+        stripeSessionId,
+        userId: user.id,
+        bookId,
+        message: error instanceof Error ? error.message : String(error),
+      });
+    }
+    if (!redeemedViaSession) {
+      // Already redeemed (or claim errored) — do not build for free, and do
+      // NOT touch book/media state (nothing mutated yet this request).
+      return apiError(E_TRAILER_GENERATION_FAILED, 409, {
+        detail: "This trailer purchase has already been used.",
+      });
+    }
+  }
+
+  // Mark book as generating (payment is now secured).
+  await admin
+    .from("books")
+    .update({ trailer_status: "generating" })
+    .eq("id", bookId);
 
   const { data: inserted, error: insertError } = await admin
     .from("media_assets")
@@ -216,37 +246,11 @@ export async function POST(
 
   if (insertError || !inserted?.id) {
     console.error("[trailer build] insert media_asset failed:", insertError?.message);
+    // Release the just-claimed one-off so the author can retry.
+    if (redeemedViaSession && stripeSessionId) {
+      await releaseStripeSessionRedemption(admin, { sessionId: stripeSessionId, kind: "trailer" });
+    }
     return apiError(E_DATABASE_ERROR, 500);
-  }
-
-  // Claim the paid one-off now — atomic + single-use, right before the
-  // expensive video build. Released below if the build fails so the author can
-  // retry. (PRO authors skip this entirely.)
-  let redeemedViaSession = false;
-  if (!proGate.ok && paidSessionEligible && stripeSessionId) {
-    try {
-      redeemedViaSession = await claimStripeSessionRedemption(admin, {
-        sessionId: stripeSessionId,
-        kind: "trailer",
-        userId: user.id,
-        bookId,
-      });
-    } catch (error) {
-      console.error("[trailer build] redemption claim failed", {
-        stripeSessionId,
-        userId: user.id,
-        bookId,
-        message: error instanceof Error ? error.message : String(error),
-      });
-    }
-    if (!redeemedViaSession) {
-      // Session already redeemed (or claim errored) — do not build for free.
-      await markMediaAssetFailed(admin, inserted.id, user.id, "trailer one-off already redeemed");
-      await admin.from("books").update({ trailer_status: "failed" }).eq("id", bookId);
-      return apiError(E_TRAILER_GENERATION_FAILED, 409, {
-        detail: "This trailer purchase has already been used.",
-      });
-    }
   }
 
   try {

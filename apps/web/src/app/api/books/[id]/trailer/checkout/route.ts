@@ -64,8 +64,10 @@ export async function POST(
   }
 
   const baseUrl = getRequestBaseUrl(request)
-  const successUrl = `${baseUrl}/author/books/${bookId}/editor?panel=marketing&trailer_checkout=success&session_id={CHECKOUT_SESSION_ID}`
-  const cancelUrl = `${baseUrl}/author/books/${bookId}/editor?panel=marketing&trailer_checkout=cancel`
+  // Land back on the dedicated trailer panel, which reads ?trailer_checkout +
+  // session_id and forwards the paid session into /trailer/build.
+  const successUrl = `${baseUrl}/author/books/${bookId}/editor?panel=trailer&trailer_checkout=success&session_id={CHECKOUT_SESSION_ID}`
+  const cancelUrl = `${baseUrl}/author/books/${bookId}/editor?panel=trailer&trailer_checkout=cancel`
 
   try {
     const session = await createTrailerCheckoutSession({
