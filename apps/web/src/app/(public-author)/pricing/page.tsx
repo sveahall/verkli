@@ -13,31 +13,36 @@ const FEATURE_GROUPS = [
   {
     label: "Writing & publishing",
     rows: [
-      { label: "Books", free: "Up to 3", pro: "Unlimited" },
-      { label: "Rich text editor", free: true, pro: true },
-      { label: "Formatting & publishing tools", free: true, pro: true },
+      { label: "Books", free: "Up to 3", pro: "Unlimited", proPlus: "Unlimited" },
+      { label: "Rich text editor", free: true, pro: true, proPlus: true },
+      { label: "Formatting & publishing tools", free: true, pro: true, proPlus: true },
     ],
   },
   {
     label: "AI features",
     rows: [
-      { label: "AI translation (20+ languages)", free: false, pro: true },
-      { label: "Audiobook generation", free: false, pro: true },
-      { label: "AI marketing campaigns", free: false, pro: true },
-      { label: "Book trailer (AI video)", free: false, pro: true },
-      { label: "Multiple book versions", free: false, pro: true },
+      { label: "AI translation (20+ languages)", free: false, pro: true, proPlus: true },
+      { label: "Audiobook generation", free: false, pro: "25 h/mo", proPlus: "100 h/mo" },
+      { label: "Voice cloning", free: false, pro: "Instant", proPlus: "Professional" },
+      { label: "AI marketing campaigns", free: false, pro: true, proPlus: true },
+      { label: "Book trailer (AI video)", free: false, pro: true, proPlus: true },
+      { label: "Multiple book versions", free: false, pro: true, proPlus: true },
     ],
   },
   {
     label: "Analytics & support",
     rows: [
-      { label: "Basic analytics", free: true, pro: true },
-      { label: "Advanced analytics & country map", free: false, pro: true },
-      { label: "Community support", free: true, pro: true },
-      { label: "Priority support", free: false, pro: true },
+      { label: "Basic analytics", free: true, pro: true, proPlus: true },
+      { label: "Advanced analytics & country map", free: false, pro: true, proPlus: true },
+      { label: "Community support", free: true, pro: true, proPlus: true },
+      { label: "Priority support", free: false, pro: true, proPlus: "Dedicated" },
     ],
   },
 ];
+
+// First-100-authors founders discount (roadmap §Phase 2.1). Display-only here;
+// the coupon is applied at checkout.
+const FOUNDERS_DISCOUNT_PCT = 25;
 
 const FAQS = [
   {
@@ -131,6 +136,9 @@ export default function PricingPage() {
   const proMonthly = 29;
   const proAnnualPerMonth = 19;
   const displayPrice = annual ? proAnnualPerMonth : proMonthly;
+  const proPlusMonthly = 99;
+  const proPlusAnnualPerMonth = 82; // ≈ $990/yr
+  const displayProPlus = annual ? proPlusAnnualPerMonth : proPlusMonthly;
 
   return (
     <main className="author-light relative min-h-screen bg-background text-foreground -mt-[88px]">
@@ -174,8 +182,8 @@ export default function PricingPage() {
       </section>
 
       {/* ── Plan cards ── */}
-      <section className="mx-auto mt-12 w-full max-w-[900px] px-6">
-        <div className="grid gap-4 md:grid-cols-2">
+      <section className="mx-auto mt-12 w-full max-w-[1140px] px-6">
+        <div className="grid gap-4 md:grid-cols-3">
 
           {/* Free */}
           <Reveal>
@@ -264,7 +272,68 @@ export default function PricingPage() {
               </div>
             </div>
           </Reveal>
+
+          {/* Pro+ */}
+          <Reveal delay={160}>
+            <div className="flex h-full flex-col rounded-[28px] border border-[#907AFF]/20 bg-white/70 p-8 backdrop-blur-sm dark:border-[#907AFF]/20 dark:bg-white/[0.025]">
+              <div className="flex items-start justify-between">
+                <div>
+                  <p className="text-[11px] font-semibold uppercase tracking-[0.14em]">
+                    <BrandGradientText>Pro+</BrandGradientText>
+                  </p>
+                  <div className="mt-4 flex items-end gap-1.5">
+                    <span className="text-[52px] font-semibold leading-none tracking-[-0.05em] text-slate-900 dark:text-white">
+                      ${displayProPlus}
+                    </span>
+                    <span className="mb-2 text-[14px] text-slate-400 dark:text-white/35">/month</span>
+                  </div>
+                  {annual && (
+                    <p className="mt-1 text-[12px] text-slate-400 dark:text-white/35">Billed ${proPlusAnnualPerMonth * 12}/year</p>
+                  )}
+                  <p className="mt-3 text-[14px] leading-[1.6] text-slate-500 dark:text-white/45">For power authors — pro voice cloning &amp; the highest limits.</p>
+                </div>
+              </div>
+
+              <div className="my-7 h-px bg-black/[0.05] dark:bg-white/[0.06]" />
+
+              <ul className="flex-1 space-y-3.5">
+                {[
+                  "Everything in Pro",
+                  "Professional voice cloning",
+                  "100 h/mo audiobook generation",
+                  "Highest generation limits",
+                  "Dedicated support",
+                  "Early access to new AI tools",
+                ].map((f) => (
+                  <li key={f} className="flex items-center gap-3 text-[14px] text-slate-600 dark:text-white/65">
+                    <span className="flex h-4 w-4 flex-shrink-0 items-center justify-center rounded-full bg-[#907AFF]/15">
+                      <Check className="h-2.5 w-2.5 text-[#907AFF]" strokeWidth={3} />
+                    </span>
+                    {f}
+                  </li>
+                ))}
+              </ul>
+
+              <Link
+                href="/author/signup"
+                className="mt-8 block rounded-full border border-[#907AFF]/30 bg-[#907AFF]/[0.06] px-6 py-3 text-center text-[14px] font-semibold text-[#7058DD] transition-all duration-200 hover:bg-[#907AFF]/[0.12] dark:text-[#c4a8ff]"
+              >
+                Get Pro+
+              </Link>
+            </div>
+          </Reveal>
         </div>
+
+        {/* Founders discount */}
+        <Reveal delay={100}>
+          <div className="mt-5 flex items-center justify-center gap-2 rounded-full border border-[#907AFF]/20 bg-[#907AFF]/[0.05] px-4 py-2.5 text-center text-[13px] text-slate-600 dark:text-white/60">
+            <span className="h-1.5 w-1.5 rounded-full bg-[#907AFF]" />
+            <span>
+              <span className="font-semibold text-[#7058DD] dark:text-[#c4a8ff]">Founders offer:</span>{" "}
+              first 100 authors get {FOUNDERS_DISCOUNT_PCT}% off Pro &amp; Pro+ for life.
+            </span>
+          </div>
+        </Reveal>
 
         {/* Guarantee line */}
         <Reveal delay={120}>
@@ -275,7 +344,7 @@ export default function PricingPage() {
       </section>
 
       {/* ── Feature comparison table ── */}
-      <section className="mx-auto mt-24 w-full max-w-[900px] px-6">
+      <section className="mx-auto mt-24 w-full max-w-[1080px] px-6">
         <Reveal>
           <div className="mb-2 text-center">
             <p className="text-[11px] font-medium uppercase tracking-[0.15em] text-[#907AFF]">Full comparison</p>
@@ -288,7 +357,7 @@ export default function PricingPage() {
         <Reveal delay={60}>
           <div className="mt-10 overflow-hidden rounded-[24px] border border-black/[0.05] bg-white/70 shadow-[0_4px_32px_rgba(15,23,42,0.05)] backdrop-blur-sm dark:border-white/[0.07] dark:bg-white/[0.025]">
             {/* Sticky header */}
-            <div className="grid grid-cols-3 border-b border-black/[0.05] dark:border-white/[0.07]">
+            <div className="grid grid-cols-4 border-b border-black/[0.05] dark:border-white/[0.07]">
               <div className="px-6 py-4">
                 <span className="text-[12px] font-medium text-slate-400 dark:text-white/30">Feature</span>
               </div>
@@ -298,6 +367,10 @@ export default function PricingPage() {
               {/* Pro column header */}
               <div className="flex items-center justify-center border-l px-6 py-4" style={{ borderColor: `${BRAND_COLORS.violet}20`, background: `${BRAND_COLORS.violet}06` }}>
                 <span className="text-[12px] font-semibold" style={{ color: BRAND_COLORS.violet }}>Pro</span>
+              </div>
+              {/* Pro+ column header */}
+              <div className="flex items-center justify-center border-l px-6 py-4" style={{ borderColor: `${BRAND_COLORS.violet}20`, background: `${BRAND_COLORS.violet}0a` }}>
+                <span className="text-[12px] font-semibold" style={{ color: BRAND_COLORS.violet }}>Pro+</span>
               </div>
             </div>
 
@@ -311,7 +384,7 @@ export default function PricingPage() {
                 {group.rows.map((row, ri) => (
                   <div
                     key={row.label}
-                    className={`grid grid-cols-3 items-center ${ri < group.rows.length - 1 || gi < FEATURE_GROUPS.length - 1 ? "border-b border-black/[0.04] dark:border-white/[0.05]" : ""}`}
+                    className={`grid grid-cols-4 items-center ${ri < group.rows.length - 1 || gi < FEATURE_GROUPS.length - 1 ? "border-b border-black/[0.04] dark:border-white/[0.05]" : ""}`}
                   >
                     <div className="px-6 py-4">
                       <span className="text-[13px] text-slate-700 dark:text-white/65">{row.label}</span>
@@ -321,6 +394,9 @@ export default function PricingPage() {
                     </div>
                     <div className="flex items-center justify-center border-l px-6 py-4" style={{ borderColor: `${BRAND_COLORS.violet}15`, background: `${BRAND_COLORS.violet}04` }}>
                       <FeatureCell value={row.pro} isPro />
+                    </div>
+                    <div className="flex items-center justify-center border-l px-6 py-4" style={{ borderColor: `${BRAND_COLORS.violet}15`, background: `${BRAND_COLORS.violet}07` }}>
+                      <FeatureCell value={row.proPlus} isPro />
                     </div>
                   </div>
                 ))}
