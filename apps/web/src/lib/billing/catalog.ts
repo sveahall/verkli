@@ -8,7 +8,7 @@ import "server-only";
 import { createAdminClient } from "@/lib/supabase/admin";
 
 export type CatalogRole = "reader" | "author";
-export type CatalogPlanKey = "plus" | "pro";
+export type CatalogPlanKey = "plus" | "pro" | "pro_plus";
 
 export type CatalogRow = {
   provider: string;
@@ -45,7 +45,7 @@ function normalizeRole(value: unknown): CatalogRole | null {
 
 function normalizePlanKey(value: unknown): CatalogPlanKey | null {
   const v = String(value ?? "").trim().toLowerCase();
-  if (v === "plus" || v === "pro") return v;
+  if (v === "plus" || v === "pro" || v === "pro_plus") return v;
   return null;
 }
 

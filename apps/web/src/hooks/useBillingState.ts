@@ -13,6 +13,7 @@ type BillingStateApiPayload = Partial<{
   cancelAtPeriodEnd: boolean;
   isPlusActive: boolean;
   isProActive: boolean;
+  isProPlusActive: boolean;
   plusCancelAtPeriodEnd: boolean;
   plusPeriodEnd: string | null;
   error: string;
@@ -32,6 +33,8 @@ function toBillingState(payload: BillingStateApiPayload): BillingState {
   const isProActive = typeof payload.isProActive === "boolean" ? payload.isProActive : isActive && plan === "pro";
   const isPlusActive =
     typeof payload.isPlusActive === "boolean" ? payload.isPlusActive : isActive && (plan === "plus" || plan === "pro");
+  const isProPlusActive =
+    typeof payload.isProPlusActive === "boolean" ? payload.isProPlusActive : isActive && plan === "pro_plus";
 
   return {
     plan,
@@ -41,6 +44,7 @@ function toBillingState(payload: BillingStateApiPayload): BillingState {
     stripeCustomerId: null,
     stripeSubscriptionId: null,
     isPlusActive,
+    isProPlusActive,
     isProActive,
     plusCancelAtPeriodEnd: Boolean(payload.plusCancelAtPeriodEnd),
     plusPeriodEnd: typeof payload.plusPeriodEnd === "string" ? payload.plusPeriodEnd : null,

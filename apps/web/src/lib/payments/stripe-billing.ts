@@ -107,14 +107,14 @@ export async function createStripeCustomer(input: {
 
 export async function createStripeSubscriptionCheckoutSession(input: {
   customerId: string;
-  plan: "plus" | "pro";
+  plan: "plus" | "pro" | "pro_plus";
   userId: string;
   priceId: string;
   successUrl: string;
   cancelUrl: string;
   /** For webhook logging; resolution from price ids is authoritative. */
   billingRole?: "reader" | "author";
-  billingPlan?: "plus" | "pro";
+  billingPlan?: "plus" | "pro" | "pro_plus";
 }): Promise<StripeCheckoutSession> {
   const params = new URLSearchParams();
   params.set("mode", "subscription");

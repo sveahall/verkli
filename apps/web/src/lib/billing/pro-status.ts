@@ -33,7 +33,10 @@ export async function getAuthorProStatusSet(
     if (error || !data) return pro;
 
     for (const row of data) {
-      if (isBillingStatusActive(row.status) && parseBillingPlan(row.plan) === "pro") {
+      const plan = parseBillingPlan(row.plan);
+      // pro_plus is a superset of pro — both count as PRO-tier authors for
+      // badge + filter purposes.
+      if (isBillingStatusActive(row.status) && (plan === "pro" || plan === "pro_plus")) {
         pro.add(row.user_id);
       }
     }
@@ -65,15 +68,18 @@ export async function getProAuthorIds(limit = 1000): Promise<string[]> {
       .from("billing_accounts")
       .select("user_id, plan, status")
       .eq("role", "author")
-      .eq("plan", "pro")
+      .in("plan", ["pro", "pro_plus"])
       .in("status", ["active", "trialing"])
       .limit(limit);
 
     if (error || !data) return [];
     // Re-validate via the shared helpers so the definition of "active pro"
-    // stays in one place even if the column filters drift.
+    // stays in one place even if the column filters drift. pro_plus counts.
     return data
-      .filter((r) => isBillingStatusActive(r.status) && parseBillingPlan(r.plan) === "pro")
+      .filter((r) => {
+        const plan = parseBillingPlan(r.plan);
+        return isBillingStatusActive(r.status) && (plan === "pro" || plan === "pro_plus");
+      })
       .map((r) => r.user_id);
   } catch {
     return [];

@@ -1,10 +1,16 @@
-export const BILLING_PLANS = ["plus", "pro"] as const;
+// "pro_plus" is the higher author tier. Its Stripe price is OPTIONAL/env-gated:
+// PRICE_PRO_PLUS is only set once the Stripe product exists, so the rest of
+// billing keeps working (and the pricing page shows PRO+ as "coming soon")
+// until then. Never make pro_plus a required price — that would break checkout
+// for plus/pro when the env var is unset.
+export const BILLING_PLANS = ["plus", "pro", "pro_plus"] as const;
 
 export type BillingPlan = (typeof BILLING_PLANS)[number];
 
 export type BillingPriceConfig = {
   plus: string;
   pro: string;
+  pro_plus?: string;
 };
 
 function normalizeText(value: unknown): string {
@@ -13,7 +19,7 @@ function normalizeText(value: unknown): string {
 
 export function parseBillingPlan(value: unknown): BillingPlan | null {
   const normalized = normalizeText(value).toLowerCase();
-  if (normalized === "plus" || normalized === "pro") {
+  if (normalized === "plus" || normalized === "pro" || normalized === "pro_plus") {
     return normalized;
   }
   return null;
@@ -22,6 +28,8 @@ export function parseBillingPlan(value: unknown): BillingPlan | null {
 export function getBillingPriceConfig(env: NodeJS.ProcessEnv = process.env): BillingPriceConfig {
   const plus = normalizeText(env.PRICE_PLUS);
   const pro = normalizeText(env.PRICE_PRO);
+  // Optional — only present once the PRO+ Stripe product is created.
+  const proPlus = normalizeText(env.PRICE_PRO_PLUS || env.STRIPE_PRO_PLUS_MONTHLY_PRICE_ID);
 
   const missing: string[] = [];
   if (!plus) missing.push("PRICE_PLUS");
@@ -31,11 +39,18 @@ export function getBillingPriceConfig(env: NodeJS.ProcessEnv = process.env): Bil
     throw new Error(`Missing required billing env vars: ${missing.join(", ")}`);
   }
 
-  return { plus, pro };
+  return { plus, pro, ...(proPlus ? { pro_plus: proPlus } : {}) };
+}
+
+/** Whether PRO+ is purchasable (its Stripe price has been configured). */
+export function isProPlusConfigured(config: BillingPriceConfig): boolean {
+  return Boolean(config.pro_plus);
 }
 
 export function getPriceIdForPlan(plan: BillingPlan, config: BillingPriceConfig): string {
-  return plan === "plus" ? config.plus : config.pro;
+  if (plan === "plus") return config.plus;
+  if (plan === "pro_plus") return config.pro_plus ?? "";
+  return config.pro;
 }
 
 export function getPlanFromPriceId(
@@ -46,17 +61,19 @@ export function getPlanFromPriceId(
   if (!normalized) return null;
   if (normalized === config.plus) return "plus";
   if (normalized === config.pro) return "pro";
+  if (config.pro_plus && normalized === config.pro_plus) return "pro_plus";
   return null;
 }
 
-/** Rank for plan ordering: higher = better. pro > plus. */
+/** Rank for plan ordering: higher = better. pro_plus > pro > plus. */
 export function rankPlan(plan: BillingPlan | null): number {
+  if (plan === "pro_plus") return 3;
   if (plan === "pro") return 2;
   if (plan === "plus") return 1;
   return 0;
 }
 
-/** Returns the higher-ranked plan (pro > plus). */
+/** Returns the higher-ranked plan (pro_plus > pro > plus). */
 export function higherPlan(
   a: BillingPlan | null,
   b: BillingPlan | null
