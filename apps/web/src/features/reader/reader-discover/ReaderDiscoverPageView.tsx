@@ -209,6 +209,7 @@ export default function ReaderDiscoverPageView({
             {activeFilters.sort !== "newest" && (
               <input type="hidden" name="sort" value={activeFilters.sort} />
             )}
+            {activeFilters.pro && <input type="hidden" name="pro" value="1" />}
 
             <div className="flex gap-3">
               <div className="relative min-w-0 flex-1">
@@ -370,6 +371,7 @@ export default function ReaderDiscoverPageView({
         {activeFilters.genreSlugs.length > 0 && (
           <input type="hidden" name="genre" value={activeFilters.genreSlugs.join(",")} />
         )}
+        {activeFilters.pro && <input type="hidden" name="pro" value="1" />}
 
         <SlidersHorizontal className="h-4 w-4 flex-shrink-0 text-[#64748B] dark:text-white/40" />
 
