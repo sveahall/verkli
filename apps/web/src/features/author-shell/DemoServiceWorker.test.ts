@@ -9,25 +9,21 @@ describe("isDemoSwHostAllowed", () => {
     expect(isDemoSwHostAllowed("::1")).toBe(true);
   });
 
-  it("allows any *.local subdomain (developer machines / mDNS)", () => {
-    expect(isDemoSwHostAllowed("verkli.local")).toBe(true);
-    expect(isDemoSwHostAllowed("dev.team.local")).toBe(true);
+  it("rejects *.local mDNS hosts (P0: loopback only, no LAN surface)", () => {
+    // Previously allowed for pitch setups; tightened for defense-in-depth.
+    expect(isDemoSwHostAllowed("verkli.local")).toBe(false);
+    expect(isDemoSwHostAllowed("dev.team.local")).toBe(false);
   });
 
   it("is case-insensitive — hostnames are normalised before matching", () => {
     expect(isDemoSwHostAllowed("LOCALHOST")).toBe(true);
-    expect(isDemoSwHostAllowed("MyMachine.LOCAL")).toBe(true);
+    expect(isDemoSwHostAllowed("127.0.0.1")).toBe(true);
   });
 
   it("rejects production-looking hosts", () => {
     expect(isDemoSwHostAllowed("verkli.com")).toBe(false);
     expect(isDemoSwHostAllowed("app.verkli.com")).toBe(false);
     expect(isDemoSwHostAllowed("verkli-web.vercel.app")).toBe(false);
-  });
-
-  it("rejects bare 'local' (must be a subdomain of .local)", () => {
-    // "local" does NOT end with ".local" — the dot is significant.
-    expect(isDemoSwHostAllowed("local")).toBe(false);
   });
 
   it("rejects deceptive hostnames embedding allowed strings", () => {
