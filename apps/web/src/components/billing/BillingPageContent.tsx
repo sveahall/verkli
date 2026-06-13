@@ -18,6 +18,7 @@ export type PlanCard = {
 function formatPlan(plan: BillingPlan | null): string {
   if (plan === "plus") return "Verkli Plus";
   if (plan === "pro") return "Verkli Pro";
+  if (plan === "pro_plus") return "Verkli PRO+";
   return "No active plan";
 }
 
@@ -338,7 +339,10 @@ export function BillingPageContent({
         {planCards.map((plan) => {
           const isActive =
             plan.id === "plus" ? state?.isPlusActive : state?.isProActive;
-          const isCurrentPlan = state?.plan === plan.id && Boolean(isActive);
+          // isActive is already plan-scoped (isProActive is true for pro AND
+          // pro_plus), so the Pro card is correctly "current" for a PRO+
+          // subscriber even though state.plan is "pro_plus".
+          const isCurrentPlan = Boolean(isActive);
           const isPlusCancelledButActive =
             plan.id === "plus" && Boolean(state?.plusCancelAtPeriodEnd);
           const disabled =
