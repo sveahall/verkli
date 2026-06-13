@@ -12,6 +12,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import ProBadge from "@/components/billing/ProBadge";
 import {
   useCallback,
   useEffect,
@@ -35,6 +36,7 @@ type AuthorHit = {
   displayName: string | null;
   username: string | null;
   avatarUrl: string | null;
+  isPro?: boolean;
 };
 type Hit = BookHit | AuthorHit;
 
@@ -169,6 +171,7 @@ export default function GlobalSearchBar({ placeholder = "Search books, authorsâ€
                   <span className="line-clamp-1 flex-1">
                     {h.displayName ?? h.username ?? "Unnamed"}
                   </span>
+                  {h.isPro ? <ProBadge size="sm" shimmer={false} className="flex-shrink-0" /> : null}
                   {h.username ? (
                     <span className="text-xs text-muted-foreground">@{h.username}</span>
                   ) : null}

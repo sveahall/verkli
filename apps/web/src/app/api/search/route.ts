@@ -7,6 +7,7 @@ import {
   E_GENERIC_ERROR,
 } from "@/lib/api-errors";
 import { isSupportedLanguage } from "@/lib/languages";
+import { getAuthorProStatusSet } from "@/lib/billing/pro-status";
 
 // Global search (Phase 0.5).
 //
@@ -46,6 +47,7 @@ type SearchHit =
       displayName: string | null;
       username: string | null;
       avatarUrl: string | null;
+      isPro: boolean;
       score: number;
     };
 
@@ -117,18 +119,22 @@ export async function GET(request: Request) {
         .limit(limit);
       if (error) throw new Error(`profiles search failed: ${error.message}`);
 
-      for (const row of (data ?? []) as Array<{
+      const rows = (data ?? []) as Array<{
         user_id: string;
         display_name: string | null;
         username: string | null;
         avatar_url: string | null;
-      }>) {
+      }>;
+      // Batched PRO-status for the matched authors (one round-trip, no N+1).
+      const proSet = await getAuthorProStatusSet(rows.map((r) => r.user_id));
+      for (const row of rows) {
         hits.push({
           kind: "author",
           id: row.user_id,
           displayName: row.display_name,
           username: row.username,
           avatarUrl: row.avatar_url,
+          isPro: proSet.has(row.user_id),
           score: 0,
         });
       }
