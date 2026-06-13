@@ -39,3 +39,27 @@ export async function claimStripeSessionRedemption(
     `stripe_session_redemptions insert failed (${error.code ?? "unknown"}): ${error.message}`
   );
 }
+
+/**
+ * Release a previously-claimed redemption so the paid session can be retried.
+ * Use when work fails AFTER the claim (e.g. an AI build errors): the author
+ * paid, the generation did not happen, so the single-use credit must not stay
+ * consumed. Best-effort — logs and swallows errors (a stuck row only blocks
+ * that one retry, never corrupts state).
+ */
+export async function releaseStripeSessionRedemption(
+  admin: AdminClient,
+  params: { sessionId: string; kind: SessionRedemptionKind }
+): Promise<void> {
+  const { error } = await admin
+    .from("stripe_session_redemptions")
+    .delete()
+    .eq("stripe_session_id", params.sessionId)
+    .eq("kind", params.kind);
+
+  if (error) {
+    console.error(
+      `stripe_session_redemptions release failed (${error.code ?? "unknown"}): ${error.message}`
+    );
+  }
+}

@@ -17,8 +17,6 @@ import {
   isValidUuid,
 } from "@/lib/api-errors";
 import { createPerUserRateLimiter } from "@/lib/rate-limit";
-import { getStripeCheckoutSession } from "@/lib/payments/stripe";
-import { claimStripeSessionRedemption } from "@/lib/payments/session-redemption";
 import {
   TrailerGenerateRequestSchema,
   generateTrailerPrompt,
@@ -91,51 +89,6 @@ export async function POST(
     return apiError(E_BOOK_NOT_FOUND, 404);
   }
 
-  // One-off trailer purchase: a valid PAID trailer session, atomically
-  // redeemed once, grants an extra trailer past the monthly quota (mirrors the
-  // audiobook one-off bypass). The usage counter still records the generation.
-  const rawBody = body as Record<string, unknown> | null;
-  const stripeSessionId =
-    rawBody && typeof rawBody.stripeSessionId === "string" && rawBody.stripeSessionId.trim()
-      ? rawBody.stripeSessionId.trim()
-      : null;
-  let paidViaStripe = false;
-  if (stripeSessionId) {
-    try {
-      const session = await getStripeCheckoutSession(stripeSessionId);
-      const meta = (session.metadata ?? {}) as Record<string, string>;
-      if (
-        session.payment_status === "paid" &&
-        meta.payment_kind === "trailer" &&
-        meta.user_id === user.id &&
-        meta.book_id === bookId
-      ) {
-        try {
-          paidViaStripe = await claimStripeSessionRedemption(admin, {
-            sessionId: stripeSessionId,
-            kind: "trailer",
-            userId: user.id,
-            bookId,
-          });
-        } catch (error) {
-          console.error("[trailer generate] redemption claim failed", {
-            stripeSessionId,
-            userId: user.id,
-            bookId,
-            message: error instanceof Error ? error.message : String(error),
-          });
-        }
-      }
-    } catch (error) {
-      console.warn("[trailer generate] stripe session verification failed", {
-        stripeSessionId,
-        userId: user.id,
-        bookId,
-        message: error instanceof Error ? error.message : String(error),
-      });
-    }
-  }
-
   // 6. Monthly usage guardrail (free: 1, pro: 5)
   const billing = await getBillingStateForUser(user.id, "author");
   if (!billing.ok) {
@@ -172,7 +125,7 @@ export async function POST(
   // Freemium gate: when off (default during cohort-gated soft launch) the
   // monthly limit is not enforced, but usage is still recorded so the counter
   // is current the moment the flag flips on. See CEO plan §C2 / D11.
-  if (!paidViaStripe && isFreemiumGateEnabled() && trailerCountThisMonth >= monthlyLimit) {
+  if (isFreemiumGateEnabled() && trailerCountThisMonth >= monthlyLimit) {
     console.warn("[trailer guardrail] trailer limit reached", {
       userId: user.id,
       usageMonth,

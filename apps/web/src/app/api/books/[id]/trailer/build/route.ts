@@ -4,6 +4,11 @@ import { requireProBillingForApi } from "@/lib/billing/server";
 import { isMarketingEnabled } from "@/lib/flags";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createPerUserRateLimiter } from "@/lib/rate-limit";
+import { getStripeCheckoutSession } from "@/lib/payments/stripe";
+import {
+  claimStripeSessionRedemption,
+  releaseStripeSessionRedemption,
+} from "@/lib/payments/session-redemption";
 import {
   TrailerGenerateRequestSchema,
   generateTrailerPrompt,
@@ -78,8 +83,10 @@ export async function POST(
     });
   }
 
+  // PRO authors build trailers under their plan; non-PRO authors may instead
+  // pay the one-off SKU (verified + atomically redeemed below). Enforcement is
+  // deferred until we know the book and whether a valid paid session exists.
   const proGate = await requireProBillingForApi(user.id);
-  if (!proGate.ok) return proGate.response;
 
   let body: unknown;
   try {
@@ -131,6 +138,40 @@ export async function POST(
   }
   const safeCoverImageUrl = coverUrlCheck.url.toString();
 
+  // One-off trailer purchase path: a non-PRO author may pay instead of holding
+  // PRO. Verify the session (paid, kind trailer, matching user+book) WITHOUT
+  // claiming yet — the single-use claim happens right before the expensive
+  // build and is released if the build fails.
+  const rawBody = body as Record<string, unknown> | null;
+  const stripeSessionId =
+    rawBody && typeof rawBody.stripeSessionId === "string" && rawBody.stripeSessionId.trim()
+      ? rawBody.stripeSessionId.trim()
+      : null;
+  let paidSessionEligible = false;
+  if (!proGate.ok && stripeSessionId) {
+    try {
+      const session = await getStripeCheckoutSession(stripeSessionId);
+      const meta = (session.metadata ?? {}) as Record<string, string>;
+      paidSessionEligible =
+        session.payment_status === "paid" &&
+        meta.payment_kind === "trailer" &&
+        meta.user_id === user.id &&
+        meta.book_id === bookId;
+    } catch (error) {
+      console.warn("[trailer build] stripe session verification failed", {
+        stripeSessionId,
+        userId: user.id,
+        bookId,
+        message: error instanceof Error ? error.message : String(error),
+      });
+    }
+  }
+
+  // Enforce pay-or-PRO now that the book and payment eligibility are known.
+  if (!proGate.ok && !paidSessionEligible) {
+    return proGate.response;
+  }
+
   // Mark book as generating
   await admin
     .from("books")
@@ -178,6 +219,36 @@ export async function POST(
     return apiError(E_DATABASE_ERROR, 500);
   }
 
+  // Claim the paid one-off now — atomic + single-use, right before the
+  // expensive video build. Released below if the build fails so the author can
+  // retry. (PRO authors skip this entirely.)
+  let redeemedViaSession = false;
+  if (!proGate.ok && paidSessionEligible && stripeSessionId) {
+    try {
+      redeemedViaSession = await claimStripeSessionRedemption(admin, {
+        sessionId: stripeSessionId,
+        kind: "trailer",
+        userId: user.id,
+        bookId,
+      });
+    } catch (error) {
+      console.error("[trailer build] redemption claim failed", {
+        stripeSessionId,
+        userId: user.id,
+        bookId,
+        message: error instanceof Error ? error.message : String(error),
+      });
+    }
+    if (!redeemedViaSession) {
+      // Session already redeemed (or claim errored) — do not build for free.
+      await markMediaAssetFailed(admin, inserted.id, user.id, "trailer one-off already redeemed");
+      await admin.from("books").update({ trailer_status: "failed" }).eq("id", bookId);
+      return apiError(E_TRAILER_GENERATION_FAILED, 409, {
+        detail: "This trailer purchase has already been used.",
+      });
+    }
+  }
+
   try {
     const sceneResults = await Promise.all(
       scenes.map((scene) =>
@@ -223,6 +294,9 @@ export async function POST(
 
     if (readyUpdateError) {
       console.error("[trailer build] mark ready failed:", readyUpdateError.message);
+      if (redeemedViaSession && stripeSessionId) {
+        await releaseStripeSessionRedemption(admin, { sessionId: stripeSessionId, kind: "trailer" });
+      }
       return apiError(E_DATABASE_ERROR, 500);
     }
 
@@ -247,6 +321,11 @@ export async function POST(
       .from("books")
       .update({ trailer_status: "failed" })
       .eq("id", bookId);
+
+    // Build failed — release the paid one-off so the author can retry.
+    if (redeemedViaSession && stripeSessionId) {
+      await releaseStripeSessionRedemption(admin, { sessionId: stripeSessionId, kind: "trailer" });
+    }
 
     console.error("[trailer build] failed:", message);
     return apiError(E_TEXT_TO_VIDEO_FAILED, 502, { detail: message });
