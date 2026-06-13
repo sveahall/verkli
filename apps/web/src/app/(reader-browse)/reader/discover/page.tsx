@@ -10,6 +10,7 @@ import {
   type SupportedLanguage,
 } from "@/lib/languages";
 import ReaderDiscoverPageView from "@/features/reader/reader-discover/ReaderDiscoverPageView";
+import { getAuthorProStatusSet } from "@/lib/billing/pro-status";
 
 /* ── Search param types ── */
 
@@ -161,7 +162,7 @@ async function enrichBooksWithAuthor(
   const bookIds = books.map((b) => b.id);
   const authorIds = [...new Set(books.map((b) => b.author_id))];
 
-  const [profilesRes, genreJunctionRes] = await Promise.all([
+  const [profilesRes, genreJunctionRes, proSet] = await Promise.all([
     supabase
       .from("profiles")
       .select("user_id, display_name, username")
@@ -171,6 +172,7 @@ async function enrichBooksWithAuthor(
       .select("book_id, genres(name_en, icon)")
       .in("book_id", bookIds)
       .limit(bookIds.length * 3), // at most 3 genres per book
+    getAuthorProStatusSet(authorIds),
   ]);
 
   const authorMap = new Map(
@@ -196,6 +198,7 @@ async function enrichBooksWithAuthor(
     id: book.id,
     title: book.title,
     author: authorMap.get(book.author_id) ?? "Unknown author",
+    authorIsPro: proSet.has(book.author_id),
     genre: genreMap.get(book.id) ?? null,
     cover: book.cover_image,
     href: `/reader/books/${book.id}`,
@@ -231,6 +234,7 @@ async function fetchAuthors(
     .limit(6);
 
   const avatarBucket = supabase.storage.from("avatars");
+  const proSet = await getAuthorProStatusSet((profiles ?? []).map((p) => p.user_id));
 
   return (profiles ?? []).map((p) => {
     let avatar: string | null = null;
@@ -252,6 +256,7 @@ async function fetchAuthors(
       avatar,
       genre: p.bio ? "Public author" : "Storyteller",
       href: `/reader/authors/${p.user_id}`,
+      isPro: proSet.has(p.user_id),
     };
   });
 }

@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { BookOpen, ChevronDown, Search, SlidersHorizontal } from "lucide-react";
 import BookCard from "@/components/reader/BookCard";
+import ProBadge from "@/components/billing/ProBadge";
 
 /* ── Types ── */
 
@@ -8,6 +9,7 @@ type DiscoverBook = {
   id: string;
   title: string;
   author: string;
+  authorIsPro?: boolean;
   genre?: string | null;
   cover: string | null;
   href: string;
@@ -21,6 +23,7 @@ type DiscoverAuthor = {
   avatar: string | null;
   genre?: string;
   href: string;
+  isPro?: boolean;
 };
 
 type GenreOption = {
@@ -322,6 +325,11 @@ export default function ReaderDiscoverPageView({
                     <p className="truncate text-xs font-medium text-[#0F172A] dark:text-white">
                       {author.name}
                     </p>
+                    {author.isPro && (
+                      <div className="mt-1 flex justify-center">
+                        <ProBadge size="sm" shimmer={false} />
+                      </div>
+                    )}
                     {author.genre && (
                       <p className="truncate text-[10px] text-[#64748B] dark:text-white/40">
                         {author.genre}
@@ -410,6 +418,7 @@ export default function ReaderDiscoverPageView({
                   id={book.id}
                   title={book.title}
                   author={book.author}
+                  authorIsPro={book.authorIsPro}
                   genre={book.genre ?? undefined}
                   cover={book.cover}
                   href={book.href}

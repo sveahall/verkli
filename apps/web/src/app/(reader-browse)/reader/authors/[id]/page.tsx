@@ -9,6 +9,8 @@ import {
   resolvePublicAuthorName,
 } from "@/lib/authors/public-author";
 import BookCard from "@/components/reader/BookCard";
+import ProBadge from "@/components/billing/ProBadge";
+import { getAuthorProStatusSet } from "@/lib/billing/pro-status";
 import FollowAuthorButton from "./FollowAuthorButton";
 import SubscribeAuthorButton from "./SubscribeAuthorButton";
 import type { Metadata } from "next";
@@ -96,6 +98,7 @@ export default async function ReaderAuthorProfilePage({
     followerCountRes,
     subscriptionPlanRes,
     authorInfoMap,
+    proSet,
   ] = await Promise.all([
     supabase.auth.getUser(),
     supabase
@@ -119,10 +122,12 @@ export default async function ReaderAuthorProfilePage({
       .eq("author_id", userId)
       .maybeSingle(),
     getPublicAuthorInfoMap([userId]),
+    getAuthorProStatusSet([userId]),
   ]);
 
   const profile = profileRes.data;
   const publicAuthorInfo = authorInfoMap.get(userId);
+  const isPro = proSet.has(userId);
   const books = booksRes.data ?? [];
   const followerCount = followerCountRes.count ?? 0;
   const subscriptionPlan = subscriptionPlanRes.data as {
@@ -308,9 +313,12 @@ export default async function ReaderAuthorProfilePage({
               <p className="text-[11px] font-semibold uppercase tracking-widest text-white/50">
                 Author
               </p>
-              <h1 className="mt-0.5 text-3xl font-bold tracking-tight text-white sm:text-4xl">
-                {displayName}
-              </h1>
+              <div className="mt-0.5 flex flex-wrap items-center gap-x-3 gap-y-1.5">
+                <h1 className="text-3xl font-bold tracking-tight text-white sm:text-4xl">
+                  {displayName}
+                </h1>
+                {isPro && <ProBadge size="md" />}
+              </div>
               {username && (
                 <p className="mt-0.5 text-[13px] text-white/55">@{username}</p>
               )}

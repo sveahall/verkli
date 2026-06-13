@@ -1,6 +1,7 @@
 import Link from "next/link";
 import Image from "next/image";
 import { Play } from "lucide-react";
+import ProBadge from "@/components/billing/ProBadge";
 
 const sizeStyles = {
   sm: "w-32 sm:w-36",
@@ -12,6 +13,7 @@ type BookCardProps = {
   id?: string;
   title?: string;
   author?: string;
+  authorIsPro?: boolean;
   genre?: string;
   cover?: string | null;
   href?: string;
@@ -31,6 +33,7 @@ export default function BookCard({
   id,
   title,
   author,
+  authorIsPro,
   genre,
   cover,
   href,
@@ -136,14 +139,15 @@ export default function BookCard({
           <h3 className="truncate text-[14px] font-semibold text-slate-900 transition-colors group-hover:text-[#907AFF] dark:text-white dark:group-hover:text-[#B8A8FF]">
             {title ?? "Untitled"}
           </h3>
-          <p className="truncate text-[12px] text-slate-500 dark:text-white/60">
-            {author ?? "Unknown author"}
+          <div className="flex items-center gap-1.5 text-[12px] text-slate-500 dark:text-white/60">
+            <span className="truncate">{author ?? "Unknown author"}</span>
+            {authorIsPro && <ProBadge size="sm" shimmer={false} className="flex-shrink-0" />}
             {genre && (
-              <span className="before:mx-1 before:content-['·'] before:text-slate-300 before:dark:text-white/20">
+              <span className="flex-shrink-0 before:mx-1 before:text-slate-300 before:content-['·'] before:dark:text-white/20">
                 {genre}
               </span>
             )}
-          </p>
+          </div>
           {(rating || length) && (
             <div className="flex items-center gap-2 text-[11px] text-slate-500 dark:text-white/55">
               {rating && <span>★ {rating.toFixed(1)}</span>}
