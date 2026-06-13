@@ -30,7 +30,10 @@ function toBillingState(payload: BillingStateApiPayload): BillingState {
   const plan = parseBillingPlan(payload.plan) ?? null;
   const status = normalizeBillingStatus(payload.status) ?? null;
   const isActive = status === "active" || status === "trialing";
-  const isProActive = typeof payload.isProActive === "boolean" ? payload.isProActive : isActive && plan === "pro";
+  const isProActive =
+    typeof payload.isProActive === "boolean"
+      ? payload.isProActive
+      : isActive && (plan === "pro" || plan === "pro_plus");
   const isPlusActive =
     typeof payload.isPlusActive === "boolean" ? payload.isPlusActive : isActive && (plan === "plus" || plan === "pro");
   const isProPlusActive =

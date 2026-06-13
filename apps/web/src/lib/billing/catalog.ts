@@ -131,7 +131,13 @@ export async function resolveRolePlanFromPriceIds(
 
   const role = roles[0];
   const planKeys = byRole.get(role) ?? [];
-  const planKey = planKeys.includes("pro") ? "pro" : planKeys.includes("plus") ? "plus" : null;
+  const planKey = planKeys.includes("pro_plus")
+    ? "pro_plus"
+    : planKeys.includes("pro")
+      ? "pro"
+      : planKeys.includes("plus")
+        ? "plus"
+        : null;
   if (!planKey) return null;
 
   return { role, planKey };
@@ -169,7 +175,13 @@ export function resolveRolePlanFromPriceIdsWithCatalog(
 
   const role = roles[0];
   const planKeys = byRole.get(role) ?? [];
-  const planKey = planKeys.includes("pro") ? "pro" : planKeys.includes("plus") ? "plus" : null;
+  const planKey = planKeys.includes("pro_plus")
+    ? "pro_plus"
+    : planKeys.includes("pro")
+      ? "pro"
+      : planKeys.includes("plus")
+        ? "plus"
+        : null;
   if (!planKey) return null;
 
   return { role, planKey };

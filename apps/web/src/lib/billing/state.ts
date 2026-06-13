@@ -62,7 +62,10 @@ export function deriveBillingState(row: BillingAccountRow | null): BillingState 
     stripeCustomerId: row?.stripe_customer_id ?? null,
     stripeSubscriptionId: row?.stripe_subscription_id ?? null,
     isPlusActive: resolvedPlanKey === "plus",
-    isProActive: resolvedPlanKey === "pro",
+    // pro_plus is a superset of pro — it satisfies every Pro-only gate
+    // (requireProBillingForApi, editor checks). isProPlusActive is the
+    // distinct flag for PRO+-exclusive features.
+    isProActive: resolvedPlanKey === "pro" || resolvedPlanKey === "pro_plus",
     isProPlusActive: resolvedPlanKey === "pro_plus",
     plusCancelAtPeriodEnd: false,
     plusPeriodEnd: null,
