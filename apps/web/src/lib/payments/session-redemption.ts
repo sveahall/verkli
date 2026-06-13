@@ -1,6 +1,6 @@
 import type { createAdminClient } from "@/lib/supabase/admin";
 
-export type SessionRedemptionKind = "translation" | "audiobook";
+export type SessionRedemptionKind = "translation" | "audiobook" | "trailer";
 
 type AdminClient = ReturnType<typeof createAdminClient>;
 

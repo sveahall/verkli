@@ -312,6 +312,20 @@ async function processPaymentKindCheckoutSession(
     return { handled: true, processed: isPaidCheckoutSession(session) };
   }
 
+  if (paymentKind === "trailer") {
+    // Like audiobook: the paid session is redeemed at generation time
+    // (claimStripeSessionRedemption), so the webhook only acknowledges payment.
+    if (isPaidCheckoutSession(session)) {
+      const trailerMetadata = extractMetadata(session.metadata);
+      console.info("[stripe.webhook] trailer payment completed", {
+        sessionId: trimToNull(session.id),
+        userId: trailerMetadata.user_id,
+        bookId: trailerMetadata.book_id,
+      });
+    }
+    return { handled: true, processed: isPaidCheckoutSession(session) };
+  }
+
   if (paymentKind === "pod") {
     return {
       handled: true,

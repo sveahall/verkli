@@ -16,6 +16,7 @@ export type PaymentKind =
   | "credit_topup"
   | "translation"
   | "audiobook"
+  | "trailer"
   | "pod"
   | "author_subscription";
 
@@ -70,6 +71,7 @@ export function parsePaymentKind(value: unknown): PaymentKind | null {
   }
   if (normalized === "translation") return "translation";
   if (normalized === "audiobook") return "audiobook";
+  if (normalized === "trailer") return "trailer";
   if (normalized === "pod") return "pod";
   if (normalized === "author_subscription" || normalized === "author-subscription") {
     return "author_subscription";

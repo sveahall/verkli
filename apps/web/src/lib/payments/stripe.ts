@@ -262,6 +262,56 @@ export async function createAudiobookCheckoutSession(
   return payload;
 }
 
+export type CreateTrailerCheckoutInput = {
+  amountMinor: number;
+  currency: string;
+  userId: string;
+  bookId: string;
+  customerEmail?: string | null;
+  successUrl: string;
+  cancelUrl: string;
+};
+
+export async function createTrailerCheckoutSession(
+  input: CreateTrailerCheckoutInput
+): Promise<StripeCheckoutSession> {
+  const amount = sanitizeAmount(input.amountMinor);
+  if (amount <= 0) {
+    throw new Error("Amount must be greater than zero");
+  }
+
+  const params = new URLSearchParams();
+  params.set("mode", "payment");
+  params.set("success_url", input.successUrl);
+  params.set("cancel_url", input.cancelUrl);
+  params.set("payment_method_types[0]", "card");
+  params.set("line_items[0][quantity]", "1");
+  params.set("line_items[0][price_data][currency]", toStripeCurrency(input.currency));
+  params.set("line_items[0][price_data][unit_amount]", String(amount));
+  params.set("line_items[0][price_data][product_data][name]", "Book trailer");
+  params.set("client_reference_id", input.userId);
+  params.set("metadata[user_id]", input.userId);
+  params.set("metadata[book_id]", input.bookId);
+  params.set("metadata[amount_minor]", String(amount));
+  params.set("metadata[payment_kind]", "trailer");
+  params.set("metadata[payment_type]", "trailer");
+
+  if (input.customerEmail) {
+    params.set("customer_email", input.customerEmail);
+  }
+
+  const payload = await stripeRequest("/checkout/sessions", {
+    method: "POST",
+    body: params.toString(),
+  });
+
+  assertSessionShape(payload);
+  if (!payload.url) {
+    throw new Error("Stripe session URL is missing");
+  }
+  return payload;
+}
+
 export type CreateTranslationCheckoutInput = {
   amountMinor: number;
   currency: string;
