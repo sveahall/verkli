@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { BookOpen, ChevronDown, Search, SlidersHorizontal } from "lucide-react";
+import { BookOpen, ChevronDown, Search, SlidersHorizontal, Sparkles } from "lucide-react";
 import BookCard from "@/components/reader/BookCard";
 import ProBadge from "@/components/billing/ProBadge";
 
@@ -46,6 +46,7 @@ type ActiveFilters = {
   genreSlugs: string[];
   format: string;
   sort: string;
+  pro?: boolean;
 };
 
 type Props = {
@@ -70,6 +71,7 @@ function buildFilterHref(
   if (f.genreSlugs.length > 0) params.set("genre", f.genreSlugs.join(","));
   if (f.format && f.format !== "all") params.set("format", f.format);
   if (f.sort && f.sort !== "newest") params.set("sort", f.sort);
+  if (f.pro) params.set("pro", "1");
   if (f.query) params.set("q", f.query);
   const str = params.toString();
   return `/reader/discover${str ? `?${str}` : ""}`;
@@ -235,6 +237,19 @@ export default function ReaderDiscoverPageView({
           <div className="relative border-t border-slate-200/60 dark:border-white/[0.06]">
             <div className="px-6 pb-5 pt-3 sm:px-8">
               <div className="scrollbar-none flex gap-2 overflow-x-auto pb-0.5">
+                <Link
+                  href={buildFilterHref(activeFilters, { pro: !activeFilters.pro })}
+                  aria-pressed={activeFilters.pro ? "true" : "false"}
+                  className={`inline-flex flex-shrink-0 items-center gap-1.5 rounded-full border px-3.5 py-1.5 text-sm font-medium transition-all duration-200 ease-[cubic-bezier(0.23,1,0.32,1)] active:scale-[0.97] ${
+                    activeFilters.pro
+                      ? "border-[#907AFF] bg-[#907AFF] text-white"
+                      : "border-slate-200/80 bg-white/80 text-[#64748B] hover:border-[#907AFF]/20 hover:text-[#907AFF] dark:border-white/10 dark:bg-white/[0.03] dark:text-white/50 dark:hover:text-[#B8AAFF]"
+                  }`}
+                >
+                  <Sparkles className="h-3.5 w-3.5" aria-hidden />
+                  PRO authors
+                </Link>
+
                 <Link
                   href={buildFilterHref(activeFilters, { genreSlugs: [] })}
                   className={`flex-shrink-0 rounded-full border px-3.5 py-1.5 text-sm font-medium transition-all duration-200 ease-[cubic-bezier(0.23,1,0.32,1)] active:scale-[0.97] ${

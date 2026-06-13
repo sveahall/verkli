@@ -10,7 +10,7 @@ import {
   type SupportedLanguage,
 } from "@/lib/languages";
 import ReaderDiscoverPageView from "@/features/reader/reader-discover/ReaderDiscoverPageView";
-import { getAuthorProStatusSet } from "@/lib/billing/pro-status";
+import { getAuthorProStatusSet, getProAuthorIds } from "@/lib/billing/pro-status";
 
 /* ── Search param types ── */
 
@@ -20,6 +20,7 @@ type SearchParams = {
   genre?: string; // comma-separated slugs, e.g. "fiction,romance"
   format?: string;
   sort?: string;
+  pro?: string; // "1" → restrict to books by PRO authors
 };
 
 export const revalidate = 300;
@@ -64,10 +65,20 @@ async function fetchFilteredBooks(
     genreSlugs: string[];
     format: Format;
     sort: Sort;
+    proOnly: boolean;
     limit: number;
   }
 ) {
-  const { language, query, genreSlugs, format, sort, limit } = opts;
+  const { language, query, genreSlugs, format, sort, proOnly, limit } = opts;
+
+  // "PRO authors only" filter: restrict to books whose author holds an active
+  // PRO subscription. Empty set → no results (return early so we don't run an
+  // unfiltered query).
+  let proAuthorIds: string[] | null = null;
+  if (proOnly) {
+    proAuthorIds = await getProAuthorIds();
+    if (proAuthorIds.length === 0) return [];
+  }
 
   // If filtering by genres, get all matching book IDs (union across selected genres)
   let genreBookIds: string[] | null = null;
@@ -119,6 +130,11 @@ async function fetchFilteredBooks(
   // Genre filter (restrict to matched book IDs)
   if (genreBookIds) {
     base = base.in("id", genreBookIds);
+  }
+
+  // PRO-authors-only filter (restrict to books by PRO authors)
+  if (proAuthorIds) {
+    base = base.in("author_id", proAuthorIds);
   }
 
   // Format filter
@@ -285,6 +301,7 @@ export default async function ReaderDiscoverPage({
     .filter(Boolean);
   const format = parseFormat(params?.format);
   const sort = parseSort(params?.sort);
+  const proOnly = params?.pro === "1" || params?.pro === "true";
 
   const supabase = await createClient();
 
@@ -295,6 +312,7 @@ export default async function ReaderDiscoverPage({
       genreSlugs,
       format,
       sort,
+      proOnly,
       limit: 24,
     }),
     fetchGenres(supabase),
@@ -311,6 +329,7 @@ export default async function ReaderDiscoverPage({
     if (genreSlugs.length > 0) p.set("genre", genreSlugs.join(","));
     if (format !== "all") p.set("format", format);
     if (sort !== "newest") p.set("sort", sort);
+    if (proOnly) p.set("pro", "1");
     const qs = p.toString();
     return {
       value: opt.value,
@@ -334,6 +353,7 @@ export default async function ReaderDiscoverPage({
           genreSlugs,
           format,
           sort,
+          pro: proOnly,
         }}
         resultCount={books.length}
       />

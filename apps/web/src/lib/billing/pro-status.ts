@@ -49,3 +49,33 @@ export async function isAuthorPro(userId: string): Promise<boolean> {
   const set = await getAuthorProStatusSet([userId]);
   return set.has(userId);
 }
+
+/**
+ * All author user_ids with an active PRO subscription — for the reader-side
+ * "PRO authors only" discover filter. Service-role read (self-only RLS),
+ * filtered server-side to active/trialing pro rows. Degrades to [] on error.
+ *
+ * `limit` caps the set size; the discover query applies its own result limit
+ * on top, so this only needs to be large enough to not truncate the catalog.
+ */
+export async function getProAuthorIds(limit = 1000): Promise<string[]> {
+  try {
+    const admin = createAdminClient();
+    const { data, error } = await admin
+      .from("billing_accounts")
+      .select("user_id, plan, status")
+      .eq("role", "author")
+      .eq("plan", "pro")
+      .in("status", ["active", "trialing"])
+      .limit(limit);
+
+    if (error || !data) return [];
+    // Re-validate via the shared helpers so the definition of "active pro"
+    // stays in one place even if the column filters drift.
+    return data
+      .filter((r) => isBillingStatusActive(r.status) && parseBillingPlan(r.plan) === "pro")
+      .map((r) => r.user_id);
+  } catch {
+    return [];
+  }
+}
