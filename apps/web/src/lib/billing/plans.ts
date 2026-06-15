@@ -1,6 +1,6 @@
 // "pro_plus" is the higher author tier. Its Stripe price is OPTIONAL/env-gated:
 // PRICE_PRO_PLUS is only set once the Stripe product exists, so the rest of
-// billing keeps working (and the pricing page shows PRO+ as "coming soon")
+// billing keeps working (and the pricing page shows PRO+ as not-yet-available)
 // until then. Never make pro_plus a required price — that would break checkout
 // for plus/pro when the env var is unset.
 export const BILLING_PLANS = ["plus", "pro", "pro_plus"] as const;
