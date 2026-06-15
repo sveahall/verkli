@@ -113,7 +113,7 @@ function BookProductionCard({ book }: { book: BookItem }) {
                     : "border-slate-200 text-slate-500 dark:border-white/10 dark:text-white/40"
                 }`}
               >
-                <span className={`h-2 w-2 rounded-full ${isPublished ? "bg-emerald-500" : "bg-[#907AFF]"}`} />
+                <span className={`h-2 w-2 rounded-full ${isPublished ? "bg-emerald-500" : "bg-[#0F172A]"}`} />
                 {isPublished ? "Published" : "Draft"}
               </span>
             </div>
@@ -137,7 +137,7 @@ function BookProductionCard({ book }: { book: BookItem }) {
                 </span>
                 <span
                   className={`block h-2 w-2 rounded-full sm:h-[10px] sm:w-[10px] ${
-                    done[i] ? "bg-[#907AFF]" : "bg-slate-200 dark:bg-white/10"
+                    done[i] ? "bg-[#0F172A]" : "bg-slate-200 dark:bg-white/10"
                   }`}
                 />
               </div>
@@ -181,7 +181,7 @@ function EmptyState() {
           <button
             type="button"
             onClick={() => setOpen(true)}
-            className="inline-flex items-center gap-2 rounded-full bg-[#907AFF] px-5 py-2.5 text-sm font-medium text-white transition hover:bg-[#7a67f2]"
+            className="inline-flex items-center gap-2 rounded-full bg-[#0F172A] px-5 py-2.5 text-sm font-medium text-white transition hover:bg-[#1E293B]"
           >
             <Plus className="h-4 w-4" />
             {t("production.createBook")}

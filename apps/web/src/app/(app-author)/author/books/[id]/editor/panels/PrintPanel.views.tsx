@@ -90,7 +90,7 @@ export function PrintPanelPitch({ onGetStarted }: { onGetStarted: () => void }) 
         <button
           type="button"
           onClick={onGetStarted}
-          className="rounded-full bg-[#907AFF] px-8 py-3 text-sm font-semibold text-white shadow-sm transition-[background-color,transform] duration-150 ease-out hover:bg-[#7c6ae6] active:scale-[0.97]"
+          className="rounded-full bg-[#0F172A] px-8 py-3 text-sm font-semibold text-white shadow-sm transition-[background-color,transform] duration-150 ease-out hover:bg-[#1E293B] active:scale-[0.97]"
         >
           Get started
         </button>

@@ -407,7 +407,7 @@ export default function PublishPanel({
               type="button"
               onClick={onConfirm}
               disabled={isPublishing}
-              className="rounded-xl bg-[#907AFF] px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-[#7c6ae6] disabled:opacity-60"
+              className="rounded-xl bg-[#0F172A] px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-[#1E293B] disabled:opacity-60"
             >
               {isPublishing ? "Working..." : "Confirm"}
             </button>
@@ -430,7 +430,7 @@ export default function PublishPanel({
               <button
                 type="button"
                 onClick={publishDisabled ? handleDisabledPublishClick : onPublishFull}
-                className={`rounded-xl bg-gradient-to-b from-[#907AFF] to-[#7c6ae6] px-6 py-3 text-sm font-semibold text-white shadow-[0_1px_2px_rgba(144,122,255,0.3),inset_0_1px_0_rgba(255,255,255,0.15)] transition-all hover:shadow-[0_4px_12px_rgba(144,122,255,0.35)] hover:brightness-110 ${publishDisabled ? "cursor-not-allowed opacity-50" : ""}`}
+                className={`rounded-xl bg-[#0F172A] px-6 py-3 text-sm font-semibold text-white shadow-[0_1px_2px_rgba(15,23,42,0.3),inset_0_1px_0_rgba(255,255,255,0.08)] transition-all hover:bg-[#1E293B] hover:shadow-[0_4px_12px_rgba(15,23,42,0.35)] ${publishDisabled ? "cursor-not-allowed opacity-50" : ""}`}
               >
                 {isPublishing ? "Publishing..." : "Publish book"}
               </button>
@@ -453,7 +453,7 @@ export default function PublishPanel({
                 type="button"
                 onClick={onPublishChapter}
                 disabled={chapterPublishDisabled}
-                className="rounded-xl bg-gradient-to-b from-[#907AFF] to-[#7c6ae6] px-6 py-3 text-sm font-semibold text-white shadow-[0_1px_2px_rgba(144,122,255,0.3),inset_0_1px_0_rgba(255,255,255,0.15)] transition-all hover:shadow-[0_4px_12px_rgba(144,122,255,0.35)] hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-50"
+                className="rounded-xl bg-[#0F172A] px-6 py-3 text-sm font-semibold text-white shadow-[0_1px_2px_rgba(15,23,42,0.3),inset_0_1px_0_rgba(255,255,255,0.08)] transition-all hover:bg-[#1E293B] hover:shadow-[0_4px_12px_rgba(15,23,42,0.35)] disabled:cursor-not-allowed disabled:opacity-50"
               >
                 {isPublishing
                   ? "Publishing..."

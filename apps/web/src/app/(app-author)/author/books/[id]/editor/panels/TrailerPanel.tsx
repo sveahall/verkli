@@ -233,7 +233,7 @@ export default function TrailerPanel({
               type="button"
               onClick={() => void handleBuy()}
               disabled={isBuying || billingLoading}
-              className="mt-3 inline-flex min-h-[44px] w-full items-center justify-center rounded-full bg-[#907AFF] px-4 text-sm font-semibold text-white shadow-sm transition hover:bg-[#8069EE] focus:outline-none focus:ring-2 focus:ring-[#907AFF]/40 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+              className="mt-3 inline-flex min-h-[44px] w-full items-center justify-center rounded-full bg-[#0F172A] px-4 text-sm font-semibold text-white shadow-sm transition hover:bg-[#1E293B] focus:outline-none focus:ring-2 focus:ring-[#0F172A]/40 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
             >
               {isBuying ? "Starting checkout…" : "Buy trailer · 99 kr"}
             </button>
@@ -367,7 +367,7 @@ export default function TrailerPanel({
             type="button"
             onClick={() => void handleGenerate()}
             disabled={isGenerating || !effectiveUnlock || !coverImage || billingLoading}
-            className="w-full rounded-lg bg-gradient-to-r from-[#907AFF] to-[#7c6ae6] px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:shadow-md disabled:opacity-50 disabled:cursor-not-allowed"
+            className="w-full rounded-lg bg-[#0F172A] px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-[#1E293B] hover:shadow-md disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {isGenerating ? "Generating..." : paidSessionId ? "Generate Trailer (paid)" : "Generate Trailer"}
           </button>

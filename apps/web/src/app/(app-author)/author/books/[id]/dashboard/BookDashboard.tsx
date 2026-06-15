@@ -123,7 +123,7 @@ export default function BookDashboard({ book, bookVersions, onDrillIn, onRerunSe
             <button
               type="button"
               onClick={() => onDrillIn("edit")}
-              className="rounded-full bg-[#907AFF] px-4 py-1.5 text-[12px] font-semibold text-white transition hover:bg-[#7c6ae6]"
+              className="rounded-full bg-[#0F172A] px-4 py-1.5 text-[12px] font-semibold text-white transition hover:bg-[#1E293B]"
             >
               Edit chapters
             </button>

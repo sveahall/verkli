@@ -230,7 +230,7 @@ export default function AudienceWorkspace({
     if (surface === "campaigns" && marketingEnabled) {
       return (
         <Link
-          className="inline-flex items-center rounded-full bg-gradient-to-r from-[#8E79FF] to-[#7A6EFF] px-5 py-2 text-[14px] font-medium text-white"
+          className="inline-flex items-center rounded-full bg-[#0F172A] px-5 py-2 text-[14px] font-medium text-white hover:bg-[#1E293B]"
           href={
             selectedBook?.id
               ? `/author/marketing?bookId=${selectedBook.id}`
@@ -245,7 +245,7 @@ export default function AudienceWorkspace({
     if (surface === "reader-updates" && newslettersEnabled) {
       return (
         <Button
-          className="rounded-full bg-gradient-to-r from-[#8E79FF] to-[#7A6EFF] text-white"
+          className="rounded-full bg-[#0F172A] text-white hover:bg-[#1E293B]"
           onClick={() => setComposerOpen(true)}
         >
           {surfaceMeta.primaryLabel}
@@ -256,7 +256,7 @@ export default function AudienceWorkspace({
     if (surface === "beta-readers" && selectedBook) {
       return (
         <Button
-          className="rounded-full bg-gradient-to-r from-[#8E79FF] to-[#7A6EFF] text-white"
+          className="rounded-full bg-[#0F172A] text-white hover:bg-[#1E293B]"
           onClick={() => router.push(`/author/books/${selectedBook.id}?panel=publish`)}
         >
           {surfaceMeta.primaryLabel}
@@ -282,7 +282,7 @@ export default function AudienceWorkspace({
         </p>
         {marketingEnabled && (
           <Link
-            className="mt-5 inline-flex items-center rounded-xl bg-[#907AFF] px-6 py-2.5 text-[14px] font-medium text-white transition-all hover:bg-[#8069EE] active:scale-[0.98]"
+            className="mt-5 inline-flex items-center rounded-xl bg-[#0F172A] px-6 py-2.5 text-[14px] font-medium text-white transition-all hover:bg-[#1E293B] active:scale-[0.98]"
             href={
               selectedBook?.id
                 ? `/author/marketing?bookId=${selectedBook.id}`
@@ -380,7 +380,7 @@ export default function AudienceWorkspace({
             <div className="flex flex-wrap items-center gap-2">
               <Button
                 size="sm"
-                className="rounded-full bg-gradient-to-r from-[#8E79FF] to-[#7A6EFF] text-white"
+                className="rounded-full bg-[#0F172A] text-white hover:bg-[#1E293B]"
                 isLoading={creatingNewsletter}
                 loadingText="Creating..."
                 onClick={() => void handleCreateDraft()}

@@ -236,7 +236,7 @@ function EmptyState({ onOpen }: { onOpen: () => void }) {
       <button
         type="button"
         onClick={onOpen}
-        className="mt-7 inline-flex items-center gap-2 rounded-full bg-gradient-to-r from-[#907AFF] to-[#7C6CFF] px-5 py-2.5 text-[13px] font-medium text-white shadow-sm shadow-[#907AFF]/25 transition-all hover:opacity-90 active:scale-[0.97]"
+        className="mt-7 inline-flex items-center gap-2 rounded-full bg-[#0F172A] px-5 py-2.5 text-[13px] font-medium text-white shadow-sm shadow-[#0F172A]/25 transition-all hover:bg-[#1E293B] active:scale-[0.97]"
       >
         <Plus className="h-3.5 w-3.5" />
         Write your first book

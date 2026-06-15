@@ -190,7 +190,7 @@ export default function HomeWorkspace({
                 type="button"
                 aria-label="New book"
                 onClick={openCreateDialog}
-                className="h-10 min-h-0 rounded-full border-0 bg-gradient-to-r from-[#8E79FF] to-[#7A6EFF] px-5 text-[14px] font-medium text-white shadow-[0_2px_10px_rgba(15,23,42,0.04)] hover:from-[#8570FF] hover:to-[#7062FF]"
+                className="h-10 min-h-0 rounded-full border-0 bg-[#0F172A] px-5 text-[14px] font-medium text-white shadow-[0_2px_10px_rgba(15,23,42,0.04)] hover:bg-[#1E293B]"
               >
                 <Plus className="h-4 w-4" aria-hidden="true" />
                 New book

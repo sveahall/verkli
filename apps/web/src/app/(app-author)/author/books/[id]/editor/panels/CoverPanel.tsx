@@ -346,7 +346,7 @@ export default function CoverPanel({
                 type="button"
                 onClick={handleCoverAIGenerate}
                 disabled={coverAIGenerating}
-                className="inline-flex items-center gap-2 rounded-xl bg-[#907AFF] px-6 py-2.5 text-xs font-semibold text-white shadow-sm transition hover:bg-[#7B6BF0] hover:shadow-md active:scale-[0.97] disabled:opacity-50"
+                className="inline-flex items-center gap-2 rounded-xl bg-[#0F172A] px-6 py-2.5 text-xs font-semibold text-white shadow-sm transition hover:bg-[#1E293B] hover:shadow-md active:scale-[0.97] disabled:opacity-50"
               >
                 <Sparkles className="h-3.5 w-3.5" />
                 {coverAIGenerating ? "Generating..." : "Generate"}
@@ -392,7 +392,7 @@ export default function CoverPanel({
                     setCoverAIPreviewUrl(null);
                   }}
                   disabled={coverUploading}
-                  className="rounded-xl bg-[#907AFF] px-6 py-2.5 text-xs font-semibold text-white transition hover:bg-[#7B6BF0] active:scale-[0.97] disabled:opacity-50"
+                  className="rounded-xl bg-[#0F172A] px-6 py-2.5 text-xs font-semibold text-white transition hover:bg-[#1E293B] active:scale-[0.97] disabled:opacity-50"
                 >
                   {coverUploading ? "Saving..." : "Use as cover"}
                 </button>
