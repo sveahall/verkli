@@ -158,18 +158,19 @@ describe("extractCurrentBookIdFromPathname", () => {
 });
 
 describe("isDemoSwHostAllowed (service worker registration gate)", () => {
-  it("permits localhost / 127.0.0.1 / ::1 / *.local", () => {
+  it("permits loopback hosts only (localhost / 127.0.0.1 / ::1)", () => {
     expect(isDemoSwHostAllowed("localhost")).toBe(true);
     expect(isDemoSwHostAllowed("127.0.0.1")).toBe(true);
     expect(isDemoSwHostAllowed("::1")).toBe(true);
-    expect(isDemoSwHostAllowed("pitch-laptop.local")).toBe(true);
     expect(isDemoSwHostAllowed("LOCALHOST")).toBe(true);
   });
 
-  it("rejects production hostnames", () => {
+  it("rejects production and .local hostnames", () => {
     expect(isDemoSwHostAllowed("verkli.com")).toBe(false);
     expect(isDemoSwHostAllowed("staging.verkli.com")).toBe(false);
     expect(isDemoSwHostAllowed("glfipbnsyxowqsmcuzcm.supabase.co")).toBe(false);
     expect(isDemoSwHostAllowed("localhost.evil.com")).toBe(false);
+    // .local was dropped in fbd62a0 (service worker restricted to loopback)
+    expect(isDemoSwHostAllowed("pitch-laptop.local")).toBe(false);
   });
 });

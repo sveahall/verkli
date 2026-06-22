@@ -326,6 +326,21 @@ async function processPaymentKindCheckoutSession(
     };
   }
 
+  if (paymentKind === "book_order") {
+    // Standalone anonymous physical-book order ("Ta för er!"). There is no DB
+    // row — fulfillment is manual from the Stripe Dashboard, where the shipping
+    // address rides along in session metadata. Acknowledge the event so it is
+    // never recorded as an unprocessed failure.
+    if (isPaidCheckoutSession(session)) {
+      const orderMetadata = extractMetadata(session.metadata);
+      console.info("[stripe.webhook] book_order payment completed", {
+        sessionId: trimToNull(session.id),
+        email: orderMetadata.ship_name ? trimToNull(session.customer_email) : null,
+      });
+    }
+    return { handled: true, processed: isPaidCheckoutSession(session) };
+  }
+
   return {
     handled: true,
     processed: await processCreditTopupCheckoutSession(admin, session),

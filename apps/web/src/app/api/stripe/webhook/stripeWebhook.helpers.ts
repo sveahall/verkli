@@ -17,7 +17,8 @@ export type PaymentKind =
   | "translation"
   | "audiobook"
   | "pod"
-  | "author_subscription";
+  | "author_subscription"
+  | "book_order";
 
 export type FinalizeCheckoutFunction =
   | "finalize_order_checkout_session"
@@ -73,6 +74,9 @@ export function parsePaymentKind(value: unknown): PaymentKind | null {
   if (normalized === "pod") return "pod";
   if (normalized === "author_subscription" || normalized === "author-subscription") {
     return "author_subscription";
+  }
+  if (normalized === "book_order" || normalized === "book-order") {
+    return "book_order";
   }
   return null;
 }

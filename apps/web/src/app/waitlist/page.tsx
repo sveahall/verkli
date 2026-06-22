@@ -4,6 +4,7 @@ import { useState, useSyncExternalStore } from "react";
 import Image from "next/image";
 import { resolveErrorMessage } from "@/lib/error-messages";
 import AuroraBackground from "@/components/AuroraBackground";
+import BookOrderSection from "./BookOrderSection";
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -493,7 +494,7 @@ export default function WaitlistPage() {
       <main className="waitlist-page relative flex min-h-screen min-h-dvh flex-col" role="main">
         <AuroraBackground />
         {/* Full-viewport hero */}
-        <section className="relative flex min-h-screen min-h-dvh flex-col items-center justify-center overflow-hidden px-4 py-16 dark">
+        <section className="relative flex min-h-dvh flex-col items-center justify-start overflow-hidden px-4 pb-12 pt-32 sm:pb-16 sm:pt-36 md:justify-center md:py-16 dark">
 
           {/* Logo: no link, decorative only */}
           <div
@@ -511,10 +512,10 @@ export default function WaitlistPage() {
             <p className="text-[11px] font-semibold uppercase tracking-[0.25em] text-white/50">
               {HERO_EYEBROW}
             </p>
-            <h1 className="mt-6 text-[40px] font-bold leading-[1.05] tracking-tight text-white sm:text-[48px] md:text-[56px]">
+            <h1 className="mt-6 text-[32px] font-bold leading-[1.08] tracking-tight text-white sm:text-[44px] sm:leading-[1.05] md:text-[56px]">
               {HERO_HEADLINE}
             </h1>
-            <p className="mt-5 text-[17px] leading-snug text-white/60">
+            <p className="mt-5 text-[16px] leading-snug text-white/60 sm:text-[17px]">
               {HERO_SUBHEADLINE}
             </p>
 
@@ -526,7 +527,7 @@ export default function WaitlistPage() {
               {CARD_BADGE}
             </p>
             {/* Two signups: author + reader — column on mobile, row on desktop */}
-            <div className="waitlist-hero-in waitlist-hero-in-delay-3 mt-3 flex w-full flex-col gap-8 md:flex-row md:items-stretch">
+            <div className="waitlist-hero-in waitlist-hero-in-delay-3 mt-3 flex w-full flex-col gap-6 sm:gap-8 md:flex-row md:items-stretch">
               {/* Join the waitlist as an author */}
               <div className="aurora-card min-w-0 flex-1 rounded-3xl border border-white/20 bg-white/10 p-6 shadow-[0_24px_48px_rgba(0,0,0,0.2),0_0_0_1px_rgba(255,255,255,0.08)] backdrop-blur-xl sm:p-8">
                 <h2 className="text-center text-sm font-semibold uppercase tracking-wider text-white/60">
@@ -578,6 +579,9 @@ export default function WaitlistPage() {
             </div>
           </div>
         </section>
+
+        {/* Order Johan SvH's book — sits directly below the sign-up cards */}
+        <BookOrderSection />
       </main>
     </>
   );

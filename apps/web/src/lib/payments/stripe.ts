@@ -397,6 +397,73 @@ export async function createPodCheckoutSession(
   return payload;
 }
 
+export type CreateBookOrderCheckoutInput = {
+  amountMinor: number;
+  currency: string;
+  productName: string;
+  customerEmail: string;
+  shipping: {
+    name: string;
+    line1: string;
+    line2?: string;
+    postalCode: string;
+    city: string;
+    country: string;
+    phone?: string;
+  };
+  successUrl: string;
+  cancelUrl: string;
+};
+
+/**
+ * Standalone, anonymous physical-book order (no auth, no DB row).
+ *
+ * The shipping address is collected in our own form and forwarded to Stripe as
+ * session metadata, so it appears alongside the payment in the Stripe
+ * Dashboard. We do not enable Stripe's own shipping_address_collection here —
+ * that would ask the buyer for the address twice.
+ */
+export async function createBookOrderCheckoutSession(
+  input: CreateBookOrderCheckoutInput
+): Promise<StripeCheckoutSession> {
+  const amount = sanitizeAmount(input.amountMinor);
+  if (amount <= 0) {
+    throw new Error("Amount must be greater than zero");
+  }
+
+  const params = new URLSearchParams();
+  params.set("mode", "payment");
+  params.set("success_url", input.successUrl);
+  params.set("cancel_url", input.cancelUrl);
+  params.set("payment_method_types[0]", "card");
+  params.set("line_items[0][quantity]", "1");
+  params.set("line_items[0][price_data][currency]", toStripeCurrency(input.currency));
+  params.set("line_items[0][price_data][unit_amount]", String(amount));
+  params.set("line_items[0][price_data][product_data][name]", input.productName);
+  params.set("customer_email", input.customerEmail);
+  params.set("metadata[payment_kind]", "book_order");
+  params.set("metadata[payment_type]", "book_order");
+  params.set("metadata[amount_minor]", String(amount));
+  params.set("metadata[ship_name]", input.shipping.name);
+  params.set("metadata[ship_line1]", input.shipping.line1);
+  if (input.shipping.line2) params.set("metadata[ship_line2]", input.shipping.line2);
+  params.set("metadata[ship_postal_code]", input.shipping.postalCode);
+  params.set("metadata[ship_city]", input.shipping.city);
+  params.set("metadata[ship_country]", input.shipping.country);
+  if (input.shipping.phone) params.set("metadata[ship_phone]", input.shipping.phone);
+
+  const payload = await stripeRequest("/checkout/sessions", {
+    method: "POST",
+    body: params.toString(),
+  });
+
+  assertSessionShape(payload);
+  if (!payload.url) {
+    throw new Error("Stripe session URL is missing");
+  }
+  return payload;
+}
+
 export type CreateAuthorSubscriptionCheckoutInput = {
   authorId: string;
   authorName: string;
