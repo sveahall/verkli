@@ -15,11 +15,14 @@ export async function middleware(request: NextRequest) {
     const p = request.nextUrl.pathname
     const isWaitlist = p === '/waitlist' || p.startsWith('/waitlist/')
     const isApiWaitlist = p === '/api/waitlist' || p.startsWith('/api/waitlist/')
+    // Book pre-order ("Ta för er!") lives on the waitlist page: allow its API
+    // and the Stripe success-return page through the waitlist lock.
+    const isOrder = p.startsWith('/api/order/') || p.startsWith('/order/')
     const isNext = p.startsWith('/_next/')
     const isKnownRoot = ['/favicon.ico', '/favicon.svg', '/robots.txt'].includes(p)
     const isRootAssetWithExt = /^\/[^/]+\.[a-z0-9]+$/i.test(p)
 
-    const allowed = isWaitlist || isApiWaitlist || isNext || isKnownRoot || isRootAssetWithExt
+    const allowed = isWaitlist || isApiWaitlist || isOrder || isNext || isKnownRoot || isRootAssetWithExt
     if (!allowed) {
       const url = request.nextUrl.clone()
       url.pathname = '/waitlist'
