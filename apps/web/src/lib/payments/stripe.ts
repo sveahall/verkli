@@ -1,0 +1,573 @@
+const STRIPE_API_BASE = "https://api.stripe.com/v1";
+
+type StripeCheckoutSessionMetadata = {
+  orderId: string;
+  userId: string;
+  bookId: string;
+  paymentType?: "book_purchase";
+  amountMinor?: number;
+};
+
+type CreateStripeCheckoutSessionInput = {
+  amount: number;
+  currency: string;
+  bookTitle: string;
+  customerEmail?: string | null;
+  successUrl: string;
+  cancelUrl: string;
+  metadata: StripeCheckoutSessionMetadata;
+};
+
+export type StripeCheckoutSession = {
+  id: string;
+  url: string;
+  status?: string;
+  payment_status?: string;
+  currency?: string;
+  amount_total?: number;
+  metadata?: Record<string, string>;
+};
+
+function getStripeSecretKey(): string {
+  const key = process.env.STRIPE_SECRET_KEY;
+  if (!key) {
+    throw new Error("Missing STRIPE_SECRET_KEY");
+  }
+  return key;
+}
+
+/** Safe check for author UI: whether payments can be used (no throw). */
+export function isStripeConfigured(): boolean {
+  const key = process.env.STRIPE_SECRET_KEY;
+  return Boolean(key && String(key).trim().length > 0);
+}
+
+function toStripeCurrency(value: string): string {
+  return value.trim().toLowerCase();
+}
+
+function sanitizeAmount(value: number): number {
+  if (!Number.isFinite(value)) return 0;
+  return Math.max(0, Math.trunc(value));
+}
+
+function assertSessionShape(payload: unknown): asserts payload is StripeCheckoutSession {
+  if (!payload || typeof payload !== "object") {
+    throw new Error("Invalid Stripe response");
+  }
+  const record = payload as Record<string, unknown>;
+  if (typeof record.id !== "string") {
+    throw new Error("Missing Stripe session id");
+  }
+}
+
+async function stripeRequest(path: string, init: RequestInit): Promise<unknown> {
+  const key = getStripeSecretKey();
+  const res = await fetch(`${STRIPE_API_BASE}${path}`, {
+    ...init,
+    headers: {
+      Authorization: `Bearer ${key}`,
+      ...(init.body ? { "Content-Type": "application/x-www-form-urlencoded" } : {}),
+      ...(init.headers ?? {}),
+    },
+    cache: "no-store",
+  });
+
+  const text = await res.text();
+  let json: unknown;
+  try {
+    json = text ? JSON.parse(text) : null;
+  } catch {
+    json = null;
+  }
+
+  if (!res.ok) {
+    const message =
+      (json as { error?: { message?: string } } | null)?.error?.message ??
+      `Stripe request failed (${res.status})`;
+    throw new Error(message);
+  }
+
+  return json;
+}
+
+export async function createStripeCheckoutSession(
+  input: CreateStripeCheckoutSessionInput
+): Promise<StripeCheckoutSession> {
+  const amount = sanitizeAmount(input.amount);
+  if (amount <= 0) {
+    throw new Error("Amount must be greater than zero");
+  }
+
+  const params = new URLSearchParams();
+  params.set("mode", "payment");
+  params.set("success_url", input.successUrl);
+  params.set("cancel_url", input.cancelUrl);
+  params.set("payment_method_types[0]", "card");
+  params.set("line_items[0][quantity]", "1");
+  params.set("line_items[0][price_data][currency]", toStripeCurrency(input.currency));
+  params.set("line_items[0][price_data][unit_amount]", String(amount));
+  params.set("line_items[0][price_data][product_data][name]", input.bookTitle);
+  params.set("client_reference_id", input.metadata.orderId);
+
+  params.set("metadata[order_id]", input.metadata.orderId);
+  params.set("metadata[user_id]", input.metadata.userId);
+  params.set("metadata[book_id]", input.metadata.bookId);
+  params.set("metadata[payment_type]", input.metadata.paymentType ?? "book_purchase");
+  params.set("metadata[amount_minor]", String(sanitizeAmount(input.metadata.amountMinor ?? amount)));
+
+  if (input.customerEmail) {
+    params.set("customer_email", input.customerEmail);
+  }
+
+  const payload = await stripeRequest("/checkout/sessions", {
+    method: "POST",
+    body: params.toString(),
+  });
+
+  assertSessionShape(payload);
+
+  if (!payload.url) {
+    throw new Error("Stripe session URL is missing");
+  }
+
+  return payload;
+}
+
+export async function getStripeCheckoutSession(sessionId: string): Promise<StripeCheckoutSession> {
+  const payload = await stripeRequest(`/checkout/sessions/${encodeURIComponent(sessionId)}`, {
+    method: "GET",
+  });
+  assertSessionShape(payload);
+  return payload;
+}
+
+/** One-time donation checkout session. */
+export type CreateDonationCheckoutInput = {
+  amountMinor: number;
+  currency: string;
+  userId: string;
+  donationId: string;
+  creditsDelta?: number;
+  customerEmail?: string | null;
+  successUrl: string;
+  cancelUrl: string;
+};
+
+export type CreateCreditTopUpCheckoutInput = {
+  amountMinor: number;
+  creditsDelta: number;
+  currency: string;
+  userId: string;
+  creditTopupId: string;
+  customerEmail?: string | null;
+  successUrl: string;
+  cancelUrl: string;
+};
+
+export async function createDonationCheckoutSession(
+  input: CreateDonationCheckoutInput
+): Promise<StripeCheckoutSession> {
+  const amount = sanitizeAmount(input.amountMinor);
+  if (amount <= 0) {
+    throw new Error("Amount must be greater than zero");
+  }
+
+  const params = new URLSearchParams();
+  params.set("mode", "payment");
+  params.set("success_url", input.successUrl);
+  params.set("cancel_url", input.cancelUrl);
+  params.set("payment_method_types[0]", "card");
+  params.set("line_items[0][quantity]", "1");
+  params.set("line_items[0][price_data][currency]", toStripeCurrency(input.currency));
+  params.set("line_items[0][price_data][unit_amount]", String(amount));
+  params.set("line_items[0][price_data][product_data][name]", "Donation till Verkli");
+  params.set("client_reference_id", input.userId);
+  params.set("metadata[user_id]", input.userId);
+  params.set("metadata[donation_id]", input.donationId);
+  params.set("metadata[amount_minor]", String(amount));
+  params.set("metadata[payment_kind]", "donation");
+  params.set("metadata[payment_type]", "donation");
+
+  const creditsDelta = sanitizeAmount(input.creditsDelta ?? 0);
+  if (creditsDelta > 0) {
+    params.set("metadata[credits_delta]", String(creditsDelta));
+  }
+
+  if (input.customerEmail) {
+    params.set("customer_email", input.customerEmail);
+  }
+
+  const payload = await stripeRequest("/checkout/sessions", {
+    method: "POST",
+    body: params.toString(),
+  });
+
+  assertSessionShape(payload);
+  if (!payload.url) {
+    throw new Error("Stripe session URL is missing");
+  }
+  return payload;
+}
+
+export type CreateAudiobookCheckoutInput = {
+  amountMinor: number;
+  currency: string;
+  userId: string;
+  bookId: string;
+  language: string;
+  customerEmail?: string | null;
+  successUrl: string;
+  cancelUrl: string;
+};
+
+export async function createAudiobookCheckoutSession(
+  input: CreateAudiobookCheckoutInput
+): Promise<StripeCheckoutSession> {
+  const amount = sanitizeAmount(input.amountMinor);
+  if (amount <= 0) {
+    throw new Error("Amount must be greater than zero");
+  }
+
+  const params = new URLSearchParams();
+  params.set("mode", "payment");
+  params.set("success_url", input.successUrl);
+  params.set("cancel_url", input.cancelUrl);
+  params.set("payment_method_types[0]", "card");
+  params.set("line_items[0][quantity]", "1");
+  params.set("line_items[0][price_data][currency]", toStripeCurrency(input.currency));
+  params.set("line_items[0][price_data][unit_amount]", String(amount));
+  params.set("line_items[0][price_data][product_data][name]", "Audiobook generation");
+  params.set("client_reference_id", input.userId);
+  params.set("metadata[user_id]", input.userId);
+  params.set("metadata[book_id]", input.bookId);
+  params.set("metadata[language]", input.language);
+  params.set("metadata[amount_minor]", String(amount));
+  params.set("metadata[payment_kind]", "audiobook");
+  params.set("metadata[payment_type]", "audiobook");
+
+  if (input.customerEmail) {
+    params.set("customer_email", input.customerEmail);
+  }
+
+  const payload = await stripeRequest("/checkout/sessions", {
+    method: "POST",
+    body: params.toString(),
+  });
+
+  assertSessionShape(payload);
+  if (!payload.url) {
+    throw new Error("Stripe session URL is missing");
+  }
+  return payload;
+}
+
+export type CreateTranslationCheckoutInput = {
+  amountMinor: number;
+  currency: string;
+  userId: string;
+  bookId: string;
+  languages: string;
+  sourceVersionId: string;
+  sourceLanguage: string;
+  customerEmail?: string | null;
+  successUrl: string;
+  cancelUrl: string;
+};
+
+export async function createTranslationCheckoutSession(
+  input: CreateTranslationCheckoutInput
+): Promise<StripeCheckoutSession> {
+  const amount = sanitizeAmount(input.amountMinor);
+  if (amount <= 0) {
+    throw new Error("Amount must be greater than zero");
+  }
+
+  const langCount = input.languages.split(",").filter(Boolean).length;
+  const productName =
+    langCount === 1
+      ? `Book translation (1 language)`
+      : `Book translation (${langCount} languages)`;
+
+  const params = new URLSearchParams();
+  params.set("mode", "payment");
+  params.set("success_url", input.successUrl);
+  params.set("cancel_url", input.cancelUrl);
+  params.set("payment_method_types[0]", "card");
+  params.set("line_items[0][quantity]", "1");
+  params.set("line_items[0][price_data][currency]", toStripeCurrency(input.currency));
+  params.set("line_items[0][price_data][unit_amount]", String(amount));
+  params.set("line_items[0][price_data][product_data][name]", productName);
+  params.set("client_reference_id", input.userId);
+  params.set("metadata[user_id]", input.userId);
+  params.set("metadata[book_id]", input.bookId);
+  params.set("metadata[languages]", input.languages);
+  params.set("metadata[source_version_id]", input.sourceVersionId);
+  params.set("metadata[source_language]", input.sourceLanguage);
+  params.set("metadata[amount_minor]", String(amount));
+  params.set("metadata[payment_kind]", "translation");
+  params.set("metadata[payment_type]", "translation");
+
+  if (input.customerEmail) {
+    params.set("customer_email", input.customerEmail);
+  }
+
+  const payload = await stripeRequest("/checkout/sessions", {
+    method: "POST",
+    body: params.toString(),
+  });
+
+  assertSessionShape(payload);
+  if (!payload.url) {
+    throw new Error("Stripe session URL is missing");
+  }
+  return payload;
+}
+
+export type CreatePodCheckoutInput = {
+  amountMinor: number;
+  currency: string;
+  userId: string;
+  bookId: string;
+  podOrderId: string;
+  format: string;
+  bookTitle: string;
+  customerEmail?: string | null;
+  successUrl: string;
+  cancelUrl: string;
+};
+
+/** EU countries for shipping_address_collection. */
+const EU_SHIPPING_COUNTRIES = [
+  "SE", "DE", "FR", "ES", "IT", "NL", "BE", "AT", "FI", "DK",
+  "NO", "PL", "PT", "IE", "CZ", "GR", "RO", "HU", "SK", "BG",
+  "HR", "LT", "LV", "EE", "SI", "LU", "MT", "CY",
+];
+
+export async function createPodCheckoutSession(
+  input: CreatePodCheckoutInput
+): Promise<StripeCheckoutSession> {
+  const amount = sanitizeAmount(input.amountMinor);
+  if (amount <= 0) {
+    throw new Error("Amount must be greater than zero");
+  }
+
+  const params = new URLSearchParams();
+  params.set("mode", "payment");
+  params.set("success_url", input.successUrl);
+  params.set("cancel_url", input.cancelUrl);
+  params.set("payment_method_types[0]", "card");
+  params.set("line_items[0][quantity]", "1");
+  params.set("line_items[0][price_data][currency]", toStripeCurrency(input.currency));
+  params.set("line_items[0][price_data][unit_amount]", String(amount));
+  params.set(
+    "line_items[0][price_data][product_data][name]",
+    `${input.bookTitle} (${input.format} print copy)`
+  );
+  params.set("client_reference_id", input.podOrderId);
+  params.set("metadata[user_id]", input.userId);
+  params.set("metadata[book_id]", input.bookId);
+  params.set("metadata[pod_order_id]", input.podOrderId);
+  params.set("metadata[format]", input.format);
+  params.set("metadata[amount_minor]", String(amount));
+  params.set("metadata[payment_kind]", "pod");
+  params.set("metadata[payment_type]", "pod");
+
+  // Collect shipping address at checkout
+  for (let i = 0; i < EU_SHIPPING_COUNTRIES.length; i++) {
+    params.set(
+      `shipping_address_collection[allowed_countries][${i}]`,
+      EU_SHIPPING_COUNTRIES[i]
+    );
+  }
+
+  if (input.customerEmail) {
+    params.set("customer_email", input.customerEmail);
+  }
+
+  const payload = await stripeRequest("/checkout/sessions", {
+    method: "POST",
+    body: params.toString(),
+  });
+
+  assertSessionShape(payload);
+  if (!payload.url) {
+    throw new Error("Stripe session URL is missing");
+  }
+  return payload;
+}
+
+export type CreateBookOrderCheckoutInput = {
+  amountMinor: number;
+  currency: string;
+  productName: string;
+  customerEmail: string;
+  shipping: {
+    name: string;
+    line1: string;
+    line2?: string;
+    postalCode: string;
+    city: string;
+    country: string;
+    phone?: string;
+  };
+  successUrl: string;
+  cancelUrl: string;
+};
+
+/**
+ * Standalone, anonymous physical-book order (no auth, no DB row).
+ *
+ * The shipping address is collected in our own form and forwarded to Stripe as
+ * session metadata, so it appears alongside the payment in the Stripe
+ * Dashboard. We do not enable Stripe's own shipping_address_collection here —
+ * that would ask the buyer for the address twice.
+ */
+export async function createBookOrderCheckoutSession(
+  input: CreateBookOrderCheckoutInput
+): Promise<StripeCheckoutSession> {
+  const amount = sanitizeAmount(input.amountMinor);
+  if (amount <= 0) {
+    throw new Error("Amount must be greater than zero");
+  }
+
+  const params = new URLSearchParams();
+  params.set("mode", "payment");
+  params.set("success_url", input.successUrl);
+  params.set("cancel_url", input.cancelUrl);
+  params.set("payment_method_types[0]", "card");
+  params.set("line_items[0][quantity]", "1");
+  params.set("line_items[0][price_data][currency]", toStripeCurrency(input.currency));
+  params.set("line_items[0][price_data][unit_amount]", String(amount));
+  params.set("line_items[0][price_data][product_data][name]", input.productName);
+  params.set("customer_email", input.customerEmail);
+  params.set("metadata[payment_kind]", "book_order");
+  params.set("metadata[payment_type]", "book_order");
+  params.set("metadata[amount_minor]", String(amount));
+  params.set("metadata[ship_name]", input.shipping.name);
+  params.set("metadata[ship_line1]", input.shipping.line1);
+  if (input.shipping.line2) params.set("metadata[ship_line2]", input.shipping.line2);
+  params.set("metadata[ship_postal_code]", input.shipping.postalCode);
+  params.set("metadata[ship_city]", input.shipping.city);
+  params.set("metadata[ship_country]", input.shipping.country);
+  if (input.shipping.phone) params.set("metadata[ship_phone]", input.shipping.phone);
+
+  const payload = await stripeRequest("/checkout/sessions", {
+    method: "POST",
+    body: params.toString(),
+  });
+
+  assertSessionShape(payload);
+  if (!payload.url) {
+    throw new Error("Stripe session URL is missing");
+  }
+  return payload;
+}
+
+export type CreateAuthorSubscriptionCheckoutInput = {
+  authorId: string;
+  authorName: string;
+  priceMonthlyMinor: number;
+  currency: string;
+  subscriberUserId: string;
+  subscriptionRecordId: string;
+  customerEmail?: string | null;
+  successUrl: string;
+  cancelUrl: string;
+};
+
+/** Recurring monthly subscription checkout for a reader subscribing to an author. */
+export async function createAuthorSubscriptionCheckoutSession(
+  input: CreateAuthorSubscriptionCheckoutInput
+): Promise<StripeCheckoutSession> {
+  const amount = sanitizeAmount(input.priceMonthlyMinor);
+  if (amount <= 0) {
+    throw new Error("Monthly price must be greater than zero");
+  }
+
+  const params = new URLSearchParams();
+  params.set("mode", "subscription");
+  params.set("success_url", input.successUrl);
+  params.set("cancel_url", input.cancelUrl);
+  params.set("payment_method_types[0]", "card");
+  params.set("line_items[0][quantity]", "1");
+  params.set("line_items[0][price_data][currency]", toStripeCurrency(input.currency));
+  params.set("line_items[0][price_data][unit_amount]", String(amount));
+  params.set("line_items[0][price_data][product_data][name]", `${input.authorName} — Monthly subscription`);
+  params.set("line_items[0][price_data][recurring][interval]", "month");
+  params.set("client_reference_id", input.subscriptionRecordId);
+  params.set("metadata[subscriber_user_id]", input.subscriberUserId);
+  params.set("metadata[author_id]", input.authorId);
+  params.set("metadata[subscription_record_id]", input.subscriptionRecordId);
+  params.set("metadata[amount_monthly]", String(amount));
+  params.set("metadata[currency]", toStripeCurrency(input.currency));
+  params.set("metadata[payment_kind]", "author_subscription");
+  params.set("metadata[payment_type]", "author_subscription");
+
+  if (input.customerEmail) {
+    params.set("customer_email", input.customerEmail);
+  }
+
+  const payload = await stripeRequest("/checkout/sessions", {
+    method: "POST",
+    body: params.toString(),
+  });
+
+  assertSessionShape(payload);
+  if (!payload.url) {
+    throw new Error("Stripe session URL is missing");
+  }
+  return payload;
+}
+
+export async function cancelStripeSubscription(stripeSubscriptionId: string): Promise<void> {
+  await stripeRequest(`/subscriptions/${encodeURIComponent(stripeSubscriptionId)}`, {
+    method: "DELETE",
+  });
+}
+
+export async function createCreditTopUpCheckoutSession(
+  input: CreateCreditTopUpCheckoutInput
+): Promise<StripeCheckoutSession> {
+  const amount = sanitizeAmount(input.amountMinor);
+  if (amount <= 0) {
+    throw new Error("Amount must be greater than zero");
+  }
+
+  const creditDelta = sanitizeAmount(input.creditsDelta);
+  if (creditDelta <= 0) {
+    throw new Error("creditsDelta must be greater than zero");
+  }
+
+  const params = new URLSearchParams();
+  params.set("mode", "payment");
+  params.set("success_url", input.successUrl);
+  params.set("cancel_url", input.cancelUrl);
+  params.set("payment_method_types[0]", "card");
+  params.set("line_items[0][quantity]", "1");
+  params.set("line_items[0][price_data][currency]", toStripeCurrency(input.currency));
+  params.set("line_items[0][price_data][unit_amount]", String(amount));
+  params.set("line_items[0][price_data][product_data][name]", "Verkli credits");
+  params.set("client_reference_id", input.userId);
+  params.set("metadata[user_id]", input.userId);
+  params.set("metadata[credit_topup_id]", input.creditTopupId);
+  params.set("metadata[amount_minor]", String(amount));
+  params.set("metadata[payment_kind]", "credit_topup");
+  params.set("metadata[payment_type]", "credit_topup");
+  params.set("metadata[credit_delta]", String(creditDelta));
+
+  if (input.customerEmail) {
+    params.set("customer_email", input.customerEmail);
+  }
+
+  const payload = await stripeRequest("/checkout/sessions", {
+    method: "POST",
+    body: params.toString(),
+  });
+
+  assertSessionShape(payload);
+  if (!payload.url) {
+    throw new Error("Stripe session URL is missing");
+  }
+  return payload;
+}
