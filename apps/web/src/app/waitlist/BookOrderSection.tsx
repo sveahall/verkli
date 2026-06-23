@@ -83,7 +83,7 @@ export default function BookOrderSection() {
   };
 
   return (
-    <section className="relative px-4 pb-24 pt-2 dark" aria-labelledby="book-order-heading">
+    <section id="book-order" className="relative scroll-mt-8 px-4 pb-24 pt-2 dark" aria-labelledby="book-order-heading">
       <div className="mx-auto w-full max-w-md">
         <div className="aurora-card rounded-3xl border border-white/20 bg-white/10 p-6 shadow-[0_24px_48px_rgba(0,0,0,0.2),0_0_0_1px_rgba(255,255,255,0.08)] backdrop-blur-xl sm:p-8">
           <p className="text-center text-[10px] font-medium uppercase tracking-[0.3em] text-white/35">

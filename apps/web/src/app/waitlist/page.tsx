@@ -490,6 +490,16 @@ export default function WaitlistPage() {
         .dark .waitlist-cta {
           box-shadow: 0 0 40px rgba(144, 122, 255, 0.35);
         }
+        @keyframes waitlist-scroll-bounce {
+          0%, 100% { transform: translateY(0); }
+          50% { transform: translateY(6px); }
+        }
+        .waitlist-scroll-cue-icon {
+          animation: waitlist-scroll-bounce 1.8s cubic-bezier(0.16, 1, 0.3, 1) infinite;
+        }
+        @media (prefers-reduced-motion: reduce) {
+          .waitlist-scroll-cue-icon { animation: none; }
+        }
       `}</style>
       <main className="waitlist-page relative flex min-h-screen min-h-dvh flex-col" role="main">
         <AuroraBackground />
@@ -512,7 +522,7 @@ export default function WaitlistPage() {
             <p className="text-[11px] font-semibold uppercase tracking-[0.25em] text-white/50">
               {HERO_EYEBROW}
             </p>
-            <h1 className="mt-6 text-[32px] font-bold leading-[1.08] tracking-tight text-white sm:text-[44px] sm:leading-[1.05] md:text-[56px]">
+            <h1 className="mt-6 text-[32px] font-medium leading-[1.08] tracking-tight text-white sm:text-[44px] sm:leading-[1.05] md:text-[56px]">
               {HERO_HEADLINE}
             </h1>
             <p className="mt-5 text-[16px] leading-snug text-white/60 sm:text-[17px]">
@@ -578,6 +588,34 @@ export default function WaitlistPage() {
               </div>
             </div>
           </div>
+
+          {/* Scroll cue: hints the book order card sits below the fold (desktop;
+              on mobile the stacked cards already overflow the viewport). */}
+          <button
+            type="button"
+            onClick={() => {
+              const el = document.getElementById("book-order");
+              if (!el) return;
+              const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+              el.scrollIntoView({ behavior: reduce ? "auto" : "smooth", block: "start" });
+            }}
+            aria-label="Beställ Johans bok nedan"
+            className="waitlist-hero-in waitlist-hero-in-delay-5 absolute bottom-8 left-1/2 hidden -translate-x-1/2 flex-col items-center gap-2 rounded-full px-4 py-2 text-white/45 transition-colors hover:text-white/75 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#907AFF]/40 focus-visible:ring-offset-2 focus-visible:ring-offset-transparent md:flex"
+          >
+            <span className="text-[10px] font-medium uppercase tracking-[0.3em]">Beställ boken</span>
+            <svg
+              className="waitlist-scroll-cue-icon h-5 w-5"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth={2}
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              aria-hidden
+            >
+              <path d="m6 9 6 6 6-6" />
+            </svg>
+          </button>
         </section>
 
         {/* Order Johan SvH's book — sits directly below the sign-up cards */}
