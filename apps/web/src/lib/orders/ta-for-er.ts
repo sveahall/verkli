@@ -8,7 +8,7 @@
  */
 export const TA_FOR_ER_ORDER = {
   bookTitle: "Ta för er!",
-  authorName: "Johan SvH",
+  authorName: "Johan Staël von Holstein",
   /** Price in minor units (öre). 249 kr, shipping included. */
   priceMinor: 24900,
   currency: "SEK",
