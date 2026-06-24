@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Image from "next/image";
 import { TA_FOR_ER_ORDER } from "@/lib/orders/ta-for-er";
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -86,6 +87,16 @@ export default function BookOrderSection() {
     <section id="book-order" className="relative scroll-mt-8 px-4 pb-24 pt-2 dark" aria-labelledby="book-order-heading">
       <div className="mx-auto w-full max-w-md">
         <div className="aurora-card rounded-3xl border border-white/20 bg-white/10 p-6 shadow-[0_24px_48px_rgba(0,0,0,0.2),0_0_0_1px_rgba(255,255,255,0.08)] backdrop-blur-xl sm:p-8">
+          <div className="mb-5 flex justify-center">
+            <Image
+              src="/ta-for-er-cover.jpg"
+              alt={`Omslag: ${TA_FOR_ER_ORDER.bookTitle} av ${TA_FOR_ER_ORDER.authorName}`}
+              width={150}
+              height={205}
+              priority
+              className="h-auto w-[136px] rounded-xl shadow-surface-lg ring-1 ring-white/10 sm:w-[150px]"
+            />
+          </div>
           <p className="text-center text-[10px] font-medium uppercase tracking-[0.3em] text-white/35">
             Beställ boken
           </p>
