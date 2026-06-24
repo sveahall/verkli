@@ -259,9 +259,12 @@ export type Database = {
           first_name: string | null
           has_published_before: boolean | null
           last_name: string | null
+          motivation: string | null
           published_books_url: string | null
           status: string
           user_id: string
+          work_samples: string | null
+          writing_background: string | null
         }
         Insert: {
           created_at?: string
@@ -269,9 +272,12 @@ export type Database = {
           first_name?: string | null
           has_published_before?: boolean | null
           last_name?: string | null
+          motivation?: string | null
           published_books_url?: string | null
           status?: string
           user_id: string
+          work_samples?: string | null
+          writing_background?: string | null
         }
         Update: {
           created_at?: string
@@ -279,9 +285,12 @@ export type Database = {
           first_name?: string | null
           has_published_before?: boolean | null
           last_name?: string | null
+          motivation?: string | null
           published_books_url?: string | null
           status?: string
           user_id?: string
+          work_samples?: string | null
+          writing_background?: string | null
         }
         Relationships: []
       }

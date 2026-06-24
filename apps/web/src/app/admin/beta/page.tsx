@@ -9,16 +9,27 @@ import {
   type CohortMetrics,
   type LoadState,
 } from "./helpers";
+import { PageHeader } from "@/components/ui/page-header";
+import { Breadcrumbs } from "@/components/ui/breadcrumbs";
+import { Card, CardHeader, CardContent } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { LoadingState, ErrorState, EmptyState } from "@/components/ui/states";
+
+type EventCount = { event_name: string; count: number };
 
 /**
  * /admin/beta — soft-launch cohort dashboard.
  *
- * Single data source: GET /api/admin/metrics/funnel (PR 2). The page does no
- * direct DB reads. Admin gating is provided by /admin/layout.tsx →
+ * Single data source: GET /api/admin/metrics/funnel. The page does no direct
+ * DB reads. Admin gating is provided by /admin/layout.tsx →
  * requireAdminPageAccess(); a non-admin never reaches this component.
  */
 export default function AdminBetaPage() {
   const [state, setState] = useState<LoadState>({ kind: "loading" });
+  const [breakdown, setBreakdown] = useState<{
+    author: EventCount[];
+    reader: EventCount[];
+  }>({ author: [], reader: [] });
 
   useEffect(() => {
     let cancelled = false;
@@ -37,6 +48,10 @@ export default function AdminBetaPage() {
         setState(
           deriveLoadState({ status: "fetched", httpStatus: res.status, body })
         );
+        setBreakdown({
+          author: extractEvents(body, "author"),
+          reader: extractEvents(body, "reader"),
+        });
       } catch {
         if (cancelled) return;
         setState(deriveLoadState({ status: "error" }));
@@ -48,37 +63,40 @@ export default function AdminBetaPage() {
   }, []);
 
   return (
-    <main className="mx-auto w-full max-w-5xl px-6 py-12">
-      <h1 className="mb-2 text-2xl font-semibold text-slate-900 dark:text-white">
-        Beta Cohort
-      </h1>
-      <p className="mb-6 text-sm text-slate-500 dark:text-white/50">
-        Soft-launch funnel and kill-criteria thresholds.
-      </p>
-
-      <Body state={state} />
-    </main>
+    <div className="page-content py-10">
+      <Breadcrumbs
+        className="mb-4"
+        items={[{ label: "Admin", href: "/admin" }, { label: "Beta" }]}
+      />
+      <PageHeader
+        eyebrow="Soft launch"
+        title="Beta Cohort"
+        description="Soft-launch funnel and kill-criteria thresholds, over the last 7 days."
+      />
+      <div className="mt-8">
+        <Body state={state} breakdown={breakdown} />
+      </div>
+    </div>
   );
 }
 
-function Body({ state }: { state: LoadState }) {
+function Body({
+  state,
+  breakdown,
+}: {
+  state: LoadState;
+  breakdown: { author: EventCount[]; reader: EventCount[] };
+}) {
   if (state.kind === "loading") {
-    return (
-      <div className="rounded-2xl border border-dashed border-slate-300 px-6 py-10 text-center text-sm text-slate-600 dark:border-white/20 dark:text-white/60">
-        Loading funnel metrics…
-      </div>
-    );
+    return <LoadingState title="Loading funnel metrics…" />;
   }
 
   if (state.kind === "error") {
     return (
-      <div
-        role="alert"
-        className="rounded-2xl border border-red-200 bg-red-50 px-5 py-4 text-sm text-red-800 dark:border-red-500/30 dark:bg-red-500/10 dark:text-red-300"
-      >
-        <p className="font-semibold">Funnel unavailable</p>
-        <p className="mt-1 text-red-700 dark:text-red-300/80">{state.message}</p>
-      </div>
+      <ErrorState
+        title="Funnel unavailable"
+        description={state.message}
+      />
     );
   }
 
@@ -86,30 +104,42 @@ function Body({ state }: { state: LoadState }) {
   const kill = evaluateKillCriteria(cohort);
 
   return (
-    <>
+    <div className="space-y-6">
       {state.kind === "empty" && (
-        <div className="mb-6 rounded-2xl border border-slate-200 bg-slate-50 px-5 py-4 text-sm text-slate-700 dark:border-white/10 dark:bg-white/[0.02] dark:text-white/70">
-          No cohort activity yet. Metrics populate once the first waitlist
-          signup, beta grant, publish, or read occurs.
-        </div>
+        <EmptyState
+          title="No cohort activity yet"
+          description="Metrics populate once the first waitlist signup, beta grant, publish, or read occurs."
+        />
       )}
 
       {kill.warnings.length > 0 && (
-        <div
+        <Card
           role="status"
-          className="mb-6 rounded-2xl border border-amber-300 bg-amber-50 px-5 py-4 text-sm text-amber-900 dark:border-amber-500/40 dark:bg-amber-500/10 dark:text-amber-200"
+          className="border-[var(--color-warning)]/40 bg-[var(--color-warning-muted)]"
         >
-          <p className="font-semibold">Kill-criteria thresholds tripped</p>
-          <ul className="mt-2 list-disc space-y-1 pl-5">
-            {kill.warnings.map((w) => (
-              <li key={w}>{w}</li>
-            ))}
-          </ul>
-        </div>
+          <CardContent className="space-y-2">
+            <div className="flex items-center gap-2">
+              <Badge variant="warning">Kill criteria</Badge>
+              <span className="text-[15px] font-semibold text-slate-900 dark:text-white">
+                Thresholds tripped
+              </span>
+            </div>
+            <ul className="list-disc space-y-1 pl-5 text-[14px] text-slate-700 dark:text-white/70">
+              {kill.warnings.map((w) => (
+                <li key={w}>{w}</li>
+              ))}
+            </ul>
+          </CardContent>
+        </Card>
       )}
 
       <CohortGrid cohort={cohort} />
-    </>
+
+      <div className="grid gap-4 lg:grid-cols-2">
+        <EventBreakdown title="Author events" events={breakdown.author} />
+        <EventBreakdown title="Reader events" events={breakdown.reader} />
+      </div>
+    </div>
   );
 }
 
@@ -145,16 +175,68 @@ function Metric({
   sub?: string;
 }) {
   return (
-    <div className="rounded-2xl border border-slate-200 bg-white p-5 dark:border-white/10 dark:bg-white/[0.02]">
-      <p className="text-xs font-medium uppercase tracking-wide text-slate-500 dark:text-white/50">
-        {label}
-      </p>
-      <p className="mt-2 text-3xl font-semibold text-slate-900 dark:text-white">
+    <Card className="px-5 py-5">
+      <p className="text-eyebrow">{label}</p>
+      <p className="text-stat mt-2 tabular-nums text-slate-900 dark:text-white">
         {value}
       </p>
       {sub && (
-        <p className="mt-1 text-xs text-slate-500 dark:text-white/50">{sub}</p>
+        <p className="mt-1 text-[13px] text-slate-500 dark:text-white/50">{sub}</p>
       )}
-    </div>
+    </Card>
   );
+}
+
+function EventBreakdown({
+  title,
+  events,
+}: {
+  title: string;
+  events: EventCount[];
+}) {
+  return (
+    <Card className="p-0">
+      <CardHeader>
+        <h3 className="text-[15px] font-semibold text-slate-900 dark:text-white">
+          {title}
+        </h3>
+      </CardHeader>
+      <CardContent>
+        {events.length === 0 ? (
+          <p className="text-[13px] text-slate-500 dark:text-white/50">
+            No events in window.
+          </p>
+        ) : (
+          <ul className="space-y-2">
+            {events.slice(0, 8).map((e) => (
+              <li
+                key={e.event_name}
+                className="flex items-center justify-between gap-3 text-[14px]"
+              >
+                <span className="truncate font-mono text-[13px] text-slate-700 dark:text-white/70">
+                  {e.event_name}
+                </span>
+                <span className="tabular-nums font-medium text-slate-900 dark:text-white">
+                  {formatNumber(e.count)}
+                </span>
+              </li>
+            ))}
+          </ul>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
+function extractEvents(body: unknown, key: "author" | "reader"): EventCount[] {
+  if (typeof body !== "object" || body === null) return [];
+  const arr = (body as Record<string, unknown>)[key];
+  if (!Array.isArray(arr)) return [];
+  return arr.flatMap((item) => {
+    if (typeof item !== "object" || item === null) return [];
+    const name = (item as Record<string, unknown>).event_name;
+    const count = (item as Record<string, unknown>).count;
+    if (typeof name !== "string" || typeof count !== "number") return [];
+    return [{ event_name: name, count }];
+  });
 }

@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import {
@@ -15,6 +16,41 @@ import {
 import { createPerUserRateLimiter } from "@/lib/rate-limit";
 
 const applicationLimiter = createPerUserRateLimiter({ maxPerMinute: 5 });
+
+// Trim strings and collapse empties to null so the optional questionnaire
+// columns stay nullable.
+const optionalString = z
+  .string()
+  .transform((value) => value.trim())
+  .transform((value) => (value.length > 0 ? value : null))
+  .nullable();
+
+// Required free-text fields the signup UI also enforces. Validated server-side
+// so a direct POST can't create a pending application with no review context.
+const requiredString = z.string().trim().min(1);
+
+// Optional, but when present must be an http(s) link — it is rendered as a
+// clickable link in the admin review UI, so reject javascript:/data: schemes.
+const optionalHttpUrl = z
+  .string()
+  .transform((value) => value.trim())
+  .transform((value) => (value.length > 0 ? value : null))
+  .nullable()
+  .refine(
+    (value) => value === null || /^https?:\/\//i.test(value),
+    "Link must start with http:// or https://"
+  );
+
+const applicationSchema = z.object({
+  firstName: requiredString,
+  lastName: requiredString,
+  email: requiredString,
+  hasPublishedBefore: z.boolean().nullish(),
+  publishedBooksUrl: optionalHttpUrl.optional(),
+  motivation: requiredString,
+  writingBackground: requiredString,
+  workSamples: optionalString.optional(),
+});
 
 export async function GET() {
   const supabase = await createClient();
@@ -70,11 +106,21 @@ export async function POST(request: Request) {
   }
 
   const body = await request.json().catch(() => null);
-  const firstName = typeof body?.firstName === "string" ? body.firstName.trim() : "";
-  const lastName = typeof body?.lastName === "string" ? body.lastName.trim() : "";
-  const email = typeof body?.email === "string" ? body.email.trim() : "";
-  const hasPublishedBefore = typeof body?.hasPublishedBefore === "boolean" ? body.hasPublishedBefore : null;
-  const publishedBooksUrl = typeof body?.publishedBooksUrl === "string" ? body.publishedBooksUrl.trim() : null;
+  const parsed = applicationSchema.safeParse(body ?? {});
+  if (!parsed.success) {
+    return apiError(E_APPLICATION_SUBMIT_FAILED, 400);
+  }
+
+  const {
+    firstName = null,
+    lastName = null,
+    email = null,
+    hasPublishedBefore = null,
+    publishedBooksUrl = null,
+    motivation = null,
+    writingBackground = null,
+    workSamples = null,
+  } = parsed.data;
 
   const admin = createAdminClient();
   const currentStatus = await getAuthorApplicationStatus(admin, user.id);
@@ -88,11 +134,14 @@ export async function POST(request: Request) {
   }
 
   const applicationData = {
-    first_name: firstName || null,
-    last_name: lastName || null,
-    email: email || null,
+    first_name: firstName,
+    last_name: lastName,
+    email: email,
     has_published_before: hasPublishedBefore,
-    published_books_url: publishedBooksUrl || null,
+    published_books_url: publishedBooksUrl,
+    motivation,
+    writing_background: writingBackground,
+    work_samples: workSamples,
   };
 
   if (currentStatus === "rejected") {

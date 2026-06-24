@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { requireAdminRole } from "@/lib/admin-auth";
 import { getAudiobookStorageBucket } from "@/lib/tts/storage";
 import { canUserReadBook } from "@/lib/books/access";
 import { assertPublicEnv } from "@/lib/env";
@@ -99,13 +100,19 @@ export async function GET(
   const isAuthor = Boolean(user?.id && bookRow.author_id === user.id);
   const isPublished = String(bookRow.status ?? "").toUpperCase() === "PUBLISHED";
 
-  // Authors may preview audio for unpublished books; readers require PUBLISHED.
-  if (!isPublished && !isAuthor) {
+  // Admins may listen to any chapter's audio for moderation. This only widens
+  // access; the author/reader checks below are unchanged. Treated like an
+  // author for the published-book and chapter-published gates so drafts can be
+  // moderated. Skip the role lookup entirely for the common author path.
+  const isModeratorAdmin = isAuthor ? false : (await requireAdminRole()).ok;
+
+  // Authors and admins may preview audio for unpublished books; readers require PUBLISHED.
+  if (!isPublished && !isAuthor && !isModeratorAdmin) {
     return apiError(E_BOOK_NOT_FOUND, 404);
   }
 
-  // Authors always have access; for others, delegate to the shared access helper.
-  let hasReadAccess = isAuthor;
+  // Authors and admins always have access; for others, delegate to the shared access helper.
+  let hasReadAccess = isAuthor || isModeratorAdmin;
   if (!hasReadAccess) {
     hasReadAccess = await canUserReadBook({
       supabase,
@@ -123,7 +130,8 @@ export async function GET(
 
   // For non-author readers, verify the chapter is actually published
   // (published_chapter_count IS NULL → all chapters live, otherwise order < count).
-  if (!isAuthor) {
+  // Admins moderating content bypass this gate, like authors.
+  if (!isAuthor && !isModeratorAdmin) {
     const { data: version, error: versionError } = await admin
       .from("book_versions")
       .select("published_at, published_chapter_count")

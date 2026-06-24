@@ -18,7 +18,7 @@ export async function GET(request: Request) {
 
   let query = admin
     .from("books")
-    .select("id, title, slug, status, author_id, created_at, updated_at, language", { count: "exact" })
+    .select("id, title, slug, status, author_id, cover_image, created_at, updated_at, language", { count: "exact" })
     .order("created_at", { ascending: false })
     .range(offset, offset + limit - 1);
 
@@ -61,6 +61,7 @@ export async function GET(request: Request) {
     status: b.status,
     author_id: b.author_id,
     author_name: authorMap.get(b.author_id as string) ?? "Unknown",
+    cover_image: b.cover_image,
     language: b.language,
     created_at: b.created_at,
     updated_at: b.updated_at,

@@ -8,6 +8,7 @@ import AuthCard from "@/components/auth/AuthCard";
 import { Button } from "@/components/ui/button";
 import { FormField } from "@/components/ui/form-field";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { createClient } from "@/lib/supabase/client";
 import { resolveErrorMessage } from "@/lib/error-messages";
 import { signUp, signInWithGoogle } from "@/lib/supabase/auth";
@@ -29,7 +30,7 @@ const isExistingSupabaseUser = (
   return Array.isArray(identities) && identities.length === 0;
 };
 
-type ApplicationStep = "info" | "published" | "link" | "submitted";
+type ApplicationStep = "info" | "background" | "published" | "link" | "submitted";
 
 export default function AuthorSignUp() {
   const router = useRouter();
@@ -53,6 +54,9 @@ export default function AuthorSignUp() {
   const [contactEmail, setContactEmail] = useState("");
   const [hasPublishedBefore, setHasPublishedBefore] = useState<boolean | null>(null);
   const [publishedBooksUrl, setPublishedBooksUrl] = useState("");
+  const [motivation, setMotivation] = useState("");
+  const [writingBackground, setWritingBackground] = useState("");
+  const [workSamples, setWorkSamples] = useState("");
   const [stepErrors, setStepErrors] = useState<Record<string, string>>({});
 
   useEffect(() => {
@@ -188,6 +192,9 @@ export default function AuthorSignUp() {
           email: contactEmail,
           hasPublishedBefore: hasPublishedBefore ?? false,
           publishedBooksUrl: hasPublishedBefore ? publishedBooksUrl : null,
+          motivation,
+          writingBackground,
+          workSamples,
         }),
       });
       const payload = await response.json().catch(() => null);
@@ -220,6 +227,16 @@ export default function AuthorSignUp() {
     if (!firstName.trim()) errors.firstName = "First name is required.";
     if (!lastName.trim()) errors.lastName = "Last name is required.";
     if (!contactEmail.trim()) errors.contactEmail = "Email is required.";
+    setStepErrors(errors);
+    if (Object.keys(errors).length === 0) {
+      setStep("background");
+    }
+  };
+
+  const handleNextFromBackground = () => {
+    const errors: Record<string, string> = {};
+    if (!motivation.trim()) errors.motivation = "Tell us a little about why you want to publish.";
+    if (!writingBackground.trim()) errors.writingBackground = "Share a bit about your writing background.";
     setStepErrors(errors);
     if (Object.keys(errors).length === 0) {
       setStep("published");
@@ -320,13 +337,15 @@ export default function AuthorSignUp() {
         <AuthCard
           title={
             step === "info" ? "Apply to become an author"
-              : step === "published" ? "Your publishing experience"
-                : "Your published books"
+              : step === "background" ? "About your writing"
+                : step === "published" ? "Your publishing experience"
+                  : "Your published books"
           }
           subtitle={
             step === "info" ? "Tell us about yourself"
-              : step === "published" ? "Step 2 of 3"
-                : "Step 3 of 3"
+              : step === "background" ? "Step 2 of 4"
+                : step === "published" ? "Step 3 of 4"
+                  : "Step 4 of 4"
           }
         >
           {applicationError && (
@@ -359,6 +378,50 @@ export default function AuthorSignUp() {
             </div>
           )}
 
+          {step === "background" && (
+            <div className="flex flex-col gap-4">
+              <p className="text-[14px] leading-relaxed text-slate-500 dark:text-white/50">
+                Help us get to know you as a writer. A few sentences for each is plenty.
+              </p>
+
+              <FormField label="Why do you want to publish with us?" error={stepErrors.motivation}>
+                <Textarea
+                  value={motivation}
+                  onChange={(e) => setMotivation(e.target.value)}
+                  placeholder="What draws you to publishing, and what you hope to share…"
+                />
+              </FormField>
+
+              <FormField label="Tell us about your writing background" error={stepErrors.writingBackground}>
+                <Textarea
+                  value={writingBackground}
+                  onChange={(e) => setWritingBackground(e.target.value)}
+                  placeholder="Your experience writing — genres, how long you’ve written, any training…"
+                />
+              </FormField>
+
+              <FormField
+                label="Work samples or links"
+                helper="Optional — paste links to your work, a portfolio, or a short sample."
+                error={stepErrors.workSamples}
+              >
+                <Textarea
+                  value={workSamples}
+                  onChange={(e) => setWorkSamples(e.target.value)}
+                  placeholder="https://… or a short excerpt of your writing"
+                />
+              </FormField>
+
+              <Button fullWidth onClick={handleNextFromBackground} className="mt-1">
+                Continue
+              </Button>
+
+              <button type="button" onClick={() => setStep("info")} className="mt-1 text-[13px] text-slate-400 transition hover:text-slate-600 dark:text-white/40 dark:hover:text-white/60">
+                Go back
+              </button>
+            </div>
+          )}
+
           {step === "published" && (
             <div className="flex flex-col gap-4">
               <p className="text-[14px] leading-relaxed text-slate-500 dark:text-white/50">
@@ -374,7 +437,7 @@ export default function AuthorSignUp() {
                 </Button>
               </div>
 
-              <button type="button" onClick={() => setStep("info")} className="mt-1 text-[13px] text-slate-400 transition hover:text-slate-600 dark:text-white/40 dark:hover:text-white/60">
+              <button type="button" onClick={() => setStep("background")} className="mt-1 text-[13px] text-slate-400 transition hover:text-slate-600 dark:text-white/40 dark:hover:text-white/60">
                 Go back
               </button>
             </div>

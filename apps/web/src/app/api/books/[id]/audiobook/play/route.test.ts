@@ -11,15 +11,17 @@ import {
 /* ── mocks ─────────────────────────────────────────────────── */
 
 const mockGetUser = vi.fn();
-const { createClient, createAdminClient, canUserReadBook } = vi.hoisted(() => ({
+const { createClient, createAdminClient, canUserReadBook, requireAdminRole } = vi.hoisted(() => ({
   createClient: vi.fn(),
   createAdminClient: vi.fn(),
   canUserReadBook: vi.fn(),
+  requireAdminRole: vi.fn(),
 }));
 
 vi.mock("@/lib/supabase/server", () => ({ createClient }));
 vi.mock("@/lib/supabase/admin", () => ({ createAdminClient }));
 vi.mock("@/lib/books/access", () => ({ canUserReadBook }));
+vi.mock("@/lib/admin-auth", () => ({ requireAdminRole }));
 vi.mock("@/lib/tts/storage", () => ({ getAudiobookStorageBucket: () => "audiobooks" }));
 
 /* ── helpers ───────────────────────────────────────────────── */
@@ -88,6 +90,8 @@ describe("GET /api/books/[id]/audiobook/play", () => {
     process.env.AUDIOBOOK_ENABLED = "true";
 
     createClient.mockResolvedValue({ auth: { getUser: mockGetUser } });
+    // Default: caller is not an admin. Admin-specific tests override this.
+    requireAdminRole.mockResolvedValue({ ok: false });
   });
 
   afterEach(() => {
@@ -123,6 +127,26 @@ describe("GET /api/books/[id]/audiobook/play", () => {
     expect(body.audioUrl).toBe("https://signed");
     expect(admin.storage.from).toHaveBeenCalledWith("audiobooks");
     expect(admin.__createSignedUrl).toHaveBeenCalledWith("books/book-1/ch-1.wav", 60 * 15);
+  });
+
+  it("admin moderator can preview audio on a DRAFT book they don't own", async () => {
+    mockGetUser.mockResolvedValue({ data: { user: { id: "admin-1" } } });
+    requireAdminRole.mockResolvedValue({ ok: true });
+    canUserReadBook.mockResolvedValue(false);
+    const admin = adminWith({
+      chapters: fakeQuery(chapter),
+      books: fakeQuery(draftBook),
+      book_versions: fakeQuery(versionAllPublished),
+      chapter_audio_cache: fakeQuery(cache),
+    });
+    createAdminClient.mockReturnValue(admin);
+
+    const { GET } = await import("./route");
+    const res = await GET(makeRequest(), params());
+    const body = await res.json();
+
+    expect(res.status).toBe(200);
+    expect(body.audioUrl).toBe("https://signed");
   });
 
   it("anonymous reader gets 404 on DRAFT book", async () => {

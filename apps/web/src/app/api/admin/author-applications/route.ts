@@ -26,6 +26,9 @@ type ApplicationRow = {
   email: string | null;
   has_published_before: boolean | null;
   published_books_url: string | null;
+  motivation: string | null;
+  writing_background: string | null;
+  work_samples: string | null;
 };
 type UserRow = {
   id: string;
@@ -39,7 +42,7 @@ export async function GET() {
   const admin = createAdminClient();
   const { data, error } = await admin
     .from("author_applications" as never)
-    .select("user_id, status, created_at, first_name, last_name, email, has_published_before, published_books_url")
+    .select("user_id, status, created_at, first_name, last_name, email, has_published_before, published_books_url, motivation, writing_background, work_samples")
     .order("created_at", { ascending: false });
 
   if (error) {
