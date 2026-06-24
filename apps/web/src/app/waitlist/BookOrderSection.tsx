@@ -94,7 +94,7 @@ export default function BookOrderSection() {
               width={150}
               height={205}
               priority
-              className="h-auto w-[136px] rounded-xl shadow-surface-lg ring-1 ring-white/10 sm:w-[150px]"
+              className="h-auto w-[176px] rounded-xl shadow-surface-lg ring-1 ring-white/10 sm:w-[200px]"
             />
           </div>
           <p className="text-center text-[10px] font-medium uppercase tracking-[0.3em] text-white/35">

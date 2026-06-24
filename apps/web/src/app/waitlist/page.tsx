@@ -86,6 +86,11 @@ export default function WaitlistPage() {
   return (
     <>
       <style>{`
+        /* Dark base for the whole page so the gradient covers the entire
+           screen on mobile too — body is otherwise bg-background (white),
+           which showed through the safe-area padding (top/bottom) and on
+           overscroll behind the fixed aurora. */
+        html, body { background-color: #070914; }
         @keyframes waitlist-hero-in {
           from { opacity: 0; transform: translateY(12px); }
           to { opacity: 1; transform: translateY(0); }
