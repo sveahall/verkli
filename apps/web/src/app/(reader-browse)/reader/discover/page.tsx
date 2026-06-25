@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { getPublicAuthorInfoMap } from "@/lib/authors/public-author";
 import { AVATARS_BUCKET_PUBLIC } from "@/lib/supabase/config";
 import { getDiscoveryEnabled } from "@/lib/flags";
 import {
@@ -161,11 +162,12 @@ async function enrichBooksWithAuthor(
   const bookIds = books.map((b) => b.id);
   const authorIds = [...new Set(books.map((b) => b.author_id))];
 
-  const [profilesRes, genreJunctionRes] = await Promise.all([
-    supabase
-      .from("profiles")
-      .select("user_id, display_name, username")
-      .in("user_id", authorIds),
+  const [authorInfoMap, genreJunctionRes] = await Promise.all([
+    // Author attribution must bypass RLS the same way /reader/authors does. A
+    // direct anon `profiles` read returns nothing for RLS-private profiles,
+    // which left every card showing "Unknown author". See
+    // lib/authors/public-author.ts for the rationale.
+    getPublicAuthorInfoMap(authorIds),
     supabase
       .from("book_genres")
       .select("book_id, genres(name_en, icon)")
@@ -174,10 +176,13 @@ async function enrichBooksWithAuthor(
   ]);
 
   const authorMap = new Map(
-    (profilesRes.data ?? []).map((p) => [
-      p.user_id,
-      p.display_name || p.username || "Unknown author",
-    ])
+    authorIds.map((id) => {
+      const info = authorInfoMap.get(id);
+      return [
+        id,
+        info?.display_name?.trim() || info?.username?.trim() || "Unknown author",
+      ];
+    })
   );
 
   // Pick the first genre per book as the display genre

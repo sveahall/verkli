@@ -25,6 +25,10 @@ import { normalizePrintOnDemandSettings } from "@/lib/print-on-demand";
 import ReaderBookPageView from "@/features/reader/reader-book/ReaderBookPageView";
 import { formatMoney } from "@/lib/format-money";
 import { createAdminClient } from "@/lib/supabase/admin";
+import {
+  getPublicAuthorInfoMap,
+  resolvePublicAuthorName,
+} from "@/lib/authors/public-author";
 import { isDemoModeActive } from "@/lib/flags";
 import DemoReaderFinale, { type DemoChapterByLang } from "./DemoReaderFinale";
 
@@ -363,13 +367,12 @@ export default async function ReaderBookDetail({
 
   // These four reads are independent — fan them out so TTFB is bounded by
   // the slowest single round-trip instead of the sum.
-  const [authorProfileRes, genreJunctionRes, chaptersRes, ratingRowsRes] =
+  const [authorInfoMap, genreJunctionRes, chaptersRes, ratingRowsRes] =
     await Promise.all([
-      supabase
-        .from("profiles")
-        .select("display_name, username")
-        .eq("user_id", book.author_id)
-        .maybeSingle(),
+      // Resolve author attribution past RLS like /reader/authors does — an
+      // anon `profiles` read returns nothing for RLS-private profiles, which
+      // rendered a generic "Author". See lib/authors/public-author.ts.
+      getPublicAuthorInfoMap(book.author_id ? [book.author_id] : []),
       supabase
         .from("book_genres")
         .select("genres(name, name_en)")
@@ -382,7 +385,7 @@ export default async function ReaderBookDetail({
       supabase.from("reviews").select("rating").eq("book_id", book.id),
     ]);
 
-  const authorProfile = authorProfileRes.data;
+  const authorProfile = book.author_id ? authorInfoMap.get(book.author_id) : null;
   const bookGenres = (genreJunctionRes.data ?? [])
     .map((row) => {
       const g = Array.isArray(row.genres) ? row.genres[0] : row.genres;
@@ -465,7 +468,7 @@ export default async function ReaderBookDetail({
     }
   }
 
-  const authorName = authorProfile?.display_name || authorProfile?.username || "Author";
+  const authorName = resolvePublicAuthorName(authorProfile);
   const languageName = getLanguageLabel(lang);
   const originalUrl = (book as { original_url?: string | null }).original_url;
   const purchaseState = resolvedSearchParams?.purchase;
