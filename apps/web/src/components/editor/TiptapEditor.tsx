@@ -5,7 +5,6 @@ import Placeholder from "@tiptap/extension-placeholder";
 import TextAlign from "@tiptap/extension-text-align";
 import { TextStyle } from "@tiptap/extension-text-style";
 import { FontFamily } from "@tiptap/extension-font-family";
-import Underline from "@tiptap/extension-underline";
 import Highlight from "@tiptap/extension-highlight";
 import CharacterCount from "@tiptap/extension-character-count";
 import StarterKit from "@tiptap/starter-kit";
@@ -131,7 +130,10 @@ export default function TiptapEditor({
       TextAlign.configure({ types: ["heading", "paragraph"] }),
       TextStyle,
       FontFamily,
-      Underline,
+      // Underline comes from StarterKit (v3) — registering the standalone
+      // @tiptap/extension-underline too triggered a "Duplicate extension
+      // names found: ['underline']" warning. The toolbar's toggleUnderline()
+      // command is provided by StarterKit's bundled underline.
       Highlight.configure({ multicolor: true }),
       CharacterCount,
       Placeholder.configure({ placeholder }),
