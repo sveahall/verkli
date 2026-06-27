@@ -14,10 +14,16 @@ const mocks = vi.hoisted(() => ({
   createAdminClient: vi.fn(),
   getServerEnv: vi.fn(),
   resendSend: vi.fn(),
+  getUserEmailMap: vi.fn(),
 }));
 
 vi.mock("@/lib/admin-auth", () => ({
   requireAdminRoleForApi: mocks.requireAdminRoleForApi,
+}));
+
+vi.mock("@/lib/admin/user-emails", () => ({
+  getUserEmailMap: mocks.getUserEmailMap,
+  getUserEmail: vi.fn(),
 }));
 
 vi.mock("@/lib/supabase/admin", () => ({
@@ -90,6 +96,8 @@ describe("GET /api/admin/author-applications", () => {
     vi.clearAllMocks();
     vi.spyOn(console, "error").mockImplementation(() => {});
     vi.spyOn(console, "warn").mockImplementation(() => {});
+    // Emails are resolved via the auth.users helper; default to empty.
+    mocks.getUserEmailMap.mockResolvedValue(new Map<string, string>());
   });
 
   it("returns 401 without authenticated user", async () => {
@@ -117,12 +125,8 @@ describe("GET /api/admin/author-applications", () => {
           order: vi.fn().mockResolvedValue({ data: apps, error: null }),
         })),
       },
-      users: {
-        select: vi.fn(() => ({
-          in: vi.fn().mockResolvedValue({ data: [{ id: "u1", email: "auth@b.com" }], error: null }),
-        })),
-      },
     });
+    mocks.getUserEmailMap.mockResolvedValue(new Map([["u1", "auth@b.com"]]));
 
     const res = await GET();
     expect(res.status).toBe(200);

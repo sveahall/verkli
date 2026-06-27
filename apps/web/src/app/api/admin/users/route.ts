@@ -3,6 +3,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { requireAdminRoleForApi } from "@/lib/admin-auth";
 import { apiError, E_DATABASE_ERROR, E_INVALID_USER_ID, isValidUuid } from "@/lib/api-errors";
 import { logAnalyticsEvent } from "@/lib/analytics/events";
+import { getUserEmailMap } from "@/lib/admin/user-emails";
 
 export async function GET(request: Request) {
   const { response } = await requireAdminRoleForApi();
@@ -35,20 +36,9 @@ export async function GET(request: Request) {
     return apiError(E_DATABASE_ERROR, 500);
   }
 
-  // Fetch emails from users table
+  // Emails live in auth.users, not public.users (which is empty in this env).
   const userIds = (data ?? []).map((p) => p.user_id as string);
-  const emailMap = new Map<string, string | null>();
-
-  if (userIds.length > 0) {
-    const { data: users } = await admin
-      .from("users" as never)
-      .select("id, email")
-      .in("id", userIds as never);
-
-    for (const u of (users ?? []) as Array<{ id: string; email: string | null }>) {
-      emailMap.set(u.id, u.email);
-    }
-  }
+  const emailMap = await getUserEmailMap(userIds);
 
   const users = (data ?? []).map((p) => ({
     user_id: p.user_id,

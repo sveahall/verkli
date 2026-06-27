@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { getUserEmail } from "@/lib/admin/user-emails";
 import { requireAdminRoleForApi } from "@/lib/admin-auth";
 import {
   apiError,
@@ -106,11 +107,7 @@ export async function GET(
     billingRes,
     auditRes,
   ] = await Promise.all([
-    admin
-      .from("users" as never)
-      .select("id, email")
-      .eq("id", id)
-      .maybeSingle(),
+    getUserEmail(id),
     admin
       .from("user_flags")
       .select("beta_enabled")
@@ -152,7 +149,7 @@ export async function GET(
   ]);
 
   const email =
-    (emailRes.data as { email: string | null } | null)?.email ?? null;
+    emailRes ?? null;
 
   const betaEnabled =
     (flagRes.data as { beta_enabled: boolean } | null)?.beta_enabled ?? false;

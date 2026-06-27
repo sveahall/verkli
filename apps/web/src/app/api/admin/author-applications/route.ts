@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { Resend } from "resend";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { getUserEmailMap } from "@/lib/admin/user-emails";
 import { getServerEnv } from "@/lib/env";
 import {
   apiError,
@@ -30,10 +31,6 @@ type ApplicationRow = {
   writing_background: string | null;
   work_samples: string | null;
 };
-type UserRow = {
-  id: string;
-  email: string | null;
-};
 
 export async function GET() {
   const { response } = await requireAdminRoleForApi();
@@ -54,24 +51,8 @@ export async function GET() {
 
   const applicationsData = (data ?? []) as ApplicationRow[];
   const userIds = applicationsData.map((application) => application.user_id);
-  const emailByUserId = new Map<string, string | null>();
-
-  if (userIds.length > 0) {
-    const { data: users, error: usersError } = await admin
-      .from("users" as never)
-      .select("id, email")
-      .in("id", userIds as never);
-
-    if (usersError) {
-      console.error("[author applications admin] failed to load user emails", {
-        message: usersError.message,
-      });
-    } else {
-      for (const user of (users ?? []) as UserRow[]) {
-        emailByUserId.set(user.id, user.email ?? null);
-      }
-    }
-  }
+  // Emails live in auth.users, not the empty public.users mirror.
+  const emailByUserId = await getUserEmailMap(userIds);
 
   const applications = applicationsData.map((application) => ({
     ...application,

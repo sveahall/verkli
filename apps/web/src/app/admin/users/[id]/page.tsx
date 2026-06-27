@@ -9,6 +9,7 @@ import {
   ScrollText,
 } from "lucide-react";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { getUserEmail } from "@/lib/admin/user-emails";
 import { requireAdminRole } from "@/lib/admin-auth";
 import { isValidUuid } from "@/lib/api-errors";
 import { getAvatarUrlFromPathServer } from "@/lib/supabase/avatar";
@@ -102,7 +103,7 @@ async function loadUserDetail(id: string): Promise<UserDetail | null> {
     billingRes,
     auditRes,
   ] = await Promise.all([
-    admin.from("users" as never).select("id, email").eq("id", id).maybeSingle(),
+    getUserEmail(id),
     admin.from("user_flags").select("beta_enabled").eq("user_id", id).maybeSingle(),
     admin
       .from("books")
@@ -174,7 +175,7 @@ async function loadUserDetail(id: string): Promise<UserDetail | null> {
 
   return {
     user_id: profile.user_id as string,
-    email: (emailRes.data as { email: string | null } | null)?.email ?? null,
+    email: emailRes ?? null,
     role: (profile.role as string | null) ?? null,
     display_name: (profile.display_name as string | null) ?? null,
     username: (profile.username as string | null) ?? null,
