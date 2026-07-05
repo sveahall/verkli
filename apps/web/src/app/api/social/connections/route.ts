@@ -21,11 +21,14 @@ export async function GET() {
 
   const supabase = await createClient();
 
-  // Query the SAFE VIEW — no token columns exist in it.
-  // RLS + view's WHERE user_id = auth.uid() filters automatically.
+  // Query the SAFE VIEW — no token columns exist in it. The view runs with
+  // security_invoker=on so the base table's RLS scopes rows to the caller;
+  // we ALSO filter by user_id explicitly as defense-in-depth so this endpoint
+  // never depends on RLS alone.
   const { data, error } = await supabase
     .from("social_connections_safe" as never)
-    .select("id, platform, platform_username, status, token_expires_at, connected_at, updated_at");
+    .select("id, platform, platform_username, status, token_expires_at, connected_at, updated_at")
+    .eq("user_id", user.id);
 
   if (error) {
     console.error("[social connections] failed to list connections:", error.message);

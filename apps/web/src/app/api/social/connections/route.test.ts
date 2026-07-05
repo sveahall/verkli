@@ -2,7 +2,9 @@ import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 
 // ─── Mocks ──────────────────────────────────────────────────────────────────
 
-const mockSelect = vi.fn().mockReturnValue({
+// The route now chains .select(...).eq("user_id", ...) — the terminal .eq()
+// resolves the query, so it carries the data payload.
+const mockEq = vi.fn().mockReturnValue({
   data: [
     {
       id: "conn-1",
@@ -16,6 +18,8 @@ const mockSelect = vi.fn().mockReturnValue({
   ],
   error: null,
 });
+
+const mockSelect = vi.fn().mockReturnValue({ eq: mockEq });
 
 const mockFrom = vi.fn().mockReturnValue({ select: mockSelect });
 
@@ -121,6 +125,8 @@ describe("GET /api/social/connections", () => {
     await GET();
 
     expect(mockFrom).toHaveBeenCalledWith("social_connections_safe");
+    // Defense-in-depth: endpoint scopes to the caller, not RLS alone.
+    expect(mockEq).toHaveBeenCalledWith("user_id", "u1");
   });
 
   it("returns connections with no token fields", async () => {
