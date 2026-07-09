@@ -237,13 +237,19 @@ async function processPodCheckoutSession(
     .maybeSingle();
 
   if (error) {
+    // Transient DB failure — THROW so the webhook rolls back the idempotency
+    // row and returns 500, letting Stripe retry. Returning false here would
+    // leave the event recorded and 200, so the paid POD order would never be
+    // marked paid and no retry would ever reach it.
     console.error("[stripe.webhook] pod order update failed", {
       podOrderId,
       sessionId,
       code: error.code,
       message: error.message,
     });
-    return false;
+    throw new Error(
+      `pod_orders update failed (${error.code}): ${error.message}`
+    );
   }
 
   console.info("[stripe.webhook] pod payment completed", {
@@ -384,13 +390,17 @@ async function processAuthorSubscriptionCheckoutSession(
   } as never);
 
   if (error) {
+    // Transient DB failure — THROW so Stripe retries (see the pod handler note).
+    // Returning false would silently drop a paid author-subscription activation.
     console.error("[stripe.webhook] upsert_author_subscription failed", {
       subscriberUserId,
       authorId,
       message: error.message,
       code: error.code,
     });
-    return false;
+    throw new Error(
+      `upsert_author_subscription failed (${error.code}): ${error.message}`
+    );
   }
 
   console.info("[stripe.webhook] author subscription activated", {
@@ -621,7 +631,13 @@ export async function processStripeWebhookEvent(
   resolveLineItems?: SessionLineItemsResolver
 ): Promise<StripeWebhookResponseBody> {
   switch (type) {
-    case "checkout.session.completed": {
+    // `async_payment_succeeded` fires when a delayed-payment method (Klarna,
+    // SEPA, etc.) finally clears — the original `completed` event arrived
+    // unpaid and was acknowledged as processed:false. It carries a distinct
+    // event id (so it is not a duplicate) and a now-paid session, so route it
+    // through the exact same finalize path to actually apply the purchase.
+    case "checkout.session.completed":
+    case "checkout.session.async_payment_succeeded": {
       const paymentKindResult = await processPaymentKindCheckoutSession(
         admin,
         object
