@@ -8,7 +8,10 @@ import { requireAuthorRoleForApi } from "@/lib/auth/require-author";
 import { requireProBillingForApi } from "@/lib/billing/server";
 import { enqueueAudiobookJob } from "@/lib/audiobook-queue";
 import { getStripeCheckoutSession } from "@/lib/payments/stripe";
-import { claimStripeSessionRedemption } from "@/lib/payments/session-redemption";
+import {
+  claimStripeSessionRedemption,
+  releaseStripeSessionRedemption,
+} from "@/lib/payments/session-redemption";
 import {
   apiError,
   E_AUDIOBOOK_FEATURE_DISABLED,
@@ -240,6 +243,20 @@ export async function POST(
     if (!proGate.ok) return proGate.response;
   }
 
+  // If a paid one-time session was consumed above but the job then fails to be
+  // created/enqueued below, the customer would have paid yet be permanently
+  // blocked (the redemption is a hard one-shot). Release the redemption on any
+  // such failure so the paid session can be retried. Best-effort / idempotent.
+  const failAfterPaidClaim = async (response: Response): Promise<Response> => {
+    if (paidViaStripe && stripeSessionId) {
+      await releaseStripeSessionRedemption(admin, {
+        sessionId: stripeSessionId,
+        kind: "audiobook",
+      });
+    }
+    return response;
+  };
+
   // Fetch book with versions
   const { data: book, error: bookFetchError } = await supabase
     .from("books")
@@ -249,10 +266,10 @@ export async function POST(
 
   if (bookFetchError) {
     console.error("[audiobook generate] book fetch failed:", bookFetchError.message);
-    return apiError(E_DATABASE_ERROR, 500);
+    return await failAfterPaidClaim(apiError(E_DATABASE_ERROR, 500));
   }
   if (!book || book.author_id !== user.id) {
-    return apiError(E_BOOK_NOT_FOUND, 404);
+    return await failAfterPaidClaim(apiError(E_BOOK_NOT_FOUND, 404));
   }
 
   // Resolve book_version_id
@@ -267,10 +284,12 @@ export async function POST(
 
   if (versionError) {
     console.error("[audiobook generate] version fetch failed:", versionError.message);
-    return apiError(E_DATABASE_ERROR, 500);
+    return await failAfterPaidClaim(apiError(E_DATABASE_ERROR, 500));
   }
   if (!version) {
-    return apiError(E_BOOK_VERSION_NOT_FOUND_FOR_LANGUAGE, 400, { detail: targetLanguage });
+    return await failAfterPaidClaim(
+      apiError(E_BOOK_VERSION_NOT_FOUND_FOR_LANGUAGE, 400, { detail: targetLanguage })
+    );
   }
 
   let requestedChapterTitle: string | null = null;
@@ -283,7 +302,7 @@ export async function POST(
 
     if (chapterError) {
       console.error("[audiobook generate] chapter lookup failed:", chapterError.message);
-      return apiError(E_DATABASE_ERROR, 500);
+      return await failAfterPaidClaim(apiError(E_DATABASE_ERROR, 500));
     }
     const byId = new Map((chapters ?? []).map((chapter) => [chapter.id, chapter]));
     const orderedRequested = requestedChapterIds
@@ -292,9 +311,11 @@ export async function POST(
 
     if (orderedRequested.length !== requestedChapterIds.length) {
       const missingIds = requestedChapterIds.filter((chapterId) => !byId.has(chapterId));
-      return apiError(E_NO_CHAPTERS_FOR_VERSION, 400, {
-        detail: `chapterId(s) not found for selected version: ${missingIds.join(", ")}`,
-      });
+      return await failAfterPaidClaim(
+        apiError(E_NO_CHAPTERS_FOR_VERSION, 400, {
+          detail: `chapterId(s) not found for selected version: ${missingIds.join(", ")}`,
+        })
+      );
     }
 
     requestedChapterIds = orderedRequested.map((chapter) => chapter.id);
@@ -358,7 +379,7 @@ export async function POST(
       })();
 
   if (!chapterCount || chapterCount === 0) {
-    return apiError(E_NO_CHAPTERS_FOR_VERSION, 400);
+    return await failAfterPaidClaim(apiError(E_NO_CHAPTERS_FOR_VERSION, 400));
   }
 
   // Get TTS config from env
@@ -425,7 +446,7 @@ export async function POST(
       }
     }
     console.error("[audiobook generate] failed to create job:", jobError?.message);
-    return apiError(E_JOB_CREATION_FAILED, 500);
+    return await failAfterPaidClaim(apiError(E_JOB_CREATION_FAILED, 500));
   }
 
   // Enqueue BullMQ job
@@ -475,7 +496,7 @@ export async function POST(
       })
       .eq("id", job.id);
 
-    return apiError(E_QUEUE_UNAVAILABLE, 503);
+    return await failAfterPaidClaim(apiError(E_QUEUE_UNAVAILABLE, 503));
   }
 
   console.info(

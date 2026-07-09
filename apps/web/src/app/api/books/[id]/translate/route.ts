@@ -8,7 +8,10 @@ import { evaluateDemoGuard } from "@/lib/demo-guard"
 import { requireProBillingForApi } from "@/lib/billing/server"
 import { isTranslationsEnabled } from "@/lib/flags"
 import { getStripeCheckoutSession } from "@/lib/payments/stripe"
-import { claimStripeSessionRedemption } from "@/lib/payments/session-redemption"
+import {
+  claimStripeSessionRedemption,
+  releaseStripeSessionRedemption,
+} from "@/lib/payments/session-redemption"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { isTranslationPairSupported } from "@/lib/translation-pairs"
 import {
@@ -340,6 +343,20 @@ export async function POST(
     if (!proGate.ok) return proGate.response
   }
 
+  // A paid one-time translation session is a hard one-shot claim. If it was
+  // consumed above but no job then gets enqueued (validation/queue failure),
+  // the customer has paid yet is permanently blocked. Release the redemption on
+  // any such failure so the paid session can be retried. Best-effort/idempotent.
+  const failAfterPaidClaim = async (response: Response): Promise<Response> => {
+    if (paidViaStripe && stripeSessionId) {
+      await releaseStripeSessionRedemption(createAdminClient(), {
+        sessionId: stripeSessionId,
+        kind: "translation",
+      })
+    }
+    return response
+  }
+
   const supabase = await createClient()
   const { data: book, error: bookError } = await supabase
     .from("books")
@@ -355,11 +372,11 @@ export async function POST(
         message: bookError.message,
       })
     }
-    return apiError(E_BOOK_NOT_FOUND, 404)
+    return await failAfterPaidClaim(apiError(E_BOOK_NOT_FOUND, 404))
   }
 
   if (book.author_id !== user.id) {
-    return apiError(E_FORBIDDEN, 403)
+    return await failAfterPaidClaim(apiError(E_FORBIDDEN, 403))
   }
 
   const sourceContext = await resolveTranslationSourceContext({
@@ -370,11 +387,11 @@ export async function POST(
   })
 
   if (!sourceContext.sourceVersionId) {
-    return apiError(E_NO_SOURCE_VERSION, 400)
+    return await failAfterPaidClaim(apiError(E_NO_SOURCE_VERSION, 400))
   }
 
   if (!sourceContext.sourceVersion) {
-    return apiError(E_INVALID_SOURCE_VERSION, 400)
+    return await failAfterPaidClaim(apiError(E_INVALID_SOURCE_VERSION, 400))
   }
 
   if (requestedChapterId) {
@@ -393,13 +410,15 @@ export async function POST(
         userId: user.id,
         message: sourceChapterError.message,
       })
-      return apiError(E_INVALID_SOURCE_VERSION, 400)
+      return await failAfterPaidClaim(apiError(E_INVALID_SOURCE_VERSION, 400))
     }
 
     if (!sourceChapter) {
-      return apiError(E_INVALID_SOURCE_VERSION, 400, {
-        detail: `chapterId ${requestedChapterId} not found for source version`,
-      })
+      return await failAfterPaidClaim(
+        apiError(E_INVALID_SOURCE_VERSION, 400, {
+          detail: `chapterId ${requestedChapterId} not found for source version`,
+        })
+      )
     }
   }
 
@@ -422,7 +441,7 @@ export async function POST(
       chapterId: requestedChapterId,
       userId: user.id,
     })
-    return apiError(E_SOURCE_LANGUAGE_MISSING, 422)
+    return await failAfterPaidClaim(apiError(E_SOURCE_LANGUAGE_MISSING, 422))
   }
 
   if (!isBatchRequest) {
@@ -438,7 +457,7 @@ export async function POST(
     })
 
     if (!result.ok) {
-      return apiError(result.error, result.status, result.extra)
+      return await failAfterPaidClaim(apiError(result.error, result.status, result.extra))
     }
 
     return NextResponse.json({
@@ -493,9 +512,11 @@ export async function POST(
 
   if (jobs.length === 0) {
     const firstRejected = rejected[0]
-    return apiError(firstRejected?.error ?? E_INVALID_REQUEST_BODY, firstRejected ? (firstRejected.error === E_TRANSLATION_SERVICE_UNAVAILABLE ? 503 : 400) : 400, {
-      rejected,
-    })
+    return await failAfterPaidClaim(
+      apiError(firstRejected?.error ?? E_INVALID_REQUEST_BODY, firstRejected ? (firstRejected.error === E_TRANSLATION_SERVICE_UNAVAILABLE ? 503 : 400) : 400, {
+        rejected,
+      })
+    )
   }
 
   return NextResponse.json({

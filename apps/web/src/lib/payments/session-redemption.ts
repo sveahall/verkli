@@ -39,3 +39,39 @@ export async function claimStripeSessionRedemption(
     `stripe_session_redemptions insert failed (${error.code ?? "unknown"}): ${error.message}`
   );
 }
+
+/**
+ * Release a previously-claimed redemption so the paid session can be retried.
+ * Call this when a claim was consumed but the downstream work (job creation /
+ * enqueue / validation) then failed — otherwise the customer has paid but is
+ * permanently blocked from ever using what they paid for.
+ *
+ * Best-effort and idempotent: never throws (a failed release must not mask the
+ * original error), and deleting an already-deleted row is a no-op.
+ */
+export async function releaseStripeSessionRedemption(
+  admin: AdminClient,
+  params: { sessionId: string; kind: SessionRedemptionKind }
+): Promise<void> {
+  try {
+    const { error } = await admin
+      .from("stripe_session_redemptions")
+      .delete()
+      .eq("stripe_session_id", params.sessionId)
+      .eq("kind", params.kind);
+    if (error) {
+      console.error("[session-redemption] release failed", {
+        sessionId: params.sessionId,
+        kind: params.kind,
+        code: error.code,
+        message: error.message,
+      });
+    }
+  } catch (error) {
+    console.error("[session-redemption] release threw", {
+      sessionId: params.sessionId,
+      kind: params.kind,
+      message: error instanceof Error ? error.message : String(error),
+    });
+  }
+}
