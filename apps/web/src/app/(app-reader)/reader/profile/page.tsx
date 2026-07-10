@@ -33,14 +33,6 @@ export default async function ReaderProfilePage({ searchParams }: PageProps) {
     redirect("/reader/signin");
   }
 
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("display_name, username")
-    .eq("user_id", user.id)
-    .maybeSingle();
-
-  const displayName = String(profile?.display_name || profile?.username || "Reader");
-
   type FollowRow = {
     followee_id: string;
     created_at: string;
@@ -54,18 +46,42 @@ export default async function ReaderProfilePage({ searchParams }: PageProps) {
     followedAt: string;
   };
 
-  const { data: followRowsRaw } = await supabase
-    .from("follows")
-    .select("followee_id, created_at")
-    .eq("follower_id", user.id)
-    .order("created_at", { ascending: false })
-    .limit(24);
+  type HighlightSummary = {
+    id: string;
+    chapterId: string;
+    bookId: string;
+    bookTitle: string;
+    chapterTitle: string;
+    snippet: string;
+    note: string | null;
+    color: "yellow" | "green" | "blue" | "rose";
+  };
 
-  const followRows = (followRowsRaw ?? []) as FollowRow[];
-  const followeeIds = [...new Set(followRows.map((row) => row.followee_id))];
+  // The profile lookup and the three feature blocks (following authors, recently
+  // read, highlights) are independent of one another. Run them concurrently so
+  // TTFB is the slowest single block, not the sum of every round-trip in series
+  // (mirrors the Promise.all pattern in reader/home).
+  const loadProfile = async () => {
+    const { data } = await supabase
+      .from("profiles")
+      .select("display_name, username")
+      .eq("user_id", user.id)
+      .maybeSingle();
+    return data;
+  };
 
-  let followingAuthors: FollowingAuthor[] = [];
-  if (followeeIds.length > 0) {
+  const loadFollowingAuthors = async (): Promise<FollowingAuthor[]> => {
+    const { data: followRowsRaw } = await supabase
+      .from("follows")
+      .select("followee_id, created_at")
+      .eq("follower_id", user.id)
+      .order("created_at", { ascending: false })
+      .limit(24);
+
+    const followRows = (followRowsRaw ?? []) as FollowRow[];
+    const followeeIds = [...new Set(followRows.map((row) => row.followee_id))];
+    if (followeeIds.length === 0) return [];
+
     const { data: authorProfiles } = await supabase
       .from("profiles")
       .select("user_id, display_name, username, avatar_url")
@@ -77,7 +93,7 @@ export default async function ReaderProfilePage({ searchParams }: PageProps) {
       (authorProfiles ?? []).map((profile) => [profile.user_id, profile] as const)
     );
 
-    followingAuthors = (
+    return (
       await Promise.all(
         followRows.map(async (row) => {
           const profileRow = profileById.get(row.followee_id);
@@ -93,130 +109,139 @@ export default async function ReaderProfilePage({ searchParams }: PageProps) {
         })
       )
     ).filter((row): row is FollowingAuthor => row !== null);
-  }
-
-  const { data: readingsRows } = await supabase
-    .from("readings")
-    .select("book_id, progress_percent, chapter_id, last_read_at")
-    .eq("user_id", user.id)
-    .order("last_read_at", { ascending: false })
-    .limit(20);
-
-  const readings = readingsRows ?? [];
-  const booksStartedCount = new Set(readings.map((r) => r.book_id)).size;
-  const booksFinishedCount = readings.filter((r) => (r.progress_percent ?? 0) >= 100).length;
-
-  const bookIds = [...new Set(readings.map((r) => r.book_id))];
-  let recentReads: { id: string; title: string; author: string; cover: string | null; progress: number }[] = [];
-
-  if (bookIds.length > 0) {
-    const { data: books } = await supabase
-      .from("books")
-      .select("id, title, cover_image, author_id")
-      .in("id", bookIds)
-      .eq("status", "PUBLISHED");
-
-    if (books && books.length > 0) {
-      const bookMap = new Map(books.map((b) => [b.id, b]));
-      const authorIds = [...new Set(books.map((b) => b.author_id))];
-      const { data: authorProfiles } = await supabase
-        .from("profiles")
-        .select("user_id, display_name, username")
-        .in("user_id", authorIds);
-      const authorMap = new Map(
-        (authorProfiles ?? []).map((p) => [p.user_id, p.display_name || p.username || "Author"])
-      );
-      const progressByBook = new Map(readings.map((r) => [r.book_id, r.progress_percent ?? 0]));
-      recentReads = readings
-        .map((r) => {
-          const book = bookMap.get(r.book_id);
-          if (!book) return null;
-          return {
-            id: book.id,
-            title: book.title,
-            author: authorMap.get(book.author_id) ?? "Author",
-            cover: book.cover_image,
-            progress: progressByBook.get(book.id) ?? 0,
-          };
-        })
-        .filter((b): b is NonNullable<typeof b> => b !== null);
-      const seen = new Set<string>();
-      recentReads = recentReads.filter((b) => {
-        if (seen.has(b.id)) return false;
-        seen.add(b.id);
-        return true;
-      });
-      recentReads = recentReads.slice(0, 8);
-    }
-  }
-
-  type HighlightSummary = {
-    id: string;
-    chapterId: string;
-    bookId: string;
-    bookTitle: string;
-    chapterTitle: string;
-    snippet: string;
-    note: string | null;
-    color: "yellow" | "green" | "blue" | "rose";
   };
 
-  const { count: highlightsTotalCount } = await supabase
-    .from("highlights" as never)
-    .select("id", { head: true, count: "exact" })
-    .eq("user_id", user.id);
+  const loadRecentReads = async () => {
+    const { data: readingsRows } = await supabase
+      .from("readings")
+      .select("book_id, progress_percent, chapter_id, last_read_at")
+      .eq("user_id", user.id)
+      .order("last_read_at", { ascending: false })
+      .limit(20);
 
-  const { data: rawHighlightRows } = await supabase
-    .from("highlights" as never)
-    .select("id, chapter_id, book_id, snippet, note, color, created_at")
-    .eq("user_id", user.id)
-    .order("created_at", { ascending: false })
-    .limit(24);
+    const readings = readingsRows ?? [];
+    const booksStartedCount = new Set(readings.map((r) => r.book_id)).size;
+    const booksFinishedCount = readings.filter((r) => (r.progress_percent ?? 0) >= 100).length;
 
-  const highlightRows = (Array.isArray(rawHighlightRows) ? rawHighlightRows : []) as Array<Record<string, unknown>>;
-  const chapterIds = [...new Set(highlightRows.map((row) => String(row.chapter_id ?? "")).filter(Boolean))];
-  const highlightBookIds = [...new Set(highlightRows.map((row) => String(row.book_id ?? "")).filter(Boolean))];
+    const bookIds = [...new Set(readings.map((r) => r.book_id))];
+    let recentReads: { id: string; title: string; author: string; cover: string | null; progress: number }[] = [];
 
-  let chapterTitleMap = new Map<string, string>();
-  let bookTitleMap = new Map<string, string>();
+    if (bookIds.length > 0) {
+      const { data: books } = await supabase
+        .from("books")
+        .select("id, title, cover_image, author_id")
+        .in("id", bookIds)
+        .eq("status", "PUBLISHED");
 
-  if (chapterIds.length > 0) {
-    const { data: chapterRows } = await supabase
-      .from("chapters")
-      .select("id, title")
-      .in("id", chapterIds);
-    chapterTitleMap = new Map((chapterRows ?? []).map((row) => [row.id, row.title]));
-  }
+      if (books && books.length > 0) {
+        const bookMap = new Map(books.map((b) => [b.id, b]));
+        const authorIds = [...new Set(books.map((b) => b.author_id))];
+        const { data: authorProfiles } = await supabase
+          .from("profiles")
+          .select("user_id, display_name, username")
+          .in("user_id", authorIds);
+        const authorMap = new Map(
+          (authorProfiles ?? []).map((p) => [p.user_id, p.display_name || p.username || "Author"])
+        );
+        const progressByBook = new Map(readings.map((r) => [r.book_id, r.progress_percent ?? 0]));
+        recentReads = readings
+          .map((r) => {
+            const book = bookMap.get(r.book_id);
+            if (!book) return null;
+            return {
+              id: book.id,
+              title: book.title,
+              author: authorMap.get(book.author_id) ?? "Author",
+              cover: book.cover_image,
+              progress: progressByBook.get(book.id) ?? 0,
+            };
+          })
+          .filter((b): b is NonNullable<typeof b> => b !== null);
+        const seen = new Set<string>();
+        recentReads = recentReads.filter((b) => {
+          if (seen.has(b.id)) return false;
+          seen.add(b.id);
+          return true;
+        });
+        recentReads = recentReads.slice(0, 8);
+      }
+    }
 
-  if (highlightBookIds.length > 0) {
-    const { data: bookRows } = await supabase
-      .from("books")
-      .select("id, title")
-      .in("id", highlightBookIds);
-    bookTitleMap = new Map((bookRows ?? []).map((row) => [row.id, row.title]));
-  }
+    return { recentReads, booksStartedCount, booksFinishedCount };
+  };
 
-  const highlights: HighlightSummary[] = highlightRows
-    .map((row) => {
-      const id = String(row.id ?? "").trim();
-      const chapterId = String(row.chapter_id ?? "").trim();
-      const bookId = String(row.book_id ?? "").trim();
-      const snippet = String(row.snippet ?? "").trim();
-      if (!id || !chapterId || !bookId || !snippet) return null;
+  const loadHighlights = async () => {
+    const [{ count: highlightsTotalCount }, { data: rawHighlightRows }] = await Promise.all([
+      supabase
+        .from("highlights" as never)
+        .select("id", { head: true, count: "exact" })
+        .eq("user_id", user.id),
+      supabase
+        .from("highlights" as never)
+        .select("id, chapter_id, book_id, snippet, note, color, created_at")
+        .eq("user_id", user.id)
+        .order("created_at", { ascending: false })
+        .limit(24),
+    ]);
 
-      return {
-        id,
-        chapterId,
-        bookId,
-        bookTitle: bookTitleMap.get(bookId) ?? "Book",
-        chapterTitle: chapterTitleMap.get(chapterId) ?? "Chapter",
-        snippet,
-        note: row.note == null ? null : String(row.note),
-        color: normalizeColor(row.color),
-      } satisfies HighlightSummary;
-    })
-    .filter((row): row is HighlightSummary => row !== null)
-    .slice(0, 12);
+    const highlightRows = (Array.isArray(rawHighlightRows) ? rawHighlightRows : []) as Array<Record<string, unknown>>;
+    const chapterIds = [...new Set(highlightRows.map((row) => String(row.chapter_id ?? "")).filter(Boolean))];
+    const highlightBookIds = [...new Set(highlightRows.map((row) => String(row.book_id ?? "")).filter(Boolean))];
+
+    const [chapterTitleMap, bookTitleMap] = await Promise.all([
+      (async () => {
+        if (chapterIds.length === 0) return new Map<string, string>();
+        const { data: chapterRows } = await supabase
+          .from("chapters")
+          .select("id, title")
+          .in("id", chapterIds);
+        return new Map((chapterRows ?? []).map((row) => [row.id, row.title]));
+      })(),
+      (async () => {
+        if (highlightBookIds.length === 0) return new Map<string, string>();
+        const { data: bookRows } = await supabase
+          .from("books")
+          .select("id, title")
+          .in("id", highlightBookIds);
+        return new Map((bookRows ?? []).map((row) => [row.id, row.title]));
+      })(),
+    ]);
+
+    const highlights: HighlightSummary[] = highlightRows
+      .map((row) => {
+        const id = String(row.id ?? "").trim();
+        const chapterId = String(row.chapter_id ?? "").trim();
+        const bookId = String(row.book_id ?? "").trim();
+        const snippet = String(row.snippet ?? "").trim();
+        if (!id || !chapterId || !bookId || !snippet) return null;
+
+        return {
+          id,
+          chapterId,
+          bookId,
+          bookTitle: bookTitleMap.get(bookId) ?? "Book",
+          chapterTitle: chapterTitleMap.get(chapterId) ?? "Chapter",
+          snippet,
+          note: row.note == null ? null : String(row.note),
+          color: normalizeColor(row.color),
+        } satisfies HighlightSummary;
+      })
+      .filter((row): row is HighlightSummary => row !== null)
+      .slice(0, 12);
+
+    return { highlights, highlightsTotalCount };
+  };
+
+  const [profile, followingAuthors, readingData, highlightData] = await Promise.all([
+    loadProfile(),
+    loadFollowingAuthors(),
+    loadRecentReads(),
+    loadHighlights(),
+  ]);
+
+  const displayName = String(profile?.display_name || profile?.username || "Reader");
+  const { recentReads, booksStartedCount, booksFinishedCount } = readingData;
+  const { highlights, highlightsTotalCount } = highlightData;
 
   const stats: { label: string; value: string }[] = [
     { label: "Books started", value: String(booksStartedCount) },
