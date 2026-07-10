@@ -22,17 +22,24 @@ export async function getUserEmailMap(
   if (distinct.length === 0) return out;
 
   const admin = createAdminClient();
-  await Promise.all(
-    distinct.map(async (id) => {
-      try {
-        const { data, error } = await admin.auth.admin.getUserById(id);
-        const email = data?.user?.email;
-        if (!error && typeof email === "string" && email) out.set(id, email);
-      } catch {
-        // Best-effort; a single lookup failure must not blank the whole list.
-      }
-    })
-  );
+
+  // GoTrue has no batch "get users by id" endpoint, so we resolve per id — but
+  // in bounded, concurrency-capped chunks rather than firing a whole page of
+  // lookups at once, which can trip the auth-API rate/connection limits.
+  const CONCURRENCY = 8;
+  const resolveEmail = async (id: string) => {
+    try {
+      const { data, error } = await admin.auth.admin.getUserById(id);
+      const email = data?.user?.email;
+      if (!error && typeof email === "string" && email) out.set(id, email);
+    } catch {
+      // Best-effort; a single lookup failure must not blank the whole list.
+    }
+  };
+
+  for (let i = 0; i < distinct.length; i += CONCURRENCY) {
+    await Promise.all(distinct.slice(i, i + CONCURRENCY).map(resolveEmail));
+  }
   return out;
 }
 
