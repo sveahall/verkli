@@ -88,10 +88,6 @@ export function getNewslettersEnabled(): boolean {
   return parseBool(process.env.NEXT_PUBLIC_NEWSLETTERS_ENABLED);
 }
 
-export function getAiChatEnabled(): boolean {
-  return parseBool(process.env.NEXT_PUBLIC_AI_CHAT_ENABLED);
-}
-
 export function getFreemiumGateEnabled(): boolean {
   return parseBool(process.env.NEXT_PUBLIC_FREEMIUM_GATE_ENABLED);
 }
@@ -101,23 +97,6 @@ export function getFreemiumGateEnabled(): boolean {
 // end-to-end. Default OFF in every environment. Safe to leave permanently OFF.
 export function getSprint0DemoBadgeEnabled(): boolean {
   return parseBool(process.env.NEXT_PUBLIC_SPRINT0_DEMO_BADGE_ENABLED);
-}
-
-// Sprint-0.5: feature gate for donations. While the donation flow ships its
-// real Stripe path, the entry points stay hidden until this is explicitly
-// enabled in production. Default OFF.
-export function getDonationsEnabled(): boolean {
-  return parseBool(process.env.NEXT_PUBLIC_DONATIONS_ENABLED);
-}
-
-// Investor pitch demo façade. When ON, profiles flagged demo_mode see the
-// pre-baked demo flow (cover-gen fallback, language badges, social grid
-// façade, POD modal). Real production/distribution APIs are bypassed. Default
-// OFF in every environment — only the staging instance used for the pitch
-// rep should set this. Activation requires both the flag AND the user's
-// demo_mode column; the URL ?demo=1 is entry-convenience only.
-export function getDemoFacadeEnabled(): boolean {
-  return parseBool(process.env.NEXT_PUBLIC_DEMO_FACADE_ENABLED);
 }
 
 // ─── Server/API — also reads non-public fallback for server-only contexts ───
@@ -148,12 +127,6 @@ export function isDiscoveryEnabled(): boolean {
 export function isOfflineReadingEnabled(): boolean {
   return parseBool(
     process.env.NEXT_PUBLIC_OFFLINE_READING_ENABLED ?? process.env.OFFLINE_READING_ENABLED
-  );
-}
-
-export function isRecommendationsEnabled(): boolean {
-  return parseBool(
-    process.env.NEXT_PUBLIC_RECOMMENDATIONS_ENABLED ?? process.env.RECOMMENDATIONS_ENABLED
   );
 }
 
