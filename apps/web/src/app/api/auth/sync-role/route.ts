@@ -27,22 +27,18 @@ export async function GET(request: Request) {
     .eq("user_id", user.id)
     .maybeSingle();
 
-  let role: ActiveRole | null = resolveActiveRoleFromProfile(profile);
-  if (!role) {
-    const metadataRole = user.user_metadata?.active_role ?? user.user_metadata?.role;
-    if (metadataRole === "author" || metadataRole === "reader") {
-      role = metadataRole;
-    }
-  }
+  // Resolve the active-role VIEW from the DB profile only. Do NOT fall back to
+  // user_metadata (client-writable) — this cookie only selects which dashboard
+  // is shown, and authorization always re-derives role from profiles.role
+  // server-side (require-author.ts, middleware.ts). Default to "reader" when
+  // unresolved, matching that trust model, rather than trusting client input.
+  const role: ActiveRole = resolveActiveRoleFromProfile(profile) ?? "reader";
 
   // Reject protocol-relative paths (//evil.com) and non-relative paths
   const safePath = /^\/[^/]/.test(redirectTo) || redirectTo === "/" ? redirectTo : "/";
   const url = new URL(request.url);
   const res = NextResponse.redirect(`${url.origin}${safePath}`);
-
-  if (role) {
-    res.headers.set("Set-Cookie", activeRoleCookieHeader(role));
-  }
+  res.headers.set("Set-Cookie", activeRoleCookieHeader(role));
 
   return res;
 }
