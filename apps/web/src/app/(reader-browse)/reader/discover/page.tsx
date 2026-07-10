@@ -168,11 +168,14 @@ async function enrichBooksWithAuthor(
     // which left every card showing "Unknown author". See
     // lib/authors/public-author.ts for the rationale.
     getPublicAuthorInfoMap(authorIds),
+    // No row cap: the multiplicative `limit(bookIds.length * 3)` returned rows
+    // in unspecified order, so books tagged with many genres could consume the
+    // budget before others, leaving later books with no genre chip. The book set
+    // is already bounded (<=24 via .in()), so fetch all their junction rows.
     supabase
       .from("book_genres")
       .select("book_id, genres(name_en, icon)")
-      .in("book_id", bookIds)
-      .limit(bookIds.length * 3), // at most 3 genres per book
+      .in("book_id", bookIds),
   ]);
 
   const authorMap = new Map(
