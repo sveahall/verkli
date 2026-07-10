@@ -2,6 +2,15 @@
 
 Canonical contract for all asynchronous work in Verkli.
 
+> **⚠️ Target model — not fully implemented (as of 2026-07-09).** The unified
+> `type` / `payload` / `result` schema described below (Phases 2–4) was **never
+> executed**. The live `ai_jobs` schema still uses `kind` / `input` / `output`
+> with `pending / processing / completed / failed / cancelled` status values
+> (see `src/lib/supabase/types.ts`). Also note: `ai_jobs` now has a nullable
+> `book_id` column (backfilled from `input->>'bookId'`), contradicting the
+> "no book_id" claim in the status-quo section. Treat everything past
+> "Status quo" as a design target, not current reality.
+
 ## Status quo
 
 Job status is currently spread across four tables with inconsistent status

@@ -1,9 +1,10 @@
 # Verkli — Beta/Soft-Launch Roadmap
 
-> **Status**: Active — Phase 0 (in planning).
-> **Last updated**: 2026-04-29.
+> **Status**: GA-readiness / hardening. The platform is built (books, reader, editor, payments, workers, AI pipelines all shipping); current work is bug/RLS/payment hardening and polish. See `GA-STAGING-CHECKLIST.md` for the live release gate.
+> **Last updated**: 2026-07-09.
 > **Owner**: @SveaHallinder.
-> **Target**: Lean MVP + PRO, soft launch in 6–8 weeks.
+> **Working branch**: `demo` (consolidated façade); `main` is the protected base. The old `mvp-wip-2026-03-18` planning branch referenced below is historical.
+> **Target**: Lean MVP + PRO, soft launch.
 
 This document is the single source of truth for what we're building toward beta/soft launch and what comes after. Replace any older roadmap-like docs with this one.
 

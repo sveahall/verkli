@@ -24,7 +24,7 @@ Start workers in separate terminals as needed:
 ```bash
 npm run import-worker         # Book import (epub/docx/html/txt)
 npm run translate-worker      # Translation (Opus MT, sv↔en)
-npm run audiobook-worker      # Audiobook generation (Qwen TTS)
+npm run audiobook-worker      # Audiobook generation (ElevenLabs TTS)
 npm run social-publish-worker # Social media publishing
 npm run marketing-worker      # Marketing campaign generation
 ```
@@ -43,7 +43,7 @@ Webhook endpoint: `POST /api/stripe/webhook` — subscribe to `checkout.session.
 |-----|---------|
 | `docs/dev-runbook.md` | Local development setup |
 | `docs/workers-runbook.md` | Worker operations and monitoring |
-| `docs/beta-release-gate.md` | Release criteria and manual QA |
-| `docs/ARCHITECTURE_MAP.md` | System architecture overview |
-| `docs/SCHEMA_GAPS.md` | Known DB schema gaps |
+| `docs/DATABASE_ARCHITECTURE.md` | Schema, tables, and RLS overview |
+| `docs/INFRASTRUCTURE.md` | Infrastructure and services |
+| `GA-STAGING-CHECKLIST.md` | Current release / GA gate |
 | `docs/route-map.md` | Route information architecture |

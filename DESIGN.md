@@ -4,7 +4,7 @@
 
 ## Product Context
 
-- **What this is:** A publishing and reading platform. Authors import books, generate AI audiobooks (Qwen TTS), translations (Opus MT, sv↔en), marketing campaigns, and social posts. Readers discover, read, and listen.
+- **What this is:** A publishing and reading platform. Authors import books, generate AI audiobooks (ElevenLabs TTS), translations (Opus MT, sv↔en), marketing campaigns, and social posts. Readers discover, read, and listen.
 - **Who it's for:** Indie authors and the readers who follow them. Two sides, one product.
 - **Space:** Indie publishing, audiobook tooling, creator economy.
 - **Project type:** Hybrid. Marketing site (`/`, `/pricing`, `/how-it-works`) is brand-forward. Author dashboard and reader app are dense, task-focused.

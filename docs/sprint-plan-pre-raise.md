@@ -1,7 +1,8 @@
 # 6-Week Plan — Pre-Raise + Soft-Launch Capability
 
+> **⚠️ HISTORICAL (2026-04-29 planning doc).** Kept for context. The work below has largely shipped; the platform is now in GA-readiness/hardening on the `demo` branch. For current status see `roadmap.md` and `GA-STAGING-CHECKLIST.md`. The `mvp-wip-2026-03-18` branch reference is obsolete.
 > **Owner:** @SveaHallinder · **Status:** Draft, 2026-04-29
-> **Branch:** `mvp-wip-2026-03-18`
+> **Branch:** `mvp-wip-2026-03-18` (historical)
 > **Companion docs:** `ROADMAP.md` (8-week roadmap), `audit.md`, `db-audit.md`, `sprint-0.5-deferred.md`
 
 ## Goal in one sentence

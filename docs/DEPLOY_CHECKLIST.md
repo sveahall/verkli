@@ -1,10 +1,17 @@
 # Deploy Checklist — Manual Steps
 
+> **⚠️ Hosting sections are legacy.** This checklist was written for a Vercel
+> deploy; production has since moved to a self-hosted server (deploy/infra
+> owned by Fredrik). Treat every "in Vercel" / "detach-and-attach main deploy"
+> step as historical — configure env vars, webhooks, and the domain on the
+> actual production host instead. The Stripe / DNS / secrets substance below is
+> still accurate; only the platform framing is stale.
+>
 > Single artefact for everything that **only the founder** can do. Run from
 > top to bottom when you're ready to ship the pre-raise demo / soft launch.
 > Estimated total time: **3–6 hours** depending on Stripe + DNS turnaround.
 >
-> Generated: 2026-04-29 · Branch: `mvp-wip-2026-03-18`
+> Generated: 2026-04-29 · Branch: `mvp-wip-2026-03-18` (historical)
 
 ---
 

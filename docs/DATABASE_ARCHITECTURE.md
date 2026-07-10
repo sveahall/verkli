@@ -1,7 +1,7 @@
 # Database Architecture
 
-> Last updated: 2026-03-04
-> Migration consolidation: `db/migration-consolidation` branch
+> Last updated: 2026-07-09
+> Migration consolidation baseline: `db/migration-consolidation` branch (through `20260304`)
 
 ## Canonical Migration Directory
 
@@ -26,8 +26,9 @@ Supabase CLI config: `apps/web/supabase/config.toml`
 | `20260210–20260216` | Billing, referrals, donations, DM, community, content generation | 16 |
 | `20260219–20260226` | Genres, recommendations, TTS, media assets, usage tracking | 8 |
 | `20260304` | Foundation consolidation (users trigger, shelves, profiles, newsletters, readings RLS) | 1 |
+| `20260312–20260705` | Post-consolidation: per-chapter pricing & chapter entitlements, Stripe Connect payouts, print-on-demand (`pod_orders`), `audit_log`, content reports & account-deletion requests, soft-delete columns, search FTS, voice cloning & karaoke, book-trailer fields, author subscriptions, investor demo façade, and 3 security-hardening rounds (RLS/email-leak fixes) | 36 |
 
-Total: **57 migrations**
+Total: **93 migrations** (57 through the 2026-03-04 consolidation + 36 after)
 
 ---
 
@@ -59,7 +60,7 @@ Core content table. Author-owned, status-driven visibility.
 | featured_until | timestamptz | |
 | price_amount | integer | nullable, minor units |
 | price_currency | text | SEK / EUR / USD |
-| pricing_model | text | book_only |
+| pricing_model | text | `book_only` / `per_chapter` (per-chapter uses chapter-scoped entitlements — see `src/lib/books/access.ts`) |
 | is_free | boolean GENERATED | from price_amount |
 | created_at, updated_at | timestamptz | auto-updated via trigger |
 

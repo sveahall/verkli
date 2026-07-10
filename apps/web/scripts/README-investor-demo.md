@@ -183,4 +183,4 @@ Pre-pitch checklist:
 
 - Migration: `apps/web/supabase/migrations/20260504100000_investor_demo_facade.sql`
 - Translation source data: `apps/web/scripts/seed-data/haunted-diary.ts`
-- Feature flag: `apps/web/src/lib/flags.ts` (`getDemoFacadeEnabled` / `isDemoFacadeEnabled`)
+- Feature flag: `apps/web/src/lib/flags.ts` (`isDemoFacadeEnabled`)
