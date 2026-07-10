@@ -426,10 +426,24 @@ async function processJob(payload: TranslationJobData, workerJobId?: string) {
       throw new UnrecoverableError("No chapters found to translate");
     }
 
-    const totalChars = chapterList.reduce(
-      (sum, ch) => sum + ((ch.content as string | null) ?? "").length,
-      0
-    );
+    // Size the budget on the actual translatable text, not the raw stored
+    // string. For TipTap chapters `content` is serialized JSON, so counting its
+    // length billed JSON markup (node types, attrs, braces) as translatable
+    // text — over-reserving budget and wrongly tripping the per-job char cap on
+    // large-but-mostly-markup chapters. Mirror what is actually sent to the
+    // providers (the extracted text nodes).
+    const totalChars = chapterList.reduce((sum, ch) => {
+      const content = (ch.content as string | null) ?? "";
+      if (!content) return sum;
+      if (isTiptapJson(content)) {
+        try {
+          return sum + extractText(JSON.parse(content)).length;
+        } catch {
+          return sum + content.length; // unparseable: be conservative
+        }
+      }
+      return sum + content.length;
+    }, 0);
     const estimatedCostUnits = Math.ceil(totalChars / 4);
     const budgetUserId = payload.authorId ?? book.author_id;
     if (!budgetUserId) {
