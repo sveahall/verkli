@@ -1,6 +1,12 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { POST, maxDuration } from "./route";
 
+// Allowlist the dummy test host so the route's SSRF guard (validateProviderImageUrl)
+// accepts VALID_IMAGE_URL. The guard reads this env at call time. Real production
+// imageUrls are Supabase-storage hosts, which the guard allows by default.
+// Mirrors the trailer/build route test.
+process.env.AI_IMAGE_URL_EXTRA_HOSTS = "cdn.example.com";
+
 const VALID_BOOK_ID = "a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11";
 const VALID_IMAGE_URL = "https://cdn.example.com/book-cover.jpg";
 

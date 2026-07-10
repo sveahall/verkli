@@ -7,6 +7,7 @@ import { videoGenerateBodySchema } from "@/lib/marketing/schemas";
 import { evaluateDemoGuard } from "@/lib/demo-guard";
 import { uploadTrailerAndGetPublicUrl } from "@/lib/marketing/trailer-storage";
 import { generateImageToVideo } from "@/lib/higgsfield";
+import { validateProviderImageUrl } from "@/lib/security/url-allowlist";
 import {
   apiError,
   E_DATABASE_ERROR,
@@ -69,10 +70,19 @@ export async function POST(request: Request) {
   const ownership = await assertBookOwned(supabase, gate.user.id, bookId);
   if (!ownership.ok) return ownership.response;
 
+  // SSRF guard: the client-supplied imageUrl is fetched server-side by the
+  // Higgsfield provider, so enforce the same host allowlist the other two
+  // image->video routes (ai/text-to-video, trailer/build) already apply.
+  const urlCheck = validateProviderImageUrl(imageUrl);
+  if (!urlCheck.ok) {
+    return apiError(E_VALIDATION_FAILED, 400, { detail: "imageUrl host not allowed" });
+  }
+  const safeImageUrl = urlCheck.url.toString();
+
   const inputJson = {
     model: "dop-standard",
     prompt,
-    imageUrl,
+    imageUrl: safeImageUrl,
     audio: includeAudio,
   };
 
@@ -99,7 +109,7 @@ export async function POST(request: Request) {
     const startMs = Date.now();
     const { requestId, videoUrl } = await generateImageToVideo({
       prompt,
-      imageUrl,
+      imageUrl: safeImageUrl,
       includeAudio,
     });
 
