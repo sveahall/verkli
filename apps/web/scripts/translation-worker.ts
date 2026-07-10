@@ -22,6 +22,7 @@ import { upsertBookTranslationState } from "../src/lib/book-translation";
 import { isDuplicate } from "../src/lib/workers/idempotency";
 import {
   checkBudget,
+  releaseBudget,
   BudgetExceededError,
   JobCostExceededError,
   validateJobCost,
@@ -694,6 +695,51 @@ function main() {
   worker.on("failed", (job, err) => {
     Sentry.captureException(err);
     console.error("[translation-worker] job failed", job?.id, err?.message);
+    // Reconcile orphaned book_versions state. The in-process catch writes the
+    // target version to "failed" before re-throwing, so an ordinary failure is
+    // already terminal here. But on a hard-kill/stall the catch never runs and
+    // the target version stays stuck "translating" forever. On a TERMINAL
+    // failure (retries exhausted or stall-out), flip any still-"translating"
+    // version for this book+language to "failed". The .eq("status","translating")
+    // guard makes it idempotent and prevents clobbering a done/failed/running row.
+    void (async () => {
+      try {
+        const data = job?.data as Partial<TranslationJobData> | undefined;
+        const attempts = job?.opts?.attempts ?? 1;
+        const made = job?.attemptsMade ?? 0;
+        // Match BullMQ's exact stall-out message so an arbitrary error whose
+        // text merely contains "stalled" cannot trip the terminal override.
+        const stalledOut = /stalled more than allowable limit/i.test(err?.message ?? "");
+        if (made < attempts && !stalledOut) return; // not terminal — will retry
+        // Terminal failure — refund the reserved translation budget (reserved
+        // under the BullMQ job id; idempotent, best-effort).
+        await releaseBudget({
+          pipeline: "translation",
+          jobId: job?.id != null ? String(job.id) : null,
+        });
+        const bookId = data?.bookId;
+        const normalizedLang = data?.targetLanguage
+          ? normalizeLanguageOrNull(data.targetLanguage)
+          : null;
+        if (!bookId || !normalizedLang) return;
+        const admin = createAdminClient();
+        const safeError =
+          (err?.message ?? "").slice(0, 500) ||
+          "Översättningen avbröts oväntat (servern startade om). Försök igen.";
+        await admin
+          .from("book_versions")
+          .update({ status: "failed", error_message: safeError })
+          .eq("book_id", bookId)
+          .eq("language_code", normalizedLang)
+          .eq("status", "translating");
+        console.warn("[translation-worker] reconciled orphaned version to failed", {
+          bookId,
+          language: normalizedLang,
+        });
+      } catch (reconcileErr) {
+        console.error("[translation-worker] failed-state reconciliation error", reconcileErr);
+      }
+    })();
   });
   worker.on("error", (err) => {
     console.error("[translation worker] Redis/queue error:", err.message);

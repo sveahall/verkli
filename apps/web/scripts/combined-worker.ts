@@ -24,9 +24,29 @@ console.log("[combined-worker] Starting import + translation workers...");
 const importWorker = import("./import-worker");
 const translationWorker = import("./translation-worker");
 
-Promise.all([importWorker, translationWorker]).then(() => {
-  console.log("[combined-worker] Both workers are running.");
-  console.log("[combined-worker] Press Ctrl+C to stop.");
+Promise.all([importWorker, translationWorker])
+  .then(() => {
+    console.log("[combined-worker] Both workers are running.");
+    console.log("[combined-worker] Press Ctrl+C to stop.");
+  })
+  .catch((err) => {
+    // A worker that throws at module-eval time (bad env, Redis connect failure)
+    // would otherwise leave this process alive with one/both queues having no
+    // consumer — jobs pile up silently in "waiting". Fail loudly instead.
+    console.error("[combined-worker] worker failed to start:", err);
+    process.exit(1);
+  });
+
+// Never let an unhandled rejection/exception leave the process alive-but-broken
+// (mirrors start-workers.ts). A dead worker with a live process is the worst
+// case: jobs enqueue but nothing ever consumes them.
+process.on("unhandledRejection", (reason) => {
+  console.error("[combined-worker] unhandledRejection:", reason);
+  process.exit(1);
+});
+process.on("uncaughtException", (err) => {
+  console.error("[combined-worker] uncaughtException:", err);
+  process.exit(1);
 });
 
 // Graceful shutdown

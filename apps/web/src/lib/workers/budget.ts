@@ -88,6 +88,65 @@ end
 return {1, nextValue}
 `;
 
+// Idempotent reservation keyed on a per-job marker so that BullMQ retries of the
+// SAME job do not re-charge the daily budget. The marker stores "<amount>|<dayKey>"
+// so releaseBudget can refund the exact reservation later without re-deriving the
+// user/day. KEYS[1]=day budget key, KEYS[2]=job marker key.
+const REDIS_RESERVE_IDEMPOTENT_SCRIPT = `
+local key = KEYS[1]
+local marker = KEYS[2]
+local increment = tonumber(ARGV[1])
+local limit = tonumber(ARGV[2])
+local ttl = tonumber(ARGV[3])
+
+if redis.call("EXISTS", marker) == 1 then
+  return {1, tonumber(redis.call("GET", key) or "0"), 1}
+end
+
+local current = tonumber(redis.call("GET", key) or "0")
+if current + increment > limit then
+  return {0, current, 0}
+end
+
+local nextValue = redis.call("INCRBY", key, increment)
+if redis.call("TTL", key) < 0 then
+  redis.call("EXPIRE", key, ttl)
+end
+redis.call("SET", marker, increment .. "|" .. key)
+redis.call("EXPIRE", marker, ttl)
+
+return {1, nextValue, 0}
+`;
+
+// Refund a reservation: read the marker, decrement the exact day key it points at
+// by the exact amount reserved, then delete the marker (idempotent — a second
+// release is a no-op). KEYS[1]=job marker key.
+const REDIS_RELEASE_SCRIPT = `
+local marker = KEYS[1]
+local val = redis.call("GET", marker)
+if not val then
+  return 0
+end
+local sep = string.find(val, "|", 1, true)
+if not sep then
+  redis.call("DEL", marker)
+  return 0
+end
+local amount = tonumber(string.sub(val, 1, sep - 1))
+local daykey = string.sub(val, sep + 1)
+-- Only refund if the day key still exists. If it already expired (next UTC day),
+-- the budget has already reset and there is nothing to give back — decrementing
+-- would recreate a stale, non-expiring "0" key.
+if amount and amount > 0 and redis.call("EXISTS", daykey) == 1 then
+  local nextValue = redis.call("DECRBY", daykey, amount)
+  if nextValue < 0 then
+    redis.call("SET", daykey, 0, "KEEPTTL")
+  end
+end
+redis.call("DEL", marker)
+return amount or 0
+`;
+
 const touchedKeys = new Set<string>();
 let sharedRedis: Redis | null = null;
 
@@ -162,6 +221,12 @@ function normalizeUnits(units: number): number {
 
 function buildBudgetKey(userId: string, pipeline: BudgetPipeline, day: string): string {
   return `budget:${pipeline}:${userId}:${day}`;
+}
+
+// Job-scoped reservation marker. Keyed on the (stable-across-retries) job id so a
+// retried job is only charged once, and refundable by (pipeline, jobId) alone.
+function buildReservationMarkerKey(pipeline: BudgetPipeline, jobId: string): string {
+  return `budget:reservation:${pipeline}:${jobId}`;
 }
 
 function parseScriptResult(raw: unknown): { allowed: boolean; current: number } {
@@ -249,7 +314,8 @@ export async function checkBudget(input: BudgetCheckInput): Promise<BudgetUsageS
   const key = buildBudgetKey(userId, input.pipeline, day);
   const limit = getPipelineLimit(input.pipeline);
   const units = normalizeUnits(input.units);
-  const jobId = input.jobId ? String(input.jobId) : "unknown";
+  const rawJobId = input.jobId ? String(input.jobId) : null;
+  const jobId = rawJobId ?? "unknown";
   const redis = getRedisClient();
 
   touchedKeys.add(key);
@@ -274,14 +340,30 @@ export async function checkBudget(input: BudgetCheckInput): Promise<BudgetUsageS
     return { userId, pipeline: input.pipeline, day, key, current, limit };
   }
 
-  const raw = await redis.eval(
-    REDIS_RESERVE_SCRIPT,
-    1,
-    key,
-    String(units),
-    String(limit),
-    String(ttlUntilNextUtcDay(now))
-  );
+  // With a stable jobId, reserve idempotently via a per-job marker so BullMQ
+  // retries of the same job never re-charge the daily budget. Without one, fall
+  // back to the plain (non-idempotent) reservation.
+  const raw = rawJobId
+    ? await redis.eval(
+        REDIS_RESERVE_IDEMPOTENT_SCRIPT,
+        2,
+        key,
+        buildReservationMarkerKey(input.pipeline, rawJobId),
+        String(units),
+        String(limit),
+        String(ttlUntilNextUtcDay(now))
+      )
+    : await redis.eval(
+        REDIS_RESERVE_SCRIPT,
+        1,
+        key,
+        String(units),
+        String(limit),
+        String(ttlUntilNextUtcDay(now))
+      );
+  if (rawJobId) {
+    touchedKeys.add(buildReservationMarkerKey(input.pipeline, rawJobId));
+  }
   const parsed = parseScriptResult(raw);
 
   if (!parsed.allowed) {
@@ -307,6 +389,35 @@ export async function checkBudget(input: BudgetCheckInput): Promise<BudgetUsageS
     current: parsed.current,
     limit,
   };
+}
+
+/**
+ * Refund a job's reserved budget. Call this exactly once when a job TERMINALLY
+ * fails (retries exhausted or stalled out) so a failed job does not permanently
+ * consume the user's daily allowance. Idempotent (a second call is a no-op) and
+ * best-effort: it never throws, so a refund failure cannot mask the job error.
+ * Returns the number of units refunded (0 if nothing was reserved).
+ */
+export async function releaseBudget(input: {
+  pipeline: BudgetPipeline;
+  jobId: string | null | undefined;
+}): Promise<number> {
+  const jobId = input.jobId ? String(input.jobId) : null;
+  if (!jobId) return 0;
+  try {
+    const redis = getRedisClient();
+    const marker = buildReservationMarkerKey(input.pipeline, jobId);
+    const raw = await redis.eval(REDIS_RELEASE_SCRIPT, 1, marker);
+    const released = Number(raw);
+    return Number.isFinite(released) ? released : 0;
+  } catch (error) {
+    console.error("[budget] releaseBudget failed", {
+      pipeline: input.pipeline,
+      jobId,
+      message: error instanceof Error ? error.message : String(error),
+    });
+    return 0;
+  }
 }
 
 export async function getUsage(input: {

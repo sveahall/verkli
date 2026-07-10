@@ -346,13 +346,28 @@ async function processJob(payload: SocialPublishJobData) {
       (p) => results[p]?.status === "ok"
     );
 
-    await updateJob("completed", { results });
+    if (publishablePlatforms.length > 0 && !allPublishableSucceeded) {
+      // At least one publishable platform failed to post — the job must NOT be
+      // reported as "completed" (that made the author's UI show a successful
+      // publish while nothing was posted). Mark it failed and surface which
+      // platforms failed, keeping the per-platform results for detail.
+      const failedPlatforms = publishablePlatforms.filter(
+        (p) => results[p]?.status !== "ok"
+      );
+      await updateJob(
+        "failed",
+        { results },
+        `Publicering misslyckades för: ${failedPlatforms.join(", ")}.`
+      );
+    } else {
+      await updateJob("completed", { results });
 
-    if (allPublishableSucceeded && publishablePlatforms.length > 0) {
-      await supabase
-        .from("marketing_campaigns" as never)
-        .update({ status: "published" })
-        .eq("id", campaignId);
+      if (allPublishableSucceeded && publishablePlatforms.length > 0) {
+        await supabase
+          .from("marketing_campaigns" as never)
+          .update({ status: "published" })
+          .eq("id", campaignId);
+      }
     }
 
     console.log("[social-publish worker] completed -", jobId, "results:", JSON.stringify(results));

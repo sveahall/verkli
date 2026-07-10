@@ -17,6 +17,7 @@ import { getLanguageLabel } from "../src/lib/languages";
 import { isDuplicate } from "../src/lib/workers/idempotency";
 import {
   checkBudget,
+  releaseBudget,
   BudgetExceededError,
   JobCostExceededError,
   validateJobCost,
@@ -434,6 +435,21 @@ function main() {
   worker.on("failed", (job, err) => {
     Sentry.captureException(err);
     console.error("[marketing-worker] job failed", job?.id, err?.message);
+    // On a TERMINAL failure (retries exhausted or stall-out), refund the
+    // reserved video budget so a failed render never permanently consumes the
+    // author's daily allowance. Idempotent + best-effort (never throws).
+    void (async () => {
+      const attempts = job?.opts?.attempts ?? 1;
+      const made = job?.attemptsMade ?? 0;
+      // Match BullMQ's exact stall-out message so an arbitrary error whose
+      // text merely contains "stalled" cannot trip the terminal override.
+      const stalledOut = /stalled more than allowable limit/i.test(err?.message ?? "");
+      if (made < attempts && !stalledOut) return;
+      await releaseBudget({
+        pipeline: "video",
+        jobId: job?.id != null ? String(job.id) : null,
+      });
+    })();
   });
   worker.on("error", (err) => {
     console.error("[marketing worker] Redis/queue error:", err.message);

@@ -29,6 +29,7 @@ import { sanitizeJobErrorForStorage } from "../src/lib/sanitize-job-error";
 import { isDuplicate } from "../src/lib/workers/idempotency";
 import {
   checkBudget,
+  releaseBudget,
   BudgetExceededError,
   JobCostExceededError,
   validateJobCost,
@@ -1003,6 +1004,63 @@ function main() {
   worker.on("failed", (job, err) => {
     Sentry.captureException(err);
     console.error("[audiobook-worker] job failed", job?.id, err?.message);
+    // Reconcile orphaned DB state. The in-process catch writes ai_jobs="failed"
+    // before re-throwing, so on an ordinary failure the row is already terminal
+    // by the time this fires. But when the worker is hard-killed (OOM/SIGKILL/
+    // deploy) or the job stalls past maxStalledCount, that catch never runs and
+    // BullMQ moves the job to "failed" on stall detection — leaving ai_jobs
+    // stuck "processing" and books "generating" forever (a spinner that never
+    // resolves). Flip them to a terminal state, but ONLY if still non-terminal
+    // so we never clobber a completed/cancelled/failed result.
+    void (async () => {
+      try {
+        const data = job?.data as Partial<AudiobookJobData> | undefined;
+        const jobId = data?.jobId;
+        if (!jobId) return;
+        // Only act on a TERMINAL failure: retries exhausted, or a stall-out
+        // (worker died / job hung — BullMQ gives up after maxStalledCount and
+        // the in-process catch never ran). A non-final retryable failure will
+        // re-run, so leave its state alone to avoid clobbering an active retry.
+        const attempts = job?.opts?.attempts ?? 1;
+        const made = job?.attemptsMade ?? 0;
+        // Match BullMQ's exact stall-out message so an arbitrary error whose
+        // text merely contains "stalled" cannot trip the terminal override.
+        const stalledOut = /stalled more than allowable limit/i.test(err?.message ?? "");
+        if (made < attempts && !stalledOut) return;
+        // Terminal failure — refund the reserved daily TTS budget so a failed
+        // job never permanently consumes the user's allowance (idempotent).
+        await releaseBudget({ pipeline: "tts", jobId });
+        const admin = createAdminClient();
+        const { data: row } = await admin
+          .from("ai_jobs")
+          .select("status")
+          .eq("id", jobId)
+          .maybeSingle();
+        if (row?.status !== "processing" && row?.status !== "pending") return;
+        const safeError =
+          sanitizeJobErrorForStorage(err?.message ?? "") ??
+          "Jobbet avbröts oväntat (servern startade om). Försök igen.";
+        await admin
+          .from("ai_jobs")
+          .update({
+            status: "failed",
+            error: safeError,
+            finished_at: new Date().toISOString(),
+          })
+          .eq("id", jobId)
+          .in("status", ["processing", "pending"]);
+        if (data?.bookId) {
+          await admin
+            .from("books")
+            .update({ audiobook_status: "failed" })
+            .eq("id", data.bookId)
+            .eq("audiobook_status", "generating");
+        }
+        console.warn("[audiobook-worker] reconciled orphaned job to failed", jobId);
+      } catch (reconcileErr) {
+        console.error("[audiobook-worker] failed-state reconciliation error", reconcileErr);
+      }
+    })();
   });
 
   worker.on("error", (err) => {
