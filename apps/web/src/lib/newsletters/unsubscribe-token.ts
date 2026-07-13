@@ -11,10 +11,14 @@ import crypto from "node:crypto";
  * Token format: `v1.<base64url(payload-json)>.<base64url(hmac-sha256)>`.
  * Payload: `{ a: authorId, s: subscriberUserId, e: expiresAtUnixSeconds }`.
  *
- * The signing key is derived from either `NEWSLETTER_UNSUBSCRIBE_SECRET`
- * (preferred) or, as a fallback, SUPABASE_SERVICE_ROLE_KEY. Rotating the
- * secret invalidates all in-flight tokens — acceptable since the TTL is
- * long but bounded.
+ * The signing key MUST be provided via `NEWSLETTER_UNSUBSCRIBE_SECRET`. It is
+ * deliberately NOT allowed to fall back to SUPABASE_SERVICE_ROLE_KEY: that would
+ * couple a high-value, RLS-bypassing DB credential to a token-signing key with a
+ * very different rotation/blast-radius profile (rotating the DB key would
+ * silently invalidate every in-flight unsubscribe link, and any bug handling
+ * these tokens would be one step from leaking the service-role key). Rotating
+ * the dedicated secret invalidates all in-flight tokens — acceptable since the
+ * TTL is long but bounded.
  */
 
 const TOKEN_VERSION = "v1";
@@ -29,12 +33,10 @@ type TokenPayload = {
 };
 
 function getSigningSecret(): string {
-  const primary = process.env.NEWSLETTER_UNSUBSCRIBE_SECRET?.trim();
-  if (primary) return primary;
-  const fallback = process.env.SUPABASE_SERVICE_ROLE_KEY?.trim();
-  if (fallback) return fallback;
+  const secret = process.env.NEWSLETTER_UNSUBSCRIBE_SECRET?.trim();
+  if (secret) return secret;
   throw new Error(
-    "Missing NEWSLETTER_UNSUBSCRIBE_SECRET (or SUPABASE_SERVICE_ROLE_KEY fallback)"
+    "Missing NEWSLETTER_UNSUBSCRIBE_SECRET. Set a dedicated random secret (e.g. `openssl rand -hex 32`) wherever newsletters are sent/handled. It must NOT reuse SUPABASE_SERVICE_ROLE_KEY."
   );
 }
 
