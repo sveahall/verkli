@@ -121,22 +121,43 @@ export async function GET(
   }
 
   const supabase = await createClient();
-  let query = supabase
+
+  // Cursor pagination over TOP-LEVEL comments (newest first). Previously every
+  // comment for a book was fetched with no limit on each page load, so payload
+  // and mapping cost grew unbounded with engagement. Replies for the page's
+  // threads are fetched separately (below) so threading stays intact across
+  // page boundaries.
+  const DEFAULT_LIMIT = 20;
+  const MAX_LIMIT = 50;
+  const rawLimit = Number(url.searchParams.get("limit"));
+  const limit =
+    Number.isFinite(rawLimit) && rawLimit > 0
+      ? Math.min(MAX_LIMIT, Math.floor(rawLimit))
+      : DEFAULT_LIMIT;
+  const cursor = url.searchParams.get("cursor");
+
+  let topQuery = supabase
     .from("comments")
     .select("id, book_id, chapter_id, author_id, body, parent_comment_id, created_at")
     .eq("book_id", bookId)
-    .order("created_at", { ascending: true });
+    .is("parent_comment_id", null)
+    .order("created_at", { ascending: false })
+    .limit(limit + 1); // +1 sentinel to detect whether another page exists
 
   if (chapterId) {
-    query = query.eq("chapter_id", chapterId);
+    topQuery = topQuery.eq("chapter_id", chapterId);
+  }
+  if (cursor) {
+    // Newest-first, so "next page" is strictly older than the last item seen.
+    topQuery = topQuery.lt("created_at", cursor);
   }
 
   const [
-    { data: comments, error: commentsError },
+    { data: topRaw, error: commentsError },
     {
       data: { user },
     },
-  ] = await Promise.all([query, supabase.auth.getUser()]);
+  ] = await Promise.all([topQuery, supabase.auth.getUser()]);
 
   if (commentsError) {
     console.error("[comments] load failed", {
@@ -148,10 +169,38 @@ export async function GET(
     return apiError(E_COMMENT_LOAD_FAILED, 500);
   }
 
-  const rows = (comments ?? []) as CommentRow[];
-  const authorIds = Array.from(new Set(rows.map((row) => row.author_id)));
+  const topRows = (topRaw ?? []) as CommentRow[];
+  const hasMore = topRows.length > limit;
+  const pageTopRows = hasMore ? topRows.slice(0, limit) : topRows;
+  const nextCursor = hasMore
+    ? (pageTopRows[pageTopRows.length - 1]?.created_at ?? null)
+    : null;
+
+  // Replies only for this page's threads, chronological within each thread.
+  const topIds = pageTopRows.map((row) => row.id);
+  let replyRows: CommentRow[] = [];
+  if (topIds.length > 0) {
+    const { data: repliesRaw, error: repliesError } = await supabase
+      .from("comments")
+      .select("id, book_id, chapter_id, author_id, body, parent_comment_id, created_at")
+      .in("parent_comment_id", topIds)
+      .order("created_at", { ascending: true });
+    if (repliesError) {
+      console.error("[comments] replies load failed", {
+        bookId,
+        chapterId,
+        message: repliesError.message,
+        code: repliesError.code,
+      });
+      return apiError(E_COMMENT_LOAD_FAILED, 500);
+    }
+    replyRows = (repliesRaw ?? []) as CommentRow[];
+  }
+
+  const allRows = [...pageTopRows, ...replyRows];
+  const authorIds = Array.from(new Set(allRows.map((row) => row.author_id)));
   const chapterIds = Array.from(
-    new Set(rows.map((row) => row.chapter_id).filter((id): id is string => Boolean(id)))
+    new Set(allRows.map((row) => row.chapter_id).filter((id): id is string => Boolean(id)))
   );
 
   const [profilesByUserId, { data: chapters, error: chaptersError }] =
@@ -179,22 +228,21 @@ export async function GET(
   );
 
   const repliesByParent = new Map<string, CommentRow[]>();
-  for (const row of rows) {
+  for (const row of replyRows) {
     if (!row.parent_comment_id) continue;
     const existing = repliesByParent.get(row.parent_comment_id) ?? [];
     existing.push(row);
     repliesByParent.set(row.parent_comment_id, existing);
   }
 
-  const topLevelComments = rows.filter((row) => row.parent_comment_id === null);
-
   return NextResponse.json({
     ok: true,
     data: {
-      comments: topLevelComments.map((row) =>
+      comments: pageTopRows.map((row) =>
         mapComment(row, profilesByUserId, chapterTitles, repliesByParent)
       ),
       viewerId: user?.id ?? null,
+      nextCursor,
     },
   });
 }

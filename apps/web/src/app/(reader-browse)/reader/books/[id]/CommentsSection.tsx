@@ -44,9 +44,17 @@ type BookComment = {
   replies: ReplyComment[];
 };
 
-type CommentsResponse = {
+type CommentsData = {
   comments?: BookComment[];
   viewerId?: string | null;
+  nextCursor?: string | null;
+};
+
+type CommentsResponse = {
+  // The GET route wraps its payload in `{ ok, data: {...} }`. Reading the
+  // envelope (not a flat `payload.comments`) is required — the flat read left
+  // the list permanently empty.
+  data?: CommentsData;
   error?: string;
 };
 
@@ -105,6 +113,8 @@ export default function CommentsSection({
 }: CommentsSectionProps) {
   const toast = useToastHelpers();
   const [comments, setComments] = useState<BookComment[]>([]);
+  const [nextCursor, setNextCursor] = useState<string | null>(null);
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [body, setBody] = useState("");
@@ -129,17 +139,24 @@ export default function CommentsSection({
     [bookAuthorId, currentUserId]
   );
 
+  const commentsUrl = useCallback(
+    (cursor?: string | null) => {
+      const params = new URLSearchParams();
+      if (fixedChapterId) params.set("chapterId", fixedChapterId);
+      if (cursor) params.set("cursor", cursor);
+      const qs = params.toString();
+      return `/api/books/${encodeURIComponent(bookId)}/comments${qs ? `?${qs}` : ""}`;
+    },
+    [bookId, fixedChapterId]
+  );
+
+  // Load (or reset to) the first page.
   const loadComments = useCallback(async () => {
     setIsLoading(true);
     setLoadError(null);
 
     try {
-      const chapterQuery = fixedChapterId
-        ? `?chapterId=${encodeURIComponent(fixedChapterId)}`
-        : "";
-      const response = await fetch(`/api/books/${encodeURIComponent(bookId)}/comments${chapterQuery}`, {
-        cache: "no-store",
-      });
+      const response = await fetch(commentsUrl(), { cache: "no-store" });
       const payload = (await response.json().catch(() => ({}))) as CommentsResponse;
 
       if (!response.ok) {
@@ -148,13 +165,43 @@ export default function CommentsSection({
         return;
       }
 
-      setComments(Array.isArray(payload.comments) ? payload.comments : []);
+      const data = payload.data ?? {};
+      setComments(Array.isArray(data.comments) ? data.comments : []);
+      setNextCursor(data.nextCursor ?? null);
     } catch {
       setLoadError("Could not load comments.");
     } finally {
       setIsLoading(false);
     }
-  }, [bookId, fixedChapterId]);
+  }, [commentsUrl]);
+
+  // Append the next (older) page of top-level threads. Dedupe by id so a
+  // created_at tie at the page boundary can never duplicate a thread.
+  const loadMore = useCallback(async () => {
+    if (!nextCursor || isLoadingMore) return;
+    setIsLoadingMore(true);
+    try {
+      const response = await fetch(commentsUrl(nextCursor), { cache: "no-store" });
+      const payload = (await response.json().catch(() => ({}))) as CommentsResponse;
+
+      if (!response.ok) {
+        toast.error(resolveErrorMessage(payload.error, "Could not load more comments."));
+        return;
+      }
+
+      const data = payload.data ?? {};
+      const more = Array.isArray(data.comments) ? data.comments : [];
+      setComments((prev) => {
+        const seen = new Set(prev.map((c) => c.id));
+        return [...prev, ...more.filter((c) => !seen.has(c.id))];
+      });
+      setNextCursor(data.nextCursor ?? null);
+    } catch {
+      toast.error("Could not load more comments.");
+    } finally {
+      setIsLoadingMore(false);
+    }
+  }, [commentsUrl, nextCursor, isLoadingMore, toast]);
 
   useEffect(() => {
     void loadComments();
@@ -240,7 +287,7 @@ export default function CommentsSection({
         <div className="flex flex-wrap items-center justify-between gap-2">
           <h2 className="text-xl font-semibold text-[#0F172A] dark:text-white">{title}</h2>
           <span className="text-xs text-[#64748B] dark:text-white/50">
-            {totalComments} total
+            {nextCursor ? `${totalComments} shown` : `${totalComments} total`}
           </span>
         </div>
 
@@ -460,6 +507,20 @@ export default function CommentsSection({
                 </div>
               </article>
             ))
+          )}
+
+          {nextCursor && !isLoading && !loadError && (
+            <div className="pt-1">
+              <Button
+                type="button"
+                variant="ghost"
+                onClick={() => void loadMore()}
+                isLoading={isLoadingMore}
+                loadingText="Loading"
+              >
+                Load more comments
+              </Button>
+            </div>
           )}
         </div>
       </div>
