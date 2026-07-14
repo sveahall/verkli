@@ -3,7 +3,7 @@
 > **Status**: GA-readiness / hardening. The platform is built (books, reader, editor, payments, workers, AI pipelines all shipping); current work is bug/RLS/payment hardening and polish. See `GA-STAGING-CHECKLIST.md` for the live release gate.
 > **Last updated**: 2026-07-09.
 > **Owner**: @SveaHallinder.
-> **Working branch**: `demo` (consolidated façade); `main` is the protected base. The old `mvp-wip-2026-03-18` planning branch referenced below is historical.
+> **Working branch**: `platform` (renamed from `demo` on 2026-07-14 — the "demo" name was an investor-pitch leftover; we build toward production/GA). `main` is the live verkli.com deploy branch. The old `mvp-wip-2026-03-18` planning branch referenced below is historical. Demoing is a runtime flag (`demo_mode`), not a branch.
 > **Target**: Lean MVP + PRO, soft launch.
 
 This document is the single source of truth for what we're building toward beta/soft launch and what comes after. Replace any older roadmap-like docs with this one.
