@@ -141,15 +141,28 @@ export async function GET(
     .select("id, book_id, chapter_id, author_id, body, parent_comment_id, created_at")
     .eq("book_id", bookId)
     .is("parent_comment_id", null)
+    // Deterministic TOTAL order (created_at is not unique) so the keyset cursor
+    // can never skip or duplicate a row when equal timestamps straddle a page
+    // boundary. id is the tiebreaker.
     .order("created_at", { ascending: false })
+    .order("id", { ascending: false })
     .limit(limit + 1); // +1 sentinel to detect whether another page exists
 
   if (chapterId) {
     topQuery = topQuery.eq("chapter_id", chapterId);
   }
   if (cursor) {
-    // Newest-first, so "next page" is strictly older than the last item seen.
-    topQuery = topQuery.lt("created_at", cursor);
+    // Composite keyset cursor "<created_at>|<id>". Newest-first, so the next
+    // page is everything strictly ordered after the last item seen:
+    //   created_at < T  OR  (created_at = T AND id < lastId)
+    const sep = cursor.indexOf("|");
+    if (sep > 0) {
+      const cTime = cursor.slice(0, sep);
+      const cId = cursor.slice(sep + 1);
+      topQuery = topQuery.or(
+        `created_at.lt.${cTime},and(created_at.eq.${cTime},id.lt.${cId})`
+      );
+    }
   }
 
   const [
@@ -172,9 +185,8 @@ export async function GET(
   const topRows = (topRaw ?? []) as CommentRow[];
   const hasMore = topRows.length > limit;
   const pageTopRows = hasMore ? topRows.slice(0, limit) : topRows;
-  const nextCursor = hasMore
-    ? (pageTopRows[pageTopRows.length - 1]?.created_at ?? null)
-    : null;
+  const lastRow = pageTopRows[pageTopRows.length - 1];
+  const nextCursor = hasMore && lastRow ? `${lastRow.created_at}|${lastRow.id}` : null;
 
   // Replies only for this page's threads, chronological within each thread.
   const topIds = pageTopRows.map((row) => row.id);
