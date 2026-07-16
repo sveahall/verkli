@@ -5,6 +5,7 @@ import { requireAuthorAndMarketingEnabled } from "@/lib/auth/require-author-mark
 import { generateTrailerPrompt } from "@/lib/ai/trailer-generation";
 import { generateImageToVideo } from "@/lib/higgsfield";
 import { uploadTrailerAndGetPublicUrl } from "@/lib/marketing/trailer-storage";
+import { validateProviderImageUrl } from "@/lib/security/url-allowlist";
 import {
   apiError,
   E_DATABASE_ERROR,
@@ -92,6 +93,21 @@ export async function POST(
       .update({
         status: "asset_failed",
         asset_error: "missing_cover_image",
+      })
+      .eq("id", post.id);
+    return apiError(E_TRAILER_GENERATION_FAILED, 422);
+  }
+
+  // SSRF guard — `cover_image` is a free-form user-writable column. Refuse
+  // anything that isn't on the approved host-list before handing it to
+  // Higgsfield (which may fetch/redirect server-side on our behalf). Mirrors
+  // the guard in books/[id]/trailer/build and marketing/video/generate.
+  if (!validateProviderImageUrl(book.cover_image).ok) {
+    await supabase
+      .from("marketing_posts")
+      .update({
+        status: "asset_failed",
+        asset_error: "invalid_cover_image_url",
       })
       .eq("id", post.id);
     return apiError(E_TRAILER_GENERATION_FAILED, 422);
