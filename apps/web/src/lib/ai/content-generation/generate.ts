@@ -1,6 +1,7 @@
 import { createAdminClient } from "@/lib/supabase/admin";
 import { generateImageToVideo } from "@/lib/higgsfield";
 import { generateCoverImages } from "@/lib/nvidia-sd3";
+import { validateProviderImageUrl } from "@/lib/security/url-allowlist";
 import type { ContentGenerationRequest, BookSnapshot, TextContent } from "./schemas";
 import { validateTextContent } from "./schemas";
 import {
@@ -209,6 +210,15 @@ async function generateVideo(
   if (!coverImageUrl) {
     throw new Error(
       "[content generate] Cover image is required for Higgsfield video generation."
+    );
+  }
+
+  // SSRF guard — coverImageUrl derives from the user-writable book cover
+  // column and is fetched server-side by the Higgsfield provider. Enforce the
+  // same host allowlist the other image->video routes apply.
+  if (!validateProviderImageUrl(coverImageUrl).ok) {
+    throw new Error(
+      "[content generate] Cover image URL failed the provider allowlist."
     );
   }
 

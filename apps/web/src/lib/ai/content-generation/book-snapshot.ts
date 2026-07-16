@@ -13,7 +13,7 @@ export async function buildBookSnapshot(
   // Fetch book
   const { data: book, error: bookErr } = await admin
     .from("books" as never)
-    .select("title, description, language, cover_image_url")
+    .select("title, description, language, cover_image")
     .eq("id", bookId)
     .single();
 
@@ -46,7 +46,7 @@ export async function buildBookSnapshot(
     title: String(b.title ?? ""),
     description: b.description ? String(b.description) : null,
     language: String(b.language ?? "sv"),
-    coverImageUrl: b.cover_image_url ? String(b.cover_image_url) : null,
+    coverImageUrl: b.cover_image ? String(b.cover_image) : null,
     chapterExcerpt: excerpt,
     chapterCount: count ?? 0,
   };
