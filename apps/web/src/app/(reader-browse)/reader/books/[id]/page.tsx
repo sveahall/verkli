@@ -537,7 +537,9 @@ export default async function ReaderBookDetail({
   const chipClass = "rounded-full border border-black/[0.06] bg-white/70 px-3 py-1 text-[11px] font-medium text-slate-600 dark:border-white/[0.08] dark:bg-white/[0.04] dark:text-white/60";
   const metaChips = (
     <>
-      <span className={chipClass}>{chaptersCount} chapters</span>
+      <span className={chipClass}>
+        {chaptersCount} {chaptersCount === 1 ? "chapter" : "chapters"}
+      </span>
       <span className={chipClass}>{languageName}</span>
       <span className={chipClass}>
         {book.audiobook_status === "published"
