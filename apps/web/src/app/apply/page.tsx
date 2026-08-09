@@ -212,6 +212,16 @@ export default function ApplyPage() {
                 round one
               </span>
             </h1>
+            {/* Utan detta vet den som landar här inte vad hen ansöker till. */}
+            <p className="mx-auto mt-5 max-w-md text-[15px] leading-relaxed text-white/55">
+              A small group of authors will publish the first books built end
+              to end on Verkli — translations, audiobook, cover and
+              distribution. You’d be early, so you’ll hit rough edges, and
+              telling us about them is part of the job.
+            </p>
+            <p className="mt-4 text-[15px] leading-relaxed text-white/40">
+              Six questions is the whole application.
+            </p>
           </div>
 
           <div className="apply-in apply-in-delay-2 mx-auto mt-7 w-full max-w-lg rounded-3xl border border-white/20 bg-[#0a0c18]/80 p-6 shadow-[0_24px_48px_rgba(0,0,0,0.35),0_0_0_1px_rgba(255,255,255,0.06)] backdrop-blur-xl sm:p-8">
