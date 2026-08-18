@@ -11,6 +11,7 @@ import {
   Compass,
   Home,
   Library,
+  LifeBuoy,
   PenLine,
   Search,
   UserCircle,
@@ -57,9 +58,18 @@ const isPathActive = (pathname: string | null, matchers: string[]) => {
 export default function ReaderAppShell({
   children,
   authorAccess = "hidden",
+  footer,
 }: {
   children: ReactNode;
   authorAccess?: AuthorAccessMode;
+  /**
+   * Site footer, passed in by the route-group layout rather than imported here
+   * so it stays a server component. Signed-in readers previously had no route
+   * to Privacy, Terms or Support from inside the app shell at all — the footer
+   * only rendered on the public marketing layouts. Omitted on the immersive
+   * reading view, where chrome below the text would break the page.
+   */
+  footer?: ReactNode;
 }) {
   const pathname = usePathname();
   const router = useRouter();
@@ -136,6 +146,13 @@ export default function ReaderAppShell({
               <UserCircle className="h-[18px] w-[18px] flex-shrink-0" />
               <span className="truncate">Profile</span>
             </Link>
+            <Link
+              href="/support"
+              className="inline-flex min-h-[44px] w-full items-center gap-3.5 rounded-xl px-4 py-2.5 text-[15px] text-[#7A8194] transition hover:bg-[#F6F7FB] hover:text-[#555C70] dark:text-white/50 dark:hover:bg-white/10 dark:hover:text-white"
+            >
+              <LifeBuoy className="h-[18px] w-[18px] flex-shrink-0" />
+              <span className="truncate">Support</span>
+            </Link>
           </div>
           {authorAccess === "switch" && (
             <button
@@ -170,7 +187,11 @@ export default function ReaderAppShell({
       </div>
 
       {/* ── Main content ── */}
-      <main className="relative isolate mx-auto min-h-screen w-full max-w-[1400px] px-4 pb-24 pt-4 sm:px-5 sm:pt-6 lg:px-6 lg:pb-8 lg:pt-8">
+      <main
+        className={`relative isolate mx-auto min-h-screen w-full max-w-[1400px] px-4 pt-4 sm:px-5 sm:pt-6 lg:px-6 lg:pt-8 ${
+          footer ? "pb-8 lg:pb-4" : "pb-24 lg:pb-8"
+        }`}
+      >
         {/* Ambient brand wash — reader surfaces get the violet→rose→amber
             atmosphere (DESIGN.md allows decorative treatment in reader hero).
             Static (no drift) and pointer-events-none: zero interaction or
@@ -185,6 +206,13 @@ export default function ReaderAppShell({
         </div>
         {children}
       </main>
+
+      {/* ── Site footer ──
+          Spans both columns so it reads as the base of the whole shell. The
+          extra bottom padding on small screens clears the fixed mobile nav. */}
+      {footer ? (
+        <div className="pb-20 lg:col-span-2 lg:pb-0">{footer}</div>
+      ) : null}
 
       {/* ── Mobile bottom nav ── */}
       <nav

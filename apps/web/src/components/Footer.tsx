@@ -41,6 +41,7 @@ export default function Footer({ variant = "reader" }: { variant?: FooterVariant
             )}
             <li><Link href="/reader/signin" className={linkClass}>Sign in</Link></li>
             <li><Link href="/pricing" className={linkClass}>Membership</Link></li>
+            <li><Link href="/support" className={linkClass}>Help &amp; support</Link></li>
           </ul>
         </div>
         <div className="space-y-4">
@@ -52,15 +53,22 @@ export default function Footer({ variant = "reader" }: { variant?: FooterVariant
         </div>
       </div>
       <div className="mt-8 flex flex-col items-center justify-between gap-4 px-4 text-[13px] text-slate-500 dark:text-white/30 md:flex-row md:px-11">
-        <div className="flex items-center gap-4">
+        <div className="flex flex-wrap items-center justify-center gap-x-4 gap-y-2 md:justify-start">
           <span>© 2026 Verkli. All rights reserved.</span>
           <Link href="/privacy" className={linkClass}>Privacy</Link>
           <Link href="/terms" className={linkClass}>Terms</Link>
+          <Link href="/support" className={linkClass}>Support</Link>
         </div>
-        <div className="flex items-center gap-2 shrink-0">
-          <span className="h-2 w-2 rounded-full bg-green-400"></span>
-          <span>All systems operational</span>
-        </div>
+        {/* This slot used to claim "All systems operational" against no status
+            source at all — a green dot that was hard-coded true even during an
+            outage. Until there is a real health feed to read, it carries a
+            contact address instead, which is always true. */}
+        <a
+          href="mailto:hello@verkli.com"
+          className={`${linkClass} shrink-0`}
+        >
+          hello@verkli.com
+        </a>
       </div>
     </footer>
   );

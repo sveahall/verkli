@@ -134,6 +134,7 @@ export const NAV_CONFIG: Record<NavVariant, NavConfig> = {
     homeHref: "/reader",
     links: [
       { label: "Discover", href: "/reader" },
+      { label: "Support", href: "/support" },
     ],
     actions: {
       secondary: { label: "Login", href: "/reader/signin" },
@@ -160,6 +161,7 @@ export const NAV_CONFIG: Record<NavVariant, NavConfig> = {
       { label: "Home", href: "/reader/home" },
       { label: "Discover", href: "/reader/discover" },
       { label: "Library", href: "/reader/library" },
+      { label: "Support", href: "/support" },
     ],
     actions: {
       showSearch: true,

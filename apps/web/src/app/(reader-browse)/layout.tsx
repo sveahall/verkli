@@ -2,6 +2,7 @@ import NavbarShell from "@/nav/NavbarShell";
 import ReaderAppShell from "@/components/reader/ReaderAppShell";
 import type { AuthorAccessMode } from "@/components/reader/ReaderAppShell";
 import OfflineModeIndicator from "@/components/offline/OfflineModeIndicator";
+import Footer from "@/components/Footer";
 import DemoCookieAutoAccept from "@/features/author-shell/DemoCookieAutoAccept";
 import { createClient } from "@/lib/supabase/server";
 import { isDemoModeActive } from "@/lib/flags";
@@ -70,7 +71,12 @@ export default async function ReaderBrowseLayout({
       </div>
       <OfflineModeIndicator />
       <DemoCookieAutoAccept enabled={demoModeActive} />
-      <ReaderAppShell authorAccess={authorAccess}>{children}</ReaderAppShell>
+      <ReaderAppShell
+        authorAccess={authorAccess}
+        footer={<Footer variant="reader" />}
+      >
+        {children}
+      </ReaderAppShell>
     </>
   );
 }

@@ -7,6 +7,13 @@ import { useSearchParams, useRouter, usePathname } from "next/navigation";
  * Error Messages
  * ───────────────────────────────────────────────────────────────────────────── */
 
+/**
+ * Every error that tells the reader to "contact support" needs somewhere to send
+ * them, or the advice is dead copy. `/support` carries the contact form and the
+ * real addresses.
+ */
+const SUPPORT_ACTION = { label: "Contact support", href: "/support" } as const;
+
 const ERROR_MESSAGES: Record<string, { title: string; description: string; action?: { label: string; href: string } }> = {
   author_required: {
     title: "Author access required",
@@ -31,17 +38,20 @@ const ERROR_MESSAGES: Record<string, { title: string; description: string; actio
   not_found: {
     title: "Not found",
     description: "The page or resource you are looking for does not exist or was moved.",
+    action: SUPPORT_ACTION,
   },
   server_error: {
     title: "Something went wrong",
-    description: "We could not complete this request. Try again or contact support if it continues.",
+    description: "We could not complete this request. Try again, or contact support if it keeps happening.",
+    action: SUPPORT_ACTION,
   },
 };
 
 // Fallback for unknown error codes — never show technical codes to users
-const FALLBACK_ERROR = {
+const FALLBACK_ERROR: { title: string; description: string; action?: { label: string; href: string } } = {
   title: "Something went wrong",
-  description: "We could not complete this request. Please try again.",
+  description: "We could not complete this request. Try again, or contact support if it keeps happening.",
+  action: SUPPORT_ACTION,
 };
 
 /* ─────────────────────────────────────────────────────────────────────────────
