@@ -9,6 +9,33 @@ import { Button } from "@/components/ui/button";
 import { FormField } from "@/components/ui/form-field";
 import { Input } from "@/components/ui/input";
 import { signUp, signInWithGoogle } from "@/lib/supabase/auth";
+import { sanitizeNextPath, writeNextPathCookieClient } from "@/lib/auth/next-path";
+
+/**
+ * Read `?next=` off the live URL rather than via `useSearchParams()`, matching
+ * the sign-in page — `useSearchParams` forces a Suspense boundary or opts the
+ * route out of prerender. Returns the raw value; validation lives in
+ * `next-path.ts`.
+ */
+function readRawNextParam(): string | null {
+  if (typeof window === "undefined") return null;
+  return new URLSearchParams(window.location.search).get("next");
+}
+
+/**
+ * Persist the post-auth destination before leaving this page.
+ *
+ * Both routes out of signup lose the query string: the email flow returns via a
+ * confirmation link Supabase builds, and the Google flow leaves for the provider.
+ * So `?next=` cannot survive on the URL — it rides in the short-lived
+ * `verkli_next` cookie, which `/auth/callback` re-validates and clears.
+ *
+ * Without this, a buyer who signs up mid-purchase (most of them, at soft launch)
+ * confirms their email and lands on the reader home feed having lost the book.
+ */
+function rememberNextPath(): void {
+  writeNextPathCookieClient(sanitizeNextPath(readRawNextParam()));
+}
 
 export default function ReaderSignUp() {
   const [email, setEmail] = useState("");
@@ -44,6 +71,7 @@ export default function ReaderSignUp() {
 
     setLoading(true);
 
+    rememberNextPath();
     const { error } = await signUp(email, password, "reader");
 
     if (error) {
@@ -56,6 +84,7 @@ export default function ReaderSignUp() {
 
   const handleGoogleSignIn = async () => {
     setError("");
+    rememberNextPath();
     const { error } = await signInWithGoogle();
     if (error) {
       setError(resolveErrorMessage(error.code, error.message || "Registration failed. Please try again."));
