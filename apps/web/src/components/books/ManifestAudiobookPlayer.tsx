@@ -2,6 +2,7 @@
 
 import { useEffect, useId, useMemo, useState } from "react";
 import NoDownloadAudioPlayer from "@/components/books/NoDownloadAudioPlayer";
+import { useListenTracking } from "@/lib/analytics/useListenTracking";
 
 type ManifestTrack = {
   id: string;
@@ -35,6 +36,7 @@ export default function ManifestAudiobookPlayer({
   const [tracks, setTracks] = useState<ManifestTrack[]>([]);
   const [activeTrackId, setActiveTrackId] = useState<string>("");
   const [activeTrackSrc, setActiveTrackSrc] = useState<string | null>(null);
+  const [resumePositionSeconds, setResumePositionSeconds] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const chapterSelectId = useId();
@@ -137,10 +139,12 @@ export default function ManifestAudiobookPlayer({
     const loadTrackSrc = async () => {
       if (!activeTrack) {
         setActiveTrackSrc(null);
+        setResumePositionSeconds(null);
         return;
       }
       if (!resolvedBookId) {
         setActiveTrackSrc(null);
+        setResumePositionSeconds(null);
         setError("Could not resolve book for chapter playback.");
         return;
       }
@@ -154,14 +158,25 @@ export default function ManifestAudiobookPlayer({
           throw new Error(`Track playback request failed (${response.status})`);
         }
 
-        const payload = (await response.json()) as { audioUrl?: unknown };
+        const payload = (await response.json()) as {
+          audioUrl?: unknown;
+          resumePositionSeconds?: unknown;
+        };
         const signedUrl =
           typeof payload.audioUrl === "string" && payload.audioUrl.trim().length > 0
             ? payload.audioUrl.trim()
             : null;
+        // Saved offset for this track, resolved server-side alongside the URL.
+        const nextResume =
+          typeof payload.resumePositionSeconds === "number" &&
+          Number.isFinite(payload.resumePositionSeconds) &&
+          payload.resumePositionSeconds > 0
+            ? payload.resumePositionSeconds
+            : null;
 
         if (!cancelled) {
           setActiveTrackSrc(signedUrl);
+          setResumePositionSeconds(nextResume);
           if (!signedUrl) {
             setError("No chapter audio found in audiobook manifest.");
           }
@@ -169,6 +184,7 @@ export default function ManifestAudiobookPlayer({
       } catch {
         if (!cancelled) {
           setActiveTrackSrc(null);
+          setResumePositionSeconds(null);
           setError("Could not load chapter-based audiobook playback.");
         }
       }
@@ -180,6 +196,16 @@ export default function ManifestAudiobookPlayer({
       cancelled = true;
     };
   }, [activeTrack, resolvedBookId]);
+
+  // WP-03. Called before the early returns — the player is conditional, the hook
+  // is not. Keyed on the selected track's chapterId so switching chapters in the
+  // dropdown resets the tracker and picks up that chapter's own saved offset.
+  const listenTracking = useListenTracking({
+    bookId: resolvedBookId,
+    chapterId: activeTrack?.chapterId ?? "",
+    enabled: Boolean(resolvedBookId && activeTrack?.chapterId && activeTrackSrc),
+    resumePositionSeconds,
+  });
 
   if (loading) {
     return (
@@ -235,7 +261,7 @@ export default function ManifestAudiobookPlayer({
           );
         })}
       </select>
-      <NoDownloadAudioPlayer src={activeTrackSrc} />
+      <NoDownloadAudioPlayer src={activeTrackSrc} {...listenTracking} />
     </div>
   );
 }

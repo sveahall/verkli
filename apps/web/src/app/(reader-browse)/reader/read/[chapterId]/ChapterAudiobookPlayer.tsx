@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { getAudiobookEnabled } from "@/lib/flags";
+import { useListenTracking } from "@/lib/analytics/useListenTracking";
 
 type Props = {
   bookId: string;
@@ -12,6 +13,8 @@ type Props = {
 
 type ChapterPlaybackResponse = {
   audioUrl?: unknown;
+  /** Saved playback offset for this reader, resolved server-side (WP-03). */
+  resumePositionSeconds?: unknown;
 };
 
 type ChapterPlaybackErrorResponse = {
@@ -54,6 +57,7 @@ export default function ChapterAudiobookPlayer({
   const [notPublishedNotice, setNotPublishedNotice] = useState(false);
   const [isPlaying, setIsPlaying] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [resumePositionSeconds, setResumePositionSeconds] = useState<number | null>(null);
 
   useEffect(() => {
     if (!audiobookFeatureEnabled || !shouldAttemptLoad) {
@@ -64,6 +68,7 @@ export default function ChapterAudiobookPlayer({
       setNotPublishedNotice(false);
       setIsPlaying(false);
       setError(null);
+      setResumePositionSeconds(null);
       return;
     }
 
@@ -78,6 +83,7 @@ export default function ChapterAudiobookPlayer({
       setNotPublishedNotice(false);
       setAudioUrl(null);
       setIsPlaying(false);
+      setResumePositionSeconds(null);
 
       loadingTimer = setTimeout(() => {
         if (!cancelled) {
@@ -127,8 +133,20 @@ export default function ChapterAudiobookPlayer({
             ? payload.audioUrl.trim()
             : null;
 
+        // Resume offset is resolved server-side and arrives with the signed URL,
+        // so restoring a reader's place costs no extra round trip. Null means
+        // "start from the beginning" — no saved position, or one too close to
+        // either end to be worth restoring.
+        const nextResume =
+          typeof payload.resumePositionSeconds === "number" &&
+          Number.isFinite(payload.resumePositionSeconds) &&
+          payload.resumePositionSeconds > 0
+            ? payload.resumePositionSeconds
+            : null;
+
         if (!cancelled) {
           setAudioUrl(nextAudioUrl);
+          setResumePositionSeconds(nextResume);
         }
       } catch {
         if (!cancelled) {
@@ -154,6 +172,15 @@ export default function ChapterAudiobookPlayer({
       }
     };
   }, [audiobookFeatureEnabled, bookId, chapterId, resolvedIsAuthorView, shouldAttemptLoad]);
+
+  // WP-03. Must be called before the early returns below — the audio element is
+  // conditionally rendered, hooks are not.
+  const listenTracking = useListenTracking({
+    bookId,
+    chapterId,
+    enabled: Boolean(audioUrl),
+    resumePositionSeconds,
+  });
 
   if (!audiobookFeatureEnabled || !shouldAttemptLoad) {
     return null;
@@ -216,14 +243,29 @@ export default function ChapterAudiobookPlayer({
           </p>
         )}
       </div>
+      {/*
+        Spread first, then re-declare the three handlers this component also
+        needs for its own "Playing" indicator, composing rather than replacing.
+        onLoadedMetadata / onTimeUpdate / onSeeked come straight from the hook.
+      */}
       <audio
         controls
         preload="none"
         className="w-full"
         src={audioUrl}
-        onPlay={() => setIsPlaying(true)}
-        onPause={() => setIsPlaying(false)}
-        onEnded={() => setIsPlaying(false)}
+        {...listenTracking}
+        onPlay={(event) => {
+          setIsPlaying(true);
+          listenTracking.onPlay(event);
+        }}
+        onPause={(event) => {
+          setIsPlaying(false);
+          listenTracking.onPause(event);
+        }}
+        onEnded={(event) => {
+          setIsPlaying(false);
+          listenTracking.onEnded(event);
+        }}
         onEmptied={() => setIsPlaying(false)}
       >
         Your browser does not support audio playback.
