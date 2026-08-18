@@ -3,7 +3,9 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { requireAdminRole } from "@/lib/admin-auth";
 import { getAudiobookStorageBucket } from "@/lib/tts/storage";
-import { canUserReadBook } from "@/lib/books/access";
+import { canUserReadBook, type SupabaseLikeClient } from "@/lib/books/access";
+import { logAnalyticsEvent } from "@/lib/analytics/events";
+import { shouldResumeAt } from "@/lib/analytics/listen";
 import { assertPublicEnv } from "@/lib/env";
 import { isAudiobookEnabled } from "@/lib/flags";
 import {
@@ -196,7 +198,99 @@ export async function GET(
     return apiError(E_AUDIO_SIGN_FAILED, 500);
   }
 
+  // ── WP-03: server-side listen chokepoint ───────────────────────────────────
+  //
+  // This is the only place that knows a specific caller obtained playable audio
+  // for a specific chapter, and it cannot be bypassed — the signed URL above is
+  // the sole route to the object, and it expires. `audio_requested` is therefore
+  // the floor under every listening metric, including anonymous listeners, whom
+  // the client-side events cannot cover because they have no row to own.
+  //
+  // It is deliberately not called a play: the reader player fetches this on
+  // mount with preload="none", so it means "audio was made available". The ratio
+  // audio_requested → listen_start (emitted from the real <audio> element via
+  // the progress route) is the request-to-play conversion rate.
+  //
+  // Awaited rather than fire-and-forget: on a serverless host the function can
+  // be frozen as soon as the response is returned, which silently drops floating
+  // promises — exactly the failure mode that would leave us thinking listening
+  // is instrumented when it is not. logAnalyticsEvent never throws and logs its
+  // own failures, so this cannot break playback.
+  //
+  // Run in parallel with the resume lookup below — they are independent, and the
+  // reader is blocked on this response before any audio can start.
+  const [, resumePositionSeconds] = await Promise.all([
+    logAnalyticsEvent(admin, {
+      eventType: "audio_requested",
+      userId: user?.id ?? null,
+      bookId: bookRow.id,
+      path: `/api/books/${bookRow.id}/audiobook/play`,
+      props: {
+        chapterId: chapterRow.id,
+        chapterOrder: chapterRow.order,
+        signedIn: Boolean(user?.id),
+        isAuthorPreview: isAuthor,
+        isModeratorAdmin,
+      },
+    }),
+    // Resume point, resolved here rather than from a second endpoint: this
+    // request has already done the auth work and the player is already awaiting
+    // it, so a separate round trip would only delay playback.
+    readResumePosition({
+      supabase,
+      userId: user?.id ?? null,
+      chapterId: chapterRow.id,
+    }),
+  ]);
+
   return NextResponse.json({
     audioUrl: signed.signedUrl,
+    resumePositionSeconds,
   });
+}
+
+/**
+ * Saved playback offset for this listener and chapter, or null when there is
+ * nothing worth resuming.
+ *
+ * Read with the caller's session client, so RLS is what scopes the row to its
+ * owner. Never rejects: a missing table (migration not yet applied), an RLS
+ * surprise or a dropped connection all mean "start from the beginning". Losing a
+ * resume point is a small annoyance; failing the audio load over it is not.
+ */
+async function readResumePosition(input: {
+  supabase: SupabaseLikeClient;
+  userId: string | null;
+  chapterId: string;
+}): Promise<number | null> {
+  if (!input.userId) return null;
+
+  try {
+    const { data, error } = await input.supabase
+      .from("listening_positions")
+      .select("position_seconds, duration_seconds")
+      .eq("user_id", input.userId)
+      .eq("chapter_id", input.chapterId)
+      .maybeSingle();
+
+    if (error) {
+      console.warn("[audiobook play] resume position lookup failed", {
+        chapterId: input.chapterId,
+        code: error.code,
+        message: error.message,
+      });
+      return null;
+    }
+
+    const position = typeof data?.position_seconds === "number" ? data.position_seconds : null;
+    const duration = typeof data?.duration_seconds === "number" ? data.duration_seconds : null;
+
+    return shouldResumeAt(position, duration) ? position : null;
+  } catch (err) {
+    console.warn("[audiobook play] resume position lookup threw", {
+      chapterId: input.chapterId,
+      message: err instanceof Error ? err.message : String(err),
+    });
+    return null;
+  }
 }
