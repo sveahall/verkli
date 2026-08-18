@@ -623,6 +623,87 @@ async function processInvoiceEvent(
   return true;
 }
 
+/**
+ * Terminal reconciliation for `async_payment_failed` and `expired`.
+ *
+ * Enabling Stripe's dynamic payment methods (see `lib/payments/stripe.ts`) means
+ * delayed-notification methods can now reach this integration. Such a session
+ * arrives as `completed` + `payment_status: "unpaid"`, is correctly acknowledged
+ * as `processed: false`, and then resolves later — either through
+ * `async_payment_succeeded` (handled in the main switch) or through one of these
+ * two terminal events.
+ *
+ * Without this handler the pending row stays `pending` **forever**: nothing else
+ * in the system reconciles it, so the buyer is left with a stuck order and the
+ * revenue figures count a sale that never happened.
+ *
+ * Guarded to `status = "pending"` so a row already finalized as paid can never
+ * be downgraded by a late or out-of-order terminal event.
+ */
+async function failPendingCheckoutSession(
+  admin: AdminClient,
+  session: StripeRecord,
+  eventType: string
+): Promise<boolean> {
+  const sessionId = trimToNull(session.id);
+  if (!sessionId) return false;
+
+  const metadata = extractMetadata(session.metadata);
+  const paymentKind = parsePaymentKindFromMetadata(metadata);
+
+  // All four of these tables carry a `stripe_session_id` column and the same
+  // pending/paid/failed status vocabulary. A book purchase is the one kind that
+  // sets no `payment_kind` at all, which is why null maps to `orders` — the same
+  // fall-through that `processPaymentKindCheckoutSession` relies on.
+  const table =
+    paymentKind === null
+      ? ("orders" as const)
+      : paymentKind === "donation"
+        ? ("donations" as const)
+        : paymentKind === "credit_topup"
+          ? ("credit_topups" as const)
+          : paymentKind === "pod"
+            ? ("pod_orders" as const)
+            : null;
+
+  if (!table) {
+    // audiobook / translation / author_subscription have no pending row to
+    // reconcile — their entitlement is claimed at generate time, after payment,
+    // via `stripe_session_redemptions`. An unpaid session simply never claims.
+    console.info("[stripe.webhook] terminal session event, nothing to reconcile", {
+      eventType,
+      sessionId,
+      paymentKind,
+    });
+    return false;
+  }
+
+  const { data, error } = await admin
+    .from(table)
+    .update({ status: "failed" })
+    .eq("stripe_session_id", sessionId)
+    .eq("status", "pending")
+    .select("id");
+
+  if (error) {
+    // Throw rather than return false, so the recorded `stripe_events` row is
+    // rolled back and Stripe retries. Same contract as the paid-path handlers.
+    throw new Error(
+      `failPendingCheckoutSession ${table} (${error.code}): ${error.message}`
+    );
+  }
+
+  const affected = Array.isArray(data) ? data.length : 0;
+  console.info("[stripe.webhook] pending payment marked failed", {
+    eventType,
+    sessionId,
+    paymentKind: paymentKind ?? "book_purchase",
+    table,
+    affected,
+  });
+  return affected > 0;
+}
+
 export async function processStripeWebhookEvent(
   admin: AdminClient,
   type: string,
@@ -666,6 +747,16 @@ export async function processStripeWebhookEvent(
         processed: subscriptionProcessed,
       };
     }
+    // The two terminal outcomes for a delayed payment. Before dynamic payment
+    // methods these were unreachable in practice; now they are not, and an
+    // unhandled one leaves the row `pending` forever. See
+    // `failPendingCheckoutSession` above.
+    case "checkout.session.async_payment_failed":
+    case "checkout.session.expired":
+      return {
+        received: true,
+        processed: await failPendingCheckoutSession(admin, object, type),
+      };
     case "customer.subscription.created":
     case "customer.subscription.updated":
       return {

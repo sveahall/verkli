@@ -112,7 +112,7 @@ describe("confirmStripeBookPurchase", () => {
       bookId: "book-1",
     });
 
-    expect(ok).toBe(true);
+    expect(ok).toBe("paid");
     expect(admin.state.rpcCalls).toEqual([
       {
         fnName: "finalize_order_checkout_session",
@@ -158,10 +158,84 @@ describe("confirmStripeBookPurchase", () => {
       bookId: "book-1",
     });
 
-    expect(ok).toBe(false);
+    expect(ok).toBe("failed");
     expect(admin.state.orderUpdatePayloads).toContainEqual({ status: "failed" });
     expect(admin.state.rpcCalls).toHaveLength(0);
     expect(mocks.logAnalyticsEvent).not.toHaveBeenCalled();
+  });
+
+  it("reports processing, and does NOT fail the order, for a settling delayed payment", async () => {
+    // Klarna / SEPA / Swish complete Checkout with payment_status "unpaid" and
+    // status "complete", then settle later via async_payment_succeeded. Marking
+    // the order failed here would show the buyer "try again" and risk a double
+    // charge, since they hold no entitlement yet to trip the 409 guard.
+    const admin = makeAdminClient({
+      id: "order-1",
+      user_id: "reader-1",
+      book_id: "book-1",
+      chapter_id: null,
+      status: "pending",
+      amount: 1299,
+      currency: "SEK",
+    });
+    mocks.createAdminClient.mockReturnValue(admin.client);
+    mocks.getStripeCheckoutSession.mockResolvedValue({
+      id: "cs_klarna",
+      payment_status: "unpaid",
+      status: "complete",
+      metadata: {
+        order_id: "order-1",
+        user_id: "reader-1",
+        book_id: "book-1",
+      },
+    });
+
+    const ok = await confirmStripeBookPurchase({
+      orderId: "order-1",
+      sessionId: "cs_klarna",
+      userId: "reader-1",
+      bookId: "book-1",
+    });
+
+    expect(ok).toBe("processing");
+    expect(admin.state.orderUpdatePayloads).toHaveLength(0);
+    expect(admin.state.rpcCalls).toHaveLength(0);
+    expect(mocks.logAnalyticsEvent).not.toHaveBeenCalled();
+  });
+
+  it("still fails an abandoned session that was never completed", async () => {
+    // status "open" means the buyer never paid at all — keep the fail-fast path.
+    const admin = makeAdminClient({
+      id: "order-1",
+      user_id: "reader-1",
+      book_id: "book-1",
+      chapter_id: null,
+      status: "pending",
+      amount: 1299,
+      currency: "SEK",
+    });
+    mocks.createAdminClient.mockReturnValue(admin.client);
+    mocks.getStripeCheckoutSession.mockResolvedValue({
+      id: "cs_open",
+      payment_status: "unpaid",
+      status: "open",
+      metadata: {
+        order_id: "order-1",
+        user_id: "reader-1",
+        book_id: "book-1",
+      },
+    });
+
+    const ok = await confirmStripeBookPurchase({
+      orderId: "order-1",
+      sessionId: "cs_open",
+      userId: "reader-1",
+      bookId: "book-1",
+    });
+
+    expect(ok).toBe("failed");
+    expect(admin.state.orderUpdatePayloads).toContainEqual({ status: "failed" });
+    expect(admin.state.rpcCalls).toHaveLength(0);
   });
 
   it("does not emit duplicate analytics for an already-paid order", async () => {
@@ -192,7 +266,7 @@ describe("confirmStripeBookPurchase", () => {
       bookId: "book-1",
     });
 
-    expect(ok).toBe(true);
+    expect(ok).toBe("paid");
     expect(admin.state.rpcCalls).toHaveLength(1);
     expect(mocks.logAnalyticsEvent).not.toHaveBeenCalled();
   });

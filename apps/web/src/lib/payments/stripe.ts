@@ -1,3 +1,33 @@
+/**
+ * Stripe Checkout Session creation.
+ *
+ * ## Payment methods are configured in the Stripe Dashboard, not here
+ *
+ * None of the session builders below set `payment_method_types`. Per the Stripe
+ * API reference for that parameter: *"You can omit this attribute to manage your
+ * payment methods from the Stripe Dashboard"* — which enables dynamic payment
+ * methods, so Stripe picks the eligible set per customer, device and currency.
+ * Apple Pay and Google Pay then appear automatically on eligible devices, and
+ * Swish / Klarna can be switched on for the Swedish market from the Dashboard
+ * **without a code change or a redeploy**.
+ *
+ * Do not reintroduce a hardcoded `payment_method_types[0]=card`. To restrict
+ * methods, use the Dashboard, or `excluded_payment_method_types` /
+ * `payment_method_configuration` on a specific session.
+ *
+ * Note that `automatic_payment_methods` is a PaymentIntents parameter and is
+ * **not** valid on a Checkout Session — omission is the correct mechanism here.
+ *
+ * ## Consequence: do not assume every payment is instant
+ *
+ * Dynamic payment methods mean delayed-notification methods can reach this
+ * integration. Those sessions arrive as `checkout.session.completed` with
+ * `payment_status: "unpaid"` and settle later via
+ * `checkout.session.async_payment_succeeded`, or fail via
+ * `checkout.session.async_payment_failed` / `checkout.session.expired`.
+ * All four events are handled in `../../app/api/stripe/webhook/stripeWebhook.handlers.ts`.
+ * Entitlement is granted only on a paid session, never on session creation.
+ */
 const STRIPE_API_BASE = "https://api.stripe.com/v1";
 
 type StripeCheckoutSessionMetadata = {
@@ -103,7 +133,6 @@ export async function createStripeCheckoutSession(
   params.set("mode", "payment");
   params.set("success_url", input.successUrl);
   params.set("cancel_url", input.cancelUrl);
-  params.set("payment_method_types[0]", "card");
   params.set("line_items[0][quantity]", "1");
   params.set("line_items[0][price_data][currency]", toStripeCurrency(input.currency));
   params.set("line_items[0][price_data][unit_amount]", String(amount));
@@ -177,7 +206,6 @@ export async function createDonationCheckoutSession(
   params.set("mode", "payment");
   params.set("success_url", input.successUrl);
   params.set("cancel_url", input.cancelUrl);
-  params.set("payment_method_types[0]", "card");
   params.set("line_items[0][quantity]", "1");
   params.set("line_items[0][price_data][currency]", toStripeCurrency(input.currency));
   params.set("line_items[0][price_data][unit_amount]", String(amount));
@@ -233,7 +261,6 @@ export async function createAudiobookCheckoutSession(
   params.set("mode", "payment");
   params.set("success_url", input.successUrl);
   params.set("cancel_url", input.cancelUrl);
-  params.set("payment_method_types[0]", "card");
   params.set("line_items[0][quantity]", "1");
   params.set("line_items[0][price_data][currency]", toStripeCurrency(input.currency));
   params.set("line_items[0][price_data][unit_amount]", String(amount));
@@ -293,7 +320,6 @@ export async function createTranslationCheckoutSession(
   params.set("mode", "payment");
   params.set("success_url", input.successUrl);
   params.set("cancel_url", input.cancelUrl);
-  params.set("payment_method_types[0]", "card");
   params.set("line_items[0][quantity]", "1");
   params.set("line_items[0][price_data][currency]", toStripeCurrency(input.currency));
   params.set("line_items[0][price_data][unit_amount]", String(amount));
@@ -356,7 +382,6 @@ export async function createPodCheckoutSession(
   params.set("mode", "payment");
   params.set("success_url", input.successUrl);
   params.set("cancel_url", input.cancelUrl);
-  params.set("payment_method_types[0]", "card");
   params.set("line_items[0][quantity]", "1");
   params.set("line_items[0][price_data][currency]", toStripeCurrency(input.currency));
   params.set("line_items[0][price_data][unit_amount]", String(amount));
@@ -435,7 +460,6 @@ export async function createBookOrderCheckoutSession(
   params.set("mode", "payment");
   params.set("success_url", input.successUrl);
   params.set("cancel_url", input.cancelUrl);
-  params.set("payment_method_types[0]", "card");
   params.set("line_items[0][quantity]", "1");
   params.set("line_items[0][price_data][currency]", toStripeCurrency(input.currency));
   params.set("line_items[0][price_data][unit_amount]", String(amount));
@@ -489,7 +513,6 @@ export async function createAuthorSubscriptionCheckoutSession(
   params.set("mode", "subscription");
   params.set("success_url", input.successUrl);
   params.set("cancel_url", input.cancelUrl);
-  params.set("payment_method_types[0]", "card");
   params.set("line_items[0][quantity]", "1");
   params.set("line_items[0][price_data][currency]", toStripeCurrency(input.currency));
   params.set("line_items[0][price_data][unit_amount]", String(amount));
@@ -543,7 +566,6 @@ export async function createCreditTopUpCheckoutSession(
   params.set("mode", "payment");
   params.set("success_url", input.successUrl);
   params.set("cancel_url", input.cancelUrl);
-  params.set("payment_method_types[0]", "card");
   params.set("line_items[0][quantity]", "1");
   params.set("line_items[0][price_data][currency]", toStripeCurrency(input.currency));
   params.set("line_items[0][price_data][unit_amount]", String(amount));

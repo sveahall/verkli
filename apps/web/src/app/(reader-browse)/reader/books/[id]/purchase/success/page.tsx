@@ -30,13 +30,17 @@ export default async function PurchaseSuccessPage({
       requiresSignIn = true;
     } else {
       try {
-        const ok = await confirmStripeBookPurchase({
+        const result = await confirmStripeBookPurchase({
           orderId,
           sessionId,
           userId: user.id,
           bookId,
         });
-        outcome = ok ? "success" : "failed";
+        // "processing" is a delayed payment method still settling — neither
+        // success nor failure. It must not render the failure copy, which tells
+        // the buyer to try again and can double-charge them.
+        outcome =
+          result === "paid" ? "success" : result === "processing" ? "pending" : "failed";
       } catch {
         outcome = "pending";
       }
@@ -62,8 +66,9 @@ export default async function PurchaseSuccessPage({
 
         {outcome === "pending" ? (
           <p className="mt-3 text-sm text-slate-700 dark:text-white/75">
-            We are waiting for payment confirmation. If access does not update right away, reopen the
-            book in a moment.
+            Your payment is being confirmed. Some payment methods take a little longer to
+            settle. Access unlocks automatically as soon as it clears, so there is no need to
+            pay again.
           </p>
         ) : null}
 

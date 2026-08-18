@@ -11,12 +11,22 @@ type ConfirmStripePurchaseArgs = {
   bookId: string;
 };
 
+/**
+ * Outcome of a landing-page purchase confirmation.
+ *
+ * `processing` exists because Checkout no longer hardcodes card-only payments
+ * (see `lib/payments/stripe.ts`). Delayed-notification methods settle after the
+ * buyer is already redirected here, and that state is neither success nor
+ * failure — telling such a buyer the purchase failed invites a double charge.
+ */
+export type ConfirmPurchaseResult = "paid" | "processing" | "failed";
+
 export async function confirmStripeBookPurchase({
   orderId,
   sessionId,
   userId,
   bookId,
-}: ConfirmStripePurchaseArgs): Promise<boolean> {
+}: ConfirmStripePurchaseArgs): Promise<ConfirmPurchaseResult> {
   const admin = createAdminClient();
 
   const { data: order, error: orderError } = await admin
@@ -26,7 +36,7 @@ export async function confirmStripeBookPurchase({
     .maybeSingle();
 
   if (orderError || !order) {
-    return false;
+    return "failed";
   }
 
   const orderUserId = String((order as { user_id?: string }).user_id ?? "");
@@ -35,7 +45,7 @@ export async function confirmStripeBookPurchase({
   const orderChapterId = (order as { chapter_id?: string | null }).chapter_id ?? null;
 
   if (orderUserId !== userId || orderBookId !== bookId) {
-    return false;
+    return "failed";
   }
 
   const session = await getStripeCheckoutSession(sessionId);
@@ -54,10 +64,27 @@ export async function confirmStripeBookPurchase({
         .eq("user_id", userId)
         .eq("status", "pending");
     }
-    return false;
+    return "failed";
   }
 
   if (session.payment_status !== "paid") {
+    // A delayed-notification method (Klarna, SEPA, Swish, …) completes Checkout
+    // with payment_status "unpaid" and settles later via
+    // checkout.session.async_payment_succeeded, which runs the same finalizer.
+    //
+    // Do NOT mark the order failed in that window. The buyer has committed to
+    // paying, holds no entitlement yet, and the already-entitled 409 guard in
+    // the checkout route therefore would not stop them from opening a second
+    // session — so a "purchase failed, try again" message here can double-charge
+    // a customer who did nothing wrong.
+    //
+    // `status === "complete"` is the signal that the buyer finished Checkout.
+    // An "open" session means they never paid at all, which keeps the original
+    // fail-fast behaviour.
+    if (session.payment_status === "unpaid" && session.status === "complete") {
+      return "processing";
+    }
+
     if (orderStatus === "pending") {
       await admin
         .from("orders" as never)
@@ -66,7 +93,7 @@ export async function confirmStripeBookPurchase({
         .eq("user_id", userId)
         .eq("status", "pending");
     }
-    return false;
+    return "failed";
   }
 
   const { data: finalized, error: finalizeError } = await admin.rpc(
@@ -77,7 +104,7 @@ export async function confirmStripeBookPurchase({
   );
 
   if (finalizeError || finalized !== true) {
-    return false;
+    return "failed";
   }
 
   if (orderStatus !== "paid") {
@@ -90,7 +117,7 @@ export async function confirmStripeBookPurchase({
     });
   }
 
-  return true;
+  return "paid";
 }
 
 export async function markOrderFailedForUser(orderId: string, userId: string): Promise<void> {
