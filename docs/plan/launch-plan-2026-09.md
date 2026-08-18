@@ -46,6 +46,132 @@ verifieringslucka, inte ett godkännande.
 Kvar i W0.2 som bara Svea kan göra: skapa Railway-projekt, lägga till betalning,
 skapa Redis + de två Phase 1-tjänsterna. Se `docs/railway-deployment.md`.
 
+## 0c. Genomfört 2026-08-18 — Wave 1, parallella agenter
+
+Fyra paket kördes parallellt i isolerade git-worktrees. Brancher: `wp/NN-…`,
+ingen pushad, `platform` orörd.
+
+| Paket | Branch | Grind |
+|---|---|---|
+| WP-14 penningbuggen + rösfällan | `wp/14-pricing-voice` (`7a052ae`) | 7/7, 1124 tester |
+| WP-03 lyssningsmätning + position | `wp/03-listen-analytics` (`409b87f`) | 7/7, 1168 tester |
+| WP-04 supportvägen | `wp/04-support-path` (`d423ff1`) | 7/7, 1146 tester |
+| WP-01 köptratten | `wp/01-buyer-proof` (`ca97253`) | 7/7, 1207 tester |
+
+**Sammanslaget resultat:** `integration/wave1` — alla fyra mergade **rent** (noll
+överlappande filer, filägandet höll), plus en femte commit som tätar signup.
+`qa:beta` på det sammanslagna trädet: **7/7, 1323 tester** (från 1106 = +217).
+Grön grind per branch bevisar inget om kombinationen; detta gör det.
+
+Kvar innan `platform`: en codex-review, som är blockerad till 23 aug.
+
+### ⚠️ Migration som måste appliceras av Svea
+
+WP-03 skapar `listening_positions`, som **inte finns i live-databasen** (probe:
+`PGRST205 Could not find the table`). Tills den är applicerad fungerar
+lyssnings*events* och uppspelning normalt — bara position-spara/återuppta är inert,
+loggat på warn med migrationsfilnamnet i hinten.
+
+```bash
+cd /Users/admin/verkli-web/apps/web && npx supabase db push
+```
+
+Applicerad och verifierad mot ett kastbart lokalt Postgres-kluster: idempotent vid
+omkörning, RLS på med fyra användarscopade policies inklusive `WITH CHECK` på UPDATE,
+check-constraint avvisar negativa positioner, kapitelborttagning kaskaderar.
+
+### Öppna fynd från Wave 1 som ingen ägde
+
+Alla verifierade, ingen åtgärdad — de låg utanför respektive agents filägande.
+
+| Fynd | Var | Varför det spelar roll |
+|---|---|---|
+| `books.user_id` finns inte | `lib/payments/pod-fulfillment-email.ts:74` | Kolumnen heter `author_id`. POD-operatörsmailet resolvar aldrig författaren, så en betald tryckorder saknar avsändarinfo. |
+| `voiceId \|\| "Rachel"` | `audiobook/preview/route.ts:105` | "Rachel" *är* en riktig ElevenLabs-röst, så inget kraschar — förhandsvisningar läses tyst upp i fel röst när konfig saknas. Sämre felmod än en 4xx. |
+| Felgränser saknar footer | `(app-reader)/error.tsx`, `(reader-browse)/error.tsx` | De ersätter shellen när de utlöses, så exakt när användaren behöver support finns ingen supportlänk. |
+| `/faq` (author-varianten) | `(public-author)/faq/page.tsx` | Fortfarande "Help center" med löftet *"Reach out and we'll help"* utan mekanism. Bara reader-varianten är omdirigerad. |
+| Inget "Resume from 05:12" | `ChapterAudiobookPlayer` | Med `preload="none"` sker seeken först vid play, så positionen sparas men syns inte. Fungerar, men läsaren ser inte att platsen behölls. |
+| `audio_requested` räknar författarpreviews | `play/route.ts` | `props.isAuthorPreview` finns att filtrera på — den som bygger funnel-dashboarden måste veta det. |
+
+### 🔴 Blockerare: `feedback`-tabellens RLS har driftat från migrationen
+
+WP-04 verifierade ett anonymt formulärinlägg end-to-end och fick **500
+`FEEDBACK_SAVE_FAILED`**. Serverloggen ger orsaken:
+`new row violates row-level security policy for table "feedback"`.
+
+Migrationen `20250209000000_user_flags_and_feedback.sql:45-47` har
+`WITH CHECK (auth.uid() = user_id OR user_id IS NULL)`, vilket **tillåter** det.
+Alltså har den **live-policyn driftat**. Inloggade inlägg bör fortfarande gå igenom
+(`auth.uid() = user_id`), men anonyma gör det inte — och anonyma är precis de som
+behöver supportformuläret mest.
+
+Konsekvens: **den primära CTA:n på den nya `/support`-sidan failar för oinloggade
+besökare tills detta är fixat.** WP-04 gjorde det den kunde inom sitt filägande —
+felcopyn dead-endar inte längre, den namnger e-postalternativet — men själva fixen
+kräver en migration eller `api/feedback/route.ts`, båda utanför dess ägande.
+
+### ⚠️ Systemiskt: migrationerna beskriver inte live-databasen
+
+Detta är nu **tre oberoende bekräftade fall** av att repots migrationer inte stämmer
+med produktionsdatabasen:
+
+1. `audit_log` — live använder `entity_type`/`meta`/`created_at`, migrationen säger
+   `target_type`/`metadata`/`occurred_at`
+2. `analytics_events` — migrationen påstår "service role only", men en senare
+   migration lade till en användar-INSERT-policy utan `TO`-klausul
+3. `feedback` — live-policyn avvisar det migrationen uttryckligen tillåter
+
+Plus `20260429160000_voice_cloning_and_karaoke.sql`, vars tre tabeller inte finns i
+genererade `types.ts` — antingen oapplicerad eller stale typer.
+
+**Åtgärd före 20 september:** en reconciliation av migrations mot live-schema. Vi är
+på väg att driftsätta workers som antar schemaformer. Att lita på migrationerna som
+beskrivning av verkligheten är inte längre försvarbart.
+
+**Praktisk följd nu:** kör **inte** `npx supabase db push` blint. Kör först
+`npx supabase migration list` och se exakt vad som är opplicerat — `db push` applicerar
+allt pending, inte bara `listening_positions`.
+
+### RLS-frågan är löst — och migrationerna hade fel om sig själva
+
+Planen antog tidigare att `book_view` och `start_reading` möjligen tappades tyst
+mot en service-role-only-tabell. **De tappas inte.** Live-probe:
+
+`20250209000001_analytics_events.sql` skapar tabellen utan policies och påstår
+"service role only". Men `20250210000000_bookmarks.sql:33-36` lade senare till
+`analytics_events_insert_own` med `WITH CHECK (auth.uid() = user_id OR user_id IS NULL)`
+— **utan `TO`-klausul**, så den gäller `anon` och `authenticated` lika. Live-tabellen
+innehåller **187 `book_view`- och 11 `start_reading`-rader**. Båda call sites fungerar.
+
+Notera att detta inte påverkar §4b:s fynd om författarstatistiken: det handlar om
+**SELECT**, som fortfarande är blockerad (anon select → 0 rader, inget fel, tyst
+filtrerad). WP-15 står kvar oförändrat.
+
+**Den verkliga faran är subtilare:** allt hänger på PostgRESTs `return=minimal`. Att
+lägga till `.select()` eller `.single()` på inserten i `logAnalyticsEvent` skulle tyst
+döda varje läsarevent med ett 42501 som `.catch(() => {})` sväljer. Nu dokumenterat i
+`lib/analytics/events.ts` med probe-resultaten inline.
+
+**Två dokumentfel att rätta (ej gjorda):**
+- `docs/DATABASE_ARCHITECTURE.md:257` listar `analytics_events` under "Service role
+  only (no user write policies)" — fel, det finns en användar-INSERT-policy.
+- Kommentaren i `api/books/[id]/publish/route.ts:551-553` ("analytics_events RLS blocks
+  the author session") är fel som formulerad. Admin-klienten där är ändå rätt, av ett
+  annat skäl: en admin som publicerar någon annans bok skriver `user_id != auth.uid()`,
+  vilket `WITH CHECK` genuint avvisar.
+
+### Operativt om worktrees (kostade två agenter tid)
+
+- **Worktrees skapas utan installerade beroenden.** `apps/web/node_modules` är tom,
+  Node resolvar uppåt till root och ger zod v4 istället för deklarerade v3 samt inga
+  `@vercel/*`. `check:dead-code` failar då med ~6 typfel i filer agenten aldrig rört.
+  Kör `npm ci` i worktreet först — **grinden är inte meningsfull innan dess.**
+- **Worktrees skapades från fel bas** (`414de4c` = `feat/beta-apply`, inte `platform`).
+  Verifiera med `git log -1 --oneline` innan arbete börjar.
+- **Rate limiters är modulnivå och överlever `vi.clearAllMocks()`.** Tester som träffar
+  samma route upprepat behöver eget användar-id, annars ger de ett riktigt 429 mitt i
+  sviten som ser ut som en kodbugg.
+
 ## 1. Vad vi ärvde av Fredrik: ingenting — och det är rätt utfall
 
 Term sheetet var icke bindande och blev aldrig signerat. Därmed aktiverades varken
@@ -221,13 +347,43 @@ bara 6 flikar.** Panelerna `pricing`, `market`, `trailer`, `statistics`, `import
 
 ### Penningbuggen
 
-**Prispanelen ligger utanför steppern.** En författare som följer
-Write → Cover → Audio → Translate → Publish → Review **möter aldrig ett prisfält
-och publicerar en gratis bok utan att bli varnad.** Priset sätts via
-`PATCH /api/books/[id]`, som fungerar — men ytan är URL-only.
+**Prispanelen ligger utanför steppern.** Priset sätts via
+`PATCH /api/books/[id]`, som fungerar — men panelen är inte ett steg i flödet.
+
+**Rättelse: buggen var smalare än först formulerat, men verklig.**
+`BookEditorPanelContent.tsx:234` renderar redan `PricingPanel` *inuti* publish-steget,
+under `PublishPanel`. En författare på Publish såg alltså ett prisfält — men under
+fold, utan att något steg pekade dit. Den ursprungliga formuleringen "möter aldrig
+ett prisfält" var alltså inte literalt sann. Att inte upptäcka ett fält är ändå
+tillräckligt för att publicera gratis av misstag, så åtgärden står.
 
 För Johans bok spelar det mindre roll (priset kan sättas direkt), men för
-oktoberbeviset är det en blockerare, och fixen är att lägga `pricing` i `TOOL_ORDER`.
+oktoberbeviset är det en blockerare.
+
+**Rättelse 2026-08-18:** fixen är *inte* en rad i `TOOL_ORDER`. Stepper har **tre
+oberoende sources of truth**, och två av dem sväljer tillägget:
+
+1. `TOOL_ORDER` i `bookEditor.shared.ts:245`
+2. `NON_STEPPER_TOOLS` i `BookWorkflowHeader.tsx:13-22` — en hårdkodad set som
+   **innehåller `"pricing"`** och filtrerar bort det ur steppern även när det
+   ligger i `TOOL_ORDER`
+3. `BOOK_WORKFLOW_TABS` i `AuthorSidebar.tsx:47-60` — en helt egen hårdkodad
+   lista som inte härleds från `TOOL_ORDER` alls
+
+Alla tre måste ändras. Att bara röra `TOOL_ORDER` ger en ändring som ser fixad ut
+på branchen och fortfarande tappar intäkt i produktion.
+
+**Exkluderingen var inte ett beslut.** Spårad till `ae9cc5e`, som skrev
+`STEPPER_TOOLS = TOOL_ORDER.filter(...)` med kommentaren *"Only the 6 linear flow
+steps appear in the stepper"*. Vid den tidpunkten låg `pricing` **redan** utanför
+`TOOL_ORDER`, så filtret var ett defensivt no-op för just pricing — ingen har någonsin
+bestämt att pris inte ska vara ett steg. `8616a5d` konverterade sedan mekaniskt
+filtret till `NON_STEPPER_TOOLS`. Vi river alltså inte någons designbeslut.
+
+**Följduppgift (eget paket):** den djupare fixen är att `api/books/[id]/publish/route.ts`
+visar priset vid publicering, så att gratis blir ett *synligt val* istället för en
+olycka. Routen har redan fem riktiga grindar — det är den naturliga platsen. Att
+förlita sig på att författaren inte hoppar över ett steppersteg är svagare.
 
 ### Författarstatistiken är strukturellt alltid noll
 
@@ -261,6 +417,10 @@ Plus hårdkodade nollor på författarens hem: `sales: 0`, `comments: 0` (`:59,6
 - **Röst- och tonväljaren är dekorativ.** Hårdkodat `["Ryan","Emma","Alex"]`,
   värdet skickas aldrig. Servern använder alltid `DEFAULT_VOICE_ID = "Ryan"` — som
   enligt AI-inventeringen är ett **Qwen-röstnamn** som 4xx:ar mot ElevenLabs.
+  **Syskonbugg, ej åtgärdad:** `audiobook/preview/route.ts:105` har
+  `voiceId: voiceId || "Rachel"`. "Rachel" *är* en riktig ElevenLabs-stockröst, så
+  den 4xx:ar inte — den läser tyst upp förhandsvisningar i fel röst när konfig
+  saknas. Värre felmod än en krasch, eftersom ingen märker det.
 - **Social OAuth är komplett och helt oåtkomlig.** Riktig OAuth2+PKCE för IG/TikTok/X
   och en worker som postar på riktigt — men ingen "Connect"-knapp finns. Vad
   författaren får är `CampaignDetailView.tsx:637`: *"Copy everything, open
