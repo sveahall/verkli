@@ -9,12 +9,14 @@ import { TOOL_META, getToolHref } from "./editor/bookEditor.shared";
  * the parent passes in. The stepper is the linear "produce → publish" flow
  * surface; ancillary panels (analytics, import, marketing, etc.) live
  * elsewhere in the workspace navigation.
+ *
+ * `pricing` is deliberately NOT in this set: setting a price is part of the
+ * linear flow (it is the step before `publish`), not an ancillary panel.
  */
 const NON_STEPPER_TOOLS: ReadonlySet<Tool> = new Set([
   "statistics",
   "import",
   "print",
-  "pricing",
   "market",
   "trailer",
   "ai",

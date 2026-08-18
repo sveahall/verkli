@@ -252,7 +252,7 @@ export default function BookDashboard({
     { label: "Write", done: chapters.length > 0, panel: "edit" },
     { label: "Cover", done: !!coverImageUrl, panel: "cover" },
     { label: "Translate", done: hasTranslations, panel: "translate" },
-    { label: "Audiobook", done: audiobookDone, panel: "audio" },
+    { label: "Audiobook", done: audiobookDone, panel: "audiobook" },
     { label: "Pricing", done: hasPricing, panel: "pricing" },
     { label: "Publish", done: isPublished, panel: "publish" },
   ];
@@ -294,7 +294,7 @@ export default function BookDashboard({
       icon: <HeadphonesIcon />,
       statusKind: audiobookKind,
       statusLabel: audiobookLabel,
-      panel: "audio",
+      panel: "audiobook",
     },
     {
       id: "trailer",

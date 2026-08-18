@@ -341,7 +341,11 @@ export default function BookEditorPanelContent({
           />
         )}
 
-        {/* Backward compat: direct URL panels not in the main flow */}
+        {/*
+          `pricing` is a first-class step in TOOL_ORDER (it precedes publish).
+          The panels below it — print, market, trailer, statistics, import —
+          are still direct-URL only.
+        */}
         {tool === "pricing" && (
           <PricingPanel
             chapters={chapters}
@@ -400,7 +404,7 @@ export default function BookEditorPanelContent({
             trailerUrl={bookTrailerUrl}
             coverImage={cover.displayCoverUrl}
             bookTitle={bookTitle}
-            bookDescription=""
+            bookDescription={bookDescription ?? ""}
           />
         )}
         {tool === "trailer" && (

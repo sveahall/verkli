@@ -17,6 +17,7 @@ import {
   Repeat,
   Settings,
   Sparkles,
+  Tag,
   UserCircle,
   type LucideIcon,
 } from "lucide-react";
@@ -43,7 +44,15 @@ const ICONS: Record<string, LucideIcon> = {
  * Book workflow tabs — shown as nested items under Production
  * when the user is working on a specific book.
  */
-/** Linear 6-step production flow: Write → Cover → Audio → Translate → Publish → Review */
+/**
+ * Linear 7-step production flow:
+ * Write → Cover → Audio → Translate → Pricing → Publish → Review.
+ *
+ * Keep this in the same order as `TOOL_ORDER` in `bookEditor.shared.ts` —
+ * Pricing must stay ahead of Publish so the author sets a price before the
+ * book ships. (This list is a separate hardcoded source of truth from
+ * TOOL_ORDER; changes to the flow have to be made in both places.)
+ */
 const BOOK_WORKFLOW_TABS: ReadonlyArray<{
   key: string;
   label: string;
@@ -55,6 +64,7 @@ const BOOK_WORKFLOW_TABS: ReadonlyArray<{
   { key: "cover", label: "Cover", panel: "cover", icon: ImageIcon, group: 0 },
   { key: "audiobook", label: "Audio", panel: "audiobook", icon: Headphones, group: 0 },
   { key: "translate", label: "Translate", panel: "translate", icon: Languages, group: 0 },
+  { key: "pricing", label: "Pricing", panel: "pricing", icon: Tag, group: 0 },
   { key: "publish", label: "Publish", panel: "publish", icon: Globe, group: 0 },
   { key: "review", label: "Review", panel: "review", icon: Sparkles, group: 0 },
 ];

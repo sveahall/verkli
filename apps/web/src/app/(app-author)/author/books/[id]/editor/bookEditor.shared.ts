@@ -238,8 +238,15 @@ export type Tool =
   | "ai";
 
 /**
- * The linear production flow: Write → Cover → Audio → Translate → Publish → Review.
- * Panels like statistics, import, print, pricing, market still exist but are not
+ * The linear production flow:
+ * Write → Cover → Audio → Translate → Pricing → Publish → Review.
+ *
+ * `pricing` sits immediately before `publish` on purpose: you set a price
+ * before you release the book. Leaving it out of this list was a money bug —
+ * an author who followed the stepper never met a price field and shipped a
+ * free book without ever being warned.
+ *
+ * Panels like statistics, import, print and market still exist but are not
  * part of the main stepper — they're accessible via direct URL (?panel=…).
  */
 export const TOOL_ORDER: Tool[] = [
@@ -247,6 +254,7 @@ export const TOOL_ORDER: Tool[] = [
   "cover",
   "audiobook",
   "translate",
+  "pricing",
   "publish",
   "review",
 ];
@@ -266,7 +274,6 @@ export const ALL_TOOLS: Tool[] = [
   "statistics",
   "import",
   "print",
-  "pricing",
 ];
 
 export const TOOL_META: Record<
