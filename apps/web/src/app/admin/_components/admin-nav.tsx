@@ -9,6 +9,7 @@ import {
   BookOpen,
   Rocket,
   ListChecks,
+  MessageSquare,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -24,6 +25,7 @@ export const ADMIN_NAV_ITEMS: AdminNavItem[] = [
   { href: "/admin/users", label: "Users", icon: Users },
   { href: "/admin/books", label: "Books", icon: BookOpen },
   { href: "/admin/beta", label: "Beta", icon: Rocket },
+  { href: "/admin/feedback", label: "Feedback", icon: MessageSquare },
   { href: "/admin/queues", label: "Queues", icon: ListChecks },
 ];
 

@@ -6,6 +6,7 @@ import {
 } from "@/lib/auth/author-approval";
 import ReaderAppShell from "@/components/reader/ReaderAppShell";
 import type { AuthorAccessMode } from "@/components/reader/ReaderAppShell";
+import Footer from "@/components/Footer";
 
 export default async function ReaderLayout({
   children,
@@ -46,5 +47,12 @@ export default async function ReaderLayout({
     // If auth fails, default to "apply"
   }
 
-  return <ReaderAppShell authorAccess={authorAccess}>{children}</ReaderAppShell>;
+  return (
+    <ReaderAppShell
+      authorAccess={authorAccess}
+      footer={<Footer variant="reader" />}
+    >
+      {children}
+    </ReaderAppShell>
+  );
 }
