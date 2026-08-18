@@ -85,3 +85,6 @@ electron-preload.js
 test_qwen3_tts.py
 FETCH_HEAD
 .gstack/
+
+# Supabase CLI scratch state — leaks the prod project ref, never commit
+supabase/.temp/

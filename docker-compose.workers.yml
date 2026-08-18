@@ -1,6 +1,17 @@
 # Worker stack: Redis + all BullMQ workers.
 # Run from repo root: docker compose -f docker-compose.workers.yml up -d
 # Build: docker compose -f docker-compose.workers.yml build
+#
+# This is the LOCAL stack. Production runs on Railway — see
+# docs/railway-deployment.md. Keep the two in sync: both build the same
+# infra/docker/Dockerfile.workers image and select a worker via the same
+# command, so a worker that runs here runs there.
+#
+# env_file is apps/web/.env.local, NOT the root .env.local. The root file is a
+# decoy: it defines NEXT_PUBLIC_SUPABASE_PUBLISHABLE_DEFAULT_KEY, a variable the
+# code never reads, and omits NEXT_PUBLIC_SUPABASE_ANON_KEY, which it requires.
+# apps/web/scripts/load-dotenv.ts resolves apps/web/.env.local, so that is the
+# only file the workers actually honour.
 
 services:
   redis:
@@ -24,7 +35,7 @@ services:
     image: verkli-worker
     container_name: verkli-worker-import
     restart: unless-stopped
-    env_file: .env.local
+    env_file: apps/web/.env.local
     environment:
       REDIS_URL: redis://redis:6379
     command: ["npx", "tsx", "scripts/import-worker.ts"]
@@ -39,7 +50,7 @@ services:
     image: verkli-worker
     container_name: verkli-worker-translation
     restart: unless-stopped
-    env_file: .env.local
+    env_file: apps/web/.env.local
     environment:
       REDIS_URL: redis://redis:6379
     command: ["npx", "tsx", "scripts/translation-worker.ts"]
@@ -54,7 +65,7 @@ services:
     image: verkli-worker
     container_name: verkli-worker-audiobook
     restart: unless-stopped
-    env_file: .env.local
+    env_file: apps/web/.env.local
     environment:
       REDIS_URL: redis://redis:6379
     command: ["npx", "tsx", "scripts/audiobook-worker.ts"]
@@ -69,7 +80,7 @@ services:
     image: verkli-worker
     container_name: verkli-worker-recommendations
     restart: unless-stopped
-    env_file: .env.local
+    env_file: apps/web/.env.local
     environment:
       REDIS_URL: redis://redis:6379
     command: ["npx", "tsx", "scripts/recommendations-worker.ts"]
@@ -84,7 +95,7 @@ services:
     image: verkli-worker
     container_name: verkli-worker-marketing
     restart: unless-stopped
-    env_file: .env.local
+    env_file: apps/web/.env.local
     environment:
       REDIS_URL: redis://redis:6379
     command: ["npx", "tsx", "scripts/marketing-worker.ts"]
@@ -99,7 +110,7 @@ services:
     image: verkli-worker
     container_name: verkli-worker-social
     restart: unless-stopped
-    env_file: .env.local
+    env_file: apps/web/.env.local
     environment:
       REDIS_URL: redis://redis:6379
     command: ["npx", "tsx", "scripts/social-publish-worker.ts"]
@@ -114,7 +125,7 @@ services:
     image: verkli-worker
     container_name: verkli-worker-notifications
     restart: unless-stopped
-    env_file: .env.local
+    env_file: apps/web/.env.local
     environment:
       REDIS_URL: redis://redis:6379
     command: ["npx", "tsx", "scripts/notifications-worker.ts"]

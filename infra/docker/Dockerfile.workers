@@ -6,6 +6,18 @@
 FROM node:20-alpine AS base
 WORKDIR /app
 
+# ffmpeg is a hard runtime dependency of the audiobook worker (chapter stitching,
+# scripts/audiobook-worker.ts) and the trailer renderer.
+#
+# It must come from the system, not from the `ffmpeg-static` npm package: the
+# install below runs `npm ci --ignore-scripts`, which suppresses ffmpeg-static's
+# postinstall step — the step that actually downloads the binary. Without this
+# apk line the audiobook worker silently degrades every whole-book job to
+# manifest-only output and writes a .json path into audiobook_assets.audio_path,
+# while still reporting success.
+RUN apk add --no-cache ffmpeg
+ENV FFMPEG_BIN=/usr/bin/ffmpeg
+
 # Copy workspace and package files
 COPY package.json package-lock.json* ./
 COPY apps/web/package.json apps/web/

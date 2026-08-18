@@ -2,6 +2,15 @@
 # Build from repo root: docker build -f infra/docker/Dockerfile.worker.audiobook .
 FROM node:20-alpine AS base
 WORKDIR /app
+
+# Required: the worker spawns `FFMPEG_BIN || "ffmpeg"` to stitch chapter audio.
+# Cannot come from the `ffmpeg-static` npm package because `npm ci
+# --ignore-scripts` below skips the postinstall that downloads its binary.
+# Without this, every whole-book job degrades to manifest-only and still reports
+# success. See infra/docker/Dockerfile.workers for the same note.
+RUN apk add --no-cache ffmpeg
+ENV FFMPEG_BIN=/usr/bin/ffmpeg
+
 COPY package.json package-lock.json* ./
 COPY apps/web/package.json apps/web/
 COPY packages/db/package.json packages/db/

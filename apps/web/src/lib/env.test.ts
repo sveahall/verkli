@@ -14,10 +14,25 @@ describe("redis env parsing", () => {
     expect(getRedisConnectionOptions()).toEqual({
       host: "example.upstash.io",
       port: 6380,
+      // family: 0 == "either IPv4 or IPv6". Required for Railway private
+      // networking (redis.railway.internal resolves to IPv6 / dual-stack) and
+      // inert for public hosts like this one. Set unconditionally so the worker
+      // image stays portable — see RedisConnectionOptions in lib/env.ts.
+      family: 0,
       username: "default",
       password: "secret",
       db: 2,
       tls: {},
+    });
+  });
+
+  it("sets family 0 for plain redis URLs too, so private DNS resolves", () => {
+    process.env.REDIS_URL = "redis://redis.railway.internal:6379";
+
+    expect(getRedisConnectionOptions()).toMatchObject({
+      host: "redis.railway.internal",
+      port: 6379,
+      family: 0,
     });
   });
 
