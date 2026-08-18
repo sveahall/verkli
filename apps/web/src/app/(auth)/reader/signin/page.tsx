@@ -12,6 +12,23 @@ import { signIn, signInWithGoogle } from "@/lib/supabase/auth";
 import { createClient } from "@/lib/supabase/client";
 import { resolveErrorMessage } from "@/lib/error-messages";
 import { resolveActiveRoleFromProfile, setActiveRoleCookieClient } from "@/lib/active-role";
+import {
+  resolvePostSignInPath,
+  sanitizeNextPath,
+  writeNextPathCookieClient,
+} from "@/lib/auth/next-path";
+
+/**
+ * Read `?next=` off the live URL rather than via `useSearchParams()`.
+ *
+ * It is only ever needed inside an event handler, so there is no reason to make
+ * the whole page depend on a hook that forces a Suspense boundary during
+ * prerender. Returns the raw value — validation happens in `next-path.ts`.
+ */
+function readRawNextParam(): string | null {
+  if (typeof window === "undefined") return null;
+  return new URLSearchParams(window.location.search).get("next");
+}
 
 export default function ReaderSignIn() {
   const router = useRouter();
@@ -69,7 +86,10 @@ export default function ReaderSignIn() {
 
       const resolvedRole = nextRole ?? "reader";
       setActiveRoleCookieClient(resolvedRole);
-      router.replace(resolvedRole === "author" ? "/author/home" : "/reader/home");
+      // Honour `?next=` so a buyer who had to sign in mid-purchase lands back on
+      // the book instead of the home feed. Hostile values fall back to the role
+      // home — see `sanitizeNextPath`.
+      router.replace(resolvePostSignInPath(readRawNextParam(), resolvedRole));
     } catch {
       setError("Sign in failed. Please try again.");
       setLoading(false);
@@ -78,6 +98,11 @@ export default function ReaderSignIn() {
 
   const handleGoogleSignIn = async () => {
     setError("");
+    // OAuth leaves our origin entirely, so the destination has to survive the
+    // round trip. It rides in a short-lived cookie that `/auth/callback` reads:
+    // Supabase validates `redirectTo` against an allow-list, so appending a
+    // query string to the callback URL risks the provider refusing it.
+    writeNextPathCookieClient(sanitizeNextPath(readRawNextParam()));
     const { error } = await signInWithGoogle();
     if (error) {
       setError(resolveErrorMessage(null, "Sign in failed. Check your email and password."));

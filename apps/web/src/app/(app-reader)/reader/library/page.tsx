@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import ReaderLibraryClient from "./ReaderLibraryClient";
 
 export type LibraryBook = {
@@ -11,13 +12,34 @@ export type LibraryBook = {
   href?: string;
   chapterLabel?: string | null;
   lastOpenedLabel?: string | null;
+  /**
+   * Set when a book the reader owns is no longer publicly listed. Their access
+   * is unaffected — the note exists so the shelf explains itself instead of
+   * looking broken.
+   */
+  unavailableNote?: string | null;
 };
 
 export type LibraryData = {
   reading: LibraryBook[];
+  /**
+   * Books the reader has paid for. Kept separate from `saved` (bookmarks):
+   * merging the two made it impossible to tell what you own from what you
+   * merely flagged, which left a buyer with no proof of purchase anywhere in
+   * the product.
+   */
+  purchased: LibraryBook[];
   saved: LibraryBook[];
   finished: LibraryBook[];
   bookmarksCount: number;
+};
+
+type LibraryBookRow = {
+  id: string;
+  title: string;
+  cover_image: string | null;
+  author_id: string;
+  status?: string | null;
 };
 
 function formatDateLabel(value: string | null | undefined): string | null {
@@ -35,7 +57,7 @@ export default async function ReaderLibraryPage() {
   const { data: { user } } = await supabase.auth.getUser();
 
   if (!user) {
-    redirect("/reader/signin");
+    redirect("/reader/signin?next=/reader/library");
   }
 
   // Hard caps so a power user's reading history doesn't ship thousands of
@@ -61,11 +83,17 @@ export default async function ReaderLibraryPage() {
         .limit(LIBRARY_MAX_BOOKMARKS),
       supabase
         .from("entitlements" as never)
-        .select("book_id")
+        .select("book_id, created_at")
         .eq("user_id", user.id)
         .eq("source", "purchase")
+        .order("created_at", { ascending: false })
         .limit(LIBRARY_MAX_ENTITLEMENTS),
     ]);
+
+  // One service-role client per render, created only if something actually
+  // needs to see past the reader's own RLS.
+  let adminClient: ReturnType<typeof createAdminClient> | null = null;
+  const getAdmin = () => (adminClient ??= createAdminClient());
 
   const readings = readingsRows ?? [];
   const bookmarksCount = bookmarkRows?.length ?? 0;
@@ -73,33 +101,68 @@ export default async function ReaderLibraryPage() {
   const finishedFiltered = readings.filter((r) => (r.progress_percent ?? 0) >= 100);
   const readingBookIds = [...new Map(readingFiltered.map((r) => [r.book_id, r])).values()].map((r) => r.book_id);
   const finishedBookIds = [...new Map(finishedFiltered.map((r) => [r.book_id, r])).values()].map((r) => r.book_id);
-  const bookmarkedBookIds = (bookmarkRows ?? []).map((r) => r.book_id);
-  const purchasedBookIds = (entitlementRows ?? []).map((r) => (r as { book_id: string }).book_id);
-  const savedBookIds = [...new Set([...bookmarkedBookIds, ...purchasedBookIds])];
+  // "Saved" is bookmarks and nothing else. Purchases get their own shelf.
+  const savedBookIds = [...new Set((bookmarkRows ?? []).map((r) => r.book_id))];
 
-  const allBookIds = [...new Set([...readingBookIds, ...finishedBookIds, ...savedBookIds])];
-  let books: { id: string; title: string; cover_image: string | null; author_id: string }[] = [];
+  const entitlements = (entitlementRows ?? []) as Array<{
+    book_id: string;
+    created_at: string | null;
+  }>;
+  const purchasedBookIds = [...new Set(entitlements.map((row) => row.book_id))];
+  const purchasedAtByBookId = new Map(
+    entitlements.map((row) => [row.book_id, row.created_at ?? null])
+  );
+
+  // Books reached through browsing stay subject to the normal publication
+  // filter; purchases do not (see the admin read below).
+  const browseBookIds = [...new Set([...readingBookIds, ...finishedBookIds, ...savedBookIds])]
+    .filter((id) => !purchasedBookIds.includes(id));
+
+  const bookMap = new Map<string, LibraryBookRow>();
   let authorNames: Record<string, string> = {};
   const chapterIds = [...new Set(readings.map((row) => row.chapter_id).filter(Boolean))];
   let chapterTitles = new Map<string, string>();
 
-  if (allBookIds.length > 0) {
-    const [{ data: booksData }, { data: chapterRows }] = await Promise.all([
-      supabase
-        .from("books")
-        .select("id, title, cover_image, author_id")
-        .in("id", allBookIds)
-        .eq("status", "PUBLISHED"),
+  const [{ data: browseBooks }, { data: chapterRows }, { data: purchasedBooks }] =
+    await Promise.all([
+      browseBookIds.length > 0
+        ? supabase
+            .from("books")
+            .select("id, title, cover_image, author_id, status")
+            .in("id", browseBookIds)
+            .eq("status", "PUBLISHED")
+        : Promise.resolve({ data: [] as LibraryBookRow[] }),
       chapterIds.length > 0
         ? supabase.from("chapters").select("id, title").in("id", chapterIds)
         : Promise.resolve({ data: [] as Array<{ id: string; title: string }> }),
+      // Entitlement — not publication status — governs the buyer's own library.
+      // Read purchased books with the service-role client, scoped strictly to
+      // the ids this user holds an entitlement for. Both the `status` filter and
+      // the reader's RLS on `books` key off publication, so a book the author
+      // later unpublished would otherwise silently disappear from the library of
+      // the person who paid for it.
+      purchasedBookIds.length > 0
+        ? getAdmin()
+            .from("books")
+            .select("id, title, cover_image, author_id, status")
+            .in("id", purchasedBookIds)
+        : Promise.resolve({ data: [] as LibraryBookRow[] }),
     ]);
 
-    books = booksData ?? [];
-    chapterTitles = new Map((chapterRows ?? []).map((chapter) => [chapter.id, chapter.title]));
+  for (const row of (browseBooks ?? []) as LibraryBookRow[]) {
+    bookMap.set(row.id, row);
+  }
+  for (const row of (purchasedBooks ?? []) as LibraryBookRow[]) {
+    bookMap.set(row.id, row);
+  }
 
-    const authorIds = [...new Set(books.map((b) => b.author_id))];
-    const { data: profiles } = await supabase
+  chapterTitles = new Map((chapterRows ?? []).map((chapter) => [chapter.id, chapter.title]));
+
+  const authorIds = [...new Set([...bookMap.values()].map((b) => b.author_id))];
+  if (authorIds.length > 0) {
+    // Service role: a purchased book's author profile must resolve even when
+    // the book itself is no longer publicly visible.
+    const { data: profiles } = await getAdmin()
       .from("profiles")
       .select("user_id, display_name, username")
       .in("user_id", authorIds);
@@ -109,7 +172,28 @@ export default async function ReaderLibraryPage() {
     );
   }
 
-  const bookMap = new Map(books.map((b) => [b.id, b]));
+  // A purchased book that is no longer published 404s on the public book page,
+  // so the shelf links to the reading route instead. Resolve the first chapter
+  // for those books in one batched query.
+  const unlistedPurchasedIds = purchasedBookIds.filter((id) => {
+    const book = bookMap.get(id);
+    return Boolean(book) && book?.status !== "PUBLISHED";
+  });
+  const firstChapterByBookId = new Map<string, string>();
+  if (unlistedPurchasedIds.length > 0) {
+    const { data: firstChapters } = await getAdmin()
+      .from("chapters")
+      .select("id, book_id, order")
+      .in("book_id", unlistedPurchasedIds)
+      .order("order", { ascending: true });
+
+    for (const chapter of (firstChapters ?? []) as Array<{ id: string; book_id: string }>) {
+      if (!firstChapterByBookId.has(chapter.book_id)) {
+        firstChapterByBookId.set(chapter.book_id, chapter.id);
+      }
+    }
+  }
+
   const readingRowByBookId = new Map(
     readings.map((row) => [
       row.book_id,
@@ -180,8 +264,39 @@ export default async function ReaderLibraryPage() {
     .map((bookId) => toLibraryBook(bookId, undefined, `/reader/books/${bookId}`))
     .filter((b): b is LibraryBook => b !== null);
 
+  const purchased: LibraryBook[] = purchasedBookIds
+    .map((bookId): LibraryBook | null => {
+      const book = bookMap.get(bookId);
+      if (!book) return null;
+
+      const isListed = book.status === "PUBLISHED";
+      const readingMeta = readingRowByBookId.get(bookId);
+      const resumeChapterId = readingMeta?.chapterId ?? firstChapterByBookId.get(bookId) ?? null;
+      const href = isListed
+        ? readingMeta?.chapterId
+          ? `/reader/read/${readingMeta.chapterId}`
+          : `/reader/books/${bookId}`
+        : resumeChapterId
+          ? `/reader/read/${resumeChapterId}`
+          : undefined;
+
+      const entry = toLibraryBook(bookId, readingMeta?.progress, href);
+      if (!entry) return null;
+
+      const purchasedAt = formatDateLabel(purchasedAtByBookId.get(bookId));
+      return {
+        ...entry,
+        lastOpenedLabel: purchasedAt ? `Purchased ${purchasedAt}` : entry.lastOpenedLabel,
+        unavailableNote: isListed
+          ? null
+          : "No longer listed by the author — your access is unaffected.",
+      };
+    })
+    .filter((b): b is LibraryBook => b !== null);
+
   const data: LibraryData = {
     reading,
+    purchased,
     saved,
     finished,
     bookmarksCount,

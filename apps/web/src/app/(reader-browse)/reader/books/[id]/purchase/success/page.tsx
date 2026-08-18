@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { confirmStripeBookPurchase } from "@/lib/payments/purchase";
+import { getDiscoverHref } from "@/lib/flags";
 
 type PurchaseOutcome = "success" | "pending" | "failed";
 
@@ -19,6 +20,7 @@ export default async function PurchaseSuccessPage({
 
   let outcome: PurchaseOutcome = "pending";
   let requiresSignIn = false;
+  const discoverHref = getDiscoverHref();
 
   if (orderId && sessionId) {
     const supabase = await createClient();
@@ -53,9 +55,15 @@ export default async function PurchaseSuccessPage({
         <h1 className="text-2xl font-semibold">Purchase status</h1>
 
         {outcome === "success" ? (
-          <p className="mt-3 text-sm text-emerald-700 dark:text-emerald-300">
-            Payment verified. This book is now unlocked for your account.
-          </p>
+          <>
+            <p className="mt-3 text-sm text-emerald-700 dark:text-emerald-300">
+              Payment verified. This book is now unlocked for your account.
+            </p>
+            <p className="mt-2 text-sm text-slate-700 dark:text-white/75">
+              A receipt is on its way to your email, and the book is on the Purchased
+              shelf in your library.
+            </p>
+          </>
         ) : null}
 
         {outcome === "failed" ? (
@@ -80,11 +88,21 @@ export default async function PurchaseSuccessPage({
             Go to book
           </Link>
           <Link
-            href="/reader/discover"
+            href="/reader/library"
             className="rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 dark:border-white/20 dark:text-white"
           >
-            Explore more books
+            Go to library
           </Link>
+          {/* Discover 404s when NEXT_PUBLIC_DISCOVERY_ENABLED is off, so the
+              flag decides whether this CTA exists at all. */}
+          {discoverHref ? (
+            <Link
+              href={discoverHref}
+              className="rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 dark:border-white/20 dark:text-white"
+            >
+              Explore more books
+            </Link>
+          ) : null}
           {requiresSignIn ? (
             <Link
               href={`/reader/signin?next=${encodeURIComponent(`/reader/books/${bookId}`)}`}

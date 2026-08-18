@@ -1,5 +1,9 @@
 import { createAdminClient } from "@/lib/supabase/admin";
 import { notifyPodFulfillment } from "@/lib/payments/pod-fulfillment-email";
+import {
+  claimPaidOrderForReceipt,
+  sendPurchaseReceipt,
+} from "@/lib/payments/purchase-receipt";
 import { resolveRolePlanFromPriceIds } from "@/lib/billing/catalog";
 import {
   getBillingAccountByStripeCustomerId,
@@ -158,7 +162,32 @@ async function processBookPurchaseCheckoutSession(
   admin: AdminClient,
   session: StripeRecord
 ): Promise<boolean> {
-  return finalizeCheckoutSession(admin, "finalize_order_checkout_session", session);
+  const sessionId = trimToNull(session.id);
+
+  // Only a genuinely paid session gets a receipt. A delayed-notification method
+  // arrives here first as `completed` with payment_status "unpaid" — that is a
+  // `processing` purchase, and emailing a receipt for it would be a lie.
+  if (!sessionId || !isPaidCheckoutSession(session)) {
+    return finalizeCheckoutSession(admin, "finalize_order_checkout_session", session);
+  }
+
+  // Claim BEFORE finalizing: the RPC returns true on every call, so it cannot
+  // tell us whether this delivery is the one that completed the purchase.
+  // See lib/payments/purchase-receipt.ts for why this is the idempotency token.
+  const receiptClaim = await claimPaidOrderForReceipt(admin, sessionId);
+
+  const processed = await finalizeCheckoutSession(
+    admin,
+    "finalize_order_checkout_session",
+    session
+  );
+
+  if (receiptClaim && processed) {
+    // Fire-and-forget: never let the email provider fail a paid purchase.
+    void sendPurchaseReceipt(admin, receiptClaim);
+  }
+
+  return processed;
 }
 
 async function processDonationCheckoutSession(

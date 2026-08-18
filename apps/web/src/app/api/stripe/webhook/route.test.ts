@@ -39,10 +39,18 @@ const mocks = vi.hoisted(() => ({
   getBillingAccountByStripeSubscriptionId: vi.fn(),
   upsertBillingAccount: vi.fn(),
   resolveRolePlanFromPriceIds: vi.fn(),
+  sendPurchaseReceipt: vi.fn(),
 }));
 
 vi.mock("@/lib/supabase/admin", () => ({
   createAdminClient: mocks.createAdminClient,
+}));
+
+// The claim runs for real against the stateful admin fake below — that is the
+// thing under test for receipt idempotency. Only delivery is stubbed.
+vi.mock("@/lib/payments/purchase-receipt", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/lib/payments/purchase-receipt")>()),
+  sendPurchaseReceipt: mocks.sendPurchaseReceipt,
 }));
 
 vi.mock("@/lib/billing/server", () => ({
@@ -74,6 +82,7 @@ function makeAdminClient(input?: {
     creditGrantKeys: new Set<string>(),
     creditGrantCalls: [] as Record<string, unknown>[],
     orderUpdates: [] as Array<{ id: string; payload: Record<string, unknown> }>,
+    orderClaims: [] as string[],
     entitlementUpserts: [] as Record<string, unknown>[],
     donationUpdates: [] as Array<{ id: string; payload: Record<string, unknown> }>,
     creditTopupUpdates: [] as Array<{ id: string; payload: Record<string, unknown> }>,
@@ -107,6 +116,61 @@ function makeAdminClient(input?: {
               state.stripeEventRollbacks.push(value);
               state.seenEvents.delete(value);
               return { error: null };
+            }),
+          })),
+        };
+      }
+
+      if (table === "orders") {
+        // Models the conditional UPDATE the receipt claim relies on: the status
+        // predicate is part of the write, so the second delivery of the same
+        // paid session matches zero rows.
+        return {
+          update: vi.fn((payload: Record<string, unknown>) => ({
+            eq: vi.fn((column: string, value: string) => {
+              if (column !== "stripe_session_id") {
+                throw new Error(`Unexpected orders.update eq column: ${column}`);
+              }
+              return {
+                in: vi.fn((statusColumn: string, statuses: string[]) => {
+                  if (statusColumn !== "status") {
+                    throw new Error(
+                      `Unexpected orders.update in column: ${statusColumn}`
+                    );
+                  }
+                  return {
+                    select: vi.fn(() => ({
+                      maybeSingle: vi.fn(async () => {
+                        const order = state.order;
+                        if (
+                          !order ||
+                          order.stripe_session_id !== value ||
+                          !statuses.includes(order.status)
+                        ) {
+                          return { data: null, error: null };
+                        }
+
+                        state.orderUpdates.push({ id: order.id, payload });
+                        state.orderClaims.push(order.id);
+                        state.order = { ...order, ...payload } as OrderState;
+
+                        return {
+                          data: {
+                            id: order.id,
+                            user_id: order.user_id,
+                            book_id: order.book_id,
+                            chapter_id: null,
+                            amount: 12900,
+                            currency: "SEK",
+                            created_at: nowIso(),
+                          },
+                          error: null,
+                        };
+                      }),
+                    })),
+                  };
+                }),
+              };
             }),
           })),
         };
@@ -262,6 +326,7 @@ describe(`POST ${API_ROUTES.stripeWebhook}`, () => {
     mocks.getBillingAccountByStripeSubscriptionId.mockResolvedValue({ row: null, error: null });
     mocks.upsertBillingAccount.mockResolvedValue({ error: null });
     mocks.resolveRolePlanFromPriceIds.mockResolvedValue(null);
+    mocks.sendPurchaseReceipt.mockResolvedValue(undefined);
   });
 
   it("is idempotent: duplicate stripe_event_id does not process event twice", async () => {
@@ -291,6 +356,132 @@ describe(`POST ${API_ROUTES.stripeWebhook}`, () => {
     expect(admin.state.orderUpdates).toHaveLength(1);
     expect(admin.state.entitlementUpserts).toHaveLength(1);
     expect(admin.state.stripeEventInserts).toHaveLength(2);
+  });
+
+  it("emails exactly one receipt when Stripe delivers the same paid session twice", async () => {
+    // A duplicate receipt is a bug: the buyer is told twice that they were
+    // charged. `finalize_order_checkout_session` returns true on every call, so
+    // only the atomic pending→paid claim can arbitrate.
+    const admin = makeAdminClient({
+      order: {
+        id: "order-1",
+        user_id: "reader-1",
+        book_id: "book-1",
+        status: "pending",
+        stripe_session_id: "cs_receipt_1",
+      },
+    });
+    mocks.createAdminClient.mockReturnValue(admin.client);
+
+    const completed = {
+      id: "evt_receipt_1",
+      type: "checkout.session.completed",
+      data: { object: { id: "cs_receipt_1", payment_status: "paid" } },
+    };
+    // A different event id, so the stripe_events guard does not mask the
+    // question — this is a genuine second run of the finalizer.
+    const redelivered = {
+      id: "evt_receipt_2",
+      type: "checkout.session.async_payment_succeeded",
+      data: { object: { id: "cs_receipt_1", payment_status: "paid" } },
+    };
+
+    const first = await POST(makeSignedRequest(completed, webhookSecret));
+    const second = await POST(makeSignedRequest(redelivered, webhookSecret));
+
+    expect(first.status).toBe(200);
+    expect(second.status).toBe(200);
+    expect(admin.state.orderClaims).toEqual(["order-1"]);
+    expect(mocks.sendPurchaseReceipt).toHaveBeenCalledTimes(1);
+    expect(mocks.sendPurchaseReceipt).toHaveBeenCalledWith(
+      admin.client,
+      expect.objectContaining({
+        orderId: "order-1",
+        userId: "reader-1",
+        bookId: "book-1",
+        amountMinor: 12900,
+        currency: "SEK",
+        stripeSessionId: "cs_receipt_1",
+      }),
+    );
+  });
+
+  it("sends no receipt for a delayed payment that has not settled yet", async () => {
+    // `checkout.session.completed` with payment_status "unpaid" is a Klarna /
+    // Swish / SEPA purchase still processing. No money has arrived.
+    const admin = makeAdminClient({
+      order: {
+        id: "order-1",
+        user_id: "reader-1",
+        book_id: "book-1",
+        status: "pending",
+        stripe_session_id: "cs_delayed_1",
+      },
+    });
+    mocks.createAdminClient.mockReturnValue(admin.client);
+
+    const res = await POST(
+      makeSignedRequest(
+        {
+          id: "evt_delayed_1",
+          type: "checkout.session.completed",
+          data: {
+            object: {
+              id: "cs_delayed_1",
+              payment_status: "unpaid",
+              status: "complete",
+            },
+          },
+        },
+        webhookSecret,
+      ),
+    );
+
+    expect(res.status).toBe(200);
+    expect(admin.state.orderClaims).toHaveLength(0);
+    expect(admin.state.order?.status).toBe("pending");
+    expect(mocks.sendPurchaseReceipt).not.toHaveBeenCalled();
+  });
+
+  it("sends the receipt when the delayed payment later settles", async () => {
+    const admin = makeAdminClient({
+      order: {
+        id: "order-1",
+        user_id: "reader-1",
+        book_id: "book-1",
+        status: "pending",
+        stripe_session_id: "cs_delayed_2",
+      },
+    });
+    mocks.createAdminClient.mockReturnValue(admin.client);
+
+    await POST(
+      makeSignedRequest(
+        {
+          id: "evt_delayed_2a",
+          type: "checkout.session.completed",
+          data: {
+            object: { id: "cs_delayed_2", payment_status: "unpaid", status: "complete" },
+          },
+        },
+        webhookSecret,
+      ),
+    );
+    expect(mocks.sendPurchaseReceipt).not.toHaveBeenCalled();
+
+    await POST(
+      makeSignedRequest(
+        {
+          id: "evt_delayed_2b",
+          type: "checkout.session.async_payment_succeeded",
+          data: { object: { id: "cs_delayed_2", payment_status: "paid" } },
+        },
+        webhookSecret,
+      ),
+    );
+
+    expect(admin.state.order?.status).toBe("paid");
+    expect(mocks.sendPurchaseReceipt).toHaveBeenCalledTimes(1);
   });
 
   it("marks donation records as paid for payment_type=donation", async () => {

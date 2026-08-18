@@ -3,6 +3,12 @@ import { NextResponse } from "next/server";
 import { activeRoleCookieHeader, resolveActiveRoleFromProfile } from "@/lib/active-role";
 import type { ActiveRole } from "@/lib/active-role";
 import { capturePostHogAsync } from "@/lib/analytics/posthog-server";
+import {
+  defaultHomePathForRole,
+  nextPathCookieHeader,
+  readNextPathCookie,
+  sanitizeNextPath,
+} from "@/lib/auth/next-path";
 
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
@@ -52,11 +58,22 @@ export async function GET(request: Request) {
         role = resolveActiveRoleFromProfile(profile);
       }
 
-      const redirectPath = role === "author" ? "/author/home" : role === "reader" ? "/reader/home" : "/";
+      // Honour the pre-sign-in destination so an OAuth buyer lands back on the
+      // book they were buying. It arrives either on the query string or in the
+      // carry cookie set before we handed off to the provider; both are
+      // re-validated, so a tampered cookie cannot make this an open redirect.
+      const requestedNext =
+        sanitizeNextPath(searchParams.get("next")) ??
+        readNextPathCookie(request.headers.get("cookie"));
+      const redirectPath = requestedNext ?? defaultHomePathForRole(role);
+
       const res = NextResponse.redirect(`${origin}${redirectPath}`);
       if (role) {
-        res.headers.set("Set-Cookie", activeRoleCookieHeader(role));
+        res.headers.append("Set-Cookie", activeRoleCookieHeader(role));
       }
+      // Single-use: clear it whether or not it was present, so a stale value
+      // cannot hijack a later sign-in.
+      res.headers.append("Set-Cookie", nextPathCookieHeader(null));
       return res;
     }
   }
