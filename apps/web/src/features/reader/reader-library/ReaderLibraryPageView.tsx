@@ -10,6 +10,7 @@ import {
   Bookmark,
   CheckCircle2,
   Clock3,
+  Info,
   Plus,
   Search,
 } from "lucide-react";
@@ -34,14 +35,21 @@ export default function ReaderLibraryPageView({ initialData }: ReaderLibraryPage
   const discoverHref = getDiscoverHref();
 
   const filteredReading = useMemo(() => initialData.reading.filter((b) => matchesQuery(b, query)), [initialData.reading, query]);
+  const filteredPurchased = useMemo(() => initialData.purchased.filter((b) => matchesQuery(b, query)), [initialData.purchased, query]);
   const filteredSaved = useMemo(() => initialData.saved.filter((b) => matchesQuery(b, query)), [initialData.saved, query]);
   const filteredFinished = useMemo(() => initialData.finished.filter((b) => matchesQuery(b, query)), [initialData.finished, query]);
 
-  const hasAnyBooks = initialData.reading.length > 0 || initialData.saved.length > 0 || initialData.finished.length > 0;
+  const hasAnyBooks =
+    initialData.reading.length > 0 ||
+    initialData.purchased.length > 0 ||
+    initialData.saved.length > 0 ||
+    initialData.finished.length > 0;
   const showReading = isSearching ? filteredReading.length > 0 : initialData.reading.length > 0;
+  const showPurchased = isSearching ? filteredPurchased.length > 0 : initialData.purchased.length > 0;
   const showSaved = isSearching ? filteredSaved.length > 0 : initialData.saved.length > 0;
   const showFinished = isSearching ? filteredFinished.length > 0 : initialData.finished.length > 0;
-  const noSearchResults = isSearching && !showReading && !showSaved && !showFinished;
+  const noSearchResults =
+    isSearching && !showReading && !showPurchased && !showSaved && !showFinished;
 
   return (
     <div className="space-y-8">
@@ -55,7 +63,8 @@ export default function ReaderLibraryPageView({ initialData }: ReaderLibraryPage
             Your books
           </h1>
           <p className="mt-1 text-sm text-[#64748B] dark:text-white/50">
-            {initialData.reading.length} reading &middot; {initialData.saved.length} saved &middot; {initialData.finished.length} completed
+            {initialData.reading.length} reading &middot; {initialData.purchased.length} purchased &middot;{" "}
+            {initialData.saved.length} saved &middot; {initialData.finished.length} completed
           </p>
         </div>
         {discoverHref && (
@@ -185,6 +194,51 @@ export default function ReaderLibraryPageView({ initialData }: ReaderLibraryPage
                     </Link>
                   );
                 })}
+              </div>
+            </section>
+          )}
+
+          {/* ── Purchased ── */}
+          {showPurchased && (
+            <section className="space-y-4">
+              <div className="flex items-baseline justify-between gap-4">
+                <h2 className="text-xl font-semibold text-[#0F172A] dark:text-white">
+                  Purchased
+                </h2>
+                <Link
+                  href="/reader/orders"
+                  className="text-xs font-medium text-[#907AFF] transition-colors hover:text-[#7058DD] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#907AFF]/40 focus-visible:ring-offset-2"
+                >
+                  View order history
+                </Link>
+              </div>
+              <div className="flex flex-wrap gap-4">
+                {filteredPurchased.map((book) => (
+                  <div key={book.id} className="w-36 space-y-2 sm:w-40">
+                    <BookCard
+                      id={book.id}
+                      title={book.title}
+                      author={book.author}
+                      cover={book.cover}
+                      href={book.href}
+                      progress={book.progress}
+                      ctaLabel={book.progress ? "Continue" : "Read now"}
+                      layout="rail"
+                      size="md"
+                    />
+                    {book.lastOpenedLabel && (
+                      <p className="text-xs text-[#64748B]/70 dark:text-white/35">
+                        {book.lastOpenedLabel}
+                      </p>
+                    )}
+                    {book.unavailableNote && (
+                      <p className="flex items-start gap-1.5 text-xs text-[#64748B] dark:text-white/50">
+                        <Info className="mt-0.5 h-3 w-3 flex-shrink-0" />
+                        <span>{book.unavailableNote}</span>
+                      </p>
+                    )}
+                  </div>
+                ))}
               </div>
             </section>
           )}

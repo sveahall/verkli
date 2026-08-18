@@ -3,6 +3,10 @@ import "server-only";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getStripeCheckoutSession } from "@/lib/payments/stripe";
 import { logAnalyticsEvent } from "@/lib/analytics/events";
+import {
+  claimPaidOrderForReceipt,
+  sendPurchaseReceipt,
+} from "@/lib/payments/purchase-receipt";
 
 type ConfirmStripePurchaseArgs = {
   orderId: string;
@@ -96,6 +100,11 @@ export async function confirmStripeBookPurchase({
     return "failed";
   }
 
+  // Claim before finalizing. This page runs on every reload and races the
+  // webhook, so "the RPC said true" cannot gate the receipt — only the atomic
+  // pending→paid transition can. See lib/payments/purchase-receipt.ts.
+  const receiptClaim = await claimPaidOrderForReceipt(admin, sessionId);
+
   const { data: finalized, error: finalizeError } = await admin.rpc(
     "finalize_order_checkout_session" as never,
     {
@@ -105,6 +114,11 @@ export async function confirmStripeBookPurchase({
 
   if (finalizeError || finalized !== true) {
     return "failed";
+  }
+
+  if (receiptClaim) {
+    // Fire-and-forget: the buyer's access must not wait on an email provider.
+    void sendPurchaseReceipt(admin, receiptClaim);
   }
 
   if (orderStatus !== "paid") {
