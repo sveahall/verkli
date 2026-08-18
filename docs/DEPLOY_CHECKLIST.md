@@ -1,11 +1,17 @@
 # Deploy Checklist — Manual Steps
 
-> **⚠️ Hosting sections are legacy.** This checklist was written for a Vercel
-> deploy; production has since moved to a self-hosted server (deploy/infra
-> owned by Fredrik). Treat every "in Vercel" / "detach-and-attach main deploy"
-> step as historical — configure env vars, webhooks, and the domain on the
-> actual production host instead. The Stripe / DNS / secrets substance below is
-> still accurate; only the platform framing is stale.
+> **⚠️ Corrected 2026-08-17.** This file previously claimed production had moved
+> to a self-hosted server owned by Fredrik. **That is false.** Verified against
+> live DNS + HTTP headers: `verkli.com` is served by **Vercel** (region `arn1`)
+> and redirects to `www.verkli.com/waitlist` — i.e. the `main` branch waitlist
+> site. The self-hosted server was a plan (see `docs/plan/launch-plan-2026-09.md`
+> §1 and the orphaned Keycloak/Gitea/GPU infra plan) that was never wired to the
+> web app. Fredrik left the project on 2026-08-17 with zero commits in this repo.
+>
+> **What is actually true:** the web app runs on Vercel. The 7 BullMQ workers
+> have **never** been deployed to production (`docs/sprint-0.5-deferred.md` D4),
+> and there is no Dockerfile for `apps/web`. So the Vercel steps below are live
+> and correct; the worker deploy is an open task (W0.2 in the launch plan).
 >
 > Single artefact for everything that **only the founder** can do. Run from
 > top to bottom when you're ready to ship the pre-raise demo / soft launch.
