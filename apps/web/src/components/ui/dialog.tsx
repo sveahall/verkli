@@ -30,7 +30,11 @@ export function Dialog({ open, onOpenChange, children, className }: DialogProps)
     if (!open && dialog.open) {
       dialog.close();
     }
-  }, [open]);
+    // `mounted` is a dependency, not just a guard: until it flips true this
+    // component renders null, so dialogRef.current is null and the effect bails
+    // early. Without it here the effect never re-runs and a dialog mounted with
+    // open={true} never calls showModal().
+  }, [open, mounted]);
 
   React.useEffect(() => {
     const dialog = dialogRef.current;

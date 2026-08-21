@@ -117,9 +117,12 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(
               hasError
                 ? "border-red-300 focus:border-red-500 focus:ring-red-500/20 dark:border-red-500/50 dark:focus:border-red-400"
                 : "",
+              // sizeStyles sets px-*, which tailwind-merge treats as conflicting with
+              // pl-*/pr-*. It must come BEFORE the adornment padding or the icon
+              // padding is dropped and the icon renders on top of the value.
+              sizeStyles[inputSize],
               startIcon && "pl-10",
               hasEndAdornment && "pr-10",
-              sizeStyles[inputSize],
               className,
             )}
             {...props}
