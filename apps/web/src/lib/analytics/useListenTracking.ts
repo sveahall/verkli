@@ -89,6 +89,17 @@ export function useListenTracking({
 }: Input): ListenTrackingHandlers {
   const stateRef = useRef<TrackerState>(freshState(resumePositionSeconds));
 
+  // Tail of the write chain. Position writes MUST reach the server in call order:
+  // the route's upsert is deliberately last-write-wins (rewinding is a real
+  // listening action), so it treats arrival order as playback order. Fired
+  // concurrently, an older periodic write could land after a newer pause or seek
+  // and move the reader's resume point backwards or forwards on next open.
+  //
+  // Serializing here rather than adding a client sequence number to the payload:
+  // ordering the requests fixes the cause, while a sequence column would need a
+  // migration against a schema this repo's migrations do not reliably describe.
+  const writeChainRef = useRef<Promise<void>>(Promise.resolve());
+
   // Reset per chapter. Written in an effect, never during render: the React
   // compiler forbids touching refs in the render phase, and a stale tracker
   // would attribute the previous chapter's progress to the new one.
@@ -114,14 +125,22 @@ export function useListenTracking({
         // Fall through to keepalive fetch when the beacon queue is full.
       }
 
-      void fetch(url, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: json,
-        keepalive: Boolean(options?.beacon),
-      }).catch(() => {
-        // Telemetry and a resume point are both expendable; playback is not.
-      });
+      // Queue behind whatever is already in flight. The beacon path above returns
+      // early and stays unserialized: it fires once, during unload, when there is
+      // no later write left to race against.
+      writeChainRef.current = writeChainRef.current.then(() =>
+        fetch(url, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: json,
+          keepalive: Boolean(options?.beacon),
+        })
+          .then(() => undefined)
+          .catch(() => {
+            // Telemetry and a resume point are both expendable; playback is not.
+            // Swallowed so one failed write cannot break the chain for the rest.
+          })
+      );
     },
     [bookId]
   );

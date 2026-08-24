@@ -37,6 +37,7 @@ type BookRow = {
   id: string;
   title: string | null;
   cover_image: string | null;
+  status: string | null;
 };
 
 const POD_STATUS_LABELS: Record<string, string> = {
@@ -139,7 +140,7 @@ export default async function ReaderOrdersPage() {
     // the reader's RLS on `books` keys off publication.
     const { data: bookRows } = await createAdminClient()
       .from("books")
-      .select("id, title, cover_image")
+      .select("id, title, cover_image, status")
       .in("id", bookIds);
 
     for (const row of (bookRows ?? []) as BookRow[]) {
@@ -183,7 +184,14 @@ export default async function ReaderOrdersPage() {
                   const title = book?.title ?? "Unknown book";
                   const statusLabel =
                     DIGITAL_STATUS_LABELS[order.status] ?? order.status;
-                  const href = order.book_id ? `/reader/books/${order.book_id}` : null;
+                  // The service-role lookup above deliberately keeps an unpublished
+                  // book's title visible, but /reader/books/[id] is the PUBLIC page
+                  // and 404s for anything not PUBLISHED — so linking there turned a
+                  // real purchase into a dead end. The title stays; the link does
+                  // not. "Go to library" above is the route that still works, and
+                  // the library card is entitlement-aware.
+                  const isListed = String(book?.status ?? "").toUpperCase() === "PUBLISHED";
+                  const href = order.book_id && isListed ? `/reader/books/${order.book_id}` : null;
 
                   return (
                     <li

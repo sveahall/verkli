@@ -115,6 +115,41 @@ describe("ReaderLibraryPage purchased shelf", () => {
     expect(data.purchased[0].href).toBe("/reader/read/chapter-1");
   });
 
+  it("links a per-chapter purchase to a chapter the buyer actually owns", async () => {
+    // Per-chapter purchases produce one entitlement row per chapter, and the shelf
+    // dedupes to one card. Ignoring chapter_id meant the card linked to the book's
+    // FIRST chapter, which a buyer of chapter 3 does not own — so the one card for
+    // a real purchase led straight to a locked reader.
+    const data = await renderLibrary({
+      session: {
+        readings: [],
+        bookmarks: [],
+        entitlements: [
+          { book_id: "book-unpublished", chapter_id: "chapter-3", created_at: "2026-08-10T12:00:00Z" },
+        ],
+      },
+      admin: {
+        books: [
+          {
+            id: "book-unpublished",
+            title: "The Withdrawn Novel",
+            cover_image: null,
+            author_id: "author-1",
+            status: "DRAFT",
+          },
+        ],
+        profiles: [{ user_id: "author-1", display_name: "Johan Ek", username: null }],
+        chapters: [
+          { id: "chapter-1", book_id: "book-unpublished", order: 0 },
+          { id: "chapter-3", book_id: "book-unpublished", order: 2 },
+        ],
+      },
+    });
+
+    expect(data.purchased).toHaveLength(1);
+    expect(data.purchased[0].href).toBe("/reader/read/chapter-3");
+  });
+
   it("does not hand the buyer a dead link when no chapter can be resolved", async () => {
     const data = await renderLibrary({
       session: {

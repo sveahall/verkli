@@ -24,8 +24,13 @@ const mocks = vi.hoisted(() => ({
   isAudiobookEnabled: vi.fn(),
   assertPublicEnv: vi.fn(),
   rateCheck: vi.fn(),
+  requireAdminRole: vi.fn(),
 }));
 
+// Mocked like the play route's test does: requireAdminRole hits `profiles`, which
+// the session mocks below deliberately refuse, and moderator access is its own
+// concern from this route's point of view.
+vi.mock("@/lib/admin-auth", () => ({ requireAdminRole: mocks.requireAdminRole }));
 vi.mock("@/lib/supabase/server", () => ({ createClient: mocks.createClient }));
 vi.mock("@/lib/supabase/admin", () => ({ createAdminClient: mocks.createAdminClient }));
 vi.mock("@/lib/books/access", () => ({ canUserReadBook: mocks.canUserReadBook }));
@@ -120,6 +125,8 @@ describe("POST /api/books/[id]/audiobook/progress", () => {
     mocks.rateCheck.mockResolvedValue({ allowed: true });
     mocks.canUserReadBook.mockResolvedValue(true);
     mocks.logAnalyticsEvent.mockResolvedValue(undefined);
+    // Default: not a moderator. Cases that need one opt in explicitly.
+    mocks.requireAdminRole.mockResolvedValue({ ok: false });
   });
 
   it("returns 503 when the audiobook feature is disabled", async () => {
@@ -353,6 +360,101 @@ describe("POST /api/books/[id]/audiobook/progress", () => {
       bookId: BOOK_ID,
       props: expect.objectContaining({ completed: true, percent: 1 }),
     });
+  });
+
+  it("does not complete a short chapter on the very first listen_start", async () => {
+    // The tail margin is a fixed 15s, so `duration - margin` was <= 0 for any
+    // chapter of 15s or less and position 0 satisfied it immediately — a 20s intro
+    // counted as listened-to after five seconds, corrupting completion analytics.
+    const { client, upserts } = makeSessionClient();
+    mocks.createClient.mockResolvedValue(client);
+    mocks.createAdminClient.mockReturnValue(makeAdminClient());
+
+    await POST(
+      makeRequest({ chapterId: CHAPTER_ID, positionSeconds: 0, durationSeconds: 20, event: "listen_start" }),
+      routeParams()
+    );
+
+    expect(upserts[0].row).not.toHaveProperty("completed");
+  });
+
+  it("still completes a short chapter once it is genuinely near the end", async () => {
+    const { client, upserts } = makeSessionClient();
+    mocks.createClient.mockResolvedValue(client);
+    mocks.createAdminClient.mockReturnValue(makeAdminClient());
+
+    await POST(
+      makeRequest({ chapterId: CHAPTER_ID, positionSeconds: 19, durationSeconds: 20, event: "listen_progress" }),
+      routeParams()
+    );
+
+    expect(upserts[0].row).toMatchObject({ completed: true });
+  });
+
+  it("keeps the long-chapter threshold exactly where it was", async () => {
+    // 600s chapter: still completes at 585s (600 - 15), not at 540s (90%).
+    const { client, upserts } = makeSessionClient();
+    mocks.createClient.mockResolvedValue(client);
+    mocks.createAdminClient.mockReturnValue(makeAdminClient());
+
+    await POST(
+      makeRequest({ chapterId: CHAPTER_ID, positionSeconds: 560, durationSeconds: 600, event: "listen_progress" }),
+      routeParams()
+    );
+
+    expect(upserts[0].row).not.toHaveProperty("completed");
+  });
+
+  it("lets a moderating admin track playback of an unpublished book", async () => {
+    // The play route already hands admins the audio for moderation; without the
+    // same allowance here every tracking write for it 404'd, so a moderator could
+    // neither save a position nor emit listen events.
+    mocks.requireAdminRole.mockResolvedValue({ ok: true });
+    const { client, upserts } = makeSessionClient();
+    mocks.createClient.mockResolvedValue(client);
+    mocks.createAdminClient.mockReturnValue(
+      makeAdminClient({
+        book: {
+          id: BOOK_ID,
+          status: "DRAFT",
+          author_id: "someone-else",
+          price_amount: 0,
+          pricing_model: "book_only",
+        },
+      })
+    );
+
+    const response = await POST(
+      makeRequest({ chapterId: CHAPTER_ID, positionSeconds: 12, durationSeconds: 600 }),
+      routeParams()
+    );
+
+    expect(response.status).toBe(200);
+    expect(upserts).toHaveLength(1);
+  });
+
+  it("still hides an unpublished book from a non-author, non-admin reader", async () => {
+    mocks.requireAdminRole.mockResolvedValue({ ok: false });
+    const { client } = makeSessionClient();
+    mocks.createClient.mockResolvedValue(client);
+    mocks.createAdminClient.mockReturnValue(
+      makeAdminClient({
+        book: {
+          id: BOOK_ID,
+          status: "DRAFT",
+          author_id: "someone-else",
+          price_amount: 0,
+          pricing_model: "book_only",
+        },
+      })
+    );
+
+    const response = await POST(
+      makeRequest({ chapterId: CHAPTER_ID, positionSeconds: 12, durationSeconds: 600 }),
+      routeParams()
+    );
+
+    expect(response.status).toBe(404);
   });
 
   it("marks the chapter completed when the reader stops inside the tail margin", async () => {

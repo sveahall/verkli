@@ -83,7 +83,7 @@ export default async function ReaderLibraryPage() {
         .limit(LIBRARY_MAX_BOOKMARKS),
       supabase
         .from("entitlements" as never)
-        .select("book_id, created_at")
+        .select("book_id, chapter_id, created_at")
         .eq("user_id", user.id)
         .eq("source", "purchase")
         .order("created_at", { ascending: false })
@@ -106,9 +106,33 @@ export default async function ReaderLibraryPage() {
 
   const entitlements = (entitlementRows ?? []) as Array<{
     book_id: string;
+    chapter_id: string | null;
     created_at: string | null;
   }>;
   const purchasedBookIds = [...new Set(entitlements.map((row) => row.book_id))];
+
+  // Per-chapter purchases produce one entitlement row per chapter, and the shelf
+  // dedupes to one card per book. Without keeping the chapter grain, an unlisted
+  // book's card linked to the book's arbitrary FIRST chapter — which for a
+  // per-chapter buyer is very often a chapter they did not buy, so the card led
+  // straight to a locked reader. A null chapter_id is a whole-book purchase and
+  // entitles every chapter.
+  const wholeBookPurchases = new Set(
+    entitlements.filter((row) => !row.chapter_id).map((row) => row.book_id)
+  );
+  const entitledChaptersByBookId = new Map<string, Set<string>>();
+  for (const row of entitlements) {
+    if (!row.chapter_id) continue;
+    const set = entitledChaptersByBookId.get(row.book_id) ?? new Set<string>();
+    set.add(row.chapter_id);
+    entitledChaptersByBookId.set(row.book_id, set);
+  }
+  /** The chapter id only when this reader is actually entitled to it. */
+  const entitledChapterOrNull = (bookId: string, chapterId: string | null | undefined) => {
+    if (!chapterId) return null;
+    if (wholeBookPurchases.has(bookId)) return chapterId;
+    return entitledChaptersByBookId.get(bookId)?.has(chapterId) ? chapterId : null;
+  };
   const purchasedAtByBookId = new Map(
     entitlements.map((row) => [row.book_id, row.created_at ?? null])
   );
@@ -271,10 +295,17 @@ export default async function ReaderLibraryPage() {
 
       const isListed = book.status === "PUBLISHED";
       const readingMeta = readingRowByBookId.get(bookId);
-      const resumeChapterId = readingMeta?.chapterId ?? firstChapterByBookId.get(bookId) ?? null;
+      // Prefer where they left off, but only if they own it; then the first
+      // chapter for a whole-book purchase; then any chapter they did buy.
+      const resumeChapterId =
+        entitledChapterOrNull(bookId, readingMeta?.chapterId) ??
+        entitledChapterOrNull(bookId, firstChapterByBookId.get(bookId) ?? null) ??
+        [...(entitledChaptersByBookId.get(bookId) ?? [])][0] ??
+        null;
+      const listedResumeChapterId = entitledChapterOrNull(bookId, readingMeta?.chapterId);
       const href = isListed
-        ? readingMeta?.chapterId
-          ? `/reader/read/${readingMeta.chapterId}`
+        ? listedResumeChapterId
+          ? `/reader/read/${listedResumeChapterId}`
           : `/reader/books/${bookId}`
         : resumeChapterId
           ? `/reader/read/${resumeChapterId}`

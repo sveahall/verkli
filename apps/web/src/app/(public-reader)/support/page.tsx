@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import SupportContactForm from "./SupportContactForm";
+import { createClient } from "@/lib/supabase/server";
 
 export const metadata: Metadata = {
   title: "Support",
@@ -117,7 +118,17 @@ const FAQ: FaqEntry[] = [
   },
 ];
 
-export default function SupportPage() {
+export default async function SupportPage() {
+  // Resolved here, not in the client component: the form has to know whether a
+  // reply address is optional. Signed in, we can answer via the account; signed
+  // out with no address, a submission has no reply channel at all — while the
+  // success screen still promised an answer within two business days.
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  const isSignedIn = Boolean(user);
+
   return (
     <main className="page-content-narrow py-16 md:py-24">
       <p className="text-eyebrow">Support</p>
@@ -133,7 +144,7 @@ export default function SupportPage() {
         <h2 id="support-form-heading" className="text-section-title mb-4">
           Send us a message
         </h2>
-        <SupportContactForm />
+        <SupportContactForm isSignedIn={isSignedIn} />
       </section>
 
       <section className="mt-14" aria-labelledby="support-email-heading">

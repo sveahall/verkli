@@ -117,8 +117,11 @@ export async function confirmStripeBookPurchase({
   }
 
   if (receiptClaim) {
-    // Fire-and-forget: the buyer's access must not wait on an email provider.
-    void sendPurchaseReceipt(admin, receiptClaim);
+    // Awaited for the same reason as the webhook handler: the claim is one-time,
+    // so a promise killed at response time loses the receipt permanently rather
+    // than deferring it. sendPurchaseReceipt swallows provider errors, so the
+    // buyer's access still never waits on — or fails because of — email.
+    await sendPurchaseReceipt(admin, receiptClaim);
   }
 
   if (orderStatus !== "paid") {

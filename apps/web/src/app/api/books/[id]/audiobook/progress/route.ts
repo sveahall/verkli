@@ -26,6 +26,7 @@
  */
 
 import { NextResponse } from "next/server";
+import { requireAdminRole } from "@/lib/admin-auth";
 import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
@@ -178,7 +179,15 @@ export async function POST(
   const isAuthor = bookRow.author_id === user.id;
   const isPublished = String(bookRow.status ?? "").toUpperCase() === "PUBLISHED";
 
-  if (!isPublished && !isAuthor) {
+  // Mirrors the play route: authors and moderating admins may reach audio for an
+  // unpublished book. Without this, the play route hands an admin the audio and
+  // then every tracking write for it 404s, so moderator playback could neither
+  // save a position nor emit listen_start/progress/complete — despite this
+  // route's own docs claiming admin moderation is supported.
+  // Short-circuited on isAuthor so the common path pays nothing for the check.
+  const isModeratorAdmin = isAuthor ? false : (await requireAdminRole()).ok;
+
+  if (!isPublished && !isAuthor && !isModeratorAdmin) {
     return apiError(E_BOOK_NOT_FOUND, 404);
   }
 
@@ -189,6 +198,7 @@ export async function POST(
   // access that isn't already denied upstream.
   const hasReadAccess =
     isAuthor ||
+    isModeratorAdmin ||
     (await canUserReadBook({
       supabase,
       userId: user.id,
@@ -208,10 +218,19 @@ export async function POST(
   // Completion is `completed` becoming true, and it is one-way. `listen_complete`
   // means the media element fired `ended`; the duration comparison also catches a
   // reader who scrubs into the last seconds and leaves.
+  // The tail margin is a fixed 15s, so on a chapter of 15s or less
+  // `duration - margin` is zero or negative and the very first `listen_start` at
+  // position 0 satisfied it — a 20s intro was "completed" after five seconds.
+  // Taking the max with 90% of the duration keeps long chapters on exactly the
+  // old threshold (a 600s chapter still completes at 585s, not 540s) while
+  // requiring real progress on short ones (a 20s chapter now needs 18s).
+  const tailThreshold =
+    resolvedDuration != null
+      ? Math.max(resolvedDuration * 0.9, resolvedDuration - RESUME_TAIL_MARGIN_SECONDS)
+      : null;
   const reachedEnd =
     event === "listen_complete" ||
-    (resolvedDuration != null &&
-      positionSeconds >= resolvedDuration - RESUME_TAIL_MARGIN_SECONDS);
+    (tailThreshold != null && tailThreshold > 0 && positionSeconds >= tailThreshold);
 
   // `completed` is omitted rather than set to false when the chapter is not
   // finished. PostgREST's merge-duplicates upsert only writes the keys present

@@ -183,8 +183,13 @@ async function processBookPurchaseCheckoutSession(
   );
 
   if (receiptClaim && processed) {
-    // Fire-and-forget: never let the email provider fail a paid purchase.
-    void sendPurchaseReceipt(admin, receiptClaim);
+    // Awaited, not fire-and-forget. On a request-scoped or serverless runtime the
+    // detached promise can be killed the moment this handler returns — and by then
+    // the order is already `paid` and the receipt claim is consumed, so every
+    // Stripe retry re-finalizes nothing and the receipt is lost for good.
+    // Safe to await: sendPurchaseReceipt catches its own provider errors and
+    // resolves void, so a dead email provider still cannot fail a paid purchase.
+    await sendPurchaseReceipt(admin, receiptClaim);
   }
 
   return processed;

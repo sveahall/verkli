@@ -26,7 +26,9 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     { url: `${siteUrl}/reader`, changeFrequency: "weekly", priority: 0.8 },
     { url: `${siteUrl}/reader/authors`, changeFrequency: "weekly", priority: 0.7 },
     { url: `${siteUrl}/reader/genres`, changeFrequency: "weekly", priority: 0.6 },
-    { url: `${siteUrl}/reader/faq`, changeFrequency: "monthly", priority: 0.4 },
+    // /reader/faq now redirects to /support. Advertising the redirect made every
+    // sitemap consumer take an extra hop to reach the canonical page.
+    { url: `${siteUrl}/support`, changeFrequency: "monthly", priority: 0.4 },
     { url: `${siteUrl}/reader/how-it-works`, changeFrequency: "monthly", priority: 0.4 },
     { url: `${siteUrl}/reader/membership`, changeFrequency: "monthly", priority: 0.5 },
   ];

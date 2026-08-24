@@ -121,6 +121,16 @@ export function resolvePostSignInPath(
  * production. A short-lived cookie keeps `redirectTo` byte-identical.
  * `SameSite=Lax` is sufficient because the OAuth return is a top-level GET.
  */
+/**
+ * Carry-cookie lifetime. 600s was sized for OAuth, where the round trip is a few
+ * seconds. Email confirmation shares this cookie and is bounded by how long
+ * someone takes to open their inbox — at ten minutes, anyone reading the mail
+ * later lost the destination even though the link reached /auth/callback
+ * correctly. Two hours covers a realistic inbox delay; the cookie carries only a
+ * validated same-origin path, and /auth/callback clears it on use.
+ */
+const NEXT_PATH_MAX_AGE_SECONDS = 7200;
+
 export function nextPathCookieHeader(path: string | null): string {
   const isProduction =
     typeof process !== "undefined" && process.env.NODE_ENV === "production";
@@ -128,7 +138,7 @@ export function nextPathCookieHeader(path: string | null): string {
   if (!path) {
     return `${NEXT_PATH_COOKIE}=; Path=/; SameSite=Lax; Max-Age=0${secure}`;
   }
-  return `${NEXT_PATH_COOKIE}=${encodeURIComponent(path)}; Path=/; SameSite=Lax; Max-Age=600${secure}`;
+  return `${NEXT_PATH_COOKIE}=${encodeURIComponent(path)}; Path=/; SameSite=Lax; Max-Age=${NEXT_PATH_MAX_AGE_SECONDS}${secure}`;
 }
 
 /** Read and validate the carry cookie out of a raw `Cookie` header. */

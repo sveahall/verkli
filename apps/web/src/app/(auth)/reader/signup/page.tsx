@@ -37,6 +37,18 @@ function rememberNextPath(): void {
   writeNextPathCookieClient(sanitizeNextPath(readRawNextParam()));
 }
 
+/**
+ * Drop the carry cookie when the attempt that wrote it failed.
+ *
+ * Otherwise it stays live for its full lifetime and the next callback to fire
+ * consumes it — including an unrelated one. Concretely: abandon a failed reader
+ * registration, then sign in with Google on the AUTHOR page (which writes its own
+ * cookie only on the reader flow), and the stale reader destination wins.
+ */
+function forgetNextPath(): void {
+  writeNextPathCookieClient(null);
+}
+
 export default function ReaderSignUp() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -75,6 +87,7 @@ export default function ReaderSignUp() {
     const { error } = await signUp(email, password, "reader");
 
     if (error) {
+      forgetNextPath();
       setError(resolveErrorMessage(error.code, error.message || "Registration failed. Please try again."));
       setLoading(false);
     } else {
@@ -87,6 +100,7 @@ export default function ReaderSignUp() {
     rememberNextPath();
     const { error } = await signInWithGoogle();
     if (error) {
+      forgetNextPath();
       setError(resolveErrorMessage(error.code, error.message || "Registration failed. Please try again."));
     }
   };

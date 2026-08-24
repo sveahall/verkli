@@ -17,7 +17,7 @@ type FormState =
   | { kind: "success" }
   | { kind: "error"; message: string };
 
-export default function SupportContactForm() {
+export default function SupportContactForm({ isSignedIn }: { isSignedIn: boolean }) {
   const fieldId = useId();
   const pathname = usePathname();
   const [topic, setTopic] = useState<SupportTopic>("bug");
@@ -26,10 +26,21 @@ export default function SupportContactForm() {
   const [state, setState] = useState<FormState>({ kind: "idle" });
 
   const submitting = state.kind === "submitting";
+  // Signed out, this is the ONLY way we can answer, so it stops being optional.
+  const emailRequired = !isSignedIn;
 
   async function onSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (submitting) return;
+
+    if (emailRequired && !replyEmail.trim()) {
+      setState({
+        kind: "error",
+        message: "Add your email so we have somewhere to send the answer.",
+      });
+      return;
+    }
+
     setState({ kind: "submitting" });
 
     const result = await submitSupportRequest({
@@ -66,7 +77,7 @@ export default function SupportContactForm() {
               two business days.{" "}
               {replyEmail.trim()
                 ? `We will reply to ${replyEmail.trim()}.`
-                : "If you are signed in, we will reply to the address on your account."}
+                : "We will reply to the address on your account."}
             </p>
             <button
               type="button"
@@ -138,7 +149,14 @@ export default function SupportContactForm() {
 
       <div className="space-y-2">
         <label htmlFor={`${fieldId}-email`} className="text-label block">
-          Your email <span className="font-normal">(optional)</span>
+          Your email{" "}
+          {emailRequired ? (
+            <span aria-hidden className="text-[var(--color-error)]">
+              *
+            </span>
+          ) : (
+            <span className="font-normal">(optional)</span>
+          )}
         </label>
         <input
           id={`${fieldId}-email`}
@@ -149,10 +167,13 @@ export default function SupportContactForm() {
           autoComplete="email"
           placeholder="you@example.com"
           className="input-base"
+          required={emailRequired}
+          aria-required={emailRequired}
         />
         <p className="text-helper">
-          Add this if you are not signed in, so we have somewhere to send the
-          answer.
+          {emailRequired
+            ? "You are not signed in, so this is where we will send the answer."
+            : "We will reply to the address on your account unless you give another one here."}
         </p>
       </div>
 
