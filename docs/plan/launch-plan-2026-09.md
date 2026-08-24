@@ -63,7 +63,68 @@ ingen pushad, `platform` orörd.
 `qa:beta` på det sammanslagna trädet: **7/7, 1323 tester** (från 1106 = +217).
 Grön grind per branch bevisar inget om kombinationen; detta gör det.
 
-Kvar innan `platform`: en codex-review, som är blockerad till 23 aug.
+Kvar innan `platform`: se codex-reviewen nedan (körd 2026-08-24).
+
+## 0d. Codex-review 2026-08-24 — grinden är körd, 7 P1:or hittade och fixade
+
+Grinden som stod "blockerad till 23 aug" är avklarad. Reviewen kördes mot
+`origin/platform` som bas (11 commits, 106 filer, 7 792 rader).
+
+**Körsätt, för reproducerbarhet:** hela diffen stallade på 330s-taket vid
+`model_reasoning_effort=high`, så den kördes uppdelad — de fem WP-commitarna var
+för sig (`codex review --commit <sha>`) på `medium`, och mina två UI/design-sync-
+commits på `high`. Mergecommitarna granskades inte separat: de bär inget eget
+innehåll (filantalen matchar WP-commitarna exakt, vilket också bekräftar att de
+mergade rent). **Två kända luckor:** reducerad effort på Wave 1, och per-commit-
+scope betyder att interaktioner *mellan* paketen inte är granskade — `qa:beta`
+7/7 på det sammanslagna trädet täcker en del av det, inte allt.
+
+| Paket | P1 | P2 | P3 |
+|---|---|---|---|
+| WP-14 pricing/voice (`7a052ae`) | 2 | 1 | – |
+| WP-03 lyssningsmätning (`409b87f`) | 1 | 3 | – |
+| WP-04 supportvägen (`d423ff1`) | 1 | 1 | 1 |
+| WP-01 köptratten (`ca97253`) | 1 | 3 | – |
+| signup `?next=` (`17d1b16`) | 2 | 2 | – |
+| UI-fixar + design-sync (`444ac58`, `98acde2`) | 0 | 1 | – |
+| **Totalt** | **7** | **11** | **1** |
+
+**Alla 7 P1:or är fixade** (lint 0, 1 334 tester gröna, `next build` grön):
+
+1. **Betald bok som avpublicerades blev en död länk.** `reader/read/[chapterId]/page.tsx`
+   avvisade icke-`PUBLISHED` *före* `getReadAccess`. Nu resolvas entitlement först, och
+   en avpublicerad bok är fortfarande läsbar för den som köpt den (`purchased`/`plus`) —
+   men inte via `free`/`first_chapter`, för avpublicering ska ta bort publik räckvidd.
+2. **299 kr togs ut innan röst-guarden.** Guarden i `generate/route.ts` låg efter
+   Stripe-redirecten. Samma guard ligger nu i `audiobook/checkout/route.ts`, före
+   sessionen skapas — den enda punkt som faktiskt är före betalning.
+3. **Preflight och worker var oense om env-var.** Routen accepterar `TTS_VOICE_ID`,
+   men `assertElevenLabsEnv()` krävde `ELEVENLABS_VOICE_ID`, så jobbet köades och dog.
+   Assertionen tar nu emot den redan resolvade rösten. Workerns `|| "default"`-fallback
+   är också borta — "default" är ingen riktig ElevenLabs-röst, alltså samma fälla som
+   "Ryan".
+4. **Kapitelbyte skrev position på fel kapitel.** `ManifestAudiobookPlayer` höll
+   `activeTrackSrc` och `chapterId` som separata states, så trackern fick nytt
+   kapitel-id medan gammal källa spelade. Nu är källan bunden till sitt kapitel-id
+   i ett värde, vilket gör tillståndet orepresenterbart istället för ordningsberoende.
+5. **Anonyma supportinlägg persisterades inte** — se den uppdaterade sektionen nedan.
+6. **E-postsignup gick aldrig via `/auth/callback`.** `signUp()` saknade
+   `emailRedirectTo`, så `verkli_next`-cookien varken konsumerades eller rensades.
+7. **`next` tappades i signin → signup.** "Skapa konto"-länken var hårdkodad utan
+   parameter — och det är den vanligaste köpvägen, inte ett kantfall.
+
+Plus en P2 som följde av #2/#3: den nya felkoden `AUDIOBOOK_VOICE_UNCONFIGURED`
+ersätter `AUDIOBOOK_FEATURE_DISABLED` på röst-vägen, så författar-UI:t slutar säga
+"the audiobook feature is not enabled" när flaggan i själva verket är på.
+
+**Kvar från reviewen: 11 P2:or och 1 P3, inga åtgärdade.** Den mest användarnära är
+WP-04:s: en anonym avsändare kan skicka in utan e-post, och success-skärmen lovar
+svar inom två arbetsdagar som ingen kan hålla. Övriga: out-of-order-skrivningar av
+lyssningsposition, moderator-access i progress-routen, kapitel ≤15s markeras som
+avlyssnade direkt, per-kapitel-köp kollapsar till en generisk bokrad, oawaitad
+`sendPurchaseReceipt` i webhooken, publika länkar till avpublicerade ordrar,
+cookie-livstid på 600s för e-postbekräftelse, samt att `build-css.sh` pekar in i
+gitignorerade `.ds-sync/node_modules` och därför failar på en fresh clone.
 
 ### ⚠️ Migration som måste appliceras av Svea
 
@@ -105,10 +166,23 @@ Alltså har den **live-policyn driftat**. Inloggade inlägg bör fortfarande gå
 (`auth.uid() = user_id`), men anonyma gör det inte — och anonyma är precis de som
 behöver supportformuläret mest.
 
-Konsekvens: **den primära CTA:n på den nya `/support`-sidan failar för oinloggade
-besökare tills detta är fixat.** WP-04 gjorde det den kunde inom sitt filägande —
-felcopyn dead-endar inte längre, den namnger e-postalternativet — men själva fixen
-kräver en migration eller `api/feedback/route.ts`, båda utanför dess ägande.
+Konsekvens: **den primära CTA:n på den nya `/support`-sidan failade för oinloggade
+besökare.** WP-04 gjorde det den kunde inom sitt filägande — felcopyn dead-endar inte
+längre, den namnger e-postalternativet — men själva fixen krävde en migration eller
+`api/feedback/route.ts`, båda utanför dess ägande.
+
+**✅ Åtgärdat 2026-08-24 på route-nivå (codex P1 #5).** `api/feedback/route.ts` väljer
+nu skrivklient efter auth-läge: anonyma inlägg går via service-rollen, inloggade
+stannar på den user-scopade klienten så RLS fortsätter tvinga `auth.uid() = user_id`.
+Säkert eftersom `user_id` alltid härleds ur sessionen och aldrig ur bodyn — en anonym
+avsändare kan bara skriva `NULL` som författare — och zod-schemat plus den
+IP-nycklade rate-limitern gattar innehållet. Två tester låser fast valet av klient
+i båda riktningarna.
+
+**Detta tar bort blockeraren men inte skulden.** Route-fixen gör bara att koden slutar
+*bero* på den driftade policyn; policyn är fortfarande fel jämfört med migrationen, och
+vilken annan väg som helst in i `feedback` träffar den igen. Reconciliationen nedan
+gäller alltså fortfarande, och `feedback` hör till det som ska verifieras där.
 
 ### ⚠️ Systemiskt: migrationerna beskriver inte live-databasen
 
