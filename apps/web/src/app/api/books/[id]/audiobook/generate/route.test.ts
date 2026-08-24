@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { E_AUDIOBOOK_FEATURE_DISABLED } from "@/lib/api-errors";
+import { E_AUDIOBOOK_FEATURE_DISABLED, E_AUDIOBOOK_VOICE_UNCONFIGURED } from "@/lib/api-errors";
 
 const mocks = vi.hoisted(() => ({
   requireAuthorRoleForApi: vi.fn(),
@@ -359,7 +359,9 @@ describe("POST /api/books/[id]/audiobook/generate", () => {
     const body = await res.json();
 
     expect(res.status).toBe(503);
-    expect(body.error).toBe(E_AUDIOBOOK_FEATURE_DISABLED);
+    // Configuration-specific, not FEATURE_DISABLED: the flag IS on here, so the
+    // old code made the author UI say "the audiobook feature is not enabled".
+    expect(body.error).toBe(E_AUDIOBOOK_VOICE_UNCONFIGURED);
     // Nothing may be charged, written or queued for a deployment that cannot
     // possibly narrate: the refusal lands before the Stripe redemption claim.
     expect(mocks.createAdminClient).not.toHaveBeenCalled();

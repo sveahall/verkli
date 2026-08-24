@@ -262,7 +262,10 @@ async function processJob(payload: AudiobookJobData) {
   const elevenLabsVoiceId = (process.env.ELEVENLABS_VOICE_ID ?? "").trim();
   const elevenLabsModelId = (process.env.ELEVENLABS_MODEL_ID ?? "").trim();
   const elevenLabsOutputFormat = (process.env.ELEVENLABS_OUTPUT_FORMAT ?? "").trim();
-  const resolvedVoiceId = elevenLabsVoiceId || voiceId || "default";
+  // No "default" fallback: it is not a real ElevenLabs voice, so it fails at the
+  // first chapter exactly like the "Ryan" trap WP-14 removed. Empty is the honest
+  // value — assertElevenLabsEnv(resolvedVoiceId) below refuses the job instead.
+  const resolvedVoiceId = elevenLabsVoiceId || (voiceId ?? "").trim();
   const resolvedModelId = elevenLabsModelId || modelPath?.trim() || "eleven_multilingual_v2";
   const selectedChapterIds = Array.from(
     new Set(
@@ -542,7 +545,10 @@ async function processJob(payload: AudiobookJobData) {
     // Create ElevenLabs provider
     let provider: ElevenLabsTtsProvider | null = null;
     if (!PIPELINE_SMOKE_MODE) {
-      assertElevenLabsEnv();
+      // Pass the resolved voice: the generate route accepts TTS_VOICE_ID and
+      // persists the winner onto the job, so requiring ELEVENLABS_VOICE_ID here
+      // rejected jobs the route had already accepted payment for.
+      assertElevenLabsEnv(resolvedVoiceId);
       provider = new ElevenLabsTtsProvider();
       console.warn("[audiobook worker] using ElevenLabs TTS provider");
     }

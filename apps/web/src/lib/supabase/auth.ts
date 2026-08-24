@@ -12,6 +12,13 @@ export async function signUp(email: string, password: string, role: 'author' | '
       data: {
         role,
       },
+      // Without this, Supabase builds the confirmation link from its configured
+      // Site URL (the app root), so the link never visits /auth/callback — the
+      // only place that consumes and clears the `verkli_next` cookie. The
+      // destination a buyer signed up to reach was therefore always dropped on
+      // the email path, even though the cookie was written correctly.
+      // signInWithGoogle below already does this for the OAuth path.
+      emailRedirectTo: `${window.location.origin}/auth/callback`,
     },
   })
   return { data, error }

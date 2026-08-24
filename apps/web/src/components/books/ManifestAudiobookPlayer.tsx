@@ -35,8 +35,17 @@ export default function ManifestAudiobookPlayer({
 }) {
   const [tracks, setTracks] = useState<ManifestTrack[]>([]);
   const [activeTrackId, setActiveTrackId] = useState<string>("");
-  const [activeTrackSrc, setActiveTrackSrc] = useState<string | null>(null);
-  const [resumePositionSeconds, setResumePositionSeconds] = useState<number | null>(null);
+  // One bound value, not two independent ones. `activeTrack` changes the instant
+  // the dropdown does, but the signed URL and saved offset only arrive after the
+  // /play fetch resolves. Held separately, the tracker got the NEW chapterId while
+  // the audio element still played the OLD source, so every event and position in
+  // that window was persisted against the wrong chapter. Carrying chapterId with
+  // the src makes that state unrepresentable.
+  const [loadedTrack, setLoadedTrack] = useState<{
+    chapterId: string;
+    src: string;
+    resumePositionSeconds: number | null;
+  } | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const chapterSelectId = useId();
@@ -138,13 +147,11 @@ export default function ManifestAudiobookPlayer({
 
     const loadTrackSrc = async () => {
       if (!activeTrack) {
-        setActiveTrackSrc(null);
-        setResumePositionSeconds(null);
+        setLoadedTrack(null);
         return;
       }
       if (!resolvedBookId) {
-        setActiveTrackSrc(null);
-        setResumePositionSeconds(null);
+        setLoadedTrack(null);
         setError("Could not resolve book for chapter playback.");
         return;
       }
@@ -175,16 +182,16 @@ export default function ManifestAudiobookPlayer({
             : null;
 
         if (!cancelled) {
-          setActiveTrackSrc(signedUrl);
-          setResumePositionSeconds(nextResume);
+          setLoadedTrack(
+            signedUrl ? { chapterId: activeTrack.chapterId, src: signedUrl, resumePositionSeconds: nextResume } : null
+          );
           if (!signedUrl) {
             setError("No chapter audio found in audiobook manifest.");
           }
         }
       } catch {
         if (!cancelled) {
-          setActiveTrackSrc(null);
-          setResumePositionSeconds(null);
+          setLoadedTrack(null);
           setError("Could not load chapter-based audiobook playback.");
         }
       }
@@ -202,9 +209,9 @@ export default function ManifestAudiobookPlayer({
   // dropdown resets the tracker and picks up that chapter's own saved offset.
   const listenTracking = useListenTracking({
     bookId: resolvedBookId,
-    chapterId: activeTrack?.chapterId ?? "",
-    enabled: Boolean(resolvedBookId && activeTrack?.chapterId && activeTrackSrc),
-    resumePositionSeconds,
+    chapterId: loadedTrack?.chapterId ?? "",
+    enabled: Boolean(resolvedBookId && loadedTrack),
+    resumePositionSeconds: loadedTrack?.resumePositionSeconds ?? null,
   });
 
   if (loading) {
@@ -227,7 +234,7 @@ export default function ManifestAudiobookPlayer({
     return null;
   }
 
-  if (!activeTrackSrc) {
+  if (!loadedTrack) {
     return (
       <p className="text-xs text-amber-800 dark:text-amber-300" role="alert">
         Could not load chapter-based audiobook playback.
@@ -261,7 +268,7 @@ export default function ManifestAudiobookPlayer({
           );
         })}
       </select>
-      <NoDownloadAudioPlayer src={activeTrackSrc} {...listenTracking} />
+      <NoDownloadAudioPlayer src={loadedTrack.src} {...listenTracking} />
     </div>
   );
 }

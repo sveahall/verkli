@@ -15,6 +15,7 @@ import {
 import {
   apiError,
   E_AUDIOBOOK_FEATURE_DISABLED,
+  E_AUDIOBOOK_VOICE_UNCONFIGURED,
   E_BOOK_NOT_FOUND,
   E_BOOK_VERSION_NOT_FOUND_FOR_LANGUAGE,
   E_DATABASE_ERROR,
@@ -26,6 +27,7 @@ import {
   E_INVALID_BOOK_ID,
   isValidUuid,
 } from "@/lib/api-errors";
+import { resolveNarratorVoiceId } from "@/lib/tts/tts-provider";
 import { createPerUserRateLimiter } from "@/lib/rate-limit";
 import { isCancelStale, forceFailCancelledJob } from "@/lib/audiobook-stale-cancel";
 import { evaluateDemoGuard } from "@/lib/demo-guard";
@@ -35,25 +37,6 @@ const AI_JOB_KIND = "audiobook_generation";
 
 // Narrator metadata persisted with jobs/cache keys.
 const DEFAULT_NARRATOR_MODEL = "eleven_multilingual_v2";
-
-/**
- * Resolve the narrator voice from deployment config. There is deliberately no
- * hardcoded default: the previous fallback ("Ryan") was a Qwen speaker name
- * left behind by a deleted TTS stack, and ElevenLabs — the only TTS backend —
- * rejects it with a 4xx. Every unconfigured deployment therefore charged the
- * author, queued a job, and failed at the first chapter. Returning null lets
- * the route refuse the job up front instead.
- *
- * Checked in order, first non-blank wins; `??` is not enough here because an
- * env var set to the empty string must fall through to the next candidate.
- */
-function resolveNarratorVoiceId(): string | null {
-  for (const candidate of [process.env.ELEVENLABS_VOICE_ID, process.env.TTS_VOICE_ID]) {
-    const trimmed = (candidate ?? "").trim();
-    if (trimmed) return trimmed;
-  }
-  return null;
-}
 
 type ActiveJobRow = {
   id: string;
@@ -219,7 +202,7 @@ export async function POST(
       "[audiobook generate] refusing to enqueue: no narrator voice configured. " +
         "Set ELEVENLABS_VOICE_ID (or TTS_VOICE_ID) to an ElevenLabs voice id."
     );
-    return apiError(E_AUDIOBOOK_FEATURE_DISABLED, 503, {
+    return apiError(E_AUDIOBOOK_VOICE_UNCONFIGURED, 503, {
       detail: "Narrator voice is not configured for this deployment.",
     });
   }

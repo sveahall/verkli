@@ -1,6 +1,7 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   E_AUDIOBOOK_FEATURE_DISABLED,
+  E_AUDIOBOOK_VOICE_UNCONFIGURED,
   E_BOOK_NOT_FOUND,
   E_CHECKOUT_SESSION_FAILED,
   E_INVALID_BOOK_ID,
@@ -87,10 +88,23 @@ function mockBookLookup({ found, ownedByUser = true }: { found: boolean; ownedBy
 }
 
 describe("POST /api/books/[id]/audiobook/checkout", () => {
+  const ORIGINAL_ELEVENLABS_VOICE_ID = process.env.ELEVENLABS_VOICE_ID;
+  const ORIGINAL_TTS_VOICE_ID = process.env.TTS_VOICE_ID;
+
   beforeEach(() => {
     vi.clearAllMocks();
     mocks.getAudiobookEnabled.mockReturnValue(true);
     mocks.rateLimitCheck.mockResolvedValue({ allowed: true });
+    // A configured narrator voice is the precondition for reaching Stripe at all.
+    process.env.ELEVENLABS_VOICE_ID = "elevenlabs-voice-1";
+    delete process.env.TTS_VOICE_ID;
+  });
+
+  afterEach(() => {
+    if (typeof ORIGINAL_ELEVENLABS_VOICE_ID === "undefined") delete process.env.ELEVENLABS_VOICE_ID;
+    else process.env.ELEVENLABS_VOICE_ID = ORIGINAL_ELEVENLABS_VOICE_ID;
+    if (typeof ORIGINAL_TTS_VOICE_ID === "undefined") delete process.env.TTS_VOICE_ID;
+    else process.env.TTS_VOICE_ID = ORIGINAL_TTS_VOICE_ID;
   });
 
   it("returns 401 when not authenticated", async () => {
@@ -182,5 +196,43 @@ describe("POST /api/books/[id]/audiobook/checkout", () => {
 
     expect(res.status).toBe(500);
     expect(body.error).toBe(E_CHECKOUT_SESSION_FAILED);
+  });
+
+  // Regression: this guard is the only one that runs BEFORE money moves. The
+  // generate route has the same check, but by the time it runs Stripe has already
+  // charged 299 SEK and the client has stripped session_id from the URL, so the
+  // paid session cannot be redeemed or retried.
+  it("refuses checkout before charging when no narrator voice is configured", async () => {
+    delete process.env.ELEVENLABS_VOICE_ID;
+    delete process.env.TTS_VOICE_ID;
+    mockAuthedUser();
+    mockBookLookup({ found: true });
+
+    const res = await POST(makeRequest({ language: "en" }), {
+      params: Promise.resolve({ id: VALID_UUID }),
+    });
+    const body = await res.json();
+
+    expect(res.status).toBe(503);
+    expect(body.error).toBe(E_AUDIOBOOK_VOICE_UNCONFIGURED);
+    // The point of the guard: no Stripe session, so nothing was charged.
+    expect(mocks.createAudiobookCheckoutSession).not.toHaveBeenCalled();
+  });
+
+  it("accepts TTS_VOICE_ID as the narrator voice, matching the generate route", async () => {
+    delete process.env.ELEVENLABS_VOICE_ID;
+    process.env.TTS_VOICE_ID = "tts-voice-fallback";
+    mockAuthedUser();
+    mockBookLookup({ found: true });
+    mocks.createAudiobookCheckoutSession.mockResolvedValue({
+      url: "https://checkout.stripe.com/cs_test_audio",
+    });
+
+    const res = await POST(makeRequest({ language: "en" }), {
+      params: Promise.resolve({ id: VALID_UUID }),
+    });
+
+    expect(res.status).toBe(200);
+    expect(mocks.createAudiobookCheckoutSession).toHaveBeenCalled();
   });
 });

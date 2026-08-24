@@ -150,15 +150,16 @@ export default async function ReaderReadPage({
   }
 
   const isAuthorView = Boolean(user?.id && (book as { author_id?: string | null }).author_id === user.id);
-  if (book.status !== "PUBLISHED" && !isAuthorView) {
-    notFound();
-  }
 
   const priceAmount = Math.max(0, Math.trunc(Number((book as { price_amount?: number | null }).price_amount ?? 0)));
   const priceCurrency = String((book as { price_currency?: string | null }).price_currency ?? "USD").trim().toUpperCase() || "USD";
   const bookPricingModel = String((book as { pricing_model?: string | null }).pricing_model ?? "book_only");
   const isPerChapter = bookPricingModel === "per_chapter";
 
+  // Resolved BEFORE the publication gate below, not after. Ordered the other way
+  // round, a reader who bought a book the author later unpublished got a 404 from
+  // this route no matter what they were entitled to — the purchase silently stopped
+  // being readable, which is the one outcome a paid entitlement must never have.
   const readAccess = await getReadAccess({
     supabase,
     userId: user?.id ?? null,
@@ -169,6 +170,16 @@ export default async function ReaderReadPage({
     bookPriceAmount: priceAmount,
     bookPricingModel,
   });
+
+  // An unpublished book stays readable for the author and for anyone who paid for
+  // it (a purchase or an active Plus entitlement). It must NOT stay browsable via
+  // a free or preview grant: unpublishing has to remove it from public reach, and
+  // "free"/"first_chapter" are exactly the public-reach cases.
+  const hasPaidEntitlement =
+    readAccess.access === "full" && (readAccess.reason === "purchased" || readAccess.reason === "plus");
+  if (book.status !== "PUBLISHED" && !isAuthorView && !hasPaidEntitlement) {
+    notFound();
+  }
 
   if (readAccess.access === "locked") {
     const gateSignInHref = `/reader/signin?next=${encodeURIComponent(`/reader/books/${book.id}`)}`;

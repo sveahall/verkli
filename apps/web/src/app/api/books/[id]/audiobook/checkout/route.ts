@@ -3,11 +3,13 @@ import { createClient } from "@/lib/supabase/server"
 import { requireAuthorRoleForApi } from "@/lib/auth/require-author"
 import { getAudiobookEnabled } from "@/lib/flags"
 import { createAudiobookCheckoutSession } from "@/lib/payments/stripe"
+import { resolveNarratorVoiceId } from "@/lib/tts/tts-provider"
 import { createPerUserRateLimiter } from "@/lib/rate-limit"
 import { getRequestBaseUrl } from "@/lib/request-url"
 import {
   apiError,
   E_AUDIOBOOK_FEATURE_DISABLED,
+  E_AUDIOBOOK_VOICE_UNCONFIGURED,
   E_INVALID_REQUEST_BODY,
   E_BOOK_NOT_FOUND,
   E_FORBIDDEN,
@@ -73,6 +75,20 @@ export async function POST(
   }
   if (book.author_id !== user.id) {
     return apiError(E_FORBIDDEN, 403)
+  }
+
+  // Refuse before any money moves. The generate route runs the same guard, but
+  // by the time it does, Stripe has already charged 299 SEK and redirected back
+  // — and the client strips session_id from the URL, so the paid session cannot
+  // be retried. This is the only guard that actually sits before the charge.
+  if (!resolveNarratorVoiceId()) {
+    console.error(
+      "[audiobook.checkout] refusing checkout: no narrator voice configured. " +
+        "Set ELEVENLABS_VOICE_ID (or TTS_VOICE_ID) to an ElevenLabs voice id."
+    )
+    return apiError(E_AUDIOBOOK_VOICE_UNCONFIGURED, 503, {
+      detail: "Narrator voice is not configured for this deployment.",
+    })
   }
 
   const baseUrl = getRequestBaseUrl(request)

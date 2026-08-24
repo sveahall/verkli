@@ -34,6 +34,18 @@ export default function ReaderSignIn() {
   const router = useRouter();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+
+  // Carry `?next=` across to signup. Book CTAs send buyers to
+  // /reader/signin?next=..., so a reader who chooses "Create one" instead was the
+  // COMMON path, not an edge case — and a hardcoded /reader/signup dropped the
+  // destination before the signup page could persist it, sending every such buyer
+  // to the home feed after confirming their email.
+  // Lazy initializer, not render-time: reading window.location during render is
+  // impure and the React compiler rejects it.
+  const [signUpHref] = useState(() => {
+    const next = sanitizeNextPath(readRawNextParam());
+    return next ? `/reader/signup?next=${encodeURIComponent(next)}` : "/reader/signup";
+  });
   const [staySignedIn, setStaySignedIn] = useState(true);
   const [error, setError] = useState("");
   const [fieldErrors, setFieldErrors] = useState<{ email?: string; password?: string }>({});
@@ -181,7 +193,7 @@ export default function ReaderSignIn() {
 
         <p className="mt-8 text-center text-[14px] text-slate-500 dark:text-white/40">
           Don&apos;t have an account?{" "}
-          <Link href="/reader/signup" className="font-medium text-slate-900 hover:underline dark:text-white">
+          <Link href={signUpHref} className="font-medium text-slate-900 hover:underline dark:text-white">
             Create one
           </Link>
         </p>

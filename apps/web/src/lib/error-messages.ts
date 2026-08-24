@@ -38,6 +38,8 @@ const ERROR_MESSAGES: Record<string, string> = {
 
   // Audiobook
   AUDIOBOOK_FEATURE_DISABLED: "The audiobook feature is not enabled.",
+  AUDIOBOOK_VOICE_UNCONFIGURED:
+    "Audiobook narration is not configured on this deployment yet. Nothing was charged — contact support and we'll turn it on.",
   AUDIOBOOK_STATUS_UNAVAILABLE: "Audiobook status is unavailable.",
   AUDIOBOOK_NO_ACTIVE_JOB: "There is no active audiobook generation to control.",
   AUDIO_SIGN_FAILED: "Failed to generate a link to the audio file. Try again.",

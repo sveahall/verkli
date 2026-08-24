@@ -36,6 +36,12 @@ export const E_AUTHOR_DISPLAY_NAME_REQUIRED = "AUTHOR_DISPLAY_NAME_REQUIRED";
 
 // Audiobook
 export const E_AUDIOBOOK_FEATURE_DISABLED = "AUDIOBOOK_FEATURE_DISABLED";
+/**
+ * Deployment has the audiobook flag ON but no narrator voice configured. Distinct
+ * from FEATURE_DISABLED so the author UI stops saying "the audiobook feature is
+ * not enabled" when the flag is enabled and the real problem is configuration.
+ */
+export const E_AUDIOBOOK_VOICE_UNCONFIGURED = "AUDIOBOOK_VOICE_UNCONFIGURED";
 export const E_AUDIOBOOK_STATUS_UNAVAILABLE = "AUDIOBOOK_STATUS_UNAVAILABLE";
 export const E_AUDIOBOOK_NO_ACTIVE_JOB = "AUDIOBOOK_NO_ACTIVE_JOB";
 export const E_AUDIO_SIGN_FAILED = "AUDIO_SIGN_FAILED";

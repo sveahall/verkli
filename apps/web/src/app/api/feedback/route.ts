@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { z } from "zod";
 import {
   apiError,
@@ -64,7 +65,24 @@ export async function POST(request: Request) {
 
   const { type, message, url, request_id } = parsed.data;
 
-  const { data, error } = await supabase
+  // Anonymous inserts go through the service role; authenticated ones stay on the
+  // user-scoped client so RLS keeps enforcing `auth.uid() = user_id`.
+  //
+  // Why: the live `feedback` policy has drifted from
+  // `20250209000000_user_flags_and_feedback.sql`, which explicitly allows
+  // `user_id IS NULL`. In production it rejects anonymous inserts, so the primary
+  // CTA on /support returned FEEDBACK_SAVE_FAILED for exactly the signed-out
+  // readers the page exists to help. Reconciling the policy is the real fix
+  // (tracked in docs/plan/launch-plan-2026-09.md), but it needs a verified
+  // migration against a live schema that the repo's migrations do not describe —
+  // so this route stops depending on that policy instead of waiting for it.
+  //
+  // Safe because `user_id` is derived from the session, never from the body: an
+  // anonymous caller can only ever write a NULL author, and the zod schema plus
+  // the IP-keyed rate limiter above still gate the content.
+  const writer = user ? supabase : createAdminClient();
+
+  const { data, error } = await writer
     .from("feedback")
     .insert({
       user_id: user?.id ?? null,
