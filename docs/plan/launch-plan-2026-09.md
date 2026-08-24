@@ -65,7 +65,7 @@ Grön grind per branch bevisar inget om kombinationen; detta gör det.
 
 Kvar innan `platform`: se codex-reviewen nedan (körd 2026-08-24).
 
-## 0d. Codex-review 2026-08-24 — grinden är körd, 7 P1:or hittade och fixade
+## 0d. Codex-review 2026-08-24 — grinden är körd, alla 19 fynd åtgärdade
 
 Grinden som stod "blockerad till 23 aug" är avklarad. Reviewen kördes mot
 `origin/platform` som bas (11 commits, 106 filer, 7 792 rader).
@@ -117,14 +117,28 @@ Plus en P2 som följde av #2/#3: den nya felkoden `AUDIOBOOK_VOICE_UNCONFIGURED`
 ersätter `AUDIOBOOK_FEATURE_DISABLED` på röst-vägen, så författar-UI:t slutar säga
 "the audiobook feature is not enabled" när flaggan i själva verket är på.
 
-**Kvar från reviewen: 11 P2:or och 1 P3, inga åtgärdade.** Den mest användarnära är
-WP-04:s: en anonym avsändare kan skicka in utan e-post, och success-skärmen lovar
-svar inom två arbetsdagar som ingen kan hålla. Övriga: out-of-order-skrivningar av
-lyssningsposition, moderator-access i progress-routen, kapitel ≤15s markeras som
-avlyssnade direkt, per-kapitel-köp kollapsar till en generisk bokrad, oawaitad
-`sendPurchaseReceipt` i webhooken, publika länkar till avpublicerade ordrar,
-cookie-livstid på 600s för e-postbekräftelse, samt att `build-css.sh` pekar in i
-gitignorerade `.ds-sync/node_modules` och därför failar på en fresh clone.
+**Alla 11 P2:or och P3:n är också åtgärdade** (`ceba5d1`) — reviewen har inget kvar.
+1 340 tester gröna, lint 0, build grön.
+
+- **Pengar och åtkomst:** `sendPurchaseReceipt` awaitas nu i både webhooken och
+  `purchase.ts` (den lösa promisen kunde dödas när svaret returnerades, och då var
+  kvittoclaimet redan förbrukat). Köp-hyllan behåller kapitelkornigheten i
+  `entitlements`, så ett per-kapitel-köp inte längre länkar till bokens *första*
+  kapitel — ofta ett köparen inte äger. Orderhistoriken slutar länka avpublicerade
+  böcker till den publika boksidan som 404:ar.
+- **Lyssning:** positionsskrivningar serialiseras i `useListenTracking` (routens
+  upsert är medvetet last-write-wins och läste ankomstordning som spelordning).
+  Modererande admin kan tracka opublicerade böcker, som i play-routen. Kapitel
+  ≤15s markeras inte längre avlyssnade vid start — tröskeln för långa kapitel är
+  oförändrad (600s completar fortfarande vid 585s, inte 540s).
+- **Support och auth:** supportformuläret kräver svarsadress när man är utloggad
+  (auth-läget kommer nu från server-komponenten). Carry-cookien lever 2h istället
+  för 600s, eftersom e-postbekräftelse begränsas av hur länge någon dröjer med
+  inkorgen — och den rensas nu när registreringen misslyckas, på både e-post- och
+  Google-vägen. `sitemap.ts` pekar på `/support` istället för den redirectande
+  `/reader/faq`.
+- **Verktyg:** `build-css.sh` bootstrappar sin egen CLI, pinnad till repots egen
+  `tailwindcss`-version. Verifierat genom att flytta undan CLI:n och köra om.
 
 ### ⚠️ Migration som måste appliceras av Svea
 
