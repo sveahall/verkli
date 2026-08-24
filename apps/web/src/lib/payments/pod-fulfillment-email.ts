@@ -71,13 +71,16 @@ async function loadBookAndAuthor(
 ): Promise<{ bookTitle: string; authorEmail: string | null; buyerEmail: string | null }> {
   const { data: book } = await admin
     .from("books")
-    .select("title, user_id")
+    // `author_id`, not `user_id` — `books` has no `user_id` column, so this
+    // select silently returned undefined and the operator email for a PAID
+    // print order went out with no author to contact.
+    .select("title, author_id")
     .eq("id", bookId)
     .maybeSingle();
 
   const [{ data: author }, { data: buyer }] = await Promise.all([
-    book?.user_id
-      ? admin.auth.admin.getUserById(String(book.user_id))
+    book?.author_id
+      ? admin.auth.admin.getUserById(String(book.author_id))
       : Promise.resolve({ data: null }),
     admin.auth.admin.getUserById(userId),
   ]);

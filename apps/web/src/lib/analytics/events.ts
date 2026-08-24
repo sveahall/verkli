@@ -24,6 +24,13 @@ export type AnalyticsEventType =
   // `listen_start` / `listen_progress` / `listen_complete` come from the real
   // <audio> element via /api/books/[id]/audiobook/progress, so the pair
   // audio_requested → listen_start is the request-to-play conversion rate.
+  //
+  // ⚠ FILTER BEFORE REPORTING. `audio_requested` fires for authors previewing
+  // their own book and for admins moderating an unpublished one, not just for
+  // readers. Both are flagged in the event's props — `isAuthorPreview` and
+  // `isModeratorAdmin` — so exclude them, or every funnel that counts this as
+  // reader demand is inflated by the team's own listening. Nothing consumes the
+  // event yet, so the first dashboard to do so owns getting this right.
   | "audio_requested"
   | "listen_start"
   | "listen_progress"

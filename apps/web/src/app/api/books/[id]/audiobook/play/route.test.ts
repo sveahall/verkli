@@ -269,6 +269,79 @@ describe("GET /api/books/[id]/audiobook/play", () => {
     expect((await res.json()).error).toBe(E_AUDIO_SIGN_FAILED);
   });
 
+  it("prefers the cache row matching the configured voice and model", async () => {
+    process.env.ELEVENLABS_VOICE_ID = "voice-current";
+    process.env.ELEVENLABS_MODEL_ID = "model-current";
+    mockGetUser.mockResolvedValue({ data: { user: { id: READER_ID } } });
+    canUserReadBook.mockResolvedValue(true);
+    const cacheChain = fakeQuery({ ...cache, voice_id: "voice-current", model_path: "model-current" });
+    createAdminClient.mockReturnValue(
+      adminWith({
+        chapters: fakeQuery(chapter),
+        books: fakeQuery(publishedBook),
+        book_versions: fakeQuery(versionAllPublished),
+        chapter_audio_cache: cacheChain,
+      })
+    );
+
+    const { GET } = await import("./route");
+    const res = await GET(makeRequest(), params());
+
+    expect(res.status).toBe(200);
+    expect((await res.json()).audioUrl).toBe("https://signed");
+    // The filter actually ran — chapter alone would have served the wrong voice
+    // after a narrator change.
+    expect(cacheChain.eq).toHaveBeenCalledWith("voice_id", "voice-current");
+    expect(cacheChain.eq).toHaveBeenCalledWith("model_path", "model-current");
+  });
+
+  it("still serves older audio when no row matches the configured voice", async () => {
+    // The safety property: every existing row carries the PREVIOUS voice_id, so a
+    // strict filter would make already-generated audiobooks unreachable the moment
+    // ELEVENLABS_VOICE_ID changes — taking audio away from readers who paid for
+    // it. Do not "simplify" this into a strict filter.
+    process.env.ELEVENLABS_VOICE_ID = "voice-new";
+    process.env.ELEVENLABS_MODEL_ID = "model-new";
+    mockGetUser.mockResolvedValue({ data: { user: { id: READER_ID } } });
+    canUserReadBook.mockResolvedValue(true);
+
+    // First (filtered) lookup misses; second (chapter-only) finds the old row.
+    const cacheChain = {
+      select: vi.fn().mockReturnThis(),
+      eq: vi.fn().mockReturnThis(),
+      order: vi.fn().mockReturnThis(),
+      limit: vi.fn().mockReturnThis(),
+      maybeSingle: vi
+        .fn()
+        .mockResolvedValueOnce({ data: null, error: null })
+        .mockResolvedValueOnce({
+          data: { ...cache, voice_id: "voice-old", model_path: "model-old", language: "sv" },
+          error: null,
+        }),
+    };
+    createAdminClient.mockReturnValue(
+      adminWith({
+        chapters: fakeQuery(chapter),
+        books: fakeQuery(publishedBook),
+        book_versions: fakeQuery(versionAllPublished),
+        chapter_audio_cache: cacheChain,
+      })
+    );
+
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const { GET } = await import("./route");
+    const res = await GET(makeRequest(), params());
+
+    expect(res.status).toBe(200);
+    expect((await res.json()).audioUrl).toBe("https://signed");
+    // Not silent: a narrator change should be visible in logs until regeneration.
+    expect(warn).toHaveBeenCalledWith(
+      "[audiobook play] serving audio from a non-current voice/model",
+      expect.objectContaining({ servedVoiceId: "voice-old", configuredVoiceId: "voice-new" })
+    );
+    warn.mockRestore();
+  });
+
   it("rejects legacy http URLs in chapter_audio_cache.audio_path", async () => {
     mockGetUser.mockResolvedValue({ data: { user: { id: AUTHOR_ID } } });
     createAdminClient.mockReturnValue(

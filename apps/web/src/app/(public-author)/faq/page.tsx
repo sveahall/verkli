@@ -127,7 +127,7 @@ export default function FaqPage() {
           Frequently asked questions
         </h1>
         <p className="hero-animate mx-auto mt-5 max-w-[400px] text-[16px] leading-relaxed text-slate-500 dark:text-white/50" style={{ animationDelay: "220ms" }}>
-          Can&apos;t find what you&apos;re looking for? Reach out and we&apos;ll help.
+          Can&apos;t find what you&apos;re looking for? Contact support and we&apos;ll help.
         </p>
       </section>
 
@@ -161,6 +161,12 @@ export default function FaqPage() {
                 className="btn-primary rounded-full bg-slate-900 px-6 py-2.5 text-[14px] font-semibold text-white hover:bg-slate-800 dark:bg-[#907AFF] dark:hover:bg-[#8069EE]"
               >
                 Create account
+              </Link>
+              <Link
+                href="/support"
+                className="rounded-full border border-slate-200 px-6 py-2.5 text-[14px] font-medium text-slate-600 transition hover:border-slate-300 hover:text-slate-900 dark:border-white/10 dark:text-white/60 dark:hover:text-white"
+              >
+                Contact support
               </Link>
               <Link
                 href="/pricing"

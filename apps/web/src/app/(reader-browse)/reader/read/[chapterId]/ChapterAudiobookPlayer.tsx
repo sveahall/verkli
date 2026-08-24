@@ -32,6 +32,23 @@ const READY_AUDIOBOOK_STATUSES = new Set([
   "ready",
 ]);
 
+/**
+ * mm:ss (or h:mm:ss past an hour) for the resume hint below.
+ *
+ * The saved position was invisible before this: with preload="none" the seek
+ * only happens once the reader presses play, so the card looked identical whether
+ * or not their place had been kept. The feature worked and told nobody.
+ */
+function formatOffset(totalSeconds: number): string {
+  const whole = Math.max(0, Math.floor(totalSeconds));
+  const hours = Math.floor(whole / 3600);
+  const minutes = Math.floor((whole % 3600) / 60);
+  const seconds = whole % 60;
+  const mm = String(minutes).padStart(hours > 0 ? 2 : 1, "0");
+  const ss = String(seconds).padStart(2, "0");
+  return hours > 0 ? `${hours}:${mm}:${ss}` : `${mm}:${ss}`;
+}
+
 export default function ChapterAudiobookPlayer({
   bookId,
   chapterId,
@@ -236,6 +253,10 @@ export default function ChapterAudiobookPlayer({
               <span className="relative inline-flex h-2 w-2 rounded-full bg-emerald-500" />
             </span>
             Playing
+          </p>
+        ) : resumePositionSeconds != null && resumePositionSeconds > 0 ? (
+          <p className="text-[11px] text-slate-600 dark:text-emerald-200/80">
+            Resume from {formatOffset(resumePositionSeconds)}
           </p>
         ) : (
           <p className="text-[11px] text-slate-600 dark:text-emerald-200/80">

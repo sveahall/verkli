@@ -16,10 +16,22 @@
  *   NEXT_PUBLIC_TRANSLATIONS_ENABLED=true   author translations + UI tab
  *   NEXT_PUBLIC_MARKETING_ENABLED=true      marketing/trailer/social UI
  *   NEXT_PUBLIC_DISCOVERY_ENABLED=true      /reader/discover, /reader/genres
+ *   NEXT_PUBLIC_AUDIOBOOK_ENABLED=true      audiobook generation + player
+ *
+ * On AUDIOBOOK: this said "required OFF (D4: defer audiobook to P1)" and that is
+ * superseded. The September launch plan (docs/plan/launch-plan-2026-09.md §3)
+ * decides the flag is ON at launch, because production-plan §9 criterion 4
+ * ("Johan's audiobook starts and plays stably") is a Must. Turning it on does not
+ * open a cost tap for everyone — generation is already Pro/paid-gated in
+ * api/books/[id]/audiobook/generate/route.ts.
+ *
+ * Requires ELEVENLABS_API_KEY and ELEVENLABS_VOICE_ID (or TTS_VOICE_ID) in the
+ * deploy env. With the flag on and no voice configured, the checkout route
+ * refuses with AUDIOBOOK_VOICE_UNCONFIGURED before charging — but that is a
+ * guard, not a substitute for setting them.
  *
  * Required OFF for cohort-gated soft launch (default; do NOT set):
  *
- *   NEXT_PUBLIC_AUDIOBOOK_ENABLED          (D4: defer audiobook to P1, flag-on later)
  *   NEXT_PUBLIC_FREEMIUM_GATE_ENABLED      (D4 + D11: no quota gating during cohort window)
  *
  * Other flags also default OFF unless explicitly set; see individual functions.

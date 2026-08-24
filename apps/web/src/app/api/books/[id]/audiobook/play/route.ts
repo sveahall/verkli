@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { requireAdminRole } from "@/lib/admin-auth";
+import { resolveNarratorVoiceId } from "@/lib/tts/tts-provider";
 import { getAudiobookStorageBucket } from "@/lib/tts/storage";
 import { canUserReadBook, type SupabaseLikeClient } from "@/lib/books/access";
 import { logAnalyticsEvent } from "@/lib/analytics/events";
@@ -158,13 +159,54 @@ export async function GET(
     }
   }
 
-  const { data: cache, error: cacheError } = await admin
-    .from("chapter_audio_cache")
-    .select("audio_path, created_at")
-    .eq("chapter_id", chapterRow.id)
-    .order("created_at", { ascending: false })
-    .limit(1)
-    .maybeSingle();
+  // `chapter_audio_cache` is keyed on (chapter, voice, model, language) — the
+  // worker's own cache check at audiobook-worker.ts filters on all four. This
+  // route filtered on chapter alone, so after a narrator change readers kept
+  // getting the previous voice with no signal that anything was stale.
+  //
+  // Exact match on the current configuration first, then fall back to the newest
+  // row for the chapter. Deliberately NOT a strict filter: every existing row
+  // carries the old voice_id, so filtering strictly would make already-generated
+  // audiobooks unreachable the moment ELEVENLABS_VOICE_ID changes — taking audio
+  // away from readers who paid for it, which is worse than serving an old voice.
+  const configuredVoiceId = resolveNarratorVoiceId();
+  const configuredModelId =
+    (process.env.ELEVENLABS_MODEL_ID ?? "").trim() || "eleven_multilingual_v2";
+
+  const selectCache = () =>
+    admin
+      .from("chapter_audio_cache")
+      .select("audio_path, created_at, voice_id, model_path, language")
+      .eq("chapter_id", chapterRow.id);
+
+  let { data: cache, error: cacheError } = configuredVoiceId
+    ? await selectCache()
+        .eq("voice_id", configuredVoiceId)
+        .eq("model_path", configuredModelId)
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle()
+    : { data: null, error: null };
+
+  if (!cacheError && !cache) {
+    ({ data: cache, error: cacheError } = await selectCache()
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle());
+
+    if (cache && configuredVoiceId) {
+      // Visible in logs rather than silent: a narrator change leaves this firing
+      // for every chapter until the audiobooks are regenerated.
+      console.warn("[audiobook play] serving audio from a non-current voice/model", {
+        chapterId: chapterRow.id,
+        servedVoiceId: cache.voice_id,
+        configuredVoiceId,
+        servedModelPath: cache.model_path,
+        configuredModelId,
+        servedLanguage: cache.language,
+      });
+    }
+  }
 
   if (cacheError) {
     console.error("[audiobook play] cache lookup failed", { chapterId: chapterRow.id, message: cacheError.message });

@@ -5,10 +5,12 @@ import { createClient } from "@/lib/supabase/server";
 import { isAudiobookEnabled } from "@/lib/flags";
 import { createPerUserRateLimiter } from "@/lib/rate-limit";
 import { ElevenLabsTtsProvider } from "@/lib/tts/elevenlabs-tts-provider";
+import { resolveNarratorVoiceId } from "@/lib/tts/tts-provider";
 import {
   apiError,
   isValidUuid,
   E_AUDIOBOOK_FEATURE_DISABLED,
+  E_AUDIOBOOK_VOICE_UNCONFIGURED,
   E_BOOK_NOT_FOUND,
   E_INVALID_BOOK_ID,
   E_RATE_LIMIT_EXCEEDED,
@@ -96,13 +98,30 @@ export async function POST(
   }
 
   try {
+    // Same resolver the generate route and worker use, so a deployment with only
+    // TTS_VOICE_ID set previews in the voice it will actually narrate in.
+    //
+    // Refuse instead of falling back. The old `voiceId || "Rachel"` did not crash —
+    // "Rachel" is a real ElevenLabs voice — so an unconfigured deployment quietly
+    // previewed every book in the wrong narrator and nobody found out. A 503 is the
+    // better failure mode.
+    const voiceId = resolveNarratorVoiceId();
+    if (!voiceId) {
+      console.error(
+        "[audiobook preview] no narrator voice configured. " +
+          "Set ELEVENLABS_VOICE_ID (or TTS_VOICE_ID) to an ElevenLabs voice id."
+      );
+      return apiError(E_AUDIOBOOK_VOICE_UNCONFIGURED, 503, {
+        detail: "Narrator voice is not configured for this deployment.",
+      });
+    }
+
     const tts = new ElevenLabsTtsProvider();
-    const voiceId = (process.env.ELEVENLABS_VOICE_ID ?? "").trim();
     const modelId = (process.env.ELEVENLABS_MODEL_ID ?? "").trim();
 
     const result = await tts.synthesize(previewText, {
       language: "en",
-      voiceId: voiceId || "Rachel",
+      voiceId,
       modelId: modelId || "eleven_multilingual_v2",
       timeoutMs: 30_000,
     });
