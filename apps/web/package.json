@@ -9,6 +9,7 @@
     "start": "next start",
     "lint": "eslint .",
     "check:english-default": "tsx scripts/check-english-default.ts",
+    "check:launch-config": "tsx scripts/check-launch-config.ts",
     "check:dead-code": "tsc --noEmit --noUnusedLocals --noUnusedParameters",
     "test": "vitest run",
     "test:watch": "vitest",
