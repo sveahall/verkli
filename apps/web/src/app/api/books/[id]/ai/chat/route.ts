@@ -87,8 +87,9 @@ export async function POST(
       ? ((book as { title: string }).title)
       : null;
 
-  // Try LLM when enabled + NVIDIA_NIM_API_KEY is set. Fall back to templates
-  // on any provider failure so the editor never breaks on a transient outage.
+  // Try LLM when enabled and at least one provider key is set (Anthropic
+  // primary, NVIDIA NIM fallback). Fall back to templates on any provider
+  // failure so the editor never breaks on a transient outage.
   if (isAiChatEnabled()) {
     try {
       const llm = await generateWritingAssistantReply({
@@ -103,6 +104,8 @@ export async function POST(
         bookId,
         chapterId: chapterId ?? null,
         source: "llm",
+        provider: llm.provider,
+        model: llm.model,
         usage: llm.usage ?? null,
       });
     } catch (err) {

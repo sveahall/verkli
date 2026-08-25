@@ -17,6 +17,12 @@ interface UseBookEditorNavigationOptions {
   setPreset: (preset: string) => void;
   handleCreateChapter: () => void;
   setCommands: Dispatch<SetStateAction<CommandPaletteItem[]>>;
+  /**
+   * Called for the bubble-menu actions the AI panel serves (rewrite, pacing,
+   * expand). The panel is a different tool than the editor, so the parent has
+   * to carry the selection across the tool switch.
+   */
+  onAiPanelRequest?: (action: InlineAiAction, selectedText: string) => void;
 }
 
 export function useBookEditorNavigation({
@@ -26,6 +32,7 @@ export function useBookEditorNavigation({
   setPreset,
   handleCreateChapter,
   setCommands,
+  onAiPanelRequest,
 }: UseBookEditorNavigationOptions) {
   const router = useRouter();
 
@@ -66,10 +73,17 @@ export function useBookEditorNavigation({
       window.dispatchEvent(
         new CustomEvent<WriteInlineAiEventDetail>(WRITE_INLINE_AI_EVENT, { detail })
       );
-      if (action === "audiobook") openProductionWorkspace("audiobook");
-      if (action === "translate") openProductionWorkspace("translation");
+      if (action === "audiobook") {
+        openProductionWorkspace("audiobook");
+        return;
+      }
+      if (action === "translate") {
+        openProductionWorkspace("translation");
+        return;
+      }
+      onAiPanelRequest?.(action, selectedText);
     },
-    [openProductionWorkspace]
+    [onAiPanelRequest, openProductionWorkspace]
   );
 
   const commands = useMemo(

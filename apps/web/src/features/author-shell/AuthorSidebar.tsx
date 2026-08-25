@@ -19,6 +19,7 @@ import {
   Sparkles,
   Tag,
   UserCircle,
+  Wand2,
   type LucideIcon,
 } from "lucide-react";
 import {
@@ -61,6 +62,7 @@ const BOOK_WORKFLOW_TABS: ReadonlyArray<{
   group: number;
 }> = [
   { key: "edit", label: "Write", panel: null, icon: PenLine, group: 0 },
+  { key: "ai", label: "AI Assistant", panel: "ai", icon: Wand2, group: 0 },
   { key: "cover", label: "Cover", panel: "cover", icon: ImageIcon, group: 0 },
   { key: "audiobook", label: "Audio", panel: "audiobook", icon: Headphones, group: 0 },
   { key: "translate", label: "Translate", panel: "translate", icon: Languages, group: 0 },

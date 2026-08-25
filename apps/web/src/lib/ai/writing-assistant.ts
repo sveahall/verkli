@@ -1,19 +1,37 @@
 /**
  * Writing-assistant LLM provider.
  *
- * Calls NVIDIA NIM (OpenAI-compatible chat completions) with Llama to power
- * the author writing assistant at /api/books/[id]/ai/chat.
+ * Powers the author writing assistant at /api/books/[id]/ai/chat.
  *
- * Requires env: NVIDIA_NIM_API_KEY.
- * Gated by the `isAiChatEnabled` feature flag so a missing key or disabled
- * flag falls back to deterministic template replies.
+ * Two providers, tried in order:
+ *   1. Anthropic (`claude-sonnet-5`) — primary. Requires ANTHROPIC_API_KEY.
+ *   2. NVIDIA NIM (Llama-3.1-8B, OpenAI-compatible) — fallback. Requires
+ *      NVIDIA_NIM_API_KEY.
+ *
+ * Either key alone is enough to serve traffic. When neither is set — or both
+ * providers fail — the caller falls back to deterministic template replies, so
+ * the editor never breaks on a provider outage.
+ *
+ * Gated by the `isAiChatEnabled` feature flag.
  */
 
+import Anthropic from "@anthropic-ai/sdk";
+
 const NVIDIA_NIM_ENDPOINT = "https://integrate.api.nvidia.com/v1/chat/completions";
-const MODEL_ID = "meta/llama-3.1-8b-instruct";
+const NIM_MODEL_ID = "meta/llama-3.1-8b-instruct";
+const ANTHROPIC_MODEL_ID = "claude-sonnet-5";
 const REQUEST_TIMEOUT_MS = 20_000;
-const MAX_COMPLETION_TOKENS = 360;
-const TEMPERATURE = 0.5;
+const NIM_MAX_COMPLETION_TOKENS = 360;
+const NIM_TEMPERATURE = 0.5;
+
+/**
+ * Anthropic needs far more headroom than NIM: adaptive thinking tokens are
+ * drawn from the same `max_tokens` budget as the visible reply, so NIM's 360
+ * would let a moment of reasoning truncate the answer mid-sentence. The reply
+ * stays short because the system prompt caps it at 180 words, not because the
+ * token ceiling does.
+ */
+const ANTHROPIC_MAX_TOKENS = 2000;
 
 // Prompt-injection surface reduction. The user-provided message is wrapped in
 // delimiters and then stripped of ASCII control characters + the role markers
@@ -29,6 +47,9 @@ export type WritingAssistantInput = {
 
 export type WritingAssistantResult = {
   content: string;
+  /** Which provider actually served the reply. Surfaced to the UI for honesty. */
+  provider: "anthropic" | "nvidia-nim";
+  model: string;
   usage?: {
     promptTokens?: number;
     completionTokens?: number;
@@ -77,17 +98,90 @@ function buildUserPrompt(input: WritingAssistantInput): string {
   ].join("\n");
 }
 
-export async function generateWritingAssistantReply(
+async function callAnthropic(
+  key: string,
   input: WritingAssistantInput,
+  hasFallback: boolean,
 ): Promise<WritingAssistantResult> {
-  const key = process.env.NVIDIA_NIM_API_KEY?.trim();
-  if (!key) {
+  // The SDK retries twice by default, and each attempt gets the full timeout.
+  // With a fallback provider configured that turns a 20s stall into 60s+ of
+  // dead air before NIM is even tried, which makes the fallback useless in the
+  // editor. When NIM is there, fail fast and let it answer; when it is not, one
+  // retry is worth the wait because there is nothing else to fall back to.
+  const client = new Anthropic({
+    apiKey: key,
+    timeout: REQUEST_TIMEOUT_MS,
+    maxRetries: hasFallback ? 0 : 1,
+  });
+
+  try {
+    const response = await client.messages.create({
+      model: ANTHROPIC_MODEL_ID,
+      max_tokens: ANTHROPIC_MAX_TOKENS,
+      // Sonnet 5 rejects temperature/top_p/top_k with a 400 — do not port the
+      // NIM sampling knobs over. Depth is steered with effort instead.
+      thinking: { type: "adaptive" },
+      output_config: { effort: "low" },
+      system: buildSystemPrompt(input.bookTitle),
+      messages: [{ role: "user", content: buildUserPrompt(input) }],
+    });
+
+    if (response.stop_reason === "refusal") {
+      throw new WritingAssistantError(
+        "Anthropic declined the request",
+        "PROVIDER_FAILED",
+      );
+    }
+
+    const raw = response.content
+      .filter((block): block is Anthropic.TextBlock => block.type === "text")
+      .map((block) => block.text)
+      .join("\n")
+      .trim();
+
+    const content = sanitize(raw);
+    if (!content) {
+      throw new WritingAssistantError(
+        "Anthropic returned an empty completion",
+        "PROVIDER_FAILED",
+      );
+    }
+
+    return {
+      content,
+      provider: "anthropic",
+      model: response.model,
+      usage: {
+        promptTokens: response.usage.input_tokens,
+        completionTokens: response.usage.output_tokens,
+        totalTokens: response.usage.input_tokens + response.usage.output_tokens,
+      },
+    };
+  } catch (err) {
+    if (err instanceof WritingAssistantError) throw err;
+    if (err instanceof Anthropic.APIConnectionTimeoutError) {
+      throw new WritingAssistantError(
+        "Anthropic request timed out",
+        "PROVIDER_TIMEOUT",
+      );
+    }
+    if (err instanceof Anthropic.AuthenticationError) {
+      throw new WritingAssistantError(
+        "ANTHROPIC_API_KEY was rejected",
+        "PROVIDER_UNAVAILABLE",
+      );
+    }
     throw new WritingAssistantError(
-      "NVIDIA_NIM_API_KEY is not set",
-      "PROVIDER_UNAVAILABLE",
+      err instanceof Error ? err.message : "Anthropic request failed",
+      "PROVIDER_FAILED",
     );
   }
+}
 
+async function callNvidiaNim(
+  key: string,
+  input: WritingAssistantInput,
+): Promise<WritingAssistantResult> {
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
 
@@ -99,9 +193,9 @@ export async function generateWritingAssistantReply(
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: MODEL_ID,
-        max_tokens: MAX_COMPLETION_TOKENS,
-        temperature: TEMPERATURE,
+        model: NIM_MODEL_ID,
+        max_tokens: NIM_MAX_COMPLETION_TOKENS,
+        temperature: NIM_TEMPERATURE,
         messages: [
           { role: "system", content: buildSystemPrompt(input.bookTitle) },
           { role: "user", content: buildUserPrompt(input) },
@@ -138,6 +232,8 @@ export async function generateWritingAssistantReply(
 
     return {
       content,
+      provider: "nvidia-nim",
+      model: NIM_MODEL_ID,
       usage: json?.usage
         ? {
             promptTokens: json.usage.prompt_tokens,
@@ -161,4 +257,34 @@ export async function generateWritingAssistantReply(
   } finally {
     clearTimeout(timeout);
   }
+}
+
+export async function generateWritingAssistantReply(
+  input: WritingAssistantInput,
+): Promise<WritingAssistantResult> {
+  const anthropicKey = process.env.ANTHROPIC_API_KEY?.trim();
+  const nimKey = process.env.NVIDIA_NIM_API_KEY?.trim();
+
+  if (!anthropicKey && !nimKey) {
+    throw new WritingAssistantError(
+      "Neither ANTHROPIC_API_KEY nor NVIDIA_NIM_API_KEY is set",
+      "PROVIDER_UNAVAILABLE",
+    );
+  }
+
+  if (anthropicKey) {
+    try {
+      return await callAnthropic(anthropicKey, input, Boolean(nimKey));
+    } catch (err) {
+      // Without a fallback key there is nothing left to try — let the caller
+      // see the real Anthropic failure rather than a misleading NIM error.
+      if (!nimKey) throw err;
+      console.warn("[ai.writing-assistant] Anthropic failed, falling back to NIM", {
+        code: err instanceof WritingAssistantError ? err.code : "PROVIDER_FAILED",
+        message: err instanceof Error ? err.message : String(err),
+      });
+    }
+  }
+
+  return callNvidiaNim(nimKey as string, input);
 }

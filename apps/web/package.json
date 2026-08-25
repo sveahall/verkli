@@ -35,6 +35,7 @@
     "db:push": "supabase db push"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.120.0",
     "@higgsfield/client": "^0.2.1",
     "@sentry/nextjs": "^10.42.0",
     "@sentry/node": "^10.42.0",

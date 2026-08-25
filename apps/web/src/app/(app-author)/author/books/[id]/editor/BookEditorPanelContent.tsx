@@ -14,6 +14,7 @@ import type {
   Tool,
 } from "./BookEditorView.types";
 import type { PrintOnDemandSettings } from "@/lib/print-on-demand";
+import type { PendingAiRequest } from "./panels/AiAssistantPanel";
 import type { useBookCover } from "./hooks/useBookCover";
 import type { useAudiobook } from "./hooks/useAudiobook";
 import type { useTranslation } from "./hooks/useTranslation";
@@ -34,6 +35,7 @@ const CoverPanel = dynamic(() => import("./panels/CoverPanel"));
 const PricingPanel = dynamic(() => import("./panels/PricingPanel"));
 const ProductionFacade = dynamic(() => import("./panels/ProductionFacade"));
 const DistributionFacade = dynamic(() => import("./panels/DistributionFacade"));
+const AiAssistantPanel = dynamic(() => import("./panels/AiAssistantPanel"));
 
 interface BookEditorPanelContentProps {
   bookId: string;
@@ -71,6 +73,9 @@ interface BookEditorPanelContentProps {
   refetchBookJob: () => Promise<void>;
   /** True when the parent (BookEditorView) detected demo mode via effectiveTools. */
   demoMode?: boolean;
+  /** Set when an editor bubble-menu action routed the author to the AI panel. */
+  pendingAiRequest?: PendingAiRequest | null;
+  onPendingAiRequestHandled?: () => void;
 }
 
 export default function BookEditorPanelContent({
@@ -108,6 +113,8 @@ export default function BookEditorPanelContent({
   bookTrailerStatus,
   bookTrailerUrl,
   demoMode = false,
+  pendingAiRequest = null,
+  onPendingAiRequestHandled,
 }: BookEditorPanelContentProps) {
   return (
     <div className="w-full overflow-hidden rounded-2xl border border-black/[0.04] bg-white shadow-[0_1px_3px_rgba(0,0,0,0.04)] dark:border-white/[0.06] dark:bg-[#111318] dark:shadow-none">
@@ -424,6 +431,14 @@ export default function BookEditorPanelContent({
           <StatisticsPanel
             bookId={bookId}
             isPublished={publishing.isPublished}
+          />
+        )}
+        {tool === "ai" && (
+          <AiAssistantPanel
+            bookId={bookId}
+            chapterId={selectedChapterId}
+            pendingRequest={pendingAiRequest}
+            onPendingRequestHandled={onPendingAiRequestHandled}
           />
         )}
         {tool === "import" && (

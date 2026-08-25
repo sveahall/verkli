@@ -6,6 +6,7 @@ import type { Editor } from "@tiptap/react";
 import BookWorkflowHeader from "../../BookWorkflowHeader";
 import { countWordsInContent } from "../BookEditorView.helpers";
 import type { Chapter, Tool } from "../BookEditorView.types";
+import type { InlineAiAction } from "@/features/book-workspace/types";
 import {
   Dialog,
   DialogHeader,
@@ -46,6 +47,8 @@ type SimplifiedEditViewProps = {
   isPublished?: boolean;
   activeTool: Tool;
   tools: Tool[];
+  /** Bubble-menu AI actions on the current selection. */
+  onInlineAiAction?: (action: InlineAiAction, selectedText: string) => void;
   onSetChapterPage: (page: number) => void;
   onSelectChapter: (chapterId: string) => void;
   onResetSessionWords: () => void;
@@ -91,6 +94,7 @@ export default function SimplifiedEditView({
   isPublished = false,
   activeTool,
   tools,
+  onInlineAiAction,
   onSetChapterPage,
   onSelectChapter,
   onResetSessionWords,
@@ -135,6 +139,23 @@ export default function SimplifiedEditView({
     onAutoSaveRef.current = onAutoSave;
   }, [onAutoSave]);
 
+  /**
+   * Bubble-menu AI actions navigate away from the editor, which unmounts
+   * TiptapEditor. Its unmount cleanup only clears the 500 ms autosave debounce
+   * (TiptapEditor.tsx) — it does not flush it — so an action fired within
+   * 500 ms of the last keystroke would drop those characters. Flush here,
+   * while the editor is still mounted and the selection is still live.
+   */
+  const handleInlineAiActionWithFlush = useCallback(
+    (action: InlineAiAction, selectedText: string) => {
+      if (tiptapEditor && !tiptapEditor.isDestroyed && selectedChapterId) {
+        onAutoSaveRef.current(selectedChapterId, tiptapEditor.getJSON());
+      }
+      onInlineAiAction?.(action, selectedText);
+    },
+    [onInlineAiAction, selectedChapterId, tiptapEditor]
+  );
+
   // Memoize word counts so JSON.parse isn't called on every render
   const wordCounts = useMemo(() => {
     const map = new Map<string, number>();
@@ -170,9 +191,10 @@ export default function SimplifiedEditView({
         focusMode={focusMode}
         toolbarPortalTarget={toolbarTarget}
         onEditorReady={handleEditorReady}
+        onInlineAction={handleInlineAiActionWithFlush}
       />
     );
-  }, [selectedChapter, handleAutoSave, onDirty, bookId, preset, handleWordCountWrapped, onToggleFocusMode, focusMode, toolbarTarget, handleEditorReady]);
+  }, [selectedChapter, handleAutoSave, onDirty, bookId, preset, handleWordCountWrapped, onToggleFocusMode, focusMode, toolbarTarget, handleEditorReady, handleInlineAiActionWithFlush]);
 
   return (
     <div className="w-full rounded-2xl border border-black/[0.04] bg-white shadow-[0_1px_3px_rgba(0,0,0,0.04)] dark:border-white/[0.06] dark:bg-[#111318] dark:shadow-none">

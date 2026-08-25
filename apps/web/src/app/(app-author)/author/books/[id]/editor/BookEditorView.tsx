@@ -39,6 +39,8 @@ import type {
   PublishVisibility,
   Tool,
 } from "./BookEditorView.types";
+import type { InlineAiAction } from "@/features/book-workspace/types";
+import type { PendingAiRequest } from "./panels/AiAssistantPanel";
 import FocusModeEditorView from "./views/FocusModeEditorView";
 import SimplifiedEditView from "./views/SimplifiedEditView";
 import WriteOnlyWorkspaceView from "./views/WriteOnlyWorkspaceView";
@@ -272,6 +274,19 @@ export default function BookEditorView({
   }, [tool]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Navigation ────────────────────────────────────────────────────────────
+  // Bubble-menu → AI panel handoff. The editor and the panel are different
+  // tools, so the selection has to survive the tool switch; this component
+  // stays mounted across it, the panel does not. Recording the request and
+  // navigating are split so neither step needs a ref written during render.
+  const [pendingAiRequest, setPendingAiRequest] = useState<PendingAiRequest | null>(null);
+
+  const handleAiPanelRequest = useCallback(
+    (action: InlineAiAction, selectedText: string) => {
+      setPendingAiRequest({ id: crypto.randomUUID(), action, selectedText });
+    },
+    []
+  );
+
   const { navigateToPanel, handleInlineAiAction } = useBookEditorNavigation({
     bookId: book.id,
     setTool,
@@ -279,7 +294,12 @@ export default function BookEditorView({
     setPreset,
     handleCreateChapter: chapterCrud.handleCreateChapter,
     setCommands,
+    onAiPanelRequest: handleAiPanelRequest,
   });
+
+  useEffect(() => {
+    if (pendingAiRequest) navigateToPanel("ai");
+  }, [pendingAiRequest, navigateToPanel]);
 
   // ── Write-only workspace context sync ─────────────────────────────────────
   useEffect(() => {
@@ -421,6 +441,12 @@ export default function BookEditorView({
         onWordCount={setWordCount}
         onDirty={() => chapterCrud.setHasUnsavedChanges(true)}
         onAutoSave={chapterCrud.handleAutoSave}
+        // NOTE: unlike SimplifiedEditView this passes the raw handler, so a
+        // bubble-menu action fired within 500 ms of typing would lose those
+        // characters. Harmless today — `isWriteOnlyWorkspace` requires
+        // effectiveTools === ["edit"] and no caller ever passes that — but if
+        // write-only mode is ever switched on, EditorCanvas needs an
+        // onEditorReady seam so this path can flush like the normal editor does.
         onInlineAiAction={handleInlineAiAction}
       />
     );
@@ -514,6 +540,7 @@ export default function BookEditorView({
                 isPublished={publishing.isPublished}
                 activeTool={tool}
                 tools={effectiveTools as Tool[]}
+                onInlineAiAction={handleInlineAiAction}
                 onSetChapterPage={setChapterPage}
                 onSelectChapter={selectChapter}
                 onResetSessionWords={() => setSessionStartWords(null)}
@@ -569,6 +596,8 @@ export default function BookEditorView({
                 printOnDemandSettings={printOnDemandSettings}
                 onSavePrintOnDemandSettings={handleSavePrintOnDemandSettings}
                 onNavigateToPanel={navigateToPanel}
+                pendingAiRequest={pendingAiRequest}
+                onPendingAiRequestHandled={() => setPendingAiRequest(null)}
                 onSetSelectedChapterId={(id) => { setSelectedChapterId(id); setSessionStartWords(null); }}
                 onResetSessionWords={() => setSessionStartWords(null)}
                 cover={cover}
