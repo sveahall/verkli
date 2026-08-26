@@ -293,8 +293,11 @@ describe("verifyLaunchConfig", () => {
     expect(errors(env)).toEqual([]);
   });
 
-  it("warns on undecided flags without failing the build", () => {
+  it("has no undecided flags left — every value is a recorded decision", () => {
+    // AI chat was the last one; confirmed ON 2026-08-26. If this starts
+    // failing, someone added a flag with needsConfirmation and the launch
+    // build needs that decision before it ships.
     const warnings = verifyLaunchConfig(goodEnv()).filter((p) => p.severity === "warning");
-    expect(warnings.map((w) => w.key)).toContain("NEXT_PUBLIC_AI_CHAT_ENABLED");
+    expect(warnings).toEqual([]);
   });
 });

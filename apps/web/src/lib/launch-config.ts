@@ -147,8 +147,7 @@ export const LAUNCH_FLAGS: readonly LaunchFlagSpec[] = [
     serverTwin: "AI_CHAT_ENABLED",
     value: "true",
     reason:
-      "Author-only writing assistant, behind requireAuthorRoleForApi and a 20/min per-user limit. Beta authors start before launch and it is the package's headline. Every request is a billable LLM call, so this is the one flag that trades money for value.",
-    needsConfirmation: true,
+      "ON at launch — confirmed by Svea 2026-08-26, the one flag the launch plan itself never decided. Author-only, behind requireAuthorRoleForApi and a 20/min per-user limit. Every request is a billable LLM call, so it is also the only flag that trades money for value; the rate limit is the ceiling.",
   },
 ] as const;
 
