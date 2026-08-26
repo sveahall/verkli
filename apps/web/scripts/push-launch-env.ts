@@ -25,7 +25,11 @@ import { existsSync, readFileSync } from "node:fs";
 import * as path from "node:path";
 import { fileURLToPath } from "node:url";
 import { parse } from "dotenv";
-import { LAUNCH_FLAGS, LAUNCH_GATES } from "../src/lib/launch-config";
+import {
+  LAUNCH_FLAGS,
+  LAUNCH_GATES,
+  LAUNCH_REQUIRED_PRESENT,
+} from "../src/lib/launch-config";
 
 const apply = process.argv.includes("--apply");
 
@@ -61,19 +65,21 @@ const COPY_FROM_LOCAL = [
   "PRICE_PRO",
 ] as const;
 
-/** Missing these blocks the deploy; the rest are warnings. */
-const REQUIRED = new Set([
-  "NEXT_PUBLIC_SUPABASE_URL",
-  "NEXT_PUBLIC_SUPABASE_ANON_KEY",
-  "SUPABASE_URL",
-  "SUPABASE_SERVICE_ROLE_KEY",
-  "RESEND_API_KEY",
-  "RESEND_FROM_EMAIL",
-  "STRIPE_SECRET_KEY",
-  "STRIPE_WEBHOOK_SECRET",
-  "ELEVENLABS_API_KEY",
-  "ANTHROPIC_API_KEY",
-]);
+/**
+ * What counts as missing is decided by the matrix, not restated here.
+ *
+ * A flat list of required keys was wrong in both directions: it rejected an
+ * environment with only NVIDIA_NIM_API_KEY, which `generateWritingAssistantReply`
+ * accepts, and it let an environment with an ElevenLabs key but no voice id
+ * through, which every audiobook route rejects. Two copies of a requirement
+ * drift; one does not.
+ *
+ * NEXT_PUBLIC_SITE_URL is excluded because this script supplies it rather than
+ * copying it.
+ */
+const REQUIRED_SPECS = LAUNCH_REQUIRED_PRESENT.filter(
+  (spec) => !spec.anyOf.includes("NEXT_PUBLIC_SITE_URL")
+);
 
 /**
  * Never read from `.env.local`. The site URL there is localhost, which
@@ -188,18 +194,25 @@ if (mustBeOff.length > 0) {
   );
 }
 
-const blocking = missing.filter((k) => REQUIRED.has(k));
-const optional = missing.filter((k) => !REQUIRED.has(k));
+// A spec is satisfied when any one of its alternatives is present.
+const unsatisfied = REQUIRED_SPECS.filter(
+  (spec) => !spec.anyOf.some((key) => local[key]?.trim())
+);
+const blockingKeys = new Set(unsatisfied.flatMap((spec) => spec.anyOf));
+const optional = missing.filter((k) => !blockingKeys.has(k));
 
 if (optional.length > 0) {
   console.log(`\n⚠  Not in .env.local, skipped (optional):\n`);
   for (const key of optional) console.log(`   ${key}`);
 }
 
-if (blocking.length > 0) {
+if (unsatisfied.length > 0) {
   console.error(`\n❌  Missing from .env.local and required for launch:\n`);
-  for (const key of blocking) console.error(`   ${key}`);
-  console.error("\nAdd them to apps/web/.env.local, then re-run.\n");
+  for (const spec of unsatisfied) {
+    console.error(`   ${spec.anyOf.join(" or ")}`);
+    console.error(`      ${spec.reason}\n`);
+  }
+  console.error("Add them to apps/web/.env.local, then re-run.\n");
   process.exit(1);
 }
 

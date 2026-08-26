@@ -58,6 +58,15 @@ const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 const envFileIndex = process.argv.indexOf("--env-file");
 const onlyFile = envFileIndex !== -1 ? process.argv[envFileIndex + 1] : null;
 
+// An unset shell variable turns `--env-file "$F"` into `--env-file` with
+// nothing after it. Falling back to the local cascade there would quietly
+// check the wrong environment and report it green — the worst possible
+// outcome for a gate meant to be trusted in automation.
+if (envFileIndex !== -1 && (!onlyFile || onlyFile.startsWith("--"))) {
+  console.error("\n✖  --env-file was given without a path.\n");
+  process.exit(1);
+}
+
 let env: Record<string, string | undefined>;
 
 if (onlyFile) {
