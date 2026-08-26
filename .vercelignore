@@ -1,0 +1,32 @@
+# What NOT to upload when deploying from the Vercel CLI.
+#
+# The CLI does not read .gitignore, so without this file it tries to upload the
+# entire working tree — 13 GB here, most of it agent worktrees — and the upload
+# aborts with a bare "Upload aborted" that says nothing about size.
+#
+# Vercel installs dependencies and builds on its own machines, so none of this
+# needs to travel. Git-linked deploys ignore this file entirely; it only matters
+# for `vercel deploy` from a laptop.
+
+node_modules
+.next
+out
+dist
+
+# Agent worktrees: 9 GB of full repo copies, each with its own node_modules.
+.claude/worktrees
+
+.git
+*.log
+coverage
+playwright-report
+test-results
+
+# Never upload local environment files. Vercel holds its own copies, and a
+# .env.local landing in a build would override them.
+.env
+.env.*
+!.env.example
+!.env.production.example
+
+.DS_Store
