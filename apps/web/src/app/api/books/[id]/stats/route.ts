@@ -330,12 +330,21 @@ export async function GET(request: Request, context: RouteContext) {
   if (chapters.length > 0) {
     let highlightRows: Array<{ chapter_id: string | null }> = [];
     try {
-      const { data: highlights, error: highlightsError } = await admin
-        .from("highlights" as never)
-        .select("chapter_id")
-        .eq("book_id", bookId);
-      logStatsError("highlights", highlightsError);
-      highlightRows = (highlights ?? []) as typeof highlightRows;
+      // Paged like the readings and analytics reads above: a plain select stops
+      // at PostgREST's max_rows, and highlightRate would then be computed from
+      // the first page while the reader count beside it is exact.
+      const { rows, error: highlightsError } = await fetchAllRows<{
+        chapter_id: string | null;
+      }>((from, to) =>
+        admin
+          .from("highlights" as never)
+          .select("chapter_id")
+          .eq("book_id", bookId)
+          .order("id", { ascending: true })
+          .range(from, to)
+      );
+      if (highlightsError) logStatsError("highlights", { message: highlightsError });
+      highlightRows = rows;
     } catch (err) {
       logStatsError("highlights", err);
     }

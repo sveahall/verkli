@@ -29,9 +29,12 @@ export async function GET() {
   if (bookIds.length === 0) {
     // Followers are not book-scoped, so they still count for an author with no
     // published books.
+    // `follows` is keyed (follower_id, followee_id) and has no `id` column, so
+    // selecting one errors and PostgREST returns no count — which rendered as
+    // a confident zero followers rather than a failure.
     const { count: followerOnly, error } = await admin
       .from("follows")
-      .select("id", { count: "exact", head: true })
+      .select("follower_id", { count: "exact", head: true })
       .eq("followee_id", user.id);
 
     if (error) {
@@ -53,7 +56,10 @@ export async function GET() {
   const [reviewsRes, bookmarksRes, followersRes, commentsRes] = await Promise.all([
     admin.from("reviews").select("id", { count: "exact", head: true }).in("book_id", bookIds),
     admin.from("bookmarks").select("id", { count: "exact", head: true }).in("book_id", bookIds),
-    admin.from("follows").select("id", { count: "exact", head: true }).eq("followee_id", user.id),
+    admin
+      .from("follows")
+      .select("follower_id", { count: "exact", head: true })
+      .eq("followee_id", user.id),
     // Reader comments only — an author replying in their own thread is not
     // engagement they received.
     admin

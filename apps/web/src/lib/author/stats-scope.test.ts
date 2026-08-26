@@ -263,6 +263,43 @@ describe("author stats routes never read analytics_events unscoped", () => {
     }
   });
 
+  it("filters soft-deleted rows as soon as the column exists", () => {
+    // `20260429121000_soft_delete_columns.sql` adds `deleted_at` plus a
+    // RESTRICTIVE RLS policy that hides soft-deleted rows from anon and
+    // authenticated reads. Service role bypasses RLS, so the moment that
+    // migration is applied these admin reads would surface content that
+    // moderation or a GDPR request removed.
+    //
+    // The migration is NOT applied to the live database yet — `types.ts` is
+    // generated from it and shows no `deleted_at` — so adding the filter today
+    // would error on a column that does not exist. This guard fails the moment
+    // it does exist, which is exactly when the filter becomes both possible
+    // and necessary.
+    const types = readFileSync(
+      path.join(__dirname, "../supabase/types.ts"),
+      "utf8"
+    );
+    const softDeleteLive = /comments: \{[\s\S]*?Row: \{[\s\S]*?deleted_at/.test(types);
+
+    if (!softDeleteLive) {
+      expect(softDeleteLive).toBe(false);
+      return;
+    }
+
+    for (const relative of [
+      "../../app/api/author/stats/engagement/route.ts",
+      "../../app/(app-author)/author/home/page.tsx",
+      "../../app/(app-author)/author/analytics/[metric]/page.tsx",
+    ]) {
+      const source = readFileSync(path.join(__dirname, relative), "utf8");
+      if (!source.includes('from("comments")') && !source.includes('from("reviews")')) continue;
+      expect(
+        source,
+        `${relative} reads comments/reviews with the admin client but does not filter deleted_at`
+      ).toMatch(/\.is\("deleted_at", null\)/);
+    }
+  });
+
   it("author/stats/books refuses to query when the author has no books", () => {
     const source = readFileSync(
       path.join(__dirname, "../../app/api/author/stats/books/route.ts"),
