@@ -187,7 +187,7 @@ export type LaunchRequiredSpec = {
    * Optional value check on the var that was found. Returning a string makes
    * it an error with that message; null passes.
    */
-  validate?: (value: string) => string | null;
+  validate?: (value: string, target: VerifyTarget) => string | null;
 };
 
 /**
@@ -199,7 +199,12 @@ export type LaunchRequiredSpec = {
  * value at runtime and falls back to the request host — which means a wrong
  * NEXT_PUBLIC_SITE_URL fails silently rather than loudly. Catch it here instead.
  */
-export function validateSiteUrl(value: string): string | null {
+export type VerifyTarget = "production" | "preview";
+
+export function validateSiteUrl(
+  value: string,
+  target: VerifyTarget = "production"
+): string | null {
   let url: URL;
   try {
     url = new URL(value.trim());
@@ -214,7 +219,13 @@ export function validateSiteUrl(value: string): string | null {
     return `is ${JSON.stringify(value)}, a local host. Receipts and Stripe redirects would point at the deployer's machine.`;
   }
   if (host.endsWith(".vercel.app")) {
-    return `is a *.vercel.app alias. request-url.ts rejects these at runtime and silently falls back to the request host, so this would not do what it looks like it does. Use the real custom domain.`;
+    // Correct for a preview and wrong for production. request-url.ts rejects
+    // .vercel.app and falls back to the host the request arrived on — on a
+    // preview that is the preview's own URL, which is what you want, and in
+    // production it is a silent fallback masking a misconfiguration.
+    if (target === "production") {
+      return `is a *.vercel.app alias. request-url.ts rejects these at runtime and silently falls back to the request host, so this would not do what it looks like it does. Use the real custom domain.`;
+    }
   }
   // Must be a bare origin. Call sites build URLs by concatenation
   // (`${baseUrl}/reader/profile?credits=success`), and normalizeConfiguredUrl
@@ -273,7 +284,8 @@ export type LaunchConfigProblem = {
  * rejected `AUDIOBOOK_ENABLED=1`, a configuration that works.
  */
 export function verifyLaunchConfig(
-  env: Record<string, string | undefined>
+  env: Record<string, string | undefined>,
+  target: VerifyTarget = "production"
 ): LaunchConfigProblem[] {
   const problems: LaunchConfigProblem[] = [];
 
@@ -338,7 +350,7 @@ export function verifyLaunchConfig(
       });
       continue;
     }
-    const message = spec.validate?.(env[found]!.trim());
+    const message = spec.validate?.(env[found]!.trim(), target);
     if (message) {
       problems.push({ key: found, severity: "error", message: `${message} ${spec.reason}` });
     }

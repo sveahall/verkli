@@ -244,10 +244,27 @@ describe("verifyLaunchConfig", () => {
     expect(errors(env).map((p) => p.key)).toContain("NEXT_PUBLIC_POLLS_ENABLED");
   });
 
-  it("rejects a *.vercel.app site URL — it strands buyers after payment", () => {
+  it("rejects a *.vercel.app site URL in production — it strands buyers after payment", () => {
     const env = goodEnv();
     env.NEXT_PUBLIC_SITE_URL = "https://verkli-abc123.vercel.app";
     expect(errors(env).map((p) => p.key)).toContain("NEXT_PUBLIC_SITE_URL");
+  });
+
+  it("accepts a *.vercel.app site URL on preview, where it is the point", () => {
+    // request-url.ts rejects .vercel.app and falls back to the request host.
+    // On a preview that host IS the preview, so redirects land back where the
+    // tester is. Setting the real domain would bounce them onto production.
+    const env = goodEnv();
+    env.NEXT_PUBLIC_SITE_URL = "https://verkli-web.vercel.app";
+    const preview = verifyLaunchConfig(env, "preview").filter((p) => p.severity === "error");
+    expect(preview).toEqual([]);
+  });
+
+  it("still rejects localhost on preview", () => {
+    const env = goodEnv();
+    env.NEXT_PUBLIC_SITE_URL = "http://localhost:3000";
+    const preview = verifyLaunchConfig(env, "preview").filter((p) => p.severity === "error");
+    expect(preview.map((p) => p.key)).toContain("NEXT_PUBLIC_SITE_URL");
   });
 
   it("rejects a localhost site URL", () => {

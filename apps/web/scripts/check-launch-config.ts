@@ -21,6 +21,7 @@ import {
   ALL_LAUNCH_SPECS,
   LAUNCH_REQUIRED_PRESENT,
   verifyLaunchConfig,
+  type VerifyTarget,
 } from "../src/lib/launch-config";
 
 /**
@@ -94,13 +95,16 @@ if (onlyFile) {
 
 const strict = process.argv.includes("--strict");
 
-const problems = verifyLaunchConfig(env);
+const targetIndex = process.argv.indexOf("--target");
+const target: VerifyTarget = process.argv[targetIndex + 1] === "preview" ? "preview" : "production";
+
+const problems = verifyLaunchConfig(env, target);
 const errors = problems.filter((p) => p.severity === "error");
 const warnings = problems.filter((p) => p.severity === "warning");
 
 const checked = ALL_LAUNCH_SPECS.length + LAUNCH_REQUIRED_PRESENT.length;
 
-console.log(`\n══ Launch config check (${checked} settings) ══\n`);
+console.log(`\n══ Launch config check — ${target} (${checked} settings) ══\n`);
 
 if (errors.length > 0) {
   console.error(`❌  ${errors.length} setting${errors.length === 1 ? "" : "s"} wrong for a launch build:\n`);

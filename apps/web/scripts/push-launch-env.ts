@@ -28,6 +28,13 @@ import { parse } from "dotenv";
 import { LAUNCH_FLAGS, LAUNCH_GATES } from "../src/lib/launch-config";
 
 const apply = process.argv.includes("--apply");
+
+const targetIndex = process.argv.indexOf("--target");
+const target = targetIndex !== -1 ? process.argv[targetIndex + 1] : "production";
+if (target !== "production" && target !== "preview") {
+  console.error(`✖  --target must be "production" or "preview", got ${JSON.stringify(target)}`);
+  process.exit(1);
+}
 const webDir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 
 /**
@@ -72,8 +79,17 @@ const REQUIRED = new Set([
  * Never read from `.env.local`. The site URL there is localhost, which
  * request-url.ts would reject at runtime while silently falling back to the
  * request host — a wrong value that fails quietly.
+ *
+ * Preview gets a *.vercel.app value on purpose. `lib/env.ts` requires the
+ * variable to be non-empty, but `request-url.ts` deliberately rejects any
+ * .vercel.app host and falls back to the host the request actually arrived on.
+ * That is exactly right for a preview, whose URL changes per deployment: Stripe
+ * redirects land back on the preview the tester is using. Setting the real
+ * domain here would be worse than useless — it would bounce a tester mid-
+ * checkout onto production.
  */
-const SITE_URL = "https://verkli.com";
+const SITE_URL =
+  target === "production" ? "https://verkli.com" : "https://verkli-web.vercel.app";
 
 function loadLocalEnv(): Record<string, string> {
   const file = path.join(webDir, ".env.local");
@@ -107,7 +123,7 @@ function setVercelEnv(key: string, value: string): string | null {
       "env",
       "add",
       key,
-      "production",
+      target,
       "--force",
       "--yes",
       "--non-interactive",
@@ -156,7 +172,7 @@ for (const spec of [...LAUNCH_FLAGS, ...LAUNCH_GATES]) {
   }
 }
 
-console.log(`\n══ Launch env → Vercel production ${apply ? "(APPLYING)" : "(dry run)"} ══\n`);
+console.log(`\n══ Launch env → Vercel ${target} ${apply ? "(APPLYING)" : "(dry run)"} ══\n`);
 
 console.log(`Will set ${toSet.length} variables:\n`);
 for (const { key, source } of toSet) {
@@ -168,7 +184,7 @@ if (mustBeOff.length > 0) {
   for (const key of mustBeOff) console.log(`   ${key}`);
   console.log(
     "\n   If any of these already exist in Vercel, remove them by hand:\n" +
-      "     vercel env rm <NAME> production"
+      `     vercel env rm <NAME> ${target}`
   );
 }
 
@@ -211,8 +227,8 @@ for (const { key, value } of toSet) {
 
 console.log(
   "\n✔  Done. Now verify before building:\n\n" +
-    "     vercel env pull /tmp/verkli-prod.env --environment production\n" +
-    "     npm run check:launch-config -- --strict --env-file /tmp/verkli-prod.env\n\n" +
+    `     vercel env pull /tmp/verkli-${target}.env --environment ${target}\n` +
+    `     npm run check:launch-config -- --strict --env-file /tmp/verkli-${target}.env\n\n` +
     "   Pull OUTSIDE apps/web — next build reads .env.production.local ahead of\n" +
     "   .env.local, so a pulled file left here breaks every local build after.\n"
 );
