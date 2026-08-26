@@ -134,6 +134,8 @@ describe("verifyLaunchConfig", () => {
       RESEND_FROM_EMAIL: "no-reply@verkli.com",
       STRIPE_SECRET_KEY: "sk_test_x",
       STRIPE_WEBHOOK_SECRET: "whsec_x",
+      STRIPE_CHECKOUT_SUCCESS_URL: "https://verkli.com/account/billing",
+      STRIPE_CHECKOUT_CANCEL_URL: "https://verkli.com/pricing",
       ELEVENLABS_API_KEY: "sk-eleven-test",
       ELEVENLABS_VOICE_ID: "voice-abc",
       ANTHROPIC_API_KEY: "sk-ant-test",
@@ -343,6 +345,8 @@ describe("verifyLaunchConfig", () => {
     "RESEND_FROM_EMAIL",
     "STRIPE_SECRET_KEY",
     "STRIPE_WEBHOOK_SECRET",
+    "STRIPE_CHECKOUT_SUCCESS_URL",
+    "STRIPE_CHECKOUT_CANCEL_URL",
   ]) {
     it(`rejects a launch environment missing ${key}`, () => {
       const env = goodEnv();

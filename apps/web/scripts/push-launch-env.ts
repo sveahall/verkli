@@ -56,6 +56,9 @@ const COPY_FROM_LOCAL = [
   "RESEND_FROM_EMAIL",
   "STRIPE_SECRET_KEY",
   "STRIPE_WEBHOOK_SECRET",
+  "STRIPE_CHECKOUT_SUCCESS_URL",
+  "STRIPE_CHECKOUT_CANCEL_URL",
+  "STRIPE_CUSTOMER_PORTAL_RETURN_URL",
   "ELEVENLABS_API_KEY",
   "ELEVENLABS_VOICE_ID",
   "TTS_VOICE_ID",
@@ -168,13 +171,39 @@ for (const key of COPY_FROM_LOCAL) {
 toSet.push({ key: "NEXT_PUBLIC_SITE_URL", value: SITE_URL, source: "hardcoded" });
 
 // Flags come from the matrix, never from .env.local.
-const mustBeOff: string[] = [];
+//
+// A must-be-off flag is not simply skipped: if it already exists in Vercel as
+// `true` — as NEXT_PUBLIC_WAITLIST_ONLY does — skipping it leaves the feature
+// on while the push reports success. So they are written as "false", which is
+// off under both `parseBool` and middleware's literal comparison.
+//
+// The two ACCESS GATES are the deliberate exception. Turning WAITLIST_ONLY off
+// makes verkli.com public the moment the next build ships. That is a launch
+// decision, not a config detail, and a script that does it as a side effect of
+// "push the env" is a script that opens a company's front door by accident.
+// They are reported and left alone unless --open-gates says otherwise.
+const openGates = process.argv.includes("--open-gates");
+const gateKeys = new Set(LAUNCH_GATES.map((s) => s.key));
+
+const toClear: string[] = [];
+const gatesLeftAlone: string[] = [];
+
 for (const spec of [...LAUNCH_FLAGS, ...LAUNCH_GATES]) {
   if (spec.value === "true") {
     toSet.push({ key: spec.key, value: "true", source: "launch matrix" });
-  } else {
-    mustBeOff.push(spec.key);
-    if (spec.serverTwin) mustBeOff.push(spec.serverTwin);
+    continue;
+  }
+
+  const keys = [spec.key, ...(spec.serverTwin ? [spec.serverTwin] : [])];
+
+  if (gateKeys.has(spec.key) && !openGates) {
+    gatesLeftAlone.push(...keys);
+    continue;
+  }
+
+  for (const key of keys) {
+    toSet.push({ key, value: "false", source: "launch matrix (off)" });
+    toClear.push(key);
   }
 }
 
@@ -185,12 +214,19 @@ for (const { key, source } of toSet) {
   console.log(`   ${key.padEnd(38)} ← ${source}`);
 }
 
-if (mustBeOff.length > 0) {
-  console.log(`\nWill NOT set ${mustBeOff.length} (unset means off, which is the launch value):\n`);
-  for (const key of mustBeOff) console.log(`   ${key}`);
+if (toClear.length > 0) {
   console.log(
-    "\n   If any of these already exist in Vercel, remove them by hand:\n" +
-      `     vercel env rm <NAME> ${target}`
+    `\nWill write "false" to ${toClear.length} launch-cut flags, so an existing "true" cannot survive.\n`
+  );
+}
+
+if (gatesLeftAlone.length > 0) {
+  console.log(`\nAccess gates — reported, NOT touched:\n`);
+  for (const key of gatesLeftAlone) console.log(`   ${key}`);
+  console.log(
+    "\n   Turning these off makes the site publicly reachable on the next\n" +
+      "   build. That is a launch decision. Pass --open-gates when you mean it,\n" +
+      `   or clear them by hand: vercel env rm <NAME> ${target}`
   );
 }
 

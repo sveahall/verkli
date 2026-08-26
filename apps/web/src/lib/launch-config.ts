@@ -296,6 +296,16 @@ export const LAUNCH_REQUIRED_PRESENT: readonly LaunchRequiredSpec[] = [
       "Without it the webhook cannot verify signatures, so a completed payment never settles into an order.",
   },
   {
+    anyOf: ["STRIPE_CHECKOUT_SUCCESS_URL"],
+    reason:
+      "api/billing/checkout throws without it, so subscription checkout 500s. Not covered by assertServerEnv.",
+  },
+  {
+    anyOf: ["STRIPE_CHECKOUT_CANCEL_URL"],
+    reason:
+      "Same route, same throw. A reader who backs out of checkout has nowhere to land.",
+  },
+  {
     anyOf: ["ELEVENLABS_API_KEY"],
     reason:
       "AUDIOBOOK_ENABLED is on at launch. Without a key the checkout route refuses with AUDIOBOOK_VOICE_UNCONFIGURED — a guard, not a substitute.",
