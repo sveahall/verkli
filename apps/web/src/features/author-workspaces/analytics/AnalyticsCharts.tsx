@@ -457,8 +457,15 @@ export default function AnalyticsDashboard({
   const bookmarks = isAllBooks
     ? (data.engagement?.bookmarks ?? 0)
     : (data.bookDetail?.overview.bookmarks ?? 0);
-  const totalRevenue = data.revenue?.totalRevenue ?? 0;
-  const currency = data.revenue?.currency ?? "SEK";
+  // Per-book view must show that book's revenue, not the whole catalogue's.
+  // Every other figure beside it already switches on isAllBooks; revenue did
+  // not, which was invisible only while it was always zero.
+  const totalRevenue = isAllBooks
+    ? (data.revenue?.totalRevenue ?? 0)
+    : (data.bookDetail?.overview.revenue ?? 0);
+  const currency = isAllBooks
+    ? (data.revenue?.currency ?? "SEK")
+    : (data.bookDetail?.overview.currency ?? data.revenue?.currency ?? "SEK");
   const avgRating = data.engagement?.averageRating ?? 0;
   const reviews = data.engagement?.reviews ?? 0;
   const completionRate = isAllBooks

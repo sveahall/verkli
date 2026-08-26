@@ -1,7 +1,14 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { requireAuthorRoleForApi } from "@/lib/auth/require-author";
+import {
+  classifyStatsEvent,
+  fetchAllRows,
+  resolveAuthorBooks,
+  SETTLED_PAYMENT_STATUS,
+} from "@/lib/author/stats-scope";
 import {
   apiError,
   E_DATABASE_ERROR,
@@ -23,21 +30,19 @@ export async function GET(request: Request) {
   });
   const period = parsed.success ? parsed.data.period : "30d";
 
-  // Get author's book IDs
-  const { data: books, error: booksError } = await supabase
-    .from("books")
-    .select("id")
-    .eq("author_id", user.id);
+  // Ownership resolved through the session client so RLS decides it; the
+  // analytics read below runs as service role, scoped to this answer.
+  const owned = await resolveAuthorBooks(supabase, user.id);
 
-  if (booksError) {
+  if (!owned.ok) {
     console.error("[author/stats] books load failed", {
       userId: user.id,
-      message: booksError.message,
+      message: owned.message,
     });
     return apiError(E_DATABASE_ERROR, 500);
   }
 
-  const bookIds = (books ?? []).map((b) => b.id as string);
+  const { bookIds } = owned;
 
   if (bookIds.length === 0) {
     return NextResponse.json({
@@ -49,32 +54,39 @@ export async function GET(request: Request) {
     });
   }
 
-  // Build a server-side filter so we only fetch events for this author's books
-  const pathFilter = bookIds
-    .map((id) => `path.like.%${id}%`)
-    .join(",");
+  // analytics_events has no author-scoped SELECT policy, so the session client
+  // reads nothing and the dashboard showed zeros. Service role sees the rows;
+  // the book_id filter is what keeps the read scoped to this author's books.
+  const admin = createAdminClient();
 
-  let eventsQuery = supabase
-    .from("analytics_events")
-    .select("event_name, path, created_at")
-    .or(pathFilter);
+  const since =
+    period === "7d" || period === "30d"
+      ? (() => {
+          const d = new Date();
+          d.setDate(d.getDate() - (period === "7d" ? 7 : 30));
+          return d;
+        })()
+      : null;
 
-  if (period === "7d") {
-    const since = new Date();
-    since.setDate(since.getDate() - 7);
-    eventsQuery = eventsQuery.gte("created_at", since.toISOString());
-  } else if (period === "30d") {
-    const since = new Date();
-    since.setDate(since.getDate() - 30);
-    eventsQuery = eventsQuery.gte("created_at", since.toISOString());
-  }
-
-  const { data: events, error: eventsError } = await eventsQuery;
+  // Paged: PostgREST caps a plain select at max_rows = 1000, so an active
+  // author's overview would silently be computed from their first 1000 events.
+  const { rows: events, error: eventsError } = await fetchAllRows<{
+    event_type?: string | null;
+    event_name?: string | null;
+    created_at: string;
+  }>((from, to) => {
+    let q = admin
+      .from("analytics_events")
+      .select("event_type, event_name, created_at")
+      .in("book_id", bookIds);
+    if (since) q = q.gte("created_at", since.toISOString());
+    return q.order("id", { ascending: true }).range(from, to);
+  });
 
   if (eventsError) {
     console.error("[author/stats] analytics load failed", {
       userId: user.id,
-      message: eventsError.message,
+      message: eventsError,
     });
     return apiError(E_DATABASE_ERROR, 500);
   }
@@ -86,30 +98,64 @@ export async function GET(request: Request) {
   let bookmarksCount = 0;
   const dailyMap = new Map<string, { views: number; reads: number; purchases: number }>();
 
-  for (const event of events ?? []) {
-    const name = (event.event_name as string) ?? "";
+  for (const event of events) {
+    const kind = classifyStatsEvent(event as { event_type?: string | null; event_name?: string | null });
+    if (!kind) continue;
 
     const day = (event.created_at as string | undefined)?.slice(0, 10) ?? "";
     if (day && !dailyMap.has(day)) dailyMap.set(day, { views: 0, reads: 0, purchases: 0 });
     const dayEntry = day ? dailyMap.get(day)! : null;
 
-    const nameLower = name.toLowerCase();
-    if (nameLower.includes("view") || nameLower.includes("page_view")) {
+    if (kind === "view") {
       views++;
       if (dayEntry) dayEntry.views++;
-    } else if (nameLower.includes("read") || nameLower.includes("chapter_read")) {
+    } else if (kind === "read") {
       reads++;
       if (dayEntry) dayEntry.reads++;
-    } else if (nameLower.includes("purchase") || nameLower.includes("checkout")) {
-      purchases++;
-      if (dayEntry) dayEntry.purchases++;
-    } else if (nameLower.includes("bookmark") || nameLower.includes("save")) {
+    } else if (kind === "bookmark_added") {
       bookmarksCount++;
     } else {
-      // Count unknown events as views
-      views++;
-      if (dayEntry) dayEntry.views++;
+      // bookmark_removed — a saved book that was un-saved is not a bookmark.
+      bookmarksCount--;
     }
+  }
+
+  // Removals can outnumber additions in a window that starts mid-history.
+  bookmarksCount = Math.max(0, bookmarksCount);
+
+  // Purchases come from settled orders, never from analytics_events: the RLS
+  // insert policy on that table lets any client forge a purchase_completed row
+  // for any book, and an author must not be told they sold something they did
+  // not. `head: true` makes the database do the counting, so no row cap applies.
+  const { rows: paidOrders, error: purchaseError } = await fetchAllRows<{
+    created_at: string;
+  }>((from, to) => {
+    let q = admin
+      .from("orders")
+      .select("created_at")
+      .in("book_id", bookIds)
+      .eq("status", SETTLED_PAYMENT_STATUS);
+    if (since) q = q.gte("created_at", since.toISOString());
+    return q.order("id", { ascending: true }).range(from, to);
+  });
+
+  if (purchaseError) {
+    console.error("[author/stats] orders load failed", {
+      userId: user.id,
+      message: purchaseError,
+    });
+  }
+
+  purchases = paidOrders.length;
+
+  // Merge them into the daily series too. Counting the headline separately from
+  // the chart is how the chart ends up flat at zero while the total says
+  // otherwise — and a day whose only activity was a sale would vanish.
+  for (const order of paidOrders) {
+    const day = order.created_at?.slice(0, 10) ?? "";
+    if (!day) continue;
+    if (!dailyMap.has(day)) dailyMap.set(day, { views: 0, reads: 0, purchases: 0 });
+    dailyMap.get(day)!.purchases++;
   }
 
   const dailyChart = [...dailyMap.entries()]

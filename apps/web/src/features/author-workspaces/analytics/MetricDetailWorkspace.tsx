@@ -16,7 +16,19 @@ type Metric = "sales" | "readers" | "subscribers" | "comments" | "reviews";
 
 type MetricDetailWorkspaceProps = {
   metric: Metric;
-  summary: { total: number; change: number };
+  /**
+   * Exact, database-side aggregates. The `rows` below are a display slice
+   * (100-200 rows), so any card derived from them is capped at that slice and
+   * disagrees with the home dashboard. Prefer these when present.
+   */
+  summary: {
+    total: number;
+    change: number;
+    currency?: string;
+    activeCount?: number;
+    totalCount?: number;
+    avgRating?: number;
+  };
   rows: Array<Record<string, unknown>>;
   books: Array<{ id: string; title: string }>;
 };
@@ -422,7 +434,14 @@ export default function MetricDetailWorkspace({
 
 function getSummaryCards(
   metric: Metric,
-  summary: { total: number; change: number },
+  summary: {
+    total: number;
+    change: number;
+    currency?: string;
+    activeCount?: number;
+    totalCount?: number;
+    avgRating?: number;
+  },
   rows: Array<Record<string, unknown>>
 ): Array<{ label: string; value: string; change?: string; sparkline?: string }> {
   switch (metric) {
@@ -435,7 +454,7 @@ function getSummaryCards(
       return [
         {
           label: "Total",
-          value: `${summary.total.toLocaleString("sv-SE")} SEK`,
+          value: `${summary.total.toLocaleString("sv-SE")} ${summary.currency ?? "SEK"}`,
         },
         { label: "Orders", value: rows.length.toLocaleString("sv-SE") },
         {
@@ -451,8 +470,12 @@ function getSummaryCards(
         (s, r) => s + (Number(r.readerCount) || 0),
         0
       );
+      // summary.total is distinct readers across the catalogue; summing the
+      // per-book column counts a reader once per book and would disagree with
+      // the home card that links here. Prefer the summary when it is present.
+      const uniqueReaders = summary.total > 0 ? summary.total : totalReaders;
       return [
-        { label: "Total readers", value: totalReaders.toLocaleString("sv-SE") },
+        { label: "Unique readers", value: uniqueReaders.toLocaleString("sv-SE") },
         { label: "Books", value: rows.length.toLocaleString("sv-SE") },
         {
           label: "Avg. per book",
@@ -465,23 +488,26 @@ function getSummaryCards(
       ];
     }
     case "subscribers": {
-      const active = rows.filter((r) => r.status === "active").length;
+      const active = summary.activeCount ?? rows.filter((r) => r.status === "active").length;
       const unsubscribed = rows.filter(
         (r) => r.status === "unsubscribed"
       ).length;
       return [
         { label: "Active", value: active.toLocaleString("sv-SE") },
-        { label: "Total", value: rows.length.toLocaleString("sv-SE") },
+        {
+          label: "Total",
+          value: (summary.totalCount ?? rows.length).toLocaleString("sv-SE"),
+        },
         {
           label: "Unsubscribed",
           value: unsubscribed.toLocaleString("sv-SE"),
         },
         {
           label: "Retention",
-          value:
-            rows.length > 0
-              ? `${Math.round((active / rows.length) * 100)}%`
-              : "—",
+          value: (() => {
+            const total = summary.totalCount ?? rows.length;
+            return total > 0 ? `${Math.round((active / total) * 100)}%` : "—";
+          })(),
         },
       ];
     }
@@ -497,10 +523,13 @@ function getSummaryCards(
         { label: "Latest", value: rows[0] ? formatDate(rows[0].date) : "—" },
       ];
     case "reviews": {
+      // The page computes this across every review; recomputing from the
+      // 200-row display slice would skew it for anyone with older ratings.
       const avgRating =
-        rows.length > 0
+        summary.avgRating ??
+        (rows.length > 0
           ? rows.reduce((s, r) => s + (Number(r.rating) || 0), 0) / rows.length
-          : 0;
+          : 0);
       return [
         { label: "Total", value: summary.total.toLocaleString("sv-SE") },
         {

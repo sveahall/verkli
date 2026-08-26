@@ -95,11 +95,16 @@ export default function HomeWorkspace({
     () => [
       {
         label: "Sales",
-        value: `${formatCompactNumber(stats.sales)} SEK`,
+        value: `${formatCompactNumber(stats.sales)} ${stats.salesCurrency ?? "SEK"}`,
         icon: <Coins className="h-4 w-4" />,
         toneClassName: "bg-[#EEF4FF] text-[#4F74E7]",
         href: "/author/analytics/sales",
-        description: "Total revenue from book sales, orders, and donations.",
+        // Narrowed from "book sales, orders, and donations": this card counts
+        // paid book orders only, and so does the sales drill-down it links to.
+        // Donations and subscription MRR live in the analytics workspace, which
+        // reads /api/author/stats/revenue. A label promising more than the
+        // number covers is how two "revenue" figures end up disagreeing.
+        description: "Revenue from paid book orders.",
       },
       {
         label: "Readers",
@@ -134,7 +139,7 @@ export default function HomeWorkspace({
         description: "Ratings and reviews from readers.",
       },
     ],
-    [stats.comments, stats.readers, stats.reviews, stats.sales, stats.subscribers]
+    [stats.comments, stats.readers, stats.reviews, stats.sales, stats.salesCurrency, stats.subscribers]
   );
 
   const activityItems: ActivityListItem[] = useMemo(
