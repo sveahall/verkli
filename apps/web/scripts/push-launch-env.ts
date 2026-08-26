@@ -20,7 +20,7 @@
  * Requires `vercel link` to have been run in this directory first.
  */
 
-import { execFileSync } from "node:child_process";
+import { spawnSync } from "node:child_process";
 import { existsSync, readFileSync } from "node:fs";
 import * as path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -84,22 +84,49 @@ function loadLocalEnv(): Record<string, string> {
   return parse(readFileSync(file, "utf8"));
 }
 
-function setVercelEnv(key: string, value: string): void {
-  // `vercel env add` refuses when the key already exists, so remove first.
-  // Failure is expected on a key that was never set — hence the empty catch.
-  try {
-    execFileSync("vercel", ["env", "rm", key, "production", "--yes"], {
-      cwd: webDir,
-      stdio: "ignore",
-    });
-  } catch {
-    // not previously set
-  }
-  execFileSync("vercel", ["env", "add", key, "production"], {
-    cwd: webDir,
-    input: value,
-    stdio: ["pipe", "ignore", "inherit"],
-  });
+function setVercelEnv(key: string, value: string): string | null {
+  // `--force` overwrites an existing value, `--yes` accepts the CLI's own
+  // prompts (it asks about sensitive storage and warns on NEXT_PUBLIC_ names),
+  // and `--non-interactive` makes a missing prompt an error rather than a hang.
+  //
+  // The value goes in on stdin, not through `--value`: the CLI supports both,
+  // but an argument is visible in the process list to anything running on this
+  // machine, and most of these are secrets.
+  // NEXT_PUBLIC_* is baked into the client bundle, so it is public by
+  // definition and Vercel refuses to store it with secret visibility. That
+  // refusal is correct — storing it as a secret would imply a confidentiality
+  // the value cannot have. Everything else keeps the default (sensitive).
+  const isPublic = key.startsWith("NEXT_PUBLIC_");
+  const visibility = isPublic
+    ? ["--visibility", "config", "--no-sensitive"]
+    : ["--sensitive"];
+
+  const result = spawnSync(
+    "vercel",
+    [
+      "env",
+      "add",
+      key,
+      "production",
+      "--force",
+      "--yes",
+      "--non-interactive",
+      ...visibility,
+    ],
+    { cwd: webDir, input: value, encoding: "utf8" }
+  );
+
+  if (result.status === 0) return null;
+  return (
+    [result.stderr, result.stdout]
+      .filter(Boolean)
+      .join("\n")
+      .trim()
+      .split("\n")
+      .filter((line) => line.trim() && !line.startsWith("Vercel CLI"))
+      .slice(-4)
+      .join("\n") || `exit ${result.status}`
+  );
 }
 
 const local = loadLocalEnv();
@@ -167,19 +194,25 @@ if (!apply) {
 
 console.log("");
 for (const { key, value } of toSet) {
-  process.stdout.write(`   setting ${key} … `);
-  try {
-    setVercelEnv(key, value);
-    console.log("ok");
-  } catch (err) {
+  process.stdout.write(`   ${key.padEnd(38)} `);
+  const failure = setVercelEnv(key, value);
+  if (failure) {
     console.log("FAILED");
-    console.error(`     ${err instanceof Error ? err.message : String(err)}`);
+    console.error(
+      failure
+        .split("\n")
+        .map((l) => `      ${l}`)
+        .join("\n")
+    );
     process.exit(1);
   }
+  console.log("ok");
 }
 
 console.log(
-  "\n✔  Done. Now verify before building:\n" +
-    "     vercel env pull .env.production.local\n" +
-    "     npm run check:launch-config -- --strict\n"
+  "\n✔  Done. Now verify before building:\n\n" +
+    "     vercel env pull /tmp/verkli-prod.env --environment production\n" +
+    "     npm run check:launch-config -- --strict --env-file /tmp/verkli-prod.env\n\n" +
+    "   Pull OUTSIDE apps/web — next build reads .env.production.local ahead of\n" +
+    "   .env.local, so a pulled file left here breaks every local build after.\n"
 );

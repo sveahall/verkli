@@ -14,9 +14,9 @@
  */
 
 import * as path from "node:path";
-import { existsSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
-import { config } from "dotenv";
+import { config, parse } from "dotenv";
 import {
   ALL_LAUNCH_SPECS,
   LAUNCH_REQUIRED_PRESENT,
@@ -24,49 +24,77 @@ import {
 } from "../src/lib/launch-config";
 
 /**
- * Load the same env files `next build` would, in the same precedence order.
+ * Which env files to read.
  *
- * Two things this must not do, both of which would let the checker certify a
- * configuration the build does not use:
+ * Default is the cascade `next build` would use, in Next's precedence, with
+ * real environment variables winning outright. That is right for checking the
+ * machine you are standing on.
  *
- *   1. Use `./load-dotenv`. It loads .env.local with `override: true`, so
- *      injected shell/CI values would be replaced inside this process only —
- *      the build would then start from the original values.
- *   2. Read only .env.local. For a production build Next also reads
- *      .env.production.local (higher precedence than .env.local),
- *      .env.production, and .env, so a launch-breaking value in any of those
- *      would go unseen.
+ * `--env-file <path>` reads that file and nothing else. Use it to verify a
+ * deploy environment, and mixing the local cascade back in would report your
+ * development flags as production problems. That false positive is worse than
+ * no check, because it trains you to skim past the output.
  *
- * dotenv's `override: false` never replaces an already-set key, so loading in
- * descending precedence gives Next's order with real environment variables
- * winning outright — which is what a Vercel or CI deploy actually supplies.
+ * Two things to know about verifying a Vercel environment this way:
+ *
+ *   1. Pull to a path OUTSIDE apps/web. `next build` reads
+ *      `.env.production.local` ahead of `.env.local`, so a pulled file left in
+ *      the app directory breaks every local build afterwards — with an error
+ *      ("Invalid supabaseUrl") that points nowhere near the cause.
+ *
+ *   2. Sensitive variables come back as the literal string `[SENSITIVE]`, not
+ *      their value. Vercel never hands secrets back. So this verifies that a
+ *      secret is SET, never what it is — which is all the matrix asserts about
+ *      them anyway. Flags and URLs are non-sensitive and do come back whole.
+ *
+ * The working incantation:
+ *
+ *   vercel env pull /tmp/verkli-prod.env --environment production
+ *   npm run check:launch-config -- --strict --env-file /tmp/verkli-prod.env
  */
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
-const ENV_FILES_HIGHEST_PRECEDENCE_FIRST = [
-  ".env.production.local",
-  ".env.local",
-  ".env.production",
-  ".env",
-];
 
-const loaded: string[] = [];
-for (const name of ENV_FILES_HIGHEST_PRECEDENCE_FIRST) {
-  const file = path.resolve(scriptDir, "..", name);
-  if (!existsSync(file)) continue;
-  config({ path: file, override: false });
-  loaded.push(name);
-}
-if (loaded.length > 0) {
-  console.log(
-    `[dotenv] fallback files, highest precedence first: ${loaded.join(", ")} (real environment variables still win)`
-  );
+const envFileIndex = process.argv.indexOf("--env-file");
+const onlyFile = envFileIndex !== -1 ? process.argv[envFileIndex + 1] : null;
+
+let env: Record<string, string | undefined>;
+
+if (onlyFile) {
+  const resolved = path.resolve(process.cwd(), onlyFile);
+  if (!existsSync(resolved)) {
+    console.error(`\n✖  ${resolved} not found.\n`);
+    process.exit(1);
+  }
+  env = parse(readFileSync(resolved, "utf8"));
+  console.log(`[env] reading ${onlyFile} only — the local cascade is ignored`);
 } else {
-  console.log("[dotenv] no env files found — validating the live environment only");
+  const ENV_FILES_HIGHEST_PRECEDENCE_FIRST = [
+    ".env.production.local",
+    ".env.local",
+    ".env.production",
+    ".env",
+  ];
+
+  const loaded: string[] = [];
+  for (const name of ENV_FILES_HIGHEST_PRECEDENCE_FIRST) {
+    const file = path.resolve(scriptDir, "..", name);
+    if (!existsSync(file)) continue;
+    config({ path: file, override: false });
+    loaded.push(name);
+  }
+  if (loaded.length > 0) {
+    console.log(
+      `[dotenv] fallback files, highest precedence first: ${loaded.join(", ")} (real environment variables still win)`
+    );
+  } else {
+    console.log("[dotenv] no env files found — validating the live environment only");
+  }
+  env = process.env;
 }
 
 const strict = process.argv.includes("--strict");
 
-const problems = verifyLaunchConfig(process.env);
+const problems = verifyLaunchConfig(env);
 const errors = problems.filter((p) => p.severity === "error");
 const warnings = problems.filter((p) => p.severity === "warning");
 
