@@ -136,6 +136,7 @@ describe("verifyLaunchConfig", () => {
       STRIPE_WEBHOOK_SECRET: "whsec_x",
       STRIPE_CHECKOUT_SUCCESS_URL: "https://verkli.com/account/billing",
       STRIPE_CHECKOUT_CANCEL_URL: "https://verkli.com/pricing",
+      REDIS_URL: "rediss://user:pass@eu1.upstash.io:6379",
       ELEVENLABS_API_KEY: "sk-eleven-test",
       ELEVENLABS_VOICE_ID: "voice-abc",
       ANTHROPIC_API_KEY: "sk-ant-test",
@@ -321,6 +322,24 @@ describe("verifyLaunchConfig", () => {
     expect(errors(env)).toEqual([]);
   });
 
+  it("rejects a localhost Stripe redirect — a paid customer would land nowhere", () => {
+    const env = goodEnv();
+    env.STRIPE_CHECKOUT_SUCCESS_URL = "http://localhost:3000/account/billing";
+    expect(errors(env).map((p) => p.key)).toContain("STRIPE_CHECKOUT_SUCCESS_URL");
+  });
+
+  it("rejects an http Stripe redirect", () => {
+    const env = goodEnv();
+    env.STRIPE_CHECKOUT_CANCEL_URL = "http://verkli.com/pricing";
+    expect(errors(env).map((p) => p.key)).toContain("STRIPE_CHECKOUT_CANCEL_URL");
+  });
+
+  it("allows a path on a Stripe redirect, unlike the site URL", () => {
+    const env = goodEnv();
+    env.STRIPE_CHECKOUT_SUCCESS_URL = "https://verkli.com/account/billing?x=1";
+    expect(errors(env)).toEqual([]);
+  });
+
   it("rejects an environment with no AI provider while AI chat is on", () => {
     // The flag on with neither key means the route serves canned template
     // replies. A feature switched on and quietly nonfunctional is worse than
@@ -347,6 +366,7 @@ describe("verifyLaunchConfig", () => {
     "STRIPE_WEBHOOK_SECRET",
     "STRIPE_CHECKOUT_SUCCESS_URL",
     "STRIPE_CHECKOUT_CANCEL_URL",
+    "REDIS_URL",
   ]) {
     it(`rejects a launch environment missing ${key}`, () => {
       const env = goodEnv();

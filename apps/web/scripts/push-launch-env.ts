@@ -47,6 +47,31 @@ const webDir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
  * which is itself worth revisiting (plan §8 asks test-or-live key), but it is
  * the current reality and this script does not get to change it silently.
  */
+/**
+ * Copied for their path, not their host.
+ *
+ * `.env.local` points these at localhost, which is correct there and would
+ * strand a paying customer in production. The path and query are the real
+ * information — which page a customer lands on after paying — so those are
+ * kept and the origin is swapped for the target's. Inventing paths here would
+ * be guessing at product decisions; rebasing preserves them.
+ */
+const REBASE_ONTO_SITE_URL = new Set([
+  "STRIPE_CHECKOUT_SUCCESS_URL",
+  "STRIPE_CHECKOUT_CANCEL_URL",
+  "STRIPE_CUSTOMER_PORTAL_RETURN_URL",
+]);
+
+function rebaseOntoSiteUrl(value: string): string {
+  try {
+    const original = new URL(value);
+    const rebased = new URL(original.pathname + original.search + original.hash, SITE_URL);
+    return rebased.toString();
+  } catch {
+    return value;
+  }
+}
+
 const COPY_FROM_LOCAL = [
   "NEXT_PUBLIC_SUPABASE_URL",
   "NEXT_PUBLIC_SUPABASE_ANON_KEY",
@@ -83,6 +108,18 @@ const COPY_FROM_LOCAL = [
 const REQUIRED_SPECS = LAUNCH_REQUIRED_PRESENT.filter(
   (spec) => !spec.anyOf.includes("NEXT_PUBLIC_SITE_URL")
 );
+
+/**
+ * Required by the matrix, deliberately NOT managed here.
+ *
+ * `.env.local` has `redis://localhost:6379`, and a local Redis is not a thing
+ * that can be copied to a deployment — the target needs its own instance
+ * (Upstash, Railway, whatever). Silently passing the requirement because the
+ * key exists locally would be the worst outcome: the check goes green while the
+ * target has no queue at all, and audiobook generation answers
+ * E_QUEUE_UNAVAILABLE after taking the payment claim.
+ */
+const NOT_MANAGED_HERE = new Set(["REDIS_URL"]);
 
 /**
  * Never read from `.env.local`. The site URL there is localhost, which
@@ -160,12 +197,18 @@ const toSet: Array<{ key: string; value: string; source: string }> = [];
 const missing: string[] = [];
 
 for (const key of COPY_FROM_LOCAL) {
-  const value = local[key]?.trim();
-  if (!value) {
+  const raw = local[key]?.trim();
+  if (!raw) {
     missing.push(key);
     continue;
   }
-  toSet.push({ key, value, source: ".env.local" });
+  const rebase = REBASE_ONTO_SITE_URL.has(key);
+  const value = rebase ? rebaseOntoSiteUrl(raw) : raw;
+  toSet.push({
+    key,
+    value,
+    source: rebase && value !== raw ? `.env.local, rebased onto ${SITE_URL}` : ".env.local",
+  });
 }
 
 toSet.push({ key: "NEXT_PUBLIC_SITE_URL", value: SITE_URL, source: "hardcoded" });
@@ -207,6 +250,10 @@ for (const spec of [...LAUNCH_FLAGS, ...LAUNCH_GATES]) {
   }
 }
 
+const unmanaged = REQUIRED_SPECS.filter((spec) =>
+  spec.anyOf.some((key) => NOT_MANAGED_HERE.has(key))
+);
+
 console.log(`\n══ Launch env → Vercel ${target} ${apply ? "(APPLYING)" : "(dry run)"} ══\n`);
 
 console.log(`Will set ${toSet.length} variables:\n`);
@@ -220,6 +267,18 @@ if (toClear.length > 0) {
   );
 }
 
+if (unmanaged.length > 0) {
+  console.log(`\nRequired in ${target}, but this script does not manage them:\n`);
+  for (const spec of unmanaged) {
+    console.log(`   ${spec.anyOf.join(" or ")}`);
+    console.log(`      ${spec.reason}\n`);
+  }
+  console.log(
+    `   Set them in the Vercel dashboard, then confirm with\n` +
+      `     npm run check:launch-config -- --strict --target ${target} --env-file <pulled file>`
+  );
+}
+
 if (gatesLeftAlone.length > 0) {
   console.log(`\nAccess gates — reported, NOT touched:\n`);
   for (const key of gatesLeftAlone) console.log(`   ${key}`);
@@ -230,10 +289,28 @@ if (gatesLeftAlone.length > 0) {
   );
 }
 
-// A spec is satisfied when any one of its alternatives is present.
-const unsatisfied = REQUIRED_SPECS.filter(
-  (spec) => !spec.anyOf.some((key) => local[key]?.trim())
-);
+// A spec is satisfied when any one of its alternatives is present AND passes
+// the matrix's own validator. Presence alone is not enough: `.env.local`
+// documents localhost values for the Stripe redirects, and copying those to
+// production would send a customer who just paid to a machine that is not on
+// the internet. Catching it here means the bad value never reaches Vercel,
+// rather than being caught by the checker after it is already written.
+const unsatisfied: Array<{ anyOf: readonly string[]; reason: string }> = [];
+
+for (const spec of REQUIRED_SPECS) {
+  if (spec.anyOf.some((key) => NOT_MANAGED_HERE.has(key))) continue;
+  const found = spec.anyOf.find((key) => local[key]?.trim());
+  if (!found) {
+    unsatisfied.push(spec);
+    continue;
+  }
+  const raw = local[found]!.trim();
+  const effective = REBASE_ONTO_SITE_URL.has(found) ? rebaseOntoSiteUrl(raw) : raw;
+  const problem = spec.validate?.(effective, target);
+  if (problem) {
+    unsatisfied.push({ anyOf: [found], reason: problem });
+  }
+}
 const blockingKeys = new Set(unsatisfied.flatMap((spec) => spec.anyOf));
 const optional = missing.filter((k) => !blockingKeys.has(k));
 

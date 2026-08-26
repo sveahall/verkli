@@ -105,7 +105,17 @@ if (onlyFile) {
 const strict = process.argv.includes("--strict");
 
 const targetIndex = process.argv.indexOf("--target");
-const target: VerifyTarget = process.argv[targetIndex + 1] === "preview" ? "preview" : "production";
+const rawTarget = targetIndex !== -1 ? process.argv[targetIndex + 1] : "production";
+
+// Defaulting a misspelled target to production is how a preview environment
+// gets certified against production rules, or worse, the reverse.
+if (rawTarget !== "production" && rawTarget !== "preview") {
+  console.error(
+    `\n✖  --target must be "production" or "preview", got ${JSON.stringify(rawTarget ?? "")}\n`
+  );
+  process.exit(1);
+}
+const target: VerifyTarget = rawTarget;
 
 const problems = verifyLaunchConfig(env, target);
 const errors = problems.filter((p) => p.severity === "error");

@@ -250,6 +250,38 @@ export function validateSiteUrl(
   return null;
 }
 
+/**
+ * A redirect target Stripe will send a real customer to.
+ *
+ * Unlike the site URL these carry a path, so the rules are narrower: it must be
+ * a reachable https origin. `.env.local` documents localhost values, and this
+ * package copies these variables from there — without this, `--apply --target
+ * production` would send a customer who just paid to a machine that is not on
+ * the internet.
+ */
+export function validateRedirectUrl(
+  value: string,
+  target: VerifyTarget = "production"
+): string | null {
+  let url: URL;
+  try {
+    url = new URL(value.trim());
+  } catch {
+    return `is ${JSON.stringify(value)}, which is not a parseable URL.`;
+  }
+  if (url.protocol !== "https:") {
+    return `is ${JSON.stringify(value)}; a redirect Stripe sends a customer to must be https.`;
+  }
+  const host = url.hostname.toLowerCase();
+  if (host === "localhost" || host === "127.0.0.1" || host.endsWith(".local")) {
+    return `is ${JSON.stringify(value)}, a local host. A customer completing payment would be redirected to a machine that is not on the internet.`;
+  }
+  if (target === "production" && host.endsWith(".vercel.app")) {
+    return `is a *.vercel.app alias, which is tied to one deployment and 404s once superseded.`;
+  }
+  return null;
+}
+
 export const LAUNCH_REQUIRED_PRESENT: readonly LaunchRequiredSpec[] = [
   {
     anyOf: ["NEXT_PUBLIC_SITE_URL"],
@@ -299,11 +331,18 @@ export const LAUNCH_REQUIRED_PRESENT: readonly LaunchRequiredSpec[] = [
     anyOf: ["STRIPE_CHECKOUT_SUCCESS_URL"],
     reason:
       "api/billing/checkout throws without it, so subscription checkout 500s. Not covered by assertServerEnv.",
+    validate: validateRedirectUrl,
   },
   {
     anyOf: ["STRIPE_CHECKOUT_CANCEL_URL"],
     reason:
       "Same route, same throw. A reader who backs out of checkout has nowhere to land.",
+    validate: validateRedirectUrl,
+  },
+  {
+    anyOf: ["REDIS_URL"],
+    reason:
+      "AUDIOBOOK_ENABLED is on at launch, and queues/factory.ts refuses to enqueue without Redis — the generation route then answers E_QUEUE_UNAVAILABLE after the payment claim. Rate limiting also silently degrades to per-instance memory without it.",
   },
   {
     anyOf: ["ELEVENLABS_API_KEY"],
