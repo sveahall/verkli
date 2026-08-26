@@ -126,8 +126,17 @@ describe("verifyLaunchConfig", () => {
       NEXT_PUBLIC_DISCOVERY_ENABLED: "true",
       NEXT_PUBLIC_AI_CHAT_ENABLED: "true",
       NEXT_PUBLIC_SITE_URL: "https://verkli.com",
+      NEXT_PUBLIC_SUPABASE_URL: "https://p.supabase.co",
+      NEXT_PUBLIC_SUPABASE_ANON_KEY: "anon-key",
+      SUPABASE_URL: "https://p.supabase.co",
+      SUPABASE_SERVICE_ROLE_KEY: "service-key",
+      RESEND_API_KEY: "re_test",
+      RESEND_FROM_EMAIL: "no-reply@verkli.com",
+      STRIPE_SECRET_KEY: "sk_test_x",
+      STRIPE_WEBHOOK_SECRET: "whsec_x",
       ELEVENLABS_API_KEY: "sk-eleven-test",
       ELEVENLABS_VOICE_ID: "voice-abc",
+      ANTHROPIC_API_KEY: "sk-ant-test",
     };
   }
 
@@ -308,6 +317,59 @@ describe("verifyLaunchConfig", () => {
     delete env.ELEVENLABS_VOICE_ID;
     env.TTS_VOICE_ID = "voice-xyz";
     expect(errors(env)).toEqual([]);
+  });
+
+  it("rejects an environment with no AI provider while AI chat is on", () => {
+    // The flag on with neither key means the route serves canned template
+    // replies. A feature switched on and quietly nonfunctional is worse than
+    // one switched off, and a green check would certify exactly that.
+    const env = goodEnv();
+    delete env.ANTHROPIC_API_KEY;
+    expect(errors(env).map((p) => p.key)).toContain(
+      "ANTHROPIC_API_KEY or NVIDIA_NIM_API_KEY"
+    );
+  });
+
+  it("accepts NVIDIA NIM alone as the AI provider", () => {
+    const env = goodEnv();
+    delete env.ANTHROPIC_API_KEY;
+    env.NVIDIA_NIM_API_KEY = "nim-test";
+    expect(errors(env)).toEqual([]);
+  });
+
+  for (const key of [
+    "SUPABASE_SERVICE_ROLE_KEY",
+    "RESEND_API_KEY",
+    "RESEND_FROM_EMAIL",
+    "STRIPE_SECRET_KEY",
+    "STRIPE_WEBHOOK_SECRET",
+  ]) {
+    it(`rejects a launch environment missing ${key}`, () => {
+      const env = goodEnv();
+      delete env[key];
+      expect(errors(env).map((p) => p.key)).toContain(key);
+    });
+  }
+
+  it('treats BETA_LOCK="1" as off, because middleware compares the literal "true"', () => {
+    const env = goodEnv();
+    env.BETA_LOCK = "1";
+    // parseBool would say true; middleware would not. Rejecting this would
+    // block a deployment whose gate is actually open.
+    expect(errors(env)).toEqual([]);
+  });
+
+  it('warns on BETA_LOCK="1" so the misleading value still gets noticed', () => {
+    const env = goodEnv();
+    env.BETA_LOCK = "1";
+    const warnings = verifyLaunchConfig(env).filter((p) => p.severity === "warning");
+    expect(warnings.map((w) => w.key)).toContain("BETA_LOCK");
+  });
+
+  it('still rejects a literal "true" on an access gate', () => {
+    const env = goodEnv();
+    env.BETA_LOCK = "true";
+    expect(errors(env).map((p) => p.key)).toContain("BETA_LOCK");
   });
 
   it("has no undecided flags left — every value is a recorded decision", () => {

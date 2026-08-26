@@ -38,6 +38,13 @@ export type LaunchFlagSpec = {
   /** Why — cite the decision, not the behaviour. */
   reason: string;
   /**
+   * True when `middleware.ts` compares this variable against the literal
+   * string "true" rather than running it through `parseBool`. For those, "1"
+   * and "TRUE" are runtime-OFF, and reporting them as on would reject a
+   * deployment that behaves correctly.
+   */
+  exactMatch?: boolean;
+  /**
    * True when the value below is this package's recommendation rather than a
    * decision the launch plan actually made. The verifier warns on these so
    * they get confirmed instead of silently inherited.
@@ -159,12 +166,14 @@ export const LAUNCH_FLAGS: readonly LaunchFlagSpec[] = [
 export const LAUNCH_GATES: readonly LaunchFlagSpec[] = [
   {
     key: "NEXT_PUBLIC_WAITLIST_ONLY",
+    exactMatch: true,
     value: "false",
     reason:
       "WP-05 acceptance criterion. While true, middleware.ts redirects every path to /waitlist.",
   },
   {
     key: "BETA_LOCK",
+    exactMatch: true,
     value: "false",
     reason:
       "WP-05 acceptance criterion. While true, only /waitlist and /auth are reachable for non-beta users.",
@@ -248,6 +257,44 @@ export const LAUNCH_REQUIRED_PRESENT: readonly LaunchRequiredSpec[] = [
       "WP-05 acceptance criterion. Absolute URLs in receipts, Stripe redirects, and OG tags derive from it.",
     validate: validateSiteUrl,
   },
+  // `lib/env.ts` throws on these at runtime, but a throw at runtime is a
+  // launch-day outage. The point of this checker is to find them while the fix
+  // is still a config edit.
+  {
+    anyOf: ["NEXT_PUBLIC_SUPABASE_URL"],
+    reason: "Every page and route reads the database through it.",
+  },
+  {
+    anyOf: ["NEXT_PUBLIC_SUPABASE_ANON_KEY"],
+    reason: "The browser client cannot authenticate a reader without it.",
+  },
+  {
+    anyOf: ["SUPABASE_URL", "NEXT_PUBLIC_SUPABASE_URL"],
+    reason: "Server-side admin client; assertServerEnv accepts either form.",
+  },
+  {
+    anyOf: ["SUPABASE_SERVICE_ROLE_KEY"],
+    reason:
+      "Webhooks, workers and the author stats routes all read through the service role. assertServerEnv throws without it.",
+  },
+  {
+    anyOf: ["RESEND_API_KEY"],
+    reason: "Purchase receipts and support mail. assertServerEnv throws without it.",
+  },
+  {
+    anyOf: ["RESEND_FROM_EMAIL"],
+    reason: "Receipts have no sender without it. assertServerEnv throws.",
+  },
+  {
+    anyOf: ["STRIPE_SECRET_KEY"],
+    reason:
+      "Launch criterion 1 is a real purchase end to end; checkout cannot be created without it.",
+  },
+  {
+    anyOf: ["STRIPE_WEBHOOK_SECRET"],
+    reason:
+      "Without it the webhook cannot verify signatures, so a completed payment never settles into an order.",
+  },
   {
     anyOf: ["ELEVENLABS_API_KEY"],
     reason:
@@ -257,6 +304,11 @@ export const LAUNCH_REQUIRED_PRESENT: readonly LaunchRequiredSpec[] = [
     anyOf: ["ELEVENLABS_VOICE_ID", "TTS_VOICE_ID"],
     reason:
       "AUDIOBOOK_ENABLED is on at launch. A key without a voice id still refuses with AUDIOBOOK_VOICE_UNCONFIGURED at checkout, generation, and preview.",
+  },
+  {
+    anyOf: ["ANTHROPIC_API_KEY", "NVIDIA_NIM_API_KEY"],
+    reason:
+      "AI_CHAT_ENABLED is on at launch. With neither provider key the route falls back to canned template replies and says so in the panel — a feature switched on and quietly nonfunctional, which is worse than switching it off.",
   },
 ] as const;
 
@@ -315,11 +367,28 @@ export function verifyLaunchConfig(
     }
 
     // Must be off. Unset is the documented default and therefore fine.
-    if (parseBool(raw)) {
+    //
+    // The access gates are judged by middleware's own rule — an exact match on
+    // "true" — not by parseBool. `BETA_LOCK=1` leaves the gate open at runtime,
+    // so calling it an error would reject a working deployment. It is still
+    // worth saying out loud, because a reader of that config would reasonably
+    // assume the opposite, so it warns.
+    const isOn = spec.exactMatch ? raw === "true" : parseBool(raw);
+
+    if (isOn) {
       problems.push({
         key: spec.key,
         severity: "error",
         message: `is ${JSON.stringify(raw)}, must be off for launch. ${spec.reason}`,
+      });
+      continue;
+    }
+
+    if (spec.exactMatch && isSet && raw !== "false") {
+      problems.push({
+        key: spec.key,
+        severity: "warning",
+        message: `is ${JSON.stringify(raw)}. middleware.ts compares against the literal "true", so the gate is OFF — but the value reads as if it were on. Set it to "false" or remove it.`,
       });
       continue;
     }
