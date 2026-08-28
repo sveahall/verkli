@@ -134,7 +134,7 @@ export default function StatisticsPanel({
                 label="Revenue"
                 value={
                   data.overview.revenue > 0
-                    ? `${data.overview.revenue.toLocaleString("sv-SE")} kr`
+                    ? `${data.overview.revenue.toLocaleString("sv-SE")} ${data.overview.currency ?? "SEK"}`
                     : "—"
                 }
               />

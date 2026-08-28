@@ -1,7 +1,14 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { requireAuthorRoleForApi } from "@/lib/auth/require-author";
+import {
+  classifyStatsEvent,
+  fetchAllRows,
+  resolveAuthorBooks,
+  SETTLED_PAYMENT_STATUS,
+} from "@/lib/author/stats-scope";
 import {
   apiError,
   E_DATABASE_ERROR,
@@ -23,45 +30,56 @@ export async function GET(request: Request) {
   });
   const period = parsed.success ? parsed.data.period : "30d";
 
-  const { data: books, error: booksError } = await supabase
-    .from("books")
-    .select("id, title")
-    .eq("author_id", user.id);
-
-  if (booksError) {
+  // Ownership comes from the session client, so RLS decides which books are
+  // this author's. Everything below is scoped to that answer.
+  const owned = await resolveAuthorBooks(supabase, user.id);
+  if (!owned.ok) {
     console.error("[author/stats/books] books load failed", {
       userId: user.id,
-      message: booksError.message,
+      message: owned.message,
     });
     return apiError(E_DATABASE_ERROR, 500);
   }
 
-  if (!books || books.length === 0) {
+  if (owned.books.length === 0) {
     return NextResponse.json({ books: [] });
   }
 
-  const bookIds = books.map((b) => b.id as string);
+  const { books, bookIds } = owned;
 
-  let eventsQuery = supabase
-    .from("analytics_events")
-    .select("event_name, path");
+  // analytics_events has an INSERT policy and no SELECT policy, so the author
+  // session reads nothing. Service role is the only way to see these counts —
+  // which makes the book_id filter load-bearing rather than an optimisation.
+  const admin = createAdminClient();
 
-  if (period === "7d") {
-    const since = new Date();
-    since.setDate(since.getDate() - 7);
-    eventsQuery = eventsQuery.gte("created_at", since.toISOString());
-  } else if (period === "30d") {
-    const since = new Date();
-    since.setDate(since.getDate() - 30);
-    eventsQuery = eventsQuery.gte("created_at", since.toISOString());
-  }
+  const since =
+    period === "7d" || period === "30d"
+      ? (() => {
+          const d = new Date();
+          d.setDate(d.getDate() - (period === "7d" ? 7 : 30));
+          return d;
+        })()
+      : null;
 
-  const { data: events, error: eventsError } = await eventsQuery;
+  // Paged: a plain select stops at PostgREST's max_rows = 1000 with no error,
+  // which turns per-book totals into per-book "first thousand events".
+  const { rows: events, error: eventsError } = await fetchAllRows<{
+    event_type?: string | null;
+    event_name?: string | null;
+    book_id: string | null;
+  }>((from, to) => {
+    let q = admin
+      .from("analytics_events")
+      .select("event_type, event_name, book_id")
+      .in("book_id", bookIds);
+    if (since) q = q.gte("created_at", since.toISOString());
+    return q.order("id", { ascending: true }).range(from, to);
+  });
 
   if (eventsError) {
     console.error("[author/stats/books] analytics load failed", {
       userId: user.id,
-      message: eventsError.message,
+      message: eventsError,
     });
     return apiError(E_DATABASE_ERROR, 500);
   }
@@ -72,28 +90,49 @@ export async function GET(request: Request) {
     statsMap.set(id, { views: 0, reads: 0, purchases: 0 });
   }
 
-  for (const event of events ?? []) {
-    const path = (event.path as string) ?? "";
-    const name = ((event.event_name as string) ?? "").toLowerCase();
+  for (const event of events) {
+    // book_id is the canonical link, so no substring matching against path —
+    // `start_reading` writes /reader/read/<chapterId>, which never contains the
+    // book id and would silently drop every read.
+    const bookId = (event.book_id as string | null) ?? "";
+    const entry = statsMap.get(bookId);
+    if (!entry) continue;
 
-    for (const bookId of bookIds) {
-      if (!path.includes(bookId)) continue;
-      const entry = statsMap.get(bookId)!;
-      if (name.includes("read") || name.includes("chapter_read")) {
-        entry.reads++;
-      } else if (name.includes("purchase") || name.includes("checkout")) {
-        entry.purchases++;
-      } else {
-        entry.views++;
-      }
-    }
+    const kind = classifyStatsEvent(event as { event_type?: string | null; event_name?: string | null });
+    if (kind === "view") entry.views++;
+    else if (kind === "read") entry.reads++;
+  }
+
+  // Purchases come from settled orders, not analytics_events: that table's RLS
+  // insert policy lets any client forge a purchase for any book.
+  let ordersQuery = admin
+    .from("orders")
+    .select("book_id")
+    .in("book_id", bookIds)
+    .eq("status", SETTLED_PAYMENT_STATUS);
+  if (since) ordersQuery = ordersQuery.gte("created_at", since.toISOString());
+
+  const { rows: paidOrders, error: ordersError } = await fetchAllRows<{
+    book_id: string | null;
+  }>((from, to) => ordersQuery.order("id", { ascending: true }).range(from, to));
+
+  if (ordersError) {
+    console.error("[author/stats/books] orders load failed", {
+      userId: user.id,
+      message: ordersError,
+    });
+  }
+
+  for (const order of paidOrders) {
+    const entry = statsMap.get((order.book_id as string | null) ?? "");
+    if (entry) entry.purchases++;
   }
 
   const result = books
     .map((book) => ({
       id: book.id,
-      title: book.title as string,
-      ...(statsMap.get(book.id as string) ?? { views: 0, reads: 0, purchases: 0 }),
+      title: book.title,
+      ...(statsMap.get(book.id) ?? { views: 0, reads: 0, purchases: 0 }),
     }))
     .sort((a, b) => b.views - a.views);
 
