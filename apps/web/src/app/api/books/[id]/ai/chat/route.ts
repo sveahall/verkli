@@ -71,14 +71,17 @@ export async function POST(
   const supabase = await createClient();
   const { data: book, error: bookError } = await supabase
     .from("books")
-    .select("id, user_id, title")
+    // `author_id`, not `user_id` — books has no such column, so this select
+    // errored and every request answered BOOK_NOT_FOUND. The route had never
+    // worked for anyone; an E2E account signing in as an author found it.
+    .select("id, author_id, title")
     .eq("id", bookId)
     .maybeSingle();
 
   if (bookError || !book) {
     return apiError(E_BOOK_NOT_FOUND, 404);
   }
-  if (book.user_id !== user.id) {
+  if (book.author_id !== user.id) {
     return apiError(E_FORBIDDEN, 403);
   }
 

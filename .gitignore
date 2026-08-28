@@ -96,3 +96,6 @@ ds-bundle/
 .design-sync/learnings/
 .design-sync/node_modules
 apps/web/.ds-css/
+
+# Playwright session state — contains a real login token.
+apps/web/e2e/.auth/
