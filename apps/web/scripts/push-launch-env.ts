@@ -86,9 +86,15 @@ const COPY_FROM_LOCAL = [
   "STRIPE_CUSTOMER_PORTAL_RETURN_URL",
   "ELEVENLABS_API_KEY",
   "ELEVENLABS_VOICE_ID",
+  "ELEVENLABS_MODEL_ID",
+  "ELEVENLABS_OUTPUT_FORMAT",
   "TTS_VOICE_ID",
   "ANTHROPIC_API_KEY",
+  // NIM powers the writing-assistant fallback. Cover generation moved to
+  // fal.ai after NVIDIA's image endpoints stopped answering for this account.
   "NVIDIA_NIM_API_KEY",
+  "FAL_KEY",
+  "HF_CREDENTIALS",
   "PRICE_PLUS",
   "PRICE_PRO",
 ] as const;

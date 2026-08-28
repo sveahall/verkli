@@ -1,6 +1,6 @@
 import { createAdminClient } from "@/lib/supabase/admin";
 import { generateImageToVideo } from "@/lib/higgsfield";
-import { generateCoverImages } from "@/lib/nvidia-sd3";
+import { generateCoverImages } from "@/lib/fal-image";
 import { validateProviderImageUrl } from "@/lib/security/url-allowlist";
 import type { ContentGenerationRequest, BookSnapshot, TextContent } from "./schemas";
 import { validateTextContent } from "./schemas";
@@ -194,7 +194,7 @@ async function generateImage(
     promptTemplate: null,
     promptRendered: prompt,
     metadata: {
-      provider: "nvidia-sd3",
+      provider: "fal-ai/flux-schnell",
       requestId: result.requestId,
       imageCount: result.imageUrls.length,
     },

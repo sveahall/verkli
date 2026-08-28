@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { readFileSync } from "node:fs";
+import { readFileSync, readdirSync } from "node:fs";
 import path from "node:path";
 import {
   ALL_LAUNCH_SPECS,
@@ -32,6 +32,61 @@ function declaredTwins(): Set<string> {
     ALL_LAUNCH_SPECS.map((s) => s.serverTwin).filter((k): k is string => Boolean(k))
   );
 }
+
+/**
+ * Drift guard for the push script's copy list.
+ *
+ * That list is hand-maintained, and a hand-maintained list of secrets is a list
+ * that silently goes stale. It did: `lib/nvidia-sd3.ts` reads
+ * NVIDIA_SD3_API_KEY while only NVIDIA_NIM_API_KEY was being copied, so cover
+ * generation failed in the deployed preview with a generic "Could not generate
+ * cover options" — no missing-variable error anywhere, because the code treats
+ * an absent key as a provider failure.
+ *
+ * This fails when the app reads a credential-shaped variable that the push
+ * script neither copies nor explicitly declines to manage.
+ */
+describe("every credential the code reads is classified", () => {
+  const CREDENTIAL_PREFIXES = /^(ELEVENLABS|NVIDIA|ANTHROPIC|HF|STRIPE|RESEND|SUPABASE|OPENAI)_/;
+
+  /** Read by the code but deliberately not pushed, with the reason. */
+  const NOT_PUSHED: Record<string, string> = {
+    ELEVENLABS_API_TIMEOUT_MS: "tuning knob with a code default",
+    STRIPE_CONNECT_DEFAULT_COUNTRY: "Stripe Connect is cut from September (plan §3)",
+    STRIPE_CUSTOMER_PORTAL_RETURN_BASE: "superseded by STRIPE_CUSTOMER_PORTAL_RETURN_URL",
+    SUPABASE_JWT_SECRET: "not read by the deployed app",
+  };
+
+  it("is either copied by push-launch-env or listed as deliberately skipped", () => {
+    const srcDir = path.join(__dirname, "..");
+    const script = readFileSync(
+      path.join(__dirname, "../../scripts/push-launch-env.ts"),
+      "utf8"
+    );
+
+    const found = new Set<string>();
+    const walk = (dir: string) => {
+      for (const entry of readdirSync(dir, { withFileTypes: true })) {
+        if (entry.name === "node_modules" || entry.name.startsWith(".")) continue;
+        const full = path.join(dir, entry.name);
+        if (entry.isDirectory()) { walk(full); continue; }
+        if (!/\.tsx?$/.test(entry.name) || entry.name.includes(".test.")) continue;
+        for (const m of readFileSync(full, "utf8").matchAll(/process\.env\.([A-Z][A-Z0-9_]{2,})/g)) {
+          if (CREDENTIAL_PREFIXES.test(m[1])) found.add(m[1]);
+        }
+      }
+    };
+    walk(srcDir);
+
+    const unclassified = [...found]
+      .filter((key) => !key.startsWith("NEXT_PUBLIC_"))
+      .filter((key) => !script.includes(`"${key}"`))
+      .filter((key) => !(key in NOT_PUSHED))
+      .sort();
+
+    expect(unclassified).toEqual([]);
+  });
+});
 
 describe("launch flag matrix", () => {
   const specKeys = new Set(ALL_LAUNCH_SPECS.map((s) => s.key));
@@ -137,6 +192,7 @@ describe("verifyLaunchConfig", () => {
       STRIPE_CHECKOUT_SUCCESS_URL: "https://verkli.com/account/billing",
       STRIPE_CHECKOUT_CANCEL_URL: "https://verkli.com/pricing",
       REDIS_URL: "rediss://user:pass@eu1.upstash.io:6379",
+      FAL_KEY: "fal-test-key",
       ELEVENLABS_API_KEY: "sk-eleven-test",
       ELEVENLABS_VOICE_ID: "voice-abc",
       ANTHROPIC_API_KEY: "sk-ant-test",
@@ -367,6 +423,7 @@ describe("verifyLaunchConfig", () => {
     "STRIPE_CHECKOUT_SUCCESS_URL",
     "STRIPE_CHECKOUT_CANCEL_URL",
     "REDIS_URL",
+    "FAL_KEY",
   ]) {
     it(`rejects a launch environment missing ${key}`, () => {
       const env = goodEnv();

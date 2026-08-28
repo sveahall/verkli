@@ -3,7 +3,7 @@ import { z } from "zod";
 import { requireAuthorRoleForApi } from "@/lib/auth/require-author";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
-import { generateCoverImages } from "@/lib/nvidia-sd3";
+import { generateCoverImages } from "@/lib/fal-image";
 import { createPerUserRateLimiter } from "@/lib/rate-limit";
 import { isDemoFacadeEnabled } from "@/lib/flags";
 import {
@@ -21,7 +21,11 @@ import {
 } from "@/lib/api-errors";
 
 export const runtime = "nodejs";
-export const maxDuration = 180;
+// Vercel caps functions well below 180s on the current plan, so declaring 180
+// meant a provider hang was killed by the platform instead of returning our
+// own error. fal-image.ts times out at 40s; this leaves room for the storage
+// uploads that follow.
+export const maxDuration = 60;
 
 const coverLimiter = createPerUserRateLimiter({ maxPerMinute: 3 });
 
@@ -192,12 +196,12 @@ export async function POST(
       const message = error instanceof Error ? error.message : String(error);
       if (attempt === 0) {
         console.warn(
-          `[cover generate] NVIDIA SD3 attempt 1 failed (${message}); retrying once.`
+          `[cover generate] fal.ai attempt 1 failed (${message}); retrying once.`
         );
         continue;
       }
       console.error(
-        `[cover generate] NVIDIA SD3 generation failed after retry: ${message}`
+        `[cover generate] fal.ai generation failed after retry: ${message}`
       );
     }
   }

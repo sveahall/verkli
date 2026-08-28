@@ -20,7 +20,7 @@ vi.mock("@/lib/supabase/admin", () => ({
   createAdminClient: mocks.createAdminClient,
 }));
 
-vi.mock("@/lib/nvidia-sd3", () => ({
+vi.mock("@/lib/fal-image", () => ({
   generateCoverImages: (...args: unknown[]) => mocks.generateCoverImages(...args),
 }));
 
@@ -87,8 +87,13 @@ describe("POST /api/books/[id]/cover/generate", () => {
     });
   });
 
-  it("enforces maxDuration 180s", () => {
-    expect(maxDuration).toBe(180);
+  it("keeps maxDuration within the platform's function limit", () => {
+    // This was 180 while the plan caps functions at 60, so a hanging provider
+    // was killed by Vercel instead of returning our error — the author saw a
+    // spinner that never resolved. It must stay at or below the platform limit
+    // and above fal-image.ts's own 40s timeout, so our error wins the race.
+    expect(maxDuration).toBeLessThanOrEqual(60);
+    expect(maxDuration).toBeGreaterThan(40);
   });
 
   it("returns 400 for invalid JSON", async () => {
@@ -191,7 +196,7 @@ describe("POST /api/books/[id]/cover/generate", () => {
 
   it("returns 502 when NVIDIA SD3 generation fails", async () => {
     mockBookLookup({ found: true });
-    mocks.generateCoverImages.mockRejectedValue(new Error("NVIDIA SD3 timeout"));
+    mocks.generateCoverImages.mockRejectedValue(new Error("fal.ai timeout"));
 
     const response = await POST(
       makeRequest({
