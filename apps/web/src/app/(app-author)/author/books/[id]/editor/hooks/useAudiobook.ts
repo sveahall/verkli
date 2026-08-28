@@ -446,6 +446,9 @@ export function useAudiobook({
     effectiveAudiobookError,
     latestAudiobookManifestUrl,
     fallbackGeneratedAudiobookUrl,
+    // Re-signs the storage URL. The player calls this when playback dies on an
+    // expired signature; see AudiobookPreviewPlayer.
+    refreshAudioUrl: refetchBookJob,
     audiobookFeatureEnabled,
     audiobookStatusUi,
     shouldShowGeneratedAudiobookPlayer,

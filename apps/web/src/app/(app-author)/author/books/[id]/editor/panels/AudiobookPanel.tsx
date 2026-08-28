@@ -66,6 +66,7 @@ interface AudiobookPanelProps {
   handleAudiobookCheckout: () => Promise<void>;
   shouldShowGeneratedAudiobookPlayer: boolean;
   fallbackGeneratedAudiobookUrl: string | null;
+  refreshAudioUrl?: () => Promise<void>;
   latestAudiobookManifestUrl: string | null;
 }
 
@@ -108,6 +109,7 @@ export default function AudiobookPanel({
   handleAudiobookCheckout,
   shouldShowGeneratedAudiobookPlayer,
   fallbackGeneratedAudiobookUrl,
+  refreshAudioUrl,
   latestAudiobookManifestUrl,
 }: AudiobookPanelProps) {
   return (
@@ -137,6 +139,7 @@ export default function AudiobookPanel({
       <AudiobookPreviewPlayer
         audioUrl={shouldShowGeneratedAudiobookPlayer ? fallbackGeneratedAudiobookUrl : null}
         bookId={bookId}
+        onRefreshAudioUrl={refreshAudioUrl}
       />
 
       {/* Two cards side by side */}

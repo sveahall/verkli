@@ -217,6 +217,7 @@ export default function BookEditorPanelContent({
             handleAudiobookCheckout={audiobook.handleAudiobookCheckout}
             shouldShowGeneratedAudiobookPlayer={audiobook.shouldShowGeneratedAudiobookPlayer}
             fallbackGeneratedAudiobookUrl={audiobook.fallbackGeneratedAudiobookUrl}
+            refreshAudioUrl={audiobook.refreshAudioUrl}
             latestAudiobookManifestUrl={audiobook.latestAudiobookManifestUrl}
           />
         )}

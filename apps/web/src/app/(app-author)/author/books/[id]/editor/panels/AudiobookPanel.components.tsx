@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useCallback, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { LANGUAGE_OPTIONS, normalizeLanguage } from "@/lib/languages";
 import { formatPlayerTime } from "../BookEditorView.helpers";
@@ -10,9 +10,19 @@ import { formatPlayerTime } from "../BookEditorView.helpers";
 interface AudiobookPreviewPlayerProps {
   audioUrl: string | null;
   bookId: string;
+  /**
+   * Re-signs `audioUrl`. Storage URLs are signed for 15 minutes, so a page
+   * left open outlives them: the browser buffers a second or two while the
+   * signature is alive, then the next range request comes back 400 InvalidJWT
+   * and playback dies mid-sentence. Calling this mints a fresh URL.
+   */
+  onRefreshAudioUrl?: () => Promise<void>;
 }
 
-export function AudiobookPreviewPlayer({ audioUrl, bookId }: AudiobookPreviewPlayerProps) {
+/** Give up after this many re-signs per playback, so a genuinely dead URL cannot loop. */
+const MAX_REFRESH_ATTEMPTS = 2;
+
+export function AudiobookPreviewPlayer({ audioUrl, bookId, onRefreshAudioUrl }: AudiobookPreviewPlayerProps) {
   const audioRef = useRef<HTMLAudioElement>(null);
   const [playing, setPlaying] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
@@ -21,8 +31,50 @@ export function AudiobookPreviewPlayer({ audioUrl, bookId }: AudiobookPreviewPla
   const [previewLoading, setPreviewLoading] = useState(false);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [previewError, setPreviewError] = useState<string | null>(null);
+  const [playbackError, setPlaybackError] = useState<string | null>(null);
+
+  /** Where to seek back to once a re-signed URL has loaded. */
+  const resumeAtRef = useRef<number | null>(null);
+  const refreshAttemptsRef = useRef(0);
+  const refreshingRef = useRef(false);
 
   const effectiveAudioUrl = previewUrl ?? audioUrl;
+
+  /**
+   * The media element failed. The overwhelmingly likely cause is an expired
+   * signature rather than a broken file, so re-sign once and pick up where the
+   * listener was. Preview audio is a blob URL and never expires, so it is
+   * excluded — refreshing there would replace a working preview with the
+   * generated audiobook.
+   */
+  const handleAudioFailure = useCallback(async () => {
+    const el = audioRef.current;
+    if (!el || previewUrl || !onRefreshAudioUrl) {
+      setPlaying(false);
+      setPlaybackError("Playback failed. Reload the page and try again.");
+      return;
+    }
+    if (refreshingRef.current) return;
+    if (refreshAttemptsRef.current >= MAX_REFRESH_ATTEMPTS) {
+      setPlaying(false);
+      setPlaybackError("Could not load the audio. Reload the page and try again.");
+      return;
+    }
+
+    refreshingRef.current = true;
+    refreshAttemptsRef.current += 1;
+    // currentTime survives the error; the reload below restores it.
+    resumeAtRef.current = el.currentTime;
+
+    try {
+      await onRefreshAudioUrl();
+    } catch {
+      setPlaying(false);
+      setPlaybackError("Could not refresh the audio link. Reload the page.");
+    } finally {
+      refreshingRef.current = false;
+    }
+  }, [onRefreshAudioUrl, previewUrl]);
 
   const handleGeneratePreview = async () => {
     setPreviewLoading(true);
@@ -62,11 +114,26 @@ export function AudiobookPreviewPlayer({ audioUrl, bookId }: AudiobookPreviewPla
           ref={audioRef}
           src={effectiveAudioUrl}
           onTimeUpdate={() => {
-            if (audioRef.current) setCurrentTime(audioRef.current.currentTime);
+            if (!audioRef.current) return;
+            setCurrentTime(audioRef.current.currentTime);
+            // Audio is flowing again, so allow the full retry budget next time.
+            refreshAttemptsRef.current = 0;
           }}
           onLoadedMetadata={() => {
-            if (audioRef.current) setDuration(audioRef.current.duration);
+            const el = audioRef.current;
+            if (!el) return;
+            setDuration(el.duration);
+
+            // A re-signed URL just loaded: return to where playback died.
+            const resumeAt = resumeAtRef.current;
+            if (resumeAt !== null) {
+              resumeAtRef.current = null;
+              setPlaybackError(null);
+              if (Number.isFinite(resumeAt) && resumeAt > 0) el.currentTime = resumeAt;
+              void el.play().catch(() => setPlaying(false));
+            }
           }}
+          onError={() => void handleAudioFailure()}
           onEnded={() => setPlaying(false)}
         />
       )}
@@ -184,6 +251,9 @@ export function AudiobookPreviewPlayer({ audioUrl, bookId }: AudiobookPreviewPla
           <p className="mt-2 text-[11px] text-slate-400 dark:text-white/30">
             Generates a short sample from your first chapter
           </p>
+          {playbackError && (
+            <p className="mt-2 text-[12px] text-red-500">{playbackError}</p>
+          )}
           {previewError && (
             <p className="mt-2 text-[12px] text-red-500">{previewError}</p>
           )}
