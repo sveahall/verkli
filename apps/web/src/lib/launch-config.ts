@@ -342,7 +342,7 @@ export const LAUNCH_REQUIRED_PRESENT: readonly LaunchRequiredSpec[] = [
   {
     anyOf: ["REDIS_URL"],
     reason:
-      "AUDIOBOOK_ENABLED is on at launch, and queues/factory.ts refuses to enqueue without Redis — the generation route then answers E_QUEUE_UNAVAILABLE after the payment claim. Rate limiting also silently degrades to per-instance memory without it.",
+      "AUDIOBOOK_ENABLED is on at launch and queues/factory.ts refuses to enqueue without Redis, so the generation route answers E_QUEUE_UNAVAILABLE after the payment claim. Rate limiting also degrades to per-instance memory without it. NECESSARY BUT NOT SUFFICIENT: this only lets the web app enqueue. The seven workers are long-lived BullMQ processes (Dockerfile.workers) that Vercel cannot host, so without a separate worker host the job is accepted and never processed — a silent hang instead of a 503. Plan §8 question 1 is still open.",
   },
   {
     anyOf: ["ELEVENLABS_API_KEY"],
