@@ -160,6 +160,23 @@ async function create(): Promise<void> {
   if (profileError) throw new Error(`profile upsert failed: ${profileError.message}`);
   console.log("   profile    role=author, is_public=false");
 
+  // Audiobook generation and translation both sit behind requireProBillingForApi,
+  // so without this the fixture can reach neither and the two features with the
+  // most moving parts stay untested. `status: active` + `plan: pro` is what
+  // deriveBillingState reads; no Stripe objects are involved, and the row is
+  // scoped to (user_id, role) so it touches nobody else.
+  const { error: billingError } = await admin.from("billing_accounts").upsert(
+    {
+      user_id: userId,
+      role: "author",
+      plan: "pro",
+      status: "active",
+    },
+    { onConflict: "user_id,role" }
+  );
+  if (billingError) throw new Error(`billing upsert failed: ${billingError.message}`);
+  console.log("   billing    plan=pro, status=active");
+
   const { data: existingBook } = await admin
     .from("books")
     .select("id")
