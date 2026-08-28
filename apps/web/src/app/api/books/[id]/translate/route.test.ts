@@ -12,6 +12,13 @@ const mocks = vi.hoisted(() => ({
   resolveTranslationSourceContext: vi.fn(),
   upsertBookTranslationState: vi.fn(),
   deleteBookTranslationState: vi.fn(),
+  isTranslationPairSupported: vi.fn(),
+}))
+
+// Mocked so the rejection branch is testable on its own terms. Every language
+// the app offers now has a provider, so no real pair reaches it.
+vi.mock("@/lib/translation-pairs", () => ({
+  isTranslationPairSupported: mocks.isTranslationPairSupported,
 }))
 
 vi.mock("@/lib/auth/require-author", () => ({
@@ -112,6 +119,7 @@ describe("POST /api/books/[id]/translate", () => {
   beforeEach(() => {
     vi.clearAllMocks()
     mocks.isTranslationsEnabled.mockReturnValue(true)
+    mocks.isTranslationPairSupported.mockReturnValue(true)
     mocks.requireAuthorRoleForApi.mockResolvedValue({
       user: { id: "author-1" },
       response: null,
@@ -167,13 +175,16 @@ describe("POST /api/books/[id]/translate", () => {
 
   it("queues supported batch languages and rejects unsupported pairs", async () => {
     mocks.enqueueTranslationJob.mockResolvedValueOnce("job-en")
+    // sv->en routes; sv->it is forced unroutable to exercise the rejection path.
+    mocks.isTranslationPairSupported.mockImplementation(
+      (_source: string, target: string) => target !== "it"
+    )
 
     const res = await POST(
       new Request("http://localhost/api/books/book-1/translate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          // sv→en is supported (Opus), sv→it is unsupported (no provider for Italian)
           languages: ["en", "it"],
           sourceVersionId: "ver-source",
         }),

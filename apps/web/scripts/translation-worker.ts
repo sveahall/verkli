@@ -12,6 +12,7 @@ import { createAdminClient } from "../src/lib/supabase/admin";
 import type { TranslationJobData } from "../src/lib/translation-queue";
 import { translateBatch as opusTranslateBatch, sanitizeTranslatedText } from "../src/lib/opus";
 import { nvidiaRivaTranslator } from "../src/lib/ai/providers/nvidia-riva-translator";
+import { anthropicTranslator } from "../src/lib/ai/providers/anthropic-translator";
 import { opusTranslator } from "../src/lib/ai/providers/opus-translator";
 import { ChainTranslator } from "../src/lib/ai/providers/chain-translator";
 import { getProviderForPair, type TranslationProvider } from "../src/lib/translation-pairs";
@@ -136,6 +137,8 @@ async function translateBatchWithRetry(
         results = raw.map((t) => sanitizeTranslatedText(t));
       } else if (provider === "nvidia-riva") {
         results = await nvidiaRivaTranslator.translateBatch(texts, sourceLang, targetLang);
+      } else if (provider === "anthropic") {
+        results = await anthropicTranslator.translateBatch(texts, sourceLang, targetLang);
       } else {
         // chain: sv → en (Opus) → target (Riva), or source (Riva) → en → sv (Opus)
         const chain = sourceLang === "sv"
@@ -212,20 +215,31 @@ function assertOpusEnv(): void {
     return;
   }
 
-  const missing: string[] = [];
-  if (!process.env.OPUSMT_PYTHON?.trim()) missing.push("OPUSMT_PYTHON");
-  if (!process.env.OPUSMT_MODELS_DIR?.trim()) missing.push("OPUSMT_MODELS_DIR");
-  if (missing.length > 0) {
-    // Warn instead of exit — Opus env is only needed for sv<->en pairs.
-    // NVIDIA Riva handles other language pairs via API.
+  // Opus is optional and normally absent: it needs a Python venv and a
+  // downloaded model.bin that ships with neither the repo nor this image.
+  // getProviderForPair() checks the same two variables, so when they are unset
+  // nothing is routed to Opus and its absence costs nothing.
+  const opusMissing: string[] = [];
+  if (!process.env.OPUSMT_PYTHON?.trim()) opusMissing.push("OPUSMT_PYTHON");
+  if (!process.env.OPUSMT_MODELS_DIR?.trim()) opusMissing.push("OPUSMT_MODELS_DIR");
+  if (opusMissing.length > 0) {
     console.warn(
-      `[translation worker] Missing Opus MT env: ${missing.join(", ")}. sv<->en translations will fail. Other pairs use NVIDIA Riva.`
+      `[translation worker] Opus MT not configured (${opusMissing.join(", ")}). sv pairs route to Anthropic instead.`
     );
   }
 
   if (!process.env.NVIDIA_NIM_API_KEY?.trim()) {
     console.warn(
-      "[translation worker] NVIDIA_NIM_API_KEY not set. Non-Opus language pairs will fail."
+      "[translation worker] NVIDIA_NIM_API_KEY not set. Riva pairs (en/de/es/fr/pt/ru/zh/ja/ko/ar) will fail."
+    );
+  }
+
+  // This one is load-bearing. Without Opus, every Swedish pair — which is every
+  // book on the platform today — resolves to Anthropic, so a missing key here
+  // means translation does not work at all rather than partially.
+  if (!process.env.ANTHROPIC_API_KEY?.trim()) {
+    console.error(
+      "[translation worker] ANTHROPIC_API_KEY not set. Swedish translations will fail."
     );
   }
 }
