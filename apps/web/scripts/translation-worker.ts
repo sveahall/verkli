@@ -315,7 +315,7 @@ async function processJob(payload: TranslationJobData, workerJobId?: string) {
 
     const { data: sourceVersion, error: sourceVersionError } = await supabase
       .from("book_versions")
-      .select("id, book_id, language_code")
+      .select("id, book_id, language_code, visibility")
       .eq("id", sourceVersionId)
       .single();
 
@@ -371,6 +371,12 @@ async function processJob(payload: TranslationJobData, workerJobId?: string) {
             book_id: bookId,
             language_code: normalizedTarget,
             status: "translating",
+            // Inherit the source's visibility rather than taking the column
+            // default, which is "public". Translating a private draft used to
+            // produce a public version — the book's own `published` flag kept
+            // it out of discovery, so nothing leaked, but the author never
+            // chose that and a second gate is not a decision.
+            visibility: sourceVersion.visibility ?? "private",
           },
           { onConflict: "book_id,language_code" }
         )
