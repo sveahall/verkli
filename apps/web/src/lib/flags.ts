@@ -9,35 +9,24 @@
  * value, the flag is OFF. To enable a flag, set the env var to "true" or "1"
  * EXPLICITLY in the deploy environment. There is no implicit-true behavior.
  *
- * ─── Deploy env checklist for cohort-gated soft launch ──────────────────────
+ * ─── What each flag must be at launch ──────────────────────────────────────
  *
- * Required to KEEP a feature visible after this build (set in staging + prod):
+ * Not listed here. `lib/launch-config.ts` holds the launch matrix as data,
+ * with the decision behind every value, and `launch-config.test.ts` fails if a
+ * flag in this file is missing from it.
  *
- *   NEXT_PUBLIC_TRANSLATIONS_ENABLED=true   author translations + UI tab
- *   NEXT_PUBLIC_MARKETING_ENABLED=true      marketing/trailer/social UI
- *   NEXT_PUBLIC_DISCOVERY_ENABLED=true      /reader/discover, /reader/genres
- *   NEXT_PUBLIC_AUDIOBOOK_ENABLED=true      audiobook generation + player
+ * That indirection is deliberate. This header used to list the values in prose
+ * and it drifted: it told deployers to set TRANSLATIONS and MARKETING to true,
+ * both of which the September launch plan (§3) cuts, and it called AUDIOBOOK
+ * "required OFF" after §3 had decided the opposite. Prose has no test behind
+ * it. The matrix does.
  *
- * On AUDIOBOOK: this said "required OFF (D4: defer audiobook to P1)" and that is
- * superseded. The September launch plan (docs/plan/launch-plan-2026-09.md §3)
- * decides the flag is ON at launch, because production-plan §9 criterion 4
- * ("Johan's audiobook starts and plays stably") is a Must. Turning it on does not
- * open a cost tap for everyone — generation is already Pro/paid-gated in
- * api/books/[id]/audiobook/generate/route.ts.
+ * Verify an environment before building:
  *
- * Requires ELEVENLABS_API_KEY and ELEVENLABS_VOICE_ID (or TTS_VOICE_ID) in the
- * deploy env. With the flag on and no voice configured, the checkout route
- * refuses with AUDIOBOOK_VOICE_UNCONFIGURED before charging — but that is a
- * guard, not a substitute for setting them.
+ *   npm run check:launch-config -- --strict
  *
- * Required OFF for cohort-gated soft launch (default; do NOT set):
- *
- *   NEXT_PUBLIC_FREEMIUM_GATE_ENABLED      (D4 + D11: no quota gating during cohort window)
- *
- * Other flags also default OFF unless explicitly set; see individual functions.
- *
- * Flag changes require redeploy. Rollback procedure is the same: change env,
- * trigger redeploy, wait ~2 min for build. There is no runtime flip.
+ * Flag changes require redeploy. Rollback is the same: change env, trigger
+ * redeploy, wait ~2 min for build. There is no runtime flip.
  *
  * ─── Server-only fallback ───────────────────────────────────────────────────
  *
@@ -46,7 +35,13 @@
  * gating that should NOT leak to the client bundle. Same default-OFF semantics.
  */
 
-function parseBool(value: string | undefined): boolean {
+/**
+ * Exported so `launch-config.ts` can ask "would the runtime read this as on?"
+ * with the same logic the runtime uses. A launch checker with its own copy of
+ * the truthiness rules is a checker that can disagree with production — and it
+ * did: an earlier version missed "TRUE", which this accepts.
+ */
+export function parseBool(value: string | undefined): boolean {
   if (value === undefined || value === "") return false;
   const v = value.toLowerCase();
   return v === "true" || v === "1";
