@@ -129,8 +129,9 @@ describe("launch flag matrix", () => {
   });
 
   it("keeps the flags the launch plan §3 cuts from September off", () => {
+    // Translations left this list once they could actually run: the Railway
+    // worker consumes the queue and Anthropic serves the Swedish pairs.
     const cut = [
-      "NEXT_PUBLIC_TRANSLATIONS_ENABLED",
       "NEXT_PUBLIC_MARKETING_ENABLED",
       "NEXT_PUBLIC_SOCIAL_ENABLED",
       "NEXT_PUBLIC_BOOK_CLUBS_ENABLED",
@@ -178,6 +179,7 @@ describe("verifyLaunchConfig", () => {
   function goodEnv(): Record<string, string | undefined> {
     return {
       NEXT_PUBLIC_AUDIOBOOK_ENABLED: "true",
+      NEXT_PUBLIC_TRANSLATIONS_ENABLED: "true",
       NEXT_PUBLIC_DISCOVERY_ENABLED: "true",
       NEXT_PUBLIC_AI_CHAT_ENABLED: "true",
       NEXT_PUBLIC_SITE_URL: "https://verkli.com",

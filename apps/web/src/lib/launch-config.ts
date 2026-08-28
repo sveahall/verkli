@@ -77,9 +77,9 @@ export const LAUNCH_FLAGS: readonly LaunchFlagSpec[] = [
   {
     key: "NEXT_PUBLIC_TRANSLATIONS_ENABLED",
     serverTwin: "TRANSLATIONS_ENABLED",
-    value: "false",
+    value: "true",
     reason:
-      "Plan §3 cuts translations from September. The flags.ts header used to say this must be true — that predates the launch plan.",
+      "Back in for September. Plan §3 cut translations because nothing could run them: no worker consumed the queue, and the routing sent every Swedish pair into Opus MT, whose model.bin is not in the repo. Both are now fixed — worker-translation runs on Railway and Anthropic serves the pairs Riva cannot reach — so the reason for the cut is gone.",
   },
   {
     key: "NEXT_PUBLIC_MARKETING_ENABLED",
