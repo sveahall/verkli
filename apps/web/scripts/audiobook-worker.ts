@@ -758,6 +758,20 @@ async function processJob(payload: AudiobookJobData) {
         controlState: "completed",
       });
 
+      // A single chapter is not the audiobook, so this must not claim
+      // "published". It must, however, clear a stale "failed" left by an
+      // earlier whole-book attempt — otherwise the editor keeps showing
+      // "Generation failed" over a chapter that just rendered fine.
+      //
+      // The filter is what makes this safe: only a row still marked "failed"
+      // is touched, so a whole-book job running concurrently keeps its
+      // "generating" state.
+      await supabase
+        .from("books")
+        .update({ audiobook_status: "not_started" })
+        .eq("id", bookId)
+        .eq("audiobook_status", "failed");
+
       await fs.rm(tmpDir, { recursive: true, force: true }).catch(() => {});
       return;
     }
