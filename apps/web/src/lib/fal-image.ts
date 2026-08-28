@@ -65,11 +65,17 @@ function getFalKey(): string {
 }
 
 /**
- * One request for all four images. fal takes `num_images`, so the previous
- * four-parallel-calls approach is unnecessary — and four calls meant four
- * chances to hit a transient error where one will do.
+ * One image per request, four requests in parallel.
+ *
+ * `num_images: 4` is the obvious call and it is the wrong one: fal generates
+ * them sequentially. Measured against this account, same prompt and size —
+ * one request for four images takes 32s, four parallel requests take 11s.
+ *
+ * That difference decides whether this fits. The platform kills the function
+ * at 60s, and the four downloads and four storage uploads below still have to
+ * happen after generation finishes.
  */
-async function requestImages(prompt: string, apiKey: string): Promise<string[]> {
+async function requestOneImage(prompt: string, apiKey: string): Promise<string> {
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), FAL_TIMEOUT_MS);
 
@@ -85,7 +91,7 @@ async function requestImages(prompt: string, apiKey: string): Promise<string[]> 
       body: JSON.stringify({
         prompt,
         image_size: { width: IMAGE_WIDTH, height: IMAGE_HEIGHT },
-        num_images: COVER_COUNT,
+        num_images: 1,
         num_inference_steps: 4,
         // The storage upload below writes image/png; asking for png keeps the
         // declared content type honest rather than mislabelling a JPEG.
@@ -102,16 +108,13 @@ async function requestImages(prompt: string, apiKey: string): Promise<string[]> 
 
     const data = (await response.json()) as { images?: unknown };
     const images = Array.isArray(data.images) ? (data.images as FalImage[]) : [];
+    const url = images.find((image) => typeof image?.url === "string")?.url;
 
-    const urls = images
-      .map((image) => (typeof image?.url === "string" ? image.url : null))
-      .filter((url): url is string => Boolean(url));
-
-    if (urls.length === 0) {
-      throw new Error("fal.ai returned no images.");
+    if (typeof url !== "string") {
+      throw new Error("fal.ai returned no image.");
     }
 
-    return urls;
+    return url;
   } catch (err) {
     if (err instanceof DOMException && err.name === "AbortError") {
       throw new Error(`fal.ai did not respond within ${FAL_TIMEOUT_MS / 1000}s.`);
@@ -158,7 +161,9 @@ export async function generateCoverImages({
   const apiKey = getFalKey();
   const requestId = crypto.randomUUID();
 
-  const sourceUrls = await requestImages(trimmedPrompt, apiKey);
+  const sourceUrls = await Promise.all(
+    Array.from({ length: COVER_COUNT }, () => requestOneImage(trimmedPrompt, apiKey))
+  );
   const buffers = await Promise.all(sourceUrls.map(downloadImage));
 
   const admin = createAdminClient();
