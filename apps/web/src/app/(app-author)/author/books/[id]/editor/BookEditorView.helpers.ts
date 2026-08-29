@@ -7,6 +7,8 @@ const ACCEPTED_COVER_EXTENSIONS = new Set(["jpg", "jpeg", "png"]);
 const ACCEPTED_COVER_MIME_TYPES = new Set(["image/jpeg", "image/png"]);
 
 export const STORAGE_PRESET = "verkli_editor_preset";
+/** Whether the right-docked AI assistant is open. Per browser, per author. */
+export const STORAGE_ASSISTANT_OPEN = "verkli_editor_assistant_open";
 
 export const VISIBILITY_LABELS: Record<PublishVisibility, string> = {
   public: "Public",

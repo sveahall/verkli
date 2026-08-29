@@ -27,6 +27,7 @@ import { useBookEditorNavigation } from "./hooks/useBookEditorNavigation";
 import {
   countWordsInContent,
   normalizeLangKey,
+  STORAGE_ASSISTANT_OPEN,
   STORAGE_PRESET,
 } from "./BookEditorView.helpers";
 import { ALL_TOOLS } from "./bookEditor.shared";
@@ -45,7 +46,11 @@ import FocusModeEditorView from "./views/FocusModeEditorView";
 import SimplifiedEditView from "./views/SimplifiedEditView";
 import WriteOnlyWorkspaceView from "./views/WriteOnlyWorkspaceView";
 import BookDashboard from "./views/BookDashboard";
+import dynamic from "next/dynamic";
 import BookEditorPanelContent from "./BookEditorPanelContent";
+// Loaded on demand: the dock is closed for most authors most of the time,
+// and its transcript state should not cost anything until it is opened.
+const AiAssistantDock = dynamic(() => import("./panels/AiAssistantPanel"));
 import { BookEditorStatusBanners } from "./components/BookEditorStatusBanners";
 
 type Props = {
@@ -158,6 +163,39 @@ export default function BookEditorView({
     authorDisplayNameSet,
   });
 
+  // ── AI assistant dock ─────────────────────────────────────────────────────
+  // Docked beside the manuscript rather than replacing it, so asking a question
+  // no longer costs the author their place in the text. `?panel=ai` and the
+  // sidebar entry both open it; neither navigates away any more.
+  const [assistantOpen, setAssistantOpen] = useState(() => {
+    if (typeof window === "undefined") return false;
+    try {
+      return window.localStorage.getItem(STORAGE_ASSISTANT_OPEN) === "true";
+    } catch {
+      return false;
+    }
+  });
+
+  useEffect(() => {
+    try {
+      window.localStorage.setItem(STORAGE_ASSISTANT_OPEN, String(assistantOpen));
+    } catch {
+      // Private mode / blocked storage: the dock still works, it just forgets.
+    }
+  }, [assistantOpen]);
+
+  // ⌘I / Ctrl+I, the shortcut Cursor trained everyone on.
+  useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent) => {
+      if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "i") {
+        event.preventDefault();
+        setAssistantOpen((open) => !open);
+      }
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, []);
+
   // ── Jobs & billing ────────────────────────────────────────────────────────
   const { jobs: allJobs, loading: jobLoading, error: jobError, refetch: refetchBookJob, settled: jobsSettled } = useBookJobs(book.id);
   const billing = useBillingState();
@@ -260,12 +298,23 @@ export default function BookEditorView({
 
   useEffect(() => {
     const requestedPanel = panelParam?.trim() ?? null;
+    // `ai` is no longer a page. The sidebar entry and any existing ?panel=ai
+    // link now open the dock and leave the author on the manuscript.
+    if (requestedPanel === "ai") {
+      setAssistantOpen(true);
+      setTool("edit");
+      // Drop the param so the URL describes what is actually on screen: the
+      // manuscript, with the dock open. Leaving it would also make a refresh
+      // re-open a dock the author had since closed.
+      router.replace(`/author/books/${book.id}`, { scroll: false });
+      return;
+    }
     if (requestedPanel && (effectiveTools.includes(requestedPanel as Tool) || ALL_TOOLS.includes(requestedPanel as Tool))) {
       setTool(requestedPanel as Tool);
     } else if (!requestedPanel) {
       setTool("edit");
     }
-  }, [effectiveTools, panelParam, setTool]);
+  }, [book.id, effectiveTools, panelParam, router, setTool]);
 
   useEffect(() => {
     if (tool === "publish") {
@@ -298,8 +347,8 @@ export default function BookEditorView({
   });
 
   useEffect(() => {
-    if (pendingAiRequest) navigateToPanel("ai");
-  }, [pendingAiRequest, navigateToPanel]);
+    if (pendingAiRequest) setAssistantOpen(true);
+  }, [pendingAiRequest]);
 
   // ── Write-only workspace context sync ─────────────────────────────────────
   useEffect(() => {
@@ -467,6 +516,19 @@ export default function BookEditorView({
         </div>
       )}
       <WorkspaceLayout
+        asideLabel="AI Assistant"
+        asideOpen={assistantOpen}
+        onAsideClose={() => setAssistantOpen(false)}
+        aside={
+          <AiAssistantDock
+            bookId={book.id}
+            chapterId={selectedChapterId}
+            variant="dock"
+            onClose={() => setAssistantOpen(false)}
+            pendingRequest={pendingAiRequest}
+            onPendingRequestHandled={() => setPendingAiRequest(null)}
+          />
+        }
         header={
           <header>
             <nav className="flex items-center gap-1.5 text-[14px]">
@@ -498,6 +560,22 @@ export default function BookEditorView({
                 </svg>
               </Link>
             )}
+            <button
+              type="button"
+              onClick={() => setAssistantOpen((open) => !open)}
+              aria-pressed={assistantOpen}
+              title="AI Assistant (⌘I)"
+              className={`inline-flex h-11 items-center gap-1.5 rounded-full border px-3 text-[13px] font-medium transition ${
+                assistantOpen
+                  ? "border-[#907AFF]/40 bg-[#907AFF]/[0.08] text-[#907AFF]"
+                  : "border-slate-200 text-slate-600 hover:border-slate-300 hover:text-slate-800 dark:border-white/10 dark:text-white/60 dark:hover:border-white/20 dark:hover:text-white"
+              }`}
+            >
+              <svg className="h-3.5 w-3.5" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                <path d="M8 1.5l1.6 3.6 3.9.4-2.9 2.6.8 3.8L8 10l-3.4 1.9.8-3.8L2.5 5.5l3.9-.4z" />
+              </svg>
+              AI
+            </button>
             <WorkspaceHeaderActions />
           </div>
         }
@@ -596,8 +674,6 @@ export default function BookEditorView({
                 printOnDemandSettings={printOnDemandSettings}
                 onSavePrintOnDemandSettings={handleSavePrintOnDemandSettings}
                 onNavigateToPanel={navigateToPanel}
-                pendingAiRequest={pendingAiRequest}
-                onPendingAiRequestHandled={() => setPendingAiRequest(null)}
                 onSetSelectedChapterId={(id) => { setSelectedChapterId(id); setSessionStartWords(null); }}
                 onResetSessionWords={() => setSessionStartWords(null)}
                 cover={cover}

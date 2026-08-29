@@ -27,6 +27,14 @@ export type AiAssistantPanelProps = {
   /** Set when the author triggered an action from the editor's bubble menu. */
   pendingRequest?: PendingAiRequest | null;
   onPendingRequestHandled?: () => void;
+  /**
+   * "dock" is the Cursor-shaped placement: a full-height column beside the
+   * manuscript, so asking a question no longer means leaving the page you were
+   * writing on. "page" is the original standalone view, kept for any route that
+   * still renders the assistant on its own.
+   */
+  variant?: "page" | "dock";
+  onClose?: () => void;
 };
 
 type ChatMessage = {
@@ -67,6 +75,8 @@ const QUICK_PROMPTS = [
 export default function AiAssistantPanel({
   bookId,
   chapterId,
+  variant = "page",
+  onClose,
   pendingRequest,
   onPendingRequestHandled,
 }: AiAssistantPanelProps) {
@@ -175,32 +185,83 @@ export default function AiAssistantPanel({
     send(value, null);
   };
 
-  return (
-    <div className="mx-auto max-w-4xl space-y-6">
-      <div>
-        <h2 className="text-[clamp(20px,2.5vw,24px)] font-bold tracking-[-0.02em] text-slate-900 dark:text-white">
-          AI Assistant
-        </h2>
-        <p className="mt-1 text-sm text-slate-500 dark:text-white/50">
-          Ask about craft, pacing, or dialogue. Select text in the editor first
-          for targeted suggestions.
-        </p>
-      </div>
+  const isDock = variant === "dock";
 
-      <div className="rounded-2xl border border-black/[0.05] bg-white/60 shadow-[0_1px_3px_rgba(0,0,0,0.02)] backdrop-blur-sm dark:border-white/[0.06] dark:bg-white/[0.02] dark:shadow-none">
-        <div className="max-h-[420px] min-h-[220px] space-y-4 overflow-y-auto p-5">
+  return (
+    <div
+      className={
+        // flex-1 + min-h-0, not h-full: the dock's parent is a flex column
+        // with a definite height, and only this pair both fills that height and
+        // lets the transcript scroll instead of pushing the composer off-screen.
+        isDock ? "flex min-h-0 flex-1 flex-col" : "mx-auto max-w-4xl space-y-6"
+      }
+    >
+      {isDock ? null : (
+        <div>
+          <h2 className="text-[clamp(20px,2.5vw,24px)] font-bold tracking-[-0.02em] text-slate-900 dark:text-white">
+            AI Assistant
+          </h2>
+          <p className="mt-1 text-sm text-slate-500 dark:text-white/50">
+            Ask about craft, pacing, or dialogue. Select text in the editor first
+            for targeted suggestions.
+          </p>
+        </div>
+      )}
+
+      <div
+        className={
+          isDock
+            ? "flex min-h-0 flex-1 flex-col rounded-2xl border border-slate-200/80 bg-white shadow-surface-md dark:border-white/10 dark:bg-white/[0.04] dark:shadow-none"
+            : "rounded-2xl border border-black/[0.05] bg-white/60 shadow-[0_1px_3px_rgba(0,0,0,0.02)] backdrop-blur-sm dark:border-white/[0.06] dark:bg-white/[0.02] dark:shadow-none"
+        }
+      >
+        {isDock ? (
+          <div className="flex shrink-0 items-start justify-between gap-2 border-b border-slate-200/80 px-4 py-3 dark:border-white/10">
+            <div className="min-w-0">
+              <h2 className="text-sm font-semibold text-slate-900 dark:text-white">
+                AI Assistant
+              </h2>
+              <p className="mt-0.5 text-[13px] leading-snug text-slate-500 dark:text-white/45">
+                Select text in the editor for targeted suggestions.
+              </p>
+            </div>
+            {onClose ? (
+              <button
+                type="button"
+                onClick={onClose}
+                aria-label="Close AI assistant"
+                className="-mr-2 -mt-1.5 flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-700 dark:text-white/40 dark:hover:bg-white/10 dark:hover:text-white"
+              >
+                <svg className="h-4 w-4" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" aria-hidden>
+                  <path d="M4 4l8 8M12 4l-8 8" />
+                </svg>
+              </button>
+            ) : null}
+          </div>
+        ) : null}
+        <div
+          className={
+            isDock
+              ? "min-h-0 flex-1 space-y-4 overflow-y-auto p-4"
+              : "max-h-[420px] min-h-[220px] space-y-4 overflow-y-auto p-5"
+          }
+        >
           {messages.length === 0 && !sending && (
-            <div className="space-y-3 py-6 text-center">
+            <div className={isDock ? "space-y-2.5 py-2" : "space-y-3 py-6 text-center"}>
               <p className="text-sm text-slate-500 dark:text-white/50">
                 Nothing asked yet. Try one of these:
               </p>
-              <div className="flex flex-wrap justify-center gap-2">
+              <div className={isDock ? "flex flex-col gap-2" : "flex flex-wrap justify-center gap-2"}>
                 {QUICK_PROMPTS.map((prompt) => (
                   <button
                     key={prompt}
                     type="button"
                     onClick={() => send(prompt, null)}
-                    className="rounded-full border border-black/[0.06] bg-white/70 px-3 py-1.5 text-[13px] text-slate-600 transition-colors hover:border-[#907AFF]/40 hover:text-slate-900 dark:border-white/[0.08] dark:bg-white/[0.04] dark:text-white/70 dark:hover:text-white"
+                    className={
+                      isDock
+                        ? "w-full rounded-xl border border-slate-200/80 bg-white px-3 py-2.5 text-left text-[13px] leading-snug text-slate-600 transition-colors hover:border-[#907AFF]/40 hover:text-slate-900 dark:border-white/10 dark:bg-white/[0.04] dark:text-white/70 dark:hover:text-white"
+                        : "rounded-full border border-black/[0.06] bg-white/70 px-3 py-1.5 text-[13px] text-slate-600 transition-colors hover:border-[#907AFF]/40 hover:text-slate-900 dark:border-white/[0.08] dark:bg-white/[0.04] dark:text-white/70 dark:hover:text-white"
+                    }
                   >
                     {prompt}
                   </button>
@@ -239,7 +300,7 @@ export default function AiAssistantPanel({
           <div ref={transcriptEndRef} />
         </div>
 
-        <div className="border-t border-black/[0.05] p-5 dark:border-white/[0.06]">
+        <div className={`shrink-0 border-t border-black/[0.05] dark:border-white/[0.06] ${isDock ? "p-4" : "p-5"}`}>
           {error && (
             <p
               role="alert"
@@ -259,7 +320,7 @@ export default function AiAssistantPanel({
             }}
             placeholder="Ask the assistant about your manuscript…"
             aria-label="Message to the AI assistant"
-            className="min-h-[88px]"
+            className={isDock ? "min-h-[64px]" : "min-h-[88px]"}
             maxLength={2000}
           />
           <div className="mt-3 flex items-center justify-between gap-3">
