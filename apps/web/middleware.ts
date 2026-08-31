@@ -11,6 +11,31 @@ import { ACTIVE_ROLE_COOKIE } from '@/lib/active-role'
 // that a role change propagates within a minute, long enough to absorb the
 // prefetch storms a navigation produces.
 // ---------------------------------------------------------------------------
+/**
+ * Sign-in has to stay reachable under BETA_LOCK, or the lock is a dead end: a
+ * beta tester who is not already carrying a session gets bounced to /waitlist,
+ * and every page that could log them in sits behind the same bounce. The `/auth`
+ * prefix the lock already allows covers only the OAuth callback and the
+ * reset-password screen — the actual forms live at these nine paths.
+ *
+ * Sign-up is open here on purpose. An account on its own grants nothing; the
+ * `beta_enabled` flag in user_flags does. So people can register and be let in
+ * afterwards, which is how you run a beta without handing out a shared password.
+ *
+ * Exact matches rather than a prefix test, so this cannot widen by accident.
+ */
+const BETA_LOCK_AUTH_PATHS: ReadonlySet<string> = new Set([
+  '/signin',
+  '/signup',
+  '/forgot-password',
+  '/reader/signin',
+  '/reader/signup',
+  '/reader/forgot-password',
+  '/author/signin',
+  '/author/signup',
+  '/author/forgot-password',
+])
+
 const AUTHOR_ROLE_CACHE_TTL_MS = 60_000
 const AUTHOR_ROLE_CACHE_MAX = 512
 type CachedRoleEntry = { role: string; expiresAt: number }
@@ -182,7 +207,9 @@ export async function middleware(request: NextRequest) {
     const isKnownRoot = ['/favicon.ico', '/favicon.svg', '/robots.txt'].includes(p)
     const isRootAssetWithExt = /^\/[^/]+\.[a-z0-9]+$/i.test(p)
 
-    const allowedPath = isWaitlist || isAuth || isApiWaitlist || isApiAuth || isNext || isKnownRoot || isRootAssetWithExt
+    const isAuthEntry = BETA_LOCK_AUTH_PATHS.has(p)
+
+    const allowedPath = isWaitlist || isAuth || isAuthEntry || isApiWaitlist || isApiAuth || isNext || isKnownRoot || isRootAssetWithExt
     let isBeta = false
     if (user) {
       try {

@@ -57,6 +57,38 @@ describe("middleware beta lock", () => {
     expect(res.status).toBe(307);
     expect(res.headers.get("location")).toContain("/waitlist");
   });
+
+  // The dead end this guards: the lock allowed /auth, which is only the OAuth
+  // callback and the reset-password screen. Every sign-in form sits elsewhere,
+  // so a beta tester without a session was bounced to /waitlist and had no way
+  // to reach a login page — the lock locked out the people it was built for.
+  it.each([
+    "/signin",
+    "/signup",
+    "/forgot-password",
+    "/reader/signin",
+    "/reader/signup",
+    "/reader/forgot-password",
+    "/author/signin",
+    "/author/signup",
+    "/author/forgot-password",
+  ])("lets a non-beta visitor reach %s so they can log in", async (path) => {
+    const { middleware } = await import("./middleware");
+    const res = await middleware(new NextRequest(`http://localhost${path}`));
+    // Asserting only that the beta lock did not send them to the waitlist. An
+    // allowed path has no location header at all; route protection further down
+    // may still redirect for its own reasons, and that is not this test's
+    // business.
+    const location = res.headers.get("location") ?? "";
+    expect(location).not.toContain("/waitlist");
+  });
+
+  it("still bounces a lookalike path that is not an exact auth route", async () => {
+    const { middleware } = await import("./middleware");
+    const res = await middleware(new NextRequest("http://localhost/signin/secret"));
+    expect(res.status).toBe(307);
+    expect(res.headers.get("location")).toContain("/waitlist");
+  });
 });
 
 describe("middleware author access", () => {
