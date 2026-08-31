@@ -2,7 +2,11 @@ import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { parseBillingPlan } from "@/lib/billing/plans";
-import { getPriceIdForRolePlan } from "@/lib/billing/catalog";
+import {
+  DEFAULT_INTERVAL,
+  getPriceIdForRolePlan,
+  type CatalogInterval,
+} from "@/lib/billing/catalog";
 import { getBillingAccountByUserIdAndRole, upsertBillingAccount } from "@/lib/billing/server";
 import {
   createStripeCustomer,
@@ -86,6 +90,11 @@ export async function POST(request: Request) {
     return apiError(E_INVALID_BILLING_PLAN, 400);
   }
 
+  // Anything but an explicit "year" bills monthly. A typo must not silently
+  // charge someone for twelve months.
+  const rawInterval = String(body?.interval ?? "").trim().toLowerCase();
+  const interval: CatalogInterval = rawInterval === "year" ? "year" : DEFAULT_INTERVAL;
+
   // The active_role cookie is client-writable; resolve the real role the
   // user may transact on so a reader cannot switch their cookie and buy the
   // author Pro plan (or vice versa).
@@ -95,7 +104,7 @@ export async function POST(request: Request) {
   let successUrl: string;
   let cancelUrl: string;
   try {
-    priceId = await getPriceIdForRolePlan(role, plan);
+    priceId = await getPriceIdForRolePlan(role, plan, interval);
     ({ successUrl, cancelUrl } = readCheckoutUrls());
     // So we can sync billing state when user returns (e.g. localhost where webhook does not run).
     successUrl =
@@ -113,6 +122,7 @@ export async function POST(request: Request) {
       userId: user.id,
       role,
       plan,
+      interval,
     });
     return apiError(E_BILLING_CHECKOUT_FAILED, 500);
   }

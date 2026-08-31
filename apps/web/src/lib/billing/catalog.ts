@@ -9,6 +9,10 @@ import { createAdminClient } from "@/lib/supabase/admin";
 
 export type CatalogRole = "reader" | "author";
 export type CatalogPlanKey = "plus" | "pro";
+/** Billing period. One catalog row per (role, plan, interval). */
+export type CatalogInterval = "month" | "year";
+
+export const DEFAULT_INTERVAL: CatalogInterval = "month";
 
 export type CatalogRow = {
   provider: string;
@@ -16,6 +20,7 @@ export type CatalogRow = {
   plan_key: CatalogPlanKey;
   price_id: string;
   is_active: boolean;
+  interval: CatalogInterval;
 };
 
 export type ResolvedRolePlan = {
@@ -49,6 +54,16 @@ function normalizePlanKey(value: unknown): CatalogPlanKey | null {
   return null;
 }
 
+/**
+ * Rows written before the interval column existed carry no value, and they are
+ * all monthly — so absent means month rather than invalid. That also lets this
+ * code ship before the column does.
+ */
+function normalizeInterval(value: unknown): CatalogInterval {
+  const v = String(value ?? "").trim().toLowerCase();
+  return v === "year" || v === "annual" || v === "yearly" ? "year" : DEFAULT_INTERVAL;
+}
+
 function normalizeRow(raw: Record<string, unknown> | null): CatalogRow | null {
   if (!raw || typeof raw !== "object") return null;
   const provider = String(raw.provider ?? "").trim();
@@ -56,8 +71,9 @@ function normalizeRow(raw: Record<string, unknown> | null): CatalogRow | null {
   const plan_key = normalizePlanKey(raw.plan_key);
   const price_id = String(raw.price_id ?? "").trim();
   const is_active = Boolean(raw.is_active ?? true);
+  const interval = normalizeInterval(raw.interval);
   if (!provider || !role || !plan_key || !price_id) return null;
-  return { provider, role, plan_key, price_id, is_active };
+  return { provider, role, plan_key, price_id, is_active, interval };
 }
 
 /**
@@ -72,7 +88,10 @@ export async function getPlanCatalog(): Promise<CatalogRow[]> {
   const admin = createAdminClient();
   const { data, error } = await admin
     .from("billing_plan_catalog" as never)
-    .select("provider, role, plan_key, price_id, is_active")
+    // `*` rather than a column list: the interval column is added by a
+    // migration that may not have run yet, and naming a missing column makes
+    // PostgREST reject the whole query.
+    .select("*")
     .eq("provider", PROVIDER_STRIPE)
     .eq("is_active", true);
 
@@ -185,11 +204,27 @@ export function clearCatalogCache(): void {
  */
 export async function getPriceIdForRolePlan(
   role: CatalogRole,
-  planKey: CatalogPlanKey
+  planKey: CatalogPlanKey,
+  interval: CatalogInterval = DEFAULT_INTERVAL
 ): Promise<string | null> {
   const catalog = await getPlanCatalog();
   const row = catalog.find(
-    (r) => r.role === role && r.plan_key === planKey
+    (r) => r.role === role && r.plan_key === planKey && r.interval === interval
   );
   return row?.price_id ?? null;
+}
+
+/**
+ * Which intervals can actually be bought for this plan. The pricing page asks
+ * before offering an annual toggle, so a missing annual row shows a monthly-only
+ * page rather than a button that 500s.
+ */
+export async function getAvailableIntervals(
+  role: CatalogRole,
+  planKey: CatalogPlanKey
+): Promise<CatalogInterval[]> {
+  const catalog = await getPlanCatalog();
+  return catalog
+    .filter((r) => r.role === role && r.plan_key === planKey)
+    .map((r) => r.interval);
 }

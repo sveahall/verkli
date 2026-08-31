@@ -1,5 +1,6 @@
 import { BillingPageClient } from "@/components/billing/BillingPageClient";
 import type { PlanCard } from "@/components/billing/BillingPageContent";
+import { getAvailableIntervals } from "@/lib/billing/catalog";
 import { getBillingStateForUser } from "@/lib/billing/server";
 import { createClient } from "@/lib/supabase/server";
 
@@ -33,6 +34,10 @@ export default async function AuthorBillingPage({ searchParams }: Props) {
     if (loaded.ok) initialBillingState = loaded.state;
   }
 
+  // Asked rather than assumed: the annual row is added by a migration, and
+  // offering a toggle before it exists sends people to a checkout that 500s.
+  const annualAvailable = (await getAvailableIntervals("author", "pro")).includes("year");
+
   return (
     <BillingPageClient
       planCards={AUTHOR_PLAN_CARDS}
@@ -42,6 +47,7 @@ export default async function AuthorBillingPage({ searchParams }: Props) {
       initialCheckout={checkout}
       initialSessionId={sessionId}
       initialBillingState={initialBillingState}
+      annualAvailable={annualAvailable}
     />
   );
 }

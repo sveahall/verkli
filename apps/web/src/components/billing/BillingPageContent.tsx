@@ -40,6 +40,12 @@ type BillingPageContentProps = {
   initialSessionId?: string | null;
   /** Server-fetched state so plan and status show immediately. */
   initialBillingState?: BillingState | null;
+  /**
+   * Whether an annual price exists in the catalog for these plans. Resolved on
+   * the server so the toggle only appears when annual can actually be bought —
+   * an always-on toggle would send people to a checkout that 500s.
+   */
+  annualAvailable?: boolean;
 };
 
 export function BillingPageContent({
@@ -50,7 +56,11 @@ export function BillingPageContent({
   initialCheckout = null,
   initialSessionId = null,
   initialBillingState = null,
+  annualAvailable = false,
 }: BillingPageContentProps) {
+  // Not `interval`/`setInterval` — that shadows the global timer function this
+  // component already uses below.
+  const [billingInterval, setBillingInterval] = useState<"month" | "year">("month");
   const hasHydratedRef = useRef(false);
   const [mounted, setMounted] = useState(false);
   /** When returning from Stripe (portal/checkout), stay in placeholder until after hydration to avoid mismatch. */
@@ -233,7 +243,7 @@ export function BillingPageContent({
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
-        body: JSON.stringify({ plan }),
+        body: JSON.stringify({ plan, interval: billingInterval }),
       });
 
       const body = await res.json().catch(() => ({}));
@@ -331,6 +341,26 @@ export function BillingPageContent({
       {mounted && (error || actionError) && (
         <div className="mb-6 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700 dark:border-red-900/50 dark:bg-red-950/25 dark:text-red-200">
           {actionError ?? error}
+        </div>
+      )}
+
+      {annualAvailable && (
+        <div className="mb-4 flex items-center justify-center gap-3">
+          {(["month", "year"] as const).map((value) => (
+            <button
+              key={value}
+              type="button"
+              onClick={() => setBillingInterval(value)}
+              aria-pressed={billingInterval === value}
+              className={`h-11 rounded-full px-4 text-[13px] font-medium transition-colors ${
+                billingInterval === value
+                  ? "bg-[#907AFF]/[0.09] text-[#907AFF] dark:bg-[#907AFF]/[0.16]"
+                  : "text-slate-500 hover:text-slate-800 dark:text-white/50 dark:hover:text-white"
+              }`}
+            >
+              {value === "month" ? "Monthly" : "Annual"}
+            </button>
+          ))}
         </div>
       )}
 

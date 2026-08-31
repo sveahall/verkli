@@ -15,7 +15,10 @@ const mocks = vi.hoisted(() => ({
 vi.mock("@/lib/supabase/server", () => ({ createClient: mocks.createClient }));
 vi.mock("@/lib/supabase/admin", () => ({ createAdminClient: mocks.createAdminClient }));
 vi.mock("@/lib/billing/plans", () => ({ parseBillingPlan: mocks.parseBillingPlan }));
-vi.mock("@/lib/billing/catalog", () => ({ getPriceIdForRolePlan: mocks.getPriceIdForRolePlan }));
+vi.mock("@/lib/billing/catalog", () => ({
+  getPriceIdForRolePlan: mocks.getPriceIdForRolePlan,
+  DEFAULT_INTERVAL: "month",
+}));
 vi.mock("@/lib/billing/server", () => ({
   getBillingAccountByUserIdAndRole: mocks.getBillingAccountByUserIdAndRole,
   upsertBillingAccount: mocks.upsertBillingAccount,
@@ -132,6 +135,62 @@ describe("POST /api/billing/checkout", () => {
     expect(res.status).toBe(200);
     const body = await res.json();
     expect(body.url).toContain("stripe.com");
+  });
+
+  /**
+   * The interval decides whether the customer is charged once or twelve times
+   * over, so it gets asserted rather than assumed.
+   */
+  function arrangeCheckout(plan: "plus" | "pro", role: "reader" | "author") {
+    mockAuthedUser();
+    mocks.parseBillingPlan.mockReturnValue(plan);
+    mocks.resolveBillingRole.mockResolvedValue(role);
+    mocks.getPriceIdForRolePlan.mockResolvedValue("price_123");
+    mocks.createAdminClient.mockReturnValue({});
+    mocks.getBillingAccountByUserIdAndRole.mockResolvedValue({
+      row: { stripe_customer_id: "cus_existing" },
+      error: null,
+    });
+    mocks.createStripeSubscriptionCheckoutSession.mockResolvedValue({
+      url: "https://checkout.stripe.com/session_123",
+    });
+  }
+
+  function checkoutRequest(body: Record<string, unknown>) {
+    return new Request("http://localhost/api/billing/checkout", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
+  }
+
+  it("asks the catalog for the annual price when interval is year", async () => {
+    arrangeCheckout("pro", "author");
+
+    const res = await POST(checkoutRequest({ plan: "pro", interval: "year" }));
+
+    expect(res.status).toBe(200);
+    expect(mocks.getPriceIdForRolePlan).toHaveBeenCalledWith("author", "pro", "year");
+  });
+
+  it("bills monthly when no interval is given", async () => {
+    arrangeCheckout("pro", "author");
+
+    const res = await POST(checkoutRequest({ plan: "pro" }));
+
+    expect(res.status).toBe(200);
+    expect(mocks.getPriceIdForRolePlan).toHaveBeenCalledWith("author", "pro", "month");
+  });
+
+  it("bills monthly for an unrecognised interval rather than guessing", async () => {
+    arrangeCheckout("pro", "author");
+
+    // A typo, a stale client, a hand-rolled request — none of them should be
+    // able to turn one month into twelve.
+    const res = await POST(checkoutRequest({ plan: "pro", interval: "yearly-ish" }));
+
+    expect(res.status).toBe(200);
+    expect(mocks.getPriceIdForRolePlan).toHaveBeenCalledWith("author", "pro", "month");
   });
 
   it("creates new Stripe customer when none exists", async () => {

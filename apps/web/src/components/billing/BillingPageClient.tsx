@@ -47,7 +47,8 @@ type BillingPageClientProps = {
   pastDueMessage: string;
   initialCheckout?: string | null;
   initialSessionId?: string | null;
-  initialBillingState?: BillingState | null;
+  initialBillingState?: BillingState | null;  /** Whether the catalog has an annual price for these plans. */
+  annualAvailable?: boolean;
 };
 
 export function BillingPageClient(props: BillingPageClientProps) {
