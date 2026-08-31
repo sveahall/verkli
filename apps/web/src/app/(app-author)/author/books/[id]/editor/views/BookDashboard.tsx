@@ -1,6 +1,7 @@
 "use client";
 
 import { cn } from "@/lib/utils";
+import { getMarketingEnabled } from "@/lib/flags";
 
 type Props = {
   bookId: string;
@@ -208,6 +209,12 @@ export default function BookDashboard({
   const progressPct = Math.round((completedSteps / setupSteps.length) * 100);
 
   /* Cards */
+  // Trailer generation runs through requireAuthorAndMarketingEnabled, so both
+  // of these tiles are governed by the marketing flag. With it off the panels
+  // render but every action answers MARKETING_FEATURE_DISABLED, so the tiles
+  // are doors to a locked room — hide them until the room opens.
+  const marketingEnabled = getMarketingEnabled();
+
   const cards: CardDef[] = [
     {
       id: "write",
@@ -289,6 +296,20 @@ export default function BookDashboard({
     },
   ];
 
+  const shown = marketingEnabled
+    ? cards
+    : cards.filter((card) => card.id !== "market" && card.id !== "trailer");
+
+  // Write is the wide tile only when that leaves a complete grid. Eight tiles
+  // plus its extra column is nine cells — a clean 3×3. Six tiles would make
+  // seven, so it drops to one column and the six sit as two full rows. The
+  // point of the wide tile is a finished grid, not the width itself.
+  const visibleCards = shown.map((card) =>
+    card.id === "write"
+      ? { ...card, span: (shown.length + 1) % 3 === 0 ? (2 as const) : (1 as const) }
+      : card
+  );
+
   return (
     <div className="min-h-screen bg-[#F8F9FB] dark:bg-[#0F172A]/50">
       <div className="mx-auto max-w-4xl px-4 py-10 sm:px-6">
@@ -369,7 +390,7 @@ export default function BookDashboard({
 
         {/* ── Cards grid ── */}
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-          {cards.map((card) => (
+          {visibleCards.map((card) => (
             <DashboardCard key={card.id} card={card} onNavigate={onNavigate} />
           ))}
         </div>

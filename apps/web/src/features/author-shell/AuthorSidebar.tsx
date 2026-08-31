@@ -1,6 +1,8 @@
 "use client";
 
 import Image from "next/image";
+
+import { getMarketingEnabled } from "@/lib/flags";
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import {
@@ -270,7 +272,10 @@ export default function AuthorSidebar({
 
   /* Mobile bottom nav items — subset of main nav for one-hand reach */
   const mobileNavItems = AUTHOR_WORKFLOW_NAV.filter(
-    (item) => ["home", "library", "audience", "analytics"].includes(item.key)
+    (item) =>
+      ["home", "library", "audience", "analytics"].includes(item.key) &&
+      // Same gate as the desktop nav — see the filter below.
+      !(item.key === "audience" && !getMarketingEnabled())
   );
 
   return (
@@ -292,6 +297,11 @@ export default function AuthorSidebar({
 
         <nav className="flex flex-1 flex-col gap-1.5 overflow-y-auto px-3">
           {AUTHOR_WORKFLOW_NAV.filter((item) => {
+            // The Marketing entry leads to a page that offers to build a
+            // campaign, while the API answers MARKETING_FEATURE_DISABLED. Gate
+            // the door on the same flag as the room so the two cannot disagree.
+            if (item.key === "audience" && !getMarketingEnabled()) return false;
+
             // Demo nav guardrail: hide entries that pull the investor away
             // from the demo flow. Marketing, Analytics, Settings each have
             // a façade equivalent (Distribute, Production, … or none) so
