@@ -96,64 +96,12 @@ function RocketIcon({ className }: { className?: string }) {
   );
 }
 
-function CheckIcon() {
-  return (
-    <svg className="h-3 w-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3">
-      <polyline points="20 6 9 17 4 12" />
-    </svg>
-  );
-}
 
 function ChevronRightIcon() {
   return (
     <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
       <polyline points="9 18 15 12 9 6" />
     </svg>
-  );
-}
-
-/* ── Status dot ── */
-
-function StatusDot({ kind }: { kind: StatusKind }) {
-  return (
-    <div
-      className={cn("h-2 w-2 rounded-full", {
-        "bg-emerald-500": kind === "done",
-        "bg-amber-400": kind === "in-progress",
-        "bg-slate-300 dark:bg-slate-600": kind === "pending",
-      })}
-    />
-  );
-}
-
-/* ── Setup step pill ── */
-
-function SetupStep({
-  label,
-  done,
-  onClick,
-}: {
-  label: string;
-  done: boolean;
-  onClick: () => void;
-}) {
-  return (
-    <button
-      onClick={onClick}
-      className={cn(
-        "flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-medium transition-all duration-200 ease-[cubic-bezier(0.23,1,0.32,1)]",
-        done
-          ? "bg-emerald-50 text-emerald-700 dark:bg-emerald-900/20 dark:text-emerald-400"
-          : "border border-slate-200/80 bg-white text-[#64748B] hover:border-[#907AFF]/30 hover:text-[#907AFF] dark:border-white/10 dark:bg-white/[0.04] dark:text-white/50 dark:hover:text-[#B8AAFF]"
-      )}
-    >
-      {done && (
-        <span className="flex h-3.5 w-3.5 items-center justify-center rounded-full bg-emerald-500 text-white">
-          <CheckIcon />
-        </span>
-      )}
-      {label}
-    </button>
   );
 }
 
@@ -166,22 +114,25 @@ interface CardDef {
   icon: React.ReactNode;
   statusKind: StatusKind;
   statusLabel: string;
-  preview?: React.ReactNode;
   panel: string;
+  /** Columns at lg. Write takes two, which makes the grid a clean 3×3. */
+  span?: 1 | 2;
 }
 
 function DashboardCard({ card, onNavigate }: { card: CardDef; onNavigate: (p: string) => void }) {
   return (
     <button
       onClick={() => onNavigate(card.panel)}
-      className="group flex flex-col gap-4 rounded-2xl border border-slate-200/80 bg-white p-5 text-left transition-[transform,border-color,box-shadow] duration-200 ease-[cubic-bezier(0.23,1,0.32,1)] hover:-translate-y-1 hover:border-[#907AFF]/20 hover:shadow-md dark:border-white/[0.07] dark:bg-white/[0.02] dark:hover:border-[#907AFF]/20 dark:hover:bg-white/[0.04]"
+      className={cn(
+        "group flex flex-col gap-4 rounded-2xl border border-slate-200/80 bg-white p-5 text-left transition-[transform,border-color,box-shadow] duration-200 ease-[cubic-bezier(0.23,1,0.32,1)] hover:-translate-y-1 hover:border-[#907AFF]/20 hover:shadow-md dark:border-white/[0.07] dark:bg-white/[0.02] dark:hover:border-[#907AFF]/20 dark:hover:bg-white/[0.04]",
+        card.span === 2 && "sm:col-span-2"
+      )}
     >
       {/* Header */}
       <div className="flex items-start justify-between">
         <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-[#907AFF]/[0.09] text-[#907AFF] dark:bg-[#907AFF]/[0.14]">
           {card.icon}
         </div>
-        <StatusDot kind={card.statusKind} />
       </div>
 
       {/* Body */}
@@ -189,9 +140,6 @@ function DashboardCard({ card, onNavigate }: { card: CardDef; onNavigate: (p: st
         <h3 className="text-sm font-semibold text-[#0F172A] dark:text-white">{card.label}</h3>
         <p className="mt-0.5 text-xs text-[#64748B] dark:text-white/40">{card.description}</p>
       </div>
-
-      {/* Cover preview */}
-      {card.preview}
 
       {/* Footer: status + arrow */}
       <div className="flex items-center justify-between">
@@ -262,21 +210,28 @@ export default function BookDashboard({
   /* Cards */
   const cards: CardDef[] = [
     {
+      id: "write",
+      label: "Write",
+      description:
+        chapters.length > 0
+          ? `${chapters.length} chapter${chapters.length === 1 ? "" : "s"} · ${totalWordCount.toLocaleString()} words`
+          : "Start your first chapter",
+      icon: <PencilIcon />,
+      statusKind: chapters.length > 0 ? "done" : "pending",
+      // The hero button already says "Continue writing"; the card states where
+      // the manuscript stands instead of repeating the same words on one screen.
+      statusLabel: chapters.length > 0 ? "In progress" : "Write chapter one",
+      panel: "edit",
+      span: 2,
+    },
+    {
       id: "cover",
       label: "Cover",
       description: "Book cover image",
       icon: <ImageIcon />,
       statusKind: coverImageUrl ? "done" : "pending",
-      statusLabel: coverImageUrl ? "Cover uploaded" : "No cover yet",
+      statusLabel: coverImageUrl ? "Cover uploaded" : "Add a cover",
       panel: "cover",
-      preview: (
-        <div className="h-20 w-full overflow-hidden rounded-xl bg-gradient-to-br from-slate-100 to-slate-200 dark:from-white/[0.04] dark:to-white/[0.08]">
-          {coverImageUrl && (
-            /* eslint-disable-next-line @next/next/no-img-element */
-            <img src={coverImageUrl} alt="Book cover" className="h-full w-full object-cover" />
-          )}
-        </div>
-      ),
     },
     {
       id: "translate",
@@ -284,7 +239,7 @@ export default function BookDashboard({
       description: "Multi-language editions",
       icon: <GlobeIcon />,
       statusKind: hasTranslations ? "done" : "pending",
-      statusLabel: hasTranslations ? "Translations available" : "Original only",
+      statusLabel: hasTranslations ? "Translations available" : "Translate the book",
       panel: "translate",
     },
     {
@@ -311,7 +266,7 @@ export default function BookDashboard({
       description: "Set your price",
       icon: <TagIcon />,
       statusKind: hasPricing ? "done" : "pending",
-      statusLabel: hasPricing ? "Price set" : "Free / not set",
+      statusLabel: hasPricing ? "Price set" : "Set a price",
       panel: "pricing",
     },
     {
@@ -320,7 +275,7 @@ export default function BookDashboard({
       description: "Campaigns & outreach",
       icon: <MegaphoneIcon />,
       statusKind: "pending",
-      statusLabel: "Marketing tools",
+      statusLabel: "Create a campaign",
       panel: "market",
     },
     {
@@ -329,7 +284,7 @@ export default function BookDashboard({
       description: "Make it discoverable",
       icon: <RocketIcon />,
       statusKind: isPublished ? "done" : "pending",
-      statusLabel: isPublished ? "Published" : "Still a draft",
+      statusLabel: isPublished ? "Published" : "Publish the book",
       panel: "publish",
     },
   ];
@@ -385,7 +340,7 @@ export default function BookDashboard({
                   />
                 </div>
                 <span className="flex-shrink-0 text-[11px] font-medium text-[#64748B] dark:text-white/40">
-                  {completedSteps}/{setupSteps.length}
+                  {completedSteps} of {setupSteps.length} steps done
                 </span>
               </div>
             </div>
@@ -412,47 +367,8 @@ export default function BookDashboard({
           </div>
         </div>
 
-        {/* ── Setup checklist pills ── */}
-        <div className="mb-6">
-          <p className="mb-2.5 text-[11px] font-medium uppercase tracking-wider text-[#64748B] dark:text-white/40">
-            Setup
-          </p>
-          <div className="flex flex-wrap gap-2">
-            {setupSteps.map((step) => (
-              <SetupStep
-                key={step.panel}
-                label={step.label}
-                done={step.done}
-                onClick={() => onNavigate(step.panel)}
-              />
-            ))}
-          </div>
-        </div>
-
         {/* ── Cards grid ── */}
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-          {/* Featured write card - spans 2 cols on large */}
-          <button
-            onClick={() => onNavigate("edit")}
-            className="group col-span-full flex items-center gap-4 rounded-2xl border border-slate-200/80 bg-white px-5 py-4 text-left transition-[transform,border-color,box-shadow] duration-200 ease-[cubic-bezier(0.23,1,0.32,1)] hover:-translate-y-0.5 hover:border-[#907AFF]/20 hover:shadow-md dark:border-white/[0.07] dark:bg-white/[0.02] dark:hover:border-[#907AFF]/20 dark:hover:bg-white/[0.04] sm:col-span-1 lg:col-span-2"
-          >
-            <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-xl bg-[#907AFF]/[0.09] text-[#907AFF] dark:bg-[#907AFF]/[0.14]">
-              <PencilIcon className="h-5 w-5" />
-            </div>
-            <div className="min-w-0 flex-1">
-              <h3 className="text-sm font-semibold text-[#0F172A] dark:text-white">Write</h3>
-              <p className="text-xs text-[#64748B] dark:text-white/40">
-                {chapters.length > 0
-                  ? `${chapters.length} chapters · ${totalWordCount.toLocaleString()} words written`
-                  : "Start your first chapter"}
-              </p>
-            </div>
-            <StatusDot kind={chapters.length > 0 ? "done" : "pending"} />
-            <span className="ml-1 text-slate-300 transition-transform duration-200 ease-[cubic-bezier(0.23,1,0.32,1)] group-hover:translate-x-0.5 dark:text-white/20">
-              <ChevronRightIcon />
-            </span>
-          </button>
-
           {cards.map((card) => (
             <DashboardCard key={card.id} card={card} onNavigate={onNavigate} />
           ))}
