@@ -1,3 +1,32 @@
+-- ===========================================================================
+-- SUPERSEDED 2026-08-31 — DO NOT APPLY. Recorded as done in the migration
+-- ledger so `supabase db push` never attempts it.
+--
+-- This file was never applied. A different `audit_log` already existed live and
+-- still does, with an incompatible shape:
+--
+--     live:      id uuid, created_at, entity_type, entity_id, meta,
+--                actor_user_id, actor_role, action, request_id
+--     this file: id bigserial, occurred_at, target_type, target_id, metadata,
+--                before, after, actor_id, actor_role, action
+--
+-- Running it would not have replaced anything — CREATE TABLE IF NOT EXISTS is a
+-- no-op against the live table — but the CREATE INDEX statements below would
+-- then fail on `occurred_at`, a column that does not exist. Verified against
+-- production 2026-08-31.
+--
+-- The live table won: six admin routes insert into it with those column names
+-- and work, and src/lib/supabase/types.ts is generated from it. The one thing
+-- genuinely missing was `record_audit()`, which lib/audit.ts called and which
+-- never existed, so four call sites failed silently. That is fixed in code
+-- (lib/audit.ts now inserts directly) rather than by creating the function,
+-- because every caller already passes the service-role client and so needs no
+-- SECURITY DEFINER escalation.
+--
+-- Superseded by: 20260831130000_audit_log_indexes.sql
+-- ===========================================================================
+
+-- Original content follows, kept as history. None of it runs.
 -- ---------------------------------------------------------------------------
 -- Sprint 0.5 — Audit log foundation (Task 3).
 --
