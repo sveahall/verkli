@@ -122,15 +122,24 @@ CREATE TRIGGER update_chapter_audio_timestamps_updated_at
 
 ALTER TABLE public.chapter_audio_timestamps ENABLE ROW LEVEL SECURITY;
 
--- Anyone with read access to the chapter can read timestamps. We rely on
--- existing chapter-level RLS / canUserReadBook checks for the actual chapter
--- content; timestamps are not load-bearing for paywall enforcement.
+-- No permissive policy. RLS is enabled and nothing grants SELECT, so only the
+-- service role reaches this table.
+--
+-- This replaces an earlier policy here that granted `TO authenticated, anon
+-- USING (true)`, on the stated reasoning that timestamps are "not load-bearing
+-- for paywall enforcement". That reasoning was wrong. `words` stores the
+-- chapter's own text, tokenised with timings — see the shape documented above.
+-- A full-table read therefore reconstructs every paid chapter verbatim, so
+-- granting anon SELECT would have handed the entire catalogue to anyone
+-- holding the publishable anon key. The migration had never been applied, so
+-- the hole never reached production; it is removed here rather than shipped.
+--
+-- Nothing reads this table yet — the karaoke layer is unbuilt. When it is
+-- built, serve timestamps through an API route that runs the same access check
+-- as chapter content (getReadAccess / canUserReadBook), or write a policy that
+-- joins chapters -> book_versions -> books and proves entitlement. Do not
+-- reintroduce USING (true).
 DROP POLICY IF EXISTS "Authenticated reads chapter timestamps" ON public.chapter_audio_timestamps;
-CREATE POLICY "Authenticated reads chapter timestamps"
-  ON public.chapter_audio_timestamps
-  FOR SELECT
-  TO authenticated, anon
-  USING (true);
 
 -- rollback:
 --   DROP TABLE IF EXISTS public.chapter_audio_timestamps;
