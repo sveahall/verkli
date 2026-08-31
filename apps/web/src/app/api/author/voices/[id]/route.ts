@@ -116,6 +116,7 @@ export async function DELETE(
       name: voice.name,
     },
     metadata: auditMetadataFromRequest(request),
+    actor: { id: auth.user.id, role: "author" },
   });
 
   return NextResponse.json({ ok: true, deletedAt: now });

@@ -124,6 +124,9 @@ export async function POST(request: Request) {
         infringingUrl: input.infringingUrl,
       },
       metadata: auditMetadataFromRequest(request, { reportId, anonymous: false }),
+      // Inside `if (user?.id)`, so the reporter is always known here. A DMCA
+      // notice is a legal act; the row is worth little without who filed it.
+      actor: { id: user.id },
     });
   }
 

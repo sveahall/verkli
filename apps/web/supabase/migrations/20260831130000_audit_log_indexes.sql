@@ -1,19 +1,17 @@
 -- audit_log: index for the table that actually exists.
 --
--- 20260429122000_audit_log.sql designed a table with `occurred_at`,
--- `target_type`, `target_id`, `before`, `after`, `metadata` and a bigserial id,
--- plus a `record_audit()` SECURITY DEFINER function. None of that reached the
--- database. The live `audit_log` predates it and has a different shape
--- entirely: uuid id, `created_at`, `entity_type`, `entity_id`, `meta`,
--- `actor_user_id`, `request_id`.
+-- Production already had `audit_log` before 20260429122000 was written, so that
+-- migration is recorded as applied there without its DDL ever running. It has
+-- since been corrected to create the table that actually exists, which is what
+-- makes a fresh database or `supabase db reset` match production.
 --
--- The live table is the design of record: six admin routes insert into it with
--- those column names and work, and `types.ts` is generated from it. So the
--- April migration is superseded rather than pending — see the note at the top
--- of that file.
+-- These indexes therefore live in their own migration rather than in that file:
+-- production skips it, and needs them anyway. On a fresh database the table
+-- arrives from 20260429122000 first and this runs against it.
 --
--- What it did get right is the read paths, and those are still unindexed here.
--- This migration adds them, translated to the columns that exist.
+-- The columns are the live ones. The April migration named the same three read
+-- paths against `occurred_at` / `target_type` / `actor_id`, none of which are
+-- columns here.
 
 -- Serves the admin "what did this person do" view.
 create index if not exists audit_log_actor_idx

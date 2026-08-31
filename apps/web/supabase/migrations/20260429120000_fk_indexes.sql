@@ -40,8 +40,12 @@ CREATE INDEX IF NOT EXISTS curated_list_items_book_id_idx
   ON public.curated_list_items (book_id);
 
 -- Medium severity (moderate volume / background workers) --------------------
-CREATE INDEX IF NOT EXISTS books_book_version_id_idx
-  ON public.books (book_version_id);
+-- REMOVED 2026-08-31: public.books has no `book_version_id` column, so this
+-- statement could never run. The db-audit that generated this list mis-attributed
+-- it — `book_version_id` belongs to `chapters` (indexed by 20260203000000) and to
+-- `book_imports`. Confirmed three ways: no migration adds it to books, it is
+-- absent from books.Row in the generated types, and PostgREST reports the column
+-- missing on the live table.
 
 CREATE INDEX IF NOT EXISTS book_clubs_current_book_id_idx
   ON public.book_clubs (current_book_id);

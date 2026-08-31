@@ -1,138 +1,63 @@
--- ===========================================================================
--- SUPERSEDED 2026-08-31 — DO NOT APPLY. Recorded as done in the migration
--- ledger so `supabase db push` never attempts it.
---
--- This file was never applied. A different `audit_log` already existed live and
--- still does, with an incompatible shape:
---
---     live:      id uuid, created_at, entity_type, entity_id, meta,
---                actor_user_id, actor_role, action, request_id
---     this file: id bigserial, occurred_at, target_type, target_id, metadata,
---                before, after, actor_id, actor_role, action
---
--- Running it would not have replaced anything — CREATE TABLE IF NOT EXISTS is a
--- no-op against the live table — but the CREATE INDEX statements below would
--- then fail on `occurred_at`, a column that does not exist. Verified against
--- production 2026-08-31.
---
--- The live table won: six admin routes insert into it with those column names
--- and work, and src/lib/supabase/types.ts is generated from it. The one thing
--- genuinely missing was `record_audit()`, which lib/audit.ts called and which
--- never existed, so four call sites failed silently. That is fixed in code
--- (lib/audit.ts now inserts directly) rather than by creating the function,
--- because every caller already passes the service-role client and so needs no
--- SECURITY DEFINER escalation.
---
--- Superseded by: 20260831130000_audit_log_indexes.sql
--- ===========================================================================
-
--- Original content follows, kept as history. None of it runs.
 -- ---------------------------------------------------------------------------
 -- Sprint 0.5 — Audit log foundation (Task 3).
 --
--- A single denormalised audit_log table for compliance + incident forensics.
--- Mutations write here via lib/audit.ts:recordAudit(). The before/after
--- payloads are JSONB so rows stay immutable history without joining back to
--- mutable parent tables.
+-- CORRECTED 2026-08-31. This file previously designed a table that does not
+-- exist anywhere:
 --
--- RLS:
---   - INSERT: only via SECURITY DEFINER helper (callers don't INSERT directly).
---   - SELECT: admins only (service role bypasses RLS regardless).
---   - UPDATE / DELETE: never. Audit rows are append-only.
+--     was:  id bigserial, occurred_at, target_type, target_id, metadata,
+--           before, after, actor_id, actor_role, action
+--           + a record_audit() SECURITY DEFINER function
+--     is:   id uuid, created_at, entity_type, entity_id, meta,
+--           actor_user_id, actor_role, action, request_id
+--
+-- The second shape is what production has, what src/lib/supabase/types.ts is
+-- generated from, and what seven call sites write to. The first shape reached
+-- no database: this migration was never applied, and `CREATE TABLE IF NOT
+-- EXISTS` no-ops against the table that was already there.
+--
+-- Rewriting an existing migration is normally off limits. It is right here for
+-- one reason: leaving it alone made the migration history unable to reproduce
+-- production. On a fresh database or `supabase db reset` the old body WOULD run
+-- — there is no table for IF NOT EXISTS to skip — and would create the wrong
+-- audit_log, after which 20260831130000 fails on the missing columns and every
+-- audit write in the app targets columns that are not there. Marking the file
+-- "do not apply" did not help, because nothing enforces a comment. Since the
+-- file has never been applied anywhere, correcting it contradicts no
+-- environment's history.
+--
+-- Faithfulness details, all read off the live database rather than assumed:
+--   - `entity_id` is text, not uuid.
+--   - `actor_user_id` carries no foreign key (types.ts reports
+--     `Relationships: []`), so none is declared here.
+--   - RLS is on with no permissive policy: anon sees 0 of the 1 live row while
+--     the service role sees it. Reads and writes all go through
+--     createAdminClient(), so service-role-only is the real contract.
+--   - `action` has no CHECK constraint. The old body required
+--     `<domain>.<verb>`, which the admin routes violate — they write bare
+--     verbs like "approve" — so adding it would break working code.
+--
+-- The record_audit() function is deliberately not recreated. Every caller
+-- passes the service-role client, so there is no privilege for SECURITY
+-- DEFINER to elevate; lib/audit.ts inserts directly instead.
 -- ---------------------------------------------------------------------------
 
-CREATE TABLE IF NOT EXISTS public.audit_log (
-  id           BIGSERIAL PRIMARY KEY,
-  occurred_at  TIMESTAMPTZ NOT NULL DEFAULT now(),
-  actor_id     UUID NULL,
-  actor_role   TEXT NULL,
-  action       TEXT NOT NULL,
-  target_type  TEXT NOT NULL,
-  target_id    UUID NULL,
-  before       JSONB NULL,
-  after        JSONB NULL,
-  metadata     JSONB NULL,
-  CONSTRAINT audit_log_action_check
-    CHECK (action ~ '^[a-z][a-z0-9_]*\.[a-z][a-z0-9_]*$')
+create table if not exists public.audit_log (
+  id             uuid        primary key default gen_random_uuid(),
+  created_at     timestamptz not null default now(),
+  actor_user_id  uuid,
+  actor_role     text,
+  action         text        not null,
+  entity_type    text        not null,
+  entity_id      text,
+  request_id     text,
+  meta           jsonb       not null default '{}'::jsonb
 );
 
-CREATE INDEX IF NOT EXISTS audit_log_actor_idx
-  ON public.audit_log (actor_id, occurred_at DESC);
+-- Append-only by construction: no policy grants insert, update, delete or
+-- select, so only the service role touches this table. Indexes live in
+-- 20260831130000_audit_log_indexes.sql, which production needs separately
+-- because it already had the table and skips this file.
+alter table public.audit_log enable row level security;
 
-CREATE INDEX IF NOT EXISTS audit_log_target_idx
-  ON public.audit_log (target_type, target_id, occurred_at DESC);
-
-CREATE INDEX IF NOT EXISTS audit_log_action_idx
-  ON public.audit_log (action, occurred_at DESC);
-
-ALTER TABLE public.audit_log ENABLE ROW LEVEL SECURITY;
-
--- No PERMISSIVE policies for INSERT / UPDATE / DELETE — only the service role
--- (which bypasses RLS) can write. The application calls the SECURITY DEFINER
--- helper below, which runs with elevated privileges.
-
-DROP POLICY IF EXISTS audit_log_admin_select ON public.audit_log;
-CREATE POLICY audit_log_admin_select
-  ON public.audit_log
-  FOR SELECT
-  TO authenticated
-  USING (
-    EXISTS (
-      SELECT 1
-      FROM public.profiles p
-      WHERE p.user_id = auth.uid()
-        AND lower(coalesce(p.role, '')) = 'admin'
-    )
-  );
-
--- SECURITY DEFINER helper: the only sanctioned write path from app code.
--- Application invokes via supabase.rpc('record_audit', {...}). The function
--- runs as the table owner so RLS does not block the INSERT, and it captures
--- auth.uid() as the actor automatically when not supplied.
-CREATE OR REPLACE FUNCTION public.record_audit(
-  p_action       TEXT,
-  p_target_type  TEXT,
-  p_target_id    UUID DEFAULT NULL,
-  p_before       JSONB DEFAULT NULL,
-  p_after        JSONB DEFAULT NULL,
-  p_metadata     JSONB DEFAULT NULL,
-  p_actor_id     UUID DEFAULT NULL,
-  p_actor_role   TEXT DEFAULT NULL
-)
-RETURNS BIGINT
-LANGUAGE plpgsql
-SECURITY DEFINER
-SET search_path = public
-AS $$
-DECLARE
-  v_actor UUID := COALESCE(p_actor_id, auth.uid());
-  v_role  TEXT := p_actor_role;
-  v_id    BIGINT;
-BEGIN
-  IF v_role IS NULL AND v_actor IS NOT NULL THEN
-    SELECT lower(role) INTO v_role
-      FROM public.profiles
-     WHERE user_id = v_actor
-     LIMIT 1;
-  END IF;
-
-  INSERT INTO public.audit_log (
-    actor_id, actor_role, action, target_type, target_id,
-    before, after, metadata
-  )
-  VALUES (
-    v_actor, v_role, p_action, p_target_type, p_target_id,
-    p_before, p_after, p_metadata
-  )
-  RETURNING id INTO v_id;
-
-  RETURN v_id;
-END;
-$$;
-
-REVOKE ALL ON FUNCTION public.record_audit(
-  TEXT, TEXT, UUID, JSONB, JSONB, JSONB, UUID, TEXT
-) FROM PUBLIC;
-GRANT EXECUTE ON FUNCTION public.record_audit(
-  TEXT, TEXT, UUID, JSONB, JSONB, JSONB, UUID, TEXT
-) TO authenticated, service_role;
+-- rollback:
+--   drop table if exists public.audit_log;
