@@ -24,6 +24,16 @@ const SCOPE = [
   "components/notifications",
   "components/offline",
   "components/ui/ErrorBanner.tsx",
+  // Author surfaces. These were outside the gate, which is how "Inga
+  // försäljningar ännu." sat in the dashboard's empty state next to an English
+  // heading. Hardcoded Swedish is always a mistake here: authors who want
+  // Swedish get it from useAuthorLocale() keys in lib/author-locale.tsx, which
+  // this scope does not touch.
+  "app/(app-author)",
+  "app/(public-author)",
+  "components/author",
+  "features/author",
+  "features/author-workspaces",
 ];
 
 const ALLOWED_EXACT = new Set([

@@ -139,7 +139,7 @@ function LandingPage() {
               {/* Dashboard screenshot — clipped with bottom fade */}
               <div className="hero-animate relative mt-0 w-full overflow-hidden" style={{ animationDelay: "720ms", maxHeight: "480px" }}>
                 <Image
-                  src="/images/Namnlös design (1).png"
+                  src="/images/author-dashboard-hero.png"
                   alt="Verkli dashboard on laptop and mobile"
                   width={3072}
                   height={1728}

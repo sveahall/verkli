@@ -237,7 +237,7 @@ export default function CountrySalesCard({ items }: CountrySalesCardProps) {
         <h2 className="text-xl font-normal text-slate-900 dark:text-white">Sales by country</h2>
         <div className="mt-4 flex items-center justify-between gap-6">
           <p className="text-sm text-slate-400 dark:text-white/40">
-            Inga försäljningar ännu.
+            No sales yet.
           </p>
           <div className="hidden min-h-[200px] flex-1 lg:block">
             <WorldMap items={[]} />
