@@ -54,7 +54,14 @@ export async function GET() {
   }
 
   const [reviewsRes, bookmarksRes, followersRes, commentsRes] = await Promise.all([
-    admin.from("reviews").select("id", { count: "exact", head: true }).in("book_id", bookIds),
+    // Soft-deleted rows are hidden from ordinary reads by a RESTRICTIVE RLS
+    // policy, but the admin client bypasses RLS — so moderation-removed
+    // comments and reviews would still be counted here without this filter.
+    admin
+      .from("reviews")
+      .select("id", { count: "exact", head: true })
+      .in("book_id", bookIds)
+      .is("deleted_at", null),
     admin.from("bookmarks").select("id", { count: "exact", head: true }).in("book_id", bookIds),
     admin
       .from("follows")
@@ -66,7 +73,8 @@ export async function GET() {
       .from("comments")
       .select("id", { count: "exact", head: true })
       .in("book_id", bookIds)
-      .neq("author_id", user.id),
+      .neq("author_id", user.id)
+      .is("deleted_at", null),
   ]);
 
   for (const [table, res] of [
@@ -95,6 +103,7 @@ export async function GET() {
         .from("reviews")
         .select("rating")
         .in("book_id", bookIds)
+        .is("deleted_at", null)
         .order("id", { ascending: true })
         .range(from, to)
     );

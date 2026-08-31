@@ -1,6 +1,21 @@
 // GENERATED FILE — DO NOT EDIT.
-// Regenerate with: npm run generate:types
-// Source: `supabase gen types typescript` against the project database.
+//
+// Regenerate:
+//   cd apps/web && supabase gen types typescript --linked \
+//     --schema public,graphql_public > src/lib/supabase/types.ts
+//
+// Two things that make this fail quietly:
+//   - `--schema` is not optional. The default is `public` alone, which silently
+//     drops the graphql_public block below.
+//   - The CLI must be authenticated as the account that owns the verkli project.
+//     A token for the other account returns "your account does not have the
+//     necessary privileges" from the type-generation endpoint. Pass one via
+//     SUPABASE_ACCESS_TOKEN rather than re-running `supabase login`, so the
+//     existing login is left alone.
+//
+// Redirecting straight onto this file truncates it before the command runs, so
+// write to a temp file first and move it once it starts with `export type Json`.
+//
 // Manual edits will be overwritten on the next regeneration.
 
 export type Json =
@@ -15,7 +30,7 @@ export type Database = {
   // Allows to automatically instantiate createClient with right options
   // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
   __InternalSupabase: {
-    PostgrestVersion: "14.1"
+    PostgrestVersion: "14.5"
   }
   graphql_public: {
     Tables: {
@@ -179,9 +194,11 @@ export type Database = {
           audio_url: string | null
           book_id: string
           created_at: string
+          demo_run_id: string | null
           duration_seconds: number | null
           id: string
           language: string
+          last_generated_at: string | null
           status: string
         }
         Insert: {
@@ -190,9 +207,11 @@ export type Database = {
           audio_url?: string | null
           book_id: string
           created_at?: string
+          demo_run_id?: string | null
           duration_seconds?: number | null
           id?: string
           language?: string
+          last_generated_at?: string | null
           status?: string
         }
         Update: {
@@ -201,9 +220,11 @@ export type Database = {
           audio_url?: string | null
           book_id?: string
           created_at?: string
+          demo_run_id?: string | null
           duration_seconds?: number | null
           id?: string
           language?: string
+          last_generated_at?: string | null
           status?: string
         }
         Relationships: [
@@ -312,6 +333,236 @@ export type Database = {
         }
         Relationships: []
       }
+      author_payout_accounts: {
+        Row: {
+          capabilities: Json | null
+          charges_enabled: boolean
+          country: string
+          created_at: string
+          default_currency: string | null
+          details_submitted: boolean
+          payout_schedule: string
+          payouts_enabled: boolean
+          requirements: Json | null
+          stripe_account_id: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          capabilities?: Json | null
+          charges_enabled?: boolean
+          country: string
+          created_at?: string
+          default_currency?: string | null
+          details_submitted?: boolean
+          payout_schedule?: string
+          payouts_enabled?: boolean
+          requirements?: Json | null
+          stripe_account_id: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          capabilities?: Json | null
+          charges_enabled?: boolean
+          country?: string
+          created_at?: string
+          default_currency?: string | null
+          details_submitted?: boolean
+          payout_schedule?: string
+          payouts_enabled?: boolean
+          requirements?: Json | null
+          stripe_account_id?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      author_subscription_plans: {
+        Row: {
+          author_id: string
+          created_at: string
+          currency: string
+          description: string | null
+          enabled: boolean
+          id: string
+          price_monthly: number
+          updated_at: string
+        }
+        Insert: {
+          author_id: string
+          created_at?: string
+          currency?: string
+          description?: string | null
+          enabled?: boolean
+          id?: string
+          price_monthly?: number
+          updated_at?: string
+        }
+        Update: {
+          author_id?: string
+          created_at?: string
+          currency?: string
+          description?: string | null
+          enabled?: boolean
+          id?: string
+          price_monthly?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      author_subscriptions: {
+        Row: {
+          amount_monthly: number
+          author_id: string
+          canceled_at: string | null
+          created_at: string
+          currency: string
+          current_period_end: string | null
+          current_period_start: string | null
+          id: string
+          status: string
+          stripe_customer_id: string | null
+          stripe_subscription_id: string | null
+          subscriber_user_id: string
+          updated_at: string
+        }
+        Insert: {
+          amount_monthly: number
+          author_id: string
+          canceled_at?: string | null
+          created_at?: string
+          currency?: string
+          current_period_end?: string | null
+          current_period_start?: string | null
+          id?: string
+          status?: string
+          stripe_customer_id?: string | null
+          stripe_subscription_id?: string | null
+          subscriber_user_id: string
+          updated_at?: string
+        }
+        Update: {
+          amount_monthly?: number
+          author_id?: string
+          canceled_at?: string | null
+          created_at?: string
+          currency?: string
+          current_period_end?: string | null
+          current_period_start?: string | null
+          id?: string
+          status?: string
+          stripe_customer_id?: string | null
+          stripe_subscription_id?: string | null
+          subscriber_user_id?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      author_voices: {
+        Row: {
+          created_at: string
+          deleted_at: string | null
+          description: string | null
+          elevenlabs_voice_id: string
+          id: string
+          is_default: boolean
+          name: string
+          sample_storage_path: string | null
+          source: string
+          status: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          deleted_at?: string | null
+          description?: string | null
+          elevenlabs_voice_id: string
+          id?: string
+          is_default?: boolean
+          name: string
+          sample_storage_path?: string | null
+          source?: string
+          status?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          deleted_at?: string | null
+          description?: string | null
+          elevenlabs_voice_id?: string
+          id?: string
+          is_default?: boolean
+          name?: string
+          sample_storage_path?: string | null
+          source?: string
+          status?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      beta_applications: {
+        Row: {
+          answers: Json
+          created_at: string
+          email: string
+          first_name: string | null
+          id: string
+          last_name: string | null
+          on_waitlist: boolean
+          review_note: string | null
+          reviewed_at: string | null
+          round: string
+          source: string | null
+          status: string
+          updated_at: string
+          waitlist_id: string | null
+        }
+        Insert: {
+          answers?: Json
+          created_at?: string
+          email: string
+          first_name?: string | null
+          id?: string
+          last_name?: string | null
+          on_waitlist?: boolean
+          review_note?: string | null
+          reviewed_at?: string | null
+          round?: string
+          source?: string | null
+          status?: string
+          updated_at?: string
+          waitlist_id?: string | null
+        }
+        Update: {
+          answers?: Json
+          created_at?: string
+          email?: string
+          first_name?: string | null
+          id?: string
+          last_name?: string | null
+          on_waitlist?: boolean
+          review_note?: string | null
+          reviewed_at?: string | null
+          round?: string
+          source?: string | null
+          status?: string
+          updated_at?: string
+          waitlist_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "beta_applications_waitlist_id_fkey"
+            columns: ["waitlist_id"]
+            isOneToOne: false
+            referencedRelation: "waitlist"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       billing_accounts: {
         Row: {
           cancel_at_period_end: boolean
@@ -370,6 +621,7 @@ export type Database = {
         Row: {
           created_at: string | null
           id: string
+          interval: string
           is_active: boolean
           plan_key: string
           price_id: string
@@ -380,6 +632,7 @@ export type Database = {
         Insert: {
           created_at?: string | null
           id?: string
+          interval?: string
           is_active?: boolean
           plan_key: string
           price_id: string
@@ -390,6 +643,7 @@ export type Database = {
         Update: {
           created_at?: string | null
           id?: string
+          interval?: string
           is_active?: boolean
           plan_key?: string
           price_id?: string
@@ -469,6 +723,7 @@ export type Database = {
           club_id: string
           content: string
           created_at: string
+          deleted_at: string | null
           id: string
           user_id: string
         }
@@ -476,6 +731,7 @@ export type Database = {
           club_id: string
           content: string
           created_at?: string
+          deleted_at?: string | null
           id?: string
           user_id: string
         }
@@ -483,6 +739,7 @@ export type Database = {
           club_id?: string
           content?: string
           created_at?: string
+          deleted_at?: string | null
           id?: string
           user_id?: string
         }
@@ -502,6 +759,7 @@ export type Database = {
           created_at: string
           creator_id: string
           current_book_id: string | null
+          deleted_at: string | null
           description: string | null
           id: string
           is_public: boolean
@@ -513,6 +771,7 @@ export type Database = {
           created_at?: string
           creator_id: string
           current_book_id?: string | null
+          deleted_at?: string | null
           description?: string | null
           id?: string
           is_public?: boolean
@@ -524,6 +783,7 @@ export type Database = {
           created_at?: string
           creator_id?: string
           current_book_id?: string | null
+          deleted_at?: string | null
           description?: string | null
           id?: string
           is_public?: boolean
@@ -636,13 +896,53 @@ export type Database = {
           },
         ]
       }
+      book_translations: {
+        Row: {
+          book_id: string
+          created_at: string
+          demo_run_id: string | null
+          id: string
+          language: string
+          progress: number
+          status: string
+        }
+        Insert: {
+          book_id: string
+          created_at?: string
+          demo_run_id?: string | null
+          id?: string
+          language: string
+          progress?: number
+          status?: string
+        }
+        Update: {
+          book_id?: string
+          created_at?: string
+          demo_run_id?: string | null
+          id?: string
+          language?: string
+          progress?: number
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "book_translations_book_id_fkey"
+            columns: ["book_id"]
+            isOneToOne: false
+            referencedRelation: "books"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       book_versions: {
         Row: {
           book_id: string
           created_at: string
+          demo_run_id: string | null
           error_message: string | null
           id: string
           language_code: string
+          last_generated_at: string | null
           published_at: string | null
           published_chapter_count: number | null
           status: string
@@ -652,9 +952,11 @@ export type Database = {
         Insert: {
           book_id: string
           created_at?: string
+          demo_run_id?: string | null
           error_message?: string | null
           id?: string
           language_code: string
+          last_generated_at?: string | null
           published_at?: string | null
           published_chapter_count?: number | null
           status?: string
@@ -664,9 +966,11 @@ export type Database = {
         Update: {
           book_id?: string
           created_at?: string
+          demo_run_id?: string | null
           error_message?: string | null
           id?: string
           language_code?: string
+          last_generated_at?: string | null
           published_at?: string | null
           published_chapter_count?: number | null
           status?: string
@@ -718,11 +1022,15 @@ export type Database = {
           author_id: string
           cover_image: string | null
           created_at: string
+          deleted_at: string | null
+          demo_pod_enabled: boolean
+          demo_run_id: string | null
           description: string | null
           featured: boolean | null
           featured_rank: number | null
           featured_until: string | null
           id: string
+          is_adult_content: boolean
           is_featured: boolean
           is_free: boolean | null
           is_translation: boolean
@@ -737,6 +1045,7 @@ export type Database = {
           print_on_demand_settings: Json
           published: boolean
           published_at: string | null
+          search_vector: unknown
           slug: string
           status: Database["public"]["Enums"]["book_status"]
           title: string
@@ -750,11 +1059,15 @@ export type Database = {
           author_id: string
           cover_image?: string | null
           created_at?: string
+          deleted_at?: string | null
+          demo_pod_enabled?: boolean
+          demo_run_id?: string | null
           description?: string | null
           featured?: boolean | null
           featured_rank?: number | null
           featured_until?: string | null
           id?: string
+          is_adult_content?: boolean
           is_featured?: boolean
           is_free?: boolean | null
           is_translation?: boolean
@@ -769,6 +1082,7 @@ export type Database = {
           print_on_demand_settings?: Json
           published?: boolean
           published_at?: string | null
+          search_vector?: unknown
           slug: string
           status?: Database["public"]["Enums"]["book_status"]
           title: string
@@ -782,11 +1096,15 @@ export type Database = {
           author_id?: string
           cover_image?: string | null
           created_at?: string
+          deleted_at?: string | null
+          demo_pod_enabled?: boolean
+          demo_run_id?: string | null
           description?: string | null
           featured?: boolean | null
           featured_rank?: number | null
           featured_until?: string | null
           id?: string
+          is_adult_content?: boolean
           is_featured?: boolean
           is_free?: boolean | null
           is_translation?: boolean
@@ -801,6 +1119,7 @@ export type Database = {
           print_on_demand_settings?: Json
           published?: boolean
           published_at?: string | null
+          search_vector?: unknown
           slug?: string
           status?: Database["public"]["Enums"]["book_status"]
           title?: string
@@ -861,6 +1180,42 @@ export type Database = {
         }
         Relationships: []
       }
+      chapter_audio_timestamps: {
+        Row: {
+          audio_asset_id: string | null
+          chapter_id: string
+          created_at: string
+          duration_ms: number | null
+          id: string
+          language: string
+          total_words: number | null
+          updated_at: string
+          words: Json
+        }
+        Insert: {
+          audio_asset_id?: string | null
+          chapter_id: string
+          created_at?: string
+          duration_ms?: number | null
+          id?: string
+          language: string
+          total_words?: number | null
+          updated_at?: string
+          words: Json
+        }
+        Update: {
+          audio_asset_id?: string | null
+          chapter_id?: string
+          created_at?: string
+          duration_ms?: number | null
+          id?: string
+          language?: string
+          total_words?: number | null
+          updated_at?: string
+          words?: Json
+        }
+        Relationships: []
+      }
       chapters: {
         Row: {
           book_id: string
@@ -868,11 +1223,13 @@ export type Database = {
           content: string
           content_hash: string | null
           created_at: string
+          deleted_at: string | null
           id: string
           order: number
           source_text: string | null
           title: string
           updated_at: string
+          version_number: number
         }
         Insert: {
           book_id: string
@@ -880,11 +1237,13 @@ export type Database = {
           content?: string
           content_hash?: string | null
           created_at?: string
+          deleted_at?: string | null
           id?: string
           order: number
           source_text?: string | null
           title: string
           updated_at?: string
+          version_number?: number
         }
         Update: {
           book_id?: string
@@ -892,11 +1251,13 @@ export type Database = {
           content?: string
           content_hash?: string | null
           created_at?: string
+          deleted_at?: string | null
           id?: string
           order?: number
           source_text?: string | null
           title?: string
           updated_at?: string
+          version_number?: number
         }
         Relationships: [
           {
@@ -922,6 +1283,7 @@ export type Database = {
           book_id: string
           chapter_id: string | null
           created_at: string
+          deleted_at: string | null
           id: string
           parent_comment_id: string | null
         }
@@ -931,6 +1293,7 @@ export type Database = {
           book_id: string
           chapter_id?: string | null
           created_at?: string
+          deleted_at?: string | null
           id?: string
           parent_comment_id?: string | null
         }
@@ -940,6 +1303,7 @@ export type Database = {
           book_id?: string
           chapter_id?: string | null
           created_at?: string
+          deleted_at?: string | null
           id?: string
           parent_comment_id?: string | null
         }
@@ -1035,6 +1399,60 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "books"
             referencedColumns: ["id"]
+          },
+        ]
+      }
+      content_reports: {
+        Row: {
+          created_at: string
+          detail: string | null
+          id: string
+          reason_code: string
+          reporter_user_id: string
+          reviewed_at: string | null
+          reviewed_by_user_id: string | null
+          status: string
+          target_id: string
+          target_type: string
+        }
+        Insert: {
+          created_at?: string
+          detail?: string | null
+          id?: string
+          reason_code: string
+          reporter_user_id: string
+          reviewed_at?: string | null
+          reviewed_by_user_id?: string | null
+          status?: string
+          target_id: string
+          target_type: string
+        }
+        Update: {
+          created_at?: string
+          detail?: string | null
+          id?: string
+          reason_code?: string
+          reporter_user_id?: string
+          reviewed_at?: string | null
+          reviewed_by_user_id?: string | null
+          status?: string
+          target_id?: string
+          target_type?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "content_reports_reporter_user_id_fkey"
+            columns: ["reporter_user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "content_reports_reviewed_by_user_id_fkey"
+            columns: ["reviewed_by_user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["user_id"]
           },
         ]
       }
@@ -1499,6 +1917,57 @@ export type Database = {
           },
         ]
       }
+      listening_positions: {
+        Row: {
+          book_id: string
+          chapter_id: string
+          completed: boolean
+          created_at: string
+          duration_seconds: number | null
+          id: string
+          position_seconds: number
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          book_id: string
+          chapter_id: string
+          completed?: boolean
+          created_at?: string
+          duration_seconds?: number | null
+          id?: string
+          position_seconds?: number
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          book_id?: string
+          chapter_id?: string
+          completed?: boolean
+          created_at?: string
+          duration_seconds?: number | null
+          id?: string
+          position_seconds?: number
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "listening_positions_book_id_fkey"
+            columns: ["book_id"]
+            isOneToOne: false
+            referencedRelation: "books"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "listening_positions_chapter_id_fkey"
+            columns: ["chapter_id"]
+            isOneToOne: false
+            referencedRelation: "chapters"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       marketing_assets: {
         Row: {
           book_id: string
@@ -1540,6 +2009,77 @@ export type Database = {
           },
         ]
       }
+      marketing_campaign_plans: {
+        Row: {
+          author_id: string
+          book_id: string
+          channels: string[]
+          content_types: string[]
+          created_at: string
+          duration_weeks: number
+          frequency: string
+          generation_error: string | null
+          id: string
+          languages: string[]
+          mode: string
+          name: string | null
+          paid_config: Json
+          start_date: string
+          status: string
+          template: string
+          updated_at: string
+          weekly_schedule: Json
+        }
+        Insert: {
+          author_id: string
+          book_id: string
+          channels?: string[]
+          content_types?: string[]
+          created_at?: string
+          duration_weeks?: number
+          frequency?: string
+          generation_error?: string | null
+          id?: string
+          languages?: string[]
+          mode?: string
+          name?: string | null
+          paid_config?: Json
+          start_date: string
+          status?: string
+          template?: string
+          updated_at?: string
+          weekly_schedule?: Json
+        }
+        Update: {
+          author_id?: string
+          book_id?: string
+          channels?: string[]
+          content_types?: string[]
+          created_at?: string
+          duration_weeks?: number
+          frequency?: string
+          generation_error?: string | null
+          id?: string
+          languages?: string[]
+          mode?: string
+          name?: string | null
+          paid_config?: Json
+          start_date?: string
+          status?: string
+          template?: string
+          updated_at?: string
+          weekly_schedule?: Json
+        }
+        Relationships: [
+          {
+            foreignKeyName: "marketing_campaign_plans_book_id_fkey"
+            columns: ["book_id"]
+            isOneToOne: false
+            referencedRelation: "books"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       marketing_campaigns: {
         Row: {
           book_id: string
@@ -1547,10 +2087,14 @@ export type Database = {
           channel: string
           created_at: string
           cta: string | null
+          deleted_at: string | null
+          demo_run_id: string | null
           hashtags: string | null
           headline: string | null
           id: string
           language: string
+          last_generated_at: string | null
+          metadata: Json
           share_url: string | null
           status: string
           updated_at: string
@@ -1561,10 +2105,14 @@ export type Database = {
           channel?: string
           created_at?: string
           cta?: string | null
+          deleted_at?: string | null
+          demo_run_id?: string | null
           hashtags?: string | null
           headline?: string | null
           id?: string
           language?: string
+          last_generated_at?: string | null
+          metadata?: Json
           share_url?: string | null
           status?: string
           updated_at?: string
@@ -1575,10 +2123,14 @@ export type Database = {
           channel?: string
           created_at?: string
           cta?: string | null
+          deleted_at?: string | null
+          demo_run_id?: string | null
           hashtags?: string | null
           headline?: string | null
           id?: string
           language?: string
+          last_generated_at?: string | null
+          metadata?: Json
           share_url?: string | null
           status?: string
           updated_at?: string
@@ -1610,6 +2162,112 @@ export type Database = {
           created_at?: string
         }
         Relationships: []
+      }
+      marketing_posts: {
+        Row: {
+          asset_error: string | null
+          author_id: string
+          book_id: string
+          campaign_plan_id: string
+          caption: string | null
+          channel: string
+          content_type: string
+          created_at: string
+          cta: string | null
+          deleted_at: string | null
+          hashtags: string | null
+          headline: string | null
+          id: string
+          language: string
+          media_asset_id: string | null
+          media_asset_url: string | null
+          metadata: Json
+          mode: string
+          paid_config: Json
+          posted_at: string | null
+          posted_url: string | null
+          scheduled_for: string
+          share_url: string | null
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          asset_error?: string | null
+          author_id: string
+          book_id: string
+          campaign_plan_id: string
+          caption?: string | null
+          channel: string
+          content_type?: string
+          created_at?: string
+          cta?: string | null
+          deleted_at?: string | null
+          hashtags?: string | null
+          headline?: string | null
+          id?: string
+          language?: string
+          media_asset_id?: string | null
+          media_asset_url?: string | null
+          metadata?: Json
+          mode?: string
+          paid_config?: Json
+          posted_at?: string | null
+          posted_url?: string | null
+          scheduled_for: string
+          share_url?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          asset_error?: string | null
+          author_id?: string
+          book_id?: string
+          campaign_plan_id?: string
+          caption?: string | null
+          channel?: string
+          content_type?: string
+          created_at?: string
+          cta?: string | null
+          deleted_at?: string | null
+          hashtags?: string | null
+          headline?: string | null
+          id?: string
+          language?: string
+          media_asset_id?: string | null
+          media_asset_url?: string | null
+          metadata?: Json
+          mode?: string
+          paid_config?: Json
+          posted_at?: string | null
+          posted_url?: string | null
+          scheduled_for?: string
+          share_url?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "marketing_posts_book_id_fkey"
+            columns: ["book_id"]
+            isOneToOne: false
+            referencedRelation: "books"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "marketing_posts_campaign_plan_id_fkey"
+            columns: ["campaign_plan_id"]
+            isOneToOne: false
+            referencedRelation: "marketing_campaign_plans"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "marketing_posts_media_asset_id_fkey"
+            columns: ["media_asset_id"]
+            isOneToOne: false
+            referencedRelation: "media_assets"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       media_assets: {
         Row: {
@@ -1696,6 +2354,7 @@ export type Database = {
           body: string
           conversation_id: string
           created_at: string
+          deleted_at: string | null
           id: string
           sender_id: string
         }
@@ -1703,6 +2362,7 @@ export type Database = {
           body: string
           conversation_id: string
           created_at?: string
+          deleted_at?: string | null
           id?: string
           sender_id: string
         }
@@ -1710,6 +2370,7 @@ export type Database = {
           body?: string
           conversation_id?: string
           created_at?: string
+          deleted_at?: string | null
           id?: string
           sender_id?: string
         }
@@ -1874,18 +2535,21 @@ export type Database = {
       }
       poll_options: {
         Row: {
+          deleted_at: string | null
           id: string
           poll_id: string
           sort_order: number
           text: string
         }
         Insert: {
+          deleted_at?: string | null
           id?: string
           poll_id: string
           sort_order?: number
           text: string
         }
         Update: {
+          deleted_at?: string | null
           id?: string
           poll_id?: string
           sort_order?: number
@@ -1943,6 +2607,7 @@ export type Database = {
           book_id: string | null
           closes_at: string | null
           created_at: string
+          deleted_at: string | null
           id: string
           is_active: boolean
           question: string
@@ -1952,6 +2617,7 @@ export type Database = {
           book_id?: string | null
           closes_at?: string | null
           created_at?: string
+          deleted_at?: string | null
           id?: string
           is_active?: boolean
           question: string
@@ -1961,6 +2627,7 @@ export type Database = {
           book_id?: string | null
           closes_at?: string | null
           created_at?: string
+          deleted_at?: string | null
           id?: string
           is_active?: boolean
           question?: string
@@ -1977,14 +2644,19 @@ export type Database = {
       }
       profiles: {
         Row: {
+          age_verified_at: string | null
           avatar_url: string | null
           bio: string | null
           cover_image: string | null
           created_at: string | null
+          deletion_requested_at: string | null
+          demo_mode: boolean
           display_name: string | null
+          is_protected: boolean
           is_public: boolean
           preferences: Json | null
           role: string | null
+          search_vector: unknown
           social_links: Json | null
           updated_at: string | null
           user_id: string
@@ -1992,14 +2664,19 @@ export type Database = {
           website_url: string | null
         }
         Insert: {
+          age_verified_at?: string | null
           avatar_url?: string | null
           bio?: string | null
           cover_image?: string | null
           created_at?: string | null
+          deletion_requested_at?: string | null
+          demo_mode?: boolean
           display_name?: string | null
+          is_protected?: boolean
           is_public?: boolean
           preferences?: Json | null
           role?: string | null
+          search_vector?: unknown
           social_links?: Json | null
           updated_at?: string | null
           user_id: string
@@ -2007,14 +2684,19 @@ export type Database = {
           website_url?: string | null
         }
         Update: {
+          age_verified_at?: string | null
           avatar_url?: string | null
           bio?: string | null
           cover_image?: string | null
           created_at?: string | null
+          deletion_requested_at?: string | null
+          demo_mode?: boolean
           display_name?: string | null
+          is_protected?: boolean
           is_public?: boolean
           preferences?: Json | null
           role?: string | null
+          search_vector?: unknown
           social_links?: Json | null
           updated_at?: string | null
           user_id?: string
@@ -2131,6 +2813,58 @@ export type Database = {
           wave_key?: string | null
         }
         Relationships: []
+      }
+      reading_progress: {
+        Row: {
+          book_id: string
+          book_version_id: string | null
+          chapter_id: string | null
+          client_seq: number
+          scroll_position: number
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          book_id: string
+          book_version_id?: string | null
+          chapter_id?: string | null
+          client_seq?: number
+          scroll_position?: number
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          book_id?: string
+          book_version_id?: string | null
+          chapter_id?: string | null
+          client_seq?: number
+          scroll_position?: number
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "reading_progress_book_id_fkey"
+            columns: ["book_id"]
+            isOneToOne: false
+            referencedRelation: "books"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "reading_progress_book_version_id_fkey"
+            columns: ["book_version_id"]
+            isOneToOne: false
+            referencedRelation: "book_versions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "reading_progress_chapter_id_fkey"
+            columns: ["chapter_id"]
+            isOneToOne: false
+            referencedRelation: "chapters"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       readings: {
         Row: {
@@ -2272,6 +3006,7 @@ export type Database = {
           book_version_id: string | null
           content: string | null
           created_at: string
+          deleted_at: string | null
           id: string
           rating: number
           updated_at: string
@@ -2282,6 +3017,7 @@ export type Database = {
           book_version_id?: string | null
           content?: string | null
           created_at?: string
+          deleted_at?: string | null
           id?: string
           rating: number
           updated_at?: string
@@ -2292,6 +3028,7 @@ export type Database = {
           book_version_id?: string | null
           content?: string | null
           created_at?: string
+          deleted_at?: string | null
           id?: string
           rating?: number
           updated_at?: string
@@ -2506,6 +3243,38 @@ export type Database = {
         }
         Relationships: []
       }
+      stripe_session_redemptions: {
+        Row: {
+          book_id: string | null
+          kind: string
+          redeemed_at: string
+          stripe_session_id: string
+          user_id: string
+        }
+        Insert: {
+          book_id?: string | null
+          kind: string
+          redeemed_at?: string
+          stripe_session_id: string
+          user_id: string
+        }
+        Update: {
+          book_id?: string | null
+          kind?: string
+          redeemed_at?: string
+          stripe_session_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "stripe_session_redemptions_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["user_id"]
+          },
+        ]
+      }
       translations: {
         Row: {
           created_at: string
@@ -2716,6 +3485,47 @@ export type Database = {
         }
         Relationships: []
       }
+      voice_consents: {
+        Row: {
+          accepted_at: string
+          id: string
+          ip: string | null
+          terms_version: string
+          user_agent: string | null
+          user_id: string
+          voice_id: string | null
+          withdrawn_at: string | null
+        }
+        Insert: {
+          accepted_at?: string
+          id?: string
+          ip?: string | null
+          terms_version: string
+          user_agent?: string | null
+          user_id: string
+          voice_id?: string | null
+          withdrawn_at?: string | null
+        }
+        Update: {
+          accepted_at?: string
+          id?: string
+          ip?: string | null
+          terms_version?: string
+          user_agent?: string | null
+          user_id?: string
+          voice_id?: string | null
+          withdrawn_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "voice_consents_voice_id_fkey"
+            columns: ["voice_id"]
+            isOneToOne: false
+            referencedRelation: "author_voices"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       waitlist: {
         Row: {
           confirmation_email_error: string | null
@@ -2859,6 +3669,29 @@ export type Database = {
       }
       refresh_book_audiobook_status: {
         Args: { p_book_id: string }
+        Returns: undefined
+      }
+      update_author_subscription_status: {
+        Args: {
+          p_canceled_at?: string
+          p_current_period_end?: string
+          p_status: string
+          p_stripe_subscription_id: string
+        }
+        Returns: undefined
+      }
+      upsert_author_subscription: {
+        Args: {
+          p_amount_monthly: number
+          p_author_id: string
+          p_currency: string
+          p_current_period_end?: string
+          p_current_period_start?: string
+          p_status: string
+          p_stripe_customer_id: string
+          p_stripe_subscription_id: string
+          p_subscriber_user_id: string
+        }
         Returns: undefined
       }
     }

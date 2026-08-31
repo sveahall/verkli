@@ -208,6 +208,8 @@ export default async function MetricDetailPage({
       .select("id, book_id, author_id, body, created_at")
       .in("book_id", bookIds)
       .neq("author_id", user.id)
+      // Admin client bypasses RLS, so the soft-delete policy does not apply.
+      .is("deleted_at", null)
       .order("created_at", { ascending: false })
       .limit(200);
 
@@ -218,7 +220,8 @@ export default async function MetricDetailPage({
       .from("comments")
       .select("id", { count: "exact", head: true })
       .in("book_id", bookIds)
-      .neq("author_id", user.id);
+      .neq("author_id", user.id)
+      .is("deleted_at", null);
     summary = { total: commentTotal ?? commentList.length, change: 0 };
 
     const bookTitleById = new Map(books.map((b) => [b.id, b.title ?? "Untitled"]));
@@ -233,6 +236,7 @@ export default async function MetricDetailPage({
       .from("reviews")
       .select("id, book_id, user_id, rating, content, created_at")
       .in("book_id", bookIds)
+      .is("deleted_at", null)
       .order("created_at", { ascending: false })
       .limit(200);
 
@@ -245,6 +249,7 @@ export default async function MetricDetailPage({
         .from("reviews")
         .select("rating")
         .in("book_id", bookIds)
+        .is("deleted_at", null)
         .order("id", { ascending: true })
         .range(from, to)
     );

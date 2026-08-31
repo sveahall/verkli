@@ -131,7 +131,9 @@ export default async function AuthorHomePage() {
       admin
         .from("reviews")
         .select("id", { count: "exact", head: true })
-        .in("book_id", bookIds),
+        .in("book_id", bookIds)
+        // Admin client bypasses RLS, so the soft-delete policy does not apply.
+        .is("deleted_at", null),
       // "Reader comments on your published books" — so not the author's own
       // replies in their own threads, which would let an active author inflate
       // their engagement number by answering readers.
@@ -139,7 +141,8 @@ export default async function AuthorHomePage() {
         .from("comments")
         .select("id", { count: "exact", head: true })
         .in("book_id", bookIds)
-        .neq("author_id", user.id),
+        .neq("author_id", user.id)
+        .is("deleted_at", null),
     ]),
     // Activity events
     Promise.all([
