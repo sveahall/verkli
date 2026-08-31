@@ -7,7 +7,17 @@ export default function ReaderChapterGlobalStyles() {
         font-size: var(--reader-font-size, 16px);
         line-height: var(--reader-line-height, 1.75);
         font-family: var(--reader-font-family, Georgia, serif);
-        max-width: 78ch;
+        /* The old 78ch never bound: the container caps the column at 638px,
+           which measured at 90 characters a line — well past the band where
+           the eye reliably finds the next line start.
+
+           The ch unit is the zero glyph, and in Georgia that is far wider than the
+           average letter, so the unit overstates the measure by roughly a
+           third. Measured against this book at 16px Georgia: 52ch renders 76
+           characters, 48ch renders 70, 46ch renders 66. 47ch sits mid-band.
+           Still ch rather than px, so the measure holds when the reader
+           changes text size. */
+        max-width: 47ch;
         margin-left: auto;
         margin-right: auto;
         color: var(--reader-prose-color, #1e293b);

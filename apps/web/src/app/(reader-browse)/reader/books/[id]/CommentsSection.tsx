@@ -328,9 +328,12 @@ export default function CommentsSection({
                     onChange={(event) => setSelectedChapterId(event.target.value)}
                   >
                     <option value="">Entire book</option>
-                    {chapterOptions.map((chapter) => (
+                    {/* Position, not `order` — see the chapter list on the book
+                        page: `order` is a sort key that starts at 0 in some
+                        books and 1 in others. */}
+                    {chapterOptions.map((chapter, index) => (
                       <option key={chapter.id} value={chapter.id}>
-                        {chapter.order}. {chapter.title}
+                        {index + 1}. {chapter.title}
                       </option>
                     ))}
                   </select>

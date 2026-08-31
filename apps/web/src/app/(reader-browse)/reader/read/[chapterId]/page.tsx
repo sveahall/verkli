@@ -415,7 +415,11 @@ export default async function ReaderReadPage({
     chapterIndex >= 0 && chapterIndex < navChapters.length - 1
       ? navChapters[chapterIndex + 1]
       : null;
-  const progressLabel = `Chapter ${chapterIndex + 1} of ${totalChapters}${readAccess.access === "preview" ? " • Preview" : ""}`;
+  // The navigator directly below already shows "N of M" beside its prev/next
+  // arrows, where position is actionable. Repeating it in the header put
+  // "Chapter 1" on screen four times before the first sentence, so the
+  // header keeps only what the navigator does not say: the access state.
+  const progressLabel = readAccess.access === "preview" ? "Preview" : "";
   // For a single-chapter book there's no prev/next and no preview gate — the
   // "Start of book / End of book" placeholders would just read as empty. Skip.
   const showFooterNavigation =

@@ -700,8 +700,12 @@ export default async function ReaderBookDetail({
             className="flex items-center justify-between gap-3 py-3 first:pt-0 last:pb-0"
           >
             <div className="flex min-w-0 items-center gap-3">
+              {/* Position in the list, not `order`. That column is an internal
+                  sort key with no agreed origin: Alice's chapters start at 0
+                  and Oliver Twist's at 1, so the same "Chapter 1" was numbered
+                  differently depending on how the book was imported. */}
               <span className="w-6 flex-shrink-0 text-right text-xs tabular-nums text-slate-400 dark:text-white/30">
-                {chapterItem.order}
+                {index + 1}
               </span>
               <Link
                 href={`/reader/read/${chapterItem.id}`}
