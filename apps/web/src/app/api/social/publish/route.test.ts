@@ -85,6 +85,7 @@ function makeRequest(body: Record<string, unknown> = { campaignId: "camp-1", pla
 function mockAuthSuccess(userId = "u1") {
   vi.mocked(requireAuthorRoleForApi).mockResolvedValue({
     user: { id: userId } as never,
+    role: "author",
     response: null,
   });
 }
@@ -92,6 +93,7 @@ function mockAuthSuccess(userId = "u1") {
 function mockAuthFail(status = 401) {
   vi.mocked(requireAuthorRoleForApi).mockResolvedValue({
     user: null,
+    role: null,
     response: new Response(JSON.stringify({ error: "UNAUTHORIZED" }), { status }),
   });
 }

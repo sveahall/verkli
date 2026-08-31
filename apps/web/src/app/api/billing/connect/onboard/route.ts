@@ -52,7 +52,7 @@ export async function POST(request: Request) {
         country: account.country,
       },
       metadata: auditMetadataFromRequest(request),
-      actor: { id: auth.user.id, role: "author" },
+      actor: { id: auth.user.id, role: auth.role },
     }).catch(() => {});
 
     return NextResponse.json({ url, accountId: account.stripe_account_id });

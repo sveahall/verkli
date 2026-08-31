@@ -6,7 +6,14 @@ import {
 import type { User } from "@supabase/supabase-js";
 
 export type AuthorCheckResult =
-  | { ok: true; user: User }
+  /**
+   * `role` is the caller's actual `profiles.role`, lowercased, or null when the
+   * profile carries none. It is not "author": this check also passes admins,
+   * and it passes users authorised by an approved application whose profile
+   * role may be something else entirely. Callers that record who acted (audit
+   * rows) need the real value — assuming "author" mislabels every admin.
+   */
+  | { ok: true; user: User; role: string | null }
   | { ok: false; error: string; status: 401 | 403 };
 
 /**
@@ -33,13 +40,16 @@ export async function requireAuthorRole(): Promise<AuthorCheckResult> {
     .maybeSingle();
 
   const profileRole = String(profile?.role ?? "").trim().toLowerCase();
+  const role = profileRole === "" ? null : profileRole;
   if (profileRole === "admin" || isLegacyAuthorRole(profileRole)) {
-    return { ok: true, user };
+    return { ok: true, user, role };
   }
 
   const applicationStatus = await getAuthorApplicationStatus(supabase, user.id);
   if (applicationStatus === "approved") {
-    return { ok: true, user };
+    // Authorised by approval rather than by role, so `role` stays whatever the
+    // profile says — null included. Better a null actor_role than a guess.
+    return { ok: true, user, role };
   }
 
   return { ok: false, error: "Author approval required", status: 403 };
@@ -50,8 +60,8 @@ export async function requireAuthorRole(): Promise<AuthorCheckResult> {
  * This avoids the need to import NextResponse in every route file.
  */
 export async function requireAuthorRoleForApi(): Promise<
-  | { user: User; response: null }
-  | { user: null; response: Response }
+  | { user: User; role: string | null; response: null }
+  | { user: null; role: null; response: Response }
 > {
   const result = await requireAuthorRole();
 
@@ -59,6 +69,7 @@ export async function requireAuthorRoleForApi(): Promise<
     const { NextResponse } = await import("next/server");
     return {
       user: null,
+      role: null,
       response: NextResponse.json(
         { error: result.error },
         { status: result.status }
@@ -66,5 +77,5 @@ export async function requireAuthorRoleForApi(): Promise<
     };
   }
 
-  return { user: result.user, response: null };
+  return { user: result.user, role: result.role, response: null };
 }
