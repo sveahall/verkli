@@ -17,6 +17,8 @@ import {
   E_RATE_LIMIT_EXCEEDED,
   E_INVALID_BOOK_ID,
   E_AUDIOBOOK_TOO_LONG,
+  E_AUDIOBOOK_QUOTA_EXHAUSTED,
+  E_AUDIOBOOK_QUOTA_UNKNOWN,
   E_BOOK_VERSION_NOT_FOUND_FOR_LANGUAGE,
   E_NO_CHAPTERS_FOR_VERSION,
   E_DATABASE_ERROR,
@@ -24,6 +26,7 @@ import {
 } from "@/lib/api-errors"
 import { sumChapterTextLength } from "@/lib/audiobook/chapter-text"
 import { JobCostExceededError, validateJobCost } from "@/lib/workers/budget"
+import { getRemainingCredits } from "@/lib/tts/elevenlabs-quota"
 
 const checkoutLimiter = createPerUserRateLimiter({ maxPerMinute: 5 })
 
@@ -163,6 +166,35 @@ export async function POST(
       })
     }
     throw err
+  }
+
+  // The cap above says how big a job may be; this says whether it can be paid
+  // for. Separate limits, and the second one is what actually failed in
+  // production on 2026-09-01 (ElevenLabs quota_exceeded, mid-job, after the
+  // charge). Refusing on an unknown quota is deliberate: blocking a purchase for
+  // a minute is a smaller harm than taking 299 SEK for narration that cannot run
+  // and cannot be retried.
+  const quota = await getRemainingCredits()
+  if (quota.remaining === null) {
+    console.error("[audiobook.checkout] refusing checkout: narration quota unverifiable", {
+      bookId,
+      reason: quota.reason,
+    })
+    return apiError(E_AUDIOBOOK_QUOTA_UNKNOWN, 503, {
+      detail: "Narration capacity could not be verified. Nothing was charged.",
+    })
+  }
+  if (quota.remaining < totalCharacters) {
+    console.error("[audiobook.checkout] refusing checkout: not enough narration credits", {
+      bookId,
+      required: totalCharacters,
+      remaining: quota.remaining,
+    })
+    return apiError(E_AUDIOBOOK_QUOTA_EXHAUSTED, 503, {
+      detail: `This book needs ${totalCharacters} narration credits; ${quota.remaining} remain. Nothing was charged.`,
+      required: totalCharacters,
+      remaining: quota.remaining,
+    })
   }
 
   const baseUrl = getRequestBaseUrl(request)

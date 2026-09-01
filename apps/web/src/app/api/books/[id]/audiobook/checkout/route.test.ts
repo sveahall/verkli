@@ -9,6 +9,8 @@ import {
   E_AUDIOBOOK_TOO_LONG,
   E_BOOK_VERSION_NOT_FOUND_FOR_LANGUAGE,
   E_NO_CHAPTERS_FOR_VERSION,
+  E_AUDIOBOOK_QUOTA_EXHAUSTED,
+  E_AUDIOBOOK_QUOTA_UNKNOWN,
 } from "@/lib/api-errors";
 
 const mocks = vi.hoisted(() => ({
@@ -17,6 +19,11 @@ const mocks = vi.hoisted(() => ({
   getAudiobookEnabled: vi.fn(),
   createAudiobookCheckoutSession: vi.fn(),
   rateLimitCheck: vi.fn(),
+  getRemainingCredits: vi.fn(),
+}));
+
+vi.mock("@/lib/tts/elevenlabs-quota", () => ({
+  getRemainingCredits: mocks.getRemainingCredits,
 }));
 
 vi.mock("@/lib/auth/require-author", () => ({
@@ -145,6 +152,8 @@ describe("POST /api/books/[id]/audiobook/checkout", () => {
     // A configured narrator voice is the precondition for reaching Stripe at all.
     process.env.ELEVENLABS_VOICE_ID = "elevenlabs-voice-1";
     delete process.env.TTS_VOICE_ID;
+    // Ample narration capacity unless a test says otherwise.
+    mocks.getRemainingCredits.mockResolvedValue({ remaining: 5_000_000 });
   });
 
   afterEach(() => {
@@ -372,6 +381,59 @@ describe("POST /api/books/[id]/audiobook/checkout", () => {
       expect(res.status).toBe(404);
       expect(body.error).toBe(E_NO_CHAPTERS_FOR_VERSION);
       expect(mocks.createAudiobookCheckoutSession).not.toHaveBeenCalled();
+    });
+
+    it("refuses when narration credits are short of the book, without charging", async () => {
+      mockAuthedUser();
+      mockBookLookup({ found: true, chapters: [chapterOf(4000)] });
+      mocks.getRemainingCredits.mockResolvedValue({ remaining: 1836 });
+
+      const res = await POST(makeRequest({ language: "en" }), {
+        params: Promise.resolve({ id: VALID_UUID }),
+      });
+      const body = await res.json();
+
+      expect(res.status).toBe(503);
+      expect(body.error).toBe(E_AUDIOBOOK_QUOTA_EXHAUSTED);
+      expect(body.required).toBe(4000);
+      expect(body.remaining).toBe(1836);
+      expect(mocks.createAudiobookCheckoutSession).not.toHaveBeenCalled();
+    });
+
+    // Deliberately fail closed. An unknown quota might have been enough, but
+    // taking 299 SEK for a job that cannot be retried is the worse outcome.
+    it("refuses when the quota cannot be read at all", async () => {
+      mockAuthedUser();
+      mockBookLookup({ found: true, chapters: [chapterOf(100)] });
+      mocks.getRemainingCredits.mockResolvedValue({
+        remaining: null,
+        reason: "request_failed",
+      });
+
+      const res = await POST(makeRequest({ language: "en" }), {
+        params: Promise.resolve({ id: VALID_UUID }),
+      });
+      const body = await res.json();
+
+      expect(res.status).toBe(503);
+      expect(body.error).toBe(E_AUDIOBOOK_QUOTA_UNKNOWN);
+      expect(mocks.createAudiobookCheckoutSession).not.toHaveBeenCalled();
+    });
+
+    it("proceeds when credits exactly cover the book", async () => {
+      mockAuthedUser();
+      mockBookLookup({ found: true, chapters: [chapterOf(500)] });
+      mocks.getRemainingCredits.mockResolvedValue({ remaining: 500 });
+      mocks.createAudiobookCheckoutSession.mockResolvedValue({
+        url: "https://checkout.stripe.com/cs_test_audio",
+      });
+
+      const res = await POST(makeRequest({ language: "en" }), {
+        params: Promise.resolve({ id: VALID_UUID }),
+      });
+
+      expect(res.status).toBe(200);
+      expect(mocks.createAudiobookCheckoutSession).toHaveBeenCalled();
     });
   });
 });

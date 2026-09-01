@@ -42,6 +42,10 @@ const ERROR_MESSAGES: Record<string, string> = {
     "Audiobook narration is not configured on this deployment yet. Nothing was charged — contact support and we'll turn it on.",
   AUDIOBOOK_TOO_LONG:
     "This book is longer than audiobook narration currently supports. Nothing was charged. Split it into shorter volumes, or contact us about longer books.",
+  AUDIOBOOK_QUOTA_EXHAUSTED:
+    "Narration capacity for this month is used up. Nothing was charged — we're topping it up, try again shortly.",
+  AUDIOBOOK_QUOTA_UNKNOWN:
+    "We could not confirm narration capacity just now, so nothing was charged. Please try again in a moment.",
   AUDIOBOOK_STATUS_UNAVAILABLE: "Audiobook status is unavailable.",
   AUDIOBOOK_NO_ACTIVE_JOB: "There is no active audiobook generation to control.",
   AUDIO_SIGN_FAILED: "Failed to generate a link to the audio file. Try again.",
