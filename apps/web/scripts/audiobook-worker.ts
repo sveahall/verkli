@@ -23,6 +23,10 @@ import { createAdminClient } from "../src/lib/supabase/admin";
 import { getAudiobookStorageBucket } from "../src/lib/tts/storage";
 import { QUEUE_NAMES } from "../src/lib/queue-names";
 import { startHeartbeatInterval } from "../src/lib/health/worker-heartbeat";
+import {
+  getChapterText,
+  sumChapterTextLength,
+} from "../src/lib/audiobook/chapter-text";
 import { Sentry } from "./sentry-worker-init";
 import type { AudiobookJobData } from "../src/lib/audiobook-queue";
 import { sanitizeJobErrorForStorage } from "../src/lib/sanitize-job-error";
@@ -56,28 +60,6 @@ function computeContentHash(text: string, chapterId: string, versionId: string):
 }
 
 /** Extract plain text from TipTap JSON content */
-function extractText(node: unknown): string {
-  if (!node || typeof node !== "object") return "";
-  const n = node as Record<string, unknown>;
-  if ("text" in n && typeof n.text === "string") {
-    return n.text;
-  }
-  if ("content" in n && Array.isArray(n.content)) {
-    return n.content.map(extractText).join("");
-  }
-  return "";
-}
-
-function getChapterText(content: string | null): string {
-  if (!content) return "";
-  try {
-    const parsed = JSON.parse(content);
-    return extractText(parsed);
-  } catch {
-    return String(content).trim();
-  }
-}
-
 function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
@@ -486,10 +468,7 @@ async function processJob(payload: AudiobookJobData) {
     }
 
     const totalChapters = chapters.length;
-    const totalTextLength = chapters.reduce(
-      (sum, ch) => sum + getChapterText(ch.content).length,
-      0
-    );
+    const totalTextLength = sumChapterTextLength(chapters);
     const estimatedCostUnits = Math.ceil(totalTextLength / 4);
     try {
       validateJobCost({

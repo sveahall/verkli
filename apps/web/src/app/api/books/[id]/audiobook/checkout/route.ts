@@ -16,8 +16,14 @@ import {
   E_CHECKOUT_SESSION_FAILED,
   E_RATE_LIMIT_EXCEEDED,
   E_INVALID_BOOK_ID,
+  E_AUDIOBOOK_TOO_LONG,
+  E_BOOK_VERSION_NOT_FOUND_FOR_LANGUAGE,
+  E_NO_CHAPTERS_FOR_VERSION,
+  E_DATABASE_ERROR,
   isValidUuid,
 } from "@/lib/api-errors"
+import { sumChapterTextLength } from "@/lib/audiobook/chapter-text"
+import { JobCostExceededError, validateJobCost } from "@/lib/workers/budget"
 
 const checkoutLimiter = createPerUserRateLimiter({ maxPerMinute: 5 })
 
@@ -89,6 +95,74 @@ export async function POST(
     return apiError(E_AUDIOBOOK_VOICE_UNCONFIGURED, 503, {
       detail: "Narrator voice is not configured for this deployment.",
     })
+  }
+
+  // Everything below refuses before the charge. The generate route and the
+  // worker check the same three things, but they run after Stripe has taken 299
+  // SEK and after the client has stripped session_id from the URL — so a failure
+  // there is money gone with no retry. The voice guard above was the only
+  // pre-charge check; these are the rest of them.
+  const { data: version, error: versionError } = await supabase
+    .from("book_versions")
+    .select("id")
+    .eq("book_id", bookId)
+    .eq("language_code", language)
+    .maybeSingle()
+
+  if (versionError) {
+    console.error("[audiobook.checkout] version lookup failed", {
+      bookId,
+      language,
+      message: versionError.message,
+    })
+    return apiError(E_DATABASE_ERROR, 500)
+  }
+  if (!version) {
+    return apiError(E_BOOK_VERSION_NOT_FOUND_FOR_LANGUAGE, 404)
+  }
+
+  const { data: chapters, error: chaptersError } = await supabase
+    .from("chapters")
+    .select("content")
+    .eq("book_version_id", version.id)
+
+  if (chaptersError) {
+    console.error("[audiobook.checkout] chapter fetch failed", {
+      bookId,
+      versionId: version.id,
+      message: chaptersError.message,
+    })
+    return apiError(E_DATABASE_ERROR, 500)
+  }
+  if (!chapters || chapters.length === 0) {
+    return apiError(E_NO_CHAPTERS_FOR_VERSION, 404)
+  }
+
+  // Same counter and same cap the worker uses — see lib/audiobook/chapter-text.ts
+  // for why that has to be one implementation rather than two.
+  const totalCharacters = sumChapterTextLength(chapters)
+  try {
+    validateJobCost({
+      userId: user.id,
+      pipeline: "tts",
+      jobSize: totalCharacters,
+      jobId: `checkout:${bookId}:${language}`,
+    })
+  } catch (err) {
+    if (err instanceof JobCostExceededError) {
+      console.warn("[audiobook.checkout] refusing checkout: book over the narration cap", {
+        bookId,
+        language,
+        characters: err.details.jobSize,
+        cap: err.details.cap,
+      })
+      return apiError(E_AUDIOBOOK_TOO_LONG, 400, {
+        detail: `This book narrates ${err.details.jobSize} characters; the current limit is ${err.details.cap}.`,
+        characters: err.details.jobSize,
+        limit: err.details.cap,
+      })
+    }
+    throw err
   }
 
   const baseUrl = getRequestBaseUrl(request)
