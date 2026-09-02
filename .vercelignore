@@ -29,4 +29,31 @@ test-results
 !.env.example
 !.env.production.example
 
+# Local import staging. LOCAL_IMPORTS_DIR defaults here, so this fills up with
+# real manuscripts as authors import them. They belong in Supabase storage, not
+# in a build upload.
+.uploads
+
+# Python virtualenvs. scripts/autoresearch/.venv alone was 47 MB of installed
+# packages; Vercel builds Node, not Python, so none of it is used.
+.venv
+
+# Local agent/tooling state, not application code.
+.gstack
+.swarm
+.claude-flow
+.ds-sync
+.design-sync
+
+# Opus MT weights. `model.bin` is a 283 MB local download that is deliberately
+# not in the repo — the code says so in three places, it is untracked in git,
+# translation runs through Anthropic and the Railway worker instead, and a file
+# this size could not be bundled into a serverless function anyway.
+#
+# Left in, it was the whole of a 292 MB upload, which is why `vercel deploy`
+# kept dying with a bare "fetch failed" partway through on a laptop connection.
+# Without it the upload is a few MB. Found 2026-09-02, after three failed
+# deploys.
+model.bin
+
 .DS_Store
