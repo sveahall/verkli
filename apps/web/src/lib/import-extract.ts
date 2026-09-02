@@ -1209,9 +1209,15 @@ const SYNTHESIZED_FRONT_MATTER_TITLES = new Set([
   "inledning",
 ]);
 
-/** "av Svea Hallinder", "Translated by ...", "© 2026" — credits, not narration. */
+/**
+ * "av Svea Hallinder", "Translated by ...", "© 2026" — credits, not narration.
+ *
+ * The word boundary deliberately applies only to the word alternatives. `©\b`
+ * can never match "© 2026": \b needs a word character on the other side, and
+ * after © comes a space, so a copyright line silently failed this test.
+ */
 const BYLINE_PREFIX =
-  /^(av|by|written by|text(?:\s+(?:av|by))?|översatt av|translated by|copyright|©)\b/i;
+  /^(?:(?:av|by|written by|text(?:\s+(?:av|by))?|översatt av|translated by|copyright)\b|©)/i;
 
 /**
  * Whether a line below the title still belongs to the title page. Either it is
@@ -1295,10 +1301,23 @@ function dropTitleOnlyFrontMatter(book: ExtractedBook): ExtractedBook {
     lines = lines.slice(1);
   }
 
-  // Everything left must still be title-page material. This is what keeps a
-  // real opening paragraph — a sentence, or long — from being mistaken for a
-  // byline.
-  if (!lines.every(isTitlePageLine)) return book;
+  // What is left is a title page only if it is credits, or nothing at all.
+  //
+  // "Every line looks short and unpunctuated" is not enough, and assuming it
+  // was deleted real chapters: terse or poetic prose is indistinguishable from
+  // a name by length. Both of these lost their first chapter —
+  //
+  //   <h1>Nightfall</h1><p>Mara ran</p><p>The bells followed her</p>
+  //   Nightfall / Mara ran / The bells followed her through the dark
+  //
+  // — so an explicit credit marker is required instead: by, av, translated by,
+  // ©. A title page carrying only a bare name is therefore kept, which is the
+  // right way round to be wrong. A redundant first page is an annoyance the
+  // author can delete in a second; a deleted chapter is lost writing.
+  if (lines.length) {
+    if (!lines.every(isTitlePageLine)) return book;
+    if (!lines.some((line) => BYLINE_PREFIX.test(line))) return book;
+  }
 
   return { ...book, chapters: rest };
 }

@@ -355,6 +355,65 @@ Det här är första kapitlet.
       );
     });
 
+    // Second data-loss regression, found in review the same day. Testing only
+    // that every line was "short and unpunctuated" deleted terse and poetic
+    // prose, which is indistinguishable from a name by length. Both of these
+    // lost their first chapter before an explicit credit marker was required.
+    it("keeps a short poetic first chapter whose heading is the book title", async () => {
+      const result = await extractFile(
+        "<title>Nightfall</title><h1>Nightfall</h1><p>Mara ran</p>" +
+          "<p>The bells followed her</p><h1>Chapter 2</h1><p>At dawn.</p>",
+        ".html"
+      );
+
+      expect(result.chapters).toHaveLength(2);
+      expect(result.chapters[0].sourceText).toContain("Mara ran");
+    });
+
+    it("keeps a short poetic prologue that has no heading", async () => {
+      const result = await extractTxt(
+        [
+          "Nightfall",
+          "",
+          "Mara ran",
+          "",
+          "The bells followed her through the dark",
+          "",
+          "Kapitel 2",
+          "",
+          "At dawn.",
+        ].join("\n")
+      );
+
+      expect(result.chapters).toHaveLength(2);
+      expect(result.chapters[0].sourceText).toContain("Mara ran");
+    });
+
+    // A decision, not an oversight: a title page carrying only a bare name is
+    // kept, because a bare name cannot be told from terse prose. A redundant
+    // page costs the author one click; a deleted chapter costs them writing.
+    it("keeps a title page that carries only a bare name", async () => {
+      const result = await extractTxt(
+        [
+          "Den sista färjan",
+          "",
+          "Svea Hallinder",
+          "",
+          "Kapitel 1",
+          "",
+          "Regnet började precis.",
+          "",
+          "Kapitel 2",
+          "",
+          "Slut.",
+        ].join("\n")
+      );
+
+      expect(result.chapters.some((c) => c.sourceText.includes("Svea Hallinder"))).toBe(
+        true
+      );
+    });
+
     it("leaves a manuscript without a title page alone", async () => {
       const result = await extractTxt(
         [
