@@ -84,7 +84,15 @@ export async function POST(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  // Step timings. The platform kills this function at 60s with no log of its
+  // own, so every step above generation is indistinguishable from every other
+  // when it hangs. The first instrumentation pass sat inside generateCoverImages
+  // and printed nothing — which located the problem above it, not below.
+  const t0 = Date.now();
+  const step = (name: string) => console.info(`[cover] ${name} at ${Date.now() - t0}ms`);
+
   const { user, response } = await requireAuthorRoleForApi();
+  step("auth");
   if (response) return response;
   if (!user) return apiError(E_UNAUTHORIZED, 401);
 
@@ -107,8 +115,10 @@ export async function POST(
       (profile as { demo_mode?: boolean | null } | null)?.demo_mode
     );
   }
+  step("demo-guard");
   if (!demoBypass) {
     const rl = await coverLimiter.check(user.id);
+    step("rate-limit");
     if (!rl.allowed) {
       return apiError(E_RATE_LIMIT_EXCEEDED, 429, { retryAfterSeconds: rl.retryAfterSeconds });
     }
@@ -195,6 +205,7 @@ export async function POST(
   // retry: a transient 502 fails in a second or two and leaves room, a hang
   // burns the whole budget and does not. So the thing worth retrying still is,
   // and the thing that cannot succeed fails fast and loudly.
+  step("book-and-genres");
   const finalPrompt = buildCoverPrompt({
     genre: getPrimaryGenreLabel(genres),
     userPrompt: prompt,
