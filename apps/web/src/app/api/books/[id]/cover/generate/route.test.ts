@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   E_BOOK_NOT_FOUND,
   E_COVER_GENERATION_FAILED,
@@ -22,6 +22,12 @@ vi.mock("@/lib/supabase/admin", () => ({
 
 vi.mock("@/lib/fal-image", () => ({
   generateCoverImages: (...args: unknown[]) => mocks.generateCoverImages(...args),
+  // Real values. The retry gate does arithmetic with these, so leaving them out
+  // of the mock makes the comparison NaN and the gate silently always-retry —
+  // which is the bug the gate exists to prevent.
+  FAL_TIMEOUT_MS: 25_000,
+  FAL_DOWNLOAD_TIMEOUT_MS: 12_000,
+  FAL_STORAGE_HEADROOM_MS: 15_000,
 }));
 
 vi.mock("@/lib/rate-limit", () => ({
@@ -209,5 +215,66 @@ describe("POST /api/books/[id]/cover/generate", () => {
 
     expect(response.status).toBe(502);
     expect(body.error).toBe(E_COVER_GENERATION_FAILED);
+  });
+
+  // ── The retry has to fit in the budget ────────────────────────────────────
+  //
+  // fal-image caps one attempt at 40s to stay inside this route's 60s
+  // maxDuration. Two attempts are 80s, so a retry after a slow failure could
+  // never return — Vercel killed the function at 60s and the author got a
+  // generic error after waiting a minute, with the real cause only in the
+  // platform log. Observed in production 2026-09-02.
+
+  describe("retry budget", () => {
+    beforeEach(() => {
+      vi.useFakeTimers({ toFake: ["Date"] });
+      vi.setSystemTime(new Date("2026-09-02T12:00:00Z"));
+    });
+
+    afterEach(() => {
+      vi.useRealTimers();
+    });
+
+    it("retries when the first attempt failed fast enough to leave room", async () => {
+      mockBookLookup({ found: true });
+      // A transient 502 comes back immediately — the case the retry was for.
+      mocks.generateCoverImages.mockImplementation(async () => {
+        vi.setSystemTime(Date.now() + 1_000);
+        throw new Error("fal.ai error 502");
+      });
+
+      await POST(makeRequest({ prompt: "a fluffy black dog", style: "illustrated" }), {
+        params: Promise.resolve({ id: "00000000-0000-4000-8000-000000000001" }),
+      });
+
+      expect(mocks.generateCoverImages).toHaveBeenCalledTimes(2);
+    });
+
+    it("does not retry when the first attempt burned the budget", async () => {
+      mockBookLookup({ found: true });
+      // A provider hang: fal-image aborts at its own 40s cap. A second attempt
+      // would need 40s more plus storage time, on a 60s budget.
+      mocks.generateCoverImages.mockImplementation(async () => {
+        vi.setSystemTime(Date.now() + 25_000);
+        throw new Error("fal.ai did not respond within 25s.");
+      });
+
+      const res = await POST(
+        makeRequest({ prompt: "a fluffy black dog", style: "illustrated" }),
+        { params: Promise.resolve({ id: "00000000-0000-4000-8000-000000000001" }) }
+      );
+      const body = await res.json();
+
+      expect(mocks.generateCoverImages).toHaveBeenCalledTimes(1);
+      // Still a real, handled error rather than a killed function.
+      expect(res.status).toBe(502);
+      expect(body.error).toBe(E_COVER_GENERATION_FAILED);
+    });
+
+    it("keeps the attempt cap and the budget consistent", () => {
+      // If maxDuration is ever raised, two attempts may genuinely fit and the
+      // gate should be revisited rather than silently blocking every retry.
+      expect(maxDuration * 1000).toBeLessThan(2 * 25_000 + 15_000);
+    });
   });
 });

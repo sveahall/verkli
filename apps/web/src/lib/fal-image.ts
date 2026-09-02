@@ -33,7 +33,28 @@ const FAL_ENDPOINT = "https://fal.run/fal-ai/flux/schnell";
  * 1-4 step distilled model and normally answers in seconds; if it takes 40,
  * something is wrong and waiting longer will not fix it.
  */
-const FAL_TIMEOUT_MS = 40_000;
+/**
+ * The three phases below have to fit inside the route's maxDuration *together*,
+ * with room left for request parsing, the genre lookup and the response. They
+ * did not: fal was capped at 40s and each download at 20s, which is the whole
+ * 60s budget before a single upload started. So a slow provider was killed by
+ * the platform mid-upload and the author got a spinner and then a generic
+ * error, with the real cause only in the platform log — exactly the outcome the
+ * 40s cap was introduced to prevent. Observed in production 2026-09-02.
+ *
+ * The sum is now checked by a test rather than trusted to a comment. Change one
+ * of these and that test tells you if the budget still closes.
+ */
+export const FAL_TIMEOUT_MS = 25_000;
+
+/** Per-image download from fal's temporary URL. Four run in parallel. */
+export const FAL_DOWNLOAD_TIMEOUT_MS = 12_000;
+
+/**
+ * Reserved for what has no timeout of its own: four Supabase Storage uploads,
+ * plus the request/DB/response overhead around the whole call.
+ */
+export const FAL_STORAGE_HEADROOM_MS = 15_000;
 
 /** 2:3 portrait — the cover panel asks for 1600x2400, same ratio. */
 const IMAGE_WIDTH = 1024;
@@ -132,7 +153,7 @@ async function requestOneImage(prompt: string, apiKey: string): Promise<string> 
  */
 async function downloadImage(url: string): Promise<Buffer> {
   const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 20_000);
+  const timeout = setTimeout(() => controller.abort(), FAL_DOWNLOAD_TIMEOUT_MS);
   try {
     const response = await fetch(url, { signal: controller.signal });
     if (!response.ok) {

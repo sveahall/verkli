@@ -3,7 +3,11 @@ import { z } from "zod";
 import { requireAuthorRoleForApi } from "@/lib/auth/require-author";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
-import { generateCoverImages } from "@/lib/fal-image";
+import {
+  FAL_STORAGE_HEADROOM_MS,
+  FAL_TIMEOUT_MS,
+  generateCoverImages,
+} from "@/lib/fal-image";
 import { createPerUserRateLimiter } from "@/lib/rate-limit";
 import { isDemoFacadeEnabled } from "@/lib/flags";
 import {
@@ -177,15 +181,27 @@ export async function POST(
     genres = (genreRows ?? []) as Array<{ name_en?: string | null; name_sv?: string | null; slug?: string | null }>;
   }
 
-  // One silent retry: NVIDIA SD3 occasionally returns a transient 502/504
-  // and a single re-run typically succeeds. Anything beyond one retry is
-  // a real outage and should bubble up so the client can switch to the
-  // pre-baked fallback.
+  // One silent retry, but only if it can finish. The retry was written for
+  // NVIDIA SD3, which returned transient 502/504s that a re-run fixed. It
+  // outlived the provider: fal-image.ts caps an attempt at 40s specifically to
+  // stay inside this route's 60s maxDuration, and two attempts are 80s. So
+  // whenever the first attempt failed by timing out, the retry could not
+  // possibly return — the function was killed at 60s and the author waited a
+  // minute for "Could not generate cover options", with the real cause only in
+  // the platform log as a runtime timeout. That is the exact failure the
+  // 40s cap was introduced to remove, reintroduced one layer up.
+  //
+  // The elapsed check restores the original intent rather than dropping the
+  // retry: a transient 502 fails in a second or two and leaves room, a hang
+  // burns the whole budget and does not. So the thing worth retrying still is,
+  // and the thing that cannot succeed fails fast and loudly.
   const finalPrompt = buildCoverPrompt({
     genre: getPrimaryGenreLabel(genres),
     userPrompt: prompt,
     style: parsed.data.style,
   });
+  const budgetMs = maxDuration * 1000;
+  const startedAt = Date.now();
   let lastError: unknown = null;
   for (let attempt = 0; attempt < 2; attempt++) {
     try {
@@ -195,8 +211,18 @@ export async function POST(
       lastError = error;
       const message = error instanceof Error ? error.message : String(error);
       if (attempt === 0) {
+        const elapsedMs = Date.now() - startedAt;
+        const remainingMs = budgetMs - elapsedMs;
+        if (remainingMs < FAL_TIMEOUT_MS + FAL_STORAGE_HEADROOM_MS) {
+          console.error(
+            `[cover generate] fal.ai attempt 1 failed (${message}); skipping retry, ` +
+              `${Math.round(remainingMs / 1000)}s left of a ${maxDuration}s budget is not enough for another attempt.`
+          );
+          break;
+        }
         console.warn(
-          `[cover generate] fal.ai attempt 1 failed (${message}); retrying once.`
+          `[cover generate] fal.ai attempt 1 failed (${message}); retrying once, ` +
+            `${Math.round(remainingMs / 1000)}s of budget left.`
         );
         continue;
       }
