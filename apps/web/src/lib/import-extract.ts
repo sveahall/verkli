@@ -1196,6 +1196,19 @@ export function contentHash(sourceText: string): string {
 /** A title page is never long. Real prose is, so this is the outer safety net. */
 const TITLE_PAGE_MAX_CHARS = 200;
 
+/**
+ * The labels splitIntoChaptersHeuristic invents when text appears before any
+ * heading (line 243). A chapter carrying one of these has no heading of its
+ * own — which is exactly what makes it a candidate for being front matter.
+ */
+const SYNTHESIZED_FRONT_MATTER_TITLES = new Set([
+  "introduction",
+  "front matter",
+  // canonicalizeChapterTitle maps "Introduction" to "Inledning" (line 126) before
+  // this ever runs, so the Swedish form is the one actually seen in practice.
+  "inledning",
+]);
+
 /** "av Svea Hallinder", "Translated by ...", "© 2026" — credits, not narration. */
 const BYLINE_PREFIX =
   /^(av|by|written by|text(?:\s+(?:av|by))?|översatt av|translated by|copyright|©)\b/i;
@@ -1210,9 +1223,50 @@ function isTitlePageLine(line: string): boolean {
   return line.length <= 60 && !/[.!?…]$/.test(line) && line.split(/\s+/).length <= 8;
 }
 
+/**
+ * A manuscript that opens with its own title on the first line produced two
+ * things from that one line: the book's title, via resolveExtractedTitle, and a
+ * chapter, because splitIntoChaptersHeuristic files any text before the first
+ * heading as front matter. The author then opens the editor and finds chapter 1
+ * is a page containing nothing but the title, with the real first chapter
+ * pushed to number 2.
+ *
+ * Observed on a .txt import 2026-09-02: book "Den sista färjan" came back with
+ * chapter 1 titled "Inledning" whose entire body was the 16 characters "Den
+ * sista färjan", and chapter 2 titled "Kapitel 1" holding the actual prose.
+ *
+ * The gate is the chapter's own TITLE, and that is the important part. Testing
+ * only the body destroyed real content: a genuine "Kapitel 1" holding the two
+ * short lines "Nightfall" / "Mara ran" was deleted outright, because the body
+ * happened to look like a title page (found in review, same day, before it
+ * reached an author). A chapter with a heading of its own is a chapter,
+ * whatever it contains. So only two kinds of leading chapter are candidates:
+ *
+ *   - one labelled "Introduction"/"Front matter" (canonicalized to "Inledning"),
+ *     the names the heuristic splitter invents precisely when it found no
+ *     heading. An author's own "Introduction" chapter normalizes to the same
+ *     label, but survives on the two tests below: its body does not open with
+ *     a line that IS the book title, and its prose is sentences.
+ *   - one whose heading IS the book title, which is how semantic HTML and
+ *     DOCX title pages arrive (the h1 becomes the chapter title, so the body
+ *     holds only the credits).
+ *
+ * Applied in runExtract rather than in each extractor because docx, html, txt
+ * and pdf all pair resolveExtractedTitle with a splitter, and epub hits the
+ * same shape via its spine.
+ *
+ * Note the direct extractFrom* exports do NOT get this. runExtract is what the
+ * import worker calls, so every real import is covered; a new caller reaching
+ * past it would reintroduce the bug.
+ */
 function dropTitleOnlyFrontMatter(book: ExtractedBook): ExtractedBook {
   const [first, ...rest] = book.chapters;
   if (!first) return book;
+
+  // Never empty the book. A one-chapter file can have its title inferred from
+  // its only line of prose, making title and body the same string; importing
+  // nothing would be far worse than a redundant page.
+  if (rest.length === 0) return book;
 
   const normalize = (value: string) =>
     stripDecorativeChars(value).replace(/\s+/g, " ").trim().toLowerCase();
@@ -1223,26 +1277,28 @@ function dropTitleOnlyFrontMatter(book: ExtractedBook): ExtractedBook {
   // Length first: whatever else it is, a chapter this long is content.
   if (first.sourceText.length > TITLE_PAGE_MAX_CHARS) return book;
 
-  const lines = first.sourceText
+  const chapterTitle = normalize(first.title ?? "");
+  const headingIsBookTitle = chapterTitle === title;
+  const hasNoHeadingOfItsOwn = SYNTHESIZED_FRONT_MATTER_TITLES.has(chapterTitle);
+  if (!headingIsBookTitle && !hasNoHeadingOfItsOwn) return book;
+
+  let lines = first.sourceText
     .split(/\n+/)
     .map((line) => stripDecorativeChars(line).trim())
     .filter(Boolean);
-  if (!lines.length) return book;
 
-  // The first line must BE the title, not merely contain or start with it.
-  if (normalize(lines[0]) !== title) return book;
+  if (!headingIsBookTitle) {
+    // The heading told us nothing, so the body must open with the title itself
+    // — and BE it, not merely start with it.
+    if (!lines.length) return book;
+    if (normalize(lines[0]) !== title) return book;
+    lines = lines.slice(1);
+  }
 
-  // And everything under it must still be title-page material. This is what
-  // keeps a real opening paragraph — which would be a sentence, or long —
-  // from being mistaken for a byline.
-  if (!lines.slice(1).every(isTitlePageLine)) return book;
-
-  // Never empty the book. A short manuscript can end up with its only chapter
-  // matching the title, because inferTitleFromText skips a chapter heading and
-  // falls through to the first line of prose — so on a one-chapter file the
-  // title and the body are the same string. Dropping there would import
-  // nothing at all, which is far worse than a redundant first page.
-  if (rest.length === 0) return book;
+  // Everything left must still be title-page material. This is what keeps a
+  // real opening paragraph — a sentence, or long — from being mistaken for a
+  // byline.
+  if (!lines.every(isTitlePageLine)) return book;
 
   return { ...book, chapters: rest };
 }

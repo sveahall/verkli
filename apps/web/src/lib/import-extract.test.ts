@@ -182,13 +182,15 @@ Det här är första kapitlet.
       await Promise.all(dirs.map((d) => rm(d, { recursive: true, force: true })));
     });
 
-    async function extractTxt(body: string) {
+    async function extractFile(body: string, ext: ".txt" | ".html") {
       const dir = await mkdtemp(path.join(tmpdir(), "verkli-extract-"));
       dirs.push(dir);
-      const file = path.join(dir, "manuscript.txt");
+      const file = path.join(dir, `manuscript${ext}`);
       await writeFile(file, body, "utf8");
       return runExtract(file);
     }
+
+    const extractTxt = (body: string) => extractFile(body, ".txt");
 
     // The shape a real .txt import produced on 2026-09-02: the title line became
     // both the book title and a chapter whose entire body was that same line, so
@@ -287,6 +289,69 @@ Det här är första kapitlet.
 
       expect(result.chapters.some((c) => c.sourceText.includes("sjutton år"))).toBe(
         true
+      );
+    });
+
+    // The regression that matters most. An earlier version of this fix tested
+    // only the chapter body, and deleted this entire chapter — the body happens
+    // to look like a title page, and "Nightfall" is what the title inference
+    // picks. A chapter with a heading of its own is a chapter, whatever it
+    // holds. Found in review 2026-09-02, before it reached an author.
+    it("never drops a chapter that has a heading of its own", async () => {
+      const result = await extractTxt(
+        [
+          "Kapitel 1",
+          "",
+          "Nightfall",
+          "",
+          "Mara ran",
+          "",
+          "Kapitel 2",
+          "",
+          "At dawn, she returned.",
+        ].join("\n")
+      );
+
+      expect(result.chapters).toHaveLength(2);
+      expect(result.chapters[0].title).toBe("Kapitel 1");
+      expect(result.chapters[0].sourceText).toContain("Mara ran");
+    });
+
+    // An author's own introduction canonicalizes to the same "Inledning" label
+    // the splitter invents, so it can only be told apart by its content.
+    it("keeps a real introduction chapter", async () => {
+      const result = await extractTxt(
+        [
+          "Den sista färjan",
+          "",
+          "Inledning",
+          "",
+          "Den här boken handlar om havet, om väntan och om allt det som aldrig blev sagt.",
+          "",
+          "Kapitel 1",
+          "",
+          "Regnet började.",
+        ].join("\n")
+      );
+
+      expect(result.chapters).toHaveLength(2);
+      expect(result.chapters[0].title).toBe("Inledning");
+      expect(result.chapters[0].sourceText).toContain("handlar om havet");
+    });
+
+    // Semantic HTML and DOCX put the title in the chapter's heading rather than
+    // its body, so the body-only test missed these entirely.
+    it("drops an html title page whose heading is the book title", async () => {
+      const result = await extractFile(
+        "<h1>Nightfall</h1><p>by Ada Author</p><h1>Chapter 1</h1>" +
+          "<p>Mara ran through the rain and did not look back at all.</p>",
+        ".html"
+      );
+
+      expect(result.chapters).toHaveLength(1);
+      expect(result.chapters[0].title).toBe("Chapter 1");
+      expect(result.chapters.some((c) => c.sourceText.includes("Ada Author"))).toBe(
+        false
       );
     });
 
