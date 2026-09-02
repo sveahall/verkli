@@ -3,6 +3,7 @@ import {
   plainTextToTiptapDoc,
   toTiptapContent,
   type TiptapDocument,
+  contentToPlainText,
 } from "./tiptap-content";
 
 function asDoc(value: unknown): TiptapDocument {
@@ -89,5 +90,39 @@ Det har ar kapiteltext med tillrackligt manga ord for att tolkas som brodtext oc
       content: [{ type: "text", text: "Kapitel 1" }],
     });
     expect(doc.content[1]?.type).toBe("paragraph");
+  });
+});
+
+describe("contentToPlainText", () => {
+  const doc = (blocks: unknown[]) => JSON.stringify({ type: "doc", content: blocks });
+  const para = (text: string) => ({
+    type: "paragraph",
+    content: [{ type: "text", text }],
+  });
+
+  // extractTextFromTiptapNode joins every node with a single space, which turns
+  // a chapter into one blob. Paragraph breaks are what show an opening, a
+  // pacing problem or a dialogue beat, so anything reading the prose needs them.
+  it("keeps paragraph breaks", () => {
+    const text = contentToPlainText(doc([para("First line."), para("Second line.")]));
+
+    expect(text).toBe("First line.\n\nSecond line.");
+  });
+
+  it("drops empty blocks rather than leaving blank gaps", () => {
+    const text = contentToPlainText(
+      doc([para("First."), { type: "paragraph" }, para("Second.")])
+    );
+
+    expect(text).toBe("First.\n\nSecond.");
+  });
+
+  it("falls back to the raw string for legacy plain-text rows", () => {
+    expect(contentToPlainText("Just raw text.")).toBe("Just raw text.");
+  });
+
+  it("returns an empty string for no content", () => {
+    expect(contentToPlainText(null)).toBe("");
+    expect(contentToPlainText("")).toBe("");
   });
 });

@@ -4,6 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 import { requireAuthorRoleForApi } from "@/lib/auth/require-author";
 import { createPerUserRateLimiter } from "@/lib/rate-limit";
 import { isAiChatEnabled } from "@/lib/flags";
+import { contentToPlainText } from "@/lib/tiptap-content";
 import {
   generateWritingAssistantReply,
   WritingAssistantError,
@@ -90,6 +91,43 @@ export async function POST(
       ? ((book as { title: string }).title)
       : null;
 
+  // The chapter the author is looking at. The route used to accept chapterId,
+  // echo it back in the response, and never read the chapter — so the model was
+  // asked to advise on prose it had never seen. It answered the only way it
+  // could, by asking the author to paste the passage that was on screen right
+  // beside the panel. Reported 2026-09-02.
+  let chapterTitle: string | null = null;
+  let chapterText: string | null = null;
+
+  if (chapterId) {
+    const { data: chapter, error: chapterError } = await supabase
+      .from("chapters")
+      .select("id, book_id, title, content")
+      .eq("id", chapterId)
+      // Scoped to the book in the URL, which was already checked for ownership.
+      // Without this, a chapterId from someone else's book could be pulled into
+      // this conversation as context.
+      .eq("book_id", bookId)
+      .maybeSingle();
+
+    if (chapterError || !chapter) {
+      // Not fatal — the assistant still answers, just without the manuscript.
+      // Logged because silently losing this context is the bug being fixed.
+      console.warn("[ai.chat] chapter context unavailable", {
+        bookId,
+        chapterId,
+        reason: chapterError?.message ?? "not found for this book",
+      });
+    } else {
+      const title = (chapter as { title?: unknown }).title;
+      chapterTitle = typeof title === "string" && title.trim() ? title : null;
+      const text = contentToPlainText(
+        (chapter as { content?: string | null }).content ?? null
+      );
+      chapterText = text.trim() ? text : null;
+    }
+  }
+
   // Try LLM when enabled and at least one provider key is set (Anthropic
   // primary, NVIDIA NIM fallback). Fall back to templates on any provider
   // failure so the editor never breaks on a transient outage.
@@ -99,6 +137,8 @@ export async function POST(
         message,
         selectedText: selectedText ?? null,
         bookTitle,
+        chapterTitle,
+        chapterText,
       });
       return NextResponse.json({
         id: crypto.randomUUID(),

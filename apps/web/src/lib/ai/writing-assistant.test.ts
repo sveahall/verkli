@@ -24,6 +24,8 @@ const INPUT = {
   message: "Tighten this paragraph.",
   selectedText: "The rain fell down from the sky above.",
   bookTitle: "Regnet",
+  chapterTitle: "Kapitel 1",
+  chapterText: "The rain fell down from the sky above.\n\nShe waited for the ferry.",
 };
 
 function anthropicReply(text: string) {
@@ -151,5 +153,85 @@ describe("generateWritingAssistantReply", () => {
 
     expect(result.provider).toBe("nvidia-nim");
     expect(anthropicCreate).not.toHaveBeenCalled();
+  });
+
+  // The reported failure: the author asked "how can I make this chapter open
+  // stronger?" with the chapter on screen beside the panel, and the assistant
+  // replied "paste the passage you want to strengthen". The route accepted a
+  // chapterId and never read the chapter, so the model genuinely had nothing.
+  describe("chapter context", () => {
+    beforeEach(() => {
+      process.env.ANTHROPIC_API_KEY = "sk-ant-test";
+      anthropicCreate.mockResolvedValue(anthropicReply("Open on the letter."));
+    });
+
+    function sentBody() {
+      return anthropicCreate.mock.calls[0][0] as {
+        system: string;
+        messages: { role: string; content: string }[];
+      };
+    }
+
+    it("sends the chapter the author is editing", async () => {
+      await generateWritingAssistantReply({
+        ...INPUT,
+        selectedText: null,
+        chapterTitle: "Kapitel 1",
+        chapterText: "Regnet började precis när Mira nådde hamnen.",
+      });
+
+      const prompt = sentBody().messages[0].content;
+      expect(prompt).toContain("Regnet började precis när Mira nådde hamnen.");
+      expect(prompt).toContain("Kapitel 1");
+    });
+
+    it("forbids asking the author to paste text it was given", async () => {
+      await generateWritingAssistantReply({
+        ...INPUT,
+        chapterText: "Regnet började precis när Mira nådde hamnen.",
+      });
+
+      expect(sentBody().system).toContain("never ask the author to paste");
+    });
+
+    it("keeps both ends of a long chapter, not just the opening", async () => {
+      const opening = "MIRA-REACHED-THE-HARBOUR";
+      const ending = "THE-FERRY-NEVER-CAME";
+      await generateWritingAssistantReply({
+        ...INPUT,
+        selectedText: null,
+        chapterText: `${opening}\n\n${"filler ".repeat(4000)}\n\n${ending}`,
+      });
+
+      const prompt = sentBody().messages[0].content;
+      // A question about the ending must not be answered from the opening alone.
+      expect(prompt).toContain(opening);
+      expect(prompt).toContain(ending);
+      expect(prompt).toContain("middle of the chapter omitted");
+    });
+
+    it("keeps the selection as the focus inside the chapter", async () => {
+      await generateWritingAssistantReply({
+        ...INPUT,
+        chapterTitle: "Kapitel 1",
+        chapterText: "Full chapter prose here.",
+        selectedText: "Full chapter",
+      });
+
+      const prompt = sentBody().messages[0].content;
+      expect(prompt).toContain("Chapter the author is editing");
+      expect(prompt).toContain("has selected this passage");
+    });
+
+    it("says so when there is no chapter to read", async () => {
+      await generateWritingAssistantReply({
+        ...INPUT,
+        chapterTitle: null,
+        chapterText: null,
+      });
+
+      expect(sentBody().system).toContain("No chapter text was available");
+      expect(sentBody().system).not.toContain("never ask the author to paste");
+    });
   });
 });

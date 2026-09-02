@@ -59,6 +59,35 @@ export function countWordsInContent(content: string | null): number {
   }
 }
 
+/**
+ * Plain text for a chapter, with paragraph boundaries kept.
+ *
+ * extractTextFromTiptapNode joins every node with a single space, which is
+ * right for counting words and wrong for anything that reads the prose: it
+ * collapses a chapter into one blob. Paragraph breaks are exactly what is
+ * needed to see an opening, a pacing problem or a dialogue beat, so this walks
+ * the top-level blocks and joins them with a blank line instead.
+ */
+export function contentToPlainText(content: string | null | undefined): string {
+  if (!content) return "";
+
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(content);
+  } catch {
+    // Legacy rows stored raw text rather than Tiptap JSON.
+    return String(content).trim();
+  }
+
+  const blocks = (parsed as { content?: unknown })?.content;
+  if (!Array.isArray(blocks)) return extractTextFromTiptapNode(parsed).trim();
+
+  return blocks
+    .map((block) => extractTextFromTiptapNode(block).trim())
+    .filter(Boolean)
+    .join("\n\n");
+}
+
 function countLetters(text: string): number {
   return text.match(/\p{L}/gu)?.length ?? 0;
 }
