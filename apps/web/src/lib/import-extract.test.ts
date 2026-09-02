@@ -233,6 +233,63 @@ Det här är första kapitlet.
       ).toBe(true);
     });
 
+    // The common real shape: a title page is a title with credits under it, so
+    // its text is never equal to the title. Probed against the real extractor
+    // 2026-09-02 and it reproduced the junk chapter.
+    it("drops a title page carrying a byline", async () => {
+      const result = await extractTxt(
+        [
+          "Den sista färjan",
+          "",
+          "av Svea Hallinder",
+          "",
+          "Kapitel 1",
+          "",
+          "Regnet började precis när Mira nådde hamnen.",
+          "",
+          "Havet såg ut som mörkt glas.",
+        ].join("\n")
+      );
+
+      expect(result.chapters).toHaveLength(1);
+      expect(result.chapters[0].title).toBe("Kapitel 1");
+      expect(
+        result.chapters.some((c) => c.sourceText.includes("Svea Hallinder"))
+      ).toBe(false);
+    });
+
+    it("drops a title page carrying a name and a copyright line", async () => {
+      const result = await extractTxt(
+        [
+          "Den sista färjan",
+          "",
+          "Svea Hallinder",
+          "© 2026 Verkli",
+          "",
+          "Kapitel 1",
+          "",
+          "Regnet började precis när Mira nådde hamnen.",
+        ].join("\n")
+      );
+
+      expect(result.chapters).toHaveLength(1);
+      expect(result.chapters[0].sourceText).toContain("Regnet började");
+    });
+
+    // The outer net: length. Whatever a long leading block looks like, it is
+    // content, so it survives even when its first line is exactly the title.
+    it("keeps a long leading chapter whose first line is the title", async () => {
+      const prose =
+        "Hon hade väntat på den här dagen i sjutton år, och nu när den äntligen kom kände hon ingenting alls, bara en tunn och likgiltig trötthet som låg över allting";
+      const result = await extractTxt(
+        ["Den sista färjan", "", prose, "", "Kapitel 1", "", "Regnet började."].join("\n")
+      );
+
+      expect(result.chapters.some((c) => c.sourceText.includes("sjutton år"))).toBe(
+        true
+      );
+    });
+
     it("leaves a manuscript without a title page alone", async () => {
       const result = await extractTxt(
         [

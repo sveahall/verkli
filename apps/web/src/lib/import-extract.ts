@@ -1178,6 +1178,11 @@ export function contentHash(sourceText: string): string {
  * chapter 1 titled "Inledning" whose entire body was the 16 characters "Den
  * sista färjan", and chapter 2 titled "Kapitel 1" holding the actual prose.
  *
+ * A title line alone is the narrow case. The common one is a real title page —
+ * the title with a byline under it ("av Svea Hallinder"), which is not equal to
+ * the title and so needs the line-by-line test below. Probed 2026-09-02: that
+ * shape reproduced the junk chapter exactly.
+ *
  * Applied in runExtract rather than in each extractor because docx, html, txt
  * and pdf all pair resolveExtractedTitle with the heuristic splitter and all
  * four have the same problem. Epub goes through it too: its chapters come from
@@ -1188,6 +1193,23 @@ export function contentHash(sourceText: string): string {
  * import worker calls, so every real import is covered; a new caller reaching
  * past it would reintroduce the bug.
  */
+/** A title page is never long. Real prose is, so this is the outer safety net. */
+const TITLE_PAGE_MAX_CHARS = 200;
+
+/** "av Svea Hallinder", "Translated by ...", "© 2026" — credits, not narration. */
+const BYLINE_PREFIX =
+  /^(av|by|written by|text(?:\s+(?:av|by))?|översatt av|translated by|copyright|©)\b/i;
+
+/**
+ * Whether a line below the title still belongs to the title page. Either it is
+ * explicitly a credit, or it is a short fragment that is not a sentence — a bare
+ * author name, a publisher, a year. Anything that reads like prose is not.
+ */
+function isTitlePageLine(line: string): boolean {
+  if (BYLINE_PREFIX.test(line)) return true;
+  return line.length <= 60 && !/[.!?…]$/.test(line) && line.split(/\s+/).length <= 8;
+}
+
 function dropTitleOnlyFrontMatter(book: ExtractedBook): ExtractedBook {
   const [first, ...rest] = book.chapters;
   if (!first) return book;
@@ -1198,9 +1220,22 @@ function dropTitleOnlyFrontMatter(book: ExtractedBook): ExtractedBook {
   const title = normalize(book.title);
   if (!title) return book;
 
-  // Exact match only. A chapter that merely opens with the title is real
-  // content — a title page is the whole paragraph and nothing else.
-  if (normalize(first.sourceText) !== title) return book;
+  // Length first: whatever else it is, a chapter this long is content.
+  if (first.sourceText.length > TITLE_PAGE_MAX_CHARS) return book;
+
+  const lines = first.sourceText
+    .split(/\n+/)
+    .map((line) => stripDecorativeChars(line).trim())
+    .filter(Boolean);
+  if (!lines.length) return book;
+
+  // The first line must BE the title, not merely contain or start with it.
+  if (normalize(lines[0]) !== title) return book;
+
+  // And everything under it must still be title-page material. This is what
+  // keeps a real opening paragraph — which would be a sentence, or long —
+  // from being mistaken for a byline.
+  if (!lines.slice(1).every(isTitlePageLine)) return book;
 
   // Never empty the book. A short manuscript can end up with its only chapter
   // matching the title, because inferTitleFromText skips a chapter heading and
