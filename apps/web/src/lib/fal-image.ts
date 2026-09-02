@@ -182,10 +182,27 @@ export async function generateCoverImages({
   const apiKey = getFalKey();
   const requestId = crypto.randomUUID();
 
+  // Phase timings, because a function killed by the platform logs nothing of its
+  // own and the failure is then indistinguishable between "the provider was
+  // slow", "the download was slow" and "storage was slow". Measured from a
+  // laptop the three phases are ~6s, ~1.5s and ~1s; if production disagrees,
+  // this is the line that says which one.
+  const phaseStart = Date.now();
   const sourceUrls = await Promise.all(
     Array.from({ length: COVER_COUNT }, () => requestOneImage(trimmedPrompt, apiKey))
   );
+  const generatedAt = Date.now();
+  console.info(
+    `[fal] generated ${COVER_COUNT} images in ${generatedAt - phaseStart}ms`
+  );
+
   const buffers = await Promise.all(sourceUrls.map(downloadImage));
+  const downloadedAt = Date.now();
+  console.info(
+    `[fal] downloaded ${buffers.length} images (${Math.round(
+      buffers.reduce((n, b) => n + b.length, 0) / 1024
+    )}KB) in ${downloadedAt - generatedAt}ms`
+  );
 
   const admin = createAdminClient();
   const imageUrls = await Promise.all(
@@ -211,6 +228,10 @@ export async function generateCoverImages({
 
       return publicUrl;
     })
+  );
+  console.info(
+    `[fal] stored ${imageUrls.length} images in ${Date.now() - downloadedAt}ms ` +
+      `(total ${Date.now() - phaseStart}ms)`
   );
 
   return { requestId, imageUrls };
