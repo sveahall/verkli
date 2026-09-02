@@ -1,6 +1,10 @@
-import { describe, expect, it } from "vitest";
+import { afterAll, describe, expect, it } from "vitest";
+import { mkdtemp, rm, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import path from "node:path";
 import {
   extractFromTxt,
+  runExtract,
   repairImportedChapterTitles,
   repairOrphanedLeadingPeriods,
   splitIntoChaptersHeuristic,
@@ -169,5 +173,77 @@ Det här är första kapitlet.
 
     const result = await extractFromTxt(buffer);
     expect(result.title).toBe("Inget kan stoppa");
+  });
+
+  describe("runExtract drops a title-only front matter chapter", () => {
+    const dirs: string[] = [];
+
+    afterAll(async () => {
+      await Promise.all(dirs.map((d) => rm(d, { recursive: true, force: true })));
+    });
+
+    async function extractTxt(body: string) {
+      const dir = await mkdtemp(path.join(tmpdir(), "verkli-extract-"));
+      dirs.push(dir);
+      const file = path.join(dir, "manuscript.txt");
+      await writeFile(file, body, "utf8");
+      return runExtract(file);
+    }
+
+    // The shape a real .txt import produced on 2026-09-02: the title line became
+    // both the book title and a chapter whose entire body was that same line, so
+    // the author's first chapter was a page containing only the title and the
+    // real chapter 1 was numbered 2.
+    it("does not turn the title line into its own chapter", async () => {
+      const result = await extractTxt(
+        [
+          "Den sista färjan",
+          "",
+          "Kapitel 1",
+          "",
+          "Regnet började precis när Mira nådde hamnen. Havet såg ut som mörkt glas.",
+          "",
+          "Den sista färjan skulle gå om tio minuter.",
+        ].join("\n")
+      );
+
+      expect(result.title).toBe("Den sista färjan");
+      expect(result.chapters).toHaveLength(1);
+      expect(result.chapters[0].title).toBe("Kapitel 1");
+      expect(result.chapters[0].sourceText).toContain("Regnet började");
+      // The line is gone as a chapter, not merely renamed.
+      expect(
+        result.chapters.some((c) => c.sourceText.trim() === "Den sista färjan")
+      ).toBe(false);
+    });
+
+    // The guard is an exact match on purpose: prose that happens to open with
+    // the title is the book, not a title page.
+    it("keeps a chapter that only begins with the title", async () => {
+      const result = await extractTxt(
+        [
+          "Den sista färjan",
+          "",
+          "Den sista färjan lämnade kajen klockan sju, och Mira var inte ombord.",
+        ].join("\n")
+      );
+
+      expect(
+        result.chapters.some((c) => c.sourceText.includes("lämnade kajen"))
+      ).toBe(true);
+    });
+
+    it("leaves a manuscript without a title page alone", async () => {
+      const result = await extractTxt(
+        [
+          "Kapitel 1",
+          "",
+          "Det regnade den dagen också, men ingen tänkte på det.",
+        ].join("\n")
+      );
+
+      expect(result.chapters).toHaveLength(1);
+      expect(result.chapters[0].sourceText).toContain("Det regnade");
+    });
   });
 });

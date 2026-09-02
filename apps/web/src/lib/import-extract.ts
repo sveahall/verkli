@@ -1166,26 +1166,72 @@ export function contentHash(sourceText: string): string {
   return hashText(sourceText);
 }
 
+/**
+ * A manuscript that opens with its own title on the first line produced two
+ * things from that one line: the book's title, via resolveExtractedTitle, and a
+ * chapter, because splitIntoChaptersHeuristic sees text before the first
+ * heading and files it as front matter. The author then opens the editor and
+ * finds chapter 1 is a page containing nothing but the title, with the real
+ * first chapter pushed to number 2.
+ *
+ * Observed on a .txt import 2026-09-02: book "Den sista färjan" came back with
+ * chapter 1 titled "Inledning" whose entire body was the 16 characters "Den
+ * sista färjan", and chapter 2 titled "Kapitel 1" holding the actual prose.
+ *
+ * Applied in runExtract rather than in each extractor because docx, html, txt
+ * and pdf all pair resolveExtractedTitle with the heuristic splitter and all
+ * four have the same problem. Epub goes through it too: its chapters come from
+ * the spine rather than the splitter, but a spine whose first document is a
+ * title page produces the same useless first chapter.
+ *
+ * Note the direct extractFrom* exports do NOT get this. runExtract is what the
+ * import worker calls, so every real import is covered; a new caller reaching
+ * past it would reintroduce the bug.
+ */
+function dropTitleOnlyFrontMatter(book: ExtractedBook): ExtractedBook {
+  const [first, ...rest] = book.chapters;
+  if (!first) return book;
+
+  const normalize = (value: string) =>
+    stripDecorativeChars(value).replace(/\s+/g, " ").trim().toLowerCase();
+
+  const title = normalize(book.title);
+  if (!title) return book;
+
+  // Exact match only. A chapter that merely opens with the title is real
+  // content — a title page is the whole paragraph and nothing else.
+  if (normalize(first.sourceText) !== title) return book;
+
+  // Never empty the book. A short manuscript can end up with its only chapter
+  // matching the title, because inferTitleFromText skips a chapter heading and
+  // falls through to the first line of prose — so on a one-chapter file the
+  // title and the body are the same string. Dropping there would import
+  // nothing at all, which is far worse than a redundant first page.
+  if (rest.length === 0) return book;
+
+  return { ...book, chapters: rest };
+}
+
 /** Run extraction. filePath must be a local path (worker downloads from Supabase to temp first if needed). */
 export async function runExtract(filePath: string): Promise<ExtractedBook> {
   const ext = path.extname(filePath).toLowerCase();
 
   if (ext === ".epub") {
-    return extractFromEpub(filePath);
+    return dropTitleOnlyFrontMatter(await extractFromEpub(filePath));
   }
 
   const buffer = await fs.readFile(filePath);
   if (ext === ".docx") {
-    return extractFromDocx(buffer);
+    return dropTitleOnlyFrontMatter(await extractFromDocx(buffer));
   }
   if (ext === ".html" || ext === ".htm") {
-    return extractFromHtml(buffer);
+    return dropTitleOnlyFrontMatter(await extractFromHtml(buffer));
   }
   if (ext === ".txt") {
-    return extractFromTxt(buffer);
+    return dropTitleOnlyFrontMatter(await extractFromTxt(buffer));
   }
   if (ext === ".pdf") {
-    return extractFromPdf(buffer);
+    return dropTitleOnlyFrontMatter(await extractFromPdf(buffer));
   }
 
   throw new Error(`Unsupported format: ${ext}`);
