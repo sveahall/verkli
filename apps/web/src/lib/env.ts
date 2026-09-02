@@ -207,6 +207,15 @@ export type RedisClientOptions = RedisConnectionOptions & {
   enableReadyCheck?: boolean;
   keepAlive?: number;
   retryStrategy?: (times: number) => number | null;
+  /**
+   * ioredis queues commands issued before a connection exists and replays them
+   * once it does. For a caller that has a fallback, that is the wrong
+   * behaviour: an unreachable host turns every command into an indefinite wait
+   * instead of an error the fallback can catch. Pass false there.
+   */
+  enableOfflineQueue?: boolean;
+  /** Guards a host that accepts the connection and then never answers. */
+  commandTimeout?: number;
 };
 
 const DEFAULT_REDIS_CONNECT_TIMEOUT_MS = 5_000;
@@ -288,6 +297,12 @@ export function getRedisClientOptions(
     ...connection,
     connectTimeout,
     maxRetriesPerRequest,
+    ...(overrides.enableOfflineQueue === undefined
+      ? {}
+      : { enableOfflineQueue: overrides.enableOfflineQueue }),
+    ...(overrides.commandTimeout === undefined
+      ? {}
+      : { commandTimeout: overrides.commandTimeout }),
     enableReadyCheck: overrides.enableReadyCheck ?? true,
     keepAlive: overrides.keepAlive ?? DEFAULT_REDIS_KEEP_ALIVE_MS,
     retryStrategy:
