@@ -4,7 +4,8 @@ import path from "node:path";
 import { TA_FOR_ER_ORDER } from "@/lib/orders/ta-for-er";
 
 /**
- * The homepage must link to the book.
+ * The homepage must link to the two things a stranger arrives wanting: the book,
+ * and what this costs.
  *
  * Probed on 2026-09-04: `/`, `/reader/discover` and `/reader/home` contained
  * zero references to `/waitlist`, which is where the order form lives. The book
@@ -14,6 +15,10 @@ import { TA_FOR_ER_ORDER } from "@/lib/orders/ta-for-er";
  * `NEXT_PUBLIC_WAITLIST_ONLY=true` the middleware 307'd everything to
  * /waitlist, so the book WAS the homepage. Opening the site made this role
  * chooser the homepage and orphaned the only thing on it you can buy.
+ *
+ * `/pricing` was the same story: live, returning 200 without a login, and linked
+ * from no page on the site. Someone deciding whether to publish here needs the
+ * price before they are asked to pick a role.
  *
  * Source-level assertions, matching `waitlist-mobile.test.ts` — this repo runs
  * vitest in `node` with no @testing-library/react, so there is no DOM to render
@@ -65,5 +70,38 @@ describe("role chooser links to the book", () => {
     // Guards against someone "simplifying" it back to a hardcoded title that
     // then drifts from the product.
     expect(SOURCE).not.toContain(`>${TA_FOR_ER_ORDER.bookTitle}<`);
+  });
+});
+
+describe("role chooser links to pricing", () => {
+  it("references /pricing at all", () => {
+    expect(SOURCE).toContain('href="/pricing"');
+  });
+
+  it("uses a Link, so it works without JS and a crawler can see it", () => {
+    const tag = linkTag("/pricing");
+    expect(tag).not.toBeNull();
+    expect(tag).not.toContain("onClick");
+  });
+
+  it("is not hidden on mobile behind a breakpoint", () => {
+    const tag = linkTag("/pricing") ?? "";
+    const className = tag.match(/className="([^"]*)"/)?.[1] ?? "";
+    expect(className).not.toMatch(/(^|\s)hidden(\s|$)/);
+    expect(className).not.toMatch(/(sm|md|lg):(flex|block|inline-flex)/);
+  });
+
+  it("meets the 44px touch target", () => {
+    const tag = linkTag("/pricing") ?? "";
+    const className = tag.match(/className="([^"]*)"/)?.[1] ?? "";
+    expect(className).toMatch(/min-h-(11|\[44px\])/);
+  });
+
+  // The header spans the viewport so the logo stays left and this sits right.
+  // Reverting it to `left-6` would stack the two links on top of each other.
+  it("sits in a header that spans the viewport", () => {
+    const header = SOURCE.match(/<header className="([^"]*)"/)?.[1] ?? "";
+    expect(header).toMatch(/inset-x-6/);
+    expect(header).toMatch(/justify-between/);
   });
 });

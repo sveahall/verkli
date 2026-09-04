@@ -96,11 +96,25 @@ export default function RoleSelection() {
         />
       </div>
 
-      {/* Logo + Back */}
-      <header className="absolute left-6 top-6 z-30 flex items-center gap-3 sm:left-8 sm:top-8">
+      {/*
+        Spans the viewport so the logo stays left and Pricing sits right.
+        inset-x keeps the logo exactly where left-6/left-8 put it.
+      */}
+      <header className="absolute inset-x-6 top-6 z-30 flex items-center justify-between gap-3 sm:inset-x-8 sm:top-8">
         <Link href="/" className="flex min-h-[44px] min-w-[44px] items-center" aria-label="Verkli">
           <Image src="/logo-dark.svg" alt="Verkli" width={140} height={32} className="h-8 w-auto dark:hidden" priority />
           <Image src="/favicon.svg" alt="Verkli" width={32} height={32} className="hidden h-8 w-auto dark:block" priority />
+        </Link>
+
+        {/*
+          /pricing has been live and returning 200 without a login this whole
+          time, and no page on the site linked to it — the same way the book was
+          orphaned. Someone deciding whether to publish here needs the price
+          before they pick a role, so it belongs above the card rather than
+          inside it, where a third CTA would compete with the actual choice.
+        */}
+        <Link href="/pricing" className="btn-ghost min-h-11">
+          Pricing
         </Link>
       </header>
 
