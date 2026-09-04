@@ -208,6 +208,24 @@ describe("middleware order paths survive the site locks", () => {
       }
     );
 
+    // This allowlist is the ONLY gate under this lock — an allowed path returns
+    // NextResponse.next() before Supabase init, so it never reaches the /author
+    // role check or the /reader auth check. Surfaced by security review. The
+    // traversal cases matter because the URL parser collapses dot-segments
+    // BEFORE middleware sees the path, so they must arrive already resolved to
+    // their real target and be bounced on that basis.
+    it.each([
+      "/author/books",
+      "/reader/library",
+      "/order/ta-for-er/../../author/books",
+      "/api/order/ta-for-er/../../api/admin/users",
+    ])("never lets %s onto the unauthenticated fast path", async (path) => {
+      const { middleware } = await import("./middleware");
+      const res = await middleware(new NextRequest(`http://localhost${path}`));
+      expect(res.status).toBe(307);
+      expect(res.headers.get("location")).toContain("/waitlist");
+    });
+
     it("still redirects an unrelated page to /waitlist", async () => {
       const { middleware } = await import("./middleware");
       const res = await middleware(new NextRequest("http://localhost/reader/discover"));

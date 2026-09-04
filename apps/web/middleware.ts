@@ -169,6 +169,14 @@ export async function middleware(request: NextRequest) {
   const waitlistOnly = process.env.NEXT_PUBLIC_WAITLIST_ONLY === 'true'
 
   if (waitlistOnly) {
+    // CAUTION: this allowlist is the ONLY gate for whatever it admits. An allowed
+    // path returns NextResponse.next() at the bottom of this block without ever
+    // initialising Supabase, so it never reaches the /author role check or the
+    // /reader auth check further down the file. Every entry must therefore be
+    // anchored and scoped to its own first path segment. isPublicOrderPath is
+    // safe here only because ORDER_PATH_PATTERN is anchored at ^/ and requires
+    // `order/` or `api/order/` as the first segment, so it cannot match an
+    // /author or /reader path. A looser entry would serve those unauthenticated.
     const p = request.nextUrl.pathname
     const isWaitlist = p === '/waitlist' || p.startsWith('/waitlist/')
     const isApiWaitlist = p === '/api/waitlist' || p.startsWith('/api/waitlist/')
