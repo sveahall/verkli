@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { NextRequest } from "next/server";
+import { BetaCheckTransientError } from "@/lib/auth/beta";
 
 const originalBETA_LOCK = process.env.BETA_LOCK;
 const originalNEXT_PUBLIC_WAITLIST_ONLY = process.env.NEXT_PUBLIC_WAITLIST_ONLY;
@@ -16,9 +17,20 @@ vi.mock("@supabase/ssr", () => ({
   })),
 }));
 
-vi.mock("@/lib/auth/beta", () => ({
-  isBetaUser: vi.fn(() => Promise.resolve(false)),
-}));
+// vi.hoisted lifts this above the hoisted vi.mock factories. Without it the
+// static BetaCheckTransientError import below runs the factory during module
+// evaluation, before this const initializes, and the file dies in the TDZ.
+const mockIsBetaUser = vi.hoisted(() => vi.fn(() => Promise.resolve(false)));
+
+// importActual keeps the real BetaCheckTransientError class, so `err instanceof
+// BetaCheckTransientError` inside middleware resolves against the same class the
+// tests throw. A hand-rolled stub would make that check silently false.
+vi.mock("@/lib/auth/beta", async () => {
+  const actual = await vi.importActual<typeof import("@/lib/auth/beta")>(
+    "@/lib/auth/beta"
+  );
+  return { ...actual, isBetaUser: mockIsBetaUser };
+});
 
 vi.mock("@/lib/auth/author-approval", () => ({
   getAuthorApplicationStatus: mockGetAuthorApplicationStatus,
@@ -256,6 +268,41 @@ describe("middleware order paths survive the site locks", () => {
         new NextRequest("http://localhost/api/order/some-future-product")
       );
       expect(res.status).toBe(403);
+    });
+
+    // Found by codex review. Allowing the path is not enough on its own: the
+    // beta lookup ran for every request carrying a session, and a transient
+    // user_flags failure returns 503 before allowedPath is consulted. A buyer
+    // who happens to be logged in would lose the buy button to an outage in
+    // cohort storage the sale does not depend on.
+    describe("when the buyer carries a session and the beta check is failing", () => {
+      beforeEach(() => {
+        mockGetUser.mockResolvedValue({ data: { user: { id: "buyer-session-1" } } });
+        mockIsBetaUser.mockRejectedValue(
+          new BetaCheckTransientError("user_flags unavailable")
+        );
+      });
+
+      afterEach(() => {
+        mockIsBetaUser.mockImplementation(() => Promise.resolve(false));
+      });
+
+      it.each(["/api/order/ta-for-er", "/order/ta-for-er/success"])(
+        "does not 503 %s, because the lookup cannot change the outcome",
+        async (path) => {
+          const { middleware } = await import("./middleware");
+          const res = await middleware(new NextRequest(`http://localhost${path}`));
+          expect(res.status).not.toBe(503);
+        }
+      );
+
+      // The maintenance response is correct where membership actually decides
+      // access. Do not weaken it.
+      it("still 503s a gated API path, where membership decides access", async () => {
+        const { middleware } = await import("./middleware");
+        const res = await middleware(new NextRequest("http://localhost/api/books"));
+        expect(res.status).toBe(503);
+      });
     });
   });
 });

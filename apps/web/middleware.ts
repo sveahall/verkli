@@ -243,8 +243,15 @@ export async function middleware(request: NextRequest) {
     const isOrderPath = isPublicOrderPath(p)
 
     const allowedPath = isWaitlist || isAuth || isAuthEntry || isApiWaitlist || isApiAuth || isOrderPath || isNext || isKnownRoot || isRootAssetWithExt
+    // Only look up cohort membership when it can change the outcome. `isBeta` is
+    // read once, in `!allowedPath && !isBeta` below, so on an allowed path the
+    // result is discarded — and a transient failure of that lookup would 503 a
+    // path we just decided is public, before `allowedPath` is ever consulted.
+    // That would take the buy button down on a beta-locked site for any buyer
+    // carrying a session, and dead-end the sign-in pages the auth allowlist
+    // exists to keep reachable.
     let isBeta = false
-    if (user) {
+    if (user && !allowedPath) {
       try {
         isBeta = await isBetaUser(supabase, user.id)
       } catch (err) {
