@@ -7,6 +7,13 @@
  * the order is fully actionable from the Stripe Dashboard.
  */
 export const TA_FOR_ER_ORDER = {
+  /**
+   * URL segment for this product's order routes. The middleware site locks
+   * allow `/order/<slug>` and `/api/order/<slug>` through by reading this, so
+   * it MUST match the route directory names under `app/order` and
+   * `app/api/order`. A product whose slug is not registered stays locked.
+   */
+  slug: "ta-for-er",
   bookTitle: "Ta för er!",
   authorName: "Johan SvH",
   /** Price in minor units (öre). 249 kr, shipping included. */

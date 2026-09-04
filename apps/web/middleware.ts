@@ -3,6 +3,7 @@ import { NextResponse, type NextRequest } from 'next/server'
 import { isBetaUser, BetaCheckTransientError } from '@/lib/auth/beta'
 import { getAuthorApplicationStatus } from '@/lib/auth/author-approval'
 import { ACTIVE_ROLE_COOKIE } from '@/lib/active-role'
+import { TA_FOR_ER_ORDER } from '@/lib/orders/ta-for-er'
 
 // ---------------------------------------------------------------------------
 // In-memory cache of `profiles.role` keyed by user id. Middleware otherwise
@@ -35,6 +36,29 @@ const BETA_LOCK_AUTH_PATHS: ReadonlySet<string> = new Set([
   '/author/signup',
   '/author/forgot-password',
 ])
+
+/**
+ * Products whose order routes are public by design and must survive BOTH site
+ * locks. The book sale is the point of the waitlist page and is deliberately
+ * open to anyone with the link — beta cohort or not.
+ *
+ * Read by both locks so they cannot drift apart. They already did once: the
+ * waitlist lock was taught about `/order` on a side branch that never reached
+ * `platform`, the beta lock was never taught at all, and the result was a page
+ * that rendered fine with a buy button that silently failed.
+ *
+ * Membership is per *product*, not per path, so a new sub-page of an approved
+ * product just works while an unregistered product stays locked. Registering
+ * one is a deliberate act — see the `slug` field on the order constant.
+ */
+const PUBLIC_ORDER_SLUGS: ReadonlySet<string> = new Set([TA_FOR_ER_ORDER.slug])
+
+const ORDER_PATH_PATTERN = /^\/(?:api\/)?order\/([^/]+)/
+
+function isPublicOrderPath(pathname: string): boolean {
+  const slug = ORDER_PATH_PATTERN.exec(pathname)?.[1]
+  return slug !== undefined && PUBLIC_ORDER_SLUGS.has(slug)
+}
 
 const AUTHOR_ROLE_CACHE_TTL_MS = 60_000
 const AUTHOR_ROLE_CACHE_MAX = 512
@@ -148,11 +172,15 @@ export async function middleware(request: NextRequest) {
     const p = request.nextUrl.pathname
     const isWaitlist = p === '/waitlist' || p.startsWith('/waitlist/')
     const isApiWaitlist = p === '/api/waitlist' || p.startsWith('/api/waitlist/')
+    // The book pre-order form lives ON the waitlist page, so its API and Stripe
+    // return page have to come through the lock or the buy button dies silently.
+    const isOrder = isPublicOrderPath(p)
     const isNext = p.startsWith('/_next/')
     const isKnownRoot = ['/favicon.ico', '/favicon.svg', '/robots.txt'].includes(p)
     const isRootAssetWithExt = /^\/[^/]+\.[a-z0-9]+$/i.test(p)
 
-    const allowed = isWaitlist || isApiWaitlist || isNext || isKnownRoot || isRootAssetWithExt
+    const allowed =
+      isWaitlist || isApiWaitlist || isOrder || isNext || isKnownRoot || isRootAssetWithExt
     if (!allowed) {
       const url = request.nextUrl.clone()
       url.pathname = '/waitlist'
@@ -209,7 +237,12 @@ export async function middleware(request: NextRequest) {
 
     const isAuthEntry = BETA_LOCK_AUTH_PATHS.has(p)
 
-    const allowedPath = isWaitlist || isAuth || isAuthEntry || isApiWaitlist || isApiAuth || isNext || isKnownRoot || isRootAssetWithExt
+    // BETA_LOCK restricts the *platform* to invited users; the book sale is not
+    // part of the platform. Without this an order POST 403s the moment the lock
+    // goes on for the cohort — see PUBLIC_ORDER_SLUGS.
+    const isOrderPath = isPublicOrderPath(p)
+
+    const allowedPath = isWaitlist || isAuth || isAuthEntry || isApiWaitlist || isApiAuth || isOrderPath || isNext || isKnownRoot || isRootAssetWithExt
     let isBeta = false
     if (user) {
       try {

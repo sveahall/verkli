@@ -156,3 +156,106 @@ describe("middleware author access", () => {
     expect(res.headers.get("location")).toBeNull();
   });
 });
+
+// ---------------------------------------------------------------------------
+// wp/17 — the buy button must survive both site locks.
+//
+// The book pre-order form is rendered ON the waitlist page, and the order API
+// is a separate path. Neither allowlist mentioned /order, so a POST was 307'd
+// to /waitlist (client parses HTML as JSON -> generic error) under
+// WAITLIST_ONLY, or 403'd under BETA_LOCK. The page looked fine both times;
+// only the purchase failed.
+// ---------------------------------------------------------------------------
+describe("middleware order paths survive the site locks", () => {
+  beforeEach(() => {
+    process.env.NEXT_PUBLIC_SUPABASE_URL = "https://test.supabase.co";
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY = "anon-key";
+    mockGetUser.mockResolvedValue({ data: { user: null } });
+    mockFrom.mockReset();
+    mockGetAuthorApplicationStatus.mockReset();
+    mockGetAuthorApplicationStatus.mockResolvedValue(null);
+  });
+
+  afterEach(() => {
+    process.env.BETA_LOCK = originalBETA_LOCK;
+    process.env.NEXT_PUBLIC_WAITLIST_ONLY = originalNEXT_PUBLIC_WAITLIST_ONLY;
+  });
+
+  describe("under NEXT_PUBLIC_WAITLIST_ONLY", () => {
+    beforeEach(() => {
+      process.env.NEXT_PUBLIC_WAITLIST_ONLY = "true";
+      process.env.BETA_LOCK = "false";
+    });
+
+    it.each(["/api/order/ta-for-er", "/order/ta-for-er/success"])(
+      "lets %s through instead of redirecting it to /waitlist",
+      async (path) => {
+        const { middleware } = await import("./middleware");
+        const res = await middleware(new NextRequest(`http://localhost${path}`));
+        expect(res.headers.get("location") ?? "").not.toContain("/waitlist");
+      }
+    );
+
+    it("still redirects an unrelated page to /waitlist", async () => {
+      const { middleware } = await import("./middleware");
+      const res = await middleware(new NextRequest("http://localhost/reader/discover"));
+      expect(res.status).toBe(307);
+      expect(res.headers.get("location")).toContain("/waitlist");
+    });
+
+    // The allowlist must stay an allowlist. A bare startsWith("/order") would
+    // also open the first three; the last two are the fail-closed property —
+    // an order route for a product nobody registered stays locked.
+    it.each([
+      "/orders",
+      "/api/orders",
+      "/order-admin",
+      "/order/some-future-product",
+      "/api/order/some-future-product",
+    ])(
+      "still bounces the lookalike path %s",
+      async (path) => {
+        const { middleware } = await import("./middleware");
+        const res = await middleware(new NextRequest(`http://localhost${path}`));
+        expect(res.status).toBe(307);
+        expect(res.headers.get("location")).toContain("/waitlist");
+      }
+    );
+  });
+
+  describe("under BETA_LOCK", () => {
+    beforeEach(() => {
+      process.env.NEXT_PUBLIC_WAITLIST_ONLY = "false";
+      process.env.BETA_LOCK = "true";
+    });
+
+    it("does not 403 the order API for a visitor who is not a beta user", async () => {
+      const { middleware } = await import("./middleware");
+      const res = await middleware(new NextRequest("http://localhost/api/order/ta-for-er"));
+      expect(res.status).not.toBe(403);
+    });
+
+    it("does not bounce the Stripe return page to /waitlist", async () => {
+      const { middleware } = await import("./middleware");
+      const res = await middleware(
+        new NextRequest("http://localhost/order/ta-for-er/success")
+      );
+      expect(res.headers.get("location") ?? "").not.toContain("/waitlist");
+    });
+
+    it("still 403s an unrelated API path for a non-beta visitor", async () => {
+      const { middleware } = await import("./middleware");
+      const res = await middleware(new NextRequest("http://localhost/api/books"));
+      expect(res.status).toBe(403);
+    });
+
+    // Fail closed on the axis that actually varies: which products are public.
+    it("still 403s an order API for a product that is not registered", async () => {
+      const { middleware } = await import("./middleware");
+      const res = await middleware(
+        new NextRequest("http://localhost/api/order/some-future-product")
+      );
+      expect(res.status).toBe(403);
+    });
+  });
+});
