@@ -107,11 +107,16 @@ export function createAutosaveScheduler<T>(
       pending = { value };
       if (burstStartedAt === null) burstStartedAt = now();
       clearTimer();
-      if (now() - burstStartedAt >= maxWaitMs) {
+      const elapsed = now() - burstStartedAt;
+      if (elapsed >= maxWaitMs) {
         flush();
         return;
       }
-      timer = setTimeout(flush, debounceMs);
+      // Cap the timer at whatever is left of the ceiling. Scheduling a full
+      // debounceMs here is what let the ceiling overshoot: a keystroke at
+      // 1900ms of a 2000ms ceiling passed the check above and then armed a
+      // 500ms timer, committing at 2400ms. "Hard ceiling" has to mean it.
+      timer = setTimeout(flush, Math.min(debounceMs, maxWaitMs - elapsed));
     },
     flush,
     cancel(): void {

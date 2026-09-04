@@ -50,6 +50,35 @@ describe("createAutosaveScheduler", () => {
     expect(firstCommittedValue).toBeLessThanOrEqual(AUTOSAVE_MAX_WAIT_MS / 100);
   });
 
+  // Found by codex review. The ceiling was only tested when `push` ran, so a
+  // keystroke landing just under it armed a full debounce on top and committed
+  // late — up to a whole debounce interval past the advertised hard ceiling.
+  it("honours the ceiling exactly when a keystroke lands just under it", () => {
+    const commit = vi.fn();
+    const s = createAutosaveScheduler<string>(commit, {
+      debounceMs: 500,
+      maxWaitMs: 2000,
+      now: () => Date.now(),
+    });
+
+    // Keep the burst alive: a keystroke every 100ms means the debounce is
+    // re-armed before it can ever fire on its own.
+    s.push("k0");
+    for (let t = 100; t <= 1900; t += 100) {
+      vi.advanceTimersByTime(100);
+      s.push(`k${t}`);
+    }
+
+    // t = 1900. Nothing committed yet, and 100ms of ceiling remains.
+    expect(commit).not.toHaveBeenCalled();
+
+    vi.advanceTimersByTime(100);
+    // Must land at 2000ms. Before the fix the 1900ms keystroke armed a fresh
+    // full 500ms debounce on top, so this was still silent until 2400ms.
+    expect(commit).toHaveBeenCalledTimes(1);
+    expect(commit).toHaveBeenCalledWith("k1900");
+  });
+
   it("never lets a burst run longer than maxWait without committing", () => {
     const commit = vi.fn();
     const s = createAutosaveScheduler<number>(commit, {

@@ -47,8 +47,11 @@ const persistChapterContent: PersistChapter = async (chapterId, payload) => {
     .update({ content: serialized })
     .eq("id", chapterId)
     .select("id");
-  if (error) return { ok: false, serialized };
-  return { ok: (data?.length ?? 0) > 0, serialized };
+  if (error) return { outcome: "transient", serialized };
+  // Zero rows is not a transient error: the row is gone or not writable, and
+  // retrying it forever would wedge the head of the queue.
+  if ((data?.length ?? 0) === 0) return { outcome: "missing", serialized };
+  return { outcome: "written", serialized };
 };
 
 export function useChapterCrud({
@@ -99,7 +102,7 @@ export function useChapterCrud({
     // Drains the WHOLE queue, not just this chapter's key. See the module
     // comment in ./useChapterCrud.autosave for the ordering rules and the
     // older-over-newer overwrite they replace.
-    const { saved, failedChapterId } = await drainPendingSaves(
+    const { saved, transientFailures, missingChapters } = await drainPendingSaves(
       pendingSavesRef.current,
       persistChapterContent
     );
@@ -117,12 +120,20 @@ export function useChapterCrud({
       setLastSaved(new Date());
     }
 
-    if (failedChapterId !== null) {
+    if (transientFailures.length > 0) {
       setSaveError(true);
       // The payload is re-queued, so the words are still in memory. Say that,
       // rather than the old "may not have been persisted", which left an author
       // unsure whether closing the tab would cost them the chapter.
       toast.error("Could not save. Your changes are still here — keep this tab open and try again.");
+      return;
+    }
+
+    if (missingChapters.length > 0) {
+      setSaveError(true);
+      // Distinct from a retryable failure: the row is gone, so there is nothing
+      // to keep the tab open for. Telling the author to retry would be a lie.
+      toast.error("That chapter no longer exists, so the last edits could not be saved.");
       return;
     }
 

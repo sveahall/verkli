@@ -1,10 +1,14 @@
 import { describe, it, expect } from "vitest";
-import { drainPendingSaves, type PersistChapter } from "./useChapterCrud.autosave";
+import {
+  drainPendingSaves,
+  type PersistChapter,
+  type PersistOutcome,
+} from "./useChapterCrud.autosave";
 
-/** Records every write in order, so tests can assert on sequence, not just the last value. */
+/** Records every write in order, so tests assert on sequence, not just the last value. */
 function recordingPersist(
   onWrite?: (chapterId: string, payload: Record<string, unknown>) => void,
-  failOn?: (chapterId: string, payload: Record<string, unknown>) => boolean
+  outcomeFor?: (chapterId: string, payload: Record<string, unknown>) => PersistOutcome
 ) {
   const writes: Array<{ chapterId: string; body: string }> = [];
   const persist: PersistChapter = async (chapterId, payload) => {
@@ -12,8 +16,7 @@ function recordingPersist(
     writes.push({ chapterId, body: String(payload.body ?? serialized) });
     // Hook for simulating a keystroke that lands while this write is awaiting.
     onWrite?.(chapterId, payload);
-    if (failOn?.(chapterId, payload)) return { ok: false, serialized };
-    return { ok: true, serialized };
+    return { outcome: outcomeFor?.(chapterId, payload) ?? "written", serialized };
   };
   return { persist, writes };
 }
@@ -24,7 +27,8 @@ describe("drainPendingSaves", () => {
     const result = await drainPendingSaves(new Map(), persist);
     expect(writes).toEqual([]);
     expect(result.saved.size).toBe(0);
-    expect(result.failedChapterId).toBeNull();
+    expect(result.transientFailures).toEqual([]);
+    expect(result.missingChapters).toEqual([]);
   });
 
   // The old loop only re-read the key for the chapter it was saving, so a
@@ -42,13 +46,11 @@ describe("drainPendingSaves", () => {
     expect(writes.map((w) => w.chapterId).sort()).toEqual(["a", "b", "c"]);
     expect(pending.size).toBe(0);
     expect(result.saved.size).toBe(3);
-    expect(result.failedChapterId).toBeNull();
   });
 
-  // THE REGRESSION TEST. Reproduces the exact sequence that overwrote newer
-  // prose with older: content is queued for B while A is being written, then a
-  // newer edit to B arrives while B is being written. The stale queued payload
-  // must never land after the newer one.
+  // REGRESSION 1. The exact sequence that overwrote newer prose with older:
+  // content queued for B while A is being written, then a newer edit to B
+  // arrives while B is being written. The stale payload must never land last.
   it("never writes an older payload after a newer one for the same chapter", async () => {
     const pending = new Map<string, Record<string, unknown>>([["a", { body: "a1" }]]);
 
@@ -56,8 +58,7 @@ describe("drainPendingSaves", () => {
       // While A is in flight the author switches to B and types. Under the old
       // code this entry outlived A's drain.
       if (chapterId === "a") pending.set("b", { body: "b-OLD" });
-      // While B is in flight the author types again in B. This is newer and is
-      // the content that must survive.
+      // While B is in flight the author types again in B. Newer, must survive.
       if (chapterId === "b" && !writes.some((w) => w.body === "b-NEW")) {
         pending.set("b", { body: "b-NEW" });
       }
@@ -67,9 +68,62 @@ describe("drainPendingSaves", () => {
 
     const bWrites = writes.filter((w) => w.chapterId === "b").map((w) => w.body);
     expect(bWrites).toContain("b-NEW");
-    // The whole point: nothing older may be written after the newer content.
     expect(bWrites[bWrites.length - 1]).toBe("b-NEW");
     expect(pending.size).toBe(0);
+  });
+
+  // REGRESSION 2, found by codex review of the first cut of this fix. A Map
+  // iterates in insertion order, so a chapter that can never be written sits at
+  // the head of the queue. Stopping the drain there stranded every valid chapter
+  // behind it — the author's edits in a live chapter were never written at all,
+  // and were lost the moment they navigated away.
+  it("does not let a permanently missing chapter block a valid one behind it", async () => {
+    const pending = new Map<string, Record<string, unknown>>([
+      ["deleted-by-import", { body: "gone" }],
+      ["live-chapter", { body: "real work" }],
+    ]);
+    const { persist, writes } = recordingPersist(undefined, (id) =>
+      id === "deleted-by-import" ? "missing" : "written"
+    );
+
+    const result = await drainPendingSaves(pending, persist);
+
+    expect(writes.map((w) => w.chapterId)).toContain("live-chapter");
+    expect(result.saved.get("live-chapter")).toBe(JSON.stringify({ body: "real work" }));
+    expect(result.missingChapters).toEqual(["deleted-by-import"]);
+    // The unwritable entry is dropped, not re-queued: keeping it would wedge
+    // the head of the queue on every future drain.
+    expect(pending.has("deleted-by-import")).toBe(false);
+    expect(pending.size).toBe(0);
+  });
+
+  it("does not let a transient failure block other chapters either", async () => {
+    const pending = new Map<string, Record<string, unknown>>([
+      ["flaky", { body: "retry me" }],
+      ["fine", { body: "write me" }],
+    ]);
+    const { persist, writes } = recordingPersist(undefined, (id) =>
+      id === "flaky" ? "transient" : "written"
+    );
+
+    const result = await drainPendingSaves(pending, persist);
+
+    expect(writes.map((w) => w.chapterId)).toEqual(["flaky", "fine"]);
+    expect(result.saved.get("fine")).toBe(JSON.stringify({ body: "write me" }));
+    expect(result.transientFailures).toEqual(["flaky"]);
+    // Retryable, so it stays queued — but it did not stop "fine" being written.
+    expect(pending.get("flaky")).toEqual({ body: "retry me" });
+  });
+
+  it("attempts a failed chapter only once per pass, so a re-queue cannot spin", async () => {
+    const pending = new Map<string, Record<string, unknown>>([["flaky", { body: "x" }]]);
+    const { persist, writes } = recordingPersist(undefined, () => "transient");
+
+    const result = await drainPendingSaves(pending, persist);
+
+    expect(writes).toHaveLength(1);
+    expect(result.transientFailures).toEqual(["flaky"]);
+    expect(pending.get("flaky")).toEqual({ body: "x" });
   });
 
   it("supersedes a queued payload when a newer one arrives for the same chapter", async () => {
@@ -88,13 +142,13 @@ describe("drainPendingSaves", () => {
     expect(writes.map((w) => w.body)).toEqual(["v1", "v3"]);
   });
 
-  it("re-queues the payload when a write fails, so the content is not lost", async () => {
+  it("re-queues a transient failure so the content is not lost", async () => {
     const pending = new Map<string, Record<string, unknown>>([["a", { body: "unsaved" }]]);
-    const { persist } = recordingPersist(undefined, (id) => id === "a");
+    const { persist } = recordingPersist(undefined, () => "transient");
 
     const result = await drainPendingSaves(pending, persist);
 
-    expect(result.failedChapterId).toBe("a");
+    expect(result.transientFailures).toEqual(["a"]);
     expect(result.saved.size).toBe(0);
     expect(pending.get("a")).toEqual({ body: "unsaved" });
   });
@@ -106,32 +160,32 @@ describe("drainPendingSaves", () => {
         // A keystroke lands while the doomed write is in flight.
         if (chapterId === "a") pending.set("a", { body: "newer" });
       },
-      (id) => id === "a"
+      () => "transient"
     );
 
     const result = await drainPendingSaves(pending, persist);
 
-    expect(result.failedChapterId).toBe("a");
-    // The re-queue must not clobber the newer content with the payload that
-    // just failed.
+    expect(result.transientFailures).toEqual(["a"]);
+    // The re-queue must not clobber the newer content with what just failed.
     expect(pending.get("a")).toEqual({ body: "newer" });
   });
 
-  it("stops at the first failure and leaves the rest queued for a later drain", async () => {
-    const pending = new Map<string, Record<string, unknown>>([
-      ["a", { body: "a1" }],
-      ["b", { body: "b1" }],
-      ["c", { body: "c1" }],
-    ]);
-    const { persist, writes } = recordingPersist(undefined, (id) => id === "b");
+  it("still writes fresh content that arrives for an already-saved chapter", async () => {
+    const pending = new Map<string, Record<string, unknown>>([["a", { body: "first" }]]);
+    let pushed = false;
+    const { persist, writes } = recordingPersist((chapterId) => {
+      if (chapterId === "a" && !pushed) {
+        pushed = true;
+        pending.set("a", { body: "second" });
+      }
+    });
 
-    const result = await drainPendingSaves(pending, persist);
+    await drainPendingSaves(pending, persist);
 
-    expect(result.failedChapterId).toBe("b");
-    expect(writes.map((w) => w.chapterId)).toEqual(["a", "b"]);
-    // b re-queued, c never attempted — both still pending.
-    expect([...pending.keys()].sort()).toEqual(["b", "c"]);
-    expect(result.saved.get("a")).toBe(JSON.stringify({ body: "a1" }));
+    // A success does not block the chapter for the rest of the pass, so content
+    // typed during the write is written before the drain ends.
+    expect(writes.map((w) => w.body)).toEqual(["first", "second"]);
+    expect(pending.size).toBe(0);
   });
 
   it("returns the exact serialized body written, for optimistic local state", async () => {
