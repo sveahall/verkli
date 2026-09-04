@@ -226,6 +226,31 @@ describe("middleware order paths survive the site locks", () => {
       expect(res.headers.get("location")).toContain("/waitlist");
     });
 
+    // Tripwires for the two "hardening" changes that would actually open this
+    // gate, per rule 3 of the CAUTION comment in middleware.ts. Both were
+    // mutation-tested: each one fails under the change it names.
+    //
+    // The case variant fails if anyone lowercases the slug (or the path) before
+    // the Set lookup, e.g. PUBLIC_ORDER_SLUGS.has(slug.toLowerCase()). Note it
+    // does NOT fail merely from adding /i to ORDER_PATH_PATTERN — the exactness
+    // lives in the Set lookup, not the regex, so /i alone changes nothing. That
+    // is worth knowing before someone "simplifies" one into the other.
+    //
+    // The encoded-slash variant fails if anyone calls decodeURIComponent on the
+    // path before matching. Today %2f stays literal, so the whole tail is one
+    // segment and the slug lookup misses. Decode first and the slug becomes
+    // "ta-for-er", the path is cleared, and the router still resolves the
+    // un-decoded string — the divergence this predicate is built to avoid.
+    it.each([
+      "/api/order/TA-FOR-ER",
+      "/api/order/ta-for-er%2f..%2fapi%2fadmin",
+    ])("keeps %s locked, so the predicate stays exact", async (path) => {
+      const { middleware } = await import("./middleware");
+      const res = await middleware(new NextRequest(`http://localhost${path}`));
+      expect(res.status).toBe(307);
+      expect(res.headers.get("location")).toContain("/waitlist");
+    });
+
     it("still redirects an unrelated page to /waitlist", async () => {
       const { middleware } = await import("./middleware");
       const res = await middleware(new NextRequest("http://localhost/reader/discover"));

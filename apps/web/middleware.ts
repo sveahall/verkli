@@ -50,6 +50,18 @@ const BETA_LOCK_AUTH_PATHS: ReadonlySet<string> = new Set([
  * Membership is per *product*, not per path, so a new sub-page of an approved
  * product just works while an unregistered product stays locked. Registering
  * one is a deliberate act — see the `slug` field on the order constant.
+ *
+ * The cost of that convenience is a standing promise: registering a slug makes
+ * the WHOLE of `/order/<slug>/**` and `/api/order/<slug>/**` publicly reachable
+ * under both locks, now and for anything added there later, with no further
+ * review. Only register a product whose entire route subtree carries its own
+ * authorization. The two routes here need none — the API takes no authorization
+ * decision at all, and the success page is gated by possession of an unguessable
+ * Stripe `cs_...` id. That is a fact about those two files, not about the prefix.
+ *
+ * Keep membership a Set lookup. It is what makes the match exact, and loosening
+ * it to a pattern like `^/order/[^/]+` would admit every product the day someone
+ * adds `app/order/[slug]/page.tsx`.
  */
 const PUBLIC_ORDER_SLUGS: ReadonlySet<string> = new Set([TA_FOR_ER_ORDER.slug])
 
@@ -172,11 +184,28 @@ export async function middleware(request: NextRequest) {
     // CAUTION: this allowlist is the ONLY gate for whatever it admits. An allowed
     // path returns NextResponse.next() at the bottom of this block without ever
     // initialising Supabase, so it never reaches the /author role check or the
-    // /reader auth check further down the file. Every entry must therefore be
-    // anchored and scoped to its own first path segment. isPublicOrderPath is
-    // safe here only because ORDER_PATH_PATTERN is anchored at ^/ and requires
-    // `order/` or `api/order/` as the first segment, so it cannot match an
-    // /author or /reader path. A looser entry would serve those unauthenticated.
+    // /reader auth check further down the file. Three rules for any new entry:
+    //
+    //   1. Anchor it, and scope it to its own literal first segment.
+    //      isPublicOrderPath is safe here only because ORDER_PATH_PATTERN is
+    //      anchored at ^/ and requires `order/` or `api/order/` first, so it
+    //      cannot match an /author or /reader path. An `includes()`, an
+    //      unanchored regex, or a non-literal first segment (`^/[^/]+/order/`)
+    //      would serve those unauthenticated.
+    //   2. Match `request.nextUrl.pathname` and nothing else. It is the only
+    //      string guaranteed to equal what the router will resolve. Reading
+    //      request.url, a header, a search param or the referer reintroduces a
+    //      middleware/router divergence that does not exist today.
+    //   3. Never decodeURIComponent the path, and never lowercase the path or
+    //      the slug, before matching. Both look like hardening and both are the
+    //      bypass. Decoding turns %2f into a separator in the *allow* string
+    //      while the router keeps it encoded, so a path is cleared as one route
+    //      and resolved as another. Lowercasing admits /api/order/TA-FOR-ER,
+    //      which the case-sensitive router resolves to nothing here.
+    //      Note where the exactness actually lives: it is PUBLIC_ORDER_SLUGS.has()
+    //      being a Set lookup, NOT the regex. Adding /i to ORDER_PATH_PATTERN on
+    //      its own changes nothing — verified by mutation. Both tripwires are in
+    //      middleware.test.ts; keep them.
     const p = request.nextUrl.pathname
     const isWaitlist = p === '/waitlist' || p.startsWith('/waitlist/')
     const isApiWaitlist = p === '/api/waitlist' || p.startsWith('/api/waitlist/')

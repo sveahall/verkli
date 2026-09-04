@@ -5,6 +5,12 @@
  * shipping address on the waitlist page and pays via a Stripe Checkout
  * session. The shipping address rides along in the Stripe session metadata so
  * the order is fully actionable from the Stripe Dashboard.
+ *
+ * Reaches the browser: `waitlist/BookOrderSection.tsx` is a client component and
+ * imports this, so every field here ships in the client bundle. It is also read
+ * by middleware and by the API route. Keep it public product facts only — an
+ * internal SKU, a cost price or a Stripe price id added here would leak to the
+ * browser with nothing to signal it.
  */
 export const TA_FOR_ER_ORDER = {
   /**
