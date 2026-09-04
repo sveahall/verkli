@@ -77,6 +77,12 @@ export function useChapterCrud({
   // enqueues here, including the one that goes on to drain it, so a payload can
   // never be written out of order with a newer one for the same chapter.
   const pendingSavesRef = useRef<Map<string, Record<string, unknown>>>(new Map());
+  // Chapters this tab deleted. An autosave still arrives for them: deleting the
+  // selected chapter unmounts the editor, and its cleanup flushes the pending
+  // debounce after the row is already gone. Without this the resulting zero-row
+  // write is re-queued and fails on every later drain, holding the editor in an
+  // error state over a chapter the author deliberately deleted.
+  const deletedChapterIdsRef = useRef<Set<string>>(new Set());
 
   const [isSaving, setIsSaving] = useState(false);
   const [isCreating, setIsCreating] = useState(false);
@@ -88,6 +94,10 @@ export function useChapterCrud({
   const [deletingChapterId, setDeletingChapterId] = useState<string | null>(null);
 
   const handleAutoSave = useCallback(async (chapterId: string, jsonContent: Record<string, unknown>) => {
+    // Nothing to save to a row we deleted. This is the unmount-flush case, and
+    // it is normal rather than an error, so it is dropped silently.
+    if (deletedChapterIdsRef.current.has(chapterId)) return;
+
     // Always enqueue, never write directly. The queue is the single source of
     // truth for what still needs persisting, and keying by chapter id makes a
     // later payload replace an earlier one instead of queueing behind it.
@@ -107,7 +117,8 @@ export function useChapterCrud({
     // older-over-newer overwrite they replace.
     const { saved, transientFailures, missingChapters } = await drainPendingSaves(
       pendingSavesRef.current,
-      persistChapterContent
+      persistChapterContent,
+      deletedChapterIdsRef.current
     );
 
     savingRef.current = false;
@@ -276,6 +287,12 @@ export function useChapterCrud({
       setDeletingChapterId(null);
       return;
     }
+    // Recorded only after the row is actually gone, so a failed delete does not
+    // start silently discarding that chapter's saves. Setting state below
+    // unmounts the editor and flushes its debounce, which is why this has to be
+    // in place first.
+    deletedChapterIdsRef.current.add(chapterId);
+    pendingSavesRef.current.delete(chapterId);
     const remaining = chapters.filter((ch) => ch.id !== chapterId);
     setChapters(remaining);
     if (selectedChapterId === chapterId) {

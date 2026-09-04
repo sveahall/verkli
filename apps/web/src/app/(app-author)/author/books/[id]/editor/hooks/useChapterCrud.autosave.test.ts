@@ -136,6 +136,28 @@ describe("drainPendingSaves", () => {
     expect(result.saved.get("fine")).toBe(JSON.stringify({ body: "ok" }));
   });
 
+  // Found by codex review. Deleting the selected chapter unmounts the editor,
+  // whose cleanup flushes the pending debounce — after the row is gone. That
+  // autosave used to be re-queued and fail on every later drain, holding the
+  // editor in an error state over a chapter the author deliberately deleted.
+  // Deletion by this tab is known rather than inferred, so it is purged.
+  it("discards queued content for a chapter this tab deleted", async () => {
+    const pending = new Map<string, Record<string, unknown>>([
+      ["deleted-here", { body: "flushed on unmount" }],
+      ["live", { body: "real work" }],
+    ]);
+    const { persist, writes } = recordingPersist();
+
+    const result = await drainPendingSaves(pending, persist, new Set(["deleted-here"]));
+
+    // No request spent on it, and not reported as a failure — nothing is wrong.
+    expect(writes.map((w) => w.chapterId)).toEqual(["live"]);
+    expect(result.missingChapters).toEqual([]);
+    expect(result.transientFailures).toEqual([]);
+    expect(pending.has("deleted-here")).toBe(false);
+    expect(result.saved.get("live")).toBe(JSON.stringify({ body: "real work" }));
+  });
+
   it("does not let a transient failure block other chapters either", async () => {
     const pending = new Map<string, Record<string, unknown>>([
       ["flaky", { body: "retry me" }],

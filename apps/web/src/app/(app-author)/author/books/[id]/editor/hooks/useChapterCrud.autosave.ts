@@ -34,6 +34,13 @@
  *     risks throwing away prose over a recoverable access problem. The wedged
  *     queue head is already handled by skipping failures for the rest of the
  *     pass; dropping was a second, redundant guard paid for in data safety.
+ *   - A chapter this tab deleted is the one case where the row's absence IS
+ *     known rather than inferred, so its payload is purged instead of retried.
+ *     Deleting the selected chapter unmounts the editor, whose cleanup flushes
+ *     the pending debounce — after the row is gone — so an autosave for a
+ *     just-deleted chapter is routine, not exotic. Left queued it would fail on
+ *     every future drain and hold the editor in an error state over a chapter
+ *     the author deliberately removed.
  */
 
 /**
@@ -83,7 +90,13 @@ function nextUnattempted(
  */
 export async function drainPendingSaves(
   pending: Map<string, Record<string, unknown>>,
-  persist: PersistChapter
+  persist: PersistChapter,
+  /**
+   * Chapters this tab deleted. Their queued content is discarded rather than
+   * written: unlike an ambiguous zero-row result, deletion here is something we
+   * did and therefore know.
+   */
+  deletedChapterIds: ReadonlySet<string> = new Set()
 ): Promise<DrainResult> {
   const saved = new Map<string, string>();
   const transientFailures: string[] = [];
@@ -98,6 +111,13 @@ export async function drainPendingSaves(
     const entry = nextUnattempted(pending, failedThisPass);
     if (entry === null) break;
     const [chapterId, payload] = entry;
+
+    if (deletedChapterIds.has(chapterId)) {
+      // Do not spend a request on a row we deleted ourselves, and do not report
+      // it as a failure — nothing went wrong.
+      pending.delete(chapterId);
+      continue;
+    }
 
     // Remove before writing. If a newer payload for this chapter arrives while
     // the await is in flight, it re-adds the key and the loop returns for it —
