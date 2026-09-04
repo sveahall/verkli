@@ -158,6 +158,33 @@ describe("drainPendingSaves", () => {
     expect(result.saved.get("live")).toBe(JSON.stringify({ body: "real work" }));
   });
 
+  // Found by codex review. The pre-write check cannot see a deletion that
+  // happens while the write is awaiting, and re-queueing then would recreate the
+  // stuck error state the guard exists to prevent.
+  it.each(["missing", "transient", "written"] as const)(
+    "does not requeue or report a chapter deleted mid-write (%s outcome)",
+    async (outcome) => {
+      const deleted = new Set<string>();
+      const pending = new Map<string, Record<string, unknown>>([
+        ["doomed", { body: "in flight" }],
+      ]);
+      const { persist } = recordingPersist(
+        (chapterId) => {
+          // The author confirms the delete while this write is awaiting.
+          if (chapterId === "doomed") deleted.add("doomed");
+        },
+        () => outcome
+      );
+
+      const result = await drainPendingSaves(pending, persist, deleted);
+
+      expect(result.transientFailures).toEqual([]);
+      expect(result.missingChapters).toEqual([]);
+      expect(result.saved.has("doomed")).toBe(false);
+      expect(pending.has("doomed")).toBe(false);
+    }
+  );
+
   it("does not let a transient failure block other chapters either", async () => {
     const pending = new Map<string, Record<string, unknown>>([
       ["flaky", { body: "retry me" }],

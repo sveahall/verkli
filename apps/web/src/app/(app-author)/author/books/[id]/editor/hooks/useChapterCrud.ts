@@ -293,6 +293,14 @@ export function useChapterCrud({
     // in place first.
     deletedChapterIdsRef.current.add(chapterId);
     pendingSavesRef.current.delete(chapterId);
+    // If that was the last outstanding work, stop reporting it. The unmount
+    // flush that follows is refused by the guard above, so no drain runs to
+    // reset these — the editor would otherwise sit on "Unsaved changes" or an
+    // error about a chapter the author just deleted, until they edited another.
+    if (pendingSavesRef.current.size === 0) {
+      setHasUnsavedChanges(false);
+      setSaveError(false);
+    }
     const remaining = chapters.filter((ch) => ch.id !== chapterId);
     setChapters(remaining);
     if (selectedChapterId === chapterId) {

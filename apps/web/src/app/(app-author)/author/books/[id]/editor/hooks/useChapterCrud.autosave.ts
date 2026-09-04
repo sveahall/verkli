@@ -126,6 +126,16 @@ export async function drainPendingSaves(
 
     const result = await persist(chapterId, payload);
 
+    // Re-check: the author can delete this chapter while the write is in
+    // flight, which the pre-write check above cannot see. Re-queueing or
+    // reporting it now would recreate exactly the stuck error state the
+    // deleted-id guard exists to prevent. Placed before the outcome switch so
+    // it covers a success too — there is no chapter left to update.
+    if (deletedChapterIds.has(chapterId)) {
+      pending.delete(chapterId);
+      continue;
+    }
+
     if (result.outcome === "written") {
       saved.set(chapterId, result.serialized);
       continue;
