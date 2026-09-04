@@ -86,7 +86,7 @@ export default function LanguageSwitcher({ bookId, currentLanguage, options }: P
             onClick={() => handleSwitch(opt)}
             data-testid={`lang-chip-${opt.code}`}
             className={
-              "inline-flex items-center gap-1 rounded-full border px-3 py-1 text-xs font-medium transition " +
+              "inline-flex min-h-11 items-center gap-1 rounded-full border px-4 py-1 text-xs font-medium transition " +
               (isCurrent
                 ? "border-primary/40 bg-primary/10 text-primary cursor-default"
                 : "border-border bg-card text-foreground hover:border-primary/40 hover:bg-primary/5") +

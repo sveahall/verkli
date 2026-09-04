@@ -76,7 +76,7 @@ export default function ChapterTopNavigator({
             type="button"
             onClick={() => previousChapter && router.push(`/reader/read/${previousChapter.id}`)}
             disabled={!previousChapter}
-            className={`inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-xl border text-sm transition-all duration-200 ${
+            className={`inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border text-sm transition-all duration-200 ${
               previousChapter
                 ? "border-black/[0.06] text-[#0F172A] hover:-translate-y-0.5 hover:border-[#907AFF]/30 hover:text-[#907AFF] active:scale-95 dark:border-white/10 dark:text-white dark:hover:border-[#907AFF]/30"
                 : "pointer-events-none border-transparent text-[#64748B]/30 dark:text-white/20"
@@ -113,7 +113,7 @@ export default function ChapterTopNavigator({
             type="button"
             onClick={() => nextChapter && router.push(`/reader/read/${nextChapter.id}`)}
             disabled={!nextChapter}
-            className={`inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-xl border text-sm transition-all duration-200 ${
+            className={`inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border text-sm transition-all duration-200 ${
               nextChapter
                 ? "border-black/[0.06] text-[#0F172A] hover:-translate-y-0.5 hover:border-[#907AFF]/30 hover:text-[#907AFF] active:scale-95 dark:border-white/10 dark:text-white dark:hover:border-[#907AFF]/30"
                 : "pointer-events-none border-transparent text-[#64748B]/30 dark:text-white/20"
@@ -133,7 +133,7 @@ export default function ChapterTopNavigator({
                 router.push(`/reader/read/${event.target.value}`);
                 setShowJump(false);
               }}
-              className="w-full rounded-xl border border-black/[0.06] bg-white px-3 py-2 text-sm text-[#0F172A] outline-none transition focus:border-[#907AFF]/40 focus:ring-2 focus:ring-[#907AFF]/15 dark:border-white/10 dark:bg-white/[0.05] dark:text-white"
+              className="w-full rounded-xl border border-black/[0.06] bg-white px-3 py-2 text-[16px] sm:text-sm text-[#0F172A] outline-none transition focus:border-[#907AFF]/40 focus:ring-2 focus:ring-[#907AFF]/15 dark:border-white/10 dark:bg-white/[0.05] dark:text-white"
             >
               {chapters.map((chapter, index) => (
                 <option key={chapter.id} value={chapter.id}>

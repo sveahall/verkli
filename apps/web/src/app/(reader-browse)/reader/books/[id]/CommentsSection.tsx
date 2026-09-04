@@ -323,7 +323,7 @@ export default function CommentsSection({
                   </label>
                   <select
                     id="comment-chapter"
-                    className="rounded-xl border border-black/[0.06] bg-white px-3 py-1.5 text-sm text-[#0F172A] focus:outline-none focus:ring-2 focus:ring-[#907AFF]/15 dark:border-white/10 dark:bg-white/[0.05] dark:text-white/80"
+                    className="min-h-11 rounded-xl border border-black/[0.06] bg-white px-3 py-1.5 text-[16px] sm:text-sm text-[#0F172A] focus:outline-none focus:ring-2 focus:ring-[#907AFF]/15 dark:border-white/10 dark:bg-white/[0.05] dark:text-white/80"
                     value={selectedChapterId}
                     onChange={(event) => setSelectedChapterId(event.target.value)}
                   >
