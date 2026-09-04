@@ -15,7 +15,7 @@ import DeleteBookButton from "@/components/books/DeleteBookButton";
 import { useAuthorWorkspace } from "@/features/author-shell/workspace-state";
 import WorkspaceLayout from "@/features/author-workspaces/WorkspaceLayout";
 import WorkspaceHeaderActions from "@/features/author-workspaces/components/WorkspaceHeaderActions";
-import { useAuthorLocale } from "@/lib/author-locale";
+import { useTranslations } from "next-intl";
 
 /* ─── Types ─── */
 
@@ -231,7 +231,7 @@ function AddBookCard({ onOpen }: { onOpen: () => void }) {
 /* ─── Empty state ─── */
 
 function EmptyState({ onOpen }: { onOpen: () => void }) {
-  const t = useAuthorLocale();
+  const t = useTranslations("author.library");
   return (
     <div className="flex flex-col items-center py-20 text-center">
       {/* Atmospheric glow */}
@@ -242,10 +242,10 @@ function EmptyState({ onOpen }: { onOpen: () => void }) {
         </div>
       </div>
       <h2 className="text-[20px] font-semibold tracking-tight text-slate-800 dark:text-white">
-        {t("library.emptyTitle")}
+        {t("emptyTitle")}
       </h2>
       <p className="mt-2 max-w-xs text-[14px] leading-relaxed text-slate-400 dark:text-white/45">
-        {t("library.emptyBody")}
+        {t("emptyBody")}
       </p>
       <button
         type="button"
@@ -267,7 +267,7 @@ export default function LibraryWorkspace({
   demoModeActive = false,
 }: LibraryWorkspaceProps) {
   const { setCurrentBookId } = useAuthorWorkspace();
-  const t = useAuthorLocale();
+  const t = useTranslations("author.library");
   const recentBook = books[0] ?? null;
   const [createOpen, setCreateOpen] = useState(initialCreateOpen);
 
@@ -286,12 +286,12 @@ export default function LibraryWorkspace({
         header={
           <header>
             <h1 className="text-[22px] font-semibold tracking-tight text-slate-900 dark:text-white">
-              {t("library.title")}
+              {t("title")}
             </h1>
             <p className="mt-0.5 text-[13px] text-slate-400 dark:text-white/40">
               {books.length > 0
                 ? `${books.length} ${books.length === 1 ? "book" : "books"}${totalChapters > 0 ? ` · ${totalChapters} chapters` : ""}`
-                : t("library.subtitle")}
+                : t("subtitle")}
             </p>
           </header>
         }

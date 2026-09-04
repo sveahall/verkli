@@ -10,15 +10,12 @@ import DemoModeToggle from "@/features/author-shell/DemoModeToggle";
 import DemoServiceWorker from "@/features/author-shell/DemoServiceWorker";
 import MicroHookOverlay from "@/features/author-shell/MicroHookOverlay";
 import { AuthorWorkspaceProvider } from "@/features/author-shell/workspace-state";
-import { LocaleProvider } from "@/lib/author-locale";
 
 export default function AuthorAppShell({
   children,
-  preferredLocale = null,
   demoModeActive = false,
 }: {
   children: React.ReactNode;
-  preferredLocale?: string | null;
   /** True when the deployment-level demo flag is on AND the signed-in
    * profile has demo_mode=true. Drives the demo-only "Production" entry
    * in the sidebar. */
@@ -39,7 +36,6 @@ export default function AuthorAppShell({
     : "min-w-0 pb-20 lg:pb-0";
 
   return (
-    <LocaleProvider locale={preferredLocale}>
       <AuthorWorkspaceProvider>
         <CommandPaletteProvider>
           <div className={`${outerHeight} bg-[#F8F9FD] text-foreground dark:bg-[#050917]`}>
@@ -57,6 +53,5 @@ export default function AuthorAppShell({
           <DemoModeToggle />
         </CommandPaletteProvider>
       </AuthorWorkspaceProvider>
-    </LocaleProvider>
   );
 }

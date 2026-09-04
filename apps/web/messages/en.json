@@ -1,21 +1,5 @@
 {
   "author": {
-    "nav": {
-      "home": "Home",
-      "books": "Books",
-      "marketing": "Marketing",
-      "newsletters": "Newsletters",
-      "polls": "Polls",
-      "stats": "Stats",
-      "profile": "Profile",
-      "settings": "Settings",
-      "billing": "Billing",
-      "payouts": "Payouts",
-      "inbox": "Inbox",
-      "notifications": "Notifications",
-      "feedback": "Feedback",
-      "signOut": "Sign out"
-    },
     "billing": {
       "payouts": {
         "title": "Payouts",
@@ -44,15 +28,11 @@
         "onboarding_failed": "Something went wrong with onboarding. Try again."
       }
     },
-    "common": {
-      "save": "Save",
-      "cancel": "Cancel",
-      "delete": "Delete",
-      "edit": "Edit",
-      "back": "Back",
-      "loading": "Loading…",
-      "saving": "Saving…",
-      "saved": "Saved"
+    "library": {
+      "title": "Library",
+      "subtitle": "All your books in one place",
+      "emptyTitle": "Create your first book",
+      "emptyBody": "Start by creating a book to open your writing workspace."
     }
   }
 }

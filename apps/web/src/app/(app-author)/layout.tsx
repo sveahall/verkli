@@ -32,15 +32,13 @@ export default async function AppAuthorLayout({
 
   const { data: profile } = await supabase
     .from("profiles")
-    .select("role, preferences, demo_mode")
+    .select("role, demo_mode")
     .eq("user_id", user.id)
     .maybeSingle();
   const profileRole = String(profile?.role ?? "").trim().toLowerCase();
-  const prefs = (profile?.preferences ?? {}) as Record<string, unknown>;
   const demoModeActive = isDemoModeActive({
     demo_mode: (profile as { demo_mode?: boolean | null } | null)?.demo_mode,
   });
-  const preferredLocale = typeof prefs.uiLanguage === "string" ? prefs.uiLanguage : null;
   const isAdmin = profileRole === "admin";
   const isLegacyAuthor = isLegacyAuthorRole(profileRole);
   const approvalStatus = !isAdmin && !isLegacyAuthor
@@ -58,18 +56,15 @@ export default async function AppAuthorLayout({
 
   // Phase 0.4: hand the (app-author) tree a NextIntlClientProvider so client
   // components can call `useTranslations()`. Locale and messages come from
-  // `lib/i18n/request.ts` which resolves cookie → profile.preferences.uiLanguage
-  // → default (en). Reader and public stay outside this boundary so they
-  // remain English by `check:english-default`.
+  // `lib/i18n/request.ts`, which resolves the NEXT_LOCALE cookie → default (en).
+  // Reader and public stay outside this boundary so they remain English by
+  // `check:english-default`.
   const locale = await getLocale();
   const messages = await getMessages();
 
   return (
     <NextIntlClientProvider locale={locale} messages={messages}>
-      <AuthorAppShell
-        preferredLocale={preferredLocale}
-        demoModeActive={demoModeActive}
-      >
+      <AuthorAppShell demoModeActive={demoModeActive}>
         {children}
       </AuthorAppShell>
     </NextIntlClientProvider>

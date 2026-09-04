@@ -1,21 +1,5 @@
 {
   "author": {
-    "nav": {
-      "home": "Hem",
-      "books": "Böcker",
-      "marketing": "Marknadsföring",
-      "newsletters": "Nyhetsbrev",
-      "polls": "Omröstningar",
-      "stats": "Statistik",
-      "profile": "Profil",
-      "settings": "Inställningar",
-      "billing": "Fakturering",
-      "payouts": "Utbetalningar",
-      "inbox": "Inkorg",
-      "notifications": "Aviseringar",
-      "feedback": "Feedback",
-      "signOut": "Logga ut"
-    },
     "billing": {
       "payouts": {
         "title": "Utbetalningar",
@@ -44,15 +28,11 @@
         "onboarding_failed": "Något gick fel i onboardingen. Försök igen."
       }
     },
-    "common": {
-      "save": "Spara",
-      "cancel": "Avbryt",
-      "delete": "Ta bort",
-      "edit": "Redigera",
-      "back": "Tillbaka",
-      "loading": "Laddar…",
-      "saving": "Sparar…",
-      "saved": "Sparat"
+    "library": {
+      "title": "Bibliotek",
+      "subtitle": "Alla dina böcker på ett ställe",
+      "emptyTitle": "Skapa din första bok",
+      "emptyBody": "Börja med att skapa en bok för att öppna din skrivarbetsyta."
     }
   }
 }
