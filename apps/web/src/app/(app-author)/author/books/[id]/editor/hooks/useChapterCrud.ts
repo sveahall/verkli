@@ -6,6 +6,7 @@ import { createClient } from "@/lib/supabase/client";
 import { useToastHelpers } from "@/components/ui/toast";
 import { normalizeLanguage } from "@/lib/languages";
 import type { Book, BookVersion, Chapter } from "../BookEditorView.types";
+import { drainPendingSaves, type PersistChapter } from "./useChapterCrud.autosave";
 
 interface UseChapterCrudOptions {
   book: Book;
@@ -19,6 +20,36 @@ interface UseChapterCrudOptions {
   chaptersPerPage: number;
   getBookWorkspaceHref: (language?: string | null) => string;
 }
+
+/**
+ * Write one chapter's content and report whether a row was actually touched.
+ *
+ * `.select("id")` is the point. Without it PostgREST answers `return=minimal`,
+ * so an UPDATE that matched NOTHING — the row deleted underneath by an
+ * `overwrite_draft` import, or an RLS refusal — came back as `error: null`, the
+ * caller saw success, and the status bar said "Saved" over prose that was gone.
+ *
+ * This depends on the author being able to SELECT their own chapters. They can:
+ * `handleCreateChapter` below does `.insert(...).select(...).single()` on this
+ * same browser client and surfaces an error otherwise, so chapter creation
+ * would already be broken if that were not true. Worth knowing that the repo
+ * migrations do NOT grant it — `20260203000000_book_versions.sql:166` drops
+ * "Authors can read own chapters" and never recreates it — so this rests on the
+ * live database differing from the migrations. If autosave ever starts
+ * reporting a failure on every keystroke, that policy is the first thing to
+ * check, not this function.
+ */
+const persistChapterContent: PersistChapter = async (chapterId, payload) => {
+  const serialized = JSON.stringify(payload);
+  const supabase = createClient();
+  const { data, error } = await supabase
+    .from("chapters")
+    .update({ content: serialized })
+    .eq("id", chapterId)
+    .select("id");
+  if (error) return { ok: false, serialized };
+  return { ok: (data?.length ?? 0) > 0, serialized };
+};
 
 export function useChapterCrud({
   book,
@@ -34,11 +65,11 @@ export function useChapterCrud({
 }: UseChapterCrudOptions) {
   const router = useRouter();
   const toast = useToastHelpers();
+  // True while a drain is in flight. One writer at a time; everyone else queues.
   const savingRef = useRef(false);
-  // Latest keystroke content keyed by chapter id, captured while a save is
-  // already in flight. When the in-flight save finishes we flush these so no
-  // input is silently dropped (the previous behaviour was to `return` when a
-  // save was in flight, leaving new keystrokes unpersisted).
+  // The write queue: latest unsaved content per chapter id. Every autosave call
+  // enqueues here, including the one that goes on to drain it, so a payload can
+  // never be written out of order with a newer one for the same chapter.
   const pendingSavesRef = useRef<Map<string, Record<string, unknown>>>(new Map());
 
   const [isSaving, setIsSaving] = useState(false);
@@ -51,56 +82,54 @@ export function useChapterCrud({
   const [deletingChapterId, setDeletingChapterId] = useState<string | null>(null);
 
   const handleAutoSave = useCallback(async (chapterId: string, jsonContent: Record<string, unknown>) => {
-    // If a save is already running, record the latest content instead of
-    // dropping it — we'll flush after the in-flight save completes.
-    if (savingRef.current) {
-      pendingSavesRef.current.set(chapterId, jsonContent);
-      setHasUnsavedChanges(true);
-      return;
-    }
+    // Always enqueue, never write directly. The queue is the single source of
+    // truth for what still needs persisting, and keying by chapter id makes a
+    // later payload replace an earlier one instead of queueing behind it.
+    pendingSavesRef.current.set(chapterId, jsonContent);
+    setHasUnsavedChanges(true);
 
-    // Inner loop flushes any keystrokes that arrived during a save. Defined
-    // locally so the outer callback does not need to self-reference.
-    async function persistOnce(id: string, payload: Record<string, unknown>): Promise<{ ok: boolean; serialized: string }> {
-      const serialized = JSON.stringify(payload);
-      const supabase = createClient();
-      const { error } = await supabase
-        .from("chapters")
-        .update({ content: serialized })
-        .eq("id", id);
-      return { ok: !error, serialized };
-    }
+    // A drain is already running and will pick this up. Returning here is what
+    // keeps exactly one writer in flight.
+    if (savingRef.current) return;
 
     savingRef.current = true;
     setIsSaving(true);
     setSaveError(false);
 
-    let currentPayload = jsonContent;
-    let persisted: { ok: boolean; serialized: string } = { ok: false, serialized: "" };
-    // Loop until no more pending writes exist for this chapter — guarantees
-    // the final keystroke is persisted even if several arrive while saving.
-    while (true) {
-      persisted = await persistOnce(chapterId, currentPayload);
-      if (!persisted.ok) break;
-      const queued = pendingSavesRef.current.get(chapterId);
-      if (!queued) break;
-      pendingSavesRef.current.delete(chapterId);
-      currentPayload = queued;
-    }
+    // Drains the WHOLE queue, not just this chapter's key. See the module
+    // comment in ./useChapterCrud.autosave for the ordering rules and the
+    // older-over-newer overwrite they replace.
+    const { saved, failedChapterId } = await drainPendingSaves(
+      pendingSavesRef.current,
+      persistChapterContent
+    );
 
     savingRef.current = false;
     setIsSaving(false);
 
-    if (!persisted.ok) {
+    if (saved.size > 0) {
+      setChapters((prev) =>
+        prev.map((ch) => {
+          const content = saved.get(ch.id);
+          return content === undefined ? ch : { ...ch, content };
+        })
+      );
+      setLastSaved(new Date());
+    }
+
+    if (failedChapterId !== null) {
       setSaveError(true);
-      toast.error("Could not save. Changes may not have been persisted.");
+      // The payload is re-queued, so the words are still in memory. Say that,
+      // rather than the old "may not have been persisted", which left an author
+      // unsure whether closing the tab would cost them the chapter.
+      toast.error("Could not save. Your changes are still here — keep this tab open and try again.");
       return;
     }
 
-    const lastSerialized = persisted.serialized;
-    setChapters((prev) => prev.map((ch) => (ch.id === chapterId ? { ...ch, content: lastSerialized } : ch)));
-    setLastSaved(new Date());
-    setHasUnsavedChanges(false);
+    // Only claim saved if the queue is genuinely empty. A keystroke that landed
+    // after the drain's last check is still outstanding, and clearing the flag
+    // here would show "Saved" over it.
+    if (pendingSavesRef.current.size === 0) setHasUnsavedChanges(false);
   }, [setChapters, toast]);
 
   const handleCreateChapter = useCallback(async () => {

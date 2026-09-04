@@ -630,6 +630,7 @@ export default function BookEditorView({
                 onCreateChapter={chapterCrud.handleCreateChapter}
                 isCreating={chapterCrud.isCreating}
                 isSaving={chapterCrud.isSaving}
+                hasUnsavedChanges={chapterCrud.hasUnsavedChanges}
                 lastSaved={chapterCrud.lastSaved}
                 saveError={chapterCrud.saveError}
                 isRenamingBook={bookRename.isRenamingBook}
