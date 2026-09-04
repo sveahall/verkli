@@ -7,6 +7,7 @@ import { useRouter } from "next/navigation";
 import GlassCard from "@/components/GlassCard";
 import { createClient } from "@/lib/supabase/client";
 import { setActiveRoleCookieClient } from "@/lib/active-role";
+import { TA_FOR_ER_ORDER } from "@/lib/orders/ta-for-er";
 
 const VERKLI_ROLE_KEY = "verkli_role";
 
@@ -95,11 +96,25 @@ export default function RoleSelection() {
         />
       </div>
 
-      {/* Logo + Back */}
-      <header className="absolute left-6 top-6 z-30 flex items-center gap-3 sm:left-8 sm:top-8">
+      {/*
+        Spans the viewport so the logo stays left and Pricing sits right.
+        inset-x keeps the logo exactly where left-6/left-8 put it.
+      */}
+      <header className="absolute inset-x-6 top-6 z-30 flex items-center justify-between gap-3 sm:inset-x-8 sm:top-8">
         <Link href="/" className="flex min-h-[44px] min-w-[44px] items-center" aria-label="Verkli">
           <Image src="/logo-dark.svg" alt="Verkli" width={140} height={32} className="h-8 w-auto dark:hidden" priority />
           <Image src="/favicon.svg" alt="Verkli" width={32} height={32} className="hidden h-8 w-auto dark:block" priority />
+        </Link>
+
+        {/*
+          /pricing has been live and returning 200 without a login this whole
+          time, and no page on the site linked to it — the same way the book was
+          orphaned. Someone deciding whether to publish here needs the price
+          before they pick a role, so it belongs above the card rather than
+          inside it, where a third CTA would compete with the actual choice.
+        */}
+        <Link href="/pricing" className="btn-ghost min-h-11">
+          Pricing
         </Link>
       </header>
 
@@ -145,6 +160,27 @@ export default function RoleSelection() {
               I am a reader
             </button>
           </div>
+
+          {/*
+            The book is the one thing on this site you can buy today, and until
+            now nothing linked to it: this page renders a role chooser, /waitlist
+            holds the order form, and no page on the site referenced it. Anyone
+            sent here to buy it had to already know the URL.
+
+            A real Link, not another onClick button. The two role buttons above
+            are invisible to a crawler and to anyone without JS — this must not
+            be, because it is a purchase path.
+
+            min-h-11 overrides .btn-ghost's 40px allowance (DESIGN.md:150) up to
+            the 44px every interactive element is meant to meet (DESIGN.md:159).
+            The two rules disagree; on a conversion path, take the larger.
+          */}
+          <Link
+            href="/waitlist"
+            className="btn-ghost mt-8 min-h-11 w-full text-center sm:mt-10"
+          >
+            Just here for the book? {TA_FOR_ER_ORDER.bookTitle}
+          </Link>
         </div>
       </GlassCard>
     </main>
