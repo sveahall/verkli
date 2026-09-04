@@ -3,6 +3,7 @@ import { NextResponse, type NextRequest } from 'next/server'
 import { isBetaUser, BetaCheckTransientError } from '@/lib/auth/beta'
 import { getAuthorApplicationStatus } from '@/lib/auth/author-approval'
 import { ACTIVE_ROLE_COOKIE } from '@/lib/active-role'
+import { TA_FOR_ER_ORDER } from '@/lib/orders/ta-for-er'
 
 // ---------------------------------------------------------------------------
 // In-memory cache of `profiles.role` keyed by user id. Middleware otherwise
@@ -35,6 +36,41 @@ const BETA_LOCK_AUTH_PATHS: ReadonlySet<string> = new Set([
   '/author/signup',
   '/author/forgot-password',
 ])
+
+/**
+ * Products whose order routes are public by design and must survive BOTH site
+ * locks. The book sale is the point of the waitlist page and is deliberately
+ * open to anyone with the link — beta cohort or not.
+ *
+ * Read by both locks so they cannot drift apart. They already did once: the
+ * waitlist lock was taught about `/order` on a side branch that never reached
+ * `platform`, the beta lock was never taught at all, and the result was a page
+ * that rendered fine with a buy button that silently failed.
+ *
+ * Membership is per *product*, not per path, so a new sub-page of an approved
+ * product just works while an unregistered product stays locked. Registering
+ * one is a deliberate act — see the `slug` field on the order constant.
+ *
+ * The cost of that convenience is a standing promise: registering a slug makes
+ * the WHOLE of `/order/<slug>/**` and `/api/order/<slug>/**` publicly reachable
+ * under both locks, now and for anything added there later, with no further
+ * review. Only register a product whose entire route subtree carries its own
+ * authorization. The two routes here need none — the API takes no authorization
+ * decision at all, and the success page is gated by possession of an unguessable
+ * Stripe `cs_...` id. That is a fact about those two files, not about the prefix.
+ *
+ * Keep membership a Set lookup. It is what makes the match exact, and loosening
+ * it to a pattern like `^/order/[^/]+` would admit every product the day someone
+ * adds `app/order/[slug]/page.tsx`.
+ */
+const PUBLIC_ORDER_SLUGS: ReadonlySet<string> = new Set([TA_FOR_ER_ORDER.slug])
+
+const ORDER_PATH_PATTERN = /^\/(?:api\/)?order\/([^/]+)/
+
+function isPublicOrderPath(pathname: string): boolean {
+  const slug = ORDER_PATH_PATTERN.exec(pathname)?.[1]
+  return slug !== undefined && PUBLIC_ORDER_SLUGS.has(slug)
+}
 
 const AUTHOR_ROLE_CACHE_TTL_MS = 60_000
 const AUTHOR_ROLE_CACHE_MAX = 512
@@ -145,14 +181,43 @@ export async function middleware(request: NextRequest) {
   const waitlistOnly = process.env.NEXT_PUBLIC_WAITLIST_ONLY === 'true'
 
   if (waitlistOnly) {
+    // CAUTION: this allowlist is the ONLY gate for whatever it admits. An allowed
+    // path returns NextResponse.next() at the bottom of this block without ever
+    // initialising Supabase, so it never reaches the /author role check or the
+    // /reader auth check further down the file. Three rules for any new entry:
+    //
+    //   1. Anchor it, and scope it to its own literal first segment.
+    //      isPublicOrderPath is safe here only because ORDER_PATH_PATTERN is
+    //      anchored at ^/ and requires `order/` or `api/order/` first, so it
+    //      cannot match an /author or /reader path. An `includes()`, an
+    //      unanchored regex, or a non-literal first segment (`^/[^/]+/order/`)
+    //      would serve those unauthenticated.
+    //   2. Match `request.nextUrl.pathname` and nothing else. It is the only
+    //      string guaranteed to equal what the router will resolve. Reading
+    //      request.url, a header, a search param or the referer reintroduces a
+    //      middleware/router divergence that does not exist today.
+    //   3. Never decodeURIComponent the path, and never lowercase the path or
+    //      the slug, before matching. Both look like hardening and both are the
+    //      bypass. Decoding turns %2f into a separator in the *allow* string
+    //      while the router keeps it encoded, so a path is cleared as one route
+    //      and resolved as another. Lowercasing admits /api/order/TA-FOR-ER,
+    //      which the case-sensitive router resolves to nothing here.
+    //      Note where the exactness actually lives: it is PUBLIC_ORDER_SLUGS.has()
+    //      being a Set lookup, NOT the regex. Adding /i to ORDER_PATH_PATTERN on
+    //      its own changes nothing — verified by mutation. Both tripwires are in
+    //      middleware.test.ts; keep them.
     const p = request.nextUrl.pathname
     const isWaitlist = p === '/waitlist' || p.startsWith('/waitlist/')
     const isApiWaitlist = p === '/api/waitlist' || p.startsWith('/api/waitlist/')
+    // The book pre-order form lives ON the waitlist page, so its API and Stripe
+    // return page have to come through the lock or the buy button dies silently.
+    const isOrder = isPublicOrderPath(p)
     const isNext = p.startsWith('/_next/')
     const isKnownRoot = ['/favicon.ico', '/favicon.svg', '/robots.txt'].includes(p)
     const isRootAssetWithExt = /^\/[^/]+\.[a-z0-9]+$/i.test(p)
 
-    const allowed = isWaitlist || isApiWaitlist || isNext || isKnownRoot || isRootAssetWithExt
+    const allowed =
+      isWaitlist || isApiWaitlist || isOrder || isNext || isKnownRoot || isRootAssetWithExt
     if (!allowed) {
       const url = request.nextUrl.clone()
       url.pathname = '/waitlist'
@@ -209,9 +274,21 @@ export async function middleware(request: NextRequest) {
 
     const isAuthEntry = BETA_LOCK_AUTH_PATHS.has(p)
 
-    const allowedPath = isWaitlist || isAuth || isAuthEntry || isApiWaitlist || isApiAuth || isNext || isKnownRoot || isRootAssetWithExt
+    // BETA_LOCK restricts the *platform* to invited users; the book sale is not
+    // part of the platform. Without this an order POST 403s the moment the lock
+    // goes on for the cohort — see PUBLIC_ORDER_SLUGS.
+    const isOrderPath = isPublicOrderPath(p)
+
+    const allowedPath = isWaitlist || isAuth || isAuthEntry || isApiWaitlist || isApiAuth || isOrderPath || isNext || isKnownRoot || isRootAssetWithExt
+    // Only look up cohort membership when it can change the outcome. `isBeta` is
+    // read once, in `!allowedPath && !isBeta` below, so on an allowed path the
+    // result is discarded — and a transient failure of that lookup would 503 a
+    // path we just decided is public, before `allowedPath` is ever consulted.
+    // That would take the buy button down on a beta-locked site for any buyer
+    // carrying a session, and dead-end the sign-in pages the auth allowlist
+    // exists to keep reachable.
     let isBeta = false
-    if (user) {
+    if (user && !allowedPath) {
       try {
         isBeta = await isBetaUser(supabase, user.id)
       } catch (err) {
