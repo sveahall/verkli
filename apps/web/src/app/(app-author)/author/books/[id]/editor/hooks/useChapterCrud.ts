@@ -138,6 +138,10 @@ export function useChapterCrud({
     // first meant a drain containing both showed only the reassuring message.
     if (missingChapters.length > 0) {
       setSaveError(true);
+      // A reported failure means the payload went back on the queue, so there IS
+      // unsaved content. Set this explicitly rather than relying on it still
+      // being true from enqueue time — something else may have cleared it.
+      setHasUnsavedChanges(true);
       // Deliberately does not claim the chapter is gone. Zero rows cannot tell
       // deletion apart from lost access, so this says what is true of both and
       // still tells the author their text is safe in the tab.
@@ -147,6 +151,7 @@ export function useChapterCrud({
 
     if (transientFailures.length > 0) {
       setSaveError(true);
+      setHasUnsavedChanges(true);
       // The payload is re-queued, so the words are still in memory. Say that,
       // rather than the old "may not have been persisted", which left an author
       // unsure whether closing the tab would cost them the chapter.
@@ -297,7 +302,11 @@ export function useChapterCrud({
     // flush that follows is refused by the guard above, so no drain runs to
     // reset these — the editor would otherwise sit on "Unsaved changes" or an
     // error about a chapter the author just deleted, until they edited another.
-    if (pendingSavesRef.current.size === 0) {
+    // `size === 0` is not the same as "no outstanding work": the drain removes an
+    // entry before writing it, so an in-flight write is not in the map. Clearing
+    // on that alone told the author everything was saved while a write was still
+    // going, and if it then failed the status bar kept saying "Saved".
+    if (pendingSavesRef.current.size === 0 && !savingRef.current) {
       setHasUnsavedChanges(false);
       setSaveError(false);
     }
