@@ -233,7 +233,9 @@ innehåller **187 `book_view`- och 11 `start_reading`-rader**. Båda call sites 
 
 Notera att detta inte påverkar §4b:s fynd om författarstatistiken: det handlar om
 **SELECT**, som fortfarande är blockerad (anon select → 0 rader, inget fel, tyst
-filtrerad). WP-15 står kvar oförändrat.
+filtrerad). *Rättelse 2026-09-04: WP-15:s huvuddel är levererad sedan detta skrevs
+(`9bc37f6`+`0026ba7`) — se §0e. SELECT-mekanismen ovan står kvar och är exakt varför
+admin-klienten är bärande.*
 
 **Den verkliga faran är subtilare:** allt hänger på PostgRESTs `return=minimal`. Att
 lägga till `.select()` eller `.single()` på inserten i `logAnalyticsEvent` skulle tyst
@@ -259,6 +261,181 @@ döda varje läsarevent med ett 42501 som `.catch(() => {})` sväljer. Nu dokume
 - **Rate limiters är modulnivå och överlever `vi.clearAllMocks()`.** Tester som träffar
   samma route upprepat behöver eget användar-id, annars ger de ett riktigt 429 mitt i
   sviten som ser ut som en kodbugg.
+
+## 0e. Granskning 2026-09-04 — två av planens egna premisser var fel
+
+Sexton agenter (sju parallella läsare, en adversariell verifierare per tråd med
+default-hållning REFUTERAT, plus syntes och en fullständighetskritiker) läste om fyra
+trådar. **Tolv fynd föll vid verifiering** — två av dem påståenden som stod i denna plan.
+Rättelserna är inskrivna på plats i §4b, §5 och §7; detta är loggen och de nya fynden.
+
+### ✅ Läckan mellan författare finns inte, och har aldrig funnits
+
+Planens säkerhetsnot i §4b och riskraden i §7 påstod att `author/stats/books/route.ts:44-46`
+selekterar `analytics_events` utan författarfilter. **Refuterat på tre oberoende grunder,
+var och en tillräcklig:**
+
+1. Rad 44-46 innehåller ingen fråga. De är en early return —
+   `if (owned.books.length === 0) { return NextResponse.json({ books: [] }); }`. Planen
+   citerar en version som ersattes av `9bc37f6`, vilket är en ancestor till platform HEAD.
+2. Den ofiltrerade frågan *fanns* (i `3bc0493`) men körde på **session-klienten**.
+   `analytics_events` har RLS påslaget med exakt en policy i hela migrationsträdet —
+   `analytics_events_insert_own`, `FOR INSERT WITH CHECK`, ingen `TO`-klausul — och
+   **ingen SELECT-policy alls**. RLS på utan SELECT-policy är deny-all. Läsningen
+   returnerade noll rader för varje anropare. Det var död kod, inte en läcka som väntade
+   på en policy.
+3. Nuvarande route *håller* en service-role-klient, vilket är den farliga konfiguration
+   planen fruktade — men varje läsning ur den är begränsad av `.in("book_id", bookIds)`,
+   och `bookIds` kommer från `resolveAuthorBooks`, som filtrerar med explicit
+   `.eq("author_id", userId)`. Scopingen beror alltså inte på `books`-RLS över huvud taget.
+
+Planens formulering *"ofarligt bara så länge RLS är tomt"* är den del som är sakligt fel,
+och den **inverterar risken**: `analytics_events`-RLS är inte tom, den är deny-by-default
+för SELECT — den starkaste hållning som finns, inte en lucka.
+
+**Kvarstående, verkligt men annat:** `api/books/[id]/stats/route.ts` scopar ~8
+service-role-läsningar på en path-parameter som anroparen styr, och det enda som hindrar
+korsåtkomst är en JavaScript-jämförelse i `getBookAsOwner`. Korrekt idag och failar
+stängt, men utan databasbackstop under sig. Regressionstestet som vaktar mönstret täcker
+3 routes och grepar bara efter `analytics_events`, så orders/reviews/bookmarks/readings
+och tre server-komponenter är otäckta.
+
+### ✅ WP-15:s huvuddel är redan levererad
+
+`9bc37f6` och `0026ba7` gjorde det planen fortfarande beskrev som öppet. Alla fem routes
+under `api/author/stats/**` och `api/books/[id]/stats/**` resolvar ägarskap med den
+RLS-backade session-klienten och läser aggregat med `createAdminClient()` — delat kontrakt
+i `lib/author/stats-scope.ts:43-62`. De hårdkodade `sales: 0` / `comments: 0` är borta.
+`'completed'` är ersatt av `SETTLED_PAYMENT_STATUS = "paid"`, vilket matchar DB:ns
+CHECK-constraint `status IN ('pending','paid','failed')` — `'completed'` är alltså
+**oskrivbart** och splitten är löst, inte bara enad. Fyra defekter kvarstår, se §4b.
+
+### 🔴 Nytt: köpvägen är armerad att gå sönder — inte trasig idag
+
+Ingen av de två middleware-allowlistorna innehåller `/order` eller `/api/order`
+(`middleware.ts:150-157` för `NEXT_PUBLIC_WAITLIST_ONLY`, `:202-212` för `BETA_LOCK`).
+En order-POST matchar ingen post i någon av dem.
+
+Probe mot produktion 2026-09-04:
+
+| Väg | Svar | Tolkning |
+|---|---|---|
+| `/` och `/reader/discover` | 200 | båda låsen är **av** just nu |
+| `/api/order/ta-for-er` | 405 | routen finns och är driftsatt (GET nekas, POST tillåts) |
+| `/apply` | 404 | prod bygger **platform**, inte `main` — `8cf08f6` finns alltså inte i prod |
+
+Ordrar fungerar alltså idag. Men `BETA_LOCK` är precis den flagga som slås på för en
+betakohort, och när den slås på renderas waitlist-sidan fortfarande medan dess köpknapp
+dör tyst: 307 till HTML under `WAITLIST_ONLY`, 403 JSON under `BETA_LOCK`. Eftersom
+`NEXT_PUBLIC_WAITLIST_ONLY` *var* grinden under waitlist-perioden var köpknappen trasig
+då. Fixen finns som `8cf08f6` på `feat/beta-apply` och ska cherry-pickas, plus samma
+tillägg i `BETA_LOCK`-blocket som sidobranchen aldrig täckte.
+
+**Detta är `wp/17-order-path-unlock` och ligger först i ordningen.** Notera att
+`79a9e19` (mobilfixen) stängde den kosmetiska halvan av samma buggrapport och lämnade den
+funktionella halvan öppen.
+
+### ✅ Branch-kyrkogården är en branch med fem namn
+
+`feat/beta-apply`, alla fyra `worktree-agent-*` och `origin/main` är **samma commit**:
+`414de4c`. "main är 38 commits före platform" är alltså en inaktuell lokal pekare på
+marknadsföringslinjen, inte ett förråd av tappat arbete.
+`cursor/development-environment-setup-df5d` är samma main plus en commit som lägger till
+`AGENTS.md`, vilket platform redan har. `design/author-black-buttons-restore` och
+`mvp-wip-2026-03-18` är också identiska (`2ebef8d`).
+
+Merge-basen är `05fbf1a` (2026-01-31) och platform är 481 commits före den.
+`git merge-tree platform feat/beta-apply` ger **237 konfliktfiler**. En riktig merge är
+utesluten — cherry-picka enskilda commits, aldrig merga branchen.
+
+Av 13 undersökta brancher håller **exakt två** kod platform saknar: `mvp-wip-2026-03-18`
+(en RESTRICTIVE deny-write-RLS-migration på orders/entitlements/audit_log som platform
+inte har någon motsvarighet till, plus PRO+-tier och 3-nivåers prissida — `b528ba6` kan
+cherry-pickas oberoende av billing-delarna) och `codex/test-reader-book-entitlements`
+(perf/lazy-load plus två testfiler). Allt annat är superseded.
+
+⚠️ **Innan någon kör ett städskript:** fyra `wp/*`-brancher visar 0 ahead och ser ut som
+självklara delete-kandidater, men är utcheckade i live-worktrees under
+`.claude/worktrees/`. Att radera dem bryter körande worktrees. Och lokal städning missar
+det mesta — origin bär brancher utan lokal motsvarighet, som inte är diffade.
+
+⚠️ `beta_applications` finns i live-databasen (`types.ts:507`, lagt av `3ac2648` som
+regenererade typer mot prod) medan varje rad kod som läser eller skriver den bara finns på
+`feat/beta-apply`. `/apply` 404:ar på platform. Platform har sitt *eget*
+`api/author-applications` som kräver att en admin godkänner. **Ingen har fastställt vilken
+URL den nuvarande betakohorten fick, eller om någon dränerar pending-kön.**
+
+⚠️ **Fällan i den branchen:** `ccae495` bultar HTTP Basic auth (delat lösenord i
+`ADMIN_BASIC_AUTH_USER`/`PASSWORD`) på varje `/admin`- och `/api/admin`-väg. Att ta den
+skulle ersätta platforms per-användar-Supabase-roller med ett delat lösenord, och om
+env-varen är osatt ge 503 över hela det befintliga adminområdet. Ta **bara**
+`isApply`/`isApiApply`-posterna, aldrig middleware-halvan.
+
+### 🔴 Nytt: tio fynd säger "felet sväljs" — ingenting hade fångat dem
+
+`instrumentation.ts:14` har `enabled: Boolean(dsn)`, så Sentry stänger av sig själv tyst
+när `SENTRY_DSN` saknas. `SENTRY_DSN` förekommer **inte** i `lib/launch-config.ts` eller
+`scripts/check-launch-config.ts` — launch-verifieraren, vars hela premiss är att
+flaggbeslut måste tas före bygget, kräver inte DSN:en. Och det finns exakt **ett**
+`captureException` i hela `src` (`global-error.tsx:14`); allt annat rider på
+`onRequestError`, som fångar *kastade* fel. Varje sväljt fel i denna granskning är fångat
+och släppt, aldrig kastat.
+
+Dessutom: `check:launch-config` är **inte** ett steg i `qa:beta`
+(`scripts/qa-beta.mjs:214-219` kör vitest, eslint, english-default, no-placeholders,
+dead-code, build). Launchmatrisen finns som data med ett test bakom sig — och körs sedan
+inte av det som kallas betagrinden. Lägg till den som ett steg.
+
+### ⚠️ Fällan i den rekommenderade soft-delete-fixen
+
+Två trådar föreslog att `useChapterCrud.ts:227` byter hard delete mot
+`.update({ deleted_at })`. Ingen läste constrainten:
+`20260204180000_fix_chapters_unique_constraint.sql:20` lägger
+`UNIQUE (book_version_id, "order")` — **ovillkorlig**, inte ett partiellt index med
+`WHERE deleted_at IS NULL`. En soft-deletad rad behåller sin order-plats för alltid,
+samtidigt som `20260429121000_soft_delete_columns.sql` skapar en RESTRICTIVE SELECT-policy
+som gömmer raden för klienten. Att shippa den föreslagna enradaren ger opaka 23505 mot en
+**osynlig** rad — vid nästa kapitelskapande på den platsen och i sentinel-vandringen i
+`handleMoveChapter`/`handleReorderChapters`.
+
+`deleted_at` är alltså en halvfärdig funktion: kolumner och policies levererade, men
+`lib/db`-hjälpmodulen som migrationens egen header pekar på finns inte på platform. Att
+slutföra den kräver en genomgång av **varje** tabell som fick `deleted_at`, inte bara
+`chapters`, och rätt migration är
+`DROP CONSTRAINT chapters_book_version_id_order_key` +
+`CREATE UNIQUE INDEX … WHERE deleted_at IS NULL` — verifierat mot live med
+`pg_constraint` först. Eget paket, `wp/16b`, efter launch.
+
+### 🔴 Nytt: `/order` och `/waitlist` ligger utanför english-default-grinden
+
+`scripts/check-english-default.ts:15-35` definierar `SCOPE` som route-grupperna
+`(app-reader)`, `(reader-browse)`, `(public-reader)`, `(app-author)`, `(public-author)`
+plus vissa `components/`-kataloger. `order` och `waitlist` är **top-level-kataloger utan
+route-grupp**, alltså aldrig i scope. De två publika, oautentiserade, pengatagande ytorna
+är precis de två som english-first-grinden inte tittar på. Antingen är det svenska
+medvetet — skriv då in undantaget i skriptets kommentar så nästa granskare slutar härleda
+det igen — eller så ska katalogerna in i `SCOPE`.
+
+### Ordning beslutad 2026-09-04
+
+Sorterad efter skada-per-dags-fördröjning för betaförfattare, inte efter enkelhet.
+
+| # | Paket | Insats | Varför här |
+|---|---|---|---|
+| 1 | `wp/17-order-path-unlock` | 0,5 d | Enda posten som kan förstöra pengar tyst. En fil, inget schema. Låsen är av idag, men `BETA_LOCK` slås på för kohorten. |
+| 2 | `wp/16-autosave-integrity` | 3 d | Enda paketet där skadan är **oåterkallelig**. Betaförfattare skriver i editorn denna vecka; en tappad paragraf är borta för alltid och författaren vet inte varför. |
+| 3 | `wp/20-mobile-touch-targets` | 1,5 d | Ligger på pengavägen, och fixarna är de lägsta i risk i hela planen. Beslutat: **adoptera `.input-base`/`.btn-primary`** ur DESIGN.md, inte 16 engångslappar. |
+| 4 | `wp/15-stats-truth` | 1,5 d + donationsbygget | Trustskada men fullt reparerbar genom att shippa senare; ingen data förstörs medan den väntar. |
+| 5 | `wp/18-waitlist-polish` | 0,5 d | Två cherry-picks. "Johan SvH" står på Stripe-radposten och köparens kvitto. |
+| 6 | `wp/19-branch-hygiene` | 0,25 d | Git-only. Kör i luckorna medan en codex-pass eller `qa:beta` snurrar. |
+| — | `wp/16b-chapter-revisions` | 3-4 d | **Efter 20 sep.** Enda arbetet som rör ett driftat live-schema, och en snapshottabell utan restore-UI är risk utan nytta. |
+
+Parallellitet: filägandet är genuint disjunkt mellan alla sex, men den verkliga
+serialiseringen är en utvecklare plus en obligatorisk codex-pass och en full `qa:beta` per
+paket. **Öppna inte mer än två worktrees samtidigt**, kör `npm ci` i varje färskt worktree
+innan något annat, och bekräfta basen med `git log -1 --oneline`.
+
+---
 
 ## 1. Vad vi ärvde av Fredrik: ingenting — och det är rätt utfall
 
@@ -473,28 +650,29 @@ visar priset vid publicering, så att gratis blir ett *synligt val* istället f�
 olycka. Routen har redan fem riktiga grindar — det är den naturliga platsen. Att
 förlita sig på att författaren inte hoppar över ett steppersteg är svagare.
 
-### Författarstatistiken är strukturellt alltid noll
+### Författarstatistiken — huvuddelen fixad, fyra defekter kvar
 
-Inte fejkade siffror — tomma. Av två oberoende skäl:
+**Rättelse 2026-09-04.** RLS/admin-klient-halvan och `'paid'`/`'completed'`-splitten är
+levererade i `9bc37f6` + `0026ba7`, och de hårdkodade nollorna på författarens hem är
+borta (riktiga frågor i `page.tsx:183-233`). Se §0e. Planens *mekanism* var korrekt:
+`analytics_events` har ingen författarscopad SELECT-policy, och det är därför
+admin-klienten är bärande snarare än en optimering.
 
-1. **RLS har ingen författarscopad SELECT-policy** på `analytics_events` (endast
-   INSERT-policy), `readings`, `orders` (`user_id` = *köparen*), `bookmarks` eller
-   `donations` (`user_id` = *donatorn*) — och stats-routerna använder författarens
-   session-klient istället för admin-klienten. Publiceringsroutern vet redan detta
-   (`publish/route.ts:553`: *"analytics_events RLS blocks the author session"*), men
-   stats-routerna fick aldrig samma behandling. Felen sväljs av tomma `catch {}`
-   och renderas som ett vänligt "no activity yet".
-2. **Statusvärdena är osynkade.** Finalize-RPC:n skriver `'paid'`, men båda
-   intäktsfrågorna filtrerar på `'completed'` (`author/stats/revenue/route.ts:23,38`)
-   medan `author/home/page.tsx:126` korrekt använder `'paid'`. Kodbasen är oenig
-   med sig själv.
+**Fyra defekter som fixen inte fångade** — alla verifierade 2026-09-04, alla kvar i platform:
 
-Plus hårdkodade nollor på författarens hem: `sales: 0`, `comments: 0` (`:59,62,135,138`).
+| Defekt | Var | Vad en betaförfattare ser |
+|---|---|---|
+| `donations` filtreras på `recipient_id`, en kolumn som inte finns i någon migration och inte i `types.ts` | `api/author/stats/revenue/route.ts:56` | PostgREST 42703 vid varje anrop. Felet loggas men svaret returneras, så donationsintäkt är permanent 0. Fixen rörde exakt denna rad och behöll kolumnfiltret verbatim — en tyst icke-träff byttes mot ett tyst hårt fel. |
+| `readings` selekteras på `created_at`; kolumnen heter `started_at` | `author/analytics/[metric]/page.tsx:138` | 400, felet kastas utan logg → 0 unika läsare och tom tabell, direkt under ett hemkort som visade ett korrekt *icke*-noll läsarantal och länkade hit |
+| `json.publishedBooks` läses men returneras aldrig av endpointen | `components/author/stats/AuthorStatsDashboard.tsx:73` | "Publicerade böcker" är 0 för alla, för alltid — plus en onödig dubbel HTTP-rundtur till samma endpoint |
+| Tomma `catch` och allt state gatat på `res.ok` | `AuthorStatsDashboard.tsx:75` | En 500 från någon stats-route renderas som en **fullt befolkad nolldashboard** utan felstate. Exakt den tysta-nolla-mekanism fixen tog bort ur routerna, kvar ett lager upp i UI:t. |
 
-> **Säkerhetsnot till den som fixar RLS:** `author/stats/books/route.ts:44-46`
-> selektar `analytics_events` **helt utan författar- eller bokfilter**. Det är
-> harmlöst idag enbart därför att RLS returnerar tomt — i samma ändring som lägger
-> till en SELECT-policy blir det en läcka mellan författare. Fixa filtret först.
+Nollor och fel får inte se identiska ut. Den oskiljaktigheten är vad som lät hela
+felklassen leva i månader.
+
+**Beslutat 2026-09-04:** donationer ska modelleras på riktigt — en recipient-kolumn plus
+en writer som fyller den — inte tas bort ur UI:t. Det är ett funktionsbygge snarare än en
+reparation, och ligger därför sist i `wp/15`.
 
 ### Tre saker till som är fasad
 
@@ -515,12 +693,61 @@ Plus hårdkodade nollor på författarens hem: `sales: 0`, `comments: 0` (`:59,6
   {post.channel}, paste, hit publish."* Att skära marknadsföring ur september
   kostar oss därför ingenting.
 
-### Ingen revisionshistorik
+### Ingen revisionshistorik — och mekanismen är inte den planen beskrev
 
-`book_versions` är en rad **per språk**, inte per revision. Autosave skriver över
-`chapters.content` på plats och enda ångra-funktionen är TipTaps sessionsstack.
-**En betaförfattare som skriver över ett kapitel och laddar om har förlorat det.**
-Det är en förtroenderisk i författarbetan som startar nu, inte i oktober.
+`book_versions` är en rad **per språk**, inte per revision. Verifierat 2026-09-04, och
+skarpare än så: `UNIQUE (book_id, language_code)`
+(`20260203000000_book_versions.sql:23-32`) tillåter exakt en rad per språk per bok, och
+tabellen är *förälder* till levande kapitel via `chapters.book_version_id NOT NULL`. Den
+har noll innehållskolumner och ~10 skrivställen som alla skriver livscykel, aldrig
+innehåll. Den kan alltså inte bära snapshots — inte som den är, och inte med en tillagd
+kolumn heller, eftersom blockeraren är unique-constrainten som `translation-worker.ts:369`s
+`.upsert()` använder som conflict target. **Kapitelsnapshots kräver en ny tabell.**
+
+**Rättelse: autosave rör aldrig en API-route.** `TiptapEditor` debouncar 500 ms per
+transaktion och `useChapterCrud.handleAutoSave` kör en rå PostgREST-`UPDATE chapters SET
+content = …` direkt från browsern (`useChapterCrud.ts:67-70`). Ingen `.select()`, ingen
+`updated_at`-jämförelse, inget `version_number`-predikat, ingen lokal draft, inget
+`beforeunload`. Det finns alltså **ingen server-seam att hänga en snapshot på** — det
+kräver en DB-trigger eller att skrivningen flyttas bakom en route.
+
+Tre förlustvägar är nåbara **av en författare på en enhet, utan någon samtidighet**:
+
+1. `pendingSavesRef` — mappen som lades till för att inte tappa tangenttryck under en
+   pågående sparning — är nycklad på kapitel-id men dräneras bara för det kapitel som
+   just sparar. En post för kapitel B, registrerad medan A sparade, överlever och spelas
+   upp *efter* B:s nästa och nyare sparning: äldre text skriver över nyare
+   (`useChapterCrud.ts:82-89`).
+2. Varje unmount kastar tyst upp till 500 ms skrivande. `TiptapEditor`s cleanup rensar
+   debouncen utan att flusha (`TiptapEditor.tsx:171-175`) och `selectChapter` flushar inte
+   (`useChapterSelection.ts:36-41`). Koden vet om det — `SimplifiedEditView.tsx:143-148`
+   dokumenterar problemet och lappar bara inline-AI-vägen.
+3. En sparning som matchar noll rader (raden borttagen av en `overwrite_draft`-import,
+   eller en RLS-miss) returnerar `error: null`, så `persisted.ok` är sant och UI:t säger
+   **"Saved"**.
+
+**Två halvfärdiga skydd finns redan live:** `chapters.version_number` med en fungerande
+BEFORE UPDATE-triggerbump, och `deleted_at`. **Ingen av dem läses eller skrivs av någon
+applikationskod** — kapitelladdaren selekterar inte ens `version_number`.
+
+Skrivvolym: en full dokument-JSON per ≥500 ms skrivpaus. Realistiskt 5-20/min vid
+skrivande, värsta fall ~2/s, ~25-30 KB per skrivning för ett 3000-ordskapitel.
+**Snapshot per sparning är inte överkomligt** utan koalescering eller hash-dedupe.
+
+Editorn är inte enda skrivaren. Import-workern hard-deletar varje kapitel i draft-versionen
+i `overwrite_draft`-läge — bakom en varningsbanner, utan confirm och utan snapshot. En
+snapshot-trigger på radnivå skulle därför avfyras hundratals gånger i ett enda importjobb,
+vilket är precis den kostnad skrivvolymen ovan utesluter.
+
+**Beslutat 2026-09-04 — best practice, inte kompromiss.** Kapitelborttagning är *redan*
+skyddad av en explicit modal på båda ingångarna (`SimplifiedEditView.tsx:450`,
+`ChapterRail.tsx:263`) med texten *"This cannot be undone."* Författaren är informerad och
+samtycker; det är den etablerade grinden för en destruktiv handling. De **oskyddade**
+förlusterna är de tysta: författaren gör inget destruktivt, blir inte tillfrågad, och får
+höra att det gick bra. `wp/16` fixar därför de tre tysta vägarna i **ren applikationskod,
+noll migrationer**, mot kolumner som redan finns — återställbart med en redeploy. Soft
+delete och snapshottabellen flyttas till `wp/16b` efter launch, med en live-probe av
+`pg_constraint` först. Läs fällan i §0e innan den koden skrivs.
 
 ## 5. Arbetspaket
 
@@ -560,8 +787,9 @@ skräpar `git status` varje gång.
 | **WP-08** | Redaktionell manusanalys | `lib/ai/editorial/**`, `api/books/[id]/ai/**`, editor-paneler | Kapitel in → strukturerade förslag ut i §3.1.1-form, accept/avslå per förslag. Detta är både beta-författarnas wow och mässdemon. |
 | **WP-09** | Avfejka marknadsföringstexten | `lib/ai/content-generation/**`, `lib/marketing/**`, `pricing/page.tsx` | Antingen riktig LLM bakom alla 5 implementationer, eller ärlig ommärkning i UI + prissida. Inget mellanläge. |
 | **WP-10** | Publishern | `lib/ai/assistants/**` | Plattformsassistent med RAG över egna docs. Billig, hög demovärde på mässan. |
-| **WP-15** | Författarstatistiken visar riktiga tal | `api/author/stats/**`, `api/books/[id]/stats/**`, `author/home/**`, ny RLS-migration | Stats-routerna använder admin-klienten (som publiceringsroutern redan gör), **och** `author/stats/books/route.ts:44-46` får sitt saknade författar-/bokfilter i **samma** ändring. `'paid'` vs `'completed'` enat. Hårdkodade `sales: 0` / `comments: 0` beräknade. Tomma `catch {}` ersatta så framtida fel syns. Betaförfattarna börjar nu — de får inte mötas av nollor. |
-| **WP-16** | Revisionsskydd i editorn | `hooks/useChapterCrud.ts`, ny migration | Snapshot vid autosave så en betaförfattare inte kan förlora ett kapitel genom att skriva över och ladda om. Minsta möjliga lösning, inte full versionshistorik. |
+| **WP-15** | Författarstatistiken visar riktiga tal | `api/author/stats/**`, `api/books/[id]/stats/**`, `author/home/**`, ny RLS-migration | Stats-routerna använder admin-klienten (som publiceringsroutern redan gör), **KLART 2026-08-31** i `9bc37f6`+`0026ba7`; det påstådda filterfyndet var refuterat, se §0e. Kvar: fyra defekter i §4b — `donations.recipient_id` och `readings.created_at` (kolumner som inte finns), `publishedBooks` som aldrig returneras, och en dashboard som renderar nollor istället för felstate. `'paid'` vs `'completed'` enat. Hårdkodade `sales: 0` / `comments: 0` beräknade. Tomma `catch {}` ersatta så framtida fel syns. Betaförfattarna börjar nu — de får inte mötas av nollor. |
+| **WP-16** | Autosave tappar inga tecken | `hooks/useChapterCrud.ts`, `TiptapEditor.tsx`, `useChapterSelection.ts` | **Omskrivet 2026-09-04, noll migrationer.** De tre tysta förlustvägarna stängda: stale replay kan inte skriva över nyare text, unmount/kapitelbyte flushar debouncen, och en nollrads-UPDATE blir ett synligt fel istället för "Saved". Se §4b för mekanismen. |
+| **WP-16b** | Kapitelsnapshots + soft delete | ny tabell, ny migration | **SKJUTS TILL EFTER 20 SEP.** Kräver ny tabell (`book_versions` kan inte bära det), en AFTER UPDATE-trigger med koalescering, en retentionpolicy och ett restore-UI. Enda paketet som rör ett driftat live-schema. Fällan i §0e måste läsas först. |
 
 ### Wave 3 — Oktoberbeviset (efter mässan)
 
@@ -598,11 +826,38 @@ WP-11 extern författare hela vägen till publicerad titel · WP-12 Redaktören
 | Zombie-ytor från raderad Qwen3-stack | Låg | `/api/tts` 410-stub, `tts_preview_jobs`-tabell utan worker, `DEFAULT_VOICE_ID = "Ryan"` (ett Qwen-röstnamn som skickas till ElevenLabs och 4xx:ar). Städa i WP-02. |
 | **Betaförfattare kan förlora arbete** | Hög | Autosave skriver över på plats, ingen revisionshistorik. Betan startar nu. WP-16. |
 | **Ops kan inte agera på launchdagen** | Hög | `/admin/queues` är **read-only** — ingen retry, requeue, drain eller pause, så ett fastnat jobb kan inte åtgärdas från UI:t. Och `/admin/books` kan **radera** en bok men inte avpublicera eller stänga av den. Lägg till minst retry + avpublicera före den 20:e. |
-| Latent läcka mellan författare | Medel | `author/stats/books/route.ts:44-46` saknar författar-/bokfilter. Ofarligt bara så länge RLS är tomt. Måste fixas i samma ändring som WP-15. |
+| ~~Latent läcka mellan författare~~ | — | **Refuterat 2026-09-04**, se §0e. Ersatt av en verklig men mindre risk: `api/books/[id]/stats/route.ts` scopar ~8 service-role-läsningar på en path-param som anroparen styr, utan databasbackstop under JS-jämförelsen i `getBookAsOwner`. |
+| **Köp-POST dör när ett lås slås på** | Hög | Ingen middleware-allowlist innehåller `/order` eller `/api/order`. Låsen är av i prod idag (probe 2026-09-04), men `BETA_LOCK` är precis den flagga som slås på för betakohorten. `wp/17`, se §0e. |
+| **Sväljta fel når ingen** | Hög | Sentry stänger av sig själv utan `SENTRY_DSN`, som inte finns i launch-matrisen, och `check:launch-config` är inget steg i `qa:beta`. ~10 fynd i denna plan är tysta fel som ingenting hade rapporterat. Se §0e. |
 
 ---
 
 ## 8. Beslut som behövs av Svea denna vecka
+
+### ✅ Beslutat 2026-09-04
+
+| Fråga | Beslut |
+|---|---|
+| **Donationsintäkt** — `donations.recipient_id` finns inte, och donationer är inte modellerade per mottagare (enda writern sparar *betalarens* `user_id`). Ta bort tile:n, eller modellera? | **Modellera på riktigt.** Recipient-kolumn plus en writer som fyller den. Funktionsbygge, ligger sist i `wp/15` — descopa där om kalendern kniper. |
+| **Mobilfixarna** — 16 engångslappar på klasstängar, eller adoptera DESIGN.md:s `.input-base`/`.btn-primary` som de trasiga elementen kringgår? | **Adoptera utilities.** Fixa den delade `Input`-primitiven först, konvertera sedan de felande läsarelementen till de sanktionerade klasserna. 16 lappar är 16 nya platser för samma regression. |
+| **WP-16:s omfång** — soft delete kräver att den ovillkorliga `UNIQUE (book_version_id, "order")` byts mot ett partiellt index, dvs. en migration mot ett driftat schema 16 dagar före launch. | **Ren applikationskod, noll migrationer.** Kapitelborttagning är redan skyddad av en explicit "This cannot be undone"-modal på båda ingångarna; de oskyddade förlusterna är de *tysta*. Soft delete + snapshots → `wp/16b` efter launch. Motivering i §4b. |
+
+### 🔴 Nya blockerande frågor från granskningen (§0e)
+
+1. **Vilken ansökningsväg fick den nuvarande betakohorten?** `beta_applications` finns
+   live men all dess kod ligger bara på `feat/beta-apply`, och `/apply` 404:ar på
+   platform. Platform har sitt eget `api/author-applications` som kräver
+   admingodkännande. Dränerar någon pending-kön?
+2. **Slås `BETA_LOCK` på för kohorten under onboarding?** Om ja är andra halvan av
+   `wp/17` obligatorisk **innan nästa författare bjuds in**, inte bara före launch.
+3. **`SENTRY_DSN` i produktion — satt eller inte?** Om inte är varje sväljt fel i denna
+   plan osynligt. Lägg in den i `launch-config.ts` och gör `check:launch-config` till ett
+   `qa:beta`-steg oavsett svar.
+4. **Är `/order` och `/waitlist` medvetet svenska?** De ligger utanför
+   `check-english-default`s `SCOPE` av konstruktion. Skriv in undantaget eller lägg in
+   katalogerna.
+
+### Kvarstående från tidigare
 
 Produktionsplanen §21 ställer tio frågor. Dessa fyra är tekniskt blockerande:
 
