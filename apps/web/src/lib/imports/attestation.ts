@@ -260,16 +260,23 @@ export interface EnforceRightsAttestationArgs {
  * written the import must not happen, because an attestation that is collected
  * and lost is worse than none: it manufactures the appearance of diligence.
  */
+export type EnforceRightsAttestationResult =
+  | { ok: false; response: Response }
+  | { ok: true; attestationId: string };
+
 export async function enforceRightsAttestation({
   request,
   formData,
   userId,
   bookId,
   file,
-}: EnforceRightsAttestationArgs): Promise<Response | null> {
+}: EnforceRightsAttestationArgs): Promise<EnforceRightsAttestationResult> {
   const parsed = readRightsAttestation(formData);
   if (!parsed.ok) {
-    return apiError(errorKeyFor(parsed.reason), 400, { detail: parsed.reason });
+    return {
+      ok: false,
+      response: apiError(errorKeyFor(parsed.reason), 400, { detail: parsed.reason }),
+    };
   }
 
   // Service-role deliberately: the table has no INSERT policy, so a session
@@ -287,7 +294,7 @@ export async function enforceRightsAttestation({
   });
 
   if (!written.ok) {
-    return apiError(E_RIGHTS_ATTESTATION_NOT_RECORDED, 500);
+    return { ok: false, response: apiError(E_RIGHTS_ATTESTATION_NOT_RECORDED, 500) };
   }
 
   // Mirror into the timeline. Fire-and-forget on purpose: `recordAudit` returns
@@ -307,5 +314,44 @@ export async function enforceRightsAttestation({
     },
   });
 
-  return null;
+  return { ok: true, attestationId: written.id };
+}
+
+/**
+ * Attach the attestation to the import row it authorised, once that row exists.
+ *
+ * Without this the primary create-a-book path leaves every attestation
+ * associated with nothing but a user id, a filename and a timestamp — which
+ * defeats "show me the attestation for this book", the exact property that
+ * justified a typed table over an `audit_log` row in the first place. On the
+ * legacy path the book does not exist yet; `book_imports.book_id` is filled in
+ * by the worker afterwards, so linking the import closes the chain to the book.
+ *
+ * Best-effort and non-blocking by design: the attestation is already durably
+ * recorded, and failing an import the author correctly attested to, because a
+ * convenience link could not be written, would be the wrong trade. Service-role
+ * because the table has no UPDATE policy for authors — deliberately, so they
+ * cannot edit what they signed.
+ */
+export async function linkRightsAttestation(
+  admin: SupabaseClient,
+  attestationId: string,
+  link: { bookImportId?: string | null; bookId?: string | null }
+): Promise<void> {
+  const patch: Record<string, string> = {};
+  if (link.bookImportId) patch.book_import_id = link.bookImportId;
+  if (link.bookId) patch.book_id = link.bookId;
+  if (Object.keys(patch).length === 0) return;
+
+  const { error } = await admin
+    .from("book_rights_attestations")
+    .update(patch)
+    .eq("id", attestationId);
+
+  if (error) {
+    console.error("[imports/attestation] link failed", {
+      attestationId,
+      error: error.message,
+    });
+  }
 }

@@ -174,6 +174,11 @@ export function ImportBookModal({ open, onClose, onImportComplete }: ImportBookM
         return;
       }
 
+      // Reset the affirmation with the file. The modal stays usable while the
+      // import processes, so without this a second manuscript would be
+      // submitted under the previous one's boxes — a legal record for answers
+      // the author never gave about that file.
+      attestation.reset();
       setSuccessMessage("Import started. Your file will be processed shortly.");
       const importId = data.id;
       if (importId) {

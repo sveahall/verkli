@@ -5,7 +5,9 @@ const mocks = vi.hoisted(() => ({
   requireAuthorRoleForApi: vi.fn(),
   createClient: vi.fn(),
   createAdminClient: vi.fn(),
+  getBookAsOwner: vi.fn(),
   attestationInsert: vi.fn(),
+  attestationUpdate: vi.fn(),
   getImportFile: vi.fn(),
   validateImportFile: vi.fn(),
   parseImportMode: vi.fn(),
@@ -25,6 +27,12 @@ vi.mock("@/lib/supabase/server", () => ({
 // session client would be silently rejected by RLS.
 vi.mock("@/lib/supabase/admin", () => ({
   createAdminClient: mocks.createAdminClient,
+}));
+
+// Ownership is checked BEFORE the attestation is written, so that an author
+// cannot leave an immutable record against a book they do not own.
+vi.mock("@/lib/books/service", () => ({
+  getBookAsOwner: mocks.getBookAsOwner,
 }));
 
 vi.mock("@/lib/imports/scoped-import", () => ({
@@ -66,14 +74,20 @@ function installDefaultMocks() {
   });
 
   mocks.createClient.mockResolvedValue({ from: vi.fn() });
+  mocks.getBookAsOwner.mockResolvedValue({
+    ok: true,
+    data: { id: "00000000-0000-4000-8000-000000000001", author_id: "author-1" },
+  });
 
+  mocks.attestationUpdate.mockReturnValue({ eq: async () => ({ error: null }) });
   mocks.attestationInsert.mockReturnValue({
     select: () => ({ single: async () => ({ data: { id: "att-1" }, error: null }) }),
   });
   mocks.createAdminClient.mockReturnValue({
     from: (table: string) => {
       if (table === "book_rights_attestations") {
-        return { insert: mocks.attestationInsert };
+        // update: linkRightsAttestation attaches the import row afterwards.
+        return { insert: mocks.attestationInsert, update: mocks.attestationUpdate };
       }
       // audit_log mirror — fire-and-forget, must never fail the import.
       return { insert: () => ({ select: () => ({ single: async () => ({ data: { id: "aud-1" }, error: null }) }) }) };
@@ -274,5 +288,27 @@ describe("POST /api/books/[id]/import — rights attestation", () => {
     const attestOrder = mocks.attestationInsert.mock.invocationCallOrder[0];
     const importOrder = mocks.startScopedBookImport.mock.invocationCallOrder[0];
     expect(attestOrder).toBeLessThan(importOrder);
+  });
+});
+
+/**
+ * Found by codex review. The gate originally ran before any ownership check,
+ * so an authenticated author could POST any book UUID and leave an immutable
+ * attestation against a book they do not own — the import would 404 and the
+ * legal record would persist.
+ */
+describe("POST /api/books/[id]/import — attestation is not written for a book you do not own", () => {
+  beforeEach(installDefaultMocks);
+
+  it("refuses before recording anything when the book is not the author's", async () => {
+    mocks.getBookAsOwner.mockResolvedValueOnce({ ok: false, error: "not_found" });
+
+    const res = await POST(makeMultipartRequest(attested()), {
+      params: Promise.resolve({ id: "00000000-0000-4000-8000-0000000000ff" }),
+    });
+
+    expect(res.status).toBe(404);
+    expect(mocks.attestationInsert).not.toHaveBeenCalled();
+    expect(mocks.startScopedBookImport).not.toHaveBeenCalled();
   });
 });

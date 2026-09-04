@@ -3,7 +3,8 @@ import { createClient } from "@/lib/supabase/server";
 import { assertPublicEnv } from "@/lib/env";
 import { enqueueExtractJob } from "@/lib/import-queue";
 import { requireAuthorRoleForApi } from "@/lib/auth/require-author";
-import { enforceRightsAttestation } from "@/lib/imports/attestation";
+import { enforceRightsAttestation, linkRightsAttestation } from "@/lib/imports/attestation";
+import { createAdminClient } from "@/lib/supabase/admin";
 import {
   getImportFile,
   parseImportMode,
@@ -67,14 +68,14 @@ export async function POST(request: Request) {
   // enqueue. Guards BOTH branches below, including the legacy one where the
   // worker creates the book afterwards.
   const attestationBookId = readOptionalString(formData.get("bookId"));
-  const attestationRefusal = await enforceRightsAttestation({
+  const attestation = await enforceRightsAttestation({
     request,
     formData,
     userId: user.id,
     bookId: attestationBookId && isValidUuid(attestationBookId) ? attestationBookId : null,
     file,
   });
-  if (attestationRefusal) return attestationRefusal;
+  if (!attestation.ok) return attestation.response;
 
   // Backward-compatible path for BookEditor:
   // if a bookId is provided, run scoped import to that book.
@@ -104,6 +105,11 @@ export async function POST(request: Request) {
         scoped.detail ? { detail: scoped.detail } : undefined
       );
     }
+
+    await linkRightsAttestation(createAdminClient(), attestation.attestationId, {
+      bookImportId: scoped.importId,
+      bookId,
+    });
 
     return NextResponse.json({
       id: scoped.importId,
@@ -140,6 +146,15 @@ export async function POST(request: Request) {
     });
     return apiError(E_IMPORT_RECORD_CREATION_FAILED, 500);
   }
+
+  // Links the attestation to the import row. On this path the book is created
+  // by the worker later, and it sets book_imports.book_id — so the import row is
+  // the join that eventually reaches the book. Without it the primary
+  // create-a-book flow leaves every attestation attached to nothing but a user
+  // id and a filename.
+  await linkRightsAttestation(createAdminClient(), attestation.attestationId, {
+    bookImportId: importRow.id,
+  });
 
   const store = await storeImportFile(user.id, importRow.id, file.name, buffer);
   if (!store.ok) {
