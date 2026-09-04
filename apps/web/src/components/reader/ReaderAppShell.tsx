@@ -22,6 +22,17 @@ import { setActiveRoleCookieClient } from "@/lib/active-role";
 export type AuthorAccessMode = "switch" | "apply" | "pending" | "hidden";
 
 const navItems = [
+  // In navItems on purpose, not in the desktop utility group. Both the sidebar
+  // and the mobile bottom bar render this array, so the book cannot end up
+  // reachable on one and not the other — which is exactly what happened when it
+  // lived in the `hidden lg:block` sidebar, and what happened again on the
+  // waitlist page's scroll cue before that.
+  {
+    label: "The book",
+    href: "/waitlist",
+    icon: BookMarked,
+    matchers: ["/waitlist", "/order"],
+  },
   {
     label: "Home",
     href: "/reader/home",
@@ -146,19 +157,6 @@ export default function ReaderAppShell({
             >
               <UserCircle className="h-[18px] w-[18px] flex-shrink-0" />
               <span className="truncate">Profile</span>
-            </Link>
-            {/*
-              Found by codex review of the homepage link: the role chooser
-              redirects any returning visitor straight past it, so a link only
-              there reached first-time visitors and nobody else. This is the
-              place a returning reader can actually see it.
-            */}
-            <Link
-              href="/waitlist"
-              className="inline-flex min-h-[44px] w-full items-center gap-3.5 rounded-xl px-4 py-2.5 text-[15px] text-[#7A8194] transition hover:bg-[#F6F7FB] hover:text-[#555C70] dark:text-white/50 dark:hover:bg-white/10 dark:hover:text-white"
-            >
-              <BookMarked className="h-[18px] w-[18px] flex-shrink-0" />
-              <span className="truncate">Order the book</span>
             </Link>
             <Link
               href="/support"

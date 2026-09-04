@@ -54,10 +54,24 @@ describe("ReaderAppShell", () => {
   // reaches first-time visitors and nobody else. The book is the one thing on
   // this site you can buy, so a returning reader must be able to find it from
   // where they actually land.
-  it("links to the book order page from the signed-in sidebar", () => {
+  it("links to the book from BOTH the desktop sidebar and the mobile bar", () => {
     const html = render();
-    expect(html).toContain('href="/waitlist"');
-    expect(html).toContain("Order the book");
+
+    // The mobile bottom bar is the `lg:hidden` <nav>; everything before it is
+    // the desktop sidebar, which is wrapped in `hidden lg:block`. Splitting
+    // there is what makes this a test of responsive placement rather than of
+    // mere presence — the first version of this link rendered only in the
+    // desktop half, which is the same failure as the waitlist scroll cue that
+    // was `hidden ... md:flex`.
+    const mobileNavStart = html.indexOf("lg:hidden");
+    expect(mobileNavStart).toBeGreaterThan(-1);
+
+    const desktopHalf = html.slice(0, mobileNavStart);
+    const mobileHalf = html.slice(mobileNavStart);
+
+    expect(desktopHalf).toContain('href="/waitlist"');
+    expect(mobileHalf).toContain('href="/waitlist"');
+    expect(html).toContain("The book");
   });
 
   it("links to support from the signed-in sidebar", () => {
