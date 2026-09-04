@@ -311,4 +311,20 @@ describe("POST /api/books/[id]/import — attestation is not written for a book 
     expect(mocks.attestationInsert).not.toHaveBeenCalled();
     expect(mocks.startScopedBookImport).not.toHaveBeenCalled();
   });
+
+  // Found by codex review of the fix above. A lookup failure is not a missing
+  // book: collapsing both into 404 hides an outage, and during a database
+  // incident every import would report the author's own book as gone.
+  it("reports a lookup failure as a server error, not a missing book", async () => {
+    mocks.getBookAsOwner.mockResolvedValueOnce({ ok: false, error: "database_error" });
+
+    const res = await POST(makeMultipartRequest(attested()), {
+      params: Promise.resolve({ id: "00000000-0000-4000-8000-000000000001" }),
+    });
+    const body = await res.json();
+
+    expect(res.status).toBe(500);
+    expect(body.error).toBe("DATABASE_ERROR");
+    expect(mocks.attestationInsert).not.toHaveBeenCalled();
+  });
 });

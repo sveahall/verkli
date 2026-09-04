@@ -20,6 +20,7 @@ import {
   E_INVALID_IMPORT_MODE,
   E_VALIDATION_FAILED,
   E_BOOK_NOT_FOUND,
+  E_DATABASE_ERROR,
 } from "@/lib/api-errors";
 
 function readOptionalString(value: FormDataEntryValue | null): string | null {
@@ -75,6 +76,14 @@ export async function POST(
   // legal record would persist.
   const owned = await getBookAsOwner(supabase, bookId, user.id, "id, author_id");
   if (!owned.ok) {
+    // A lookup failure is not a missing book. Collapsing both into 404 hides an
+    // outage from monitoring and tells the client something untrue — during a
+    // database incident every import would report the author's book as gone.
+    if (owned.error === "database_error") {
+      return apiError(E_DATABASE_ERROR, 500);
+    }
+    // book_not_found covers "does not exist" and "belongs to someone else"
+    // alike, which is deliberate: the response must not reveal which.
     return apiError(E_BOOK_NOT_FOUND, 404);
   }
 
