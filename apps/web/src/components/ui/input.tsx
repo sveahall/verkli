@@ -28,10 +28,23 @@ export interface InputProps extends InputHTMLAttributes<HTMLInputElement> {
  * Size Styles
  * ───────────────────────────────────────────────────────────────────────────── */
 
+/*
+ * 16px on phones, the intended size from `sm:` up.
+ *
+ * iOS Safari zooms the viewport when a focused input is under 16px, which
+ * throws the layout around and moves the field out from under the thumb. This
+ * primitive is used by /reader/signin, /reader/signup and
+ * /reader/forgot-password — the pages a reader reaches from the locked-chapter
+ * paywall's "Sign in to purchase" — so the defect sat directly on the purchase
+ * path. Same 15px problem 79a9e19 fixed on the waitlist page, one layer down in
+ * the design system. DESIGN.md rule 5 already required this.
+ *
+ * `sm:` restores each size's original value, so no desktop rendering changes.
+ */
 const sizeStyles = {
-  sm: "h-9 px-3 text-[13px]",
-  md: "h-11 px-3.5 text-[15px]",
-  lg: "h-12 px-4 text-base",
+  sm: "h-9 px-3 text-[16px] sm:text-[13px]",
+  md: "h-11 px-3.5 text-[16px] sm:text-[15px]",
+  lg: "h-12 px-4 text-[16px] sm:text-base",
 };
 
 /* ─────────────────────────────────────────────────────────────────────────────

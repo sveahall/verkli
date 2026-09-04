@@ -84,7 +84,7 @@ export default function OrderPhysicalCopyButton({ bookId, formats }: Props) {
               key={f.format}
               type="button"
               onClick={() => { setSelectedFormat(f.format); setError(null); }}
-              className={`rounded-full px-4 py-1.5 text-[13px] font-medium transition ${
+              className={`inline-flex min-h-11 items-center rounded-full px-4 text-[13px] font-medium transition ${
                 selectedFormat === f.format
                   ? "bg-[#907AFF] text-white"
                   : "bg-slate-100 text-slate-500 hover:bg-slate-200 dark:bg-white/[0.06] dark:text-white/60 dark:hover:bg-white/10"

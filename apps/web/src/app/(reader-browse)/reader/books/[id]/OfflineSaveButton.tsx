@@ -281,7 +281,7 @@ export default function OfflineSaveButton({ bookId, userId, languageCode }: Prop
         <p className="mt-1 text-slate-600 dark:text-white/70">Upgrade to save books and read without a connection.</p>
         <Link
           href="/reader/billing"
-          className="mt-3 inline-flex items-center rounded-lg bg-[#907AFF]/15 px-3 py-1.5 text-[13px] font-semibold text-[#907AFF] transition hover:bg-[#907AFF]/25 dark:text-[#B8A9FF] dark:hover:bg-[#907AFF]/20"
+          className="mt-3 inline-flex min-h-11 items-center rounded-lg bg-[#907AFF]/15 px-3 text-[13px] font-semibold text-[#907AFF] transition hover:bg-[#907AFF]/25 dark:text-[#B8A9FF] dark:hover:bg-[#907AFF]/20"
         >
           Upgrade to Plus
         </Link>
@@ -334,7 +334,7 @@ export default function OfflineSaveButton({ bookId, userId, languageCode }: Prop
             type="button"
             onClick={() => void removeBookOffline()}
             disabled={isBusy}
-            className="rounded-full border border-slate-300 px-3 py-1.5 font-medium text-slate-700 transition hover:bg-slate-100 disabled:opacity-60 dark:border-white/20 dark:text-white/80 dark:hover:bg-white/10"
+            className="inline-flex min-h-11 items-center rounded-full border border-slate-300 px-3 font-medium text-slate-700 transition hover:bg-slate-100 disabled:opacity-60 dark:border-white/20 dark:text-white/80 dark:hover:bg-white/10"
           >
             Clear this book
           </button>
@@ -342,7 +342,7 @@ export default function OfflineSaveButton({ bookId, userId, languageCode }: Prop
             type="button"
             onClick={() => void clearAllOffline()}
             disabled={isBusy}
-            className="rounded-full border border-rose-400/50 px-3 py-1.5 font-medium text-rose-700 transition hover:bg-rose-500/10 disabled:opacity-60 dark:text-rose-300"
+            className="inline-flex min-h-11 items-center rounded-full border border-rose-400/50 px-3 font-medium text-rose-700 transition hover:bg-rose-500/10 disabled:opacity-60 dark:text-rose-300"
           >
             Clear all
           </button>
