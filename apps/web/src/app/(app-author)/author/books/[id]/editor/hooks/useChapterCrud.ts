@@ -48,8 +48,11 @@ const persistChapterContent: PersistChapter = async (chapterId, payload) => {
     .eq("id", chapterId)
     .select("id");
   if (error) return { outcome: "transient", serialized };
-  // Zero rows is not a transient error: the row is gone or not writable, and
-  // retrying it forever would wedge the head of the queue.
+  // Zero rows means the row is gone OR this caller cannot see it, and those are
+  // indistinguishable here. Reported as `missing` so the message can say which
+  // is more likely, but the payload is still kept queued — see the drain module.
+  // Classifying it as permanent and discarding the content would lose prose over
+  // a recoverable access problem, which is the opposite of the point.
   if ((data?.length ?? 0) === 0) return { outcome: "missing", serialized };
   return { outcome: "written", serialized };
 };
@@ -120,20 +123,23 @@ export function useChapterCrud({
       setLastSaved(new Date());
     }
 
+    // Missing first: it is the more serious of the two, and checking transient
+    // first meant a drain containing both showed only the reassuring message.
+    if (missingChapters.length > 0) {
+      setSaveError(true);
+      // Deliberately does not claim the chapter is gone. Zero rows cannot tell
+      // deletion apart from lost access, so this says what is true of both and
+      // still tells the author their text is safe in the tab.
+      toast.error("Could not save. That chapter may have been deleted, or your access to it changed. Your text is still here.");
+      return;
+    }
+
     if (transientFailures.length > 0) {
       setSaveError(true);
       // The payload is re-queued, so the words are still in memory. Say that,
       // rather than the old "may not have been persisted", which left an author
       // unsure whether closing the tab would cost them the chapter.
       toast.error("Could not save. Your changes are still here — keep this tab open and try again.");
-      return;
-    }
-
-    if (missingChapters.length > 0) {
-      setSaveError(true);
-      // Distinct from a retryable failure: the row is gone, so there is nothing
-      // to keep the tab open for. Telling the author to retry would be a lie.
-      toast.error("That chapter no longer exists, so the last edits could not be saved.");
       return;
     }
 

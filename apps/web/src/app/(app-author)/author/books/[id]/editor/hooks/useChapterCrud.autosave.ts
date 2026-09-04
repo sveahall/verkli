@@ -28,15 +28,19 @@
  *     the queue; stopping the drain there stranded every valid chapter behind
  *     it indefinitely. Failures are skipped for the rest of the pass and
  *     reported, and the drain keeps going.
- *   - A write that matched no row is not retried. Re-queueing a chapter that no
- *     longer exists cannot ever succeed, and it was exactly what wedged the
- *     head of the queue.
+ *   - Nothing is ever dropped from the queue on failure, including a write that
+ *     matched no row. Zero rows means the row is gone OR the caller cannot see
+ *     it, and those are indistinguishable from here — so discarding the payload
+ *     risks throwing away prose over a recoverable access problem. The wedged
+ *     queue head is already handled by skipping failures for the rest of the
+ *     pass; dropping was a second, redundant guard paid for in data safety.
  */
 
 /**
- * `missing` means the write matched no row: deleted underneath by an
- * `overwrite_draft` import, or refused by RLS. Retrying cannot help.
- * `transient` means the write errored and is worth keeping for another attempt.
+ * `missing` means the write matched no row — deleted underneath by an
+ * `overwrite_draft` import, or invisible to this caller. `transient` means the
+ * write errored outright. Both stay queued; the distinction exists so the UI can
+ * say which is more likely rather than always promising a retry will help.
  */
 export type PersistOutcome = "written" | "transient" | "missing";
 
@@ -54,9 +58,9 @@ export type PersistChapter = (
 export interface DrainResult {
   /** chapterId -> serialized content actually persisted. */
   saved: Map<string, string>;
-  /** Errored and still queued, worth another attempt. */
+  /** Errored outright. Still queued. */
   transientFailures: string[];
-  /** Matched no row. Dropped from the queue, because retrying cannot help. */
+  /** Matched no row, so probably deleted or inaccessible. Still queued. */
   missingChapters: string[];
 }
 
@@ -109,16 +113,17 @@ export async function drainPendingSaves(
 
     failedThisPass.add(chapterId);
 
+    // Put the content back whatever the reason — unless a newer payload arrived
+    // while we were writing, in which case the newer one must win. Skipping this
+    // chapter for the rest of the pass is what stops the re-queue spinning the
+    // loop or shadowing the chapters behind it, so keeping it costs one futile
+    // write per later drain and never an author's words.
+    if (!pending.has(chapterId)) pending.set(chapterId, payload);
+
     if (result.outcome === "transient") {
-      // Do not drop the content on the floor — unless a newer payload arrived
-      // while we were writing, in which case the newer one must win.
-      if (!pending.has(chapterId)) pending.set(chapterId, payload);
       transientFailures.push(chapterId);
       continue;
     }
-
-    // missing: the row is gone. Keeping it queued would retry forever and, on a
-    // Map's insertion order, block every valid chapter behind it.
     missingChapters.push(chapterId);
   }
 

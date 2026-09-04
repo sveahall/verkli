@@ -91,10 +91,49 @@ describe("drainPendingSaves", () => {
     expect(writes.map((w) => w.chapterId)).toContain("live-chapter");
     expect(result.saved.get("live-chapter")).toBe(JSON.stringify({ body: "real work" }));
     expect(result.missingChapters).toEqual(["deleted-by-import"]);
-    // The unwritable entry is dropped, not re-queued: keeping it would wedge
-    // the head of the queue on every future drain.
-    expect(pending.has("deleted-by-import")).toBe(false);
-    expect(pending.size).toBe(0);
+    // Kept, not dropped. Zero rows cannot tell deletion apart from lost access,
+    // so discarding it would risk losing prose over a recoverable problem. It
+    // does not block anything, because failures are skipped for the rest of the
+    // pass — which is the property this test actually guards.
+    expect(pending.get("deleted-by-import")).toEqual({ body: "gone" });
+  });
+
+  // Found by codex review. A newer payload landing during a failed write must
+  // survive the re-queue, for a missing outcome exactly as for a transient one.
+  it("lets a newer payload win over the re-queue when a write matched no row", async () => {
+    const pending = new Map<string, Record<string, unknown>>([["a", { body: "old" }]]);
+    const { persist } = recordingPersist(
+      (chapterId) => {
+        if (chapterId === "a") pending.set("a", { body: "newer" });
+      },
+      () => "missing"
+    );
+
+    const result = await drainPendingSaves(pending, persist);
+
+    expect(result.missingChapters).toEqual(["a"]);
+    expect(pending.get("a")).toEqual({ body: "newer" });
+  });
+
+  // Found by codex review. A drain can contain both outcomes, and the caller
+  // reports the more serious one, so both must come back populated.
+  it("reports transient and missing failures separately in one pass", async () => {
+    const pending = new Map<string, Record<string, unknown>>([
+      ["flaky", { body: "retry" }],
+      ["gone", { body: "vanished" }],
+      ["fine", { body: "ok" }],
+    ]);
+    const { persist } = recordingPersist(undefined, (id) => {
+      if (id === "flaky") return "transient";
+      if (id === "gone") return "missing";
+      return "written";
+    });
+
+    const result = await drainPendingSaves(pending, persist);
+
+    expect(result.transientFailures).toEqual(["flaky"]);
+    expect(result.missingChapters).toEqual(["gone"]);
+    expect(result.saved.get("fine")).toBe(JSON.stringify({ body: "ok" }));
   });
 
   it("does not let a transient failure block other chapters either", async () => {
