@@ -48,6 +48,18 @@ describe("ReaderAppShell", () => {
     mocks.pathname = "/reader/home";
   });
 
+  // Found by codex review of the homepage book link. The role chooser redirects
+  // any returning visitor with verkli_role in local storage straight to
+  // /reader/home or /author/home, so a link that lives only on the chooser
+  // reaches first-time visitors and nobody else. The book is the one thing on
+  // this site you can buy, so a returning reader must be able to find it from
+  // where they actually land.
+  it("links to the book order page from the signed-in sidebar", () => {
+    const html = render();
+    expect(html).toContain('href="/waitlist"');
+    expect(html).toContain("Order the book");
+  });
+
   it("links to support from the signed-in sidebar", () => {
     expect(render()).toContain('href="/support"');
   });
