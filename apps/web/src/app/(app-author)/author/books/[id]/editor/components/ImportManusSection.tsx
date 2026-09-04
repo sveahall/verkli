@@ -3,6 +3,10 @@
 import { useCallback, useMemo, useRef, useState, type DragEvent } from "react";
 import { useRouter } from "next/navigation";
 import { resolveErrorMessage } from "@/lib/error-messages";
+import RightsAttestationFields, {
+  useRightsAttestation,
+  appendAttestation,
+} from "@/components/import/RightsAttestationFields";
 import { isJobActiveStatus } from "@/lib/job-status";
 import type { UnifiedJob } from "@/hooks/useBookJobs";
 import {
@@ -27,6 +31,7 @@ export default function ImportManusSection({
   const [overwrite, setOverwrite] = useState(false);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [uploading, setUploading] = useState(false);
+  const attestation = useRightsAttestation();
   const [error, setError] = useState<string | null>(null);
   const [repairing, setRepairing] = useState(false);
   const [repairMessage, setRepairMessage] = useState<string | null>(null);
@@ -85,6 +90,7 @@ export default function ImportManusSection({
       form.append("bookId", bookId);
       if (bookVersionId) form.append("bookVersionId", bookVersionId);
       form.append("overwrite", String(overwrite));
+      appendAttestation(form, attestation.state);
       const res = await fetch("/api/books/import", { method: "POST", body: form });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
@@ -100,7 +106,11 @@ export default function ImportManusSection({
     } finally {
       setUploading(false);
     }
-  }, [bookId, bookVersionId, overwrite, refetchJobs, selectedFile, uploading]);
+    // attestation.state is a real dependency, not a lint formality: without it
+    // this callback closes over the state from an earlier render and posts the
+    // boxes as unticked, so the server refuses an import the author did
+    // complete.
+  }, [attestation.state, bookId, bookVersionId, overwrite, refetchJobs, selectedFile, uploading]);
 
   const runChapterRepair = useCallback(async () => {
     if (repairing) return;
@@ -242,10 +252,16 @@ export default function ImportManusSection({
         </p>
       )}
 
+      <RightsAttestationFields
+        state={attestation.state}
+        onChange={attestation.setState}
+        disabled={uploading}
+      />
+
       <button
         type="button"
         onClick={startImport}
-        disabled={!selectedFile || uploading}
+        disabled={!selectedFile || uploading || !attestation.complete}
         aria-label="Start import"
         className="rounded-xl bg-slate-900 px-4 py-2.5 text-[13px] font-semibold text-white shadow-sm transition-all hover:bg-slate-800 hover:shadow-md disabled:opacity-50 disabled:cursor-not-allowed dark:bg-white dark:text-slate-900"
       >

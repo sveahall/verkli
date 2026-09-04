@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { assertPublicEnv } from "@/lib/env";
 import { requireAuthorRoleForApi } from "@/lib/auth/require-author";
+import { enforceRightsAttestation } from "@/lib/imports/attestation";
 import {
   getImportFile,
   parseImportMode,
@@ -61,6 +62,18 @@ export async function POST(
   if (!mode) {
     return apiError(E_INVALID_IMPORT_MODE, 400);
   }
+
+  // Same gate as /api/books/import. This route has no UI caller, which is
+  // exactly why it must be gated: leaving it open is one curl away from making
+  // the whole attestation decorative.
+  const attestationRefusal = await enforceRightsAttestation({
+    request,
+    formData,
+    userId: user.id,
+    bookId,
+    file,
+  });
+  if (attestationRefusal) return attestationRefusal;
 
   const targetVersionId =
     readOptionalString(formData.get("bookVersionId")) ??

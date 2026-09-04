@@ -67,6 +67,25 @@ export default function TermsOfServicePage() {
               You may remove your content at any time, which will terminate this
               licence (subject to reasonable caching periods).
             </li>
+            {/*
+              DRAFT — NEEDS LEGAL REVIEW BEFORE THIS SHIPS.
+
+              Added because the upload flow now asks authors to confirm "a false
+              statement here may end this project or close my account", and
+              nothing in these terms previously granted Verkli the right to end
+              a single project. Account termination was already covered by §3
+              and §10; removing one book was not. Making a promise in a
+              checkbox that the terms do not support is worse than not asking.
+
+              The capability exists (admin book deletion); this is the right to
+              use it. Wording is a first draft by an engineer, not a lawyer.
+            */}
+            <li>
+              You confirm, when you upload a manuscript, that you hold the
+              rights to it and that you wrote it. If that confirmation is
+              untrue, we may remove the affected project, and may suspend or
+              close your account.
+            </li>
             <li>
               You must not publish content that infringes on the intellectual
               property rights of others, contains hate speech, or is illegal.

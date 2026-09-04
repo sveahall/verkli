@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import { assertPublicEnv } from "@/lib/env";
 import { enqueueExtractJob } from "@/lib/import-queue";
 import { requireAuthorRoleForApi } from "@/lib/auth/require-author";
+import { enforceRightsAttestation } from "@/lib/imports/attestation";
 import {
   getImportFile,
   parseImportMode,
@@ -60,6 +61,20 @@ export async function POST(request: Request) {
   if (!mode) {
     return apiError(E_INVALID_IMPORT_MODE, 400);
   }
+
+  // Rights attestation. Placed here on purpose: the file has been validated, and
+  // nothing has been persisted yet — no storage write, no book_imports row, no
+  // enqueue. Guards BOTH branches below, including the legacy one where the
+  // worker creates the book afterwards.
+  const attestationBookId = readOptionalString(formData.get("bookId"));
+  const attestationRefusal = await enforceRightsAttestation({
+    request,
+    formData,
+    userId: user.id,
+    bookId: attestationBookId && isValidUuid(attestationBookId) ? attestationBookId : null,
+    file,
+  });
+  if (attestationRefusal) return attestationRefusal;
 
   // Backward-compatible path for BookEditor:
   // if a bookId is provided, run scoped import to that book.
