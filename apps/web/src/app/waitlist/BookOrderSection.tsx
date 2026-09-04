@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Image from "next/image";
 import { TA_FOR_ER_ORDER } from "@/lib/orders/ta-for-er";
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -8,7 +9,7 @@ const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 type SubmitState = "idle" | "loading" | "error";
 
 const inputClass =
-  "min-h-[52px] w-full rounded-2xl border border-white/20 bg-white/95 px-4 py-3 text-[15px] text-slate-900 placeholder:text-slate-400 transition-all duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#907AFF]/40 focus-visible:ring-offset-2 focus-visible:ring-offset-transparent dark:border-white/10 dark:bg-white/10 dark:text-white dark:placeholder:text-white/40";
+  "min-h-[52px] w-full rounded-2xl border border-white/20 bg-white/95 px-4 py-3 text-[16px] text-slate-900 placeholder:text-slate-400 transition-all duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#907AFF]/40 focus-visible:ring-offset-2 focus-visible:ring-offset-transparent dark:border-white/10 dark:bg-white/10 dark:text-white dark:placeholder:text-white/40 sm:text-[15px]";
 
 const labelClass = "mb-1.5 block text-left text-[12px] font-medium tracking-wide text-white/55";
 
@@ -86,6 +87,19 @@ export default function BookOrderSection() {
     <section id="book-order" className="relative scroll-mt-8 px-4 pb-24 pt-2 dark" aria-labelledby="book-order-heading">
       <div className="mx-auto w-full max-w-md">
         <div className="aurora-card rounded-3xl border border-white/20 bg-white/10 p-6 shadow-[0_24px_48px_rgba(0,0,0,0.2),0_0_0_1px_rgba(255,255,255,0.08)] backdrop-blur-xl sm:p-8">
+          {/* The book itself. Selling a physical book with no picture of it is
+              part of why it went unnoticed on a phone. Dimensions are the true
+              A5 ratio of the print file, so nothing shifts as it loads. */}
+          <div className="mb-5 flex justify-center">
+            <Image
+              src="/ta-for-er-cover.jpg"
+              alt={`Omslag: ${TA_FOR_ER_ORDER.bookTitle} av ${TA_FOR_ER_ORDER.authorName}`}
+              width={150}
+              height={213}
+              priority
+              className="h-auto w-[136px] rounded-xl shadow-surface-lg ring-1 ring-white/10 sm:w-[150px]"
+            />
+          </div>
           <p className="text-center text-[10px] font-medium uppercase tracking-[0.3em] text-white/35">
             Beställ boken
           </p>

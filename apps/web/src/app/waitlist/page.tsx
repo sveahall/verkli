@@ -130,7 +130,7 @@ function WaitlistForm({
           autoComplete="email"
           aria-invalid={state === "error"}
           aria-describedby={state === "error" ? "waitlist-error" : undefined}
-          className="min-h-[52px] flex-1 min-w-0 border-0 bg-transparent px-5 py-3 text-[15px] text-slate-900 placeholder:text-slate-400 focus:ring-0 dark:text-white dark:placeholder:text-white/40 sm:px-6"
+          className="min-h-[52px] flex-1 min-w-0 border-0 bg-transparent px-5 py-3 text-[16px] text-slate-900 placeholder:text-slate-400 focus:ring-0 dark:text-white dark:placeholder:text-white/40 sm:px-6 sm:text-[15px]"
         />
         <button
           type="submit"
@@ -300,7 +300,7 @@ function ReaderWaitlistForm({
           autoComplete="email"
           aria-invalid={state === "error"}
           aria-describedby={state === "error" ? "reader-waitlist-error" : undefined}
-          className="min-h-[52px] flex-1 min-w-0 border-0 bg-transparent px-5 py-3 text-[15px] text-slate-900 placeholder:text-slate-400 focus:ring-0 dark:text-white dark:placeholder:text-white/40 sm:px-6"
+          className="min-h-[52px] flex-1 min-w-0 border-0 bg-transparent px-5 py-3 text-[16px] text-slate-900 placeholder:text-slate-400 focus:ring-0 dark:text-white dark:placeholder:text-white/40 sm:px-6 sm:text-[15px]"
         />
         <button
           type="submit"
@@ -600,7 +600,7 @@ export default function WaitlistPage() {
               el.scrollIntoView({ behavior: reduce ? "auto" : "smooth", block: "start" });
             }}
             aria-label="Beställ Johans bok nedan"
-            className="waitlist-hero-in waitlist-hero-in-delay-5 absolute bottom-8 left-1/2 hidden -translate-x-1/2 flex-col items-center gap-2 rounded-full px-4 py-2 text-white/45 transition-colors hover:text-white/75 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#907AFF]/40 focus-visible:ring-offset-2 focus-visible:ring-offset-transparent md:flex"
+            className="waitlist-hero-in waitlist-hero-in-delay-5 mt-10 flex min-h-11 flex-col items-center gap-2 rounded-full px-4 py-2 text-white/45 transition-colors hover:text-white/75 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#907AFF]/40 focus-visible:ring-offset-2 focus-visible:ring-offset-transparent md:absolute md:bottom-8 md:left-1/2 md:mt-0 md:-translate-x-1/2"
           >
             <span className="text-[10px] font-medium uppercase tracking-[0.3em]">Beställ boken</span>
             <svg
