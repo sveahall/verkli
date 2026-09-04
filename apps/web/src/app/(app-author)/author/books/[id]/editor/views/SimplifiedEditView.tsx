@@ -68,6 +68,7 @@ type SimplifiedEditViewProps = {
   onCancelRenameBook?: () => void;
   // Save status
   isSaving?: boolean;
+  hasUnsavedChanges?: boolean;
   lastSaved?: Date | null;
   saveError?: boolean;
   // Chapter rename
@@ -106,6 +107,7 @@ export default function SimplifiedEditView({
   onCreateChapter,
   isCreating = false,
   isSaving = false,
+  hasUnsavedChanges = false,
   lastSaved = null,
   isRenamingBook = false,
   bookTitleDraft = "",
@@ -141,10 +143,18 @@ export default function SimplifiedEditView({
 
   /**
    * Bubble-menu AI actions navigate away from the editor, which unmounts
-   * TiptapEditor. Its unmount cleanup only clears the 500 ms autosave debounce
-   * (TiptapEditor.tsx) — it does not flush it — so an action fired within
-   * 500 ms of the last keystroke would drop those characters. Flush here,
-   * while the editor is still mounted and the selection is still live.
+   * TiptapEditor.
+   *
+   * This used to be the only place that survived that unmount: the editor's
+   * cleanup cleared the autosave debounce without flushing it, so an action
+   * fired within 500 ms of the last keystroke dropped those characters, and
+   * this call was the local patch for that one path. The cleanup now flushes
+   * (see autosaveScheduler), which covers every unmount — chapter switches and
+   * route changes included, not just this one.
+   *
+   * Kept anyway: it persists while the editor is still mounted and the
+   * selection is still live, which is a little earlier than unmount, and a
+   * duplicate write of identical content is harmless.
    */
   const handleInlineAiActionWithFlush = useCallback(
     (action: InlineAiAction, selectedText: string) => {
@@ -437,7 +447,7 @@ export default function SimplifiedEditView({
         <EditorStatusBar
           wordCount={liveWordCount}
           isSaving={isSaving}
-          hasUnsavedChanges={false}
+          hasUnsavedChanges={hasUnsavedChanges}
           lastSaved={lastSaved}
           focusMode={focusMode}
           sidePanelOpen={sidePanelOpen}

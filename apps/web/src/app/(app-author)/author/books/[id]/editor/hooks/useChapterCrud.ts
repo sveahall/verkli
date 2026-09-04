@@ -6,6 +6,7 @@ import { createClient } from "@/lib/supabase/client";
 import { useToastHelpers } from "@/components/ui/toast";
 import { normalizeLanguage } from "@/lib/languages";
 import type { Book, BookVersion, Chapter } from "../BookEditorView.types";
+import { drainPendingSaves, type PersistChapter } from "./useChapterCrud.autosave";
 
 interface UseChapterCrudOptions {
   book: Book;
@@ -19,6 +20,42 @@ interface UseChapterCrudOptions {
   chaptersPerPage: number;
   getBookWorkspaceHref: (language?: string | null) => string;
 }
+
+/**
+ * Write one chapter's content and report whether a row was actually touched.
+ *
+ * `.select("id")` is the point. Without it PostgREST answers `return=minimal`,
+ * so an UPDATE that matched NOTHING — the row deleted underneath by an
+ * `overwrite_draft` import, or an RLS refusal — came back as `error: null`, the
+ * caller saw success, and the status bar said "Saved" over prose that was gone.
+ *
+ * This depends on the author being able to SELECT their own chapters. They can:
+ * `handleCreateChapter` below does `.insert(...).select(...).single()` on this
+ * same browser client and surfaces an error otherwise, so chapter creation
+ * would already be broken if that were not true. Worth knowing that the repo
+ * migrations do NOT grant it — `20260203000000_book_versions.sql:166` drops
+ * "Authors can read own chapters" and never recreates it — so this rests on the
+ * live database differing from the migrations. If autosave ever starts
+ * reporting a failure on every keystroke, that policy is the first thing to
+ * check, not this function.
+ */
+const persistChapterContent: PersistChapter = async (chapterId, payload) => {
+  const serialized = JSON.stringify(payload);
+  const supabase = createClient();
+  const { data, error } = await supabase
+    .from("chapters")
+    .update({ content: serialized })
+    .eq("id", chapterId)
+    .select("id");
+  if (error) return { outcome: "transient", serialized };
+  // Zero rows means the row is gone OR this caller cannot see it, and those are
+  // indistinguishable here. Reported as `missing` so the message can say which
+  // is more likely, but the payload is still kept queued — see the drain module.
+  // Classifying it as permanent and discarding the content would lose prose over
+  // a recoverable access problem, which is the opposite of the point.
+  if ((data?.length ?? 0) === 0) return { outcome: "missing", serialized };
+  return { outcome: "written", serialized };
+};
 
 export function useChapterCrud({
   book,
@@ -34,12 +71,18 @@ export function useChapterCrud({
 }: UseChapterCrudOptions) {
   const router = useRouter();
   const toast = useToastHelpers();
+  // True while a drain is in flight. One writer at a time; everyone else queues.
   const savingRef = useRef(false);
-  // Latest keystroke content keyed by chapter id, captured while a save is
-  // already in flight. When the in-flight save finishes we flush these so no
-  // input is silently dropped (the previous behaviour was to `return` when a
-  // save was in flight, leaving new keystrokes unpersisted).
+  // The write queue: latest unsaved content per chapter id. Every autosave call
+  // enqueues here, including the one that goes on to drain it, so a payload can
+  // never be written out of order with a newer one for the same chapter.
   const pendingSavesRef = useRef<Map<string, Record<string, unknown>>>(new Map());
+  // Chapters this tab deleted. An autosave still arrives for them: deleting the
+  // selected chapter unmounts the editor, and its cleanup flushes the pending
+  // debounce after the row is already gone. Without this the resulting zero-row
+  // write is re-queued and fails on every later drain, holding the editor in an
+  // error state over a chapter the author deliberately deleted.
+  const deletedChapterIdsRef = useRef<Set<string>>(new Set());
 
   const [isSaving, setIsSaving] = useState(false);
   const [isCreating, setIsCreating] = useState(false);
@@ -51,56 +94,75 @@ export function useChapterCrud({
   const [deletingChapterId, setDeletingChapterId] = useState<string | null>(null);
 
   const handleAutoSave = useCallback(async (chapterId: string, jsonContent: Record<string, unknown>) => {
-    // If a save is already running, record the latest content instead of
-    // dropping it — we'll flush after the in-flight save completes.
-    if (savingRef.current) {
-      pendingSavesRef.current.set(chapterId, jsonContent);
-      setHasUnsavedChanges(true);
-      return;
-    }
+    // Nothing to save to a row we deleted. This is the unmount-flush case, and
+    // it is normal rather than an error, so it is dropped silently.
+    if (deletedChapterIdsRef.current.has(chapterId)) return;
 
-    // Inner loop flushes any keystrokes that arrived during a save. Defined
-    // locally so the outer callback does not need to self-reference.
-    async function persistOnce(id: string, payload: Record<string, unknown>): Promise<{ ok: boolean; serialized: string }> {
-      const serialized = JSON.stringify(payload);
-      const supabase = createClient();
-      const { error } = await supabase
-        .from("chapters")
-        .update({ content: serialized })
-        .eq("id", id);
-      return { ok: !error, serialized };
-    }
+    // Always enqueue, never write directly. The queue is the single source of
+    // truth for what still needs persisting, and keying by chapter id makes a
+    // later payload replace an earlier one instead of queueing behind it.
+    pendingSavesRef.current.set(chapterId, jsonContent);
+    setHasUnsavedChanges(true);
+
+    // A drain is already running and will pick this up. Returning here is what
+    // keeps exactly one writer in flight.
+    if (savingRef.current) return;
 
     savingRef.current = true;
     setIsSaving(true);
     setSaveError(false);
 
-    let currentPayload = jsonContent;
-    let persisted: { ok: boolean; serialized: string } = { ok: false, serialized: "" };
-    // Loop until no more pending writes exist for this chapter — guarantees
-    // the final keystroke is persisted even if several arrive while saving.
-    while (true) {
-      persisted = await persistOnce(chapterId, currentPayload);
-      if (!persisted.ok) break;
-      const queued = pendingSavesRef.current.get(chapterId);
-      if (!queued) break;
-      pendingSavesRef.current.delete(chapterId);
-      currentPayload = queued;
-    }
+    // Drains the WHOLE queue, not just this chapter's key. See the module
+    // comment in ./useChapterCrud.autosave for the ordering rules and the
+    // older-over-newer overwrite they replace.
+    const { saved, transientFailures, missingChapters } = await drainPendingSaves(
+      pendingSavesRef.current,
+      persistChapterContent,
+      deletedChapterIdsRef.current
+    );
 
     savingRef.current = false;
     setIsSaving(false);
 
-    if (!persisted.ok) {
+    if (saved.size > 0) {
+      setChapters((prev) =>
+        prev.map((ch) => {
+          const content = saved.get(ch.id);
+          return content === undefined ? ch : { ...ch, content };
+        })
+      );
+      setLastSaved(new Date());
+    }
+
+    // Missing first: it is the more serious of the two, and checking transient
+    // first meant a drain containing both showed only the reassuring message.
+    if (missingChapters.length > 0) {
       setSaveError(true);
-      toast.error("Could not save. Changes may not have been persisted.");
+      // A reported failure means the payload went back on the queue, so there IS
+      // unsaved content. Set this explicitly rather than relying on it still
+      // being true from enqueue time — something else may have cleared it.
+      setHasUnsavedChanges(true);
+      // Deliberately does not claim the chapter is gone. Zero rows cannot tell
+      // deletion apart from lost access, so this says what is true of both and
+      // still tells the author their text is safe in the tab.
+      toast.error("Could not save. That chapter may have been deleted, or your access to it changed. Your text is still here.");
       return;
     }
 
-    const lastSerialized = persisted.serialized;
-    setChapters((prev) => prev.map((ch) => (ch.id === chapterId ? { ...ch, content: lastSerialized } : ch)));
-    setLastSaved(new Date());
-    setHasUnsavedChanges(false);
+    if (transientFailures.length > 0) {
+      setSaveError(true);
+      setHasUnsavedChanges(true);
+      // The payload is re-queued, so the words are still in memory. Say that,
+      // rather than the old "may not have been persisted", which left an author
+      // unsure whether closing the tab would cost them the chapter.
+      toast.error("Could not save. Your changes are still here — keep this tab open and try again.");
+      return;
+    }
+
+    // Only claim saved if the queue is genuinely empty. A keystroke that landed
+    // after the drain's last check is still outstanding, and clearing the flag
+    // here would show "Saved" over it.
+    if (pendingSavesRef.current.size === 0) setHasUnsavedChanges(false);
   }, [setChapters, toast]);
 
   const handleCreateChapter = useCallback(async () => {
@@ -229,6 +291,24 @@ export function useChapterCrud({
       toast.error("Could not delete chapter. Try again.");
       setDeletingChapterId(null);
       return;
+    }
+    // Recorded only after the row is actually gone, so a failed delete does not
+    // start silently discarding that chapter's saves. Setting state below
+    // unmounts the editor and flushes its debounce, which is why this has to be
+    // in place first.
+    deletedChapterIdsRef.current.add(chapterId);
+    pendingSavesRef.current.delete(chapterId);
+    // If that was the last outstanding work, stop reporting it. The unmount
+    // flush that follows is refused by the guard above, so no drain runs to
+    // reset these — the editor would otherwise sit on "Unsaved changes" or an
+    // error about a chapter the author just deleted, until they edited another.
+    // `size === 0` is not the same as "no outstanding work": the drain removes an
+    // entry before writing it, so an in-flight write is not in the map. Clearing
+    // on that alone told the author everything was saved while a write was still
+    // going, and if it then failed the status bar kept saying "Saved".
+    if (pendingSavesRef.current.size === 0 && !savingRef.current) {
+      setHasUnsavedChanges(false);
+      setSaveError(false);
     }
     const remaining = chapters.filter((ch) => ch.id !== chapterId);
     setChapters(remaining);

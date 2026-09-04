@@ -15,7 +15,11 @@ import {
   TiptapFloatingMenu as FloatingMenu,
   useEditor,
 } from "@tiptap/react";
-import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
+import { useEffect, useMemo, useState, useSyncExternalStore } from "react";
+import {
+  createAutosaveScheduler,
+  type EditorSnapshot,
+} from "./autosaveScheduler";
 import { createPortal } from "react-dom";
 import type { InlineAiAction } from "@/features/book-workspace/types";
 import { uploadChapterMedia } from "@/lib/supabase/storage";
@@ -117,8 +121,20 @@ export default function TiptapEditor({
     () => true,
     () => false,
   );
-  const debounceRef = useRef<NodeJS.Timeout | null>(null);
   const [slashMenu, setSlashMenu] = useState<SlashMenuState | null>(null);
+
+  // The scheduler owns the debounce, its ceiling, and the pending value, and
+  // must outlive prop changes to keep them. The commit target is installed from
+  // an effect so it always sees the current props without reading a ref during
+  // render.
+  const autosave = useMemo(() => createAutosaveScheduler<EditorSnapshot>(), []);
+
+  useEffect(() => {
+    autosave.setCommit((snapshot) => {
+      onUpdate(snapshot.doc);
+      onWordCount?.(countWords(snapshot.text));
+    });
+  }, [autosave, onUpdate, onWordCount]);
 
   const editor = useEditor({
     immediatelyRender: false,
@@ -141,11 +157,11 @@ export default function TiptapEditor({
     content: toTiptapContent(content),
     onUpdate: ({ editor }) => {
       onDirty?.();
-      if (debounceRef.current) clearTimeout(debounceRef.current);
-      debounceRef.current = setTimeout(() => {
-        onUpdate(editor.getJSON());
-        onWordCount?.(countWords(editor.getText()));
-      }, 500);
+      // Snapshot now, not at commit time. The commit can run from the unmount
+      // cleanup below, and @tiptap/react destroys the editor in its own
+      // cleanup — registered first, so it tears down first — which would make
+      // editor.getJSON() there either throw or return nothing.
+      autosave.push({ doc: editor.getJSON(), text: editor.getText() });
     },
   });
 
@@ -170,9 +186,12 @@ export default function TiptapEditor({
 
   useEffect(() => {
     return () => {
-      if (debounceRef.current) clearTimeout(debounceRef.current);
+      // Flush, do not merely cancel. Clearing the timer was silently discarding
+      // everything typed since the last pause — on every chapter switch and
+      // every route change away from the editor.
+      autosave.flush();
     };
-  }, []);
+  }, [autosave]);
 
   useEffect(() => {
     if (!editor) return;
