@@ -7,6 +7,7 @@ import { useRouter } from "next/navigation";
 import GlassCard from "@/components/GlassCard";
 import { createClient } from "@/lib/supabase/client";
 import { setActiveRoleCookieClient } from "@/lib/active-role";
+import { TA_FOR_ER_ORDER } from "@/lib/orders/ta-for-er";
 
 const VERKLI_ROLE_KEY = "verkli_role";
 
@@ -145,6 +146,27 @@ export default function RoleSelection() {
               I am a reader
             </button>
           </div>
+
+          {/*
+            The book is the one thing on this site you can buy today, and until
+            now nothing linked to it: this page renders a role chooser, /waitlist
+            holds the order form, and no page on the site referenced it. Anyone
+            sent here to buy it had to already know the URL.
+
+            A real Link, not another onClick button. The two role buttons above
+            are invisible to a crawler and to anyone without JS — this must not
+            be, because it is a purchase path.
+
+            min-h-11 overrides .btn-ghost's 40px allowance (DESIGN.md:150) up to
+            the 44px every interactive element is meant to meet (DESIGN.md:159).
+            The two rules disagree; on a conversion path, take the larger.
+          */}
+          <Link
+            href="/waitlist"
+            className="btn-ghost mt-8 min-h-11 w-full text-center sm:mt-10"
+          >
+            Just here for the book? {TA_FOR_ER_ORDER.bookTitle}
+          </Link>
         </div>
       </GlassCard>
     </main>
