@@ -37,7 +37,13 @@ function adminStub(opts: {
       };
       b.insert = (row: Record<string, unknown>) => {
         if (table === "audit_log") opts.audits?.push(row);
-        return Promise.resolve({ error: null });
+        // recordAudit chains .select("id").single() — a bare promise here would
+        // make the test pass against code that cannot actually write the row.
+        return {
+          select: () => ({
+            single: () => Promise.resolve({ data: { id: "audit-1" }, error: null }),
+          }),
+        };
       };
       return b;
     },
@@ -82,10 +88,15 @@ describe("PATCH /api/admin/books", () => {
     expect(audits[0]).toMatchObject({
       entity_type: "book",
       entity_id: BOOK,
-      action: "unpublish",
+      action: "book.unpublish",
       actor_user_id: "admin-1",
-      meta: { from: "PUBLISHED", to: "DRAFT" },
+      actor_role: "admin",
     });
+    // recordAudit folds before/after into meta; the FROM status is the part
+    // that makes the row worth keeping.
+    const meta = audits[0].meta as Record<string, unknown>;
+    expect(meta.before).toMatchObject({ status: "PUBLISHED" });
+    expect(meta.after).toMatchObject({ status: "DRAFT" });
   });
 
   it("does not write an audit row for a no-op", async () => {

@@ -56,7 +56,14 @@ export function listActionableQueues(): readonly string[] {
 export const RETRY_BATCH_MAX = 50;
 
 export type RetryFailedResult =
-  | { ok: true; queueName: string; retried: number; failedToRetry: number; remaining: number }
+  | {
+      ok: true;
+      queueName: string;
+      retried: number;
+      failedToRetry: number;
+      /** Null when the follow-up count failed; the retries above still happened. */
+      remaining: number | null;
+    }
   | { ok: false; queueName: string; error: string };
 
 export async function retryFailedJobs(
@@ -97,14 +104,23 @@ export async function retryFailedJobs(
       }
     }
 
-    const counts = await queue.getJobCounts("failed");
-    return {
-      ok: true,
-      queueName,
-      retried,
-      failedToRetry,
-      remaining: Number(counts.failed ?? 0),
-    };
+    // Counted in its own try. If this read fails AFTER jobs were requeued, the
+    // outer catch would report a wholly failed action and skip the audit row —
+    // for a queue that has in fact already been mutated. Losing the remaining
+    // count is a small loss; telling the operator nothing moved is a large one.
+    let remaining: number | null = null;
+    try {
+      const counts = await queue.getJobCounts("failed");
+      remaining = Number(counts.failed ?? 0);
+    } catch (err) {
+      console.error("[admin/queues] post-retry count failed", {
+        queueName,
+        retried,
+        message: err instanceof Error ? err.message : String(err),
+      });
+    }
+
+    return { ok: true, queueName, retried, failedToRetry, remaining };
   } catch (err) {
     return {
       ok: false,

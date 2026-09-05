@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { auditMetadataFromRequest, recordAudit } from "@/lib/audit";
 import { requireAdminRoleForApi } from "@/lib/admin-auth";
 import { apiError, E_INVALID_REQUEST_BODY, E_DATABASE_ERROR } from "@/lib/api-errors";
 import {
@@ -41,30 +42,23 @@ export async function POST(request: Request) {
 
   // Audit trail — best-effort. The jobs are already moving; failing the request
   // because the log write failed would invite a second retry on top of the first.
-  try {
-    await createAdminClient()
-      .from("audit_log")
-      .insert({
-        entity_type: "queue",
-        entity_id: null,
-        action: "retry_failed_jobs",
-        actor_user_id: adminUser.id,
-        actor_role: "admin",
-        meta: {
-          queue: queueName,
-          retried: result.retried,
-          failed_to_retry: result.failedToRetry,
-          remaining: result.remaining,
-        },
-      });
-  } catch (auditError) {
-    console.error("[admin/queues] audit log insert failed", {
-      queueName,
-      adminUserId: adminUser.id,
-      message:
-        auditError instanceof Error ? auditError.message : String(auditError),
-    });
-  }
+  //
+  // Goes through `recordAudit` rather than a raw insert wrapped in try/catch:
+  // the Supabase client RESOLVES with an `{ error }` property instead of
+  // throwing, so a catch block never fires for a rejected insert and the audit
+  // row disappears with no diagnostic at all. recordAudit checks the error.
+  await recordAudit(createAdminClient(), {
+    action: "admin.queue_retry_failed",
+    target: { type: "queue", id: queueName },
+    actor: { id: adminUser.id, role: "admin" },
+    metadata: auditMetadataFromRequest(request),
+    after: {
+      queue: queueName,
+      retried: result.retried,
+      failed_to_retry: result.failedToRetry,
+      remaining: result.remaining,
+    },
+  });
 
   return NextResponse.json(result);
 }

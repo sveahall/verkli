@@ -36,7 +36,7 @@ export function RetryFailedButton({
       const body = (await res.json().catch(() => null)) as {
         retried?: number;
         failedToRetry?: number;
-        remaining?: number;
+        remaining?: number | null;
         error?: unknown;
       } | null;
 
@@ -52,14 +52,22 @@ export function RetryFailedButton({
       // matters for deciding whether to press it again.
       const parts = [`${body?.retried ?? 0} retried`];
       if (body?.failedToRetry) parts.push(`${body.failedToRetry} would not move`);
-      if (body?.remaining) parts.push(`${body.remaining} still failed`);
+      if (typeof body?.remaining === "number" && body.remaining > 0) {
+        parts.push(`${body.remaining} still failed`);
+      } else if (body?.remaining === null) {
+        parts.push("remaining count unavailable");
+      }
       setMessage(parts.join(", "));
 
       // The page reads queue counts server-side, so refresh rather than
       // patching a number the server did not confirm.
       router.refresh();
     } catch {
-      setMessage("Could not reach the server. Nothing was retried.");
+      // The request may well have been processed before the connection dropped,
+      // so "nothing was retried" would be a confident claim about state we do
+      // not have. Refresh instead and let the counts answer it.
+      setMessage("Lost the connection — the outcome is unknown. Counts refreshed below.");
+      router.refresh();
     } finally {
       setBusy(false);
     }

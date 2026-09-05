@@ -12,13 +12,17 @@ vi.mock("bullmq", () => ({
       mocks.queueCtor(name);
     }
     getFailed = () => Promise.resolve(currentJobs);
-    getJobCounts = () => Promise.resolve({ failed: remainingFailed });
+    getJobCounts = () =>
+      countsThrow
+        ? Promise.reject(new Error("redis went away"))
+        : Promise.resolve({ failed: remainingFailed });
     close = () => Promise.resolve();
   },
 }));
 
 let currentJobs: Array<{ id: string; retry: () => Promise<void> }> = [];
 let remainingFailed = 0;
+let countsThrow = false;
 
 const { retryFailedJobs, isActionableQueue, RETRY_BATCH_MAX } = await import(
   "./admin-queue-actions"
@@ -29,6 +33,7 @@ beforeEach(() => {
   mocks.getRedisConnectionOptions.mockReturnValue({ host: "localhost", port: 6379 });
   currentJobs = [];
   remainingFailed = 0;
+  countsThrow = false;
 });
 
 describe("isActionableQueue", () => {
@@ -78,6 +83,21 @@ describe("retryFailedJobs", () => {
     expect(RETRY_BATCH_MAX).toBe(50);
     const result = await retryFailedJobs("notifications", 10_000);
     expect(result.ok).toBe(true);
+  });
+
+  it("keeps confirmed retries when the follow-up count blows up", async () => {
+    // Found by codex review. The count read happens AFTER the jobs have already
+    // been requeued, so letting it fail the whole call would tell the operator
+    // nothing moved about a queue that has in fact been mutated.
+    currentJobs = [
+      { id: "1", retry: () => Promise.resolve() },
+      { id: "2", retry: () => Promise.resolve() },
+    ];
+    countsThrow = true;
+
+    const result = await retryFailedJobs("notifications");
+
+    expect(result).toMatchObject({ ok: true, retried: 2, remaining: null });
   });
 
   it("says so plainly when Redis is not configured", async () => {

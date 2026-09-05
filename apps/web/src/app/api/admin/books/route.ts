@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { requireAdminRoleForApi } from "@/lib/admin-auth";
+import { auditMetadataFromRequest, recordAudit } from "@/lib/audit";
 import {
   apiError,
   E_DATABASE_ERROR,
@@ -247,23 +248,19 @@ export async function PATCH(request: Request) {
   // Audit trail — best-effort, and deliberately not allowed to fail the request.
   // Taking a book off the shelf having already succeeded, then 500-ing because
   // the log write failed, would invite the admin to press the button again.
-  try {
-    await admin.from("audit_log").insert({
-      entity_type: "book",
-      entity_id: bookId,
-      action: status === "PUBLISHED" ? "publish" : "unpublish",
-      actor_user_id: adminUser.id,
-      actor_role: "admin",
-      meta: { from: previousStatus, to: status, title: existing.title ?? null },
-    });
-  } catch (auditError) {
-    console.error("[admin/books] audit log insert failed", {
-      bookId,
-      adminUserId: adminUser.id,
-      message:
-        auditError instanceof Error ? auditError.message : String(auditError),
-    });
-  }
+  //
+  // `recordAudit`, not a raw insert in a try/catch: the Supabase client resolves
+  // with an `{ error }` property rather than throwing, so a catch block never
+  // fires on a rejected insert and the row vanishes with no diagnostic. The
+  // `book.publish` / `book.unpublish` actions were already in the taxonomy.
+  await recordAudit(admin, {
+    action: status === "PUBLISHED" ? "book.publish" : "book.unpublish",
+    target: { type: "book", id: bookId },
+    actor: { id: adminUser.id, role: "admin" },
+    metadata: auditMetadataFromRequest(request),
+    before: { status: previousStatus },
+    after: { status, title: existing.title ?? null },
+  });
 
   return NextResponse.json({ ok: true, bookId, status, changed: true });
 }
