@@ -1,7 +1,8 @@
 "use client";
 
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback, useRef, useId } from "react";
 import Link from "next/link";
+import { Dialog } from "@/components/ui/dialog";
 import RightsAttestationFields, {
   useRightsAttestation,
   appendAttestation,
@@ -42,9 +43,13 @@ function toImportStatus(raw: unknown): JobStatus {
 }
 
 export function ImportBookModal({ open, onClose, onImportComplete }: ImportBookModalProps) {
+  const titleId = useId();
+  const descriptionId = useId();
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
   const isVisible = useDocumentVisible();
   const [importsList, setImportsList] = useState<ImportItem[]>([]);
   const [uploading, setUploading] = useState(false);
+  const uploadRequestRef = useRef<AbortController | null>(null);
   const attestation = useRightsAttestation();
   const [dragOver, setDragOver] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -94,20 +99,23 @@ export function ImportBookModal({ open, onClose, onImportComplete }: ImportBookM
 
   useEffect(() => {
     const requests = retryRequestsRef.current;
-    const cancelRetries = () => {
+    const cancelRequests = () => {
       for (const controller of requests.values()) controller.abort();
       requests.clear();
-    };
-    cancelRetries();
-    setRetryingIds([]);
-    if (!open) {
       fetchAbortRef.current?.abort();
       fetchAbortRef.current = null;
+      uploadRequestRef.current?.abort();
+      uploadRequestRef.current = null;
+    };
+    cancelRequests();
+    setRetryingIds([]);
+    setUploading(false);
+    if (!open) {
       setPendingImportIds([]);
       retriedImportIdsRef.current.clear();
       setOpenedAtMs(null);
       setImportsList([]);
-      return cancelRetries;
+      return cancelRequests;
     }
 
     setError(null);
@@ -116,7 +124,7 @@ export function ImportBookModal({ open, onClose, onImportComplete }: ImportBookM
     retriedImportIdsRef.current.clear();
     setOpenedAtMs(Date.now());
     fetchImports();
-    return cancelRetries;
+    return cancelRequests;
   }, [open, fetchImports]);
 
   useEffect(() => {
@@ -190,6 +198,7 @@ export function ImportBookModal({ open, onClose, onImportComplete }: ImportBookM
   };
 
   const handleFile = async (file: File) => {
+    if (uploadRequestRef.current) return;
     // This modal uploads the moment a file lands, so the attestation has to
     // gate the drop itself rather than a submit button. The dropzone is also
     // disabled until it is complete; this is the belt for that brace.
@@ -213,12 +222,15 @@ export function ImportBookModal({ open, onClose, onImportComplete }: ImportBookM
     setError(null);
     setSuccessMessage(null);
     setUploading(true);
+    const controller = new AbortController();
+    uploadRequestRef.current = controller;
     try {
       const form = new FormData();
       form.append("file", file);
       appendAttestation(form, attestation.state);
-      const res = await fetch("/api/books/import", { method: "POST", body: form });
+      const res = await fetch("/api/books/import", { method: "POST", body: form, signal: controller.signal });
       const data = await res.json().catch(() => ({}));
+      if (controller.signal.aborted) return;
 
       if (!res.ok) {
         setError(resolveErrorMessage(data?.error));
@@ -249,13 +261,17 @@ export function ImportBookModal({ open, onClose, onImportComplete }: ImportBookM
         ]);
       }
     } catch (err) {
+      if (controller.signal.aborted) return;
       // Previously a network failure reset `uploading` in `finally` but
       // left `error` null, so the spinner disappeared with no feedback.
       setError(
         err instanceof Error ? err.message : "Upload failed. Try again."
       );
     } finally {
-      setUploading(false);
+      if (uploadRequestRef.current === controller) {
+        uploadRequestRef.current = null;
+        setUploading(false);
+      }
     }
   };
 
@@ -272,15 +288,20 @@ export function ImportBookModal({ open, onClose, onImportComplete }: ImportBookM
     e.target.value = "";
   };
 
-  if (!open) return null;
-
   return (
-    <div className="fixed inset-0 z-[1000] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
-      <div className="relative w-full max-w-[560px] max-h-[90vh] mt-20 overflow-hidden rounded-3xl border border-black/10 dark:border-white/10 bg-white/[0.95] dark:bg-[#0a0a0f]/[0.95] backdrop-blur-xl flex flex-col">
+    <Dialog
+      open={open}
+      onOpenChange={(nextOpen) => { if (!nextOpen) onClose(); }}
+      aria-labelledby={titleId}
+      aria-describedby={descriptionId}
+      className="w-[calc(100%-2rem)] max-w-[560px] max-h-[calc(100dvh-2rem)] overflow-y-auto rounded-3xl border-black/10 bg-white dark:border-white/10 dark:bg-[#0a0a0f]"
+    >
+      <div className="relative">
         <button
           type="button"
           onClick={onClose}
-          className="absolute right-5 top-5 z-10 text-slate-500 dark:text-white/50 hover:text-slate-900 dark:hover:text-white"
+          autoFocus
+          className="absolute right-3 top-3 z-10 flex h-11 w-11 items-center justify-center rounded-lg text-slate-600 dark:text-white/70 hover:text-slate-900 dark:hover:text-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#5c4bb8] dark:focus-visible:outline-[#b8a9ff]"
           aria-label="Close"
         >
           <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -288,29 +309,29 @@ export function ImportBookModal({ open, onClose, onImportComplete }: ImportBookM
           </svg>
         </button>
 
-        <div className="p-6 border-b border-black/10 dark:border-white/10">
-          <h2 className="text-[22px] font-semibold text-slate-900 dark:text-white">Import book</h2>
-          <p className="mt-1 text-[14px] text-slate-600 dark:text-white/50">
+        <div className="p-4 pr-16 sm:p-6 sm:pr-16 border-b border-black/10 dark:border-white/10">
+          <h2 id={titleId} className="text-[22px] font-semibold text-slate-900 dark:text-white">Import book</h2>
+          <p id={descriptionId} className="mt-1 text-[16px] sm:text-[14px] text-slate-600 dark:text-white/70">
             Upload an existing book file to import chapters automatically.
           </p>
-          <p className="mt-0.5 text-[13px] text-slate-500 dark:text-white/40">
-            Allowed formats: .epub, .docx, .html, .txt - max 50 MB
+          <p className="mt-0.5 text-[16px] sm:text-[13px] text-slate-600 dark:text-white/70">
+            Allowed formats: .epub, .docx, .html, .htm, .txt - max 50 MB
           </p>
         </div>
 
         {error && (
-          <div className="mx-6 mt-4 rounded-xl border border-red-200 dark:border-red-900/50 bg-red-50 dark:bg-red-950/30 px-4 py-3 text-[14px] text-red-700 dark:text-red-300">
+          <div role="alert" className="mx-4 sm:mx-6 mt-4 rounded-xl border border-red-200 dark:border-red-900/50 bg-red-50 dark:bg-red-950/30 px-4 py-3 text-[16px] sm:text-[14px] text-red-700 dark:text-red-300">
             {error}
           </div>
         )}
 
         {successMessage && (
-          <div className="mx-6 mt-4 rounded-xl border border-green-200 dark:border-green-900/50 bg-green-50 dark:bg-green-950/30 px-4 py-3 text-[14px] text-green-700 dark:text-green-300">
+          <div role="status" aria-live="polite" className="mx-4 sm:mx-6 mt-4 rounded-xl border border-green-200 dark:border-green-900/50 bg-green-50 dark:bg-green-950/30 px-4 py-3 text-[16px] sm:text-[14px] text-green-700 dark:text-green-300">
             {successMessage}
           </div>
         )}
 
-        <div className="mx-6 mt-4">
+        <div className="mx-4 sm:mx-6 mt-4 [&_label]:text-[16px] sm:[&_label]:text-sm [&_span.text-sm]:text-[16px] sm:[&_span.text-sm]:text-sm">
           <RightsAttestationFields
             state={attestation.state}
             onChange={attestation.setState}
@@ -319,7 +340,7 @@ export function ImportBookModal({ open, onClose, onImportComplete }: ImportBookM
         </div>
 
         <div
-          className={`mx-6 mt-4 rounded-2xl border-2 border-dashed p-8 text-center transition-colors ${
+          className={`mx-4 sm:mx-6 mt-4 rounded-2xl border-2 border-dashed p-4 sm:p-8 text-center transition-colors ${
             dragOver ? "border-[#907AFF]/50 bg-[#907AFF]/5" : "border-black/20 dark:border-white/20 bg-black/[0.02] dark:bg-white/[0.02]"
           }`}
           onDragOver={(e) => {
@@ -330,6 +351,7 @@ export function ImportBookModal({ open, onClose, onImportComplete }: ImportBookM
           onDrop={onDrop}
         >
           <input
+            ref={fileInputRef}
             type="file"
             accept=".epub,.docx,.html,.htm,.txt"
             className="hidden"
@@ -337,9 +359,9 @@ export function ImportBookModal({ open, onClose, onImportComplete }: ImportBookM
             onChange={onFileInputChange}
             disabled={uploading || !attestation.complete}
           />
-          <label htmlFor="import-file-input" className="cursor-pointer">
+          <div>
             {uploading ? (
-              <span className="flex items-center justify-center gap-2 text-[14px] text-slate-600 dark:text-white/50">
+              <span role="status" className="flex items-center justify-center gap-2 text-[16px] sm:text-[14px] text-slate-600 dark:text-white/70">
                 <svg className="h-5 w-5 animate-spin" fill="none" viewBox="0 0 24 24">
                   <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
                   <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
@@ -361,39 +383,47 @@ export function ImportBookModal({ open, onClose, onImportComplete }: ImportBookM
                     d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"
                   />
                 </svg>
-                <p className="mt-2 text-[14px] font-medium text-slate-700 dark:text-white/70">
-                  Drag and drop a file here, or click to upload
+                <p className="mt-2 text-[16px] sm:text-[14px] font-medium text-slate-700 dark:text-white/70">
+                  Drag and drop a file here, or choose a file to upload
                 </p>
               </>
             )}
-          </label>
+          </div>
+          <button
+            type="button"
+            onClick={() => fileInputRef.current?.click()}
+            disabled={uploading || !attestation.complete}
+            className="mt-3 min-h-11 min-w-11 rounded-lg border border-slate-300 px-4 py-2 text-[16px] sm:text-[14px] font-medium text-slate-700 disabled:cursor-not-allowed disabled:opacity-60 dark:border-white/30 dark:text-white/80 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#5c4bb8] dark:focus-visible:outline-[#b8a9ff]"
+          >
+            Choose file
+          </button>
         </div>
 
-        <div className="flex-1 overflow-y-auto p-6">
+        <div className="p-4 sm:p-6">
           <h3 className="mb-3 text-[14px] font-semibold text-slate-900 dark:text-white">Import status</h3>
           {importsList.length === 0 ? (
-            <p className="text-[13px] text-slate-500 dark:text-white/40">No imports yet.</p>
+            <p className="text-[16px] sm:text-[13px] text-slate-600 dark:text-white/70">No imports yet.</p>
           ) : (
             <ul className="space-y-2">
               {importsList.map((imp, i) => (
                 <li
                   key={`${imp.id}-${i}`}
-                  className="flex items-center justify-between gap-3 rounded-xl border border-black/10 dark:border-white/10 bg-black/[0.02] dark:bg-white/[0.02] px-4 py-3"
+                  className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-black/10 dark:border-white/10 bg-black/[0.02] dark:bg-white/[0.02] px-4 py-3"
                 >
-                  <div className="min-w-0 flex-1">
-                    <p className="truncate text-[14px] font-medium text-slate-900 dark:text-white">
+                  <div className="min-w-0 basis-full sm:basis-0 sm:flex-1">
+                    <p className="break-words text-[16px] sm:text-[14px] font-medium text-slate-900 dark:text-white">
                       {imp.file_name}
                     </p>
-                    <p className="mt-0.5 text-[12px] text-slate-500 dark:text-white/50">
+                    <p className="mt-0.5 break-words text-[16px] sm:text-[12px] text-slate-600 dark:text-white/70">
                       {imp.status === "completed" && imp.book_id ? (
                         <Link
                           href={`/author/books/${imp.book_id}`}
-                          className="text-[#907AFF] hover:underline"
+                          className="inline-flex min-h-11 items-center text-[#5c4bb8] dark:text-[#b8a9ff] hover:underline"
                         >
                           Open book
                         </Link>
                       ) : imp.status === "failed" && imp.error ? (
-                        <span className="text-red-500">{imp.error}</span>
+                        <span className="text-red-700 dark:text-red-300">{imp.error}</span>
                       ) : imp.status === "running" || imp.status === "pending" ? (
                         <span>
                           {STATUS_LABELS[imp.status] ?? imp.status}
@@ -409,7 +439,7 @@ export function ImportBookModal({ open, onClose, onImportComplete }: ImportBookM
                       type="button"
                       onClick={() => handleRetry(imp.id)}
                       disabled={retryingIds.includes(imp.id)}
-                      className="min-h-11 min-w-11 shrink-0 rounded-lg px-2 py-1 text-[12px] font-medium text-[#5c4bb8] dark:text-[#b8a9ff] hover:bg-[#907AFF]/10 disabled:cursor-wait disabled:opacity-50"
+                      className="min-h-11 min-w-11 shrink-0 rounded-lg px-2 py-1 text-[16px] sm:text-[12px] font-medium text-[#5c4bb8] dark:text-[#b8a9ff] hover:bg-[#907AFF]/10 disabled:cursor-wait disabled:opacity-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#5c4bb8] dark:focus-visible:outline-[#b8a9ff]"
                     >
                       {retryingIds.includes(imp.id) ? "Retrying..." : "Try again"}
                     </button>
@@ -431,6 +461,6 @@ export function ImportBookModal({ open, onClose, onImportComplete }: ImportBookM
           )}
         </div>
       </div>
-    </div>
+    </Dialog>
   );
 }
