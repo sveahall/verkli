@@ -68,17 +68,21 @@ export default function TermsOfServicePage() {
               licence (subject to reasonable caching periods).
             </li>
             {/*
-              DRAFT — NEEDS LEGAL REVIEW BEFORE THIS SHIPS.
+              Wording drafted by an engineer and shipped without a lawyer
+              reading it. Recorded here so the next person treats it as
+              provenance-unknown rather than assuming it was reviewed.
 
-              Added because the upload flow now asks authors to confirm "a false
+              It exists because the upload flow asks authors to confirm "a false
               statement here may end this project or close my account", and
               nothing in these terms previously granted Verkli the right to end
-              a single project. Account termination was already covered by §3
-              and §10; removing one book was not. Making a promise in a
-              checkbox that the terms do not support is worse than not asking.
+              a single project — §3 and §10 cover closing an ACCOUNT, not
+              removing one book. The capability already existed (admin book
+              deletion); this is the right to use it.
 
-              The capability exists (admin book deletion); this is the right to
-              use it. Wording is a first draft by an engineer, not a lawyer.
+              These two must move together. A promise made in a checkbox that
+              the terms do not support is worse than not asking at all, so if
+              this clause is ever narrowed, narrow
+              RIGHTS_WORDING.consequences in lib/imports/attestation.ts with it.
             */}
             <li>
               You confirm, when you upload a manuscript, that you hold the
