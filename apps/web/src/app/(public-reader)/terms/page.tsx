@@ -13,7 +13,7 @@ export default function TermsOfServicePage() {
         Terms of Service
       </h1>
       <p className="mt-2 text-sm text-slate-500 dark:text-white/40">
-        Last updated: September 4, 2026
+        Last updated: September 5, 2026
       </p>
 
       <div className="prose-policy mt-10 space-y-8 text-[15px] leading-[1.8] text-slate-700 dark:text-white/70">
