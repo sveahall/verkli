@@ -96,7 +96,7 @@ function buildSystemPrompt(sourceLanguage: string, targetLanguage: string): stri
  * still shows up occasionally. Recover the array rather than failing a whole
  * chapter over punctuation.
  */
-function parseSegments(raw: string, expected: number): string[] {
+function parseSegments(raw: string, inputs: string[]): string[] {
   const trimmed = raw.trim();
   const start = trimmed.indexOf("[");
   const end = trimmed.lastIndexOf("]");
@@ -111,8 +111,12 @@ function parseSegments(raw: string, expected: number): string[] {
   let parsed: unknown;
   try {
     parsed = JSON.parse(trimmed.slice(start, end + 1));
-  } catch (err) {
-    throw AIProviderError.fromError(err, "anthropic");
+  } catch {
+    throw new AIProviderError(
+      "Anthropic returned invalid JSON.",
+      "MODEL_ERROR",
+      "anthropic"
+    );
   }
 
   if (!Array.isArray(parsed) || !parsed.every((s) => typeof s === "string")) {
@@ -125,9 +129,17 @@ function parseSegments(raw: string, expected: number): string[] {
 
   // A length mismatch would silently shift every later paragraph onto the
   // wrong source text, so it fails loudly instead.
-  if (parsed.length !== expected) {
+  if (parsed.length !== inputs.length) {
     throw new AIProviderError(
-      `Anthropic returned ${parsed.length} segments for ${expected} inputs.`,
+      `Anthropic returned ${parsed.length} segments for ${inputs.length} inputs.`,
+      "MODEL_ERROR",
+      "anthropic"
+    );
+  }
+
+  if (parsed.some((value, index) => inputs[index].trim() && !value.trim())) {
+    throw new AIProviderError(
+      "Anthropic returned an empty translation for non-empty input.",
       "MODEL_ERROR",
       "anthropic"
     );
@@ -154,12 +166,36 @@ async function translateChunk(
     ],
   });
 
+  if (response.stop_reason === "refusal") {
+    throw new AIProviderError(
+      "Anthropic declined the translation request.",
+      "MODEL_ERROR",
+      "anthropic"
+    );
+  }
+
+  if (response.stop_reason === "max_tokens") {
+    throw new AIProviderError(
+      "Anthropic returned an incomplete translation.",
+      "MODEL_ERROR",
+      "anthropic"
+    );
+  }
+
+  if ((response.content as Array<{ type: string }>).some((block) => block.type === "refusal")) {
+    throw new AIProviderError(
+      "Anthropic declined the translation request.",
+      "MODEL_ERROR",
+      "anthropic"
+    );
+  }
+
   const text = response.content
     .filter((block): block is Anthropic.TextBlock => block.type === "text")
     .map((block) => block.text)
     .join("");
 
-  return parseSegments(text, texts.length);
+  return parseSegments(text, texts);
 }
 
 export class AnthropicTranslator implements TranslatorProvider {

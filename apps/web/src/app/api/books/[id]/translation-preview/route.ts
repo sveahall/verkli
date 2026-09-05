@@ -15,11 +15,26 @@ import {
   E_BOOK_NOT_FOUND,
   E_FORBIDDEN,
   E_INVALID_TARGET_LANGUAGE,
+  E_INVALID_SOURCE_VERSION,
   E_NO_SOURCE_VERSION,
   E_SAME_SOURCE_TARGET_LANGUAGE,
   E_SOURCE_LANGUAGE_MISSING,
   E_TRANSLATION_SERVICE_UNAVAILABLE,
+  isValidUuid,
 } from "@/lib/api-errors"
+
+function previewServiceError(originalText = "") {
+  return NextResponse.json(
+    {
+      error: E_TRANSLATION_SERVICE_UNAVAILABLE,
+      originalText,
+      translatedText: "",
+      previewText: "",
+      previewUnavailable: true,
+    },
+    { status: 503 }
+  )
+}
 
 export async function GET(
   request: Request,
@@ -31,7 +46,10 @@ export async function GET(
   if (response) return response
 
   const { id: bookId } = await params
-  const targetLanguage = new URL(request.url).searchParams.get("targetLanguage")?.trim().toLowerCase() ?? ""
+  const searchParams = new URL(request.url).searchParams
+  const targetLanguage = searchParams.get("targetLanguage")?.trim().toLowerCase() ?? ""
+  const hasRequestedSourceVersion = searchParams.has("sourceVersionId")
+  const requestedSourceVersionId = searchParams.get("sourceVersionId")?.trim() ?? null
 
   if (!targetLanguage || !isSupportedLanguage(targetLanguage)) {
     return apiError(E_INVALID_TARGET_LANGUAGE, 400)
@@ -59,14 +77,38 @@ export async function GET(
     return apiError(E_FORBIDDEN, 403)
   }
 
-  const sourceContext = await resolveTranslationSourceContext({
-    supabase,
-    bookId,
-    book,
-  })
+  if (
+    hasRequestedSourceVersion &&
+    (!requestedSourceVersionId || !isValidUuid(requestedSourceVersionId))
+  ) {
+    return apiError(E_INVALID_SOURCE_VERSION, 400)
+  }
+
+  let sourceContext
+  try {
+    sourceContext = await resolveTranslationSourceContext({
+      supabase,
+      bookId,
+      book,
+      requestedSourceVersionId,
+    })
+  } catch {
+    console.error("[book translation preview] source version lookup failed", {
+      bookId,
+      requestedSourceVersionId,
+      targetLanguage,
+      userId: user.id,
+      code: E_TRANSLATION_SERVICE_UNAVAILABLE,
+    })
+    return previewServiceError()
+  }
 
   if (!sourceContext.sourceVersionId) {
     return apiError(E_NO_SOURCE_VERSION, 400)
+  }
+
+  if (!sourceContext.sourceVersion) {
+    return apiError(E_INVALID_SOURCE_VERSION, 400)
   }
 
   if (!sourceContext.sourceLanguage) {
@@ -90,16 +132,23 @@ export async function GET(
   let originalText = ""
   try {
     originalText = await collectTranslationPreviewText(supabase, sourceContext.sourceVersionId, previewWordLimit)
-  } catch (error) {
-    const message = error instanceof Error ? error.message : String(error)
+  } catch {
     console.error("[book translation preview] failed to collect preview text", {
       bookId,
       sourceVersionId: sourceContext.sourceVersionId,
       targetLanguage,
       userId: user.id,
-      message,
+      code: E_TRANSLATION_SERVICE_UNAVAILABLE,
     })
-    return apiError(E_TRANSLATION_SERVICE_UNAVAILABLE, 503)
+    return previewServiceError()
+  }
+
+  if (!originalText.trim()) {
+    return NextResponse.json({
+      originalText: "",
+      translatedText: "",
+      previewText: "",
+    })
   }
 
   if (!isTranslationPairSupported(sourceContext.sourceLanguage, targetLanguage)) {
@@ -111,23 +160,18 @@ export async function GET(
     })
   }
 
-  if (!originalText) {
-    return NextResponse.json({
-      originalText: "",
-      translatedText: "",
-      previewText: "",
-    })
-  }
-
   try {
     const translator = getTranslatorForPair(sourceContext.sourceLanguage, targetLanguage)
     if (!translator) {
-      return NextResponse.json({
-        originalText,
-        translatedText: "",
-        previewText: "",
-        pairUnsupported: true,
+      console.error("[book translation preview] provider registry missing", {
+        bookId,
+        sourceVersionId: sourceContext.sourceVersionId,
+        sourceLanguage: sourceContext.sourceLanguage,
+        targetLanguage,
+        userId: user.id,
+        code: E_TRANSLATION_SERVICE_UNAVAILABLE,
       })
+      return previewServiceError(originalText)
     }
     const result = await translator.translate({
       text: originalText,
@@ -135,42 +179,29 @@ export async function GET(
       targetLanguage,
     })
 
+    if (!result || typeof result.translatedText !== "string" || !result.translatedText.trim()) {
+      throw new AIProviderError(
+        "Translation provider returned an invalid preview.",
+        "MODEL_ERROR",
+        translator.name
+      )
+    }
+
     return NextResponse.json({
       originalText,
       translatedText: result.translatedText,
       previewText: result.translatedText,
     })
   } catch (error) {
-    const message = error instanceof Error ? error.message : String(error)
-
-    if (error instanceof AIProviderError && error.code === "PROVIDER_UNAVAILABLE") {
-      console.warn("[book translation preview] local preview unavailable", {
-        bookId,
-        sourceVersionId: sourceContext.sourceVersionId,
-        sourceLanguage: sourceContext.sourceLanguage,
-        targetLanguage,
-        userId: user.id,
-        provider: error.provider,
-        code: error.code,
-        message,
-      })
-
-      return NextResponse.json({
-        originalText,
-        translatedText: "",
-        previewText: "",
-        previewUnavailable: true,
-      })
-    }
-
     console.error("[book translation preview] translation model failed", {
       bookId,
       sourceVersionId: sourceContext.sourceVersionId,
       sourceLanguage: sourceContext.sourceLanguage,
       targetLanguage,
       userId: user.id,
-      message,
+      provider: error instanceof AIProviderError ? error.provider : "unknown",
+      code: error instanceof AIProviderError ? error.code : E_TRANSLATION_SERVICE_UNAVAILABLE,
     })
-    return apiError(E_TRANSLATION_SERVICE_UNAVAILABLE, 503)
+    return previewServiceError(originalText)
   }
 }
