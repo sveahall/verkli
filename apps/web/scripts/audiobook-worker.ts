@@ -970,6 +970,21 @@ async function uploadAndCacheChapter(
     upsert: true,
   });
 
+  // Smoke output never enters the shared cache.
+  //
+  // The cache key is (chapter, content_hash, voice, model, language) — nothing
+  // in it records that the bytes are silence. So a chapter generated under
+  // PIPELINE_SMOKE_MODE would be reused by a LATER whole-book run with smoke
+  // mode off, and that run would write is_smoke: false over an audiobook made
+  // of silent wavs. Marking the asset is worthless if the silence can launder
+  // itself through the cache on the way there.
+  //
+  // Not cached rather than cached-and-flagged: smoke output exists to prove the
+  // pipeline runs, and regenerating it costs nothing worth saving.
+  if (PIPELINE_SMOKE_MODE) {
+    return;
+  }
+
   // Insert cache record
   await supabase.from("chapter_audio_cache").upsert(
     {
