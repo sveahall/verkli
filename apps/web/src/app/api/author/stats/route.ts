@@ -50,6 +50,7 @@ export async function GET(request: Request) {
       reads: 0,
       purchases: 0,
       bookmarks: 0,
+      publishedBooks: 0,
       period,
     });
   }
@@ -162,11 +163,34 @@ export async function GET(request: Request) {
     .sort((a, b) => a[0].localeCompare(b[0]))
     .map(([date, d]) => ({ date, views: d.views, reads: d.reads, purchases: d.purchases }));
 
+  // The dashboard has always read `publishedBooks` off this response and
+  // defaulted it to 0. Nothing ever put it here, so the "published books" figure
+  // was a hardcoded nought wearing an API call's clothing — and the dashboard
+  // paid for a second round trip to fetch it.
+  //
+  // `status = "PUBLISHED"` is the filter the public routes use
+  // (api/public/books/route.ts, reader/discover), so an author's count agrees
+  // with what a reader can actually find. `resolveAuthorBooks` deliberately does
+  // not filter, since every other figure here counts drafts too.
+  const { count: publishedBooks, error: publishedError } = await admin
+    .from("books")
+    .select("id", { count: "exact", head: true })
+    .eq("author_id", user.id)
+    .eq("status", "PUBLISHED");
+
+  if (publishedError) {
+    console.error("[author/stats] published book count failed", {
+      userId: user.id,
+      message: publishedError.message,
+    });
+  }
+
   return NextResponse.json({
     views,
     reads,
     purchases,
     bookmarks: bookmarksCount,
+    publishedBooks: publishedBooks ?? 0,
     period,
     dailyChart,
   });
