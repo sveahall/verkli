@@ -1,3 +1,4 @@
+import { STRIPE_API_VERSION } from "./stripe";
 import Stripe from "stripe";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
@@ -24,7 +25,7 @@ function getStripeClient(): Stripe {
   if (!key) {
     throw new Error("Missing STRIPE_SECRET_KEY — Stripe Connect cannot be used");
   }
-  return new Stripe(key);
+  return new Stripe(key, { apiVersion: STRIPE_API_VERSION });
 }
 
 function defaultCountry(): string {

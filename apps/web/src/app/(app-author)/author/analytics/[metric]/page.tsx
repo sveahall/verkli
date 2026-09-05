@@ -128,14 +128,20 @@ export default async function MetricDetailPage({
     // One paged read serves both the headline and the table. The table is
     // per-book rather than per-reading, so there is nothing to cap: an author
     // has as many rows as they have books.
+    // `last_read_at`, not `created_at`: `readings` has no `created_at` column
+    // (it has `started_at` and `last_read_at`), so this select used to fail and
+    // take the whole readers metric down with it — nought readers and an empty
+    // table for an author who had plenty. It surfaces as `latestRead` below,
+    // which is last activity rather than first, so `last_read_at` is also the
+    // column that actually answers the question being asked.
     const { rows: allReaderRows } = await fetchAllRows<{
       user_id: string | null;
       book_id: string;
-      created_at: string;
+      last_read_at: string;
     }>((from, to) =>
       admin
         .from("readings")
-        .select("user_id, book_id, created_at")
+        .select("user_id, book_id, last_read_at")
         .in("book_id", bookIds)
         .order("id", { ascending: true })
         .range(from, to)
@@ -152,9 +158,9 @@ export default async function MetricDetailPage({
     // drop whole books off the table.
     const byBook = new Map<string, { count: number; latest: string }>();
     for (const r of allReaderRows) {
-      const entry = byBook.get(r.book_id) ?? { count: 0, latest: r.created_at };
+      const entry = byBook.get(r.book_id) ?? { count: 0, latest: r.last_read_at };
       entry.count++;
-      if (r.created_at > entry.latest) entry.latest = r.created_at;
+      if (r.last_read_at > entry.latest) entry.latest = r.last_read_at;
       byBook.set(r.book_id, entry);
     }
 
