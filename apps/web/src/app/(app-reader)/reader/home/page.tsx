@@ -200,12 +200,27 @@ export default async function ReaderHomePage() {
     if (!user) return [];
 
     try {
-      const { data: readings } = await supabase
+      // `last_read_at`, not `updated_at`: `readings` has no such column (it has
+      // `started_at` and `last_read_at`), so this select failed on every load and
+      // the error was discarded — leaving "Continue reading" permanently empty
+      // for every reader who had in fact started something. `last_read_at` is
+      // also the column the shelf is asking about: when this was last opened.
+      const { data: readings, error: readingsError } = await supabase
         .from("readings")
-        .select("book_id, progress_percent, updated_at, chapter_id")
+        .select("book_id, progress_percent, last_read_at, chapter_id")
         .eq("user_id", user.id)
-        .order("updated_at", { ascending: false })
+        .order("last_read_at", { ascending: false })
         .limit(8);
+
+      if (readingsError) {
+        // An empty shelf and a broken query look identical to the reader. Only
+        // one of them is worth waking up to.
+        console.error("[reader/home] continue-reading load failed", {
+          userId: user.id,
+          message: readingsError.message,
+        });
+        return [];
+      }
 
       if (!readings || readings.length === 0) return [];
 
@@ -247,7 +262,7 @@ export default async function ReaderHomePage() {
           if (!book) return null;
 
           const directHref = row.chapter_id ? `/reader/read/${row.chapter_id}` : `/reader/books/${book.id}`;
-          const lastOpened = formatDateLabel(row.updated_at);
+          const lastOpened = formatDateLabel(row.last_read_at);
 
           return {
             id: book.id as string,

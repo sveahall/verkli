@@ -148,7 +148,7 @@ export async function POST(request: Request) {
   const { data: createdOptions, error: optionsError } = await supabase
     .from("poll_options" as never)
     .insert(optionRows as never)
-    .select("id, poll_id, text, sort_order, created_at");
+    .select("id, poll_id, text, sort_order");
 
   if (optionsError) {
     console.error("[polls] options create failed", {

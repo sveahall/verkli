@@ -54,10 +54,18 @@ export async function POST(request: Request) {
 
   const admin = createAdminClient();
 
-  // Fetch campaign and verify ownership
+  // Fetch campaign, then verify ownership through the BOOK.
+  //
+  // This used to select `user_id` off marketing_campaigns, a column that table
+  // does not have. The select therefore failed on every request, `campaign` came
+  // back null, and the route answered 404 — always. It failed closed, which is
+  // why nobody noticed: social publish has simply never worked.
+  //
+  // A campaign has no owner of its own; it belongs to a book, and the book has
+  // an author. That is the relationship the check has to walk.
   const { data: campaign, error: campaignError } = await admin
     .from("marketing_campaigns" as never)
-    .select("id, book_id, user_id, status")
+    .select("id, book_id, status")
     .eq("id", campaignId)
     .maybeSingle();
 
@@ -65,8 +73,18 @@ export async function POST(request: Request) {
     return apiError(E_SOCIAL_CAMPAIGN_NOT_FOUND, 404);
   }
 
-  const camp = campaign as { id: string; book_id: string; user_id: string; status: string };
-  if (camp.user_id !== user.id) {
+  const camp = campaign as { id: string; book_id: string; status: string };
+
+  const { data: ownerBook, error: ownerBookError } = await admin
+    .from("books")
+    .select("id")
+    .eq("id", camp.book_id)
+    .eq("author_id", user.id)
+    .maybeSingle();
+
+  // Same 404 for "no such campaign" and "not yours", so the endpoint does not
+  // confirm the existence of another author's campaign.
+  if (ownerBookError || !ownerBook) {
     return apiError(E_SOCIAL_CAMPAIGN_NOT_FOUND, 404);
   }
 

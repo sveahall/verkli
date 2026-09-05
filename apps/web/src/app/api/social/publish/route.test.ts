@@ -10,6 +10,9 @@ vi.mock("@/lib/billing/server", () => ({
   requireProBillingForApi: vi.fn(),
 }));
 
+/** Swap to null to model "the campaign's book is not yours". */
+let booksOwnershipRow: { id: string } | null = { id: "book-1" };
+
 function chainableEq(terminal: Record<string, unknown>) {
   const handler: Record<string, unknown> = {};
   handler.eq = vi.fn().mockReturnValue(handler);
@@ -22,12 +25,22 @@ vi.mock("@/lib/supabase/admin", () => ({
   createAdminClient: vi.fn(() => ({
     from: vi.fn((table: string) => {
       if (table === "marketing_campaigns") {
+        // No `user_id` — the table has none. Ownership is decided by the book.
         return {
           select: vi.fn().mockReturnValue(
             chainableEq({
-              data: { id: "camp-1", book_id: "book-1", user_id: "u1", status: "draft" },
+              data: { id: "camp-1", book_id: "book-1", status: "draft" },
               error: null,
             })
+          ),
+        };
+      }
+      if (table === "books") {
+        // The route asks for the book filtered by BOTH id and author_id, so a
+        // row coming back is the ownership proof itself.
+        return {
+          select: vi.fn().mockReturnValue(
+            chainableEq({ data: booksOwnershipRow, error: null })
           ),
         };
       }
@@ -118,6 +131,7 @@ describe("POST /api/social/publish", () => {
   const originalEnv = process.env.SOCIAL_ENABLED;
 
   beforeEach(() => {
+    booksOwnershipRow = { id: "book-1" };
     vi.clearAllMocks();
     resetSocialRateLimits();
     process.env.SOCIAL_ENABLED = "true";
@@ -196,5 +210,19 @@ describe("POST /api/social/publish", () => {
     expect(body.ok).toBe(true);
     expect(body.jobId).toBeDefined();
     expect(body.status).toBe("pending");
+  });
+
+  it("404s when the campaign's book belongs to another author", async () => {
+    // The check this replaced read `marketing_campaigns.user_id`, a column that
+    // table does not have, so it failed closed on EVERY request — the route has
+    // never once got past it. Now that it works at all, the refusal has to be
+    // tested rather than assumed.
+    mockAuthSuccess();
+    mockBillingOk();
+    booksOwnershipRow = null;
+
+    const res = await POST(makeRequest());
+
+    expect(res.status).toBe(404);
   });
 });

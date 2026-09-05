@@ -89,7 +89,7 @@ export async function GET(
 
   const { data: options, error: optionsError } = await supabase
     .from("poll_options" as never)
-    .select("id, poll_id, text, sort_order, created_at")
+    .select("id, poll_id, text, sort_order")
     .eq("poll_id", id)
     .order("sort_order", { ascending: true });
 

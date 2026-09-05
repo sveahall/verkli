@@ -26,7 +26,10 @@ export async function buildBookSnapshot(
     .from("chapters" as never)
     .select("content")
     .eq("book_id", bookId)
-    .order("sort_order", { ascending: true })
+    // `order`, not `sort_order`: that is the column `chapters` actually has.
+    // The `as never` cast above hides the mistake from the type checker, and the
+    // discarded error hid it at runtime — the excerpt was simply always empty.
+    .order("order", { ascending: true })
     .limit(1);
 
   const chapterRows = (chapters ?? []) as Record<string, unknown>[];

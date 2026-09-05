@@ -2654,6 +2654,7 @@ export type Database = {
           display_name: string | null
           is_protected: boolean
           is_public: boolean
+          onboarding_completed_at: string | null
           preferences: Json | null
           role: string | null
           search_vector: unknown
@@ -2674,6 +2675,7 @@ export type Database = {
           display_name?: string | null
           is_protected?: boolean
           is_public?: boolean
+          onboarding_completed_at?: string | null
           preferences?: Json | null
           role?: string | null
           search_vector?: unknown
@@ -2694,6 +2696,7 @@ export type Database = {
           display_name?: string | null
           is_protected?: boolean
           is_public?: boolean
+          onboarding_completed_at?: string | null
           preferences?: Json | null
           role?: string | null
           search_vector?: unknown
