@@ -51,6 +51,7 @@ export async function GET(request: Request) {
       purchases: 0,
       bookmarks: 0,
       publishedBooks: 0,
+      partial: false,
       period,
     });
   }
@@ -185,12 +186,17 @@ export async function GET(request: Request) {
     });
   }
 
+  // A 200 with a zero in it is still a claim. Logging the failure server-side
+  // does not reach the author, and the dashboard can only see `response.ok` —
+  // so without this flag a failed count renders as an authoritative "0 published
+  // books" next to figures that did load. Same bug this commit exists to kill.
   return NextResponse.json({
     views,
     reads,
     purchases,
     bookmarks: bookmarksCount,
     publishedBooks: publishedBooks ?? 0,
+    partial: Boolean(publishedError),
     period,
     dailyChart,
   });

@@ -89,6 +89,36 @@ describe("GET /api/author/stats/revenue", () => {
     expect(body.donationRevenue).toBe(0);
   });
 
+  it("marks the answer partial when a revenue read fails", async () => {
+    // Same failure shape as the stats route: a 200 full of zeros is a claim
+    // about an author's earnings, not an absence of data.
+    const failing = {
+      from() {
+        const b: Record<string, unknown> = {};
+        for (const m of ["select", "eq", "in", "order", "not", "is", "gte", "lte"]) {
+          b[m] = () => b;
+        }
+        b.range = () => Promise.resolve({ data: null, error: { message: "boom" } });
+        return b;
+      },
+    };
+    mocks.createAdminClient.mockReturnValue(failing);
+
+    const body = await (await GET()).json();
+
+    expect(body.partial).toBe(true);
+  });
+
+  it("does not mark a healthy answer partial", async () => {
+    mocks.createAdminClient.mockReturnValue(
+      adminStub({ orders: [{ amount: 15000, currency: "sek" }] }, [])
+    );
+
+    const body = await (await GET()).json();
+
+    expect(body.partial).toBe(false);
+  });
+
   it("totals several paid orders rather than reporting only the first", async () => {
     mocks.createAdminClient.mockReturnValue(
       adminStub(

@@ -12,10 +12,14 @@ type Stats = {
   reads: number;
   purchases: number;
   bookmarks: number;
+  publishedBooks?: number;
+  // Set when the route answered 200 but some figure inside it failed to load.
+  partial?: boolean;
   period: string;
 };
 
 type Revenue = {
+  partial?: boolean;
   totalRevenue: number;
   orderRevenue: number;
   donationRevenue: number;
@@ -66,11 +70,16 @@ export default function AuthorStatsDashboard() {
         // request to the identical endpoint, which never returned the field, so
         // the figure was always 0 and the round trip bought nothing.
         setPublishedBooks(json.publishedBooks ?? 0);
+        // A 200 is not proof the numbers are complete. The route sets `partial`
+        // when a sub-query failed, which `response.ok` alone cannot express.
+        if (json.partial) anyFailed = true;
       } else {
         anyFailed = true;
       }
       if (revenueRes.ok) {
-        setRevenue(await revenueRes.json());
+        const json = await revenueRes.json();
+        setRevenue(json);
+        if (json.partial) anyFailed = true;
       } else {
         anyFailed = true;
       }

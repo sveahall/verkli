@@ -98,6 +98,28 @@ describe("GET /api/author/stats — publishedBooks", () => {
     expect(body.publishedBooks).toBe(0);
   });
 
+  it("marks the answer partial when the count fails, so 0 is not read as fact", async () => {
+    mocks.createAdminClient.mockReturnValue(
+      adminStub({ publishedError: { message: "boom" } })
+    );
+
+    const body = await (await GET(req())).json();
+
+    // Logging the failure server-side never reaches the author, and the
+    // dashboard can only see `response.ok`. Without this the route returns 200
+    // with a zero in it and the author reads "no published books" as a fact.
+    expect(body.partial).toBe(true);
+  });
+
+  it("does not mark a healthy answer partial", async () => {
+    mocks.createAdminClient.mockReturnValue(adminStub({ publishedCount: 2 }));
+
+    const body = await (await GET(req())).json();
+
+    expect(body.partial).toBe(false);
+    expect(body.publishedBooks).toBe(2);
+  });
+
   it("includes the field for an author with no books at all", async () => {
     mocks.resolveAuthorBooks.mockResolvedValue({ ok: true, bookIds: [], books: [] });
     mocks.createAdminClient.mockReturnValue(adminStub({}));

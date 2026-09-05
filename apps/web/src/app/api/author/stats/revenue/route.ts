@@ -64,11 +64,13 @@ export async function GET() {
   // These used to be swallowed, so a broken revenue query looked exactly like
   // an author who had not sold anything. Log loudly; still answer with what
   // did load rather than failing the whole dashboard.
+  let partial = false;
   for (const [table, result] of [
     ["orders", orders],
     ["author_subscriptions", subscriptions],
   ] as const) {
     if (result.error) {
+      partial = true;
       console.error("[author/stats/revenue] load failed", {
         userId: user.id,
         table,
@@ -135,7 +137,10 @@ export async function GET() {
   const headline = dominantCurrencyTotal(combined);
   const code = headline.currency.toLowerCase();
 
+  // See the note in ../route.ts: a logged failure the author cannot see, wrapped
+  // in a 200 containing zeros, reads to them as "you earned nothing".
   return NextResponse.json({
+    partial,
     totalRevenue: headline.total,
     orderRevenue: minorToMajor(orderTotals.get(code) ?? 0),
     donationRevenue: minorToMajor(donationTotals.get(code) ?? 0),
