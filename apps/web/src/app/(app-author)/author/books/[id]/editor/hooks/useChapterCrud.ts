@@ -98,6 +98,11 @@ export function useChapterCrud({
     // it is normal rather than an error, so it is dropped silently.
     if (deletedChapterIdsRef.current.has(chapterId)) return;
 
+    // Chapter switches remount from this state, so retain the draft before a
+    // slow or failed write can leave the returning editor with stale content.
+    const content = JSON.stringify(jsonContent);
+    setChapters((prev) => prev.map((ch) => ch.id === chapterId ? { ...ch, content } : ch));
+
     // Always enqueue, never write directly. The queue is the single source of
     // truth for what still needs persisting, and keying by chapter id makes a
     // later payload replace an earlier one instead of queueing behind it.
@@ -125,12 +130,8 @@ export function useChapterCrud({
     setIsSaving(false);
 
     if (saved.size > 0) {
-      setChapters((prev) =>
-        prev.map((ch) => {
-          const content = saved.get(ch.id);
-          return content === undefined ? ch : { ...ch, content };
-        })
-      );
+      // An acknowledged snapshot can predate the latest local draft. Only the
+      // accepted input above updates content; acknowledgements update status.
       setLastSaved(new Date());
     }
 
@@ -214,11 +215,10 @@ export function useChapterCrud({
     }
     if (data) {
       const updated = [...chapters, data];
-      setChapters(updated);
+      setChapters((prev) => [...prev, data]);
       setSelectedChapterId(data.id);
       setSessionStartWords(0);
       setChapterPage(Math.floor((updated.length - 1) / chaptersPerPage));
-      router.refresh();
     }
   }, [
     activeVersion?.id,
@@ -249,15 +249,15 @@ export function useChapterCrud({
     }
     setIsSaving(true);
     const supabase = createClient();
-    const { error } = await supabase.from("chapters").update({ title: tempTitle.trim() }).eq("id", chapterId);
+    const { data, error } = await supabase.from("chapters").update({ title: tempTitle.trim() }).eq("id", chapterId).select("id");
     setIsSaving(false);
-    if (error) {
+    if (error || !data?.length) {
+      toast.error("Could not rename chapter. Try again.");
       setEditingTitleId(null);
       return;
     }
-    setChapters(chapters.map((ch) => (ch.id === chapterId ? { ...ch, title: tempTitle.trim() } : ch)));
+    setChapters((prev) => prev.map((ch) => (ch.id === chapterId ? { ...ch, title: tempTitle.trim() } : ch)));
     setEditingTitleId(null);
-    router.refresh();
   };
 
   const handleCancelEditTitle = () => {
@@ -286,8 +286,8 @@ export function useChapterCrud({
     // Clean up chapter_audio_cache (no FK — must delete manually)
     await supabase.from("chapter_audio_cache").delete().eq("chapter_id", chapterId);
 
-    const { error } = await supabase.from("chapters").delete().eq("id", chapterId);
-    if (error) {
+    const { data, error } = await supabase.from("chapters").delete().eq("id", chapterId).select("id");
+    if (error || !data?.length) {
       toast.error("Could not delete chapter. Try again.");
       setDeletingChapterId(null);
       return;
@@ -311,13 +311,37 @@ export function useChapterCrud({
       setSaveError(false);
     }
     const remaining = chapters.filter((ch) => ch.id !== chapterId);
-    setChapters(remaining);
+    // Cleanup can finish after a sibling autosave accepted a newer draft.
+    // Remove from current state instead of replacing it with the captured array.
+    setChapters((prev) => prev.filter((ch) => ch.id !== chapterId));
     if (selectedChapterId === chapterId) {
       setSelectedChapterId(remaining[0]?.id ?? null);
     }
     setDeletingChapterId(null);
     toast.success("Chapter deleted.");
-    router.refresh();
+  };
+
+  // Chapter mutations already update local rows. A full route refresh would
+  // replace accepted drafts with persisted content while autosave is in flight.
+  // On an order failure, reconcile only order: never reload manuscript content.
+  const restoreChapterOrder = async (chapterIds: string[], cause: { message: string }) => {
+    console.error("[chapter order] Update failed", cause.message);
+    const { data, error } = await createClient()
+      .from("chapters")
+      .select("id, order")
+      .eq("book_id", book.id)
+      .in("id", chapterIds);
+    if (error || !data || data.length !== chapterIds.length) {
+      console.error("[chapter order] Could not reload saved order", error?.message ?? "Missing chapter rows");
+      toast.error("Could not change chapter order or reload its saved order. Your text is still here. Try again.");
+      return;
+    }
+    const orders = new Map(data.map((chapter) => [chapter.id, chapter.order]));
+    setChapters((prev) => prev.map((chapter) => {
+      const order = orders.get(chapter.id);
+      return order === undefined ? chapter : { ...chapter, order };
+    }).sort((left, right) => left.order - right.order));
+    toast.error("Could not change chapter order. The saved order has been restored. Your text is still here.");
   };
 
   const handleMoveChapter = async (chapterId: string, direction: "up" | "down") => {
@@ -338,10 +362,18 @@ export function useChapterCrud({
     // collision that `Promise.all` of two in-place UPDATEs would hit.
     const supabase = createClient();
     const sentinel = -Math.abs(a.order) - 1;
-    await supabase.from("chapters").update({ order: sentinel }).eq("id", a.id);
-    await supabase.from("chapters").update({ order: a.order }).eq("id", b.id);
-    await supabase.from("chapters").update({ order: b.order }).eq("id", a.id);
-    router.refresh();
+    const { data: sentinelRows, error: sentinelError } = await supabase.from("chapters").update({ order: sentinel }).eq("id", a.id).select("id");
+    if (sentinelError || !sentinelRows?.length) {
+      await restoreChapterOrder([a.id, b.id], sentinelError ?? { message: "No chapter row was updated" });
+      return;
+    }
+    const { data: swapRows, error: swapError } = await supabase.from("chapters").update({ order: a.order }).eq("id", b.id).select("id");
+    if (swapError || !swapRows?.length) {
+      await restoreChapterOrder([a.id, b.id], swapError ?? { message: "No chapter row was updated" });
+      return;
+    }
+    const { data: finalRows, error: finalError } = await supabase.from("chapters").update({ order: b.order }).eq("id", a.id).select("id");
+    if (finalError || !finalRows?.length) await restoreChapterOrder([a.id, b.id], finalError ?? { message: "No chapter row was updated" });
   };
 
   const handleReorderChapters = async (sourceChapterId: string, targetChapterId: string) => {
@@ -373,19 +405,27 @@ export function useChapterCrud({
     // than speed here — `Promise.all` of overlapping values would race.
     const supabase = createClient();
     for (let i = 0; i < reorderedChapters.length; i++) {
-      await supabase
+      const { data, error } = await supabase
         .from("chapters")
         .update({ order: -(i + 1) })
-        .eq("id", reorderedChapters[i].id);
+        .eq("id", reorderedChapters[i].id)
+        .select("id");
+      if (error || !data?.length) {
+        await restoreChapterOrder(reorderedChapters.map((chapter) => chapter.id), error ?? { message: "No chapter row was updated" });
+        return;
+      }
     }
     for (const chapter of reorderedChapters) {
-      await supabase
+      const { data, error } = await supabase
         .from("chapters")
         .update({ order: chapter.order })
-        .eq("id", chapter.id);
+        .eq("id", chapter.id)
+        .select("id");
+      if (error || !data?.length) {
+        await restoreChapterOrder(reorderedChapters.map((row) => row.id), error ?? { message: "No chapter row was updated" });
+        return;
+      }
     }
-
-    router.refresh();
   };
 
   return {
