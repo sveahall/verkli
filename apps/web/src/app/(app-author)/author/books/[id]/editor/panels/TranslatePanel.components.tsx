@@ -30,10 +30,12 @@ interface TranslatePreviewPanesProps {
   loadingPreview: boolean;
   originalPreview: string;
   translationPreview: string;
-  previewUnavailable: boolean;
+  previewUnsupported: boolean;
+  previewError: string | null;
   translating: boolean;
   billingLoading: boolean;
   sourceVersionId: string | null;
+  onRetry: () => void;
   onTranslate: () => void;
 }
 
@@ -44,10 +46,12 @@ export function TranslatePreviewPanes({
   loadingPreview,
   originalPreview,
   translationPreview,
-  previewUnavailable,
+  previewUnsupported,
+  previewError,
   translating,
   billingLoading,
   sourceVersionId,
+  onRetry,
   onTranslate,
 }: TranslatePreviewPanesProps) {
   return (
@@ -57,10 +61,12 @@ export function TranslatePreviewPanes({
           <p className="text-sm font-medium text-slate-700 dark:text-white/80">Original text</p>
         </div>
         <div className="h-[340px] overflow-y-auto whitespace-pre-line bg-slate-50/50 px-5 py-4 text-sm leading-relaxed text-slate-700 dark:bg-white/[0.02] dark:text-slate-200">
-          {loadingPreview ? (
-            <span className="text-slate-400">Loading...</span>
-          ) : originalPreview ? (
+          {originalPreview ? (
             originalPreview
+          ) : !sourceVersionId ? (
+            <span className="text-slate-400">Select a source version to preview its text.</span>
+          ) : loadingPreview ? (
+            <span className="text-slate-400" role="status">Loading source text...</span>
           ) : (
             <span className="text-slate-400">No source text available yet.</span>
           )}
@@ -73,14 +79,36 @@ export function TranslatePreviewPanes({
           </p>
         </div>
         <div className="h-[340px] overflow-y-auto whitespace-pre-line bg-slate-50/50 px-5 py-4 text-sm leading-relaxed text-slate-700 dark:bg-white/[0.02] dark:text-slate-200">
-          {loadingPreview ? (
-            <span className="text-slate-400">Loading...</span>
+          {!sourceVersionId ? (
+            <span className="text-slate-400">Select a source version to request a translation preview.</span>
           ) : translationPreview ? (
             translationPreview
-          ) : previewUnavailable ? (
-            <div className="rounded-xl border border-dashed border-slate-200 bg-white/80 px-4 py-3 text-slate-500 dark:border-white/[0.12] dark:bg-white/[0.03] dark:text-white/60">
-              Translation preview is temporarily unavailable for this language pair.
+          ) : previewError ? (
+            <div
+              className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-base text-amber-900 dark:border-amber-300/20 dark:bg-amber-300/10 dark:text-amber-100 sm:text-sm"
+              role="alert"
+            >
+              <p>{previewError}</p>
+              {loadingPreview && <p className="sr-only" role="status">Retrying translation preview.</p>}
+              <button
+                type="button"
+                onClick={() => {
+                  if (!loadingPreview) onRetry();
+                }}
+                aria-disabled={loadingPreview}
+                className="mt-3 min-h-11 rounded-full border border-amber-300 bg-white px-5 py-2 text-sm font-semibold text-amber-950 shadow-sm transition hover:bg-amber-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-500 focus-visible:ring-offset-2 aria-disabled:cursor-not-allowed aria-disabled:opacity-60 dark:border-amber-200/30 dark:bg-white/10 dark:text-amber-50 dark:hover:bg-white/15 dark:focus-visible:ring-offset-slate-950"
+              >
+                {loadingPreview ? "Retrying preview..." : "Retry preview"}
+              </button>
             </div>
+          ) : loadingPreview ? (
+            <span className="text-slate-400" role="status">Loading translation preview...</span>
+          ) : previewUnsupported ? (
+            <div className="rounded-xl border border-dashed border-slate-200 bg-white/80 px-4 py-3 text-base text-slate-600 dark:border-white/[0.12] dark:bg-white/[0.03] dark:text-white/70 sm:text-sm">
+              Translation preview is not available for this language pair.
+            </div>
+          ) : !originalPreview ? (
+            <span className="text-slate-400">Add source text to see a translation preview.</span>
           ) : (
             <span className="text-slate-400">Preview will appear here.</span>
           )}

@@ -55,7 +55,8 @@ export default function TranslatePanel({
   });
   const [originalPreview, setOriginalPreview] = useState<string>("");
   const [translationPreview, setTranslationPreview] = useState<string>("");
-  const [previewUnavailable, setPreviewUnavailable] = useState(false);
+  const [previewUnsupported, setPreviewUnsupported] = useState(false);
+  const [previewError, setPreviewError] = useState<string | null>(null);
   const [loadingPreview, setLoadingPreview] = useState(false);
   const [translating, setTranslating] = useState(false);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
@@ -152,54 +153,123 @@ export default function TranslatePanel({
   }, [targetDropdownOpen]);
 
   const previewAbortRef = useRef<AbortController | null>(null);
+  const previewRequestIdRef = useRef(0);
+  const previewPendingIdentityRef = useRef<string | null>(null);
+  const previewSourceIdentityRef = useRef(`${bookId}:${sourceVersionId ?? ""}:${sourceLanguage}`);
 
-  const fetchPreview = useCallback(async () => {
-    if (!bookId || !targetLanguage) return;
+  const fetchPreview = useCallback(async (retrying = false) => {
+    const sourceIdentity = `${bookId}:${sourceVersionId ?? ""}:${sourceLanguage}`;
+    const requestIdentity = `${sourceIdentity}:${targetLanguage}`;
+
+    if (previewSourceIdentityRef.current !== sourceIdentity) {
+      previewSourceIdentityRef.current = sourceIdentity;
+      setOriginalPreview("");
+      setTranslationPreview("");
+      setPreviewUnsupported(false);
+      setPreviewError(null);
+    }
+
+    if (!bookId || !sourceVersionId || !targetLanguage) {
+      previewAbortRef.current?.abort();
+      previewRequestIdRef.current += 1;
+      previewPendingIdentityRef.current = null;
+      setLoadingPreview(false);
+      setTranslationPreview("");
+      setPreviewUnsupported(false);
+      setPreviewError(null);
+      return;
+    }
+
+    if (previewPendingIdentityRef.current === requestIdentity) return;
 
     // Abort any in-flight preview request to prevent stale responses overwriting state
     previewAbortRef.current?.abort();
     const controller = new AbortController();
+    const requestId = ++previewRequestIdRef.current;
     previewAbortRef.current = controller;
+    previewPendingIdentityRef.current = requestIdentity;
+
+    const isCurrentRequest = () =>
+      previewRequestIdRef.current === requestId &&
+      previewPendingIdentityRef.current === requestIdentity &&
+      !controller.signal.aborted;
 
     setLoadingPreview(true);
     setTranslationPreview("");
-    setPreviewUnavailable(false);
+    setPreviewUnsupported(false);
+    if (!retrying) setPreviewError(null);
     try {
       const res = await fetch(
-        `/api/books/${bookId}/translation-preview?targetLanguage=${encodeURIComponent(targetLanguage)}`,
+        `/api/books/${bookId}/translation-preview?targetLanguage=${encodeURIComponent(targetLanguage)}&sourceVersionId=${encodeURIComponent(sourceVersionId)}`,
         { signal: controller.signal },
       );
-      if (controller.signal.aborted) return;
+      if (!isCurrentRequest()) return;
 
-      const data = await res.json().catch(() => ({}));
-      if (controller.signal.aborted) return;
-
-      const nextOriginalPreview = typeof data.originalText === "string" ? data.originalText : "";
-      const nextTranslationPreview = typeof data.previewText === "string" ? data.previewText : "";
-      const nextPreviewUnavailable = Boolean(data?.previewUnavailable);
-
-      if (res.ok && data) {
-        setOriginalPreview(nextOriginalPreview);
-        setTranslationPreview(nextTranslationPreview);
-        setPreviewUnavailable(nextPreviewUnavailable);
-      } else {
-        setTranslationPreview("");
-        setPreviewUnavailable(false);
+      let data: unknown;
+      try {
+        data = await res.json();
+      } catch {
+        throw new Error("INVALID_PREVIEW_RESPONSE");
       }
-    } catch (err) {
-      if (err instanceof DOMException && err.name === "AbortError") return;
+      if (!isCurrentRequest()) return;
+
+      if (!data || typeof data !== "object") {
+        throw new Error("INVALID_PREVIEW_RESPONSE");
+      }
+
+      const body = data as Record<string, unknown>;
+      const nextOriginalPreview = typeof body.originalText === "string" ? body.originalText : null;
+
+      if (!res.ok) {
+        if (nextOriginalPreview?.trim()) setOriginalPreview(nextOriginalPreview);
+        setPreviewError(
+          res.status === 401
+            ? "Your session expired. Sign in again, then retry the preview."
+            : res.status === 429
+              ? "Translation preview is busy. Wait a moment and retry."
+              : "Translation preview is temporarily unavailable. Retry when you're ready."
+        );
+        return;
+      }
+
+      if (nextOriginalPreview === null || typeof body.previewText !== "string") {
+        throw new Error("INVALID_PREVIEW_RESPONSE");
+      }
+
+      setOriginalPreview(nextOriginalPreview);
+
+      if (body.pairUnsupported === true) {
+        setPreviewError(null);
+        setPreviewUnsupported(true);
+        return;
+      }
+
+      if (!nextOriginalPreview.trim()) {
+        setPreviewError(null);
+        return;
+      }
+      if (!body.previewText.trim()) throw new Error("INVALID_PREVIEW_RESPONSE");
+
+      setPreviewError(null);
+      setTranslationPreview(body.previewText);
+    } catch {
+      if (!isCurrentRequest()) return;
       setTranslationPreview("");
-      setPreviewUnavailable(false);
+      setPreviewUnsupported(false);
+      setPreviewError("We couldn't load this translation preview. Check your connection and retry.");
     } finally {
-      if (!controller.signal.aborted) {
+      if (isCurrentRequest()) {
+        previewPendingIdentityRef.current = null;
         setLoadingPreview(false);
       }
     }
-  }, [bookId, targetLanguage]);
+  }, [bookId, sourceLanguage, sourceVersionId, targetLanguage]);
 
   useEffect(() => {
     void fetchPreview();
     return () => {
+      previewRequestIdRef.current += 1;
+      previewPendingIdentityRef.current = null;
       previewAbortRef.current?.abort();
     };
   }, [fetchPreview]);
@@ -438,10 +508,12 @@ export default function TranslatePanel({
           loadingPreview={loadingPreview}
           originalPreview={originalPreview}
           translationPreview={translationPreview}
-          previewUnavailable={previewUnavailable}
+          previewUnsupported={previewUnsupported}
+          previewError={previewError}
           translating={translating}
           billingLoading={billingLoading}
           sourceVersionId={sourceVersionId}
+          onRetry={() => void fetchPreview(true)}
           onTranslate={() => void handleTranslateSingleLanguage()}
         />
       </div>
