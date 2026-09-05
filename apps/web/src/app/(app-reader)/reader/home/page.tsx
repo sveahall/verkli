@@ -200,13 +200,17 @@ export default async function ReaderHomePage() {
     if (!user) return [];
 
     try {
-      const { data: readings } = await supabase
+      const { data: readings, error } = await supabase
         .from("readings")
-        .select("book_id, progress_percent, updated_at, chapter_id")
+        .select("book_id, progress_percent, last_read_at, chapter_id")
         .eq("user_id", user.id)
-        .order("updated_at", { ascending: false })
+        .order("last_read_at", { ascending: false })
         .limit(8);
 
+      if (error) {
+        console.error("[reader home] Continue reading query failed", { code: error.code });
+        return [];
+      }
       if (!readings || readings.length === 0) return [];
 
       const bookIds = readings.map((row) => row.book_id);
@@ -247,7 +251,7 @@ export default async function ReaderHomePage() {
           if (!book) return null;
 
           const directHref = row.chapter_id ? `/reader/read/${row.chapter_id}` : `/reader/books/${book.id}`;
-          const lastOpened = formatDateLabel(row.updated_at);
+          const lastOpened = formatDateLabel(row.last_read_at);
 
           return {
             id: book.id as string,
