@@ -74,7 +74,8 @@ const ERROR_MESSAGES: Record<string, string> = {
   IMPORT_FILE_STORAGE_FAILED: "Failed to save the import file.",
   IMPORT_NOT_FOUND: "Import not found.",
   IMPORT_NOT_FAILED: "Only failed import jobs can be retried.",
-  IMPORT_MISSING_FILE_INFO: "The import is missing file information and cannot be retried.",
+  IMPORT_SOURCE_INVALID: "This import's saved file cannot be verified. Upload the original file again.",
+  IMPORT_MISSING_FILE_INFO: "This import's saved file is missing. Upload the original file again.",
   RIGHTS_ATTESTATION_REQUIRED:
     "Confirm the rights statements before uploading a manuscript.",
   RIGHTS_ATTESTATION_INCOMPLETE:
