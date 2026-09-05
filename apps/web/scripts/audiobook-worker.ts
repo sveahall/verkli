@@ -842,14 +842,45 @@ async function processJob(payload: AudiobookJobData) {
 
     // Create audiobook_assets record with private storage path only.
     const assetPath = finalAudioStoragePath ?? manifestStoragePath;
-    await supabase.from("audiobook_assets").insert({
-      book_id: bookId,
-      language,
-      status: "generated",
-      audio_path: assetPath,
-      audio_bucket: BUCKET,
-      duration_seconds: totalDuration,
-    });
+    // Upsert, not insert. (book_id, language) is unique now, and regenerating an
+    // audiobook — a new narrator, a re-run after a fix — must REPLACE the row
+    // rather than collide with it.
+    //
+    // `is_smoke` is the difference between an audiobook and a silent file that
+    // looks like one. Under PIPELINE_SMOKE_MODE every chapter is
+    // createSilentWavBuffer output, and until this column existed the only trace
+    // was a line in this worker's startup log — long gone by the time anyone
+    // asks whether a given book's audio is real.
+    const { error: assetError } = await supabase
+      .from("audiobook_assets")
+      .upsert(
+        {
+          book_id: bookId,
+          language,
+          status: "generated",
+          audio_path: assetPath,
+          audio_bucket: BUCKET,
+          duration_seconds: totalDuration,
+          is_smoke: PIPELINE_SMOKE_MODE,
+        },
+        { onConflict: "book_id,language" }
+      );
+
+    // This result used to be discarded, and the next two statements marked the
+    // job "completed" and the book's audiobook_status "published" regardless.
+    // A failed write therefore told the author their audiobook was live while no
+    // asset row existed for a reader to play — the worst available outcome,
+    // because nothing anywhere reported a problem.
+    //
+    // Thrown rather than handled here: the processor's own catch already
+    // sanitises the message, writes the failure to the job and sets the book to
+    // failed. Duplicating that inline would be a second failure path to keep in
+    // step with the first.
+    if (assetError) {
+      throw new Error(
+        `Audio was generated but audiobook_assets could not be written: ${assetError.message}`
+      );
+    }
 
     // Mark job complete
     await updateJob("completed", {
@@ -938,6 +969,21 @@ async function uploadAndCacheChapter(
     contentType,
     upsert: true,
   });
+
+  // Smoke output never enters the shared cache.
+  //
+  // The cache key is (chapter, content_hash, voice, model, language) — nothing
+  // in it records that the bytes are silence. So a chapter generated under
+  // PIPELINE_SMOKE_MODE would be reused by a LATER whole-book run with smoke
+  // mode off, and that run would write is_smoke: false over an audiobook made
+  // of silent wavs. Marking the asset is worthless if the silence can launder
+  // itself through the cache on the way there.
+  //
+  // Not cached rather than cached-and-flagged: smoke output exists to prove the
+  // pipeline runs, and regenerating it costs nothing worth saving.
+  if (PIPELINE_SMOKE_MODE) {
+    return;
+  }
 
   // Insert cache record
   await supabase.from("chapter_audio_cache").upsert(

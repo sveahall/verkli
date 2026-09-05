@@ -35,6 +35,7 @@ export type AuditTargetType =
   | "order"
   | "stripe_session_redemption"
   | "author_application"
+  | "queue"
   | "content_report"
   | "account_deletion_request"
   | "feedback"
@@ -92,6 +93,7 @@ export type AuditAction =
   | "admin.beta_grant"
   | "admin.beta_revoke"
   | "admin.role_assign"
+  | "admin.queue_retry_failed"
   // account deletion
   | "account.deletion_request"
   | "account.deletion_fulfil"
