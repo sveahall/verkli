@@ -5,15 +5,13 @@
 
 import "./load-dotenv";
 import "./sentry-worker-init";
-import * as path from "path";
-import * as fs from "fs/promises";
-import * as os from "os";
 import { assertServerEnv, getRedisConnectionOptions } from "../src/lib/env";
 
 assertServerEnv();
 
 import { Worker, UnrecoverableError } from "bullmq";
-import { resolveLocalImportPath } from "../src/lib/import-storage";
+import { validateImportSource, prepareImportSource } from "../src/lib/import-storage";
+import { isValidUuid } from "../src/lib/api-errors";
 import {
   runExtract,
   contentHash,
@@ -33,7 +31,6 @@ import { startHeartbeatInterval } from "../src/lib/health/worker-heartbeat";
 import { Sentry } from "./sentry-worker-init";
 
 const QUEUE_NAME = QUEUE_NAMES.IMPORT;
-const BUCKET = "book-imports";
 
 export type ProcessJobPayload = {
   importId: string;
@@ -51,6 +48,9 @@ type ImportRow = {
   id: string;
   status: string;
   author_id: string;
+  file_name: string;
+  file_path: string;
+  file_storage: string;
   book_id: string | null;
   book_version_id: string | null;
   mode: string | null;
@@ -146,39 +146,6 @@ function isFrontMatterChapterTitle(value: string | null | undefined): boolean {
   );
 }
 
-async function ensureLocalFile(
-  filePath: string,
-  fileStorage: "local" | "supabase",
-  userId: string
-): Promise<string> {
-  if (fileStorage === "local") {
-    const localPath = resolveLocalImportPath(filePath);
-    console.log("[import worker] Reading local file:", localPath);
-    const exists = await fs.access(localPath).then(() => true).catch(() => false);
-    if (!exists) {
-      throw new Error(
-        `Local file not found: ${localPath}. Ensure the app wrote to this path (check LOCAL_IMPORTS_DIR).`
-      );
-    }
-    return localPath;
-  }
-
-  console.log("[import worker] Downloading from Supabase Storage:", filePath);
-  const supabase = createAdminClient();
-  const { data, error } = await supabase.storage.from(BUCKET).download(filePath);
-  if (error || !data) {
-    throw new Error(`Supabase download failed: ${error?.message ?? "no data"}. Check bucket "${BUCKET}" and path.`);
-  }
-
-  const tmpDir = path.join(os.tmpdir(), "verkli-import", userId);
-  await fs.mkdir(tmpDir, { recursive: true });
-  const ext = path.extname(filePath) || "";
-  const localPath = path.join(tmpDir, path.basename(filePath) || `import${ext}`);
-  await fs.writeFile(localPath, Buffer.from(await data.arrayBuffer()));
-  console.log("[import worker] Downloaded to temp:", localPath);
-  return localPath;
-}
-
 async function createNewScopedVersion(args: {
   supabase: ReturnType<typeof createAdminClient>;
   bookId: string;
@@ -225,13 +192,19 @@ async function createNewScopedVersion(args: {
 /** Process a single import job. Exported for use by apps/worker. */
 export async function processJob(payload: ProcessJobPayload) {
   const { importId, filePath, fileStorage, authorId } = payload;
+  if (!isValidUuid(importId) || !isValidUuid(authorId)) {
+    throw new UnrecoverableError("Import source invalid");
+  }
   const supabase = createAdminClient();
+  let ownedSourceLoaded = false;
+  let prepared: Awaited<ReturnType<typeof prepareImportSource>> | undefined;
 
   const updateImport = async (updates: Record<string, unknown>) => {
     const { error } = await supabase
       .from("book_imports")
       .update({ ...updates, updated_at: new Date().toISOString() })
-      .eq("id", importId);
+      .eq("id", importId)
+      .eq("author_id", authorId);
 
     if (error) {
       console.error("[import worker] failed to update import row", {
@@ -252,8 +225,9 @@ export async function processJob(payload: ProcessJobPayload) {
 
     const { data: importRowData, error: importLoadError } = await supabase
       .from("book_imports")
-      .select("id, status, author_id, book_id, book_version_id, mode")
+      .select("id, status, author_id, file_name, file_path, file_storage, book_id, book_version_id, mode")
       .eq("id", importId)
+      .eq("author_id", authorId)
       .single();
 
     if (importLoadError || !importRowData) {
@@ -261,6 +235,14 @@ export async function processJob(payload: ProcessJobPayload) {
     }
 
     const importRow = importRowData as ImportRow;
+    if (importRow.id !== importId || importRow.author_id !== authorId) {
+      throw new UnrecoverableError("Import source invalid");
+    }
+    const source = validateImportSource(importRow, authorId);
+    if (filePath !== source.filePath || fileStorage !== source.fileStorage) {
+      throw new UnrecoverableError("Import source invalid");
+    }
+    ownedSourceLoaded = true;
 
     // Processor-level dedupe: skip if import already completed with chapters.
     const versionId = importRow.book_version_id;
@@ -278,24 +260,15 @@ export async function processJob(payload: ProcessJobPayload) {
       return;
     }
 
-    if (importRow.author_id !== authorId) {
-      await updateImport({
-        status: "failed",
-        progress: 0,
-        error_message: "Ownership mismatch: authorId does not match import owner",
-      });
-      throw new UnrecoverableError("Ownership mismatch: authorId does not match import owner");
-    }
-
     const mode = normalizeImportMode(importRow.mode ?? payload.mode, payload.overwrite);
     const scopedBookId = importRow.book_id ?? payload.bookId ?? null;
 
     await updateImport({ status: "extracting", progress: 10, mode, error_message: null });
 
-    const localPath = await ensureLocalFile(filePath, fileStorage, authorId);
+    prepared = await prepareImportSource(source);
     await updateImport({ status: "extracting", progress: 30 });
 
-    const extracted = await runExtract(localPath);
+    const extracted = await runExtract(prepared.path);
     const title = extracted.title || "Imported";
     const chapters = extracted.chapters;
 
@@ -672,14 +645,6 @@ export async function processJob(payload: ProcessJobPayload) {
       }
     }
 
-    if (fileStorage === "supabase") {
-      try {
-        const tmpDir = path.join(os.tmpdir(), "verkli-import", authorId);
-        await fs.rm(tmpDir, { recursive: true, force: true });
-      } catch {
-        // Ignore cleanup failures.
-      }
-    }
   } catch (error) {
     const raw = error instanceof Error ? error.message : String(error);
     const safe = sanitizeJobErrorForStorage(raw);
@@ -690,18 +655,16 @@ export async function processJob(payload: ProcessJobPayload) {
       message: raw,
     });
 
-    const supabase = createAdminClient();
-    await supabase
-      .from("book_imports")
-      .update({
-        status: "failed",
-        progress: 0,
-        error_message: safe,
-        updated_at: new Date().toISOString(),
-      })
-      .eq("id", importId);
+    if (ownedSourceLoaded) {
+      await updateImport({ status: "failed", progress: 0, error_message: safe });
+    }
 
     throw error;
+  } finally {
+    if (prepared) {
+      try { await prepared.cleanup(); }
+      catch { console.error("[import worker] temporary cleanup failed", { importId, authorId }); }
+    }
   }
 }
 

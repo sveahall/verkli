@@ -1,4 +1,6 @@
 import { NextResponse } from "next/server";
+import { createAdminClient } from "@/lib/supabase/admin";
+import { validateImportSource } from "@/lib/import-storage";
 import { createClient } from "@/lib/supabase/server";
 import { assertPublicEnv } from "@/lib/env";
 import { requireAuthorRoleForApi } from "@/lib/auth/require-author";
@@ -9,6 +11,9 @@ import type { ImportMode } from "@/lib/import-queue";
 import {
   apiError,
   E_DATABASE_ERROR,
+  E_IMPORT_SOURCE_INVALID,
+  E_QUEUE_UNAVAILABLE,
+  isValidUuid,
   E_IMPORT_NOT_FOUND,
   E_IMPORT_NOT_FAILED,
   E_IMPORT_MISSING_FILE_INFO,
@@ -68,67 +73,81 @@ export async function POST(
   const { id } = await params;
   const { user, response } = await requireAuthorRoleForApi();
   if (response) return response;
+  if (!isValidUuid(id) || !isValidUuid(user.id)) return apiError(E_IMPORT_SOURCE_INVALID, 400);
 
   const supabase = await createClient();
   const { data: row, error } = await supabase
     .from("book_imports")
-    .select("id, author_id, status, file_path, file_storage, mode, book_id, book_version_id")
+    .select("id, author_id, status, updated_at, file_name, file_path, file_storage, mode, book_id, book_version_id")
     .eq("id", id)
     .eq("author_id", user.id)
     .maybeSingle();
 
   if (error) {
-    console.error("[imports] retry lookup failed", { id, message: error.message });
+    console.error("[import retry] lookup failed", { id, authorId: user.id, message: error.message });
     return apiError(E_DATABASE_ERROR, 500);
   }
-  if (!row) {
-    return apiError(E_IMPORT_NOT_FOUND, 404);
+  if (!row) return apiError(E_IMPORT_NOT_FOUND, 404);
+  if (row.status !== "failed") return apiError(E_IMPORT_NOT_FAILED, 409);
+  if (!row.file_path || !row.file_storage) return apiError(E_IMPORT_MISSING_FILE_INFO, 400);
+
+  let source: ReturnType<typeof validateImportSource>;
+  try {
+    if (row.id !== id) throw new Error("Import source invalid");
+    source = validateImportSource(row, user.id);
+  } catch {
+    console.error("[import retry] source invalid", { id, authorId: user.id });
+    return apiError(E_IMPORT_SOURCE_INVALID, 400);
   }
 
-  if (row.status !== "failed") {
-    return apiError(E_IMPORT_NOT_FAILED, 400);
-  }
-
-  const filePath = (row as { file_path?: string }).file_path;
-  const fileStorage = (row as { file_storage?: string }).file_storage;
-  if (!filePath || !fileStorage) {
-    return apiError(E_IMPORT_MISSING_FILE_INFO, 400);
-  }
-
-  const { error: updateError } = await supabase
+  const admin = createAdminClient();
+  const { data: claimed, error: claimError } = await admin
     .from("book_imports")
-    .update({
-      status: "pending",
-      progress: 0,
-      error_message: null,
-      updated_at: new Date().toISOString(),
-    })
+    .update({ status: "pending", progress: 0, error_message: null })
     .eq("id", id)
-    .eq("author_id", user.id);
+    .eq("author_id", user.id)
+    .eq("status", "failed")
+    .eq("updated_at", row.updated_at)
+    .select("id, updated_at")
+    .maybeSingle()
+    .then((result) => result, () => ({ data: null, error: { message: "Import retry claim request failed" } }));
 
-  if (updateError) {
-    console.error("[imports] retry update failed", { id, message: updateError.message });
+  if (claimError) {
+    console.error("[import retry] claim failed", { id, authorId: user.id, message: claimError.message });
     return apiError(E_DATABASE_ERROR, 500);
   }
+  if (!claimed) return apiError(E_IMPORT_NOT_FAILED, 409);
 
   let jobId: string | null = null;
   try {
     jobId = await enqueueExtractJob({
       importId: id,
-      filePath,
-      fileStorage: fileStorage as "local" | "supabase",
+      filePath: source.filePath,
+      fileStorage: source.fileStorage,
       authorId: user.id,
       bookId: row.book_id ?? undefined,
       mode: normalizeImportMode(row.mode),
       targetVersionId: row.book_version_id ?? null,
     });
-  } catch (err) {
-    console.warn("[import retry] enqueue failed:", err);
+  } catch {
+    console.error("[import retry] dispatch unconfirmed", { id, authorId: user.id });
+  }
+  if (!jobId) {
+    // Use the trigger-returned timestamp. A worker or another request may have advanced the row.
+    try {
+      const { error: rollbackError } = await admin
+        .from("book_imports")
+        .update({ status: "failed", progress: 0, error_message: E_QUEUE_UNAVAILABLE })
+        .eq("id", id)
+        .eq("author_id", user.id)
+        .eq("status", "pending")
+        .eq("updated_at", claimed.updated_at);
+      if (rollbackError) console.error("[import retry] rollback failed", { id, authorId: user.id, message: rollbackError.message });
+    } catch {
+      console.error("[import retry] rollback failed", { id, authorId: user.id, category: "database_unavailable" });
+    }
+    return apiError(E_QUEUE_UNAVAILABLE, 503);
   }
 
-  return NextResponse.json({
-    ok: true,
-    id,
-    message: jobId ? "Import re-queued." : "Import reset; start the worker to process it.",
-  });
+  return NextResponse.json({ ok: true, id, jobId, message: "Import re-queued." });
 }
