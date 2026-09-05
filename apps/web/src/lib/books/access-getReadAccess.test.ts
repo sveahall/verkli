@@ -16,6 +16,8 @@ function makeSupabase(config: {
   chapterEntitlement?: Row | null;
   authorSubscription?: Row | null;
   chapters?: Row[];
+  /** Model a database failure on the entitlements read. */
+  entitlementError?: { message: string };
 }): SupabaseLikeClient {
   return {
     from(table: string) {
@@ -43,10 +45,12 @@ function makeSupabase(config: {
           },
           is() { return chain; },
           maybeSingle: async () => ({
-            data: isChapterLevel
-              ? (config.chapterEntitlement ?? null)
-              : (config.bookEntitlement ?? null),
-            error: null,
+            data: config.entitlementError
+              ? null
+              : isChapterLevel
+                ? (config.chapterEntitlement ?? null)
+                : (config.bookEntitlement ?? null),
+            error: config.entitlementError ?? null,
           }),
         };
         return chain;
@@ -286,5 +290,42 @@ describe("getReadAccess", () => {
     });
 
     expect(result).toEqual({ access: "full", reason: "plus" });
+  });
+
+  it("denies access when the entitlement check fails, and says so in the log", async () => {
+    // Deny-on-error is the correct outcome: a database blip must not hand out a
+    // paid book. The bug was that it happened in silence — a reader who HAD
+    // paid met a paywall and nothing recorded why.
+    const spy = vi.spyOn(console, "error").mockImplementation(() => {});
+
+    const supabase = makeSupabase({
+      book: { author_id: "author-1", price_amount: 4900, pricing_model: "book_only" },
+      bookEntitlement: { id: "ent-1" }, // would have granted access, but the read fails
+      entitlementError: { message: "connection reset" },
+      chapters: [{ id: "ch-1", title: "Kapitel 1", order: 1 }],
+    });
+
+    const result = await getReadAccess({ supabase, userId: "reader-1", ...baseArgs });
+
+    expect(result.access).not.toBe("full");
+    expect(spy).toHaveBeenCalledWith(
+      "[books/access] entitlement check failed; denying access",
+      expect.objectContaining({ message: "connection reset" })
+    );
+
+    spy.mockRestore();
+  });
+
+  it("still grants access on a healthy entitlement read", async () => {
+    // Guards the test above from passing because access is broken outright.
+    const supabase = makeSupabase({
+      book: { author_id: "author-1", price_amount: 4900, pricing_model: "book_only" },
+      bookEntitlement: { id: "ent-1" },
+      chapters: [{ id: "ch-1", title: "Kapitel 1", order: 1 }],
+    });
+
+    const result = await getReadAccess({ supabase, userId: "reader-1", ...baseArgs });
+
+    expect(result).toEqual({ access: "full", reason: "purchased" });
   });
 });
