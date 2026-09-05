@@ -215,7 +215,27 @@ async function mergeTranslationBook(params: {
     .update({ book_id: original.id, book_version_id: versionId })
     .eq("book_id", translation.id);
 
-  await supabase.from("audiobook_assets").update({ book_id: original.id }).eq("book_id", translation.id);
+  // Checked, and fatal, because of the unique index on
+  // audiobook_assets (book_id, language).
+  //
+  // If the original already holds an asset for this language the update fails
+  // ATOMICALLY — no rows move, not just the colliding one — and the
+  // `books.delete()` below then cascades every remaining asset away, including
+  // the languages that had no conflict. Silently ignoring this error is the
+  // difference between a merge that skips one row and a merge that destroys a
+  // book's audio.
+  const { error: assetMoveError } = await supabase
+    .from("audiobook_assets")
+    .update({ book_id: original.id })
+    .eq("book_id", translation.id);
+
+  if (assetMoveError) {
+    throw new Error(
+      `[migrate] refusing to delete book ${translation.id}: its audiobook_assets ` +
+        `could not be moved to ${original.id} (${assetMoveError.message}). ` +
+        `Resolve the collision by hand — deleting now would cascade the assets away.`
+    );
+  }
 
   await moveMarketingCampaigns({ supabase, fromBookId: translation.id, toBookId: original.id });
   await moveBookmarks({ supabase, fromBookId: translation.id, toBookId: original.id });

@@ -196,6 +196,7 @@ export type Database = {
           created_at: string
           demo_run_id: string | null
           duration_seconds: number | null
+          is_smoke: boolean
           id: string
           language: string
           last_generated_at: string | null
@@ -209,6 +210,7 @@ export type Database = {
           created_at?: string
           demo_run_id?: string | null
           duration_seconds?: number | null
+          is_smoke?: boolean
           id?: string
           language?: string
           last_generated_at?: string | null
@@ -222,6 +224,7 @@ export type Database = {
           created_at?: string
           demo_run_id?: string | null
           duration_seconds?: number | null
+          is_smoke?: boolean
           id?: string
           language?: string
           last_generated_at?: string | null
