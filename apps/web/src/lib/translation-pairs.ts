@@ -1,7 +1,8 @@
 /**
  * Supported translation pairs with provider routing.
  *
- * - Opus MT (local): sv <-> en
+ * - Anthropic: supported pairs outside the preferred providers below
+ * - Opus MT (local, explicit opt-in): sv <-> en
  * - NVIDIA Riva (API): all combinations of en, de, es, fr, pt, ru, zh, ja, ko, ar
  * - Chain (sv <-> Riva langs): sv → en (Opus) → target (Riva), and reverse
  *
@@ -49,8 +50,9 @@ export function isTranslationPairSupported(source: string, target: string): bool
 
 /**
  * Returns which provider handles this pair, or null if unsupported.
- * Opus is preferred for sv<->en since it's local/free.
- * Chain is used for sv <-> Riva languages (two-hop via en).
+ * Opus is preferred for sv<->en when its local install is explicitly enabled.
+ * Chain is used for sv <-> Riva languages only when that Opus install is usable.
+ * Anthropic handles the remaining supported pairs.
  */
 /**
  * Languages Anthropic will translate. Deliberately a superset of Riva's, so
