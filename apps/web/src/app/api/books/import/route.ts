@@ -5,6 +5,7 @@ import { enqueueExtractJob } from "@/lib/import-queue";
 import { requireAuthorRoleForApi } from "@/lib/auth/require-author";
 import { enforceRightsAttestation, linkRightsAttestation } from "@/lib/imports/attestation";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { getBookAsOwner } from "@/lib/books/service";
 import {
   getImportFile,
   parseImportMode,
@@ -22,6 +23,8 @@ import {
   E_IMPORT_FILE_STORAGE_FAILED,
   E_VALIDATION_FAILED,
   E_INVALID_BOOK_ID,
+  E_BOOK_NOT_FOUND,
+  E_DATABASE_ERROR,
 } from "@/lib/api-errors";
 
 function readOptionalString(value: FormDataEntryValue | null): string | null {
@@ -63,32 +66,41 @@ export async function POST(request: Request) {
     return apiError(E_INVALID_IMPORT_MODE, 400);
   }
 
-  // Rights attestation. Placed here on purpose: the file has been validated, and
-  // nothing has been persisted yet — no storage write, no book_imports row, no
-  // enqueue. Guards BOTH branches below, including the legacy one where the
-  // worker creates the book afterwards.
-  const attestationBookId = readOptionalString(formData.get("bookId"));
+  const bookId = readOptionalString(formData.get("bookId"));
+  if (bookId && !isValidUuid(bookId)) {
+    return apiError(E_INVALID_BOOK_ID, 400);
+  }
+
+  const supabase = await createClient();
+  if (bookId) {
+    // Verify ownership before the service-role attestation writes a durable row.
+    const owned = await getBookAsOwner(supabase, bookId, user.id, "id, author_id");
+    if (!owned.ok) {
+      if (owned.error === "database_error") {
+        return apiError(E_DATABASE_ERROR, 500);
+      }
+      return apiError(E_BOOK_NOT_FOUND, 404);
+    }
+  }
+
+  // File validation and optional ownership checks precede the first write.
+  // The legacy worker-created-book path still records a null book ID.
   const attestation = await enforceRightsAttestation({
     request,
     formData,
     userId: user.id,
-    bookId: attestationBookId && isValidUuid(attestationBookId) ? attestationBookId : null,
+    bookId,
     file,
   });
   if (!attestation.ok) return attestation.response;
 
   // Backward-compatible path for BookEditor:
   // if a bookId is provided, run scoped import to that book.
-  const bookId = readOptionalString(formData.get("bookId"));
-  if (bookId && !isValidUuid(bookId)) {
-    return apiError(E_INVALID_BOOK_ID, 400);
-  }
   if (bookId) {
     const targetVersionId =
       readOptionalString(formData.get("bookVersionId")) ??
       readOptionalString(formData.get("targetVersionId"));
 
-    const supabase = await createClient();
     const scoped = await startScopedBookImport({
       supabase,
       userId: user.id,
@@ -124,7 +136,6 @@ export async function POST(request: Request) {
 
   // Legacy import flow (no explicit bookId): create import record and let worker create a new book.
   const buffer = Buffer.from(await file.arrayBuffer());
-  const supabase = await createClient();
   const { data: importRow, error: insertError } = await supabase
     .from("book_imports")
     .insert({
