@@ -62,6 +62,7 @@ test("upload queue failure preserves the empty state", async ({ page }) => {
   await page.route("**/api/books/imports?*", (route) => route.fulfill({ json: { imports: [] } }));
   await page.route("**/api/books/import", (route) => { posts++; return route.fulfill({ status: 503, json: { error: "QUEUE_UNAVAILABLE" } }); });
   await page.goto(fixturePath!);
+  await expect(page.getByRole("checkbox")).toHaveCount(3);
   for (const checkbox of await page.getByRole("checkbox").all()) await checkbox.check();
   await page.getByRole("radio", { name: "no", exact: true }).check();
   await page.locator("#import-file-input").setInputFiles({ name: "synthetic.txt", mimeType: "text/plain", buffer: Buffer.from("Harmless browser fixture only.") });
@@ -151,7 +152,7 @@ for (const width of [320, 375]) {
     const bounds = await retry.boundingBox();
     expect(bounds?.height).toBeGreaterThanOrEqual(44);
     expect(bounds?.width).toBeGreaterThanOrEqual(44);
-    await page.getByRole("button", { name: "Essential only", exact: true }).click();
+    // The native modal makes background cookie controls inert.
     await retry.scrollIntoViewIfNeeded();
     await expect(retry).toBeInViewport({ ratio: 1 });
     await retry.click({ trial: true });
