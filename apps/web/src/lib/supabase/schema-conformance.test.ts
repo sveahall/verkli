@@ -33,19 +33,6 @@ const KNOWN_TYPES_DRIFT = new Set([
   "entitlements.chapter_id",
 ]);
 
-/**
- * Real violations whose fix is already written and awaiting merge in PR #29.
- *
- * Listed rather than ignored, and named with the PR so the next person can tell
- * "fixed elsewhere" from "nobody looked". DELETE BOTH LINES when #29 lands — if
- * they are forgotten the guard still covers everything else, but these two stop
- * being protected.
- */
-const FIXED_IN_PR_29 = new Set([
-  "readings.created_at", // author/analytics/[metric] — readers metric fails entirely
-  "donations.recipient_id", // author/stats/revenue — donation revenue always 0
-]);
-
 /** Columns a query may always name; PostgREST synthesises or accepts them. */
 const ALWAYS_OK = new Set(["*", "count"]);
 
@@ -107,7 +94,6 @@ describe("queries only name columns the schema has", () => {
           if (columns.has(col)) continue;
           if (schema.has(col)) continue; // embedded resource named like a table
           if (KNOWN_TYPES_DRIFT.has(`${table}.${col}`)) continue;
-          if (FIXED_IN_PR_29.has(`${table}.${col}`)) continue;
           const line = src.slice(0, m.index!).split("\n").length;
           violations.push(`${file.replace(SRC, "src")}:${line}  ${table}.${col}`);
         }
