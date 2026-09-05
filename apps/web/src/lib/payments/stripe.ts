@@ -30,6 +30,22 @@
  */
 const STRIPE_API_BASE = "https://api.stripe.com/v1";
 
+/**
+ * Pinned Stripe API version. Every call in this repo sends it.
+ *
+ * Unpinned, the two `new Stripe(key)` clients ride the SDK's compiled-in
+ * default (so an `npm update stripe` silently changes the wire format), and the
+ * raw `fetch` callers here and in `stripe-billing.ts` ride the ACCOUNT's default
+ * — which Stripe can move without a deploy on our side. Both failure modes look
+ * identical from here: payments that worked yesterday start returning a shape
+ * the parsers do not expect.
+ *
+ * This value matches what stripe@17.7.0 already sends, so pinning it changes no
+ * behaviour today. It only removes the ways it can change without us choosing.
+ * Bumping it is a deliberate act: read Stripe's changelog, then move this line.
+ */
+export const STRIPE_API_VERSION = "2025-02-24.acacia";
+
 type StripeCheckoutSessionMetadata = {
   orderId: string;
   userId: string;
@@ -97,6 +113,7 @@ async function stripeRequest(path: string, init: RequestInit): Promise<unknown> 
     ...init,
     headers: {
       Authorization: `Bearer ${key}`,
+      "Stripe-Version": STRIPE_API_VERSION,
       ...(init.body ? { "Content-Type": "application/x-www-form-urlencoded" } : {}),
       ...(init.headers ?? {}),
     },
