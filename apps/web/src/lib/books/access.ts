@@ -76,7 +76,12 @@ export async function getReadAccess({
 
   if (userId) {
     // Book-level entitlement (chapter_id IS NULL) grants access to everything
-    const { data: bookEntitlement } = await supabase
+    // Errors are checked here, and every one of these checks stays DENY-on-error.
+    // That part is deliberate: a transient database failure must not hand out a
+    // paid book. What was wrong is that the failure was invisible — a reader who
+    // had paid hit a paywall, and nothing anywhere recorded why. A wrong paywall
+    // that nobody can diagnose is the launch-day version of this bug.
+    const { data: bookEntitlement, error: bookEntitlementError } = await supabase
       .from("entitlements")
       .select("id")
       .eq("user_id", userId)
@@ -85,13 +90,21 @@ export async function getReadAccess({
       .is("chapter_id", null)
       .maybeSingle();
 
+    if (bookEntitlementError) {
+      console.error("[books/access] entitlement check failed; denying access", {
+        userId,
+        bookId,
+        message: bookEntitlementError.message,
+      });
+    }
+
     if (bookEntitlement) {
       return { access: "full", reason: "purchased" };
     }
 
     // For per_chapter: check chapter-specific entitlement
     if (pricingModel === "per_chapter") {
-      const { data: chapterEntitlement } = await supabase
+      const { data: chapterEntitlement, error: chapterEntitlementError } = await supabase
         .from("entitlements")
         .select("id")
         .eq("user_id", userId)
@@ -99,6 +112,15 @@ export async function getReadAccess({
         .eq("chapter_id", chapterId)
         .eq("source", "purchase")
         .maybeSingle();
+
+      if (chapterEntitlementError) {
+        console.error("[books/access] chapter entitlement check failed; denying access", {
+          userId,
+          bookId,
+          chapterId,
+          message: chapterEntitlementError.message,
+        });
+      }
 
       if (chapterEntitlement) {
         return { access: "full", reason: "purchased" };
@@ -116,24 +138,43 @@ export async function getReadAccess({
 
     // Author subscription: active subscription to this book's author grants full access
     if (authorId) {
-      const { data: authorSub } = await supabase
+      const { data: authorSub, error: authorSubError } = await supabase
         .from("author_subscriptions" as never)
         .select("id")
         .eq("subscriber_user_id", userId)
         .eq("author_id", authorId)
         .eq("status" as never, "active")
         .maybeSingle();
+
+      if (authorSubError) {
+        console.error("[books/access] author subscription check failed; denying access", {
+          userId,
+          authorId,
+          message: authorSubError.message,
+        });
+      }
+
       if (authorSub) {
         return { access: "full", reason: "purchased" };
       }
     }
   }
 
-  const { data: allChapters } = await supabase
+  const { data: allChapters, error: allChaptersError } = await supabase
     .from("chapters")
     .select("id, title, order")
     .eq("book_version_id", bookVersionId)
     .order("order", { ascending: true });
+
+  if (allChaptersError) {
+    // An empty list here silently collapses the preview window, so a reader who
+    // should see the first chapter free sees nothing instead.
+    console.error("[books/access] chapter list failed; preview window collapses", {
+      bookId,
+      bookVersionId,
+      message: allChaptersError.message,
+    });
+  }
 
   const chapters = allChapters ?? [];
   const contentPattern = /^(kapitel|chapter)\s+\d/i;
