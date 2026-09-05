@@ -12,10 +12,14 @@ type Stats = {
   reads: number;
   purchases: number;
   bookmarks: number;
+  publishedBooks?: number;
+  // Set when the route answered 200 but some figure inside it failed to load.
+  partial?: boolean;
   period: string;
 };
 
 type Revenue = {
+  partial?: boolean;
   totalRevenue: number;
   orderRevenue: number;
   donationRevenue: number;
@@ -42,6 +46,7 @@ export default function AuthorStatsDashboard() {
   const [publishedBooks, setPublishedBooks] = useState(0);
   const [engagement, setEngagement] = useState<Engagement | null>(null);
   const [loading, setLoading] = useState(true);
+  const [loadFailed, setLoadFailed] = useState(false);
 
   const fetchData = useCallback(async () => {
     setLoading(true);
@@ -52,28 +57,44 @@ export default function AuthorStatsDashboard() {
         fetch("/api/author/stats/engagement"),
       ]);
 
+      // A failed response used to be skipped in silence, which rendered as a
+      // confident dashboard of zeros — indistinguishable from an author who had
+      // genuinely sold nothing. Zero is a claim about their work; refusing to
+      // make it when we do not know is the point of this flag.
+      let anyFailed = false;
+
       if (statsRes.ok) {
         const json = await statsRes.json();
         setStats(json);
+        // Comes from this same response now. It used to be read off a SECOND
+        // request to the identical endpoint, which never returned the field, so
+        // the figure was always 0 and the round trip bought nothing.
+        setPublishedBooks(json.publishedBooks ?? 0);
+        // A 200 is not proof the numbers are complete. The route sets `partial`
+        // when a sub-query failed, which `response.ok` alone cannot express.
+        if (json.partial) anyFailed = true;
+      } else {
+        anyFailed = true;
       }
       if (revenueRes.ok) {
         const json = await revenueRes.json();
         setRevenue(json);
+        if (json.partial) anyFailed = true;
+      } else {
+        anyFailed = true;
       }
       if (engagementRes.ok) {
-        const json = await engagementRes.json();
-        setEngagement(json);
+        setEngagement(await engagementRes.json());
+      } else {
+        anyFailed = true;
       }
 
-      // Fetch published books count
-      const booksRes = await fetch("/api/author/stats?period=all");
-      if (booksRes.ok) {
-        const json = await booksRes.json();
-        // Use views as a proxy; the real count comes from the books query
-        setPublishedBooks(json.publishedBooks ?? 0);
-      }
-    } catch {
-      // silent
+      setLoadFailed(anyFailed);
+    } catch (error) {
+      // Previously an empty catch. A thrown fetch left every figure at its
+      // previous value with nothing on screen to say so.
+      console.error("[AuthorStatsDashboard] stats load failed", error);
+      setLoadFailed(true);
     } finally {
       setLoading(false);
     }
@@ -106,6 +127,22 @@ export default function AuthorStatsDashboard() {
           ))}
         </div>
       </div>
+
+      {/*
+        Shown instead of letting a failed load render as zeros. Uses the
+        semantic --color-warning tokens from DESIGN.md rather than new colours,
+        so light/dark come from globals.css. Warning rather than error on
+        purpose: whatever did load is still displayed and still correct.
+      */}
+      {!loading && loadFailed && (
+        <div
+          role="alert"
+          className="mb-6 rounded-2xl border border-[var(--color-warning)]/30 bg-[var(--color-warning-muted)] px-4 py-3 text-[13px] text-[var(--color-warning)]"
+        >
+          Some figures could not be loaded, so the numbers below may be
+          incomplete. They are not a report of zero activity. Try again shortly.
+        </div>
+      )}
 
       {loading ? (
         <div className="space-y-4">
