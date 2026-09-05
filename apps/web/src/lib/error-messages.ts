@@ -75,6 +75,14 @@ const ERROR_MESSAGES: Record<string, string> = {
   IMPORT_NOT_FOUND: "Import not found.",
   IMPORT_NOT_FAILED: "Only failed import jobs can be retried.",
   IMPORT_MISSING_FILE_INFO: "The import is missing file information and cannot be retried.",
+  RIGHTS_ATTESTATION_REQUIRED:
+    "Confirm the rights statements before uploading a manuscript.",
+  RIGHTS_ATTESTATION_INCOMPLETE:
+    "Answer every rights question, including whether the text has been published before.",
+  // Deliberately says the upload did not happen. The attestation is recorded
+  // before anything is ingested, so a failure here means nothing was stored.
+  RIGHTS_ATTESTATION_NOT_RECORDED:
+    "We could not record your rights statement, so nothing was uploaded. Try again.",
 
   // Purchase
   AUTHOR_CANNOT_BUY_OWN_BOOK: "You cannot purchase your own book.",

@@ -3,6 +3,10 @@
 import { useCallback, useMemo, useRef, useState, type DragEvent } from "react";
 import { useRouter } from "next/navigation";
 import { resolveErrorMessage } from "@/lib/error-messages";
+import RightsAttestationFields, {
+  useRightsAttestation,
+  appendAttestation,
+} from "@/components/import/RightsAttestationFields";
 import { isJobActiveStatus } from "@/lib/job-status";
 import type { UnifiedJob } from "@/hooks/useBookJobs";
 import {
@@ -27,6 +31,15 @@ export default function ImportManusSection({
   const [overwrite, setOverwrite] = useState(false);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [uploading, setUploading] = useState(false);
+  // Destructured so the callbacks below can depend on exactly what they use.
+  // `reset` and `setState` are stable; taking the whole object as a dependency
+  // would recreate both callbacks on every render.
+  const {
+    state: attestationState,
+    setState: setAttestationState,
+    reset: resetAttestation,
+    complete: attestationComplete,
+  } = useRightsAttestation();
   const [error, setError] = useState<string | null>(null);
   const [repairing, setRepairing] = useState(false);
   const [repairMessage, setRepairMessage] = useState<string | null>(null);
@@ -50,6 +63,9 @@ export default function ImportManusSection({
     setRepairMessage(null);
     setLastResult(null);
     if (!file) {
+      // Clearing the file clears the affirmation: a different manuscript needs
+      // its own, not the one given for the file just removed.
+      resetAttestation();
       setSelectedFile(null);
       return;
     }
@@ -65,7 +81,7 @@ export default function ImportManusSection({
       return;
     }
     setSelectedFile(file);
-  }, []);
+  }, [resetAttestation]);
 
   const onDrop = useCallback(
     (event: DragEvent) => {
@@ -85,6 +101,7 @@ export default function ImportManusSection({
       form.append("bookId", bookId);
       if (bookVersionId) form.append("bookVersionId", bookVersionId);
       form.append("overwrite", String(overwrite));
+      appendAttestation(form, attestationState);
       const res = await fetch("/api/books/import", { method: "POST", body: form });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
@@ -92,6 +109,10 @@ export default function ImportManusSection({
         return;
       }
       setLastResult({ chaptersCreated: undefined, titleSet: undefined });
+      // This section stays mounted after a successful import, so without this a
+      // second manuscript would be submitted under the previous one's boxes —
+      // a legal record for answers the author never gave about that file.
+      resetAttestation();
       setSelectedFile(null);
       if (fileInputRef.current) fileInputRef.current.value = "";
       await refetchJobs();
@@ -100,7 +121,11 @@ export default function ImportManusSection({
     } finally {
       setUploading(false);
     }
-  }, [bookId, bookVersionId, overwrite, refetchJobs, selectedFile, uploading]);
+    // attestationState is a real dependency, not a lint formality: without it
+    // this callback closes over the state from an earlier render and posts the
+    // boxes as unticked, so the server refuses an import the author did
+    // complete.
+  }, [attestationState, resetAttestation, bookId, bookVersionId, overwrite, refetchJobs, selectedFile, uploading]);
 
   const runChapterRepair = useCallback(async () => {
     if (repairing) return;
@@ -242,10 +267,16 @@ export default function ImportManusSection({
         </p>
       )}
 
+      <RightsAttestationFields
+        state={attestationState}
+        onChange={setAttestationState}
+        disabled={uploading}
+      />
+
       <button
         type="button"
         onClick={startImport}
-        disabled={!selectedFile || uploading}
+        disabled={!selectedFile || uploading || !attestationComplete}
         aria-label="Start import"
         className="rounded-xl bg-slate-900 px-4 py-2.5 text-[13px] font-semibold text-white shadow-sm transition-all hover:bg-slate-800 hover:shadow-md disabled:opacity-50 disabled:cursor-not-allowed dark:bg-white dark:text-slate-900"
       >

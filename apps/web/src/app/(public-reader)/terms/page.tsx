@@ -13,7 +13,7 @@ export default function TermsOfServicePage() {
         Terms of Service
       </h1>
       <p className="mt-2 text-sm text-slate-500 dark:text-white/40">
-        Last updated: March 23, 2026
+        Last updated: September 4, 2026
       </p>
 
       <div className="prose-policy mt-10 space-y-8 text-[15px] leading-[1.8] text-slate-700 dark:text-white/70">
@@ -66,6 +66,29 @@ export default function TermsOfServicePage() {
             <li>
               You may remove your content at any time, which will terminate this
               licence (subject to reasonable caching periods).
+            </li>
+            {/*
+              Wording drafted by an engineer and shipped without a lawyer
+              reading it. Recorded here so the next person treats it as
+              provenance-unknown rather than assuming it was reviewed.
+
+              It exists because the upload flow asks authors to confirm "a false
+              statement here may end this project or close my account", and
+              nothing in these terms previously granted Verkli the right to end
+              a single project — §3 and §10 cover closing an ACCOUNT, not
+              removing one book. The capability already existed (admin book
+              deletion); this is the right to use it.
+
+              These two must move together. A promise made in a checkbox that
+              the terms do not support is worse than not asking at all, so if
+              this clause is ever narrowed, narrow
+              RIGHTS_WORDING.consequences in lib/imports/attestation.ts with it.
+            */}
+            <li>
+              You confirm, when you upload a manuscript, that you hold the
+              rights to it and that you wrote it. If that confirmation is
+              untrue, we may remove the affected project, and may suspend or
+              close your account.
             </li>
             <li>
               You must not publish content that infringes on the intellectual

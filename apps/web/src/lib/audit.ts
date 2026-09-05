@@ -54,6 +54,11 @@ export type AuditAction =
   | "book.visibility_change"
   | "book.soft_delete"
   | "book.restore"
+  // Mirror of a row in book_rights_attestations. The typed table is the durable
+  // record; this exists so a rights attestation shows up on the book timeline
+  // next to publishes and takedowns, which is where someone investigating a
+  // dispute will actually look.
+  | "book.rights_attested"
   // chapters
   | "chapter.update"
   | "chapter.soft_delete"

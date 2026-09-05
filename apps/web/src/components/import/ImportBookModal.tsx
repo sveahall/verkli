@@ -2,6 +2,10 @@
 
 import { useState, useEffect, useCallback, useRef } from "react";
 import Link from "next/link";
+import RightsAttestationFields, {
+  useRightsAttestation,
+  appendAttestation,
+} from "@/components/import/RightsAttestationFields";
 import { resolveErrorMessage } from "@/lib/error-messages";
 import { isJobActiveStatus, normalizeJobStatus, type JobStatus } from "@/lib/job-status";
 import { useDocumentVisible } from "@/hooks/useDocumentVisible";
@@ -41,6 +45,7 @@ export function ImportBookModal({ open, onClose, onImportComplete }: ImportBookM
   const isVisible = useDocumentVisible();
   const [importsList, setImportsList] = useState<ImportItem[]>([]);
   const [uploading, setUploading] = useState(false);
+  const attestation = useRightsAttestation();
   const [dragOver, setDragOver] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
@@ -133,6 +138,13 @@ export function ImportBookModal({ open, onClose, onImportComplete }: ImportBookM
   }, [open, importsList, onImportComplete, pendingImportIds, openedAtMs]);
 
   const handleFile = async (file: File) => {
+    // This modal uploads the moment a file lands, so the attestation has to
+    // gate the drop itself rather than a submit button. The dropzone is also
+    // disabled until it is complete; this is the belt for that brace.
+    if (!attestation.complete) {
+      setError("Confirm the rights statements above before uploading.");
+      return;
+    }
     const ext = "." + (file.name.split(".").pop() ?? "").toLowerCase();
     if (!ALLOWED_EXT.includes(ext)) {
       setError("File type is not supported. Use EPUB, DOCX, HTML, or TXT.");
@@ -153,6 +165,7 @@ export function ImportBookModal({ open, onClose, onImportComplete }: ImportBookM
     try {
       const form = new FormData();
       form.append("file", file);
+      appendAttestation(form, attestation.state);
       const res = await fetch("/api/books/import", { method: "POST", body: form });
       const data = await res.json().catch(() => ({}));
 
@@ -161,6 +174,11 @@ export function ImportBookModal({ open, onClose, onImportComplete }: ImportBookM
         return;
       }
 
+      // Reset the affirmation with the file. The modal stays usable while the
+      // import processes, so without this a second manuscript would be
+      // submitted under the previous one's boxes — a legal record for answers
+      // the author never gave about that file.
+      attestation.reset();
       setSuccessMessage("Import started. Your file will be processed shortly.");
       const importId = data.id;
       if (importId) {
@@ -256,6 +274,14 @@ export function ImportBookModal({ open, onClose, onImportComplete }: ImportBookM
           </div>
         )}
 
+        <div className="mx-6 mt-4">
+          <RightsAttestationFields
+            state={attestation.state}
+            onChange={attestation.setState}
+            disabled={uploading}
+          />
+        </div>
+
         <div
           className={`mx-6 mt-4 rounded-2xl border-2 border-dashed p-8 text-center transition-colors ${
             dragOver ? "border-[#907AFF]/50 bg-[#907AFF]/5" : "border-black/20 dark:border-white/20 bg-black/[0.02] dark:bg-white/[0.02]"
@@ -273,7 +299,7 @@ export function ImportBookModal({ open, onClose, onImportComplete }: ImportBookM
             className="hidden"
             id="import-file-input"
             onChange={onFileInputChange}
-            disabled={uploading}
+            disabled={uploading || !attestation.complete}
           />
           <label htmlFor="import-file-input" className="cursor-pointer">
             {uploading ? (

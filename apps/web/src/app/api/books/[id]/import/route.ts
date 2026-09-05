@@ -2,6 +2,9 @@ import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { assertPublicEnv } from "@/lib/env";
 import { requireAuthorRoleForApi } from "@/lib/auth/require-author";
+import { enforceRightsAttestation, linkRightsAttestation } from "@/lib/imports/attestation";
+import { getBookAsOwner } from "@/lib/books/service";
+import { createAdminClient } from "@/lib/supabase/admin";
 import {
   getImportFile,
   parseImportMode,
@@ -16,6 +19,8 @@ import {
   E_MISSING_FILE,
   E_INVALID_IMPORT_MODE,
   E_VALIDATION_FAILED,
+  E_BOOK_NOT_FOUND,
+  E_DATABASE_ERROR,
 } from "@/lib/api-errors";
 
 function readOptionalString(value: FormDataEntryValue | null): string | null {
@@ -62,11 +67,42 @@ export async function POST(
     return apiError(E_INVALID_IMPORT_MODE, 400);
   }
 
+  const supabase = await createClient();
+
+  // Ownership FIRST, before anything durable is written. startScopedBookImport
+  // checks this too, but it runs after the attestation — so without this an
+  // authenticated author could POST any book UUID and leave an immutable
+  // attestation against a book they do not own. The import would 404 and the
+  // legal record would persist.
+  const owned = await getBookAsOwner(supabase, bookId, user.id, "id, author_id");
+  if (!owned.ok) {
+    // A lookup failure is not a missing book. Collapsing both into 404 hides an
+    // outage from monitoring and tells the client something untrue — during a
+    // database incident every import would report the author's book as gone.
+    if (owned.error === "database_error") {
+      return apiError(E_DATABASE_ERROR, 500);
+    }
+    // book_not_found covers "does not exist" and "belongs to someone else"
+    // alike, which is deliberate: the response must not reveal which.
+    return apiError(E_BOOK_NOT_FOUND, 404);
+  }
+
+  // Same gate as /api/books/import. This route has no UI caller, which is
+  // exactly why it must be gated: leaving it open is one curl away from making
+  // the whole attestation decorative.
+  const attestation = await enforceRightsAttestation({
+    request,
+    formData,
+    userId: user.id,
+    bookId,
+    file,
+  });
+  if (!attestation.ok) return attestation.response;
+
   const targetVersionId =
     readOptionalString(formData.get("bookVersionId")) ??
     readOptionalString(formData.get("targetVersionId"));
 
-  const supabase = await createClient();
   const result = await startScopedBookImport({
     supabase,
     userId: user.id,
@@ -75,6 +111,13 @@ export async function POST(
     mode,
     targetVersionId,
   });
+
+  if (result.ok) {
+    await linkRightsAttestation(createAdminClient(), attestation.attestationId, {
+      bookImportId: result.importId,
+      bookId,
+    });
+  }
 
   if (!result.ok) {
     return apiError(
