@@ -24,6 +24,7 @@ const mocks = vi.hoisted(() => ({
   importInsert: vi.fn(),
   importUpdate: vi.fn(),
   importUpdateEq: vi.fn(),
+  sourceResult: vi.fn(),
   startScopedBookImport: vi.fn(),
   storeImportFile: vi.fn(),
   enqueueExtractJob: vi.fn(),
@@ -103,6 +104,7 @@ function expectNoDurableEffects() {
 beforeEach(() => {
   vi.resetAllMocks();
   vi.spyOn(console, "error").mockImplementation(() => {});
+  vi.spyOn(console, "warn").mockImplementation(() => {});
   mocks.requireAuthorRoleForApi.mockResolvedValue({ user: { id: AUTHOR_ID }, response: null });
   mocks.createClient.mockResolvedValue(session);
   mocks.bookLookup.mockResolvedValue({
@@ -112,13 +114,16 @@ beforeEach(() => {
   mocks.bookEq.mockReturnValue({ maybeSingle: mocks.bookLookup });
   mocks.bookSelect.mockReturnValue({ eq: mocks.bookEq });
   mocks.importInsert.mockImplementation(() => selectedId("imp-legacy"));
-  mocks.importUpdateEq.mockResolvedValue({ error: null });
-  mocks.importUpdate.mockReturnValue({ eq: mocks.importUpdateEq });
+  const updateQuery = {
+    eq: mocks.importUpdateEq,
+    select: () => ({ maybeSingle: mocks.sourceResult }),
+    then: (resolve: (result: unknown) => void) => Promise.resolve({ error: null }).then(resolve),
+  };
+  mocks.importUpdateEq.mockReturnValue(updateQuery);
+  mocks.sourceResult.mockResolvedValue({ data: { id: "imp-legacy" }, error: null });
+  mocks.importUpdate.mockReturnValue(updateQuery);
   mocks.sessionFrom.mockImplementation((table: string) => {
     if (table === "books") return { select: mocks.bookSelect };
-    if (table === "book_imports") {
-      return { insert: mocks.importInsert, update: mocks.importUpdate };
-    }
     throw new Error(`Unexpected session table: ${table}`);
   });
   mocks.attestationInsert.mockImplementation(() => selectedId("att-1"));
@@ -126,6 +131,7 @@ beforeEach(() => {
   mocks.attestationUpdate.mockReturnValue({ eq: mocks.attestationLinkEq });
   mocks.auditInsert.mockImplementation(() => selectedId("audit-1"));
   mocks.adminFrom.mockImplementation((table: string) => {
+    if (table === "book_imports") return { insert: mocks.importInsert, update: mocks.importUpdate };
     if (table === "book_rights_attestations") {
       return { insert: mocks.attestationInsert, update: mocks.attestationUpdate };
     }
@@ -361,5 +367,37 @@ describe("POST /api/books/import ownership before attestation", () => {
     expect(mocks.attestationInsert).toHaveBeenCalledTimes(1);
     expect(mocks.auditInsert).not.toHaveBeenCalled();
     expectNoImportEffects();
+  });
+});
+
+
+describe("legacy import durable dispatch", () => {
+  it("guards the initial source write by import, owner and empty path", async () => {
+    expect((await POST(makeMultipartRequest())).status).toBe(200);
+    expect(mocks.importUpdateEq.mock.calls).toEqual([["id", "imp-legacy"], ["author_id", AUTHOR_ID], ["file_path", ""]]);
+  });
+  it("handles a rejected insert request", async () => {
+    mocks.importInsert.mockReturnValue({ select: () => ({ single: async () => { throw new Error("synthetic rejected insert"); } }) });
+    expect((await POST(makeMultipartRequest())).status).toBe(500);
+    expect(mocks.storeImportFile).not.toHaveBeenCalled();
+  });
+  it("handles a rejected source request", async () => {
+    mocks.sourceResult.mockRejectedValue(new Error("synthetic rejected source write"));
+    expect((await POST(makeMultipartRequest())).status).toBe(500);
+    expect(mocks.enqueueExtractJob).not.toHaveBeenCalled();
+  });
+  it.each(["error", "no-row"])("requires a returned source row after %s", async (failure) => {
+    mocks.sourceResult.mockResolvedValue({ data: null, error: failure === "error" ? { message: "synthetic source write failure" } : null });
+    expect((await POST(makeMultipartRequest())).status).toBe(500);
+    expect(mocks.enqueueExtractJob).not.toHaveBeenCalled();
+  });
+  it.each(["null", "throw"])("reports queue %s as unavailable", async (failure) => {
+    if (failure === "null") mocks.enqueueExtractJob.mockResolvedValue(null);
+    else mocks.enqueueExtractJob.mockRejectedValue(new Error("synthetic queue failure"));
+    const response = await POST(makeMultipartRequest());
+    expect(response.status).toBe(503);
+    expect(await response.json()).toMatchObject({ error: "QUEUE_UNAVAILABLE" });
+    expect(mocks.importUpdate).toHaveBeenLastCalledWith(expect.objectContaining({ status: "failed" }));
+    expect(mocks.importUpdateEq).toHaveBeenCalledWith("author_id", AUTHOR_ID);
   });
 });

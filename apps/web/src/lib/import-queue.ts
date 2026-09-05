@@ -1,6 +1,6 @@
 /**
  * BullMQ import queue. Uses REDIS_URL from env.
- * If REDIS_URL is missing, enqueue is skipped and null is returned (API still creates import record).
+ * A dispatch is acknowledged only after Redis confirms the persisted identity and state.
  */
 
 import { Queue } from "bullmq";
@@ -60,34 +60,54 @@ export type ExtractJobData = {
   targetVersionId?: string | null;
 };
 
+const RUNNABLE_STATES = new Set(["waiting", "active", "delayed", "prioritized", "paused"]);
+
+function matchesSource(actual: ExtractJobData, expected: ExtractJobData): boolean {
+  return actual?.importId === expected.importId && actual.authorId === expected.authorId &&
+    actual.filePath === expected.filePath && actual.fileStorage === expected.fileStorage;
+}
+
+function matchesPayload(actual: ExtractJobData, expected: ExtractJobData): boolean {
+  return matchesSource(actual, expected) && actual.mode === expected.mode && (actual.bookId ?? null) === (expected.bookId ?? null) &&
+    (actual.targetVersionId ?? null) === (expected.targetVersionId ?? null);
+}
+
 export async function enqueueExtractJob(data: ExtractJobData): Promise<string | null> {
-  const url = getRedisUrl();
-  if (!url || url.trim() === "") {
-    console.warn("[import queue] REDIS_URL not set — job not enqueued. Import record created; set REDIS_URL and run worker to process.");
-    return null;
-  }
+  if (!getRedisUrl()?.trim()) return null;
   const q = getImportQueue();
-  if (!q) {
-    console.warn("[import queue] Redis not reachable (invalid REDIS_URL?) — job not enqueued. Import record created; fix REDIS_URL and run worker.");
-    return null;
-  }
+  if (!q) return null;
 
   try {
-    const job = await q.add("extract", data, { jobId: data.importId });
-    const jobId = job.id ?? null;
-    if (jobId) {
-      console.info("[import queue] Job enqueued:", jobId, "importId:", data.importId);
+    const existing = await q.getJob(data.importId);
+    if (existing) {
+      if (!matchesSource(existing.data, data) || existing.id !== data.importId) {
+        throw new Error("Existing import job does not match the requested dispatch");
+      }
+      const state = await existing.getState();
+      if (state === "failed" || state === "completed") {
+        // Result book/version pointers may change before a worker fails. The
+        // original owned source must still match before removing a retained ID.
+        await existing.remove();
+      } else {
+        if (!RUNNABLE_STATES.has(state) || !matchesPayload(existing.data, data)) {
+          throw new Error("Existing import job does not match the requested dispatch");
+        }
+        return existing.id;
+      }
     }
-    return jobId;
-  } catch (err) {
-    const msg = err instanceof Error ? err.message : String(err);
-    if (msg.toLowerCase().includes("job") && msg.toLowerCase().includes("exists")) {
-      const existing = await q.getJob(data.importId);
-      const existingId = existing?.id ?? null;
-      console.warn("[import queue] duplicate enqueue ignored, using existing job:", existingId ?? data.importId);
-      return existingId;
+    await q.add("extract", data, { jobId: data.importId });
+    // add() may silently return a duplicate ID. Inspect the actual Redis job.
+    const persisted = await q.getJob(data.importId);
+    if (!persisted || persisted.id !== data.importId || !matchesPayload(persisted.data, data)) {
+      throw new Error("Import dispatch could not be confirmed");
     }
-    console.error("[import queue] failed to enqueue extract job:", msg, "importId:", data.importId);
-    throw err;
+    const state = await persisted.getState();
+    if (!RUNNABLE_STATES.has(state) && state !== "completed") {
+      throw new Error("Import dispatch is not runnable");
+    }
+    return persisted.id;
+  } catch (error) {
+    console.error("[import queue] dispatch failed", { importId: data.importId, category: "dispatch_unconfirmed" });
+    throw error;
   }
 }

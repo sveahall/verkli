@@ -49,7 +49,9 @@ export function ImportBookModal({ open, onClose, onImportComplete }: ImportBookM
   const [dragOver, setDragOver] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
-  const [redisHint, setRedisHint] = useState(false);
+  const [retryingIds, setRetryingIds] = useState<string[]>([]);
+  const retryRequestsRef = useRef(new Map<string, AbortController>());
+  const retriedImportIdsRef = useRef(new Set<string>());
   const [pendingImportIds, setPendingImportIds] = useState<string[]>([]);
   const [openedAtMs, setOpenedAtMs] = useState<number | null>(null);
   const fetchAbortRef = useRef<AbortController | null>(null);
@@ -70,6 +72,7 @@ export function ImportBookModal({ open, onClose, onImportComplete }: ImportBookM
       });
       if (res.ok) {
         const data = await res.json();
+        if (controller.signal.aborted) return;
         const normalized = ((data.imports as ImportItem[] | undefined) ?? []).map((item) => ({
           ...item,
           status: toImportStatus(item.status),
@@ -77,10 +80,11 @@ export function ImportBookModal({ open, onClose, onImportComplete }: ImportBookM
         setImportsList(normalized);
       }
     } catch (error) {
+      if (controller.signal.aborted) return;
       if (error instanceof DOMException && error.name === "AbortError") {
         return;
       }
-      setImportsList([]);
+      // A failed refresh does not invalidate the last confirmed list.
     } finally {
       if (fetchAbortRef.current === controller) {
         fetchAbortRef.current = null;
@@ -89,21 +93,30 @@ export function ImportBookModal({ open, onClose, onImportComplete }: ImportBookM
   }, []);
 
   useEffect(() => {
+    const requests = retryRequestsRef.current;
+    const cancelRetries = () => {
+      for (const controller of requests.values()) controller.abort();
+      requests.clear();
+    };
+    cancelRetries();
+    setRetryingIds([]);
     if (!open) {
       fetchAbortRef.current?.abort();
       fetchAbortRef.current = null;
       setPendingImportIds([]);
+      retriedImportIdsRef.current.clear();
       setOpenedAtMs(null);
       setImportsList([]);
-      return;
+      return cancelRetries;
     }
 
     setError(null);
     setSuccessMessage(null);
-    setRedisHint(false);
     setPendingImportIds([]);
+    retriedImportIdsRef.current.clear();
     setOpenedAtMs(Date.now());
     fetchImports();
+    return cancelRetries;
   }, [open, fetchImports]);
 
   useEffect(() => {
@@ -128,7 +141,7 @@ export function ImportBookModal({ open, onClose, onImportComplete }: ImportBookM
       (item) =>
         pendingImportIds.includes(item.id) &&
         item.status === "completed" &&
-        parseTimestamp(item.created_at) >= openedAtMs - 1_000 &&
+        (parseTimestamp(item.created_at) >= openedAtMs - 1_000 || retriedImportIdsRef.current.has(item.id)) &&
         item.book_id
     );
     if (!completed) return;
@@ -136,6 +149,45 @@ export function ImportBookModal({ open, onClose, onImportComplete }: ImportBookM
     setPendingImportIds((prev) => prev.filter((id) => id !== completed.id));
     onImportComplete(completed.book_id!, completed.book_version_id ?? null);
   }, [open, importsList, onImportComplete, pendingImportIds, openedAtMs]);
+
+  const handleRetry = async (importId: string) => {
+    // State updates render asynchronously; the ref also guards same-tick clicks.
+    if (retryRequestsRef.current.has(importId)) return;
+    const controller = new AbortController();
+    retryRequestsRef.current.set(importId, controller);
+    setRetryingIds((prev) => [...prev, importId]);
+    setError(null);
+    setSuccessMessage(null);
+    try {
+      const res = await fetch(`/api/books/imports/${importId}`, { method: "POST", signal: controller.signal });
+      const data = await res.json().catch(() => ({}));
+      if (controller.signal.aborted) return;
+      if (!res.ok) {
+        setError(resolveErrorMessage(data?.error));
+        // Dispatch may have raced with another request or worker advancement.
+        await fetchImports();
+        return;
+      }
+      retriedImportIdsRef.current.add(importId);
+      setPendingImportIds((prev) => [...new Set([...prev, importId])]);
+      setImportsList((prev) => prev.map((item) => item.id === importId
+        ? { ...item, status: "pending", progress: 0, error: null }
+        : item));
+      setSuccessMessage("Import queued again.");
+      await fetchImports();
+    } catch {
+      if (!controller.signal.aborted) {
+        setError("The import could not be retried. Try again.");
+        await fetchImports();
+      }
+    } finally {
+      // An older modal session must not clear a newer request for the same ID.
+      if (retryRequestsRef.current.get(importId) === controller) {
+        retryRequestsRef.current.delete(importId);
+        setRetryingIds((prev) => prev.filter((id) => id !== importId));
+      }
+    }
+  };
 
   const handleFile = async (file: File) => {
     // This modal uploads the moment a file lands, so the attestation has to
@@ -160,7 +212,6 @@ export function ImportBookModal({ open, onClose, onImportComplete }: ImportBookM
     }
     setError(null);
     setSuccessMessage(null);
-    setRedisHint(false);
     setUploading(true);
     try {
       const form = new FormData();
@@ -196,15 +247,6 @@ export function ImportBookModal({ open, onClose, onImportComplete }: ImportBookM
           },
           ...prev,
         ]);
-      }
-
-      const msg = (data.message ?? "").toLowerCase();
-      if (
-        msg.includes("redis") ||
-        msg.includes("worker") ||
-        msg.includes("start redis")
-      ) {
-        setRedisHint(true);
       }
     } catch (err) {
       // Previously a network failure reset `uploading` in `finally` but
@@ -265,12 +307,6 @@ export function ImportBookModal({ open, onClose, onImportComplete }: ImportBookM
         {successMessage && (
           <div className="mx-6 mt-4 rounded-xl border border-green-200 dark:border-green-900/50 bg-green-50 dark:bg-green-950/30 px-4 py-3 text-[14px] text-green-700 dark:text-green-300">
             {successMessage}
-          </div>
-        )}
-
-        {redisHint && (
-          <div className="mx-6 mt-4 rounded-xl border border-amber-200 dark:border-amber-900/50 bg-amber-50 dark:bg-amber-950/30 px-4 py-3 text-[14px] text-amber-800 dark:text-amber-200">
-            Your file is queued. Processing may take a while. If nothing happens, try again later.
           </div>
         )}
 
@@ -368,6 +404,16 @@ export function ImportBookModal({ open, onClose, onImportComplete }: ImportBookM
                       )}
                     </p>
                   </div>
+                  {imp.status === "failed" && (
+                    <button
+                      type="button"
+                      onClick={() => handleRetry(imp.id)}
+                      disabled={retryingIds.includes(imp.id)}
+                      className="min-h-11 min-w-11 shrink-0 rounded-lg px-2 py-1 text-[12px] font-medium text-[#5c4bb8] dark:text-[#b8a9ff] hover:bg-[#907AFF]/10 disabled:cursor-wait disabled:opacity-50"
+                    >
+                      {retryingIds.includes(imp.id) ? "Retrying..." : "Try again"}
+                    </button>
+                  )}
                   <span
                     className={`shrink-0 rounded-full px-2.5 py-1 text-[11px] font-medium ${
                       imp.status === "completed"
