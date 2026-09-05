@@ -357,6 +357,7 @@ export default function AuthorSidebar({
       {/* ── Mobile bottom nav ── */}
       <nav
         aria-label="Author navigation"
+        data-mobile-bottom-nav
         className="fixed bottom-0 left-0 right-0 z-[9990] border-t border-[#ECEAF5] bg-white/95 shadow-[0_-8px_24px_rgba(15,23,42,0.06)] backdrop-blur-2xl dark:border-white/10 dark:bg-[#050917]/95 lg:hidden"
       >
         <div className="mx-auto flex max-w-md items-center justify-around px-4 pb-[calc(env(safe-area-inset-bottom,0px)+0.5rem)] pt-2">
