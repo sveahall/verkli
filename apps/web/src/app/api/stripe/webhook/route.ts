@@ -1,3 +1,4 @@
+import { STRIPE_API_VERSION } from "@/lib/payments/stripe";
 import Stripe from "stripe";
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
@@ -40,7 +41,7 @@ export async function POST(request: Request) {
     return apiError(E_INVALID_REQUEST_BODY, 400);
   }
 
-  const stripe = new Stripe(stripeSecretKey);
+  const stripe = new Stripe(stripeSecretKey, { apiVersion: STRIPE_API_VERSION });
   let event: StripeWebhookEvent;
   try {
     const constructed = stripe.webhooks.constructEvent(

@@ -1,3 +1,4 @@
+import { STRIPE_API_VERSION } from "./stripe";
 const STRIPE_API_BASE = "https://api.stripe.com/v1";
 
 type StripeRecord = Record<string, unknown>;
@@ -47,6 +48,7 @@ async function stripeRequest(path: string, init: RequestInit): Promise<unknown> 
     ...init,
     headers: {
       Authorization: `Bearer ${key}`,
+      "Stripe-Version": STRIPE_API_VERSION,
       ...(init.body ? { "Content-Type": "application/x-www-form-urlencoded" } : {}),
       ...(init.headers ?? {}),
     },
