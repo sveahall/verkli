@@ -222,7 +222,7 @@ export default function PricingPageContent({ annualAvailable }: { annualAvailabl
           <Reveal delay={80}>
             {/* Gradient border wrapper */}
             <div className="h-full rounded-[30px] p-[1.5px]" style={{ background: "linear-gradient(135deg, #907AFF 0%, #E29ED5 55%, #FCC997 100%)" }}>
-              <div className="relative flex h-full flex-col overflow-hidden rounded-[28.5px] bg-[#0f0c24] p-8">
+              <div className="keep-white relative flex h-full flex-col overflow-hidden rounded-[28.5px] bg-[#0f0c24] p-8">
                 {/* Inner ambient glow */}
                 <div className="pointer-events-none absolute -left-16 -top-16 h-[280px] w-[280px] rounded-full blur-[100px]" style={{ background: BRAND_COLORS.violet, opacity: 0.25 }} />
                 <div className="pointer-events-none absolute -bottom-12 -right-12 h-[200px] w-[200px] rounded-full blur-[80px]" style={{ background: BRAND_COLORS.rose, opacity: 0.15 }} />
@@ -234,12 +234,12 @@ export default function PricingPageContent({ annualAvailable }: { annualAvailabl
                       <span className="text-[52px] font-semibold leading-none tracking-[-0.05em] text-white">
                         ${displayPrice}
                       </span>
-                      <span className="mb-2 text-[14px] text-white/40">/month</span>
+                      <span className="mb-2 text-[14px] text-white/70">/month</span>
                     </div>
                     {annual && (
-                      <p className="mt-1 text-[12px] text-white/35">Billed ${proAnnualPerMonth * 12}/year</p>
+                      <p className="mt-1 text-[12px] text-white/70">Billed ${proAnnualPerMonth * 12}/year</p>
                     )}
-                    <p className="mt-3 text-[14px] leading-[1.6] text-white/50">Full AI suite — translation, audio, video, marketing.</p>
+                    <p className="mt-3 text-[14px] leading-[1.6] text-white/70">Full AI suite — translation, audio, video, marketing.</p>
                   </div>
                   <span className="rounded-full bg-[#907AFF]/20 px-3 py-1 text-[11px] font-semibold text-[#c4a8ff] ring-1 ring-[#907AFF]/30">Most popular</span>
                 </div>
@@ -268,7 +268,7 @@ export default function PricingPageContent({ annualAvailable }: { annualAvailabl
 
                 <Link
                   href="/author/signup"
-                  className="relative mt-8 block rounded-full px-6 py-3.5 text-center text-[14px] font-semibold text-white transition-all duration-200 hover:opacity-90"
+                  className="relative mt-8 block rounded-full px-6 py-3.5 text-center text-[14px] font-semibold text-slate-950 transition-all duration-200 hover:opacity-90"
                   style={{ background: "linear-gradient(135deg, #907AFF 0%, #c894e6 100%)", boxShadow: "0 8px 32px rgba(144,122,255,0.35)" }}
                 >
                   Get Pro
@@ -360,21 +360,21 @@ export default function PricingPageContent({ annualAvailable }: { annualAvailabl
       {/* ── CTA ── */}
       <section className="mx-auto mt-24 w-full max-w-[900px] px-6 pb-28">
         <Reveal>
-          <div className="relative overflow-hidden rounded-[32px] px-10 py-16 text-center" style={{ background: "#0b0819" }}>
+          <div className="keep-white relative overflow-hidden rounded-[32px] px-10 py-16 text-center" style={{ background: "#0b0819" }}>
             <div className="pointer-events-none absolute -left-16 -top-16 h-[320px] w-[320px] rounded-full blur-[100px]" style={{ background: BRAND_COLORS.violet, opacity: 0.28 }} />
             <div className="pointer-events-none absolute -bottom-16 -right-16 h-[260px] w-[260px] rounded-full blur-[100px]" style={{ background: BRAND_COLORS.rose, opacity: 0.18 }} />
             {/* Gradient border */}
             <div className="pointer-events-none absolute inset-0 rounded-[32px] ring-1 ring-inset" style={{ background: "linear-gradient(135deg, rgba(144,122,255,0.3) 0%, rgba(226,158,213,0.15) 100%)", WebkitMaskImage: "linear-gradient(#fff 0 0)", maskMode: "luminance", WebkitMaskComposite: "destination-in" }} />
 
             <div className="relative">
-              <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-white/30">Get started today</p>
+              <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-white/70">Get started today</p>
               <h2 className="mt-4 text-[clamp(28px,3.5vw,48px)] font-semibold leading-[1.05] tracking-[-0.04em] text-white">
                 Your first book is free.{" "}
                 <span className="bg-[linear-gradient(110deg,#907AFF_0%,#E29ED5_55%,#FCC997_100%)] bg-clip-text text-transparent">
                   Always.
                 </span>
               </h2>
-              <p className="mx-auto mt-5 max-w-[380px] text-[15px] leading-[1.65] text-white/40">
+              <p className="mx-auto mt-5 max-w-[380px] text-[15px] leading-[1.65] text-white/70">
                 Sign up in seconds. No credit card required. Add Pro when you&apos;re ready to scale.
               </p>
               <div className="mt-9 flex flex-col items-center gap-3 sm:flex-row sm:justify-center">
