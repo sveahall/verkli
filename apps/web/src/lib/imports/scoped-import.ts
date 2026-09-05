@@ -1,3 +1,4 @@
+import { createAdminClient } from "@/lib/supabase/admin";
 import { storeImportFile } from "@/lib/import-storage";
 import { enqueueExtractJob, type ImportMode } from "@/lib/import-queue";
 import type { createClient } from "@/lib/supabase/server";
@@ -7,6 +8,7 @@ import {
   E_IMPORT_FILE_STORAGE_FAILED,
   E_IMPORT_RECORD_CREATION_FAILED,
   E_INVALID_BOOK_VERSION,
+  E_QUEUE_UNAVAILABLE,
 } from "@/lib/api-errors";
 
 export const IMPORT_ALLOWED_EXTENSIONS = [".epub", ".docx", ".html", ".htm", ".txt", ".pdf"] as const;
@@ -59,7 +61,7 @@ export type ScopedImportResult =
   | {
       ok: true;
       importId: string;
-      jobId: string | null;
+      jobId: string;
       mode: ImportMode;
       targetVersionId: string | null;
       message: string;
@@ -142,7 +144,8 @@ export async function startScopedBookImport({
     }
   }
 
-  const { data: insertRow, error: insertError } = await supabase
+  const admin = createAdminClient();
+  const { data: insertRow, error: insertError } = await admin
     .from("book_imports")
     .insert({
       author_id: userId,
@@ -156,7 +159,8 @@ export async function startScopedBookImport({
       progress: 0,
     })
     .select("id")
-    .single();
+    .single()
+    .then((result) => result, () => ({ data: null, error: { message: "Import record creation request failed" } }));
 
   const importRow = insertRow as { id: string } | null;
 
@@ -169,18 +173,27 @@ export async function startScopedBookImport({
     return { ok: false, status: 500, errorKey: E_IMPORT_RECORD_CREATION_FAILED };
   }
 
+  const failImport = async (message: string) => {
+    try {
+      const { error } = await admin.from("book_imports")
+        .update({ status: "failed", error_message: message })
+        .eq("id", importRow.id)
+        .eq("author_id", userId)
+        .eq("status", "pending");
+      if (error) console.error("[book-import] failure update failed", { importId: importRow.id, userId, message: error.message });
+    } catch {
+      console.error("[book-import] failure update failed", { importId: importRow.id, userId, category: "database_unavailable" });
+    }
+  };
+
   const buffer = Buffer.from(await file.arrayBuffer());
   const stored = await storeImportFile(userId, importRow.id, file.name, buffer);
-
   if (!stored.ok) {
-    await supabase
-      .from("book_imports")
-      .update({ status: "failed", error_message: stored.error })
-      .eq("id", importRow.id);
+    await failImport(stored.error);
     return { ok: false, status: 500, errorKey: E_IMPORT_FILE_STORAGE_FAILED };
   }
 
-  await supabase
+  const { data: sourceRow, error: sourceError } = await admin
     .from("book_imports")
     .update({
       file_path: stored.filePath,
@@ -188,7 +201,18 @@ export async function startScopedBookImport({
       status: "pending",
       error_message: null,
     })
-    .eq("id", importRow.id);
+    .eq("id", importRow.id)
+    .eq("author_id", userId)
+    .eq("file_path", "")
+    .select("id")
+    .maybeSingle()
+    .then((result) => result, () => ({ data: null, error: { message: "Import source update request failed" } }));
+
+  if (sourceError || !sourceRow) {
+    console.error("[book-import] source update failed", { importId: importRow.id, userId, message: sourceError?.message });
+    await failImport("Import source could not be recorded");
+    return { ok: false, status: 500, errorKey: E_IMPORT_RECORD_CREATION_FAILED };
+  }
 
   let jobId: string | null = null;
   try {
@@ -201,23 +225,14 @@ export async function startScopedBookImport({
       mode,
       targetVersionId,
     });
-  } catch (error) {
-    console.warn("[book-import] enqueue failed", {
-      bookId,
-      userId,
-      importId: importRow.id,
-      message: error instanceof Error ? error.message : String(error),
-    });
+  } catch {
+    console.error("[book-import] dispatch unconfirmed", { bookId, userId, importId: importRow.id });
+  }
+  if (!jobId) {
+    console.error("[book-import] queue unavailable", { bookId, userId, importId: importRow.id });
+    await failImport(E_QUEUE_UNAVAILABLE);
+    return { ok: false, status: 503, errorKey: E_QUEUE_UNAVAILABLE };
   }
 
-  return {
-    ok: true,
-    importId: importRow.id,
-    jobId,
-    mode,
-    targetVersionId,
-    message: jobId
-      ? "Import queued"
-      : "Import created; start Redis and run the worker to process (see server log).",
-  };
+  return { ok: true, importId: importRow.id, jobId, mode, targetVersionId, message: "Import queued" };
 }

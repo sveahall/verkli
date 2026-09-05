@@ -25,6 +25,7 @@ import {
   E_INVALID_BOOK_ID,
   E_BOOK_NOT_FOUND,
   E_DATABASE_ERROR,
+  E_QUEUE_UNAVAILABLE,
 } from "@/lib/api-errors";
 
 function readOptionalString(value: FormDataEntryValue | null): string | null {
@@ -136,7 +137,8 @@ export async function POST(request: Request) {
 
   // Legacy import flow (no explicit bookId): create import record and let worker create a new book.
   const buffer = Buffer.from(await file.arrayBuffer());
-  const { data: importRow, error: insertError } = await supabase
+  const admin = createAdminClient();
+  const { data: importRow, error: insertError } = await admin
     .from("book_imports")
     .insert({
       author_id: user.id,
@@ -148,7 +150,8 @@ export async function POST(request: Request) {
       progress: 0,
     })
     .select("id")
-    .single();
+    .single()
+    .then((result) => result, () => ({ data: null, error: { message: "Import record creation request failed" } }));
 
   if (insertError || !importRow?.id) {
     console.error("[book-import.legacy] insert failed", {
@@ -167,16 +170,26 @@ export async function POST(request: Request) {
     bookImportId: importRow.id,
   });
 
+  const failImport = async (message: string) => {
+    try {
+      const { error } = await admin.from("book_imports")
+        .update({ status: "failed", error_message: message })
+        .eq("id", importRow.id)
+        .eq("author_id", user.id)
+        .eq("status", "pending");
+      if (error) console.error("[book-import.legacy] failure update failed", { importId: importRow.id, userId: user.id, message: error.message });
+    } catch {
+      console.error("[book-import.legacy] failure update failed", { importId: importRow.id, userId: user.id, category: "database_unavailable" });
+    }
+  };
+
   const store = await storeImportFile(user.id, importRow.id, file.name, buffer);
   if (!store.ok) {
-    await supabase
-      .from("book_imports")
-      .update({ status: "failed", error_message: store.error })
-      .eq("id", importRow.id);
+    await failImport(store.error);
     return apiError(E_IMPORT_FILE_STORAGE_FAILED, 500);
   }
 
-  const { error: updatePathError } = await supabase
+  const { data: sourceRow, error: updatePathError } = await admin
     .from("book_imports")
     .update({
       file_path: store.filePath,
@@ -184,18 +197,16 @@ export async function POST(request: Request) {
       status: "pending",
       error_message: null,
     })
-    .eq("id", importRow.id);
+    .eq("id", importRow.id)
+    .eq("author_id", user.id)
+    .eq("file_path", "")
+    .select("id")
+    .maybeSingle()
+    .then((result) => result, () => ({ data: null, error: { message: "Import source update request failed" } }));
 
-  if (updatePathError) {
-    console.error("[book-import.legacy] file_path update failed", {
-      userId: user.id,
-      importId: importRow.id,
-      message: updatePathError.message,
-    });
-    await supabase
-      .from("book_imports")
-      .update({ status: "failed", error_message: updatePathError.message })
-      .eq("id", importRow.id);
+  if (updatePathError || !sourceRow) {
+    console.error("[book-import.legacy] source update failed", { userId: user.id, importId: importRow.id, message: updatePathError?.message });
+    await failImport("Import source could not be recorded");
     return apiError(E_IMPORT_RECORD_CREATION_FAILED, 500);
   }
 
@@ -218,16 +229,9 @@ export async function POST(request: Request) {
   }
 
   if (!jobId) {
-    const queueError = "Queue unavailable";
-    console.error("[book-import.legacy] enqueue failed; queue unavailable", {
-      userId: user.id,
-      importId: importRow.id,
-    });
-    await supabase
-      .from("book_imports")
-      .update({ status: "failed", error_message: queueError })
-      .eq("id", importRow.id);
-    return apiError(E_IMPORT_RECORD_CREATION_FAILED, 500);
+    console.error("[book-import.legacy] queue unavailable", { userId: user.id, importId: importRow.id });
+    await failImport(E_QUEUE_UNAVAILABLE);
+    return apiError(E_QUEUE_UNAVAILABLE, 503);
   }
 
   return NextResponse.json({
