@@ -6,6 +6,7 @@
 // lib/queues/admin-queue-stats.ts (shared with the dashboard backlog).
 
 import { loadQueueRows } from "@/lib/queues/admin-queue-stats";
+import { RetryFailedButton } from "./RetryFailedButton";
 import { PageHeader } from "@/components/ui/page-header";
 import { Breadcrumbs } from "@/components/ui/breadcrumbs";
 import { Card } from "@/components/ui/card";
@@ -51,6 +52,7 @@ export default async function AdminQueuesPage() {
               <TableHead className="text-right">Failed</TableHead>
               <TableHead className="text-right">Paused</TableHead>
               <TableHead className="text-right">Attempts</TableHead>
+              <TableHead className="text-right">Actions</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -105,6 +107,12 @@ export default async function AdminQueuesPage() {
                 )}
                 <TableCell className="text-right tabular-nums">
                   {row.attempts}
+                </TableCell>
+                <TableCell className="text-right">
+                  <RetryFailedButton
+                    queueName={row.name}
+                    failedCount={row.counts?.failed ?? 0}
+                  />
                 </TableCell>
               </TableRow>
             ))}
