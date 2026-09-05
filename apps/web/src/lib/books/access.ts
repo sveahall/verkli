@@ -13,6 +13,111 @@ export type ReadAccessResult =
   | { access: "preview"; reason: "first_chapter"; isLastPreview: boolean }
   | { access: "locked" };
 
+type BookPurchaseEntitlementLookupResult =
+  | { status: "present" }
+  | { status: "absent" }
+  | { status: "unavailable"; error: unknown };
+
+type BookPurchaseEntitlementLookupArgs = {
+  supabase: SupabaseLikeClient;
+  userId: string;
+  bookId: string;
+};
+
+function isNonEmptyString(value: unknown): value is string {
+  return typeof value === "string" && value.trim().length > 0;
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return value !== null && typeof value === "object" && !Array.isArray(value);
+}
+
+function unavailableForMalformedEntitlement(): BookPurchaseEntitlementLookupResult {
+  return {
+    status: "unavailable",
+    error: new Error("[purchase access] Entitlement lookup returned malformed data"),
+  };
+}
+
+function isMissingEntitlementChapterColumn(error: unknown): boolean {
+  if (!isRecord(error)) return false;
+  return error.code === "42703"
+    && error.message === "column entitlements.chapter_id does not exist";
+}
+
+async function lookupLegacyBookPurchaseEntitlement({
+  supabase,
+  userId,
+  bookId,
+}: BookPurchaseEntitlementLookupArgs): Promise<BookPurchaseEntitlementLookupResult> {
+  try {
+    const { data, error } = await supabase
+      .from("entitlements")
+      .select("*")
+      .eq("user_id", userId)
+      .eq("book_id", bookId)
+      .eq("source", "purchase")
+      .maybeSingle();
+
+    if (error !== null) return { status: "unavailable", error };
+    if (data === null) return { status: "absent" };
+    if (!isRecord(data)
+      || !isNonEmptyString(data.id)
+      || data.user_id !== userId
+      || data.book_id !== bookId
+      || data.source !== "purchase") {
+      return unavailableForMalformedEntitlement();
+    }
+
+    const hasChapterId = Object.prototype.hasOwnProperty.call(data, "chapter_id");
+    if (hasChapterId && data.chapter_id !== null) {
+      return unavailableForMalformedEntitlement();
+    }
+
+    return { status: "present" };
+  } catch (error) {
+    return { status: "unavailable", error };
+  }
+}
+
+export async function lookupBookPurchaseEntitlement({
+  supabase,
+  userId,
+  bookId,
+}: BookPurchaseEntitlementLookupArgs): Promise<BookPurchaseEntitlementLookupResult> {
+  if (!isNonEmptyString(userId) || !isNonEmptyString(bookId)) {
+    return {
+      status: "unavailable",
+      error: new Error("[purchase access] Invalid entitlement lookup identifiers"),
+    };
+  }
+
+  try {
+    const { data, error } = await supabase
+      .from("entitlements")
+      .select("id")
+      .eq("user_id", userId)
+      .eq("book_id", bookId)
+      .eq("source", "purchase")
+      .is("chapter_id", null)
+      .maybeSingle();
+
+    if (error !== null) {
+      if (isMissingEntitlementChapterColumn(error)) {
+        return lookupLegacyBookPurchaseEntitlement({ supabase, userId, bookId });
+      }
+      return { status: "unavailable", error };
+    }
+    if (data === null) return { status: "absent" };
+    if (!isRecord(data) || !isNonEmptyString(data.id)) {
+      return unavailableForMalformedEntitlement();
+    }
+    return { status: "present" };
+  } catch (error) {
+    return { status: "unavailable", error };
+  }
+}
+
 type GetReadAccessArgs = {
   supabase: SupabaseLikeClient;
   userId: string | null | undefined;
@@ -75,23 +180,19 @@ export async function getReadAccess({
   }
 
   if (userId) {
-    // Book-level entitlement (chapter_id IS NULL) grants access to everything
-    const { data: bookEntitlement } = await supabase
-      .from("entitlements")
-      .select("id")
-      .eq("user_id", userId)
-      .eq("book_id", bookId)
-      .eq("source", "purchase")
-      .is("chapter_id", null)
-      .maybeSingle();
+    const bookEntitlement = await lookupBookPurchaseEntitlement({
+      supabase,
+      userId,
+      bookId,
+    });
 
-    if (bookEntitlement) {
+    if (bookEntitlement.status === "present") {
       return { access: "full", reason: "purchased" };
     }
 
     // For per_chapter: check chapter-specific entitlement
     if (pricingModel === "per_chapter") {
-      const { data: chapterEntitlement } = await supabase
+      const { data: chapterEntitlement, error: chapterEntitlementError } = await supabase
         .from("entitlements")
         .select("id")
         .eq("user_id", userId)
@@ -100,7 +201,9 @@ export async function getReadAccess({
         .eq("source", "purchase")
         .maybeSingle();
 
-      if (chapterEntitlement) {
+      if (chapterEntitlementError === null
+        && isRecord(chapterEntitlement)
+        && isNonEmptyString(chapterEntitlement.id)) {
         return { access: "full", reason: "purchased" };
       }
     }
@@ -217,17 +320,13 @@ export async function canUserReadBook({
     return false;
   }
 
-  // Book-level entitlement (chapter_id IS NULL)
-  const { data: entitlement } = await supabase
-    .from("entitlements")
-    .select("id")
-    .eq("user_id", userId)
-    .eq("book_id", bookId)
-    .eq("source", "purchase")
-    .is("chapter_id", null)
-    .maybeSingle();
+  const entitlement = await lookupBookPurchaseEntitlement({
+    supabase,
+    userId,
+    bookId,
+  });
 
-  if (entitlement) {
+  if (entitlement.status === "present") {
     return true;
   }
 
