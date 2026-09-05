@@ -216,8 +216,7 @@ export default async function ReaderHomePage() {
         // An empty shelf and a broken query look identical to the reader. Only
         // one of them is worth waking up to.
         console.error("[reader/home] continue-reading load failed", {
-          userId: user.id,
-          message: readingsError.message,
+          code: readingsError.code,
         });
         return [];
       }
