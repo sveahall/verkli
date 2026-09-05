@@ -73,6 +73,7 @@ export default function AdminBooksPage() {
   const [error, setError] = useState("");
   const [pendingDelete, setPendingDelete] = useState<BookRow | null>(null);
   const [deleting, setDeleting] = useState(false);
+  const [statusBusyId, setStatusBusyId] = useState<string | null>(null);
 
   const loadBooks = async (pageNum = 1) => {
     setError("");
@@ -100,6 +101,45 @@ export default function AdminBooksPage() {
       setError("Could not load books.");
     } finally {
       setLoading(false);
+    }
+  };
+
+  /**
+   * Publish / unpublish. Until this existed the only lever over a live book was
+   * Delete, which cascades chapters, versions and jobs — so "this must not be
+   * public right now" meant destroying it. Unpublish sends DRAFT: reversible,
+   * and the author keeps the book.
+   */
+  const setBookStatus = async (book: BookRow, status: "DRAFT" | "PUBLISHED") => {
+    setStatusBusyId(book.id);
+    setError("");
+    try {
+      const res = await fetch("/api/admin/books", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ bookId: book.id, status }),
+      });
+
+      if (!res.ok) {
+        // Same rule as delete: never move the row optimistically, because that
+        // hides a permission or RLS failure behind a UI that looks like it worked.
+        const body = (await res.json().catch(() => null)) as { error?: unknown } | null;
+        const detail =
+          body && typeof body.error === "string"
+            ? body.error
+            : `Status change failed (${res.status})`;
+        const verb = status === "PUBLISHED" ? "publish" : "unpublish";
+        setError(`Could not ${verb} \u201c${book.title}\u201d: ${detail}`);
+        return;
+      }
+
+      setBooks((prev) =>
+        prev.map((row) => (row.id === book.id ? { ...row, status } : row))
+      );
+    } catch {
+      setError("Could not reach the server. The book was not changed.");
+    } finally {
+      setStatusBusyId(null);
     }
   };
 
@@ -283,6 +323,27 @@ export default function AdminBooksPage() {
                           >
                             View
                           </Link>
+                          {b.status === "PUBLISHED" ? (
+                            <Button
+                              type="button"
+                              variant="secondary"
+                              size="sm"
+                              disabled={statusBusyId === b.id}
+                              onClick={() => setBookStatus(b, "DRAFT")}
+                            >
+                              {statusBusyId === b.id ? "Working\u2026" : "Unpublish"}
+                            </Button>
+                          ) : (
+                            <Button
+                              type="button"
+                              variant="secondary"
+                              size="sm"
+                              disabled={statusBusyId === b.id}
+                              onClick={() => setBookStatus(b, "PUBLISHED")}
+                            >
+                              {statusBusyId === b.id ? "Working\u2026" : "Publish"}
+                            </Button>
+                          )}
                           <Button
                             type="button"
                             variant="destructive"

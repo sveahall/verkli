@@ -1,7 +1,13 @@
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { requireAdminRoleForApi } from "@/lib/admin-auth";
-import { apiError, E_DATABASE_ERROR, E_INVALID_BOOK_ID, isValidUuid } from "@/lib/api-errors";
+import {
+  apiError,
+  E_DATABASE_ERROR,
+  E_INVALID_BOOK_ID,
+  E_INVALID_REQUEST_BODY,
+  isValidUuid,
+} from "@/lib/api-errors";
 
 export async function GET(request: Request) {
   const { response } = await requireAdminRoleForApi();
@@ -162,4 +168,102 @@ export async function DELETE(request: Request) {
   }
 
   return NextResponse.json({ ok: true, bookId });
+}
+
+/**
+ * Change a book's publication status.
+ *
+ * Until now the only lever admin had over a live book was DELETE, which
+ * cascades chapters, versions, jobs and assets. So the answer to "this must not
+ * be public right now" was "destroy it and everything under it" — and on launch
+ * day, with a book that is merely wrong rather than illegitimate, that is not an
+ * answer anyone should have to give.
+ *
+ * DRAFT is what the UI's Unpublish sends: reversible, and the author keeps the
+ * book in their workbench. ARCHIVED stays available here for a real takedown.
+ * Both are accepted rather than one being hardcoded, because the difference is a
+ * judgement about the book, not about the plumbing.
+ */
+const BOOK_STATUSES = ["DRAFT", "PUBLISHED", "ARCHIVED"] as const;
+type BookStatusValue = (typeof BOOK_STATUSES)[number];
+
+function isBookStatus(value: unknown): value is BookStatusValue {
+  return typeof value === "string" && BOOK_STATUSES.includes(value as BookStatusValue);
+}
+
+export async function PATCH(request: Request) {
+  const { user: adminUser, response } = await requireAdminRoleForApi();
+  if (response || !adminUser) return response ?? apiError("UNAUTHORIZED", 401);
+
+  const body = await request.json().catch(() => null);
+  const bookId = typeof body?.bookId === "string" ? body.bookId.trim() : "";
+  const status = body?.status;
+
+  if (!bookId || !isValidUuid(bookId)) {
+    return apiError(E_INVALID_BOOK_ID, 400);
+  }
+  if (!isBookStatus(status)) {
+    return apiError(E_INVALID_REQUEST_BODY, 400);
+  }
+
+  const admin = createAdminClient();
+
+  // Read the current status first. Two reasons: the audit row is worth much more
+  // when it records what the status actually changed FROM, and a missing book
+  // must 404 rather than report a successful no-op update — PostgREST reports
+  // zero matched rows the same way as a successful write.
+  const { data: existing, error: readError } = await admin
+    .from("books")
+    .select("id, status, title")
+    .eq("id", bookId)
+    .maybeSingle();
+
+  if (readError) {
+    console.error("[admin/books] status read failed:", readError.message);
+    return apiError(E_DATABASE_ERROR, 500);
+  }
+  if (!existing) {
+    return apiError(E_INVALID_BOOK_ID, 404);
+  }
+
+  const previousStatus = (existing.status as string | null) ?? null;
+
+  if (previousStatus === status) {
+    // Not an error, but say so plainly rather than writing an audit row that
+    // claims a change nobody made.
+    return NextResponse.json({ ok: true, bookId, status, changed: false });
+  }
+
+  const { error: updateError } = await admin
+    .from("books")
+    .update({ status })
+    .eq("id", bookId);
+
+  if (updateError) {
+    console.error("[admin/books] status update failed:", updateError.message);
+    return apiError(E_DATABASE_ERROR, 500);
+  }
+
+  // Audit trail — best-effort, and deliberately not allowed to fail the request.
+  // Taking a book off the shelf having already succeeded, then 500-ing because
+  // the log write failed, would invite the admin to press the button again.
+  try {
+    await admin.from("audit_log").insert({
+      entity_type: "book",
+      entity_id: bookId,
+      action: status === "PUBLISHED" ? "publish" : "unpublish",
+      actor_user_id: adminUser.id,
+      actor_role: "admin",
+      meta: { from: previousStatus, to: status, title: existing.title ?? null },
+    });
+  } catch (auditError) {
+    console.error("[admin/books] audit log insert failed", {
+      bookId,
+      adminUserId: adminUser.id,
+      message:
+        auditError instanceof Error ? auditError.message : String(auditError),
+    });
+  }
+
+  return NextResponse.json({ ok: true, bookId, status, changed: true });
 }
