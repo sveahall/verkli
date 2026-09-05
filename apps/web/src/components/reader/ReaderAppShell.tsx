@@ -7,6 +7,7 @@ import type { ReactNode } from "react";
 import {
   ArrowLeftRight,
   Bell,
+  BookMarked,
   Clock,
   Compass,
   Home,
@@ -21,6 +22,17 @@ import { setActiveRoleCookieClient } from "@/lib/active-role";
 export type AuthorAccessMode = "switch" | "apply" | "pending" | "hidden";
 
 const navItems = [
+  // In navItems on purpose, not in the desktop utility group. Both the sidebar
+  // and the mobile bottom bar render this array, so the book cannot end up
+  // reachable on one and not the other — which is exactly what happened when it
+  // lived in the `hidden lg:block` sidebar, and what happened again on the
+  // waitlist page's scroll cue before that.
+  {
+    label: "The book",
+    href: "/waitlist",
+    icon: BookMarked,
+    matchers: ["/waitlist", "/order"],
+  },
   {
     label: "Home",
     href: "/reader/home",

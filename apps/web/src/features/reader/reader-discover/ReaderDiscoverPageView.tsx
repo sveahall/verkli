@@ -106,7 +106,9 @@ function LanguageSelect({
       <select
         name="lang"
         defaultValue={defaultValue}
-        className="h-8 appearance-none rounded-lg border border-slate-200/80 bg-white py-0 pl-3 pr-7 text-xs font-medium text-[#0F172A] transition-colors focus:border-[#907AFF]/40 focus:outline-none focus:ring-2 focus:ring-[#907AFF]/20 dark:border-white/10 dark:bg-white/[0.04] dark:text-white"
+        // 12px and 32px tall: found by the sweep, not by the manual audit.
+        // The language filter on the primary book-finding surface.
+        className="min-h-11 appearance-none rounded-lg border border-slate-200/80 bg-white py-0 pl-3 pr-7 text-[16px] sm:text-xs font-medium text-[#0F172A] transition-colors focus:border-[#907AFF]/40 focus:outline-none focus:ring-2 focus:ring-[#907AFF]/20 dark:border-white/10 dark:bg-white/[0.04] dark:text-white"
       >
         {options.map((o) => (
           <option key={o.value} value={o.value}>
@@ -279,7 +281,7 @@ export default function ReaderDiscoverPageView({
                   name="q"
                   defaultValue={activeFilters.query}
                   placeholder="Search by title or author..."
-                  className="h-12 w-full rounded-xl border border-slate-200/80 bg-slate-100/70 pl-10 pr-4 text-sm text-[#0F172A] placeholder:text-[#64748B]/60 transition-[border-color,background-color,box-shadow] duration-200 ease-[cubic-bezier(0.23,1,0.32,1)] focus:border-[#907AFF]/40 focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#907AFF]/20 dark:border-white/10 dark:bg-white/[0.06] dark:text-white dark:placeholder:text-white/30 dark:focus:bg-white/[0.09]"
+                  className="h-12 w-full rounded-xl border border-slate-200/80 bg-slate-100/70 pl-10 pr-4 text-[16px] sm:text-sm text-[#0F172A] placeholder:text-[#64748B]/60 transition-[border-color,background-color,box-shadow] duration-200 ease-[cubic-bezier(0.23,1,0.32,1)] focus:border-[#907AFF]/40 focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#907AFF]/20 dark:border-white/10 dark:bg-white/[0.06] dark:text-white dark:placeholder:text-white/30 dark:focus:bg-white/[0.09]"
                 />
               </div>
               <button

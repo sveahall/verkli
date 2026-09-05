@@ -111,7 +111,7 @@ export default function ReaderSettingsPanel({
                       fontSize: clamp(prev.fontSize - 1, FONT_MIN, FONT_MAX),
                     }))
                   }
-                  className="rounded-xl border border-black/[0.06] px-2.5 py-1 text-xs font-medium text-[#0F172A] transition-colors hover:bg-black/[0.03] dark:border-white/10 dark:text-white/70 dark:hover:bg-white/5"
+                  className="inline-flex min-h-11 min-w-11 items-center justify-center rounded-xl border border-black/[0.06] px-2.5 text-xs font-medium text-[#0F172A] transition-colors hover:bg-black/[0.03] dark:border-white/10 dark:text-white/70 dark:hover:bg-white/5"
                   aria-label="Decrease text size"
                 >
                   A-
@@ -127,7 +127,7 @@ export default function ReaderSettingsPanel({
                       fontSize: clamp(prev.fontSize + 1, FONT_MIN, FONT_MAX),
                     }))
                   }
-                  className="rounded-xl border border-black/[0.06] px-2.5 py-1 text-xs font-medium text-[#0F172A] transition-colors hover:bg-black/[0.03] dark:border-white/10 dark:text-white/70 dark:hover:bg-white/5"
+                  className="inline-flex min-h-11 min-w-11 items-center justify-center rounded-xl border border-black/[0.06] px-2.5 text-xs font-medium text-[#0F172A] transition-colors hover:bg-black/[0.03] dark:border-white/10 dark:text-white/70 dark:hover:bg-white/5"
                   aria-label="Increase text size"
                 >
                   A+
@@ -149,7 +149,9 @@ export default function ReaderSettingsPanel({
                     lineHeight: next,
                   }));
                 }}
-                className="w-full rounded-xl border border-black/[0.06] bg-white px-3 py-1.5 text-xs font-medium text-[#0F172A] dark:border-white/10 dark:bg-white/5 dark:text-white"
+                // 12px zoomed the viewport on focus and scrolled this popover
+                // out from under the thumb while it was open.
+                className="min-h-11 w-full rounded-xl border border-black/[0.06] bg-white px-3 py-1.5 text-[16px] sm:text-xs font-medium text-[#0F172A] dark:border-white/10 dark:bg-white/5 dark:text-white"
               >
                 {LINE_HEIGHT_OPTIONS.map((value) => (
                   <option key={value} value={String(value)}>

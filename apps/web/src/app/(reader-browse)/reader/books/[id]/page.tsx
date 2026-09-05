@@ -709,25 +709,31 @@ export default async function ReaderBookDetail({
               </span>
               <Link
                 href={`/reader/read/${chapterItem.id}`}
-                className="truncate text-[13px] font-medium text-slate-700 transition-colors duration-150 ease-out hover:text-[#907AFF] dark:text-white/70 dark:hover:text-[#b8a8ff]"
+                className="-my-2 truncate py-2 text-[13px] font-medium text-slate-700 transition-colors duration-150 ease-out hover:text-[#907AFF] dark:text-white/70 dark:hover:text-[#b8a8ff]"
               >
                 {chapterItem.title}
               </Link>
             </div>
 
-            <div className="flex shrink-0 items-center gap-2 text-[11px]">
+            {/*
+              min-h-11 on the row and py-2.5 on the pills: these were px-3 py-1
+              at 11px, roughly 26px, and they are the Read / Preview / Buy
+              controls — the primary way a reader opens or buys a chapter on a
+              phone. DESIGN.md:159.
+            */}
+            <div className="flex min-h-11 shrink-0 items-center gap-2 text-[11px]">
               {isUnlocked ? (
                 isPreviewChapter && !hasReadAccess ? (
                   <Link
                     href={`/reader/read/${chapterItem.id}`}
-                    className="rounded-full border border-emerald-500/25 bg-emerald-500/[0.08] px-3 py-1 font-semibold text-emerald-700 transition-[background-color,transform] duration-150 ease-out hover:bg-emerald-500/15 active:scale-[0.97] dark:text-emerald-400"
+                    className="rounded-full border border-emerald-500/25 bg-emerald-500/[0.08] inline-flex min-h-11 items-center px-3 font-semibold text-emerald-700 transition-[background-color,transform] duration-150 ease-out hover:bg-emerald-500/15 active:scale-[0.97] dark:text-emerald-400"
                   >
                     Preview
                   </Link>
                 ) : (
                   <Link
                     href={`/reader/read/${chapterItem.id}`}
-                    className="rounded-full border border-[#907AFF]/20 bg-[#907AFF]/[0.07] px-3 py-1 font-semibold text-[#907AFF] transition-[background-color,transform] duration-150 ease-out hover:bg-[#907AFF]/12 active:scale-[0.97] dark:text-[#B8AAFF]"
+                    className="rounded-full border border-[#907AFF]/20 bg-[#907AFF]/[0.07] inline-flex min-h-11 items-center px-3 font-semibold text-[#907AFF] transition-[background-color,transform] duration-150 ease-out hover:bg-[#907AFF]/12 active:scale-[0.97] dark:text-[#B8AAFF]"
                   >
                     Read
                   </Link>
@@ -747,7 +753,7 @@ export default async function ReaderBookDetail({
               ) : (
                 <Link
                   href={signInHref}
-                  className="rounded-full bg-[#907AFF]/10 px-3 py-1 font-semibold text-[#907AFF] transition-colors duration-150 ease-out hover:bg-[#907AFF]/20"
+                  className="rounded-full bg-[#907AFF]/10 inline-flex min-h-11 items-center px-3 font-semibold text-[#907AFF] transition-colors duration-150 ease-out hover:bg-[#907AFF]/20"
                 >
                   Sign in
                 </Link>
