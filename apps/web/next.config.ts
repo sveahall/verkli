@@ -113,6 +113,21 @@ const permissionsPolicy = [
 ].join(", ");
 
 const nextConfig: NextConfig = {
+  // Container builds only (infra/docker/Dockerfile.web sets DOCKER_BUILD=1).
+  //
+  // Gated rather than unconditional so a Vercel build is byte-for-byte what it
+  // was before the Railway move — `output: "standalone"` changes the build
+  // artifact shape, and Vercel wants its own.
+  ...(process.env.DOCKER_BUILD === "1"
+    ? {
+        output: "standalone" as const,
+        // Must be the WORKSPACE root, not apps/web. Left at the default, file
+        // tracing stops inside apps/web and the standalone server ships without
+        // @verkli/ui, @verkli/shared or @verkli/db — it then dies at startup on
+        // an unresolvable import rather than at build, so the image looks fine.
+        outputFileTracingRoot: path.resolve(__dirname, "../.."),
+      }
+    : {}),
   turbopack: {
     root: path.resolve(__dirname, "../.."),
   },

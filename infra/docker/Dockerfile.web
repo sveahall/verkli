@@ -1,0 +1,126 @@
+# Next.js web app — the Vercel replacement.
+# Build from repo root:  docker build -f infra/docker/Dockerfile.web .
+#
+# Node 22, not the node:20-alpine the worker images use: the root package.json
+# declares `engines: { node: ">=22.12.0" }`. The workers predate that bump and
+# are technically running under their declared floor; do not copy them here.
+#
+# THE ONE THING THAT WILL BITE YOU: every NEXT_PUBLIC_* value is inlined into
+# the client bundle at BUILD time, not read at runtime. Setting them only as
+# runtime variables leaves them `undefined` in the browser and silently
+# switches off every feature flag. They are therefore declared as ARG below and
+# must be present in the build environment. Railway exposes a service's
+# variables to its Docker build, so setting them on the service is enough —
+# but they must exist BEFORE the first build, not after.
+#
+# NEXT_PUBLIC_WAITLIST_ONLY especially: if it is unset or "true", middleware
+# 307s every path to /waitlist and the site looks dead. It must be "false".
+
+# ── deps ─────────────────────────────────────────────────────────────────────
+FROM node:22-alpine AS deps
+WORKDIR /app
+
+# All six workspace manifests, so `npm ci` can resolve the workspace graph and
+# this layer caches on dependency changes alone. Omitting any of them makes npm
+# reject the lockfile as out of sync.
+COPY package.json package-lock.json* ./
+COPY apps/web/package.json apps/web/
+COPY apps/worker/package.json apps/worker/
+COPY packages/config/package.json packages/config/
+COPY packages/db/package.json packages/db/
+COPY packages/shared/package.json packages/shared/
+COPY packages/ui/package.json packages/ui/
+
+# --ignore-scripts is required, not an optimisation: the root `prepare` script
+# runs husky, which has no .git in a build context and fails the install.
+# sharp 0.35 ships its platform binaries as optionalDependencies rather than a
+# postinstall download, so it survives this flag intact.
+RUN npm ci --ignore-scripts
+
+# ── builder ──────────────────────────────────────────────────────────────────
+FROM node:22-alpine AS builder
+WORKDIR /app
+
+COPY --from=deps /app/node_modules ./node_modules
+COPY package.json package-lock.json* ./
+COPY apps/web apps/web
+COPY packages packages
+
+# Turns on `output: "standalone"` in next.config.ts. Gated on this variable so
+# a Vercel build stays byte-for-byte what it was before this file existed.
+ENV DOCKER_BUILD=1
+ENV NODE_ENV=production
+# No SENTRY_AUTH_TOKEN is configured anywhere in this repo, so withSentryConfig
+# skips source-map upload on its own and only warns. Nothing to set here — if
+# source maps are wanted later, add SENTRY_AUTH_TOKEN as a build arg.
+
+ARG NEXT_PUBLIC_SUPABASE_URL
+ARG NEXT_PUBLIC_SUPABASE_ANON_KEY
+ARG NEXT_PUBLIC_SITE_URL
+ARG NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY
+ARG NEXT_PUBLIC_WAITLIST_ONLY
+ARG NEXT_PUBLIC_AUDIOBOOK_ENABLED
+ARG NEXT_PUBLIC_DISCOVERY_ENABLED
+ARG NEXT_PUBLIC_TRANSLATIONS_ENABLED
+ARG NEXT_PUBLIC_AI_CHAT_ENABLED
+ENV NEXT_PUBLIC_SUPABASE_URL=$NEXT_PUBLIC_SUPABASE_URL \
+    NEXT_PUBLIC_SUPABASE_ANON_KEY=$NEXT_PUBLIC_SUPABASE_ANON_KEY \
+    NEXT_PUBLIC_SITE_URL=$NEXT_PUBLIC_SITE_URL \
+    NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY=$NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY \
+    NEXT_PUBLIC_WAITLIST_ONLY=$NEXT_PUBLIC_WAITLIST_ONLY \
+    NEXT_PUBLIC_AUDIOBOOK_ENABLED=$NEXT_PUBLIC_AUDIOBOOK_ENABLED \
+    NEXT_PUBLIC_DISCOVERY_ENABLED=$NEXT_PUBLIC_DISCOVERY_ENABLED \
+    NEXT_PUBLIC_TRANSLATIONS_ENABLED=$NEXT_PUBLIC_TRANSLATIONS_ENABLED \
+    NEXT_PUBLIC_AI_CHAT_ENABLED=$NEXT_PUBLIC_AI_CHAT_ENABLED
+
+# `build:ci` pins --webpack. Turbopack is the default in Next 16 and this repo
+# has not qualified it for production builds, so use the same command CI does.
+RUN npm run build:ci
+
+# ── sharp (platform-correct, version-pinned) ─────────────────────────────────
+# Pinned to the exact version apps/web declares. sharp 0.35 ships its platform
+# binaries as optionalDependencies, so --ignore-scripts is safe here; an older
+# sharp (<=0.32) would need its libvips install script and this would break.
+FROM node:22-alpine AS sharpdep
+WORKDIR /sharp
+RUN npm init -y >/dev/null 2>&1 && npm i --ignore-scripts sharp@0.35.4
+
+# ── runner ───────────────────────────────────────────────────────────────────
+FROM node:22-alpine AS runner
+WORKDIR /app
+
+ENV NODE_ENV=production
+# Railway assigns the port; Next's standalone server reads PORT and HOSTNAME.
+# HOSTNAME must be 0.0.0.0 — the default binds localhost only and every health
+# check from outside the container times out.
+ENV PORT=3000
+ENV HOSTNAME=0.0.0.0
+
+RUN addgroup -g 1001 -S nodejs && adduser -S nextjs -u 1001
+
+# standalone already contains a pruned node_modules and the server entrypoint.
+COPY --from=builder --chown=nextjs:nodejs /app/apps/web/.next/standalone ./
+# Next does not copy these two into standalone; without them you get a running
+# server with no CSS, no JS chunks and no favicon.
+COPY --from=builder --chown=nextjs:nodejs /app/apps/web/.next/static ./apps/web/.next/static
+COPY --from=builder --chown=nextjs:nodejs /app/apps/web/public ./apps/web/public
+
+# next/image's optimiser loads sharp lazily, so file tracing does not reliably
+# pull it into standalone. Without it Next serves unoptimised originals — on a
+# cover-heavy library page that is a large, completely silent bandwidth
+# regression, which is the opposite of why we left Vercel.
+#
+# Taken from the dedicated `sharpdep` stage rather than copied out of the
+# builder's node_modules, for two reasons:
+#   - the repo resolves TWO sharps (0.35.4 for apps/web, 0.34.5 hoisted to the
+#     root as someone else's transitive dep). Copying /app/node_modules/sharp
+#     silently picks the wrong one.
+#   - hoisting differs between the dev Mac and linux/alpine, so the correct
+#     path is not knowable from a local `ls`. The extra stage removes the guess
+#     and pulls the linux-musl binaries for the platform we actually run on.
+COPY --from=sharpdep --chown=nextjs:nodejs /sharp/node_modules/sharp ./node_modules/sharp
+COPY --from=sharpdep --chown=nextjs:nodejs /sharp/node_modules/@img ./node_modules/@img
+
+USER nextjs
+EXPOSE 3000
+CMD ["node", "apps/web/server.js"]

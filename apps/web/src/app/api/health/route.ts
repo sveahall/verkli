@@ -6,7 +6,14 @@ const startedAt = new Date().toISOString();
 
 export async function GET(request: Request) {
   const timestamp = new Date().toISOString();
-  const version = process.env.VERCEL_GIT_COMMIT_SHA?.slice(0, 7) ?? "local";
+  // Both hosts, because this field is the only way to tell what is actually
+  // running: `vercel ls` / a green Railway deploy both report success without
+  // saying which commit is serving traffic. Vercel injects the first, Railway
+  // the second; "local" means neither, i.e. a dev or container-local run.
+  const version =
+    process.env.VERCEL_GIT_COMMIT_SHA?.slice(0, 7) ??
+    process.env.RAILWAY_GIT_COMMIT_SHA?.slice(0, 7) ??
+    "local";
   const authorized = await hasAdminOrOpsAccess(request);
 
   if (!authorized) {
