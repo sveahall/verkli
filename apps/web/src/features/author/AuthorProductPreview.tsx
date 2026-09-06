@@ -3,6 +3,7 @@
 import { useRef, useState, type KeyboardEvent } from "react";
 import Image from "next/image";
 import { AudioLines, Languages, PenLine, Sparkles } from "lucide-react";
+import AuthorBookCover from "./AuthorBookCover";
 import styles from "./AuthorLandingPage.module.css";
 
 const MODES = [
@@ -69,11 +70,7 @@ export default function AuthorProductPreview() {
             </>}
           </div>
           <aside className={styles.bookAside} aria-label="Example book edition">
-            <div className={styles.previewBook}>
-              <span>A NOVEL</span><strong>The shape<br />of light.</strong>
-              <div className={styles.bookPortal} aria-hidden="true" />
-              <small>An example story</small>
-            </div>
+            <AuthorBookCover edition={mode === "translate" ? "spanish" : "original"} className={styles.previewBook} />
             <span className={styles.editionType}>{mode === "writing" ? "Your story, taking shape" : mode === "translate" ? "A new chapter in Spanish" : "From the page to a voice"}</span>
             <p>{mode === "writing" ? "Manuscript · Original example" : mode === "translate" ? "Translation · Illustrated example" : "Audiobook · Workflow preview"}</p>
           </aside>
