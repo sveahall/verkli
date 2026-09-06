@@ -159,6 +159,7 @@ function makeAdminClient(input?: {
                             id: order.id,
                             user_id: order.user_id,
                             book_id: order.book_id,
+                            stripe_session_id: order.stripe_session_id,
                             chapter_id: null,
                             amount: 12900,
                             currency: "SEK",

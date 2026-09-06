@@ -18,7 +18,8 @@ type OrderRow = {
   id: string;
   user_id: string;
   book_id: string;
-  chapter_id: string | null;
+  stripe_session_id: string;
+  chapter_id?: unknown;
   amount: number | string | null;
   currency: string;
   created_at: string | null;
@@ -43,6 +44,7 @@ function makeClaimClient(outcome: ClaimOutcome) {
     updatePayloads: [] as Record<string, unknown>[],
     eqFilters: [] as Array<[string, unknown]>,
     inFilters: [] as Array<[string, unknown[]]>,
+    selectedFields: [] as string[],
   };
 
   const client = {
@@ -58,12 +60,15 @@ function makeClaimClient(outcome: ClaimOutcome) {
                 in: vi.fn((column2: string, values: unknown[]) => {
                   calls.inFilters.push([column2, values]);
                   return {
-                    select: vi.fn(() => ({
-                      maybeSingle: vi.fn(async () => ({
-                        data: outcome.row,
-                        error: outcome.error ?? null,
-                      })),
-                    })),
+                    select: vi.fn((fields: string) => {
+                      calls.selectedFields.push(fields);
+                      return {
+                        maybeSingle: vi.fn(async () => ({
+                          data: outcome.row,
+                          error: outcome.error ?? null,
+                        })),
+                      };
+                    }),
                   };
                 }),
               };
@@ -146,6 +151,7 @@ describe("claimPaidOrderForReceipt", () => {
         id: "order-1",
         user_id: "reader-1",
         book_id: "book-1",
+        stripe_session_id: "cs_test_1",
         chapter_id: null,
         amount: 12900,
         currency: "SEK",
@@ -164,6 +170,7 @@ describe("claimPaidOrderForReceipt", () => {
     expect(calls.updatePayloads).toEqual([{ status: "paid" }]);
     expect(calls.eqFilters).toEqual([["stripe_session_id", "cs_test_1"]]);
     expect(calls.inFilters).toEqual([["status", ["pending", "failed"]]]);
+    expect(calls.selectedFields).toEqual(["*"]);
   });
 
   it("returns null when the order was already paid, so no second receipt goes out", async () => {
@@ -180,6 +187,7 @@ describe("claimPaidOrderForReceipt", () => {
         id: "order-9",
         user_id: "reader-9",
         book_id: "book-9",
+        stripe_session_id: "cs_late",
         chapter_id: "chapter-3",
         amount: 4900,
         currency: "sek",
@@ -222,6 +230,7 @@ describe("claimPaidOrderForReceipt", () => {
         id: "order-1",
         user_id: "reader-1",
         book_id: "book-1",
+        stripe_session_id: "cs_test_1",
         chapter_id: null,
         amount: null,
         currency: "SEK",
@@ -230,6 +239,49 @@ describe("claimPaidOrderForReceipt", () => {
     });
 
     expect(await claimPaidOrderForReceipt(client as never, "cs_test_1")).toBeNull();
+  });
+
+  it("normalizes a genuinely absent legacy chapter to a whole-book claim", async () => {
+    const { client } = makeClaimClient({
+      row: {
+        id: "order-legacy",
+        user_id: "reader-1",
+        book_id: "book-1",
+        stripe_session_id: "cs_legacy",
+        amount: 1299,
+        currency: "SEK",
+        created_at: null,
+      },
+    });
+
+    await expect(claimPaidOrderForReceipt(client as never, "cs_legacy")).resolves.toMatchObject({
+      orderId: "order-legacy",
+      chapterId: null,
+    });
+  });
+
+  it.each([
+    ["blank order id", { id: "" }],
+    ["wrong bound session", { stripe_session_id: "cs_other" }],
+    ["malformed chapter", { chapter_id: 42 }],
+    ["blank currency", { currency: " " }],
+    ["non-numeric amount", { amount: "1299" }],
+  ])("returns null for a claimed row with %s", async (_label, override) => {
+    const { client } = makeClaimClient({
+      row: {
+        id: "order-1",
+        user_id: "reader-1",
+        book_id: "book-1",
+        stripe_session_id: "cs_test_1",
+        chapter_id: null,
+        amount: 1299,
+        currency: "SEK",
+        created_at: null,
+        ...override,
+      },
+    });
+
+    await expect(claimPaidOrderForReceipt(client as never, "cs_test_1")).resolves.toBeNull();
   });
 });
 
