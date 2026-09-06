@@ -61,6 +61,21 @@ test("mobile preview stays readable and inside the viewport", async ({ page }) =
   await page.getByRole("tab", { name: "Translate", exact: true }).click();
   await expect(page.getByRole("tabpanel")).toContainText("La mañana en que el faro se apagó");
   expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(320);
+  const heroHeading = page.getByRole("heading", { level: 1 });
+  const heroText = await heroHeading.evaluate((heading) => {
+    const range = document.createRange();
+    range.selectNodeContents(heading);
+    const rects = Array.from(range.getClientRects());
+    return { left: Math.min(...rects.map((rect) => rect.left)), right: Math.max(...rects.map((rect) => rect.right)) };
+  });
+  expect(heroText.left).toBeGreaterThanOrEqual(0);
+  expect(heroText.right).toBeLessThanOrEqual(320);
+  for (const element of [heroHeading, page.getByRole("link", { name: "Start writing for free" }).first(), page.getByRole("link", { name: "Explore the workspace" })]) {
+    const bounds = await element.boundingBox();
+    expect(bounds).not.toBeNull();
+    expect(bounds!.x).toBeGreaterThanOrEqual(0);
+    expect(bounds!.x + bounds!.width).toBeLessThanOrEqual(320);
+  }
   const voiceHeading = page.getByRole("heading", { name: /More possibilities/ });
   const textRight = await voiceHeading.evaluate((heading) => {
     const range = document.createRange();
