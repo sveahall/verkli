@@ -4,10 +4,9 @@ import { useState, useEffect } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import dynamic from "next/dynamic";
-import { ArrowRight, ArrowUpRight, AudioLines, BookOpen, Languages, PenLine } from "lucide-react";
+import { ArrowRight, ArrowUpRight, AudioLines, FileText, Languages, PenLine, Sparkles } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import type { User } from "@supabase/supabase-js";
-import AuthorBookCover from "./AuthorBookCover";
 import AuthorProductPreview from "./AuthorProductPreview";
 import styles from "./AuthorLandingPage.module.css";
 
@@ -17,7 +16,7 @@ const WORKFLOW = [
   { number: "01", title: "Write", description: "Find your flow. Draft, organize chapters, and refine your manuscript with AI by your side.", detail: "From a spark to a story", icon: PenLine },
   { number: "02", title: "Translate", description: "Bring your book into another language. Review your translation and make every sentence feel right.", detail: "New languages. Your voice.", icon: Languages },
   { number: "03", title: "Create audio", description: "Give your words a voice. Explore AI narration and shape your chapters into an audiobook.", detail: "A different way to be heard", icon: AudioLines },
-  { number: "04", title: "Publish", description: "Bring your book to Verkli. Build your author presence and give readers a place to discover your work.", detail: "Ready for its next chapter", icon: BookOpen },
+  { number: "04", title: "Publish", description: "Bring your book to Verkli. Build your author presence and give readers a place to discover your work.", detail: "Ready for its next chapter", icon: FileText },
 ];
 
 function LandingPage() {
@@ -25,7 +24,7 @@ function LandingPage() {
     <main className={styles.landing}>
       <section className={styles.hero} aria-labelledby="author-heading">
         <div className={styles.heroCopy}>
-          <p className={styles.eyebrow}><span className={styles.dot} /> VERKLI FOR AUTHORS</p>
+          <p className={styles.eyebrow}><span className={styles.dot} /> YOUR AI CREATIVE STUDIO</p>
           <h1 id="author-heading" className={styles.headline}>Your story.<br /><span className={styles.brandAccent}>Supercharged.</span></h1>
           <p className={styles.heroDescription}>
             Your imagination. An entire AI workspace.<br className={styles.desktopBreak} />{" "}
@@ -36,14 +35,6 @@ function LandingPage() {
             <a href="#workspace" className={styles.secondaryLink}>Explore the workspace <ArrowRight aria-hidden="true" size={17} /></a>
           </div>
           <p className={styles.heroFootnote}>Your ideas. Your voice. A whole new dimension.</p>
-        </div>
-        <div className={styles.storyScene} role="img" aria-label="Illustrative English and Spanish covers for the example novel The shape of light, featuring a lighthouse above a midnight sea">
-          <div className={styles.sceneStage} aria-hidden="true">
-            <div className={styles.sceneFloor} />
-            <AuthorBookCover edition="spanish" className={styles.sceneTranslation} priority />
-            <AuthorBookCover className={styles.sceneOriginal} priority />
-          </div>
-          <div className={styles.sceneCaption} aria-hidden="true"><span>ONE STORY. NEW POSSIBILITIES.</span><span>English & Spanish · Example covers</span></div>
         </div>
       </section>
 
@@ -63,10 +54,10 @@ function LandingPage() {
           {WORKFLOW.map((step) => (
             <li key={step.number}>
               <div className={styles.stepArt} data-step={step.number} aria-hidden="true">
-                {step.number === "01" && <div className={styles.artManuscript}><span>Chapter one.</span><i /><i /><i /><i /><b /></div>}
-                {step.number === "02" && <div className={styles.artLanguages}><span>A</span><ArrowRight size={26} /><span lang="ja">あ</span></div>}
-                {step.number === "03" && <div className={styles.artWave}>{[18, 32, 52, 36, 72, 100, 64, 42, 84, 57, 30, 44, 18].map((height, index) => <i key={index} style={{ height }} />)}</div>}
-                {step.number === "04" && <AuthorBookCover className={styles.artPublished} />}
+                {step.number === "01" && <div className={styles.artManuscript}><span className={styles.artLabel}><PenLine size={12} /> MANUSCRIPT</span><strong>It starts with<br />an idea<span className={styles.artCursor} />.</strong><div className={styles.artSuggestion}><Sparkles size={12} /><span>A little creative possibility</span></div></div>}
+                {step.number === "02" && <div className={styles.artLanguages}><div><span>ENGLISH</span><strong>The morning<br />the lighthouse<br />went dark.</strong></div><ArrowRight size={18} /><div lang="es"><span>ESPAÑOL</span><strong>La mañana<br />en que el faro<br />se apagó.</strong></div></div>}
+                {step.number === "03" && <div className={styles.artAudio}><span className={styles.artLabel}><AudioLines size={12} /> NARRATION</span><div className={styles.artWave}>{[18, 32, 52, 36, 72, 100, 64, 42, 84, 57, 30, 44, 18].map((height, index) => <i key={index} style={{ height }} />)}</div><span className={styles.artAudioLabel}>Your words. A new dimension.</span></div>}
+                {step.number === "04" && <div className={styles.artPublished}><div className={styles.artDocumentHeader}><FileText size={14} /><span>YOUR STORY / VERKLI</span></div><strong>The shape<br />of light</strong><div className={styles.artDocumentLine} /><div className={styles.artDocumentLine} /><span className={styles.artDocumentFooter}>A place to be discovered <ArrowUpRight size={13} /></span></div>}
               </div>
               <span className={styles.stepNumber}>{step.number}<span aria-hidden="true">↗</span></span>
               <h3><step.icon size={19} aria-hidden="true" />{step.title}</h3>
@@ -89,11 +80,11 @@ function LandingPage() {
               <div><dt>A place to be discovered</dt><dd>Bring your books and your author profile together on Verkli for readers to explore.</dd></div>
             </dl>
           </div>
-          <div className={styles.editions} role="img" aria-label="Illustrative English and Spanish covers for the example novel The shape of light">
-            <p className={styles.editionsLabel}>One imagination. Many editions.</p>
-            <AuthorBookCover edition="spanish" className={`${styles.editionBook} ${styles.editionBack}`} />
-            <AuthorBookCover className={`${styles.editionBook} ${styles.editionFront}`} />
-            <span className={styles.editionCaption}>A story doesn’t have to stay<br />where it started.</span>
+          <div className={styles.storyTransform}>
+            <div className={styles.transformHeader}><Sparkles size={17} aria-hidden="true" /><span>ONE STORY. NEW POSSIBILITIES.</span><span>Example</span></div>
+            <div className={styles.transformPassage}><span>01 / ENGLISH</span><p>The morning the lighthouse went dark.</p></div>
+            <div className={styles.transformPassage} lang="es"><span>02 / ESPAÑOL</span><p>La mañana en que el faro se apagó.</p></div>
+            <div className={styles.transformAudio}><span>03 / A NEW VOICE</span><div className={styles.transformWave} aria-hidden="true">{[15, 27, 18, 46, 34, 62, 84, 58, 32, 48, 70, 94, 60, 40, 54, 79, 50, 29, 44, 22, 35, 15].map((height, index) => <i key={index} style={{ height }} />)}</div><p>A story doesn’t have to stay where it started.</p></div>
           </div>
         </div>
       </section>
