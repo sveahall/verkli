@@ -1,6 +1,7 @@
 "use client";
 
 import { useRef, useState, type KeyboardEvent } from "react";
+import Image from "next/image";
 import { AudioLines, Languages, PenLine, Sparkles } from "lucide-react";
 import styles from "./AuthorLandingPage.module.css";
 
@@ -31,7 +32,7 @@ export default function AuthorProductPreview() {
   return (
     <div className={styles.workspace}>
       <div className={styles.workspaceHeader}>
-        <div className={styles.workspaceIdentity}><span className={styles.workspaceMark} aria-hidden="true">v.</span><span>The shape of light<span className={styles.workspaceSubheading}>Example manuscript</span></span></div>
+        <div className={styles.workspaceIdentity}><Image className={styles.workspaceMark} src="/favi.svg" alt="" width={39} height={35} /><span>The shape of light<span className={styles.workspaceSubheading}>Example manuscript</span></span></div>
         <div className={styles.tabs} role="tablist" aria-label="Explore writing, translation, and audio">
           {MODES.map(({ id, label, icon: Icon }, index) => (
             <button key={id} ref={(node) => { tabs.current[index] = node; }} type="button" role="tab" id={`preview-tab-${id}`} aria-selected={mode === id} aria-controls="preview-panel" tabIndex={mode === id ? 0 : -1} onClick={() => setMode(id)} onKeyDown={(event) => handleTabKey(event, index)}>
