@@ -6,6 +6,49 @@
 > lanseringskriterier §9 och checklista §19 är acceptanskriterier här.
 > **Beskär:** `docs/roadmap.md` (898 rader, skriven före tidspressen). Se §3.
 
+## Aktuell leveransstatus — 6 september 2026
+
+**Soft launch ligger kvar den 20 september: 14 dagar återstår.** Äldre statusrader
+nedan är historik, inte ett färskt driftbesked. Nästa arbete prioriteras efter
+kärnflödet i §3: konto → köp → bibliotek → läsning/ljud → kvitto/support.
+
+**Levererat lokalt:** nio tidigare granskade reparationspaket och den färdiggranskade
+köpbekräftelsen är nu samlade med landningssidan i samma preview. Integrationscommit
+`5e2285e` ligger på aktuell `platform` (`137ef9f7`) genom enskilda cherry-picks.
+Inga gamla grenar har mergats in. `main` och den ursprungliga arbetskopian är orörda.
+
+- Autosave behåller utkast vid kapitelbyte, fördröjda svar och misslyckade sparningar.
+- Import har ägarkontroll, bunden källfil, kontrollerat återförsök och förbättrad dialog.
+- Översättningsförhandsvisningen hör till rätt språkversion och kan återhämtas efter fel.
+- Köpåtkomst hanterar den befintliga äldre tabellformen. Bekräftelsen verifierar
+  order/session och bevarar osäker betalstatus utan att föreslå en ny betalning.
+- Workflow-navigation, priskontrast och fullständigt författarnamn följer med.
+  Läsarens tidsstämpelfix bevarar motsvarande nyare platform-ändring och får regressionstester.
+
+**Verifiering av samlad kod:** 1 917 tester/179 filer, 28 browsertester med den
+monterade editorn, lint, TypeScript/dead-code, english-default, placeholder-kontroll
+och produktionsbuild passerar. Build och betaltester använder kontrollerade data;
+de bevisar inte ett verkligt Stripe-köp, kvittomail, workerjobb eller live-RLS.
+Inloggad dashboard, bokeditor och öppning/stängning av importdialogen är också
+kontrollerade på `http://127.0.0.1:3012`. Inget manus eller konto ändrades vid UI-kontrollen.
+Hela `qa:beta` med driftsatt Redis/betalningskonfiguration återstår.
+
+**Omedelbar driftblockerare:** `https://www.verkli.com/` svarade 6 september
+20:55–20:56 CEST med HTTP 402 och `x-vercel-error: DEPLOYMENT_DISABLED`.
+Orsaken i Vercels kontrollpanel och återställningen är ännu inte verifierade.
+Den lokala integrationen är inte pushad, mergad eller driftsatt.
+
+| Nästa grind, i ordning | Återstående bevis |
+|---|---|
+| Köp och ägandebevis | Slutför checkout/cancel samt köpt-hylla/orderhistorik mot faktisk tabellform. Bekräftelsepaketet ensamt stänger inte hela köptratten. |
+| Ljud och läsåtkomst | Förena befintliga workerfixar med scope/variant och köpt åtkomst; verifiera Johans riktiga ljud. Exakta schema-/policybeslut hanteras separat. |
+| Driftsatt kärnflöde | Återställ webbtjänsten, verifiera launchflaggor/workerdrift och Stripe-testköp → bibliotek → ljud → kvitto/support. |
+| Lanseringsgrind senast före 20 september | Fysisk iOS Safari, Android Chrome och desktop; omkör releasekontroller och stäng blockerare. Lokal grön build är inte ett lanseringsgodkännande. |
+
+Ytterligare landningssideomtag och mätta prestandakandidater prioriteras efter dessa
+grindar. Lanseringsdatumet flyttas inte av denna statusuppdatering; drift- och
+köp-/ljudgrindarna innebär fortfarande en konkret risk för datumet.
+
 ## 0. Läget i en mening
 
 Problemet är inte att funktioner saknas. Problemet är att **mycket är byggt men
