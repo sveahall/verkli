@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import dynamic from "next/dynamic";
 import { ArrowRight, ArrowUpRight, AudioLines, BookOpen, Languages, PenLine } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
@@ -24,7 +25,7 @@ function LandingPage() {
       <section className={styles.hero} aria-labelledby="author-heading">
         <div className={styles.heroCopy}>
           <p className={styles.eyebrow}><span className={styles.dot} /> VERKLI FOR AUTHORS</p>
-          <h1 id="author-heading" className={styles.headline}>Your story.<br />Supercharged.</h1>
+          <h1 id="author-heading" className={styles.headline}>Your story.<br /><span className={styles.brandAccent}>Supercharged.</span></h1>
           <p className={styles.heroDescription}>
             Your imagination. An entire AI workspace.<br className={styles.desktopBreak} />{" "}
             Write, translate, create audiobooks, and publish with Verkli.
@@ -38,9 +39,9 @@ function LandingPage() {
         <div className={styles.storyScene} role="img" aria-label="Illustration of The shape of light, an example story, as a manuscript, a Spanish edition, and an audiobook">
           <div className={styles.sceneStage} aria-hidden="true">
             <div className={styles.sceneFloor} />
-            <div className={`${styles.sceneBook} ${styles.sceneCoral}`}><span>THE ORIGINAL</span><strong>The shape<br />of light.</strong><div className={styles.coverPortal} /><small>A story by you</small></div>
-            <div className={`${styles.sceneBook} ${styles.sceneViolet}`} lang="es"><span>OTRA PERSPECTIVA</span><strong>La forma<br />de la luz.</strong><div className={styles.coverPortal} /><small>Una nueva edición</small></div>
-            <div className={`${styles.sceneBook} ${styles.sceneBlue}`}><span>A WORLD OF POSSIBILITIES</span><strong>The shape<br />of light.</strong><div className={styles.coverPortal} /><small>VERKLI / A NOVEL</small></div>
+            <div className={`${styles.sceneBook} ${styles.sceneAmber}`}><span>THE ORIGINAL</span><strong>The shape<br />of light.</strong><div className={styles.coverPortal} /><small>A story by you</small></div>
+            <div className={`${styles.sceneBook} ${styles.sceneRose}`} lang="es"><span>OTRA PERSPECTIVA</span><strong>La forma<br />de la luz.</strong><div className={styles.coverPortal} /><small>Una nueva edición</small></div>
+            <div className={`${styles.sceneBook} ${styles.sceneViolet}`}><span>A WORLD OF POSSIBILITIES</span><strong>The shape<br />of light.</strong><div className={styles.coverPortal} /><small>VERKLI / A NOVEL</small></div>
             <div className={styles.sceneGlass}><AudioLines size={24} /><span>From words.<br /><strong>To worlds.</strong></span></div>
           </div>
           <div className={styles.sceneCaption} aria-hidden="true"><span>ONE STORY. EVERY DIMENSION.</span><span>Illustrative editions</span></div>
@@ -100,7 +101,7 @@ function LandingPage() {
 
       <section className={styles.finalSection} aria-labelledby="start-heading">
         <div className={styles.finalHeading}>
-          <span className={styles.finalMark} aria-hidden="true">v.</span>
+          <Image className={styles.finalMark} src="/favi.svg" alt="" width={64} height={58} />
           <p className={styles.eyebrow}>For the stories only you can tell</p>
           <h2 id="start-heading">The next chapter<br /><span>is yours.</span></h2>
           <p>Make room for the book you’ve been meaning to write.</p>
