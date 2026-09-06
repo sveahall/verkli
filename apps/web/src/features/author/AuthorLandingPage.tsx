@@ -7,6 +7,7 @@ import dynamic from "next/dynamic";
 import { ArrowRight, ArrowUpRight, AudioLines, BookOpen, Languages, PenLine } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import type { User } from "@supabase/supabase-js";
+import AuthorBookCover from "./AuthorBookCover";
 import AuthorProductPreview from "./AuthorProductPreview";
 import styles from "./AuthorLandingPage.module.css";
 
@@ -36,15 +37,13 @@ function LandingPage() {
           </div>
           <p className={styles.heroFootnote}>Your ideas. Your voice. A whole new dimension.</p>
         </div>
-        <div className={styles.storyScene} role="img" aria-label="Illustration of The shape of light, an example story, as a manuscript, a Spanish edition, and an audiobook">
+        <div className={styles.storyScene} role="img" aria-label="Illustrative English and Spanish covers for the example novel The shape of light, featuring a lighthouse above a midnight sea">
           <div className={styles.sceneStage} aria-hidden="true">
             <div className={styles.sceneFloor} />
-            <div className={`${styles.sceneBook} ${styles.sceneAmber}`}><span>THE ORIGINAL</span><strong>The shape<br />of light.</strong><div className={styles.coverPortal} /><small>A story by you</small></div>
-            <div className={`${styles.sceneBook} ${styles.sceneRose}`} lang="es"><span>OTRA PERSPECTIVA</span><strong>La forma<br />de la luz.</strong><div className={styles.coverPortal} /><small>Una nueva edición</small></div>
-            <div className={`${styles.sceneBook} ${styles.sceneViolet}`}><span>A WORLD OF POSSIBILITIES</span><strong>The shape<br />of light.</strong><div className={styles.coverPortal} /><small>VERKLI / A NOVEL</small></div>
-            <div className={styles.sceneGlass}><AudioLines size={24} /><span>From words.<br /><strong>To worlds.</strong></span></div>
+            <AuthorBookCover edition="spanish" className={styles.sceneTranslation} priority />
+            <AuthorBookCover className={styles.sceneOriginal} priority />
           </div>
-          <div className={styles.sceneCaption} aria-hidden="true"><span>ONE STORY. EVERY DIMENSION.</span><span>Illustrative editions</span></div>
+          <div className={styles.sceneCaption} aria-hidden="true"><span>ONE STORY. NEW POSSIBILITIES.</span><span>English & Spanish · Example covers</span></div>
         </div>
       </section>
 
@@ -67,7 +66,7 @@ function LandingPage() {
                 {step.number === "01" && <div className={styles.artManuscript}><span>Chapter one.</span><i /><i /><i /><i /><b /></div>}
                 {step.number === "02" && <div className={styles.artLanguages}><span>A</span><ArrowRight size={26} /><span lang="ja">あ</span></div>}
                 {step.number === "03" && <div className={styles.artWave}>{[18, 32, 52, 36, 72, 100, 64, 42, 84, 57, 30, 44, 18].map((height, index) => <i key={index} style={{ height }} />)}</div>}
-                {step.number === "04" && <div className={styles.artPublished}><i /><i /><div><span>YOUR<br />NEXT<br />CHAPTER.</span><BookOpen size={22} /></div></div>}
+                {step.number === "04" && <AuthorBookCover className={styles.artPublished} />}
               </div>
               <span className={styles.stepNumber}>{step.number}<span aria-hidden="true">↗</span></span>
               <h3><step.icon size={19} aria-hidden="true" />{step.title}</h3>
@@ -90,10 +89,10 @@ function LandingPage() {
               <div><dt>A place to be discovered</dt><dd>Bring your books and your author profile together on Verkli for readers to explore.</dd></div>
             </dl>
           </div>
-          <div className={styles.editions} aria-label="Illustration of the same example story in different editions">
+          <div className={styles.editions} role="img" aria-label="Illustrative English and Spanish covers for the example novel The shape of light">
             <p className={styles.editionsLabel}>One imagination. Many editions.</p>
-            <div className={`${styles.editionBook} ${styles.editionBack}`} lang="es"><span>Una novela</span><strong>La forma<br />de la luz.</strong><div className={styles.editionOrbit} /><small>Edición de ejemplo</small></div>
-            <div className={`${styles.editionBook} ${styles.editionFront}`}><span>A novel</span><strong>The shape<br />of light.</strong><div className={styles.editionOrbit} /><small>An example story</small></div>
+            <AuthorBookCover edition="spanish" className={`${styles.editionBook} ${styles.editionBack}`} />
+            <AuthorBookCover className={`${styles.editionBook} ${styles.editionFront}`} />
             <span className={styles.editionCaption}>A story doesn’t have to stay<br />where it started.</span>
           </div>
         </div>
