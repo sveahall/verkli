@@ -1,4 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
+import type { Database } from "@/lib/supabase/types";
 import { getClientIpFromRequest } from "@/lib/request-ip";
 import { auditMetadataFromRequest, recordAudit } from "@/lib/audit";
 import { createAdminClient } from "@/lib/supabase/admin";
@@ -155,7 +156,7 @@ export function readRightsAttestation(formData: FormData): AttestationParseResul
 
 export interface WriteRightsAttestationArgs {
   /** MUST be a service-role client. The table has no INSERT policy. */
-  admin: SupabaseClient;
+  admin: SupabaseClient<Database>;
   request: Request;
   userId: string;
   bookId: string | null;
@@ -334,7 +335,7 @@ export async function enforceRightsAttestation({
  * cannot edit what they signed.
  */
 export async function linkRightsAttestation(
-  admin: SupabaseClient,
+  admin: SupabaseClient<Database>,
   attestationId: string,
   link: { bookImportId?: string | null; bookId?: string | null }
 ): Promise<void> {
