@@ -57,26 +57,25 @@ export default async function PurchaseSuccessPage({
         {outcome === "success" ? (
           <>
             <p className="mt-3 text-sm text-emerald-700 dark:text-emerald-300">
-              Payment verified. This book is now unlocked for your account.
+              Payment verified. Your purchased access is ready.
             </p>
             <p className="mt-2 text-sm text-slate-700 dark:text-white/75">
-              A receipt is on its way to your email, and the book is on the Purchased
-              shelf in your library.
+              You can open the purchase from this page or find it in your library.
             </p>
           </>
         ) : null}
 
         {outcome === "failed" ? (
           <p className="mt-3 text-sm text-rose-700 dark:text-rose-300">
-            We could not verify the purchase. You can try again or contact support.
+            We could not verify this purchase. Please contact support before making another
+            payment.
           </p>
         ) : null}
 
         {outcome === "pending" ? (
           <p className="mt-3 text-sm text-slate-700 dark:text-white/75">
-            Your payment is being confirmed. Some payment methods take a little longer to
-            settle. Access unlocks automatically as soon as it clears, so there is no need to
-            pay again.
+            We are still checking your purchase status. Do not pay again. You can reload this
+            page in a moment, or contact support if the status does not change.
           </p>
         ) : null}
 

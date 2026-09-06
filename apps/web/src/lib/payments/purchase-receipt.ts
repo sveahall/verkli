@@ -1,5 +1,5 @@
 /**
- * Purchase receipt delivery, and the exactly-once guard around it.
+ * Purchase receipt delivery, and the at-most-once ownership guard around it.
  *
  * ## Why a claim is needed
  *
@@ -24,7 +24,7 @@
  * transition itself, as a single conditional UPDATE. Postgres serialises
  * concurrent updates of a row, and the loser re-evaluates the `WHERE` clause
  * against the committed new version — so of any number of racing callers,
- * exactly one gets a row back. That row is the receipt token.
+ * at most one gets a row back. That row is the receipt token.
  *
  * The transition is the same write the RPC would have made, and it only happens
  * after the caller has verified with Stripe that the session is genuinely paid,
@@ -35,7 +35,9 @@
  * on the next webhook retry or success-page load, both of which re-run the RPC.
  * We deliberately do not roll the status back: downgrading a paid order is worse
  * than a delayed entitlement, and the receipt is only sent once the RPC has
- * confirmed.
+ * confirmed. Because the claim is consumed before finalization, a finalizer
+ * failure can still lose that receipt; a later retry heals access but cannot
+ * safely infer that delivery should be repeated without a delivery ledger.
  */
 
 import "server-only";
@@ -49,6 +51,18 @@ import {
 } from "@/lib/emails/purchase-receipt";
 
 type AdminClient = ReturnType<typeof createAdminClient>;
+
+function trimString(value: unknown): string | null {
+  if (typeof value !== "string") return null;
+  const trimmed = value.trim();
+  return trimmed || null;
+}
+
+function safeErrorCode(error: unknown, fallback: string): string {
+  if (!error || typeof error !== "object") return fallback;
+  const code = (error as { code?: unknown }).code;
+  return typeof code === "string" && code.trim() ? code.trim() : fallback;
+}
 
 export type PaidOrderReceiptClaim = {
   orderId: string;
@@ -81,7 +95,7 @@ export async function claimPaidOrderForReceipt(
     .update({ status: "paid" })
     .eq("stripe_session_id", sessionId)
     .in("status", ["pending", "failed"])
-    .select("id, user_id, book_id, chapter_id, amount, currency, created_at")
+    .select("*")
     .maybeSingle();
 
   if (error) {
@@ -90,7 +104,6 @@ export async function claimPaidOrderForReceipt(
     console.error("[purchase.receipt] claim failed", {
       sessionId,
       code: error.code,
-      message: error.message,
     });
     return null;
   }
@@ -98,22 +111,50 @@ export async function claimPaidOrderForReceipt(
   if (!data) return null;
 
   const row = data as Record<string, unknown>;
-  const amount = typeof row.amount === "number" ? row.amount : Number(row.amount ?? NaN);
-  if (!Number.isFinite(amount)) {
-    console.warn("[purchase.receipt] claimed order has no usable amount", {
+  const orderId = trimString(row.id);
+  const userId = trimString(row.user_id);
+  const bookId = trimString(row.book_id);
+  const boundSessionId = trimString(row.stripe_session_id);
+  const currency = trimString(row.currency);
+  const amount = row.amount;
+
+  let chapterId: string | null = null;
+  if (Object.hasOwn(row, "chapter_id") && row.chapter_id !== null) {
+    chapterId = trimString(row.chapter_id);
+    if (!chapterId) {
+      console.warn("[purchase.receipt] unusable claim", {
+        sessionId,
+        orderId: orderId ?? "",
+        code: "invalid_chapter",
+      });
+      return null;
+    }
+  }
+
+  if (
+    !orderId ||
+    !userId ||
+    !bookId ||
+    boundSessionId !== sessionId ||
+    !currency ||
+    !Number.isSafeInteger(amount) ||
+    Number(amount) <= 0
+  ) {
+    console.warn("[purchase.receipt] unusable claim", {
       sessionId,
-      orderId: String(row.id ?? ""),
+      orderId: orderId ?? "",
+      code: "invalid_claim_shape",
     });
     return null;
   }
 
   return {
-    orderId: String(row.id ?? ""),
-    userId: String(row.user_id ?? ""),
-    bookId: String(row.book_id ?? ""),
-    chapterId: typeof row.chapter_id === "string" ? row.chapter_id : null,
-    amountMinor: amount,
-    currency: String(row.currency ?? "SEK"),
+    orderId,
+    userId,
+    bookId,
+    chapterId,
+    amountMinor: Number(amount),
+    currency,
     stripeSessionId: sessionId,
     createdAt: typeof row.created_at === "string" ? row.created_at : null,
   };
@@ -160,8 +201,8 @@ async function loadReceiptContext(
 }
 
 /**
- * Send the receipt for a claimed order. Fire-and-forget: logs on failure and
- * never throws, so a broken email provider can never roll back a paid purchase.
+ * Send the receipt for a claimed order. Delivery is awaited but failures are
+ * absorbed, so a broken email provider can never fail a paid purchase.
  *
  * Only ever call this with a claim returned by `claimPaidOrderForReceipt`.
  */
@@ -213,7 +254,7 @@ export async function sendPurchaseReceipt(
     if (error) {
       console.error("[purchase.receipt] send failed", {
         orderId: claim.orderId,
-        message: error.message,
+        code: safeErrorCode(error, "provider_rejected"),
       });
       return;
     }
@@ -225,7 +266,7 @@ export async function sendPurchaseReceipt(
   } catch (err) {
     console.error("[purchase.receipt] send threw", {
       orderId: claim.orderId,
-      message: err instanceof Error ? err.message : String(err),
+      code: safeErrorCode(err, "provider_exception"),
     });
   }
 }

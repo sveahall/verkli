@@ -31,6 +31,7 @@ type OrderRow = {
   id: string;
   user_id: string;
   book_id: string;
+  stripe_session_id: string;
   chapter_id: string | null;
   status: "pending" | "paid" | "failed";
   amount: number;
@@ -100,6 +101,7 @@ describe("confirmStripeBookPurchase", () => {
       id: "order-1",
       user_id: "reader-1",
       book_id: "book-1",
+      stripe_session_id: "cs_123",
       chapter_id: "chapter-1",
       status: "pending",
       amount: 1299,
@@ -141,11 +143,12 @@ describe("confirmStripeBookPurchase", () => {
     );
   });
 
-  it("marks the order failed when the Stripe session metadata does not match", async () => {
+  it("rejects mismatched Stripe metadata without changing the pending order", async () => {
     const admin = makeAdminClient({
       id: "order-1",
       user_id: "reader-1",
       book_id: "book-1",
+      stripe_session_id: "cs_bad",
       chapter_id: null,
       status: "pending",
       amount: 1299,
@@ -170,7 +173,7 @@ describe("confirmStripeBookPurchase", () => {
     });
 
     expect(ok).toBe("failed");
-    expect(admin.state.orderUpdatePayloads).toContainEqual({ status: "failed" });
+    expect(admin.state.orderUpdatePayloads).toHaveLength(0);
     expect(admin.state.rpcCalls).toHaveLength(0);
     expect(mocks.logAnalyticsEvent).not.toHaveBeenCalled();
   });
@@ -184,6 +187,7 @@ describe("confirmStripeBookPurchase", () => {
       id: "order-1",
       user_id: "reader-1",
       book_id: "book-1",
+      stripe_session_id: "cs_klarna",
       chapter_id: null,
       status: "pending",
       amount: 1299,
@@ -214,12 +218,12 @@ describe("confirmStripeBookPurchase", () => {
     expect(mocks.logAnalyticsEvent).not.toHaveBeenCalled();
   });
 
-  it("still fails an abandoned session that was never completed", async () => {
-    // status "open" means the buyer never paid at all — keep the fail-fast path.
+  it("keeps an open unpaid session processing without changing the order", async () => {
     const admin = makeAdminClient({
       id: "order-1",
       user_id: "reader-1",
       book_id: "book-1",
+      stripe_session_id: "cs_open",
       chapter_id: null,
       status: "pending",
       amount: 1299,
@@ -244,8 +248,8 @@ describe("confirmStripeBookPurchase", () => {
       bookId: "book-1",
     });
 
-    expect(ok).toBe("failed");
-    expect(admin.state.orderUpdatePayloads).toContainEqual({ status: "failed" });
+    expect(ok).toBe("processing");
+    expect(admin.state.orderUpdatePayloads).toHaveLength(0);
     expect(admin.state.rpcCalls).toHaveLength(0);
   });
 
@@ -254,6 +258,7 @@ describe("confirmStripeBookPurchase", () => {
       id: "order-1",
       user_id: "reader-1",
       book_id: "book-1",
+      stripe_session_id: "cs_123",
       chapter_id: null,
       status: "paid",
       amount: 1299,
@@ -297,6 +302,7 @@ describe("confirmStripeBookPurchase", () => {
       id: "order-1",
       user_id: "reader-1",
       book_id: "book-1",
+      stripe_session_id: "cs_123",
       chapter_id: null,
       status: "pending" as const,
       amount: 1299,
@@ -379,7 +385,7 @@ describe("confirmStripeBookPurchase", () => {
     it("sends no receipt for a settling delayed payment", async () => {
       // A `processing` purchase is neither paid nor failed. Emailing a receipt
       // for money that has not arrived would be a lie.
-      const admin = makeAdminClient(pendingOrder);
+      const admin = makeAdminClient({ ...pendingOrder, stripe_session_id: "cs_klarna" });
       mocks.createAdminClient.mockReturnValue(admin.client);
       mocks.getStripeCheckoutSession.mockResolvedValue({
         id: "cs_klarna",
@@ -405,7 +411,7 @@ describe("confirmStripeBookPurchase", () => {
     });
 
     it("sends no receipt when the session metadata does not match the order", async () => {
-      const admin = makeAdminClient(pendingOrder);
+      const admin = makeAdminClient({ ...pendingOrder, stripe_session_id: "cs_bad" });
       mocks.createAdminClient.mockReturnValue(admin.client);
       mocks.getStripeCheckoutSession.mockResolvedValue({
         id: "cs_bad",
@@ -444,7 +450,7 @@ describe("confirmStripeBookPurchase", () => {
         bookId: "book-1",
       });
 
-      expect(ok).toBe("failed");
+      expect(ok).toBe("processing");
       expect(mocks.sendPurchaseReceipt).not.toHaveBeenCalled();
     });
   });
