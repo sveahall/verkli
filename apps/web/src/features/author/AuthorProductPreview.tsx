@@ -2,8 +2,7 @@
 
 import { useRef, useState, type KeyboardEvent } from "react";
 import Image from "next/image";
-import { AudioLines, Languages, PenLine, Sparkles } from "lucide-react";
-import AuthorBookCover from "./AuthorBookCover";
+import { AudioLines, FileText, Languages, PenLine, Sparkles } from "lucide-react";
 import styles from "./AuthorLandingPage.module.css";
 
 const MODES = [
@@ -33,7 +32,7 @@ export default function AuthorProductPreview() {
   return (
     <div className={styles.workspace}>
       <div className={styles.workspaceHeader}>
-        <div className={styles.workspaceIdentity}><Image className={styles.workspaceMark} src="/favi.svg" alt="" width={39} height={35} /><span>The shape of light<span className={styles.workspaceSubheading}>Example manuscript</span></span></div>
+        <div className={styles.workspaceIdentity}><Image className={styles.workspaceMark} src="/favi.svg" alt="" width={39} height={35} /><span>Verkli Studio<span className={styles.workspaceSubheading}>Interactive preview</span></span></div>
         <div className={styles.tabs} role="tablist" aria-label="Explore writing, translation, and audio">
           {MODES.map(({ id, label, icon: Icon }, index) => (
             <button key={id} ref={(node) => { tabs.current[index] = node; }} type="button" role="tab" id={`preview-tab-${id}`} aria-selected={mode === id} aria-controls="preview-panel" tabIndex={mode === id ? 0 : -1} onClick={() => setMode(id)} onKeyDown={(event) => handleTabKey(event, index)}>
@@ -44,10 +43,10 @@ export default function AuthorProductPreview() {
       </div>
       <div className={styles.workspaceBody}>
         <aside className={styles.manuscriptOutline} aria-label="Example manuscript outline">
-          <p>Manuscript</p>
+          <p><FileText size={13} aria-hidden="true" /> Manuscript</p>
           <span className={styles.outlineTitle}>The shape of light</span>
           <ol><li className={styles.currentChapter}><span>01</span>The arrival</li><li><span>02</span>The keeper’s house</li><li><span>03</span>What the sea kept</li></ol>
-          <div className={styles.outlineBottom}><span className={styles.outlineRule} /><span>Every story begins<br />with a little possibility.</span></div>
+          <div className={styles.outlineBottom}><Sparkles size={16} aria-hidden="true" /><span>Your imagination.<br />Connected.</span><span className={styles.outlineExample}>Example manuscript</span></div>
         </aside>
         <div className={styles.previewPanel} role="tabpanel" id="preview-panel" aria-labelledby={`preview-tab-${mode}`} tabIndex={0}>
           <div className={styles.manuscriptPage}>
@@ -69,10 +68,24 @@ export default function AuthorProductPreview() {
               <p className={styles.panelNote}>No audio is generated in this preview.</p>
             </>}
           </div>
-          <aside className={styles.bookAside} aria-label="Example book edition">
-            <AuthorBookCover edition={mode === "translate" ? "spanish" : "original"} className={styles.previewBook} />
-            <span className={styles.editionType}>{mode === "writing" ? "Your story, taking shape" : mode === "translate" ? "A new chapter in Spanish" : "From the page to a voice"}</span>
-            <p>{mode === "writing" ? "Manuscript · Original example" : mode === "translate" ? "Translation · Illustrated example" : "Audiobook · Workflow preview"}</p>
+          <aside className={styles.assistantPanel} aria-label="Illustrative AI assistant examples">
+            <div className={styles.assistantHeader}><span className={styles.assistantSymbol}><Sparkles size={18} aria-hidden="true" /></span><span>Creative partner<small>AI, with your voice in mind</small></span></div>
+            {mode === "writing" && <>
+              <div className={styles.examplePrompt}><span>EXAMPLE PROMPT</span><p>Make the opening more cinematic.</p></div>
+              <div className={styles.assistantResponse}><span><Sparkles size={13} aria-hidden="true" /> ILLUSTRATIVE SUGGESTION</span><p>Before the town woke, the lighthouse went dark. At Nora’s door, a letter waited.</p></div>
+              <p className={styles.assistantGuidance}>A sharper opening. The same mystery.<br />Take what fits. Make it yours.</p>
+            </>}
+            {mode === "translate" && <>
+              <div className={styles.languageRoute}><span>EN<small>English</small></span><span aria-hidden="true">→</span><span>ES<small>Spanish</small></span></div>
+              <div className={styles.assistantResponse}><span><Languages size={13} aria-hidden="true" /> TRANSLATION EXAMPLE</span><p>A new language.<br />Keep the atmosphere.</p></div>
+              <p className={styles.assistantGuidance}>The Spanish passage keeps Nora, the lighthouse, and the quiet tension. Review every phrase so the story still sounds like you.</p>
+            </>}
+            {mode === "listen" && <>
+              <div className={styles.assistantWave} aria-hidden="true">{[16, 26, 45, 32, 70, 98, 58, 39, 80, 60, 36, 52, 26, 14].map((height, index) => <i key={index} style={{ height }} />)}</div>
+              <div className={styles.assistantResponse}><span><AudioLines size={13} aria-hidden="true" /> NARRATION DIRECTION EXAMPLE</span><p>Quiet suspense.<br />Room for every word.</p></div>
+              <p className={styles.assistantGuidance}>Try a measured pace for Nora’s arrival. Leave a pause after the letter, and let the last line land.</p>
+            </>}
+            <div className={styles.assistantFooter}><span className={styles.dot} /> Your story. Your call.</div>
           </aside>
         </div>
       </div>
