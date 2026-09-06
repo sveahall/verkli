@@ -18,6 +18,10 @@
 - **Mood:** Warm, craft-respecting, grown-up. Not toy, not corporate. The kind of tool a serious author would pick over a Word document because it makes the work feel like the work it is.
 - **Reference posture:** Closer to Notion (clean editorial surfaces) and Goodreads (warm, library-like discovery) than to Substack or Medium. Visual identity comes from the violet→rose→amber gradient and the brand wordmark.
 
+### Public author landing direction (updated 2026-09-06)
+
+The signed-out `/author` page uses an ambitious AI product launch direction: oversized centered brand typography, an interactive studio as the principal visual, layered application surfaces, and violet→rose→amber lighting. Show writing, AI assistance, translation and narration through clear interface examples. The user rejected decorative book-jacket compositions for this page. Keep the actual Verkli mark, Montserrat Alternates and brand tokens; this page-specific direction supersedes the editorial reference posture above.
+
 ## Typography
 
 Two typefaces, loaded via `next/font/google`. Variables wired into `globals.css` `@theme inline`.
