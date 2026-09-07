@@ -10,15 +10,30 @@ import { TA_FOR_ER_ORDER } from "@/lib/orders/ta-for-er";
  * the generic "Verkli — the platform for authors and readers" instead of the
  * book this page exists to sell.
  *
- * Swedish deliberately. The book, the order form and the Stripe receipt are all
- * Swedish, and `app/waitlist` sits outside `check-english-default`'s SCOPE
- * (which covers the reader and author route groups), so matching the page is
- * correct here rather than a gate violation.
+ * English, matching the page's own visible headings ("Limited access", "Join the
+ * waitlist as an author"). This page is now the public face of verkli.com under
+ * BETA_LOCK, which puts it squarely under the English-first policy for public
+ * pages that `check-english-default` enforces elsewhere. The book section below
+ * stays Swedish, because the book, the order form and the Stripe receipt are.
  */
-// Book-first, because that is what a recipient of this link can act on today.
-// The waitlist sign-up is still on the page, above the order section.
-const title = `Beställ ${TA_FOR_ER_ORDER.bookTitle} — ${TA_FOR_ER_ORDER.authorName}`;
-const description = `Beställ ${TA_FOR_ER_ORDER.bookTitle} av ${TA_FOR_ER_ORDER.authorName}. ${TA_FOR_ER_ORDER.priceLabel}, frakt ingår.`;
+// WAITLIST-FIRST. This was deliberately book-first until 2026-09-07, on the
+// reasoning that "the recipient of this link can act on the book today". Both
+// halves of that stopped being true on the same day:
+//
+//   1. BETA_LOCK is on, so `/waitlist` is no longer a link someone is sent — it
+//      is where EVERY visitor to verkli.com lands. The audience went from one
+//      recipient to the whole public.
+//   2. They cannot act on it. Production still carries a Stripe TEST key, so a
+//      real card is declined at checkout. See docs/audit-2026-09-07.md.
+//
+// A title advertising a purchase that cannot complete, on the front door of a
+// pre-launch platform, sells the wrong thing twice over. The book is still on
+// the page and still in the description; it is just no longer the headline.
+//
+// If the live Stripe key lands and the book becomes the point of this link
+// again, flipping this back is reasonable — but check the key first.
+const title = "Join the waitlist — private pre-launch";
+const description = `Verkli is in private pre-launch. Join the waitlist for early access as an author or reader. ${TA_FOR_ER_ORDER.bookTitle} by ${TA_FOR_ER_ORDER.authorName} can also be ordered from this page.`;
 
 export const metadata: Metadata = {
   title,

@@ -37,15 +37,32 @@ describe("waitlist metadata", () => {
     expect(metadata.twitter?.description).not.toBe(ROOT_DESCRIPTION);
   });
 
-  it("names the book and its price, so the preview is an actual offer", () => {
+  // Was "names the book and its price, so the preview is an actual offer",
+  // asserting the price in the description. Retired 2026-09-07: it is not an
+  // actual offer. Production carries a Stripe TEST key, so the card is declined
+  // at checkout — and BETA_LOCK makes this page the front door of verkli.com
+  // rather than a link sent to one buyer. Leading a pre-launch landing page with
+  // a price that cannot be charged sells the wrong thing twice.
+  //
+  // The book still has to be NAMED, so the page is findable by people who were
+  // sent here for it. The price no longer has to lead.
+  it("still names the book and its author in the preview", () => {
     const description = String(metadata.openGraph?.description ?? "");
     expect(description).toContain(TA_FOR_ER_ORDER.bookTitle);
     expect(description).toContain(TA_FOR_ER_ORDER.authorName);
-    expect(description).toContain(TA_FOR_ER_ORDER.priceLabel);
+  });
+
+  it("leads with the waitlist, not the book sale", () => {
+    // The page's job under BETA_LOCK is to explain that access is gated and how
+    // to get in. If this ever fails because the title went book-first again,
+    // check whether the live Stripe key landed first — that would make it a
+    // reasonable change rather than a regression.
+    const title = String(metadata.title).toLowerCase();
+    expect(title).toContain("waitlist");
+    expect(title).not.toContain(TA_FOR_ER_ORDER.bookTitle.toLowerCase());
   });
 
   it("keeps the page title and the social title in agreement", () => {
-    expect(String(metadata.title)).toContain(TA_FOR_ER_ORDER.bookTitle);
     expect(metadata.openGraph?.title).toBe(metadata.title);
     expect(metadata.twitter?.title).toBe(metadata.title);
   });
@@ -57,11 +74,18 @@ describe("waitlist metadata", () => {
   });
 
   // Derived from the order constant rather than retyped, so the preview cannot
-  // drift from the price the buyer is actually charged.
+  // drift from the book actually being sold. Previously asserted on priceLabel;
+  // the description no longer quotes a price (see above), so the same guard now
+  // rides on the two fields it does use. Interpolating the constant is the
+  // point — a hardcoded "Ta för er!" here would survive a rename of the book.
   it("derives its copy from the order constant", () => {
-    expect(TA_FOR_ER_ORDER.priceLabel).toBe("249 kr");
-    expect(String(metadata.openGraph?.description)).toContain(
-      TA_FOR_ER_ORDER.priceLabel
+    const description = String(metadata.openGraph?.description);
+    expect(description).toContain(TA_FOR_ER_ORDER.bookTitle);
+    expect(description).toContain(TA_FOR_ER_ORDER.authorName);
+    // Guards the interpolation itself: if the template were retyped as a
+    // literal, changing the constant would leave the description behind.
+    expect(description).toContain(
+      `${TA_FOR_ER_ORDER.bookTitle} by ${TA_FOR_ER_ORDER.authorName}`
     );
   });
 });
