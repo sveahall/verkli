@@ -214,7 +214,7 @@ export default function HowItWorksPage() {
                 Your next chapter deserves to be read.
               </h2>
               <p className="mt-5 text-[16px] leading-[1.7] text-slate-500 dark:text-white/50">
-                Join 2,000+ authors who turned their writing into audiences. No credit card required.
+                Verkli is in private pre-launch. Join the waitlist and we will reach out as places open.
               </p>
               <div className="mt-9 flex flex-col items-center gap-3 sm:flex-row sm:justify-center">
                 <Link href="/author/signup" className="btn-primary rounded-full px-8 py-3.5 text-[15px] shadow-[0_18px_40px_rgba(111,88,223,0.28)] sm:min-w-[200px]">

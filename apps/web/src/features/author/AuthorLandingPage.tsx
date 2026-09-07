@@ -199,25 +199,25 @@ function LandingPage() {
               </div>
             </div>
 
-            {/* ── Rating card ── */}
-            <div className="group relative overflow-hidden rounded-[28px] border border-black/[0.04] bg-white/60 p-8 backdrop-blur-sm transition-shadow duration-500 hover:shadow-[0_8px_30px_rgba(252,201,151,0.1)] dark:border-white/[0.06] dark:bg-white/[0.03]">
-              <div className="pointer-events-none absolute -right-10 -top-10 h-32 w-32 rounded-full bg-[#FCC997]/20 blur-3xl opacity-0 transition-opacity duration-500 group-hover:opacity-100" />
+            {/* ── Pre-launch card ── */}
+            {/* Replaced a "4.9/5 · Average rating from authors" card with four
+                Unsplash stock portraits and a "+2k" badge. Verkli has not
+                launched: no published books, no orders, one beta account. There
+                were no ratings and no 2,000 authors. Invented social proof on a
+                page shown to authors and investors is a credibility risk that
+                costs more than the empty space it filled. */}
+            <div className="group relative overflow-hidden rounded-[28px] border border-black/[0.04] bg-white/60 p-8 backdrop-blur-sm transition-shadow duration-500 hover:shadow-[0_8px_30px_rgba(144,122,255,0.1)] dark:border-white/[0.06] dark:bg-white/[0.03]">
+              <div className="pointer-events-none absolute -right-10 -top-10 h-32 w-32 rounded-full bg-[#907AFF]/20 blur-3xl opacity-0 transition-opacity duration-500 group-hover:opacity-100" />
               <div className="relative flex h-full flex-col justify-between gap-6">
                 <div>
-                  <div className="mb-3 flex items-center gap-1">
-                    {[1,2,3,4,5].map((i) => (
-                      <svg key={i} className="h-[18px] w-[18px] text-[#FCC997] drop-shadow-[0_1px_2px_rgba(252,201,151,0.4)]" fill="currentColor" viewBox="0 0 20 20"><path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" /></svg>
-                    ))}
-                  </div>
-                  <p className="text-[44px] font-bold tracking-[-0.03em] text-slate-900 dark:text-white">4.9<span className="text-[24px] font-semibold text-slate-400 dark:text-white/30">/5</span></p>
-                  <p className="mt-1 text-[14px] text-slate-500 dark:text-white/40">Average rating from authors</p>
+                  <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[#907AFF]">Private pre-launch</p>
+                  <p className="mt-4 text-[28px] font-bold leading-[1.15] tracking-[-0.03em] text-slate-900 dark:text-white">
+                    Early access, in small waves
+                  </p>
                 </div>
-                <div className="flex -space-x-2">
-                  {["https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=80&h=80&fit=crop&crop=face","https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=80&h=80&fit=crop&crop=face","https://images.unsplash.com/photo-1517841905240-472988babdf9?w=80&h=80&fit=crop&crop=face","https://images.unsplash.com/photo-1539571696357-5a69c17a67c6?w=80&h=80&fit=crop&crop=face"].map((src, i) => (
-                    <Image key={i} src={src} alt="" width={36} height={36} sizes="36px" className="h-9 w-9 rounded-full border-2 border-white object-cover shadow-sm transition-transform duration-300 hover:z-10 hover:scale-110 dark:border-[#111]" />
-                  ))}
-                  <div className="flex h-9 w-9 items-center justify-center rounded-full border-2 border-white bg-[#907AFF]/10 text-[11px] font-bold text-[#907AFF] dark:border-[#111]">+2k</div>
-                </div>
+                <p className="text-[14px] leading-[1.6] text-slate-500 dark:text-white/40">
+                  We onboard a limited number of authors at a time so each one gets real support.
+                </p>
               </div>
             </div>
 
@@ -300,7 +300,7 @@ function LandingPage() {
                 <h2 className="mt-5 text-[clamp(28px,3.5vw,42px)] font-bold leading-[1.1] tracking-[-0.03em] text-slate-900 dark:text-white">
                   Ready to reach more readers?
                 </h2>
-                <p className="mt-5 max-w-[400px] text-[16px] leading-[1.7] text-slate-500 dark:text-white/50">Join thousands of authors turning their books into content that reaches readers everywhere.</p>
+                <p className="mt-5 max-w-[400px] text-[16px] leading-[1.7] text-slate-500 dark:text-white/50">Turn one book into content that reaches readers in every format and language.</p>
                 <div className="mt-10 flex flex-wrap items-center gap-4">
                   <Link href="/author/signup" className="btn-primary text-[15px]">Start for free</Link>
                   <Link href="/how-it-works" className="flex items-center gap-1.5 text-[15px] font-medium text-slate-500 transition-colors hover:text-slate-800 dark:text-white/45 dark:hover:text-white/70">
@@ -310,26 +310,76 @@ function LandingPage() {
                 </div>
               </div>
 
-              {/* Right — social proof stack */}
+              {/* Right — what early access means.
+                  Was a "4.9 out of 5 · Based on 2,000+ reviews" card and a
+                  testimonial attributed to "Emma Richardson, NYT Bestseller",
+                  a person who does not exist. Both invented. Removed rather
+                  than softened: a fabricated named endorsement is the kind of
+                  detail that ends a conversation with a real author. */}
               <div className="flex flex-col gap-4">
                 <div className="rounded-2xl border border-black/[0.04] bg-white/70 p-6 backdrop-blur-sm dark:border-white/[0.06] dark:bg-white/[0.03]">
-                  <div className="flex items-center gap-1">
-                    {[1,2,3,4,5].map((i) => (
-                      <svg key={i} className="h-[18px] w-[18px] text-[#FCC997] drop-shadow-[0_1px_2px_rgba(252,201,151,0.4)]" fill="currentColor" viewBox="0 0 20 20"><path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" /></svg>
-                    ))}
-                  </div>
-                  <p className="mt-2 text-[24px] font-bold tracking-tight text-slate-900 dark:text-white">4.9 out of 5</p>
-                  <p className="mt-0.5 text-[13px] text-slate-500 dark:text-white/40">Based on 2,000+ reviews</p>
+                  <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[#907AFF]">Limited access</p>
+                  <p className="mt-2 text-[15px] leading-[1.55] text-slate-600 dark:text-white/55">
+                    Verkli is in private pre-launch. Join the waitlist and we will reach out as places open.
+                  </p>
                 </div>
                 <div className="rounded-2xl border border-black/[0.04] bg-white/70 p-6 backdrop-blur-sm dark:border-white/[0.06] dark:bg-white/[0.03]">
-                  <div className="flex -space-x-2.5">
-                    {["https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=80&h=80&fit=crop&crop=face","https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=80&h=80&fit=crop&crop=face","https://images.unsplash.com/photo-1517841905240-472988babdf9?w=80&h=80&fit=crop&crop=face","https://images.unsplash.com/photo-1539571696357-5a69c17a67c6?w=80&h=80&fit=crop&crop=face"].map((src, i) => (
-                      <Image key={i} src={src} alt="" width={40} height={40} sizes="40px" className="h-10 w-10 rounded-full border-2 border-white object-cover shadow-sm dark:border-[#111]" />
-                    ))}
-                    <div className="flex h-10 w-10 items-center justify-center rounded-full border-2 border-white bg-[#907AFF]/10 text-[11px] font-bold text-[#907AFF] dark:border-[#111]">+2k</div>
-                  </div>
-                  <p className="mt-3 text-[15px] leading-[1.55] text-slate-600 dark:text-white/55">&quot;Verkli helped me turn one story into content that reached millions.&quot;</p>
-                  <p className="mt-2 text-[13px] text-slate-400 dark:text-white/30">— Emma Richardson, NYT Bestseller</p>
+                  <p className="text-[15px] leading-[1.55] text-slate-600 dark:text-white/55">
+                    Write once. Publish, translate and narrate from one place — you keep the rights and the revenue.
+                  </p>
+                </div>
+              </div>
+            </div>
+            </div>
+            </Reveal>
+          </section>
+        </LazySection>
+
+        {/* ─── CTA ─── */}
+        <LazySection className="landing-deferred" minHeight={760}>
+          <section className="relative mx-auto w-full max-w-[1200px] px-6 py-28">
+            <Reveal>
+            <div className="group relative overflow-hidden rounded-[32px] border border-black/[0.04] bg-gradient-to-br from-[#907AFF]/[0.12] via-[#E29ED5]/[0.07] to-[#FCC997]/[0.05] shadow-[0_2px_40px_rgba(144,122,255,0.06)] dark:border-white/[0.06]">
+            {/* Ambient glows */}
+            <div className="pointer-events-none absolute -left-32 -top-32 h-[400px] w-[400px] rounded-full bg-[#907AFF]/20 blur-[120px] transition-transform duration-[1500ms] group-hover:translate-x-10 group-hover:translate-y-8" />
+            <div className="pointer-events-none absolute -bottom-20 -right-20 h-[300px] w-[300px] rounded-full bg-[#E29ED5]/15 blur-[100px] transition-transform duration-[1500ms] group-hover:-translate-x-6" />
+
+            <div className="relative grid items-center gap-8 p-6 sm:p-10 md:p-16 lg:grid-cols-[1.4fr_1fr] lg:gap-16">
+              {/* Left — copy */}
+              <div>
+                <p className="text-[13px] font-medium uppercase tracking-[0.15em] text-slate-500 dark:text-white/40">Get started today</p>
+                <h2 className="mt-5 text-[clamp(28px,3.5vw,42px)] font-bold leading-[1.1] tracking-[-0.03em] text-slate-900 dark:text-white">
+                  Ready to reach more readers?
+                </h2>
+                <p className="mt-5 max-w-[400px] text-[16px] leading-[1.7] text-slate-500 dark:text-white/50">Turn one book into content that reaches readers in every format and language.</p>
+                <div className="mt-10 flex flex-wrap items-center gap-4">
+                  <Link href="/author/signup" className="btn-primary text-[15px]">Start for free</Link>
+                  <Link href="/how-it-works" className="flex items-center gap-1.5 text-[15px] font-medium text-slate-500 transition-colors hover:text-slate-800 dark:text-white/45 dark:hover:text-white/70">
+                    How it works
+                    <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" /></svg>
+                  </Link>
+                </div>
+              </div>
+
+              {/* Right — what early access actually means.
+                  Was a "4.9 out of 5 · Based on 2,000+ reviews" card plus a
+                  testimonial from "Emma Richardson, NYT Bestseller" — a person
+                  who does not exist, over four Unsplash stock portraits and a
+                  "+2k" badge. All invented. Verkli has no published books, no
+                  orders and one beta account, so there was nothing to rate.
+                  Removed rather than toned down: a fabricated named endorsement
+                  is what ends a conversation with a real author. */}
+              <div className="flex flex-col gap-4">
+                <div className="rounded-2xl border border-black/[0.04] bg-white/70 p-6 backdrop-blur-sm dark:border-white/[0.06] dark:bg-white/[0.03]">
+                  <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[#907AFF]">Limited access</p>
+                  <p className="mt-2 text-[15px] leading-[1.55] text-slate-600 dark:text-white/55">
+                    Verkli is in private pre-launch. Join the waitlist and we will reach out as places open.
+                  </p>
+                </div>
+                <div className="rounded-2xl border border-black/[0.04] bg-white/70 p-6 backdrop-blur-sm dark:border-white/[0.06] dark:bg-white/[0.03]">
+                  <p className="text-[15px] leading-[1.55] text-slate-600 dark:text-white/55">
+                    One manuscript in. Ebook, translations and narration out — you keep the rights and the revenue.
+                  </p>
                 </div>
               </div>
             </div>
