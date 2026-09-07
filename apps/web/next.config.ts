@@ -126,6 +126,38 @@ const nextConfig: NextConfig = {
         // @verkli/ui, @verkli/shared or @verkli/db — it then dies at startup on
         // an unresolvable import rather than at build, so the image looks fine.
         outputFileTracingRoot: path.resolve(__dirname, "../.."),
+        // Keep native/napi packages out of file tracing.
+        //
+        // Turbopack panics while tracing them in the container:
+        //   TurbopackInternalError: missing field `napi_versions` at line 46 column 3
+        //   ... Execution of <TracedAsset as OutputAssetsReference>::references failed
+        // It names no file. The failing operation is TracedAsset, i.e. the
+        // tracing pass that `output: "standalone"` performs — not module
+        // resolution — so excluding these from tracing is the targeted fix
+        // rather than deleting them from node_modules.
+        //
+        // Cannot be reproduced locally: the offending package.json belongs to a
+        // platform-specific binary that only installs on linux/musl
+        // (@parcel/watcher-linux-x64-musl, @img/sharp-linuxmusl-*), so a macOS
+        // install has a different, well-formed one.
+        //
+        // Safe to exclude all three:
+        //   @parcel/watcher  — pulled in by next-intl for dev file watching only
+        //   napi-build-utils — a build-time helper
+        //   sharp / @img     — the runner stage copies them explicitly from a
+        //                      dedicated `sharpdep` stage, so tracing does not
+        //                      need to find them
+        outputFileTracingExcludes: {
+          "*": [
+            "node_modules/@parcel/watcher*/**",
+            "node_modules/napi-build-utils/**",
+            "node_modules/sharp/**",
+            "node_modules/@img/**",
+            "**/node_modules/@parcel/watcher*/**",
+            "**/node_modules/sharp/**",
+            "**/node_modules/@img/**",
+          ],
+        },
       }
     : {}),
   turbopack: {
