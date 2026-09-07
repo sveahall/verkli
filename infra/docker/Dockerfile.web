@@ -42,6 +42,8 @@ FROM node:22-alpine AS builder
 WORKDIR /app
 
 COPY --from=deps /app/node_modules ./node_modules
+COPY --from=deps /app/apps ./apps
+COPY --from=deps /app/packages ./packages
 COPY package.json package-lock.json* ./
 COPY apps/web apps/web
 COPY packages packages
@@ -118,8 +120,9 @@ COPY --from=builder --chown=nextjs:nodejs /app/apps/web/public ./apps/web/public
 #   - hoisting differs between the dev Mac and linux/alpine, so the correct
 #     path is not knowable from a local `ls`. The extra stage removes the guess
 #     and pulls the linux-musl binaries for the platform we actually run on.
-COPY --from=sharpdep --chown=nextjs:nodejs /sharp/node_modules/sharp ./node_modules/sharp
-COPY --from=sharpdep --chown=nextjs:nodejs /sharp/node_modules/@img ./node_modules/@img
+# Copy the complete isolated graph so sharp's JS dependencies (including
+# semver and detect-libc) ship alongside its platform binaries.
+COPY --from=sharpdep --chown=nextjs:nodejs /sharp/node_modules ./node_modules
 
 USER nextjs
 EXPOSE 3000
