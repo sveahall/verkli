@@ -215,9 +215,20 @@ export async function middleware(request: NextRequest) {
     const isNext = p.startsWith('/_next/')
     const isKnownRoot = ['/favicon.ico', '/favicon.svg', '/robots.txt'].includes(p)
     const isRootAssetWithExt = /^\/[^/]+\.[a-z0-9]+$/i.test(p)
+    // A health endpoint behind an access gate cannot report health.
+    //
+    // Both locks used to 403 `/api/health`, which breaks three things at once:
+    // uptime monitoring, any Railway healthcheck pointed at it (every deploy
+    // would fail its own check and never go live), and the one cheap way to
+    // confirm which commit is actually serving traffic.
+    //
+    // Safe to leave open: the unauthenticated branch returns only
+    // { ok, timestamp, version } — the database and Redis probes are behind
+    // hasAdminOrOpsAccess. See api/health/route.ts.
+    const isHealth = p === '/api/health'
 
     const allowed =
-      isWaitlist || isApiWaitlist || isOrder || isNext || isKnownRoot || isRootAssetWithExt
+      isWaitlist || isApiWaitlist || isOrder || isNext || isKnownRoot || isRootAssetWithExt || isHealth
     if (!allowed) {
       const url = request.nextUrl.clone()
       url.pathname = '/waitlist'
@@ -271,6 +282,17 @@ export async function middleware(request: NextRequest) {
     const isNext = p.startsWith('/_next/')
     const isKnownRoot = ['/favicon.ico', '/favicon.svg', '/robots.txt'].includes(p)
     const isRootAssetWithExt = /^\/[^/]+\.[a-z0-9]+$/i.test(p)
+    // A health endpoint behind an access gate cannot report health.
+    //
+    // Both locks used to 403 `/api/health`, which breaks three things at once:
+    // uptime monitoring, any Railway healthcheck pointed at it (every deploy
+    // would fail its own check and never go live), and the one cheap way to
+    // confirm which commit is actually serving traffic.
+    //
+    // Safe to leave open: the unauthenticated branch returns only
+    // { ok, timestamp, version } — the database and Redis probes are behind
+    // hasAdminOrOpsAccess. See api/health/route.ts.
+    const isHealth = p === '/api/health'
 
     const isAuthEntry = BETA_LOCK_AUTH_PATHS.has(p)
 
@@ -279,7 +301,7 @@ export async function middleware(request: NextRequest) {
     // goes on for the cohort — see PUBLIC_ORDER_SLUGS.
     const isOrderPath = isPublicOrderPath(p)
 
-    const allowedPath = isWaitlist || isAuth || isAuthEntry || isApiWaitlist || isApiAuth || isOrderPath || isNext || isKnownRoot || isRootAssetWithExt
+    const allowedPath = isWaitlist || isAuth || isAuthEntry || isApiWaitlist || isApiAuth || isOrderPath || isNext || isKnownRoot || isRootAssetWithExt || isHealth
     // Only look up cohort membership when it can change the outcome. `isBeta` is
     // read once, in `!allowedPath && !isBeta` below, so on an allowed path the
     // result is discarded — and a transient failure of that lookup would 503 a
