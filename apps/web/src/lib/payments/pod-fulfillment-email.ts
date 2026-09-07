@@ -151,7 +151,14 @@ export async function notifyPodFulfillment(
       : "") +
     `<h3>Shipping</h3>` +
     `<pre style="white-space:pre-wrap;font-family:ui-monospace,Menlo,Consolas,monospace;background:#f8fafc;padding:12px;border-radius:6px">${escapeHtml(shippingText)}</pre>` +
-    `<p style="color:#64748b;font-size:12px">MVP fulfillment is manual — place this order with the print vendor and update <code>pod_orders.status</code> to <code>shipped</code> when done.</p>`;
+    // `fulfillment_status`, not `status`. This said `pod_orders.status` -> `shipped`,
+    // which the table's own CHECK rejects: status is ('pending','paid','failed')
+    // and 'shipped' lives on fulfillment_status
+    // ('unfulfilled','submitted','printing','shipped','delivered'). Following the
+    // old instruction raised a constraint violation, and the operator's next
+    // guess is to widen the check — which would let a paid order be marked
+    // shipped by overwriting the field the webhook uses for idempotency.
+    `<p style="color:#64748b;font-size:12px">MVP fulfillment is manual — place this order with the print vendor and update <code>pod_orders.fulfillment_status</code> to <code>shipped</code> when done.</p>`;
 
   const text =
     `New paid POD order\n\n` +

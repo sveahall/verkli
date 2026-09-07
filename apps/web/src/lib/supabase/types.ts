@@ -2616,6 +2616,65 @@ export type Database = {
           },
         ]
       }
+      pod_orders: {
+        Row: {
+          amount: number
+          book_id: string
+          created_at: string
+          currency: string
+          format: string
+          fulfillment_metadata: Json
+          fulfillment_status: string
+          id: string
+          provider: string
+          shipping_address: Json | null
+          status: string
+          stripe_session_id: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          amount: number
+          book_id: string
+          created_at?: string
+          currency: string
+          format: string
+          fulfillment_metadata?: Json
+          fulfillment_status?: string
+          id?: string
+          provider?: string
+          shipping_address?: Json | null
+          status?: string
+          stripe_session_id?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          amount?: number
+          book_id?: string
+          created_at?: string
+          currency?: string
+          format?: string
+          fulfillment_metadata?: Json
+          fulfillment_status?: string
+          id?: string
+          provider?: string
+          shipping_address?: Json | null
+          status?: string
+          stripe_session_id?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pod_orders_book_id_fkey"
+            columns: ["book_id"]
+            isOneToOne: false
+            referencedRelation: "books"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       poll_options: {
         Row: {
           deleted_at: string | null
