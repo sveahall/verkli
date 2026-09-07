@@ -25,7 +25,17 @@ const READER_STORAGE_POSITION = "verkli_waitlist_reader_position";
 
 const HERO_EYEBROW = "Limited access";
 const HERO_HEADLINE = "Join the waitlist to access verkli.";
-const HERO_SUBHEADLINE = "Early access is exclusively limited.";
+// Says what Verkli IS, because this page is the whole public site while
+// BETA_LOCK is on. It previously read "Early access is exclusively limited." —
+// scarcity with no product behind it, so a visitor left knowing only that they
+// could not get in. The scarcity line still lives in HERO_MICRO under the form.
+//
+// Every claim here maps to something that exists: manuscript import
+// (lib/imports), translations (worker-translation), narration
+// (worker-audiobook, ElevenLabs). Deliberately says nothing about rights or
+// revenue splits — that is a business claim nobody has written down.
+const HERO_SUBHEADLINE =
+  "Publish once. Verkli turns your manuscript into an ebook, translations and a narrated audiobook.";
 const HERO_CTA_LABEL = "Request access";
 const HERO_MICRO = "Limited waitlist. We onboard a small number of authors at a time.";
 const CARD_BADGE = "PRIVATE PRE LAUNCH";
@@ -587,6 +597,25 @@ export default function WaitlistPage() {
                 </div>
               </div>
             </div>
+
+            {/* What the platform does — three items, under the forms.
+                Placed BELOW the signup cards on purpose: the hero is min-h-dvh,
+                so anything above them pushes the actual call to action off the
+                first screen. */}
+            <dl className="waitlist-hero-in waitlist-hero-in-delay-3 mt-14 grid w-full grid-cols-1 gap-8 text-left sm:grid-cols-3 sm:gap-6">
+              {[
+                { term: "Write and publish", desc: "Import a manuscript, edit the chapters, publish when it is ready." },
+                { term: "Reach more languages", desc: "Translate a finished book and publish each language on its own." },
+                { term: "Turn it into audio", desc: "Generate a narrated audiobook from the text you already have." },
+              ].map((item) => (
+                <div key={item.term} className="min-w-0">
+                  <dt className="text-[13px] font-semibold uppercase tracking-[0.14em] text-white/70">
+                    {item.term}
+                  </dt>
+                  <dd className="mt-2 text-[15px] leading-[1.6] text-white/45">{item.desc}</dd>
+                </div>
+              ))}
+            </dl>
           </div>
 
           {/* Scroll cue: hints the book order card sits below the fold (desktop;
