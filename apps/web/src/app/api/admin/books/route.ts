@@ -245,6 +245,50 @@ export async function PATCH(request: Request) {
     return apiError(E_DATABASE_ERROR, 500);
   }
 
+  // Taking a book off the shelf means unpublishing its VERSIONS, not just
+  // flipping this column.
+  //
+  // `books.status` does not gate public visibility. The reader path and the RLS
+  // policies both key off `book_versions.published_at` + `visibility` — see
+  // `can_view_book` (20260204093000) and the chapters SELECT policy
+  // (20260219120000). Writing only `status` left the book fully readable through
+  // the public API: measured 2026-09-07, a "DRAFT" book still served all 53 of
+  // its chapters to an anonymous client.
+  //
+  // The author-facing route already did this correctly
+  // (`api/books/[id]/publish` action=unpublish). This is the same transition,
+  // and deliberately unconditional: the author route stops if some OTHER version
+  // is still published, which is right for "I retracted my edit" and wrong for
+  // "an admin is taking this down". A takedown that leaves one version live is
+  // not a takedown.
+  if (status !== "PUBLISHED") {
+    const { error: versionError } = await admin
+      .from("book_versions")
+      .update({ published_at: null, published_chapter_count: null })
+      .eq("book_id", bookId);
+
+    if (versionError) {
+      // Fails the request rather than logging on. `books.status` has already
+      // been written at this point, so returning ok:true here would report a
+      // takedown while the content stayed public — the exact failure this
+      // block exists to prevent.
+      console.error("[admin/books] version unpublish failed:", versionError.message);
+      return apiError(E_DATABASE_ERROR, 500);
+    }
+
+    const { error: flagError } = await admin
+      .from("books")
+      .update({ published: false, published_at: null })
+      .eq("id", bookId);
+
+    if (flagError) {
+      // Not fatal: `published`/`published_at` on `books` are legacy columns that
+      // no visibility check reads (only admin funnel metrics do). The content is
+      // already private by this point.
+      console.error("[admin/books] legacy publish flags not cleared:", flagError.message);
+    }
+  }
+
   // Audit trail — best-effort, and deliberately not allowed to fail the request.
   // Taking a book off the shelf having already succeeded, then 500-ing because
   // the log write failed, would invite the admin to press the button again.

@@ -22,6 +22,7 @@ const req = (body: unknown) =>
 function adminStub(opts: {
   existing?: { id: string; status: string | null; title: string | null } | null;
   updates?: Array<Record<string, unknown>>;
+  versionUpdates?: Array<Record<string, unknown>>;
   audits?: Array<Record<string, unknown>>;
 }) {
   const { existing = { id: BOOK, status: "PUBLISHED", title: "A Book" } } = opts;
@@ -33,6 +34,7 @@ function adminStub(opts: {
       b.maybeSingle = () => Promise.resolve({ data: existing, error: null });
       b.update = (patch: Record<string, unknown>) => {
         if (table === "books") opts.updates?.push(patch);
+        if (table === "book_versions") opts.versionUpdates?.push(patch);
         return { eq: () => Promise.resolve({ error: null }) };
       };
       b.insert = (row: Record<string, unknown>) => {
@@ -56,16 +58,73 @@ beforeEach(() => {
 });
 
 describe("PATCH /api/admin/books", () => {
-  it("unpublishes a live book to DRAFT", async () => {
+  it("unpublishes the VERSIONS, not just books.status", async () => {
+    // The assertion that used to live here was `updates == [{status:"DRAFT"}]`,
+    // which passed while the book stayed fully readable through the public API:
+    // `books.status` gates nothing. Visibility comes from
+    // `book_versions.published_at`, so that is what a takedown has to clear.
     const updates: Array<Record<string, unknown>> = [];
-    mocks.createAdminClient.mockReturnValue(adminStub({ updates }));
+    const versionUpdates: Array<Record<string, unknown>> = [];
+    mocks.createAdminClient.mockReturnValue(adminStub({ updates, versionUpdates }));
 
     const res = await PATCH(req({ bookId: BOOK, status: "DRAFT" }));
     const body = await res.json();
 
     expect(res.status).toBe(200);
     expect(body.changed).toBe(true);
-    expect(updates).toEqual([{ status: "DRAFT" }]);
+    expect(versionUpdates).toEqual([{ published_at: null, published_chapter_count: null }]);
+    expect(updates).toEqual([
+      { status: "DRAFT" },
+      { published: false, published_at: null },
+    ]);
+  });
+
+  it("unpublishes the versions on ARCHIVED too, not only DRAFT", async () => {
+    // ARCHIVED is the real-takedown status per the route's own comment, so it
+    // must not be the branch that forgets to make the content private.
+    const versionUpdates: Array<Record<string, unknown>> = [];
+    mocks.createAdminClient.mockReturnValue(adminStub({ versionUpdates }));
+
+    const res = await PATCH(req({ bookId: BOOK, status: "ARCHIVED" }));
+
+    expect(res.status).toBe(200);
+    expect(versionUpdates).toEqual([{ published_at: null, published_chapter_count: null }]);
+  });
+
+  it("fails the request when the version unpublish fails", async () => {
+    // books.status is written first. Reporting ok:true after the version write
+    // failed would claim a takedown while the chapters stayed public.
+    const stub = adminStub({});
+    const broken = {
+      from(table: string) {
+        const b = stub.from(table) as Record<string, unknown>;
+        if (table === "book_versions") {
+          b.update = () => ({ eq: () => Promise.resolve({ error: { message: "boom" } }) });
+        }
+        return b;
+      },
+    };
+    mocks.createAdminClient.mockReturnValue(broken);
+
+    const res = await PATCH(req({ bookId: BOOK, status: "DRAFT" }));
+
+    expect(res.status).toBe(500);
+  });
+
+  it("does NOT touch versions when setting PUBLISHED", async () => {
+    // Known and deliberate asymmetry: admin can flip status to PUBLISHED, but
+    // that does not restore public visibility — re-publishing needs the author
+    // route, which re-derives the version and its chapter count. Encoded here so
+    // the gap is visible rather than surprising.
+    const versionUpdates: Array<Record<string, unknown>> = [];
+    mocks.createAdminClient.mockReturnValue(
+      adminStub({ existing: { id: BOOK, status: "DRAFT", title: "A Book" }, versionUpdates }),
+    );
+
+    const res = await PATCH(req({ bookId: BOOK, status: "PUBLISHED" }));
+
+    expect(res.status).toBe(200);
+    expect(versionUpdates).toEqual([]);
   });
 
   it("404s on a book that does not exist, instead of reporting a happy no-op", async () => {
