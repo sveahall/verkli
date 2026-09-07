@@ -63,9 +63,13 @@ jobs:
       # would otherwise be picked up from this working directory.
       - run: npx tsc --noEmit -p apps/web/tsconfig.json
 
-      # build:ci, not build. It pins `next build --webpack`, which is what the
-      # production image builds; plain `build` uses Turbopack and would gate a
-      # different artifact than the one that ships.
-      - run: npm run build:ci
+      # `build`, matching the image. Earlier today this said `build:ci` on the
+      # reasoning that CI should gate what production builds — right principle,
+      # wrong conclusion: build:ci pins `next build --webpack`, and in Next 16
+      # the webpack builder emits no middleware at all. That made CI faithfully
+      # gate a broken artifact instead of asking why production pinned a
+      # deprecated bundler. The Dockerfile now builds with Turbopack too, so
+      # this is once again the same command that ships.
+      - run: npm run build
 
       - run: npm test

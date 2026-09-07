@@ -105,9 +105,26 @@ ENV NEXT_PUBLIC_SUPABASE_URL=$NEXT_PUBLIC_SUPABASE_URL \
     NEXT_PUBLIC_TRANSLATIONS_ENABLED=$NEXT_PUBLIC_TRANSLATIONS_ENABLED \
     NEXT_PUBLIC_AI_CHAT_ENABLED=$NEXT_PUBLIC_AI_CHAT_ENABLED
 
-# `build:ci` pins --webpack. Turbopack is the default in Next 16 and this repo
-# has not qualified it for production builds, so use the same command CI does.
-RUN npm run build:ci
+# `npm run build` (Turbopack), NOT `build:ci` (which pins --webpack).
+#
+# In Next 16 the webpack builder DOES NOT EMIT MIDDLEWARE. Measured 2026-09-07,
+# same commit, same env, only the flag differing:
+#
+#   next build --webpack   -> no .next/server/edge/chunks, middleware-manifest
+#                             "middleware": {}, no mention in the build output
+#   next build (turbopack) -> edge chunks present, manifest "middleware": {"/"},
+#                             build output lists `ƒ Proxy (Middleware)`
+#
+# So every image built with build:ci shipped WITHOUT middleware.ts — all 19 kB
+# of it. The waitlist gate, the beta lock and the middleware half of route
+# protection were silently absent, which is why BETA_LOCK=true changed nothing
+# no matter how many times the container was restarted.
+#
+# Verified after switching: the standalone server from a Turbopack build, with
+# BETA_LOCK=true in its environment, answers `/` with 307 -> /waitlist while
+# /waitlist and /reader/signin stay 200. BETA_LOCK needs no build-time plumbing
+# at all — middleware reads the real process.env once it actually exists.
+RUN npm run build
 
 # ── sharp (platform-correct, version-pinned) ─────────────────────────────────
 # Pinned to the exact version apps/web declares. sharp 0.35 ships its platform
