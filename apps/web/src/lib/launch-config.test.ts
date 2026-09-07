@@ -189,7 +189,11 @@ describe("verifyLaunchConfig", () => {
       SUPABASE_SERVICE_ROLE_KEY: "service-key",
       RESEND_API_KEY: "re_test",
       RESEND_FROM_EMAIL: "no-reply@verkli.com",
-      STRIPE_SECRET_KEY: "sk_test_x",
+      // Live-mode, because goodEnv() describes an environment that should pass
+      // a PRODUCTION check. It held "sk_test_x" while the suite asserted zero
+      // errors, which pinned the gate's blind spot open: production could ship
+      // on a test key and check:launch-config --strict said green.
+      STRIPE_SECRET_KEY: "sk_live_x",
       STRIPE_WEBHOOK_SECRET: "whsec_x",
       STRIPE_CHECKOUT_SUCCESS_URL: "https://verkli.com/account/billing",
       STRIPE_CHECKOUT_CANCEL_URL: "https://verkli.com/pricing",
@@ -461,5 +465,46 @@ describe("verifyLaunchConfig", () => {
     // build needs that decision before it ships.
     const warnings = verifyLaunchConfig(goodEnv()).filter((p) => p.severity === "warning");
     expect(warnings).toEqual([]);
+  });
+
+  describe("Stripe key mode", () => {
+    it("rejects a test-mode secret key for production", () => {
+      const problems = errors({ ...goodEnv(), STRIPE_SECRET_KEY: "sk_test_x" });
+      expect(problems).toHaveLength(1);
+      expect(problems[0].key).toBe("STRIPE_SECRET_KEY");
+      expect(problems[0].message).toContain("TEST-mode");
+    });
+
+    it("rejects a restricted test key too", () => {
+      const problems = errors({ ...goodEnv(), STRIPE_SECRET_KEY: "rk_test_x" });
+      expect(problems).toHaveLength(1);
+      expect(problems[0].key).toBe("STRIPE_SECRET_KEY");
+    });
+
+    it("accepts a test key for preview, where it belongs", () => {
+      // Failing preview on a test key would train people to ignore the output.
+      expect(
+        verifyLaunchConfig({ ...goodEnv(), STRIPE_SECRET_KEY: "sk_test_x" }, "preview").filter(
+          (p) => p.severity === "error" && p.key === "STRIPE_SECRET_KEY"
+        )
+      ).toEqual([]);
+    });
+
+    it("rejects a value that is not a Stripe secret key at all", () => {
+      const problems = errors({ ...goodEnv(), STRIPE_SECRET_KEY: "pk_live_x" });
+      expect(problems).toHaveLength(1);
+      expect(problems[0].message).toContain("does not look like");
+    });
+
+    it("accepts both live key prefixes", () => {
+      expect(errors({ ...goodEnv(), STRIPE_SECRET_KEY: "sk_live_x" })).toEqual([]);
+      expect(errors({ ...goodEnv(), STRIPE_SECRET_KEY: "rk_live_x" })).toEqual([]);
+    });
+
+    it("rejects a webhook secret that is not a whsec_", () => {
+      const problems = errors({ ...goodEnv(), STRIPE_WEBHOOK_SECRET: "sk_live_x" });
+      expect(problems).toHaveLength(1);
+      expect(problems[0].key).toBe("STRIPE_WEBHOOK_SECRET");
+    });
   });
 });

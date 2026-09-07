@@ -282,6 +282,52 @@ export function validateRedirectUrl(
   return null;
 }
 
+/**
+ * Rejects a test-mode Stripe key for a production target.
+ *
+ * The gate used to assert only that STRIPE_SECRET_KEY was PRESENT, and returned
+ * exit 0 on a production environment carrying `sk_test_…`. That is not a
+ * degraded launch, it is no launch: test mode declines every real card, and the
+ * catalog's live price ids do not exist under a test key. The gate certified it
+ * green for months.
+ *
+ * Preview is left alone deliberately — a preview environment SHOULD be on a
+ * test key, and failing it here would train people to ignore the output.
+ */
+export function validateStripeSecretKey(
+  value: string,
+  target: VerifyTarget = "production"
+): string | null {
+  if (target !== "production") return null;
+  if (value.startsWith("sk_test_") || value.startsWith("rk_test_")) {
+    return "is a TEST-mode key. Real cards are declined in test mode, and billing_plan_catalog's live price ids do not resolve under it, so both purchases and subscriptions fail.";
+  }
+  if (!value.startsWith("sk_live_") && !value.startsWith("rk_live_")) {
+    return "does not look like a Stripe secret key (expected sk_live_… or rk_live_… for production).";
+  }
+  return null;
+}
+
+/**
+ * Same rule for the webhook secret's mode, which is separate from the key's.
+ *
+ * A live key with a test `whsec_` means payments succeed and then every webhook
+ * fails signature verification, so nothing settles into an order — the worst of
+ * the three combinations, because the money moves and the product does not.
+ * Stripe does not encode the mode in the secret's prefix, so this can only
+ * check shape; the mode has to be verified against the dashboard.
+ */
+export function validateStripeWebhookSecret(
+  value: string,
+  target: VerifyTarget = "production"
+): string | null {
+  if (target !== "production") return null;
+  if (!value.startsWith("whsec_")) {
+    return "does not look like a Stripe webhook signing secret (expected whsec_…).";
+  }
+  return null;
+}
+
 export const LAUNCH_REQUIRED_PRESENT: readonly LaunchRequiredSpec[] = [
   {
     anyOf: ["NEXT_PUBLIC_SITE_URL"],
@@ -321,11 +367,13 @@ export const LAUNCH_REQUIRED_PRESENT: readonly LaunchRequiredSpec[] = [
     anyOf: ["STRIPE_SECRET_KEY"],
     reason:
       "Launch criterion 1 is a real purchase end to end; checkout cannot be created without it.",
+    validate: validateStripeSecretKey,
   },
   {
     anyOf: ["STRIPE_WEBHOOK_SECRET"],
     reason:
       "Without it the webhook cannot verify signatures, so a completed payment never settles into an order.",
+    validate: validateStripeWebhookSecret,
   },
   {
     anyOf: ["STRIPE_CHECKOUT_SUCCESS_URL"],
