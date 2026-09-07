@@ -207,8 +207,17 @@ COPY --from=builder --chown=nextjs:nodejs /app/apps/web/public ./apps/web/public
 #    requires one of those would 500 in production.
 #
 # So: install into /tmp with its own package.json, where npm can prune all it
-# likes, then copy only sharp and its platform binaries into /app/node_modules.
-# The standalone tree is never handed to npm.
+# likes, then copy what it produced into /app/node_modules. The standalone tree
+# is never handed to npm.
+#
+# ALL nine packages npm installs, not just sharp and @img. Copying only those
+# two failed the verification below with
+#     Cannot find module '/app/node_modules/sharp/node_modules/semver/index.js'
+# because sharp requires semver and detect-libc at load time; leaving seven
+# behind produces a sharp that cannot be required at all.
+#
+# Copied only where the name does not already exist, so a module the standalone
+# tree already ships at its own version is never clobbered by sharp's copy.
 #
 # --ignore-scripts is safe for sharp 0.35 — platform binaries arrive as
 # optionalDependencies (@img/sharp-linuxmusl-x64 on alpine), not a postinstall
@@ -218,10 +227,14 @@ RUN mkdir -p /tmp/sharp-install \
  && npm init -y > /dev/null 2>&1 \
  && npm install --no-audit --no-fund --ignore-scripts sharp@0.35.4 \
  && mkdir -p /app/node_modules \
- && cp -R /tmp/sharp-install/node_modules/sharp /app/node_modules/ \
- && cp -R /tmp/sharp-install/node_modules/@img /app/node_modules/ \
+ && for d in /tmp/sharp-install/node_modules/*; do \
+      n=$(basename "$d"); \
+      if [ "$n" != ".package-lock.json" ] && [ ! -e "/app/node_modules/$n" ]; then \
+        cp -R "$d" /app/node_modules/; \
+      fi; \
+    done \
  && rm -rf /tmp/sharp-install \
- && chown -R nextjs:nodejs /app/node_modules/sharp /app/node_modules/@img
+ && chown -R nextjs:nodejs /app/node_modules
 
 # Fail the BUILD if sharp cannot actually load.
 #
