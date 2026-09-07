@@ -23,8 +23,14 @@ const montserratAlternates = Montserrat_Alternates({
 
 
 export const metadata: Metadata = {
+  // `||`, not `??`. An env var that exists but is EMPTY is not caught by `??`,
+  // and `new URL("")` throws — during page-data collection, which reports it as
+  // "Failed to collect page data for /_not-found ... ERR_INVALID_URL input: ''".
+  // That message names a route unrelated to the cause and does not mention the
+  // variable at all. Clearing this field in the host's dashboard is an easy
+  // mistake to make and an expensive one to diagnose.
   metadataBase: new URL(
-    process.env.NEXT_PUBLIC_SITE_URL ?? "https://verkli.com"
+    process.env.NEXT_PUBLIC_SITE_URL?.trim() || "https://verkli.com"
   ),
   title: {
     default: "Verkli",

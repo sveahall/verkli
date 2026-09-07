@@ -14,23 +14,58 @@ on:
 jobs:
   web:
     runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: apps/web
+
+    # `next build` requires these two to be NON-EMPTY: assertPublicEnv() runs
+    # while page data is collected and throws "Missing required public
+    # environment variables" otherwise. They do not need to be REAL — verified
+    # by building with placeholders: 157/157 static pages generated, exit 0,
+    # because no prerendered page fetches live data at build time.
+    #
+    # So the fallback keeps CI green without any repo configuration, and the
+    # secrets take over automatically once they are added. Both values are
+    # public by design (the anon key ships inside the client bundle), so nothing
+    # secret is being defaulted here.
+    env:
+      NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL || 'https://placeholder.supabase.co' }}
+      NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'placeholder-anon-key-not-real' }}
+
+    # Installs and runs from the REPO ROOT, not apps/web.
+    #
+    # This workflow had `defaults.run.working-directory: apps/web`, and `npm ci`
+    # from a workspace child installs only that child's dependencies — while the
+    # ROOT `prepare` script still runs. `prepare` is `husky`, husky lives in the
+    # root devDependencies, so it was never installed: every run died on
+    # "husky: not found", exit 127. Every CI run in this repo's history had
+    # failed that way, on every work-package PR, which is why a red check
+    # stopped meaning anything. Installing at the root installs husky and the
+    # script succeeds — no --ignore-scripts needed.
+    #
+    # The root package.json already proxies each script to the workspace
+    # (`lint`, `test`, `build:ci`), so these are the same commands the
+    # Dockerfile runs.
 
     steps:
       - uses: actions/checkout@v4
 
       - uses: actions/setup-node@v4
         with:
-          # Matches the root package.json `engines: node >=22.12.0` and the
-          # node:22-alpine the web image runs on Railway. On 20 the gate was
-          # below its own declared floor, so a Node 22-only failure would have
-          # passed CI and broken production.
+          # Matches the root package.json engines floor (>=22.12.0) and the
+          # node:22-alpine the web image runs on Railway. On 20 the gate ran
+          # below its own declared floor.
           node-version: 22
+          cache: npm
 
       - run: npm ci
+
       - run: npm run lint
-      - run: npx tsc --noEmit
-      - run: npm run build
+
+      # -p is required: the meaningful tsconfig is apps/web's, and the root one
+      # would otherwise be picked up from this working directory.
+      - run: npx tsc --noEmit -p apps/web/tsconfig.json
+
+      # build:ci, not build. It pins `next build --webpack`, which is what the
+      # production image builds; plain `build` uses Turbopack and would gate a
+      # different artifact than the one that ships.
+      - run: npm run build:ci
+
       - run: npm test
