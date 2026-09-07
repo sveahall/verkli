@@ -5,6 +5,7 @@ import {
   clearCatalogCache,
   getStripeMode,
   rowMatchesMode,
+  selectPriceIdFromCatalog,
 } from "@/lib/billing/catalog";
 
 const PLUS_READER = "price_1SyunUAddvXwS9Pwvebprjjd";
@@ -123,6 +124,46 @@ describe("billing catalog", () => {
     it("keeps every row when the mode is unknown", () => {
       expect(rowMatchesMode(row({ livemode: true }), null)).toBe(true);
       expect(rowMatchesMode(row({ livemode: false }), null)).toBe(true);
+    });
+  });
+
+  describe("selectPriceIdFromCatalog", () => {
+    it("returns the price id for an exact role/plan/interval match", () => {
+      expect(selectPriceIdFromCatalog(STUB_CATALOG, "author", "pro", "month")).toBe(PRO_AUTHOR);
+      expect(selectPriceIdFromCatalog(STUB_CATALOG, "reader", "plus", "month")).toBe(PLUS_READER);
+    });
+
+    it("returns null when the plan has no row for that interval", () => {
+      expect(selectPriceIdFromCatalog(STUB_CATALOG, "author", "pro", "year")).toBeNull();
+    });
+
+    it("refuses to guess when two rows match the same plan", () => {
+      // This is the shape the livemode migration makes possible: one live row
+      // and one test row for the same plan. Picking whichever came back first
+      // would decide at random whether the price id matches the Stripe key,
+      // so a 500 that names the problem beats an intermittent one.
+      const ambiguous: CatalogRow[] = [
+        row({ price_id: "price_live", livemode: true }),
+        row({ price_id: "price_test", livemode: false }),
+      ];
+      expect(selectPriceIdFromCatalog(ambiguous, "author", "pro", "month")).toBeNull();
+    });
+
+    it("is fine with two rows for the same plan on different intervals", () => {
+      const monthAndYear: CatalogRow[] = [
+        row({ price_id: "price_m", interval: "month" }),
+        row({ price_id: "price_y", interval: "year" }),
+      ];
+      expect(selectPriceIdFromCatalog(monthAndYear, "author", "pro", "month")).toBe("price_m");
+      expect(selectPriceIdFromCatalog(monthAndYear, "author", "pro", "year")).toBe("price_y");
+    });
+
+    it("defaults to the monthly row when no interval is given", () => {
+      const monthAndYear: CatalogRow[] = [
+        row({ price_id: "price_m", interval: "month" }),
+        row({ price_id: "price_y", interval: "year" }),
+      ];
+      expect(selectPriceIdFromCatalog(monthAndYear, "author", "pro")).toBe("price_m");
     });
   });
 });

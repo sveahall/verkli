@@ -254,11 +254,40 @@ export async function getPriceIdForRolePlan(
   planKey: CatalogPlanKey,
   interval: CatalogInterval = DEFAULT_INTERVAL
 ): Promise<string | null> {
-  const catalog = await getPlanCatalog();
-  const row = catalog.find(
+  return selectPriceIdFromCatalog(await getPlanCatalog(), role, planKey, interval);
+}
+
+/**
+ * The row-selection half of getPriceIdForRolePlan, without the DB read, so the
+ * refuse-to-guess rule below is directly testable.
+ */
+export function selectPriceIdFromCatalog(
+  catalog: CatalogRow[],
+  role: CatalogRole,
+  planKey: CatalogPlanKey,
+  interval: CatalogInterval = DEFAULT_INTERVAL
+): string | null {
+  const matches = catalog.filter(
     (r) => r.role === role && r.plan_key === planKey && r.interval === interval
   );
-  return row?.price_id ?? null;
+
+  // More than one match is a data bug, and `.find()` used to resolve it by
+  // silently taking whichever row PostgREST happened to return first. With
+  // live and test rows now sharing the table, that coin flip decides whether
+  // the price id is in the same mode as the key — i.e. whether the checkout
+  // works at all. Refuse rather than guess; the caller turns null into a
+  // logged 500, which is a debuggable failure instead of an intermittent one.
+  if (matches.length > 1) {
+    console.error("[billing.catalog] multiple rows for one plan — refusing to guess", {
+      role,
+      planKey,
+      interval,
+      priceIds: matches.map((r) => r.price_id),
+    });
+    return null;
+  }
+
+  return matches[0]?.price_id ?? null;
 }
 
 /**
