@@ -1800,6 +1800,7 @@ export type Database = {
       entitlements: {
         Row: {
           book_id: string
+          chapter_id: string | null
           created_at: string
           id: string
           source: string
@@ -1807,6 +1808,7 @@ export type Database = {
         }
         Insert: {
           book_id: string
+          chapter_id?: string | null
           created_at?: string
           id?: string
           source: string
@@ -1814,6 +1816,7 @@ export type Database = {
         }
         Update: {
           book_id?: string
+          chapter_id?: string | null
           created_at?: string
           id?: string
           source?: string
@@ -1825,6 +1828,13 @@ export type Database = {
             columns: ["book_id"]
             isOneToOne: false
             referencedRelation: "books"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "entitlements_chapter_id_fkey"
+            columns: ["chapter_id"]
+            isOneToOne: false
+            referencedRelation: "chapters"
             referencedColumns: ["id"]
           },
         ]
@@ -2553,6 +2563,7 @@ export type Database = {
         Row: {
           amount: number
           book_id: string
+          chapter_id: string | null
           country: string | null
           created_at: string
           currency: string
@@ -2565,6 +2576,7 @@ export type Database = {
         Insert: {
           amount: number
           book_id: string
+          chapter_id?: string | null
           country?: string | null
           created_at?: string
           currency: string
@@ -2577,6 +2589,7 @@ export type Database = {
         Update: {
           amount?: number
           book_id?: string
+          chapter_id?: string | null
           country?: string | null
           created_at?: string
           currency?: string
@@ -2592,6 +2605,13 @@ export type Database = {
             columns: ["book_id"]
             isOneToOne: false
             referencedRelation: "books"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "orders_chapter_id_fkey"
+            columns: ["chapter_id"]
+            isOneToOne: false
+            referencedRelation: "chapters"
             referencedColumns: ["id"]
           },
         ]

@@ -24,14 +24,19 @@ const TYPES = join(__dirname, "types.ts");
 
 /**
  * Columns that ARE live but missing from types.ts, which is generated and has
- * drifted. Verified against migrations, not assumed — remove an entry here when
- * types.ts is regenerated rather than leaving it to rot.
+ * drifted. Verified against the LIVE DATABASE, not the migrations — the two
+ * entries that used to live here (`orders.chapter_id`, `entitlements.chapter_id`)
+ * were justified "verified against migrations", and the migration in question
+ * had never actually run. Neither column existed, so this allowlist was
+ * suppressing a real bug rather than a false positive: it hid the 400 that made
+ * reader order history render empty and, worse, made every paid-book entitlement
+ * check fail closed. Both columns are live as of 2026-09-07 and now present in
+ * types.ts, so nothing needs excusing.
+ *
+ * Add an entry only after probing the live database for the column. Remove it
+ * when types.ts is regenerated rather than leaving it to rot.
  */
-const KNOWN_TYPES_DRIFT = new Set([
-  // Added by 20260312130000_per_chapter_pricing_model.sql.
-  "orders.chapter_id",
-  "entitlements.chapter_id",
-]);
+const KNOWN_TYPES_DRIFT = new Set<string>([]);
 
 /** Columns a query may always name; PostgREST synthesises or accepts them. */
 const ALWAYS_OK = new Set(["*", "count"]);
