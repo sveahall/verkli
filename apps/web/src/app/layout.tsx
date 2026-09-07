@@ -10,6 +10,9 @@ import OfflineServiceWorkerRegistration from "@/components/offline/OfflineServic
 import CookieConsent from "@/components/CookieConsent";
 import PostHogProvider from "@/components/analytics/PostHogProvider";
 
+// Set by Vercel's build and runtime only; unset on Railway and locally.
+const isVercel = process.env.VERCEL === "1";
+
 const inter = Inter({
   variable: "--font-inter",
   subsets: ["latin"],
@@ -115,8 +118,21 @@ export default function RootLayout({
             <CookieConsent />
           </ToastProvider>
         </PostHogProvider>
-        <Analytics />
-        <SpeedInsights />
+        {/* Vercel-only. Both scripts are served by Vercel's edge at
+            /_vercel/insights/script.js and /_vercel/speed-insights/script.js —
+            paths that exist nowhere else. Since the move to Railway, Next
+            answered those two requests with the SPA's own HTML, so every page
+            load spent two round-trips and logged
+              Refused to execute script ... MIME type ('text/html')
+            while the dashboards recorded nothing.
+            Gated rather than deleted: the env var is set only by Vercel's
+            builder, so this re-arms itself if we ever deploy there again. */}
+        {isVercel ? (
+          <>
+            <Analytics />
+            <SpeedInsights />
+          </>
+        ) : null}
       </body>
     </html>
   );
