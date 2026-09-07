@@ -5,38 +5,26 @@ import { Badge } from "@/components/ui/badge";
 import EmptyState from "@/components/reader/EmptyState";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { getPurchaseStatusUrl, isCheckoutIdentifier } from "@/lib/payments/checkout-status-url";
 
-type PodOrderRow = {
+type OrderRow = {
   id: string;
   book_id: string | null;
-  format: string | null;
   amount: number | null;
   currency: string | null;
-  status: string;
-  created_at: string;
-  updated_at: string;
-  shipping_address: Record<string, unknown> | null;
+  status: string | null;
+  created_at: string | null;
 };
 
-/**
- * A digital book (or single-chapter) purchase. Read from `orders`, which until
- * now was consumed only by the author's revenue stats — so a buyer had no order
- * history for the thing they actually bought.
- */
-type DigitalOrderRow = {
-  id: string;
-  book_id: string | null;
+type PodOrderRow = OrderRow & { format: string | null };
+type DigitalOrderRow = OrderRow & {
   chapter_id: string | null;
-  amount: number | null;
-  currency: string | null;
-  status: string;
-  created_at: string;
+  status_url: string | null;
 };
 
 type BookRow = {
   id: string;
   title: string | null;
-  cover_image: string | null;
   status: string | null;
 };
 
@@ -50,21 +38,17 @@ const POD_STATUS_LABELS: Record<string, string> = {
   failed: "Failed",
 };
 
-/**
- * `pending` covers delayed-notification methods (Klarna, Swish, SEPA) that
- * settle after checkout, so the copy must not read as an error.
- */
+// These are recorded order states, not independent confirmation of payment
+// failure or finalized reading access. Only the status route verifies those.
 const DIGITAL_STATUS_LABELS: Record<string, string> = {
-  pending: "Payment processing",
-  paid: "Paid",
-  failed: "Payment failed",
-  cancelled: "Cancelled",
-  refunded: "Refunded",
+  pending: "Payment status pending",
+  paid: "Payment recorded",
+  failed: "Payment unconfirmed",
 };
 
 type BadgeVariant = "neutral" | "success" | "warning" | "info" | "error";
 
-function statusVariant(status: string): BadgeVariant {
+function statusVariant(status: string | null): BadgeVariant {
   switch (status) {
     case "paid":
     case "delivered":
@@ -83,18 +67,96 @@ function statusVariant(status: string): BadgeVariant {
 }
 
 function formatAmount(amountMinor: number | null, currency: string | null): string {
-  if (amountMinor == null || !currency) return "—";
+  if (amountMinor == null || !currency) return "Amount unavailable";
   return `${(amountMinor / 100).toFixed(2)} ${currency.toUpperCase()}`;
 }
 
-function formatDate(iso: string): string {
+function formatDate(iso: string | null): string {
+  if (!iso) return "Date unavailable";
   const date = new Date(iso);
-  if (Number.isNaN(date.getTime())) return "";
+  if (Number.isNaN(date.getTime())) return "Date unavailable";
   return new Intl.DateTimeFormat("en-US", {
     year: "numeric",
     month: "short",
     day: "numeric",
   }).format(date);
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return value !== null && typeof value === "object" && !Array.isArray(value);
+}
+
+function displayText(value: unknown): string | null {
+  return typeof value === "string" && value.trim() ? value : null;
+}
+
+function normalizeOrder(row: Record<string, unknown>, labels: Record<string, string>): OrderRow | null {
+  if (!isCheckoutIdentifier(row.id)) return null;
+  return {
+    id: row.id,
+    book_id: isCheckoutIdentifier(row.book_id) ? row.book_id : null,
+    amount: typeof row.amount === "number" && Number.isSafeInteger(row.amount) && row.amount >= 0 ? row.amount : null,
+    currency: typeof row.currency === "string" && /^[A-Za-z]{3}$/.test(row.currency) ? row.currency : null,
+    status: typeof row.status === "string" && Object.hasOwn(labels, row.status) ? row.status : null,
+    created_at: displayText(row.created_at),
+  };
+}
+
+function normalizeDigitalOrder(value: unknown, userId: string): DigitalOrderRow | null {
+  if (!isRecord(value) || value.user_id !== userId) return null;
+  // An absent property is the legacy whole-book schema. Present malformed
+  // values must never be relabelled as full-book purchases.
+  if (Object.hasOwn(value, "chapter_id") && value.chapter_id !== null && !displayText(value.chapter_id)) return null;
+  const order = normalizeOrder(value, DIGITAL_STATUS_LABELS);
+  if (!order) return null;
+  return {
+    ...order,
+    chapter_id: displayText(value.chapter_id),
+    status_url: order.book_id ? getPurchaseStatusUrl(order.book_id, order.id, value.stripe_session_id) : null,
+  };
+}
+
+function logReadError(source: string, reason: string, error?: unknown) {
+  const code = isRecord(error) && typeof error.code === "string" && /^(?:[A-Z0-9]{5}|PGRST[0-9]{3})$/.test(error.code)
+    ? error.code : "UNKNOWN";
+  console.error("[reader orders] read unavailable", { source, reason, code });
+}
+
+async function readRows<T>(
+  source: string,
+  read: () => PromiseLike<{ data: unknown; error: unknown }>,
+  normalize: (value: unknown) => T | null,
+): Promise<{ rows: T[]; unavailable: boolean }> {
+  try {
+    const { data, error } = await read();
+    if (error || !Array.isArray(data)) {
+      logReadError(source, error ? "query_error" : "invalid_data", error);
+      return { rows: [], unavailable: true };
+    }
+    const rows: T[] = [];
+    let unavailable = false;
+    for (const value of data) {
+      const row = normalize(value);
+      if (row) rows.push(row);
+      else unavailable = true;
+    }
+    if (unavailable) logReadError(source, "invalid_rows");
+    return { rows, unavailable };
+  } catch (error) {
+    logReadError(source, "transport_error", error);
+    return { rows: [], unavailable: true };
+  }
+}
+
+function ReadUnavailable({ message }: { message: string }) {
+  return (
+    <p role="status" className="text-[13px] text-slate-600 dark:text-white/70">
+      {message}{" "}
+      <a href="/reader/orders" className="font-medium text-[#907AFF] underline underline-offset-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#907AFF]/40">
+        Reload orders
+      </a>
+    </p>
+  );
 }
 
 export default async function ReaderOrdersPage() {
@@ -107,23 +169,24 @@ export default async function ReaderOrdersPage() {
     redirect("/reader/signin?next=/reader/orders");
   }
 
-  const [{ data: podRows }, { data: digitalRows }] = await Promise.all([
-    supabase
+  const [printed, digital] = await Promise.all([
+    readRows("printed", () => supabase
       .from("pod_orders" as never)
-      .select(
-        "id, book_id, format, amount, currency, status, created_at, updated_at, shipping_address",
-      )
+      .select("id, book_id, format, amount, currency, status, created_at")
       .eq("user_id", user.id)
-      .order("created_at", { ascending: false }),
-    supabase
+      .order("created_at", { ascending: false }), (value): PodOrderRow | null => {
+        if (!isRecord(value)) return null;
+        const order = normalizeOrder(value, POD_STATUS_LABELS);
+        return order ? { ...order, format: displayText(value.format) } : null;
+      }),
+    readRows("digital", () => supabase
       .from("orders" as never)
-      .select("id, book_id, chapter_id, amount, currency, status, created_at")
+      .select("*")
       .eq("user_id", user.id)
-      .order("created_at", { ascending: false }),
+      .order("created_at", { ascending: false }), (value) => normalizeDigitalOrder(value, user.id)),
   ]);
-
-  const podOrders = (podRows ?? []) as PodOrderRow[];
-  const digitalOrders = (digitalRows ?? []) as DigitalOrderRow[];
+  const podOrders = printed.rows;
+  const digitalOrders = digital.rows;
 
   const bookIds = Array.from(
     new Set(
@@ -134,18 +197,20 @@ export default async function ReaderOrdersPage() {
   );
 
   const bookMap = new Map<string, BookRow>();
+  let metadataUnavailable = false;
   if (bookIds.length > 0) {
-    // Service role, scoped to books this user actually ordered: an order the
-    // buyer placed must keep its title even after the author unpublishes, and
-    // the reader's RLS on `books` keys off publication.
-    const { data: bookRows } = await createAdminClient()
+    // Service role, scoped to this user's displayed orders: titles remain
+    // visible after unpublish. This lookup grants no reading access.
+    const metadata = await readRows("book metadata", () => createAdminClient()
       .from("books")
       .select("id, title, cover_image, status")
-      .in("id", bookIds);
-
-    for (const row of (bookRows ?? []) as BookRow[]) {
-      bookMap.set(row.id, row);
-    }
+      .in("id", bookIds), (value): BookRow | null => {
+        if (!isRecord(value) || !isCheckoutIdentifier(value.id) || !bookIds.includes(value.id)) return null;
+        return { id: value.id, title: displayText(value.title), status: displayText(value.status) };
+      });
+    for (const book of metadata.rows) bookMap.set(book.id, book);
+    metadataUnavailable = metadata.unavailable || bookIds.some((id) => !bookMap.get(id)?.title);
+    if (metadataUnavailable && !metadata.unavailable) logReadError("book metadata", "missing_titles");
   }
 
   const hasOrders = podOrders.length > 0 || digitalOrders.length > 0;
@@ -155,17 +220,18 @@ export default async function ReaderOrdersPage() {
       <PageHeader
         eyebrow="Library"
         title="My orders"
-        description="Every purchase you've made on Verkli — digital books and printed copies."
+        description="Your order history on Verkli — digital books and printed copies."
       />
 
-      {!hasOrders ? (
+      {!hasOrders && !digital.unavailable && !printed.unavailable ? (
         <EmptyState
           title="No orders yet"
           description="When you buy a book or order a printed copy, it'll show up here with its receipt details."
         />
       ) : (
         <div className="space-y-8">
-          {digitalOrders.length > 0 && (
+          {metadataUnavailable && <ReadUnavailable message="Some book details are unavailable. Your order records are still shown." />}
+          {(digitalOrders.length > 0 || digital.unavailable) && (
             <section className="space-y-3">
               <div className="flex items-baseline justify-between gap-4">
                 <h2 className="text-[15px] font-semibold text-slate-900 dark:text-white">
@@ -178,18 +244,12 @@ export default async function ReaderOrdersPage() {
                   Go to library
                 </Link>
               </div>
+              {digital.unavailable && <ReadUnavailable message={digitalOrders.length ? "Some digital purchases are unavailable." : "Digital purchases are unavailable right now."} />}
               <ul className="space-y-3">
                 {digitalOrders.map((order) => {
                   const book = order.book_id ? bookMap.get(order.book_id) : null;
-                  const title = book?.title ?? "Unknown book";
-                  const statusLabel =
-                    DIGITAL_STATUS_LABELS[order.status] ?? order.status;
-                  // The service-role lookup above deliberately keeps an unpublished
-                  // book's title visible, but /reader/books/[id] is the PUBLIC page
-                  // and 404s for anything not PUBLISHED — so linking there turned a
-                  // real purchase into a dead end. The title stays; the link does
-                  // not. "Go to library" above is the route that still works, and
-                  // the library card is entitlement-aware.
+                  const title = book?.title ?? "Title unavailable";
+                  const statusLabel = order.status ? DIGITAL_STATUS_LABELS[order.status] : "Payment status unavailable";
                   const isListed = String(book?.status ?? "").toUpperCase() === "PUBLISHED";
                   const href = order.book_id && isListed ? `/reader/books/${order.book_id}` : null;
 
@@ -199,7 +259,7 @@ export default async function ReaderOrdersPage() {
                       className="rounded-2xl border border-slate-200/80 bg-white/90 p-4 shadow-[0_8px_24px_rgba(15,23,42,0.04)] dark:border-white/10 dark:bg-white/[0.04]"
                     >
                       <div className="flex flex-wrap items-start justify-between gap-3">
-                        <div className="min-w-0">
+                        <div className="min-w-0 break-words">
                           <p className="text-[14px] font-semibold text-slate-900 dark:text-white">
                             {href ? (
                               <Link href={href} className="hover:underline">
@@ -211,17 +271,33 @@ export default async function ReaderOrdersPage() {
                           </p>
                           <p className="mt-1 text-[12px] text-slate-500 dark:text-white/55">
                             {order.chapter_id ? "Single chapter · " : "Full book · "}
-                            Bought {formatDate(order.created_at)}
+                            Placed {formatDate(order.created_at)}
                           </p>
-                          <p className="mt-1 text-[11px] text-slate-400 dark:text-white/35">
+                          <p className="mt-1 break-all text-[11px] text-slate-400 dark:text-white/35">
                             Order {order.id}
                           </p>
+                          {order.status_url ? (
+                            <div className="mt-2 space-y-1 text-[12px]">
+                              <Link href={order.status_url} prefetch={false} className="font-medium text-[#907AFF] hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#907AFF]/40">
+                                Check purchase status
+                              </Link>
+                              <p className="text-slate-500 dark:text-white/55">Payment and access are checked on the status page.</p>
+                            </div>
+                          ) : (
+                            <p className="mt-2 text-[12px] text-slate-500 dark:text-white/55">
+                              Purchase status link unavailable.{" "}
+                              <Link href="/support" className="font-medium text-[#907AFF] hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#907AFF]/40">
+                                Contact support
+                              </Link>{" "}
+                              with this order ID for help.
+                            </p>
+                          )}
                         </div>
-                        <div className="flex flex-col items-end gap-1.5">
+                        <div className="flex max-w-full flex-col items-end gap-1.5">
                           <p className="text-[13px] font-semibold tabular-nums text-slate-800 dark:text-white/85">
                             {formatAmount(order.amount, order.currency)}
                           </p>
-                          <Badge variant={statusVariant(order.status)}>
+                          <Badge variant={statusVariant(order.status)} className="max-w-full whitespace-normal">
                             {statusLabel}
                           </Badge>
                         </div>
@@ -233,7 +309,7 @@ export default async function ReaderOrdersPage() {
             </section>
           )}
 
-          {podOrders.length > 0 && (
+          {(podOrders.length > 0 || printed.unavailable) && (
             <section className="space-y-3">
               <div>
                 <h2 className="text-[15px] font-semibold text-slate-900 dark:text-white">
@@ -243,12 +319,14 @@ export default async function ReaderOrdersPage() {
                   Delivery takes 7–14 business days after printing.
                 </p>
               </div>
+              {printed.unavailable && <ReadUnavailable message={podOrders.length ? "Some printed copies are unavailable." : "Printed copies are unavailable right now."} />}
               <ul className="space-y-3">
                 {podOrders.map((order) => {
                   const book = order.book_id ? bookMap.get(order.book_id) : null;
-                  const title = book?.title ?? "Unknown book";
-                  const statusLabel = POD_STATUS_LABELS[order.status] ?? order.status;
-                  const href = order.book_id ? `/reader/books/${order.book_id}` : null;
+                  const title = book?.title ?? "Title unavailable";
+                  const statusLabel = order.status ? POD_STATUS_LABELS[order.status] : "Status unavailable";
+                  const isListed = String(book?.status ?? "").toUpperCase() === "PUBLISHED";
+                  const href = order.book_id && isListed ? `/reader/books/${order.book_id}` : null;
 
                   return (
                     <li
@@ -256,7 +334,7 @@ export default async function ReaderOrdersPage() {
                       className="rounded-2xl border border-slate-200/80 bg-white/90 p-4 shadow-[0_8px_24px_rgba(15,23,42,0.04)] dark:border-white/10 dark:bg-white/[0.04]"
                     >
                       <div className="flex flex-wrap items-start justify-between gap-3">
-                        <div className="min-w-0">
+                        <div className="min-w-0 break-words">
                           <p className="text-[14px] font-semibold text-slate-900 dark:text-white">
                             {href ? (
                               <Link href={href} className="hover:underline">
@@ -272,11 +350,11 @@ export default async function ReaderOrdersPage() {
                             Placed {formatDate(order.created_at)}
                           </p>
                         </div>
-                        <div className="flex flex-col items-end gap-1.5">
+                        <div className="flex max-w-full flex-col items-end gap-1.5">
                           <p className="text-[13px] font-semibold tabular-nums text-slate-800 dark:text-white/85">
                             {formatAmount(order.amount, order.currency)}
                           </p>
-                          <Badge variant={statusVariant(order.status)}>
+                          <Badge variant={statusVariant(order.status)} className="max-w-full whitespace-normal">
                             {statusLabel}
                           </Badge>
                         </div>
