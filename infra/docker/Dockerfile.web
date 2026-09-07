@@ -171,14 +171,6 @@ ENV NEXT_PUBLIC_SUPABASE_URL=$NEXT_PUBLIC_SUPABASE_URL \
 # at all — middleware reads the real process.env once it actually exists.
 RUN npm run build
 
-# ── sharp (platform-correct, version-pinned) ─────────────────────────────────
-# Pinned to the exact version apps/web declares. sharp 0.35 ships its platform
-# binaries as optionalDependencies, so --ignore-scripts is safe here; an older
-# sharp (<=0.32) would need its libvips install script and this would break.
-FROM node:22-alpine AS sharpdep
-WORKDIR /sharp
-RUN npm init -y >/dev/null 2>&1 && npm i --ignore-scripts sharp@0.35.4
-
 # ── runner ───────────────────────────────────────────────────────────────────
 FROM node:22-alpine AS runner
 WORKDIR /app
@@ -199,21 +191,21 @@ COPY --from=builder --chown=nextjs:nodejs /app/apps/web/.next/standalone ./
 COPY --from=builder --chown=nextjs:nodejs /app/apps/web/.next/static ./apps/web/.next/static
 COPY --from=builder --chown=nextjs:nodejs /app/apps/web/public ./apps/web/public
 
-# next/image's optimiser loads sharp lazily, so file tracing does not reliably
-# pull it into standalone. Without it Next serves unoptimised originals — on a
-# cover-heavy library page that is a large, completely silent bandwidth
-# regression, which is the opposite of why we left Vercel.
+# sharp, installed HERE rather than copied in from the sharpdep stage.
 #
-# Taken from the dedicated `sharpdep` stage rather than copied out of the
-# builder's node_modules, for two reasons:
-#   - the repo resolves TWO sharps (0.35.4 for apps/web, 0.34.5 hoisted to the
-#     root as someone else's transitive dep). Copying /app/node_modules/sharp
-#     silently picks the wrong one.
-#   - hoisting differs between the dev Mac and linux/alpine, so the correct
-#     path is not knowable from a local `ls`. The extra stage removes the guess
-#     and pulls the linux-musl binaries for the platform we actually run on.
-COPY --from=sharpdep --chown=nextjs:nodejs /sharp/node_modules/sharp ./node_modules/sharp
-COPY --from=sharpdep --chown=nextjs:nodejs /sharp/node_modules/@img ./node_modules/@img
+# The COPY approach did not work: the running container logged
+#   ⨯ Error: Module `sharp` not found. Please run `npm install --cpu=wasm32 sharp`
+# so next/image could not optimise anything and every <Image> 500'd. Copying a
+# node module into a tree whose resolution root is somewhere else is fragile —
+# installing it in place is not.
+#
+# --ignore-scripts is safe for sharp 0.35: its platform binaries ship as
+# optionalDependencies (@img/sharp-linuxmusl-x64 here), not as a postinstall
+# download. --omit=dev keeps it to the runtime dependency only.
+#
+# Pinned to the version apps/web declares, so the optimiser and the build agree.
+RUN npm install --no-package-lock --omit=dev --ignore-scripts sharp@0.35.4 \
+ && chown -R nextjs:nodejs node_modules/sharp node_modules/@img
 
 USER nextjs
 EXPOSE 3000

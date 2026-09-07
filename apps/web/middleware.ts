@@ -215,6 +215,20 @@ export async function middleware(request: NextRequest) {
     const isNext = p.startsWith('/_next/')
     const isKnownRoot = ['/favicon.ico', '/favicon.svg', '/robots.txt'].includes(p)
     const isRootAssetWithExt = /^\/[^/]+\.[a-z0-9]+$/i.test(p)
+    // Static files in SUBDIRECTORIES of /public, which the check above misses.
+    //
+    // `isRootAssetWithExt` only matches a file at the root (`/favi.svg`), so
+    // everything under /public/images, /public/audiobooks, /public/demo-assets
+    // was being 307'd to /waitlist. Every image on the site was broken for
+    // anonymous visitors — including the product shot on the waitlist page
+    // itself, which is what surfaced it.
+    //
+    // Extension-allowlisted rather than prefix-allowlisted so adding a folder
+    // to /public does not require touching middleware again. Route handlers do
+    // not end in these extensions, and /robots.txt and /sitemap.xml are already
+    // covered by isKnownRoot.
+    const isStaticAsset =
+      /\.(png|jpe?g|gif|webp|avif|svg|ico|mp3|mp4|wav|m4a|woff2?|ttf|otf|pdf|epub|txt|xml|webmanifest)$/i.test(p)
     // A health endpoint behind an access gate cannot report health.
     //
     // Both locks used to 403 `/api/health`, which breaks three things at once:
@@ -228,7 +242,7 @@ export async function middleware(request: NextRequest) {
     const isHealth = p === '/api/health'
 
     const allowed =
-      isWaitlist || isApiWaitlist || isOrder || isNext || isKnownRoot || isRootAssetWithExt || isHealth
+      isWaitlist || isApiWaitlist || isOrder || isNext || isKnownRoot || isRootAssetWithExt || isStaticAsset || isHealth
     if (!allowed) {
       const url = request.nextUrl.clone()
       url.pathname = '/waitlist'
@@ -282,6 +296,20 @@ export async function middleware(request: NextRequest) {
     const isNext = p.startsWith('/_next/')
     const isKnownRoot = ['/favicon.ico', '/favicon.svg', '/robots.txt'].includes(p)
     const isRootAssetWithExt = /^\/[^/]+\.[a-z0-9]+$/i.test(p)
+    // Static files in SUBDIRECTORIES of /public, which the check above misses.
+    //
+    // `isRootAssetWithExt` only matches a file at the root (`/favi.svg`), so
+    // everything under /public/images, /public/audiobooks, /public/demo-assets
+    // was being 307'd to /waitlist. Every image on the site was broken for
+    // anonymous visitors — including the product shot on the waitlist page
+    // itself, which is what surfaced it.
+    //
+    // Extension-allowlisted rather than prefix-allowlisted so adding a folder
+    // to /public does not require touching middleware again. Route handlers do
+    // not end in these extensions, and /robots.txt and /sitemap.xml are already
+    // covered by isKnownRoot.
+    const isStaticAsset =
+      /\.(png|jpe?g|gif|webp|avif|svg|ico|mp3|mp4|wav|m4a|woff2?|ttf|otf|pdf|epub|txt|xml|webmanifest)$/i.test(p)
     // A health endpoint behind an access gate cannot report health.
     //
     // Both locks used to 403 `/api/health`, which breaks three things at once:
@@ -301,7 +329,7 @@ export async function middleware(request: NextRequest) {
     // goes on for the cohort — see PUBLIC_ORDER_SLUGS.
     const isOrderPath = isPublicOrderPath(p)
 
-    const allowedPath = isWaitlist || isAuth || isAuthEntry || isApiWaitlist || isApiAuth || isOrderPath || isNext || isKnownRoot || isRootAssetWithExt || isHealth
+    const allowedPath = isWaitlist || isAuth || isAuthEntry || isApiWaitlist || isApiAuth || isOrderPath || isNext || isKnownRoot || isRootAssetWithExt || isStaticAsset || isHealth
     // Only look up cohort membership when it can change the outcome. `isBeta` is
     // read once, in `!allowedPath && !isBeta` below, so on an allowed path the
     // result is discarded — and a transient failure of that lookup would 503 a

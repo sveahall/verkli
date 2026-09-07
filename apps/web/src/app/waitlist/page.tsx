@@ -517,11 +517,18 @@ export default function WaitlistPage() {
       <main className="waitlist-page relative flex min-h-screen min-h-dvh flex-col" role="main">
         <AuroraBackground />
         {/* Full-viewport hero */}
-        <section className="relative flex min-h-dvh flex-col items-center justify-start overflow-hidden px-4 pb-12 pt-32 sm:pb-16 sm:pt-36 md:justify-center md:py-16 dark">
+        <section className="relative flex min-h-dvh flex-col items-center justify-start overflow-hidden px-4 pb-12 pt-16 sm:pb-16 sm:pt-20 md:justify-center md:py-16 dark">
 
-          {/* Logo: no link, decorative only */}
+          {/* Logo: no link, decorative only.
+              IN FLOW, not absolute. It used to be `absolute left-0 right-0
+              top-15`, which meant the vertically-centred content block below it
+              could grow upward straight through it — and did, the moment the
+              headline went from a flat 56px to clamp(38–76px). A taller
+              headline overlapped the wordmark.
+              Absolute positioning was the latent bug; the headline only
+              exposed it. In flow, no headline length can collide. */}
           <div
-            className="waitlist-hero-in absolute left-0 right-0 top-15 flex justify-center pt-8 sm:pt-10"
+            className="waitlist-hero-in mb-10 flex w-full justify-center sm:mb-12"
             aria-hidden
           >
             <div className="flex items-center">
@@ -643,7 +650,7 @@ export default function WaitlistPage() {
                 width={3072}
                 height={1728}
                 sizes="(max-width: 640px) 95vw, (max-width: 1200px) 85vw, 1060px"
-                quality={85}
+                quality={90}
                 className="w-full rounded-2xl object-contain object-top"
               />
               <div
