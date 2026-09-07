@@ -349,13 +349,3 @@ export async function confirmStripeBookPurchase({
 
   return "paid";
 }
-
-export async function markOrderFailedForUser(orderId: string, userId: string): Promise<void> {
-  const admin = createAdminClient();
-  await admin
-    .from("orders" as never)
-    .update({ status: "failed" })
-    .eq("id", orderId)
-    .eq("user_id", userId)
-    .eq("status", "pending");
-}
