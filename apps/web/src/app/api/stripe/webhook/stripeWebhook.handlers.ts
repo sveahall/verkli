@@ -1,4 +1,5 @@
 import { createAdminClient } from "@/lib/supabase/admin";
+import { HANDLED_STRIPE_EVENTS } from "./stripeWebhook.events";
 import { notifyPodFulfillment } from "@/lib/payments/pod-fulfillment-email";
 import {
   claimPaidOrderForReceipt,
@@ -32,6 +33,9 @@ import {
   type FinalizeCheckoutFunction,
   type StripeRecord,
 } from "./stripeWebhook.helpers";
+
+// Re-exported so callers already importing it from here keep working.
+export { HANDLED_STRIPE_EVENTS };
 
 type AdminClient = ReturnType<typeof createAdminClient>;
 
@@ -158,6 +162,43 @@ async function finalizeCheckoutSession(
   return data === true;
 }
 
+/**
+ * Record the PaymentIntent on the order.
+ *
+ * This is the only link from a later `charge.refunded` or
+ * `charge.dispute.created` back to this order: those events carry a charge,
+ * and metadata is set on the Checkout Session only — `payment_intent_data`
+ * is never passed — so without this column a refund has nothing to match on.
+ *
+ * Deliberately not fatal. Failing the purchase because we could not write a
+ * column used only by a possible future refund would turn a paid customer
+ * into a Stripe retry loop. It logs loudly instead, because the consequence
+ * of losing it is a refund that cannot revoke access automatically.
+ */
+async function recordPaymentIntentForOrder(
+  admin: AdminClient,
+  sessionId: string,
+  session: StripeRecord
+): Promise<void> {
+  const paymentIntentId = extractStripeId(session.payment_intent);
+  if (!paymentIntentId) return;
+
+  const { error } = await admin
+    .from("orders" as never)
+    .update({ stripe_payment_intent_id: paymentIntentId })
+    .eq("stripe_session_id", sessionId);
+
+  if (error) {
+    console.error("[stripe.webhook] could not link payment_intent to order", {
+      sessionId,
+      paymentIntentId,
+      code: error.code,
+      message: error.message,
+      consequence: "a refund or dispute on this charge will not revoke access automatically",
+    });
+  }
+}
+
 async function processBookPurchaseCheckoutSession(
   admin: AdminClient,
   session: StripeRecord
@@ -170,6 +211,11 @@ async function processBookPurchaseCheckoutSession(
   if (!sessionId || !isPaidCheckoutSession(session)) {
     return finalizeCheckoutSession(admin, "finalize_order_checkout_session", session);
   }
+
+  // Before the claim, so the refund link exists even if a later step throws
+  // and Stripe retries. Updating by stripe_session_id, which is already set —
+  // the order row was created at checkout, not here.
+  await recordPaymentIntentForOrder(admin, sessionId, session);
 
   // Claim BEFORE finalizing: the RPC returns true on every call, so it cannot
   // tell us whether this delivery is the one that completed the purchase.
@@ -808,6 +854,15 @@ export async function processStripeWebhookEvent(
         received: true,
         processed: await processInvoiceEvent(admin, object, eventId, type),
       };
+    // Money going back to the buyer, by our hand or the card network's.
+    // Without these two cases both fell to `default` below and were
+    // acknowledged with a 200 while the reader kept the book.
+    case "charge.refunded":
+    case "charge.dispute.created":
+      return {
+        received: true,
+        processed: await processChargeRevocationEvent(admin, object, type),
+      };
     case "account.updated":
       return {
         received: true,
@@ -816,6 +871,92 @@ export async function processStripeWebhookEvent(
     default:
       return { received: true, ignored: true };
   }
+}
+
+/**
+ * Revoke access when money goes back to the buyer.
+ *
+ * Two events, one outcome. `charge.refunded` is us giving the money back;
+ * `charge.dispute.created` is the card network taking it, whether we agree or
+ * not. Before this existed both fell through the switch's `default` and were
+ * acknowledged with a 200, so a refunded reader kept the book forever.
+ *
+ * PARTIAL REFUNDS DO NOT REVOKE. `charge.refunded` also fires when only part
+ * of the amount is returned, and pulling the book for a partial goodwill
+ * refund would be wrong. Stripe sets `refunded: true` only on a full refund;
+ * the amount comparison is a second check in case that flag is absent on an
+ * older API version.
+ *
+ * The RPC does the work in one transaction — see
+ * 20260907230000_refund_revokes_access.sql for why the entitlement delete and
+ * the status change must not be separable.
+ */
+async function processChargeRevocationEvent(
+  admin: AdminClient,
+  object: StripeRecord,
+  type: "charge.refunded" | "charge.dispute.created"
+): Promise<boolean> {
+  // A Dispute carries `payment_intent` alongside `charge`; a Charge carries
+  // `payment_intent` directly. Both shapes may be a string or an expanded
+  // object, which extractStripeId handles.
+  const paymentIntentId = extractStripeId(object.payment_intent);
+
+  if (!paymentIntentId) {
+    console.error("[stripe.webhook] revocation event without a payment_intent", {
+      type,
+      chargeId: extractStripeId(object.id),
+      consequence: "cannot identify the order; access must be revoked by hand",
+    });
+    return false;
+  }
+
+  if (type === "charge.refunded") {
+    const amount = typeof object.amount === "number" ? object.amount : null;
+    const refunded =
+      typeof object.amount_refunded === "number" ? object.amount_refunded : null;
+    const fullyRefunded =
+      object.refunded === true || (amount !== null && refunded !== null && refunded >= amount);
+
+    if (!fullyRefunded) {
+      console.info("[stripe.webhook] partial refund — access left in place", {
+        paymentIntentId,
+        amount,
+        amountRefunded: refunded,
+      });
+      return false;
+    }
+  }
+
+  const kind = type === "charge.dispute.created" ? "dispute" : "refund";
+
+  const { data, error } = await admin.rpc("revoke_order_for_refund" as never, {
+    p_payment_intent_id: paymentIntentId,
+    p_kind: kind,
+  } as never);
+
+  if (error) {
+    // THROW, so the webhook returns 500 and Stripe retries. Swallowing this
+    // leaves a refunded buyer with access and no second attempt — the same
+    // silent outcome as having no handler at all.
+    throw new Error(
+      `revoke_order_for_refund failed (${error.code}): ${error.message}`
+    );
+  }
+
+  const revoked = data === true;
+  if (!revoked) {
+    // No matching order, or already revoked by the other event on the same
+    // charge. Both are expected; neither is an error.
+    console.info("[stripe.webhook] revocation was a no-op", {
+      type,
+      paymentIntentId,
+      reason: "no order for this payment_intent, or already refunded",
+    });
+  } else {
+    console.info("[stripe.webhook] access revoked", { type, paymentIntentId, kind });
+  }
+
+  return revoked;
 }
 
 // Stripe Connect account state changed — sync our cache row and emit audit

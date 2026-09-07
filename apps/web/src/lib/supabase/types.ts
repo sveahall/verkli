@@ -2570,6 +2570,7 @@ export type Database = {
           id: string
           provider: string
           status: string
+          stripe_payment_intent_id: string | null
           stripe_session_id: string | null
           user_id: string
         }
@@ -2583,6 +2584,7 @@ export type Database = {
           id?: string
           provider: string
           status?: string
+          stripe_payment_intent_id?: string | null
           stripe_session_id?: string | null
           user_id: string
         }
@@ -2596,6 +2598,7 @@ export type Database = {
           id?: string
           provider?: string
           status?: string
+          stripe_payment_intent_id?: string | null
           stripe_session_id?: string | null
           user_id?: string
         }
@@ -3815,6 +3818,10 @@ export type Database = {
       refresh_book_audiobook_status: {
         Args: { p_book_id: string }
         Returns: undefined
+      }
+      revoke_order_for_refund: {
+        Args: { p_kind?: string; p_payment_intent_id: string }
+        Returns: boolean
       }
       update_author_subscription_status: {
         Args: {
