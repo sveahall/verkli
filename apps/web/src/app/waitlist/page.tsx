@@ -637,13 +637,22 @@ export default function WaitlistPage() {
               ))}
             </dl>
 
-            {/* The product itself. Reuses the /author hero asset rather than
-                producing a new one — same laptop-and-phone render, already
-                optimised and already the canonical shot of the dashboard.
-                Bottom fade matches the author hero so the image dissolves into
-                the section instead of ending on a hard edge. `priority` is NOT
-                set: the sign-up forms above are what matters on first paint. */}
-            <div className="waitlist-hero-in waitlist-hero-in-delay-5 relative mt-16 w-full overflow-hidden">
+            {/* The product itself — reuses the /author hero asset rather than
+                commissioning a second render.
+                
+                Masked, not faded. The first version laid a
+                `bg-gradient-to-t from-[#0a0612]` panel over the bottom edge,
+                copying the /author treatment but with a hardcoded hex instead of
+                its `from-background` token. On that page the background IS
+                near-white/near-black, so the token matches; here the background
+                is a violet gradient, so a flat #0a0612 rectangle sat on top of
+                it as a visible dark box.
+                
+                `mask-image` fades the image itself to transparent on the bottom
+                and sides, so it blends into whatever is behind it — no colour to
+                keep in sync with the background, and it survives a theme change.
+                No `priority`: the sign-up forms above matter more on first paint. */}
+            <div className="waitlist-hero-in waitlist-hero-in-delay-5 relative mt-16 w-full">
               <Image
                 src="/images/author-dashboard-hero.png"
                 alt="The Verkli author dashboard on a laptop and a phone"
@@ -651,11 +660,15 @@ export default function WaitlistPage() {
                 height={1728}
                 sizes="(max-width: 640px) 95vw, (max-width: 1200px) 85vw, 1060px"
                 quality={90}
-                className="w-full rounded-2xl object-contain object-top"
-              />
-              <div
-                className="pointer-events-none absolute inset-x-0 bottom-0 h-32 bg-gradient-to-t from-[#0a0612] via-[#0a0612]/70 to-transparent"
-                aria-hidden
+                className="w-full object-contain object-top"
+                style={{
+                  maskImage:
+                    "linear-gradient(to bottom, black 0%, black 62%, transparent 97%), linear-gradient(to right, transparent 0%, black 8%, black 92%, transparent 100%)",
+                  maskComposite: "intersect",
+                  WebkitMaskImage:
+                    "linear-gradient(to bottom, black 0%, black 62%, transparent 97%), linear-gradient(to right, transparent 0%, black 8%, black 92%, transparent 100%)",
+                  WebkitMaskComposite: "source-in",
+                }}
               />
             </div>
           </div>
