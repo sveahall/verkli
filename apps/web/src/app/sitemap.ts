@@ -1,6 +1,23 @@
 import type { MetadataRoute } from "next";
 import { createAdminClient } from "@/lib/supabase/admin";
 
+/**
+ * Generated per request, not at build.
+ *
+ * This route queries live data — every PUBLISHED book and every public author
+ * profile. Prerendered at build time it froze at deploy, so a book published
+ * afterwards never appeared in the sitemap until the next deploy. It also made
+ * the build require SUPABASE_SERVICE_ROLE_KEY, which is how it surfaced: the
+ * first container build failed here with "Missing required server environment
+ * variables" while Vercel had been hiding it by supplying every variable to
+ * the build.
+ *
+ * Crawlers fetch a sitemap rarely, so two queries per request is the cheaper
+ * side of this trade. `revalidate` would not help — ISR still prerenders once
+ * at build, which is the part that has to stop.
+ */
+export const dynamic = "force-dynamic";
+
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "https://verkli.com";
   const supabase = createAdminClient();

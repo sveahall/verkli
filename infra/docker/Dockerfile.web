@@ -67,6 +67,25 @@ ENV NODE_ENV=production
 # skips source-map upload on its own and only warns. Nothing to set here — if
 # source maps are wanted later, add SENTRY_AUTH_TOKEN as a build arg.
 
+# No server-side secrets are passed to the build, deliberately.
+#
+# The first container build DID fail on them: `next build` prerenders static
+# routes, /sitemap.xml queried the database while prerendering, and
+# assertServerEnv() threw on SUPABASE_SERVICE_ROLE_KEY / RESEND_API_KEY /
+# RESEND_FROM_EMAIL. Vercel had hidden that by exposing every project variable
+# to its builds.
+#
+# The fix belonged in the route, not here — /sitemap.xml is now force-dynamic
+# (it was also silently frozen at deploy time, so newly published books never
+# reached the sitemap). Verified by running `build:ci` locally with those three
+# variables blanked: exit 0, no prerender errors, nothing else needs them.
+#
+# Passing them as ARG would work too, but ARG values are recorded in the image
+# history — a service-role key readable by anyone who can pull the image — and
+# the build demonstrably does not need them. If a future prerendered route
+# reintroduces the dependency, make that route dynamic rather than adding the
+# secret here.
+
 ARG NEXT_PUBLIC_SUPABASE_URL
 ARG NEXT_PUBLIC_SUPABASE_ANON_KEY
 ARG NEXT_PUBLIC_SITE_URL
