@@ -41,8 +41,21 @@ RUN npm ci --ignore-scripts
 FROM node:22-alpine AS builder
 WORKDIR /app
 
-COPY --from=deps /app/node_modules ./node_modules
-COPY package.json package-lock.json* ./
+# The WHOLE /app tree from deps, not just /app/node_modules.
+#
+# npm hoists most dependencies to the root, but not all: a version conflict
+# leaves the package in the workspace's own node_modules instead. Today that is
+# 10 packages under apps/web/node_modules (@supabase/ssr, @vercel/analytics,
+# @vercel/speed-insights, @anthropic-ai/sdk, zod, sharp, ...) and 1 under
+# packages/shared/node_modules. Copying only the root node_modules built an
+# image whose `next build` died on "Can't resolve '@supabase/ssr'".
+#
+# Enumerating the workspace node_modules individually would work today and
+# break the next time npm decides to un-hoist something, with the same
+# module-not-found failure. Copying the tree is indifferent to how npm chose
+# to lay it out. The subsequent source COPYs merge into these directories
+# rather than replacing them.
+COPY --from=deps /app ./
 COPY apps/web apps/web
 COPY packages packages
 
