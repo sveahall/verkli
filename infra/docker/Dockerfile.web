@@ -55,7 +55,24 @@ RUN npm ci --ignore-scripts
 # Pruned here in `deps` rather than in `builder`, so the builder copies an
 # already-clean tree. `npm ci --omit=dev` is not an option: it would also drop
 # apps/web's own devDependencies, which the build does need.
+# zipfile FIRST — this is the one that actually breaks the build.
+#
+# It is an OPTIONAL dependency of `epub` and it panics Turbopack:
+#   <NodePreGypConfigReference as ModuleReference>::resolve_reference failed
+#   missing field `napi_versions` ... host: mapbox-node-binary.s3.amazonaws.com
+# It predates node-api, so its node-pre-gyp manifest lacks the field Turbopack's
+# parser requires.
+#
+# `outputFileTracingExcludes` does NOT help — that filters which files get
+# copied, while resolve_reference runs earlier, when module references are
+# resolved. Tried and failed; the package has to be absent.
+#
+# Safe: `epub` declares zipfile under optionalDependencies and uses adm-zip as
+# its real zip implementation. Verified by requiring epub on a machine that has
+# never had zipfile (macOS skips the optional install) — it loads fine. EPUB
+# parsing also runs in worker-import, built from a different Dockerfile.
 RUN rm -rf \
+      node_modules/zipfile \
       node_modules/agentic-flow \
       node_modules/agentdb \
       node_modules/@xenova \
