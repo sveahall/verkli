@@ -77,6 +77,23 @@ if (onlyFile) {
   }
   env = parse(readFileSync(resolved, "utf8"));
   console.log(`[env] reading ${onlyFile} only — the local cascade is ignored`);
+} else if (process.argv.includes("--env-only")) {
+  // No dotenv at all — validate the real process environment and nothing else.
+  //
+  // This exists because the fallback cascade below makes `railway run` lie.
+  // Railway injects only the variables it has; every variable it does NOT set
+  // is then filled in from the local .env.local, and the report describes a
+  // mixture of production and this laptop. Run against production that way,
+  // the gate claimed NEXT_PUBLIC_MARKETING_ENABLED and
+  // NEXT_PUBLIC_DEMO_FACADE_ENABLED were "true" and wrong for launch. Neither
+  // is set in production at all; both values came from here.
+  //
+  // The documented alternative is `--env-file` with a pulled environment, which
+  // means writing production secrets to disk. This needs neither:
+  //
+  //   railway run --service web -- npx tsx scripts/check-launch-config.ts --strict --env-only
+  console.log("[env] --env-only: reading the process environment, no dotenv files");
+  env = process.env;
 } else {
   const ENV_FILES_HIGHEST_PRECEDENCE_FIRST = [
     ".env.production.local",

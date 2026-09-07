@@ -128,6 +128,44 @@ async function handleExistingJob(
   return null;
 }
 
+/**
+ * Warn, unmissably, when a job was accepted into a queue nobody is consuming.
+ *
+ * Three of the seven queues had no worker service on Railway, so
+ * `queue.add()` succeeded, the route answered 200, and the job sat in Redis
+ * forever. From the caller's side that is indistinguishable from success —
+ * which is why it went unnoticed: BullMQ has no concept of a required
+ * consumer, and an unconsumed queue looks exactly like an idle one.
+ *
+ * Deliberately does NOT fail the enqueue. `getWorkers()` reads Redis's client
+ * list, so it is briefly zero during a worker restart or deploy, and turning
+ * that into a 500 would trade a silent bug for a flaky one. The job is already
+ * accepted by the time this runs; the point is that the absence shows up in
+ * logs and in `npm run check:queue-consumers` instead of nowhere.
+ */
+async function warnIfNoConsumer<JobName extends string>(
+  queue: Queue,
+  descriptor: QueueDescriptor<JobName>,
+  jobName: JobName,
+  jobId: string
+): Promise<void> {
+  try {
+    const workers = await queue.getWorkers();
+    if (workers.length === 0) {
+      console.error(
+        `${descriptor.logPrefix} NO CONSUMER — "${jobName}" was accepted into queue "${descriptor.queueName}" but no worker is connected. The job will not run.`,
+        { jobId, queueName: descriptor.queueName }
+      );
+    }
+  } catch (err) {
+    // Never let the diagnostic break the thing it is diagnosing.
+    console.warn(
+      `${descriptor.logPrefix} could not check for consumers:`,
+      err instanceof Error ? err.message : String(err)
+    );
+  }
+}
+
 export async function enqueueJob<JobName extends string, TData>(args: {
   descriptor: QueueDescriptor<JobName>;
   jobName: JobName;
@@ -172,6 +210,7 @@ export async function enqueueJob<JobName extends string, TData>(args: {
 
   try {
     const job = await queue.add(jobName, data, { jobId });
+    await warnIfNoConsumer(queue, descriptor, jobName, jobId);
     return job.id ?? null;
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);

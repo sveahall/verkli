@@ -13,6 +13,7 @@
     "check:launch-config": "tsx scripts/check-launch-config.ts",
     "check:billing-catalog": "tsx scripts/check-billing-catalog.ts",
     "check:stripe-webhook": "tsx scripts/check-stripe-webhook.ts",
+    "check:queue-consumers": "tsx scripts/check-queue-consumers.ts",
     "push:launch-env": "tsx scripts/push-launch-env.ts",
     "check:dead-code": "tsc --noEmit --noUnusedLocals --noUnusedParameters",
     "test": "vitest run",
