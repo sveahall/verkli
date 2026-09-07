@@ -191,21 +191,45 @@ COPY --from=builder --chown=nextjs:nodejs /app/apps/web/.next/standalone ./
 COPY --from=builder --chown=nextjs:nodejs /app/apps/web/.next/static ./apps/web/.next/static
 COPY --from=builder --chown=nextjs:nodejs /app/apps/web/public ./apps/web/public
 
-# sharp, installed HERE rather than copied in from the sharpdep stage.
+# sharp — installed in ISOLATION, then copied into place, then verified.
 #
-# The COPY approach did not work: the running container logged
-#   ⨯ Error: Module `sharp` not found. Please run `npm install --cpu=wasm32 sharp`
-# so next/image could not optimise anything and every <Image> 500'd. Copying a
-# node module into a tree whose resolution root is somewhere else is fragile —
-# installing it in place is not.
+# Two earlier attempts, both wrong, both worth recording:
 #
-# --ignore-scripts is safe for sharp 0.35: its platform binaries ship as
-# optionalDependencies (@img/sharp-linuxmusl-x64 here), not as a postinstall
-# download. --omit=dev keeps it to the runtime dependency only.
+# 1. COPY from a dedicated `sharpdep` stage. The container then logged
+#    "⨯ Error: Module `sharp` not found", so next/image could not optimise.
+# 2. Plain `npm install sharp` with /app as the cwd. That "fixed" the error and
+#    broke something worse: npm reconciles node_modules against the package.json
+#    it finds, and standalone's package.json does not list the traced
+#    dependencies — so it reported
+#        added 2 packages, removed 103 packages
+#    and silently deleted 103 modules from the runtime tree. The server still
+#    booted, which is exactly what makes it dangerous: any route that lazily
+#    requires one of those would 500 in production.
 #
-# Pinned to the version apps/web declares, so the optimiser and the build agree.
-RUN npm install --no-package-lock --omit=dev --ignore-scripts sharp@0.35.4 \
- && chown -R nextjs:nodejs node_modules/sharp node_modules/@img
+# So: install into /tmp with its own package.json, where npm can prune all it
+# likes, then copy only sharp and its platform binaries into /app/node_modules.
+# The standalone tree is never handed to npm.
+#
+# --ignore-scripts is safe for sharp 0.35 — platform binaries arrive as
+# optionalDependencies (@img/sharp-linuxmusl-x64 on alpine), not a postinstall
+# download.
+RUN mkdir -p /tmp/sharp-install \
+ && cd /tmp/sharp-install \
+ && npm init -y > /dev/null 2>&1 \
+ && npm install --no-audit --no-fund --ignore-scripts sharp@0.35.4 \
+ && mkdir -p /app/node_modules \
+ && cp -R /tmp/sharp-install/node_modules/sharp /app/node_modules/ \
+ && cp -R /tmp/sharp-install/node_modules/@img /app/node_modules/ \
+ && rm -rf /tmp/sharp-install \
+ && chown -R nextjs:nodejs /app/node_modules/sharp /app/node_modules/@img
+
+# Fail the BUILD if sharp cannot actually load.
+#
+# Without this the failure mode is silent: next/image catches the missing module
+# and serves the unoptimised original, so a 631 kB PNG ships where a 60 kB WebP
+# should. Pages stay 200 and nothing in tests, tsc or lint notices. The only
+# symptom is a slow page and a bandwidth bill.
+RUN node -e "const s=require('/app/node_modules/sharp'); if(typeof s!=='function'&&typeof s!=='object'){process.exit(1)} console.log('sharp loads: ok')"
 
 USER nextjs
 EXPOSE 3000
