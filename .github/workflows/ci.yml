@@ -3,7 +3,13 @@ name: CI
 on:
   pull_request:
   push:
-    branches: [main]
+    # `platform` is the default branch and the de facto trunk since the
+    # 2026-06-13 branch cleanup; `main` is deliberately untouched. Listing only
+    # `main` meant NO ci ran on a direct push to platform, and Railway
+    # auto-deploys platform to production — so pushes reached live users with
+    # nothing but the pre-commit hook between them and a regression.
+    # Kept `main` so a push there is still covered if it is ever revived.
+    branches: [platform, main]
 
 jobs:
   web:
@@ -17,7 +23,11 @@ jobs:
 
       - uses: actions/setup-node@v4
         with:
-          node-version: 20
+          # Matches the root package.json `engines: node >=22.12.0` and the
+          # node:22-alpine the web image runs on Railway. On 20 the gate was
+          # below its own declared floor, so a Node 22-only failure would have
+          # passed CI and broken production.
+          node-version: 22
 
       - run: npm ci
       - run: npm run lint
