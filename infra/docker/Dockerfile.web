@@ -37,6 +37,34 @@ COPY packages/ui/package.json packages/ui/
 # postinstall download, so it survives this flag intact.
 RUN npm ci --ignore-scripts
 
+# Prune the agent tooling, or Turbopack panics on it.
+#
+# `--ignore-scripts` above is required (husky), but it leaves native packages
+# half-configured: their install script never runs, so the metadata Turbopack
+# expects is missing. Building with Turbopack then dies with
+#
+#     TurbopackInternalError: missing field `napi_versions` at line 46 column 3
+#
+# which names no file and no package. The packages carrying that field are all
+# reachable only from the ROOT devDependency `agentic-flow` (agent/CLI tooling):
+# agentdb, @xenova/transformers, onnxruntime-node, argon2, bcrypt,
+# better-sqlite3, hnswlib-node. Verified none of them is imported anywhere in
+# apps/web/src or apps/web/scripts, and none is declared in apps/web's own
+# package.json — so the app build has no use for any of it.
+#
+# Pruned here in `deps` rather than in `builder`, so the builder copies an
+# already-clean tree. `npm ci --omit=dev` is not an option: it would also drop
+# apps/web's own devDependencies, which the build does need.
+RUN rm -rf \
+      node_modules/agentic-flow \
+      node_modules/agentdb \
+      node_modules/@xenova \
+      node_modules/onnxruntime-node \
+      node_modules/argon2 \
+      node_modules/bcrypt \
+      node_modules/better-sqlite3 \
+      node_modules/hnswlib-node
+
 # ── builder ──────────────────────────────────────────────────────────────────
 FROM node:22-alpine AS builder
 WORKDIR /app
