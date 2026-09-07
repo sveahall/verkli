@@ -149,6 +149,23 @@ const nextConfig: NextConfig = {
         //                      need to find them
         outputFileTracingExcludes: {
           "*": [
+            // THE actual culprit behind the panic. `zipfile` is an OPTIONAL
+            // dependency of `epub`, our EPUB parser. Optional means npm skips
+            // it on macOS and installs it on linux — which is precisely why it
+            // was invisible while debugging locally, and why grepping the local
+            // node_modules for the `binary` block in the error found nothing.
+            //
+            // It predates node-api, so its node-pre-gyp manifest has no
+            // `napi_versions`, and Turbopack's NodePreGypConfigReference parser
+            // requires that field:
+            //   host: https://mapbox-node-binary.s3.amazonaws.com
+            //   module_path: ./lib/binding/{node_abi}-{platform}-{arch}
+            //
+            // Safe to exclude: it is optional, this machine has never had it,
+            // and EPUB parsing runs in the worker-import service, which is
+            // built from Dockerfile.worker.import and does no Next tracing.
+            "node_modules/zipfile/**",
+            "**/node_modules/zipfile/**",
             "node_modules/@parcel/watcher*/**",
             "node_modules/napi-build-utils/**",
             "node_modules/sharp/**",
