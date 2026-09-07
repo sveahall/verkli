@@ -11,7 +11,6 @@ on:
 
 jobs:
   pipeline-smoke:
-    if: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY != '' && (secrets.SUPABASE_URL != '' || secrets.NEXT_PUBLIC_SUPABASE_URL != '') }}
     runs-on: ubuntu-latest
     services:
       redis:
@@ -25,16 +24,44 @@ jobs:
           --health-retries 5
 
     steps:
+      # The secrets gate lives here, not in a job-level `if:`.
+      #
+      # `secrets` is not available in the job-level `if:` context. GitHub has to
+      # parse this file to discover its triggers, so an invalid expression there
+      # made the whole file invalid and produced a 0-second startup_failure on
+      # EVERY push — ignoring the `on:` list entirely. It had been failing
+      # silently that way, and would have blocked every deploy the moment
+      # Railway's "Wait for CI" was switched on.
+      - name: Gate on smoke secrets
+        id: gate
+        env:
+          SVC: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          URL_A: ${{ secrets.SUPABASE_URL }}
+          URL_B: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+        run: |
+          if [ -n "$SVC" ] && { [ -n "$URL_A" ] || [ -n "$URL_B" ]; }; then
+            echo "run=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "run=false" >> "$GITHUB_OUTPUT"
+            echo "Smoke secrets absent — skipping the pipeline smoke test." >> "$GITHUB_STEP_SUMMARY"
+          fi
+
       - uses: actions/checkout@v4
+        if: steps.gate.outputs.run == 'true'
 
       - uses: actions/setup-node@v4
+        if: steps.gate.outputs.run == 'true'
         with:
-          node-version: 20
+          # Matches the root package.json engines floor (>=22.12.0); the smoke
+          # test runs the same workers the Railway images run.
+          node-version: 22
 
       - name: Install dependencies
+        if: steps.gate.outputs.run == 'true'
         run: npm ci
 
       - name: Run pipeline smoke test
+        if: steps.gate.outputs.run == 'true'
         env:
           REDIS_URL: redis://localhost:6379
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
