@@ -24,7 +24,10 @@ const READER_STORAGE_STATUS = "verkli_waitlist_reader_status";
 const READER_STORAGE_POSITION = "verkli_waitlist_reader_position";
 
 const HERO_EYEBROW = "Limited access";
-const HERO_HEADLINE = "Join the waitlist to access verkli.";
+// Split so the wordmark can carry the brand gradient. DESIGN.md: "Visual
+// identity comes from the violet→rose→amber gradient and the brand wordmark."
+const HERO_HEADLINE_LEAD = "Join the waitlist to access";
+const HERO_HEADLINE_BRAND = "verkli.";
 // Says what Verkli IS, because this page is the whole public site while
 // BETA_LOCK is on. It previously read "Early access is exclusively limited." —
 // scarcity with no product behind it, so a visitor left knowing only that they
@@ -532,8 +535,18 @@ export default function WaitlistPage() {
             <p className="text-[11px] font-semibold uppercase tracking-[0.25em] text-white/50">
               {HERO_EYEBROW}
             </p>
-            <h1 className="mt-6 text-[32px] font-medium leading-[1.08] tracking-tight text-white sm:text-[44px] sm:leading-[1.05] md:text-[56px]">
-              {HERO_HEADLINE}
+            {/* Headline weight and scale matched to the /author hero, which is
+                the reference for a brand-forward moment in DESIGN.md. This was
+                font-medium at 56px with default tracking — light and loose
+                enough that a 56px headline read as body copy. The author hero
+                uses clamp(48–88px), font-semibold and tracking-[-0.05em]; same
+                treatment here, and the brand gradient on the wordmark, which is
+                where DESIGN.md says the visual identity comes from. */}
+            <h1 className="mt-6 text-[clamp(38px,6.5vw,76px)] font-semibold leading-[0.96] tracking-[-0.045em] text-white">
+              {HERO_HEADLINE_LEAD}{" "}
+              <span className="bg-[linear-gradient(110deg,#907AFF_0%,#E29ED5_55%,#FCC997_100%)] bg-clip-text text-transparent">
+                {HERO_HEADLINE_BRAND}
+              </span>
             </h1>
             <p className="mt-5 text-[16px] leading-snug text-white/60 sm:text-[17px]">
               {HERO_SUBHEADLINE}
@@ -602,7 +615,7 @@ export default function WaitlistPage() {
                 Placed BELOW the signup cards on purpose: the hero is min-h-dvh,
                 so anything above them pushes the actual call to action off the
                 first screen. */}
-            <dl className="waitlist-hero-in waitlist-hero-in-delay-3 mt-14 grid w-full grid-cols-1 gap-8 text-left sm:grid-cols-3 sm:gap-6">
+            <dl className="waitlist-hero-in waitlist-hero-in-delay-4 mt-14 grid w-full grid-cols-1 gap-8 text-left sm:grid-cols-3 sm:gap-6">
               {[
                 { term: "Write and publish", desc: "Import a manuscript, edit the chapters, publish when it is ready." },
                 { term: "Reach more languages", desc: "Translate a finished book and publish each language on its own." },
@@ -616,6 +629,28 @@ export default function WaitlistPage() {
                 </div>
               ))}
             </dl>
+
+            {/* The product itself. Reuses the /author hero asset rather than
+                producing a new one — same laptop-and-phone render, already
+                optimised and already the canonical shot of the dashboard.
+                Bottom fade matches the author hero so the image dissolves into
+                the section instead of ending on a hard edge. `priority` is NOT
+                set: the sign-up forms above are what matters on first paint. */}
+            <div className="waitlist-hero-in waitlist-hero-in-delay-5 relative mt-16 w-full overflow-hidden">
+              <Image
+                src="/images/author-dashboard-hero.png"
+                alt="The Verkli author dashboard on a laptop and a phone"
+                width={3072}
+                height={1728}
+                sizes="(max-width: 640px) 95vw, (max-width: 1200px) 85vw, 1060px"
+                quality={85}
+                className="w-full rounded-2xl object-contain object-top"
+              />
+              <div
+                className="pointer-events-none absolute inset-x-0 bottom-0 h-32 bg-gradient-to-t from-[#0a0612] via-[#0a0612]/70 to-transparent"
+                aria-hidden
+              />
+            </div>
           </div>
 
           {/* Scroll cue: hints the book order card sits below the fold (desktop;
