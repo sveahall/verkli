@@ -6,48 +6,86 @@
 > lanseringskriterier §9 och checklista §19 är acceptanskriterier här.
 > **Beskär:** `docs/roadmap.md` (898 rader, skriven före tidspressen). Se §3.
 
-## Aktuell leveransstatus — 6 september 2026
+## Aktuell leveransstatus — 7 september 2026
 
-**Soft launch ligger kvar den 20 september: 14 dagar återstår.** Äldre statusrader
-nedan är historik, inte ett färskt driftbesked. Nästa arbete prioriteras efter
-kärnflödet i §3: konto → köp → bibliotek → läsning/ljud → kvitto/support.
+**Soft launch ligger kvar den 20 september: 13 dagar återstår.** Äldre statusrader
+nedan är historik. Kärnflödet i §3 styr arbetet: konto → köp → bibliotek →
+läsning/ljud → kvitto/support. Datumet är fast; återstående drift- och åtkomstgrindar
+innebär fortfarande en konkret leveransrisk.
 
-**Levererat lokalt:** nio tidigare granskade reparationspaket och den färdiggranskade
-köpbekräftelsen är nu samlade med landningssidan i samma preview. Integrationscommit
-`5e2285e` ligger på aktuell `platform` (`137ef9f7`) genom enskilda cherry-picks.
-Inga gamla grenar har mergats in. `main` och den ursprungliga arbetskopian är orörda.
+**Levererat lokalt i samma preview:** tidigare autosave-, import-, översättnings-
+och köpbekräftelsepaket är kvar. Checkout/cancel (`ec7487f`) och orderhistorik
+(`4202193`) är nu färdiggranskade och lokalt committade.
 
-- Autosave behåller utkast vid kapitelbyte, fördröjda svar och misslyckade sparningar.
-- Import har ägarkontroll, bunden källfil, kontrollerat återförsök och förbättrad dialog.
-- Översättningsförhandsvisningen hör till rätt språkversion och kan återhämtas efter fel.
-- Köpåtkomst hanterar den befintliga äldre tabellformen. Bekräftelsen verifierar
-  order/session och bevarar osäker betalstatus utan att föreslå en ny betalning.
-- Workflow-navigation, priskontrast och fullständigt författarnamn följer med.
-  Läsarens tidsstämpelfix bevarar motsvarande nyare platform-ändring och får regressionstester.
+- Checkout kontrollerar befintlig åtkomst, orderhistorik och den bundna Stripe-sessionen
+  innan en ny betalning får starta. Osäker betalstatus bevaras och kunden får en
+  verifierbar statuslänk eller supportväg. Stängd checkout skriver inte om betalstatus.
+- Orderhistoriken fungerar även med den äldre tabellformen. Digitala och tryckta
+  order läses oberoende: ett läsfel döljer inte den andra gruppen och visas inte som
+  en tom historik. Okänt belopp blir inte noll och pågående betalning kallas inte köpt.
+- Statuslänken använder den egna orderns lagrade order- och sessions-ID och hämtas
+  inte i bakgrunden. Avpublicerade titlar behålls i historiken utan döda boklänkar.
+  Det bevisar ännu inte bibehållen läsåtkomst eller en fungerande köpt-hylla.
+- Webbpaketets Dockerfil behåller nu installerade workspace-paket och hela sharps
+  beroendekedja. Den databasberoende webbplatskartan skapas vid förfrågan, så bygget
+  inte behöver servernycklar. Bildfixen är committad som `86ba4b9`; de två andra
+  rättningarna finns även i senaste `platform`. Ingen dependency-version eller databasstruktur ändras.
 
-**Verifiering av samlad kod:** 1 917 tester/179 filer, 28 browsertester med den
-monterade editorn, lint, TypeScript/dead-code, english-default, placeholder-kontroll
-och produktionsbuild passerar. Build och betaltester använder kontrollerade data;
-de bevisar inte ett verkligt Stripe-köp, kvittomail, workerjobb eller live-RLS.
-Inloggad dashboard, bokeditor och öppning/stängning av importdialogen är också
-kontrollerade på `http://127.0.0.1:3012`. Inget manus eller konto ändrades vid UI-kontrollen.
-Hela `qa:beta` med driftsatt Redis/betalningskonfiguration återstår.
+**Bas och integration:** arbetet ligger på `codex/author-landing-20260906`, med
+`platform`-bas `3bb7ce3` hämtad och kontrollerad den 7 september. De 18 befintliga
+patcharna bevarades oförändrade vid den sista rebasen. Webbfixen anpassades till
+upstreams motsvarande rättningar, så endast kompletteringen för sharps hela
+beroendekedja återstår som egen Docker-diff. Nyare platform-typer och Railway-filer
+är med. `main` och den ursprungliga arbetskopian är orörda. Ingen gammal gren har mergats.
 
-**Omedelbar driftblockerare:** `https://www.verkli.com/` svarade 6 september
-20:55–20:56 CEST med HTTP 402 och `x-vercel-error: DEPLOYMENT_DISABLED`.
-Orsaken i Vercels kontrollpanel och återställningen är ännu inte verifierade.
-Den lokala integrationen är inte pushad, mergad eller driftsatt.
+**Verifiering:** 2 093 tester/182 filer, lint och TypeScript inklusive oanvänd kod
+passerar. Checkout/cancel har 180 kontrollerade browserfall; orderhistoriken har
+60 fall över mobil/desktop och ljust/mörkt läge. Produktionsbygget med webpack och
+standalone passerar med enbart syntetiska publika bygginställningar och inga DB-anrop.
+Det isolerade serverpaketet startar och levererar health, HTML, CSS, publika filer,
+PNG→WebP och en dynamisk webbplatskarta med exakt filtrerade syntetiska DB-läsningar.
+Detta är native macOS/Node 22-bevis; Linux/Docker, verkligt Stripe-köp, kvittomail,
+workerjobb och live-RLS är ännu inte verifierade av dessa kontroller.
+
+**Färskt driftläge, 7 september 12:57 CEST:** `https://www.verkli.com/` och dess
+health-route svarar fortfarande med HTTP 402 / `DEPLOYMENT_DISABLED` från Vercel.
+Railways webbtjänst kör nu `3bb7ce3`; dess direkta health-adress svarar HTTP 200 med
+rätt commit. De nya upstream-rättningarna har alltså byggts och startat där, efter
+det tidigare misslyckade bygget 12:15. Domänerna finns registrerade i Railway men
+publika `www` når fortfarande inte den fungerande tjänsten. Fyra workers och Redis
+rapporterar RUNNING/SUCCESS; det bevisar inte utförda jobb. Våra lokala köp-, order-
+och bildfixar är inte pushade, mergade eller driftsatta. Den samlade Linux-imagen
+behöver fortfarande verifieras efter integration och release.
 
 | Nästa grind, i ordning | Återstående bevis |
 |---|---|
-| Köp och ägandebevis | Slutför checkout/cancel samt köpt-hylla/orderhistorik mot faktisk tabellform. Bekräftelsepaketet ensamt stänger inte hela köptratten. |
-| Ljud och läsåtkomst | Förena befintliga workerfixar med scope/variant och köpt åtkomst; verifiera Johans riktiga ljud. Exakta schema-/policybeslut hanteras separat. |
-| Driftsatt kärnflöde | Återställ webbtjänsten, verifiera launchflaggor/workerdrift och Stripe-testköp → bibliotek → ljud → kvitto/support. |
-| Lanseringsgrind senast före 20 september | Fysisk iOS Safari, Android Chrome och desktop; omkör releasekontroller och stäng blockerare. Lokal grön build är inte ett lanseringsgodkännande. |
+| Köpt-hylla och läsåtkomst | Slutför bibliotekets metadata/kapitelgranularitet med läsargränsen. Bevara godkända åtkomstfall; exakta schema-/policybeslut är fortfarande separata. |
+| Ljud | Förena workerfixar med rätt scope/variant och köpt åtkomst; verifiera Johans riktiga ljud. SQL05 behöver även stämmas av mot nyare platform-kontrakt. |
+| Release och drift | Stäng CI-flödet som kan skriva till live-Supabase vid PR innan push/PR. Verifiera den samlade Linux-imagen, rätta publika domänkopplingen och kontrollera launchflaggor; kör Stripe-testköp → bibliotek → ljud → kvitto/support. |
+| Lanseringsgrind före 20 september | Fysisk iOS Safari, Android Chrome och desktop samt full driftsatt `qa:beta`. Lokal grön build är inte ett lanseringsgodkännande. |
 
-Ytterligare landningssideomtag och mätta prestandakandidater prioriteras efter dessa
-grindar. Lanseringsdatumet flyttas inte av denna statusuppdatering; drift- och
-köp-/ljudgrindarna innebär fortfarande en konkret risk för datumet.
+### Kort lokal QA
+
+1. Öppna [lokala biblioteket](http://127.0.0.1:3012/author/library). Kontrollera att
+   ditt befintliga konto och dina böcker visas efter omladdning.
+2. Öppna läsarappen med ett läsarkonto och gå till
+   [My orders](http://127.0.0.1:3012/reader/orders). Aktiv författarroll omdirigeras
+   enligt befintligt beteende. Kontrollera status, belopp och supportväg för egna order.
+3. Kontrollera att en order med lagrad session visar “Check purchase status” och
+   att länken innehåller både `order_id` och `session_id`. Lokal preview har auth-konfiguration;
+   faktisk betalverifiering kräver en separat konfigurerad Stripe-testmiljö. Där kan
+   klicket slutföra det befintliga köpet och skicka kvitto; det ska inte skapa ny checkout.
+4. Stäng en kontrollerad checkout och kontrollera “Checkout closed” samt supportlänken.
+   Avbruten navigation ska inte ensam markera en order som misslyckad.
+5. Kör `npm run test -w @verkli/web -- 'src/app/(app-reader)/reader/orders/page.test.tsx'`
+   från arbetskopian för de 57 deterministiska orderfallen, inklusive läsfel, äldre
+   tabellform och saknade betalbindningar. Dessa tester använder syntetiska transporter.
+6. Kör `npm run lint -w @verkli/web`. Build- och startbevis finns i de lokala
+   artefakterna nedan. Inga riktiga köp eller supportmeddelanden behövs för lokal QA.
+
+Lokala verifieringsartefakter: [publikt konfigurerat buildbevis](/Users/admin/.gstack/projects/sveahall-verkli/audit-20260905/implementation/launch-container-public-green.json),
+[isolerad serverkontroll](/Users/admin/.gstack/projects/sveahall-verkli/audit-20260905/implementation/launch-standalone-final.json)
+och [reproducerbart kontrollskript](/Users/admin/.gstack/projects/sveahall-verkli/audit-20260905/implementation/launch-standalone-smoke.py).
 
 ## 0. Läget i en mening
 
