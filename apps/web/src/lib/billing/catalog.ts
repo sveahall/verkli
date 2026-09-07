@@ -21,7 +21,47 @@ export type CatalogRow = {
   price_id: string;
   is_active: boolean;
   interval: CatalogInterval;
+  /**
+   * Which Stripe mode this row's price_id belongs to, or null when the column
+   * does not exist yet. Null means "cannot tell", which is treated as a match
+   * so this code works both before and after the livemode migration.
+   */
+  livemode: boolean | null;
 };
+
+export type StripeMode = "live" | "test";
+
+/**
+ * The mode of the key this process will actually call Stripe with.
+ *
+ * A catalog row is only usable by a key in its own mode. Mixing them is not a
+ * degraded experience, it is a hard failure: Stripe answers `No such price`
+ * and the checkout route turns that into a 500. Production shipped in exactly
+ * that state — live key, test price ids — so the mode is read here and used to
+ * filter, rather than assumed to line up.
+ *
+ * Returns null when no key is configured (a developer without Stripe set up,
+ * or a test run), in which case no filtering happens and every row is offered.
+ */
+export function getStripeMode(
+  env: Record<string, string | undefined> = process.env
+): StripeMode | null {
+  const key = env.STRIPE_SECRET_KEY?.trim() ?? "";
+  if (key.startsWith("sk_live") || key.startsWith("rk_live")) return "live";
+  if (key.startsWith("sk_test") || key.startsWith("rk_test")) return "test";
+  return null;
+}
+
+/**
+ * Whether a row can be used by a key in `mode`. A row that does not say which
+ * mode it belongs to matches anything — that is the pre-migration state, and
+ * excluding those rows would take checkout down rather than protect it.
+ */
+export function rowMatchesMode(row: CatalogRow, mode: StripeMode | null): boolean {
+  if (mode === null) return true;
+  if (row.livemode === null) return true;
+  return row.livemode === (mode === "live");
+}
 
 export type ResolvedRolePlan = {
   role: CatalogRole;
@@ -72,8 +112,11 @@ function normalizeRow(raw: Record<string, unknown> | null): CatalogRow | null {
   const price_id = String(raw.price_id ?? "").trim();
   const is_active = Boolean(raw.is_active ?? true);
   const interval = normalizeInterval(raw.interval);
+  // Absent (pre-migration) is distinct from false. Coercing it with Boolean()
+  // would label every legacy row test-mode and empty the catalog on a live key.
+  const livemode = typeof raw.livemode === "boolean" ? raw.livemode : null;
   if (!provider || !role || !plan_key || !price_id) return null;
-  return { provider, role, plan_key, price_id, is_active, interval };
+  return { provider, role, plan_key, price_id, is_active, interval, livemode };
 }
 
 /**
@@ -99,11 +142,15 @@ export async function getPlanCatalog(): Promise<CatalogRow[]> {
     throw new Error(`billing_plan_catalog read failed: ${error.message}`);
   }
 
+  const mode = getStripeMode();
   const rows: CatalogRow[] = [];
   const list = Array.isArray(data) ? data : [];
   for (const item of list) {
     const row = normalizeRow(item as Record<string, unknown>);
-    if (row) rows.push(row);
+    // Filtered here rather than in the query: naming `livemode` in a PostgREST
+    // filter makes the whole request fail where the column does not exist yet,
+    // which is why the select above is `*`.
+    if (row && rowMatchesMode(row, mode)) rows.push(row);
   }
 
   if (!isCacheBypass()) {

@@ -11,6 +11,7 @@
     "check:english-default": "tsx scripts/check-english-default.ts",
     "e2e:fixture": "tsx scripts/e2e-fixture.ts",
     "check:launch-config": "tsx scripts/check-launch-config.ts",
+    "check:billing-catalog": "tsx scripts/check-billing-catalog.ts",
     "push:launch-env": "tsx scripts/push-launch-env.ts",
     "check:dead-code": "tsc --noEmit --noUnusedLocals --noUnusedParameters",
     "test": "vitest run",

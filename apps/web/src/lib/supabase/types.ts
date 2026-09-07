@@ -1,20 +1,17 @@
 // GENERATED FILE — DO NOT EDIT.
 //
 // Regenerate:
-//   cd apps/web && supabase gen types typescript --linked \
-//     --schema public,graphql_public > src/lib/supabase/types.ts
+//   cd apps/web && npm run generate:types
 //
 // Two things that make this fail quietly:
 //   - `--schema` is not optional. The default is `public` alone, which silently
-//     drops the graphql_public block below.
+//     drops the graphql_public block below. The script passes it; a hand-run
+//     command must too.
 //   - The CLI must be authenticated as the account that owns the verkli project.
 //     A token for the other account returns "your account does not have the
 //     necessary privileges" from the type-generation endpoint. Pass one via
 //     SUPABASE_ACCESS_TOKEN rather than re-running `supabase login`, so the
 //     existing login is left alone.
-//
-// Redirecting straight onto this file truncates it before the command runs, so
-// write to a temp file first and move it once it starts with `export type Json`.
 //
 // Manual edits will be overwritten on the next regeneration.
 
@@ -626,6 +623,7 @@ export type Database = {
           id: string
           interval: string
           is_active: boolean
+          livemode: boolean
           plan_key: string
           price_id: string
           product_id: string | null
@@ -637,6 +635,7 @@ export type Database = {
           id?: string
           interval?: string
           is_active?: boolean
+          livemode?: boolean
           plan_key: string
           price_id: string
           product_id?: string | null
@@ -648,6 +647,7 @@ export type Database = {
           id?: string
           interval?: string
           is_active?: boolean
+          livemode?: boolean
           plan_key?: string
           price_id?: string
           product_id?: string | null
@@ -2967,7 +2967,7 @@ export type Database = {
           book_id: string
           chapter_id?: string | null
           current_chapter?: number
-          id: string
+          id?: string
           last_read_at?: string
           progress_percent?: number
           started_at?: string

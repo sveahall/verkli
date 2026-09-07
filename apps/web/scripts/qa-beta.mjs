@@ -3,7 +3,7 @@
  * Beta Release Gate — automated QA check.
  *
  * Usage:  npm run qa:beta
- * Stages: env check → tests → lint → build
+ * Stages: env check → tests → lint → billing catalog → build
  * Exits non-zero on first failure.
  */
 
@@ -57,7 +57,7 @@ const SOFT_LAUNCH_VALUE_CHECKS = [
 ];
 
 function checkEnv() {
-  console.log("\n══ Stage 1/7: Environment check ══\n");
+  console.log("\n══ Stage 1/8: Environment check ══\n");
   const missing = REQUIRED_ENV.filter((k) => !process.env[k]?.trim());
   if (missing.length > 0) {
     console.error("❌  Missing billing-critical environment variables:\n");
@@ -120,7 +120,7 @@ function checkEnv() {
  * surfaced by REQUIRED_ENV / runtime warnings, not here.
  */
 async function checkRedisReachable() {
-  console.log("══ Stage 1b/7: Redis reachability ══\n");
+  console.log("══ Stage 1b/8: Redis reachability ══\n");
   const url = process.env.REDIS_URL?.trim();
   if (!url) {
     // REQUIRED_ENV already failed if REDIS_URL was missing.
@@ -211,12 +211,18 @@ function run(label, stage, cmd, env = process.env) {
 
 checkEnv();
 await checkRedisReachable();
-run("Tests (vitest)", "2/7", "npx vitest run", hermeticEnv);
-run("Lint (eslint)", "3/7", "npx eslint .");
-run("English-default check", "4/7", "npx tsx scripts/check-english-default.ts");
-run("No-placeholders check", "5/7", "npm run check:no-placeholders");
-run("Dead-code check", "6/7", "npm run check:dead-code");
-run("Build (next build)", "7/7", "npx next build");
+run("Tests (vitest)", "2/8", "npx vitest run", hermeticEnv);
+run("Lint (eslint)", "3/8", "npx eslint .");
+run("English-default check", "4/8", "npx tsx scripts/check-english-default.ts");
+run("No-placeholders check", "5/8", "npm run check:no-placeholders");
+run("Dead-code check", "6/8", "npm run check:dead-code");
+// Asks Stripe whether the catalog's price ids actually exist in the mode the
+// configured key talks to. Not --strict here: without credentials the check
+// skips, and a local qa:beta run must not fail for lacking production secrets.
+// The launch gate is the place for --strict (which turns a skip into a
+// failure) — see scripts/check-billing-catalog.ts.
+run("Billing catalog check", "7/8", "npx tsx scripts/check-billing-catalog.ts");
+run("Build (next build)", "8/8", "npx next build");
 
 console.log("\n══════════════════════════════════════");
 console.log("  ✔  Beta Release Gate — ALL PASSED");
