@@ -3,7 +3,9 @@
 import { useState, useSyncExternalStore } from "react";
 import Image from "next/image";
 import { resolveErrorMessage } from "@/lib/error-messages";
-import AuroraBackground from "@/components/AuroraBackground";
+import { ArrowDown, ArrowRight, ArrowUpRight, AudioLines, BookOpen, FileText, Globe2, Languages, Plus, Sparkles } from "lucide-react";
+import WaitlistProductPreview from "./WaitlistProductPreview";
+import "./waitlist.css";
 import BookOrderSection from "./BookOrderSection";
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -23,25 +25,7 @@ const READER_STORAGE_EMAIL = "verkli_waitlist_reader_email";
 const READER_STORAGE_STATUS = "verkli_waitlist_reader_status";
 const READER_STORAGE_POSITION = "verkli_waitlist_reader_position";
 
-const HERO_EYEBROW = "Limited access";
-// Split so the wordmark can carry the brand gradient. DESIGN.md: "Visual
-// identity comes from the violet→rose→amber gradient and the brand wordmark."
-const HERO_HEADLINE_LEAD = "Join the waitlist to access";
-const HERO_HEADLINE_BRAND = "verkli.";
-// Says what Verkli IS, because this page is the whole public site while
-// BETA_LOCK is on. It previously read "Early access is exclusively limited." —
-// scarcity with no product behind it, so a visitor left knowing only that they
-// could not get in. The scarcity line still lives in HERO_MICRO under the form.
-//
-// Every claim here maps to something that exists: manuscript import
-// (lib/imports), translations (worker-translation), narration
-// (worker-audiobook, ElevenLabs). Deliberately says nothing about rights or
-// revenue splits — that is a business claim nobody has written down.
-const HERO_SUBHEADLINE =
-  "Publish once. Verkli turns your manuscript into an ebook, translations and a narrated audiobook.";
-const HERO_CTA_LABEL = "Request access";
-const HERO_MICRO = "Limited waitlist. We onboard a small number of authors at a time.";
-const CARD_BADGE = "PRIVATE PRE LAUNCH";
+const HERO_CTA_LABEL = "Join the waitlist";
 
 type SubmitState = "idle" | "loading" | "success" | "error" | "already_exists";
 
@@ -128,8 +112,7 @@ function WaitlistForm({
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
       <div
-        className="flex flex-col overflow-hidden rounded-2xl border border-white/20 bg-white/95 transition-all duration-200 focus-within:ring-2 focus-within:ring-[#907AFF]/40 focus-within:ring-offset-2 focus-within:ring-offset-transparent dark:border-white/10 dark:bg-white/5 sm:flex-row sm:items-stretch"
-        style={{ outline: "none" }}
+        className="wl-signup-input"
       >
         <input
           type="email"
@@ -138,24 +121,25 @@ function WaitlistForm({
             setEmail(e.target.value);
             if (state === "error") setState("idle");
           }}
-          placeholder="Your author email"
+          placeholder="Your email address"
+          aria-label="Author email"
           disabled={state === "loading"}
           autoComplete="email"
           aria-invalid={state === "error"}
           aria-describedby={state === "error" ? "waitlist-error" : undefined}
-          className="min-h-[52px] flex-1 min-w-0 border-0 bg-transparent px-5 py-3 text-[16px] text-slate-900 placeholder:text-slate-400 focus:ring-0 dark:text-white dark:placeholder:text-white/40 sm:px-6 sm:text-[15px]"
+          className="text-[16px]"
         />
         <button
           type="submit"
           disabled={state === "loading"}
-          className="waitlist-cta min-h-[52px] shrink-0 bg-slate-900 px-6 py-3 text-[15px] font-semibold text-white transition-all hover:bg-slate-800 disabled:opacity-50 dark:bg-white dark:text-slate-900 dark:hover:bg-white/90 sm:px-8"
+          className="wl-submit"
           aria-busy={state === "loading"}
         >
           {state === "loading" ? "Requesting…" : submitLabel}
         </button>
       </div>
       {errorMessage && (
-        <p id="waitlist-error" className="text-sm text-amber-700 dark:text-amber-300" role="alert">
+        <p id="waitlist-error" className="wl-signup-error" role="alert">
           {errorMessage}
         </p>
       )}
@@ -168,7 +152,6 @@ function SuccessState({ queuePosition, onUseDifferentEmail }: { queuePosition: n
     <div
       className="rounded-2xl border border-emerald-400/20 bg-emerald-500/10 px-6 py-6 backdrop-blur-sm dark:border-emerald-500/20 dark:bg-emerald-500/10"
       role="status"
-      style={{ animation: "waitlist-success-in 0.5s ease-out both" }}
     >
       <p className="text-[17px] font-semibold text-emerald-900 dark:text-emerald-100">
         You&apos;re on the waitlist
@@ -222,8 +205,7 @@ function AlreadyExistsState({ queuePosition, onUseDifferentEmail }: { queuePosit
 
 // ——— Reader waitlist (separate API + state) ———
 
-const READER_CTA_LABEL = "Request access";
-const READER_MICRO = "Limited reader list. We onboard in small waves.";
+const READER_CTA_LABEL = "Join the waitlist";
 
 function ReaderWaitlistForm({
   onSuccess,
@@ -298,8 +280,7 @@ function ReaderWaitlistForm({
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
       <div
-        className="flex flex-col overflow-hidden rounded-2xl border border-white/20 bg-white/95 transition-all duration-200 focus-within:ring-2 focus-within:ring-[#907AFF]/40 focus-within:ring-offset-2 focus-within:ring-offset-transparent dark:border-white/10 dark:bg-white/5 sm:flex-row sm:items-stretch"
-        style={{ outline: "none" }}
+        className="wl-signup-input"
       >
         <input
           type="email"
@@ -308,23 +289,25 @@ function ReaderWaitlistForm({
             setEmail(e.target.value);
             if (state === "error") setState("idle");
           }}
-          placeholder="Your email"
+          placeholder="Your email address"
+          aria-label="Reader email"
           disabled={state === "loading"}
           autoComplete="email"
           aria-invalid={state === "error"}
           aria-describedby={state === "error" ? "reader-waitlist-error" : undefined}
-          className="min-h-[52px] flex-1 min-w-0 border-0 bg-transparent px-5 py-3 text-[16px] text-slate-900 placeholder:text-slate-400 focus:ring-0 dark:text-white dark:placeholder:text-white/40 sm:px-6 sm:text-[15px]"
+          className="text-[16px]"
         />
         <button
           type="submit"
           disabled={state === "loading"}
-          className="waitlist-cta min-h-[52px] shrink-0 bg-slate-900 px-6 py-3 text-[15px] font-semibold text-white transition-all hover:bg-slate-800 disabled:opacity-50 dark:bg-white dark:text-slate-900 dark:hover:bg-white/90 sm:px-8"
+          className="wl-submit"
+          aria-busy={state === "loading"}
         >
           {state === "loading" ? "Requesting…" : READER_CTA_LABEL}
         </button>
       </div>
       {errorMessage && (
-        <p id="reader-waitlist-error" className="text-sm text-amber-700 dark:text-amber-300" role="alert">
+        <p id="reader-waitlist-error" className="wl-signup-error" role="alert">
           {errorMessage}
         </p>
       )}
@@ -337,7 +320,6 @@ function ReaderSuccessState({ queuePosition, onUseDifferentEmail }: { queuePosit
     <div
       className="rounded-2xl border border-emerald-400/20 bg-emerald-500/10 px-6 py-6 backdrop-blur-sm dark:border-emerald-500/20 dark:bg-emerald-500/10"
       role="status"
-      style={{ animation: "waitlist-success-in 0.5s ease-out both" }}
     >
       <p className="text-[17px] font-semibold text-emerald-900 dark:text-emerald-100">
         You&apos;re on the reader waitlist
@@ -393,6 +375,7 @@ function ReaderAlreadyExistsState({ queuePosition, onUseDifferentEmail }: { queu
 const _subNoop = () => () => {};
 
 export default function WaitlistPage() {
+  const [audience, setAudience] = useState<"author" | "reader">("author");
   // Initialise from localStorage via lazy initialisers instead of
   // useEffect + setState, avoiding cascading-render warnings.
   const [queuePosition, setQueuePosition] = useState<number | null>(() => {
@@ -478,233 +461,118 @@ export default function WaitlistPage() {
     setReaderAlreadyExistsPosition(null);
   };
 
+  const joinAsReader = () => {
+    setAudience("reader");
+    document.getElementById("join-waitlist")?.scrollIntoView({
+      behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth",
+    });
+    document.getElementById("reader-role")?.focus({ preventScroll: true });
+  };
+
   return (
-    <>
-      <style>{`
-        @keyframes waitlist-hero-in {
-          from { opacity: 0; transform: translateY(12px); }
-          to { opacity: 1; transform: translateY(0); }
-        }
-        @keyframes waitlist-success-in {
-          from { opacity: 0; transform: scale(0.98); }
-          to { opacity: 1; transform: scale(1); }
-        }
-        .waitlist-hero-in {
-          animation: waitlist-hero-in 0.7s ease-out both;
-        }
-        .waitlist-hero-in-delay-1 { animation-delay: 0.1s; }
-        .waitlist-hero-in-delay-2 { animation-delay: 0.2s; }
-        .waitlist-hero-in-delay-3 { animation-delay: 0.3s; }
-        .waitlist-hero-in-delay-4 { animation-delay: 0.4s; }
-        .waitlist-hero-in-delay-5 { animation-delay: 0.5s; }
-        .waitlist-cta {
-          box-shadow: 0 0 32px rgba(144, 122, 255, 0.25);
-        }
-        .dark .waitlist-cta {
-          box-shadow: 0 0 40px rgba(144, 122, 255, 0.35);
-        }
-        @keyframes waitlist-scroll-bounce {
-          0%, 100% { transform: translateY(0); }
-          50% { transform: translateY(6px); }
-        }
-        .waitlist-scroll-cue-icon {
-          animation: waitlist-scroll-bounce 1.8s cubic-bezier(0.16, 1, 0.3, 1) infinite;
-        }
-        @media (prefers-reduced-motion: reduce) {
-          .waitlist-scroll-cue-icon { animation: none; }
-        }
-      `}</style>
-      <main className="waitlist-page relative flex min-h-screen min-h-dvh flex-col" role="main">
-        <AuroraBackground />
-        {/* Full-viewport hero */}
-        <section className="relative flex min-h-dvh flex-col items-center justify-start overflow-hidden px-4 pb-12 pt-16 sm:pb-16 sm:pt-20 md:justify-center md:py-16 dark">
+    <main className="waitlist-page dark" id="top">
+      <header className="wl-nav wl-shell">
+        <a href="#top" className="wl-logo" aria-label="Verkli home">
+          <Image src="/logo-dark.svg" alt="Verkli" width={144} height={40} priority />
+          <Image src="/logo-dark.svg" alt="" width={144} height={40} className="wl-logo-light" aria-hidden="true" />
+        </a>
+        <nav className="wl-nav-links" aria-label="Main navigation">
+          <a href="#how-it-works">The platform</a>
+          <a href="#questions">FAQ</a>
+          <a href="#join-waitlist" className="wl-nav-cta">Get early access <ArrowUpRight size={14} aria-hidden="true" /></a>
+        </nav>
+      </header>
 
-          {/* Logo: no link, decorative only.
-              IN FLOW, not absolute. It used to be `absolute left-0 right-0
-              top-15`, which meant the vertically-centred content block below it
-              could grow upward straight through it — and did, the moment the
-              headline went from a flat 56px to clamp(38–76px). A taller
-              headline overlapped the wordmark.
-              Absolute positioning was the latent bug; the headline only
-              exposed it. In flow, no headline length can collide. */}
-          <div
-            className="waitlist-hero-in mb-10 flex w-full justify-center sm:mb-12"
-            aria-hidden
-          >
-            <div className="flex items-center">
-              <Image src="/logo-dark.svg" alt="" width={122} height={28} className="h-7 w-auto dark:hidden" />
-              <Image src="/favicon.svg" alt="" width={28} height={28} className="hidden h-7 w-auto dark:block" />
+      <section className="wl-hero wl-shell" aria-labelledby="waitlist-heading">
+        <div className="wl-hero-copy">
+          <p className="wl-eyebrow"><span className="wl-eyebrow-dot" /> A NEW CHAPTER FOR STORYTELLING</p>
+          <h1 id="waitlist-heading"><span>Your story.</span><span className="wl-gradient-text">Goes further.</span></h1>
+          <p className="wl-intro"><strong>Big imagination. Meet your AI workspace.</strong><br />Write, translate, create audiobooks, and publish. Verkli brings your next chapter together in one place.</p>
+
+          <div className="wl-join" id="join-waitlist">
+            <div className="wl-role-switch" role="group" aria-label="Choose your waitlist">
+              <button type="button" aria-pressed={audience === "author"} aria-controls="author-signup" onClick={() => setAudience("author")}>I’m an author</button>
+              <button type="button" id="reader-role" aria-pressed={audience === "reader"} aria-controls="reader-signup" onClick={() => setAudience("reader")}>I’m a reader</button>
+            </div>
+            <div id="author-signup" hidden={audience !== "author"}>
+              {!hydrated ? <p className="wl-micro" role="status">Loading signup…</p> : queuePosition !== null ? (
+                <SuccessState queuePosition={queuePosition} onUseDifferentEmail={handleAuthorUseDifferentEmail} />
+              ) : alreadyExistsPosition !== null ? (
+                <AlreadyExistsState queuePosition={alreadyExistsPosition} onUseDifferentEmail={handleAuthorUseDifferentEmail} />
+              ) : (
+                <WaitlistForm onSuccess={handleSuccess} onAlreadyExists={handleAlreadyExists} />
+              )}
+              <p className="wl-micro"><Sparkles size={12} aria-hidden="true" /> Private pre-launch. Author invitations go out in small waves.</p>
+            </div>
+            <div id="reader-signup" hidden={audience !== "reader"}>
+              {!hydrated ? <p className="wl-micro" role="status">Loading signup…</p> : readerQueuePosition !== null ? (
+                <ReaderSuccessState queuePosition={readerQueuePosition} onUseDifferentEmail={handleReaderUseDifferentEmail} />
+              ) : readerAlreadyExistsPosition !== null ? (
+                <ReaderAlreadyExistsState queuePosition={readerAlreadyExistsPosition} onUseDifferentEmail={handleReaderUseDifferentEmail} />
+              ) : (
+                <ReaderWaitlistForm onSuccess={handleReaderSuccess} onAlreadyExists={handleReaderAlreadyExists} />
+              )}
+              <p className="wl-micro"><Sparkles size={12} aria-hidden="true" /> Discover what’s next. Reader invitations go out in small waves.</p>
             </div>
           </div>
-
-          {/* Centered content: headline + floating card */}
-          <div className="waitlist-hero-in waitlist-hero-in-delay-1 mx-auto w-full max-w-md text-center md:max-w-4xl">
-            <p className="text-[11px] font-semibold uppercase tracking-[0.25em] text-white/50">
-              {HERO_EYEBROW}
-            </p>
-            {/* Headline weight and scale matched to the /author hero, which is
-                the reference for a brand-forward moment in DESIGN.md. This was
-                font-medium at 56px with default tracking — light and loose
-                enough that a 56px headline read as body copy. The author hero
-                uses clamp(48–88px), font-semibold and tracking-[-0.05em]; same
-                treatment here, and the brand gradient on the wordmark, which is
-                where DESIGN.md says the visual identity comes from. */}
-            <h1 className="mt-6 text-[clamp(38px,6.5vw,76px)] font-semibold leading-[0.96] tracking-[-0.045em] text-white">
-              {HERO_HEADLINE_LEAD}{" "}
-              <span className="bg-[linear-gradient(110deg,#907AFF_0%,#E29ED5_55%,#FCC997_100%)] bg-clip-text text-transparent">
-                {HERO_HEADLINE_BRAND}
-              </span>
-            </h1>
-            <p className="mt-5 text-[16px] leading-snug text-white/60 sm:text-[17px]">
-              {HERO_SUBHEADLINE}
-            </p>
-
-            {/* Exclusive label: discreet badge above cards */}
-            <p
-              className="waitlist-hero-in waitlist-hero-in-delay-2 mt-10 text-[10px] font-medium uppercase tracking-[0.3em] text-white/35"
-              aria-hidden
-            >
-              {CARD_BADGE}
-            </p>
-            {/* Two signups: author + reader — column on mobile, row on desktop */}
-            <div className="waitlist-hero-in waitlist-hero-in-delay-3 mt-3 flex w-full flex-col gap-6 sm:gap-8 md:flex-row md:items-stretch">
-              {/* Join the waitlist as an author */}
-              <div className="aurora-card min-w-0 flex-1 rounded-3xl border border-white/20 bg-white/10 p-6 shadow-[0_24px_48px_rgba(0,0,0,0.2),0_0_0_1px_rgba(255,255,255,0.08)] backdrop-blur-xl sm:p-8">
-                <h2 className="text-center text-sm font-semibold uppercase tracking-wider text-white/60">
-                  Join the waitlist as an author
-                </h2>
-                <div className="mt-4">
-                  {!hydrated ? null : queuePosition !== null ? (
-                    <SuccessState queuePosition={queuePosition} onUseDifferentEmail={handleAuthorUseDifferentEmail} />
-                  ) : alreadyExistsPosition !== null ? (
-                    <AlreadyExistsState queuePosition={alreadyExistsPosition} onUseDifferentEmail={handleAuthorUseDifferentEmail} />
-                  ) : (
-                    <>
-                      <WaitlistForm
-                        onSuccess={handleSuccess}
-                        onAlreadyExists={handleAlreadyExists}
-                        submitLabel={HERO_CTA_LABEL}
-                      />
-                      <p className="mt-4 text-[12px] text-white/40 tracking-wide">
-                        {HERO_MICRO}
-                      </p>
-                    </>
-                  )}
-                </div>
-              </div>
-
-              {/* Join the waitlist as a reader */}
-              <div className="aurora-card min-w-0 flex-1 rounded-3xl border border-white/20 bg-white/10 p-6 shadow-[0_24px_48px_rgba(0,0,0,0.2),0_0_0_1px_rgba(255,255,255,0.08)] backdrop-blur-xl sm:p-8">
-                <h2 className="text-center text-sm font-semibold uppercase tracking-wider text-white/60">
-                  Join the waitlist as a reader
-                </h2>
-                <div className="mt-4">
-                  {!hydrated ? null : readerQueuePosition !== null ? (
-                    <ReaderSuccessState queuePosition={readerQueuePosition} onUseDifferentEmail={handleReaderUseDifferentEmail} />
-                  ) : readerAlreadyExistsPosition !== null ? (
-                    <ReaderAlreadyExistsState queuePosition={readerAlreadyExistsPosition} onUseDifferentEmail={handleReaderUseDifferentEmail} />
-                  ) : (
-                    <>
-                      <ReaderWaitlistForm
-                        onSuccess={handleReaderSuccess}
-                        onAlreadyExists={handleReaderAlreadyExists}
-                      />
-                      <p className="mt-4 text-[12px] text-white/40 tracking-wide">
-                        {READER_MICRO}
-                      </p>
-                    </>
-                  )}
-                </div>
-              </div>
-            </div>
-
-            {/* What the platform does — three items, under the forms.
-                Placed BELOW the signup cards on purpose: the hero is min-h-dvh,
-                so anything above them pushes the actual call to action off the
-                first screen. */}
-            <dl className="waitlist-hero-in waitlist-hero-in-delay-4 mt-14 grid w-full grid-cols-1 gap-8 text-left sm:grid-cols-3 sm:gap-6">
-              {[
-                { term: "Write and publish", desc: "Import a manuscript, edit the chapters, publish when it is ready." },
-                { term: "Reach more languages", desc: "Translate a finished book and publish each language on its own." },
-                { term: "Turn it into audio", desc: "Generate a narrated audiobook from the text you already have." },
-              ].map((item) => (
-                <div key={item.term} className="min-w-0">
-                  <dt className="text-[13px] font-semibold uppercase tracking-[0.14em] text-white/70">
-                    {item.term}
-                  </dt>
-                  <dd className="mt-2 text-[15px] leading-[1.6] text-white/45">{item.desc}</dd>
-                </div>
-              ))}
-            </dl>
-
-            {/* The product itself — reuses the /author hero asset rather than
-                commissioning a second render.
-                
-                Masked, not faded. The first version laid a
-                `bg-gradient-to-t from-[#0a0612]` panel over the bottom edge,
-                copying the /author treatment but with a hardcoded hex instead of
-                its `from-background` token. On that page the background IS
-                near-white/near-black, so the token matches; here the background
-                is a violet gradient, so a flat #0a0612 rectangle sat on top of
-                it as a visible dark box.
-                
-                `mask-image` fades the image itself to transparent on the bottom
-                and sides, so it blends into whatever is behind it — no colour to
-                keep in sync with the background, and it survives a theme change.
-                No `priority`: the sign-up forms above matter more on first paint. */}
-            <div className="waitlist-hero-in waitlist-hero-in-delay-5 relative mt-16 w-full">
-              <Image
-                src="/images/author-dashboard-hero.png"
-                alt="The Verkli author dashboard on a laptop and a phone"
-                width={3072}
-                height={1728}
-                sizes="(max-width: 640px) 95vw, (max-width: 1200px) 85vw, 1060px"
-                quality={90}
-                className="w-full object-contain object-top"
-                style={{
-                  maskImage:
-                    "linear-gradient(to bottom, black 0%, black 62%, transparent 97%), linear-gradient(to right, transparent 0%, black 8%, black 92%, transparent 100%)",
-                  maskComposite: "intersect",
-                  WebkitMaskImage:
-                    "linear-gradient(to bottom, black 0%, black 62%, transparent 97%), linear-gradient(to right, transparent 0%, black 8%, black 92%, transparent 100%)",
-                  WebkitMaskComposite: "source-in",
-                }}
-              />
-            </div>
-          </div>
-
-          {/* Scroll cue: hints the book order card sits below the fold (desktop;
-              on mobile the stacked cards already overflow the viewport). */}
           <button
             type="button"
             onClick={() => {
-              const el = document.getElementById("book-order");
-              if (!el) return;
-              const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-              el.scrollIntoView({ behavior: reduce ? "auto" : "smooth", block: "start" });
+              document.getElementById("book-order")?.scrollIntoView({
+                behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth",
+              });
             }}
             aria-label="Beställ Johans bok nedan"
-            className="waitlist-hero-in waitlist-hero-in-delay-5 mt-10 flex min-h-11 flex-col items-center gap-2 rounded-full px-4 py-2 text-white/45 transition-colors hover:text-white/75 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#907AFF]/40 focus-visible:ring-offset-2 focus-visible:ring-offset-transparent md:absolute md:bottom-8 md:left-1/2 md:mt-0 md:-translate-x-1/2"
-          >
-            <span className="text-[10px] font-medium uppercase tracking-[0.3em]">Beställ boken</span>
-            <svg
-              className="waitlist-scroll-cue-icon h-5 w-5"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth={2}
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              aria-hidden
-            >
-              <path d="m6 9 6 6 6-6" />
-            </svg>
-          </button>
-        </section>
+            className="wl-book-link"
+          ><span lang="sv">Beställ Johans bok nedan</span> <ArrowDown size={13} aria-hidden="true" /></button>
+        </div>
+        <WaitlistProductPreview />
+      </section>
 
-        {/* Order Johan SvH's book — sits directly below the sign-up cards */}
+      <div className="wl-capabilities wl-shell" aria-label="One connected workspace">
+        <span>FROM FIRST WORD TO NEW WORLDS</span>
+        <div className="wl-capability"><FileText size={17} aria-hidden="true" /> Write & edit</div>
+        <div className="wl-capability"><Languages size={17} aria-hidden="true" /> Translate</div>
+        <div className="wl-capability"><AudioLines size={17} aria-hidden="true" /> Create audio</div>
+        <div className="wl-capability"><Globe2 size={17} aria-hidden="true" /> Publish</div>
+      </div>
+
+      <section className="wl-how wl-shell" id="how-it-works" aria-labelledby="how-heading">
+        <div className="wl-section-heading">
+          <div><p className="wl-eyebrow">BUILT AROUND YOUR STORY</p><h2 id="how-heading">Less switching tools.<br />More making things.</h2></div>
+          <p>From the manuscript on your laptop to the book someone can’t put down. Keep the whole journey in one workspace.</p>
+        </div>
+        <div className="wl-steps">
+          <article className="wl-step"><span className="wl-step-number">01 / CREATE</span><h3>Start with your words.</h3><p>Bring your manuscript or start a new chapter. Write, edit, and shape your book in a workspace built for authors.</p><div className="wl-step-tags"><span>Manuscript import</span><span>Chapter editor</span></div></article>
+          <article className="wl-step"><span className="wl-step-number">02 / EXPAND</span><h3>Give it a bigger world.</h3><p>Translate your book into new languages and turn your chapters into narrated audio. Review each edition before publishing.</p><div className="wl-step-tags"><span>AI translation</span><span>Audiobook creation</span></div></article>
+          <article className="wl-step"><span className="wl-step-number">03 / PUBLISH</span><h3>Find your next reader.</h3><p>Publish on Verkli so readers can discover, read, and listen. Your story becomes part of someone else’s day.</p><div className="wl-step-tags"><span>Ebooks</span><span>Reader library</span></div></article>
+        </div>
+      </section>
+
+      <section className="wl-reader wl-shell" aria-labelledby="reader-heading">
+        <div><p className="wl-eyebrow"><BookOpen size={14} aria-hidden="true" /> FOR THE JUST-ONE-MORE-CHAPTER PEOPLE</p><h2 id="reader-heading">Your next obsession<br />hasn’t found you. Yet.</h2><p>Discover independent voices. Read a chapter, listen to a story, and find authors you’ll want to follow from the beginning.</p></div>
+        <button type="button" className="wl-secondary-cta" onClick={joinAsReader}>Join as a reader <ArrowUpRight size={16} aria-hidden="true" /></button>
+      </section>
+
+      <section className="wl-faq wl-shell" id="questions" aria-labelledby="faq-heading">
+        <div><p className="wl-eyebrow">A FEW GOOD QUESTIONS</p><h2 id="faq-heading">Before the<br />next chapter.</h2></div>
+        <div>
+          <details><summary>What is Verkli?<Plus size={17} aria-hidden="true" /></summary><p>Verkli is an AI workspace for authors and a home for readers. Authors can write and edit manuscripts, translate books, create narrated audiobooks, and publish. Readers can discover stories, read, and listen.</p></details>
+          <details><summary>Who is the waitlist for?<Plus size={17} aria-hidden="true" /></summary><p>Authors with a manuscript, writers starting something new, and readers looking for independent voices. Choose your role when you join so we can invite you to the right experience.</p></details>
+          <details><summary>When can I get access?<Plus size={17} aria-hidden="true" /></summary><p>Verkli is in private pre-launch. We’re inviting authors and readers in small waves. Join the waitlist and we’ll email you when your invitation is ready.</p></details>
+          <details><summary>Can I bring a book I’ve already written?<Plus size={17} aria-hidden="true" /></summary><p>Yes. You can import an existing manuscript, work on its chapters, and prepare translations or an audio edition from your text.</p></details>
+        </div>
+      </section>
+
+      <div className="wl-book-area">
+        <div className="wl-book-intro wl-shell"><p className="wl-eyebrow">A STORY YOU CAN HOLD</p><h2>Ta för er!</h2><p>Looking for Johan’s book? You can order your copy below.</p></div>
         <BookOrderSection />
-      </main>
-    </>
+      </div>
+      <footer className="wl-footer wl-shell">
+        <a href="#top" className="wl-logo" aria-label="Verkli home"><Image src="/logo-dark.svg" alt="Verkli" width={144} height={40} /><Image src="/logo-dark.svg" alt="" width={144} height={40} className="wl-logo-light" aria-hidden="true" /></a>
+        <p>Built for the stories only you can tell.</p>
+        <a href="#join-waitlist">Be part of the next chapter <ArrowRight size={14} aria-hidden="true" /></a>
+      </footer>
+    </main>
   );
 }
