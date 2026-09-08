@@ -20,6 +20,7 @@ import {
   E_INVALID_BOOK_ID,
   isValidUuid,
 } from "@/lib/api-errors";
+import type { TablesInsert } from "@/lib/supabase/types";
 
 type CheckoutBookRow = {
   id: string;
@@ -188,7 +189,7 @@ export async function POST(
   try {
     const thirtyMinAgo = new Date(Date.now() - 30 * 60 * 1000).toISOString();
     let idempotencyQuery = admin
-      .from("orders" as never)
+      .from("orders")
       .select("id, stripe_session_id")
       .eq("user_id", user.id)
       .eq("book_id", bookId)
@@ -227,7 +228,7 @@ export async function POST(
     });
   }
 
-  const orderPayload: Record<string, unknown> = {
+  const orderPayload: TablesInsert<"orders"> = {
     user_id: user.id,
     book_id: bookId,
     amount,
@@ -240,7 +241,7 @@ export async function POST(
   }
 
   const { data: order, error: orderError } = await admin
-    .from("orders" as never)
+    .from("orders")
     .insert(orderPayload)
     .select("id")
     .single();
@@ -312,7 +313,7 @@ export async function POST(
     }
 
     const { error: orderUpdateError } = await admin
-      .from("orders" as never)
+      .from("orders")
       .update({ stripe_session_id: stripeSessionId })
       .eq("id", orderId)
       .eq("user_id", user.id)
@@ -331,7 +332,7 @@ export async function POST(
     });
   } catch (error) {
     await admin
-      .from("orders" as never)
+      .from("orders")
       .update({ status: "failed" })
       .eq("id", orderId)
       .eq("user_id", user.id)

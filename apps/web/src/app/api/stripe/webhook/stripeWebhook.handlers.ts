@@ -33,6 +33,7 @@ import {
   type FinalizeCheckoutFunction,
   type StripeRecord,
 } from "./stripeWebhook.helpers";
+import type { Json } from "@/lib/supabase/types";
 
 // Re-exported so callers already importing it from here keep working.
 export { HANDLED_STRIPE_EVENTS };
@@ -151,7 +152,13 @@ async function finalizeCheckoutSession(
     return false;
   }
 
-  const { data, error } = await admin.rpc(rpcName as never, {
+  // All three finalize functions take exactly `{ p_stripe_session_id: string }`
+  // and return boolean (verified in types.ts). `.rpc()` cannot resolve a single
+  // Args type from a union of names, so the name is narrowed to one member —
+  // which keeps the ARGUMENT type-checked. The previous `rpcName as never`
+  // erased both, so a renamed parameter here would have compiled fine and
+  // failed at runtime.
+  const { data, error } = await admin.rpc(rpcName as "finalize_order_checkout_session", {
     p_stripe_session_id: sessionId,
   });
 
@@ -184,7 +191,7 @@ async function recordPaymentIntentForOrder(
   if (!paymentIntentId) return;
 
   const { error } = await admin
-    .from("orders" as never)
+    .from("orders")
     .update({ stripe_payment_intent_id: paymentIntentId })
     .eq("stripe_session_id", sessionId);
 
@@ -305,11 +312,14 @@ async function processPodCheckoutSession(
     (session.shipping_details as Record<string, unknown> | null) ?? null;
 
   const { data: updated, error } = await admin
-    .from("pod_orders" as never)
+    .from("pod_orders")
     .update({
       status: "paid",
       stripe_session_id: sessionId,
-      shipping_address: shippingAddress,
+      // The value is Stripe's shipping_details object, i.e. JSON by
+      // construction; its declared type is Record<string, unknown> because it
+      // came off an untyped Stripe payload.
+      shipping_address: shippingAddress as Json,
     })
     .eq("id", podOrderId)
     .eq("status", "pending")
@@ -457,17 +467,23 @@ async function processAuthorSubscriptionCheckoutSession(
 
   const amountMonthly = parseInt(amountMonthlyStr ?? "0", 10) || 0;
 
-  const { error } = await admin.rpc("upsert_author_subscription" as never, {
+  const { error } = await admin.rpc("upsert_author_subscription", {
     p_subscriber_user_id: subscriberUserId,
     p_author_id: authorId,
     p_stripe_subscription_id: subscriptionId,
-    p_stripe_customer_id: customerId ?? null,
+    // The SQL parameter is a plain `text`, so NULL is valid. The type
+    // generator cannot express a nullable RPC argument — every non-defaulted
+    // parameter comes out as required and non-nullable — so the assertion is
+    // narrowed to this one field rather than erasing the whole call, which is
+    // what the previous `as never` on the arguments object did.
+    p_stripe_customer_id: (customerId ?? null) as string,
     p_amount_monthly: amountMonthly,
     p_currency: currency,
     p_status: "active",
-    p_current_period_start: null,
-    p_current_period_end: null,
-  } as never);
+    // p_current_period_start / p_current_period_end omitted deliberately: both
+    // are `DEFAULT NULL` in SQL, so passing an explicit null said the same
+    // thing in a way the generated optional type rejects.
+  });
 
   if (error) {
     // Transient DB failure — THROW so Stripe retries (see the pod handler note).
@@ -929,10 +945,11 @@ async function processChargeRevocationEvent(
 
   const kind = type === "charge.dispute.created" ? "dispute" : "refund";
 
-  const { data, error } = await admin.rpc("revoke_order_for_refund" as never, {
+  const { data, error } = await admin.rpc("revoke_order_for_refund", {
     p_payment_intent_id: paymentIntentId,
     p_kind: kind,
-  } as never);
+  }
+  );
 
   if (error) {
     // THROW, so the webhook returns 500 and Stripe retries. Swallowing this
@@ -1031,7 +1048,7 @@ export async function recordStripeEvent(
   eventId: string,
   type: string
 ): Promise<"recorded" | "duplicate"> {
-  const { error } = await admin.from("stripe_events" as never).insert({
+  const { error } = await admin.from("stripe_events").insert({
     stripe_event_id: eventId,
     type,
   });
@@ -1054,7 +1071,7 @@ export async function rollbackStripeEvent(
   eventId: string
 ): Promise<void> {
   const { error } = await admin
-    .from("stripe_events" as never)
+    .from("stripe_events")
     .delete()
     .eq("stripe_event_id", eventId);
 

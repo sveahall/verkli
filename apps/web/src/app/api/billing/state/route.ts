@@ -43,7 +43,7 @@ export async function GET(request: Request) {
       const now = new Date();
       const usageMonth = `${now.getUTCFullYear()}-${String(now.getUTCMonth() + 1).padStart(2, "0")}-01`;
       const { data: usage } = await admin
-        .from("user_usage_monthly" as never)
+        .from("user_usage_monthly")
         .select("trailer_count_this_month")
         .eq("user_id", user.id)
         .eq("usage_month", usageMonth)

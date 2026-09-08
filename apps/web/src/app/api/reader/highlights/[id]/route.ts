@@ -10,6 +10,7 @@ import {
   E_HIGHLIGHT_UPDATE_FAILED,
   E_HIGHLIGHT_DELETE_FAILED,
 } from "@/lib/api-errors";
+import type { TablesUpdate } from "@/lib/supabase/types";
 
 const updateHighlightSchema = z.object({
   color: z.enum(["yellow", "green", "blue", "rose", "purple"]).optional(),
@@ -43,7 +44,7 @@ export async function PUT(
     return apiError(E_VALIDATION_FAILED, 400);
   }
 
-  const updates: Record<string, unknown> = {};
+  const updates: TablesUpdate<"highlights"> = {};
   if (parsed.data.color !== undefined) updates.color = parsed.data.color;
   if (parsed.data.note !== undefined) updates.note = parsed.data.note;
 

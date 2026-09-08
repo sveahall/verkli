@@ -37,7 +37,7 @@ export async function DELETE(
 
   // Fetch connection (base table via admin)
   const { data: connection } = await admin
-    .from("social_connections" as never)
+    .from("social_connections")
     .select("id, access_token_enc, status")
     .eq("user_id", user.id)
     .eq("platform", platform)
@@ -61,7 +61,7 @@ export async function DELETE(
 
   // Null out encrypted tokens and set status to revoked
   await admin
-    .from("social_connections" as never)
+    .from("social_connections")
     .update({
       access_token_enc: null,
       refresh_token_enc: null,

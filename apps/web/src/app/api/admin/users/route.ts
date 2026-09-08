@@ -76,7 +76,7 @@ export async function PATCH(request: Request) {
   if (betaEnabled !== undefined) {
     // Update beta_enabled in user_flags table
     const { error } = await admin
-      .from("user_flags" as never)
+      .from("user_flags")
       .upsert({ user_id: userId, beta_enabled: betaEnabled } as never, {
         onConflict: "user_id",
       });

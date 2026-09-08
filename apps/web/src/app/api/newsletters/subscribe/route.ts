@@ -53,7 +53,7 @@ export async function POST(request: Request) {
 
   // Check for existing subscription
   const { data: existing } = await supabase
-    .from("newsletter_subscriptions" as never)
+    .from("newsletter_subscriptions")
     .select("id, status")
     .eq("author_id", authorId)
     .eq("subscriber_user_id", user.id)
@@ -67,7 +67,7 @@ export async function POST(request: Request) {
 
     // Re-subscribe: update status back to active
     const { error: updateError } = await supabase
-      .from("newsletter_subscriptions" as never)
+      .from("newsletter_subscriptions")
       .update({
         status: "active",
         unsubscribed_at: null,
@@ -89,7 +89,7 @@ export async function POST(request: Request) {
 
   // New subscription
   const { error: insertError } = await supabase
-    .from("newsletter_subscriptions" as never)
+    .from("newsletter_subscriptions")
     .insert({
       author_id: authorId,
       subscriber_user_id: user.id,

@@ -10,6 +10,8 @@ import { getBookAsOwner } from "@/lib/books/service";
 import { apiError, E_BOOK_NOT_FOUND, E_DATABASE_ERROR, E_JOB_FETCH_FAILED, E_INVALID_BOOK_ID, isValidUuid } from "@/lib/api-errors";
 import { getAudiobookStorageBucket } from "@/lib/tts/storage";
 import { isCancelStale } from "@/lib/audiobook-stale-cancel";
+import type { Json } from "@/lib/supabase/types";
+import { asJsonObject } from "@/lib/supabase/json-object";
 
 type JobKind = "import" | "translation" | "audiobook";
 const SIGNED_URL_TTL_SECONDS = 60 * 15;
@@ -160,7 +162,8 @@ export async function GET(
     updated_at: string;
     file_name: string | null;
     book_version_id: string | null;
-    result: Record<string, unknown> | null;
+    // jsonb column, so Json. Narrow with asJsonObject() before reading fields.
+    result: Json | null;
   };
   const { data: importRows } = await supabase
     .from("book_imports")
@@ -259,8 +262,10 @@ export async function GET(
     id: string;
     kind: string;
     status: string;
-    input: unknown;
-    output: unknown;
+    // jsonb columns. These were `unknown`, which is why every read needed a
+    // cast; `Json` says the same thing with a shape asJsonObject() can narrow.
+    input: Json | null;
+    output: Json | null;
     error: string | null;
     created_at: string;
     started_at: string | null;
@@ -295,7 +300,7 @@ export async function GET(
       return apiError(E_JOB_FETCH_FAILED, 500);
     }
     const inputFiltered = (fallback.data ?? []).filter((r) => {
-      const input = r.input as Record<string, unknown> | null;
+      const input = asJsonObject(r.input);
       return input?.bookId === bookId;
     });
     rows = inputFiltered as AiJobRow[];
@@ -314,7 +319,7 @@ export async function GET(
       .order("created_at", { ascending: false })
       .limit(20);
     legacyMatches = (legacyRows ?? []).filter((r) => {
-      const input = r.input as Record<string, unknown> | null;
+      const input = asJsonObject(r.input);
       return input?.bookId === bookId;
     }) as AiJobRow[];
   }
@@ -335,8 +340,10 @@ export async function GET(
       if (!kind) return null;
       if (!audiobookEnabled && kind === "audiobook") return null;
 
-      const input = (r.input as Record<string, unknown>) ?? {};
-      const output = (r.output as Record<string, unknown>) ?? {};
+      // Narrowed rather than cast: ai_jobs.input/output are jsonb, so a
+      // non-object value made every field read below undefined silently.
+      const input = asJsonObject(r.input);
+      const output = asJsonObject(r.output);
       let status = normalizeJobStatus(r.status);
       let staleCancel = false;
 

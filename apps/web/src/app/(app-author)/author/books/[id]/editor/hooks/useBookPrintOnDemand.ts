@@ -33,7 +33,7 @@ export function useBookPrintOnDemand({ book }: UseBookPrintOnDemandOptions) {
 
       const supabase = createClient();
       const { error } = await supabase
-        .from("books" as never)
+        .from("books")
         .update({ print_on_demand_settings: normalizedSettings } as never)
         .eq("id", book.id);
 

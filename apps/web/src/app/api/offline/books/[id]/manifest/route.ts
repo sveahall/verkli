@@ -76,7 +76,7 @@ export async function GET(
   const timestamp = new Date().toISOString();
 
   const { error: upsertError } = await supabase
-    .from("offline_manifests" as never)
+    .from("offline_manifests")
     .upsert(
       {
         user_id: userId,

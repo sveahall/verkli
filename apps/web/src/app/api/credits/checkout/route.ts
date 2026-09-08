@@ -78,7 +78,7 @@ export async function POST(request: Request) {
   try {
     const twentyMinAgo = new Date(Date.now() - 20 * 60 * 1000).toISOString();
     const { data: existing } = await admin
-      .from("credit_topups" as never)
+      .from("credit_topups")
       .select("id, stripe_session_id")
       .eq("user_id", user.id)
       .eq("status", "pending")
@@ -110,7 +110,7 @@ export async function POST(request: Request) {
   }
 
   const { data: topup, error: topupInsertError } = await admin
-    .from("credit_topups" as never)
+    .from("credit_topups")
     .insert({
       user_id: user.id,
       amount: amountMinor,
@@ -157,7 +157,7 @@ export async function POST(request: Request) {
     }
 
     const { error: topupUpdateError } = await admin
-      .from("credit_topups" as never)
+      .from("credit_topups")
       .update({ stripe_session_id: stripeSessionId })
       .eq("id", creditTopupId)
       .eq("user_id", user.id)
@@ -170,7 +170,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ url: session.url, creditTopupId });
   } catch (error) {
     await admin
-      .from("credit_topups" as never)
+      .from("credit_topups")
       .update({ status: "failed" })
       .eq("id", creditTopupId)
       .eq("user_id", user.id)

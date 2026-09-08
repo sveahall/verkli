@@ -434,7 +434,7 @@ export default function ReaderChapterClient({
     };
 
     const { data, error } = await supabase
-      .from("highlights" as never)
+      .from("highlights")
       .insert(payload as never)
       .select("id, start_offset, end_offset, snippet, color, note, created_at, updated_at")
       .maybeSingle();
@@ -472,7 +472,7 @@ export default function ReaderChapterClient({
 
     const supabase = createClient();
     const { error } = await supabase
-      .from("highlights" as never)
+      .from("highlights")
       .update({ note: nextNote ? nextNote : null } as never)
       .eq("id", highlightId);
 
@@ -500,7 +500,7 @@ export default function ReaderChapterClient({
 
     const supabase = createClient();
     const { error } = await supabase
-      .from("highlights" as never)
+      .from("highlights")
       .delete()
       .eq("id", highlightId);
 

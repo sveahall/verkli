@@ -127,9 +127,14 @@ async function moveReadings(params: {
   toBookId: string;
 }) {
   const { supabase, fromBookId, toBookId } = params;
+  // `last_read_at`, not `updated_at`. readings has never had an updated_at
+  // column, so this select returned a PostgREST 400, `rows` came back
+  // undefined, and the loop below iterated zero times — the script reported
+  // success having migrated no reading progress at all. Invisible until the
+  // Supabase client was typed.
   const { data: rows } = await supabase
     .from("readings")
-    .select("id, user_id, chapter_id, progress_percent, updated_at")
+    .select("id, user_id, chapter_id, progress_percent, last_read_at")
     .eq("book_id", fromBookId);
 
   for (const row of rows ?? []) {
@@ -140,7 +145,7 @@ async function moveReadings(params: {
         book_id: toBookId,
         chapter_id: row.chapter_id,
         progress_percent: row.progress_percent,
-        updated_at: row.updated_at,
+        last_read_at: row.last_read_at,
       })
       .eq("user_id", row.user_id)
       .eq("book_id", toBookId);

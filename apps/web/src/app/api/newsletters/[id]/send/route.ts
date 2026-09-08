@@ -59,7 +59,7 @@ export async function POST(
 
   // Verify newsletter exists and belongs to user
   const { data: newsletter, error: lookupError } = await supabase
-    .from("newsletters" as never)
+    .from("newsletters")
     .select("id, author_id, status")
     .eq("id", id)
     .maybeSingle();

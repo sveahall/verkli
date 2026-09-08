@@ -257,7 +257,8 @@ async function main() {
         book_id: book.id,
         chapter_id: firstChapter.id,
         progress_percent: 50,
-        updated_at: new Date().toISOString(),
+        // last_read_at: readings has never had an updated_at column.
+        last_read_at: new Date().toISOString(),
       },
       { onConflict: "user_id,book_id" }
     );

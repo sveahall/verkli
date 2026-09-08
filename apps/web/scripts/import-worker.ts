@@ -31,6 +31,7 @@ import type { ImportMode } from "../src/lib/import-queue";
 import { QUEUE_NAMES } from "../src/lib/queue-names";
 import { startHeartbeatInterval } from "../src/lib/health/worker-heartbeat";
 import { Sentry } from "./sentry-worker-init";
+import type { TablesInsert } from "../src/lib/supabase/types";
 
 const QUEUE_NAME = QUEUE_NAMES.IMPORT;
 const BUCKET = "book-imports";
@@ -528,7 +529,7 @@ export async function processJob(payload: ProcessJobPayload) {
     );
 
     // Build rows, skipping duplicates
-    const rows: Record<string, unknown>[] = [];
+    const rows: TablesInsert<"chapters">[] = [];
     let dedupSkipped = 0;
 
     for (let i = 0; i < normalizedChapters.length; i++) {

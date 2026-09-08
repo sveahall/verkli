@@ -64,7 +64,7 @@ export async function GET(
   }
 
   const { data: newsletter, error } = await supabase
-    .from("newsletters" as never)
+    .from("newsletters")
     .select(NEWSLETTER_SELECT)
     .eq("id", id)
     .eq("author_id", user.id)
@@ -125,7 +125,7 @@ export async function PATCH(
 
   // Verify newsletter exists and belongs to user
   const { data: existing, error: lookupError } = await supabase
-    .from("newsletters" as never)
+    .from("newsletters")
     .select(NEWSLETTER_SELECT)
     .eq("id", id)
     .maybeSingle();
@@ -150,7 +150,7 @@ export async function PATCH(
   if (parsed.data.bodyText !== undefined) updates.body_text = parsed.data.bodyText;
 
   const { data: updated, error: updateError } = await supabase
-    .from("newsletters" as never)
+    .from("newsletters")
     .update(updates as never)
     .eq("id", id)
     .select(NEWSLETTER_SELECT)

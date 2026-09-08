@@ -130,7 +130,7 @@ export async function getPlanCatalog(): Promise<CatalogRow[]> {
 
   const admin = createAdminClient();
   const { data, error } = await admin
-    .from("billing_plan_catalog" as never)
+    .from("billing_plan_catalog")
     // `*` rather than a column list: the interval column is added by a
     // migration that may not have run yet, and naming a missing column makes
     // PostgREST reject the whole query.

@@ -48,7 +48,7 @@ export async function POST(
   }
 
   const { data: club, error: clubError } = await supabase
-    .from("book_clubs" as never)
+    .from("book_clubs")
     .select("id, is_public, max_members")
     .eq("id", id)
     .maybeSingle();
@@ -70,7 +70,7 @@ export async function POST(
   const clubRow = club as ClubRow;
 
   const { count, error: countError } = await supabase
-    .from("book_club_members" as never)
+    .from("book_club_members")
     .select("user_id", { count: "exact", head: true })
     .eq("club_id", id);
 
@@ -90,7 +90,7 @@ export async function POST(
   }
 
   const { error: insertError } = await supabase
-    .from("book_club_members" as never)
+    .from("book_club_members")
     .insert({
       club_id: id,
       user_id: user.id,

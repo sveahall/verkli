@@ -39,7 +39,7 @@ export async function GET(request: Request) {
   const supabase = await createClient();
 
   const { data: subscriptions, error, count } = await supabase
-    .from("newsletter_subscriptions" as never)
+    .from("newsletter_subscriptions")
     .select("id, subscriber_user_id, status, subscribed_at", { count: "exact" })
     .eq("author_id", user.id)
     .eq("status", "active")

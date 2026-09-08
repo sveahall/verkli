@@ -146,7 +146,7 @@ export async function POST(request: Request) {
 
   if (currentStatus === "rejected") {
     const { error } = await admin
-      .from("author_applications" as never)
+      .from("author_applications")
       .update({ status: "pending", ...applicationData } as never)
       .eq("user_id", user.id);
 
@@ -158,7 +158,7 @@ export async function POST(request: Request) {
   }
 
   const { error } = await admin
-    .from("author_applications" as never)
+    .from("author_applications")
     .insert({ user_id: user.id, status: "pending", ...applicationData } as never);
 
   if (error) {

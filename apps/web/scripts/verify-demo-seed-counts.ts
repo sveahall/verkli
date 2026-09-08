@@ -84,12 +84,17 @@ async function main(): Promise<void> {
   const runIds = new Set<string>();
   if (book?.demo_run_id) runIds.add(book.demo_run_id);
   if (bookId) {
-    const tables: ReadonlyArray<string> = [
+    // `as const`, not ReadonlyArray<string>. With a plain string the typed
+    // client cannot resolve which table `.from(t)` means, so every column
+    // access downstream degraded to `never` — and the compiler's error listed
+    // every table in the schema, which reads like a missing column but is not
+    // one. All four of these do have demo_run_id.
+    const tables = [
       "book_versions",
       "book_translations",
       "audiobook_assets",
       "marketing_campaigns",
-    ];
+    ] as const;
     for (const t of tables) {
       const { data } = await supabase
         .from(t)

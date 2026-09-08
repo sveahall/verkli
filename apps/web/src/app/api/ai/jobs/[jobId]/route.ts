@@ -40,7 +40,7 @@ export async function GET(
   // explicit `user_id` check below regresses.
   const supabase = await createClient();
   const { data, error } = await supabase
-    .from("ai_jobs" as never)
+    .from("ai_jobs")
     .select("id, status, progress, output, error, user_id, kind, created_at, started_at, finished_at, updated_at")
     .eq("id", jobId)
     .maybeSingle();

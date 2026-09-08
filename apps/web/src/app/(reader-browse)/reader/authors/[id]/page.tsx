@@ -114,7 +114,7 @@ export default async function ReaderAuthorProfilePage({
       .select("followee_id", { count: "exact", head: true })
       .eq("followee_id", userId),
     supabase
-      .from("author_subscription_plans" as never)
+      .from("author_subscription_plans")
       .select("enabled, price_monthly, currency, description")
       .eq("author_id", userId)
       .maybeSingle(),
@@ -209,7 +209,7 @@ export default async function ReaderAuthorProfilePage({
         .maybeSingle(),
       subscriptionPlan?.enabled
         ? supabase
-            .from("author_subscriptions" as never)
+            .from("author_subscriptions")
             .select("id")
             .eq("subscriber_user_id", user.id)
             .eq("author_id", userId)

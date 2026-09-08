@@ -66,7 +66,7 @@ export async function getBillingAccountByUserIdAndRole(
   role: BillingAccountRole
 ): Promise<{ row: BillingAccountRow | null; error: { code?: string; message: string } | null }> {
   const { data, error } = await admin
-    .from("billing_accounts" as never)
+    .from("billing_accounts")
     .select(
       "user_id, role, stripe_customer_id, stripe_subscription_id, plan, status, current_period_end, cancel_at_period_end, updated_at"
     )
@@ -86,7 +86,7 @@ export async function getBillingAccountByStripeCustomerId(
   stripeCustomerId: string
 ): Promise<{ row: BillingAccountRow | null; error: { code?: string; message: string } | null }> {
   const { data, error } = await admin
-    .from("billing_accounts" as never)
+    .from("billing_accounts")
     .select(
       "user_id, role, stripe_customer_id, stripe_subscription_id, plan, status, current_period_end, cancel_at_period_end, updated_at"
     )
@@ -105,7 +105,7 @@ export async function getBillingAccountByStripeSubscriptionId(
   stripeSubscriptionId: string
 ): Promise<{ row: BillingAccountRow | null; error: { code?: string; message: string } | null }> {
   const { data, error } = await admin
-    .from("billing_accounts" as never)
+    .from("billing_accounts")
     .select(
       "user_id, role, stripe_customer_id, stripe_subscription_id, plan, status, current_period_end, cancel_at_period_end, updated_at"
     )
@@ -128,7 +128,7 @@ export async function upsertBillingAccount(
   role: BillingAccountRole,
   patch: BillingAccountPatch
 ): Promise<{ error: { code?: string; message: string } | null }> {
-  const { error } = await admin.from("billing_accounts" as never).upsert(
+  const { error } = await admin.from("billing_accounts").upsert(
     {
       user_id: userId,
       role,

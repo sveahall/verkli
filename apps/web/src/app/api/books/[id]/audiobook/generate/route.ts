@@ -31,6 +31,8 @@ import { resolveNarratorVoiceId } from "@/lib/tts/tts-provider";
 import { createPerUserRateLimiter } from "@/lib/rate-limit";
 import { isCancelStale, forceFailCancelledJob } from "@/lib/audiobook-stale-cancel";
 import { evaluateDemoGuard } from "@/lib/demo-guard";
+import type { Json } from "@/lib/supabase/types";
+import { asJsonObject } from "@/lib/supabase/json-object";
 
 const audiobookLimiter = createPerUserRateLimiter({ maxPerMinute: 5 });
 const AI_JOB_KIND = "audiobook_generation";
@@ -41,8 +43,10 @@ const DEFAULT_NARRATOR_MODEL = "eleven_multilingual_v2";
 type ActiveJobRow = {
   id: string;
   status: string;
-  output: Record<string, unknown> | null;
-  input: Record<string, unknown> | null;
+  // jsonb columns: Json, not Record<string, unknown>. Narrow with
+  // asJsonObject() before treating either as an object.
+  output: Json | null;
+  input: Json | null;
   updated_at: string;
 };
 
@@ -90,8 +94,8 @@ async function findActiveAudiobookJob(
     return {
       id: byBookId.id,
       status: byBookId.status,
-      output: (byBookId.output as Record<string, unknown> | null) ?? null,
-      input: (byBookId.input as Record<string, unknown> | null) ?? null,
+      output: byBookId.output,
+      input: byBookId.input,
       updated_at: byBookId.updated_at,
     };
   }
@@ -121,8 +125,8 @@ async function findActiveAudiobookJob(
   return {
     id: legacy.id,
     status: legacy.status,
-    output: (legacy.output as Record<string, unknown> | null) ?? null,
-    input: (legacy.input as Record<string, unknown> | null) ?? null,
+    output: legacy.output,
+    input: legacy.input,
     updated_at: legacy.updated_at,
   };
 }
@@ -321,7 +325,11 @@ export async function POST(
       console.error("[audiobook generate] chapter lookup failed:", chapterError.message);
       return await failAfterPaidClaim(apiError(E_DATABASE_ERROR, 500));
     }
-    const byId = new Map((chapters ?? []).map((chapter) => [chapter.id, chapter]));
+    // Typed explicitly: without it the Map's value type widens and the guard
+    // below cannot narrow away the `undefined` that .get() can return.
+    const byId = new Map<string, { id: string; title: string | null }>(
+      (chapters ?? []).map((chapter) => [chapter.id, chapter])
+    );
     const orderedRequested = requestedChapterIds
       .map((chapterId) => byId.get(chapterId))
       .filter((chapter): chapter is { id: string; title: string | null } => Boolean(chapter));
@@ -347,7 +355,10 @@ export async function POST(
   // Check for existing queued/running job for this specific book.
   const existingJob = await findActiveAudiobookJob(supabase, user.id, bookId);
   if (existingJob) {
-    const existingOutput = existingJob.output ?? {};
+    // Narrowed, not `?? {}`: ai_jobs.output is jsonb and can hold a string or
+    // an array, in which case every field read below silently yielded
+    // undefined and the progress numbers all reported 0.
+    const existingOutput = asJsonObject(existingJob.output);
     if (existingOutput.controlState === "cancel_requested") {
       if (isCancelStale(existingOutput, existingJob.updated_at)) {
         // Worker is dead — force-fail and fall through to create a new job.
@@ -454,8 +465,8 @@ export async function POST(
             jobId: activeJob.id,
             status: normalizeJobStatus(activeJob.status),
             message: "Job already in progress",
-            totalChapters: activeJob.output?.totalChapters ?? 0,
-            completedChapters: activeJob.output?.completedChapters ?? 0,
+            totalChapters: asJsonObject(activeJob.output).totalChapters ?? 0,
+            completedChapters: asJsonObject(activeJob.output).completedChapters ?? 0,
           },
           { status: 202 }
         );

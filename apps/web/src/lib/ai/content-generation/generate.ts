@@ -10,6 +10,7 @@ import {
   buildVideoPrompt,
   buildImagePrompt,
 } from "./prompt-templates";
+import type { Json } from "@/lib/supabase/types";
 
 export interface GenerateContentInput {
   bookId: string;
@@ -25,7 +26,8 @@ export interface GenerateContentOutput {
   channel: string;
   assetUrl: string | null;
   textContent: TextContent | null;
-  metadata: Record<string, unknown>;
+  /** Written to a jsonb column, so `Json` rather than `unknown` values. */
+  metadata: Json;
 }
 
 /**
@@ -39,7 +41,7 @@ export async function generateContent(
 
   // Determine next version
   const { data: existing } = await admin
-    .from("content_assets" as never)
+    .from("content_assets")
     .select("version")
     .eq("book_id", bookId)
     .eq("content_type", request.contentType)
@@ -53,7 +55,7 @@ export async function generateContent(
 
   // Create pending asset record
   const { data: asset, error: insertErr } = await admin
-    .from("content_assets" as never)
+    .from("content_assets")
     .insert({
       book_id: bookId,
       user_id: userId,
@@ -84,7 +86,7 @@ export async function generateContent(
 
     // Update asset with result
     await admin
-      .from("content_assets" as never)
+      .from("content_assets")
       .update({
         status: "completed",
         asset_url: result.assetUrl,
@@ -108,7 +110,7 @@ export async function generateContent(
     const errorMsg = err instanceof Error ? err.message : String(err);
 
     await admin
-      .from("content_assets" as never)
+      .from("content_assets")
       .update({
         status: "failed",
         error: errorMsg,
@@ -126,7 +128,8 @@ interface DispatchResult {
   textContent: TextContent | null;
   promptTemplate: string | null;
   promptRendered: string | null;
-  metadata: Record<string, unknown>;
+  /** jsonb column, so Json rather than unknown values. */
+  metadata: Json;
 }
 
 async function dispatchGeneration(

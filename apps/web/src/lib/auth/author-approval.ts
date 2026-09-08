@@ -10,7 +10,7 @@ export async function getAuthorApplicationStatus(
 ): Promise<AuthorApplicationStatus | null> {
   if (!userId) return null;
 
-  const query = supabase.from("author_applications" as never) as {
+  const query = supabase.from("author_applications") as {
     select: (columns: string) => {
       eq: (column: string, value: string) => {
         maybeSingle: () => Promise<{

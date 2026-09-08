@@ -29,7 +29,7 @@ export async function GET(
   const admin = createAdminClient();
 
   const { data: job, error } = await admin
-    .from("ai_jobs" as never)
+    .from("ai_jobs")
     .select("id, status, progress, output, error, user_id, kind")
     .eq("id", jobId)
     .eq("kind", "social_publish")

@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { jsonObjectSchema } from "@/lib/zod-json";
 
 const channelEnum = z.enum(["tiktok", "instagram", "x", "facebook"]);
 const contentTypeEnum = z.enum(["hook", "blurb", "caption"]);
@@ -63,7 +64,9 @@ export const createCampaignPlanBodySchema = z.object({
   durationWeeks: z.number().int().min(1).max(26).default(4),
   weeklySchedule: weeklyScheduleSchema,
   mode: z.enum(["organic", "paid"]).default("organic"),
-  paidConfig: z.record(z.unknown()).optional().default({}),
+  // jsonObjectSchema, not z.record(z.unknown()): this is written straight
+  // into a jsonb column, and `unknown` is not assignable to `Json`.
+  paidConfig: jsonObjectSchema.optional().default({}),
 });
 
 export type CreateCampaignPlanBody = z.infer<typeof createCampaignPlanBodySchema>;
@@ -101,7 +104,8 @@ export const createAssetBodySchema = z.object({
   language: z.string().min(1).optional(),
   contentType: contentTypeEnum.optional().default("caption"),
   text: z.string().min(1, "text required").max(100_000),
-  metadata: z.record(z.unknown()).optional().default({}),
+  // jsonObjectSchema: written to marketing_assets.metadata (jsonb).
+  metadata: jsonObjectSchema.optional().default({}),
 });
 
 export type CreateAssetBody = z.infer<typeof createAssetBodySchema>;

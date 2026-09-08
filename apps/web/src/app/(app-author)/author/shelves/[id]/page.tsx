@@ -56,6 +56,13 @@ export default async function PublicShelfPage({ params }: { params: Promise<{ id
   }
 
   if (!user || user.id !== shelf.user_id) {
+    // shelves.user_id is nullable. An ownerless shelf has no profile to check
+    // visibility against, so it is not viewable by anyone but its (absent)
+    // owner — fail closed rather than query on null.
+    if (!shelf.user_id) {
+      notFound();
+    }
+
     const { data: profile } = await supabase
       .from("profiles")
       .select("is_public")

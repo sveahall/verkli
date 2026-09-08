@@ -83,7 +83,7 @@ export async function POST(request: Request) {
   try {
     const twentyMinAgo = new Date(Date.now() - 20 * 60 * 1000).toISOString();
     const { data: existing } = await admin
-      .from("donations" as never)
+      .from("donations")
       .select("id, stripe_session_id")
       .eq("user_id", user.id)
       .eq("status", "pending")
@@ -114,7 +114,7 @@ export async function POST(request: Request) {
   }
 
   const { data: donation, error: donationInsertError } = await admin
-    .from("donations" as never)
+    .from("donations")
     .insert({
       user_id: user.id,
       amount: amountMinor,
@@ -158,7 +158,7 @@ export async function POST(request: Request) {
     }
 
     const { error: donationUpdateError } = await admin
-      .from("donations" as never)
+      .from("donations")
       .update({ stripe_session_id: stripeSessionId })
       .eq("id", donationId)
       .eq("user_id", user.id)
@@ -171,7 +171,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ url: session.url, donationId });
   } catch (err) {
     await admin
-      .from("donations" as never)
+      .from("donations")
       .update({ status: "failed" })
       .eq("id", donationId)
       .eq("user_id", user.id)

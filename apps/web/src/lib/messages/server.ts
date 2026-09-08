@@ -135,7 +135,7 @@ export async function getMessagingRolesForUsers(
         .select("user_id, role")
         .in("user_id", uniqueUserIds),
       admin
-        .from("author_applications" as never)
+        .from("author_applications")
         .select("user_id, status")
         .in("user_id", uniqueUserIds),
     ]);
@@ -261,7 +261,7 @@ export async function consumeMessageRateLimit(
   const maxMessages = opts?.maxMessages ?? DM_RATE_LIMIT_MAX_MESSAGES;
   const windowSeconds = opts?.windowSeconds ?? DM_RATE_LIMIT_WINDOW_SECONDS;
 
-  const { data, error } = await admin.rpc("dm_consume_rate_limit" as never, {
+  const { data, error } = await admin.rpc("dm_consume_rate_limit", {
     p_sender_id: senderId,
     p_max: maxMessages,
     p_window_seconds: windowSeconds,

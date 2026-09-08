@@ -80,7 +80,7 @@ export async function POST(
   const { option_id } = parsedBody.data;
 
   const { data: poll, error: pollError } = await supabase
-    .from("polls" as never)
+    .from("polls")
     .select("id, is_active, closes_at")
     .eq("id", id)
     .maybeSingle();
@@ -100,7 +100,7 @@ export async function POST(
   }
 
   const { data: option, error: optionError } = await supabase
-    .from("poll_options" as never)
+    .from("poll_options")
     .select("id, poll_id")
     .eq("id", option_id)
     .eq("poll_id", id)
@@ -113,7 +113,7 @@ export async function POST(
   void (option as PollOptionRow);
 
   const { error: insertError } = await supabase
-    .from("poll_votes" as never)
+    .from("poll_votes")
     .insert({
       poll_id: id,
       option_id,

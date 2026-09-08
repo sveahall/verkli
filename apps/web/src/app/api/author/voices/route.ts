@@ -20,7 +20,7 @@ export async function GET() {
   const admin = createAdminClient();
 
   const { data, error } = await admin
-    .from("author_voices" as never)
+    .from("author_voices")
     .select(
       "id, elevenlabs_voice_id, name, description, source, is_default, status, sample_storage_path, created_at, updated_at"
     )

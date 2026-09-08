@@ -13,6 +13,7 @@ import {
   E_VALIDATION_FAILED,
 } from "@/lib/api-errors";
 import { isBookClubsEnabled } from "@/lib/flags";
+import { loadMemberProfiles } from "@/lib/book-clubs/member-profiles";
 
 const paramsSchema = z.object({
   id: z.string().uuid("Invalid club ID"),
@@ -49,7 +50,11 @@ type MemberRow = {
 const CLUB_SELECT =
   "id, name, description, cover_url, is_public, max_members, current_book_id, creator_id, created_at";
 
-const MEMBER_SELECT = "user_id, role, joined_at, profiles:user_id(display_name, avatar_url)";
+// No `profiles:user_id(...)` embed: book_club_members has no foreign key to
+// profiles (its only FK is to book_clubs), so PostgREST answered PGRST200 and a
+// 400 — the members list came back empty, not nameless. Names are resolved with
+// a batched query via loadMemberProfiles.
+const MEMBER_SELECT = "user_id, role, joined_at";
 
 export async function GET(
   _request: Request,
@@ -76,7 +81,7 @@ export async function GET(
   }
 
   const { data: club, error: clubError } = await supabase
-    .from("book_clubs" as never)
+    .from("book_clubs")
     .select(CLUB_SELECT)
     .eq("id", id)
     .maybeSingle();
@@ -101,7 +106,7 @@ export async function GET(
   // name / description / members to arbitrary authenticated users.
   if (!clubRow.is_public && clubRow.creator_id !== user.id) {
     const { data: membership } = await supabase
-      .from("book_club_members" as never)
+      .from("book_club_members")
       .select("user_id")
       .eq("club_id", id)
       .eq("user_id", user.id)
@@ -112,7 +117,7 @@ export async function GET(
   }
 
   const { data: members, error: membersError } = await supabase
-    .from("book_club_members" as never)
+    .from("book_club_members")
     .select(MEMBER_SELECT)
     .eq("club_id", id)
     .order("joined_at", { ascending: true });
@@ -126,19 +131,18 @@ export async function GET(
     });
   }
 
-  type RawMember = {
-    user_id: string;
-    role: string;
-    joined_at: string;
-    profiles: { display_name: string | null; avatar_url: string | null } | null;
-  };
+  const rawMembers = members ?? [];
+  const memberProfiles = await loadMemberProfiles(
+    supabase,
+    rawMembers.map((m) => m.user_id)
+  );
 
-  const memberRows: MemberRow[] = ((members ?? []) as RawMember[]).map((m) => ({
+  const memberRows: MemberRow[] = rawMembers.map((m) => ({
     user_id: m.user_id,
     role: m.role,
     joined_at: m.joined_at,
-    display_name: m.profiles?.display_name ?? null,
-    avatar_url: m.profiles?.avatar_url ?? null,
+    display_name: memberProfiles.get(m.user_id)?.display_name ?? null,
+    avatar_url: memberProfiles.get(m.user_id)?.avatar_url ?? null,
   }));
 
   return NextResponse.json({ club: clubRow, members: memberRows });
@@ -181,7 +185,7 @@ export async function PATCH(
   }
 
   const { data: existingClub, error: lookupError } = await supabase
-    .from("book_clubs" as never)
+    .from("book_clubs")
     .select(CLUB_SELECT)
     .eq("id", id)
     .maybeSingle();
@@ -213,7 +217,7 @@ export async function PATCH(
   if (parsed.data.current_book_id !== undefined) updates.current_book_id = parsed.data.current_book_id;
 
   const { data: updated, error: updateError } = await supabase
-    .from("book_clubs" as never)
+    .from("book_clubs")
     .update(updates as never)
     .eq("id", id)
     .select(CLUB_SELECT)
@@ -257,7 +261,7 @@ export async function DELETE(
   }
 
   const { data: existingClub, error: lookupError } = await supabase
-    .from("book_clubs" as never)
+    .from("book_clubs")
     .select("id, creator_id")
     .eq("id", id)
     .maybeSingle();
@@ -282,7 +286,7 @@ export async function DELETE(
   }
 
   const { error: deleteError } = await supabase
-    .from("book_clubs" as never)
+    .from("book_clubs")
     .delete()
     .eq("id", id);
 

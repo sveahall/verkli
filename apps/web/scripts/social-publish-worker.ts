@@ -15,6 +15,7 @@ assertServerEnv();
 
 import { Worker, UnrecoverableError } from "bullmq";
 import { createAdminClient } from "../src/lib/supabase/admin";
+import type { Tables, TablesUpdate } from "../src/lib/supabase/types";
 import { QUEUE_NAMES } from "../src/lib/queue-names";
 import { startHeartbeatInterval } from "../src/lib/health/worker-heartbeat";
 import type { SocialPublishJobData } from "../src/lib/social-publish-queue";
@@ -218,31 +219,43 @@ async function processJob(payload: SocialPublishJobData) {
     error?: string
   ) => {
     const now = new Date().toISOString();
-    const updates: Record<string, unknown> = { status };
+    // Typed rather than a loose record: `.update()` on a typed client rejects
+    // unknown keys, which is the point — a typo here used to be a silent no-op.
+    const updates: TablesUpdate<"ai_jobs"> = { status };
 
     if (status === "processing") updates.started_at = now;
     if (status === "completed" || status === "failed") updates.finished_at = now;
     if (error) updates.error = sanitizeJobErrorForStorage(error);
 
     const { data: current } = await supabase
-      .from("ai_jobs" as never)
+      .from("ai_jobs")
       .select("output")
       .eq("id", jobId)
       .single();
 
-    const currentOutput = ((current as Record<string, unknown> | null)?.output as Record<string, unknown>) ?? {};
-    updates.output = { ...currentOutput, ...outputUpdate };
+    const currentOutput = (current?.output ?? {}) as Record<string, unknown>;
+    updates.output = { ...currentOutput, ...outputUpdate } as TablesUpdate<"ai_jobs">["output"];
 
-    await supabase.from("ai_jobs" as never).update(updates).eq("id", jobId);
+    await supabase.from("ai_jobs").update(updates).eq("id", jobId);
   };
 
   try {
     console.log("[social-publish worker] job started -", jobId, "campaign:", campaignId);
 
-    // Auth isolation: verify user owns the campaign
+    // Auth isolation: verify the user owns the campaign.
+    //
+    // marketing_campaigns has neither `user_id` nor `content`. It never has —
+    // the columns are book_id and caption. So this select returned a PostgREST
+    // 400, campError was set, and EVERY job died on "Campaign not found". The
+    // ownership check below has therefore never actually run; it failed closed,
+    // which is the only reason this was a dead feature rather than a hole.
+    //
+    // Ownership resolves through the book, in a second explicit query rather
+    // than a PostgREST embed: this is an authorisation check, and it should be
+    // obvious what it compares.
     const { data: campaign, error: campError } = await supabase
-      .from("marketing_campaigns" as never)
-      .select("id, user_id, content, channel")
+      .from("marketing_campaigns")
+      .select("id, book_id, caption, channel")
       .eq("id", campaignId)
       .single();
 
@@ -250,13 +263,28 @@ async function processJob(payload: SocialPublishJobData) {
       throw new UnrecoverableError("Campaign not found");
     }
 
-    const camp = campaign as { id: string; user_id: string; content: string | null; channel: string };
-    if (camp.user_id !== userId) {
+    if (!campaign.book_id) {
+      throw new UnrecoverableError("Campaign has no book, so ownership cannot be established");
+    }
+
+    const { data: ownerBook, error: bookError } = await supabase
+      .from("books")
+      .select("author_id")
+      .eq("id", campaign.book_id)
+      .single();
+
+    if (bookError || !ownerBook) {
+      throw new UnrecoverableError("Campaign book not found");
+    }
+
+    if (ownerBook.author_id !== userId) {
       const errMsg = "Ownership mismatch: userId does not match campaign owner";
       console.error("[social-publish worker]", errMsg);
       await updateJob("failed", {}, errMsg);
       throw new UnrecoverableError(errMsg);
     }
+
+    const camp = { ...campaign, content: campaign.caption };
 
     await updateJob("processing");
 
@@ -265,13 +293,20 @@ async function processJob(payload: SocialPublishJobData) {
 
     // Fetch user's social connections
     const { data: connections } = await supabase
-      .from("social_connections" as never)
+      .from("social_connections")
       .select("platform, access_token_enc, refresh_token_enc, token_expires_at, email_config_enc, status")
       .eq("user_id", userId);
 
-    const connMap = new Map<string, Record<string, unknown>>();
-    for (const c of (connections ?? []) as Array<Record<string, unknown>>) {
-      connMap.set(String(c.platform), c);
+    // The row type, not Record<string, unknown>. The cast that used to be here
+    // turned every column into `unknown`, so the token columns had to be
+    // String()-wrapped on read and could be written back as anything.
+    type ConnRow = Pick<
+      Tables<"social_connections">,
+      "platform" | "access_token_enc" | "refresh_token_enc" | "token_expires_at" | "email_config_enc" | "status"
+    >;
+    const connMap = new Map<string, ConnRow>();
+    for (const c of connections ?? []) {
+      connMap.set(c.platform, c);
     }
 
     for (const platform of platforms) {
@@ -298,7 +333,7 @@ async function processJob(payload: SocialPublishJobData) {
               const refreshed = await refreshAccessToken(p, refreshToken);
               accessToken = refreshed.accessToken;
               await supabase
-                .from("social_connections" as never)
+                .from("social_connections")
                 .update({
                   access_token_enc: encryptToken(refreshed.accessToken),
                   refresh_token_enc: refreshed.refreshToken ? encryptToken(refreshed.refreshToken) : conn.refresh_token_enc,
@@ -364,7 +399,7 @@ async function processJob(payload: SocialPublishJobData) {
 
       if (allPublishableSucceeded && publishablePlatforms.length > 0) {
         await supabase
-          .from("marketing_campaigns" as never)
+          .from("marketing_campaigns")
           .update({ status: "published" })
           .eq("id", campaignId);
       }

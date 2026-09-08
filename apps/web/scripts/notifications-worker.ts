@@ -18,6 +18,7 @@ import { createAdminClient } from "../src/lib/supabase/admin";
 import { QUEUE_NAMES } from "../src/lib/queue-names";
 import { startHeartbeatInterval } from "../src/lib/health/worker-heartbeat";
 import { Sentry } from "./sentry-worker-init";
+import type { Json } from "../src/lib/supabase/types";
 
 const QUEUE_NAME = QUEUE_NAMES.NOTIFICATIONS;
 
@@ -33,24 +34,32 @@ type NotificationJobData = {
   title: string;
   body: string;
   href?: string;
-  metadata?: Record<string, unknown>;
+  metadata?: Json;
 };
 
 const worker = new Worker<NotificationJobData>(
   QUEUE_NAME,
   async (job) => {
     console.log("[notifications-worker] processing job", job.id);
-    const { userId, type, title, body, href, metadata } = job.data;
+    const { userId, type, title, body, metadata } = job.data;
 
     const supabase = createAdminClient();
 
+    // The columns are `data` and (actor_id, entity_id, entity_type). There is
+    // no `href` and no `metadata` on notifications — this insert named both, so
+    // it failed for every job. It has never actually run: nothing in the app
+    // enqueues to this queue and no worker service is deployed for it, which is
+    // why a broken insert went unnoticed for as long as it did.
+    //
+    // `href` has no column and no equivalent; the UI builds a link from
+    // entity_type + entity_id. Dropping it here rather than inventing a column,
+    // and body defaults to "" because notifications.body is NOT NULL.
     const { error } = await supabase.from("notifications").insert({
       user_id: userId,
       type,
       title,
-      body,
-      href: href ?? null,
-      metadata: metadata ?? null,
+      body: body ?? "",
+      data: metadata ?? {},
       read: false,
     });
 

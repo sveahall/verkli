@@ -1,5 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
-import type { Database } from "@/lib/supabase/types";
+import type { Database, TablesUpdate } from "@/lib/supabase/types";
 import { getClientIpFromRequest } from "@/lib/request-ip";
 import { auditMetadataFromRequest, recordAudit } from "@/lib/audit";
 import { createAdminClient } from "@/lib/supabase/admin";
@@ -339,7 +339,7 @@ export async function linkRightsAttestation(
   attestationId: string,
   link: { bookImportId?: string | null; bookId?: string | null }
 ): Promise<void> {
-  const patch: Record<string, string> = {};
+  const patch: TablesUpdate<"book_rights_attestations"> = {};
   if (link.bookImportId) patch.book_import_id = link.bookImportId;
   if (link.bookId) patch.book_id = link.bookId;
   if (Object.keys(patch).length === 0) return;

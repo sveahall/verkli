@@ -34,7 +34,7 @@ export async function confirmStripeBookPurchase({
   const admin = createAdminClient();
 
   const { data: order, error: orderError } = await admin
-    .from("orders" as never)
+    .from("orders")
     .select("id, user_id, book_id, chapter_id, status, amount, currency")
     .eq("id", orderId)
     .maybeSingle();
@@ -62,7 +62,7 @@ export async function confirmStripeBookPurchase({
   if (metadataOrderId !== orderId || metadataUserId !== userId || metadataBookId !== bookId) {
     if (orderStatus === "pending") {
       await admin
-        .from("orders" as never)
+        .from("orders")
         .update({ status: "failed" })
         .eq("id", orderId)
         .eq("user_id", userId)
@@ -91,7 +91,7 @@ export async function confirmStripeBookPurchase({
 
     if (orderStatus === "pending") {
       await admin
-        .from("orders" as never)
+        .from("orders")
         .update({ status: "failed" })
         .eq("id", orderId)
         .eq("user_id", userId)
@@ -105,8 +105,7 @@ export async function confirmStripeBookPurchase({
   // pending→paid transition can. See lib/payments/purchase-receipt.ts.
   const receiptClaim = await claimPaidOrderForReceipt(admin, sessionId);
 
-  const { data: finalized, error: finalizeError } = await admin.rpc(
-    "finalize_order_checkout_session" as never,
+  const { data: finalized, error: finalizeError } = await admin.rpc("finalize_order_checkout_session",
     {
       p_stripe_session_id: sessionId,
     },
@@ -140,7 +139,7 @@ export async function confirmStripeBookPurchase({
 export async function markOrderFailedForUser(orderId: string, userId: string): Promise<void> {
   const admin = createAdminClient();
   await admin
-    .from("orders" as never)
+    .from("orders")
     .update({ status: "failed" })
     .eq("id", orderId)
     .eq("user_id", userId)

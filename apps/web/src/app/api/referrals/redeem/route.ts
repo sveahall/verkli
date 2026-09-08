@@ -119,8 +119,7 @@ export async function POST(request: Request) {
       throw new Error("[referrals redeem] redemption id missing after insert");
     }
 
-    const { error: redeemerGrantError } = await admin.rpc(
-      "grant_user_credits_once" as never,
+    const { error: redeemerGrantError } = await admin.rpc("grant_user_credits_once",
       {
         p_user_id: user.id,
         p_delta: REFERRAL_CREDIT_BONUS,
@@ -133,8 +132,7 @@ export async function POST(request: Request) {
       throw redeemerGrantError;
     }
 
-    const { error: referrerGrantError } = await admin.rpc(
-      "grant_user_credits_once" as never,
+    const { error: referrerGrantError } = await admin.rpc("grant_user_credits_once",
       {
         p_user_id: referrerId,
         p_delta: REFERRAL_CREDIT_BONUS,

@@ -60,7 +60,7 @@ export async function GET(request: Request) {
   const authorId = url.searchParams.get("author_id");
 
   let query = supabase
-    .from("polls" as never)
+    .from("polls")
     .select("id, author_id, question, book_id, is_active, closes_at, created_at")
     .eq("is_active", true)
     .order("created_at", { ascending: false });
@@ -118,7 +118,7 @@ export async function POST(request: Request) {
   const supabase = await createClient();
 
   const { data: poll, error: pollError } = await supabase
-    .from("polls" as never)
+    .from("polls")
     .insert({
       author_id: user.id,
       question,
@@ -146,7 +146,7 @@ export async function POST(request: Request) {
   }));
 
   const { data: createdOptions, error: optionsError } = await supabase
-    .from("poll_options" as never)
+    .from("poll_options")
     .insert(optionRows as never)
     .select("id, poll_id, text, sort_order");
 

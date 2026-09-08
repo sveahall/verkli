@@ -21,7 +21,7 @@ export default async function authorSettingsRoute() {
       .eq("user_id", user.id)
       .maybeSingle(),
     supabase
-      .from("author_subscription_plans" as never)
+      .from("author_subscription_plans")
       .select("enabled, price_monthly, currency, description")
       .eq("author_id", user.id)
       .maybeSingle(),

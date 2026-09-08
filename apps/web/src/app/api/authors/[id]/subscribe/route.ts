@@ -27,7 +27,7 @@ export async function POST(request: Request, context: RouteContext) {
 
   // Fetch author's subscription plan
   const { data: plan } = await supabase
-    .from("author_subscription_plans" as never)
+    .from("author_subscription_plans")
     .select("enabled, price_monthly, currency, author_id")
     .eq("author_id", authorId)
     .eq("enabled", true)
@@ -39,7 +39,7 @@ export async function POST(request: Request, context: RouteContext) {
 
   // Check if already subscribed (active)
   const { data: existing } = await supabase
-    .from("author_subscriptions" as never)
+    .from("author_subscriptions")
     .select("id, status")
     .eq("subscriber_user_id", user.id)
     .eq("author_id", authorId)
@@ -66,7 +66,7 @@ export async function POST(request: Request, context: RouteContext) {
   const subscriptionRecordId = crypto.randomUUID();
 
   const { error: insertError } = await admin
-    .from("author_subscriptions" as never)
+    .from("author_subscriptions")
     .upsert(
       {
         id: subscriptionRecordId,

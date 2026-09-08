@@ -225,7 +225,12 @@ export default async function ReaderHomePage() {
       if (!readings || readings.length === 0) return [];
 
       const bookIds = readings.map((row) => row.book_id);
-      const chapterIds = [...new Set(readings.map((row) => row.chapter_id).filter(Boolean))];
+      // Type guard, not `.filter(Boolean)`: the runtime behaviour was already
+  // correct, but `filter(Boolean)` does not narrow, so the array stayed
+  // `(string | null)[]` and `.in()` could not accept it.
+  const chapterIds = [
+    ...new Set(readings.map((row) => row.chapter_id).filter((id): id is string => Boolean(id))),
+  ];
 
       const { data: books } = await supabase
         .from("books")

@@ -8,6 +8,7 @@ import {
   E_VALIDATION_FAILED,
   E_GENERIC_ERROR,
 } from "@/lib/api-errors";
+import { asJsonObject } from "@/lib/supabase/json-object";
 
 // Persist the reader's preferred language for a specific book.
 // Storage shape:
@@ -23,10 +24,6 @@ const bodySchema = z.object({
   bookId: z.string().uuid(),
   language: z.string().min(2).max(8),
 });
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
-}
 
 export async function POST(request: Request) {
   const supabase = await createClient();
@@ -58,13 +55,9 @@ export async function POST(request: Request) {
     return apiError(E_GENERIC_ERROR, 500);
   }
 
-  const existingPrefs = isRecord(profile?.preferences)
-    ? (profile.preferences as Record<string, unknown>)
-    : {};
+  const existingPrefs = asJsonObject(profile?.preferences);
 
-  const existingMap = isRecord(existingPrefs.preferredLanguageByBook)
-    ? (existingPrefs.preferredLanguageByBook as Record<string, unknown>)
-    : {};
+  const existingMap = asJsonObject(existingPrefs.preferredLanguageByBook);
 
   const nextPreferences = {
     ...existingPrefs,

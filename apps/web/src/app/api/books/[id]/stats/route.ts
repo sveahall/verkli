@@ -337,7 +337,7 @@ export async function GET(request: Request, context: RouteContext) {
         chapter_id: string | null;
       }>((from, to) =>
         admin
-          .from("highlights" as never)
+          .from("highlights")
           .select("chapter_id")
           .eq("book_id", bookId)
           .order("id", { ascending: true })

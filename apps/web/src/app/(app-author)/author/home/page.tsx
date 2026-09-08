@@ -80,7 +80,7 @@ export default async function AuthorHomePage() {
   // ── Early return when author has no books ──
   if (bookIds.length === 0) {
     const { count: subCount } = await supabase
-      .from("newsletter_subscriptions" as never)
+      .from("newsletter_subscriptions")
       .select("id", { count: "exact", head: true })
       .eq("author_id", user.id)
       .eq("status", "active");
@@ -124,7 +124,7 @@ export default async function AuthorHomePage() {
           .range(from, to)
       ),
       admin
-        .from("newsletter_subscriptions" as never)
+        .from("newsletter_subscriptions")
         .select("id", { count: "exact", head: true })
         .eq("author_id", user.id)
         .eq("status", "active"),

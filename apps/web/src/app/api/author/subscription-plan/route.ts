@@ -19,7 +19,7 @@ export async function GET() {
 
   const supabase = await createClient();
   const { data } = await supabase
-    .from("author_subscription_plans" as never)
+    .from("author_subscription_plans")
     .select("id, enabled, price_monthly, currency, description")
     .eq("author_id", user.id)
     .maybeSingle();
@@ -48,7 +48,7 @@ export async function PUT(request: Request) {
 
   const admin = createAdminClient();
   const { error } = await admin
-    .from("author_subscription_plans" as never)
+    .from("author_subscription_plans")
     .upsert(
       {
         author_id: user.id,

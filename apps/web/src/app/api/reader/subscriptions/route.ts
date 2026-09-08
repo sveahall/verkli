@@ -9,7 +9,7 @@ export async function GET() {
   if (!user) return apiError(E_NOT_AUTHENTICATED, 401);
 
   const { data: subscriptions } = await supabase
-    .from("author_subscriptions" as never)
+    .from("author_subscriptions")
     .select("id, author_id, status, amount_monthly, currency, current_period_end, created_at")
     .eq("subscriber_user_id", user.id)
     .in("status" as never, ["active", "past_due"])

@@ -15,6 +15,8 @@ import {
   E_DATABASE_ERROR,
 } from "@/lib/api-errors";
 import { isCancelStale, forceFailCancelledJob } from "@/lib/audiobook-stale-cancel";
+import type { Json } from "@/lib/supabase/types";
+import { asJsonObject } from "@/lib/supabase/json-object";
 
 const AI_JOB_KIND = "audiobook_generation";
 const SIGNED_URL_TTL_SECONDS = 60 * 15;
@@ -50,7 +52,8 @@ async function signAudioPath(
 type JobRow = {
   id: string;
   status: string;
-  output: Record<string, unknown> | null;
+  // jsonb column
+  output: Json | null;
   error: string | null;
   input: Record<string, unknown> | null;
   created_at: string;
@@ -82,7 +85,7 @@ async function findLatestAudiobookJob(
     return {
       ...direct,
       input: (direct.input as Record<string, unknown> | null) ?? null,
-      output: (direct.output as Record<string, unknown> | null) ?? null,
+      output: direct.output,
     };
   }
 
@@ -110,7 +113,7 @@ async function findLatestAudiobookJob(
   return {
     ...match,
     input: (match.input as Record<string, unknown> | null) ?? null,
-    output: (match.output as Record<string, unknown> | null) ?? null,
+    output: match.output,
   };
 }
 
@@ -149,9 +152,9 @@ export async function GET(
   if (
     job &&
     (job.status === "processing" || job.status === "pending") &&
-    isCancelStale(job.output, job.updated_at)
+    isCancelStale(asJsonObject(job.output), job.updated_at)
   ) {
-    const failedOutput = await forceFailCancelledJob(job.id, job.output ?? {});
+    const failedOutput = await forceFailCancelledJob(job.id, asJsonObject(job.output));
     job = { ...job, status: "failed", output: failedOutput, finished_at: new Date().toISOString() };
   }
 
@@ -165,7 +168,11 @@ export async function GET(
     .maybeSingle();
 
   // Extract progress from job output
-  const output = job?.output ?? {};
+  // One narrowing here covers every field read below. ai_jobs.output is
+  // jsonb, so it can legitimately be a string or an array; `?? {}` only
+  // guarded against null, and every read below would then have been
+  // undefined without anything saying so.
+  const output = asJsonObject(job?.output);
   const normalizedJobStatus = job ? normalizeJobStatus(job.status) : null;
   const assetAudioPath = normalizeStoragePath(asset?.audio_path);
   const assetBucket = defaultBucket;

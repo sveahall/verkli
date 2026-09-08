@@ -40,6 +40,9 @@ import {
 } from "../src/lib/workers/budget";
 import { assertElevenLabsEnv } from "../src/lib/tts/tts-provider";
 import { ElevenLabsTtsProvider } from "../src/lib/tts/elevenlabs-tts-provider";
+import type { TablesUpdate } from "../src/lib/supabase/types";
+import type { Json } from "../src/lib/supabase/types";
+import { asJsonObject } from "../src/lib/supabase/json-object";
 
 const QUEUE_NAME = QUEUE_NAMES.AUDIOBOOK;
 const BUCKET = getAudiobookStorageBucket();
@@ -272,11 +275,11 @@ async function processJob(payload: AudiobookJobData) {
   // Helper to update ai_jobs
   const updateJob = async (
     status: string,
-    outputUpdate: Record<string, unknown> = {},
+    outputUpdate: Record<string, Json> = {},
     error?: string
   ) => {
     const now = new Date().toISOString();
-    const updates: Record<string, unknown> = { status };
+    const updates: TablesUpdate<"ai_jobs"> = { status };
 
     if (status === "processing" && !outputUpdate.started_at) {
       updates.started_at = now;
@@ -295,8 +298,13 @@ async function processJob(payload: AudiobookJobData) {
       .eq("id", jobId)
       .single();
 
-    const currentOutput = (current?.output as Record<string, unknown>) ?? {};
-    const nextOutput = { ...currentOutput, ...outputUpdate };
+    // asJsonObject, not a cast: ai_jobs.output is jsonb and can legitimately
+    // be a string or an array, in which case spreading it silently produced an
+    // empty object and the progress numbers below all read 0.
+    const nextOutput: Record<string, Json> = {
+      ...asJsonObject(current?.output),
+      ...outputUpdate,
+    };
     updates.output = nextOutput;
 
     const totalChapters = Number(nextOutput.totalChapters ?? 0);

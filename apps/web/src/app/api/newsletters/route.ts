@@ -47,7 +47,7 @@ export async function GET() {
   const supabase = await createClient();
 
   const { data, error } = await supabase
-    .from("newsletters" as never)
+    .from("newsletters")
     .select(NEWSLETTER_SELECT)
     .eq("author_id", user.id)
     .order("created_at", { ascending: false });
@@ -96,7 +96,7 @@ export async function POST(request: Request) {
   const supabase = await createClient();
 
   const { data: newsletter, error: insertError } = await supabase
-    .from("newsletters" as never)
+    .from("newsletters")
     .insert({
       author_id: user.id,
       subject,

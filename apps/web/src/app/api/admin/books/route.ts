@@ -35,8 +35,14 @@ export async function GET(request: Request) {
     query = query.ilike("title", `%${safe}%`);
   }
 
-  if (status) {
+  // books.status is the enum book_status, not free text. Filtering on an
+  // arbitrary query-string value used to reach PostgREST and come back a 400
+  // that this route reported as a generic database error; an unrecognised
+  // value now simply applies no filter.
+  if (status === "DRAFT" || status === "PUBLISHED" || status === "ARCHIVED") {
     query = query.eq("status", status);
+  } else if (status) {
+    console.warn("[admin.books] ignoring unknown status filter", { status });
   }
 
   const { data, error, count } = await query;

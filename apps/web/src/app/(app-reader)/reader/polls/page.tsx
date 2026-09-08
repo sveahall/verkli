@@ -56,7 +56,7 @@ export default async function ReaderPollsPage() {
 
   // Fetch active polls
   const { data: polls } = await supabase
-    .from("polls" as never)
+    .from("polls")
     .select("id, question, is_active, closes_at, created_at")
     .eq("is_active", true)
     .order("created_at", { ascending: false })
@@ -71,7 +71,7 @@ export default async function ReaderPollsPage() {
   // Fetch options for all polls
   const pollIds = typedPolls.map((p) => p.id);
   const { data: options } = await supabase
-    .from("poll_options" as never)
+    .from("poll_options")
     .select("id, poll_id, text, sort_order")
     .in("poll_id", pollIds)
     .order("sort_order", { ascending: true });
@@ -80,7 +80,7 @@ export default async function ReaderPollsPage() {
 
   // Fetch user's votes
   const { data: votes } = await supabase
-    .from("poll_votes" as never)
+    .from("poll_votes")
     .select("poll_id, option_id")
     .eq("user_id", user.id)
     .in("poll_id", pollIds);

@@ -1,6 +1,7 @@
 import "server-only";
 
 import { createAdminClient } from "@/lib/supabase/admin";
+import type { Json } from "@/lib/supabase/types";
 
 /** How long to wait after cancel was requested before force-failing the job. */
 export const CANCEL_STALE_MS = 2 * 60 * 1000;
@@ -11,7 +12,7 @@ export const CANCEL_STALE_MS = 2 * 60 * 1000;
  * when available, falls back to the row's `updated_at`.
  */
 export function isCancelStale(
-  output: Record<string, unknown> | null,
+  output: Record<string, Json> | null,
   updatedAt: string
 ): boolean {
   if (!output) return false;
@@ -32,11 +33,12 @@ export function isCancelStale(
  */
 export async function forceFailCancelledJob(
   jobId: string,
-  currentOutput: Record<string, unknown>
-): Promise<Record<string, unknown>> {
+  currentOutput: Record<string, Json>
+): Promise<Record<string, Json>> {
   const admin = createAdminClient();
 
-  const failedOutput: Record<string, unknown> = {
+  // Json, not Record<string, unknown>: written to ai_jobs.output (jsonb).
+  const failedOutput: Record<string, Json> = {
     ...currentOutput,
     controlState: "cancelled",
     cancelRequested: false,

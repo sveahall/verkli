@@ -34,7 +34,7 @@ export default async function AuthorPollsPage() {
   const supabase = await createClient();
 
   const { data: polls } = await supabase
-    .from("polls" as never)
+    .from("polls")
     .select("id, question, is_active, closes_at, book_id, created_at")
     .eq("author_id", user.id)
     .order("created_at", { ascending: false });
@@ -45,7 +45,7 @@ export default async function AuthorPollsPage() {
   let typedOptions: PollOptionRow[] = [];
   if (pollIds.length > 0) {
     const { data: options } = await supabase
-      .from("poll_options" as never)
+      .from("poll_options")
       .select("id, poll_id, text, sort_order")
       .in("poll_id", pollIds)
       .order("sort_order", { ascending: true });
@@ -55,7 +55,7 @@ export default async function AuthorPollsPage() {
   const voteCounts: Record<string, number> = {};
   if (pollIds.length > 0) {
     const { data: votes } = await supabase
-      .from("poll_votes" as never)
+      .from("poll_votes")
       .select("poll_id")
       .in("poll_id", pollIds);
     for (const v of (votes as { poll_id: string }[] | null) ?? []) {

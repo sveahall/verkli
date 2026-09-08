@@ -66,7 +66,7 @@ export async function GET(
   }
 
   const { data: poll, error: pollError } = await supabase
-    .from("polls" as never)
+    .from("polls")
     .select("id, author_id, question, book_id, is_active, closes_at, created_at")
     .eq("id", id)
     .maybeSingle();
@@ -88,7 +88,7 @@ export async function GET(
   const typedPoll = poll as PollRow;
 
   const { data: options, error: optionsError } = await supabase
-    .from("poll_options" as never)
+    .from("poll_options")
     .select("id, poll_id, text, sort_order")
     .eq("poll_id", id)
     .order("sort_order", { ascending: true });
@@ -105,7 +105,7 @@ export async function GET(
   const typedOptions = (options ?? []) as PollOptionRow[];
 
   const { data: vote, error: voteError } = await supabase
-    .from("poll_votes" as never)
+    .from("poll_votes")
     .select("option_id")
     .eq("poll_id", id)
     .eq("user_id", user.id)
@@ -171,7 +171,7 @@ export async function PATCH(
   }
 
   const { data: existing } = await supabase
-    .from("polls" as never)
+    .from("polls")
     .select("id, author_id")
     .eq("id", id)
     .maybeSingle();
@@ -193,7 +193,7 @@ export async function PATCH(
   }
 
   const { data: updated, error: updateError } = await supabase
-    .from("polls" as never)
+    .from("polls")
     .update(updates as never)
     .eq("id", id)
     .select("id, author_id, question, book_id, is_active, closes_at, created_at")

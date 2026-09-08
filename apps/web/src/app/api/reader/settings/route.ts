@@ -9,6 +9,8 @@ import {
   E_READER_SETTINGS_LOAD_FAILED,
   E_READER_SETTINGS_SAVE_FAILED,
 } from "@/lib/api-errors";
+import type { Json } from "@/lib/supabase/types";
+import { asJsonObject } from "@/lib/supabase/json-object";
 
 const readerSettingsSchema = z.object({
   font_family: z.enum(["serif", "sans", "mono"]).optional(),
@@ -118,11 +120,14 @@ export async function PUT(request: Request) {
     .eq("user_id", user.id)
     .maybeSingle();
 
-  const existingPrefs = isRecord(profile?.preferences) ? (profile.preferences as Record<string, unknown>) : {};
-  const existingReader = isRecord(existingPrefs.reader) ? (existingPrefs.reader as Record<string, unknown>) : {};
-  const existingSettings = isRecord(existingReader.settings) ? (existingReader.settings as Record<string, unknown>) : {};
+  // asJsonObject does the isRecord check and the narrowing in one place,
+  // returning Record<string, Json> so these can be written straight back to
+  // the jsonb column without a cast.
+  const existingPrefs = asJsonObject(profile?.preferences);
+  const existingReader = asJsonObject(existingPrefs.reader);
+  const existingSettings = asJsonObject(existingReader.settings);
 
-  const nextSettings: Record<string, unknown> = {
+  const nextSettings: Record<string, Json> = {
     ...existingSettings,
   };
 
@@ -152,7 +157,8 @@ export async function PUT(request: Request) {
     nextSettings.content_width = contentWidth;
   }
 
-  const nextPreferences: Record<string, unknown> = {
+  // Json, not Record<string, unknown>: it goes into profiles.preferences (jsonb).
+  const nextPreferences: Record<string, Json> = {
     ...existingPrefs,
     reader: {
       ...existingReader,

@@ -77,7 +77,7 @@ export async function claimPaidOrderForReceipt(
   if (!sessionId) return null;
 
   const { data, error } = await admin
-    .from("orders" as never)
+    .from("orders")
     .update({ status: "paid" })
     .eq("stripe_session_id", sessionId)
     .in("status", ["pending", "failed"])

@@ -64,7 +64,7 @@ export async function POST(request: Request) {
   // A campaign has no owner of its own; it belongs to a book, and the book has
   // an author. That is the relationship the check has to walk.
   const { data: campaign, error: campaignError } = await admin
-    .from("marketing_campaigns" as never)
+    .from("marketing_campaigns")
     .select("id, book_id, status")
     .eq("id", campaignId)
     .maybeSingle();
@@ -90,7 +90,7 @@ export async function POST(request: Request) {
 
   // Check for existing active publish job for this campaign
   const { data: existingJob } = await admin
-    .from("ai_jobs" as never)
+    .from("ai_jobs")
     .select("id, status")
     .eq("kind", "social_publish")
     .eq("user_id", user.id)
@@ -108,7 +108,7 @@ export async function POST(request: Request) {
 
   // Create ai_jobs record
   const { data: job, error: jobError } = await admin
-    .from("ai_jobs" as never)
+    .from("ai_jobs")
     .insert({
       user_id: user.id,
       kind: "social_publish",
@@ -151,7 +151,7 @@ export async function POST(request: Request) {
 
   if (!queuedId) {
     await admin
-      .from("ai_jobs" as never)
+      .from("ai_jobs")
       .update({ status: "failed", error: "Queue unavailable", progress: 0 })
       .eq("id", jobRow.id);
     return apiError(E_QUEUE_UNAVAILABLE, 503);

@@ -58,7 +58,7 @@ export async function getPayoutAccount(
   userId: string
 ): Promise<ConnectAccount | null> {
   const { data, error } = await admin
-    .from("author_payout_accounts" as never)
+    .from("author_payout_accounts")
     .select(
       "user_id, stripe_account_id, country, payouts_enabled, charges_enabled, details_submitted, capabilities, requirements, payout_schedule, default_currency, created_at, updated_at"
     )
@@ -100,7 +100,7 @@ export async function getOrCreateConnectAccount(
   const row = mapAccountToRow(args.userId, country, account);
 
   const { data: inserted, error: insertError } = await (
-    admin.from("author_payout_accounts" as never) as unknown as {
+    admin.from("author_payout_accounts") as unknown as {
       insert: (v: Record<string, unknown>) => {
         select: () => { single: () => Promise<{ data: unknown; error: { message?: string } | null }> };
       };
@@ -157,7 +157,7 @@ export async function syncPayoutAccountFromStripe(
   const updates = mapAccountToRow(userId, existing.country, account);
 
   const { data: updated, error } = await (
-    admin.from("author_payout_accounts" as never) as unknown as {
+    admin.from("author_payout_accounts") as unknown as {
       update: (v: Record<string, unknown>) => {
         eq: (
           column: string,
@@ -193,7 +193,7 @@ export async function applyAccountUpdated(
   const stripeAccountId = account.id;
 
   const { data: existing, error: lookupError } = await admin
-    .from("author_payout_accounts" as never)
+    .from("author_payout_accounts")
     .select(
       "user_id, stripe_account_id, country, payouts_enabled, charges_enabled, details_submitted, capabilities, requirements, payout_schedule, default_currency, created_at, updated_at"
     )
@@ -213,7 +213,7 @@ export async function applyAccountUpdated(
   const updates = mapAccountToRow(before.user_id, before.country, account);
 
   const { data: updated, error: updateError } = await (
-    admin.from("author_payout_accounts" as never) as unknown as {
+    admin.from("author_payout_accounts") as unknown as {
       update: (v: Record<string, unknown>) => {
         eq: (
           column: string,

@@ -44,7 +44,7 @@ export async function DELETE(
 
   // 1. Load + ownership check.
   const { data: row, error: loadError } = await admin
-    .from("author_voices" as never)
+    .from("author_voices")
     .select("id, user_id, elevenlabs_voice_id, name, status, deleted_at")
     .eq("id", id)
     .maybeSingle();
@@ -74,7 +74,7 @@ export async function DELETE(
 
   // 2. Mark as deleting.
   const { error: markError } = await admin
-    .from("author_voices" as never)
+    .from("author_voices")
     .update({ status: "deleting" })
     .eq("id", id);
   if (markError) {
@@ -102,7 +102,7 @@ export async function DELETE(
   // 4. Soft-delete locally + audit.
   const now = new Date().toISOString();
   await admin
-    .from("author_voices" as never)
+    .from("author_voices")
     .update({ deleted_at: now, status: "ready" })
     .eq("id", id);
 

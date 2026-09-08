@@ -15,14 +15,18 @@ import {
   E_INVALID_BOOK_ID,
   isValidUuid,
 } from "@/lib/api-errors";
+import type { Json } from "@/lib/supabase/types";
+import { asJsonObject } from "@/lib/supabase/json-object";
 
 const AI_JOB_KIND = "audiobook_generation";
 
 type ActiveJobRow = {
   id: string;
   status: string;
-  output: Record<string, unknown> | null;
-  input: Record<string, unknown> | null;
+  // jsonb columns: Json, not Record<string, unknown>. Narrow with
+  // asJsonObject() before treating either as an object.
+  output: Json | null;
+  input: Json | null;
 };
 
 type ControlAction = "pause" | "resume" | "cancel";
@@ -54,8 +58,8 @@ async function findActiveAudiobookJob(
     return {
       id: byBookId.id,
       status: byBookId.status,
-      output: (byBookId.output as Record<string, unknown> | null) ?? null,
-      input: (byBookId.input as Record<string, unknown> | null) ?? null,
+      output: byBookId.output,
+      input: byBookId.input,
     };
   }
 
@@ -83,8 +87,8 @@ async function findActiveAudiobookJob(
   return {
     id: legacy.id,
     status: legacy.status,
-    output: (legacy.output as Record<string, unknown> | null) ?? null,
-    input: (legacy.input as Record<string, unknown> | null) ?? null,
+    output: legacy.output,
+    input: legacy.input,
   };
 }
 
@@ -134,8 +138,10 @@ export async function POST(
     return apiError(E_AUDIOBOOK_NO_ACTIVE_JOB, 409);
   }
 
-  const currentOutput = (activeJob.output as Record<string, unknown> | null) ?? {};
-  const nextOutput: Record<string, unknown> = { ...currentOutput };
+  // Checked at runtime rather than cast: ai_jobs.output is jsonb, so it can
+  // legitimately hold a string or an array, and spreading one of those used to
+  // yield an empty object without anyone noticing.
+  const nextOutput: Record<string, Json> = { ...asJsonObject(activeJob.output) };
 
   if (actionRaw === "pause") {
     nextOutput.pauseRequested = true;

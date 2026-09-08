@@ -18,6 +18,41 @@ function isValidMetric(value: string): value is Metric {
   return (VALID_METRICS as readonly string[]).includes(value);
 }
 
+/**
+ * How many subscriber rows the detail table renders. Each one costs an
+ * auth.admin.getUserById call, so this is a real cost knob, not a display
+ * preference.
+ */
+const SUBSCRIBER_PAGE_SIZE = 100;
+
+/** Concurrent getUserById calls. Enough to stay quick, low enough not to
+ *  hammer the auth endpoint from a page render. */
+const EMAIL_LOOKUP_CONCURRENCY = 10;
+
+async function resolveSubscriberEmails(
+  admin: ReturnType<typeof createAdminClient>,
+  userIds: readonly string[]
+): Promise<Map<string, string>> {
+  const unique = [...new Set(userIds)];
+  const out = new Map<string, string>();
+
+  for (let i = 0; i < unique.length; i += EMAIL_LOOKUP_CONCURRENCY) {
+    const slice = unique.slice(i, i + EMAIL_LOOKUP_CONCURRENCY);
+    const results = await Promise.all(
+      slice.map(async (id) => {
+        const { data, error } = await admin.auth.admin.getUserById(id);
+        if (error || !data?.user?.email) return null;
+        return [id, data.user.email] as const;
+      })
+    );
+    for (const entry of results) {
+      if (entry) out.set(entry[0], entry[1]);
+    }
+  }
+
+  return out;
+}
+
 export default async function MetricDetailPage({
   params,
 }: {
@@ -171,27 +206,34 @@ export default async function MetricDetailPage({
       latestRead: data.latest,
     }));
   } else if (metric === "subscribers") {
+    // Real columns. This selected `email` and `created_at`, and
+    // newsletter_subscriptions has neither — it has subscriber_user_id and
+    // subscribed_at. PostgREST rejected the whole request, `subs` came back
+    // undefined, and the subscribers table rendered empty for every author.
     const { data: subs } = await admin
-      .from("newsletter_subscriptions" as never)
-      .select("id, email, status, created_at")
+      .from("newsletter_subscriptions")
+      .select("id, subscriber_user_id, status, subscribed_at")
       .eq("author_id", user.id)
-      .order("created_at", { ascending: false })
-      .limit(200);
+      .order("subscribed_at", { ascending: false })
+      .limit(SUBSCRIBER_PAGE_SIZE);
 
-    const subList = (subs ?? []) as Array<{
-      id: string;
-      email: string;
-      status: string;
-      created_at: string;
-    }>;
+    const subList = subs ?? [];
+
+    // The address lives in auth.users; profiles has no email column. There is
+    // no batch lookup by id, so this is one call per row — bounded
+    // concurrency, and SUBSCRIBER_PAGE_SIZE keeps the count predictable.
+    const emailById = await resolveSubscriberEmails(
+      admin,
+      subList.map((sub) => sub.subscriber_user_id)
+    );
     const [{ count: activeSubscribers }, { count: totalSubscribers }] = await Promise.all([
       admin
-        .from("newsletter_subscriptions" as never)
+        .from("newsletter_subscriptions")
         .select("id", { count: "exact", head: true })
         .eq("author_id", user.id)
-        .eq("status" as never, "active"),
+        .eq("status", "active"),
       admin
-        .from("newsletter_subscriptions" as never)
+        .from("newsletter_subscriptions")
         .select("id", { count: "exact", head: true })
         .eq("author_id", user.id),
     ]);
@@ -204,9 +246,9 @@ export default async function MetricDetailPage({
 
     rows = subList.map((sub) => ({
       id: sub.id,
-      email: sub.email,
+      email: emailById.get(sub.subscriber_user_id) ?? "",
       status: sub.status,
-      date: sub.created_at,
+      date: sub.subscribed_at,
     }));
   } else if (metric === "comments") {
     const { data: comments } = await admin

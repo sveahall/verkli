@@ -12,7 +12,7 @@ export async function buildBookSnapshot(
 
   // Fetch book
   const { data: book, error: bookErr } = await admin
-    .from("books" as never)
+    .from("books")
     .select("title, description, language, cover_image")
     .eq("id", bookId)
     .single();
@@ -23,7 +23,7 @@ export async function buildBookSnapshot(
 
   // Fetch chapter count + first chapter excerpt
   const { data: chapters } = await admin
-    .from("chapters" as never)
+    .from("chapters")
     .select("content")
     .eq("book_id", bookId)
     // `order`, not `sort_order`: that is the column `chapters` actually has.
@@ -41,7 +41,7 @@ export async function buildBookSnapshot(
 
   // Count total chapters
   const { count } = await admin
-    .from("chapters" as never)
+    .from("chapters")
     .select("id", { count: "exact", head: true })
     .eq("book_id", bookId);
 

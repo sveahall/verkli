@@ -31,7 +31,21 @@ function validateEmail(email: unknown): email is string {
   return typeof email === "string" && EMAIL_REGEX.test(email.trim());
 }
 
-async function getPosition(supabase: ReturnType<typeof createAdminClient>, createdAt: string): Promise<number> {
+/**
+ * `createdAt` is nullable because `waitlist.created_at` is: the column has no
+ * NOT NULL constraint. Without a timestamp there is no row to count up to, so
+ * the position is unknowable and this reports 0 — the same answer the error
+ * path already gives — rather than filtering on null and returning a number
+ * that looks real.
+ */
+async function getPosition(
+  supabase: ReturnType<typeof createAdminClient>,
+  createdAt: string | null
+): Promise<number> {
+  if (!createdAt) {
+    console.error("WAITLIST_ERROR", { message: "getPosition called with no created_at", code: "NULL_CREATED_AT", details: "", hint: "" });
+    return 0;
+  }
   const { count, error } = await supabase
     .from("waitlist")
     .select("id", { count: "exact", head: true })

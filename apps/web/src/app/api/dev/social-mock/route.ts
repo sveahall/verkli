@@ -35,7 +35,7 @@ export async function POST(request: Request) {
   if (action === "connect" && platform && VALID_PLATFORMS.includes(platform)) {
     const fakeToken = encryptToken(`mock-token-${platform}-${Date.now()}`);
     await admin
-      .from("social_connections" as never)
+      .from("social_connections")
       .upsert(
         {
           user_id: userId,
@@ -58,7 +58,7 @@ export async function POST(request: Request) {
     }
 
     const { data: job } = await admin
-      .from("ai_jobs" as never)
+      .from("ai_jobs")
       .insert({
         user_id: userId,
         kind: "social_publish",

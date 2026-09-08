@@ -114,12 +114,26 @@ export async function loadBookWorkspaceData(bookId: string, langParam: string | 
   const originalLang = normalizeLanguage(
     (book as { original_language?: string | null }).original_language
   );
+  // book_versions.visibility is a plain text column, so the row type is
+  // `string` while the editor's BookVersion wants the
+  // "public" | "followers" | "private" union. Reuse the same normaliser the
+  // default visibility already goes through, rather than asserting the union —
+  // an unexpected value in the column should fall back to "public", not be
+  // smuggled into a typed field.
+  //
+  // Placed before activeVersion is derived, so the active one carries the same
+  // normalisation as the list it came from.
+  const normalizedVersions = versions.map((version) => ({
+    ...version,
+    visibility: normalizeDefaultPublishVisibility(version.visibility),
+  }));
+
   const activeVersion =
     (langParam
-      ? versions.find((v) => normalizeLanguage(v.language_code) === langParam)
+      ? normalizedVersions.find((v) => normalizeLanguage(v.language_code) === langParam)
       : null) ??
-    versions.find((v) => normalizeLanguage(v.language_code) === originalLang) ??
-    versions[0];
+    normalizedVersions.find((v) => normalizeLanguage(v.language_code) === originalLang) ??
+    normalizedVersions[0];
 
   const [
     { data: latestAudiobookAsset },
@@ -180,7 +194,7 @@ export async function loadBookWorkspaceData(bookId: string, langParam: string | 
   return {
     book,
     chapters: chapters ?? [],
-    versions,
+    versions: normalizedVersions,
     activeVersion: activeVersion ?? null,
     authorDisplayName,
     authorDisplayNameSet,

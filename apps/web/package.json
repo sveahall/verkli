@@ -45,7 +45,7 @@
     "@higgsfield/client": "^0.2.1",
     "@sentry/nextjs": "^10.42.0",
     "@sentry/node": "^10.42.0",
-    "@supabase/ssr": "^0.5.2",
+    "@supabase/ssr": "^0.12.6",
     "@supabase/supabase-js": "^2.47.10",
     "@tiptap/extension-character-count": "^3.22.0",
     "@tiptap/extension-font-family": "^3.18.0",

@@ -89,7 +89,7 @@ export async function logAnalyticsEvent(
   supabase: SupabaseLikeClient,
   input: LogAnalyticsEventInput
 ): Promise<void> {
-  const table = supabase.from("analytics_events" as never) as {
+  const table = supabase.from("analytics_events") as {
     insert: (payload: unknown) => Promise<{ error: { message?: string } | null }>;
   };
 

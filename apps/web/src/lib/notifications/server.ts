@@ -1,5 +1,7 @@
 import type { createClient } from "@/lib/supabase/server";
 
+import type { Json } from "@/lib/supabase/types";
+
 type CreateNotificationOpts = {
   userId: string;
   type: string;
@@ -8,7 +10,9 @@ type CreateNotificationOpts = {
   actorId?: string;
   entityId?: string;
   entityType?: string;
-  data?: Record<string, unknown>;
+  /** `Json`, not Record<string, unknown>: this lands in a jsonb column and
+   *  `unknown` values are not serialisable by construction. */
+  data?: Json;
 };
 
 export async function createNotification(
@@ -21,7 +25,10 @@ export async function createNotification(
       user_id: opts.userId,
       type: opts.type,
       title: opts.title,
-      body: opts.body ?? null,
+      // `notifications.body` is NOT NULL. This passed `null` whenever body was
+      // omitted, so every such insert failed on the constraint and the
+      // notification was never created.
+      body: opts.body ?? "",
       actor_id: opts.actorId ?? null,
       entity_id: opts.entityId ?? null,
       entity_type: opts.entityType ?? null,

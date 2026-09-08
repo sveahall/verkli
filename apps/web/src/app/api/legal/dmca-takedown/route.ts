@@ -91,7 +91,7 @@ export async function POST(request: Request) {
   let reportId: string | null = null;
   if (user?.id) {
     const { data: report, error: insertError } = await admin
-      .from("content_reports" as never)
+      .from("content_reports")
       .insert({
         reporter_user_id: user.id,
         target_type: "book",

@@ -26,7 +26,7 @@ export async function GET() {
   // we ALSO filter by user_id explicitly as defense-in-depth so this endpoint
   // never depends on RLS alone.
   const { data, error } = await supabase
-    .from("social_connections_safe" as never)
+    .from("social_connections_safe")
     .select("id, platform, platform_username, status, token_expires_at, connected_at, updated_at")
     .eq("user_id", user.id);
 

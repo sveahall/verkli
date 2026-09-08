@@ -52,7 +52,7 @@ export async function POST(
   // Check for existing active connection
   const admin = createAdminClient();
   const { data: existing } = await admin
-    .from("social_connections" as never)
+    .from("social_connections")
     .select("id, status")
     .eq("user_id", user.id)
     .eq("platform", platform)
@@ -78,7 +78,7 @@ export async function POST(
     const encryptedConfig = encryptToken(emailConfig);
 
     const { error: saveError } = await admin
-      .from("social_connections" as never)
+      .from("social_connections")
       .upsert(
         {
           user_id: user.id,

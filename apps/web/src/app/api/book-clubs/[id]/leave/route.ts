@@ -47,7 +47,7 @@ export async function POST(
   }
 
   const { data: member, error: memberError } = await supabase
-    .from("book_club_members" as never)
+    .from("book_club_members")
     .select("club_id, user_id, role")
     .eq("club_id", id)
     .eq("user_id", user.id)
@@ -73,7 +73,7 @@ export async function POST(
   }
 
   const { error: deleteError } = await supabase
-    .from("book_club_members" as never)
+    .from("book_club_members")
     .delete()
     .eq("club_id", id)
     .eq("user_id", user.id);

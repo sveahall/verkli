@@ -44,14 +44,14 @@ export default async function ClubsPage() {
   }
 
   const { data: publicClubs } = await supabase
-    .from("book_clubs" as never)
+    .from("book_clubs")
     .select("id, name, description, cover_url, is_public, max_members, current_book_id, creator_id, created_at")
     .eq("is_public", true)
     .order("created_at", { ascending: false })
     .limit(50);
 
   const { data: memberships } = await supabase
-    .from("book_club_members" as never)
+    .from("book_club_members")
     .select("club_id, role")
     .eq("user_id", user.id);
 
@@ -67,7 +67,7 @@ export default async function ClubsPage() {
   );
   if (privateClubIds.length > 0) {
     const { data } = await supabase
-      .from("book_clubs" as never)
+      .from("book_clubs")
       .select("id, name, description, cover_url, is_public, max_members, current_book_id, creator_id, created_at")
       .in("id", privateClubIds);
     privateClubs = (data as ClubRow[] | null) ?? [];
@@ -77,7 +77,7 @@ export default async function ClubsPage() {
   const uniqueClubs = [...new Map(allClubs.map((c) => [c.id, c])).values()];
 
   const { data: allMembers } = await supabase
-    .from("book_club_members" as never)
+    .from("book_club_members")
     .select("club_id")
     .in(
       "club_id",

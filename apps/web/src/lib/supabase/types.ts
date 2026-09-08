@@ -2457,6 +2457,69 @@ export type Database = {
           },
         ]
       }
+      newsletter_subscriptions: {
+        Row: {
+          author_id: string
+          id: string
+          status: string
+          subscribed_at: string
+          subscriber_user_id: string
+          unsubscribed_at: string | null
+        }
+        Insert: {
+          author_id: string
+          id?: string
+          status?: string
+          subscribed_at?: string
+          subscriber_user_id: string
+          unsubscribed_at?: string | null
+        }
+        Update: {
+          author_id?: string
+          id?: string
+          status?: string
+          subscribed_at?: string
+          subscriber_user_id?: string
+          unsubscribed_at?: string | null
+        }
+        Relationships: []
+      }
+      newsletters: {
+        Row: {
+          author_id: string
+          body_html: string
+          body_text: string
+          created_at: string
+          id: string
+          recipient_count: number
+          sent_at: string | null
+          status: string
+          subject: string
+        }
+        Insert: {
+          author_id: string
+          body_html?: string
+          body_text?: string
+          created_at?: string
+          id?: string
+          recipient_count?: number
+          sent_at?: string | null
+          status?: string
+          subject: string
+        }
+        Update: {
+          author_id?: string
+          body_html?: string
+          body_text?: string
+          created_at?: string
+          id?: string
+          recipient_count?: number
+          sent_at?: string | null
+          status?: string
+          subject?: string
+        }
+        Relationships: []
+      }
       notifications: {
         Row: {
           actor_id: string | null

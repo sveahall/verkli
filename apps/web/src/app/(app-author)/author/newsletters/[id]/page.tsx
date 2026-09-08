@@ -26,7 +26,7 @@ export default async function NewsletterDetailPage({
   const supabase = await createClient();
 
   const { data: newsletter } = await supabase
-    .from("newsletters" as never)
+    .from("newsletters")
     .select("id, author_id, subject, body_html, body_text, status, sent_at, recipient_count, created_at")
     .eq("id", id)
     .eq("author_id", user.id)

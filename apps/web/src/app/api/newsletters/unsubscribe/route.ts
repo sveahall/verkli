@@ -29,7 +29,7 @@ async function handleTokenUnsubscribe(token: string): Promise<Response> {
 
   const admin = createAdminClient();
   const { error: updateError } = await admin
-    .from("newsletter_subscriptions" as never)
+    .from("newsletter_subscriptions")
     .update({
       status: "unsubscribed",
       unsubscribed_at: new Date().toISOString(),
@@ -94,7 +94,7 @@ export async function POST(request: Request) {
   const { authorId } = parsed.data;
 
   const { error: updateError } = await supabase
-    .from("newsletter_subscriptions" as never)
+    .from("newsletter_subscriptions")
     .update({
       status: "unsubscribed",
       unsubscribed_at: new Date().toISOString(),

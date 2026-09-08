@@ -109,14 +109,14 @@ export default async function ReaderOrdersPage() {
 
   const [{ data: podRows }, { data: digitalRows }] = await Promise.all([
     supabase
-      .from("pod_orders" as never)
+      .from("pod_orders")
       .select(
         "id, book_id, format, amount, currency, status, created_at, updated_at, shipping_address",
       )
       .eq("user_id", user.id)
       .order("created_at", { ascending: false }),
     supabase
-      .from("orders" as never)
+      .from("orders")
       .select("id, book_id, chapter_id, amount, currency, status, created_at")
       .eq("user_id", user.id)
       .order("created_at", { ascending: false }),

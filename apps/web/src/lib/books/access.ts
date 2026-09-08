@@ -139,7 +139,7 @@ export async function getReadAccess({
     // Author subscription: active subscription to this book's author grants full access
     if (authorId) {
       const { data: authorSub, error: authorSubError } = await supabase
-        .from("author_subscriptions" as never)
+        .from("author_subscriptions")
         .select("id")
         .eq("subscriber_user_id", userId)
         .eq("author_id", authorId)
@@ -284,7 +284,7 @@ export async function canUserReadBook({
   // Author subscription: active subscription to this book's author grants full access
   if (authorId) {
     const { data: authorSub } = await supabase
-      .from("author_subscriptions" as never)
+      .from("author_subscriptions")
       .select("id")
       .eq("subscriber_user_id", userId)
       .eq("author_id", authorId)

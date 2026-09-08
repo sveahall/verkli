@@ -82,7 +82,7 @@ export default async function ReaderLibraryPage() {
         .eq("user_id", user.id)
         .limit(LIBRARY_MAX_BOOKMARKS),
       supabase
-        .from("entitlements" as never)
+        .from("entitlements")
         .select("book_id, chapter_id, created_at")
         .eq("user_id", user.id)
         .eq("source", "purchase")
@@ -144,7 +144,12 @@ export default async function ReaderLibraryPage() {
 
   const bookMap = new Map<string, LibraryBookRow>();
   let authorNames: Record<string, string> = {};
-  const chapterIds = [...new Set(readings.map((row) => row.chapter_id).filter(Boolean))];
+  // Type guard, not `.filter(Boolean)`: the runtime behaviour was already
+  // correct, but `filter(Boolean)` does not narrow, so the array stayed
+  // `(string | null)[]` and `.in()` could not accept it.
+  const chapterIds = [
+    ...new Set(readings.map((row) => row.chapter_id).filter((id): id is string => Boolean(id))),
+  ];
   let chapterTitles = new Map<string, string>();
 
   const [{ data: browseBooks }, { data: chapterRows }, { data: purchasedBooks }] =

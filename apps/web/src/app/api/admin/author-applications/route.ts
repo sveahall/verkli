@@ -38,7 +38,7 @@ export async function GET() {
 
   const admin = createAdminClient();
   const { data, error } = await admin
-    .from("author_applications" as never)
+    .from("author_applications")
     .select("user_id, status, created_at, first_name, last_name, email, has_published_before, published_books_url, motivation, writing_background, work_samples")
     .order("created_at", { ascending: false });
 
@@ -81,14 +81,14 @@ export async function PATCH(request: Request) {
   const admin = createAdminClient();
 
   const { data: existing } = await admin
-    .from("author_applications" as never)
+    .from("author_applications")
     .select("user_id")
     .eq("user_id", userId)
     .maybeSingle();
 
   if (existing) {
     const { error } = await admin
-      .from("author_applications" as never)
+      .from("author_applications")
       .update({ status } as never)
       .eq("user_id", userId);
 
@@ -102,7 +102,7 @@ export async function PATCH(request: Request) {
     }
   } else {
     const { error } = await admin
-      .from("author_applications" as never)
+      .from("author_applications")
       .insert({ user_id: userId, status } as never);
 
     if (error) {
@@ -167,7 +167,7 @@ export async function PATCH(request: Request) {
   let emailSent = false;
   try {
     const { data: application } = await admin
-      .from("author_applications" as never)
+      .from("author_applications")
       .select("email, first_name")
       .eq("user_id", userId)
       .maybeSingle();

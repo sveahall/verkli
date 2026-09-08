@@ -52,7 +52,7 @@ export async function GET() {
       : Promise.resolve({ rows: [] as AmountRow[], error: null }),
     fetchAllRows<{ amount_monthly: number; currency: string | null }>((from, to) =>
       admin
-        .from("author_subscriptions" as never)
+        .from("author_subscriptions")
         .select("amount_monthly, currency")
         .eq("author_id", user.id)
         .eq("status" as never, "active")

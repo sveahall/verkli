@@ -37,7 +37,7 @@ async function checkMembership(
   userId: string
 ): Promise<boolean> {
   const { data, error } = await supabase
-    .from("book_club_members" as never)
+    .from("book_club_members")
     .select("user_id")
     .eq("club_id", clubId)
     .eq("user_id", userId)
@@ -91,7 +91,7 @@ export async function GET(
   const offset = (page - 1) * limit;
 
   const { data, error } = await supabase
-    .from("book_club_messages" as never)
+    .from("book_club_messages")
     .select(MESSAGE_SELECT)
     .eq("club_id", id)
     .order("created_at", { ascending: false })
@@ -156,7 +156,7 @@ export async function POST(
   const { content } = parsed.data;
 
   const { data: message, error: insertError } = await supabase
-    .from("book_club_messages" as never)
+    .from("book_club_messages")
     .insert({
       club_id: id,
       user_id: user.id,

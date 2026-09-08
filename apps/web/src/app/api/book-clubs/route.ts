@@ -52,7 +52,7 @@ export async function GET() {
   }
 
   const { data, error } = await supabase
-    .from("book_clubs" as never)
+    .from("book_clubs")
     .select(CLUB_SELECT)
     .order("created_at", { ascending: false });
 
@@ -104,7 +104,7 @@ export async function POST(request: Request) {
   const { name, description, is_public, max_members } = parsed.data;
 
   const { data: club, error: clubError } = await supabase
-    .from("book_clubs" as never)
+    .from("book_clubs")
     .insert({
       name,
       description: description ?? null,
@@ -127,7 +127,7 @@ export async function POST(request: Request) {
   const created = club as ClubRow;
 
   const { error: memberError } = await supabase
-    .from("book_club_members" as never)
+    .from("book_club_members")
     .insert({
       club_id: created.id,
       user_id: user.id,

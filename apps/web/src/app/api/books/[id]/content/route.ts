@@ -26,7 +26,7 @@ export async function GET(
 
   // Verify book ownership
   const { data: book, error: bookError } = await admin
-    .from("books" as never)
+    .from("books")
     .select("id, author_id")
     .eq("id", bookId)
     .single();
@@ -51,7 +51,7 @@ export async function GET(
 
   try {
     let query = admin
-      .from("content_assets" as never)
+      .from("content_assets")
       .select("*")
       .eq("book_id", bookId)
       .eq("user_id", user.id)

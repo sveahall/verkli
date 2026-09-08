@@ -54,6 +54,7 @@ import {
   E_VALIDATION_FAILED,
   isValidUuid,
 } from "@/lib/api-errors";
+import type { TablesInsert } from "@/lib/supabase/types";
 
 /**
  * Playback writes at `POSITION_SAVE_INTERVAL_MS` (15s) are 4/min, plus a
@@ -246,7 +247,7 @@ export async function POST(
   // guard exists to stop re-opening chapter 2 of a finished book from demoting
   // it out of the Finished shelf. Audio has no such shelf, and clamping here
   // would strand a listener wherever they last got to.
-  const row: Record<string, unknown> = {
+  const row: TablesInsert<"listening_positions"> = {
     user_id: user.id,
     book_id: bookRow.id,
     chapter_id: chapterId,

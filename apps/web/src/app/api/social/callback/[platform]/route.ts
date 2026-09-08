@@ -131,7 +131,7 @@ export async function GET(
     : null;
 
   const { error: upsertError } = await admin
-    .from("social_connections" as never)
+    .from("social_connections")
     .upsert(
       {
         user_id: user.id,

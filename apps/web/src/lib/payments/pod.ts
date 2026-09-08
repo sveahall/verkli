@@ -3,6 +3,7 @@ import "server-only";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getStripeCheckoutSession } from "@/lib/payments/stripe";
 import { logAnalyticsEvent } from "@/lib/analytics/events";
+import type { Json } from "@/lib/supabase/types";
 
 type ConfirmStripePodPurchaseArgs = {
   podOrderId: string;
@@ -20,7 +21,7 @@ export async function confirmStripePodPurchase({
   const admin = createAdminClient();
 
   const { data: order, error: orderError } = await admin
-    .from("pod_orders" as never)
+    .from("pod_orders")
     .select("id, user_id, book_id, status, amount, currency, format")
     .eq("id", podOrderId)
     .maybeSingle();
@@ -51,7 +52,7 @@ export async function confirmStripePodPurchase({
   if (metaPodOrderId !== podOrderId || metaUserId !== userId || metaBookId !== bookId) {
     if (orderStatus === "pending") {
       await admin
-        .from("pod_orders" as never)
+        .from("pod_orders")
         .update({ status: "failed" })
         .eq("id", podOrderId)
         .eq("user_id", userId)
@@ -63,7 +64,7 @@ export async function confirmStripePodPurchase({
   if (session.payment_status !== "paid") {
     if (orderStatus === "pending") {
       await admin
-        .from("pod_orders" as never)
+        .from("pod_orders")
         .update({ status: "failed" })
         .eq("id", podOrderId)
         .eq("user_id", userId)
@@ -73,10 +74,12 @@ export async function confirmStripePodPurchase({
   }
 
   // Mark as paid and store shipping address from Stripe session
-  const shippingDetails = (session as Record<string, unknown>).shipping_details ?? null;
+  // Stripe's shipping_details object — JSON by construction, but arriving
+  // off an untyped Stripe payload, so it needs narrowing for the jsonb column.
+  const shippingDetails = ((session as Record<string, unknown>).shipping_details ?? null) as Json;
 
   const { error: updateError } = await admin
-    .from("pod_orders" as never)
+    .from("pod_orders")
     .update({
       status: "paid",
       shipping_address: shippingDetails,
@@ -107,7 +110,7 @@ export async function confirmStripePodPurchase({
 export async function markPodOrderFailedForUser(podOrderId: string, userId: string): Promise<void> {
   const admin = createAdminClient();
   await admin
-    .from("pod_orders" as never)
+    .from("pod_orders")
     .update({ status: "failed" })
     .eq("id", podOrderId)
     .eq("user_id", userId)

@@ -53,7 +53,7 @@ export async function GET(
   }
 
   const { data: poll, error: pollError } = await supabase
-    .from("polls" as never)
+    .from("polls")
     .select("id")
     .eq("id", id)
     .maybeSingle();
@@ -63,7 +63,7 @@ export async function GET(
   }
 
   const { data: options, error: optionsError } = await supabase
-    .from("poll_options" as never)
+    .from("poll_options")
     .select("id, poll_id, text, sort_order")
     .eq("poll_id", id)
     .order("sort_order", { ascending: true });
@@ -80,7 +80,7 @@ export async function GET(
   const typedOptions = (options ?? []) as PollOptionRow[];
 
   const { data: votes, error: votesError } = await supabase
-    .from("poll_votes" as never)
+    .from("poll_votes")
     .select("option_id")
     .eq("poll_id", id);
 

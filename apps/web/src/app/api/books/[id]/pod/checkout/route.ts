@@ -118,7 +118,7 @@ export async function POST(
   try {
     const thirtyMinAgo = new Date(Date.now() - 30 * 60 * 1000).toISOString();
     const { data: existingOrder } = await admin
-      .from("pod_orders" as never)
+      .from("pod_orders")
       .select("id, stripe_session_id")
       .eq("user_id", user.id)
       .eq("book_id", bookId)
@@ -152,7 +152,7 @@ export async function POST(
   }
 
   const { data: order, error: orderError } = await admin
-    .from("pod_orders" as never)
+    .from("pod_orders")
     .insert({
       user_id: user.id,
       book_id: bookId,
@@ -215,7 +215,7 @@ export async function POST(
     }
 
     const { error: orderUpdateError } = await admin
-      .from("pod_orders" as never)
+      .from("pod_orders")
       .update({ stripe_session_id: stripeSessionId })
       .eq("id", podOrderId)
       .eq("user_id", user.id)
@@ -234,7 +234,7 @@ export async function POST(
     });
   } catch (error) {
     await admin
-      .from("pod_orders" as never)
+      .from("pod_orders")
       .update({ status: "failed" })
       .eq("id", podOrderId)
       .eq("user_id", user.id)

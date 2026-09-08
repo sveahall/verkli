@@ -28,7 +28,7 @@ export default async function NewslettersPage() {
 
   // Fetch newsletters
   const { data: newsletters } = await supabase
-    .from("newsletters" as never)
+    .from("newsletters")
     .select("id, subject, status, sent_at, recipient_count, created_at")
     .eq("author_id", user.id)
     .order("created_at", { ascending: false });
@@ -37,7 +37,7 @@ export default async function NewslettersPage() {
 
   // Fetch active subscriber count
   const { count: subscriberCount } = await supabase
-    .from("newsletter_subscriptions" as never)
+    .from("newsletter_subscriptions")
     .select("id", { count: "exact", head: true })
     .eq("author_id", user.id)
     .eq("status", "active");

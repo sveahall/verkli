@@ -173,11 +173,11 @@ export default async function ReaderProfilePage({ searchParams }: PageProps) {
   const loadHighlights = async () => {
     const [{ count: highlightsTotalCount }, { data: rawHighlightRows }] = await Promise.all([
       supabase
-        .from("highlights" as never)
+        .from("highlights")
         .select("id", { head: true, count: "exact" })
         .eq("user_id", user.id),
       supabase
-        .from("highlights" as never)
+        .from("highlights")
         .select("id, chapter_id, book_id, snippet, note, color, created_at")
         .eq("user_id", user.id)
         .order("created_at", { ascending: false })

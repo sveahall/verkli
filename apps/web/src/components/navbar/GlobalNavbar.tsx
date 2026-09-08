@@ -92,7 +92,7 @@ export default function GlobalNavbar({
       }
 
       const { data: application } = await supabase
-        .from("author_applications" as never)
+        .from("author_applications")
         .select("status")
         .eq("user_id", activeUser.id)
         .maybeSingle();

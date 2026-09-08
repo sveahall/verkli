@@ -10,6 +10,7 @@ import {
   E_VALIDATION_FAILED,
   isValidUuid,
 } from "@/lib/api-errors";
+import type { TablesUpdate } from "@/lib/supabase/types";
 
 export const runtime = "nodejs";
 
@@ -35,7 +36,7 @@ export async function PATCH(
     return apiError(E_VALIDATION_FAILED, 400);
   }
 
-  const update: Record<string, unknown> = {};
+  const update: TablesUpdate<"marketing_posts"> = {};
   if (parsed.data.caption !== undefined) update.caption = parsed.data.caption;
   if (parsed.data.hashtags !== undefined) update.hashtags = parsed.data.hashtags;
   if (parsed.data.cta !== undefined) update.cta = parsed.data.cta;

@@ -255,7 +255,7 @@ export default async function ReaderReadPage({
       : Promise.resolve({ data: null }),
     user
       ? supabase
-          .from("highlights" as never)
+          .from("highlights")
           .select("id, start_offset, end_offset, snippet, color, note, created_at, updated_at")
           .eq("user_id", user.id)
           .eq("chapter_id", chapter.id)

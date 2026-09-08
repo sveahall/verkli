@@ -79,7 +79,7 @@ export async function POST(
 
   const admin = createAdminClient();
   const { data: book } = await admin
-    .from("books" as never)
+    .from("books")
     .select("id, author_id")
     .eq("id", bookId)
     .single();
@@ -101,7 +101,7 @@ export async function POST(
   const usageMonth = getCurrentUsageMonth();
 
   const { data: usage, error: usageError } = await admin
-    .from("user_usage_monthly" as never)
+    .from("user_usage_monthly")
     .select("trailer_count_this_month")
     .eq("user_id", user.id)
     .eq("usage_month", usageMonth)
@@ -143,7 +143,7 @@ export async function POST(
   if (trailerCountThisMonth > 0) {
     // Row exists — update only if count matches what we read (optimistic lock)
     const { data: updated, error: updateError } = await admin
-      .from("user_usage_monthly" as never)
+      .from("user_usage_monthly")
       .update({ trailer_count_this_month: nextTrailerCount } as never)
       .eq("user_id", user.id)
       .eq("usage_month", usageMonth)
@@ -169,7 +169,7 @@ export async function POST(
   } else {
     // No row yet — insert with count=1. Unique constraint prevents double-insert.
     const { error: insertError } = await admin
-      .from("user_usage_monthly" as never)
+      .from("user_usage_monthly")
       .upsert(
         {
           user_id: user.id,
@@ -208,7 +208,7 @@ export async function POST(
     // Use optimistic lock: only decrement if count still matches what we set.
     try {
       await admin
-        .from("user_usage_monthly" as never)
+        .from("user_usage_monthly")
         .update({ trailer_count_this_month: trailerCountThisMonth } as never)
         .eq("user_id", user.id)
         .eq("usage_month", usageMonth)
