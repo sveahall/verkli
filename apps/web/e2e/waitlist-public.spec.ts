@@ -190,3 +190,48 @@ test.describe("mobile waitlist", () => {
     });
   }
 });
+
+for (const width of [390, 1440]) {
+  test(`${width}px generated product previews switch without layout jumps or AI requests`, async ({ page }) => {
+    await page.setViewportSize({ width, height: 1000 });
+    await page.emulateMedia({ reducedMotion: "reduce" });
+    const writes: string[] = [];
+    page.on("request", (request) => {
+      if (request.method() === "POST" && new URL(request.url()).pathname.startsWith("/api/")) writes.push(request.url());
+    });
+    await page.goto("/waitlist");
+    const preview = page.getByRole("group", { name: "Explore the product preview" });
+    const scene = page.locator(".wl-preview-art");
+    let initialHeight = 0;
+    let initialProductHeight = 0;
+
+    for (const [label, alt] of [
+      ["Write", "Verkli writing studio with highlighted manuscript text."],
+      ["Translate", "Verkli translation studio showing the same sentence in English, Swedish and Spanish."],
+      ["Create audio", "Verkli audiobook studio with a narration waveform and chapter preview."],
+    ]) {
+      const button = preview.getByRole("button", { name: label, exact: true });
+      await button.focus();
+      await page.keyboard.press("Space");
+      await expect(button).toHaveAttribute("aria-pressed", "true");
+      await expect(preview.locator("button[aria-pressed='true']")).toHaveCount(1);
+      const image = page.getByRole("img", { name: alt, exact: true });
+      await expect(image).toBeVisible();
+      await expect(image).toHaveJSProperty("complete", true);
+      expect(await image.evaluate((node: HTMLImageElement) => node.naturalWidth)).toBeGreaterThan(0);
+      await expect(page.locator(".wl-preview-art img:visible")).toHaveCount(1);
+      const height = (await scene.boundingBox())!.height;
+      if (!initialHeight) initialHeight = height;
+      expect(height).toBeCloseTo(initialHeight, 0);
+      const productHeight = (await page.locator(".wl-product").boundingBox())!.height;
+      if (!initialProductHeight) initialProductHeight = productHeight;
+      expect(productHeight).toBeCloseTo(initialProductHeight, 0);
+      expect((await button.boundingBox())!.height).toBeGreaterThanOrEqual(44);
+      expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(width + 1);
+    }
+    await expect(page.getByRole("heading", { name: "Give your words a voice." })).toBeVisible();
+    await preview.getByRole("button", { name: "Translate", exact: true }).click();
+    await expect(page.getByText("Och det här var bara början.", { exact: true })).toBeVisible();
+    expect(writes).toEqual([]);
+  });
+}
