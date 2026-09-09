@@ -1,15 +1,7 @@
 import Link from "next/link";
 import Image from "next/image";
-import { ArrowDown, ArrowRight, ArrowUpRight, AudioLines, BookOpen, FileText, Languages, Plus } from "lucide-react";
+import { ArrowRight, ArrowUpRight, AudioLines, BookOpen, FileText, Languages, Plus } from "lucide-react";
 import styles from "./AuthorLandingSections.module.css";
-import { AudioDemo, ExperienceBridge, TranslationDemo, WritingDemo } from "./AuthorStoryExperience";
-
-const chapters = [
-  { id: "writing", label: "Write", icon: FileText },
-  { id: "translation", label: "Translate", icon: Languages },
-  { id: "audio", label: "Create audio", icon: AudioLines },
-  { id: "publishing", label: "Publish", icon: BookOpen },
-];
 
 const questions = [
   {
@@ -30,72 +22,24 @@ const questions = [
   },
 ];
 
+const possibilities = [
+  { icon: FileText, title: "Find your flow.", detail: "Bring your manuscript or begin with a blank page. Shape each chapter in a focused editor, with AI support when you want another perspective.", label: "WRITE", id: "writing" },
+  { icon: Languages, title: "Open another world.", detail: "Create a translated edition, review it chapter by chapter, and give your story a way to reach readers in another language.", label: "TRANSLATE", id: "translation" },
+  { icon: AudioLines, title: "Make every word heard.", detail: "Turn written chapters into narrated audio. Choose a voice, listen back, and refine the result before sharing your audiobook.", label: "CREATE AUDIO", id: "audio" },
+  { icon: BookOpen, title: "Meet your readers.", detail: "Prepare your book page and publish on Verkli, where readers can discover, read and listen to the work you have made.", label: "PUBLISH", id: "publishing" },
+];
+
 export default function AuthorLandingSections() {
-  return (
-    <div className={styles.sections}>
-      <nav className={styles.chapterNav} aria-label="Explore Verkli">
-        <p>One story. Every dimension.</p>
-        <div>
-          {chapters.map(({ id, label, icon: Icon }) => (
-            <a key={id} href={`#${id}`}><Icon size={18} aria-hidden="true" />{label}<ArrowDown size={14} aria-hidden="true" /></a>
-          ))}
-        </div>
-      </nav>
-
-      <ExperienceBridge />
-      <WritingDemo />
-      <TranslationDemo />
-      <AudioDemo />
-
-      <section id="publishing" className={styles.publishing} aria-labelledby="publishing-title">
-        <div className={styles.publishHeading}>
-          <p className={styles.eyebrow}>04 / Out into the world</p>
-          <h2 id="publishing-title">From your desk.<br /><span className={styles.gradient}>To their next favourite.</span></h2>
-          <p>A clear path from the work you have made to the readers who will make it their own.</p>
-        </div>
-        <ol className={styles.steps}>
-          {[
-            { title: "Make it yours.", copy: "Import your manuscript or start fresh. Write, edit and arrange your chapters in one workspace." },
-            { title: "Open up the possibilities.", copy: "Create a translated edition or add narration. Review each version before sharing it." },
-            { title: "Meet your readers.", copy: "Prepare your book page and publish on Verkli, where readers can discover, read and listen." },
-          ].map((step, index) => (
-            <li key={step.title}>
-              <div className={styles.stepNumber}><span>0{index + 1}</span><ArrowRight size={20} aria-hidden="true" /></div>
-              <h3>{step.title}</h3><p>{step.copy}</p>
-            </li>
-          ))}
-        </ol>
-      </section>
-
-      <section className={styles.faq} aria-labelledby="author-questions-title">
-        <div>
-          <p className={styles.eyebrow}>A few things to know</p>
-          <h2 id="author-questions-title">Big possibility.<br />Straight answers.</h2>
-          <Link href="/faq" className={styles.textLink}>More about Verkli <ArrowUpRight size={18} aria-hidden="true" /></Link>
-        </div>
-        <div className={styles.questions}>
-          {questions.map(({ title, answer }) => (
-            <details key={title}>
-              <summary>{title}<Plus size={20} aria-hidden="true" /></summary>
-              <p>{answer}</p>
-            </details>
-          ))}
-        </div>
-      </section>
-
-      <section className={styles.invitation} aria-labelledby="author-invitation-title">
-        <div className={styles.invitationBrand} aria-hidden="true"><Image src="/favi.svg" alt="" width={240} height={220} /></div>
-        <div className={styles.invitationCopy}>
-          <p className={styles.eyebrow}><span className={styles.statusDot} />Private pre-launch</p>
-          <h2 id="author-invitation-title">The next chapter<br /><span className={styles.gradient}>could be yours.</span></h2>
-          <p>We are opening Verkli to authors in small waves.<br />Bring your story. Be part of what comes next.</p>
-          <div className={styles.invitationActions}>
-            <Link href="/waitlist" className={styles.invitationButton}>Join the waitlist <ArrowUpRight size={19} aria-hidden="true" /></Link>
-            <Link href="/author/signin" className={styles.textLink}>Already invited? Sign in <ArrowRight size={17} aria-hidden="true" /></Link>
-          </div>
-        </div>
-        <div className={styles.invitationFoot}><span>Your ideas. Your voice. A whole new dimension.</span><span>verkli</span></div>
-      </section>
-    </div>
-  );
+  return <div className={styles.sections}>
+    <section className={styles.possibilities} aria-labelledby="possibilities-title">
+      <div className={styles.possibilityIntro}><p className={styles.eyebrow}>BUILT AROUND YOUR IMAGINATION</p><h2 id="possibilities-title">The story is yours.<br /><span>So is the next move.</span></h2><p>Less moving between tools.<br />More moving the story forward.</p><a href="#studio" className={styles.textLink}>Experience the workspace <ArrowUpRight size={17} /></a></div>
+      <div className={styles.possibilityList}>{possibilities.map(({ icon: Icon, title, detail, label, id }, index) => <details key={id} open={index === 0}><summary><span className={styles.possibilityNumber}>0{index + 1}</span><div><span className={styles.possibilityLabel}><Icon size={13} />{label}</span><h3>{title}</h3></div><Plus size={20} /></summary><p>{detail}</p></details>)}</div>
+    </section>
+    <section className={styles.invitation} aria-labelledby="author-invitation-title">
+      <div className={styles.invitationTop}><p className={styles.eyebrow}><span className={styles.statusDot} />PRIVATE PRE-LAUNCH</p><span>For the stories only you can tell.</span></div>
+      <div className={styles.invitationBody}><div><h2 id="author-invitation-title">A new chapter.<br /><span>And you’re invited.</span></h2><p>We’re opening Verkli to authors in small waves.<br />Bring your imagination. Be part of what comes next.</p><Link href="/waitlist" className={styles.invitationButton}>Get early access <ArrowUpRight size={18} /></Link></div><div className={styles.brandSculpture} aria-hidden="true"><div /><Image src="/favi.svg" alt="" width={230} height={230} /></div></div>
+      <div className={styles.invitationFoot}><span>YOUR IDEAS. YOUR VOICE. YOUR VERKLI.</span><Link href="/author/signin">Already invited? Sign in <ArrowRight size={15} /></Link></div>
+    </section>
+    <section className={styles.faq} aria-labelledby="author-questions-title"><div><p className={styles.eyebrow}>GOOD QUESTIONS</p><h2 id="author-questions-title">A little more<br />about Verkli.</h2><Link href="/faq" className={styles.textLink}>All questions <ArrowUpRight size={17} /></Link></div><div className={styles.questions}>{questions.map(({ title, answer }) => <details key={title}><summary>{title}<Plus size={18} /></summary><p>{answer}</p></details>)}</div></section>
+  </div>;
 }
