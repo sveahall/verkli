@@ -185,6 +185,29 @@ const nextConfig: NextConfig = {
           { key: "Content-Security-Policy", value: contentSecurityPolicy },
           { key: "X-Frame-Options", value: "DENY" },
           { key: "X-Content-Type-Options", value: "nosniff" },
+          // HSTS. Vercel added this automatically; the move to Railway dropped
+          // it, so www.verkli.com has been served without it since 2026-09-07.
+          //
+          // Deliberately WITHOUT `includeSubDomains` and WITHOUT `preload`.
+          // The apex redirects to www through GoDaddy Domain Forwarding, which
+          // is not under our control, and `includeSubDomains` would force every
+          // present and future subdomain to HTTPS-only — a browser that has
+          // seen this header refuses plain HTTP for a year with no way to tell
+          // it otherwise. `preload` is worse: it is a submission to a list
+          // baked into browser binaries, and removal takes months. The host we
+          // actually serve is HTTPS-only already, so protecting just that host
+          // is the whole benefit with none of the blast radius.
+          //
+          // Only sent in production: on http://localhost a browser that caches
+          // this would refuse to load the dev server over HTTP.
+          ...(isProduction
+            ? [
+                {
+                  key: "Strict-Transport-Security",
+                  value: "max-age=31536000",
+                },
+              ]
+            : []),
           { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
           { key: "Permissions-Policy", value: permissionsPolicy },
         ],
