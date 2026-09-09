@@ -70,6 +70,28 @@ describe("middleware beta lock", () => {
     expect(res.headers.get("location")).toContain("/waitlist");
   });
 
+  it.each(["/author", "/how-it-works"])(
+    "serves the public marketing page %s to signed-out visitors during beta",
+    async (path) => {
+      mockGetUser.mockResolvedValue({ data: { user: null } });
+      const { middleware } = await import("./middleware");
+      const res = await middleware(new NextRequest(`http://localhost${path}`));
+      expect(res.status).toBe(200);
+      expect(res.headers.get("location")).toBeNull();
+    }
+  );
+
+  it.each(["/author/home", "/author/books", "/authoring", "/how-it-works/private"])(
+    "keeps %s behind beta access when public marketing pages are open",
+    async (path) => {
+      mockGetUser.mockResolvedValue({ data: { user: null } });
+      const { middleware } = await import("./middleware");
+      const res = await middleware(new NextRequest(`http://localhost${path}`));
+      expect(res.status).toBe(307);
+      expect(res.headers.get("location")).toBe("http://localhost/waitlist");
+    }
+  );
+
   // The dead end this guards: the lock allowed /auth, which is only the OAuth
   // callback and the reset-password screen. Every sign-in form sits elsewhere,
   // so a beta tester without a session was bounced to /waitlist and had no way

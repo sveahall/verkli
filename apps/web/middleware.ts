@@ -283,8 +283,8 @@ export async function middleware(request: NextRequest) {
   const { data: { user } } = await supabase.auth.getUser()
 
   // -------------------------------------------------------------------------
-  // Beta lock (FAS 5): when BETA_LOCK=true, only /waitlist and /auth allowed
-  // unless user has beta_enabled in user_flags.
+  // Beta lock: public marketing, auth and order paths remain reachable;
+  // platform access requires beta_enabled in user_flags.
   // -------------------------------------------------------------------------
   const betaLock = process.env.BETA_LOCK === 'true'
   if (betaLock) {
@@ -323,13 +323,16 @@ export async function middleware(request: NextRequest) {
     const isHealth = p === '/api/health'
 
     const isAuthEntry = BETA_LOCK_AUTH_PATHS.has(p)
+    // Publish the author landing page and its explanation CTA during beta.
+    // Exact matches keep /author/home and all other workspace routes gated.
+    const isPublicMarketing = p === '/author' || p === '/how-it-works'
 
     // BETA_LOCK restricts the *platform* to invited users; the book sale is not
     // part of the platform. Without this an order POST 403s the moment the lock
     // goes on for the cohort — see PUBLIC_ORDER_SLUGS.
     const isOrderPath = isPublicOrderPath(p)
 
-    const allowedPath = isWaitlist || isAuth || isAuthEntry || isApiWaitlist || isApiAuth || isOrderPath || isNext || isKnownRoot || isRootAssetWithExt || isStaticAsset || isHealth
+    const allowedPath = isWaitlist || isAuth || isAuthEntry || isPublicMarketing || isApiWaitlist || isApiAuth || isOrderPath || isNext || isKnownRoot || isRootAssetWithExt || isStaticAsset || isHealth
     // Only look up cohort membership when it can change the outcome. `isBeta` is
     // read once, in `!allowedPath && !isBeta` below, so on an allowed path the
     // result is discarded — and a transient failure of that lookup would 503 a

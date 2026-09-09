@@ -91,7 +91,7 @@ function LandingPage() {
           onMouseMove={handleHeroMouseMove}
           onMouseLeave={handleHeroMouseLeave}
           style={heroMotionStyle}
-          className="relative isolate mx-auto flex w-full max-w-[1800px] flex-col items-center overflow-hidden px-6 pb-0 pt-[140px] text-center"
+          className="relative isolate mx-auto flex w-full max-w-[1800px] flex-col items-center overflow-hidden px-5 pb-8 pt-[140px] text-center sm:px-8 lg:px-12 lg:pt-[172px]"
         >
           {/* Layered background overlays */}
           <div className="pointer-events-none absolute inset-0 -z-10 overflow-hidden">
@@ -105,29 +105,30 @@ function LandingPage() {
             </div>
           </div>
 
-          <div className="mx-auto w-full max-w-[1100px]">
-            <div className="flex flex-col items-center text-center">
+          <div className="mx-auto grid w-full max-w-[1440px] items-center gap-10 lg:grid-cols-[0.8fr_1.2fr] lg:gap-12">
+            <div className="flex min-w-0 flex-col items-center text-center lg:items-start lg:text-left">
               {/* Badge */}
               <div className="hero-animate-down mb-7 inline-flex items-center gap-2 rounded-full border border-black/[0.08] bg-white/80 px-4 py-1.5 backdrop-blur-xl dark:border-white/[0.12] dark:bg-white/[0.04]">
                 <span className="h-1.5 w-1.5 rounded-full bg-[#907AFF]" />
-                <span className="text-[10px] font-medium uppercase tracking-[0.16em] text-slate-600 dark:text-white/60">Premium author OS</span>
+                <span className="text-[10px] font-medium uppercase tracking-[0.16em] text-slate-600 dark:text-white/60">Your AI creative studio</span>
               </div>
 
               {/* Headline */}
-              <h1 className="hero-animate max-w-[820px] text-[clamp(48px,6.5vw,88px)] font-semibold leading-[0.94] tracking-[-0.05em] text-slate-900 dark:text-white" style={{ animationDelay: "180ms" }}>
-                Write once.<br />
+              <h1 className="hero-animate max-w-full text-[clamp(34px,8.6vw,68px)] font-semibold leading-[1.04] tracking-[-0.055em] text-slate-900 dark:text-white lg:text-[clamp(46px,4.5vw,76px)]" style={{ animationDelay: "180ms", fontFamily: "var(--font-montserrat-alternates), sans-serif" }}>
+                Your story.<br />
                 <span className="bg-[linear-gradient(110deg,#907AFF_0%,#E29ED5_55%,#FCC997_100%)] bg-clip-text text-transparent">
-                  Show up everywhere.
+                  Supercharged.
                 </span>
               </h1>
 
               {/* Subtitle */}
               <p className="hero-animate mt-6 max-w-[500px] text-[clamp(16px,1.2vw,19px)] leading-[1.65] text-slate-500 dark:text-white/50" style={{ animationDelay: "340ms" }}>
-                Turn every chapter into premium content that grows your audience and compounds recurring revenue.
+                Write, translate, create audiobooks, and publish.
+                Your imagination, connected in one AI workspace.
               </p>
 
               {/* CTAs */}
-              <div className="hero-animate mt-9 flex flex-col items-center gap-3 sm:flex-row" style={{ animationDelay: "500ms" }}>
+              <div className="hero-animate mt-8 flex w-full flex-col items-center justify-center gap-3 sm:w-auto sm:flex-row lg:flex-wrap lg:justify-start" style={{ animationDelay: "500ms" }}>
                 <Link href="/author/signup" className="btn-primary w-full rounded-full px-8 py-3.5 text-center text-[15px] shadow-[0_18px_40px_rgba(111,88,223,0.32)] sm:w-auto sm:min-w-[192px]">
                   Start for free
                 </Link>
@@ -136,22 +137,27 @@ function LandingPage() {
                 </Link>
               </div>
 
-              {/* Dashboard screenshot — clipped with bottom fade */}
-              <div className="hero-animate relative mt-0 w-full overflow-hidden" style={{ animationDelay: "720ms", maxHeight: "480px" }}>
+              <p className="hero-animate mt-6 text-[13px] text-slate-500 dark:text-white/60" style={{ animationDelay: "600ms" }}>Your ideas. Your voice. A whole new dimension.</p>
+            </div>
+
+            <figure className="min-w-0" aria-label="Verkli Studio product concept">
+              <div className="overflow-hidden rounded-[22px] border border-black/10 bg-[#0b0b10] shadow-[0_28px_70px_-26px_rgba(36,24,67,0.4)] sm:rounded-[28px] dark:border-white/15">
                 <Image
-                  src="/images/author-dashboard-hero.png"
-                  alt="Verkli dashboard on laptop and mobile"
-                  width={3072}
-                  height={1728}
-                  sizes="(max-width: 640px) 95vw, (max-width: 1200px) 85vw, 1060px"
+                  src="/images/verkli-studio-mockup-v1.png"
+                  alt="Product concept showing Verkli’s writing studio, English-to-Spanish translation and audiobook player."
+                  width={1536}
+                  height={1024}
+                  sizes="(max-width: 639px) calc(100vw - 40px), (max-width: 1023px) calc(100vw - 64px), (max-width: 1535px) calc(60vw - 86px), 836px"
                   quality={90}
-                  className="w-full object-contain object-top"
+                  className="h-auto w-full"
                   priority
                 />
-                {/* Bottom fade cut */}
-                <div className="pointer-events-none absolute bottom-0 left-0 right-0 h-40 bg-gradient-to-t from-background via-background/80 to-transparent" />
               </div>
-            </div>
+              <figcaption className="mt-4 flex flex-wrap items-center justify-between gap-x-4 gap-y-2 px-1 text-left text-[11px] text-slate-500 dark:text-white/60 sm:text-xs">
+                <span className="inline-flex items-center gap-2 font-medium text-slate-700 dark:text-white/80"><Image src="/favi.svg" alt="" width={23} height={21} />Verkli Studio</span>
+                <span>Product concept · Example manuscript</span>
+              </figcaption>
+            </figure>
           </div>
         </section>
 
