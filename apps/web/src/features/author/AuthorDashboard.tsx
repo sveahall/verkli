@@ -16,6 +16,7 @@ import { SHELF_GRADIENT_OPTIONS } from "@/lib/design/brand";
 
 type Book = Tables<"books">;
 import { getTranslationsEnabled } from "@/lib/flags";
+import { requiresUnoptimizedImage } from "@/lib/images/optimizable";
 
 const CreateBookDialog = dynamic(() => import("@/components/books/CreateBookDialog"), { ssr: false });
 
@@ -510,7 +511,7 @@ export default function AuthorDashboard() {
                           src={shelfForm.cover}
                           alt="Shelf cover"
                           fill
-                          unoptimized
+                          unoptimized={requiresUnoptimizedImage(shelfForm.cover)}
                           sizes="128px"
                           className="object-cover"
                         />
@@ -731,7 +732,7 @@ export default function AuthorDashboard() {
                       src={shelfForm.cover}
                       alt="Shelf cover"
                       fill
-                      unoptimized
+                      unoptimized={requiresUnoptimizedImage(shelfForm.cover)}
                       sizes="128px"
                       className="object-cover"
                     />

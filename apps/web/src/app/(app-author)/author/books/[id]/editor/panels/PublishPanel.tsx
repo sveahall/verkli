@@ -7,6 +7,7 @@ import { getLanguageLabel } from "@/lib/languages";
 import { useToastHelpers } from "@/components/ui/toast";
 import { createClient } from "@/lib/supabase/client";
 import { hasReadableContent } from "@/app/(app-author)/author/books/[id]/editor/BookEditorView.helpers";
+import { requiresUnoptimizedImage } from "@/lib/images/optimizable";
 
 type PublishVisibility = "public" | "followers" | "private";
 
@@ -184,7 +185,7 @@ export default function PublishPanel({
               fill
               sizes="120px"
               className="object-cover"
-              unoptimized
+              unoptimized={requiresUnoptimizedImage(coverImageUrl)}
             />
           ) : (
             <button

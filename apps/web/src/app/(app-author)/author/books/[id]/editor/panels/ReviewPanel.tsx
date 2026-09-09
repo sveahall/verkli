@@ -6,6 +6,7 @@ import { getLanguageLabel } from "@/lib/languages";
 import { getAudiobookStatusLabel } from "../bookEditor.shared";
 import { countWordsInContent } from "@/lib/tiptap-content";
 import type { Tool } from "../BookEditorView.types";
+import { requiresUnoptimizedImage } from "@/lib/images/optimizable";
 
 type Chapter = {
   id: string;
@@ -229,7 +230,7 @@ export default function ReviewPanel({
       <div className="grid items-start gap-6 rounded-2xl border border-black/[0.05] bg-white/60 p-6 backdrop-blur-sm dark:border-white/[0.06] dark:bg-white/[0.02] sm:grid-cols-[140px_1fr]">
         <div className="relative mx-auto aspect-[3/4] w-[140px] overflow-hidden rounded-xl border border-black/[0.06] bg-slate-50 shadow-sm dark:border-white/[0.06] dark:bg-white/[0.02] sm:mx-0">
           {coverImageUrl ? (
-            <Image src={coverImageUrl} alt="Book cover" fill sizes="140px" className="object-cover" unoptimized />
+            <Image src={coverImageUrl} alt="Book cover" fill sizes="140px" className="object-cover" unoptimized={requiresUnoptimizedImage(coverImageUrl)} />
           ) : (
             <div className="flex h-full w-full items-center justify-center text-slate-300 dark:text-white/15">
               <svg className="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
@@ -399,7 +400,7 @@ export default function ReviewPanel({
           >
             {coverImageUrl ? (
               <div className="relative h-10 w-7 overflow-hidden rounded">
-                <Image src={coverImageUrl} alt="" fill sizes="28px" className="object-cover" unoptimized />
+                <Image src={coverImageUrl} alt="" fill sizes="28px" className="object-cover" unoptimized={requiresUnoptimizedImage(coverImageUrl)} />
               </div>
             ) : (
               <div className="flex h-10 w-7 items-center justify-center rounded bg-slate-200/50 dark:bg-white/[0.06]">

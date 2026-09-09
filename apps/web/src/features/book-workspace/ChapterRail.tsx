@@ -12,6 +12,7 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { countWordsInContent } from "@/lib/tiptap-content";
+import { requiresUnoptimizedImage } from "@/lib/images/optimizable";
 
 type ChapterRailProps = {
   bookTitle: string;
@@ -84,7 +85,7 @@ function ChapterRail({
                 className="h-full w-full object-cover"
                 width={48}
                 height={48}
-                unoptimized
+                unoptimized={requiresUnoptimizedImage(coverImageUrl)}
               />
             ) : (
               <div className="flex h-full w-full items-center justify-center text-[11px] font-semibold text-slate-400 dark:text-white/35">

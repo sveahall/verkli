@@ -5,6 +5,7 @@ import Link from "next/link";
 import dynamic from "next/dynamic";
 import { ArrowRight, ImageIcon, PenLine, Sparkles, Upload } from "lucide-react";
 import { ACCEPTED_COVER_TYPES, COVER_AI_STYLES, COVER_TEMPLATES } from "../BookEditorView.helpers";
+import { requiresUnoptimizedImage } from "@/lib/images/optimizable";
 
 const CoverCropModal = dynamic(() => import("@/components/books/CoverCropModal"), { ssr: false });
 const CoverEditorModal = dynamic(() => import("@/components/books/cover-editor/CoverEditorModal"), { ssr: false });
@@ -160,7 +161,7 @@ export default function CoverPanel({
                   fill
                   sizes="320px"
                   className="object-cover"
-                  unoptimized
+                  unoptimized={requiresUnoptimizedImage(demoMode ? demoCoverUrl ?? "" : displayCoverUrl ?? "")}
                   priority={demoMode}
                 />
               </div>
@@ -571,7 +572,7 @@ export default function CoverPanel({
                     fill
                     sizes="200px"
                     className="object-cover"
-                    unoptimized
+                    unoptimized={requiresUnoptimizedImage(coverAIPreviewUrl)}
                   />
                 </div>
               </div>
@@ -644,7 +645,7 @@ export default function CoverPanel({
                       fill
                       sizes="200px"
                       className="object-cover transition-transform duration-200 group-hover:scale-[1.03]"
-                      unoptimized
+                      unoptimized={requiresUnoptimizedImage(url)}
                     />
                   </button>
                 ))}
