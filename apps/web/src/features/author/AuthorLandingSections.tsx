@@ -2,6 +2,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { ArrowDown, ArrowRight, ArrowUpRight, AudioLines, BookOpen, FileText, Languages, Plus } from "lucide-react";
 import styles from "./AuthorLandingSections.module.css";
+import { AudioDemo, ExperienceBridge, TranslationDemo, WritingDemo } from "./AuthorStoryExperience";
 
 const chapters = [
   { id: "writing", label: "Write", icon: FileText },
@@ -41,57 +42,10 @@ export default function AuthorLandingSections() {
         </div>
       </nav>
 
-      <section className={styles.productStory} aria-labelledby="studio-story-title">
-        <div className={styles.intro}>
-          <div>
-            <p className={styles.eyebrow}>A little help. A lot of possibility.</p>
-            <h2 id="studio-story-title">Big ideas deserve<br /><span className={styles.gradient}>more than a document.</span></h2>
-          </div>
-          <p className={styles.introCopy}>From the first sentence to a whole new audience. Bring your writing, your languages and your voice together in Verkli.</p>
-        </div>
-
-        <article id="writing" className={styles.writing} aria-labelledby="writing-title">
-          <div className={styles.writingCopy}>
-            <p className={styles.eyebrow}><span>01</span> / Your writing space</p>
-            <h3 id="writing-title">Your next chapter.<br /><span>All the space<br />it needs.</span></h3>
-            <p>Bring your manuscript. Find your flow. Shape each chapter in a focused editor, with AI support when you want a fresh perspective.</p>
-            <div className={styles.writingDetails}>
-              <span><FileText size={16} aria-hidden="true" />Manuscript import</span>
-              <span><BookOpen size={16} aria-hidden="true" />Chapter editor</span>
-            </div>
-            <Link href="/how-it-works" className={styles.textLink}>Explore the workflow <ArrowUpRight size={18} aria-hidden="true" /></Link>
-          </div>
-          <figure className={styles.writingArt}>
-            <Image src="/images/waitlist-studio-write-v1.png" alt="Verkli writing studio with a manuscript and creative partner panel." width={1254} height={1254} sizes="(max-width: 767px) calc(100vw - 40px), (max-width: 1439px) 56vw, 740px" quality={85} />
-            <figcaption>Verkli Studio · Illustrative product concept</figcaption>
-          </figure>
-        </article>
-
-        <div className={styles.dimensions}>
-          <article id="translation" className={styles.dimension} aria-labelledby="translation-title">
-            <div className={styles.dimensionCopy}>
-              <p className={styles.eyebrow}><span>02</span> / Translation</p>
-              <h3 id="translation-title">A new language.<br /><span>Still your story.</span></h3>
-              <p>Give your words a new way to travel. Translate your chapters, review the result, and prepare another edition for new readers.</p>
-            </div>
-            <figure>
-              <Image src="/images/waitlist-studio-translate-v1.png" alt="Illustrative translation workspace comparing a passage in English, Swedish and Spanish." width={1254} height={1254} sizes="(max-width: 767px) calc(100vw - 40px), (max-width: 1439px) 46vw, 646px" quality={85} />
-              <figcaption><Languages size={16} aria-hidden="true" />Translation concept · Example languages</figcaption>
-            </figure>
-          </article>
-          <article id="audio" className={`${styles.dimension} ${styles.audio}`} aria-labelledby="audio-title">
-            <div className={styles.dimensionCopy}>
-              <p className={styles.eyebrow}><span>03</span> / Audiobooks</p>
-              <h3 id="audio-title">Let them hear<br /><span>your imagination.</span></h3>
-              <p>Turn the words on your page into narrated audio. Choose a voice, listen back, and shape an audiobook chapter by chapter.</p>
-            </div>
-            <figure>
-              <Image src="/images/waitlist-studio-audio-v1.png" alt="Illustrative audiobook studio with a narration waveform and chapter preview." width={1254} height={1254} sizes="(max-width: 767px) calc(100vw - 40px), (max-width: 1439px) 46vw, 646px" quality={85} />
-              <figcaption><AudioLines size={16} aria-hidden="true" />Audio concept · This illustration has no sound</figcaption>
-            </figure>
-          </article>
-        </div>
-      </section>
+      <ExperienceBridge />
+      <WritingDemo />
+      <TranslationDemo />
+      <AudioDemo />
 
       <section id="publishing" className={styles.publishing} aria-labelledby="publishing-title">
         <div className={styles.publishHeading}>

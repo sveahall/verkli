@@ -2,12 +2,12 @@
 
 import { useState, useRef, useEffect, type CSSProperties } from "react";
 import Link from "next/link";
-import Image from "next/image";
 import dynamic from "next/dynamic";
 import { createClient } from "@/lib/supabase/client";
 import type { User } from "@supabase/supabase-js";
 import { BRAND_COLORS } from "@/lib/design/brand";
 import AuthorLandingSections from "./AuthorLandingSections";
+import { AuthorStoryProvider, StoryHero } from "./AuthorStoryExperience";
 import styles from "./AuthorLandingSections.module.css";
 
 const AuthorDashboard = dynamic(() => import("@/features/author/AuthorDashboard"), { ssr: false });
@@ -59,6 +59,7 @@ function LandingPage() {
   } as CSSProperties;
 
   return (
+    <AuthorStoryProvider>
     <main className={`${styles.page} author-light relative min-h-screen bg-background text-foreground transition-colors duration-300 -mt-[88px]`}>
       <div className="section-stack">
         {/* ─── Hero ─── */}
@@ -105,35 +106,18 @@ function LandingPage() {
 
               {/* CTAs */}
               <div className="hero-animate mt-8 flex w-full flex-col items-center justify-center gap-3 sm:w-auto sm:flex-row lg:flex-wrap lg:justify-start" style={{ animationDelay: "500ms" }}>
-                <Link href="/author/signup" className="btn-primary w-full rounded-full px-8 py-3.5 text-center text-[15px] shadow-[0_18px_40px_rgba(111,88,223,0.32)] sm:w-auto sm:min-w-[192px]">
-                  Start for free
+                <Link href="#writing" className="btn-primary w-full rounded-full px-8 py-3.5 text-center text-[15px] shadow-[0_18px_40px_rgba(111,88,223,0.32)] sm:w-auto sm:min-w-[192px]">
+                  Try the studio
                 </Link>
-                <Link href="/how-it-works" className="btn-secondary w-full rounded-full border-black/10 bg-white/80 px-7 py-3.5 text-center text-[15px] sm:w-auto sm:min-w-[178px]">
-                  See how it works
+                <Link href="/waitlist" className="btn-secondary w-full rounded-full border-black/10 bg-white/80 px-7 py-3.5 text-center text-[15px] sm:w-auto sm:min-w-[178px]">
+                  Join the waitlist
                 </Link>
               </div>
 
               <p className="hero-animate mt-6 text-[13px] text-slate-500 dark:text-white/60" style={{ animationDelay: "600ms" }}>Your ideas. Your voice. A whole new dimension.</p>
             </div>
 
-            <figure className="min-w-0" aria-label="Verkli Studio product concept">
-              <div className="overflow-hidden rounded-[22px] border border-black/10 bg-[#0b0b10] shadow-[0_28px_70px_-26px_rgba(36,24,67,0.4)] sm:rounded-[28px] dark:border-white/15">
-                <Image
-                  src="/images/verkli-studio-mockup-v1.png"
-                  alt="Product concept showing Verkli’s writing studio, English-to-Spanish translation and audiobook player."
-                  width={1536}
-                  height={1024}
-                  sizes="(max-width: 639px) calc(100vw - 40px), (max-width: 1023px) calc(100vw - 64px), (max-width: 1535px) calc(60vw - 86px), 836px"
-                  quality={90}
-                  className="h-auto w-full"
-                  priority
-                />
-              </div>
-              <figcaption className="mt-4 flex flex-wrap items-center justify-between gap-x-4 gap-y-2 px-1 text-left text-[11px] text-slate-500 dark:text-white/60 sm:text-xs">
-                <span className="inline-flex items-center gap-2 font-medium text-slate-700 dark:text-white/80"><Image src="/favi.svg" alt="" width={23} height={21} />Verkli Studio</span>
-                <span>Product concept · Example manuscript</span>
-              </figcaption>
-            </figure>
+            <StoryHero />
           </div>
         </section>
 
@@ -142,6 +126,7 @@ function LandingPage() {
         {/* Footer rendered globally in layout */}
       </div>
     </main>
+    </AuthorStoryProvider>
   );
 }
 
