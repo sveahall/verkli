@@ -5,26 +5,12 @@ import Link from "next/link";
 import Image from "next/image";
 import dynamic from "next/dynamic";
 import { createClient } from "@/lib/supabase/client";
-import LazySection from "@/components/LazySection";
-import BrandGradientText from "@/components/ui/brand-gradient-text";
 import type { User } from "@supabase/supabase-js";
 import { BRAND_COLORS } from "@/lib/design/brand";
-import Reveal from "@/components/Reveal";
+import AuthorLandingSections from "./AuthorLandingSections";
+import styles from "./AuthorLandingSections.module.css";
 
 const AuthorDashboard = dynamic(() => import("@/features/author/AuthorDashboard"), { ssr: false });
-
-const PARTNERS = [
-  "Amazon KDP",
-  "Apple Books",
-  "Spotify",
-  "Audible",
-  "Kobo",
-  "Barnes & Noble",
-  "Google Play",
-  "Scribd",
-  "BookBub",
-  "Draft2Digital",
-];
 
 // ============================================
 // LANDING PAGE (for non-authenticated users)
@@ -73,17 +59,7 @@ function LandingPage() {
   } as CSSProperties;
 
   return (
-    <main className="author-light relative min-h-screen bg-background text-foreground transition-colors duration-300 -mt-[88px]">
-      {/* Marquee keyframe */}
-      <style>{`
-        @keyframes marquee {
-          from { transform: translateX(0); }
-          to { transform: translateX(-50%); }
-        }
-        .marquee-track { animation: marquee 28s linear infinite; }
-        .marquee-track:hover { animation-play-state: paused; }
-      `}</style>
-
+    <main className={`${styles.page} author-light relative min-h-screen bg-background text-foreground transition-colors duration-300 -mt-[88px]`}>
       <div className="section-stack">
         {/* ─── Hero ─── */}
         <section
@@ -161,238 +137,7 @@ function LandingPage() {
           </div>
         </section>
 
-        {/* ─── Partners marquee ─── */}
-        <section className="w-full overflow-hidden border-y border-black/[0.05] bg-white/50 py-5 backdrop-blur-sm dark:border-white/[0.05] dark:bg-white/[0.015]">
-          <p className="mb-4 text-center text-[10px] font-medium uppercase tracking-[0.18em] text-slate-400 dark:text-white/25">
-            Our partners
-          </p>
-          <div className="relative">
-            {/* Left + right edge fades */}
-            <div className="pointer-events-none absolute left-0 top-0 z-10 h-full w-24 bg-gradient-to-r from-white/90 to-transparent dark:from-[#050508]/90" />
-            <div className="pointer-events-none absolute right-0 top-0 z-10 h-full w-24 bg-gradient-to-l from-white/90 to-transparent dark:from-[#050508]/90" />
-
-            <div className="marquee-track flex w-max items-center gap-12">
-              {[...PARTNERS, ...PARTNERS].map((name, i) => (
-                <span
-                  key={i}
-                  className="whitespace-nowrap text-[15px] font-semibold tracking-[-0.01em] text-slate-400/80 transition-colors duration-300 hover:text-slate-600 dark:text-white/20 dark:hover:text-white/40"
-                >
-                  {name}
-                </span>
-              ))}
-            </div>
-          </div>
-        </section>
-
-        {/* ─── Bento Grid ─── */}
-        <Reveal>
-        <section className="relative mx-auto w-full max-w-[1200px] px-6">
-          <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3 md:gap-4">
-            {/* ── Main feature card (2-col) ── */}
-            <div className="group relative col-span-full overflow-hidden rounded-[28px] border border-black/[0.04] bg-gradient-to-br from-[#907AFF]/[0.14] via-[#E29ED5]/[0.08] to-[#FCC997]/[0.06] p-10 shadow-[0_2px_40px_rgba(144,122,255,0.06)] lg:col-span-2 lg:p-14">
-              <div className="pointer-events-none absolute -right-24 -top-24 h-[420px] w-[420px] rounded-full bg-[#907AFF]/[0.18] blur-[100px] transition-transform duration-[1200ms] group-hover:translate-x-8 group-hover:translate-y-4" />
-              <div className="pointer-events-none absolute -bottom-16 -left-16 h-[300px] w-[300px] rounded-full bg-[#E29ED5]/[0.12] blur-[80px]" />
-              <div className="relative max-w-[480px]">
-                <p className="mb-4 text-[13px] font-medium uppercase tracking-[0.15em] text-[#907AFF]/80 dark:text-[#907AFF]/60">One platform</p>
-                <h2 className="text-[clamp(30px,3.5vw,44px)] font-bold leading-[1.1] tracking-[-0.03em] text-slate-900 dark:text-white">
-                  Zero friction{" "}
-                  <BrandGradientText>book marketing.</BrandGradientText>
-                </h2>
-                <p className="mt-5 max-w-[400px] text-[16px] leading-[1.7] text-slate-500 dark:text-white/50">Turn your book into structured content that publishes, adapts, and scales — without the busywork.</p>
-                <div className="mt-8">
-                  <Link href="/author/signup" className="btn-primary text-[15px]">Start for free</Link>
-                </div>
-              </div>
-            </div>
-
-            {/* ── Pre-launch card ── */}
-            {/* Replaced a "4.9/5 · Average rating from authors" card with four
-                Unsplash stock portraits and a "+2k" badge. Verkli has not
-                launched: no published books, no orders, one beta account. There
-                were no ratings and no 2,000 authors. Invented social proof on a
-                page shown to authors and investors is a credibility risk that
-                costs more than the empty space it filled. */}
-            <div className="group relative overflow-hidden rounded-[28px] border border-black/[0.04] bg-white/60 p-8 backdrop-blur-sm transition-shadow duration-500 hover:shadow-[0_8px_30px_rgba(144,122,255,0.1)] dark:border-white/[0.06] dark:bg-white/[0.03]">
-              <div className="pointer-events-none absolute -right-10 -top-10 h-32 w-32 rounded-full bg-[#907AFF]/20 blur-3xl opacity-0 transition-opacity duration-500 group-hover:opacity-100" />
-              <div className="relative flex h-full flex-col justify-between gap-6">
-                <div>
-                  <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[#907AFF]">Private pre-launch</p>
-                  <p className="mt-4 text-[28px] font-bold leading-[1.15] tracking-[-0.03em] text-slate-900 dark:text-white">
-                    Early access, in small waves
-                  </p>
-                </div>
-                <p className="text-[14px] leading-[1.6] text-slate-500 dark:text-white/40">
-                  We onboard a limited number of authors at a time so each one gets real support.
-                </p>
-              </div>
-            </div>
-
-            {/* ── Three highlight cards ── */}
-            {[
-              { title: "No credit card", desc: "Start free, upgrade when ready", color: "#907AFF", icon: "M2.25 8.25h19.5M2.25 9h19.5m-16.5 5.25h6m-6 2.25h3m-3.75 3h15a2.25 2.25 0 002.25-2.25V6.75A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25v10.5A2.25 2.25 0 004.5 19.5z" },
-              { title: "2 min setup", desc: "Go live in minutes, not days", color: "#E29ED5", icon: "M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z" },
-              { title: "10+ platforms", desc: "Publish everywhere at once", color: "#FCC997", icon: "M3.75 3.75v4.5m0-4.5h4.5m-4.5 0L9 9M3.75 20.25v-4.5m0 4.5h4.5m-4.5 0L9 15M20.25 3.75h-4.5m4.5 0v4.5m0-4.5L15 9m5.25 11.25h-4.5m4.5 0v-4.5m0 4.5L15 15" },
-            ].map((item) => (
-              <div key={item.title} className="group relative overflow-hidden rounded-[22px] border border-black/[0.04] bg-white/50 p-6 backdrop-blur-sm transition-all duration-500 hover:border-black/[0.08] hover:shadow-[0_4px_20px_rgba(0,0,0,0.03)] dark:border-white/[0.06] dark:bg-white/[0.02] dark:hover:border-white/[0.10]">
-                <div className="pointer-events-none absolute -right-6 -top-6 h-20 w-20 rounded-full blur-2xl opacity-0 transition-opacity duration-500 group-hover:opacity-40" style={{ background: item.color }} />
-                <div className="relative flex items-start gap-4">
-                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl" style={{ background: `${item.color}12` }}>
-                    <svg className="h-[18px] w-[18px]" style={{ color: item.color }} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d={item.icon} /></svg>
-                  </div>
-                  <div>
-                    <p className="text-[16px] font-semibold text-slate-900 dark:text-white">{item.title}</p>
-                    <p className="mt-0.5 text-[14px] leading-snug text-slate-500 dark:text-white/40">{item.desc}</p>
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
-        </section>
-        </Reveal>
-
-        {/* ─── Why Verkli ─── */}
-        <LazySection className="landing-deferred" minHeight={860}>
-          <section className="mx-auto w-full max-w-[1200px] px-6 py-28">
-            <Reveal>
-            <div className="grid gap-14 lg:grid-cols-[1fr_1.3fr] lg:items-start">
-              <div className="lg:sticky lg:top-32">
-                <p className="text-[13px] font-medium uppercase tracking-[0.15em] text-[#907AFF]">Why Verkli</p>
-                <h2 className="mt-5 text-[clamp(28px,3.5vw,42px)] font-bold leading-[1.1] tracking-[-0.03em] text-slate-900 dark:text-white">
-                  Everything you need to{" "}
-                  <BrandGradientText>grow your audience.</BrandGradientText>
-                </h2>
-                <p className="mt-5 max-w-[380px] text-[16px] leading-[1.7] text-slate-500 dark:text-white/45">Simple tools that help you reach readers — without the complexity.</p>
-                <div className="mt-8">
-                  <Link href="/author/signup" className="btn-secondary text-[15px]">Explore features</Link>
-                </div>
-              </div>
-              <div className="grid gap-3 sm:grid-cols-2">
-                {[
-                  { title: "Get discovered", description: "Turn your book into scroll-stopping content for TikTok, Instagram, and beyond.", color: BRAND_COLORS.violet, icon: "M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z" },
-                  { title: "Grow your audience", description: "Reach readers before they buy. Build momentum with content that connects.", color: BRAND_COLORS.rose, icon: "M18 18.72a9.094 9.094 0 003.741-.479 3 3 0 00-4.682-2.72m.94 3.198l.001.031c0 .225-.012.447-.037.666A11.944 11.944 0 0112 21c-2.17 0-4.207-.576-5.963-1.584A6.062 6.062 0 016 18.719m12 0a5.971 5.971 0 00-.941-3.197m0 0A5.995 5.995 0 0012 12.75a5.995 5.995 0 00-5.058 2.772m0 0a3 3 0 00-4.681 2.72 8.986 8.986 0 003.74.477m.94-3.197a5.971 5.971 0 00-.94 3.197M15 6.75a3 3 0 11-6 0 3 3 0 016 0zm6 3a2.25 2.25 0 11-4.5 0 2.25 2.25 0 014.5 0zm-13.5 0a2.25 2.25 0 11-4.5 0 2.25 2.25 0 014.5 0z" },
-                  { title: "Automate marketing", description: "AI-generated hooks, scripts, and captions — without daily effort.", color: BRAND_COLORS.amber, icon: "M3.75 13.5l10.5-11.25L12 10.5h8.25L9.75 21.75 12 13.5H3.75z" },
-                  { title: "Focus on writing", description: "Upload a chapter, get content. No complex tools. No learning curve.", color: BRAND_COLORS.amberSoft, icon: "M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l8.932-8.931zm0 0L19.5 7.125M18 14v4.75A2.25 2.25 0 0115.75 21H5.25A2.25 2.25 0 013 18.75V8.25A2.25 2.25 0 015.25 6H10" },
-                ].map((item) => (
-                  <div key={item.title} className="group relative overflow-hidden rounded-[22px] border border-black/[0.04] bg-white/50 p-7 backdrop-blur-sm transition-all duration-500 hover:border-black/[0.10] hover:shadow-[0_8px_30px_rgba(0,0,0,0.04)] dark:border-white/[0.06] dark:bg-white/[0.02] dark:hover:border-white/[0.12]">
-                    <div className="pointer-events-none absolute -right-8 -top-8 h-28 w-28 rounded-full blur-2xl opacity-0 transition-opacity duration-500 group-hover:opacity-40" style={{ background: item.color }} />
-                    <div className="relative">
-                      <div className="mb-5 inline-flex h-11 w-11 items-center justify-center rounded-xl transition-transform duration-300 group-hover:scale-105" style={{ background: `${item.color}12` }}>
-                        <svg className="h-5 w-5" style={{ color: item.color }} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d={item.icon} /></svg>
-                      </div>
-                      <h3 className="text-[16px] font-semibold text-slate-900 dark:text-white">{item.title}</h3>
-                      <p className="mt-2 text-[14px] leading-[1.65] text-slate-500 dark:text-white/40">{item.description}</p>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-            </Reveal>
-          </section>
-        </LazySection>
-
-        {/* ─── CTA ─── */}
-        <LazySection className="landing-deferred" minHeight={760}>
-          <section className="relative mx-auto w-full max-w-[1200px] px-6 py-28">
-            <Reveal>
-            <div className="group relative overflow-hidden rounded-[32px] border border-black/[0.04] bg-gradient-to-br from-[#907AFF]/[0.12] via-[#E29ED5]/[0.07] to-[#FCC997]/[0.05] shadow-[0_2px_40px_rgba(144,122,255,0.06)] dark:border-white/[0.06]">
-            {/* Ambient glows */}
-            <div className="pointer-events-none absolute -left-32 -top-32 h-[400px] w-[400px] rounded-full bg-[#907AFF]/20 blur-[120px] transition-transform duration-[1500ms] group-hover:translate-x-10 group-hover:translate-y-8" />
-            <div className="pointer-events-none absolute -bottom-20 -right-20 h-[300px] w-[300px] rounded-full bg-[#E29ED5]/15 blur-[100px] transition-transform duration-[1500ms] group-hover:-translate-x-6" />
-
-            <div className="relative grid items-center gap-8 p-6 sm:p-10 md:p-16 lg:grid-cols-[1.4fr_1fr] lg:gap-16">
-              {/* Left — copy */}
-              <div>
-                <p className="text-[13px] font-medium uppercase tracking-[0.15em] text-slate-500 dark:text-white/40">Get started today</p>
-                <h2 className="mt-5 text-[clamp(28px,3.5vw,42px)] font-bold leading-[1.1] tracking-[-0.03em] text-slate-900 dark:text-white">
-                  Ready to reach more readers?
-                </h2>
-                <p className="mt-5 max-w-[400px] text-[16px] leading-[1.7] text-slate-500 dark:text-white/50">Turn one book into content that reaches readers in every format and language.</p>
-                <div className="mt-10 flex flex-wrap items-center gap-4">
-                  <Link href="/author/signup" className="btn-primary text-[15px]">Start for free</Link>
-                  <Link href="/how-it-works" className="flex items-center gap-1.5 text-[15px] font-medium text-slate-500 transition-colors hover:text-slate-800 dark:text-white/45 dark:hover:text-white/70">
-                    How it works
-                    <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" /></svg>
-                  </Link>
-                </div>
-              </div>
-
-              {/* Right — what early access means.
-                  Was a "4.9 out of 5 · Based on 2,000+ reviews" card and a
-                  testimonial attributed to "Emma Richardson, NYT Bestseller",
-                  a person who does not exist. Both invented. Removed rather
-                  than softened: a fabricated named endorsement is the kind of
-                  detail that ends a conversation with a real author. */}
-              <div className="flex flex-col gap-4">
-                <div className="rounded-2xl border border-black/[0.04] bg-white/70 p-6 backdrop-blur-sm dark:border-white/[0.06] dark:bg-white/[0.03]">
-                  <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[#907AFF]">Limited access</p>
-                  <p className="mt-2 text-[15px] leading-[1.55] text-slate-600 dark:text-white/55">
-                    Verkli is in private pre-launch. Join the waitlist and we will reach out as places open.
-                  </p>
-                </div>
-                <div className="rounded-2xl border border-black/[0.04] bg-white/70 p-6 backdrop-blur-sm dark:border-white/[0.06] dark:bg-white/[0.03]">
-                  <p className="text-[15px] leading-[1.55] text-slate-600 dark:text-white/55">
-                    Write once. Publish, translate and narrate from one place — you keep the rights and the revenue.
-                  </p>
-                </div>
-              </div>
-            </div>
-            </div>
-            </Reveal>
-          </section>
-        </LazySection>
-
-        {/* ─── CTA ─── */}
-        <LazySection className="landing-deferred" minHeight={760}>
-          <section className="relative mx-auto w-full max-w-[1200px] px-6 py-28">
-            <Reveal>
-            <div className="group relative overflow-hidden rounded-[32px] border border-black/[0.04] bg-gradient-to-br from-[#907AFF]/[0.12] via-[#E29ED5]/[0.07] to-[#FCC997]/[0.05] shadow-[0_2px_40px_rgba(144,122,255,0.06)] dark:border-white/[0.06]">
-            {/* Ambient glows */}
-            <div className="pointer-events-none absolute -left-32 -top-32 h-[400px] w-[400px] rounded-full bg-[#907AFF]/20 blur-[120px] transition-transform duration-[1500ms] group-hover:translate-x-10 group-hover:translate-y-8" />
-            <div className="pointer-events-none absolute -bottom-20 -right-20 h-[300px] w-[300px] rounded-full bg-[#E29ED5]/15 blur-[100px] transition-transform duration-[1500ms] group-hover:-translate-x-6" />
-
-            <div className="relative grid items-center gap-8 p-6 sm:p-10 md:p-16 lg:grid-cols-[1.4fr_1fr] lg:gap-16">
-              {/* Left — copy */}
-              <div>
-                <p className="text-[13px] font-medium uppercase tracking-[0.15em] text-slate-500 dark:text-white/40">Get started today</p>
-                <h2 className="mt-5 text-[clamp(28px,3.5vw,42px)] font-bold leading-[1.1] tracking-[-0.03em] text-slate-900 dark:text-white">
-                  Ready to reach more readers?
-                </h2>
-                <p className="mt-5 max-w-[400px] text-[16px] leading-[1.7] text-slate-500 dark:text-white/50">Turn one book into content that reaches readers in every format and language.</p>
-                <div className="mt-10 flex flex-wrap items-center gap-4">
-                  <Link href="/author/signup" className="btn-primary text-[15px]">Start for free</Link>
-                  <Link href="/how-it-works" className="flex items-center gap-1.5 text-[15px] font-medium text-slate-500 transition-colors hover:text-slate-800 dark:text-white/45 dark:hover:text-white/70">
-                    How it works
-                    <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" /></svg>
-                  </Link>
-                </div>
-              </div>
-
-              {/* Right — what early access actually means.
-                  Was a "4.9 out of 5 · Based on 2,000+ reviews" card plus a
-                  testimonial from "Emma Richardson, NYT Bestseller" — a person
-                  who does not exist, over four Unsplash stock portraits and a
-                  "+2k" badge. All invented. Verkli has no published books, no
-                  orders and one beta account, so there was nothing to rate.
-                  Removed rather than toned down: a fabricated named endorsement
-                  is what ends a conversation with a real author. */}
-              <div className="flex flex-col gap-4">
-                <div className="rounded-2xl border border-black/[0.04] bg-white/70 p-6 backdrop-blur-sm dark:border-white/[0.06] dark:bg-white/[0.03]">
-                  <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[#907AFF]">Limited access</p>
-                  <p className="mt-2 text-[15px] leading-[1.55] text-slate-600 dark:text-white/55">
-                    Verkli is in private pre-launch. Join the waitlist and we will reach out as places open.
-                  </p>
-                </div>
-                <div className="rounded-2xl border border-black/[0.04] bg-white/70 p-6 backdrop-blur-sm dark:border-white/[0.06] dark:bg-white/[0.03]">
-                  <p className="text-[15px] leading-[1.55] text-slate-600 dark:text-white/55">
-                    One manuscript in. Ebook, translations and narration out — you keep the rights and the revenue.
-                  </p>
-                </div>
-              </div>
-            </div>
-            </div>
-            </Reveal>
-          </section>
-        </LazySection>
+        <AuthorLandingSections />
 
         {/* Footer rendered globally in layout */}
       </div>
