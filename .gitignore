@@ -99,3 +99,10 @@ apps/web/.ds-css/
 
 # Playwright session state — contains a real login token.
 apps/web/e2e/.auth/
+
+# Tool runtime artifacts — regenerated, never meaningful in a diff.
+# .playwright-mcp holds page snapshots and console logs from MCP browser runs.
+# .swarm/ and ruvector.db are claude-flow's local vector/memory stores.
+.playwright-mcp/
+.swarm/
+ruvector.db
