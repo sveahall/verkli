@@ -85,39 +85,43 @@ export default function BookOrderSection() {
 
   return (
     <section id="book-order" className="relative scroll-mt-8 px-4 pb-24 pt-2 dark" aria-labelledby="book-order-heading">
-      <div className="mx-auto w-full max-w-md">
-        <div className="aurora-card rounded-3xl border border-white/20 bg-white/10 p-6 shadow-[0_24px_48px_rgba(0,0,0,0.2),0_0_0_1px_rgba(255,255,255,0.08)] backdrop-blur-xl sm:p-8">
-          {/* The book itself. Selling a physical book with no picture of it is
-              part of why it went unnoticed on a phone. Dimensions are the true
-              A5 ratio of the print file, so nothing shifts as it loads. */}
-          <div className="mb-5 flex justify-center">
-            <Image
-              src="/ta-for-er-cover.jpg"
-              alt={`Omslag: ${TA_FOR_ER_ORDER.bookTitle} av ${TA_FOR_ER_ORDER.authorName}`}
-              width={150}
-              height={213}
-              priority
-              className="h-auto w-[136px] rounded-xl shadow-surface-lg ring-1 ring-white/10 sm:w-[150px]"
-            />
+      <div className="wl-order-shell mx-auto w-full max-w-md">
+        <div className="wl-order-card aurora-card rounded-3xl border border-white/20 bg-white/10 p-6 shadow-[0_24px_48px_rgba(0,0,0,0.2),0_0_0_1px_rgba(255,255,255,0.08)] backdrop-blur-xl sm:p-8">
+          <div className="wl-order-summary">
+            {/* The book itself. Selling a physical book with no picture of it is
+                part of why it went unnoticed on a phone. Dimensions are the true
+                A5 ratio of the print file, so nothing shifts as it loads. */}
+            <div className="mb-5 flex justify-center">
+              <Image
+                src="/ta-for-er-cover.jpg"
+                alt={`Omslag: ${TA_FOR_ER_ORDER.bookTitle} av ${TA_FOR_ER_ORDER.authorName}`}
+                width={300}
+                height={426}
+                sizes="(min-width: 1024px) 240px, (min-width: 640px) 150px, 136px"
+                priority
+                className="h-auto w-[136px] rounded-xl shadow-surface-lg ring-1 ring-white/10 sm:w-[150px]"
+              />
+            </div>
+            <p className="text-center text-[10px] font-medium uppercase tracking-[0.3em] text-white/35">
+              Beställ boken
+            </p>
+            <h2
+              id="book-order-heading"
+              className="mt-3 text-center text-[24px] font-bold leading-tight tracking-tight text-white sm:text-[28px]"
+            >
+              {TA_FOR_ER_ORDER.bookTitle}
+            </h2>
+            <p className="mt-1.5 text-center text-[14px] text-white/55">
+              av {TA_FOR_ER_ORDER.authorName}
+            </p>
+            <p className="mt-4 text-center text-[15px] font-semibold text-white">
+              {TA_FOR_ER_ORDER.priceLabel}{" "}
+              <span className="font-normal text-white/50">· frakt ingår</span>
+            </p>
           </div>
-          <p className="text-center text-[10px] font-medium uppercase tracking-[0.3em] text-white/35">
-            Beställ boken
-          </p>
-          <h2
-            id="book-order-heading"
-            className="mt-3 text-center text-[24px] font-bold leading-tight tracking-tight text-white sm:text-[28px]"
-          >
-            {TA_FOR_ER_ORDER.bookTitle}
-          </h2>
-          <p className="mt-1.5 text-center text-[14px] text-white/55">
-            av {TA_FOR_ER_ORDER.authorName}
-          </p>
-          <p className="mt-4 text-center text-[15px] font-semibold text-white">
-            {TA_FOR_ER_ORDER.priceLabel}{" "}
-            <span className="font-normal text-white/50">· frakt ingår</span>
-          </p>
 
-          <form onSubmit={handleSubmit} className="mt-6 space-y-4" noValidate>
+          <form onSubmit={handleSubmit} className="wl-order-form mt-6 space-y-4" noValidate>
+            <h3 className="wl-order-wide text-left text-[18px] font-semibold tracking-tight text-white">Leveransuppgifter</h3>
             <div>
               <label htmlFor="order-name" className={labelClass}>
                 Namn
@@ -154,7 +158,7 @@ export default function BookOrderSection() {
               />
             </div>
 
-            <div>
+            <div className="wl-order-wide">
               <label htmlFor="order-line1" className={labelClass}>
                 Adress
               </label>
@@ -172,7 +176,7 @@ export default function BookOrderSection() {
               />
             </div>
 
-            <div>
+            <div className="wl-order-wide">
               <label htmlFor="order-line2" className={labelClass}>
                 Adressrad 2 <span className="text-white/30">(valfritt)</span>
               </label>
@@ -187,7 +191,7 @@ export default function BookOrderSection() {
               />
             </div>
 
-            <div className="flex flex-col gap-4 sm:flex-row">
+            <div className="wl-order-wide flex flex-col gap-4 sm:flex-row">
               <div className="sm:w-2/5">
                 <label htmlFor="order-postal" className={labelClass}>
                   Postnummer
@@ -225,7 +229,7 @@ export default function BookOrderSection() {
               </div>
             </div>
 
-            <div>
+            <div className="wl-order-wide">
               <label htmlFor="order-phone" className={labelClass}>
                 Telefon <span className="text-white/30">(valfritt)</span>
               </label>
@@ -241,7 +245,7 @@ export default function BookOrderSection() {
             </div>
 
             {errorMessage && (
-              <p className="text-left text-[13px] text-amber-300" role="alert">
+              <p className="wl-order-wide text-left text-[13px] text-amber-300" role="alert">
                 {errorMessage}
               </p>
             )}
@@ -250,12 +254,12 @@ export default function BookOrderSection() {
               type="submit"
               disabled={state === "loading"}
               aria-busy={state === "loading"}
-              className="waitlist-cta min-h-[52px] w-full rounded-2xl bg-white px-6 py-3 text-[15px] font-semibold text-slate-900 transition-all hover:bg-white/90 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#907AFF]/40 focus-visible:ring-offset-2 focus-visible:ring-offset-transparent disabled:opacity-50"
+              className="wl-order-wide waitlist-cta min-h-[52px] w-full rounded-2xl bg-white px-6 py-3 text-[15px] font-semibold text-slate-900 transition-all hover:bg-white/90 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#907AFF]/40 focus-visible:ring-offset-2 focus-visible:ring-offset-transparent disabled:opacity-50"
             >
               {state === "loading" ? "Tar dig till betalning…" : `Fortsätt till betalning · ${TA_FOR_ER_ORDER.priceLabel}`}
             </button>
 
-            <p className="text-center text-[12px] leading-relaxed text-white/40">
+            <p className="wl-order-wide text-center text-[12px] leading-relaxed text-white/40">
               Säker betalning via Stripe. Frakt inom Sverige ingår.
             </p>
           </form>

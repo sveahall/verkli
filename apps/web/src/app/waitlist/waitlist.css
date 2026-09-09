@@ -107,6 +107,19 @@
 .waitlist-page #book-order .aurora-card { background: #1a1523; border-color: #ffffff1f; box-shadow: none; backdrop-filter: none; }
 .waitlist-page #book-order :is(label, .aurora-card > p) { color: #beb0ce; }
 .waitlist-page #book-order input::placeholder { color: #b5a7c5; }
+@media (min-width: 1024px) {
+  .waitlist-page #book-order { padding-inline: 48px; padding-bottom: 72px; }
+  .waitlist-page #book-order .wl-order-shell { max-width: 1120px; }
+  .waitlist-page #book-order .wl-order-card { display: grid; grid-template-columns: minmax(0, .8fr) minmax(0, 1.2fr); gap: 56px; padding: 48px; background: radial-gradient(ellipse at 12% 28%, #907aff14, transparent 52%), #1a1523; }
+  .wl-order-summary { align-self: center; min-width: 0; }
+  .wl-order-summary img { width: 240px; border-radius: 10px; box-shadow: 0 24px 48px #0006; }
+  .wl-order-summary h2 { font-family: var(--font-montserrat-alternates), sans-serif; font-size: 36px; font-weight: 500; }
+  .waitlist-page #book-order .wl-order-form { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px; margin: 0; padding-left: 40px; border-left: 1px solid var(--wl-line); }
+  .waitlist-page #book-order .wl-order-form > * { min-width: 0; margin-block: 0; }
+  .wl-order-wide { grid-column: 1 / -1; }
+  .waitlist-page #book-order .wl-order-form input { background: #ffffff08; border-color: #ffffff20; border-radius: 12px; }
+  .waitlist-page #book-order .wl-order-form button { border-radius: 12px; }
+}
 .wl-footer { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 24px; padding-block: 36px; }
 .wl-footer p { font-size: 11px; color: #a393b4; margin: 0; }
 .wl-footer > a:last-child { display: flex; align-items: center; min-height: 44px; color: #c5b5d7; font-size: 12px; gap: 10px; }

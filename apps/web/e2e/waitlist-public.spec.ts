@@ -191,6 +191,26 @@ test.describe("mobile waitlist", () => {
   }
 });
 
+for (const width of [1024, 1440]) {
+  test(`${width}px book order uses a wide two-column layout`, async ({ page }) => {
+    await page.setViewportSize({ width, height: 1000 });
+    await page.emulateMedia({ reducedMotion: "reduce" });
+    await page.goto("/waitlist#book-order");
+    const order = page.locator("#book-order");
+    const card = await order.locator(".aurora-card").boundingBox();
+    const cover = await order.getByRole("img", { name: /^Omslag:/ }).boundingBox();
+    const form = await order.locator("form").boundingBox();
+    expect(card!.width).toBeGreaterThan(width * 0.7);
+    expect(form!.x).toBeGreaterThan(cover!.x + cover!.width);
+    const name = await order.getByLabel("Namn", { exact: true }).boundingBox();
+    const email = await order.getByLabel("E-post", { exact: true }).boundingBox();
+    expect(name!.y).toBeCloseTo(email!.y, 0);
+    await order.getByRole("button", { name: /Fortsätt till betalning/ }).click();
+    await expect(order.getByRole("alert")).toHaveText("Fyll i namn och fullständig leveransadress.");
+    expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(width);
+  });
+}
+
 for (const width of [390, 1440]) {
   test(`${width}px generated product previews switch without layout jumps or AI requests`, async ({ page }) => {
     await page.setViewportSize({ width, height: 1000 });
