@@ -53,12 +53,16 @@ const GENRE_SIGNALS: Record<string, string[]> = {
     "history", "research", "study", "analysis", "report",
     "documentary", "evidence", "policy", "economy", "philosophy",
   ],
-  fiction: ["novel", "story", "fiction", "tale", "narrative"],
-  adventure: [
-    "adventure", "expedition", "journey", "voyage", "treasure", "jungle",
-    "pirate", "explorer", "map", "island", "mountain", "survival",
+  fiction: [
+    "novel", "story", "fiction", "tale", "narrative",
+    // Folded in from a former `adventure` key. There is no `adventure` genre
+    // in the genres table, so that list could never be selected; these words
+    // are better evidence of fiction than of nothing.
+    "adventure", "expedition", "voyage", "treasure", "pirate", "explorer",
   ],
-  historical: [
+  // `history`, not `historical` — the live genre slug is `history`, and a key
+  // that names no genre is unreachable.
+  history: [
     "century", "era", "empire", "dynasty", "war", "ancient", "medieval",
     "kingdom", "revolution", "historical", "period", "chronicle",
   ],
@@ -70,19 +74,33 @@ const GENRE_SIGNALS: Record<string, string[]> = {
     "children", "kids", "young readers", "picture book", "fairy tale",
     "animal friends", "school bus",
   ],
+  // The five live genres that had no list, so they only ever matched their own
+  // name appearing verbatim in the text.
+  comics: ["comic", "graphic novel", "panel", "illustrated", "manga", "superhero"],
+  drama: ["drama", "act one", "scene", "stage", "monologue", "playwright", "curtain"],
+  poetry: ["poem", "poetry", "verse", "stanza", "sonnet", "haiku", "rhyme"],
+  "self-help": [
+    "self-help", "habits", "productivity", "mindset", "motivation",
+    "how to improve", "step by step", "your goals", "wellbeing",
+  ],
 };
 
 function scoreGenreSlug(slug: string, text: string): number {
   const lower = text.toLowerCase();
-  // Find matching signal list by partial key match
-  const matchingKey = Object.keys(GENRE_SIGNALS).find(
-    (k) => slug.includes(k) || k.includes(slug)
-  );
-  if (!matchingKey) {
-    // Fall back to just checking if the slug word itself appears
+
+  // Exact key lookup. This used to search the keys for a PARTIAL match, in
+  // either direction: does the slug contain the key, or the key contain the
+  // slug. And "non-fiction" contains "fiction", so the slug `fiction`
+  // resolved to the NON-FICTION signal list, because that key is declared
+  // first. Fiction was scored on "history", "research", "policy", "economy";
+  // the `fiction` list below was unreachable dead code. Every genre whose slug
+  // is a substring of another key had the same problem.
+  const keywords = GENRE_SIGNALS[slug];
+  if (!keywords) {
+    // Deliberate fallback for a genre with no keyword list: does the genre's
+    // own name appear in the text.
     return lower.includes(slug.replace(/-/g, " ")) ? 1 : 0;
   }
-  const keywords = GENRE_SIGNALS[matchingKey];
   return keywords.reduce((score, kw) => {
     // Count occurrences (simple)
     let count = 0;

@@ -6,6 +6,7 @@ import { createClient } from "@/lib/supabase/server";
 import { getAvatarUrlFromPathServer } from "@/lib/supabase/avatar";
 import {
   getPublicAuthorInfoMap,
+  getPublicFollowerCount,
   resolvePublicAuthorName,
 } from "@/lib/authors/public-author";
 import BookCard from "@/components/reader/BookCard";
@@ -109,10 +110,11 @@ export default async function ReaderAuthorProfilePage({
       .eq("author_id", userId)
       .eq("status", "PUBLISHED")
       .order("updated_at", { ascending: false }),
-    supabase
-      .from("follows")
-      .select("followee_id", { count: "exact", head: true })
-      .eq("followee_id", userId),
+    // Not `supabase` (the request-scoped client): for a logged-out visitor that
+    // is the anon role, which has no applicable SELECT policy on `follows`, so
+    // the count came back 0 for every author regardless of the data. See
+    // getPublicFollowerCount.
+    getPublicFollowerCount(userId),
     supabase
       .from("author_subscription_plans")
       .select("enabled, price_monthly, currency, description")
@@ -124,7 +126,7 @@ export default async function ReaderAuthorProfilePage({
   const profile = profileRes.data;
   const publicAuthorInfo = authorInfoMap.get(userId);
   const books = booksRes.data ?? [];
-  const followerCount = followerCountRes.count ?? 0;
+  const followerCount = followerCountRes;
   const subscriptionPlan = subscriptionPlanRes.data as {
     enabled: boolean;
     price_monthly: number;

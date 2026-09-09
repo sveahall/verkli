@@ -140,6 +140,15 @@ ARG NEXT_PUBLIC_AUDIOBOOK_ENABLED
 ARG NEXT_PUBLIC_DISCOVERY_ENABLED
 ARG NEXT_PUBLIC_TRANSLATIONS_ENABLED
 ARG NEXT_PUBLIC_AI_CHAT_ENABLED
+# Browser error reporting. NEXT_PUBLIC_* values are BAKED AT BUILD TIME, so
+# setting this on the Railway service alone can never switch it on — without an
+# ARG here the compiled bundle resolves the lookup against a browserify shim
+# whose env is an empty object, and `enabled: Boolean(dsn)` is permanently
+# false. The variable then reads as "set" in the Railway UI while the browser
+# reports nothing, which looks like a broken Sentry rather than an unbuilt one.
+# Must be a Railway BUILD variable, not just a runtime one.
+ARG NEXT_PUBLIC_SENTRY_DSN
+ARG NEXT_PUBLIC_SENTRY_ENVIRONMENT
 ENV NEXT_PUBLIC_SUPABASE_URL=$NEXT_PUBLIC_SUPABASE_URL \
     NEXT_PUBLIC_SUPABASE_ANON_KEY=$NEXT_PUBLIC_SUPABASE_ANON_KEY \
     NEXT_PUBLIC_SITE_URL=$NEXT_PUBLIC_SITE_URL \
@@ -148,6 +157,8 @@ ENV NEXT_PUBLIC_SUPABASE_URL=$NEXT_PUBLIC_SUPABASE_URL \
     NEXT_PUBLIC_AUDIOBOOK_ENABLED=$NEXT_PUBLIC_AUDIOBOOK_ENABLED \
     NEXT_PUBLIC_DISCOVERY_ENABLED=$NEXT_PUBLIC_DISCOVERY_ENABLED \
     NEXT_PUBLIC_TRANSLATIONS_ENABLED=$NEXT_PUBLIC_TRANSLATIONS_ENABLED \
+    NEXT_PUBLIC_SENTRY_DSN=$NEXT_PUBLIC_SENTRY_DSN \
+    NEXT_PUBLIC_SENTRY_ENVIRONMENT=$NEXT_PUBLIC_SENTRY_ENVIRONMENT \
     NEXT_PUBLIC_AI_CHAT_ENABLED=$NEXT_PUBLIC_AI_CHAT_ENABLED
 
 # `npm run build` (Turbopack), NOT `build:ci` (which pins --webpack).

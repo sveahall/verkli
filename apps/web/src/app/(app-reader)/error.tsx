@@ -1,5 +1,6 @@
 "use client";
 
+import * as Sentry from "@sentry/nextjs";
 import { useEffect } from "react";
 import Link from "next/link";
 import { ErrorState } from "@/components/ui/states";
@@ -12,6 +13,11 @@ export default function ReaderError({
   reset: () => void;
 }) {
   useEffect(() => {
+    // console.error alone means the crash exists only in the viewer's own
+    // devtools. Sentry.captureException is a no-op until a DSN is configured,
+    // so this is safe to ship ahead of one — and without it, setting the DSN
+    // later would still report nothing from any error boundary.
+    Sentry.captureException(error);
     console.error(error);
   }, [error]);
 

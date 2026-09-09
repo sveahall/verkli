@@ -118,6 +118,59 @@ export async function getPublicAuthorInfoMap(
 }
 
 /** Resolve the canonical display name for a public author entry. */
+/**
+ * Public follower count for an author.
+ *
+ * Must use the admin client. `follows` has exactly one SELECT policy and it is
+ * `TO authenticated USING (auth.uid() = follower_id OR auth.uid() = followee_id)`
+ * (20260210110003_community_comments_and_follows.sql:114-118), which has two
+ * consequences that both produce a wrong number rather than an error:
+ *
+ *   - For the anon role NO permissive policy applies at all, so Postgres
+ *     substitutes a constant-false qual and the count is 0 no matter what the
+ *     table holds. Measurable: the same query with `Prefer: count=planned`
+ *     gives a content-range total of 0 for anon and 1200 for the service
+ *     role — the PostgREST range syntax is omitted here because a literal
+ *     star-slash would close this comment. While
+ *     `author_followers`, whose policies carry no TO clause, returns a
+ *     non-zero planned count for anon.
+ *   - For a signed-in visitor the predicate is own-rows-only, so the count
+ *     caps at 1: it says "1 follower" if the viewer follows this author and
+ *     "0 followers" otherwise.
+ *
+ * The author viewing their own page is the exception — `auth.uid() =
+ * followee_id` matches all of their rows, so they see the true number. That is
+ * the worst possible arrangement: the one person who would report the bug is
+ * the one person who cannot see it.
+ *
+ * Same reasoning as getPublicAuthorInfoMap above: public data sitting behind
+ * per-row RLS has to be read with the service role, scoped to exactly the
+ * question being asked.
+ */
+export async function getPublicFollowerCount(userId: string): Promise<number> {
+  const id = userId?.trim();
+  if (!id) return 0;
+
+  const admin = createAdminClient();
+  const { count, error } = await admin
+    .from("follows")
+    .select("followee_id", { count: "exact", head: true })
+    .eq("followee_id", id);
+
+  if (error) {
+    // Logged, not swallowed. The previous `?? 0` at the call site turned every
+    // failure into a plausible-looking zero with no trace.
+    console.error("[public-author] follower count failed", {
+      userId: id,
+      code: error.code,
+      message: error.message,
+    });
+    return 0;
+  }
+
+  return count ?? 0;
+}
+
 export function resolvePublicAuthorName(
   info: PublicAuthorInfo | undefined | null
 ): string {
