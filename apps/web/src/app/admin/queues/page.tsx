@@ -58,10 +58,10 @@ export default async function AdminQueuesPage() {
           <TableBody>
             {rows.map((row) => (
               <TableRow key={row.name}>
-                <TableCell className="font-mono text-[13px] text-slate-900 dark:text-white">
+                <TableCell className="font-mono text-[13px] text-foreground">
                   {row.name}
                 </TableCell>
-                <TableCell className="text-slate-500 dark:text-white/50">
+                <TableCell className="text-muted-foreground">
                   {row.jobNames.length > 0 ? row.jobNames.join(", ") : "—"}
                 </TableCell>
                 {row.counts ? (
@@ -122,18 +122,18 @@ export default async function AdminQueuesPage() {
 
       <Card className="mt-6 p-0">
         <details className="px-6 py-4 text-[14px]">
-          <summary className="cursor-pointer font-medium text-slate-700 dark:text-white/80">
+          <summary className="cursor-pointer font-medium text-foreground">
             Last-failure reasons{failures.length > 0 ? ` (${failures.length})` : ""}
           </summary>
           <ul className="mt-3 space-y-2">
             {failures.map((r) => (
-              <li key={r.name} className="font-mono text-[12px] text-slate-600 dark:text-white/60">
-                <span className="font-semibold text-slate-900 dark:text-white">{r.name}</span>:{" "}
+              <li key={r.name} className="font-mono text-[12px] text-muted-foreground">
+                <span className="font-semibold text-foreground">{r.name}</span>:{" "}
                 {r.lastFailedReason}
               </li>
             ))}
             {failures.length === 0 ? (
-              <li className="text-[12px] text-slate-500 dark:text-white/50">
+              <li className="text-[12px] text-muted-foreground">
                 No recent failures recorded.
               </li>
             ) : null}

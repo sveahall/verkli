@@ -123,48 +123,48 @@ export default function CreateBookDialog({
           tabIndex={-1}
         >
           <div
-            className="relative w-full max-w-[600px] rounded-3xl border border-black/10 dark:border-white/10 bg-white/95 dark:bg-[#0a0a0f]/95 p-8 backdrop-blur-xl"
+            className="relative w-full max-w-[600px] rounded-3xl border border-black/10 dark:border-border bg-white/95 dark:bg-card/95 p-8 backdrop-blur-xl"
             onClick={(e) => e.stopPropagation()}
             role="dialog"
           >
             <button
               onClick={onClose}
-              className="absolute right-6 top-6 text-slate-500 dark:text-white/50 transition-colors hover:text-slate-900 dark:hover:text-white"
+              className="absolute right-6 top-6 text-muted-foreground dark:text-muted-foreground transition-colors hover:text-foreground dark:hover:text-foreground"
             >
               <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
               </svg>
             </button>
-            <h2 className="mb-6 text-[24px] font-normal text-slate-900 dark:text-white">{header}</h2>
+            <h2 className="mb-6 text-[24px] font-normal text-foreground dark:text-foreground">{header}</h2>
 
             {mode === "choice" && (
               <div className="grid gap-4 md:grid-cols-2">
                 <button
                   onClick={() => setMode("write")}
-                  className="group rounded-2xl border border-black/10 dark:border-white/10 bg-black/[0.02] dark:bg-white/[0.02] p-6 text-left transition-all hover:border-[#907AFF]/30 hover:bg-black/[0.01] dark:hover:bg-white/[0.04]"
+                  className="group rounded-2xl border border-black/10 dark:border-border bg-black/[0.02] dark:bg-card p-6 text-left transition-all hover:border-[#907AFF]/30 hover:bg-black/[0.01] dark:hover:bg-accent"
                 >
                   <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-to-br from-[#E29ED5]/20 to-[#FCC997]/20">
                     <svg className="h-6 w-6 text-[#E29ED5]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
                     </svg>
                   </div>
-                  <h3 className="mb-2 text-[18px] font-semibold text-slate-900 dark:text-white">Write a new book</h3>
-                  <p className="text-[14px] text-slate-600 dark:text-white/50">Create a new book and start writing</p>
+                  <h3 className="mb-2 text-[18px] font-semibold text-foreground dark:text-foreground">Write a new book</h3>
+                  <p className="text-[14px] text-muted-foreground dark:text-muted-foreground">Create a new book and start writing</p>
                 </button>
                 <button
                   onClick={() => {
                     setMode("import");
                     setImportOpen(true);
                   }}
-                  className="group rounded-2xl border border-black/10 dark:border-white/10 bg-black/[0.02] dark:bg-white/[0.02] p-6 text-left transition-all hover:border-[#907AFF]/30 hover:bg-black/[0.01] dark:hover:bg-white/[0.04]"
+                  className="group rounded-2xl border border-black/10 dark:border-border bg-black/[0.02] dark:bg-card p-6 text-left transition-all hover:border-[#907AFF]/30 hover:bg-black/[0.01] dark:hover:bg-accent"
                 >
                   <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-to-br from-[#FCC997]/20 to-[#FEE9A3]/20">
                     <svg className="h-6 w-6 text-[#FCC997]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
                     </svg>
                   </div>
-                  <h3 className="mb-2 text-[18px] font-semibold text-slate-900 dark:text-white">Import book</h3>
-                  <p className="text-[14px] text-slate-600 dark:text-white/50">Upload an existing book file (epub, docx, html, txt)</p>
+                  <h3 className="mb-2 text-[18px] font-semibold text-foreground dark:text-foreground">Import book</h3>
+                  <p className="text-[14px] text-muted-foreground dark:text-muted-foreground">Upload an existing book file (epub, docx, html, txt)</p>
                 </button>
               </div>
             )}
@@ -172,36 +172,36 @@ export default function CreateBookDialog({
             {mode === "write" && (
               <div className="space-y-4">
                 <div>
-                  <label className="mb-2 block text-[14px] font-normal text-slate-700 dark:text-white/70">Title</label>
+                  <label className="mb-2 block text-[14px] font-normal text-foreground dark:text-foreground">Title</label>
                   <input
                     ref={titleInputRef}
                     type="text"
                     value={title}
                     onChange={(e) => { setTitle(e.target.value); if (error) setError(null); }}
                     placeholder="Book title"
-                    className={`w-full rounded-xl border bg-black/[0.02] dark:bg-white/[0.04] px-4 py-3 text-[16px] text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-white/30 outline-none transition-all focus:bg-black/10 dark:focus:bg-white/[0.06] ${error ? "border-red-400 dark:border-red-500 focus:border-red-400" : "border-black/10 dark:border-white/10 focus:border-[#907AFF]/50"}`}
+                    className={`w-full rounded-xl border bg-black/[0.02] dark:bg-card px-4 py-3 text-[16px] text-foreground dark:text-foreground placeholder-muted-foreground dark:placeholder-white/30 outline-none transition-all focus:bg-black/10 dark:focus:bg-card ${error ? "border-red-400 dark:border-red-500 focus:border-red-400" : "border-black/10 dark:border-border focus:border-[#907AFF]/50"}`}
                     autoFocus
                   />
                 </div>
                 <div>
-                  <label className="mb-2 block text-[14px] font-normal text-slate-700 dark:text-white/70">
+                  <label className="mb-2 block text-[14px] font-normal text-foreground dark:text-foreground">
                     Description
-                    <span className="ml-1.5 text-[12px] font-normal text-slate-400 dark:text-white/30">(optional)</span>
+                    <span className="ml-1.5 text-[12px] font-normal text-muted-foreground dark:text-muted-foreground">(optional)</span>
                   </label>
                   <textarea
                     value={description}
                     onChange={(e) => setDescription(e.target.value)}
                     placeholder="A short description of your book"
                     rows={3}
-                    className="w-full resize-none rounded-xl border border-black/10 dark:border-white/10 bg-black/[0.02] dark:bg-white/[0.04] px-4 py-3 text-[15px] text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-white/30 outline-none transition-all focus:border-[#907AFF]/50 focus:bg-black/10 dark:focus:bg-white/[0.06]"
+                    className="w-full resize-none rounded-xl border border-black/10 dark:border-border bg-black/[0.02] dark:bg-card px-4 py-3 text-[15px] text-foreground dark:text-foreground placeholder-muted-foreground dark:placeholder-white/30 outline-none transition-all focus:border-[#907AFF]/50 focus:bg-black/10 dark:focus:bg-card"
                   />
                 </div>
                 <div>
-                  <label className="mb-2 block text-[14px] font-normal text-slate-700 dark:text-white/70">Language</label>
+                  <label className="mb-2 block text-[14px] font-normal text-foreground dark:text-foreground">Language</label>
                   <select
                     value={language}
                     onChange={(e) => setLanguage(e.target.value as SupportedLanguage)}
-                    className="w-full rounded-xl border border-black/10 dark:border-white/10 bg-black/[0.02] dark:bg-white/[0.04] px-4 py-3 text-[16px] text-slate-900 dark:text-white outline-none transition-all focus:border-[#907AFF]/50 focus:bg-black/10 dark:focus:bg-white/[0.06]"
+                    className="w-full rounded-xl border border-black/10 dark:border-border bg-black/[0.02] dark:bg-card px-4 py-3 text-[16px] text-foreground dark:text-foreground outline-none transition-all focus:border-[#907AFF]/50 focus:bg-black/10 dark:focus:bg-card"
                   >
                     {LANGUAGE_OPTIONS.map((opt) => (
                       <option key={opt.value} value={opt.value}>
@@ -214,24 +214,24 @@ export default function CreateBookDialog({
                 <div className="flex justify-end gap-3">
                   <button
                     onClick={onClose}
-                    className="rounded-xl border border-black/10 dark:border-white/10 bg-black/[0.02] dark:bg-white/[0.02] px-6 py-2.5 text-[14px] font-normal text-slate-700 dark:text-white/70 transition-all hover:bg-black/10 dark:hover:bg-white/[0.04]"
+                    className="rounded-xl border border-black/10 dark:border-border bg-black/[0.02] dark:bg-card px-6 py-2.5 text-[14px] font-normal text-foreground dark:text-foreground transition-all hover:bg-black/10 dark:hover:bg-accent"
                   >
                     Cancel
                   </button>
                   <button
                     onClick={handleCreate}
                     disabled={creating}
-                    className="rounded-xl bg-[#907AFF] px-6 py-2.5 text-[14px] font-normal text-white transition-all hover:bg-[#8069EE] disabled:opacity-60"
+                    className="rounded-xl bg-primary px-6 py-2.5 text-[14px] font-normal text-primary-foreground transition-all hover:bg-primary/90 disabled:opacity-60"
                   >
                     {creating ? "Creating..." : "Create book"}
                   </button>
                 </div>
-                <p className="text-center text-[13px] text-slate-400 dark:text-white/30">
+                <p className="text-center text-[13px] text-muted-foreground dark:text-muted-foreground">
                   or{" "}
                   <button
                     type="button"
                     onClick={() => { setMode("import"); setImportOpen(true); }}
-                    className="underline underline-offset-2 transition-colors hover:text-slate-600 dark:hover:text-white/50"
+                    className="underline underline-offset-2 transition-colors hover:text-muted-foreground dark:hover:text-muted-foreground"
                   >
                     import from file
                   </button>

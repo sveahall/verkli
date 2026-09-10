@@ -9,9 +9,9 @@ const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 type SubmitState = "idle" | "loading" | "error";
 
 const inputClass =
-  "min-h-[52px] w-full rounded-2xl border border-white/20 bg-white/95 px-4 py-3 text-[16px] text-slate-900 placeholder:text-slate-400 transition-all duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#907AFF]/40 focus-visible:ring-offset-2 focus-visible:ring-offset-transparent dark:border-white/10 dark:bg-white/10 dark:text-white dark:placeholder:text-white/40 sm:text-[15px]";
+  "min-h-[52px] w-full rounded-xl border border-input bg-background px-4 py-3 text-base text-foreground placeholder:text-muted-foreground transition-colors duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-ring/40 focus-visible:ring-offset-2 focus-visible:ring-offset-background";
 
-const labelClass = "mb-1.5 block text-left text-[12px] font-medium tracking-wide text-white/55";
+const labelClass = "mb-1.5 block text-left text-[12px] font-medium tracking-wide text-muted-foreground";
 
 /**
  * Anonymous physical-book order card for the waitlist page. Collects a
@@ -84,9 +84,9 @@ export default function BookOrderSection() {
   };
 
   return (
-    <section id="book-order" className="relative scroll-mt-8 px-4 pb-24 pt-2 dark" aria-labelledby="book-order-heading">
+    <section id="book-order" className="relative scroll-mt-8 px-4 pb-24 pt-2" aria-labelledby="book-order-heading">
       <div className="wl-order-shell mx-auto w-full max-w-md">
-        <div className="wl-order-card aurora-card rounded-3xl border border-white/20 bg-white/10 p-6 shadow-[0_24px_48px_rgba(0,0,0,0.2),0_0_0_1px_rgba(255,255,255,0.08)] backdrop-blur-xl sm:p-8">
+        <div className="wl-order-card rounded-3xl border border-border bg-card p-6 sm:p-8">
           <div className="wl-order-summary">
             {/* The book itself. Selling a physical book with no picture of it is
                 part of why it went unnoticed on a phone. Dimensions are the true
@@ -99,29 +99,29 @@ export default function BookOrderSection() {
                 height={426}
                 sizes="(min-width: 1024px) 240px, (min-width: 640px) 150px, 136px"
                 priority
-                className="h-auto w-[136px] rounded-xl shadow-surface-lg ring-1 ring-white/10 sm:w-[150px]"
+                className="h-auto w-[136px] rounded-xl shadow-surface-lg ring-1 ring-border sm:w-[150px]"
               />
             </div>
-            <p className="text-center text-[10px] font-medium uppercase tracking-[0.3em] text-white/35">
+            <p className="text-center text-[10px] font-medium uppercase tracking-[0.3em] text-muted-foreground">
               Beställ boken
             </p>
             <h2
               id="book-order-heading"
-              className="mt-3 text-center text-[24px] font-bold leading-tight tracking-tight text-white sm:text-[28px]"
+              className="mt-3 text-center text-[24px] font-display font-normal leading-tight tracking-tight text-foreground sm:text-[28px]"
             >
               {TA_FOR_ER_ORDER.bookTitle}
             </h2>
-            <p className="mt-1.5 text-center text-[14px] text-white/55">
+            <p className="mt-1.5 text-center text-[14px] text-muted-foreground">
               av {TA_FOR_ER_ORDER.authorName}
             </p>
-            <p className="mt-4 text-center text-[15px] font-semibold text-white">
+            <p className="mt-4 text-center text-[15px] font-semibold text-foreground">
               {TA_FOR_ER_ORDER.priceLabel}{" "}
-              <span className="font-normal text-white/50">· frakt ingår</span>
+              <span className="font-normal text-muted-foreground">· frakt ingår</span>
             </p>
           </div>
 
           <form onSubmit={handleSubmit} className="wl-order-form mt-6 space-y-4" noValidate>
-            <h3 className="wl-order-wide text-left text-[18px] font-semibold tracking-tight text-white">Leveransuppgifter</h3>
+            <h3 className="wl-order-wide text-left text-[18px] font-semibold tracking-tight text-foreground">Leveransuppgifter</h3>
             <div>
               <label htmlFor="order-name" className={labelClass}>
                 Namn
@@ -178,7 +178,7 @@ export default function BookOrderSection() {
 
             <div className="wl-order-wide">
               <label htmlFor="order-line2" className={labelClass}>
-                Adressrad 2 <span className="text-white/30">(valfritt)</span>
+                Adressrad 2 <span className="text-muted-foreground">(valfritt)</span>
               </label>
               <input
                 id="order-line2"
@@ -231,7 +231,7 @@ export default function BookOrderSection() {
 
             <div className="wl-order-wide">
               <label htmlFor="order-phone" className={labelClass}>
-                Telefon <span className="text-white/30">(valfritt)</span>
+                Telefon <span className="text-muted-foreground">(valfritt)</span>
               </label>
               <input
                 id="order-phone"
@@ -245,7 +245,7 @@ export default function BookOrderSection() {
             </div>
 
             {errorMessage && (
-              <p className="wl-order-wide text-left text-[13px] text-amber-300" role="alert">
+              <p className="wl-order-wide text-left text-[13px] text-red-700 dark:text-red-300" role="alert">
                 {errorMessage}
               </p>
             )}
@@ -254,12 +254,12 @@ export default function BookOrderSection() {
               type="submit"
               disabled={state === "loading"}
               aria-busy={state === "loading"}
-              className="wl-order-wide waitlist-cta min-h-[52px] w-full rounded-2xl bg-white px-6 py-3 text-[15px] font-semibold text-slate-900 transition-all hover:bg-white/90 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#907AFF]/40 focus-visible:ring-offset-2 focus-visible:ring-offset-transparent disabled:opacity-50"
+              className="wl-order-wide waitlist-cta min-h-[52px] w-full rounded-2xl bg-foreground px-6 py-3 text-[15px] font-medium text-background transition-colors hover:opacity-90 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#907AFF]/40 focus-visible:ring-offset-2 focus-visible:ring-offset-transparent disabled:opacity-50"
             >
               {state === "loading" ? "Tar dig till betalning…" : `Fortsätt till betalning · ${TA_FOR_ER_ORDER.priceLabel}`}
             </button>
 
-            <p className="wl-order-wide text-center text-[12px] leading-relaxed text-white/40">
+            <p className="wl-order-wide text-center text-[12px] leading-relaxed text-muted-foreground">
               Säker betalning via Stripe. Frakt inom Sverige ingår.
             </p>
           </form>

@@ -111,7 +111,7 @@ export default function BookEditorPanelContent({
   demoMode = false,
 }: BookEditorPanelContentProps) {
   return (
-    <div className="w-full overflow-hidden rounded-2xl border border-black/[0.04] bg-white shadow-[0_1px_3px_rgba(0,0,0,0.04)] dark:border-white/[0.06] dark:bg-[#111318] dark:shadow-none">
+    <div className="w-full overflow-hidden rounded-2xl border border-black/[0.04] bg-card shadow-[0_1px_3px_rgba(0,0,0,0.04)] dark:border-border dark:bg-card dark:shadow-none">
       <BookWorkflowHeader
         bookId={bookId}
         activeTool={tool}
@@ -233,6 +233,24 @@ export default function BookEditorPanelContent({
           />
         )}
 
+        {tool === "translate" && !getTranslationsEnabled() && (
+          <section className="mx-auto max-w-2xl rounded-2xl border border-border bg-card p-6 sm:p-8">
+            <h2 className="author-section-title text-lg font-medium text-foreground">
+              Translation is not available in this workspace.
+            </h2>
+            <p className="mt-3 text-sm leading-relaxed text-muted-foreground">
+              You can continue working on your manuscript.
+            </p>
+            <button
+              type="button"
+              onClick={() => onNavigateToPanel("edit")}
+              className="mt-6 min-h-11 rounded-full border border-border bg-accent px-5 py-2 text-sm font-medium text-accent-foreground transition-colors hover:bg-accent/80"
+            >
+              Back to manuscript
+            </button>
+          </section>
+        )}
+
         {tool === "publish" && (
           <div className="space-y-8">
             <PublishPanel
@@ -316,7 +334,7 @@ export default function BookEditorPanelContent({
                   bookTitle={bookTitle}
                   redirectTo="/author/books"
                   label="Delete this book"
-                  className="rounded-lg border border-red-300 bg-white px-4 py-2 text-[13px] font-semibold text-red-700 transition hover:bg-red-50 dark:border-red-800 dark:bg-red-950/30 dark:text-red-300 dark:hover:bg-red-950/50"
+                  className="rounded-lg border border-red-300 bg-card px-4 py-2 text-[13px] font-semibold text-red-700 transition hover:bg-red-50 dark:border-red-800 dark:bg-red-950/30 dark:text-red-300 dark:hover:bg-red-950/50"
                 />
               </div>
             </div>

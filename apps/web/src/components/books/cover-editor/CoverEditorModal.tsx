@@ -119,37 +119,37 @@ export default function CoverEditorModal({
   }, [editor, onSave, bookId, backgroundUrl]);
 
   return (
-    <div className="fixed inset-0 z-[1000] flex flex-col bg-slate-50 dark:bg-[#0b0b12]">
+    <div className="fixed inset-0 z-[1000] flex flex-col bg-background dark:bg-card">
       {/* Header */}
-      <header className="flex items-center justify-between border-b border-slate-200 bg-white px-4 py-3 dark:border-white/[0.06] dark:bg-[#111318]">
+      <header className="flex flex-wrap items-center justify-between gap-3 border-b border-border bg-card px-4 py-3 dark:border-border dark:bg-card">
         <div className="flex items-center gap-3">
-          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-[#907AFF]/10">
-            <ImageIcon className="h-4 w-4 text-[#907AFF]" />
+          <div className="flex h-11 w-11 items-center justify-center rounded-lg bg-[#907AFF]/10">
+            <ImageIcon className="h-4 w-4 text-accent-foreground" />
           </div>
-          <h2 className="text-[15px] font-semibold text-slate-800 dark:text-white">Cover Editor</h2>
-          {!fontsLoaded && <span className="text-[12px] text-slate-400">Loading fonts...</span>}
+          <h2 className="text-[15px] font-semibold text-foreground dark:text-foreground">Cover Editor</h2>
+          {!fontsLoaded && <span className="text-[12px] text-muted-foreground">Loading fonts...</span>}
         </div>
         <div className="flex items-center gap-2">
-          <button type="button" onClick={editor.undo} className="flex h-8 w-8 items-center justify-center rounded-lg text-slate-400 transition hover:bg-slate-100 hover:text-slate-600 dark:text-white/30 dark:hover:bg-white/5" title="Undo (Ctrl+Z)">
+          <button type="button" onClick={editor.undo} className="flex h-11 w-11 items-center justify-center rounded-lg text-muted-foreground transition hover:bg-muted hover:text-muted-foreground dark:text-muted-foreground dark:hover:bg-accent" title="Undo (Ctrl+Z)">
             <Undo2 className="h-4 w-4" />
           </button>
-          <button type="button" onClick={editor.redo} className="flex h-8 w-8 items-center justify-center rounded-lg text-slate-400 transition hover:bg-slate-100 hover:text-slate-600 dark:text-white/30 dark:hover:bg-white/5" title="Redo (Ctrl+Y)">
+          <button type="button" onClick={editor.redo} className="flex h-11 w-11 items-center justify-center rounded-lg text-muted-foreground transition hover:bg-muted hover:text-muted-foreground dark:text-muted-foreground dark:hover:bg-accent" title="Redo (Ctrl+Y)">
             <Redo2 className="h-4 w-4" />
           </button>
-          <div className="mx-1 h-5 w-px bg-slate-200 dark:bg-white/10" />
-          <button type="button" onClick={handleExport} disabled={saving} className="inline-flex items-center gap-2 rounded-xl bg-[#907AFF] px-4 py-2 text-[13px] font-semibold text-white shadow-sm transition hover:bg-[#8069EE] active:scale-[0.97] disabled:opacity-50">
+          <div className="mx-1 h-5 w-px bg-muted dark:bg-card" />
+          <button type="button" onClick={handleExport} disabled={saving} className="inline-flex items-center gap-2 rounded-xl bg-primary px-4 py-2 text-[13px] font-semibold text-primary-foreground shadow-sm transition hover:bg-primary/90 active:scale-[0.97] disabled:opacity-50">
             <Download className="h-4 w-4" />
             {saving ? "Saving..." : "Save cover"}
           </button>
-          <button type="button" onClick={onClose} className="flex h-8 w-8 items-center justify-center rounded-lg text-slate-400 transition hover:bg-slate-100 hover:text-slate-600 dark:text-white/30 dark:hover:bg-white/5">
+          <button type="button" onClick={onClose} aria-label="Close cover editor" className="flex h-11 w-11 items-center justify-center rounded-lg text-muted-foreground transition hover:bg-muted hover:text-muted-foreground dark:text-muted-foreground dark:hover:bg-accent">
             <X className="h-4 w-4" />
           </button>
         </div>
       </header>
 
       {/* Main */}
-      <div className="flex min-h-0 flex-1">
-        <div className="flex flex-1 items-center justify-center bg-slate-100/50 p-8 dark:bg-[#0b0b12]">
+      <div className="flex min-h-0 flex-1 flex-col overflow-y-auto lg:flex-row lg:overflow-hidden">
+        <div className="flex min-h-[360px] min-w-0 flex-1 items-start justify-start overflow-auto bg-muted/50 p-4 lg:items-center lg:justify-center lg:p-8 dark:bg-card">
           <CoverEditorCanvas
             imageUrl={backgroundUrl}
             textLayers={editor.textLayers}
@@ -161,10 +161,10 @@ export default function CoverEditorModal({
           />
         </div>
 
-        <aside className="flex w-[320px] shrink-0 flex-col border-l border-slate-200 bg-white dark:border-white/[0.06] dark:bg-[#111318]">
-          <div className="flex border-b border-slate-100 dark:border-white/[0.06]">
+        <aside className="flex max-h-[45vh] w-full shrink-0 flex-col border-t lg:max-h-none lg:w-[320px] lg:border-l lg:border-t-0 border-border bg-card dark:border-border dark:bg-card">
+          <div className="flex border-b border-border dark:border-border">
             {(["text", "filters"] as const).map((t) => (
-              <button key={t} type="button" onClick={() => setTab(t)} className={`flex-1 py-3 text-center text-[13px] font-semibold transition ${tab === t ? "border-b-2 border-[#907AFF] text-[#907AFF]" : "text-slate-400 hover:text-slate-600 dark:text-white/30"}`}>
+              <button key={t} type="button" onClick={() => setTab(t)} className={`flex-1 py-3 text-center text-[13px] font-semibold transition ${tab === t ? "border-b-2 border-[#907AFF] text-accent-foreground" : "text-muted-foreground hover:text-muted-foreground dark:text-muted-foreground"}`}>
                 {t === "text" ? "Text" : "Filters"}
               </button>
             ))}

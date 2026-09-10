@@ -40,7 +40,7 @@ export default function BrowseError({
             </button>
             <Link
               href="/support"
-              className="text-[13px] font-medium text-slate-600 underline-offset-4 hover:underline dark:text-white/60"
+              className="text-[13px] font-medium text-muted-foreground underline-offset-4 hover:underline"
             >
               Contact support
             </Link>

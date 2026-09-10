@@ -32,7 +32,7 @@ export default function NotificationBell() {
       <button
         type="button"
         onClick={handleToggle}
-        className="flex h-9 w-9 items-center justify-center rounded-full border border-slate-200/80 text-slate-600 transition-colors hover:bg-slate-100 hover:text-slate-900 dark:border-white/10 dark:text-white/70 dark:hover:bg-white/10 dark:hover:text-white"
+        className="flex h-9 w-9 items-center justify-center rounded-full border border-border text-muted-foreground transition-colors hover:bg-muted hover:text-foreground dark:hover:bg-card dark:hover:text-foreground"
         aria-label="Notifikationer"
       >
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} className="h-[18px] w-[18px]">

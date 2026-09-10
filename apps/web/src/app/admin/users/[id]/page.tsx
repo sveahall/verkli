@@ -318,8 +318,8 @@ export default async function AdminUserDetailPage({ params }: PageProps) {
         {/* Identity / meta */}
         <Card>
           <CardHeader>
-            <h2 className="text-section-title flex items-center gap-2">
-              <ShieldCheck className="h-4 w-4 text-slate-400" aria-hidden />
+            <h2 className="text-section-title flex items-center gap-2 font-display">
+              <ShieldCheck className="h-4 w-4 text-muted-foreground" aria-hidden />
               Identity
             </h2>
           </CardHeader>
@@ -360,8 +360,8 @@ export default async function AdminUserDetailPage({ params }: PageProps) {
         {/* Authored books */}
         <Card>
           <CardHeader className="flex items-center justify-between gap-4">
-            <h2 className="text-section-title flex items-center gap-2">
-              <BookOpen className="h-4 w-4 text-slate-400" aria-hidden />
+            <h2 className="text-section-title flex items-center gap-2 font-display">
+              <BookOpen className="h-4 w-4 text-muted-foreground" aria-hidden />
               Authored books
             </h2>
             <span className="text-caption tabular-nums">
@@ -390,10 +390,10 @@ export default async function AdminUserDetailPage({ params }: PageProps) {
                 <TableBody>
                   {user.books.list.map((book) => (
                     <TableRow key={book.id}>
-                      <TableCell className="font-medium text-slate-900 dark:text-white">
+                      <TableCell className="font-medium text-foreground">
                         <Link
                           href={`/admin/books/${book.id}`}
-                          className="rounded-md transition-colors hover:text-[var(--brand-violet)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#907AFF]/40 focus-visible:ring-offset-2"
+                          className="rounded-md transition-colors hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#907AFF]/40 focus-visible:ring-offset-2"
                         >
                           {book.title || "Untitled"}
                         </Link>
@@ -413,8 +413,8 @@ export default async function AdminUserDetailPage({ params }: PageProps) {
         {/* Activity */}
         <Card>
           <CardHeader className="flex items-center justify-between gap-4">
-            <h2 className="text-section-title flex items-center gap-2">
-              <Clock className="h-4 w-4 text-slate-400" aria-hidden />
+            <h2 className="text-section-title flex items-center gap-2 font-display">
+              <Clock className="h-4 w-4 text-muted-foreground" aria-hidden />
               Activity
             </h2>
             <span className="text-caption">
@@ -442,10 +442,10 @@ export default async function AdminUserDetailPage({ params }: PageProps) {
                 <TableBody>
                   {user.inProgress.map((r) => (
                     <TableRow key={r.book_id}>
-                      <TableCell className="font-medium text-slate-900 dark:text-white">
+                      <TableCell className="font-medium text-foreground">
                         <Link
                           href={`/admin/books/${r.book_id}`}
-                          className="rounded-md transition-colors hover:text-[var(--brand-violet)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#907AFF]/40 focus-visible:ring-offset-2"
+                          className="rounded-md transition-colors hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#907AFF]/40 focus-visible:ring-offset-2"
                         >
                           {r.book_title ?? "Unknown book"}
                         </Link>
@@ -469,8 +469,8 @@ export default async function AdminUserDetailPage({ params }: PageProps) {
         {user.billing && (
           <Card>
             <CardHeader>
-              <h2 className="text-section-title flex items-center gap-2">
-                <CreditCard className="h-4 w-4 text-slate-400" aria-hidden />
+              <h2 className="text-section-title flex items-center gap-2 font-display">
+                <CreditCard className="h-4 w-4 text-muted-foreground" aria-hidden />
                 Billing
               </h2>
             </CardHeader>
@@ -492,8 +492,8 @@ export default async function AdminUserDetailPage({ params }: PageProps) {
         {/* Audit trail */}
         <Card>
           <CardHeader>
-            <h2 className="text-section-title flex items-center gap-2">
-              <ScrollText className="h-4 w-4 text-slate-400" aria-hidden />
+            <h2 className="text-section-title flex items-center gap-2 font-display">
+              <ScrollText className="h-4 w-4 text-muted-foreground" aria-hidden />
               Audit trail
             </h2>
           </CardHeader>
@@ -517,7 +517,7 @@ export default async function AdminUserDetailPage({ params }: PageProps) {
                 <TableBody>
                   {user.audit.map((entry) => (
                     <TableRow key={entry.id}>
-                      <TableCell className="font-medium text-slate-900 dark:text-white">
+                      <TableCell className="font-medium text-foreground">
                         {humanizeAction(entry.action)}
                       </TableCell>
                       <TableCell className="text-caption uppercase tracking-[0.1em]">
@@ -553,7 +553,7 @@ function Avatar({ src, name }: { src: string | null; name: string }) {
         alt=""
         width={56}
         height={56}
-        className="h-14 w-14 shrink-0 rounded-full object-cover ring-1 ring-slate-200 dark:ring-white/10"
+        className="h-14 w-14 shrink-0 rounded-full object-cover ring-1 ring-ring/30 dark:ring-white/10"
       />
     );
   }
@@ -561,7 +561,7 @@ function Avatar({ src, name }: { src: string | null; name: string }) {
   return (
     <span
       aria-hidden
-      className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full bg-slate-100 text-[20px] font-semibold text-slate-500 dark:bg-white/10 dark:text-white/60"
+      className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full bg-muted text-[20px] font-semibold text-muted-foreground dark:bg-card"
     >
       {initial}
     </span>
@@ -585,8 +585,8 @@ function Field({
       <div
         className={
           mono
-            ? "break-all font-mono text-[13px] text-slate-700 dark:text-white/70"
-            : "text-[14px] text-slate-700 dark:text-white/80"
+            ? "break-all font-mono text-[13px] text-foreground dark:text-muted-foreground"
+            : "text-[14px] text-foreground "
         }
       >
         {children}
@@ -607,7 +607,7 @@ function ExternalLink({
       href={href}
       target="_blank"
       rel="noopener noreferrer"
-      className="inline-flex items-center gap-1.5 rounded-md text-[14px] text-[var(--brand-violet)] transition-colors hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#907AFF]/40 focus-visible:ring-offset-2"
+      className="inline-flex items-center gap-1.5 rounded-md text-[14px] text-accent-foreground transition-colors hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#907AFF]/40 focus-visible:ring-offset-2"
     >
       {children}
     </a>

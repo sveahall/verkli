@@ -65,7 +65,7 @@ function KPICard({
     pink: "bg-pink-400",
   };
   return (
-    <div className="flex flex-col justify-between rounded-2xl border border-slate-200/80 bg-white p-5 dark:border-white/10 dark:bg-white/[0.04]">
+    <div className="flex flex-col justify-between rounded-2xl border border-border/80 bg-card p-5 dark:border-border dark:bg-card">
       <div className="flex items-center gap-2">
         <span
           className={cn(
@@ -73,16 +73,16 @@ function KPICard({
             dot[accent ?? "purple"] ?? dot.purple
           )}
         />
-        <span className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400 dark:text-white/35">
+        <span className="text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground dark:text-muted-foreground">
           {label}
         </span>
       </div>
       <div className="mt-4">
-        <p className="text-[28px] font-semibold leading-none tracking-tight text-slate-900 dark:text-white">
+        <p className="text-[28px] font-semibold leading-none tracking-tight text-foreground dark:text-foreground">
           {value}
         </p>
         {sub ? (
-          <p className="mt-1.5 text-[13px] text-slate-500 dark:text-white/40">{sub}</p>
+          <p className="mt-1.5 text-[13px] text-muted-foreground dark:text-muted-foreground">{sub}</p>
         ) : null}
       </div>
     </div>
@@ -130,8 +130,8 @@ function AreaChart({ dailyChart }: { dailyChart: DailyPoint[] }) {
 
   if (dailyChart.length === 0) {
     return (
-      <div className="flex h-[200px] items-center justify-center rounded-xl border border-dashed border-slate-200 dark:border-white/10">
-        <p className="text-sm text-slate-400 dark:text-white/35">No data for this time window</p>
+      <div className="flex h-[200px] items-center justify-center rounded-xl border border-dashed border-border dark:border-border">
+        <p className="text-sm text-muted-foreground dark:text-muted-foreground">No data for this time window</p>
       </div>
     );
   }
@@ -161,7 +161,7 @@ function AreaChart({ dailyChart }: { dailyChart: DailyPoint[] }) {
             stroke="currentColor"
             strokeWidth={0.8}
             strokeDasharray="4,4"
-            className="text-slate-200/70 dark:text-white/8"
+            className="text-muted-foreground/70 dark:text-muted-foreground"
           />
         ))}
 
@@ -201,7 +201,7 @@ function AreaChart({ dailyChart }: { dailyChart: DailyPoint[] }) {
           return (
             <span
               key={idx}
-              className="absolute -translate-x-1/2 text-[11px] text-slate-400 dark:text-white/30"
+              className="absolute -translate-x-1/2 text-[11px] text-muted-foreground dark:text-muted-foreground"
               style={{ left: `${pct}%` }}
             >
               {label}
@@ -222,15 +222,15 @@ function ChapterFunnel({ signals }: { signals: ChapterSignal[] }) {
       {signals.map((signal) => (
         <div key={signal.id}>
           <div className="mb-1 flex items-center justify-between gap-2">
-            <p className="truncate text-[13px] font-medium text-slate-700 dark:text-white/75">
+            <p className="truncate text-[13px] font-medium text-foreground dark:text-foreground">
               {signal.title}
             </p>
-            <div className="flex shrink-0 gap-3 text-[12px] text-slate-400 dark:text-white/35">
+            <div className="flex shrink-0 gap-3 text-[12px] text-muted-foreground dark:text-muted-foreground">
               <span>{signal.readerCount} readers</span>
-              <span className="text-[#907AFF]">{signal.completionRate}%</span>
+              <span className="text-accent-foreground">{signal.completionRate}%</span>
             </div>
           </div>
-          <div className="relative h-2 overflow-hidden rounded-full bg-slate-100 dark:bg-white/8">
+          <div className="relative h-2 overflow-hidden rounded-full bg-muted dark:bg-card">
             {/* Reach bar */}
             <div
               className="absolute inset-y-0 left-0 rounded-full bg-[#907AFF]/20"
@@ -258,15 +258,15 @@ function ChapterFunnel({ signals }: { signals: ChapterSignal[] }) {
 function BooksTable({ rows }: { rows: BookRow[] }) {
   if (rows.length === 0) {
     return (
-      <p className="py-6 text-center text-sm text-slate-400 dark:text-white/35">
+      <p className="py-6 text-center text-sm text-muted-foreground dark:text-muted-foreground">
         No book data yet for this period.
       </p>
     );
   }
   const maxViews = Math.max(...rows.map((r) => r.views), 1);
   return (
-    <div className="divide-y divide-slate-100 dark:divide-white/8">
-      <div className="grid grid-cols-[minmax(0,1fr)_80px_80px_80px] gap-3 pb-2 text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-400 dark:text-white/30">
+    <div className="divide-y divide-border dark:divide-border">
+      <div className="grid grid-cols-[minmax(0,1fr)_80px_80px_80px] gap-3 pb-2 text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-foreground dark:text-muted-foreground">
         <span>Book</span>
         <span className="text-right">Views</span>
         <span className="text-right">Readers</span>
@@ -278,19 +278,19 @@ function BooksTable({ rows }: { rows: BookRow[] }) {
           className="grid grid-cols-[minmax(0,1fr)_80px_80px_80px] items-center gap-3 py-3"
         >
           <div className="min-w-0">
-            <p className="truncate text-[13px] font-medium text-slate-800 dark:text-white">
+            <p className="truncate text-[13px] font-medium text-foreground dark:text-foreground">
               {row.title}
             </p>
-            <div className="mt-1.5 h-1 overflow-hidden rounded-full bg-slate-100 dark:bg-white/8">
+            <div className="mt-1.5 h-1 overflow-hidden rounded-full bg-muted dark:bg-card">
               <div
                 className="h-full rounded-full bg-[#907AFF]/50"
                 style={{ width: `${(row.views / maxViews) * 100}%` }}
               />
             </div>
           </div>
-          <p className="text-right text-[13px] text-slate-700 dark:text-white/70">{fmtNum(row.views)}</p>
-          <p className="text-right text-[13px] text-slate-700 dark:text-white/70">{fmtNum(row.reads)}</p>
-          <p className="text-right text-[13px] font-medium text-slate-900 dark:text-white">{fmtNum(row.purchases)}</p>
+          <p className="text-right text-[13px] text-foreground dark:text-foreground">{fmtNum(row.views)}</p>
+          <p className="text-right text-[13px] text-foreground dark:text-foreground">{fmtNum(row.reads)}</p>
+          <p className="text-right text-[13px] font-medium text-foreground dark:text-foreground">{fmtNum(row.purchases)}</p>
         </div>
       ))}
     </div>
@@ -330,20 +330,20 @@ function RevenueBreakdown({
               <div className="flex items-center gap-2">
                 <span className={`h-2.5 w-2.5 rounded-full ${color}`} />
                 <div>
-                  <span className="text-slate-600 dark:text-white/60">{label}</span>
+                  <span className="text-muted-foreground dark:text-muted-foreground">{label}</span>
                   {sub ? (
-                    <p className="text-[11px] text-slate-400 dark:text-white/30">{sub}</p>
+                    <p className="text-[11px] text-muted-foreground dark:text-muted-foreground">{sub}</p>
                   ) : null}
                 </div>
               </div>
               <div className="text-right">
-                <span className="font-semibold text-slate-900 dark:text-white">
+                <span className="font-semibold text-foreground dark:text-foreground">
                   {fmtCurrency(value, currency)}
                 </span>
-                <span className="ml-2 text-[12px] text-slate-400 dark:text-white/30">{pct}%</span>
+                <span className="ml-2 text-[12px] text-muted-foreground dark:text-muted-foreground">{pct}%</span>
               </div>
             </div>
-            <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-slate-100 dark:bg-white/8">
+            <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-muted dark:bg-card">
               <div className={`h-full rounded-full ${color}`} style={{ width: `${pct}%` }} />
             </div>
           </div>
@@ -369,16 +369,16 @@ function MarketingPanel({ campaigns }: { campaigns: MarketingCampaign[] }) {
   return (
     <div className="space-y-4">
       <div className="grid grid-cols-2 gap-3">
-        <div className="rounded-xl bg-slate-50 px-4 py-3 dark:bg-white/[0.03]">
-          <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-400 dark:text-white/30">
+        <div className="rounded-xl bg-background px-4 py-3 dark:bg-card">
+          <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-muted-foreground dark:text-muted-foreground">
             Campaigns
           </p>
-          <p className="mt-1 text-2xl font-semibold text-slate-900 dark:text-white">
+          <p className="mt-1 text-2xl font-semibold text-foreground dark:text-foreground">
             {campaigns.length}
           </p>
         </div>
-        <div className="rounded-xl bg-slate-50 px-4 py-3 dark:bg-white/[0.03]">
-          <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-400 dark:text-white/30">
+        <div className="rounded-xl bg-background px-4 py-3 dark:bg-card">
+          <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-muted-foreground dark:text-muted-foreground">
             Published
           </p>
           <p className="mt-1 text-2xl font-semibold text-emerald-600 dark:text-emerald-400">
@@ -389,23 +389,23 @@ function MarketingPanel({ campaigns }: { campaigns: MarketingCampaign[] }) {
 
       {channelCounts.length > 0 ? (
         <div className="space-y-2">
-          <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-400 dark:text-white/30">
+          <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-muted-foreground dark:text-muted-foreground">
             Channels
           </p>
           {channelCounts.map(([channel, count]) => {
             const maxCount = channelCounts[0][1];
             return (
               <div key={channel} className="flex items-center gap-3">
-                <p className="w-20 shrink-0 truncate text-[13px] capitalize text-slate-600 dark:text-white/60">
+                <p className="w-20 shrink-0 truncate text-[13px] capitalize text-muted-foreground dark:text-muted-foreground">
                   {channel}
                 </p>
-                <div className="flex-1 overflow-hidden rounded-full bg-slate-100 dark:bg-white/8">
+                <div className="flex-1 overflow-hidden rounded-full bg-muted dark:bg-card">
                   <div
                     className="h-1.5 rounded-full bg-[#907AFF]/60"
                     style={{ width: `${(count / maxCount) * 100}%` }}
                   />
                 </div>
-                <p className="w-4 shrink-0 text-right text-[12px] font-medium text-slate-600 dark:text-white/55">
+                <p className="w-4 shrink-0 text-right text-[12px] font-medium text-muted-foreground dark:text-muted-foreground">
                   {count}
                 </p>
               </div>
@@ -414,11 +414,11 @@ function MarketingPanel({ campaigns }: { campaigns: MarketingCampaign[] }) {
         </div>
       ) : null}
 
-      <div className="rounded-xl border border-dashed border-slate-200 px-4 py-3 dark:border-white/10">
-        <p className="text-[12px] font-medium text-slate-500 dark:text-white/40">
+      <div className="rounded-xl border border-dashed border-border px-4 py-3 dark:border-border">
+        <p className="text-[12px] font-medium text-muted-foreground dark:text-muted-foreground">
           Ad spend tracking
         </p>
-        <p className="mt-0.5 text-[11px] leading-relaxed text-slate-400 dark:text-white/30">
+        <p className="mt-0.5 text-[11px] leading-relaxed text-muted-foreground dark:text-muted-foreground">
           Connect ad accounts to track spend, CPR, and ROAS automatically.
         </p>
       </div>
@@ -484,13 +484,13 @@ export default function AnalyticsDashboard({
       <div className="space-y-4">
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
           {[...Array<number>(4)].map((_, i) => (
-            <div key={i} className="h-[110px] animate-pulse rounded-2xl bg-slate-100 dark:bg-white/5" />
+            <div key={i} className="h-[110px] animate-pulse rounded-2xl bg-muted dark:bg-card" />
           ))}
         </div>
-        <div className="h-[280px] animate-pulse rounded-2xl bg-slate-100 dark:bg-white/5" />
+        <div className="h-[280px] animate-pulse rounded-2xl bg-muted dark:bg-card" />
         <div className="grid gap-4 lg:grid-cols-2">
-          <div className="h-[260px] animate-pulse rounded-2xl bg-slate-100 dark:bg-white/5" />
-          <div className="h-[260px] animate-pulse rounded-2xl bg-slate-100 dark:bg-white/5" />
+          <div className="h-[260px] animate-pulse rounded-2xl bg-muted dark:bg-card" />
+          <div className="h-[260px] animate-pulse rounded-2xl bg-muted dark:bg-card" />
         </div>
       </div>
     );
@@ -542,23 +542,23 @@ export default function AnalyticsDashboard({
       </div>
 
       {/* ── Main Chart ── */}
-      <div className="rounded-2xl border border-slate-200/80 bg-white p-6 dark:border-white/10 dark:bg-white/[0.04]">
+      <div className="rounded-2xl border border-border/80 bg-card p-6 dark:border-border dark:bg-card">
         <div className="mb-5 flex flex-wrap items-start justify-between gap-3">
           <div>
-            <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400 dark:text-white/35">
+            <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground dark:text-muted-foreground">
               {isAllBooks ? "All books" : selectedBook?.title}
             </p>
-            <h2 className="mt-1.5 text-[18px] font-semibold tracking-tight text-slate-900 dark:text-white">
+            <h2 className="author-section-title mt-1.5 text-[18px] font-medium tracking-tight text-foreground dark:text-foreground">
               Reading over time
             </h2>
           </div>
-          <div className="flex flex-wrap gap-4 text-[12px] text-slate-500 dark:text-white/40">
+          <div className="flex flex-wrap gap-4 text-[12px] text-muted-foreground dark:text-muted-foreground">
             <span className="inline-flex items-center gap-2">
               <span className="h-2 w-2 rounded-full bg-[#907AFF]/70" />
               Reach
             </span>
             <span className="inline-flex items-center gap-2">
-              <span className="h-2 w-2 rounded-full bg-slate-800 dark:bg-white/70" />
+              <span className="h-2 w-2 rounded-full bg-[#1E293B] dark:bg-white" />
               Readers
             </span>
             <span className="inline-flex items-center gap-2">
@@ -573,14 +573,14 @@ export default function AnalyticsDashboard({
       {/* ── Second Row ── */}
       <div className="grid gap-4 lg:grid-cols-2">
         {/* Left: Chapter funnel (single book) or Books table (all) */}
-        <div className="rounded-2xl border border-slate-200/80 bg-white p-6 dark:border-white/10 dark:bg-white/[0.04]">
+        <div className="rounded-2xl border border-border/80 bg-card p-6 dark:border-border dark:bg-card">
           {isAllBooks ? (
             <>
               <div className="mb-4">
-                <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400 dark:text-white/35">
+                <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground dark:text-muted-foreground">
                   Performance
                 </p>
-                <h3 className="mt-1.5 text-[16px] font-semibold tracking-tight text-slate-900 dark:text-white">
+                <h3 className="mt-1.5 text-[16px] font-semibold tracking-tight text-foreground dark:text-foreground">
                   Books breakdown
                 </h3>
               </div>
@@ -589,15 +589,15 @@ export default function AnalyticsDashboard({
           ) : (
             <>
               <div className="mb-5">
-                <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400 dark:text-white/35">
+                <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground dark:text-muted-foreground">
                   Reading behavior
                 </p>
-                <h3 className="mt-1.5 text-[16px] font-semibold tracking-tight text-slate-900 dark:text-white">
+                <h3 className="mt-1.5 text-[16px] font-semibold tracking-tight text-foreground dark:text-foreground">
                   Chapter funnel
                 </h3>
               </div>
               {chapterSignals.length === 0 ? (
-                <p className="py-4 text-sm text-slate-400 dark:text-white/35">
+                <p className="py-4 text-sm text-muted-foreground dark:text-muted-foreground">
                   Chapter data appears once readers start reading.
                 </p>
               ) : (
@@ -610,17 +610,17 @@ export default function AnalyticsDashboard({
         {/* Right: Revenue + Marketing */}
         <div className="space-y-4">
           {/* Revenue breakdown */}
-          <div className="rounded-2xl border border-slate-200/80 bg-white p-6 dark:border-white/10 dark:bg-white/[0.04]">
+          <div className="rounded-2xl border border-border/80 bg-card p-6 dark:border-border dark:bg-card">
             <div className="mb-4 flex items-center justify-between">
               <div>
-                <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400 dark:text-white/35">
+                <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground dark:text-muted-foreground">
                   Revenue
                 </p>
-                <h3 className="mt-1.5 text-[16px] font-semibold tracking-tight text-slate-900 dark:text-white">
+                <h3 className="mt-1.5 text-[16px] font-semibold tracking-tight text-foreground dark:text-foreground">
                   Income breakdown
                 </h3>
               </div>
-              <span className="text-[22px] font-semibold tracking-tight text-slate-900 dark:text-white">
+              <span className="text-[22px] font-semibold tracking-tight text-foreground dark:text-foreground">
                 {fmtCurrency(totalRevenue, currency)}
               </span>
             </div>
@@ -634,12 +634,12 @@ export default function AnalyticsDashboard({
           </div>
 
           {/* Marketing activity */}
-          <div className="rounded-2xl border border-slate-200/80 bg-white p-6 dark:border-white/10 dark:bg-white/[0.04]">
+          <div className="rounded-2xl border border-border/80 bg-card p-6 dark:border-border dark:bg-card">
             <div className="mb-4">
-              <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400 dark:text-white/35">
+              <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground dark:text-muted-foreground">
                 Marketing
               </p>
-              <h3 className="mt-1.5 text-[16px] font-semibold tracking-tight text-slate-900 dark:text-white">
+              <h3 className="mt-1.5 text-[16px] font-semibold tracking-tight text-foreground dark:text-foreground">
                 Campaigns &amp; spend
               </h3>
             </div>

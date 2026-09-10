@@ -38,7 +38,7 @@ export function AdminNav() {
   const pathname = usePathname() ?? "";
 
   return (
-    <nav aria-label="Admin" className="flex flex-col gap-1">
+    <nav aria-label="Admin" className="flex gap-1 overflow-x-auto pb-1 lg:flex-col lg:overflow-visible lg:pb-0">
       {ADMIN_NAV_ITEMS.map(({ href, label, icon: Icon }) => {
         const active = isActive(pathname, href);
         return (
@@ -47,10 +47,10 @@ export function AdminNav() {
             href={href}
             aria-current={active ? "page" : undefined}
             className={cn(
-              "flex min-h-[44px] items-center gap-3 rounded-xl px-3 py-2.5 text-[14px] font-medium transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-[#907AFF]/40 focus-visible:ring-offset-2 focus-visible:ring-offset-white dark:focus-visible:ring-offset-transparent",
+              "flex min-h-[44px] shrink-0 items-center gap-3 whitespace-nowrap rounded-xl border px-3 py-2.5 text-[13px] font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background",
               active
-                ? "bg-slate-900 text-white dark:bg-white dark:text-slate-900"
-                : "text-slate-600 hover:bg-slate-100 hover:text-slate-900 dark:text-white/60 dark:hover:bg-white/10 dark:hover:text-white"
+                ? "border-accent-foreground/15 bg-accent text-accent-foreground"
+                : "border-transparent text-muted-foreground hover:bg-muted hover:text-foreground"
             )}
           >
             <Icon className="h-[18px] w-[18px] shrink-0" />

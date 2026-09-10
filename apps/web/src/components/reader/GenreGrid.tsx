@@ -24,11 +24,12 @@ export default function GenreGrid({ genres, selected, onToggle }: GenreGridProps
           <button
             key={genre.id}
             type="button"
+            aria-pressed={isSelected}
             onClick={() => onToggle(genre.id)}
-            className={`flex items-center gap-3 rounded-2xl border px-4 py-3 text-left transition-all ${
+            className={`flex items-center gap-3 rounded-2xl min-h-14 border px-4 py-3 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring transition-[background-color,border-color,color,box-shadow] ${
               isSelected
-                ? "border-[#907AFF] bg-[#907AFF]/10 text-slate-900 shadow-sm dark:border-[#B8A8FF] dark:bg-[#907AFF]/20 dark:text-white"
-                : "border-slate-200 bg-white text-slate-700 hover:border-slate-300 hover:bg-slate-50 dark:border-white/10 dark:bg-white/5 dark:text-white/80 dark:hover:border-white/20 dark:hover:bg-white/10"
+                ? "border-[#907AFF] bg-[#907AFF]/10 text-foreground shadow-sm dark:border-[#B8A8FF] dark:bg-[#907AFF]/20 "
+                : "border-border bg-card text-foreground hover:border-border hover:bg-muted dark:hover:border-border dark:hover:bg-card"
             }`}
           >
             {genre.icon && <span className="text-xl">{genre.icon}</span>}

@@ -17,7 +17,7 @@ const badgeVariants = cva(
     variants: {
       variant: {
         neutral:
-          "bg-slate-100 text-slate-600 dark:bg-white/10 dark:text-white/70",
+          "bg-muted text-muted-foreground",
         success:
           "bg-[var(--color-success-muted)] text-[var(--color-success)]",
         warning:
@@ -25,7 +25,7 @@ const badgeVariants = cva(
         info: "bg-[var(--color-info-muted)] text-[var(--color-info)]",
         error: "bg-[var(--color-error-muted)] text-[var(--color-error)]",
         brand:
-          "bg-[rgb(144_122_255_/_0.14)] text-[var(--brand-violet)] dark:text-[#b6a6ff]",
+          "bg-accent text-accent-foreground",
       },
     },
     defaultVariants: {

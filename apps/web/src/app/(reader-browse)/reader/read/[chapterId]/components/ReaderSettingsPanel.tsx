@@ -56,8 +56,10 @@ export default function ReaderSettingsPanel({
         ref={settingsButtonRef}
         type="button"
         onClick={onToggle}
-        className="inline-flex h-9 w-9 items-center justify-center rounded-xl border border-black/[0.06] bg-white shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md dark:border-white/10 dark:bg-[#1a1d24]"
+        className="inline-flex h-11 w-11 items-center justify-center rounded-xl border border-black/[0.06] bg-card shadow-sm transition-[background-color,border-color,color,box-shadow] duration-200 hover:shadow-md dark:border-border dark:bg-card"
         aria-label="Reader settings"
+        aria-expanded={showSettingsPanel}
+        aria-controls="reader-settings-panel"
       >
         <svg
           width="16"
@@ -68,7 +70,7 @@ export default function ReaderSettingsPanel({
           strokeWidth="2"
           strokeLinecap="round"
           strokeLinejoin="round"
-          className="text-[#64748B] dark:text-white/60"
+          className="text-muted-foreground dark:text-muted-foreground"
         >
           <path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z" />
           <circle cx="12" cy="12" r="3" />
@@ -78,10 +80,11 @@ export default function ReaderSettingsPanel({
       {showSettingsPanel && (
         <div
           ref={settingsPanelRef}
-          className="absolute right-0 top-12 w-[270px] rounded-xl border border-black/[0.06] bg-white p-4 shadow-md dark:border-white/10 dark:bg-[#1a1d24]"
+          id="reader-settings-panel"
+          className="absolute right-0 top-12 max-h-[calc(100dvh-10rem)] w-[290px] max-w-[calc(100vw-2rem)] overflow-y-auto rounded-2xl border border-black/[0.06] bg-card p-4 shadow-md dark:border-border dark:bg-card"
         >
           <div className="mb-4 flex items-center justify-between">
-            <p className="text-sm font-semibold text-[#0F172A] dark:text-white">
+            <p className="text-sm font-semibold text-foreground dark:text-foreground">
               Reading settings
             </p>
             {userId && settingsStatusLabel && (
@@ -99,7 +102,7 @@ export default function ReaderSettingsPanel({
 
           <div className="space-y-4">
             <div>
-              <p className="mb-2 text-xs font-medium text-[#64748B] dark:text-white/50">
+              <p className="mb-2 text-xs font-medium text-muted-foreground dark:text-muted-foreground">
                 Text size
               </p>
               <div className="flex items-center gap-2">
@@ -111,12 +114,12 @@ export default function ReaderSettingsPanel({
                       fontSize: clamp(prev.fontSize - 1, FONT_MIN, FONT_MAX),
                     }))
                   }
-                  className="inline-flex min-h-11 min-w-11 items-center justify-center rounded-xl border border-black/[0.06] px-2.5 text-xs font-medium text-[#0F172A] transition-colors hover:bg-black/[0.03] dark:border-white/10 dark:text-white/70 dark:hover:bg-white/5"
+                  className="inline-flex min-h-11 min-w-11 items-center justify-center rounded-xl border border-black/[0.06] px-2.5 text-xs font-medium text-foreground transition-colors hover:bg-black/[0.03] dark:border-border dark:text-muted-foreground dark:hover:bg-card"
                   aria-label="Decrease text size"
                 >
                   A-
                 </button>
-                <span className="min-w-[40px] text-center text-xs font-semibold text-[#0F172A] dark:text-white">
+                <span className="min-w-[40px] text-center text-xs font-semibold text-foreground dark:text-foreground">
                   {settings.fontSize}px
                 </span>
                 <button
@@ -127,7 +130,7 @@ export default function ReaderSettingsPanel({
                       fontSize: clamp(prev.fontSize + 1, FONT_MIN, FONT_MAX),
                     }))
                   }
-                  className="inline-flex min-h-11 min-w-11 items-center justify-center rounded-xl border border-black/[0.06] px-2.5 text-xs font-medium text-[#0F172A] transition-colors hover:bg-black/[0.03] dark:border-white/10 dark:text-white/70 dark:hover:bg-white/5"
+                  className="inline-flex min-h-11 min-w-11 items-center justify-center rounded-xl border border-black/[0.06] px-2.5 text-xs font-medium text-foreground transition-colors hover:bg-black/[0.03] dark:border-border dark:text-muted-foreground dark:hover:bg-card"
                   aria-label="Increase text size"
                 >
                   A+
@@ -136,10 +139,11 @@ export default function ReaderSettingsPanel({
             </div>
 
             <div>
-              <p className="mb-2 text-xs font-medium text-[#64748B] dark:text-white/50">
+              <p className="mb-2 text-xs font-medium text-muted-foreground dark:text-muted-foreground">
                 Line spacing
               </p>
               <select
+                aria-label="Line spacing"
                 value={String(settings.lineHeight)}
                 onChange={(event) => {
                   const next = Number(event.target.value);
@@ -151,7 +155,7 @@ export default function ReaderSettingsPanel({
                 }}
                 // 12px zoomed the viewport on focus and scrolled this popover
                 // out from under the thumb while it was open.
-                className="min-h-11 w-full rounded-xl border border-black/[0.06] bg-white px-3 py-1.5 text-[16px] sm:text-xs font-medium text-[#0F172A] dark:border-white/10 dark:bg-white/5 dark:text-white"
+                className="min-h-11 w-full rounded-xl border border-black/[0.06] bg-card px-3 py-1.5 text-[16px] sm:text-xs font-medium text-foreground dark:border-border dark:bg-card dark:text-foreground"
               >
                 {LINE_HEIGHT_OPTIONS.map((value) => (
                   <option key={value} value={String(value)}>
@@ -162,7 +166,7 @@ export default function ReaderSettingsPanel({
             </div>
 
             <div>
-              <p className="mb-2 text-xs font-medium text-[#64748B] dark:text-white/50">
+              <p className="mb-2 text-xs font-medium text-muted-foreground dark:text-muted-foreground">
                 Font
               </p>
               <div className="flex gap-2">
@@ -170,11 +174,12 @@ export default function ReaderSettingsPanel({
                   <button
                     key={option.value}
                     type="button"
+                    aria-pressed={readerFont === option.value}
                     onClick={() => onFontChange(option.value)}
-                    className={`flex-1 rounded-xl px-2 py-1.5 text-xs font-medium transition-colors ${
+                    className={`min-h-11 flex-1 rounded-xl px-2 py-1.5 text-xs font-medium transition-colors ${
                       readerFont === option.value
-                        ? "bg-[#907AFF] text-white"
-                        : "border border-black/[0.06] text-[#0F172A] hover:bg-black/[0.03] dark:border-white/10 dark:text-white/70 dark:hover:bg-white/5"
+                        ? "bg-accent text-accent-foreground"
+                        : "border border-black/[0.06] text-foreground hover:bg-black/[0.03] dark:border-border dark:text-muted-foreground dark:hover:bg-card"
                     }`}
                   >
                     {option.label}
@@ -184,7 +189,7 @@ export default function ReaderSettingsPanel({
             </div>
 
             <div>
-              <p className="mb-2 text-xs font-medium text-[#64748B] dark:text-white/50">
+              <p className="mb-2 text-xs font-medium text-muted-foreground dark:text-muted-foreground">
                 Theme
               </p>
               <div className="flex gap-2">
@@ -192,11 +197,12 @@ export default function ReaderSettingsPanel({
                   <button
                     key={theme.value}
                     type="button"
+                    aria-pressed={readerTheme === theme.value}
                     onClick={() => onThemeChange(theme.value)}
                     className={`flex-1 rounded-xl border px-2 py-2 text-xs font-medium transition-colors ${
                       readerTheme === theme.value
-                        ? "border-[#907AFF] bg-[#907AFF] text-white"
-                        : "border-black/[0.06] text-[#0F172A] hover:bg-black/[0.03] dark:border-white/10 dark:text-white/70 dark:hover:bg-white/5"
+                        ? "border-accent-foreground/30 bg-accent text-accent-foreground"
+                        : "border-black/[0.06] text-foreground hover:bg-black/[0.03] dark:border-border dark:text-muted-foreground dark:hover:bg-card"
                     }`}
                   >
                     <span
@@ -211,10 +217,10 @@ export default function ReaderSettingsPanel({
 
             <div>
               <div className="mb-2 flex items-center justify-between">
-                <p className="text-xs font-medium text-[#64748B] dark:text-white/50">
+                <p className="text-xs font-medium text-muted-foreground dark:text-muted-foreground">
                   Background
                 </p>
-                <span className="text-xs text-[#64748B] dark:text-white/40">
+                <span className="text-xs text-muted-foreground dark:text-muted-foreground">
                   {backgroundIntensity}%
                 </span>
               </div>

@@ -62,8 +62,8 @@ const STATUS_STYLES: Record<string, string> = {
   active:
     "bg-emerald-50 text-emerald-700 dark:bg-emerald-950/30 dark:text-emerald-400",
   scheduled: "bg-blue-50 text-blue-700 dark:bg-blue-950/30 dark:text-blue-400",
-  draft: "bg-slate-100 text-slate-500 dark:bg-white/10 dark:text-white/50",
-  finished: "bg-slate-100 text-slate-500 dark:bg-white/10 dark:text-white/50",
+  draft: "bg-muted text-muted-foreground dark:bg-card dark:text-muted-foreground",
+  finished: "bg-muted text-muted-foreground dark:bg-card dark:text-muted-foreground",
 };
 
 const AUDIENCE_SURFACE_META: Record<
@@ -230,7 +230,7 @@ export default function AudienceWorkspace({
     if (surface === "campaigns" && marketingEnabled) {
       return (
         <Link
-          className="inline-flex items-center rounded-full bg-[#0F172A] px-5 py-2 text-[14px] font-medium text-white hover:bg-[#1E293B]"
+          className="inline-flex items-center rounded-full bg-primary px-5 py-2 text-[14px] font-medium text-primary-foreground hover:bg-primary/90"
           href={
             selectedBook?.id
               ? `/author/marketing?bookId=${selectedBook.id}`
@@ -245,7 +245,7 @@ export default function AudienceWorkspace({
     if (surface === "reader-updates" && newslettersEnabled) {
       return (
         <Button
-          className="rounded-full bg-[#0F172A] text-white hover:bg-[#1E293B]"
+          className="rounded-full bg-primary text-primary-foreground hover:bg-primary/90"
           onClick={() => setComposerOpen(true)}
         >
           {surfaceMeta.primaryLabel}
@@ -256,7 +256,7 @@ export default function AudienceWorkspace({
     if (surface === "beta-readers" && selectedBook) {
       return (
         <Button
-          className="rounded-full bg-[#0F172A] text-white hover:bg-[#1E293B]"
+          className="rounded-full bg-primary text-primary-foreground hover:bg-primary/90"
           onClick={() => router.push(`/author/books/${selectedBook.id}?panel=publish`)}
         >
           {surfaceMeta.primaryLabel}
@@ -270,19 +270,19 @@ export default function AudienceWorkspace({
   const renderCampaigns = () => (
     <div className="space-y-5">
       {/* Hero card → routes to the proper marketing portal */}
-      <div className="rounded-2xl bg-white p-6 dark:bg-white/[0.04] sm:p-8">
+      <div className="rounded-2xl border border-border bg-card p-6 dark:bg-card sm:p-8">
         <p className="text-eyebrow">Campaigns</p>
-        <h2 className="mt-4 text-[30px] font-semibold tracking-tight text-slate-900 dark:text-white">
+        <h2 className="author-section-title mt-4 text-[30px] font-medium tracking-tight text-foreground dark:text-foreground">
           Create campaign
         </h2>
-        <p className="mt-2 text-[15px] text-slate-500 dark:text-white/45">
+        <p className="mt-2 text-[15px] text-muted-foreground dark:text-muted-foreground">
           Build an AI-powered content drop for{" "}
           {selectedBook?.title ?? "your book"} — trailers, podcast clips, and
           captions in every language.
         </p>
         {marketingEnabled && (
           <Link
-            className="mt-5 inline-flex items-center rounded-xl bg-[#0F172A] px-6 py-2.5 text-[14px] font-medium text-white transition-all hover:bg-[#1E293B] active:scale-[0.98]"
+            className="mt-5 inline-flex items-center rounded-xl bg-primary px-6 py-2.5 text-[14px] font-medium text-primary-foreground transition-all hover:bg-primary/90 active:scale-[0.98]"
             href={
               selectedBook?.id
                 ? `/author/marketing?bookId=${selectedBook.id}`
@@ -297,23 +297,23 @@ export default function AudienceWorkspace({
       {/* Active campaigns list */}
       <section>
         <p className="text-eyebrow">Active</p>
-        <h2 className="mt-2 text-section-title">Live campaigns</h2>
+        <h2 className="author-section-title mt-2 text-section-title">Live campaigns</h2>
         {activeCampaigns.length === 0 ? (
-          <p className="mt-5 text-sm text-slate-500 dark:text-white/45">
+          <p className="mt-5 text-sm text-muted-foreground dark:text-muted-foreground">
             No active campaigns yet.
           </p>
         ) : (
-          <div className="mt-5 rounded-2xl bg-white dark:bg-white/[0.04]">
-            <div className="divide-y divide-slate-200/80 p-5 dark:divide-white/10">
+          <div className="mt-5 rounded-2xl border border-border bg-card dark:bg-card">
+            <div className="divide-y divide-border/80 p-5 dark:divide-border">
               {activeCampaigns.map((campaign) => (
                 <div key={campaign.id} className="flex flex-wrap items-start gap-4 py-4 first:pt-0">
                   <div className="min-w-0 flex-1">
-                    <p className="truncate text-sm font-medium text-slate-900 dark:text-white">
+                    <p className="truncate text-sm font-medium text-foreground dark:text-foreground">
                       {campaign.headline ?? "Campaign"}
                     </p>
-                    <p className="mt-1 text-sm text-slate-500 dark:text-white/45">
+                    <p className="mt-1 text-sm text-muted-foreground dark:text-muted-foreground">
                       {campaign.bookTitle}
-                      <span className="mx-1.5 text-slate-300 dark:text-white/15">·</span>
+                      <span className="mx-1.5 text-muted-foreground dark:text-muted-foreground">·</span>
                       {CHANNEL_LABELS[campaign.channel] ?? campaign.channel}
                     </p>
                   </div>
@@ -324,7 +324,7 @@ export default function AudienceWorkspace({
                   >
                     {campaign.status.charAt(0).toUpperCase() + campaign.status.slice(1)}
                   </span>
-                  <span className="text-xs text-slate-400 dark:text-white/35">
+                  <span className="text-xs text-muted-foreground dark:text-muted-foreground">
                     {campaign.updatedAt ? formatRelativeDate(campaign.updatedAt) : "Recently updated"}
                   </span>
                   {campaign.shareUrl ? (
@@ -332,7 +332,7 @@ export default function AudienceWorkspace({
                       href={campaign.shareUrl}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="text-sm font-medium text-slate-900 hover:text-slate-600 dark:text-white dark:hover:text-white/75"
+                      className="text-sm font-medium text-foreground hover:text-muted-foreground dark:text-foreground dark:hover:text-foreground"
                     >
                       Preview
                     </a>
@@ -349,14 +349,14 @@ export default function AudienceWorkspace({
   const renderReaderUpdates = () => (
     <div className="space-y-5">
       {subscriberCount > 0 ? (
-        <p className="text-sm text-slate-500 dark:text-white/45">
+        <p className="text-sm text-muted-foreground dark:text-muted-foreground">
           {subscriberCount.toLocaleString("en-US")}{" "}
           {subscriberCount === 1 ? "subscriber" : "subscribers"} will receive your next update.
         </p>
       ) : null}
 
       {newslettersEnabled && composerOpen ? (
-        <div className="rounded-2xl bg-white p-5 dark:bg-white/[0.04]">
+        <div className="rounded-2xl border border-border bg-card p-5 dark:bg-card">
           <div className="space-y-3">
             <input
               type="text"
@@ -380,7 +380,7 @@ export default function AudienceWorkspace({
             <div className="flex flex-wrap items-center gap-2">
               <Button
                 size="sm"
-                className="rounded-full bg-[#0F172A] text-white hover:bg-[#1E293B]"
+                className="rounded-full bg-primary text-primary-foreground hover:bg-primary/90"
                 isLoading={creatingNewsletter}
                 loadingText="Creating..."
                 onClick={() => void handleCreateDraft()}
@@ -397,19 +397,19 @@ export default function AudienceWorkspace({
 
       <section>
         <p className="text-eyebrow">Reader updates</p>
-        <h2 className="mt-2 text-section-title">Drafts and sent updates</h2>
+        <h2 className="author-section-title mt-2 text-section-title">Drafts and sent updates</h2>
         {newslettersEnabled ? (
           newsletterItems.length > 0 ? (
             <div className="mt-5">
               <NewsletterList newsletters={newsletterItems} />
             </div>
           ) : (
-            <p className="mt-5 text-sm text-slate-500 dark:text-white/45">
+            <p className="mt-5 text-sm text-muted-foreground dark:text-muted-foreground">
               No reader updates yet.
             </p>
           )
         ) : (
-          <p className="mt-5 text-sm text-slate-500 dark:text-white/45">
+          <p className="mt-5 text-sm text-muted-foreground dark:text-muted-foreground">
             Reader updates are not enabled in this environment.
           </p>
         )}
@@ -418,24 +418,24 @@ export default function AudienceWorkspace({
   );
 
   const renderBetaReaders = () => (
-    <div className="rounded-2xl bg-white p-6 dark:bg-white/[0.04] sm:p-8">
+    <div className="rounded-2xl border border-border bg-card p-6 dark:bg-card sm:p-8">
       <p className="text-eyebrow">Beta readers</p>
-      <h2 className="mt-2 text-section-title">
+      <h2 className="author-section-title mt-2 text-section-title">
         {selectedBook?.title ?? "No book selected"}
       </h2>
       <div className="mt-5 space-y-3">
-        <p className="text-sm text-slate-500 dark:text-white/45">
+        <p className="text-sm text-muted-foreground dark:text-muted-foreground">
           {selectedBook?.status === "PUBLISHED"
             ? `Current visibility: ${selectedBook.publishedVisibility ?? "public"}`
             : "This book is still a draft. Open publish settings when you are ready for beta readers."}
         </p>
-        <p className="text-sm text-slate-500 dark:text-white/45">
+        <p className="text-sm text-muted-foreground dark:text-muted-foreground">
           {formatUpdatedAt(selectedBook?.updatedAt ?? null)}
         </p>
         {selectedBook ? (
           <Link
             href={`/author/books/${selectedBook.id}?panel=publish`}
-            className="inline-flex min-h-[40px] items-center rounded-full border border-slate-200 px-4 text-[14px] font-medium text-slate-700 transition hover:border-slate-300 hover:text-slate-900 dark:border-white/10 dark:text-white/65 dark:hover:border-white/20 dark:hover:text-white"
+            className="inline-flex min-h-[40px] items-center rounded-full border border-border px-4 text-[14px] font-medium text-foreground transition hover:border-border hover:text-foreground dark:border-border dark:text-muted-foreground dark:hover:border-border dark:hover:text-foreground"
           >
             Open beta settings
           </Link>
@@ -448,7 +448,7 @@ export default function AudienceWorkspace({
     <WorkspaceLayout
       header={
         <header>
-          <h1 className="text-[17px] font-medium uppercase tracking-[0.14em] text-[#8B92A5] dark:text-white/50">
+          <h1 className="author-page-title">
             Marketing
           </h1>
         </header>
@@ -456,12 +456,12 @@ export default function AudienceWorkspace({
       headerRight={<WorkspaceHeaderActions />}
       main={
         books.length === 0 ? (
-          <div className="rounded-2xl bg-white p-8 text-center dark:bg-white/[0.04] sm:p-10">
+          <div className="rounded-2xl border border-border bg-card p-8 text-center dark:bg-card sm:p-10">
             <p className="text-eyebrow">Audience</p>
-            <h2 className="mt-4 text-[30px] font-semibold tracking-tight text-slate-900 dark:text-white">
+            <h2 className="author-section-title mt-4 text-[30px] font-medium tracking-tight text-foreground dark:text-foreground">
               Create a book before you grow an audience around it
             </h2>
-            <p className="mx-auto mt-3 max-w-xl text-[15px] leading-relaxed text-slate-500 dark:text-white/45">
+            <p className="mx-auto mt-3 max-w-xl text-[15px] leading-relaxed text-muted-foreground dark:text-muted-foreground">
               Campaigns, updates, and beta readers become useful once a story exists.
             </p>
           </div>
@@ -473,7 +473,7 @@ export default function AudienceWorkspace({
                 <select
                   value={selectedBookId ?? ""}
                   onChange={(event) => setSelectedBookId(event.target.value || null)}
-                  className="h-10 min-w-[160px] rounded-full border-0 bg-white px-4 text-[14px] text-[#5C6375] outline-none ring-1 ring-slate-200/80 focus:ring-2 focus:ring-[#907AFF]/30 dark:bg-white/[0.06] dark:text-white/60 dark:ring-white/10"
+                  className="h-11 min-w-[160px] rounded-full border-0 bg-card px-4 text-[14px] text-muted-foreground outline-none ring-1 ring-border/80 focus:ring-2 focus:ring-[#907AFF]/30 dark:bg-card dark:text-muted-foreground dark:ring-white/10"
                   aria-label="Select book"
                 >
                   {books.map((book) => (

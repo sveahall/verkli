@@ -66,8 +66,9 @@ export default function ReaderSettingsClient() {
             <button
               key={f.value}
               type="button"
+              aria-pressed={settings.font_family === f.value}
               onClick={() => updateSettings({ font_family: f.value })}
-              className={`flex flex-1 flex-col items-center gap-2 rounded-2xl border p-4 transition ${
+              className={`flex flex-1 flex-col items-center gap-2 rounded-2xl border p-4 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
                 settings.font_family === f.value
                   ? "border-[#907AFF] bg-[#907AFF]/5"
                   : "border-border hover:border-[#907AFF]/30"
@@ -88,12 +89,13 @@ export default function ReaderSettingsClient() {
           <span className="text-[13px] text-muted-foreground">14px</span>
           <input
             type="range"
+            aria-label="Reading font size"
             min={14}
             max={28}
             step={1}
             value={settings.font_size}
             onChange={(e) => updateSettings({ font_size: Number(e.target.value) })}
-            className="flex-1 accent-[#907AFF]"
+            className="min-w-0 flex-1 accent-[#907AFF]"
           />
           <span className="text-[13px] text-muted-foreground">28px</span>
           <span className="min-w-[48px] text-center text-[15px] font-semibold text-foreground">
@@ -109,8 +111,9 @@ export default function ReaderSettingsClient() {
             <button
               key={t.value}
               type="button"
+              aria-pressed={settings.theme === t.value}
               onClick={() => updateSettings({ theme: t.value })}
-              className={`flex flex-1 flex-col items-center gap-2 rounded-2xl border p-4 transition ${t.bg} ${t.text} ${
+              className={`flex flex-1 flex-col items-center gap-2 rounded-2xl border p-4 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${t.bg} ${t.text} ${
                 settings.theme === t.value
                   ? "ring-2 ring-[#907AFF] ring-offset-2"
                   : t.border
@@ -128,12 +131,13 @@ export default function ReaderSettingsClient() {
           <span className="text-[13px] text-muted-foreground">1.2</span>
           <input
             type="range"
+            aria-label="Reading line height"
             min={1.2}
             max={2.0}
             step={0.1}
             value={settings.line_height}
             onChange={(e) => updateSettings({ line_height: Number(e.target.value) })}
-            className="flex-1 accent-[#907AFF]"
+            className="min-w-0 flex-1 accent-[#907AFF]"
           />
           <span className="text-[13px] text-muted-foreground">2.0</span>
           <span className="min-w-[48px] text-center text-[15px] font-semibold text-foreground">
@@ -149,8 +153,9 @@ export default function ReaderSettingsClient() {
             <button
               key={w.value}
               type="button"
+              aria-pressed={settings.content_width === w.value}
               onClick={() => updateSettings({ content_width: w.value })}
-              className={`flex flex-1 flex-col items-center gap-2 rounded-2xl border p-4 transition ${
+              className={`flex flex-1 flex-col items-center gap-2 rounded-2xl border p-4 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
                 settings.content_width === w.value
                   ? "border-[#907AFF] bg-[#907AFF]/5"
                   : "border-border hover:border-[#907AFF]/30"
@@ -170,7 +175,7 @@ export default function ReaderSettingsClient() {
       {/* Preview */}
       <Section title="Preview">
         <div
-          className={`rounded-2xl border p-6 transition-all ${theme.bg} ${theme.text} ${theme.border}`}
+          className={`rounded-2xl border p-6 transition-[background-color,border-color,color,box-shadow] ${theme.bg} ${theme.text} ${theme.border}`}
           style={{
             fontFamily: getFontFamily(settings.font_family),
             fontSize: `${settings.font_size}px`,
@@ -186,7 +191,7 @@ export default function ReaderSettingsClient() {
 
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
-    <div className="rounded-2xl border border-border bg-background p-5">
+    <div className="rounded-2xl border border-border bg-card p-5 sm:p-6">
       <p className="mb-3 text-[11px] font-medium uppercase tracking-[0.15em] text-muted-foreground">
         {title}
       </p>

@@ -5,7 +5,6 @@ import { createPortal } from "react-dom";
 import Link from "next/link";
 import Image from "next/image";
 import { usePathname, useRouter } from "next/navigation";
-import GlassSurface from "@/components/GlassSurface";
 import UserMenu from "@/components/navbar/UserMenu";
 import NotificationBell from "@/components/notifications/NotificationBell";
 import { createClient } from "@/lib/supabase/client";
@@ -14,10 +13,8 @@ import type { NavActions, NavLink } from "@/nav/navConfig";
 import type { User } from "@supabase/supabase-js";
 import {
   dropdownContent,
-  dropdownGlassProps,
   dropdownHeaderMeta,
   dropdownItemMeta,
-  glassBaseProps,
 } from "./GlobalNavbar.dropdown-data";
 
 const VERKLI_ROLE_KEY = "verkli_role";
@@ -267,14 +264,10 @@ export default function GlobalNavbar({
     <>
       {/* fixed + isolate + z-[9999] så Safari alltid ritar navbar ovanpå innehåll (DOM-ordning + explicit stacking) */}
       <div className="fixed top-0 left-0 z-[9999] isolate w-full flex-shrink-0">
-        <header className="mx-auto w-full max-w-[100vw] overflow-x-hidden overflow-y-visible px-4 pb-2 pt-3 md:px-6">
+        <header className="mx-auto w-full max-w-[1680px] overflow-x-hidden overflow-y-visible px-4 pb-2 pt-3 md:px-6">
         <div className="flex items-center gap-2 sm:gap-3">
-        <GlassSurface
-          {...glassBaseProps}
-          width="100%"
-          height="68px"
-          borderRadius={999}
-          className="nav-glass flex-1 min-w-0 border border-gray-100/[0.05] bg-white/90 px-4 py-3 dark:border-white/10 dark:bg-slate-950/95 sm:px-6 md:px-11 [&_.glass-surface__content]:w-full [&_.glass-surface__content]:justify-between [&_.glass-surface__content]:p-0"
+        <div
+          className="flex min-h-[68px] min-w-0 flex-1 items-center rounded-full border border-border bg-background/95 px-4 py-2 shadow-surface-sm backdrop-blur-xl sm:px-6 md:px-11"
         >
           <nav className="flex w-full min-w-0 items-center justify-between gap-4 sm:gap-6">
             {/* Logo and navigation */}
@@ -303,7 +296,7 @@ export default function GlobalNavbar({
 
               {/* Navigation links based on route */}
               {isauthorRoute && (
-                <div className="hidden items-center gap-5 text-[14px] font-medium text-slate-700/90 dark:text-white/80 lg:flex">
+                <div className="hidden items-center gap-5 text-[14px] font-medium text-foreground lg:flex">
                   {authorNavItems.map((item) => (
                     <div
                       key={item.label}
@@ -327,7 +320,7 @@ export default function GlobalNavbar({
                           href={item.href}
                           aria-haspopup="menu"
                           aria-expanded={dropdownOpen?.key === item.label}
-                          className="flex min-h-[44px] min-w-[44px] items-center gap-1.5 px-3 py-2 transition-colors hover:text-slate-900 hover:text-[#7058DD] dark:hover:text-white focus:outline-none focus:ring-2 focus:ring-[#907AFF]/50 focus:ring-offset-2 rounded-md"
+                          className="flex min-h-[44px] min-w-[44px] items-center gap-1.5 px-3 py-2 transition-colors hover:text-foreground hover:text-[#7058DD] focus:outline-none focus:ring-2 focus:ring-[#907AFF]/50 focus:ring-offset-2 rounded-md"
                         >
                           <span>{item.label}</span>
                           <svg
@@ -345,7 +338,7 @@ export default function GlobalNavbar({
                       ) : (
                         <Link
                           href={item.href}
-                          className="flex min-h-[44px] min-w-[44px] items-center px-3 py-2 transition-colors hover:text-slate-900 hover:text-[#7058DD] dark:hover:text-white focus:outline-none focus:ring-2 focus:ring-[#907AFF]/50 focus:ring-offset-2 rounded-md"
+                          className="flex min-h-[44px] min-w-[44px] items-center px-3 py-2 transition-colors hover:text-foreground hover:text-[#7058DD] focus:outline-none focus:ring-2 focus:ring-[#907AFF]/50 focus:ring-offset-2 rounded-md"
                         >
                           {item.label}
                         </Link>
@@ -356,7 +349,7 @@ export default function GlobalNavbar({
               )}
 
               {isReaderRoute && (
-                <div className="hidden items-center gap-2 text-[14px] font-medium text-slate-700 dark:text-white/80 lg:flex">
+                <div className="hidden items-center gap-2 text-[14px] font-medium text-foreground lg:flex">
                   {readerNavItems.map((item) => {
                     const hasDropdown = item.hasDropdown ?? (item.children?.length ?? 0) > 0;
                     if (hasDropdown) {
@@ -381,7 +374,7 @@ export default function GlobalNavbar({
                             href={item.href}
                             aria-haspopup="menu"
                             aria-expanded={dropdownOpen?.key === item.label}
-                            className="flex min-h-[44px] min-w-[44px] items-center gap-1.5 rounded-full px-4 py-2 transition-colors hover:bg-slate-100 hover:text-slate-900 focus:outline-none focus:ring-2 focus:ring-[#907AFF]/50 focus:ring-offset-2 dark:hover:bg-white/10 dark:hover:text-white"
+                            className="flex min-h-[44px] min-w-[44px] items-center gap-1.5 rounded-full px-4 py-2 transition-colors hover:bg-accent hover:text-foreground focus:outline-none focus:ring-2 focus:ring-[#907AFF]/50 focus:ring-offset-2 "
                           >
                             <span>{item.label}</span>
                             <svg
@@ -405,10 +398,10 @@ export default function GlobalNavbar({
                         key={item.label}
                         href={item.href || "#"}
                         aria-current={active ? "page" : undefined}
-                        className={`rounded-full px-4 py-2 transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-[#907AFF]/40 focus-visible:ring-offset-2 focus-visible:ring-offset-white dark:focus-visible:ring-offset-[#0b0b12] ${
+                        className={`rounded-full px-4 py-2 transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background ${
                           active
-                            ? "bg-slate-900 text-white shadow-[0_6px_18px_rgba(15,23,42,0.18)] dark:bg-white dark:text-slate-900"
-                            : "text-slate-600 hover:bg-slate-100 hover:text-slate-900 dark:text-white/70 dark:hover:bg-white/10 dark:hover:text-white"
+                            ? "bg-accent text-accent-foreground shadow-surface-sm"
+                            : "text-muted-foreground hover:bg-accent hover:text-foreground "
                         }`}
                       >
                         {item.label}
@@ -419,7 +412,7 @@ export default function GlobalNavbar({
               )}
 
               {isPublicPage && (
-                <div className="hidden items-center gap-6 text-[15px] font-medium text-slate-700 dark:text-white/80 lg:flex">
+                <div className="hidden items-center gap-6 text-[15px] font-medium text-foreground lg:flex">
                   {publicNavItems.map((item) => (
                     <div
                       key={item.label}
@@ -443,7 +436,7 @@ export default function GlobalNavbar({
                           href={item.href}
                           aria-haspopup="menu"
                           aria-expanded={dropdownOpen?.key === item.label}
-                          className="flex min-h-[44px] min-w-[44px] items-center gap-1.5 px-3 py-2 transition-colors hover:text-slate-900 dark:hover:text-white focus:outline-none focus:ring-2 focus:ring-[#907AFF]/50 focus:ring-offset-2 focus:ring-offset-transparent rounded-md"
+                          className="flex min-h-[44px] min-w-[44px] items-center gap-1.5 px-3 py-2 transition-colors hover:text-foreground focus:outline-none focus:ring-2 focus:ring-[#907AFF]/50 focus:ring-offset-2 focus:ring-offset-transparent rounded-md"
                         >
                           <span>{item.label}</span>
                           <svg
@@ -461,7 +454,7 @@ export default function GlobalNavbar({
                       ) : (
                         <Link
                           href={item.href}
-                          className="flex min-h-[44px] min-w-[44px] items-center px-3 py-2 transition-colors hover:text-slate-900 dark:hover:text-white focus:outline-none focus:ring-2 focus:ring-[#907AFF]/50 focus:ring-offset-2 rounded-md"
+                          className="flex min-h-[44px] min-w-[44px] items-center px-3 py-2 transition-colors hover:text-foreground focus:outline-none focus:ring-2 focus:ring-[#907AFF]/50 focus:ring-offset-2 rounded-md"
                         >
                           {item.label}
                         </Link>
@@ -478,7 +471,7 @@ export default function GlobalNavbar({
               <button
                 type="button"
                 onClick={() => setMobileMenuOpen((v) => !v)}
-                className="flex min-h-[44px] min-w-[44px] items-center justify-center rounded-full border border-slate-200/80 text-slate-700 transition-colors hover:bg-slate-100 hover:text-slate-900 focus:outline-none focus:ring-2 focus:ring-[#907AFF]/50 focus:ring-offset-2 dark:border-white/10 dark:text-white/80 dark:hover:bg-white/10 lg:hidden"
+                className="flex min-h-[44px] min-w-[44px] items-center justify-center rounded-full border border-border text-foreground transition-colors hover:bg-accent hover:text-foreground focus:outline-none focus:ring-2 focus:ring-[#907AFF]/50 focus:ring-offset-2 lg:hidden"
                 aria-label={mobileMenuOpen ? "Close menu" : "Open menu"}
                 aria-expanded={mobileMenuOpen}
               >
@@ -501,7 +494,7 @@ export default function GlobalNavbar({
                       onSubmit={handleSearchSubmit}
                       className="group relative hidden h-9 items-center md:flex"
                     >
-                      <div className="flex h-9 items-center gap-2 rounded-full border border-slate-200/80 pl-2 pr-0.5 text-slate-600 backdrop-blur-md transition-all duration-200 ease-out hover:border-slate-300 dark:hover:border-white/30 group-focus-within:border-slate-300 dark:group-focus-within:border-white/30 dark:border-white/25 dark:text-white/80 dark:hover:border-white/30 dark:group-focus-within:border-white/30">
+                      <div className="flex h-9 items-center gap-2 rounded-full border border-border pl-2 pr-0.5 text-muted-foreground backdrop-blur-md transition-all duration-200 ease-out hover:border-ring/50 group-focus-within:border-ring/50">
                         <svg
                           className="h-4 w-4 flex-shrink-0"
                           fill="none"
@@ -520,7 +513,7 @@ export default function GlobalNavbar({
                           value={searchValue}
                           onChange={(e) => setSearchValue(e.target.value)}
                           placeholder={searchPlaceholder}
-                          className="w-0 bg-transparent text-[13px] font-medium text-slate-800 placeholder-slate-400 opacity-0 outline-none transition-all duration-200 ease-out group-hover:w-48 group-hover:opacity-100 group-focus-within:w-48 group-focus-within:opacity-100 dark:text-white dark:placeholder-white/40"
+                          className="w-0 bg-transparent text-[13px] font-medium text-foreground placeholder:text-muted-foreground opacity-0 outline-none transition-all duration-200 ease-out group-hover:w-48 group-hover:opacity-100 group-focus-within:w-48 group-focus-within:opacity-100"
                         />
                       </div>
                     </form>
@@ -531,7 +524,7 @@ export default function GlobalNavbar({
                     <button
                       type="button"
                       onClick={() => router.push(primaryAction.href)}
-                      className="hidden h-9 items-center rounded-full border border-slate-200/80 px-5 text-[13px] font-medium text-slate-900 dark:text-white transition-all md:inline-flex dark:border-white/[0.15]"
+                      className="hidden h-9 items-center rounded-full border border-border px-5 text-[13px] font-medium text-foreground transition-all md:inline-flex"
                     >
                       {primaryAction.label}
                     </button>
@@ -604,7 +597,7 @@ export default function GlobalNavbar({
                     {/* Language selector */}
                     <button
                       type="button"
-                      className="flex h-9 w-9 items-center justify-center rounded-full bg-transparent text-slate-700 transition-colors hover:text-slate-900 dark:border-white/10 dark:text-white/80 dark:hover:text-white"
+                      className="flex h-9 w-9 items-center justify-center rounded-full bg-transparent text-foreground transition-colors hover:text-foreground "
                       aria-label="Select language"
                     >
                       <svg
@@ -613,7 +606,7 @@ export default function GlobalNavbar({
                         viewBox="0 0 48 20"
                         fill="none"
                         xmlns="http://www.w3.org/2000/svg"
-                        className="text-slate-700 dark:text-white/80"
+                        className="text-foreground "
                       >
                         <path d="M11.5086 11.7646L7.74559 0.92622C7.71044 0.824993 7.56746 0.824502 7.53162 0.925485L3.63734 11.898" stroke="currentColor" strokeWidth="1.70079" strokeLinecap="round"/>
                         <path d="M5.07666 8.38086H10.1082" stroke="currentColor" strokeWidth="1.70079"/>
@@ -634,7 +627,7 @@ export default function GlobalNavbar({
               )}
             </div>
           </nav>
-        </GlassSurface>
+        </div>
       </div>
 
       {/* Mobilmeny – fullskärm med länkar + Sign in / Sign up */}
@@ -649,7 +642,7 @@ export default function GlobalNavbar({
             className="absolute inset-0 bg-black/40 backdrop-blur-sm"
             aria-label="Close menu"
           />
-          <div className="absolute right-0 top-0 flex h-full w-full max-w-[min(100vw,22rem)] flex-col gap-6 overflow-y-auto border-l border-slate-200/80 bg-white/95 px-6 pb-8 pt-20 shadow-xl dark:border-white/10 dark:bg-slate-950/95">
+          <div className="absolute right-0 top-0 flex h-full w-full max-w-[min(100vw,22rem)] flex-col gap-6 overflow-y-auto border-l border-border bg-card/95 px-6 pb-8 pt-20 shadow-xl ">
             <div className="flex flex-col gap-1">
               {isPublicPage &&
                 publicNavItems.map((item) => (
@@ -657,7 +650,7 @@ export default function GlobalNavbar({
                     key={item.label}
                     href={item.href || `#${item.label.toLowerCase()}`}
                     onClick={() => setMobileMenuOpen(false)}
-                    className="flex min-h-[44px] min-w-[44px] items-center rounded-xl px-4 py-3 text-[16px] font-medium text-slate-700 transition-colors hover:bg-slate-100 hover:text-slate-900 dark:text-white/90 dark:hover:bg-white/10"
+                    className="flex min-h-[44px] min-w-[44px] items-center rounded-xl px-4 py-3 text-[16px] font-medium text-foreground transition-colors hover:bg-accent hover:text-foreground "
                   >
                     {item.label}
                   </a>
@@ -668,7 +661,7 @@ export default function GlobalNavbar({
                     key={item.label}
                     href={item.href || `#${item.label.toLowerCase()}`}
                     onClick={() => setMobileMenuOpen(false)}
-                    className="flex min-h-[44px] min-w-[44px] items-center rounded-xl px-4 py-3 text-[16px] font-medium text-slate-700 transition-colors hover:bg-slate-100 hover:text-slate-900 dark:text-white/90 dark:hover:bg-white/10"
+                    className="flex min-h-[44px] min-w-[44px] items-center rounded-xl px-4 py-3 text-[16px] font-medium text-foreground transition-colors hover:bg-accent hover:text-foreground "
                   >
                     {item.label}
                   </a>
@@ -684,14 +677,14 @@ export default function GlobalNavbar({
                         setMobileMenuOpen(false);
                       }
                     }}
-                    className="flex min-h-[44px] min-w-[44px] items-center rounded-xl px-4 py-3 text-left text-[16px] font-medium text-slate-700 transition-colors hover:bg-slate-100 hover:text-slate-900 dark:text-white/90 dark:hover:bg-white/10"
+                    className="flex min-h-[44px] min-w-[44px] items-center rounded-xl px-4 py-3 text-left text-[16px] font-medium text-foreground transition-colors hover:bg-accent hover:text-foreground "
                   >
                     {item.label}
                   </button>
                 ))}
             </div>
             {!user && (
-              <div className="mt-auto flex flex-col gap-3 border-t border-slate-200/80 pt-6 dark:border-white/10">
+              <div className="mt-auto flex flex-col gap-3 border-t border-border pt-6 ">
                 {isPublicPage && (
                   <>
                     <Link
@@ -791,11 +784,7 @@ export default function GlobalNavbar({
                 }}
                 onMouseLeave={() => setDropdownOpen(null)}
               >
-                <GlassSurface
-                  {...dropdownGlassProps}
-                  width="100%"
-                  height="auto"
-                  borderRadius={20}
+                <div
                   className={`nav-mega ${containerClass} max-h-[min(calc(100dvh-120px),32rem)] overflow-y-auto overscroll-contain border-0 px-4 py-4 sm:px-5 sm:py-5`}
                 >
                   {(() => {
@@ -814,11 +803,11 @@ export default function GlobalNavbar({
                         <div className="space-y-4">
                           {header && (
                             <div className="space-y-1">
-                              <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-400 dark:text-white/40">
+                              <p className="text-[12px] font-medium text-muted-foreground ">
                                 {header.title}
                               </p>
                               {header.description && (
-                                <p className="text-[13px] text-slate-600 dark:text-white/60">
+                                <p className="text-[13px] text-muted-foreground ">
                                   {header.description}
                                 </p>
                               )}
@@ -832,19 +821,19 @@ export default function GlobalNavbar({
                                   key={idx}
                                   href={child.href}
                                   onClick={() => setDropdownOpen(null)}
-                                  className="group/item flex items-start gap-3 rounded-2xl border border-transparent px-3 py-3 transition-all duration-150 hover:border-slate-200/80 hover:bg-slate-100/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#907AFF]/40 focus-visible:ring-offset-2 focus-visible:ring-offset-white dark:focus-visible:ring-offset-[#0b0b12] dark:hover:border-white/10 dark:hover:bg-white/[0.08]"
+                                  className="group/item flex items-start gap-3 rounded-2xl border border-transparent px-3 py-3 transition-all duration-150 hover:border-border hover:bg-accent/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background "
                                 >
-                                  <div className="mt-0.5 flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-xl bg-slate-900/5 text-slate-700 ring-1 ring-black/5 transition-colors group-hover/item:bg-slate-900/10 dark:bg-white/10 dark:text-white dark:ring-white/10">
+                                  <div className="mt-0.5 flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-xl bg-accent text-foreground ring-1 ring-black/5 transition-colors group-hover/item:bg-accent dark:ring-white/10">
                                     {meta?.icon ?? (
                                       <span className="h-2 w-2 rounded-full bg-gradient-to-r from-[#907AFF] via-[#E29ED5] to-[#FCC997]" />
                                     )}
                                   </div>
                                   <div className="min-w-0">
-                                    <p className="text-[14px] font-semibold text-slate-900 transition-colors group-hover/item:text-[#907AFF] dark:text-white dark:group-hover/item:text-[#907AFF]">
+                                    <p className="text-[14px] font-semibold text-foreground transition-colors group-hover/item:text-accent-foreground">
                                       {child.label}
                                     </p>
                                     {meta?.description && (
-                                      <p className="mt-0.5 text-[12px] text-slate-500 dark:text-white/60">
+                                      <p className="mt-0.5 text-[12px] text-muted-foreground ">
                                         {meta.description}
                                       </p>
                                     )}
@@ -860,11 +849,11 @@ export default function GlobalNavbar({
                     if (legacy) {
                       return (
                         <>
-                          <div className="mb-4 border-b border-slate-200/80 pb-3 dark:border-white/10">
-                            <h3 className="text-[17px] font-semibold leading-tight text-slate-900 dark:text-white">
+                          <div className="mb-4 border-b border-border pb-3 ">
+                            <h3 className="text-[17px] font-semibold leading-tight text-foreground ">
                               {legacy.title}
                             </h3>
-                            <p className="mt-1 text-[13px] leading-relaxed text-slate-600 dark:text-white/60">
+                            <p className="mt-1 text-[13px] leading-relaxed text-muted-foreground ">
                               {legacy.description}
                             </p>
                           </div>
@@ -872,17 +861,17 @@ export default function GlobalNavbar({
                             {legacy.items.map((menuItem, idx) => (
                               <div
                                 key={idx}
-                                className="group/item cursor-pointer rounded-2xl border border-transparent px-4 py-3 transition-all duration-150 hover:border-slate-200/80 hover:bg-slate-100/80 dark:hover:border-white/10 dark:hover:bg-white/[0.08]"
+                                className="group/item cursor-pointer rounded-2xl border border-transparent px-4 py-3 transition-all duration-150 hover:border-border hover:bg-accent/50 "
                               >
                                 <div className="flex items-start gap-3">
-                                  <div className="mt-0.5 flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-xl bg-slate-900/5 ring-1 ring-black/5 dark:bg-white/10 dark:ring-white/10">
+                                  <div className="mt-0.5 flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-xl bg-accent ring-1 ring-black/5 dark:ring-white/10">
                                     <span className="h-2 w-2 rounded-full bg-gradient-to-r from-[#907AFF] via-[#E29ED5] to-[#FCC997]" />
                                   </div>
                                   <div className="flex-1 min-w-0">
-                                    <h4 className="text-[14px] font-semibold leading-tight text-slate-900 transition-colors group-hover/item:text-[#907AFF] dark:text-white dark:group-hover/item:text-[#907AFF]">
+                                    <h4 className="text-[14px] font-semibold leading-tight text-foreground transition-colors group-hover/item:text-accent-foreground">
                                       {menuItem.title}
                                     </h4>
-                                    <p className="mt-0.5 text-[12px] leading-relaxed text-slate-600 dark:text-white/60">
+                                    <p className="mt-0.5 text-[12px] leading-relaxed text-muted-foreground ">
                                       {menuItem.description}
                                     </p>
                                   </div>
@@ -895,7 +884,7 @@ export default function GlobalNavbar({
                     }
                     return null;
                   })()}
-                </GlassSurface>
+                </div>
               </div>
             );
           })(),

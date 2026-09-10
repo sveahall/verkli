@@ -165,7 +165,7 @@ export default function AdminFeedbackPage() {
                 onChange={(event) =>
                   changeStatus(event.target.value as StatusFilter)
                 }
-                className="h-11 rounded-xl border border-slate-200 bg-white px-3.5 text-[15px] text-slate-900 transition-colors focus:border-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-900/10 dark:border-white/[0.1] dark:bg-white/[0.06] dark:text-white dark:focus:border-white/25 dark:focus:ring-white/15"
+                className="h-11 rounded-xl border border-border bg-card px-3.5 text-[15px] text-foreground transition-colors focus:border-border focus:outline-none focus:ring-2 focus:ring-ring/30 dark:focus:border-border dark:focus:ring-white/15"
               >
                 {STATUS_FILTERS.map((value) => (
                   <option key={value} value={value}>

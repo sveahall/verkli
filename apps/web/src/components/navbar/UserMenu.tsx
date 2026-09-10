@@ -129,7 +129,7 @@ export default function UserMenu({ user, onSignOut, currentRole = "author", orig
           e.preventDefault();
           e.stopPropagation();
         }}
-        className="flex h-11 min-h-[44px] min-w-[44px] w-11 shrink-0 items-center justify-center rounded-full border border-slate-300 bg-transparent text-slate-700 transition-all hover:bg-slate-100 dark:border-white/[0.4] dark:text-white dark:hover:bg-white/10 focus:outline-none focus:ring-2 focus:ring-[#907AFF]/50 focus:ring-offset-2 focus:ring-offset-background"
+        className="flex h-11 min-h-[44px] min-w-[44px] w-11 shrink-0 items-center justify-center rounded-full border border-ring/50 bg-transparent text-foreground transition-all hover:bg-accent focus:outline-none focus:ring-2 focus:ring-[#907AFF]/50 focus:ring-offset-2 focus:ring-offset-background"
         aria-label="Account menu"
         aria-expanded={isOpen}
       >
@@ -157,7 +157,7 @@ export default function UserMenu({ user, onSignOut, currentRole = "author", orig
         createPortal(
           <div
             ref={menuPanelRef}
-            className="w-[min(280px,calc(100vw-2rem))] max-w-[280px] overflow-hidden rounded-2xl border border-black/10 dark:border-white/10 bg-white/[0.98] dark:bg-[#0a0a0f]/[0.98] p-1 backdrop-blur-xl"
+            className="w-[min(280px,calc(100vw-2rem))] max-w-[280px] overflow-hidden rounded-2xl border border-border bg-popover text-popover-foreground p-1 backdrop-blur-xl"
             style={{
               position: "fixed",
               top: menuPosition.top,
@@ -168,11 +168,11 @@ export default function UserMenu({ user, onSignOut, currentRole = "author", orig
             onClick={(e) => e.stopPropagation()}
           >
           {/* Header with user info */}
-          <div className="px-4 py-3 border-b border-black/[0.05] dark:border-white/[0.06]">
-            <p className="text-[15px] font-semibold text-slate-900 dark:text-white">
+          <div className="px-4 py-3 border-b border-border">
+            <p className="text-[15px] font-semibold text-foreground ">
               {displayName}
             </p>
-            <p className="mt-0.5 text-[13px] text-slate-500 dark:text-white/50 truncate">
+            <p className="mt-0.5 text-[13px] text-muted-foreground truncate">
               {user?.email}
             </p>
           </div>
@@ -185,7 +185,7 @@ export default function UserMenu({ user, onSignOut, currentRole = "author", orig
                 e.stopPropagation();
                 setIsOpen(false);
               }}
-              className="flex min-h-[44px] w-full items-center gap-3 rounded-xl px-4 py-3 text-[14px] font-medium text-slate-700 dark:text-white/80 transition-all hover:bg-slate-50 dark:hover:bg-white/[0.05] hover:text-slate-900 dark:hover:text-white focus:outline-none focus:ring-2 focus:ring-inset focus:ring-[#907AFF]/30"
+              className="flex min-h-[44px] w-full items-center gap-3 rounded-xl px-4 py-3 text-[14px] font-medium text-foreground transition-all hover:bg-accent hover:text-accent-foreground focus:outline-none focus:ring-2 focus:ring-inset focus:ring-[#907AFF]/30"
             >
               <svg
                 className="h-5 w-5 flex-shrink-0"
@@ -209,7 +209,7 @@ export default function UserMenu({ user, onSignOut, currentRole = "author", orig
                 e.stopPropagation();
                 setIsOpen(false);
               }}
-              className="flex min-h-[44px] w-full items-center gap-3 rounded-xl px-4 py-3 text-[14px] font-medium text-slate-700 dark:text-white/80 transition-all hover:bg-slate-50 dark:hover:bg-white/[0.05] hover:text-slate-900 dark:hover:text-white focus:outline-none focus:ring-2 focus:ring-inset focus:ring-[#907AFF]/30"
+              className="flex min-h-[44px] w-full items-center gap-3 rounded-xl px-4 py-3 text-[14px] font-medium text-foreground transition-all hover:bg-accent hover:text-accent-foreground focus:outline-none focus:ring-2 focus:ring-inset focus:ring-[#907AFF]/30"
             >
               <svg
                 className="h-5 w-5 flex-shrink-0"
@@ -239,7 +239,7 @@ export default function UserMenu({ user, onSignOut, currentRole = "author", orig
                   e.stopPropagation();
                   setIsOpen(false);
                 }}
-                className="flex min-h-[44px] w-full items-center gap-3 rounded-xl px-4 py-3 text-[14px] font-medium text-slate-700 dark:text-white/80 transition-all hover:bg-slate-50 dark:hover:bg-white/[0.05] hover:text-slate-900 dark:hover:text-white focus:outline-none focus:ring-2 focus:ring-inset focus:ring-[#907AFF]/30"
+                className="flex min-h-[44px] w-full items-center gap-3 rounded-xl px-4 py-3 text-[14px] font-medium text-foreground transition-all hover:bg-accent hover:text-accent-foreground focus:outline-none focus:ring-2 focus:ring-inset focus:ring-[#907AFF]/30"
               >
                 <svg
                   className="h-5 w-5 flex-shrink-0"
@@ -266,7 +266,7 @@ export default function UserMenu({ user, onSignOut, currentRole = "author", orig
                   e.stopPropagation();
                   setIsOpen(false);
                 }}
-                className="flex min-h-[44px] w-full items-center gap-3 rounded-xl px-4 py-3 text-[14px] font-medium text-slate-700 dark:text-white/80 transition-all hover:bg-slate-50 dark:hover:bg-white/[0.05] hover:text-slate-900 dark:hover:text-white focus:outline-none focus:ring-2 focus:ring-inset focus:ring-[#907AFF]/30"
+                className="flex min-h-[44px] w-full items-center gap-3 rounded-xl px-4 py-3 text-[14px] font-medium text-foreground transition-all hover:bg-accent hover:text-accent-foreground focus:outline-none focus:ring-2 focus:ring-inset focus:ring-[#907AFF]/30"
               >
                 <svg
                   className="h-5 w-5 flex-shrink-0"
@@ -291,7 +291,7 @@ export default function UserMenu({ user, onSignOut, currentRole = "author", orig
                 e.stopPropagation();
                 setIsOpen(false);
               }}
-              className="flex min-h-[44px] w-full items-center gap-3 rounded-xl px-4 py-3 text-[14px] font-medium text-slate-700 dark:text-white/80 transition-all hover:bg-slate-50 dark:hover:bg-white/[0.05] hover:text-slate-900 dark:hover:text-white focus:outline-none focus:ring-2 focus:ring-inset focus:ring-[#907AFF]/30"
+              className="flex min-h-[44px] w-full items-center gap-3 rounded-xl px-4 py-3 text-[14px] font-medium text-foreground transition-all hover:bg-accent hover:text-accent-foreground focus:outline-none focus:ring-2 focus:ring-inset focus:ring-[#907AFF]/30"
             >
               <svg
                 className="h-5 w-5 flex-shrink-0"
@@ -313,7 +313,7 @@ export default function UserMenu({ user, onSignOut, currentRole = "author", orig
             {canSwitchRole && (
               <button
                 onClick={handleSwitchRole}
-                className="flex min-h-[44px] w-full items-center gap-3 rounded-xl px-4 py-3 text-[14px] font-medium text-slate-700 dark:text-white/80 transition-all hover:bg-slate-50 dark:hover:bg-white/[0.05] hover:text-slate-900 dark:hover:text-white focus:outline-none focus:ring-2 focus:ring-inset focus:ring-[#907AFF]/30"
+                className="flex min-h-[44px] w-full items-center gap-3 rounded-xl px-4 py-3 text-[14px] font-medium text-foreground transition-all hover:bg-accent hover:text-accent-foreground focus:outline-none focus:ring-2 focus:ring-inset focus:ring-[#907AFF]/30"
               >
                 <svg
                   className="h-5 w-5 flex-shrink-0"
@@ -334,7 +334,7 @@ export default function UserMenu({ user, onSignOut, currentRole = "author", orig
           </div>
 
           {/* Divider */}
-          <div className="my-1 border-t border-black/[0.05] dark:border-white/[0.06]" />
+          <div className="my-1 border-t border-border" />
 
           {/* Destructive action */}
           <div className="py-1.5">

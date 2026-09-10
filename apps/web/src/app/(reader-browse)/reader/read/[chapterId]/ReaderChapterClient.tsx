@@ -572,10 +572,10 @@ export default function ReaderChapterClient({
         />
 
         {!userId && (
-          <p className="text-sm text-[#64748B] dark:text-white/60">
+          <p className="text-sm text-muted-foreground dark:text-muted-foreground">
             <Link
               href={`/reader/signin?next=${encodeURIComponent(`/reader/read/${chapterId}`)}`}
-              className="font-semibold text-[#907AFF] transition-colors hover:text-[#7A66E0]"
+              className="font-semibold text-accent-foreground transition-colors hover:text-[#7A66E0]"
             >
               Sign in
             </Link>{" "}

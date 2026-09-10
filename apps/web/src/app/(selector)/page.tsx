@@ -1,30 +1,19 @@
 "use client";
 
-import { useEffect, useState, useRef } from "react";
+import { useEffect } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import GlassCard from "@/components/GlassCard";
+import { ArrowUpRight, BookOpen, PenLine } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { setActiveRoleCookieClient } from "@/lib/active-role";
 import { TA_FOR_ER_ORDER } from "@/lib/orders/ta-for-er";
+import styles from "./Selector.module.css";
 
 const VERKLI_ROLE_KEY = "verkli_role";
 
-
 export default function RoleSelection() {
   const router = useRouter();
-  const [mousePos, setMousePos] = useState({ x: 0.5, y: 0.5 });
-  const mainRef = useRef<HTMLElement>(null);
-
-  const handleMouseMove = (e: React.MouseEvent<HTMLElement>) => {
-    if (!mainRef.current) return;
-    const rect = mainRef.current.getBoundingClientRect();
-    const x = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
-    const y = Math.max(0, Math.min(1, (e.clientY - rect.top) / rect.height));
-    setMousePos({ x, y });
-  };
-
   useEffect(() => {
     if (typeof window === "undefined") return;
 
@@ -75,114 +64,17 @@ export default function RoleSelection() {
   };
 
   return (
-    <main
-      ref={mainRef}
-      onMouseMove={handleMouseMove}
-      className="relative flex min-h-screen min-h-dvh min-h-svh flex-col items-center justify-center overflow-hidden bg-background text-foreground transition-colors duration-300 px-4 py-6"
-    >
-      {/* Exakt samma bakgrund som author sign in – absolute (samma stacking som kortet så Safari backdrop-filter fungerar) */}
-      <div className="absolute inset-0 z-0 overflow-hidden">
-        <div className="absolute inset-0 bg-gradient-to-br from-[#907AFF]/10 via-[#E29ED5]/8 to-[#FCC997]/10 dark:from-slate-900/95 dark:via-purple-950/90 dark:to-slate-900/95" />
-        <div
-          className="absolute h-[700px] w-[700px] rounded-full blur-[100px] pointer-events-none"
-          style={{
-            background:
-              "radial-gradient(circle, rgba(144, 122, 255, 0.4) 0%, rgba(226, 158, 213, 0.3) 30%, rgba(252, 201, 151, 0.25) 50%, transparent 70%)",
-            left: `${mousePos.x * 100}%`,
-            top: `${mousePos.y * 100}%`,
-            transform: "translate(-50%, -50%)",
-            willChange: "left, top",
-          }}
-        />
-      </div>
-
-      {/*
-        Spans the viewport so the logo stays left and Pricing sits right.
-        inset-x keeps the logo exactly where left-6/left-8 put it.
-      */}
-      <header className="absolute inset-x-6 top-6 z-30 flex items-center justify-between gap-3 sm:inset-x-8 sm:top-8">
-        <Link href="/" className="flex min-h-[44px] min-w-[44px] items-center" aria-label="Verkli">
-          <Image src="/logo-dark.svg" alt="Verkli" width={140} height={32} className="h-8 w-auto dark:hidden" priority />
-          <Image src="/favicon.svg" alt="Verkli" width={32} height={32} className="hidden h-8 w-auto dark:block" priority />
-        </Link>
-
-        {/*
-          /pricing has been live and returning 200 without a login this whole
-          time, and no page on the site linked to it — the same way the book was
-          orphaned. Someone deciding whether to publish here needs the price
-          before they pick a role, so it belongs above the card rather than
-          inside it, where a third CTA would compete with the actual choice.
-        */}
-        <Link href="/pricing" className="btn-ghost min-h-11">
-          Pricing
-        </Link>
-      </header>
-
-      {/* Samma kort som signin/signup – solid i light, glass i dark */}
-      <GlassCard className="card-auth">
-        <div className="flex w-full flex-col items-center px-6 py-10 text-center sm:px-10 sm:py-12 md:px-12 md:py-14">
-          <p className="text-sm font-medium tracking-wide text-slate-600 dark:text-white/50 sm:text-base">
-            Welcome to verkli
-          </p>
-
-          <h1 className="mt-3 text-2xl font-semibold leading-[1.15] tracking-tight text-slate-900 dark:text-white sm:mt-4 sm:text-3xl md:text-[36px]">
-            Are you an author
-            <br />
-            or reader?
-          </h1>
-
-          <p className="mt-3 max-w-[340px] text-base leading-relaxed text-slate-600 dark:text-white/75 sm:mt-4">
-            Verkli adapts to how you use it.
-            <br />
-            You can switch anytime.
-          </p>
-
-          <div className="mt-8 flex w-full flex-col items-center gap-4 sm:mt-10">
-            <button
-              type="button"
-              onClick={() => setRoleAndGo("author")}
-              className="btn-primary w-full"
-            >
-              I am an author
-            </button>
-
-            <div className="flex w-full items-center gap-4">
-              <div className="h-px flex-1 bg-black/10 dark:bg-white/10" />
-              <span className="text-sm text-slate-500 dark:text-white/30">or</span>
-              <div className="h-px flex-1 bg-black/10 dark:bg-white/10" />
-            </div>
-
-            <button
-              type="button"
-              onClick={() => setRoleAndGo("reader")}
-              className="btn-secondary w-full"
-            >
-              I am a reader
-            </button>
-          </div>
-
-          {/*
-            The book is the one thing on this site you can buy today, and until
-            now nothing linked to it: this page renders a role chooser, /waitlist
-            holds the order form, and no page on the site referenced it. Anyone
-            sent here to buy it had to already know the URL.
-
-            A real Link, not another onClick button. The two role buttons above
-            are invisible to a crawler and to anyone without JS — this must not
-            be, because it is a purchase path.
-
-            min-h-11 overrides .btn-ghost's 40px allowance (DESIGN.md:150) up to
-            the 44px every interactive element is meant to meet (DESIGN.md:159).
-            The two rules disagree; on a conversion path, take the larger.
-          */}
-          <Link
-            href="/waitlist"
-            className="btn-ghost mt-8 min-h-11 w-full text-center sm:mt-10"
-          >
-            Just here for the book? {TA_FOR_ER_ORDER.bookTitle}
-          </Link>
+    <main className={styles.page}>
+      <header className={styles.header}><Link href="/" aria-label="Verkli home"><Image src="/logo-dark.svg" alt="Verkli" width={140} height={32} className="h-8 w-auto dark:hidden" priority /><Image src="/favicon.svg" alt="Verkli" width={140} height={32} className="hidden h-8 w-auto dark:block" priority /></Link><Link href="/pricing">Pricing <ArrowUpRight size={15} /></Link></header>
+      <div className={styles.content}>
+        <div className={styles.intro}><h1>Every story<br />starts somewhere.</h1><p>Are you here to write or to read?<br />Make yourself at home. You can switch anytime.</p></div>
+        <div className={styles.choices}>
+          <button type="button" onClick={() => setRoleAndGo("author")}><PenLine size={25} strokeWidth={1.4} /><span><strong>I am an author</strong><span>Write, create and share your story.</span></span><ArrowUpRight size={22} /></button>
+          <button type="button" onClick={() => setRoleAndGo("reader")}><BookOpen size={25} strokeWidth={1.4} /><span><strong>I am a reader</strong><span>Find your next book and the voices behind it.</span></span><ArrowUpRight size={22} /></button>
         </div>
-      </GlassCard>
+        <Link href="/waitlist" className={styles.bookLink}>Just here for the book? {TA_FOR_ER_ORDER.bookTitle}<ArrowUpRight size={16} /></Link>
+      </div>
+      <footer className={styles.footer}><span>A home for authors and readers.</span><Link href="/support">Get in touch</Link></footer>
     </main>
   );
 }

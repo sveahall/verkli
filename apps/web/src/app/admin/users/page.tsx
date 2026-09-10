@@ -57,7 +57,7 @@ function Avatar({ name }: { name: string }) {
   return (
     <span
       aria-hidden
-      className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-slate-100 text-[13px] font-semibold text-slate-500 dark:bg-white/10 dark:text-white/60"
+      className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-muted text-[13px] font-semibold text-muted-foreground dark:bg-card"
     >
       {initial}
     </span>
@@ -238,7 +238,7 @@ export default function AdminUsersPage() {
                               <Avatar name={name} />
                               <Link
                                 href={`/admin/users/${u.user_id}`}
-                                className="rounded-md font-medium text-slate-900 transition-colors hover:text-[var(--brand-violet)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#907AFF]/40 focus-visible:ring-offset-2 dark:text-white"
+                                className="rounded-md font-medium text-foreground transition-colors hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#907AFF]/40 focus-visible:ring-offset-2"
                               >
                                 {name}
                               </Link>

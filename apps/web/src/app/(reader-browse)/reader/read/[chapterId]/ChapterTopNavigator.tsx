@@ -69,17 +69,17 @@ export default function ChapterTopNavigator({
 
   return (
     <div className="sticky top-[64px] z-30">
-      <div className="rounded-xl border border-black/[0.06] bg-white/95 px-3 py-2.5 shadow-sm backdrop-blur-lg dark:border-white/10 dark:bg-[#0b0e14]/90">
+      <div className="rounded-xl border border-black/[0.06] bg-card/95 px-3 py-2.5 shadow-sm backdrop-blur-lg dark:border-border dark:bg-card/95">
         <div className="flex items-center gap-2">
           {/* Prev button */}
           <button
             type="button"
             onClick={() => previousChapter && router.push(`/reader/read/${previousChapter.id}`)}
             disabled={!previousChapter}
-            className={`inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border text-sm transition-all duration-200 ${
+            className={`inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border text-sm transition-[background-color,border-color,color,box-shadow] duration-200 ${
               previousChapter
-                ? "border-black/[0.06] text-[#0F172A] hover:-translate-y-0.5 hover:border-[#907AFF]/30 hover:text-[#907AFF] active:scale-95 dark:border-white/10 dark:text-white dark:hover:border-[#907AFF]/30"
-                : "pointer-events-none border-transparent text-[#64748B]/30 dark:text-white/20"
+                ? "border-black/[0.06] text-foreground hover:border-[#907AFF]/30 hover:text-accent-foreground active:scale-95 dark:border-border dark:hover:border-[#907AFF]/30"
+                : "pointer-events-none border-transparent text-muted-foreground/30 dark:text-muted-foreground"
             }`}
             aria-label="Previous chapter"
           >
@@ -93,16 +93,16 @@ export default function ChapterTopNavigator({
               onClick={() => setShowJump((prev) => !prev)}
               className="flex w-full items-center justify-between gap-2"
             >
-              <span className="truncate text-sm font-medium text-[#0F172A] dark:text-white">
+              <span className="truncate text-sm font-medium text-foreground">
                 {currentChapter ? currentChapter.title : "Chapter"}
               </span>
-              <span className="shrink-0 text-xs tabular-nums text-[#64748B] dark:text-white/40">
+              <span className="shrink-0 text-xs tabular-nums text-muted-foreground">
                 {displayIndex} of {total}
               </span>
             </button>
-            <div className="mt-1.5 h-[3px] overflow-hidden rounded-full bg-black/[0.06] dark:bg-white/10">
+            <div className="mt-1.5 h-[3px] overflow-hidden rounded-full bg-black/[0.06] dark:bg-card">
               <div
-                className="h-full rounded-full bg-[#907AFF] transition-all duration-500 ease-[cubic-bezier(0.23,1,0.32,1)]"
+                className="h-full rounded-full bg-[#907AFF] transition-[background-color,border-color,color,box-shadow] duration-500 ease-[cubic-bezier(0.23,1,0.32,1)]"
                 style={{ width: `${Math.max(progressPercent, total > 0 ? 2 : 0)}%` }}
               />
             </div>
@@ -113,10 +113,10 @@ export default function ChapterTopNavigator({
             type="button"
             onClick={() => nextChapter && router.push(`/reader/read/${nextChapter.id}`)}
             disabled={!nextChapter}
-            className={`inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border text-sm transition-all duration-200 ${
+            className={`inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border text-sm transition-[background-color,border-color,color,box-shadow] duration-200 ${
               nextChapter
-                ? "border-black/[0.06] text-[#0F172A] hover:-translate-y-0.5 hover:border-[#907AFF]/30 hover:text-[#907AFF] active:scale-95 dark:border-white/10 dark:text-white dark:hover:border-[#907AFF]/30"
-                : "pointer-events-none border-transparent text-[#64748B]/30 dark:text-white/20"
+                ? "border-black/[0.06] text-foreground hover:border-[#907AFF]/30 hover:text-accent-foreground active:scale-95 dark:border-border dark:hover:border-[#907AFF]/30"
+                : "pointer-events-none border-transparent text-muted-foreground/30 dark:text-muted-foreground"
             }`}
             aria-label="Next chapter"
           >
@@ -125,7 +125,7 @@ export default function ChapterTopNavigator({
         </div>
 
         {showJump && (
-          <div className="mt-2 border-t border-black/[0.06] pt-2 dark:border-white/10">
+          <div className="mt-2 border-t border-black/[0.06] pt-2 dark:border-border">
             <select
               id="chapter-jump"
               value={currentChapterId}
@@ -133,7 +133,7 @@ export default function ChapterTopNavigator({
                 router.push(`/reader/read/${event.target.value}`);
                 setShowJump(false);
               }}
-              className="w-full rounded-xl border border-black/[0.06] bg-white px-3 py-2 text-[16px] sm:text-sm text-[#0F172A] outline-none transition focus:border-[#907AFF]/40 focus:ring-2 focus:ring-[#907AFF]/15 dark:border-white/10 dark:bg-white/[0.05] dark:text-white"
+              className="w-full rounded-xl border border-black/[0.06] bg-card px-3 py-2 text-[16px] sm:text-sm text-foreground outline-none transition focus:border-[#907AFF]/40 focus:ring-2 focus:ring-[#907AFF]/15 dark:border-border"
             >
               {chapters.map((chapter, index) => (
                 <option key={chapter.id} value={chapter.id}>

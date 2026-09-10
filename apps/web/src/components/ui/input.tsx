@@ -42,7 +42,7 @@ export interface InputProps extends InputHTMLAttributes<HTMLInputElement> {
  * `sm:` restores each size's original value, so no desktop rendering changes.
  */
 const sizeStyles = {
-  sm: "h-9 px-3 text-[16px] sm:text-[13px]",
+  sm: "h-11 px-3 text-[16px] sm:text-[13px]",
   md: "h-11 px-3.5 text-[16px] sm:text-[15px]",
   lg: "h-12 px-4 text-[16px] sm:text-base",
 };
@@ -79,10 +79,9 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(
     const passwordToggle = isPassword ? (
       <button
         type="button"
-        tabIndex={-1}
         onClick={() => setShowPassword((v) => !v)}
         aria-label={showPassword ? "Hide password" : "Show password"}
-        className="absolute inset-y-0 right-0 flex items-center pr-3 text-slate-400 transition-colors hover:text-slate-600 dark:text-white/40 dark:hover:text-white/60"
+        className="absolute inset-y-0 right-0 flex w-11 items-center justify-center rounded-r-xl text-muted-foreground transition-colors hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
       >
         {showPassword ? (
           <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
@@ -104,14 +103,14 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(
         {label && (
           <label
             htmlFor={inputId}
-            className="text-xs font-medium text-slate-500 dark:text-white/50"
+            className="text-[13px] font-medium text-foreground"
           >
             {label}
           </label>
         )}
         <div className="relative w-full">
           {startIcon && (
-            <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3 text-slate-400 dark:text-white/40">
+            <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3 text-muted-foreground">
               {startIcon}
             </div>
           )}
@@ -121,12 +120,10 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(
             aria-invalid={hasError}
             aria-describedby={hasError ? `${inputId}-error` : hint ? `${inputId}-hint` : undefined}
             className={cn(
-              "w-full rounded-xl border bg-white text-slate-900 transition-colors duration-150",
-              "border-slate-200 placeholder:text-slate-400/70",
-              "focus:outline-none focus:ring-2 focus:ring-slate-900/10 focus:border-slate-400",
+              "w-full rounded-xl border border-input bg-card text-foreground transition-colors duration-150",
+              "placeholder:text-muted-foreground",
+              "focus:outline-none focus:ring-2 focus:ring-ring/20 focus:border-ring",
               "disabled:cursor-not-allowed disabled:opacity-50",
-              "dark:border-white/[0.1] dark:bg-white/[0.06] dark:text-white dark:placeholder:text-white/30",
-              "dark:focus:ring-white/15 dark:focus:border-white/25",
               hasError
                 ? "border-red-300 focus:border-red-500 focus:ring-red-500/20 dark:border-red-500/50 dark:focus:border-red-400"
                 : "",
@@ -142,7 +139,7 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(
             type={resolvedType}
           />
           {isPassword ? passwordToggle : endIcon ? (
-            <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-3 text-slate-400 dark:text-white/40">
+            <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-3 text-muted-foreground">
               {endIcon}
             </div>
           ) : null}
@@ -159,7 +156,7 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(
         {hint && !hasError && (
           <p
             id={`${inputId}-hint`}
-            className="text-xs text-slate-500 dark:text-white/50"
+            className="text-xs text-muted-foreground"
           >
             {hint}
           </p>

@@ -504,12 +504,12 @@ export default function InboxClient({ mode, initialConversationId = null }: Inbo
         </div>
       ) : null}
 
-      <div className="grid gap-4 lg:grid-cols-[340px_minmax(0,1fr)]">
+      <div className="grid gap-5 xl:grid-cols-[300px_minmax(0,1fr)]">
         <aside className="card-base-subtle p-3 sm:p-4">
           {loadingLists ? (
-            <p className="text-[13px] text-slate-500 dark:text-white/60">Loading inbox...</p>
+            <p className="text-[13px] text-muted-foreground">Loading inbox...</p>
           ) : activeConversations.length === 0 ? (
-            <p className="text-[13px] text-slate-500 dark:text-white/60">
+            <p className="text-[13px] text-muted-foreground">
               {activeTab === "accepted"
                 ? "No accepted conversations yet."
                 : "No message requests right now."}
@@ -522,37 +522,42 @@ export default function InboxClient({ mode, initialConversationId = null }: Inbo
                   (conversation.status === "request" ? "Waiting for the first message." : "No message history yet.");
 
                 return (
-                  <button
+                  <div
                     key={conversation.id}
-                    type="button"
-                    onClick={() => setSelectedConversationId(conversation.id)}
                     className={cn(
-                      "w-full rounded-2xl border px-3 py-3 text-left transition",
+                      "w-full rounded-2xl border p-3 text-left transition-colors",
                       isSelected
-                        ? "border-slate-900 bg-slate-900/5 dark:border-white dark:bg-white/10"
-                        : "border-slate-200/80 bg-white/80 hover:border-slate-300 dark:border-white/10 dark:bg-white/5 dark:hover:border-white/20"
+                        ? "border-accent-foreground/25 bg-accent"
+                        : "border-border bg-card/80 hover:border-border dark:bg-card dark:hover:border-border"
                     )}
                   >
-                    <div className="flex items-start justify-between gap-2">
-                      <div className="flex min-w-0 items-center gap-2">
-                        <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-slate-900 text-[11px] font-semibold text-white dark:bg-white dark:text-slate-900">
-                          {getInitials(conversation.otherUser.name)}
-                        </span>
-                        <div className="min-w-0">
-                          <p className="truncate text-[13px] font-semibold text-slate-900 dark:text-white">
-                            {conversation.otherUser.name}
-                          </p>
-                          <p className="text-[11px] text-slate-500 dark:text-white/60">
-                            {conversation.otherUser.role === "author" ? "Author" : "Reader"}
-                          </p>
+                    <button
+                      type="button"
+                      onClick={() => setSelectedConversationId(conversation.id)}
+                      aria-pressed={isSelected}
+                      className="block w-full rounded-lg text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                    >
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="flex min-w-0 items-center gap-2">
+                          <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-foreground text-[11px] font-semibold text-white dark:text-background">
+                            {getInitials(conversation.otherUser.name)}
+                          </span>
+                          <div className="min-w-0">
+                            <p className="truncate text-[13px] font-semibold text-foreground">
+                              {conversation.otherUser.name}
+                            </p>
+                            <p className="text-[11px] text-muted-foreground">
+                              {conversation.otherUser.role === "author" ? "Author" : "Reader"}
+                            </p>
+                          </div>
                         </div>
+                        <span className="shrink-0 text-[11px] text-muted-foreground">
+                          {formatTime(conversation.lastMessageAt ?? conversation.updatedAt)}
+                        </span>
                       </div>
-                      <span className="shrink-0 text-[11px] text-slate-400 dark:text-white/40">
-                        {formatTime(conversation.lastMessageAt ?? conversation.updatedAt)}
-                      </span>
-                    </div>
 
-                    <p className="mt-2 line-clamp-2 text-[12px] text-slate-600 dark:text-white/70">{preview}</p>
+                      <p className="mt-2 line-clamp-2 text-[12px] text-muted-foreground">{preview}</p>
+                    </button>
 
                     {activeTab === "requests" && conversation.canAccept ? (
                       <div className="mt-3 flex flex-wrap gap-2">
@@ -562,7 +567,7 @@ export default function InboxClient({ mode, initialConversationId = null }: Inbo
                             event.stopPropagation();
                             void onAcceptRequest(conversation.id);
                           }}
-                          className="btn-primary min-h-[36px] px-3 py-1.5 text-[12px]"
+                          className="btn-primary min-h-[44px] px-3 py-1.5 text-[12px]"
                         >
                           Accept
                         </button>
@@ -572,13 +577,13 @@ export default function InboxClient({ mode, initialConversationId = null }: Inbo
                             event.stopPropagation();
                             void onBlockUser(conversation.otherUser.id);
                           }}
-                          className="btn-secondary min-h-[36px] px-3 py-1.5 text-[12px]"
+                          className="btn-secondary min-h-[44px] px-3 py-1.5 text-[12px]"
                         >
                           Block
                         </button>
                       </div>
                     ) : null}
-                  </button>
+                  </div>
                 );
               })}
             </div>
@@ -588,18 +593,18 @@ export default function InboxClient({ mode, initialConversationId = null }: Inbo
         <section className="card-base-subtle flex min-h-[460px] flex-col p-4 sm:p-5">
           {!selectedConversation ? (
             <div className="empty-state-base my-auto">
-              <p className="text-[14px] font-medium text-slate-800 dark:text-white">Select a conversation</p>
-              <p className="mt-1 text-[13px] text-slate-500 dark:text-white/60">
+              <p className="text-[14px] font-medium text-foreground">Select a conversation</p>
+              <p className="mt-1 text-[13px] text-muted-foreground">
                 Messages will appear here when you select a conversation.
               </p>
             </div>
           ) : (
             <>
-              <div className="border-b border-slate-200/80 pb-3 dark:border-white/10">
-                <p className="text-[15px] font-semibold text-slate-900 dark:text-white">
+              <div className="border-b border-border pb-3">
+                <p className="text-[15px] font-semibold text-foreground">
                   {selectedConversation.otherUser.name}
                 </p>
-                <p className="text-[12px] text-slate-500 dark:text-white/60">
+                <p className="text-[12px] text-muted-foreground">
                   {selectedConversation.status === "accepted"
                     ? "Accepted"
                     : selectedConversation.canAccept
@@ -610,9 +615,9 @@ export default function InboxClient({ mode, initialConversationId = null }: Inbo
 
               <div className="mt-4 flex-1 space-y-2 overflow-y-auto pr-1">
                 {loadingConversation ? (
-                  <p className="text-[13px] text-slate-500 dark:text-white/60">Loading conversation...</p>
+                  <p className="text-[13px] text-muted-foreground">Loading conversation...</p>
                 ) : messages.length === 0 ? (
-                  <p className="text-[13px] text-slate-500 dark:text-white/60">No messages yet.</p>
+                  <p className="text-[13px] text-muted-foreground">No messages yet.</p>
                 ) : (
                   messages.map((message) => {
                     const isOwn = message.senderId === viewerId;
@@ -625,15 +630,15 @@ export default function InboxClient({ mode, initialConversationId = null }: Inbo
                           className={cn(
                             "max-w-[80%] rounded-2xl px-3 py-2 text-[13px]",
                             isOwn
-                              ? "bg-slate-900 text-white dark:bg-white dark:text-slate-900"
-                              : "border border-slate-200/80 bg-white text-slate-800 dark:border-white/10 dark:bg-white/10 dark:text-white"
+                              ? "bg-foreground text-white dark:text-background"
+                              : "border border-border bg-card text-foreground "
                           )}
                         >
                           <p className="whitespace-pre-wrap break-words">{message.body}</p>
                           <p
                             className={cn(
                               "mt-1 text-[10px]",
-                              isOwn ? "text-white/70 dark:text-slate-700" : "text-slate-400 dark:text-white/50"
+                              isOwn ? "text-background/75" : "text-muted-foreground"
                             )}
                           >
                             {formatTime(message.createdAt)}
@@ -646,7 +651,7 @@ export default function InboxClient({ mode, initialConversationId = null }: Inbo
               </div>
 
               {selectedConversation.status === "request" && selectedConversation.canAccept ? (
-                <div className="mt-4 flex flex-wrap gap-2 border-t border-slate-200/80 pt-3 dark:border-white/10">
+                <div className="mt-4 flex flex-wrap gap-2 border-t border-border pt-3">
                   <button
                     type="button"
                     onClick={() => void onAcceptRequest(selectedConversation.id)}
@@ -665,8 +670,8 @@ export default function InboxClient({ mode, initialConversationId = null }: Inbo
               ) : null}
 
               {canSend ? (
-                <form onSubmit={onSendMessage} className="mt-4 border-t border-slate-200/80 pt-3 dark:border-white/10">
-                  <label htmlFor="dm-body" className="mb-2 block text-[12px] font-medium text-slate-600 dark:text-white/70">
+                <form onSubmit={onSendMessage} className="mt-4 border-t border-border pt-3">
+                  <label htmlFor="dm-body" className="mb-2 block text-[12px] font-medium text-muted-foreground">
                     Write a message
                   </label>
                   <div className="flex items-end gap-2">
@@ -690,7 +695,7 @@ export default function InboxClient({ mode, initialConversationId = null }: Inbo
                   </div>
                 </form>
               ) : isPendingRequest ? (
-                <p className="mt-4 border-t border-slate-200/80 pt-3 text-[13px] text-slate-500 dark:border-white/10 dark:text-white/60">
+                <p className="mt-4 border-t border-border pt-3 text-[13px] text-muted-foreground">
                   {selectedConversation.requesterId === viewerId
                     ? "Your request is waiting to be accepted."
                     : "Accept the request to reply."}

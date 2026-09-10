@@ -1,5 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { Plus } from "lucide-react";
+import styles from "@/components/public/PublicPage.module.css";
 import SupportContactForm from "./SupportContactForm";
 import { createClient } from "@/lib/supabase/server";
 
@@ -130,64 +132,20 @@ export default async function SupportPage() {
   const isSignedIn = Boolean(user);
 
   return (
-    <main className="page-content-narrow py-16 md:py-24">
-      <p className="text-eyebrow">Support</p>
-      <h1 className="text-page-title mt-3">How can we help?</h1>
-      <p className="text-body mt-4 max-w-[60ch]">
-        Send us a message with the form below and it reaches the team that builds
-        Verkli — there is no queue of scripted replies in between. We aim to
-        answer within two business days. If you would rather write an email
-        directly, the addresses are further down.
-      </p>
-
-      <section className="mt-10" aria-labelledby="support-form-heading">
-        <h2 id="support-form-heading" className="text-section-title mb-4">
-          Send us a message
-        </h2>
-        <SupportContactForm isSignedIn={isSignedIn} />
-      </section>
-
-      <section className="mt-14" aria-labelledby="support-email-heading">
-        <h2 id="support-email-heading" className="text-section-title">
-          Email us directly
-        </h2>
-        <ul className="mt-4 space-y-3">
-          {CONTACT_ROUTES.map((route) => (
-            <li key={route.email} className="card-base-subtle p-5">
-              <p className="text-label">{route.label}</p>
-              <a
-                href={`mailto:${route.email}`}
-                className="mt-1 inline-block rounded-md text-[15px] font-medium text-[#907AFF] underline underline-offset-2 transition-colors hover:text-[#7A66E0] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#907AFF]/40 focus-visible:ring-offset-2"
-              >
-                {route.email}
-              </a>
-              <p className="text-helper mt-1.5">{route.description}</p>
-            </li>
-          ))}
-        </ul>
-      </section>
-
-      <section className="mt-14" aria-labelledby="support-faq-heading">
-        <h2 id="support-faq-heading" className="text-section-title">
-          Common questions
-        </h2>
-        <div className="prose-policy mt-6 space-y-7 text-[15px] leading-[1.8] text-slate-700 dark:text-white/70">
-          {FAQ.map((entry) => (
-            <div key={entry.question}>
-              <h3 className="text-[15px] font-semibold text-slate-900 dark:text-white">
-                {entry.question}
-              </h3>
-              <p className="mt-1.5">{entry.answer}</p>
-            </div>
-          ))}
-        </div>
-      </section>
-
-      <p className="prose-policy text-helper mt-14">
-        Also useful: <Link href="/privacy">Privacy Policy</Link> ·{" "}
-        <Link href="/terms">Terms of Service</Link> ·{" "}
-        <Link href="/legal/dmca">Copyright complaints</Link>
-      </p>
+    <main className={styles.page}>
+      <div className={styles.shell}>
+        <header className={styles.hero}><h1>A little help.<br /><span>From real people.</span></h1><p>Send us a message and it reaches the team that builds Verkli. We aim to answer within two business days.</p></header>
+        <section className={`${styles.section} ${styles.split}`} aria-labelledby="support-form-heading">
+          <div><h2 id="support-form-heading">How can we help?</h2><p>Tell us what happened and include any useful details. If you would rather write an email directly, you will find our addresses below.</p></div>
+          <SupportContactForm isSignedIn={isSignedIn} />
+        </section>
+        <section className={styles.section} aria-labelledby="support-email-heading">
+          <div className={styles.sectionHeading}><h2 id="support-email-heading">The right place<br />for your question.</h2><p>You can also reach us directly by email.</p></div>
+          {CONTACT_ROUTES.map((route,index) => <article key={route.email} className={styles.chapter}><span className={styles.number}>0{index + 1}</span><h3>{route.label}</h3><div><p>{route.description}</p><a href={`mailto:${route.email}`} className={styles.textLink}>{route.email}</a></div></article>)}
+        </section>
+        <section className={`${styles.section} ${styles.split}`} aria-labelledby="support-faq-heading"><h2 id="support-faq-heading">Common questions.</h2><div className={`${styles.questions} prose-policy`}>{FAQ.map((entry) => <details key={entry.question}><summary>{entry.question}<Plus size={18} aria-hidden="true" /></summary><p>{entry.answer}</p></details>)}</div></section>
+        <nav className={`${styles.actions} pb-16`} aria-label="Legal information"><Link href="/privacy" className={styles.textLink}>Privacy Policy</Link><Link href="/terms" className={styles.textLink}>Terms of Service</Link><Link href="/legal/dmca" className={styles.textLink}>Copyright complaints</Link></nav>
+      </div>
     </main>
   );
 }

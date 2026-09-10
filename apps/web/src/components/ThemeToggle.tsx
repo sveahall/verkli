@@ -84,10 +84,10 @@ export default function ThemeToggle({
   // (parent className can differ by build/cache; never use it until mounted).
   // Default size 44px (min touch target). Parent can override via className.
   const placeholderClass =
-    "flex h-11 w-11 items-center justify-center rounded-full border border-slate-200/80 bg-white/90 text-slate-700 shadow-sm";
+    "flex h-11 w-11 items-center justify-center rounded-full border border-border bg-card/95 text-foreground shadow-surface-sm";
 
   const buttonClass =
-    `flex h-11 w-11 items-center justify-center rounded-full bg-transparent text-slate-700 transition-colors hover:text-slate-900 dark:border-white/10 dark:text-white/80 dark:hover:text-white ${className}`.trim();
+    `flex h-11 w-11 items-center justify-center rounded-full text-muted-foreground transition-colors hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background ${className}`.trim();
 
   if (!mounted) {
     return (

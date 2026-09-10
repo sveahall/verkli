@@ -105,10 +105,11 @@ function LanguageSelect({
     <div className="relative">
       <select
         name="lang"
+        aria-label="Book language"
         defaultValue={defaultValue}
         // 12px and 32px tall: found by the sweep, not by the manual audit.
         // The language filter on the primary book-finding surface.
-        className="min-h-11 appearance-none rounded-lg border border-slate-200/80 bg-white py-0 pl-3 pr-7 text-[16px] sm:text-xs font-medium text-[#0F172A] transition-colors focus:border-[#907AFF]/40 focus:outline-none focus:ring-2 focus:ring-[#907AFF]/20 dark:border-white/10 dark:bg-white/[0.04] dark:text-white"
+        className="min-h-11 appearance-none rounded-lg border border-border bg-card py-0 pl-3 pr-7 text-[16px] sm:text-xs font-medium text-foreground transition-colors focus:border-[#907AFF]/40 focus:outline-none focus:ring-2 focus:ring-[#907AFF]/20"
       >
         {options.map((o) => (
           <option key={o.value} value={o.value}>
@@ -116,7 +117,7 @@ function LanguageSelect({
           </option>
         ))}
       </select>
-      <ChevronDown className="pointer-events-none absolute right-2 top-1/2 h-3 w-3 -translate-y-1/2 text-[#64748B] dark:text-white/40" />
+      <ChevronDown className="pointer-events-none absolute right-2 top-1/2 h-3 w-3 -translate-y-1/2 text-muted-foreground" />
     </div>
   );
 }
@@ -133,17 +134,19 @@ function PillGroup({
   options: { value: string; label: string }[];
 }) {
   return (
-    <div className="flex items-center rounded-lg border border-slate-200/80 bg-white p-0.5 dark:border-white/10 dark:bg-white/[0.04]">
+    <div aria-label={field === "format" ? "Book format" : "Sort books"}
+      className="flex items-center rounded-xl border border-border bg-card p-0.5">
       {options.map((opt) => {
         const isActive = activeFilters[field] === opt.value;
         return (
           <Link
             key={opt.value}
             href={buildFilterHref(activeFilters, { [field]: opt.value })}
-            className={`rounded-md px-4 py-3 text-[13px] font-medium leading-5 transition-all duration-200 ease-[cubic-bezier(0.23,1,0.32,1)] active:scale-[0.97] ${
+            aria-current={isActive ? "true" : undefined}
+            className={`rounded-md px-4 py-3 text-[13px] font-medium leading-5 transition-[background-color,border-color,color,box-shadow] duration-200 ease-[cubic-bezier(0.23,1,0.32,1)] active:scale-[0.97] ${
               isActive
-                ? "bg-[#907AFF]/[0.09] text-[#907AFF] dark:bg-[#907AFF]/[0.14] dark:text-[#B8AAFF]"
-                : "text-[#64748B] hover:text-[#0F172A] dark:text-white/40 dark:hover:text-white/70"
+                ? "bg-[#907AFF]/[0.09] text-accent-foreground dark:bg-[#907AFF]/[0.14] "
+                : "text-muted-foreground hover:text-foreground dark:hover:text-muted-foreground"
             }`}
           >
             {opt.label}
@@ -170,46 +173,46 @@ function FeaturedBookCard({ book }: { book: DiscoverBook }) {
   return (
     <Link
       href={book.href}
-      className="group block animate-[reader-fade-up_0.4s_cubic-bezier(0.23,1,0.32,1)_both] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#907AFF]/40 focus-visible:ring-offset-2"
+      className="group block focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#907AFF]/40 focus-visible:ring-offset-2"
     >
-      <div className="relative flex flex-col gap-6 overflow-hidden rounded-3xl border border-slate-200/70 bg-white p-6 shadow-[0_4px_16px_rgba(15,23,42,0.06)] transition-all duration-300 group-hover:-translate-y-1 group-hover:border-[#907AFF]/20 group-hover:shadow-[0_20px_40px_-12px_rgba(144,122,255,0.15)] sm:flex-row sm:items-center sm:gap-8 sm:p-8 dark:border-white/10 dark:bg-white/5">
+      <div className="relative flex flex-col gap-6 overflow-hidden rounded-3xl border border-border bg-card p-6 shadow-[0_4px_16px_rgba(15,23,42,0.06)] transition-[background-color,border-color,color,box-shadow] duration-300 group-hover:border-[#907AFF]/20 group-hover:shadow-[0_20px_40px_-12px_rgba(144,122,255,0.15)] sm:flex-row sm:items-center sm:gap-8 sm:p-8">
         {/* Ambient corner wash — same brand language as the rest of the app */}
         <div
           aria-hidden
           className="pointer-events-none absolute -right-16 -top-16 h-56 w-56 rounded-full bg-[#907AFF]/[0.08] blur-[70px]"
         />
-        <div className="relative aspect-[3/4] w-40 flex-shrink-0 overflow-hidden rounded-2xl border border-slate-200/70 shadow-[0_8px_24px_rgba(15,23,42,0.10)] sm:w-48 dark:border-white/10">
+        <div className="relative aspect-[3/4] w-40 flex-shrink-0 overflow-hidden rounded-2xl border border-border shadow-[0_8px_24px_rgba(15,23,42,0.10)] sm:w-48">
           {book.cover ? (
             /* eslint-disable-next-line @next/next/no-img-element */
             <img
               src={book.cover}
               alt={book.title}
-              className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-[1.03]"
+              className="h-full w-full object-cover transition-transform duration-500"
             />
           ) : (
             <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-[#907AFF]/[0.16] via-[#E29ED5]/[0.10] to-[#FCC997]/[0.20] p-4 dark:from-[#907AFF]/25 dark:via-[#E29ED5]/10 dark:to-[#FCC997]/15">
-              <span className="line-clamp-4 text-center text-[15px] font-semibold leading-snug tracking-tight text-slate-700 dark:text-white/80">
+              <span className="line-clamp-4 text-center text-[15px] font-semibold leading-snug tracking-tight text-foreground">
                 {book.title}
               </span>
             </div>
           )}
         </div>
         <div className="relative min-w-0">
-          <p className="text-xs font-semibold uppercase tracking-wider text-[#907AFF]">
+          <p className="text-xs font-semibold uppercase tracking-wider text-accent-foreground">
             {book.genre ?? "Featured"}
           </p>
-          <h2 className="mt-2 text-[26px] font-semibold leading-tight tracking-tight text-[#0F172A] sm:text-[30px] dark:text-white">
+          <h2 className="mt-2 text-[28px] font-medium leading-tight tracking-tight text-foreground sm:text-[30px] font-display">
             {book.title}
           </h2>
-          <p className="mt-2 text-sm text-[#64748B] dark:text-white/55">
+          <p className="mt-2 text-sm text-muted-foreground">
             {book.author}
             {book.hasAudiobook && (
-              <span className="before:mx-1.5 before:content-['·'] before:text-slate-300 before:dark:text-white/20">
+              <span className="before:mx-1.5 before:content-['·'] before:text-muted-foreground before:dark:text-muted-foreground">
                 Audiobook available
               </span>
             )}
           </p>
-          <span className="mt-5 inline-flex items-center gap-2 rounded-full bg-[#0F172A] px-5 py-2.5 text-[13px] font-semibold text-white transition-colors group-hover:bg-[#1E293B] dark:bg-white dark:text-slate-900">
+          <span className="mt-5 inline-flex items-center gap-2 rounded-full bg-foreground px-5 py-2.5 text-[13px] font-semibold text-white transition-colors group-hover:bg-foreground dark:text-background">
             Open book
             <ArrowRight className="h-3.5 w-3.5 transition-transform group-hover:translate-x-0.5" aria-hidden />
           </span>
@@ -236,7 +239,7 @@ export default function ReaderDiscoverPageView({
     (!!activeFilters.format && activeFilters.format !== "all");
 
   return (
-    <div className="reader-stagger space-y-5">
+    <div className="space-y-8">
       {/* ── Hero card: search + atmospheric depth + genre rail ── */}
       <div className="card-base relative overflow-hidden">
         {/* Atmospheric glows — contained within card bounds */}
@@ -247,11 +250,12 @@ export default function ReaderDiscoverPageView({
 
         {/* Title + search */}
         <div className="relative p-6 sm:p-8">
-          <div className="mb-5">
-            <h1 className="text-3xl font-semibold tracking-tight text-[#0F172A] dark:text-white">
+          <div className="mb-6">
+            <p className="mb-3 text-[10px] font-medium uppercase tracking-[0.2em] text-accent-foreground">The Verkli library</p>
+            <h1 className="text-[clamp(30px,4vw,44px)] leading-[1.15] font-medium tracking-tight text-foreground font-display">
               Discover books
             </h1>
-            <p className="mt-1 text-sm text-[#64748B] dark:text-white/50">
+            <p className="mt-1 text-sm text-muted-foreground">
               {resultCount > 0
                 ? `${resultCount.toLocaleString()} book${resultCount !== 1 ? "s" : ""} in ${languageLabel}`
                 : `Browsing in ${languageLabel}`}
@@ -274,14 +278,15 @@ export default function ReaderDiscoverPageView({
 
             <div className="flex gap-3">
               <div className="relative min-w-0 flex-1">
-                <Search className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-[#64748B] dark:text-white/40" />
+                <Search className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                 <input
                   id="filter-q"
                   type="text"
                   name="q"
                   defaultValue={activeFilters.query}
-                  placeholder="Search by title or author..."
-                  className="h-12 w-full rounded-xl border border-slate-200/80 bg-slate-100/70 pl-10 pr-4 text-[16px] sm:text-sm text-[#0F172A] placeholder:text-[#64748B]/60 transition-[border-color,background-color,box-shadow] duration-200 ease-[cubic-bezier(0.23,1,0.32,1)] focus:border-[#907AFF]/40 focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#907AFF]/20 dark:border-white/10 dark:bg-white/[0.06] dark:text-white dark:placeholder:text-white/30 dark:focus:bg-white/[0.09]"
+                  aria-label="Search books by title"
+                  placeholder="Search by title..."
+                  className="h-12 w-full rounded-xl border border-border bg-muted/70 pl-10 pr-4 text-[16px] sm:text-sm text-foreground placeholder:text-muted-foreground/60 transition-[border-color,background-color,box-shadow] duration-200 ease-[cubic-bezier(0.23,1,0.32,1)] focus:border-[#907AFF]/40 focus:bg-card focus:outline-none focus:ring-2 focus:ring-[#907AFF]/20 dark:bg-card dark:placeholder:text-muted-foreground dark:focus:bg-card"
                 />
               </div>
               <button
@@ -296,15 +301,15 @@ export default function ReaderDiscoverPageView({
 
         {/* Genre chips — multi-select horizontal scroll rail */}
         {genres.length > 0 && (
-          <div className="relative border-t border-slate-200/60 dark:border-white/[0.06]">
+          <div className="relative border-t border-border">
             <div className="px-6 pb-5 pt-3 sm:px-8">
               <div className="scrollbar-none flex gap-2 overflow-x-auto pb-0.5">
                 <Link
                   href={buildFilterHref(activeFilters, { genreSlugs: [] })}
-                  className={`flex-shrink-0 rounded-full border px-4 py-3 text-sm font-medium transition-all duration-200 ease-[cubic-bezier(0.23,1,0.32,1)] active:scale-[0.97] ${
+                  className={`flex-shrink-0 rounded-full border px-4 py-3 text-sm font-medium transition-[background-color,border-color,color,box-shadow] duration-200 ease-[cubic-bezier(0.23,1,0.32,1)] active:scale-[0.97] ${
                     activeFilters.genreSlugs.length === 0
-                      ? "border-[#907AFF]/30 bg-[#907AFF]/[0.09] text-[#907AFF] dark:bg-[#907AFF]/[0.14] dark:text-[#B8AAFF]"
-                      : "border-slate-200/80 bg-white/80 text-[#64748B] hover:border-[#907AFF]/20 hover:text-[#907AFF] dark:border-white/10 dark:bg-white/[0.03] dark:text-white/50 dark:hover:text-[#B8AAFF]"
+                      ? "border-[#907AFF]/30 bg-[#907AFF]/[0.09] text-accent-foreground dark:bg-[#907AFF]/[0.14] "
+                      : "border-border bg-card/80 text-muted-foreground hover:border-[#907AFF]/20 hover:text-accent-foreground dark:bg-card dark:hover:text-accent-foreground"
                   }`}
                 >
                   All genres
@@ -318,10 +323,10 @@ export default function ReaderDiscoverPageView({
                       href={buildFilterHref(activeFilters, {
                         genreSlugs: toggleGenre(activeFilters.genreSlugs, g.slug),
                       })}
-                      className={`flex-shrink-0 rounded-full border px-4 py-3 text-sm font-medium transition-all duration-200 ease-[cubic-bezier(0.23,1,0.32,1)] active:scale-[0.97] ${
+                      className={`flex-shrink-0 rounded-full border px-4 py-3 text-sm font-medium transition-[background-color,border-color,color,box-shadow] duration-200 ease-[cubic-bezier(0.23,1,0.32,1)] active:scale-[0.97] ${
                         isActive
-                          ? "border-[#907AFF]/30 bg-[#907AFF]/[0.09] text-[#907AFF] dark:bg-[#907AFF]/[0.14] dark:text-[#B8AAFF]"
-                          : "border-slate-200/80 bg-white/80 text-[#64748B] hover:border-[#907AFF]/20 hover:text-[#907AFF] dark:border-white/10 dark:bg-white/[0.03] dark:text-white/50 dark:hover:text-[#B8AAFF]"
+                          ? "border-[#907AFF]/30 bg-[#907AFF]/[0.09] text-accent-foreground dark:bg-[#907AFF]/[0.14] "
+                          : "border-border bg-card/80 text-muted-foreground hover:border-[#907AFF]/20 hover:text-accent-foreground dark:bg-card dark:hover:text-accent-foreground"
                       }`}
                     >
                       {g.icon ? `${g.icon} ` : ""}
@@ -332,15 +337,15 @@ export default function ReaderDiscoverPageView({
               </div>
 
               {activeFilters.genreSlugs.length >= 2 && (
-                <p className="mt-2 text-[11px] text-[#64748B] dark:text-white/40">
+                <p className="mt-2 text-[11px] text-muted-foreground">
                   Showing books in{" "}
-                  <span className="font-medium text-[#907AFF]">
+                  <span className="font-medium text-accent-foreground">
                     {activeFilters.genreSlugs.length} genres
                   </span>
                   {" — "}
                   <Link
                     href={buildFilterHref(activeFilters, { genreSlugs: [] })}
-                    className="underline underline-offset-2 hover:text-[#0F172A] dark:hover:text-white/70"
+                    className="underline underline-offset-2 hover:text-foreground dark:hover:text-muted-foreground"
                   >
                     clear
                   </Link>
@@ -355,7 +360,7 @@ export default function ReaderDiscoverPageView({
       {authors.length > 0 && !activeFilters.query && activeFilters.genreSlugs.length === 0 && (
         <section>
           <div className="mb-3 flex items-center justify-between">
-            <h2 className="text-sm font-semibold text-[#0F172A] dark:text-white">
+            <h2 className="text-xl font-medium text-foreground font-display">
               Featured authors
             </h2>
           </div>
@@ -364,11 +369,11 @@ export default function ReaderDiscoverPageView({
               <Link
                 key={author.id}
                 href={author.href}
-                className="group flex-shrink-0"
+                className="group flex-shrink-0 rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
               >
-                <div className="flex w-[88px] flex-col items-center gap-2">
+                <div className="flex w-[100px] flex-col items-center gap-3">
                   {/* Avatar */}
-                  <div className="relative h-16 w-16 overflow-hidden rounded-2xl border border-slate-200/80 bg-slate-100 shadow-sm transition-[transform,box-shadow] duration-200 ease-[cubic-bezier(0.23,1,0.32,1)] group-hover:-translate-y-1 group-hover:shadow-md dark:border-white/10 dark:bg-white/[0.06]">
+                  <div className="relative h-16 w-16 overflow-hidden rounded-2xl border border-border bg-muted shadow-sm transition-[transform,box-shadow] duration-200 ease-[cubic-bezier(0.23,1,0.32,1)] group-hover:shadow-md dark:bg-card">
                     {author.avatar ? (
                       /* eslint-disable-next-line @next/next/no-img-element */
                       <img
@@ -378,7 +383,7 @@ export default function ReaderDiscoverPageView({
                       />
                     ) : (
                       <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-[#907AFF]/20 to-[#E29ED5]/20">
-                        <span className="text-base font-semibold text-[#907AFF]">
+                        <span className="text-base font-semibold text-accent-foreground">
                           {getInitials(author.name)}
                         </span>
                       </div>
@@ -386,11 +391,11 @@ export default function ReaderDiscoverPageView({
                   </div>
                   {/* Name + genre */}
                   <div className="w-full text-center">
-                    <p className="truncate text-xs font-medium text-[#0F172A] dark:text-white">
+                    <p className="truncate text-xs font-medium text-foreground">
                       {author.name}
                     </p>
                     {author.genre && (
-                      <p className="truncate text-[11px] text-[#64748B] dark:text-white/40">
+                      <p className="truncate text-[11px] text-muted-foreground">
                         {author.genre}
                       </p>
                     )}
@@ -415,7 +420,7 @@ export default function ReaderDiscoverPageView({
           <input type="hidden" name="genre" value={activeFilters.genreSlugs.join(",")} />
         )}
 
-        <SlidersHorizontal className="h-4 w-4 flex-shrink-0 text-[#64748B] dark:text-white/40" />
+        <SlidersHorizontal className="h-4 w-4 flex-shrink-0 text-muted-foreground" />
 
         {/* Language: still a form-submitted select (many options) */}
         <LanguageSelect
@@ -456,7 +461,7 @@ export default function ReaderDiscoverPageView({
         {hasActiveFilters && (
           <Link
             href={buildClearAllHref(activeFilters.language)}
-            className="text-xs font-medium text-[#64748B] transition-colors duration-150 hover:text-[#0F172A] dark:text-white/40 dark:hover:text-white/70"
+            className="inline-flex min-h-11 items-center text-xs font-medium text-muted-foreground transition-colors duration-150 hover:text-foreground dark:hover:text-muted-foreground"
           >
             Clear all
           </Link>
@@ -473,12 +478,8 @@ export default function ReaderDiscoverPageView({
             <FeaturedBookCard book={books[0]} />
             {books.length > 1 && (
               <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
-                {books.slice(1).map((book, i) => (
-                  <div
-                    key={book.id}
-                    className="animate-[reader-fade-up_0.4s_cubic-bezier(0.23,1,0.32,1)_both]"
-                    style={{ animationDelay: `${Math.min((i + 1) * 35, 420)}ms` }}
-                  >
+                {books.slice(1).map((book) => (
+                  <div key={book.id}>
                     <BookCard
                       id={book.id}
                       title={book.title}
@@ -498,12 +499,8 @@ export default function ReaderDiscoverPageView({
         ) : (
         <section>
           <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
-            {books.map((book, i) => (
-              <div
-                key={book.id}
-                className="animate-[reader-fade-up_0.4s_cubic-bezier(0.23,1,0.32,1)_both]"
-                style={{ animationDelay: `${Math.min(i * 35, 420)}ms` }}
-              >
+            {books.map((book) => (
+              <div key={book.id}>
                 <BookCard
                   id={book.id}
                   title={book.title}
@@ -523,19 +520,21 @@ export default function ReaderDiscoverPageView({
       ) : (
         <section className="card-base p-8 text-center">
           <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-[#907AFF]/10">
-            <BookOpen className="h-6 w-6 text-[#907AFF]" />
+            <BookOpen className="h-6 w-6 text-accent-foreground" />
           </div>
-          <h2 className="mt-4 text-xl font-semibold text-[#0F172A] dark:text-white">
-            No books match your filters
+          <h2 className="mt-4 text-xl font-medium text-foreground font-display">
+            {hasActiveFilters ? "No books match your filters" : `No books in ${languageLabel} yet`}
           </h2>
-          <p className="mx-auto mt-1 max-w-sm text-sm text-[#64748B] dark:text-white/50">
-            Try a different search term or remove some filters.
+          <p className="mx-auto mt-1 max-w-sm text-sm text-muted-foreground">
+            {hasActiveFilters
+              ? "Try a different search term or remove some filters."
+              : "Books appear here as authors publish them. Choose another language or explore the author directory."}
           </p>
           <Link
-            href={buildClearAllHref(activeFilters.language)}
+            href={hasActiveFilters ? buildClearAllHref(activeFilters.language) : "/reader/authors"}
             className="btn-primary mt-6 inline-flex items-center gap-2 text-sm transition-[transform] duration-200 ease-[cubic-bezier(0.23,1,0.32,1)] active:scale-[0.97]"
           >
-            Clear all filters
+            {hasActiveFilters ? "Clear all filters" : "Explore authors"}
           </Link>
         </section>
       )}

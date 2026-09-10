@@ -1,14 +1,12 @@
 "use client";
 
-import { useState, useRef, useEffect, type CSSProperties } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { ArrowUpRight, Plus } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
-import BrandGradientText from "@/components/ui/brand-gradient-text";
 import { BRAND_COLORS } from "@/lib/design/brand";
-import Reveal from "@/components/Reveal";
-
-/* ── Data ── */
+import styles from "@/components/public/PublicPage.module.css";
 
 const valueBenefits = [
   {
@@ -91,10 +89,18 @@ const whyDifferent = [
   },
 ];
 
-/* ── Component ── */
+type ReaderView = "home" | "app" | "how-it-works" | "membership";
 
-export default function ReaderLanding() {
+const pageIntro: Record<ReaderView, { title: string; accent: string; description: string }> = {
+  home: { title: "One more chapter.", accent: "A whole new world.", description: "Discover independent voices. Follow the people behind the pages. Find a story that stays with you." },
+  app: { title: "All your stories.", accent: "One place to return.", description: "Discover books, save your reading, and stay close to the authors you follow. A home for your reading life." },
+  "how-it-works": { title: "Follow your curiosity.", accent: "Find your next story.", description: "Start with a book, a genre or an author. Explore without signing up, then join to follow authors and save your reading." },
+  membership: { title: "Make room for stories.", accent: "Make yourself at home.", description: "Join Verkli to follow authors, save your reading and return to the stories you care about." },
+};
+
+export default function ReaderLanding({ view = "home" }: { view?: ReaderView }) {
   const router = useRouter();
+  const intro = pageIntro[view];
   const [authChecked, setAuthChecked] = useState(false);
 
   useEffect(() => {
@@ -124,253 +130,39 @@ export default function ReaderLanding() {
       }
       setAuthChecked(true);
     };
-    check();
+    check().catch((error) => {
+      console.warn("[reader-landing] Could not check session", error);
+      setAuthChecked(true);
+    });
   }, [router]);
 
-  /* ── Hero mouse-tracking (CSS custom props for perf) ── */
-  const heroRef = useRef<HTMLElement>(null);
-  const heroPointerRef = useRef({ x: 0.5, y: 0.5 });
-  const heroRafRef = useRef<number>(0);
-
-  const handleHeroMouseMove = (e: React.MouseEvent<HTMLElement>) => {
-    if (!heroRef.current) return;
-    const rect = heroRef.current.getBoundingClientRect();
-    heroPointerRef.current = {
-      x: (e.clientX - rect.left) / rect.width,
-      y: (e.clientY - rect.top) / rect.height,
-    };
-    if (heroRafRef.current) return;
-    heroRafRef.current = requestAnimationFrame(() => {
-      heroRafRef.current = 0;
-      const node = heroRef.current;
-      if (!node) return;
-      node.style.setProperty(
-        "--hero-mouse-x",
-        heroPointerRef.current.x.toFixed(4),
-      );
-      node.style.setProperty(
-        "--hero-mouse-y",
-        heroPointerRef.current.y.toFixed(4),
-      );
-    });
-  };
-
-  const handleHeroMouseLeave = () => {
-    const node = heroRef.current;
-    if (!node) return;
-    heroPointerRef.current = { x: 0.5, y: 0.5 };
-    node.style.setProperty("--hero-mouse-x", "0.5");
-    node.style.setProperty("--hero-mouse-y", "0.5");
-  };
-
-  useEffect(() => {
-    return () => {
-      if (heroRafRef.current) cancelAnimationFrame(heroRafRef.current);
-    };
-  }, []);
-
-  const heroMotionStyle = {
-    "--hero-mouse-x": "0.5",
-    "--hero-mouse-y": "0.5",
-  } as CSSProperties;
-
-  /* ── Loading gate ── */
-  if (!authChecked) {
-    return (
-      <div className="flex min-h-screen items-center justify-center bg-white dark:bg-[#050508]">
-        <div className="h-8 w-8 animate-spin rounded-full border-2 border-slate-200 border-t-[#907AFF] dark:border-white/20 dark:border-t-[#907AFF]" />
-      </div>
-    );
-  }
+  if (!authChecked) return <div role="status" className="flex min-h-[60vh] items-center justify-center gap-3 bg-background text-sm text-muted-foreground"><span className="h-5 w-5 animate-spin rounded-full border-2 border-border border-t-primary motion-reduce:animate-none" aria-hidden="true" />Opening Verkli…</div>;
 
   return (
-    <main className="relative min-h-screen bg-background text-foreground">
-      {/* ─── Hero ─── */}
-      <section
-        ref={heroRef}
-        onMouseMove={handleHeroMouseMove}
-        onMouseLeave={handleHeroMouseLeave}
-        style={heroMotionStyle}
-        className="relative isolate mx-auto flex min-h-screen w-full max-w-[1800px] flex-col items-center justify-center overflow-hidden px-6 pb-32 pt-[88px] text-center md:pb-44"
-      >
-        {/* ── Dramatic gradient orb background — reader hero ── */}
-        <div className="pointer-events-none absolute inset-0 -z-10 overflow-hidden">
-          {/* Deep base */}
-          <div className="absolute inset-0 bg-background" />
-
-          {/* ★ Central rotating orb — the hero visual */}
-          <div className="absolute left-1/2 top-[42%] h-[min(700px,90vw)] w-[min(700px,90vw)] -translate-x-1/2 -translate-y-1/2">
-            {/* Outer halo glow */}
-            <div className="absolute inset-[-30%] animate-[reader-pulse_8s_ease-in-out_infinite] rounded-full bg-[#907AFF]/20 blur-[120px] dark:bg-[#907AFF]/15" />
-            {/* Rotating conic gradient core */}
-            <div className="absolute inset-0 animate-[reader-spin_20s_linear_infinite] rounded-full blur-[80px]" style={{ background: "conic-gradient(from 0deg, #907AFF, #7c5cff, #c4a0e8, #E29ED5, #f0b4d4, #FCC997, #ffd4a8, #c4a0e8, #907AFF)" }} />
-            {/* Inner bright core */}
-            <div className="absolute inset-[20%] animate-[reader-spin_14s_linear_infinite_reverse] rounded-full blur-[60px] opacity-70 dark:opacity-50" style={{ background: "conic-gradient(from 180deg, #a78bfa, #E29ED5, #fbbf24, #907AFF, #a78bfa)" }} />
-            {/* White-hot center for depth */}
-            <div className="absolute inset-[35%] rounded-full bg-white/50 blur-[50px] dark:bg-white/10" />
-          </div>
-
-          {/* Satellite accent orbs */}
-          <div className="absolute left-[8%] top-[20%] h-[250px] w-[250px] animate-[reader-aurora-1_16s_ease-in-out_infinite] rounded-full bg-[#907AFF]/30 blur-[80px] dark:bg-[#907AFF]/20" />
-          <div className="absolute right-[10%] top-[25%] h-[200px] w-[200px] animate-[reader-aurora-3_20s_ease-in-out_infinite] rounded-full bg-[#E29ED5]/25 blur-[70px] dark:bg-[#E29ED5]/15" />
-          <div className="absolute bottom-[15%] left-[15%] h-[180px] w-[180px] animate-[reader-aurora-2_18s_ease-in-out_infinite] rounded-full bg-[#FCC997]/30 blur-[60px] dark:bg-[#FCC997]/18" />
-          <div className="absolute bottom-[20%] right-[8%] h-[220px] w-[220px] animate-[reader-aurora-4_22s_ease-in-out_infinite] rounded-full bg-[#c4a0e8]/25 blur-[70px] dark:bg-[#c4a0e8]/15" />
-
-          {/* Mouse-reactive spotlight */}
-          <div className="absolute inset-0 transition-all duration-[1000ms] ease-out" style={{ background: "radial-gradient(600px 500px at calc(var(--hero-mouse-x)*100%) calc(var(--hero-mouse-y)*100%), rgba(144,122,255,0.15) 0%, transparent 50%)" }} />
-
-          {/* Grain */}
-          <div className="absolute inset-0 opacity-[0.035] dark:opacity-[0.05]" style={{ backgroundImage: "url(\"data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E\")" }} />
-
-          {/* Top + bottom fade */}
-          <div className="absolute inset-0 bg-gradient-to-b from-[#faf8ff]/70 via-transparent to-background dark:from-[#06050e]/70" />
-        </div>
-
-        {/* Headline */}
-        <h1 className="hero-animate max-w-[860px] text-[clamp(42px,7.5vw,76px)] font-semibold leading-[1.08] tracking-[-0.04em] text-slate-900 dark:text-white" style={{ animationDelay: '100ms' }}>
-          Stories that find you. <br />
-          <BrandGradientText colors={["#6b7280", "#4b5563", "#111827"]}>
-            Read without the noise.
-          </BrandGradientText>
-        </h1>
-
-        {/* Sub */}
-        <p className="hero-animate mt-7 max-w-[520px] text-[clamp(16px,1.5vw,19px)] leading-[1.6] text-slate-500 dark:text-white/50" style={{ animationDelay: '350ms' }}>
-          Discover, follow, and immerse yourself. Verkli is where readers and authors meet — calm, human, and built for the stories that move you.
-        </p>
-
-        {/* CTAs */}
-        <div className="hero-animate mt-10 flex items-center gap-3" style={{ animationDelay: '550ms' }}>
-          <Link href="/reader/discover" className="btn-primary min-w-[170px] text-[15px]">Explore stories</Link>
-          <Link href="/reader/signup" className="btn-secondary min-w-[120px] text-[15px]">Join Verkli</Link>
-        </div>
-
-        {/* Author link */}
-        <p className="hero-animate mt-16 text-[13px] text-slate-400 dark:text-white/30" style={{ animationDelay: '700ms' }}>
-          Are you an author?{" "}
-          <Link href="/author" className="font-medium text-slate-500 underline decoration-slate-300 underline-offset-[3px] transition hover:text-slate-700 hover:decoration-slate-400 dark:text-white/45 dark:decoration-white/15 dark:hover:text-white/65">
-            Go to authors page →
-          </Link>
-        </p>
-      </section>
-
-      {/* ─── Value props ─── */}
-      <section className="mx-auto w-full max-w-[1200px] px-6 py-20" aria-labelledby="value-heading">
-        <Reveal>
-        <div className="text-center">
-          <p className="text-[13px] font-medium uppercase tracking-[0.15em] text-[#907AFF]">Why Verkli</p>
-          <h2 id="value-heading" className="mx-auto mt-4 max-w-[640px] text-[clamp(28px,4vw,48px)] font-semibold leading-[1.1] tracking-[-0.025em] text-slate-900 dark:text-white">
-            A place to{" "}
-            <BrandGradientText>discover</BrandGradientText>{" "}
-            and stay close to what you love
-          </h2>
-          <p className="mx-auto mt-5 max-w-[480px] text-[16px] leading-[1.7] text-slate-500 dark:text-white/50">Built for readers who want more than a feed.</p>
-        </div>
-
-        <div className="mt-14 grid gap-4 sm:grid-cols-2">
-          {valueBenefits.map((item) => (
-            <div key={item.title} className="group relative overflow-hidden rounded-[24px] border border-black/[0.06] bg-gradient-to-br from-black/[0.03] to-transparent p-8 transition-all duration-500 hover:border-black/[0.12] hover:shadow-[0_4px_24px_rgba(0,0,0,0.04)] dark:border-white/[0.06] dark:from-white/[0.03] dark:hover:border-white/[0.12]">
-              <div className="pointer-events-none absolute -right-8 -top-8 h-24 w-24 rounded-full blur-2xl opacity-0 transition-opacity duration-500 group-hover:opacity-50" style={{ background: item.color }} />
-              <div className="relative">
-                <div className="mb-4 inline-flex h-10 w-10 items-center justify-center rounded-xl transition-transform duration-500 group-hover:scale-110" style={{ background: `linear-gradient(135deg, ${item.color}25, ${item.color}10)` }}>
-                  <svg className="h-5 w-5" style={{ color: item.color }} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d={item.icon} />
-                  </svg>
-                </div>
-                <h3 className="text-[17px] font-semibold text-slate-900 dark:text-white">{item.title}</h3>
-                <p className="mt-2 text-[15px] leading-[1.65] text-slate-500 dark:text-white/50">{item.description}</p>
-              </div>
-            </div>
-          ))}
-        </div>
-        </Reveal>
-      </section>
-
-      {/* ─── How it works ─── */}
-      <section className="mx-auto w-full max-w-[1200px] px-6 py-20" aria-labelledby="how-heading">
-        <Reveal>
-        <div className="text-center">
-          <p className="text-[13px] font-medium uppercase tracking-[0.15em] text-[#907AFF]">How it works</p>
-          <h2 id="how-heading" className="mx-auto mt-4 max-w-[640px] text-[clamp(28px,4vw,48px)] font-semibold leading-[1.1] tracking-[-0.025em] text-slate-900 dark:text-white">
-            Simple. No clutter.
-          </h2>
-          <p className="mx-auto mt-5 max-w-[480px] text-[16px] leading-[1.7] text-slate-500 dark:text-white/50">Three steps to your next favourite story.</p>
-        </div>
-
-        <div className="mt-14 grid gap-4 sm:grid-cols-3">
-          {howItWorksSteps.map((item) => (
-            <div key={item.step} className="group relative overflow-hidden rounded-[24px] border border-black/[0.06] bg-gradient-to-br from-black/[0.03] to-transparent p-8 transition-all duration-500 hover:border-black/[0.12] hover:shadow-[0_4px_24px_rgba(0,0,0,0.04)] dark:border-white/[0.06] dark:from-white/[0.03] dark:hover:border-white/[0.12]">
-              <div className="pointer-events-none absolute -right-6 -top-6 h-20 w-20 rounded-full blur-2xl opacity-0 transition-opacity duration-500 group-hover:opacity-50" style={{ background: item.color }} />
-              <div className="relative">
-                <span className="inline-flex h-10 w-10 items-center justify-center rounded-full text-[14px] font-semibold text-white" style={{ background: item.color }}>{item.step}</span>
-                <h3 className="mt-5 text-[17px] font-semibold text-slate-900 dark:text-white">{item.title}</h3>
-                <p className="mt-2 text-[15px] leading-[1.65] text-slate-500 dark:text-white/50">{item.description}</p>
-              </div>
-            </div>
-          ))}
-        </div>
-        </Reveal>
-      </section>
-
-      {/* ─── Why Verkli is different ─── */}
-      <section className="mx-auto w-full max-w-[1200px] px-6 py-20" aria-labelledby="different-heading">
-        <Reveal>
-        <div className="text-center">
-          <p className="text-[13px] font-medium uppercase tracking-[0.15em] text-[#907AFF]">What makes us different</p>
-          <h2 id="different-heading" className="mx-auto mt-4 max-w-[640px] text-[clamp(28px,4vw,48px)] font-semibold leading-[1.1] tracking-[-0.025em] text-slate-900 dark:text-white">
-            Why Verkli is{" "}
-            <BrandGradientText>different</BrandGradientText>
-          </h2>
-          <p className="mx-auto mt-5 max-w-[480px] text-[16px] leading-[1.7] text-slate-500 dark:text-white/50">Not just another reading app.</p>
-        </div>
-
-        <div className="mt-14 grid gap-4 sm:grid-cols-2">
-          {whyDifferent.map((item) => (
-            <div key={item.title} className="group relative overflow-hidden rounded-[24px] border border-black/[0.06] bg-gradient-to-br from-black/[0.03] to-transparent p-8 transition-all duration-500 hover:border-black/[0.12] hover:shadow-[0_4px_24px_rgba(0,0,0,0.04)] dark:border-white/[0.06] dark:from-white/[0.03] dark:hover:border-white/[0.12]">
-              <div className="pointer-events-none absolute -right-8 -top-8 h-24 w-24 rounded-full blur-2xl opacity-0 transition-opacity duration-500 group-hover:opacity-50" style={{ background: item.color }} />
-              <div className="relative">
-                <div className="mb-4 inline-flex h-10 w-10 items-center justify-center rounded-xl transition-transform duration-500 group-hover:scale-110" style={{ background: `linear-gradient(135deg, ${item.color}25, ${item.color}10)` }}>
-                  <svg className="h-5 w-5" style={{ color: item.color }} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d={item.icon} />
-                  </svg>
-                </div>
-                <h3 className="text-[17px] font-semibold text-slate-900 dark:text-white">{item.title}</h3>
-                <p className="mt-2 text-[15px] leading-[1.65] text-slate-500 dark:text-white/50">{item.text}</p>
-              </div>
-            </div>
-          ))}
-        </div>
-        </Reveal>
-      </section>
-
-      {/* ─── CTA ─── */}
-      <section className="mx-auto w-full max-w-[1200px] px-6 py-24" aria-labelledby="cta-heading">
-        <Reveal>
-        <div className="group relative overflow-hidden rounded-[40px] bg-gradient-to-br from-[#907AFF]/20 via-[#E29ED5]/12 to-[#FCC997]/10 px-8 py-20 text-center sm:px-16 sm:py-28">
-          <div className="pointer-events-none absolute -left-20 -top-20 h-[350px] w-[350px] rounded-full bg-[#907AFF]/25 blur-[100px] transition-transform duration-1000 group-hover:translate-x-10 group-hover:translate-y-10" />
-          <div className="pointer-events-none absolute -bottom-10 -right-10 h-[250px] w-[250px] rounded-full bg-[#E29ED5]/15 blur-[80px] transition-transform duration-1000 group-hover:-translate-x-5" />
-          <div className="relative">
-            <p className="text-[13px] font-medium uppercase tracking-[0.15em] text-slate-500 dark:text-white/50">Get started today</p>
-            <h2 id="cta-heading" className="mx-auto mt-4 max-w-[560px] text-[clamp(28px,4vw,48px)] font-semibold leading-[1.1] tracking-[-0.025em] text-slate-900 dark:text-white">
-              Ready to find your next story?
-            </h2>
-            <p className="mx-auto mt-5 max-w-[480px] text-[16px] leading-[1.7] text-slate-500 dark:text-white/55">
-              Explore without signing up, or join Verkli to follow authors and save your reading. Built so authors can keep writing and readers get more of what matters.
-            </p>
-            <div className="mt-10 flex flex-wrap items-center justify-center gap-4">
-              <Link href="/reader/discover" className="btn-primary min-w-[180px]">Explore stories</Link>
-              <Link href="/reader/signup" className="btn-secondary min-w-[140px]">Join Verkli</Link>
-            </div>
-            <p className="mt-8 text-[13px] text-slate-400 dark:text-white/35">
-              Are you an author?{" "}
-              <Link href="/author" className="font-medium underline decoration-slate-300 underline-offset-2 transition hover:text-slate-600 hover:decoration-slate-400 dark:decoration-white/20 dark:hover:text-white/60">
-                Go to authors page →
-              </Link>
-            </p>
-          </div>
-        </div>
-        </Reveal>
-      </section>
+    <main className={styles.page}>
+      <div className={styles.shell}>
+        <header className={styles.hero}>
+          <h1>{intro.title}<br /><span>{intro.accent}</span></h1>
+          <div><p>{intro.description}</p><div className={styles.actions}><Link href={view === "membership" ? "/reader/signup" : "/reader/discover"} className={styles.primary}>{view === "membership" ? "Join Verkli" : "Explore stories"} <ArrowUpRight size={16} /></Link><Link href={view === "membership" ? "/reader/signin" : "/reader/signup"} className={styles.textLink}>{view === "membership" ? "Already a member? Sign in" : "Join Verkli"}</Link></div></div>
+        </header>
+        {view === "how-it-works" ? <section className={styles.chapters} aria-label="Three steps to your next story">{howItWorksSteps.map((step) => <article key={step.step} className={styles.chapter}><span className={styles.number}>0{step.step}</span><h2>{step.title}</h2><div><p>{step.description}</p></div></article>)}</section> : <section className={styles.readerStage} aria-labelledby="reader-discover-heading">
+          <div><h2 id="reader-discover-heading">Follow your curiosity.</h2><p>A familiar genre. An unfamiliar voice. There is more than one way into your next story.</p></div>
+          <nav className={styles.readerPaths} aria-label="Ways to discover"><Link href="/reader/discover">Explore the books <ArrowUpRight size={20} /></Link><Link href="/reader/genres">Find your genre <ArrowUpRight size={20} /></Link><Link href="/reader/authors">Meet the authors <ArrowUpRight size={20} /></Link></nav>
+        </section>}
+        <section className={styles.section}>
+          <div className={styles.sectionHeading}><h2>A little closer<br />to what you love.</h2><p>Built for readers who want more than a feed.</p></div>
+          {valueBenefits.map((item,index) => <article key={item.title} className={styles.chapter}><span className={styles.number}>0{index + 1}</span><h3>{item.title}</h3><div><p>{item.description}</p></div></article>)}
+        </section>
+        {view === "home" && <section className={`${styles.section} ${styles.split}`}>
+          <div><h2>Make yourself<br />at home.</h2><p>Three steps to your next favourite story.</p><div className={styles.actions}><Link href="/reader/how-it-works" className={styles.textLink}>See how it works <ArrowUpRight size={16} /></Link></div></div>
+          <div className={styles.questions}>{howItWorksSteps.map((step) => <details key={step.step} open={step.step === 1}><summary>{step.title}<Plus size={18} aria-hidden="true" /></summary><p>{step.description}</p></details>)}</div>
+        </section>}
+        {view === "home" && <section className={`${styles.section} ${styles.split}`}>
+          <h2>Stories deserve<br />some space.</h2>
+          <div className={styles.questions}>{whyDifferent.map((item) => <details key={item.title}><summary>{item.title}<Plus size={18} aria-hidden="true" /></summary><p>{item.text}</p></details>)}</div>
+        </section>}
+        <section className={styles.invitation}><div><h2>Your next story is waiting.</h2><p>Explore without signing up, or join Verkli to follow authors and save your reading.</p></div><div className={styles.actions}><Link href="/reader/signup" className={styles.primary}>Join Verkli <ArrowUpRight size={16} /></Link><Link href="/author" className={styles.textLink}>Here to write?</Link></div></section>
+      </div>
     </main>
   );
 }

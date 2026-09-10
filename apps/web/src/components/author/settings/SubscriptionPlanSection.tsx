@@ -71,23 +71,24 @@ export default function SubscriptionPlanSection({
   };
 
   return (
-    <section className="rounded-2xl bg-white px-7 py-5 dark:bg-white/[0.04]">
+    <section className="rounded-2xl border border-border bg-card px-5 py-6 sm:px-7">
       <div className="flex items-start justify-between gap-4">
         <div>
-          <h2 className="text-section-title">Reader subscriptions</h2>
-          <p className="mt-1 text-sm text-slate-500 dark:text-white/45">
+          <h2 className="author-section-title text-section-title">Reader subscriptions</h2>
+          <p className="mt-1 text-sm text-muted-foreground dark:text-muted-foreground">
             Let readers pay a monthly fee for access to all your books — like a personal membership.
           </p>
         </div>
         <button
           type="button"
           role="switch"
+          aria-label="Enable reader subscriptions"
           aria-checked={enabled}
           onClick={() => setEnabled((v) => !v)}
           className={`relative mt-0.5 h-6 w-10 flex-shrink-0 rounded-full transition-colors ${
             enabled
               ? "bg-[#907AFF]"
-              : "bg-slate-200 dark:bg-white/15"
+              : "bg-muted dark:bg-card"
           }`}
         >
           <span
@@ -101,7 +102,7 @@ export default function SubscriptionPlanSection({
       {enabled && (
         <div className="mt-5 grid gap-4 md:grid-cols-2">
           <div className="space-y-2">
-            <label className="text-sm font-medium text-slate-900 dark:text-white">
+            <label className="text-sm font-medium text-foreground dark:text-foreground">
               Monthly price
             </label>
             <div className="flex items-center gap-2">
@@ -126,14 +127,14 @@ export default function SubscriptionPlanSection({
                 ))}
               </select>
             </div>
-            <p className="text-[12px] text-slate-400 dark:text-white/30">
+            <p className="text-[12px] text-muted-foreground dark:text-muted-foreground">
               Readers pay this amount every month for unlimited access.
             </p>
           </div>
 
           <div className="space-y-2">
-            <label className="text-sm font-medium text-slate-900 dark:text-white">
-              What&apos;s included <span className="font-normal text-slate-400">(optional)</span>
+            <label className="text-sm font-medium text-foreground dark:text-foreground">
+              What&apos;s included <span className="font-normal text-muted-foreground">(optional)</span>
             </label>
             <textarea
               value={description}
@@ -152,7 +153,7 @@ export default function SubscriptionPlanSection({
           type="button"
           onClick={handleSave}
           disabled={saving}
-          className="min-h-[44px] rounded-full bg-[#0F172A] px-5 py-2 text-[13px] font-semibold text-white shadow-[0_4px_12px_rgba(15,23,42,0.18)] transition hover:bg-[#1E293B] hover:shadow-[0_6px_16px_rgba(15,23,42,0.24)] disabled:cursor-not-allowed disabled:opacity-60"
+          className="min-h-[44px] rounded-full bg-primary px-5 py-2 text-[13px] font-semibold text-primary-foreground shadow-[0_4px_12px_rgba(15,23,42,0.18)] transition hover:bg-primary/90 hover:shadow-[0_6px_16px_rgba(15,23,42,0.24)] disabled:cursor-not-allowed disabled:opacity-60"
         >
           {saving ? "Saving…" : "Save subscription settings"}
         </button>

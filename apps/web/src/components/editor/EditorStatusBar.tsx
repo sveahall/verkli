@@ -45,9 +45,9 @@ export default function EditorStatusBar({
     : formatLastSaved(lastSaved);
 
   return (
-    <div className="flex items-center justify-between bg-slate-50/60 px-5 py-2.5 text-[13px] text-slate-500 dark:bg-white/[0.02] dark:text-white/35">
+    <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2 bg-background/60 px-5 py-2.5 text-[13px] text-muted-foreground dark:bg-card dark:text-muted-foreground">
       {/* Left: stats */}
-      <div className="flex items-center gap-4">
+      <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
         <span className="inline-flex items-center gap-1.5 tabular-nums">
           <FileText className="h-3.5 w-3.5" />
           {wordCount.toLocaleString()} words
@@ -71,20 +71,23 @@ export default function EditorStatusBar({
         <button
           type="button"
           onClick={onToggleSidePanel}
-          className={`flex h-7 items-center gap-1 rounded-lg px-2 transition ${
+          className={`flex h-10 min-w-10 items-center justify-center gap-1 rounded-lg px-2 transition ${
             sidePanelOpen
-              ? "bg-[#907AFF]/10 text-[#907AFF]"
-              : "hover:bg-slate-50 hover:text-slate-600 dark:hover:bg-white/5"
+              ? "bg-[#907AFF]/10 text-accent-foreground"
+              : "hover:bg-background hover:text-muted-foreground dark:hover:bg-accent"
           }`}
           title="Toggle side panel"
+          aria-label="Toggle side panel"
+          aria-pressed={sidePanelOpen}
         >
           <PanelRight className="h-3.5 w-3.5" />
         </button>
         <button
           type="button"
           onClick={onToggleFocusMode}
-          className="flex h-7 items-center gap-1 rounded-lg px-2 transition hover:bg-slate-50 hover:text-slate-600 dark:hover:bg-white/5"
+          className="flex h-10 min-w-10 items-center justify-center gap-1 rounded-lg px-2 transition hover:bg-background hover:text-muted-foreground dark:hover:bg-accent"
           title={focusMode ? "Exit focus mode" : "Focus mode"}
+          aria-label={focusMode ? "Exit focus mode" : "Focus mode"}
         >
           {focusMode ? <Minimize2 className="h-3.5 w-3.5" /> : <Maximize2 className="h-3.5 w-3.5" />}
         </button>

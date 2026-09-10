@@ -16,7 +16,7 @@ export function Breadcrumbs({ items, className }: BreadcrumbsProps) {
 
   return (
     <nav aria-label="Breadcrumb" className={cn("text-[13px]", className)}>
-      <ol className="flex flex-wrap items-center gap-2 text-slate-500 dark:text-white/50">
+      <ol className="flex flex-wrap items-center gap-2 text-muted-foreground">
         {items.map((item, index) => {
           const isLast = index === items.length - 1;
           return (
@@ -24,12 +24,12 @@ export function Breadcrumbs({ items, className }: BreadcrumbsProps) {
               {item.href && !isLast ? (
                 <Link
                   href={item.href}
-                  className="rounded-md transition-colors hover:text-slate-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#907AFF]/40 focus-visible:ring-offset-2 focus-visible:ring-offset-white dark:focus-visible:ring-offset-[#0b0b12]"
+                  className="rounded-md transition-colors hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
                 >
                   {item.label}
                 </Link>
               ) : (
-                <span className={cn(isLast ? "text-slate-700 dark:text-white/80" : undefined)}>
+                <span className={cn(isLast ? "text-foreground" : undefined)}>
                   {item.label}
                 </span>
               )}

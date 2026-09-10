@@ -19,10 +19,10 @@ export default function FreemiumGate({
 }: FreemiumGateProps) {
   return (
     <div className="rounded-2xl border border-[#907AFF]/15 bg-[#907AFF]/[0.04] p-6">
-      <h2 className="text-xl font-semibold text-[#0F172A] dark:text-white">
+      <h2 className="text-xl font-medium text-foreground font-display">
         Want to keep reading?
       </h2>
-      <p className="mt-2 text-sm text-[#64748B] dark:text-white/60">
+      <p className="mt-2 text-sm text-muted-foreground">
         You have read the free preview. Unlock all chapters by purchasing the book or upgrading to Verkli Plus.
       </p>
 
@@ -36,7 +36,7 @@ export default function FreemiumGate({
         ) : (
           <Link
             href={signInHref}
-            className="inline-flex h-11 items-center justify-center rounded-xl bg-[#907AFF] px-6 text-sm font-semibold text-white shadow-sm transition-all duration-200 hover:bg-[#7A66E0] active:scale-[0.97]"
+            className="inline-flex h-11 items-center justify-center rounded-xl bg-primary px-6 text-sm font-medium text-primary-foreground shadow-sm transition-[background-color,border-color,color,box-shadow] duration-200 hover:bg-primary/90 active:scale-[0.97]"
           >
             Sign in to purchase — {formatMoney(priceAmount, priceCurrency)}
           </Link>
@@ -44,7 +44,7 @@ export default function FreemiumGate({
 
         <Link
           href="/reader/billing"
-          className="inline-flex h-11 items-center justify-center rounded-xl border border-[#907AFF]/25 px-6 text-sm font-semibold text-[#907AFF] transition-colors hover:bg-[#907AFF]/10 dark:text-[#B8A9FF]"
+          className="inline-flex h-11 items-center justify-center rounded-xl border border-[#907AFF]/25 px-6 text-sm font-semibold text-accent-foreground transition-colors hover:bg-[#907AFF]/10 dark:text-[#B8A9FF]"
         >
           Upgrade to Verkli Plus
         </Link>

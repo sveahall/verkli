@@ -37,30 +37,30 @@ export default function CookieConsent() {
   if (consent !== null) return null;
 
   return (
-    <div className="fixed bottom-4 left-4 right-4 z-50 mx-auto max-w-lg animate-in fade-in slide-in-from-bottom-4 duration-300 md:left-6 md:right-auto">
-      <div className="rounded-2xl border border-slate-200/80 bg-white/95 px-5 py-4 shadow-lg backdrop-blur-sm dark:border-white/10 dark:bg-slate-900/95">
-        <p className="text-[13px] leading-relaxed text-slate-600 dark:text-white/60">
+    <div className="fixed bottom-4 left-4 right-4 z-50 mx-auto max-w-lg motion-safe:animate-in motion-safe:fade-in motion-safe:slide-in-from-bottom-4 duration-300 md:left-6 md:right-auto">
+      <div className="rounded-[22px] border border-border bg-card/95 px-5 py-5 shadow-surface-lg backdrop-blur-xl">
+        <p className="text-[13px] leading-relaxed text-muted-foreground">
           We use essential cookies to run the platform and optional analytics
           cookies to improve it.{" "}
           <Link
             href="/privacy"
-            className="underline underline-offset-2 hover:text-slate-900 dark:hover:text-white"
+            className="underline underline-offset-4 hover:text-accent-foreground"
           >
             Privacy Policy
           </Link>
         </p>
-        <div className="mt-3 flex items-center gap-2">
+        <div className="mt-4 flex flex-wrap items-center gap-2">
           <button
             type="button"
             onClick={() => setConsent("accepted")}
-            className="rounded-lg bg-slate-900 px-4 py-2 text-[13px] font-medium text-white transition hover:bg-slate-800 dark:bg-white dark:text-slate-900 dark:hover:bg-white/90"
+            className="btn-primary px-4 text-[13px]"
           >
             Accept all
           </button>
           <button
             type="button"
             onClick={() => setConsent("declined")}
-            className="rounded-lg border border-slate-200 px-4 py-2 text-[13px] font-medium text-slate-600 transition hover:bg-slate-50 dark:border-white/10 dark:text-white/60 dark:hover:bg-white/5"
+            className="btn-secondary px-4 text-[13px]"
           >
             Essential only
           </button>

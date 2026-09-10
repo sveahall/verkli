@@ -167,16 +167,16 @@ export default function ImportManusSection({
 
   return (
     <div className="max-w-2xl space-y-6">
-      <h2 className="text-xl font-semibold text-slate-900 dark:text-white">
+      <h2 className="author-section-title text-xl font-medium text-foreground dark:text-foreground">
         Import manuscript
       </h2>
-      <p className="text-sm text-slate-600 dark:text-white/60">
+      <p className="text-sm text-muted-foreground dark:text-muted-foreground">
         Upload a file to import chapters into this book. Supported formats:
         EPUB, DOCX, HTML, TXT, PDF. Max {IMPORT_MAX_MB} MB.
       </p>
 
-      <div className="rounded-2xl border border-black/[0.05] bg-white/60 p-5 shadow-[0_1px_3px_rgba(0,0,0,0.02)] backdrop-blur-sm dark:border-white/[0.06] dark:bg-white/[0.02] dark:shadow-none space-y-4">
-        <h3 className="text-sm font-semibold text-slate-900 dark:text-white">
+      <div className="rounded-2xl border border-black/[0.05] bg-white/60 p-5 shadow-[0_1px_3px_rgba(0,0,0,0.02)] backdrop-blur-sm dark:border-border dark:bg-card dark:shadow-none space-y-4">
+        <h3 className="text-sm font-semibold text-foreground dark:text-foreground">
           Import behavior
         </h3>
         <div className="flex items-center gap-3">
@@ -191,7 +191,7 @@ export default function ImportManusSection({
           />
           <label
             htmlFor="import-new-version"
-            className="text-sm text-slate-700 dark:text-white/80"
+            className="text-sm text-foreground dark:text-foreground"
           >
             Import as new version
           </label>
@@ -208,7 +208,7 @@ export default function ImportManusSection({
           />
           <label
             htmlFor="import-overwrite"
-            className="text-sm text-slate-700 dark:text-white/80"
+            className="text-sm text-foreground dark:text-foreground"
           >
             Overwrite draft
           </label>
@@ -228,7 +228,7 @@ export default function ImportManusSection({
         className={`rounded-2xl border-2 border-dashed p-8 text-center transition-colors ${
           selectedFile
             ? "border-[#907AFF]/40 bg-[#907AFF]/5 dark:bg-[#907AFF]/10"
-            : "border-black/[0.06] dark:border-white/[0.06] bg-white/50 dark:bg-white/[0.02]"
+            : "border-black/[0.06] dark:border-border bg-white/50 dark:bg-card"
         }`}
         onDragOver={(event) => event.preventDefault()}
         onDrop={onDrop}
@@ -242,7 +242,7 @@ export default function ImportManusSection({
           onChange={(event) => handleFile(event.target.files?.[0] ?? null)}
           disabled={uploading}
         />
-        <p className="text-sm text-slate-600 dark:text-white/60 mb-2">
+        <p className="text-sm text-muted-foreground dark:text-muted-foreground mb-2">
           Drag and drop a file here, or click to choose.{" "}
           {IMPORT_ALLOWED_EXT.join(", ")} - max {IMPORT_MAX_MB} MB.
         </p>
@@ -250,12 +250,12 @@ export default function ImportManusSection({
           type="button"
           onClick={() => fileInputRef.current?.click()}
           disabled={uploading}
-          className="rounded-xl border border-black/[0.08] bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 dark:border-white/[0.08] dark:bg-white/[0.04] dark:text-white dark:hover:bg-white/[0.06]"
+          className="rounded-xl border border-black/[0.08] bg-card px-4 py-2 text-sm font-medium text-foreground hover:bg-background dark:border-border dark:bg-card dark:text-foreground dark:hover:bg-accent"
         >
           Choose file
         </button>
         {selectedFile && (
-          <p className="mt-3 text-sm font-medium text-slate-900 dark:text-white">
+          <p className="mt-3 text-sm font-medium text-foreground dark:text-foreground">
             Selected file: {selectedFile.name}
           </p>
         )}
@@ -278,16 +278,16 @@ export default function ImportManusSection({
         onClick={startImport}
         disabled={!selectedFile || uploading || !attestationComplete}
         aria-label="Start import"
-        className="rounded-xl bg-slate-900 px-4 py-2.5 text-[13px] font-semibold text-white shadow-sm transition-all hover:bg-slate-800 hover:shadow-md disabled:opacity-50 disabled:cursor-not-allowed dark:bg-white dark:text-slate-900"
+        className="rounded-xl bg-primary px-4 py-2.5 text-[13px] font-semibold text-primary-foreground shadow-sm transition-all hover:bg-primary/90 hover:shadow-md disabled:opacity-50 disabled:cursor-not-allowed"
       >
         {uploading ? "Starting import..." : "Start import"}
       </button>
 
-      <div className="rounded-xl border border-black/[0.06] bg-slate-50/50 px-4 py-3 dark:border-white/[0.06] dark:bg-white/5">
-        <p className="text-sm font-medium text-slate-900 dark:text-white">
+      <div className="rounded-xl border border-black/[0.06] bg-background/50 px-4 py-3 dark:border-border dark:bg-card">
+        <p className="text-sm font-medium text-foreground dark:text-foreground">
           Repair existing import
         </p>
-        <p className="mt-1 text-xs text-slate-600 dark:text-white/60">
+        <p className="mt-1 text-xs text-muted-foreground dark:text-muted-foreground">
           Run this if chapter headings are already incorrect (for example
           duplicated or out of order).
         </p>
@@ -297,12 +297,12 @@ export default function ImportManusSection({
             onClick={runChapterRepair}
             disabled={!bookVersionId || repairing || uploading}
             aria-label="Repair chapter headings"
-            className="rounded-xl border border-black/[0.08] bg-white px-4 py-2 text-sm font-semibold text-slate-800 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50 dark:border-white/[0.08] dark:bg-white/[0.04] dark:text-white dark:hover:bg-white/[0.06]"
+            className="rounded-xl border border-black/[0.08] bg-card px-4 py-2 text-sm font-semibold text-foreground transition hover:bg-background disabled:cursor-not-allowed disabled:opacity-50 dark:border-border dark:bg-card dark:text-foreground dark:hover:bg-accent"
           >
             {repairing ? "Repairing..." : "Repair chapter headings"}
           </button>
           {repairMessage && (
-            <p className="text-sm text-slate-700 dark:text-white/80">
+            <p className="text-sm text-foreground dark:text-foreground">
               {repairMessage}
             </p>
           )}
@@ -324,7 +324,7 @@ export default function ImportManusSection({
 
       {visibleImportJobs.length > 0 && (
         <div className="space-y-3">
-          <h3 className="text-sm font-semibold text-slate-900 dark:text-white">
+          <h3 className="text-sm font-semibold text-foreground dark:text-foreground">
             Import status
           </h3>
           {visibleImportJobs.map((job) => {
@@ -354,24 +354,24 @@ export default function ImportManusSection({
                     ? "border-red-200 bg-red-50 dark:border-red-800 dark:bg-red-950/30"
                     : job.status === "completed"
                       ? "border-emerald-200 bg-emerald-50 dark:border-emerald-800 dark:bg-emerald-950/30"
-                      : "border-black/[0.06] bg-slate-50/50 dark:border-white/[0.06] dark:bg-white/5"
+                      : "border-black/[0.06] bg-background/50 dark:border-border dark:bg-card"
                 }`}
               >
                 <div className="flex items-center justify-between">
-                  <span className="font-medium text-slate-900 dark:text-white">
+                  <span className="font-medium text-foreground dark:text-foreground">
                     {job.status === "pending" && "Queued..."}
                     {job.status === "running" && "Importing... "}
                     {job.status === "completed" && "Import succeeded"}
                     {job.status === "failed" && "Import failed"}
                   </span>
                   {(job.status === "pending" || job.status === "running") && (
-                    <span className="text-xs text-slate-500 dark:text-white/50">
+                    <span className="text-xs text-muted-foreground dark:text-muted-foreground">
                       {job.progress > 0 ? `${job.progress}%` : "Queued"}
                     </span>
                   )}
                 </div>
                 {job.status === "running" && job.progress > 0 && (
-                  <div className="mt-2 h-1.5 w-full rounded-full bg-slate-200 dark:bg-white/10">
+                  <div className="mt-2 h-1.5 w-full rounded-full bg-muted dark:bg-card">
                     <div
                       className="h-1.5 rounded-full bg-[#907AFF] transition-all"
                       style={{ width: `${Math.min(100, job.progress)}%` }}
@@ -402,7 +402,7 @@ export default function ImportManusSection({
                   </p>
                 )}
                 {warnings.length > 0 && (
-                  <p className="mt-1 text-xs text-slate-500 dark:text-white/50">
+                  <p className="mt-1 text-xs text-muted-foreground dark:text-muted-foreground">
                     Notes: {warnings.join(", ")}
                   </p>
                 )}

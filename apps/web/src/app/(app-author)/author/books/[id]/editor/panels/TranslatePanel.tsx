@@ -337,43 +337,43 @@ export default function TranslatePanel({
       {!hideTitle && (
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div>
-            <h1 className="text-2xl font-semibold tracking-tight text-slate-900 dark:text-white">
+            <h1 className="author-page-title text-foreground">
               {bookTitle}
             </h1>
-            <p className="mt-1 text-[15px] text-slate-500 dark:text-white/50">{authorDisplayName}</p>
+            <p className="mt-1 text-[15px] text-muted-foreground dark:text-muted-foreground">{authorDisplayName}</p>
           </div>
-          <p className="text-sm mt-8 text-slate-500 dark:text-white/50">Book length: {bookLengthLabel}</p>
+          <p className="text-sm mt-8 text-muted-foreground dark:text-muted-foreground">Book length: {bookLengthLabel}</p>
         </div>
       )}
       {hideTitle && (
-        <p className="text-sm text-slate-500 dark:text-white/50">Book length: {bookLengthLabel}</p>
+        <p className="text-sm text-muted-foreground dark:text-muted-foreground">Book length: {bookLengthLabel}</p>
       )}
 
       {/* TRANSLATE section */}
       <div className="space-y-5">
         <div className="flex flex-wrap items-center gap-x-10 gap-y-2">
-          <h2 className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500 dark:text-white/50">
+          <h2 className="author-section-title text-xs font-medium uppercase tracking-[0.18em] text-muted-foreground dark:text-muted-foreground">
             Translate
           </h2>
           <div className="relative flex items-center gap-3 text-[15px]" ref={targetDropdownRef}>
-            <span className="font-medium text-slate-700 dark:text-white/90">{sourceLabel}</span>
-            <span className="text-slate-400 dark:text-white/40">&rarr;</span>
+            <span className="font-medium text-foreground dark:text-foreground">{sourceLabel}</span>
+            <span className="text-muted-foreground dark:text-muted-foreground">&rarr;</span>
             <div className="relative">
               <button
                 type="button"
                 onClick={() => setTargetDropdownOpen((open) => !open)}
-                className="flex items-center gap-3 rounded-lg border border-black/[0.08] bg-white px-3 py-2 text-sm text-slate-900 focus:border-slate-500 focus:outline-none dark:border-white/[0.08] dark:bg-white/[0.04] dark:text-white"
+                className="flex items-center gap-3 rounded-lg border border-black/[0.08] bg-card px-3 py-2 text-sm text-foreground focus:border-border focus:outline-none dark:border-border dark:bg-card dark:text-foreground"
                 aria-haspopup="listbox"
                 aria-expanded={targetDropdownOpen}
               >
                 <span>{getLanguageLabel(targetLanguage)}</span>
-                <svg className="h-4 w-4 shrink-0 text-slate-500 dark:text-white/50" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
+                <svg className="h-4 w-4 shrink-0 text-muted-foreground dark:text-muted-foreground" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
                   <path d="M6 9l6 6 6-6" />
                 </svg>
               </button>
               {targetDropdownOpen && (
                 <ul
-                  className="absolute left-0 top-full z-10 mt-1 max-h-60 w-full min-w-[140px] overflow-auto rounded-lg border border-black/[0.08] bg-white py-1 shadow-lg dark:border-white/[0.08] dark:bg-slate-900 dark:text-white"
+                  className="absolute left-0 top-full z-10 mt-1 max-h-60 w-full min-w-[140px] overflow-auto rounded-lg border border-black/[0.08] bg-card py-1 shadow-lg dark:border-border dark:bg-card dark:text-foreground"
                   role="listbox"
                 >
                   {targetOptions.map((opt) => (
@@ -384,8 +384,8 @@ export default function TranslatePanel({
                           setTargetLanguage(opt.value as SupportedLanguage);
                           setTargetDropdownOpen(false);
                         }}
-                        className={`w-full px-3 py-2 text-left text-sm hover:bg-slate-100 dark:hover:bg-white/10 ${
-                          opt.value === targetLanguage ? "bg-slate-50 font-medium dark:bg-white/5" : ""
+                        className={`w-full px-3 py-2 text-left text-sm hover:bg-muted dark:hover:bg-accent ${
+                          opt.value === targetLanguage ? "bg-background font-medium dark:bg-card" : ""
                         }`}
                       >
                         {opt.label}
@@ -406,8 +406,8 @@ export default function TranslatePanel({
               onClick={() => setTranslateScope("book")}
               className={`rounded-full px-4 py-1.5 text-xs font-medium transition ${
                 translateScope === "book"
-                  ? "bg-[#0F172A] text-white shadow-sm"
-                  : "bg-slate-100 text-slate-600 hover:bg-slate-200 dark:bg-white/[0.06] dark:text-white/70 dark:hover:bg-white/10"
+                  ? "bg-primary text-primary-foreground shadow-sm"
+                  : "bg-muted text-muted-foreground hover:bg-muted dark:bg-card dark:text-foreground dark:hover:bg-accent"
               }`}
             >
               Full book
@@ -417,14 +417,14 @@ export default function TranslatePanel({
               onClick={() => setTranslateScope("chapter")}
               className={`rounded-full px-4 py-1.5 text-xs font-medium transition ${
                 translateScope === "chapter"
-                  ? "bg-[#0F172A] text-white shadow-sm"
-                  : "bg-slate-100 text-slate-600 hover:bg-slate-200 dark:bg-white/[0.06] dark:text-white/70 dark:hover:bg-white/10"
+                  ? "bg-primary text-primary-foreground shadow-sm"
+                  : "bg-muted text-muted-foreground hover:bg-muted dark:bg-card dark:text-foreground dark:hover:bg-accent"
               }`}
             >
               Current chapter
             </button>
             {translateScope === "chapter" && selectedChapterId && (
-              <span className="ml-2 text-xs text-slate-500 dark:text-white/50">
+              <span className="ml-2 text-xs text-muted-foreground dark:text-muted-foreground">
                 {chapters.find((ch) => ch.id === selectedChapterId)?.title ?? "Untitled"}
               </span>
             )}
@@ -448,45 +448,45 @@ export default function TranslatePanel({
 
       {/* Two cards */}
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-        <div className="overflow-hidden rounded-2xl bg-white shadow-sm ring-1 ring-black/5 dark:bg-white/[0.03] dark:ring-white/10">
+        <div className="overflow-hidden rounded-2xl bg-card shadow-sm ring-1 ring-black/5 dark:bg-card dark:ring-white/10">
           <div className="space-y-5 px-6 py-6">
             <div>
-              <h3 className="text-[15px] font-semibold text-slate-900 dark:text-white">
+              <h3 className="text-[15px] font-semibold text-foreground dark:text-foreground">
                 Increase your sales
               </h3>
-              <p className="mt-1.5 text-sm text-slate-600 dark:text-white/70">
+              <p className="mt-1.5 text-sm text-muted-foreground dark:text-foreground">
                 Reach more readers by translating your book into more languages.
               </p>
             </div>
-            <div className="rounded-xl border border-black/[0.06] px-4 py-3 dark:border-white/[0.08]">
-              <p className="mb-2 text-sm font-medium text-slate-700 dark:text-white/80">Translate to:</p>
+            <div className="rounded-xl border border-black/[0.06] px-4 py-3 dark:border-border">
+              <p className="mb-2 text-sm font-medium text-foreground dark:text-foreground">Translate to:</p>
               {selectedForDisplay.length ? (
-                <ul className="space-y-1 text-sm text-slate-600 dark:text-white/70">
+                <ul className="space-y-1 text-sm text-muted-foreground dark:text-foreground">
                   {selectedForDisplay.map((l) => (
                     <li key={l.code} className="flex items-center gap-2">
-                      <span className="text-slate-400">&bull;</span>
+                      <span className="text-muted-foreground">&bull;</span>
                       {l.label}
                     </li>
                   ))}
                 </ul>
               ) : (
-                <p className="text-sm text-slate-400 dark:text-white/40">No languages selected</p>
+                <p className="text-sm text-muted-foreground dark:text-muted-foreground">No languages selected</p>
               )}
             </div>
             <button
               type="button"
               onClick={() => void handleTranslateFullBook()}
               disabled={translating || billingLoading || !sourceVersionId}
-              className="block w-full rounded-full bg-[#0F172A] px-4 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-[#1E293B] disabled:cursor-not-allowed disabled:opacity-60"
+              className="block w-full rounded-full bg-primary px-4 py-3 text-sm font-semibold text-primary-foreground shadow-sm transition hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-60"
             >
               {translating ? "Translating..." : "Translate full book"}
             </button>
           </div>
-          <div className="flex items-center justify-center gap-2 border-t border-slate-100 px-6 py-4 text-[11px] uppercase tracking-[0.18em] text-slate-400 dark:border-white/10 dark:text-white/50">
+          <div className="flex items-center justify-center gap-2 border-t border-border px-6 py-4 text-[11px] uppercase tracking-[0.18em] text-muted-foreground dark:border-border dark:text-muted-foreground">
             <span>OPTIMISED FOR BOOKS</span>
-            <span className="text-[#907AFF]">&middot;</span>
+            <span className="text-accent-foreground">&middot;</span>
             <span>CONTEXT AWARE</span>
-            <span className="text-[#907AFF]">&middot;</span>
+            <span className="text-accent-foreground">&middot;</span>
             <span>EDITABLE</span>
           </div>
         </div>
@@ -501,7 +501,7 @@ export default function TranslatePanel({
       {/* Status */}
       {successMessage && (
         <div
-          className="rounded-lg border border-[#907AFF]/40 bg-[#907AFF]/10 px-4 py-3 text-sm text-[#5c4bb8] dark:border-[#907AFF]/40 dark:bg-[#907AFF]/15 dark:text-[#b8a9ff]"
+          className="rounded-lg border border-[#907AFF]/40 bg-[#907AFF]/10 px-4 py-3 text-sm text-accent-foreground dark:border-[#907AFF]/40 dark:bg-[#907AFF]/15 dark:text-accent-foreground"
           role="status"
         >
           {successMessage}

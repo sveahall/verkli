@@ -18,7 +18,7 @@ type SliderRowProps = {
 function SliderRow({ label, value, onChange }: SliderRowProps) {
   return (
     <div>
-      <label className="mb-1 flex items-center justify-between text-[11px] font-semibold uppercase tracking-[0.1em] text-slate-400 dark:text-white/30">
+      <label className="mb-1 flex items-center justify-between text-[11px] font-semibold uppercase tracking-[0.1em] text-muted-foreground dark:text-muted-foreground">
         {label} <span className="tabular-nums">{value > 0 ? `+${value}` : value}</span>
       </label>
       <input
@@ -40,7 +40,7 @@ export default function CoverEditorFilterPanel({
     <div className="space-y-5">
       {/* Presets */}
       <div>
-        <p className="mb-2 text-[11px] font-semibold uppercase tracking-[0.1em] text-slate-400 dark:text-white/30">
+        <p className="mb-2 text-[11px] font-semibold uppercase tracking-[0.1em] text-muted-foreground dark:text-muted-foreground">
           Presets
         </p>
         <div className="flex flex-wrap gap-2">
@@ -56,8 +56,8 @@ export default function CoverEditorFilterPanel({
                 onClick={() => onApplyPreset(preset.filters)}
                 className={`rounded-lg border px-3 py-1.5 text-[13px] font-medium transition ${
                   isActive
-                    ? "border-[#907AFF]/40 bg-[#907AFF]/10 text-[#907AFF]"
-                    : "border-slate-200 text-slate-600 hover:border-slate-300 dark:border-white/10 dark:text-white/60"
+                    ? "border-[#907AFF]/40 bg-[#907AFF]/10 text-accent-foreground"
+                    : "border-border text-muted-foreground hover:border-border dark:border-border dark:text-muted-foreground"
                 }`}
               >
                 {preset.label}

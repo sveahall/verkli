@@ -118,10 +118,10 @@ export default function GenreSelector({ bookId }: GenreSelectorProps) {
   if (!loaded) {
     return (
       <div className="mt-4 space-y-2">
-        <p className="text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-white/50">
+        <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground dark:text-muted-foreground">
           Genres
         </p>
-        <div className="h-8 w-32 animate-pulse rounded bg-slate-200 dark:bg-white/10" />
+        <div className="h-8 w-32 animate-pulse rounded bg-muted dark:bg-card" />
       </div>
     );
   }
@@ -131,7 +131,7 @@ export default function GenreSelector({ bookId }: GenreSelectorProps) {
   return (
     <div className="mt-4 space-y-2">
       <div className="flex items-center justify-between gap-3">
-        <p className="text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-white/50">
+        <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground dark:text-muted-foreground">
           Genres <span className="normal-case font-normal">(max 3)</span>
         </p>
         <button
@@ -139,7 +139,7 @@ export default function GenreSelector({ bookId }: GenreSelectorProps) {
           onClick={suggest}
           disabled={suggesting}
           title="Analyse book content and auto-select genres"
-          className="inline-flex items-center gap-1.5 rounded-full border border-[#907AFF]/30 bg-[#907AFF]/[0.07] px-2.5 py-1 text-[11px] font-medium text-[#907AFF] transition hover:bg-[#907AFF]/[0.13] disabled:opacity-50 dark:border-[#907AFF]/25 dark:text-[#B8A8FF]"
+          className="inline-flex items-center gap-1.5 rounded-full border border-[#907AFF]/30 bg-[#907AFF]/[0.07] px-2.5 py-1 text-[11px] font-medium text-accent-foreground transition hover:bg-[#907AFF]/[0.13] disabled:opacity-50 dark:border-[#907AFF]/25 dark:text-[#B8A8FF]"
         >
           <Sparkles className="h-3 w-3" />
           {suggesting ? "Analysing…" : "Suggest"}
@@ -163,10 +163,10 @@ export default function GenreSelector({ bookId }: GenreSelectorProps) {
               title={isDisabled ? "Max 3 genres" : undefined}
               className={`rounded-full border px-2.5 py-1 text-[11px] font-medium transition ${
                 isSelected
-                  ? "border-[#907AFF]/50 bg-[#907AFF]/15 text-[#5c4bb8] dark:border-[#B8A8FF]/50 dark:bg-[#907AFF]/20 dark:text-[#B8A8FF]"
+                  ? "border-[#907AFF]/50 bg-[#907AFF]/15 text-accent-foreground dark:border-[#B8A8FF]/50 dark:bg-[#907AFF]/20 dark:text-[#B8A8FF]"
                   : isDisabled
-                    ? "cursor-not-allowed border-slate-200 bg-white text-slate-300 dark:border-white/10 dark:bg-white/5 dark:text-white/25"
-                    : "border-slate-200 bg-white text-slate-600 hover:bg-slate-50 dark:border-white/10 dark:bg-white/5 dark:text-white/60 dark:hover:bg-white/10"
+                    ? "cursor-not-allowed border-border bg-card text-muted-foreground dark:border-border dark:bg-card dark:text-muted-foreground"
+                    : "border-border bg-card text-muted-foreground hover:bg-background dark:border-border dark:bg-card dark:text-muted-foreground dark:hover:bg-accent"
               }`}
             >
               {genre.icon ? `${genre.icon} ` : ""}
@@ -181,7 +181,7 @@ export default function GenreSelector({ bookId }: GenreSelectorProps) {
           type="button"
           onClick={save}
           disabled={saving}
-          className="mt-1 rounded-full bg-slate-900 px-3 py-1 text-[11px] font-medium text-white transition hover:bg-slate-800 disabled:opacity-50 dark:bg-white dark:text-slate-900 dark:hover:bg-white/90"
+          className="mt-1 rounded-full bg-primary px-3 py-1 text-[11px] font-medium text-primary-foreground transition hover:bg-primary/90 disabled:opacity-50"
         >
           {saving ? "Saving..." : saved ? "Saved ✓" : "Save genres"}
         </button>

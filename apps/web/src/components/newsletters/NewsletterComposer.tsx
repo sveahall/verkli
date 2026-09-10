@@ -128,7 +128,7 @@ export default function NewsletterComposer({
       <div className="space-y-1.5">
         <label
           htmlFor="nl-subject"
-          className="text-[13px] font-medium text-slate-700 dark:text-white/70"
+          className="text-[13px] font-medium text-foreground dark:text-foreground"
         >
           Subject
         </label>
@@ -139,19 +139,19 @@ export default function NewsletterComposer({
           onChange={(e) => setSubject(e.target.value)}
           disabled={!isDraft}
           placeholder="Subject line for the newsletter..."
-          className="min-h-[44px] w-full rounded-xl border border-slate-200/80 bg-white px-4 text-[14px] text-slate-700 transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#907AFF]/40 focus-visible:ring-offset-2 focus-visible:ring-offset-white disabled:opacity-60 dark:border-white/10 dark:bg-white/5 dark:text-white dark:focus-visible:ring-offset-[#0b0b12]"
+          className="min-h-[44px] w-full rounded-xl border border-border/80 bg-card px-4 text-[14px] text-foreground transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#907AFF]/40 focus-visible:ring-offset-2 focus-visible:ring-offset-white disabled:opacity-60 dark:border-border dark:bg-card dark:text-foreground dark:focus-visible:ring-offset-[#0b0b12]"
         />
       </div>
 
       <div className="space-y-1.5">
         <div className="flex items-center justify-between">
-          <label className="text-[13px] font-medium text-slate-700 dark:text-white/70">
+          <label className="text-[13px] font-medium text-foreground dark:text-foreground">
             Content (HTML)
           </label>
           <button
             type="button"
             onClick={() => setShowPreview(!showPreview)}
-            className="text-[12px] font-medium text-[#907AFF] hover:text-[#7A66E0]"
+            className="text-[12px] font-medium text-accent-foreground hover:text-[#7A66E0]"
           >
             {showPreview ? "Edit" : "Preview"}
           </button>
@@ -159,7 +159,7 @@ export default function NewsletterComposer({
 
         {showPreview ? (
           <div
-            className="min-h-[300px] rounded-xl border border-slate-200/80 bg-white p-4 text-[14px] text-slate-700 dark:border-white/10 dark:bg-white/5 dark:text-white"
+            className="min-h-[300px] rounded-xl border border-border/80 bg-card p-4 text-[14px] text-foreground dark:border-border dark:bg-card dark:text-foreground"
             dangerouslySetInnerHTML={{ __html: sanitizedHtml }}
           />
         ) : (
@@ -169,7 +169,7 @@ export default function NewsletterComposer({
             disabled={!isDraft}
             rows={15}
             placeholder="<h1>Hello!</h1><p>Here's the latest news...</p>"
-            className="w-full rounded-xl border border-slate-200/80 bg-white px-4 py-3 font-mono text-[13px] text-slate-700 transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#907AFF]/40 focus-visible:ring-offset-2 focus-visible:ring-offset-white disabled:opacity-60 dark:border-white/10 dark:bg-white/5 dark:text-white dark:focus-visible:ring-offset-[#0b0b12]"
+            className="w-full rounded-xl border border-border/80 bg-card px-4 py-3 font-mono text-[13px] text-foreground transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#907AFF]/40 focus-visible:ring-offset-2 focus-visible:ring-offset-white disabled:opacity-60 dark:border-border dark:bg-card dark:text-foreground dark:focus-visible:ring-offset-[#0b0b12]"
           />
         )}
       </div>
@@ -197,7 +197,7 @@ export default function NewsletterComposer({
       )}
 
       {!isDraft && (
-        <p className="text-[13px] text-slate-500 dark:text-white/50">
+        <p className="text-[13px] text-muted-foreground dark:text-muted-foreground">
           This newsletter has already been sent and cannot be edited.
         </p>
       )}

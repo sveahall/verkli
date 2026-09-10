@@ -66,7 +66,7 @@ function StatusBadge({ enabled, label }: { enabled: boolean; label: string }) {
 function NotOnboardedCard({ t }: { t: PayoutsTranslations }) {
   return (
     <div className="rounded-xl border border-border bg-card p-6 shadow-sm">
-      <h2 className="text-lg font-semibold tracking-tight">{t("setupTitle")}</h2>
+      <h2 className="author-section-title text-lg font-medium tracking-tight">{t("setupTitle")}</h2>
       <p className="mt-2 text-sm text-muted-foreground">{t("setupBody")}</p>
 
       <ul className="mt-4 space-y-1 text-sm text-muted-foreground">
@@ -96,7 +96,7 @@ function OnboardingInProgressCard({
 }) {
   return (
     <div className="rounded-xl border border-amber-500/30 bg-amber-500/5 p-6">
-      <h2 className="text-lg font-semibold tracking-tight">{t("setupTitle")}</h2>
+      <h2 className="author-section-title text-lg font-medium tracking-tight">{t("setupTitle")}</h2>
       <p className="mt-2 text-sm text-muted-foreground">
         {t("setupBody")} ({account.stripe_account_id})
       </p>
@@ -138,7 +138,7 @@ function ActiveLedgerCard({
       <div className="rounded-xl border border-border bg-card p-6 shadow-sm">
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div>
-            <h2 className="text-lg font-semibold tracking-tight">{t("title")}</h2>
+            <h2 className="author-section-title text-lg font-medium tracking-tight">{t("title")}</h2>
             <p className="mt-1 text-sm text-muted-foreground">
               <span className="font-mono text-xs">{account.stripe_account_id}</span>
               {" · "}
@@ -225,7 +225,7 @@ export default async function AuthorPayoutsPage({
   return (
     <div className="mx-auto max-w-4xl space-y-6 px-6 py-10">
       <header className="space-y-1">
-        <h1 className="text-2xl font-semibold tracking-tight">{t("title")}</h1>
+        <h1 className="author-page-title">{t("title")}</h1>
         <p className="text-sm text-muted-foreground">{t("subtitle")}</p>
       </header>
 

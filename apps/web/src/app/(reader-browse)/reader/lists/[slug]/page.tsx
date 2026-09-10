@@ -73,7 +73,7 @@ export default async function ReaderListPage({
           title={list.title}
           subtitle={list.description ?? undefined}
         />
-        <p className="text-body text-slate-600 dark:text-white/60">No books in this list yet.</p>
+        <p className="text-body text-muted-foreground">No books in this list yet.</p>
         <Link
           href="/reader/discover"
           className="mt-4 inline-block text-sm font-medium text-emerald-600 dark:text-emerald-400 hover:underline"
@@ -121,13 +121,13 @@ export default async function ReaderListPage({
 
       <Link
         href="/reader/discover"
-        className="mb-6 inline-block text-sm font-medium text-slate-600 hover:text-slate-900 dark:text-white/60 dark:hover:text-white"
+        className="mb-6 inline-block text-sm font-medium text-muted-foreground hover:text-foreground dark:hover:text-foreground"
       >
         ← Back to discover
       </Link>
 
       <section className="space-y-5">
-        <h2 className="sr-only">Books in this list</h2>
+        <h2 className="sr-only font-display">Books in this list</h2>
         <div className="grid gap-6 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
           {withAuthors.map((book) => (
             <BookCard

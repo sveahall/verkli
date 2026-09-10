@@ -198,10 +198,10 @@ export default function AiAssistantPanel({
     >
       {isDock ? null : (
         <div>
-          <h2 className="text-[clamp(20px,2.5vw,24px)] font-bold tracking-[-0.02em] text-slate-900 dark:text-white">
+          <h2 className="author-section-title text-[clamp(20px,2.5vw,24px)] font-medium tracking-[-0.02em] text-foreground dark:text-foreground">
             AI Assistant
           </h2>
-          <p className="mt-1 text-sm text-slate-500 dark:text-white/50">
+          <p className="mt-1 text-sm text-muted-foreground dark:text-muted-foreground">
             Ask about craft, pacing, or dialogue. Select text in the editor first
             for targeted suggestions.
           </p>
@@ -211,17 +211,17 @@ export default function AiAssistantPanel({
       <div
         className={
           isDock
-            ? "flex min-h-0 flex-1 flex-col rounded-2xl border border-slate-200/80 bg-white shadow-surface-md dark:border-white/10 dark:bg-white/[0.04] dark:shadow-none"
-            : "rounded-2xl border border-black/[0.05] bg-white/60 shadow-[0_1px_3px_rgba(0,0,0,0.02)] backdrop-blur-sm dark:border-white/[0.06] dark:bg-white/[0.02] dark:shadow-none"
+            ? "flex min-h-0 flex-1 flex-col rounded-2xl border border-border/80 bg-card shadow-surface-md dark:border-border dark:bg-card dark:shadow-none"
+            : "rounded-2xl border border-black/[0.05] bg-white/60 shadow-[0_1px_3px_rgba(0,0,0,0.02)] backdrop-blur-sm dark:border-border dark:bg-card dark:shadow-none"
         }
       >
         {isDock ? (
-          <div className="flex shrink-0 items-start justify-between gap-2 border-b border-slate-200/80 px-4 py-3 dark:border-white/10">
+          <div className="flex shrink-0 items-start justify-between gap-2 border-b border-border/80 px-4 py-3 dark:border-border">
             <div className="min-w-0">
-              <h2 className="text-sm font-semibold text-slate-900 dark:text-white">
+              <h2 className="author-section-title text-sm font-medium text-foreground dark:text-foreground">
                 AI Assistant
               </h2>
-              <p className="mt-0.5 text-[13px] leading-snug text-slate-500 dark:text-white/45">
+              <p className="mt-0.5 text-[13px] leading-snug text-muted-foreground dark:text-muted-foreground">
                 Select text in the editor for targeted suggestions.
               </p>
             </div>
@@ -230,7 +230,7 @@ export default function AiAssistantPanel({
                 type="button"
                 onClick={onClose}
                 aria-label="Close AI assistant"
-                className="-mr-2 -mt-1.5 flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-700 dark:text-white/40 dark:hover:bg-white/10 dark:hover:text-white"
+                className="-mr-2 -mt-1.5 flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-muted hover:text-foreground dark:text-muted-foreground dark:hover:bg-accent dark:hover:text-foreground"
               >
                 <svg className="h-4 w-4" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" aria-hidden>
                   <path d="M4 4l8 8M12 4l-8 8" />
@@ -248,7 +248,7 @@ export default function AiAssistantPanel({
         >
           {messages.length === 0 && !sending && (
             <div className={isDock ? "space-y-2.5 py-2" : "space-y-3 py-6 text-center"}>
-              <p className="text-sm text-slate-500 dark:text-white/50">
+              <p className="text-sm text-muted-foreground dark:text-muted-foreground">
                 Nothing asked yet. Try one of these:
               </p>
               <div className={isDock ? "flex flex-col gap-2" : "flex flex-wrap justify-center gap-2"}>
@@ -259,8 +259,8 @@ export default function AiAssistantPanel({
                     onClick={() => send(prompt, null)}
                     className={
                       isDock
-                        ? "w-full rounded-xl border border-slate-200/80 bg-white px-3 py-2.5 text-left text-[13px] leading-snug text-slate-600 transition-colors hover:border-[#907AFF]/40 hover:text-slate-900 dark:border-white/10 dark:bg-white/[0.04] dark:text-white/70 dark:hover:text-white"
-                        : "rounded-full border border-black/[0.06] bg-white/70 px-3 py-1.5 text-[13px] text-slate-600 transition-colors hover:border-[#907AFF]/40 hover:text-slate-900 dark:border-white/[0.08] dark:bg-white/[0.04] dark:text-white/70 dark:hover:text-white"
+                        ? "w-full rounded-xl border border-border/80 bg-card px-3 py-2.5 text-left text-[13px] leading-snug text-muted-foreground transition-colors hover:border-[#907AFF]/40 hover:text-foreground dark:border-border dark:bg-card dark:text-foreground dark:hover:text-foreground"
+                        : "rounded-full border border-black/[0.06] bg-white/70 px-3 py-1.5 text-[13px] text-muted-foreground transition-colors hover:border-[#907AFF]/40 hover:text-foreground dark:border-border dark:bg-card dark:text-foreground dark:hover:text-foreground"
                     }
                   >
                     {prompt}
@@ -275,13 +275,13 @@ export default function AiAssistantPanel({
               key={message.id}
               className={
                 message.role === "user"
-                  ? "ml-auto max-w-[85%] rounded-2xl rounded-br-md bg-[#907AFF] px-4 py-3 text-[15px] leading-relaxed text-white"
-                  : "mr-auto max-w-[85%] rounded-2xl rounded-bl-md bg-slate-100 px-4 py-3 text-[15px] leading-relaxed text-slate-800 dark:bg-white/[0.06] dark:text-white/90"
+                  ? "ml-auto max-w-[85%] rounded-2xl rounded-br-md bg-primary px-4 py-3 text-[15px] leading-relaxed text-primary-foreground"
+                  : "mr-auto max-w-[85%] rounded-2xl rounded-bl-md bg-muted px-4 py-3 text-[15px] leading-relaxed text-foreground dark:bg-card dark:text-foreground"
               }
             >
               <p className="whitespace-pre-wrap">{message.content}</p>
               {message.role === "assistant" && message.source === "template" && (
-                <p className="mt-2 text-[11px] font-medium text-slate-500 dark:text-white/50">
+                <p className="mt-2 text-[11px] font-medium text-muted-foreground dark:text-muted-foreground">
                   Canned reply — the AI model was unavailable.
                 </p>
               )}
@@ -289,9 +289,9 @@ export default function AiAssistantPanel({
           ))}
 
           {sending && (
-            <div className="mr-auto flex max-w-[85%] items-center gap-2 rounded-2xl rounded-bl-md bg-slate-100 px-4 py-3 dark:bg-white/[0.06]">
+            <div className="mr-auto flex max-w-[85%] items-center gap-2 rounded-2xl rounded-bl-md bg-muted px-4 py-3 dark:bg-card">
               <span className="h-2 w-2 animate-pulse rounded-full bg-[#907AFF]" />
-              <span className="text-sm text-slate-500 dark:text-white/50">
+              <span className="text-sm text-muted-foreground dark:text-muted-foreground">
                 Thinking…
               </span>
             </div>
@@ -300,7 +300,7 @@ export default function AiAssistantPanel({
           <div ref={transcriptEndRef} />
         </div>
 
-        <div className={`shrink-0 border-t border-black/[0.05] dark:border-white/[0.06] ${isDock ? "p-4" : "p-5"}`}>
+        <div className={`shrink-0 border-t border-black/[0.05] dark:border-border ${isDock ? "p-4" : "p-5"}`}>
           {error && (
             <p
               role="alert"
@@ -324,7 +324,7 @@ export default function AiAssistantPanel({
             maxLength={2000}
           />
           <div className="mt-3 flex items-center justify-between gap-3">
-            <span className="text-[13px] text-slate-500 dark:text-white/50">
+            <span className="text-[13px] text-muted-foreground dark:text-muted-foreground">
               ⌘ + Enter to send
             </span>
             <Button

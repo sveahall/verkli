@@ -122,7 +122,7 @@ export default function AuthorSignIn() {
           </FormField>
 
           <div className="flex items-center justify-between">
-            <label className="flex items-center gap-2 text-[13px] text-slate-500 dark:text-white/50">
+            <label className="flex items-center gap-2 text-[13px] text-muted-foreground">
               <input
                 type="checkbox"
                 checked={staySignedIn}
@@ -133,7 +133,7 @@ export default function AuthorSignIn() {
             </label>
             <Link
               href="/author/forgot-password"
-              className="text-[13px] text-slate-500 transition hover:text-slate-700 dark:text-white/40 dark:hover:text-white/60"
+              className="text-[13px] text-muted-foreground transition hover:text-foreground"
             >
               Forgot password?
             </Link>
@@ -145,18 +145,18 @@ export default function AuthorSignIn() {
         </form>
 
         <div className="my-6 flex items-center gap-4">
-          <div className="h-px flex-1 bg-slate-100 dark:bg-white/[0.06]" />
-          <span className="text-[13px] text-slate-400 dark:text-white/25">or</span>
-          <div className="h-px flex-1 bg-slate-100 dark:bg-white/[0.06]" />
+          <div className="h-px flex-1 bg-border" />
+          <span className="text-[13px] text-muted-foreground">or</span>
+          <div className="h-px flex-1 bg-border" />
         </div>
 
         <Button type="button" variant="secondary" fullWidth onClick={handleGoogleSignIn}>
           Continue with Google
         </Button>
 
-        <p className="mt-8 text-center text-[14px] text-slate-500 dark:text-white/40">
+        <p className="mt-8 text-center text-[14px] text-muted-foreground">
           Don&apos;t have an account?{" "}
-          <Link href="/author/signup" className="font-medium text-slate-900 hover:underline dark:text-white">
+          <Link href="/author/signup" className="font-medium text-foreground hover:underline">
             Create one
           </Link>
         </p>

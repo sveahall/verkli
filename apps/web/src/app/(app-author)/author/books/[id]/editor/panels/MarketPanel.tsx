@@ -177,7 +177,7 @@ function TrailerCard({
   // Ready state — show video
   if (status === "ready" && url) {
     return (
-      <div className="flex flex-col gap-3 rounded-2xl border border-black/[0.05] bg-white/60 p-5 backdrop-blur-sm dark:border-white/[0.06] dark:bg-white/[0.02]">
+      <div className="flex flex-col gap-3 rounded-2xl border border-black/[0.05] bg-white/60 p-5 backdrop-blur-sm dark:border-border dark:bg-card">
         <div className="flex items-center gap-3">
           <div className="rounded-xl bg-gradient-to-br from-[#907AFF] to-[#7c6ae6] p-2.5 text-white shadow-sm">
             <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
@@ -185,8 +185,8 @@ function TrailerCard({
             </svg>
           </div>
           <div>
-            <h3 className="text-sm font-semibold text-slate-900 dark:text-white">Book Trailer</h3>
-            <p className="text-[11px] text-slate-400 dark:text-white/40">Your trailer is live for readers</p>
+            <h3 className="text-sm font-semibold text-foreground dark:text-foreground">Book Trailer</h3>
+            <p className="text-[11px] text-muted-foreground dark:text-muted-foreground">Your trailer is live for readers</p>
           </div>
         </div>
         <video
@@ -205,7 +205,7 @@ function TrailerCard({
             setStatus(null);
             setUrl(null);
           }}
-          className="rounded-xl border border-black/[0.08] bg-white px-4 py-2 text-[13px] font-medium text-slate-600 transition hover:bg-slate-50 dark:border-white/[0.08] dark:bg-white/[0.04] dark:text-white/70 dark:hover:bg-white/[0.06]"
+          className="rounded-xl border border-black/[0.08] bg-card px-4 py-2 text-[13px] font-medium text-muted-foreground transition hover:bg-background dark:border-border dark:bg-card dark:text-foreground dark:hover:bg-accent"
         >
           Regenerate trailer
         </button>
@@ -216,19 +216,19 @@ function TrailerCard({
   // Generating state
   if (status === "generating") {
     return (
-      <div className="flex flex-col items-center gap-4 rounded-2xl border border-black/[0.05] bg-white/60 p-5 text-center backdrop-blur-sm dark:border-white/[0.06] dark:bg-white/[0.02]">
+      <div className="flex flex-col items-center gap-4 rounded-2xl border border-black/[0.05] bg-white/60 p-5 text-center backdrop-blur-sm dark:border-border dark:bg-card">
         <div className="rounded-xl bg-gradient-to-br from-[#907AFF] to-[#7c6ae6] p-2.5 text-white shadow-sm">
           <svg className="h-5 w-5 animate-pulse" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
             <path strokeLinecap="round" strokeLinejoin="round" d="m15.75 10.5 4.72-4.72a.75.75 0 0 1 1.28.53v11.38a.75.75 0 0 1-1.28.53l-4.72-4.72M4.5 18.75h9a2.25 2.25 0 0 0 2.25-2.25v-9a2.25 2.25 0 0 0-2.25-2.25h-9A2.25 2.25 0 0 0 2.25 7.5v9a2.25 2.25 0 0 0 2.25 2.25Z" />
           </svg>
         </div>
         <div>
-          <h3 className="text-sm font-semibold text-slate-900 dark:text-white">Creating your trailer...</h3>
-          <p className="mt-1 text-xs text-slate-500 dark:text-white/50">
+          <h3 className="text-sm font-semibold text-foreground dark:text-foreground">Creating your trailer...</h3>
+          <p className="mt-1 text-xs text-muted-foreground dark:text-muted-foreground">
             This usually takes a few minutes. You can leave this page — we&apos;ll finish in the background.
           </p>
         </div>
-        <div className="h-1.5 w-full max-w-xs overflow-hidden rounded-full bg-slate-100 dark:bg-white/[0.06]">
+        <div className="h-1.5 w-full max-w-xs overflow-hidden rounded-full bg-muted dark:bg-card">
           <div className="h-full animate-pulse rounded-full bg-gradient-to-r from-[#907AFF] to-[#E29ED5]" />
         </div>
       </div>
@@ -237,7 +237,7 @@ function TrailerCard({
 
   // Default / failed — show generate form
   return (
-    <div className="flex flex-col gap-3 rounded-2xl border border-black/[0.05] bg-white/60 p-5 backdrop-blur-sm dark:border-white/[0.06] dark:bg-white/[0.02]">
+    <div className="flex flex-col gap-3 rounded-2xl border border-black/[0.05] bg-white/60 p-5 backdrop-blur-sm dark:border-border dark:bg-card">
       <div className="flex items-center gap-3">
         <div className="rounded-xl bg-gradient-to-br from-[#907AFF] to-[#7c6ae6] p-2.5 text-white shadow-sm">
           <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
@@ -245,8 +245,8 @@ function TrailerCard({
           </svg>
         </div>
         <div>
-          <h3 className="text-sm font-semibold text-slate-900 dark:text-white">AI Book Trailer</h3>
-          <p className="text-[11px] text-slate-400 dark:text-white/40">Generate a cinematic trailer from your cover</p>
+          <h3 className="text-sm font-semibold text-foreground dark:text-foreground">AI Book Trailer</h3>
+          <p className="text-[11px] text-muted-foreground dark:text-muted-foreground">Generate a cinematic trailer from your cover</p>
         </div>
       </div>
 
@@ -264,13 +264,13 @@ function TrailerCard({
 
       <div className="grid grid-cols-2 gap-2">
         <div>
-          <label className="mb-1 block text-[10px] font-semibold uppercase tracking-wider text-slate-400 dark:text-white/40">
+          <label className="mb-1 block text-[10px] font-semibold uppercase tracking-wider text-muted-foreground dark:text-muted-foreground">
             Genre
           </label>
           <select
             value={genre}
             onChange={(e) => setGenre(e.target.value as TrailerGenre)}
-            className="w-full rounded-lg border border-black/[0.08] bg-white px-2.5 py-2 text-xs text-slate-700 dark:border-white/[0.08] dark:bg-white/[0.04] dark:text-white/70"
+            className="w-full rounded-lg border border-black/[0.08] bg-card px-2.5 py-2 text-xs text-foreground dark:border-border dark:bg-card dark:text-foreground"
           >
             {TRAILER_GENRES.map((g) => (
               <option key={g.value} value={g.value}>{g.label}</option>
@@ -278,13 +278,13 @@ function TrailerCard({
           </select>
         </div>
         <div>
-          <label className="mb-1 block text-[10px] font-semibold uppercase tracking-wider text-slate-400 dark:text-white/40">
+          <label className="mb-1 block text-[10px] font-semibold uppercase tracking-wider text-muted-foreground dark:text-muted-foreground">
             Tone
           </label>
           <select
             value={tone}
             onChange={(e) => setTone(e.target.value as TrailerTone)}
-            className="w-full rounded-lg border border-black/[0.08] bg-white px-2.5 py-2 text-xs text-slate-700 dark:border-white/[0.08] dark:bg-white/[0.04] dark:text-white/70"
+            className="w-full rounded-lg border border-black/[0.08] bg-card px-2.5 py-2 text-xs text-foreground dark:border-border dark:bg-card dark:text-foreground"
           >
             {TRAILER_TONES.map((t) => (
               <option key={t.value} value={t.value}>{t.label}</option>
@@ -297,7 +297,7 @@ function TrailerCard({
         type="button"
         onClick={() => void handleGenerate()}
         disabled={isBuilding || isProLocked || !coverImage}
-        className="w-full rounded-xl bg-[#0F172A] px-4 py-3 text-sm font-semibold text-white shadow-[0_1px_2px_rgba(15,23,42,0.3),inset_0_1px_0_rgba(255,255,255,0.08)] transition-all hover:bg-[#1E293B] hover:shadow-[0_4px_12px_rgba(15,23,42,0.35)] disabled:cursor-not-allowed disabled:opacity-50"
+        className="w-full rounded-xl bg-primary px-4 py-3 text-sm font-semibold text-primary-foreground shadow-[0_1px_2px_rgba(15,23,42,0.3),inset_0_1px_0_rgba(255,255,255,0.08)] transition-all hover:bg-primary/90 hover:shadow-[0_4px_12px_rgba(15,23,42,0.35)] disabled:cursor-not-allowed disabled:opacity-50"
       >
         {isBuilding ? "Starting..." : "Generate trailer"}
       </button>
@@ -319,7 +319,7 @@ function statusColor(status: string): string {
     return "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300";
   if (status === "pending" || status === "generating")
     return "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300";
-  return "bg-slate-100 text-slate-600 dark:bg-white/[0.06] dark:text-white/50";
+  return "bg-muted text-muted-foreground dark:bg-card dark:text-muted-foreground";
 }
 
 export default function MarketPanel({
@@ -384,14 +384,14 @@ export default function MarketPanel({
   if (!isPublished) {
     return (
       <div className="mx-auto max-w-2xl space-y-6">
-        <div className="flex flex-col items-center gap-4 rounded-2xl border border-black/[0.05] bg-white/60 p-10 text-center backdrop-blur-sm dark:border-white/[0.06] dark:bg-white/[0.02]">
-          <div className="rounded-full bg-slate-100 p-4 dark:bg-white/[0.06]">
-            <svg className="h-8 w-8 text-slate-400 dark:text-white/30" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
+        <div className="flex flex-col items-center gap-4 rounded-2xl border border-black/[0.05] bg-white/60 p-10 text-center backdrop-blur-sm dark:border-border dark:bg-card">
+          <div className="rounded-full bg-muted p-4 dark:bg-card">
+            <svg className="h-8 w-8 text-muted-foreground dark:text-muted-foreground" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" d="M3 3v1.5M3 21v-6m0 0 2.77-.693a9 9 0 0 1 6.208.682l.108.054a9 9 0 0 0 6.086.71l3.114-.732a48.524 48.524 0 0 1-.005-10.499l-3.11.732a9 9 0 0 1-6.085-.711l-.108-.054a9 9 0 0 0-6.208-.682L3 4.5M3 15V4.5" />
             </svg>
           </div>
-          <h2 className="text-lg font-semibold text-slate-900 dark:text-white">Publish first to start marketing</h2>
-          <p className="max-w-md text-sm text-slate-500 dark:text-white/50">
+          <h2 className="author-section-title text-lg font-medium text-foreground dark:text-foreground">Publish first to start marketing</h2>
+          <p className="max-w-md text-sm text-muted-foreground dark:text-muted-foreground">
             Your book needs to be published before you can generate marketing copy or create trailers. Go to the Publish tab to get started.
           </p>
         </div>
@@ -415,23 +415,23 @@ export default function MarketPanel({
         />
 
         {/* Reader link card */}
-        <div className="flex flex-col gap-3 rounded-2xl border border-black/[0.05] bg-white/60 p-5 backdrop-blur-sm dark:border-white/[0.06] dark:bg-white/[0.02]">
+        <div className="flex flex-col gap-3 rounded-2xl border border-black/[0.05] bg-white/60 p-5 backdrop-blur-sm dark:border-border dark:bg-card">
           <div className="flex items-center gap-3">
-            <div className="rounded-xl bg-slate-900 p-2.5 text-white shadow-sm dark:bg-white dark:text-slate-900">
+            <div className="rounded-xl bg-primary p-2.5 text-primary-foreground shadow-sm">
               <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" d="M13.19 8.688a4.5 4.5 0 0 1 1.242 7.244l-4.5 4.5a4.5 4.5 0 0 1-6.364-6.364l1.757-1.757m13.35-.622 1.757-1.757a4.5 4.5 0 0 0-6.364-6.364l-4.5 4.5a4.5 4.5 0 0 0 1.242 7.244" />
               </svg>
             </div>
             <div>
-              <h3 className="text-sm font-semibold text-slate-900 dark:text-white">Share link</h3>
-              <p className="text-[11px] text-slate-400 dark:text-white/40">Direct reader link</p>
+              <h3 className="text-sm font-semibold text-foreground dark:text-foreground">Share link</h3>
+              <p className="text-[11px] text-muted-foreground dark:text-muted-foreground">Direct reader link</p>
             </div>
           </div>
           <a
             href={readerUrl}
             target="_blank"
             rel="noopener noreferrer"
-            className="truncate rounded-lg border border-black/[0.06] bg-slate-50 px-3 py-2 text-xs font-mono text-[#5c4bb8] transition hover:bg-slate-100 dark:border-white/[0.06] dark:bg-white/[0.03] dark:text-[#b8a9ff] dark:hover:bg-white/[0.06]"
+            className="truncate rounded-lg border border-black/[0.06] bg-background px-3 py-2 text-xs font-mono text-accent-foreground transition hover:bg-muted dark:border-border dark:bg-card dark:text-accent-foreground dark:hover:bg-accent"
           >
             {typeof window !== "undefined" ? window.location.origin : ""}{readerUrl}
           </a>
@@ -443,7 +443,7 @@ export default function MarketPanel({
               setCopyFeedback("Link copied!");
               setTimeout(() => setCopyFeedback(null), 2000);
             }}
-            className="mt-auto rounded-lg border border-black/[0.08] bg-white px-3 py-1.5 text-xs font-medium text-slate-600 transition hover:bg-slate-50 dark:border-white/[0.08] dark:bg-white/[0.04] dark:text-white/70 dark:hover:bg-white/[0.06]"
+            className="mt-auto rounded-lg border border-black/[0.08] bg-card px-3 py-1.5 text-xs font-medium text-muted-foreground transition hover:bg-background dark:border-border dark:bg-card dark:text-foreground dark:hover:bg-accent"
           >
             {copyFeedback === "Link copied!" ? "Copied!" : "Copy link"}
           </button>
@@ -451,15 +451,15 @@ export default function MarketPanel({
       </div>
 
       {/* ── Channel selector ── */}
-      <div className="rounded-2xl border border-black/[0.05] bg-white/60 p-5 backdrop-blur-sm dark:border-white/[0.06] dark:bg-white/[0.02]">
+      <div className="rounded-2xl border border-black/[0.05] bg-white/60 p-5 backdrop-blur-sm dark:border-border dark:bg-card">
         <div className="mb-4 flex items-center justify-between">
-          <h3 className="text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-white/50">
+          <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground dark:text-muted-foreground">
             Launch copy
           </h3>
           <select
             value={language}
             onChange={(e) => setLanguage(e.target.value as SupportedLanguage)}
-            className="rounded-lg border border-black/[0.08] bg-white px-2.5 py-1.5 text-xs text-slate-700 dark:border-white/[0.08] dark:bg-white/[0.04] dark:text-white/70"
+            className="rounded-lg border border-black/[0.08] bg-card px-2.5 py-1.5 text-xs text-foreground dark:border-border dark:bg-card dark:text-foreground"
           >
             {LANGUAGE_OPTIONS.map((opt) => (
               <option key={opt.value} value={opt.value}>{opt.label}</option>
@@ -479,11 +479,11 @@ export default function MarketPanel({
                 onClick={() => setSelectedChannel(ch.value)}
                 className={`flex items-center gap-2 rounded-xl px-4 py-2.5 text-[13px] font-medium transition ${
                   isActive
-                    ? "bg-slate-900 text-white shadow-sm dark:bg-white dark:text-slate-900"
-                    : "bg-slate-50 text-slate-600 hover:bg-slate-100 dark:bg-white/[0.04] dark:text-white/60 dark:hover:bg-white/[0.08]"
+                    ? "bg-primary text-primary-foreground shadow-sm"
+                    : "bg-background text-muted-foreground hover:bg-muted dark:bg-card dark:text-muted-foreground dark:hover:bg-accent"
                 }`}
               >
-                <span className={isActive ? "text-white dark:text-slate-900" : "text-slate-400 dark:text-white/30"}>
+                <span className={isActive ? "text-primary-foreground" : "text-muted-foreground"}>
                   {ch.icon}
                 </span>
                 {ch.label}
@@ -502,7 +502,7 @@ export default function MarketPanel({
               <span className={`rounded-full px-2.5 py-1 text-[11px] font-semibold ${statusColor(currentCampaign.status)}`}>
                 {statusLabel(currentCampaign.status)}
               </span>
-              <span className="text-[11px] text-slate-400 dark:text-white/30">
+              <span className="text-[11px] text-muted-foreground dark:text-muted-foreground">
                 Updated {new Date(currentCampaign.updated_at).toLocaleDateString("en", { month: "short", day: "numeric" })}
               </span>
             </div>
@@ -510,32 +510,32 @@ export default function MarketPanel({
             <div className="space-y-3">
               {currentCampaign.headline && (
                 <div>
-                  <p className="mb-1 text-[10px] font-semibold uppercase tracking-wider text-slate-400 dark:text-white/40">Headline</p>
-                  <p className="whitespace-pre-wrap rounded-lg border border-black/[0.06] bg-slate-50 px-3 py-2.5 text-sm text-slate-800 dark:border-white/[0.06] dark:bg-white/[0.03] dark:text-white/90">
+                  <p className="mb-1 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground dark:text-muted-foreground">Headline</p>
+                  <p className="whitespace-pre-wrap rounded-lg border border-black/[0.06] bg-background px-3 py-2.5 text-sm text-foreground dark:border-border dark:bg-card dark:text-foreground">
                     {currentCampaign.headline}
                   </p>
                 </div>
               )}
               {currentCampaign.caption && (
                 <div>
-                  <p className="mb-1 text-[10px] font-semibold uppercase tracking-wider text-slate-400 dark:text-white/40">Caption</p>
-                  <p className="whitespace-pre-wrap rounded-lg border border-black/[0.06] bg-slate-50 px-3 py-2.5 text-sm leading-relaxed text-slate-800 dark:border-white/[0.06] dark:bg-white/[0.03] dark:text-white/90">
+                  <p className="mb-1 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground dark:text-muted-foreground">Caption</p>
+                  <p className="whitespace-pre-wrap rounded-lg border border-black/[0.06] bg-background px-3 py-2.5 text-sm leading-relaxed text-foreground dark:border-border dark:bg-card dark:text-foreground">
                     {currentCampaign.caption}
                   </p>
                 </div>
               )}
               {currentCampaign.cta && (
                 <div>
-                  <p className="mb-1 text-[10px] font-semibold uppercase tracking-wider text-slate-400 dark:text-white/40">Call to action</p>
-                  <p className="rounded-lg border border-black/[0.06] bg-slate-50 px-3 py-2.5 text-sm font-medium text-slate-800 dark:border-white/[0.06] dark:bg-white/[0.03] dark:text-white/90">
+                  <p className="mb-1 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground dark:text-muted-foreground">Call to action</p>
+                  <p className="rounded-lg border border-black/[0.06] bg-background px-3 py-2.5 text-sm font-medium text-foreground dark:border-border dark:bg-card dark:text-foreground">
                     {currentCampaign.cta}
                   </p>
                 </div>
               )}
               {currentCampaign.hashtags && (
                 <div>
-                  <p className="mb-1 text-[10px] font-semibold uppercase tracking-wider text-slate-400 dark:text-white/40">Hashtags</p>
-                  <p className="rounded-lg border border-black/[0.06] bg-slate-50 px-3 py-2.5 text-sm text-[#5c4bb8] dark:border-white/[0.06] dark:bg-white/[0.03] dark:text-[#b8a9ff]">
+                  <p className="mb-1 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground dark:text-muted-foreground">Hashtags</p>
+                  <p className="rounded-lg border border-black/[0.06] bg-background px-3 py-2.5 text-sm text-accent-foreground dark:border-border dark:bg-card dark:text-accent-foreground">
                     {currentCampaign.hashtags}
                   </p>
                 </div>
@@ -546,7 +546,7 @@ export default function MarketPanel({
               <button
                 type="button"
                 onClick={handleCopy}
-                className="flex-1 rounded-xl bg-slate-900 px-4 py-2.5 text-[13px] font-semibold text-white shadow-sm transition hover:bg-slate-800 dark:bg-white dark:text-slate-900 dark:hover:bg-white/90"
+                className="flex-1 rounded-xl bg-primary px-4 py-2.5 text-[13px] font-semibold text-primary-foreground shadow-sm transition hover:bg-primary/90"
               >
                 {copyFeedback === "Copied!" ? "Copied!" : "Copy all to clipboard"}
               </button>
@@ -554,7 +554,7 @@ export default function MarketPanel({
                 type="button"
                 onClick={() => void onGenerateCopy(selectedChannel, language)}
                 disabled={isGenerating || isProLocked}
-                className="rounded-xl border border-black/[0.08] bg-white px-4 py-2.5 text-[13px] font-medium text-slate-600 transition hover:bg-slate-50 disabled:opacity-50 dark:border-white/[0.08] dark:bg-white/[0.04] dark:text-white/70 dark:hover:bg-white/[0.06]"
+                className="rounded-xl border border-black/[0.08] bg-card px-4 py-2.5 text-[13px] font-medium text-muted-foreground transition hover:bg-background disabled:opacity-50 dark:border-border dark:bg-card dark:text-foreground dark:hover:bg-accent"
               >
                 {isGenerating ? "Regenerating..." : "Regenerate"}
               </button>
@@ -562,11 +562,11 @@ export default function MarketPanel({
           </div>
         ) : (
           <div className="space-y-4">
-            <div className="flex flex-col items-center gap-3 rounded-xl border border-dashed border-black/[0.08] bg-slate-50/50 py-8 dark:border-white/[0.08] dark:bg-white/[0.01]">
-              <svg className="h-8 w-8 text-slate-300 dark:text-white/20" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
+            <div className="flex flex-col items-center gap-3 rounded-xl border border-dashed border-black/[0.08] bg-background/50 py-8 dark:border-border dark:bg-card">
+              <svg className="h-8 w-8 text-muted-foreground dark:text-muted-foreground" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" d="M9.813 15.904 9 18.75l-.813-2.846a4.5 4.5 0 0 0-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 0 0 3.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 0 0 3.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 0 0-3.09 3.09ZM18.259 8.715 18 9.75l-.259-1.035a3.375 3.375 0 0 0-2.455-2.456L14.25 6l1.036-.259a3.375 3.375 0 0 0 2.455-2.456L18 2.25l.259 1.035a3.375 3.375 0 0 0 2.455 2.456L21.75 6l-1.036.259a3.375 3.375 0 0 0-2.455 2.456ZM16.894 20.567 16.5 21.75l-.394-1.183a2.25 2.25 0 0 0-1.423-1.423L13.5 18.75l1.183-.394a2.25 2.25 0 0 0 1.423-1.423l.394-1.183.394 1.183a2.25 2.25 0 0 0 1.423 1.423l1.183.394-1.183.394a2.25 2.25 0 0 0-1.423 1.423Z" />
               </svg>
-              <p className="text-sm text-slate-500 dark:text-white/50">
+              <p className="text-sm text-muted-foreground dark:text-muted-foreground">
                 No copy generated yet for <span className="font-medium">{CHANNELS.find((c) => c.value === selectedChannel)?.label}</span>.
               </p>
             </div>
@@ -574,7 +574,7 @@ export default function MarketPanel({
               type="button"
               onClick={() => void onGenerateCopy(selectedChannel, language)}
               disabled={isGenerating || isProLocked}
-              className="w-full rounded-xl bg-[#0F172A] px-4 py-3 text-sm font-semibold text-white shadow-[0_1px_2px_rgba(15,23,42,0.3),inset_0_1px_0_rgba(255,255,255,0.08)] transition-all hover:bg-[#1E293B] hover:shadow-[0_4px_12px_rgba(15,23,42,0.35)] disabled:cursor-not-allowed disabled:opacity-50"
+              className="w-full rounded-xl bg-primary px-4 py-3 text-sm font-semibold text-primary-foreground shadow-[0_1px_2px_rgba(15,23,42,0.3),inset_0_1px_0_rgba(255,255,255,0.08)] transition-all hover:bg-primary/90 hover:shadow-[0_4px_12px_rgba(15,23,42,0.35)] disabled:cursor-not-allowed disabled:opacity-50"
             >
               {isGenerating
                 ? "Generating..."
@@ -601,8 +601,8 @@ export default function MarketPanel({
 
       {/* ── Existing campaigns overview ── */}
       {marketingCampaigns.length > 0 && (
-        <div className="rounded-2xl border border-black/[0.05] bg-white/60 p-5 backdrop-blur-sm dark:border-white/[0.06] dark:bg-white/[0.02]">
-          <h3 className="mb-3 text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-white/50">
+        <div className="rounded-2xl border border-black/[0.05] bg-white/60 p-5 backdrop-blur-sm dark:border-border dark:bg-card">
+          <h3 className="mb-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground dark:text-muted-foreground">
             Generated campaigns
           </h3>
           <div className="grid gap-2 sm:grid-cols-2">
@@ -617,18 +617,18 @@ export default function MarketPanel({
                 className={`flex items-center justify-between rounded-xl border px-3.5 py-2.5 text-left transition ${
                   c.channel === selectedChannel && c.language === language
                     ? "border-[#907AFF]/40 bg-[#907AFF]/[0.06] dark:border-[#907AFF]/30 dark:bg-[#907AFF]/10"
-                    : "border-black/[0.06] bg-white hover:border-black/[0.12] dark:border-white/[0.06] dark:bg-white/[0.02] dark:hover:border-white/[0.12]"
+                    : "border-black/[0.06] bg-card hover:border-black/[0.12] dark:border-border dark:bg-card dark:hover:border-border"
                 }`}
               >
                 <div className="flex items-center gap-2">
-                  <span className="text-slate-400 dark:text-white/30">
+                  <span className="text-muted-foreground dark:text-muted-foreground">
                     {CHANNELS.find((ch) => ch.value === c.channel)?.icon}
                   </span>
                   <div>
-                    <span className="text-[13px] font-medium text-slate-700 dark:text-white/80">
+                    <span className="text-[13px] font-medium text-foreground dark:text-foreground">
                       {CHANNELS.find((ch) => ch.value === c.channel)?.label ?? c.channel}
                     </span>
-                    <span className="ml-2 text-[11px] text-slate-400 dark:text-white/30">
+                    <span className="ml-2 text-[11px] text-muted-foreground dark:text-muted-foreground">
                       {LANGUAGE_OPTIONS.find((l) => l.value === c.language)?.label ?? c.language}
                     </span>
                   </div>

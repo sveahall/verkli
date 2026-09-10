@@ -7,7 +7,7 @@ export default function BillingLoading() {
         <Skeleton height={28} width={120} />
         <Skeleton height={14} width={280} />
       </div>
-      <div className="rounded-2xl border border-black/[0.06] bg-white/60 p-6 dark:border-white/[0.06] dark:bg-white/[0.02] space-y-4">
+      <div className="rounded-2xl border border-black/[0.06] bg-white/60 p-6 dark:border-border dark:bg-card space-y-4">
         <Skeleton height={20} width={100} />
         <Skeleton height={36} width={180} />
         <Skeleton height={14} className="w-full" />

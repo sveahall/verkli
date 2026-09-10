@@ -282,10 +282,10 @@ export function BillingPageContent({
   };
 
   return (
-    <div className="mx-auto max-w-4xl px-6 py-12">
+    <div className="mx-auto max-w-5xl px-5 py-8 sm:px-7 lg:py-10">
       <div className="mb-8">
-        <h1 className="text-2xl font-semibold">{title}</h1>
-        <p className="mt-1 text-sm text-muted-foreground">{subtitle}</p>
+        <h1 className="text-page-title">{title}</h1>
+        <p className="mt-3 max-w-2xl text-sm leading-relaxed text-muted-foreground">{subtitle}</p>
       </div>
 
       {mounted && processingCheckout && (
@@ -300,9 +300,9 @@ export function BillingPageContent({
         </div>
       )}
 
-      <div className="mb-6 rounded-lg border p-4">
+      <div className="mb-7 rounded-2xl border border-border bg-card p-6">
         {/* Same DOM structure on server and first client render; when returning from Stripe keep placeholder until returnFromStripeReady (avoids hydration mismatch). */}
-        <div className="space-y-2 text-sm">
+        <div className="grid gap-3 text-sm sm:grid-cols-3">
           {!mounted || (loading && !state) || ((isCheckoutSuccess || isCheckoutCancel) && !returnFromStripeReady) ? (
             <>
               <p>
@@ -345,7 +345,7 @@ export function BillingPageContent({
       )}
 
       {annualAvailable && (
-        <div className="mb-4 flex items-center justify-center gap-3">
+        <div className="mb-6 flex w-fit items-center gap-1 rounded-full border border-border bg-card p-1">
           {(["month", "year"] as const).map((value) => (
             <button
               key={value}
@@ -354,8 +354,8 @@ export function BillingPageContent({
               aria-pressed={billingInterval === value}
               className={`h-11 rounded-full px-4 text-[13px] font-medium transition-colors ${
                 billingInterval === value
-                  ? "bg-[#907AFF]/[0.09] text-[#907AFF] dark:bg-[#907AFF]/[0.16]"
-                  : "text-slate-500 hover:text-slate-800 dark:text-white/50 dark:hover:text-white"
+                  ? "bg-accent text-accent-foreground"
+                  : "text-muted-foreground hover:text-foreground"
               }`}
             >
               {value === "month" ? "Monthly" : "Annual"}
@@ -387,17 +387,17 @@ export function BillingPageContent({
                     ? "Start Plus"
                     : "Start Pro";
           return (
-            <div key={plan.id} className="rounded-lg border p-5">
-              <h2 className="text-lg font-semibold">{plan.name}</h2>
+            <div key={plan.id} className="flex flex-col rounded-2xl border border-border bg-card p-6 sm:p-7">
+              <h2 className="text-section-title">{plan.name}</h2>
               {mounted && isPlusCancelledButActive && plusEndsAtLabel && (
                 <p className="mt-1 text-sm text-amber-700 dark:text-amber-300">
                   Cancelled but active until {plusEndsAtLabel}.
                 </p>
               )}
-              <p className="mt-1 text-sm text-muted-foreground">{plan.description}</p>
-              <ul className="mt-3 space-y-1 text-sm text-muted-foreground">
+              <p className="mt-3 text-sm leading-relaxed text-muted-foreground">{plan.description}</p>
+              <ul className="mb-6 mt-5 flex-1 space-y-3 text-sm text-muted-foreground">
                 {plan.bullets.map((bullet) => (
-                  <li key={bullet}>- {bullet}</li>
+                  <li key={bullet} className="flex items-start gap-3"><span aria-hidden="true" className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-[#907AFF]" />{bullet}</li>
                 ))}
               </ul>
               {mounted && isPlusCancelledButActive ? (
@@ -405,7 +405,7 @@ export function BillingPageContent({
                   type="button"
                   onClick={() => void openPortal()}
                   disabled={openingPortal || pendingPlan !== null}
-                  className="mt-5 w-full rounded-md border px-4 py-2 text-sm font-medium hover:bg-muted disabled:opacity-60"
+                  className="mt-auto min-h-11 w-full rounded-full border border-border px-4 py-2 text-sm font-medium hover:bg-muted disabled:opacity-60"
                 >
                   {openingPortal ? "Opening portal..." : "Manage subscription"}
                 </button>
@@ -414,7 +414,7 @@ export function BillingPageContent({
                   type="button"
                   onClick={() => void startCheckout(plan.id)}
                   disabled={!mounted || disabled}
-                  className="mt-5 w-full rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-60"
+                  className="mt-auto min-h-11 w-full rounded-full bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-60"
                 >
                   {primaryLabel ?? "Manage subscription"}
                 </button>
@@ -430,7 +430,7 @@ export function BillingPageContent({
             type="button"
             onClick={() => void syncFromStripe()}
             disabled={syncingFromStripe}
-            className="rounded-md border border-primary/50 bg-primary/10 px-4 py-2 text-sm font-medium text-primary hover:bg-primary/20 disabled:opacity-60"
+            className="min-h-11 rounded-full border border-border bg-accent px-4 py-2 text-sm font-medium text-accent-foreground hover:bg-accent/80 disabled:opacity-60"
           >
             {syncingFromStripe ? "Syncing..." : "Sync subscription from Stripe"}
           </button>
@@ -439,7 +439,7 @@ export function BillingPageContent({
           type="button"
           onClick={() => void openPortal()}
           disabled={!mounted || openingPortal || pendingPlan !== null}
-          className="rounded-md border px-4 py-2 text-sm font-medium hover:bg-muted disabled:opacity-60"
+          className="min-h-11 rounded-full border border-border bg-card px-4 py-2 text-sm font-medium hover:bg-muted disabled:opacity-60"
         >
           {!mounted ? "Manage subscription" : openingPortal ? "Opening portal..." : "Manage subscription"}
         </button>

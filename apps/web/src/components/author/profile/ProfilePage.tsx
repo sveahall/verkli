@@ -41,7 +41,7 @@ function SaveButton() {
     <button
       type="submit"
       disabled={pending}
-      className="min-h-[44px] rounded-full bg-[#0F172A] px-6 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-[#1E293B] hover:shadow-md active:scale-[0.97] disabled:cursor-not-allowed disabled:opacity-60"
+      className="min-h-[44px] rounded-full bg-primary px-6 py-2.5 text-sm font-semibold text-primary-foreground shadow-sm transition hover:bg-primary/90 hover:shadow-md active:scale-[0.97] disabled:cursor-not-allowed disabled:opacity-60"
     >
       {pending ? "Saving…" : "Save profile"}
     </button>
@@ -133,21 +133,21 @@ export default function ProfilePage({ user, profile }: ProfilePageProps) {
     setSocialLinks((prev) => ({ ...prev, [key]: value }));
 
   return (
-    <WorkspaceLayout className="bg-gray-50"
+    <WorkspaceLayout
       header={
         <header>
-          <h1 className="text-[22px] font-medium tracking-tight text-slate-900 dark:text-white">
+          <h1 className="author-page-title text-foreground">
             Profile
           </h1>
         </header>
       }
       headerRight={<WorkspaceHeaderActions />}
       main={
-        <form action={formAction} className="mx-auto max-w-4xl space-y-3">
+        <form action={formAction} className="mx-auto max-w-4xl space-y-5">
 
           {/* ── Cover + Avatar ── */}
-          <section className="overflow-hidden rounded-2xl border border-slate-200/80 bg-white dark:border-white/10 dark:bg-white/[0.04]">
-            <div className="relative h-[200px] w-full overflow-hidden bg-slate-100 dark:bg-white/[0.03]">
+          <section className="overflow-hidden rounded-2xl border border-border/80 bg-card dark:border-border dark:bg-card">
+            <div className="relative h-[200px] w-full overflow-hidden bg-muted dark:bg-card">
               {coverImageUrl ? (
                 <Image
                   src={coverImageUrl}
@@ -158,10 +158,10 @@ export default function ProfilePage({ user, profile }: ProfilePageProps) {
                 />
               ) : (
                 <div className="flex h-full w-full flex-col items-center justify-center gap-2">
-                  <div className="flex h-10 w-10 items-center justify-center rounded-full bg-white shadow-sm dark:bg-white/10">
-                    <Camera className="h-4 w-4 text-slate-400 dark:text-white/30" />
+                  <div className="flex h-10 w-10 items-center justify-center rounded-full bg-card shadow-sm dark:bg-card">
+                    <Camera className="h-4 w-4 text-muted-foreground dark:text-muted-foreground" />
                   </div>
-                  <p className="text-xs font-medium text-slate-400 dark:text-white/30">
+                  <p className="text-xs font-medium text-muted-foreground dark:text-muted-foreground">
                     Add cover photo
                   </p>
                 </div>
@@ -171,7 +171,7 @@ export default function ProfilePage({ user, profile }: ProfilePageProps) {
                 <button
                   type="button"
                   onClick={() => coverInputRef.current?.click()}
-                  className="flex items-center gap-2 rounded-full bg-white/90 px-4 py-2 text-sm font-medium text-slate-800 shadow-sm transition hover:bg-white active:scale-[0.97]"
+                  className="flex items-center gap-2 rounded-full bg-white/90 px-4 py-2 text-sm font-medium text-foreground shadow-sm transition hover:bg-card active:scale-[0.97]"
                 >
                   <Camera className="h-4 w-4" />
                   {coverUploading ? "Uploading…" : "Change cover"}
@@ -216,7 +216,7 @@ export default function ProfilePage({ user, profile }: ProfilePageProps) {
                         className="object-cover"
                       />
                     ) : (
-                      <div className="flex h-full w-full items-center justify-center bg-[#0F172A] text-2xl font-bold text-white">
+                      <div className="flex h-full w-full items-center justify-center bg-primary text-2xl font-bold text-primary-foreground">
                         {initials}
                       </div>
                     )}
@@ -239,13 +239,13 @@ export default function ProfilePage({ user, profile }: ProfilePageProps) {
                 </div>
 
                 <div className="flex-1 pb-1">
-                  <p className="text-base font-semibold text-slate-900 dark:text-white leading-tight">
+                  <p className="text-base font-semibold text-foreground dark:text-foreground leading-tight">
                     {displayName || "Your Name"}
                   </p>
                   <button
                     type="button"
                     onClick={() => avatarInputRef.current?.click()}
-                    className="mt-0.5 text-xs text-slate-500 transition hover:text-[#907AFF] dark:text-white/40 dark:hover:text-[#907AFF]"
+                    className="mt-0.5 text-xs text-muted-foreground transition hover:text-accent-foreground dark:text-muted-foreground dark:hover:text-accent-foreground"
                   >
                     {avatarUploading ? "Uploading…" : "Change photo"}
                   </button>
@@ -258,9 +258,9 @@ export default function ProfilePage({ user, profile }: ProfilePageProps) {
           </section>
 
           {/* ── Pen name ── */}
-          <section className="rounded-2xl border border-slate-200/80 bg-white p-6 dark:border-white/10 dark:bg-white/[0.04]">
-            <p className="mb-1 text-sm font-semibold text-slate-900 dark:text-white">Pen name</p>
-            <p className="mb-3 text-xs text-slate-500 dark:text-white/40">
+          <section className="rounded-2xl border border-border/80 bg-card p-6 dark:border-border dark:bg-card">
+            <p className="mb-1 text-sm font-semibold text-foreground dark:text-foreground">Pen name</p>
+            <p className="mb-3 text-xs text-muted-foreground dark:text-muted-foreground">
               The name readers see on your books and profile page.
             </p>
             <input
@@ -273,14 +273,14 @@ export default function ProfilePage({ user, profile }: ProfilePageProps) {
           </section>
 
           {/* ── About me ── */}
-          <section className="rounded-2xl border border-slate-200/80 bg-white p-6 dark:border-white/10 dark:bg-white/[0.04]">
+          <section className="rounded-2xl border border-border/80 bg-card p-6 dark:border-border dark:bg-card">
             <div className="mb-1 flex items-center justify-between">
-              <p className="text-sm font-semibold text-slate-900 dark:text-white">About me</p>
-              <span className="rounded-full bg-[#907AFF]/10 px-2 py-0.5 text-xs font-medium text-[#907AFF]">
+              <p className="text-sm font-semibold text-foreground dark:text-foreground">About me</p>
+              <span className="rounded-full bg-[#907AFF]/10 px-2 py-0.5 text-xs font-medium text-accent-foreground">
                 Visible on public page
               </span>
             </div>
-            <p className="mb-3 text-xs text-slate-500 dark:text-white/40">
+            <p className="mb-3 text-xs text-muted-foreground dark:text-muted-foreground">
               Tell readers about your writing style, inspiration, and what makes your stories unique.
             </p>
             <textarea
@@ -292,25 +292,25 @@ export default function ProfilePage({ user, profile }: ProfilePageProps) {
               className="input-base min-h-[120px] resize-y leading-relaxed"
             />
             <div className="mt-2 flex items-center gap-3">
-              <div className="h-1 flex-1 overflow-hidden rounded-full bg-slate-100 dark:bg-white/10">
+              <div className="h-1 flex-1 overflow-hidden rounded-full bg-muted dark:bg-card">
                 <div
                   className="h-full rounded-full bg-[#907AFF] transition-all duration-300"
                   style={{ width: `${Math.min((bio.length / 500) * 100, 100)}%` }}
                 />
               </div>
-              <p className="flex-shrink-0 text-xs tabular-nums text-slate-400 dark:text-white/35">
-                {bio.length}<span className="text-slate-300 dark:text-white/20">/500</span>
+              <p className="flex-shrink-0 text-xs tabular-nums text-muted-foreground dark:text-muted-foreground">
+                {bio.length}<span className="text-muted-foreground dark:text-muted-foreground">/500</span>
               </p>
             </div>
           </section>
 
           {/* ── Links ── */}
-          <section className="rounded-2xl border border-slate-200/80 bg-white p-6 dark:border-white/10 dark:bg-white/[0.04]">
-            <p className="mb-4 text-sm font-semibold text-slate-900 dark:text-white">Links</p>
-            <div className="space-y-3">
+          <section className="rounded-2xl border border-border/80 bg-card p-6 dark:border-border dark:bg-card">
+            <p className="mb-4 text-sm font-semibold text-foreground dark:text-foreground">Links</p>
+            <div className="space-y-5">
               <div className="flex items-center gap-3">
-                <div className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-xl bg-slate-100 dark:bg-white/[0.06]">
-                  <Globe className="h-4 w-4 text-slate-500 dark:text-white/50" />
+                <div className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-xl bg-muted dark:bg-card">
+                  <Globe className="h-4 w-4 text-muted-foreground dark:text-muted-foreground" />
                 </div>
                 <input
                   name="website_url"
@@ -323,11 +323,11 @@ export default function ProfilePage({ user, profile }: ProfilePageProps) {
               </div>
 
               <div className="flex items-center gap-3">
-                <div className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-xl bg-slate-100 dark:bg-white/[0.06]">
-                  <Twitter className="h-4 w-4 text-slate-500 dark:text-white/50" />
+                <div className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-xl bg-muted dark:bg-card">
+                  <Twitter className="h-4 w-4 text-muted-foreground dark:text-muted-foreground" />
                 </div>
                 <div className="relative flex-1">
-                  <span className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-sm text-slate-400 dark:text-white/30">
+                  <span className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-sm text-muted-foreground dark:text-muted-foreground">
                     @
                   </span>
                   <input
@@ -341,11 +341,11 @@ export default function ProfilePage({ user, profile }: ProfilePageProps) {
               </div>
 
               <div className="flex items-center gap-3">
-                <div className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-xl bg-slate-100 dark:bg-white/[0.06]">
-                  <Instagram className="h-4 w-4 text-slate-500 dark:text-white/50" />
+                <div className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-xl bg-muted dark:bg-card">
+                  <Instagram className="h-4 w-4 text-muted-foreground dark:text-muted-foreground" />
                 </div>
                 <div className="relative flex-1">
-                  <span className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-sm text-slate-400 dark:text-white/30">
+                  <span className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-sm text-muted-foreground dark:text-muted-foreground">
                     @
                   </span>
                   <input
@@ -359,11 +359,11 @@ export default function ProfilePage({ user, profile }: ProfilePageProps) {
               </div>
 
               <div className="flex items-center gap-3">
-                <div className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-xl bg-slate-100 dark:bg-white/[0.06]">
-                  <Sparkles className="h-4 w-4 text-slate-500 dark:text-white/50" />
+                <div className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-xl bg-muted dark:bg-card">
+                  <Sparkles className="h-4 w-4 text-muted-foreground dark:text-muted-foreground" />
                 </div>
                 <div className="relative flex-1">
-                  <span className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-sm text-slate-400 dark:text-white/30">
+                  <span className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-sm text-muted-foreground dark:text-muted-foreground">
                     @
                   </span>
                   <input
@@ -379,19 +379,19 @@ export default function ProfilePage({ user, profile }: ProfilePageProps) {
           </section>
 
           {/* ── Public profile ── */}
-          <section className="rounded-2xl border border-slate-200/80 bg-white p-6 dark:border-white/10 dark:bg-white/[0.04]">
+          <section className="rounded-2xl border border-border/80 bg-card p-6 dark:border-border dark:bg-card">
             <div className="flex items-center justify-between gap-6">
               <div className="flex items-start gap-3">
-                <div className={`flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-xl transition ${isPublic ? "bg-[#907AFF]/15" : "bg-slate-100 dark:bg-white/[0.06]"}`}>
+                <div className={`flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-xl transition ${isPublic ? "bg-[#907AFF]/15" : "bg-muted dark:bg-card"}`}>
                   {isPublic ? (
-                    <Eye className="h-4 w-4 text-[#907AFF]" />
+                    <Eye className="h-4 w-4 text-accent-foreground" />
                   ) : (
-                    <EyeOff className="h-4 w-4 text-slate-500 dark:text-white/40" />
+                    <EyeOff className="h-4 w-4 text-muted-foreground dark:text-muted-foreground" />
                   )}
                 </div>
                 <div>
-                  <p className="text-sm font-semibold text-slate-900 dark:text-white">Public profile</p>
-                  <p className="mt-0.5 text-xs text-slate-500 dark:text-white/45 max-w-xs leading-relaxed">
+                  <p className="text-sm font-semibold text-foreground dark:text-foreground">Public profile</p>
+                  <p className="mt-0.5 text-xs text-muted-foreground dark:text-muted-foreground max-w-xs leading-relaxed">
                     {isPublic
                       ? "Readers can discover your author page and books in the library."
                       : "Your profile is hidden from readers and discovery."}
@@ -407,7 +407,7 @@ export default function ProfilePage({ user, profile }: ProfilePageProps) {
                 />
                 <span
                   className={`block h-6 w-11 rounded-full transition-colors duration-200 ${
-                    isPublic ? "bg-[#907AFF]" : "bg-slate-200 dark:bg-white/20"
+                    isPublic ? "bg-[#907AFF]" : "bg-muted dark:bg-card"
                   }`}
                 />
                 <span
@@ -421,7 +421,7 @@ export default function ProfilePage({ user, profile }: ProfilePageProps) {
           </section>
 
           {/* ── Footer ── */}
-          <div className="flex items-center justify-between gap-4 border-t border-slate-100 pt-4 dark:border-white/[0.06]">
+          <div className="flex items-center justify-between gap-4 border-t border-border pt-4 dark:border-border">
             <InlineFeedback state={state} />
             <div className="ml-auto">
               <SaveButton />

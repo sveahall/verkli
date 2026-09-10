@@ -94,12 +94,12 @@ export default function TranslationCheckoutModal({
         if (e.target === backdropRef.current) onClose();
       }}
     >
-      <div className="relative mx-4 w-full max-w-md rounded-2xl bg-white p-8 shadow-2xl dark:bg-slate-900">
+      <div className="relative mx-4 w-full max-w-md rounded-2xl bg-card p-8 shadow-2xl dark:bg-card">
         {/* Close button */}
         <button
           type="button"
           onClick={onClose}
-          className="absolute right-4 top-4 text-slate-400 hover:text-slate-600 dark:text-white/40 dark:hover:text-white/70"
+          className="absolute right-4 top-4 text-muted-foreground hover:text-muted-foreground dark:text-muted-foreground dark:hover:text-foreground"
           aria-label="Close"
         >
           <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -107,7 +107,7 @@ export default function TranslationCheckoutModal({
           </svg>
         </button>
 
-        <h2 className="mb-6 text-center text-lg font-semibold text-slate-900 dark:text-white">
+        <h2 className="author-section-title mb-6 text-center text-lg font-medium text-foreground dark:text-foreground">
           Choose plan to translate book
         </h2>
 
@@ -117,7 +117,7 @@ export default function TranslationCheckoutModal({
             className={`flex cursor-pointer items-start gap-3 rounded-xl border-2 px-4 py-4 transition ${
               plan === "per_language"
                 ? "border-[#907AFF] bg-[#907AFF]/5"
-                : "border-slate-200 hover:border-slate-300 dark:border-white/10 dark:hover:border-white/20"
+                : "border-border hover:border-border dark:border-border dark:hover:border-border"
             }`}
           >
             <input
@@ -129,11 +129,11 @@ export default function TranslationCheckoutModal({
               className="mt-0.5 h-4 w-4 accent-[#907AFF]"
             />
             <div>
-              <p className="font-semibold text-slate-900 dark:text-white">Pay per translation</p>
-              <p className="text-sm text-slate-500 dark:text-white/50">
+              <p className="font-semibold text-foreground dark:text-foreground">Pay per translation</p>
+              <p className="text-sm text-muted-foreground dark:text-muted-foreground">
                 {perLanguagePrice} kr / language
                 {languageCount > 1 && (
-                  <span className="ml-1 text-slate-400 dark:text-white/30">
+                  <span className="ml-1 text-muted-foreground dark:text-muted-foreground">
                     ({languageCount} languages = {totalPrice} kr)
                   </span>
                 )}
@@ -146,7 +146,7 @@ export default function TranslationCheckoutModal({
             className={`flex cursor-pointer items-start gap-3 rounded-xl border-2 px-4 py-4 transition ${
               plan === "pro"
                 ? "border-[#907AFF] bg-[#907AFF]/5"
-                : "border-slate-200 hover:border-slate-300 dark:border-white/10 dark:hover:border-white/20"
+                : "border-border hover:border-border dark:border-border dark:hover:border-border"
             }`}
           >
             <input
@@ -158,13 +158,13 @@ export default function TranslationCheckoutModal({
               className="mt-0.5 h-4 w-4 accent-[#907AFF]"
             />
             <div>
-              <p className="font-semibold text-slate-900 dark:text-white">Subscribe to PRO author</p>
-              <p className="mb-2 text-sm text-slate-500 dark:text-white/50">2 490 kr / month</p>
-              <ul className="space-y-1 text-sm text-slate-600 dark:text-white/60">
+              <p className="font-semibold text-foreground dark:text-foreground">Subscribe to PRO author</p>
+              <p className="mb-2 text-sm text-muted-foreground dark:text-muted-foreground">2 490 kr / month</p>
+              <ul className="space-y-1 text-sm text-muted-foreground dark:text-muted-foreground">
                 {["Unlimited translations", "Audiobook generation", "Marketing tools", "Analytics"].map(
                   (feature) => (
                     <li key={feature} className="flex items-center gap-2">
-                      <svg className="h-4 w-4 shrink-0 text-[#907AFF]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                      <svg className="h-4 w-4 shrink-0 text-accent-foreground" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                         <path d="M5 13l4 4L19 7" />
                       </svg>
                       {feature}
@@ -184,7 +184,7 @@ export default function TranslationCheckoutModal({
           type="button"
           onClick={() => void handleSubmit()}
           disabled={loading || languageCount === 0}
-          className="mt-6 block w-full rounded-full bg-[#0F172A] px-6 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-[#1E293B] disabled:cursor-not-allowed disabled:opacity-60"
+          className="mt-6 block w-full rounded-full bg-primary px-6 py-3 text-sm font-semibold text-primary-foreground shadow-sm transition hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-60"
         >
           {loading
             ? "Redirecting..."

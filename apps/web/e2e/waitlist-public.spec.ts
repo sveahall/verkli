@@ -197,7 +197,7 @@ for (const width of [1024, 1440]) {
     await page.emulateMedia({ reducedMotion: "reduce" });
     await page.goto("/waitlist#book-order");
     const order = page.locator("#book-order");
-    const card = await order.locator(".aurora-card").boundingBox();
+    const card = await order.locator(".wl-order-card").boundingBox();
     const cover = await order.getByRole("img", { name: /^Omslag:/ }).boundingBox();
     const form = await order.locator("form").boundingBox();
     expect(card!.width).toBeGreaterThan(width * 0.7);

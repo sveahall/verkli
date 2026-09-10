@@ -52,6 +52,7 @@ export default async function ReaderGenresPage({
     return (
       <div className="section-gap-lg">
         <PageHeader
+        className="md:flex-col md:items-start"
           eyebrow="Discover"
           title="Genres"
           subtitle="Curated collections by genre and theme."
@@ -75,6 +76,7 @@ export default async function ReaderGenresPage({
     return (
       <div className="section-gap-lg">
         <PageHeader
+        className="md:flex-col md:items-start"
           eyebrow="Discover"
           title="Genres"
           subtitle="Curated collections by genre and theme."
@@ -107,21 +109,22 @@ export default async function ReaderGenresPage({
   return (
     <div className="section-gap-lg">
       <PageHeader
+        className="md:flex-col md:items-start"
         eyebrow="Discover"
         title="Genres"
         subtitle={`Curated collections in ${langLabel}.`}
         actions={
           <div className="flex flex-wrap items-center gap-2">
-            <span className="text-xs font-medium text-slate-500 dark:text-white/50">Language</span>
+            <span className="text-xs font-medium text-muted-foreground">Language</span>
             <div className="flex flex-wrap gap-1">
               {LANGUAGE_OPTIONS.map((opt) => (
                 <Link
                   key={opt.value}
                   href={opt.value === "en" ? "/reader/genres" : `/reader/genres?lang=${opt.value}`}
-                  className={`rounded-full px-3 py-1.5 text-sm font-medium transition ${
+                  className={`inline-flex min-h-11 items-center rounded-full px-4 py-2 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
                     opt.value === language
-                      ? "bg-slate-900 text-white dark:bg-white dark:text-slate-900"
-                      : "bg-slate-100 text-slate-700 hover:bg-slate-200 dark:bg-white/10 dark:text-white/80 dark:hover:bg-white/20"
+                      ? "bg-foreground text-white dark:text-background"
+                      : "bg-muted text-foreground hover:bg-muted dark:bg-card dark:hover:bg-card"
                   }`}
                 >
                   {opt.label}
@@ -148,18 +151,18 @@ export default async function ReaderGenresPage({
             <Link
               key={list.id}
               href={`/reader/lists/${list.slug}`}
-              className="group rounded-2xl border border-slate-200/70 bg-white/80 px-5 py-5 shadow-[0_8px_24px_rgba(15,23,42,0.06)] transition-all hover:-translate-y-0.5 hover:border-slate-300 hover:shadow-[0_16px_32px_rgba(15,23,42,0.12)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#907AFF]/40 focus-visible:ring-offset-2 focus-visible:ring-offset-white dark:border-white/10 dark:bg-white/5 dark:hover:border-white/20 dark:hover:shadow-[0_14px_30px_rgba(0,0,0,0.35)] dark:focus-visible:ring-offset-[#0b0b12]"
+              className="group rounded-2xl border border-border bg-card/80 px-5 py-5 shadow-[0_8px_24px_rgba(15,23,42,0.06)] transition-[background-color,border-color,color,box-shadow] hover:border-border hover:shadow-[0_16px_32px_rgba(15,23,42,0.12)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#907AFF]/40 focus-visible:ring-offset-2 focus-visible:ring-offset-background dark:bg-card dark:hover:border-border dark:hover:shadow-[0_14px_30px_rgba(0,0,0,0.35)] dark:focus-visible:ring-offset-background"
             >
               <div className="flex items-start justify-between gap-3">
                 <div>
-                  <h3 className="text-[16px] font-semibold text-slate-900 dark:text-white">
+                  <h3 className="text-[16px] font-medium text-foreground font-display">
                     {list.title}
                   </h3>
-                  <p className="mt-1 text-[13px] text-slate-500 dark:text-white/60">
+                  <p className="mt-1 text-[13px] text-muted-foreground">
                     {list.description ?? "Hand-picked books from this genre and theme."}
                   </p>
                 </div>
-                <span className="rounded-full bg-slate-100 px-3 py-1 text-[12px] font-medium text-slate-600 dark:bg-white/10 dark:text-white/70">
+                <span className="rounded-full bg-muted px-3 py-1 text-[12px] font-medium text-muted-foreground dark:bg-card">
                   {counts.get(list.id) ?? 0} books
                 </span>
               </div>

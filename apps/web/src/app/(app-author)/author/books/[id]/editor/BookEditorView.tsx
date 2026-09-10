@@ -510,7 +510,7 @@ export default function BookEditorView({
         <div
           role="status"
           aria-live="polite"
-          className="fixed right-3 top-3 z-[1000] rounded-full bg-slate-900/90 px-4 py-2 text-[13px] font-medium text-white shadow-lg backdrop-blur-sm sm:right-6 sm:top-24 dark:bg-white/90 dark:text-slate-900"
+          className="fixed right-3 top-3 z-[1000] rounded-full bg-primary/90 px-4 py-2 text-[13px] font-medium text-primary-foreground shadow-lg backdrop-blur-sm sm:right-6 sm:top-24 dark:bg-card dark:text-foreground"
         >
           {publishing.publishToast}
         </div>
@@ -534,12 +534,12 @@ export default function BookEditorView({
             <nav className="flex items-center gap-1.5 text-[14px]">
               <Link
                 href="/author/library"
-                className="text-slate-400 transition-colors hover:text-slate-600 dark:text-white/40 dark:hover:text-white/70"
+                className="text-muted-foreground transition-colors hover:text-muted-foreground dark:text-muted-foreground dark:hover:text-foreground"
               >
                 Library
               </Link>
-              <span className="text-slate-300 dark:text-white/20" aria-hidden>/</span>
-              <span className="max-w-[220px] truncate font-medium text-slate-700 dark:text-white/80">
+              <span className="text-muted-foreground dark:text-muted-foreground" aria-hidden>/</span>
+              <span className="max-w-[220px] truncate font-medium text-foreground dark:text-foreground">
                 {bookTitle}
               </span>
             </nav>
@@ -552,7 +552,7 @@ export default function BookEditorView({
                 href={`/reader/books/${book.id}`}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="inline-flex items-center gap-1.5 rounded-full border border-slate-200 px-3 py-1.5 text-[13px] font-medium text-slate-600 transition hover:border-slate-300 hover:text-slate-800 dark:border-white/10 dark:text-white/60 dark:hover:border-white/20 dark:hover:text-white"
+                className="inline-flex items-center gap-1.5 rounded-full border border-border px-3 py-1.5 text-[13px] font-medium text-muted-foreground transition hover:border-border hover:text-foreground dark:border-border dark:text-muted-foreground dark:hover:border-border dark:hover:text-foreground"
               >
                 View as reader
                 <svg className="h-3 w-3" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
@@ -567,8 +567,8 @@ export default function BookEditorView({
               title="AI Assistant (⌘I)"
               className={`inline-flex h-11 items-center gap-1.5 rounded-full border px-3 text-[13px] font-medium transition ${
                 assistantOpen
-                  ? "border-[#907AFF]/40 bg-[#907AFF]/[0.08] text-[#907AFF]"
-                  : "border-slate-200 text-slate-600 hover:border-slate-300 hover:text-slate-800 dark:border-white/10 dark:text-white/60 dark:hover:border-white/20 dark:hover:text-white"
+                  ? "border-[#907AFF]/40 bg-[#907AFF]/[0.08] text-accent-foreground"
+                  : "border-border text-muted-foreground hover:border-border hover:text-foreground dark:border-border dark:text-muted-foreground dark:hover:border-border dark:hover:text-foreground"
               }`}
             >
               <svg className="h-3.5 w-3.5" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden>

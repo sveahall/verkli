@@ -37,7 +37,7 @@ export default function SubscribeAuthorButton({
     return (
       <a
         href={signInHref}
-        className="rounded-full bg-white/10 px-4 py-2.5 text-[13px] font-semibold text-white ring-1 ring-white/20 backdrop-blur-sm transition hover:bg-white/20"
+        className="rounded-full bg-card/10 px-4 py-2.5 text-[13px] font-semibold text-white ring-1 ring-white/20 backdrop-blur-sm transition hover:bg-card/20"
       >
         Subscribe · {formatMoney(priceMonthlyMinor, currency, 0)}/mo
       </a>
@@ -87,7 +87,7 @@ export default function SubscribeAuthorButton({
         type="button"
         onClick={handleSubscribe}
         disabled={loading}
-        className="rounded-full bg-white/10 px-4 py-2.5 text-[13px] font-semibold text-white ring-1 ring-white/20 backdrop-blur-sm transition hover:bg-white/20 disabled:cursor-not-allowed disabled:opacity-60"
+        className="rounded-full bg-card/10 px-4 py-2.5 text-[13px] font-semibold text-white ring-1 ring-white/20 backdrop-blur-sm transition hover:bg-card/20 disabled:cursor-not-allowed disabled:opacity-60"
       >
         {loading ? "Opening checkout…" : `Subscribe · ${formatMoney(priceMonthlyMinor, currency, 0)}/mo`}
       </button>

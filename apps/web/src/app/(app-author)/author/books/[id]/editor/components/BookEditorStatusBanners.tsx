@@ -26,11 +26,11 @@ export function BookEditorStatusBanners({
   if (suppressInDemo) return null;
   const jobStatusBanner = jobLoading ? (
     <div
-      className="mb-6 flex h-14 items-center rounded-xl border border-black/[0.06] bg-slate-50/50 px-4 dark:border-white/[0.06] dark:bg-white/5"
+      className="mb-6 flex h-14 items-center rounded-xl border border-black/[0.06] bg-background/50 px-4 dark:border-border dark:bg-card"
       role="status"
       aria-label="Loading status"
     >
-      <span className="text-sm text-slate-500 dark:text-white/50">Loading status...</span>
+      <span className="text-sm text-muted-foreground dark:text-muted-foreground">Loading status...</span>
     </div>
   ) : jobError ? (
     <div

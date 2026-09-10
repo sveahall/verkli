@@ -69,7 +69,7 @@ export default function NewslettersPageClient({
   }, [router]);
 
   return (
-    <div className="section-gap">
+    <div className="section-gap mx-auto max-w-[1520px] px-5 py-7 sm:px-7 lg:px-9 xl:px-12">
       <PageHeader
         eyebrow="Newsletters"
         title="Newsletters"

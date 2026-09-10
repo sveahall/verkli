@@ -1,5 +1,7 @@
 "use client";
 
+import styles from "./AuthorAppShell.module.css";
+
 import CommandPaletteProvider from "@/features/author-shell/CommandPaletteProvider";
 import AuthorSidebar from "@/features/author-shell/AuthorSidebar";
 import BackupVideoOverlay from "@/features/author-shell/BackupVideoOverlay";
@@ -29,8 +31,8 @@ export default function AuthorAppShell({
     ? "h-screen overflow-hidden"
     : "min-h-screen";
   const innerHeight = demoModeActive
-    ? "h-screen grid-cols-1 lg:grid-cols-[220px_minmax(0,1fr)]"
-    : "min-h-screen grid-cols-1 lg:grid-cols-[220px_minmax(0,1fr)]";
+    ? "h-screen grid-cols-1 lg:grid-cols-[236px_minmax(0,1fr)]"
+    : "min-h-screen grid-cols-1 lg:grid-cols-[236px_minmax(0,1fr)]";
   const mainOverflow = demoModeActive
     ? "min-w-0 overflow-y-auto"
     : "min-w-0 pb-20 lg:pb-0";
@@ -38,7 +40,7 @@ export default function AuthorAppShell({
   return (
       <AuthorWorkspaceProvider>
         <CommandPaletteProvider>
-          <div className={`${outerHeight} bg-[#F8F9FD] text-foreground dark:bg-[#050917]`}>
+          <div className={`${styles.shell} ${outerHeight} bg-background text-foreground`}>
             <div className={`grid ${innerHeight}`}>
               <AuthorSidebar demoModeActive={demoModeActive} />
               <main className={mainOverflow}>{children}</main>

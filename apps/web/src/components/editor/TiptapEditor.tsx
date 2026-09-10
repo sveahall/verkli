@@ -420,7 +420,7 @@ export default function TiptapEditor({
               editor.chain().focus().unsetFontFamily().run();
             }
           }}
-          className="h-7 rounded border border-black/10 bg-transparent px-1.5 text-[11px] font-medium text-slate-600 outline-none dark:border-white/10 dark:text-white/60"
+          className="h-7 rounded border border-black/10 bg-transparent px-1.5 text-[11px] font-medium text-muted-foreground outline-none dark:border-border dark:text-muted-foreground"
           title="Font family"
         >
           <option value="">Font</option>
@@ -475,7 +475,7 @@ export default function TiptapEditor({
       {/* Toolbar buttons (portaled into sticky header when target provided) */}
       {(() => {
         const toolbarButtons = (
-          <div className="flex items-center gap-0.5 px-4 py-1.5">
+          <div className="flex max-w-full items-center gap-0.5 overflow-x-auto px-1 py-1.5 sm:px-4">
             <ToolbarButton label="Undo" onClick={() => editor.chain().focus().undo().run()}>
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 7v6h6"/><path d="M21 17a9 9 0 0 0-9-9 9 9 0 0 0-6 2.3L3 13"/></svg>
             </ToolbarButton>
@@ -527,7 +527,7 @@ export default function TiptapEditor({
 
         return toolbarPortalTarget
           ? createPortal(toolbarButtons, toolbarPortalTarget)
-          : <div className="verkli-toolbar sticky top-0 z-10 border-b border-slate-100 bg-white/95 backdrop-blur-sm dark:border-white/[0.06] dark:bg-[#111318]/95">{toolbarButtons}</div>;
+          : <div className="verkli-toolbar sticky top-0 z-10 border-b border-border bg-white/95 backdrop-blur-sm dark:border-border dark:bg-card/95">{toolbarButtons}</div>;
       })()}
 
       <EditorContent editor={editor} className="verkli-content" />
@@ -555,7 +555,7 @@ export default function TiptapEditor({
           font-family: var(--verkli-font, Georgia, serif);
           font-size: var(--verkli-font-size, 17px);
           line-height: var(--verkli-line-height, 1.7);
-          color: #0f172a;
+          color: var(--foreground);
           outline: none;
           max-width: min(var(--verkli-content-width, 72ch), 100%);
           margin: 0 auto;
@@ -572,7 +572,7 @@ export default function TiptapEditor({
         .verkli-content .ProseMirror p.is-editor-empty:first-child::before {
           content: attr(data-placeholder);
           float: left;
-          color: #94a3b8;
+          color: var(--muted-foreground);
           pointer-events: none;
           height: 0;
         }
@@ -619,7 +619,7 @@ export default function TiptapEditor({
           border-left: 3px solid rgba(148, 163, 184, 0.85);
           padding-left: 1rem;
           margin: 1rem 0;
-          color: #64748b;
+          color: var(--muted-foreground);
         }
 
         .dark .verkli-content .ProseMirror blockquote {
@@ -654,17 +654,17 @@ export default function TiptapEditor({
           align-items: center;
           gap: 4px;
           padding: 6px;
-          border: 1px solid rgba(15, 23, 42, 0.08);
+          border: 1px solid var(--border);
           border-radius: 16px;
-          background: rgba(255, 255, 255, 0.96);
-          box-shadow: 0 18px 48px rgba(15, 23, 42, 0.16);
+          background: var(--card);
+          box-shadow: 0 12px 40px rgba(25, 23, 28, 0.12);
           backdrop-filter: blur(16px);
           z-index: 50;
         }
 
         .dark .verkli-bubble-menu {
-          border-color: rgba(255, 255, 255, 0.08);
-          background: rgba(15, 17, 23, 0.94);
+          border-color: var(--border);
+          background: var(--card);
         }
 
         .verkli-slash-menu {
@@ -672,17 +672,17 @@ export default function TiptapEditor({
         }
 
         .verkli-slash-panel {
-          border: 1px solid rgba(15, 23, 42, 0.08);
+          border: 1px solid var(--border);
           border-radius: 18px;
-          background: rgba(255, 255, 255, 0.97);
-          box-shadow: 0 22px 60px rgba(15, 23, 42, 0.18);
+          background: var(--card);
+          box-shadow: 0 16px 48px rgba(25, 23, 28, 0.14);
           backdrop-filter: blur(16px);
           overflow: hidden;
         }
 
         .dark .verkli-slash-panel {
-          border-color: rgba(255, 255, 255, 0.08);
-          background: rgba(15, 17, 23, 0.96);
+          border-color: var(--border);
+          background: var(--card);
         }
 
         .verkli-slash-label {
@@ -691,7 +691,7 @@ export default function TiptapEditor({
           font-weight: 700;
           letter-spacing: 0.16em;
           text-transform: uppercase;
-          color: #94a3b8;
+          color: var(--muted-foreground);
         }
 
         .verkli-slash-items {
@@ -715,17 +715,17 @@ export default function TiptapEditor({
         }
 
         .verkli-slash-item:hover {
-          background: rgba(15, 23, 42, 0.04);
+          background: var(--accent);
         }
 
         .dark .verkli-slash-item:hover {
-          background: rgba(255, 255, 255, 0.06);
+          background: var(--accent);
         }
 
         .verkli-slash-title {
           font-size: 13px;
           font-weight: 600;
-          color: #0f172a;
+          color: var(--foreground);
         }
 
         .dark .verkli-slash-title {
@@ -734,7 +734,7 @@ export default function TiptapEditor({
 
         .verkli-slash-description {
           font-size: 12px;
-          color: #64748b;
+          color: var(--muted-foreground);
         }
 
         .dark .verkli-slash-description {
@@ -772,10 +772,10 @@ function MenuButton({
         event.preventDefault();
         onClick();
       }}
-      className={`inline-flex h-9 min-w-[2.25rem] items-center justify-center rounded-xl px-2.5 text-xs font-medium transition ${
+      className={`inline-flex h-10 min-w-10 shrink-0 items-center justify-center rounded-xl px-2.5 text-xs font-medium transition ${
         active
-          ? "bg-slate-900 text-white dark:bg-white dark:text-slate-900"
-          : "text-slate-600 hover:bg-slate-100 hover:text-slate-900 dark:text-white/65 dark:hover:bg-white/10 dark:hover:text-white"
+          ? "bg-accent text-accent-foreground"
+          : "text-muted-foreground hover:bg-muted hover:text-foreground dark:text-muted-foreground dark:hover:bg-accent dark:hover:text-foreground"
       }`}
     >
       {children}
@@ -784,7 +784,7 @@ function MenuButton({
 }
 
 function MenuDivider() {
-  return <span className="mx-1 h-5 w-px bg-slate-200 dark:bg-white/10" aria-hidden />;
+  return <span className="mx-1 h-5 w-px bg-muted dark:bg-card" aria-hidden />;
 }
 
 function BoldIcon() {
@@ -822,10 +822,10 @@ function ToolbarButton({
         event.preventDefault();
         onClick();
       }}
-      className={`inline-flex h-8 min-w-[2rem] items-center justify-center rounded-lg px-2 text-xs font-medium transition ${
+      className={`inline-flex h-9 min-w-9 shrink-0 items-center justify-center rounded-lg px-2 text-xs font-medium transition ${
         active
-          ? "bg-slate-800 text-white dark:bg-white dark:text-slate-900"
-          : "text-slate-500 hover:bg-slate-100 hover:text-slate-800 dark:text-white/50 dark:hover:bg-white/10 dark:hover:text-white"
+          ? "bg-accent text-accent-foreground"
+          : "text-muted-foreground hover:bg-muted hover:text-foreground dark:text-muted-foreground dark:hover:bg-accent dark:hover:text-foreground"
       }`}
     >
       {children}
@@ -834,5 +834,5 @@ function ToolbarButton({
 }
 
 function ToolbarDivider() {
-  return <span className="mx-1 h-5 w-px bg-slate-200 dark:bg-white/10" aria-hidden />;
+  return <span className="mx-1 h-5 w-px bg-muted dark:bg-card" aria-hidden />;
 }

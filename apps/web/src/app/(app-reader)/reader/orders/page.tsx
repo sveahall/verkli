@@ -168,12 +168,12 @@ export default async function ReaderOrdersPage() {
           {digitalOrders.length > 0 && (
             <section className="space-y-3">
               <div className="flex items-baseline justify-between gap-4">
-                <h2 className="text-[15px] font-semibold text-slate-900 dark:text-white">
+                <h2 className="text-[15px] font-medium text-foreground font-display">
                   Digital purchases
                 </h2>
                 <Link
                   href="/reader/library"
-                  className="text-[12px] font-medium text-[#907AFF] transition-colors hover:text-[#7058DD] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#907AFF]/40 focus-visible:ring-offset-2"
+                  className="text-[12px] font-medium text-accent-foreground transition-colors hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#907AFF]/40 focus-visible:ring-offset-2"
                 >
                   Go to library
                 </Link>
@@ -196,11 +196,11 @@ export default async function ReaderOrdersPage() {
                   return (
                     <li
                       key={order.id}
-                      className="rounded-2xl border border-slate-200/80 bg-white/90 p-4 shadow-[0_8px_24px_rgba(15,23,42,0.04)] dark:border-white/10 dark:bg-white/[0.04]"
+                      className="rounded-2xl border border-border bg-card/90 p-4 shadow-[0_8px_24px_rgba(15,23,42,0.04)] dark:bg-card"
                     >
                       <div className="flex flex-wrap items-start justify-between gap-3">
                         <div className="min-w-0">
-                          <p className="text-[14px] font-semibold text-slate-900 dark:text-white">
+                          <p className="text-[14px] font-semibold text-foreground">
                             {href ? (
                               <Link href={href} className="hover:underline">
                                 {title}
@@ -209,16 +209,16 @@ export default async function ReaderOrdersPage() {
                               title
                             )}
                           </p>
-                          <p className="mt-1 text-[12px] text-slate-500 dark:text-white/55">
+                          <p className="mt-1 text-[12px] text-muted-foreground">
                             {order.chapter_id ? "Single chapter · " : "Full book · "}
                             Bought {formatDate(order.created_at)}
                           </p>
-                          <p className="mt-1 text-[11px] text-slate-400 dark:text-white/35">
+                          <p className="mt-1 text-[11px] text-muted-foreground">
                             Order {order.id}
                           </p>
                         </div>
                         <div className="flex flex-col items-end gap-1.5">
-                          <p className="text-[13px] font-semibold tabular-nums text-slate-800 dark:text-white/85">
+                          <p className="text-[13px] font-semibold tabular-nums text-foreground dark:text-muted-foreground">
                             {formatAmount(order.amount, order.currency)}
                           </p>
                           <Badge variant={statusVariant(order.status)}>
@@ -236,10 +236,10 @@ export default async function ReaderOrdersPage() {
           {podOrders.length > 0 && (
             <section className="space-y-3">
               <div>
-                <h2 className="text-[15px] font-semibold text-slate-900 dark:text-white">
+                <h2 className="text-[15px] font-medium text-foreground font-display">
                   Printed copies
                 </h2>
-                <p className="mt-1 text-[12px] text-slate-500 dark:text-white/55">
+                <p className="mt-1 text-[12px] text-muted-foreground">
                   Delivery takes 7–14 business days after printing.
                 </p>
               </div>
@@ -253,11 +253,11 @@ export default async function ReaderOrdersPage() {
                   return (
                     <li
                       key={order.id}
-                      className="rounded-2xl border border-slate-200/80 bg-white/90 p-4 shadow-[0_8px_24px_rgba(15,23,42,0.04)] dark:border-white/10 dark:bg-white/[0.04]"
+                      className="rounded-2xl border border-border bg-card/90 p-4 shadow-[0_8px_24px_rgba(15,23,42,0.04)] dark:bg-card"
                     >
                       <div className="flex flex-wrap items-start justify-between gap-3">
                         <div className="min-w-0">
-                          <p className="text-[14px] font-semibold text-slate-900 dark:text-white">
+                          <p className="text-[14px] font-semibold text-foreground">
                             {href ? (
                               <Link href={href} className="hover:underline">
                                 {title}
@@ -266,14 +266,14 @@ export default async function ReaderOrdersPage() {
                               title
                             )}
                           </p>
-                          <p className="mt-1 text-[12px] text-slate-500 dark:text-white/55">
+                          <p className="mt-1 text-[12px] text-muted-foreground">
                             {order.format ? `Format: ${order.format}` : null}
                             {order.format ? " · " : null}
                             Placed {formatDate(order.created_at)}
                           </p>
                         </div>
                         <div className="flex flex-col items-end gap-1.5">
-                          <p className="text-[13px] font-semibold tabular-nums text-slate-800 dark:text-white/85">
+                          <p className="text-[13px] font-semibold tabular-nums text-foreground dark:text-muted-foreground">
                             {formatAmount(order.amount, order.currency)}
                           </p>
                           <Badge variant={statusVariant(order.status)}>

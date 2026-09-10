@@ -47,7 +47,7 @@ export default function CoverEditorTextPanel({
     <div className="space-y-5">
       {/* Quick-add buttons */}
       <div>
-        <p className="mb-2 text-[11px] font-semibold uppercase tracking-[0.1em] text-slate-400 dark:text-white/30">
+        <p className="mb-2 text-[11px] font-semibold uppercase tracking-[0.1em] text-muted-foreground dark:text-muted-foreground">
           Add text
         </p>
         <div className="flex flex-wrap gap-2">
@@ -56,7 +56,7 @@ export default function CoverEditorTextPanel({
             { label: "Author", defaults: { text: authorName, fontSize: 22, fontStyle: "normal" as const, y: 530, width: 300, x: 50 } },
             { label: "Subtitle", defaults: { text: "Subtitle", fontSize: 16, fontStyle: "normal" as const, y: 470, width: 300, x: 50 } },
           ].map((item) => (
-            <button key={item.label} type="button" onClick={() => onAddLayer(item.defaults)} className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 px-3 py-2 text-[13px] font-medium text-slate-600 transition hover:border-[#907AFF]/40 hover:bg-[#907AFF]/5 hover:text-[#907AFF] active:scale-[0.97] dark:border-white/10 dark:text-white/60">
+            <button key={item.label} type="button" onClick={() => onAddLayer(item.defaults)} className="inline-flex items-center gap-1.5 rounded-xl border border-border px-3 py-2 text-[13px] font-medium text-muted-foreground transition hover:border-[#907AFF]/40 hover:bg-[#907AFF]/5 hover:text-accent-foreground active:scale-[0.97] dark:border-border dark:text-muted-foreground">
               <Plus className="h-3.5 w-3.5" /> {item.label}
             </button>
           ))}
@@ -66,7 +66,7 @@ export default function CoverEditorTextPanel({
       {/* Layer list */}
       {textLayers.length > 0 && (
         <div>
-          <p className="mb-2 text-[11px] font-semibold uppercase tracking-[0.1em] text-slate-400 dark:text-white/30">
+          <p className="mb-2 text-[11px] font-semibold uppercase tracking-[0.1em] text-muted-foreground dark:text-muted-foreground">
             Layers
           </p>
           <div className="space-y-1">
@@ -77,8 +77,8 @@ export default function CoverEditorTextPanel({
                 onClick={() => onSelectLayer(layer.id)}
                 className={`flex w-full items-center gap-2 rounded-xl px-3 py-2.5 text-left text-[13px] transition ${
                   layer.id === selectedLayer?.id
-                    ? "bg-[#907AFF]/10 text-[#907AFF] font-semibold"
-                    : "text-slate-600 hover:bg-slate-50 dark:text-white/60 dark:hover:bg-white/5"
+                    ? "bg-[#907AFF]/10 text-accent-foreground font-semibold"
+                    : "text-muted-foreground hover:bg-background dark:text-muted-foreground dark:hover:bg-accent"
                 }`}
               >
                 <Type className="h-3.5 w-3.5 shrink-0" />
@@ -91,15 +91,15 @@ export default function CoverEditorTextPanel({
 
       {/* Selected layer controls */}
       {selectedLayer && (
-        <div className="space-y-4 border-t border-slate-100 pt-4 dark:border-white/[0.06]">
+        <div className="space-y-4 border-t border-border pt-4 dark:border-border">
           {/* Text input */}
           <div>
-            <label className="mb-1.5 block text-[11px] font-semibold uppercase tracking-[0.1em] text-slate-400 dark:text-white/30">Text</label>
+            <label className="mb-1.5 block text-[11px] font-semibold uppercase tracking-[0.1em] text-muted-foreground dark:text-muted-foreground">Text</label>
             <input
               type="text"
               value={selectedLayer.text}
               onChange={(e) => onUpdateLayer(selectedLayer.id, { text: e.target.value })}
-              className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-[14px] text-slate-800 outline-none focus:border-[#907AFF]/50 focus:ring-2 focus:ring-[#907AFF]/20 dark:border-white/10 dark:bg-white/5 dark:text-white"
+              className="w-full rounded-xl border border-border bg-card px-3 py-2.5 text-[14px] text-foreground outline-none focus:border-[#907AFF]/50 focus:ring-2 focus:ring-[#907AFF]/20 dark:border-border dark:bg-card dark:text-foreground"
             />
           </div>
 
@@ -108,7 +108,7 @@ export default function CoverEditorTextPanel({
             <select
               value={selectedLayer.fontFamily}
               onChange={(e) => onUpdateLayer(selectedLayer.id, { fontFamily: e.target.value })}
-              className="rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-[13px] text-slate-700 outline-none focus:border-[#907AFF]/50 dark:border-white/10 dark:bg-white/5 dark:text-white"
+              className="rounded-xl border border-border bg-card px-3 py-2.5 text-[13px] text-foreground outline-none focus:border-[#907AFF]/50 dark:border-border dark:bg-card dark:text-foreground"
             >
               {COVER_EDITOR_FONTS.map((f) => (
                 <option key={f.family} value={f.family}>{f.label}</option>
@@ -120,7 +120,7 @@ export default function CoverEditorTextPanel({
               max={200}
               value={selectedLayer.fontSize}
               onChange={(e) => onUpdateLayer(selectedLayer.id, { fontSize: Number(e.target.value) || 16 })}
-              className="rounded-xl border border-slate-200 bg-white px-2 py-2.5 text-center text-[13px] text-slate-700 outline-none focus:border-[#907AFF]/50 dark:border-white/10 dark:bg-white/5 dark:text-white"
+              className="rounded-xl border border-border bg-card px-2 py-2.5 text-center text-[13px] text-foreground outline-none focus:border-[#907AFF]/50 dark:border-border dark:bg-card dark:text-foreground"
             />
           </div>
 
@@ -132,7 +132,7 @@ export default function CoverEditorTextPanel({
               const isItalic = selectedLayer.fontStyle.includes("italic");
               const next = !isBold ? (isItalic ? "bold italic" : "bold") : (isItalic ? "italic" : "normal");
               onUpdateLayer(selectedLayer.id, { fontStyle: next as CoverTextLayer["fontStyle"] });
-            }} className={`flex h-9 w-9 items-center justify-center rounded-xl text-[14px] font-bold transition ${selectedLayer.fontStyle.includes("bold") ? "bg-[#907AFF]/10 text-[#907AFF]" : "text-slate-500 hover:bg-slate-50 dark:text-white/40"}`}>B</button>
+            }} className={`flex h-9 w-9 items-center justify-center rounded-xl text-[14px] font-bold transition ${selectedLayer.fontStyle.includes("bold") ? "bg-[#907AFF]/10 text-accent-foreground" : "text-muted-foreground hover:bg-background dark:text-muted-foreground"}`}>B</button>
 
             {/* Italic */}
             <button type="button" onClick={() => {
@@ -140,31 +140,31 @@ export default function CoverEditorTextPanel({
               const isItalic = selectedLayer.fontStyle.includes("italic");
               const next = !isItalic ? (isBold ? "bold italic" : "italic") : (isBold ? "bold" : "normal");
               onUpdateLayer(selectedLayer.id, { fontStyle: next as CoverTextLayer["fontStyle"] });
-            }} className={`flex h-9 w-9 items-center justify-center rounded-xl text-[14px] italic transition ${selectedLayer.fontStyle.includes("italic") ? "bg-[#907AFF]/10 text-[#907AFF]" : "text-slate-500 hover:bg-slate-50 dark:text-white/40"}`}>I</button>
+            }} className={`flex h-9 w-9 items-center justify-center rounded-xl text-[14px] italic transition ${selectedLayer.fontStyle.includes("italic") ? "bg-[#907AFF]/10 text-accent-foreground" : "text-muted-foreground hover:bg-background dark:text-muted-foreground"}`}>I</button>
 
-            <span className="mx-1 h-5 w-px bg-slate-200 dark:bg-white/10" />
+            <span className="mx-1 h-5 w-px bg-muted dark:bg-card" />
 
             {/* Align left/center/right */}
             {(["left", "center", "right"] as const).map((a) => (
-              <button key={a} type="button" onClick={() => onUpdateLayer(selectedLayer.id, { align: a })} className={`flex h-9 w-9 items-center justify-center rounded-xl text-[11px] transition ${selectedLayer.align === a ? "bg-[#907AFF]/10 text-[#907AFF]" : "text-slate-500 hover:bg-slate-50 dark:text-white/40"}`}>
+              <button key={a} type="button" onClick={() => onUpdateLayer(selectedLayer.id, { align: a })} className={`flex h-9 w-9 items-center justify-center rounded-xl text-[11px] transition ${selectedLayer.align === a ? "bg-[#907AFF]/10 text-accent-foreground" : "text-muted-foreground hover:bg-background dark:text-muted-foreground"}`}>
                 {a === "left" ? "L" : a === "center" ? "C" : "R"}
               </button>
             ))}
 
-            <span className="mx-1 h-5 w-px bg-slate-200 dark:bg-white/10" />
+            <span className="mx-1 h-5 w-px bg-muted dark:bg-card" />
 
             {/* Center H / V */}
-            <button type="button" onClick={centerHorizontally} className="flex h-9 w-9 items-center justify-center rounded-xl text-slate-500 transition hover:bg-[#907AFF]/10 hover:text-[#907AFF] dark:text-white/40" title="Center horizontally">
+            <button type="button" onClick={centerHorizontally} className="flex h-9 w-9 items-center justify-center rounded-xl text-muted-foreground transition hover:bg-[#907AFF]/10 hover:text-accent-foreground dark:text-muted-foreground" title="Center horizontally">
               <AlignCenter className="h-4 w-4" />
             </button>
-            <button type="button" onClick={centerVertically} className="flex h-9 w-9 items-center justify-center rounded-xl text-slate-500 transition hover:bg-[#907AFF]/10 hover:text-[#907AFF] dark:text-white/40" title="Center vertically">
+            <button type="button" onClick={centerVertically} className="flex h-9 w-9 items-center justify-center rounded-xl text-muted-foreground transition hover:bg-[#907AFF]/10 hover:text-accent-foreground dark:text-muted-foreground" title="Center vertically">
               <AlignVerticalJustifyCenter className="h-4 w-4" />
             </button>
           </div>
 
           {/* Color */}
           <div>
-            <label className="mb-2 block text-[11px] font-semibold uppercase tracking-[0.1em] text-slate-400 dark:text-white/30">Color</label>
+            <label className="mb-2 block text-[11px] font-semibold uppercase tracking-[0.1em] text-muted-foreground dark:text-muted-foreground">Color</label>
             <div className="flex flex-wrap gap-1.5">
               {COLOR_PRESETS.map((c) => (
                 <button
@@ -179,7 +179,7 @@ export default function CoverEditorTextPanel({
 
           {/* Shadow */}
           <div>
-            <label className="mb-1.5 flex items-center justify-between text-[11px] font-semibold uppercase tracking-[0.1em] text-slate-400 dark:text-white/30">
+            <label className="mb-1.5 flex items-center justify-between text-[11px] font-semibold uppercase tracking-[0.1em] text-muted-foreground dark:text-muted-foreground">
               Shadow <span className="tabular-nums normal-case">{selectedLayer.shadowBlur}px</span>
             </label>
             <input
@@ -192,7 +192,7 @@ export default function CoverEditorTextPanel({
 
           {/* Stroke */}
           <div>
-            <label className="mb-1.5 flex items-center justify-between text-[11px] font-semibold uppercase tracking-[0.1em] text-slate-400 dark:text-white/30">
+            <label className="mb-1.5 flex items-center justify-between text-[11px] font-semibold uppercase tracking-[0.1em] text-muted-foreground dark:text-muted-foreground">
               Outline <span className="tabular-nums normal-case">{selectedLayer.strokeWidth}px</span>
             </label>
             <input

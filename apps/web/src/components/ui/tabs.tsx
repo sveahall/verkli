@@ -31,10 +31,10 @@ export function Tabs({ items, active, onChange, actions, className }: TabsProps)
               aria-selected={isActive}
               onClick={() => onChange(item.id)}
               className={cn(
-                "flex min-h-[40px] items-center gap-2 rounded-full px-4 py-2 text-[13px] font-medium transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#907AFF]/40 focus-visible:ring-offset-2 focus-visible:ring-offset-white dark:focus-visible:ring-offset-[#0b0b12]",
+                "flex min-h-[44px] items-center gap-2 rounded-full px-4 py-2 text-[13px] font-medium transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background",
                 isActive
-                  ? "bg-slate-900 text-white shadow-md shadow-slate-900/10 dark:bg-white dark:text-slate-900"
-                  : "border border-slate-200/80 bg-white/80 text-slate-600 hover:border-slate-300 hover:text-slate-900 dark:border-white/10 dark:bg-white/5 dark:text-white/70 dark:hover:text-white"
+                  ? "bg-primary text-primary-foreground shadow-md shadow-slate-900/10"
+                  : "border border-border bg-card/80 text-muted-foreground hover:border-ring/50 hover:text-accent-foreground"
               )}
             >
               <span>{item.label}</span>
@@ -43,8 +43,8 @@ export function Tabs({ items, active, onChange, actions, className }: TabsProps)
                   className={cn(
                     "rounded-full px-2 py-0.5 text-[11px]",
                     isActive
-                      ? "bg-white/20 text-white"
-                      : "bg-slate-100 text-slate-500 dark:bg-white/10 dark:text-white/60"
+                      ? "bg-primary-foreground/15 text-primary-foreground"
+                      : "bg-muted text-muted-foreground"
                   )}
                 >
                   {item.badge}

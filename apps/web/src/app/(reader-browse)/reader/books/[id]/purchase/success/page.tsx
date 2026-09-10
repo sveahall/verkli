@@ -51,15 +51,15 @@ export default async function PurchaseSuccessPage({
 
   return (
     <main className="mx-auto flex min-h-[70vh] w-full max-w-3xl items-center px-6 py-12">
-      <section className="w-full rounded-2xl border border-black/10 bg-white p-6 text-slate-900 shadow-sm dark:border-white/10 dark:bg-[#0f1115] dark:text-white">
-        <h1 className="text-2xl font-semibold">Purchase status</h1>
+      <section className="w-full rounded-2xl border border-black/10 bg-card p-6 text-foreground shadow-sm dark:border-border dark:bg-card">
+        <h1 className="text-2xl font-medium font-display">Purchase status</h1>
 
         {outcome === "success" ? (
           <>
             <p className="mt-3 text-sm text-emerald-700 dark:text-emerald-300">
               Payment verified. This book is now unlocked for your account.
             </p>
-            <p className="mt-2 text-sm text-slate-700 dark:text-white/75">
+            <p className="mt-2 text-sm text-foreground dark:text-muted-foreground">
               A receipt is on its way to your email, and the book is on the Purchased
               shelf in your library.
             </p>
@@ -73,7 +73,7 @@ export default async function PurchaseSuccessPage({
         ) : null}
 
         {outcome === "pending" ? (
-          <p className="mt-3 text-sm text-slate-700 dark:text-white/75">
+          <p className="mt-3 text-sm text-foreground dark:text-muted-foreground">
             Your payment is being confirmed. Some payment methods take a little longer to
             settle. Access unlocks automatically as soon as it clears, so there is no need to
             pay again.
@@ -83,13 +83,13 @@ export default async function PurchaseSuccessPage({
         <div className="mt-6 flex flex-wrap gap-3">
           <Link
             href={`/reader/books/${bookId}`}
-            className="rounded-lg bg-slate-900 px-4 py-2 text-sm font-medium text-white dark:bg-white dark:text-slate-900"
+            className="rounded-lg bg-foreground px-4 py-2 text-sm font-medium text-white dark:text-background"
           >
             Go to book
           </Link>
           <Link
             href="/reader/library"
-            className="rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 dark:border-white/20 dark:text-white"
+            className="rounded-lg border border-border px-4 py-2 text-sm font-medium text-foreground"
           >
             Go to library
           </Link>
@@ -98,7 +98,7 @@ export default async function PurchaseSuccessPage({
           {discoverHref ? (
             <Link
               href={discoverHref}
-              className="rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 dark:border-white/20 dark:text-white"
+              className="rounded-lg border border-border px-4 py-2 text-sm font-medium text-foreground"
             >
               Explore more books
             </Link>
@@ -106,7 +106,7 @@ export default async function PurchaseSuccessPage({
           {requiresSignIn ? (
             <Link
               href={`/reader/signin?next=${encodeURIComponent(`/reader/books/${bookId}`)}`}
-              className="rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 dark:border-white/20 dark:text-white"
+              className="rounded-lg border border-border px-4 py-2 text-sm font-medium text-foreground"
             >
               Sign in to view access
             </Link>

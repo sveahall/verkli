@@ -184,18 +184,18 @@ export default async function ReaderReadPage({
   if (readAccess.access === "locked") {
     const gateSignInHref = `/reader/signin?next=${encodeURIComponent(`/reader/books/${book.id}`)}`;
     return (
-      <main className="min-h-screen bg-[#F8F9FB] text-[#0F172A] dark:bg-[#030712] dark:text-white">
+      <main className="min-h-screen bg-muted text-foreground dark:bg-background dark:text-foreground">
         <div className="mx-auto max-w-5xl px-4 py-6 sm:px-6">
           <div className="mx-auto max-w-[720px]">
             <header className="mb-8 flex items-center justify-between">
-              <Link href={`/reader/books/${book.id}`} className="inline-flex items-center gap-2 text-sm text-[#64748B] transition-colors hover:text-[#0F172A] dark:text-white/50 dark:hover:text-white">
+              <Link href={`/reader/books/${book.id}`} className="inline-flex items-center gap-2 text-sm text-muted-foreground transition-colors hover:text-foreground dark:text-muted-foreground dark:hover:text-foreground">
                 <span aria-hidden>←</span> Back to book
               </Link>
-              <span className="text-xs text-[#64748B] dark:text-white/40">Locked</span>
+              <span className="text-xs text-muted-foreground dark:text-muted-foreground">Locked</span>
             </header>
             <div className="rounded-2xl border border-[#907AFF]/15 bg-[#907AFF]/[0.04] p-6">
-              <h1 className="text-2xl font-semibold text-[#0F172A] dark:text-white">Chapter locked</h1>
-              <p className="mt-2 text-sm text-[#64748B] dark:text-white/60">
+              <h1 className="text-2xl font-medium text-foreground dark:text-foreground font-display">Chapter locked</h1>
+              <p className="mt-2 text-sm text-muted-foreground dark:text-muted-foreground">
                 {isPerChapter
                   ? "Purchase this chapter or upgrade to Verkli Plus to read it."
                   : "Purchase the book or upgrade to Verkli Plus to read all chapters."}
@@ -210,14 +210,14 @@ export default async function ReaderReadPage({
                 ) : (
                   <Link
                     href={gateSignInHref}
-                    className="inline-flex h-11 items-center justify-center rounded-xl bg-[#907AFF] px-6 text-sm font-semibold text-white shadow-sm transition-all duration-200 hover:bg-[#7A66E0] active:scale-[0.97]"
+                    className="inline-flex h-11 items-center justify-center rounded-xl bg-primary px-6 text-sm font-medium text-primary-foreground shadow-sm transition-[background-color,border-color,color,box-shadow] duration-200 hover:bg-primary/90 active:scale-[0.97]"
                   >
                     Sign in to purchase
                   </Link>
                 )}
                 <Link
                   href="/reader/billing"
-                  className="inline-flex h-11 items-center justify-center rounded-xl border border-[#907AFF]/25 px-6 text-sm font-semibold text-[#907AFF] transition-colors hover:bg-[#907AFF]/10 dark:text-[#B8A9FF]"
+                  className="inline-flex h-11 items-center justify-center rounded-xl border border-[#907AFF]/25 px-6 text-sm font-semibold text-accent-foreground transition-colors hover:bg-[#907AFF]/10 dark:text-[#B8A9FF]"
                 >
                   Upgrade to Verkli Plus
                 </Link>
@@ -431,35 +431,35 @@ export default async function ReaderReadPage({
       {previousChapterNav ? (
         <Link
           href={`/reader/read/${previousChapterNav.id}`}
-          className="group rounded-xl border border-black/[0.06] bg-white p-4 text-left shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md dark:border-white/10 dark:bg-white/[0.03]"
+          className="group rounded-xl border border-black/[0.06] bg-card p-4 text-left shadow-sm transition-[background-color,border-color,color,box-shadow] duration-200 hover:shadow-md dark:border-border dark:bg-card"
         >
-          <p className="text-xs text-[#64748B] dark:text-white/50">Previous chapter</p>
-          <p className="mt-1 text-sm font-medium text-[#0F172A] transition-colors group-hover:text-[#907AFF] dark:text-white">
+          <p className="text-xs text-muted-foreground dark:text-muted-foreground">Previous chapter</p>
+          <p className="mt-1 text-sm font-medium text-foreground transition-colors group-hover:text-accent-foreground dark:text-foreground">
             {previousChapterNav.title}
           </p>
         </Link>
       ) : (
-        <div className="rounded-xl border border-dashed border-black/[0.06] p-4 text-xs text-[#64748B] dark:border-white/10 dark:text-white/50">
+        <div className="rounded-xl border border-dashed border-black/[0.06] p-4 text-xs text-muted-foreground dark:border-border dark:text-muted-foreground">
           Start of book
         </div>
       )}
 
       {readAccess.access === "preview" && readAccess.isLastPreview ? (
-        <div className="rounded-xl border border-dashed border-[#907AFF]/20 bg-[#907AFF]/5 p-4 text-right text-xs text-[#907AFF]">
+        <div className="rounded-xl border border-dashed border-[#907AFF]/20 bg-[#907AFF]/5 p-4 text-right text-xs text-accent-foreground">
           Purchase or upgrade to unlock the next chapter
         </div>
       ) : nextChapterNav ? (
         <Link
           href={`/reader/read/${nextChapterNav.id}`}
-          className="group rounded-xl border border-black/[0.06] bg-white p-4 text-right shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md dark:border-white/10 dark:bg-white/[0.03]"
+          className="group rounded-xl border border-black/[0.06] bg-card p-4 text-right shadow-sm transition-[background-color,border-color,color,box-shadow] duration-200 hover:shadow-md dark:border-border dark:bg-card"
         >
-          <p className="text-xs text-[#64748B] dark:text-white/50">Next chapter</p>
-          <p className="mt-1 text-sm font-medium text-[#0F172A] transition-colors group-hover:text-[#907AFF] dark:text-white">
+          <p className="text-xs text-muted-foreground dark:text-muted-foreground">Next chapter</p>
+          <p className="mt-1 text-sm font-medium text-foreground transition-colors group-hover:text-accent-foreground dark:text-foreground">
             {nextChapterNav.title}
           </p>
         </Link>
       ) : (
-        <div className="rounded-xl border border-dashed border-black/[0.06] p-4 text-right text-xs text-[#64748B] dark:border-white/10 dark:text-white/50">
+        <div className="rounded-xl border border-dashed border-black/[0.06] p-4 text-right text-xs text-muted-foreground dark:border-border dark:text-muted-foreground">
           End of book
         </div>
       )}

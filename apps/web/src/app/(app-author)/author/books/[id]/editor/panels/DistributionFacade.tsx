@@ -58,7 +58,7 @@ const LANGUAGE_FLAGS: Record<DemoDistributionLanguage, string> = {
 };
 
 function ChannelIcon({ channel }: { channel: DemoChannel }) {
-  const className = "h-4 w-4 text-slate-700";
+  const className = "h-4 w-4 text-foreground";
   switch (channel) {
     case "tiktok":
       return <Music2 className={className} aria-hidden />;
@@ -94,15 +94,15 @@ export default function DistributionFacade({ bookId, marketingCampaigns }: Distr
   return (
     <section
       aria-label="Demo distribution façade"
-      className="relative isolate overflow-hidden rounded-3xl ring-1 ring-slate-200/70 dark:ring-white/[0.08]"
+      className="relative isolate overflow-hidden rounded-3xl ring-1 ring-border/70 dark:ring-white/[0.08]"
     >
       <div className="relative flex flex-col gap-6 p-6 sm:p-10">
         {/* ── Hero header ─────────────────────────────────────────── */}
         <header className="relative flex flex-col items-center gap-3 text-center">
-          <h2 className="text-[26px] font-semibold leading-[1.1] tracking-[-0.02em] text-slate-900 sm:text-[32px]">
+          <h2 className="author-section-title text-[26px] font-medium leading-[1.1] tracking-[-0.02em] text-foreground sm:text-[32px]">
             Launch globally.
           </h2>
-          <p className="max-w-[44ch] text-[14px] leading-relaxed text-slate-500">
+          <p className="max-w-[44ch] text-[14px] leading-relaxed text-muted-foreground">
             Native posts on TikTok, Instagram, X, Threads, and YouTube
             Shorts — video, image, and text — in every language you produced,
             all in parallel.
@@ -111,7 +111,7 @@ export default function DistributionFacade({ bookId, marketingCampaigns }: Distr
             <button
               type="button"
               onClick={reset}
-              className="absolute right-0 top-0 rounded-full border border-slate-200 bg-white px-3 py-1.5 text-[12px] font-medium text-slate-600 hover:bg-slate-50"
+              className="absolute right-0 top-0 rounded-full border border-border bg-card px-3 py-1.5 text-[12px] font-medium text-muted-foreground hover:bg-background"
             >
               Reset
             </button>
@@ -127,7 +127,7 @@ export default function DistributionFacade({ bookId, marketingCampaigns }: Distr
             type="button"
             onClick={start}
             disabled={isLaunching}
-            className="group relative inline-flex items-center gap-2 overflow-hidden rounded-full bg-[#0F172A] px-6 py-3 text-[14px] font-medium text-white transition-colors duration-200 hover:bg-[#1E293B] active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-70"
+            className="group relative inline-flex items-center gap-2 overflow-hidden rounded-full bg-primary px-6 py-3 text-[14px] font-medium text-primary-foreground transition-colors duration-200 hover:bg-primary/90 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-70"
           >
             <span
               aria-hidden
@@ -138,24 +138,24 @@ export default function DistributionFacade({ bookId, marketingCampaigns }: Distr
               {isLaunching ? "Launching…" : "Launch globally"}
             </span>
           </button>
-          <p className="text-[12px] text-slate-500">
+          <p className="text-[12px] text-muted-foreground">
             {DEMO_CHANNELS.length} channels × {DEMO_DISTRIBUTION_LANGUAGES.length} languages · 17 seconds end-to-end
           </p>
-          <p className="text-[11px] font-medium text-slate-400">
-            <span className="text-slate-300 line-through">Traditional ad-spend: ~$8,500/launch</span>
+          <p className="text-[11px] font-medium text-muted-foreground">
+            <span className="text-muted-foreground line-through">Traditional ad-spend: ~$8,500/launch</span>
             <span className="ml-2 text-[var(--brand-violet)]">→ $0 · ~380M reach</span>
           </p>
         </div>
 
         {/* ── Live status + grid ──────────────────────────────────── */}
         {state.status !== "idle" ? (
-          <div className="rounded-2xl border border-slate-100 bg-white p-5">
+          <div className="rounded-2xl border border-border bg-card p-5">
             <div className="flex items-center justify-between gap-4">
               <div className="flex items-baseline gap-3">
                 <span
                   key={readyCount}
                   className={`tabular-nums text-[28px] font-semibold leading-none tracking-[-0.02em] sm:text-[32px] ${
-                    isDone ? "text-[var(--brand-violet)]" : "text-slate-900"
+                    isDone ? "text-[var(--brand-violet)]" : "text-foreground"
                   }`}
                   style={{
                     animation: "demoCountPop 320ms cubic-bezier(0.34, 1.56, 0.64, 1)",
@@ -163,12 +163,12 @@ export default function DistributionFacade({ bookId, marketingCampaigns }: Distr
                 >
                   {readyCount}
                 </span>
-                <span className="text-[18px] font-medium text-slate-400">/ {DEMO_POST_COUNT}</span>
+                <span className="text-[18px] font-medium text-muted-foreground">/ {DEMO_POST_COUNT}</span>
                 <div className="ml-3 flex flex-col gap-0.5">
                   <p className="text-[10px] font-semibold uppercase tracking-[0.22em] text-[var(--brand-violet)]">
                     {isDone ? "Live" : "Launching"}
                   </p>
-                  <p className="text-[14px] font-medium text-slate-700">
+                  <p className="text-[14px] font-medium text-foreground">
                     {isDone ? "posts live" : "posts going out"}
                   </p>
                 </div>
@@ -225,14 +225,14 @@ function ChannelRow({
   return (
     <div>
       <div className="mb-2 flex items-center gap-2">
-        <span className="inline-flex h-7 w-7 items-center justify-center rounded-full bg-slate-100">
+        <span className="inline-flex h-7 w-7 items-center justify-center rounded-full bg-muted">
           <ChannelIcon channel={channel} />
         </span>
-        <span className="text-label text-slate-800">{meta.label}</span>
-        <span className="rounded-full bg-slate-100 px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-slate-500">
+        <span className="text-label text-foreground">{meta.label}</span>
+        <span className="rounded-full bg-muted px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
           {POST_TYPE_LABEL[meta.type]}
         </span>
-        <span className="text-caption text-slate-400">
+        <span className="text-caption text-muted-foreground">
           {aspect === "vertical" ? "9:16" : aspect === "square" ? "1:1" : "16:9"}
         </span>
       </div>
@@ -289,12 +289,12 @@ function ThumbnailCard({
       onClick={() => ready && onOpen(post)}
       disabled={!ready}
       aria-label={`Preview ${post.title} — ${meta.label} (${language.toUpperCase()})`}
-      className={`group relative shrink-0 snap-start overflow-hidden rounded-2xl border border-slate-100 bg-white text-left transition-all duration-300 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#907AFF]/40 focus-visible:ring-offset-2 ${widthClass} ${
+      className={`group relative shrink-0 snap-start overflow-hidden rounded-2xl border border-border bg-card text-left transition-all duration-300 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#907AFF]/40 focus-visible:ring-offset-2 ${widthClass} ${
         ready ? "cursor-pointer hover:-translate-y-0.5 hover:shadow-[0_12px_28px_-12px_rgba(15,23,42,0.3)]" : "cursor-default"
       }`}
       style={{ opacity: ready ? 1 : 0.4 }}
     >
-      <div className={`relative ${ASPECT_CLASS[aspect]} bg-slate-100`}>
+      <div className={`relative ${ASPECT_CLASS[aspect]} bg-muted`}>
         {/* eslint-disable-next-line @next/next/no-img-element -- SVG thumbnails are
             tiny static demo assets we ship; next/image+SVG would require
             dangerouslyAllowSVG and adds no real perf win at this scale. */}
@@ -304,16 +304,16 @@ function ThumbnailCard({
           className="absolute inset-0 h-full w-full object-cover transition-transform duration-300 ease-out group-hover:scale-[1.03]"
           loading="lazy"
         />
-        <span className="absolute right-2 top-2 inline-flex items-center gap-1 rounded-full bg-slate-900/70 px-2 py-0.5 text-[10px] font-medium text-white">
+        <span className="absolute right-2 top-2 inline-flex items-center gap-1 rounded-full bg-primary/70 px-2 py-0.5 text-[10px] font-medium text-primary-foreground">
           {LANGUAGE_FLAGS[language]} {language.toUpperCase()}
         </span>
         {ready ? (
-          <span className="absolute left-2 top-2 inline-flex h-5 w-5 items-center justify-center rounded-full bg-[var(--brand-violet)] text-white">
+          <span className="absolute left-2 top-2 inline-flex h-5 w-5 items-center justify-center rounded-full bg-accent text-accent-foreground">
             <Check className="h-3 w-3" aria-hidden />
           </span>
         ) : null}
         {ready ? (
-          <span className="pointer-events-none absolute inset-x-0 bottom-0 flex items-center justify-between gap-1 bg-gradient-to-t from-slate-900/85 to-transparent px-2.5 py-1.5 text-[10px] font-medium text-white opacity-0 transition-opacity duration-200 group-hover:opacity-100">
+          <span className="pointer-events-none absolute inset-x-0 bottom-0 flex items-center justify-between gap-1 bg-gradient-to-t from-black/85 to-transparent px-2.5 py-1.5 text-[10px] font-medium text-white opacity-0 transition-opacity duration-200 group-hover:opacity-100">
             <span className="truncate">{post.handle}</span>
             <span className="inline-flex items-center gap-1">
               Preview <ExternalLink className="h-3 w-3 flex-shrink-0" aria-hidden />
@@ -322,9 +322,9 @@ function ThumbnailCard({
         ) : null}
       </div>
       <div className="space-y-1 p-3">
-        <p className="line-clamp-2 text-label text-slate-900">{post.caption}</p>
+        <p className="line-clamp-2 text-label text-foreground">{post.caption}</p>
         <div className="flex items-center justify-between gap-2 pt-1">
-          <span className="line-clamp-1 text-[10px] text-slate-400">
+          <span className="line-clamp-1 text-[10px] text-muted-foreground">
             {post.hashtags.slice(0, 2).join(" ")}
           </span>
           <span className="inline-flex flex-shrink-0 items-center gap-1 text-[10px] font-medium text-[var(--brand-violet)]">
@@ -377,14 +377,14 @@ function PostPreviewModal({
 
   return (
     <div
-      className="fixed inset-0 z-[2200] flex items-center justify-center bg-slate-900/55 px-4 backdrop-blur-sm"
+      className="fixed inset-0 z-[2200] flex items-center justify-center bg-primary/55 px-4 backdrop-blur-sm"
       role="dialog"
       aria-modal="true"
       aria-label={`${post.label} post preview`}
       onClick={onClose}
     >
       <div
-        className="flex max-h-[88vh] w-full max-w-3xl flex-col gap-6 overflow-y-auto rounded-3xl border border-slate-100 bg-white p-6 sm:flex-row sm:p-7"
+        className="flex max-h-[88vh] w-full max-w-3xl flex-col gap-6 overflow-y-auto rounded-3xl border border-border bg-card p-6 sm:flex-row sm:p-7"
         style={{ animation: "demoPopIn 280ms cubic-bezier(0.34, 1.56, 0.64, 1)" }}
         onClick={(e) => e.stopPropagation()}
       >
@@ -398,7 +398,7 @@ function PostPreviewModal({
         {/* Native artwork */}
         <div className={`mx-auto flex-shrink-0 ${artWidthClass}`}>
           <div
-            className={`overflow-hidden rounded-2xl border border-slate-100 shadow-[0_16px_40px_-16px_rgba(15,23,42,0.35)] ${ASPECT_CLASS[meta.aspect]}`}
+            className={`overflow-hidden rounded-2xl border border-border shadow-[0_16px_40px_-16px_rgba(15,23,42,0.35)] ${ASPECT_CLASS[meta.aspect]}`}
           >
             {/* eslint-disable-next-line @next/next/no-img-element -- static demo SVG */}
             <img
@@ -413,12 +413,12 @@ function PostPreviewModal({
         <div className="flex min-w-0 flex-1 flex-col">
           <div className="flex items-center justify-between gap-3">
             <span className="inline-flex items-center gap-2">
-              <span className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-slate-100">
+              <span className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-muted">
                 <ChannelIcon channel={post.channel} />
               </span>
               <span className="flex flex-col leading-tight">
-                <span className="text-label text-slate-900">{post.label}</span>
-                <span className="text-[11px] text-slate-400">
+                <span className="text-label text-foreground">{post.label}</span>
+                <span className="text-[11px] text-muted-foreground">
                   {post.handle} · {LANGUAGE_FLAGS[post.language]} {post.language.toUpperCase()}
                 </span>
               </span>
@@ -427,13 +427,13 @@ function PostPreviewModal({
               type="button"
               onClick={onClose}
               aria-label="Close preview"
-              className="inline-flex h-8 w-8 items-center justify-center rounded-full text-slate-400 hover:bg-slate-100 hover:text-slate-700"
+              className="inline-flex h-8 w-8 items-center justify-center rounded-full text-muted-foreground hover:bg-muted hover:text-foreground"
             >
               <XIcon className="h-4 w-4" aria-hidden />
             </button>
           </div>
 
-          <span className="mt-3 inline-flex w-fit items-center gap-1.5 rounded-full bg-slate-100 px-2.5 py-1 text-[11px] font-medium text-slate-600">
+          <span className="mt-3 inline-flex w-fit items-center gap-1.5 rounded-full bg-muted px-2.5 py-1 text-[11px] font-medium text-muted-foreground">
             {post.type === "text" ? (
               <MessageCircle className="h-3 w-3" aria-hidden />
             ) : post.type === "image" ? (
@@ -445,7 +445,7 @@ function PostPreviewModal({
             {post.durationLabel ? ` · ${post.durationLabel}` : ""}
           </span>
 
-          <p className="mt-4 whitespace-pre-line text-[14px] leading-relaxed text-slate-800">
+          <p className="mt-4 whitespace-pre-line text-[14px] leading-relaxed text-foreground">
             {post.caption}
           </p>
 
@@ -460,7 +460,7 @@ function PostPreviewModal({
             ))}
           </div>
 
-          <div className="mt-4 flex flex-wrap items-center gap-x-5 gap-y-2 text-[12px] text-slate-500">
+          <div className="mt-4 flex flex-wrap items-center gap-x-5 gap-y-2 text-[12px] text-muted-foreground">
             {post.metrics.views != null ? (
               <span className="inline-flex items-center gap-1.5">
                 <Eye className="h-3.5 w-3.5" aria-hidden /> {formatMetric(post.metrics.views)}
@@ -480,7 +480,7 @@ function PostPreviewModal({
           <div className="mt-auto flex flex-wrap items-center gap-2 pt-5">
             <Link
               href={`/reader/books/${SEEDED_DEMO_BOOK_ID}`}
-              className="group inline-flex items-center gap-2 rounded-full bg-[var(--brand-violet)] px-4 py-2 text-[13px] font-semibold text-white shadow-[0_8px_22px_-6px_rgba(124,92,252,0.55)] transition hover:scale-[1.02] hover:bg-[var(--brand-violet-hover)] active:scale-[0.98]"
+              className="group inline-flex items-center gap-2 rounded-full bg-primary px-4 py-2 text-[13px] font-semibold text-primary-foreground shadow-[0_8px_22px_-6px_rgba(124,92,252,0.55)] transition hover:scale-[1.02] hover:bg-primary/90 active:scale-[0.98]"
             >
               {post.cta}
               <ArrowRight className="h-3.5 w-3.5 transition-transform group-hover:translate-x-0.5" aria-hidden />
@@ -488,7 +488,7 @@ function PostPreviewModal({
             <button
               type="button"
               onClick={copyCaption}
-              className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-4 py-2 text-[13px] font-medium text-slate-600 hover:bg-slate-50"
+              className="inline-flex items-center gap-2 rounded-full border border-border bg-card px-4 py-2 text-[13px] font-medium text-muted-foreground hover:bg-background"
             >
               {copied ? <Check className="h-3.5 w-3.5 text-[var(--brand-violet)]" aria-hidden /> : <Copy className="h-3.5 w-3.5" aria-hidden />}
               {copied ? "Copied" : "Copy caption"}
@@ -543,10 +543,10 @@ function PrintOnDemandToggle({ disabled }: { disabled: boolean }) {
 
   return (
     <label
-      className={`group mx-auto flex max-w-md cursor-pointer items-center gap-2.5 rounded-xl border bg-white px-3 py-2.5 transition-colors ${
+      className={`group mx-auto flex max-w-md cursor-pointer items-center gap-2.5 rounded-xl border bg-card px-3 py-2.5 transition-colors ${
         enabled
           ? "border-[var(--brand-violet)]/30"
-          : "border-slate-100 hover:border-slate-200"
+          : "border-border hover:border-border"
       } ${disabled ? "cursor-not-allowed opacity-60" : ""}`}
     >
       <input
@@ -559,20 +559,20 @@ function PrintOnDemandToggle({ disabled }: { disabled: boolean }) {
       <span
         className={`flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-lg ${
           enabled
-            ? "bg-[var(--brand-violet)] text-white"
-            : "bg-slate-100 text-slate-500"
+            ? "bg-accent text-accent-foreground"
+            : "bg-muted text-muted-foreground"
         }`}
       >
         <Printer className="h-3.5 w-3.5" aria-hidden />
       </span>
       <span className="min-w-0 flex-1">
-        <span className="flex items-center gap-1.5 text-[13px] font-medium text-slate-900">
+        <span className="flex items-center gap-1.5 text-[13px] font-medium text-foreground">
           Enable global print
           {enabled ? (
             <Check className="h-3 w-3 text-[var(--brand-violet)]" aria-hidden />
           ) : null}
         </span>
-        <span className="text-[11px] text-slate-500">
+        <span className="text-[11px] text-muted-foreground">
           {POD_PARTNERS.length} print partners · live in 24 h
         </span>
       </span>
@@ -594,14 +594,14 @@ function PodModal({ onClose }: { onClose: () => void }) {
 
   return (
     <div
-      className="fixed inset-0 z-[2000] flex items-center justify-center bg-slate-900/50 px-4 backdrop-blur-sm"
+      className="fixed inset-0 z-[2000] flex items-center justify-center bg-primary/50 px-4 backdrop-blur-sm"
       role="dialog"
       aria-modal="true"
       aria-label="Print on demand — partners notified"
       onClick={onClose}
     >
       <div
-        className="w-full max-w-md rounded-2xl border border-slate-100 bg-white p-6"
+        className="w-full max-w-md rounded-2xl border border-border bg-card p-6"
         style={{ animation: "demoPopIn 280ms cubic-bezier(0.34, 1.56, 0.64, 1)" }}
         onClick={(e) => e.stopPropagation()}
       >
@@ -616,7 +616,7 @@ function PodModal({ onClose }: { onClose: () => void }) {
             </h3>
           </div>
         </div>
-        <ul className="mt-4 grid grid-cols-2 gap-2 text-label text-slate-700">
+        <ul className="mt-4 grid grid-cols-2 gap-2 text-label text-foreground">
           {POD_PARTNERS.map((partner) => (
             <li key={partner} className="flex items-center gap-2">
               <Check className="h-4 w-4 text-[var(--brand-violet)]" aria-hidden />
@@ -628,7 +628,7 @@ function PodModal({ onClose }: { onClose: () => void }) {
           <button
             type="button"
             onClick={onClose}
-            className="rounded-md bg-[#0F172A] px-4 py-2 text-label font-medium text-white hover:bg-[#1E293B]"
+            className="rounded-md bg-primary px-4 py-2 text-label font-medium text-primary-foreground hover:bg-primary/90"
           >
             Got it
           </button>
@@ -668,19 +668,19 @@ function SummaryOverlay() {
 
   return (
     <div
-      className="fixed inset-0 z-[1500] flex cursor-pointer items-center justify-center bg-slate-900/10 backdrop-blur-[2px]"
+      className="fixed inset-0 z-[1500] flex cursor-pointer items-center justify-center bg-primary/10 backdrop-blur-[2px]"
       aria-live="polite"
       onClick={() => setVisible(false)}
     >
       <div
-        className="rounded-3xl border border-slate-200 bg-white px-12 py-10 text-center shadow-[0_24px_72px_-12px_rgba(15,23,42,0.25)]"
+        className="rounded-3xl border border-border bg-card px-12 py-10 text-center shadow-[0_24px_72px_-12px_rgba(15,23,42,0.25)]"
         style={{ animation: "demoSummaryPop 360ms cubic-bezier(0.34, 1.56, 0.64, 1)" }}
         onClick={(e) => e.stopPropagation()}
       >
-        <p className="text-[10px] font-semibold uppercase tracking-[0.24em] text-slate-400">
+        <p className="text-[10px] font-semibold uppercase tracking-[0.24em] text-muted-foreground">
           Live · 35 seconds end-to-end
         </p>
-        <p className="mt-2 text-[26px] font-semibold leading-tight tracking-[-0.02em] text-slate-900 sm:text-[32px]">
+        <p className="mt-2 text-[26px] font-semibold leading-tight tracking-[-0.02em] text-foreground sm:text-[32px]">
           10 languages · audiobook · {DEMO_POST_COUNT} native posts
         </p>
         <p className="mt-2 text-[14px] font-medium text-[var(--brand-violet)]">
@@ -688,12 +688,12 @@ function SummaryOverlay() {
         </p>
         <Link
           href={`/reader/books/${SEEDED_DEMO_BOOK_ID}`}
-          className="group mt-5 inline-flex items-center gap-2 rounded-full bg-[var(--brand-violet)] px-5 py-2.5 text-[13px] font-semibold text-white shadow-[0_8px_22px_-6px_rgba(124,92,252,0.55)] transition hover:scale-[1.02] hover:bg-[var(--brand-violet-hover)] active:scale-[0.98]"
+          className="group mt-5 inline-flex items-center gap-2 rounded-full bg-primary px-5 py-2.5 text-[13px] font-semibold text-primary-foreground shadow-[0_8px_22px_-6px_rgba(124,92,252,0.55)] transition hover:scale-[1.02] hover:bg-primary/90 active:scale-[0.98]"
         >
           See it live in the reader
           <ArrowRight className="h-3.5 w-3.5 transition-transform group-hover:translate-x-0.5" aria-hidden />
         </Link>
-        <p className="mt-3 text-[10px] uppercase tracking-[0.22em] text-slate-400">
+        <p className="mt-3 text-[10px] uppercase tracking-[0.22em] text-muted-foreground">
           Press 5 · click anywhere · Esc to close
         </p>
       </div>
@@ -711,7 +711,7 @@ function SummaryOverlay() {
 function CheckmarkPop() {
   return (
     <span
-      className="inline-flex h-9 w-9 items-center justify-center rounded-full bg-[var(--brand-violet)] text-white"
+      className="inline-flex h-9 w-9 items-center justify-center rounded-full bg-accent text-accent-foreground"
       style={{ animation: "demoCheckPop 220ms cubic-bezier(0.34, 1.56, 0.64, 1)" }}
       aria-label="distribution complete"
     >

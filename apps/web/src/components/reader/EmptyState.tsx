@@ -13,9 +13,9 @@ type EmptyStateProps = {
 };
 
 const variantStyles: Record<EmptyStateVariant, string> = {
-  default: "empty-state-base",
-  subtle: "empty-state-base opacity-80",
-  centered: "empty-state-base text-center mx-auto max-w-md py-12",
+  default: "rounded-2xl border border-dashed border-border bg-card p-8 text-center sm:p-10",
+  subtle: "rounded-2xl border border-dashed border-border bg-muted/35 p-6 text-center",
+  centered: "mx-auto max-w-lg rounded-2xl border border-dashed border-border bg-card px-6 py-12 text-center",
 };
 
 export default function EmptyState({
@@ -28,13 +28,13 @@ export default function EmptyState({
   return (
     <div className={variantStyles[variant]}>
       {icon && (
-        <div className="mb-4 flex items-center justify-center text-slate-400 dark:text-white/40">
+        <div className="mx-auto mb-5 flex h-14 w-14 items-center justify-center rounded-2xl bg-accent text-accent-foreground">
           {icon}
         </div>
       )}
-      <p className="text-[15px] font-semibold text-slate-900 dark:text-white">{title}</p>
-      <p className="mt-2 text-helper">{description}</p>
-      {action && <div className="mt-5 flex items-center justify-center gap-3">{action}</div>}
+      <p className="font-display text-xl font-medium text-foreground">{title}</p>
+      <p className="mx-auto mt-2 max-w-md text-sm leading-relaxed text-muted-foreground">{description}</p>
+      {action && <div className="mt-6 flex flex-wrap items-center justify-center gap-3">{action}</div>}
     </div>
   );
 }

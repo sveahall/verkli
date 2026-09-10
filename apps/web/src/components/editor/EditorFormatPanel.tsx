@@ -42,8 +42,8 @@ function FormatButton({
       onMouseDown={(e) => { e.preventDefault(); onClick(); }}
       className={`flex h-9 w-9 items-center justify-center rounded-xl transition ${
         active
-          ? "bg-[#907AFF]/10 text-[#907AFF]"
-          : "text-slate-500 hover:bg-slate-50 hover:text-slate-800 dark:text-white/40 dark:hover:bg-white/5 dark:hover:text-white/70"
+          ? "bg-[#907AFF]/10 text-accent-foreground"
+          : "text-muted-foreground hover:bg-background hover:text-foreground dark:text-muted-foreground dark:hover:bg-accent dark:hover:text-foreground"
       }`}
     >
       {children}
@@ -68,7 +68,7 @@ export default function EditorFormatPanel({
     <div className="space-y-6 p-4">
       {/* Section: TEXT */}
       <section>
-        <h3 className="mb-3 text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-400 dark:text-white/30">
+        <h3 className="mb-3 text-[11px] font-semibold uppercase tracking-[0.12em] text-muted-foreground dark:text-muted-foreground">
           Text
         </h3>
 
@@ -80,7 +80,7 @@ export default function EditorFormatPanel({
             if (val === "p") editor.chain().focus().setParagraph().run();
             else setHeading(Number(val.replace("h", "")) as 1 | 2 | 3);
           }}
-          className="mb-3 w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-[14px] font-medium text-slate-700 outline-none focus:border-[#907AFF]/50 focus:ring-2 focus:ring-[#907AFF]/20 dark:border-white/10 dark:bg-white/5 dark:text-white"
+          className="mb-3 w-full rounded-xl border border-border bg-card px-3 py-2.5 text-[14px] font-medium text-foreground outline-none focus:border-[#907AFF]/50 focus:ring-2 focus:ring-[#907AFF]/20 dark:border-border dark:bg-card dark:text-foreground"
         >
           <option value="p">Paragraph</option>
           <option value="h1">Heading 1</option>
@@ -95,7 +95,7 @@ export default function EditorFormatPanel({
             if (e.target.value) editor.chain().focus().setFontFamily(e.target.value).run();
             else editor.chain().focus().unsetFontFamily().run();
           }}
-          className="mb-3 w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-[14px] font-medium text-slate-700 outline-none focus:border-[#907AFF]/50 focus:ring-2 focus:ring-[#907AFF]/20 dark:border-white/10 dark:bg-white/5 dark:text-white"
+          className="mb-3 w-full rounded-xl border border-border bg-card px-3 py-2.5 text-[14px] font-medium text-foreground outline-none focus:border-[#907AFF]/50 focus:ring-2 focus:ring-[#907AFF]/20 dark:border-border dark:bg-card dark:text-foreground"
         >
           <option value="">Default font</option>
           <option value="Georgia, serif">Georgia</option>
@@ -110,7 +110,7 @@ export default function EditorFormatPanel({
         <select
           value={preset}
           onChange={(e) => onPresetChange(e.target.value)}
-          className="mb-3 w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-[14px] font-medium text-slate-700 outline-none focus:border-[#907AFF]/50 focus:ring-2 focus:ring-[#907AFF]/20 dark:border-white/10 dark:bg-white/5 dark:text-white"
+          className="mb-3 w-full rounded-xl border border-border bg-card px-3 py-2.5 text-[14px] font-medium text-foreground outline-none focus:border-[#907AFF]/50 focus:ring-2 focus:ring-[#907AFF]/20 dark:border-border dark:bg-card dark:text-foreground"
         >
           {Object.keys(WRITING_PRESETS).map((key) => (
             <option key={key} value={key}>{key.charAt(0).toUpperCase() + key.slice(1)}</option>
@@ -120,7 +120,7 @@ export default function EditorFormatPanel({
 
       {/* Section: STYLING */}
       <section>
-        <h3 className="mb-3 text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-400 dark:text-white/30">
+        <h3 className="mb-3 text-[11px] font-semibold uppercase tracking-[0.12em] text-muted-foreground dark:text-muted-foreground">
           Styling
         </h3>
         <div className="grid grid-cols-4 gap-1">
@@ -156,7 +156,7 @@ export default function EditorFormatPanel({
 
       {/* Section: ALIGNMENT */}
       <section>
-        <h3 className="mb-3 text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-400 dark:text-white/30">
+        <h3 className="mb-3 text-[11px] font-semibold uppercase tracking-[0.12em] text-muted-foreground dark:text-muted-foreground">
           Alignment
         </h3>
         <div className="grid grid-cols-4 gap-1">

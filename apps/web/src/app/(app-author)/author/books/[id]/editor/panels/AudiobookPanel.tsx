@@ -114,7 +114,7 @@ export default function AudiobookPanel({
 }: AudiobookPanelProps) {
   return (
     <div className="mx-auto max-w-5xl space-y-6">
-      <h2 className="text-[13px] font-semibold uppercase tracking-[0.08em] text-slate-800 dark:text-white/70">AUDIOBOOK PREVIEW</h2>
+      <h2 className="author-section-title text-[13px] font-medium uppercase tracking-[0.08em] text-foreground dark:text-foreground">AUDIOBOOK PREVIEW</h2>
 
       {/*
         Language badge (read-only — tied to the active book version).
@@ -130,7 +130,7 @@ export default function AudiobookPanel({
         is a feature to build, not a control to fake.
       */}
       <div className="flex flex-wrap gap-4">
-        <div className="flex items-center gap-2 rounded-full border border-slate-200 bg-white px-5 py-2.5 text-sm font-medium text-slate-900 dark:border-white/[0.1] dark:bg-white/[0.04] dark:text-white">
+        <div className="flex items-center gap-2 rounded-full border border-border bg-card px-5 py-2.5 text-sm font-medium text-foreground dark:border-border dark:bg-card dark:text-foreground">
           {getLanguageLabel(normalizeLanguage(activeVersion?.language_code ?? activeLanguage))}
         </div>
       </div>
@@ -145,16 +145,16 @@ export default function AudiobookPanel({
       {/* Two cards side by side */}
       <div className="grid gap-6 lg:grid-cols-2 lg:items-start">
         {/* Left card: Generate audiobook */}
-        <div className="rounded-2xl border border-slate-200 bg-white p-6 dark:border-white/[0.06] dark:bg-white/[0.03]">
-          <h3 className="text-xl font-semibold text-slate-900 dark:text-white">Increase your sales</h3>
-          <p className="mt-1.5 text-sm text-slate-500 dark:text-white/50">Turn your book into a professional audiobook</p>
+        <div className="rounded-2xl border border-border bg-card p-6 dark:border-border dark:bg-card">
+          <h3 className="text-xl font-semibold text-foreground dark:text-foreground">Increase your sales</h3>
+          <p className="mt-1.5 text-sm text-muted-foreground dark:text-muted-foreground">Turn your book into a professional audiobook</p>
 
           {/* Info box */}
-          <div className="mt-5 rounded-xl border border-slate-200 bg-slate-50/80 p-5 dark:border-white/[0.06] dark:bg-white/[0.03]">
-            <p className="text-[15px] text-slate-700 dark:text-white/70">
+          <div className="mt-5 rounded-xl border border-border bg-background/80 p-5 dark:border-border dark:bg-card">
+            <p className="text-[15px] text-foreground dark:text-foreground">
               Languages: <span className="font-semibold">{getLanguageLabel(normalizeLanguage(activeVersion?.language_code ?? activeLanguage))}</span>
             </p>
-            <p className="mt-2 text-[15px] text-slate-700 dark:text-white/70">
+            <p className="mt-2 text-[15px] text-foreground dark:text-foreground">
               Estimated audiobook length: <span className="font-medium">~{(() => {
                 const totalMinutes = Math.round(totalBookWordCount / 150);
                 const hours = Math.floor(totalMinutes / 60);
@@ -163,14 +163,14 @@ export default function AudiobookPanel({
                 return mins > 0 ? `${mins}min` : "< 1min";
               })()}</span>
             </p>
-            <p className="mt-2 text-[15px] text-slate-700 dark:text-white/70">
+            <p className="mt-2 text-[15px] text-foreground dark:text-foreground">
               Estimated generation time: <span className="font-medium">~{(() => {
                 const audiobookMinutes = Math.round(totalBookWordCount / 150);
                 const genMinutes = Math.max(1, Math.round(audiobookMinutes * 0.15));
                 return `${genMinutes}min`;
               })()}</span>
             </p>
-            <p className="mt-3 flex items-center gap-1.5 text-[15px] font-medium text-slate-800 dark:text-white/80">
+            <p className="mt-3 flex items-center gap-1.5 text-[15px] font-medium text-foreground dark:text-foreground">
               <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5}><path d="M5 13l4 4L19 7" /></svg>
               Included in PRO
             </p>
@@ -179,11 +179,11 @@ export default function AudiobookPanel({
           {/* Generation progress */}
           {isAudiobookActive && effectiveAudiobookProgress && (
             <div className="mt-4">
-              <div className="mb-1 flex justify-between text-xs text-slate-600 dark:text-slate-400">
+              <div className="mb-1 flex justify-between text-xs text-muted-foreground dark:text-muted-foreground">
                 <span>{effectiveAudiobookProgress.currentChapterTitle ?? "Processing..."}</span>
                 <span>{effectiveAudiobookProgress.completedChapters} / {effectiveAudiobookProgress.totalChapters}</span>
               </div>
-              <div className="h-2 w-full overflow-hidden rounded-full bg-slate-200 dark:bg-slate-700">
+              <div className="h-2 w-full overflow-hidden rounded-full bg-muted dark:bg-card">
                 <div
                   className="h-full rounded-full bg-[#907AFF] transition-all duration-300"
                   style={{
@@ -193,7 +193,7 @@ export default function AudiobookPanel({
                   }}
                 />
               </div>
-              <p className="mt-1 text-[11px] text-slate-500 dark:text-slate-400">
+              <p className="mt-1 text-[11px] text-muted-foreground dark:text-muted-foreground">
                 {audiobookEtaText ?? "Estimating remaining time..."}
               </p>
             </div>
@@ -201,7 +201,7 @@ export default function AudiobookPanel({
 
           {/* Error messages */}
           {audiobookStatusUi === "cancelled" && (
-            <p className="mt-3 text-xs text-slate-600 dark:text-slate-300">{effectiveAudiobookError ?? "Generation cancelled."}</p>
+            <p className="mt-3 text-xs text-muted-foreground dark:text-muted-foreground">{effectiveAudiobookError ?? "Generation cancelled."}</p>
           )}
           {audiobookStatusUi === "failed" && (
             <p className="mt-3 text-xs text-red-600 dark:text-red-400">{effectiveAudiobookError ?? "Could not create audiobook. Try again."}</p>
@@ -215,7 +215,7 @@ export default function AudiobookPanel({
             type="button"
             onClick={() => void handleGenerateAudiobook()}
             disabled={isAudiobookActive || !audiobookFeatureEnabled || billingLoading || (billingIsProActive && audiobookScope !== "book" && audiobookRequestedChapterIds.length === 0)}
-            className="mt-5 rounded-xl bg-[#0F172A] px-8 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-[#1E293B] disabled:cursor-not-allowed disabled:opacity-50"
+            className="mt-5 rounded-xl bg-primary px-8 py-3 text-sm font-semibold text-primary-foreground shadow-sm transition hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-50"
           >
             {!audiobookFeatureEnabled
               ? "Generate audiobook (unavailable)"
@@ -234,12 +234,12 @@ export default function AudiobookPanel({
               <span
                 className={`inline-block rounded-full px-2.5 py-1 text-xs font-medium ${
                   audiobookStatusUi === "published"
-                    ? "bg-[#907AFF]/15 text-[#5c4bb8] dark:bg-[#907AFF]/25 dark:text-[#b8a9ff]"
+                    ? "bg-[#907AFF]/15 text-accent-foreground dark:bg-[#907AFF]/25 dark:text-accent-foreground"
                     : audiobookStatusUi === "failed"
                       ? "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300"
                       : audiobookStatusUi === "cancelled"
-                        ? "bg-slate-200 text-slate-700 dark:bg-slate-700 dark:text-slate-200"
-                        : "bg-slate-100 text-slate-700 dark:bg-slate-700 dark:text-slate-200"
+                        ? "bg-muted text-foreground dark:bg-card dark:text-muted-foreground"
+                        : "bg-muted text-foreground dark:bg-card dark:text-muted-foreground"
                 }`}
               >
                 {getAudiobookStatusLabel(audiobookStatusUi)}
@@ -255,8 +255,8 @@ export default function AudiobookPanel({
                 onClick={() => setAudiobookScope("book")}
                 className={`rounded-full border px-3 py-2 text-xs font-medium transition ${
                   audiobookScope === "book"
-                    ? "border-[#907AFF]/40 bg-[#907AFF]/10 text-[#5c4bb8]"
-                    : "border-slate-200 bg-white text-slate-600 hover:bg-slate-50"
+                    ? "border-[#907AFF]/40 bg-[#907AFF]/10 text-accent-foreground"
+                    : "border-border bg-card text-muted-foreground hover:bg-background"
                 }`}
               >
                 Whole book
@@ -266,8 +266,8 @@ export default function AudiobookPanel({
                 onClick={() => setAudiobookScope("current")}
                 className={`rounded-full border px-3 py-2 text-xs font-medium transition ${
                   audiobookScope === "current"
-                    ? "border-[#907AFF]/40 bg-[#907AFF]/10 text-[#5c4bb8]"
-                    : "border-slate-200 bg-white text-slate-600 hover:bg-slate-50"
+                    ? "border-[#907AFF]/40 bg-[#907AFF]/10 text-accent-foreground"
+                    : "border-border bg-card text-muted-foreground hover:bg-background"
                 }`}
               >
                 Current chapter
@@ -285,8 +285,8 @@ export default function AudiobookPanel({
                 }}
                 className={`rounded-full border px-3 py-2 text-xs font-medium transition ${
                   audiobookScope === "selected"
-                    ? "border-[#907AFF]/40 bg-[#907AFF]/10 text-[#5c4bb8]"
-                    : "border-slate-200 bg-white text-slate-600 hover:bg-slate-50"
+                    ? "border-[#907AFF]/40 bg-[#907AFF]/10 text-accent-foreground"
+                    : "border-border bg-card text-muted-foreground hover:bg-background"
                 }`}
               >
                 Select chapter
@@ -296,28 +296,28 @@ export default function AudiobookPanel({
 
           {/* Chapter picker for selected scope */}
           {audiobookScope === "selected" && (
-            <div className="mt-3 rounded-xl border border-slate-200 bg-white/70 p-3 dark:border-white/[0.08] dark:bg-white/[0.03]">
+            <div className="mt-3 rounded-xl border border-border bg-white/70 p-3 dark:border-border dark:bg-card">
               <button
                 type="button"
                 onClick={() => setIsAudiobookChapterPickerOpen((prev) => !prev)}
-                className="mb-2 w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-left text-xs font-medium text-slate-700 transition hover:bg-slate-50 dark:border-white/[0.08] dark:bg-white/[0.04] dark:text-white"
+                className="mb-2 w-full rounded-lg border border-border bg-card px-3 py-2 text-left text-xs font-medium text-foreground transition hover:bg-background dark:border-border dark:bg-card dark:text-foreground"
               >
                 {isAudiobookChapterPickerOpen ? "Hide chapter list" : "Show chapter list"}
               </button>
               {isAudiobookChapterPickerOpen && (
                 <>
                   <div className="mb-2 flex flex-wrap gap-2">
-                    <button type="button" onClick={() => setAudiobookSelectedChapterIds(chapters.map((ch) => ch.id))} className="rounded-md border border-slate-200 px-2 py-1 text-[11px] text-slate-600 hover:bg-slate-50">Select all</button>
-                    <button type="button" onClick={() => setAudiobookSelectedChapterIds([])} className="rounded-md border border-slate-200 px-2 py-1 text-[11px] text-slate-600 hover:bg-slate-50">Clear</button>
+                    <button type="button" onClick={() => setAudiobookSelectedChapterIds(chapters.map((ch) => ch.id))} className="rounded-md border border-border px-2 py-1 text-[11px] text-muted-foreground hover:bg-background">Select all</button>
+                    <button type="button" onClick={() => setAudiobookSelectedChapterIds([])} className="rounded-md border border-border px-2 py-1 text-[11px] text-muted-foreground hover:bg-background">Clear</button>
                   </div>
                   <div className="max-h-44 space-y-1 overflow-y-auto pr-1">
                     {chapters.map((chapter) => (
-                      <label key={chapter.id} className="flex cursor-pointer items-center gap-2 rounded-md px-2 py-1.5 text-xs text-slate-700 hover:bg-slate-50">
+                      <label key={chapter.id} className="flex cursor-pointer items-center gap-2 rounded-md px-2 py-1.5 text-xs text-foreground hover:bg-background">
                         <input
                           type="checkbox"
                           checked={audiobookSelectedChapterIds.includes(chapter.id)}
                           onChange={() => setAudiobookSelectedChapterIds((prev) => prev.includes(chapter.id) ? prev.filter((id) => id !== chapter.id) : [...prev, chapter.id])}
-                          className="h-3.5 w-3.5 rounded border-slate-300 text-[#907AFF] focus:ring-[#907AFF]"
+                          className="h-3.5 w-3.5 rounded border-border text-accent-foreground focus:ring-[#907AFF]"
                         />
                         <span className="truncate">{chapter.title || "Untitled chapter"}</span>
                       </label>
@@ -331,10 +331,10 @@ export default function AudiobookPanel({
           {/* Control buttons during generation */}
           {isAudiobookActive && (
             <div className="mt-3 grid grid-cols-3 gap-2">
-              <button type="button" onClick={() => void handleAudiobookControl("pause")} disabled={!canPauseAudiobook} className="rounded-full border border-slate-200 bg-white px-3 py-2 text-xs font-medium text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50">
+              <button type="button" onClick={() => void handleAudiobookControl("pause")} disabled={!canPauseAudiobook} className="rounded-full border border-border bg-card px-3 py-2 text-xs font-medium text-foreground transition hover:bg-background disabled:cursor-not-allowed disabled:opacity-50">
                 {audiobookControlPending === "pause" ? "Pausing..." : "Pause"}
               </button>
-              <button type="button" onClick={() => void handleAudiobookControl("resume")} disabled={!canResumeAudiobook} className="rounded-full border border-slate-200 bg-white px-3 py-2 text-xs font-medium text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50">
+              <button type="button" onClick={() => void handleAudiobookControl("resume")} disabled={!canResumeAudiobook} className="rounded-full border border-border bg-card px-3 py-2 text-xs font-medium text-foreground transition hover:bg-background disabled:cursor-not-allowed disabled:opacity-50">
                 {audiobookControlPending === "resume" ? "Resuming..." : "Resume"}
               </button>
               <button type="button" onClick={() => void handleAudiobookControl("cancel")} disabled={!canCancelAudiobook} className="rounded-full border border-red-200 bg-red-50 px-3 py-2 text-xs font-medium text-red-700 transition hover:bg-red-100 disabled:cursor-not-allowed disabled:opacity-50">
@@ -344,15 +344,15 @@ export default function AudiobookPanel({
           )}
 
           {!audiobookFeatureEnabled && (
-            <p className="mt-2 text-xs text-slate-600 dark:text-white/60">
+            <p className="mt-2 text-xs text-muted-foreground dark:text-muted-foreground">
               Audiobook generation is temporarily disabled.
             </p>
           )}
         </div>
 
         {/* Right card: Languages */}
-        <div className="rounded-2xl border border-slate-200 bg-white p-6 dark:border-white/[0.06] dark:bg-white/[0.03]">
-          <h3 className="text-xl font-semibold text-slate-900 dark:text-white">Audiobook in more languages:</h3>
+        <div className="rounded-2xl border border-border bg-card p-6 dark:border-border dark:bg-card">
+          <h3 className="text-xl font-semibold text-foreground dark:text-foreground">Audiobook in more languages:</h3>
           <AudiobookLanguageList
             bookLanguage={bookLanguage}
             bookOriginalLanguage={bookOriginalLanguage}

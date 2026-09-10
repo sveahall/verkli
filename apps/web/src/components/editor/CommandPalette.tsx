@@ -39,7 +39,7 @@ function matchesQuery(item: CommandPaletteItem, query: string) {
 
 function IconBadge({ icon }: { icon?: string }) {
   if (!icon) {
-    return <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-slate-100 dark:bg-white/10">•</span>;
+    return <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-muted dark:bg-card">•</span>;
   }
 
   const labels: Record<string, string> = {
@@ -53,7 +53,7 @@ function IconBadge({ icon }: { icon?: string }) {
   };
 
   return (
-    <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-slate-100 text-xs font-semibold text-slate-600 dark:bg-white/10 dark:text-white/70">
+    <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-muted text-xs font-semibold text-muted-foreground dark:bg-card dark:text-foreground">
       {labels[icon] ?? icon.slice(0, 1).toUpperCase()}
     </span>
   );
@@ -154,11 +154,11 @@ function PaletteDialog({
       onClick={onClose}
     >
       <div
-        className="w-full max-w-2xl overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl dark:border-white/10 dark:bg-slate-950"
+        className="w-full max-w-2xl overflow-hidden rounded-2xl border border-border bg-card shadow-2xl dark:border-border dark:bg-card"
         onClick={(event) => event.stopPropagation()}
       >
-        <div className="border-b border-slate-200 px-4 py-3 dark:border-white/10">
-          <p className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-400 dark:text-white/35">
+        <div className="border-b border-border px-4 py-3 dark:border-border">
+          <p className="text-xs font-semibold uppercase tracking-[0.16em] text-muted-foreground dark:text-muted-foreground">
             {title}
           </p>
           <input
@@ -170,7 +170,7 @@ function PaletteDialog({
               setSelected(0);
             }}
             placeholder={placeholder}
-            className="mt-2 w-full border-0 bg-transparent p-0 text-base text-slate-900 outline-none placeholder:text-slate-400 dark:text-white dark:placeholder:text-white/30"
+            className="mt-2 w-full border-0 bg-transparent p-0 text-base text-foreground outline-none placeholder:text-muted-foreground dark:text-foreground dark:placeholder:text-muted-foreground"
           />
         </div>
 
@@ -182,20 +182,20 @@ function PaletteDialog({
                   key={index}
                   className="flex animate-pulse items-center gap-3 rounded-xl px-3 py-3"
                 >
-                  <div className="h-8 w-8 rounded-lg bg-slate-200 dark:bg-white/10" />
+                  <div className="h-8 w-8 rounded-lg bg-muted dark:bg-card" />
                   <div className="min-w-0 flex-1 space-y-2">
-                    <div className="h-3 w-32 rounded-full bg-slate-200 dark:bg-white/10" />
-                    <div className="h-3 w-48 rounded-full bg-slate-100 dark:bg-white/5" />
+                    <div className="h-3 w-32 rounded-full bg-muted dark:bg-card" />
+                    <div className="h-3 w-48 rounded-full bg-muted dark:bg-card" />
                   </div>
                 </div>
               ))}
             </div>
           ) : filteredItems.length === 0 ? (
-            <p className="px-3 py-6 text-sm text-slate-500 dark:text-white/45">{emptyMessage}</p>
+            <p className="px-3 py-6 text-sm text-muted-foreground dark:text-muted-foreground">{emptyMessage}</p>
           ) : (
             groupedItems.map((group) => (
               <div key={group.group} className="pb-2">
-                <p className="px-3 py-2 text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-400 dark:text-white/30">
+                <p className="px-3 py-2 text-[11px] font-semibold uppercase tracking-[0.16em] text-muted-foreground dark:text-muted-foreground">
                   {group.group}
                 </p>
                 <div className="space-y-1">
@@ -214,21 +214,21 @@ function PaletteDialog({
                         onClick={() => item.onSelect()}
                         className={`flex w-full items-center gap-3 rounded-xl px-3 py-3 text-left transition ${
                           isSelected
-                            ? "bg-slate-100 text-slate-900 dark:bg-white/10 dark:text-white"
-                            : "text-slate-700 hover:bg-slate-50 dark:text-white/70 dark:hover:bg-white/5"
+                            ? "bg-muted text-foreground dark:bg-card dark:text-foreground"
+                            : "text-foreground hover:bg-background dark:text-foreground dark:hover:bg-accent"
                         }`}
                       >
                         <IconBadge icon={item.icon} />
                         <div className="min-w-0 flex-1">
                           <p className="truncate text-sm font-medium">{item.label}</p>
                           {item.subtitle ? (
-                            <p className="truncate text-xs text-slate-500 dark:text-white/40">
+                            <p className="truncate text-xs text-muted-foreground dark:text-muted-foreground">
                               {item.subtitle}
                             </p>
                           ) : null}
                         </div>
                         {item.shortcut ? (
-                          <kbd className="rounded border border-slate-200 px-2 py-0.5 text-[11px] text-slate-400 dark:border-white/10 dark:text-white/35">
+                          <kbd className="rounded border border-border px-2 py-0.5 text-[11px] text-muted-foreground dark:border-border dark:text-muted-foreground">
                             {item.shortcut}
                           </kbd>
                         ) : null}

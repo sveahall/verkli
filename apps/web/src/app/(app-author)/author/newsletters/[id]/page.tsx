@@ -53,18 +53,18 @@ export default async function NewsletterDetailPage({
       <div className="mb-6 flex items-center gap-3">
         <Link
           href="/author/newsletters"
-          className="text-[13px] text-slate-500 hover:text-slate-900 dark:text-white/50 dark:hover:text-white"
+          className="text-[13px] text-muted-foreground hover:text-foreground dark:text-muted-foreground dark:hover:text-foreground"
         >
           <span aria-hidden>←</span> Back to newsletters
         </Link>
       </div>
 
-      <h1 className="text-page-title mb-6">
+      <h1 className="author-page-title mb-6">
         {typed.status === "draft" ? "Edit newsletter" : "Newsletter"}
       </h1>
 
       {typed.status === "sent" && (
-        <div className="mb-6 flex items-center gap-3 text-[13px] text-slate-500 dark:text-white/50">
+        <div className="mb-6 flex items-center gap-3 text-[13px] text-muted-foreground dark:text-muted-foreground">
           <span className="inline-flex rounded-full bg-green-50 px-2 py-0.5 text-[11px] font-medium text-green-700 dark:bg-green-950/30 dark:text-green-400">
             Sent
           </span>

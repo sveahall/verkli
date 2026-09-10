@@ -122,7 +122,7 @@ export default function PollCreator({
           <div className="space-y-1.5">
             <label
               htmlFor="poll-question"
-              className="text-[13px] font-medium text-slate-700 dark:text-white/70"
+              className="text-[13px] font-medium text-foreground dark:text-muted-foreground"
             >
               Question
             </label>
@@ -134,12 +134,12 @@ export default function PollCreator({
               value={question}
               onChange={(e) => setQuestion(e.target.value)}
               placeholder="Which book should we read next?"
-              className="min-h-[44px] w-full rounded-xl border border-slate-200/80 bg-white px-4 text-[14px] text-slate-700 transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#907AFF]/40 focus-visible:ring-offset-2 focus-visible:ring-offset-white dark:border-white/10 dark:bg-white/5 dark:text-white dark:focus-visible:ring-offset-[#0b0b12]"
+              className="min-h-[44px] w-full rounded-xl border border-border bg-card px-4 text-[14px] text-foreground transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#907AFF]/40 focus-visible:ring-offset-2 focus-visible:ring-offset-background dark:focus-visible:ring-offset-background"
             />
           </div>
 
           <div className="space-y-2">
-            <label className="text-[13px] font-medium text-slate-700 dark:text-white/70">
+            <label className="text-[13px] font-medium text-foreground dark:text-muted-foreground">
               Answer options
             </label>
             {options.map((opt, i) => (
@@ -150,13 +150,13 @@ export default function PollCreator({
                   value={opt}
                   onChange={(e) => updateOption(i, e.target.value)}
                   placeholder={`Option ${i + 1}`}
-                  className="min-h-[40px] flex-1 rounded-xl border border-slate-200/80 bg-white px-4 text-[14px] text-slate-700 transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#907AFF]/40 focus-visible:ring-offset-2 focus-visible:ring-offset-white dark:border-white/10 dark:bg-white/5 dark:text-white dark:focus-visible:ring-offset-[#0b0b12]"
+                  className="min-h-[44px] flex-1 rounded-xl border border-border bg-card px-4 text-[14px] text-foreground transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#907AFF]/40 focus-visible:ring-offset-2 focus-visible:ring-offset-background dark:focus-visible:ring-offset-background"
                 />
                 {options.length > 2 && (
                   <button
                     type="button"
                     onClick={() => removeOption(i)}
-                    className="flex h-8 w-8 items-center justify-center rounded-full text-slate-400 hover:bg-red-50 hover:text-red-600 dark:text-white/40 dark:hover:bg-red-950/30 dark:hover:text-red-400"
+                    className="flex h-8 w-8 items-center justify-center rounded-full text-muted-foreground hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-950/30 dark:hover:text-red-400"
                     aria-label="Remove option"
                   >
                     <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
@@ -170,7 +170,7 @@ export default function PollCreator({
               <button
                 type="button"
                 onClick={addOption}
-                className="text-[13px] font-medium text-slate-500 hover:text-slate-900 dark:text-white/50 dark:hover:text-white"
+                className="text-[13px] font-medium text-muted-foreground hover:text-foreground dark:hover:text-foreground"
               >
                 + Add option
               </button>
@@ -180,7 +180,7 @@ export default function PollCreator({
           <div className="space-y-1.5">
             <label
               htmlFor="poll-closes"
-              className="text-[13px] font-medium text-slate-700 dark:text-white/70"
+              className="text-[13px] font-medium text-foreground dark:text-muted-foreground"
             >
               Closes (optional)
             </label>
@@ -189,7 +189,7 @@ export default function PollCreator({
               type="datetime-local"
               value={closesAt}
               onChange={(e) => setClosesAt(e.target.value)}
-              className="min-h-[44px] w-full rounded-xl border border-slate-200/80 bg-white px-4 text-[14px] text-slate-700 transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#907AFF]/40 focus-visible:ring-offset-2 focus-visible:ring-offset-white dark:border-white/10 dark:bg-white/5 dark:text-white dark:focus-visible:ring-offset-[#0b0b12]"
+              className="min-h-[44px] w-full rounded-xl border border-border bg-card px-4 text-[14px] text-foreground transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#907AFF]/40 focus-visible:ring-offset-2 focus-visible:ring-offset-background dark:focus-visible:ring-offset-background"
             />
           </div>
         </DialogBody>

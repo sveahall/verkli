@@ -79,7 +79,7 @@ export default function PurchaseChapterButton({ bookId, chapterId, amount, curre
         // the DESIGN.md:159 minimum; the h-11 siblings in the paywall card
         // already sit at that height, so this also stops it looking undersized
         // next to them.
-        className="inline-flex min-h-11 items-center justify-center rounded-full bg-[#907AFF] px-5 text-[14px] font-semibold text-white transition hover:bg-[#8069EE] disabled:cursor-not-allowed disabled:opacity-60"
+        className="inline-flex min-h-11 items-center justify-center rounded-full bg-primary px-5 text-[14px] font-medium text-primary-foreground transition-colors hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-60"
       >
         {loading ? "..." : label ?? `Buy (${formatMoney(amount, currency)})`}
       </button>

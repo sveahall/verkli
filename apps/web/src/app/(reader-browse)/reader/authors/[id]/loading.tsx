@@ -9,7 +9,7 @@ export default function AuthorProfileLoading() {
         <Skeleton height={16} width={320} />
       </div>
 
-      <div className="flex flex-wrap items-center gap-4 rounded-2xl border border-slate-200/70 bg-white/80 px-5 py-4 dark:border-white/10 dark:bg-white/5">
+      <div className="flex flex-wrap items-center gap-4 rounded-2xl border border-border bg-card/80 px-5 py-4 dark:bg-card">
         <Skeleton width={64} height={64} rounded="full" />
         <div className="space-y-2">
           <Skeleton height={18} width={140} />
@@ -22,7 +22,7 @@ export default function AuthorProfileLoading() {
         <div className="flex flex-wrap gap-6">
           {Array.from({ length: 4 }).map((_, i) => (
             <div key={i} className="w-[180px] flex-shrink-0">
-              <div className="aspect-[3/4] w-full animate-pulse rounded-xl bg-slate-200 dark:bg-white/10" />
+              <div className="aspect-[3/4] w-full animate-pulse rounded-xl bg-muted dark:bg-card" />
               <div className="mt-3 space-y-2">
                 <Skeleton height={16} className="w-3/4" />
                 <Skeleton height={12} className="w-1/2" />

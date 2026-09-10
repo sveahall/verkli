@@ -29,7 +29,7 @@ export default function ReviewStars({
             className={`${iconSizeClass} transition ${
               active
                 ? "fill-amber-400 text-amber-400"
-                : "fill-transparent text-slate-300 dark:text-white/25"
+                : "fill-transparent text-muted-foreground "
             }`}
             aria-hidden="true"
           />

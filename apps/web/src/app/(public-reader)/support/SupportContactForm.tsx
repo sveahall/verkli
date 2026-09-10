@@ -62,7 +62,7 @@ export default function SupportContactForm({ isSignedIn }: { isSignedIn: boolean
     return (
       <div
         role="status"
-        className="card-base p-6 sm:p-8"
+        className="rounded-2xl border border-border bg-card p-6 sm:p-8"
         data-testid="support-success"
       >
         <div className="flex items-start gap-3">
@@ -93,7 +93,7 @@ export default function SupportContactForm({ isSignedIn }: { isSignedIn: boolean
   }
 
   return (
-    <form onSubmit={onSubmit} className="card-base space-y-5 p-6 sm:p-8">
+    <form onSubmit={onSubmit} className="space-y-5 rounded-2xl border border-border bg-card p-6 sm:p-8">
       {state.kind === "error" && (
         <div
           role="alert"

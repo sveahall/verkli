@@ -50,14 +50,14 @@ function StatusBadge({ status }: { status: AuthorApplicationStatus }) {
 function DetailField({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div>
-      <p className="text-xs font-medium uppercase tracking-wider text-slate-400 dark:text-white/40">{label}</p>
-      <div className="mt-0.5 text-slate-800 dark:text-white">{children}</div>
+      <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">{label}</p>
+      <div className="mt-0.5 text-foreground">{children}</div>
     </div>
   );
 }
 
 function LongText({ value }: { value: string | null }) {
-  if (!value) return <span className="text-slate-400 dark:text-white/30">Not provided</span>;
+  if (!value) return <span className="text-muted-foreground">Not provided</span>;
   return <p className="whitespace-pre-wrap text-[14px] leading-relaxed">{value}</p>;
 }
 
@@ -192,7 +192,7 @@ export default function AdminAuthorApplicationsPage() {
       ) : (
         <section className="mt-8 space-y-5">
           <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-            <p className="text-[14px] text-slate-600 dark:text-white/60">
+            <p className="text-[14px] text-muted-foreground">
               <span className="font-semibold text-[var(--color-warning)] tabular-nums">{pendingCount} pending</span>{" "}
               of <span className="tabular-nums">{applications.length}</span> total
             </p>
@@ -261,14 +261,14 @@ export default function AdminAuthorApplicationsPage() {
                         className="flex min-w-0 items-center gap-3 text-left"
                         aria-expanded={isExpanded}
                       >
-                        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-slate-100 text-sm font-medium text-slate-600 dark:bg-white/10 dark:text-white/70">
+                        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-muted text-sm font-medium text-muted-foreground dark:bg-card">
                           {application.first_name?.[0]?.toUpperCase() ?? "?"}
                         </div>
                         <div className="min-w-0">
-                          <p className="truncate text-sm font-medium text-slate-900 dark:text-white">
+                          <p className="truncate text-sm font-medium text-foreground">
                             {name || "No name provided"}
                           </p>
-                          <p className="truncate text-xs text-slate-500 dark:text-white/50">
+                          <p className="truncate text-xs text-muted-foreground">
                             {application.email ?? application.auth_email ?? "No email"}
                           </p>
                         </div>
@@ -276,7 +276,7 @@ export default function AdminAuthorApplicationsPage() {
 
                       <div className="flex shrink-0 flex-wrap items-center gap-3">
                         <StatusBadge status={application.status} />
-                        <span className="hidden text-xs text-slate-400 tabular-nums dark:text-white/40 sm:inline">
+                        <span className="hidden text-xs text-muted-foreground tabular-nums sm:inline">
                           {formatDate(application.created_at)}
                         </span>
                         <div className="flex gap-2">
@@ -305,13 +305,13 @@ export default function AdminAuthorApplicationsPage() {
 
                     {/* Expanded details */}
                     {isExpanded && (
-                      <div className="space-y-5 border-t border-slate-100 px-4 py-4 dark:border-white/5">
+                      <div className="space-y-5 border-t border-border px-4 py-4">
                         <div className="grid gap-4 text-sm sm:grid-cols-2">
                           <DetailField label="Name">{name || "Not provided"}</DetailField>
                           <DetailField label="Contact email">{application.email ?? "Not provided"}</DetailField>
                           <DetailField label="Auth email">{application.auth_email ?? "Unknown"}</DetailField>
                           <DetailField label="User ID">
-                            <span className="font-mono text-xs text-slate-600 dark:text-white/60">
+                            <span className="font-mono text-xs text-muted-foreground">
                               {application.user_id}
                             </span>
                           </DetailField>
@@ -331,17 +331,17 @@ export default function AdminAuthorApplicationsPage() {
                                 href={application.published_books_url}
                                 target="_blank"
                                 rel="noopener noreferrer"
-                                className="inline-block break-all text-[var(--brand-violet)] underline hover:opacity-80 dark:text-[#b6a6ff]"
+                                className="inline-block break-all text-accent-foreground underline hover:opacity-80 dark:text-accent-foreground"
                               >
                                 {application.published_books_url}
                               </a>
                             ) : (
-                              <span className="text-slate-400 dark:text-white/30">None</span>
+                              <span className="text-muted-foreground">None</span>
                             )}
                           </DetailField>
                         </div>
 
-                        <div className="space-y-4 border-t border-slate-100 pt-4 dark:border-white/5">
+                        <div className="space-y-4 border-t border-border pt-4">
                           <DetailField label="Why they want to publish">
                             <LongText value={application.motivation} />
                           </DetailField>

@@ -34,21 +34,21 @@ export default function ReaderHighlightsPanel({
   onScrollToHighlight,
 }: ReaderHighlightsPanelProps) {
   return (
-    <section className="rounded-xl border border-black/[0.06] bg-white p-4 shadow-sm dark:border-white/10 dark:bg-white/[0.03]">
+    <section className="rounded-xl border border-black/[0.06] bg-card p-4 shadow-sm dark:border-border dark:bg-card">
       <button
         type="button"
         onClick={onToggle}
         className="flex w-full items-center justify-between gap-2 text-left"
       >
         <div className="flex items-center gap-2">
-          <h3 className="text-sm font-semibold text-[#0F172A] dark:text-white">
+          <h3 className="text-sm font-medium text-foreground dark:text-foreground font-display">
             Highlights
           </h3>
-          <span className="text-xs text-[#64748B] dark:text-white/50">
+          <span className="text-xs text-muted-foreground dark:text-muted-foreground">
             {highlightCountLabel}
           </span>
         </div>
-        <span className="text-xs font-medium text-[#907AFF]">
+        <span className="text-xs font-medium text-accent-foreground">
           {showHighlightsPanel ? "Hide" : "Show"}
         </span>
       </button>
@@ -62,7 +62,7 @@ export default function ReaderHighlightsPanel({
       {showHighlightsPanel && (
         <>
           {highlights.length === 0 ? (
-            <p className="mt-4 text-sm text-[#64748B] dark:text-white/60">
+            <p className="mt-4 text-sm text-muted-foreground dark:text-muted-foreground">
               Select text in this chapter to add your first highlight.
             </p>
           ) : (
@@ -72,21 +72,21 @@ export default function ReaderHighlightsPanel({
                 return (
                   <article
                     key={highlight.id}
-                    className="rounded-xl border border-black/[0.06] bg-[#F8F9FB] p-3 dark:border-white/10 dark:bg-white/[0.03]"
+                    className="rounded-xl border border-black/[0.06] bg-muted p-3 dark:border-border dark:bg-card"
                   >
                     <button
                       type="button"
                       onClick={() => onScrollToHighlight(highlight)}
                       className="w-full text-left"
                     >
-                      <div className="flex items-center gap-2 text-xs text-[#64748B] dark:text-white/50">
+                      <div className="flex items-center gap-2 text-xs text-muted-foreground dark:text-muted-foreground">
                         <span
                           className="h-2 w-2 rounded-full"
                           style={{ backgroundColor: colorMeta.swatch }}
                         />
                         {colorMeta.label}
                       </div>
-                      <p className="mt-1.5 text-sm leading-relaxed text-[#0F172A] dark:text-white/80">
+                      <p className="mt-1.5 text-sm leading-relaxed text-foreground dark:text-foreground">
                         &quot;{highlight.snippet}&quot;
                       </p>
                     </button>
@@ -97,7 +97,7 @@ export default function ReaderHighlightsPanel({
                         onNoteDraftChange(highlight.id, event.target.value)
                       }
                       placeholder="Add a note"
-                      className="mt-2 min-h-[68px] w-full rounded-xl border border-black/[0.06] bg-white px-3 py-2 text-xs text-[#0F172A] outline-none transition focus:border-[#907AFF]/40 focus:ring-2 focus:ring-[#907AFF]/15 dark:border-white/10 dark:bg-white/[0.03] dark:text-white/80"
+                      className="mt-2 min-h-[68px] w-full rounded-xl border border-black/[0.06] bg-card px-3 py-2 text-xs text-foreground outline-none transition focus:border-[#907AFF]/40 focus:ring-2 focus:ring-[#907AFF]/15 dark:border-border dark:bg-card dark:text-foreground"
                     />
 
                     <div className="mt-2 flex items-center justify-between gap-2">
@@ -105,7 +105,7 @@ export default function ReaderHighlightsPanel({
                         type="button"
                         onClick={() => onSaveNote(highlight.id)}
                         disabled={savingNoteId === highlight.id || !userId}
-                        className="rounded-xl border border-black/[0.06] px-3 py-1 text-xs font-medium text-[#0F172A] transition-colors hover:bg-black/[0.03] disabled:pointer-events-none disabled:opacity-40 dark:border-white/10 dark:text-white/70"
+                        className="rounded-xl border border-black/[0.06] px-3 py-1 text-xs font-medium text-foreground transition-colors hover:bg-black/[0.03] disabled:pointer-events-none disabled:opacity-40 dark:border-border dark:text-muted-foreground"
                       >
                         {savingNoteId === highlight.id ? "Saving..." : "Save note"}
                       </button>

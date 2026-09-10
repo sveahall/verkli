@@ -268,35 +268,35 @@ export default async function ReaderProfilePage({ searchParams }: PageProps) {
         actions={
           <Link
             href="/reader/library"
-            className="inline-flex min-h-[40px] items-center rounded-full bg-slate-900 px-4 py-2 text-[13px] font-semibold text-white transition hover:bg-slate-800 dark:bg-white dark:text-slate-900"
+            className="inline-flex min-h-[44px] items-center rounded-full bg-foreground px-4 py-2 text-[13px] font-semibold text-white transition hover:bg-foreground dark:text-background"
           >
             My library
           </Link>
         }
       />
 
-      <section className="rounded-3xl border border-slate-200/70 bg-white/80 p-6 shadow-[0_16px_30px_rgba(15,23,42,0.08)] dark:border-white/10 dark:bg-white/5">
+      <section className="rounded-3xl border border-border bg-card/80 p-6 shadow-[0_16px_30px_rgba(15,23,42,0.08)] dark:bg-card">
         <div className="flex flex-col gap-6 md:flex-row md:items-center md:justify-between">
           <div className="flex items-center gap-5">
-            <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-slate-900 text-[20px] font-semibold text-white dark:bg-white dark:text-slate-900">
+            <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-foreground text-[20px] font-semibold text-white dark:text-background">
               {initials}
             </div>
             <div>
-              <p className="text-[18px] font-semibold text-slate-900 dark:text-white">{displayName}</p>
-              <p className="text-[13px] text-slate-500 dark:text-white/60">Reader</p>
+              <p className="text-[18px] font-semibold text-foreground">{displayName}</p>
+              <p className="text-[13px] text-muted-foreground">Reader</p>
             </div>
           </div>
           <div className="flex flex-wrap gap-3">
             <Link
               href="/reader/bookmarks"
-              className="inline-flex min-h-[40px] items-center rounded-full border border-slate-200/80 bg-white/80 px-4 py-2 text-[13px] font-medium text-slate-700 transition hover:border-slate-300 hover:text-slate-900 dark:border-white/10 dark:bg-white/5 dark:text-white/70 dark:hover:text-white"
+              className="inline-flex min-h-[44px] items-center rounded-full border border-border bg-card/80 px-4 py-2 text-[13px] font-medium text-foreground transition hover:border-border hover:text-foreground dark:bg-card dark:text-muted-foreground dark:hover:text-foreground"
             >
               Bookmarks
             </Link>
             {discoverHref && (
               <Link
                 href={discoverHref}
-                className="inline-flex min-h-[40px] items-center rounded-full border border-slate-200/80 bg-white/80 px-4 py-2 text-[13px] font-medium text-slate-700 transition hover:border-slate-300 hover:text-slate-900 dark:border-white/10 dark:bg-white/5 dark:text-white/70 dark:hover:text-white"
+                className="inline-flex min-h-[44px] items-center rounded-full border border-border bg-card/80 px-4 py-2 text-[13px] font-medium text-foreground transition hover:border-border hover:text-foreground dark:bg-card dark:text-muted-foreground dark:hover:text-foreground"
               >
                 Discover
               </Link>
@@ -309,10 +309,10 @@ export default async function ReaderProfilePage({ searchParams }: PageProps) {
             {stats.map((stat) => (
               <div
                 key={stat.label}
-                className="rounded-2xl border border-slate-200/60 bg-white/80 px-4 py-4 text-left dark:border-white/10 dark:bg-white/5"
+                className="rounded-2xl border border-border bg-card/80 px-4 py-4 text-left dark:bg-card"
               >
-                <p className="text-[12px] text-slate-500 dark:text-white/60">{stat.label}</p>
-                <p className="mt-2 text-[18px] font-semibold text-slate-900 dark:text-white">
+                <p className="text-[12px] text-muted-foreground">{stat.label}</p>
+                <p className="mt-2 text-[18px] font-semibold text-foreground">
                   {stat.value}
                 </p>
               </div>
@@ -323,16 +323,16 @@ export default async function ReaderProfilePage({ searchParams }: PageProps) {
 
       <ProfileCreditsSection creditCheckout={creditCheckout} />
 
-      <section className="rounded-3xl border border-slate-200/70 bg-white/80 p-6 shadow-[0_16px_30px_rgba(15,23,42,0.08)] dark:border-white/10 dark:bg-white/5">
+      <section className="rounded-3xl border border-border bg-card/80 p-6 shadow-[0_16px_30px_rgba(15,23,42,0.08)] dark:bg-card">
         <div className="flex flex-wrap items-center justify-between gap-3">
-          <h2 className="text-[18px] font-semibold text-slate-900 dark:text-white">Following authors</h2>
-          <span className="text-[12px] text-slate-500 dark:text-white/60">
+          <h2 className="text-[18px] font-medium text-foreground font-display">Following authors</h2>
+          <span className="text-[12px] text-muted-foreground">
             {followingAuthors.length === 1 ? "1 author" : `${followingAuthors.length} authors`}
           </span>
         </div>
 
         {followingAuthors.length === 0 ? (
-          <p className="mt-4 text-[14px] text-slate-600 dark:text-white/60">
+          <p className="mt-4 text-[14px] text-muted-foreground">
             You are not following any authors yet. Open an author profile and click Follow.
           </p>
         ) : (
@@ -341,10 +341,10 @@ export default async function ReaderProfilePage({ searchParams }: PageProps) {
               <Link
                 key={author.userId}
                 href={`/reader/authors/${author.userId}`}
-                className="rounded-2xl border border-slate-200/70 bg-white/85 p-4 transition hover:border-slate-300 hover:bg-white dark:border-white/10 dark:bg-white/[0.03] dark:hover:bg-white/[0.05]"
+                className="rounded-2xl border border-border bg-card/85 p-4 transition hover:border-border hover:bg-card dark:bg-card"
               >
                 <div className="flex items-center gap-3">
-                  <div className="relative flex h-11 w-11 items-center justify-center overflow-hidden rounded-full border border-black/10 bg-slate-100 text-[12px] font-semibold text-slate-600 dark:border-white/10 dark:bg-white/10 dark:text-white/70">
+                  <div className="relative flex h-11 w-11 items-center justify-center overflow-hidden rounded-full border border-black/10 bg-muted text-[12px] font-semibold text-muted-foreground dark:border-border dark:bg-card">
                     {author.avatarUrl ? (
                       <Image src={author.avatarUrl} alt={author.name} fill sizes="44px" className="object-cover" />
                     ) : (
@@ -357,13 +357,13 @@ export default async function ReaderProfilePage({ searchParams }: PageProps) {
                     )}
                   </div>
                   <div className="min-w-0">
-                    <p className="truncate text-[14px] font-semibold text-slate-900 dark:text-white">
+                    <p className="truncate text-[14px] font-semibold text-foreground">
                       {author.name}
                     </p>
-                    <p className="truncate text-[12px] text-slate-500 dark:text-white/60">
+                    <p className="truncate text-[12px] text-muted-foreground">
                       {author.username ? `@${author.username}` : "Author"}
                     </p>
-                    <p className="mt-1 text-[11px] text-slate-400 dark:text-white/45">
+                    <p className="mt-1 text-[11px] text-muted-foreground">
                       Followed {new Date(author.followedAt).toLocaleDateString("en-US")}
                     </p>
                   </div>
@@ -390,7 +390,7 @@ export default async function ReaderProfilePage({ searchParams }: PageProps) {
               discoverHref ? (
                 <Link
                   href={discoverHref}
-                  className="btn-primary rounded-full bg-slate-900 px-5 py-2.5 text-[14px] hover:bg-slate-800 dark:bg-white dark:text-slate-900 dark:hover:bg-white/95"
+                  className="btn-primary rounded-full bg-foreground px-5 py-2.5 text-[14px] hover:bg-foreground dark:text-background"
                 >
                   Explore stories
                 </Link>
@@ -412,16 +412,16 @@ export default async function ReaderProfilePage({ searchParams }: PageProps) {
         ))}
       </Rail>
 
-      <section className="rounded-3xl border border-slate-200/70 bg-white/80 p-6 shadow-[0_16px_30px_rgba(15,23,42,0.08)] dark:border-white/10 dark:bg-white/5">
+      <section className="rounded-3xl border border-border bg-card/80 p-6 shadow-[0_16px_30px_rgba(15,23,42,0.08)] dark:bg-card">
         <div className="flex flex-wrap items-center justify-between gap-3">
-          <h2 className="text-[18px] font-semibold text-slate-900 dark:text-white">My highlights</h2>
-          <span className="text-[12px] text-slate-500 dark:text-white/60">
+          <h2 className="text-[18px] font-medium text-foreground font-display">My highlights</h2>
+          <span className="text-[12px] text-muted-foreground">
             {highlights.length === 1 ? "1 item" : `${highlights.length} items`}
           </span>
         </div>
 
         {highlights.length === 0 ? (
-          <p className="mt-4 text-[14px] text-slate-600 dark:text-white/60">
+          <p className="mt-4 text-[14px] text-muted-foreground">
             You do not have any highlights yet. Open a chapter and select text to save one.
           </p>
         ) : (
@@ -430,9 +430,9 @@ export default async function ReaderProfilePage({ searchParams }: PageProps) {
               <Link
                 key={highlight.id}
                 href={`/reader/read/${highlight.chapterId}`}
-                className="block rounded-2xl border border-slate-200/70 bg-white/85 p-4 transition hover:border-slate-300 hover:bg-white dark:border-white/10 dark:bg-white/[0.03] dark:hover:bg-white/[0.05]"
+                className="block rounded-2xl border border-border bg-card/85 p-4 transition hover:border-border hover:bg-card dark:bg-card"
               >
-                <div className="flex items-center gap-2 text-[11px] font-medium uppercase tracking-[0.12em] text-slate-500 dark:text-white/50">
+                <div className="flex items-center gap-2 text-[11px] font-medium uppercase tracking-[0.12em] text-muted-foreground">
                   <span
                     className="h-2.5 w-2.5 rounded-full"
                     style={{
@@ -448,15 +448,15 @@ export default async function ReaderProfilePage({ searchParams }: PageProps) {
                   />
                   {highlight.bookTitle}
                 </div>
-                <p className="mt-2 text-[14px] leading-relaxed text-slate-800 dark:text-white/85">
+                <p className="mt-2 text-[14px] leading-relaxed text-foreground dark:text-muted-foreground">
                   &quot;{highlight.snippet}&quot;
                 </p>
                 {highlight.note && (
-                  <p className="mt-3 rounded-lg border border-slate-200/80 bg-slate-50 px-3 py-2 text-[12px] text-slate-600 dark:border-white/10 dark:bg-white/[0.02] dark:text-white/65">
+                  <p className="mt-3 rounded-lg border border-border bg-muted px-3 py-2 text-[12px] text-muted-foreground dark:bg-card">
                     {highlight.note}
                   </p>
                 )}
-                <p className="mt-3 text-[12px] text-slate-500 dark:text-white/55">
+                <p className="mt-3 text-[12px] text-muted-foreground">
                   {highlight.chapterTitle}
                 </p>
               </Link>

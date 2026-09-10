@@ -177,11 +177,11 @@ export default async function AdminBookDetailPage({
               <img
                 src={book.coverImage}
                 alt={`Cover of ${book.title}`}
-                className="h-44 w-32 rounded-xl border border-slate-200/80 object-cover dark:border-white/10"
+                className="h-44 w-32 rounded-xl border border-border object-cover"
               />
             ) : (
-              <div className="flex h-44 w-32 items-center justify-center rounded-xl border border-slate-200/80 bg-gradient-to-br from-[#907AFF]/20 via-[#E29ED5]/20 to-[#FCC997]/20 dark:border-white/10">
-                <BookOpen className="h-8 w-8 text-slate-400 dark:text-white/40" aria-hidden />
+              <div className="flex h-44 w-32 items-center justify-center rounded-xl border border-border bg-gradient-to-br from-[#907AFF]/20 via-[#E29ED5]/20 to-[#FCC997]/20">
+                <BookOpen className="h-8 w-8 text-muted-foreground" aria-hidden />
               </div>
             )}
           </div>
@@ -198,11 +198,11 @@ export default async function AdminBookDetailPage({
             )}
 
             {book.description ? (
-              <p className="text-body text-slate-600 dark:text-white/60">
+              <p className="text-body text-muted-foreground">
                 {book.description}
               </p>
             ) : (
-              <p className="text-caption text-slate-400 dark:text-white/40">
+              <p className="text-caption text-muted-foreground">
                 No description.
               </p>
             )}
@@ -218,7 +218,7 @@ export default async function AdminBookDetailPage({
                           ? `/admin/users/${book.authorId}`
                           : `/admin/users?q=${encodeURIComponent(book.authorName)}`
                       }
-                      className="rounded-md font-medium text-[var(--brand-violet)] transition-colors hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#907AFF]/40 focus-visible:ring-offset-2"
+                      className="rounded-md font-medium text-accent-foreground transition-colors hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#907AFF]/40 focus-visible:ring-offset-2"
                     >
                       {book.authorName}
                     </Link>
@@ -246,7 +246,7 @@ export default async function AdminBookDetailPage({
 
       <Card className="mt-6 overflow-hidden">
         <CardHeader>
-          <h2 className="text-section-title">Chapters</h2>
+          <h2 className="text-section-title font-display">Chapters</h2>
         </CardHeader>
         <CardContent>
           <ChapterModerationList bookId={book.id} chapters={book.chapters} />

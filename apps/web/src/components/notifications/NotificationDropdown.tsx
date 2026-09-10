@@ -97,19 +97,19 @@ export default function NotificationDropdown({ onClose, onCountChange, anchorRec
       }
     : undefined;
   const className =
-    "w-[360px] max-w-[calc(100vw-2rem)] overflow-hidden rounded-2xl border border-slate-200/80 bg-white shadow-xl dark:border-white/10 dark:bg-slate-900" +
+    "w-[360px] max-w-[calc(100vw-2rem)] overflow-hidden rounded-2xl border border-border bg-card shadow-xl " +
     (isPortal ? "" : " absolute right-0 top-full z-[10002] mt-2");
 
   return (
     <div ref={ref} className={className} style={style}>
-      <div className="flex items-center justify-between border-b border-slate-200/80 px-4 py-3 dark:border-white/10">
-        <h3 className="text-[14px] font-semibold text-slate-900 dark:text-white">
+      <div className="flex items-center justify-between border-b border-border px-4 py-3">
+        <h3 className="text-[14px] font-medium text-foreground font-display">
           Notifications
         </h3>
         <button
           type="button"
           onClick={handleMarkAllRead}
-          className="text-[12px] font-medium text-[#907AFF] hover:text-[#7058DD] transition-colors"
+          className="text-[12px] font-medium text-accent-foreground hover:text-accent-foreground transition-colors"
         >
           Mark all as read
         </button>
@@ -118,10 +118,10 @@ export default function NotificationDropdown({ onClose, onCountChange, anchorRec
       <div className="max-h-[400px] overflow-y-auto">
         {loading ? (
           <div className="flex items-center justify-center py-8">
-            <div className="h-5 w-5 animate-spin rounded-full border-2 border-slate-300 border-t-[#907AFF]" />
+            <div className="h-5 w-5 animate-spin rounded-full border-2 border-border border-t-[#907AFF]" />
           </div>
         ) : notifications.length === 0 ? (
-          <p className="py-8 text-center text-[13px] text-slate-400 dark:text-white/40">
+          <p className="py-8 text-center text-[13px] text-muted-foreground">
             No notifications yet
           </p>
         ) : (
@@ -142,11 +142,11 @@ export default function NotificationDropdown({ onClose, onCountChange, anchorRec
         )}
       </div>
 
-      <div className="border-t border-slate-200/80 px-4 py-2.5 dark:border-white/10">
+      <div className="border-t border-border px-4 py-2.5">
         <Link
           href="/reader/notifications"
           onClick={onClose}
-          className="block text-center text-[13px] font-medium text-[#907AFF] hover:text-[#7058DD] transition-colors"
+          className="block text-center text-[13px] font-medium text-accent-foreground hover:text-accent-foreground transition-colors"
         >
           View all notifications
         </Link>

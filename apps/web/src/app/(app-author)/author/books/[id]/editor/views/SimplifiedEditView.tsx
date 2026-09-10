@@ -26,8 +26,8 @@ if (typeof window !== "undefined") editorImport();
 const TiptapEditor = dynamic(editorImport, {
   ssr: false,
   loading: () => (
-    <div className="flex h-[300px] items-center justify-center rounded-xl bg-slate-50 dark:bg-white/5">
-      <span className="text-sm text-slate-400 dark:text-white/30">Loading editor...</span>
+    <div className="flex h-[300px] items-center justify-center rounded-xl bg-background dark:bg-card">
+      <span className="text-sm text-muted-foreground dark:text-muted-foreground">Loading editor...</span>
     </div>
   ),
 });
@@ -207,10 +207,10 @@ export default function SimplifiedEditView({
   }, [selectedChapter, handleAutoSave, onDirty, bookId, preset, handleWordCountWrapped, onToggleFocusMode, focusMode, toolbarTarget, handleEditorReady, handleInlineAiActionWithFlush]);
 
   return (
-    <div className="w-full rounded-2xl border border-black/[0.04] bg-white shadow-[0_1px_3px_rgba(0,0,0,0.04)] dark:border-white/[0.06] dark:bg-[#111318] dark:shadow-none">
+    <div className="w-full rounded-2xl border border-black/[0.04] bg-card shadow-[0_1px_3px_rgba(0,0,0,0.04)] dark:border-border dark:bg-card dark:shadow-none">
 
       {/* ── Workflow stepper (scrolls away) ── */}
-      <div className="rounded-t-2xl bg-white dark:bg-[#111318]">
+      <div className="rounded-t-2xl bg-card dark:bg-card">
       <BookWorkflowHeader
         bookId={bookId}
         activeTool={activeTool}
@@ -220,17 +220,17 @@ export default function SimplifiedEditView({
       />
 
       {/* ── CHAPTERS / title / badge ── */}
-      <div className="flex items-center mt-6 gap-4 px-6 pt-4 pb-4">
-        <div className="h-9 w-9 shrink-0" aria-hidden="true" />
+      <div className="flex items-center gap-2 px-3 pb-4 pt-5 sm:gap-4 sm:px-6">
+        <div className="hidden h-9 w-9 shrink-0 sm:block" aria-hidden="true" />
         <div className="min-w-0 flex-1">
-          <div className="grid grid-cols-[1fr_auto_1fr] items-center mx-2 sm:mx-6 lg:mx-16 xl:mx-20">
+          <div className="mx-2 grid grid-cols-[minmax(0,1fr)_auto] items-center gap-y-3 sm:mx-6 sm:grid-cols-[auto_minmax(0,1fr)_auto] lg:mx-16 xl:mx-20">
             <div className="min-w-0">
-              <span className="shrink-0 text-xs font-semibold uppercase tracking-widest text-slate-400 dark:text-white/30">
+              <span className="shrink-0 text-xs font-semibold uppercase tracking-widest text-muted-foreground dark:text-muted-foreground">
                 Chapters
               </span>
             </div>
 
-            <div className="min-w-0 max-w-[36rem] justify-self-center">
+            <div className="col-span-2 row-start-2 w-full min-w-0 max-w-[36rem] text-left sm:col-span-1 sm:row-start-auto sm:px-2 sm:text-center">
               {isRenamingBook && onSaveRenameBook && onCancelRenameBook && onBookTitleDraftChange ? (
                 <input
                   type="text"
@@ -242,13 +242,13 @@ export default function SimplifiedEditView({
                   }}
                   onBlur={onSaveRenameBook}
                   autoFocus
-                  className="w-full min-w-0 truncate rounded-md border border-[#907AFF]/40 bg-white px-2 py-0.5 text-center text-sm font-semibold text-slate-800 outline-none focus:ring-1 focus:ring-[#907AFF]/50 dark:border-white/20 dark:bg-white/[0.06] dark:text-white/90"
+                  className="w-full min-w-0 truncate rounded-md border border-[#907AFF]/40 bg-card px-2 py-0.5 text-center text-sm font-semibold text-foreground outline-none focus:ring-1 focus:ring-[#907AFF]/50 dark:border-border dark:bg-card dark:text-foreground"
                 />
               ) : (
                 <button
                   type="button"
                   onClick={onStartRenameBook}
-                  className="min-w-0 truncate text-sm font-semibold text-slate-800 transition hover:text-[#907AFF] dark:text-white/90 dark:hover:text-[#907AFF]"
+                  className="block w-full min-w-0 truncate text-left text-sm font-semibold text-foreground transition hover:text-accent-foreground sm:text-center dark:text-foreground dark:hover:text-accent-foreground"
                   title="Click to rename book"
                 >
                   {bookTitle}
@@ -256,12 +256,12 @@ export default function SimplifiedEditView({
               )}
             </div>
 
-            <div className="flex min-w-0 items-center justify-end gap-3">
+            <div className="col-start-2 row-start-1 flex min-w-0 items-center justify-end gap-3 sm:col-start-auto sm:row-start-auto">
               <span
                 className={`inline-flex shrink-0 items-center gap-1.5 rounded-full border px-3 py-1 text-[11px] font-semibold ${
                   isPublished
                     ? "border-emerald-200 text-emerald-600 dark:border-emerald-800/30 dark:text-emerald-400"
-                    : "border-slate-200 text-slate-500 dark:border-white/10 dark:text-white/40"
+                    : "border-border text-muted-foreground dark:border-border dark:text-muted-foreground"
                 }`}
               >
                 <span className={`h-2 w-2 rounded-full ${isPublished ? "bg-emerald-500" : "bg-[#907AFF]"}`} />
@@ -270,24 +270,24 @@ export default function SimplifiedEditView({
             </div>
           </div>
         </div>
-        <div className="h-9 w-9 shrink-0" aria-hidden="true" />
+        <div className="hidden h-9 w-9 shrink-0 sm:block" aria-hidden="true" />
       </div>
       </div>{/* end non-sticky section */}
 
       {/* ── Sticky: chapter numbers + toolbar ── */}
-      <div className="sticky top-0 z-20 border-b border-black/[0.04] bg-white dark:border-white/[0.04] dark:bg-[#111318]">
+      <div className="sticky top-0 z-20 border-b border-black/[0.04] bg-card dark:border-border dark:bg-card">
 
       {/* ── Chapter numbers ── */}
-      <div className="grid grid-cols-[auto_1fr_auto] items-center gap-2 px-8 py-3">
+      <div className="grid grid-cols-[auto_1fr_auto] items-center gap-2 px-3 py-3 sm:px-8">
         <div className="flex items-center" aria-hidden="true" />
         <div className="min-w-0">
-          <div className="flex items-center justify-center gap-2">
+          <div className="flex items-center justify-center gap-1 sm:gap-2">
         {totalPages > 1 && (
           <button
             type="button"
             onClick={() => onSetChapterPage(Math.max(0, chapterPage - 1))}
             disabled={chapterPage === 0}
-            className="flex h-8 w-8 items-center justify-center text-base text-slate-400 hover:text-slate-600 disabled:opacity-30 dark:text-white/30"
+            className="flex h-8 w-8 items-center justify-center text-base text-muted-foreground hover:text-muted-foreground disabled:opacity-30 dark:text-muted-foreground"
             aria-label="Previous chapters"
           >
             &laquo;
@@ -308,8 +308,8 @@ export default function SimplifiedEditView({
                 }}
                 className={`flex h-8 min-w-[2.4rem] items-center justify-center rounded text-sm tabular-nums transition-colors duration-150 ${
                   isActive
-                    ? "bg-slate-800 font-bold text-white dark:bg-white dark:text-slate-900"
-                    : "text-slate-400 hover:bg-slate-100 hover:text-slate-700 dark:text-white/35 dark:hover:bg-white/[0.06]"
+                    ? "bg-primary font-bold text-primary-foreground"
+                    : "text-muted-foreground hover:bg-muted hover:text-foreground dark:text-muted-foreground dark:hover:bg-accent"
                 } ${!isActive && isEmpty ? "opacity-40" : ""}`}
                 aria-label={`Chapter ${globalIndex + 1}${isEmpty ? " (empty)" : ""}`}
                 aria-current={isActive ? "true" : undefined}
@@ -332,14 +332,14 @@ export default function SimplifiedEditView({
           );
         })}
         {totalPages > 1 && chapterPage < totalPages - 1 && (
-          <span className="px-1 text-sm text-slate-300 dark:text-white/15">&hellip;</span>
+          <span className="px-1 text-sm text-muted-foreground dark:text-muted-foreground">&hellip;</span>
         )}
         {totalPages > 1 && (
           <button
             type="button"
             onClick={() => onSetChapterPage(Math.min(totalPages - 1, chapterPage + 1))}
             disabled={chapterPage >= totalPages - 1}
-            className="flex h-8 w-8 items-center justify-center text-base text-slate-400 hover:text-slate-600 disabled:opacity-30 dark:text-white/30"
+            className="flex h-8 w-8 items-center justify-center text-base text-muted-foreground hover:text-muted-foreground disabled:opacity-30 dark:text-muted-foreground"
             aria-label="Next chapters"
           >
             &raquo;
@@ -352,7 +352,7 @@ export default function SimplifiedEditView({
 
       {/* ── Selected chapter title (editable) ── */}
       {selectedChapter && onStartEditTitle && (
-        <div className="mx-auto max-w-7xl px-16 pt-4 pb-1">
+        <div className="mx-auto max-w-7xl px-5 pb-1 pt-4 sm:px-12">
           {editingTitleId === selectedChapter.id && onSaveTitle && onCancelEditTitle && onTempTitleChange ? (
             <input
               type="text"
@@ -364,17 +364,17 @@ export default function SimplifiedEditView({
               }}
               onBlur={() => onSaveTitle(selectedChapter.id)}
               autoFocus
-              className="w-full rounded-md border border-[#907AFF]/40 bg-white px-2 py-1 text-[13px] font-medium text-slate-700 outline-none focus:ring-1 focus:ring-[#907AFF]/50 dark:border-white/20 dark:bg-white/[0.06] dark:text-white/80"
+              className="w-full rounded-md border border-[#907AFF]/40 bg-card px-2 py-1 text-[13px] font-medium text-foreground outline-none focus:ring-1 focus:ring-[#907AFF]/50 dark:border-border dark:bg-card dark:text-foreground"
             />
           ) : (
             <button
               type="button"
               onClick={() => onStartEditTitle(selectedChapter.id, selectedChapter.title)}
-              className="text-[13px] font-medium text-slate-500 transition hover:text-[#907AFF] dark:text-white/50 dark:hover:text-[#907AFF]"
+              className="text-[13px] font-medium text-muted-foreground transition hover:text-accent-foreground dark:text-muted-foreground dark:hover:text-accent-foreground"
               title="Click to rename chapter"
             >
               {selectedChapter.title || "Untitled chapter"} &#8203;
-              <span className="text-[11px] text-slate-300 dark:text-white/20">&#9998;</span>
+              <span className="text-[11px] text-muted-foreground dark:text-muted-foreground">&#9998;</span>
             </button>
           )}
         </div>
@@ -382,14 +382,14 @@ export default function SimplifiedEditView({
 
 
       {/* ── Toolbar row: portal target + actions ── */}
-      <div className="flex items-center gap-2 px-10 pb-4 max-w-7xl mx-auto">
+      <div className="mx-auto flex max-w-7xl items-center gap-1 px-3 pb-4 sm:gap-2 sm:px-8">
         <div ref={toolbarRefCb} className="min-w-0 flex-1" />
         {onCreateChapter && (
           <button
             type="button"
             onClick={onCreateChapter}
             disabled={isCreating}
-            className="flex flex-col shrink-0 items-left justify-center gap-1 rounded-lg px-3 py-2 text-slate-500 transition-colors hover:bg-[#907AFF]/5 hover:text-[#907AFF] disabled:opacity-40 dark:text-white/20 dark:hover:text-[#907AFF]"
+            className="flex flex-col shrink-0 items-left justify-center gap-1 rounded-lg px-3 py-2 text-muted-foreground transition-colors hover:bg-[#907AFF]/5 hover:text-accent-foreground disabled:opacity-40 dark:text-muted-foreground dark:hover:text-accent-foreground"
             aria-label="Add chapter"
             title={isCreating ? "Creating..." : "Add chapter"}
           >
@@ -400,27 +400,27 @@ export default function SimplifiedEditView({
         <button
           type="button"
           onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}
-          className="flex flex-col shrink-0 items-center justify-center gap-1 rounded-lg px-3 py-2 text-slate-300 transition-colors hover:border-[#907AFF]/30 hover:bg-[#907AFF]/5 hover:text-[#907AFF] dark:border-white/10 dark:text-white/20 dark:hover:border-[#907AFF]/30 dark:hover:text-[#907AFF]"
+          className="flex flex-col shrink-0 items-center justify-center gap-1 rounded-lg px-3 py-2 text-muted-foreground transition-colors hover:border-[#907AFF]/30 hover:bg-[#907AFF]/5 hover:text-accent-foreground dark:border-border dark:text-muted-foreground dark:hover:border-[#907AFF]/30 dark:hover:text-accent-foreground"
           aria-label="Scroll to top"
           title="Scroll to top"
         >
           <svg width="14" height="14" viewBox="0 0 16 16" fill="none" aria-hidden="true">
             <path d="M8 12.5V3.5M8 3.5L3.5 8M8 3.5L12.5 8" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
           </svg>
-          <span className="text-[11px] text-slate-500 dark:text-white/20">scroll to top</span>
+          <span className="text-[11px] text-muted-foreground dark:text-muted-foreground">scroll to top</span>
         </button>
       </div>
 
       </div>{/* end sticky header */}
 
       {/* ── Editor content + side panel (inside white card) ── */}
-      <div className="flex min-h-[520px]">
+      <div className="flex min-h-[520px] flex-col lg:flex-row">
         {/* Main writing surface */}
         <div className="min-w-0 flex-1">
           <div className="mx-auto max-w-7xl px-6 py-0 sm:px-10 sm:py-10">
             {editorElement ?? (
               <div className="flex h-[500px] items-center justify-center">
-                <p className="text-sm text-slate-400 dark:text-white/35">
+                <p className="text-sm text-muted-foreground dark:text-muted-foreground">
                   {chapters.length === 0
                     ? "Create your first chapter to start writing"
                     : "Select a chapter above to edit"}
@@ -443,7 +443,7 @@ export default function SimplifiedEditView({
       </div>
 
       {/* ── Status bar (inside card, at bottom) ── */}
-      <div className="rounded-b-2xl border-t border-black/[0.04] dark:border-white/[0.04]">
+      <div className="rounded-b-2xl border-t border-black/[0.04] dark:border-border">
         <EditorStatusBar
           wordCount={liveWordCount}
           isSaving={isSaving}
@@ -471,7 +471,7 @@ export default function SimplifiedEditView({
             <button
               type="button"
               onClick={() => setConfirmDeleteId(null)}
-              className="rounded-lg border border-slate-200 px-4 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-50 dark:border-white/10 dark:text-white/70 dark:hover:bg-white/[0.04]"
+              className="rounded-lg border border-border px-4 py-2 text-sm font-medium text-foreground transition hover:bg-background dark:border-border dark:text-foreground dark:hover:bg-accent"
             >
               Cancel
             </button>

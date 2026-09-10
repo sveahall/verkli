@@ -14,7 +14,7 @@ export default function WorkspaceHeaderActions() {
             new CustomEvent("author-shell:open-command-palette"),
           )
         }
-        className="flex h-9 w-9 items-center justify-center rounded-lg text-[#98A0B3] transition hover:bg-slate-100 hover:text-slate-600 dark:text-white/40 dark:hover:bg-white/10 dark:hover:text-white/70"
+        className="flex h-11 w-11 items-center justify-center rounded-full border border-border bg-card text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
       >
         <Search className="h-5 w-5" />
       </button>

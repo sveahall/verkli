@@ -206,7 +206,7 @@ export default function ChapterAudiobookPlayer({
   if (loading) {
     return (
       <p
-        className={`mt-7 text-xs text-slate-600 dark:text-white/65 ${
+        className={`mt-7 text-xs text-muted-foreground dark:text-muted-foreground ${
           showLoading ? "" : "pointer-events-none select-none opacity-0"
         }`}
         aria-hidden={showLoading ? undefined : true}
@@ -222,7 +222,7 @@ export default function ChapterAudiobookPlayer({
 
   if (notPublishedNotice) {
     return (
-      <p className="mt-7 text-xs text-slate-600 dark:text-white/65">
+      <p className="mt-7 text-xs text-muted-foreground">
         Not published yet
       </p>
     );
@@ -243,7 +243,7 @@ export default function ChapterAudiobookPlayer({
   return (
     <div className="mt-7 rounded-[26px] border border-[#8eb7e8]/35 bg-[linear-gradient(180deg,rgba(255,255,255,0.96),rgba(239,248,255,0.84))] p-5 shadow-[0_14px_36px_rgba(59,130,246,0.08)] dark:border-emerald-400/20 dark:bg-emerald-900/10 dark:shadow-none">
       <div className="mb-3 flex items-center justify-between gap-3">
-        <p className="text-[13px] font-semibold uppercase tracking-[0.08em] text-slate-700 dark:text-emerald-200">
+        <p className="text-[13px] font-semibold uppercase tracking-[0.08em] text-foreground dark:text-emerald-200">
           Audiobook
         </p>
         {isPlaying ? (
@@ -255,11 +255,11 @@ export default function ChapterAudiobookPlayer({
             Playing
           </p>
         ) : resumePositionSeconds != null && resumePositionSeconds > 0 ? (
-          <p className="text-[11px] text-slate-600 dark:text-emerald-200/80">
+          <p className="text-[11px] text-muted-foreground dark:text-emerald-200/80">
             Resume from {formatOffset(resumePositionSeconds)}
           </p>
         ) : (
-          <p className="text-[11px] text-slate-600 dark:text-emerald-200/80">
+          <p className="text-[11px] text-muted-foreground dark:text-emerald-200/80">
             Chapter playback
           </p>
         )}

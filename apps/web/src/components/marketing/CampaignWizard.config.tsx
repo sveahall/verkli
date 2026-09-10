@@ -53,9 +53,9 @@ export const TEMPLATE_OPTIONS: { value: ContentTemplate; label: string }[] = [
 // ─── Shared interactive styles (matching app design tokens) ─────────────────
 
 export const CARD_IDLE =
-  "border-black/10 bg-black/[0.02] dark:border-white/10 dark:bg-white/[0.02]";
+  "border-black/10 bg-black/[0.02] dark:border-border dark:bg-card";
 export const CARD_HOVER =
-  "hover:border-[#907AFF]/30 hover:bg-black/[0.01] dark:hover:bg-white/[0.04]";
+  "hover:border-[#907AFF]/30 hover:bg-black/[0.01] dark:hover:bg-accent";
 export const CARD_SELECTED =
   "border-[#907AFF]/40 bg-[#907AFF]/[0.06] dark:border-[#907AFF]/40 dark:bg-[#907AFF]/[0.08]";
 export const PRESSABLE = "active:scale-[0.98] transition-all duration-150";
@@ -145,7 +145,7 @@ export const FREQUENCY_OPTIONS: { value: PostFrequency; label: string }[] = [
 
 export const CHANNEL_DAY_COLORS: Record<ChannelId, string> = {
   instagram: "bg-pink-300 dark:bg-pink-500/50",
-  tiktok: "bg-slate-400 dark:bg-white/40",
+  tiktok: "bg-foreground",
   youtube: "bg-red-300 dark:bg-red-500/50",
   facebook: "bg-blue-300 dark:bg-blue-500/50",
   x: "bg-amber-300 dark:bg-amber-500/50",

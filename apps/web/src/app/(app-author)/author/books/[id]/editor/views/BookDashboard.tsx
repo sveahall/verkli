@@ -125,21 +125,21 @@ function DashboardCard({ card, onNavigate }: { card: CardDef; onNavigate: (p: st
     <button
       onClick={() => onNavigate(card.panel)}
       className={cn(
-        "group flex flex-col gap-4 rounded-2xl border border-slate-200/80 bg-white p-5 text-left transition-[transform,border-color,box-shadow] duration-200 ease-[cubic-bezier(0.23,1,0.32,1)] hover:-translate-y-1 hover:border-[#907AFF]/20 hover:shadow-md dark:border-white/[0.07] dark:bg-white/[0.02] dark:hover:border-[#907AFF]/20 dark:hover:bg-white/[0.04]",
+        "group flex flex-col gap-4 rounded-2xl border border-border/80 bg-card p-5 text-left transition-[transform,border-color,box-shadow] duration-200 ease-[cubic-bezier(0.23,1,0.32,1)] hover:-translate-y-1 hover:border-[#907AFF]/20 hover:shadow-md dark:border-border dark:bg-card dark:hover:border-[#907AFF]/20 dark:hover:bg-accent",
         card.span === 2 && "sm:col-span-2"
       )}
     >
       {/* Header */}
       <div className="flex items-start justify-between">
-        <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-[#907AFF]/[0.09] text-[#907AFF] dark:bg-[#907AFF]/[0.14]">
+        <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-[#907AFF]/[0.09] text-accent-foreground dark:bg-[#907AFF]/[0.14]">
           {card.icon}
         </div>
       </div>
 
       {/* Body */}
       <div className="flex-1">
-        <h3 className="text-sm font-semibold text-[#0F172A] dark:text-white">{card.label}</h3>
-        <p className="mt-0.5 text-xs text-[#64748B] dark:text-white/40">{card.description}</p>
+        <h3 className="text-sm font-semibold text-[#0F172A] dark:text-foreground">{card.label}</h3>
+        <p className="mt-0.5 text-xs text-muted-foreground dark:text-muted-foreground">{card.description}</p>
       </div>
 
       {/* Footer: status + arrow */}
@@ -148,12 +148,12 @@ function DashboardCard({ card, onNavigate }: { card: CardDef; onNavigate: (p: st
           className={cn("text-xs font-medium", {
             "text-emerald-600 dark:text-emerald-400": card.statusKind === "done",
             "text-amber-600 dark:text-amber-400": card.statusKind === "in-progress",
-            "text-[#64748B] dark:text-white/40": card.statusKind === "pending",
+            "text-muted-foreground dark:text-muted-foreground": card.statusKind === "pending",
           })}
         >
           {card.statusLabel}
         </span>
-        <span className="text-slate-300 transition-transform duration-200 ease-[cubic-bezier(0.23,1,0.32,1)] group-hover:translate-x-0.5 dark:text-white/20">
+        <span className="text-muted-foreground transition-transform duration-200 ease-[cubic-bezier(0.23,1,0.32,1)] group-hover:translate-x-0.5 dark:text-muted-foreground">
           <ChevronRightIcon />
         </span>
       </div>
@@ -311,7 +311,7 @@ export default function BookDashboard({
   );
 
   return (
-    <div className="min-h-screen bg-[#F8F9FB] dark:bg-[#0F172A]/50">
+    <div className="min-h-screen bg-background dark:bg-primary/50">
       <div className="mx-auto max-w-4xl px-4 py-10 sm:px-6">
 
         {/* ── Book hero ── */}
@@ -321,7 +321,7 @@ export default function BookDashboard({
           </div>
           <div className="relative flex items-start gap-5 p-6">
             {/* Cover thumbnail */}
-            <div className="relative h-20 w-[54px] flex-shrink-0 overflow-hidden rounded-xl border border-slate-200/80 bg-gradient-to-br from-slate-100 to-slate-200 shadow-sm dark:border-white/10 dark:from-white/[0.04] dark:to-white/[0.08]">
+            <div className="relative h-20 w-[54px] flex-shrink-0 overflow-hidden rounded-xl border border-border/80 bg-gradient-to-br from-muted to-muted shadow-sm dark:border-border dark:from-white/[0.04] dark:to-white/[0.08]">
               {coverImageUrl && (
                 /* eslint-disable-next-line @next/next/no-img-element */
                 <img src={coverImageUrl} alt={bookTitle} className="h-full w-full object-cover" />
@@ -330,22 +330,22 @@ export default function BookDashboard({
 
             {/* Book info */}
             <div className="min-w-0 flex-1">
-              <h1 className="truncate text-xl font-semibold tracking-tight text-[#0F172A] dark:text-white">
+              <h1 className="author-page-title truncate">
                 {bookTitle}
               </h1>
               <div className="mt-1 flex flex-wrap items-center gap-2">
-                <span className="text-xs text-[#64748B] dark:text-white/40">
+                <span className="text-xs text-muted-foreground dark:text-muted-foreground">
                   {chapters.length} chapter{chapters.length !== 1 ? "s" : ""}
                 </span>
-                <span className="text-[#64748B]/40 dark:text-white/20">·</span>
-                <span className="text-xs text-[#64748B] dark:text-white/40">
+                <span className="text-muted-foreground/40 dark:text-muted-foreground">·</span>
+                <span className="text-xs text-muted-foreground dark:text-muted-foreground">
                   {totalWordCount.toLocaleString()} words
                 </span>
-                <span className="text-[#64748B]/40 dark:text-white/20">·</span>
+                <span className="text-muted-foreground/40 dark:text-muted-foreground">·</span>
                 <span
                   className={cn("text-xs font-medium", {
                     "text-emerald-600 dark:text-emerald-400": isPublished,
-                    "text-[#64748B] dark:text-white/40": !isPublished,
+                    "text-muted-foreground dark:text-muted-foreground": !isPublished,
                   })}
                 >
                   {isPublished ? "Published" : "Draft"}
@@ -354,13 +354,13 @@ export default function BookDashboard({
 
               {/* Progress bar */}
               <div className="mt-3 flex items-center gap-2">
-                <div className="h-1.5 min-w-0 flex-1 overflow-hidden rounded-full bg-slate-200 dark:bg-white/10">
+                <div className="h-1.5 min-w-0 flex-1 overflow-hidden rounded-full bg-muted dark:bg-card">
                   <div
                     className="h-full rounded-full bg-gradient-to-r from-[#907AFF] to-[#E29ED5] transition-[width] duration-500 ease-[cubic-bezier(0.23,1,0.32,1)]"
                     style={{ width: `${progressPct}%` }}
                   />
                 </div>
-                <span className="flex-shrink-0 text-[11px] font-medium text-[#64748B] dark:text-white/40">
+                <span className="flex-shrink-0 text-[11px] font-medium text-muted-foreground dark:text-muted-foreground">
                   {completedSteps} of {setupSteps.length} steps done
                 </span>
               </div>
@@ -369,7 +369,7 @@ export default function BookDashboard({
             {/* CTA */}
             <button
               onClick={() => onNavigate("edit")}
-              className="hidden shrink-0 items-center gap-2 rounded-xl bg-[#0F172A] px-4 py-2.5 text-sm font-medium text-white shadow-sm transition-[transform,background-color,box-shadow] duration-200 ease-[cubic-bezier(0.23,1,0.32,1)] hover:-translate-y-0.5 hover:bg-[#1E293B] hover:shadow-[0_4px_16px_rgba(15,23,42,0.35)] active:scale-[0.97] sm:flex"
+              className="hidden shrink-0 items-center gap-2 rounded-xl bg-primary px-4 py-2.5 text-sm font-medium text-primary-foreground shadow-sm transition-[transform,background-color,box-shadow] duration-200 ease-[cubic-bezier(0.23,1,0.32,1)] hover:-translate-y-0.5 hover:bg-primary/90 hover:shadow-[0_4px_16px_rgba(15,23,42,0.35)] active:scale-[0.97] sm:flex"
             >
               <PencilIcon className="h-4 w-4" />
               Continue writing
@@ -380,7 +380,7 @@ export default function BookDashboard({
           <div className="px-6 pb-6 sm:hidden">
             <button
               onClick={() => onNavigate("edit")}
-              className="flex w-full items-center justify-center gap-2 rounded-xl bg-[#0F172A] py-2.5 text-sm font-medium text-white transition-[transform,background-color,box-shadow] duration-200 ease-[cubic-bezier(0.23,1,0.32,1)] hover:bg-[#1E293B] active:scale-[0.97]"
+              className="flex w-full items-center justify-center gap-2 rounded-xl bg-primary py-2.5 text-sm font-medium text-primary-foreground transition-[transform,background-color,box-shadow] duration-200 ease-[cubic-bezier(0.23,1,0.32,1)] hover:bg-primary/90 active:scale-[0.97]"
             >
               <PencilIcon className="h-4 w-4" />
               Continue writing

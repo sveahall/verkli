@@ -41,7 +41,7 @@ function SimilarBooksRailSkeleton() {
       <div className="flex gap-4 overflow-hidden">
         {Array.from({ length: 5 }).map((_, i) => (
           <div key={i} className="w-[180px] flex-shrink-0">
-            <div className="aspect-[3/4] w-full animate-pulse rounded-xl bg-slate-200 dark:bg-white/10" />
+            <div className="aspect-[3/4] w-full animate-pulse rounded-xl bg-muted dark:bg-card" />
             <div className="mt-3 space-y-2">
               <Skeleton height={16} className="w-3/4" />
               <Skeleton height={12} className="w-1/2" />
@@ -534,7 +534,7 @@ export default async function ReaderBookDetail({
       : {}),
   };
 
-  const chipClass = "rounded-full border border-black/[0.06] bg-white/70 px-3 py-1 text-[11px] font-medium text-slate-600 dark:border-white/[0.08] dark:bg-white/[0.04] dark:text-white/60";
+  const chipClass = "rounded-full border border-black/[0.06] bg-card/70 px-3 py-1 text-[11px] font-medium text-muted-foreground dark:border-border dark:bg-card ";
   const metaChips = (
     <>
       <span className={chipClass}>
@@ -556,7 +556,7 @@ export default async function ReaderBookDetail({
 
   const languageSwitcher = (
     <div className="space-y-2">
-      <p className="text-[11px] font-semibold uppercase tracking-wider text-slate-400 dark:text-white/35">
+      <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
         Read in
       </p>
       <div className="flex flex-wrap gap-2">
@@ -567,8 +567,8 @@ export default async function ReaderBookDetail({
             aria-current={language.isCurrentLanguage ? "page" : undefined}
             className={
               language.isCurrentLanguage
-                ? "rounded-full bg-slate-900 px-3.5 py-1.5 text-[12px] font-semibold text-white dark:bg-white dark:text-slate-900"
-                : "rounded-full border border-black/[0.06] bg-white/60 px-3.5 py-1.5 text-[12px] font-medium text-slate-600 transition-colors duration-150 ease-out hover:border-black/[0.12] hover:text-slate-900 dark:border-white/[0.08] dark:bg-white/[0.04] dark:text-white/60 dark:hover:text-white"
+                ? "rounded-full bg-foreground px-3.5 py-1.5 text-[12px] font-semibold text-white dark:text-background"
+                : "rounded-full border border-black/[0.06] bg-card/60 px-3.5 py-1.5 text-[12px] font-medium text-muted-foreground transition-colors duration-150 ease-out hover:border-black/[0.12] hover:text-foreground dark:border-border dark:bg-card dark:hover:text-foreground"
             }
           >
             {language.displayName}
@@ -590,15 +590,15 @@ export default async function ReaderBookDetail({
           <p className="mt-1 text-rose-700 dark:text-rose-300">Try again or contact support.</p>
         </div>
       ) : purchaseState === "cancelled" ? (
-        <div className="rounded-2xl border border-slate-300/50 bg-slate-100 p-4 text-sm text-slate-700 dark:border-white/10 dark:bg-white/5 dark:text-white/60">
+        <div className="rounded-2xl border border-border bg-muted p-4 text-sm text-foreground dark:bg-card dark:text-muted-foreground">
           Checkout cancelled. You can try again anytime.
         </div>
       ) : null}
 
       {!hasReadAccess && !isFreeBook && !isPerChapter ? (
         <div className="rounded-2xl border border-[#907AFF]/15 bg-[#907AFF]/[0.04] p-5 text-sm dark:border-[#907AFF]/20 dark:bg-[#907AFF]/[0.06]">
-          <p className="font-semibold text-slate-900 dark:text-white">This book requires purchase or Verkli Plus</p>
-          <p className="mt-1 text-slate-500 dark:text-white/50">
+          <p className="font-semibold text-foreground">This book requires purchase or Verkli Plus</p>
+          <p className="mt-1 text-muted-foreground">
             Chapter 1 is free to read. Unlock all chapters for {formatMoney(priceAmount, priceCurrency)} or with Verkli Plus.
           </p>
         </div>
@@ -606,8 +606,8 @@ export default async function ReaderBookDetail({
 
       {!hasReadAccess && !isFreeBook && isPerChapter ? (
         <div className="rounded-2xl border border-[#907AFF]/15 bg-[#907AFF]/[0.04] p-5 text-sm dark:border-[#907AFF]/20 dark:bg-[#907AFF]/[0.06]">
-          <p className="font-semibold text-slate-900 dark:text-white">Chapters available individually</p>
-          <p className="mt-1 text-slate-500 dark:text-white/50">
+          <p className="font-semibold text-foreground">Chapters available individually</p>
+          <p className="mt-1 text-muted-foreground">
             First chapter is free. Buy chapters individually for {formatMoney(priceAmount, priceCurrency)} each, or get all with Verkli Plus.
           </p>
         </div>
@@ -688,7 +688,7 @@ export default async function ReaderBookDetail({
   );
 
   const chapterRows = (
-    <div className="divide-y divide-black/[0.04] dark:divide-white/[0.06]">
+    <div className="divide-y divide-black/[0.04] dark:divide-border">
       {(chapters ?? []).map((chapterItem, index) => {
         const isPreviewChapter = index === 0;
         const isPurchased = purchasedChapterIds.has(chapterItem.id);
@@ -704,12 +704,12 @@ export default async function ReaderBookDetail({
                   sort key with no agreed origin: Alice's chapters start at 0
                   and Oliver Twist's at 1, so the same "Chapter 1" was numbered
                   differently depending on how the book was imported. */}
-              <span className="w-6 flex-shrink-0 text-right text-xs tabular-nums text-slate-400 dark:text-white/30">
+              <span className="w-6 flex-shrink-0 text-right text-xs tabular-nums text-muted-foreground">
                 {index + 1}
               </span>
               <Link
                 href={`/reader/read/${chapterItem.id}`}
-                className="-my-2 truncate py-2 text-[13px] font-medium text-slate-700 transition-colors duration-150 ease-out hover:text-[#907AFF] dark:text-white/70 dark:hover:text-[#b8a8ff]"
+                className="-my-2 truncate py-2 text-[13px] font-medium text-foreground transition-colors duration-150 ease-out hover:text-accent-foreground dark:text-muted-foreground dark:hover:text-accent-foreground"
               >
                 {chapterItem.title}
               </Link>
@@ -733,7 +733,7 @@ export default async function ReaderBookDetail({
                 ) : (
                   <Link
                     href={`/reader/read/${chapterItem.id}`}
-                    className="rounded-full border border-[#907AFF]/20 bg-[#907AFF]/[0.07] inline-flex min-h-11 items-center px-3 font-semibold text-[#907AFF] transition-[background-color,transform] duration-150 ease-out hover:bg-[#907AFF]/12 active:scale-[0.97] dark:text-[#B8AAFF]"
+                    className="rounded-full border border-[#907AFF]/20 bg-[#907AFF]/[0.07] inline-flex min-h-11 items-center px-3 font-semibold text-accent-foreground transition-[background-color,transform] duration-150 ease-out hover:bg-[#907AFF]/12 active:scale-[0.97]"
                   >
                     Read
                   </Link>
@@ -746,14 +746,14 @@ export default async function ReaderBookDetail({
                   currency={priceCurrency}
                 />
               ) : user ? (
-                <span className="inline-flex items-center gap-1 rounded-full bg-slate-100/80 px-3 py-1 font-medium text-slate-400 dark:bg-white/[0.05] dark:text-white/30">
+                <span className="inline-flex items-center gap-1 rounded-full bg-muted/80 px-3 py-1 font-medium text-muted-foreground dark:bg-card">
                   <Lock className="h-3 w-3" />
                   Locked
                 </span>
               ) : (
                 <Link
                   href={signInHref}
-                  className="rounded-full bg-[#907AFF]/10 inline-flex min-h-11 items-center px-3 font-semibold text-[#907AFF] transition-colors duration-150 ease-out hover:bg-[#907AFF]/20"
+                  className="rounded-full bg-[#907AFF]/10 inline-flex min-h-11 items-center px-3 font-semibold text-accent-foreground transition-colors duration-150 ease-out hover:bg-[#907AFF]/20"
                 >
                   Sign in
                 </Link>
@@ -801,14 +801,14 @@ export default async function ReaderBookDetail({
     if (podFormats.length === 0) return null;
 
     return (
-      <div className="rounded-2xl border border-black/[0.05] bg-white/60 backdrop-blur-sm dark:border-white/[0.06] dark:bg-white/[0.02]">
-        <div className="border-b border-black/[0.05] px-6 py-4 dark:border-white/[0.06]">
-          <h3 className="text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-white/50">
+      <div className="rounded-2xl border border-black/[0.05] bg-card/60 backdrop-blur-sm dark:border-border dark:bg-card">
+        <div className="border-b border-black/[0.05] px-6 py-4 dark:border-border">
+          <h3 className="text-xs font-medium uppercase tracking-wider text-muted-foreground font-display">
             Physical copy
           </h3>
         </div>
         <div className="space-y-3 p-5">
-          <p className="text-sm text-slate-500 dark:text-white/50">
+          <p className="text-sm text-muted-foreground">
             Printed and shipped on demand. Delivery usually takes 5–10 business days.
           </p>
           {user ? (
@@ -858,7 +858,7 @@ export default async function ReaderBookDetail({
         authorName={authorName}
         authorHref={`/reader/authors/${book.author_id}`}
         cover={
-          <div className="relative aspect-[3/4] overflow-hidden rounded-[28px] border border-black/[0.08] bg-black/[0.04] shadow-[0_26px_60px_-36px_rgba(15,23,42,0.45)] dark:border-white/10 dark:bg-white/[0.05]">
+          <div className="relative aspect-[3/4] overflow-hidden rounded-[28px] border border-black/[0.08] bg-black/[0.04] shadow-[0_26px_60px_-36px_rgba(15,23,42,0.45)] dark:border-border dark:bg-card">
             {(book as { cover_image?: string | null }).cover_image ? (
               <Image
                 src={(book as { cover_image?: string | null }).cover_image!}
@@ -870,7 +870,7 @@ export default async function ReaderBookDetail({
               />
             ) : (
               <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-[#907AFF]/20 to-[#E29ED5]/20">
-                <span className="text-[18px] font-semibold text-slate-700 dark:text-white/70">No cover</span>
+                <span className="text-[18px] font-semibold text-foreground dark:text-muted-foreground">No cover</span>
               </div>
             )}
           </div>
@@ -892,7 +892,7 @@ export default async function ReaderBookDetail({
         trailerSection={
           book.trailer_url ? (
             <section className="mx-auto mt-6 max-w-[1100px] px-6">
-              <div className="overflow-hidden rounded-[28px] border border-slate-200/80 bg-black/5 shadow-[0_20px_50px_rgba(15,23,42,0.08)] dark:border-white/10 dark:bg-black/30">
+              <div className="overflow-hidden rounded-[28px] border border-border bg-black/5 shadow-[0_20px_50px_rgba(15,23,42,0.08)] dark:bg-black/30">
                 <video
                   src={book.trailer_url}
                   controls

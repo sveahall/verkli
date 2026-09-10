@@ -96,7 +96,7 @@ export default async function AdminDashboardPage() {
 
       {/* System health */}
       <section className="mt-8">
-        <h2 className="text-eyebrow mb-3">System health</h2>
+        <h2 className="text-eyebrow mb-3 font-display">System health</h2>
         <Card className="px-5 py-4">
           <div className="flex flex-wrap gap-3">
             <HealthPill label="App" ok />
@@ -113,7 +113,7 @@ export default async function AdminDashboardPage() {
 
       {/* Navigation */}
       <section className="mt-8">
-        <h2 className="text-eyebrow mb-3">Manage</h2>
+        <h2 className="text-eyebrow mb-3 font-display">Manage</h2>
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           <NavCard
             title="Author Applications"
@@ -167,13 +167,13 @@ function StatCard({ label, value, href, highlight }: StatItem) {
   return (
     <Link
       href={href}
-      className="group rounded-2xl border border-slate-200 bg-white px-5 py-5 transition-colors hover:border-slate-300 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#907AFF]/40 focus-visible:ring-offset-2 dark:border-white/10 dark:bg-white/[0.02] dark:hover:border-white/20"
+      className="group rounded-2xl border border-border bg-card px-5 py-5 transition-colors hover:border-border focus:outline-none focus-visible:ring-2 focus-visible:ring-[#907AFF]/40 focus-visible:ring-offset-2 dark:hover:border-border"
     >
-      <div className="text-stat tabular-nums text-slate-900 dark:text-white">
+      <div className="text-stat tabular-nums text-foreground">
         {value === null ? "—" : value.toLocaleString("en-US")}
       </div>
       <div className="mt-1 flex items-center gap-2">
-        <span className="text-[13px] text-slate-500 dark:text-white/50">{label}</span>
+        <span className="text-[13px] text-muted-foreground">{label}</span>
         {highlight && <span className="h-1.5 w-1.5 rounded-full bg-[var(--color-warning)]" aria-hidden />}
       </div>
     </Link>
@@ -200,17 +200,17 @@ function NavCard({ title, description, href, icon: Icon, badge }: NavCardProps) 
   return (
     <Link
       href={href}
-      className="group flex flex-col rounded-2xl border border-slate-200 bg-white p-5 transition-colors hover:border-slate-300 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#907AFF]/40 focus-visible:ring-offset-2 dark:border-white/10 dark:bg-white/[0.02] dark:hover:border-white/20"
+      className="group flex flex-col rounded-2xl border border-border bg-card p-5 transition-colors hover:border-border focus:outline-none focus-visible:ring-2 focus-visible:ring-[#907AFF]/40 focus-visible:ring-offset-2 dark:hover:border-border"
     >
       <div className="mb-3 flex items-center justify-between">
-        <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-slate-100 text-slate-700 dark:bg-white/10 dark:text-white/80">
+        <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-muted text-foreground dark:bg-card">
           <Icon className="h-5 w-5" />
         </span>
         {badge && <Badge variant={badge.variant}>{badge.label}</Badge>}
       </div>
-      <h3 className="text-[15px] font-semibold text-slate-900 dark:text-white">{title}</h3>
-      <p className="mt-1 text-[13px] text-slate-500 dark:text-white/50">{description}</p>
-      <span className="mt-3 inline-flex items-center gap-1 text-[13px] font-medium text-slate-400 transition-colors group-hover:text-slate-700 dark:group-hover:text-white/80">
+      <h3 className="text-[15px] font-medium text-foreground font-display">{title}</h3>
+      <p className="mt-1 text-[13px] text-muted-foreground">{description}</p>
+      <span className="mt-3 inline-flex items-center gap-1 text-[13px] font-medium text-muted-foreground transition-colors group-hover:text-foreground dark:group-hover:text-foreground">
         Open <ArrowRight className="h-3.5 w-3.5" />
       </span>
     </Link>

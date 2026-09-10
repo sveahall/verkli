@@ -3,7 +3,7 @@
 import { useState, useSyncExternalStore } from "react";
 import Image from "next/image";
 import { resolveErrorMessage } from "@/lib/error-messages";
-import { ArrowDown, ArrowRight, ArrowUpRight, AudioLines, BookOpen, FileText, Globe2, Languages, Plus, Sparkles } from "lucide-react";
+import { ArrowDown, ArrowRight, ArrowUpRight, AudioLines, FileText, Globe2, Languages, Plus } from "lucide-react";
 import WaitlistProductPreview from "./WaitlistProductPreview";
 import "./waitlist.css";
 import BookOrderSection from "./BookOrderSection";
@@ -179,7 +179,7 @@ function SuccessState({ queuePosition, onUseDifferentEmail }: { queuePosition: n
 function AlreadyExistsState({ queuePosition, onUseDifferentEmail }: { queuePosition: number; onUseDifferentEmail?: () => void }) {
   return (
     <div
-      className="rounded-2xl border border-slate-300/50 bg-slate-100/80 px-6 py-6 dark:border-slate-600/40 dark:bg-slate-800/50"
+      className="rounded-2xl border border-border bg-accent px-6 py-6"
       role="status"
     >
       <p className="text-[17px] font-semibold text-slate-800 dark:text-slate-200">
@@ -347,7 +347,7 @@ function ReaderSuccessState({ queuePosition, onUseDifferentEmail }: { queuePosit
 function ReaderAlreadyExistsState({ queuePosition, onUseDifferentEmail }: { queuePosition: number; onUseDifferentEmail?: () => void }) {
   return (
     <div
-      className="rounded-2xl border border-slate-300/50 bg-slate-100/80 px-6 py-6 dark:border-slate-600/40 dark:bg-slate-800/50"
+      className="rounded-2xl border border-border bg-accent px-6 py-6"
       role="status"
     >
       <p className="text-[17px] font-semibold text-slate-800 dark:text-slate-200">
@@ -470,11 +470,11 @@ export default function WaitlistPage() {
   };
 
   return (
-    <main className="waitlist-page dark" id="top">
+    <main className="waitlist-page" id="top">
       <header className="wl-nav wl-shell">
         <a href="#top" className="wl-logo" aria-label="Verkli home">
-          <Image src="/logo-dark.svg" alt="Verkli" width={144} height={40} priority />
-          <Image src="/logo-dark.svg" alt="" width={144} height={40} className="wl-logo-light" aria-hidden="true" />
+          <Image src="/logo-dark.svg" alt="Verkli" width={144} height={40} className="dark:hidden" priority /><Image src="/favicon.svg" alt="Verkli" width={144} height={40} className="hidden dark:block" priority />
+
         </a>
         <nav className="wl-nav-links" aria-label="Main navigation">
           <a href="#how-it-works">The platform</a>
@@ -485,7 +485,7 @@ export default function WaitlistPage() {
 
       <section className="wl-hero wl-shell" aria-labelledby="waitlist-heading">
         <div className="wl-hero-copy">
-          <p className="wl-eyebrow"><span className="wl-eyebrow-dot" /> A NEW CHAPTER FOR STORYTELLING</p>
+
           <h1 id="waitlist-heading"><span>Your story.</span><span className="wl-gradient-text">Goes further.</span></h1>
           <p className="wl-intro"><strong>Big imagination. Meet your AI workspace.</strong><br />Write, translate, create audiobooks, and publish. Verkli brings your next chapter together in one place.</p>
 
@@ -502,7 +502,7 @@ export default function WaitlistPage() {
               ) : (
                 <WaitlistForm onSuccess={handleSuccess} onAlreadyExists={handleAlreadyExists} />
               )}
-              <p className="wl-micro"><Sparkles size={12} aria-hidden="true" /> Private pre-launch. Author invitations go out in small waves.</p>
+              <p className="wl-micro">Private pre-launch. Author invitations go out in small waves.</p>
             </div>
             <div id="reader-signup" hidden={audience !== "reader"}>
               {!hydrated ? <p className="wl-micro" role="status">Loading signup…</p> : readerQueuePosition !== null ? (
@@ -512,7 +512,7 @@ export default function WaitlistPage() {
               ) : (
                 <ReaderWaitlistForm onSuccess={handleReaderSuccess} onAlreadyExists={handleReaderAlreadyExists} />
               )}
-              <p className="wl-micro"><Sparkles size={12} aria-hidden="true" /> Discover what’s next. Reader invitations go out in small waves.</p>
+              <p className="wl-micro">Discover what’s next. Reader invitations go out in small waves.</p>
             </div>
           </div>
           <button
@@ -539,7 +539,7 @@ export default function WaitlistPage() {
 
       <section className="wl-how wl-shell" id="how-it-works" aria-labelledby="how-heading">
         <div className="wl-section-heading">
-          <div><p className="wl-eyebrow">BUILT AROUND YOUR STORY</p><h2 id="how-heading">Less switching tools.<br />More making things.</h2></div>
+          <div><h2 id="how-heading">Less switching tools.<br />More making things.</h2></div>
           <p>From the manuscript on your laptop to the book someone can’t put down. Keep the whole journey in one workspace.</p>
         </div>
         <div className="wl-steps">
@@ -550,12 +550,12 @@ export default function WaitlistPage() {
       </section>
 
       <section className="wl-reader wl-shell" aria-labelledby="reader-heading">
-        <div><p className="wl-eyebrow"><BookOpen size={14} aria-hidden="true" /> FOR THE JUST-ONE-MORE-CHAPTER PEOPLE</p><h2 id="reader-heading">Your next obsession<br />hasn’t found you. Yet.</h2><p>Discover independent voices. Read a chapter, listen to a story, and find authors you’ll want to follow from the beginning.</p></div>
+        <div><h2 id="reader-heading">Your next obsession<br />hasn’t found you. Yet.</h2><p>Discover independent voices. Read a chapter, listen to a story, and find authors you’ll want to follow from the beginning.</p></div>
         <button type="button" className="wl-secondary-cta" onClick={joinAsReader}>Join as a reader <ArrowUpRight size={16} aria-hidden="true" /></button>
       </section>
 
       <section className="wl-faq wl-shell" id="questions" aria-labelledby="faq-heading">
-        <div><p className="wl-eyebrow">A FEW GOOD QUESTIONS</p><h2 id="faq-heading">Before the<br />next chapter.</h2></div>
+        <div><h2 id="faq-heading">Before the<br />next chapter.</h2></div>
         <div>
           <details><summary>What is Verkli?<Plus size={17} aria-hidden="true" /></summary><p>Verkli is an AI workspace for authors and a home for readers. Authors can write and edit manuscripts, translate books, create narrated audiobooks, and publish. Readers can discover stories, read, and listen.</p></details>
           <details><summary>Who is the waitlist for?<Plus size={17} aria-hidden="true" /></summary><p>Authors with a manuscript, writers starting something new, and readers looking for independent voices. Choose your role when you join so we can invite you to the right experience.</p></details>
@@ -565,11 +565,11 @@ export default function WaitlistPage() {
       </section>
 
       <div className="wl-book-area">
-        <div className="wl-book-intro wl-shell"><p className="wl-eyebrow">A STORY YOU CAN HOLD</p><h2>Ta för er!</h2><p>Looking for Johan’s book? You can order your copy below.</p></div>
+        <div className="wl-book-intro wl-shell"><h2>Ta för er!</h2><p>Looking for Johan’s book? You can order your copy below.</p></div>
         <BookOrderSection />
       </div>
       <footer className="wl-footer wl-shell">
-        <a href="#top" className="wl-logo" aria-label="Verkli home"><Image src="/logo-dark.svg" alt="Verkli" width={144} height={40} /><Image src="/logo-dark.svg" alt="" width={144} height={40} className="wl-logo-light" aria-hidden="true" /></a>
+        <a href="#top" className="wl-logo" aria-label="Verkli home"><Image src="/logo-dark.svg" alt="Verkli" width={144} height={40} className="dark:hidden" /><Image src="/favicon.svg" alt="Verkli" width={144} height={40} className="hidden dark:block" /></a>
         <p>Built for the stories only you can tell.</p>
         <a href="#join-waitlist">Be part of the next chapter <ArrowRight size={14} aria-hidden="true" /></a>
       </footer>

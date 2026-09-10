@@ -267,7 +267,7 @@ export default function OfflineSaveButton({ bookId, userId, languageCode }: Prop
       <button
         type="button"
         disabled
-        className="rounded-full border border-slate-300 bg-slate-200 px-6 py-3 text-[14px] font-semibold text-slate-500 dark:border-white/10 dark:bg-white/10 dark:text-white/60"
+        className="rounded-full border border-border bg-muted px-6 py-3 text-[14px] font-semibold text-muted-foreground dark:bg-card"
       >
         Checking Plus...
       </button>
@@ -276,12 +276,12 @@ export default function OfflineSaveButton({ bookId, userId, languageCode }: Prop
 
   if (!isPlusActive) {
     return (
-      <div className="max-w-md rounded-xl border border-[#907AFF]/20 bg-[#907AFF]/5 px-4 py-3 text-sm text-slate-700 dark:text-white/80">
-        <p className="font-semibold text-slate-900 dark:text-white">Offline reading is included in Verkli Plus.</p>
-        <p className="mt-1 text-slate-600 dark:text-white/70">Upgrade to save books and read without a connection.</p>
+      <div className="max-w-md rounded-xl border border-[#907AFF]/20 bg-[#907AFF]/5 px-4 py-3 text-sm text-foreground">
+        <p className="font-semibold text-foreground">Offline reading is included in Verkli Plus.</p>
+        <p className="mt-1 text-muted-foreground">Upgrade to save books and read without a connection.</p>
         <Link
           href="/reader/billing"
-          className="mt-3 inline-flex min-h-11 items-center rounded-lg bg-[#907AFF]/15 px-3 text-[13px] font-semibold text-[#907AFF] transition hover:bg-[#907AFF]/25 dark:text-[#B8A9FF] dark:hover:bg-[#907AFF]/20"
+          className="mt-3 inline-flex min-h-11 items-center rounded-lg bg-[#907AFF]/15 px-3 text-[13px] font-semibold text-accent-foreground transition hover:bg-[#907AFF]/25 dark:text-[#B8A9FF] dark:hover:bg-[#907AFF]/20"
         >
           Upgrade to Plus
         </Link>
@@ -298,22 +298,22 @@ export default function OfflineSaveButton({ bookId, userId, languageCode }: Prop
         type="button"
         onClick={() => void saveOffline()}
         disabled={cannotSave}
-        className="rounded-full border border-slate-300 bg-white px-6 py-3 text-[14px] font-semibold text-slate-800 transition hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-60 dark:border-white/20 dark:bg-white/10 dark:text-white dark:hover:bg-white/15"
+        className="rounded-full border border-border bg-card px-6 py-3 text-[14px] font-semibold text-foreground transition hover:bg-muted disabled:cursor-not-allowed disabled:opacity-60 dark:hover:bg-card"
       >
         {cannotSave && !isOnline ? "Currently offline" : saveButtonLabel}
       </button>
 
       {(isBusy || progress > 0) && (
-        <div className="mt-3 w-full rounded-full border border-black/10 bg-black/[0.04] p-1 dark:border-white/10 dark:bg-white/[0.06]">
+        <div className="mt-3 w-full rounded-full border border-black/10 bg-black/[0.04] p-1 dark:border-border dark:bg-card">
           <div
-            className="h-1.5 rounded-full bg-[#907AFF] transition-all"
+            className="h-1.5 rounded-full bg-[#907AFF] transition-[background-color,border-color,color,box-shadow]"
             style={{ width: `${Math.min(100, Math.max(0, progress))}%` }}
           />
         </div>
       )}
 
       {statusText && (
-        <p className="mt-2 text-[12px] text-slate-600 dark:text-white/70">
+        <p className="mt-2 text-[12px] text-muted-foreground">
           {statusText}
         </p>
       )}
@@ -334,7 +334,7 @@ export default function OfflineSaveButton({ bookId, userId, languageCode }: Prop
             type="button"
             onClick={() => void removeBookOffline()}
             disabled={isBusy}
-            className="inline-flex min-h-11 items-center rounded-full border border-slate-300 px-3 font-medium text-slate-700 transition hover:bg-slate-100 disabled:opacity-60 dark:border-white/20 dark:text-white/80 dark:hover:bg-white/10"
+            className="inline-flex min-h-11 items-center rounded-full border border-border px-3 font-medium text-foreground transition hover:bg-muted disabled:opacity-60 dark:hover:bg-card"
           >
             Clear this book
           </button>

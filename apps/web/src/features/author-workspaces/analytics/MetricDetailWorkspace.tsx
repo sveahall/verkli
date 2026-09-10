@@ -102,7 +102,7 @@ function StatusBadge({ status }: { status: string }) {
     pending:
       "bg-amber-50 text-amber-700 dark:bg-amber-950/30 dark:text-amber-400",
     unsubscribed:
-      "bg-slate-100 text-slate-500 dark:bg-white/10 dark:text-white/50",
+      "bg-muted text-muted-foreground dark:bg-card dark:text-muted-foreground",
     cancelled:
       "bg-red-50 text-red-600 dark:bg-red-950/30 dark:text-red-400",
   };
@@ -110,7 +110,7 @@ function StatusBadge({ status }: { status: string }) {
   return (
     <span
       className={`inline-flex rounded-full px-2.5 py-0.5 text-[11px] font-semibold ${
-        styles[status] ?? "bg-slate-100 text-slate-500 dark:bg-white/10 dark:text-white/50"
+        styles[status] ?? "bg-muted text-muted-foreground dark:bg-card dark:text-muted-foreground"
       }`}
     >
       {status.charAt(0).toUpperCase() + status.slice(1)}
@@ -128,7 +128,7 @@ function RatingStars({ rating }: { rating: number }) {
           ★
         </span>
       ))}
-      <span className="ml-1 text-[12px] text-slate-500 dark:text-white/50">
+      <span className="ml-1 text-[12px] text-muted-foreground dark:text-muted-foreground">
         {rating.toFixed(1)}
       </span>
     </span>
@@ -144,7 +144,7 @@ function SalesTable({ rows }: { rows: Array<Record<string, unknown>> }) {
     <div className="overflow-x-auto">
       <table className="w-full">
         <thead>
-          <tr className="border-b border-slate-200/80 dark:border-white/10">
+          <tr className="border-b border-border/80 dark:border-border">
             <Th>Order</Th>
             <Th>Date</Th>
             <Th>Book</Th>
@@ -153,10 +153,10 @@ function SalesTable({ rows }: { rows: Array<Record<string, unknown>> }) {
             <Th>Payment status</Th>
           </tr>
         </thead>
-        <tbody className="divide-y divide-slate-100 dark:divide-white/5">
+        <tbody className="divide-y divide-border dark:divide-border">
           {rows.map((row, i) => (
-            <tr key={String(row.id ?? i)} className="transition hover:bg-slate-50/50 dark:hover:bg-white/[0.02]">
-              <Td className="font-medium text-slate-900 dark:text-white">
+            <tr key={String(row.id ?? i)} className="transition hover:bg-background/50 dark:hover:bg-accent">
+              <Td className="font-medium text-foreground dark:text-foreground">
                 #{String(row.id ?? "").slice(0, 8)}
               </Td>
               <Td>{formatDateTime(row.date)}</Td>
@@ -185,16 +185,16 @@ function ReadersTable({ rows }: { rows: Array<Record<string, unknown>> }) {
     <div className="overflow-x-auto">
       <table className="w-full">
         <thead>
-          <tr className="border-b border-slate-200/80 dark:border-white/10">
+          <tr className="border-b border-border/80 dark:border-border">
             <Th>Book</Th>
             <Th>Readers</Th>
             <Th>Latest activity</Th>
           </tr>
         </thead>
-        <tbody className="divide-y divide-slate-100 dark:divide-white/5">
+        <tbody className="divide-y divide-border dark:divide-border">
           {rows.map((row, i) => (
-            <tr key={String(row.id ?? i)} className="transition hover:bg-slate-50/50 dark:hover:bg-white/[0.02]">
-              <Td className="font-medium text-slate-900 dark:text-white">
+            <tr key={String(row.id ?? i)} className="transition hover:bg-background/50 dark:hover:bg-accent">
+              <Td className="font-medium text-foreground dark:text-foreground">
                 {String(row.bookTitle ?? "")}
               </Td>
               <Td>{Number(row.readerCount ?? 0).toLocaleString("sv-SE")}</Td>
@@ -216,16 +216,16 @@ function SubscribersTable({ rows }: { rows: Array<Record<string, unknown>> }) {
     <div className="overflow-x-auto">
       <table className="w-full">
         <thead>
-          <tr className="border-b border-slate-200/80 dark:border-white/10">
+          <tr className="border-b border-border/80 dark:border-border">
             <Th>Email</Th>
             <Th>Status</Th>
             <Th>Subscribed</Th>
           </tr>
         </thead>
-        <tbody className="divide-y divide-slate-100 dark:divide-white/5">
+        <tbody className="divide-y divide-border dark:divide-border">
           {rows.map((row, i) => (
-            <tr key={String(row.id ?? i)} className="transition hover:bg-slate-50/50 dark:hover:bg-white/[0.02]">
-              <Td className="font-medium text-slate-900 dark:text-white">
+            <tr key={String(row.id ?? i)} className="transition hover:bg-background/50 dark:hover:bg-accent">
+              <Td className="font-medium text-foreground dark:text-foreground">
                 {String(row.email ?? "")}
               </Td>
               <Td>
@@ -249,16 +249,16 @@ function CommentsTable({ rows }: { rows: Array<Record<string, unknown>> }) {
     <div className="overflow-x-auto">
       <table className="w-full">
         <thead>
-          <tr className="border-b border-slate-200/80 dark:border-white/10">
+          <tr className="border-b border-border/80 dark:border-border">
             <Th>Book</Th>
             <Th>Comment</Th>
             <Th>Date</Th>
           </tr>
         </thead>
-        <tbody className="divide-y divide-slate-100 dark:divide-white/5">
+        <tbody className="divide-y divide-border dark:divide-border">
           {rows.map((row, i) => (
-            <tr key={String(row.id ?? i)} className="transition hover:bg-slate-50/50 dark:hover:bg-white/[0.02]">
-              <Td className="font-medium text-slate-900 dark:text-white">
+            <tr key={String(row.id ?? i)} className="transition hover:bg-background/50 dark:hover:bg-accent">
+              <Td className="font-medium text-foreground dark:text-foreground">
                 {String(row.bookTitle ?? "")}
               </Td>
               <Td className="max-w-[400px] truncate">
@@ -282,17 +282,17 @@ function ReviewsTable({ rows }: { rows: Array<Record<string, unknown>> }) {
     <div className="overflow-x-auto">
       <table className="w-full">
         <thead>
-          <tr className="border-b border-slate-200/80 dark:border-white/10">
+          <tr className="border-b border-border/80 dark:border-border">
             <Th>Book</Th>
             <Th>Rating</Th>
             <Th>Review</Th>
             <Th>Date</Th>
           </tr>
         </thead>
-        <tbody className="divide-y divide-slate-100 dark:divide-white/5">
+        <tbody className="divide-y divide-border dark:divide-border">
           {rows.map((row, i) => (
-            <tr key={String(row.id ?? i)} className="transition hover:bg-slate-50/50 dark:hover:bg-white/[0.02]">
-              <Td className="font-medium text-slate-900 dark:text-white">
+            <tr key={String(row.id ?? i)} className="transition hover:bg-background/50 dark:hover:bg-accent">
+              <Td className="font-medium text-foreground dark:text-foreground">
                 {String(row.bookTitle ?? "")}
               </Td>
               <Td>
@@ -313,7 +313,7 @@ function ReviewsTable({ rows }: { rows: Array<Record<string, unknown>> }) {
 function Th({ children, className }: { children: React.ReactNode; className?: string }) {
   return (
     <th
-      className={`px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-[0.08em] text-slate-400 dark:text-white/35 ${className ?? ""}`}
+      className={`px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-[0.08em] text-muted-foreground dark:text-muted-foreground ${className ?? ""}`}
     >
       {children}
     </th>
@@ -323,7 +323,7 @@ function Th({ children, className }: { children: React.ReactNode; className?: st
 function Td({ children, className }: { children: React.ReactNode; className?: string }) {
   return (
     <td
-      className={`px-4 py-3.5 text-[13px] text-slate-600 dark:text-white/60 ${className ?? ""}`}
+      className={`px-4 py-3.5 text-[13px] text-muted-foreground dark:text-muted-foreground ${className ?? ""}`}
     >
       {children}
     </td>
@@ -333,7 +333,7 @@ function Td({ children, className }: { children: React.ReactNode; className?: st
 function EmptyState({ message }: { message: string }) {
   return (
     <div className="py-12 text-center">
-      <p className="text-sm text-slate-400 dark:text-white/35">{message}</p>
+      <p className="text-sm text-muted-foreground dark:text-muted-foreground">{message}</p>
     </div>
   );
 }
@@ -363,12 +363,12 @@ export default function MetricDetailWorkspace({
         <header className="flex items-center gap-3">
           <Link
             href="/author/home"
-            className="flex h-8 w-8 items-center justify-center rounded-lg text-slate-400 transition hover:bg-slate-100 hover:text-slate-600 dark:text-white/40 dark:hover:bg-white/10 dark:hover:text-white/70"
+            className="flex h-11 w-11 items-center justify-center rounded-lg text-muted-foreground transition hover:bg-muted hover:text-muted-foreground dark:text-muted-foreground dark:hover:bg-accent dark:hover:text-foreground"
             aria-label="Back to dashboard"
           >
             <ArrowLeft className="h-4 w-4" />
           </Link>
-          <h1 className="text-[17px] font-medium uppercase tracking-[0.14em] text-[#8B92A5] dark:text-white/50">
+          <h1 className="author-page-title">
             {config.title}
           </h1>
         </header>
@@ -381,19 +381,19 @@ export default function MetricDetailWorkspace({
             {summaryCards.map((card) => (
               <div
                 key={card.label}
-                className="rounded-2xl bg-white px-5 py-4 dark:bg-white/[0.04]"
+                className="rounded-2xl border border-border bg-card px-5 py-4 dark:bg-card"
               >
                 <div className="flex items-center gap-2">
-                  <p className="text-[11px] font-medium uppercase tracking-[0.08em] text-slate-400 dark:text-white/40">
+                  <p className="text-[11px] font-medium uppercase tracking-[0.08em] text-muted-foreground dark:text-muted-foreground">
                     {card.label}
                   </p>
                   {card.sparkline ? (
-                    <span className="text-[10px] text-slate-300 dark:text-white/20">
+                    <span className="text-[10px] text-muted-foreground dark:text-muted-foreground">
                       {card.sparkline}
                     </span>
                   ) : null}
                 </div>
-                <p className="mt-1.5 text-xl font-semibold text-slate-900 dark:text-white">
+                <p className="mt-1.5 text-xl font-semibold text-foreground dark:text-foreground">
                   {card.value}
                 </p>
                 {card.change ? (
@@ -406,8 +406,8 @@ export default function MetricDetailWorkspace({
           </section>
 
           {/* Main data table */}
-          <section className="rounded-2xl bg-white dark:bg-white/[0.04]">
-            <div className="flex items-center justify-between border-b border-slate-200/80 px-5 py-4 dark:border-white/10">
+          <section className="rounded-2xl border border-border bg-card dark:bg-card">
+            <div className="flex items-center justify-between border-b border-border/80 px-5 py-4 dark:border-border">
               <div className="flex items-center gap-3">
                 <div
                   className={`flex h-9 w-9 items-center justify-center rounded-full ${config.toneClassName}`}
@@ -415,10 +415,10 @@ export default function MetricDetailWorkspace({
                   <Icon className="h-4 w-4" />
                 </div>
                 <div>
-                  <h2 className="text-[15px] font-semibold text-slate-900 dark:text-white">
+                  <h2 className="author-section-title text-[15px] font-medium text-foreground dark:text-foreground">
                     {config.title}
                   </h2>
-                  <p className="text-[12px] text-slate-400 dark:text-white/35">
+                  <p className="text-[12px] text-muted-foreground dark:text-muted-foreground">
                     {rows.length} {rows.length === 1 ? "entry" : "entries"}
                   </p>
                 </div>

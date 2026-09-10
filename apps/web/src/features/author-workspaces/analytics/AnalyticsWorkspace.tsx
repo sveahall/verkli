@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import dynamic from "next/dynamic";
 import { useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
@@ -16,13 +17,13 @@ const AnalyticsDashboard = dynamic(
       <div className="space-y-4">
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
           {[...Array<number>(4)].map((_, i) => (
-            <div key={i} className="h-[110px] animate-pulse rounded-2xl bg-slate-100 dark:bg-white/5" />
+            <div key={i} className="h-[110px] animate-pulse rounded-2xl bg-muted dark:bg-card" />
           ))}
         </div>
-        <div className="h-[320px] animate-pulse rounded-2xl bg-slate-100 dark:bg-white/5" />
+        <div className="h-[320px] animate-pulse rounded-2xl bg-muted dark:bg-card" />
         <div className="grid gap-4 lg:grid-cols-2">
-          <div className="h-[260px] animate-pulse rounded-2xl bg-slate-100 dark:bg-white/5" />
-          <div className="h-[260px] animate-pulse rounded-2xl bg-slate-100 dark:bg-white/5" />
+          <div className="h-[260px] animate-pulse rounded-2xl bg-muted dark:bg-card" />
+          <div className="h-[260px] animate-pulse rounded-2xl bg-muted dark:bg-card" />
         </div>
       </div>
     ),
@@ -129,10 +130,10 @@ function BookTab({
       type="button"
       onClick={onClick}
       className={cn(
-        "shrink-0 rounded-full px-4 py-2 text-[13px] font-medium transition-all",
+        "min-h-11 shrink-0 rounded-full px-4 py-2 text-[13px] font-medium transition-all",
         active
-          ? "bg-[#907AFF] text-white shadow-sm shadow-[#907AFF]/20"
-          : "bg-white text-slate-500 ring-1 ring-slate-200/80 hover:text-slate-800 dark:bg-white/[0.06] dark:text-white/50 dark:ring-white/10 dark:hover:text-white/80"
+          ? "bg-primary text-primary-foreground"
+          : "bg-card text-muted-foreground ring-1 ring-border hover:text-foreground dark:bg-card dark:text-muted-foreground dark:ring-white/10 dark:hover:text-foreground"
       )}
     >
       {label}
@@ -148,17 +149,17 @@ function PeriodSelector({
   onChange: (p: Period) => void;
 }) {
   return (
-    <div className="flex shrink-0 gap-1 rounded-xl bg-slate-100 p-1 dark:bg-white/5">
+    <div className="flex shrink-0 gap-1 rounded-xl bg-muted p-1 dark:bg-card">
       {(["7d", "30d", "all"] as Period[]).map((p) => (
         <button
           key={p}
           type="button"
           onClick={() => onChange(p)}
           className={cn(
-            "rounded-lg px-3 py-1.5 text-[12px] font-semibold tracking-wide transition-all",
+            "min-h-10 rounded-lg px-3 py-1.5 text-[12px] font-semibold tracking-wide transition-all",
             period === p
-              ? "bg-white text-slate-900 shadow-sm dark:bg-white/10 dark:text-white"
-              : "text-slate-500 hover:text-slate-700 dark:text-white/45 dark:hover:text-white/70"
+              ? "bg-card text-foreground shadow-sm dark:bg-card dark:text-foreground"
+              : "text-muted-foreground hover:text-foreground dark:text-muted-foreground dark:hover:text-foreground"
           )}
         >
           {p === "all" ? "All time" : p.toUpperCase()}
@@ -277,7 +278,7 @@ export default function AnalyticsWorkspace({ books }: AnalyticsWorkspaceProps) {
   return (
     <WorkspaceLayout
       header={
-        <h1 className="text-[17px] font-medium uppercase tracking-[0.14em] text-[#8B92A5] dark:text-white/50">
+        <h1 className="author-page-title">
           Analytics
         </h1>
       }
@@ -285,7 +286,7 @@ export default function AnalyticsWorkspace({ books }: AnalyticsWorkspaceProps) {
       main={
         <>
           <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
-            <div className="flex items-center gap-2 overflow-x-auto pb-1">
+            <div className="flex min-w-0 max-w-full items-center gap-2 overflow-x-auto pb-1">
               <BookTab
                 label="All books"
                 active={bookId === "all"}
@@ -304,13 +305,14 @@ export default function AnalyticsWorkspace({ books }: AnalyticsWorkspaceProps) {
           </div>
 
           {books.length === 0 ? (
-            <div className="rounded-2xl bg-white p-10 text-center dark:bg-white/[0.04]">
-              <h2 className="text-[26px] font-semibold tracking-tight text-slate-900 dark:text-white">
+            <div className="rounded-2xl border border-border bg-card px-6 py-14 text-center">
+              <h2 className="author-section-title text-[26px] font-medium tracking-tight text-foreground dark:text-foreground">
                 Story signals appear once readers have something to read
               </h2>
-              <p className="mx-auto mt-3 max-w-md text-[15px] leading-relaxed text-slate-500 dark:text-white/45">
+              <p className="mx-auto mt-3 max-w-md text-[15px] leading-relaxed text-muted-foreground dark:text-muted-foreground">
                 Create and publish a book, then return here to understand how readers move through your story.
               </p>
+              <Link href="/author/library" className="mt-6 inline-flex min-h-11 items-center rounded-full bg-primary px-5 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90">Open your library</Link>
             </div>
           ) : (
             <AnalyticsDashboard

@@ -48,19 +48,19 @@ export default function ReaderBookPageView({
   commentsSection,
 }: ReaderBookPageViewProps) {
   return (
-    <div className="mx-auto max-w-5xl space-y-8 px-4 pb-16 pt-2 sm:px-6">
+    <div className="mx-auto max-w-5xl space-y-8 pb-12 pt-1">
       {/* ── Back link ── */}
       <header>
         <Link
           href={backHref}
-          className="inline-flex items-center gap-2 text-[13px] font-medium text-slate-400 transition-colors duration-150 ease-out hover:text-slate-700 dark:text-white/40 dark:hover:text-white/80"
+          className="inline-flex min-h-11 items-center gap-2 rounded-lg text-[13px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring font-medium text-muted-foreground transition-colors duration-150 ease-out hover:text-foreground dark:hover:text-foreground"
         >
           <ArrowLeft className="h-3.5 w-3.5" /> Back to discover
         </Link>
       </header>
 
       {/* ── Hero card ── */}
-      <div className="card-base relative bg-white/80 backdrop-blur-sm dark:bg-white/[0.03]">
+      <div className="card-base relative bg-card/80 backdrop-blur-sm dark:bg-card">
         {/* Inner clipping layer — keeps filter:blur inside card without clipping cover shadow */}
         <div className="pointer-events-none absolute inset-0 overflow-hidden rounded-2xl">
           {/* Atmospheric cover backdrop */}
@@ -93,7 +93,7 @@ export default function ReaderBookPageView({
               <div className="flex flex-wrap items-center gap-3">
                 <Link
                   href={authorHref}
-                  className="text-sm font-semibold text-[#907AFF] transition-colors duration-150 ease-out hover:text-[#7058DD] dark:text-[#b8a8ff]"
+                  className="text-sm font-semibold text-accent-foreground transition-colors duration-150 ease-out hover:text-accent-foreground"
                 >
                   {authorName}
                 </Link>
@@ -101,12 +101,12 @@ export default function ReaderBookPageView({
               </div>
 
               {/* Title */}
-              <h1 className="text-[clamp(26px,4vw,40px)] font-bold leading-[1.1] tracking-tight text-slate-900 dark:text-white">
+              <h1 className="text-[clamp(28px,4vw,44px)] font-medium leading-[1.15] tracking-tight text-foreground font-display">
                 {title}
               </h1>
 
               {/* Description */}
-              <p className="max-w-2xl text-[15px] leading-relaxed text-slate-500 dark:text-white/50">
+              <p className="max-w-2xl text-[15px] leading-relaxed text-muted-foreground">
                 {description || "No description yet."}
               </p>
 
@@ -134,13 +134,13 @@ export default function ReaderBookPageView({
 
       {/* ── Edition details — unified bar with dividers ── */}
       <div className="card-base overflow-hidden">
-        <div className="flex flex-col divide-y divide-slate-200/60 dark:divide-white/[0.06] sm:flex-row sm:divide-x sm:divide-y-0">
+        <div className="flex flex-col divide-y divide-border sm:flex-row sm:divide-x sm:divide-y-0">
           {editionNotes.map((item) => (
             <div key={item.label} className="flex-1 px-5 py-4 sm:px-6">
-              <p className="text-xs font-medium uppercase tracking-wider text-[#64748B] dark:text-white/40">
+              <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
                 {item.label}
               </p>
-              <p className="mt-1 text-sm font-semibold text-[#0F172A] dark:text-white">
+              <p className="mt-1 text-sm font-semibold text-foreground">
                 {item.value}
               </p>
             </div>
@@ -150,8 +150,8 @@ export default function ReaderBookPageView({
 
       {/* ── Chapters ── */}
       <div className="card-base overflow-hidden">
-        <div className="flex items-center justify-between border-b border-slate-200/60 px-6 py-4 dark:border-white/[0.06]">
-          <h3 className="text-sm font-semibold text-[#0F172A] dark:text-white">
+        <div className="flex items-center justify-between border-b border-border px-6 py-4">
+          <h3 className="text-lg font-medium text-foreground font-display">
             Chapters
           </h3>
         </div>

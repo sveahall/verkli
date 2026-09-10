@@ -107,10 +107,10 @@ export default function AuthorStatsDashboard() {
   return (
     <div className="mx-auto max-w-[960px] px-4 py-8 sm:px-6">
       <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <h1 className="text-xl font-bold text-slate-900 dark:text-white">
+        <h1 className="author-page-title text-foreground">
           Statistics
         </h1>
-        <div className="flex gap-1 rounded-xl bg-slate-100 p-1 dark:bg-white/5">
+        <div className="flex gap-1 rounded-xl bg-muted p-1 dark:bg-card">
           {(["7d", "30d", "all"] as Period[]).map((p) => (
             <button
               key={p}
@@ -118,8 +118,8 @@ export default function AuthorStatsDashboard() {
               onClick={() => setPeriod(p)}
               className={`rounded-lg px-4 py-1.5 text-[13px] font-medium transition-colors ${
                 period === p
-                  ? "bg-white text-slate-900 shadow-sm dark:bg-slate-800 dark:text-white"
-                  : "text-slate-500 hover:text-slate-700 dark:text-white/50 dark:hover:text-white/80"
+                  ? "bg-card text-foreground shadow-sm dark:bg-card dark:text-foreground"
+                  : "text-muted-foreground hover:text-foreground dark:text-muted-foreground dark:hover:text-foreground"
               }`}
             >
               {periodLabels[p]}
@@ -150,11 +150,11 @@ export default function AuthorStatsDashboard() {
             {[1, 2, 3, 4].map((i) => (
               <div
                 key={i}
-                className="h-[88px] animate-pulse rounded-2xl border border-slate-200/50 bg-slate-100 dark:border-white/10 dark:bg-white/5"
+                className="h-[88px] animate-pulse rounded-2xl border border-border/50 bg-muted dark:border-border dark:bg-card"
               />
             ))}
           </div>
-          <div className="h-[300px] animate-pulse rounded-2xl border border-slate-200/50 bg-slate-100 dark:border-white/10 dark:bg-white/5" />
+          <div className="h-[300px] animate-pulse rounded-2xl border border-border/50 bg-muted dark:border-border dark:bg-card" />
         </div>
       ) : (
         <div className="space-y-6">
@@ -168,7 +168,7 @@ export default function AuthorStatsDashboard() {
 
           {engagement && (
             <>
-              <h2 className="text-[15px] font-semibold text-slate-900 dark:text-white">
+              <h2 className="author-section-title text-[15px] font-medium text-foreground dark:text-foreground">
                 Engagement
               </h2>
               <StatsEngagementCards
@@ -181,20 +181,20 @@ export default function AuthorStatsDashboard() {
           )}
 
           {revenue && (revenue.orderRevenue > 0 || revenue.donationRevenue > 0) && (
-            <div className="rounded-2xl border border-slate-200/50 bg-white p-5 shadow-sm dark:border-white/10 dark:bg-slate-900">
-              <h2 className="mb-4 text-[15px] font-semibold text-slate-900 dark:text-white">
+            <div className="rounded-2xl border border-border/50 bg-card p-5 shadow-sm dark:border-border dark:bg-card">
+              <h2 className="author-section-title mb-4 text-[15px] font-medium text-foreground dark:text-foreground">
                 Revenue breakdown
               </h2>
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <p className="text-[12px] font-medium text-slate-500 dark:text-white/50">Book sales</p>
-                  <p className="text-lg font-bold text-slate-900 dark:text-white">
+                  <p className="text-[12px] font-medium text-muted-foreground dark:text-muted-foreground">Book sales</p>
+                  <p className="text-lg font-bold text-foreground dark:text-foreground">
                     {revenue.orderRevenue.toLocaleString("en-US")} {revenue.currency}
                   </p>
                 </div>
                 <div>
-                  <p className="text-[12px] font-medium text-slate-500 dark:text-white/50">Donations</p>
-                  <p className="text-lg font-bold text-slate-900 dark:text-white">
+                  <p className="text-[12px] font-medium text-muted-foreground dark:text-muted-foreground">Donations</p>
+                  <p className="text-lg font-bold text-foreground dark:text-foreground">
                     {revenue.donationRevenue.toLocaleString("en-US")} {revenue.currency}
                   </p>
                 </div>
@@ -202,8 +202,8 @@ export default function AuthorStatsDashboard() {
             </div>
           )}
 
-          <div className="rounded-2xl border border-slate-200/50 bg-white p-5 shadow-sm dark:border-white/10 dark:bg-slate-900">
-            <h2 className="mb-4 text-[15px] font-semibold text-slate-900 dark:text-white">
+          <div className="rounded-2xl border border-border/50 bg-card p-5 shadow-sm dark:border-border dark:bg-card">
+            <h2 className="author-section-title mb-4 text-[15px] font-medium text-foreground dark:text-foreground">
               By book
             </h2>
             <StatsBookTable period={period} />

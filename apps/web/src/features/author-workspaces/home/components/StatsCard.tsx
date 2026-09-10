@@ -37,8 +37,8 @@ export default function StatsCard({
   const content = (
     <article
       className={cn(
-        "relative min-h-[118px] rounded-2xl bg-white px-4 py-3.5 shadow-[0_2px_10px_rgba(15,23,42,0.04)] dark:bg-white/[0.04]",
-        href && "cursor-pointer transition-all duration-200 hover:shadow-md hover:shadow-black/[0.06] hover:-translate-y-0.5 active:scale-[0.98] dark:hover:bg-white/[0.06]"
+        "relative min-h-[148px] rounded-2xl border border-border bg-card p-5",
+        href && "cursor-pointer transition-[border-color,box-shadow] duration-150 hover:border-[#907AFF]/35 hover:shadow-[0_4px_18px_rgba(25,23,28,0.05)]"
       )}
       onMouseEnter={handleMouseEnter}
       onMouseLeave={handleMouseLeave}
@@ -53,7 +53,7 @@ export default function StatsCard({
       </div>
       <div className="space-y-1.5 pb-1">
         <div className="flex items-center gap-1.5">
-          <p className="text-[11px] font-medium uppercase tracking-[0.08em] text-[#6D7386] dark:text-white/50">
+          <p className="text-[11px] font-medium uppercase tracking-[0.08em] text-muted-foreground dark:text-muted-foreground">
             {label}
           </p>
           {growth ? (
@@ -62,18 +62,18 @@ export default function StatsCard({
             </span>
           ) : null}
         </div>
-        <p className="text-3xl font-normal leading-tight tracking-[-0.01em] text-slate-900 dark:text-white">{value}</p>
+        <p className="text-3xl font-normal tabular-nums leading-tight tracking-[-0.01em] text-foreground dark:text-foreground">{value}</p>
       </div>
 
       {description && showTooltip ? (
-        <div className="absolute left-1/2 top-0 z-50 w-56 -translate-x-1/2 -translate-y-[calc(100%+8px)] rounded-xl border border-slate-200/80 bg-white px-3.5 py-3 shadow-lg shadow-black/[0.08] dark:border-white/10 dark:bg-[#1a1f2e]">
-          <p className="text-[13px] font-semibold text-slate-900 dark:text-white">
+        <div className="absolute left-1/2 top-0 z-50 w-56 -translate-x-1/2 -translate-y-[calc(100%+8px)] rounded-xl border border-border/80 bg-card px-3.5 py-3 shadow-lg shadow-black/[0.08] dark:border-border dark:bg-card">
+          <p className="text-[13px] font-semibold text-foreground dark:text-foreground">
             {label}
           </p>
-          <p className="mt-1 text-[12px] leading-relaxed text-slate-500 dark:text-white/50">
+          <p className="mt-1 text-[12px] leading-relaxed text-muted-foreground dark:text-muted-foreground">
             {description}
           </p>
-          <div className="absolute bottom-0 left-1/2 h-2 w-2 -translate-x-1/2 translate-y-1/2 rotate-45 border-b border-r border-slate-200/80 bg-white dark:border-white/10 dark:bg-[#1a1f2e]" />
+          <div className="absolute bottom-0 left-1/2 h-2 w-2 -translate-x-1/2 translate-y-1/2 rotate-45 border-b border-r border-border/80 bg-card dark:border-border dark:bg-card" />
         </div>
       ) : null}
     </article>

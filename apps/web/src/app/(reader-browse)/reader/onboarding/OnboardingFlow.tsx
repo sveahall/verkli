@@ -137,10 +137,10 @@ export default function OnboardingFlow() {
     return (
       <div className="space-y-8">
         <div className="space-y-2 text-center">
-          <h1 className="text-[28px] font-semibold tracking-tight text-slate-900 dark:text-white">
+          <h1 className="text-[28px] font-medium tracking-tight text-foreground font-display">
             What do you like to read?
           </h1>
-          <p className="text-[15px] text-slate-500 dark:text-white/60">
+          <p className="text-[15px] text-muted-foreground">
             Pick at least 3 genres so we can recommend books for you.
           </p>
         </div>
@@ -162,7 +162,7 @@ export default function OnboardingFlow() {
             type="button"
             disabled={selectedGenres.size < 3}
             onClick={handleNextToBooks}
-            className="rounded-full bg-[#907AFF] px-8 py-3 text-[14px] font-semibold text-white transition hover:bg-[#8069EE] disabled:cursor-not-allowed disabled:opacity-40"
+            className="rounded-full bg-primary px-8 py-3 text-[14px] font-medium text-primary-foreground transition-colors hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-40"
           >
             Next ({selectedGenres.size}/3+)
           </button>
@@ -175,10 +175,10 @@ export default function OnboardingFlow() {
     return (
       <div className="space-y-8">
         <div className="space-y-2 text-center">
-          <h1 className="text-[28px] font-semibold tracking-tight text-slate-900 dark:text-white">
+          <h1 className="text-[28px] font-medium tracking-tight text-foreground font-display">
             Which books appeal to you?
           </h1>
-          <p className="text-[15px] text-slate-500 dark:text-white/60">
+          <p className="text-[15px] text-muted-foreground">
             Like or skip to help us understand your taste. You can skip this step too.
           </p>
         </div>
@@ -205,7 +205,7 @@ export default function OnboardingFlow() {
             ))}
           </div>
         ) : (
-          <p className="text-center text-sm text-slate-500 dark:text-white/50">
+          <p className="text-center text-sm text-muted-foreground">
             No books to show right now. You can continue directly.
           </p>
         )}
@@ -214,14 +214,14 @@ export default function OnboardingFlow() {
           <button
             type="button"
             onClick={() => setStep("genres")}
-            className="rounded-full border border-slate-200 bg-white px-6 py-3 text-[14px] font-medium text-slate-700 transition hover:bg-slate-50 dark:border-white/10 dark:bg-white/5 dark:text-white/80 dark:hover:bg-white/10"
+            className="rounded-full border border-border bg-card px-6 py-3 text-[14px] font-medium text-foreground transition hover:bg-muted dark:hover:bg-card"
           >
             Back
           </button>
           <button
             type="button"
             onClick={handleSubmit}
-            className="rounded-full bg-[#907AFF] px-8 py-3 text-[14px] font-semibold text-white transition hover:bg-[#8069EE]"
+            className="rounded-full bg-primary px-8 py-3 text-[14px] font-medium text-primary-foreground transition-colors hover:bg-primary/90"
           >
             Finish
           </button>
@@ -234,7 +234,7 @@ export default function OnboardingFlow() {
   return (
     <div className="flex flex-col items-center justify-center py-20 space-y-4">
       <div className="h-8 w-8 animate-spin rounded-full border-2 border-[#907AFF] border-t-transparent" />
-      <p className="text-[14px] text-slate-500 dark:text-white/60">Saving your choices...</p>
+      <p className="text-[14px] text-muted-foreground">Saving your choices...</p>
     </div>
   );
 }
