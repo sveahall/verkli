@@ -2,17 +2,8 @@ import { notFound } from "next/navigation";
 import BookEditor from "./BookEditor";
 import { loadBookWorkspaceData } from "./loadBookWorkspaceData";
 import type { Tool } from "./editor/bookEditor.shared";
+import { isValidPanel } from "./editor/bookEditor.shared";
 import { isDemoModeActive } from "@/lib/flags";
-
-const VALID_PANELS: Tool[] = [
-  "dashboard", "edit", "cover", "translate", "audiobook", "production", "distribute",
-  "print", "pricing", "publish", "market", "trailer", "review", "statistics", "import", "ai",
-];
-
-function isValidPanel(value: string | null): value is Tool {
-  if (!value) return false;
-  return VALID_PANELS.includes(value as Tool);
-}
 
 export default async function BookWorkspacePage({
   params,

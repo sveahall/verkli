@@ -395,3 +395,23 @@ export function getInitialTool(
   if (initialTool && tools.includes(initialTool)) return initialTool;
   return tools[0] ?? "edit";
 }
+
+/**
+ * Every panel the book workspace can open. The workspace is a single page that
+ * swaps panels on `?panel=`, so these are query values, not routes.
+ *
+ * Lives here rather than in page.tsx because two places need it: the page,
+ * which validates the query, and the `[panel]` redirect route, which turns a
+ * hand-typed or bookmarked `/author/books/<id>/cover` into the query form
+ * instead of a 404. A second copy of this list would drift the moment a panel
+ * is added, and the symptom would be a dead link nobody notices.
+ */
+export const VALID_PANELS = [
+  "dashboard", "edit", "cover", "translate", "audiobook", "production", "distribute",
+  "print", "pricing", "publish", "market", "trailer", "review", "statistics", "import", "ai",
+] as const;
+
+export function isValidPanel(value: string | null | undefined): value is Tool {
+  if (!value) return false;
+  return (VALID_PANELS as readonly string[]).includes(value);
+}
