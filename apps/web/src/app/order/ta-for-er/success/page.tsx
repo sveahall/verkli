@@ -11,8 +11,8 @@ export const runtime = "nodejs";
  * One confirmation page, two products.
  *
  * The printed copy gets posted, so the page says so and stops. The download
- * has to hand over the file here: there is no account to log into and nothing
- * is emailed yet, so this page is the delivery.
+ * hands over the file here. The paid-order webhook also emails a return link
+ * to this page, since there is no account the buyer can log into.
  *
  * Which one it is comes from the Stripe session's `order_variant`, never from
  * the URL. A buyer who edits the query string must not be able to talk the
@@ -83,8 +83,8 @@ export default async function TaForErSuccessPage({
                   ))}
                 </div>
                 <p className="mt-3 text-[13px] leading-relaxed text-muted-foreground">
-                  Spara filen direkt. Länken gäller en timme, men du kan alltid komma tillbaka hit och hämta
-                  en ny — spara den här sidan.
+                  Spara filen direkt. Vi skickar också en personlig länk till den här sidan via e-post,
+                  så att du kan hämta boken igen.
                 </p>
               </>
             ) : (

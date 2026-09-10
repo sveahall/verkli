@@ -39,11 +39,8 @@ export const runtime = "nodejs";
  * leaks stops working; the buyer can always come back to the success page and
  * get a fresh one, because it is derived from the session id.
  *
- * Known gap, deliberate: nothing is emailed. Close the tab and the only way
- * back is the Stripe receipt, which does not carry the link. Wiring that needs
- * a `checkout.session.completed` handler AND the live endpoint subscribed to
- * that event — a handler alone is dead code here, which is exactly how
- * `charge.refunded` shipped doing nothing (see check:stripe-webhook).
+ * The paid-order webhook emails a link back to the success page. It rechecks
+ * payment and issues fresh signed URLs, so the storage URL can safely expire.
  */
 
 const downloadLimiter = createPerUserRateLimiter({ maxPerMinute: 20 });
