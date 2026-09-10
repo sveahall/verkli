@@ -89,10 +89,11 @@ export default function SettingsPage({ user, profile, subscriptionPlanSection }:
             <h2 className="author-section-title text-section-title">Account</h2>
             <div className="mt-4 grid gap-4 md:grid-cols-2">
               <div className="space-y-2">
-                <label className="text-sm font-medium text-foreground dark:text-foreground">
+                <label htmlFor="author-settings-email" className="text-sm font-medium text-foreground dark:text-foreground">
                   Email
                 </label>
                 <input
+                  id="author-settings-email"
                   value={user.email}
                   readOnly
                   className="input-base min-h-[44px] text-[14px] text-muted-foreground dark:text-muted-foreground"
@@ -100,22 +101,24 @@ export default function SettingsPage({ user, profile, subscriptionPlanSection }:
               </div>
               <div />
               <div className="space-y-2">
-                <label className="text-sm font-medium text-foreground dark:text-foreground">
+                <label htmlFor="author-settings-password" className="text-sm font-medium text-foreground dark:text-foreground">
                   Password
                 </label>
                 <input
                   type="password"
+                  id="author-settings-password"
                   name="new_password"
                   placeholder="New password"
                   className="input-base min-h-[44px] text-[14px]"
                 />
               </div>
               <div className="space-y-2">
-                <label className="text-sm font-medium text-foreground dark:text-foreground">
+                <label htmlFor="author-settings-confirm-password" className="text-sm font-medium text-foreground dark:text-foreground">
                   Confirm password
                 </label>
                 <input
                   type="password"
+                  id="author-settings-confirm-password"
                   name="confirm_password"
                   placeholder="Confirm password"
                   className="input-base min-h-[44px] text-[14px]"
@@ -128,10 +131,11 @@ export default function SettingsPage({ user, profile, subscriptionPlanSection }:
             <h2 className="author-section-title text-section-title">Publishing defaults</h2>
             <div className="mt-4 grid gap-4 md:grid-cols-2">
               <div className="space-y-2">
-                <label className="text-sm font-medium text-foreground dark:text-foreground">
+                <label htmlFor="author-settings-language" className="text-sm font-medium text-foreground dark:text-foreground">
                   Language
                 </label>
                 <select
+                  id="author-settings-language"
                   name="default_language"
                   defaultValue={defaultLanguage}
                   className="input-base min-h-[44px] text-[14px]"
@@ -143,10 +147,11 @@ export default function SettingsPage({ user, profile, subscriptionPlanSection }:
                 </select>
               </div>
               <div className="space-y-2">
-                <label className="text-sm font-medium text-foreground dark:text-foreground">
+                <label htmlFor="author-settings-visibility" className="text-sm font-medium text-foreground dark:text-foreground">
                   Default visibility
                 </label>
                 <select
+                  id="author-settings-visibility"
                   name="default_visibility"
                   defaultValue={defaultVisibility}
                   className="input-base min-h-[44px] text-[14px]"
@@ -167,6 +172,7 @@ export default function SettingsPage({ user, profile, subscriptionPlanSection }:
                 </p>
               </div>
               <label className="relative inline-flex cursor-pointer items-center">
+                <span className="sr-only">Email activity notifications</span>
                 <input
                   type="checkbox"
                   checked={emailNotifications}

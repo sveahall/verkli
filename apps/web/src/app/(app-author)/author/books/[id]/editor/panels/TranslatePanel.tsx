@@ -59,8 +59,6 @@ export default function TranslatePanel({
   const [loadingPreview, setLoadingPreview] = useState(false);
   const [translating, setTranslating] = useState(false);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
-  const [targetDropdownOpen, setTargetDropdownOpen] = useState(false);
-  const targetDropdownRef = useRef<HTMLDivElement>(null);
 
   const [translateScope, setTranslateScope] = useState<"book" | "chapter">("book");
 
@@ -139,17 +137,6 @@ export default function TranslatePanel({
       void triggerPaidTranslation(langs, sessionId);
     }
   }, [searchParams, sourceVersionId, router, triggerPaidTranslation]);
-
-  useEffect(() => {
-    if (!targetDropdownOpen) return;
-    const close = (e: MouseEvent) => {
-      if (targetDropdownRef.current && !targetDropdownRef.current.contains(e.target as Node)) {
-        setTargetDropdownOpen(false);
-      }
-    };
-    document.addEventListener("click", close);
-    return () => document.removeEventListener("click", close);
-  }, [targetDropdownOpen]);
 
   const previewAbortRef = useRef<AbortController | null>(null);
 
@@ -355,46 +342,21 @@ export default function TranslatePanel({
           <h2 className="author-section-title text-xs font-medium uppercase tracking-[0.18em] text-muted-foreground dark:text-muted-foreground">
             Translate
           </h2>
-          <div className="relative flex items-center gap-3 text-[15px]" ref={targetDropdownRef}>
+          <div className="flex flex-wrap items-center gap-3 text-[15px]">
             <span className="font-medium text-foreground dark:text-foreground">{sourceLabel}</span>
             <span className="text-muted-foreground dark:text-muted-foreground">&rarr;</span>
-            <div className="relative">
-              <button
-                type="button"
-                onClick={() => setTargetDropdownOpen((open) => !open)}
-                className="flex items-center gap-3 rounded-lg border border-black/[0.08] bg-card px-3 py-2 text-sm text-foreground focus:border-border focus:outline-none dark:border-border dark:bg-card dark:text-foreground"
-                aria-haspopup="listbox"
-                aria-expanded={targetDropdownOpen}
+            <label className="flex items-center gap-2 text-sm text-muted-foreground">
+              Target language
+              <select
+                value={targetLanguage}
+                onChange={(event) => setTargetLanguage(event.target.value as SupportedLanguage)}
+                className="min-h-11 rounded-xl border border-border bg-card px-3 py-2 text-[16px] text-foreground sm:text-sm"
               >
-                <span>{getLanguageLabel(targetLanguage)}</span>
-                <svg className="h-4 w-4 shrink-0 text-muted-foreground dark:text-muted-foreground" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
-                  <path d="M6 9l6 6 6-6" />
-                </svg>
-              </button>
-              {targetDropdownOpen && (
-                <ul
-                  className="absolute left-0 top-full z-10 mt-1 max-h-60 w-full min-w-[140px] overflow-auto rounded-lg border border-black/[0.08] bg-card py-1 shadow-lg dark:border-border dark:bg-card dark:text-foreground"
-                  role="listbox"
-                >
-                  {targetOptions.map((opt) => (
-                    <li key={opt.value} role="option" aria-selected={opt.value === targetLanguage}>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setTargetLanguage(opt.value as SupportedLanguage);
-                          setTargetDropdownOpen(false);
-                        }}
-                        className={`w-full px-3 py-2 text-left text-sm hover:bg-muted dark:hover:bg-accent ${
-                          opt.value === targetLanguage ? "bg-background font-medium dark:bg-card" : ""
-                        }`}
-                      >
-                        {opt.label}
-                      </button>
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </div>
+                {targetOptions.map((opt) => (
+                  <option key={opt.value} value={opt.value}>{opt.label}</option>
+                ))}
+              </select>
+            </label>
           </div>
         </div>
 

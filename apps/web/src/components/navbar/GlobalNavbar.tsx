@@ -1,10 +1,12 @@
 "use client";
 
-import { useState, useEffect, useMemo, useRef } from "react";
+import { useState, useEffect, useMemo, useRef, useCallback } from "react";
 import { createPortal } from "react-dom";
 import Link from "next/link";
 import Image from "next/image";
 import { usePathname, useRouter } from "next/navigation";
+import { Dialog } from "@/components/ui/dialog";
+import { ArrowUpRight, Play, X } from "lucide-react";
 import UserMenu from "@/components/navbar/UserMenu";
 import NotificationBell from "@/components/notifications/NotificationBell";
 import { createClient } from "@/lib/supabase/client";
@@ -132,29 +134,124 @@ export default function GlobalNavbar({
   }, [pathname]);
 
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const [dropdownOpen, setDropdownOpen] = useState<{ key: string; top: number; left: number } | null>(null);
+  const [dropdownOpen, setDropdownOpen] = useState<{ key: string; top: number; left: number; pinned?: boolean; keyboard?: boolean } | null>(null);
 
   const logoHref = useMemo(() => {
     const role = getActiveRoleFromCookies();
     return role === "reader" ? "/reader/home" : role === "author" ? "/author/home" : homeHref ?? "/";
   }, [homeHref]);
-  // Timeout så att flytt från trigger till portal inte stänger menyn (browser: number)
-  const dropdownCloseTimeoutRef = useRef<number | null>(null);
+  const dropdownTriggerRef = useRef<HTMLButtonElement | null>(null);
+  const dropdownPanelRef = useRef<HTMLDivElement | null>(null);
+  const dropdownCloseTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const dropdownHoverTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const clearDropdownTimers = useCallback(() => {
+    if (dropdownCloseTimeoutRef.current) clearTimeout(dropdownCloseTimeoutRef.current);
+    if (dropdownHoverTimeoutRef.current) clearTimeout(dropdownHoverTimeoutRef.current);
+  }, []);
+  const closeDropdown = useCallback(() => {
+    clearDropdownTimers();
+    setDropdownOpen(null);
+  }, [clearDropdownTimers]);
+  const openDropdown = (trigger: HTMLButtonElement, key: string, pinned = false, keyboard = false) => {
+    clearDropdownTimers();
+    dropdownTriggerRef.current = trigger;
+    const rect = trigger.getBoundingClientRect();
+    setDropdownOpen({ key, top: rect.bottom + 14, left: rect.left - 12, pinned, keyboard });
+  };
+  const focusDropdown = (last = false) => {
+    requestAnimationFrame(() => {
+      const links = dropdownPanelRef.current?.querySelectorAll<HTMLAnchorElement>("a[href]");
+      if (links?.length) links[last ? links.length - 1 : 0].focus();
+    });
+  };
+  const leaveDropdown = () => {
+    clearDropdownTimers();
+    if (dropdownOpen?.pinned || dropdownPanelRef.current?.contains(document.activeElement)) return;
+    dropdownCloseTimeoutRef.current = setTimeout(closeDropdown, 180);
+  };
+  const dropdownTriggerProps = (item: NavLink) => ({
+    type: "button" as const,
+    "aria-expanded": dropdownOpen?.key === item.label,
+    "aria-controls": dropdownOpen?.key === item.label ? "verkli-nav-panel" : undefined,
+    onClick: (event: React.MouseEvent<HTMLButtonElement>) => {
+      if (dropdownOpen?.key === item.label && dropdownOpen.pinned) closeDropdown();
+      else {
+        openDropdown(event.currentTarget, item.label, true, event.detail === 0);
+        if (event.detail === 0) focusDropdown();
+      }
+    },
+    onKeyDown: (event: React.KeyboardEvent<HTMLButtonElement>) => {
+      if (event.key === "ArrowDown" || event.key === "ArrowUp") {
+        event.preventDefault();
+        openDropdown(event.currentTarget, item.label, true, true);
+        focusDropdown(event.key === "ArrowUp");
+      } else if (event.key === "Tab" && dropdownOpen?.key === item.label) {
+        if (event.shiftKey) closeDropdown();
+        else { event.preventDefault(); focusDropdown(); }
+      }
+    },
+    onPointerEnter: (event: React.PointerEvent<HTMLButtonElement>) => {
+      if (event.pointerType !== "mouse" || dropdownOpen?.pinned) return;
+      clearDropdownTimers();
+      const trigger = event.currentTarget;
+      dropdownHoverTimeoutRef.current = setTimeout(() => openDropdown(trigger, item.label), 100);
+    },
+    onPointerLeave: leaveDropdown,
+  });
   useEffect(() => {
     if (!dropdownOpen) return;
+    const inside = (target: EventTarget | null) => target instanceof Node &&
+      (dropdownPanelRef.current?.contains(target) || dropdownTriggerRef.current?.contains(target));
+    const dismissOutside = (event: Event) => { if (!inside(event.target)) closeDropdown(); };
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.key === "Escape") {
-        setDropdownOpen(null);
+        event.preventDefault();
+        closeDropdown();
+        dropdownTriggerRef.current?.focus();
+      }
+      const panel = dropdownPanelRef.current;
+      if (!panel?.contains(document.activeElement)) return;
+      const links = Array.from(panel.querySelectorAll<HTMLAnchorElement>("a[href]"));
+      const index = links.indexOf(document.activeElement as HTMLAnchorElement);
+      if (["ArrowDown", "ArrowUp", "Home", "End"].includes(event.key)) {
+        event.preventDefault();
+        const next = event.key === "Home" ? 0 : event.key === "End" ? links.length - 1 :
+          (index + (event.key === "ArrowDown" ? 1 : -1) + links.length) % links.length;
+        links[next]?.focus();
+      }
+      if (event.key === "Tab" && ((event.shiftKey && index === 0) || (!event.shiftKey && index === links.length - 1))) {
+        event.preventDefault();
+        const trigger = dropdownTriggerRef.current;
+        closeDropdown();
+        const controls = Array.from(trigger?.closest("nav")?.querySelectorAll<HTMLElement>("a[href],button,input") ?? [])
+          .filter((node) => node.getClientRects().length && !node.hasAttribute("disabled"));
+        const next = trigger ? controls[controls.indexOf(trigger) + 1] : null;
+        (event.shiftKey ? trigger : next ?? trigger)?.focus();
       }
     };
     document.addEventListener("keydown", handleKeyDown);
-    return () => document.removeEventListener("keydown", handleKeyDown);
-  }, [dropdownOpen]);
-  // Close mobile menu on navigation
+    document.addEventListener("pointerdown", dismissOutside);
+    document.addEventListener("focusin", dismissOutside);
+    window.addEventListener("resize", closeDropdown);
+    return () => {
+      document.removeEventListener("keydown", handleKeyDown);
+      document.removeEventListener("pointerdown", dismissOutside);
+      document.removeEventListener("focusin", dismissOutside);
+      window.removeEventListener("resize", closeDropdown);
+    };
+  }, [dropdownOpen, closeDropdown]);
+  useEffect(() => clearDropdownTimers, [clearDropdownTimers]);
   useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect -- close transient UI state when route changes
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- dismiss navigation surfaces after navigation
     setMobileMenuOpen(false);
-  }, [pathname]);
+    closeDropdown();
+  }, [pathname, closeDropdown]);
+  useEffect(() => {
+    if (!mobileMenuOpen) return;
+    const closeDesktop = () => { if (window.innerWidth >= 1024) setMobileMenuOpen(false); };
+    window.addEventListener("resize", closeDesktop);
+    return () => window.removeEventListener("resize", closeDesktop);
+  }, [mobileMenuOpen]);
 
   const handleSignOut = async () => {
     const supabase = createClient();
@@ -275,7 +372,7 @@ export default function GlobalNavbar({
               {/* Logo: min 44px touch target on mobile */}
               <Link
                 href={logoHref}
-                className="flex min-h-[44px] min-w-[44px] shrink-0 items-center justify-center rounded-md focus:outline-none focus:ring-2 focus:ring-[#907AFF]/50 focus:ring-offset-2 focus:ring-offset-background"
+                className="flex min-h-[44px] min-w-[44px] shrink-0 items-center justify-center rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60 focus-visible:ring-offset-2 focus:ring-offset-background"
               >
                 <Image
                   src="/logo-dark.svg"
@@ -301,30 +398,15 @@ export default function GlobalNavbar({
                     <div
                       key={item.label}
                       className="group relative"
-                      onMouseEnter={(e) => {
-                        if (!item.hasDropdown) return;
-                        if (dropdownCloseTimeoutRef.current) {
-                          clearTimeout(dropdownCloseTimeoutRef.current);
-                          dropdownCloseTimeoutRef.current = null;
-                        }
-                        const trigger = e.currentTarget.querySelector("a, button");
-                        const rect = trigger?.getBoundingClientRect();
-                        if (rect) setDropdownOpen({ key: item.label, top: rect.bottom + 14, left: rect.left - 10 });
-                      }}
-                      onMouseLeave={() => {
-                        dropdownCloseTimeoutRef.current = window.setTimeout(() => setDropdownOpen(null), 200);
-                      }}
                     >
                       {(item.hasDropdown ?? (item.children?.length ?? 0) > 0) ? (
-                        <Link
-                          href={item.href}
-                          aria-haspopup="menu"
-                          aria-expanded={dropdownOpen?.key === item.label}
-                          className="flex min-h-[44px] min-w-[44px] items-center gap-1.5 px-3 py-2 transition-colors hover:text-foreground hover:text-[#7058DD] focus:outline-none focus:ring-2 focus:ring-[#907AFF]/50 focus:ring-offset-2 rounded-md"
+                        <button
+                          {...dropdownTriggerProps(item)}
+                          className="flex min-h-[44px] min-w-[44px] items-center gap-1.5 px-3 py-2 transition-colors hover:text-foreground hover:text-[#7058DD] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60 focus-visible:ring-offset-2 rounded-md"
                         >
                           <span>{item.label}</span>
                           <svg
-                            className="h-3.5 w-3.5 shrink-0 transition-transform group-hover:rotate-180"
+                            className={`h-3.5 w-3.5 shrink-0 transition-transform duration-150 ${dropdownOpen?.key === item.label ? "rotate-180" : ""}`}
                             viewBox="0 0 12 12"
                             fill="none"
                             stroke="currentColor"
@@ -334,11 +416,11 @@ export default function GlobalNavbar({
                           >
                             <path d="M3 4.5L6 7.5L9 4.5" />
                           </svg>
-                        </Link>
+                        </button>
                       ) : (
                         <Link
                           href={item.href}
-                          className="flex min-h-[44px] min-w-[44px] items-center px-3 py-2 transition-colors hover:text-foreground hover:text-[#7058DD] focus:outline-none focus:ring-2 focus:ring-[#907AFF]/50 focus:ring-offset-2 rounded-md"
+                          className="flex min-h-[44px] min-w-[44px] items-center px-3 py-2 transition-colors hover:text-foreground hover:text-[#7058DD] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60 focus-visible:ring-offset-2 rounded-md"
                         >
                           {item.label}
                         </Link>
@@ -357,28 +439,14 @@ export default function GlobalNavbar({
                         <div
                           key={item.label}
                           className="group relative"
-                          onMouseEnter={(e) => {
-                            if (dropdownCloseTimeoutRef.current) {
-                              clearTimeout(dropdownCloseTimeoutRef.current);
-                              dropdownCloseTimeoutRef.current = null;
-                            }
-                            const trigger = e.currentTarget.querySelector("a");
-                            const rect = trigger?.getBoundingClientRect();
-                            if (rect) setDropdownOpen({ key: item.label, top: rect.bottom + 14, left: rect.left - 10 });
-                          }}
-                          onMouseLeave={() => {
-                            dropdownCloseTimeoutRef.current = window.setTimeout(() => setDropdownOpen(null), 200);
-                          }}
                         >
-                          <Link
-                            href={item.href}
-                            aria-haspopup="menu"
-                            aria-expanded={dropdownOpen?.key === item.label}
-                            className="flex min-h-[44px] min-w-[44px] items-center gap-1.5 rounded-full px-4 py-2 transition-colors hover:bg-accent hover:text-foreground focus:outline-none focus:ring-2 focus:ring-[#907AFF]/50 focus:ring-offset-2 "
+                          <button
+                          {...dropdownTriggerProps(item)}
+                            className="flex min-h-[44px] min-w-[44px] items-center gap-1.5 rounded-full px-4 py-2 transition-colors hover:bg-accent hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60 focus-visible:ring-offset-2 "
                           >
                             <span>{item.label}</span>
                             <svg
-                              className="h-3.5 w-3.5 shrink-0 transition-transform group-hover:rotate-180"
+                              className={`h-3.5 w-3.5 shrink-0 transition-transform duration-150 ${dropdownOpen?.key === item.label ? "rotate-180" : ""}`}
                               viewBox="0 0 12 12"
                               fill="none"
                               stroke="currentColor"
@@ -388,7 +456,7 @@ export default function GlobalNavbar({
                             >
                               <path d="M3 4.5L6 7.5L9 4.5" />
                             </svg>
-                          </Link>
+                          </button>
                         </div>
                       );
                     }
@@ -417,30 +485,15 @@ export default function GlobalNavbar({
                     <div
                       key={item.label}
                       className="group relative"
-                      onMouseEnter={(e) => {
-                        if (!item.hasDropdown) return;
-                        if (dropdownCloseTimeoutRef.current) {
-                          clearTimeout(dropdownCloseTimeoutRef.current);
-                          dropdownCloseTimeoutRef.current = null;
-                        }
-                        const trigger = e.currentTarget.querySelector("a, button");
-                        const rect = trigger?.getBoundingClientRect();
-                        if (rect) setDropdownOpen({ key: item.label, top: rect.bottom + 8, left: rect.left });
-                      }}
-                      onMouseLeave={() => {
-                        dropdownCloseTimeoutRef.current = window.setTimeout(() => setDropdownOpen(null), 200);
-                      }}
                     >
                       {item.hasDropdown ? (
-                        <Link
-                          href={item.href}
-                          aria-haspopup="menu"
-                          aria-expanded={dropdownOpen?.key === item.label}
-                          className="flex min-h-[44px] min-w-[44px] items-center gap-1.5 px-3 py-2 transition-colors hover:text-foreground focus:outline-none focus:ring-2 focus:ring-[#907AFF]/50 focus:ring-offset-2 focus:ring-offset-transparent rounded-md"
+                        <button
+                          {...dropdownTriggerProps(item)}
+                          className="flex min-h-[44px] min-w-[44px] items-center gap-1.5 px-3 py-2 transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60 focus-visible:ring-offset-2 focus:ring-offset-transparent rounded-md"
                         >
                           <span>{item.label}</span>
                           <svg
-                            className="h-3.5 w-3.5 shrink-0 transition-transform group-hover:rotate-180"
+                            className={`h-3.5 w-3.5 shrink-0 transition-transform duration-150 ${dropdownOpen?.key === item.label ? "rotate-180" : ""}`}
                             viewBox="0 0 12 12"
                             fill="none"
                             stroke="currentColor"
@@ -450,11 +503,11 @@ export default function GlobalNavbar({
                           >
                             <path d="M3 4.5L6 7.5L9 4.5" />
                           </svg>
-                        </Link>
+                        </button>
                       ) : (
                         <Link
                           href={item.href}
-                          className="flex min-h-[44px] min-w-[44px] items-center px-3 py-2 transition-colors hover:text-foreground focus:outline-none focus:ring-2 focus:ring-[#907AFF]/50 focus:ring-offset-2 rounded-md"
+                          className="flex min-h-[44px] min-w-[44px] items-center px-3 py-2 transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60 focus-visible:ring-offset-2 rounded-md"
                         >
                           {item.label}
                         </Link>
@@ -470,10 +523,11 @@ export default function GlobalNavbar({
               {/* Hamburger – endast mobil/tablet, plats för menyn */}
               <button
                 type="button"
-                onClick={() => setMobileMenuOpen((v) => !v)}
-                className="flex min-h-[44px] min-w-[44px] items-center justify-center rounded-full border border-border text-foreground transition-colors hover:bg-accent hover:text-foreground focus:outline-none focus:ring-2 focus:ring-[#907AFF]/50 focus:ring-offset-2 lg:hidden"
+                onClick={() => { closeDropdown(); setMobileMenuOpen((v) => !v); }}
+                className="flex min-h-[44px] min-w-[44px] items-center justify-center rounded-full border border-border text-foreground transition-colors hover:bg-accent hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60 focus-visible:ring-offset-2 lg:hidden"
                 aria-label={mobileMenuOpen ? "Close menu" : "Open menu"}
                 aria-expanded={mobileMenuOpen}
+                aria-controls="verkli-mobile-navigation"
               >
                 {mobileMenuOpen ? (
                   <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -592,37 +646,7 @@ export default function GlobalNavbar({
                     </div>
                   )}
 
-                  {/* Language selector */}
-                  <div className="hidden items-center gap-3 md:flex">
-                    {/* Language selector */}
-                    <button
-                      type="button"
-                      className="flex h-9 w-9 items-center justify-center rounded-full bg-transparent text-foreground transition-colors hover:text-foreground "
-                      aria-label="Select language"
-                    >
-                      <svg
-                        width="24"
-                        height="10"
-                        viewBox="0 0 48 20"
-                        fill="none"
-                        xmlns="http://www.w3.org/2000/svg"
-                        className="text-foreground "
-                      >
-                        <path d="M11.5086 11.7646L7.74559 0.92622C7.71044 0.824993 7.56746 0.824502 7.53162 0.925485L3.63734 11.898" stroke="currentColor" strokeWidth="1.70079" strokeLinecap="round"/>
-                        <path d="M5.07666 8.38086H10.1082" stroke="currentColor" strokeWidth="1.70079"/>
-                        <path d="M16.3799 9.16016L26.4783 9.16016" stroke="currentColor" strokeWidth="1.70079" strokeLinecap="round"/>
-                        <path d="M21.4292 6.52148L21.4292 9.15952" stroke="currentColor" strokeWidth="1.70079" strokeLinecap="round"/>
-                        <path d="M16.3799 18.4076C23.4665 15.5376 24.2815 11.1439 24.8838 9.23047" stroke="currentColor" strokeWidth="1.70079" strokeLinecap="round"/>
-                        <path d="M18.1519 12.4199C19.0849 14.0853 20.8448 16.601 24.8487 18.4435" stroke="currentColor" strokeWidth="1.70079" strokeLinecap="round"/>
-                        <path d="M42.1924 11.9722C42.3572 12.138 42.6283 12.138 42.793 11.9722L47.045 7.69522C47.2098 7.52949 47.2098 7.25683 47.045 7.0911C46.8802 6.92536 46.6092 6.92536 46.4444 7.0911L42.4927 11.066L38.5411 7.0911C38.3763 6.92536 38.1052 6.92536 37.9405 7.0911C37.7757 7.25683 37.7757 7.52949 37.9405 7.69522L42.1924 11.9722Z" fill="currentColor"/>
-                      </svg>
-                    </button>
-                  </div>
 
-                  {/* User menu för inloggade användare (ej author route) */}
-                  {user && showProfileMenu && (
-                    <UserMenu user={user} onSignOut={handleSignOut} currentRole={displayRoleForMenu} originalRole={originalRole} />
-                  )}
                 </>
               )}
             </div>
@@ -631,119 +655,31 @@ export default function GlobalNavbar({
       </div>
 
       {/* Mobilmeny – fullskärm med länkar + Sign in / Sign up */}
-      {mobileMenuOpen && (
-        <div
-          className="fixed inset-0 z-[998] lg:hidden"
-          aria-hidden="false"
-        >
-          <button
-            type="button"
-            onClick={() => setMobileMenuOpen(false)}
-            className="absolute inset-0 bg-black/40 backdrop-blur-sm"
-            aria-label="Close menu"
-          />
-          <div className="absolute right-0 top-0 flex h-full w-full max-w-[min(100vw,22rem)] flex-col gap-6 overflow-y-auto border-l border-border bg-card/95 px-6 pb-8 pt-20 shadow-xl ">
-            <div className="flex flex-col gap-1">
-              {isPublicPage &&
-                publicNavItems.map((item) => (
-                  <a
-                    key={item.label}
-                    href={item.href || `#${item.label.toLowerCase()}`}
-                    onClick={() => setMobileMenuOpen(false)}
-                    className="flex min-h-[44px] min-w-[44px] items-center rounded-xl px-4 py-3 text-[16px] font-medium text-foreground transition-colors hover:bg-accent hover:text-foreground "
-                  >
-                    {item.label}
-                  </a>
-                ))}
-              {isauthorRoute &&
-                authorNavItems.map((item) => (
-                  <a
-                    key={item.label}
-                    href={item.href || `#${item.label.toLowerCase()}`}
-                    onClick={() => setMobileMenuOpen(false)}
-                    className="flex min-h-[44px] min-w-[44px] items-center rounded-xl px-4 py-3 text-[16px] font-medium text-foreground transition-colors hover:bg-accent hover:text-foreground "
-                  >
-                    {item.label}
-                  </a>
-                ))}
-              {isReaderRoute &&
-                readerNavItems.map((item) => (
-                  <button
-                    key={item.label}
-                    type="button"
-                    onClick={() => {
-                      if (item.href) {
-                        router.push(item.href);
-                        setMobileMenuOpen(false);
-                      }
-                    }}
-                    className="flex min-h-[44px] min-w-[44px] items-center rounded-xl px-4 py-3 text-left text-[16px] font-medium text-foreground transition-colors hover:bg-accent hover:text-foreground "
-                  >
-                    {item.label}
-                  </button>
-                ))}
-            </div>
-            {!user && (
-              <div className="mt-auto flex flex-col gap-3 border-t border-border pt-6 ">
-                {isPublicPage && (
-                  <>
-                    <Link
-                      href={secondaryAction?.href ?? "/signin"}
-                      onClick={() => setMobileMenuOpen(false)}
-                      className="btn-secondary w-full justify-center"
-                    >
-                      {secondaryAction?.label ?? "Sign in"}
-                    </Link>
-                    <Link
-                      href={primaryAction?.href ?? "/signup"}
-                      onClick={() => setMobileMenuOpen(false)}
-                      className="btn-primary w-full justify-center"
-                    >
-                      {primaryAction?.label ?? "Sign up"}
-                    </Link>
-                  </>
-                )}
-                {isauthorRoute && (
-                  <>
-                    <Link
-                      href={secondaryAction?.href ?? "/author/signin"}
-                      onClick={() => setMobileMenuOpen(false)}
-                      className="btn-secondary w-full justify-center"
-                    >
-                      {secondaryAction?.label ?? "Sign in"}
-                    </Link>
-                    <Link
-                      href={primaryAction?.href ?? "/author/signup"}
-                      onClick={() => setMobileMenuOpen(false)}
-                      className="btn-primary w-full justify-center"
-                    >
-                      {primaryAction?.label ?? "Sign up"}
-                    </Link>
-                  </>
-                )}
-                {isReaderRoute && (
-                  <>
-                    <Link
-                      href={secondaryAction?.href ?? "/reader/signin"}
-                      onClick={() => setMobileMenuOpen(false)}
-                      className="btn-secondary w-full justify-center"
-                    >
-                      {secondaryAction?.label ?? "Sign in"}
-                    </Link>
-                    <Link
-                      href={primaryAction?.href ?? "/reader/signup"}
-                      onClick={() => setMobileMenuOpen(false)}
-                      className="btn-primary w-full justify-center"
-                    >
-                      {primaryAction?.label ?? "Sign up"}
-                    </Link>
-                  </>
-                )}
-              </div>
-            )}
-          </div>
+      <Dialog open={mobileMenuOpen} onOpenChange={setMobileMenuOpen} className="ui-nav-drawer" aria-label="Navigation" id="verkli-mobile-navigation">
+        <div className="ui-nav-drawer-head">
+          <span className="font-display text-xl">Explore Verkli</span>
+          <button type="button" onClick={() => setMobileMenuOpen(false)} className="ui-icon-control" aria-label="Close menu"><X size={20} aria-hidden="true" /></button>
         </div>
-      )}
+        <div className="ui-nav-drawer-links">
+          {(isauthorRoute ? authorNavItems : isReaderRoute ? readerNavItems : publicNavItems).map((item) => (
+            <div key={item.label} className="ui-nav-mobile-group">
+              <Link href={item.href} onClick={() => setMobileMenuOpen(false)} className="ui-nav-mobile-link">
+                {item.label}<ArrowUpRight size={19} aria-hidden="true" />
+              </Link>
+              {item.children?.filter((child) => child.href !== item.href).map((child) => (
+                <Link key={child.href} href={child.href} onClick={() => setMobileMenuOpen(false)} className="ui-nav-mobile-child">
+                  {child.label}<ArrowUpRight size={15} aria-hidden="true" />
+                </Link>
+              ))}
+            </div>
+          ))}
+          {(isauthorRoute || (!isReaderRoute && publicNavItems.some((item) => item.label === "Product"))) && <Link href="/author#studio" onClick={() => setMobileMenuOpen(false)} className="ui-nav-studio"><Play size={18} aria-hidden="true" /><span>Step inside the studio<small>Write. Translate. Listen. Publish.</small></span><ArrowUpRight size={18} aria-hidden="true" /></Link>}
+        </div>
+        {!user && <div className="ui-nav-drawer-actions">
+          <Link href={primaryAction?.href ?? (isauthorRoute ? "/author/signup" : isReaderRoute ? "/reader/signup" : "/signup")} onClick={() => setMobileMenuOpen(false)} className="btn-primary w-full">{primaryAction?.label ?? "Sign up"}</Link>
+          <Link href={secondaryAction?.href ?? (isauthorRoute ? "/author/signin" : isReaderRoute ? "/reader/signin" : "/signin")} onClick={() => setMobileMenuOpen(false)} className="btn-secondary w-full">{secondaryAction?.label ?? "Sign in"}</Link>
+        </div>}
+      </Dialog>
     </header>
       </div>
       {/* Spacer i flödet så innehåll börjar under fixed navbar; scrollar bort medan navbaren ligger kvar högst upp */}
@@ -757,35 +693,35 @@ export default function GlobalNavbar({
             const openItem = navItems.find((i) => i.label === dropdownOpen!.key);
             const childCount = openItem?.children?.length ?? 0;
             const columnCount = childCount > 4 ? 2 : 1;
-            const width = childCount > 0 ? (columnCount === 1 ? 420 : 560) : 720;
+            const width = childCount > 0 ? (columnCount === 1 ? 440 : 560) : 720;
             const left = typeof window !== "undefined"
               ? Math.max(12, Math.min(dropdownOpen!.left, window.innerWidth - width - 12))
               : dropdownOpen!.left;
             const containerClass = childCount > 0
               ? (columnCount === 1
-                  ? "w-[min(420px,calc(100vw-2rem))]"
+                  ? "w-[min(440px,calc(100vw-2rem))]"
                   : "w-[min(560px,calc(100vw-2rem))]")
               : "w-[min(720px,calc(100vw-2.5rem))]";
 
             return (
               <div
-                className="transition-all duration-300 ease-out"
+                ref={dropdownPanelRef}
+                id="verkli-nav-panel"
+                role="region"
+                aria-label={`${dropdownOpen.key} navigation`}
+                data-keyboard={dropdownOpen.keyboard || undefined}
+                className="ui-nav-popover"
                 style={{
                   position: "fixed",
                   top: dropdownOpen!.top,
                   left,
                   zIndex: 10000,
                 }}
-                onMouseEnter={() => {
-                  if (dropdownCloseTimeoutRef.current) {
-                    clearTimeout(dropdownCloseTimeoutRef.current);
-                    dropdownCloseTimeoutRef.current = null;
-                  }
-                }}
-                onMouseLeave={() => setDropdownOpen(null)}
+                onPointerEnter={clearDropdownTimers}
+                onPointerLeave={leaveDropdown}
               >
                 <div
-                  className={`nav-mega ${containerClass} max-h-[min(calc(100dvh-120px),32rem)] overflow-y-auto overscroll-contain border-0 px-4 py-4 sm:px-5 sm:py-5`}
+                  className={`ui-popover-surface ${containerClass} max-h-[min(calc(100dvh-120px),36rem)] overflow-y-auto overscroll-contain p-2`}
                 >
                   {(() => {
                     if (openItem?.children?.length) {
@@ -800,10 +736,10 @@ export default function GlobalNavbar({
                             ]
                           : openItem.children;
                       return (
-                        <div className="space-y-4">
+                        <div>
                           {header && (
-                            <div className="space-y-1">
-                              <p className="text-[12px] font-medium text-muted-foreground ">
+                            <div className="ui-nav-panel-heading">
+                              <p className="font-display text-[22px] leading-tight tracking-tight text-foreground">
                                 {header.title}
                               </p>
                               {header.description && (
@@ -820,28 +756,30 @@ export default function GlobalNavbar({
                                 <Link
                                   key={idx}
                                   href={child.href}
-                                  onClick={() => setDropdownOpen(null)}
-                                  className="group/item flex items-start gap-3 rounded-2xl border border-transparent px-3 py-3 transition-all duration-150 hover:border-border hover:bg-accent/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background "
+                                  onClick={closeDropdown}
+                                  className="ui-nav-destination"
                                 >
-                                  <div className="mt-0.5 flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-xl bg-accent text-foreground ring-1 ring-black/5 transition-colors group-hover/item:bg-accent dark:ring-white/10">
+                                  <div className="ui-nav-destination-icon">
                                     {meta?.icon ?? (
                                       <span className="h-2 w-2 rounded-full bg-gradient-to-r from-[#907AFF] via-[#E29ED5] to-[#FCC997]" />
                                     )}
                                   </div>
-                                  <div className="min-w-0">
-                                    <p className="text-[14px] font-semibold text-foreground transition-colors group-hover/item:text-accent-foreground">
+                                  <div className="min-w-0 flex-1">
+                                    <p className="text-[14px] font-medium text-foreground">
                                       {child.label}
                                     </p>
                                     {meta?.description && (
-                                      <p className="mt-0.5 text-[12px] text-muted-foreground ">
+                                      <p className="mt-1 text-[13px] leading-relaxed text-muted-foreground">
                                         {meta.description}
                                       </p>
                                     )}
                                   </div>
+                                  <ArrowUpRight className="ui-nav-destination-arrow" size={16} aria-hidden="true" />
                                 </Link>
                               );
                             })}
                           </div>
+                          {openItem.label === "Product" && <Link href="/author#studio" onClick={closeDropdown} className="ui-nav-studio"><Play size={18} aria-hidden="true" /><span>Step inside the studio<small>Write. Translate. Listen. Publish.</small></span><ArrowUpRight size={18} aria-hidden="true" /></Link>}
                         </div>
                       );
                     }

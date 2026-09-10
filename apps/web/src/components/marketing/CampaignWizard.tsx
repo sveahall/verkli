@@ -1,6 +1,7 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useSyncExternalStore, useState } from "react";
+import { useCallback, useMemo, useRef, useSyncExternalStore, useState } from "react";
+import { Dialog, DialogTitle } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
 import {
   SUPPORTED_LANGUAGE_CODES,
@@ -79,25 +80,26 @@ function StepSelectBook({
         </p>
       </div>
 
-      <div className="grid gap-2.5">
+      <div className="grid grid-cols-1 gap-2.5">
         {books.map((book) => {
           const isSelected = book.id === selectedBookId;
           return (
             <button
               key={book.id}
               type="button"
+              aria-pressed={isSelected}
               onClick={() => onSelect(book.id)}
               className={cn(
-                "flex items-center gap-3.5 rounded-2xl border px-5 py-4 text-left",
+                "flex min-w-0 items-center gap-3.5 rounded-2xl border px-5 py-4 text-left",
                 PRESSABLE,
                 isSelected ? CARD_SELECTED : `${CARD_IDLE} ${CARD_HOVER}`
               )}
             >
               {book.cover_image ? (
                 // eslint-disable-next-line @next/next/no-img-element
-                <img src={book.cover_image} alt="" className="h-12 w-8 rounded-lg object-cover shadow-sm" />
+                <img src={book.cover_image} alt="" className="h-12 w-8 shrink-0 rounded-lg object-cover shadow-sm" />
               ) : (
-                <div className="flex h-12 w-8 items-center justify-center rounded-lg bg-black/[0.04] dark:bg-card">
+                <div className="flex h-12 w-8 shrink-0 items-center justify-center rounded-lg bg-black/[0.04] dark:bg-card">
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" className="text-muted-foreground dark:text-muted-foreground">
                     <path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1 0-5H20" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
                   </svg>
@@ -152,6 +154,7 @@ function StepLanguages({
             <button
               key={code}
               type="button"
+              aria-pressed={isSelected}
               onClick={() => onToggle(code)}
               className={cn(
                 "rounded-xl border px-3 py-2.5 text-left text-[14px] font-medium",
@@ -194,13 +197,14 @@ function StepContentTypes({
           Pick at least one. Trailers and podcast clips are generated on demand.
         </p>
       </div>
-      <div className="grid gap-2.5">
+      <div className="grid grid-cols-1 gap-2.5">
         {CONTENT_TYPES.map((opt) => {
           const isSelected = contentTypes.has(opt.id);
           return (
             <button
               key={opt.id}
               type="button"
+              aria-pressed={isSelected}
               onClick={() => onToggle(opt.id)}
               className={cn(
                 "flex items-start gap-3.5 rounded-2xl border px-5 py-4 text-left",
@@ -275,13 +279,14 @@ function StepChannels({
           </label>
         </div>
 
-        <div className="mt-4 grid grid-cols-3 gap-2.5">
+        <div className="mt-4 grid grid-cols-2 gap-2.5 sm:grid-cols-3">
           {CHANNELS.map((channel) => {
             const isSelected = channels.has(channel.id);
             return (
               <button
                 key={channel.id}
                 type="button"
+                aria-pressed={isSelected}
                 onClick={() => onToggleChannel(channel.id)}
                 className={cn(
                   "flex flex-col items-center gap-2.5 rounded-2xl border px-3 py-4",
@@ -315,6 +320,7 @@ function StepChannels({
               <button
                 key={opt.value}
                 type="button"
+                aria-pressed={isSelected}
                 onClick={() => onSetFrequency(opt.value)}
                 className={cn(
                   "rounded-full border px-5 py-2.5 text-[14px] font-medium",
@@ -368,19 +374,20 @@ function StepSchedule({
         <span className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-primary text-[12px] font-bold text-primary-foreground">
           1
         </span>
-        <div className="flex-1">
+        <div className="min-w-0 flex-1">
           <h3 className="text-[15px] font-semibold text-foreground dark:text-foreground">
             Start date
           </h3>
           <p className="mt-0.5 text-[13px] text-muted-foreground dark:text-muted-foreground">
             Choose when your content schedule should begin
           </p>
-          <div className="mt-3 flex items-center gap-3">
+          <div className="mt-3 flex flex-col items-start gap-3 sm:flex-row sm:items-center">
             <input
               type="date"
+              aria-label="Start date"
               value={startDate}
               onChange={(e) => onSetStartDate(e.target.value)}
-              className="h-10 rounded-xl border border-black/10 bg-black/[0.02] px-3 text-[14px] text-foreground outline-none transition-all focus:border-[#907AFF]/50 dark:border-border dark:bg-card dark:text-foreground"
+              className="h-11 max-w-full rounded-xl border border-black/10 bg-black/[0.02] px-3 text-[14px] text-foreground outline-none transition-all focus:border-[#907AFF]/50 dark:border-border dark:bg-card dark:text-foreground"
             />
             <span className="text-[13px] text-muted-foreground dark:text-muted-foreground">
               {formattedDate}
@@ -396,7 +403,7 @@ function StepSchedule({
         <span className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-primary text-[12px] font-bold text-primary-foreground">
           2
         </span>
-        <div className="flex-1">
+        <div className="min-w-0 flex-1">
           <h3 className="text-[15px] font-semibold text-foreground dark:text-foreground">
             Choose a weekly template
           </h3>
@@ -407,7 +414,8 @@ function StepSchedule({
                 <button
                   key={opt.value}
                   type="button"
-                  onClick={() => onSetTemplate(opt.value)}
+                  aria-pressed={isSelected}
+                onClick={() => onSetTemplate(opt.value)}
                   className={cn(
                     "rounded-full border px-4 py-2 text-[13px] font-medium",
                     PRESSABLE,
@@ -569,11 +577,10 @@ export default function CampaignWizard({
     () => openCountRef.current
   );
 
-  if (!open) return null;
-
   return (
     <CampaignWizardInner
       key={openCount}
+      open={open}
       onClose={() => onOpenChange(false)}
       books={books}
       initialBookId={initialBookId}
@@ -583,11 +590,13 @@ export default function CampaignWizard({
 }
 
 function CampaignWizardInner({
+  open,
   onClose,
   books,
   initialBookId = null,
   onComplete,
 }: {
+  open: boolean;
   onClose: () => void;
   books: CampaignBook[];
   initialBookId?: string | null;
@@ -601,16 +610,6 @@ function CampaignWizardInner({
   );
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
-  const [visible, setVisible] = useState(false);
-  const panelRef = useRef<HTMLDivElement>(null);
-
-  // Animate in on mount
-  useEffect(() => {
-    requestAnimationFrame(() => {
-      requestAnimationFrame(() => setVisible(true));
-    });
-  }, []);
-
   const canAdvance = useMemo(() => {
     switch (state.step) {
       case 1:
@@ -680,11 +679,7 @@ function CampaignWizardInner({
     });
   }, []);
 
-  const close = useCallback(() => {
-    setVisible(false);
-    // Wait for exit animation before unmounting
-    setTimeout(() => onClose(), 200);
-  }, [onClose]);
+  const close = onClose;
 
   const handleComplete = useCallback(async () => {
     if (!state.selectedBookId || !state.frequency) return;
@@ -750,33 +745,13 @@ function CampaignWizardInner({
   const isLastStep = state.step === TOTAL_STEPS;
 
   return (
-    <div
-      className={cn(
-        "fixed inset-0 z-[1000] flex items-center justify-center p-4 transition-colors duration-200",
-        visible ? "bg-black/50 backdrop-blur-sm" : "bg-black/0"
-      )}
-      onClick={close}
-      onKeyDown={(e) => { if (e.key === "Escape") close(); }}
-      role="button"
-      tabIndex={-1}
-    >
-      <div
-        ref={panelRef}
-        onClick={(e) => e.stopPropagation()}
-        role="dialog"
-        className={cn(
-          "relative w-full max-w-[620px] rounded-3xl border border-black/10 bg-white/95 p-8 shadow-[0_24px_60px_rgba(15,23,42,0.18)] backdrop-blur-xl transition-all duration-200 dark:border-border dark:bg-card/95 dark:shadow-[0_24px_60px_rgba(0,0,0,0.4)]",
-          visible
-            ? "scale-100 opacity-100"
-            : "scale-[0.97] opacity-0"
-        )}
-        style={{ transitionTimingFunction: "cubic-bezier(0.23, 1, 0.32, 1)" }}
-      >
+    <Dialog open={open} onOpenChange={(nextOpen) => { if (!nextOpen) close(); }} className="w-[min(92vw,620px)] rounded-3xl p-6 sm:p-8">
         {/* Close button */}
         <button
           type="button"
           onClick={close}
-          className="absolute right-6 top-6 text-muted-foreground transition-colors hover:text-foreground active:scale-[0.92] dark:text-muted-foreground dark:hover:text-foreground"
+          aria-label="Close campaign"
+          className="ui-icon-control absolute right-4 top-4"
         >
           <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -784,9 +759,7 @@ function CampaignWizardInner({
         </button>
 
         {/* Title */}
-        <h2 className="author-section-title text-[22px] font-semibold text-foreground dark:text-foreground">
-          Create campaign
-        </h2>
+        <DialogTitle className="pr-10">Create campaign</DialogTitle>
 
         {/* Progress */}
         <div className="mt-5">
@@ -847,7 +820,7 @@ function CampaignWizardInner({
         </div>
 
         {submitError && (
-          <p className="mt-4 text-[13px] text-red-600 dark:text-red-400">
+          <p role="alert" className="mt-4 text-[13px] text-red-600 dark:text-red-400">
             {submitError}
           </p>
         )}
@@ -882,7 +855,6 @@ function CampaignWizardInner({
                 : "Continue"}
           </button>
         </div>
-      </div>
-    </div>
+    </Dialog>
   );
 }

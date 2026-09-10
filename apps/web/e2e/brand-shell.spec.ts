@@ -30,7 +30,7 @@ test("mobile navigation opens, follows a link and fits the screen", async ({ pag
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto("/author");
   await page.getByRole("button", { name: "Open menu", exact: true }).click();
-  const pricing = page.getByRole("banner").getByRole("link", { name: "Pricing", exact: true });
+  const pricing = page.getByRole("dialog", { name: "Navigation" }).getByRole("link", { name: "Pricing", exact: true });
   await pricing.click();
   await expect(page).toHaveURL(/\/pricing/);
   await expect(page.getByRole("heading", { level: 1 })).toBeVisible();

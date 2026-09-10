@@ -111,7 +111,7 @@ export default function ReaderChapterClient({
   useEffect(() => { saveLocalStorage("verkli_reader_theme", readerTheme); }, [readerTheme]);
   useEffect(() => { saveLocalStorage("verkli_reader_bg_intensity", backgroundIntensity); }, [backgroundIntensity]);
 
-  // Close settings panel on click outside
+  // Close settings with a pointer outside or Escape, returning keyboard focus.
   useEffect(() => {
     if (!showSettingsPanel) return;
     const handler = (e: MouseEvent) => {
@@ -124,8 +124,18 @@ export default function ReaderChapterClient({
         setShowSettingsPanel(false);
       }
     };
+    const handleEscape = (event: KeyboardEvent) => {
+      if (event.key !== "Escape" || event.defaultPrevented) return;
+      event.preventDefault();
+      setShowSettingsPanel(false);
+      settingsButtonRef.current?.focus();
+    };
     document.addEventListener("mousedown", handler);
-    return () => document.removeEventListener("mousedown", handler);
+    document.addEventListener("keydown", handleEscape);
+    return () => {
+      document.removeEventListener("mousedown", handler);
+      document.removeEventListener("keydown", handleEscape);
+    };
   }, [showSettingsPanel]);
 
   const currentFontFamily = FONT_OPTIONS.find((f) => f.value === readerFont)?.family ?? "Georgia, serif";
