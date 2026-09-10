@@ -17,7 +17,7 @@ function LandingPage() {
     <main className={`${styles.page} author-light -mt-[88px]`}>
       <section className={styles.hero} aria-labelledby="author-hero-title">
         <div className={styles.heroIntro}>
-          <div><p className={styles.eyebrow}><span className={styles.statusDot} />THE AI STUDIO FOR AUTHORS</p><h1 id="author-hero-title">One story.<br /><span>Every possibility.</span></h1></div>
+          <div><h1 id="author-hero-title">One story.<br /><span>Every possibility.</span></h1></div>
           <div className={styles.heroCopy}><p>Write the book only you can write.<br />Then take it further.</p><p>Writing, translation, audiobooks and publishing.<br className={styles.desktopBreak} /> Connected in one creative workspace.</p><div className={styles.heroActions}><Link href="/waitlist" className={styles.primaryButton}>Get early access <ArrowUpRight size={17} /></Link><a href="#studio" className={styles.textLink}>Explore the studio <ArrowDown size={15} /></a></div></div>
         </div>
         <AuthorStudioExperience />
