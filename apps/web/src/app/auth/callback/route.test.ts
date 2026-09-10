@@ -4,6 +4,9 @@ import { NEXT_PATH_COOKIE } from "@/lib/auth/next-path";
 const mocks = vi.hoisted(() => ({
   createClient: vi.fn(),
   capturePostHogAsync: vi.fn(),
+  createAdminClient: vi.fn(),
+  grantBetaAccessIfInvited: vi.fn(),
+  captureException: vi.fn(),
 }));
 
 vi.mock("@/lib/supabase/server", () => ({
@@ -12,6 +15,18 @@ vi.mock("@/lib/supabase/server", () => ({
 
 vi.mock("@/lib/analytics/posthog-server", () => ({
   capturePostHogAsync: mocks.capturePostHogAsync,
+}));
+
+vi.mock("@/lib/supabase/admin", () => ({
+  createAdminClient: mocks.createAdminClient,
+}));
+
+vi.mock("@/lib/auth/beta", () => ({
+  grantBetaAccessIfInvited: mocks.grantBetaAccessIfInvited,
+}));
+
+vi.mock("@sentry/nextjs", () => ({
+  captureException: mocks.captureException,
 }));
 
 const { GET } = await import("./route");
@@ -73,6 +88,8 @@ describe("GET /auth/callback", () => {
     process.env.NEXT_PUBLIC_SITE_URL = ORIGIN;
     mocks.capturePostHogAsync.mockResolvedValue(undefined);
     mocks.createClient.mockResolvedValue(makeSupabase());
+    mocks.createAdminClient.mockReturnValue({});
+    mocks.grantBetaAccessIfInvited.mockResolvedValue({ granted: true });
   });
 
   afterEach(() => {
@@ -195,4 +212,52 @@ describe("GET /auth/callback", () => {
 
     expect(res.headers.get("location")).toBe(`${ORIGIN}/?error=auth`);
   });
+
+  it("lets an invited person through the beta lock without an admin", async () => {
+    await GET(makeRequest("?code=abc"));
+
+    expect(mocks.grantBetaAccessIfInvited).toHaveBeenCalledWith(
+      expect.anything(),
+      { userId: "user-1", email: "buyer@example.com" },
+    );
+  });
+
+  it("still signs the user in when the beta grant fails", async () => {
+    // The grant is a convenience. If it breaks, the person lands on /waitlist
+    // and an admin toggles them in — turning a valid sign-in into ?error=auth
+    // would be strictly worse.
+    mocks.grantBetaAccessIfInvited.mockRejectedValue(new Error("service role down"));
+
+    const res = await GET(makeRequest("?code=abc&next=%2Freader%2Flibrary"));
+
+    expect(res.headers.get("location")).toBe(`${ORIGIN}/reader/library`);
+    expect(mocks.captureException).toHaveBeenCalled();
+  });
+
+  it("reports a grant that returned an error instead of dropping it", async () => {
+    mocks.grantBetaAccessIfInvited.mockResolvedValue({
+      granted: false,
+      reason: "error",
+      error: "connection reset",
+    });
+
+    await GET(makeRequest("?code=abc"));
+
+    expect(mocks.captureException).toHaveBeenCalledWith(
+      expect.objectContaining({ message: expect.stringContaining("connection reset") }),
+      expect.anything(),
+    );
+  });
+
+  it("does not report a person who simply was not invited", async () => {
+    mocks.grantBetaAccessIfInvited.mockResolvedValue({
+      granted: false,
+      reason: "not_invited",
+    });
+
+    await GET(makeRequest("?code=abc"));
+
+    expect(mocks.captureException).not.toHaveBeenCalled();
+  });
+
 });

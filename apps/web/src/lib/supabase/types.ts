@@ -3739,6 +3739,7 @@ export type Database = {
       }
       waitlist: {
         Row: {
+          beta_invited_at: string | null
           confirmation_email_error: string | null
           confirmation_email_last_attempt_at: string | null
           confirmation_email_sent_at: string | null
@@ -3750,6 +3751,7 @@ export type Database = {
           source: string | null
         }
         Insert: {
+          beta_invited_at?: string | null
           confirmation_email_error?: string | null
           confirmation_email_last_attempt_at?: string | null
           confirmation_email_sent_at?: string | null
@@ -3761,6 +3763,7 @@ export type Database = {
           source?: string | null
         }
         Update: {
+          beta_invited_at?: string | null
           confirmation_email_error?: string | null
           confirmation_email_last_attempt_at?: string | null
           confirmation_email_sent_at?: string | null

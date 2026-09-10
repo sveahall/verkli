@@ -1,4 +1,7 @@
+import * as Sentry from "@sentry/nextjs";
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
+import { grantBetaAccessIfInvited } from "@/lib/auth/beta";
 import { NextResponse } from "next/server";
 import { activeRoleCookieHeader, resolveActiveRoleFromProfile } from "@/lib/active-role";
 import type { ActiveRole } from "@/lib/active-role";
@@ -40,6 +43,40 @@ export async function GET(request: Request) {
             provider,
           },
         });
+      }
+
+      // An invited person should not need an admin to click them in.
+      //
+      // This is the one place both sign-up paths converge: the email
+      // confirmation link points here (auth.ts sets emailRedirectTo) and so
+      // does the Google redirect. Password sign-in does not pass through, but
+      // it cannot be a user's first arrival either — the confirmation link
+      // always comes first.
+      //
+      // Best effort by design: a failure here must not turn a valid sign-in
+      // into `/?error=auth`. The cost of failing is that the user lands on
+      // /waitlist and an admin toggles them in /admin/beta, which is exactly
+      // where they were before this existed. It is reported rather than
+      // swallowed, because a silent one would look identical to "nobody
+      // accepted the invitation".
+      if (user?.id) {
+        try {
+          const outcome = await grantBetaAccessIfInvited(createAdminClient(), {
+            userId: user.id,
+            email: user.email,
+          });
+          if (outcome.granted === false && outcome.reason === "error") {
+            Sentry.captureException(
+              new Error(`beta auto-grant failed: ${outcome.error ?? "unknown"}`),
+              { tags: { flow: "auth_callback" }, extra: { userId: user.id } }
+            );
+          }
+        } catch (err) {
+          Sentry.captureException(err, {
+            tags: { flow: "auth_callback", step: "beta_auto_grant" },
+            extra: { userId: user.id },
+          });
+        }
       }
 
       let role: ActiveRole | null = null;
