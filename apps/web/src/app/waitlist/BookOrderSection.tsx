@@ -2,11 +2,12 @@
 
 import { useState } from "react";
 import Image from "next/image";
-import { TA_FOR_ER_ORDER } from "@/lib/orders/ta-for-er";
+import { TA_FOR_ER_ORDER, TA_FOR_ER_EBOOK } from "@/lib/orders/ta-for-er";
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 type SubmitState = "idle" | "loading" | "error";
+type Edition = "print" | "ebook";
 
 const inputClass =
   "min-h-[52px] w-full rounded-xl border border-input bg-background px-4 py-3 text-base text-foreground placeholder:text-muted-foreground transition-colors duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-ring/40 focus-visible:ring-offset-2 focus-visible:ring-offset-background";
@@ -14,11 +15,16 @@ const inputClass =
 const labelClass = "mb-1.5 block text-left text-[12px] font-medium tracking-wide text-muted-foreground";
 
 /**
- * Anonymous physical-book order card for the waitlist page. Collects a
- * shipping address, then hands off to a Stripe Checkout session (the payment
- * link) created server-side at /api/order/ta-for-er.
+ * Anonymous order card for the waitlist page. Two editions of the same book:
+ * a printed copy that needs a shipping address, and a download that needs
+ * only an email. Both hand off to a Stripe Checkout session created
+ * server-side at /api/order/ta-for-er.
+ *
+ * The edition is posted along and re-decided on the server, so the price is
+ * never taken from the browser.
  */
 export default function BookOrderSection() {
+  const [edition, setEdition] = useState<Edition>("print");
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [line1, setLine1] = useState("");
@@ -33,7 +39,9 @@ export default function BookOrderSection() {
     e.preventDefault();
     if (state === "loading") return;
 
-    if (!name.trim() || !line1.trim() || !postalCode.trim() || !city.trim()) {
+    // A download has nowhere to be delivered, so asking for an address would
+    // be asking for a home address to send someone a file.
+    if (edition === "print" && (!name.trim() || !line1.trim() || !postalCode.trim() || !city.trim())) {
       setErrorMessage("Fyll i namn och fullständig leveransadress.");
       setState("error");
       return;
@@ -51,6 +59,7 @@ export default function BookOrderSection() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
+          variant: edition,
           name: name.trim(),
           email: email.trim(),
           line1: line1.trim(),
@@ -82,6 +91,8 @@ export default function BookOrderSection() {
   const clearError = () => {
     if (state === "error") setState("idle");
   };
+
+  const isEbook = edition === "ebook";
 
   return (
     <section id="book-order" className="relative scroll-mt-8 px-4 pb-24 pt-2" aria-labelledby="book-order-heading">
@@ -115,13 +126,59 @@ export default function BookOrderSection() {
               av {TA_FOR_ER_ORDER.authorName}
             </p>
             <p className="mt-4 text-center text-[15px] font-semibold text-foreground">
-              {TA_FOR_ER_ORDER.priceLabel}{" "}
-              <span className="font-normal text-muted-foreground">· frakt ingår</span>
+              {isEbook ? TA_FOR_ER_EBOOK.priceLabel : TA_FOR_ER_ORDER.priceLabel}{" "}
+              <span className="font-normal text-muted-foreground">
+                {isEbook ? "· PDF och EPUB" : "· frakt ingår"}
+              </span>
             </p>
+
+            {/* Edition picker. Two real products, so it sits above the form
+                rather than inside it: it changes which fields are asked for,
+                and a control that rewrites the form under you belongs before
+                the form, not in the middle of it. */}
+            <div
+              role="radiogroup"
+              aria-label="Välj format"
+              className="mt-5 grid grid-cols-2 gap-2 rounded-2xl border border-border bg-card/60 p-1.5"
+            >
+              {(
+                [
+                  { id: "print" as const, label: "Tryckt bok", price: TA_FOR_ER_ORDER.priceLabel, hint: "Frakt ingår" },
+                  { id: "ebook" as const, label: "E-bok", price: TA_FOR_ER_EBOOK.priceLabel, hint: "Direkt nedladdning" },
+                ]
+              ).map((opt) => {
+                const selected = edition === opt.id;
+                return (
+                  <button
+                    key={opt.id}
+                    type="button"
+                    role="radio"
+                    aria-checked={selected}
+                    onClick={() => {
+                      setEdition(opt.id);
+                      clearError();
+                    }}
+                    className={`min-h-[52px] rounded-xl px-3 py-2 text-center transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-[#907AFF]/40 focus-visible:ring-offset-2 focus-visible:ring-offset-transparent ${
+                      selected
+                        ? "bg-foreground text-background shadow-[0_1px_2px_rgba(0,0,0,0.2)]"
+                        : "text-muted-foreground hover:bg-card hover:text-foreground"
+                    }`}
+                  >
+                    <span className="block text-[14px] font-semibold leading-tight">{opt.label}</span>
+                    <span className={`block text-[12px] leading-tight ${selected ? "text-background/70" : "text-muted-foreground"}`}>
+                      {opt.price} · {opt.hint}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
           </div>
 
           <form onSubmit={handleSubmit} className="wl-order-form mt-6 space-y-4" noValidate>
-            <h3 className="wl-order-wide text-left text-[18px] font-semibold tracking-tight text-foreground">Leveransuppgifter</h3>
+            <h3 className="wl-order-wide text-left text-[18px] font-semibold tracking-tight text-foreground">
+              {isEbook ? "Dina uppgifter" : "Leveransuppgifter"}
+            </h3>
+            {!isEbook && (
             <div>
               <label htmlFor="order-name" className={labelClass}>
                 Namn
@@ -139,6 +196,7 @@ export default function BookOrderSection() {
                 className={inputClass}
               />
             </div>
+            )}
 
             <div>
               <label htmlFor="order-email" className={labelClass}>
@@ -158,6 +216,8 @@ export default function BookOrderSection() {
               />
             </div>
 
+            {!isEbook && (
+              <>
             <div className="wl-order-wide">
               <label htmlFor="order-line1" className={labelClass}>
                 Adress
@@ -243,6 +303,14 @@ export default function BookOrderSection() {
                 className={inputClass}
               />
             </div>
+              </>
+            )}
+
+            {isEbook && (
+              <p className="wl-order-wide text-left text-[13px] leading-relaxed text-muted-foreground">
+                Boken laddas ner direkt efter betalning. Kvitto skickas till din e-post.
+              </p>
+            )}
 
             {errorMessage && (
               <p className="wl-order-wide text-left text-[13px] text-red-700 dark:text-red-300" role="alert">
@@ -256,11 +324,15 @@ export default function BookOrderSection() {
               aria-busy={state === "loading"}
               className="wl-order-wide waitlist-cta min-h-[52px] w-full rounded-2xl bg-foreground px-6 py-3 text-[15px] font-medium text-background transition-colors hover:opacity-90 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#907AFF]/40 focus-visible:ring-offset-2 focus-visible:ring-offset-transparent disabled:opacity-50"
             >
-              {state === "loading" ? "Tar dig till betalning…" : `Fortsätt till betalning · ${TA_FOR_ER_ORDER.priceLabel}`}
+              {state === "loading"
+                ? "Tar dig till betalning…"
+                : `Fortsätt till betalning · ${isEbook ? TA_FOR_ER_EBOOK.priceLabel : TA_FOR_ER_ORDER.priceLabel}`}
             </button>
 
             <p className="wl-order-wide text-center text-[12px] leading-relaxed text-muted-foreground">
-              Säker betalning via Stripe. Frakt inom Sverige ingår.
+              {isEbook
+                ? "Säker betalning via Stripe. Du väljer PDF eller EPUB efter köpet."
+                : "Säker betalning via Stripe. Frakt inom Sverige ingår."}
             </p>
           </form>
         </div>

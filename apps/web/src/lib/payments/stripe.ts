@@ -444,7 +444,12 @@ export type CreateBookOrderCheckoutInput = {
   currency: string;
   productName: string;
   customerEmail: string;
-  shipping: {
+  /**
+   * Omitted for a download. A digital order has nothing to ship, and writing
+   * empty ship_* metadata would put a blank address on the Stripe dashboard
+   * next to real ones that need posting.
+   */
+  shipping?: {
     name: string;
     line1: string;
     line2?: string;
@@ -453,6 +458,12 @@ export type CreateBookOrderCheckoutInput = {
     country: string;
     phone?: string;
   };
+  /**
+   * Distinguishes what was bought. Read back by the success page and the
+   * download route: a print session must never unlock a file, and an ebook
+   * session must never claim something is in the post.
+   */
+  orderVariant?: "print" | "ebook";
   successUrl: string;
   cancelUrl: string;
 };
@@ -485,13 +496,16 @@ export async function createBookOrderCheckoutSession(
   params.set("metadata[payment_kind]", "book_order");
   params.set("metadata[payment_type]", "book_order");
   params.set("metadata[amount_minor]", String(amount));
-  params.set("metadata[ship_name]", input.shipping.name);
-  params.set("metadata[ship_line1]", input.shipping.line1);
-  if (input.shipping.line2) params.set("metadata[ship_line2]", input.shipping.line2);
-  params.set("metadata[ship_postal_code]", input.shipping.postalCode);
-  params.set("metadata[ship_city]", input.shipping.city);
-  params.set("metadata[ship_country]", input.shipping.country);
-  if (input.shipping.phone) params.set("metadata[ship_phone]", input.shipping.phone);
+  params.set("metadata[order_variant]", input.orderVariant ?? "print");
+  if (input.shipping) {
+    params.set("metadata[ship_name]", input.shipping.name);
+    params.set("metadata[ship_line1]", input.shipping.line1);
+    if (input.shipping.line2) params.set("metadata[ship_line2]", input.shipping.line2);
+    params.set("metadata[ship_postal_code]", input.shipping.postalCode);
+    params.set("metadata[ship_city]", input.shipping.city);
+    params.set("metadata[ship_country]", input.shipping.country);
+    if (input.shipping.phone) params.set("metadata[ship_phone]", input.shipping.phone);
+  }
 
   const payload = await stripeRequest("/checkout/sessions", {
     method: "POST",

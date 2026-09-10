@@ -13,7 +13,12 @@ import {
   E_SERVER_CONFIG_ERROR,
   E_CHECKOUT_SESSION_FAILED,
 } from "@/lib/api-errors";
-import { TA_FOR_ER_ORDER, TA_FOR_ER_PRODUCT_NAME } from "@/lib/orders/ta-for-er";
+import {
+  TA_FOR_ER_ORDER,
+  TA_FOR_ER_PRODUCT_NAME,
+  TA_FOR_ER_EBOOK,
+  TA_FOR_ER_EBOOK_PRODUCT_NAME,
+} from "@/lib/orders/ta-for-er";
 
 export const runtime = "nodejs";
 
@@ -53,20 +58,32 @@ export async function POST(request: Request) {
     return apiError(E_INVALID_REQUEST_BODY, 400);
   }
 
-  const name = cleanRequired(body.name, 120);
+  // Two products, one endpoint: a printed copy that needs an address, and a
+  // download that needs nothing but an email to send the receipt to. Anything
+  // that is not exactly "ebook" is treated as the printed copy, so an older
+  // client that posts no variant keeps working unchanged.
+  const isEbook = body.variant === "ebook";
+
   const emailRaw = cleanRequired(body.email, 200);
+  if (!emailRaw) {
+    return apiError(E_INVALID_REQUEST_BODY, 400);
+  }
+  const email = emailRaw.toLowerCase();
+  if (!EMAIL_REGEX.test(email)) {
+    return apiError(E_INVALID_REQUEST_BODY, 400);
+  }
+
+  const name = cleanRequired(body.name, 120);
   const line1 = cleanRequired(body.line1, 200);
   const postalCode = cleanRequired(body.postalCode, 20);
   const city = cleanRequired(body.city, 120);
   const line2 = cleanOptional(body.line2, 200);
   const phone = cleanOptional(body.phone, 40);
 
-  if (!name || !emailRaw || !line1 || !postalCode || !city) {
-    return apiError(E_INVALID_REQUEST_BODY, 400);
-  }
-
-  const email = emailRaw.toLowerCase();
-  if (!EMAIL_REGEX.test(email)) {
+  // Address fields are required for the printed copy only. Demanding them for
+  // a download would be asking a buyer for their home address to send them a
+  // file, which is both pointless and a reason not to buy.
+  if (!isEbook && (!name || !line1 || !postalCode || !city)) {
     return apiError(E_INVALID_REQUEST_BODY, 400);
   }
 
@@ -74,19 +91,22 @@ export async function POST(request: Request) {
 
   try {
     const session = await createBookOrderCheckoutSession({
-      amountMinor: TA_FOR_ER_ORDER.priceMinor,
-      currency: TA_FOR_ER_ORDER.currency,
-      productName: TA_FOR_ER_PRODUCT_NAME,
+      amountMinor: isEbook ? TA_FOR_ER_EBOOK.priceMinor : TA_FOR_ER_ORDER.priceMinor,
+      currency: isEbook ? TA_FOR_ER_EBOOK.currency : TA_FOR_ER_ORDER.currency,
+      productName: isEbook ? TA_FOR_ER_EBOOK_PRODUCT_NAME : TA_FOR_ER_PRODUCT_NAME,
       customerEmail: email,
-      shipping: {
-        name,
-        line1,
-        line2: line2 || undefined,
-        postalCode,
-        city,
-        country: "SE",
-        phone: phone || undefined,
-      },
+      orderVariant: isEbook ? "ebook" : "print",
+      shipping: isEbook
+        ? undefined
+        : {
+            name: name!,
+            line1: line1!,
+            line2: line2 || undefined,
+            postalCode: postalCode!,
+            city: city!,
+            country: "SE",
+            phone: phone || undefined,
+          },
       successUrl: `${baseUrl}/order/ta-for-er/success?session_id={CHECKOUT_SESSION_ID}`,
       cancelUrl: `${baseUrl}/waitlist?order=cancelled`,
     });
