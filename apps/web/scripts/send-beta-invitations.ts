@@ -29,6 +29,8 @@
  *   that row stays unstamped and a run tomorrow picks it up. Nothing to undo.
  * - Addresses that already have an account are reported, never emailed: the
  *   email says "create your account", which is wrong for someone who has one.
+ *   `--only` overrides this: naming one address is deliberate, and it is how
+ *   you read a real message in a real inbox before the batch goes out.
  * - Throttled to stay under Resend's default 2 requests/second.
  */
 
@@ -151,7 +153,11 @@ async function main() {
   }
   let rows = (await res.json()) as WaitlistRow[];
 
-  const withAccounts = await existingAccountEmails();
+  // `--only` names one address on purpose, so it overrides the has-an-account
+  // skip. Without this the documented way to check a real message ("send one to
+  // yourself first") reports 0 recipients for anyone who already signed up,
+  // which is everyone who would be testing it.
+  const withAccounts = ONLY ? new Set<string>() : await existingAccountEmails();
   const alreadyRegistered = rows.filter((r) => withAccounts.has(r.email.trim().toLowerCase()));
   rows = rows.filter((r) => !withAccounts.has(r.email.trim().toLowerCase()));
   if (LIMIT > 0) rows = rows.slice(0, LIMIT);
