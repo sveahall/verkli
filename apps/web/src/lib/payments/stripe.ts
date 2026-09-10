@@ -72,6 +72,9 @@ export type StripeCheckoutSession = {
   currency?: string;
   amount_total?: number;
   metadata?: Record<string, string>;
+  payment_intent?: string | {
+    latest_charge?: string | { paid?: boolean; refunded?: boolean; disputed?: boolean } | null;
+  } | null;
 };
 
 function getStripeSecretKey(): string {
@@ -180,8 +183,12 @@ export async function createStripeCheckoutSession(
   return payload;
 }
 
-export async function getStripeCheckoutSession(sessionId: string): Promise<StripeCheckoutSession> {
-  const payload = await stripeRequest(`/checkout/sessions/${encodeURIComponent(sessionId)}`, {
+export async function getStripeCheckoutSession(
+  sessionId: string,
+  options?: { expandPayment?: boolean },
+): Promise<StripeCheckoutSession> {
+  const query = options?.expandPayment ? "?expand[]=payment_intent.latest_charge" : "";
+  const payload = await stripeRequest(`/checkout/sessions/${encodeURIComponent(sessionId)}${query}`, {
     method: "GET",
   });
   assertSessionShape(payload);

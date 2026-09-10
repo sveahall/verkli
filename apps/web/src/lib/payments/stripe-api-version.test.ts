@@ -52,4 +52,14 @@ describe("raw Stripe REST calls", () => {
 
     expect(seenHeaders["Stripe-Version"]).toBe(STRIPE_API_VERSION);
   });
+
+  it("expands the current charge only when a download entitlement needs it", async () => {
+    const { getStripeCheckoutSession } = await import("./stripe");
+    await getStripeCheckoutSession("cs_test_123", { expandPayment: true });
+    const expanded = new URL(String(vi.mocked(global.fetch).mock.calls[0][0]));
+    expect(expanded.searchParams.get("expand[]")).toBe("payment_intent.latest_charge");
+    await getStripeCheckoutSession("cs_test_123");
+    const normal = new URL(String(vi.mocked(global.fetch).mock.calls[1][0]));
+    expect(normal.search).toBe("");
+  });
 });

@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { renderToStaticMarkup } from "react-dom/server";
 
 /**
  * The half of the e-book flow that cannot be clicked through.
@@ -43,6 +44,7 @@ vi.mock("@/lib/env", async (importOriginal) => {
 });
 
 const { GET } = await import("./route");
+const { default: SuccessPage } = await import("@/app/order/ta-for-er/success/page");
 
 const SESSION = "cs_test_abc123";
 const SIGNED = "https://storage.example/signed/ta-for-er.pdf?token=x";
@@ -52,6 +54,7 @@ function paidEbookSession() {
   return {
     payment_status: "paid",
     metadata: { payment_kind: "book_order", order_variant: "ebook" },
+    payment_intent: { latest_charge: { paid: true, refunded: false, disputed: false } },
   };
 }
 
@@ -134,6 +137,45 @@ describe("GET /api/order/ta-for-er/download", () => {
 
     expect(res.status).toBe(403);
     expect(mocks.createSignedUrl).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    { paid: true, refunded: true, disputed: false },
+    { paid: true, refunded: false, disputed: true },
+    { paid: false, refunded: false, disputed: false },
+    "ch_unexpanded",
+    null,
+  ])("refuses a refunded, disputed or unverifiable payment: %j", async (charge) => {
+    mocks.getStripeCheckoutSession.mockResolvedValue({
+      ...paidEbookSession(), payment_intent: { latest_charge: charge },
+    });
+    bucketHasBoth();
+    const res = await GET(makeRequest(`?session_id=${SESSION}&format=pdf`));
+    expect(res.status).toBe(403);
+    expect(mocks.createSignedUrl).not.toHaveBeenCalled();
+  });
+
+  it("keeps access after a partial refund and requests current payment details", async () => {
+    mocks.getStripeCheckoutSession.mockResolvedValue({
+      ...paidEbookSession(),
+      payment_intent: { latest_charge: { paid: true, refunded: false, disputed: false, amount_refunded: 1000 } },
+    });
+    bucketHasBoth();
+    const res = await GET(makeRequest(`?session_id=${SESSION}&format=pdf`));
+    expect(res.status).toBe(302);
+    expect(mocks.getStripeCheckoutSession).toHaveBeenCalledWith(SESSION, { expandPayment: true });
+  });
+
+  it("shows a support path instead of dead download buttons after a refund", async () => {
+    mocks.getStripeCheckoutSession.mockResolvedValue({
+      ...paidEbookSession(), payment_intent: { latest_charge: { paid: true, refunded: true, disputed: false } },
+    });
+    bucketHasBoth();
+    const html = renderToStaticMarkup(await SuccessPage({ searchParams: Promise.resolve({ session_id: SESSION }) }));
+    expect(html).not.toContain("Ladda ner PDF");
+    expect(html).toContain("Nedladdningen är inte tillgänglig");
+    expect(html).toContain('href="/support"');
+    expect(mocks.list).not.toHaveBeenCalled();
   });
 
   it("refuses an unpaid session", async () => {

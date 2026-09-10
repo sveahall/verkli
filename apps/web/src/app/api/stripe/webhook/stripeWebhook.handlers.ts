@@ -1,6 +1,7 @@
 import { createAdminClient } from "@/lib/supabase/admin";
 import { HANDLED_STRIPE_EVENTS } from "./stripeWebhook.events";
 import { notifyPodFulfillment } from "@/lib/payments/pod-fulfillment-email";
+import { sendBookDownloadEmail } from "@/lib/payments/book-download-email";
 import {
   claimPaidOrderForReceipt,
   sendPurchaseReceipt,
@@ -423,12 +424,13 @@ async function processPaymentKindCheckoutSession(
   }
 
   if (paymentKind === "book_order") {
-    // Standalone anonymous physical-book order ("Ta för er!"). There is no DB
-    // row — fulfillment is manual from the Stripe Dashboard, where the shipping
-    // address rides along in session metadata. Acknowledge the event so it is
-    // never recorded as an unprocessed failure.
+    // Printed copies are fulfilled manually from Stripe. Paid downloads also
+    // need a durable return link, so closing the success page cannot lose it.
     if (isPaidCheckoutSession(session)) {
       const orderMetadata = extractMetadata(session.metadata);
+      if (orderMetadata.order_variant === "ebook") {
+        await sendBookDownloadEmail(session);
+      }
       console.info("[stripe.webhook] book_order payment completed", {
         sessionId: trimToNull(session.id),
         email: orderMetadata.ship_name ? trimToNull(session.customer_email) : null,
