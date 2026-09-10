@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useCallback, useId } from "react";
 import { createPortal } from "react-dom";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -38,33 +38,90 @@ export default function UserMenu({ user, onSignOut, currentRole = "author", orig
   const [menuPosition, setMenuPosition] = useState<{ top: number; left: number } | null>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
   const menuPanelRef = useRef<HTMLDivElement>(null);
+  const focusOnOpen = useRef<"first" | "last" | null>(null);
+  const panelId = useId();
 
-  const closeMenu = () => {
+  const closeMenu = useCallback(() => {
     setIsOpen(false);
     setMenuPosition(null);
+  }, []);
+
+  const openMenu = (focus: "first" | "last" | null = null) => {
+    const rect = triggerRef.current?.getBoundingClientRect();
+    if (!rect) return;
+    const width = Math.min(USER_MENU_WIDTH, window.innerWidth - 32);
+    setMenuPosition({
+      top: Math.max(12, Math.min(rect.bottom + 8, window.innerHeight - 96)),
+      left: Math.max(16, Math.min(rect.right - width, window.innerWidth - width - 16)),
+    });
+    focusOnOpen.current = focus;
+    setIsOpen(true);
   };
 
   const displayName =
     user?.user_metadata?.full_name || user?.email?.split("@")[0] || "User";
 
-  // Handle click outside to close menu
   useEffect(() => {
     if (!isOpen) return;
 
-    const handleClickOutside = (event: MouseEvent) => {
+    const controls = menuPanelRef.current?.querySelectorAll<HTMLElement>('a[href], button:not([disabled])');
+    if (focusOnOpen.current && controls?.length) {
+      controls[focusOnOpen.current === "last" ? controls.length - 1 : 0].focus();
+      focusOnOpen.current = null;
+    }
+
+    const handleOutside = (event: Event) => {
       const target = event.target as Node;
-      // Don't close if clicking on trigger or inside the menu panel
-      if (triggerRef.current?.contains(target) || menuPanelRef.current?.contains(target)) {
-        return;
-      }
-      closeMenu();
+      if (!triggerRef.current?.contains(target) && !menuPanelRef.current?.contains(target)) closeMenu();
     };
+    const handleEscape = (event: KeyboardEvent) => {
+      if (event.key !== "Escape") return;
+      event.preventDefault();
+      closeMenu();
+      triggerRef.current?.focus();
+    };
+    const handleScroll = (event: Event) => {
+      if (!(event.target instanceof Node) || !menuPanelRef.current?.contains(event.target)) closeMenu();
+    };
+    document.addEventListener("pointerdown", handleOutside);
+    document.addEventListener("focusin", handleOutside);
+    document.addEventListener("keydown", handleEscape);
+    window.addEventListener("resize", closeMenu);
+    window.addEventListener("scroll", handleScroll, true);
+    return () => {
+      document.removeEventListener("pointerdown", handleOutside);
+      document.removeEventListener("focusin", handleOutside);
+      document.removeEventListener("keydown", handleEscape);
+      window.removeEventListener("resize", closeMenu);
+      window.removeEventListener("scroll", handleScroll, true);
+    };
+  }, [isOpen, closeMenu]);
 
-    // Use mousedown instead of click to avoid closing before onClick handlers run
-    document.addEventListener("mousedown", handleClickOutside);
-
-    return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, [isOpen]);
+  const handlePanelKeys = (event: React.KeyboardEvent<HTMLDivElement>) => {
+    const controls = Array.from(menuPanelRef.current?.querySelectorAll<HTMLElement>('a[href], button:not([disabled])') ?? []);
+    const index = controls.indexOf(document.activeElement as HTMLElement);
+    let nextIndex: number | undefined;
+    if (event.key === "ArrowDown") nextIndex = (index + 1) % controls.length;
+    if (event.key === "ArrowUp") nextIndex = (index - 1 + controls.length) % controls.length;
+    if (event.key === "Home") nextIndex = 0;
+    if (event.key === "End") nextIndex = controls.length - 1;
+    if (nextIndex !== undefined) {
+      event.preventDefault();
+      controls[nextIndex]?.focus();
+    }
+    if (event.key === "Tab" && event.shiftKey && index === 0) {
+      event.preventDefault();
+      closeMenu();
+      triggerRef.current?.focus();
+    } else if (event.key === "Tab" && !event.shiftKey && index === controls.length - 1) {
+      event.preventDefault();
+      const pageControls = Array.from(document.querySelectorAll<HTMLElement>('a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'))
+        .filter((element) => !menuPanelRef.current?.contains(element) && element.getClientRects().length > 0 && !element.closest("[inert]"));
+      const triggerIndex = pageControls.indexOf(triggerRef.current!);
+      closeMenu();
+      (pageControls[triggerIndex + 1] ?? triggerRef.current)?.focus();
+    }
+  };
 
   const handleSwitchRole = async () => {
     closeMenu();
@@ -119,19 +176,29 @@ export default function UserMenu({ user, onSignOut, currentRole = "author", orig
             closeMenu();
             return;
           }
-          const rect = triggerRef.current?.getBoundingClientRect();
-          if (rect) {
-            setMenuPosition({ top: rect.bottom + 8, left: rect.right - USER_MENU_WIDTH });
+          openMenu(e.detail === 0 ? "first" : null);
+        }}
+        onKeyDown={(event) => {
+          if (event.key === "ArrowDown" || event.key === "ArrowUp") {
+            event.preventDefault();
+            if (!isOpen) openMenu(event.key === "ArrowDown" ? "first" : "last");
+            else {
+              const controls = menuPanelRef.current?.querySelectorAll<HTMLElement>('a[href], button:not([disabled])');
+              controls?.[event.key === "ArrowDown" ? 0 : controls.length - 1]?.focus();
+            }
+          } else if (event.key === "Tab" && isOpen) {
+            if (event.shiftKey) closeMenu();
+            else {
+              event.preventDefault();
+              menuPanelRef.current?.querySelector<HTMLElement>('a[href], button:not([disabled])')?.focus();
+            }
           }
-          setIsOpen(true);
         }}
-        onMouseDown={(e) => {
-          e.preventDefault();
-          e.stopPropagation();
-        }}
+        type="button"
         className="flex h-11 min-h-[44px] min-w-[44px] w-11 shrink-0 items-center justify-center rounded-full border border-ring/50 bg-transparent text-foreground transition-all hover:bg-accent focus:outline-none focus:ring-2 focus:ring-[#907AFF]/50 focus:ring-offset-2 focus:ring-offset-background"
         aria-label="Account menu"
         aria-expanded={isOpen}
+        aria-controls={isOpen ? panelId : undefined}
       >
         <span className="flex h-4 w-4 items-center justify-center">
           <svg
@@ -157,11 +224,16 @@ export default function UserMenu({ user, onSignOut, currentRole = "author", orig
         createPortal(
           <div
             ref={menuPanelRef}
-            className="w-[min(280px,calc(100vw-2rem))] max-w-[280px] overflow-hidden rounded-2xl border border-border bg-popover text-popover-foreground p-1 backdrop-blur-xl"
+            id={panelId}
+            role="region"
+            aria-label="Account navigation"
+            onKeyDown={handlePanelKeys}
+            className="ui-popover-surface w-[min(280px,calc(100vw-2rem))] max-w-[280px] overflow-y-auto overscroll-contain p-1"
             style={{
               position: "fixed",
               top: menuPosition.top,
               left: menuPosition.left,
+              maxHeight: `calc(100dvh - ${menuPosition.top + 12}px)`,
               zIndex: 10000,
             }}
             onMouseDown={(e) => e.stopPropagation()}
@@ -169,7 +241,7 @@ export default function UserMenu({ user, onSignOut, currentRole = "author", orig
           >
           {/* Header with user info */}
           <div className="px-4 py-3 border-b border-border">
-            <p className="text-[15px] font-semibold text-foreground ">
+            <p className="truncate text-[15px] font-semibold text-foreground ">
               {displayName}
             </p>
             <p className="mt-0.5 text-[13px] text-muted-foreground truncate">
@@ -183,7 +255,7 @@ export default function UserMenu({ user, onSignOut, currentRole = "author", orig
               href={currentRole === 'author' ? "/author/profile" : "/reader/profile"}
               onClick={(e) => {
                 e.stopPropagation();
-                setIsOpen(false);
+                closeMenu();
               }}
               className="flex min-h-[44px] w-full items-center gap-3 rounded-xl px-4 py-3 text-[14px] font-medium text-foreground transition-all hover:bg-accent hover:text-accent-foreground focus:outline-none focus:ring-2 focus:ring-inset focus:ring-[#907AFF]/30"
             >
@@ -207,7 +279,7 @@ export default function UserMenu({ user, onSignOut, currentRole = "author", orig
               href={currentRole === 'author' ? "/author/settings" : "/reader/settings"}
               onClick={(e) => {
                 e.stopPropagation();
-                setIsOpen(false);
+                closeMenu();
               }}
               className="flex min-h-[44px] w-full items-center gap-3 rounded-xl px-4 py-3 text-[14px] font-medium text-foreground transition-all hover:bg-accent hover:text-accent-foreground focus:outline-none focus:ring-2 focus:ring-inset focus:ring-[#907AFF]/30"
             >
@@ -237,7 +309,7 @@ export default function UserMenu({ user, onSignOut, currentRole = "author", orig
                 href="/author/marketing"
                 onClick={(e) => {
                   e.stopPropagation();
-                  setIsOpen(false);
+                  closeMenu();
                 }}
                 className="flex min-h-[44px] w-full items-center gap-3 rounded-xl px-4 py-3 text-[14px] font-medium text-foreground transition-all hover:bg-accent hover:text-accent-foreground focus:outline-none focus:ring-2 focus:ring-inset focus:ring-[#907AFF]/30"
               >
@@ -264,7 +336,7 @@ export default function UserMenu({ user, onSignOut, currentRole = "author", orig
                 href="/account/feedback"
                 onClick={(e) => {
                   e.stopPropagation();
-                  setIsOpen(false);
+                  closeMenu();
                 }}
                 className="flex min-h-[44px] w-full items-center gap-3 rounded-xl px-4 py-3 text-[14px] font-medium text-foreground transition-all hover:bg-accent hover:text-accent-foreground focus:outline-none focus:ring-2 focus:ring-inset focus:ring-[#907AFF]/30"
               >
@@ -289,7 +361,7 @@ export default function UserMenu({ user, onSignOut, currentRole = "author", orig
               href={currentRole === "author" ? "/author/billing" : "/reader/billing"}
               onClick={(e) => {
                 e.stopPropagation();
-                setIsOpen(false);
+                closeMenu();
               }}
               className="flex min-h-[44px] w-full items-center gap-3 rounded-xl px-4 py-3 text-[14px] font-medium text-foreground transition-all hover:bg-accent hover:text-accent-foreground focus:outline-none focus:ring-2 focus:ring-inset focus:ring-[#907AFF]/30"
             >

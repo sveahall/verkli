@@ -1,10 +1,11 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useId, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { LANGUAGE_OPTIONS, type SupportedLanguage } from "@/lib/languages";
 import { resolveErrorMessage } from "@/lib/error-messages";
 import { ImportBookModal } from "@/components/import/ImportBookModal";
+import { Dialog, DialogTitle } from "@/components/ui/dialog";
 
 type Mode = "choice" | "write" | "import";
 
@@ -32,6 +33,7 @@ export default function CreateBookDialog({
   const [error, setError] = useState<string | null>(null);
   const [importOpen, setImportOpen] = useState(false);
   const titleInputRef = useRef<HTMLInputElement>(null);
+  const fieldId = useId();
 
   useEffect(() => {
     if (!open) {
@@ -110,32 +112,24 @@ export default function CreateBookDialog({
     return "New book";
   }, [mode]);
 
-  if (!open && !importOpen) return null;
-
   return (
     <>
-      {canShowDialog && (
-        <div
-          className="fixed inset-0 z-[1000] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4"
-          onClick={onClose}
-          onKeyDown={(e) => { if (e.key === "Escape") onClose(); }}
-          role="button"
-          tabIndex={-1}
+        <Dialog
+          open={canShowDialog}
+          onOpenChange={(nextOpen) => { if (!nextOpen) onClose(); }}
+          className="w-[min(92vw,600px)] rounded-3xl p-6 sm:p-8"
         >
-          <div
-            className="relative w-full max-w-[600px] rounded-3xl border border-black/10 dark:border-border bg-white/95 dark:bg-card/95 p-8 backdrop-blur-xl"
-            onClick={(e) => e.stopPropagation()}
-            role="dialog"
-          >
             <button
+              type="button"
               onClick={onClose}
-              className="absolute right-6 top-6 text-muted-foreground dark:text-muted-foreground transition-colors hover:text-foreground dark:hover:text-foreground"
+              aria-label="Close new book"
+              className="absolute right-4 top-4 flex h-11 w-11 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
             >
-              <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden>
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
               </svg>
             </button>
-            <h2 className="mb-6 text-[24px] font-normal text-foreground dark:text-foreground">{header}</h2>
+            <DialogTitle className="mb-6 pr-10 text-[24px] font-normal">{header}</DialogTitle>
 
             {mode === "choice" && (
               <div className="grid gap-4 md:grid-cols-2">
@@ -170,35 +164,45 @@ export default function CreateBookDialog({
             )}
 
             {mode === "write" && (
-              <div className="space-y-4">
+              <form className="space-y-4" onSubmit={(event) => { event.preventDefault(); void handleCreate(); }}>
                 <div>
-                  <label className="mb-2 block text-[14px] font-normal text-foreground dark:text-foreground">Title</label>
+                  <label htmlFor={`${fieldId}-title`} className="mb-2 block text-[14px] font-normal text-foreground dark:text-foreground">Title</label>
                   <input
-                    ref={titleInputRef}
+                    ref={(input) => {
+                      titleInputRef.current = input;
+                      // React focuses before showModal(); the native attribute
+                      // also lets the dialog choose this field when it opens.
+                      if (input) input.autofocus = true;
+                    }}
+                    id={`${fieldId}-title`}
                     type="text"
                     value={title}
                     onChange={(e) => { setTitle(e.target.value); if (error) setError(null); }}
                     placeholder="Book title"
+                    aria-invalid={Boolean(error && !title.trim())}
+                    aria-describedby={error ? `${fieldId}-error` : undefined}
                     className={`w-full rounded-xl border bg-black/[0.02] dark:bg-card px-4 py-3 text-[16px] text-foreground dark:text-foreground placeholder-muted-foreground dark:placeholder-white/30 outline-none transition-all focus:bg-black/10 dark:focus:bg-card ${error ? "border-red-400 dark:border-red-500 focus:border-red-400" : "border-black/10 dark:border-border focus:border-[#907AFF]/50"}`}
                     autoFocus
                   />
                 </div>
                 <div>
-                  <label className="mb-2 block text-[14px] font-normal text-foreground dark:text-foreground">
+                  <label htmlFor={`${fieldId}-description`} className="mb-2 block text-[14px] font-normal text-foreground dark:text-foreground">
                     Description
                     <span className="ml-1.5 text-[12px] font-normal text-muted-foreground dark:text-muted-foreground">(optional)</span>
                   </label>
                   <textarea
+                    id={`${fieldId}-description`}
                     value={description}
                     onChange={(e) => setDescription(e.target.value)}
                     placeholder="A short description of your book"
                     rows={3}
-                    className="w-full resize-none rounded-xl border border-black/10 dark:border-border bg-black/[0.02] dark:bg-card px-4 py-3 text-[15px] text-foreground dark:text-foreground placeholder-muted-foreground dark:placeholder-white/30 outline-none transition-all focus:border-[#907AFF]/50 focus:bg-black/10 dark:focus:bg-card"
+                    className="w-full resize-none rounded-xl border border-black/10 dark:border-border bg-black/[0.02] dark:bg-card px-4 py-3 text-[16px] sm:text-[15px] text-foreground dark:text-foreground placeholder-muted-foreground dark:placeholder-white/30 outline-none transition-all focus:border-[#907AFF]/50 focus:bg-black/10 dark:focus:bg-card"
                   />
                 </div>
                 <div>
-                  <label className="mb-2 block text-[14px] font-normal text-foreground dark:text-foreground">Language</label>
+                  <label htmlFor={`${fieldId}-language`} className="mb-2 block text-[14px] font-normal text-foreground dark:text-foreground">Language</label>
                   <select
+                    id={`${fieldId}-language`}
                     value={language}
                     onChange={(e) => setLanguage(e.target.value as SupportedLanguage)}
                     className="w-full rounded-xl border border-black/10 dark:border-border bg-black/[0.02] dark:bg-card px-4 py-3 text-[16px] text-foreground dark:text-foreground outline-none transition-all focus:border-[#907AFF]/50 focus:bg-black/10 dark:focus:bg-card"
@@ -210,18 +214,19 @@ export default function CreateBookDialog({
                     ))}
                   </select>
                 </div>
-                {error && <p className="text-sm text-red-600 dark:text-red-400">{error}</p>}
+                {error && <p id={`${fieldId}-error`} role="alert" className="text-sm text-red-600 dark:text-red-400">{error}</p>}
                 <div className="flex justify-end gap-3">
                   <button
+                    type="button"
                     onClick={onClose}
-                    className="rounded-xl border border-black/10 dark:border-border bg-black/[0.02] dark:bg-card px-6 py-2.5 text-[14px] font-normal text-foreground dark:text-foreground transition-all hover:bg-black/10 dark:hover:bg-accent"
+                    className="btn-secondary"
                   >
                     Cancel
                   </button>
                   <button
-                    onClick={handleCreate}
+                    type="submit"
                     disabled={creating}
-                    className="rounded-xl bg-primary px-6 py-2.5 text-[14px] font-normal text-primary-foreground transition-all hover:bg-primary/90 disabled:opacity-60"
+                    className="btn-primary"
                   >
                     {creating ? "Creating..." : "Create book"}
                   </button>
@@ -237,12 +242,9 @@ export default function CreateBookDialog({
                   </button>
                   {" "}(.epub, .docx, .txt)
                 </p>
-              </div>
+              </form>
             )}
-          </div>
-        </div>
-      )}
-
+        </Dialog>
       <ImportBookModal
         open={importOpen}
         onClose={() => {

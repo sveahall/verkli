@@ -4,16 +4,24 @@ import * as React from "react";
 import { createPortal } from "react-dom";
 import { cn } from "@/lib/utils";
 
+const DialogTitleContext = React.createContext<React.Dispatch<React.SetStateAction<string | undefined>> | null>(null);
+
 export type DialogProps = {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   children: React.ReactNode;
   className?: string;
+  id?: string;
+  "aria-label"?: string;
+  "aria-labelledby"?: string;
+  "aria-describedby"?: string;
 };
 
-export function Dialog({ open, onOpenChange, children, className }: DialogProps) {
+export function Dialog({ open, onOpenChange, children, className, ...props }: DialogProps) {
   const dialogRef = React.useRef<HTMLDialogElement | null>(null);
   const [mounted, setMounted] = React.useState(false);
+  const [titleId, setTitleId] = React.useState<string>();
+  const backdropPointerDown = React.useRef(false);
 
   React.useEffect(() => {
     setMounted(true);
@@ -36,40 +44,39 @@ export function Dialog({ open, onOpenChange, children, className }: DialogProps)
     // open={true} never calls showModal().
   }, [open, mounted]);
 
-  React.useEffect(() => {
-    const dialog = dialogRef.current;
-    if (!dialog) return;
-
-    const handleCancel = (event: Event) => {
-      event.preventDefault();
-      onOpenChange(false);
-    };
-
-    dialog.addEventListener("cancel", handleCancel);
-    return () => {
-      dialog.removeEventListener("cancel", handleCancel);
-    };
-  }, [onOpenChange]);
+  const isOutsidePanel = (event: React.MouseEvent<HTMLDialogElement>) => {
+    const rect = event.currentTarget.getBoundingClientRect();
+    return event.target === event.currentTarget && (
+      event.clientX < rect.left || event.clientX > rect.right ||
+      event.clientY < rect.top || event.clientY > rect.bottom
+    );
+  };
 
   const handleBackdropClick = (event: React.MouseEvent<HTMLDialogElement>) => {
-    if (event.target === dialogRef.current) {
-      onOpenChange(false);
-    }
+    if (backdropPointerDown.current && isOutsidePanel(event)) onOpenChange(false);
+    backdropPointerDown.current = false;
   };
 
   if (!mounted) return null;
 
   return createPortal(
     <dialog
+      {...props}
       ref={dialogRef}
-      onClose={() => onOpenChange(false)}
+      aria-labelledby={props["aria-labelledby"] ?? (props["aria-label"] ? undefined : titleId)}
+      onCancel={(event) => {
+        event.preventDefault();
+        onOpenChange(false);
+      }}
+      onPointerDown={(event) => { backdropPointerDown.current = isOutsidePanel(event); }}
+      onClose={() => { if (open) onOpenChange(false); }}
       onClick={handleBackdropClick}
       className={cn(
-        "dialog-backdrop fixed inset-0 m-auto w-[min(92vw,520px)] rounded-2xl border border-border bg-card p-0 text-foreground shadow-surface-lg focus:outline-none",
+        "dialog-backdrop fixed inset-0 m-auto w-[min(92vw,520px)] max-h-[calc(100dvh-2rem)] overflow-y-auto overscroll-contain rounded-2xl border border-border bg-card p-0 text-foreground shadow-surface-lg focus:outline-none",
         className
       )}
     >
-      {children}
+      <DialogTitleContext.Provider value={setTitleId}>{children}</DialogTitleContext.Provider>
     </dialog>,
     document.body
   );
@@ -79,9 +86,18 @@ export function DialogHeader({ className, ...props }: React.HTMLAttributes<HTMLD
   return <div className={cn("px-6 pt-6", className)} {...props} />;
 }
 
-export function DialogTitle({ className, ...props }: React.HTMLAttributes<HTMLHeadingElement>) {
+export function DialogTitle({ className, id, ...props }: React.HTMLAttributes<HTMLHeadingElement>) {
+  const generatedId = React.useId();
+  const titleId = id ?? generatedId;
+  const setTitleId = React.useContext(DialogTitleContext);
+
+  React.useEffect(() => {
+    setTitleId?.(titleId);
+    return () => setTitleId?.(undefined);
+  }, [setTitleId, titleId]);
+
   return (
-    <h2 className={cn("font-display text-[22px] font-medium tracking-tight", className)} {...props} />
+    <h2 id={titleId} className={cn("font-display text-[22px] font-medium tracking-tight", className)} {...props} />
   );
 }
 

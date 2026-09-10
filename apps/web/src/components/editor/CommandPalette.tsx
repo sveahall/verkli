@@ -200,8 +200,8 @@ function PaletteDialog({
                 </p>
                 <div className="space-y-1">
                   {group.items.map((item) => {
-                    runningIndex += 1;
-                    const isSelected = runningIndex === selected;
+                    const itemIndex = ++runningIndex;
+                    const isSelected = itemIndex === selected;
 
                     return (
                       <button
@@ -209,7 +209,7 @@ function PaletteDialog({
                         type="button"
                         onMouseEnter={() => {
                           item.onHighlight?.();
-                          setSelected(runningIndex);
+                          setSelected(itemIndex);
                         }}
                         onClick={() => item.onSelect()}
                         className={`flex w-full items-center gap-3 rounded-xl px-3 py-3 text-left transition ${

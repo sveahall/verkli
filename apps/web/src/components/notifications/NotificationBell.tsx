@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useCallback, useRef } from "react";
+import { useState, useCallback, useRef, useId } from "react";
+import { usePathname } from "next/navigation";
 import { createPortal } from "react-dom";
 import { useUnreadCount } from "@/hooks/useNotifications";
 import NotificationDropdown from "./NotificationDropdown";
@@ -9,7 +10,10 @@ export default function NotificationBell() {
   const { count, refetch } = useUnreadCount();
   const [open, setOpen] = useState(false);
   const [anchorRect, setAnchorRect] = useState<DOMRect | null>(null);
-  const buttonRef = useRef<HTMLDivElement>(null);
+  const buttonRef = useRef<HTMLButtonElement>(null);
+  const [keyboardOpen, setKeyboardOpen] = useState(false);
+  const panelId = useId();
+  const pathname = usePathname();
 
   const handleClose = useCallback(() => {
     setOpen(false);
@@ -19,7 +23,8 @@ export default function NotificationBell() {
     refetch();
   }, [refetch]);
 
-  const handleToggle = useCallback(() => {
+  const handleToggle = useCallback((event: React.MouseEvent<HTMLButtonElement>) => {
+    setKeyboardOpen(event.detail === 0);
     if (!open) {
       const rect = buttonRef.current?.getBoundingClientRect() ?? null;
       setAnchorRect(rect);
@@ -28,12 +33,15 @@ export default function NotificationBell() {
   }, [open]);
 
   return (
-    <div className="relative" ref={buttonRef}>
+    <div className="relative">
       <button
+        ref={buttonRef}
         type="button"
         onClick={handleToggle}
-        className="flex h-9 w-9 items-center justify-center rounded-full border border-border text-muted-foreground transition-colors hover:bg-muted hover:text-foreground dark:hover:bg-card dark:hover:text-foreground"
-        aria-label="Notifikationer"
+        className="ui-icon-control"
+        aria-label={count > 0 ? `Notifications, ${count} unread` : "Notifications"}
+        aria-expanded={open}
+        aria-controls={open ? panelId : undefined}
       >
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} className="h-[18px] w-[18px]">
           <path strokeLinecap="round" strokeLinejoin="round" d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9Z" />
@@ -48,7 +56,7 @@ export default function NotificationBell() {
 
       {open && typeof document !== "undefined" && anchorRect &&
         createPortal(
-          <NotificationDropdown onClose={handleClose} onCountChange={handleCountChange} anchorRect={anchorRect} />,
+          <NotificationDropdown id={panelId} triggerRef={buttonRef} keyboardOpen={keyboardOpen} allHref={pathname?.startsWith("/author") ? "/author/notifications" : "/reader/notifications"} onClose={handleClose} onCountChange={handleCountChange} anchorRect={anchorRect} />,
           document.body
         )}
     </div>

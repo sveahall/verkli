@@ -1,4 +1,4 @@
-import { type ReactNode, useRef, useState } from "react";
+import { type ReactNode, type KeyboardEvent, useEffect, useId, useRef, useState } from "react";
 import Link from "next/link";
 import { cn } from "@/lib/utils";
 
@@ -23,6 +23,12 @@ export default function StatsCard({
 }: StatsCardProps) {
   const [showTooltip, setShowTooltip] = useState(false);
   const timeoutRef = useRef<ReturnType<typeof setTimeout>>(null);
+  const focusedRef = useRef(false);
+  const descriptionId = useId();
+
+  useEffect(() => () => {
+    if (timeoutRef.current) clearTimeout(timeoutRef.current);
+  }, []);
 
   const handleMouseEnter = () => {
     if (!description) return;
@@ -31,7 +37,30 @@ export default function StatsCard({
 
   const handleMouseLeave = () => {
     if (timeoutRef.current) clearTimeout(timeoutRef.current);
-    setShowTooltip(false);
+    if (!focusedRef.current) setShowTooltip(false);
+  };
+
+  const interactions = {
+    onMouseEnter: handleMouseEnter,
+    onMouseLeave: handleMouseLeave,
+    onFocus: () => {
+      focusedRef.current = true;
+      if (timeoutRef.current) clearTimeout(timeoutRef.current);
+      if (description) setShowTooltip(true);
+    },
+    onBlur: () => {
+      focusedRef.current = false;
+      if (timeoutRef.current) clearTimeout(timeoutRef.current);
+      setShowTooltip(false);
+    },
+    onKeyDown: (event: KeyboardEvent<HTMLElement>) => {
+      if (event.key === "Escape" && showTooltip) {
+        event.stopPropagation();
+        if (timeoutRef.current) clearTimeout(timeoutRef.current);
+        setShowTooltip(false);
+      }
+    },
+    "aria-describedby": description ? descriptionId : undefined,
   };
 
   const content = (
@@ -40,8 +69,8 @@ export default function StatsCard({
         "relative min-h-[148px] rounded-2xl border border-border bg-card p-5",
         href && "cursor-pointer transition-[border-color,box-shadow] duration-150 hover:border-[#907AFF]/35 hover:shadow-[0_4px_18px_rgba(25,23,28,0.05)]"
       )}
-      onMouseEnter={handleMouseEnter}
-      onMouseLeave={handleMouseLeave}
+      {...(!href ? interactions : {})}
+      tabIndex={!href && description ? 0 : undefined}
     >
       <div
         className={cn(
@@ -65,8 +94,8 @@ export default function StatsCard({
         <p className="text-3xl font-normal tabular-nums leading-tight tracking-[-0.01em] text-foreground dark:text-foreground">{value}</p>
       </div>
 
-      {description && showTooltip ? (
-        <div className="absolute left-1/2 top-0 z-50 w-56 -translate-x-1/2 -translate-y-[calc(100%+8px)] rounded-xl border border-border/80 bg-card px-3.5 py-3 shadow-lg shadow-black/[0.08] dark:border-border dark:bg-card">
+      {description ? (
+        <div id={descriptionId} role="tooltip" hidden={!showTooltip} className="absolute left-1/2 top-0 z-50 w-56 -translate-x-1/2 -translate-y-[calc(100%+8px)] rounded-xl border border-border/80 bg-card px-3.5 py-3 shadow-lg shadow-black/[0.08] dark:border-border dark:bg-card">
           <p className="text-[13px] font-semibold text-foreground dark:text-foreground">
             {label}
           </p>
@@ -80,7 +109,7 @@ export default function StatsCard({
   );
 
   if (href) {
-    return <Link href={href}>{content}</Link>;
+    return <Link href={href} {...interactions}>{content}</Link>;
   }
 
   return content;

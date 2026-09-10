@@ -52,8 +52,8 @@ export const dropdownHeaderMeta: Record<
     description: "Manage drafts, published books, and shelves.",
   },
   Product: {
-    title: "Product",
-    description: "Explore the Verkli platform and core capabilities.",
+    title: "Room for your next chapter.",
+    description: "Meet the tools behind your story.",
   },
   App: {
     title: "App",
@@ -188,7 +188,7 @@ export const dropdownItemMeta: Record<
   },
   Product: {
     Product: {
-      description: "Platform overview and key features.",
+      description: "Explore your creative workspace.",
       icon: (
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.6} className="h-4 w-4">
           <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 7.5h15M4.5 12h15M4.5 16.5h10" />
@@ -196,7 +196,7 @@ export const dropdownItemMeta: Record<
       ),
     },
     "How it works": {
-      description: "See the workflow from idea to published story.",
+      description: "From the first word to your next reader.",
       icon: (
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.6} className="h-4 w-4">
           <path strokeLinecap="round" strokeLinejoin="round" d="M12 6.5v5l3 1.5" />

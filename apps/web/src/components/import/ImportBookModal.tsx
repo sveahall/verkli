@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback, useRef } from "react";
 import Link from "next/link";
+import { Dialog, DialogTitle } from "@/components/ui/dialog";
 import RightsAttestationFields, {
   useRightsAttestation,
   appendAttestation,
@@ -230,15 +231,12 @@ export function ImportBookModal({ open, onClose, onImportComplete }: ImportBookM
     e.target.value = "";
   };
 
-  if (!open) return null;
-
   return (
-    <div className="fixed inset-0 z-[1000] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
-      <div className="relative w-full max-w-[560px] max-h-[90vh] mt-20 overflow-hidden rounded-3xl border border-black/10 dark:border-white/10 bg-white/[0.95] dark:bg-[#0a0a0f]/[0.95] backdrop-blur-xl flex flex-col">
+    <Dialog open={open} onOpenChange={(nextOpen) => { if (!nextOpen) onClose(); }} className="w-[min(92vw,560px)] rounded-3xl">
         <button
           type="button"
           onClick={onClose}
-          className="absolute right-5 top-5 z-10 text-slate-500 dark:text-white/50 hover:text-slate-900 dark:hover:text-white"
+          className="ui-icon-control absolute right-4 top-4 z-10"
           aria-label="Close"
         >
           <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -246,24 +244,24 @@ export function ImportBookModal({ open, onClose, onImportComplete }: ImportBookM
           </svg>
         </button>
 
-        <div className="p-6 border-b border-black/10 dark:border-white/10">
-          <h2 className="text-[22px] font-semibold text-slate-900 dark:text-white">Import book</h2>
-          <p className="mt-1 text-[14px] text-slate-600 dark:text-white/50">
+        <div className="border-b border-border p-6 pr-16">
+          <DialogTitle>Import book</DialogTitle>
+          <p className="mt-1 text-[14px] text-muted-foreground">
             Upload an existing book file to import chapters automatically.
           </p>
-          <p className="mt-0.5 text-[13px] text-slate-500 dark:text-white/40">
+          <p className="mt-0.5 text-[13px] text-muted-foreground">
             Allowed formats: .epub, .docx, .html, .txt - max 50 MB
           </p>
         </div>
 
         {error && (
-          <div className="mx-6 mt-4 rounded-xl border border-red-200 dark:border-red-900/50 bg-red-50 dark:bg-red-950/30 px-4 py-3 text-[14px] text-red-700 dark:text-red-300">
+          <div role="alert" className="mx-6 mt-4 rounded-xl border border-red-200 dark:border-red-900/50 bg-red-50 dark:bg-red-950/30 px-4 py-3 text-[14px] text-red-700 dark:text-red-300">
             {error}
           </div>
         )}
 
         {successMessage && (
-          <div className="mx-6 mt-4 rounded-xl border border-green-200 dark:border-green-900/50 bg-green-50 dark:bg-green-950/30 px-4 py-3 text-[14px] text-green-700 dark:text-green-300">
+          <div role="status" className="mx-6 mt-4 rounded-xl border border-green-200 dark:border-green-900/50 bg-green-50 dark:bg-green-950/30 px-4 py-3 text-[14px] text-green-700 dark:text-green-300">
             {successMessage}
           </div>
         )}
@@ -283,8 +281,8 @@ export function ImportBookModal({ open, onClose, onImportComplete }: ImportBookM
         </div>
 
         <div
-          className={`mx-6 mt-4 rounded-2xl border-2 border-dashed p-8 text-center transition-colors ${
-            dragOver ? "border-[#907AFF]/50 bg-[#907AFF]/5" : "border-black/20 dark:border-white/20 bg-black/[0.02] dark:bg-white/[0.02]"
+          className={`mx-6 mt-4 rounded-2xl border-2 border-dashed p-6 text-center transition-colors focus-within:ring-2 focus-within:ring-ring focus-within:ring-offset-2 focus-within:ring-offset-card ${
+            dragOver ? "border-[#907AFF]/50 bg-[#907AFF]/5" : "border-border bg-muted/30"
           }`}
           onDragOver={(e) => {
             e.preventDefault();
@@ -296,14 +294,15 @@ export function ImportBookModal({ open, onClose, onImportComplete }: ImportBookM
           <input
             type="file"
             accept=".epub,.docx,.html,.htm,.txt"
-            className="hidden"
+            className="sr-only"
+            aria-label="Choose a book file"
             id="import-file-input"
             onChange={onFileInputChange}
             disabled={uploading || !attestation.complete}
           />
           <label htmlFor="import-file-input" className="cursor-pointer">
             {uploading ? (
-              <span className="flex items-center justify-center gap-2 text-[14px] text-slate-600 dark:text-white/50">
+              <span className="flex items-center justify-center gap-2 text-[14px] text-muted-foreground">
                 <svg className="h-5 w-5 animate-spin" fill="none" viewBox="0 0 24 24">
                   <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
                   <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
@@ -313,7 +312,7 @@ export function ImportBookModal({ open, onClose, onImportComplete }: ImportBookM
             ) : (
               <>
                 <svg
-                  className="mx-auto h-10 w-10 text-slate-400 dark:text-white/40"
+                  className="mx-auto h-10 w-10 text-muted-foreground"
                   fill="none"
                   viewBox="0 0 24 24"
                   stroke="currentColor"
@@ -325,7 +324,7 @@ export function ImportBookModal({ open, onClose, onImportComplete }: ImportBookM
                     d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"
                   />
                 </svg>
-                <p className="mt-2 text-[14px] font-medium text-slate-700 dark:text-white/70">
+                <p className="mt-2 text-[14px] font-medium text-foreground">
                   Drag and drop a file here, or click to upload
                 </p>
               </>
@@ -333,22 +332,22 @@ export function ImportBookModal({ open, onClose, onImportComplete }: ImportBookM
           </label>
         </div>
 
-        <div className="flex-1 overflow-y-auto p-6">
-          <h3 className="mb-3 text-[14px] font-semibold text-slate-900 dark:text-white">Import status</h3>
+        <div className="p-6">
+          <h3 className="mb-3 text-[14px] font-semibold text-foreground">Import status</h3>
           {importsList.length === 0 ? (
-            <p className="text-[13px] text-slate-500 dark:text-white/40">No imports yet.</p>
+            <p className="text-[13px] text-muted-foreground">No imports yet.</p>
           ) : (
             <ul className="space-y-2">
               {importsList.map((imp, i) => (
                 <li
                   key={`${imp.id}-${i}`}
-                  className="flex items-center justify-between gap-3 rounded-xl border border-black/10 dark:border-white/10 bg-black/[0.02] dark:bg-white/[0.02] px-4 py-3"
+                  className="flex items-center justify-between gap-3 rounded-xl border border-border bg-muted/30 px-4 py-3"
                 >
                   <div className="min-w-0 flex-1">
-                    <p className="truncate text-[14px] font-medium text-slate-900 dark:text-white">
+                    <p className="truncate text-[14px] font-medium text-foreground">
                       {imp.file_name}
                     </p>
-                    <p className="mt-0.5 text-[12px] text-slate-500 dark:text-white/50">
+                    <p className="mt-0.5 text-[12px] text-muted-foreground">
                       {imp.status === "completed" && imp.book_id ? (
                         <Link
                           href={`/author/books/${imp.book_id}`}
@@ -384,7 +383,6 @@ export function ImportBookModal({ open, onClose, onImportComplete }: ImportBookM
             </ul>
           )}
         </div>
-      </div>
-    </div>
+    </Dialog>
   );
 }
