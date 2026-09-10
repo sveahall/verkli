@@ -212,7 +212,7 @@ for (const width of [1024, 1440]) {
 }
 
 for (const width of [390, 1440]) {
-  test(`${width}px generated product previews switch without layout jumps or AI requests`, async ({ page }) => {
+  test(`${width}px interactive waitlist studio preserves the manuscript without AI requests`, async ({ page }) => {
     await page.setViewportSize({ width, height: 1000 });
     await page.emulateMedia({ reducedMotion: "reduce" });
     const writes: string[] = [];
@@ -220,38 +220,57 @@ for (const width of [390, 1440]) {
       if (request.method() === "POST" && new URL(request.url()).pathname.startsWith("/api/")) writes.push(request.url());
     });
     await page.goto("/waitlist");
-    const preview = page.getByRole("group", { name: "Explore the product preview" });
-    const scene = page.locator(".wl-preview-art");
-    let initialHeight = 0;
-    let initialProductHeight = 0;
-
-    for (const [label, alt] of [
-      ["Write", "Verkli writing studio with highlighted manuscript text."],
-      ["Translate", "Verkli translation studio showing the same sentence in English, Swedish and Spanish."],
-      ["Create audio", "Verkli audiobook studio with a narration waveform and chapter preview."],
-    ]) {
-      const button = preview.getByRole("button", { name: label, exact: true });
-      await button.focus();
-      await page.keyboard.press("Space");
-      await expect(button).toHaveAttribute("aria-pressed", "true");
-      await expect(preview.locator("button[aria-pressed='true']")).toHaveCount(1);
-      const image = page.getByRole("img", { name: alt, exact: true });
-      await expect(image).toBeVisible();
-      await expect(image).toHaveJSProperty("complete", true);
-      expect(await image.evaluate((node: HTMLImageElement) => node.naturalWidth)).toBeGreaterThan(0);
-      await expect(page.locator(".wl-preview-art img:visible")).toHaveCount(1);
-      const height = (await scene.boundingBox())!.height;
-      if (!initialHeight) initialHeight = height;
-      expect(height).toBeCloseTo(initialHeight, 0);
-      const productHeight = (await page.locator(".wl-product").boundingBox())!.height;
-      if (!initialProductHeight) initialProductHeight = productHeight;
-      expect(productHeight).toBeCloseTo(initialProductHeight, 0);
-      expect((await button.boundingBox())!.height).toBeGreaterThanOrEqual(44);
-      expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(width + 1);
-    }
-    await expect(page.getByRole("heading", { name: "Give your words a voice." })).toBeVisible();
-    await preview.getByRole("button", { name: "Translate", exact: true }).click();
-    await expect(page.getByText("Och det här var bara början.", { exact: true })).toBeVisible();
+    const cookies = page.getByRole("button", { name: "Essential only", exact: true });
+    if (await cookies.isVisible()) await cookies.click();
+    await page.getByRole("link", { name: "Explore the studio", exact: true }).click();
+    await page.getByRole("tab", { name: "Write", exact: true }).focus();
+    await page.keyboard.press("ArrowRight");
+    await expect(page.getByRole("tab", { name: "Translate", exact: true })).toHaveAttribute("aria-selected", "true");
+    await page.getByRole("button", { name: "Svenska", exact: true }).click();
+    await expect(page.getByTestId("translated-passage")).toHaveAttribute("lang", "sv");
+    await page.getByRole("tab", { name: "Write", exact: true }).click();
+    await page.getByRole("textbox", { name: "Book title", exact: true }).fill("Our next chapter");
+    await page.getByRole("textbox", { name: "Your manuscript", exact: true }).fill("Every story starts with someone brave enough to begin.");
+    await page.getByRole("tab", { name: "Translate", exact: true }).click();
+    await expect(page.getByText("Your own words are saved in this preview.", { exact: true })).toBeVisible();
+    await page.getByRole("tab", { name: "Publish", exact: true }).click();
+    await expect(page.getByTestId("book-preview-title")).toHaveText("Our next chapter");
+    await page.getByRole("button", { name: "Open the book", exact: true }).click();
+    await expect(page.getByTestId("reader-passage")).toContainText("Every story starts");
+    await page.locator(".wl-studio-heading").getByRole("link", { name: "Get early access", exact: true }).click();
+    await expect(page.getByLabel("Author email", { exact: true })).toBeInViewport();
+    expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(width + 1);
     expect(writes).toEqual([]);
   });
 }
+
+test("waitlist narration plays on request and stops when changing tools", async ({ page }) => {
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  await page.goto("/waitlist#audio");
+  const audio = page.locator("audio[data-author-sample]");
+  await expect(audio).toHaveJSProperty("paused", true);
+  await page.getByRole("button", { name: "Play narration", exact: true }).click();
+  await expect.poll(() => audio.evaluate((el: HTMLAudioElement) => el.currentTime)).toBeGreaterThan(0);
+  await page.getByRole("tab", { name: "Write", exact: true }).click();
+  await expect(audio).toHaveJSProperty("paused", true);
+});
+
+test("waitlist swipe, butterfly and reader invitation work with reduced motion", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  await page.goto("/waitlist#studio");
+  const panel = page.getByRole("tabpanel");
+  await panel.dispatchEvent("pointerdown", { pointerType: "touch", pointerId: 7, isPrimary: true, clientX: 280, clientY: 400 });
+  await panel.dispatchEvent("pointerup", { pointerType: "touch", pointerId: 7, isPrimary: true, clientX: 100, clientY: 410 });
+  await expect(page.getByRole("tab", { name: "Translate", exact: true })).toHaveAttribute("aria-selected", "true");
+  const butterfly = page.getByRole("button", { name: "Let the Verkli butterfly fly", exact: true });
+  await butterfly.scrollIntoViewIfNeeded();
+  await butterfly.focus();
+  await page.keyboard.press("Enter");
+  await expect(butterfly).toHaveAttribute("data-flying", "true");
+  expect(await butterfly.locator("[data-wing]").first().evaluate((el) => getComputedStyle(el).animationName)).toBe("none");
+  await page.getByRole("button", { name: "Join as a reader", exact: true }).click();
+  await expect(page.getByLabel("Reader email", { exact: true })).toBeInViewport();
+  await expect(page.getByRole("button", { name: "I’m a reader", exact: true })).toBeFocused();
+  await expect(page.locator("audio[data-author-sample]")).toHaveJSProperty("paused", true);
+});

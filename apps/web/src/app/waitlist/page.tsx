@@ -4,6 +4,8 @@ import { useState, useSyncExternalStore } from "react";
 import Image from "next/image";
 import { resolveErrorMessage } from "@/lib/error-messages";
 import { ArrowDown, ArrowRight, ArrowUpRight, AudioLines, FileText, Globe2, Languages, Plus } from "lucide-react";
+import AuthorButterfly from "@/features/author/AuthorButterfly";
+import { AuthorScrollStatement, UnfoldSection } from "@/features/author/AuthorLandingMotion";
 import WaitlistProductPreview from "./WaitlistProductPreview";
 import "./waitlist.css";
 import BookOrderSection from "./BookOrderSection";
@@ -487,15 +489,18 @@ export default function WaitlistPage() {
         <div className="wl-hero-copy">
 
           <h1 id="waitlist-heading"><span>Your story.</span><span className="wl-gradient-text">Goes further.</span></h1>
-          <p className="wl-intro"><strong>Big imagination. Meet your AI workspace.</strong><br />Write, translate, create audiobooks, and publish. Verkli brings your next chapter together in one place.</p>
-
+          <p className="wl-intro">Write the book only you can write.<br />Then take it further.</p>
+          <a href="#studio" className="wl-explore">Explore the studio <ArrowDown size={17} aria-hidden="true" /></a>
+        </div>
+        <div className="wl-hero-signup">
+          <p className="wl-signup-intro">Your AI workspace for writing, translation, audiobooks and publishing. One place to bring your story to life.</p>
           <div className="wl-join" id="join-waitlist">
             <div className="wl-role-switch" role="group" aria-label="Choose your waitlist">
               <button type="button" aria-pressed={audience === "author"} aria-controls="author-signup" onClick={() => setAudience("author")}>I’m an author</button>
               <button type="button" id="reader-role" aria-pressed={audience === "reader"} aria-controls="reader-signup" onClick={() => setAudience("reader")}>I’m a reader</button>
             </div>
             <div id="author-signup" hidden={audience !== "author"}>
-              {!hydrated ? <p className="wl-micro" role="status">Loading signup…</p> : queuePosition !== null ? (
+              {!hydrated ? <p className="wl-loading" role="status">Loading signup…</p> : queuePosition !== null ? (
                 <SuccessState queuePosition={queuePosition} onUseDifferentEmail={handleAuthorUseDifferentEmail} />
               ) : alreadyExistsPosition !== null ? (
                 <AlreadyExistsState queuePosition={alreadyExistsPosition} onUseDifferentEmail={handleAuthorUseDifferentEmail} />
@@ -505,7 +510,7 @@ export default function WaitlistPage() {
               <p className="wl-micro">Private pre-launch. Author invitations go out in small waves.</p>
             </div>
             <div id="reader-signup" hidden={audience !== "reader"}>
-              {!hydrated ? <p className="wl-micro" role="status">Loading signup…</p> : readerQueuePosition !== null ? (
+              {!hydrated ? <p className="wl-loading" role="status">Loading signup…</p> : readerQueuePosition !== null ? (
                 <ReaderSuccessState queuePosition={readerQueuePosition} onUseDifferentEmail={handleReaderUseDifferentEmail} />
               ) : readerAlreadyExistsPosition !== null ? (
                 <ReaderAlreadyExistsState queuePosition={readerAlreadyExistsPosition} onUseDifferentEmail={handleReaderUseDifferentEmail} />
@@ -526,33 +531,39 @@ export default function WaitlistPage() {
             className="wl-book-link"
           ><span lang="sv">Beställ Johans bok nedan</span> <ArrowDown size={13} aria-hidden="true" /></button>
         </div>
-        <WaitlistProductPreview />
       </section>
 
+      <WaitlistProductPreview />
+
       <div className="wl-capabilities wl-shell" aria-label="One connected workspace">
-        <span>FROM FIRST WORD TO NEW WORLDS</span>
-        <div className="wl-capability"><FileText size={17} aria-hidden="true" /> Write & edit</div>
-        <div className="wl-capability"><Languages size={17} aria-hidden="true" /> Translate</div>
-        <div className="wl-capability"><AudioLines size={17} aria-hidden="true" /> Create audio</div>
-        <div className="wl-capability"><Globe2 size={17} aria-hidden="true" /> Publish</div>
+        <span>One story. Every possibility.</span>
+        <a href="#writing" className="wl-capability"><FileText size={17} aria-hidden="true" /> Write & edit <ArrowUpRight size={13} aria-hidden="true" /></a>
+        <a href="#translation" className="wl-capability"><Languages size={17} aria-hidden="true" /> Translate <ArrowUpRight size={13} aria-hidden="true" /></a>
+        <a href="#audio" className="wl-capability"><AudioLines size={17} aria-hidden="true" /> Create audio <ArrowUpRight size={13} aria-hidden="true" /></a>
+        <a href="#publishing" className="wl-capability"><Globe2 size={17} aria-hidden="true" /> Publish <ArrowUpRight size={13} aria-hidden="true" /></a>
       </div>
+
+      <div className="wl-statement wl-shell"><AuthorScrollStatement /></div>
 
       <section className="wl-how wl-shell" id="how-it-works" aria-labelledby="how-heading">
         <div className="wl-section-heading">
           <div><h2 id="how-heading">Less switching tools.<br />More making things.</h2></div>
           <p>From the manuscript on your laptop to the book someone can’t put down. Keep the whole journey in one workspace.</p>
         </div>
-        <div className="wl-steps">
-          <article className="wl-step"><span className="wl-step-number">01 / CREATE</span><h3>Start with your words.</h3><p>Bring your manuscript or start a new chapter. Write, edit, and shape your book in a workspace built for authors.</p><div className="wl-step-tags"><span>Manuscript import</span><span>Chapter editor</span></div></article>
-          <article className="wl-step"><span className="wl-step-number">02 / EXPAND</span><h3>Give it a bigger world.</h3><p>Translate your book into new languages and turn your chapters into narrated audio. Review each edition before publishing.</p><div className="wl-step-tags"><span>AI translation</span><span>Audiobook creation</span></div></article>
-          <article className="wl-step"><span className="wl-step-number">03 / PUBLISH</span><h3>Find your next reader.</h3><p>Publish on Verkli so readers can discover, read, and listen. Your story becomes part of someone else’s day.</p><div className="wl-step-tags"><span>Ebooks</span><span>Reader library</span></div></article>
+        <div className="wl-steps" role="region" aria-label="From manuscript to readers" tabIndex={0}>
+          <UnfoldSection><article className="wl-step"><span className="wl-step-number">01 <FileText size={22} strokeWidth={1.5} aria-hidden="true" /></span><h3>Start with your words.</h3><p>Bring your manuscript or start a new chapter. Write, edit, and shape your book in a workspace built for authors.</p><div className="wl-step-tags"><span>Manuscript import</span><span>Chapter editor</span></div><a href="#writing">Try writing <ArrowUpRight size={16} aria-hidden="true" /></a></article></UnfoldSection>
+          <UnfoldSection><article className="wl-step"><span className="wl-step-number">02 <Languages size={22} strokeWidth={1.5} aria-hidden="true" /></span><h3>Give it a bigger world.</h3><p>Translate your book into new languages and turn your chapters into narrated audio. Review each edition before publishing.</p><div className="wl-step-tags"><span>AI translation</span><span>Audiobook creation</span></div><a href="#translation">Try a translation <ArrowUpRight size={16} aria-hidden="true" /></a></article></UnfoldSection>
+          <UnfoldSection><article className="wl-step"><span className="wl-step-number">03 <Globe2 size={22} strokeWidth={1.5} aria-hidden="true" /></span><h3>Find your next reader.</h3><p>Publish on Verkli so readers can discover, read, and listen. Your story becomes part of someone else’s day.</p><div className="wl-step-tags"><span>Ebooks</span><span>Reader library</span></div><a href="#publishing">Open a book <ArrowUpRight size={16} aria-hidden="true" /></a></article></UnfoldSection>
         </div>
       </section>
 
-      <section className="wl-reader wl-shell" aria-labelledby="reader-heading">
-        <div><h2 id="reader-heading">Your next obsession<br />hasn’t found you. Yet.</h2><p>Discover independent voices. Read a chapter, listen to a story, and find authors you’ll want to follow from the beginning.</p></div>
-        <button type="button" className="wl-secondary-cta" onClick={joinAsReader}>Join as a reader <ArrowUpRight size={16} aria-hidden="true" /></button>
+      <div className="wl-shell"><UnfoldSection>
+      <section className="wl-reader" aria-labelledby="reader-heading">
+        <div className="wl-reader-copy"><p className="wl-reader-note">For the love of a good story.</p><h2 id="reader-heading">Your next obsession<br /><span>is waiting in the wings.</span></h2><p>Discover independent voices. Read a chapter, listen to a story, and find authors you’ll want to follow from the beginning.</p><button type="button" className="wl-secondary-cta" onClick={joinAsReader}>Join as a reader <ArrowUpRight size={16} aria-hidden="true" /></button></div>
+        <div className="wl-butterfly"><AuthorButterfly /></div>
       </section>
+
+      </UnfoldSection></div>
 
       <section className="wl-faq wl-shell" id="questions" aria-labelledby="faq-heading">
         <div><h2 id="faq-heading">Before the<br />next chapter.</h2></div>

@@ -1,7 +1,8 @@
 "use client";
 
 import { useRef, useState, type ReactNode } from "react";
-import { motion, useMotionTemplate, useMotionValue, useReducedMotion, useScroll, useSpring, useTransform } from "motion/react";
+import { motion, useMotionTemplate, useMotionValue, useScroll, useSpring, useTransform } from "motion/react";
+import { useStudioMotionPreference } from "./useStudioMotionPreference";
 import styles from "./AuthorLandingSections.module.css";
 
 const spring = { stiffness: 120, damping: 26, mass: 0.7 };
@@ -49,7 +50,7 @@ export function StudioSurface({ children, reduceMotion }: { children: ReactNode;
 export function UnfoldSection({ children }: { children: ReactNode }) {
   const ref = useRef<HTMLDivElement>(null);
   const [settled, setSettled] = useState(false);
-  const reduceMotion = useReducedMotion();
+  const reduceMotion = useStudioMotionPreference();
   const { scrollYProgress } = useScroll({ target: ref, offset: ["start 0.95", "start 0.35"] });
   const progress = useSpring(scrollYProgress, spring);
   const scale = useTransform(progress, [0, 1], [0.92, 1]);
@@ -100,7 +101,7 @@ const thought = ["Your", "imagination", "doesn’t", "stand", "still.", "Neither
 
 export function AuthorScrollStatement() {
   const ref = useRef<HTMLParagraphElement>(null);
-  const reduceMotion = useReducedMotion();
+  const reduceMotion = useStudioMotionPreference();
   const { scrollYProgress } = useScroll({ target: ref, offset: ["start 0.85", "end 0.55"] });
   return <p ref={ref} className={styles.scrollStatement} aria-label={thought.join(" ")}>
     {thought.map((word, index) => <StatementWord key={index} progress={scrollYProgress} index={index} reduceMotion={!!reduceMotion}>{word}</StatementWord>)}

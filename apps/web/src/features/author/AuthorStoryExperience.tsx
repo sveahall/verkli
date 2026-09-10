@@ -1,10 +1,11 @@
 "use client";
 
-import { createContext, useCallback, useContext, useEffect, useRef, useState, useSyncExternalStore, type CSSProperties, type ReactNode, type RefObject, type KeyboardEvent, type PointerEvent } from "react";
+import { createContext, useCallback, useContext, useEffect, useRef, useState, type CSSProperties, type ReactNode, type RefObject, type KeyboardEvent, type PointerEvent } from "react";
 import Image from "next/image";
 import { ArrowRight, AudioLines, BookOpen, Check, ChevronRight, FileText, Languages, Pause, Play, RotateCcw, Sparkles, X } from "lucide-react";
 import { AnimatePresence, motion, useInView } from "motion/react";
 import { sampleWaveforms, storyLanguages, writingVersions, type StoryLanguage } from "./author-experience-data";
+import { useStudioMotionPreference } from "./useStudioMotionPreference";
 import styles from "./AuthorStoryExperience.module.css";
 import { StudioSurface, TurningBook } from "./AuthorLandingMotion";
 
@@ -132,22 +133,16 @@ function clock(seconds: number) {
 const stageHashes = ["#writing", "#translation", "#audio", "#publishing"];
 function hashStage() { return typeof window === "undefined" ? -1 : stageHashes.indexOf(window.location.hash); }
 
-function subscribeToMotionPreference(onChange: () => void) {
-  const query = window.matchMedia("(prefers-reduced-motion: reduce)");
-  query.addEventListener("change", onChange);
-  return () => query.removeEventListener("change", onChange);
-}
-const prefersReducedMotion = () => window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-const reduceMotionOnServer = () => true;
-
 export function AuthorStudioExperience() {
   const story = useStory();
-  const reduceMotion = useSyncExternalStore(subscribeToMotionPreference, prefersReducedMotion, reduceMotionOnServer);
+  const reduceMotion = useStudioMotionPreference();
   const studioRef = useRef<HTMLDivElement>(null);
   const inView = useInView(studioRef, { amount: 0.35 });
-  const [stage, setStage] = useState(() => Math.max(0, hashStage()));
+  // The server cannot see the fragment. Follow it after hydration so the first
+  // client render matches the server's writing preview, including its tab IDs.
+  const [stage, setStage] = useState(0);
   const [direction, setDirection] = useState(1);
-  const [tour, setTour] = useState(() => hashStage() === -1);
+  const [tour, setTour] = useState(true);
   const [title, setTitle] = useState("The Haunted Diary");
   const [draft, setDraft] = useState<string>(writingVersions.original);
   const [suggestion, setSuggestion] = useState<string | null>(null);
@@ -172,8 +167,21 @@ export function AuthorStudioExperience() {
       studioRef.current?.scrollIntoView({ block: "start", behavior: "instant" });
     };
     const frame = requestAnimationFrame(followHash);
+    const followRepeatedLink = (event: MouseEvent) => {
+      if (event.defaultPrevented || event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+      const link = event.target instanceof Element ? event.target.closest<HTMLAnchorElement>("a[href]") : null;
+      if (!link || link.hasAttribute("download") || (link.target && link.target !== "_self")) return;
+      // A native link to the current fragment does not fire hashchange. The
+      // visitor may have changed tabs since following that link the first time.
+      if (link.href === window.location.href) followHash();
+    };
     window.addEventListener("hashchange", followHash);
-    return () => { cancelAnimationFrame(frame); window.removeEventListener("hashchange", followHash); };
+    document.addEventListener("click", followRepeatedLink);
+    return () => {
+      cancelAnimationFrame(frame);
+      window.removeEventListener("hashchange", followHash);
+      document.removeEventListener("click", followRepeatedLink);
+    };
   }, [pause]);
 
   useEffect(() => {

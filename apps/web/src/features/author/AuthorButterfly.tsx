@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useId, useRef, useState } from "react";
-import { motion, useInView, useReducedMotion, useSpring } from "motion/react";
+import { motion, useInView, useSpring } from "motion/react";
+import { useStudioMotionPreference } from "./useStudioMotionPreference";
 import styles from "./AuthorButterfly.module.css";
 
 /** The two original favi.svg paths, hinged where the wings meet. */
@@ -10,7 +11,7 @@ export default function AuthorButterfly() {
   const ref = useRef<HTMLButtonElement>(null);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const inView = useInView(ref, { amount: 0.5 });
-  const reduceMotion = useReducedMotion();
+  const reduceMotion = useStudioMotionPreference();
   const [flight, setFlight] = useState(0);
   const [flying, setFlying] = useState(false);
   const rotateX = useSpring(0, { stiffness: 100, damping: 20 });

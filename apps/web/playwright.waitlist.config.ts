@@ -2,12 +2,13 @@ import { defineConfig } from "@playwright/test";
 import { tmpdir } from "node:os";
 import path from "node:path";
 
-// Public UI checks use mocked requests and do not load credentials or auth setup.
+// Public landing checks do not load credentials or auth setup. Signup writes
+// are mocked; the shared studio is also checked on the author landing.
 export default defineConfig({
   testDir: "./e2e",
-  testMatch: "waitlist-public.spec.ts",
+  testMatch: ["waitlist-public.spec.ts", "waitlist-experience.spec.ts", "author-experience.spec.ts"],
   outputDir: path.join(tmpdir(), "verkli-waitlist-playwright"),
-  timeout: 30_000,
+  timeout: 45_000,
   expect: { timeout: 5_000 },
   retries: 0,
   workers: 1,
