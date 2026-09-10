@@ -3,7 +3,7 @@ import { BookOpen, Clock3, Download } from "lucide-react";
 import styles from "@/components/public/PublicPage.module.css";
 import { getStripeCheckoutSession } from "@/lib/payments/stripe";
 import { TA_FOR_ER_ORDER } from "@/lib/orders/ta-for-er";
-import { availableDownloadFormats } from "@/lib/orders/ta-for-er-download";
+import { availableDownloadFormats, checkoutEntitlesDownload } from "@/lib/orders/ta-for-er-download";
 
 export const runtime = "nodejs";
 
@@ -28,15 +28,17 @@ export default async function TaForErSuccessPage({
 
   let paid = false;
   let isEbook = false;
+  let downloadEntitled = false;
   if (sessionId) {
     try {
-      const session = await getStripeCheckoutSession(sessionId);
+      const session = await getStripeCheckoutSession(sessionId, { expandPayment: true });
       // Only confirm when this session is genuinely a "Ta för er!" book order —
       // a paid donation/subscription session_id must not show this confirmation.
       paid =
         session.payment_status === "paid" &&
         session.metadata?.payment_kind === "book_order";
       isEbook = paid && session.metadata?.order_variant === "ebook";
+      downloadEntitled = checkoutEntitlesDownload(session);
     } catch {
       /* ignore — show the pending message below */
     }
@@ -44,7 +46,7 @@ export default async function TaForErSuccessPage({
 
   // Only listed for a paid download, so an unpaid visitor never learns what
   // files exist.
-  const formats = isEbook ? await availableDownloadFormats() : [];
+  const formats = downloadEntitled ? await availableDownloadFormats() : [];
 
   return (
     <main className={styles.page}>
@@ -59,7 +61,15 @@ export default async function TaForErSuccessPage({
           )}
         </div>
 
-        {paid && isEbook ? (
+        {isEbook && !downloadEntitled ? (
+          <>
+            <h1 className="text-foreground">Nedladdningen är inte tillgänglig</h1>
+            <p className="mt-3 text-[15px] leading-relaxed text-muted-foreground">
+              Vi kunde inte bekräfta åtkomsten för den här betalningen. Om du behöver hjälp med ditt köp,{" "}
+              <Link href="/support" className="underline underline-offset-4">kontakta oss</Link>.
+            </p>
+          </>
+        ) : paid && isEbook ? (
           <>
             <h1 className="text-foreground">Tack! Här är din bok.</h1>
             <p className="mt-3 text-[15px] leading-relaxed text-muted-foreground">

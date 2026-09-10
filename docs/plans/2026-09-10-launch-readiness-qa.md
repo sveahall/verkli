@@ -15,11 +15,14 @@ The launch plan at `docs/plan/launch-plan-2026-09.md` targets 20 September. Its 
 | Support form API blocked by beta gate | Empty same-origin POST returned 403 instead of validation failure. | Exact POST reaches the existing validation and rate limiter after CSRF checks. GET/history stays gated. Empty POST now returns 400; no support message was submitted. |
 | Successful login silently returned an uninvited account to waitlist | Real browser login with the existing QA account succeeded, then showed the ordinary waitlist. | Signed-in redirects include an access explanation and account/support links. Real QA login against the production build shows the notice; changing account reaches sign-in. No account permissions changed. |
 | Standalone e-book buyer lost the only return link after closing the tab | Paid-order webhook only logged the purchase; delivery existed only on the success page. | Paid e-book webhook emails a return link to the entitlement-checking page. Event claims and provider idempotency prevent retries from creating duplicate delivery within their respective guarantees; failed sends return 500 so Stripe retries. Print and unpaid orders receive no e-book link. Email I/O was mocked; actual inbox delivery is still unverified. |
+| Standalone e-book access did not check subsequent refunds/disputes | The helper accepted any historical paid e-book checkout; regressions proved a refunded or disputed charge still received a signed URL. | Both the return page and download route check the current expanded charge. Full refunds, disputes and unverifiable charge data cannot issue new links; partial refunds keep access, matching the existing platform rule. Already issued storage URLs remain valid for up to their one-hour TTL, and downloaded files cannot be recalled. |
+
+Refund fields and expansion are checked against the pinned SDK types and [Stripe's Charge reference](https://docs.stripe.com/api/charges/object). The regression also verifies the outgoing `payment_intent.latest_charge` expansion parameter.
 
 ## Fresh checks
 
 - `npm run lint -w @verkli/web`: passed.
-- `npm test -w @verkli/web`: **173 files, 1,805 tests passed**.
+- `npm test -w @verkli/web`: **173 files, 1,813 tests passed**, including the final refund regressions.
 - `npm run build -w @verkli/web`: passed, including TypeScript and emitted middleware.
 - `playwright.launch.config.ts`: **10 browser tests passed** against `next start` on port 3022 with `BETA_LOCK=true` and `NEXT_PUBLIC_WAITLIST_ONLY=false`.
 - Separate real sign-in using the existing, uninvited QA account: correct access notice, account-switch link usable, zero browser page errors.
